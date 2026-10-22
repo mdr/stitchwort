@@ -363,6 +363,26 @@ pub fn index_data_of(
             }
         }
     }
+    // `${…}` and a whole text literal with interpolations: the parser
+    // builds them from pieces that don't cover them (SW-304).
+    let mut with_text: Vec<FileId> = Vec::new();
+    for (span, _) in &index.exprs {
+        if user(span.file) && !with_text.contains(&span.file) {
+            with_text.push(span.file);
+        }
+    }
+    for f in with_text {
+        let in_file: Vec<(Span, &String)> = index
+            .exprs
+            .iter()
+            .filter(|(span, _)| span.file == f)
+            .map(|(span, ty)| (*span, ty))
+            .collect();
+        for (span, ty) in parens[&f].text_literals(f, &in_file) {
+            let file = file_of(span, &mut files);
+            exprs.push((file, range(&mut lines, sources, span, None), ty));
+        }
+    }
 
     let mut diags = Vec::with_capacity(diagnostics.len());
     for d in diagnostics {
@@ -429,6 +449,12 @@ struct Parens {
     spans: Vec<(u32, u32)>,
     /// For each `(` or `)` token, the index of its partner.
     partner: HashMap<usize, usize>,
+    /// Each `${…}` of a text literal: the offsets of its `$` and of the end
+    /// of its `}`.
+    interpolations: Vec<(u32, u32)>,
+    /// Each text literal with interpolations: where it starts and ends, and
+    /// where its first part starts (a `${`, if no text comes first).
+    literals: Vec<(u32, u32, u32)>,
 }
 
 impl Parens {
@@ -436,13 +462,18 @@ impl Parens {
         let mut spans = Vec::new();
         let mut partner = HashMap::new();
         let mut open = Vec::new();
+        let mut interpolations = Vec::new();
+        let mut literals = Vec::new();
+        // The literals being lexed (they nest in `${…}`): where each starts,
+        // where its first part starts, and where its latest `${` starts.
+        let mut texts: Vec<(u32, u32, u32)> = Vec::new();
         for (i, token) in stitchwort_syntax::lex(file, text)
             .unwrap_or_default()
             .iter()
             .enumerate()
         {
             spans.push((token.span.start, token.span.end));
-            match token.tok {
+            match &token.tok {
                 Tok::LParen => open.push(i),
                 Tok::RParen => {
                     if let Some(o) = open.pop() {
@@ -450,10 +481,62 @@ impl Parens {
                         partner.insert(i, o);
                     }
                 }
+                Tok::StrStart(piece) => {
+                    let first = if piece.is_empty() {
+                        token.span.end
+                    } else {
+                        token.span.start
+                    };
+                    texts.push((token.span.start, first, token.span.end));
+                }
+                // These start after the `}` before them, and `StrMid` ends
+                // after the `${` after them.
+                Tok::StrMid(_) | Tok::StrEnd(_) => {
+                    if let Some(top) = texts.last_mut() {
+                        interpolations.push((top.2, token.span.start));
+                        top.2 = token.span.end.saturating_sub(2);
+                        if matches!(token.tok, Tok::StrEnd(_)) {
+                            literals.push((top.0, token.span.end, top.1));
+                            texts.pop();
+                        }
+                    }
+                }
                 _ => {}
             }
         }
-        Parens { spans, partner }
+        Parens {
+            spans,
+            partner,
+            interpolations,
+            literals,
+        }
+    }
+
+    /// More expressions, given those of the file as (span, type): each
+    /// `${e}` (a `Std.Show.toText e`, which the parser spans to the end of
+    /// `e`) and each text literal with interpolations as a whole (its pieces
+    /// joined by `++`, which span from the first piece to the last, and may
+    /// leave out the closing quote).
+    fn text_literals(&self, file: FileId, exprs: &[(Span, &String)]) -> Vec<(Span, String)> {
+        // The widest expression starting at `start` and ending by `end`.
+        let widest = |start: u32, end: u32| {
+            exprs
+                .iter()
+                .filter(|(s, _)| s.start == start && s.end <= end)
+                .max_by_key(|(s, _)| s.end)
+        };
+        let mut out = Vec::new();
+        for &(dollar, close) in &self.interpolations {
+            if let Some((_, ty)) = widest(dollar, close) {
+                out.push((Span::new(file, dollar, close), (*ty).clone()));
+            }
+        }
+        for &(open, close, first) in &self.literals {
+            if let Some((_, ty)) = widest(first, close) {
+                out.push((Span::new(file, open, close), (*ty).clone()));
+            }
+        }
+        out
     }
 
     /// `span`, widened over each `(` before it whose `)` is inside it, and

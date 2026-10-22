@@ -2565,17 +2565,26 @@ impl<'t> Parser<'t> {
             _ => unreachable!("called at a StrStart"),
         };
         let mut items = Vec::new();
+        let mut first = true;
         loop {
             if !text.is_empty() {
                 items.push(Expr::Str(text, text_span));
             }
+            // The `${` starts at the end of the first piece, and ends the
+            // later ones.
+            let dollar = if first {
+                text_span.end
+            } else {
+                text_span.end - 2
+            };
+            first = false;
             let value = self.expr()?;
             let next = self
                 .tokens
                 .get(self.pos)
                 .cloned()
                 .ok_or_else(|| self.unexpected("`}`"))?;
-            let span = Span::new(self.file, text_span.end, next.span.start);
+            let span = Span::new(self.file, dollar, next.span.start);
             items.push(Expr::App(
                 Box::new(Expr::Var(Name {
                     text: "Std.Show.toText".into(),

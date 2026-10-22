@@ -837,6 +837,84 @@ fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Text with interpolations (SW-304): `${n + 1}` and the whole literal are
+/// expressions of type `Text`.
+const STRING_PROGRAM: &str = "def label (n: Nat): Text :=\n  let a := \"n is ${n + 1}, twice ${n}!\"\n  let b := \"${n}\"\n  a ++ b\n";
+
+#[test]
+fn text_literals_and_interpolations_are_expressions() {
+    let dir = temp_dir("text-literals");
+    let file = dir.join("text.sw");
+    std::fs::write(&file, STRING_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, STRING_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = STRING_PROGRAM.lines().collect();
+    let select = |client: &mut Client, line: usize, needle: &str| {
+        let start = lines[line].find(needle).unwrap();
+        let selection = json!({
+            "start": {"line": line, "character": start},
+            "end": {"line": line, "character": start + needle.len()}
+        });
+        let found = client.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": uri}, "position": selection["start"], "range": selection}),
+        );
+        (found, selection)
+    };
+    for (line, needle) in [
+        (1, "\"n is ${n + 1}, twice ${n}!\""),
+        (1, "${n + 1}"),
+        (1, "${n}"),
+        (2, "\"${n}\""),
+        (2, "${n}"),
+    ] {
+        let (found, selection) = select(&mut client, line, needle);
+        assert_eq!(
+            found["contents"]["value"].as_str().unwrap(),
+            "```stitchwort\nText\n```",
+            "{needle}: {found}"
+        );
+        assert_eq!(found["range"], selection, "{needle}: {found}");
+    }
+    // Outward from the `n` in `${n + 1}`: the sum, the interpolation, the
+    // whole text, then the `let`s.
+    let at = lines[1].find("n + 1").unwrap();
+    let answer = client.request(
+        "textDocument/selectionRange",
+        json!({"textDocument": {"uri": uri}, "positions": [{"line": 1, "character": at}]}),
+    );
+    let mut texts: Vec<String> = Vec::new();
+    let mut node = &answer[0];
+    while node.is_object() {
+        let r = &node["range"];
+        if r["start"]["line"] == r["end"]["line"] {
+            let line = lines[r["start"]["line"].as_u64().unwrap() as usize];
+            texts.push(
+                line[r["start"]["character"].as_u64().unwrap() as usize
+                    ..r["end"]["character"].as_u64().unwrap() as usize]
+                    .to_string(),
+            );
+        }
+        node = &node["parent"];
+    }
+    let position = |needle: &str| texts.iter().position(|t| t == needle);
+    let (a, b, c) = (
+        position("n + 1"),
+        position("${n + 1}"),
+        position("\"n is ${n + 1}, twice ${n}!\""),
+    );
+    assert!(a.is_some() && b.is_some() && c.is_some(), "{texts:?}");
+    assert!(a < b && b < c, "{texts:?}");
+    assert!(
+        !texts.iter().any(|t| t.ends_with('}') && !t.starts_with('$')),
+        "{texts:?}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Declarations that end in a closing parenthesis (SW-303).
 const CLOSING_PAREN_PROGRAM: &str = "def k (n: Nat): Nat := Succ (n + 1)\ndef m (n: Nat): Nat :=\n  Succ (Succ (n + 1))\n";
 
