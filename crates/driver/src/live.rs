@@ -139,6 +139,36 @@ impl FileAnswers {
         chain
     }
 
+    /// A local variable's name and type, as a reference at its binder in the
+    /// file `place`, for a hover there (a binder is only a reference in the
+    /// index when something uses it). The binder is the one whose range
+    /// satisfies `at`.
+    fn binder_where(&self, place: &Place, at: impl Fn(Range) -> bool) -> Option<LiveRef> {
+        // The uses know the type; the binder's own reference may not.
+        self.refs
+            .iter()
+            .filter(|r| r.kind == "local" && r.target.place == *place && at(r.target.range))
+            .max_by_key(|r| r.ty.is_some())
+            .map(|r| LiveRef {
+                range: r.target.range,
+                ..r.clone()
+            })
+    }
+
+    /// The local variable whose binder, in the file `place`, contains the
+    /// position.
+    pub fn binder_at(&self, place: &Place, line: u32, character: u32) -> Option<LiveRef> {
+        self.binder_where(place, |r| {
+            (r[0], r[1]) <= (line, character) && (line, character) < (r[2], r[3])
+        })
+    }
+
+    /// The local variable whose binder, in the file `place`, is exactly
+    /// `range`.
+    pub fn binder_exactly(&self, place: &Place, range: Range) -> Option<LiveRef> {
+        self.binder_where(place, |r| r == range)
+    }
+
     /// The reference whose range contains the position: the innermost, if
     /// ranges nest. (The VS Code extension's `refAt` searched by binary
     /// search, which assumes they don't.)
@@ -153,6 +183,9 @@ impl FileAnswers {
                 (
                     (r.range[2], r.range[3]),
                     std::cmp::Reverse((r.range[0], r.range[1])),
+                    // Of two references to the same name, the local one: a punned
+                    // field `{ x }` is a field and a use of the local `x`.
+                    r.kind != "local",
                 )
             })
     }

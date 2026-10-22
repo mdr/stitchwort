@@ -586,6 +586,48 @@ impl Elaborator {
                 ty: symbols[i].ty.clone(),
             });
         }
+        // In `def Pt.sum`, the `Pt` is a reference to the type (when it's
+        // one of the namespace's own).
+        for item in &nav.outline {
+            if item.kind == "test" || item.kind == "field" || item.kind == "ctor" {
+                continue;
+            }
+            let Some((prefix_key, last)) = item.key.rsplit_once('.') else {
+                continue;
+            };
+            let written = (item.span.end - item.span.start) as usize;
+            let Some(prefix_len) = written.checked_sub(last.len() + 1).filter(|n| *n > 0) else {
+                continue;
+            };
+            let Some((global, target)) = self.scope.get(prefix_key) else {
+                continue;
+            };
+            let span = Span {
+                end: item.span.start + prefix_len as u32,
+                ..item.span
+            };
+            if !wanted(span, None) {
+                continue;
+            }
+            let kind = self.global_kind(global);
+            let index = *by_span.entry(target).or_insert_with(|| {
+                symbols.push(NavSymbol {
+                    name: prefix_key.to_string(),
+                    kind,
+                    span: target,
+                    range: None,
+                    container: None,
+                    ty: self.global_type(global),
+                });
+                symbols.len() - 1
+            });
+            refs.push(NavRef {
+                span,
+                dot: None,
+                target: NavTarget::Symbol(index),
+                ty: symbols[index].ty.clone(),
+            });
+        }
         // The same for a declaration outside the outline (the library's: only
         // the ones something refers to), so that hover and references work on
         // its name when a library file is open. Not for a generated

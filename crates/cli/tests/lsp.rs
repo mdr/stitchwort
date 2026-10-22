@@ -239,7 +239,7 @@ fn a_file_on_its_own_as_you_type() {
     let hover = client.at("textDocument/hover", &uri, 4, 15);
     let text = hover["contents"]["value"].as_str().unwrap();
     assert!(
-        text.contains("```stitchwort\nNat -> Nat\n```") && text.contains("def  `Main.double`"),
+        text.contains("```stitchwort\nNat -> Nat\n```") && text.contains("def `Main.double`"),
         "{text}"
     );
     let refs = client.at("textDocument/references", &uri, 0, 5);
@@ -581,6 +581,88 @@ fn workspace_symbols_cover_namespaces_not_checked_yet() {
     client.shutdown();
 }
 
+const NAV_SMALL_PROGRAM: &str = "type Pt = { x: Nat, y: Nat }\n\ndef Pt.sum (p: Pt): Nat := p.x + p.y\n\ndef mk (x: Nat) (y: Nat): Pt := { x, y }\n\ndef lets (n: Nat): Nat :=\n  let a := n + 1\n  a\n";
+
+/// The small navigation issues of SW-306: a punned field's name is the
+/// local; the type in `def Pt.sum` navigates; binders hover with their
+/// types; selecting a binder doesn't give the whole `let`'s type; Expand
+/// Selection starts with the word.
+#[test]
+fn small_navigation_issues() {
+    let dir = temp_dir("nav-small");
+    let file = dir.join("small.sw");
+    std::fs::write(&file, NAV_SMALL_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, NAV_SMALL_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = NAV_SMALL_PROGRAM.lines().collect();
+    let col = |line: usize, needle: &str, nth: usize| {
+        lines[line].match_indices(needle).nth(nth).unwrap().0
+    };
+
+    // `{ x, y }`: the `x` is the parameter, not the record's field.
+    let shorthand = col(4, "x", 1);
+    let def = client.at("textDocument/definition", &uri, 4, shorthand as u32);
+    assert_eq!(
+        def["range"]["start"],
+        json!({"line": 4, "character": col(4, "x", 0)}),
+        "{def}"
+    );
+    let hover = client.at("textDocument/hover", &uri, 4, shorthand as u32);
+    let text = hover["contents"]["value"].as_str().unwrap();
+    // One space between the kind and the name.
+    assert_eq!(text, "```stitchwort\nNat\n```\nlocal `x`", "{hover}");
+
+    // `Pt` of `def Pt.sum` is the type.
+    let def = client.at("textDocument/definition", &uri, 2, 4);
+    assert_eq!(
+        def["range"]["start"],
+        json!({"line": 0, "character": 5}),
+        "{def}"
+    );
+
+    // A let binder and a parameter hover with their types.
+    let binder = client.at("textDocument/hover", &uri, 7, col(7, "a", 0) as u32);
+    assert_eq!(
+        binder["contents"]["value"], "```stitchwort\nNat\n```\nlocal `a`",
+        "{binder}"
+    );
+    let param = client.at("textDocument/hover", &uri, 4, col(4, "x", 0) as u32);
+    assert_eq!(
+        param["contents"]["value"], "```stitchwort\nNat\n```\nlocal `x`",
+        "{param}"
+    );
+
+    // Selecting the binder's name gives its type, not the `let`'s.
+    let at = col(7, "a", 0) as u32;
+    let selection =
+        json!({"start": {"line": 7, "character": at}, "end": {"line": 7, "character": at + 1}});
+    let found = client.request(
+        "textDocument/hover",
+        json!({"textDocument": {"uri": uri}, "position": selection["start"], "range": selection}),
+    );
+    assert_eq!(
+        found["contents"]["value"], "```stitchwort\nNat\n```\nlocal `a`",
+        "{found}"
+    );
+
+    // Expand Selection starts with the word under the cursor.
+    let answer = client.request(
+        "textDocument/selectionRange",
+        json!({"textDocument": {"uri": uri}, "positions": [{"line": 6, "character": 6}]}),
+    );
+    let first = &answer[0]["range"];
+    assert_eq!(
+        first["start"],
+        json!({"line": 6, "character": 4}),
+        "{answer}"
+    );
+    assert_eq!(first["end"], json!({"line": 6, "character": 8}), "{answer}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A check made stale by an edit stops, and what it would have said is never
 /// published: the edit's check answers instead, in about the time one check
 /// takes, not two.
@@ -720,7 +802,7 @@ fn hover_over_a_selection_gives_the_type_of_the_expression() {
         found["contents"]["value"]
             .as_str()
             .unwrap()
-            .contains("def  `Main.double`"),
+            .contains("def `Main.double`"),
         "{found}"
     );
     client.shutdown();
@@ -864,7 +946,7 @@ fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
         assert_eq!(definition["range"]["start"]["character"], 4, "{definition}");
         let hover = client.at("textDocument/hover", &uri, line as u32, ch);
         let text = hover["contents"]["value"].as_str().unwrap();
-        assert!(text.contains("def  `Main.down`"), "{text}");
+        assert!(text.contains("def `Main.down`"), "{text}");
     }
     let refs = client.at("textDocument/references", &uri, 0, 5);
     let found: Vec<u64> = refs
