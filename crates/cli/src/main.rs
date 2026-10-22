@@ -133,6 +133,13 @@ struct CacheArgs {
 /// have room before they run into their resource limits.
 const STACK: usize = 64 * 1024 * 1024;
 
+/// Checking builds and frees terms and values by the million; with the
+/// system allocator (on macOS at least) allocating and freeing was about a
+/// quarter of a `check`. mimalloc makes `check` of the AoC project retire
+/// about 28% fewer instructions (docs/proposals/proof-check-speed.md).
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
     stitchwort_cli::driver::with_stack(STACK, move || {
