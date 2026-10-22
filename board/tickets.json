@@ -1,5 +1,5 @@
 {
-  "next": 326,
+  "next": 327,
   "tickets": [
     {
       "id": 1,
@@ -120,16 +120,17 @@
     {
       "id": 8,
       "title": "Checker evaluation option (b): lazy values while checking (shelved)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
-        "design"
+        "design",
+        "pruned"
       ],
       "body": "Problem: checking a dependent application or constructor still computes argument values the types don't need. Residual that only option (b) (lazy values / thunks for dependent application arguments and constructor fields) fixes: `if h : P` branches compute their operands about 3 times (was 4). See docs/proposals/checker-evaluation.md §6, §9.3-9.4.\n\nShelved: options (a) (stages 1A/1B, bind instead of evaluate; f7699c9, 65415c5) and the lazy kernel `Let` (fe543b0) are done, and with the checker fixes AoC days check in 0.11-0.28 s.\n\nTrigger to revisit: a real program spends more than about 1 s checking values its types don't need. First step then: re-measure per §9.1, then a design review (Opus) before any code.\n\nDone when: either a measured program triggers the revisit and (b) is built and gated, or this stays shelved (nothing to do until the trigger).\n\nHistory: shelved after §9 re-measure.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -149,16 +150,17 @@
     {
       "id": 10,
       "title": "`List.merge` doubles work on fixed lists with an undecidable comparison",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib",
-        "proof"
+        "proof",
+        "pruned"
       ],
       "body": "On a fixed list whose elements make the comparison stuck (a `if le x y` the checker can't decide), `List.merge` (crates/elab/src/std/List/Sort.sw:463) computes both branches of the `if`, so the work doubles per element (0.42 s at 7+7, from docs/history.md:104; not re-measured). Mutual recursion is now complete (3d73325), so the fix is possible: write merge as a mutually recursive pair (one function for each side that is currently ahead, so each recursive call is in a single branch and neither branch needs to be computed to unstick the other), then restate the sorting proofs that unfold it: `List.mergeLeHead` (Sort.sw:514), `List.mergeSorted` (Sort.sw:523), the `Perm` and length lemmas below them, and `List.pushRunSorted` (Sort.sw:544). `Text.linesFrom` (std/Text/Text.sw:77) and the min/max folds have the same shape but are rare; leave them out.\n\nFirst step: write a benchmark input (merge of two fixed lists of symbolic elements, 7+7) and record its step count, so the before and after are comparable. Done when: merge is a mutually recursive pair, the Sort.sw proofs are restated and check, and the 7+7 case is measured again with the number in the ticket.\n\nHistory: opened from the checker-evaluation work (docs/proposals/checker-evaluation.md:596); waited on mutual recursion.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -208,15 +210,16 @@
     {
       "id": 14,
       "title": "Narrow speculative dependency edges by the receiver's syntactic type head",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "Problem: `e.f` adds a speculative dependency edge to every declaration of the file with a field/function `.f` (docs/proposals/namespaces.md:1299), which can join unrelated declarations into one checking group (E-MUTUAL-KIND / E-MUTUAL-SIGNATURE). The note's worked example is `(make n).value` (:1350-1356).\n\nChange: make the edge certain when the receiver is a parameter or `let` with a declared type head, or an application of a known function with a declared result head (`make n` with `make : Nat -> A`). Syntactic only: no unification, unfolding or implicit arguments (mitigation 2, namespaces.md:1368-1374; as-built note :1933).\n\nDone when: a test where a speculative edge used to cause E-MUTUAL-KIND or E-MUTUAL-SIGNATURE (the `measure`/`B` example) now checks, with the gate green.\n\nHistory: split 19 Oct into SW-123, SW-124. `xs.map` on a list works already (List.map in the prelude).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -237,16 +240,17 @@
     {
       "id": 16,
       "title": "Int: division laws for the truncating and flooring pairs",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "proof",
-        "stdlib"
+        "stdlib",
+        "pruned"
       ],
       "body": "Int stage 6 proved the Euclidean pair's laws (`Int.divAddMod` at crates/elab/src/std/Int/Int.sw:105, `Int.modNonneg` :62, `Int.modLtAbs` :69). Nothing is proved for `Int.tdiv`/`Int.tmod` (truncating) or `Int.fdiv`/`Int.fmod` (flooring), defined at crates/elab/src/std/core.sw:807-832; they are only unit-tested by `rfl` on a table in examples/accept/integers.sw. Add `d * Int.tdiv a d + Int.tmod a d = a` and the same for floor, plus the sign and bound facts (tmod takes the sign of `a`, fmod the sign of `d`, and |r| < |d|), as theorems in std/Int/Int.sw with unit tests beside them, unless a use case says only some of them are needed (aoc-2025.md mentions `tdiv`/`fmod` as available but no AoC proof uses them; check before building all).\n\nDone when: the division law and the bound facts for both pairs are theorems in std/Int/Int.sw (or the ticket records which ones were skipped and why), with tests, and `dev/t` passes.\n\nHistory: left over from Int stage 6 (docs/proposals/integers.md).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -329,15 +333,16 @@
     {
       "id": 22,
       "title": "`>>` / `<<` function composition (not now, D10)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "syntax"
+        "syntax",
+        "pruned"
       ],
       "body": "Problem: no function composition operator. `|>` exists (pipe), and the library was made pipe-friendly. `f >> g` (apply f then g) and `f << g` would be the Elm-style composition operators.\n\nDecision D10 (Matt, 19 Oct): not now, since `|>` exists. First step if revisited: decide whether it's wanted (a lambda `x => g (f x)` is the alternative) and the precedence next to `|>` (docs/syntax.md operators table), before touching the parser.\n\nDone when: either `>>`/`<<` parse, elaborate and are documented in docs/syntax.md with tests, or Matt decides against and the ticket is closed.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -405,15 +410,16 @@
     {
       "id": 27,
       "title": "Parked: user-level persistent cache (`cached f x`) and caching `run` output",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "design"
+        "design",
+        "pruned"
       ],
       "body": "Parked until a real need (Matt, 19 Oct): do not start. Idea: `cached f x`, a persistent cache keyed by definition hash, argument hash and compiler fingerprint (safe in pure code); likewise caching `run` output by `main` + stdin hash. Related existing machinery: the test-result cache keyed by content hash plus build fingerprint (crates/driver/build.rs, docs/proposals/compact-text.md 'Hashing and caches').\n\nIf it is ever started, the first step is a design note (key, storage location, invalidation, what 'pure' means for effectful code).\n\nDone when: a user program needs it and a design note is written (until then this ticket stays in backlog as parked).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -529,30 +535,32 @@
     {
       "id": 35,
       "title": "Benchmarks: add rows whose input is generated in-language",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "crates/bench/src/programs.rs has only fixed example programs, timed in-process. An `aoc/` program can't be a row because its input is a puzzle file we don't commit. Add rows whose input is generated in-language, e.g. an LCG producing 4,462 rotations as day 1 has (docs/aoc-2025.md:748-750 describes the idea and the gap 'generated rows aren't benchmarked').\n\nFirst step: choose which aoc/ programs (day 1 is the obvious one) and write the generator in a form the bench crate can include.\n\nHistory: split 19 Oct from a three-item ticket; the no-deterministic-count item went to SW-60; the subprocess item is a new ticket (21 Oct review).\n\nDone when: at least one generated-input row exists in bench/baseline.toml and `nix flake check` gates it.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 36,
       "title": "Compact text stage 3 (B2): native text operations in the checking evaluator",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "Problem: compact text (stage 2, B1) keeps `List Char` literals compact in the kernel, but the checking evaluator still expands them for text operations. Stage 3 (B2) would add native text operations to the checking evaluator, first `decEqText`, following `decEqNat` (also the former SW-70).\n\nD13 (Matt, 19 Oct): parked until a program needs it. Built so far: stage 1 (JS, f2276c0) and stage 2 (B1, d4d3626); see docs/proposals/compact-text.md.\n\nFirst step if unparked: decide from measurements whether it's justified (compact-text.md 'Expected performance'). Prerequisites (draft 2): the expansion invariant, the list of passes to update, binding natives to declarations, an automatic build fingerprint in the test-cache key. Design review (Opus) before building.\n\nDone when: either a program needing it appears and `decEqText` is a gated native with measurements recorded in compact-text.md, or it stays parked.\n\nHistory: D13. Merged from SW-70.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -573,15 +581,16 @@
     {
       "id": 38,
       "title": "Measure `textOfChars` in generated JS, then speed up `encodeChar` if it matters",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "pruned"
       ],
       "body": "Generated JS turns a compact `List Char` into a string one character at a time: `textOfChars` (crates/js/src/lib.rs:890, emitted inside CHARS_OF_TEXT) loops `parts.push(encodeChar(l.head))`, and `encodeChar` (lib.rs:849) is `String.fromCodePoint(Number(v.code))`. The ticket author measured 98 ms per 10^6 characters (not re-measured in this review). Measure on a 10^6-character text under Node, profile, and decide whether a faster path is worth it (for example collecting code points and calling `String.fromCodePoint` in chunks, or skipping the `Number(...)` conversion).\n\nDone when: a measured number is recorded in the ticket, and either a change that improves it measurably (with the extraction tests, crates/cli/tests/extract.rs, passing) or a 'not worth it' note.\n\nHistory: the original said foldChars/compareChars were slow; they no longer exist.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -617,73 +626,78 @@
     {
       "id": 41,
       "title": "JS codecs are about 2× slower on small inputs",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "pruned"
       ],
       "body": "Problem: the generated-JS codecs (crates/js/src/lib.rs decoder around :980-1090, encoder) got about 2x slower on small inputs when they became iterative: a 5,000-element list took 0.3 ms before and 0.7 ms after, both ways. Not re-measured in this review.\n\nFirst step: decide whether it matters (add a small-input case to the JS benchmark, crates/bench) and, if so, add a fast path for shallow values.\n\nDone when: a benchmark row for small inputs exists and either the codecs are back near 0.3 ms or the ticket records that 0.7 ms is accepted.\n\nHistory: 'if it matters'; relates to SW-38, SW-42 (JS codec measurements).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 42,
       "title": "JS encoding doesn't preserve sharing",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "pruned"
       ],
       "body": "A result with much sharing is encoded once per path: `echoTree(dag(12))` yields 2^13-1 objects (crates/cli/tests/extract.rs:775), so encoding a deeper DAG takes exponential time and memory. DESIGN.md:875 documents this as accepted; decoding already memoises shared nodes (DESIGN.md:850). Decide between: (a) memoise encoding per shared node, so the output shares objects too (what decoding does; cost: output objects are no longer a fresh tree, which a caller who mutates them could notice); (b) bound the output size and throw a clear `StitchwortResourceError` early; (c) leave as is. First step: choose, and update DESIGN.md:875 accordingly.\n\nDone when: a test in crates/cli/tests/extract.rs encodes (or cleanly refuses) a DAG result of depth 60 quickly, and DESIGN.md:875 matches the behaviour.\n\nHistory: found in the JS boundary work; accepted for the first milestone.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 43,
       "title": "JS strings are checked at every place they appear",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "js",
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "Decoding scans a string each place it appears: the same 1 MB string in 1,000 slots is scanned 1,000 times (documented in DESIGN.md:875, 'Caveats'). Arrays and objects reached again by another path are decoded once (DESIGN.md:850, 'Shared parts are decoded once'); do the same for strings: remember the strings already validated in one decode, by identity.\n\nFirst step: find the string validation in the decoder in crates/js/src/lib.rs (the string/Text decode near lines 865-910) and the shared-object table it can reuse; note a JS string has no identity, so the decision is what to key on (the string value itself costs a hash of the whole string, which is the same order as a scan: maybe only worthwhile for very long strings or via a length threshold).\n\nDone when: a before/after measurement on the 1 MB string x 1,000 slots case is recorded in the ticket, and the DESIGN.md caveat is updated or removed. (If no identity-free scheme beats scanning, close with that measurement.)\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 44,
       "title": "Hostile Proxies at the JS boundary",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "pruned"
       ],
       "body": "Problem: at the JS boundary the decoder's `Array.isArray(x)` and `x.length` (crates/js/src/lib.rs:1012-1015) run outside `own()` (:1032, :1056-1062, which wraps property reads), so a Proxy whose trap throws makes a raw exception escape instead of a boundary error.\n\nFirst step: decide whether hostile inputs are in scope at all (the boundary already refuses non-plain data) or only containment of exceptions; the cheap fix is to run the whole decode in one try/catch that reports a boundary error.\n\nDone when: a test passes a Proxy with throwing `get`/`has`/`getPrototypeOf` traps (and as an array element) and gets the normal boundary error, not the raw exception.\n\nHistory: from the JS boundary work.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 45,
       "title": "Support nested recursive types such as `List Tree` (rose trees)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design",
-        "kernel"
+        "kernel",
+        "pruned"
       ],
       "body": "Nested recursive types are refused on purpose: `type Tree = | Node (kids: List Tree)` gives E-POSITIVITY (\"`Tree` is used inside another type\"), with the note to write a tree and a forest as a data group instead (verified on the release binary, 21 Oct). The rule is docs/core.md:101: `D` may appear in a field only as `D` applied to its own parameters, or as the result of a function field; nested occurrences like `List D` are rejected conservatively. Allowing them needs a design: positivity through type parameters (Lean's nested inductives, auxiliary-type compilation), what it does to termination (size change through `List.map`) and to JS extraction. The `rest : Nest (Box a)` form (non-uniform nesting) belongs to the same note.\n\nFirst step: a design note (Opus, with external review, per the design-review gate) recommending build or don't build, with what mutual data groups (already implemented, examples/accept/mutual-data.sw) leave unsolved.\n\nDone when: the note exists and Matt has decided build or not; if build, a follow-up implementation ticket is written.\n\nHistory: the 'message half' (a clear E-POSITIVITY note) is fixed.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -733,31 +747,33 @@
     {
       "id": 49,
       "title": "Mutual tail calls aren't loops in generated JS",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "js",
-        "kernel"
+        "kernel",
+        "pruned"
       ],
       "body": "Mutual tail calls aren't loops in generated JS. Repro (checked 21 Oct with the release binary): `export def isEven: Nat -> Bool | 0 => True | Succ n => isOdd n` and `isOdd` the same the other way, built with `stitchwort build --js`, then `isEven(10000000n)` throws `StitchwortResourceError` (Maximum call stack size exceeded). The generated code is `const $Main$disEven = (v0) => { if (v0 === 0n) {...} else { const v1 = v0 - 1n; return $Main$disOdd(v1); } }` and the mirror image, so each call uses a JS stack frame. Self tail calls already become loops (SW-40 covers the remaining self-call cases); DESIGN.md:874 documents this limit.\n\nFirst step: decide the approach. Options: (a) compile a group of mutually tail-calling functions into one loop with a state variable naming which member runs (no allocation; only works when every call between members is in tail position); (b) a trampoline for those calls (general but allocates a thunk per call); (c) leave it documented. Recommend (a) for groups where every inter-member call is a tail call, and (c) otherwise.\n\nDone when: an extraction test in crates/cli/tests/extract.rs runs `isEven`/`isOdd` on 10000000n, and DESIGN.md:874 no longer lists `isEven`/`isOdd` as an example of overflow.\n\nHistory: see SW-40 for self tail calls.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 50,
       "title": "Mutual data types: members' parameters needn't be written identically",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "In a group of mutual data types every member must spell its parameters the same, names included (docs/proposals/mutual-recursion.md:2163, 2269, 'Limits'). Allow renamed parameters (compare telescopes up to renaming).\n\nFirst step: find where the group's parameter telescopes are compared (the mutual-data admission in crates/elab and the E-MUTUAL-* diagnostics) and decide the representation: rename each member's parameters to the first member's names before comparing.\n\nHistory: split 19 Oct into SW-118 (JS error paths). Nested (`List Tree`) is SW-45; inductive-recursive and inductive-inductive types are documented out of scope, not tasks.\n\nDone when: an examples/accept file whose members name the shared parameter differently is accepted, and an examples/reject one whose telescopes really differ is rejected with a clear message.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -835,31 +851,33 @@
     {
       "id": 56,
       "title": "Generated-program differential test of the partial runner against crates/partial-model",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "Problem: crates/driver/tests/partial.rs compares the partial runner with the executable model (crates/partial-model) on fixed programs only. Bugs in rarely-combined features would not show.\n\nFirst step: specify the generator (a small typed API building random partial programs: operations, replies, ticks, handlers), emitting both the model's typed form and source text. Then compare the full traces (operations, replies, ticks).\n\nDone when: the test runs in the gate (release, fixed seed, a few hundred programs) and a deliberate bug in the runner makes it fail.\n\nHistory: split 19 Oct into SW-122. An endless partial `main` is decided: it runs until stopped. DeepSeek-suitable once the generator is specified.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 57,
       "title": "Measure the JS limits in browsers",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "js",
-        "playground"
+        "playground",
+        "pruned"
       ],
       "body": "Only Node has been measured for the generated JS's limits. DESIGN.md:874 says recursion overflows 'after a few thousand elements' in Node, and docs/proposals/text-and-io.md:57 says 'the limits in browsers, and the `InternalError` branch for SpiderMonkey, aren't tested'. (web/stress.html is the compiler-as-WASM stress page, not this: it doesn't run generated JS.) Measure the recursion depth at which an extracted function throws `StitchwortResourceError` in Chrome, Firefox and Safari, using a small page that loads a generated module (for example the `isEven` or `List.length` recursion from the extraction tests), and check that Firefox's `InternalError: too much recursion` is converted into `StitchwortResourceError` as the generator's `outOfResources` intends.\n\nFirst step: decide where the page lives (a new web/ page, or a mode of stress.html) and which browsers can be driven headlessly here (Chrome yes; Firefox/Safari may need manual runs, mark those as such).\n\nDone when: the measured depths per browser are recorded in DESIGN.md:874 (or the text proposal's as-built section) and the SpiderMonkey error path is confirmed or fixed.\n\nHistory: left over from the text-and-IO JS limits work.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -893,16 +911,17 @@
     {
       "id": 60,
       "title": "Elaborating a chain is quadratic",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "Elaborating a long chain is suspected to be quadratic: `Expr::span()` (crates/syntax/src/ast.rs:258) and `may_perform` (crates/elab/src/effects.rs:917) walk the whole subexpression at every level. Unverified: the first step is to measure (a chain of N `+` or applications, N = 1,000, 2,000, 4,000: time and a counter of nodes visited).\n\nA regression guard needs a deterministic counter that these walks increment (the step/alloc counts of crates/bench don't see them); add one as part of the fix (from SW-35, 19 Oct: loops that neither evaluate nor allocate have no deterministic count).\n\nDone when: the measurement is recorded; the walks are linear overall (cache the span, compute may_perform bottom-up); a bench row with the new counter guards it in bench/baseline.toml.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -954,15 +973,16 @@
     {
       "id": 64,
       "title": "Mutation testing",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "Mutation testing of the core machine, in small sharded runs, to find behaviour no test pins down. Targets: the machine (crates/core/src/value.rs), crates/core/src/budget.rs, crates/core/src/native.rs (167 mutants, never run). Runs are cargo-mutants (a tool, no model) driven by scratchpad/mutrun.sh; always `--jobs 1` and one shard at a time (mutation runs have drained RAM before).\n\nState: the budget.rs pilot ran on 19 Oct: 56 mutants, about 12 min, 23 caught, 26 missed (core tests only), 1 timeout, 6 unviable. Matt paused further runs after it; do not run anything until he asks. Survivors from that run are in scratchpad/mut/budget-*. Survivors already judged equivalent or unreachable (line numbers as of 19 Oct, now probably shifted): crates/elab/src/effects.rs 223 (x3), 403, 414, 706 (x2), 709, 745, 844; crates/core/src/termination.rs 111 (`>` to `>=`); the `auto` fix in step 1 (masked by the sticky budget). When runs resume, put them in an exclude list (.cargo/mutants.toml, which does not exist yet).\n\nPlan when resumed: re-check budget.rs survivors against the driver and cli tests too; DeepSeek writes tests to kill the real survivors (direct-edit spec); Opus judges equivalent mutants; then do native.rs and value.rs in shards.\n\nDone when: budget.rs, native.rs and value.rs have been run, every survivor is either killed by a new test or listed as equivalent in .cargo/mutants.toml.\n\nHistory: paused by Matt 19 Oct 2026; merged SW-87 (the survivor list).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -986,15 +1006,16 @@
     {
       "id": 66,
       "title": "`stitchwort run` out of resources",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "Problem: `stitchwort run` running out of resources is tested only through the driver (crates/driver/tests/resources.rs sets `Limits` on a Session), not through the command: with the command's own limits it would need about 1.5 GB, and crates/cli/src/main.rs has no way to lower them.\n\nDecide first: a hidden option (`--limits small`) or an environment variable (like STITCHWORT_RUN_JS_DIR, main.rs:566) to lower the limits for tests. Hidden and test-only is enough.\n\nDone when: a CLI test runs `stitchwort run` on a program that exhausts the lowered limits and asserts the 'no answer within the limits' message (main.rs:538) and exit code.\n\nHistory: none.\n\nReproduction (D333, day 2 research): brute force over one list of 1.9 million ids runs out of resources (E-RESOURCE) under `stitchwort run` after 3 s; 77 s with --js; scratch files in the day 2 research scratchpad (docs/comparisons/aoc-day02-community.md).",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1016,16 +1037,17 @@
     {
       "id": 68,
       "title": "`IO` operations that return `Result`",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib",
-        "design"
+        "design",
+        "pruned"
       ],
       "body": "Today IO errors stop the program (docs/proposals/text-and-io.md:308: a read, write or flush error stops it with a message and non-zero exit code, never reported as `Nothing`). `Result`-returning operations for recoverable errors were deferred. There is no `Result` type in the standard library yet, and `ability IO` (crates/elab/src/std/core.sw:1058) has only `print`, `readLine` and `readAll`, so nothing can currently fail in a way a program would want to handle except stdin/stdout themselves.\n\nFirst step: decide whether there is a use case (an AoC program or example that wants to handle a failed read) and, if so, the design: a `Result e a` type in std (and its name, vs `Either`), an IO error type, which operations get a `Result` form (for example `IO.tryReadLine`), how `IO.simulate` and the JS boundary encode it. If there is no use case, close this as not needed.\n\nDone when: either a design note is written and approved and an implementation ticket exists, or the ticket is closed with 'no use case'.\n\nHistory: deferred by the text-and-IO proposal.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1106,30 +1128,32 @@
     {
       "id": 74,
       "title": "Performance of effectful code",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "Effectful code is translated into `Effect.Comp` trees (docs/core.md:14), so a handler over a long computation walks a deep tree. No benchmark measures this: crates/bench/src/programs.rs has `run-prints` (20,000 `IO.print`s, :70) and `run-proof-fields` (:75), but no handler that threads state (a counter or a writer) through, say, 100,000 operations, and none in the checker. Add benchmark rows: (1) a state-handler loop of 10^5 operations through `stitchwort run` and through the evaluator, compared with the same loop written purely; (2) the same checked at type level where it applies. Record steps and time, and if a cost far above the pure version shows up, open a ticket for the cause.\n\nDone when: the benchmark rows exist in crates/bench with a baseline (bench/baseline.toml), and the ticket records the ratio to pure code and whether a speed-up is warranted.\n\nHistory: noted unmeasured from the abilities work (docs/proposals/abilities.md).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 75,
       "title": "Number patterns: prune unreachable rows before choosing keys",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "Rows after an equation that matches everything still contribute keys to a number case, so open terms stay stuck needlessly: docs/proposals/number-patterns.md:664-681, where `f` has `| _ => 101` before `| 6 => 103` and `| Succ 1 => 104`, and the case on `4 + x` has keys 0, 2, 4 and is stuck although the unreachable `6` row should not count. Drop unreachable rows before choosing keys.\n\nFirst step: decide how reachability is computed (rows after an all-variable row in the same column) in the number-pattern compile step in crates/elab (matching.rs).\n\nHistory: Char literal patterns `'a' =>` done (e5b3eed). D9 (Matt, 19 Oct): default inequalities (`n != k`) in number patterns: not now (number-patterns.md open question 2, ~line 543); no ticket for it.\n\nDone when: `f` from number-patterns.md:664 computes on an open term where it is stuck today (examples/accept test); snapshots and hash tests updated.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1149,15 +1173,16 @@
     {
       "id": 77,
       "title": "Solving metavariables without recursion",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "The elaborator's `solve`, `rename`, `prune` and `zonk` (zonk is at crates/elab/src/lib.rs:575) recurse over a solution. They're guarded, so a deep one gives E-RESOURCE, but they share the stack: `theorem a : [1, ..., n] = [1, ..., n] := Std.Eq.sym rfl` (hidden arguments solved to the list) checks at n = 20,000 and fails at n = 30,000 with `E-RESOURCE: the program is nested too deeply for the type checker` (reproduced 21 Oct, release binary); the original measurement was 56,875 with `rfl` and 26,875 with `sym rfl`. Bench rows `check-list-rfl` and `check-list-sym-rfl` (crates/bench/src/programs.rs:145-152) cover this. Also from SW-51: zonk walking computations inside types ran out of resources on `textJoin ... == t` with tens of thousands of characters; re-test it first, it may be gone after 65415c5.\n\nLow priority: only large literal values in types hit it. Done when: the four passes use an explicit stack (or are shown not to need one), and `sym rfl` checks at least as far as `rfl` does (n = 56,875), with the benchmark rows updated.\n\nHistory: merged SW-51.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1223,30 +1248,32 @@
     {
       "id": 83,
       "title": "The machine starts a nested machine",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
-        "kernel"
+        "kernel",
+        "pruned"
       ],
       "body": "The machine starts a nested machine when a native forces an argument that is a solved metavariable (elaboration only): natives call the public `force` (crates/core/src/native.rs:41, 427, 441), which enters a fresh machine. docs/proposals/stack-safe-evaluation.md:48 records this as the one exception to the 'no re-entry' rule (and :86, :253 state the rule). It is bounded by the term, not by program depth, so it is not a known failure; the cost is that the invariant 'a deep evaluation runs inside exactly one machine' (the test-only machine-entry counter, :253) has a hole.\n\nFirst step: decide whether to close the hole or keep the exception. Option to close it: make the native return a request to force the metavariable as a machine state (as the `Apply` request does for `sub`, `leq`, `eqNat`), or make the elaborator zonk solved metas in the arguments before natives run. If neither is cheap, keep the exception and strengthen the note in stack-safe-evaluation.md with a depth bound.\n\nDone when: either the machine-entry counter test passes for solved-metavariable arguments, or the doc states the bound and this ticket is closed as accepted.\n\nHistory: stack-safe evaluation step 3.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 84,
       "title": "Evaluator frames cost ~750 bytes each: reduce memory per frame",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "A million-deep recursion (`length (replicate 1000000 1)`) peaks at about 750 MB; the default frame limit is 2,000,000 (crates/core/src/budget.rs:65-78; docs/aoc-2025.md:754). Each frame keeps its environment alive.\n\nFirst step: measure (peak RSS at 10^6 frames, and what a frame and its environment hold), then decide whether this is worth doing (it matters for the playground and low-memory machines) or should stay a documented limit.\n\nDone when: the measurement is in the ticket and either peak memory at 10^6 frames is reduced (target to be chosen from the measurement) with bench/baseline.toml unchanged or better, or the ticket is closed as a documented limit.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1563,15 +1590,16 @@
     {
       "id": 103,
       "title": "Parked: shared compile cache across clones and worktrees (kache or sccache)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "Parked (Matt, 19 Oct): revisit if kache reaches nixpkgs or clone volume grows. Every new clone or worktree compiles from scratch (~20 per day).\n\n19 Oct investigation (Sonnet): kache v1.2.2 (https://github.com/kunobi-ninja/kache) = RUSTC_WRAPPER with a BLAKE3 content-addressed store and APFS copy-on-write restores (not hardlinks). Second fresh clone: release build 22 s -> 2 s, test build 54 s -> 12 s (sccache: 14 s / 27 s, 40% hits). Not in nixpkgs (source build ~426 derivations); route would be a pinned release binary via fetchurl. Young (8 months, 1.0 on 2026-10-05), spawns a daemon, writes ~/Library/Logs and Caches.\n\nDone when: (if revived) a fresh worktree builds in seconds through the flake devShell with the cache wired by RUSTC_WRAPPER, and the disk use is measured.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1675,16 +1703,17 @@
     {
       "id": 110,
       "title": "Effectful callbacks for List.map / filter / folds",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib",
-        "design"
+        "design",
+        "pruned"
       ],
       "body": "Problem: `List.map`, `filter` and the folds (crates/elab/src/std/List/Toolkit.sw:12 and following) take pure functions, so a callback using an ability can't be passed. Repro: `def p (xs: List Nat): {IO} List () := List.map (x => IO.print (Nat.toText x)) xs` gives E-ABILITY ('this may perform `IO`, which isn't allowed here').\n\nDecide first: effect-polymorphic signatures (`(a -> {e} b) -> List a -> {e} List b`) versus separate effectful variants (`List.mapM`-style), and whether the pure uses keep elaborating identically (hashes aren't a constraint, but inference is). Check that existing inference of lambdas passed to `List.map` doesn't regress.\n\nDone when: the repro checks and runs, and the gate (all existing List.map uses) is unchanged.\n\nHistory: split from SW-17 (19 Oct): later, when a program needs it.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1829,15 +1858,16 @@
     {
       "id": 120,
       "title": "Termination: descend through record fields",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "kernel"
+        "kernel",
+        "pruned"
       ],
       "body": "A recursive call on a field of a record parameter is refused today: matching a record binds its fields as `<` the parameter, `p.field` is a call of a generated definition (unknown for size change) and a rebuilt record is unknown, so `sum { list = Cons x xs, acc } = sum { list = xs, acc = acc + x }` is refused (docs/proposals/records.md:700-708). Implement the deferred design (records.md:709, decision R4 in the table at :163, section 7.5 at :1048): treat a known record parameter as its fields for size change, each a separate stable field path (`r.list`, `r.acc`), one layer deep, dependent fields as a telescope, and keep refusing `loop r = loop { r | list = r.list }` (a rebuilt record is not a descendant). The termination checker is crates/core/src/termination.rs.\n\nDone when: examples are accepted and rejected as records.md section 6.4 and 7.5 say (an accept example for `sum` on a record, a reject example for the rebuilt-record loop), with unit tests, and records.md is updated from 'later' to 'as built'.\n\nHistory: records design note; deferred from stages 1 and 2.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1857,16 +1887,17 @@
     {
       "id": 122,
       "title": "`mapP` in the library, and make E-PARTIAL-CALLBACK point at it",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib",
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "docs/proposals/partial.md §7.3.6 (line 670) and line 636 promise a library `mapP : (a -> {Partial | e} b) -> List a -> {Partial | e} List b` (total callbacks fit via `lift`), and that the E-PARTIAL-CALLBACK diagnostic suggests it when the helper is the library's `map`. Neither exists: `mapP` isn't in crates/elab/src/std, and the diagnostic (crates/elab/src/check.rs:1210-1231) only suggests making the helper polymorphic in the row. Add `mapP` (List/Toolkit.sw) and make the diagnostic name it when the helper is `List.map`.\n\nFirst step: check that the type above is accepted given 'row variables range over Partial-free rows' (partial.md:670) and write it with a test. Related: SW-110 (effectful callbacks for List.map/filter/folds).\n\nDone when: an examples/accept file uses `mapP` with a partial recursive callback, examples/reject/partial-callback.sw's snapshot names `mapP` for `map`, and docs mention it.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -1918,16 +1949,17 @@
     {
       "id": 126,
       "title": "Parser: use less stack per nesting level",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
-        "playground"
+        "playground",
+        "pruned"
       ],
       "body": "Every parser function returns `Result<T, Diagnostic>` with the `Diagnostic` inline (crates/syntax/src/parser.rs:25), so each recursive frame reserves space for the large error value. Box the `Diagnostic` (or return a smaller error type) so frames are smaller, and measure the nesting depth reached before the guard trips: crates/driver/tests/nesting.rs (`nested_parentheses` :104, `nested_applications` :92, run in a 2 MiB child thread) and web/stress.html in a browser (the reason for the playground label: its worker stack is small).\n\nDone when: the nesting depth in the 2 MiB thread improves measurably (record before and after in the ticket), and nesting.rs still passes.\n\nHistory: from SW-61.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -2433,16 +2465,17 @@
     {
       "id": 158,
       "title": "Revisit the memo cache for evaluated closed statements if proofs that compute large facts return (D75, D90)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "Parked, not scheduled. Background: SW-154's findings (docs/evaluator-speed.md section 8, :299-337) showed the evaluator is 72% of proof checking, and 28% is in `infer_j`, where facts proved by computation are computed by the elaborator and again by the kernel (`threeChecked` alone was 1.1 s). D75 (Matt, 20 Oct 2026) made caching evaluated closed statements the next speed step, after SW-157.\n\nD90 (Matt, 20 Oct 2026): built (branch worktree-agent-a5f8080551d5c389e, commit 664a0c5: a memo cache in crates/core/src/memo.rs with a cache on/off differential test) but NOT merged. It targeted computed facts (`threeChecked` etc.) that SW-166 removed; on current main it shows no measurable gain, and it adds kernel complexity at 2-3% cost when nothing repeats. memo.rs is not on main (checked 21 Oct).\n\nRevisit when proofs that compute large facts return: re-run the AoC proof check profile (docs/evaluator-speed.md section 8) and, if the repeated computation is again a measurable share, rebase the branch. Glued evaluation is a later, separate design note.\n\nDone when: a profile shows repeated closed computations above a threshold Matt accepts and the branch is merged, or Matt closes the ticket as not needed.\n\nHistory: D75, D90.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -2720,16 +2753,17 @@
     {
       "id": 175,
       "title": "Consider section variables: declare a parameter once per file/section (Lean's `variable`) (D120)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design",
-        "syntax"
+        "syntax",
+        "pruned"
       ],
       "body": "D120 (Matt, 20 Oct 2026): keep AoC day 1's `Dial highest` as it is for now; consider a feature like Lean's `variable {highest : Nat}` so a file or section declares a shared parameter once and every definition below gets it. Motivation: `highest` is written 18 times in aoc/src/Aoc/Day01/Day01.sw and 139 times in aoc/src/Aoc/Day01/Proofs/Part2.sw (counted 21 Oct; the ticket said 13 and 71), kept generic so the part 2 proof covers any dial size. Nothing like it exists in docs/syntax.md.\n\nFirst step (design-review gate): research Lean 4 `variable`/`section`, Agda parameterised modules, Coq `Section`/`Variable`; write a note covering how it interacts with namespaces (a file is a namespace, docs/proposals/namespaces.md), with the lifting of local definitions (syntax.md:179 captures variables the same way), and with implicit/auto parameters. Then stop for review before implementing.\n\nDone when: the note is written and reviewed, and Matt has decided build or not; if build, an implementation ticket exists.\n\nHistory: D120.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -2823,15 +2857,16 @@
     {
       "id": 182,
       "title": "Derived == for indexed families (parked until a program needs it)",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "pruned"
       ],
       "body": "Derived `==` (DecEq) refuses types with indices (crates/elab/src/derive.rs:214-217, 'has indices, which … isn't derived for yet') and handles only fields whose types don't depend on earlier fields (derive.rs:10-15). Families like `VCons [n := m] x (xs: Vec a m)` need dependent injectivity projections, index-generic tag/differ helpers and a J-based proof carrying index unification (>300 lines).\n\nOptions: (1) only families whose fields don't depend on implicit fields; (2) full dependent derivation; (3) leave it. Fin's `FSucc [n := j] (i: Fin j)` has a dependent field, so option 1 doesn't cover Fin.\n\nHistory: bug sweep 21 Oct 2026. Parked (Claude, 21 Oct): Vec has a library DecEq (Vec.sw:115) and Fin has a hand-written instance (SW-191, done), so the library needs nothing; revisit when a program needs `==` on a user-defined family. First step then: choose among the options.\n\nDone when: a user-defined indexed family gets a derived `==` (options 1 or 2), with examples/accept, or option (3) is recorded in docs/syntax.md:413 and the ticket closed.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -2866,16 +2901,17 @@
     {
       "id": 185,
       "title": "Examples benchmark: core grew with stage 5 laws (prelude 708k → 861k steps per session); cache the checked core between sessions?",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "performance",
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "Stage 5 of interfaces (operators through dictionaries) moved laws into the bootstrap phase, so each session's prelude check now costs more: 708k to 861k steps per session, which is about 68M of the +80M (+14.6%) rise of the examples benchmark (figures as recorded 21 Oct; not re-measured in this review; the current baseline is 713,266,318 steps over 467 files, bench/baseline.toml:7-10). Accepted for now (21 Oct 2026).\n\nOptions: (a) share the checked core across sessions inside one process (the test runner and playground create many sessions); (b) a persistent on-disk cache of the checked core, keyed by its hash (SW-27 is a different feature, the user-level `cached f x`; there is no ticket for this); (c) leave it. First step: measure how many sessions the examples benchmark creates and what share of total steps the prelude is, then pick.\n\nDone when: the share is measured and either a change is made (steps down, `bench/baseline.toml` re-recorded) or Matt accepts the cost and the ticket is closed.\n\nHistory: accepted 21 Oct 2026 after the stage 5 merge.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3132,30 +3168,32 @@
     {
       "id": 202,
       "title": "Derived == for records/data with proof fields other than equations (after SW-93/SW-95)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab",
-        "interfaces"
+        "interfaces",
+        "pruned"
       ],
       "body": "Derived DecEq already handles proof fields that are equations in DecEq types (`DecEq.uniqueEq`, docs/syntax.md:413); any other proof field (e.g. `h: a <= b`) gives E-INSTANCE-NONE (examples/reject/record-eqeq-proof-field.sw). To derive `==` for those, two values with equal data fields must be shown equal: that needs proof irrelevance (SW-93) or auto-generated ext lemmas (SW-95). Blocked by one of those.\n\nFirst step (after SW-93 or SW-95 lands): extend the field classification in crates/elab/src/derive.rs to accept proof fields in Prop, ignoring them in the comparison.\n\nHistory: from SW-55 (21 Oct review).\n\nDone when: examples/reject/record-eqeq-proof-field.sw becomes an examples/accept file whose `==` works (e.g. aoc `Dial`-style records), and docs/syntax.md:413 is updated.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
       "id": 203,
       "title": "JS boundary: runtime checks for proof fields of ordinary data types (records already have them)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "pruned"
       ],
       "body": "Problem: a record's proof field is checked at the JS boundary by its decision procedure (records.md §11.3; crates/js/src/lib.rs:320-324), but an ordinary data type's proof field is refused: '`T` has a proof or type field, which can't be checked at the boundary yet' (:336).\n\nChange: extend the validators to constructors of non-record data types with proof fields. Type fields stay refused.\n\nDone when: a data type with a decidable proof field crosses the boundary in both directions and a violating value is rejected with a boundary error (test in crates/js), and the :336 message no longer applies to proofs.\n\nHistory: from SW-55 (21 Oct review).\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3226,15 +3264,16 @@
     {
       "id": 208,
       "title": "Benchmarks: time `stitchwort run` as a subprocess (startup + check + run)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "pruned"
       ],
       "body": "crates/bench/src/programs.rs times everything in-process, so process startup, loading the Std library and the CLI's own overhead are not measured. Add a row that times the `stitchwort run` binary as a subprocess on an example program (startup + check + run).\n\nFirst step: decide how the bench crate finds the binary under `nix flake check` (built in the same derivation or an explicit path) and how to keep the timing deterministic enough to gate (bench rows are step/alloc counts, not wall time: a subprocess has neither, so the decision may be to report wall time without gating, or to expose counts through a flag).\n\nDone when: the row exists in bench/baseline.toml (gated or, if decided, reported only) and `nix flake check` passes with it.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3412,13 +3451,15 @@
     {
       "id": 222,
       "title": "Design note: Scala-style placeholder lambdas (_ == 0)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
-      "labels": [],
+      "labels": [
+        "pruned"
+      ],
       "body": "Short lambdas in the Scala style: `xs.count (_ == 0)`, `xs.map (_ + 1)`, `pairs.map (_.fst)`, where each `_` is a fresh parameter. D296 (Matt, 21 Oct 2026): not now, but Scala-style `_` is the direction to think about rather than Haskell operator sections (`(== 0)`). Evidence: docs/comparisons/aoc-day01-community.md §3.4.\n\nFirst step when picked up: a short design note: scope of `_` (the nearest enclosing bracketed argument, as Scala), several `_` meaning several parameters, interaction with patterns (`_` already means \"ignore\" there), method sections (`.isZero`), pipes, and error messages; compare Scala 3, Lean `·`, Kotlin `it`.\n\nDone when: the note is reviewed by Matt; implementation is a separate ticket.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3601,13 +3642,15 @@
     {
       "id": 237,
       "title": "Design note: pattern guards (| p if c => …)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
-      "labels": [],
+      "labels": [
+        "pruned"
+      ],
       "body": "Design note: pattern guards (`| p if c => …`, falling through to later arms when c is false), seen in about 11 GitHub files and 5 Reddit comments for day 3 (stack shape: `step (t:ts, d) x | d > 0 && x > t = …`). The arm would know c and later arms not c, tying it to the SW-226 rule for && facts; coverage checking must treat guarded arms as possibly failing. D362. Compare Haskell guards, Scala/Rust `if` guards, OCaml `when`, Lean/Idris.\n\nDone when: the note is reviewed by Matt; implementation separate.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -4475,11 +4518,12 @@
     {
       "id": 291,
       "title": "LSP: memory 348 MB vs 165 MB for check --index (one mark per namespace + whole library); keep fewer marks",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "lsp"
+        "lsp",
+        "pruned"
       ],
       "body": "",
       "created": "2026-10-22",
@@ -4824,12 +4868,13 @@
     {
       "id": 312,
       "title": "Playground page is slow on a huge list literal (100,000 elements: 19 s wrapped, 62 s one line; compiler itself ~0.3 s)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground",
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "Found by SW-62. The WASM compile functions take ~0.3-0.4 s; the page's own handling (highlighting/nav/diagnostics rendering?) is the slow part. Unprofiled.",
       "created": "2026-10-22",
@@ -4839,12 +4884,13 @@
     {
       "id": 313,
       "title": "Quadratic path rendering an E-PARSE diagnostic on a 100,000-line literal (146 s in WASM)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground",
-        "performance"
+        "performance",
+        "pruned"
       ],
       "body": "Found by SW-62. A list literal split with bare newlines over 100,000 lines gives E-PARSE (expected) but takes 146 s in WASM.",
       "created": "2026-10-22",
@@ -5047,6 +5093,21 @@
       "where": "proposal lane (report only)",
       "labels": [
         "board"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 326,
+      "title": "omega: convert the AoC proofs stage 1 can handle; measure lines/lemma calls/check time (D558)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "aoc",
+        "proof"
       ],
       "body": "",
       "created": "2026-10-22",
