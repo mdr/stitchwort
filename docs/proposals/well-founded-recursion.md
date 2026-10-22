@@ -1430,6 +1430,90 @@ output agrees under `run`, `run --js` and `run --reference`), and `examples/reje
 `decreasing-no-cong.sw` (error 1), `decreasing-bad-cong.sw` (2), `decreasing-function-result.sw`
 and `decreasing-lambda-in-data.sw` (3), `decreasing-under-lambda.sw` (now 4: no proof of `d < n`).
 
+## As built (SW-281): `rfl` through `decreasing` no longer computes the proofs
+
+**The problem.** `theorem t: Nat.digits 1205 = [1, 2, 0, 5] := rfl` took 1,068,034,823 kernel
+steps (~10 s), and `Nat.digits 9876543210` didn't finish; `decreasing.sw`'s `digitsByRfl` took
+1.12 × 10^9 steps (20 s wall for the file). Stage 1 item 11 assumed the kernel computes an
+argument only when a type needs it. That holds for *inferring a type* (`Closure::apply_lazy`), not
+for *evaluating*: the machine is call-by-value, and `rfl`'s conversion evaluates `Nat.digits 1205`
+with every argument computed.
+
+**Evidence.** Counting the definitions the machine unfolded (a temporary `eprintln!` in
+`unfold_now`), `Nat.digits 12` against `Nat.digits 1`: the data path is `Nat.digitsAcc.%go` and
+`%step` twice, `Nat.div` 6 and `Nat.mod` 2 times; the rest is proofs, `Nat.leSucc` 1832,
+`Nat.leTrans` 1806, `Eq.cong` 1672, `Nat.addSucc` 1188, `Nat.addAssoc` 352, `Eq.trans` 264,
+`Nat.leRefl` 244, `Eq.sym` 244, `Nat.addComm` 220, …, from `Nat.divTenLess n big` (the user's
+`[decreasing := …]`), its `Nat.divLeOfLtMul`, and `%go`'s glue `Nat.leTrans (Succ (m y)) (m x) k
+p h` and `Nat.leRefl (m x)`. `%go` already cased on the fuel only and used `h` only through
+`Void.absurd` in the `Zero` branch, so the first candidate fix was already the design; the cost
+was the strict *call* `%rec y (Nat.divTenLess n big)` computing its argument before `%go` ignored
+it.
+
+**Options weighed.**
+
+1. *Thunk the proofs in the generator* (`%rec: (y) -> (Unit -> m y < m x) -> B`, `%go`'s `h` the
+   same, the user's proof wrapped as `_ => p`). A closure is a value, so nothing is computed. It
+   needs no kernel change, but touches every generated piece (`%step`'s `%rec` type, the glue,
+   `%respects`, `%irrel`, `unfold`) and the `[decreasing := p]` elaboration, and fixes only
+   `decreasing`: a proof passed along anywhere else is still computed.
+2. *Lazy arguments in general* (call-by-need for arguments whose parameter type is a
+   proposition). The machine doesn't know the parameter's type at an application of a variable
+   (`%rec y p`), so it doesn't cover the case.
+3. *Theorems stay folded* (chosen). The kernel already has folded definitions (`Def::fold`, for
+   dictionaries and `decreasing` definitions): applied to all their arguments they stay a
+   neutral call until something takes them apart. A `theorem` (whose type the kernel checks is a
+   proposition, `E-NOT-A-PROP`) now does the same. `Nat.divTenLess n big` evaluates to the call
+   itself, `Nat.leTrans … p h` likewise, and `%go` never looks at them.
+
+**Why it's sound (an evaluation change, not a rule change).** The rules say what's equal; this
+changes only when a theorem's body is computed. A folded call stands for its unfolding, and every
+consumer that could tell them apart unfolds it first:
+
+- a `case` on it (a proof of a proposition with one constructor, `E-PROP-ELIM`): the machine's
+  `Frame::Scrutinee` unfolds a folded scrutinee before choosing a branch;
+- `J` on it: `Frame::JForced` does the same before looking for `refl`;
+- conversion (kernel `conv`, elaborator `unify`): the same theorem applied to convertible
+  arguments is convertible (evaluation is deterministic, so equal arguments give equal
+  unfoldings: a sound shortcut), and otherwise both sides are compared unfolded (so nothing equal
+  before is unequal now). This is the existing rule for dictionaries (`docs/core.md`);
+- natives never take a proof (they take numbers, text and characters), and erasure (run, test)
+  turns folding off as before.
+
+A stuck unfolding (open arguments) leaves the call as it was, exactly where the unfolded body
+would have been stuck. The evaluator stays stack-safe: a case or `J` unfolds a folded call
+*inside* the machine (`Frame::Unfolding` pushes the consumer frame and runs the theorem's case
+tree; a result that is another folded call is unfolded again, the same call stuck is handed to
+the consumer as it is), so a proof made of 300,000 folded steps (`J` on `deepEq 300000`, a
+recursive `Eq.cong` proof) checked in 16 M steps with no Rust recursion. Only the elaborator's
+`ReplayJ` (a metavariable's solution) uses the nested `unfold_folded`. The reference evaluator
+(`reference.rs`) mirrors all of it (folds theorems, unfolds before `J`, and its `conv` now
+handles folded calls as the machine's does).
+
+**Costs.** A folded proof that's taken apart twice is computed twice (no sharing), where the
+strict machine computed it once even if nothing looked. Elaborated terms change shape: a solved
+implicit argument that was a theorem's computed proof is now the theorem call, so terms got
+smaller (`Std.Mod.addAssoc` 65,264 → 28,209 nodes, 1.10 M → 0.49 M steps) and 63 hashes in 10
+`hash_stability` snapshots moved, besides the two new theorems (no hash stability goal).
+
+**Results** (release, `STITCHWORT_TIMINGS=decls`, `check --no-cache`):
+
+| | before | after |
+|---|---|---|
+| `Nat.digits 12 = [1, 2]` by `rfl` | 217,697 steps | 861 steps |
+| `Nat.digits 1205 = [1, 2, 0, 5]` by `rfl` | 1,068,034,823 steps (9.9 s kernel) | 1,977 steps (< 0.1 ms) |
+| `Nat.digits 9876543210` (10 digits) by `rfl` | doesn't finish | 5,325 steps |
+| `Nat.fromDigits (Nat.digits 9876543210) = 9876543210` | doesn't finish | 3,251 steps |
+| `examples/accept/decreasing.sw` (wall) | 20,291 ms (`digitsByRfl` 1.12 × 10^9 steps) | 137 ms |
+| `decreasing-folded.sw`, `Main` steps | 31,203 | 28,055 |
+| `decreasing-lambda.sw`, `Main` steps | 113,138 | 111,374 |
+| AoC `check --no-cache`, kernel total | 421 ms (stage 3a) | 359 ms |
+
+`std/Nat/Digits.sw` has its `rfl` theorems back: `Nat.digitsExample` (`Nat.digits 1205`) and
+`Nat.digitsRoundTrip` (`Nat.fromDigits (Nat.digits 9876543210)`), in place of the two tests.
+Stage 1 item 11's remark about the reference evaluator taking 24 s on `digits 1234` should no
+longer hold, so `decreasing.sw` may be able to rejoin the differential test (not tried here).
+
 ## Sources
 
 - [L1] Lean language reference, Recursive definitions (well-founded recursion, `termination_by`,

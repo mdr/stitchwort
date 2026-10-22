@@ -3,7 +3,7 @@ source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
 data Main.Entry 1a16d6f86b2b5994d90a701a5af3bd94af0798e98b1052869a871c6750c3758d
-Main.dial 9b6ad9091122dfd48c5a40b57649afcbf84b64d33dd9a66edf688d42c6fa5497
+Main.dial 8562a706b629e571d2214a8251a13377839a7779f63fd4049a82a3bebe6cd289
 Main.divide 95a8ef753803a14c3eafc14150e20c89c9e3988b2f9379e33439a4295a099667
 Main.describe 1a0ce14196383f9c37b6901e5f50e24a29f7ccf4d401983da19eff3fce047b7e
 Main.negatives 9e6c4c5b22fed24e02dde077dc051188f4237ca6db2864b176f14b5dac08e6ce
