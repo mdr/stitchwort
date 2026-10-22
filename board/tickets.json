@@ -1,5 +1,5 @@
 {
-  "next": 256,
+  "next": 257,
   "tickets": [
     {
       "id": 1,
@@ -3796,7 +3796,7 @@
       "labels": [
         "perf"
       ],
-      "body": "From docs/proposals/proof-check-speed.md (SW-163): 81% of Day 2/4 proof term nodes are in implicit arguments filled with fully unfolded terms; keeping calls folded could take an estimated 40-60% off. Touches the kernel evaluator/conversion: design note first (design review gate).",
+      "body": "From docs/proposals/proof-check-speed.md (SW-163): 81% of Day 2/4 proof term nodes are in implicit arguments filled with fully unfolded terms; keeping calls folded could take an estimated 40-60% off. Touches the kernel evaluator/conversion: design note first (design review gate).\n\n22 Oct 2026: note docs/proposals/folded-calls.md merged. calc fix (pass written lines as Eq.trans's hidden args; prototype scratchpad/calc-proto.diff: -11.4% instructions, Day 2 proofs -44% nodes) started as a build detail. D482-D484 asked.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
@@ -3856,6 +3856,20 @@
         "bug"
       ],
       "body": "Reproduced on main (22 Oct): in aoc/, with a fresh --cache-dir C: `stitchwort check --cache-dir C` then `stitchwort run --cache-dir C Aoc.Day07.main < inputs/day07.txt` gives [E-DUPLICATE] main is already defined (Day07.sw:29). run alone (cold or warm) works; test-then-run works. Reported by two lanes for days 3,4,6,7. aoc_answers.rs uses --no-cache so tests miss it. From SW-245 (project namespaces in the cache).",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 256,
+      "title": "calc passes the written lines as Eq.trans's hidden arguments (folded-calls.md step 1)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
