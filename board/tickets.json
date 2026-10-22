@@ -463,8 +463,8 @@
     },
     {
       "id": 31,
-      "title": "Language server for .sw (live errors, hover types, go to definition)",
-      "status": "doing",
+      "title": "Language server for .sw (umbrella; stage 0 done; stage 1 is SW-282 server + SW-283 client)",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3055,8 +3055,8 @@
     },
     {
       "id": 199,
-      "title": "Well-founded recursion: decreasing (stages 1-2 done; stage 3a calls-under-lambdas design in review, SW-284)",
-      "status": "review",
+      "title": "Well-founded recursion: decreasing (umbrella; stages 1-2 done; stage 3a design SW-284 awaits review)",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
