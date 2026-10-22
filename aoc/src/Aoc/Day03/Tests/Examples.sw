@@ -23,6 +23,9 @@ def bestOf (k: Nat) (digits: Text): List Nat := (Bank.best k (Bank.parse digits)
 
 test "zeros" := bestOf 2 "0050" == [5, 0]
 test "leftmost wins" := bestOf 1 "3991" == [9]
+-- The tie between the 7s decides it: the first 7 leaves 573 to choose from, so
+-- 77; taking the last 7 would give 73.
+test "leftmost largest wins" := bestOf 2 "27573" == [7, 7]
 test "keep everything" := bestOf 3 "456" == [4, 5, 6]
 test "too short" := bestOf 5 "12" == [1, 2]
 test "pick none" := bestOf 0 "123" == []
