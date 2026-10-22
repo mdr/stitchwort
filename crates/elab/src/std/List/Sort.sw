@@ -1118,3 +1118,24 @@ theorem List.sortByCong (cmp1: a -> a -> Ordering) (cmp2: a -> a -> Ordering) (x
     _ = List.sortBy cmp2 xs := rewrite List.mapId xs
 
 test "List.sortByMap" := List.map (p => p.fst) (List.sortBy (p q => Nat.compare p.fst q.fst) [MkPair 3 "c", MkPair 1 "a"]) == List.sortBy Nat.compare [3, 1]
+
+-- Sorts by a key, ascending by the key's `Ord`, stable: elements with equal
+-- keys keep their order. `xs |> .sortOn key`. The key's instance is resolved
+-- once, at the call, not on each comparison.
+def List.sortOn (key: a -> k) [auto ord: Ord k] (xs: List a): List a := List.sortBy (x y => Ord.compare (key x) (key y)) xs
+
+theorem List.sortOnEq (key: a -> k) [auto ord: Ord k] (xs: List a):
+    List.sortOn key xs = List.sortBy (x y => Ord.compare (key x) (key y)) xs := rfl
+
+theorem List.sortOnPerm (key: a -> k) [auto ord: Ord k] (xs: List a): List.Perm (List.sortOn key xs) xs :=
+  List.sortByPerm (x y => Ord.compare (key x) (key y)) xs
+
+-- The keys of the sorted list are the sorted keys.
+theorem List.sortOnMap (key: a -> k) [auto ord: Ord k] (xs: List a):
+    List.map key (List.sortOn key xs) = List.sort (List.map key xs) :=
+  List.sortByMap key Ord.compare (x y => Ord.compare (key x) (key y)) (x y => rfl) xs
+
+test "List.sortOn" := List.sortOn (p => p.fst) [MkPair 3 "c", MkPair 1 "a", MkPair 3 "b", MkPair 2 "d"] == [MkPair 1 "a", MkPair 2 "d", MkPair 3 "c", MkPair 3 "b"]
+test "List.sortOn by a tuple key" := List.sortOn (p => (p.snd, p.fst)) [MkPair 2 1, MkPair 1 2, MkPair 1 1] == [MkPair 1 1, MkPair 2 1, MkPair 1 2]
+test "List.sortOn pipes" := ([3, 1, 2] |> .sortOn (n => 10 - n)) == [3, 2, 1]
+test "List.sortOnMap" := List.map (p => p.fst) (List.sortOn (p => p.fst) [MkPair 3 "c", MkPair 1 "a"]) == List.sort [3, 1]
