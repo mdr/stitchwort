@@ -148,6 +148,11 @@ builtins! {
     Leq = "Nat.leq": Def,
     LessEq = "Nat.LessEq": Def,
     LessThan = "Nat.LessThan": Def,
+    // The standard decisions of `<=` and `<`: in a `Bool` they read as the
+    // comparison itself (`Nat.leq`, `Int.leq`, `Int.less`), not as `toBool`
+    // of them
+    DecLessEqNat = "Nat.decLessEq": Def,
+    DecLessThanNat = "Nat.decLessThan": Def,
     EqNat = "Nat.equal": Def,
     EqNatRefl = "Nat.equalRefl": Def,
     EqNatSound = "Nat.equalSound": Def,
@@ -166,6 +171,8 @@ builtins! {
     IntMod = "Int.mod": Def,
     IntLessThan = "Int.LessThan": Def,
     IntLessEq = "Int.LessEq": Def,
+    DecLessEqInt = "Int.decLessEq": Def,
+    DecLessThanInt = "Int.decLessThan": Def,
     // Definitions with native JS (crates/js)
     IntTDiv = "Int.tdiv": Def,
     IntTMod = "Int.tmod": Def,

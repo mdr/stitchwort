@@ -131,7 +131,7 @@ theorem ifFloorFloor: (b: Bool) -> (x: Cell) -> x = Roll -> (if b then Floor els
 
 -- An accessible roll has fewer than 4 neighbours.
 theorem accessibleFew (grid: Grid) (s: Cells) (r: Nat) (c: Nat) (h: accessible grid s r c = True): neighbours grid s r c < 4 :=
-  Decidable.toBoolSound (Nat.decLessThan (neighbours grid s r c) 4) (Bool.andRight (s r c == Roll) (neighbours grid s r c < 4) h)
+  Bool.andRight (s r c == Roll) (neighbours grid s r c < 4) h
 
 -- A round is a step.
 theorem removeStep (grid: Grid) (s: Cells): Step grid s (removeAccessible grid s) :=
@@ -215,8 +215,7 @@ theorem rollIsRoll (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h in r
 
 theorem notAccessible (grid: Grid) (s: Cells) (r: Nat) (c: Nat) (h: accessible grid s r c = False) (hs: s r c = Roll): 4 <= neighbours grid s r c :=
   let few: Nat.leq (Succ (neighbours grid s r c)) 4 = False :=
-    Eq.trans (Eq.sym (Bool.decTrueToBool (Nat.leq (Succ (neighbours grid s r c)) 4)))
-      (andTrueLeft (s r c == Roll) (neighbours grid s r c < 4) (rollIsRoll (s r c) hs) h)
+    andTrueLeft (s r c == Roll) (neighbours grid s r c < 4) (rollIsRoll (s r c) hs) h
   omega
 
 -- No accessible roll: stable.
@@ -226,7 +225,7 @@ theorem noneStable (grid: Grid) (s: Cells) (ins: Inside grid s) (h: accCount gri
 theorem stableNotAccessible (grid: Grid) (s: Cells) (stable: Stable grid s) (r: Nat) (c: Nat): accessible grid s r c = False :=
   match e: s r c with
     | Floor => rfl
-    | Roll  => Eq.trans (Bool.decTrueToBool (Nat.leq (Succ (neighbours grid s r c)) 4)) (omega [stable r c e])
+    | Roll  => omega [stable r c e]
 
 -- Once stable, rounds change nothing.
 theorem roundsFixed (grid: Grid): (n: Nat) -> (s: Cells) -> Stable grid s -> Same (rounds grid n s) s

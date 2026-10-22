@@ -164,6 +164,13 @@ impl Decision {
         let to_bool = Term::Def(builtin_def(cx, Builtin::ToBool)?);
         let bool_ty = Term::data(builtin_data(cx, Builtin::Bool)?, Vec::new());
         let of = |prop: Term, d: Term| {
+            // The standard decision of `m <= n` is `Bool.decTrue (Nat.leq m n)`,
+            // and its `Bool` is `Nat.leq m n` itself: written that way, it
+            // prints and computes as the comparison, not as `toBool (decTrue …)`
+            // (SW-206 item 4).
+            if let Some(direct) = comparison(cx, &d) {
+                return direct;
+            }
             Term::app(Term::app_icit(to_bool.clone(), prop, Icit::Implicit), d)
         };
         Ok(match self {
@@ -174,6 +181,41 @@ impl Decision {
             }
         })
     }
+}
+
+/// The comparison a standard decision stands for, as the `Bool` it decides:
+/// `Nat.decLessEq m n` is `Nat.leq m n`, `Nat.decLessThan m n` is
+/// `Nat.leq (Succ m) n`, and the `Int` ones are `Int.leq m n` and
+/// `Int.less m n`.
+fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
+    let (head, args) = d.spine();
+    let Term::Def(id) = head else {
+        return None;
+    };
+    let reg = &cx.g().registry;
+    let [m, n] = args[..] else {
+        return None;
+    };
+    let (m, n) = (m.clone(), n.clone());
+    let is = |b| reg.def(b) == Some(*id);
+    let (leq, succ) = if is(Builtin::DecLessEqNat) {
+        (Builtin::Leq, false)
+    } else if is(Builtin::DecLessThanNat) {
+        (Builtin::Leq, true)
+    } else if is(Builtin::DecLessEqInt) {
+        (Builtin::IntLeq, false)
+    } else if is(Builtin::DecLessThanInt) {
+        (Builtin::IntLess, false)
+    } else {
+        return None;
+    };
+    let m = if succ {
+        let (nat, c) = reg.ctor(Builtin::Succ)?;
+        Term::Ctor(nat, c, vec![Rc::new(m)])
+    } else {
+        m
+    };
+    Some(Term::app(Term::app(Term::Def(reg.def(leq)?), m), n))
 }
 
 /// A decision procedure for `prop` (a term in the current scope). The

@@ -125,11 +125,10 @@ theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from <= r.from) (h
     Range.contains { from = a.from, to = Nat.max a.to r.to } id = (a.contains id || r.contains id) :=
   match t: Nat.leq a.from id, i: Nat.leq id a.to with
     | True, True =>
-      Eq.trans (Bool.decTrueToBool (Nat.leq id (Nat.max a.to r.to))) (omega [Nat.leMaxLeft a.to r.to])
+      omega [Nat.leMaxLeft a.to r.to]
     | True, False =>
-      Eq.trans (Bool.decTrueToBool (Nat.leq id (Nat.max a.to r.to)))
-        (Eq.trans (Nat.leqMaxAbove id a.to r.to i)
-          (Eq.sym (Nat.betweenFrom r.from r.to id omega)))
+      Eq.trans (Nat.leqMaxAbove id a.to r.to i)
+        (Eq.sym (Nat.betweenFrom r.from r.to id omega))
     | False, _ => Eq.sym (Nat.betweenBelow r.from r.to id omega)
 
 theorem absorbCovers (r: Range) (id: Nat): (merged: List Range) -> LoAtMost r.from merged ->

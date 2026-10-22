@@ -902,8 +902,8 @@ theorem List.isRunSepStart (sep: Nat -> Bool) (lo: Nat) (hi: Nat) (h: sep lo = T
 theorem List.isRunEnd (sep: Nat -> Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True) (hi: Nat) (h: Nat.isRun sep lo hi = True):
     hi = Nat.firstFrom sep (Succ (n - lo)) lo :=
   let rest := Bool.andRight (lo == 0 || sep (lo - 1)) (lo < hi && (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo) && sep hi)) h
-  let long: Succ lo <= hi := rewrite <- Bool.decTrueToBool (Nat.leq (Succ lo) hi) in
-                               Bool.andLeft (lo < hi) (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo) && sep hi) rest
+  let long: Succ lo <= hi :=
+    Bool.andLeft (lo < hi) (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo) && sep hi) rest
   let inner := Bool.andRight (lo < hi) (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo) && sep hi) rest
   let none := Bool.andLeft (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo)) (sep hi) inner
   let stop := Bool.andRight (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo)) (sep hi) inner
@@ -928,7 +928,7 @@ theorem List.isRunRun (sep: Nat -> Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: 
   let atLeast: lo <= v := Nat.firstFromAtLeast sep (Succ (n - lo)) lo
   let long: Succ lo <= v := Nat.leNeSucc lo v atLeast (e => Bool.falseNotTrue (Eq.trans (Eq.sym h1) (rewrite e in found)))
   Bool.andIntro (lo == 0 || sep (lo - 1)) (lo < v && (List.all (c => !(sep c)) (List.rangeFrom (v - lo) lo) && sep v)) h2
-    (Bool.andIntro (lo < v) (List.all (c => !(sep c)) (List.rangeFrom (v - lo) lo) && sep v) (rewrite Bool.decTrueToBool (Nat.leq (Succ lo) v) in long)
+    (Bool.andIntro (lo < v) (List.all (c => !(sep c)) (List.rangeFrom (v - lo) lo) && sep v) long
       (Bool.andIntro (List.all (c => !(sep c)) (List.rangeFrom (v - lo) lo)) (sep v)
         (List.allRangeIntro (c => !(sep c)) (v - lo) lo (k k1 k2 =>
           rewrite Nat.firstFromBefore sep (Succ (n - lo)) lo k k1 (rewrite <- Nat.addSubCancel lo v atLeast in k2)))

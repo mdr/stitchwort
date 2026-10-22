@@ -249,8 +249,25 @@ fn lifted(
             columns.push(Column::Var(Some(level), x.clone()));
             continue;
         }
+        let snapshot = crate::undo::Snapshot::take(cx);
         let (term, ty) = infer(cx, &s.expr)?;
         let (term, ty) = insert(cx, term, ty)?;
+        // A proposition with a decision procedure (`match h: a <= b with`) is
+        // matched as the `Bool` it decides, as `if` reads it (SW-206 item 5).
+        let (term, ty) = if matches!(
+            stitchwort_core::value::force(g, ty.clone())?,
+            Value::Sort(stitchwort_core::Sort::Prop)
+        ) {
+            snapshot.restore(cx);
+            let term = crate::logic::bool_operand(cx, &s.expr, "match")?;
+            let bool_ty = Value::Data(
+                crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?,
+                Vec::new(),
+            );
+            (term, bool_ty)
+        } else {
+            (term, ty)
+        };
         let normal = quote(g, base, &cx.eval(&term)?)?;
         let ty_term = cx.quote(&ty)?;
         // A `let`'s variable, matched by name: in the alternatives, the

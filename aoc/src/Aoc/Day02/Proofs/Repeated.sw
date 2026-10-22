@@ -389,7 +389,6 @@ theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
     require (k * n <= size)
     { blockLength = k, copies = n }
   let withCopies: Nat -> {Each} RepetitionTemplate := k => fitting k (each (List.between 2 size))
-  -- (`<=` in a program is `Nat.leq` under `Decidable.toBool`.)
   let cell: Nat -> Nat -> c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
   calc List.sumBy f (allTemplatesForRange r)
     _ = List.sumBy f (List.flatMap (List.between 1 size) (k => Each.collect (u => withCopies k)))
@@ -407,6 +406,6 @@ theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
                    := List.sumByCong (n => List.sumBy f (Each.collect (u => fitting k n))) (cell k) (List.between 2 size)
                         (n => Eq.trans (Eq.cong (List.sumBy f) (Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size)))
                           (Eq.trans (keptSum f { blockLength = k, copies = n } (k * n <= size))
-                            (Eq.cong (b => if b then f { blockLength = k, copies = n } else Add.zero) (Bool.decTrueToBool (Nat.leq (k * n) size))))))
+                            rfl)))
     _ = List.sumBy (k => List.sumBy (cell k) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
         := rewrite betweenOne size, betweenTwo size
