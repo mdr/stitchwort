@@ -920,9 +920,14 @@ expression, so it is off unless the server turns it on
 (`Elaborator::enable_expression_types`); it has its own check-cache tag
 (`+nav+ty`) and entry section (`FORMAT` 5), so a namespace loaded from
 the cache has its expression types too. `FileAnswers::exprs` keeps them
-for the program's files only (library files have none). A call's span ends
-at its last argument, so the end moves over the `)` that closes a `(`
-inside it.
+for the program's files only (library files have none). The parser drops
+parentheses, so a span can start after a `(` (`(a).f x`) or end before a
+`)` (`f (x + 1)`). When the index is built, the file is lexed and each
+expression is recorded twice if needed: with the parentheses that are inside
+it put back, and with a pair around the whole of it too, so that a selection
+with or without its parentheses finds the expression. The server trims
+whitespace off both ends of a selection (against the text it holds for each
+open document) before looking it up.
 
 - **Hover with a range.** `textDocument/hover` may carry `range` beside the
   position (rust-analyzer's convention; the server advertises
@@ -938,7 +943,9 @@ inside it.
   position (`hoverRangeParams` in `client.js`, unit tested); otherwise it
   calls `next`. Not run in a real VS Code.
 - Tests: `hover_over_a_selection_gives_the_type_of_the_expression` and
-  `selection_ranges_walk_outward_through_the_expressions` (`tests/lsp.rs`),
+  `selection_ranges_walk_outward_through_the_expressions` and
+  `hover_over_a_selection_covers_parentheses_and_trims_whitespace`
+  (`tests/lsp.rs`),
   `expression_types_come_back_from_the_cache` (`check_cache.rs`), and the
   `hover range` test of `editors/vscode/test/client.test.js`.
 

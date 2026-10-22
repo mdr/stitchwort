@@ -125,6 +125,7 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         nav,
         cancel,
         to_checker,
+        texts: Default::default(),
     };
     let result = main.run();
     drop(main);
@@ -210,6 +211,8 @@ struct Main<'a> {
     nav: Arc<RwLock<Nav>>,
     cancel: Arc<AtomicBool>,
     to_checker: Sender<Edit>,
+    /// The text of each open document, to trim a selection against.
+    texts: std::cell::RefCell<HashMap<Url, String>>,
 }
 
 impl Main<'_> {
@@ -255,6 +258,9 @@ impl Main<'_> {
                 };
                 // A library file (`stitchwort-std:`) is read-only: nothing
                 // to check.
+                self.texts
+                    .borrow_mut()
+                    .insert(p.text_document.uri.clone(), p.text_document.text.clone());
                 if let Some(path) = path(&p.text_document.uri) {
                     self.edit(Edit::Open {
                         path,
@@ -270,6 +276,11 @@ impl Main<'_> {
                     return;
                 };
                 // Full text sync: the last change is the whole text.
+                if let Some(change) = p.content_changes.last() {
+                    self.texts
+                        .borrow_mut()
+                        .insert(p.text_document.uri.clone(), change.text.clone());
+                }
                 if let (Some(path), Some(change)) = (
                     path(&p.text_document.uri),
                     p.content_changes.into_iter().last(),
@@ -287,6 +298,7 @@ impl Main<'_> {
                 else {
                     return;
                 };
+                self.texts.borrow_mut().remove(&p.text_document.uri);
                 if let Some(path) = path(&p.text_document.uri) {
                     self.edit(Edit::Close { path });
                 }
@@ -337,6 +349,11 @@ impl Main<'_> {
                     .get("range")
                     .and_then(|r| serde_json::from_value::<lsp_types::Range>(r.clone()).ok())
                     .filter(|r| r.start != r.end);
+                let selection =
+                    selection.map(|r| match self.texts.borrow().get(&at.text_document.uri) {
+                        Some(text) => trimmed(text, r),
+                        None => r,
+                    });
                 if let Some(selection) = selection
                     && let Some(found) = selection_hover(&nav, &at.text_document.uri, selection)
                 {
@@ -448,6 +465,35 @@ fn lookup<'n>(
     let (root, ws, place) = locate(nav, uri)?;
     let r = ws.files.get(&place)?.ref_at(at.line, at.character)?;
     Some((root, ws, r))
+}
+
+/// `selection` without the whitespace at its ends (a selection often takes
+/// in the space or the line break beside an expression). Unchanged if it is
+/// all whitespace.
+fn trimmed(text: &str, selection: lsp_types::Range) -> lsp_types::Range {
+    let mut first = None;
+    let mut last = None;
+    let (mut line, mut col) = (0u32, 0u32);
+    for c in text.chars() {
+        let here = Position::new(line, col);
+        if here >= selection.end {
+            break;
+        }
+        let after = Position::new(line, col + c.len_utf16() as u32);
+        if here >= selection.start && !c.is_whitespace() {
+            first.get_or_insert(here);
+            last = Some(after);
+        }
+        if c == '\n' {
+            (line, col) = (line + 1, 0);
+        } else {
+            col = after.character;
+        }
+    }
+    match (first, last) {
+        (Some(start), Some(end)) => lsp_types::Range::new(start, end),
+        _ => selection,
+    }
 }
 
 /// The type of the smallest expression containing `selection`, for hover
