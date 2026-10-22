@@ -4317,8 +4317,8 @@
     },
     {
       "id": 284,
-      "title": "decreasing stage 3 design addendum: calls under lambdas via List.attach (D516)",
-      "status": "review",
+      "title": "decreasing stage 3a design addendum: revising per external review (approves D517-D519; generator contract, attach typing, stage order)",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
