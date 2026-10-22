@@ -103,14 +103,18 @@ def sweepRow (above: Vec Cell w) (aboveChanged: Bool) (row: Vec Cell w) (moved: 
     (swept, not (swept.toList == row.toList))
   else (row, False)
 
--- Sweep until a pass changes nothing. Every pass that changes something
--- removes a roll, so as many passes as there are rolls are enough.
+-- Sweep until a pass removes no roll. A pass that changes something removes
+-- one (`fewerRolls`, Proofs/Part2.sw), and the rolls left measure the
+-- recursion: the guard tests the decrease itself.
 def Grid.settle (grid: Grid): Grid :=
-  { grid | rows = Vec.map Pair.fst (settleMarked (grid.rows.map (row => (row, True))) grid.rolls) }
+  { grid | rows = Vec.map Pair.fst (settleMarked (grid.rows.map (row => (row, True)))) }
 
-def settleMarked (grid: Marked w h): Nat -> Marked w h
-  | Zero   => grid
-  | Succ n =>
-    let next := sweep grid
-    if next.any .snd then settleMarked next n else next
+-- The rolls in a marked grid.
+def Marked.rolls (grid: Marked w h): Nat := (grid.map Pair.fst).sumBy (row => row.sumBy .count)
+
+def settleMarked (grid: Marked w h): Marked w h
+  decreasing Marked.rolls grid
+:=
+  let next := sweep grid
+  if fewer: Marked.rolls next < Marked.rolls grid then settleMarked next else next
 
