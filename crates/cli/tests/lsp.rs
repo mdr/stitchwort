@@ -859,3 +859,29 @@ fn a_call_with_a_postponed_lambda_navigates_to_the_function() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `Eq.sym` and `Eq.trans` have results that do not depend on their explicit
+/// arguments, so they are elaborated by propagation (SW-301).
+const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.sym (Eq.trans p q)\n";
+
+#[test]
+fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
+    let dir = temp_dir("eq-lemmas");
+    let file = dir.join("eq.sw");
+    std::fs::write(&file, EQ_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, EQ_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let line = EQ_PROGRAM.lines().nth(1).unwrap();
+    for name in ["Eq.sym", "Eq.trans"] {
+        let ch = line.find(name).unwrap() as u32 + 4;
+        let definition = client.at("textDocument/definition", &uri, 1, ch);
+        assert!(!definition.is_null(), "no definition for {name}");
+        let hover = client.at("textDocument/hover", &uri, 1, ch);
+        let text = hover["contents"]["value"].as_str().unwrap();
+        assert!(text.contains(&format!("Std.{name}")), "{text}");
+    }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
