@@ -312,6 +312,29 @@ eat into the smaller namespaces' gains.
    ten lines, measured at 11% fewer instructions for the AoC project, 44%
    fewer nodes for Day 2's proofs, the same verdict on 410 example files.
    Not a design change, so no decision is needed for it.
+
+   *As built (SW-256).* `calc.rs` `with_ends` gives `Eq.trans` (the `=`, `=`
+   step) and `Eq.sym` (the `=`, then `<=`/`<` step) the chain's type and the
+   written ends as hidden arguments; the `<=`/`<` lemmas take their numbers
+   explicitly already, so they needed nothing. On current `main`
+   (`aoc/`, `check --no-cache`, release):
+
+   | | before | after | change |
+   |---|---:|---:|---:|
+   | nodes, whole project | 829,962 | 649,587 | −22% |
+   | `Aoc.Day02.Proofs` nodes | 334,324 | 199,033 | −40% |
+   | `Aoc.Day04.Proofs` nodes | 244,238 | 211,425 | −13% |
+   | `twiceTerms` nodes | 50,906 | 23,371 | −54% |
+   | `twiceTerms` elab + kernel | 54 ms | 38 ms | −29% |
+   | elab + kernel, whole project | 1,228 ms | 1,117 ms | −9% |
+   | instructions retired (3 runs) | 16.25–16.27 G | 14.81–14.83 G | −8.9% |
+   | peak memory | 95–97 MB | 83–87 MB | −10% |
+
+   (The node counts are lower than in §5 because the library and the proofs
+   have moved on since.) `check` gives the same exit code on all 410 files in
+   `examples/accept/` and `examples/reject/`; `stitchwort test --no-cache` in
+   `aoc/` passes 112 of 112. Only the hashes of elaborated terms that use
+   `calc` moved (`hash_stability` snapshots `calc`, `operators`, `prelude`).
 2. **Next: glued values (b)**, in stages (§7), with gluing off in the kernel
    (D483) and with `rewrite` and other searches still seeing the unfolded
    goal (D484), so no proof needs to change.

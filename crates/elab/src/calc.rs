@@ -365,13 +365,13 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
     let mut args: Vec<Piped> = Vec::new();
     let (rel, term) = match (acc.rel, step.rel) {
         (Rel::Eq, Rel::Eq) => {
-            push(&mut args, acc.proof.clone(), &acc.prop);
-            push(&mut args, step.proof.clone(), &step.prop);
-            (Rel::Eq, lemma(cx, Builtin::EqTrans, &args)?)
+            let trans = with_ends(cx, Builtin::EqTrans, ty_term, &[&a, &b, &c])?;
+            let trans = Term::app(Term::app(trans, acc.proof.clone()), step.proof.clone());
+            (Rel::Eq, trans)
         }
         (Rel::Eq, r) => {
-            push(&mut args, acc.proof.clone(), &acc.prop);
-            let sym = lemma(cx, Builtin::EqSym, &args)?;
+            let sym = with_ends(cx, Builtin::EqSym, ty_term, &[&a, &b])?;
+            let sym = Term::app(sym, acc.proof.clone());
             let c = c.shift(cx.g(), 2, 0)?;
             let motive = motive(ordering_of(cx, r, Term::Var(1), c)?);
             (
@@ -433,6 +433,18 @@ fn motive(body: Term) -> Term {
         Icit::Explicit,
         Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
     )
+}
+
+/// The prelude lemma `which` with its hidden arguments given directly: the
+/// chain's type, then `ends`, the terms the person wrote. Leaving them to
+/// the unifier would read them back from the proofs' types, which have been
+/// evaluated and so are far larger than what was written (SW-256).
+fn with_ends(cx: &Ctx, which: Builtin, ty: &Rc<Term>, ends: &[&Term]) -> Result<Term> {
+    let mut term = Term::Def(builtin_def(cx, which)?);
+    for hidden in std::iter::once(ty.as_ref()).chain(ends.iter().copied()) {
+        term = Term::app_icit(term, hidden.clone(), Icit::Implicit);
+    }
+    Ok(term)
 }
 
 /// The prelude lemma `which` applied to `args`, with its implicit arguments
