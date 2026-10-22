@@ -47,6 +47,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
         "Decidable/Decidable.sw",
         include_str!("std/Decidable/Decidable.sw"),
     ),
+    ("Each/Each.sw", include_str!("std/Each/Each.sw")),
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
     ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
