@@ -1,5 +1,5 @@
 {
-  "next": 299,
+  "next": 300,
   "tickets": [
     {
       "id": 1,
@@ -4532,9 +4532,9 @@
     {
       "id": 296,
       "title": "Each ability: flatMap/filter chains as effects (each, require, Each.collect) + Day 2 trial (D528)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree lane",
+      "status": "review",
+      "agent": "Matt",
+      "where": "branch worktree-agent-ad58ba5692c2a1c65: std e5f029fe, Day 2 trial bf45d77c",
       "labels": [
         "abilities",
         "aoc"
@@ -4573,6 +4573,20 @@
         "playground"
       ],
       "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 299,
+      "title": "JS backend: parameterless top-level def whose body is a handler with an if fails (ReferenceError before initialization)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "body": "Found by SW-296. Reproduces with Abort alone: run --js gives ReferenceError: Cannot access '$Main$dhalves$d$gmatch1' before initialization. Writing def halves(): … works.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
