@@ -5072,7 +5072,7 @@
     {
       "id": 324,
       "title": "AoC stitchwort test --no-cache now takes 5m25s (was seconds): find the regression from today's merges",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5083,7 +5083,10 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "58165e92",
+        "1b9a27f2"
+      ]
     },
     {
       "id": 325,
