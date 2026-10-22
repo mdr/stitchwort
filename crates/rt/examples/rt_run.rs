@@ -16,14 +16,16 @@ use std::time::Instant;
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 
+const STACK: usize = 1 << 30;
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    with_stack(1 << 30, move || run(&args))
+    with_stack(STACK, move || run(&args))
 }
 
 fn run(args: &[String]) -> ExitCode {
     let start = Instant::now();
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     let main = match args {
         [file] => {
             let path = Path::new(file);

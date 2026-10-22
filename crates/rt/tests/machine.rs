@@ -124,7 +124,7 @@ fn sw_files(dir: &Path) -> Vec<PathBuf> {
 fn load_file(path: &Path) -> (Session, String) {
     let text = std::fs::read_to_string(path).expect("read example");
     let name = path.file_name().unwrap().to_string_lossy().to_string();
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     session.include_in_folder(
         Rc::new(DiskFiles {
             root: path.parent().unwrap().to_path_buf(),
@@ -182,7 +182,7 @@ fn library_tests_agree() {
 
 fn aoc() -> Session {
     let dir = root().join("aoc");
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     session
         .load_project(&DiskFiles { root: dir }, "aoc", &Target::Everything)
         .unwrap_or_else(|e| panic!("aoc doesn't check: {e:?}"));
@@ -239,7 +239,7 @@ fn aoc_agrees() {
 /// A small program's `main`, run both ways with `input`.
 fn both_ways(source: &str, input: &[u8]) -> Run {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         session
             .load("test.sw", source)
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
@@ -256,7 +256,7 @@ fn both_ways(source: &str, input: &[u8]) -> Run {
 /// evaluator takes too long over).
 fn on_the_machine(source: &str, limits: Limits) -> Run {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         session
             .load("test.sw", source)
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
