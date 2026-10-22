@@ -38,13 +38,13 @@ def Below (b: Nat) (rs: List Range): Prop := (id: Nat) -> covered rs id = True -
 -- Every id the ranges hold is at most the largest end.
 theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max m r.to) z
   | z, Nil       => omega
-  | z, Cons r rs => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
+  | z, Cons r rs => omega [topGe (Nat.max z r.to) rs]
 
 theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (m r => Nat.max m r.to) z
   | z, Nil,       id, h => Void.exfalso (Bool.falseNotTrue h)
   | z, Cons r rs, id, h =>
     match e: r.contains id with
-      | True  => omega [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
+      | True  => omega [topGe (Nat.max z r.to) rs]
       | False => coveredTop (Nat.max z r.to) rs id h
 
 -- Ranges, latest first, each starting after every id the ones after it hold.
@@ -70,7 +70,7 @@ theorem stackedCount (n: Nat): (ms: List Range) -> Stacked ms -> Below n ms ->
           := List.occurrencesOr (id => m.contains id) (id => covered rest id)
                (id h =>
                  match t: covered rest id with
-                   | True  => Void.exfalso (omega [bm id t, containsLo m id h])
+                   | True  => omega [bm id t, containsLo m id h]
                    | False => rfl)
                (List.range n)
       _ = m.size + List.occurrences (id => covered rest id) (List.range n) := rewrite headCount m rest n b
@@ -125,7 +125,7 @@ theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from <= r.from) (h
     Range.contains { from = a.from, to = Nat.max a.to r.to } id = (a.contains id || r.contains id) :=
   match t: Nat.leq a.from id, i: Nat.leq id a.to with
     | True, True =>
-      omega [Nat.leMaxLeft a.to r.to]
+      omega
     | True, False =>
       Eq.trans (Nat.leqMaxAbove id a.to r.to i)
         (Eq.sym (Nat.betweenFrom r.from r.to id omega))

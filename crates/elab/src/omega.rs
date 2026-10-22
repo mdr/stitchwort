@@ -33,7 +33,14 @@
 //! computes to exactly the source: a number is `NLit`, `k + x` (what `Succ`
 //! makes) is `NSucc` or `NAdd (NLit k)`, a stuck `a + b` is `NAdd`, `x * k`
 //! is `MulRight`, and `k * x`, which has computed to `x + (x + … + 0)`, is
-//! `MulLeft k x` (up to [`MUL_LEFT_LIMIT`]). Anything else is an atom: two
+//! `MulLeft k x` (up to [`MUL_LEFT_LIMIT`]). `a - b`, `Nat.max a b` and
+//! `Nat.min a b` (stage 2) are atoms with an operation fact saying what
+//! they are (`FSub`/`FMax`/`FMin`, proved by `rfl` since the environment
+//! holds the atom's own term), whose rows always hold and whose two cases
+//! the certificate may split on (`Cases`); `Not (a = b)` facts have cases
+//! too (`FNe`). `x * y` and `y * x` are two atoms with the fact
+//! `Nat.mulComm x y` between them. A goal that isn't arithmetic is proved by
+//! refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
 //! metavariable inside an atom is part of the atom; one in the goal's
@@ -58,7 +65,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Global;
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, infer, insert};
-use crate::omega_search::{self as search, Cert, Failure, Problem, Rat, Row, Source, Step};
+use crate::omega_search::{self as search, Case, Cert, Failure, Problem, Rat, Row, Source, Step};
 
 /// The largest `k` in `k * x` that is quoted: `k * x` unfolds `k` times
 /// whenever its type is compared, so larger ones are refused
@@ -81,6 +88,9 @@ const LIBRARY: &[&str] = &[
     "Std.Decidable.toBoolFalse",
     "Std.Decidable.toBoolOf",
     "Std.Decidable.toBoolOfNot",
+    "Std.Nat.max",
+    "Std.Nat.min",
+    "Std.Nat.mulComm",
 ];
 
 pub(crate) static LIBRARY_NAMES: LazyLock<Vec<ast::Name>> = LazyLock::new(|| {
@@ -156,6 +166,10 @@ struct Lib {
     fle: (DataId, usize),
     feq: (DataId, usize),
     fnotle: (DataId, usize),
+    fsub: (DataId, usize),
+    fmax: (DataId, usize),
+    fmin: (DataId, usize),
+    fne: (DataId, usize),
     gle: (DataId, usize),
     gvoid: (DataId, usize),
     mk_row: (DataId, usize),
@@ -167,8 +181,18 @@ struct Lib {
     close: (DataId, usize),
     then: (DataId, usize),
     split: (DataId, usize),
+    cases: (DataId, usize),
+    max: DefId,
+    min: DefId,
+    mul_comm: DefId,
     // The core's.
     leq: DefId,
+    sub: DefId,
+    nat_equal: DefId,
+    equal_sound: DefId,
+    equal_false: DefId,
+    exfalso: DefId,
+    absurd: DefId,
     add: DefId,
     mul: DefId,
     ite: DefId,
@@ -232,6 +256,10 @@ impl Lib {
             fle: ctor("Std.Omega.Fact.FLe")?,
             feq: ctor("Std.Omega.Fact.FEq")?,
             fnotle: ctor("Std.Omega.Fact.FNotLe")?,
+            fsub: ctor("Std.Omega.Fact.FSub")?,
+            fmax: ctor("Std.Omega.Fact.FMax")?,
+            fmin: ctor("Std.Omega.Fact.FMin")?,
+            fne: ctor("Std.Omega.Fact.FNe")?,
             gle: ctor("Std.Omega.Goal.GLe")?,
             gvoid: ctor("Std.Omega.Goal.GVoid")?,
             mk_row: ctor("Std.Omega.Row.MkRow")?,
@@ -243,7 +271,17 @@ impl Lib {
             close: ctor("Std.Omega.Cert.Close")?,
             then: ctor("Std.Omega.Cert.Then")?,
             split: ctor("Std.Omega.Cert.Split")?,
+            cases: ctor("Std.Omega.Cert.Cases")?,
+            max: def("Std.Nat.max")?,
+            min: def("Std.Nat.min")?,
+            mul_comm: def("Std.Nat.mulComm")?,
             leq: builtin_def(cx, Builtin::Leq)?,
+            sub: builtin_def(cx, Builtin::Sub)?,
+            nat_equal: builtin_def(cx, Builtin::EqNat)?,
+            equal_sound: builtin_def(cx, Builtin::EqNatSound)?,
+            equal_false: builtin_def(cx, Builtin::NatNeq)?,
+            exfalso: builtin_def(cx, Builtin::VoidExfalso)?,
+            absurd: builtin_def(cx, Builtin::VoidAbsurd)?,
             add: builtin_def(cx, Builtin::Add)?,
             mul: builtin_def(cx, Builtin::Mul)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
@@ -488,7 +526,35 @@ fn prove_goal(
     if let Some(p) = negated(cx, lib, &goal)? {
         return refute_hypothesis(cx, lib, &p, extra, span);
     }
-    Err(unsupported_goal(cx, &goal, span))
+    // A goal that isn't arithmetic, from facts that contradict each other.
+    let unsupported = unsupported_goal(cx, &goal, span);
+    let Some(prop) = is_prop(cx, &goal)? else {
+        return Err(unsupported);
+    };
+    let void = Value::Data(lib.void, Vec::new());
+    let Ok(proof) = linear(cx, lib, Goal::Void, &void, extra, span) else {
+        return Err(unsupported.with_note(
+            "for any other goal, `omega` looks for facts that contradict each other, and found none",
+        ));
+    };
+    let which = if prop { lib.exfalso } else { lib.absurd };
+    let args = [both(cx, &goal)?, (proof, void)];
+    Ok(lemma(cx, which, &args)?.0)
+}
+
+/// Whether `goal`, a type, is a proposition (`Some(true)`) or a type of data
+/// in `Type` (`Some(false)`), when that's easy to see.
+fn is_prop(cx: &Ctx, goal: &Value) -> Result<Option<bool>> {
+    use stitchwort_core::Sort;
+    Ok(match force(cx.g(), goal.clone())? {
+        Value::Eq(..) => Some(true),
+        Value::Data(d, _) => match cx.g().data(d).sort {
+            Sort::Prop => Some(true),
+            Sort::Type(0) => Some(false),
+            Sort::Type(_) => None,
+        },
+        _ => None,
+    })
 }
 
 /// `Not p`, as `h => …` proving `Void` with `h: p` in scope.
@@ -519,17 +585,29 @@ fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
     Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{}`", cx.show(goal)))
         .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat`")
         .with_note(
-            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, numbers and multiplication by a number, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them",
+            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, `-`, numbers, multiplication by a number, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them",
         )
 }
 
 /// A fact the search may use: `a <= b`, `a = b` or `Not (a <= b)`, with a
-/// proof of exactly `prop`.
+/// proof of exactly `prop`; or what an operation atom is (`Op`, from
+/// quoting, proved by `rfl`).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
     Le,
     Eq,
     NotLe,
+    /// `Not (a = b)`: no rows, two cases (`a < b`, `b < a`).
+    Ne,
+    Op(OpKind),
+}
+
+/// An operation atom `t`: `a - b`, `Nat.max a b` or `Nat.min a b`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum OpKind {
+    Sub,
+    Max,
+    Min,
 }
 
 #[derive(Clone)]
@@ -585,6 +663,17 @@ impl Reader<'_> {
                 } else {
                     return Ok(());
                 };
+                let l_forced = force(cx.g(), (**l).clone())?;
+                if let Some([x, y]) = call_args(&l_forced, lib.nat_equal).as_deref() {
+                    let which = if truth {
+                        lib.equal_sound
+                    } else {
+                        lib.equal_false
+                    };
+                    let args = [both(cx, x)?, both(cx, y)?, (proof.clone(), prop.clone())];
+                    let (p, ty) = lemma(cx, which, &args)?;
+                    return self.read(cx, p, &ty, origin, depth + 1);
+                }
                 match (truth, bool_form(cx, lib, l)?) {
                     (true, Some(BoolForm::Leq(x, y))) => self.facts.push(fact(Kind::Le, &x, &y)),
                     (false, Some(BoolForm::Leq(x, y))) => {
@@ -643,10 +732,8 @@ impl Reader<'_> {
                             _ => {}
                         }
                     }
-                    Value::Eq(ty, _, _) if is_data(cx, ty, lib.nat)? => {
-                        self.skipped.push(format!(
-                            "`{origin}`: `a != b` facts need case splits (stage 2 of docs/proposals/omega.md)"
-                        ));
+                    Value::Eq(ty, a, b) if is_data(cx, ty, lib.nat)? => {
+                        self.facts.push(fact(Kind::Ne, a, b));
                     }
                     _ => {}
                 }
@@ -750,6 +837,38 @@ fn le_row(a: &NTerm, b: &NTerm, n: usize) -> Option<Row> {
     add(&b.lin(n)?, &a.lin(n)?, -1)
 }
 
+/// A fact form as `Std.Omega.Fact` has it, for the cases of a fact.
+enum Form<'t> {
+    Le(&'t NTerm, &'t NTerm),
+    Lt(&'t NTerm, &'t NTerm),
+    Eq(&'t NTerm, &'t NTerm),
+}
+
+/// The rows of `forms` (`Std.Omega.Facts.rows`).
+fn form_rows(forms: &[Form], n: usize) -> Option<Vec<Row>> {
+    let mut rows = Vec::new();
+    for f in forms {
+        match f {
+            Form::Le(a, b) => rows.push(le_row(a, b, n)?),
+            Form::Lt(a, b) => rows.push(le_row(&NTerm::Succ(Box::new((*a).clone())), b, n)?),
+            Form::Eq(a, b) => {
+                rows.push(le_row(a, b, n)?);
+                rows.push(le_row(b, a, n)?);
+            }
+        }
+    }
+    Some(rows)
+}
+
+/// An operation atom found while quoting: atom `t` is `a op b`.
+#[derive(Clone)]
+struct Op {
+    kind: OpKind,
+    t: usize,
+    a: NTerm,
+    b: NTerm,
+}
+
 /// An atom: a `Nat` subterm `omega` doesn't look inside.
 struct Atom {
     value: Value,
@@ -761,6 +880,10 @@ struct Atom {
 #[derive(Default)]
 struct Quoter {
     atoms: Vec<Atom>,
+    /// What the operation atoms are, each atom at most once.
+    ops: Vec<Op>,
+    /// The atoms that are products of two unknowns, with their factors.
+    products: Vec<(usize, Value, Value)>,
 }
 
 /// Quoting stopped at an unsolved metavariable.
@@ -833,13 +956,67 @@ impl Quoter {
                 };
                 return Ok(Ok(NTerm::MulRight(Box::new(a), k)));
             }
-            return Ok(Ok(NTerm::V(self.atom(
-                cx,
-                base,
-                Some("a product of two unknowns isn't linear"),
-            )?)));
+            let (a, b) = (a.clone(), b.clone());
+            let before = self.atoms.len();
+            let i = self.atom(cx, base, Some("a product of two unknowns isn't linear"))?;
+            if i == before {
+                self.products.push((i, a, b));
+            }
+            return Ok(Ok(NTerm::V(i)));
+        }
+        if let Some((kind, a, b)) = self.operation(cx, lib, &base)? {
+            let t = self.atom(cx, base, None)?;
+            if !self.ops.iter().any(|o| o.t == t)
+                && let (Ok(a), Ok(b)) = (
+                    self.quote(cx, lib, &a, span)?,
+                    self.quote(cx, lib, &b, span)?,
+                )
+            {
+                self.ops.push(Op { kind, t, a, b });
+            }
+            return Ok(Ok(NTerm::V(t)));
         }
         Ok(Ok(NTerm::V(self.atom(cx, base, None)?)))
+    }
+
+    /// `a - b`, `Nat.max a b` or `Nat.min a b`, including `max` and `min`
+    /// after they've computed to `if Nat.leq a b then … else …`.
+    fn operation(
+        &self,
+        cx: &Ctx,
+        lib: &Lib,
+        value: &Value,
+    ) -> Result<Option<(OpKind, Value, Value)>> {
+        if let Some([a, b]) = call_args(value, lib.sub).as_deref() {
+            return Ok(Some((OpKind::Sub, a.clone(), b.clone())));
+        }
+        if let Some([a, b]) = call_args(value, lib.max).as_deref() {
+            return Ok(Some((OpKind::Max, a.clone(), b.clone())));
+        }
+        if let Some([a, b]) = call_args(value, lib.min).as_deref() {
+            return Ok(Some((OpKind::Min, a.clone(), b.clone())));
+        }
+        let ite = call_args(value, lib.ite);
+        let Some([_, c, then, otherwise]) = ite.as_deref() else {
+            return Ok(None);
+        };
+        let c = force(cx.g(), c.clone())?;
+        let leq = call_args(&c, lib.leq);
+        let Some([a, b]) = leq.as_deref() else {
+            return Ok(None);
+        };
+        let trivial = cx.eval(&Term::ctor(lib.unit, 0, Vec::new()))?;
+        let then = cx.quote(&apply(cx.g(), then.clone(), trivial.clone())?)?;
+        let otherwise = cx.quote(&apply(cx.g(), otherwise.clone(), trivial)?)?;
+        let (ta, tb) = (cx.quote(a)?, cx.quote(b)?);
+        let same = crate::matching::same;
+        Ok(if same(&then, &tb) && same(&otherwise, &ta) {
+            Some((OpKind::Max, a.clone(), b.clone()))
+        } else if same(&then, &ta) && same(&otherwise, &tb) {
+            Some((OpKind::Min, a.clone(), b.clone()))
+        } else {
+            None
+        })
     }
 
     /// `k * t` as it computes: `t + (t + … + (t + 0))` with `k >= 2` copies.
@@ -903,36 +1080,103 @@ impl Quoter {
     }
 }
 
-/// A fact with its sides quoted.
+/// A fact with its sides quoted (and, for an operation, its atom `t`).
 struct Quoted {
     fact: Fact,
+    t: Option<NTerm>,
     a: NTerm,
     b: NTerm,
 }
 
 impl Quoted {
+    fn t(&self) -> &NTerm {
+        self.t.as_ref().expect("an operation fact has its atom")
+    }
+
     /// Its rows, as `Std.Omega.Fact.rows` makes them.
     fn rows(&self, n: usize) -> Option<Vec<Row>> {
+        let (a, b) = (&self.a, &self.b);
         Some(match self.fact.kind {
-            Kind::Le => vec![le_row(&self.a, &self.b, n)?],
-            Kind::Eq => vec![le_row(&self.a, &self.b, n)?, le_row(&self.b, &self.a, n)?],
-            Kind::NotLe => vec![le_row(&NTerm::Succ(Box::new(self.b.clone())), &self.a, n)?],
+            Kind::Le => vec![le_row(a, b, n)?],
+            Kind::Eq => vec![le_row(a, b, n)?, le_row(b, a, n)?],
+            Kind::NotLe => vec![le_row(&NTerm::Succ(Box::new(b.clone())), a, n)?],
+            Kind::Ne => Vec::new(),
+            Kind::Op(OpKind::Sub) => {
+                let tb = NTerm::Add(Box::new(self.t().clone()), Box::new(b.clone()));
+                vec![le_row(self.t(), a, n)?, le_row(a, &tb, n)?]
+            }
+            Kind::Op(OpKind::Max) => vec![le_row(a, self.t(), n)?, le_row(b, self.t(), n)?],
+            Kind::Op(OpKind::Min) => vec![le_row(self.t(), a, n)?, le_row(self.t(), b, n)?],
         })
     }
 
+    /// How many rows it has.
+    fn row_count(&self) -> usize {
+        match self.fact.kind {
+            Kind::Ne => 0,
+            Kind::Le | Kind::NotLe => 1,
+            Kind::Eq | Kind::Op(_) => 2,
+        }
+    }
+
+    /// Its two cases' rows (`Std.Omega.Fact.left`/`right`), if it has cases.
+    fn cases(&self, n: usize) -> Option<Option<(Vec<Row>, Vec<Row>)>> {
+        let (a, b) = (&self.a, &self.b);
+        let (left, right) = match self.fact.kind {
+            Kind::Le | Kind::Eq | Kind::NotLe => return Some(None),
+            Kind::Ne => (
+                form_rows(&[Form::Lt(a, b)], n)?,
+                form_rows(&[Form::Lt(b, a)], n)?,
+            ),
+            Kind::Op(OpKind::Sub) => {
+                let t = self.t();
+                let tb = NTerm::Add(Box::new(t.clone()), Box::new(b.clone()));
+                let zero = NTerm::Lit(BigUint::default());
+                (
+                    form_rows(&[Form::Le(b, a), Form::Eq(&tb, a)], n)?,
+                    form_rows(&[Form::Lt(a, b), Form::Eq(t, &zero)], n)?,
+                )
+            }
+            Kind::Op(OpKind::Max) => (
+                form_rows(&[Form::Le(a, b), Form::Eq(self.t(), b)], n)?,
+                form_rows(&[Form::Lt(b, a), Form::Eq(self.t(), a)], n)?,
+            ),
+            Kind::Op(OpKind::Min) => (
+                form_rows(&[Form::Le(a, b), Form::Eq(self.t(), a)], n)?,
+                form_rows(&[Form::Lt(b, a), Form::Eq(self.t(), b)], n)?,
+            ),
+        };
+        Some(Some((left, right)))
+    }
+
+    fn atoms(&self, out: &mut BTreeSet<usize>) {
+        if let Some(t) = &self.t {
+            t.atoms(out);
+        }
+        self.a.atoms(out);
+        self.b.atoms(out);
+    }
+
     fn term(&self, lib: &Lib, map: &[Option<usize>]) -> Term {
+        let (a, b) = (
+            self.a.renumber(map).term(lib),
+            self.b.renumber(map).term(lib),
+        );
         let which = match self.fact.kind {
             Kind::Le => lib.fle,
             Kind::Eq => lib.feq,
             Kind::NotLe => lib.fnotle,
+            Kind::Ne => lib.fne,
+            Kind::Op(op) => {
+                let which = match op {
+                    OpKind::Sub => lib.fsub,
+                    OpKind::Max => lib.fmax,
+                    OpKind::Min => lib.fmin,
+                };
+                return lib.ctor(which, vec![self.t().renumber(map).term(lib), a, b]);
+            }
         };
-        lib.ctor(
-            which,
-            vec![
-                self.a.renumber(map).term(lib),
-                self.b.renumber(map).term(lib),
-            ],
-        )
+        lib.ctor(which, vec![a, b])
     }
 }
 
@@ -995,7 +1239,62 @@ fn linear(
         let Ok(b) = quoter.quote(cx, lib, &fact.b, span)? else {
             continue;
         };
-        quoted.push(Quoted { fact, a, b });
+        quoted.push(Quoted {
+            fact,
+            t: None,
+            a,
+            b,
+        });
+    }
+    // What each operation atom is, proved by `rfl`: the environment holds
+    // the atom's own term.
+    for op in quoter.ops.clone() {
+        let atom = &quoter.atoms[op.t];
+        let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
+        let prop = Value::Eq(
+            nat,
+            Rc::new(atom.value.clone()),
+            Rc::new(atom.value.clone()),
+        );
+        let fact = Fact {
+            kind: Kind::Op(op.kind),
+            a: atom.value.clone(),
+            b: atom.value.clone(),
+            proof: Term::Refl,
+            prop,
+            origin: format!("what `{}` is", atom_name(cx, &quoter, op.t)),
+        };
+        quoted.push(Quoted {
+            fact,
+            t: Some(NTerm::V(op.t)),
+            a: op.a,
+            b: op.b,
+        });
+    }
+    // `x * y` and `y * x` are two atoms, related by `Nat.mulComm x y`.
+    for (k, (i, x, y)) in quoter.products.iter().enumerate() {
+        let (tx, ty) = (cx.quote(x)?, cx.quote(y)?);
+        for (j, x2, y2) in &quoter.products[k + 1..] {
+            let same = crate::matching::same;
+            if !(same(&tx, &cx.quote(y2)?) && same(&ty, &cx.quote(x2)?)) {
+                continue;
+            }
+            let (proof, prop) = lemma(cx, lib.mul_comm, &[both(cx, x)?, both(cx, y)?])?;
+            let fact = Fact {
+                kind: Kind::Eq,
+                a: quoter.atoms[*i].value.clone(),
+                b: quoter.atoms[*j].value.clone(),
+                proof,
+                prop,
+                origin: format!("`Nat.mulComm {} {}`", cx.show(x), cx.show(y)),
+            };
+            quoted.push(Quoted {
+                fact,
+                t: None,
+                a: NTerm::V(*i),
+                b: NTerm::V(*j),
+            });
+        }
     }
     let n = quoter.atoms.len();
     let too_large = || {
@@ -1011,6 +1310,16 @@ fn linear(
         for (offset, row) in q.rows(n).ok_or_else(too_large)?.into_iter().enumerate() {
             rows.push((Source::Input(rows.len()), row));
             fact_of_row.push((f, offset));
+        }
+    }
+    let mut cases: Vec<Case> = Vec::new();
+    for (f, q) in quoted.iter().enumerate() {
+        if let Some((left, right)) = q.cases(n).ok_or_else(too_large)? {
+            cases.push(Case {
+                fact: f,
+                left,
+                right,
+            });
         }
     }
     let shown = show_goal(cx, &quoter, &goal, sides.as_ref(), expected);
@@ -1034,6 +1343,7 @@ fn linear(
         let problem = Problem {
             n,
             rows: problem_rows,
+            cases: cases.clone(),
         };
         match search::refute(&problem, search::LIMITS) {
             Ok(cert) => {
@@ -1078,6 +1388,24 @@ fn linear(
     )
 }
 
+/// Atom `i` as a message shows it: an operation by its name (`Nat.max a b`
+/// rather than the `if` it computes to), anything else as the compiler
+/// prints it.
+fn atom_name(cx: &Ctx, quoter: &Quoter, i: usize) -> String {
+    let Some(op) = quoter.ops.iter().find(|o| o.t == i) else {
+        return cx.show(&quoter.atoms[i].value);
+    };
+    let arg = |t: &NTerm| {
+        let s = render(cx, quoter, t);
+        if s.contains(' ') { format!("({s})") } else { s }
+    };
+    match op.kind {
+        OpKind::Sub => format!("{} - {}", arg(&op.a), arg(&op.b)),
+        OpKind::Max => format!("Nat.max {} {}", arg(&op.a), arg(&op.b)),
+        OpKind::Min => format!("Nat.min {} {}", arg(&op.a), arg(&op.b)),
+    }
+}
+
 /// A quoted term as a message shows it: `k * x`, `x + 1`, atoms as the
 /// compiler prints them.
 fn render(cx: &Ctx, quoter: &Quoter, t: &NTerm) -> String {
@@ -1090,7 +1418,7 @@ fn render(cx: &Ctx, quoter: &Quoter, t: &NTerm) -> String {
         }
     };
     match t {
-        NTerm::V(i) => cx.show(&quoter.atoms[*i].value),
+        NTerm::V(i) => atom_name(cx, quoter, *i),
         NTerm::Lit(k) => k.to_string(),
         NTerm::Add(a, b) => {
             let right = if matches!(**b, NTerm::Add(..) | NTerm::Succ(_)) {
@@ -1147,6 +1475,12 @@ fn show_fact(cx: &Ctx, quoter: &Quoter, q: &Quoted) -> String {
             render(cx, quoter, &q.b)
         ),
         Kind::NotLe => format!("not ({})", render_le(cx, quoter, &q.a, &q.b)),
+        Kind::Ne => format!(
+            "{} != {}",
+            render(cx, quoter, &q.a),
+            render(cx, quoter, &q.b)
+        ),
+        Kind::Op(_) => format!("{} = {}", render(cx, quoter, q.t()), cx.show(&q.fact.a)),
     }
 }
 
@@ -1163,7 +1497,7 @@ fn failed(
     failure: &Failure,
     span: Span,
 ) -> Diagnostic {
-    let atom_name = |i: usize| cx.show(&quoter.atoms[i].value);
+    let atom_name = |i: usize| atom_name(cx, quoter, i);
     let model = |values: &[Rat]| -> String {
         values
             .iter()
@@ -1183,6 +1517,7 @@ fn failed(
         .with_label(span, label);
     let facts: Vec<String> = quoted
         .iter()
+        .filter(|q| !matches!(q.fact.kind, Kind::Op(_)))
         .map(|q| format!("`{}` ({})", show_fact(cx, quoter, q), q.fact.origin))
         .collect();
     d = d.with_note(if facts.is_empty() {
@@ -1226,10 +1561,21 @@ fn failed(
     d
 }
 
-/// The input rows (flattened fact rows) a certificate uses.
-fn used_inputs(cert: &Cert, out: &mut BTreeSet<usize>, atoms: &mut BTreeSet<usize>) {
+/// The input rows (flattened fact rows) a certificate uses, the facts whose
+/// cases it splits on, and the atoms its steps name.
+fn used_inputs(
+    cert: &Cert,
+    out: &mut BTreeSet<usize>,
+    split_facts: &mut BTreeSet<usize>,
+    atoms: &mut BTreeSet<usize>,
+) {
     match cert {
         Cert::Close(_) => {}
+        Cert::Cases(f, left, right) => {
+            split_facts.insert(*f);
+            used_inputs(left, out, split_facts, atoms);
+            used_inputs(right, out, split_facts, atoms);
+        }
         Cert::Then(step, rest) => {
             match step {
                 Step::Input(i) => {
@@ -1240,7 +1586,7 @@ fn used_inputs(cert: &Cert, out: &mut BTreeSet<usize>, atoms: &mut BTreeSet<usiz
                 }
                 _ => {}
             }
-            used_inputs(rest, out, atoms);
+            used_inputs(rest, out, split_facts, atoms);
         }
         Cert::Split(l, left, right) => {
             atoms.extend(
@@ -1249,8 +1595,8 @@ fn used_inputs(cert: &Cert, out: &mut BTreeSet<usize>, atoms: &mut BTreeSet<usiz
                     .filter(|(_, x)| **x != 0)
                     .map(|(j, _)| j),
             );
-            used_inputs(left, out, atoms);
-            used_inputs(right, out, atoms);
+            used_inputs(left, out, split_facts, atoms);
+            used_inputs(right, out, split_facts, atoms);
         }
     }
 }
@@ -1260,11 +1606,21 @@ fn cert_term(
     lib: &Lib,
     cert: &Cert,
     inputs: &[Option<usize>],
+    facts: &[Option<usize>],
     atoms: &[Option<usize>],
     n: usize,
 ) -> Term {
+    let sub = |c: &Cert| cert_term(lib, c, inputs, facts, atoms, n);
     match cert {
         Cert::Close(r) => lib.ctor(lib.close, vec![nat_term(*r as u64)]),
+        Cert::Cases(f, left, right) => lib.ctor(
+            lib.cases,
+            vec![
+                nat_term(facts[*f].expect("a used fact") as u64),
+                sub(left),
+                sub(right),
+            ],
+        ),
         Cert::Then(step, rest) => {
             let step = match step {
                 Step::Input(i) => lib.ctor(
@@ -1293,7 +1649,7 @@ fn cert_term(
                     vec![nat_term(*r as u64), nat_term(d.unsigned_abs())],
                 ),
             };
-            lib.ctor(lib.then, vec![step, cert_term(lib, rest, inputs, atoms, n)])
+            lib.ctor(lib.then, vec![step, sub(rest)])
         }
         Cert::Split(l, left, right) => {
             let mut coeffs = vec![0i128; n];
@@ -1313,14 +1669,7 @@ fn cert_term(
                     lib.list(Vec::new()),
                 ],
             );
-            lib.ctor(
-                lib.split,
-                vec![
-                    row,
-                    cert_term(lib, left, inputs, atoms, n),
-                    cert_term(lib, right, inputs, atoms, n),
-                ],
-            )
+            lib.ctor(lib.split, vec![row, sub(left), sub(right)])
         }
     }
 }
@@ -1341,18 +1690,19 @@ fn emit(
     span: Span,
 ) -> Result<Term> {
     let mut inputs: BTreeSet<usize> = BTreeSet::new();
+    let mut split_facts: BTreeSet<usize> = BTreeSet::new();
     let mut atoms: BTreeSet<usize> = BTreeSet::new();
     for cert in certs {
-        used_inputs(cert, &mut inputs, &mut atoms);
+        used_inputs(cert, &mut inputs, &mut split_facts, &mut atoms);
     }
-    let used_facts: BTreeSet<usize> = inputs.iter().map(|&i| fact_of_row[i].0).collect();
+    let mut used_facts: BTreeSet<usize> = inputs.iter().map(|&i| fact_of_row[i].0).collect();
+    used_facts.extend(split_facts);
     if let Some((a, b)) = &sides {
         a.atoms(&mut atoms);
         b.atoms(&mut atoms);
     }
     for &f in &used_facts {
-        quoted[f].a.atoms(&mut atoms);
-        quoted[f].b.atoms(&mut atoms);
+        quoted[f].atoms(&mut atoms);
     }
     let mut atom_map: Vec<Option<usize>> = vec![None; quoter.atoms.len()];
     for (new, &old) in atoms.iter().enumerate() {
@@ -1360,14 +1710,12 @@ fn emit(
     }
     // Each kept fact's first row number, in the kept facts' order.
     let mut first_row: Vec<Option<usize>> = vec![None; quoted.len()];
+    let mut fact_map: Vec<Option<usize>> = vec![None; quoted.len()];
     let mut next = 0;
-    for &f in &used_facts {
+    for (k, &f) in used_facts.iter().enumerate() {
         first_row[f] = Some(next);
-        next += if quoted[f].fact.kind == Kind::Eq {
-            2
-        } else {
-            1
-        };
+        fact_map[f] = Some(k);
+        next += quoted[f].row_count();
     }
     let input_map: Vec<Option<usize>> = fact_of_row
         .iter()
@@ -1397,7 +1745,7 @@ fn emit(
     }
     let cert_terms: Vec<Term> = certs
         .iter()
-        .map(|c| cert_term(lib, c, &input_map, &atom_map, n))
+        .map(|c| cert_term(lib, c, &input_map, &fact_map, &atom_map, n))
         .collect();
     let goal_le = |a: &NTerm, b: &NTerm| {
         lib.ctor(

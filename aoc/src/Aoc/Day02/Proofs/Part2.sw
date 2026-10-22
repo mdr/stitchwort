@@ -63,7 +63,7 @@ theorem repBlockLength (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) 
       let same: List.length (List.concat (List.replicate (Succ (Succ m)) (Nat.digits x))) = List.length (Nat.digits x) :=
         Eq.trans (Eq.cong (l => List.length (List.concat (List.replicate (Succ (Succ m)) l))) (Eq.sym (List.takeAll k (Nat.digits x) omega)))
           (Eq.cong List.length (repAppend x k (Succ (Succ m)) hq))
-      Void.exfalso (omega [Nat.digitsNonEmpty x])
+      omega [Nat.digitsNonEmpty x]
 
 -- n copies of a k-digit block: n * k digits.
 theorem repCount (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True): Succ (Succ m) * k = List.length (Nat.digits x) :=
@@ -155,14 +155,14 @@ theorem blockCountRep (x: Nat) (m: Nat): (k: Nat) -> 1 <= k ->
             (Eq.trans (Decidable.toBoolSound (Nat.decEq (writeTimes (Succ j) b (Succ (Succ m))) x) hb) (Eq.sym (repValue x (Succ j) m hq))))
           (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (repAbove x (Succ j) m rfl hq)
-          (omega [repBelow x (Succ j) m hq, Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j))])
+          (omega [repBelow x (Succ j) m hq, Nat.powTenPredLe (Succ j)])
       | False =>
         List.sumRangeNone (b => writeTimes (Succ j) b (Succ (Succ m)) == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq (writeTimes (Succ j) b (Succ (Succ m))) x)
             (e => Bool.trueNotFalse (Eq.trans
               (Eq.sym (rewrite e at
                 repDigits j b h1
-                  (omega [Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j))])
+                  (omega [Nat.powTenPredLe (Succ j)])
                   (Succ m)))
               hq)))
 
@@ -223,7 +223,7 @@ theorem belowOf (x: Nat) (k: Nat): (n: Nat) -> 2 <= n -> writtenAs (Nat.digits x
   | Succ (Succ m), h, hq => repBelow x k m hq
 
 theorem blockAtMost (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True): k <= List.length (Nat.digits x) :=
-  omega [Nat.leMulPos k n omega, Nat.mulComm k n, countOf x k n hn hq]
+  omega [Nat.leMulPos k n omega, countOf x k n hn hq]
 
 
 -- The digits of x are some block written n times.
@@ -273,7 +273,7 @@ theorem weightBelow (j: Nat): copiesWeight (Succ (Succ j)) = 1 - divisorWeights 
   let plain: Nat -> Int := d => if Nat.divides d (Succ (Succ j)) then copiesWeight d else 0
   calc copiesWeight (Succ (Succ j))
     _ = 1 - List.sumBy guarded (List.rangeFrom (j + 1 - 1) 2) := copiesWeight.unfold (Succ (Succ j))
-    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := Eq.cong (t => 1 - List.sumBy guarded (List.rangeFrom t 2)) (Nat.addSub j 1)
+    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := Eq.cong (t => 1 - List.sumBy guarded (List.rangeFrom t 2)) (omega: j + 1 - 1 = j)
     _ = 1 - List.sumBy plain (List.rangeFrom j 2)
         := Eq.cong (Int.sub 1)
              (List.sumRangeCongr guarded plain j 2
@@ -307,7 +307,7 @@ theorem divisorWeightsAll (w: Nat -> Int): (m: Nat) -> 1 <= m -> (c: Nat) -> m <
   | Succ k, hm, c, hc =>
     let f: Nat -> Int := d => if Nat.divides d (Succ k) then w d else 0
     calc List.sumBy f (List.rangeFrom c 2)
-      _ = List.sumBy f (List.rangeFrom (k + (c - k)) 2) := Eq.cong (t => List.sumBy f (List.rangeFrom t 2)) (Eq.sym (Nat.addSubCancel k c hc))
+      _ = List.sumBy f (List.rangeFrom (k + (c - k)) 2) := Eq.cong (t => List.sumBy f (List.rangeFrom t 2)) (omega: c = k + (c - k))
       _ = List.sumBy f (List.append (List.rangeFrom k 2) (List.rangeFrom (c - k) (2 + k))) := Eq.cong (List.sumBy f) (List.rangeFromAppend k (c - k) 2)
       _ = List.sumBy f (List.rangeFrom k 2) + List.sumBy f (List.rangeFrom (c - k) (2 + k)) := List.sumByAppend f (List.rangeFrom k 2) (List.rangeFrom (c - k) (2 + k))
       _ = List.sumBy f (List.rangeFrom k 2) + 0
@@ -348,7 +348,7 @@ theorem periodSub (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (q: Nat) (h
       _ = g (((i + (p - q)) % len + q) % len) := Eq.sym (hq ((i + (p - q)) % len) (Nat.modLess (i + (p - q)) len hl))
       _ = g ((i + (p - q) + q) % len)         := Eq.cong g (Nat.modAddMod (i + (p - q)) q len)
       _ = g ((i + p) % len)
-          := Eq.cong (y => g (y % len)) (Eq.trans (Nat.addAssoc i (p - q) q) (Eq.cong (t => i + t) (Eq.trans (Nat.addComm (p - q) q) (Nat.addSubCancel q p hle))))
+          := Eq.cong (y => g (y % len)) (omega: i + (p - q) + q = i + p)
       _ = g i                                 := hp i hi
 
 theorem periodMul (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (hp: Period g len hl p): (t: Nat) -> Period g len hl (t * p)
@@ -377,9 +377,7 @@ theorem periodDvd (g: Nat -> Nat) (len: Nat) (hl: len != 0) (j: Nat) (hp0: Perio
   let t := p / Succ j
   let rest: Period g len hl (p - t * Succ j) :=
     periodSub g len hl p (t * Succ j) hp (periodMul g len hl (Succ j) hp0 t) (Nat.divMulLe p (Succ j) (Nat.succNotZero j))
-  let e: p - t * Succ j = p % Succ j :=
-    Eq.trans (Eq.cong (y => y - t * Succ j) (Eq.trans (Nat.divModEq p (Succ j) (Nat.succNotZero j)) (Nat.addComm (t * Succ j) (p % Succ j))))
-      (Nat.addSub (p % Succ j) (t * Succ j))
+  let e: p - t * Succ j = p % Succ j := omega [Nat.divModEq p (Succ j) (Nat.succNotZero j)]
   periodBelow g len hl j hmin (p % Succ j) (rewrite e at rest) (Nat.modLess p (Succ j) (Nat.succNotZero j))
 
 
@@ -397,7 +395,7 @@ theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <
         := Eq.cong (l => List.getOr 0 j l) (Eq.sym (Decidable.toBoolSound (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take k ds))) ds) hw))
     _ = List.getOr 0 (j % k) (List.take k ds)
         := List.getOrConcatReplicate 0 (List.take k ds) k (List.lengthTake k ds (omega [Nat.leMulPos k n hn])) n j
-             (omega [Nat.mulComm k n])
+             omega
     _ = List.getOr 0 (j % k) ds := List.getOrTake 0 k (j % k) ds (Nat.modLess j k hk)
 
 theorem writtenPeriod (ds: List Nat) (hl: ds.length != 0) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = ds.length)
@@ -405,7 +403,7 @@ theorem writtenPeriod (ds: List Nat) (hl: ds.length != 0) (k: Nat) (n: Nat) [aut
   i hi =>
     calc digitAt ds ((i + k) % ds.length)
       _ = digitAt ds ((i + k) % ds.length % k) := writtenBlock ds k n hn e hw ((i + k) % ds.length) (Nat.modLess (i + k) ds.length hl)
-      _ = digitAt ds ((i + k) % k)                  := Eq.cong (digitAt ds) (Nat.modModOfMul (i + k) ds.length k n (Eq.trans (Eq.sym e) (Nat.mulComm k n)))
+      _ = digitAt ds ((i + k) % k)                  := Eq.cong (digitAt ds) (Nat.modModOfMul (i + k) ds.length k n omega)
       _ = digitAt ds (i % k)                        := Eq.cong (digitAt ds) (Eq.trans (Eq.cong (y => y % k) (Nat.addComm i k)) (Nat.addModSelf k i))
       _ = digitAt ds i                              := Eq.sym (writtenBlock ds k n hn e hw i hi)
 
@@ -417,7 +415,7 @@ theorem periodBlock (ds: List Nat) (hl: ds.length != 0) (k: Nat) [auto hk: k != 
     _ = digitAt ds ((i % k + (i / k) * k) % ds.length)
         := Eq.cong (y => digitAt ds (y % ds.length)) (Eq.trans (Nat.divModEq i k hk) (Nat.addComm ((i / k) * k) (i % k)))
     _ = digitAt ds (i % k)
-        := periodMul (digitAt ds) ds.length hl k hp (i / k) (i % k) (Nat.leTrans (Succ (i % k)) (Succ i) ds.length (Nat.subLe i ((i / k) * k)) hi)
+        := periodMul (digitAt ds) ds.length hl k hp (i / k) (i % k) omega
 
 theorem periodWritten (ds: List Nat) (hl: ds.length != 0) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <= n) (e: k * n = ds.length)
     (hp: Period (digitAt ds) ds.length hl k): writtenAs ds k n = True :=
@@ -425,13 +423,13 @@ theorem periodWritten (ds: List Nat) (hl: ds.length != 0) (k: Nat) (n: Nat) [aut
   let len: List.length (List.concat (List.replicate n (List.take k ds))) = n * k :=
     Eq.trans (List.lengthConcatReplicate (List.take k ds) n) (Eq.cong (t => n * t) ht)
   Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take k ds))) ds)
-    (List.extGetOr 0 (List.concat (List.replicate n (List.take k ds))) ds (omega [Nat.mulComm n k])
+    (List.extGetOr 0 (List.concat (List.replicate n (List.take k ds))) ds omega
       (i hi =>
         calc List.getOr 0 i (List.concat (List.replicate n (List.take k ds)))
           _ = List.getOr 0 (i % k) (List.take k ds) := List.getOrConcatReplicate 0 (List.take k ds) k ht n i omega
           _ = List.getOr 0 (i % k) ds               := List.getOrTake 0 k (i % k) ds (Nat.modLess i k hk)
           _ = List.getOr 0 i ds
-              := Eq.sym (periodBlock ds hl k hp i (omega [Nat.mulComm n k]))))
+              := Eq.sym (periodBlock ds hl k hp i omega)))
 
 
 -- (5) One id -----------------------------------------------------------------
@@ -455,7 +453,7 @@ def blockCount (x: Nat): Nat := digitCount x / smallestPeriod x
 test "smallest blocks" := List.map blockCount [7, 1212, 123123123, 1213] == [1, 2, 3, 1]
 
 theorem smallestIsPeriod (x: Nat): Period (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (smallestPeriod x) :=
-  let top: Succ (digitCount x - 1) = digitCount x := Nat.addSubCancel 1 (digitCount x) (Nat.digitsNonEmpty x)
+  let top: Succ (digitCount x - 1) = digitCount x := omega [Nat.digitsNonEmpty x]
   periodOfTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (smallestPeriod x)
     (Nat.firstFromFound (j => periodOf x (Succ j)) (digitCount x) 0 (digitCount x - 1) omega omega
       (rewrite top in periodTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (digitCount x) (periodLen (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x))))
@@ -481,7 +479,7 @@ theorem blockCountLe (x: Nat): blockCount x <= digitCount x :=
 -- A block of k digits written n times: n divides the block count.
 theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (hw: writtenAs (Nat.digits x) k n = True): Nat.divides n (blockCount x) = True :=
   let hk: k != 0 := Nat.nonzeroOfPos k hk1
-  let per := writtenPeriod (Nat.digits x) (digitCountNonZero x) k n omega (omega [Nat.mulComm k n, countOf x k n hn hw]) hw
+  let per := writtenPeriod (Nat.digits x) (digitCountNonZero x) k n omega (omega [countOf x k n hn hw]) hw
   -- k is t times the smallest period
   let t := k / smallestPeriod x
   let ek: k = t * smallestPeriod x :=
@@ -497,7 +495,7 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (
 
 -- And back: if n divides the block count, the digits are a block written n times.
 theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 <= n): (t: Nat) -> blockCount x = t * n -> copies x n = True
-  | Zero,   e => Void.exfalso (omega [blockCountPos x])
+  | Zero,   e => omega [blockCountPos x]
   | Succ t, e =>
     let k := Succ t * smallestPeriod x
     let ekn: k * n = digitCount x :=
@@ -563,7 +561,7 @@ theorem idTermsDivisors (w: Nat -> Int) (size: Nat) (x: Nat) (hL: digitCount x <
 -- One id: its terms add up to x itself if x repeats, and to nothing if not.
 theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms copiesWeight size x = (Nat.keepIf x (repeats x)).toInt :=
   let m := blockCount x
-  let hc: m <= Succ (size - 1) := omega [blockCountLe x, Nat.predLeSucc size (size - 1) (Nat.leRefl (size - 1))]
+  let hc: m <= Succ (size - 1) := omega [blockCountLe x]
   calc idTerms copiesWeight size x
     _ = x.toInt * divisorWeights copiesWeight m (size - 1) := idTermsDivisors copiesWeight size x hL
     _ = x.toInt * divisorWeights copiesWeight m (m - 1)    := Eq.cong (t => x.toInt * t) (divisorWeightsAll copiesWeight m (blockCountPos x) (size - 1) hc)
@@ -611,7 +609,7 @@ theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: 
       (x x1 x2 =>
         match t: writtenAs (Nat.digits x) k n with
           | True =>
-            Void.exfalso (omega [Nat.mulComm k n, countOf x k n hn t, idsBelow r x x1 x2])
+            omega [countOf x k n hn t, idsBelow r x x1 x2]
           | False => rfl))
 
 -- One range under weights w, id by id.

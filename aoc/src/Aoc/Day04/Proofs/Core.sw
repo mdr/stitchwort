@@ -76,7 +76,7 @@ theorem stepKeeps (grid: Grid) (s: Cells) (t: Cells) (step: Step grid s t) (k: C
       | Roll  => rfl
       | Floor =>
         let few: neighbours grid s r c < 4 := And.right step r c (ks r c hk) e
-        Void.exfalso (omega [stable r c hk, neighboursMono grid k s ks r c])
+        omega [stable r c hk, neighboursMono grid k s ks r c]
 
 theorem keepsStep (grid: Grid) (s0: Cells) (s: Cells) (t: Cells) (hk: Keeps grid s0 s) (step: Step grid s t): Keeps grid s0 t :=
   k stable ks0 => stepKeeps grid s t step k stable (hk k stable ks0)
@@ -189,7 +189,7 @@ theorem roundCount (grid: Grid) (s: Cells): rollCount grid (removeAccessible gri
 
 theorem toNatZero: (b: Bool) -> Bool.toNat b = 0 -> b = False
   | False, h => rfl
-  | True,  h => Void.exfalso omega
+  | True,  h => omega
 
 -- A count over positions that is 0 holds nowhere on the grid.
 theorem countNone (grid: Grid) (p: Nat -> Nat -> Bool) (h: countPositions grid p = 0) (r: Nat) (c: Nat) (hr: r < grid.height) (hc: c < grid.width): p r c = False :=

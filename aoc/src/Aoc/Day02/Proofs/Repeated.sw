@@ -101,9 +101,9 @@ theorem windowBelow (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat
     _ = windowSum from to d c (Succ s)
         := Eq.cong List.sum (List.filterSkip (x => from <= x && x <= to) (s * d) (List.map (b => b * d) (List.rangeFrom c (Succ s))) (Nat.betweenBelow from to (s * d) no))
     _ = d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := ih
-    _ = d * Nat.span bLo (Nat.min (Succ s + c) (Succ bHi))                    := rewrite Nat.maxRight (Succ s) bLo hs
+    _ = d * Nat.span bLo (Nat.min (Succ s + c) (Succ bHi))                    := rewrite (omega: Nat.max (Succ s) bLo = bLo)
     _ = d * Nat.span bLo (Nat.min (s + Succ c) (Succ bHi))                    := rewrite Nat.addSucc s c
-    _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi))        := rewrite Nat.maxRight s bLo omega
+    _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi))        := rewrite (omega: Nat.max s bLo = bLo)
 
 theorem windowIn (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (s: Nat)
     (yes: (from <= s * d && s * d <= to) = True) (hA: bLo <= s) (hB: s <= bHi)
@@ -115,12 +115,12 @@ theorem windowIn (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (
              (List.sumCons (s * d) (List.filter (x => from <= x && x <= to) (List.map (b => b * d) (List.rangeFrom c (Succ s)))))
     _ = s * d + d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := rewrite ih
     _ = s * d + d * Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))
-        := rewrite Nat.maxLeft (Succ s) bLo omega
-    _ = d * s + d * Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))               := rewrite Nat.mulComm s d
+        := rewrite (omega: Nat.max (Succ s) bLo = Succ s)
+    _ = d * s + d * Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))               := omega
     _ = d * (s + Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi)))                 := Eq.sym (Nat.mulDistribLeft d s (Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))))
     _ = d * Nat.span s (Nat.min (Succ s + c) (Succ bHi))
         := rewrite <- Nat.spanStep s (Nat.min (Succ s + c) (Succ bHi)) (Nat.leMin (Succ s) (Succ s + c) (Succ bHi) omega hB)
-    _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi))                := rewrite Nat.maxLeft s bLo hA, Nat.addSucc s c
+    _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi))                := rewrite (omega: Nat.max s bLo = s), Nat.addSucc s c
 
 theorem windowAbove (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (s: Nat)
     (low: from <= s * d) (no: Nat.leq (s * d) to = False) (hs: Succ bHi <= s)
@@ -132,10 +132,10 @@ theorem windowAbove (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat
     _ = d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := ih
     _ = d * 0
         := rewrite Nat.spanEmpty (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi))
-             (omega [Nat.minLeRight (Succ s + c) (Succ bHi), Nat.leMaxLeft (Succ s) bLo])
+             (omega [Nat.minLeRight (Succ s + c) (Succ bHi)])
     _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi))
         := rewrite Nat.spanEmpty (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi))
-             (omega [Nat.minLeRight (s + Succ c) (Succ bHi), Nat.leMaxLeft s bLo])
+             omega
 
 -- The heart of it: if `from <= b * d` exactly when `bLo <= b`, and `b * d <= to`
 -- exactly when `b <= bHi`, then the ids `b * d` in `from..to` for `b` in a run of
@@ -148,7 +148,7 @@ theorem window (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat)
     (c: Nat) -> (s: Nat) -> windowSum from to d c s = d * Nat.span (Nat.max s bLo) (Nat.min (s + c) (Succ bHi))
   | Zero,   s =>
     rewrite Nat.spanEmpty (Nat.max s bLo) (Nat.min (s + 0) (Succ bHi))
-        (omega [Nat.minLeLeft (s + 0) (Succ bHi), Nat.leMaxLeft s bLo]),
+        omega,
       Nat.mulZero d
   | Succ c, s =>
     match hA: Nat.leq bLo s, hB: Nat.leq s bHi with
@@ -180,7 +180,7 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
       _ = Succ m * Nat.span (Nat.max low ((r.from + Succ m - 1) / Succ m)) (Nat.min (Succ p) (Succ (r.to / Succ m)))
           := rewrite Nat.minSucc p (r.to / Succ m)
       _ = Succ m * Nat.span (Nat.max low ((r.from + Succ m - 1) / Succ m)) (Nat.min (low + (Succ p - low)) (Succ (r.to / Succ m)))
-          := rewrite Nat.addSubCancel low (Succ p) hl
+          := rewrite (omega: low + (Succ p - low) = Succ p)
       _ = windowSum r.from r.to (Succ m) (Succ p - low) low
           := Eq.sym (window r.from r.to (Succ m) ((r.from + Succ m - 1) / Succ m) (r.to / Succ m)
                (Nat.roundUpGe r.from m) (Nat.roundUpNo r.from m) (b h => Nat.mulLeOfLeDiv b r.to (Succ m) h) (Nat.roundDownNo r.to m)
@@ -314,14 +314,14 @@ theorem twiceBlockCount (x: Nat): (k: Nat) -> 1 <= k ->
             (Eq.trans (Decidable.toBoolSound (Nat.decEq (writeTimes (Succ j) b 2) x) hb) (Eq.sym (twiceValue x (Succ j) hq))))
           (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (twiceAbove x (Succ j) hq)
-          (omega [twiceBelow x (Succ j) hq, Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j))])
+          (omega [twiceBelow x (Succ j) hq, Nat.powTenPredLe (Succ j)])
       | False =>
         List.sumRangeNone (b => writeTimes (Succ j) b 2 == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq (writeTimes (Succ j) b 2) x)
             (e => Bool.trueNotFalse (Eq.trans
               (Eq.sym (rewrite e at
                 twiceDigits j b h1
-                  (omega [Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j))])))
+                  (omega [Nat.powTenPredLe (Succ j)])))
               hq)))
 
 -- One block length, as a sum over the ids of the range.
@@ -363,11 +363,11 @@ theorem repeatedTwice (r: Range) (k: Nat) (hk: 1 <= k):
 -- block length up to the digits and every number of copies from 2, where
 -- the templates that don't fit count 0. (The grid is what Part1.sw and
 -- Part2.sw work with.)
-theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := Eq.cong (t => List.rangeFrom t 1) (Nat.addSub n 1)
+theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := Eq.cong (t => List.rangeFrom t 1) (omega: n + 1 - 1 = n)
 
 theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
   | Zero   => rfl
-  | Succ n => Eq.cong (t => List.rangeFrom t 2) (Nat.addSub n 1)
+  | Succ n => Eq.cong (t => List.rangeFrom t 2) (omega: n + 1 - 1 = n)
 
 
 -- One template, kept if it fits: its sum is `f` of it, or nothing.

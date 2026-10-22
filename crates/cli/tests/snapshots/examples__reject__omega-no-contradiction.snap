@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `xs = []`
+   ╭─[ reject/omega-no-contradiction.sw:6:66 ]
+   │
+ 6 │ theorem notArith (xs: List Nat) (n: Nat) (h: n < 5): xs = Nil := omega
+   │                                                                  ──┬──  
+   │                                                                    ╰──── unsupported structure: this goal isn't linear arithmetic on `Nat`
+   │ 
+   │ Note 1: `omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, `-`, numbers, multiplication by a number, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them
+   │ 
+   │ Note 2: for any other goal, `omega` looks for facts that contradict each other, and found none
+───╯

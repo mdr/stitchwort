@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `(a - b) + b = a`
+   ╭─[ reject/omega-sub-false.sw:5:54 ]
+   │
+ 5 │ theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := omega
+   │                                                      ──┬──  
+   │                                                        ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: none in scope
+   │ 
+   │ Note 2: atoms: `a - b`, `a`, `b`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): a - b = 0, a = 0, b = 1
+───╯

@@ -99,8 +99,7 @@ theorem blockLengthLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 <= 
   Nat.leMulPos blockLength copies atLeastOne
 
 theorem copiesLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 <= blockLength): copies <= blockLength * copies :=
-  Nat.leCongRight copies (copies * blockLength) (blockLength * copies) (Nat.mulComm copies blockLength)
-    (Nat.leMulPos copies blockLength atLeastOne)
+  omega [Nat.leMulPos copies blockLength atLeastOne]
 
 -- A template is its block length and its number of copies.
 theorem templateEta (template: RepetitionTemplate):
@@ -141,7 +140,7 @@ theorem writtenAsFillsDigits (digits: List Nat) (hasDigits: 1 <= List.length dig
     -- There are `blockLength` digits to take, so that is how many the first block has.
     | True =>
       calc blockLength * copies
-        _ = copies * blockLength := Nat.mulComm blockLength copies
+        _ = copies * blockLength := omega
         _ = copies * List.length (List.take blockLength digits) := rewrite List.lengthTake blockLength digits room
         _ = List.length digits := counted
     -- Taking more digits than there are takes all of them: then `copies`
@@ -150,13 +149,7 @@ theorem writtenAsFillsDigits (digits: List Nat) (hasDigits: 1 <= List.length dig
     | False =>
       let takesAll := List.takeAll blockLength digits omega
       let sameCount: copies * List.length digits = List.length digits := rewrite takesAll at counted
-      let twiceLe: List.length digits + List.length digits <= List.length digits :=
-        calc List.length digits + List.length digits
-          _ = List.length digits * 2 := Eq.trans (Eq.cong (t => List.length digits + t) (Eq.sym (Nat.mulOne (List.length digits)))) (Eq.sym (Nat.mulSucc (List.length digits) 1))
-          _ = 2 * List.length digits := Nat.mulComm (List.length digits) 2
-          _ <= copies * List.length digits := Nat.leMulRight 2 copies (List.length digits) atLeastTwo
-          _ = List.length digits := sameCount
-      Void.exfalso omega
+      omega [Nat.leMulRight 2 copies (List.length digits) atLeastTwo]
 
 -- Coverage: every invalid id in the range has its template listed. If `x` is
 -- in the range and its digits are a block of `blockLength` digits written

@@ -14,11 +14,11 @@
 
 import Omega.Env (MkEnv)
 import Omega.NTerm (NV, NLit, NAdd, NSucc, MulLeft, MulRight)
-import Omega.Fact (FLe, FLt, FEq, FNotLe, FNotLt)
+import Omega.Fact (FLe, FLt, FEq, FNotLe, FNotLt, FSub, FMax, FMin, FNe)
 import Omega.Goal (GLe, GLt, GVoid)
 import Omega.Row (MkRow)
 import Omega.Step (Input, NegGoal, NatNonneg, Combine, Divide)
-import Omega.Cert (Close, Then, Split)
+import Omega.Cert (Close, Then, Split, Cases)
 
 -- Syntax and meaning
 
@@ -62,12 +62,23 @@ def Omega.NTerm.eval (env: Omega.Env): Omega.NTerm -> Nat
 -- A hypothesis. `FNotLe` and `FNotLt` quote `Not (a <= b)` and `Not (a < b)`
 -- directly; other forms (`Nat.leq a b = False`, `(p && q) = True`) reach
 -- these through bridge lemmas (`Nat.leqFalse`, `Bool.andLeft`, ...).
+--
+-- Stage 2's operation facts say what an atom is: `FSub t a b` says `t` is
+-- `a - b` (the compiler puts the real `a - b` in the environment as `t` and
+-- proves the fact by `rfl`), and `FMax`/`FMin` likewise for `Nat.max` and
+-- `Nat.min`. Each gives rows that always hold (`a - b <= a`, ...) and two
+-- cases a certificate may split on (`Cases`); `FNe`, `Not (a = b)`, gives
+-- only the cases.
 type Omega.Fact: Type =
   | FLe (a: Omega.NTerm) (b: Omega.NTerm)
   | FLt (a: Omega.NTerm) (b: Omega.NTerm)
   | FEq (a: Omega.NTerm) (b: Omega.NTerm)
   | FNotLe (a: Omega.NTerm) (b: Omega.NTerm)
   | FNotLt (a: Omega.NTerm) (b: Omega.NTerm)
+  | FSub (t: Omega.NTerm) (a: Omega.NTerm) (b: Omega.NTerm)
+  | FMax (t: Omega.NTerm) (a: Omega.NTerm) (b: Omega.NTerm)
+  | FMin (t: Omega.NTerm) (a: Omega.NTerm) (b: Omega.NTerm)
+  | FNe (a: Omega.NTerm) (b: Omega.NTerm)
 
 def Omega.Fact.holds (env: Omega.Env): Omega.Fact -> Prop
   | FLe a b    => Omega.NTerm.eval env a <= Omega.NTerm.eval env b
@@ -75,6 +86,10 @@ def Omega.Fact.holds (env: Omega.Env): Omega.Fact -> Prop
   | FEq a b    => Omega.NTerm.eval env a = Omega.NTerm.eval env b
   | FNotLe a b => Not (Omega.NTerm.eval env a <= Omega.NTerm.eval env b)
   | FNotLt a b => Not (Omega.NTerm.eval env a < Omega.NTerm.eval env b)
+  | FSub t a b => Omega.NTerm.eval env t = Omega.NTerm.eval env a - Omega.NTerm.eval env b
+  | FMax t a b => Omega.NTerm.eval env t = Nat.max (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
+  | FMin t a b => Omega.NTerm.eval env t = Nat.min (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
+  | FNe a b    => Not (Omega.NTerm.eval env a = Omega.NTerm.eval env b)
 
 -- The facts' proofs, as `Both h1 (Both h2 Trivial)`.
 def Omega.Facts.holds (env: Omega.Env): List Omega.Fact -> Prop
@@ -166,6 +181,34 @@ def Omega.Fact.rows: Omega.Fact -> List Omega.Row
   | FEq a b    => [Omega.leRow a b, Omega.leRow b a]
   | FNotLe a b => [Omega.leRow (NSucc b) a]
   | FNotLt a b => [Omega.leRow b a]
+  | FSub t a b => [Omega.leRow t a, Omega.leRow a (NAdd t b)]
+  | FMax t a b => [Omega.leRow a t, Omega.leRow b t]
+  | FMin t a b => [Omega.leRow t a, Omega.leRow t b]
+  | FNe a b    => []
+
+-- Whether a fact has cases, and what each case adds, as facts: `a - b` is
+-- `t` with `t + b = a` when `b <= a`, and 0 when `a < b`; `max` and `min`
+-- are one side or the other; `a != b` is `a < b` or `b < a`.
+def Omega.Fact.splits: Omega.Fact -> Bool
+  | FSub t a b => True
+  | FMax t a b => True
+  | FMin t a b => True
+  | FNe a b    => True
+  | f          => False
+
+def Omega.Fact.left: Omega.Fact -> List Omega.Fact
+  | FSub t a b => [FLe b a, FEq (NAdd t b) a]
+  | FMax t a b => [FLe a b, FEq t b]
+  | FMin t a b => [FLe a b, FEq t a]
+  | FNe a b    => [FLt a b]
+  | f          => []
+
+def Omega.Fact.right: Omega.Fact -> List Omega.Fact
+  | FSub t a b => [FLt a b, FEq t (NLit 0)]
+  | FMax t a b => [FLt b a, FEq t a]
+  | FMin t a b => [FLt b a, FEq t b]
+  | FNe a b    => [FLt b a]
+  | f          => []
 
 -- The input rows: each fact's rows, in order (an equation gives two).
 def Omega.Facts.rows: List Omega.Fact -> List Omega.Row
@@ -202,6 +245,15 @@ type Omega.Cert: Type =
   -- `left` has the row `l`, `right` the row `-1 - l`; a row made in one
   -- branch isn't seen by the other
   | Split (l: Omega.Row) (left: Omega.Cert) (right: Omega.Cert)
+  -- fact `f`'s cases (`Omega.Fact.left` and `right`): each branch has its
+  -- case's rows after the rows before it
+  | Cases (f: Nat) (left: Omega.Cert) (right: Omega.Cert)
+
+-- Fact `i`, or `0 <= 0` (which has no cases) if there is none.
+def Omega.getFact: List Omega.Fact -> Nat -> Omega.Fact
+  | Nil,       i      => FLe (NLit 0) (NLit 0)
+  | Cons f fs, Zero   => f
+  | Cons f fs, Succ i => Omega.getFact fs i
 
 -- Row `i`, or the zero row (`0 <= 0`) if there is none.
 def Omega.getRow: List Omega.Row -> Nat -> Omega.Row
@@ -278,17 +330,21 @@ def Omega.Step.row (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Om
   | Combine ts  => Omega.combine ctx ts
   | Divide r d  => Omega.Row.divide d (Omega.getRow ctx r)
 
-def Omega.checkCert (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Cert -> Bool
+def Omega.checkCert (fs: List Omega.Fact) (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Cert -> Bool
   | Close r            => Omega.Row.isContra (Omega.getRow ctx r)
   | Then s rest        =>
-    Omega.Step.valid facts neg ctx s && Omega.checkCert facts neg (List.append ctx [Omega.Step.row facts neg ctx s]) rest
+    Omega.Step.valid facts neg ctx s && Omega.checkCert fs facts neg (List.append ctx [Omega.Step.row facts neg ctx s]) rest
   | Split l left right =>
-    Omega.checkCert facts neg (List.append ctx [l]) left && Omega.checkCert facts neg (List.append ctx [Omega.Row.splitOther l]) right
+    Omega.checkCert fs facts neg (List.append ctx [l]) left && Omega.checkCert fs facts neg (List.append ctx [Omega.Row.splitOther l]) right
+  | Cases f left right =>
+    Omega.Fact.splits (Omega.getFact fs f)
+      && (Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.left (Omega.getFact fs f)))) left
+        && Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.right (Omega.getFact fs f)))) right)
 
 -- The checker. It doesn't look at the environment: the kernel runs it on the
 -- quoted facts, goal and certificate alone.
 def Omega.check (facts: List Omega.Fact) (goal: Omega.Goal) (cert: Omega.Cert): Bool :=
-  Omega.checkCert (Omega.Facts.rows facts) (Omega.Goal.negRow goal) Nil cert
+  Omega.checkCert facts (Omega.Facts.rows facts) (Omega.Goal.negRow goal) Nil cert
 
 -- `id <= last.to` and `last.to + 1 <= r.from` give `id < r.from` (day 5's
 -- `absorbStacked`): the three rows add up to `-1 >= 0`.
@@ -385,3 +441,30 @@ test "check: Divide floors a negative constant" := Omega.check [FLe (NLit 1) (Mu
 -- `1 - 2x >= 0` gives `-x >= 0` (the `1 / 2` is 0), so with `x - 1 >= 0` the sum is `-1`.
 test "check: Divide floors a positive constant" := Omega.check [FLe (MulLeft 2 (NV 0)) (NLit 1), FLe (NLit 1) (NV 0)] GVoid
   (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
+
+-- `Cases` (stage 2): `t = a - b` and `b <= a` give `t + b <= a`. The left case
+-- (`b <= a`, `t + b = a`) has rows 0 to 2, and its row 1, `a - (t + b) >= 0`,
+-- meets the goal's negation; the right case (`a < b`, `t = 0`) has `b - a - 1 >= 0`,
+-- which meets the fact `b <= a` (input row 2: `FSub` gives two rows first).
+test "check: Cases on a subtraction" := Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+  (Cases 0
+    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+    (Then (Input 2) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4))))
+
+-- The same certificate naming a fact without cases, or one that isn't there.
+test "check refuses: Cases on a fact without cases" := Bool.not (Omega.check [FLe (NV 2) (NV 1), FSub (NV 0) (NV 1) (NV 2)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+  (Cases 0
+    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+    (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4)))))
+
+test "check refuses: Cases on a missing fact" := Bool.not (Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+  (Cases 5
+    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+    (Then (Input 2) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4)))))
+
+-- A row of one case isn't there in the other: the right branch closing on the
+-- left case's row 1 is refused.
+test "check refuses: Cases using the other case's row" := Bool.not (Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+  (Cases 0
+    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))))

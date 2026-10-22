@@ -89,19 +89,19 @@ theorem lookupBelow (b: Nat): (c: Nat) -> (s: Nat) -> b < s ->
     rewrite lookupBelow b c (Succ s) omega in
       match e: Ord.compare b s with
         | Less    => rfl
-        | Equal   => Void.exfalso (omega [Nat.compareEqual b s e])
+        | Equal   => omega [Nat.compareEqual b s e]
         | Greater => rfl
 
 -- ... and each box from s on is its own label.
 theorem lookupRange (b: Nat): (c: Nat) -> (s: Nat) -> s <= b -> b < s + c ->
     Map.lookupLast b (List.map (box => (box, box)) (List.rangeFrom c s)) = Some b
-  | Zero,   s, h1, h2 => Void.exfalso omega
+  | Zero,   s, h1, h2 => omega
   | Succ c, s, h1, h2 =>
     match e: Nat.equal s b with
       | True  =>
         rewrite <- Nat.equalSound s b e, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
       | False =>
-        rewrite lookupRange b c (Succ s) (Nat.leNeSucc s b h1 (Nat.equalFalse s b e)) omega in rfl
+        rewrite lookupRange b c (Succ s) omega omega in rfl
 
 theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get b (Circuits.separate n).labels = Some b :=
   rewrite Map.getFromList b (List.map (box => (box, box)) (List.range n)) in lookupRange b n 0 omega h

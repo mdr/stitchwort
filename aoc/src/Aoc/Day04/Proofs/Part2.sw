@@ -21,24 +21,19 @@ theorem countMono (grid: Grid) (t: Cells) (s: Cells) (h: Sub t s): rollCount gri
       (x => List.sumByLe (y => Bool.toNat (s x y == Roll)) (y => Bool.toNat (t x y == Roll)) (y => termLe True (t x y) (s x y) (h x y)) (List.range grid.width))
       (List.range grid.height)
 
-theorem subZeroLe: (n: Nat) -> (m: Nat) -> n - m = 0 -> n <= m
-  | Zero,   m,      h => rfl
-  | Succ n, Zero,   h => Void.exfalso omega
-  | Succ n, Succ m, h => subZeroLe n m h
-
 -- Equal sums of terms each at most the other's: equal terms.
 theorem sumEqEach (f: Nat -> Nat) (g: Nat -> Nat) (le: (x: Nat) -> g x <= f x) (n: Nat)
     (eq: List.sumBy g (List.range n) = List.sumBy f (List.range n)) (x: Nat) (hx: x < n): g x = f x :=
   let split := List.sumBySplit f g le (List.range n)
   let rest: List.sumBy (y => f y - g y) (List.range n) = 0 :=
     omega [split]
-  omega [le x, subZeroLe (f x) (g x) (List.sumRangeZero (y => f y - g y) n 0 rest x omega hx)]
+  omega [le x, List.sumRangeZero (y => f y - g y) n 0 rest x omega hx]
 
 theorem cellOfToNat: (a: Cell) -> (b: Cell) -> Bool.toNat (a == Roll) = Bool.toNat (b == Roll) -> a = b
   | Roll,  Roll,  h => rfl
   | Floor, Floor, h => rfl
-  | Roll,  Floor, h => Void.exfalso omega
-  | Floor, Roll,  h => Void.exfalso omega
+  | Roll,  Floor, h => omega
+  | Floor, Roll,  h => omega
 
 -- Off the grid both are floor: only the grid's positions need checking.
 theorem sameWhere (grid: Grid) (s: Cells) (t: Cells) (is: Inside grid s) (it: Inside grid t)
@@ -113,10 +108,12 @@ theorem marksAll (m: Marked w h) (none: (r: Nat) -> Pair.snd (entry m (Succ r)) 
 theorem fewerRolls (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (hk: Keeps grid s0 (mcells m)) (marked: Vec.any Pair.snd (sweep m) = True):
     rollCount grid (mcells (sweep m)) < rollCount grid (mcells m) :=
   let sub := And.right (passKeeps grid s0 m hk)
-  Nat.leNeSucc (rollCount grid (mcells (sweep m))) (rollCount grid (mcells m)) (countMono grid (mcells (sweep m)) (mcells m) sub)
-    (eq =>
+  let le := countMono grid (mcells (sweep m)) (mcells m) sub
+  let ne: Not (rollCount grid (mcells (sweep m)) = rollCount grid (mcells m)) :=
+    eq =>
       let same := countEqSame grid (mcells (sweep m)) (mcells m) (mcellsInside grid (sweep m)) (mcellsInside grid m) sub eq
-      Bool.trueNotFalse (Eq.trans (Eq.sym marked) (marksAll (sweep m) (sameMarks grid m same))))
+      Bool.trueNotFalse (Eq.trans (Eq.sym marked) (marksAll (sweep m) (sameMarks grid m same)))
+  omega
 
 -- The start: every row marked.
 
