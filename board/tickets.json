@@ -5104,7 +5104,7 @@
     {
       "id": 325,
       "title": "Prune the backlog: propose dropping tickets without concrete motivation",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "proposal lane (report only)",
       "labels": [
