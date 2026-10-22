@@ -13,17 +13,7 @@ fn Std.Decidable.toBool(v0) {1 slots} =
     Yes => True
     No => False
   }
-fn Std.Bool.decTrue(v0) {1 slots} =
-  if v0 then
-    Yes
-  else
-    No
 native Std.Nat.decEq = %Nat.decEq/2
-fn Std.Nat.decLessThan(v0, v1) {2 slots} =
-  if %Nat.leq(%Nat.add(v0, 1), v1) then
-    Yes
-  else
-    No
 fn Std.Char.toNat(v0) {2 slots} =
   match v0: Char {
     MkChar(code: v1) => v1
@@ -49,11 +39,6 @@ fn Std.Char.decEq(v0, v1) {3 slots} =
 native Std.Text.decEq = %DecEqText/2
 native Std.Int.decEq = %DecEqInt/2
 native Std.Int.less = %IntLess/2
-fn Std.Int.decLessThan(v0, v1) {2 slots} =
-  if %IntLess(v0, v1) then
-    Yes
-  else
-    No
 native Std.Effect.lift = %Effect.lift/1
 fn Main.nats(v0, v1) {2 slots} =
   if %Nat.equal(v0, v1) then
