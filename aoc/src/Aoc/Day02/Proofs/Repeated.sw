@@ -9,7 +9,8 @@ import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
-import Std (Add, Bool, Decidable, Eq, List, Nat, Void)
+import Std (Add, Bool, Decidable, Each, Eq, List, Nat, Void)
+import Std.Each (each, require)
 
 -- Why `sumOfIdsMatchingTemplate` is right (a): `sumOfIdsMatchingTemplate r template` equals
 -- `repeatedSpec r k n`, the brute-force sum below, for every range, block
@@ -384,123 +385,44 @@ theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
   | Zero   => rfl
   | Succ n => Eq.cong (t => List.rangeFrom t 2) (Nat.addSub n 1)
 
--- Small facts for the grid. `q` stands for `size / k`, the most copies of a
--- k-digit block that fit; the copies counted are `2..q`, that is `2 + (q - 1)`
--- below the first that doesn't.
-theorem predLe: (a: Nat) -> (b: Nat) -> a <= b -> a - 1 <= b - 1
-  | Zero,   b,      h => Nat.zeroLe (b - 1)
-  | Succ a, Zero,   h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ a, Succ b, h => h
 
-theorem copiesLe: (q: Nat) -> (n: Nat) -> 2 <= n -> n < 2 + (q - 1) -> n <= q
-  | Zero,   n, h1, h2 => Void.exfalso (Nat.lessIrrefl n (Nat.leTrans (Succ n) 2 n h2 h1))
-  | Succ q, n, h1, h2 => h2
+-- One template, kept if it fits: its sum is `f` of it, or nothing.
+theorem keptSum [auto add: Add c] (f: RepetitionTemplate -> c) (t: RepetitionTemplate): (b: Bool) ->
+    List.sumBy f (if b then [t] else []) = (if b then f t else Add.zero)
+  | True  => add.zeroAdd (f t)
+  | False => rfl
 
-theorem copiesGt: (q: Nat) -> (n: Nat) -> 2 + (q - 1) <= n -> q < n
-  | Zero,   n, h => Nat.leTrans 1 2 n rfl h
-  | Succ q, n, h => h
-
--- Past `size / k` copies, the k-digit block no longer fits.
-theorem copiesNo (size: Nat) (k: Nat) (n: Nat) (ok: k != 0) (h: size / k < n): Nat.leq (k * n) size = False :=
-  match e: Nat.leq (k * n) size with
-    | True  =>
-      Void.exfalso (Nat.lessIrrefl (size / k)
-        (Nat.leTrans (Succ (size / k)) n (size / k) h
-          (Nat.leDivOfMulLe n size k (rewrite Nat.mulComm n k in e))))
-    | False => rfl
-
--- A block longer than half the digits can't be written twice.
-theorem blockTooLong (size: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hk: size / 2 < k): Nat.leq (k * n) size = False :=
-  match e: Nat.leq (k * n) size with
-    | True  =>
-      Void.exfalso (Nat.lessIrrefl (size / 2)
-        (Nat.leTrans (Succ (size / 2)) k (size / 2) hk
-          (Nat.leDivOfMulLe k size 2
-            (calc k * 2
-              _ = 2 * k := Nat.mulComm k 2
-              _ <= n * k := Nat.leMulRight 2 n k hn
-              _ = k * n  := Nat.mulComm n k
-              _ <= size  := e))))
-    | False => rfl
-
--- `p` copies count and the `t` after them don't: the row of copies from 2 of a block
--- of length `k` adds up to the counting ones only.
-theorem copiesRun [auto add: Add c] (size: Nat) (k: Nat) (body: Nat -> c) (p: Nat) (t: Nat)
-    (hfit: (n: Nat) -> 2 <= n -> n < 2 + p -> Nat.leq (k * n) size = True)
-    (hno: (n: Nat) -> 2 + p <= n -> Nat.leq (k * n) size = False):
-    List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom (p + t) 2)
-      = List.sumBy body (List.rangeFrom p 2) :=
-  calc List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom (p + t) 2)
-    _ = List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.append (List.rangeFrom p 2) (List.rangeFrom t (2 + p)))
-        := Eq.cong (l => List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) l) (List.rangeFromAppend p t 2)
-    _ = List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom p 2)
-          + List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom t (2 + p))
-        := List.sumByAppend (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom p 2) (List.rangeFrom t (2 + p))
-    _ = List.sumBy body (List.rangeFrom p 2)
-          + List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom t (2 + p))
-        := Eq.cong (u => u + List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom t (2 + p)))
-             (List.sumRangeCongr (n => if Nat.leq (k * n) size then body n else Add.zero) body p 2
-               (x h1 h2 => Eq.cong (b => if b then body x else Add.zero) (hfit x h1 h2)))
-    _ = List.sumBy body (List.rangeFrom p 2) + Add.zero
-        := Eq.cong (u => List.sumBy body (List.rangeFrom p 2) + u)
-             (Eq.trans
-               (List.sumRangeCongr (n => if Nat.leq (k * n) size then body n else Add.zero) (n => Add.zero) t (2 + p)
-                 (x h1 h2 => Eq.cong (b => if b then body x else Add.zero) (hno x h1)))
-               (List.sumByZero (List.rangeFrom t (2 + p))))
-    _ = List.sumBy body (List.rangeFrom p 2) := Add.addZero (List.sumBy body (List.rangeFrom p 2))
-
--- A block length `k` from 1 on: its row of the grid, over copies from 2, is the
--- sum over just the copies that fit, `2..size / k`.
-theorem copiesRow [auto add: Add c] (size: Nat) (k: Nat) (hk: 1 <= k) (ok: k != 0) (body: Nat -> c):
-    List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom (size - 1) 2)
-      = List.sumBy body (List.between 2 (size / k)) :=
-  let hqs: size / k <= size := Nat.leTrans (size / k) ((size / k) * k) size (Nat.leMulPos (size / k) k hk) (Nat.divMulLe size k ok)
-  calc List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom (size - 1) 2)
-    _ = List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom ((size / k - 1) + (size - 1 - (size / k - 1))) 2)
-        := Eq.cong (t => List.sumBy (n => if Nat.leq (k * n) size then body n else Add.zero) (List.rangeFrom t 2))
-             (Eq.sym (Nat.addSubCancel (size / k - 1) (size - 1) (predLe (size / k) size hqs)))
-    _ = List.sumBy body (List.rangeFrom (size / k - 1) 2)
-        := copiesRun size k body (size / k - 1) (size - 1 - (size / k - 1))
-             (n h1 h2 => rewrite Nat.mulComm k n in Nat.mulLeOfLeDiv n size k (copiesLe (size / k) n h1 h2))
-             (n h1 => copiesNo size k n ok (copiesGt (size / k) n h1))
-    _ = List.sumBy body (List.between 2 (size / k)) := rewrite betweenTwo (size / k)
-
--- One block length of the program's list, summed, is its row of the grid.
-theorem rowOfBlock [auto add: Add c] (size: Nat) (f: RepetitionTemplate -> c): (k: Nat) -> 1 <= k ->
-    List.sumBy f (if h: k != 0 then List.map (n => { blockLength = k, copies = n }) (List.between 2 (size / k)) else [])
-      = List.sumBy (n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) (List.rangeFrom (size - 1) 2)
-  | Zero,   h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ j, h =>
-    Eq.trans (List.sumByMap f (n => { blockLength = Succ j, copies = n }) (List.between 2 (size / Succ j)))
-      (Eq.sym (copiesRow size (Succ j) h (Nat.nonzeroOfPos (Succ j) h) (n => f { blockLength = Succ j, copies = n })))
-
+-- `allTemplatesForRange` chooses a block length, then a number of copies, and
+-- requires the template to fit: by the `Each` lemmas, that is a sum over the
+-- block lengths of a sum over the copies of `f` of the template or nothing.
 theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
     List.sumBy f (allTemplatesForRange r)
       = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)
           (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1) :=
   let size := List.length (Nat.digits r.to)
-  let row: Nat -> c := k => List.sumBy (n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) (List.rangeFrom (size - 1) 2)
-  let halfLe: size / 2 <= size := Nat.leTrans (size / 2) ((size / 2) * 2) size (Nat.leMulPos (size / 2) 2 rfl) (Nat.divMulLe size 2 (Nat.nonzeroOfPos 2 rfl))
+  -- The program after it has chosen the block length (and the copies).
+  let fitting: Nat -> Nat -> {Each} RepetitionTemplate := k n =>
+    require (k * n <= size)
+    { blockLength = k, copies = n }
+  let withCopies: Nat -> {Each} RepetitionTemplate := k => fitting k (each (List.between 2 size))
+  -- (`<=` in a program is `Nat.leq` under `Decidable.toBool`.)
+  let cell: Nat -> Nat -> c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
   calc List.sumBy f (allTemplatesForRange r)
-    _ = List.sumBy (k => List.sumBy f (if h: k != 0 then List.map (n => { blockLength = k, copies = n }) (List.between 2 (size / k)) else [])) (List.between 1 (size / 2))
-        := List.sumByFlatMap f (k => if h: k != 0 then List.map (n => { blockLength = k, copies = n }) (List.between 2 (size / k)) else []) (List.between 1 (size / 2))
-    _ = List.sumBy row (List.rangeFrom (size / 2) 1)
-        := Eq.trans (Eq.cong (l => List.sumBy (k => List.sumBy f (if h: k != 0 then List.map (n => { blockLength = k, copies = n }) (List.between 2 (size / k)) else [])) l) (betweenOne (size / 2)))
-             (List.sumRangeCongr (k => List.sumBy f (if h: k != 0 then List.map (n => { blockLength = k, copies = n }) (List.between 2 (size / k)) else [])) row (size / 2) 1
-               (k h1 h2 => rowOfBlock size f k h1))
-    _ = List.sumBy row (List.rangeFrom (size / 2) 1) + Add.zero := Eq.sym (Add.addZero (List.sumBy row (List.rangeFrom (size / 2) 1)))
-    _ = List.sumBy row (List.rangeFrom (size / 2) 1) + List.sumBy row (List.rangeFrom (size - size / 2) (1 + size / 2))
-        := Eq.cong (u => List.sumBy row (List.rangeFrom (size / 2) 1) + u)
-             (Eq.sym (Eq.trans
-               (List.sumRangeCongr row (k => Add.zero) (size - size / 2) (1 + size / 2)
-                 (k h1 h2 =>
-                   Eq.trans
-                     (List.sumRangeCongr (n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) (n => Add.zero) (size - 1) 2
-                       (n g1 g2 => Eq.cong (b => if b then f { blockLength = k, copies = n } else Add.zero)
-                         (blockTooLong size k n g1 (rewrite Nat.addComm 1 (size / 2), Nat.addSucc (size / 2) 0, Nat.addZero (size / 2) at h1))))
-                     (List.sumByZero (List.rangeFrom (size - 1) 2))))
-               (List.sumByZero (List.rangeFrom (size - size / 2) (1 + size / 2)))))
-    _ = List.sumBy row (List.append (List.rangeFrom (size / 2) 1) (List.rangeFrom (size - size / 2) (1 + size / 2)))
-        := Eq.sym (List.sumByAppend row (List.rangeFrom (size / 2) 1) (List.rangeFrom (size - size / 2) (1 + size / 2)))
-    _ = List.sumBy row (List.rangeFrom (size / 2 + (size - size / 2)) 1) := Eq.cong (l => List.sumBy row l) (Eq.sym (List.rangeFromAppend (size / 2) (size - size / 2) 1))
-    _ = List.sumBy row (List.rangeFrom size 1) := Eq.cong (t => List.sumBy row (List.rangeFrom t 1)) (Nat.addSubCancel (size / 2) size halfLe)
+    _ = List.sumBy f (List.flatMap (List.between 1 size) (k => Each.collect (u => withCopies k)))
+        := Eq.cong (List.sumBy f) (Each.collectEach withCopies (List.between 1 size))
+    _ = List.sumBy (k => List.sumBy f (Each.collect (u => withCopies k))) (List.between 1 size)
+        := List.sumByFlatMap f (k => Each.collect (u => withCopies k)) (List.between 1 size)
+    _ = List.sumBy (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
+        := List.sumByCong (k => List.sumBy f (Each.collect (u => withCopies k))) (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
+             (k => calc List.sumBy f (Each.collect (u => withCopies k))
+               _ = List.sumBy f (List.flatMap (List.between 2 size) (n => Each.collect (u => fitting k n)))
+                   := Eq.cong (List.sumBy f) (Each.collectEach (fitting k) (List.between 2 size))
+               _ = List.sumBy (n => List.sumBy f (Each.collect (u => fitting k n))) (List.between 2 size)
+                   := List.sumByFlatMap f (n => Each.collect (u => fitting k n)) (List.between 2 size)
+               _ = List.sumBy (cell k) (List.between 2 size)
+                   := List.sumByCong (n => List.sumBy f (Each.collect (u => fitting k n))) (cell k) (List.between 2 size)
+                        (n => Eq.trans (Eq.cong (List.sumBy f) (Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size)))
+                          (Eq.trans (keptSum f { blockLength = k, copies = n } (k * n <= size))
+                            (Eq.cong (b => if b then f { blockLength = k, copies = n } else Add.zero) (Bool.decTrueToBool (Nat.leq (k * n) size))))))
+    _ = List.sumBy (k => List.sumBy (cell k) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
+        := rewrite betweenOne size, betweenTwo size
