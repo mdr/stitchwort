@@ -205,3 +205,96 @@ theorem Int.modNatNegOne (h: Nat): Int.modNat (Int.subNatNat 0 1) (Succ h) = h :
 def Int.divMod (a: Int) (d: Int) [auto ok: d != 0]: Pair Int Int := MkPair (a / d) (a % d)
 
 test "Int.divMod" := Int.divMod (-7) 2 == MkPair (-4) 1 && Int.divMod 7 (-2) == MkPair (-3) 1 && Int.divMod (-7) (-2) == MkPair 4 1
+
+-- Lemmas (checkpoint 3): `a + (b - a) = b`, multiplication's laws, and
+-- casting a sum. Everything here is by cases on the constructors or by
+-- induction, through `Nat`'s lemmas.
+
+theorem Int.addSubCancel (a: Int) (b: Int): a + (b - a) = b :=
+  Eq.trans (Eq.cong (Int.add a) (Int.addComm b (Int.neg a)))
+    (Eq.trans (Eq.sym (Int.addAssoc a (Int.neg a) b))
+      (Eq.trans (Eq.cong (t => Int.add t b) (Int.addNeg a)) (Int.zeroAdd b)))
+
+theorem Int.mulComm: (a: Int) -> (b: Int) -> Int.mul a b = Int.mul b a
+  | OfNat m,   OfNat n   => Eq.cong OfNat (Nat.mulComm m n)
+  | OfNat m,   NegSucc n => Eq.cong (t => Int.neg (OfNat t)) (Nat.mulComm m (Succ n))
+  | NegSucc m, OfNat n   => Eq.cong (t => Int.neg (OfNat t)) (Nat.mulComm (Succ m) n)
+  | NegSucc m, NegSucc n => Eq.cong OfNat (Nat.mulComm (Succ m) (Succ n))
+
+theorem Int.mulZero: (a: Int) -> Int.mul a (OfNat 0) = OfNat 0
+  | OfNat m   => Eq.cong OfNat (Nat.mulZero m)
+  | NegSucc m => Eq.cong (t => Int.neg (OfNat t)) (Nat.mulZero (Succ m))
+
+-- Distributivity. Multiplying by a natural number `k` keeps the difference
+-- `m - n` of two naturals: `k * (m - n) = k * m - k * n`.
+
+theorem Int.subNatNatZeroLeft: (q: Nat) -> Int.subNatNat 0 q = Int.neg (OfNat q)
+  | Zero   => rfl
+  | Succ q => rfl
+
+theorem Int.subNatNatAddCancel (p: Nat) (q: Nat): (k: Nat) -> Int.subNatNat (k + p) (k + q) = Int.subNatNat p q
+  | Zero   => rfl
+  | Succ k => Eq.trans (Int.subNatNatSucc (k + p) (k + q)) (Int.subNatNatAddCancel p q k)
+
+theorem Int.ofNatMulSubNatNat (k: Nat): (m: Nat) -> (n: Nat) ->
+    Int.mul (OfNat k) (Int.subNatNat m n) = Int.subNatNat (k * m) (k * n)
+  | Zero,   Zero   => Eq.trans (Eq.cong OfNat (Nat.mulZero k)) (Eq.sym (Int.subNatNatSelf (k * 0)))
+  | Zero,   Succ n =>
+    Eq.sym (Eq.trans (Eq.cong (t => Int.subNatNat t (k * Succ n)) (Nat.mulZero k)) (Int.subNatNatZeroLeft (k * Succ n)))
+  | Succ m, Zero   =>
+    Eq.trans (Eq.cong (Int.mul (OfNat k)) (Int.subNatNatZeroRight (Succ m)))
+      (Eq.sym (Eq.trans (Eq.cong (t => Int.subNatNat (k * Succ m) t) (Nat.mulZero k)) (Int.subNatNatZeroRight (k * Succ m))))
+  | Succ m, Succ n =>
+    Eq.trans (Eq.cong (Int.mul (OfNat k)) (Int.subNatNatSucc m n))
+      (Eq.trans (Int.ofNatMulSubNatNat k m n)
+        (Eq.sym (Eq.trans (Eq.cong (t => Int.subNatNat t (k * Succ n)) (Nat.mulSucc k m))
+          (Eq.trans (Eq.cong (t => Int.subNatNat (k + k * m) t) (Nat.mulSucc k n))
+            (Int.subNatNatAddCancel (k * m) (k * n) k)))))
+
+theorem Int.addNegOfNat (p: Nat): (q: Nat) -> Int.add (OfNat p) (Int.neg (OfNat q)) = Int.subNatNat p q
+  | Zero   => Eq.trans (Int.addZero (OfNat p)) (Eq.sym (Int.subNatNatZeroRight p))
+  | Succ q => rfl
+
+theorem Int.mulNegSucc (k: Nat): (x: Int) -> Int.mul (NegSucc k) x = Int.neg (Int.mul (OfNat (Succ k)) x)
+  | OfNat n   => rfl
+  | NegSucc n => Eq.sym (Int.negNeg (OfNat (Succ k * Succ n)))
+
+theorem Int.ofNatMulAdd (k: Nat): (b: Int) -> (c: Int) ->
+    Int.mul (OfNat k) (Int.add b c) = Int.add (Int.mul (OfNat k) b) (Int.mul (OfNat k) c)
+  | OfNat m,   OfNat n   => Eq.cong OfNat (Nat.mulDistribLeft k m n)
+  | OfNat m,   NegSucc n =>
+    Eq.trans (Int.ofNatMulSubNatNat k m (Succ n)) (Eq.sym (Int.addNegOfNat (k * m) (k * Succ n)))
+  | NegSucc m, OfNat n   =>
+    Eq.trans (Int.ofNatMulSubNatNat k n (Succ m))
+      (Eq.trans (Eq.sym (Int.addNegOfNat (k * n) (k * Succ m))) (Int.addComm (OfNat (k * n)) (Int.neg (OfNat (k * Succ m)))))
+  | NegSucc m, NegSucc n =>
+    Eq.trans (Eq.cong (t => Int.neg (OfNat (k * t))) (Eq.sym (Eq.cong Succ (Nat.addSucc m n))))
+      (Eq.trans (Eq.cong (t => Int.neg (OfNat t)) (Nat.mulDistribLeft k (Succ m) (Succ n)))
+        (Int.negAdd (OfNat (k * Succ m)) (OfNat (k * Succ n))))
+
+theorem Int.mulDistribLeft: (a: Int) -> (b: Int) -> (c: Int) -> Int.mul a (Int.add b c) = Int.add (Int.mul a b) (Int.mul a c)
+  | OfNat k,   b, c => Int.ofNatMulAdd k b c
+  | NegSucc k, b, c =>
+    Eq.trans (Int.mulNegSucc k (Int.add b c))
+      (Eq.trans (Eq.cong Int.neg (Int.ofNatMulAdd (Succ k) b c))
+        (Eq.trans (Int.negAdd (Int.mul (OfNat (Succ k)) b) (Int.mul (OfNat (Succ k)) c))
+          (Eq.sym (Eq.trans (Eq.cong (t => Int.add t (Int.mul (NegSucc k) c)) (Int.mulNegSucc k b))
+            (Eq.cong (Int.add (Int.neg (Int.mul (OfNat (Succ k)) b))) (Int.mulNegSucc k c))))))
+
+theorem Int.mulDistribRight (a: Int) (b: Int) (c: Int): Int.mul (Int.add a b) c = Int.add (Int.mul a c) (Int.mul b c) :=
+  Eq.trans (Int.mulComm (Int.add a b) c)
+    (Eq.trans (Int.mulDistribLeft c a b)
+      (Eq.trans (Eq.cong (t => Int.add t (Int.mul c b)) (Int.mulComm c a))
+        (Eq.cong (Int.add (Int.mul a c)) (Int.mulComm c b))))
+
+-- The cast of a sum is the sum of the casts.
+theorem Int.toIntSumBy (f: a -> Nat): (xs: List a) -> (List.sumBy f xs).toInt = List.sumBy (x => (f x).toInt) xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Eq.trans (Eq.cong Nat.toInt (List.sumByCons f x xs))
+      (Eq.trans (Eq.cong (t => Int.add (Nat.toInt (f x)) t) (Int.toIntSumBy f xs))
+        (Eq.sym (List.sumByCons (y => (f y).toInt) x xs)))
+
+theorem Int.mulCommExample: (-3) * 4 = 4 * (-3) := rfl
+
+test "Int.toIntSumBy" := (List.sumBy (x => x * x) [1, 2, 3]).toInt == List.sumBy (x => (x * x).toInt) [1, 2, 3]
