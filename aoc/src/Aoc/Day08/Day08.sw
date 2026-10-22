@@ -92,18 +92,20 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
     , count = circuits.count - 1
     }
 
--- How many boxes are in each circuit, in no particular order.
-def Circuits.sizes (circuits: Circuits): List Nat :=
-  circuits.labels.values
-    |> .foldLeft (sizeByLabel label => sizeByLabel |> Map.insertWith Nat.add label 1) (Map.empty: Map Nat Nat)
-    |> Map.values
+-- How many boxes are in each circuit, a circuit counted once, at its first
+-- (lowest-numbered) box.
+def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
+  let labels := List.range boxes |> .map circuits.labelOf
+  List.range boxes
+    |> .filter (box => !(labels.take box |> .any (label => label == circuits.labelOf box)))
+    |> .map (box => labels.count (label => label == circuits.labelOf box))
 
 -- Part 1: join the closest `connections` pairs (1,000 for the puzzle input,
 -- 10 for its example), then multiply the sizes of the three biggest circuits.
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
     |> .foldLeft (circuits (distance, first, second) => circuits.join first second) (Circuits.separate boxes.points.length)
-  joined.sizes |> .sortBy (a b => Nat.compare b a) |> .take 3 |> .product
+  joined.sizes boxes.points.length |> .sortBy (a b => Nat.compare b a) |> .take 3 |> .product
 
 -- Part 2: the product of the x coordinates of the two boxes whose joining
 -- leaves one circuit. `None` if there are no such boxes: the points start in
