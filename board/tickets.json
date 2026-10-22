@@ -1,5 +1,5 @@
 {
-  "next": 290,
+  "next": 291,
   "tickets": [
     {
       "id": 1,
@@ -4398,6 +4398,20 @@
       "where": "",
       "labels": [
         "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 290,
+      "title": "Speed up the full suite for daily checkpoints: parallel test binaries (nextest?), trim erasure/check_cache/run_js/rewind (2-3 min each)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
       ],
       "body": "",
       "created": "2026-10-22",
