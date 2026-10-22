@@ -1,5 +1,5 @@
 {
-  "next": 243,
+  "next": 244,
   "tickets": [
     {
       "id": 1,
@@ -3615,6 +3615,20 @@
         "aoc"
       ],
       "body": "D405: each day's tests go to namespace Aoc.DayNN.Tests in aoc/src/Aoc/DayNN/Tests/, mirroring Proofs, so run doesn't check them. D406: the example puzzle texts and helpers used only by tests move with them; DayNN.sw keeps only the program (and helpers that proofs or dot notation need). Input.sw's real-input tests move to Tests/Input.sw.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 243,
+      "title": "AoC: theorems over the parsed model (D407): delete Day 3 joltageIsLargest (D408); restate Day 7 over a parsed grid like Day 4 (D409)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D407: AoC theorems are stated over the parsed domain model, not text; parsing isn't proved (exception: day 6, whose puzzle is about the text layout). D408: delete aoc/src/Aoc/Day03/Proofs/Best.sw joltageIsLargest (and the parsing-digits lemma it alone needs), bestIsLargest is the headline; update docs/aoc-2025.md and docs/comparisons/aoc-day03-community.md mentions. D409: restate Day 7's part1/part2 correctness (and part2Distinct) over the parsed manifold/grid, like Day 4's part1Correct (grid: Grid), with a puzzle-literal spec over the model. Start after SW-242 (AoC tests move) merges.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
