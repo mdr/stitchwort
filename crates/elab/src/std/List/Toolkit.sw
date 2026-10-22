@@ -711,15 +711,58 @@ theorem List.memAppend (x: a): (xs: List a) -> (ys: List a) -> List.Mem x (List.
       | Inr m => Inr m
 
 -- `f x` is in `List.map f xs` only if `x` is in `xs`, for an injective `f`.
-theorem List.memMap (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y) (x: a): (xs: List a) -> List.Mem (f x) (List.map f xs) -> List.Mem x xs
+theorem List.memMapInjective (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y) (x: a): (xs: List a) -> List.Mem (f x) (List.map f xs) -> List.Mem x xs
   | Nil,       h => h
   | Cons z zs, Inl h => Inl (inj z x h)
-  | Cons z zs, Inr h => Inr (List.memMap f inj x zs h)
+  | Cons z zs, Inr h => Inr (List.memMapInjective f inj x zs h)
+
+-- If `x` is in `xs`, `f x` is in `List.map f xs`.
+theorem List.memMap (f: a -> b) (x: a): (xs: List a) -> List.Mem x xs -> List.Mem (f x) (List.map f xs)
+  | Nil,       h => h
+  | Cons z zs, Inl h => Inl (Eq.cong f h)
+  | Cons z zs, Inr h => Inr (List.memMap f x zs h)
+
+-- What is in `List.map f xs` is `f x` for some `x` in `xs` (said with
+-- `List.Any`, since the library has no `Exists`).
+theorem List.memMapAny (f: a -> b) (y: b): (xs: List a) -> List.Mem y (List.map f xs) -> List.Any (x => f x = y) xs
+  | Nil,       h => h
+  | Cons z zs, Inl h => Inl h
+  | Cons z zs, Inr h => Inr (List.memMapAny f y zs h)
+
+-- What `List.filter p` keeps was in the list, and passes `p`.
+theorem List.memFilter (p: a -> Bool) (x: a): (xs: List a) -> List.Mem x (List.filter p xs) -> And (List.Mem x xs) (p x = True)
+  | Nil,       h => Void.exfalso h
+  | Cons y ys, h =>
+    match e: p y with
+      | True =>
+        match h with
+          | Inl q => Both (Inl q) (rewrite q at e)
+          | Inr m =>
+            match List.memFilter p x ys m with
+              | Both inYs px => Both (Inr inYs) px
+      | False =>
+        match List.memFilter p x ys h with
+          | Both inYs px => Both (Inr inYs) px
+
+-- The run `List.rangeFrom c s` holds the numbers from `s` up to, not
+-- including, `s + c`.
+theorem List.memRangeFrom (x: Nat): (c: Nat) -> (s: Nat) -> List.Mem x (List.rangeFrom c s) -> And (s <= x) (x < s + c)
+  | Zero,   s, h => Void.exfalso h
+  | Succ c, s, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
+  | Succ c, s, Inr m =>
+    match List.memRangeFrom x c (Succ s) m with
+      | Both lo hi => Both (Nat.lessLe s x lo) (Nat.ltAddSucc s c x hi)
+
+-- `List.between lo hi` holds the numbers from `lo` to `hi`, both included.
+-- The numbers are implicit, for use on a `List.Member`'s `isIn`.
+theorem List.memBetween [x lo hi: Nat] (h: List.Mem x (List.between lo hi)): And (lo <= x) (x <= hi) :=
+  match List.memRangeFrom x (hi + 1 - lo) lo h with
+    | Both above below => Both above (Nat.ltCongRight x (hi + 1) (Succ hi) (Nat.addOne hi) (Nat.ltOfRunSub lo x (hi + 1) above below))
 
 -- Mapping an injective function keeps a list distinct.
 theorem List.distinctMap (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y): (xs: List a) -> List.Distinct xs -> List.Distinct (List.map f xs)
   | Nil,       d => Trivial
-  | Cons x xs, Both h d => Both (m => h (List.memMap f inj x xs m)) (List.distinctMap f inj xs d)
+  | Cons x xs, Both h d => Both (m => h (List.memMapInjective f inj x xs m)) (List.distinctMap f inj xs d)
 
 -- Two distinct lists with no element in common, joined, are distinct.
 theorem List.distinctAppend: (xs: List a) -> (ys: List a) -> List.Distinct xs -> List.Distinct ys -> List.Disjoint xs ys -> List.Distinct (List.append xs ys)
