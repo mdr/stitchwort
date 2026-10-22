@@ -6,7 +6,10 @@
 //! `Succ n`, decisions wrapped in `Eq.cong`. Each test here evaluates with
 //! every native on and with every native off, in both evaluators (the
 //! machine and `reference.rs`), and compares the whole normal forms, proofs
-//! and stuck terms included, not decoded answers.
+//! and stuck terms included, not decoded answers. A theorem stays folded
+//! while checking (SW-281), so where natives on give `refl` natives off may
+//! give a theorem's call: those two must then be definitionally equal, which
+//! unfolds the call.
 
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
@@ -115,7 +118,7 @@ fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String)
     let (v, on) = machine(g, f, args, level);
     let on_slow = slow(g, f, args, level);
     g.builtins.disable_natives = true;
-    let (_, off) = machine(g, f, args, level);
+    let (v_off, off) = machine(g, f, args, level);
     let off_slow = slow(g, f, args, level);
     g.builtins.disable_natives = false;
     assert_eq!(
@@ -130,7 +133,13 @@ fn run(g: &mut Globals, f: DefId, args: &[Arg], level: usize) -> (Value, String)
         "{}: the evaluators disagree, natives off",
         what()
     );
-    assert_eq!(on, off, "{}: natives on and off disagree", what());
+    if on != off {
+        assert!(
+            value::conv(g, level, &v, &v_off).expect("no limits"),
+            "{}: natives on and off disagree\n  on: {on}\n off: {off}",
+            what()
+        );
+    }
     (v, on)
 }
 
@@ -231,8 +240,13 @@ fn decisions_agree_in_both_modes() {
                 };
                 if a == b {
                     assert_eq!(*c, yes, "Int.decEq {a} {b}: {nf}");
-                    let p = value::force(g, fields.last().unwrap().clone()).unwrap();
-                    assert!(matches!(p, Value::Refl), "Int.decEq {a} {b}: {nf}");
+                    // A folded theorem's call (`Eq.cong`) that unfolds to
+                    // `refl`.
+                    let p = fields.last().unwrap();
+                    assert!(
+                        value::conv(g, 0, p, &Value::Refl).unwrap(),
+                        "Int.decEq {a} {b}: {nf}"
+                    );
                 } else {
                     assert_ne!(*c, yes, "Int.decEq {a} {b}: {nf}");
                 }
