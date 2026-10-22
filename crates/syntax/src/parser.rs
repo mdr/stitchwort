@@ -216,9 +216,13 @@ struct Parser<'t> {
     /// How many `calc`s the parser is inside. In one, a line starting with
     /// `_` is the next step, not an argument of the line before.
     calc_depth: u32,
-    /// While a `rewrite` rule is being parsed: the token it starts at. A `in`
-    /// outside brackets ends the rule (`in` is an ordinary name elsewhere).
+    /// While a `rewrite` rule or target is being parsed: the token it starts
+    /// at. An `in` outside brackets ends it (`in` is an ordinary name
+    /// elsewhere).
     rewrite_rule: Option<usize>,
+    /// Whether an `at` outside brackets, after the first token, ends the
+    /// `rewrite` rule too: true for a rule, false for the target after `at`.
+    rewrite_at: bool,
     /// For each opening bracket (`(`, `[`, `{`), the index of its partner,
     /// and `NO_PARTNER` for every other token and for unmatched brackets.
     /// Built once per declaration, so that skipping a bracketed group is one
@@ -292,6 +296,7 @@ impl<'t> Parser<'t> {
             allow: None,
             calc_depth: 0,
             rewrite_rule: None,
+            rewrite_at: false,
             matching: match_brackets(tokens),
             stack,
         }
@@ -354,11 +359,20 @@ impl<'t> Parser<'t> {
             && !self.continues_bracket(i)
     }
 
-    /// Whether the token at `i` is the `in` that ends the `rewrite` rule
-    /// starting at token `start`: an `in` not inside brackets opened since.
+    /// Whether the token at `i` is the `in` (or, in a rule, the `at`) that
+    /// ends the `rewrite` rule or target starting at token `start`: one not
+    /// inside brackets opened since, nor a field (`p.at`). An `at` that starts
+    /// the rule is a name (`rewrite at b h in t`).
     #[inline(never)]
     fn ends_rewrite_rule(&self, i: usize, start: usize) -> bool {
-        if !matches!(self.tokens.get(i), Some(Token { tok: Tok::Lower(w), .. }) if w == "in") {
+        let Some(Token {
+            tok: Tok::Lower(w), ..
+        }) = self.tokens.get(i)
+        else {
+            return false;
+        };
+        let word = w == "in" || (w == "at" && self.rewrite_at && i > start);
+        if !word || (i > 0 && self.tokens[i - 1].tok == Tok::Dot) {
             return false;
         }
         let depth = self.tokens[start..i].iter().fold(0i64, |d, t| match t.tok {
@@ -1775,14 +1789,16 @@ impl<'t> Parser<'t> {
         })
     }
 
-    /// `rewrite p, <- q in t`, after `rewrite`: rules separated by commas,
-    /// each optionally `<-`, then (optionally) `in` and the body. `in` is only
-    /// special where a rule could end: outside brackets, inside a rule.
+    /// `rewrite p, <- q at h in t`, after `rewrite`: rules separated by
+    /// commas, each optionally `<-`, then (optionally) `at` and the target,
+    /// then (optionally) `in` and the body. `at` and `in` are only special
+    /// where a rule could end: outside brackets, inside a rule (and `in`
+    /// inside the target).
     #[inline(never)]
     fn rewrite_expr(&mut self, start: Span) -> Result<Expr> {
-        let saved = self.rewrite_rule.take();
+        let saved = (self.rewrite_rule.take(), self.rewrite_at);
         let result = self.rewrite_body(start);
-        self.rewrite_rule = saved;
+        (self.rewrite_rule, self.rewrite_at) = saved;
         result
     }
 
@@ -1799,6 +1815,7 @@ impl<'t> Parser<'t> {
                 self.bump();
             }
             self.rewrite_rule = Some(self.pos);
+            self.rewrite_at = true;
             let proof = self.append_expr();
             self.rewrite_rule = None;
             let proof = proof?;
@@ -1811,8 +1828,18 @@ impl<'t> Parser<'t> {
                 break;
             }
         }
-        let at_in = matches!(self.peek(), Some(Tok::Lower(w)) if w == "in");
-        let body = if at_in {
+        let word = |p: &Self, w: &str| matches!(p.peek(), Some(Tok::Lower(x)) if x == w);
+        let target = if word(self, "at") {
+            self.bump();
+            self.rewrite_rule = Some(self.pos);
+            self.rewrite_at = false;
+            let target = self.append_expr();
+            self.rewrite_rule = None;
+            Some(Box::new(target?))
+        } else {
+            None
+        };
+        let body = if word(self, "in") {
             self.bump();
             Some(Box::new(self.expr()?))
         } else {
@@ -1820,9 +1847,11 @@ impl<'t> Parser<'t> {
         };
         let end = body
             .as_ref()
+            .or(target.as_ref())
             .map_or_else(|| rules.last().expect("a rule").span, |b| b.span());
         Ok(Expr::Rewrite {
             rules,
+            target,
             body,
             span: start.to(end),
         })
@@ -4522,6 +4551,49 @@ mod tests {
         };
         assert_eq!(rules.len(), 1);
         assert!(body.is_none());
+    }
+
+    #[test]
+    fn rewrite_at_takes_a_target_before_the_body() {
+        let parts = |text: &str| {
+            let expr = rhs(text);
+            let Expr::Rewrite {
+                rules,
+                target,
+                body,
+                ..
+            } = &expr
+            else {
+                panic!("expected a rewrite");
+            };
+            (rules.clone(), target.clone(), body.clone())
+        };
+        // `at` ends the rules, `in` ends the target.
+        let (rules, target, body) =
+            parts("def f (a: Nat): a = a :=\n  rewrite p, <- q x at h y in t\n");
+        assert_eq!(rules.len(), 2);
+        assert!(matches!(&rules[1].proof, Expr::App(..)));
+        assert!(matches!(target.as_deref(), Some(Expr::App(..))));
+        assert!(matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "t"));
+        // Without `in`, the rewritten target is the value.
+        let (_, target, body) = parts("def f (a: Nat): a = a :=\n  rewrite p at h\n");
+        assert!(matches!(target.as_deref(), Some(Expr::Var(n)) if n.text == "h"));
+        assert!(body.is_none());
+        // An `at` that starts a rule is a name, so is a bracketed one, and so
+        // is a field `.at`.
+        let (rules, target, body) =
+            parts("def f (a: Nat): a = a :=\n  rewrite at b (at) r.at at at in at\n");
+        let Expr::App(f, arg) = &rules[0].proof else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**arg, Expr::Field(_, n) if n.text == "at"));
+        assert!(matches!(&**f, Expr::App(_, a) if matches!(&**a, Expr::Var(n) if n.text == "at")));
+        assert!(matches!(target.as_deref(), Some(Expr::Var(n)) if n.text == "at"));
+        assert!(matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "at"));
+        // `at` is an ordinary name elsewhere.
+        assert!(parse_module_text("def f (at: Nat): Nat := at\n").is_ok());
+        let (_, target, _) = parts("def f (a: Nat): a = a :=\n  rewrite p in at\n");
+        assert!(target.is_none());
     }
 
     #[test]

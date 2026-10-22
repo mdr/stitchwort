@@ -1056,7 +1056,8 @@ the rule's metavariables.
 ### 6.5 Not included
 
 - Rewriting a hypothesis in the context (Lean's `rw … at h`). Today, write
-  `rewrite p in h` where `h`'s new type is expected.
+  `rewrite p in h` where `h`'s new type is expected. *Since built as `rewrite p at h`
+  ([rewrite-hypothesis.md](rewrite-hypothesis.md), SW-209).*
 - Choosing occurrences (Lean's `occs`, Arend's `{i}`): `calc` with an explicit step covers
   this.
 - Matching up to algebra (Arend's `rewriteEq`): that belongs with a reflective arithmetic
@@ -1229,7 +1230,9 @@ The ticket's other idea, printing `if` in goals as `if`, is separate and still w
 
 ### Stage 3 (later, if wanted)
 
-- Rewrite in the body's own type when no goal is known (Arend's and `▸`'s behaviour).
+- ~~Rewrite in the body's own type when no goal is known (Arend's and `▸`'s behaviour).~~
+  Dropped (D465): `rewrite p at t` is the explicit form
+  ([rewrite-hypothesis.md](rewrite-hypothesis.md)), and `E-REWRITE-NO-GOAL` points at it.
 - Choosing occurrences.
 - Keyed matching for `match` generalisation.
 - `Int` order lemmas, so `calc` works on `Int`.

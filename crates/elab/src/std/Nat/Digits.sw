@@ -144,10 +144,9 @@ theorem Nat.digitsFuelDigits: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f -
   | Zero,   n, acc, h, ha => Void.exfalso (Bool.falseNotTrue h)
   | Succ f, n, acc, h, ha =>
     Bool.inspect (Nat.leq n 9) (c => Nat.Digits (Nat.digitsFuel (Succ f) n acc))
-      (s => J (l q => Nat.Digits l) (Both s ha) (Eq.sym (Nat.digitsFuelSmall f n acc s)))
-      (b => J (l q => Nat.Digits l)
-        (Nat.digitsFuelDigits f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n b) h) (Both (Nat.modLt n 10) ha))
-        (Eq.sym (Nat.digitsFuelBig f n acc b)))
+      (s => rewrite Nat.digitsFuelSmall f n acc s in Both s ha)
+      (b => rewrite Nat.digitsFuelBig f n acc b in
+        Nat.digitsFuelDigits f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n b) h) (Both (Nat.modLt n 10) ha))
 
 theorem Nat.digitsDigits (n: Nat): Nat.Digits (Nat.digits n) := Nat.digitsFuelDigits (Succ n) n Nil (Nat.leRefl n) Trivial
 
@@ -177,10 +176,9 @@ theorem Nat.digitsFuelHead: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f -> 
   | Zero,   n, acc, h, hn => Void.exfalso (Bool.falseNotTrue h)
   | Succ f, n, acc, h, hn =>
     Bool.inspect (Nat.leq n 9) (c => 1 <= List.headOr 0 (Nat.digitsFuel (Succ f) n acc))
-      (s => J (l q => 1 <= List.headOr 0 l) hn (Eq.sym (Nat.digitsFuelSmall f n acc s)))
-      (b => J (l q => 1 <= List.headOr 0 l)
-        (Nat.digitsFuelHead f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n b) h) (Nat.leDivOfMulLe 1 n 10 (Nat.leqFalse n 9 b)))
-        (Eq.sym (Nat.digitsFuelBig f n acc b)))
+      (s => rewrite Nat.digitsFuelSmall f n acc s in hn)
+      (b => rewrite Nat.digitsFuelBig f n acc b in
+        Nat.digitsFuelHead f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n b) h) (Nat.leDivOfMulLe 1 n 10 (Nat.leqFalse n 9 b)))
 
 theorem Nat.digitsHead (n: Nat) (hn: 1 <= n): 1 <= List.headOr 0 (Nat.digits n) := Nat.digitsFuelHead (Succ n) n Nil (Nat.leRefl n) hn
 
@@ -188,8 +186,8 @@ theorem Nat.digitsFuelNonEmpty: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> 1 <= 
   | Zero,   n, acc => rfl
   | Succ f, n, acc =>
     Bool.inspect (Nat.leq n 9) (c => 1 <= List.length (Nat.digitsFuel (Succ f) n acc))
-      (s => J (l q => 1 <= List.length l) rfl (Eq.sym (Nat.digitsFuelSmall f n acc s)))
-      (b => J (l q => 1 <= List.length l) (Nat.digitsFuelNonEmpty f (n / 10) (Cons (n % 10) acc)) (Eq.sym (Nat.digitsFuelBig f n acc b)))
+      (s => rewrite Nat.digitsFuelSmall f n acc s)
+      (b => rewrite Nat.digitsFuelBig f n acc b in Nat.digitsFuelNonEmpty f (n / 10) (Cons (n % 10) acc))
 
 theorem Nat.digitsNonEmpty (n: Nat): 1 <= List.length (Nat.digits n) := Nat.digitsFuelNonEmpty (Succ n) n Nil
 

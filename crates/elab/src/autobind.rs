@@ -398,9 +398,17 @@ fn walk_at(
                 }
             }
         }
-        Expr::Rewrite { rules, body, .. } => {
+        Expr::Rewrite {
+            rules,
+            target,
+            body,
+            ..
+        } => {
             for rule in rules {
                 walk(e, &rule.proof, bound, false, uses)?;
+            }
+            if let Some(target) = target {
+                walk(e, target, bound, false, uses)?;
             }
             if let Some(body) = body {
                 walk(e, body, bound, false, uses)?;

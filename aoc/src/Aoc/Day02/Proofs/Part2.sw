@@ -159,13 +159,12 @@ theorem blockCountRep (x: Nat) (m: Nat): (k: Nat) -> 1 <= k ->
         List.sumRangeNone (b => writeTimes (Succ j) b (Succ (Succ m)) == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq (writeTimes (Succ j) b (Succ (Succ m))) x)
             (e => Bool.trueNotFalse (Eq.trans
-              (Eq.sym (J (y q => writtenAs (Nat.digits y) (Succ j) (Succ (Succ m)) = True)
-                (repDigits j b h1
+              (Eq.sym (rewrite e at
+                repDigits j b h1
                   (calc b
                     _ < Nat.pow 10 j + (Nat.pow 10 (Succ j) - Nat.pow 10 j) := h2
                     _ = Nat.pow 10 (Succ j) := Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j)))
-                  (Succ m))
-                e))
+                  (Succ m)))
               hq)))
 
 -- One block length, as a sum over the ids of the range (`blocksAsIds` for any n).
@@ -386,7 +385,7 @@ theorem periodDvd (g: Nat -> Nat) (len: Nat) (hl: len != 0) (j: Nat) (hp0: Perio
   let e: p - t * Succ j = p % Succ j :=
     Eq.trans (Eq.cong (y => y - t * Succ j) (Eq.trans (Nat.divModEq p (Succ j) (Nat.succNotZero j)) (Nat.addComm (t * Succ j) (p % Succ j))))
       (Nat.addSub (p % Succ j) (t * Succ j))
-  periodBelow g len hl j hmin (p % Succ j) (J (y q => Period g len hl y) rest e) (Nat.modLess p (Succ j) (Nat.succNotZero j))
+  periodBelow g len hl j hmin (p % Succ j) (rewrite e at rest) (Nat.modLess p (Succ j) (Nat.succNotZero j))
 
 
 -- (4) Blocks are periods -----------------------------------------------------
@@ -465,7 +464,7 @@ theorem smallestIsPeriod (x: Nat): Period (digitAt (Nat.digits x)) (digitCount x
   periodOfTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (smallestPeriod x)
     (Nat.firstFromFound (j => periodOf x (Succ j)) (digitCount x) 0 (digitCount x - 1) (Nat.zeroLe (digitCount x - 1))
       (Nat.leCongLeft (digitCount x) (Succ (digitCount x - 1)) (digitCount x) (Eq.sym top) (Nat.leRefl (digitCount x)))
-      (J (y q => periodOf x y = True) (periodTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (digitCount x) (periodLen (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x))) (Eq.sym top)))
+      (rewrite top in periodTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (digitCount x) (periodLen (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x))))
 
 theorem smallestDivides (x: Nat) (p: Nat) (hp: Period (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) p): p % smallestPeriod x = 0 :=
   periodDvd (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (periodIndex x) (smallestIsPeriod x)
@@ -481,7 +480,7 @@ theorem countTimesPeriod (x: Nat): digitCount x = blockCount x * smallestPeriod 
 
 theorem blockCountPos (x: Nat): 1 <= blockCount x :=
   match e: blockCount x with
-    | Zero   => Void.exfalso (Bool.falseNotTrue (J (y q => 1 <= y) (Nat.digitsNonEmpty x) (Eq.trans (countTimesPeriod x) (Eq.cong (t => t * smallestPeriod x) e))))
+    | Zero   => Void.exfalso (Bool.falseNotTrue (rewrite countTimesPeriod x, e at (Nat.digitsNonEmpty x: 1 <= digitCount x)))
     | Succ k => rfl
 
 theorem blockCountLe (x: Nat): blockCount x <= digitCount x :=
@@ -503,11 +502,11 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (
         _ = n * k                          := Eq.sym (countOf x k n hn hw)
         _ = n * (t * smallestPeriod x)     := Eq.cong (y => n * y) ek
         _ = n * t * smallestPeriod x       := Eq.sym (Nat.mulAssoc n t (smallestPeriod x)))
-  J (y q => Nat.divides n y = True) (Nat.dividesMul n t) (Eq.sym (Eq.trans eK (Nat.mulComm n t)))
+  rewrite <- Nat.mulComm n t, <- eK at Nat.dividesMul n t
 
 -- And back: if n divides the block count, the digits are a block written n times.
 theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 <= n): (t: Nat) -> blockCount x = t * n -> copies x n = True
-  | Zero,   e => Void.exfalso (Bool.falseNotTrue (J (y q => 1 <= y) (blockCountPos x) e))
+  | Zero,   e => Void.exfalso (Bool.falseNotTrue (rewrite e at blockCountPos x))
   | Succ t, e =>
     let k := Succ t * smallestPeriod x
     let ekn: k * n = digitCount x :=

@@ -457,7 +457,7 @@ theorem List.closeGroupGroups (p: a -> Bool): (cur: List a) -> (done: List (List
   | Cons y ys, done, hc, hd => Both (Both (Nat.zeroLe (List.length ys)) hc) hd
 
 theorem List.nonSepCons (p: a -> Bool) (x: a) (cur: List a) (h: p x = False) (hc: List.NonSep p cur): List.NonSep p (Cons x cur) :=
-  J (y q => (if !y then List.all (z => !(p z)) cur else False) = True) hc (Eq.sym h)
+  rewrite h in hc
 
 theorem List.splitStepOk (p: a -> Bool) (x: a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) -> List.SplitOk p st ->
     List.SplitOk p (List.splitStep x b st)

@@ -218,10 +218,10 @@ theorem sumIdsEq (from: Nat) (to: Nat) (y: Nat):
     | True, True  => List.sumRangeEq y (to + 1 - from) from t (rangeIn from to y t t2)
     | True, False =>
       List.sumRangeEqNone y (to + 1 - from) from
-        (x hx1 hx2 e => Bool.trueNotFalse (Eq.trans (Eq.sym (J (z q => Nat.leq z to = True) (rangeEnd from to x hx1 hx2) (Eq.sym e))) t2))
+        (x hx1 hx2 e => Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- e at rangeEnd from to x hx1 hx2)) t2))
     | False, _    =>
       List.sumRangeEqNone y (to + 1 - from) from
-        (x hx1 hx2 e => Bool.trueNotFalse (Eq.trans (Eq.sym (J (z q => Nat.leq from z = True) hx1 (Eq.sym e))) t))
+        (x hx1 hx2 e => Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- e at hx1)) t))
 
 theorem twiceAppend (x: Nat) (k: Nat) (hq: writtenAs (Nat.digits x) k 2 = True):
     List.append (List.take k (Nat.digits x)) (List.take k (Nat.digits x)) = Nat.digits x :=
@@ -235,8 +235,8 @@ theorem twiceBlockLength (x: Nat) (k: Nat) (hq: writtenAs (Nat.digits x) k 2 = T
       Void.exfalso (Nat.addSelfNotSelf (List.length (Nat.digits x)) (Nat.digitsNonEmpty x)
         (Eq.trans (Eq.sym (List.lengthAppend (Nat.digits x) (Nat.digits x)))
           (Eq.cong List.length
-            (J (l q => List.append l l = Nat.digits x) (twiceAppend x k hq)
-              (List.takeAll k (Nat.digits x) (Nat.lessLe (List.length (Nat.digits x)) k (Nat.leqFalse k (List.length (Nat.digits x)) e)))))))
+            (rewrite List.takeAll k (Nat.digits x) (Nat.lessLe (List.length (Nat.digits x)) k (Nat.leqFalse k (List.length (Nat.digits x)) e))
+              at twiceAppend x k hq))))
 
 theorem twiceHalf (x: Nat) (k: Nat) (hq: writtenAs (Nat.digits x) k 2 = True): k + k = List.length (Nat.digits x) :=
   calc k + k
@@ -331,12 +331,11 @@ theorem twiceBlockCount (x: Nat): (k: Nat) -> 1 <= k ->
         List.sumRangeNone (b => writeTimes (Succ j) b 2 == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq (writeTimes (Succ j) b 2) x)
             (e => Bool.trueNotFalse (Eq.trans
-              (Eq.sym (J (y q => writtenAs (Nat.digits y) (Succ j) 2 = True)
-                (twiceDigits j b h1
+              (Eq.sym (rewrite e at
+                twiceDigits j b h1
                   (calc b
                     _ < Nat.pow 10 j + (Nat.pow 10 (Succ j) - Nat.pow 10 j) := h2
-                    _ = Nat.pow 10 (Succ j) := Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j))))
-                e))
+                    _ = Nat.pow 10 (Succ j) := Nat.addSubCancel (Nat.pow 10 j) (Nat.pow 10 (Succ j)) (Nat.powTenPredLe (Succ j)))))
               hq)))
 
 -- One block length, as a sum over the ids of the range.

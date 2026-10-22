@@ -4,6 +4,8 @@
 //! rewrite p in t        -- t proves the goal with p's left side replaced
 //! rewrite p             -- the same as `rewrite p in rfl`
 //! rewrite p, <- q in t  -- p, then q right to left, then t
+//! rewrite p at h in t   -- in t, h has its type with p's left side replaced
+//! rewrite p at h        -- the rewritten h itself
 //! ```
 //!
 //! Given `p: a = b` and the goal `G`, the occurrences of `a` in `G` are
@@ -35,6 +37,12 @@
 //! (`E-REWRITE-MOTIVE`: an `auto` proof about the replaced term is the usual
 //! cause) and applied to `a` it must compute back to the goal ([`round_trip`]).
 //!
+//! **`at h`** (docs/proposals/rewrite-hypothesis.md) runs the same search
+//! and checks over the type `H` of `h` instead of the goal. The motive is
+//! `M x := H[x]` with its proof binder over `a = x`, and the result is
+//! `J M h p : H[b]`, the `J`s nesting the other way from the goal's. With
+//! `in t`, `h` is a `let` of that term for `t`.
+//!
 //! Set `STITCHWORT_REWRITE_METRICS` to print, per `rewrite`, how much the
 //! search did (candidates visited, conversions, evaluation steps).
 
@@ -59,11 +67,34 @@ use crate::undo::{Snapshot, fatal};
 /// hundred; this is what an expensive candidate runs out of.
 const SEARCH_BUDGET: u64 = 1_000_000;
 
+/// Where the rules of a `rewrite` look: the goal, or the type of the term
+/// after `at`.
+#[derive(Clone, Copy)]
+enum Place<'a> {
+    Goal,
+    /// The target's name, if it is one.
+    Target(Option<&'a str>),
+}
+
+impl Place<'_> {
+    /// For messages: "the goal", "the type of `h`".
+    fn the(self) -> String {
+        match self {
+            Place::Goal => "the goal".into(),
+            Place::Target(Some(name)) => format!("the type of `{name}`"),
+            Place::Target(None) => "the type of the term after `at`".into(),
+        }
+    }
+}
+
 /// `rewrite` where nothing says what to prove.
-pub(crate) fn infer_rewrite(_cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    let Expr::Rewrite { rules, .. } = expr else {
+pub(crate) fn infer_rewrite(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let Expr::Rewrite { rules, target, .. } = expr else {
         unreachable!("only called on a rewrite");
     };
+    if target.is_some() {
+        return rewrite_at(cx, expr, None);
+    }
     Err(Diagnostic::error(
         "E-REWRITE-NO-GOAL",
         "`rewrite` needs to know what it has to prove",
@@ -76,14 +107,117 @@ pub(crate) fn infer_rewrite(_cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)>
     .with_note(
         "the goal is known where a proof is checked against a type: an argument, a definition's \
          body, a `calc` step",
-    ))
+    )
+    .with_note("to rewrite the type of a fact `t` instead of a goal, write `rewrite p at t`"))
+}
+
+/// `rewrite p at h in t` and `rewrite p at h`: the rules rewrite the type
+/// of `h`, and `t` (if any) is checked with `h` rebound to the result.
+fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
+    let Expr::Rewrite {
+        rules,
+        target: Some(target),
+        body,
+        span,
+    } = expr
+    else {
+        unreachable!("only called on a rewrite with a target");
+    };
+    let name = match &**target {
+        Expr::Var(n) if cx.lookup(&n.text).is_some() || cx.local(&n.text)?.is_some() => Some(n),
+        _ => None,
+    };
+    if body.is_some() && name.is_none() {
+        return Err(Diagnostic::error(
+            "E-REWRITE-TARGET",
+            "`rewrite … at … in` needs a local name after `at`",
+        )
+        .with_label(
+            target.span(),
+            "this isn't a local name, so there is nothing to give the new type for the rest of the proof",
+        )
+        .with_note(
+            "only a name can be given a new type for the rest of the proof; drop `in …` to use \
+             the rewritten term directly, or name it first with `let`",
+        ));
+    }
+    let place = Place::Target(name.map(|n| n.text.as_str()));
+    let (fact, ty) = infer(cx, target)?;
+    let (fact, ty) = insert(cx, fact, ty)?;
+    let budget = cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET);
+    let mut remaining = budget;
+    let mut stats = Stats::default();
+    let mut ty = match cx.e.interfaces.is_empty() {
+        true => ty,
+        false => crate::interfaces::find_ready_dictionaries(cx, &ty, None)?.unwrap_or(ty),
+    };
+    let mut term = fact;
+    let mut outcome = Ok(());
+    for rule in rules {
+        match rewrite_once(cx, rule, place, &ty, None, &mut remaining, &mut stats) {
+            Ok(step) => {
+                ty = step.goal;
+                term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+            }
+            Err(e) => {
+                outcome = Err(e);
+                break;
+            }
+        }
+    }
+    report(*span, rules.len(), &stats, budget - remaining);
+    outcome?;
+    let Some(body) = body else {
+        let Some(expected) = expected else {
+            return Ok((term, ty));
+        };
+        return match crate::check::compare(cx, term, &ty, expected) {
+            Err(e) if e.code == "E-TYPE-MISMATCH" => Err(e.with_note(format!(
+                "after `rewrite … at`, {} is `{}`",
+                match name {
+                    Some(n) => format!("`{}`", n.text),
+                    None => "the term".into(),
+                },
+                cx.show(&ty)
+            ))),
+            result => Ok((result?, expected.clone())),
+        };
+    };
+    let name = name.expect("checked above");
+    let ty_term = cx.quote(&ty)?;
+    let mark = cx.mark();
+    let x: stitchwort_core::Name = name.text.as_str().into();
+    let result = cx
+        .define(
+            Some(&name.text),
+            x.clone(),
+            ty,
+            ty_term.clone(),
+            term.clone(),
+        )
+        .and_then(|()| match expected {
+            Some(t) => check(cx, body, t).map(|b| (b, t.clone())),
+            None => infer(cx, body),
+        });
+    cx.reset(mark);
+    let (body, block_ty) = result?;
+    Ok((Term::let_(x, ty_term, term, body), block_ty))
 }
 
 /// `rewrite` against a goal.
 pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
-    let Expr::Rewrite { rules, body, span } = expr else {
+    let Expr::Rewrite {
+        rules,
+        target,
+        body,
+        span,
+    } = expr
+    else {
         unreachable!("only called on a rewrite");
     };
+    if target.is_some() {
+        return Ok(rewrite_at(cx, expr, Some(expected))?.0);
+    }
     let budget = cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET);
     let mut remaining = budget;
     let mut stats = Stats::default();
@@ -98,7 +232,15 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
     let mut steps: Vec<Step> = Vec::new();
     let mut outcome = Ok(());
     for rule in rules {
-        match rewrite_once(cx, rule, &goal, written.take(), &mut remaining, &mut stats) {
+        match rewrite_once(
+            cx,
+            rule,
+            Place::Goal,
+            &goal,
+            written.take(),
+            &mut remaining,
+            &mut stats,
+        ) {
             Ok(step) => {
                 goal = step.goal.clone();
                 steps.push(step);
@@ -136,13 +278,16 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
     Ok(term)
 }
 
-/// One rule's rewrite of the goal.
+/// One rule's rewrite of the goal (or of a target's type).
 struct Step {
     /// `x _ => G[x]`.
     motive: Term,
-    /// Proves `rhs = lhs`, which `J` takes the base `G[rhs]` along.
+    /// For the goal, proves `rhs = lhs`, which `J` takes the base `G[rhs]`
+    /// along. For a target, proves `lhs = rhs`, which `J` takes the target
+    /// `G[lhs]` along.
     proof: Term,
-    /// `G[rhs]`: what the rest of the `rewrite` proves.
+    /// `G[rhs]`: what the rest of the `rewrite` proves (or the target's new
+    /// type).
     goal: Value,
 }
 
@@ -182,9 +327,11 @@ fn report(span: Span, rules: usize, stats: &Stats, steps: u64) {
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn rewrite_once(
     cx: &mut Ctx,
     rule: &RewriteRule,
+    place: Place,
     goal: &Value,
     written: Option<Term>,
     remaining: &mut u64,
@@ -210,8 +357,9 @@ fn rewrite_once(
     } else {
         ((*left).clone(), (*right).clone())
     };
-    // `J` carries the base `G[rhs]` along a proof of `rhs = lhs`.
-    let to_lhs = if rule.reverse {
+    // For the goal, `J` carries the base `G[rhs]` along a proof of
+    // `rhs = lhs`; for a target, the target `G[lhs]` along `lhs = rhs`.
+    let to_lhs = if rule.reverse == matches!(place, Place::Goal) {
         proof
     } else {
         let piped = Piped {
@@ -224,7 +372,7 @@ fn rewrite_once(
 
     let lhs_term = cx.quote(&lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
-        return Err(unknown_head(rule));
+        return Err(unknown_head(rule, place));
     };
     let goal_value = force(g, goal.clone())?;
     let mut goal_term = cx.quote(&goal_value)?;
@@ -283,10 +431,14 @@ fn rewrite_once(
     drop(search);
     let body = body?;
     if found.matched == 0 {
-        let as_written = goal_as_written(cx, written, &goal_value)?;
+        let as_written = match place {
+            Place::Goal => goal_as_written(cx, written, &goal_value)?,
+            Place::Target(_) => None,
+        };
         return Err(nothing_found(
             cx,
             rule,
+            place,
             &lhs,
             &goal_value,
             as_written,
@@ -299,12 +451,16 @@ fn rewrite_once(
         Icit::Explicit,
         Rc::new(Term::Lam("_".into(), Icit::Explicit, Rc::new(body))),
     );
-    check_motive(cx, rule, &motive, &carrier, &rhs, &lhs)?;
-    let proof_value = cx.eval(&to_lhs)?;
+    // The motive's proof binder is over `from = x`, where `J` starts.
+    let (from, proof_value) = match place {
+        Place::Goal => (&rhs, cx.eval(&to_lhs)?),
+        Place::Target(_) => (&lhs, Value::Refl),
+    };
+    check_motive(cx, rule, place, &motive, &carrier, from, &lhs)?;
     match round_trip(cx, &motive, &lhs, &proof_value, &goal_value, remaining)? {
         Some(true) => {}
         Some(false) => {
-            return Err(round_trip_error(cx, rule, &lhs, first.as_ref()));
+            return Err(round_trip_error(cx, rule, place, &lhs, first.as_ref()));
         }
         None => {
             return Err(budget_error(
@@ -557,11 +713,13 @@ fn mentions_bound(term: &Term, under: usize) -> bool {
 }
 
 /// Checks that `x _ => body` is a motive: the body is a type with `x` of
-/// the equation's type and `_ : rhs = x` in scope. The kernel would reject a
-/// `J` whose motive isn't, but here the message can say why.
+/// the equation's type and `_ : rhs = x` in scope (`rhs` is the side `J`
+/// starts from). The kernel would reject a `J` whose motive isn't, but here
+/// the message can say why.
 fn check_motive(
     cx: &Ctx,
     rule: &RewriteRule,
+    place: Place,
     motive: &Term,
     carrier: &Value,
     rhs: &Value,
@@ -593,13 +751,17 @@ fn check_motive(
         Err(e) => Err(Diagnostic::error(
             "E-REWRITE-MOTIVE",
             format!(
-                "replacing `{}` everywhere in the goal doesn't give a valid proposition",
-                shown(cx, lhs)
+                "replacing `{}` everywhere in {} doesn't give a valid proposition",
+                shown(cx, lhs),
+                place.the()
             ),
         )
         .with_label(
             rule.span,
-            "the goal with this replaced by a variable doesn't type-check",
+            format!(
+                "{} with this replaced by a variable doesn't type-check",
+                place.the()
+            ),
         )
         .with_note(format!(
             "the checker says: {}",
@@ -608,10 +770,11 @@ fn check_motive(
                 e.message, l.message
             ))
         ))
-        .with_note(
-            "something in the goal can depend on the term being replaced, such as the proof an \
-             `auto` argument carries (the `d != 0` in `x % d`)",
-        )
+        .with_note(format!(
+            "something in {} can depend on the term being replaced, such as the proof an \
+                 `auto` argument carries (the `d != 0` in `x % d`)",
+            place.the()
+        ))
         .with_note(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
@@ -675,7 +838,7 @@ fn shown(cx: &Ctx, value: &Value) -> String {
     }
 }
 
-fn unknown_head(rule: &RewriteRule) -> Diagnostic {
+fn unknown_head(rule: &RewriteRule, place: Place) -> Diagnostic {
     let side = if rule.reverse { "right" } else { "left" };
     Diagnostic::error(
         "E-REWRITE-RULE",
@@ -683,7 +846,10 @@ fn unknown_head(rule: &RewriteRule) -> Diagnostic {
     )
     .with_label(
         rule.proof.span(),
-        format!("there is no function or constructor of its {side} side to look for in the goal"),
+        format!(
+            "there is no function or constructor of its {side} side to look for in {}",
+            place.the()
+        ),
     )
     .with_note("give the implicit arguments explicitly, such as `[f := …]`")
 }
@@ -708,6 +874,7 @@ fn goal_as_written(cx: &mut Ctx, written: Option<Term>, goal: &Value) -> Result<
 fn nothing_found(
     cx: &Ctx,
     rule: &RewriteRule,
+    place: Place,
     lhs: &Value,
     goal: &Value,
     as_written: Option<Term>,
@@ -717,21 +884,30 @@ fn nothing_found(
     let computed = cx.show(goal);
     let mut error = Diagnostic::error(
         "E-REWRITE-NOTHING",
-        format!("`rewrite` found no `{shown}` in the goal"),
+        format!("`rewrite` found no `{shown}` in {}", place.the()),
     )
     .with_label(rule.span, format!("looking for `{shown}`"));
+    let what = match place {
+        Place::Goal => "goal".to_string(),
+        Place::Target(Some(name)) => format!("`{name}`"),
+        Place::Target(None) => "its type".to_string(),
+    };
     match as_written.map(|t| written(cx, &t)) {
         Some(text) if text != computed => {
             error = error
-                .with_note(format!("goal: `{text}`"))
+                .with_note(format!("{what}: `{text}`"))
                 .with_note(format!("searched as it computes: `{computed}`"));
         }
-        _ => error = error.with_note(format!("goal: `{computed}`")),
+        _ => error = error.with_note(format!("{what}: `{computed}`")),
     }
-    error = error.with_note(
+    error = error.with_note(format!(
         "occurrences are looked for by their outer function and compared by computing, \
-         and only where they don't mention a variable bound inside the goal",
-    );
+         and only where they don't mention a variable bound inside {}",
+        match place {
+            Place::Goal => "the goal",
+            Place::Target(_) => "the type",
+        }
+    ));
     error = error.with_note(if rule.reverse {
         "to replace the left side by the right, write the rule without `<-`"
     } else {
@@ -761,19 +937,31 @@ fn budget_error(cx: &Ctx, rule: &RewriteRule, candidate: &Term, lhs: &Value) -> 
     .with_note("state the step with `calc`, or rewrite with a more specific equation")
 }
 
-fn round_trip_error(cx: &Ctx, rule: &RewriteRule, lhs: &Value, first: Option<&Term>) -> Diagnostic {
+fn round_trip_error(
+    cx: &Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    lhs: &Value,
+    first: Option<&Term>,
+) -> Diagnostic {
     let lhs = shown(cx, lhs);
     let message = match first {
         Some(first) => format!(
             "`{}` matched `{lhs}` only up to a detail that comparison ignores",
             written(cx, first)
         ),
-        None => format!("replacing `{lhs}` changes the goal in a way that can't be undone"),
+        None => format!(
+            "replacing `{lhs}` changes {} in a way that can't be undone",
+            place.the()
+        ),
     };
     Diagnostic::error("E-REWRITE-MOTIVE", message)
         .with_label(
             rule.span,
-            "after replacing it, the goal no longer computes to what it was",
+            format!(
+                "after replacing it, {} no longer computes to what it was",
+                place.the()
+            ),
         )
         .with_note("rewrite a larger term that contains it, or state the step with `calc`")
 }

@@ -1,7 +1,8 @@
 # Proposal: rewriting a hypothesis (`rewrite p at h`)
 
 **Status:** draft 1, 22 October 2026. Ticket SW-209, decision D461 (write this note).
-Decisions D463 to D465 ([§7](#7-decisions)) are open. Related:
+Decisions D463 to D465 ([§7](#7-decisions)) were decided by Matt on 22 October 2026 as
+recommended; built in SW-209 (see [As built](#as-built-sw-209)). Related:
 [calc-rewrite.md](calc-rewrite.md) §6.4, §6.5 and its Stage 3 ("rewrite in the body's own
 type when no goal is known"); [docs/aoc-2025.md](../aoc-2025.md), day 2 and day 3 pain points.
 
@@ -51,6 +52,7 @@ Labels, as in the other notes:
 - [5. Recommendation, effort and stages](#5-recommendation-effort-and-stages)
 - [6. What is not included](#6-what-is-not-included)
 - [7. Decisions](#7-decisions)
+- [As built (SW-209)](#as-built-sw-209)
 - [Sources](#sources)
 
 ## 0. Background in two paragraphs
@@ -474,6 +476,62 @@ you" **[checked]**).
 | D463 | How to rewrite a hypothesis (§3) | [Option A: `rewrite p at h in t`, and `rewrite p at h` for the rewritten term. Not the implicit "no goal" mode, not a library function, `subst` maybe later.] |
 | D464 | What may follow `at` (§4.1) | [Any expression, so `rewrite e at blockCountPos x` works without a `let`; `in` only after a single local name.] |
 | D465 | calc-rewrite.md Stage 3's "rewrite in the body's own type when no goal is known" (§4.5) | [Drop it: `at` is the explicit form, and one spelling meaning two opposite things depending on an invisible expected type is a trap. `E-REWRITE-NO-GOAL` points at `at`.] |
+
+## As built (SW-209)
+
+Built as §4 describes, with these details.
+
+**Syntax.** `rewrite p, <- q at h in t`, `rewrite p at h`, `rewrite p at <any expression>`.
+`at` ends a rule only outside brackets, after the rule's first token, and not after a `.`
+(a field `r.at`); `in` ends the target the same way. So `rewrite at b hb2 in …` in
+`aoc/src/Aoc/Day07/Proofs/Part1.sw` (a lemma called `at`) still parses, as does
+`rewrite p (at) at h` (`crates/syntax/src/parser.rs`, `ends_rewrite_rule`; parser test
+`rewrite_at_takes_a_target_before_the_body`). The AST has a `target` field on
+`Expr::Rewrite`.
+
+**Elaboration** (`crates/elab/src/rewrite.rs`, `rewrite_at`). The target is inferred (implicit
+arguments inserted); its type is searched by the same `rewrite_once` as the goal, which now takes
+where it is looking (`Place::Goal` or `Place::Target`). For a target the `J` goes the other way:
+the proof is `p` itself (`Eq.sym p` for `<-`), the motive's proof binder is over `a = x`, and
+the round trip applies the motive to `a` and `rfl`. Several rules nest as
+`J M2 (J M1 h p1) p2`. With `in t`, `h` is bound by a `let` (`Ctx::define`) of the `J` term
+for `t`, which is checked against the expected type if there is one and inferred otherwise.
+Without `in` and with an expected type, the rewritten type is compared by conversion as for
+any term. The kernel is unchanged.
+
+**Errors.** As planned: the existing codes, with "the type of `h`" (or "the type of the term
+after `at`") in place of "the goal", and the note `` `h`: `…` `` showing the type searched.
+`E-REWRITE-TARGET` for `in` after something that isn't a local name. A mismatch after the
+rewrite is `E-TYPE-MISMATCH` with the note "after `rewrite … at`, `h` is `…`".
+`E-REWRITE-NO-GOAL` has a third note, "to rewrite the type of a fact `t` instead of a goal,
+write `rewrite p at t`". Examples: `examples/accept/rewrite-at.sw`,
+`examples/reject/rewrite-at-{nothing,motive,target,mismatch}.sw`.
+
+**Searched as it computes.** As with goals, the target's type is searched in its computed
+form, so a rule must mention what the type computes to. Where an inferred type has a
+different shape from the one wanted (`Nat.digitsNonEmpty x` is about
+`List.length (Nat.digits x)`, not `digitCount x`), an ascription gives the shape:
+`rewrite countTimesPeriod x, e at (Nat.digitsNonEmpty x: 1 <= digitCount x)`.
+
+**Stage 2: 30 `J`s replaced**, all still checking:
+
+| file | `J`s | how |
+|---|---|---|
+| `crates/elab/src/std/Nat/Arith.sw` | 6 | `leCongLeft`, `leCongRight`, `ltCongLeft`, `ltCongRight` are `rewrite p at h`; `nonzeroOfPos` and `posOfDouble` as §1.1 |
+| `crates/elab/src/std/Nat/Divides.sw` | 1 | `rewrite <- Nat.modSmall n (Succ d) h2, e at h1` (two rules for the old `Eq.trans`) |
+| `crates/elab/src/std/List/Sort.sw` | 5 | `at` on the fact (`t`, `f`, a lemma call); the one at `firstFromAtLeast`'s `t` branch is left, as it changes one `s` of `s <= s` |
+| `crates/elab/src/std/Nat/Digits.sw` | 6 | the `digitsFuel*` lemmas: goal `rewrite … in` (the facts' inferred types don't show the rewritten list) |
+| `crates/elab/src/std/List/Toolkit.sw` | 1 | `nonSepCons`: `rewrite h in hc` |
+| `aoc/src/Aoc/Day02/Proofs/Repeated.sw` | 4 | §1.2 and §1.3 (`rewrite <- e at hx1` inline, under `Eq.sym`), and `twiceBlockLength` |
+| `aoc/src/Aoc/Day02/Proofs/Part2.sw` | 6 | §1.1 and §1.3, `rewrite e at rest`, `rewrite <- Nat.mulComm n t, <- eK at Nat.dividesMul n t`, and `smallestIsPeriod` as a goal rewrite |
+| `aoc/src/Aoc/Day03/Proofs/Best.sw` | 1 | `pickSub` matches like `pickGe` (§1.4); `pickSubStep` is gone |
+
+Left alone, as §6 says: the `J`s that change one occurrence (`Repeated.sw` `twiceAbove`,
+`Part2.sw` `repAbove`), those that build an equation from `rfl`, and the ones in `core.sw`
+(the definitions of `Eq.sym` and friends, and the decidable-equality lemmas).
+
+Corrected: `docs/aoc-2025.md`'s day 3 friction note, and `calc-rewrite.md` §6.5 and Stage 3
+(the "no goal" item is dropped, D465).
 
 ## Sources
 

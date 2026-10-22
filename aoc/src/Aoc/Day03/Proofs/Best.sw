@@ -78,18 +78,9 @@ theorem pickSub (t: Bank): (w: Nat) -> (xs: Bank) -> (c: Fin 10) -> (after: Bank
   | Succ w, Nil,         c, after, hx, hc, s, h => hc s h
   | Succ w, Cons x more, c, after, hx, hc, s, h =>
     rewrite pickStep w x more c after in
-      pickSubStep t w x more c after hx hc (Bool.decTrue (Nat.leq (Succ (Fin.toNat c)) (Fin.toNat x))) s
-        (J (p q => List.Subsequence s (Pair.snd p)) h (pickStep w x more c after))
-
--- `pickSub` one step on, whichever way `pick` goes.
-theorem pickSubStep (t: Bank) (w: Nat) (x: Fin 10) (more: Bank) (c: Fin 10) (after: Bank)
-    (hx: (s: Bank) -> List.Subsequence s (Cons x more) -> List.Subsequence s t)
-    (hc: (s: Bank) -> List.Subsequence s after -> List.Subsequence (Cons c s) t):
-    (d: Decidable (Fin.toNat c < Fin.toNat x)) -> (s: Bank) ->
-    List.Subsequence s (Pair.snd (Decidable.elim d (u => Bank.best.pick w more x more) (u => Bank.best.pick w more c after))) ->
-    List.Subsequence (Cons (Pair.fst (Decidable.elim d (u => Bank.best.pick w more x more) (u => Bank.best.pick w more c after))) s) t
-  | Yes lt, s, h => pickSub t w more x more (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) (s2 g2 => hx (Cons x s2) (Inl (Both rfl g2))) s h
-  | No ge,  s, h => pickSub t w more c after (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) hc s h
+      match e: Nat.leq (Succ (Fin.toNat c)) (Fin.toNat x) with
+        | True  => pickSub t w more x more (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) (s2 g2 => hx (Cons x s2) (Inl (Both rfl g2))) s h
+        | False => pickSub t w more c after (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) hc s h
 
 -- 1. `best k bank` is a subsequence of `bank`.
 theorem bestSub: (k: Nat) -> (bank: Bank) -> List.Subsequence (Bank.best k bank) bank

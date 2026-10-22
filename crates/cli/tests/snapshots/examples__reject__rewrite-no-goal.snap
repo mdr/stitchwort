@@ -12,4 +12,6 @@ expression: output
    │ Note 1: write the type with an ascription: `(rewrite p in t: a = b)`
    │ 
    │ Note 2: the goal is known where a proof is checked against a type: an argument, a definition's body, a `calc` step
+   │ 
+   │ Note 3: to rewrite the type of a fact `t` instead of a goal, write `rewrite p at t`
 ───╯
