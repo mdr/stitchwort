@@ -65,7 +65,7 @@ theorem onlyOne (p: Nat -> Bool) (n: Nat) (one: List.occurrences p (List.range n
       let some: Nat.leq 1 (List.occurrences (b => p b && !(b == x)) (List.range n)) = True :=
         rewrite <- List.anyOccurrences (b => p b && !(b == x)) (List.range n) in
           List.anyRangeIntro (b => p b && !(b == x)) n 0 y omega yn (rewrite hy, e in rfl)
-      Void.exfalso (omega [countWithout p n x hx xn])
+      omega [countWithout p n x hx xn]
 
 -- The count is the number of circuits -----------------------------------------
 
@@ -126,7 +126,7 @@ theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
         (calc (moved c f s).count
           _ = ownLabels c n - 1 := rewrite counts in rfl
           _ = List.occurrences (b => c.labelOf b == b && !(b == c.labelOf f)) (List.range n) :=
-            rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite labelOwn f hf in eqSelf (c.labelOf f)) (labelBelow f hf) in Nat.addSub _ 1
+            rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite labelOwn f hf in eqSelf (c.labelOf f)) (labelBelow f hf) in omega
           _ = ownLabels (moved c f s) n :=
             List.occurrencesCongMem (b => c.labelOf b == b && !(b == c.labelOf f)) (b => (moved c f s).labelOf b == b) (List.range n) (b m =>
               rewrite after b (And.right (List.memRangeFrom b n 0 m)) in Eq.sym (ownAfterMove c f s n counted hs differ b)))
@@ -264,15 +264,15 @@ theorem part2NoBoxesToJoin: (points: List Point) -> points.length <= 1 -> solveP
 -- Some connection is the last needed -----------------------------------------
 
 theorem memRange (x: Nat): (c: Nat) -> (s: Nat) -> s <= x -> x < s + c -> List.Mem x (List.rangeFrom c s)
-  | Zero,   s, h1, h2 => Void.exfalso omega
+  | Zero,   s, h1, h2 => omega
   | Succ c, s, h1, h2 =>
     match e: Nat.equal s x with
       | True  => Inl (Nat.equalSound s x e)
-      | False => Inr (memRange x c (Succ s) (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) omega)
+      | False => Inr (memRange x c (Succ s) omega omega)
 
 -- Every pair a < b of the numbers from s on is a pair of them.
 theorem memPairs (a: Nat) (b: Nat) (ab: a < b): (c: Nat) -> (s: Nat) -> s <= a -> b < s + c -> List.Mem (a, b) (List.pairs (List.rangeFrom c s))
-  | Zero,   s, h1, h2 => Void.exfalso omega
+  | Zero,   s, h1, h2 => omega
   | Succ c, s, h1, h2 =>
     let h3: b < Succ s + c := omega
     match e: Nat.equal s a with
@@ -282,7 +282,7 @@ theorem memPairs (a: Nat) (b: Nat) (ab: a < b): (c: Nat) -> (s: Nat) -> s <= a -
             (List.memMap (y => (s, y)) b (List.rangeFrom c (Succ s)) (memRange b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3))
       | False =>
         List.anyAppendRight (y => y = (a, b)) (List.map (y => (s, y)) (List.rangeFrom c (Succ s))) (List.pairs (List.rangeFrom c (Succ s)))
-          (memPairs a b ab c (Succ s) (Nat.leNeSucc s a h1 (Nat.equalFalse s a e)) h3)
+          (memPairs a b ab c (Succ s) omega h3)
 
 -- `any` finds an element of the list that passes ...
 theorem anyOfMem (p: a -> Bool) (x: a) (hx: p x = True): (xs: List a) -> List.Mem x xs -> List.any p xs = True
