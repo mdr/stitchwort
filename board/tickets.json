@@ -1,5 +1,5 @@
 {
-  "next": 324,
+  "next": 326,
   "tickets": [
     {
       "id": 1,
@@ -4953,7 +4953,7 @@
     {
       "id": 320,
       "title": "List.sortOn + sortOnMap lemma; build comparisons once; Day 8 Connection record with derived Ord (D551)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4963,7 +4963,11 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "9b55324e",
+        "3351f9b2",
+        "1d522943"
+      ]
     },
     {
       "id": 321,
@@ -5006,6 +5010,36 @@
         "bug"
       ],
       "body": "Found by SW-314; replacing the term by a variable passes. Unexplained.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 324,
+      "title": "AoC stitchwort test --no-cache now takes 5m25s (was seconds): find the regression from today's merges",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "aoc",
+        "performance",
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 325,
+      "title": "Prune the backlog: propose dropping tickets without concrete motivation",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "proposal lane (report only)",
+      "labels": [
+        "board"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
