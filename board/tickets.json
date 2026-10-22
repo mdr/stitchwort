@@ -4286,7 +4286,7 @@
     {
       "id": 281,
       "title": "rfl through decreasing definitions computes the decrease proofs: Nat.digits 9876 by rfl runs out of resources (was fine with fuel)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4295,7 +4295,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "3c06f8ef"
+      ]
     },
     {
       "id": 282,
