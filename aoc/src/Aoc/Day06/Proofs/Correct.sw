@@ -79,7 +79,6 @@ theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines l
 theorem problemColumns (lo: Nat) (hi: Nat) (h: lo < hi): List.rangeFrom (hi - lo) lo = Cons lo (List.rangeFrom (hi - Succ lo) (Succ lo)) :=
   rewrite (omega: hi - lo = Succ (hi - Succ lo))
 
-
 -- What the program adds up for one block, part 1 and part 2.
 def blockAnswer1 (b: List (List Char)): Nat := evaluate (parseProblem b).operator (parseProblem b).rowNumbers
 

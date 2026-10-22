@@ -115,7 +115,6 @@ theorem fewerRolls (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (
       Bool.trueNotFalse (Eq.trans (Eq.sym marked) (marksAll (sweep m) (sameMarks grid m same)))
   omega
 
-
 -- The start: every row marked.
 
 theorem fstPairs: (rows: Vec (Vec Cell w) h) -> Vec.map Pair.fst (Vec.map (row => (row, True)) rows) = rows
