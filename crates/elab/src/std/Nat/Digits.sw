@@ -276,7 +276,9 @@ theorem Char.digitValueDigit (c: Char): Option.IsDigit (Char.digitValue c) :=
 
 theorem Nat.digitsZero: Nat.digits 0 = [0] := rfl
 
-theorem Nat.digitsExample: Nat.digits 1205 = [1, 2, 0, 5] := rfl
+-- A test, not an `rfl` theorem: `rfl` through `decreasing` computes the decrease
+-- proofs, which costs about 10^9 kernel steps for four digits (SW-281).
+test "Nat.digits 1205" := Nat.digits 1205 == [1, 2, 0, 5]
 
 theorem Nat.fromDigitsExample: Nat.fromDigits [1, 2, 0, 5] = 1205 := rfl
 

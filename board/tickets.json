@@ -1,5 +1,5 @@
 {
-  "next": 286,
+  "next": 287,
   "tickets": [
     {
       "id": 1,
@@ -4337,6 +4337,20 @@
       "where": "",
       "labels": [
         "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 286,
+      "title": "Regression: Std.Nat.digitsExample rfl cost ~11 s of kernel on every aoc check after SW-276; made a test",
+      "status": "done",
+      "agent": "Claude",
+      "where": "",
+      "labels": [
+        "perf"
       ],
       "body": "",
       "created": "2026-10-22",
