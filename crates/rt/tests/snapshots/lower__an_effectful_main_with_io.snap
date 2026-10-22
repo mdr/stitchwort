@@ -7,19 +7,70 @@ fn Std.Effect.bind(v0, v1) {4 slots} =
   match v0: Effect.Comp {
     Done(value: v2) => apply v1(v2)
     Call(o: v2, rest: v3) =>
-      Call(v2, λ0[c0 = v3, c1 = v1](v0) {1 slots} =>
-        Std.Effect.bind(apply c0(v0), c1))
+      Call(v2, λ0[c0 = v3, c1 = v1](v0) {4 slots} =>
+        let v1 = apply c0(v0)
+        match v1: Effect.Comp {
+          Done(value: v2) => apply c1(v2)
+          Call(o: v2, rest: v3) =>
+            Call(v2, λ0[c0 = v3, c1 = c1] (recursive))
+        })
   }
 native Std.Effect.lift = %Effect.lift/1
 fn Main.greet(v0) {2 slots} =
   let v1 = %TextAppend("hello ", v0)
   Call(L(%print(v1)), done-k)
-fn Main.main(v0) {1 slots} =
-  Std.Effect.bind(Call(L(%readLine(UnitValue)), done-k), λ1(v0) {1 slots} =>
-    Main.main.%match1(v0))
-fn Main.main.%match1(v0) {2 slots} =
+fn Main.main(v0) {5 slots} =
+  let v1 = Call(L(%readLine(UnitValue)), done-k)
+  let v2 = λ1(v0) {3 slots} =>
+    match v0: Option {
+      None => Call(L(%print("nobody")), done-k)
+      Some(value: v1) =>
+        let v2 = %TextAppend("hello ", v1)
+        Call(L(%print(v2)), done-k)
+    }
+  match v1: Effect.Comp {
+    Done(value: v3) => Main.main.%match1(v3)
+    Call(o: v3, rest: v4) =>
+      Call(v3, λ0[c0 = v4, c1 = v2](v0) {4 slots} =>
+        let v1 = apply c0(v0)
+        match v1: Effect.Comp {
+          Done(value: v2) => apply c1(v2)
+          Call(o: v2, rest: v3) =>
+            Call(v2, λ0[c0 = v3, c1 = c1] (recursive))
+        })
+  }
+fn Main.main.%match1(v0) {3 slots} =
   match v0: Option {
     None => Call(L(%print("nobody")), done-k)
-    Some(value: v1) => Main.greet(v1)
+    Some(value: v1) =>
+      let v2 = %TextAppend("hello ", v1)
+      Call(L(%print(v2)), done-k)
   }
-entry {1 slots} = %Effect.lift(Main.main(UnitValue))
+entry {5 slots} =
+  %Effect.lift({
+    let v0 = Call(L(%readLine(UnitValue)), done-k)
+    let v1 = λ1(v0) {3 slots} =>
+      match v0: Option {
+        None => Call(L(%print("nobody")), done-k)
+        Some(value: v1) =>
+          let v2 = %TextAppend("hello ", v1)
+          Call(L(%print(v2)), done-k)
+      }
+    match v0: Effect.Comp {
+      Done(value: v2) =>
+        match v2: Option {
+          None => Call(L(%print("nobody")), done-k)
+          Some(value: v3) =>
+            let v4 = %TextAppend("hello ", v3)
+            Call(L(%print(v4)), done-k)
+        }
+      Call(o: v2, rest: v3) =>
+        Call(v2, λ0[c0 = v3, c1 = v1](v0) {4 slots} =>
+          let v1 = apply c0(v0)
+          match v1: Effect.Comp {
+            Done(value: v2) => apply c1(v2)
+            Call(o: v2, rest: v3) =>
+              Call(v2, λ0[c0 = v3, c1 = c1] (recursive))
+          })
+    }
+  })

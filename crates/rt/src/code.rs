@@ -9,14 +9,41 @@
 //! variable is passed without being copied first. Control flow inside a body
 //! is jumps; calls, returns and tail calls go through the machine's own
 //! frame stack, never the Rust stack.
+//!
+//! **Moves and reuse** (stage 4, Perceus/Lean-style; fast-runtime.md "As
+//! built (stage 4)"). The compiler knows which slots are read later
+//! (liveness over the IR), so:
+//!
+//! - an operand read for the last time is *moved* out of its register
+//!   ([`MOVE`] on the register), not copied: the value's reference count
+//!   doesn't go up, so a list passed on is still uniquely owned;
+//! - a variable that a branch doesn't need is dropped as the branch starts
+//!   ([`Instr::Drop`]), so what it held is freed (or becomes unique) early;
+//! - a `match` whose scrutinee the arm doesn't need again takes the fields
+//!   out ([`Instr::Unpack`]): when the cell is uniquely owned, they're moved,
+//!   and if the arm builds a constructor with as many fields, the cell is
+//!   kept as a *reuse token* that [`Instr::CtorReuse`] fills in place
+//!   instead of allocating. A cell that is shared is never changed: its
+//!   fields are copied and it's left alone. The same holds for a variable
+//!   known to be a constructor (from an enclosing match) that the branch
+//!   drops ([`Instr::DropReuse`]).
+
+use std::collections::HashMap;
 
 use num_bigint::BigUint;
 
-use crate::ir::{Expr, Lit, MatchKind, PrimOp, Program};
+use crate::ir::{Expr, Lit, MatchKind, PrimOp, Program, Slot};
 use crate::value::Value;
 
 /// A register: an index into the current frame.
 pub type Reg = u32;
+
+/// On a register in [`Code::ops`] (or [`Instr::Apply`]'s function): the
+/// value is moved out of the register, which isn't read again.
+pub const MOVE: Reg = 1 << 31;
+
+/// No register: a [`Instr::Unpack`] that keeps no reuse token.
+pub const NO_REG: Reg = u32::MAX;
 
 /// A list of registers: `len` entries of [`Code::ops`] from `start`.
 #[derive(Clone, Copy, Debug)]
@@ -30,6 +57,15 @@ pub enum Instr {
     Move {
         dst: Reg,
         src: Reg,
+    },
+    /// Moves the value: `src` isn't read again.
+    Take {
+        dst: Reg,
+        src: Reg,
+    },
+    /// Drops the register's value: it isn't read again.
+    Drop {
+        reg: Reg,
     },
     /// A value from the program's constant pool.
     Const {
@@ -90,6 +126,15 @@ pub enum Instr {
         tag: u32,
         args: Ops,
     },
+    /// The same, in the cell held by `token` if it's a uniquely owned cell
+    /// with as many fields (left by [`Instr::Unpack`] or
+    /// [`Instr::DropReuse`]); otherwise a new one. The token is used up.
+    CtorReuse {
+        dst: Reg,
+        tag: u32,
+        args: Ops,
+        token: Reg,
+    },
     /// Jumps to `tables[table][tag]`, by the constructor's tag.
     Switch {
         src: Reg,
@@ -100,6 +145,23 @@ pub enum Instr {
         dst: Reg,
         src: Reg,
         i: u32,
+    },
+    /// Takes the constructor out of `src` (not read again) and puts its
+    /// fields in registers: `fields` is pairs of a field's index and its
+    /// register. If the cell is uniquely owned, the fields are moved out,
+    /// and the cell, emptied, is the reuse token in `token` (unless
+    /// `token` is [`NO_REG`]); otherwise they're copied and `token` is
+    /// left empty.
+    Unpack {
+        src: Reg,
+        fields: Ops,
+        token: Reg,
+    },
+    /// Drops `src`'s value (not read again), keeping its cell as a reuse
+    /// token in `token` if it's a uniquely owned constructor cell.
+    DropReuse {
+        src: Reg,
+        token: Reg,
     },
     /// Jumps to `zero` if the `Nat` is zero.
     NatCase {
@@ -138,6 +200,14 @@ pub enum Instr {
     },
     JumpIfFalse {
         cond: Reg,
+        target: u32,
+    },
+    /// `if %op(args) then …` for a native test ([`is_test`]): jumps to
+    /// `target` if it's false, without making a `Bool` (a combined
+    /// `Prim` and `JumpIfFalse`).
+    Test {
+        op: PrimOp,
+        args: Ops,
         target: u32,
     },
     Jump {
@@ -237,12 +307,172 @@ pub fn compile(program: &Program) -> Image {
     }
 }
 
+/// A native that makes a `Bool`, which [`Instr::Test`] tests directly.
+pub fn is_test(op: PrimOp) -> bool {
+    use crate::natives::{IntNative, TextNative};
+    use stitchwort_core::native::Native;
+    matches!(
+        op,
+        PrimOp::Nat(Native::Leq | Native::EqNat)
+            | PrimOp::IntEqual
+            | PrimOp::TextEqual
+            | PrimOp::Int(IntNative::IntLeq | IntNative::IntLess)
+            | PrimOp::Text(TextNative::TextIsEmpty)
+    )
+}
+
+// ---------------------------------------------------------------- liveness
+
+/// A set of slots.
+#[derive(Clone, Default)]
+struct Slots(Vec<u64>);
+
+impl Slots {
+    fn insert(&mut self, s: Slot) {
+        let i = (s / 64) as usize;
+        if self.0.len() <= i {
+            self.0.resize(i + 1, 0);
+        }
+        self.0[i] |= 1 << (s % 64);
+    }
+
+    fn remove(&mut self, s: Slot) {
+        if let Some(w) = self.0.get_mut((s / 64) as usize) {
+            *w &= !(1 << (s % 64));
+        }
+    }
+
+    fn contains(&self, s: Slot) -> bool {
+        self.0
+            .get((s / 64) as usize)
+            .is_some_and(|w| w & (1 << (s % 64)) != 0)
+    }
+
+    fn add(&mut self, other: &Slots) {
+        if self.0.len() < other.0.len() {
+            self.0.resize(other.0.len(), 0);
+        }
+        for (a, b) in self.0.iter_mut().zip(&other.0) {
+            *a |= b;
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = Slot> + '_ {
+        self.0.iter().enumerate().flat_map(|(i, w)| {
+            (0..64)
+                .filter(move |b| w & (1 << b) != 0)
+                .map(move |b| u32::try_from(i * 64 + b).expect("slots fit"))
+        })
+    }
+}
+
+/// The slots each expression in `e` reads, by its address: computed once
+/// per body, bottom up, so that asking at every level of a deeply nested
+/// expression (a long list literal) stays linear.
+type Uses = HashMap<*const Expr, Slots>;
+
+fn fill(e: &Expr, cache: &mut Uses) -> Slots {
+    let mut out = Slots::default();
+    let mut add = |x: &Expr, cache: &mut Uses| out.add(&fill(x, cache));
+    match e {
+        Expr::Local(_)
+        | Expr::Captured(_)
+        | Expr::Global(_)
+        | Expr::Erased
+        | Expr::Lit(_)
+        | Expr::DoneK
+        | Expr::Unreachable => {}
+        Expr::Call(_, args)
+        | Expr::Prim(_, args)
+        | Expr::PartialApp(_, args)
+        | Expr::Closure(_, args)
+        | Expr::Ctor(_, _, args) => args.iter().for_each(|a| add(a, cache)),
+        Expr::Apply(f, args) => {
+            add(f, cache);
+            args.iter().for_each(|a| add(a, cache));
+        }
+        Expr::Let(_, value, body) => {
+            add(value, cache);
+            add(body, cache);
+        }
+        Expr::Match(scrutinee, _, arms) => {
+            add(scrutinee, cache);
+            arms.iter().for_each(|arm| add(&arm.body, cache));
+        }
+        Expr::NumSwitch(scrutinee, arms, default) => {
+            add(scrutinee, cache);
+            arms.iter().for_each(|(_, body)| add(body, cache));
+            add(default, cache);
+        }
+        Expr::If(cond, then, otherwise) => {
+            add(cond, cache);
+            add(then, cache);
+            add(otherwise, cache);
+        }
+    }
+    if let Expr::Local(s) = e {
+        out.insert(*s);
+    }
+    cache.insert(e as *const Expr, out.clone());
+    out
+}
+
+/// How many constructors with `n` fields `e` builds on one path at most:
+/// how many reuse tokens of that size it could use.
+fn builds(e: &Expr, n: usize) -> usize {
+    let all = |es: &[Expr]| es.iter().map(|a| builds(a, n)).sum::<usize>();
+    match e {
+        Expr::Ctor(_, _, args) => usize::from(args.len() == n) + all(args),
+        Expr::Local(_)
+        | Expr::Captured(_)
+        | Expr::Global(_)
+        | Expr::Erased
+        | Expr::Lit(_)
+        | Expr::DoneK
+        | Expr::Unreachable => 0,
+        Expr::Call(_, args)
+        | Expr::Prim(_, args)
+        | Expr::PartialApp(_, args)
+        | Expr::Closure(_, args) => all(args),
+        Expr::Apply(f, args) => builds(f, n) + all(args),
+        Expr::Let(_, value, body) => builds(value, n) + builds(body, n),
+        Expr::Match(_, _, arms) => arms
+            .iter()
+            .map(|arm| builds(&arm.body, n))
+            .max()
+            .unwrap_or(0),
+        Expr::NumSwitch(_, arms, default) => arms
+            .iter()
+            .map(|(_, body)| builds(body, n))
+            .max()
+            .unwrap_or(0)
+            .max(builds(default, n)),
+        Expr::If(cond, then, otherwise) => {
+            builds(cond, n) + builds(then, n).max(builds(otherwise, n))
+        }
+    }
+}
+
+// ---------------------------------------------------------------- compiler
+
 struct Compiler<'a> {
     program: &'a Program,
     pool: &'a mut Vec<Value>,
     code: Code,
     /// The next free temporary.
     next: Reg,
+    /// The first temporary: registers below are the IR's slots.
+    first_temp: Reg,
+    /// The slots bound in the current scope.
+    bound: Slots,
+    /// Slots known to hold a constructor with this many fields (from an
+    /// enclosing match), innermost last.
+    known: Vec<(Slot, usize)>,
+    /// Registers that may hold a reuse token for a constructor with this
+    /// many fields, innermost last.
+    tokens: Vec<(usize, Reg)>,
+    /// The slots each expression of the body reads.
+    cache: Uses,
 }
 
 impl<'a> Compiler<'a> {
@@ -253,6 +483,10 @@ impl<'a> Compiler<'a> {
         frame: u32,
         expr: &Expr,
     ) -> Code {
+        let mut bound = Slots::default();
+        for p in 0..params {
+            bound.insert(p);
+        }
         let mut cx = Compiler {
             program,
             pool,
@@ -265,10 +499,25 @@ impl<'a> Compiler<'a> {
                 params,
             },
             next: frame,
+            first_temp: frame,
+            bound,
+            known: Vec::new(),
+            tokens: Vec::new(),
+            cache: HashMap::new(),
         };
+        fill(expr, &mut cx.cache);
         let dst = cx.temp();
-        cx.expr(expr, dst, true);
+        cx.expr(expr, dst, true, &Slots::default());
         cx.code
+    }
+
+    /// Adds the slots `e` reads to `out`.
+    fn uses(&self, e: &Expr, out: &mut Slots) {
+        out.add(&self.cache[&(e as *const Expr)]);
+    }
+
+    fn uses_of(&self, e: &Expr) -> Slots {
+        self.cache[&(e as *const Expr)].clone()
     }
 
     fn temp(&mut self) -> Reg {
@@ -292,25 +541,68 @@ impl<'a> Compiler<'a> {
         u32::try_from(self.pool.len() - 1).expect("pool fits")
     }
 
+    fn push_ops(&mut self, regs: impl IntoIterator<Item = Reg>) -> Ops {
+        let start = u32::try_from(self.code.ops.len()).expect("ops fit");
+        self.code.ops.extend(regs);
+        let len = u32::try_from(self.code.ops.len()).expect("ops fit") - start;
+        Ops { start, len }
+    }
+
     /// The register holding `e`'s value: a slot that `e` reads, or a new
-    /// temporary that it's computed into.
-    fn operand(&mut self, e: &Expr) -> Reg {
+    /// temporary that it's computed into. `live` is what's read after it.
+    fn operand(&mut self, e: &Expr, live: &Slots) -> Reg {
         if let Expr::Local(s) = e {
             return *s;
         }
         let t = self.temp();
-        self.expr(e, t, false);
+        self.expr(e, t, false, live);
         t
     }
 
-    fn operands(&mut self, es: &[Expr]) -> Ops {
-        let regs: Vec<Reg> = es.iter().map(|e| self.operand(e)).collect();
-        let start = u32::try_from(self.code.ops.len()).expect("ops fit");
-        self.code.ops.extend(regs);
-        Ops {
-            start,
-            len: u32::try_from(es.len()).expect("ops fit"),
+    /// The registers holding the values of `es`, computed in order, for an
+    /// instruction that reads them all at once; `live` is what's read after
+    /// that instruction. With `moves`, each register read for the last time
+    /// is marked [`MOVE`].
+    fn operands(&mut self, es: &[&Expr], live: &Slots, moves: bool) -> Vec<Reg> {
+        // after[j]: what's read after es[j] is computed (the instruction
+        // reads the slots of the `Local` operands before it, too).
+        let mut after = vec![live.clone(); es.len()];
+        for j in (0..es.len().saturating_sub(1)).rev() {
+            let mut a = after[j + 1].clone();
+            self.uses(es[j + 1], &mut a);
+            after[j] = a;
         }
+        let mut locals = Slots::default();
+        let mut regs = Vec::with_capacity(es.len());
+        for (j, e) in es.iter().enumerate() {
+            if let Expr::Local(s) = e {
+                regs.push(*s);
+                locals.insert(*s);
+                continue;
+            }
+            let mut l = std::mem::take(&mut after[j]);
+            l.add(&locals);
+            let t = self.temp();
+            self.expr(e, t, false, &l);
+            regs.push(t);
+        }
+        if moves {
+            for j in 0..regs.len() {
+                let r = regs[j];
+                let last = !regs[j + 1..].contains(&r);
+                let dead = r >= self.first_temp || !live.contains(r);
+                if last && dead {
+                    regs[j] |= MOVE;
+                }
+            }
+        }
+        regs
+    }
+
+    fn operand_ops(&mut self, es: &[Expr], live: &Slots, moves: bool) -> Ops {
+        let es: Vec<&Expr> = es.iter().collect();
+        let regs = self.operands(&es, live, moves);
+        self.push_ops(regs)
     }
 
     /// Writes `dst`, then returns it if `tail`.
@@ -323,8 +615,8 @@ impl<'a> Compiler<'a> {
 
     /// Compiles `e`: its value goes to `dst`; or, in tail position, the
     /// code returns it (or tail-calls what computes it) and never falls
-    /// through.
-    fn expr(&mut self, e: &Expr, dst: Reg, tail: bool) {
+    /// through. `live` is the slots read after `e`.
+    fn expr(&mut self, e: &Expr, dst: Reg, tail: bool, live: &Slots) {
         // Temporaries used for this expression's operands are free again
         // once it's computed.
         let mark = self.next;
@@ -333,7 +625,11 @@ impl<'a> Compiler<'a> {
                 if tail {
                     self.emit(Instr::Return { src: *s });
                 } else if *s != dst {
-                    self.emit(Instr::Move { dst, src: *s });
+                    if live.contains(*s) {
+                        self.emit(Instr::Move { dst, src: *s });
+                    } else {
+                        self.emit(Instr::Take { dst, src: *s });
+                    }
                 }
             }
             Expr::Captured(i) => self.simple(Instr::Captured { dst, i: *i }, dst, tail),
@@ -351,7 +647,7 @@ impl<'a> Compiler<'a> {
                 self.simple(Instr::Const { dst, k }, dst, tail);
             }
             Expr::Call(g, args) => {
-                let args = self.operands(args);
+                let args = self.operand_ops(args, live, true);
                 if tail {
                     self.emit(Instr::TailCall { g: g.0, args });
                 } else {
@@ -359,16 +655,19 @@ impl<'a> Compiler<'a> {
                 }
             }
             Expr::Prim(op, args) => {
-                let args = self.operands(args);
+                let args = self.operand_ops(args, live, false);
                 self.simple(Instr::Prim { dst, op: *op, args }, dst, tail);
             }
             Expr::PartialApp(g, args) => {
-                let args = self.operands(args);
+                let args = self.operand_ops(args, live, true);
                 self.simple(Instr::Pap { dst, g: g.0, args }, dst, tail);
             }
             Expr::Apply(f, args) => {
-                let f = self.operand(f);
-                let args = self.operands(args);
+                let mut es: Vec<&Expr> = vec![f];
+                es.extend(args.iter());
+                let regs = self.operands(&es, live, true);
+                let f = regs[0];
+                let args = self.push_ops(regs[1..].iter().copied());
                 if tail {
                     self.emit(Instr::TailApply { f, args });
                 } else {
@@ -376,7 +675,7 @@ impl<'a> Compiler<'a> {
                 }
             }
             Expr::Closure(l, captures) => {
-                let args = self.operands(captures);
+                let args = self.operand_ops(captures, live, true);
                 self.simple(
                     Instr::Closure {
                         dst,
@@ -392,33 +691,76 @@ impl<'a> Compiler<'a> {
                     let k = self.constant(Value::Tag(*c));
                     self.simple(Instr::Const { dst, k }, dst, tail);
                 } else {
-                    let args = self.operands(fields);
-                    self.simple(Instr::Ctor { dst, tag: *c, args }, dst, tail);
+                    let args = self.operand_ops(fields, live, true);
+                    let n = fields.len();
+                    let claimed = self.tokens.iter().rposition(|(m, _)| *m == n);
+                    let instr = match claimed.map(|i| self.tokens.remove(i)) {
+                        Some((_, token)) => Instr::CtorReuse {
+                            dst,
+                            tag: *c,
+                            args,
+                            token,
+                        },
+                        None => Instr::Ctor { dst, tag: *c, args },
+                    };
+                    self.simple(instr, dst, tail);
                 }
             }
             Expr::Let(slot, value, body) => {
-                self.expr(value, *slot, false);
-                self.expr(body, dst, tail);
+                let mut l = live.clone();
+                self.uses(body, &mut l);
+                self.expr(value, *slot, false, &l);
+                self.bound.insert(*slot);
+                self.expr(body, dst, tail, live);
+                self.bound.remove(*slot);
             }
             Expr::If(cond, then, otherwise) => {
-                let cond = self.operand(cond);
-                let jump = self.emit(Instr::JumpIfFalse { cond, target: 0 });
-                self.expr(then, dst, tail);
+                let mut inside = self.uses_of(then);
+                self.uses(otherwise, &mut inside);
+                let mut l = live.clone();
+                l.add(&inside);
+                let jump = match &**cond {
+                    Expr::Prim(op, args) if is_test(*op) => {
+                        let args = self.operand_ops(args, &l, false);
+                        self.emit(Instr::Test {
+                            op: *op,
+                            args,
+                            target: 0,
+                        })
+                    }
+                    _ => {
+                        let cond_reg = self.operand(cond, &l);
+                        self.emit(Instr::JumpIfFalse {
+                            cond: cond_reg,
+                            target: 0,
+                        })
+                    }
+                };
+                self.uses(cond, &mut inside);
+                self.branch(then, &inside, live, &[], dst, tail);
                 let end = (!tail).then(|| self.emit(Instr::Jump { target: 0 }));
                 let here = self.here();
                 self.patch(jump, here);
-                self.expr(otherwise, dst, tail);
+                self.branch(otherwise, &inside, live, &[], dst, tail);
                 if let Some(end) = end {
                     let here = self.here();
                     self.patch(end, here);
                 }
             }
             Expr::Match(scrutinee, kind, arms) => {
-                let src = self.operand(scrutinee);
+                let mut inside = Slots::default();
+                for arm in arms {
+                    self.uses(&arm.body, &mut inside);
+                }
+                let mut l = live.clone();
+                l.add(&inside);
+                let src = self.operand(scrutinee, &l);
+                self.uses(scrutinee, &mut inside);
                 let mut ends = Vec::new();
                 match kind {
                     MatchKind::Data(t) => {
-                        let single = self.program.types[t.0 as usize].ctors.len() == 1;
+                        let ty = &self.program.types[t.0 as usize];
+                        let single = ty.ctors.len() == 1;
                         let switch = (!single).then(|| {
                             let table = u32::try_from(self.code.tables.len()).expect("fits");
                             self.code
@@ -432,44 +774,88 @@ impl<'a> Compiler<'a> {
                                 let here = self.here();
                                 self.code.tables[table as usize][arm.ctor as usize] = here;
                             }
-                            for (i, slot) in &arm.fields {
-                                self.emit(Instr::Field {
-                                    dst: *slot,
-                                    src,
-                                    i: *i,
-                                });
+                            let arity = self.program.types[t.0 as usize].ctors[arm.ctor as usize]
+                                .fields
+                                .len();
+                            let arm_uses = self.uses_of(&arm.body);
+                            let dead = src >= self.first_temp
+                                || (!arm_uses.contains(src) && !live.contains(src));
+                            let tokens = self.tokens.clone();
+                            let known = self.known.len();
+                            if dead && arity > 0 {
+                                let token = if builds(&arm.body, arity) > 0 {
+                                    let token = self.temp();
+                                    self.tokens.push((arity, token));
+                                    token
+                                } else {
+                                    NO_REG
+                                };
+                                let fields =
+                                    self.push_ops(arm.fields.iter().flat_map(|(i, s)| [*i, *s]));
+                                self.emit(Instr::Unpack { src, fields, token });
+                            } else {
+                                for (i, slot) in &arm.fields {
+                                    self.emit(Instr::Field {
+                                        dst: *slot,
+                                        src,
+                                        i: *i,
+                                    });
+                                }
+                                if dead {
+                                    self.emit(Instr::Drop { reg: src });
+                                } else if arity > 0 && src < self.first_temp {
+                                    self.known.push((src, arity));
+                                }
                             }
-                            self.arm(&arm.body, dst, tail, &mut ends);
+                            let fields: Vec<Slot> = arm.fields.iter().map(|(_, s)| *s).collect();
+                            // A scrutinee taken apart is gone: nothing drops it again.
+                            let gone = dead && self.bound.contains(src);
+                            if gone {
+                                self.bound.remove(src);
+                            }
+                            self.branch(&arm.body, &inside, live, &fields, dst, tail);
+                            if gone {
+                                self.bound.insert(src);
+                            }
+                            if !tail {
+                                ends.push(self.emit(Instr::Jump { target: 0 }));
+                            }
+                            self.tokens = tokens;
+                            self.known.truncate(known);
                         }
                     }
                     MatchKind::Nat => {
                         let case = self.emit(Instr::NatCase { src, zero: 0 });
-                        if let Some((_, slot)) = arms[1].fields.first() {
+                        let fields: Vec<Slot> = arms[1].fields.iter().map(|(_, s)| *s).collect();
+                        if let Some(slot) = fields.first() {
                             self.emit(Instr::NatPred { dst: *slot, src });
                         }
-                        self.arm(&arms[1].body, dst, tail, &mut ends);
+                        self.arm(&arms[1].body, &inside, live, &fields, dst, tail, &mut ends);
                         let here = self.here();
                         self.patch(case, here);
-                        self.arm(&arms[0].body, dst, tail, &mut ends);
+                        self.arm(&arms[0].body, &inside, live, &[], dst, tail, &mut ends);
                     }
                     MatchKind::Int => {
                         let case = self.emit(Instr::IntCase { src, neg: 0 });
-                        if let Some((_, slot)) = arms[0].fields.first() {
+                        let fields: Vec<Slot> = arms[0].fields.iter().map(|(_, s)| *s).collect();
+                        if let Some(slot) = fields.first() {
                             self.emit(Instr::IntOfNat { dst: *slot, src });
                         }
-                        self.arm(&arms[0].body, dst, tail, &mut ends);
+                        self.arm(&arms[0].body, &inside, live, &fields, dst, tail, &mut ends);
                         let here = self.here();
                         self.patch(case, here);
-                        if let Some((_, slot)) = arms[1].fields.first() {
+                        let fields: Vec<Slot> = arms[1].fields.iter().map(|(_, s)| *s).collect();
+                        if let Some(slot) = fields.first() {
                             self.emit(Instr::IntNegSucc { dst: *slot, src });
                         }
-                        self.arm(&arms[1].body, dst, tail, &mut ends);
+                        self.arm(&arms[1].body, &inside, live, &fields, dst, tail, &mut ends);
                     }
                     MatchKind::Text => {
-                        if let Some((_, slot)) = arms[0].fields.first() {
+                        let fields: Vec<Slot> = arms[0].fields.iter().map(|(_, s)| *s).collect();
+                        if let Some(slot) = fields.first() {
                             self.emit(Instr::TextChars { dst: *slot, src });
                         }
-                        self.arm(&arms[0].body, dst, tail, &mut ends);
+                        self.arm(&arms[0].body, &inside, live, &fields, dst, tail, &mut ends);
                     }
                 }
                 let here = self.here();
@@ -478,7 +864,15 @@ impl<'a> Compiler<'a> {
                 }
             }
             Expr::NumSwitch(scrutinee, arms, default) => {
-                let src = self.operand(scrutinee);
+                let mut inside = Slots::default();
+                for (_, body) in arms {
+                    self.uses(body, &mut inside);
+                }
+                self.uses(default, &mut inside);
+                let mut l = live.clone();
+                l.add(&inside);
+                let src = self.operand(scrutinee, &l);
+                self.uses(scrutinee, &mut inside);
                 let table = u32::try_from(self.code.num_tables.len()).expect("fits");
                 self.code.num_tables.push(NumTable {
                     small: Vec::new(),
@@ -494,11 +888,11 @@ impl<'a> Compiler<'a> {
                         Ok(small) => t.small.push((small, here)),
                         Err(_) => t.big.push((n.clone(), here)),
                     }
-                    self.arm(body, dst, tail, &mut ends);
+                    self.arm(body, &inside, live, &[], dst, tail, &mut ends);
                 }
                 let here = self.here();
                 self.code.num_tables[table as usize].default = here;
-                self.arm(default, dst, tail, &mut ends);
+                self.arm(default, &inside, live, &[], dst, tail, &mut ends);
                 let here = self.here();
                 for end in ends {
                     self.patch(end, here);
@@ -513,16 +907,81 @@ impl<'a> Compiler<'a> {
 
     /// One arm of a branch: unless it's in tail position, it jumps to the
     /// end afterwards (patched later).
-    fn arm(&mut self, body: &Expr, dst: Reg, tail: bool, ends: &mut Vec<usize>) {
-        self.expr(body, dst, tail);
+    #[allow(clippy::too_many_arguments)]
+    fn arm(
+        &mut self,
+        body: &Expr,
+        inside: &Slots,
+        live: &Slots,
+        fields: &[Slot],
+        dst: Reg,
+        tail: bool,
+        ends: &mut Vec<usize>,
+    ) {
+        self.branch(body, inside, live, fields, dst, tail);
         if !tail {
             ends.push(self.emit(Instr::Jump { target: 0 }));
         }
     }
 
+    /// A branch's body, with the slots `fields` bound for it. First the
+    /// variables that the branching construct reads (`inside`) but this
+    /// branch and what follows (`live`) don't are dropped, or kept as reuse
+    /// tokens if they're constructors of a size the branch builds.
+    fn branch(
+        &mut self,
+        body: &Expr,
+        inside: &Slots,
+        live: &Slots,
+        fields: &[Slot],
+        dst: Reg,
+        tail: bool,
+    ) {
+        let needed = {
+            let mut n = self.uses_of(body);
+            n.add(live);
+            n
+        };
+        let tokens = self.tokens.clone();
+        let dead: Vec<Slot> = inside
+            .iter()
+            .filter(|s| self.bound.contains(*s) && !needed.contains(*s))
+            .collect();
+        for s in dead {
+            let size = self
+                .known
+                .iter()
+                .rev()
+                .find(|(k, _)| *k == s)
+                .map(|(_, n)| *n);
+            match size {
+                Some(n)
+                    if self.tokens.iter().filter(|(m, _)| *m == n).count() < builds(body, n) =>
+                {
+                    let token = self.temp();
+                    self.emit(Instr::DropReuse { src: s, token });
+                    self.tokens.push((n, token));
+                }
+                _ => {
+                    self.emit(Instr::Drop { reg: s });
+                }
+            }
+        }
+        for s in fields {
+            self.bound.insert(*s);
+        }
+        self.expr(body, dst, tail, live);
+        for s in fields {
+            self.bound.remove(*s);
+        }
+        self.tokens = tokens;
+    }
+
     fn patch(&mut self, at: usize, target: u32) {
         match &mut self.code.instrs[at] {
-            Instr::JumpIfFalse { target: t, .. } | Instr::Jump { target: t } => *t = target,
+            Instr::JumpIfFalse { target: t, .. }
+            | Instr::Test { target: t, .. }
+            | Instr::Jump { target: t } => *t = target,
             Instr::NatCase { zero, .. } => *zero = target,
             Instr::IntCase { neg, .. } => *neg = target,
             other => unreachable!("patching {other:?}"),

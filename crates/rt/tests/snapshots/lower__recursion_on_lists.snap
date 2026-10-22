@@ -19,4 +19,8 @@ fn Main.double(v0) {3 slots} =
 fn Main.main(v0) {2 slots} =
   let v1 = %NatToText(Main.total(Main.double(Cons(1, Cons(2, Cons(3, Nil))))))
   Call(L(%print(v1)), done-k)
-entry {1 slots} = %Effect.lift(Main.main(UnitValue))
+entry {1 slots} =
+  %Effect.lift({
+    let v0 = %NatToText(Main.total(Main.double(Cons(1, Cons(2, Cons(3, Nil))))))
+    Call(L(%print(v0)), done-k)
+  })

@@ -24,7 +24,7 @@ use std::rc::Rc;
 
 use stitchwort_core::{Limits as CoreLimits, ResourceError};
 
-use crate::code::{Image, Instr, compile};
+use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
@@ -246,7 +246,7 @@ impl State {
         frame.code = code;
         frame.pc = 0;
         frame.env = env;
-        self.regs.truncate(base);
+        release(&mut self.regs, base);
         self.regs.append(&mut self.scratch);
         self.regs.resize(
             base + image.codes[code as usize].regs as usize,
@@ -336,7 +336,7 @@ impl State {
                 self.push(image, code, args, Some(fun.clone()), ret)?;
                 Ok(None)
             }
-            Fun::DoneK => Ok(Some((Value::data(program.shapes.done, args), ret))),
+            Fun::DoneK => Ok(Some((Value::data_vec(program.shapes.done, args), ret))),
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
     }
@@ -433,12 +433,20 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 st.frames.last_mut().expect("a frame").pc = pc as u32
             };
         }
+        // An operand: moved out if it's marked `MOVE`, otherwise copied.
+        macro_rules! get {
+            ($r:expr) => {{
+                let r = $r;
+                if r & MOVE != 0 {
+                    std::mem::take(&mut st.regs[base + (r & !MOVE) as usize])
+                } else {
+                    st.regs[base + r as usize].clone()
+                }
+            }};
+        }
         macro_rules! args {
             ($o:expr) => {
-                ops!($o)
-                    .iter()
-                    .map(|r| st.regs[base + *r as usize].clone())
-                    .collect::<Vec<Value>>()
+                ops!($o).iter().map(|r| get!(*r)).collect::<Vec<Value>>()
             };
         }
         loop {
@@ -479,7 +487,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     let callee = image.global_code[g as usize].expect("a function has code");
                     let new_base = st.regs.len();
                     for r in ops!(args) {
-                        let v = st.regs[base + *r as usize].clone();
+                        let v = get!(*r);
                         st.regs.push(v);
                     }
                     st.regs.resize(
@@ -498,7 +506,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 Instr::TailCall { g, args } => {
                     let callee = image.global_code[g as usize].expect("a function has code");
                     for r in ops!(args) {
-                        let v = st.regs[base + *r as usize].clone();
+                        let v = get!(*r);
                         st.scratch.push(v);
                     }
                     st.replace(image, callee, None)?;
@@ -536,17 +544,47 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::Apply { dst, f, args } => {
                     save!();
-                    let fv = reg!(f).clone();
-                    let args = args!(args);
+                    let fv = get!(f);
                     let to = u32::try_from(base + dst as usize).expect("fits");
+                    // A closure or a global function given exactly the
+                    // arguments it takes: its frame is pushed directly.
+                    if let Some((callee, env)) = exact(program, image, &fv, args.len) {
+                        st.enter_frame()?;
+                        let new_base = st.regs.len();
+                        for r in ops!(args) {
+                            let v = get!(*r);
+                            st.regs.push(v);
+                        }
+                        st.regs.resize(
+                            new_base + image.codes[callee as usize].regs as usize,
+                            Value::Erased,
+                        );
+                        st.frames.push(Frame {
+                            code: callee,
+                            pc: 0,
+                            base: u32::try_from(new_base).expect("registers fit"),
+                            env,
+                            ret: Ret::Reg(to),
+                        });
+                        continue 'outer;
+                    }
+                    let args = args!(args);
                     pending = st.apply(program, image, fv, args, Ret::Reg(to))?;
                     continue 'outer;
                 }
                 Instr::TailApply { f, args } => {
-                    let fv = reg!(f).clone();
+                    let fv = get!(f);
+                    if let Some((callee, env)) = exact(program, image, &fv, args.len) {
+                        for r in ops!(args) {
+                            let v = get!(*r);
+                            st.scratch.push(v);
+                        }
+                        st.replace(image, callee, env)?;
+                        continue 'outer;
+                    }
                     let args = args!(args);
                     let frame = st.frames.pop().expect("a frame");
-                    st.regs.truncate(base);
+                    release(&mut st.regs, base);
                     pending = st.apply(program, image, fv, args, frame.ret)?;
                     continue 'outer;
                 }
@@ -558,11 +596,74 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     }));
                 }
                 Instr::Ctor { dst, tag, args } => {
-                    let fields: Rc<[Value]> = ops!(args)
-                        .iter()
-                        .map(|r| st.regs[base + *r as usize].clone())
-                        .collect();
+                    let fields: Rc<[Value]> = ops!(args).iter().map(|r| get!(*r)).collect();
                     reg!(dst) = Value::Data(tag, Fields(fields));
+                }
+                Instr::CtorReuse {
+                    dst,
+                    tag,
+                    args,
+                    token,
+                } => {
+                    let o = ops!(args);
+                    let v = match std::mem::take(&mut reg!(token)) {
+                        Value::Data(_, mut cell) if cell.len() == o.len() && unique(&cell.0) => {
+                            for (i, r) in o.iter().enumerate() {
+                                let v = get!(*r);
+                                Rc::get_mut(&mut cell.0).expect("unique")[i] = v;
+                            }
+                            Value::Data(tag, cell)
+                        }
+                        _ => {
+                            let fields: Rc<[Value]> = o.iter().map(|r| get!(*r)).collect();
+                            Value::Data(tag, Fields(fields))
+                        }
+                    };
+                    reg!(dst) = v;
+                }
+                Instr::Take { dst, src } => {
+                    let v = std::mem::take(&mut reg!(src));
+                    reg!(dst) = v;
+                }
+                Instr::Drop { reg } => reg!(reg) = Value::Erased,
+                Instr::Unpack { src, fields, token } => {
+                    let pairs = ops!(fields);
+                    let Value::Data(tag, mut cell) = std::mem::take(&mut reg!(src)) else {
+                        panic!("internal error: unpacking a value that isn't a constructor")
+                    };
+                    if let Some(slice) = Rc::get_mut(&mut cell.0) {
+                        for p in pairs.as_chunks::<2>().0 {
+                            st.regs[base + p[1] as usize] =
+                                std::mem::take(&mut slice[p[0] as usize]);
+                        }
+                        if token != NO_REG {
+                            // Empty the cell: what the arm doesn't use is
+                            // freed now.
+                            for v in slice.iter_mut() {
+                                *v = Value::Erased;
+                            }
+                            reg!(token) = Value::Data(tag, cell);
+                        }
+                    } else {
+                        for p in pairs.as_chunks::<2>().0 {
+                            st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
+                        }
+                        if token != NO_REG {
+                            reg!(token) = Value::Erased;
+                        }
+                    }
+                }
+                Instr::DropReuse { src, token } => {
+                    let v = match std::mem::take(&mut reg!(src)) {
+                        Value::Data(tag, mut cell) if unique(&cell.0) => {
+                            for v in Rc::get_mut(&mut cell.0).expect("unique").iter_mut() {
+                                *v = Value::Erased;
+                            }
+                            Value::Data(tag, cell)
+                        }
+                        _ => Value::Erased,
+                    };
+                    reg!(token) = v;
                 }
                 Instr::Switch { src, table } => {
                     let tag = reg!(src).tag().expect("a constructor");
@@ -617,16 +718,100 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     Some(t) if t == s.false_ => pc = target as usize,
                     _ => panic!("internal error: `if` on {:?}", reg!(cond)),
                 },
+                Instr::Test { op, args, target } => {
+                    use crate::natives::IntNative;
+                    use stitchwort_core::native::Native;
+                    let o = ops!(args);
+                    // Numbers that fit a word are compared here; anything
+                    // else as the native computes it.
+                    let fast = match o {
+                        [a, b] => match (op, &reg!(*a), &reg!(*b)) {
+                            (PrimOp::Nat(Native::Leq), Value::Nat(x), Value::Nat(y)) => {
+                                Some(x <= y)
+                            }
+                            (PrimOp::Nat(Native::EqNat), Value::Nat(x), Value::Nat(y)) => {
+                                Some(x == y)
+                            }
+                            (PrimOp::IntEqual, Value::Int(x), Value::Int(y)) => Some(x == y),
+                            (PrimOp::Int(IntNative::IntLess), Value::Int(x), Value::Int(y)) => {
+                                Some(x < y)
+                            }
+                            (PrimOp::Int(IntNative::IntLeq), Value::Int(x), Value::Int(y)) => {
+                                Some(x <= y)
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    let holds = match fast {
+                        Some(holds) => holds,
+                        None => {
+                            let refs: Vec<&Value> =
+                                o.iter().map(|r| &st.regs[base + *r as usize]).collect();
+                            match prims::eval(s, op, &refs).tag() {
+                                Some(t) if t == s.true_ => true,
+                                Some(t) if t == s.false_ => false,
+                                other => panic!("internal error: a test made {other:?}"),
+                            }
+                        }
+                    };
+                    if !holds {
+                        pc = target as usize;
+                    }
+                }
                 Instr::Jump { target } => pc = target as usize,
                 Instr::Return { src } => {
                     let v = std::mem::take(&mut reg!(src));
                     let frame = st.frames.pop().expect("a frame");
-                    st.regs.truncate(base);
+                    release(&mut st.regs, base);
                     pending = Some((v, frame.ret));
                     continue 'outer;
                 }
                 Instr::Unreachable => panic!("internal error: reached unreachable code"),
             }
         }
+    }
+}
+
+/// Drops the registers from `base` on (a frame's, when it ends). Most hold
+/// nothing that needs freeing (moved out, or a number or a tag), so those
+/// are checked inline rather than each going through `Value`'s drop.
+#[inline]
+fn release(regs: &mut Vec<Value>, base: usize) {
+    while regs.len() > base {
+        let v = regs.pop().expect("a register");
+        if v.owns() {
+            drop(v);
+        } else {
+            std::mem::forget(v);
+        }
+    }
+}
+
+/// Whether this is the only reference to the cell, so that it can be
+/// changed in place.
+#[inline]
+fn unique(cell: &Rc<[Value]>) -> bool {
+    Rc::strong_count(cell) == 1 && Rc::weak_count(cell) == 0
+}
+
+/// The code to run for `f` applied to exactly `n` arguments, and its
+/// closure, if `f` is a closure or a global function (not a native) that
+/// takes `n`.
+#[inline]
+fn exact(program: &Program, image: &Image, f: &Value, n: u32) -> Option<(u32, Option<Rc<Fun>>)> {
+    let Value::Fun(fun) = f else { return None };
+    match &**fun {
+        Fun::Closure { lambda, .. } if program.lambdas[*lambda as usize].params == n => {
+            Some((image.lambda_code[*lambda as usize], Some(fun.clone())))
+        }
+        Fun::Global(g) => match &program.globals[*g as usize].kind {
+            GlobalKind::Function { params, .. } if *params == n => Some((
+                image.global_code[*g as usize].expect("a function has code"),
+                None,
+            )),
+            _ => None,
+        },
+        _ => None,
     }
 }

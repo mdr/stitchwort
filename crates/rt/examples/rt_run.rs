@@ -81,6 +81,10 @@ fn run(args: &[String]) -> ExitCode {
         }
     };
     let lowered = start.elapsed();
+    // `RT_DUMP=FILE` writes the lowered program's listing there.
+    if let Some(path) = std::env::var_os("RT_DUMP") {
+        std::fs::write(path, program.to_string()).expect("write the listing");
+    }
     let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());

@@ -103,6 +103,7 @@ pub struct Shapes {
 }
 
 /// A body of code with its own frame.
+#[derive(Clone, Debug)]
 pub struct Body {
     /// How many slots its frame needs, parameters included.
     pub frame: u32,
@@ -162,6 +163,7 @@ pub struct CtorInfo {
     pub fields: Vec<Rc<str>>,
 }
 
+#[derive(Clone, Debug)]
 pub enum Expr {
     /// A slot of the current frame.
     Local(Slot),
@@ -221,6 +223,7 @@ pub enum MatchKind {
 }
 
 /// One constructor's arm of a [`Expr::Match`].
+#[derive(Clone, Debug)]
 pub struct Arm {
     /// The constructor's index.
     pub ctor: u32,
@@ -230,6 +233,7 @@ pub struct Arm {
     pub body: Expr,
 }
 
+#[derive(Clone, Debug)]
 pub enum Lit {
     /// A `Nat`.
     Nat(BigUint),

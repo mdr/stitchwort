@@ -46,18 +46,40 @@ fn ordering(o: Ordering) -> Value {
 }
 
 fn some(s: &Shapes, v: Value) -> Value {
-    Value::data(s.some, vec![v])
+    Value::data(s.some, [v])
+}
+
+thread_local! {
+    /// The ASCII characters' cells, made once and shared (a cell is never
+    /// changed while shared), for `MkChar`'s tag.
+    static ASCII: std::cell::RefCell<(u32, Vec<Value>)> =
+        const { std::cell::RefCell::new((u32::MAX, Vec::new())) };
 }
 
 pub fn char_value(s: &Shapes, c: char) -> Value {
-    Value::data(s.char_, vec![Value::Nat(u64::from(u32::from(c)))])
+    let code = u32::from(c);
+    if code < 128 {
+        return ASCII.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if cache.0 != s.char_ {
+                *cache = (
+                    s.char_,
+                    (0..128u64)
+                        .map(|n| Value::data(s.char_, [Value::Nat(n)]))
+                        .collect(),
+                );
+            }
+            cache.1[code as usize].clone()
+        });
+    }
+    Value::data(s.char_, [Value::Nat(u64::from(code))])
 }
 
 /// A text's characters, as a `List Char`.
 pub fn chars(s: &Shapes, text: &str) -> Value {
     let mut list = Value::Tag(s.nil);
     for c in text.chars().rev() {
-        list = Value::data(s.cons, vec![char_value(s, c), list]);
+        list = Value::data(s.cons, [char_value(s, c), list]);
     }
     list
 }
@@ -65,7 +87,7 @@ pub fn chars(s: &Shapes, text: &str) -> Value {
 fn list(s: &Shapes, items: Vec<Value>) -> Value {
     let mut list = Value::Tag(s.nil);
     for item in items.into_iter().rev() {
-        list = Value::data(s.cons, vec![item, list]);
+        list = Value::data(s.cons, [item, list]);
     }
     list
 }
@@ -469,10 +491,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
                 None => Value::Tag(s.none),
                 Some(c) => some(
                     s,
-                    Value::data(
-                        s.pair,
-                        vec![char_value(s, c), Value::Text(it.as_str().into())],
-                    ),
+                    Value::data(s.pair, [char_value(s, c), Value::Text(it.as_str().into())]),
                 ),
             }
         }

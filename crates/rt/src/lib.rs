@@ -18,6 +18,7 @@ pub mod ir;
 pub mod lower;
 pub mod machine;
 pub mod natives;
+pub mod opt;
 pub mod pretty;
 mod prims;
 pub mod run;

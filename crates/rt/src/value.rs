@@ -79,8 +79,18 @@ pub enum Delay {
 }
 
 impl Value {
-    /// A constructor with tag `tag` and these runtime fields.
-    pub fn data(tag: u32, fields: Vec<Value>) -> Value {
+    /// A constructor with tag `tag` and these runtime fields: one
+    /// allocation.
+    pub fn data<const N: usize>(tag: u32, fields: [Value; N]) -> Value {
+        if N == 0 {
+            Value::Tag(tag)
+        } else {
+            Value::Data(tag, Fields(Rc::from(fields)))
+        }
+    }
+
+    /// The same, with the fields in a vector.
+    pub fn data_vec(tag: u32, fields: Vec<Value>) -> Value {
         if fields.is_empty() {
             Value::Tag(tag)
         } else {
@@ -129,6 +139,15 @@ impl Value {
             Value::BigInt(n) => (**n).clone(),
             other => panic!("internal error: expected an `Int`, got {other:?}"),
         }
+    }
+
+    /// Whether dropping it does anything: it holds a reference.
+    #[inline]
+    pub fn owns(&self) -> bool {
+        !matches!(
+            self,
+            Value::Erased | Value::Nat(_) | Value::Int(_) | Value::Tag(_)
+        )
     }
 
     /// Whether it may own other values that dropping it could free.
@@ -264,7 +283,7 @@ mod tests {
     fn a_long_list_is_freed_without_recursing() {
         let mut list = Value::Tag(0);
         for i in 0..2_000_000u64 {
-            list = Value::data(1, vec![Value::Nat(i), list]);
+            list = Value::data(1, [Value::Nat(i), list]);
         }
         drop(list);
         let mut f = Value::Fun(Rc::new(Fun::DoneK));
