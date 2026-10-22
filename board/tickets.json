@@ -3895,7 +3895,11 @@
       "body": "After SW-256 (calc fix) merges. docs/proposals/folded-calls.md. Kernel checking unchanged (D483); rewrite/decision search keep seeing the unfolded goal, messages show the folded one (D484). Fresh lane per stage.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ab769302012a98192 (branch worktree-agent-ab769302012a98192, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "26947d67",
+        "cf589335",
+        "f43cb4c6"
+      ]
     },
     {
       "id": 258,
@@ -3979,7 +3983,7 @@
     {
       "id": 263,
       "title": "Generate a T.ext lemma for every record (equal fields give equal records; proof fields ignored) (D503)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3988,7 +3992,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "f09e9e2c"
+      ]
     }
   ]
 }
