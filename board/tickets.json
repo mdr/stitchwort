@@ -3221,14 +3221,20 @@
     {
       "id": 211,
       "title": "Code navigation follow-ups: errors in the index, find references, index fixes (D251)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "Code-navigation follow-ups (D251, after SW-201): index format version 2 with `diagnostics` (file, range, severity, code, message, labels) from the same `check --index` run and the WASM calls; a ref at each declaration's own name; single-file names qualified as in project mode; `container` always present; refs inside reachable std files; symbol `range` on the last name component if simple. VS Code: diagnostics on each indexing run, Find All References, workspace symbols (Cmd-T). Playground: find references (Shift+F12) with a clickable list.\n\nDone when: the note documents version 2; VS Code shows errors on save and finds references (pure-module tests); the playground finds references (browser tests); `dev/t bench` unchanged with the index off.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
-      "commits": []
+      "updated": "2026-10-22",
+      "commits": [
+        "94ac9c0d",
+        "1370e3b7",
+        "0b7958e4",
+        "56a5d3e7",
+        "33c7dd86"
+      ]
     },
     {
       "id": 212,
@@ -3269,7 +3275,7 @@
     {
       "id": 215,
       "title": "Design note: cache checked definitions across runs (content-hash keyed)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
