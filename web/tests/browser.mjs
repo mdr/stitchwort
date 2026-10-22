@@ -1453,7 +1453,9 @@ const refRows = (page) => page.ev(`(() => { const p = document.getElementById("n
   return { title: p.querySelector("header .title").textContent,
            rows: [...p.querySelectorAll("li button")].map((b) => [b.querySelector(".where").textContent, b.querySelector(".snippet").textContent,
                                                                     b.classList.contains("decl")]) }; })()`);
-const untilRefs = (page) => page.until(`!document.getElementById("navrefs").hidden`, 30000, "the references panel");
+// Find references may first build the index, including the library (all of core.sw), in its
+// worker; under load that took over 30 s three times on 21-22 Oct 2026, so allow 90 s.
+const untilRefs = (page) => page.until(`!document.getElementById("navrefs").hidden`, 90000, "the references panel");
 /** Puts the caret `delta` into the first `needle`, and presses Shift+F12. */
 async function findReferencesAt(page, needle, delta) {
   await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
