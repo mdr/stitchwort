@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` needs to know what it proves
+   ╭─[ reject/omega-no-goal.sw:6:12 ]
+   │
+ 6 │   let p := omega
+   │            ──┬──  
+   │              ╰──── the expected type isn't known here
+   │ 
+   │ Note: give it a type: `(omega: a <= b)`
+───╯

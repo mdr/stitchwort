@@ -2124,6 +2124,11 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 out.push(Ref::Dot(field, field.text.clone()));
                 stack.push(Work::Expr(e));
             }
+            // What the proof `omega` writes refers to (crates/elab/src/omega.rs).
+            Expr::Omega { facts, .. } => {
+                out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
+                then(&mut stack, facts.iter().map(Work::Expr).collect());
+            }
             Expr::Calc { first, steps, .. } => {
                 let mut steps_work = vec![Work::Expr(first)];
                 for step in steps {

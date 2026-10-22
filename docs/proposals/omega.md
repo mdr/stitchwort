@@ -2,7 +2,8 @@
 
 **Status:** draft 2, 22 October 2026, after an external expert review (D548). Milestone 1a,
 the library half (`Std.Omega`, the checker and its proved soundness theorem), is built
-(SW-314, [As built](#as-built-milestone-1a)); the elaborator half is milestone 1b (SW-315). Ticket SW-101 (from SW-96, recommendation 4; D434 made day 5 the acceptance
+(SW-314, [As built](#as-built-milestone-1a)); the elaborator half, the `omega` term, is
+milestone 1b (SW-315, [As built](#as-built-milestone-1b)). Ticket SW-101 (from SW-96, recommendation 4; D434 made day 5 the acceptance
 example). Decisions D545 to D547 ([§10](#10-decisions)) are for Matt; the review agreed with
 all three, with changes this draft folds in ([Response to review](#response-to-review-draft-2)).
 Related: [calc-rewrite.md](calc-rewrite.md) (built; much of the cheap benefit),
@@ -46,6 +47,7 @@ This note can be read without knowing type theory. Draft 1's code references wer
 
 - [Response to review (draft 2)](#response-to-review-draft-2)
 - [As built (milestone 1a)](#as-built-milestone-1a)
+- [As built (milestone 1b)](#as-built-milestone-1b)
 - [0. Summary](#0-summary)
 - [1. The problem, with our own code](#1-the-problem-with-our-own-code)
 - [2. Words this note uses](#2-words-this-note-uses)
@@ -271,6 +273,196 @@ an equation, `Std.Omega.proveEq env facts a b c1 c2 rfl rfl hs`. The quoted tree
 the goal's computed shape (§6.5); `Succ x` is `NSucc`, a literal is `NLit`. `Split` rows are
 written as `MkRow c [coefficients…] []` with `Int` literals. Only used facts and atoms (§6.8).
 The elaborator's pre-check runs `Omega.check` itself, which costs what the kernel's run costs.
+
+## As built (milestone 1b)
+
+SW-315 built the **elaborator half** of the §8.1 slice: the `omega` term, reading and quoting
+goals and facts, bridge proofs in the emitted term, the search, narrow emission, the pre-check
+and `E-OMEGA`. Everything below is **[checked]** against the files named, and the costs are
+**[run]** with the release CLI built from this branch. User-facing description:
+[docs/syntax.md](../syntax.md), "`omega`".
+
+**Files.** `crates/syntax` (`Tok::KwOmega`, `Expr::Omega { facts, span }`, parsed as an atom:
+`omega`, or `omega [e1, e2]` when a `[` follows); `crates/elab/src/omega.rs` (reading, quoting,
+emission, messages); `crates/elab/src/omega_search.rs` (the search, untrusted, with unit
+tests); `module.rs` (the pre-pass: an `omega` refers to the library names its proofs use, so
+their files load wherever it's written, and the check cache records them as needs);
+`check.rs` (dispatch, `Ctx::visible_locals`, `Ctx::name_of_level`); the keyword in the VS Code
+grammar, the playground's highlighter and the syntax fuzzer. Examples:
+`examples/accept/omega-basics.sw`, `examples/accept/omega-day05.sw`,
+`examples/reject/omega-*.sw`.
+
+**What it emits**, as planned in "What 1b must do": `Std.Omega.prove (MkEnv [atoms] []) [facts]
+goal cert rfl (Both p1 (… Trivial))` for `<=`/`<` goals and `Void` (`GVoid`), and
+`Std.Omega.proveEq env facts a b c1 c2 rfl rfl ps` for `=` on `Nat`. Around those, the goal is
+taken apart first: `Not p` becomes `h => …` with `h: p` in scope and `Void` to prove; `And p q`
+is `Both`; `(p && q) = True` is `Bool.andIntro`; `Nat.leq x y = False` is
+`Nat.leqFalseOfLess y x (… : y < x)`; `Decidable.toBool d = True`/`False` is
+`Decidable.toBoolOf`/`toBoolOfNot`. Anything else is "unsupported structure".
+
+**Reading facts.** Every variable in the context (parameters, pattern variables, `match e:`
+and `if h:` equations, `let`s, and variables `omega` itself introduced), every visible local
+definition, and the listed terms, each read after computing, recursively through bridges
+applied in the term: `Nat.leq a b = False` by `Nat.leqFalse`; `(p && q) = True` by
+`Bool.andLeft`/`andRight` (with `q` read off the `Bool.ifThenElse p (u => q) (u => False)` that
+`&&` is); `Decidable.toBool d = True`/`False` by `Decidable.toBoolSound`/`toBoolFalse`, which
+resolves 1a's finding: day 5's `(last.from <= id && id <= last.to) = True` has
+`Decidable.toBool (Bool.decTrue (Nat.leq …))` operands, so it is two bridges deep, and works;
+`And p q` by `And.left`/`right`. What's left must be `a <= b` (`Nat.leq a b = True`), `a = b`
+on `Nat`, or `Not (a <= b)`. Choices:
+
+- `a < b` computes to `Succ a <= b` and is quoted so (`FLe (NSucc a) b`); the elaborator never
+  writes `FLt`, `FNotLt` or `GLt`, which stay for hand-written certificates.
+- A comparison that computed all the way is read as one: `True` is `Nat.leq 0 0` and `False`
+  is `Nat.leq 1 0`. So `h: 3 < 2` (whose type is `False = True`) is the fact `FLe (NLit 1)
+  (NLit 0)`, and the goal `x < 0` (also `False = True`) is `GLe (NLit 1) (NLit 0)`; both mean
+  what they quote by conversion.
+- `Not (a = b)` facts are skipped with an "unsupported structure" note (stage 2's splits).
+
+**Quoting** follows §6.5 on the computed value: a number is `NLit`; `k + x` (`Value::NatAdd`,
+what `Succ` and `1 + x` make) is `NSucc` for 1 and `NAdd (NLit k)` otherwise; a stuck `a + b`
+is `NAdd`; `x * k` (stuck) is `MulRight`. `k * x` has already computed to
+`x + (x + … + (x + 0))`, so a chain of `k >= 2` additions of the same term ending in `0` is
+quoted `MulLeft k x`, whose meaning computes to the same chain; `k > 1000` is refused with
+`E-OMEGA` and a note to write `x * k` (1a's costs). Everything else of type `Nat` is an atom.
+Atoms are compared by the same term (`matching::same`, after read-back) and then by a
+conversion check under a 20,000-step budget (`Limits`, as `unify::cheaply` does); failing or
+running out keeps them apart, and no metavariable is solved. An unsolved metavariable in the
+goal's arithmetic is `E-OMEGA` ("needs to know the goal"); a fact with one is skipped. With
+glued values on (`STITCHWORT_GLUE=1`) the examples give the same results; `Nat.add` and
+`Nat.mul` have natives, which don't glue, so "recognise before forcing" needs nothing more for
+them.
+
+**The search** (`omega_search.rs`) works on rows `0 <= c + Σ a_i x_i` with `i128`
+coefficients (an overflow counts as running out of budget):
+
+1. *Grouping.* Atoms are joined when a row mentions both. The goal's group (with every closed
+   row) is tried first, then each other group on its own, each with `x >= 0` for its atoms
+   (`NatNonneg`). `Void` goals try every group.
+2. *Fourier–Motzkin*, one variable at a time: first any equality (a row whose exact negation
+   is also a row, smallest coefficient first), eliminated by combining with both directions;
+   otherwise the variable with bounds on one side only (dropped), else the fewest new rows,
+   preferring coefficient ±1. Every new row is divided by the gcd of its coefficients with the
+   constant rounded down (`Divide`); per stage, rows are kept one per coefficient list (the
+   strongest), indexed, and a row meeting its exact negation with a negative sum closes at once.
+3. *Model and splits.* If no contradiction appears, substituting back gives a rational point.
+   If it's whole, the search fails with an integer model; if not, it splits on the first
+   fractional atom `x = q` (`x <= floor q` or `x >= floor q + 1`, a `Split` row) and refutes
+   both sides, up to 6 levels; at the limit it fails with the rational model.
+4. *Budget.* 20,000 rows for the whole `omega`, deterministic (no hash map is iterated).
+
+This is branch and bound rather than §6.8's "small-range split": it splits where the rational
+point is fractional, so it needs no range analysis. It closes the §6.6 regression (one split)
+and fails honestly on the shifted version in `omega-rational-model.sw`, which needs a split on
+`x - z`, not on an atom.
+
+**Emission.** Each branch's certificate writes only the rows its contradiction needs, in
+dependency order, each once; split rows are numbered by depth, since nothing is written
+before a split. Then only the facts the certificates use are kept, renumbered (`Input` counts
+an `FEq` as two), and only the atoms of the goal, the kept facts, `NatNonneg` steps and split
+rows. A Rust replay of the certificate (`omega_search::replay`) runs first, then the
+**pre-check**: `Std.Omega.check` evaluates to `True`, each kept fact's
+`Omega.Fact.holds env f` unifies with its proof's type, and the theorem's result type unifies
+with the goal; a failure is `E-OMEGA-INTERNAL`, naming `omega` as the bug.
+
+**Acceptance** (§8.1's table, through the `omega` keyword; all pass):
+
+| Area | Case | Where |
+|---|---|---|
+| Atom dimensions | the checker refuses `[] ⊢ GLe (NV 0) (NLit 0)` with `Then NegGoal (Close 0)` | 1a's `Omega.sw` test; the search never emits such a certificate (each one is replayed in Rust first) |
+| Nat domain | `x <= x + y`, no hypotheses (`NatNonneg`) | `omega-basics.sw` `leAddRight` |
+| Multiplication shape | `x * 3 = x + x + x` and `x + x + x = x * 3`; `3 * x` both ways; `x * 0`, `0 * x`, `x * 1`, `1 * x` | `mulRight3`…`mul1b` |
+| Boolean preprocessing | `Nat.leq a b = False`, `(a <= b && b <= c) = True`, day 5's `(lastFrom <= id && id <= lastTo) = True` (two bridges deep), `Not (a <= b)`, `Not (a < b)`, `And`, equations as facts | `leqFalseHyp`, `andHyp`, `absorbTrue`, `notLe`, `notLt`, `propAnd`, `eqHyp` |
+| Equality | `a <= b`, `b <= a ⊢ a = b` by `proveEq` | `antisym` |
+| Goal forms | `<`, `<=`, closed `2 < 3`, `Not (y <= x)`, `Nat.leq y x = False`, `And …`, `(… && …) = True` | `ltGoal` … `boolAndGoal` |
+| Contradiction | closed (`3 < 2 ⊢ Void`), disconnected (`y < y ⊢ x < 0`), two facts ⊢ `Void` | `threeLtTwo`, `disconnected`, `void2` |
+| Conversion | `(a + b) + c <= a + (b + c)` quoted as written; `getP n h1` vs `getP n h2` kept apart (rejected), the same proof one atom | `assoc`; `omega-proof-atoms.sw`; `sameProof` |
+| Integer reasoning | `2 * x = 1 ⊢ Void` (`Divide`); §6.6's four constraints (one `Split`, `Divide`s) | `twoXEqOne`, `splitRegression` |
+| Cost | `10 * x`, `1000 * x` (`MulLeft`, at the limit), `2000 * x` refused; `x * 10`, `x * 1000000` (`MulRight`); one atom `List.length (List.append xs ys)` in four facts | `big0`, `big1`, `omega-mul-left-limit.sw`, `bigR0`, `bigR`, `shared` |
+| Proof consumption | an `omega` equation through `rewrite` both ways; a `J` transport along one, computed (`transport 7 42 = 42 := rfl`) | `viaRewrite`, `castBy`, `transportComputes` |
+| Positions | `omega [h a]`; a `calc` step; a local theorem | `viaList`, `calcStep`, `localDef` |
+| Failure reporting | integer model; opaque-atom model (with the `x * y` note); rational model; unsupported goal; budget; `a != b` note; no goal | `examples/reject/omega-*.sw` (9 files, snapshots) |
+| Day 5 | `absorbLo`, `absorbStacked`, `topGe`, `coveredTop`, and `mergedContains`'s arithmetic | `omega-day05.sw` |
+
+The other 1a acceptance rows (malformed certificates, rounding) are the checker's and are
+unchanged.
+
+**Messages** (verbatim, from the snapshots; the facts and atoms notes are omitted here):
+
+```
+[E-OMEGA] `omega` can't prove `x < y`
+  label: an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+  note:  an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 0, y = 0
+
+[E-OMEGA] `omega` can't prove `x <= x * y`
+  label: an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+  note:  an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 1, x * y = 0
+  note:  unsupported structure: `x * y` is an atom (a product of two unknowns isn't linear)
+
+[E-OMEGA] `omega` can't prove `Void`
+  label: a rational model of the relaxation satisfies the facts
+  note:  a rational model of the relaxation (not a counterexample: whole numbers may still rule it out, but the search's case splits didn't): z = 4, x = 4, y = 13/3
+
+[E-OMEGA] `omega` can't prove `xs = xs`
+  label: unsupported structure: this goal isn't linear arithmetic on `Nat`
+
+[E-OMEGA] `omega` can't prove `a + b + c + d + e + f + g + h <= 500`
+  label: budget exhausted: the search stopped before finishing
+  note:  budget exhausted: the search may make 20000 rows and 6 levels of case splits; nothing is claimed about the goal
+```
+
+**Day 5** (`omega-day05.sw` against `aoc/src/Aoc/Day05/Proofs/Part2.sw`, non-blank lines of
+each theorem; `aoc/` itself is unchanged):
+
+| lemma | lines before | after | arithmetic lemma calls before | after |
+|---|---:|---:|---:|---:|
+| `absorbLo` | 9 | 6 | 0 (a two-step `calc`) | 0 |
+| `absorbStacked` | 19 | 12 | 4 | 0 |
+| `coveredTop` | 10 | 6 | 2 | 1 (`Nat.leMaxRight`, listed) |
+| `mergedContains` | 11 | 10 | 9 | 1 (`Nat.leMaxLeft`, listed) |
+| the four | 49 | 34 | 15 | 2 |
+| `topGe` | 6 | 3 | 2 | 2 (`Nat.leRefl`; `Nat.leMaxLeft`, listed) |
+
+§7.1 predicted 31 after stage 2 and 28 after stage 3; what's left is `Nat.max` (stage 2's cheap
+bounds would drop the listed `Nat.leMax…` facts) and `mergedContains`'s `Bool` equations
+(stage 3).
+
+**Costs** **[run]** (`STITCHWORT_TIMINGS=decls stitchwort check --no-cache`, one run;
+elaboration includes the search and the pre-check, which runs the checker as the kernel
+does):
+
+| case | steps | ms (elab + kernel) |
+|---|---:|---:|
+| `closedGoal`, `threeLtTwo` | 1,904; 2,118 | <0.1 |
+| `leAddRight`, `mulRight3`, `assoc` | 6,111; 7,283; 6,534 | 0.2 |
+| day 5 `absorbTrue` (two bridges) | 17,079 | 0.5 |
+| `antisym` (`proveEq`) | 16,583 | 0.5 |
+| `eqHyp` (two equations, `proveEq`) | 33,639 | 1.0 |
+| `twoXEqOne` (`Divide`) | 9,989 | 0.3 |
+| `splitRegression` (`Split`) | 44,707 | 1.2 |
+| `shared` (one atom in four facts) | 14,972 | 0.5 |
+| `big1` (`1000 * x`, `MulLeft`) | 153,074 | 3.9 |
+| `bigR` (`x * 1000000`, `MulRight`) | 8,072 | 0.2 |
+| `viaRewrite`, `castBy` (through `J`) | 8,496; 7,862 | 0.3 |
+| `transportComputes` (a computed `J` along an `omega` proof) | 1,893 | <0.1 |
+| day 5 `absorbLo`, `absorbStacked`, `coveredTop`, `mergedContains` with `omega` | 18,547; 53,633; 38,106; 70,004 | 0.8; 2.2; 1.5; 2.7 |
+| the same, hand-written in `aoc/` | 5,911; 27,890; 20,592; 32,231 | 0.3; 1.4; 1.0; 1.7 |
+| `omega-budget.sw` (20,000 rows, then fails) | — | about 10 (search) |
+| loading the library for a first `omega` | — | about 70 (`Omega`, `Sound`, `Int/Int.sw` and the `List/Toolkit.sw` it pulls in; once per program, and cached) |
+
+What they say: a whole `omega` costs 0.1–3 ms on these goals, two to three times the steps of
+the hand-written day 5 proofs (whose lemma chains are small), well inside §8's 0.5–5 ms
+replay estimate; `1000 * x` is the most expensive case, which is why the limit is 1000. The
+search itself is negligible except when it runs out of budget.
+
+**What's left for stage 2** (§6.7, §8.2): operation atoms with proved relationships for `-`,
+`Nat.max`/`min`, `if`, `/` and `%` by positive literals (with cheap bounds first, so
+`coveredTop`, `topGe` and `mergedContains` lose their listed lemmas); `a != b` and `||` facts
+(splits); `Int` atoms; a range check before splitting, or splitting on combinations of atoms
+(the shifted example in `omega-rational-model.sw` needs a split on `x - z`); a smaller
+search budget for the `auto` fallback (D547) and timing the failing search; converting the
+AoC proofs. Smaller: `(p && q) = False` and `(p || q) = True` facts; `Bool`-equation goals
+(stage 3); a `Not (x = True)` fact whose `x` is an `&&`.
 
 ## 0. Summary
 

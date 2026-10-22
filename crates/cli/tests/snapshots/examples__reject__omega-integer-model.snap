@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `x < y`
+   ╭─[ reject/omega-integer-model.sw:5:58 ]
+   │
+ 5 │ theorem intModel (x: Nat) (y: Nat) (h: x <= y): x < y := omega
+   │                                                          ──┬──  
+   │                                                            ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: `x <= y` (h)
+   │ 
+   │ Note 2: atoms: `x`, `y`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 0, y = 0
+───╯

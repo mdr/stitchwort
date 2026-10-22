@@ -1107,6 +1107,9 @@ impl Walk<'_> {
                     then(&mut stack, steps);
                 }
                 Expr::Field(e, _) => stack.push(Work::Expr(e)),
+                Expr::Omega { facts, .. } => {
+                    then(&mut stack, facts.iter().map(Work::Expr).collect())
+                }
                 Expr::Calc { first, steps, .. } => {
                     let mut work = vec![Work::Expr(first)];
                     for step in steps {
