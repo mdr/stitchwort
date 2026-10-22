@@ -263,7 +263,15 @@ impl LibraryIndex {
                 let mut add = Vec::new();
                 for field in &n.dots {
                     for t in index.dot_targets(field) {
+                        // Not a file that already needs `f`: `f` can't use
+                        // it, and the edge would be a cycle. `[1, 2].span p`
+                        // in `List/Toolkit.sw` has the target `Nat.span` in
+                        // `List/Sort.sw` (the core's `Nat` is always
+                        // reachable), and Sort needs the Toolkit (SW-254).
                         if t.file != f
+                            && !index
+                                .closure(&BTreeSet::from([t.file]), &|_| false)
+                                .contains(&f)
                             && !index.files[f].edges.contains(&t.file)
                             && !add.contains(&t.file)
                             && t.namespace.is_none_or(|ns| ns == 0 || reach.contains(&ns))

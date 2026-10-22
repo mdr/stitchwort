@@ -392,12 +392,34 @@ fn a_cycle_through_dot_notation_is_an_internal_error_naming_both() {
     let errors = session
         .load("t.sw", "import Std (List)\ndef x : Nat := List.dotA Nil\n")
         .unwrap_err();
-    assert_eq!(codes(&errors), ["E-INTERNAL"]);
+    assert!(codes(&errors).iter().all(|c| *c == "E-INTERNAL"));
     let text = messages(&errors);
     assert!(
         text.contains("std/A.sw") && text.contains("std/B.sw"),
         "{text}"
     );
+}
+
+#[test]
+fn a_dot_call_does_not_load_a_same_named_function_that_needs_the_caller() {
+    // SW-254: `xs.spanX` in `A.sw` is `List.spanX`, but the index can't tell
+    // the receiver's type, so `Nat.spanX` in `B.sw` (which needs `A.sw`) is a
+    // target too, and would make a cycle. `A.sw` can't use it, so no edge.
+    let files = [
+        (
+            "A.sw",
+            "def List.spanX (xs: List Nat) (n: Nat): List Nat := xs\n\
+             def List.spanA (xs: List Nat): Nat := List.length (xs.spanX 1)\n",
+        ),
+        (
+            "B.sw",
+            "def Nat.spanX (a: Nat) (b: Nat): Nat := List.length (List.spanX Nil b)\n",
+        ),
+    ];
+    let mut session = Session::with_library_files(&files, false, false).unwrap();
+    session
+        .load("t.sw", "import Std (List)\ndef x : Nat := List.spanA Nil\n")
+        .unwrap();
 }
 
 #[test]

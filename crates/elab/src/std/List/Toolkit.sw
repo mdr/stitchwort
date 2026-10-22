@@ -922,6 +922,7 @@ test "List.minBy first wins a tie" := [MkPair 3 "z", MkPair 1 "a", MkPair 1 "b"]
 test "List.takeWhile and dropWhile" := [1, 2, 5, 1].takeWhile (x => Nat.leq x 2) == [1, 2] && [1, 2, 5, 1].dropWhile (x => Nat.leq x 2) == [5, 1]
 test "List.takeWhile all and none" := [1, 2].takeWhile (x => Nat.leq x 8) == [1, 2] && [1, 2].dropWhile (x => Nat.leq x 8) == Nil && [4].takeWhile (x => Nat.leq x 2) == Nil
 test "List.span" := List.span [1, 2, 5, 1] (x => Nat.leq x 2) == MkPair [1, 2] [5, 1] && List.span (Nil: List Nat) (x => Nat.leq x 2) == MkPair Nil Nil
+test "List.span dot" := [1, 2, 5, 1].span (x => Nat.leq x 2) == MkPair [1, 2] [5, 1]
 test "List.splitAt" := [1, 2, 3].splitAt 1 == MkPair [1] [2, 3] && [1, 2].splitAt 5 == MkPair [1, 2] Nil && [1, 2].splitAt 0 == MkPair Nil [1, 2]
 test "List.dropRight" := [1, 2, 3, 4].dropRight 1 == [1, 2, 3] && [1, 2].dropRight 5 == Nil && [1, 2].dropRight 0 == [1, 2]
 test "List.tails" := [1, 2].tails == [[1, 2], [2], Nil] && (Nil: List Nat).tails == [Nil]
