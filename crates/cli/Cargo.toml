@@ -18,6 +18,12 @@ stitchwort-driver.workspace = true
 clap.workspace = true
 rustyline.workspace = true
 mimalloc.workspace = true
+# The language server (`stitchwort lsp`, docs/proposals/language-server.md).
+crossbeam-channel.workspace = true
+lsp-server.workspace = true
+lsp-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

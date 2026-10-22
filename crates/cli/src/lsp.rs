@@ -1,0 +1,1088 @@
+//! `stitchwort lsp`: the language server (docs/proposals/language-server.md,
+//! stage 1), speaking LSP on standard input and output.
+//!
+//! Two threads. The **main thread** reads messages in order, keeps each
+//! open document's text, and answers navigation requests (definition,
+//! hover, references, outline, workspace symbols) at once from the last
+//! published answers. The **checker thread** owns the sessions (one per
+//! project, one per file on its own; they can't move between threads), and
+//! after each edit re-checks the edited namespace first and publishes its
+//! diagnostics, then re-checks the namespaces that use it, in the
+//! background (`stitchwort_driver::live`). An edit sets the cancellation
+//! flag, which stops the check running within milliseconds.
+//!
+//! Files and threads live here; the engine (`live`) has neither (D498).
+
+use std::cell::Cell;
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+
+use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
+use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
+use lsp_types::notification::Notification as _;
+use lsp_types::request::Request as _;
+use lsp_types::{
+    DiagnosticRelatedInformation, DiagnosticSeverity, DocumentSymbol, DocumentSymbolResponse,
+    GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent, MarkupKind,
+    NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, Url,
+    WorkspaceSymbolResponse, notification, request,
+};
+use stitchwort_driver::check_cache::CheckCache;
+use stitchwort_driver::driver::Session;
+use stitchwort_driver::live::{
+    Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
+};
+use stitchwort_driver::project::{DiskFiles, find_project, parse_config, project_sources};
+use stitchwort_elab::cache::{Key, Store};
+use stitchwort_syntax::{Severity, SourceMap};
+
+/// The URI scheme of the embedded library's files, which the client shows
+/// read-only (`stitchwort-std:List/Toolkit.sw`; its text is what
+/// `stitchwort std-source List/Toolkit.sw` prints).
+pub const STD_SCHEME: &str = "stitchwort-std";
+
+/// How the server runs.
+#[derive(Clone, Debug)]
+pub struct Options {
+    /// How long typing must pause before a check starts. The client can
+    /// set it: `initializationOptions: {"debounceMs": 50}`.
+    pub debounce: Duration,
+    /// The checker thread's stack, for the sessions' limits.
+    pub stack: usize,
+}
+
+impl Options {
+    pub fn new(stack: usize) -> Self {
+        Options {
+            debounce: Duration::from_millis(100),
+            stack,
+        }
+    }
+}
+
+/// Serves LSP on standard input and output until the client says exit.
+pub fn run_stdio(options: Options) -> Result<(), String> {
+    let (connection, io_threads) = Connection::stdio();
+    serve(connection, options)?;
+    io_threads.join().map_err(|e| e.to_string())
+}
+
+/// What the server advertises in its reply to `initialize`.
+pub fn capabilities() -> serde_json::Value {
+    serde_json::json!({
+        "textDocumentSync": {
+            "openClose": true,
+            "change": 1,
+            "save": { "includeText": true }
+        },
+        "definitionProvider": true,
+        "hoverProvider": true,
+        "referencesProvider": true,
+        "documentSymbolProvider": true,
+        "workspaceSymbolProvider": true
+    })
+}
+
+/// Serves LSP on `connection`, from `initialize` to `exit`.
+pub fn serve(connection: Connection, mut options: Options) -> Result<(), String> {
+    let (id, params) = connection.initialize_start().map_err(|e| e.to_string())?;
+    if let Some(ms) = params
+        .pointer("/initializationOptions/debounceMs")
+        .and_then(serde_json::Value::as_u64)
+    {
+        options.debounce = Duration::from_millis(ms);
+    }
+    let reply = serde_json::json!({
+        "capabilities": capabilities(),
+        "serverInfo": { "name": "stitchwort", "version": env!("CARGO_PKG_VERSION") }
+    });
+    connection
+        .initialize_finish(id, reply)
+        .map_err(|e| e.to_string())?;
+
+    let nav = Arc::new(RwLock::new(Nav::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let (to_checker, edits) = crossbeam_channel::unbounded();
+    let checker = {
+        let nav = nav.clone();
+        let cancel = cancel.clone();
+        let sender = connection.sender.clone();
+        let options = options.clone();
+        std::thread::Builder::new()
+            .name("stitchwort-checker".into())
+            .stack_size(options.stack)
+            .spawn(move || Checker::new(options, sender, nav, cancel).run(edits))
+            .map_err(|e| e.to_string())?
+    };
+    let main = Main {
+        connection: &connection,
+        nav,
+        cancel,
+        to_checker,
+    };
+    let result = main.run();
+    drop(main);
+    checker
+        .join()
+        .map_err(|_| "the checker thread panicked".to_string())?;
+    result
+}
+
+// ---- what the checker publishes -----------------------------------------
+
+/// The answers published, by workspace (a project's folder, or a file on
+/// its own).
+#[derive(Default)]
+struct Nav {
+    workspaces: BTreeMap<PathBuf, WorkspaceNav>,
+}
+
+struct WorkspaceNav {
+    /// Whether the key is a project's folder (else a file's path).
+    project: bool,
+    files: BTreeMap<Place, FileAnswers>,
+}
+
+impl WorkspaceNav {
+    fn uri(&self, root: &Path, place: &Place) -> Option<Url> {
+        match place {
+            Place::Library(std) => Url::parse(&format!("{STD_SCHEME}:{std}")).ok(),
+            Place::Program(path) if self.project => {
+                let mut full = root.to_path_buf();
+                full.extend(path.split('/'));
+                Url::from_file_path(full).ok()
+            }
+            Place::Program(path) => Url::from_file_path(path).ok(),
+        }
+    }
+
+    fn location(&self, root: &Path, loc: &Loc) -> Option<Location> {
+        Some(Location::new(self.uri(root, &loc.place)?, range(loc.range)))
+    }
+}
+
+fn range([l1, c1, l2, c2]: [u32; 4]) -> lsp_types::Range {
+    lsp_types::Range::new(Position::new(l1, c1), Position::new(l2, c2))
+}
+
+/// The library file a `stitchwort-std:` URI names (`List/Toolkit.sw`).
+fn std_path(uri: &Url) -> Option<String> {
+    (uri.scheme() == STD_SCHEME).then(|| uri.path().trim_start_matches('/').to_string())
+}
+
+// ---- the main thread -----------------------------------------------------
+
+/// What the main thread tells the checker.
+enum Edit {
+    /// A document is open with this text.
+    Open {
+        path: PathBuf,
+        text: String,
+        version: i32,
+    },
+    Change {
+        path: PathBuf,
+        text: String,
+        version: i32,
+    },
+    Close {
+        path: PathBuf,
+    },
+    /// Saved: the file on disk now has this text.
+    Saved {
+        path: PathBuf,
+        text: Option<String>,
+    },
+    /// Changed on disk (created, changed or deleted).
+    Disk {
+        path: PathBuf,
+    },
+}
+
+struct Main<'a> {
+    connection: &'a Connection,
+    nav: Arc<RwLock<Nav>>,
+    cancel: Arc<AtomicBool>,
+    to_checker: Sender<Edit>,
+}
+
+impl Main<'_> {
+    fn run(&self) -> Result<(), String> {
+        for message in &self.connection.receiver {
+            match message {
+                Message::Request(request) => {
+                    if self
+                        .connection
+                        .handle_shutdown(&request)
+                        .map_err(|e| e.to_string())?
+                    {
+                        return Ok(());
+                    }
+                    let response = self.answer(request);
+                    let _ = self.connection.sender.send(response.into());
+                }
+                Message::Notification(n) => self.notified(n),
+                Message::Response(_) => {}
+            }
+        }
+        Ok(())
+    }
+
+    fn edit(&self, edit: Edit) {
+        let _ = self.to_checker.send(edit);
+        // Stops the check running, if any: it's for older text.
+        self.cancel.store(true, Ordering::Relaxed);
+    }
+
+    fn notified(&self, n: Notification) {
+        let path = |uri: &Url| {
+            (uri.scheme() == "file")
+                .then(|| uri.to_file_path().ok())
+                .flatten()
+        };
+        match n.method.as_str() {
+            notification::DidOpenTextDocument::METHOD => {
+                let Ok(p) =
+                    serde_json::from_value::<lsp_types::DidOpenTextDocumentParams>(n.params)
+                else {
+                    return;
+                };
+                // A library file (`stitchwort-std:`) is read-only: nothing
+                // to check.
+                if let Some(path) = path(&p.text_document.uri) {
+                    self.edit(Edit::Open {
+                        path,
+                        text: p.text_document.text,
+                        version: p.text_document.version,
+                    });
+                }
+            }
+            notification::DidChangeTextDocument::METHOD => {
+                let Ok(p) =
+                    serde_json::from_value::<lsp_types::DidChangeTextDocumentParams>(n.params)
+                else {
+                    return;
+                };
+                // Full text sync: the last change is the whole text.
+                if let (Some(path), Some(change)) = (
+                    path(&p.text_document.uri),
+                    p.content_changes.into_iter().last(),
+                ) {
+                    self.edit(Edit::Change {
+                        path,
+                        text: change.text,
+                        version: p.text_document.version,
+                    });
+                }
+            }
+            notification::DidCloseTextDocument::METHOD => {
+                let Ok(p) =
+                    serde_json::from_value::<lsp_types::DidCloseTextDocumentParams>(n.params)
+                else {
+                    return;
+                };
+                if let Some(path) = path(&p.text_document.uri) {
+                    self.edit(Edit::Close { path });
+                }
+            }
+            notification::DidSaveTextDocument::METHOD => {
+                let Ok(p) =
+                    serde_json::from_value::<lsp_types::DidSaveTextDocumentParams>(n.params)
+                else {
+                    return;
+                };
+                if let Some(path) = path(&p.text_document.uri) {
+                    let _ = self.to_checker.send(Edit::Saved { path, text: p.text });
+                }
+            }
+            notification::DidChangeWatchedFiles::METHOD => {
+                let Ok(p) =
+                    serde_json::from_value::<lsp_types::DidChangeWatchedFilesParams>(n.params)
+                else {
+                    return;
+                };
+                for change in p.changes {
+                    if let Some(path) = path(&change.uri) {
+                        self.edit(Edit::Disk { path });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn answer(&self, request: Request) -> Response {
+        let id = request.id.clone();
+        let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
+        let result = match request.method.as_str() {
+            request::GotoDefinition::METHOD => parse::<lsp_types::GotoDefinitionParams>(&request)
+                .map(|p| {
+                    let at = p.text_document_position_params;
+                    let found = lookup(&nav, &at.text_document.uri, at.position);
+                    let location = found.and_then(|(root, ws, r)| ws.location(root, &r.target));
+                    serde_json::to_value(location.map(GotoDefinitionResponse::Scalar))
+                }),
+            request::HoverRequest::METHOD => parse::<lsp_types::HoverParams>(&request).map(|p| {
+                let at = p.text_document_position_params;
+                let found = lookup(&nav, &at.text_document.uri, at.position);
+                serde_json::to_value(found.map(|(_, _, r)| hover(r)))
+            }),
+            request::References::METHOD => parse::<lsp_types::ReferenceParams>(&request).map(|p| {
+                let at = p.text_document_position;
+                let found = lookup(&nav, &at.text_document.uri, at.position);
+                let locations = found
+                    .map(|(root, ws, r)| references(root, ws, r, p.context.include_declaration));
+                serde_json::to_value(locations)
+            }),
+            request::DocumentSymbolRequest::METHOD => {
+                parse::<lsp_types::DocumentSymbolParams>(&request).map(|p| {
+                    let outline = locate(&nav, &p.text_document.uri)
+                        .and_then(|(_, ws, place)| ws.files.get(&place))
+                        .map(|f| DocumentSymbolResponse::Nested(document_symbols(&f.outline)));
+                    serde_json::to_value(outline)
+                })
+            }
+            request::WorkspaceSymbolRequest::METHOD => {
+                parse::<lsp_types::WorkspaceSymbolParams>(&request).map(|p| {
+                    let found = workspace_symbols(&nav, &p.query);
+                    serde_json::to_value(WorkspaceSymbolResponse::Flat(found))
+                })
+            }
+            _ => {
+                return Response::new_err(
+                    id,
+                    ErrorCode::MethodNotFound as i32,
+                    format!("unknown method {}", request.method),
+                );
+            }
+        };
+        match result {
+            Ok(Ok(value)) => Response {
+                id,
+                result: Some(value),
+                error: None,
+            },
+            Ok(Err(e)) => Response::new_err(id, ErrorCode::InternalError as i32, e.to_string()),
+            Err(e) => Response::new_err(id, ErrorCode::InvalidParams as i32, e),
+        }
+    }
+}
+
+fn parse<P: serde::de::DeserializeOwned>(request: &Request) -> Result<P, String> {
+    serde_json::from_value(request.params.clone()).map_err(|e| e.to_string())
+}
+
+/// The workspace and file of a document.
+fn locate<'n>(nav: &'n Nav, uri: &Url) -> Option<(&'n Path, &'n WorkspaceNav, Place)> {
+    if let Some(std) = std_path(uri) {
+        let place = Place::Library(std);
+        // A library file's references are in the workspaces that loaded
+        // it: the first that has some.
+        return nav
+            .workspaces
+            .iter()
+            .find(|(_, ws)| ws.files.get(&place).is_some_and(|f| !f.refs.is_empty()))
+            .map(|(root, ws)| (root.as_path(), ws, place));
+    }
+    let path = uri.to_file_path().ok()?;
+    nav.workspaces.iter().find_map(|(root, ws)| {
+        let place = if ws.project {
+            let relative = path.strip_prefix(root).ok()?;
+            let parts: Vec<&str> = relative.iter().filter_map(|c| c.to_str()).collect();
+            Place::Program(parts.join("/"))
+        } else if path == *root {
+            Place::Program(path.to_string_lossy().into_owned())
+        } else {
+            return None;
+        };
+        ws.files
+            .contains_key(&place)
+            .then_some((root.as_path(), ws, place))
+    })
+}
+
+/// The reference at a position of a document.
+fn lookup<'n>(
+    nav: &'n Nav,
+    uri: &Url,
+    at: Position,
+) -> Option<(&'n Path, &'n WorkspaceNav, &'n LiveRef)> {
+    if let Some(std) = std_path(uri) {
+        // Any workspace that has a reference there.
+        let place = Place::Library(std);
+        return nav.workspaces.iter().find_map(|(root, ws)| {
+            let r = ws.files.get(&place)?.ref_at(at.line, at.character)?;
+            Some((root.as_path(), ws, r))
+        });
+    }
+    let (root, ws, place) = locate(nav, uri)?;
+    let r = ws.files.get(&place)?.ref_at(at.line, at.character)?;
+    Some((root, ws, r))
+}
+
+/// The hover of a reference: its type, then what it is.
+fn hover(r: &LiveRef) -> Hover {
+    let mut text = String::new();
+    if let Some(ty) = &r.ty {
+        text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
+    }
+    text.push_str(&format!("{}  `{}`", r.kind, r.name));
+    Hover {
+        contents: HoverContents::Markup(MarkupContent {
+            kind: MarkupKind::Markdown,
+            value: text,
+        }),
+        range: Some(range(r.range)),
+    }
+}
+
+/// Everything in the workspace that refers to what `r` does, in file and
+/// position order; with the declaration if `declaration`.
+fn references(root: &Path, ws: &WorkspaceNav, r: &LiveRef, declaration: bool) -> Vec<Location> {
+    let mut found: Vec<Loc> = Vec::new();
+    for (place, file) in &ws.files {
+        for other in &file.refs {
+            let here = Loc {
+                place: place.clone(),
+                range: other.range,
+            };
+            if other.target == r.target && here != r.target {
+                found.push(here);
+            }
+        }
+    }
+    if declaration {
+        found.push(r.target.clone());
+    }
+    found.sort_by(|a, b| (&a.place, a.range).cmp(&(&b.place, b.range)));
+    found.dedup();
+    found
+        .iter()
+        .filter_map(|loc| ws.location(root, loc))
+        .collect()
+}
+
+fn symbol_kind(kind: &str) -> SymbolKind {
+    match kind {
+        "def" | "theorem" | "test" => SymbolKind::FUNCTION,
+        "instance" => SymbolKind::OBJECT,
+        "type" | "record" => SymbolKind::STRUCT,
+        "data" => SymbolKind::ENUM,
+        "interface" | "ability" => SymbolKind::INTERFACE,
+        "ctor" => SymbolKind::ENUM_MEMBER,
+        "field" => SymbolKind::FIELD,
+        "op" => SymbolKind::METHOD,
+        _ => SymbolKind::VARIABLE,
+    }
+}
+
+fn short(name: &str) -> &str {
+    match name.rsplit('.').next() {
+        Some(s) if !s.is_empty() => s,
+        _ => name,
+    }
+}
+
+/// A file's outline, nested by container.
+fn document_symbols(outline: &[OutlineItem]) -> Vec<DocumentSymbol> {
+    fn build(outline: &[OutlineItem], parent: Option<usize>) -> Vec<DocumentSymbol> {
+        outline
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| item.parent == parent)
+            .map(|(i, item)| {
+                #[allow(deprecated)]
+                DocumentSymbol {
+                    name: short(&item.name).to_string(),
+                    detail: Some(item.ty.clone().unwrap_or_else(|| item.kind.to_string())),
+                    kind: symbol_kind(item.kind),
+                    tags: None,
+                    deprecated: None,
+                    range: range(item.full_range),
+                    selection_range: range(item.range),
+                    children: Some(build(outline, Some(i))),
+                }
+            })
+            .collect()
+    }
+    build(outline, None)
+}
+
+/// Whether the letters of `query` appear in order in `name`, ignoring case.
+fn subsequence(query: &str, name: &str) -> bool {
+    let mut chars = name.chars().flat_map(char::to_lowercase);
+    query
+        .chars()
+        .flat_map(char::to_lowercase)
+        .all(|q| chars.any(|c| c == q))
+}
+
+/// The program's declarations whose name matches `query`, best first (the
+/// exact short name, then a part of the full name, then its letters in
+/// order), as the VS Code extension ranked them.
+fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
+    let q = query.to_lowercase();
+    let mut scored = Vec::new();
+    for (root, ws) in &nav.workspaces {
+        for (place, file) in &ws.files {
+            if matches!(place, Place::Library(_)) {
+                continue;
+            }
+            for item in &file.outline {
+                let name = short(&item.name);
+                let score = if q.is_empty() {
+                    3
+                } else if name.to_lowercase() == q {
+                    0
+                } else if item.name.to_lowercase().contains(&q) {
+                    1
+                } else if subsequence(&q, &item.name) {
+                    2
+                } else {
+                    continue;
+                };
+                let loc = Loc {
+                    place: place.clone(),
+                    range: item.range,
+                };
+                let Some(location) = ws.location(root, &loc) else {
+                    continue;
+                };
+                let container = item.parent.map(|p| file.outline[p].name.clone());
+                #[allow(deprecated)]
+                let symbol = SymbolInformation {
+                    name: name.to_string(),
+                    kind: symbol_kind(item.kind),
+                    tags: None,
+                    deprecated: None,
+                    location,
+                    container_name: container,
+                };
+                scored.push((score, scored.len(), symbol));
+            }
+        }
+    }
+    scored.sort_by_key(|(score, i, _)| (*score, *i));
+    scored.into_iter().map(|(_, _, s)| s).collect()
+}
+
+// ---- the checker thread ---------------------------------------------------
+
+/// The check cache, written only while every file of the project is as on
+/// disk (an entry for unsaved text would only churn the cache).
+struct GatedCache {
+    inner: CheckCache,
+    writable: Rc<Cell<bool>>,
+}
+
+impl Store for GatedCache {
+    fn compiler(&self) -> &str {
+        self.inner.compiler()
+    }
+    fn salt(&self) -> [u8; 16] {
+        self.inner.salt()
+    }
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        self.inner.read(unit, key)
+    }
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        if self.writable.get() {
+            self.inner.write(unit, key, entry);
+        }
+    }
+}
+
+/// A project the checker keeps.
+struct ProjectWork {
+    live: LiveProject,
+    /// The source folders, from `stitchwort.yaml`.
+    sources: Vec<String>,
+    /// The texts on disk of the files open in the editor, by path.
+    disk: BTreeMap<String, Option<String>>,
+    writable: Rc<Cell<bool>>,
+}
+
+impl ProjectWork {
+    /// Whether `relative` (a path within the project) is one of its
+    /// source files.
+    fn holds(&self, relative: &str) -> bool {
+        relative.ends_with(".sw")
+            && self.sources.iter().any(|s| {
+                s.is_empty()
+                    || relative
+                        .strip_prefix(s.as_str())
+                        .is_some_and(|r| r.starts_with('/'))
+            })
+    }
+
+    /// Whether every file is as on disk.
+    fn saved(&self) -> bool {
+        self.disk
+            .iter()
+            .all(|(path, disk)| self.live.text(path) == disk.as_deref())
+    }
+}
+
+enum Work {
+    Project(Box<ProjectWork>),
+    File(Box<LiveFile>),
+}
+
+impl Work {
+    fn pending(&self) -> bool {
+        match self {
+            Work::Project(p) => p.live.pending(),
+            Work::File(f) => f.pending(),
+        }
+    }
+}
+
+struct Checker {
+    options: Options,
+    sender: Sender<Message>,
+    nav: Arc<RwLock<Nav>>,
+    cancel: Arc<AtomicBool>,
+    /// By project folder, or a file's path.
+    work: BTreeMap<PathBuf, Work>,
+    /// The version of each open document's text.
+    versions: HashMap<PathBuf, i32>,
+    /// The workspace edited last: checked first.
+    last: Option<PathBuf>,
+    /// The diagnostics last published for each file, and its version then.
+    published: HashMap<Url, (Option<i32>, Vec<lsp_types::Diagnostic>)>,
+}
+
+impl Checker {
+    fn new(
+        options: Options,
+        sender: Sender<Message>,
+        nav: Arc<RwLock<Nav>>,
+        cancel: Arc<AtomicBool>,
+    ) -> Self {
+        Checker {
+            options,
+            sender,
+            nav,
+            cancel,
+            work: BTreeMap::new(),
+            versions: HashMap::new(),
+            last: None,
+            published: HashMap::new(),
+        }
+    }
+
+    fn run(mut self, edits: Receiver<Edit>) {
+        loop {
+            let idle = !self.work.values().any(Work::pending);
+            let mut edited = false;
+            if idle {
+                match edits.recv() {
+                    Ok(edit) => {
+                        self.apply(edit);
+                        edited = true;
+                    }
+                    Err(_) => return,
+                }
+            }
+            while let Ok(edit) = edits.try_recv() {
+                self.apply(edit);
+                edited = true;
+            }
+            // Wait for typing to pause.
+            while edited && !self.options.debounce.is_zero() {
+                match edits.recv_timeout(self.options.debounce) {
+                    Ok(edit) => self.apply(edit),
+                    Err(RecvTimeoutError::Timeout) => break,
+                    Err(RecvTimeoutError::Disconnected) => return,
+                }
+            }
+            let next = self
+                .last
+                .clone()
+                .filter(|k| self.work.get(k).is_some_and(Work::pending))
+                .or_else(|| {
+                    self.work
+                        .iter()
+                        .find(|(_, w)| w.pending())
+                        .map(|(k, _)| k.clone())
+                });
+            if let Some(key) = next {
+                self.step(&key);
+            }
+        }
+    }
+
+    /// Checks the next namespace of the workspace `key`, and publishes when
+    /// it's the one being edited, or the last.
+    fn step(&mut self, key: &Path) {
+        let Some(work) = self.work.get_mut(key) else {
+            return;
+        };
+        let started = std::time::Instant::now();
+        let progress = match work {
+            Work::Project(p) => {
+                p.writable.set(p.saved());
+                p.live.step()
+            }
+            Work::File(f) => f.step(),
+        };
+        let what = match work {
+            Work::Project(p) => p.live.last_checked().unwrap_or_default().to_string(),
+            Work::File(_) => key.display().to_string(),
+        };
+        trace(|| format!("{what}: {progress:?} in {:?}", started.elapsed()));
+        if let Ok(Progress::Checked { focus, done }) = progress
+            && (focus || done)
+        {
+            let started = std::time::Instant::now();
+            let answers = match work {
+                Work::Project(p) => p.live.answers(),
+                Work::File(f) => f.answers(),
+            };
+            let project = matches!(work, Work::Project(_));
+            let answered = started.elapsed();
+            self.publish(key, project, answers);
+            trace(|| {
+                format!(
+                    "answers in {answered:?}, published in {:?}",
+                    started.elapsed()
+                )
+            });
+        }
+    }
+
+    fn publish(&mut self, key: &Path, project: bool, answers: Answers) {
+        let mut nav = self.nav.write().unwrap_or_else(|e| e.into_inner());
+        let ws = nav
+            .workspaces
+            .entry(key.to_path_buf())
+            .or_insert_with(|| WorkspaceNav {
+                project,
+                files: BTreeMap::new(),
+            });
+        let mut notes = Vec::new();
+        for (place, file) in answers {
+            if let Place::Program(_) = place
+                && let Some(uri) = ws.uri(key, &place)
+            {
+                let path = uri.to_file_path().ok();
+                let version = path.and_then(|p| self.versions.get(&p).copied());
+                let diagnostics: Vec<lsp_types::Diagnostic> = file
+                    .diagnostics
+                    .iter()
+                    .map(|d| diagnostic(ws, key, d))
+                    .collect();
+                // Only what changed, or is for a newer version of the text.
+                let shown = (version, diagnostics.clone());
+                if self.published.get(&uri) == Some(&shown) {
+                    ws.files.insert(place, file);
+                    continue;
+                }
+                self.published.insert(uri.clone(), shown);
+                notes.push(PublishDiagnosticsParams {
+                    uri,
+                    diagnostics,
+                    version,
+                });
+            }
+            ws.files.insert(place, file);
+        }
+        drop(nav);
+        for params in notes {
+            let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
+            let _ = self.sender.send(n.into());
+        }
+    }
+
+    /// Clears what was published for the workspace `key`.
+    fn forget(&mut self, key: &Path) {
+        let mut nav = self.nav.write().unwrap_or_else(|e| e.into_inner());
+        let Some(ws) = nav.workspaces.remove(key) else {
+            return;
+        };
+        drop(nav);
+        for place in ws.files.keys() {
+            if let (Place::Program(_), Some(uri)) = (place, ws.uri(key, place)) {
+                self.published.remove(&uri);
+                let params = PublishDiagnosticsParams {
+                    uri,
+                    diagnostics: Vec::new(),
+                    version: None,
+                };
+                let n =
+                    Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
+                let _ = self.sender.send(n.into());
+            }
+        }
+    }
+
+    fn apply(&mut self, edit: Edit) {
+        match edit {
+            Edit::Open {
+                path,
+                text,
+                version,
+            } => {
+                self.versions.insert(path.clone(), version);
+                self.set_text(&path, Some(text), true);
+            }
+            Edit::Change {
+                path,
+                text,
+                version,
+            } => {
+                self.versions.insert(path.clone(), version);
+                self.set_text(&path, Some(text), true);
+            }
+            Edit::Close { path } => {
+                self.versions.remove(&path);
+                if self.work.contains_key(&path) {
+                    // A file on its own: forgotten.
+                    self.work.remove(&path);
+                    self.forget(&path);
+                    return;
+                }
+                let disk = std::fs::read_to_string(&path).ok();
+                self.set_text(&path, disk, false);
+                if let Some((key, relative)) = self.project_of(&path)
+                    && let Some(Work::Project(p)) = self.work.get_mut(&key)
+                {
+                    p.disk.remove(&relative);
+                }
+            }
+            Edit::Saved { path, text } => {
+                let text = text.or_else(|| std::fs::read_to_string(&path).ok());
+                if let Some((key, relative)) = self.project_of(&path)
+                    && let Some(Work::Project(p)) = self.work.get_mut(&key)
+                    && p.disk.contains_key(&relative)
+                {
+                    p.disk.insert(relative, text);
+                }
+            }
+            Edit::Disk { path } => {
+                let open = self.versions.contains_key(&path);
+                let disk = std::fs::read_to_string(&path).ok();
+                if let Some((key, relative)) = self.project_of(&path)
+                    && let Some(Work::Project(p)) = self.work.get_mut(&key)
+                {
+                    if open {
+                        p.disk.insert(relative, disk);
+                    } else if p.holds(&relative) {
+                        p.live.set_text(&relative, disk);
+                    }
+                }
+            }
+        }
+    }
+
+    /// The project that `path` is a source file of, if it's one the
+    /// checker keeps: its folder, and the path within it.
+    fn project_of(&self, path: &Path) -> Option<(PathBuf, String)> {
+        self.work.iter().find_map(|(key, work)| {
+            let Work::Project(p) = work else { return None };
+            let relative = relative(key, path)?;
+            p.holds(&relative).then(|| (key.clone(), relative))
+        })
+    }
+
+    /// The text of the file at `path` is `text` (`None`: it's gone). With
+    /// `edited`, it's open in the editor and being edited.
+    fn set_text(&mut self, path: &Path, text: Option<String>, edited: bool) {
+        if !self.work.contains_key(path) && self.project_of(path).is_none() && edited {
+            self.open_workspace(path);
+        }
+        if let Some((key, relative)) = self.project_of(path) {
+            let Some(Work::Project(p)) = self.work.get_mut(&key) else {
+                return;
+            };
+            if edited && !p.disk.contains_key(&relative) {
+                p.disk
+                    .insert(relative.clone(), std::fs::read_to_string(path).ok());
+            }
+            p.live.set_text(&relative, text);
+            if edited {
+                p.live.set_focus(&relative);
+                self.last = Some(key);
+            }
+        } else if let Some(Work::File(f)) = self.work.get_mut(path) {
+            if let Some(text) = text {
+                f.set_text(text);
+            }
+            self.last = Some(path.to_path_buf());
+        }
+    }
+
+    /// Starts keeping the project that `path` is in, or `path` as a file on
+    /// its own.
+    fn open_workspace(&mut self, path: &Path) {
+        let folder = path.parent().unwrap_or(Path::new("/"));
+        if let Some(dir) = find_project(folder)
+            && !self.work.contains_key(&dir)
+            && let Some(work) = self.load_project(&dir)
+            && relative(&dir, path).is_some_and(|r| work.holds(&r))
+        {
+            self.work.insert(dir, Work::Project(Box::new(work)));
+            return;
+        }
+        let mut session = Session::navigable_for_stack(self.options.stack);
+        session.share_cancel_flag(self.cancel.clone());
+        let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> =
+            path.file_name().and_then(|n| n.to_str()).map(|name| {
+                let files: Rc<dyn stitchwort_elab::project::IncludeFiles> = Rc::new(DiskFiles {
+                    root: folder.to_path_buf(),
+                });
+                (files, name.to_string())
+            });
+        let name = path.to_string_lossy().into_owned();
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let live = LiveFile::new(session, &name, text, include);
+        self.work
+            .insert(path.to_path_buf(), Work::File(Box::new(live)));
+    }
+
+    /// Reads the project in folder `dir`, from disk.
+    fn load_project(&self, dir: &Path) -> Option<ProjectWork> {
+        let name = dir
+            .file_name()
+            .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+        let files = DiskFiles {
+            root: dir.to_path_buf(),
+        };
+        let mut sources = SourceMap::new();
+        let found = match project_sources(&files, &name, &mut sources) {
+            Ok(found) => found,
+            Err(errors) => {
+                for e in errors {
+                    eprintln!("stitchwort lsp: {}: {}", dir.display(), e.message);
+                }
+                return None;
+            }
+        };
+        let config_text = std::fs::read_to_string(dir.join("stitchwort.yaml")).ok();
+        let config = config_text.as_deref().and_then(|text| {
+            let id = sources.add("stitchwort.yaml", text);
+            parse_config(id, "stitchwort.yaml", text).ok()
+        })?;
+        let mut session = Session::navigable_for_stack(self.options.stack);
+        session.share_cancel_flag(self.cancel.clone());
+        let writable = Rc::new(Cell::new(true));
+        if let Some(cache) = cache_dir(dir) {
+            session.elab.set_check_cache(Rc::new(GatedCache {
+                inner: CheckCache::at(&cache),
+                writable: writable.clone(),
+            }));
+        }
+        session.include_from(Rc::new(DiskFiles {
+            root: dir.to_path_buf(),
+        }));
+        let live = LiveProject::new(session, &name, config_text, found.into_iter().collect());
+        Some(ProjectWork {
+            live,
+            sources: config
+                .sources
+                .iter()
+                .map(|s| s.trim_end_matches('/').to_string())
+                .collect(),
+            disk: BTreeMap::new(),
+            writable,
+        })
+    }
+}
+
+/// With `STITCHWORT_LSP_TRACE` set, writes what the checker does, and how
+/// long it takes, to standard error (the client's log).
+fn trace(line: impl FnOnce() -> String) {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if *ON.get_or_init(|| std::env::var_os("STITCHWORT_LSP_TRACE").is_some()) {
+        eprintln!("stitchwort lsp: {}", line());
+    }
+}
+
+/// `path` within the folder `dir`, components joined by `/`.
+fn relative(dir: &Path, path: &Path) -> Option<String> {
+    let rest = path.strip_prefix(dir).ok()?;
+    let parts: Option<Vec<&str>> = rest.iter().map(|c| c.to_str()).collect();
+    Some(parts?.join("/"))
+}
+
+/// `.stitchwort/cache` in the project folder, as the command line uses.
+fn cache_dir(dir: &Path) -> Option<PathBuf> {
+    let stitchwort = dir.join(".stitchwort");
+    if !stitchwort.exists() && std::fs::create_dir_all(&stitchwort).is_ok() {
+        let _ = std::fs::write(stitchwort.join(".gitignore"), "*\n");
+    }
+    Some(stitchwort.join("cache"))
+}
+
+/// A diagnostic for the client: the message, then the first label's
+/// explanation and the notes, one per line (as the extension showed them).
+fn diagnostic(
+    ws: &WorkspaceNav,
+    root: &Path,
+    d: &stitchwort_driver::live::LiveDiagnostic,
+) -> lsp_types::Diagnostic {
+    let mut message = d.message.clone();
+    if let Some((_, first)) = d.labels.first()
+        && !first.is_empty()
+        && *first != d.message
+    {
+        message.push('\n');
+        message.push_str(first);
+    }
+    for note in &d.notes {
+        message.push_str("\nNote: ");
+        message.push_str(note);
+    }
+    let related: Vec<DiagnosticRelatedInformation> = d
+        .labels
+        .iter()
+        .skip(1)
+        .filter_map(|(loc, message)| {
+            Some(DiagnosticRelatedInformation {
+                location: ws.location(root, loc)?,
+                message: message.clone(),
+            })
+        })
+        .collect();
+    lsp_types::Diagnostic {
+        range: range(d.range),
+        severity: Some(match d.severity {
+            Severity::Error => DiagnosticSeverity::ERROR,
+            Severity::Warning => DiagnosticSeverity::WARNING,
+        }),
+        code: Some(NumberOrString::String(d.code.to_string())),
+        code_description: None,
+        source: Some("stitchwort".to_string()),
+        message,
+        related_information: (!related.is_empty()).then_some(related),
+        tags: None,
+        data: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subsequence_ignores_case() {
+        assert!(subsequence("dfp", "Aoc.Day01.findPassword"));
+        assert!(!subsequence("zz", "Aoc.Day01.findPassword"));
+    }
+
+    #[test]
+    fn library_uris_name_the_path_under_std() {
+        let uri = Url::parse("stitchwort-std:core/Data.sw").unwrap();
+        assert_eq!(std_path(&uri).as_deref(), Some("core/Data.sw"));
+        let ws = WorkspaceNav {
+            project: true,
+            files: BTreeMap::new(),
+        };
+        let back = ws.uri(Path::new("/p"), &Place::Library("List/Toolkit.sw".into()));
+        assert_eq!(back.unwrap().as_str(), "stitchwort-std:List/Toolkit.sw");
+    }
+}

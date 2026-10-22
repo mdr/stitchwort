@@ -1,0 +1,621 @@
+//! The language server (`stitchwort lsp`, docs/proposals/language-server.md
+//! stage 1), driven in process over its message interface: diagnostics as
+//! you type, cancellation, and navigation compared with `check --index`.
+
+use std::collections::{BTreeMap, VecDeque};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::{Duration, Instant};
+
+use lsp_server::{Connection, Message, Notification, Request, RequestId};
+use serde_json::{Value, json};
+use stitchwort_cli::lsp::{Options, serve};
+
+const STACK: usize = 64 * 1024 * 1024;
+
+struct Client {
+    conn: Connection,
+    server: Option<std::thread::JoinHandle<Result<(), String>>>,
+    next: i32,
+    /// Notifications received while waiting for something else.
+    queue: VecDeque<Notification>,
+}
+
+impl Client {
+    fn start() -> Client {
+        let (server, conn) = Connection::memory();
+        let handle = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || serve(server, Options::new(STACK)))
+            .unwrap();
+        let mut client = Client {
+            conn,
+            server: Some(handle),
+            next: 1,
+            queue: VecDeque::new(),
+        };
+        let reply = client.request(
+            "initialize",
+            json!({
+                "processId": null,
+                "rootUri": null,
+                "capabilities": {},
+                "initializationOptions": { "debounceMs": 0 }
+            }),
+        );
+        let caps = &reply["capabilities"];
+        assert_eq!(caps["textDocumentSync"]["change"], 1, "{reply}");
+        for p in [
+            "definitionProvider",
+            "hoverProvider",
+            "referencesProvider",
+            "documentSymbolProvider",
+            "workspaceSymbolProvider",
+        ] {
+            assert_eq!(caps[p], true, "{p}");
+        }
+        client.notify("initialized", json!({}));
+        client
+    }
+
+    fn notify(&self, method: &str, params: Value) {
+        let n = Notification::new(method.to_string(), params);
+        self.conn.sender.send(n.into()).unwrap();
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Value {
+        let id = RequestId::from(self.next);
+        self.next += 1;
+        let r = Request::new(id.clone(), method.to_string(), params);
+        self.conn.sender.send(r.into()).unwrap();
+        loop {
+            match self.conn.receiver.recv_timeout(Duration::from_secs(120)) {
+                Ok(Message::Response(resp)) if resp.id == id => {
+                    assert!(resp.error.is_none(), "{method}: {:?}", resp.error);
+                    return resp.result.unwrap_or(Value::Null);
+                }
+                Ok(Message::Notification(n)) => self.queue.push_back(n),
+                Ok(other) => panic!("unexpected {other:?}"),
+                Err(e) => panic!("no reply to {method}: {e}"),
+            }
+        }
+    }
+
+    /// Waits for the diagnostics of `uri` at `version` (0: the next, for a
+    /// file that isn't open).
+    fn diagnostics(&mut self, uri: &str, version: i32) -> Vec<Value> {
+        self.diagnostics_checking(uri, version, None)
+    }
+
+    fn diagnostics_checking(&mut self, uri: &str, version: i32, never: Option<i32>) -> Vec<Value> {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        loop {
+            let n = match self.queue.pop_front() {
+                Some(n) => n,
+                None => match self
+                    .conn
+                    .receiver
+                    .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                {
+                    Ok(Message::Notification(n)) => n,
+                    Ok(other) => panic!("unexpected {other:?}"),
+                    Err(_) => panic!("no diagnostics for {uri} at version {version}"),
+                },
+            };
+            if n.method != "textDocument/publishDiagnostics" || n.params["uri"] != uri {
+                continue;
+            }
+            let v = n.params["version"].as_i64().map(|v| v as i32);
+            if let (Some(never), Some(v)) = (never, v) {
+                assert_ne!(v, never, "diagnostics published for a cancelled version");
+            }
+            if version == 0 || v == Some(version) {
+                return n.params["diagnostics"].as_array().unwrap().clone();
+            }
+        }
+    }
+
+    fn open(&self, uri: &str, text: &str) {
+        self.notify(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": uri, "languageId": "stitchwort", "version": 1, "text": text}}),
+        );
+    }
+
+    fn change(&self, uri: &str, version: i32, text: &str) {
+        self.notify(
+            "textDocument/didChange",
+            json!({"textDocument": {"uri": uri, "version": version}, "contentChanges": [{"text": text}]}),
+        );
+    }
+
+    fn at(&mut self, method: &str, uri: &str, line: u32, character: u32) -> Value {
+        self.request(
+            method,
+            json!({
+                "textDocument": {"uri": uri},
+                "position": {"line": line, "character": character},
+                "context": {"includeDeclaration": true}
+            }),
+        )
+    }
+
+    fn shutdown(mut self) {
+        self.request("shutdown", Value::Null);
+        self.notify("exit", Value::Null);
+        self.server.take().unwrap().join().unwrap().unwrap();
+    }
+}
+
+/// A new empty folder for a test.
+fn temp_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("stitchwort-lsp-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.canonicalize().unwrap()
+}
+
+fn uri(path: &Path) -> String {
+    lsp_types::Url::from_file_path(path).unwrap().to_string()
+}
+
+fn repo() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            copy_dir(&path, &to.join(&name));
+        } else {
+            std::fs::copy(&path, to.join(&name)).unwrap();
+        }
+    }
+}
+
+/// A copy of the AoC project, with its check cache warm. The server never
+/// writes the files (edits are unsaved), so the tests share it; the cache
+/// is kept between runs (in Cargo's temporary folder for tests), since a
+/// cold check of the library takes seconds.
+fn aoc() -> PathBuf {
+    static COPY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    COPY.get_or_init(|| {
+        let project = Path::new(env!("CARGO_TARGET_TMPDIR")).join("lsp/aoc");
+        if project.join("src").exists() {
+            std::fs::remove_dir_all(project.join("src")).unwrap();
+        }
+        copy_dir(&repo().join("aoc"), &project);
+        let warm = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["check", "--project"])
+            .arg(&project)
+            .output()
+            .unwrap();
+        assert!(warm.status.success(), "{warm:?}");
+        project.canonicalize().unwrap()
+    })
+    .clone()
+}
+
+fn codes(diagnostics: &[Value]) -> Vec<String> {
+    diagnostics
+        .iter()
+        .map(|d| d["code"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[test]
+fn a_file_on_its_own_as_you_type() {
+    let dir = temp_dir("file");
+    let file = dir.join("hello.sw");
+    let broken =
+        "def double (n: Nat): Nat := n + n\n\ndef g: Nat := \"a\"\n\ndef h: Nat := double 2\n";
+    std::fs::write(&file, broken).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, broken);
+    let found = client.diagnostics(&uri, 1);
+    assert_eq!(codes(&found), ["E-TYPE-MISMATCH"], "{found:?}");
+    assert_eq!(found[0]["range"]["start"]["line"], 2);
+
+    // Unsaved: the file on disk keeps its error.
+    let fixed = broken.replace("\"a\"", "1");
+    client.change(&uri, 2, &fixed);
+    assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
+
+    // `double` in `h`: its definition, its type, its uses.
+    let definition = client.at("textDocument/definition", &uri, 4, 15);
+    assert_eq!(definition["uri"], uri.as_str());
+    assert_eq!(
+        definition["range"]["start"],
+        json!({"line": 0, "character": 4})
+    );
+    let hover = client.at("textDocument/hover", &uri, 4, 15);
+    let text = hover["contents"]["value"].as_str().unwrap();
+    assert!(
+        text.contains("```stitchwort\nNat -> Nat\n```") && text.contains("def  `Main.double`"),
+        "{text}"
+    );
+    let refs = client.at("textDocument/references", &uri, 0, 5);
+    assert_eq!(refs.as_array().unwrap().len(), 2, "{refs}");
+    // A local: `n`'s uses lead to its binder.
+    let local = client.at("textDocument/definition", &uri, 0, 28);
+    assert_eq!(local["range"]["start"], json!({"line": 0, "character": 12}));
+    let outline = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let names: Vec<&str> = outline
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["double", "g", "h"]);
+
+    // A library name: its definition is a `stitchwort-std:` document, and
+    // that document answers too.
+    let library = client.at("textDocument/definition", &uri, 0, 17);
+    let std_uri = library["uri"].as_str().unwrap().to_string();
+    assert!(std_uri.starts_with("stitchwort-std:core/"), "{library}");
+    client.notify(
+        "textDocument/didOpen",
+        json!({"textDocument": {"uri": std_uri, "languageId": "stitchwort", "version": 1, "text": ""}}),
+    );
+    let start = &library["range"]["start"];
+    let back = client.at(
+        "textDocument/hover",
+        &std_uri,
+        start["line"].as_u64().unwrap() as u32,
+        start["character"].as_u64().unwrap() as u32,
+    );
+    assert!(
+        back["contents"]["value"].as_str().unwrap().contains("Nat"),
+        "{back}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// What `check --index` says about a project: the extension's lookups,
+/// done on its JSON.
+struct IndexJson(Value);
+
+impl IndexJson {
+    fn of(project: &Path) -> IndexJson {
+        let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["check", "--index", "-", "--project"])
+            .arg(project)
+            .output()
+            .unwrap();
+        IndexJson(serde_json::from_slice(&out.stdout).expect("an index"))
+    }
+
+    fn file(&self, path: &str) -> Option<usize> {
+        self.0["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .position(|f| f["path"] == path)
+    }
+
+    /// The extension's `refAt`.
+    fn ref_at(&self, file: usize, line: u64, ch: u64) -> Option<&Value> {
+        let refs = self.0["refs"].as_array().unwrap();
+        let pos = |r: &Value, i: usize| {
+            (
+                r["range"][i].as_u64().unwrap(),
+                r["range"][i + 1].as_u64().unwrap(),
+            )
+        };
+        let i = refs.partition_point(|r| {
+            let f = r["file"].as_u64().unwrap() as usize;
+            f < file || (f == file && pos(r, 2) <= (line, ch))
+        });
+        let r = refs.get(i)?;
+        (r["file"].as_u64() == Some(file as u64) && pos(r, 0) <= (line, ch)).then_some(r)
+    }
+
+    /// The extension's `targetOf`, as (path or `stitchwort-std:` path, range).
+    fn target(&self, r: &Value) -> (String, Value) {
+        let (file, range) = if r["binder"].is_object() {
+            (&r["binder"]["file"], &r["binder"]["range"])
+        } else {
+            let s = &self.0["symbols"][r["symbol"].as_u64().unwrap() as usize];
+            (&s["file"], &s["range"])
+        };
+        let f = &self.0["files"][file.as_u64().unwrap() as usize];
+        let place = match f["std"].as_str() {
+            Some(std) => format!("stitchwort-std:{std}"),
+            None => f["path"].as_str().unwrap().to_string(),
+        };
+        (place, range.clone())
+    }
+
+    /// The extension's `hoverOf` type.
+    fn hover_type(&self, r: &Value) -> Option<String> {
+        r["type"].as_str().map(str::to_string).or_else(|| {
+            let s = r["symbol"].as_u64()?;
+            self.0["symbols"][s as usize]["type"]
+                .as_str()
+                .map(str::to_string)
+        })
+    }
+}
+
+fn lsp_range(r: &Value) -> Value {
+    json!([
+        r["start"]["line"],
+        r["start"]["character"],
+        r["end"]["line"],
+        r["end"]["character"]
+    ])
+}
+
+/// The project's place for a location: its path within the project, or the
+/// `stitchwort-std:` URI.
+fn place(project: &Path, location: &Value) -> String {
+    let Some(uri) = location["uri"].as_str() else {
+        return format!("no location: {location}");
+    };
+    match lsp_types::Url::parse(uri).unwrap().to_file_path() {
+        Ok(path) => path
+            .strip_prefix(project)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/"),
+        Err(()) => uri.to_string(),
+    }
+}
+
+/// On the AoC project: every name in two namespaces' files has the
+/// definition and hover type `check --index` gives; references and the
+/// outline agree; and editing a file updates its diagnostics and those of
+/// the namespaces that use it, from unsaved text.
+#[test]
+fn aoc_navigation_matches_check_index() {
+    let project = aoc();
+    let index = IndexJson::of(&project);
+    let mut client = Client::start();
+    let files = [
+        "src/Aoc/Day01/Day01.sw",
+        "src/Aoc/Day01/Proofs/Part2.sw",
+        "src/Aoc/Day05/Day05.sw",
+    ];
+    let first = uri(&project.join(files[0]));
+    client.open(
+        &first,
+        &std::fs::read_to_string(project.join(files[0])).unwrap(),
+    );
+    assert_eq!(client.diagnostics(&first, 1), Vec::<Value>::new());
+    // Wait for the rest of the project (checked in the background, after
+    // the namespaces that use `Aoc.Day01`).
+    let last = uri(&project.join(files[1]));
+    client.diagnostics(&last, 0);
+
+    let mut compared = 0;
+    for path in files {
+        let file = index.file(path).expect("an indexed file");
+        let text = std::fs::read_to_string(project.join(path)).unwrap();
+        let uri = uri(&project.join(path));
+        for (line, content) in text.lines().enumerate() {
+            let mut ch = 0u64;
+            let mut previous = ' ';
+            for c in content.chars() {
+                let here = (line as u64, ch);
+                ch += c.len_utf16() as u64;
+                // The start of each word.
+                let word = previous.is_alphanumeric();
+                previous = c;
+                if !c.is_alphanumeric() || word {
+                    continue;
+                }
+                let expected = index.ref_at(file, here.0, here.1);
+                let definition = client.at(
+                    "textDocument/definition",
+                    &uri,
+                    here.0 as u32,
+                    here.1 as u32,
+                );
+                match expected {
+                    None => assert!(definition.is_null(), "{path}:{here:?}: {definition}"),
+                    Some(r) => {
+                        let (place_expected, range) = index.target(r);
+                        assert_eq!(
+                            (
+                                place(&project, &definition),
+                                lsp_range(&definition["range"])
+                            ),
+                            (place_expected, range),
+                            "{path}:{here:?}"
+                        );
+                        let hover =
+                            client.at("textDocument/hover", &uri, here.0 as u32, here.1 as u32);
+                        let shown = hover["contents"]["value"].as_str().unwrap();
+                        if let Some(ty) = index.hover_type(r) {
+                            assert!(
+                                shown.contains(&format!("```stitchwort\n{ty}\n```")),
+                                "{path}:{here:?}: {shown} vs {ty}"
+                            );
+                        }
+                        compared += 1;
+                    }
+                }
+            }
+        }
+        // The outline: the declarations with a full range, in order.
+        let outline = client.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument": {"uri": uri}}),
+        );
+        let mut ours: Vec<Value> = Vec::new();
+        fn flatten(symbols: &Value, out: &mut Vec<Value>) {
+            for s in symbols.as_array().unwrap() {
+                out.push(lsp_range(&s["selectionRange"]));
+                flatten(&s["children"], out);
+            }
+        }
+        flatten(&outline, &mut ours);
+        let mut theirs: Vec<Value> = index.0["symbols"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["file"] == file && s["fullRange"].is_array())
+            .map(|s| s["range"].clone())
+            .collect();
+        ours.sort_by_key(|v| v.to_string());
+        theirs.sort_by_key(|v| v.to_string());
+        assert_eq!(ours, theirs, "outline of {path}");
+    }
+    assert!(compared > 500, "only {compared} names compared");
+
+    // References to `Turn` (in `parseTurns`'s type): the index's.
+    let text = std::fs::read_to_string(project.join(files[0])).unwrap();
+    let (line, content) = text
+        .lines()
+        .enumerate()
+        .find(|(_, l)| l.starts_with("def parseTurns"))
+        .unwrap();
+    let ch = content.find("List Turn").unwrap() + 5;
+    let refs = client.at("textDocument/references", &first, line as u32, ch as u32);
+    let file = index.file(files[0]).unwrap();
+    let r = index.ref_at(file, line as u64, ch as u64).unwrap();
+    let target = index.target(r);
+    let mut expected: Vec<(String, Value)> = index.0["refs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|o| index.target(o) == target)
+        .map(|o| {
+            let f = &index.0["files"][o["file"].as_u64().unwrap() as usize];
+            (f["path"].as_str().unwrap().to_string(), o["range"].clone())
+        })
+        .collect();
+    if !expected.contains(&target) {
+        expected.push(target.clone());
+    }
+    let mut ours: Vec<(String, Value)> = refs
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| (place(&project, l), lsp_range(&l["range"])))
+        .collect();
+    expected.sort_by_key(|(p, r)| format!("{p}{r}"));
+    ours.sort_by_key(|(p, r)| format!("{p}{r}"));
+    assert!(ours.len() > 3, "{ours:?}");
+    assert_eq!(ours, expected);
+
+    // Workspace symbols.
+    let found = client.request("workspace/symbol", json!({"query": "parseTurns"}));
+    assert_eq!(found[0]["name"], "parseTurns", "{found}");
+    assert_eq!(place(&project, &found[0]["location"]), files[0]);
+
+    // An edit that breaks `Aoc.Day01`, unsaved: its diagnostics, and its
+    // dependents' (`Aoc.Day01.Proofs` can't be checked).
+    let broken = text.replace(
+        "def solvePart1 (turns: List Turn): Nat :=",
+        "def solvePart1 (turns: List Turn): Text :=",
+    );
+    assert_ne!(broken, text);
+    client.change(&first, 2, &broken);
+    let found = client.diagnostics(&first, 2);
+    assert_eq!(codes(&found), ["E-TYPE-MISMATCH"], "{found:?}");
+    let proofs = uri(&project.join(files[1]));
+    let mut dependent = Vec::new();
+    for _ in 0..5 {
+        dependent = client.diagnostics(&proofs, 0);
+        if !dependent.is_empty() {
+            break;
+        }
+    }
+    assert_eq!(codes(&dependent), ["E-NAMESPACE-FAILED"], "{dependent:?}");
+    client.change(&first, 3, &text);
+    assert_eq!(client.diagnostics(&first, 3), Vec::<Value>::new());
+    client.shutdown();
+}
+
+/// A check made stale by an edit stops, and what it would have said is never
+/// published: the edit's check answers instead, in about the time one check
+/// takes, not two.
+#[test]
+fn a_newer_edit_cancels_the_check_running() {
+    let project = aoc();
+    let path = project.join("src/Aoc/Day04/Proofs/Core.sw");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let uri = uri(&path);
+    let mut client = Client::start();
+    client.open(&uri, &text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+
+    // One check of the namespace, uncached (the text is new).
+    let started = Instant::now();
+    client.change(&uri, 2, &format!("{text}\n-- one\n"));
+    assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
+    let one = started.elapsed();
+
+    // An error, then (before its check can finish) a fix.
+    client.change(&uri, 3, &format!("{text}\ndef broken: Nat := \"a\"\n"));
+    std::thread::sleep(one / 4);
+    let started = Instant::now();
+    client.change(&uri, 4, &format!("{text}\n-- two\n"));
+    let found = client.diagnostics_checking(&uri, 4, Some(3));
+    let after = started.elapsed();
+    assert_eq!(found, Vec::<Value>::new());
+    eprintln!("one check {one:?}; after cancelling, {after:?}");
+    assert!(
+        after < one * 3 / 2 + Duration::from_millis(200),
+        "{after:?} vs {one:?}"
+    );
+    client.shutdown();
+}
+
+/// The time from an edit to its diagnostics on `aoc`, for a leaf added to
+/// `Aoc.Day01` and to `Aoc.Day04.Proofs` (`cargo test --release -p
+/// stitchwort-cli --test lsp -- --ignored --nocapture`).
+#[test]
+#[ignore]
+fn latency_on_aoc() {
+    let project = aoc();
+    let mut client = Client::start();
+    let mut results: BTreeMap<&str, Vec<Duration>> = BTreeMap::new();
+    let mut version = 1;
+    let paths = [
+        ("Aoc.Day01", "src/Aoc/Day01/Day01.sw"),
+        ("Aoc.Day04.Proofs", "src/Aoc/Day04/Proofs/Core.sw"),
+    ];
+    for (_, path) in paths {
+        let uri = uri(&project.join(path));
+        client.open(&uri, &std::fs::read_to_string(project.join(path)).unwrap());
+        client.diagnostics(&uri, 1);
+    }
+    // Let the background checks finish.
+    std::thread::sleep(Duration::from_secs(3));
+    for round in 0..6 {
+        for (name, path) in paths {
+            let text = std::fs::read_to_string(project.join(path)).unwrap();
+            let uri = uri(&project.join(path));
+            version += 1;
+            let edited = format!("{text}\ndef leafEdit{round}: Nat := 1 + 1\n");
+            let started = Instant::now();
+            client.change(&uri, version, &edited);
+            let found = client.diagnostics(&uri, version);
+            assert_eq!(found, Vec::<Value>::new(), "{name}");
+            results.entry(name).or_default().push(started.elapsed());
+        }
+    }
+    for (name, times) in &results {
+        eprintln!("{name}: {:?}", times);
+    }
+    let rss = Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+    eprintln!("resident: {rss:?} KB");
+    client.shutdown();
+}

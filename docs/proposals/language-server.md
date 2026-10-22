@@ -1,7 +1,8 @@
 # A language server for Stitchwort
 
-**Status:** design note, 22 October 2026 (SW-31). Stages 0b and 0c are
-built (SW-275, [As built](#as-built-stages-0b-0c)); nothing else is.
+**Status:** design note, 22 October 2026 (SW-31). Stages 0a, 0b and 0c
+are built (SW-274, SW-275, [As built](#as-built-stages-0b-0c)), and the
+server half of stage 1 (SW-282, [As built](#as-built-stage-1-server)).
 Decisions D496–D498 are in the [table at the end](#decisions). Measured on
 `main` at `d61ff947` with the release CLI, on a copy of `aoc/` with its own
 cache folder, load average about 3. Claims about the code were checked by
@@ -722,6 +723,199 @@ and every fourth project.
   only needed if the rule is to be enforced by the compiler.
 - Marks are only valid between loads. Rewinding to a point inside a
   namespace (stage 5) needs the module loop to stop between declarations.
+
+## As built (stage 1 server)
+
+*SW-282, 22 October 2026 (D515). The VS Code client is SW-283.*
+
+### What the client can rely on
+
+**Command line:** `stitchwort lsp`, with no arguments. It speaks LSP on
+standard input and output and logs to standard error. With
+`STITCHWORT_LSP_TRACE` set, it also logs each namespace checked and how
+long checking and publishing took.
+
+**`initialize`** replies with `serverInfo: {name: "stitchwort", version}`
+and exactly these capabilities:
+
+```json
+{
+  "textDocumentSync": { "openClose": true, "change": 1, "save": { "includeText": true } },
+  "definitionProvider": true,
+  "hoverProvider": true,
+  "referencesProvider": true,
+  "documentSymbolProvider": true,
+  "workspaceSymbolProvider": true
+}
+```
+
+`change: 1` is full sync: each `didChange` carries the whole text. The
+only initialization option is `{"debounceMs": N}`: how long typing must
+pause before a check starts. The default is 100 ms; the tests use 0.
+
+**Messages handled:**
+
+| Method | What the server does |
+|---|---|
+| `textDocument/didOpen`, `didChange` | For a `file:` URI: the unsaved text replaces the file's text in its project, or the file is checked on its own if it isn't in a project's source folders. A `stitchwort-std:` document is accepted and ignored: it's read-only and gets no diagnostics. |
+| `textDocument/didClose` | A project file goes back to its text on disk. A file on its own is forgotten, and its diagnostics are cleared. |
+| `textDocument/didSave` | Records the saved text as the file's text on disk. This only decides when the check cache may be written. |
+| `workspace/didChangeWatchedFiles` | Reads the file from disk again, unless it's open. The server doesn't register for this notification itself; a client may send it. |
+| `textDocument/publishDiagnostics` (sent) | With the document's `version` for open files, and none for others. Sent for a file when its diagnostics change, or when the version they're for changes. `code` is the error code (`E-TYPE-MISMATCH`), `source` is `stitchwort`. The message is the main text, then the first label and the notes (`Note: …`), one per line, as the extension showed them. Other labels are `relatedInformation`. Diagnostics with no place go on the project's `stitchwort.yaml`. |
+| `textDocument/definition` | One `Location`, or `null`. |
+| `textDocument/hover` | Markdown: the type in a `stitchwort` code block, then the kind and the full name (``def  `Aoc.Day01.parseTurns` ``, `local` for a local). The range is the name's. |
+| `textDocument/references` | Every use in the project, sorted by file and position, plus the declaration if `includeDeclaration`. |
+| `textDocument/documentSymbol` | `DocumentSymbol`s nested by container (a type's constructors and fields under it). `detail` is the type, or the kind when there's no type. |
+| `workspace/symbol` | Ranked as the extension ranked them: the exact short name first, then a part of the full name, then the letters in order. A flat list of `SymbolInformation`. |
+| `shutdown`, `exit` | As the protocol says. Any other request gets `MethodNotFound`. |
+
+**Library files** are named by `stitchwort-std:` URIs, followed by the
+path under `std/` with no slash after the colon: `stitchwort-std:core/Data.sw`
+(a file of the core), `stitchwort-std:List/Toolkit.sw`. These are the
+`std` markers of `check --index`. The client shows their text with
+`stitchwort std-source <path>`. Definition, hover and references work in
+these documents too, answered from the first workspace that has
+references there.
+
+Navigation answers what the last check published. Between an edit and its
+check, ranges in the edited file are those of the text checked last; they
+aren't shifted by the edit's line delta (see "Not done" below).
+
+### Architecture
+
+- **The engine** is `crates/driver/src/live.rs`. `LiveProject` and
+  `LiveFile` take texts and give `Answers`: for each file, its references
+  (each with its target, name, kind and type), outline and diagnostics,
+  with LSP ranges. They have no file or thread access (D498). The answers
+  come from `nav::index_data`, the data that `index_json` now prints, so
+  the server and `check --index` share one code path. The project loop's
+  per-namespace check became `Session::check_project_namespace`, which
+  both the command line and the engine call. `analyse` was split so that
+  the engine can analyse files already parsed (`analyse_parsed`).
+- **The front end** is `crates/cli/src/lsp.rs`, with the `lsp-server`
+  crate. The **main thread** reads messages in order. It sends edits to
+  the checker, then sets the shared cancel flag. It answers navigation at
+  once from the published answers, behind an `RwLock`. The **checker
+  thread**, with a 64 MB stack, owns one `Session` per project and one per
+  file on its own. All the sessions share one cancel flag
+  (`Session::share_cancel_flag`). The checker applies every pending edit,
+  waits for the debounce, then does one step: it checks one namespace, in
+  `cancellable_at` (`cancellable`, with the step's own mark). It publishes
+  after the edited namespace's step and after the last step. Between steps
+  it takes new edits, so the background part stops for an edit as well as
+  being cancellable inside a step.
+- **What re-checks when (level 1).** The engine marks the session before
+  each namespace, in the order it checks them. After an edit, it finds the
+  first namespace in that order whose files' texts differ, rewinds to the
+  mark before it, and plans the rest. The plan is: the namespaces the
+  edited one uses that were rewound too, then the edited namespace, then
+  everything else that was rewound, in canonical order. That includes the
+  namespaces that use the edited one, so their diagnostics update from the
+  unsaved text (D496). It falls back to rewinding everything in three
+  cases:
+  - a namespace appears or disappears;
+  - a namespace that was kept now uses one after it;
+  - the analysis fails (a file without a namespace line, clashing
+    namespaces, a cycle). Then its diagnostics are published and nothing
+    is checked.
+
+  Which namespaces exist, and what each uses, is read from a scratch parse
+  of every file, kept for as long as a file's text is the same. A
+  namespace's files are parsed into the session when it's checked, after
+  its mark, so rewinding drops their old text too.
+- **Library files are loaded up front.** `LiveProject::new` calls
+  `load_all_libraries` before the first mark. Loaded on demand, a library
+  file that a namespace uses is unloaded whenever that namespace is
+  rewound (§"As built" 0b), then loaded again from the cache. That runs
+  the kernel again: `Mod` made re-checking `Aoc.Day01` take 140 ms instead
+  of 28. Since the library never changes after that, the library files'
+  answers are computed once (`index_data_of(…, library: false)` from then
+  on), which cut publishing from 50 ms to 11 ms. A file on its own still
+  loads the library on demand, with no check cache.
+- **Each publish recomputes every checked file's answers**, not only the
+  answers of the namespaces just checked. A namespace checked later can
+  add to an earlier one's answers: a use of a generated declaration, such
+  as a record's `ext` theorem, makes it a symbol at the record's
+  declaration. The navigation test caught this.
+- **Check cache.** A project's session uses `.stitchwort/cache` in the
+  project folder, as the command line does. Writes happen only while every
+  open file's text equals its text on disk: the store is wrapped, and the
+  wrapper drops writes otherwise. Reads always happen.
+
+### Measured
+
+Release build, on a copy of `aoc` with a warm cache, after rebasing onto
+the fix for `Std.Nat.digitsExample` (SW-286). Before that fix, any open
+of `aoc` cost 11 s of kernel time on that one theorem. These are the times
+from sending `didChange` to receiving its `publishDiagnostics`, in process,
+with the debounce at 0. Each edit adds a new `def` at the end of the file,
+and the two files are edited in turn, six rounds each:
+
+| Edited | First edit | Then (6 rounds) | Of which: checking the namespace / publishing |
+|---|---|---|---|
+| `Aoc.Day01` (`Day01.sw`) | 66–105 ms | 41–47 ms | 28 ms / 11 ms |
+| `Aoc.Day04.Proofs` (`Proofs/Core.sw`) | 589–629 ms | 586–641 ms | 550 ms / 30 ms (more files) |
+
+So the target of §7 (under 0.3 s for all but the two big proof
+namespaces) is met. `Aoc.Day04.Proofs` takes as long as checking it does,
+which is what stage 5 is for. Other numbers:
+
+- Cancellation (`a_newer_edit_cancels_the_check_running`): one check of
+  `Aoc.Day04.Proofs` took 657 ms. An edit sent a quarter of the way into
+  the next check got its diagnostics 639 ms after it was sent. Without
+  cancelling, that would be about 1.1 s.
+- Memory: 348 MB resident for the test process after these rounds, against
+  165 MB for `check --index` of `aoc`. The extra comes from a mark per
+  namespace (each mark copies the scope, the navigation recorder and the
+  other copied tables) and from the whole library being loaded. §3.4's
+  limit-and-restart isn't built.
+
+### Tests
+
+`crates/cli/tests/lsp.rs` drives `serve` in process over
+`Connection::memory()`:
+
+- **A file on its own.** It opens with an error and gets `E-TYPE-MISMATCH`
+  at the right line. A `didChange` that fixes the error gets empty
+  diagnostics; the text is unsaved, so the file on disk still has its
+  error. Then definition, hover (type and name), references, a local's
+  binder, the outline, and a library definition that gives a
+  `stitchwort-std:core/…` location, whose document then answers a hover.
+- **AoC against `check --index`.** For every word start in `Day01.sw`,
+  `Proofs/Part2.sw` and `Day05.sw` (more than 500 names), the definition
+  and hover type equal the extension's lookups (`refAt`, `targetOf`,
+  `hoverOf`) done on `check --index` JSON. The outlines are equal, the
+  references to `Turn` are equal, and workspace symbols are checked. Then
+  an unsaved edit breaks `Aoc.Day01`: it gets `E-TYPE-MISMATCH`, and
+  `Aoc.Day01.Proofs`, which uses it, gets `E-NAMESPACE-FAILED`. Undoing
+  the edit clears them.
+- **Cancellation.** An error edit, then before its check can finish, a
+  fixing edit. No diagnostics are ever published for the error's version,
+  and the fix's arrive in about one check's time.
+- **Latency.** `latency_on_aoc` is ignored by default; run it with
+  `cargo test --release -p stitchwort-cli --test lsp -- --ignored --nocapture`.
+
+The AoC tests share a copy of `aoc` in Cargo's test temporary folder, whose
+cache is kept between runs.
+
+### Not done (later, or for the next lane)
+
+- **Shifting ranges** by the edit's line delta between an edit and its
+  check (§3.1). Answers can be up to one check old (40 ms in most of
+  `aoc`).
+- **Memory.** The memory limit with a fresh session (§3.4) isn't built,
+  and neither is the "restart server" command (§8). Dropping the marks of
+  namespaces that are unlikely to be rewound to would cut the 2× above.
+- **Configuration changes.** `stitchwort.yaml` is read when a project is
+  first opened. Changing it needs a restart.
+- **No dynamic registration** for watched files. Files changed on disk
+  while closed are only seen if the client sends `didChangeWatchedFiles`.
+- **A file on its own has no check cache**, and loads the library on
+  demand.
+- **Requests that need fresh state** (goals, completion: stages 2 and 3)
+  don't exist yet. Every request answers from published state.
+- **§7's replay test**, that any sequence of edits gives what a fresh check
+  gives, is covered only by the edit-and-undo cases above.
 
 ## Decisions
 

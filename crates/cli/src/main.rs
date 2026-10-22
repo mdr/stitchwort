@@ -96,6 +96,9 @@ enum Command {
     },
     /// Start an interactive session, optionally with a file loaded
     Repl { file: Option<PathBuf> },
+    /// Run the language server, speaking LSP on standard input and output
+    /// (docs/proposals/language-server.md)
+    Lsp,
     /// Extract a file's exports, or a namespace's, to JavaScript
     Build {
         /// A file, or a namespace of the project
@@ -183,6 +186,15 @@ fn run(cli: Cli) -> ExitCode {
         } => run_target(&target, js, reference, project.as_deref(), &cache),
         Command::Eval { file, expr, cache } => eval(&file, &expr, &cache),
         Command::Repl { file } => repl(file.as_deref()),
+        Command::Lsp => {
+            match stitchwort_cli::lsp::run_stdio(stitchwort_cli::lsp::Options::new(STACK)) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Command::Build {
             target,
             out,

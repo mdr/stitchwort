@@ -82,75 +82,12 @@ impl Session {
             self.elab.set_namespace_sources(sources);
         }
         let mut diagnostics: Vec<Diagnostic> = Vec::new();
-        let mut failed: BTreeSet<&str> = BTreeSet::new();
-        let mut skipped: BTreeSet<&str> = BTreeSet::new();
+        let mut outcomes: BTreeMap<&str, NamespaceOutcome> = BTreeMap::new();
         for name in &order {
             let ns = analysis.namespace(name).expect("a namespace");
-            // The first dependency, in canonical order, that has errors or
-            // wasn't checked.
-            let blocker = order
-                .iter()
-                .filter(|m| failed.contains(m.as_str()) || skipped.contains(m.as_str()))
-                .find_map(|m| ns.edges.iter().find(|e| &e.target == m));
-            if let Some(edge) = blocker {
-                let m = &edge.target;
-                let why = if failed.contains(m.as_str()) {
-                    format!("namespace {m} has errors, so {name} isn't checked")
-                } else {
-                    format!("namespace {m} isn't checked, so neither is {name}")
-                };
-                diagnostics.push(
-                    Diagnostic::error("E-NAMESPACE-FAILED", why)
-                        .with_label(edge.span, format!("`{name}` uses `{m}` here")),
-                );
-                skipped.insert(name);
-                continue;
-            }
-            let deps: BTreeSet<String> = closure(&analysis, std::slice::from_ref(name))
-                .into_iter()
-                .filter(|n| n != name)
-                .collect();
-            let dependencies =
-                canonical_order(&analysis, &deps).expect("a part of an acyclic closure is acyclic");
-            let names: Vec<String> = ns
-                .files
-                .iter()
-                .map(|id| self.sources.get(*id).name.clone())
-                .collect();
-            let units: Vec<SourceUnit> = names
-                .iter()
-                .zip(&ns.files)
-                .zip(&ns.modules)
-                .map(|((name, id), module)| SourceUnit {
-                    file: Some(*id),
-                    name,
-                    module,
-                })
-                .collect();
-            // The rewind test's hook: check it, rewind, check it again.
-            if self.elab.recheck_namespaces {
-                let mark = self.mark();
-                let _ = self
-                    .elab
-                    .elaborate_namespace(Some(name), &units, Some(&dependencies));
-                self.rewind(&mark);
-            }
-            let first_new_def = self.elab.globals.defs.len();
-            let mut found = self
-                .elab
-                .elaborate_namespace(Some(name), &units, Some(&dependencies));
-            self.check_exports(first_new_def, true, &mut found);
-            // The declarations that parsed are checked even when others
-            // didn't, so one run reports every error; the namespace still
-            // counts as failed.
-            let found = if ns.parse_errors.is_empty() {
-                found
-            } else {
-                crate::driver::merge_recovered(ns.parse_errors.clone(), found)
-            };
-            if found.iter().any(|d| d.severity == Severity::Error) {
-                failed.insert(name);
-            }
+            let (found, outcome) =
+                self.check_project_namespace(&analysis, &order, ns, &|m| outcomes.get(m).copied());
+            outcomes.insert(name, outcome);
             diagnostics.extend(found);
         }
         self.elab.leave_namespace();
@@ -162,6 +99,92 @@ impl Session {
             project: project.to_string(),
             checked: order,
         })
+    }
+
+    /// Checks one namespace `ns` of a project, after the namespaces it uses
+    /// (`outcome` says how each of those went). If one of them failed or
+    /// wasn't checked, `ns` isn't either (`E-NAMESPACE-FAILED`, naming the
+    /// first such namespace in `order`, the project's canonical order).
+    /// `analysis` says what each namespace uses.
+    pub fn check_project_namespace(
+        &mut self,
+        analysis: &Analysis,
+        order: &[String],
+        ns: &Namespace,
+        outcome: &dyn Fn(&str) -> Option<NamespaceOutcome>,
+    ) -> (Vec<Diagnostic>, NamespaceOutcome) {
+        let name = &ns.name;
+        let blocked = |m: &str| {
+            matches!(
+                outcome(m),
+                Some(NamespaceOutcome::Failed | NamespaceOutcome::Skipped)
+            )
+        };
+        // The first dependency, in canonical order, that has errors or
+        // wasn't checked.
+        let blocker = order
+            .iter()
+            .filter(|m| blocked(m))
+            .find_map(|m| ns.edges.iter().find(|e| &e.target == m));
+        if let Some(edge) = blocker {
+            let m = &edge.target;
+            let why = if outcome(m) == Some(NamespaceOutcome::Failed) {
+                format!("namespace {m} has errors, so {name} isn't checked")
+            } else {
+                format!("namespace {m} isn't checked, so neither is {name}")
+            };
+            let d = Diagnostic::error("E-NAMESPACE-FAILED", why)
+                .with_label(edge.span, format!("`{name}` uses `{m}` here"));
+            return (vec![d], NamespaceOutcome::Skipped);
+        }
+        let deps: BTreeSet<String> = closure(analysis, std::slice::from_ref(name))
+            .into_iter()
+            .filter(|n| n != name)
+            .collect();
+        let dependencies =
+            canonical_order(analysis, &deps).expect("a part of an acyclic closure is acyclic");
+        let names: Vec<String> = ns
+            .files
+            .iter()
+            .map(|id| self.sources.get(*id).name.clone())
+            .collect();
+        let units: Vec<SourceUnit> = names
+            .iter()
+            .zip(&ns.files)
+            .zip(&ns.modules)
+            .map(|((name, id), module)| SourceUnit {
+                file: Some(*id),
+                name,
+                module,
+            })
+            .collect();
+        // The rewind test's hook: check it, rewind, check it again.
+        if self.elab.recheck_namespaces {
+            let mark = self.mark();
+            let _ = self
+                .elab
+                .elaborate_namespace(Some(name), &units, Some(&dependencies));
+            self.rewind(&mark);
+        }
+        let first_new_def = self.elab.globals.defs.len();
+        let mut found = self
+            .elab
+            .elaborate_namespace(Some(name), &units, Some(&dependencies));
+        self.check_exports(first_new_def, true, &mut found);
+        // The declarations that parsed are checked even when others
+        // didn't, so one run reports every error; the namespace still
+        // counts as failed.
+        let found = if ns.parse_errors.is_empty() {
+            found
+        } else {
+            crate::driver::merge_recovered(ns.parse_errors.clone(), found)
+        };
+        let outcome = if found.iter().any(|d| d.severity == Severity::Error) {
+            NamespaceOutcome::Failed
+        } else {
+            NamespaceOutcome::Checked
+        };
+        (found, outcome)
     }
 
     /// For the check cache (docs/proposals/check-cache.md §4.2): a hash of
@@ -180,46 +203,84 @@ impl Session {
             .filter(|(_, f)| f.name == config_name)
             .last()
             .map(|(_, f)| f.text.as_str());
-        let mut common = blake3::Hasher::new();
-        let part = |h: &mut blake3::Hasher, bytes: &[u8]| {
-            h.update(&(bytes.len() as u64).to_le_bytes());
-            h.update(bytes);
-        };
-        part(&mut common, b"namespaces");
-        let mut names: Vec<&str> = analysis
+        let namespaces: Vec<NamespaceSources> = analysis
             .namespaces
             .iter()
-            .map(|n| n.name.as_str())
-            .collect();
-        names.sort_unstable();
-        for name in &names {
-            part(&mut common, name.as_bytes());
-        }
-        match config {
-            Some(text) => {
-                part(&mut common, b"config");
-                part(&mut common, text.as_bytes());
-            }
-            None => part(&mut common, b"no config"),
-        }
-        // A namespace with syntax errors is checked without its broken
-        // declarations, so its result is never cached.
-        analysis
-            .namespaces
-            .iter()
-            .filter(|ns| ns.parse_errors.is_empty())
-            .map(|ns| {
-                let mut h = common.clone();
-                part(&mut h, ns.name.as_bytes());
-                for id in &ns.files {
-                    let file = self.sources.get(*id);
-                    part(&mut h, file.name.as_bytes());
-                    part(&mut h, file.text.as_bytes());
-                }
-                (ns.name.clone(), *h.finalize().as_bytes())
+            .map(|ns| NamespaceSources {
+                name: ns.name.as_str(),
+                parsed: ns.parse_errors.is_empty(),
+                files: ns
+                    .files
+                    .iter()
+                    .map(|id| {
+                        let file = self.sources.get(*id);
+                        (file.name.clone(), file.text.as_str())
+                    })
+                    .collect(),
             })
-            .collect()
+            .collect();
+        namespace_keys(config, &namespaces)
     }
+}
+
+/// How checking one namespace of a project went.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NamespaceOutcome {
+    Checked,
+    /// It has errors.
+    Failed,
+    /// It wasn't checked, because a namespace it uses failed or wasn't.
+    Skipped,
+}
+
+/// What a namespace's check cache key is made from.
+pub struct NamespaceSources<'a> {
+    pub name: &'a str,
+    /// Whether all its files parsed.
+    pub parsed: bool,
+    /// Its files: display name, text.
+    pub files: Vec<(String, &'a str)>,
+}
+
+/// [`Session::namespace_sources`]' hashes, from `config` (the text of
+/// `stitchwort.yaml`) and each namespace's sources.
+pub fn namespace_keys(
+    config: Option<&str>,
+    namespaces: &[NamespaceSources],
+) -> std::collections::HashMap<String, stitchwort_elab::cache::Key> {
+    let mut common = blake3::Hasher::new();
+    let part = |h: &mut blake3::Hasher, bytes: &[u8]| {
+        h.update(&(bytes.len() as u64).to_le_bytes());
+        h.update(bytes);
+    };
+    part(&mut common, b"namespaces");
+    let mut names: Vec<&str> = namespaces.iter().map(|n| n.name).collect();
+    names.sort_unstable();
+    for name in &names {
+        part(&mut common, name.as_bytes());
+    }
+    match config {
+        Some(text) => {
+            part(&mut common, b"config");
+            part(&mut common, text.as_bytes());
+        }
+        None => part(&mut common, b"no config"),
+    }
+    // A namespace with syntax errors is checked without its broken
+    // declarations, so its result is never cached.
+    namespaces
+        .iter()
+        .filter(|ns| ns.parsed)
+        .map(|ns| {
+            let mut h = common.clone();
+            part(&mut h, ns.name.as_bytes());
+            for (file, text) in &ns.files {
+                part(&mut h, file.as_bytes());
+                part(&mut h, text.as_bytes());
+            }
+            (ns.name.to_string(), *h.finalize().as_bytes())
+        })
+        .collect()
 }
 
 /// The namespace that a name of a project's `run` is in: the longest
@@ -312,19 +373,65 @@ impl Analysis {
 /// project, text); `project` is the project's name for display (`aoc`).
 pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, String)>) -> Analysis {
     files.sort();
+    let parsed = files
+        .into_iter()
+        .map(|(path, text)| {
+            let display = format!("{project}/{path}");
+            let id = session.sources.add(display.clone(), text.clone());
+            session.elab.set_include_location(id, path.clone());
+            let (module, errors) = parse_module_recovering(id, &text, session.elab.limits.stack);
+            ParsedFile {
+                path,
+                display,
+                id,
+                text,
+                module,
+                errors,
+            }
+        })
+        .collect();
+    analyse_parsed(&mut session.elab, project, parsed)
+}
+
+/// A file of a project, parsed.
+#[derive(Clone)]
+pub struct ParsedFile {
+    /// Its path within the project.
+    pub path: String,
+    /// Its name in messages (`aoc/src/Aoc/Day01.sw`).
+    pub display: String,
+    pub id: FileId,
+    pub text: String,
+    /// The declarations that parsed, and the errors of those that didn't.
+    pub module: Module,
+    pub errors: Vec<Diagnostic>,
+}
+
+/// [`analyse`], for files already parsed (sorted by path): tells `elab` the
+/// project's namespaces and what each declares, and finds what each uses.
+pub fn analyse_parsed(
+    elab: &mut stitchwort_elab::Elaborator,
+    project: &str,
+    files: Vec<ParsedFile>,
+) -> Analysis {
     let mut diagnostics = Vec::new();
     // Each namespace's files: id, then parse result.
     struct Found {
         files: Vec<FileId>,
+        displays: Vec<String>,
         modules: Vec<Module>,
         parse_errors: Vec<Diagnostic>,
     }
     let mut found: BTreeMap<String, Found> = BTreeMap::new();
-    for (path, text) in &files {
-        let display = format!("{project}/{path}");
-        let id = session.sources.add(display.clone(), text.clone());
-        session.elab.set_include_location(id, path.clone());
-        let (parsed, errors) = parse_module_recovering(id, text, session.elab.limits.stack);
+    for file in files {
+        let ParsedFile {
+            path,
+            display,
+            id,
+            text,
+            module: parsed,
+            errors,
+        } = file;
         let (namespace, errors, module) = match errors {
             errors if errors.is_empty() => (parsed.namespace.clone(), errors, Some(parsed)),
             errors => {
@@ -332,7 +439,7 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
                     diagnostics.push(not_first.clone());
                     continue;
                 }
-                match parse_namespace_line(id, text) {
+                match parse_namespace_line(id, &text) {
                     Ok(line) => (line, errors, Some(parsed)),
                     Err(d) => {
                         // The namespace line itself is the trouble.
@@ -343,10 +450,10 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
             }
         };
         let Some(line) = namespace else {
-            diagnostics.push(no_namespace(project, path, &display));
+            diagnostics.push(no_namespace(project, &path, &display));
             continue;
         };
-        if let Err(d) = session.elab.check_namespace_name(&line) {
+        if let Err(d) = elab.check_namespace_name(&line) {
             diagnostics.push(d);
             continue;
         }
@@ -354,39 +461,34 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
             .entry(line.path.text.clone())
             .or_insert_with(|| Found {
                 files: Vec::new(),
+                displays: Vec::new(),
                 modules: Vec::new(),
                 parse_errors: Vec::new(),
             });
         entry.files.push(id);
+        entry.displays.push(display);
         // A file with syntax errors keeps the declarations that parsed.
         entry.modules.extend(module);
         entry.parse_errors.extend(errors);
     }
+    let mut display_names: Vec<Vec<String>> = Vec::new();
     let mut namespaces: Vec<Namespace> = found
         .into_iter()
-        .map(|(name, f)| Namespace {
-            name,
-            files: f.files,
-            modules: f.modules,
-            parse_errors: f.parse_errors,
-            edges: Vec::new(),
+        .map(|(name, f)| {
+            display_names.push(f.displays);
+            Namespace {
+                name,
+                files: f.files,
+                modules: f.modules,
+                parse_errors: f.parse_errors,
+                edges: Vec::new(),
+            }
         })
         .collect();
     diagnostics.extend(clashes(&namespaces));
-    session
-        .elab
-        .set_project_namespaces(namespaces.iter().map(|n| n.name.clone()));
+    elab.set_project_namespaces(namespaces.iter().map(|n| n.name.clone()));
     // Every namespace's names first, since an import of everything from one
     // is read while another's edges are found.
-    let display_names: Vec<Vec<String>> = namespaces
-        .iter()
-        .map(|ns| {
-            ns.files
-                .iter()
-                .map(|id| session.sources.get(*id).name.clone())
-                .collect()
-        })
-        .collect();
     let syntax_of = |i: usize| {
         let ns = &namespaces[i];
         NamespaceSyntax {
@@ -407,13 +509,13 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
         .filter(|i| namespaces[*i].parse_errors.is_empty())
         .map(|i| (namespaces[i].name.clone(), direct_names(&syntax_of(i))))
         .collect();
-    session.elab.set_project_names(names);
+    elab.set_project_names(names);
     let edges: Vec<Vec<Edge>> = (0..namespaces.len())
         .map(|i| {
             if namespaces[i].modules.is_empty() {
                 Vec::new()
             } else {
-                session.elab.namespace_edges(&syntax_of(i))
+                elab.namespace_edges(&syntax_of(i))
             }
         })
         .collect();

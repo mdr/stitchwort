@@ -18,12 +18,18 @@ stitchwort-driver = { path = "crates/driver" }
 ariadne = "0.6.0"
 blake3 = "1.8.7"
 clap = { version = "4.6.7", features = ["derive"] }
+crossbeam-channel = "0.5.17"
 insta = "1.49.0"
+lsp-server = "0.7.9"
+# 0.95: later versions replace `url::Url` with a URI type that has no file
+# path conversions (rust-analyzer stayed on 0.95 for the same reason).
+lsp-types = "=0.95.1"
 mimalloc = { version = "0.1.52", default-features = false }
 num-bigint = "0.5.1"
 num-traits = "0.2.19"
 rustyline = "18.0.1"
 serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.154"
 serde-saphyr = { version = "2.0.0", default-features = false, features = ["deserialize"] }
 smallvec = "1.16.3"
 

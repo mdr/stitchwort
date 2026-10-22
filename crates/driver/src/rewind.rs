@@ -76,15 +76,33 @@ impl Session {
     /// one), and if it is set while `f` runs, the session is rewound to
     /// where it was before `f` and the result is [`Cancelled`].
     pub fn cancellable<T>(&mut self, f: impl FnOnce(&mut Session) -> T) -> Result<T, Cancelled> {
-        self.cancel_flag().store(false, Ordering::Relaxed);
         let mark = self.mark();
+        self.cancellable_at(&mark, f)
+    }
+
+    /// [`Session::cancellable`], with a mark the caller has already taken
+    /// (marking costs a few milliseconds in a big session): `mark` must be
+    /// where the session is now, and a cancelled check rewinds to it.
+    pub fn cancellable_at<T>(
+        &mut self,
+        mark: &Mark,
+        f: impl FnOnce(&mut Session) -> T,
+    ) -> Result<T, Cancelled> {
+        self.cancel_flag().store(false, Ordering::Relaxed);
         self.elab.globals.budget.watch_cancel(true);
         let result = f(self);
         self.elab.globals.budget.watch_cancel(false);
         if self.elab.globals.budget.cancelled() {
-            self.rewind(&mark);
+            self.rewind(mark);
             return Err(Cancelled);
         }
         Ok(result)
+    }
+
+    /// Makes `flag` the one that cancels this session's checks (instead of
+    /// one [`Session::cancel_flag`] makes): one flag can then stop whichever
+    /// of several sessions is checking.
+    pub fn share_cancel_flag(&mut self, flag: Arc<AtomicBool>) {
+        self.elab.globals.budget.set_cancel_flag(flag);
     }
 }
