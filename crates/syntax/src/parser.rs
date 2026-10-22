@@ -1759,9 +1759,19 @@ impl<'t> Parser<'t> {
         result
     }
 
+    /// A `calc` expression: above the relations, so `a || b` and `a && b`
+    /// need no parentheses.
+    fn calc_operand(&mut self) -> Result<Expr> {
+        let mut e = self.append_expr()?;
+        if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
+            self.logic_chain(&mut e)?;
+        }
+        Ok(e)
+    }
+
     #[inline(never)]
     fn calc_body(&mut self, start: Span, indent: u32) -> Result<Expr> {
-        let first = self.append_expr()?;
+        let first = self.calc_operand()?;
         if matches!(
             self.peek(),
             Some(Tok::Equals | Tok::Le | Tok::Lt | Tok::Gt | Tok::Ge | Tok::NotEq | Tok::EqEq)
@@ -1821,7 +1831,7 @@ impl<'t> Parser<'t> {
                 }
                 _ => return Err(self.unexpected("`=`, `<=`, `<`, `>=` or `>` after `_`")),
             };
-            let rhs = self.append_expr()?;
+            let rhs = self.calc_operand()?;
             let proof = if self.eat(&Tok::ColonEq) {
                 Some(self.expr()?)
             } else {
@@ -4741,6 +4751,15 @@ mod tests {
         assert!(parse_module_text("def f (in: Nat): Nat := in\n").is_ok());
         // `<` then `-` apart is a comparison, not an arrow.
         assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite < - p in rfl\n").is_err());
+    }
+
+    #[test]
+    fn calc_expressions_may_use_logic_operators() {
+        let text = "def f (a: Bool) (b: Bool): a || b = b || a :=\n  calc a || b\n    _ = b || a := g a b\n    _ = b || a && a\n";
+        let Expr::Calc { ref steps, .. } = rhs(text) else {
+            panic!("expected a calc");
+        };
+        assert_eq!(steps.len(), 2);
     }
 
     #[test]

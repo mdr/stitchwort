@@ -2,7 +2,7 @@
 
 -- An `=` chain works at any type. Each step's proof is checked against the
 -- step's own equation, and the steps are joined with `Eq.trans`.
-import Std (Eq, List)
+import Std (Bool, Eq, List)
 
 theorem appendThree (xs: List Nat) (ys: List Nat) (zs: List Nat): List.length (xs ++ (ys ++ zs)) = List.length xs + (List.length ys + List.length zs) :=
   calc List.length (xs ++ (ys ++ zs))
@@ -98,3 +98,12 @@ theorem upToComputation (n: Nat): 1 + n = Succ n :=
 theorem ltSuccLe (a: Nat) (b: Nat) (h: a < Succ b): a <= b :=
   calc a
     _ < Succ b := h
+
+-- `||` and `&&` in a chain's expressions need no parentheses.
+theorem boolChain (a: Bool) (b: Bool): (a || b) = (b || a) :=
+  calc a || b
+    _ = b || a := Bool.orComm a b
+
+theorem andChain (a: Bool) (b: Bool): (a && b) = (a && b) :=
+  calc a && b
+    _ = a && b
