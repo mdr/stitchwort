@@ -1,5 +1,5 @@
 {
-  "next": 249,
+  "next": 250,
   "tickets": [
     {
       "id": 1,
@@ -3723,6 +3723,20 @@
         "bug"
       ],
       "body": "From docs/comparisons/aoc-day04-community.md (D420). Same lists at List Int pass; some short ones pass. Find the elaboration rule (expected type not reaching number literals through Set.fromList / instance arguments?), fix it, and add the failing cases as tests.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 249,
+      "title": "AoC tidy from days 4-7 research: tests (non-square D426, community bugs D431, trimmed example D441), Day 5 ranges.sort (D430) + Range.ids comment (D438), Day 6 Correct.sw tidy with _ holes (D442), Day 7 Abort in parseManifold (D453), document List.transpose's first-row rule (D444), refresh stale timings (D428)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
