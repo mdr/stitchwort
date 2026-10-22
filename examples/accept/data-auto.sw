@@ -110,7 +110,7 @@ def runState (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   run init
 
 def record (n: Nat): {State (Map Nat Nat [ord := descending])} () :=
-  put ((get()).insert n (n * 10))
+  put (get().insert n (n * 10))
 
 def recordTwo(): {State (Map Nat Nat [ord := descending])} () :=
   record 4
@@ -126,7 +126,7 @@ test "a map as state" := recorded.keys == [7, 4]
 -- only a computation using the ability itself is refused, Landin's knot;
 -- see examples/reject/data-auto-knot.sw).
 def functions: {State (Map Nat (Nat -> Nat))} () :=
-  put ((get()).insert 1 (n => n + 1))
+  put (get().insert 1 (n => n + 1))
 
 def stored: Map Nat (Nat -> Nat) :=
   match runState Map.empty (u => functions) with

@@ -89,7 +89,7 @@ def Text.lines (t: Text): List Text := Text.linesFrom Nil Nil (Text.toList t)
 
 -- Every remaining line of input, in order, as `IO.readLine` would give them.
 -- Total: the input is read all at once.
-def IO.readAllLines(): {IO} (List Text) := (IO.readAll()).lines
+def IO.readAllLines(): {IO} (List Text) := IO.readAll().lines
 
 -- Prefixes, suffixes and substrings. Characters are Unicode scalar values, as
 -- in `Text.length`. The main text comes last, so `line |> Text.stripPrefix "L"`

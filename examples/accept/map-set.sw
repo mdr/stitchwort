@@ -74,7 +74,7 @@ def runState (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   run init
 
 def record (n: Nat): {State (Map Nat Nat [ord := descending])} () :=
-  put ((get()).insert n (n * 10))
+  put (get().insert n (n * 10))
 
 def recordTwo(): {State (Map Nat Nat [ord := descending])} () :=
   record 4
@@ -88,7 +88,7 @@ test "a map as state" := recorded.toList == [(7, 70), (4, 40)]
 
 -- Values that are pure functions are allowed in state too.
 def functions: {State (Map Nat (Nat -> Nat))} () :=
-  put ((get()).insert 1 (n => n + 1))
+  put (get().insert 1 (n => n + 1))
 
 def stored: Map Nat (Nat -> Nat) :=
   match runState Map.empty (u => functions) with
