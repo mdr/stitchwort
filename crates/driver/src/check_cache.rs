@@ -3,8 +3,9 @@
 //! next to `tests/`), one file per entry.
 //!
 //! - **Names.** An entry's file is `{fingerprint}-{unit}-{key}`: the
-//!   compiler build, the library file (`std.List.Toolkit`, `+nav` when
-//!   navigation is recorded), and the entry's key in hex.
+//!   compiler build, the unit (a library file, `std.List.Toolkit`, or a
+//!   project namespace, `ns.Aoc.Day05`; `+nav` when navigation is
+//!   recorded), and the entry's key in hex.
 //! - **The header.** `check/header` holds the directory's random salt
 //!   (§3.1), made the first time the directory is used. Every entry
 //!   carries it, so an entry copied from another cache directory is a miss.
@@ -28,7 +29,7 @@ use stitchwort_elab::cache::{Key, Store};
 use crate::driver::FINGERPRINT;
 
 /// How long entries of other builds are kept.
-const GRACE: Duration = Duration::from_secs(24 * 60 * 60);
+pub(crate) const GRACE: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// A check cache in a directory.
 pub struct CheckCache {

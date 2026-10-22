@@ -1,8 +1,10 @@
-//! The check cache (docs/proposals/check-cache.md), stage 1: standard
-//! library files loaded from entries written by an earlier run.
+//! The check cache (docs/proposals/check-cache.md): standard library files
+//! (stage 1) and project namespaces (stage 2) loaded from entries written by
+//! an earlier run.
 //!
-//! The differential test (§5.4): a session whose library files come from a
-//! warm cache must hold exactly what a session that elaborated them holds.
+//! The differential test (§5.4): a session whose library files and
+//! namespaces come from a warm cache must hold exactly what a session that
+//! elaborated them holds.
 //! The comparison is a canonical dump of the elaborator (every declaration
 //! with its terms and flags, every side table, the navigation index) plus
 //! the diagnostics, so a table the cache forgets shows up as a difference.
@@ -23,11 +25,15 @@ const STACK: usize = 16 * 1024 * 1024;
 
 /// A new, empty directory for one cache.
 fn temp_dir(name: &str) -> PathBuf {
+    // The clock alone isn't enough: threads asking at once can read the
+    // same time (macOS counts microseconds).
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos());
     let dir = std::env::temp_dir().join(format!(
-        "stitchwort-check-cache-{name}-{}-{nanos}",
+        "stitchwort-check-cache-{name}-{}-{n}-{nanos}",
         std::process::id()
     ));
     std::fs::create_dir_all(&dir).unwrap();
@@ -142,6 +148,32 @@ fn assert_cache_changes_nothing(source: &Source, nav: bool) {
         (fresh.loaded, 0),
         "{n} (nav {nav}): the warm run elaborated a library file"
     );
+    // Every project namespace checked without errors was written, and
+    // loaded from the cache the next time; those with errors were
+    // elaborated both times.
+    assert_eq!(
+        cold.stats.namespace_uncacheable, 0,
+        "{n}: a namespace can't be cached"
+    );
+    assert_eq!(
+        (warm.stats.namespace_hits, warm.stats.namespace_misses),
+        (
+            cold.stats.namespace_written,
+            cold.stats.namespace_misses - cold.stats.namespace_written
+        ),
+        "{n} (nav {nav}): the warm run elaborated a namespace it had written"
+    );
+    assert_eq!(
+        (cold.stats.late_misses, warm.stats.late_misses),
+        (0, 0),
+        "{n} (nav {nav}): a replay failed part way"
+    );
+    if matches!(source, Source::Project(..)) && fresh.dump.contains("\naccepted true\n") {
+        assert!(
+            warm.stats.namespace_hits > 0,
+            "{n} (nav {nav}): no namespace came from the cache"
+        );
+    }
 }
 
 #[test]
@@ -400,4 +432,121 @@ fn a_file_that_runs_out_of_resources_is_not_written() {
     assert!(result.is_err_and(|ds| ds.iter().any(|d| d.code == "E-RESOURCE")));
     assert_eq!((warm.hits, warm.misses), (cold.written, 1));
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---- Project namespaces (stage 2) -------------------------------------
+
+/// A project in a new folder: `files` are (path in it, text).
+fn temp_project(name: &str, files: &[(&str, &str)]) -> PathBuf {
+    let dir = temp_dir(name);
+    write_file(&dir, "stitchwort.yaml", "sources: [src]\n");
+    for (path, text) in files {
+        write_file(&dir, path, text);
+    }
+    dir
+}
+
+fn write_file(dir: &Path, path: &str, text: &str) {
+    let full = dir.join(path);
+    std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+    std::fs::write(full, text).unwrap();
+}
+
+/// A project of three namespaces: `B` uses `A`, and `C` uses neither.
+const ABC: &[(&str, &str)] = &[
+    (
+        "src/A.sw",
+        "namespace A\n\ndef one: Nat := 1\n\ntest \"one\" := one == 1\n",
+    ),
+    (
+        "src/B.sw",
+        "namespace B\n\nimport A (one)\n\ndef two: Nat := one + one\n",
+    ),
+    ("src/C.sw", "namespace C\n\ndef three: Nat := 3\n"),
+];
+
+/// Loads the project at `dir`, fresh and through the cache in `cache`, and
+/// checks they agree; the cache's statistics.
+fn fresh_and_cached(dir: &Path, cache: &Path) -> Stats {
+    let source = Source::Project("p".to_string(), dir.to_path_buf());
+    let fresh = run(&source, true, None);
+    let cached = run(&source, true, Some(cache));
+    assert!(
+        cached.dump == fresh.dump,
+        "the cache changed the result: {}",
+        first_difference(&fresh.dump, &cached.dump)
+    );
+    cached.stats
+}
+
+#[test]
+fn an_edit_re_elaborates_the_namespace_and_what_uses_it() {
+    let dir = temp_project("merkle", ABC);
+    let cache = temp_dir("merkle-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!((cold.namespace_hits, cold.namespace_written), (0, 3));
+    let warm = fresh_and_cached(&dir, &cache);
+    assert_eq!((warm.namespace_hits, warm.namespace_misses), (3, 0));
+    // A comment in `A`: `A` and `B`, which uses it, are elaborated again.
+    write_file(&dir, "src/A.sw", &format!("-- a comment\n{}", ABC[0].1));
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (1, 2));
+    // A comment in `B`: only `B`.
+    write_file(&dir, "src/B.sw", &format!("-- a comment\n{}", ABC[1].1));
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (2, 1));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+#[test]
+fn a_namespace_with_errors_is_not_written() {
+    let dir = temp_project("errors", ABC);
+    write_file(&dir, "src/C.sw", "namespace C\n\ndef three: Nat := True\n");
+    let cache = temp_dir("errors-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!((cold.namespace_written, cold.namespace_uncacheable), (2, 0));
+    let warm = fresh_and_cached(&dir, &cache);
+    assert_eq!((warm.namespace_hits, warm.namespace_misses), (2, 1));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+#[test]
+fn a_change_to_an_included_file_is_a_miss() {
+    let dir = temp_project(
+        "include",
+        &[
+            (
+                "src/Day.sw",
+                "namespace Day\n\ndef input: Text := include \"../input.txt\"\n\n\
+                 test \"input\" := input == \"1\\n\"\n",
+            ),
+            ("input.txt", "1\n"),
+        ],
+    );
+    let cache = temp_dir("include-cache");
+    fresh_and_cached(&dir, &cache);
+    assert_eq!(fresh_and_cached(&dir, &cache).namespace_hits, 1);
+    write_file(&dir, "input.txt", "2\n");
+    let changed = fresh_and_cached(&dir, &cache);
+    assert_eq!((changed.namespace_hits, changed.namespace_misses), (0, 1));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// The configuration and the list of namespaces are in every key.
+#[test]
+fn a_new_namespace_or_configuration_is_a_miss() {
+    let dir = temp_project("config", ABC);
+    let cache = temp_dir("config-cache");
+    fresh_and_cached(&dir, &cache);
+    write_file(&dir, "src/D.sw", "namespace D\n");
+    let added = fresh_and_cached(&dir, &cache);
+    assert_eq!((added.namespace_hits, added.namespace_misses), (0, 4));
+    write_file(&dir, "stitchwort.yaml", "# the same\nsources: [src]\n");
+    let configured = fresh_and_cached(&dir, &cache);
+    assert_eq!(configured.namespace_hits, 0);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
 }

@@ -303,6 +303,24 @@ pub struct Elaborator {
     /// (`cache`).
     check_cache: Option<Rc<dyn cache::Store>>,
     cache_stats: cache::Stats,
+    /// For the check cache: each project namespace's sources, hashed by
+    /// the host (`cache::Elaborator::set_namespace_sources`), and each
+    /// namespace's key once worked out (the keys of its dependencies are
+    /// part of it).
+    namespace_sources: HashMap<String, cache::Key>,
+    namespace_keys: HashMap<String, cache::Key>,
+    /// While a project namespace that may be cached is elaborated: what it
+    /// is compared against at the end (`cache`).
+    namespace_capture: Option<cache::Capture>,
+    /// The namespace's files were already walked for navigation by a
+    /// replay that failed part way (`cache`): don't walk them again.
+    skip_navigation_walk: bool,
+    /// The files `include` read in the namespace being elaborated, with a
+    /// hash of their text, for its cache entry.
+    include_trace: RefCell<Vec<(String, cache::Key)>>,
+    /// A hash of the whole standard library's text, for the keys of
+    /// project namespaces.
+    library_digest: std::cell::OnceCell<cache::Key>,
 }
 
 /// A pattern that matches a constructor.

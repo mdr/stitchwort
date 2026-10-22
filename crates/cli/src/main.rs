@@ -115,7 +115,8 @@ enum Command {
     },
 }
 
-/// The caches: checked library files (docs/proposals/check-cache.md) and,
+/// The caches: checked library files and project namespaces
+/// (docs/proposals/check-cache.md) and,
 /// for `test`, test results.
 #[derive(clap::Args)]
 struct CacheArgs {
@@ -477,7 +478,8 @@ fn cache_dir(cache: &CacheArgs, base: &Path) -> Option<PathBuf> {
     Some(stitchwort.join("cache"))
 }
 
-/// Loads library files through the check cache, unless `--no-cache`.
+/// Loads library files and project namespaces through the check cache,
+/// unless `--no-cache`.
 fn use_cache(session: &mut Session, cache: &CacheArgs, base: &Path) {
     if let Some(dir) = cache_dir(cache, base) {
         session.use_check_cache(&dir);

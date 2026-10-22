@@ -5,7 +5,8 @@ nothing is built until Matt has reviewed it. Decisions D277–D287 are in the
 [table at the end](#decisions). **Decided (21 Oct 2026, Claude, as recommended):** D277–D287.
 D277 was then reopened: stage 1 builds option A, with the load arranged so
 that skipping the kernel would be one switch. **Stage 1 is built** (SW-240,
-22 Oct 2026): see [As built (stage 1)](#as-built-stage-1).
+22 Oct 2026): see [As built (stage 1)](#as-built-stage-1). **Stage 2 is
+built** (SW-245, 22 Oct 2026): see [As built (stage 2)](#as-built-stage-2).
 
 This note can be read without knowing the codebase. The main part takes about
 15 minutes. The [appendix](#appendix) has the evidence: the profile, the
@@ -319,20 +320,23 @@ six-byte files). For the check cache:
 
 ## 8. Expected speedups
 
-These are estimates from the profile in §A.1, not measurements of a cache.
-Elaboration is about 81% of a full `aoc` check (library loading about 13%,
-inside that), and kernel admission about 19%.
+The estimates are from the profile in §A.1. Elaboration is about 81% of a
+full `aoc` check (library loading about 13%, inside that), and kernel
+admission about 19%. The last column is what stage 2 measured
+([As built (stage 2)](#as-built-stage-2)), on a faster tree than §A.1's:
+`--no-cache` is the "today" of that column, 1.65 s instead of 2.8 s.
 
-| Scenario | Today | With option A (estimate) |
-|---|---|---|
-| Full `aoc` check, nothing changed (VS Code save with no edit, gate-style re-run) | 2.8 s | **0.6–0.8 s**: kernel ~0.5 s, plus core 0.08 s, plus reading and decoding |
-| Edit one leaf namespace (such as `Aoc.Day07.Proofs`) | 2.8 s | ~0.7 s, plus that namespace's own elaboration (a whole day's namespace is ~0.3 s) |
-| Edit `Aoc.Common`, which everything imports | 2.8 s | 2.8 s (all dependents re-elaborate); with early cutoff (D280) and a comment-only edit, ~0.7 s |
-| A first run, cold | 2.8 s | 2.8 s plus writing entries (estimate 2–5%) |
-| (For comparison) option B, nothing changed | 2.8 s | ~0.15–0.25 s |
+| Scenario | Today | With option A (estimate) | Measured (stage 2) |
+|---|---|---|---|
+| Full `aoc` check, nothing changed (VS Code save with no edit, gate-style re-run) | 2.8 s | **0.6–0.8 s**: kernel ~0.5 s, plus core 0.08 s, plus reading and decoding | **0.65 s** (1.65 s with `--no-cache`); kernel 0.44 s of it |
+| Edit one leaf namespace (such as `Aoc.Day07.Proofs`) | 2.8 s | ~0.7 s, plus that namespace's own elaboration (a whole day's namespace is ~0.3 s) | 0.68 s (a comment in `Aoc/Day05/Day05.sw`, which re-elaborates `Aoc.Day05` and the two namespaces that use it) |
+| Edit `Aoc.Common`, which everything imports | 2.8 s | 2.8 s (all dependents re-elaborate); with early cutoff (D280) and a comment-only edit, ~0.7 s | 1.08 s (a comment; not everything imports it, and `Aoc.Day04.Proofs`, one of the two big ones, doesn't) |
+| A first run, cold | 2.8 s | 2.8 s plus writing entries (estimate 2–5%) | 1.76 s, 6% more than `--no-cache` |
+| (For comparison) option B, nothing changed | 2.8 s | ~0.15–0.25 s | not built; about 0.2 s by the timings (the 0.65 s less the kernel's 0.44 s) |
 
 So option A gives about **4×** on warm whole-project checks, and B about
-**10–15×**. The first step is A. It is sound by construction, and the extra
+**10–15×** (as estimated; stage 2 measured 2.5× for A, from a faster
+starting point). The first step is A. It is sound by construction, and the extra
 gain from B is worth deciding on only after real numbers.
 
 A side finding from the profile: `elab::lift`, which lifts local definitions
@@ -570,6 +574,181 @@ So option B would save most of what is left of a warm library load.
 **Sizes.** An entry is 5.5 KB (`Fin`) to 368 KB (`List/Sort`, 5.4 times
 its source). The nine files `aoc` loads take 831 KB. That is within the
 estimate in §6.
+
+## As built (stage 2)
+
+SW-245, 22 October 2026. Project namespaces are cached too. The kernel
+still checks every declaration loaded (option A; D277 stays open, and
+`Elaborator::admit_replayed` is still the one place to change for B).
+
+### What there is
+
+- **The hook.** `elaborate_namespace` (`crates/elab/src/module.rs`) asks
+  the cache for a project namespace's key. If there is one, it tries the
+  entry, and on a miss elaborates as before and writes the entry if there
+  were no errors (D284). Single files that aren't in a project are not
+  cached, only the library files they load.
+- **The key** (D279) is a BLAKE3 hash of: the compiler build, the format
+  (`FORMAT`, now 3), the modes and limits, a hash of the whole library's
+  text, the namespace's name, a hash the driver makes of its sources, and
+  the name and key of every namespace it depends on, in canonical order.
+  That last part is the Merkle chain. The driver's hash
+  (`Session::namespace_sources`, `crates/driver/src/project.rs`) covers
+  each of the namespace's files (its name, such as `aoc/src/Aoc/Day05/Day05.sw`,
+  and its text), the sorted names of all the project's namespaces, and
+  `stitchwort.yaml`. The whole library is in the key rather than the
+  files the namespace loads, because which files those are is only known
+  once its names are resolved; the build fingerprint covers the library
+  anyway.
+- **What an entry holds**, besides what a library file's holds: the
+  namespace's tests (with the two sides of a comparison), its warnings
+  (code, message, labels and notes), what it needs from the library (the
+  files and the fields of its dot calls, as the dependency pass found
+  them), the files it `include`d with a hash of each one's text, and the
+  names it declared before its library files loaded. A namespace that
+  exports something to JavaScript, or has validators, isn't cached (none of
+  the examples or `aoc` does).
+- **Files.** Spans name their file as `std:List/Sort.sw` or as
+  `project:src/Aoc/Day05/Day05.sw`, the path in the project.
+- **Navigation targets by declaration** (§4.3). A reference whose target
+  is in another unit's file (another namespace's, or the library's) keeps
+  the key of the declaration it leads to, and replay looks up where that
+  declaration is now. A target in the unit's own files is kept as a span.
+  Library entries do the same.
+- **Eviction (D283)** as for library files: one entry per unit, which is
+  `ns.Aoc.Day05` (or `ns.Aoc.Day05+nav`). A whole-project check and a
+  namespace-scoped one give a namespace the same key, so they share
+  entries and don't evict each other's.
+- **The test cache** now does the same. A result's file name has the test
+  (a short hash of its namespace and name) after the build and modes, and
+  writing a result deletes that test's other results for the same build
+  and modes. The first write of a run deletes other builds' results more
+  than a day old.
+- **Timings.** `STITCHWORT_TIMINGS` shows a namespace from the cache as
+  `Aoc.Day05 (cached)`. The library files it loads are rows of their own,
+  as before.
+- **`stitchwort test`** from a warm cache loads every namespace from the
+  check cache, and the tests' content hashes are the same, so every
+  result comes from the test cache: nothing is elaborated or run.
+
+### Replay does what elaborating does, in the same order
+
+Loading a namespace has to leave the session exactly as elaborating it
+would, and the order things happen in shows. When a namespace's names are
+added decides the order of `followers` (constructors found by their short
+name), and a library file that loads in the middle adds its own. So replay
+follows elaboration step by step (`replay_namespace` in
+`crates/elab/src/cache/mod.rs`):
+
+1. Read the entry's header and the part replay needs first, and read each
+   included file again to check its hash. Nothing has changed yet: any
+   problem so far is an ordinary miss.
+2. Set up the namespace as `elaborate_namespace` does, walk its syntax for
+   navigation, and add the names it declared before its library files
+   loaded, as elaboration's first pass does.
+3. Load the library files it needs, through the same `load_needs` call
+   with the same needs. Which files that loads depends on what is loaded
+   already, and this way it is the same as elaborating would load in this
+   run. (Those files usually come from their own entries.)
+4. Read the rest of the entry, find its dependencies by path and check
+   their hashes, then admit its declarations and fill in its tables, as
+   for a library file. Then the rest of its names, its members, tests and
+   navigation references.
+
+A problem found after step 2 has begun is a "late miss": the namespace is
+then elaborated from where replay stopped (the walk isn't done twice, and
+loading the needs again does nothing). That is still checked by the
+kernel, but the order of some names could differ from a fresh run. It
+should never happen: the key covers everything those steps read. The
+statistics count late misses, and the differential test checks there are
+none.
+
+What the namespace adds is found by comparing before and after, as for a
+library file, with one more snapshot: the names present when the
+namespace starts, the names after its first pass, and everything else
+once its library files have loaded. The new names are written in the
+order of their short names' `followers`.
+
+### Differences from the plan
+
+1. **Included files are checked, not keyed.** §4.2 item 4 put their text
+   in the key, found by parsing. Instead the entry lists the files
+   `include` actually read (a hook in `read_include`), with a hash of
+   each, and replay reads them again. That checks exactly what was read
+   without a second pass over the syntax. Adding or removing an `include`
+   changes the source text, so the key changes anyway.
+2. **The library files are in the key as a whole** (see the key above).
+3. **Navigation's walk is repeated, not stored.** The outline, local
+   variables and binders, and record fields come from walking the syntax,
+   which replay does again. Only references and local variables' types,
+   which elaboration finds, are stored.
+4. **Warnings are stored**, for namespaces (stage 1 had none to store).
+5. **The navigation index is compared directly.** SW-244 made it
+   deterministic, so the stage 1 workaround (comparing what navigation
+   recorded instead) is no longer the only check.
+6. **A fix found on the way.** The canonical dump asked the registry about
+   library built-ins whose file hadn't loaded, which a debug assertion
+   refuses; and the differential test's temporary folders could collide
+   when two threads read the clock at once.
+
+### The differential test
+
+- `crates/driver/tests/check_cache.rs` compares the canonical dump (now
+  with tests' sides and `globals.module`) and the diagnostics, fresh
+  against cold and warm. It checks that the warm run loaded every
+  namespace the cold run wrote, that no namespace was uncacheable, that
+  there were no late misses, and that an accepted project had a namespace
+  from the cache. Always: every eighth example, files and projects, with
+  navigation. Slow tier: every example with navigation, and `aoc` with and
+  without.
+- New there: an edit to a namespace re-elaborates it and what uses it and
+  nothing else (Merkle); a namespace with errors isn't written; a changed
+  included file is a miss; a new namespace or a changed `stitchwort.yaml`
+  is a miss for every namespace.
+- `crates/cli/tests/check_cache.rs` runs the built command. What
+  `stitchwort check --index - --project P` prints (the index, the
+  diagnostics and the exit status) is byte for byte the same with
+  `--no-cache`, cold and warm: always for every fourth example project,
+  and in the slow tier for all of them and for `aoc`, both the whole
+  project and `Aoc.Day05` on its own (the editor's save path) from the
+  whole project's entries. Also: a warm `stitchwort test` reports every
+  result from the cache and every namespace `(cached)`.
+- `crates/cli/tests/caching.rs`: the test cache's eviction.
+
+### Measurements
+
+Release CLI, wall time, median of 7 rounds, each round taking every kind
+of run in turn, on a copy of `aoc` with its own cache folder. The machine
+was loaded (load average 14 to 26), so the absolute times are rough.
+
+| Run | `--no-cache` | Cold (writing) | Warm |
+|---|---|---|---|
+| `check` on `aoc` | 1.654 s | 1.758 s | **0.649 s** |
+| `check`, after a comment in `Aoc/Day05/Day05.sw` | | | 0.679 s |
+| `check`, after a comment in `Aoc/Common/Range.sw` (`Aoc.Common`) | | | 1.081 s |
+| `run Aoc.Day04.main < inputs/day04.txt` | 0.570 s | | **0.204 s** |
+| `check --index - --project aoc` (VS Code, opening) | 1.841 s | | **0.766 s** |
+| `check --index - --project aoc Aoc.Day05` (VS Code, each save) | 0.332 s | | **0.207 s** |
+| the same, after a comment in `Aoc/Day05/Day05.sw` | | | 0.207 s |
+
+Where a warm whole-project check goes (`STITCHWORT_TIMINGS`, three runs:
+0.63 s, 0.63 s, 0.70 s wall): the kernel re-checking everything is 435 to
+493 ms; the core prelude about 60 ms; parsing and printing about 60 ms;
+reading and decoding the entries the rest (130 to 144 ms of "elab",
+including the core). The two big proof namespaces are most of the kernel
+time: `Aoc.Day02.Proofs` 188 ms and `Aoc.Day04.Proofs` 145 ms. So option
+B (D277) would take a warm check from about 0.65 s to about 0.2 s.
+
+A namespace-scoped warm check (`Aoc.Day05`, 0.17 s with timings on) is
+now mostly fixed costs: the core (about 60 ms) and parsing the whole
+project (about 60 ms).
+
+**Sizes.** `aoc`'s namespace entries take 5.0 MB (5.3 MB with
+navigation), from 432 KB of source. Most of it is the two big proof
+namespaces: `Aoc.Day02.Proofs` 2.4 MB and `Aoc.Day04.Proofs` 1.4 MB. The
+`Tests` namespaces are 80 to 95 KB each, since they hold the puzzle input
+they `include`. With the library files' entries, a cache with and without
+navigation comes to 12.4 MB.
 
 ## Decisions
 

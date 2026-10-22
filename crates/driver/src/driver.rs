@@ -286,8 +286,9 @@ impl Session {
         Ok(session)
     }
 
-    /// Loads library files from, and keeps them in, the check cache in the
-    /// cache directory `dir` (docs/proposals/check-cache.md). Off unless
+    /// Loads library files and project namespaces from, and keeps them in,
+    /// the check cache in the cache directory `dir`
+    /// (docs/proposals/check-cache.md). Off unless
     /// this is called: tests, snapshots and the benchmark never use it.
     pub fn use_check_cache(&mut self, dir: &std::path::Path) {
         self.elab
@@ -562,9 +563,17 @@ pub struct Comparison {
 /// its source ([`FINGERPRINT`]), and the modes that change how programs are
 /// evaluated ([`modes`]). So a result is never reused by a different build,
 /// or by a run with natives or compact text switched off.
+///
+/// In a directory, each result is a file named by its key and the test it
+/// is for ([`Cache::unit`]). Writing a result deletes that test's other
+/// results from the same build and modes, and the first write of a run
+/// deletes results of other builds more than a day old (D283, as for the
+/// check cache).
 pub struct Cache {
     dir: Option<PathBuf>,
     memory: Option<RefCell<Memory>>,
+    /// Whether this run has written yet (the first write sweeps).
+    written: std::cell::Cell<bool>,
 }
 
 /// A cache's results when it has no directory to keep them in: the ones it
@@ -600,6 +609,7 @@ impl Cache {
         Cache {
             dir: Some(dir.into()),
             memory: None,
+            written: std::cell::Cell::new(false),
         }
     }
 
@@ -612,6 +622,7 @@ impl Cache {
                 known: known.into_iter().collect(),
                 added: Vec::new(),
             })),
+            written: std::cell::Cell::new(false),
         }
     }
 
@@ -619,7 +630,21 @@ impl Cache {
         Cache {
             dir: None,
             memory: None,
+            written: std::cell::Cell::new(false),
         }
+    }
+
+    /// The test named `name` in namespace `namespace`, as a directory
+    /// cache's file names have it: a short hash.
+    pub fn unit(namespace: &str, name: &str) -> String {
+        let mut h = blake3::Hasher::new();
+        h.update(namespace.as_bytes());
+        h.update(&[0]);
+        h.update(name.as_bytes());
+        h.finalize().as_bytes()[..8]
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
     }
 
     /// The key of the result of the test with `hash`, when run with `modes`:
@@ -628,15 +653,56 @@ impl Cache {
         format!("{COMPILER}-{FINGERPRINT}-{modes}-{}", hash.hex())
     }
 
-    /// Where the result of the test with `hash` is kept, when run with
-    /// `modes`.
-    pub fn path(&self, hash: &ContentHash, modes: &str) -> Option<PathBuf> {
-        Some(
-            self.dir
-                .as_ref()?
-                .join("tests")
-                .join(Self::key(hash, modes)),
-        )
+    /// Where the result of test `unit` ([`Cache::unit`]) with `hash` is
+    /// kept, when run with `modes`.
+    pub fn path(&self, unit: &str, hash: &ContentHash, modes: &str) -> Option<PathBuf> {
+        Some(self.dir.as_ref()?.join("tests").join(format!(
+            "{}-{unit}-{}",
+            Self::build(modes),
+            hash.hex()
+        )))
+    }
+
+    /// The start of the file names of this build's results with `modes`.
+    fn build(modes: &str) -> String {
+        format!("{COMPILER}-{FINGERPRINT}-{modes}")
+    }
+
+    /// After writing `keep`, the result of test `unit`: deletes the test's
+    /// other results for this build and modes, and on the first write of a
+    /// run, other builds' results older than a day.
+    fn evict(&self, unit: &str, modes: &str, keep: &std::path::Path) {
+        let first = !self.written.replace(true);
+        let Some(dir) = keep.parent() else {
+            return;
+        };
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        let own = format!("{}-{unit}-", Self::build(modes));
+        let this_build = format!("{COMPILER}-{FINGERPRINT}-");
+        let now = std::time::SystemTime::now();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+                continue;
+            };
+            if path == keep {
+                continue;
+            }
+            let stale = name.starts_with(&own)
+                || (first
+                    && !name.starts_with(&this_build)
+                    && entry
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| now.duration_since(t).ok())
+                        .is_some_and(|age| age > crate::check_cache::GRACE));
+            if stale {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
     }
 
     /// The results added by [`Cache::put`] during this run: only `Passed` and
@@ -647,11 +713,11 @@ impl Cache {
             .map_or_else(Vec::new, |memory| memory.borrow().added.clone())
     }
 
-    fn get(&self, hash: &ContentHash, modes: &str) -> Option<Outcome> {
+    fn get(&self, unit: &str, hash: &ContentHash, modes: &str) -> Option<Outcome> {
         if let Some(memory) = &self.memory {
             return memory.borrow().known.get(&Self::key(hash, modes)).copied();
         }
-        match std::fs::read_to_string(self.path(hash, modes)?)
+        match std::fs::read_to_string(self.path(unit, hash, modes)?)
             .ok()?
             .trim()
         {
@@ -662,7 +728,7 @@ impl Cache {
     }
 
     /// Best effort: a cache that can't be written just means re-running later.
-    fn put(&self, hash: &ContentHash, modes: &str, outcome: Outcome) {
+    fn put(&self, unit: &str, hash: &ContentHash, modes: &str, outcome: Outcome) {
         // Not a result: running it again with other limits may finish.
         if matches!(outcome, Outcome::OutOfResources(_)) {
             return;
@@ -674,7 +740,7 @@ impl Cache {
             memory.added.push((key, outcome));
             return;
         }
-        let Some(path) = self.path(hash, modes) else {
+        let Some(path) = self.path(unit, hash, modes) else {
             return;
         };
         let text = match outcome {
@@ -685,7 +751,9 @@ impl Cache {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(path, text);
+        if std::fs::write(&path, text).is_ok() {
+            self.evict(unit, modes, &path);
+        }
     }
 }
 
@@ -750,7 +818,8 @@ impl Session {
                         };
                     }
                 };
-                if let Some(outcome) = cache.get(&hash, &modes) {
+                let unit = Cache::unit(&test.namespace, &test.name);
+                if let Some(outcome) = cache.get(&unit, &hash, &modes) {
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),
@@ -770,7 +839,7 @@ impl Session {
                     Ok(_) => Outcome::Failed,
                     Err(e) => Outcome::OutOfResources(e),
                 };
-                cache.put(&hash, &modes, outcome);
+                cache.put(&unit, &hash, &modes, outcome);
                 TestResult {
                     name: test.name.clone(),
                     namespace: test.namespace.clone(),
