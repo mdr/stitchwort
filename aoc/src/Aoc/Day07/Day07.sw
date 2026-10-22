@@ -14,7 +14,9 @@
 -- (`fall`). Part 2 works up from the bottom: below the last row a particle
 -- in any column has one timeline left, and a column of a row above has the
 -- timelines of the column it falls into, or of both columns beside its
--- splitter added up (`splitRow`). Both are one pass over a row per row.
+-- splitter added up (`splitRow`). Both work on whole rows of `width`
+-- columns: a row shifted one place right (`shiftRight`) puts each column's
+-- left neighbour in it, and shifted left (`shiftLeft`) its right one.
 --
 -- Both answers are proved right for every manifold in `Aoc.Day07.Proofs`
 -- (Proofs/Spec.sw states the puzzle over the manifold, with the timelines
@@ -71,36 +73,35 @@ def isSplitter (ch: Char): Bool := ch == '^'
 -- Part 1: carry the beams down, a flag per column, adding up the splitters
 -- each row's beams reach.
 def solvePart1 (manifold: Manifold): Nat :=
-  splitsBelow ((List.range manifold.width).map (c => c == manifold.start.toNat)) (manifold.rows.map Vec.toList)
+  splitsBelow (Vec.tabulate manifold.width (c => c == manifold.start)) manifold.rows
 
 -- `beams` are the beams falling into the first of `rows`.
-def splitsBelow (beams: List Bool): List (List Bool) -> Nat
-  | Nil            => 0
-  | Cons row rest  => splitsIn row beams + splitsBelow (fall False row beams) rest
+def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
+  | Nil           => 0
+  | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.
-def splitsIn (row: List Bool) (beams: List Bool): Nat := (List.zipWith (s b => s && b) row beams).count (x => x)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith (s b => s && b) row beams).toList.count (x => x)
 
 -- The beams falling out of a row: a beam passes a column with no splitter,
--- and a splitter with a beam on it sends one down each side. `fromLeft`
--- says whether the column left of the first sends a beam into it.
-def fall (fromLeft: Bool): List Bool -> List Bool -> List Bool
-  | Cons s ss, Cons b bs => Cons ((b && not s) || fromLeft || (ss.headOr False && bs.headOr False)) (fall (s && b) ss bs)
-  | _,         _         => Nil
+-- and a splitter with a beam on it sends one down each side.
+def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
+  let hit := Vec.zipWith (s b => s && b) row beams
+  Vec.zipWith3 (pass left right => pass || (left || right))
+    (Vec.zipWith (s b => b && not s) row beams) (hit.shiftRight False) (hit.shiftLeft False)
 
 -- Part 2: the timelines of a particle starting at S.
-def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).getOr 1 manifold.start.toNat
+def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).get manifold.start
 
 -- For each column, the timelines of a particle falling into it from the row
 -- of S.
-def timelineCounts (manifold: Manifold): List Nat :=
-  manifold.rows.foldRight (row below => splitRow 1 row.toList below) (List.replicate manifold.width 1)
+def timelineCounts (manifold: Manifold): Vec Nat manifold.width :=
+  manifold.rows.foldRight splitRow (Vec.replicate manifold.width 1)
 
 -- A row's timeline counts, given the counts of the row below it: a column
 -- with no splitter has the count of the column below, and a splitter the
 -- counts of the columns below on both sides added up. Past either edge a
--- particle has left the manifold: one timeline. `left` is the count of the
--- column left of the first, below.
-def splitRow (left: Nat): List Bool -> List Nat -> List Nat
-  | Cons s ss, Cons here rest => Cons (if s then left + rest.headOr 1 else here) (splitRow here ss rest)
-  | _,         _              => Nil
+-- particle has left the manifold: one timeline.
+def splitRow (row: Vec Bool w) (below: Vec Nat w): Vec Nat w :=
+  Vec.zipWith3 (s here sides => if s then sides else here) row below
+    (Vec.zipWith (l r => l + r) (below.shiftRight 1) (below.shiftLeft 1))
