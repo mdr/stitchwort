@@ -144,9 +144,9 @@ theorem stepLeftFrom (highest: Nat): (m: Nat) -> Succ m <= highest -> (n: Nat) -
     rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) omega, Nat.addSucc highest n
       in Eq.sym (Nat.addDivSelf (Succ highest) n)
   | Succ j, h, n =>
-    rewrite Nat.modSmall (highest - j) (Succ highest) (Nat.subLe highest j),
-        Nat.modSmall (highest - Succ j) (Succ highest) (Nat.subLe highest (Succ j)),
-        Nat.subSuccRight j highest omega,
+    rewrite Nat.modSmall (highest - j) (Succ highest) omega,
+        Nat.modSmall (highest - Succ j) (Succ highest) omega,
+        (omega: highest - j = Succ (highest - Succ j)),
         Nat.addSucc (highest - Succ j) n
       in rfl
 
