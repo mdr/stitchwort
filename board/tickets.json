@@ -1,5 +1,5 @@
 {
-  "next": 318,
+  "next": 321,
   "tickets": [
     {
       "id": 1,
@@ -4884,7 +4884,7 @@
     {
       "id": 316,
       "title": "AoC day 8 gap analysis: what was missing in Stitchwort; features / std additions to consider",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
       "where": "docs/comparisons/aoc-day08-gaps.md; D549-D551",
       "labels": [
@@ -4907,6 +4907,49 @@
       "labels": [
         "aoc",
         "proof"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 318,
+      "title": "Std: Iff and Exists as plain definitions with basic lemmas; Day 8 uses them (D549)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 319,
+      "title": "Pattern lambdas with irrefutable (pair/record) patterns compile to field access, no hidden match; clearer error otherwise (D550/D552)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "elab"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 320,
+      "title": "List.sortOn + sortOnMap lemma; build comparisons once; Day 8 Connection record with derived Ord (D551)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib",
+        "aoc"
       ],
       "body": "",
       "created": "2026-10-22",
