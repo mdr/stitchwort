@@ -240,10 +240,10 @@ This will recur whenever a proof restates a program's expression, which AoC
 proofs do a lot. The fix belongs in the section, not in every proof: **when a
 section is `.f` followed by arguments `a…` and the receiver lands in the last
 place, elaborate it to the partial application `T.f a…` instead of the
-lambda** (`.snd` is `Pair.snd`, `.addNat 3` is `Dial.addNat 3`, `.isZero` is
+lambda** (`.snd` is `Pair.snd`, `.isZero` is
 `Dial.isZero`). Then `xs.any .snd` and `xs.any Pair.snd` are the same term and
 switching between them is free, for proofs too. Where the receiver isn't last
-(`.sub 3` is `x => Nat.sub x 3`), it stays a lambda, as it must. That is D506.
+(`.sub 3` is `x => Nat.sub x 3`, `.addNat 3` is `x => Mod.addNat x 3`), it stays a lambda, as it must. That is D506.
 
 Effects, implicits and the pipe are unchanged: the pipe form `xs |> .f a` is
 already rewritten to `xs.f a` with no lambda.
@@ -360,8 +360,8 @@ there's more demand.
   `_.isZero`; rewrite the 14 AoC sites of §7 to sections, and make the error
   for `_.name` suggest `.name`. [Recommend: yes]
 - **D506** — A section whose receiver lands in the function's last place
-  elaborates to the partial application (`.snd` is `Pair.snd`,
-  `.addNat 3` is `Dial.addNat 3`), not a lambda, so proofs that restate the
+  elaborates to the partial application (`.snd` is `Pair.snd`, `.isZero` is
+  `Dial.isZero`; `.addNat 3` stays `x => Mod.addNat x 3`), not a lambda, so proofs that restate the
   program keep matching; other sections stay lambdas. [Recommend: yes]
 - **D507** — No general placeholder for now (no Scala `_ + 1`, Kotlin `it`,
   Lean `·`, Haskell `(+ 1)`, or Lean-style `.parse` from the expected type);
