@@ -20,13 +20,13 @@
 //! the only place a partial computation runs. The type checker never calls
 //! it.
 
-use std::fmt;
 use std::io::{self, BufRead, Write};
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::step::{Machine, Obs};
 use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
+use stitchwort_rt::host::{read_all, read_line};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
@@ -76,48 +76,12 @@ pub struct Policy {
     pub max_ticks: Option<u64>,
 }
 
-/// Why a run stopped early.
-#[derive(Debug)]
-pub enum RunError {
-    /// Evaluating the program ran out of resources.
-    Resource(ResourceError),
-    /// Reading standard input failed.
-    Read(io::Error),
-    /// Line `line` (counting from 1) of the input isn't valid UTF-8.
-    /// For `readAll`, the first line that isn't.
-    InvalidUtf8 { line: usize },
-    /// Writing or flushing standard output failed.
-    Write(io::Error),
-}
+pub use stitchwort_rt::host::RunError;
 
-impl fmt::Display for RunError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RunError::Resource(e) => write!(f, "ran out of resources: {e}"),
-            RunError::Read(e) => write!(f, "can't read standard input: {e}"),
-            RunError::InvalidUtf8 { line } => {
-                write!(f, "line {line} of standard input isn't valid UTF-8")
-            }
-            RunError::Write(e) => write!(f, "can't write standard output: {e}"),
-        }
-    }
-}
-
-impl RunError {
-    /// The error to report: `E-RESOURCE`, pointing at `main`, or `E-IO`.
-    pub fn diagnostic(&self, main: &Main) -> Diagnostic {
-        match self {
-            RunError::Resource(e) => {
-                Diagnostic::from(*e).with_label(main.span, "while running this program")
-            }
-            _ => Diagnostic::error("E-IO", self.to_string()),
-        }
-    }
-}
-
-impl From<ResourceError> for RunError {
-    fn from(e: ResourceError) -> RunError {
-        RunError::Resource(e)
+/// Where `main` is defined, for [`RunError::diagnostic`].
+impl From<&Main> for Span {
+    fn from(main: &Main) -> Span {
+        main.span
     }
 }
 
@@ -461,49 +425,6 @@ impl Session {
 
 /// The tick limit for [`Session::simulate`] of a partial `main`.
 pub const SIMULATED_TICKS: u64 = 1_000_000;
-
-/// The next line of input without its line ending, or `None` at the end.
-/// `lines` counts the lines read so far.
-fn read_line(input: &mut impl BufRead, lines: &mut usize) -> Result<Option<String>, RunError> {
-    let mut bytes = Vec::new();
-    if input
-        .read_until(b'\n', &mut bytes)
-        .map_err(RunError::Read)?
-        == 0
-    {
-        return Ok(None);
-    }
-    *lines += 1;
-    if bytes.last() == Some(&b'\n') {
-        bytes.pop();
-        if bytes.last() == Some(&b'\r') {
-            bytes.pop();
-        }
-    }
-    String::from_utf8(bytes)
-        .map(Some)
-        .map_err(|_| RunError::InvalidUtf8 { line: *lines })
-}
-
-/// Everything that remains of the input. `lines` counts the lines read so
-/// far, a last line without a line ending included.
-fn read_all(input: &mut impl BufRead, lines: &mut usize) -> Result<String, RunError> {
-    let mut bytes = Vec::new();
-    input.read_to_end(&mut bytes).map_err(RunError::Read)?;
-    match String::from_utf8(bytes) {
-        Ok(text) => {
-            *lines += text.lines().count();
-            Ok(text)
-        }
-        Err(e) => {
-            let valid = &e.as_bytes()[..e.utf8_error().valid_up_to()];
-            let before = valid.iter().filter(|&&b| b == b'\n').count();
-            Err(RunError::InvalidUtf8 {
-                line: *lines + before + 1,
-            })
-        }
-    }
-}
 
 /// The prelude's types that `IO` operations and their results are built
 /// from, and their constructors.

@@ -453,6 +453,129 @@ lambda capturing variables.
   JS runner's `SHAPE` table does; the IR doesn't record them yet.
 - Effort: under one lane-day, against the 2–3 estimated.
 
+## As built (stage 2)
+
+SW-231, 22 October 2026. The machine that runs the IR, in `crates/rt`. It isn't wired into
+`stitchwort run` or the playground yet (stage 3); a measuring binary,
+`cargo run --release -p stitchwort-rt --example rt_run -- FILE.sw` (or `-- PROJECT-DIR
+Name.main`), runs a `main` on it.
+
+**Code** (`code.rs`). Each body (a global function or constant, a lambda, the entry) is
+compiled to a flat list of *register* instructions (§2.2b's register variant). A frame is a
+window of registers: the IR's slots first, then temporaries. Instructions name the registers
+they read and write; a call's arguments are a list of registers, so a variable is passed
+without a copy first. The instructions:
+
+```text
+Move, Const (from the constant pool), Captured, Global (constant or function value)
+Call g / TailCall g, Apply f / TailApply f (eval/apply), Prim op, Pap g, Closure λ, Ctor tag
+Switch (by tag, a jump table), Field i, NatCase/NatPred, IntCase/IntOfNat/IntNegSucc,
+TextChars, NumSwitch, JumpIfFalse, Jump, Return, Unreachable
+```
+
+Expressions in tail position compile to `TailCall`/`TailApply`/`Return`, and a `match` or
+`if` in tail position has no join: each arm returns.
+
+**Values** (`value.rs`), three words each:
+
+- `Nat` in a `u64`, `Int` in an `i64`, or a `BigUint`/`BigInt` when the number doesn't fit.
+  Each number has exactly one form, so equality is structural. Arithmetic is on machine
+  integers with overflow checks, falling back to big numbers only when a result doesn't fit
+  (`prims.rs`). The natives compute exactly what the kernel's and the prelude's definitions
+  compute: `Nat` subtraction stops at 0, `Nat.divFuel` gives its fuel for a zero divisor,
+  `Int` `/` and `%` are Euclidean, `tdiv`/`tmod` truncate and `fdiv`/`fmod` round down. A
+  division by zero can't happen: each takes a proof that the divisor isn't 0.
+- A constructor without runtime fields (`Nil`, `True`, `None`, a `Yes` whose proof is erased)
+  is just its tag; one with fields is its tag and one `Rc<[Value]>` (one allocation).
+- Text is an `Rc<str>`. A function value is a global with no arguments, a closure (lambda and
+  captured values), a partial application, or `y => Done y`. A `Delay` is data the runner
+  looks inside.
+- Freeing never recurses: the last reference to a long list, or a long chain of closures, is
+  freed with a work list (`Drop` for the fields, closures and `Delay`s).
+
+**The machine** (`machine.rs`). All frames' registers are one `Vec`, and frames are a `Vec` of
+small records (code, position, base register, closure, where the result goes), so a
+program's recursion is heap memory, never Rust stack: the same in the CLI and in
+WebAssembly. A saturated known call pushes a frame directly; a call of a function value goes
+through eval/apply (too few arguments make a partial application, too many call with what it
+takes and apply the result to the rest). A tail call replaces the frame. A constant is
+computed when first used and kept. `Text.fold`, the one native that calls a function, steps
+through the machine like a call. Limits: each frame entered is a step, and the steps between
+two operations or ticks, and the frames pending, are bounded by the session's limits (its
+work limit and its 2,000,000 frames); running out is `E-RESOURCE` with the reference
+runner's messages and diagnostic.
+
+**Effects** (`run.rs`). `run_main(program, limits, input, output)` runs `main` as
+`Session::run_main` does: the `Delay` stepping of `stitchwort_core::step` (the same frames
+and rules, on the machine's values), each `IO` operation performed for real and its reply fed
+back, output flushed before each read and at the end, a tick limit for tests
+(`run_main_with`). `RunError` and the input reading (`read_line`, `read_all`) moved from the
+driver to `stitchwort_rt::host`, and the driver now uses them from there, so the two runners
+read input and report errors identically.
+
+**The shape table** the stage 1 note asked for is `Program::shapes`: the tags of the
+constructors natives and the runner build or take apart (`Bool`, `Option`, `Decidable`,
+`List`, `Pair`, `Char`, the unit, `Comp`, `Plus`, `Rec`, `SigMap`, `IO`'s operations), found
+in the checked program's prelude by the registry when lowering, each checked to have the
+runtime fields the runtime expects. `Ordering`'s tags are fixed by the content hashes of
+the natives that build it.
+
+**Tests** (`crates/rt/tests/machine.rs`; run in release, about 25 s), with the reference
+evaluator as the oracle:
+
+| What | Agree |
+|---|---:|
+| `main`s of `examples/accept` and `examples/extract`, each with three inputs (`run_js.rs`'s): output and how the run ends | 10 |
+| AoC mains on their real inputs (also the known answers) and example inputs | 7 |
+| `test`s of every example file | 934 |
+| `test`s of the AoC project | 101 |
+| `test`s of the library | 95 |
+
+Plus: `Nat` and `Int` arithmetic, comparison, division, matching and conversion around 2^63
+and 2^64, both ways (52 lines of results); a list of 1,000,000 built and summed by non-tail
+recursion (a million frames deep); a recursion beyond the frame limit is `E-RESOURCE` after
+the output before it; a 3,000,000-step tail loop within 100 frames; partial application,
+over-application and closures; freeing a 2,000,000-element list and a 2,000,000-deep closure
+chain. No disagreement was found.
+
+**Measurements.** Apple M4 Pro, release builds, one run each, load average 3.2–3.6 (other
+lanes running). Real time, including checking (0.2–0.45 s) for every column:
+
+| Program | `run` (s) | machine (s) | of which running | `run --js` (s) | machine vs `run` |
+|---|---:|---:|---:|---:|---:|
+| AoC day 4 | 5.04 | 0.70 | 0.37 | 0.59 | 7× (14× running) |
+| merge sort, 100,000 | 5.77 | 0.66 | 0.44 | 0.83 | 9× (13×) |
+| day 1 brute force | 5.39 | 0.76 | 0.29 | 1.03 | 7× (17×) |
+| day 2 brute force | `E-RESOURCE` after 2.8 (too deep) | 23.0 | 22.7 | 66.5 | — (2.9× faster than Node) |
+
+The merge sort's peak memory: 94 MB on the machine, 232 MB under `run`.
+
+**What turned out differently from §4 and §5:**
+
+- Speed: the machine runs at about Node's speed or better, where the note expected 0.5–1×
+  the closure prototype; on the merge sort it matches the prototype (0.44 s against
+  0.39–0.56 s) with an explicit stack and real bignum checks. The day 2 brute force, 77 s
+  under Node in §4, takes 23 s; under `run` it now runs out of frames.
+- A value is three words, not two: a constructor's tag sits beside its one `Rc<[Value]>`, so
+  a cell is one allocation (two words would need a second allocation or a custom thin
+  pointer).
+- No separate memory limit: like the reference runner, the machine bounds frames and steps;
+  memory follows from the frame limit, and values on the heap aren't bounded (the reference
+  evaluator doesn't bound them either).
+- The step limit counts frames entered, not the reference evaluator's steps, so the two can
+  run out at different points: a program that runs out under `run` (day 2's brute force,
+  which recurses more deeply there) may finish on the machine. Stage 3 must decide whether
+  `E-RESOURCE` should match exactly (it can't, without counting the same thing) or only be
+  reported the same way.
+- `RunError` moved to the runtime crate so that both runners share it; the driver
+  re-exports it, and `RunError::diagnostic` takes `main`'s span (a `&Main` still works).
+- Stage 1's tests made their sessions with `Session::new()`, whose limits are for a 2 MiB
+  stack, though they run on a 256 MiB thread: in a debug build, checking the AoC project and
+  `examples/extract/names.sw` ran out of nesting depth, so `every_aoc_main_lowers` failed in
+  a debug `dev/t rt` (it passed in release, as the gate builds it). They now use
+  `Session::for_stack`, as the machine's tests do.
+- Effort: under one lane-day, against the 3–4 estimated.
+
 ## Decisions
 
 | ID | Question | Recommendation |

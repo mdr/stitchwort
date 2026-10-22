@@ -107,7 +107,7 @@ fn every_example_lowers() {
                 let what = path.display().to_string();
                 let text = std::fs::read_to_string(&path).expect("read example");
                 let name = path.file_name().unwrap().to_string_lossy().to_string();
-                let mut session = Session::new();
+                let mut session = Session::for_stack(STACK);
                 session.include_in_folder(
                     Rc::new(DiskFiles {
                         root: path.parent().unwrap().to_path_buf(),
@@ -145,7 +145,7 @@ fn every_example_lowers() {
 /// `stitchwort run` would run it) and every definition. How many mains.
 fn lower_project(dir: &Path) -> usize {
     let name = dir.file_name().unwrap().to_string_lossy().to_string();
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     let files = DiskFiles {
         root: dir.to_path_buf(),
     };
@@ -220,7 +220,7 @@ fn the_library_lowers_and_its_tests_agree() {
 /// The IR of a small program's `main`.
 fn ir(source: &str) -> String {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         session
             .load("test.sw", source)
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
