@@ -1,5 +1,5 @@
 {
-  "next": 334,
+  "next": 335,
   "tickets": [
     {
       "id": 1,
@@ -5254,6 +5254,20 @@
         "211f76b6",
         "6252fddf"
       ]
+    },
+    {
+      "id": 334,
+      "title": "Trim erasure.rs without-erasure comparison to targeted examples (~80 s -> <30 s) (D575)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "After SW-333 the without-erasure runs compute every proof again (1.26e9 steps, ~80 s release). Use a few examples with proofs in data; keep catching erasure regressions. Start after the checkpoint rerun.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
