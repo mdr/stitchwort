@@ -1,7 +1,7 @@
 # Stitchwort VS Code extension (local)
 
-Syntax colouring, go to definition, find references, hover, an outline, workspace
-symbols and error squiggles for `.sw` files.
+Syntax colouring for `.sw` files, and a thin client for the language server
+`stitchwort lsp` (design: `docs/proposals/language-server.md`).
 
 ## Features
 
@@ -10,60 +10,27 @@ symbols and error squiggles for `.sw` files.
   `"` strings with `${…}` interpolation and escapes, and `'` chars with escapes)
   and the playground highlighter in `web/index.html`. If the lexer changes,
   update `syntaxes/stitchwort.tmLanguage.json`.
-- **Go to definition** (F12, Cmd-click) on names: declarations, local variables
-  (to their binder), constructors, fields, dot notation, and so on. Targets in
-  the standard library open as read-only documents with the scheme
-  `stitchwort-std:`, whose text comes from `stitchwort std-source`.
-- **Find All References** (Shift-F12) on a name: every use of the same declaration
-  or local variable in the project, and the declaration itself when the editor asks
-  for it. Uses inside the standard library are listed too.
-- **Hover** shows the type, and for a declaration its qualified name and kind.
-- **Outline** (and breadcrumbs, Cmd-Shift-O) of a file's definitions, with
-  constructors and fields nested under their type.
-- **Workspace symbols** (Cmd-T): the definitions of every indexed project, by
-  qualified name (letters in order are enough: `shpdsc` finds
-  `Shape.describe`). The library's definitions aren't offered.
-- **Diagnostics**: the compiler's errors and warnings as squiggles and in the
-  Problems panel, with its code (`E-TYPE-MISMATCH`), the explanation, notes, and
-  related locations. They are replaced on each indexing run (open, save), and
-  cleared for files that no longer have any. A diagnostic in a library file, or
-  with no location, isn't shown. On save, errors come in two steps (see "Faster
-  errors on save" below).
+- **From the server**, through the standard protocol: diagnostics as you type,
+  go to definition, find references, hover, and the outline. Nothing of these is
+  computed in the extension.
+- **Library source.** Definitions in the standard library open as read-only
+  documents with the scheme `stitchwort-std:`, whose text comes from
+  `stitchwort std-source` (run by the extension).
 
-These come from the compiler's navigation index (`stitchwort check --index -`,
-see `docs/proposals/code-navigation.md`). The extension runs it when a `.sw`
-file is opened and (debounced) when one is saved, and keeps the last good index
-per project, so lookups work while the file has errors, and reflect the file as
-last saved, not unsaved edits. The project is the nearest folder above the file
-with a `stitchwort.yaml` (the same rule as the command line); a file outside any
-project is indexed on its own. Output from failed runs goes to the "Stitchwort"
-output channel. Diagnostics, like the rest, reflect the file as last saved.
+## How the client finds and starts the server
 
-### Faster errors on save
-
-Checking a whole project takes a while (all of `aoc/`, a few seconds), and
-checking one namespace a fraction of that. So in a project, a save runs two
-checks, one at a time per project:
-
-1. A quick check of the saved file's namespace:
-   `stitchwort check --index - --project ROOT Aoc.Day01`. The namespace is the
-   one on the file's `namespace` line (its first declaration, after any comments,
-   as the compiler reads it), which is not always what the folder says. Its
-   diagnostics are shown at once, replacing those of the files that run checked
-   and no others. The navigation index is left alone.
-2. The full-project run, as before. When it finishes it replaces the navigation
-   index and all the diagnostics, so errors the edit caused in other namespaces
-   appear then, and old ones elsewhere go.
-
-A newer save kills whatever is running for that project and starts again from
-step 1. A file with no readable namespace line goes straight to the full run, and
-a single file outside any project is checked once, as before. Opening a file runs
-only the full check. The merging rules are `applyQuick` and `namespaceOf` in
-`navindex.js`.
+On activation (a `.sw` file opens, or the workspace contains a
+`stitchwort.yaml`) the extension starts `<stitchwort.path> lsp` with
+`vscode-languageclient`, speaking LSP over stdio, with the first workspace
+folder as the working directory. It serves `.sw` files on disk and
+`stitchwort-std:` documents, and tells the server when a `stitchwort.yaml`
+changes. Which project a file belongs to is the server's decision. The server's
+log is in the "Stitchwort" output channel. Changing `stitchwort.path` restarts
+it. If the program can't be run, a warning says so.
 
 ## The command line program
 
-The extension runs the `stitchwort` CLI, so it must be built and findable:
+Build it and make it findable:
 
     cargo build --release -p stitchwort-cli     # in a checkout of this repo
 
@@ -75,29 +42,32 @@ machine-scoped setting, so a workspace can't redirect it.
 
     ./editors/vscode/install.sh
 
-It packages this folder as a `.vsix` and runs `code --install-extension`
-(modern VS Code ignores folders symlinked into `~/.vscode/extensions`). Then
-run "Developer: Reload Window". Rerun it after changing the extension.
+It installs the one npm dependency (`vscode-languageclient`, exact version in
+`package.json` and `package-lock.json`), packages this folder as a `.vsix` and
+runs `code --install-extension` (modern VS Code ignores folders symlinked into
+`~/.vscode/extensions`). Then run "Developer: Reload Window". Rerun it after
+changing the extension.
 
 ## Tests
 
-The lookup logic (position to reference, reference to location, outline
-nesting) is in `navindex.js`, which doesn't import `vscode`:
-
     dev/t vscode        # or: node --test "editors/vscode/test/*.test.js"
 
-It runs against `test/fixture/index.json`, made with the CLI from
-`test/fixture/dot-notation.sw` (a copy of `examples/accept/dot-notation.sw`):
+`client.js` (how the server is started, which documents it serves) doesn't
+import `vscode`, so it is tested directly. `test/fake-server.js` is a tiny LSP
+server over stdio with canned answers to the standard methods (full-text sync,
+publishDiagnostics, definition, hover, references, documentSymbol); the tests
+start it the way the client starts the real one. `dev/t vscode` runs
+`npm ci` first if `node_modules` is missing.
 
-    cd editors/vscode/test/fixture && stitchwort check --index index.json dot-notation.sw
+The VS Code glue in `extension.js` isn't covered by tests.
 
-Regenerate both indexes if the index format changes (`errors.sw` is a file with two
-errors, for the diagnostics tests):
+### End-to-end check (with the real server)
 
-    cd editors/vscode/test/fixture && stitchwort check --index errors.json errors.sw
-
-The fixture is for version 2. The VS Code glue in `extension.js`
-isn't covered by tests.
+Build the CLI, install the extension, open `aoc/` in VS Code, then: type an
+error into a `.sw` file without saving and see the squiggle; F12 on a name,
+Shift-F12 on a definition, hover on a use, and the outline (Cmd-Shift-O) give
+the answers they gave before; F12 on a library name opens a `stitchwort-std:`
+document; set `stitchwort.path` to a wrong path and see the warning.
 
 ## Uninstall
 

@@ -1,14 +1,15 @@
 {
   "name": "stitchwort",
   "displayName": "Stitchwort",
-  "description": "Syntax colouring, go to definition, references, hover, outline, workspace symbols and diagnostics for Stitchwort (.sw) files",
+  "description": "Syntax colouring and, through the `stitchwort lsp` language server, diagnostics as you type, go to definition, hover, references and outline for Stitchwort (.sw) files",
   "version": "0.1.0",
   "publisher": "local",
   "private": true,
-  "engines": { "vscode": "^1.60.0" },
+  "engines": { "vscode": "^1.82.0" },
   "categories": ["Programming Languages"],
   "main": "./extension.js",
-  "activationEvents": ["onLanguage:stitchwort"],
+  "activationEvents": ["onLanguage:stitchwort", "workspaceContains:**/stitchwort.yaml"],
+  "dependencies": { "vscode-languageclient": "9.0.1" },
   "contributes": {
     "languages": [
       {
@@ -32,7 +33,7 @@
           "type": "string",
           "default": "stitchwort",
           "scope": "machine",
-          "markdownDescription": "The `stitchwort` command line program, used to index code for go to definition, hover and outline. A bare name is looked up on PATH."
+          "markdownDescription": "The `stitchwort` command line program. The extension starts `stitchwort lsp` from it, and reads library source with `stitchwort std-source`. A bare name is looked up on PATH."
         }
       }
     }
