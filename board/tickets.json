@@ -1,5 +1,5 @@
 {
-  "next": 292,
+  "next": 293,
   "tickets": [
     {
       "id": 1,
@@ -4449,6 +4449,20 @@
       "where": "",
       "labels": [
         "lsp"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 292,
+      "title": "AoC Day 2 readability: Shape record, Range.shapes/sumDoubled/sumRepeated, named locals, List.between in std (D522)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
       ],
       "body": "",
       "created": "2026-10-22",
