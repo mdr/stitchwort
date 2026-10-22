@@ -632,7 +632,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         panic!("internal error: unpacking a value that isn't a constructor")
                     };
                     if let Some(slice) = Rc::get_mut(&mut cell.0) {
-                        for p in pairs.chunks_exact(2) {
+                        for p in pairs.as_chunks::<2>().0 {
                             st.regs[base + p[1] as usize] =
                                 std::mem::take(&mut slice[p[0] as usize]);
                         }
@@ -645,7 +645,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                             reg!(token) = Value::Data(tag, cell);
                         }
                     } else {
-                        for p in pairs.chunks_exact(2) {
+                        for p in pairs.as_chunks::<2>().0 {
                             st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
                         }
                         if token != NO_REG {
