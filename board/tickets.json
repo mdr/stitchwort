@@ -1,5 +1,5 @@
 {
-  "next": 259,
+  "next": 260,
   "tickets": [
     {
       "id": 1,
@@ -3913,6 +3913,20 @@
         "4956aa51",
         "e5938981"
       ]
+    },
+    {
+      "id": 259,
+      "title": "Parser: name() with no space is always a call binding as one argument, so parseTurns IO.readAllLines() needs no brackets (D495, extends SW-220)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
