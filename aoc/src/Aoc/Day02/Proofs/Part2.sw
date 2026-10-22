@@ -15,13 +15,15 @@
 -- - x's digits are a block written n times exactly when L / n is a period
 --   (`writtenPeriod`, `periodWritten`), that is when n divides K
 --   (`copiesDivides`); and x repeats exactly when K >= 2 (`repeatsBlocks`).
--- - The program weighs repeat count n by `weight n`, an `Int`, defined so
+-- - The program weighs the number of copies n by `copiesWeight n`, an `Int`, defined so
 --   that over the divisors of K from 2 on the weights add up to 1 when K >= 2
 --   (`weightsOne`). So x's terms add up to x itself exactly when x repeats
 --   (`idWeight`).
--- - `repeated r k n` adds the ids of the range whose digits are a k-digit
---   block written n times (`repeatedIds`), and swapping the sums over ids,
---   block lengths and repeat counts finishes it (`weightedIds`, `rangeWeighted`).
+-- - `sumWithShape` adds the ids of the range whose digits are a block of the
+--   shape's length written the shape's number of copies (`repeatedIds`). The
+--   program's sum over the shapes is a grid of block lengths and copies
+--   (`sumRepeatedGrid`); swapping the sums over ids, block lengths and
+--   copies finishes it (`weightedIds`, `rangeWeighted`).
 --   The signed total is the natural answer embedded, so `Int.toNat` gives it back.
 
 namespace Aoc.Day02.Proofs
@@ -187,14 +189,14 @@ theorem blocksAsIdsRep (r: Range) (k: Nat) (n: Nat):
     _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
         := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
 
--- (1) `repeated r k n` adds the ids of the range whose digits are a k-digit
+-- (1) `sumWithShape r` of the shape k by n adds the ids of the range whose digits are a k-digit
 -- block written n times.
 theorem repeatedIds (r: Range) (k: Nat) (hk: 1 <= k): (n: Nat) -> 2 <= n ->
-    repeated r k n = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
+    sumWithShape r { blockLength = k, copies = n } = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
   | Zero,          h => Void.exfalso (Bool.falseNotTrue h)
   | Succ Zero,     h => Void.exfalso (Bool.falseNotTrue h)
   | Succ (Succ m), h =>
-    calc repeated r k (Succ (Succ m))
+    calc sumWithShape r { blockLength = k, copies = Succ (Succ m) }
       _ = repeatedSpec r k (Succ (Succ m)) := repeatedCorrect r k (Succ (Succ m))
       _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) r.ids
           := blocksAsIdsRep r k (Succ (Succ m))
@@ -255,7 +257,7 @@ theorem idsBelow (r: Range) (x: Nat) (h1: r.from <= x) (h2: x < r.from + r.size)
 
 
 -- (2) The weights ------------------------------------------------------------
--- Over the divisors of m from 2 on, `weight` adds up to 1 when m >= 2, and to
+-- Over the divisors of m from 2 on, `copiesWeight` adds up to 1 when m >= 2, and to
 -- 0 when m = 1 (`weightsOne`).
 
 -- The weights w of the divisors of m among 2, 3, ..., c + 1, added up.
@@ -269,11 +271,11 @@ theorem guardHolds [p: Prop] [a: Type]: (d: Decidable p) -> p -> (x: a) -> (y: a
 
 -- The weight of m = j + 2 is 1, less the weights of its divisors below m
 -- (`weight.unfold`, with the guard `d < m` discharged for each d of the run).
-theorem weightBelow (j: Nat): weight (Succ (Succ j)) = 1 - divisorWeights weight (Succ (Succ j)) j :=
-  let guarded: Nat -> Int := d => if h: d < Succ (Succ j) then (if Nat.divides d (Succ (Succ j)) then weight d else 0) else 0
-  let plain: Nat -> Int := d => if Nat.divides d (Succ (Succ j)) then weight d else 0
-  calc weight (Succ (Succ j))
-    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := weight.unfold (Succ (Succ j))
+theorem weightBelow (j: Nat): copiesWeight (Succ (Succ j)) = 1 - divisorWeights copiesWeight (Succ (Succ j)) j :=
+  let guarded: Nat -> Int := d => if h: d < Succ (Succ j) then (if Nat.divides d (Succ (Succ j)) then copiesWeight d else 0) else 0
+  let plain: Nat -> Int := d => if Nat.divides d (Succ (Succ j)) then copiesWeight d else 0
+  calc copiesWeight (Succ (Succ j))
+    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := copiesWeight.unfold (Succ (Succ j))
     _ = 1 - List.sumBy plain (List.rangeFrom j 2)
         := Eq.cong (Int.sub 1)
              (List.sumRangeCongr guarded plain j 2
@@ -291,15 +293,15 @@ theorem divisorWeightsTop (w: Nat -> Int) (j: Nat): divisorWeights w (Succ (Succ
         := Eq.cong (c => List.sumBy f (List.rangeFrom j 2) + (if c then w (Succ (Succ j)) else 0)) (Nat.dividesSelf (Succ (Succ j)))
 
 -- The key fact: the weights of the divisors of m from 2 on add up to 1.
-theorem weightsOne: (m: Nat) -> 1 <= m -> divisorWeights weight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt
+theorem weightsOne: (m: Nat) -> 1 <= m -> divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt
   | Zero,          h => Void.exfalso (Bool.falseNotTrue h)
   | Succ Zero,     h => rfl
   | Succ (Succ j), h =>
-    calc divisorWeights weight (Succ (Succ j)) (Succ j)
-      _ = divisorWeights weight (Succ (Succ j)) j + weight (Succ (Succ j)) := divisorWeightsTop weight j
-      _ = divisorWeights weight (Succ (Succ j)) j + (1 - divisorWeights weight (Succ (Succ j)) j)
-          := Eq.cong (t => divisorWeights weight (Succ (Succ j)) j + t) (weightBelow j)
-      _ = 1 := Int.addSubCancel (divisorWeights weight (Succ (Succ j)) j) 1
+    calc divisorWeights copiesWeight (Succ (Succ j)) (Succ j)
+      _ = divisorWeights copiesWeight (Succ (Succ j)) j + copiesWeight (Succ (Succ j)) := divisorWeightsTop copiesWeight j
+      _ = divisorWeights copiesWeight (Succ (Succ j)) j + (1 - divisorWeights copiesWeight (Succ (Succ j)) j)
+          := Eq.cong (t => divisorWeights copiesWeight (Succ (Succ j)) j + t) (weightBelow j)
+      _ = 1 := Int.addSubCancel (divisorWeights copiesWeight (Succ (Succ j)) j) 1
 
 -- Divisors of m beyond m count for nothing.
 theorem divisorWeightsAll (w: Nat -> Int): (m: Nat) -> 1 <= m -> (c: Nat) -> m <= Succ c -> divisorWeights w m c = divisorWeights w m (m - 1)
@@ -565,13 +567,13 @@ theorem idTermsDivisors (w: Nat -> Int) (size: Nat) (x: Nat) (hL: digitCount x <
         := Int.sumByMulLeft x.toInt (n => if Nat.divides n (blockCount x) then w n else 0) (List.rangeFrom (size - 1) 2)
 
 -- One id: its terms add up to x itself if x repeats, and to nothing if not.
-theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms weight size x = (Nat.keepIf x (repeats x)).toInt :=
+theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms copiesWeight size x = (Nat.keepIf x (repeats x)).toInt :=
   let m := blockCount x
   let hc: m <= Succ (size - 1) :=
     Nat.leTrans m size (Succ (size - 1)) (Nat.leTrans m (digitCount x) size (blockCountLe x) hL) (Nat.predLeSucc size (size - 1) (Nat.leRefl (size - 1)))
-  calc idTerms weight size x
-    _ = x.toInt * divisorWeights weight m (size - 1) := idTermsDivisors weight size x hL
-    _ = x.toInt * divisorWeights weight m (m - 1)    := Eq.cong (t => x.toInt * t) (divisorWeightsAll weight m (blockCountPos x) (size - 1) hc)
+  calc idTerms copiesWeight size x
+    _ = x.toInt * divisorWeights copiesWeight m (size - 1) := idTermsDivisors copiesWeight size x hL
+    _ = x.toInt * divisorWeights copiesWeight m (m - 1)    := Eq.cong (t => x.toInt * t) (divisorWeightsAll copiesWeight m (blockCountPos x) (size - 1) hc)
     _ = x.toInt * (Bool.toNat (Nat.leq 2 m)).toInt   := Eq.cong (t => x.toInt * t) (weightsOne m (blockCountPos x))
     _ = (x * Bool.toNat (Nat.leq 2 m)).toInt         := Eq.sym (Int.toIntMul x (Bool.toNat (Nat.leq 2 m)))
     _ = (Nat.keepIf x (repeats x)).toInt
@@ -582,17 +584,27 @@ theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms weight
 
 -- A term with more digits than `to` is 0 anyway.
 theorem keptTerm (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (repeated r k n).toInt else 0) = w n * (repeated r k n).toInt :=
+    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (sumWithShape r { blockLength = k, copies = n }).toInt else 0) = w n * (sumWithShape r { blockLength = k, copies = n }).toInt :=
   match h: Nat.leq (k * n) (List.length (Nat.digits r.to)) with
     | True  => rfl
     | False => Eq.sym (Eq.trans (Eq.cong (t => w n * t.toInt) (repeatedZero r k hk n hn h)) (Int.mulZero (w n)))
 
+-- The program's sum over the shapes, under weights w for the copies, as a
+-- grid: every block length k up to the digits of `to` and every number of
+-- copies n from 2, the shapes that don't fit counting 0.
+def weighted (w: Nat -> Int) (r: Range): Int :=
+  let size := List.length (Nat.digits r.to)
+  List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (sumWithShape r { blockLength = k, copies = n }).toInt else 0))
+
+theorem sumRepeatedGrid (r: Range): sumRepeated r = weighted copiesWeight r :=
+  shapesSum r (shape => copiesWeight shape.copies * (sumWithShape r shape).toInt)
+
 -- One term of `weighted`, as a sum over the ids of the range.
 theorem termIds (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (repeated r k n).toInt else 0)
+    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (sumWithShape r { blockLength = k, copies = n }).toInt else 0)
       = List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids :=
-  calc (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (repeated r k n).toInt else 0)
-    _ = w n * (repeated r k n).toInt := keptTerm w r k hk n hn
+  calc (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (sumWithShape r { blockLength = k, copies = n }).toInt else 0)
+    _ = w n * (sumWithShape r { blockLength = k, copies = n }).toInt := keptTerm w r k hk n hn
     _ = w n * (List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids).toInt := Eq.cong (t => w n * t.toInt) (repeatedIds r k hk n hn)
     _ = w n * List.sumBy (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids
         := Eq.cong (t => w n * t) (Int.toIntSumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids)
@@ -600,7 +612,7 @@ theorem termIds (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2
         := Eq.sym (Int.sumByMulLeft (w n) (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids)
 
 -- A block written n times with more digits than `to` adds nothing.
-theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: Nat.leq (k * n) (List.length (Nat.digits r.to)) = False): repeated r k n = 0 :=
+theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: Nat.leq (k * n) (List.length (Nat.digits r.to)) = False): sumWithShape r { blockLength = k, copies = n } = 0 :=
   Eq.trans (repeatedIds r k hk n hn)
     (List.sumRangeNone (x => writtenAs (Nat.digits x) k n) (x => x) r.size r.from
       (x x1 x2 =>
@@ -618,9 +630,9 @@ theorem weightedIds (w: Nat -> Int) (r: Range): weighted w r = List.sumBy (x => 
   let size := List.length (Nat.digits r.to)
   calc weighted w r
     _ = List.sumBy (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
-        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) size then w n * (repeated r k n).toInt else 0) (List.rangeFrom (size - 1) 2))
+        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) size then w n * (sumWithShape r { blockLength = k, copies = n }).toInt else 0) (List.rangeFrom (size - 1) 2))
              (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2)) size 1
-             (k k1 k2 => List.sumRangeCongr (n => if Nat.leq (k * n) size then w n * (repeated r k n).toInt else 0)
+             (k k1 k2 => List.sumRangeCongr (n => if Nat.leq (k * n) size then w n * (sumWithShape r { blockLength = k, copies = n }).toInt else 0)
                (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (size - 1) 2
                (n n1 n2 => termIds w r k k1 n n1))
     _ = List.sumBy (k => List.sumBy (x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids) (List.rangeFrom size 1)
@@ -632,12 +644,12 @@ theorem weightedIds (w: Nat -> Int) (r: Range): weighted w r = List.sumBy (x => 
         := List.sumBySwap (k x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids (List.rangeFrom size 1)
 
 -- One range: the signed total is the puzzle's sum, embedded.
-theorem rangeWeighted (r: Range): weighted weight r = (List.sum (List.filter repeats r.ids)).toInt :=
+theorem rangeWeighted (r: Range): weighted copiesWeight r = (List.sum (List.filter repeats r.ids)).toInt :=
   let size := List.length (Nat.digits r.to)
-  calc weighted weight r
-    _ = List.sumBy (x => idTerms weight size x) r.ids := weightedIds weight r
+  calc weighted copiesWeight r
+    _ = List.sumBy (x => idTerms copiesWeight size x) r.ids := weightedIds copiesWeight r
     _ = List.sumBy (x => (Nat.keepIf x (repeats x)).toInt) r.ids
-        := List.sumRangeCongr (x => idTerms weight size x) (x => (Nat.keepIf x (repeats x)).toInt) r.size r.from
+        := List.sumRangeCongr (x => idTerms copiesWeight size x) (x => (Nat.keepIf x (repeats x)).toInt) r.size r.from
              (x x1 x2 => idWeight size x (idsBelow r x x1 x2))
     _ = (List.sumBy (x => Nat.keepIf x (repeats x)) r.ids).toInt := Eq.sym (Int.toIntSumBy (x => Nat.keepIf x (repeats x)) r.ids)
     _ = (List.sum (List.filter repeats r.ids)).toInt := Eq.cong Nat.toInt (Eq.sym (List.sumFilter repeats r.ids))
@@ -659,7 +671,7 @@ test "part 2 spec" := part2Spec exampleRanges == 4174379265
 theorem part2Correct (ranges: List Range): solvePart2 ranges = part2Spec ranges :=
   calc solvePart2 ranges
     _ = Int.toNat (List.sumBy (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges)
-        := Eq.cong Int.toNat (List.sumByCong (weighted weight) (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges rangeWeighted)
+        := Eq.cong Int.toNat (List.sumByCong sumRepeated (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges (r => Eq.trans (sumRepeatedGrid r) (rangeWeighted r)))
     _ = Int.toNat (part2Spec ranges).toInt
         := Eq.cong Int.toNat (Eq.sym (Int.toIntSumBy (r => List.sum (List.filter repeats (Range.ids r))) ranges))
     _ = part2Spec ranges := Int.toNatToInt (part2Spec ranges)

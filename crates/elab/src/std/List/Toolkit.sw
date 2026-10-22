@@ -163,6 +163,13 @@ theorem List.rangeFromAppend: (a: Nat) -> (b: Nat) -> (s: Nat) -> List.rangeFrom
 -- `List.range n` is `[0, 1, ..., n - 1]`.
 def List.range (n: Nat): List Nat := List.rangeFrom n 0
 
+-- `List.between lo hi` is `[lo, lo + 1, ..., hi]`, both ends included; empty
+-- when `lo > hi`.
+def List.between (lo: Nat) (hi: Nat): List Nat := List.rangeFrom (hi + 1 - lo) lo
+
+-- `between` is a `rangeFrom` of the right length.
+theorem List.betweenRangeFrom (lo: Nat) (hi: Nat): List.between lo hi = List.rangeFrom (hi + 1 - lo) lo := rfl
+
 def List.reverse (xs: List a): List a := List.reverseOnto xs Nil
 
 def List.last: List a -> Option a
@@ -929,5 +936,6 @@ test "List.tails" := [1, 2].tails == [[1, 2], [2], Nil] && (Nil: List Nat).tails
 test "List.findIndex" := [5, 6, 7].findIndex (x => Nat.leq 6 x) == Some 1 && [5].findIndex (x => Nat.leq 10 x) == None
 test "List.withIndex" := ["a", "b"].withIndex == [MkPair 0 "a", MkPair 1 "b"] && (Nil: List Nat).withIndex == Nil
 test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == Some 30 && [1].findMap (x => (None: Option Nat)) == None
+test "List.between" := List.between 2 5 == [2, 3, 4, 5] && List.between 3 3 == [3] && List.between 4 2 == Nil && List.between 0 1 == [0, 1]
 test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] && [1].cross (Nil: List Nat) == Nil
