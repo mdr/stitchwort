@@ -3848,7 +3848,7 @@
     {
       "id": 254,
       "title": "Dot notation: [1, 2].span p resolves to Nat.span instead of List.span (made a Toolkit/Sort load cycle)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3857,7 +3857,9 @@
       "body": "Found by SW-235. A test written as [1, 2].span p pulled in Nat.span from Sort.sw. Probably numeric-literal elements + the receiver rule (first parameter of matching type) or SW-234's namespace-aware loading choosing by short name. Reproduce and fix.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "569b9db0"
+      ]
     },
     {
       "id": 255,
