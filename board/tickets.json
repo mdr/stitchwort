@@ -1,5 +1,5 @@
 {
-  "next": 291,
+  "next": 292,
   "tickets": [
     {
       "id": 1,
@@ -4291,7 +4291,7 @@
     },
     {
       "id": 282,
-      "title": "LSP stage 1 server: stitchwort lsp (lsp-server), checker thread, level-1 re-checking, dependents in background, diagnostics as you type, navigation from live state (D515)",
+      "title": "LSP stage 1 server: merged; fixing one nav mismatch on main (Day01 record param n: binder vs whole decl)",
       "status": "doing",
       "agent": "Opus",
       "where": "",
@@ -4301,12 +4301,14 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "97b31e61"
+      ]
     },
     {
       "id": 283,
       "title": "LSP stage 1 client: thin VS Code client over stitchwort lsp (finished; merges with the server SW-282, then end-to-end check)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4315,7 +4317,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "81b98e66"
+      ]
     },
     {
       "id": 284,
@@ -4418,6 +4422,20 @@
       "where": "",
       "labels": [
         "tests"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 291,
+      "title": "LSP: memory 348 MB vs 165 MB for check --index (one mark per namespace + whole library); keep fewer marks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
       ],
       "body": "",
       "created": "2026-10-22",
