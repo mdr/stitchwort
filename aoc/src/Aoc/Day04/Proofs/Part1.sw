@@ -49,12 +49,12 @@ theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
   let k := (r: Nat) => (c: Nat) => (keep (cells r c) (window cells r c)).count
   let sum2 := (f: Nat -> Nat -> Nat) => List.sumBy (r => List.sumBy (c => f r c) (List.range grid.width)) (List.range grid.height)
   calc solvePart1 grid
-    _ = sum2 a - sum2 (r c => (rowsCells (roundFrom gap gap grid.rows) r c).count)
-        := rewrite rollsCells grid.rows, rollsCells (roundFrom gap gap grid.rows)
+    _ = sum2 a - sum2 (r c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count)
+        := rewrite rollsCells grid.rows, rollsCells (Vec.around gap peelRow grid.rows)
     _ = sum2 a - sum2 k
         := Eq.cong (t => sum2 a - t)
-             (List.sumByCongr (r => List.sumBy (c => (rowsCells (roundFrom gap gap grid.rows) r c).count) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
-               (r => List.sumByCongr (c => (rowsCells (roundFrom gap gap grid.rows) r c).count) (c => k r c)
+             (List.sumByCongr (r => List.sumBy (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
+               (r => List.sumByCongr (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (c => k r c)
                   (c => Eq.cong Cell.count (cellRound grid.rows r c)) (List.range grid.width))
                (List.range grid.height))
     _ = sum2 (r c => a r c - k r c)

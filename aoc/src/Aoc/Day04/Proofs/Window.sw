@@ -37,15 +37,6 @@ theorem keepLe: (a: Cell) -> (w: Nat) -> Cell.count (keep a w) <= Cell.count a
       | True  => rfl
       | False => rfl
 
--- `peelCells` cell by cell: the window of cell i is the column sums at
--- i - 1 (`left` for the first), i and i + 1.
-theorem peelCellsAt (left: Nat): (cols: Vec Nat w) -> (cells: Vec Cell w) -> (i: Nat) ->
-    List.getOr Floor i (Vec.toList (peelCells left cols cells))
-      = keep (List.getOr Floor i (Vec.toList cells)) (List.getOr 0 i (Cons left (Vec.toList cols)) + List.getOr 0 i (Vec.toList cols) + List.getOr 0 (Succ i) (Vec.toList cols))
-  | VNil,               VNil,             i      => rfl
-  | VCons here columns, VCons roll rolls, Zero   => rewrite Vec.headOrToList 0 columns
-  | VCons here columns, VCons roll rolls, Succ i => peelCellsAt here columns rolls i
-
 -- The rolls in column j (counted from 1) of three rows.
 def tri (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat): Nat :=
   (List.getOr Floor j (Cons Floor (Vec.toList a))).count + (List.getOr Floor j (Cons Floor (Vec.toList x))).count + (List.getOr Floor j (Cons Floor (Vec.toList b))).count
@@ -69,14 +60,20 @@ theorem peelRowCells (cells: Cells) (r: Nat) (c: Nat) (a: Vec Cell w) (x: Vec Ce
     (ha: RowIs cells r a) (hx: RowIs cells (Succ r) x) (hb: RowIs cells (Succ (Succ r)) b):
     List.getOr Floor c (Vec.toList (peelRow a x b)) = keep (cells r c) (window cells r c) :=
   let cols := Vec.zipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) a x b
-  calc List.getOr Floor c (Vec.toList (peelRow a x b))
-    _ = keep (List.getOr Floor c (Vec.toList x))
-          (List.getOr 0 c (Cons 0 (Vec.toList cols)) + List.getOr 0 (Succ c) (Cons 0 (Vec.toList cols)) + List.getOr 0 (Succ (Succ c)) (Cons 0 (Vec.toList cols)))
-        := peelCellsAt 0 cols x c
-    _ = keep (List.getOr Floor (Succ c) (Cons Floor (Vec.toList x))) (tri a x b c + tri a x b (Succ c) + tri a x b (Succ (Succ c)))
-        := rewrite colsAt a x b c, colsAt a x b (Succ c), colsAt a x b (Succ (Succ c))
-    _ = keep (cells r c) (window cells r c)
-        := rewrite triCol cells r a x b ha hx hb c, triCol cells r a x b ha hx hb (Succ c), triCol cells r a x b ha hx hb (Succ (Succ c)), hx (Succ c)
+  let add3 := (l: Nat) => (m: Nat) => (n: Nat) => l + m + n
+  match e: Nat.leq (Succ c) w with
+    | True  =>
+      calc List.getOr Floor c (Vec.toList (peelRow a x b))
+        _ = keep (List.getOr Floor c (Vec.toList x))
+              (List.getOr 0 c (Cons 0 (Vec.toList cols)) + List.getOr 0 (Succ c) (Cons 0 (Vec.toList cols)) + List.getOr 0 (Succ (Succ c)) (Cons 0 (Vec.toList cols)))
+            := Eq.trans (Vec.getOrZipWith keep Floor 0 Floor rfl x (Vec.around 0 add3 cols) c) (rewrite Vec.getOrAround 0 0 add3 cols c e)
+        _ = keep (List.getOr Floor (Succ c) (Cons Floor (Vec.toList x))) (tri a x b c + tri a x b (Succ c) + tri a x b (Succ (Succ c)))
+            := rewrite colsAt a x b c, colsAt a x b (Succ c), colsAt a x b (Succ (Succ c))
+        _ = keep (cells r c) (window cells r c)
+            := rewrite triCol cells r a x b ha hx hb c, triCol cells r a x b ha hx hb (Succ c), triCol cells r a x b ha hx hb (Succ (Succ c)), hx (Succ c)
+    | False =>
+      -- Past the last column both sides are floor.
+      rewrite Vec.getOrPast Floor (peelRow a x b) c (Nat.leqFalse (Succ c) w e), <- hx (Succ c), Vec.getOrPast Floor x c (Nat.leqFalse (Succ c) w e)
 
 -- Row r (counted from 1) of a grid's rows, with a row of floor above the
 -- first and past the last.
@@ -91,36 +88,27 @@ theorem rowBIs (rows: Vec (Vec Cell w) h): (r: Nat) -> RowIs (rowsCells rows) r 
   | Succ r, Zero   => rfl
   | Succ r, Succ j => rfl
 
--- `roundFrom` row by row: row r is peeled with the rows next to it.
-theorem roundFromAt (gap: Vec Cell w): (above: Vec Cell w) -> (rows: Vec (Vec Cell w) h) -> (r: Nat) -> r < h ->
-    List.getOr gap r (Vec.toList (roundFrom gap above rows))
-      = peelRow (List.getOr gap r (Cons above (Vec.toList rows))) (List.getOr gap r (Vec.toList rows)) (List.getOr gap (Succ r) (Vec.toList rows))
-  | above, VNil,           r,      hr => Void.exfalso (Bool.falseNotTrue hr)
-  | above, VCons row rest, Zero,   hr => rewrite Vec.headOrToList gap rest
-  | above, VCons row rest, Succ r, hr => roundFromAt gap row rest r hr
-
 -- Past the last row or column, everything is floor.
 theorem rowsCellsBelow (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat) (hr: h <= r): rowsCells rows r c = Floor :=
-  rewrite List.getOrPast (Vec.replicate w Floor) r (Vec.toList rows) (rewrite Vec.lengthToList rows in hr) in gapFloor w c
+  rewrite Vec.getOrPast (Vec.replicate w Floor) rows r hr in gapFloor w c
 
 theorem rowsCellsRight (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat) (hc: w <= c): rowsCells rows r c = Floor :=
-  let row := List.getOr (Vec.replicate w Floor) r (Vec.toList rows)
-  List.getOrPast Floor c (Vec.toList row) (rewrite Vec.lengthToList row in hc)
+  Vec.getOrPast Floor (List.getOr (Vec.replicate w Floor) r (Vec.toList rows)) c hc
 
 -- One cell after a round: what `keep` leaves of it.
 theorem cellRound (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat):
-    rowsCells (roundFrom (Vec.replicate w Floor) (Vec.replicate w Floor) rows) r c = keep (rowsCells rows r c) (window (rowsCells rows) r c) :=
+    rowsCells (Vec.around (Vec.replicate w Floor) peelRow rows) r c = keep (rowsCells rows r c) (window (rowsCells rows) r c) :=
   let gap := Vec.replicate w Floor
   match e: Nat.leq (Succ r) h with
     | True  =>
-      calc rowsCells (roundFrom gap gap rows) r c
+      calc rowsCells (Vec.around gap peelRow rows) r c
         _ = List.getOr Floor c (Vec.toList (peelRow (rowB rows r) (rowB rows (Succ r)) (rowB rows (Succ (Succ r)))))
-            := rewrite roundFromAt gap gap rows r e
+            := rewrite Vec.getOrAround gap gap peelRow rows r e
         _ = keep (rowsCells rows r c) (window (rowsCells rows) r c)
             := peelRowCells (rowsCells rows) r c (rowB rows r) (rowB rows (Succ r)) (rowB rows (Succ (Succ r)))
                  (rowBIs rows r) (rowBIs rows (Succ r)) (rowBIs rows (Succ (Succ r)))
     | False =>
-      rewrite rowsCellsBelow (roundFrom gap gap rows) r c (Nat.leqFalse (Succ r) h e), rowsCellsBelow rows r c (Nat.leqFalse (Succ r) h e)
+      rewrite rowsCellsBelow (Vec.around gap peelRow rows) r c (Nat.leqFalse (Succ r) h e), rowsCellsBelow rows r c (Nat.leqFalse (Succ r) h e)
 
 -- The window, reindexed: positions at most 1 away.
 
