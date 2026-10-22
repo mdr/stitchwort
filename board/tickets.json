@@ -1,5 +1,5 @@
 {
-  "next": 241,
+  "next": 242,
   "tickets": [
     {
       "id": 1,
@@ -470,9 +470,9 @@
       "labels": [
         "tooling"
       ],
-      "body": "Language server for .sw: live errors, hover types, go to definition, completion. This is option C of the 21 Oct code-navigation plan (D238/D239). D239 (Matt, 21 Oct 2026): stays in the backlog until the resolution index (D238) has been used for a while; the server reuses that index, so do not start before then. First step when it is picked up: a short design note (which protocol library, how the server holds a Session across edits, how it reuses the index and the incremental/cached checking).\n\nDone when: an editor (the VS Code extension in editors/) shows live diagnostics, hover types and go to definition for a .sw project.\n\nHistory: D238, D239.\n",
+      "body": "Language server for .sw: live errors, hover types, go to definition, completion. This is option C of the 21 Oct code-navigation plan (D238/D239). D239 (Matt, 21 Oct 2026): stays in the backlog until the resolution index (D238) has been used for a while; the server reuses that index, so do not start before then. First step when it is picked up: a short design note (which protocol library, how the server holds a Session across edits, how it reuses the index and the incremental/cached checking).\n\nDone when: an editor (the VS Code extension in editors/) shows live diagnostics, hover types and go to definition for a .sw project.\n\nHistory: D238, D239.\n\n22 Oct 2026: D403 — wait: no LSP design note yet; revisit after the check cache lands.",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3339,9 +3339,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "IO.readAllLines().filterMap parse currently parses as IO.readAllLines (().filterMap parse) and fails.\n\nFrom docs/comparisons/aoc-day01-community.md (D294).\n\nDone when: f().x and f().g y parse as calls on the result, with parser tests.\n",
+      "body": "IO.readAllLines().filterMap parse currently parses as IO.readAllLines (().filterMap parse) and fails.\n\nFrom docs/comparisons/aoc-day01-community.md (D294).\n\nDone when: f().x and f().g y parse as calls on the result, with parser tests.\n\n22 Oct 2026: D402 — Matt agreed to keep `f()` as the zero-argument call style (as Unison prints it). This is the direction for SW-220: `name()` with no space is a call, then dots apply.",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3587,6 +3587,20 @@
         "perf"
       ],
       "body": "docs/proposals/check-cache.md §9 stage 1 (D400). Own binary format (work list, version, checksum, atomic write), replay through the elaborator's own insertion functions, references by path + expected content hash, spans by (path, range). Keys per §4.2 for library files. Kernel re-checks on load (D277 option A) but build it so skipping the kernel is a single switch — D277 reopened. --no-cache; tests/gate never use it except the fresh-vs-cached differential test.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 241,
+      "title": "Prelude stage 3: move what nothing built-in needs out of core.sw (prelude-slim.md §4.3, D404)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "docs/proposals/prelude-slim.md §4.3 and §8.1 stage 3 (D404). Use closure_report to find core.sw declarations that nothing in §2.1 needs (operators/==/Show/deriving/auto/natives/runner) and move them into the library files they belong to (Text.split/join/trim, Int.tdiv/fdiv, Option helpers, Bool.xor, ...). Natives that move become Home::Library built-ins (D56). Keep every name in §2.1's table in core. Measure with STITCHWORT_TIMINGS before/after.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
