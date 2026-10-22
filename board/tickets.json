@@ -4474,9 +4474,9 @@
     {
       "id": 293,
       "title": "LSP: type of a selected expression (hover on selection + Expand Selection) (D523)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "main; try in VS Code",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane: fix dot-call/paren spans",
       "labels": [
         "lsp"
       ],
