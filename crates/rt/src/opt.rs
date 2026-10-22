@@ -57,6 +57,8 @@ const DEPTH: u32 = 12;
 /// how many copies a program may have.
 const COPY_SIZE: usize = 200;
 const COPIES: usize = 64;
+/// The deepest body the passes here take on.
+const MAX_NESTING: usize = 1000;
 
 /// The data types the rules need to recognise.
 #[derive(Clone, Copy, Debug)]
@@ -200,6 +202,11 @@ impl Cx {
     /// A body simplified, its slots packed again. `global` is the global it
     /// belongs to, which it doesn't inline into itself.
     fn body(&mut self, body: Body, params: u32, global: Option<usize>) -> Body {
+        // The passes here recurse over the body: one nested more deeply
+        // than this (a long list literal, say) is left as lowered.
+        if nesting(&body.expr) > MAX_NESTING {
+            return body;
+        }
         let mut next = params;
         let expr = Renamer::new(&mut next, None).expr(&body.expr);
         let mut s = Simp {
@@ -225,6 +232,53 @@ impl Cx {
 }
 
 // ------------------------------------------------------------- measuring
+
+/// How deeply `e` nests, found without recursing.
+fn nesting<'a>(e: &'a Expr) -> usize {
+    let mut max = 0;
+    let mut stack = vec![(e, 1)];
+    while let Some((e, d)) = stack.pop() {
+        max = max.max(d);
+        let mut push = |x: &'a Expr| stack.push((x, d + 1));
+        match e {
+            Expr::Local(_)
+            | Expr::Captured(_)
+            | Expr::Global(_)
+            | Expr::Erased
+            | Expr::Lit(_)
+            | Expr::DoneK
+            | Expr::Unreachable => {}
+            Expr::Call(_, a)
+            | Expr::Prim(_, a)
+            | Expr::PartialApp(_, a)
+            | Expr::Closure(_, a)
+            | Expr::Ctor(_, _, a) => a.iter().for_each(&mut push),
+            Expr::Apply(f, a) => {
+                push(f);
+                a.iter().for_each(&mut push);
+            }
+            Expr::Let(_, v, b) => {
+                push(v);
+                push(b);
+            }
+            Expr::Match(x, _, arms) => {
+                push(x);
+                arms.iter().for_each(|arm| push(&arm.body));
+            }
+            Expr::NumSwitch(x, arms, d) => {
+                push(x);
+                arms.iter().for_each(|(_, b)| push(b));
+                push(d);
+            }
+            Expr::If(c, t, f) => {
+                push(c);
+                push(t);
+                push(f);
+            }
+        }
+    }
+    max
+}
 
 /// How big `e` is: its nodes.
 fn size(e: &Expr) -> usize {

@@ -28,6 +28,8 @@
 //!   known to be a constructor (from an enclosing match) that the branch
 //!   drops ([`Instr::DropReuse`]).
 
+use std::collections::HashMap;
+
 use num_bigint::BigUint;
 
 use crate::ir::{Expr, Lit, MatchKind, PrimOp, Program, Slot};
@@ -364,11 +366,17 @@ impl Slots {
     }
 }
 
-/// Adds the slots `e` reads to `out`.
-fn uses(e: &Expr, out: &mut Slots) {
+/// The slots each expression in `e` reads, by its address: computed once
+/// per body, bottom up, so that asking at every level of a deeply nested
+/// expression (a long list literal) stays linear.
+type Uses = HashMap<*const Expr, Slots>;
+
+fn fill(e: &Expr, cache: &mut Uses) -> Slots {
+    let mut out = Slots::default();
+    let mut add = |x: &Expr, cache: &mut Uses| out.add(&fill(x, cache));
     match e {
-        Expr::Local(s) => out.insert(*s),
-        Expr::Captured(_)
+        Expr::Local(_)
+        | Expr::Captured(_)
         | Expr::Global(_)
         | Expr::Erased
         | Expr::Lit(_)
@@ -378,35 +386,34 @@ fn uses(e: &Expr, out: &mut Slots) {
         | Expr::Prim(_, args)
         | Expr::PartialApp(_, args)
         | Expr::Closure(_, args)
-        | Expr::Ctor(_, _, args) => args.iter().for_each(|a| uses(a, out)),
+        | Expr::Ctor(_, _, args) => args.iter().for_each(|a| add(a, cache)),
         Expr::Apply(f, args) => {
-            uses(f, out);
-            args.iter().for_each(|a| uses(a, out));
+            add(f, cache);
+            args.iter().for_each(|a| add(a, cache));
         }
         Expr::Let(_, value, body) => {
-            uses(value, out);
-            uses(body, out);
+            add(value, cache);
+            add(body, cache);
         }
         Expr::Match(scrutinee, _, arms) => {
-            uses(scrutinee, out);
-            arms.iter().for_each(|arm| uses(&arm.body, out));
+            add(scrutinee, cache);
+            arms.iter().for_each(|arm| add(&arm.body, cache));
         }
         Expr::NumSwitch(scrutinee, arms, default) => {
-            uses(scrutinee, out);
-            arms.iter().for_each(|(_, body)| uses(body, out));
-            uses(default, out);
+            add(scrutinee, cache);
+            arms.iter().for_each(|(_, body)| add(body, cache));
+            add(default, cache);
         }
         Expr::If(cond, then, otherwise) => {
-            uses(cond, out);
-            uses(then, out);
-            uses(otherwise, out);
+            add(cond, cache);
+            add(then, cache);
+            add(otherwise, cache);
         }
     }
-}
-
-fn uses_of(e: &Expr) -> Slots {
-    let mut out = Slots::default();
-    uses(e, &mut out);
+    if let Expr::Local(s) = e {
+        out.insert(*s);
+    }
+    cache.insert(e as *const Expr, out.clone());
     out
 }
 
@@ -464,6 +471,8 @@ struct Compiler<'a> {
     /// Registers that may hold a reuse token for a constructor with this
     /// many fields, innermost last.
     tokens: Vec<(usize, Reg)>,
+    /// The slots each expression of the body reads.
+    cache: Uses,
 }
 
 impl<'a> Compiler<'a> {
@@ -494,10 +503,21 @@ impl<'a> Compiler<'a> {
             bound,
             known: Vec::new(),
             tokens: Vec::new(),
+            cache: HashMap::new(),
         };
+        fill(expr, &mut cx.cache);
         let dst = cx.temp();
         cx.expr(expr, dst, true, &Slots::default());
         cx.code
+    }
+
+    /// Adds the slots `e` reads to `out`.
+    fn uses(&self, e: &Expr, out: &mut Slots) {
+        out.add(&self.cache[&(e as *const Expr)]);
+    }
+
+    fn uses_of(&self, e: &Expr) -> Slots {
+        self.cache[&(e as *const Expr)].clone()
     }
 
     fn temp(&mut self) -> Reg {
@@ -549,7 +569,7 @@ impl<'a> Compiler<'a> {
         let mut after = vec![live.clone(); es.len()];
         for j in (0..es.len().saturating_sub(1)).rev() {
             let mut a = after[j + 1].clone();
-            uses(es[j + 1], &mut a);
+            self.uses(es[j + 1], &mut a);
             after[j] = a;
         }
         let mut locals = Slots::default();
@@ -688,15 +708,15 @@ impl<'a> Compiler<'a> {
             }
             Expr::Let(slot, value, body) => {
                 let mut l = live.clone();
-                uses(body, &mut l);
+                self.uses(body, &mut l);
                 self.expr(value, *slot, false, &l);
                 self.bound.insert(*slot);
                 self.expr(body, dst, tail, live);
                 self.bound.remove(*slot);
             }
             Expr::If(cond, then, otherwise) => {
-                let mut inside = uses_of(then);
-                uses(otherwise, &mut inside);
+                let mut inside = self.uses_of(then);
+                self.uses(otherwise, &mut inside);
                 let mut l = live.clone();
                 l.add(&inside);
                 let jump = match &**cond {
@@ -716,7 +736,7 @@ impl<'a> Compiler<'a> {
                         })
                     }
                 };
-                uses(cond, &mut inside);
+                self.uses(cond, &mut inside);
                 self.branch(then, &inside, live, &[], dst, tail);
                 let end = (!tail).then(|| self.emit(Instr::Jump { target: 0 }));
                 let here = self.here();
@@ -730,12 +750,12 @@ impl<'a> Compiler<'a> {
             Expr::Match(scrutinee, kind, arms) => {
                 let mut inside = Slots::default();
                 for arm in arms {
-                    uses(&arm.body, &mut inside);
+                    self.uses(&arm.body, &mut inside);
                 }
                 let mut l = live.clone();
                 l.add(&inside);
                 let src = self.operand(scrutinee, &l);
-                uses(scrutinee, &mut inside);
+                self.uses(scrutinee, &mut inside);
                 let mut ends = Vec::new();
                 match kind {
                     MatchKind::Data(t) => {
@@ -758,7 +778,7 @@ impl<'a> Compiler<'a> {
                                 [arm.ctor as usize]
                                 .fields
                                 .len();
-                            let arm_uses = uses_of(&arm.body);
+                            let arm_uses = self.uses_of(&arm.body);
                             let dead = src >= self.first_temp
                                 || (!arm_uses.contains(src) && !live.contains(src));
                             let tokens = self.tokens.clone();
@@ -847,13 +867,13 @@ impl<'a> Compiler<'a> {
             Expr::NumSwitch(scrutinee, arms, default) => {
                 let mut inside = Slots::default();
                 for (_, body) in arms {
-                    uses(body, &mut inside);
+                    self.uses(body, &mut inside);
                 }
-                uses(default, &mut inside);
+                self.uses(default, &mut inside);
                 let mut l = live.clone();
                 l.add(&inside);
                 let src = self.operand(scrutinee, &l);
-                uses(scrutinee, &mut inside);
+                self.uses(scrutinee, &mut inside);
                 let table = u32::try_from(self.code.num_tables.len()).expect("fits");
                 self.code.num_tables.push(NumTable {
                     small: Vec::new(),
@@ -919,7 +939,7 @@ impl<'a> Compiler<'a> {
         tail: bool,
     ) {
         let needed = {
-            let mut n = uses_of(body);
+            let mut n = self.uses_of(body);
             n.add(live);
             n
         };
