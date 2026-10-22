@@ -92,6 +92,10 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
     , count = circuits.count - 1
     }
 
+-- Joins the two boxes of a pair from `closestFirst`.
+def Circuits.connect (circuits: Circuits): (Nat, Nat, Nat) -> Circuits
+  | (distance, first, second) => circuits.join first second
+
 -- How many boxes are in each circuit, a circuit counted once, at its first
 -- (lowest-numbered) box.
 def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
@@ -104,7 +108,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 -- 10 for its example), then multiply the sizes of the three biggest circuits.
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
-    |> .foldLeft (circuits (distance, first, second) => circuits.join first second) (Circuits.separate boxes.points.length)
+    |> .foldLeft Circuits.connect (Circuits.separate boxes.points.length)
   joined.sizes boxes.points.length |> .sortBy (a b => Nat.compare b a) |> .take 3 |> .product
 
 -- Part 2: the product of the x coordinates of the two boxes whose joining
