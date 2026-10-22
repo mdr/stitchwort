@@ -4884,9 +4884,9 @@
     {
       "id": 316,
       "title": "AoC day 8 gap analysis: what was missing in Stitchwort; features / std additions to consider",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree lane",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/comparisons/aoc-day08-gaps.md; D549-D551",
       "labels": [
         "aoc",
         "design"
@@ -4894,7 +4894,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "34eb4551"
+      ]
     },
     {
       "id": 317,
