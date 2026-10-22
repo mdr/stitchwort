@@ -10,14 +10,14 @@
 -- ids made of a k-digit block written n times (a template of k by n) are
 -- base * m for the k-digit bases, where m = 1 + 10^k + 10^2k + ... (12
 -- written 3 times is 12 * 10101). Those bases form an interval, so their sum
--- is an arithmetic series (`sumOfIdsMatchingTemplate`). Part 2 must not count
+-- is an arithmetic series (`sumOfIdsInRangeMatchingTemplate`). Part 2 must not count
 -- 111111 three times (1 six times, 11 three times, 111 twice): by
 -- inclusion-exclusion over n, the ids with some proper period are the sum
 -- over n of -mu(n) times the ids with n copies, where mu is the Moebius
 -- function. The weights -mu(n) are computed (`copiesWeight`, a signed sum
 -- over the divisors), so ids of any length work.
 --
--- That `sumOfIdsMatchingTemplate` adds up the right ids is proved in
+-- That `sumOfIdsInRangeMatchingTemplate` adds up the right ids is proved in
 -- `Aoc.Day02.Proofs` (Proofs/Repeated.sw); the tests are in
 -- `Aoc.Day02.Tests` (Tests/), both against the puzzle-literal spec in
 -- `Aoc.Day02.Spec` (Spec/). `run` checks none of them.
@@ -43,7 +43,7 @@ type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
 -- Every template that fits in the digits of the range's end: a block of one or
 -- more digits written two or more times. Some may have no ids in the range;
--- `sumOfIdsMatchingTemplate` gives those 0.
+-- `sumOfIdsInRangeMatchingTemplate` gives those 0.
 def allTemplatesForRange (range: Range): List RepetitionTemplate :=
   let maxDigits := (Nat.digits range.to).length
   List.between 1 (maxDigits / 2) |> .flatMap (blockLength =>
@@ -55,13 +55,13 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate :=
 def sumOfIdsWrittenTwice (range: Range): Nat :=
   allTemplatesForRange range
     |> .filter (template => template.copies == 2)
-    |> .sumBy (sumOfIdsMatchingTemplate range)
+    |> .sumBy (sumOfIdsInRangeMatchingTemplate range)
 
 -- Part 2: the ids in the range written two or more times, each counted once.
 -- 111111 has templates 1×6, 11×3 and 111×2; the weights cancel the repeats.
 def sumOfIdsWrittenRepeatedly (range: Range): Int :=
   (allTemplatesForRange range).sumBy (template =>
-    let idsTotal := sumOfIdsMatchingTemplate range template
+    let idsTotal := sumOfIdsInRangeMatchingTemplate range template
     let weight := copiesWeight template.copies
     weight * idsTotal.toInt)
 
@@ -81,7 +81,7 @@ def copiesWeight (copies: Nat): Int
 
 -- The sum of the ids in the range whose digits are a block of the template's
 -- length written the template's number of copies.
-def sumOfIdsMatchingTemplate (range: Range) (template: RepetitionTemplate): Nat :=
+def sumOfIdsInRangeMatchingTemplate (range: Range) (template: RepetitionTemplate): Nat :=
   -- The multiplier: 12 written 3 times is 12 * 10101, and 10101 is
   -- 1 + 10^2 + 10^4. Every such id is a block times the multiplier.
   let multiplier := List.range template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
