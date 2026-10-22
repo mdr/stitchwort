@@ -1,5 +1,5 @@
 {
-  "next": 308,
+  "next": 309,
   "tickets": [
     {
       "id": 1,
@@ -3046,8 +3046,8 @@
     },
     {
       "id": 198,
-      "title": "AoC day 8: junction boxes (postponed, D225)",
-      "status": "backlog",
+      "title": "AoC day 8: junction boxes (resumed D535: after the community note; then solve + prove; then gap analysis)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -4739,6 +4739,20 @@
       "commits": [
         "5fdc9a5f"
       ]
+    },
+    {
+      "id": 308,
+      "title": "AoC day 8 community research note (other languages; before our own solution)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
