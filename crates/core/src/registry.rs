@@ -355,6 +355,16 @@ impl Registry {
             .collect()
     }
 
+    /// Forgets the built-ins bound to definitions from `defs` on and data
+    /// types from `datas` on: for undoing declarations that are removed
+    /// again (a check cache entry the kernel refused part of).
+    pub fn forget_from(&mut self, defs: usize, datas: usize) {
+        self.entries.retain(|_, e| match e {
+            Entry::Def(id) => id.0 < defs,
+            Entry::Data(d) | Entry::Ctor(d, _) => d.0 < datas,
+        });
+    }
+
     /// For a test of what depends on the registry: forgets entry `b`, as
     /// if the prelude didn't declare it.
     #[doc(hidden)]
