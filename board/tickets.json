@@ -1,5 +1,5 @@
 {
-  "next": 257,
+  "next": 258,
   "tickets": [
     {
       "id": 1,
@@ -3870,6 +3870,20 @@
         "perf"
       ],
       "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 257,
+      "title": "Glued values: calls keep their written form, unfolded on demand (folded-calls.md stages 1-3; D482 yes, D483 kernel switch off, D484 rewrite sees the unfolded goal)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "After SW-256 (calc fix) merges. docs/proposals/folded-calls.md. Kernel checking unchanged (D483); rewrite/decision search keep seeing the unfolded goal, messages show the folded one (D484). Fresh lane per stage.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
