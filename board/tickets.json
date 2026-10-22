@@ -1,5 +1,5 @@
 {
-  "next": 244,
+  "next": 245,
   "tickets": [
     {
       "id": 1,
@@ -3580,7 +3580,7 @@
     {
       "id": 240,
       "title": "Check cache stage 1: encoder/decoder/replay, cache standard library files (+ differential test)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3589,7 +3589,10 @@
       "body": "docs/proposals/check-cache.md §9 stage 1 (D400). Own binary format (work list, version, checksum, atomic write), replay through the elaborator's own insertion functions, references by path + expected content hash, spans by (path, range). Keys per §4.2 for library files. Kernel re-checks on load (D277 option A) but build it so skipping the kernel is a single switch — D277 reopened. --no-cache; tests/gate never use it except the fresh-vs-cached differential test.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "64c7a586",
+        "464b378d"
+      ]
     },
     {
       "id": 241,
@@ -3629,6 +3632,20 @@
         "aoc"
       ],
       "body": "D407: AoC theorems are stated over the parsed domain model, not text; parsing isn't proved (exception: day 6, whose puzzle is about the text layout). D408: delete aoc/src/Aoc/Day03/Proofs/Best.sw joltageIsLargest (and the parsing-digits lemma it alone needs), bestIsLargest is the headline; update docs/aoc-2025.md and docs/comparisons/aoc-day03-community.md mentions. D409: restate Day 7's part1/part2 correctness (and part2Distinct) over the parsed manifold/grid, like Day 4's part1Correct (grid: Grid), with a puzzle-literal spec over the model. Start after SW-242 (AoC tests move) merges.\n\nD410 (22 Oct 2026, yes): remodel Day 3's bank as a list of Fin 10 digits (a battery is a digit), with a library Char.toDigit: Char -> Option (Fin 10) in Std, so bestIsLargest/bestOptimal lose the Nat.Digits hypothesis. joltage converts with Fin.toNat before Nat.fromDigits.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 244,
+      "title": "Navigation index isn't deterministic: a symbol is Std.Ord.%equal or Std.Ord.equal, with either of two types, across runs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by SW-240: six runs of `stitchwort check --no-cache --index - lib.sw` gave different names/types for one symbol. Likely hash-map iteration order in nav.rs or the lifted-helper naming. The check-cache differential test compares raw nav records for this reason.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
