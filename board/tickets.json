@@ -4033,7 +4033,7 @@
     {
       "id": 266,
       "title": "Sections whose receiver is the last argument elaborate to the partial application; _.name error suggests .name; Day 4 .snd (D506)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4042,7 +4042,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "4a7b680e"
+      ]
     },
     {
       "id": 267,
