@@ -4395,7 +4395,7 @@
     {
       "id": 289,
       "title": "Int lemmas for stage 3c: Int.mulComm, mulZero, mulDistribLeft/Right, addSubCancel, toIntSumBy (part of SW-285, independent of 3a)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4404,7 +4404,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "edd0f21f"
+      ]
     },
     {
       "id": 290,
