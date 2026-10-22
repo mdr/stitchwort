@@ -1528,9 +1528,9 @@
         "proof",
         "design"
       ],
-      "body": "AoC proofs need hand-built arithmetic lemmas because the language has no `omega`/`ring` (docs/aoc-2025.md:96, :182); the day 1 comparison (docs/comparisons/aoc-day01.md, docs/compared.md:116 and :206) found Lean's `omega`, `simp` and `grind` roughly halved proof size. Stitchwort has no tactics, so the way to get such automation is proof by reflection: write an arithmetic normaliser (or a linear-arithmetic decision procedure) as an ordinary total function in the language, prove it sound once, and use it as a proof term (a term-level `omega`). Recommendation 4 from SW-96, large effort; `calc` and `rewrite` (docs/proposals/calc-rewrite.md, built) already give much of the benefit and are cheaper. Note Lean's `omega` can't do `/` or `%` by a variable either.\n\nFirst step: a design note (Opus) scoping a fragment (for example linear `Nat`/`Int` equalities and inequalities over `+`, literal `*`, `<=`, `<`), the soundness proof it needs, and whether checking cost is acceptable given evaluator speed (docs/evaluator-speed.md).\n\nDone when: the note exists with a build/don't-build recommendation and Matt has decided.\n\nHistory: from SW-96 (day 1 comparison), recommendation 4.\n",
+      "body": "AoC proofs need hand-built arithmetic lemmas because the language has no `omega`/`ring` (docs/aoc-2025.md:96, :182); the day 1 comparison (docs/comparisons/aoc-day01.md, docs/compared.md:116 and :206) found Lean's `omega`, `simp` and `grind` roughly halved proof size. Stitchwort has no tactics, so the way to get such automation is proof by reflection: write an arithmetic normaliser (or a linear-arithmetic decision procedure) as an ordinary total function in the language, prove it sound once, and use it as a proof term (a term-level `omega`). Recommendation 4 from SW-96, large effort; `calc` and `rewrite` (docs/proposals/calc-rewrite.md, built) already give much of the benefit and are cheaper. Note Lean's `omega` can't do `/` or `%` by a variable either.\n\nFirst step: a design note (Opus) scoping a fragment (for example linear `Nat`/`Int` equalities and inequalities over `+`, literal `*`, `<=`, `<`), the soundness proof it needs, and whether checking cost is acceptable given evaluator speed (docs/evaluator-speed.md).\n\nDone when: the note exists with a build/don't-build recommendation and Matt has decided.\n\nHistory: from SW-96 (day 1 comparison), recommendation 4.\n\n22 Oct 2026 (day 5 research, D434): acceptance example — Day 5's arithmetic lemmas mergedContains, absorbLo, absorbStacked, coveredTop (aoc/src/Aoc/Day05/Proofs/Part2.sw) are 55 of 162 lines; Lean closes the same side goals with one omega (kim-em) or grind (acarapetis). docs/comparisons/aoc-day05-community.md.",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3524,9 +3524,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Second list batch (D360, D361; docs/comparisons/aoc-day03-community.md): List.maxBy / minBy (by a key or comparison; on a tie the FIRST element wins, documented and tested, since the day 3 trap is that Haskell maximumBy / Clojure max-key return the last), dropWhile, takeWhile, span, dropRight, tails, findIndex, zipWithIndex (or withIndex), splitAt. Main value first, as SW-219. Tests and cheap lemmas.\n\nDone when: all exist in std/List with tests; the maxBy tie rule has a test that tells the rules apart.\n",
+      "body": "Second list batch (D360, D361; docs/comparisons/aoc-day03-community.md): List.maxBy / minBy (by a key or comparison; on a tie the FIRST element wins, documented and tested, since the day 3 trap is that Haskell maximumBy / Clojure max-key return the last), dropWhile, takeWhile, span, dropRight, tails, findIndex, zipWithIndex (or withIndex), splitAt. Main value first, as SW-219. Tests and cheap lemmas.\n\nDone when: all exist in std/List with tests; the maxBy tie rule has a test that tells the rules apart.\n\n22 Oct 2026: candidates from days 4-5 research — List.flatMap (D435), List.cross, Set.map, Set.any (D424, pending).",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
