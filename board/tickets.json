@@ -1,5 +1,5 @@
 {
-  "next": 311,
+  "next": 312,
   "tickets": [
     {
       "id": 1,
@@ -2683,9 +2683,9 @@
     {
       "id": 173,
       "title": "Host the playground publicly on GitHub Pages (D118)",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
-      "where": "workflow merged (manual trigger); go-live steps in docs/publishing.md",
+      "where": "live at https://mdr.github.io/stitchwort/ (manual trigger, D539)",
       "labels": [
         "web"
       ],
@@ -3054,9 +3054,9 @@
     {
       "id": 198,
       "title": "AoC day 8: junction boxes (resumed D535: after the community note; then solve + prove; then gap analysis)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "stage A lane: std additions (D544) + program (D542)",
       "labels": [
         "aoc",
         "postponed"
@@ -4789,6 +4789,20 @@
         "bug"
       ],
       "body": "Found by SW-308 (day 8 note); cause unverified; worked around with flatMap.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 311,
+      "title": "Playground: direct links #aoc/dayNN and #example/<name>, kept in sync with the dropdown (D541)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "playground"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
