@@ -11,8 +11,9 @@ theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len != 0
     _ = x % len % k                      := Nat.modAddMul (x % len) (x / len * t) k)
 
 -- Divisibility, as a test: `Nat.divides d n` when `n` is `t * d` for some
--- `t` (so 0 divides only 0). There is no `Exists`, so taking it apart passes
--- the factor to a continuation, as `List.anyRangeElim` does.
+-- `t` (so 0 divides only 0). It's a `Bool`, so taking it apart passes the
+-- factor to a continuation (`Nat.dividesElim`), as `List.anyRangeElim` does;
+-- `Exists Nat (t => n = t * d)` states it as a proposition.
 def Nat.divides: Nat -> Nat -> Bool
   | Zero,   n => n == 0
   | Succ d, n => n % Succ d == 0

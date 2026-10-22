@@ -18,7 +18,7 @@
 
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
-import Std (And, Bool, DecEq, Eq, List, Map, Nat, Option, Ord, Ordering, Pair, Void)
+import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Ordering, Pair, Void)
 
 -- Counting --------------------------------------------------------------------
 
@@ -159,7 +159,7 @@ theorem countOneOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled
     | MkCounted counts labelBelow labelOwn =>
       let r := c.labelOf 0
       let same: (b: Nat) -> b < n -> c.labelOf b = r :=
-        b h => eqTrue (c.labelOf b) r (And.right (labelsTellOf n done c inv b 0 h some) (one b 0 h some))
+        b h => eqTrue (c.labelOf b) r ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
       rewrite counts,
         List.occurrencesCongMem (b => c.labelOf b == b) (b => r == b) (List.range n)
           (b m => rewrite same b (And.right (List.memRangeFrom b n 0 m)) in rfl)
@@ -176,7 +176,7 @@ theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: L
           onlyOne (b => c.labelOf b == b) n own (c.labelOf a) (c.labelOf b)
             (rewrite labelOwn a ha in eqSelf (c.labelOf a)) (labelBelow a ha)
             (rewrite labelOwn b hb in eqSelf (c.labelOf b)) (labelBelow b hb)
-        And.left (labelsTellOf n done c inv a b ha hb) (rewrite same in eqSelf (c.labelOf a))
+        (labelsTellOf n done c inv a b ha hb).forward (rewrite same in eqSelf (c.labelOf a))
 
 -- No boxes are always in one circuit.
 theorem oneCircuitOfNone (done: List (Nat, Nat)): OneCircuit 0 done := a b ha hb => Void.exfalso (Bool.falseNotTrue ha)
@@ -265,10 +265,6 @@ theorem part2NoBoxesToJoin: (points: List Point) -> points.length <= 1 -> solveP
 
 -- Some connection is the last needed -----------------------------------------
 
--- Some connection is the last one needed.
-type SomeLastNeeded (points: List Point): Prop =
-  | Found (k: Nat) (last: LastNeeded points k)
-
 theorem memRange (x: Nat): (c: Nat) -> (s: Nat) -> s <= x -> x < s + c -> List.Mem x (List.rangeFrom c s)
   | Zero,   s, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (rewrite Nat.addZero s at h2) h1))
   | Succ c, s, h1, h2 =>
@@ -349,19 +345,19 @@ theorem oneAfterTells (points: List Point) (j: Nat) (some: 0 < points.length):
   let ok := allTake (boxesBelow n) j (connectionOrder points) (allOrderInRange points)
   let inv := labelledJoinAll n (firstConnections j points) Nil (Circuits.separate n) ok (labelledAtStart n)
   let counted := countedJoinAll n (firstConnections j points) Nil (Circuits.separate n) ok (labelledAtStart n) (countedAtStart n)
-  Both
-    (h => oneCircuitOfCount n (firstConnections j points) _ inv counted (eqTrue _ 1 h))
-    (one => rewrite countOneOf n (firstConnections j points) _ inv counted some one in eqSelf 1)
+  { forward = h => oneCircuitOfCount n (firstConnections j points) _ inv counted (eqTrue _ 1 h)
+  , backward = one => rewrite countOneOf n (firstConnections j points) _ inv counted some one in eqSelf 1
+  }
 
 -- With two or more boxes, some connection is the last one needed: the first
 -- after which there is one circuit, as all of them make one.
-theorem lastNeededExists (points: List Point) (two: 2 <= points.length): SomeLastNeeded points :=
+theorem lastNeededExists (points: List Point) (two: 2 <= points.length): Exists Nat (LastNeeded points) :=
   let n := points.length
   let some: 0 < n := Nat.leTrans 1 2 n rfl two
   let total := (connectionOrder points).length
   let first := Nat.firstFrom (oneAfter points) (Succ total) 0
   let atEnd: oneAfter points total = True :=
-    And.right (oneAfterTells points total some)
+    (oneAfterTells points total some).backward
       (rewrite List.takeAll total (connectionOrder points) (Nat.leRefl total) in allConnectionsJoinAll points)
   let found: oneAfter points first = True :=
     Nat.firstFromFound (oneAfter points) (Succ total) 0 total (Nat.zeroLe total) (Nat.leRefl (Succ total)) atEnd
@@ -372,7 +368,7 @@ theorem lastNeededExists (points: List Point) (two: 2 <= points.length): SomeLas
   match g: first with
     | Zero   => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym notAtStart) found))
     | Succ k =>
-      Found k (Both
-        (And.left (oneAfterTells points (Succ k) some) found)
+      Witness k (Both
+        ((oneAfterTells points (Succ k) some).forward found)
         (one => Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.firstFromBefore (oneAfter points) (Succ total) 0 k (Nat.zeroLe k)
-            (rewrite g in Nat.leRefl (Succ k)))) (And.right (oneAfterTells points k some) one))))
+            (rewrite g in Nat.leRefl (Succ k)))) ((oneAfterTells points k some).backward one))))

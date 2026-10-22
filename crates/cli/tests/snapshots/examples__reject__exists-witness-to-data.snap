@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROP-ELIM] Error: can't match on a proof of `Exists` to produce data
+    ╭─[ reject/exists-witness-to-data.sw:9:3 ]
+    │
+  9 │ ╭─▶   match h with
+ 10 │ ├─▶     | Witness x p => x
+    │ │                            
+    │ ╰──────────────────────────── the result type `Nat` isn't a proposition
+    │     
+    │     Note: `Exists` is a proposition, so its proofs are erased at runtime. Matching on one can only produce data when the proposition has at most one constructor and every field is itself a proof.
+────╯

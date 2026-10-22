@@ -734,7 +734,7 @@ theorem List.anyElim (p: a -> Prop) (goal: Prop): (xs: List a) -> List.Any p xs 
   | Cons z zs, Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
 
 -- What is in `List.map f xs` is `f x` for some `x` in `xs` (said with
--- `List.Any`, since the library has no `Exists`).
+-- `List.Any`, which also says where `x` is: `Exists` wouldn't).
 theorem List.memMapAny (f: a -> b) (y: b): (xs: List a) -> List.Mem y (List.map f xs) -> List.Any (x => f x = y) xs
   | Nil,       h => h
   | Cons z zs, Inl h => Inl h

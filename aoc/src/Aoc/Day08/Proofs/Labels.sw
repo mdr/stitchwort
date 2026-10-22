@@ -210,9 +210,10 @@ theorem labelsTellOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labell
     Tells n done (a b => c.labelOf a == c.labelOf b) :=
   match inv with
     | MkLabelled stored inRange agree labelJoined =>
-      a b ha hb => Both
-        (same => Chain (labelJoined a ha) (rewrite eqTrue (c.labelOf a) (c.labelOf b) same in Backwards (labelJoined b hb)))
-        (j => rewrite sameLabelOfJoined c.labelOf done agree a b j in eqSelf (c.labelOf b))
+      a b ha hb =>
+        { forward = same => Chain (labelJoined a ha) (rewrite eqTrue (c.labelOf a) (c.labelOf b) same in Backwards (labelJoined b hb))
+        , backward = j => rewrite sameLabelOfJoined c.labelOf done agree a b j in eqSelf (c.labelOf b)
+        }
 
 -- After joining any connections between the boxes 0 to n - 1, in order, two
 -- of the boxes have the same label exactly when the connections join them.
