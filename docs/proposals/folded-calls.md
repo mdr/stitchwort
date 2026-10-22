@@ -364,6 +364,94 @@ Each stage is a lane of its own, merged when the full gate passes.
 4. **Optional, later (D483):** let the kernel compare same calls by their
    arguments first too, if its conversion still shows up in profiles.
 
+### As built (stage 1, SW-257)
+
+*What's there.* `Value::Call(DefId, Spine, Rc<Unfolding>)` in `value.rs`,
+switched by `Globals::glue` (off). While on, `unfold` keeps a definition
+about to run its case tree as the call; natives, dictionaries and running
+programs never glue. `force` is the `whnf`: it replaces a solved
+metavariable or a call at the top, so every place that already forced for
+metavariables handles calls too. The machine forces a call when it's
+applied, matched on, or the proof of a `J`; `quote` reads back the
+unfolding; the kernel's `conv` compares unfoldings (D483); the elaborator's
+`unify` tries two calls of the same definition by their arguments first,
+undoing what that solved if it fails (the dictionary rule, now shared). A
+call's unfolding is kept in the shared cell with `Globals::meta_epoch`,
+which moves whenever metavariable solutions are undone or cleared, so an
+unfolding that may have used a taken-back solution is recomputed.
+
+The kernel's entry points run with gluing off (`elab/src/kernel.rs`
+`unglued`, debug-asserted in `define_group` and `declare_def`), as do the
+kernel inferences `rewrite` and matching borrow (D484). The kernel's own
+code gained only `force` at the places it takes apart a type that may come
+from the elaborator (`check`'s expected type, an application's function
+type, `J`'s proof type, a case's scrutinee type, `telescope`,
+`is_type_former`); on its own values these return the value unchanged.
+Elaborator sites that took values apart without forcing were routed
+(`auto.rs`, `calc.rs`, `check.rs` `annotate`, `library.rs`).
+`crates/core/tests/glue.rs` exercises the form directly.
+`STITCHWORT_GLUE=1` turns gluing on in `Elaborator::new`, as a testing aid
+for the next stages.
+
+*Measured* (`aoc/`, `check --no-cache`, release, against `main` at
+`e2c8603d` built in the same directory):
+
+| | `main` | stage 1 (off) | stage 1, `STITCHWORT_GLUE=1` |
+|---|---:|---:|---:|
+| nodes, whole project | 850,922 | 850,922 | 850,863 |
+| `Aoc.Day02.Proofs` nodes | 198,294 | 198,294 | 198,274 |
+| `Aoc.Day04.Proofs` nodes | 211,425 | 211,425 | 211,425 |
+| `Aoc.Day01.Proofs` nodes | 43,671 | 43,671 | 43,671 |
+| `std/Mod/Mod.sw` nodes | 170,195 | 170,195 | 170,195 |
+| instructions retired | 18.80–18.83 G | 19.05–19.06 G (+1.3%) | 19.65 G (+4.5%) |
+| peak memory | 102 MB | 102 MB | 102 MB |
+
+With gluing off, every declaration's evaluation steps and nodes are the
+same as `main`'s (the ten largest: `dividesOfWritten` 4,848,582 steps,
+`passRow` 1,220,969, `Mod.addAssoc` 1,099,062, …, unchanged), and
+`check` prints byte-for-byte the same on all 415 files of
+`examples/accept` and `examples/reject`. The extra 1.3% of instructions is
+the cost of the new form while unused: adding the variant alone (no code
+using it) measured +0.5%; the rest is the tests for it on the
+evaluator's paths, after moving everything gluing-only out of line (a
+first version cost 2.5%). Times are within the machine's noise.
+
+*Gluing on, as a preview of stage 2.* With `STITCHWORT_GLUE=1`, `check`
+still prints exactly the same on all 415 example files, the AoC project
+checks, and `stitchwort test --no-cache` passes 112 of 112, so the routing
+holds up on everything we have. It costs instructions (+4.5%) and gains
+nothing yet: read-back still unfolds every call (that's stage 3). Two
+things it showed, for stage 2:
+
+- **Some elaborated terms change**, though read-back is unfolded:
+  `hash_stability` differs for the prelude and 7 example files. In
+  `examples/accept/and-or-not.sw`, `pick`'s `y < 10` gets its decision
+  from a different definition applied to `y 10` (as written) where `main`
+  has one applied to `y 9` (`y < 10` unfolded to `y <= 9`): the decision
+  search matched the call `y < 10` by its arguments before unfolding.
+  That's §8's "different hidden-argument solutions", and it touches D484
+  (the decision search was to see the unfolded goal): stage 2 must either
+  let the search see the unfolded goal or accept the different, equally
+  valid, decisions and their hashes.
+- **Gluing must be on only while elaborating.** The switch in `Globals`
+  stays on after elaboration, so evaluation done later on the same
+  globals (driver tests that count steps without erasure, compare with the
+  reference evaluator, or read a value's shape) sees calls: 9 driver
+  tests fail with `STITCHWORT_GLUE=1` for that reason alone (besides the
+  2 hash tests above; 2 more that read a raw `eval` result now force it
+  first). Stage 2 should
+  turn gluing on around the elaboration of a declaration, not for the
+  session.
+
+*Next.* Stage 2: decide the two points above, switch gluing on while
+elaborating, and compare `check` over `examples/`, AoC and the library as
+above (now cheap to rerun). Stage 3: a folded read-back for
+hidden-argument solutions (`unify.rs` `rename`), zonking, lifted helper
+types and messages, keeping the unfolded one for `rewrite`'s search,
+`refold` and `unify_index`'s occurs check (whose variables inside a call's
+arguments may not survive unfolding); that's where the node counts and
+times in §5 should move.
+
 ## 8. Risks
 
 - **A missed place in stage 1** shows up as a spurious "can't decide",

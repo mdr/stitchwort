@@ -2328,8 +2328,8 @@ fn ctor_app(
 /// Wraps an inferred constructor in a type annotation, so the kernel (which
 /// can only check constructors of parameterised types) can infer it too.
 fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
-    Ok(match ty {
-        Value::Data(d, _) if !cx.g().data(*d).params.is_empty() => {
+    Ok(match force(cx.g(), ty.clone())? {
+        Value::Data(d, _) if !cx.g().data(d).params.is_empty() => {
             Term::Ann(Rc::new(term), Rc::new(cx.quote(ty)?))
         }
         _ => term,

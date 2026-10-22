@@ -61,6 +61,14 @@ fn unify_step(
     b: &Value,
     work: &mut Vec<Task>,
 ) -> Result<bool> {
+    // Two calls of the same definition (`Value::Call`): their arguments
+    // first, as for dictionaries below; otherwise their unfoldings.
+    if let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b)
+        && i1 == i2
+        && same_arguments(g, level, s1, s2)?
+    {
+        return Ok(true);
+    }
     let a = force(g, a.clone())?;
     let b = force(g, b.clone())?;
     let is_meta = |v: &Value| matches!(v, Value::Neutral(Head::Meta(_), _));
@@ -85,23 +93,9 @@ fn unify_step(
     if !is_meta(&a) && !is_meta(&b) && (is_folded(g, &a) || is_folded(g, &b)) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
-            && let Some(pairs) = spine_pairs(level, s1, s2)
+            && same_arguments(g, level, s1, s2)?
         {
-            let trail = g.meta_trail.borrow().len();
-            let mut same = true;
-            for pair in pairs {
-                let Task::Values(l, x, y) = pair else {
-                    unreachable!()
-                };
-                if !unify(g, l, &x, &y)? {
-                    same = false;
-                    break;
-                }
-            }
-            if same {
-                return Ok(true);
-            }
-            undo_since(g, trail);
+            return Ok(true);
         }
         let a2 = unfold_folded(g, &a)?;
         let b2 = unfold_folded(g, &b)?;
@@ -250,10 +244,32 @@ fn unify_step(
     })
 }
 
+/// Whether the spines of two calls of the same definition unify, element by
+/// element. What that solves is kept only if they all do.
+fn same_arguments(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+    let Some(pairs) = spine_pairs(level, s1, s2) else {
+        return Ok(false);
+    };
+    let trail = g.meta_trail.borrow().len();
+    for pair in pairs {
+        let Task::Values(l, x, y) = pair else {
+            unreachable!()
+        };
+        if !unify(g, l, &x, &y)? {
+            undo_since(g, trail);
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 /// Undoes the metavariable solutions made since the trail was `len` long.
 fn undo_since(g: &Globals, len: usize) {
     let mut metas = g.metas.borrow_mut();
     let mut trail = g.meta_trail.borrow_mut();
+    if trail.len() > len {
+        g.metas_taken_back();
+    }
     while trail.len() > len {
         let (m, old) = trail.pop().expect("longer");
         if let Some(meta) = metas.get_mut(m) {
@@ -450,6 +466,8 @@ fn rename(
             };
             rename_spine(g, m, renaming, dom, cod, head, &spine)?
         }
+        // Solutions are read back unfolded: `force` gave the unfolding.
+        Value::Call(..) => unreachable!("a forced value is never a call"),
     })
 }
 

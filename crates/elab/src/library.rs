@@ -622,7 +622,10 @@ impl Elaborator {
             let mut ty = g.def(DefId(id)).ty_value.clone();
             let mut level = 0;
             while let Value::Pi(_, _, _, cod) = &ty {
-                let Ok(next) = cod.apply(g, Value::var(level)) else {
+                let Ok(next) = cod
+                    .apply(g, Value::var(level))
+                    .and_then(|v| stitchwort_core::value::force(g, v))
+                else {
                     break;
                 };
                 ty = next;

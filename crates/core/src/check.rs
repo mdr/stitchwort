@@ -13,7 +13,7 @@ use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, Sort, Term};
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
-use crate::value::{Value, apply, conv, eval, quote, unused};
+use crate::value::{Value, apply, conv, eval, force, force_ref, quote, unused};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -302,7 +302,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::App(f, a, icit) => {
             let (f, f_ty) = infer(cx, f)?;
-            match f_ty {
+            match force(g, f_ty)? {
                 Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
                     let a = check(cx, a, &dom)?;
                     // As `Closure::apply_lazy`: `a` is computed only if the
@@ -404,6 +404,9 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
 pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     let g = cx.g;
     g.budget.nesting(PASS)?;
+    // A type the elaborator passed in may be a call (`Value::Call`); the
+    // kernel's own values never are, so this changes nothing for them.
+    let expected = &*force_ref(g, expected)?;
     match (term, expected) {
         (Term::Loc(span, inner), _) => {
             let saved = std::mem::replace(&mut cx.span, *span);
@@ -554,7 +557,7 @@ fn check_ctor_fields(
 
 pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
     let (term, ty) = infer(cx, term)?;
-    match ty {
+    match force(cx.g, ty)? {
         Value::Sort(s) => Ok((term, s)),
         other => Err(cx.error(
             "E-NOT-A-TYPE",
@@ -587,7 +590,7 @@ fn check_let_value(
 
 /// The universe that `ty` lives in.
 fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
-    if let Value::Sort(s) = ty {
+    if let Value::Sort(s) = &*force_ref(cx.g, ty)? {
         return Ok(s.succ());
     }
     let term = cx.quote(ty)?;
@@ -597,6 +600,7 @@ fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
 fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
     let (proof, proof_ty) = infer(cx, proof)?;
+    let proof_ty = force(g, proof_ty)?;
     let Value::Eq(ty, x, y) = proof_ty else {
         return Err(cx.error(
             "E-TYPE-MISMATCH",
@@ -682,7 +686,7 @@ fn check_case(
             format!("a match on `{}`, which isn't finished", data.name),
         ));
     }
-    let args = match &cx.types[x] {
+    let args = match &*force_ref(g, &cx.types[x])? {
         Value::Data(d2, args) if *d2 == d => args.clone(),
         other => {
             return Err(cx.error(
@@ -1015,7 +1019,7 @@ fn check_num_case(
     }
     // The elaborator only compiles a column of a `Nat` to a number case, so
     // anything else is a compiler bug.
-    match &cx.types[x] {
+    match &*force_ref(g, &cx.types[x])? {
         Value::Data(d, params) if *d == nat && params.is_empty() => {}
         other => {
             return Err(malformed(
@@ -1124,6 +1128,7 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
 /// - Termination is decided for the whole group at once, from every call
 ///   between any two members.
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
+    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
     // Refused before anything changes: an empty group, or an id that isn't
     // a definition at all.
     if members.is_empty() {
@@ -1240,6 +1245,7 @@ pub fn declare_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
+    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
     let mut cx = Ctx::new(g, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
@@ -2253,7 +2259,7 @@ fn shaped_like_decidable(g: &Globals, decidable: DataId) -> bool {
 pub fn is_type_former(g: &Globals, level: usize, ty: &Value) -> budget::Result<bool> {
     let (mut level, mut ty) = (level, ty.clone());
     loop {
-        match ty {
+        match force(g, ty)? {
             Value::Sort(_) => return Ok(true),
             Value::Pi(_, _, _, cod) => {
                 ty = cod.apply(g, Value::var(level))?;
@@ -2278,13 +2284,13 @@ pub struct Telescope {
 pub fn telescope(g: &Globals, ty: &Value, span: Span) -> Result<Telescope> {
     let mut cx = Ctx::new(g, span);
     let mut params = Vec::new();
-    let mut ty = ty.clone();
+    let mut ty = force(g, ty.clone())?;
     while let Value::Pi(x, _, dom, cod) = &ty {
         let erased = is_erased(&mut cx, dom)?;
         let next = cod.apply(g, Value::var(cx.level()))?;
         cx.bind(x.clone(), (**dom).clone());
         params.push((x.clone(), (**dom).clone(), erased));
-        ty = next;
+        ty = force(g, next)?;
     }
     let result_erased = is_erased(&mut cx, &ty)?;
     Ok(Telescope {

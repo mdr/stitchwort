@@ -484,7 +484,7 @@ fn check_motive(
         return Ok(()); // something isn't known yet: checked when it's admitted
     };
     let mut kcx = kernel::Ctx::new(cx.g(), span);
-    match kernel::check_type(&mut kcx, &ty) {
+    match kernel::without_glue(cx.g(), || kernel::check_type(&mut kcx, &ty)) {
         Ok(_) => Ok(()),
         Err(d) if crate::undo::fatal(&d) => Err(d),
         Err(d) => Err(motive_error(

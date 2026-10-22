@@ -38,6 +38,33 @@ pub enum Value {
     /// A computation stuck on a variable or an unsolved metavariable, or a
     /// folded definition.
     Neutral(Head, Spine),
+    /// A definition applied to all its parameters, kept as the call while
+    /// gluing ([`Globals::glue`], docs/proposals/folded-calls.md). It means
+    /// its unfolding, which [`force`] computes the first time something
+    /// looks inside and every copy of the call then shares. The spine has
+    /// only applications.
+    Call(DefId, Spine, Rc<Unfolding>),
+}
+
+/// The unfolding of a [`Value::Call`] once computed: the value the call
+/// unfolds to, forced (no `Call` or solved metavariable at its top), with
+/// the [`Globals::meta_epoch`] it was computed at. One from an earlier epoch
+/// may have used a metavariable solution that's since been taken back, so
+/// it's computed again.
+#[derive(Debug, Default)]
+pub struct Unfolding(std::cell::RefCell<Option<(u64, Value)>>);
+
+impl Unfolding {
+    fn get(&self, g: &Globals) -> Option<Value> {
+        match &*self.0.borrow() {
+            Some((epoch, value)) if *epoch == g.meta_epoch.get() => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn set(&self, g: &Globals, value: Value) {
+        *self.0.borrow_mut() = Some((g.meta_epoch.get(), value));
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -273,6 +300,14 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             unwrap(a);
             unwrap(b);
         }
+        Value::Call(_, spine, unfolding) => {
+            if let Ok(unfolding) = Rc::try_unwrap(unfolding)
+                && let Some((_, value)) = unfolding.0.into_inner()
+            {
+                pending.push(value);
+            }
+            pending.push(Value::Neutral(Head::Var(0), spine));
+        }
         Value::Neutral(_, spine) => {
             // Only the last owner takes the eliminations apart.
             let elims = match spine.0 {
@@ -335,14 +370,41 @@ pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value
     run(g, Control::Apply(Box::new((f, arg, icit))))
 }
 
-/// Replaces a solved metavariable at the head of `value` by its solution.
+/// What looking inside `value` sees (its weak head, as far as the
+/// elaborator's additions go): a solved metavariable at its head is
+/// replaced by its solution, and a call ([`Value::Call`]) by its unfolding,
+/// until neither is at the top. Everything that takes a value apart by its
+/// shape calls this first. Without metavariables and gluing (the kernel),
+/// it returns `value` as it is.
+#[inline]
 pub fn force(g: &Globals, value: Value) -> Result<Value> {
-    match &value {
-        Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some() => {
-            run(g, Control::Force(value))
-        }
-        _ => Ok(value),
+    if needs_forcing(g, &value) {
+        force_now(g, value)
+    } else {
+        Ok(value)
     }
+}
+
+/// [`force`] for a value it changes: a call's kept unfolding if there is
+/// one, or else the machine.
+#[inline(never)]
+fn force_now(g: &Globals, value: Value) -> Result<Value> {
+    if let Value::Call(_, _, unfolding) = &value
+        && let Some(unfolded) = unfolding.get(g)
+        && !needs_forcing(g, &unfolded)
+    {
+        return Ok(unfolded);
+    }
+    run(g, Control::Force(value))
+}
+
+/// [`force`] on a borrowed value, copying it only if forcing changes it.
+pub fn force_ref<'v>(g: &Globals, value: &'v Value) -> Result<std::borrow::Cow<'v, Value>> {
+    Ok(if needs_forcing(g, value) {
+        std::borrow::Cow::Owned(force(g, value.clone())?)
+    } else {
+        std::borrow::Cow::Borrowed(value)
+    })
 }
 
 /// A short description of a value for internal errors, which mustn't print
@@ -359,6 +421,7 @@ fn describe(value: &Value) -> &'static str {
         Value::Eq(..) => "an equation",
         Value::Refl => "rfl",
         Value::Neutral(..) => "a stuck term",
+        Value::Call(..) => "a call",
     }
 }
 
@@ -447,6 +510,10 @@ enum Frame {
     Replay { spine: Spine, next: usize },
     /// The forced value a `J` elimination at `spine[next]` applies to.
     ReplayJ { spine: Spine, next: usize },
+    /// The forced function of an application of a call to `arg`.
+    AppTo(Value, Icit),
+    /// The unfolding of a call, to force and then keep.
+    Unfolded(Rc<Unfolding>),
 }
 
 #[cfg(any(test, feature = "reference"))]
@@ -477,8 +544,54 @@ fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
             spine.push(Elim::App(arg, icit));
             Control::Return(Value::Neutral(head, spine))
         }
+        // Its unfolding is a function: `run` forces it first.
+        f @ Value::Call(..) => apply_later(f, arg, icit),
         other => panic!("internal error: applying {}", describe(&other)),
     }
+}
+
+// The machine's steps for calls (`Value::Call`), out of line: they only
+// happen while gluing, and the evaluator's hot path stays as it was.
+
+/// Applying call `f` to `arg`: `run` forces `f` first ([`apply_call`]).
+#[cold]
+#[inline(never)]
+fn apply_later(f: Value, arg: Value, icit: Icit) -> Control {
+    Control::Apply(Box::new((f, arg, icit)))
+}
+
+/// Applying call `f` to `arg`: its unfolding, once forced, is applied.
+#[cold]
+#[inline(never)]
+fn apply_call(
+    g: &Globals,
+    stack: &mut Vec<Frame>,
+    f: Value,
+    arg: Value,
+    icit: Icit,
+) -> Result<Control> {
+    push(g, stack, Frame::AppTo(arg, icit))?;
+    Ok(Control::Force(f))
+}
+
+/// Forcing a call: its kept unfolding, or else unfolding it now, to be
+/// kept (`Frame::Unfolded`).
+#[cold]
+#[inline(never)]
+fn force_call(
+    g: &Globals,
+    stack: &mut Vec<Frame>,
+    id: DefId,
+    spine: Spine,
+    unfolding: Rc<Unfolding>,
+) -> Result<Control> {
+    Ok(match unfolding.get(g) {
+        Some(unfolded) => Control::Force(unfolded),
+        None => {
+            push(g, stack, Frame::Unfolded(unfolding))?;
+            unfold_now(g, id, spine, false)?
+        }
+    })
 }
 
 /// Applying a closure: evaluating its body with the argument added.
@@ -503,7 +616,11 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
             Control::Eval(term, env) => eval_step(g, term, env, &mut stack)?,
             Control::Apply(application) => {
                 let (f, arg, icit) = *application;
-                apply_step(f, arg, icit)
+                if let Value::Call(..) = f {
+                    apply_call(g, &mut stack, f, arg, icit)?
+                } else {
+                    apply_step(f, arg, icit)
+                }
             }
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
             Control::Tree(node, env, stuck) => {
@@ -537,6 +654,9 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
                     }
                     None => Control::Return(Value::Neutral(Head::Meta(m), spine)),
                 },
+                Value::Call(id, spine, unfolding) => {
+                    force_call(g, &mut stack, id, spine, unfolding)?
+                }
                 other => Control::Return(other),
             },
             Control::Return(value) => match stack.pop() {
@@ -925,6 +1045,16 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             )?;
             Control::Return(result)
         }
+        Frame::AppTo(arg, icit) => apply_step(value, arg, icit),
+        Frame::Unfolded(unfolding) => {
+            if needs_forcing(g, &value) {
+                push(g, stack, Frame::Unfolded(unfolding))?;
+                Control::Force(value)
+            } else {
+                unfolding.set(g, value.clone());
+                Control::Return(value)
+            }
+        }
     })
 }
 
@@ -949,9 +1079,15 @@ pub fn expand_step(g: &Globals, value: Value) -> Value {
     }
 }
 
-/// Whether `value` is headed by a solved metavariable.
+/// Whether [`force`] would change `value`: it's headed by a solved
+/// metavariable, or it's a call.
+#[inline]
 fn needs_forcing(g: &Globals, value: &Value) -> bool {
-    matches!(value, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some())
+    match value {
+        Value::Neutral(Head::Meta(m), _) => g.meta_solution(*m).is_some(),
+        Value::Call(..) => true,
+        _ => false,
+    }
 }
 
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
@@ -1027,8 +1163,25 @@ fn stuck_tree(stuck: Option<(DefId, Spine)>) -> Control {
 }
 
 /// A definition applied to `spine`: its native implementation, or its case
-/// tree if it has all its arguments, or else it stays folded.
+/// tree if it has all its arguments (kept as the call instead while gluing,
+/// [`glues`]), or else it stays folded.
 fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
+    unfold_now(g, id, spine, true)
+}
+
+/// Whether definition `id`, about to run its case tree, is kept as a call
+/// ([`Value::Call`]) instead: gluing is on ([`Globals::glue`]), no program
+/// is running, and it isn't a native (which computes at once on numbers).
+/// Dictionaries, folded by name already, never get this far.
+#[cold]
+#[inline(never)]
+fn glues(g: &Globals, id: DefId) -> bool {
+    !g.erasure.active() && g.builtins.native(id).is_none()
+}
+
+/// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
+#[inline(always)]
+fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
@@ -1054,6 +1207,9 @@ fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
             })
             .collect();
         if let Some(args) = args {
+            if glue && g.glue.get() && glues(g, id) {
+                return Ok(Control::Return(Value::Call(id, spine, Rc::default())));
+            }
             let tree = Term::peel_lams_rc(body, def.arity);
             return Ok(Control::Tree(tree, args, Some((id, spine))));
         }
@@ -1303,6 +1459,8 @@ fn visit(
             tasks.push(QuoteTask::Spine(head, shape));
             visit_all(tasks, &parts);
         }
+        // Read back unfolded: `force` gave the unfolding.
+        Value::Call(..) => unreachable!("a forced value is never a call"),
     }
     Ok(())
 }
@@ -1511,6 +1669,14 @@ fn conv_step(
                 };
                 spines || push_eta(g, level, &a, &b, work)?
             }
+        }
+        // Calls are compared by their unfoldings (D483: the kernel doesn't
+        // compare two calls by their arguments first). The cases above
+        // that a call can reach (numbers, compact lists, dictionaries, eta)
+        // look inside it themselves.
+        (Value::Call(..), _) | (_, Value::Call(..)) => {
+            work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
+            true
         }
         _ => push_eta(g, level, &a, &b, work)?,
     })
@@ -1777,6 +1943,23 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
                     ) => {
                         work.push(Same::Values(m1, m2));
                         work.push(Same::Values(b1, b2));
+                    }
+                    _ => return false,
+                }
+            }
+            true
+        }
+        (Value::Call(i1, s1, u1), Value::Call(i2, s2, u2)) => {
+            if Rc::ptr_eq(u1, u2) {
+                return true;
+            }
+            if i1 != i2 || s1.len() != s2.len() {
+                return false;
+            }
+            for pair in s1.iter().zip(s2) {
+                match pair {
+                    (Elim::App(x, i1), Elim::App(y, i2)) if i1 == i2 => {
+                        work.push(Same::Values(x, y));
                     }
                     _ => return false,
                 }

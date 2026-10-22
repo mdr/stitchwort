@@ -13,12 +13,30 @@ use crate::timings::kernel_call;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
+/// A kernel call, timed, with gluing off (`Globals::glue`): the kernel
+/// checks as it always has (D483, docs/proposals/folded-calls.md).
+fn unglued<T>(g: &mut Globals, f: impl FnOnce(&mut Globals) -> T) -> T {
+    let was = g.glue.replace(false);
+    let out = kernel_call(|| f(g));
+    g.glue.set(was);
+    out
+}
+
+/// `f` with gluing off: for the kernel's inference, which `rewrite` and
+/// matching use on the elaborator's terms.
+pub fn without_glue<T>(g: &Globals, f: impl FnOnce() -> T) -> T {
+    let was = g.glue.replace(false);
+    let out = f();
+    g.glue.set(was);
+    out
+}
+
 pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    kernel_call(|| k::define_def(g, id, body))
+    unglued(g, |g| k::define_def(g, id, body))
 }
 
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    kernel_call(|| k::define_group(g, members))
+    unglued(g, |g| k::define_group(g, members))
 }
 
 pub fn declare_def(
@@ -29,7 +47,7 @@ pub fn declare_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    kernel_call(|| k::declare_def(g, name, ty, theorem, export, span))
+    unglued(g, |g| k::declare_def(g, name, ty, theorem, export, span))
 }
 
 #[allow(dead_code)]
@@ -40,7 +58,7 @@ pub fn declare_data(
     sort: Sort,
     span: Span,
 ) -> Result<DataId> {
-    kernel_call(|| k::declare_data(g, name, params, sort, span))
+    unglued(g, |g| k::declare_data(g, name, params, sort, span))
 }
 
 pub fn declare_data_group(
@@ -49,7 +67,7 @@ pub fn declare_data_group(
     sort: Sort,
     members: Vec<(Name, Span)>,
 ) -> Result<Vec<DataId>> {
-    kernel_call(|| k::declare_data_group(g, params, sort, members))
+    unglued(g, |g| k::declare_data_group(g, params, sort, members))
 }
 
 #[allow(dead_code)]
@@ -59,7 +77,7 @@ pub fn declare_data_group_as(
     sort: Sort,
     members: Vec<(Name, Span, bool)>,
 ) -> Result<Vec<DataId>> {
-    kernel_call(|| k::declare_data_group_as(g, params, sort, members))
+    unglued(g, |g| k::declare_data_group_as(g, params, sort, members))
 }
 
 pub fn declare_indexed_data_group(
@@ -68,14 +86,16 @@ pub fn declare_indexed_data_group(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
-    kernel_call(|| k::declare_indexed_data_group(g, params, sort, members))
+    unglued(g, |g| {
+        k::declare_indexed_data_group(g, params, sort, members)
+    })
 }
 
 #[allow(dead_code)]
 pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
-    kernel_call(|| k::define_ctors(g, d, ctors))
+    unglued(g, |g| k::define_ctors(g, d, ctors))
 }
 
 pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
-    kernel_call(|| k::define_data_group(g, members))
+    unglued(g, |g| k::define_data_group(g, members))
 }
