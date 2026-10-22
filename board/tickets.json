@@ -1,5 +1,5 @@
 {
-  "next": 245,
+  "next": 248,
   "tickets": [
     {
       "id": 1,
@@ -3506,14 +3506,16 @@
     {
       "id": 234,
       "title": "Library loading triggers on short names across namespaces (Mod.add loads for every List program)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "body": "Lazy library loading triggers on short names: a library file loads whenever any of its functions' last name component matches a field or method used anywhere (e.g. `add.zeroAdd`, `Add.add`). SW-229 found that naming Mod helpers `Mod.add`/`Mod.zero`/`Mod.zeroAdd` made every List program load Mod.sw (List.range test 0.14 s -> 0.33 s); worked around by renaming them (addMod, zeroMod, ...). The index should only trigger a load when the name can actually resolve into that file (namespace-aware), so library authors can use natural names.\n\nDone when: Mod's helpers could be named add/zero without loading Mod.sw for List programs (a test measures which files load), and the names are restored.\n",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "c32e2fe3"
+      ]
     },
     {
       "id": 235,
@@ -3664,6 +3666,48 @@
       "commits": [
         "04520bb9"
       ]
+    },
+    {
+      "id": 245,
+      "title": "Check cache stage 2: project namespaces (Merkle keys, warnings + nav replay, test-cache eviction)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "docs/proposals/check-cache.md §9 stage 2 (D411). D277 still open: kernel re-checks.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 246,
+      "title": "Ord.byKey takes < and <= from the key's own relations, so < on Fin/Mod/Vec reduces to < on the key (D414)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 247,
+      "title": "AoC days 4-7: community research (Arctic Shift megathreads, Lean/Idris/Agda/FP solutions), one note + artifact per day (D413)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "research"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
