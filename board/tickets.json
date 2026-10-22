@@ -3473,7 +3473,7 @@
     {
       "id": 232,
       "title": "Fast runtime stage 3: wiring and differential tests",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3485,13 +3485,13 @@
     {
       "id": 233,
       "title": "Fast runtime stage 4: tuning",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "In-place reuse (Perceus/Lean style), combined instructions, measured against bench/baseline.toml. fast-runtime.md stage 4.\n\nD381 (Matt, 21 Oct 2026).\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
