@@ -737,19 +737,35 @@ def List.unzip: List (Pair a b) -> Pair (List a) (List b)
   | Nil                  => MkPair Nil Nil
   | Cons (MkPair x y) ps => List.unzipCons x y (List.unzip ps)
 
+-- Dropping elements never makes a list longer.
+theorem List.lengthDropLe: (n: Nat) -> (xs: List a) -> List.length (List.drop n xs) <= List.length xs
+  | Zero,   xs        => Nat.leRefl (List.length xs)
+  | Succ n, Nil       => rfl
+  | Succ n, Cons x xs => Nat.leTrans (List.length (List.drop n xs)) (List.length xs) (Succ (List.length xs)) (List.lengthDropLe n xs) (Nat.leSucc (List.length xs))
+
+-- Dropping at least one element of a non-empty list leaves a shorter list.
+theorem List.dropConsLess: (n: Nat) -> (x: a) -> (xs: List a) -> n != 0 -> List.length (List.drop n (Cons x xs)) < List.length (Cons x xs)
+  | Zero,   x, xs, h => Void.exfalso (h rfl)
+  | Succ n, x, xs, h => Nat.leLessSucc (List.length (List.drop n xs)) (List.length xs) (List.lengthDropLe n xs)
+
 -- Chunks of `n` elements, in order; the last chunk is shorter when `n` doesn't
 -- divide the length. `n = 0` is no sensible chunk size, so it gives the whole
--- list as one chunk (`[xs]`, or `[]` for an empty `xs`). Total through fuel:
--- one unit per element is enough, as every chunk takes one element at least.
-def List.chunksOfFuel (n: Nat): Nat -> List a -> List (List a)
-  | Zero,   xs        => Nil
-  | Succ f, Nil       => Nil
-  | Succ f, Cons x xs => Cons (List.take n (Cons x xs)) (List.chunksOfFuel n f (List.drop n (Cons x xs)))
+-- list as one chunk (`[xs]`, or `[]` for an empty `xs`).
+def List.chunksOfPositive (n: Nat) (xs: List a) [auto pos: n != 0]: List (List a)
+  decreasing List.length xs
+:=
+  match xs with
+    | Nil       => Nil
+    | Cons y ys => Cons (List.take n (Cons y ys)) (List.chunksOfPositive n (List.drop n (Cons y ys)) [decreasing := List.dropConsLess n y ys pos])
 
 -- `xs` is the main value: `xs.chunksOf 2`. `[1, 2, 3].chunksOf 2` is
 -- `[[1, 2], [3]]`.
 def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
-  List.chunksOfFuel (if n == 0 then List.length xs else n) (List.length xs) xs
+  match n with
+    | Zero   => match xs with
+                  | Nil       => Nil
+                  | Cons y ys => Cons (Cons y ys) Nil
+    | Succ k => List.chunksOfPositive (Succ k) xs
 
 -- The elements without repeats, keeping the first occurrence of each and the
 -- order. `seen` is what came before. Needs `DecEq`; quadratic.
