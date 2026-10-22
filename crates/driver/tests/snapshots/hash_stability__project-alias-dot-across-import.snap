@@ -1,0 +1,10 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Shop.Bank cae94701a621eaba73f65bcd0bc07fc9822e6d6c9f7d773c1abed2aa6cd39111
+Shop.Bank.total 583269305120e2fe31125aad00cf4d161031969def6ce474af06931b89c4439a
+Shop.sameTotalHome 79b4b5896dbab65717a92dbd6fdfca3756dd135aa1441e31485b5f449ef4f684
+Checks.viaDot ce963690d63366bee06821be9400da87df03c53e711ca4cce6060e95c6243db5
+Checks.sameTotal 79b4b5896dbab65717a92dbd6fdfca3756dd135aa1441e31485b5f449ef4f684
+Checks.test "alias dot call" 2f98390e85afb78ec7e8fc879fad48edc6fe4167dd3125d529ff702f6179c939
