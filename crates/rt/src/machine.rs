@@ -607,9 +607,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 } => {
                     let o = ops!(args);
                     let v = match std::mem::take(&mut reg!(token)) {
-                        Value::Data(_, mut cell)
-                            if cell.len() == o.len() && unique(&cell.0) =>
-                        {
+                        Value::Data(_, mut cell) if cell.len() == o.len() && unique(&cell.0) => {
                             for (i, r) in o.iter().enumerate() {
                                 let v = get!(*r);
                                 Rc::get_mut(&mut cell.0).expect("unique")[i] = v;
@@ -728,7 +726,9 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     // else as the native computes it.
                     let fast = match o {
                         [a, b] => match (op, &reg!(*a), &reg!(*b)) {
-                            (PrimOp::Nat(Native::Leq), Value::Nat(x), Value::Nat(y)) => Some(x <= y),
+                            (PrimOp::Nat(Native::Leq), Value::Nat(x), Value::Nat(y)) => {
+                                Some(x <= y)
+                            }
                             (PrimOp::Nat(Native::EqNat), Value::Nat(x), Value::Nat(y)) => {
                                 Some(x == y)
                             }
@@ -806,9 +806,10 @@ fn exact(program: &Program, image: &Image, f: &Value, n: u32) -> Option<(u32, Op
             Some((image.lambda_code[*lambda as usize], Some(fun.clone())))
         }
         Fun::Global(g) => match &program.globals[*g as usize].kind {
-            GlobalKind::Function { params, .. } if *params == n => {
-                Some((image.global_code[*g as usize].expect("a function has code"), None))
-            }
+            GlobalKind::Function { params, .. } if *params == n => Some((
+                image.global_code[*g as usize].expect("a function has code"),
+                None,
+            )),
             _ => None,
         },
         _ => None,

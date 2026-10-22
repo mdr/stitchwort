@@ -38,8 +38,8 @@ use num_bigint::BigUint;
 use stitchwort_core::native::Native;
 
 use crate::ir::{
-    Arm, Body, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind, PrimOp, Program,
-    Slot, TypeId,
+    Arm, Body, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind, PrimOp,
+    Program, Slot, TypeId,
 };
 use crate::natives::{IntNative, TextNative};
 
@@ -402,7 +402,9 @@ fn leaves(e: &Expr) -> usize {
     match e {
         Expr::If(_, t, e) => leaves(t) + leaves(e),
         Expr::Match(_, _, arms) => arms.iter().map(|a| leaves(&a.body)).sum(),
-        Expr::NumSwitch(_, arms, d) => arms.iter().map(|(_, b)| leaves(b)).sum::<usize>() + leaves(d),
+        Expr::NumSwitch(_, arms, d) => {
+            arms.iter().map(|(_, b)| leaves(b)).sum::<usize>() + leaves(d)
+        }
         Expr::Let(_, _, b) => leaves(b),
         Expr::Unreachable => 0,
         _ => 1,
@@ -463,11 +465,9 @@ impl<'a> Renamer<'a> {
                 Some(c) => c[*i as usize].clone(),
                 None => Expr::Captured(*i),
             },
-            Expr::Global(_)
-            | Expr::Erased
-            | Expr::Lit(_)
-            | Expr::DoneK
-            | Expr::Unreachable => e.clone(),
+            Expr::Global(_) | Expr::Erased | Expr::Lit(_) | Expr::DoneK | Expr::Unreachable => {
+                e.clone()
+            }
             Expr::Call(g, a) => Expr::Call(*g, self.all(a)),
             Expr::Prim(op, a) => Expr::Prim(*op, self.all(a)),
             Expr::PartialApp(g, a) => Expr::PartialApp(*g, self.all(a)),
@@ -511,7 +511,9 @@ impl<'a> Renamer<'a> {
             }
             Expr::NumSwitch(x, arms, d) => Expr::NumSwitch(
                 Box::new(self.expr(x)),
-                arms.iter().map(|(n, b)| (n.clone(), self.expr(b))).collect(),
+                arms.iter()
+                    .map(|(n, b)| (n.clone(), self.expr(b)))
+                    .collect(),
                 Box::new(self.expr(d)),
             ),
             Expr::If(c, t, e) => Expr::If(
@@ -728,7 +730,11 @@ impl Simp<'_> {
             return e;
         };
         let truth = |b: bool| match self.cx.types.bool_ {
-            Some(t) => Expr::Ctor(t, if b { self.cx.true_ } else { self.cx.false_ }, Vec::new()),
+            Some(t) => Expr::Ctor(
+                t,
+                if b { self.cx.true_ } else { self.cx.false_ },
+                Vec::new(),
+            ),
             None => e.clone(),
         };
         match op {
@@ -812,7 +818,9 @@ impl Simp<'_> {
             // Case of case: the body only takes it apart.
             1 if self.fuel > 0 && branching(&value) && leaves(&value) >= 2 => {
                 let scrutinised = match &body {
-                    Expr::Match(x, ..) | Expr::If(x, ..) => matches!(**x, Expr::Local(s) if s == slot),
+                    Expr::Match(x, ..) | Expr::If(x, ..) => {
+                        matches!(**x, Expr::Local(s) if s == slot)
+                    }
                     _ => false,
                 };
                 if scrutinised && size(&body) * (leaves(&value) - 1) <= PUSH_SIZE {
@@ -979,14 +987,12 @@ impl Simp<'_> {
                 _ => None,
             },
             (Expr::Ctor(_, c, fields), MatchKind::Data(_)) => Some((*c, fields.clone())),
-            (Expr::Global(g), MatchKind::Data(_)) => {
-                self.cx.consts[g.0 as usize]
-                    .as_deref()
-                    .and_then(|e| match e {
-                        Expr::Ctor(_, c, fields) => Some((*c, fields.clone())),
-                        _ => None,
-                    })
-            }
+            (Expr::Global(g), MatchKind::Data(_)) => self.cx.consts[g.0 as usize]
+                .as_deref()
+                .and_then(|e| match e {
+                    Expr::Ctor(_, c, fields) => Some((*c, fields.clone())),
+                    _ => None,
+                }),
             (Expr::Lit(Lit::Nat(n)), MatchKind::Nat) => Some(if *n == BigUint::ZERO {
                 (0, Vec::new())
             } else {
@@ -1276,7 +1282,11 @@ impl Simp<'_> {
             Expr::Closure(l, caps)
                 if self.cx.lambdas[l.0 as usize].params as usize == args.len()
                     && size(&self.cx.lambdas[l.0 as usize].body.expr)
-                        <= if caps.is_empty() { COPY_SIZE } else { BETA_SIZE }
+                        <= if caps.is_empty() {
+                            COPY_SIZE
+                        } else {
+                            BETA_SIZE
+                        }
                     && self.fuel > 0
                     && self.depth < DEPTH =>
             {
@@ -1374,7 +1384,8 @@ impl Simp<'_> {
 /// `e` with each call of `g` that passes its own parameters `positions` on
 /// unchanged made a call of `copy` without them.
 fn redirect(e: &Expr, g: GlobalId, positions: &[usize], copy: GlobalId) -> Expr {
-    let all = |a: &[Expr]| -> Vec<Expr> { a.iter().map(|x| redirect(x, g, positions, copy)).collect() };
+    let all =
+        |a: &[Expr]| -> Vec<Expr> { a.iter().map(|x| redirect(x, g, positions, copy)).collect() };
     match e {
         Expr::Call(h, a)
             if *h == g

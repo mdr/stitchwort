@@ -491,10 +491,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
                 None => Value::Tag(s.none),
                 Some(c) => some(
                     s,
-                    Value::data(
-                        s.pair,
-                        [char_value(s, c), Value::Text(it.as_str().into())],
-                    ),
+                    Value::data(s.pair, [char_value(s, c), Value::Text(it.as_str().into())]),
                 ),
             }
         }

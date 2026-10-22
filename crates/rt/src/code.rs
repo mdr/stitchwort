@@ -774,8 +774,7 @@ impl<'a> Compiler<'a> {
                                 let here = self.here();
                                 self.code.tables[table as usize][arm.ctor as usize] = here;
                             }
-                            let arity = self.program.types[t.0 as usize].ctors
-                                [arm.ctor as usize]
+                            let arity = self.program.types[t.0 as usize].ctors[arm.ctor as usize]
                                 .fields
                                 .len();
                             let arm_uses = self.uses_of(&arm.body);
