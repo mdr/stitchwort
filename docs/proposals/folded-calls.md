@@ -1,0 +1,400 @@
+# Keeping calls folded while checking
+
+*SW-251 (D480), 22 October 2026. A design note: nothing here is
+implemented. Measured on `main` at `2f527af3`, release build, M-series Mac
+with other lanes running (load average about 20), so instruction counts
+(`/usr/bin/time -l`, which vary by under 0.1% between runs) are the steady
+measure and milliseconds are the minimum of three runs.*
+
+## 1. The problem, in one example
+
+`Aoc.Day02.Proofs.invalidCorrect` is one written line:
+
+```
+theorem invalidCorrect (r: Range): invalid r = List.sum (List.filter repeats r.ids) :=
+  Eq.trans (Eq.cong (t => t - weighted minus r) (rangeSplit r)) (Nat.addSub …)
+```
+
+`Eq.trans` has hidden arguments: `Eq.trans [x y z: a] (p: x = y) (q: y = z): x = z`.
+The checker fills them in itself. To do that it takes the goal, `invalid r =
+…`, **computes** it (as a value), matches it against `x = z`, and writes the
+answer back as a term. Computing `invalid r` runs its definition, then
+`weighted`'s, then `repeated`'s, and the answer it writes back is the result
+of all that: a 7,648-node expression starting
+`List.foldLeft (acc x => acc + List.foldLeft (… Decidable.elim … Nat.divFuel …))`.
+So the declaration elaborates to 20,781 core term nodes where the person wrote
+about 30, and the elaborator, the lifting and zonking passes and then the
+kernel all walk that.
+
+SW-163 (`docs/proposals/proof-check-speed.md`) found this is the main cost
+of the slow proofs: in Day 2 and Day 4's proofs about 80% of all term nodes
+are inside hidden arguments. Measured again for this note, with a scratch
+counter that counts the nodes inside each outermost hidden argument:
+
+| unit | nodes | in hidden arguments |
+|---|---:|---:|
+| `Aoc.Day02.Proofs` | 436,564 | 368,589 (84%) |
+| `Aoc.Day04.Proofs` | 229,927 | 167,105 (73%) |
+| library files (std) | 116,040 | 53,308 (46%) |
+| `core` | 20,144 | 4,706 (23%) |
+| whole AoC project | 910,998 | 642,805 (71%) |
+
+Had the checker written `invalid r` (the call, *folded*) instead of its
+unfolding, the term would be small. This note is about how to make it do that.
+
+## 2. Where the unfolding happens
+
+Stitchwort checks by *evaluation and read-back* (normalisation by
+evaluation, as in András Kovács' elaboration-zoo, which the elaborator
+follows): a type is turned into a **value** (`eval`), values are compared
+(`conv` in the kernel, `unify` in the elaborator), and a value is turned back
+into a **term** when one is needed (`quote`).
+
+- **Evaluation unfolds as early as it can.** `value.rs` `unfold`: a
+  definition applied to all its parameters runs its case tree as soon as the
+  tree can take a step (docs/core.md, "Unfolding policy"). `invalid r` has no
+  case on `r`, so it unfolds at once into `weighted plus r - weighted minus r`,
+  and so on down until something is stuck on the variable `r`.
+- **A value doesn't remember the call it came from.** After `invalid r` has
+  unfolded, the value is just the unfolding: nothing in it says "this was
+  `invalid r`". The only exception today is dictionaries
+  (`Def::fold`, docs/core.md "Dictionaries stay folded by name"): an
+  instance stays as its name until something takes it apart.
+- **Read-back can only give what the value holds.** `quote` (`value.rs`) has
+  no choice to make: it writes out the unfolding.
+- **Hidden arguments are solved from values.** `unify.rs` `solve` renames the
+  other side's *value* into the solution (`rename`, which quotes it), and
+  zonking substitutes a solution by `quote(eval(…))` again
+  (`zonk_changed`). So every solved hidden argument is a normal form.
+- **Other places that quote a goal value**, with the same effect: a lifted
+  `match` helper gets the goal value quoted as its type (`lift.rs`), the
+  `a = b` an elaborated equation is annotated with its type quoted from a
+  value (`check.rs`), `rewrite` builds its kernel context by quoting every
+  context type, and the kernel's case refinement re-quotes the context
+  (`core/check.rs` `substitute`).
+- **`calc` throws away what was written.** A chain `calc a _ = b := p _ = c :=
+  q` has the written terms `a`, `b`, `c` in hand (`calc.rs` `combine`), but
+  builds `Eq.trans p q` with `Eq.trans`'s hidden arguments left to the
+  unifier, which fills them from the values: the unfolded `a`, `b` and `c`.
+
+## 3. How other systems avoid it
+
+All of them keep calls folded in what they write back; they differ in how.
+
+**smalltt (András Kovács): glued evaluation.** This is the closest match,
+because smalltt evaluates to values the way Stitchwort does. Its README:
+"top-level variables are evaluated to values which represent lazy
+("non-deterministic") choice between unfolding the definition, and not
+unfolding it", and "the quotation function has the choice of visiting
+either evaluation branches, or both." For hidden arguments: "The naive
+implementation beta-normalizes rhs while quoting, which we want to avoid. In
+smalltt the rhs is quoted without unfolding any top-level definitions or any
+previously solved meta", so "top definitions are never unfolded in any meta
+solution, but we check validity up to full beta-reduction." Comparison is
+"approximate": it tries two calls of the same definition by their arguments
+first and "switches to full reductions on failure". The cost: "a noticeable
+constant overhead during evaluation but overall the trade-off is well worth
+it." ([smalltt README](https://github.com/AndrasKovacs/smalltt);
+[elaboration-zoo](https://github.com/AndrasKovacs/elaboration-zoo))
+
+**Idris 2: `Glued`.** The checker has a type pairing a term with its
+lazily computed normal form: "A pair of a term and its normal form. This
+could be constructed either from a term (via 'gnf') or a normal form (via
+'glueBack') but the other part will only be constructed when needed". A call
+of a function that can't or may not reduce stays `NApp fc (NRef nt fn) stk`,
+the call itself.
+([Idris2 `src/Core/Normalise/Eval.idr`](https://github.com/idris-lang/Idris2/blob/main/src/Core/Normalise/Eval.idr))
+
+**Lean 4: terms, not values, and unfold on demand.** Lean's elaborator
+works on expressions (`Expr`) and reduces only as far as a question needs
+(weak head, `whnfR` and friends), so a hidden argument is assigned the
+expression unification met, usually as written. Its unifier tries the
+arguments of two calls of the same function before unfolding: "Try to solve
+`f a₁ ... aₙ =?= f b₁ ... bₙ` by solving `a₁ =?= b₁, ..., aₙ =?= bₙ`", and
+in `isDefEqDelta`: "If `t` and `s` can be unfolded and they have the same
+head symbol, then a) First try to solve unification by unifying arguments."
+Checking an assignment deliberately avoids unfolding: "we do not try
+expensive reductions (e.g., `delta`)."
+([Lean 4 `Meta/ExprDefEq.lean`](https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/ExprDefEq.lean)).
+The kernel does the same, unfolding the taller definition first and checking
+"whether they're the same consts applied to definitionally equal arguments"
+([Type Checking in Lean 4, definitional equality](https://ammkrn.github.io/type_checking_in_lean4/type_checking/definitional_equality.html)).
+Lean also shares repeated subterms in memory (`Expr` is a DAG); that saves
+memory, but the terms still say what was written, which is what matters here.
+
+**Agda: also terms, reduced to weak head only.** Agda compares terms,
+checking "syntactic equality. This actually saves us quite a bit of work"
+first, and "If one term is a meta, try to instantiate right away. This
+avoids unnecessary unfolding."
+([Agda.TypeChecking.Conversion](https://hackage-origin.haskell.org/package/Agda-2.6.3/docs/src/Agda.TypeChecking.Conversion.html))
+
+**Rocq: lazy unfolding with hints.** Conversion unfolds constants lazily;
+`Opaque` is "merely a hint to unfold this constant last", and with
+`Strategy` "the one with lower level is expanded first", which applies "both
+at the tactic level and at the kernel level"
+([Rocq manual, conversion and strategies](https://rocq-prover.org/doc/master/refman/proofs/writing-proofs/equality.html)).
+
+**The common idea.** Keep "this definition applied to these arguments" as
+a thing in its own right. Compare two of them by their arguments first;
+unfold only when that fails or when something needs to look inside. Write
+the call back, not its unfolding. Lean, Agda and Rocq get this for free from
+working on terms; smalltt and Idris 2, which compute values like Stitchwort,
+get it by *gluing*: a value that holds both the call and (lazily) its
+unfolding.
+
+## 4. Options
+
+### (a) Quote in a "don't unfold" mode
+
+The obvious idea: when solving a hidden argument, read back without
+unfolding definitions. **It can't work on its own**: by the time `quote`
+sees the value of `invalid r`, it's the unfolding, and the call is gone
+(§2). A "don't unfold" read-back needs values that remember the call, which
+is option (b). (smalltt's "quote without unfolding" is exactly a read-back
+of glued values.)
+
+A cheaper relative, **(a′) refold afterwards**: compute the normal form of
+every call the person wrote in the signature, and replace those normal forms
+in a solution by the call, as the elaborator already does for a `let`'s value
+(`unify::refold`). Rejected: it only catches calls written verbatim with the
+same arguments, it costs a normal form per written call, and it misses every
+call made in between (`weighted plus r` inside `invalid r`).
+
+### (b) Glued values
+
+A call of a definition with all its arguments becomes a value of its own,
+"`invalid` applied to `r`", carrying its unfolding, computed the first time
+something asks for it and then kept. Concretely, a new `Value` form next to
+the dictionary case that already exists:
+
+```
+Value::Call(DefId, Spine, Rc<OnceCell<Value>>)   -- the call, and its unfolding when asked for
+```
+
+- **Evaluation** makes a `Call` where it now unfolds (`unfold` in `value.rs`),
+  except for natives with number arguments (they compute at once, as now),
+  while a program runs (`run`, `test`: unchanged, no gluing), and for calls
+  whose case tree is stuck (they stay `Neutral(Def)` as now).
+- **Looking inside** (`whnf`): anything that needs the shape (a `case`, a
+  native, "is this a `Pi`?", "is this a number?") asks for the unfolding.
+  Today's `force` (which replaces solved metavariables) becomes this.
+- **Comparison and unification**: two calls of the same definition compare
+  their arguments first; if that fails, both unfold and compare as now. This
+  is the dictionary rule (`conv_step`, `unify_step`) for every definition. The
+  unifier already undoes what the argument attempt solved before unfolding
+  (`undo_since`), as Lean and smalltt do.
+- **Read-back** has two modes: *folded* (writes `invalid r`) for hidden
+  argument solutions, zonking, lifted helper types and messages; *unfolded*
+  (today's normal form) wherever something searches or compares terms
+  syntactically (`rewrite`'s occurrence search, `refold`).
+
+*Soundness.* Two calls of the same definition with convertible arguments
+are convertible (congruence), so "arguments first" never says "equal" wrongly;
+when it fails, the unfolded comparison is today's. Termination is unchanged:
+a call only unfolds when today's would. And the kernel re-checks everything
+the elaborator produces either way.
+
+*The kernel.* `value.rs` is shared by the kernel and the elaborator, so
+gluing is code in the trusted crate even if the kernel never uses it. The
+cleanest arrangement (D483): a switch in `Globals`, on while elaborating and
+off while the kernel checks, so the kernel's rules and behaviour stay exactly
+as now. The kernel still gains, because the terms it is given are small (see
+§5: `invalidCorrect`'s kernel time goes from 7.1 ms to 0.1 ms with the kernel
+untouched).
+
+*Messages.* Goals print the calls: `invalid r = …` instead of a page of
+`List.foldLeft`. The prototype's messages already showed this
+(`goal: List.compareLex cmp (Cons y ys) (Cons x xs) = …`).
+
+*Hashes.* Elaborated terms change (hidden arguments become calls), so
+content hashes of most proofs change, and the prelude hash snapshot is
+re-recorded. No compatibility is kept (no users); the hash change is a useful
+check that the migration touched what it should.
+
+*Effort.* Large. Every place in `crates/elab` and `crates/core` that
+looks at a value's shape (about 600 mentions of `Value::` patterns) must ask
+for the unfolding first; a missed one is a wrong "stuck" (a spurious error,
+never an unsound acceptance, since the kernel re-checks). The prototype in §5
+shows which kinds of places break: `rewrite`'s search, `auto`'s decisions
+(`E-AUTO-STUCK`), places expecting a number or a constructor, and some
+`rfl` checks.
+
+### (c) Sharing (hash-consing) terms
+
+Store equal subterms once. This saves memory, but the passes that cost the
+time (lifting, zonking, the kernel's re-check) still visit a shared subterm
+once per place it occurs unless each also remembers results per subterm,
+which for the kernel means caching types under different contexts: a kernel
+change for a partial gain. Not recommended; folding removes the big subterms
+instead of sharing them.
+
+### (d) Targeted fixes
+
+- **`calc` passes the written lines as `Eq.trans`'s hidden arguments.**
+  `combine` has `a`, `b`, `c` as written terms; it can build `Eq.trans [ty]
+  [a] [b] [c] p q` itself (as it already does for `Nat.leTrans`) instead of
+  leaving them to the unifier. Elaborator only, about ten lines; the kernel
+  checks the result as any hand-written `Eq.trans`. Measured in §5: the
+  largest single gain available now.
+- **A lifted `match` helper's type from the written signature.** Measured
+  (§5): it moves nodes from one declaration to the other but doesn't remove
+  them, because the size is in the `calc` steps' hidden arguments, not the
+  helper's type. Not worth doing separately.
+- **`Nat.pow b (Succ e) = Nat.pow b e * b`** (SW-163 cause 3) is independent
+  of this note and still worth its own ticket.
+
+## 5. Measurements
+
+All on `aoc/`, `stitchwort check --no-cache`. The scratch changes are not
+committed; each was checked with the kernel as usual (a wrong term would be
+rejected).
+
+**Experiment 1: `invalidCorrect` with its hidden arguments written as
+calls** (`Eq.trans [a := Nat] [x := invalid r] [y := …] [z := …]`, and the
+same for `Eq.cong`): this is what glued values would produce for it.
+
+| | nodes | elab ms | kernel ms | steps |
+|---|---:|---:|---:|---:|
+| as written today | 20,781 | 7.4 | 7.1 | 378,313 |
+| hidden arguments folded | 153 | 1.5 | 0.1 | 28,085 |
+
+**Experiment 2: `calc` passes the written lines** (option (d), first item).
+Nothing else changed.
+
+| | before | after | change |
+|---|---:|---:|---:|
+| nodes, whole project | 910,998 | 674,808 | −26% |
+| nodes in hidden arguments | 642,805 | 406,615 | −37% |
+| `Aoc.Day02.Proofs` nodes | 436,564 | 244,681 | −44% |
+| `Aoc.Day04.Proofs` nodes | 229,927 | 197,561 | −14% |
+| `Aoc.Day02.Proofs` elab + kernel | 448 ms | 350 ms | −22% |
+| `twiceTerms` nodes | 148,682 | 65,707 | −56% |
+| `twiceTerms` elab + kernel | 130 ms | 82 ms | −37% |
+| instructions retired (3 runs each) | 16.85–16.86 G | 14.92–14.94 G | −11.4% |
+| peak memory | 101 MB | 85 MB | −15% |
+
+`check` gives the same exit code as before on all 410 files in
+`examples/accept/` and `examples/reject/`. Day 4's time change was within the
+noise.
+
+**Experiment 3: `twiceTerms`'s `match` branch as a lemma with a written
+statement** (option (d), second item). `twiceTerms` dropped to 18,774 nodes
+but the new lemma had 130,000: the same total. With experiment 2 as well,
+18,774 + 47,025, again the same as experiment 2 alone (65,707).
+
+**Experiment 4: folding calls with the dictionary mechanism** (a rough
+stand-in for (b)). Every AoC definition whose result is data was marked
+`fold` (calls stay folded until a `case`, a comparison or a native needs the
+inside), with experiment 2 in place. This is cruder than (b): the folded call
+hides its inside from *everything*, not just from read-back, so it broke 34
+places (mostly `rewrite` not finding a subterm that is now inside a call; 7
+type mismatches; 2 `rfl`s; folding the library as well broke the prelude
+with `E-AUTO-STUCK`). For the large declarations that still checked:
+
+| declaration | nodes before → after | ms before → after | steps before → after |
+|---|---|---|---|
+| `Aoc.Day04.Proofs.passRow` | 30,313 → 1,186 | 57 → 12 | 1,215,049 → 316,228 |
+| `Aoc.Day04.Proofs.mixStep` | 19,853 → 5,171 | 30 → 8 | 648,201 → 194,784 |
+
+**What to expect from (b)** *(an estimate, not measured)*: after the `calc`
+fix, 406,615 of the project's 674,808 nodes (60%) are still in hidden
+arguments, mostly direct uses of `Eq.trans`, `Eq.cong`, `J` and `rewrite`.
+Experiments 1 and 4 removed 75–99% of a declaration's nodes and 70–90% of its
+time. A guess for (b) on top of the `calc` fix: another 40–60% off the Day 2
+and Day 4 proofs, and some 20–30% off the whole AoC check, less in the
+library (46% of its nodes are in hidden arguments, against 84% for Day 2).
+smalltt's warning about a constant overhead in evaluation applies, and could
+eat into the smaller namespaces' gains.
+
+## 6. Recommendation
+
+1. **Now: the `calc` fix** (option (d), first item). Elaborator only, about
+   ten lines, measured at 11% fewer instructions for the AoC project, 44%
+   fewer nodes for Day 2's proofs, the same verdict on 410 example files.
+   Not a design change, so no decision is needed for it.
+2. **Next: glued values (b)**, in stages (§7), with gluing off in the kernel
+   (D483) and with `rewrite` and other searches still seeing the unfolded
+   goal (D484), so no proof needs to change.
+3. **Not:** (a) alone (impossible), (a′) refolding (fragile), (c) sharing
+   (memory only, unless the kernel changes), the `match`-helper fix (no gain).
+
+## 7. Staged plan for (b)
+
+Each stage is a lane of its own, merged when the full gate passes.
+
+1. **`Value::Call` and `whnf`, nothing folded yet.** Add the value form and
+   the `whnf` that unfolds it, behind the `Globals` switch, off everywhere.
+   Route every place that inspects a value's shape through `whnf` (core,
+   then elab, file by file). With the switch off nothing changes: same
+   steps, same terms, same hashes (a cheap check that the routing is
+   complete in kind, though not that it is complete).
+2. **Switch on in the elaborator; read back unfolded.** Calls stay folded
+   during elaboration, but every read-back is still the unfolded one, so
+   elaborated terms and hashes stay as today. This tests the routing of
+   stage 1: any proof that stops checking marks a missed place. Compare
+   `check` results over `examples/`, the AoC project and the library, and
+   `check_work` step counts.
+3. **Read back folded** for hidden-argument solutions, zonking, lifted helper
+   types and messages; unfolded for `rewrite`'s search and `refold`. This is
+   the stage that shrinks terms and changes hashes; re-record the prelude
+   snapshot and the bench baseline; measure as in §5.
+4. **Optional, later (D483):** let the kernel compare same calls by their
+   arguments first too, if its conversion still shows up in profiles.
+
+## 8. Risks
+
+- **A missed place in stage 1** shows up as a spurious "can't decide",
+  "found nothing" or type mismatch, never as an unsound acceptance (the
+  kernel re-checks). Stage 2 exists to find them before terms change.
+- **Different hidden-argument solutions.** "Arguments first" can pick a
+  solution that unfolding wouldn't have needed (`f ?m 1` against `f 2 1` solves
+  `?m := 2` even if `f` ignores its first argument). It is a valid solution,
+  but a later step could then fail where today it succeeds. Lean and smalltt
+  accept this; we'd see it in stage 2.
+- **Overhead.** Each call carries a cell for its unfolding: more memory per
+  call and a check on every look inside. Small namespaces may get slightly
+  slower; the playground (WebAssembly) has less memory to spare.
+- **Evaluation-step counts change** (calls unfold later or never), so
+  `check_work`'s expected numbers are re-recorded.
+- **The trusted crate gets bigger.** Even switched off in the kernel, the
+  code lives in `crates/core`. Keeping the `Call` case small and in one place
+  in `value.rs` is part of the design.
+
+## 9. Self-review
+
+- **The estimate for (b) rests on proxies.** Experiment 1 is one
+  declaration folded by hand; experiment 4 folds more than (b) would, and
+  its numbers are only for declarations that still checked (the 34 failures
+  include heavy ones such as `part2Correct` and `settleEnds`). I didn't
+  prototype (b) itself: it is the large change this note is about.
+- **Times are noisy.** The machine was loaded; the instruction counts and
+  node counts are the dependable numbers. The Day 4 time didn't move
+  measurably in experiment 2 although its nodes fell 14%.
+- **The 600-site count is a crude grep** (`Value::` mentions), an upper
+  bound on the places to look at, not a count of places to change.
+- **The kernel-off choice keeps trust simple but leaves gains**: the kernel
+  still unfolds both sides of every comparison. Lean's and Rocq's kernels
+  do compare same calls lazily, so turning it on later (D483) has precedent.
+- **Is the `calc` fix just a special case that (b) would make redundant?**
+  Yes, but it is ten lines, measured, and useful while (b) is being built;
+  it needs no unwinding afterwards (the written lines are what (b) would
+  produce).
+
+## 10. Decisions
+
+- **D482: Build glued values (option (b)) as the general fix, after the
+  `calc` fix.** It is the large change (stages in §7) that keeps hidden
+  arguments, helper types and messages folded everywhere. [Yes: the
+  measurements show folding removes most of the time in the slow proofs, and
+  it's what smalltt and Idris 2 do with the same kind of checker.]
+- **D483: Gluing in the kernel.** Off: the kernel's checking stays exactly
+  as now, and only gets smaller terms. Or on: the kernel too compares two
+  calls of the same definition by their arguments first (as it already does
+  for dictionaries). [Off at first; revisit after stage 3 if the kernel's
+  conversion is still a large share.]
+- **D484: What `rewrite` and the decision search see.** The unfolded goal,
+  as today, so every existing proof keeps working and only the written-back
+  terms and messages change. Or only the folded goal, as in Lean, where a
+  proof must unfold a definition explicitly before rewriting inside it.
+  [The unfolded goal: no proof changes, and the folded goal is still what
+  messages show.]
