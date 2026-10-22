@@ -3771,7 +3771,7 @@
     {
       "id": 250,
       "title": "Row/grid helpers: Vec.shiftLeft/shiftRight (fill), Vec.tabulate, Vec.around, List.transposeFill, with getOr lemmas (D471); then port days 4, 6, 7 (one lane per day, keep a port only if its proof shrinks)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3781,7 +3781,10 @@
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": [
-        "bae399df"
+        "bae399df",
+        "ef583bea",
+        "09b30500",
+        "d9d7f07f"
       ]
     },
     {
@@ -3801,7 +3804,7 @@
     {
       "id": 252,
       "title": "Restate Nat.pow b (Succ e) = Nat.pow b e * b and fix the std proofs it breaks (D481)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3810,7 +3813,9 @@
       "body": "From proof-check-speed.md: Nat.pow 10 (Succ k) unfolds into ten additions because multiplication recurses on its left argument; about a third of twiceTerms.%match1's type. Tried in SW-163: std Arith and Digits proofs stop checking; restate them.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "a43008e1"
+      ]
     },
     {
       "id": 253,
