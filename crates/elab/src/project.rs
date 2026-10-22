@@ -114,7 +114,15 @@ impl Elaborator {
             }
         }
         let full = parts.join("/");
-        files.read(&full).map_err(|err| {
+        let read = files.read(&full);
+        if let Ok(text) = &read {
+            // For the check cache: an entry is only good while the files
+            // it read are unchanged.
+            self.include_trace
+                .borrow_mut()
+                .push((full.clone(), *blake3::hash(text.as_bytes()).as_bytes()));
+        }
+        read.map_err(|err| {
             if err.kind() == std::io::ErrorKind::PermissionDenied {
                 // A symlink in the folder that leads out of it.
                 outside()

@@ -12,6 +12,7 @@ stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
 stitchwort-rt.workspace = true
 ariadne.workspace = true
+blake3.workspace = true
 serde.workspace = true
 serde-saphyr.workspace = true
 

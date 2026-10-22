@@ -211,11 +211,19 @@ impl Elaborator {
         files: &[SourceUnit],
         closure: Option<&[String]>,
     ) -> Vec<Diagnostic> {
+        // A project namespace may come from the check cache (`cache`).
+        let cached = self.namespace_cache_key(namespace, closure);
+        let run = |e: &mut Self| match (&cached, namespace, closure) {
+            (Some((unit, key)), Some(ns), Some(closure)) => {
+                e.elaborate_namespace_cached(ns, files, closure, unit, key)
+            }
+            _ => (e.elaborate_namespace_untimed(namespace, files, closure), false),
+        };
         if !crate::timings::enabled() {
-            return self.elaborate_namespace_untimed(namespace, files, closure);
+            return run(self).0;
         }
         crate::timings::begin(&self.globals);
-        let diagnostics = self.elaborate_namespace_untimed(namespace, files, closure);
+        let (diagnostics, hit) = run(self);
         let label = namespace
             .map(str::to_string)
             .or_else(|| files.first().map(|f| f.name.to_string()))
@@ -228,11 +236,16 @@ impl Elaborator {
                 }
                 .to_string()
             });
+        let label = if hit {
+            format!("{label} (cached)")
+        } else {
+            label
+        };
         crate::timings::end(&self.globals, label);
         diagnostics
     }
 
-    fn elaborate_namespace_untimed(
+    pub(crate) fn elaborate_namespace_untimed(
         &mut self,
         namespace: Option<&str>,
         files: &[SourceUnit],
@@ -272,9 +285,14 @@ impl Elaborator {
             ..ModuleState::default()
         };
         self.scope.clear_imports();
-        self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
+        if !std::mem::take(&mut self.skip_navigation_walk) {
+            self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
+        }
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
         let needs = self.dependencies(&items);
+        // For the check cache: the names collected, before the library
+        // files load (`cache`).
+        self.capture_before_needs(&needs);
         // Library files this module uses load first, so what it names is
         // checked before it is (docs/proposals/std-library.md §4.3).
         if !needs.files.is_empty() || !needs.dots.is_empty() {
@@ -299,6 +317,7 @@ impl Elaborator {
             first_test = self.tests.len();
             self.module.first_test = first_test;
         }
+        self.capture_after_needs();
         // The core and the library are written in an order that works,
         // instances after what the rest of them uses: their uses of syntax
         // (`if`, `<=`) refer to declarations no name does.

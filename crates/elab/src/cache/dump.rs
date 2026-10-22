@@ -239,7 +239,13 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             let _ = writeln!(out, "native {} = def {}", n.name(), id.0);
         }
     }
+    // (A library built-in whose file hasn't loaded is missing, and may not
+    // be asked for.)
+    let missing = g.registry.missing();
     for b in stitchwort_core::registry::Builtin::ALL {
+        if missing.contains(b) {
+            continue;
+        }
         if let Some(d) = g.registry.data(*b) {
             let _ = writeln!(out, "builtin {b:?} = data {}", d.0);
         }
@@ -318,8 +324,15 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             t.library, t.namespace, t.name, t.def.0
         );
         span(&mut out, t.span);
+        if let Some(sides) = &t.sides {
+            let _ = write!(out, " sides {} ", sides.op);
+            term(&mut out, &sides.left);
+            out.push(' ');
+            term(&mut out, &sides.right);
+        }
         out.push('\n');
     }
+    let _ = writeln!(out, "module {:?}", g.module);
     let _ = writeln!(
         out,
         "prelude_defs {} library {:?}",

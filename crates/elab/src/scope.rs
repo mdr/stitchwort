@@ -397,6 +397,19 @@ impl Scope {
 
     /// Records that `key` belongs to its type's own declaration (a record
     /// field, an interface method), like a constructor.
+    /// The members marked so far (for the check cache).
+    pub(crate) fn members(&self) -> &HashSet<String> {
+        &self.members
+    }
+
+    /// Where `key` is among the followers of its short name, if it is one
+    /// (for the check cache, which must add them in the same order).
+    pub(crate) fn follower_position(&self, key: &str) -> Option<usize> {
+        self.followers
+            .get(short(key))
+            .and_then(|keys| keys.iter().position(|k| k == key))
+    }
+
     pub(crate) fn mark_member(&mut self, key: &str) {
         if let Some(log) = &mut self.log {
             log.push(ScopeOp::Member(key.to_string()));

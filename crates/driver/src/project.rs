@@ -77,6 +77,10 @@ impl Session {
                     .collect());
             }
         };
+        if self.elab.uses_check_cache() {
+            let sources = self.namespace_sources(project, &analysis);
+            self.elab.set_namespace_sources(sources);
+        }
         let mut diagnostics: Vec<Diagnostic> = Vec::new();
         let mut failed: BTreeSet<&str> = BTreeSet::new();
         let mut skipped: BTreeSet<&str> = BTreeSet::new();
@@ -147,6 +151,56 @@ impl Session {
             project: project.to_string(),
             checked: order,
         })
+    }
+
+    /// For the check cache (docs/proposals/check-cache.md §4.2): a hash of
+    /// each namespace's own sources (its name, and each file's name and
+    /// text), the names of all the project's namespaces, and
+    /// `stitchwort.yaml`. The elaborator adds the rest of the key.
+    fn namespace_sources(
+        &self,
+        project: &str,
+        analysis: &Analysis,
+    ) -> std::collections::HashMap<String, stitchwort_elab::cache::Key> {
+        let config_name = format!("{project}/{CONFIG}");
+        let config = self
+            .sources
+            .iter()
+            .filter(|(_, f)| f.name == config_name)
+            .last()
+            .map(|(_, f)| f.text.as_str());
+        let mut common = blake3::Hasher::new();
+        let part = |h: &mut blake3::Hasher, bytes: &[u8]| {
+            h.update(&(bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        };
+        part(&mut common, b"namespaces");
+        let mut names: Vec<&str> = analysis.namespaces.iter().map(|n| n.name.as_str()).collect();
+        names.sort_unstable();
+        for name in &names {
+            part(&mut common, name.as_bytes());
+        }
+        match config {
+            Some(text) => {
+                part(&mut common, b"config");
+                part(&mut common, text.as_bytes());
+            }
+            None => part(&mut common, b"no config"),
+        }
+        analysis
+            .namespaces
+            .iter()
+            .map(|ns| {
+                let mut h = common.clone();
+                part(&mut h, ns.name.as_bytes());
+                for id in &ns.files {
+                    let file = self.sources.get(*id);
+                    part(&mut h, file.name.as_bytes());
+                    part(&mut h, file.text.as_bytes());
+                }
+                (ns.name.clone(), *h.finalize().as_bytes())
+            })
+            .collect()
     }
 }
 

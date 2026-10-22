@@ -185,7 +185,11 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
         let results = session.run_tests(&cache);
         assert!(results.iter().all(|r| r.outcome == Outcome::Passed));
         let path = cache
-            .path(&results[0].hash.unwrap(), &modes(&session.elab.globals))
+            .path(
+                &Cache::unit("", &results[0].name),
+                &results[0].hash.unwrap(),
+                &modes(&session.elab.globals),
+            )
             .unwrap();
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
         (results.iter().map(|r| r.cached).collect::<Vec<_>>(), name)
@@ -208,6 +212,59 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     let (cached, name) = run(true, false);
     assert_eq!(cached, [false, false]);
     assert!(name.contains("-n1c0-"), "{name}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Eviction (docs/proposals/check-cache.md §6, D283): writing a result
+/// deletes the same test's older results, and the first write of a run
+/// deletes other builds' results more than a day old.
+#[test]
+fn old_test_results_are_deleted() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-evict-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let program = |n: u32| {
+        format!("import Std (Nat)\ntest \"t\" := Nat.leq {n} 6\ntest \"u\" := Nat.leq 1 2\n")
+    };
+    let files = || -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir.join("tests"))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+    load(&program(1)).run_tests(&Cache::at(&dir));
+    let first = files();
+    assert_eq!(first.len(), 2, "{first:?}");
+    // `t` changes: its new result replaces its old one; `u`'s stays.
+    let results = load(&program(2)).run_tests(&Cache::at(&dir));
+    assert_eq!(
+        results.iter().map(|r| r.cached).collect::<Vec<_>>(),
+        [false, true]
+    );
+    let second = files();
+    assert_eq!(second.len(), 2, "{second:?}");
+    assert_eq!(
+        first.iter().filter(|f| second.contains(f)).count(),
+        1,
+        "only `u`'s result is the same file"
+    );
+    // Another build's results: an old one goes, a recent one stays.
+    let old = dir.join("tests").join("stitchwort-0.0.0-000000-n1c1-0-00");
+    let recent = dir.join("tests").join("stitchwort-0.0.0-000000-n1c1-1-00");
+    std::fs::write(&old, "passed").unwrap();
+    std::fs::write(&recent, "passed").unwrap();
+    let two_days_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 86_400);
+    std::fs::File::options()
+        .write(true)
+        .open(&old)
+        .unwrap()
+        .set_modified(two_days_ago)
+        .unwrap();
+    load(&program(3)).run_tests(&Cache::at(&dir));
+    assert!(!old.exists(), "another build's old result is deleted");
+    assert!(recent.exists(), "another build's recent result is kept");
+    assert_eq!(files().len(), 3);
     let _ = std::fs::remove_dir_all(&dir);
 }
 

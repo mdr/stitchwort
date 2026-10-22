@@ -1,16 +1,18 @@
-//! The check cache, stage 1 (docs/proposals/check-cache.md): a standard
-//! library file's elaborated result, kept between runs, so a later run loads
-//! it instead of elaborating the file again.
+//! The check cache (docs/proposals/check-cache.md): the elaborated result
+//! of a standard library file (stage 1) or of a project namespace (stage
+//! 2), kept between runs, so a later run loads it instead of elaborating it
+//! again.
 //!
-//! - **What an entry holds** (§5.1): everything loading the file adds that
+//! - **What an entry holds** (§5.1): everything loading the unit adds that
 //!   later code reads. That is the kernel's new definitions and data types,
 //!   with every flag, and the elaborator's side tables: the names it
 //!   declares, records, interfaces, instances, abilities, the data types'
 //!   owners, why `==`/`show`/`compare` aren't derived, lifted helpers,
-//!   local definitions' keys, and what code navigation recorded.
-//!   Declarations are referred to by full path and the content hash they
-//!   are expected to have, never by load-order ids, and spans as (file
-//!   path, byte range).
+//!   local definitions' keys, tests, warnings, and what code navigation
+//!   recorded. Declarations are referred to by full path and the content
+//!   hash they are expected to have, never by load-order ids, and spans as
+//!   (file, byte range). A navigation target in another unit's file is kept
+//!   by the name of its declaration (§4.3).
 //! - **Loading is replay** (§5.2): the declarations go to the kernel through
 //!   the same `declare_*`/`define_*` functions the elaborator uses, so the
 //!   kernel checks every one again (option A, D277). Only elaboration is
@@ -18,12 +20,19 @@
 //!   them.
 //! - **The key** (§4.2) is computed before anything is elaborated: the
 //!   compiler build, the format, the modes and limits that change results,
-//!   the file's path and text (and the core's), and the keys of the library
-//!   files it needs.
+//!   and the unit's text. For a library file: its path and text (and the
+//!   core's), and the keys of the library files it needs. For a project
+//!   namespace: the hash of its sources the host gives
+//!   ([`Elaborator::set_namespace_sources`]: its files' names and text, the
+//!   project's namespaces and `stitchwort.yaml`), the whole library's text,
+//!   and the keys of the namespaces it depends on (a Merkle chain). The
+//!   files it `include`s are listed in its entry with a hash of their
+//!   text, and read again to check them.
 //! - **An entry that doesn't fit is a miss**: a corrupt one (checksum), one
 //!   for another key or cache directory (salt), one whose dependencies don't
 //!   have the expected hashes, or one the kernel refuses (whose effects are
-//!   undone). The file is then elaborated, and the entry rewritten.
+//!   undone). The unit is then elaborated, and the entry rewritten. Only
+//!   units without errors are written (D284).
 //!
 //! This module only encodes and replays. Where entries are kept is the
 //! [`Store`] a host gives the elaborator (the CLI's is a directory).
@@ -44,7 +53,9 @@ use stitchwort_syntax::{FileId, Span};
 
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InstanceParam, InterfaceInfo};
-use crate::library::PendingKind;
+use crate::library::{Needs, PendingKind};
+use crate::project::SourceUnit;
+use stitchwort_syntax::{Diagnostic, Label, Severity};
 use crate::nav::{LocalUse, Noted};
 use crate::records::RecordInfo;
 use crate::scope::ScopeOp;
@@ -53,7 +64,7 @@ use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 2;
+pub const FORMAT: u32 = 3;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -85,11 +96,44 @@ pub struct Stats {
     pub hits: usize,
     /// Library files elaborated: no entry, or one that didn't fit.
     pub misses: usize,
-    /// Entries written.
+    /// Library files' entries written.
     pub written: usize,
     /// Library files elaborated that can't be cached (see
-    /// `Elaborator::encode_library_file`).
+    /// `Elaborator::encode`).
     pub uncacheable: usize,
+    /// The same four for project namespaces.
+    pub namespace_hits: usize,
+    pub namespace_misses: usize,
+    pub namespace_written: usize,
+    pub namespace_uncacheable: usize,
+    /// Namespace entries found not to fit after their replay had begun
+    /// (loading the library files they need): the namespace is then
+    /// elaborated in what the replay left. Never expected; the differential
+    /// test checks there are none.
+    pub late_misses: usize,
+}
+
+/// Why a namespace's entry wasn't used: found before anything changed, or
+/// after the replay had begun.
+enum Miss {
+    Early(String),
+    Late(String),
+}
+
+/// While a project namespace that may be cached is elaborated: what its
+/// entry is worked out against (`elaborate_namespace_cached`).
+pub(crate) struct Capture {
+    /// Before anything: the names there were, and the members marked.
+    start_keys: HashSet<String>,
+    start_members: HashSet<String>,
+    /// The names the namespace declared before its library files loaded
+    /// (`collect`), and what it needs from the library.
+    early: Option<Vec<String>>,
+    needs: Option<Needs>,
+    /// Once its library files have loaded: what it is compared against,
+    /// and how many library files had loaded.
+    before: Option<Before>,
+    library_loaded: usize,
 }
 
 /// What a library file's load is compared against, to see what it added.
@@ -214,12 +258,13 @@ impl Elaborator {
             self.cache_stats.misses += 1;
             return false;
         };
-        match self.replay(f, &bytes, key, store.salt()) {
+        match self.replay(&bytes, key, store.salt()) {
             Ok(()) => {
                 self.cache_stats.hits += 1;
                 true
             }
-            Err(Bad(_why)) => {
+            Err(Bad(why)) => {
+                debug(&format!("std file {f}: a miss: {why}"));
                 self.cache_stats.misses += 1;
                 false
             }
@@ -230,6 +275,11 @@ impl Elaborator {
     /// it added; and starts noting the names it declares.
     pub(crate) fn cache_before(&mut self) -> Before {
         self.scope.log = Some(Vec::new());
+        self.snapshot()
+    }
+
+    /// What a unit's load is compared against.
+    fn snapshot(&self) -> Before {
         Before {
             defs: self.globals.defs.len(),
             datas: self.globals.datas.len(),
@@ -280,13 +330,368 @@ impl Elaborator {
             return;
         }
         let store = self.check_cache.clone().expect("a cache is set");
-        match self.encode_library_file(f, &before, &log, key, store.salt()) {
+        let entry = self.encode_library_file(f, &before, &log, key, store.salt());
+        if let Err(why) = &entry {
+            debug(&format!("std file {f} can't be cached: {why}"));
+        }
+        match entry {
             Ok(entry) => {
                 store.write(unit, key, &entry);
                 self.cache_stats.written += 1;
             }
             Err(_why) => self.cache_stats.uncacheable += 1,
         }
+    }
+}
+
+// ---- Project namespaces (stage 2) ------------------------------------------
+
+impl Elaborator {
+    /// Says what each project namespace's sources are, for the keys of
+    /// their entries: for each namespace, a hash the host makes of its
+    /// name, its files' names and text, the project's namespaces and its
+    /// configuration (§4.2 items 3 and 5). A namespace without one isn't
+    /// cached.
+    pub fn set_namespace_sources(&mut self, sources: HashMap<String, Key>) {
+        self.namespace_sources = sources;
+    }
+
+    /// Whether this elaborator keeps results in a check cache.
+    pub fn uses_check_cache(&self) -> bool {
+        self.cache_usable()
+    }
+
+    /// A hash of every library file's path and text: a namespace may use
+    /// any of them.
+    fn library_digest(&self) -> Key {
+        *self.library_digest.get_or_init(|| {
+            let mut h = blake3::Hasher::new();
+            if let Some(index) = self.library_index() {
+                for file in &index.files {
+                    for part in [file.path.as_bytes(), file.text.as_bytes()] {
+                        h.update(&(part.len() as u64).to_le_bytes());
+                        h.update(part);
+                    }
+                }
+            }
+            *h.finalize().as_bytes()
+        })
+    }
+
+    /// The unit and key of project namespace `namespace`, about to be
+    /// elaborated with the namespaces `closure` before it, if it may come
+    /// from the cache: every namespace it depends on has a key.
+    pub(crate) fn namespace_cache_key(
+        &self,
+        namespace: Option<&str>,
+        closure: Option<&[String]>,
+    ) -> Option<(String, Key)> {
+        if !self.cache_usable() || self.loading_prelude || !self.library_stack_is_empty() {
+            return None;
+        }
+        let (Some(ns), Some(closure)) = (namespace, closure) else {
+            return None;
+        };
+        let source = self.namespace_sources.get(ns)?;
+        let store = self.check_cache.as_ref()?;
+        let library = self.library_digest();
+        let mut h = blake3::Hasher::new();
+        let mut part = |bytes: &[u8]| {
+            h.update(&(bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        };
+        part(b"stitchwort check cache: namespace");
+        part(&FORMAT.to_le_bytes());
+        part(store.compiler().as_bytes());
+        part(self.modes().as_bytes());
+        part(&library);
+        part(ns.as_bytes());
+        part(source);
+        for dependency in closure {
+            part(dependency.as_bytes());
+            part(self.namespace_keys.get(dependency)?);
+        }
+        let nav = if self.nav.is_some() { "+nav" } else { "" };
+        Some((format!("ns.{ns}{nav}"), *h.finalize().as_bytes()))
+    }
+
+    /// Elaborates project namespace `ns`, or loads it from its entry for
+    /// `key`, and writes the entry if it was elaborated without errors. Its
+    /// diagnostics, and whether it came from the cache.
+    pub(crate) fn elaborate_namespace_cached(
+        &mut self,
+        ns: &str,
+        files: &[SourceUnit],
+        closure: &[String],
+        unit: &str,
+        key: &Key,
+    ) -> (Vec<Diagnostic>, bool) {
+        self.namespace_keys.insert(ns.to_string(), *key);
+        let store = self.check_cache.clone().expect("a cache is set");
+        let start_keys: HashSet<String> = self.scope.entries.keys().cloned().collect();
+        let start_members = self.scope.members().clone();
+        if stitchwort_core::registry::check_complete_core(&self.globals).is_ok()
+            && let Some(bytes) = store.read(unit, key)
+        {
+            match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
+                Ok(warnings) => {
+                    self.cache_stats.namespace_hits += 1;
+                    return (warnings, true);
+                }
+                Err(Miss::Early(why)) => debug(&format!("{ns}: a miss: {why}")),
+                Err(Miss::Late(why)) => {
+                    debug(&format!("{ns}: a miss after the replay began: {why}"));
+                    self.cache_stats.late_misses += 1;
+                    // Its files were walked already.
+                    self.skip_navigation_walk = true;
+                }
+            }
+        }
+        self.cache_stats.namespace_misses += 1;
+        self.include_trace.borrow_mut().clear();
+        self.namespace_capture = Some(Capture {
+            start_keys,
+            start_members,
+            early: None,
+            needs: None,
+            before: None,
+            library_loaded: 0,
+        });
+        let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
+        let capture = self.namespace_capture.take();
+        self.skip_navigation_walk = false;
+        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error);
+        if ok && let Some(capture) = capture {
+            match self.encode_namespace(files, capture, &diagnostics, key, store.salt()) {
+                Ok(entry) => {
+                    store.write(unit, key, &entry);
+                    self.cache_stats.namespace_written += 1;
+                }
+                Err(why) => {
+                    debug(&format!("{ns} can't be cached: {why}"));
+                    self.cache_stats.namespace_uncacheable += 1;
+                }
+            }
+        }
+        (diagnostics, false)
+    }
+
+    /// While a namespace that may be cached is elaborated: the names it has
+    /// collected, before its library files load, and what it needs.
+    pub(crate) fn capture_before_needs(&mut self, needs: &Needs) {
+        if self.loading_prelude {
+            return;
+        }
+        let Some(c) = &self.namespace_capture else {
+            return;
+        };
+        if c.early.is_some() {
+            return;
+        }
+        let early: Vec<String> = self
+            .scope
+            .entries
+            .keys()
+            .filter(|k| !c.start_keys.contains(*k))
+            .cloned()
+            .collect();
+        let c = self.namespace_capture.as_mut().expect("checked above");
+        c.early = Some(early);
+        c.needs = Some(needs.clone());
+    }
+
+    /// Then, once its library files have loaded: what its entry is worked
+    /// out against.
+    pub(crate) fn capture_after_needs(&mut self) {
+        if self.loading_prelude
+            || self
+                .namespace_capture
+                .as_ref()
+                .is_none_or(|c| c.before.is_some())
+        {
+            return;
+        }
+        let before = self.snapshot();
+        let loaded = self.loaded_library_files().len();
+        let c = self.namespace_capture.as_mut().expect("checked above");
+        c.before = Some(before);
+        c.library_loaded = loaded;
+    }
+
+    /// The names entries give the files a namespace's entry may refer to:
+    /// the library's and the project's.
+    fn namespace_file_names(&self) -> HashMap<FileId, String> {
+        let mut names = self.std_file_names();
+        for (id, path) in &self.include_locations {
+            names.insert(*id, project_file_name(path));
+        }
+        names
+    }
+
+    /// The entry for the namespace just elaborated without errors from
+    /// `files`, or why it can't be cached (see [`Self::encode`]).
+    fn encode_namespace(
+        &self,
+        files: &[SourceUnit],
+        capture: Capture,
+        warnings: &[Diagnostic],
+        key: &Key,
+        salt: [u8; 16],
+    ) -> Result<Vec<u8>, String> {
+        let (Some(before), Some(early), Some(needs)) =
+            (capture.before, capture.early, capture.needs)
+        else {
+            return Err("checking stopped early".to_string());
+        };
+        if self.loaded_library_files().len() != capture.library_loaded {
+            return Err("a library file loaded part way through".to_string());
+        }
+        // The names: each new one is added after those of its short name
+        // that were added before it (the followers' order).
+        let early_keys: HashSet<&str> = early.iter().map(String::as_str).collect();
+        let mut changed = Vec::new();
+        for (k, old) in &before.scope {
+            if early_keys.contains(k.as_str()) {
+                continue;
+            }
+            match self.scope.entries.get(k) {
+                Some(now) if now == old => {}
+                Some(_) => changed.push(k.clone()),
+                None => return Err(format!("`{k}` was removed")),
+            }
+        }
+        changed.sort();
+        let order = |k: &String| (self.scope.follower_position(k).unwrap_or(0), k.clone());
+        let with_follower = |keys: Vec<String>| -> Vec<(String, bool)> {
+            keys.into_iter()
+                .map(|k| {
+                    let follower = self.scope.follower_position(&k).is_some();
+                    (k, follower)
+                })
+                .collect()
+        };
+        let mut early = early;
+        early.sort_by_key(order);
+        let mut late: Vec<String> = self
+            .scope
+            .entries
+            .keys()
+            .filter(|k| !before.scope.contains_key(*k))
+            .cloned()
+            .collect();
+        late.sort_by_key(order);
+        let mut members: Vec<String> = self
+            .scope
+            .members()
+            .iter()
+            .filter(|k| !capture.start_members.contains(*k))
+            .cloned()
+            .collect();
+        members.sort();
+        let names = NamesOut {
+            changed,
+            early: with_follower(early),
+            late: with_follower(late),
+            members,
+        };
+        let index = self.library_index().expect("a library is installed");
+        let pre = PreOut {
+            needs_files: needs
+                .files
+                .iter()
+                .map(|&f| index.files[f].path.clone())
+                .collect(),
+            dots: needs.dots.iter().cloned().collect(),
+            includes: self.include_trace.borrow().clone(),
+        };
+        let unit = UnitOut {
+            file_names: self.namespace_file_names(),
+            own_files: files.iter().filter_map(|f| f.file).collect(),
+            library: false,
+        };
+        if unit.own_files.len() != files.len() {
+            return Err("a file without an id".to_string());
+        }
+        self.encode(&unit, &before, &names, &pre, warnings, key, salt)
+    }
+
+    /// Loads project namespace `ns`, whose files are `files`, from its
+    /// entry: its warnings. Replay does what elaborating it does, in the
+    /// same order: the syntax is walked for navigation, the names are
+    /// declared, the library files it needs load, then its declarations go
+    /// to the kernel and its tables are filled in. A problem found before
+    /// that begins is an early miss, after which nothing has changed; one
+    /// found after it a late one.
+    fn replay_namespace(
+        &mut self,
+        ns: &str,
+        files: &[SourceUnit],
+        closure: &[String],
+        bytes: &[u8],
+        key: &Key,
+        salt: [u8; 16],
+    ) -> Result<Vec<Diagnostic>, Miss> {
+        let early = |Bad(why)| Miss::Early(why);
+        let late = |Bad(why)| Miss::Late(why);
+        let (deps, body) = open(bytes, key, salt).map_err(early)?;
+        let file_ids: HashMap<String, FileId> = self
+            .namespace_file_names()
+            .into_iter()
+            .map(|(id, name)| (name, id))
+            .collect();
+        let mut head = self.read_head(body, &file_ids).map_err(early)?;
+        // The files it included must be as they were.
+        for (path, hash) in &head.pre.includes {
+            let same = self
+                .include_files
+                .as_ref()
+                .and_then(|files| files.read(path).ok())
+                .is_some_and(|text| blake3::hash(text.as_bytes()).as_bytes() == hash);
+            if !same {
+                return Err(Miss::Early(format!("the included `{path}` changed")));
+            }
+        }
+
+        // From here on, as `elaborate_namespace_untimed` does.
+        self.namespace_root = format!("{ns}.");
+        self.globals.module = "".into();
+        self.module = crate::module::ModuleState {
+            files: files
+                .iter()
+                .map(|f| crate::module::FileInfo {
+                    id: f.file,
+                    name: f.name.to_string(),
+                })
+                .collect(),
+            namespace: Some(ns.to_string()),
+            closure: Some(closure.to_vec()),
+            first_def: self.globals.defs.len(),
+            first_test: self.tests.len(),
+            ..crate::module::ModuleState::default()
+        };
+        self.scope.clear_imports();
+        self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
+        let pre = std::mem::take(&mut head.pre);
+        for (k, span, follower) in &pre.early {
+            self.scope.insert(k, Global::Failed, *span, *follower);
+        }
+        if !pre.needs.files.is_empty() || !pre.needs.dots.is_empty() {
+            self.load_needs(&pre.needs).map_err(|ds| {
+                Miss::Late(format!(
+                    "its library files don't load: {}",
+                    ds.first().map_or("", |d| d.message.as_str())
+                ))
+            })?;
+        }
+        let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
+        let warnings = std::mem::take(&mut d.tables.warnings);
+        let base_defs = self.globals.defs.len();
+        self.admit_replayed(&d.defs, &d.datas, &d.bound)
+            .map_err(late)?;
+        self.replay_tables(d.tables, &pre.early);
+        self.namespace_defs
+            .insert(ns.to_string(), base_defs..self.globals.defs.len());
+        Ok(warnings)
     }
 }
 
@@ -307,9 +712,10 @@ struct Out<'g> {
     /// path that names one declaration can be a reference.
     def_paths: HashMap<&'g str, usize>,
     data_paths: HashMap<&'g str, usize>,
-    /// The library's files, by id, as their place in the index.
-    std_files: HashMap<FileId, usize>,
-    files: Vec<usize>,
+    /// The files a span may be in, by id, with their names in an entry
+    /// (`file_names`); the ones used so far, in the entry's file table.
+    names: HashMap<FileId, String>,
+    files: Vec<String>,
     file_ids: HashMap<FileId, usize>,
     /// Why this can't be cached, once something can't be written.
     problem: Option<String>,
@@ -379,14 +785,14 @@ impl Refs for Out<'_> {
     fn span(&mut self, w: &mut Writer, span: Span) {
         let file = match self.file_ids.get(&span.file) {
             Some(&i) => i,
-            None => match self.std_files.get(&span.file) {
-                Some(&f) => {
-                    self.files.push(f);
+            None => match self.names.get(&span.file) {
+                Some(name) => {
+                    self.files.push(name.clone());
                     self.file_ids.insert(span.file, self.files.len() - 1);
                     self.files.len() - 1
                 }
                 None => {
-                    self.fail("a span outside the library".to_string());
+                    self.fail("a span outside the files an entry can name".to_string());
                     0
                 }
             },
@@ -531,13 +937,93 @@ fn pending_kind(tag: u8) -> Read<PendingKind> {
     })
 }
 
+/// The unit an entry is written for.
+struct UnitOut {
+    /// The files a span may be in, by their names in entries.
+    file_names: HashMap<FileId, String>,
+    /// The unit's own files: what navigation recorded in them is the
+    /// unit's.
+    own_files: HashSet<FileId>,
+    /// A library file (whose navigation entry holds what the walk over its
+    /// syntax found) rather than a project namespace (whose syntax is
+    /// walked again when it is replayed).
+    library: bool,
+}
+
+/// The names a unit declared: those that existed and changed; those new
+/// before its library files loaded (a namespace's, with whether each is a
+/// follower) and after, each in the order they were added; and the
+/// members marked.
+#[derive(Default)]
+struct NamesOut {
+    changed: Vec<String>,
+    early: Vec<(String, bool)>,
+    late: Vec<(String, bool)>,
+    members: Vec<String>,
+}
+
+/// What a namespace's replay needs before it reads the rest: the library
+/// files it needs (by path) and the fields of its dot calls, the files it
+/// `include`d with a hash of their text, and the names it declares before
+/// its library files load.
+#[derive(Default)]
+struct PreOut {
+    needs_files: Vec<String>,
+    dots: Vec<String>,
+    includes: Vec<(String, Key)>,
+}
+
+/// The name an entry gives the file at index `i` of the library index.
+fn std_file_name(path: &str) -> String {
+    format!("std:{path}")
+}
+
+/// The name an entry gives a project's file at `path` in it.
+fn project_file_name(path: &str) -> String {
+    format!("project:{path}")
+}
+
+/// The operators a test's sides can have (`TestSides::op`).
+const TEST_OPS: [&str; 7] = ["==", "!=", "=", "<", "<=", ">", ">="];
+
+/// A diagnostic's code, as the `'static` text `Diagnostic` holds: the
+/// codes read from entries are kept once each.
+fn static_code(code: &str) -> &'static str {
+    use std::sync::{Mutex, OnceLock};
+    static CODES: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
+    let mut codes = CODES
+        .get_or_init(|| Mutex::new(HashSet::new()))
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(&c) = codes.get(code) {
+        return c;
+    }
+    let c: &'static str = Box::leak(code.to_string().into_boxed_str());
+    codes.insert(c);
+    c
+}
+
+/// With `STITCHWORT_CACHE_DEBUG` set, says why an entry wasn't used or
+/// written, on stderr.
+fn debug(what: &str) {
+    if std::env::var_os("STITCHWORT_CACHE_DEBUG").is_some() {
+        eprintln!("check cache: {what}");
+    }
+}
+
 impl Elaborator {
+    /// The names entries give the files a library entry may refer to.
+    fn std_file_names(&self) -> HashMap<FileId, String> {
+        let index = self.library_index().expect("a library is installed");
+        index
+            .files
+            .iter()
+            .map(|f| (f.id, std_file_name(&f.path)))
+            .collect()
+    }
+
     /// The entry for library file `f`, which has just loaded without
-    /// errors, or why it can't be cached: a declaration the kernel didn't
-    /// admit, a primitive or core built-in bound or an export made (the
-    /// library has none, so this isn't encoded), a test kept, or a
-    /// reference that can't be written by path. Library built-ins are
-    /// encoded.
+    /// errors, or why it can't be cached (see [`Self::encode`]).
     fn encode_library_file(
         &self,
         f: usize,
@@ -546,8 +1032,60 @@ impl Elaborator {
         key: &Key,
         salt: [u8; 16],
     ) -> Result<Vec<u8>, String> {
-        let g = &self.globals;
         let index = self.library_index().expect("a library is installed");
+        // The names: those that changed, then the new ones in the order
+        // they were declared, then the members marked.
+        let mut changed: Vec<String> = self
+            .scope
+            .entries
+            .iter()
+            .filter(|(k, v)| before.scope.get(*k).is_some_and(|old| old != *v))
+            .map(|(k, _)| k.clone())
+            .collect();
+        changed.sort();
+        let names = NamesOut {
+            changed,
+            early: Vec::new(),
+            late: log
+                .iter()
+                .filter_map(|op| match op {
+                    ScopeOp::New(k, follower) => Some((k.clone(), *follower)),
+                    ScopeOp::Member(_) => None,
+                })
+                .collect(),
+            members: log
+                .iter()
+                .filter_map(|op| match op {
+                    ScopeOp::Member(k) => Some(k.clone()),
+                    ScopeOp::New(..) => None,
+                })
+                .collect(),
+        };
+        let unit = UnitOut {
+            file_names: self.std_file_names(),
+            own_files: HashSet::from([index.files[f].id]),
+            library: true,
+        };
+        self.encode(&unit, before, &names, &PreOut::default(), &[], key, salt)
+    }
+
+    /// The entry for a unit that has just loaded without errors, or why it
+    /// can't be cached: a declaration the kernel didn't admit, a primitive
+    /// or core built-in bound, an export made, a library test kept, a name
+    /// that failed, or a reference that can't be written by path. Library
+    /// built-ins are encoded.
+    #[allow(clippy::too_many_arguments)]
+    fn encode(
+        &self,
+        unit: &UnitOut,
+        before: &Before,
+        names: &NamesOut,
+        pre: &PreOut,
+        warnings: &[Diagnostic],
+        key: &Key,
+        salt: [u8; 16],
+    ) -> Result<Vec<u8>, String> {
+        let g = &self.globals;
         let _op = g.budget.operation(self.limits);
         let (defs, datas) = (before.defs..g.defs.len(), before.datas..g.datas.len());
         for id in defs.clone().map(DefId) {
@@ -561,12 +1099,15 @@ impl Elaborator {
             if g.builtins.primitive(id).is_some() {
                 return Err(format!("`{}` is a primitive", def.path));
             }
+            // Replay declares it again under its module.
+            module_of(&def.name, &def.path).map_err(|Bad(why)| why)?;
         }
         for d in datas.clone().map(DataId) {
             let data = g.data(d);
             if data.state() != State::Final || !data.validators.is_empty() {
                 return Err(format!("`{}` isn't admitted plainly", data.path));
             }
+            module_of(&data.name, &data.path).map_err(|Bad(why)| why)?;
         }
         // The built-ins the file binds: only library ones, which are just
         // registry entries (a core built-in may also tell the evaluator
@@ -577,8 +1118,9 @@ impl Elaborator {
                 return Err(format!("`{}` is a core built-in", b.name()));
             }
         }
-        if self.tests.len() != before.tests {
-            return Err("a test was kept".to_string());
+        let tests = &self.tests[before.tests..];
+        if tests.iter().any(|t| t.library) || (unit.library && !tests.is_empty()) {
+            return Err("a library test was kept".to_string());
         }
         let old_rows = self
             .by_data()
@@ -615,12 +1157,7 @@ impl Elaborator {
                 deps: Vec::new(),
                 def_paths,
                 data_paths,
-                std_files: index
-                    .files
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| (f.id, i))
-                    .collect(),
+                names: unit.file_names.clone(),
                 files: Vec::new(),
                 file_ids: HashMap::new(),
                 problem: None,
@@ -628,6 +1165,33 @@ impl Elaborator {
             terms: TermWriter::default(),
             w: Writer::default(),
         };
+
+        // What a namespace's replay reads before the rest (empty for a
+        // library file): the library it needs, the files it included, and
+        // the names it declared before the library files loaded.
+        e.w.usize(pre.needs_files.len());
+        for path in &pre.needs_files {
+            e.str(path);
+        }
+        e.w.usize(pre.dots.len());
+        for field in &pre.dots {
+            e.str(field);
+        }
+        e.w.usize(pre.includes.len());
+        for (path, hash) in &pre.includes {
+            e.str(path);
+            e.w.raw(hash);
+        }
+        e.w.usize(names.early.len());
+        for (k, follower) in &names.early {
+            let Some((_, span)) = self.scope.entries.get(k) else {
+                return Err(format!("`{k}` was declared and is gone"));
+            };
+            e.str(k);
+            e.span(*span);
+            e.w.bool(*follower);
+        }
+        let pre_bytes = std::mem::take(&mut e.w.bytes);
 
         // The kernel's declarations.
         e.w.usize(defs.len());
@@ -712,46 +1276,36 @@ impl Elaborator {
         }
 
         // The names: those that changed, then the new ones in the order
-        // they were declared, then the members marked.
-        let mut changed: Vec<(&String, &(Global, Span))> = self
-            .scope
-            .entries
-            .iter()
-            .filter(|(k, v)| before.scope.get(*k).is_some_and(|old| old != *v))
-            .collect();
-        changed.sort_by_key(|(k, _)| *k);
-        e.w.usize(changed.len());
-        for (k, (global, span)) in changed {
+        // they were declared (what the early ones finally name), then the
+        // members marked.
+        let entry = |k: &str| {
+            self.scope
+                .entries
+                .get(k)
+                .copied()
+                .ok_or_else(|| format!("`{k}` was declared and is gone"))
+        };
+        e.w.usize(names.changed.len());
+        for k in &names.changed {
+            let (global, span) = entry(k)?;
             e.str(k);
-            e.global(self, *global);
-            e.span(*span);
+            e.global(self, global);
+            e.span(span);
         }
-        let new: Vec<(&str, bool)> = log
-            .iter()
-            .filter_map(|op| match op {
-                ScopeOp::New(k, follower) => Some((k.as_str(), *follower)),
-                ScopeOp::Member(_) => None,
-            })
-            .collect();
-        e.w.usize(new.len());
-        for (k, follower) in new {
-            let Some((global, span)) = self.scope.entries.get(k) else {
-                return Err(format!("`{k}` was declared and is gone"));
-            };
+        e.w.usize(names.late.len());
+        for (k, follower) in &names.late {
+            let (global, span) = entry(k)?;
             e.str(k);
-            e.global(self, *global);
-            e.span(*span);
-            e.w.bool(follower);
+            e.global(self, global);
+            e.span(span);
+            e.w.bool(*follower);
         }
-        let members: Vec<&str> = log
-            .iter()
-            .filter_map(|op| match op {
-                ScopeOp::Member(k) => Some(k.as_str()),
-                ScopeOp::New(..) => None,
-            })
-            .collect();
-        e.w.usize(members.len());
-        for k in members {
+        for (k, _) in &names.early {
+            let (global, _) = entry(k)?;
+            e.global(self, global);
+        }
+        e.w.usize(names.members.len());
+        for k in &names.members {
             e.str(k);
         }
 
@@ -860,8 +1414,45 @@ impl Elaborator {
             e.str(k);
         }
 
-        // What code navigation recorded in the file.
-        let file_id = index.files[f].id;
+        // The tests, in the order they run.
+        e.w.usize(tests.len());
+        for t in tests {
+            e.str(&t.name);
+            e.str(&t.namespace);
+            e.def(t.def);
+            e.span(t.span);
+            match &t.sides {
+                None => e.w.bool(false),
+                Some(sides) => {
+                    e.w.bool(true);
+                    e.str(sides.op);
+                    e.term(&sides.left);
+                    e.term(&sides.right);
+                }
+            }
+        }
+
+        // The warnings, in the order they are reported.
+        e.w.usize(warnings.len());
+        for d in warnings {
+            if d.severity != Severity::Warning {
+                return Err("an error".to_string());
+            }
+            e.str(d.code);
+            e.str(&d.message);
+            e.w.usize(d.labels.len());
+            for label in &d.labels {
+                e.span(label.span);
+                e.str(&label.message);
+            }
+            e.w.usize(d.notes.len());
+            for note in &d.notes {
+                e.str(note);
+            }
+        }
+
+        // What code navigation recorded in the unit's files.
+        let own = |file: &FileId| unit.own_files.contains(file);
         match (&self.nav, before.nav) {
             (Some(nav), Some((locals, binders, outline))) => {
                 let nav = nav.borrow();
@@ -869,17 +1460,22 @@ impl Elaborator {
                     return Err("navigation left something unfinished".to_string());
                 }
                 e.w.bool(true);
-                let mut refs: Vec<(&Span, &Noted)> = nav
-                    .refs
-                    .iter()
-                    .filter(|(at, _)| at.file == file_id)
-                    .collect();
-                refs.sort_by_key(|(at, _)| (at.start, at.end));
+                let mut refs: Vec<(&Span, &Noted)> =
+                    nav.refs.iter().filter(|(at, _)| own(&at.file)).collect();
+                refs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
                 e.w.usize(refs.len());
                 for (at, noted) in refs {
                     e.span(*at);
                     e.str(&noted.key);
-                    e.span(noted.target);
+                    // A target in another unit's file is kept by the name
+                    // of its declaration, where it is found when the entry
+                    // is replayed (§4.3).
+                    let by_name = !own(&noted.target.file)
+                        && self.scope.get(&noted.key).map(|(_, s)| s) == Some(noted.target);
+                    e.w.bool(by_name);
+                    if !by_name {
+                        e.span(noted.target);
+                    }
                     e.global(self, noted.global);
                     e.w.bool(noted.dot.is_some());
                     if let Some(dot) = &noted.dot {
@@ -889,12 +1485,12 @@ impl Elaborator {
                 let mut types: Vec<(&(FileId, u32), &String)> = nav
                     .local_types
                     .iter()
-                    .filter(|((file, _), _)| *file == file_id)
+                    .filter(|((file, _), _)| own(file))
                     .collect();
-                types.sort_by_key(|((_, at), _)| *at);
+                types.sort_by_key(|((file, at), _)| (file.index(), *at));
                 e.w.usize(types.len());
-                for ((_, at), ty) in types {
-                    e.w.uint(u64::from(*at));
+                for ((file, at), ty) in types {
+                    e.span(Span::new(*file, *at, *at));
                     e.str(ty);
                 }
                 for uses in [&nav.locals[locals..], &nav.binders[binders..]] {
@@ -905,12 +1501,15 @@ impl Elaborator {
                         e.span(u.binder);
                     }
                 }
+                // A namespace's are found again by walking its syntax.
                 let mut fields: Vec<(&(Span, String), &Span)> = nav
                     .field_spans
                     .iter()
-                    .filter(|((at, _), _)| at.file == file_id)
+                    .filter(|((at, _), _)| unit.library && own(&at.file))
                     .collect();
-                fields.sort_by_key(|((at, name), _)| (at.start, at.end, name.as_str()));
+                fields.sort_by_key(|((at, name), _)| {
+                    (at.file.index(), at.start, at.end, name.as_str())
+                });
                 e.w.usize(fields.len());
                 for ((at, name), span) in fields {
                     e.span(*at);
@@ -925,16 +1524,18 @@ impl Elaborator {
         if let Some(problem) = e.out.problem {
             return Err(problem);
         }
-        // The body: strings, files, terms, then the rest.
+        // The body: strings, files, what replay reads first, terms, then
+        // the rest.
         let mut body = Writer::default();
         body.usize(e.terms.strings.len());
         for s in &e.terms.strings {
             body.str(s);
         }
         body.usize(e.out.files.len());
-        for &file in &e.out.files {
-            body.str(&index.files[file].path);
+        for file in &e.out.files {
+            body.str(file);
         }
+        body.blob(&pre_bytes);
         body.usize(e.terms.node_count());
         body.raw(&e.terms.nodes.bytes);
         body.raw(&e.w.bytes);
@@ -1105,6 +1706,9 @@ enum GlobalEntry {
 struct Tables {
     changed: Vec<(String, GlobalEntry, Span)>,
     new: Vec<(String, GlobalEntry, Span, bool)>,
+    /// What each name declared before the library files loaded names
+    /// ([`Pre::early`]), in the same order.
+    early: Vec<GlobalEntry>,
     members: Vec<String>,
     records: Vec<(DataId, RecordInfo)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
@@ -1114,12 +1718,29 @@ struct Tables {
     abilities: Vec<AbilityInfo>,
     lifted: Vec<(DefId, Span)>,
     helper_keys: Vec<String>,
+    tests: Vec<TestEntry>,
+    warnings: Vec<Diagnostic>,
     nav: Option<NavEntry>,
 }
 
+/// A test, read.
+struct TestEntry {
+    name: String,
+    namespace: String,
+    def: DefId,
+    span: Span,
+    sides: Option<(&'static str, Term, Term)>,
+}
+
+/// Where a reference leads: a span, or the declaration with that key.
+enum Target {
+    Span(Span),
+    Key,
+}
+
 struct NavEntry {
-    refs: Vec<(Span, String, Span, GlobalEntry, Option<String>)>,
-    local_types: Vec<(u32, String)>,
+    refs: Vec<(Span, String, Target, GlobalEntry, Option<String>)>,
+    local_types: Vec<(Span, String)>,
     locals: Vec<(Span, String, Span)>,
     binders: Vec<(Span, String, Span)>,
     fields: Vec<(Span, String, Span)>,
@@ -1209,14 +1830,123 @@ fn unique<T: Copy>(map: &HashMap<&str, Option<T>>, path: &str) -> Option<T> {
     map.get(path).copied().flatten()
 }
 
+/// What a namespace's replay reads before the rest of its entry (empty for
+/// a library file): see [`PreOut`].
+#[derive(Default)]
+struct Pre {
+    needs: Needs,
+    includes: Vec<(String, Key)>,
+    early: Vec<(String, Span, bool)>,
+}
+
+impl Pre {
+    fn is_empty(&self) -> bool {
+        self.needs.files.is_empty()
+            && self.needs.dots.is_empty()
+            && self.includes.is_empty()
+            && self.early.is_empty()
+    }
+}
+
+/// An entry's body up to its terms: its strings, its files, and what a
+/// namespace's replay reads first; the reader is at the terms.
+struct Head<'a> {
+    r: Reader<'a>,
+    strings: Vec<Name>,
+    files: Vec<FileId>,
+    pre: Pre,
+}
+
+/// Everything an entry holds, read and checked.
+struct Decoded {
+    defs: Vec<DefEntry>,
+    datas: Vec<DataEntry>,
+    bound: Vec<(u8, usize, Builtin)>,
+    tables: Tables,
+}
+
 impl Elaborator {
-    /// Loads library file `f` from an entry. On any problem, nothing has
-    /// changed, and the reason is returned.
-    fn replay(&mut self, f: usize, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<()> {
-        let (deps, body) = open(bytes, key, salt)?;
+    /// The files a library file's entry may refer to, by their names in
+    /// entries.
+    fn std_file_ids(&self) -> HashMap<String, FileId> {
+        self.std_file_names()
+            .into_iter()
+            .map(|(id, name)| (name, id))
+            .collect()
+    }
+
+    /// Reads an entry's body up to its terms. Changes nothing.
+    fn read_head<'a>(&self, body: &'a [u8], file_ids: &HashMap<String, FileId>) -> Read<Head<'a>> {
+        let index = self.library_index().expect("a library is installed");
+        let mut r = Reader::new(body);
+        let strings = Terms::read_strings(&mut r)?;
+        let n = r.count(1)?;
+        let mut files = Vec::with_capacity(n);
+        for _ in 0..n {
+            let name = r.string()?;
+            match file_ids.get(&name) {
+                Some(&id) => files.push(id),
+                None => return bad(format!("no file `{name}`")),
+            }
+        }
+        let pre_bytes = r.blob()?;
+        let mut body = Body {
+            r: Reader::new(pre_bytes),
+            terms: Terms {
+                nodes: Vec::new(),
+                strings,
+            },
+            refs: In {
+                base_defs: 0,
+                base_datas: 0,
+                n_defs: 0,
+                n_datas: 0,
+                ext_defs: Vec::new(),
+                ext_datas: Vec::new(),
+                files,
+            },
+        };
+        let mut pre = Pre::default();
+        let n = body.count()?;
+        for _ in 0..n {
+            let path = body.string()?;
+            match index.files.iter().position(|f| f.path == path) {
+                Some(f) => {
+                    pre.needs.files.insert(f);
+                }
+                None => return bad(format!("no library file `{path}`")),
+            }
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            pre.needs.dots.insert(body.string()?);
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            pre.includes.push((body.string()?, body.r.array::<32>()?));
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            pre.early
+                .push((body.string()?, body.span()?, body.r.bool()?));
+        }
+        if !body.r.done() {
+            return bad("bytes after what replay reads first");
+        }
+        Ok(Head {
+            r,
+            strings: body.terms.strings,
+            files: body.refs.files,
+            pre,
+        })
+    }
+
+    /// Reads the rest of an entry, in this session: its dependencies must
+    /// be here, with the hashes it was made with. Changes nothing.
+    fn decode(&self, deps: &[Dep], head: Head, early: &[(String, Span, bool)]) -> Read<Decoded> {
         let index = self.library_index().expect("a library is installed");
         let g = &self.globals;
-        let op = g.budget.operation(self.limits);
+        let _op = g.budget.operation(self.limits);
 
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
@@ -1253,21 +1983,15 @@ impl Elaborator {
             }
         }
 
-        // The body, read completely before anything changes.
-        let mut r = Reader::new(body);
-        let strings = Terms::read_strings(&mut r)?;
-        let n = r.count(1)?;
-        let mut files = Vec::with_capacity(n);
-        for _ in 0..n {
-            let path = r.string()?;
-            match index.files.iter().find(|f| f.path == path) {
-                Some(file) => files.push(file.id),
-                None => return bad(format!("no library file `{path}`")),
-            }
-        }
         // The counts of the entry's own declarations come after the terms,
         // which may refer to them: read the terms with room for any, and
         // check the references once the counts are known.
+        let Head {
+            mut r,
+            strings,
+            files,
+            ..
+        } = head;
         let node_count = r.count(1)?;
         let mut body = Body {
             r,
@@ -1358,6 +2082,7 @@ impl Elaborator {
             }
             bound.push((kind, offset, b));
         }
+        bound.sort();
         body.refs.n_defs = n_defs;
         body.refs.n_datas = n_datas;
         // Every reference the terms make to the entry's own declarations is
@@ -1377,7 +2102,7 @@ impl Elaborator {
             }
         }
 
-        let tables = read_tables(&mut body, index.files.len())?;
+        let tables = read_tables(&mut body, index.files.len(), early.len())?;
         if !body.r.done() {
             return bad("bytes after the tables");
         }
@@ -1393,6 +2118,7 @@ impl Elaborator {
             .collect();
         let globals = tables.changed.iter().map(|(_, g, _)| g);
         let globals = globals.chain(tables.new.iter().map(|(_, g, _, _)| g));
+        let globals = globals.chain(&tables.early);
         let globals = globals.chain(tables.nav.iter().flat_map(|n| n.refs.iter().map(|r| &r.3)));
         for g in globals {
             if let GlobalEntry::Ability(d) | GlobalEntry::Op(d, _) = g
@@ -1401,11 +2127,46 @@ impl Elaborator {
                 return bad("a name refers to an ability there isn't");
             }
         }
-        drop(op);
+        // Every target kept by name is one there will be.
+        if let Some(nav) = &tables.nav {
+            let own: HashSet<&str> = tables
+                .changed
+                .iter()
+                .map(|(k, _, _)| k.as_str())
+                .chain(tables.new.iter().map(|(k, _, _, _)| k.as_str()))
+                .chain(early.iter().map(|(k, _, _)| k.as_str()))
+                .collect();
+            for (_, key, target, _, _) in &nav.refs {
+                if matches!(target, Target::Key)
+                    && !own.contains(key.as_str())
+                    && self.scope.get(key).is_none()
+                {
+                    return bad(format!("no `{key}` to lead to"));
+                }
+            }
+        }
+        Ok(Decoded {
+            defs,
+            datas,
+            bound,
+            tables,
+        })
+    }
 
-        bound.sort();
-        self.admit_replayed(&defs, &datas, &bound)?;
-        self.replay_tables(f, tables);
+    /// Loads library file `f` from an entry. On any problem, nothing has
+    /// changed, and the reason is returned.
+    fn replay(&mut self, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<()> {
+        let (deps, body) = open(bytes, key, salt)?;
+        let head = self.read_head(body, &self.std_file_ids())?;
+        if !head.pre.is_empty() {
+            return bad("a library file's entry with a namespace's parts");
+        }
+        let d = self.decode(&deps, head, &[])?;
+        if !d.tables.tests.is_empty() || !d.tables.warnings.is_empty() {
+            return bad("a library file's entry with tests or warnings");
+        }
+        self.admit_replayed(&d.defs, &d.datas, &d.bound)?;
+        self.replay_tables(d.tables, &[]);
         Ok(())
     }
 
@@ -1711,7 +2472,10 @@ impl Elaborator {
 
     /// Puts an entry's side tables in place, through the same insertion
     /// functions elaboration uses, once its declarations are admitted.
-    fn replay_tables(&mut self, f: usize, t: Tables) {
+    /// `early` are the names a namespace declared before its library files
+    /// loaded, already there (`replay_namespace`), which now get what they
+    /// name.
+    fn replay_tables(&mut self, t: Tables, early: &[(String, Span, bool)]) {
         self.abilities.extend(t.abilities);
         let ability = |e: &Elaborator, op_data: DataId| {
             e.abilities
@@ -1732,6 +2496,10 @@ impl Elaborator {
             let g = global(self, g);
             self.scope.insert(&key, g, span, follower);
         }
+        for ((key, span, follower), g) in early.iter().zip(t.early) {
+            let g = global(self, g);
+            self.scope.insert(key, g, *span, *follower);
+        }
         for key in t.members {
             self.scope.mark_member(&key);
         }
@@ -1745,10 +2513,28 @@ impl Elaborator {
         self.no_ord.extend(no_ord);
         self.lifted.extend(t.lifted);
         self.helper_keys.extend(t.helper_keys);
+        for test in t.tests {
+            self.tests.push(crate::TestDecl {
+                library: false,
+                name: test.name,
+                namespace: test.namespace,
+                def: test.def,
+                span: test.span,
+                sides: test.sides.map(|(op, left, right)| crate::TestSides { op, left, right }),
+            });
+        }
         if let (Some(nav), Some(entry)) = (&self.nav, t.nav) {
-            let file = self.library_index().expect("installed").files[f].id;
             for (at, key, target, g, dot) in entry.refs {
                 let global = global(self, g);
+                let target = match target {
+                    Target::Span(span) => span,
+                    Target::Key => {
+                        self.scope
+                            .get(&key)
+                            .expect("checked when read (`decode`)")
+                            .1
+                    }
+                };
                 self.note(
                     at,
                     Noted {
@@ -1761,7 +2547,7 @@ impl Elaborator {
             }
             let mut nav = nav.borrow_mut();
             for (at, ty) in entry.local_types {
-                nav.local_types.insert((file, at), ty);
+                nav.local_types.insert((at.file, at.start), ty);
             }
             for (span, name, binder) in entry.locals {
                 nav.locals.push(LocalUse { span, name, binder });
@@ -1791,10 +2577,11 @@ fn module_of(name: &str, path: &str) -> Read<Name> {
 
 /// The side tables of an entry, read; any ability a name refers to must
 /// be one known after replay.
-fn read_tables(b: &mut Body, files: usize) -> Read<Tables> {
+fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     let mut t = Tables {
         changed: Vec::new(),
         new: Vec::new(),
+        early: Vec::new(),
         members: Vec::new(),
         records: Vec::new(),
         interfaces: Vec::new(),
@@ -1803,6 +2590,8 @@ fn read_tables(b: &mut Body, files: usize) -> Read<Tables> {
         abilities: Vec::new(),
         lifted: Vec::new(),
         helper_keys: Vec::new(),
+        tests: Vec::new(),
+        warnings: Vec::new(),
         nav: None,
     };
     let n = b.count()?;
@@ -1813,6 +2602,9 @@ fn read_tables(b: &mut Body, files: usize) -> Read<Tables> {
     for _ in 0..n {
         t.new
             .push((b.string()?, b.global(files)?, b.span()?, b.r.bool()?));
+    }
+    for _ in 0..early {
+        t.early.push(b.global(files)?);
     }
     let n = b.count()?;
     for _ in 0..n {
@@ -1914,6 +2706,45 @@ fn read_tables(b: &mut Body, files: usize) -> Read<Tables> {
     for _ in 0..n {
         t.helper_keys.push(b.string()?);
     }
+    let n = b.count()?;
+    for _ in 0..n {
+        let name = b.string()?;
+        let namespace = b.string()?;
+        let def = b.def()?;
+        let span = b.span()?;
+        let sides = if b.r.bool()? {
+            let op = b.string()?;
+            let Some(op) = TEST_OPS.iter().find(|o| **o == op) else {
+                return bad(format!("no operator `{op}`"));
+            };
+            Some((*op, b.term()?, b.term()?))
+        } else {
+            None
+        };
+        t.tests.push(TestEntry {
+            name,
+            namespace,
+            def,
+            span,
+            sides,
+        });
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let mut d = Diagnostic::warning(static_code(&b.string()?), b.string()?);
+        let k = b.count()?;
+        for _ in 0..k {
+            d.labels.push(Label {
+                span: b.span()?,
+                message: b.string()?,
+            });
+        }
+        let k = b.count()?;
+        for _ in 0..k {
+            d.notes.push(b.string()?);
+        }
+        t.warnings.push(d);
+    }
     if b.r.bool()? {
         let mut nav = NavEntry {
             refs: Vec::new(),
@@ -1926,14 +2757,18 @@ fn read_tables(b: &mut Body, files: usize) -> Read<Tables> {
         for _ in 0..n {
             let at = b.span()?;
             let key = b.string()?;
-            let target = b.span()?;
+            let target = if b.r.bool()? {
+                Target::Key
+            } else {
+                Target::Span(b.span()?)
+            };
             let global = b.global(files)?;
             let dot = if b.r.bool()? { Some(b.string()?) } else { None };
             nav.refs.push((at, key, target, global, dot));
         }
         let n = b.count()?;
         for _ in 0..n {
-            nav.local_types.push((b.r.u32()?, b.string()?));
+            nav.local_types.push((b.span()?, b.string()?));
         }
         for uses in [&mut nav.locals, &mut nav.binders] {
             let n = b.count()?;
