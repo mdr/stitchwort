@@ -5235,7 +5235,7 @@
     {
       "id": 333,
       "title": "Checkpoint failures (beyond SW-332): erasure (2), indexed_families, int decisions/operations in both modes, std_library small_programs_load_only, rt lower (4), machine examples_agree, js extract generated code snapshot, web every_aoc_day project test",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane: triage + fix",
       "labels": [
@@ -5244,7 +5244,16 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "422deaf5",
+        "4ecf1a53",
+        "4ebd701a",
+        "6199a777",
+        "b14b22b1",
+        "bc8013f6",
+        "211f76b6",
+        "6252fddf"
+      ]
     }
   ]
 }
