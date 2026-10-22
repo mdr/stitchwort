@@ -3055,8 +3055,8 @@
       "id": 198,
       "title": "AoC day 8: junction boxes (resumed D535: after the community note; then solve + prove; then gap analysis)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": "stage A lane: std additions (D544) + program (D542)",
+      "agent": "Opus",
+      "where": "stage B: proofs (D543); stage A merged",
       "labels": [
         "aoc",
         "postponed"
@@ -3064,7 +3064,10 @@
       "body": "D225 (Matt, 21 Oct 2026): postponed. Plan when resumed: lists + Map + List.sortBy; measure where time goes (estimate 15-25 s: 499,500 pairs sorted); fallback Array (SW-112, also backlog). docs/aoc-2025.md, 'Day 8: junction boxes' (:557). Input is aoc/inputs/day08.txt; the program goes in aoc/src/Aoc/Day08 with parseX / solvePart1 / solvePart2 and proofs in Aoc.Day08.Proofs, like days 1-7.\n\nDone when: Day 8 runs on the real input with answers tested, and part 1 and part 2 are proved for all inputs against puzzle-literal specs (or the proof scope is decided and recorded).\n",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "160ab3c4",
+        "be9956bc"
+      ]
     },
     {
       "id": 199,
