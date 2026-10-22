@@ -368,3 +368,34 @@ def main(): {IO} () := IO.print (Nat.toText (until 3 (n => n) (n => n) (y h => V
 "#);
     assert!(!ir.contains("apply erased"), "{ir}");
 }
+
+/// A function that recurses only inside a closure (accessibility as data,
+/// `AccIntro (m => accFuel k m ..)`) isn't inlined at a call with a literal:
+/// that unrolled it once per unit of the literal, so a 13-digit number took
+/// minutes to lower and run (SW-253). Here an 8-digit one would take 12 s.
+#[test]
+fn recursion_inside_a_closure_is_not_unrolled() {
+    let ir = ir(r#"
+import Std (Void, Bool, List, Nat)
+
+type AccLt: Nat -> Type =
+  | AccIntro [n: Nat] (below: (m: Nat) -> m < n -> AccLt m): AccLt n
+
+def accFuel: (k: Nat) -> (n: Nat) -> n < k -> AccLt n
+  | Zero,   n, h => Void.absurd (Bool.falseNotTrue h)
+  | Succ k, n, h => AccIntro (m hm => accFuel k m (Nat.leTrans (Succ m) n k hm h))
+
+def digitsGo (n: Nat) (acc: List Nat) (a: AccLt n): List Nat :=
+  match a with
+    | AccIntro below =>
+      if e: Nat.leq n 9 = False
+      then digitsGo (n / 10) (Cons (n % 10) acc) (below (n / 10) (Nat.divTenLess n e))
+      else Cons n acc
+
+def digits (n: Nat): List Nat := digitsGo n Nil (accFuel (Succ n) n (Nat.leRefl n))
+
+def main(): {IO} () := IO.print "${(digits 12345678).length}"
+"#);
+    let unrolled = ir.matches("AccIntro").count();
+    assert!(unrolled < 10, "{unrolled} AccIntro in the IR of main");
+}
