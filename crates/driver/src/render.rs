@@ -18,12 +18,11 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         return out;
     };
 
-    let name = |span: stitchwort_syntax::Span| sources.get(span.file).name.clone();
     let config = Config::default()
         .with_color(color)
         .with_index_type(IndexType::Byte);
 
-    let mut report = Report::build(kind, (name(primary), primary.range()))
+    let mut report = Report::build(kind, place(sources, primary))
         .with_config(config)
         .with_code(diagnostic.code)
         .with_message(&diagnostic.message);
@@ -39,9 +38,8 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         )
     });
     for label in labels {
-        report = report.with_label(
-            Label::new((name(label.span), label.span.range())).with_message(&label.message),
-        );
+        report =
+            report.with_label(Label::new(place(sources, label.span)).with_message(&label.message));
     }
     for note in &diagnostic.notes {
         report = report.with_note(note);
@@ -50,7 +48,15 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
     let cache = ariadne::sources(
         sources
             .iter()
-            .map(|(_, file)| (file.name.clone(), file.text.clone())),
+            .map(|(_, file)| (file.name.clone(), file.text.clone()))
+            .chain({
+                let mut start = 0;
+                stitchwort_elab::CORE_LAYOUT.iter().map(move |(path, len)| {
+                    let text = stitchwort_elab::PRELUDE[start..start + len].to_owned();
+                    start += len;
+                    (format!("std/{path}"), text)
+                })
+            }),
     );
     let mut out = Vec::new();
     report
@@ -58,6 +64,24 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         .write(cache, &mut out)
         .expect("writing to a Vec cannot fail");
     String::from_utf8(out).expect("ariadne writes UTF-8")
+}
+
+/// Where `span` is shown: the file's name and range, but for a span in the
+/// core, the name of the file of the core it is in, and the range within it.
+fn place(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, std::ops::Range<usize>) {
+    let file = sources.get(span.file);
+    // The core is a prefix of the prelude file: tests append to it.
+    if file.name == "<prelude>"
+        && file.text.starts_with(stitchwort_elab::PRELUDE)
+        && (span.end as usize) <= stitchwort_elab::PRELUDE.len()
+    {
+        let (path, start, _) = stitchwort_elab::core_file_at(span.start as usize);
+        return (
+            format!("std/{path}"),
+            (span.start as usize - start)..(span.end as usize - start),
+        );
+    }
+    (file.name.clone(), span.range())
 }
 
 #[cfg(test)]

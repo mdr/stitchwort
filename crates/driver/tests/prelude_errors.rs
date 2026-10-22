@@ -23,6 +23,6 @@ fn a_duplicate_prelude_declaration_names_both_places() {
         })
         .collect();
     insta::assert_debug_snapshot!(summary);
-    assert!(report.contains("<prelude>:"), "{report}");
+    assert!(report.contains("std/core/"), "{report}");
     assert!(!report.contains("start:"), "{report}");
 }
