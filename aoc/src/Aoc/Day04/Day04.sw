@@ -11,8 +11,8 @@
 -- it is rectangular by its type; parsing refuses lines of different lengths.
 -- A roll's "window" is the 3 by 3 block around it, itself included, so it is
 -- accessible when its window holds fewer than 5 rolls. For each row, add it
--- to the rows above and below column by column, then walk along it with each
--- column's sum and its neighbours' (`peelRow`).
+-- to the rows above and below column by column, then add each column's sum to
+-- its neighbours' (`peelRow`).
 --
 -- Both parts are proved right for every grid in `Aoc.Day04.Proofs`
 -- (Proofs/Spec.sw states the puzzle by positions; Proofs/Part1.sw and
@@ -60,30 +60,18 @@ def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 
 def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Cell.count)
 
--- Remove every accessible roll, all at once: each row sees the rows above
--- and below as they were.
+-- Remove every accessible roll, all at once: each row is peeled with the
+-- rows above and below it as they were, and a row of floor past either end.
 def Grid.round (grid: Grid): Grid :=
-  let gap := Vec.replicate grid.width Floor
-  { grid | rows = roundFrom gap gap grid.rows }
-
--- `above` is the row above the first of `rows`; `gap` stands for the missing
--- row past the bottom.
-def roundFrom (gap above: Vec Cell w): Vec (Vec Cell w) h -> Vec (Vec Cell w) h
-  | VNil           => VNil
-  | VCons row rest => VCons (peelRow above row (rest.headOr gap)) (roundFrom gap row rest)
+  { grid | rows = grid.rows.around (Vec.replicate grid.width Floor) peelRow }
 
 -- Remove the accessible rolls of one row, given the rows above and below:
--- add the three rows column by column, then walk along the row with each
--- column's sum and its neighbours' (the window of 3 by 3 cells).
+-- add the three rows column by column, then each column's sum to its
+-- neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: Vec Cell w): Vec Cell w :=
-  peelCells 0 (Vec.zipWith3 (a r b => a.count + r.count + b.count) above row below) row
-
--- `left` is the column sum before the first of `columns`.
-def peelCells (left: Nat): Vec Nat w -> Vec Cell w -> Vec Cell w
-  | VNil,               VNil            => VNil
-  | VCons here columns, VCons roll rolls =>
-    let window := left + here + columns.headOr 0
-    VCons (if roll == Roll && 5 <= window then Roll else Floor) (peelCells here columns rolls)
+  let columns := Vec.zipWith3 (a r b => a.count + r.count + b.count) above row below
+  let windows := columns.around 0 (left here right => left + here + right)
+  Vec.zipWith (roll window => if roll == Roll && 5 <= window then Roll else Floor) row windows
 
 -- Rows marked with whether they changed in the last pass.
 type Marked (w h: Nat) = Vec (Vec Cell w, Bool) h
