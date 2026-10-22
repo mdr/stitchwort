@@ -262,7 +262,7 @@ theorem mixStep (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
     (r c ne =>
       match e: Nat.leq (Succ r) k with
         | True  => mixBelow (Succ k) out inp r c omega
-        | False => mixAbove (Succ k) out inp r c (Nat.leNeSucc k r (Nat.leqFalse (Succ r) k e) (q => ne (Eq.sym q))))
+        | False => mixAbove (Succ k) out inp r c omega)
     (c =>
       let now := mixBelow (Succ k) out inp k c omega
       let before := mixAbove k out inp k c omega
