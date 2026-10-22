@@ -639,6 +639,119 @@ including checking):
 | day 1 brute force | 0.77 | 5.38 | 1.06 |
 | day 2 brute force | 23.1 | `E-RESOURCE` after 2.7 | 66.8 |
 
+## As built (stage 4)
+
+SW-233, 22 October 2026. Tuning, one commit per change, each measured and run against the
+differential tests. `bench/baseline.toml` was re-recorded on `main` first (its `examples` and
+`extract-js` inputs had changed and `check-closed-*` had drifted by about 10%); it measures
+the reference evaluator and the checker, which this stage doesn't touch, so it doesn't move.
+
+**Where the time went** (macOS `sample` at 1 ms, a build with line tables, and a counting
+build for instruction pairs):
+
+- Day 2's brute force: about 55% in `malloc` and `free` and dropping values. `Text.take`,
+  `drop` and `contains` are library definitions over `List Char`, so each call turns a text
+  into a list of character cells (`TextToList`) and back; and every cell was allocated twice
+  (`Value::data` built a `Vec`, then copied it into an `Rc<[Value]>`).
+- The merge sort: the comparison is a closure called through eval/apply (an argument vector
+  per call, then three frames: the closure, `Nat.compare`, `Ordering.isLessEq`), plus a
+  new cell for every cell `merge` takes apart, and dropping each frame's registers.
+- Day 4: many tiny calls: `Decidable.toBool (Nat.decLessThan 4 n)`, `Cell.%decEq` then
+  `toBool`, `Pair.fst`/`snd`, record projections, `Vec.headOr`.
+- Instruction pairs (merge sort of 100,000): `Switch → Unpack` 3.5 million, `Prim →
+  JumpIfFalse` 2.8 million, `CtorReuse → Return` 1.8 million.
+
+**What changed:**
+
+1. **One allocation per cell** (`value.rs`): `Value::data` takes an array.
+2. **Moves, early drops and reuse in place** (`code.rs`, Perceus/Lean-style). The compiler
+   computes which slots are read later. An operand read for the last time is moved out of
+   its register (`MOVE` on the register), so a list passed on stays uniquely owned; a
+   variable a branch doesn't need is dropped as the branch starts. A match whose scrutinee
+   the arm doesn't need again takes the fields out (`Unpack`): if the cell is uniquely owned
+   they're moved, and if the arm builds a constructor with as many fields, the emptied cell
+   is a reuse token that `CtorReuse` fills in place. A variable known (from an enclosing
+   match) to be a constructor can be dropped into a token too (`DropReuse`, as `merge`
+   needs). Each constructor on a path claims its own token. A shared cell is never changed:
+   its fields are copied and it's left alone.
+3. **A simplifier for the IR** (`opt.rs`, run by lowering on every program): inlining small
+   non-recursive functions; beta for a closure applied where it's made or bound; known
+   constructors (from a `let`, an enclosing arm, a literal, or a constant whose value is a
+   constructor, such as an instance dictionary) take their arm; case of case for small
+   continuations; a match on `Bool` is an `if`, and `if c then True else False` is `c`; a
+   match on a `decEq` decision on native values is an `if` on the native equality; applying
+   a global, a partial application or a closure literal is a direct call; a lambda capturing
+   constants gets a copy with them substituted; a recursive function called with known
+   function arguments (`map scramble`, `merge`'s comparison, `foldLeft`'s closure) gets a
+   copy with them substituted, whose recursive calls call the copy; `Nat` operations on
+   literals are computed; and a `let` bound to a single-arm match (a projection) moves into
+   the arm. So `a < b` on `Nat` is `%Nat.leq(a + 1, b)`, `==` on `Char` compares the codes,
+   `Ord.decLessThan` on a known instance is a direct call, and `sortBy Nat.compare` sorts with
+   `merge` specialised to `if a == b then True else a <= b` inline. Each body's slots are
+   renamed apart first and packed again at the end; lowering still takes about 1 ms. Bounds:
+   functions up to 24 nodes are inlined, 64 copies of functions up to 200 nodes, fuel per
+   body, and a body nested more than 1,000 deep is left as lowered. The JS backend doesn't
+   use this IR, so its output is unchanged.
+4. **Applying a known-arity function** pushes its frame from the caller's registers, as a
+   direct call does, with no argument vector.
+5. **Shared ASCII character cells**: `TextToList`, `uncons` and `fold` reuse one cell per
+   ASCII character (safe with reuse: a shared cell is never changed).
+6. **Frame teardown** checks inline which registers own anything, instead of a drop call each.
+7. **A combined instruction**, `Test`: an `if` on a native comparison (`Nat` `<=`, `==`;
+   `Int` `==`, `<`, `<=`; `Text` `==`, `isEmpty`) compares numbers that fit a word inline and
+   jumps, without making a `Bool`. The other frequent pairs (`Switch → Unpack`, `CtorReuse →
+   Return`) would save one dispatch each; not worth it at these sizes.
+
+The listing printer writes a lambda that makes a closure of itself (possible after inlining)
+once. The liveness is computed once per body, bottom up: asked afresh at each level, it was
+quadratic in nesting depth (a list literal of 20,000 numbers took 1.9 s instead of 0.35 s;
+now 0.41 s).
+
+**Measurements** (release builds, Apple M4 Pro, median of 3 runs, load average 3–6 with other
+lanes running; seconds). Running time from `rt_run`, which times checking and running
+separately; wall time is `stitchwort run`:
+
+| Program | run, before | run, after | | wall, before | wall, after | checking |
+|---|---:|---:|---:|---:|---:|---:|
+| AoC day 4 | 0.373 | 0.192 | 1.9× | 0.73 | 0.54 | 0.32 |
+| merge sort, 100,000 | 0.438 | 0.159 | 2.8× | 0.68 | 0.39 | 0.21 |
+| day 1 brute force | 0.286 | 0.193 | 1.5× | 0.76 | 0.68 | 0.46 |
+| day 2 brute force | 22.84 | 11.48 | 2.0× | 23.09 | 11.80 | 0.31 |
+
+By step (running time; the load varied, so differences of a few per cent are noise):
+
+| Change | day 4 | sort | day 1 | day 2 |
+|---|---:|---:|---:|---:|
+| before | 0.373 | 0.438 | 0.286 | 22.84 |
+| one allocation per cell | 0.379 | 0.435 | 0.285 | 18.87 |
+| moves and reuse | 0.390 | 0.371 | 0.245 | 16.35 |
+| simplifier | 0.256 | 0.256 | 0.264 | 13.59 |
+| known-arity apply | 0.236 | 0.223 | 0.231 | — |
+| ASCII cells | 0.239 | 0.226 | 0.228 | 12.08 |
+| function copies, folding | 0.206 | 0.183 | 0.200 | 11.93 |
+| frame teardown | 0.195 | 0.168 | 0.195 | — |
+| `Test`, liveness once per body | 0.192 | 0.158 | 0.192 | 11.48 |
+
+The merge sort's peak memory: 85 MB, from 95 MB. Allocation has all but gone from its profile
+(5 of about 1,400 samples): each cell `merge` builds reuses one it took apart.
+
+**Checking is now most of the wall time** for programs like these: 0.21–0.46 s of 0.39–0.68 s
+(55–68%), against 0.16–0.19 s of running. Day 1's file checks for 0.46 s. Faster checking (or
+caching a checked prelude across runs) would now gain more than the machine.
+
+**What's left, and what turned out differently from §4 and §5:**
+
+- The gain is 1.5–2.8× on running, not the "a few combined instructions" the plan expected:
+  most of it came from the simplifier and reuse, which the plan put under stage 4 as
+  "reuse in place" and stage 1 as "a stage 1b" (inlining, constant dictionaries).
+- Day 2's remaining time is still mostly character lists: `Text.take`, `drop` and `contains`
+  are library definitions over `List Char`. Native versions bound by content hash, as the
+  other text natives are, would remove that; they'd need registry entries and JS code as
+  well, and each is a trusted native, so that's a decision rather than tuning (not done).
+- The step count (frames entered) falls with inlining, so a program runs further before
+  `E-RESOURCE` than before; only the way it's reported is the same, as in stage 3.
+- Effort: under one lane-day, against the 2 estimated.
+
 ## Decisions
 
 | ID | Question | Recommendation |
