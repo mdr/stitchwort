@@ -340,3 +340,25 @@ fn a_local_noted_in_an_undone_attempt() {
         .expect("a reference at `b`");
     assert_eq!(b.ty.as_deref(), Some("Nat"));
 }
+
+/// The index doesn't depend on a hash map's order (each session's maps are
+/// seeded differently): the same source gives the same JSON every time, and
+/// the library's `Ord.equal` is named and typed as the field a user writes,
+/// not as its generated `%equal` member (SW-244).
+#[test]
+fn the_index_is_the_same_every_time() {
+    let source = "def same: Nat -> Nat -> Bool\n  | a, b => a == b\n\n\
+                  def less: Nat -> Nat -> Bool\n  | a, b => a < b\n\n\
+                  def both: Nat -> Nat -> Bool\n  | a, b => a == b && a <= b\n";
+    let build = || {
+        let mut session = Session::navigable();
+        session.load("one.sw", source).expect("checks");
+        stitchwort_driver::nav::index_json(&session, false, None, "", &[])
+    };
+    let first = build();
+    for _ in 0..10 {
+        assert_eq!(build(), first);
+    }
+    assert!(first.contains("\"name\":\"Std.Ord.equal\""), "{first}");
+    assert!(!first.contains("\"name\":\"Std.Ord.%"), "{first}");
+}

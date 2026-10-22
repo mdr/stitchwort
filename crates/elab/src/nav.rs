@@ -403,7 +403,15 @@ impl Elaborator {
             });
         }
         let mut refs: Vec<NavRef> = Vec::new();
-        for (at, noted) in &nav.refs {
+        // In source order, so that the symbols made for the library's
+        // declarations (and the name and type each is shown with) don't
+        // depend on the hash map's order.
+        let mut noted_refs: Vec<(&Span, &Noted)> = nav.refs.iter().collect();
+        noted_refs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+        // The symbols whose name is one a user writes (not a generated `%`
+        // member's): the first such reference names the symbol.
+        let mut visible: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for (at, noted) in noted_refs {
             if !wanted(*at, noted.dot.as_deref()) {
                 continue;
             }
@@ -422,6 +430,7 @@ impl Elaborator {
                 Some(span) => (span, "field"),
                 None => (noted.target, self.global_kind(global)),
             };
+            let shown = !last.starts_with('%');
             let index = *by_span.entry(target).or_insert_with(|| {
                 symbols.push(NavSymbol {
                     name: noted.key.clone(),
@@ -433,12 +442,22 @@ impl Elaborator {
                 });
                 symbols.len() - 1
             });
-            if symbols[index].ty.is_none() {
-                symbols[index].ty = self.global_type(global);
-            }
-            // The elaborator's name is the one a reference was resolved by.
             if symbols[index].range.is_none() {
-                symbols[index].name = noted.key.clone();
+                // The elaborator's name is the one a reference was resolved
+                // by. A field is reached both by its projection (`Ord.equal`)
+                // and by its generated member (`Ord.%equal`, a different
+                // type); the index shows the projection and its type.
+                if shown && visible.insert(index) {
+                    symbols[index].name = noted.key.clone();
+                    symbols[index].ty = self.global_type(global);
+                } else if !visible.contains(&index) {
+                    symbols[index].name = noted.key.clone();
+                    if symbols[index].ty.is_none() {
+                        symbols[index].ty = self.global_type(global);
+                    }
+                }
+            } else if symbols[index].ty.is_none() {
+                symbols[index].ty = self.global_type(global);
             }
             refs.push(NavRef {
                 span: *at,
