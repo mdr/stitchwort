@@ -1461,6 +1461,13 @@ Built 22 October 2026 (SW-288), as 3a.3 describes, with these differences and fi
    2 6)` written as a closed theorem fails to infer the implicits: the expected type of `h` has
    been computed to the chain of `Or`s by then. With an open element (`(x: Nat) (h: List.Mem x
    (List.between 2 6))`) or inside a lambda over a `Member`, it works. Not fixed here.
+7. **Day 2 keeps its guards** (D519). Both were tried with `attach`: `allTemplatesForRange`'s
+   `if h: blockLength != 0` became `let notZero: blockLength != 0 := Nat.nonzeroOfPos
+   blockLength (List.memBetween isIn).left` in a record-pattern lambda, and `copiesWeight`'s `if
+   h: d < copies` became `[decreasing := belowOfBetween d copies isIn]` with a three-line theorem
+   beside it (a case for `copies = 0`, where the list is empty). Both checked and gave the same
+   answers, but each guard is a plain test a reader follows at once, and each replacement names
+   library lemmas and a proof, so the guards stay.
 
 Tests: `examples/accept/decreasing-attach.sw`: the day 2 weight over an attached `List.rangeFrom`
 with no guard (`[decreasing := belowOfRun d.value n d.isIn]`, through `List.memRangeFrom` and
