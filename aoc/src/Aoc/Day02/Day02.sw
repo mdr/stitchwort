@@ -30,7 +30,7 @@ def main(): {IO} () :=
   IO.print "Part 1: ${solvePart1 ranges}"
   IO.print "Part 2: ${solvePart2 ranges}"
 
-def solvePart1 (ranges: List Range): Nat := ranges.sumBy sumDoubled
+def solvePart1 (ranges: List Range): Nat := ranges.sumBy sumOfInvalidIdsInRange
 
 -- The weighted sum is signed; it comes out as a natural number.
 def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumRepeated)
@@ -47,7 +47,7 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate :=
     fittingCopies |> .map (copies => { blockLength, copies }))
 
 -- Part 1: the ids in the range written exactly twice.
-def sumDoubled (range: Range): Nat :=
+def sumOfInvalidIdsInRange (range: Range): Nat :=
   let twoCopies := (allTemplatesForRange range).filter (shape => shape.copies == 2)
   twoCopies.sumBy (sumWithShape range)
 

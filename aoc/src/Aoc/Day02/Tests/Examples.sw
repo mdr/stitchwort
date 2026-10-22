@@ -17,7 +17,7 @@ test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
 
 test "weights" := List.map copiesWeight (List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
-test "single range" := sumDoubled (range 11 22) == 33
+test "single range" := sumOfInvalidIdsInRange (range 11 22) == 33
 test "no double counting" := sumRepeated (range 111110 111112) == 111111
 test "period three" := sumRepeated (range 998 1012) == 999 + 1010
 test "empty overlap" := sumRepeated (range 12 21) == 0

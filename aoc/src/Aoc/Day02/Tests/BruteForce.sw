@@ -15,7 +15,7 @@ def bruteSum (invalid: Nat -> Bool) (r: Range): Nat :=
   r.ids |> .filter invalid |> .sum
 
 def agrees (r: Range): Bool :=
-  sumDoubled r == bruteSum doubled r && sumRepeated r == (bruteSum repeats r).toInt
+  sumOfInvalidIdsInRange r == bruteSum doubled r && sumRepeated r == (bruteSum repeats r).toInt
 
 -- Ranges of 40 ids starting every 13 up to 2000, and some that cross into
 -- more digits.
