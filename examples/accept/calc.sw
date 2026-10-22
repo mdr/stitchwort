@@ -92,3 +92,9 @@ theorem inferred (a: Nat) (b: Nat) (h: a = b): b = a :=
 theorem upToComputation (n: Nat): 1 + n = Succ n :=
   calc Succ (0 + n)
     _ = Succ n
+
+-- The chain's relation is also checked by computation: `a < Succ b`
+-- computes to `a <= b`, so a `<` chain is accepted against a `<=` goal.
+theorem ltSuccLe (a: Nat) (b: Nat) (h: a < Succ b): a <= b :=
+  calc a
+    _ < Succ b := h
