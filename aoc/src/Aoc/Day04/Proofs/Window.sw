@@ -144,7 +144,7 @@ theorem nearSum (g: Nat -> Nat) (n: Nat) (hz: (x: Nat) -> n <= x -> g x = 0) (r:
   let above := (x: Nat) => Nat.keepIf (g x) (Nat.equal (Succ r) x)
   calc List.sumBy (x => Nat.keepIf (g x) (near r x)) (List.range n)
     _ = List.sumBy (x => below x + same x + above x) (List.range n)
-        := List.sumByCongr (x => Nat.keepIf (g x) (near r x)) (x => below x + same x + above x) (x => nearSplit (g x) r x) (List.range n)
+        := List.sumByCong (x => Nat.keepIf (g x) (near r x)) (x => below x + same x + above x) (List.range n) (x => nearSplit (g x) r x)
     _ = List.sumBy below (List.range n) + List.sumBy same (List.range n) + List.sumBy above (List.range n)
         := rewrite List.sumByAdd (x => below x + same x) above (List.range n), List.sumByAdd below same (List.range n)
     _ = shift g r + g r + g (Succ r)
@@ -186,8 +186,8 @@ theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x && c == y) = Tr
 -- A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum (grid: Grid) (p: Nat -> Nat -> Bool):
     countPositions grid p = List.sumBy (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width)) (List.range grid.height) :=
-  List.sumByCongr (x => List.count (y => p x y) (List.range grid.width)) (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width))
-    (x => List.countSumBy (y => p x y) (List.range grid.width)) (List.range grid.height)
+  List.sumByCong (x => List.count (y => p x y) (List.range grid.width)) (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width))
+    (List.range grid.height) (x => List.countSumBy (y => p x y) (List.range grid.width))
 
 -- The sum over the grid's positions that picks out (r, c) itself.
 theorem selfSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid.height <= r -> cells r c = Floor)
@@ -195,16 +195,15 @@ theorem selfSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid
     List.sumBy (x => List.sumBy (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (List.range grid.width)) (List.range grid.height) = (cells r c).count :=
   calc List.sumBy (x => List.sumBy (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
     _ = List.sumBy (x => Nat.keepIf (List.sumBy (y => Nat.keepIf ((cells x y).count) (Nat.equal c y)) (List.range grid.width)) (Nat.equal r x)) (List.range grid.height)
-        := List.sumByCongr _ _ (x =>
+        := List.sumByCong _ _ (List.range grid.height) (x =>
              calc List.sumBy (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (List.range grid.width)
                _ = List.sumBy (y => Nat.keepIf (Nat.keepIf ((cells x y).count) (Nat.equal c y)) (Nat.equal r x)) (List.range grid.width)
-                   := List.sumByCongr (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (y => Nat.keepIf (Nat.keepIf ((cells x y).count) (Nat.equal c y)) (Nat.equal r x)) (y => rewrite Nat.eqIsEqual r x, Nat.eqIsEqual c y, andKeep (Nat.equal r x) (Nat.equal c y) (cells x y == Roll), isRollCount (cells x y)) (List.range grid.width)
+                   := List.sumByCong (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (y => Nat.keepIf (Nat.keepIf ((cells x y).count) (Nat.equal c y)) (Nat.equal r x)) (List.range grid.width) (y => rewrite Nat.eqIsEqual r x, Nat.eqIsEqual c y, andKeep (Nat.equal r x) (Nat.equal c y) (cells x y == Roll), isRollCount (cells x y))
                _ = Nat.keepIf (List.sumBy (y => Nat.keepIf ((cells x y).count) (Nat.equal c y)) (List.range grid.width)) (Nat.equal r x)
                    := Eq.sym (Nat.keepIfSumBy (y => Nat.keepIf ((cells x y).count) (Nat.equal c y)) (List.range grid.width) (Nat.equal r x)))
-             (List.range grid.height)
     _ = List.sumBy (x => Nat.keepIf ((cells x c).count) (Nat.equal r x)) (List.range grid.height)
-        := List.sumByCongr _ _ (x => Eq.cong (t => Nat.keepIf t (Nat.equal r x))
-             (List.sumRangePick (y => (cells x y).count) grid.width c (h => Eq.cong Cell.count (right x c h)))) (List.range grid.height)
+        := List.sumByCong _ _ (List.range grid.height) (x => Eq.cong (t => Nat.keepIf t (Nat.equal r x))
+             (List.sumRangePick (y => (cells x y).count) grid.width c (h => Eq.cong Cell.count (right x c h))))
     _ = (cells r c).count := List.sumRangePick (x => (cells x c).count) grid.height r (h => Eq.cong Cell.count (below r c h))
 
 -- The rolls in row r (counted from 1), columns c, c + 1 and c + 2.
@@ -234,20 +233,18 @@ theorem nineSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid
       = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=
   calc List.sumBy (x => List.sumBy (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
     _ = List.sumBy (x => Nat.keepIf (List.sumBy (y => Nat.keepIf ((cells x y).count) (near c y)) (List.range grid.width)) (near r x)) (List.range grid.height)
-        := List.sumByCongr _ _ (x =>
+        := List.sumByCong _ _ (List.range grid.height) (x =>
              calc List.sumBy (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (List.range grid.width)
                _ = List.sumBy (y => Nat.keepIf (Nat.keepIf ((cells x y).count) (near c y)) (near r x)) (List.range grid.width)
-                   := List.sumByCongr (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (y => Nat.keepIf (Nat.keepIf ((cells x y).count) (near c y)) (near r x)) (y => rewrite toNatAnd (near r x) (near c y && cells x y == Roll), toNatAnd (near c y) (cells x y == Roll), isRollCount (cells x y)) (List.range grid.width)
+                   := List.sumByCong (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (y => Nat.keepIf (Nat.keepIf ((cells x y).count) (near c y)) (near r x)) (List.range grid.width) (y => rewrite toNatAnd (near r x) (near c y && cells x y == Roll), toNatAnd (near c y) (cells x y == Roll), isRollCount (cells x y))
                _ = Nat.keepIf (List.sumBy (y => Nat.keepIf ((cells x y).count) (near c y)) (List.range grid.width)) (near r x)
                    := Eq.sym (Nat.keepIfSumBy (y => Nat.keepIf ((cells x y).count) (near c y)) (List.range grid.width) (near r x)))
-             (List.range grid.height)
     _ = List.sumBy (x => Nat.keepIf (rowSum cells (Succ x) c) (near r x)) (List.range grid.height)
-        := List.sumByCongr _ _ (x => Eq.cong (t => Nat.keepIf t (near r x))
+        := List.sumByCong _ _ (List.range grid.height) (x => Eq.cong (t => Nat.keepIf t (near r x))
              (calc List.sumBy (y => Nat.keepIf ((cells x y).count) (near c y)) (List.range grid.width)
                 _ = shift (y => (cells x y).count) c + shift (y => (cells x y).count) (Succ c) + shift (y => (cells x y).count) (Succ (Succ c))
                     := nearSum (y => (cells x y).count) grid.width (y h => Eq.cong Cell.count (right x y h)) c
                 _ = rowSum cells (Succ x) c := rewrite bordRowShift cells x c, bordRowShift cells x (Succ c), bordRowShift cells x (Succ (Succ c))))
-             (List.range grid.height)
     _ = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c
         := rewrite nearSum (x => rowSum cells (Succ x) c) grid.height (x h => rowSumBelow grid cells below c x h) r,
              rowSumShift cells c r, rowSumShift cells c (Succ r), rowSumShift cells c (Succ (Succ r))
@@ -278,12 +275,11 @@ theorem windowIsNeighbours (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: N
     _ = List.sumBy (x => List.sumBy (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
         := Eq.sym (nineSum grid cells below right r c)
     _ = List.sumBy (x => List.sumBy (y => adj x y) (List.range grid.width) + List.sumBy (y => self x y) (List.range grid.width)) (List.range grid.height)
-        := List.sumByCongr _ _ (x =>
+        := List.sumByCong _ _ (List.range grid.height) (x =>
              Eq.trans
-               (List.sumByCongr _ (y => adj x y + self x y)
-                 (y => splitSelf (near r x) (near c y) (r == x && c == y) (cells x y == Roll) (selfNear r c x y)) (List.range grid.width))
+               (List.sumByCong _ (y => adj x y + self x y) (List.range grid.width)
+                 (y => splitSelf (near r x) (near c y) (r == x && c == y) (cells x y == Roll) (selfNear r c x y)))
                (List.sumByAdd (y => adj x y) (y => self x y) (List.range grid.width)))
-             (List.range grid.height)
     _ = List.sumBy (x => List.sumBy (y => adj x y) (List.range grid.width)) (List.range grid.height)
           + List.sumBy (x => List.sumBy (y => self x y) (List.range grid.width)) (List.range grid.height)
         := List.sumByAdd (x => List.sumBy (y => adj x y) (List.range grid.width)) (x => List.sumBy (y => self x y) (List.range grid.width)) (List.range grid.height)

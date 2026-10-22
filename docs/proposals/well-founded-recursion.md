@@ -884,7 +884,7 @@ a parser test, and the lowering test above.
 
 ## Stage 3a: calls under lambdas (addendum)
 
-**Status:** design only, 22 October 2026; nothing here is built. Ticket SW-284, decision D516
+**Status:** stage 3a built (SW-287, [as built](#as-built-stage-3a)); 3b and 3c not yet. Ticket SW-284, decision D516
 (Matt: rewrite day 2 as one function on `Int`, the signed weight, and design calls under lambdas
 for it). **Draft 2, after an external review** (received 22 October 2026), which approved the
 direction of D517 to D519 and asked for the changes made here: the generator is specified by the
@@ -1367,6 +1367,68 @@ The external review agreed with all three recommendations.
   the program needs no lemma, per D475) rather than `attach` (`List.memRangeFrom` and an `n < 2`
   case in the call). `List.attach` is still built, in stage 3b, for lists with no cheap test.
   [guard]
+
+### As built (stage 3a)
+
+Built 22 October 2026 (SW-287), as 3a.4 describes, with these differences and findings:
+
+1. **The source pre-pass is gone**, and `auto` finds a decrease proof inside a lambda with nothing
+   new (the guard's `h`, a lambda's own `h` in `d h => f d`), as step 1 expected
+   (`module::names_in_lambdas` went with it).
+2. **`if`s use the same path.** `eliminator` became `congruence`: any call `F …` whose function
+   argument mentions `%rec` looks up `FCong`. For `Decidable.elim` and `Bool.ifThenElse` the lemma
+   comes from the registry (as before) but is validated like any other; the rest are found from
+   `F`'s kernel name, trying the keys `Std.F` and `F`, keeping the one that resolves to `F` itself,
+   and then `…Cong` beside it. The result is cached per definition being generated, not globally
+   (rewinding can reuse `DefId`s).
+3. **Validation** (`validate_cong`): the number of callbacks `k` follows from the lemma's
+   parameter count (`n + 2k`); each premise must be `(x…) -> c1 x… = c2 x…` for two adjacent
+   parameters, which marks those as a callback's copies; every other parameter is compared with
+   `F`'s by kernel conversion, implicit and `auto` ones included, and may not mention a callback;
+   the result must be `F` applied to exactly its parameters, `c1` left and `c2` right. A premise
+   placed among the parameters (the old `…Congr` shape) gets its own message. `F`'s parameters
+   that later types depend on can't be rewritten on their own (refused, error 3).
+4. **The callback is applied, not peeled** (step 3): the premise's binders are introduced, and the
+   callback applied to them with its leading lambdas beta-reduced. So the body is what the
+   premise compares, never more: a body that is itself a lambda means the premise compares
+   functions (error 3, naming extensionality). A side effect: a callback that isn't a lambda
+   (`helper captures %rec`, which a `match` inside the lambda lifts to, or an eta-form) works too,
+   where step 5 put it outside the fragment; `F` given fewer than all its arguments is still
+   refused.
+5. **Ordinary arguments** are rewritten first, their sites before the callback site, so the
+   transport is `F c1 i1 = F c1 i2 = F c2 i2` (step 4), through a new template node (`Tpl::Cong`)
+   that rebuilds the call with the callbacks as `c1` or `c2`.
+6. **Lemmas** (`List/Toolkit.sw`, beside the functions): `List.mapCong`, `List.filterMapCong`,
+   `List.occurrencesCong`, `List.foldLeftCong` and `List.sumByCong`, the last over any `Add` and
+   proved from `foldLeftCong` with no algebra at all. `List.sumByCongr`, `mapCongr`,
+   `filterMapCongr` and `occurrencesCongr` are gone; their 45-odd uses in `std` and `aoc/` moved
+   the premise after the list. Not reshaped, since they aren't congruence lemmas of this shape:
+   `List.sumRangeCongr` and `List.sumByCongrAll` (premises restricted to the range or to `p x`),
+   `List.sortedCongr` and `List.leHeadCongr` (implications), and day 4's `countPositionsCongr`.
+7. **A stage 1 bug, found here.** A definition with `decreasing` whose body is a number around
+   something unknown (`1 + List.foldLeft …`, and equally stage 1's `1 + (if h: … then f (n - 1)
+   else 0)`, with no lambda) was refused with an internal error: conversion compared numbers by
+   their `k + x` forms *before* unfolding a folded definition, so `f n` (folded) never equalled
+   `1 + …`. Folded definitions are now unfolded first, in the kernel's `conv` and the elaborator's
+   `unify` alike. This changes no rule (`docs/core.md` already said a comparison the name doesn't
+   settle unfolds it), only the order in which it's applied; before, dictionaries were the only
+   folded definitions, and they're never numbers.
+8. **Messages.** The four errors are as 3a.4 step 5 words them, all `E-DECREASING`; error 3
+   covers a function stored in data, passed to a local function, applied where it's written,
+   returning a function, or passed to `F` with arguments missing. The internal-error message now
+   includes the kernel's own label (what it expected), which made item 7 quick to find.
+9. **Cost.** `theorem weightTwelve: weight 12 = 0 := rfl` checks in well under a second with the
+   guard (its proof is the decision `auto` found, already computed), so the example keeps it;
+   `std` gets no `rfl` theorem over a `decreasing` definition (SW-281). AoC `check --no-cache`:
+   kernel total 421 ms (414 ms before).
+
+Tests: `examples/accept/decreasing-lambda.sw` (the day 2 weight on `Int` with `rfl` on `weight 12`
+and `weight.unfold` on an open `n`; a two-argument `foldLeft` callback using both; recursion in
+both the callback and the fold's start; a `let`-bound callback inside a nested `sumBy`; a `match`
+inside the callback; strong induction as a `theorem` recursing inside a lambda; a `main` whose
+output agrees under `run`, `run --js` and `run --reference`), and `examples/reject/`
+`decreasing-no-cong.sw` (error 1), `decreasing-bad-cong.sw` (2), `decreasing-function-result.sw`
+and `decreasing-lambda-in-data.sw` (3), `decreasing-under-lambda.sw` (now 4: no proof of `d < n`).
 
 ## Sources
 

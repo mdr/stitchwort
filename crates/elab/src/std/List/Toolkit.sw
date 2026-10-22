@@ -629,13 +629,33 @@ theorem List.mapReverseOnto (f: a -> b): (xs: List a) -> (acc: List a) ->
 
 theorem List.mapReverse (f: a -> b) (xs: List a): List.map f (List.reverse xs) = List.reverse (List.map f xs) := List.mapReverseOnto f xs Nil
 
-theorem List.mapCongr (f: a -> b) (g: a -> b) (h: (x: a) -> f x = g x): (xs: List a) -> List.map f xs = List.map g xs
-  | Nil       => rfl
-  | Cons x xs => Eq.trans (Eq.cong (y => Cons y (List.map f xs)) (h x)) (Eq.cong (ys => Cons (g x) ys) (List.mapCongr f g h xs))
+-- Congruence lemmas: given callbacks that agree on every argument, a function
+-- gives the same result. Their shape is fixed, since `decreasing` looks them up
+-- by name (`F` + `Cong`) to follow a recursive call inside a callback
+-- (docs/proposals/well-founded-recursion.md, stage 3a): `F`'s parameters in
+-- order, each callback twice, then `(x…) -> f1 x… = f2 x…` for each.
+theorem List.mapCong (f1: a -> b) (f2: a -> b): (xs: List a) -> ((x: a) -> f1 x = f2 x) -> List.map f1 xs = List.map f2 xs
+  | Nil,       ef => rfl
+  | Cons x xs, ef => Eq.trans (Eq.cong (y => Cons y (List.map f1 xs)) (ef x)) (Eq.cong (ys => Cons (f2 x) ys) (List.mapCong f1 f2 xs ef))
 
-theorem List.filterMapCongr (f: a -> Option b) (g: a -> Option b) (h: (x: a) -> f x = g x): (xs: List a) -> List.filterMap f xs = List.filterMap g xs
-  | Nil       => rfl
-  | Cons x xs => rewrite h x, List.filterMapCongr f g h xs
+theorem List.filterMapCong (f1: a -> Option b) (f2: a -> Option b): (xs: List a) -> ((x: a) -> f1 x = f2 x) -> List.filterMap f1 xs = List.filterMap f2 xs
+  | Nil,       ef => rfl
+  | Cons x xs, ef => rewrite ef x, List.filterMapCong f1 f2 xs ef
+
+theorem List.occurrencesCong (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> p1 x = p2 x) ->
+    List.occurrences p1 xs = List.occurrences p2 xs
+  | Nil,       ep => rfl
+  | Cons x xs, ep =>
+    Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences p1 xs) (ep x))
+      (Eq.cong (n => Bool.toNat (p2 x) + n) (List.occurrencesCong p1 p2 xs ep))
+
+theorem List.foldLeftCong (f1: b -> a -> b) (f2: b -> a -> b): (z: b) -> (xs: List a) -> ((acc: b) -> (x: a) -> f1 acc x = f2 acc x) ->
+    List.foldLeft f1 z xs = List.foldLeft f2 z xs
+  | z, Nil,       ef => rfl
+  | z, Cons x xs, ef => Eq.trans (Eq.cong (t => List.foldLeft f1 t xs) (ef z x)) (List.foldLeftCong f1 f2 (f2 z x) xs ef)
+
+theorem List.sumByCong [auto add: Add b] (f1: a -> b) (f2: a -> b) (xs: List a) (ef: (x: a) -> f1 x = f2 x): List.sumBy f1 xs = List.sumBy f2 xs :=
+  List.foldLeftCong (acc x => acc + f1 x) (acc x => acc + f2 x) Add.zero xs (acc x => Eq.cong (t => acc + t) (ef x))
 
 theorem Option.flatMapMap (g: b -> Option c) (f: a -> b): (m: Option a) -> Option.flatMap g (Option.map f m) = Option.flatMap (x => g (f x)) m
   | None => rfl

@@ -551,6 +551,13 @@ enum Tpl {
         args: Vec<(Tpl, Icit)>,
         rec: usize,
     },
+    /// A call rewritten by a congruence lemma, as one site, after its
+    /// ordinary arguments' own sites.
+    Cong {
+        site: usize,
+        head: Term,
+        args: Vec<CongArg>,
+    },
     App(Box<Tpl>, Box<Tpl>, Icit),
     Ctor(DataId, usize, Vec<Tpl>),
     Ann(Box<Tpl>, Term),
@@ -579,6 +586,8 @@ struct Gen {
     helpers: Vec<DefId>,
     /// Each helper's lemma, once declared.
     respects: HashMap<DefId, DefId>,
+    /// The congruence lemmas looked up, by the function they're for.
+    congs: HashMap<DefId, Lookup>,
     /// The definitions generated, in order, for the module's records.
     made: Vec<DefId>,
 }
@@ -699,18 +708,6 @@ impl Elaborator {
                 def_name.text
             )));
         }
-        // A recursive call inside a lambda has no proof that the lambda's
-        // argument is smaller (§6.3): refused before anything is elaborated.
-        for eq in equations {
-            let Decl::Equation { rhs: Some(rhs), .. } = eq else {
-                continue;
-            };
-            for n in crate::module::names_in_lambdas(rhs) {
-                if matches!(self.named(&n.text), Some((Global::Def(id), _)) if *id == f) {
-                    return Err(lambda_call(Some(n.span), &def_name.text));
-                }
-            }
-        }
         let measure_term = self.measure_term(&key, &tel[..header], measure)?;
         let p = Prelude::new(&self.globals)?;
         let plan = Plan {
@@ -771,6 +768,7 @@ impl Elaborator {
                 name: def_name.text.clone(),
                 helpers,
                 respects: HashMap::new(),
+                congs: HashMap::new(),
                 made: Vec::new(),
             };
             let respects = self.generated(&plan, |e| e.respects(&mut st, step, plan.header))?;
@@ -1006,7 +1004,13 @@ impl Elaborator {
             ),
         )
         .with_label(plan.span, "while generating these")
-        .with_note(format!("the kernel's reason: {}: {}", d.code, d.message))
+        .with_note(match d.labels.first() {
+            Some(l) => format!(
+                "the kernel's reason: {}: {} ({})",
+                d.code, d.message, l.message
+            ),
+            None => format!("the kernel's reason: {}: {}", d.code, d.message),
+        })
         .with_note("this is a bug in the compiler, not in the program")
     }
 
@@ -1534,6 +1538,17 @@ impl Elaborator {
                 (**ty).clone(),
             ),
             Term::Ctor(d, c, fields) => {
+                if fields.iter().any(|f| leaf.mentions(f) && is_lambda(f)) {
+                    return Err(unsupported_shape(
+                        span,
+                        &st.name,
+                        "inside a function stored in data",
+                        Some(
+                            "equal data would need equal functions, which is function \
+                             extensionality",
+                        ),
+                    ));
+                }
                 let mut out = Vec::new();
                 for f in fields.iter() {
                     out.push(self.template(st, f, leaf, sites, span)?);
@@ -1576,7 +1591,7 @@ impl Elaborator {
                     );
                     sites.push(Site { pre, proof });
                     (Tpl::Site(sites.len() - 1), leaf.arity)
-                } else if let Some((tpl, used)) = self.eliminator(st, &p, &head, &args, leaf, sites, span)? {
+                } else if let Some((tpl, used)) = self.congruence(st, &p, &head, &args, leaf, sites, span)? {
                     (tpl, used)
                 } else if let Term::Def(k) = head
                     && st.helpers.contains(&k)
@@ -1631,9 +1646,27 @@ impl Elaborator {
                 } else {
                     if leaf.mentions(&head) {
                         return Err(match head.strip_loc() {
-                            Term::Lam(..) => lambda_call(span, &st.name),
+                            Term::Lam(..) => unsupported_shape(
+                                span,
+                                &st.name,
+                                "inside a function that is applied where it's written",
+                                None,
+                            ),
                             _ => unsupported(span, "a recursive call in this position"),
                         });
+                    }
+                    if !matches!(head.strip_loc(), Term::Def(_))
+                        && args.iter().any(|(a, _)| leaf.mentions(a) && is_lambda(a))
+                    {
+                        return Err(unsupported_shape(
+                            span,
+                            &st.name,
+                            "inside a function passed to a local function",
+                            Some(
+                                "congruence lemmas are found by the function's name, and none \
+                                 can be for a local variable",
+                            ),
+                        ));
                     }
                     (Tpl::Plain(head.clone()), 0)
                 };
@@ -1644,18 +1677,30 @@ impl Elaborator {
                 }
                 tpl
             }
-            Term::Lam(..) => return Err(lambda_call(span, &st.name)),
+            Term::Lam(..) => {
+                return Err(unsupported_shape(
+                    span,
+                    &st.name,
+                    "inside a function that isn't passed straight to another",
+                    Some(
+                        "`decreasing` follows a recursive call into a function only when the \
+                         function is an argument of a call whose congruence lemma covers it",
+                    ),
+                ));
+            }
             _ => {
                 return Err(unsupported(span, "a recursive call in this position"));
             }
         })
     }
 
-    /// An `if` with a recursive call in a branch: the call of
-    /// `Decidable.elim` or `Bool.ifThenElse`, its proof by their `…Cong`
-    /// lemma, and how many arguments it takes.
+    /// A call of a definition `F` with a recursive call inside a function
+    /// passed to it (a callback, or an `if`'s branches): rewritten with `F`'s
+    /// congruence lemma `FCong` (D517, D518), and how many arguments it
+    /// takes. `None` for a call this doesn't apply to: no callback mentions
+    /// `%rec`, so its arguments are rewritten one at a time as usual.
     #[allow(clippy::too_many_arguments)]
-    fn eliminator(
+    fn congruence(
         &mut self,
         st: &mut Gen,
         p: &Prelude,
@@ -1665,59 +1710,471 @@ impl Elaborator {
         sites: &mut Vec<Site>,
         span: Option<Span>,
     ) -> Result<Option<(Tpl, usize)>> {
-        let Term::Def(id) = head.strip_loc() else {
+        let Term::Def(f) = head.strip_loc() else {
             return Ok(None);
         };
-        // (the lemma, how many arguments, which are the branches, which is
-        // the result type)
-        let (cong, count, branches, result) = if *id == p.elim {
-            (p.elim_cong, 5, [3, 4], 1)
-        } else if *id == p.if_then_else {
-            (p.if_cong, 4, [2, 3], 0)
-        } else {
-            return Ok(None);
-        };
-        if args.len() < count || !args[..count].iter().any(|(a, _)| leaf.mentions(a)) {
+        let f = *f;
+        if st.helpers.contains(&f) || !args.iter().any(|(a, _)| leaf.mentions(a)) {
             return Ok(None);
         }
-        if args[..branches[0]].iter().any(|(a, _)| leaf.mentions(a)) {
+        let lambda = args.iter().any(|(a, _)| leaf.mentions(a) && is_lambda(a));
+        let f_name = self.globals.def(f).name.to_string();
+        let desc = match self.cong_lookup(st, p, f)? {
+            Lookup::Found(desc) => desc,
+            Lookup::Missing(lemma) if lambda => {
+                return Err(no_cong_lemma(span, &st.name, &f_name, &lemma));
+            }
+            Lookup::Bad(lemma, why) if lambda => {
+                return Err(bad_cong_lemma(span, &st.name, &f_name, &lemma, &why));
+            }
+            _ => return Ok(None),
+        };
+        let n = desc.params;
+        let is_callback = |i: usize| desc.callbacks.contains(&i);
+        let callback_used = desc
+            .callbacks
+            .iter()
+            .any(|&i| i < args.len() && leaf.mentions(&args[i].0));
+        if !callback_used && !lambda {
+            return Ok(None);
+        }
+        if args.len() < n {
+            return Err(unsupported_shape(
+                span,
+                &st.name,
+                &format!(
+                    "inside a function passed to `{f_name}`, which isn't given all its \
+                     arguments here"
+                ),
+                None,
+            ));
+        }
+        let ordinary_used = (0..n).any(|i| !is_callback(i) && leaf.mentions(&args[i].0));
+        if ordinary_used && (f == p.elim || f == p.if_then_else) {
             return Err(unsupported(span, "a recursive call in an `if`'s condition"));
         }
-        let depth = leaf.depth;
-        let ty = args[result].0.clone();
-        let mut lemma_args: Vec<(Term, Icit)> = args[..branches[0]].to_vec();
-        let mut proofs = Vec::new();
-        for &b in &branches {
-            let (branch, _) = &args[b];
-            lemma_args.push((branch.clone(), Icit::Explicit));
-            lemma_args.push((
-                rename(&self.globals, branch, depth, leaf.r1, leaf.r2)?,
-                Icit::Explicit,
+        if (0..n).any(|i| desc.dependent[i] && leaf.mentions(&args[i].0)) {
+            return Err(unsupported_shape(
+                span,
+                &st.name,
+                &format!(
+                    "in an argument of `{f_name}` that the types of its other arguments \
+                     depend on"
+                ),
+                None,
             ));
-            let proof = match branch.strip_loc() {
-                _ if !leaf.mentions(branch) => {
-                    Term::Lam("h".into(), Icit::Explicit, Rc::new(Term::Refl))
-                }
-                Term::Lam(x, Icit::Explicit, body) => {
-                    let g = &self.globals;
-                    let inner_ty = ty.shift(g, 1, 0)?;
-                    let proof = self
-                        .cong(st, body, &inner_ty, leaf.under(1), span)?
-                        .unwrap_or(Term::Refl);
-                    Term::Lam(x.clone(), Icit::Explicit, Rc::new(proof))
-                }
-                _ => return Err(unsupported(span, "an `if` branch that isn't written out")),
-            };
-            proofs.push(proof);
         }
-        lemma_args.extend(proofs.into_iter().map(|p| (p, Icit::Explicit)));
-        let proof = apps(Term::Def(cong), lemma_args);
+        // The ordinary arguments first: their recursive calls are rewritten
+        // before the callbacks are (`F c1 i1 = F c1 i2 = F c2 i2`).
+        let mut out = Vec::new();
+        for (i, (a, icit)) in args[..n].iter().enumerate() {
+            out.push(if is_callback(i) {
+                CongArg::Callback(a.clone(), *icit)
+            } else {
+                CongArg::Ordinary(self.template(st, a, leaf, sites, span)?, *icit)
+            });
+        }
+        // The lemma's arguments, its parameters as they are once the
+        // ordinary arguments are rewritten.
+        let depth = leaf.depth;
+        let mut values = Vec::new();
+        let mut lemma_args = Vec::new();
+        let mut level = 0;
+        for arg in &out {
+            match arg {
+                CongArg::Ordinary(tpl, _) => {
+                    let t = rebuild(
+                        &self.globals,
+                        tpl,
+                        sites,
+                        leaf,
+                        &|_| Choice::Post,
+                        0,
+                        &Term::Refl,
+                    )?;
+                    values.push(t.clone());
+                    lemma_args.push((t, desc.tel[level].icit));
+                    level += 1;
+                }
+                CongArg::Callback(c, _) => {
+                    let c2 = rename(&self.globals, c, depth, leaf.r1, leaf.r2)?;
+                    values.push(c.clone());
+                    values.push(c2.clone());
+                    lemma_args.push((c.clone(), desc.tel[level].icit));
+                    lemma_args.push((c2, desc.tel[level + 1].icit));
+                    level += 2;
+                }
+            }
+        }
+        // One premise per callback: `(x…) -> c1 x… = c2 x…`, proved under
+        // exactly the premise's binders, never more (3a.4 step 3).
+        for (m, &i) in desc.callbacks.iter().enumerate() {
+            let premise = &desc.tel[level + m];
+            let callback = &args[i].0;
+            let binders = &desc.premises[m];
+            let k = binders.len();
+            let names: Vec<(Name, Icit)> =
+                binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
+            let proof = if leaf.mentions(callback) {
+                let g = &self.globals;
+                let mut env = values.clone();
+                env.extend(std::iter::repeat_n(Term::Refl, m));
+                let ty = substitute(g, &premise.ty, &env)?;
+                let (_, body) = split_pis(&ty, Some(k));
+                let eq_ty = match body.strip_loc() {
+                    Term::Eq(Some(t), ..) => (**t).clone(),
+                    _ => {
+                        let c1 = desc.callback_level(m);
+                        let c1_ty = substitute(g, &desc.tel[c1].ty, &env[..c1])?;
+                        split_pis(&c1_ty, Some(k)).1
+                    }
+                };
+                let inner = leaf.under(k);
+                let body = beta(g, callback, &names)?;
+                if leaf_lambda(&body) && inner.mentions(&body) {
+                    return Err(unsupported_shape(
+                        span,
+                        &st.name,
+                        &format!(
+                            "inside a function passed to `{f_name}` whose result is itself a \
+                             function"
+                        ),
+                        Some(&format!(
+                            "`{}` needs the results of the two functions it compares to be \
+                             equal, and equal functions would need function extensionality",
+                            self.globals.def(desc.lemma).name
+                        )),
+                    ));
+                }
+                self.cong(st, &body, &eq_ty, inner, span)?
+                    .unwrap_or(Term::Refl)
+            } else {
+                Term::Refl
+            };
+            lemma_args.push((lams(&names, proof), premise.icit));
+        }
+        let proof = apps(Term::Def(desc.lemma), lemma_args);
         sites.push(Site {
-            pre: apps(head.clone(), args[..count].iter().cloned()),
+            pre: Term::Refl,
             proof,
         });
-        Ok(Some((Tpl::Site(sites.len() - 1), count)))
+        Ok(Some((
+            Tpl::Cong {
+                site: sites.len() - 1,
+                head: head.clone(),
+                args: out,
+            },
+            n,
+        )))
     }
+
+    /// `F`'s congruence lemma, `FCong` beside `F`'s own declaration (not
+    /// however the call spelled `F`), checked against `F` once per
+    /// definition.
+    fn cong_lookup(&self, st: &mut Gen, p: &Prelude, f: DefId) -> Result<Lookup> {
+        if let Some(found) = st.congs.get(&f) {
+            return Ok(found.clone());
+        }
+        let g = &self.globals;
+        let name = g.def(f).name.to_string();
+        let lemma_name = format!("{name}Cong");
+        let lemma = if f == p.elim {
+            Some(p.elim_cong)
+        } else if f == p.if_then_else {
+            Some(p.if_cong)
+        } else {
+            [format!("Std.{name}"), name.clone()]
+                .into_iter()
+                .find(|k| matches!(self.scope.get(k), Some((Global::Def(id), _)) if id == f))
+                .and_then(|k| match self.scope.get(&format!("{k}Cong")) {
+                    Some((Global::Def(id), _)) => Some(id),
+                    _ => None,
+                })
+        };
+        let found = match lemma {
+            None => Lookup::Missing(lemma_name),
+            Some(lemma) => match validate_cong(g, f, lemma)? {
+                Ok(desc) => Lookup::Found(Rc::new(desc)),
+                Err(why) => Lookup::Bad(lemma_name, why),
+            },
+        };
+        st.congs.insert(f, found.clone());
+        Ok(found)
+    }
+}
+
+/// What a congruence lemma `FCong` says, in terms of `F`'s parameters:
+/// `F`'s parameters in order, each callback `c` twice (`c1`, `c2`), then
+/// for each callback `(x…) -> c1 x… = c2 x…`, proving `F …c1… = F …c2…`.
+struct CongDesc {
+    lemma: DefId,
+    /// How many parameters `F` has.
+    params: usize,
+    /// Which of them are callbacks, in order.
+    callbacks: Vec<usize>,
+    /// For each of `F`'s parameters, whether a later parameter's type or
+    /// the result's mentions it (so it can't be rewritten on its own).
+    dependent: Vec<bool>,
+    /// The lemma's parameters.
+    tel: Vec<Binder>,
+    /// Each premise's binders: where its equation is.
+    premises: Vec<Vec<Binder>>,
+}
+
+impl CongDesc {
+    /// The level of callback `m`'s first copy among the lemma's parameters.
+    fn callback_level(&self, m: usize) -> usize {
+        self.callbacks[m] + m
+    }
+}
+
+#[derive(Clone)]
+enum Lookup {
+    /// No lemma by that name.
+    Missing(String),
+    /// A lemma whose statement isn't a congruence lemma for `F`: why.
+    Bad(String, String),
+    Found(Rc<CongDesc>),
+}
+
+/// An argument of a call rewritten by a congruence lemma.
+enum CongArg {
+    Ordinary(Tpl, Icit),
+    Callback(Term, Icit),
+}
+
+/// Whether `t` is a lambda, written out (a `let` is unfolded before this).
+fn is_lambda(t: &Term) -> bool {
+    leaf_lambda(t)
+}
+
+fn leaf_lambda(t: &Term) -> bool {
+    match t.strip_loc() {
+        Term::Lam(..) => true,
+        Term::Ann(inner, _) => leaf_lambda(inner),
+        _ => false,
+    }
+}
+
+/// `c x1 … xk`, in a context `k` deeper than `c`'s, with the lambdas `c`
+/// starts with applied: the callback's body under the premise's binders.
+fn beta(g: &Globals, c: &Term, binders: &[(Name, Icit)]) -> Result<Term> {
+    let k = binders.len();
+    let mut t = c.shift(g, k, 0)?;
+    for (j, (_, icit)) in binders.iter().enumerate() {
+        let x = Term::Var(k - 1 - j);
+        let mut head = &t;
+        while let Term::Loc(_, inner) | Term::Ann(inner, _) = head {
+            head = inner;
+        }
+        t = match head {
+            Term::Lam(_, _, body) => instantiate(g, body, &x)?,
+            _ => Term::app_icit(t.clone(), x, *icit),
+        };
+    }
+    Ok(t)
+}
+
+/// `t`, in a context of `env.len()` variables, with `env[l]` (a term of the
+/// context `t` is moved to) for the variable at level `l`.
+fn substitute(g: &Globals, t: &Term, env: &[Term]) -> Result<Term> {
+    let n = env.len();
+    map_vars(g, t, 0, &|ix, d| {
+        if ix < d {
+            Ok(Term::Var(ix))
+        } else {
+            let level = n - 1 - (ix - d);
+            Ok(env[level].shift(g, d, 0)?)
+        }
+    })
+}
+
+/// Checks that `lemma`'s statement is a congruence lemma for `f` (3a.4 step
+/// 2), and describes it; or says what's wrong with it.
+fn validate_cong(
+    g: &Globals,
+    f: DefId,
+    lemma: DefId,
+) -> Result<std::result::Result<CongDesc, String>> {
+    let f_name = g.def(f).name.to_string();
+    let (ftel, fres) = split_pis(&g.def(f).ty, None);
+    let (ltel, lres) = split_pis(&g.def(lemma).ty, None);
+    let n = ftel.len();
+    let total = ltel.len();
+    if total <= n || (total - n) % 2 != 0 {
+        return Ok(Err(format!(
+            "it should take `{f_name}`'s {n} parameters, each function compared given twice, \
+             then one premise for each; it takes {total}"
+        )));
+    }
+    let k = (total - n) / 2;
+    let params = n + k;
+    // A premise among the parameters: the commonest mistake, named as such.
+    if let Some(b) = ltel[..params]
+        .iter()
+        .find(|b| matches!(split_pis(&b.ty, None).1.strip_loc(), Term::Eq(..)))
+    {
+        return Ok(Err(format!(
+            "its premise `{}` comes before the end of `{f_name}`'s parameters; the premises \
+             go after all of them",
+            b.name
+        )));
+    }
+    // The premises: which parameters each compares.
+    let mut firsts = Vec::new();
+    let mut premises = Vec::new();
+    for m in 0..k {
+        let level = params + m;
+        let (xs, body) = split_pis(&ltel[level].ty, None);
+        let depth = level + xs.len();
+        let wrong = || {
+            format!(
+                "its premise {} isn't `(x…) -> f1 x… = f2 x…` for the two copies of a \
+                 parameter",
+                m + 1
+            )
+        };
+        let Term::Eq(_, lhs, rhs) = body.strip_loc() else {
+            return Ok(Err(wrong()));
+        };
+        let applied = |t: &Term| -> Option<usize> {
+            let (head, args) = spine(t);
+            let Term::Var(ix) = head else { return None };
+            if *ix >= depth || args.len() != xs.len() {
+                return None;
+            }
+            for (j, (a, icit)) in args.iter().enumerate() {
+                if !matches!(a.strip_loc(), Term::Var(v) if *v == xs.len() - 1 - j)
+                    || *icit != xs[j].icit
+                {
+                    return None;
+                }
+            }
+            Some(depth - 1 - ix)
+        };
+        let (Some(c1), Some(c2)) = (applied(lhs), applied(rhs)) else {
+            return Ok(Err(wrong()));
+        };
+        if c2 != c1 + 1 || c2 >= params || firsts.last().is_some_and(|&l| l + 1 >= c1) {
+            return Ok(Err(wrong()));
+        }
+        firsts.push(c1);
+        premises.push(xs);
+    }
+    // The parameters: `F`'s, with the callbacks twice.
+    let mut f_of = Vec::new(); // lemma level -> F's parameter
+    let mut second = Vec::new(); // whether it's a callback's second copy
+    let mut first_level = Vec::new(); // F's parameter -> lemma level
+    let mut callbacks = Vec::new();
+    let mut j = 0;
+    while j < params {
+        let i = first_level.len();
+        first_level.push(j);
+        f_of.push(i);
+        second.push(false);
+        if firsts.contains(&j) {
+            callbacks.push(i);
+            f_of.push(i);
+            second.push(true);
+            j += 2;
+        } else {
+            j += 1;
+        }
+    }
+    if first_level.len() != n {
+        return Ok(Err(format!(
+            "it should take `{f_name}`'s {n} parameters before its premises, each function \
+             compared given twice"
+        )));
+    }
+    let is_first_copy = |l: usize| firsts.contains(&l);
+    for j in 0..params {
+        let i = f_of[j];
+        let what = || {
+            let name = &ltel[j].name;
+            format!(
+                "its parameter `{name}` should be `{f_name}`'s parameter `{}`, at the same type{}",
+                ftel[i].name,
+                if second[j] {
+                    " as the copy before it"
+                } else {
+                    ""
+                }
+            )
+        };
+        if ltel[j].icit != ftel[i].icit {
+            return Ok(Err(what()));
+        }
+        // The lemma's type, moved to `F`'s context: it may not mention a
+        // callback.
+        let bad = Cell::new(false);
+        let moved = map_vars(g, &ltel[j].ty, 0, &|ix, d| {
+            if ix < d {
+                return Ok(Term::Var(ix));
+            }
+            let level = j - 1 - (ix - d);
+            if second[level] || is_first_copy(level) {
+                bad.set(true);
+                return Ok(Term::Var(ix));
+            }
+            Ok(Term::Var(i - 1 - f_of[level] + d))
+        })?;
+        if bad.get() {
+            return Ok(Err(format!(
+                "its parameter `{}`'s type mentions a function it compares",
+                ltel[j].name
+            )));
+        }
+        let env: Vec<Value> = (0..i).map(Value::var).collect();
+        let a = eval(g, &env, &moved)?;
+        let b = eval(g, &env, &ftel[i].ty)?;
+        if !stitchwort_core::value::conv(g, i, &a, &b)? {
+            return Ok(Err(what()));
+        }
+    }
+    // The result: `F …c1… = F …c2…`, the other arguments the same.
+    let result_ok = (|| {
+        let Term::Eq(_, lhs, rhs) = lres.strip_loc() else {
+            return false;
+        };
+        let side = |t: &Term, copy: usize| {
+            let (head, args) = spine(t);
+            if !matches!(head, Term::Def(d) if *d == f) || args.len() != n {
+                return false;
+            }
+            args.iter().enumerate().all(|(i, (a, icit))| {
+                let level = first_level[i] + if callbacks.contains(&i) { copy } else { 0 };
+                *icit == ftel[i].icit
+                    && matches!(a.strip_loc(), Term::Var(v) if *v == total - 1 - level)
+            })
+        };
+        side(lhs, 0) && side(rhs, 1)
+    })();
+    if !result_ok {
+        return Ok(Err(format!(
+            "its result should be `{f_name} … f1 … = {f_name} … f2 …`, with its parameters \
+             in order and the copies of each function on either side"
+        )));
+    }
+    // `F`'s own parameters a later type depends on.
+    let dependent = (0..n)
+        .map(|i| (i + 1..n).any(|l| ftel[l].ty.mentions(l - 1 - i)) || fres.mentions(n - 1 - i))
+        .collect::<Vec<_>>();
+    if let Some(&i) = callbacks.iter().find(|&&i| dependent[i]) {
+        return Ok(Err(format!(
+            "`{f_name}`'s later parameters or result depend on `{}`, which `decreasing` \
+             doesn't support",
+            ftel[i].name
+        )));
+    }
+    Ok(Ok(CongDesc {
+        lemma,
+        params: n,
+        callbacks,
+        dependent,
+        tel: ltel,
+        premises,
+    }))
 }
 
 /// `y… => [p] => f y…`, in a context of `depth` variables.
@@ -1788,6 +2245,29 @@ fn rebuild(
             }
             term
         }
+        Tpl::Cong { site, head, args } => {
+            let post = match choose(*site) {
+                Choice::Hole => return Ok(hole.clone()),
+                Choice::Pre => false,
+                Choice::Post => true,
+            };
+            let mut term = head.shift(g, shift, 0)?;
+            for a in args {
+                let (a, icit) = match a {
+                    CongArg::Ordinary(t, icit) => (go(t)?, *icit),
+                    CongArg::Callback(c, icit) => {
+                        let c = if post {
+                            rename(g, c, leaf.depth, leaf.r1, leaf.r2)?
+                        } else {
+                            c.clone()
+                        };
+                        (c.shift(g, shift, 0)?, *icit)
+                    }
+                };
+                term = Term::app_icit(term, a, icit);
+            }
+            term
+        }
         Tpl::App(f, a, icit) => Term::App(Rc::new(go(f)?), Rc::new(go(a)?), *icit),
         Tpl::Ctor(d, c, fields) => Term::Ctor(
             *d,
@@ -1802,20 +2282,58 @@ fn rebuild(
     })
 }
 
-fn lambda_call(span: Option<Span>, name: &str) -> Diagnostic {
-    let d = Diagnostic::error(
-        "E-DECREASING",
-        format!("`{name}` is called inside a function (`x => …`), which `decreasing` doesn't support yet"),
-    )
-    .with_note(
-        "the function is called by whatever it's passed to, and nothing says that's only on \
-         arguments with a smaller measure",
-    )
-    .with_note(format!("give `{name}` a fuel argument for now"));
+fn labelled(d: Diagnostic, span: Option<Span>, label: &str) -> Diagnostic {
     match span {
-        Some(span) => d.with_label(span, "this call has no proof that its measure is smaller"),
+        Some(span) => d.with_label(span, label),
         None => d,
     }
+}
+
+/// Error 1 of 3a.4 step 5: `F` has no congruence lemma.
+fn no_cong_lemma(span: Option<Span>, name: &str, f: &str, lemma: &str) -> Diagnostic {
+    let d = Diagnostic::error(
+        "E-DECREASING",
+        format!("`{name}` is called inside a function passed to `{f}`, and there is no `{lemma}`"),
+    )
+    .with_note(format!(
+        "`decreasing` needs `{lemma}` to show that `{f}` gives the same result for two \
+         functions that agree on every argument"
+    ))
+    .with_note(format!(
+        "write it with `{f}`'s parameters in order, each function parameter twice (`f1`, \
+         `f2`), then `(x…) -> f1 x… = f2 x…` for each, proving `{f} … f1 … = {f} … f2 …` \
+         (as `List.sumByCong` does); or give `{name}` a fuel argument for now"
+    ));
+    labelled(d, span, "this function calls it")
+}
+
+/// Error 2: `FCong` exists, but isn't a congruence lemma for `F`.
+fn bad_cong_lemma(span: Option<Span>, name: &str, f: &str, lemma: &str, why: &str) -> Diagnostic {
+    let d = Diagnostic::error(
+        "E-DECREASING",
+        format!("`{lemma}` exists, but its statement isn't a congruence lemma for `{f}`"),
+    )
+    .with_note(why.to_string())
+    .with_note(format!(
+        "`{name}` is called inside a function passed to `{f}`, so `decreasing` needs it: \
+         `{f}`'s parameters in order, each function parameter twice (`f1`, `f2`), then \
+         `(x…) -> f1 x… = f2 x…` for each, proving `{f} … f1 … = {f} … f2 …`"
+    ));
+    labelled(d, span, "this function calls it")
+}
+
+/// Error 3: a recursive call where the generator can't follow it, whatever
+/// lemmas exist.
+fn unsupported_shape(span: Option<Span>, name: &str, what: &str, why: Option<&str>) -> Diagnostic {
+    let mut d = Diagnostic::error(
+        "E-DECREASING",
+        format!("`{name}` is called {what}, which `decreasing` can't handle"),
+    );
+    if let Some(why) = why {
+        d = d.with_note(why.to_string());
+    }
+    let d = d.with_note(format!("give `{name}` a fuel argument for now"));
+    labelled(d, span, "the recursive call is in here")
 }
 
 fn unsupported(span: Option<Span>, what: &str) -> Diagnostic {

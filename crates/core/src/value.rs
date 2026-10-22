@@ -1514,6 +1514,39 @@ fn conv_step(
     b: Value,
     work: &mut Vec<ConvTask>,
 ) -> Result<bool> {
+    // Dictionaries left folded by name: the same one applied to equal
+    // arguments is equal; otherwise they're compared unfolded. (Like a
+    // partially applied definition below, this recurses once per level of
+    // nested dictionaries, which is bounded by the program.) Before numbers
+    // and text: a folded definition with `decreasing` can be a number
+    // (`f n` against `1 + …`), and is compared as one once unfolded.
+    if is_folded(g, &a) || is_folded(g, &b) {
+        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
+            && i1 == i2
+            && s1.len() == s2.len()
+            && let Some(pairs) = spine_pairs(level, s1, s2)
+        {
+            let mut same = true;
+            for pair in pairs {
+                let ConvTask::Values(l, x, y) = pair else {
+                    unreachable!()
+                };
+                if !conv(g, l, &x, &y)? {
+                    same = false;
+                    break;
+                }
+            }
+            if same {
+                return Ok(true);
+            }
+        }
+        let a2 = unfold_folded(g, &a)?;
+        let b2 = unfold_folded(g, &b)?;
+        if a2.is_some() || b2.is_some() {
+            work.push(ConvTask::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
+            return Ok(true);
+        }
+    }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`.
     if native::nat_like(g, &a) || native::nat_like(g, &b) {
@@ -1544,37 +1577,6 @@ fn conv_step(
             return Ok(true);
         }
         _ => {}
-    }
-    // Dictionaries left folded by name: the same one applied to equal
-    // arguments is equal; otherwise they're compared unfolded. (Like a
-    // partially applied definition below, this recurses once per level of
-    // nested dictionaries, which is bounded by the program.)
-    if is_folded(g, &a) || is_folded(g, &b) {
-        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
-            && i1 == i2
-            && s1.len() == s2.len()
-            && let Some(pairs) = spine_pairs(level, s1, s2)
-        {
-            let mut same = true;
-            for pair in pairs {
-                let ConvTask::Values(l, x, y) = pair else {
-                    unreachable!()
-                };
-                if !conv(g, l, &x, &y)? {
-                    same = false;
-                    break;
-                }
-            }
-            if same {
-                return Ok(true);
-            }
-        }
-        let a2 = unfold_folded(g, &a)?;
-        let b2 = unfold_folded(g, &b)?;
-        if a2.is_some() || b2.is_some() {
-            work.push(ConvTask::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
-            return Ok(true);
-        }
     }
     let fresh = Value::var(level);
     // Parts are pushed last-first, so they're compared first-first.

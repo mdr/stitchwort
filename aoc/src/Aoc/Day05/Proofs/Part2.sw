@@ -98,7 +98,7 @@ theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
              (id h => Nat.ltCongRight id (Succ top) (top + 1) (Eq.sym (Nat.addOne top))
                (Nat.leLessSucc id top (coveredTop 0 db.fresh id (Eq.trans (Eq.sym (stackCovers db.fresh id)) h)))))
     _ = List.occurrences (id => covered db.fresh id) (List.range (top + 1))
-        := List.occurrencesCongr (id => covered (stack db.fresh) id) (id => covered db.fresh id) (stackCovers db.fresh) (List.range (top + 1))
+        := List.occurrencesCong (id => covered (stack db.fresh) id) (id => covered db.fresh id) (List.range (top + 1)) (stackCovers db.fresh)
     _ = countFresh db := Eq.sym (List.countOccurrences (id => covered db.fresh id) (List.range (top + 1)))
 
 -- The merged ranges, latest first: `merge` before its `reverse`.

@@ -916,7 +916,7 @@ fn nothing_found(
     if found.bound > 0 {
         error = error.with_note(
             "an occurrence under a binder that uses the bound variable can't be rewritten; \
-             prove it pointwise and use a lemma like `List.mapCongr`",
+             prove it pointwise and use a lemma like `List.mapCong`",
         );
     }
     error

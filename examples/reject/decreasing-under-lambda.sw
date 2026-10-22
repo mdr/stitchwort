@@ -1,6 +1,7 @@
 -- expect-error: E-DECREASING
--- A recursive call inside a function passed to another has no proof that
--- its argument is smaller: stage 1 refuses it.
+-- A recursive call inside a function passed to another needs its proof that
+-- the measure is smaller like any other, and nothing in scope says `d < n`:
+-- the message shows the goal, and suggests the guard.
 import Std (List, Nat)
 
 def weight (n: Nat): Nat

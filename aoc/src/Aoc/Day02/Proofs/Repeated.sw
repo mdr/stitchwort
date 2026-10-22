@@ -57,8 +57,8 @@ theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10
     _ = 1 + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1) := rewrite Nat.mulZero k
     _ = 1 + List.sumBy (i => Nat.pow 10 (k * Succ i)) (List.range n)  := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
     _ = 1 + List.sumBy (i => Nat.pow 10 k * Nat.pow 10 (k * i)) (List.range n)
-        := rewrite List.sumByCongr (i => Nat.pow 10 (k * Succ i)) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
-             (i => Eq.trans (Eq.cong (t => Nat.pow 10 t) (Nat.mulSucc k i)) (Nat.powAdd 10 k (k * i))) (List.range n)
+        := rewrite List.sumByCong (i => Nat.pow 10 (k * Succ i)) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
+             (List.range n) (i => Eq.trans (Eq.cong (t => Nat.pow 10 t) (Nat.mulSucc k i)) (Nat.powAdd 10 k (k * i)))
     _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (Nat.pow 10 k) (i => Nat.pow 10 (k * i)) (List.range n)
 
 theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
@@ -79,8 +79,8 @@ def windowSum (from: Nat) (to: Nat) (d: Nat) (c: Nat) (s: Nat): Nat :=
 
 theorem specWindow (r: Range) (k: Nat) (n: Nat):
     repeatedSpec r k n = windowSum r.from r.to (multiplier k n) (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)) :=
-  rewrite List.mapCongr (b => writeTimes k b n) (b => b * multiplier k n) (b => writeTimesMul k b n)
-    (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+  rewrite List.mapCong (b => writeTimes k b n) (b => b * multiplier k n)
+    (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => writeTimesMul k b n)
 
 -- With a multiplier of 0 every id is 0.
 theorem windowZero (from: Nat) (to: Nat): (c: Nat) -> (s: Nat) -> windowSum from to 0 c s = 0
@@ -351,18 +351,18 @@ theorem blocksAsIds (r: Range) (k: Nat):
         := List.sumByMap (y => Nat.keepIf y (r.from <= y && y <= r.to)) (b => writeTimes k b 2) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
     -- and, for each block, "the id if it is in the range" is the sum over the range ids that equal it
     _ = List.sumBy (b => List.sumBy (x => Nat.keepIf x (writeTimes k b 2 == x)) (List.rangeFrom (r.to + 1 - r.from) r.from)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        := List.sumByCongr (b => Nat.keepIf (writeTimes k b 2) (r.from <= writeTimes k b 2 && writeTimes k b 2 <= r.to))
+        := List.sumByCong (b => Nat.keepIf (writeTimes k b 2) (r.from <= writeTimes k b 2 && writeTimes k b 2 <= r.to))
              (b => List.sumBy (x => Nat.keepIf x (writeTimes k b 2 == x)) (List.rangeFrom (r.to + 1 - r.from) r.from))
-             (b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b 2)))
              (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+             (b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b 2)))
     _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b 2 == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
         := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b 2 == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
 
 theorem twiceIds (r: Range) (k: Nat) (hk: 1 <= k):
     repeatedSpec r k 2 = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids :=
   Eq.trans (blocksAsIds r k)
-    (List.sumByCongr (x => List.sumBy (b => Nat.keepIf x (writeTimes k b 2 == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-      (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) (x => twiceBlockCount x k hk) r.ids)
+    (List.sumByCong (x => List.sumBy (b => Nat.keepIf x (writeTimes k b 2 == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
+      (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids (x => twiceBlockCount x k hk))
 
 -- (a') A block written twice: the arithmetic sum is the sum of the ids in
 -- the range whose digits are some k-digit block written twice.

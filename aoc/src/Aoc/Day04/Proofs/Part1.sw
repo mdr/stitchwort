@@ -26,8 +26,8 @@ theorem rollsCells (rows: Vec (Vec Cell w) h):
         := List.sumByGetOr (row => Vec.sumBy Cell.count row) gap (Vec.toList rows)
     _ = List.sumBy (r => Vec.sumBy Cell.count (List.getOr gap r (Vec.toList rows))) (List.range h) := rewrite Vec.lengthToList rows
     _ = List.sumBy (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w)) (List.range h)
-        := List.sumByCongr (r => Vec.sumBy Cell.count (List.getOr gap r (Vec.toList rows))) (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w))
-             (r => rowRolls (List.getOr gap r (Vec.toList rows))) (List.range h)
+        := List.sumByCong (r => Vec.sumBy Cell.count (List.getOr gap r (Vec.toList rows))) (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w))
+             (List.range h) (r => rowRolls (List.getOr gap r (Vec.toList rows)))
 
 -- What a round takes from one cell: 1 when it holds an accessible roll.
 theorem taken: (a: Cell) -> (n: Nat) -> Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll && n < 4)
@@ -53,23 +53,23 @@ theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
         := rewrite rollsCells grid.rows, rollsCells (Vec.around gap peelRow grid.rows)
     _ = sum2 a - sum2 k
         := Eq.cong (t => sum2 a - t)
-             (List.sumByCongr (r => List.sumBy (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
-               (r => List.sumByCongr (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (c => k r c)
-                  (c => Eq.cong Cell.count (cellRound grid.rows r c)) (List.range grid.width))
-               (List.range grid.height))
+             (List.sumByCong (r => List.sumBy (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
+               (List.range grid.height)
+               (r => List.sumByCong (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (c => k r c)
+                  (List.range grid.width) (c => Eq.cong Cell.count (cellRound grid.rows r c))))
     _ = sum2 (r c => a r c - k r c)
         := rewrite List.sumBySub (r => List.sumBy (c => a r c) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
                  (r => List.sumByLe (c => a r c) (c => k r c) (c => keepLe (cells r c) (window cells r c)) (List.range grid.width))
                  (List.range grid.height) in
-             List.sumByCongr
+             List.sumByCong
                (r => List.sumBy (c => a r c) (List.range grid.width) - List.sumBy (c => k r c) (List.range grid.width))
                (r => List.sumBy (c => a r c - k r c) (List.range grid.width))
-               (r => List.sumBySub (c => a r c) (c => k r c) (c => keepLe (cells r c) (window cells r c)) (List.range grid.width))
                (List.range grid.height)
+               (r => List.sumBySub (c => a r c) (c => k r c) (c => keepLe (cells r c) (window cells r c)) (List.range grid.width))
     _ = sum2 (r c => Bool.toNat (accessible grid cells r c))
-        := List.sumByCongr (r => List.sumBy (c => a r c - k r c) (List.range grid.width)) (r => List.sumBy (c => Bool.toNat (accessible grid cells r c)) (List.range grid.width))
-             (r => List.sumByCongr (c => a r c - k r c) (c => Bool.toNat (accessible grid cells r c))
-                (c => rewrite windowIsNeighbours grid cells below right r c in taken (cells r c) (neighbours grid cells r c))
-                (List.range grid.width))
+        := List.sumByCong (r => List.sumBy (c => a r c - k r c) (List.range grid.width)) (r => List.sumBy (c => Bool.toNat (accessible grid cells r c)) (List.range grid.width))
              (List.range grid.height)
+             (r => List.sumByCong (c => a r c - k r c) (c => Bool.toNat (accessible grid cells r c))
+                (List.range grid.width)
+                (c => rewrite windowIsNeighbours grid cells below right r c in taken (cells r c) (neighbours grid cells r c)))
     _ = part1Spec grid := Eq.sym (countPositionsSum grid (r c => accessible grid cells r c))

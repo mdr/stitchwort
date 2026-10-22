@@ -50,9 +50,9 @@ def Keeps (grid: Grid) (s0: Cells) (s: Cells): Prop := (k: Cells) -> Stable grid
 theorem countPositionsCongr (grid: Grid) (p: Nat -> Nat -> Bool) (q: Nat -> Nat -> Bool) (h: (r: Nat) -> (c: Nat) -> p r c = q r c):
     countPositions grid p = countPositions grid q :=
   rewrite countPositionsSum grid p, countPositionsSum grid q in
-    List.sumByCongr (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width)) (x => List.sumBy (y => Bool.toNat (q x y)) (List.range grid.width))
-      (x => List.sumByCongr (y => Bool.toNat (p x y)) (y => Bool.toNat (q x y)) (y => Eq.cong Bool.toNat (h x y)) (List.range grid.width))
+    List.sumByCong (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width)) (x => List.sumBy (y => Bool.toNat (q x y)) (List.range grid.width))
       (List.range grid.height)
+      (x => List.sumByCong (y => Bool.toNat (p x y)) (y => Bool.toNat (q x y)) (List.range grid.width) (y => Eq.cong Bool.toNat (h x y)))
 
 -- More rolls, at least as many neighbours.
 theorem termLe: (b: Bool) -> (p: Cell) -> (q: Cell) -> (p = Roll -> q = Roll) -> Bool.toNat (b && p == Roll) <= Bool.toNat (b && q == Roll)
@@ -180,13 +180,13 @@ theorem roundCount (grid: Grid) (s: Cells): rollCount grid (removeAccessible gri
     _ = List.sumBy (x => List.sumBy (y => gone x y) (List.range grid.width) + List.sumBy (y => acc x y) (List.range grid.width)) (List.range grid.height)
         := Eq.sym (List.sumByAdd (x => List.sumBy (y => gone x y) (List.range grid.width)) (x => List.sumBy (y => acc x y) (List.range grid.width)) (List.range grid.height))
     _ = List.sumBy (x => List.sumBy (y => Bool.toNat (s x y == Roll)) (List.range grid.width)) (List.range grid.height)
-        := List.sumByCongr (x => List.sumBy (y => gone x y) (List.range grid.width) + List.sumBy (y => acc x y) (List.range grid.width))
+        := List.sumByCong (x => List.sumBy (y => gone x y) (List.range grid.width) + List.sumBy (y => acc x y) (List.range grid.width))
              (x => List.sumBy (y => Bool.toNat (s x y == Roll)) (List.range grid.width))
-             (x => Eq.trans (Eq.sym (List.sumByAdd (y => gone x y) (y => acc x y) (List.range grid.width)))
-                (List.sumByCongr (y => gone x y + acc x y) (y => Bool.toNat (s x y == Roll))
-                   (y => roundTerm (accessible grid s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft (s x y == Roll) (neighbours grid s x y < 4) h)))
-                   (List.range grid.width)))
              (List.range grid.height)
+             (x => Eq.trans (Eq.sym (List.sumByAdd (y => gone x y) (y => acc x y) (List.range grid.width)))
+                (List.sumByCong (y => gone x y + acc x y) (y => Bool.toNat (s x y == Roll))
+                   (List.range grid.width)
+                   (y => roundTerm (accessible grid s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft (s x y == Roll) (neighbours grid s x y < 4) h)))))
     _ = rollCount grid s := Eq.sym (countPositionsSum grid (r c => s r c == Roll))
 
 theorem toNatZero: (b: Bool) -> Bool.toNat b = 0 -> b = False

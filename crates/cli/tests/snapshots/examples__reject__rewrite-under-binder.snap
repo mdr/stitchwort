@@ -15,5 +15,5 @@ expression: output
    │ 
    │ Note 3: to replace the right side by the left, write `rewrite <- …`
    │ 
-   │ Note 4: an occurrence under a binder that uses the bound variable can't be rewritten; prove it pointwise and use a lemma like `List.mapCongr`
+   │ Note 4: an occurrence under a binder that uses the bound variable can't be rewritten; prove it pointwise and use a lemma like `List.mapCong`
 ───╯
