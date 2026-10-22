@@ -3945,7 +3945,7 @@
     {
       "id": 261,
       "title": "Std.Mod: isZero, addNat, subNat (defined via ofInt, with rfl lemmas) (D501)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -3954,7 +3954,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "c39676bc"
+      ]
     },
     {
       "id": 262,
