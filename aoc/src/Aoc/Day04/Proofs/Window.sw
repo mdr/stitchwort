@@ -160,7 +160,7 @@ theorem isRollCount: (a: Cell) -> Bool.toNat (a == Roll) = a.count
   | Floor => rfl
 
 -- Splitting off the position itself.
-theorem splitSelf: (n1: Bool) -> (n2: Bool) -> (e: Bool) -> (x: Bool) -> (e = True -> And (n1 = True) (n2 = True)) ->
+theorem splitSelf: (n1: Bool) -> (n2: Bool) -> (e: Bool) -> (x: Bool) -> (e = True -> (n1 = True && n2 = True)) ->
     Bool.toNat (n1 && n2 && x) = Bool.toNat ((n1 && n2 && not e) && x) + Bool.toNat (e && x)
   | True,  True,  True,  x, h => rfl
   | True,  False, True,  x, h => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
@@ -179,7 +179,7 @@ theorem nearSelf (r: Nat): (Nat.absDiff r r <= 1) = True := rewrite Nat.absDiffS
 theorem eqTrue (m: Nat) (n: Nat) (h: (m == n) = True): m = n := Decidable.toBoolSound (Nat.decEq m n) h
 
 -- The position itself is at most 1 from itself.
-theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x && c == y) = True): And (near r x = True) (near c y = True) :=
+theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x && c == y) = True): near r x = True && near c y = True :=
   Both (rewrite eqTrue r x (Bool.andLeft (r == x) (c == y) h) in nearSelf x)
     (rewrite eqTrue c y (Bool.andRight (r == x) (c == y) h) in nearSelf y)
 

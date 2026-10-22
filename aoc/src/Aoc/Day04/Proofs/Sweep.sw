@@ -40,7 +40,7 @@ theorem mcellsInside (grid: Grid) (m: Marked grid.width grid.height): Inside gri
 -- `sweepRow`: kept, or peeled.
 
 theorem sweepRowCases (a: Vec Cell w) (ac: Bool) (x: Vec Cell w) (b: Vec Cell w):
-    (mv: Bool) -> (bm: Bool) -> Or (Pair.fst (sweepRow a ac x mv b bm) = x) (Pair.fst (sweepRow a ac x mv b bm) = peelRow a x b)
+    (mv: Bool) -> (bm: Bool) -> (Pair.fst (sweepRow a ac x mv b bm) = x || Pair.fst (sweepRow a ac x mv b bm) = peelRow a x b)
   | True,  bm    => Inr rfl
   | False, True  => Inr rfl
   | False, False =>
@@ -191,7 +191,7 @@ theorem keepRollGe: (w: Nat) -> keep Roll w = Roll -> 5 <= w
 -- Changing row k only, each cell either kept or as a round leaves it, is a step.
 theorem rowStep (grid: Grid) (s: Cells) (t: Cells) (ins: Inside grid s) (k: Nat)
     (others: (r: Nat) -> (c: Nat) -> Not (r = k) -> t r c = s r c)
-    (row: (c: Nat) -> Or (t k c = s k c) (t k c = keep (s k c) (window s k c))): Step grid s t :=
+    (row: (c: Nat) -> (t k c = s k c || t k c = keep (s k c) (window s k c))): Step grid s t :=
   let rowSub: (c: Nat) -> t k c = Roll -> s k c = Roll := c ht =>
     match row c with
       | Inl e => Eq.trans (Eq.sym e) ht
@@ -234,7 +234,7 @@ theorem rowIsMove (cells: Cells) (other: Cells) (r: Nat) (v: Vec Cell w) (hv: Ro
 
 -- Row k of a pass, from `mix k`: kept, or as a round leaves it.
 theorem passRow (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k < grid.height) (c: Nat):
-    Or (mcells (sweep m) k c = mcells m k c) (mcells (sweep m) k c = keep (mcells m k c) (window (mix k (mcells (sweep m)) (mcells m)) k c)) :=
+    mcells (sweep m) k c = mcells m k c || mcells (sweep m) k c = keep (mcells m k c) (window (mix k (mcells (sweep m)) (mcells m)) k c) :=
   let out := mcells (sweep m)
   let inp := mcells m
   let s := mix k out inp
@@ -275,7 +275,7 @@ theorem mixStep (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
 
 -- A pass keeps the stable sets and only removes rolls.
 theorem mixChain (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (hk: Keeps grid s0 (mcells m)):
-    (k: Nat) -> k <= grid.height -> And (Keeps grid s0 (mix k (mcells (sweep m)) (mcells m))) (Sub (mix k (mcells (sweep m)) (mcells m)) (mcells m))
+    (k: Nat) -> k <= grid.height -> (Keeps grid s0 (mix k (mcells (sweep m)) (mcells m)) && Sub (mix k (mcells (sweep m)) (mcells m)) (mcells m))
   | Zero,   h => Both hk (subRefl (mcells m))
   | Succ k, h =>
     let out := mcells (sweep m)
@@ -286,7 +286,7 @@ theorem mixChain (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (hk
       (subTrans (mix (Succ k) out inp) (mix k out inp) inp (And.left step) (And.right prev))
 
 theorem passKeeps (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (hk: Keeps grid s0 (mcells m)):
-    And (Keeps grid s0 (mcells (sweep m))) (Sub (mcells (sweep m)) (mcells m)) :=
+    Keeps grid s0 (mcells (sweep m)) && Sub (mcells (sweep m)) (mcells m) :=
   let out := mcells (sweep m)
   let inp := mcells m
   let chain := mixChain grid s0 m hk grid.height (Nat.leRefl grid.height)

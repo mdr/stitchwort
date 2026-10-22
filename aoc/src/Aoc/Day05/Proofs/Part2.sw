@@ -57,7 +57,7 @@ theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id =
 -- Ranges, latest first, each starting after every id the ones after it hold.
 def Stacked: List Range -> Prop
   | Nil         => Unit
-  | Cons m rest => And (Below m.from rest) (Stacked rest)
+  | Cons m rest => Below m.from rest && Stacked rest
 
 -- The first range of a list whose ids are below `n` holds `size` of them.
 theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n (Cons m rest)):

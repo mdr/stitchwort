@@ -119,7 +119,7 @@ def BestBelow (k: Nat): Prop :=
 -- current candidate `c` followed by digits from `after`, or a digit within
 -- the next `w` of `xs` followed by digits from after it.
 def Candidate (k: Nat) (w: Nat) (xs: Bank) (c: Fin 10) (after: Bank) (y: Fin 10) (s: Bank): Prop :=
-  Or (And (y = c) (List.Subsequence s after)) (And (List.Subsequence (Cons y s) xs) (List.length xs <= w + k))
+  (y = c && List.Subsequence s after) || (List.Subsequence (Cons y s) xs && List.length xs <= w + k)
 
 -- `pick`'s choice, followed by `best k` of what comes after it, beats them all.
 def PickBeats (k: Nat) (w: Nat) (xs: Bank) (c: Fin 10) (after: Bank): Prop :=
@@ -216,7 +216,7 @@ theorem bestOptimalStep (k: Nat) (d: Fin 10) (rest: Bank) (y: Fin 10) (s: Bank) 
 
 -- `on` is k of the bank's batteries, turned on in the bank's order.
 def TurnsOn (k: Nat) (bank: Bank) (on: List Battery): Prop :=
-  And (List.Subsequence on bank) (on.length = k)
+  List.Subsequence on bank && on.length = k
 
 -- 4. Whichever k batteries you turn on, they produce no more than maxJoltage.
 theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
@@ -229,8 +229,8 @@ theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
 -- order, do produce it (the ones `Bank.best k bank` picks), and no k batteries
 -- of the bank produce more.
 theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k <= bank.length):
-  And (And (TurnsOn k bank (Bank.best k bank)) (joltageOf (Bank.best k bank) = maxJoltage k bank))
-      ((on: List Battery) -> TurnsOn k bank on -> joltageOf on <= maxJoltage k bank) :=
+  (TurnsOn k bank (Bank.best k bank) && joltageOf (Bank.best k bank) = maxJoltage k bank)
+      && ((on: List Battery) -> TurnsOn k bank on -> joltageOf on <= maxJoltage k bank) :=
   Both
     (Both
       (Both (bestSub k bank) (Eq.trans (bestLength k bank) (Nat.minLeft k bank.length enough)))

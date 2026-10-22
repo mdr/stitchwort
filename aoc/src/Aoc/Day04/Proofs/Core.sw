@@ -31,7 +31,7 @@ def Same (s: Cells) (t: Cells): Prop := (r: Nat) -> (c: Nat) -> s r c = t r c
 
 -- Floor everywhere off the grid.
 def Inside (grid: Grid) (s: Cells): Prop :=
-  And ((r: Nat) -> (c: Nat) -> grid.height <= r -> s r c = Floor) ((r: Nat) -> (c: Nat) -> grid.width <= c -> s r c = Floor)
+  ((r: Nat) -> (c: Nat) -> grid.height <= r -> s r c = Floor) && ((r: Nat) -> (c: Nat) -> grid.width <= c -> s r c = Floor)
 
 theorem insideGrid (grid: Grid): Inside grid (cellsOf grid) :=
   Both (r c h => rowsCellsBelow grid.rows r c h) (r c h => rowsCellsRight grid.rows r c h)
@@ -41,7 +41,7 @@ def Stable (grid: Grid) (k: Cells): Prop := (r: Nat) -> (c: Nat) -> k r c = Roll
 
 -- `t` is `s` with some rolls removed, each of them accessible in `s`.
 def Step (grid: Grid) (s: Cells) (t: Cells): Prop :=
-  And (Sub t s) ((r: Nat) -> (c: Nat) -> s r c = Roll -> t r c = Floor -> neighbours grid s r c < 4)
+  Sub t s && ((r: Nat) -> (c: Nat) -> s r c = Roll -> t r c = Floor -> neighbours grid s r c < 4)
 
 -- `s` still holds every stable set of rolls inside `s0`.
 def Keeps (grid: Grid) (s0: Cells) (s: Cells): Prop := (k: Cells) -> Stable grid k -> Sub k s0 -> Sub k s
@@ -123,7 +123,7 @@ theorem roundsSame (grid: Grid): (n: Nat) -> (s: Cells) -> (t: Cells) -> Same s 
   | Zero,   s, t, h, r, c => h r c
   | Succ n, s, t, h, r, c => roundsSame grid n (removeAccessible grid s) (removeAccessible grid t) (removeSame grid s t h) r c
 
-theorem ifFloorRoll: (b: Bool) -> (x: Cell) -> (if b then Floor else x) = Roll -> And (b = False) (x = Roll)
+theorem ifFloorRoll: (b: Bool) -> (x: Cell) -> (if b then Floor else x) = Roll -> (b = False && x = Roll)
   | True,  x, h => Void.exfalso (rollNotFloor h)
   | False, x, h => Both rfl h
 
@@ -150,7 +150,7 @@ theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (
 
 -- Rounds keep the stable sets, and stay inside the grid's rolls.
 theorem roundsKeep (grid: Grid) (s0: Cells): (n: Nat) -> (s: Cells) -> Keeps grid s0 s -> Sub s s0 ->
-    And (Keeps grid s0 (rounds grid n s)) (Sub (rounds grid n s) s0)
+    (Keeps grid s0 (rounds grid n s) && Sub (rounds grid n s) s0)
   | Zero,   s, hk, hs => Both hk hs
   | Succ n, s, hk, hs =>
     roundsKeep grid s0 n (removeAccessible grid s) (keepsStep grid s0 s (removeAccessible grid s) hk (removeStep grid s))

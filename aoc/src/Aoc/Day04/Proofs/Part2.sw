@@ -86,7 +86,7 @@ theorem sameMarks (grid: Grid) (m: Marked grid.width grid.height) (same: Same (m
         (sweepRowMark (Pair.fst p) (Pair.snd p) (Pair.fst x) (Pair.fst n) (Pair.snd x) (Pair.snd n) (Eq.trans (Eq.cong Pair.fst (Eq.sym st)) rowEq))
     | False => rewrite entryPast (sweep m) r (Nat.leqFalse (Succ r) grid.height e)
 
-theorem ifTrueFalse: (b: Bool) -> (c: Bool) -> (if b then True else c) = False -> And (b = False) (c = False)
+theorem ifTrueFalse: (b: Bool) -> (c: Bool) -> (if b then True else c) = False -> (b = False && c = False)
   | True,  c, h => Void.exfalso (Bool.trueNotFalse h)
   | False, c, h => Both rfl h
 
@@ -123,7 +123,7 @@ theorem fewerRolls (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (
 -- kept every stable set.
 theorem settleEnds (grid: Grid) (s0: Cells): (fuel: Nat) -> (m: Marked grid.width grid.height) -> Inv m -> Keeps grid s0 (mcells m) -> Sub (mcells m) s0 ->
     rollCount grid (mcells m) <= fuel ->
-    And (Stable grid (mcells (settleMarked m fuel))) (And (Keeps grid s0 (mcells (settleMarked m fuel))) (Sub (mcells (settleMarked m fuel)) s0))
+    Stable grid (mcells (settleMarked m fuel)) && (Keeps grid s0 (mcells (settleMarked m fuel)) && Sub (mcells (settleMarked m fuel)) s0)
   | Zero,   m, inv, hk, hs, hc =>
     Both (emptyStable grid (mcells m) (mcellsInside grid m) (Nat.leAntisym (rollCount grid (mcells m)) 0 hc (Nat.zeroLe (rollCount grid (mcells m))))) (Both hk hs)
   | Succ n, m, inv, hk, hs, hc =>

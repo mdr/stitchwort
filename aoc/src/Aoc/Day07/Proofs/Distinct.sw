@@ -70,5 +70,5 @@ theorem timelinesDistinct (manifold: Manifold): List.Distinct (timelines manifol
 -- timelines, and that list has no repeats, so it is the number of different
 -- timelines.
 theorem part2Distinct (manifold: Manifold):
-  And (solvePart2 manifold = List.length (timelines manifold)) (List.Distinct (timelines manifold)) :=
+  solvePart2 manifold = List.length (timelines manifold) && List.Distinct (timelines manifold) :=
   Both (part2Correct manifold) (timelinesDistinct manifold)
