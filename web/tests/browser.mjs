@@ -651,6 +651,26 @@ def main () : {IO} () :=
   assert.equal(await page.printed(), "500000500000\n");
 });
 
+// SW-62: a list literal was a `Cons` chain as deep as it was long, which
+// stopped at about 120 elements under the build's small stack guard. A long
+// one is now cut into short chains joined by `append`s. (100,000 elements
+// check and run in the build too, but the page then spends most of a minute
+// colouring and indexing the text, so the test uses a fifth of that.)
+test("a long list literal checks and runs", async (page) => {
+  const n = 20000;
+  const rows = Array.from({ length: n / 50 }, () => Array(50).fill("1").join(", "));
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(`import Std (List)
+def xs: List Nat := [${rows.join(",\n  ")}]
+def main(): {IO} () := IO.print "\${List.length xs}"
+`);
+  await page.untilChecked(60000);
+  const result = await page.run(60000);
+  assert.match(result, /Finished in/);
+  assert.equal(await page.printed(), `${n}\n`);
+}, { ms: 150000 });
+
 // No program is known to crash the compiler any more: its depth guards stop
 // deep programs with E-RESOURCE first. So this test serves a worker that
 // checks a program containing CRASH with the engine's stack almost used up,

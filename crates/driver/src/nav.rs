@@ -584,7 +584,18 @@ fn json_range([l1, c1, l2, c2]: Range) -> String {
 
 /// The start of each line of each file, found when first needed.
 #[derive(Default)]
-struct Lines(HashMap<FileId, Vec<usize>>);
+struct Lines(HashMap<FileId, Vec<usize>>, Option<Found>);
+
+/// The last position worked out: the next one is usually later on the same
+/// line, and counts columns from here, not from the line's start (a
+/// 100,000-element list literal on one line would otherwise be quadratic).
+#[derive(Clone, Copy)]
+struct Found {
+    file: FileId,
+    line: usize,
+    offset: usize,
+    column: usize,
+}
 
 impl Lines {
     /// `(line, UTF-16 column)`, both from 0, of `offset` in `file`.
@@ -597,7 +608,19 @@ impl Lines {
         });
         let line = starts.partition_point(|&s| s <= offset) - 1;
         let offset = offset.min(text.len());
-        let column = text[starts[line]..offset].encode_utf16().count();
+        let (from, before) = match self.1 {
+            Some(f) if f.file == file && f.line == line && f.offset <= offset => {
+                (f.offset, f.column)
+            }
+            _ => (starts[line], 0),
+        };
+        let column = before + text[from..offset].encode_utf16().count();
+        self.1 = Some(Found {
+            file,
+            line,
+            offset,
+            column,
+        });
         (line, column)
     }
 }
