@@ -3917,7 +3917,7 @@
     {
       "id": 259,
       "title": "Parser: name() with no space is always a call binding as one argument, so parseTurns IO.readAllLines() needs no brackets (D495, extends SW-220)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3926,7 +3926,9 @@
       "body": "\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-a7cd7f71b7e10175a (branch worktree-agent-a7cd7f71b7e10175a, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "bfe2e42e"
+      ]
     },
     {
       "id": 260,
