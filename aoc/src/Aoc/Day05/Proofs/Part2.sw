@@ -104,19 +104,19 @@ theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
 -- The merged ranges, latest first: `merge` before its `reverse`.
 def stack (ranges: List Range): List Range :=
   ranges
-    |> .sortBy (a b => Nat.compare a.from b.from)
+    |> .sort
     |> .foldLeft absorb []
 
 theorem stackSorted (ranges: List Range):
-    List.Sorted (x y => Ordering.isLessEq (Nat.compare x.from y.from)) (ranges.sortBy (a b => Nat.compare a.from b.from)) :=
-  List.sortBySorted (a b => Nat.compare (Range.from a) (Range.from b)) (x y h => Nat.compareTotal x.from y.from h) ranges
+    List.Sorted (x y => Ordering.isLessEq (Ord.compare x y)) ranges.sort :=
+  List.sortSorted ranges
 
 theorem stackCovers (ranges: List Range) (id: Nat): covered (stack ranges) id = covered ranges id :=
-  Eq.trans (foldCovers id Nil (ranges.sortBy (a b => Nat.compare a.from b.from)) (stackSorted ranges) (fitsNil (ranges.sortBy (a b => Nat.compare a.from b.from))))
-    (List.anyPerm (r => Range.contains r id) (ranges.sortBy (a b => Nat.compare a.from b.from)) ranges (List.sortByPerm (a b => Nat.compare (Range.from a) (Range.from b)) ranges))
+  Eq.trans (foldCovers id Nil ranges.sort (stackSorted ranges) (fitsNil ranges.sort))
+    (List.anyPerm (r => Range.contains r id) ranges.sort ranges (List.sortPerm ranges))
 
 theorem stackStacked (ranges: List Range): Stacked (stack ranges) :=
-  foldStacked Nil (ranges.sortBy (a b => Nat.compare a.from b.from)) (stackSorted ranges) (fitsNil (ranges.sortBy (a b => Nat.compare a.from b.from))) Trivial
+  foldStacked Nil ranges.sort (stackSorted ranges) (fitsNil ranges.sort) Trivial
 
 -- Merging keeps exactly the covered ids.
 theorem mergeCovers (ranges: List Range) (id: Nat): (merge ranges).any (r => r.contains id) = ranges.any (r => r.contains id) :=
@@ -194,12 +194,12 @@ theorem fitsNil: (xs: List Range) -> Fits Nil xs
   | Cons x xs => Trivial
 
 theorem fitsStep (acc: List Range) (x: Range): (xs: List Range) -> LoAtMost x.from acc ->
-    List.LeHead (a b => Ordering.isLessEq (Nat.compare a.from b.from)) x xs -> Fits (absorb acc x) xs
+    List.LeHead (a b => Ordering.isLessEq (Ord.compare a b)) x xs -> Fits (absorb acc x) xs
   | Nil,       ok, hx => Trivial
-  | Cons y ys, ok, hx => absorbLo x y.from (Eq.trans (Eq.sym (Nat.compareLeq x.from y.from)) hx) acc ok
+  | Cons y ys, ok, hx => absorbLo x y.from (compareFrom x y hx) acc ok
 
 theorem foldCovers (id: Nat): (acc: List Range) -> (xs: List Range) ->
-    List.Sorted (a b => Ordering.isLessEq (Nat.compare a.from b.from)) xs -> Fits acc xs ->
+    List.Sorted (a b => Ordering.isLessEq (Ord.compare a b)) xs -> Fits acc xs ->
     covered (xs.foldLeft absorb acc) id = (covered acc id || covered xs id)
   | acc, Nil,       s,           ok => Eq.sym (Bool.orFalse (covered acc id))
   | acc, Cons x xs, Both hx sxs, ok =>
@@ -209,6 +209,6 @@ theorem foldCovers (id: Nat): (acc: List Range) -> (xs: List Range) ->
       _ = (covered acc id || covered (Cons x xs) id)           := Bool.orAssoc (covered acc id) (x.contains id) (covered xs id)
 
 theorem foldStacked: (acc: List Range) -> (xs: List Range) ->
-    List.Sorted (a b => Ordering.isLessEq (Nat.compare a.from b.from)) xs -> Fits acc xs -> Stacked acc -> Stacked (xs.foldLeft absorb acc)
+    List.Sorted (a b => Ordering.isLessEq (Ord.compare a b)) xs -> Fits acc xs -> Stacked acc -> Stacked (xs.foldLeft absorb acc)
   | acc, Nil,       s,           ok, st => st
   | acc, Cons x xs, Both hx sxs, ok, st => foldStacked (absorb acc x) xs sxs (fitsStep acc x xs ok hx) (absorbStacked x acc ok st)

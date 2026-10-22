@@ -43,7 +43,7 @@ def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy Range.size
 -- folded into a list of merged ranges with the latest first.
 def merge (ranges: List Range): List Range :=
   ranges
-    |> .sortBy (a b => Nat.compare a.from b.from)
+    |> .sort
     |> .foldLeft absorb []
     |> .reverse
 
