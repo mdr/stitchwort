@@ -77,8 +77,8 @@ theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k 
 
 -- One range: the ids written exactly twice are the sum over block lengths
 -- of the blocks written twice.
-theorem rangeDoubled (r: Range): sumOfInvalidIdsInRange r = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1) :=
-  calc sumOfInvalidIdsInRange r
+theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1) :=
+  calc sumOfIdsWrittenTwice r
     _ = List.sumBy (template => if template.copies == 2 then sumMatchingTemplate r template else 0) (allTemplatesForRange r)
         := List.sumByFilter (sumMatchingTemplate r) (template => template.copies == 2) (allTemplatesForRange r)
     _ = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumMatchingTemplate r { blockLength = k, copies = n } else 0) else 0)
@@ -91,7 +91,7 @@ theorem rangeDoubled (r: Range): sumOfInvalidIdsInRange r = List.sumBy (k => rep
 
 -- (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
-  List.sumByCong sumOfInvalidIdsInRange (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) ranges rangeDoubled
+  List.sumByCong sumOfIdsWrittenTwice (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) ranges rangeDoubled
 
 -- Why part 1 is right (c): `part1Correct` says the printed part 1 is
 -- `part1Spec`, the puzzle's own method: walk every id of every range, keep

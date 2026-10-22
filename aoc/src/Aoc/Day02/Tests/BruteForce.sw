@@ -15,7 +15,7 @@ def bruteSum (invalid: Nat -> Bool) (r: Range): Nat :=
   r.ids |> .filter invalid |> .sum
 
 def agrees (r: Range): Bool :=
-  sumOfInvalidIdsInRange r == bruteSum doubled r && sumRepeated r == (bruteSum repeats r).toInt
+  sumOfIdsWrittenTwice r == bruteSum doubled r && sumOfIdsWrittenRepeatedly r == (bruteSum repeats r).toInt
 
 -- Ranges of 40 ids starting every 13 up to 2000, and some that cross into
 -- more digits.
@@ -33,5 +33,5 @@ def longRanges: List Range :=
    range 121212121202 121212121222, range 123412341224 123412341244, range 99999999989 100000000009,
    range 11111111111111101 11111111111111121, range 10101010101010101000 10101010101010101020]
 
-test "long ids" := longRanges.all (r => sumRepeated r == (bruteSum repeats r).toInt)
-test "long ids found" := List.map sumRepeated longRanges == [11111111111, 111111111111, 1111111111111, 121212121212, 123412341234, 99999999999, 11111111111111111, 10101010101010101010]
+test "long ids" := longRanges.all (r => sumOfIdsWrittenRepeatedly r == (bruteSum repeats r).toInt)
+test "long ids found" := List.map sumOfIdsWrittenRepeatedly longRanges == [11111111111, 111111111111, 1111111111111, 121212121212, 123412341234, 99999999999, 11111111111111111, 10101010101010101010]

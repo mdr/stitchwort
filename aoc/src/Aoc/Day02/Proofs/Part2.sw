@@ -22,7 +22,7 @@
 -- - `sumMatchingTemplate` adds the ids of the range whose digits are a block of the
 --   template's length written the template's number of copies (`repeatedIds`). The
 --   program's sum over the templates is a grid of block lengths and copies
---   (`sumRepeatedGrid`); swapping the sums over ids, block lengths and
+--   (`sumOfIdsWrittenRepeatedlyGrid`); swapping the sums over ids, block lengths and
 --   copies finishes it (`weightedIds`, `rangeWeighted`).
 --   The signed total is the natural answer embedded, so `Int.toNat` gives it back.
 
@@ -596,7 +596,7 @@ def weighted (w: Nat -> Int) (r: Range): Int :=
   let size := List.length (Nat.digits r.to)
   List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (sumMatchingTemplate r { blockLength = k, copies = n }).toInt else 0))
 
-theorem sumRepeatedGrid (r: Range): sumRepeated r = weighted copiesWeight r :=
+theorem sumOfIdsWrittenRepeatedlyGrid (r: Range): sumOfIdsWrittenRepeatedly r = weighted copiesWeight r :=
   templatesSum r (template => copiesWeight template.copies * (sumMatchingTemplate r template).toInt)
 
 -- One term of `weighted`, as a sum over the ids of the range.
@@ -671,7 +671,7 @@ test "part 2 spec" := part2Spec exampleRanges == 4174379265
 theorem part2Correct (ranges: List Range): solvePart2 ranges = part2Spec ranges :=
   calc solvePart2 ranges
     _ = Int.toNat (List.sumBy (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges)
-        := Eq.cong Int.toNat (List.sumByCong sumRepeated (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges (r => Eq.trans (sumRepeatedGrid r) (rangeWeighted r)))
+        := Eq.cong Int.toNat (List.sumByCong sumOfIdsWrittenRepeatedly (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges (r => Eq.trans (sumOfIdsWrittenRepeatedlyGrid r) (rangeWeighted r)))
     _ = Int.toNat (part2Spec ranges).toInt
         := Eq.cong Int.toNat (Eq.sym (Int.toIntSumBy (r => List.sum (List.filter repeats (Range.ids r))) ranges))
     _ = part2Spec ranges := Int.toNatToInt (part2Spec ranges)
