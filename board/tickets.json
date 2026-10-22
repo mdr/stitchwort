@@ -4400,9 +4400,9 @@
     {
       "id": 288,
       "title": "decreasing stage 3b: List.attach (typed, structural), Member record, attachFrom lemmas, memMap (after 3c)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
       "labels": [
         "decreasing"
       ],
@@ -4493,7 +4493,7 @@
     {
       "id": 294,
       "title": "AoC Day 2: allTemplatesForRange with tight bounds, reprove templatesSum (D524)",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
       "where": "branch worktree-agent-ad734d4508798eee8 (1c7c9ec0), unmerged: guard question",
       "labels": [
@@ -4502,7 +4502,10 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "512569e5",
+        "1c7c9ec0"
+      ]
     },
     {
       "id": 295,
