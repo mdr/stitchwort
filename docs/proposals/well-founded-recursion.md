@@ -3,7 +3,9 @@
 **Status:** draft 1, 22 October 2026; stage 1 built (see [As built](#as-built-stage-1)). Ticket SW-199, decision
 D472 (write this note). Decisions D473 to D475 ([§10](#10-decisions)) were taken by Matt. The critical
 review ([§9](#9-critical-review)) was written as a separate, adversarial pass by the same
-author, not by an outside reviewer. Related: [equation-lemmas.md](equation-lemmas.md) (D226
+author, not by an outside reviewer. The [stage 3a
+addendum](#stage-3a-calls-under-lambdas-addendum) (calls under lambdas; SW-284, D516) is a design
+for review, with decisions D517 to D519. Related: [equation-lemmas.md](equation-lemmas.md) (D226
 to D233; this note brings back a narrow form of D231), [partial.md](partial.md) (`{Partial}`,
 for loops that really might not end), [fast-runtime.md](fast-runtime.md) (`crates/rt`), and
 the day 4 community comparison ([aoc-day04-community.md](../comparisons/aoc-day04-community.md)
@@ -42,6 +44,8 @@ This note can be read without knowing type theory. Code references were checked 
 - [8. Staged plan](#8-staged-plan)
 - [9. Critical review](#9-critical-review)
 - [10. Decisions](#10-decisions)
+- [As built (stage 1)](#as-built-stage-1)
+- [Stage 3a: calls under lambdas (addendum)](#stage-3a-calls-under-lambdas-addendum)
 - [Sources](#sources)
 
 ## 0. Summary
@@ -740,7 +744,8 @@ today it needs none proved yet [inferred; the lemma name is a placeholder].
 
 **Stage 3: later, each on its own trigger.**
 
-- Calls under lambdas (Lean's attach) when day 2's shape comes up again.
+- Calls under lambdas (Lean's attach) when day 2's shape comes up again: designed in the
+  [stage 3a addendum](#stage-3a-calls-under-lambdas-addendum).
 - A generated per-branch `f.induct` when proofs by `decreasing` theorems repeat boilerplate.
 - Mutual groups with `decreasing`; lexicographic measures (pairs).
 - `Nat.div` via `decreasing`, if the native's registration can move with it.
@@ -875,6 +880,359 @@ theorem with `decreasing`; its `main` joins the `run` / `--js` /
 `--reference` differential tests), six `examples/reject/decreasing-*.sw`,
 a parser test, and the lowering test above.
 
+## Stage 3a: calls under lambdas (addendum)
+
+**Status:** design only, 22 October 2026; nothing here is built. Ticket SW-284, decision D516
+(Matt: rewrite day 2 as one function on `Int`, the signed weight, and design calls under lambdas
+for it). Decisions D517 to D519 are at the [end of this section](#3a8-decisions). Code
+references were checked at `dba64c39`; the labels are the note's own (**[checked]**, **[run]**,
+**[inferred]**, **[unverified]**).
+
+### 3a.1 The problem in one paragraph
+
+Stage 1 refuses a recursive call inside a lambda (`x => …`) before it elaborates anything
+(`crates/elab/src/decreasing.rs:702-712`, `names_in_lambdas`) **[checked]**. The reason, from
+§6.3: the lambda is called by whatever it's passed to, and nothing says it's only called on
+arguments with a smaller measure. Day 2's weights are the case that matters: the weight of `n`
+is a sum over the divisors of `n`, so the recursive call sits in the lambda passed to
+`List.sumBy`. There are two separate problems, with separate answers:
+
+1. **The obligation.** Inside `d => … weight d …`, nothing in scope says `d < n`. Lean's answer is
+   `List.attach`, which gives each element a proof that it is in the list. Ours can also be the
+   guard style stage 1 already has (`if h: d < n then … else …`): an `if h:` inside the lambda
+   puts `h` in scope like anywhere else (3a.3).
+2. **The generated proofs.** `f.%step.%respects` must show that the body gives equal results for
+   two `%rec`s that agree on every argument. With a call under a lambda, the two bodies differ
+   inside a function: `List.sumBy (d => … r1 d …) xs` against `List.sumBy (d => … r2 d …) xs`.
+   Two functions that agree everywhere being equal is function extensionality, and Stitchwort's
+   kernel doesn't have it (3a.2). This is the hard part; 3a.4 answers it.
+
+### 3a.2 Function extensionality: not needed
+
+- **The kernel has none.** Conversion has eta for functions (`f ≡ x => f x`, `docs/core.md`:200)
+  but no rule that makes two functions equal because they agree on every argument, and `rewrite`
+  tells users so: "`J` can't rewrite inside a function without function extensionality … the
+  message points at a pointwise lemma like `List.mapCongr`" (`docs/syntax.md`:782)
+  **[checked]**. Stage 1's respects proof already avoids it: "No function extensionality is
+  needed" (`docs/core.md`:173) **[checked]**.
+- **Stage 1 already crosses one kind of lambda.** An `if` is a call of `Decidable.elim` or
+  `Bool.ifThenElse` whose branches are lambdas (`h => …`, `_ => …`). The generator proves two
+  `if`s equal with a *congruence lemma* whose hypotheses are pointwise, `Decidable.elimCong`:
+  `((h: p) -> y1 h = y2 h) -> ((r: Not p) -> n1 r = n2 r) -> Decidable.elim d y1 n1 =
+  Decidable.elim d y2 n2` (`crates/elab/src/std/core/Decidable.sw:39`). It proves each
+  hypothesis by recursing into the branch's body under its binder (`decreasing.rs:1658-1720`,
+  `eliminator`) **[checked]**.
+- **The design: the same for every higher-order function.** `List.sumBy` gets
+  `List.sumByCong: … ((x: a) -> f1 x = f2 x) -> List.sumBy f1 xs = List.sumBy f2 xs`, proved by
+  induction on `xs`, with no extensionality: `List.sumByCongr` (`List/Sort.sw:95`) already is this
+  lemma for `Nat` results **[checked]**. The generator treats `List.sumBy` as it treats
+  `Decidable.elim`. Such a lemma can be proved for any function that only *calls* its callback,
+  which is every list function in `std` **[inferred]**.
+- **Why not add extensionality to the kernel.** An axiom doesn't compute: a `J` on a proof made by
+  the axiom gets stuck, and Stitchwort's tests are checked by the kernel's evaluator (§0), so what
+  a test needs must compute. Extensionality that computes needs a different type theory (cubical
+  or observational): a kernel redesign. A congruence lemma costs one short theorem per
+  higher-order function and nothing in the kernel.
+- **What the others do.** Lean's `WellFounded.fix_eq` uses no axioms, because two proofs of a
+  `Prop` are equal by definition there; but the equation Lean generates for a definition through
+  `attach` does: for the day 2 weight written in Lean (3a.6), `#print axioms w.eq_1` says
+  `[propext, Quot.sound]` (Lean derives function extensionality from `Quot.sound`), while
+  `#print axioms WellFounded.fix_eq` says it "does not depend on any axioms" **[run, Lean
+  4.34.1]**. Rocq's `Program Fixpoint` needs the function-extensionality axiom to unfold [C2], and
+  Equations uses it too [C3]. So the congruence lemmas are the price of a kernel without
+  extensionality; they are the same idea as the `fix_sub_eq` hypothesis that stage 1 already
+  proves per definition (As built, item 3).
+
+### 3a.3 The obligation: `List.attach`, and the guard style
+
+**What Lean does.** `List.attach (l: List α): List {x // x ∈ l}` pairs every element with a proof
+that it's in the list; `attachWith` does the same for any property; `pmap` maps a function that
+also takes the proof; `unattach` drops the proofs [L5]. The lemmas that make it usable say that
+dropping the proofs gives back the list (`attach_map_subtype_val: l.attach.map Subtype.val = l`)
+and that a fold over the attached list that ignores the proofs is the fold over the list
+(`foldl_attach`) [L5]. A call under a lambda then reads `xs.attach.map (fun ⟨x, h⟩ => f x)`, and
+the termination proof uses `h: x ∈ xs`. Since Lean 4.18 (#6744) the elaborator inserts the
+`attach` itself for `List.map` and the other functions a `wf_preprocess` rule is registered for
+[L6, L7]. It does so only where a *parameter* of the function flows in (that's what `wfParam`
+marks), and it "requires special setup for the higher-order function under which the recursive
+call is nested": a user's own `myMap` gets nothing [L1, §3.6]. In the day 2 weight the list is
+`List.range n`, filtered, not a parameter, and Lean added no hypothesis: the goal was a bare
+`d < n` with nothing in scope **[run, Lean 4.34.1]**. With `attach` written by hand it checked
+and computed `-μ(n)` for 2 to 12 **[run]**. Agda's standard library has the same idea as
+`mapWith∈` [A3], and Idris writes membership as `Elem x xs` [I2] **[unverified for both: from
+memory, the linked docs not re-read]**.
+
+**Stitchwort's library (stage 3b).**
+
+- **Membership.** `std` has no membership proposition. It has `List.elem` (a `Bool`, given a
+  decision for equality, `List/Toolkit.sw:193`) and `List.Any (p: a -> Prop)` (`:260`)
+  **[checked]**. Add
+
+  ```
+  -- x is one of the elements of xs.
+  def List.Mem (x: a) (xs: List a): Prop := List.Any (y => x = y) xs
+  ```
+
+  Defined through `List.Any`, `List.Mem x (Cons y ys)` *is* `Or (x = y) (List.Mem x ys)`, so
+  proofs about a literal list compute. No operator: `x in xs` would collide with `rewrite … in`.
+- **The attached element** is a record. The library has no `Exists` and no pair whose second half
+  depends on the first (`Nat/Divides.sw:14`: "There is no `Exists`"), and a record may already
+  have a proof field that mentions an earlier field (`type Mod (n: Nat) = { value: Nat, isLt:
+  value < Mod.size n }`, `Mod/Mod.sw:13`) **[checked]**:
+
+  ```
+  -- An element of xs, with the proof that it is one.
+  type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }
+
+  -- The elements of xs, in order, each with the proof that it's in xs.
+  def List.attach (xs: List a): List (List.Member a xs) := List.attachFrom xs xs (x h => h)
+
+  -- The elements of `rest`, a part of `whole`, as members of `whole`.
+  def List.attachFrom (whole: List a): (rest: List a) -> ((x: a) -> List.Mem x rest -> List.Mem x whole) -> List (List.Member a whole)
+    | Nil,       sub => Nil
+    | Cons x xs, sub => Cons { value = x, isIn = sub x (Left Refl) } (List.attachFrom whole xs (y h => sub y (Right h)))
+  ```
+
+  One pass, structural, no lemma needed to define it; Lean's definition through `pmap` has the
+  same shape [L5]. Proof fields are erased by `stitchwort run` and JS, and a record whose only
+  data field is `value` may run as the plain value, as `Mod` does (`docs/syntax.md`:313, "runs as
+  a plain number") **[checked for `Mod`; unverified for records in general]**. If so,
+  `List.attach` can get a run body (`Def::run_body`, As built item 6) that returns `xs`
+  unchanged: Stitchwort's version of Lean's `implemented_by attachWithImpl` [L5].
+- **Lemmas**, each a short induction on the list **[inferred]**:
+  - `List.attachValues (xs): List.map (e => e.value) (List.attach xs) = xs`;
+  - `List.sumByAttach [auto add: Add b] (f: a -> b) (xs): List.sumBy (e => f e.value) (List.attach xs) = List.sumBy f xs`,
+    and the same for `map`, `any`, `all` and `foldLeft` as uses appear;
+  - membership facts for the lists a measure is checked on: `List.memRangeFrom: List.Mem x
+    (List.rangeFrom c s) -> And (s <= x) (x < s + c)`, `List.memFilter`, `List.memMap`.
+- **How it reads.** `xs.attach.sumBy (e => size e.value [decreasing := …e.isIn…])`, or with a
+  record pattern in the lambda, `xs.attach.sumBy (({ value = t, isIn }) => size t [decreasing :=
+  …])` (`docs/syntax.md`:158 allows `{ name, .. }` patterns as lambda parameters) **[checked]**.
+  Readable, but `auto` won't get from `isIn` to the obligation by itself: membership has to be
+  turned into `<` by a lemma about the particular list (here `List.memRangeFrom`), so such a call
+  usually names its proof with `[decreasing := …]`.
+- **Alternative considered: `List.sumByIn (xs) (f: (x: a) -> List.Mem x xs -> b)`**, Lean's
+  `pmap` shape. It reads as well at the call, but every higher-order function would need an `In`
+  twin with its own lemmas, where `attach` is one function that works with all of them. Not
+  recommended.
+- **When the guard style is better.** For day 2 the obligation is `d < n`, and the list is
+  `List.rangeFrom (n - 2) 2`, the numbers 2 to n - 1. With `attach`, the call's proof needs
+  `List.memRangeFrom` *and* a case for `n < 2`, where `2 + (n - 2)` isn't `n` (the list is empty
+  then, so membership is `Void`, but the proof has to say so). With the guard, `d => if h: d < n
+  then … else 0`, `auto` finds `h` and the program needs no lemma, as D475 prefers. It costs one
+  comparison per divisor at run time, and a proof about the sum discharges the guard once, with
+  `List.sumRangeCongr` (whose hypothesis gives `d < 2 + (n - 2)`). So day 2 uses the guard
+  (D519), and `attach` is for lists with no cheap test, a tree's children being the usual case
+  (`Node kids => 1 + kids.attach.sumBy (e => size e.value …)`).
+
+### 3a.4 The generator
+
+What changes in `crates/elab/src/decreasing.rs`:
+
+1. **Drop the source pre-pass** (`:702-712`) that refuses every call under a lambda. The body is
+   elaborated over `%rec` as now; inside a lambda, `weight d` is `%rec d [decreasing := …]`, and
+   its obligation `d < n` is found by `auto` from what the lambda's scope holds (the guard's `h`,
+   a pattern's `isIn`, a lemma applied to it). Nothing new should be needed there: `auto` searches
+   the local context, and lambda parameters are in it **[inferred; to confirm when building, as
+   `Ctx::decreasing_call` has only been reached outside lambdas]**.
+2. **Congruence lemmas replace the two built-in cases.** `eliminator` (`:1658`) knows
+   `Decidable.elim` (5 arguments, branches 3 and 4) and `Bool.ifThenElse` (4, branches 2 and 3).
+   It becomes a lookup: for a call whose head is a definition `F`, find `F`'s congruence lemma
+   (D518), read off from the lemma's type which of `F`'s parameters are callbacks, and check its
+   shape, once per `F`:
+
+   ```
+   F's parameters in F's order, each callback c given twice (c1, c2); then, for each callback in
+   order, a hypothesis (x…) -> c1 x… = c2 x…, with as many x… as the callback takes;
+   result: F …c1… = F …c2…
+   ```
+
+   `Decidable.elimCong` and `Bool.ifThenElseCong` already have this shape **[checked:
+   `Decidable.sw:39`, `:43`]**. `List.sumByCong` would be
+
+   ```
+   theorem List.sumByCong [auto add: Add b] (f1: a -> b) (f2: a -> b) (xs: List a) (ef: (x: a) -> f1 x = f2 x):
+       List.sumBy f1 xs = List.sumBy f2 xs
+   ```
+
+   (`List.sumByCongr` today has its hypothesis before `xs` and only `Nat` results; it is reshaped
+   and generalised, not kept beside the new one.)
+3. **Crossing the lambda.** For each callback argument that mentions `r1`, the lemma gets the
+   argument, the argument with `r2` for `r1` (`rename`, as for `if` branches), and a proof of the
+   hypothesis: `x… => p`, where `p` is `cong` run on the lambda's body at `leaf.under(k)`, for a
+   callback of `k` arguments. That is the `if` branch case (`:1697-1712`) with any `k` instead of
+   1. Inside, everything stage 1 does still works: the body can hold `if`s, further calls of
+   functions with congruence lemmas (a sum inside a sum), and the recursive call itself, whose
+   site proof is `e y… p`; `y…` and the obligation's proof `p` may mention the lambda's own
+   variables, which the `x… =>` around it binds, so the proof is well scoped.
+4. **The call's other arguments.** An argument that isn't a callback but mentions `r1` (the list in
+   `List.sumBy g (List.map (d => r1 d …) xs)`) is a site of its own, rewritten by `J` before the
+   lemma is applied, as the arguments of a lifted helper are now (`rebuild … Choice::Post`,
+   `:1603-1617`). A recursive call in an `if`'s condition stays refused, as now.
+5. **Lambdas the lemma can't see.** A callback that isn't written out as a lambda at the call (a
+   `let` is unfolded first, by `zeta`, so `let g := d => weight d` is fine), a lambda stored in
+   data (`Cons (d => weight d) Nil`), or a call of a function with no congruence lemma: refused
+   with `E-DECREASING`, now worded like "`weight` is called inside a function passed to
+   `List.foo`, which has no congruence lemma `List.fooCong`; write one (shape …), or use fuel for
+   now". This replaces stage 1's blanket message. It stays a refusal, never unsoundness: the
+   kernel checks every generated proof.
+6. **A lambda with a pattern** (`({ value = d, isIn }) => …`, or one whose body is a `match`) is
+   elaborated with a lifted helper that captures `%rec` and the lambda's variables. The helper
+   path (`:1580-1640`) already proves "this helper respects `%rec`" with a lemma of its own, so
+   this should need nothing new **[inferred]**.
+7. **Unchanged.** `f.%go`, `f.%irrel` and `f.unfold` use only the *statement* of
+   `f.%step.%respects`, which stays pointwise (`:1077`, `:1217-1290`) **[checked]**; the run body
+   (`f.%step x (y => f y)`) runs the code as written. A `theorem` with `decreasing` gets no
+   respects lemma (`docs/core.md`:173, "For a `def`"), so for theorems step 1 alone opens calls
+   under lambdas **[checked: the rule; inferred: the consequence]**.
+
+**Which functions get lemmas in `std`** (stage 3a): `List.sumBy`, `List.map`, `List.foldLeft`,
+`List.foldRight`, `List.any`, `List.all`, `List.filter`, `List.filterMap`, `List.count` and
+`Option.map`, besides `Decidable.elim` and `Bool.ifThenElse`. Each is one induction of a few
+lines (`List.sumByCongr` is five). The generator could make them later: it already proves "this
+definition respects its function parameter" for lifted helpers, but a recursive `F` needs
+induction, which it doesn't do today. Not until hand-written ones get tedious.
+
+### 3a.5 Day 2 before and after
+
+**Before** (`aoc/src/Aoc/Day02/Day02.sw:37-70`) **[checked]**: two `Nat` weights, `plus` and
+`minus`, computed together by `weightFuel: Nat -> Bool -> Nat -> Nat` with fuel `Succ n`, a
+`divisorWeights` helper, and `invalid r := weighted plus r - weighted minus r`. The proofs
+(`Proofs/Part2.sw:255-323`) need `weightFuelEnough` (more fuel doesn't change it), `belowFuel`
+(the fuel of `m` against each divisor's own fuel), `divisorWeightsTop` and `plusOneMore`.
+
+**After** (a sketch, not checked):
+
+```
+def solvePart1 (ranges: List Range): Nat := Int.toNat (ranges.sumBy (weighted twice))
+
+def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy (weighted weight))
+
+-- The ids in the range under weights `w` for the repeat counts (as now, with Int weights).
+def weighted (w: Nat -> Int) (r: Range): Int :=
+  let size := (Nat.digits r.to).length
+  List.rangeFrom size 1 |> .sumBy (k =>
+    List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (repeated r k n).toInt else 0))
+
+-- The weight of repeat count n: 1, less the weights of the divisors of n from 2 to n - 1. So over
+-- the divisors of any K >= 2 from 2 on the weights add up to 1, and an id whose digits are a
+-- block written K times (and no fewer) is counted once. (Minus the Moebius function.) The guard
+-- `d < n` always holds; it is there to show that the recursion ends.
+def weight (n: Nat): Int
+  decreasing n
+:=
+  1 - (List.rangeFrom (n - 2) 2 |> .sumBy (d => if h: d < n then (if Nat.divides d n then weight d else 0) else 0))
+
+def twice (n: Nat): Int := if n == 2 then 1 else 0
+```
+
+`plus`, `minus`, `weightFuel`, `invalid`'s subtraction and the program's `divisorWeights` go (the
+proofs keep a `divisorWeights` with `Int` weights). Both parts end in `Int.toNat` because both go
+through `weighted`; keeping part 1 on `Nat` would need a second `weighted`, and part 1's proofs
+change little (a cast). The test in `Tests/Examples.sw:18` becomes `List.map weight
+(List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]`, the table it checks today
+**[checked]**.
+
+**The key lemma** replaces `weightFuelEnough`, `belowFuel` and `plusOneMore`:
+
+```
+-- Over the divisors of m from 2 to m, the weights add up to 1 when m >= 2, and to 0 for m = 1.
+theorem weightsOne: (m: Nat) -> 1 <= m -> divisorWeights weight m (m - 1) = Bool.toInt (Nat.leq 2 m)
+  | Succ Zero,     h => rfl
+  | Succ (Succ j), h =>
+    calc divisorWeights weight (Succ (Succ j)) (Succ j)
+      _ = S + weight (Succ (Succ j))   := divisorWeightsTop weight j   -- S: the divisors below m
+      _ = S + (1 - S)                  := rewrite weightBelow j        -- weight.unfold, guard discharged
+      _ = 1                            := Int.addSubCancel S 1
+```
+
+`weightBelow` is `weight m = 1 - divisorWeights weight m (m - 2)`: `weight.unfold m`, then
+`List.sumRangeCongr`, since each `d` of the range has `d < 2 + (m - 2) = m`, so `if h: d < m`
+takes its first branch. (`Bool.toInt` is a placeholder name.) The rest of `Part2.sw` keeps its
+shape, on `Int` from `idTerms` up: `idTermsDivisors`; then `idWeight: idTerms weight size x =
+(Nat.keepIf x (repeats x)).toInt` instead of `idPlusMinus`; then `weighted weight r = (List.sum
+(List.filter repeats r.ids)).toInt` instead of `rangeSplit`; and `part2Correct` by
+`Int.toNatToInt` (`Int/Int.sw:20`, `rfl`) **[checked]**. No `Nat` subtraction is left to reason
+about, which is the point of D516.
+
+**The `Int` and list library this needs** (stage 3c), against what exists **[checked:
+`core/Arith.sw`, `core/AddMul.sw`, `Int/Int.sw`, `List/Sort.sw`]**:
+
+| Need | Exists | To add |
+|---|---|---|
+| `+` laws | `Int.addZero`, `zeroAdd`, `addComm`, `addAssoc`, `addNeg`, `subSelf` | `Int.addSubCancel: a + (b - a) = b` |
+| `*` laws | `Int.mulAssoc`, `oneMul`, `mulOne` | `Int.mulComm`, `Int.mulZero`, `Int.mulDistribLeft` and `Right` |
+| casts | `Int.toIntAdd`, `toIntMul`, `toNatToInt` (all `rfl`) | `Int.toIntSumBy: (List.sumBy f xs).toInt = List.sumBy (x => (f x).toInt) xs` |
+| sums | `List.sumByCongr`, `sumByAdd`, `sumBySwap`, `sumByMulLeft`, `sumRangeCongr`, `sumByCons`, `sumByAppend`, `sumByZero`, all with **`Nat`** results | the same over `[auto add: Add b]`; the `Add` laws suffice for all but `sumByMulLeft`, which needs distributivity (not an `Add` or `Mul` law), so it gets an `Int` version beside the `Nat` one |
+
+SW-16 (laws for truncating and flooring division) isn't needed: day 2 divides only `Nat`s, in
+`repeated`.
+
+### 3a.6 Lean, for comparison
+
+The same weight in Lean 4.34.1, with `attach` written by hand **[run]**:
+
+```lean
+def w (n : Nat) : Int :=
+  1 - ((List.range n).filter (fun d => 2 ≤ d ∧ n % d == 0)).attach.foldl (fun acc ⟨d, h⟩ => acc + w d) 0
+decreasing_by simp_all [List.mem_filter, List.mem_range]
+```
+
+`#eval (List.range 13).map w` printed `[1, 1, 1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]`. The same with
+`.map (fun d => w2 d)` and `.sum`, and no `attach`, left the goal `d < n` with no hypothesis: the
+list isn't a parameter, so the automatic `attach` didn't apply **[run]**.
+
+### 3a.7 Stages, effort, risks
+
+**Stage 3a: the generator (elaborator; small to medium).** Steps 1 to 7 of 3a.4; the congruence
+lemmas listed there, with `List.sumByCongr` reshaped and generalised; the new `E-DECREASING`
+wording; `docs/core.md` (the respects lemma through congruence lemmas) and `docs/syntax.md`.
+Acceptance: `examples/accept/decreasing.sw` gains a guard-style call under `sumBy` (the day 2
+weight, on `Int`), a call under `map` inside a `foldLeft` (two levels of lambdas), and a theorem
+with `decreasing` that recurses under a lambda; `weight.unfold` checks and `rfl` computes
+`weight 12`; `examples/reject/` keeps the lambda snapshot, reworded, for a function with no
+congruence lemma, and adds a lambda stored in a list.
+
+**Stage 3b: `List.attach` (library; small).** `List.Mem`, `List.Member`, `List.attach`,
+`List.attachFrom`, the lemmas of 3a.3, and an accept example: a rose tree's size through
+`kids.attach.sumBy`. Independent of day 2; useful only after 3a.
+
+**Stage 3c: day 2 on `Int` (AoC; medium, mostly proofs).** The library rows of 3a.5's table, then
+the program, `Part2.sw` and `Part1.sw`'s cast as sketched. Acceptance: no fuel in
+`aoc/src/Aoc/Day02/`; `part2Correct` and part 1's theorem check; the tests pass.
+
+**Risks.**
+
+- **Generalising the `List.sum*` lemmas to `Add b`** touches proofs across `std` and `aoc/` that
+  use them on `Nat`; implicit arguments should absorb most of it, but it is the largest diff
+  **[inferred]**.
+- **Respects proofs grow with nesting.** Each level of lambda adds a lemma application and a
+  `cong` pass, bounded by the elaborator's nesting budget (`budget.nesting`). The day 2 weight has
+  one level.
+- **`auto` inside lambdas** hasn't been exercised for `decreasing` obligations, since stage 1
+  never got there (3a.4 step 1).
+- **Kernel time for `weight` in tests**: each call sums over 2 to n - 1 with `Nat.divides`; day
+  2's repeat counts are at most the digit count, about 10, so this is small **[inferred]**.
+- **The guard is visible in the program.** `if h: d < n` always holds there, and a reader may ask
+  why; the comment says so. `attach` would avoid it, at the cost of a lemma in the call.
+
+### 3a.8 Decisions
+
+- **D517. Calls under lambdas, without function extensionality**: accept a recursive call inside
+  a lambda when the lambda is passed to a function that has a congruence lemma (3a.4), proving
+  the respects lemma through it as stage 1 does for `if`; the kernel unchanged; build stages 3a,
+  3b and 3c in that order. [yes]
+- **D518. How the generator finds a congruence lemma**: by name, `F` followed by `Cong`
+  (`List.sumByCong`, as `Decidable.elimCong` already is), with the fixed shape of 3a.4 step 2,
+  checked when first used; written by hand in `std` for the list and option functions; the
+  existing `…Congr` lemmas reshaped into that form, not kept beside it. The alternatives: an
+  attribute on the lemma (new syntax for one use), or generating the lemma for every higher-order
+  function (needs induction in the generator; later, if writing them gets tedious). [by name]
+- **D519. Day 2's obligation**: the guard (`d => if h: d < n then … else 0`; `auto` finds `h`, and
+  the program needs no lemma, per D475) rather than `attach` (`List.memRangeFrom` and an `n < 2`
+  case in the call). `List.attach` is still built in stage 3b, for lists with no cheap test.
+  [guard]
+
 ## Sources
 
 - [L1] Lean language reference, Recursive definitions (well-founded recursion, `termination_by`,
@@ -902,6 +1260,17 @@ a parser test, and the lowering test above.
 - [B1] Ana Bove and Venanzio Capretta, "Modelling general recursion in type theory",
   Mathematical Structures in Computer Science 15(4), 2005 (cited, not re-read).
 - [I1] Idris 2 tutorial, Theorem proving: https://idris2.readthedocs.io/en/latest/tutorial/theorems.html
+- [I2] Idris 2 base library, `Data.List.Elem`: https://www.idris-lang.org/Idris2/base/docs/Data.List.Elem.html (not read)
+- [A3] Agda standard library, `Data.List.Membership.Propositional` (`mapWith∈`):
+  https://agda.github.io/agda-stdlib/master/Data.List.Membership.Propositional.html (not read)
+- [L5] Lean core, `Init.Data.List.Attach` (`pmap`, `attachWith`, `attach`, `unattach`,
+  `attach_map_subtype_val`, `foldl_attach`, `attach_cons`):
+  https://leansearch.net/doc/Init.Data.List.Attach.html
+- [L6] Lean source documentation, `Lean.Elab.PreDefinition.WF.Preprocess` (`wfParam`,
+  `wf_preprocess`, two rules per higher-order function):
+  https://lean-lang.org/doc/api/Lean/Elab/PreDefinition/WF/Preprocess.html
+- [L7] Lean 4.18.0 release notes, #6744 (assumptions such as `h : x ∈ xs` brought into scope
+  automatically): https://lean-lang.org/doc/reference/4.19.0/releases/v4.18.0
 - [F1] F\* tutorial, termination: https://fstar-lang.org/tutorial/book/part1/part1_termination.html
 - [D1] Dafny FAQ, function unrolling: https://dafny.org/dafny/HowToFAQ/FAQFunctionUnroll
 - [D2] Dafny compilation to Boogie: https://dafny.org/dafny/Compilation/Boogie
