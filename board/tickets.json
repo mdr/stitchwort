@@ -1788,7 +1788,7 @@
     {
       "id": 118,
       "title": "Shorten JS error paths that alternate `.kids.first`",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -1797,7 +1797,9 @@
       "body": "Problem: JS decode error paths are summarised by `pathText` (crates/js/src/lib.rs:937-950): runs of one repeated step become `(step ×n)` (:947-948) and long paths drop the middle, but a path that alternates two or more steps through mutual data (`.kids.first.kids.first...`, see docs/syntax.md:92) is only cut by the length rule.\n\nChange: also fold repeated multi-step cycles into `(.kids.first ×n)`.\n\nDone when: a test with a 20-level mutual structure (docs/syntax.md:92 shape) shows a short path in the error.\n\nHistory: none.\n",
       "created": "2026-10-19",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "18bf8c06"
+      ]
     },
     {
       "id": 119,
@@ -2522,7 +2524,7 @@
     {
       "id": 164,
       "title": "calc accepts a `<` chain against a `<=` goal when the sides compute to it; syntax.md:597 says the relation must match",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -2532,7 +2534,9 @@
       "body": "SW-157 pain point 10 (docs/aoc-2025.md:2068). Reproduced (21 Oct, release binary): `theorem t1 (a: Nat) (b: Nat) (h: a < Succ b): a <= b := calc a / _ < Succ b := h` (steps on separate lines) is accepted, while `calc a / _ < b := h` against `a <= b` gives E-CALC-GOAL ('the chain's relation is `<`, but the goal's is `<=`'). Cause: the goal check is by computation (syntax.md:597 'checked against it by computation'), and `a < Succ b` computes to `a <= b` (`Nat.leq (Succ a) (Succ b)` reduces to `Nat.leq a b`), so the check passes by conversion, not by weakening. It is harmless and handy; `rangeEnd` (aoc/src/Aoc/Common/Proofs/Range.sw:9) relies on it.\n\nDecide: (a) document it (change syntax.md:597 from 'its relation must be the goal's' to say that a relation which computes to the goal's is accepted, with this example and a test in examples/accept/calc.sw), or (b) make it an error (compare the relation syntactically before conversion). Recommend (a): (b) adds a special case and breaks `rangeEnd`.\n\nDone when: the decision is recorded and either syntax.md and examples/accept/calc.sw match the behaviour, or the error exists with a reject example.\n\nHistory: SW-157 pain point 10. The other pain points (3-7, 9) are now separate tickets.\n",
       "created": "2026-10-20",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "04d78b12"
+      ]
     },
     {
       "id": 165,
