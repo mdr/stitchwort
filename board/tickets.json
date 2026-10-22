@@ -4149,7 +4149,7 @@
     {
       "id": 273,
       "title": "Dot calls to capitalised functions: s.Subsequence l, xs.Distinct (D511)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -4158,7 +4158,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "114a544c"
+      ]
     },
     {
       "id": 274,
@@ -4219,7 +4221,7 @@
     {
       "id": 278,
       "title": "decreasing stage 2: List.chunksOf off fuel (D513)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -4228,7 +4230,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "ab8bffbe"
+      ]
     }
   ]
 }
