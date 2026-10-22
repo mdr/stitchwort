@@ -4095,7 +4095,7 @@
     {
       "id": 270,
       "title": "AoC proofs: write And/Or as && / || (19 sites)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -4104,7 +4104,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "b1aa8639"
+      ]
     }
   ]
 }
