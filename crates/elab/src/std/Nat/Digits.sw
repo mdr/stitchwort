@@ -318,3 +318,50 @@ theorem Char.digitsOntoValues: (f: Nat) -> (n: Nat) -> (acc: List Char) -> n < f
 -- A number written in decimal reads back as its digits.
 theorem Char.toTextDigits (n: Nat): List.filterMap Char.digitValue (Text.toList (Nat.toText n)) = Nat.digits n :=
   Char.digitsOntoValues (Succ n) n Nil (Nat.leRefl n)
+
+-- `Nat.toText` writes the digits' characters: `Nat.digitsOnto` is
+-- `Nat.digitsAcc` with each digit turned into its character.
+theorem Char.digitsOntoMap: (f: Nat) -> (n: Nat) -> (acc: List Nat) -> n < f ->
+    Nat.digitsOnto f n (List.map Nat.digitChar acc) = List.map Nat.digitChar (Nat.digitsAcc n acc)
+  | Zero,   n, acc, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ f, n, acc, h =>
+    match e: Nat.leq n 9 with
+      | True  => rewrite Nat.digitsAccSmall n acc e
+      | False =>
+        rewrite Nat.digitsAccBig n acc e in
+        Char.digitsOntoMap f (n / 10) (Cons (n % 10) acc) (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
+
+theorem Char.toTextMap (n: Nat): Text.toList (Nat.toText n) = List.map Nat.digitChar (Nat.digits n) :=
+  Char.digitsOntoMap (Succ n) n Nil (Nat.leRefl n)
+
+-- Reading digit characters: each digit shifts the accumulator left, so
+-- `acc` ends up shifted past every digit.
+theorem Text.readDigitsMap: (acc: Nat) -> (ds: List Nat) -> Nat.Digits ds ->
+    Text.readDigits acc (List.map Nat.digitChar ds) = Some (acc * Nat.pow 10 (List.length ds) + Nat.fromDigits ds)
+  | acc, Nil,       h          => Eq.cong Some (Nat.fromDigitsFrom acc Nil)
+  | acc, Cons d ds, Both hd hs =>
+    calc Text.readDigits acc (List.map Nat.digitChar (Cons d ds))
+      -- the first character is the digit `d`
+      _ = Text.readDigits (acc * 10 + d) (List.map Nat.digitChar ds) := rewrite Char.digitValueChar d hd
+      _ = Some ((acc * 10 + d) * Nat.pow 10 (List.length ds) + Nat.fromDigits ds) := Text.readDigitsMap (acc * 10 + d) ds hs
+      -- the same fold, started from `acc`
+      _ = Some (acc * Nat.pow 10 (List.length (Cons d ds)) + Nat.fromDigits (Cons d ds))
+          := Eq.cong Some (Eq.trans (Eq.sym (Nat.fromDigitsFrom (acc * 10 + d) ds)) (Nat.fromDigitsFrom acc (Cons d ds)))
+
+-- A non-empty list of digits, written out, reads back as its number.
+theorem Text.toNatMap: (ds: List Nat) -> 1 <= List.length ds -> Nat.Digits ds ->
+    Text.toNat (MkText (List.map Nat.digitChar ds)) = Some (Nat.fromDigits ds)
+  | Nil,       hl, h => Void.exfalso (Bool.falseNotTrue hl)
+  | Cons d ds, hl, h =>
+    calc Text.toNat (MkText (List.map Nat.digitChar (Cons d ds)))
+      _ = Text.readDigits 0 (List.map Nat.digitChar (Cons d ds)) := rfl
+      _ = Some (0 * Nat.pow 10 (List.length (Cons d ds)) + Nat.fromDigits (Cons d ds)) := Text.readDigitsMap 0 (Cons d ds) h
+      _ = Some (Nat.fromDigits (Cons d ds)) := rfl
+
+-- Writing a number in decimal and reading it back gives the number (`0` too:
+-- it is written "0").
+theorem Text.toNatToText (n: Nat): Text.toNat (Nat.toText n) = Some n :=
+  calc Text.toNat (Nat.toText n)
+    _ = Text.toNat (MkText (List.map Nat.digitChar (Nat.digits n))) := Eq.cong (l => Text.toNat (MkText l)) (Char.toTextMap n)
+    _ = Some (Nat.fromDigits (Nat.digits n)) := Text.toNatMap (Nat.digits n) (Nat.digitsNonEmpty n) (Nat.digitsDigits n)
+    _ = Some n := Eq.cong Some (Nat.fromDigitsDigits n)

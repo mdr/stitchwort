@@ -50,7 +50,8 @@ def Text.readDigits (acc: Nat): List Char -> Option Nat
 
 -- A non-empty sequence of ASCII digits, and nothing else: no sign,
 -- whitespace or separators. Leading zeros are allowed, so
--- `Text.toNat (Nat.toText n) = Some n` but `"007"` reads as 7.
+-- `Text.toNat (Nat.toText n) = Some n` (`Text.toNatToText`) but `"007"`
+-- reads as 7.
 def Text.toNat: Text -> Option Nat
   | MkText Nil         => None
   | MkText (Cons c cs) => Text.readDigits 0 (Cons c cs)
