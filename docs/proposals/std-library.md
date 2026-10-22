@@ -666,6 +666,7 @@ split can follow the `*` marks.
 - A library file can't yet say it adds to a namespace and not declare in it; none needs to.
 - Dot notation's over-approximation could be tightened (only `Def`s whose namespace is a type)
   or replaced by loading during checking if a case turns up where it over-loads badly.
+  (Tightened by namespace in SW-234, below.)
 - The playground: `crates/web` builds and its tests pass; the wasm build is part of the gate. The
   index build uses no clock, since `Instant` panics on wasm32.
 
@@ -684,6 +685,28 @@ more natives and some helpers and lemmas became library files: `Text/Basics.sw` 
 `abs`, `Nat.toInt`, …), `Option/Option.sw`, `Ord/Ord.sw` (`Ord.max`, `min`, `byKey`) and
 `Decidable/Decidable.sw`. `std/core.sw` is 1,806 lines. Details and what stayed are in
 prelude-slim.md, "As built (stage 3)".
+
+**Dot notation by namespace (22 October 2026, SW-234).** `x.f` used to load every file with a
+function whose last name is `f`, so `d.size` (on the program's own `Dial`) and `n.toInt` loaded
+`Mod/Mod.sw` for `Mod.size` and `Mod.toInt`, and `std/Mod` had to call its instance functions
+`addMod`, `zeroMod`, … to keep `add.zeroAdd` from loading it into every `List` program. Now the
+index records, for each `T.f`, the file declaring `T` as well as the one declaring `T.f`
+(`DotTarget`), and `x.f` needs `T.f`'s file only when `T`'s file is in the core, already loaded,
+or loading in the same batch (`LibraryIndex::resolve_needs`, to a fixpoint). That is sound
+because dot notation looks only in the namespaces of the heads of `x`'s type (`dot.rs`: a data
+type, a definition, or `Eq`), and a type can only be built from `T` once its file is loaded: a
+pending name never reaches the checker. A library file's own dot calls are resolved the same
+way against the files it needs itself, once, when the index is built, so `edges` stays a fixed
+set per file and the check cache's keys and the load order read it unchanged. Every library
+function's namespace is a declared name today; one that weren't would count as reachable
+(loaded whenever its field is used). Mod's functions are `add`, `mul`, `zero`, `one`,
+`zeroAdd`, `oneMul`, `mulOne` again (same hashes). Release, `--no-cache`, median of three:
+`check` of `aoc/` loads 15 library files instead of 18 (no `Mod`, `Map`, `Set`; library nodes
+294,823 → 112,830; library elab + kernel 460 → 250 ms; wall 1.87 → 1.62 s);
+`xs.foldLeft …` loads 5 files instead of 12 (0.34 → 0.13 s); `List.range` loads 5 files, and
+with the natural names under the old loader it loaded 9 including `Mod` (0.30 → 0.13 s). Tests:
+`std_library.rs` `dot_notation_loads_a_file_only_when_the_receivers_type_can_be_loaded` and
+`small_programs_load_only_the_library_files_they_can_use`.
 
 ## As built: stage 2 (compiler part, 20 October 2026, SW-165)
 

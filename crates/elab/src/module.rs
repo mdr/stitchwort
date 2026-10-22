@@ -277,13 +277,15 @@ impl Elaborator {
         let needs = self.dependencies(&items);
         // Library files this module uses load first, so what it names is
         // checked before it is (docs/proposals/std-library.md §4.3).
-        if !needs.is_empty() {
+        if !needs.files.is_empty() || !needs.dots.is_empty() {
             let loaded = if self.library_stack_is_empty() {
-                self.load_libraries(&needs)
+                self.load_needs(&needs)
             } else {
                 // A library file's own files load before it does, so this
-                // is a cycle, or a reference the analysis missed.
-                match self.unloaded_needs(&needs) {
+                // is a cycle, or a reference the analysis missed. (Its dot
+                // calls' files are among its edges, worked out when the
+                // index was built; one missed is reported where it's used.)
+                match self.unloaded_needs(&needs.files) {
                     errors if errors.is_empty() => Ok(()),
                     errors => Err(errors),
                 }
@@ -743,8 +745,8 @@ impl Elaborator {
 
     /// Step 2: what each declaration refers to. Also the library files the
     /// module uses (`library.rs`).
-    fn dependencies(&mut self, items: &[Item]) -> std::collections::BTreeSet<usize> {
-        let mut needs = std::collections::BTreeSet::new();
+    fn dependencies(&mut self, items: &[Item]) -> crate::library::Needs {
+        let mut needs = crate::library::Needs::default();
         let own = self.scope.loading;
         let library = self.library_index();
         for (index, item) in items.iter().enumerate() {
@@ -800,7 +802,7 @@ impl Elaborator {
         }
         self.module.file = None;
         if let Some(f) = own {
-            needs.remove(&f);
+            needs.files.remove(&f);
         }
         needs
     }

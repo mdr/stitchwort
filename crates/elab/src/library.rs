@@ -15,10 +15,12 @@
 //!   them can depend on what is loaded, and none of them loads anything.
 //!   When a file loads, its names' entries are replaced in place.
 //! - **Loading is driven by references.** Before a module is checked, every
-//!   reference it makes that resolves to a pending name (or, for dot
-//!   notation, might) names a file to load. A file's own references name
-//!   the files it needs, found the same way, once, when the index is built.
-//!   Files load in a canonical order (dependency order, ties by path).
+//!   reference it makes that resolves to a pending name names a file to
+//!   load. A dot call `x.f` names every file with an `f` in a namespace
+//!   whose type is in the core, loaded, or loading with it ([`DotTarget`]):
+//!   only those can be `x`'s type. A file's own references name the files
+//!   it needs, found the same way, once, when the index is built. Files
+//!   load in a canonical order (dependency order, ties by path).
 //! - **A request for a file that is loading is a cycle**, reported as an
 //!   internal error naming both files, never a hang or a silent skip.
 //!
@@ -109,9 +111,36 @@ pub struct LibraryIndex {
     /// The core first, then the library files by path.
     pub files: Vec<IndexedFile>,
     owner: HashMap<String, usize>,
-    /// The library files with a function whose last name component is the
-    /// key: what a dot call `x.name` might mean.
-    defs_by_short: HashMap<String, Vec<usize>>,
+    /// What a dot call `x.name` might mean in the library: every function
+    /// whose last name component is the key, as the file it's in and the
+    /// file that declares its namespace.
+    dots_by_short: HashMap<String, Vec<DotTarget>>,
+}
+
+/// A library function `T.f` that a dot call `x.f` might mean.
+///
+/// `x.f` means `T.f` only when `x`'s type has `T` at its head (or unfolds
+/// to one that does, `dot.rs`), and a type can only be built from `T` once
+/// the file declaring `T` is loaded: a pending name never reaches the
+/// checker. So `x.f` needs `T.f`'s file only when `T`'s file is loaded or
+/// is being loaded with it. That is how a `List` program's `xs.size` stays
+/// clear of `Mod.size`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DotTarget {
+    /// The file declaring `T`: `None` if no file declares a name `T` (the
+    /// built-in `Eq`, say), and then the target counts as always reachable.
+    pub namespace: Option<usize>,
+    /// The file declaring `T.f`.
+    pub file: usize,
+}
+
+/// What a module's or an expression's references need from the library:
+/// files by name, and the fields of its dot calls, which need files only
+/// depending on what else loads ([`LibraryIndex::resolve_needs`]).
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Needs {
+    pub files: BTreeSet<usize>,
+    pub dots: BTreeSet<String>,
 }
 
 static STANDARD: OnceLock<Result<Arc<LibraryIndex>, String>> = OnceLock::new();
@@ -169,20 +198,25 @@ impl LibraryIndex {
             }
             parsed[f].names = names;
         }
-        let mut defs_by_short: HashMap<String, Vec<usize>> = HashMap::new();
+        let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::new();
         for (f, file) in parsed.iter().enumerate().skip(1) {
             for name in file.names.iter().filter(|n| n.kind == PendingKind::Def) {
-                let files = defs_by_short.entry(scope::short(&name.key).to_string());
-                let files = files.or_default();
-                if !files.contains(&f) {
-                    files.push(f);
+                let namespace = name
+                    .key
+                    .rsplit_once('.')
+                    .and_then(|(ns, _)| owner.get(ns).copied());
+                let target = DotTarget { namespace, file: f };
+                let targets = dots_by_short.entry(scope::short(&name.key).to_string());
+                let targets = targets.or_default();
+                if !targets.contains(&target) {
+                    targets.push(target);
                 }
             }
         }
         let mut index = LibraryIndex {
             files: parsed,
             owner,
-            defs_by_short,
+            dots_by_short,
         };
 
         // The edges: each reference resolved to the file that owns it, by
@@ -198,22 +232,103 @@ impl LibraryIndex {
                 );
             }
         }
-        let mut edges: Vec<Vec<usize>> = Vec::new();
+        let mut needs: Vec<Needs> = Vec::new();
         for (f, file) in index.files.iter().enumerate() {
-            let mut needs = BTreeSet::new();
+            let mut n = Needs::default();
             for (decl, equations) in grouped(&file.module.decls) {
                 for (r, _) in decl_refs(decl, equations) {
-                    scratch.note_library_use(&index, &r, &mut needs);
+                    scratch.note_library_use(&index, &r, &mut n);
                 }
             }
-            needs.remove(&f);
-            needs.remove(&0);
-            edges.push(needs.into_iter().collect());
+            n.files.remove(&f);
+            n.files.remove(&0);
+            needs.push(n);
         }
-        for (file, edges) in index.files.iter_mut().zip(edges) {
-            file.edges = edges;
+        for (file, n) in index.files.iter_mut().zip(&needs) {
+            file.edges = n.files.iter().copied().collect();
+        }
+        // A file's dot calls need what they can reach given what the file
+        // itself needs: the values it makes have types from those files
+        // only. Adding an edge can make more reachable, so until nothing
+        // changes. The result is fixed per file, whatever else is loaded,
+        // so the check cache's keys and the load order can read `edges`.
+        loop {
+            let mut changed = false;
+            for (f, n) in needs.iter().enumerate().skip(1) {
+                let reach = index.closure(&BTreeSet::from([f]), &|_| false);
+                let mut add = Vec::new();
+                for field in &n.dots {
+                    for t in index.dot_targets(field) {
+                        if t.file != f
+                            && !index.files[f].edges.contains(&t.file)
+                            && !add.contains(&t.file)
+                            && t.namespace.is_none_or(|ns| ns == 0 || reach.contains(&ns))
+                        {
+                            add.push(t.file);
+                        }
+                    }
+                }
+                if !add.is_empty() {
+                    changed = true;
+                    let edges = &mut index.files[f].edges;
+                    edges.extend(add);
+                    edges.sort_unstable();
+                }
+            }
+            if !changed {
+                break;
+            }
         }
         Ok(index)
+    }
+
+    /// The files `roots` need that aren't `loaded`, themselves included,
+    /// following the edges.
+    fn closure(&self, roots: &BTreeSet<usize>, loaded: &dyn Fn(usize) -> bool) -> BTreeSet<usize> {
+        let mut set = BTreeSet::new();
+        let mut stack: Vec<usize> = roots.iter().copied().filter(|f| !loaded(*f)).collect();
+        while let Some(f) = stack.pop() {
+            if !set.insert(f) {
+                continue;
+            }
+            stack.extend(self.files[f].edges.iter().copied().filter(|d| !loaded(*d)));
+        }
+        set
+    }
+
+    /// The files to load for `needs`, given the files already `loaded`:
+    /// the files it names, and the target of each dot call whose namespace
+    /// is declared in the core, in a loaded file, or in a file loading now
+    /// (these, until nothing more is added). When a dot call's namespace
+    /// can't be told, its file is loaded.
+    pub(crate) fn resolve_needs(
+        &self,
+        needs: &Needs,
+        loaded: &dyn Fn(usize) -> bool,
+    ) -> BTreeSet<usize> {
+        let mut roots: BTreeSet<usize> = needs
+            .files
+            .iter()
+            .copied()
+            .filter(|f| !loaded(*f))
+            .collect();
+        loop {
+            let reach = self.closure(&roots, loaded);
+            let before = roots.len();
+            for field in &needs.dots {
+                for t in self.dot_targets(field) {
+                    let reachable = t
+                        .namespace
+                        .is_none_or(|ns| ns == 0 || loaded(ns) || reach.contains(&ns));
+                    if reachable && !loaded(t.file) {
+                        roots.insert(t.file);
+                    }
+                }
+            }
+            if roots.len() == before {
+                return roots;
+            }
+        }
     }
 
     /// The file that declares `key`, if any (the core is file 0).
@@ -226,9 +341,9 @@ impl LibraryIndex {
         self.owner.iter().map(|(k, f)| (k.as_str(), *f))
     }
 
-    /// The library files that declare a function with this last component.
-    fn defs_with_short(&self, field: &str) -> &[usize] {
-        self.defs_by_short.get(field).map_or(&[], Vec::as_slice)
+    /// The library functions with this last name component.
+    pub fn dot_targets(&self, field: &str) -> &[DotTarget] {
+        self.dots_by_short.get(field).map_or(&[], Vec::as_slice)
     }
 
     /// The order to load `roots` in, with everything they need that isn't
@@ -240,14 +355,7 @@ impl LibraryIndex {
         roots: &BTreeSet<usize>,
         loaded: &dyn Fn(usize) -> bool,
     ) -> Result<Vec<usize>, Vec<usize>> {
-        let mut set = BTreeSet::new();
-        let mut stack: Vec<usize> = roots.iter().copied().filter(|f| !loaded(*f)).collect();
-        while let Some(f) = stack.pop() {
-            if !set.insert(f) {
-                continue;
-            }
-            stack.extend(self.files[f].edges.iter().copied().filter(|d| !loaded(*d)));
-        }
+        let set = self.closure(roots, loaded);
         let mut waiting: HashMap<usize, usize> = set
             .iter()
             .map(|&f| {
@@ -547,14 +655,9 @@ impl Elaborator {
 
     /// Notes the library files a reference needs: the file that owns the
     /// pending name it resolves to, and for dot notation (whose target
-    /// depends on a type the pre-pass doesn't know) every file with a
-    /// function of that name, as `module.rs` does for a module's own.
-    pub(crate) fn note_library_use(
-        &self,
-        index: &LibraryIndex,
-        r: &Ref<'_>,
-        needs: &mut BTreeSet<usize>,
-    ) {
+    /// depends on a type the pre-pass doesn't know) the field, which
+    /// [`LibraryIndex::resolve_needs`] turns into files.
+    pub(crate) fn note_library_use(&self, index: &LibraryIndex, r: &Ref<'_>, needs: &mut Needs) {
         let (n, mut fields) = match r {
             Ref::Name(n) => (n, Vec::new()),
             Ref::Dot(n, field) => (n, vec![field.clone()]),
@@ -563,13 +666,31 @@ impl Elaborator {
             && let Resolved::Found { global, rest, .. } = self.resolve(&n.text)
         {
             if let Global::Pending(f, _) = global {
-                needs.insert(f);
+                needs.files.insert(f);
             }
             fields = rest;
         }
-        for field in &fields {
-            needs.extend(index.defs_with_short(field));
+        for field in fields {
+            if !index.dot_targets(&field).is_empty() {
+                needs.dots.insert(field);
+            }
         }
+    }
+
+    /// Loads what a program's references need (files, and the files its
+    /// dot calls can reach given what will be loaded), and what those need,
+    /// in canonical order.
+    pub(crate) fn load_needs(&mut self, needs: &Needs) -> Result<(), Vec<Diagnostic>> {
+        let Some(lib) = &self.library else {
+            return Ok(());
+        };
+        let roots = lib
+            .index
+            .resolve_needs(needs, &|f| lib.state[f] == LoadState::Loaded);
+        if roots.is_empty() {
+            return Ok(());
+        }
+        self.load_libraries(&roots)
     }
 
     /// Loads `needs` and what they need, in canonical order.
@@ -599,8 +720,6 @@ impl Elaborator {
         let by = lib.stack.last().copied().unwrap_or(0);
         needs
             .iter()
-            // Dot notation notes every file with a function of that name,
-            // loaded or not; the loaded ones are no problem.
             .filter(|&&f| lib.state[f] != LoadState::Loaded)
             .map(|&f| {
                 if lib.state[f] == LoadState::Loading {
@@ -632,15 +751,11 @@ impl Elaborator {
             return Ok(());
         };
         let index = lib.index.clone();
-        let mut needs = BTreeSet::new();
+        let mut needs = Needs::default();
         for r in expr_refs(expr) {
             self.note_library_use(&index, &r, &mut needs);
         }
-        if needs.is_empty() {
-            return Ok(());
-        }
-        self.load_libraries(&needs)
-            .map_err(|mut ds| ds.swap_remove(0))
+        self.load_needs(&needs).map_err(|mut ds| ds.swap_remove(0))
     }
 
     /// Checks one library file, as the prelude is checked, in the middle of
