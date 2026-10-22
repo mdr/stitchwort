@@ -1,5 +1,5 @@
 {
-  "next": 282,
+  "next": 284,
   "tickets": [
     {
       "id": 1,
@@ -4277,6 +4277,34 @@
       "where": "",
       "labels": [
         "perf"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 282,
+      "title": "LSP stage 1 server: stitchwort lsp (lsp-server), checker thread, level-1 re-checking, dependents in background, diagnostics as you type, navigation from live state (D515)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 283,
+      "title": "LSP stage 1 client: thin VS Code client over stitchwort lsp (vscode-languageclient), replacing check --index navigation (D515)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "lsp"
       ],
       "body": "",
       "created": "2026-10-22",
