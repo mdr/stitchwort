@@ -438,6 +438,7 @@ fn check(
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
+            discard(session);
         }
         return exit(ok);
     }
@@ -457,7 +458,17 @@ fn check(
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
     }
+    discard(session);
     exit(ok)
+}
+
+/// Ends with a session that's no longer needed without freeing it: the
+/// process is about to exit, which frees everything at once, and taking a
+/// checked project's terms and values apart one by one took about 2% of a
+/// `check` (docs/proposals/proof-check-speed.md). Nothing in a session
+/// needs dropping to be written out (the caches are written as they go).
+fn discard(session: Session) {
+    std::mem::forget(session);
 }
 
 /// The cache directory to use, if any: `--cache-dir` as given, or
@@ -498,7 +509,9 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            print_tests(&session.run_tests(&cache), false)
+            let code = print_tests(&session.run_tests(&cache), false);
+            discard(session);
+            code
         }
         _ => {
             let Some(project) = locate_project(project, "test", "test hello.sw") else {
@@ -513,7 +526,9 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            print_tests(&session.run_tests(&cache), true)
+            let code = print_tests(&session.run_tests(&cache), true);
+            discard(session);
+            code
         }
     }
 }
