@@ -160,6 +160,36 @@ theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat) (h: first <= last): Nat.s
 
 test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 && Nat.sumBetween 5 5 == 5 && Nat.sumBetween 1 100 == 5050
 
+-- How many pairs `List.pairs` makes: n(n - 1)/2. One step of the count:
+-- `x` is paired with the n others, and p is the number of pairs among those.
+theorem List.pairsStep (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n :=
+  rewrite Nat.addSucc ((n + p) + (n + p)) n, Nat.addSwap n p n p, Nat.addAssoc (n + n) (p + p) n,
+    Nat.addAssoc n n (p + p + n), h, Nat.mulSucc n n
+    in rfl
+
+-- Twice the number of pairs, and the number of elements, make n * n.
+theorem List.lengthPairsDouble: (xs: List a) ->
+    List.length (List.pairs xs) + List.length (List.pairs xs) + List.length xs = List.length xs * List.length xs
+  | Nil       => rfl
+  | Cons x xs =>
+    rewrite List.lengthAppend (List.map (y => MkPair x y) xs) (List.pairs xs), List.lengthMap (y => MkPair x y) xs
+      in List.pairsStep (List.length xs) (List.length (List.pairs xs)) (List.lengthPairsDouble xs)
+
+theorem List.pairsDoubleSub: (n: Nat) -> (p: Nat) -> p + p + n = n * n -> p + p = n * (n - 1)
+  | Zero,   p, h => Eq.trans (Eq.sym (Nat.addZero (p + p))) h
+  | Succ m, p, h =>
+    Nat.addCancelLeft (Succ m) (p + p) (Succ m * m)
+      (Eq.trans (Eq.trans (Nat.addComm (Succ m) (p + p)) h) (Nat.mulSucc (Succ m) m))
+
+-- Twice the number of pairs is n * (n - 1).
+theorem List.lengthPairsDoubled (xs: List a):
+    List.length (List.pairs xs) + List.length (List.pairs xs) = List.length xs * (List.length xs - 1) :=
+  List.pairsDoubleSub (List.length xs) (List.length (List.pairs xs)) (List.lengthPairsDouble xs)
+
+-- n(n - 1)/2 pairs.
+theorem List.lengthPairs (xs: List a): List.length (List.pairs xs) = List.length xs * (List.length xs - 1) / 2 :=
+  rewrite Eq.sym (List.lengthPairsDoubled xs), Nat.halfDouble (List.length (List.pairs xs)) in rfl
+
 -- `p` written n times: n times as long, and one more copy goes on the end.
 theorem List.lengthConcatReplicate (p: List a): (n: Nat) -> List.length (List.concat (List.replicate n p)) = n * List.length p
   | Zero   => rfl

@@ -537,7 +537,7 @@ def Map.values (m: Map k v [ord := o]): List v := List.map Pair.snd (Map.toList 
 
 -- A map of the pairs; a later pair's value replaces an earlier one's.
 def Map.fromList [auto ord: Ord k] (xs: List (k, v)): Map k v :=
-  List.foldLeft (m (key, value) => Map.insert key value m) Map.empty xs
+  List.foldLeft (m entry => Map.insert entry.fst entry.snd m) Map.empty xs
 
 -- Left fold over the entries in key order: `f (f z k1 v1) k2 v2`.
 def Map.foldLeft (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]): b := Map.Tree.foldLeft f z m.tree
@@ -573,6 +573,48 @@ theorem Map.getInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v)
     Map.get key (Map.insertWith f key value m) = Some (Map.Tree.combine f value (Map.get key m)) :=
   Map.Tree.getInsertWith f key value None None m.tree Trivial Trivial m.ordered
 
+-- What `get` says about `map`: it finds what it did, with `f` applied.
+-- (The tree's keys stay where they are, so the proof needs no ordering facts.)
+theorem Map.Tree.getMap [auto ord: Ord k] (f: v -> w) (key: k): (t: Map.Tree k v) ->
+    Map.Tree.get key (Map.Tree.map f t) = Option.map f (Map.Tree.get key t)
+  | Tip             => rfl
+  | Bin s l kk vv r =>
+    match e: Ord.compare key kk with
+      | Less    => Map.Tree.getMap f key l
+      | Equal   => rfl
+      | Greater => Map.Tree.getMap f key r
+
+theorem Map.getMap [auto ord: Ord k] (f: v -> w) (key: k) (m: Map k v): Map.get key (Map.map f m) = Option.map f (Map.get key m) :=
+  Map.Tree.getMap f key m.tree
+
+-- The value of the last pair with that key, which is what `fromList` keeps.
+def Map.lookupLast [auto ord: Ord k] (key: k): List (k, v) -> Option v
+  | Nil                => None
+  | Cons (kk, vv) rest => match Map.lookupLast key rest with
+    | Some x => Some x
+    | None   => match Ord.compare key kk with
+      | Equal => Some vv
+      | _     => None
+
+-- Adding the pairs to any map: the last pair with the key wins, and if there is none, the map's value stays.
+theorem Map.getFoldInsert [auto ord: Ord k] (key: k): (xs: List (k, v)) -> (m: Map k v) ->
+    Map.get key (List.foldLeft (acc entry => Map.insert entry.fst entry.snd acc) m xs)
+      = Map.Tree.orElse (Map.lookupLast key xs) (Map.get key m)
+  | Nil,                m => rfl
+  | Cons (kk, vv) rest, m =>
+    rewrite Map.getFoldInsert key rest (Map.insert kk vv m) in
+    match found: Map.lookupLast key rest with
+      | Some x => rfl
+      | None   =>
+        match e: Ord.compare key kk with
+          | Less    => rewrite Map.getInsertOther kk vv key (x => Ordering.lessNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
+          | Equal   => rewrite ord.equal key kk e, Map.getInsert kk vv m in rfl
+          | Greater => rewrite Map.getInsertOther kk vv key (x => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
+
+-- What `get` says about `fromList`.
+theorem Map.getFromList [auto ord: Ord k] (key: k) (xs: List (k, v)): Map.get key (Map.fromList xs) = Map.lookupLast key xs :=
+  Eq.trans (Map.getFoldInsert key xs Map.empty) (Map.Tree.orElseNone (Map.lookupLast key xs))
+
 -- `Map.fromList [(1, "a"), (2, "b")]`, in key order, whatever the ordering.
 instance Map.instShow [auto showK: Show k] [auto showV: Show v]: Show (Map k v [ord := o]) :=
   Show.fromText (m => Text.append "Map.fromList "
@@ -595,6 +637,8 @@ test "map: keys and values" := Map.keys Map.example == [1, 2, 3] && Map.values M
 test "map: fromList, later wins" := Map.toList (Map.fromList [(1, 1), (1, 2)]) == [(1, 2)]
 test "map: foldLeft" := Map.foldLeft (acc key t => acc + key) 0 Map.example == 6
 test "map: map" := Map.values (Map.map Text.length Map.example) == [1, 1, 1]
+test "map: get after map" := Map.get 2 (Map.map Text.length Map.example) == Some 1 && Map.get 4 (Map.map Text.length Map.example) == None
+test "map: lookupLast, later wins" := Map.lookupLast 1 [(1, "a"), (2, "b"), (1, "c")] == Some "c" && Map.lookupLast 3 [(1, "a")] == None
 test "map: filter" := Map.keys (Map.filter (key t => Nat.leq 2 key) Map.example) == [2, 3]
 test "map: union" := Map.toList (Map.union (Map.singleton 1 "x") Map.example) == [(1, "x"), (2, "b"), (3, "c")]
 test "map: show" := "${Map.example}" == "Map.fromList [(1, \"a\"), (2, \"b\"), (3, \"c\")]"
