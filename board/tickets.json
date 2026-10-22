@@ -3037,11 +3037,12 @@
       "agent": "",
       "where": "",
       "labels": [
-        "aoc"
+        "aoc",
+        "postponed"
       ],
       "body": "D225 (Matt, 21 Oct 2026): postponed. Plan when resumed: lists + Map + List.sortBy; measure where time goes (estimate 15-25 s: 499,500 pairs sorted); fallback Array (SW-112, also backlog). docs/aoc-2025.md, 'Day 8: junction boxes' (:557). Input is aoc/inputs/day08.txt; the program goes in aoc/src/Aoc/Day08 with parseX / solvePart1 / solvePart2 and proofs in Aoc.Day08.Proofs, like days 1-7.\n\nDone when: Day 8 runs on the real input with answers tested, and part 1 and part 2 are proved for all inputs against puzzle-literal specs (or the proof scope is decided and recorded).\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3335,8 +3336,8 @@
     {
       "id": 220,
       "title": "Parser: f().x means (f()).x",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "IO.readAllLines().filterMap parse currently parses as IO.readAllLines (().filterMap parse) and fails.\n\nFrom docs/comparisons/aoc-day01-community.md (D294).\n\nDone when: f().x and f().g y parse as calls on the result, with parser tests.\n\n22 Oct 2026: D402 — Matt agreed to keep `f()` as the zero-argument call style (as Unison prints it). This is the direction for SW-220: `name()` with no space is a call, then dots apply.",
@@ -3503,13 +3504,13 @@
     {
       "id": 234,
       "title": "Library loading triggers on short names across namespaces (Mod.add loads for every List program)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "body": "Lazy library loading triggers on short names: a library file loads whenever any of its functions' last name component matches a field or method used anywhere (e.g. `add.zeroAdd`, `Add.add`). SW-229 found that naming Mod helpers `Mod.add`/`Mod.zero`/`Mod.zeroAdd` made every List program load Mod.sw (List.range test 0.14 s -> 0.33 s); worked around by renaming them (addMod, zeroMod, ...). The index should only trigger a load when the name can actually resolve into that file (namespace-aware), so library authors can use natural names.\n\nDone when: Mod's helpers could be named add/zero without loading Mod.sw for List programs (a test measures which files load), and the names are restored.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3646,8 +3647,8 @@
     {
       "id": 244,
       "title": "Navigation index isn't deterministic: a symbol is Std.Ord.%equal or Std.Ord.equal, with either of two types, across runs",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug"
