@@ -306,27 +306,6 @@ theorem Bool.uniqueEq (x : Bool) (y : Bool) (p : x = y) (q : x = y) : p = q :=
       (Bool.fromCanon x y p) (Bool.canonConst (Bool.decEq x y) p q))
     (J (z e => z = q) rfl (Bool.fromCanon x y q))
 
-theorem Bool.decTrueToBool : (c : Bool) -> Decidable.toBool (Bool.decTrue c) = c
-  | True  => rfl
-  | False => rfl
-
--- What `a == b` (a decision turned into a `Bool`) says about `a = b`, both ways.
-theorem Decidable.toBoolSound: [p: Prop] -> (d: Decidable p) -> Decidable.toBool d = True -> p
-  | Yes h, e => h
-  | No r,  e => Void.exfalso (Bool.falseNotTrue e)
-
-theorem Decidable.toBoolFalse: [p: Prop] -> (d: Decidable p) -> Decidable.toBool d = False -> Not p
-  | Yes h, e, x => Void.exfalso (Bool.trueNotFalse e)
-  | No r,  e, x => r x
-
-theorem Decidable.toBoolOf: [p: Prop] -> (d: Decidable p) -> p -> Decidable.toBool d = True
-  | Yes h, x => rfl
-  | No r,  x => Void.exfalso (r x)
-
-theorem Decidable.toBoolOfNot: [p: Prop] -> (d: Decidable p) -> Not p -> Decidable.toBool d = False
-  | Yes h, n => Void.exfalso (n h)
-  | No r,  n => rfl
-
 -- Characters
 
 -- Whether a number is a Unicode scalar value: at most 0x10FFFF, and not a
@@ -531,30 +510,11 @@ theorem Text.fromToList: (t: Text) -> Text.fromList (Text.toList t) = t
 -- `a ++ b`
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
--- The number of scalar values.
-def Text.length (t: Text): Nat := List.length (Text.toList t)
-
-def Text.isEmpty: Text -> Bool
-  | MkText Nil         => True
-  | MkText (Cons c cs) => False
-
 def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b) -> Decidable (a = b)
   | Yes p => Yes (Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
   | No r  => No (p => r (Eq.cong Text.toList p))
 
 def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
-
--- The first character and the rest, unless the text is empty.
-def Text.uncons: Text -> Option (Pair Char Text)
-  | MkText Nil         => None
-  | MkText (Cons c cs) => Some (MkPair c (MkText cs))
-
-def Text.foldChars (f: Char -> b -> b) (z: b): List Char -> b
-  | Nil       => z
-  | Cons c cs => f c (Text.foldChars f z cs)
-
--- `Text.fold f z "abc"` is `f 'a' (f 'b' (f 'c' z))`.
-def Text.fold (f: Char -> b -> b) (z: b) (t: Text): b := Text.foldChars f z (Text.toList t)
 
 def Text.compareChars: List Char -> List Char -> Ordering
   | Nil,       Nil       => Equal
@@ -566,26 +526,6 @@ def Text.compareChars: List Char -> List Char -> Ordering
 -- Lexicographic, by scalar value. (Not JavaScript's order, which compares
 -- UTF-16 code units: there, "\u{10000}" sorts before "\u{E000}".)
 def Text.compare (a: Text) (b: Text): Ordering := Text.compareChars (Text.toList a) (Text.toList b)
-
--- Whitespace, for `Text.trim`: exactly space, tab, line feed, vertical tab,
--- form feed and carriage return. Not Unicode's `White_Space`.
-def Char.isSpaceCode: Nat -> Bool
-  | 9  => True
-  | 10 => True
-  | 11 => True
-  | 12 => True
-  | 13 => True
-  | 32 => True
-  | _  => False
-
-def Char.isSpace (c: Char): Bool := Char.isSpaceCode (Char.toNat c)
-
-def Text.dropSpaces: List Char -> List Char
-  | Nil       => Nil
-  | Cons c cs => if Char.isSpace c then Text.dropSpaces cs else Cons c cs
-
--- Removes whitespace (as `Char.isSpace` defines it) from both ends.
-def Text.trim (t: Text): Text := MkText (List.reverseOnto (Text.dropSpaces (List.reverseOnto (Text.dropSpaces (Text.toList t)) Nil)) Nil)
 
 -- Numbers as text
 
@@ -611,27 +551,6 @@ def Nat.digitsOnto: Nat -> Nat -> List Char -> List Char
 -- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 def Nat.toText (n: Nat): Text := MkText (Nat.digitsOnto (Succ n) n Nil)
 
-def Option.flatMap (f: a -> Option b): Option a -> Option b
-  | None => None
-  | Some x  => f x
-
-def Option.map (f: a -> b): Option a -> Option b
-  | None => None
-  | Some x  => Some (f x)
-
-def Char.digitValue (c: Char): Option Nat := if Nat.leq 48 (Char.toNat c) then (if Nat.leq (Char.toNat c) 57 then Some (Char.toNat c - 48) else None) else None
-
-def Text.readDigits (acc: Nat): List Char -> Option Nat
-  | Nil       => Some acc
-  | Cons c cs => Option.flatMap (d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
-
--- A non-empty sequence of ASCII digits, and nothing else: no sign,
--- whitespace or separators. Leading zeros are allowed, so
--- `Text.toNat (Nat.toText n) = Some n` but `"007"` reads as 7.
-def Text.toNat: Text -> Option Nat
-  | MkText Nil         => None
-  | MkText (Cons c cs) => Text.readDigits 0 (Cons c cs)
-
 -- Integers (docs/proposals/integers.md)
 
 -- An integer: `OfNat n` is `n`, and `NegSucc n` is `-(n + 1)`, so each
@@ -640,8 +559,6 @@ def Text.toNat: Text -> Option Nat
 type Int: Type =
   | OfNat (n: Nat)
   | NegSucc (n: Nat)
-
-def Nat.toInt (n: Nat): Int := OfNat n
 
 -- `-x`
 def Int.neg: Int -> Int
@@ -745,35 +662,10 @@ def Int.compare: Int -> Int -> Ordering
   | NegSucc m, OfNat n   => Less
   | NegSucc m, NegSucc n => Nat.compare n m
 
--- `|x|`, as an `Int`.
-def Int.abs: Int -> Int
-  | OfNat n   => OfNat n
-  | NegSucc n => OfNat (Succ n)
-
--- `Some x` if `x` isn't negative, otherwise `None`.
-def Int.toNatChecked: Int -> Option Nat
-  | OfNat n   => Some n
-  | NegSucc n => None
-
--- `-1`, `0` or `1`.
-def Int.sign: Int -> Int
-  | OfNat Zero     => OfNat Zero
-  | OfNat (Succ n) => OfNat 1
-  | NegSucc n      => NegSucc 0
-
 -- Decimal, with a `-` in front of a negative: `"-42"`. Never `"-0"`.
 def Int.toText: Int -> Text
   | OfNat n   => Nat.toText n
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
-
--- An optional `-`, then one or more ASCII digits, and nothing else. Leading
--- zeros are fine and `"-0"` is `0`; `"-"`, `""` and `"+5"` are `None`.
-def Text.toInt: Text -> Option Int
-  | MkText Nil         => None
-  | MkText (Cons c cs) =>
-    if Nat.equal (Char.toNat c) 45
-    then Option.map (n => Int.neg (OfNat n)) (Text.toNat (MkText cs))
-    else Option.map OfNat (Text.toNat (MkText (Cons c cs)))
 
 -- Division. `a / d` and `a % d` are Euclidean: `a = d * (a / d) + a % d`
 -- with `0 <= a % d < |d|`, whatever the signs, so `-18 % 100` is `82`.
@@ -795,82 +687,6 @@ def Int.mod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
   | NegSucc m, OfNat (Succ n) => OfNat (n - m % Succ n)
   | OfNat m,   NegSucc n      => OfNat (m % Succ n)
   | NegSucc m, NegSucc n      => OfNat (n - m % Succ n)
-
--- `x % d` as a `Nat`, for indexing: `(x.modNat d).toInt = x % d.toInt`.
-def Int.modNat: Int -> (d: Nat) -> [auto ok: d != 0] -> Nat
-  | x,         Zero   => Void.absurd (ok rfl)
-  | OfNat m,   Succ n => m % Succ n
-  | NegSucc m, Succ n => n - m % Succ n
-
--- Truncating division, rounding toward zero; the remainder has the
--- dividend's sign (C, Rust's `/` and `%`, JavaScript's `BigInt`).
-def Int.tdiv: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a,         OfNat Zero     => Void.absurd (ok rfl)
-  | OfNat m,   OfNat (Succ n) => OfNat (m / Succ n)
-  | NegSucc m, OfNat (Succ n) => Int.neg (OfNat (Succ m / Succ n))
-  | OfNat m,   NegSucc n      => Int.neg (OfNat (m / Succ n))
-  | NegSucc m, NegSucc n      => OfNat (Succ m / Succ n)
-
-def Int.tmod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a,         OfNat Zero     => Void.absurd (ok rfl)
-  | OfNat m,   OfNat (Succ n) => OfNat (m % Succ n)
-  | NegSucc m, OfNat (Succ n) => Int.neg (OfNat (Succ m % Succ n))
-  | OfNat m,   NegSucc n      => OfNat (m % Succ n)
-  | NegSucc m, NegSucc n      => Int.neg (OfNat (Succ m % Succ n))
-
--- Flooring division, rounding toward negative infinity; the remainder has
--- the divisor's sign (Python, Haskell's `div` and `mod`). The same as
--- Euclidean division when the divisor is positive.
-def Int.fdiv: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a,              OfNat Zero     => Void.absurd (ok rfl)
-  | OfNat m,        OfNat (Succ n) => OfNat (m / Succ n)
-  | NegSucc m,      OfNat (Succ n) => NegSucc (m / Succ n)
-  | OfNat Zero,     NegSucc n      => OfNat Zero
-  | OfNat (Succ m), NegSucc n      => NegSucc (m / Succ n)
-  | NegSucc m,      NegSucc n      => OfNat (Succ m / Succ n)
-
-def Int.fmod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a,              OfNat Zero     => Void.absurd (ok rfl)
-  | OfNat m,        OfNat (Succ n) => OfNat (m % Succ n)
-  | NegSucc m,      OfNat (Succ n) => OfNat (n - m % Succ n)
-  | OfNat Zero,     NegSucc n      => OfNat Zero
-  | OfNat (Succ m), NegSucc n      => Int.neg (OfNat (n - m % Succ n))
-  | NegSucc m,      NegSucc n      => Int.neg (OfNat (Succ m % Succ n))
-
--- Splitting and joining
-
--- `Text.splitChars s cs` is the first field and the rest: never empty.
-def Text.splitCons (s: Char) (c: Char): Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
-  | True,  MkPair f fs => MkPair Nil (Cons f fs)
-  | False, MkPair f fs => MkPair (Cons c f) fs
-
-def Text.splitChars (s: Char): List Char -> Pair (List Char) (List (List Char))
-  | Nil       => MkPair Nil Nil
-  | Cons c cs => Text.splitCons s c (Decidable.toBool (Char.decEq c s)) (Text.splitChars s cs)
-
-def Text.joinChars (s: Char) (f: List Char): List (List Char) -> List Char
-  | Nil       => f
-  | Cons g gs => List.append f (Cons s (Text.joinChars s g gs))
-
-def Text.textsOf: List (List Char) -> List Text
-  | Nil       => Nil
-  | Cons f fs => Cons (MkText f) (Text.textsOf fs)
-
-def Text.charListsOf: List Text -> List (List Char)
-  | Nil       => Nil
-  | Cons t ts => Cons (Text.toList t) (Text.charListsOf ts)
-
-def Text.splitTexts: Pair (List Char) (List (List Char)) -> List Text
-  | MkPair f fs => Cons (MkText f) (Text.textsOf fs)
-
--- The fields between separators, keeping empty ones: splitting "a,,b" on
--- ',' gives ["a", "", "b"], and splitting "" gives [""].
-def Text.split (s: Char) (t: Text): List Text := Text.splitTexts (Text.splitChars s (Text.toList t))
-
--- The texts with `s` between them. `Text.join s (Text.split s t) = t`.
-def Text.join (s: Char): List Text -> Text
-  | Nil       => MkText Nil
-  | Cons t ts => MkText (Text.joinChars s (Text.toList t) (Text.charListsOf ts))
 
 -- Computations (docs/proposals/abilities.md)
 
@@ -1116,10 +932,6 @@ instance Pair.instDecEq [auto decEqA: DecEq a] [auto decEqB: DecEq b]: DecEq (Pa
 instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) :=
   { decide = Option.decEq (x y => DecEq.decide x y) }
 
--- `x == y` says `x = y`.
-theorem DecEq.sound [auto decEq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y :=
-  Decidable.toBoolSound (DecEq.decide x y) h
-
 -- Proofs of an equation in a type with decidable equality are unique:
 -- Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
 -- `x = y` into the one the decision gives, ignoring which proof it was
@@ -1182,12 +994,6 @@ theorem Ordering.indexInjective: (c: Ordering) -> (d: Ordering) -> Ordering.inde
   | Greater, Less,    h => Void.exfalso (Nat.succNotZero 1 h)
   | Greater, Equal,   h => Void.exfalso (Nat.succNotZero 0 (Nat.succInjective 1 0 h))
   | Greater, Greater, h => rfl
-
--- A comparison that's its own opposite is `Equal`.
-theorem Ordering.flipSelf: (c: Ordering) -> c = Ordering.flip c -> c = Equal
-  | Less,    h => Void.exfalso (Ordering.lessNotGreater h)
-  | Equal,   h => rfl
-  | Greater, h => Void.exfalso (Ordering.greaterNotLess h)
 
 theorem Ordering.andThenEqual: (c: Ordering) -> (d: Ordering) -> Ordering.andThen c d = Equal -> And (c = Equal) (d = Equal)
   | Less,    d, h => Void.exfalso (Ordering.lessNotEqual h)
@@ -1510,27 +1316,6 @@ def Ord.fromCompare [auto decEq: DecEq a] (compare: a -> a -> Ordering)
   , lessEqOf = x y h => h
   , lessEqTo = x y h => h
   }
-
--- Orders `a` by a key, given that the key tells values apart.
-def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a -> b)
-    (inj: (x: a) -> (y: a) -> key x = key y -> x = y): Ord a :=
-  Ord.fromCompare (x y => Ord.compare (key x) (key y))
-    (x y h => inj x y (ord.equal (key x) (key y) h))
-    (x y => ord.flip (key x) (key y))
-    (x y z => ord.trans (key x) (key y) (key z))
-
--- The larger, and the smaller (the first, if they're equal).
-def Ord.max [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
-  | Less => y
-  | _    => x
-
-def Ord.min [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
-  | Greater => y
-  | _       => x
-
--- Anything compares `Equal` with itself.
-theorem Ord.compareSelf [auto ord: Ord a] (x: a): Ord.compare x x = Equal :=
-  Ordering.flipSelf (Ord.compare x x) (ord.flip x x)
 
 instance Nat.instOrd: Ord Nat :=
   { compare = Nat.compare

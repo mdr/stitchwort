@@ -1011,7 +1011,7 @@ fn a_changed_builtin_isnt_bound() {
     // Literals still work, as constructors.
     load(
         &mut session,
-        "import Std (Text)\ntest \"length\" := Text.length \"abc\" == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := rfl\n",
+        "import Std (List, Text)\ntest \"length\" := List.length (Text.toList \"abc\") == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := rfl\n",
     );
     let expr = session.parse_expression("<t>", "\"abc\"").unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();

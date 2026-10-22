@@ -14,7 +14,7 @@ use stitchwort_syntax::SourceMap;
 
 #[test]
 fn the_prelude_binds_every_builtin_to_a_final_declaration() {
-    let session = Session::new();
+    let session = Session::eager();
     let g = &session.elab.globals;
     let r = &g.registry;
     assert_eq!(r.missing(), Vec::<Builtin>::new());

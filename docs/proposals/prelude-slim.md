@@ -507,6 +507,84 @@ program's meaning, and can run in parallel with it.
 | D266 | The prelude is §3's 22 names: syntax's types, `Option`, `Ordering`, the five interfaces, `IO`, `not`; `Map`, `Set`, `Vec`, `Fin` leave it? (§3) | [Yes] |
 | D267 | Stage as in §8.1: prefixes and migration; then the functions/proofs split; then trimming core; the instance index later? | [Yes] |
 
+## As built (stage 3, 22 October 2026, SW-241)
+
+`core.sw` went from 2,021 to 1,806 lines, and from 431 to 386 declarations as the checker
+counts them (the closure report counts 375 source declarations before the move). Nothing
+was renamed, so every full name is as it was, and a program needs the same imports
+as before: scope depends on the namespace, not on which file declares a name.
+
+**What moved, and where.**
+
+- `Text/Basics.sw` (new, 100 lines): `Text.length`, `isEmpty`, `uncons`, `fold`, `trim`,
+  `split`, `join`, `toNat`, `toInt`, and their helpers (`Text.foldChars`, `dropSpaces`,
+  `splitChars`, `joinChars`, `readDigits`, `Char.isSpace`, `Char.digitValue`, and so on).
+- `Int/Basics.sw` (new, 63 lines): `Int.abs`, `toNatChecked`, `sign`, `modNat`, `tdiv`,
+  `tmod`, `fdiv`, `fmod`, and `Nat.toInt`.
+- `Option/Option.sw` (new): `Option.map` and `Option.flatMap`.
+- `Ord/Ord.sw` (new): `Ord.byKey`, `max`, `min`, `compareSelf` and `Ordering.flipSelf`.
+- `Decidable/Decidable.sw` (new): the `Decidable.toBool…` lemmas, `Bool.decTrueToBool` and
+  `DecEq.sound`.
+
+The text and integer functions went into new small files, not into `Text/Text.sw` and
+`Int/Int.sw`. My first try used those two, and a program that only called `Text.split`,
+`trim` and `toNat` got slower: 69 ms before and 128 ms after, because `Text.sw` needs
+`List/Toolkit.sw` and `Nat/Arith.sw`. The `Basics` files need the core alone (and
+`Option.map`). The same program now takes 65 ms.
+
+**Natives.** Eighteen built-ins are now `Home::Library` (`registry.rs`, `LIBRARY`): `Int.tdiv`,
+`tmod`, `fdiv`, `fmod`, `modNat`, `abs`, `toNatChecked`, `sign`, `Nat.toInt`, `Text.toInt`,
+`toNat`, `trim`, `split`, `join`, `length`, `isEmpty`, `uncons` and `fold`. Their JS and runtime pins are by content hash, which didn't change. When
+the file isn't loaded the native just isn't bound, and the definition is used as written.
+
+**Hashes.** Moving a declaration didn't change any hash: the `hash_stability` snapshots
+(prelude, projects, examples) pass with no diff.
+
+**What stayed in core, and why.**
+
+- Every name in §2.1: the registry's built-ins, the names `deriving` writes in full
+  (`Eq.cong`, `Nat.compareTrans`, `Ordering.byTagTrans`, `Show.arg` and the rest),
+  `Bool.True` and `False`, `Pair.fst` and `IO.simulate` for the runner.
+- Every `instance` and everything its law needs: the `Ordering` lemmas, `Nat.compare…`,
+  `Int.compare…`, `List.compareLex…`, `Text.compare…`, the `Show` machinery
+  (`Show.escapeChar` and friends), `Nat.add…` and `Nat.mul…` laws, the `Int.add` and `Int.mul`
+  laws with `Bool.xor` and `Int.mulSigned`. This is why `Bool.xor` and its lemma, which the
+  note listed, stay: `Int.mulAssoc` is a law of `Int.instMul`.
+- Every `Decidable` procedure (D58) with its helpers (`Nat.equalSound`, `Bool.canon`,
+  `List.decEq`, `Char.ext`, `Int.ofNatInjective`, …), and `Int.toNat`, which one of them uses.
+- Compact-text and JS pins that name declarations in core: `Nat`, `Int`, `Text`, `List`,
+  `Char`, `Text.toList`, `fromList`, `append`, `decEq`, `compare`, `Nat.toText` and
+  `Int.toText` (the `Show` instances need the last two).
+- The effect machinery (`Effect.*`, 30 declarations), including `swapOp`, `caseInject` and
+  the rest of the `sigCase` family: the closure report can't see these as needed, because
+  it doesn't resolve a name written inside its own namespace, but the registry's `sigCase`
+  uses `caseInject` and `caseReply`.
+- Small functions whose move would cost more than it saves: `List.length` (3 lines; its
+  only home would be `List/Toolkit.sw`, 766 lines, for something nearly every program calls),
+  `Nat.mulSucc` and `Nat.mulComm` (6 lines; `Nat/Arith.sw` is 517), `Nat.compareSucc`,
+  `Int.addZero`, `Char.fromNat`, `Bool.inspect`.
+
+**The tool.** `closure_report` now also treats every `instance` as a root and skips
+built-ins whose home is a library file; `PRELUDE_ROOTS=<file>` adds more roots, one full name
+per line (I used the `deriving` and runner names). Its answer was the move list above: with
+those roots, 318 of 375 declarations are in the closure. The 57 outside are what moved, the
+`Effect` ones and the small ones above.
+
+**Cost** (release build, `STITCHWORT_TIMINGS=1`, the machine busy with other lanes):
+
+| | before | after |
+|---|---|---|
+| `core` row, elab ms / kernel ms | 41-43 / 13 | 35-36 / 12 |
+| `core` row, nodes / declarations | 21,678 / 431 | 20,144 / 386 |
+| `check` of `aoc/`, total elab ms / kernel ms | 1,288-1,390 / 535-635 | 1,286-1,297 / 536 |
+| `check` of a program using `Text.split`, `trim`, `toNat` | 69 ms wall | 65 ms wall |
+| `check` of a program using `Int.tdiv`, `abs`, `Ord.max` | 67.5 ms wall | 67.5 ms wall |
+
+So the core saves about 6 ms and 7% of its nodes per program, and no program that used a
+moved name loads more than a few hundred lines for it. `aoc/` doesn't change: it loads
+those files anyway. The saving is smaller than §7.2's estimate (0.01–0.02 s) because the
+instance laws, which §2.1 and D170 keep, are most of what is left.
+
 ## Appendix A: the measurement scripts
 
 Kept outside the repository, in the session scratchpad

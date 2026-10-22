@@ -55,7 +55,26 @@ pub enum Home {
 
 /// The built-ins whose declaration is in a library file. Everything else is
 /// in the core.
-const LIBRARY: &[Builtin] = &[];
+const LIBRARY: &[Builtin] = &[
+    Builtin::IntTDiv,
+    Builtin::IntTMod,
+    Builtin::IntFDiv,
+    Builtin::IntFMod,
+    Builtin::IntModNat,
+    Builtin::IntAbs,
+    Builtin::IntToNatChecked,
+    Builtin::IntSign,
+    Builtin::NatToInt,
+    Builtin::TextToInt,
+    Builtin::TextToNat,
+    Builtin::TextTrim,
+    Builtin::TextSplit,
+    Builtin::TextJoin,
+    Builtin::TextLength,
+    Builtin::TextIsEmpty,
+    Builtin::TextUncons,
+    Builtin::TextFold,
+];
 
 macro_rules! builtins {
     ($($variant:ident = $name:literal : $kind:expr,)*) => {

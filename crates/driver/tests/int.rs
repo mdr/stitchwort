@@ -166,7 +166,7 @@ fn stuck(g: &mut Globals, f: &str, args: &[Arg], level: usize) -> String {
 #[test]
 fn edge_cases_agree_in_both_modes() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::eager();
         let g = &mut session.elab.globals;
         for n in 0..8u64 {
             // `subNatNat 0 n`, `subNatNat n 0`, `subNatNat n n`.
@@ -219,7 +219,7 @@ fn edge_cases_agree_in_both_modes() {
 #[test]
 fn decisions_agree_in_both_modes() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::eager();
         let g = &mut session.elab.globals;
         let dec_eq = def(g, "Int.decEq");
         let (_, yes) = g.registry.ctor(Builtin::Yes).expect("`Yes`");
@@ -247,7 +247,7 @@ fn decisions_agree_in_both_modes() {
 #[test]
 fn open_terms_agree_in_both_modes() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::eager();
         let g = &mut session.elab.globals;
         let (x, y) = (Value::var(0), Value::var(1));
 
@@ -372,7 +372,7 @@ fn open_terms_agree_in_both_modes() {
 /// Loads `source` after the prelude, with natives on or off: the error
 /// codes.
 fn load(source: &str, natives: bool) -> Vec<&'static str> {
-    let mut session = Session::new();
+    let mut session = Session::eager();
     session.elab.globals.builtins.disable_natives = !natives;
     match session.load("int.sw", source) {
         Ok(_) => Vec::new(),
@@ -486,7 +486,7 @@ fn expected(op: &str, a: i64, b: i64) -> Option<i64> {
 #[test]
 fn every_operation_agrees_in_both_modes_on_small_arguments() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::eager();
         let g = &mut session.elab.globals;
         for &(op, kinds) in OPS {
             let id = def(g, op);
@@ -549,7 +549,7 @@ fn as_big_int(g: &Globals, v: &Value) -> Option<BigInt> {
 /// (Leijen's formulas), independently of the prelude.
 #[test]
 fn big_values_agree_with_an_independent_implementation() {
-    let mut session = Session::new();
+    let mut session = Session::eager();
     let g = &mut session.elab.globals;
     let mut values: Vec<BigInt> = Vec::new();
     for e in [64u32, 128, 256] {

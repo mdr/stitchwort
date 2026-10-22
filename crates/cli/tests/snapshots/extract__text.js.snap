@@ -536,6 +536,31 @@ const $Std$dChar$ddecEq = (v0) => (v1) => $Std$dChar$ddecEqFrom(v0)(v1)($Std$dNa
 const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dfromList = textOfChars;
 const $Std$dText$dappend = (a) => (b) => a + b;
+const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dText$dcompare = (a) => (b) => {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    if (a.charCodeAt(i) !== b.charCodeAt(i)) {
+      return { tag: a.codePointAt(i) < b.codePointAt(i) ? "Less" : "Greater" };
+    }
+  }
+  return { tag: a.length === b.length ? "Equal" : a.length < b.length ? "Less" : "Greater" };
+};
+const $Std$dNat$dtoText = (n) => n.toString();
+const $Std$dOrdering$disLess = (v0) => {
+  switch (v0.tag) {
+    case "Less": {
+      return { tag: "True" };
+    }
+    case "Equal": {
+      return { tag: "False" };
+    }
+    case "Greater": {
+      return { tag: "False" };
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dText$dlength = (t) => {
   let n = 0;
   for (let i = 0; i < t.length; i++, n++) {
@@ -545,7 +570,6 @@ const $Std$dText$dlength = (t) => {
   return BigInt(n);
 };
 const $Std$dText$disEmpty = (t) => ({ tag: t === "" ? "True" : "False" });
-const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
 const $Std$dText$duncons = (t) => {
   if (t === "") return { tag: "None" };
   const code = t.codePointAt(0);
@@ -561,15 +585,6 @@ const $Std$dText$dfold = (f) => (z) => (t) => {
   }
   return acc;
 };
-const $Std$dText$dcompare = (a) => (b) => {
-  const n = Math.min(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    if (a.charCodeAt(i) !== b.charCodeAt(i)) {
-      return { tag: a.codePointAt(i) < b.codePointAt(i) ? "Less" : "Greater" };
-    }
-  }
-  return { tag: a.length === b.length ? "Equal" : a.length < b.length ? "Less" : "Greater" };
-};
 const $Std$dText$dtrim = (t) => {
   const space = (unit) => unit === 32 || (unit >= 9 && unit <= 13);
   let start = 0;
@@ -578,7 +593,6 @@ const $Std$dText$dtrim = (t) => {
   while (end > start && space(t.charCodeAt(end - 1))) end--;
   return t.slice(start, end);
 };
-const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dText$dtoNat = (t) => {
   if (t === "") return { tag: "None" };
   for (let i = 0; i < t.length; i++) {
@@ -592,20 +606,6 @@ const $Std$dText$djoin = (s) => (ts) => {
   const parts = [];
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
   return parts.join(encodeChar(s));
-};
-const $Std$dOrdering$disLess = (v0) => {
-  switch (v0.tag) {
-    case "Less": {
-      return { tag: "True" };
-    }
-    case "Equal": {
-      return { tag: "False" };
-    }
-    case "Greater": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
 };
 const $Std$dText$dless = (v0) => (v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0)(v1));
 const $Main$dlen = (v0) => $Std$dText$dlength(v0);
