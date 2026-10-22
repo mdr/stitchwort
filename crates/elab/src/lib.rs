@@ -272,6 +272,11 @@ pub struct Elaborator {
     /// definition, whose type, and everything it refers to, never changes;
     /// definitions are only ever added, so an entry never goes stale.
     pub(crate) result_heads: RefCell<Vec<Option<Option<DataId>>>>,
+    /// Whether a call of final definition `id` with `n` explicit arguments
+    /// reaches a computation type (`effects::def_performs_after`), once
+    /// worked out: asked for every call in every expression checked, and
+    /// fixed once the definition is, like `result_heads`.
+    pub(crate) performs: RefCell<HashMap<(DefId, usize, usize, bool), bool>>,
     /// The interfaces declared so far (docs/proposals/interfaces.md §5.1).
     interfaces: HashMap<DataId, interfaces::InterfaceInfo>,
     /// The global instances, by interface and head (§5.6).
