@@ -1,5 +1,5 @@
 {
-  "next": 333,
+  "next": 334,
   "tickets": [
     {
       "id": 1,
@@ -5226,6 +5226,20 @@
       "labels": [
         "bug",
         "performance"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 333,
+      "title": "Checkpoint failures (beyond SW-332): erasure (2), indexed_families, int decisions/operations in both modes, std_library small_programs_load_only, rt lower (4), machine examples_agree, js extract generated code snapshot, web every_aoc_day project test",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane: triage + fix",
+      "labels": [
+        "bug"
       ],
       "body": "",
       "created": "2026-10-22",
