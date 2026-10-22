@@ -200,6 +200,14 @@ pub enum Instr {
         cond: Reg,
         target: u32,
     },
+    /// `if %op(args) then …` for a native test ([`is_test`]): jumps to
+    /// `target` if it's false, without making a `Bool` (a combined
+    /// `Prim` and `JumpIfFalse`).
+    Test {
+        op: PrimOp,
+        args: Ops,
+        target: u32,
+    },
     Jump {
         target: u32,
     },
@@ -295,6 +303,20 @@ pub fn compile(program: &Program) -> Image {
         entry_code,
         pool,
     }
+}
+
+/// A native that makes a `Bool`, which [`Instr::Test`] tests directly.
+pub fn is_test(op: PrimOp) -> bool {
+    use crate::natives::{IntNative, TextNative};
+    use stitchwort_core::native::Native;
+    matches!(
+        op,
+        PrimOp::Nat(Native::Leq | Native::EqNat)
+            | PrimOp::IntEqual
+            | PrimOp::TextEqual
+            | PrimOp::Int(IntNative::IntLeq | IntNative::IntLess)
+            | PrimOp::Text(TextNative::TextIsEmpty)
+    )
 }
 
 // ---------------------------------------------------------------- liveness
@@ -677,12 +699,24 @@ impl<'a> Compiler<'a> {
                 uses(otherwise, &mut inside);
                 let mut l = live.clone();
                 l.add(&inside);
-                let cond_reg = self.operand(cond, &l);
+                let jump = match &**cond {
+                    Expr::Prim(op, args) if is_test(*op) => {
+                        let args = self.operand_ops(args, &l, false);
+                        self.emit(Instr::Test {
+                            op: *op,
+                            args,
+                            target: 0,
+                        })
+                    }
+                    _ => {
+                        let cond_reg = self.operand(cond, &l);
+                        self.emit(Instr::JumpIfFalse {
+                            cond: cond_reg,
+                            target: 0,
+                        })
+                    }
+                };
                 uses(cond, &mut inside);
-                let jump = self.emit(Instr::JumpIfFalse {
-                    cond: cond_reg,
-                    target: 0,
-                });
                 self.branch(then, &inside, live, &[], dst, tail);
                 let end = (!tail).then(|| self.emit(Instr::Jump { target: 0 }));
                 let here = self.here();
@@ -926,7 +960,9 @@ impl<'a> Compiler<'a> {
 
     fn patch(&mut self, at: usize, target: u32) {
         match &mut self.code.instrs[at] {
-            Instr::JumpIfFalse { target: t, .. } | Instr::Jump { target: t } => *t = target,
+            Instr::JumpIfFalse { target: t, .. }
+            | Instr::Test { target: t, .. }
+            | Instr::Jump { target: t } => *t = target,
             Instr::NatCase { zero, .. } => *zero = target,
             Instr::IntCase { neg, .. } => *neg = target,
             other => unreachable!("patching {other:?}"),

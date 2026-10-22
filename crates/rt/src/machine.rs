@@ -720,6 +720,45 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     Some(t) if t == s.false_ => pc = target as usize,
                     _ => panic!("internal error: `if` on {:?}", reg!(cond)),
                 },
+                Instr::Test { op, args, target } => {
+                    use crate::natives::IntNative;
+                    use stitchwort_core::native::Native;
+                    let o = ops!(args);
+                    // Numbers that fit a word are compared here; anything
+                    // else as the native computes it.
+                    let fast = match o {
+                        [a, b] => match (op, &reg!(*a), &reg!(*b)) {
+                            (PrimOp::Nat(Native::Leq), Value::Nat(x), Value::Nat(y)) => Some(x <= y),
+                            (PrimOp::Nat(Native::EqNat), Value::Nat(x), Value::Nat(y)) => {
+                                Some(x == y)
+                            }
+                            (PrimOp::IntEqual, Value::Int(x), Value::Int(y)) => Some(x == y),
+                            (PrimOp::Int(IntNative::IntLess), Value::Int(x), Value::Int(y)) => {
+                                Some(x < y)
+                            }
+                            (PrimOp::Int(IntNative::IntLeq), Value::Int(x), Value::Int(y)) => {
+                                Some(x <= y)
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    let holds = match fast {
+                        Some(holds) => holds,
+                        None => {
+                            let refs: Vec<&Value> =
+                                o.iter().map(|r| &st.regs[base + *r as usize]).collect();
+                            match prims::eval(s, op, &refs).tag() {
+                                Some(t) if t == s.true_ => true,
+                                Some(t) if t == s.false_ => false,
+                                other => panic!("internal error: a test made {other:?}"),
+                            }
+                        }
+                    };
+                    if !holds {
+                        pc = target as usize;
+                    }
+                }
                 Instr::Jump { target } => pc = target as usize,
                 Instr::Return { src } => {
                     let v = std::mem::take(&mut reg!(src));
