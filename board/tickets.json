@@ -463,7 +463,7 @@
     },
     {
       "id": 31,
-      "title": "Language server for .sw (umbrella; stage 0 done; stage 1 is SW-282 server + SW-283 client)",
+      "title": "Language server for .sw (umbrella; stages 0 and 1 done: stitchwort lsp + thin VS Code client; next: stage 2 ? goal holes, stage 3 completion)",
       "status": "next",
       "agent": "Opus",
       "where": "",
@@ -3055,7 +3055,7 @@
     },
     {
       "id": 199,
-      "title": "Well-founded recursion: decreasing (umbrella; stages 1-2 done; stage 3a design SW-284 awaits review)",
+      "title": "Well-founded recursion: decreasing (umbrella; stages 1, 2, 3a, 3c done; 3b List.attach in backlog SW-288)",
       "status": "next",
       "agent": "Opus",
       "where": "",
@@ -4292,7 +4292,7 @@
     {
       "id": 282,
       "title": "LSP stage 1 server: merged; fixing one nav mismatch on main (Day01 record param n: binder vs whole decl)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4302,7 +4302,8 @@
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": [
-        "97b31e61"
+        "97b31e61",
+        "fdbd2c1c"
       ]
     },
     {
@@ -4341,7 +4342,7 @@
     {
       "id": 285,
       "title": "decreasing stage 3c: Int sum lemmas + AoC Day 2 single weight: Nat -> Int with the guard, off fuel (D516, D519), after stage 3a",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4350,7 +4351,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "81f4ad93"
+      ]
     },
     {
       "id": 286,
