@@ -192,19 +192,44 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
             (ite, a, b?)
         }
         Condition::Decided { prop, decision } => {
-            let prop_value = cx.eval(&prop)?;
-            let assumption = if and {
-                prop_value
-            } else {
-                let not = cx.eval(&Term::Def(builtin_def(cx, Builtin::Not)?))?;
-                stitchwort_core::value::apply(cx.g(), not, prop_value)?
-            };
+            // The assumption's type is `a`'s value, and the evaluator is
+            // strict: evaluating `cost < 5` computes `cost`. So `b` is
+            // checked first with the assumption's type left as `Unit`, and
+            // `a` is evaluated only if `b` turns out to need it. Only the
+            // search for an auto argument's proof looks at the type, so if
+            // `b` checks, the obligations it recorded are given the real
+            // type afterwards; if it doesn't, it's checked again assuming
+            // `a`, in case a search made while checking it needed `a`.
+            let level = cx.level();
             let before = cx.e.obligations.borrow().len();
-            let mark = cx.mark();
-            cx.bind("_", assumption);
-            let b = bool_operand(cx, b, what);
-            cx.reset(mark);
-            let b = b?;
+            let first = crate::undo::attempt(cx, |cx| {
+                let mark = cx.mark();
+                cx.bind("_", unit);
+                let b = bool_operand(cx, b, what);
+                cx.reset(mark);
+                b
+            })?;
+            let b = match first {
+                Some(b) => {
+                    if needs_proofs(cx, before)? {
+                        let assumption = assumption(cx, &prop, and)?;
+                        for ob in &mut cx.e.obligations.borrow_mut()[before..] {
+                            if ob.types.len() > level {
+                                ob.types[level] = assumption.clone();
+                            }
+                        }
+                    }
+                    b
+                }
+                None => {
+                    let assumption = assumption(cx, &prop, and)?;
+                    let mark = cx.mark();
+                    cx.bind("_", assumption);
+                    let b = bool_operand(cx, b, what);
+                    cx.reset(mark);
+                    b?
+                }
+            };
             if needs_proofs(cx, before)? {
                 // `if _ : a then b else False`, as `if` makes it: `elimDec`.
                 let elim = builtin_def(cx, Builtin::ElimDec)?;
@@ -238,6 +263,17 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         Term::app(Term::app(head, a), branch(then)),
         branch(otherwise),
     ))
+}
+
+/// What `b` may assume in `a && b` (`a`) or `a || b` (`Not a`), for the
+/// proposition `a`.
+fn assumption(cx: &mut Ctx, prop: &Term, and: bool) -> Result<Value> {
+    let prop_value = cx.eval(prop)?;
+    if and {
+        return Ok(prop_value);
+    }
+    let not = cx.eval(&Term::Def(builtin_def(cx, Builtin::Not)?))?;
+    Ok(stitchwort_core::value::apply(cx.g(), not, prop_value)?)
 }
 
 /// Whether an obligation recorded since the first `before` needs a proof:
