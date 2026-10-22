@@ -3336,14 +3336,16 @@
     {
       "id": 220,
       "title": "Parser: f().x means (f()).x",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "IO.readAllLines().filterMap parse currently parses as IO.readAllLines (().filterMap parse) and fails.\n\nFrom docs/comparisons/aoc-day01-community.md (D294).\n\nDone when: f().x and f().g y parse as calls on the result, with parser tests.\n\n22 Oct 2026: D402 — Matt agreed to keep `f()` as the zero-argument call style (as Unison prints it). This is the direction for SW-220: `name()` with no space is a call, then dots apply.",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "1484a14f"
+      ]
     },
     {
       "id": 221,
