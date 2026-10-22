@@ -856,6 +856,19 @@ differences and findings:
     `examples/accept/decreasing.sw`). Stage 2's migration of
     `Nat/Digits.sw` will need the generalising form.
 
+11. **Proofs cost time only where they're computed.** The kernel computes
+    an argument only when a type needs it, and the runtimes and `stitchwort
+    test` erase proofs, so the fuel's proofs (`Nat.leRefl (m x)`, each
+    step's `Nat.leTrans` and the user's own) cost nothing there. The
+    recursive reference evaluator of `crates/driver/tests/differential.rs`
+    computes them strictly: `digits 1234` took 24 s there, through
+    `Nat.divTenLess` at each step, so `decreasing.sw` opts out of that test
+    and the smaller `decreasing-folded.sw` stands in. That test also found
+    that the reference evaluator didn't unfold a folded definition for a
+    number pattern (`Nat.toText (gcd 12 18)` stayed stuck); it now does, as
+    the machine always has. (Dictionaries, the only folded definitions
+    before, are never numbers.)
+
 Tests: `examples/accept/decreasing.sw` (digits, gcd, guard style, a
 `match`, arms with an implicit type, a dot call, `rfl`, `unfold`, a
 theorem with `decreasing`; its `main` joins the `run` / `--js` /
