@@ -1,4 +1,4 @@
-//! A pattern `let` on a tuple or a record binds its names to projections
+//! A pattern `let` (or lambda parameter) on a tuple or a record binds its names to projections
 //! (docs/proposals/let.md §7):
 //!
 //! ```text
@@ -28,26 +28,37 @@ use stitchwort_syntax::ast::{Expr, MatchKind, Pattern};
 
 use crate::check::{Ctx, Result, builtin_data, builtin_def, check, infer, insert};
 
-/// The pattern, right-hand side and rest of a pattern `let` that can be
-/// projections.
-fn parts(expr: &Expr) -> Option<(&Pattern, &Expr, &Expr)> {
+/// The patterns with their scrutinees, and the rest, of a pattern `let` or
+/// pattern lambda that can be projections. A lambda's patterns are all
+/// tuples or records, or it stays a `match`.
+fn parts(expr: &Expr) -> Option<(Vec<(&Pattern, &Expr)>, &Expr)> {
     let Expr::Match {
         scrutinees,
         alts,
-        kind: MatchKind::Let,
+        kind,
         ..
     } = expr
     else {
         return None;
     };
-    let ([s], [alt]) = (scrutinees.as_slice(), alts.as_slice()) else {
+    let [alt] = alts.as_slice() else {
         return None;
     };
-    let [pattern] = alt.patterns.as_slice() else {
+    if !matches!(kind, MatchKind::Let | MatchKind::Lambda)
+        || scrutinees.len() != alt.patterns.len()
+        || (*kind == MatchKind::Let && scrutinees.len() != 1)
+    {
         return None;
-    };
-    let top = matches!(pattern, Pattern::Tuple(..) | Pattern::Record { .. });
-    (s.name.is_none() && top && simple(pattern)).then_some((pattern, &s.expr, &alt.body))
+    }
+    let mut out = Vec::new();
+    for (s, pattern) in scrutinees.iter().zip(&alt.patterns) {
+        let top = matches!(pattern, Pattern::Tuple(..) | Pattern::Record { .. });
+        if s.name.is_some() || !top || !simple(pattern) {
+            return None;
+        }
+        out.push((pattern, &s.expr));
+    }
+    Some((out, &alt.body))
 }
 
 fn simple(p: &Pattern) -> bool {
@@ -82,19 +93,21 @@ fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
 
 /// The pattern `let` `expr` (one [`applies`] to), checked against `goal`.
 pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
-    let (pattern, value, body) = parts(expr).expect("checked by `applies`");
+    let (patterns, body) = parts(expr).expect("checked by `applies`");
     let mark = cx.mark();
     let mut lets = Vec::new();
     let result = (|| {
-        let level = match variable(cx, value) {
-            Some(level) => level,
-            None => {
-                let (term, ty) = infer(cx, value)?;
-                let (term, ty) = insert(cx, term, ty)?;
-                bind(cx, None, term, ty, &mut lets)?
-            }
-        };
-        destructure(cx, pattern, level, &mut lets)?;
+        for (pattern, value) in patterns {
+            let level = match variable(cx, value) {
+                Some(level) => level,
+                None => {
+                    let (term, ty) = infer(cx, value)?;
+                    let (term, ty) = insert(cx, term, ty)?;
+                    bind(cx, None, term, ty, &mut lets)?
+                }
+            };
+            destructure(cx, pattern, level, &mut lets)?;
+        }
         check(cx, body, goal)
     })();
     cx.reset(mark);
