@@ -657,19 +657,36 @@ impl Elaborator {
     }
 
     /// Notes the library files a reference needs: the file that owns the
-    /// pending name it resolves to, and for dot notation (whose target
+    /// library name it resolves to, and for dot notation (whose target
     /// depends on a type the pre-pass doesn't know) the field, which
     /// [`LibraryIndex::resolve_needs`] turns into files.
+    ///
+    /// A file is noted whether or not it is loaded already, so what a
+    /// module needs doesn't depend on what loaded before it: the check
+    /// cache keeps a namespace's needs and loads them when it replays the
+    /// namespace in another run, where other files may be loaded (SW-255).
+    /// Loading skips the files that are loaded.
     pub(crate) fn note_library_use(&self, index: &LibraryIndex, r: &Ref<'_>, needs: &mut Needs) {
         let (n, mut fields) = match r {
             Ref::Name(n) => (n, Vec::new()),
             Ref::Dot(n, field) => (n, vec![field.clone()]),
         };
         if fields.is_empty()
-            && let Resolved::Found { global, rest, .. } = self.resolve(&n.text)
+            && let Resolved::Found {
+                global, rest, key, ..
+            } = self.resolve(&n.text)
         {
-            if let Global::Pending(f, _) = global {
-                needs.files.insert(f);
+            match global {
+                Global::Pending(f, _) => {
+                    needs.files.insert(f);
+                }
+                // A library file's name that is loaded already (file 0
+                // is the core).
+                _ => {
+                    if let Some(f) = index.owner(key).filter(|&f| f != 0) {
+                        needs.files.insert(f);
+                    }
+                }
             }
             fields = rest;
         }

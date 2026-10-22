@@ -163,6 +163,14 @@ impl Elaborator {
         self.cache_stats
     }
 
+    /// For tests: every namespace replay from now on fails where a
+    /// dependency that isn't what the entry was made with would make it
+    /// fail (a late miss), so the namespace is elaborated after all.
+    #[doc(hidden)]
+    pub fn fail_namespace_replays_late(&mut self) {
+        self.fail_replays_late = true;
+    }
+
     /// Whether library files may be loaded from, and written to, the cache
     /// now. Not for the library test target, whose tests are part of the
     /// result. (A session whose core isn't the index's finds its entries'
@@ -435,6 +443,7 @@ impl Elaborator {
         {
             match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
                 Ok(warnings) => {
+                    self.replayed_names.clear();
                     self.cache_stats.namespace_hits += 1;
                     return (warnings, true);
                 }
@@ -675,6 +684,9 @@ impl Elaborator {
         for (k, span, follower) in &pre.early {
             self.scope.insert(k, Global::Failed, *span, *follower);
         }
+        // If replay fails from here on, elaborating the namespace declares
+        // these again where they are (`taken`).
+        self.replayed_names = pre.early.iter().map(|(k, _, _)| k.clone()).collect();
         if !pre.needs.files.is_empty() || !pre.needs.dots.is_empty() {
             self.load_needs(&pre.needs).map_err(|ds| {
                 Miss::Late(format!(
@@ -682,6 +694,9 @@ impl Elaborator {
                     ds.first().map_or("", |d| d.message.as_str())
                 ))
             })?;
+        }
+        if self.fail_replays_late {
+            return Err(Miss::Late("a test made it fail".to_string()));
         }
         let mut d = self.decode(&deps, head, &pre.early).map_err(late)?;
         let warnings = std::mem::take(&mut d.tables.warnings);

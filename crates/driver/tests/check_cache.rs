@@ -550,3 +550,178 @@ fn a_new_namespace_or_configuration_is_a_miss() {
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
 }
+
+// ---- Different targets, one cache (SW-255) ------------------------------
+
+/// `A` uses a library file, and so does `B`, which `B.Tests` uses. A whole
+/// project check loads `std/Fin/Fin.sw` for `A`, before `B`; `B` on its
+/// own (`run B.main`) has to load it itself.
+const SPLIT: &[(&str, &str)] = &[
+    (
+        "src/A.sw",
+        "namespace A\nimport Std (Fin)\n\ndef two: Fin 3 := Fin.ofNat 2\n",
+    ),
+    (
+        "src/B/B.sw",
+        "namespace B\nimport Std (Fin, IO)\n\ndef three: Fin 4 := Fin.ofNat 3\n\n\
+         def main(): {IO} () := IO.print \"three is ${three}\"\n",
+    ),
+    (
+        "src/B/Tests/Tests.sw",
+        "namespace B.Tests\nimport B (three)\nimport Std (Fin)\n\n\
+         test \"three\" := Fin.toNat three == 3\n",
+    ),
+];
+
+fn target(names: &[&str]) -> Target {
+    if names.is_empty() {
+        Target::Everything
+    } else {
+        Target::Namespaces(names.iter().map(|n| n.to_string()).collect())
+    }
+}
+
+/// Loads `target` of the project at `dir` (navigation recorded), through
+/// the cache in `cache` if there is one, with every namespace replay made
+/// to fail part way if `fail_late`; and the namespaces it checked.
+fn run_target(
+    dir: &Path,
+    target: &Target,
+    cache: Option<&Path>,
+    fail_late: bool,
+) -> (Run, Vec<String>) {
+    let mut session = Session::navigable_for_stack(STACK);
+    if let Some(cache) = cache {
+        session.use_check_cache(cache);
+    }
+    if fail_late {
+        session.elab.fail_namespace_replays_late();
+    }
+    let files = DiskFiles {
+        root: dir.to_path_buf(),
+    };
+    let result = session.load_project(&files, "p", target);
+    let mut dump = canonical_dump(&session.elab);
+    let (diagnostics, checked) = match &result {
+        Ok(loaded) => (session.warnings.clone(), loaded.checked.clone()),
+        Err(ds) => (ds.clone(), Vec::new()),
+    };
+    dump.push_str(&format!("accepted {}\n", result.is_ok()));
+    for d in &diagnostics {
+        dump.push_str(&render(&session.sources, d, false));
+    }
+    let run = Run {
+        dump,
+        stats: session.elab.check_cache_stats(),
+        loaded: session.elab.loaded_library_files().len(),
+    };
+    (run, checked)
+}
+
+/// Fills a new cache by loading `writer` of the project at `dir`, then
+/// loads `reader` from it and checks that gives what loading `reader`
+/// without a cache gives, with no replay failing part way and every
+/// namespace both checked loaded from the cache.
+fn assert_targets_share(dir: &Path, writer: &[&str], reader: &[&str]) {
+    let cache = temp_dir("targets-cache");
+    let (_, written) = run_target(dir, &target(writer), Some(&cache), false);
+    let (fresh, checked) = run_target(dir, &target(reader), None, false);
+    let (cached, _) = run_target(dir, &target(reader), Some(&cache), false);
+    let _ = std::fs::remove_dir_all(&cache);
+    let what = format!("{writer:?} then {reader:?}");
+    assert!(
+        fresh.dump.contains("\naccepted true\n"),
+        "{what}: {}",
+        fresh.dump
+    );
+    assert!(
+        cached.dump == fresh.dump,
+        "{what}: the cache changed the result: {}",
+        first_difference(&fresh.dump, &cached.dump)
+    );
+    assert_eq!(
+        cached.stats.late_misses, 0,
+        "{what}: a replay failed part way"
+    );
+    let shared = checked.iter().filter(|n| written.contains(n)).count();
+    assert_eq!(
+        cached.stats.namespace_hits, shared,
+        "{what}: not every namespace both checked came from the cache"
+    );
+}
+
+/// What one command writes, another reads: `check` then `run`, `run` then
+/// `check`, and so on. A namespace's entry mustn't depend on which library
+/// files happened to be loaded when it was written.
+#[test]
+fn different_targets_share_one_cache() {
+    let dir = temp_project("targets", SPLIT);
+    for (writer, reader) in [
+        (&[][..], &["B"][..]),
+        (&[], &["B.Tests"]),
+        (&["B"], &[]),
+        (&["B.Tests"], &["B"]),
+        (&["A"], &["B"]),
+        (&["B"], &["A", "B.Tests"]),
+    ] {
+        assert_targets_share(&dir, writer, reader);
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `aoc`'s namespaces each on their own (as `run` and the editor's save
+/// load them), from a cache the whole project wrote.
+#[test]
+fn aocs_namespaces_load_on_their_own_from_the_whole_projects_cache() {
+    if !slow_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
+        return;
+    }
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let cache = temp_dir("aoc-targets-cache");
+    let (_, written) = run_target(&root, &Target::Everything, Some(&cache), false);
+    assert!(written.len() > 10, "{written:?}");
+    par_map(STACK, &written, |ns| {
+        let reader = Target::Namespaces(vec![ns.clone()]);
+        let (fresh, checked) = run_target(&root, &reader, None, false);
+        let (cached, _) = run_target(&root, &reader, Some(&cache), false);
+        assert!(
+            cached.dump == fresh.dump,
+            "{ns}: the cache changed the result: {}",
+            first_difference(&fresh.dump, &cached.dump)
+        );
+        assert_eq!(
+            (cached.stats.namespace_hits, cached.stats.late_misses),
+            (checked.len(), 0),
+            "{ns}: not every namespace came from the cache"
+        );
+    });
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// A replay that fails part way (a late miss) leaves what it began for
+/// the namespace's elaboration to finish: the result is the same as
+/// without a cache, and not, say, every name declared twice.
+#[test]
+fn a_replay_that_fails_part_way_gives_the_same_result() {
+    let dir = temp_project("late", SPLIT);
+    let cache = temp_dir("late-cache");
+    for names in [&[][..], &["B"], &["B.Tests"]] {
+        let reader = target(names);
+        let (fresh, checked) = run_target(&dir, &reader, None, false);
+        // Written, then replayed, failing part way.
+        run_target(&dir, &reader, Some(&cache), false);
+        let (late, _) = run_target(&dir, &reader, Some(&cache), true);
+        assert!(
+            late.dump == fresh.dump,
+            "{names:?}: a late miss changed the result: {}",
+            first_difference(&fresh.dump, &late.dump)
+        );
+        assert_eq!(
+            (late.stats.late_misses, late.stats.namespace_hits),
+            (checked.len(), 0),
+            "{names:?}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}

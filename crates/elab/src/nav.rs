@@ -50,18 +50,27 @@ impl Recorder {
     /// differential test (`cache::dump`). (Not the index made from it,
     /// whose symbols for two references to one span depend on a hash
     /// map's order.)
-    pub(crate) fn dump(&self, out: &mut String) {
+    ///
+    /// A reference noted while its library file wasn't loaded yet is shown
+    /// as what its name is `now`, as the index reads it: whether the file
+    /// had loaded when the reference was noted depends on what else the
+    /// run loaded first (SW-255).
+    pub(crate) fn dump(&self, out: &mut String, now: &dyn Fn(&str) -> Option<Global>) {
         let span = |s: Span| format!("@{}:{}-{}", s.file.index(), s.start, s.end);
         let mut lines: Vec<String> = self
             .refs
             .iter()
             .map(|(at, n)| {
+                let global = match n.global {
+                    Global::Pending(..) => now(&n.key).unwrap_or(n.global),
+                    global => global,
+                };
                 format!(
                     "nav ref {} {} {} {:?} {:?}",
                     span(*at),
                     n.key,
                     span(n.target),
-                    n.global,
+                    global,
                     n.dot
                 )
             })

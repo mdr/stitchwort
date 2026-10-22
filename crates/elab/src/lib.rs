@@ -320,6 +320,13 @@ pub struct Elaborator {
     /// The namespace's files were already walked for navigation by a
     /// replay that failed part way (`cache`): don't walk them again.
     skip_navigation_walk: bool,
+    /// The names such a replay declared (as failures) before it failed:
+    /// the namespace's first pass claims them again rather than finding
+    /// them taken (`cache`, `new_module_name`).
+    replayed_names: std::collections::HashSet<String>,
+    /// For tests: every namespace replay fails part way
+    /// (`fail_namespace_replays_late`).
+    fail_replays_late: bool,
     /// The files `include` read in the namespace being elaborated, with a
     /// hash of their text, for its cache entry.
     include_trace: RefCell<Vec<(String, cache::Key)>>,

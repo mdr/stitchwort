@@ -156,6 +156,91 @@ fn the_index_is_the_same_from_the_cache_for_aoc() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// One command writes the cache and another reads it (SW-255): `check`
+/// then `run`, `run` then `check`, and so on. Each prints what it prints
+/// without a cache. `A` loads `std/Fin/Fin.sw` before `B` in a whole
+/// project check; `run B.main` checks only `B`, which then has to load it
+/// itself.
+#[test]
+fn commands_share_one_cache() {
+    let project = temp_dir("commands-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    write(
+        "src/A.sw",
+        "namespace A\nimport Std (Fin)\n\ndef two: Fin 3 := Fin.ofNat 2\n",
+    );
+    write(
+        "src/B/B.sw",
+        "namespace B\nimport Std (Fin, IO)\n\ndef three: Fin 4 := Fin.ofNat 3\n\n\
+         def main(): {IO} () := IO.print \"three is ${three}\"\n",
+    );
+    write(
+        "src/B/Tests/Tests.sw",
+        "namespace B.Tests\nimport B (three)\nimport Std (Fin)\n\n\
+         test \"three\" := Fin.toNat three == 3\n",
+    );
+    write(
+        "src/B/Proofs/Proofs.sw",
+        "namespace B.Proofs\nimport B (three)\nimport Std (Fin)\n\n\
+         theorem threeIsThree: Fin.toNat three = 3 := rfl\n",
+    );
+    let root = project.to_str().unwrap();
+    let command = |words: &[&str]| -> Vec<String> {
+        let mut args: Vec<String> = words.iter().map(|w| w.to_string()).collect();
+        args.extend(["--project".to_string(), root.to_string()]);
+        args
+    };
+    let check = command(&["check"]);
+    let check_b = command(&["check", "B"]);
+    let check_tests = command(&["check", "B.Tests"]);
+    let run = command(&["run", "B.main"]);
+    let test = command(&["test"]);
+    let run_args = |args: &[String], extra: &[&str]| {
+        let mut all: Vec<&str> = args.iter().map(String::as_str).collect();
+        all.extend(extra);
+        stitchwort(&all, &[])
+    };
+    let fresh = |args: &[String]| shown(&run_args(args, &["--no-cache"]));
+    let ran = fresh(&run);
+    assert!(ran.contains("three is 3"), "{ran}");
+    for args in [&check, &test] {
+        let out = fresh(args);
+        assert!(out.starts_with("status Some(0)"), "{out}");
+    }
+    for sequence in [
+        [&check, &run],
+        [&check, &test],
+        [&run, &check],
+        [&check_b, &run],
+        [&check_tests, &run],
+        [&run, &test],
+        [&test, &run],
+    ] {
+        let cache = temp_dir("commands-cache");
+        let cache_dir = cache.to_str().unwrap();
+        // The commands without `--project`.
+        let words = |args: &[String]| args[..args.len() - 2].join(" ");
+        let what = sequence.map(|args| words(args)).join(", then ");
+        for args in sequence {
+            let cached = shown(&run_args(args, &["--cache-dir", cache_dir]));
+            let expected = fresh(args);
+            assert!(
+                cached == expected,
+                "{what}: `{}` printed something else from the cache: {}",
+                words(args),
+                first_difference(&expected, &cached)
+            );
+        }
+        let _ = std::fs::remove_dir_all(&cache);
+    }
+    let _ = std::fs::remove_dir_all(&project);
+}
+
 /// `stitchwort test` from a warm cache loads the namespaces from the check
 /// cache and the results from the test cache.
 #[test]
