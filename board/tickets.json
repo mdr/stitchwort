@@ -3933,7 +3933,7 @@
     {
       "id": 260,
       "title": "Split core.sw into a core/ folder of small files, all loaded up front; names and namespaces unchanged (D493)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3942,7 +3942,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "07081560"
+      ]
     },
     {
       "id": 261,
