@@ -1,5 +1,5 @@
 {
-  "next": 254,
+  "next": 255,
   "tickets": [
     {
       "id": 1,
@@ -3676,7 +3676,7 @@
     {
       "id": 245,
       "title": "Check cache stage 2: project namespaces (Merkle keys, warnings + nav replay, test-cache eviction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3685,7 +3685,11 @@
       "body": "docs/proposals/check-cache.md §9 stage 2 (D411). D277 still open: kernel re-checks.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "0651f4db",
+        "b9982605",
+        "b70f279f"
+      ]
     },
     {
       "id": 246,
@@ -3806,6 +3810,20 @@
         "bug"
       ],
       "body": "Found by the SW-199 note lane (docs/proposals/well-founded-recursion.md, option A experiment). Reproduce from the note; find the crates/rt cause.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 254,
+      "title": "Dot notation: [1, 2].span p resolves to Nat.span instead of List.span (made a Toolkit/Sort load cycle)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by SW-235. A test written as [1, 2].span p pulled in Nat.span from Sort.sw. Probably numeric-literal elements + the receiver rule (first parameter of matching type) or SW-234's namespace-aware loading choosing by short name. Reproduce and fix.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
