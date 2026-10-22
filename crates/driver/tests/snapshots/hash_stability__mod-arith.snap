@@ -23,5 +23,5 @@ Main.bigValue b018e41fc6ff96d0650f28b83514428d0df7d48e6ec0a1e0afe5cd9e84540208
 Main.bigAdd 4d24882aaf870f165e9484567a2273eb3a2d205c0dcc8aff7b12442ca71258f5
 Main.finRound ea6568d689bfeab36c7dcafecbe4d0ea16b4e270288db572dd7d37555f0d55ae
 Main.test "toFin" 0fddb4644be1bd8d47b7bb0f47dfbfdb14f8ced5b42c9dae5e725f5f51def264
-Main.test "== and <" 077bfbeadcd789a57c75a11b38b64514e1826ca7833189ab96fd667474b2af3f
+Main.test "== and <" 7653fcdb7f0d5b4ecf354a4e9db252bc5154bbd428c965882ea8f8802d2f3f27
 Main.test "show" 57ab619b00350e3c1dfee0e74341bbd23cf4107166192d7631ae076b7cfaa6fc

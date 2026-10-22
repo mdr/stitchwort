@@ -1254,6 +1254,8 @@ def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a -> b)
 `Ord.byKey` keeps the caller's `decEq` as its superclass field `eq` (draft 1 had no
 `DecEq a` to give it).
 
+Since D414 the instance's `<` and `<=` (and their decisions) are the key's own applied to the keys, not `compare`-derived, so `x < y` on the keyed type reduces as `key x < key y` does.
+
 **Instances.** `Nat` and `Int` are written out in full, with today's
 functions and relations (`Nat.compare`, `Nat.LessThan`,
 `Nat.decLessThan`, …), so that projection gives today's terms; their
