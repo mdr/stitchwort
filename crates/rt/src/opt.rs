@@ -38,7 +38,7 @@ use num_bigint::BigUint;
 use stitchwort_core::native::Native;
 
 use crate::ir::{
-    Arm, Body, Expr, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind, PrimOp, Program,
+    Arm, Body, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind, PrimOp, Program,
     Slot, TypeId,
 };
 use crate::natives::{IntNative, TextNative};
@@ -53,6 +53,10 @@ const PUSH_SIZE: usize = 48;
 const FUEL: u32 = 200;
 /// How deeply inlined code may inline in turn.
 const DEPTH: u32 = 12;
+/// The largest recursive function copied for known function arguments, and
+/// how many copies a program may have.
+const COPY_SIZE: usize = 200;
+const COPIES: usize = 64;
 
 /// The data types the rules need to recognise.
 #[derive(Clone, Copy, Debug)]
@@ -88,47 +92,15 @@ pub fn optimize(p: &mut Program, types: Types) {
             .iter()
             .map(|t| t.ctors.iter().map(|c| c.fields.len()).collect())
             .collect(),
+        globals: std::mem::take(&mut p.globals),
+        busy: None,
+        copies: HashMap::new(),
     };
-    for i in 0..n {
-        let kind = std::mem::replace(&mut p.globals[i].kind, GlobalKind::Constant {
-            body: Body {
-                frame: 0,
-                expr: Expr::Erased,
-            },
-        });
-        p.globals[i].kind = match kind {
-            GlobalKind::Function { params, body } => {
-                let body = cx.body(body, params, Some(i));
-                if size(&body.expr) <= INLINE_SIZE && !calls(&body.expr, i) {
-                    cx.inline[i] = Some(Rc::new((params, body.expr.clone())));
-                }
-                GlobalKind::Function { params, body }
-            }
-            GlobalKind::Constant { body } => {
-                let body = cx.body(body, 0, Some(i));
-                if let Expr::Ctor(..) = &body.expr
-                    && closed(&body.expr)
-                {
-                    cx.consts[i] = Some(Rc::new(body.expr.clone()));
-                }
-                GlobalKind::Constant { body }
-            }
-            native => native,
-        };
-    }
-    // Lambdas, including those made by specialising others on the way. A
-    // lambda's body stays readable while it's simplified: inlining may
-    // bring a closure of the same lambda into it.
-    let mut i = 0;
-    let lambdas = |cx: &mut Cx, i: &mut usize| {
-        while *i < cx.lambdas.len() {
-            let params = cx.lambdas[*i].params;
-            let body = cx.lambdas[*i].body.clone();
-            cx.lambdas[*i].body = cx.body(body, params, None);
-            *i += 1;
-        }
-    };
-    lambdas(&mut cx, &mut i);
+    // Globals first (in dependency order, so that a callee is simplified
+    // before it's inlined), then lambdas, then the entry; each may make
+    // copies of globals and lambdas, which are simplified in turn.
+    let (mut g, mut l) = (0, 0);
+    cx.drain(&mut g, &mut l);
     let entry = std::mem::replace(
         &mut p.entry,
         Body {
@@ -137,8 +109,8 @@ pub fn optimize(p: &mut Program, types: Types) {
         },
     );
     p.entry = cx.body(entry, 0, None);
-    // Lambdas the entry specialised.
-    lambdas(&mut cx, &mut i);
+    cx.drain(&mut g, &mut l);
+    p.globals = cx.globals;
     p.lambdas = cx.lambdas;
 }
 
@@ -160,9 +132,71 @@ struct Cx {
     /// and the constants.
     specialised: HashMap<(u32, String), (LambdaId, Vec<usize>)>,
     ctor_arity: Vec<Vec<usize>>,
+    globals: Vec<Global>,
+    /// The global being simplified: its body isn't available meanwhile.
+    busy: Option<usize>,
+    /// Copies of recursive functions with constant function arguments
+    /// substituted, by the function and the arguments.
+    copies: HashMap<String, GlobalId>,
 }
 
 impl Cx {
+    /// Simplifies the globals from `g` and the lambdas from `l`, including
+    /// those made on the way, until there are none left.
+    fn drain(&mut self, g: &mut usize, l: &mut usize) {
+        loop {
+            if *g < self.globals.len() {
+                self.global(*g);
+                *g += 1;
+            } else if *l < self.lambdas.len() {
+                // A lambda's body stays readable while it's simplified:
+                // inlining may bring a closure of the same lambda into it.
+                let params = self.lambdas[*l].params;
+                let body = self.lambdas[*l].body.clone();
+                self.lambdas[*l].body = self.body(body, params, None);
+                *l += 1;
+            } else {
+                return;
+            }
+        }
+    }
+
+    /// Simplifies global `i`, and notes whether it's worth inlining or a
+    /// known constructor.
+    fn global(&mut self, i: usize) {
+        let kind = std::mem::replace(
+            &mut self.globals[i].kind,
+            GlobalKind::Constant {
+                body: Body {
+                    frame: 0,
+                    expr: Expr::Erased,
+                },
+            },
+        );
+        self.busy = Some(i);
+        let kind = match kind {
+            GlobalKind::Function { params, body } => {
+                let body = self.body(body, params, Some(i));
+                if size(&body.expr) <= INLINE_SIZE && !calls(&body.expr, i) {
+                    self.inline[i] = Some(Rc::new((params, body.expr.clone())));
+                }
+                GlobalKind::Function { params, body }
+            }
+            GlobalKind::Constant { body } => {
+                let body = self.body(body, 0, Some(i));
+                if let Expr::Ctor(..) = &body.expr
+                    && closed(&body.expr)
+                {
+                    self.consts[i] = Some(Rc::new(body.expr.clone()));
+                }
+                GlobalKind::Constant { body }
+            }
+            native => native,
+        };
+        self.globals[i].kind = kind;
+        self.busy = None;
+    }
+
     /// A body simplified, its slots packed again. `global` is the global it
     /// belongs to, which it doesn't inline into itself.
     fn body(&mut self, body: Body, params: u32, global: Option<usize>) -> Body {
@@ -610,6 +644,50 @@ impl Simp<'_> {
         }
     }
 
+    /// Binds every field of `arm` (a constructor of type `t`) to a slot,
+    /// fresh ones for those it didn't bind, and returns them in order.
+    fn complete_fields(&mut self, t: TypeId, arm: &mut Arm) -> Vec<Expr> {
+        let n = self.cx.ctor_arity[t.0 as usize][arm.ctor as usize];
+        let mut fields = Vec::with_capacity(n);
+        for i in 0..n {
+            let i = u32::try_from(i).expect("fields fit");
+            let slot = match arm.fields.iter().find(|(j, _)| *j == i) {
+                Some((_, slot)) => *slot,
+                None => {
+                    let slot = self.fresh();
+                    arm.fields.push((i, slot));
+                    slot
+                }
+            };
+            fields.push(Expr::Local(slot));
+        }
+        arm.fields.sort_by_key(|(i, _)| *i);
+        fields
+    }
+
+    /// A `Nat` operation on literals, computed now.
+    fn fold(&self, e: Expr) -> Expr {
+        let Expr::Prim(PrimOp::Nat(op), args) = &e else {
+            return e;
+        };
+        let [Expr::Lit(Lit::Nat(a)), Expr::Lit(Lit::Nat(b))] = &args[..] else {
+            return e;
+        };
+        let truth = |b: bool| match self.cx.types.bool_ {
+            Some(t) => Expr::Ctor(t, if b { self.cx.true_ } else { self.cx.false_ }, Vec::new()),
+            None => e.clone(),
+        };
+        match op {
+            Native::Add => Expr::Lit(Lit::Nat(a + b)),
+            Native::Mul => Expr::Lit(Lit::Nat(a * b)),
+            // `Nat` subtraction stops at zero.
+            Native::Sub => Expr::Lit(Lit::Nat(if a >= b { a - b } else { BigUint::ZERO })),
+            Native::Leq => truth(a <= b),
+            Native::EqNat => truth(a == b),
+            _ => e.clone(),
+        }
+    }
+
     /// `let slot = value; body`, `value` simplified already, `body` not.
     fn let_(&mut self, slot: Slot, value: Expr, body: Expr) -> Expr {
         self.let_with(slot, value, |s| s.simp(body))
@@ -628,6 +706,38 @@ impl Simp<'_> {
             let out = simp_body(self);
             self.env.remove(&slot);
             return out;
+        }
+        // `let a = (match s { C(f…) => e }); body`, with one arm that can
+        // happen (a projection out of a record or pair): the body moves into
+        // the arm, where `s` is known to be `C(f…)`, so that a later match on
+        // `s` (the other projection) needs no test.
+        if let Expr::Match(x, MatchKind::Data(t), arms) = &value
+            && let Expr::Local(s) = **x
+            && arms
+                .iter()
+                .filter(|a| !matches!(a.body, Expr::Unreachable))
+                .count()
+                == 1
+        {
+            let t = *t;
+            let Expr::Match(x, k, mut arms) = value else {
+                unreachable!("matched above")
+            };
+            let at = arms
+                .iter()
+                .position(|a| !matches!(a.body, Expr::Unreachable))
+                .expect("one arm");
+            let arm_body = std::mem::replace(&mut arms[at].body, Expr::Unreachable);
+            let fields = self.complete_fields(t, &mut arms[at]);
+            let old = self.env.insert(s, Known::Ctor(arms[at].ctor, fields));
+            let body = self.let_with(slot, arm_body, simp_body);
+            match old {
+                Some(o) => self.env.insert(s, o),
+                None => self.env.remove(&s),
+            };
+            arms[at].fields.retain(|(_, f)| reads(&body, *f) > 0);
+            arms[at].body = body;
+            return Expr::Match(x, k, arms);
         }
         self.learn(slot, &value);
         let body = simp_body(self);
@@ -728,7 +838,7 @@ impl Simp<'_> {
             }
             Expr::Prim(op, args) => {
                 let args = self.all(args);
-                prim(op, args)
+                self.fold(prim(op, args))
             }
             Expr::PartialApp(g, args) => Expr::PartialApp(g, self.all(args)),
             Expr::Ctor(t, c, args) => Expr::Ctor(t, c, self.all(args)),
@@ -947,7 +1057,107 @@ impl Simp<'_> {
             debug_assert_eq!(*params as usize, args.len());
             return self.instantiate(body, args, None, &[]);
         }
-        Expr::Call(g, args)
+        match self.specialise(g, &args) {
+            Some(call) => call,
+            None => Expr::Call(g, args),
+        }
+    }
+
+    /// A function value that's the same wherever it's read: a global, a
+    /// partial application of constants, or a closure that captures
+    /// nothing. Through a variable bound to one, too.
+    fn known_function(&self, e: &Expr) -> Option<Expr> {
+        match e {
+            Expr::Global(h) if self.cx.params[h.0 as usize] > 0 => Some(e.clone()),
+            Expr::PartialApp(_, a) if a.iter().all(constant) => Some(e.clone()),
+            Expr::Closure(_, a) if a.is_empty() => Some(e.clone()),
+            Expr::Local(s) => match self.env.get(s) {
+                Some(Known::Fun(f)) => self.known_function(&f.clone()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// A call of recursive global `g` with some arguments known functions
+    /// (`map scramble xs`, `merge less xs ys`): a call of a copy of `g` with
+    /// them substituted, whose own recursive calls that pass them on call
+    /// the copy. Then applying them is a direct call, which can be inlined.
+    fn specialise(&mut self, g: GlobalId, args: &[Expr]) -> Option<Expr> {
+        let i = g.0 as usize;
+        if self.cx.busy == Some(i) || self.cx.copies.len() >= COPIES {
+            return None;
+        }
+        let GlobalKind::Function { params, body } = &self.cx.globals[i].kind else {
+            return None;
+        };
+        if !calls(&body.expr, i) || size(&body.expr) > COPY_SIZE {
+            return None;
+        }
+        let known: Vec<(usize, Expr)> = args
+            .iter()
+            .enumerate()
+            .filter_map(|(k, a)| self.known_function(a).map(|f| (k, f)))
+            .collect();
+        if known.is_empty() || known.len() == args.len() {
+            return None;
+        }
+        let key = format!(
+            "{i}:{}",
+            known
+                .iter()
+                .map(|(k, f)| format!("{k}={f:?};"))
+                .collect::<String>()
+        );
+        let id = match self.cx.copies.get(&key) {
+            Some(id) => *id,
+            None => {
+                let params = *params;
+                let id = GlobalId(u32::try_from(self.cx.globals.len()).expect("fits"));
+                let positions: Vec<usize> = known.iter().map(|(k, _)| *k).collect();
+                let redirected = redirect(&body.expr, g, &positions, id);
+                let mut map = HashMap::new();
+                let mut kept = 0;
+                for p in 0..params {
+                    match known.iter().find(|(k, _)| *k == p as usize) {
+                        Some((_, f)) => map.insert(p, f.clone()),
+                        None => {
+                            kept += 1;
+                            map.insert(p, Expr::Local(kept - 1))
+                        }
+                    };
+                }
+                let mut next = kept;
+                let expr = Renamer {
+                    map,
+                    next: &mut next,
+                    captures: None,
+                }
+                .expr(&redirected);
+                let original = &self.cx.globals[i];
+                self.cx.globals.push(Global {
+                    name: format!("{}[{}]", original.name, self.cx.copies.len()).into(),
+                    def: original.def,
+                    kind: GlobalKind::Function {
+                        params: kept,
+                        body: Body { frame: next, expr },
+                    },
+                });
+                self.cx.inline.push(None);
+                self.cx.consts.push(None);
+                self.cx.natives.push(None);
+                self.cx.params.push(kept);
+                self.cx.copies.insert(key, id);
+                id
+            }
+        };
+        let rest = args
+            .iter()
+            .enumerate()
+            .filter(|(k, _)| !known.iter().any(|(j, _)| j == k))
+            .map(|(_, a)| a.clone())
+            .collect();
+        Some(Expr::Call(id, rest))
     }
 
     /// `body` (of a function or lambda) with its parameters bound to `args`
@@ -1011,7 +1221,8 @@ impl Simp<'_> {
             }
             Expr::Closure(l, caps)
                 if self.cx.lambdas[l.0 as usize].params as usize == args.len()
-                    && size(&self.cx.lambdas[l.0 as usize].body.expr) <= BETA_SIZE
+                    && size(&self.cx.lambdas[l.0 as usize].body.expr)
+                        <= if caps.is_empty() { COPY_SIZE } else { BETA_SIZE }
                     && self.fuel > 0
                     && self.depth < DEPTH =>
             {
@@ -1045,7 +1256,7 @@ impl Simp<'_> {
         }
         let rest = all.split_off(n);
         let call = match self.cx.natives[i] {
-            Some(op) => prim(op, all),
+            Some(op) => self.fold(prim(op, all)),
             None => self.call(g, all),
         };
         if rest.is_empty() {
@@ -1103,6 +1314,69 @@ impl Simp<'_> {
             .map(|i| std::mem::replace(&mut caps[*i], Expr::Erased))
             .collect();
         Expr::Closure(id, kept_caps)
+    }
+}
+
+/// `e` with each call of `g` that passes its own parameters `positions` on
+/// unchanged made a call of `copy` without them.
+fn redirect(e: &Expr, g: GlobalId, positions: &[usize], copy: GlobalId) -> Expr {
+    let all = |a: &[Expr]| -> Vec<Expr> { a.iter().map(|x| redirect(x, g, positions, copy)).collect() };
+    match e {
+        Expr::Call(h, a)
+            if *h == g
+                && positions
+                    .iter()
+                    .all(|p| matches!(a[*p], Expr::Local(s) if s as usize == *p)) =>
+        {
+            let rest: Vec<Expr> = a
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| !positions.contains(k))
+                .map(|(_, x)| redirect(x, g, positions, copy))
+                .collect();
+            Expr::Call(copy, rest)
+        }
+        Expr::Local(_)
+        | Expr::Captured(_)
+        | Expr::Global(_)
+        | Expr::Erased
+        | Expr::Lit(_)
+        | Expr::DoneK
+        | Expr::Unreachable => e.clone(),
+        Expr::Call(h, a) => Expr::Call(*h, all(a)),
+        Expr::Prim(op, a) => Expr::Prim(*op, all(a)),
+        Expr::PartialApp(h, a) => Expr::PartialApp(*h, all(a)),
+        Expr::Closure(l, a) => Expr::Closure(*l, all(a)),
+        Expr::Ctor(t, c, a) => Expr::Ctor(*t, *c, all(a)),
+        Expr::Apply(f, a) => Expr::Apply(Box::new(redirect(f, g, positions, copy)), all(a)),
+        Expr::Let(s, v, b) => Expr::Let(
+            *s,
+            Box::new(redirect(v, g, positions, copy)),
+            Box::new(redirect(b, g, positions, copy)),
+        ),
+        Expr::Match(x, k, arms) => Expr::Match(
+            Box::new(redirect(x, g, positions, copy)),
+            *k,
+            arms.iter()
+                .map(|arm| Arm {
+                    ctor: arm.ctor,
+                    fields: arm.fields.clone(),
+                    body: redirect(&arm.body, g, positions, copy),
+                })
+                .collect(),
+        ),
+        Expr::NumSwitch(x, arms, d) => Expr::NumSwitch(
+            Box::new(redirect(x, g, positions, copy)),
+            arms.iter()
+                .map(|(n, b)| (n.clone(), redirect(b, g, positions, copy)))
+                .collect(),
+            Box::new(redirect(d, g, positions, copy)),
+        ),
+        Expr::If(c, t, f) => Expr::If(
+            Box::new(redirect(c, g, positions, copy)),
+            Box::new(redirect(t, g, positions, copy)),
+            Box::new(redirect(f, g, positions, copy)),
+        ),
     }
 }
 

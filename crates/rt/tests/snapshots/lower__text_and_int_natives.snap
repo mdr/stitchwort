@@ -118,14 +118,7 @@ fn Main.signed.%match1(v0) {2 slots} =
 fn Main.main(v0) {6 slots} =
   let v1 = %TextSplit(MkChar(44), "12,-5,x")
   let v2 = {
-    let v2 = %TextJoin(MkChar(32), Std.List.map(λ3(v0) {3 slots} =>
-      %IntToText({
-        let v1 = %TextToInt(v0)
-        match v1: Option {
-          None => int(0)
-          Some(value: v2) => %IntAdd(%IntMul(v2, int(-3)), int(7))
-        }
-      }), v1))
+    let v2 = %TextJoin(MkChar(32), Std.List.map[0](v1))
     Call(L(%print(v2)), done-k)
   }
   let v3 = λ4(v0) {2 slots} =>
@@ -169,5 +162,17 @@ fn Main.main(v0) {6 slots} =
           Call(o: v2, rest: v3) =>
             Call(v2, λ0[c0 = v3, c1 = c1] (recursive))
         })
+  }
+fn Std.List.map[0](v0) {5 slots} =
+  match v0: List {
+    Nil => Nil
+    Cons(head: v1, tail: v2) =>
+      Cons(%IntToText({
+        let v3 = %TextToInt(v1)
+        match v3: Option {
+          None => int(0)
+          Some(value: v4) => %IntAdd(%IntMul(v4, int(-3)), int(7))
+        }
+      }), Std.List.map[0](v2))
   }
 entry {0 slots} = %Effect.lift(Main.main(UnitValue))

@@ -77,40 +77,20 @@ fn Main.chars(v0, v1) {3 slots} =
   })
 fn Main.texts(v0, v1) {2 slots} = %TextEqual(v0, v1)
 fn Main.main(v0) {1 slots} =
-  if {
-    if %Nat.equal(1, 2) then
-      if %IntEqual(int(3), int(-4)) then
-        if %Nat.equal(97, 98) then
-          %TextEqual("x", "y")
-        else
-          False
-      else
-        if %IntLess(int(3), int(-4)) then
-          if %Nat.equal(97, 98) then
-            %TextEqual("x", "y")
-          else
-            False
-        else
-          False
-    else
-      if %Nat.leq(%Nat.add(1, 1), 2) then
-        if %IntEqual(int(3), int(-4)) then
-          if %Nat.equal(97, 98) then
-            %TextEqual("x", "y")
-          else
-            False
-        else
-          if %IntLess(int(3), int(-4)) then
-            if %Nat.equal(97, 98) then
-              %TextEqual("x", "y")
-            else
-              False
-          else
-            False
-      else
-        False
-  } then
-    Call(L(%print("yes")), done-k)
-  else
+  if %IntEqual(int(3), int(-4)) then
     Done(UnitValue)
-entry {0 slots} = %Effect.lift(Main.main(UnitValue))
+  else
+    if %IntLess(int(3), int(-4)) then
+      Done(UnitValue)
+    else
+      Done(UnitValue)
+entry {0 slots} =
+  %Effect.lift({
+    if %IntEqual(int(3), int(-4)) then
+      Done(UnitValue)
+    else
+      if %IntLess(int(3), int(-4)) then
+        Done(UnitValue)
+      else
+        Done(UnitValue)
+  })
