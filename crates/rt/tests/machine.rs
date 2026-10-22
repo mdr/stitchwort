@@ -453,6 +453,38 @@ def main(): {IO} () :=
     );
 }
 
+/// The simplifier treats only a `Bool` as a truth value: `if c then x else
+/// y`, with `x` known to be `Some …` and `y` known to be `None` (the same
+/// tags as `True` and `False`), is not `c`.
+#[test]
+fn known_constructors_keep_their_type() {
+    let (out, result) = both_ways(
+        r#"
+import Std (Nat, Text, Option)
+
+def pick (c: Bool) (x: Option Nat) (y: Option Nat): Option Nat :=
+  match x with
+    | Some n =>
+      match y with
+        | None => if c then x else y
+        | Some m => None
+    | None => None
+
+def show (o: Option Nat): Text :=
+  match o with
+    | Some n => "Some " ++ Nat.toText n
+    | None => "None"
+
+def main(): {IO} () :=
+  IO.print (show (pick True (Some 3) None))
+  IO.print (show (pick False (Some 3) None))
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "Some 3\nNone\n");
+}
+
 /// `map` builds each new cell in the one it takes apart, when that one is
 /// uniquely owned: its code reuses the cell.
 #[test]

@@ -630,8 +630,8 @@ impl Packer {
 enum Known {
     /// It's this expression, free to copy: read it instead.
     Alias(Expr),
-    /// A constructor with these fields (trivial expressions).
-    Ctor(u32, Vec<Expr>),
+    /// A constructor of this type with these fields (trivial expressions).
+    Ctor(TypeId, u32, Vec<Expr>),
     /// The decision a `decEq` native makes on these arguments: its
     /// `Bool` version is this native.
     Decision(PrimOp, Vec<Expr>),
@@ -673,8 +673,9 @@ impl Simp<'_> {
         let bool_ = self.cx.types.bool_?;
         let tag = match e {
             Expr::Ctor(t, c, f) if *t == bool_ && f.is_empty() => *c,
+            // Only a `Bool`: another type's constructor can have the same tag.
             Expr::Local(s) => match self.env.get(s) {
-                Some(Known::Ctor(c, _)) => *c,
+                Some(Known::Ctor(t, c, _)) if *t == bool_ => *c,
                 _ => return None,
             },
             _ => return None,
@@ -685,8 +686,8 @@ impl Simp<'_> {
     /// Records what's known about `slot`, bound to `value`.
     fn learn(&mut self, slot: Slot, value: &Expr) {
         match value {
-            Expr::Ctor(_, c, fields) if fields.iter().all(trivial) => {
-                self.env.insert(slot, Known::Ctor(*c, fields.clone()));
+            Expr::Ctor(t, c, fields) if fields.iter().all(trivial) => {
+                self.env.insert(slot, Known::Ctor(*t, *c, fields.clone()));
             }
             Expr::Closure(_, caps) | Expr::PartialApp(_, caps) if caps.iter().all(trivial) => {
                 self.env.insert(slot, Known::Fun(value.clone()));
@@ -789,7 +790,7 @@ impl Simp<'_> {
                 .expect("one arm");
             let arm_body = std::mem::replace(&mut arms[at].body, Expr::Unreachable);
             let fields = self.complete_fields(t, &mut arms[at]);
-            let old = self.env.insert(s, Known::Ctor(arms[at].ctor, fields));
+            let old = self.env.insert(s, Known::Ctor(t, arms[at].ctor, fields));
             let body = self.let_with(slot, arm_body, simp_body);
             match old {
                 Some(o) => self.env.insert(s, o),
@@ -956,10 +957,10 @@ impl Simp<'_> {
         }
         let known = |s: &mut Self, b: bool, body: Expr| {
             if let Expr::Local(slot) = &c
-                && s.cx.types.bool_.is_some()
+                && let Some(bool_) = s.cx.types.bool_
             {
                 let tag = if b { s.cx.true_ } else { s.cx.false_ };
-                let old = s.env.insert(*slot, Known::Ctor(tag, Vec::new()));
+                let old = s.env.insert(*slot, Known::Ctor(bool_, tag, Vec::new()));
                 let out = s.simp(body);
                 match old {
                     Some(o) => s.env.insert(*slot, o),
@@ -982,8 +983,8 @@ impl Simp<'_> {
     fn match_(&mut self, x: Expr, k: MatchKind, arms: Vec<Arm>) -> Expr {
         // A known constructor takes its arm.
         let known: Option<(u32, Vec<Expr>)> = match (&x, k) {
-            (Expr::Local(s), MatchKind::Data(_)) => match self.env.get(s) {
-                Some(Known::Ctor(c, fields)) => Some((*c, fields.clone())),
+            (Expr::Local(s), MatchKind::Data(t)) => match self.env.get(s) {
+                Some(Known::Ctor(u, c, fields)) if *u == t => Some((*c, fields.clone())),
                 _ => None,
             },
             (Expr::Ctor(_, c, fields), MatchKind::Data(_)) => Some((*c, fields.clone())),
@@ -1061,7 +1062,7 @@ impl Simp<'_> {
                         fields.push(Expr::Local(slot));
                     }
                     arm.fields.sort_by_key(|(i, _)| *i);
-                    old = self.env.insert(*s, Known::Ctor(arm.ctor, fields));
+                    old = self.env.insert(*s, Known::Ctor(t, arm.ctor, fields));
                     learned = Some(*s);
                 }
                 let body = self.simp(arm.body);
