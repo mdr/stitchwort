@@ -3,6 +3,7 @@
 
 pub mod check_cache;
 pub mod driver;
+pub mod live;
 pub mod nav;
 pub mod project;
 pub mod render;
