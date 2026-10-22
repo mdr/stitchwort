@@ -44,7 +44,7 @@ fn example(name: &str) -> PathBuf {
 fn run(path: &Path, input: &[u8]) -> Output {
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+            .args(["run", "--no-cache"])
             .arg(path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -150,7 +150,7 @@ fn the_example_session() {
 fn the_prompt_appears_before_the_program_reads() {
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+            .args(["run", "--no-cache"])
             .arg(example("adder.sw"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -275,7 +275,7 @@ fn a_write_error_is_an_error() {
         let (reader, writer) = std::io::pipe().expect("a pipe");
         drop(reader);
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+            .args(["run", "--no-cache"])
             .arg(&path)
             .stdin(Stdio::null())
             .stdout(writer)
@@ -391,7 +391,7 @@ fn an_endless_partial_main_runs_until_stopped() {
     );
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+            .args(["run", "--no-cache"])
             .arg(&path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

@@ -9,6 +9,7 @@ publish.workspace = true
 stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 num-bigint.workspace = true
+blake3.workspace = true
 
 [lints]
 workspace = true

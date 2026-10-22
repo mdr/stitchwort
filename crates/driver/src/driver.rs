@@ -286,6 +286,14 @@ impl Session {
         Ok(session)
     }
 
+    /// Loads library files from, and keeps them in, the check cache in the
+    /// cache directory `dir` (docs/proposals/check-cache.md). Off unless
+    /// this is called: tests, snapshots and the benchmark never use it.
+    pub fn use_check_cache(&mut self, dir: &std::path::Path) {
+        self.elab
+            .set_check_cache(std::rc::Rc::new(crate::check_cache::CheckCache::at(dir)));
+    }
+
     /// Lets `include` read the files of a project: from `files`, where the
     /// project's files are found by their path in it.
     pub fn include_from(&mut self, files: std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>) {

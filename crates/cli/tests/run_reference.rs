@@ -24,7 +24,7 @@ fn examples() -> PathBuf {
 /// Runs `stitchwort run [--reference] args...` with `input` piped to it.
 fn run_args(args: &[&std::ffi::OsStr], reference: bool, input: &[u8]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.arg("run");
+    command.args(["run", "--no-cache"]);
     if reference {
         command.arg("--reference");
     }
@@ -226,7 +226,7 @@ fn type_errors_stop_it_before_running() {
 #[test]
 fn reference_and_js_conflict() {
     let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["run", "--reference", "--js"])
+        .args(["run", "--no-cache", "--reference", "--js"])
         .arg(examples().join("collatz.sw"))
         .output()
         .expect("run stitchwort");

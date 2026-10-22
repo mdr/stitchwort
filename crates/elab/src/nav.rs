@@ -28,24 +28,83 @@ use crate::{Elaborator, Global};
 #[derive(Default)]
 pub(crate) struct Recorder {
     /// A name resolved to a declaration, by the span of the name.
-    refs: HashMap<Span, Noted>,
+    pub(crate) refs: HashMap<Span, Noted>,
     /// The types of local variables where they're used, not yet printed
     /// (the metavariables in them are solved by the end of the
     /// declaration): the span, the type, and the names of the context.
-    pending: Vec<(Span, Value, Vec<Name>)>,
+    pub(crate) pending: Vec<(Span, Value, Vec<Name>)>,
     /// The printed types, by where the use starts.
-    local_types: HashMap<(FileId, u32), String>,
+    pub(crate) local_types: HashMap<(FileId, u32), String>,
     /// Local variables used, from the walk.
-    locals: Vec<LocalUse>,
+    pub(crate) locals: Vec<LocalUse>,
     /// Where local variables are bound (a binder refers to itself).
-    binders: Vec<LocalUse>,
+    pub(crate) binders: Vec<LocalUse>,
     /// The definitions of the files walked.
-    outline: Vec<OutlineItem>,
+    pub(crate) outline: Vec<OutlineItem>,
     /// Each record field's name, by its type's declaration and its name.
-    field_spans: HashMap<(Span, String), Span>,
+    pub(crate) field_spans: HashMap<(Span, String), Span>,
 }
 
 impl Recorder {
+    /// Everything recorded, in a canonical order: for the check cache's
+    /// differential test (`cache::dump`). (Not the index made from it,
+    /// whose symbols for two references to one span depend on a hash
+    /// map's order.)
+    pub(crate) fn dump(&self, out: &mut String) {
+        let span = |s: Span| format!("@{}:{}-{}", s.file.index(), s.start, s.end);
+        let mut lines: Vec<String> = self
+            .refs
+            .iter()
+            .map(|(at, n)| {
+                format!(
+                    "nav ref {} {} {} {:?} {:?}",
+                    span(*at),
+                    n.key,
+                    span(n.target),
+                    n.global,
+                    n.dot
+                )
+            })
+            .collect();
+        lines.extend(
+            self.local_types
+                .iter()
+                .map(|((file, at), ty)| format!("nav type @{}:{at} {ty}", file.index())),
+        );
+        for (what, uses) in [("local", &self.locals), ("binder", &self.binders)] {
+            lines.extend(uses.iter().enumerate().map(|(i, u)| {
+                format!(
+                    "nav {what} {i} {} {} {}",
+                    span(u.span),
+                    u.name,
+                    span(u.binder)
+                )
+            }));
+        }
+        lines.extend(self.outline.iter().enumerate().map(|(i, o)| {
+            format!(
+                "nav outline {i} {} {} {} {} {} {:?}",
+                o.name,
+                o.key,
+                o.kind,
+                span(o.span),
+                span(o.range),
+                o.container
+            )
+        }));
+        lines.extend(
+            self.field_spans
+                .iter()
+                .map(|((at, name), s)| format!("nav field {} {name} {}", span(*at), span(*s))),
+        );
+        lines.push(format!("nav pending {}", self.pending.len()));
+        lines.sort();
+        for line in lines {
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
+
     /// A local variable bound at `span`.
     fn note_binder(&mut self, name: &str, span: Span) {
         if name != "_" && !name.starts_with('%') {
@@ -58,25 +117,25 @@ impl Recorder {
     }
 }
 
-struct Noted {
-    key: String,
+pub(crate) struct Noted {
+    pub(crate) key: String,
     /// The name of the declaration.
-    target: Span,
-    global: Global,
+    pub(crate) target: Span,
+    pub(crate) global: Global,
     /// The reference is the last component of a dotted written name.
-    dot: Option<String>,
+    pub(crate) dot: Option<String>,
 }
 
-struct LocalUse {
-    span: Span,
-    name: String,
-    binder: Span,
+pub(crate) struct LocalUse {
+    pub(crate) span: Span,
+    pub(crate) name: String,
+    pub(crate) binder: Span,
 }
 
-struct OutlineItem {
+pub(crate) struct OutlineItem {
     /// The full name as the index shows it (`Main.` for a file with no
     /// namespace line, as for a project's namespaces).
-    name: String,
+    pub(crate) name: String,
     /// The name the scope binds it by.
     key: String,
     kind: &'static str,
@@ -144,7 +203,7 @@ impl Elaborator {
         self.nav = Some(RefCell::new(Recorder::default()));
     }
 
-    fn note(&self, at: Span, noted: Noted) {
+    pub(crate) fn note(&self, at: Span, noted: Noted) {
         if let Some(nav) = &self.nav {
             nav.borrow_mut().refs.insert(at, noted);
         }
