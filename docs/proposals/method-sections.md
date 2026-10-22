@@ -368,6 +368,20 @@ there's more demand.
   revisit if later AoC days collect many `c => c == x` lambdas, starting with
   Haskell-style operator sections. [Recommend: defer]
 
+## As built (SW-266)
+
+D505 (the `_.name` error now says to write `.name`) and D506 are built. The
+rule lives in `section_partial` (`crates/elab/src/dot.rs`), called from the
+lambda case of `check` (`crates/elab/src/check.rs`): for a section `.f a…`
+checked against `A -> B` with `A`'s namespace known, if the receiver's place
+in `T.f` is its last explicit parameter and exactly the written arguments come
+before it, the section is `apply_args (T.f) [a…]`, then the trailing implicit
+arguments, compared with the expected type. Any failure restores the context
+and the section is elaborated as the lambda, as before. Chains, named
+arguments, and a receiver that isn't last stay lambdas. Day 4's
+`next.any .snd` now checks with `Proofs/Part2.sw` unchanged. Examples:
+`examples/accept/method-section-partial.sw`, `examples/reject/section-underscore.sw`.
+
 ## Sources
 
 - [Scala 2.13 spec, 6.23 Placeholder Syntax for Anonymous Functions](https://scala-lang.org/files/archive/spec/2.13/06-expressions.html#placeholder-syntax-for-anonymous-functions)

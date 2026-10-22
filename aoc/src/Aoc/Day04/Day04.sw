@@ -112,5 +112,5 @@ def settleMarked (grid: Marked w h): Nat -> Marked w h
   | Zero   => grid
   | Succ n =>
     let next := sweep grid
-    if next.any Pair.snd then settleMarked next n else next
+    if next.any .snd then settleMarked next n else next
 

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CANNOT-INFER] Error: can't tell what the value is, so can't look up `.isZero`
+   ╭─[ reject/section-underscore.sw:6:43 ]
+   │
+ 6 │ def f (xs: List Nat): Nat := xs |> .count _.isZero
+   │                                           ────┬───  
+   │                                               ╰───── `_` is a hole for the compiler to fill in, not a parameter
+   │ 
+   │ Note: to pass the function `x => x.isZero`, write the method section `.isZero`, as in `xs.map .isZero`
+───╯

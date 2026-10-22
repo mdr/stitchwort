@@ -1417,6 +1417,11 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             _,
         ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
+            if expr.section_name().is_some()
+                && let Some(term) = crate::dot::section_partial(cx, expr, dom, &expected)?
+            {
+                return Ok(term);
+            }
             let shadowed = lambda_shadow(cx, names, *span)?;
             let (first, rest) = names.split_first().expect("lambdas have parameters");
             let mark = cx.mark();
