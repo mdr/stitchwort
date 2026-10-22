@@ -5117,16 +5117,18 @@
     {
       "id": 327,
       "title": "Survey: practical languages with proofs about programs; features to adopt in Stitchwort",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "research lane (note, stop for review)",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/comparisons/practical-proof-languages.md; D570-D573",
       "labels": [
         "design"
       ],
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "4871bc29"
+      ]
     },
     {
       "id": 328,
