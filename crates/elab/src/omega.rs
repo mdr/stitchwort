@@ -975,7 +975,8 @@ fn linear(cx: &mut Ctx, lib: &Lib, goal: Goal, expected: &Value, extra: &[Extra]
                 certs.push(cert);
             }
             Err(failure) => {
-                return Err(failed(cx, &shown, &quoted, &quoter, &reader.skipped, &failure, span));
+                let what = if neg.is_some() { "the facts and the goal's negation" } else { "the facts" };
+                return Err(failed(cx, &shown, what, &quoted, &quoter, &reader.skipped, &failure, span));
             }
         }
     }
@@ -1047,6 +1048,7 @@ fn show_fact(cx: &Ctx, quoter: &Quoter, q: &Quoted) -> String {
 fn failed(
     cx: &Ctx,
     shown: &str,
+    what: &str,
     quoted: &[Quoted],
     quoter: &Quoter,
     skipped: &[String],
@@ -1063,9 +1065,9 @@ fn failed(
             .join(", ")
     };
     let label = match failure {
-        Failure::Integer(_) => "an integer model of the arithmetic abstraction satisfies the facts and the goal's negation",
-        Failure::Rational(_) => "a rational model of the relaxation satisfies the facts and the goal's negation",
-        Failure::Budget => "budget exhausted: the search stopped before finishing",
+        Failure::Integer(_) => format!("an integer model of the arithmetic abstraction satisfies {what}"),
+        Failure::Rational(_) => format!("a rational model of the relaxation satisfies {what}"),
+        Failure::Budget => "budget exhausted: the search stopped before finishing".to_string(),
     };
     let mut d = Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{shown}`")).with_label(span, label);
     let facts: Vec<String> = quoted
@@ -1086,7 +1088,7 @@ fn failed(
             "an integer model of the arithmetic abstraction (it may not be a real counterexample): {}",
             model(values)
         )),
-        Failure::Integer(_) => d.with_note("an integer model of the arithmetic abstraction: the facts and the goal's negation hold with no atoms at all"),
+        Failure::Integer(_) => d.with_note(format!("an integer model of the arithmetic abstraction: {what} hold with no atoms at all")),
         Failure::Rational(values) => d.with_note(format!(
             "a rational model of the relaxation (not a counterexample: whole numbers may still rule it out, but the search's case splits didn't): {}",
             model(values)
