@@ -1,5 +1,5 @@
 {
-  "next": 258,
+  "next": 259,
   "tickets": [
     {
       "id": 1,
@@ -3884,6 +3884,20 @@
         "perf"
       ],
       "body": "After SW-256 (calc fix) merges. docs/proposals/folded-calls.md. Kernel checking unchanged (D483); rewrite/decision search keep seeing the unfolded goal, messages show the folded one (D484). Fresh lane per stage.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 258,
+      "title": "AoC Day 1 on Std.Mod: Dial becomes Mod 100 (D318, D490)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D490 (Matt): try it; if the proofs grow, don't drop the port silently — keep the branch and report the numbers so Matt can decide.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
