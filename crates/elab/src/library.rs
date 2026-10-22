@@ -41,7 +41,12 @@ use crate::{Elaborator, Global, PRELUDE};
 /// checks this lists every `.sw` file under `std/`.
 pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Abort/Abort.sw", include_str!("std/Abort/Abort.sw")),
+    (
+        "Decidable/Decidable.sw",
+        include_str!("std/Decidable/Decidable.sw"),
+    ),
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
+    ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
     ("List/Index.sw", include_str!("std/List/Index.sw")),
     ("List/Sort.sw", include_str!("std/List/Sort.sw")),
@@ -51,7 +56,10 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Nat/Arith.sw", include_str!("std/Nat/Arith.sw")),
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),
+    ("Option/Option.sw", include_str!("std/Option/Option.sw")),
+    ("Ord/Ord.sw", include_str!("std/Ord/Ord.sw")),
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),
+    ("Text/Basics.sw", include_str!("std/Text/Basics.sw")),
     ("Text/Text.sw", include_str!("std/Text/Text.sw")),
     ("Vec/Vec.sw", include_str!("std/Vec/Vec.sw")),
 ];
@@ -715,6 +723,11 @@ impl Elaborator {
             self.cache_after(f, before, ok, unit, key);
         }
         if !ok {
+            // Running out of resources isn't a bug in the file: it's the
+            // answer for the program that needed it, as for the core.
+            if diagnostics.iter().any(|d| d.code == "E-RESOURCE") {
+                return Err(diagnostics);
+            }
             let mut all = vec![internal(format!("the library file `{name}` doesn't check"))];
             all.extend(diagnostics);
             return Err(all);

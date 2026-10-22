@@ -422,11 +422,6 @@ const $Std$dDecidable$dtoBool = (v1) => {
 };
 const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dText$dappend = (a) => (b) => a + b;
-const $Std$dText$djoin = (s) => (ts) => {
-  const parts = [];
-  for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
-  return parts.join(encodeChar(s));
-};
 const $Std$dList$dmap = (v2) => (v3) => {
   switch (v3.tag) {
     case "Nil": {
@@ -439,6 +434,11 @@ const $Std$dList$dmap = (v2) => (v3) => {
     }
   }
   throw new Error("unreachable");
+};
+const $Std$dText$djoin = (s) => (ts) => {
+  const parts = [];
+  for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
+  return parts.join(encodeChar(s));
 };
 const $Main$dPretty$d$gpretty = (v1) => {
   const v2 = v1.pretty;

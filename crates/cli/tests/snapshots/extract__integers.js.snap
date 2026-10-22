@@ -453,6 +453,28 @@ const $Std$dDecidable$dnot = (v1) => {
 };
 const $Std$dText$dappend = (a) => (b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
+const $Std$dInt$dneg = (a) => -a;
+const $Std$dInt$dadd = (a) => (b) => a + b;
+const $Std$dInt$dsub = (a) => (b) => a - b;
+const $Std$dInt$dmul = (a) => (b) => a * b;
+const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
+const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
+const $Std$dInt$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dInt$dleq = (a) => (b) => ({ tag: a <= b ? "True" : "False" });
+const $Std$dInt$dless = (a) => (b) => ({ tag: a < b ? "True" : "False" });
+const $Std$dInt$dcompare = (a) => (b) => ({ tag: a < b ? "Less" : a === b ? "Equal" : "Greater" });
+const $Std$dInt$dtoText = (a) => a.toString();
+const $Std$dInt$ddiv = (a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
+const $Std$dInt$dmod = (a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
+const $Std$dNat$dtoInt = (n) => n;
+const $Std$dInt$dabs = (a) => (a < 0n ? -a : a);
+const $Std$dInt$dtoNatChecked = (a) => (a < 0n ? { tag: "None" } : { tag: "Some", value: a });
+const $Std$dInt$dsign = (a) => (a > 0n ? 1n : a < 0n ? -1n : 0n);
+const $Std$dInt$dmodNat = (a) => (d) => { const r = a % d; return r < 0n ? r + d : r; };
+const $Std$dInt$dtdiv = (a) => (d) => a / d;
+const $Std$dInt$dtmod = (a) => (d) => a % d;
+const $Std$dInt$dfdiv = (a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
+const $Std$dInt$dfmod = (a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
 const $Std$dOption$dmap = (v2) => (v3) => {
   switch (v3.tag) {
     case "None": {
@@ -465,38 +487,6 @@ const $Std$dOption$dmap = (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dtoInt = (n) => n;
-const $Std$dInt$dneg = (a) => -a;
-const $Std$dInt$dadd = (a) => (b) => a + b;
-const $Std$dInt$dsub = (a) => (b) => a - b;
-const $Std$dInt$dmul = (a) => (b) => a * b;
-const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
-const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
-const $Std$dInt$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
-const $Std$dInt$dleq = (a) => (b) => ({ tag: a <= b ? "True" : "False" });
-const $Std$dInt$dless = (a) => (b) => ({ tag: a < b ? "True" : "False" });
-const $Std$dInt$dcompare = (a) => (b) => ({ tag: a < b ? "Less" : a === b ? "Equal" : "Greater" });
-const $Std$dInt$dabs = (a) => (a < 0n ? -a : a);
-const $Std$dInt$dtoNatChecked = (a) => (a < 0n ? { tag: "None" } : { tag: "Some", value: a });
-const $Std$dInt$dsign = (a) => (a > 0n ? 1n : a < 0n ? -1n : 0n);
-const $Std$dInt$dtoText = (a) => a.toString();
-const $Std$dText$dtoInt = (t) => {
-  const s = t.charCodeAt(0) === 45 ? t.slice(1) : t;
-  if (s === "") return { tag: "None" };
-  for (let i = 0; i < s.length; i++) {
-    const unit = s.charCodeAt(i);
-    if (unit < 48 || unit > 57) return { tag: "None" };
-  }
-  const n = BigInt(s);
-  return { tag: "Some", value: s === t ? n : -n };
-};
-const $Std$dInt$ddiv = (a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
-const $Std$dInt$dmod = (a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
-const $Std$dInt$dmodNat = (a) => (d) => { const r = a % d; return r < 0n ? r + d : r; };
-const $Std$dInt$dtdiv = (a) => (d) => a / d;
-const $Std$dInt$dtmod = (a) => (d) => a % d;
-const $Std$dInt$dfdiv = (a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
-const $Std$dInt$dfmod = (a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
 const $Std$dList$dmap = (v2) => (v3) => {
   switch (v3.tag) {
     case "Nil": {
@@ -509,6 +499,16 @@ const $Std$dList$dmap = (v2) => (v3) => {
     }
   }
   throw new Error("unreachable");
+};
+const $Std$dText$dtoInt = (t) => {
+  const s = t.charCodeAt(0) === 45 ? t.slice(1) : t;
+  if (s === "") return { tag: "None" };
+  for (let i = 0; i < s.length; i++) {
+    const unit = s.charCodeAt(i);
+    if (unit < 48 || unit > 57) return { tag: "None" };
+  }
+  const n = BigInt(s);
+  return { tag: "Some", value: s === t ? n : -n };
 };
 const $Main$ddial = (v0) => $Std$dInt$dmod(v0)(100n);
 const $Main$ddivide = (v0) => (v1) => ({ tag: "Cons", head: $Std$dInt$ddiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dmod(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dtdiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dtmod(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dfdiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dfmod(v0)(v1), tail: { tag: "Nil" } } } } } } });

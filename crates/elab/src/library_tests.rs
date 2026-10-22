@@ -141,6 +141,9 @@ fn core_closure(index: &LibraryIndex, units: &[Unit]) -> BTreeSet<usize> {
         .collect();
     let mut roots: BTreeSet<usize> = BTreeSet::new();
     for b in Builtin::ALL {
+        if b.home() == stitchwort_core::registry::Home::Library {
+            continue;
+        }
         let name = match b.kind() {
             Kind::Ctor(parent) => parent.name(),
             _ => b.name(),
@@ -152,6 +155,30 @@ fn core_closure(index: &LibraryIndex, units: &[Unit]) -> BTreeSet<usize> {
         roots.insert(*unit);
     }
     roots.extend(decidable_procedures(index, 0, units));
+    // Every instance stays with its laws (D170), and so does each name
+    // generated code writes in full (`PRELUDE_ROOTS`: a file of keys, one
+    // per line).
+    for (decl, _) in grouped(&index.files[0].module.decls) {
+        if let Decl::Signature {
+            name,
+            instance: true,
+            ..
+        } = decl
+            && let Some(&u) = by_key.get(format!("Std.{}", name.text).as_str())
+        {
+            roots.insert(u);
+        }
+    }
+    if let Ok(path) = std::env::var("PRELUDE_ROOTS") {
+        for key in std::fs::read_to_string(path)
+            .expect("the roots file")
+            .lines()
+        {
+            if let Some(&u) = by_key.get(key.trim()) {
+                roots.insert(u);
+            }
+        }
+    }
     let mut closure = BTreeSet::new();
     let mut stack: Vec<usize> = roots.into_iter().collect();
     while let Some(u) = stack.pop() {

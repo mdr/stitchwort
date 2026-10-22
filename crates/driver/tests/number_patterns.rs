@@ -778,7 +778,8 @@ fn every_number_case_in_the_examples_has_an_expansion_that_checks() {
         let mut expanded = 0;
         for name in ["number-patterns.sw", "nested-patterns.sw"] {
             let text = std::fs::read_to_string(root.join(name)).unwrap();
-            let mut session = session_with(&text);
+            let mut session = Session::eager();
+            load(&mut session, &text);
             let g = &mut session.elab.globals;
             for i in 0..g.defs.len() {
                 let id = DefId(i);

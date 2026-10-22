@@ -678,6 +678,13 @@ the file being loaded, as the index's edges already did. `std/core.sw` is 1,085 
 timings (median of three): `stitchwort check` of `def z: Nat := 0`, 0.04 s (before, about
 0.12 s); `aoc`, 4.01 s (before, about 3.8 s).
 
+**Trimming the core further (22 October 2026, SW-241, prelude-slim.md stage 3).** Eighteen
+more natives and some helpers and lemmas became library files: `Text/Basics.sw` (`Text.length`,
+`trim`, `split`, `join`, `toNat`, `toInt`, …), `Int/Basics.sw` (`Int.tdiv`, `fdiv`, `modNat`,
+`abs`, `Nat.toInt`, …), `Option/Option.sw`, `Ord/Ord.sw` (`Ord.max`, `min`, `byKey`) and
+`Decidable/Decidable.sw`. `std/core.sw` is 1,806 lines. Details and what stayed are in
+prelude-slim.md, "As built (stage 3)".
+
 ## As built: stage 2 (compiler part, 20 October 2026, SW-165)
 
 **Code.** `crates/elab/src/scope.rs` (`Elaborator::library_namespace`, the note in `unknown`

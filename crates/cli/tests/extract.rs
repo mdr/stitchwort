@@ -1701,7 +1701,7 @@ fn awkward_names_never_collide() {
 /// changed definition, then update its hash in `TEXT_NATIVES`.
 #[test]
 fn text_natives_are_bound_to_the_prelude() {
-    let session = Session::new();
+    let session = Session::eager();
     let bindings = stitchwort_js::bind_text_natives(&session.elab.globals).expect("hashes");
     let unbound: Vec<String> = bindings
         .iter()
@@ -1721,7 +1721,7 @@ fn text_natives_are_bound_to_the_prelude() {
 /// changed declaration before updating them in `crates/js`.
 #[test]
 fn int_is_bound_to_the_prelude() {
-    let session = Session::new();
+    let session = Session::eager();
     let binding = stitchwort_js::bind_int(&session.elab.globals).expect("hashes");
     let mut unbound: Vec<String> = binding
         .natives

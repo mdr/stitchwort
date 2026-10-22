@@ -1,5 +1,5 @@
--- `Int` arithmetic for programs: the arithmetic and division laws, and
--- `Int.modNat`, proved from the core's definitions. This file was the
+-- `Int` arithmetic for programs: the arithmetic and division laws, proved from
+-- the core's definitions and `Int/Basics.sw`'s. This file was the
 -- prelude's blocks of `Int` lemmas after the core's `Int`. (The sum of a list
 -- of `Int`s is the generic `List.sum`.)
 
