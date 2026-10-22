@@ -39,7 +39,7 @@ theorem disjointHeads (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (ys: List (List Hi
 
 -- The timelines of the two sides of a split.
 theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hit)) (ys: List (List Hit))
-    (dx: List.Distinct xs) (dy: List.Distinct ys):
+    (dx: xs.Distinct) (dy: ys.Distinct):
     List.Distinct (List.append (List.map (Cons h1) xs) (List.map (Cons h2) ys)) :=
   List.distinctAppend (List.map (Cons h1) xs) (List.map (Cons h2) ys)
     (List.distinctMap (Cons h1) (consInjective h1) xs dx)
