@@ -37,10 +37,10 @@ def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumRepeated)
 
 -- An invalid id's digits are a block written several times: its shape is the
 -- block's length and the number of copies. 1212 has shape 2 × 2.
-type Shape = { blockLength: Nat, copies: Nat }
+type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
 -- Every shape of two or more copies that fits in the digits of the range's end.
-def shapes (range: Range): List Shape :=
+def shapes (range: Range): List RepetitionTemplate :=
   let digits := (Nat.digits range.to).length
   List.between 1 digits |> .flatMap (blockLength =>
     let fittingCopies := List.between 2 digits |> .filter (copies => blockLength * copies <= digits)
@@ -75,7 +75,7 @@ def copiesWeight (copies: Nat): Int
 
 -- The sum of the ids in the range whose digits are a block of the shape's
 -- length written the shape's number of copies.
-def sumWithShape (range: Range) (shape: Shape): Nat :=
+def sumWithShape (range: Range) (shape: RepetitionTemplate): Nat :=
   -- The multiplier: 12 written 3 times is 12 * 10101, and 10101 is
   -- 1 + 10^2 + 10^4. Every such id is a block times the multiplier.
   let multiplier := List.range shape.copies |> .sumBy (i => Nat.pow 10 (shape.blockLength * i))
