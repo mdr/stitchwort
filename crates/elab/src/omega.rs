@@ -76,6 +76,7 @@ const LIBRARY: &[&str] = &[
     "Std.Bool.andLeft",
     "Std.Bool.andRight",
     "Std.Bool.andIntro",
+    "Std.Bool.falseOfNotTrue",
     "Std.Decidable.toBoolSound",
     "Std.Decidable.toBoolFalse",
     "Std.Decidable.toBoolOf",
@@ -138,6 +139,7 @@ struct Lib {
     and_left: DefId,
     and_right: DefId,
     and_intro: DefId,
+    false_of_not_true: DefId,
     to_bool_sound: DefId,
     to_bool_false: DefId,
     to_bool_of: DefId,
@@ -213,6 +215,7 @@ impl Lib {
             and_left: def("Std.Bool.andLeft")?,
             and_right: def("Std.Bool.andRight")?,
             and_intro: def("Std.Bool.andIntro")?,
+            false_of_not_true: def("Std.Bool.falseOfNotTrue")?,
             to_bool_sound: def("Std.Decidable.toBoolSound")?,
             to_bool_false: def("Std.Decidable.toBoolFalse")?,
             to_bool_of: def("Std.Decidable.toBoolOf")?,
@@ -594,8 +597,15 @@ impl Reader<'_> {
                 let p = force(cx.g(), p)?;
                 match &p {
                     Value::Eq(ty, l, r) if is_data(cx, ty, lib.bool)? && is_ctor(cx, r, lib.tru)? => {
-                        if let Some(BoolForm::Leq(x, y)) = bool_form(cx, lib, l)? {
-                            self.facts.push(fact(Kind::NotLe, &x, &y));
+                        match bool_form(cx, lib, l)? {
+                            Some(BoolForm::Leq(x, y)) => self.facts.push(fact(Kind::NotLe, &x, &y)),
+                            // `Not (Decidable.toBool d = True)`: `= False` first.
+                            Some(BoolForm::ToBool(..)) => {
+                                let args = [both(cx, l)?, (proof.clone(), prop.clone())];
+                                let (f, ty) = lemma(cx, lib.false_of_not_true, &args)?;
+                                self.read(cx, f, &ty, origin, depth + 1)?;
+                            }
+                            _ => {}
                         }
                     }
                     Value::Eq(ty, _, _) if is_data(cx, ty, lib.nat)? => {
