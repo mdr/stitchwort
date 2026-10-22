@@ -1990,6 +1990,54 @@ console.log("ok");
     );
 }
 
+/// SW-335: `==` on `Text` inside a lambda argument that is checked after the
+/// later arguments (its parameter's type isn't known until `xs` is) used to
+/// be written out as `Text.decEqFrom … (List.decEq … (Text.toList a) …)`,
+/// comparing character lists, instead of the call of `Text.decEq`, which is
+/// native in generated code.
+#[test]
+fn an_inlined_text_comparison_calls_the_native() {
+    let source = "import Std (Eq, List, Option, Text)\n\n\
+        type Item = { id: Text, n: Nat }\n\n\
+        export def countWith (xs: List Item) (target: Text): Nat :=\n  \
+        List.length (List.filter (r => r.id == target) xs)\n\n\
+        export def findWith (xs: List Item) (target: Text): Nat :=\n  \
+        Option.getOrElse 0 (Option.map (r => r.n) (List.find (r => r.id == target) xs))\n";
+    let mut session = Session::new();
+    if let Err(errors) = session.load("compare.sw", source) {
+        panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
+    }
+    let g = &session.elab.globals;
+    let js = stitchwort_js::generate(g, Limits::default())
+        .expect("extraction succeeds")
+        .js;
+    for name in ["countWith", "findWith"] {
+        let line = js
+            .lines()
+            .find(|l| l.starts_with(&format!("const $Main$d{name} =")))
+            .unwrap_or_else(|| panic!("no definition of {name}"));
+        assert!(line.contains("$Std$dText$ddecEq("), "{line}");
+        assert!(
+            !line.contains("decEqFrom")
+                && !line.contains("List$ddecEq")
+                && !line.contains("toList")
+                && !line.contains("charsOfText"),
+            "{name} compares characters: {line}"
+        );
+    }
+    let script = r#"
+import * as m from "./compare.mjs";
+import assert from "node:assert/strict";
+const xs = [{ id: "a", n: 1n }, { id: "b", n: 2n }, { id: "b", n: 3n }];
+assert.equal(m.countWith(xs, "b"), 2n);
+assert.equal(m.countWith(xs, "c"), 0n);
+assert.equal(m.findWith(xs, "a"), 1n);
+assert.equal(m.findWith(xs, "z"), 0n);
+console.log("ok");
+"#;
+    run_script_on("compare", &[("compare.mjs", js)], script);
+}
+
 /// Every native integer operation, and the same operations compiled from
 /// their definitions (`DATA_INT`), must agree with each other and with
 /// `BigInt` arithmetic written out here, on all small pairs, values around

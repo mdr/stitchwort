@@ -1016,8 +1016,12 @@ fn apply_args_postponing(
                 let meta = cx.fresh_meta();
                 let placeholder = cx.eval(&meta)?;
                 ty = cod.apply(cx.g(), placeholder.clone())?;
+                let id = match meta.spine().0 {
+                    Term::Meta(m) => *m,
+                    _ => unreachable!("a fresh metavariable is headed by one"),
+                };
                 term = Term::app(term, meta);
-                postponed.push((*value, dom, placeholder));
+                postponed.push((*value, dom, placeholder, id));
             }
             Arg::Named(name, value) => {
                 (term, ty) = insert_until(cx, term, ty, name, supply)?;
@@ -1046,15 +1050,37 @@ fn apply_args_postponing(
             }
         }
     }
-    for (value, dom, placeholder) in postponed {
+    for (value, dom, placeholder, id) in postponed {
         let checked = check(cx, value, &dom)?;
-        let checked = cx.eval(&checked)?;
-        if !cx.unify(&checked, &placeholder)? {
-            return Err(cx.mismatch(&placeholder, &checked));
+        let evaluated = cx.eval(&checked)?;
+        if !cx.unify(&evaluated, &placeholder)? {
+            return Err(cx.mismatch(&placeholder, &evaluated));
         }
+        // The types see the placeholder's solution, a value; the term gets
+        // the lambda as it was checked. Reading the value back would write
+        // out what its calls unfold to (`r.id == target` on `Text`, with
+        // `r`'s type unknown until now, as `Text.decEqFrom … (List.decEq …)`
+        // instead of the call `Text.decEq`, which extraction runs natively).
+        term = fill_placeholder(&term, id, &checked).unwrap_or(term);
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
+}
+
+/// `term`, an application, with its argument that is the metavariable `id`
+/// (applied to the variables in scope) replaced by `with`; `None` if it has
+/// no such argument.
+fn fill_placeholder(term: &Term, id: usize, with: &Term) -> Option<Term> {
+    match term {
+        Term::Loc(span, t) => fill_placeholder(t, id, with).map(|t| Term::Loc(*span, Rc::new(t))),
+        Term::App(f, a, icit) => {
+            if matches!(a.strip_loc().spine().0, Term::Meta(m) if *m == id) {
+                return Some(Term::App(f.clone(), Rc::new(with.clone()), *icit));
+            }
+            fill_placeholder(f, id, with).map(|f| Term::App(Rc::new(f), a.clone(), *icit))
+        }
+        _ => None,
+    }
 }
 
 /// The unknowns an application `term` has as `auto` arguments: its own
