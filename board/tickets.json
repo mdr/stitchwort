@@ -1,5 +1,5 @@
 {
-  "next": 260,
+  "next": 261,
   "tickets": [
     {
       "id": 1,
@@ -3924,6 +3924,20 @@
         "syntax"
       ],
       "body": "\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-a7cd7f71b7e10175a (branch worktree-agent-a7cd7f71b7e10175a, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 260,
+      "title": "Split core.sw into a core/ folder of small files, all loaded up front; names and namespaces unchanged (D493)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
