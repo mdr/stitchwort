@@ -2679,15 +2679,15 @@
     {
       "id": 173,
       "title": "Host the playground publicly on GitHub Pages (D118)",
-      "status": "backlog",
-      "agent": "",
-      "where": "docs/proposals/playground-projects.md §10",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (D533): workflow + content-hash caching, no push",
       "labels": [
         "web"
       ],
       "body": "D118 (Matt, 20 Oct 2026): yes, host the playground publicly on GitHub Pages, but not until Stitchwort is further along. Plan per docs/proposals/playground-projects.md §10: replace the `?load=${Date.now()}` cache-busting (web/index.html:667) with a content hash (pkg/version.json), check `.wasm` compression on the real site, publish the `nix build .#playground` output, decide on loading the font from Google. Designs stay static-only.\n\nDone when: the playground is served from GitHub Pages from the nix build output and a load after a deploy gets the new files (and a repeat load uses the cache).\n\nHistory: D118.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
