@@ -1,5 +1,5 @@
 {
-  "next": 298,
+  "next": 299,
   "tickets": [
     {
       "id": 1,
@@ -4553,6 +4553,21 @@
       "labels": [
         "lsp",
         "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 298,
+      "title": "Exploratory testing: code navigation + expression type hints (VS Code LSP and playground)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "test session, report only",
+      "labels": [
+        "lsp",
+        "playground"
       ],
       "body": "",
       "created": "2026-10-22",
