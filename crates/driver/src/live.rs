@@ -337,6 +337,8 @@ pub struct LiveProject {
     /// later answers leave them out, which halves their cost.
     library_answered: bool,
     parsed: BTreeMap<String, ParsedFile>,
+    /// Whether the files were read again since [`LiveProject::take_outlines`].
+    outlines_stale: bool,
 }
 
 impl LiveProject {
@@ -375,6 +377,7 @@ impl LiveProject {
             scratch: SourceMap::new(),
             library_answered: false,
             parsed: BTreeMap::new(),
+            outlines_stale: true,
         }
     }
 
@@ -493,6 +496,21 @@ impl LiveProject {
         answers_from(&index, &wanted, "stitchwort.yaml")
     }
 
+    /// The outline of every file of the project, read from its syntax alone
+    /// (so it covers namespaces not checked yet), if the files were read
+    /// again since the last call. Files without a namespace line have none.
+    pub fn take_outlines(&mut self) -> Option<BTreeMap<String, Vec<OutlineItem>>> {
+        if !std::mem::take(&mut self.outlines_stale) {
+            return None;
+        }
+        Some(
+            self.parsed
+                .iter()
+                .map(|(path, file)| (path.clone(), syntactic_outline(file)))
+                .collect(),
+        )
+    }
+
     /// The namespace of the file being edited.
     fn focus_namespace(&self) -> Option<String> {
         let focus = self.focus.as_ref()?;
@@ -506,6 +524,7 @@ impl LiveProject {
     fn make_plan(&mut self) {
         self.dirty = false;
         self.parse_scratch();
+        self.outlines_stale = true;
         let mut namespace_files: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
         for (path, parsed) in &self.parsed {
             let name = if parsed.errors.is_empty() {
@@ -816,4 +835,133 @@ impl LiveFile {
         let wanted = BTreeSet::from([self.name.clone()]);
         answers_from(&index, &wanted, &self.name)
     }
+}
+
+// ---- outlines from syntax alone -------------------------------------------
+
+/// `[line, UTF-16 column, line, column]` of the byte offsets `start` and
+/// `end` in `text`.
+fn lsp_range(text: &str, start: usize, end: usize) -> Range {
+    let position = |offset: usize| {
+        let mut offset = offset.min(text.len());
+        while !text.is_char_boundary(offset) {
+            offset -= 1;
+        }
+        let before = &text[..offset];
+        let line = before.matches('\n').count();
+        let from = before.rfind('\n').map_or(0, |i| i + 1);
+        (line as u32, before[from..].encode_utf16().count() as u32)
+    };
+    let (l1, c1) = position(start);
+    let (l2, c2) = position(end);
+    [l1, c1, l2, c2]
+}
+
+/// The outline of a parsed file, read from its syntax alone: the
+/// declarations as written (not the generated ones), named as the checked
+/// outline names them. It exists before the file is checked, which lets a
+/// workspace search cover the namespaces the checker hasn't reached yet.
+fn syntactic_outline(file: &ParsedFile) -> Vec<OutlineItem> {
+    use stitchwort_syntax::ast::{Decl, Name};
+    let Some(namespace) = &file.module.namespace else {
+        return Vec::new();
+    };
+    let prefix = format!("{}.", namespace.path.text);
+    let text = &file.text;
+    // A name's range: the last component of a dotted name, as the checked
+    // outline has it.
+    let name_range = |name: &Name| {
+        let (start, end) = (name.span.start as usize, name.span.end as usize);
+        let last = name.text.rsplit('.').next().unwrap_or_default();
+        let ends_with_last = text.get(start..end).is_some_and(|w| w.ends_with(last));
+        let start = if end - start > last.len() && ends_with_last {
+            end - last.len()
+        } else {
+            start
+        };
+        lsp_range(text, start, end)
+    };
+    let mut out: Vec<OutlineItem> = Vec::new();
+    let item = |out: &mut Vec<OutlineItem>,
+                name: String,
+                kind: &'static str,
+                range: Range,
+                parent: Option<usize>| {
+        out.push(OutlineItem {
+            name,
+            kind,
+            ty: None,
+            range,
+            full_range: range,
+            parent,
+        });
+        out.len() - 1
+    };
+    for decl in &file.module.decls {
+        match decl {
+            Decl::Data {
+                name,
+                ctors,
+                record,
+                interface,
+                ..
+            } => {
+                let kind = if *interface {
+                    "interface"
+                } else if *record {
+                    "record"
+                } else {
+                    "data"
+                };
+                let full = format!("{prefix}{}", name.text);
+                let owner = item(&mut out, full, kind, name_range(name), None);
+                for ctor in ctors {
+                    if *record {
+                        for binder in &ctor.fields {
+                            for field in &binder.names {
+                                let full = format!("{prefix}{}.{}", name.text, field.text);
+                                item(&mut out, full, "field", name_range(field), Some(owner));
+                            }
+                        }
+                    } else {
+                        let full = format!("{prefix}{}", ctor.name.text);
+                        item(&mut out, full, "ctor", name_range(&ctor.name), Some(owner));
+                    }
+                }
+            }
+            Decl::Signature {
+                name,
+                theorem,
+                instance,
+                synonym,
+                ..
+            } => {
+                let kind = if *theorem {
+                    "theorem"
+                } else if *instance {
+                    "instance"
+                } else if *synonym {
+                    "data"
+                } else {
+                    "def"
+                };
+                let full = format!("{prefix}{}", name.text);
+                item(&mut out, full, kind, name_range(name), None);
+            }
+            Decl::Ability { name, ops, .. } => {
+                let full = format!("{prefix}{}", name.text);
+                let owner = item(&mut out, full, "ability", name_range(name), None);
+                for (op, _) in ops {
+                    let full = format!("{prefix}{}.{}", name.text, op.text);
+                    item(&mut out, full, "op", name_range(op), Some(owner));
+                }
+            }
+            Decl::Test { name, span, .. } => {
+                let range = lsp_range(text, span.start as usize, span.end as usize);
+                item(&mut out, format!("{prefix}{name}"), "test", range, None);
+            }
+            Decl::Equation { .. } => {}
+        }
+    }
+    out
 }

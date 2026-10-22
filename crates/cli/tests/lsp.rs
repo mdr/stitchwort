@@ -540,6 +540,47 @@ fn aoc_navigation_matches_check_index() {
     client.shutdown();
 }
 
+/// Workspace symbols cover the whole project (SW-305), not only the
+/// namespaces checked so far: right after the open file's namespace is
+/// checked, a declaration of a namespace far down the check order is found,
+/// with its name, container and place.
+#[test]
+fn workspace_symbols_cover_namespaces_not_checked_yet() {
+    let project = aoc();
+    let mut client = Client::start();
+    let path = "src/Aoc/Day01/Day01.sw";
+    let first = uri(&project.join(path));
+    client.open(
+        &first,
+        &std::fs::read_to_string(project.join(path)).unwrap(),
+    );
+    assert_eq!(client.diagnostics(&first, 1), Vec::<Value>::new());
+    let found = client.request("workspace/symbol", json!({"query": "parseBoxes"}));
+    let found = found.as_array().unwrap();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0]["name"], "parseBoxes", "{found:?}");
+    assert_eq!(found[0]["kind"], 12, "a function: {found:?}");
+    assert_eq!(
+        place(&project, &found[0]["location"]),
+        "src/Aoc/Day08/Day08.sw"
+    );
+    // A dotted declaration is at its last component.
+    let found = client.request("workspace/symbol", json!({"query": "Boxes.of"}));
+    let found = found.as_array().unwrap();
+    assert_eq!(found[0]["name"], "of", "{found:?}");
+    let text = std::fs::read_to_string(project.join("src/Aoc/Day08/Day08.sw")).unwrap();
+    let line = text
+        .lines()
+        .position(|l| l.starts_with("def Boxes.of"))
+        .unwrap();
+    assert_eq!(
+        found[0]["location"]["range"]["start"],
+        json!({"line": line, "character": "def Boxes.".len()}),
+        "{found:?}"
+    );
+    client.shutdown();
+}
+
 /// A check made stale by an edit stops, and what it would have said is never
 /// published: the edit's check answers instead, in about the time one check
 /// takes, not two.

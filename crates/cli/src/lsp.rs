@@ -144,10 +144,14 @@ struct Nav {
     workspaces: BTreeMap<PathBuf, WorkspaceNav>,
 }
 
+#[derive(Default)]
 struct WorkspaceNav {
     /// Whether the key is a project's folder (else a file's path).
     project: bool,
     files: BTreeMap<Place, FileAnswers>,
+    /// Each source file's outline from its syntax alone, by path: covers
+    /// the namespaces not checked yet (a file checked is in `files`).
+    outlines: BTreeMap<String, Vec<OutlineItem>>,
 }
 
 impl WorkspaceNav {
@@ -656,11 +660,23 @@ fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
     let q = query.to_lowercase();
     let mut scored = Vec::new();
     for (root, ws) in &nav.workspaces {
-        for (place, file) in &ws.files {
-            if matches!(place, Place::Library(_)) {
-                continue;
+        // The checked files' outlines, then those of the project's other
+        // files, read from their syntax (the checker may not have reached
+        // them yet).
+        let mut outlines: Vec<(Place, &[OutlineItem])> = ws
+            .files
+            .iter()
+            .filter(|(place, _)| !matches!(place, Place::Library(_)))
+            .map(|(place, file)| (place.clone(), file.outline.as_slice()))
+            .collect();
+        for (path, outline) in &ws.outlines {
+            let place = Place::Program(path.clone());
+            if !ws.files.contains_key(&place) {
+                outlines.push((place, outline.as_slice()));
             }
-            for item in &file.outline {
+        }
+        for (place, outline) in outlines {
+            for item in outline {
                 let name = short(&item.name);
                 let score = if q.is_empty() {
                     3
@@ -680,7 +696,7 @@ fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
                 let Some(location) = ws.location(root, &loc) else {
                     continue;
                 };
-                let container = item.parent.map(|p| file.outline[p].name.clone());
+                let container = item.parent.map(|p| outline[p].name.clone());
                 #[allow(deprecated)]
                 let symbol = SymbolInformation {
                     name: name.to_string(),
@@ -858,6 +874,22 @@ impl Checker {
             }
             Work::File(f) => f.step(),
         };
+        // The files were read again: their outlines, for the workspace
+        // search, before any namespace but the first is checked.
+        let outlines = match work {
+            Work::Project(p) => p.live.take_outlines(),
+            Work::File(_) => None,
+        };
+        if let Some(outlines) = outlines {
+            let mut nav = self.nav.write().unwrap_or_else(|e| e.into_inner());
+            nav.workspaces
+                .entry(key.to_path_buf())
+                .or_insert_with(|| WorkspaceNav {
+                    project: true,
+                    ..Default::default()
+                })
+                .outlines = outlines;
+        }
         let what = match work {
             Work::Project(p) => p.live.last_checked().unwrap_or_default().to_string(),
             Work::File(_) => key.display().to_string(),
@@ -890,7 +922,7 @@ impl Checker {
             .entry(key.to_path_buf())
             .or_insert_with(|| WorkspaceNav {
                 project,
-                files: BTreeMap::new(),
+                ..Default::default()
             });
         let mut notes = Vec::new();
         for (place, file) in answers {
@@ -1210,7 +1242,7 @@ mod tests {
         assert_eq!(std_path(&uri).as_deref(), Some("core/Data.sw"));
         let ws = WorkspaceNav {
             project: true,
-            files: BTreeMap::new(),
+            ..Default::default()
         };
         let back = ws.uri(Path::new("/p"), &Place::Library("List/Toolkit.sw".into()));
         assert_eq!(back.unwrap().as_str(), "stitchwort-std:List/Toolkit.sw");
