@@ -1,5 +1,5 @@
 {
-  "next": 261,
+  "next": 264,
   "tickets": [
     {
       "id": 1,
@@ -470,7 +470,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "Language server for .sw: live errors, hover types, go to definition, completion. This is option C of the 21 Oct code-navigation plan (D238/D239). D239 (Matt, 21 Oct 2026): stays in the backlog until the resolution index (D238) has been used for a while; the server reuses that index, so do not start before then. First step when it is picked up: a short design note (which protocol library, how the server holds a Session across edits, how it reuses the index and the incremental/cached checking).\n\nDone when: an editor (the VS Code extension in editors/) shows live diagnostics, hover types and go to definition for a .sw project.\n\nHistory: D238, D239.\n\n22 Oct 2026: D403 — wait: no LSP design note yet; revisit after the check cache lands.\n\n22 Oct 2026: Matt — start the language server design note (after the check cache landed; D403 wait lifted). Note first, decisions D496-D499.\n\n22 Oct 2026: note docs/proposals/language-server.md merged; D496-D498 asked.",
+      "body": "Language server for .sw: live errors, hover types, go to definition, completion. This is option C of the 21 Oct code-navigation plan (D238/D239). D239 (Matt, 21 Oct 2026): stays in the backlog until the resolution index (D238) has been used for a while; the server reuses that index, so do not start before then. First step when it is picked up: a short design note (which protocol library, how the server holds a Session across edits, how it reuses the index and the incremental/cached checking).\n\nDone when: an editor (the VS Code extension in editors/) shows live diagnostics, hover types and go to definition for a .sw project.\n\nHistory: D238, D239.\n\n22 Oct 2026: D403 — wait: no LSP design note yet; revisit after the check cache lands.\n\n22 Oct 2026: Matt — start the language server design note (after the check cache landed; D403 wait lifted). Note first, decisions D496-D499.\n\n22 Oct 2026: note docs/proposals/language-server.md merged; D496-D498 asked.\n\n22 Oct 2026: D496 yes (other namespaces re-checked against unsaved text), D497 yes (? goal holes), D498 playground shares the engine not the server. Next: build stages per the note, starting with parser error recovery and per-namespace re-check.",
       "created": "2026-10-19",
       "updated": "2026-10-22",
       "commits": []
@@ -827,9 +827,9 @@
         "kernel",
         "proof"
       ],
-      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n",
+      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n\n22 Oct 2026: D503 (Matt: yes) — build record eta after generated ext lemmas and glued values stage 1 land (both touch conversion).",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3936,6 +3936,48 @@
       "where": "",
       "labels": [
         "std"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 261,
+      "title": "Std.Mod: isZero, addNat, subNat (defined via ofInt, with rfl lemmas) (D501)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 262,
+      "title": "AoC Day 1: wrap Mod in a Dial record (dial.move turn, dial.isZero) (D502), after Mod helpers and generated ext lemmas",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 263,
+      "title": "Generate a T.ext lemma for every record (equal fields give equal records; proof fields ignored) (D503)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "records"
       ],
       "body": "",
       "created": "2026-10-22",
