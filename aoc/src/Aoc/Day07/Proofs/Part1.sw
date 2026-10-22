@@ -41,7 +41,7 @@ theorem natEqBelow (m: Nat) (n: Nat) (h: m < n): (m == n) = False :=
   rewrite Nat.eqIsEqual m n in natEqualBelow m n h
 
 theorem natEqualBelow: (m: Nat) -> (n: Nat) -> m < n -> Nat.equal m n = False
-  | m,      Zero,   h => Void.exfalso omega
+  | m,      Zero,   h => omega
   | Zero,   Succ n, h => rfl
   | Succ m, Succ n, h => natEqualBelow m n h
 
