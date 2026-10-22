@@ -4148,9 +4148,9 @@
     },
     {
       "id": 273,
-      "title": "Dot calls to capitalised functions (s.Subsequence l, xs.Distinct) are a parse error: E-PARSE expected a field name after .",
-      "status": "backlog",
-      "agent": "",
+      "title": "Dot calls to capitalised functions: s.Subsequence l, xs.Distinct (D511)",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [
         "syntax"
