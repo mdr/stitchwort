@@ -1,5 +1,5 @@
 {
-  "next": 327,
+  "next": 328,
   "tickets": [
     {
       "id": 1,
@@ -5108,6 +5108,20 @@
       "labels": [
         "aoc",
         "proof"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 327,
+      "title": "Survey: practical languages with proofs about programs; features to adopt in Stitchwort",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "research lane (note, stop for review)",
+      "labels": [
+        "design"
       ],
       "body": "",
       "created": "2026-10-22",
