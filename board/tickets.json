@@ -3597,7 +3597,7 @@
     {
       "id": 241,
       "title": "Prelude stage 3: move what nothing built-in needs out of core.sw (prelude-slim.md §4.3, D404)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3606,7 +3606,10 @@
       "body": "docs/proposals/prelude-slim.md §4.3 and §8.1 stage 3 (D404). Use closure_report to find core.sw declarations that nothing in §2.1 needs (operators/==/Show/deriving/auto/natives/runner) and move them into the library files they belong to (Text.split/join/trim, Int.tdiv/fdiv, Option helpers, Bool.xor, ...). Natives that move become Home::Library built-ins (D56). Keep every name in §2.1's table in core. Measure with STITCHWORT_TIMINGS before/after.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "0b83edd9",
+        "9fddec33"
+      ]
     },
     {
       "id": 242,
