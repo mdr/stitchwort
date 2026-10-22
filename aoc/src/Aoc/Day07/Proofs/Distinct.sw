@@ -8,7 +8,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
-import Std (Bool, Eq, List, Option)
+import Std (Bool, Eq, Fin, List, Option, Vec)
 
 def Turn.isLeft: Turn -> Bool
   | Left  => True
@@ -47,10 +47,10 @@ theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hi
     (disjointHeads h1 h2 ne ys xs)
 
 -- Every timeline from a column is different from the others.
-theorem timelinesFromDistinct (r: Nat) (c: Nat): (lines: List Text) -> List.Distinct (timelinesFrom r c lines)
-  | Nil            => Both (m => m) Trivial
-  | Cons line rest =>
-    match e: charAt line c == '^' with
+theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) -> List.Distinct (timelinesFrom r c rows)
+  | Nil           => Both (m => m) Trivial
+  | Cons row rest =>
+    match e: splitterAt row c with
       | True =>
         match c with
           | Zero =>
@@ -62,27 +62,13 @@ theorem timelinesFromDistinct (r: Nat) (c: Nat): (lines: List Text) -> List.Dist
               (timelinesFromDistinct (r + 1) b rest) (timelinesFromDistinct (r + 1) (Succ b + 1) rest)
       | False => timelinesFromDistinct (r + 1) c rest
 
--- No timeline of the particle from S is counted twice: the number part 2
--- prints is the number of different timelines.
-def TimelinesDistinct: Option (List (List Hit)) -> Prop
-  | None => Unit
-  | Some ts => List.Distinct ts
-
-theorem timelinesDistinct (lines: List Text): TimelinesDistinct (timelines lines) :=
-  match e: findStart lines with
-    | None           => Trivial
-    | Some (MkPair r c) => timelinesFromDistinct (r + 1) c (List.drop (r + 1) lines)
+-- No timeline of the particle from S is counted twice.
+theorem timelinesDistinct (manifold: Manifold): List.Distinct (timelines manifold) :=
+  timelinesFromDistinct 0 manifold.start.toNat manifold.rows
 
 -- Both together: what part 2 prints is the length of the spec's list of
 -- timelines, and that list has no repeats, so it is the number of different
 -- timelines.
-def CountsDistinct (answer: Option Nat): Option (List (List Hit)) -> Prop
-  | None => answer = None
-  | Some ts => And (answer = Some (List.length ts)) (List.Distinct ts)
-
-theorem part2Distinct (lines: List Text): CountsDistinct (Option.map solvePart2 (parseManifold lines)) (timelines lines) :=
-  match e: findStart lines with
-    | None           => rfl
-    | Some (MkPair r c) =>
-      Both (Eq.cong Some (countsAre (gridWidth lines) (List.drop (r + 1) lines) (belowFits lines r) (r + 1) c))
-           (timelinesFromDistinct (r + 1) c (List.drop (r + 1) lines))
+theorem part2Distinct (manifold: Manifold):
+  And (solvePart2 manifold = List.length (timelines manifold)) (List.Distinct (timelines manifold)) :=
+  Both (part2Correct manifold) (timelinesDistinct manifold)

@@ -25,7 +25,8 @@ def example: List Text := """
   """.lines
 
 test "find start" := (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Some (0, 7), Some (1, 1), None)
-test "splitter row" := splitterRow 5 ".^." == [False, True, False, False, False]
+test "manifold" := Option.map (m => (m.width, m.start.toNat, m.rows.length)) (parseManifold example) == Some (15, 7, 15)
+test "splitter row" := ((splitterRow 5 ".^.").toList, (splitterRow 2 ".^.").toList) == ([False, True, False, False, False], [False, True])
 test "fall" := fall False [False, True, False, False] [True, True, False, False] == [True, False, True, False]
 test "split row" := splitRow 1 [False, True, False, True] [2, 3, 4, 5] == [2, 6, 4, 5]
 test "example part 1" := Option.map solvePart1 (parseManifold example) == Some 21

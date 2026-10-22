@@ -16,13 +16,14 @@
 -- timelines of the column it falls into, or of both columns beside its
 -- splitter added up (`splitRow`). Both are one pass over a row per row.
 --
--- Both answers are proved right for every input in `Aoc.Day07.Proofs`
--- (Proofs/Spec.sw states the puzzle with the timelines as explicit lists of
--- the splitters they pass; Proofs/Part1.sw and Proofs/Part2.sw), and the
+-- Both answers are proved right for every manifold in `Aoc.Day07.Proofs`
+-- (Proofs/Spec.sw states the puzzle over the manifold, with the timelines
+-- as explicit lists of the splitters they pass; Proofs/Part1.sw and
+-- Proofs/Part2.sw), and the
 -- tests are in `Aoc.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day07
-import Std (IO, List, Nat, Option)
+import Std (Fin, IO, List, Nat, Option, Vec)
 
 def main(): {IO} () :=
   match parseManifold (IO.readAllLines()) with
@@ -33,13 +34,15 @@ def main(): {IO} () :=
 
 -- The rows below S, each a flag per column (True for a splitter), all
 -- `width` long; S is in column `start` of the row above the first.
-type Manifold = { width: Nat, start: Nat, rows: List (List Bool) }
+type Manifold = { width: Nat, start: Fin width, rows: List (Vec Bool width) }
 
--- `None` if there is no S.
+-- `None` if there is no S. (S is always inside the grid, as wide as the
+-- widest line; `Fin.ofNatCheck` checks it.)
 def parseManifold (lines: List Text): Option Manifold :=
   let width := gridWidth lines
-  (findStart lines).map (((r, c)) =>
-    ({ width, start = c, rows = (lines.drop (r + 1)).map (splitterRow width) }: Manifold))
+  (findStart lines).flatMap (((r, c)) =>
+    (Fin.ofNatCheck width c).map (start =>
+      ({ width, start, rows = (lines.drop (r + 1)).map (splitterRow width) }: Manifold)))
 
 -- Row and column of the first S, reading top to bottom, left to right.
 def findStart (lines: List Text): Option (Nat, Nat) := startFrom 0 lines
@@ -64,15 +67,21 @@ def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
 
 def widen (width: Nat) (line: Text): Nat := Nat.max width line.length
 
--- A line's splitter flags, padded to `width` columns.
-def splitterRow (width: Nat) (line: Text): List Bool := (line.toList.map isSplitter).padRight width False
+-- A line's splitter flags, `width` of them: past the end of the line there
+-- is empty space.
+def splitterRow (width: Nat) (line: Text): Vec Bool width := flagsOf width line.toList
+
+def flagsOf: (width: Nat) -> List Char -> Vec Bool width
+  | Zero,   _            => VNil
+  | Succ w, Nil          => VCons False (flagsOf w Nil)
+  | Succ w, Cons ch rest => VCons (isSplitter ch) (flagsOf w rest)
 
 def isSplitter (ch: Char): Bool := ch == '^'
 
 -- Part 1: carry the beams down, a flag per column, adding up the splitters
 -- each row's beams reach.
 def solvePart1 (manifold: Manifold): Nat :=
-  splitsBelow ((List.range manifold.width).map (c => c == manifold.start)) manifold.rows
+  splitsBelow ((List.range manifold.width).map (c => c == manifold.start.toNat)) (manifold.rows.map Vec.toList)
 
 -- `beams` are the beams falling into the first of `rows`.
 def splitsBelow (beams: List Bool): List (List Bool) -> Nat
@@ -90,12 +99,12 @@ def fall (fromLeft: Bool): List Bool -> List Bool -> List Bool
   | _,         _         => Nil
 
 -- Part 2: the timelines of a particle starting at S.
-def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).getOr 1 manifold.start
+def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).getOr 1 manifold.start.toNat
 
 -- For each column, the timelines of a particle falling into it from the row
 -- of S.
 def timelineCounts (manifold: Manifold): List Nat :=
-  manifold.rows.foldRight (row below => splitRow 1 row below) (List.replicate manifold.width 1)
+  manifold.rows.foldRight (row below => splitRow 1 row.toList below) (List.replicate manifold.width 1)
 
 -- A row's timeline counts, given the counts of the row below it: a column
 -- with no splitter has the count of the column below, and a splitter the
