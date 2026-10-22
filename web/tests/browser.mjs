@@ -207,9 +207,9 @@ class Page {
     }
   }
 
-  async open({ patch } = {}) {
+  async open({ patch, hash = "" } = {}) {
     if (patch) await this.send("Page.addScriptToEvaluateOnNewDocument", { source: patch });
-    await this.send("Page.navigate", { url: this.base + "index.html" });
+    await this.send("Page.navigate", { url: this.base + "index.html" + hash });
     await this.until(`document.readyState === "complete"`);
   }
 
@@ -301,6 +301,50 @@ test("loads and checks the default example", async (page) => {
   assert.equal(await page.ev(`document.getElementById("example").value`), "ex-lists");
   assert.match(await page.output(), /Every definition type-checks/);
   await assertAligned(page, "the default example");
+});
+
+test("direct links open the dropdown's entries, and follow it", async (page) => {
+  const hash = () => page.ev(`location.hash`);
+  const length = () => page.ev(`history.length`);
+  const blank = `document.getElementById("status").textContent = "(changed)";`;
+  await page.open({ hash: "#aoc/day02" });
+  await page.untilStatus(dayStatus(2), 60000);
+  assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:1");
+  assert.equal(await sourceText(page), await bundled(page, DAY2), "Day 2's program is open");
+  assert.equal(await hash(), "#aoc/day02");
+  // Picking another entry updates the address bar, without a history entry.
+  const before = await length();
+  await page.pick("ex-division");
+  await page.untilChecked();
+  assert.equal(await hash(), "#example/safe-division");
+  await page.pick("aoc:2");
+  await page.untilStatus(dayStatus(3), 60000);
+  assert.equal(await hash(), "#aoc/day03");
+  assert.equal(await length(), before, "no history entries are added");
+  // Editing the fragment switches the entry.
+  await page.ev(`(() => { ${blank} location.hash = "#example/proofs-about-lists"; })()`);
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.getElementById("example").value`), "ex-lists");
+  await page.ev(`(() => { ${blank} location.hash = "#aoc/day01"; })()`);
+  await page.untilStatus(dayStatus(1), 60000);
+  assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:0");
+  // An unknown fragment gives the default example, with a notice.
+  await page.ev(`(() => { ${blank} location.hash = "#example/nonsense"; })()`);
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.getElementById("example").value`), "ex-lists");
+  assert.match(await page.ev(`document.getElementById("link-notice").textContent`), /No such link/);
+  assert.equal(await page.ev(`document.getElementById("link-notice").hidden`), false);
+  assert.equal(await hash(), "#example/proofs-about-lists");
+});
+
+test("an unknown link at the start gives the default example and a notice", async (page) => {
+  await page.open({ hash: "#aoc/day99" });
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.getElementById("example").value`), "ex-lists");
+  assert.match(await page.ev(`document.getElementById("link-notice").textContent`), /No such link/);
+  await page.pick("ex-tests");
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.getElementById("link-notice").hidden`), true);
 });
 
 test("the compiler's files are asked for by content hash (pkg/version.json)", async (page) => {

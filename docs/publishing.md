@@ -177,6 +177,30 @@ repository admin rights.
 The Pages "Source" documentation only describes the Settings route.
 <https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site>
 
+## Links to examples and days
+
+The Example dropdown's entries have direct links (the fragment, so they work
+under any path, such as `/stitchwort/`):
+
+| Link | Opens |
+|---|---|
+| `#example/proofs-about-lists` | Proofs about lists |
+| `#example/safe-division` | Safe division |
+| `#example/tests` | Tests |
+| `#example/abilities-and-handlers` | Abilities and handlers |
+| `#example/input-and-output-main` | Input and output: main |
+| `#example/extract-to-javascript` | Extract to JavaScript |
+| `#aoc/dayNN` (`#aoc/day01` and so on) | The AoC project at that day's program, as the dropdown's "Day N" does |
+
+An example's slug is its dropdown name in lowercase, with each run of other
+characters as one `-`. Choosing an entry updates the address bar
+(`history.replaceState`, so no history entries are added); editing the
+fragment, or going back or forward, switches the entry. Saved edits apply as
+for the dropdown (the AoC files open with their saved edits). An unknown
+fragment opens the default example with a short notice beside the status. A
+fragment is plain tokens only (letters, digits, `/`, `-`, `.`, `_`); it never
+carries code.
+
 **Not verified**: whether GitHub Pages compresses `.wasm` (§10.2 of the
 playground note); check `content-encoding` on the real site with
 `curl -I -H 'accept-encoding: gzip' https://mdr.github.io/stitchwort/pkg/stitchwort_web_bg.wasm`.
