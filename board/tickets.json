@@ -1,5 +1,5 @@
 {
-  "next": 317,
+  "next": 318,
   "tickets": [
     {
       "id": 1,
@@ -4890,6 +4890,21 @@
       "labels": [
         "aoc",
         "design"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 317,
+      "title": "AoC Day 2: properties of allTemplatesForRange (membership, coverage, no duplicates) (D555)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "aoc",
+        "proof"
       ],
       "body": "",
       "created": "2026-10-22",
