@@ -27,7 +27,7 @@ Areas:
   bench      stitchwort-bench
   web        stitchwort-web (unit tests; browser tests are `dev/t browser`)
   browser    web/build.sh then web/test.sh
-  vscode     node --test on the VS Code extension's lookup logic
+  vscode     node --test on the VS Code extension's client config, against a fake server
   lint       cargo fmt --check and clippy
   all        cargo test --release --workspace
   slow       just the slow tier (see below), with STITCHWORT_SLOW=1
@@ -448,10 +448,13 @@ case "$area" in
     exit 0
     ;;
   vscode)
+    # The client's one npm dependency (vscode-languageclient, exact version in
+    # package-lock.json) is installed on first use.
     if [[ -n "${IN_NIX_SHELL:-}" ]]; then
+      [[ -d editors/vscode/node_modules ]] || npm ci --prefix editors/vscode
       node --test "editors/vscode/test/*.test.js"
     else
-      nix develop -c node --test "editors/vscode/test/*.test.js"
+      nix develop -c bash -c '[[ -d editors/vscode/node_modules ]] || npm ci --prefix editors/vscode; node --test "editors/vscode/test/*.test.js"'
     fi
     exit 0
     ;;
