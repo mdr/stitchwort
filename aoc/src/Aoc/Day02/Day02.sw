@@ -53,8 +53,9 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate :=
 
 -- Part 1: the ids in the range written exactly twice.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
-  let twoCopies := (allTemplatesForRange range).filter (template => template.copies == 2)
-  twoCopies.sumBy (sumOfIdsMatchingTemplate range)
+  allTemplatesForRange range
+    |> .filter (template => template.copies == 2)
+    |> .sumBy (sumOfIdsMatchingTemplate range)
 
 -- Part 2: the ids in the range written two or more times, each counted once.
 -- 111111 has templates 1×6, 11×3 and 111×2; the weights cancel the repeats.
