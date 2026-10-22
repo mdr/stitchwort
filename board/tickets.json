@@ -5153,7 +5153,7 @@
     {
       "id": 329,
       "title": "nix run github:mdr/stitchwort: untested stitchwort-bin as the default package; tested build stays in checks (D559)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "opencode clone",
       "labels": [
@@ -5162,7 +5162,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "b88f2794"
+      ]
     },
     {
       "id": 330,
