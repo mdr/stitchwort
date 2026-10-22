@@ -161,7 +161,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     js.push_str(&shapes.js());
     js.push_str(DELAY_RUNTIME);
     js.push('\n');
-    for &id in &used {
+    for id in crate::dependency_order(g, &used) {
         js.push_str(&codegen.def(id).map_err(|e| {
             Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
         })?);
