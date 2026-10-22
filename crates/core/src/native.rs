@@ -172,6 +172,47 @@ impl Builtins {
     pub fn compact_literals(&self) -> Option<&crate::chars::CompactText> {
         self.text.as_ref().filter(|_| !self.disable_compact_text)
     }
+
+    /// What [`Builtins::rewind`] puts back.
+    pub(crate) fn mark(&self) -> BuiltinsMark {
+        BuiltinsMark {
+            nat: self.nat,
+            bool: self.bool,
+            decidable: self.decidable,
+            nat_neq: self.nat_neq,
+            text: self.text.clone(),
+        }
+    }
+
+    /// Forgets what was registered since `mark`, when the definitions from
+    /// `defs` on are removed again ([`Globals::rewind`]). The switches
+    /// (`disable_*`) are settings, and stay as they are.
+    pub(crate) fn rewind(&mut self, mark: &BuiltinsMark, defs: usize) {
+        self.natives.retain(|id, _| id.0 < defs);
+        self.primitives.retain(|id, _| id.0 < defs);
+        let BuiltinsMark {
+            nat,
+            bool,
+            decidable,
+            nat_neq,
+            text,
+        } = mark.clone();
+        self.nat = nat;
+        self.bool = bool;
+        self.decidable = decidable;
+        self.nat_neq = nat_neq;
+        self.text = text;
+    }
+}
+
+/// The registrations of [`Builtins`] at a [`crate::globals::GlobalsMark`].
+#[derive(Clone)]
+pub(crate) struct BuiltinsMark {
+    nat: Option<DataId>,
+    bool: Option<DataId>,
+    decidable: Option<DataId>,
+    nat_neq: Option<DefId>,
+    text: Option<crate::chars::CompactText>,
 }
 
 type Result<T> = std::result::Result<T, Diagnostic>;

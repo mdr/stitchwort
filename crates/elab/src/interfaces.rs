@@ -70,6 +70,7 @@ pub(crate) enum InstanceParam {
 }
 
 /// A global instance (§5.6).
+#[derive(Clone)]
 pub(crate) struct InstanceInfo {
     pub def: DefId,
     /// Its name, for messages.

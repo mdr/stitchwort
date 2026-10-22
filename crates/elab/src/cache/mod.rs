@@ -334,7 +334,8 @@ impl Elaborator {
         key: &Key,
     ) {
         let log = self.scope.log.take().unwrap_or_default();
-        if !ok {
+        // A cancelled check isn't a result, even where it reported nothing.
+        if !ok || self.globals.budget.cancelled() {
             return;
         }
         let store = self.check_cache.clone().expect("a cache is set");
@@ -469,7 +470,8 @@ impl Elaborator {
         let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
         let capture = self.namespace_capture.take();
         self.skip_navigation_walk = false;
-        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error);
+        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error)
+            && !self.globals.budget.cancelled();
         if ok && let Some(capture) = capture {
             match self.encode_namespace(files, capture, &diagnostics, key, store.salt()) {
                 Ok(entry) => {

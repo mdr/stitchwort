@@ -99,7 +99,7 @@ pub enum Resolved<'a> {
 }
 
 /// The names the program sees, and the library's.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Scope {
     /// Every declaration, by key.
     pub entries: HashMap<String, (Global, Span)>,
@@ -135,6 +135,7 @@ pub struct Scope {
 }
 
 /// A change [`Scope::log`] records.
+#[derive(Clone)]
 pub(crate) enum ScopeOp {
     /// A new key, and whether it was declared as a follower.
     New(String, bool),

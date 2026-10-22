@@ -97,6 +97,7 @@ pub(crate) struct Dep {
 }
 
 /// A declaration of the module being elaborated.
+#[derive(Clone)]
 pub(crate) struct ItemInfo {
     /// Its name, for messages (a test's is its label).
     pub name: String,
@@ -131,6 +132,7 @@ pub(crate) struct ItemInfo {
 }
 
 /// One file of the module being elaborated.
+#[derive(Clone)]
 pub(crate) struct FileInfo {
     pub id: Option<FileId>,
     /// Its display name, for messages.
@@ -138,7 +140,7 @@ pub(crate) struct FileInfo {
 }
 
 /// The module being elaborated, and what's being checked in it.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct ModuleState {
     pub items: Vec<ItemInfo>,
     /// The module's files, sorted by display name.

@@ -104,6 +104,21 @@ impl SourceMap {
     pub fn iter(&self) -> impl Iterator<Item = (FileId, &SourceFile)> {
         (0..).map(FileId).zip(&self.files)
     }
+
+    /// How many files there are.
+    pub fn len(&self) -> usize {
+        self.files.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
+    /// Forgets the files from the `len`th on, whose ids are then given out
+    /// again: for a session rewound to before they were added.
+    pub fn truncate(&mut self, len: usize) {
+        self.files.truncate(len);
+    }
 }
 
 #[cfg(test)]

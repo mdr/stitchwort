@@ -25,7 +25,7 @@ use crate::scope::Resolved;
 use crate::{Elaborator, Global};
 
 /// What the elaborator noted, and the walk found.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Recorder {
     /// A name resolved to a declaration, by the span of the name.
     pub(crate) refs: HashMap<Span, Noted>,
@@ -126,6 +126,7 @@ impl Recorder {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct Noted {
     pub(crate) key: String,
     /// The name of the declaration.
@@ -135,12 +136,14 @@ pub(crate) struct Noted {
     pub(crate) dot: Option<String>,
 }
 
+#[derive(Clone)]
 pub(crate) struct LocalUse {
     pub(crate) span: Span,
     pub(crate) name: String,
     pub(crate) binder: Span,
 }
 
+#[derive(Clone)]
 pub(crate) struct OutlineItem {
     /// The full name as the index shows it (`Main.` for a file with no
     /// namespace line, as for a project's namespaces).
