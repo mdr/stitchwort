@@ -4,7 +4,7 @@
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
-import Std (Bool, Eq, List, Nat, Void)
+import Std (Bool, Eq, List, Nat, Ordering, Void)
 
 -- Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
 theorem rangeEnd (from: Nat) (to: Nat) (x: Nat) (h1: from <= x) (h2: x < from + (to + 1 - from)): x <= to :=
@@ -82,3 +82,12 @@ theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): 
               | False => rfl)
           ids
     _ = r.size := rewrite Nat.addOne r.to, Nat.subEqZero (Succ r.to) r.from (Nat.leqFalse r.from r.to e)
+
+-- The derived order on ranges (by start, then end) puts the smaller start first.
+theorem compareFrom: (a: Range) -> (b: Range) -> Ordering.isLessEq (Ord.compare a b) = True -> a.from <= b.from
+  | { from = f1, to = t1 }, { from = f2, to = t2 }, h =>
+    match e: Nat.compare f1 f2 with
+      | Less    => Nat.leOfCompare f1 f2 (g => Ordering.lessNotGreater (Eq.trans (Eq.sym e) g))
+      | Equal   => Nat.leOfCompare f1 f2 (g => Ordering.equalNotGreater (Eq.trans (Eq.sym e) g))
+      | Greater => Void.exfalso (Bool.falseNotTrue h)
+

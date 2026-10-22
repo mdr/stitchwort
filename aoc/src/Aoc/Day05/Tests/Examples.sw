@@ -30,3 +30,6 @@ test "example merged" := merge (parseDatabase example).fresh == [{ from = 3, to 
 test "touching ranges merge" := merge [{ from = 4, to = 6 }, { from = 1, to = 3 }] == [{ from = 1, to = 6 }]
 test "nested range" := merge [{ from = 1, to = 9 }, { from = 2, to = 3 }] == [{ from = 1, to = 9 }]
 test "gap stays" := merge [{ from = 1, to = 2 }, { from = 4, to = 5 }] == [{ from = 1, to = 2 }, { from = 4, to = 5 }]
+test "same start, shorter second range" := merge [{ from = 1, to = 9 }, { from = 1, to = 3 }] == [{ from = 1, to = 9 }]
+test "duplicate range" := solvePart2 { fresh = [{ from = 2, to = 4 }, { from = 2, to = 4 }], available = [] } == 3
+test "singleton range" := merge [{ from = 5, to = 5 }] == [{ from = 5, to = 5 }]

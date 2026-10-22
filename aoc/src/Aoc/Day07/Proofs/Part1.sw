@@ -382,6 +382,5 @@ theorem part1Correct (manifold: Manifold): solvePart1 manifold = part1Spec manif
         := splitsBelowSum manifold.width manifold.rows start
              (rewrite List.lengthMap (x => x == manifold.start.toNat) (List.range manifold.width) in List.lengthRangeFrom manifold.width 0)
     _ = List.sumBy (k => List.count (d => reached (timelines manifold) k d) (List.range manifold.width)) (List.range (List.length manifold.rows))
-        := List.sumByCongr (k => splitsAt manifold.width start manifold.rows k)
-             (k => List.count (d => reached (timelines manifold) k d) (List.range manifold.width))
+        := List.sumByCongr _ _
              (k => splitsAtReached manifold k) (List.range (List.length manifold.rows))

@@ -27,3 +27,8 @@ test "read number" := (readNumber [' ', '4', '5'], readNumber ['3', ' ', ' '], r
 test "example part 1" := solvePart1 (parseWorksheet example) == 4277556
 test "example part 2" := solvePart2 (parseWorksheet example) == 3263827
 test "no problems" := (solvePart1 [], solvePart2 []) == (0, 0)
+
+-- The same worksheet with every trailing space removed.
+def trimmedExample: List Text := ["123 328  51 64", " 45 64  387 23", "  6 98  215 314", "*   +   *   +"]
+
+test "trimmed example" := (solvePart1 (parseWorksheet trimmedExample), solvePart2 (parseWorksheet trimmedExample)) == (4277556, 3263827)

@@ -29,3 +29,5 @@ test "no lines" := answers [] == Some (0, 0)
 test "ragged" := answers ["@@", "@"] == None
 
 test "rolls" := Option.map Grid.rolls (parseGrid example) == Some 71
+test "one wide row" := answers ["@@@@@"] == Some (5, 5)
+test "one narrow column" := answers ["@", "@", "@", "@", "@"] == Some (5, 5)

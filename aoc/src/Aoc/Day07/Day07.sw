@@ -23,7 +23,8 @@
 -- tests are in `Aoc.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day07
-import Std (Fin, IO, List, Nat, Option, Vec)
+import Std (Abort, Fin, IO, List, Nat, Option, Vec)
+import Std.Abort (toOption)
 
 def main(): {IO} () :=
   match parseManifold (IO.readAllLines()) with
@@ -38,11 +39,14 @@ type Manifold = { width: Nat, start: Fin width, rows: List (Vec Bool width) }
 
 -- `None` if there is no S. (S is always inside the grid, as wide as the
 -- widest line; `Fin.ofNatCheck` checks it.)
-def parseManifold (lines: List Text): Option Manifold :=
+def parseManifold (lines: List Text): Option Manifold := toOption (() => readManifold lines)
+
+-- Each step that finds nothing gives up, which makes the result `None`.
+def readManifold (lines: List Text): {Abort} Manifold :=
   let width := gridWidth lines
-  (findStart lines).flatMap (((r, c)) =>
-    (Fin.ofNatCheck width c).map (start =>
-      ({ width, start, rows = (lines.drop (r + 1)).map (splitterRow width) }: Manifold)))
+  let (r, c) := (findStart lines).orAbort
+  let start := (Fin.ofNatCheck width c).orAbort
+  { width, start, rows = (lines.drop (r + 1)).map (splitterRow width) }
 
 -- Row and column of the first S, reading top to bottom, left to right.
 def findStart (lines: List Text): Option (Nat, Nat) := startFrom 0 lines
