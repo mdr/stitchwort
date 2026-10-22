@@ -3833,7 +3833,7 @@
     {
       "id": 253,
       "title": "Fast runtime: an accessibility-style (Acc as data) recursion takes >150 s under stitchwort run on a 13-digit number; --reference and --js are fine",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3843,7 +3843,9 @@
       "body": "Found by the SW-199 note lane (docs/proposals/well-founded-recursion.md, option A experiment). Reproduce from the note; find the crates/rt cause.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "f8455479"
+      ]
     },
     {
       "id": 254,
