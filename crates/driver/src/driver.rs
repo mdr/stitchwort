@@ -12,7 +12,8 @@ use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::{Elaborator, LibraryIndex, PRELUDE};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
-    Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_within,
+    Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_recovering,
+    parse_module_within,
 };
 
 /// Which library files a session knows.
@@ -332,13 +333,25 @@ impl Session {
         if let Some(location) = self.elab.take_next_include_location() {
             self.elab.set_include_location(file, location);
         }
-        let module = parse_module_within(file, text, self.elab.limits.stack)?;
+        // A syntax error doesn't stop the declarations that parsed from
+        // being checked, so one run reports every error; the file never
+        // loads as a success, though.
+        let (module, parse_errors) = parse_module_recovering(file, text, self.elab.limits.stack);
         let first_new_def = self.elab.globals.defs.len();
         self.elab.file_mode = context;
-        let diagnostics = self.elab.elaborate_module(&module);
+        let diagnostics =
+            if module.namespace.is_none() && module.decls.is_empty() && !parse_errors.is_empty() {
+                Vec::new()
+            } else {
+                self.elab.elaborate_module(&module)
+            };
         self.elab.file_mode = None;
-        self.finish_load(first_new_def, diagnostics)?;
-        Ok(file)
+        if parse_errors.is_empty() {
+            self.finish_load(first_new_def, diagnostics)?;
+            Ok(file)
+        } else {
+            Err(merge_recovered(parse_errors, diagnostics))
+        }
     }
 
     /// Loads several files of one namespace as one module: for tests, until
@@ -517,6 +530,28 @@ impl Session {
     ) -> Result<stitchwort_js::run::Program, Diagnostic> {
         stitchwort_js::run::generate_program(&self.elab.globals, self.elab.limits, main.term())
     }
+}
+
+/// What a load that had syntax errors reports: those, then what checking
+/// the declarations that did parse found, in file order. Uses of
+/// declarations that failed to parse (`E-FAILED-DEPENDENCY`) go without
+/// saying: the syntax error is the cause.
+pub(crate) fn merge_recovered(
+    parse_errors: Vec<Diagnostic>,
+    checked: Vec<Diagnostic>,
+) -> Vec<Diagnostic> {
+    let mut all = parse_errors;
+    all.extend(
+        checked
+            .into_iter()
+            .filter(|d| d.code != "E-FAILED-DEPENDENCY"),
+    );
+    all.sort_by_key(|d| {
+        d.labels.first().map_or((usize::MAX, u32::MAX), |l| {
+            (l.span.file.index(), l.span.start)
+        })
+    });
+    all
 }
 
 /// Whether a test's expression evaluated to `True`.

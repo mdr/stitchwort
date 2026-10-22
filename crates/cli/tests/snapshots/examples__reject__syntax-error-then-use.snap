@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but reached the end of the declaration
+   ╭─[ reject/syntax-error-then-use.sw:4:32 ]
+   │
+ 4 │ def broken (n: Nat): Nat := n +
+   │                                │ 
+   │                                ╰─ expected an expression, but reached the end of the declaration
+───╯
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/syntax-error-then-use.sw:6:23 ]
+   │
+ 6 │ def unrelated: Nat := "text"
+   │                       ───┬──  
+   │                          ╰──── expected `Nat`, but this has type `Text`
+───╯

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use stitchwort_elab::project::{Edge, NamespaceSyntax, SourceUnit, direct_names};
 use stitchwort_syntax::ast::{Decl, Module};
 use stitchwort_syntax::{
-    Diagnostic, FileId, Severity, SourceMap, Span, parse_module_within, parse_namespace_line,
+    Diagnostic, FileId, Severity, SourceMap, Span, parse_module_recovering, parse_namespace_line,
 };
 
 use crate::driver::Session;
@@ -106,11 +106,6 @@ impl Session {
                 skipped.insert(name);
                 continue;
             }
-            if !ns.parse_errors.is_empty() {
-                diagnostics.extend(ns.parse_errors.iter().cloned());
-                failed.insert(name);
-                continue;
-            }
             let deps: BTreeSet<String> = closure(&analysis, std::slice::from_ref(name))
                 .into_iter()
                 .filter(|n| n != name)
@@ -137,6 +132,14 @@ impl Session {
                 .elab
                 .elaborate_namespace(Some(name), &units, Some(&dependencies));
             self.check_exports(first_new_def, true, &mut found);
+            // The declarations that parsed are checked even when others
+            // didn't, so one run reports every error; the namespace still
+            // counts as failed.
+            let found = if ns.parse_errors.is_empty() {
+                found
+            } else {
+                crate::driver::merge_recovered(ns.parse_errors.clone(), found)
+            };
             if found.iter().any(|d| d.severity == Severity::Error) {
                 failed.insert(name);
             }
@@ -191,9 +194,12 @@ impl Session {
             }
             None => part(&mut common, b"no config"),
         }
+        // A namespace with syntax errors is checked without its broken
+        // declarations, so its result is never cached.
         analysis
             .namespaces
             .iter()
+            .filter(|ns| ns.parse_errors.is_empty())
             .map(|ns| {
                 let mut h = common.clone();
                 part(&mut h, ns.name.as_bytes());
@@ -280,7 +286,8 @@ pub struct Namespace {
     pub name: String,
     /// Its files, by display name.
     pub files: Vec<FileId>,
-    /// Parsed, in the same order; empty if any file failed to parse.
+    /// Parsed, in the same order; a file with syntax errors keeps the
+    /// declarations that parsed (`parse_errors` has the errors).
     pub modules: Vec<Module>,
     pub parse_errors: Vec<Diagnostic>,
     /// The namespaces it uses directly.
@@ -303,23 +310,22 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
         files: Vec<FileId>,
         modules: Vec<Module>,
         parse_errors: Vec<Diagnostic>,
-        broken: bool,
     }
     let mut found: BTreeMap<String, Found> = BTreeMap::new();
     for (path, text) in &files {
         let display = format!("{project}/{path}");
         let id = session.sources.add(display.clone(), text.clone());
         session.elab.set_include_location(id, path.clone());
-        let parsed = parse_module_within(id, text, session.elab.limits.stack);
-        let (namespace, errors, module) = match parsed {
-            Ok(module) => (module.namespace.clone(), Vec::new(), Some(module)),
-            Err(errors) => {
+        let (parsed, errors) = parse_module_recovering(id, text, session.elab.limits.stack);
+        let (namespace, errors, module) = match errors {
+            errors if errors.is_empty() => (parsed.namespace.clone(), errors, Some(parsed)),
+            errors => {
                 if let Some(not_first) = errors.iter().find(|d| d.code == "E-NAMESPACE-NOT-FIRST") {
                     diagnostics.push(not_first.clone());
                     continue;
                 }
                 match parse_namespace_line(id, text) {
-                    Ok(line) => (line, errors, None),
+                    Ok(line) => (line, errors, Some(parsed)),
                     Err(d) => {
                         // The namespace line itself is the trouble.
                         diagnostics.push(d);
@@ -342,23 +348,18 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
                 files: Vec::new(),
                 modules: Vec::new(),
                 parse_errors: Vec::new(),
-                broken: false,
             });
         entry.files.push(id);
-        match module {
-            Some(module) => entry.modules.push(module),
-            None => {
-                entry.broken = true;
-                entry.parse_errors.extend(errors);
-            }
-        }
+        // A file with syntax errors keeps the declarations that parsed.
+        entry.modules.extend(module);
+        entry.parse_errors.extend(errors);
     }
     let mut namespaces: Vec<Namespace> = found
         .into_iter()
         .map(|(name, f)| Namespace {
             name,
             files: f.files,
-            modules: if f.broken { Vec::new() } else { f.modules },
+            modules: f.modules,
             parse_errors: f.parse_errors,
             edges: Vec::new(),
         })
@@ -395,7 +396,7 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
         }
     };
     let names: BTreeMap<String, BTreeSet<String>> = (0..namespaces.len())
-        .filter(|i| !namespaces[*i].modules.is_empty())
+        .filter(|i| namespaces[*i].parse_errors.is_empty())
         .map(|i| (namespaces[i].name.clone(), direct_names(&syntax_of(i))))
         .collect();
     session.elab.set_project_names(names);

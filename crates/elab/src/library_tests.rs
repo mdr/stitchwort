@@ -51,6 +51,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
                 namespace: None,
                 imports: Vec::new(),
                 decls: vec![(*decl).clone()],
+                failed: Vec::new(),
             },
             names: Vec::new(),
             edges: Vec::new(),

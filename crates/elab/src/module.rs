@@ -652,6 +652,7 @@ impl Elaborator {
             }
         }
         self.module.file = None;
+        self.declare_parse_failed(files);
         diagnostics.extend(import_errors);
         // A declaration whose own name is taken is left out.
         if !left_out.is_empty() {
@@ -677,6 +678,25 @@ impl Elaborator {
             return (kept, decl_spans);
         }
         (items, decl_spans)
+    }
+
+    /// The names of declarations that failed to parse are declared as
+    /// failed (unless something else already declared them), so a use of
+    /// one is `E-FAILED-DEPENDENCY` (which goes without saying, the syntax
+    /// error having been reported) rather than `E-UNKNOWN-NAME`.
+    fn declare_parse_failed(&mut self, files: &[SourceUnit]) {
+        for unit in files {
+            for name in &unit.module.failed {
+                let Ok(key) = self.declaration_key(name) else {
+                    continue;
+                };
+                if self.scope.entries.contains_key(&key) {
+                    continue;
+                }
+                self.scope.insert(&key, Global::Failed, name.span, false);
+                self.module.names.insert(key);
+            }
+        }
     }
 
     /// Adds each file's imports to its own table (`own` as in

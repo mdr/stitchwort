@@ -44,13 +44,41 @@ pub fn parse_module_within(
     text: &str,
     stack: usize,
 ) -> std::result::Result<Module, Vec<Diagnostic>> {
+    match parse_module_recovering(file, text, stack) {
+        (module, errors) if errors.is_empty() => Ok(module),
+        (_, errors) => Err(errors),
+    }
+}
+
+/// Like [`parse_module_within`], but keeps going after a syntax error
+/// (docs/proposals/language-server.md, stage 0a). Parsing recovers at
+/// declaration boundaries: a declaration that doesn't parse is left out of
+/// the module, and its names (found by scanning its tokens) are in
+/// `Module::failed`, so the declarations after it that use them aren't
+/// reported as using unknown names. Returns the declarations that did
+/// parse and every error, in file order. A lexical error, or a first
+/// declaration not at the start of a line, stops everything: the module is
+/// empty.
+pub fn parse_module_recovering(
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> (Module, Vec<Diagnostic>) {
     let limit = StackLimit::from_here(stack);
-    let tokens = lex(file, text).map_err(|d| vec![d])?;
+    let tokens = match lex(file, text) {
+        Ok(tokens) => tokens,
+        Err(d) => return (Module::default(), vec![d]),
+    };
     let mut namespace = None;
     let mut imports = Vec::new();
     let mut decls = Vec::new();
     let mut errors = Vec::new();
-    for group in split_decls(&tokens).map_err(|d| vec![d])? {
+    let mut failed = Vec::new();
+    let groups = match split_decls(&tokens) {
+        Ok(groups) => groups,
+        Err(d) => return (Module::default(), vec![d]),
+    };
+    for group in groups {
         let mut parser = Parser::new(group, file, text.len(), limit);
         if parser.peek() == Some(&Tok::KwNamespace) {
             if namespace.is_some() {
@@ -104,18 +132,65 @@ pub fn parse_module_within(
             .and_then(|parsed| parser.finish().map(|()| parsed))
         {
             Ok(parsed) => decls.extend(parsed),
-            Err(diagnostic) => errors.push(diagnostic),
+            Err(diagnostic) => {
+                errors.push(diagnostic);
+                failed.extend(declared_names_of(group));
+            }
         }
     }
-    if errors.is_empty() {
-        Ok(Module {
+    (
+        Module {
             namespace,
             imports,
             decls,
-        })
-    } else {
-        Err(errors)
+            failed,
+        },
+        errors,
+    )
+}
+
+/// The names a declaration that didn't parse would have declared, read off
+/// its tokens: after its keyword (`def`, `theorem`, `instance`, `type`,
+/// `interface`, `ability`), and for the last three, each name after a `|`
+/// outside brackets (a constructor or operation). Best effort: a
+/// declaration that broke before its name declares nothing.
+fn declared_names_of(group: &[Token]) -> Vec<Name> {
+    let mut i = 0;
+    if group.first().map(|t| &t.tok) == Some(&Tok::KwExport) {
+        i = 1;
     }
+    let Some(keyword) = group.get(i).map(|t| &t.tok) else {
+        return Vec::new();
+    };
+    let has_members = match keyword {
+        Tok::KwDef | Tok::KwTheorem | Tok::KwInstance => false,
+        Tok::KwType | Tok::KwInterface | Tok::KwAbility => true,
+        _ => return Vec::new(),
+    };
+    let name_at = |j: usize| match group.get(j) {
+        Some(Token {
+            tok: Tok::Lower(text) | Tok::Upper(text),
+            span,
+            ..
+        }) => Some(Name {
+            text: text.clone(),
+            span: *span,
+        }),
+        _ => None,
+    };
+    let mut names: Vec<Name> = name_at(i + 1).into_iter().collect();
+    if has_members {
+        let mut depth = 0usize;
+        for (j, token) in group.iter().enumerate() {
+            match token.tok {
+                Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+                Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
+                Tok::Pipe if depth == 0 => names.extend(name_at(j + 1)),
+                _ => {}
+            }
+        }
+    }
+    names
 }
 
 /// Reads only a file's namespace line: `Some` if the file's first
@@ -4662,6 +4737,27 @@ mod tests {
         assert!(
             parse_module_text("def f (a: Nat): a = a :=\n  calc a\n    _ = a\n   _ = a\n").is_err()
         );
+    }
+
+    #[test]
+    fn recovery_keeps_good_declarations_and_names_the_broken() {
+        let text = "def a: Nat := 1\n\ndef b (n: Nat): Nat := n +\n\n\
+                    type T\n  | MkT (x: Nat\n\ndef c: Nat := (\n\ndef d: Nat := 2\n";
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
+        assert_eq!(errors.len(), 3);
+        let kept: Vec<&str> = module
+            .decls
+            .iter()
+            .filter_map(|d| match d {
+                Decl::Signature { name, .. } => Some(name.text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(kept, ["a", "d"]);
+        let failed: Vec<&str> = module.failed.iter().map(|n| n.text.as_str()).collect();
+        assert_eq!(failed, ["b", "T", "MkT", "c"]);
     }
 
     fn parse_module_text(text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
