@@ -4762,9 +4762,9 @@
     {
       "id": 305,
       "title": "LSP: workspace symbols only cover the open file's namespace and imports",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "overnight small-fixes lane (D574)",
       "labels": [
         "lsp"
       ],
@@ -4776,9 +4776,9 @@
     {
       "id": 306,
       "title": "Nav small: binder hovers lack types; rewrite hover shows elaborated type; Pt in def Pt.sum and operators not navigable; { x, y } shorthand goes to field; let binder selection; double space in hovers; Expand Selection empty first step",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "overnight small-fixes lane (D574)",
       "labels": [
         "lsp"
       ],
@@ -4822,9 +4822,9 @@
     {
       "id": 309,
       "title": "Playground browser test 'the AoC days are listed' is stale (waits for day 2's tabs; fails at fe2ea510 too)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "overnight small-fixes lane (D574)",
       "labels": [
         "playground",
         "tests"
@@ -4837,9 +4837,9 @@
     {
       "id": 310,
       "title": "Parser: tuple pattern (Some x, Some y, Some z) gives E-PARSE",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "overnight small-fixes lane (D574)",
       "labels": [
         "syntax",
         "bug"
