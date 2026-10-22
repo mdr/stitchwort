@@ -392,8 +392,9 @@ mod tests {
     use super::*;
     use std::path::Path;
 
-    /// The `.sw` files under `aoc/src` and the puzzle inputs under
-    /// `aoc/inputs`, as (path within the project, text): the bundle.
+    /// The `.sw` files under `aoc/src`, and the example and puzzle inputs
+    /// under `aoc/examples` and `aoc/inputs`, as (path within the project,
+    /// text): the bundle, as `web/bundle-projects.sh` makes it.
     fn aoc_files() -> (Vec<String>, Vec<String>) {
         fn walk(dir: &Path, root: &Path, out: &mut Vec<(String, String)>) {
             let mut entries: Vec<_> = std::fs::read_dir(dir)
@@ -416,6 +417,7 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
         let mut files = Vec::new();
         walk(&root.join("src"), &root, &mut files);
+        walk(&root.join("examples"), &root, &mut files);
         walk(&root.join("inputs"), &root, &mut files);
         assert!(files.len() >= 10, "{} files", files.len());
         files.into_iter().unzip()
