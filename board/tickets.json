@@ -4532,7 +4532,7 @@
     {
       "id": 296,
       "title": "Each ability: flatMap/filter chains as effects (each, require, Each.collect) + Day 2 trial (D528)",
-      "status": "review",
+      "status": "done",
       "agent": "Matt",
       "where": "branch worktree-agent-ad58ba5692c2a1c65: std e5f029fe, Day 2 trial bf45d77c",
       "labels": [
@@ -4542,7 +4542,11 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "418db73d",
+        "e5f029fe",
+        "bf45d77c"
+      ]
     },
     {
       "id": 297,
