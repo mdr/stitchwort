@@ -801,3 +801,38 @@ fn selection_ranges_walk_outward_through_the_expressions() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A `decreasing` function calling itself under a lambda (line 3) and not
+/// under one (line 4).
+const DECREASING_PROGRAM: &str = "def down (n: Nat): Nat\n  decreasing n\n:=\n  let a := Std.List.between 0 3 |> .sumBy (d => if h: d < n then down d else 0)\n  let b := if h: 0 < n then down 0 else 1\n  a + b\n";
+
+#[test]
+fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
+    let dir = temp_dir("decreasing-rec");
+    let file = dir.join("rec.sw");
+    std::fs::write(&file, DECREASING_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, DECREASING_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = DECREASING_PROGRAM.lines().collect();
+    for line in [3usize, 4] {
+        let ch = lines[line].find("down").unwrap() as u32;
+        let definition = client.at("textDocument/definition", &uri, line as u32, ch);
+        assert_eq!(definition["range"]["start"]["line"], 0, "{definition}");
+        assert_eq!(definition["range"]["start"]["character"], 4, "{definition}");
+        let hover = client.at("textDocument/hover", &uri, line as u32, ch);
+        let text = hover["contents"]["value"].as_str().unwrap();
+        assert!(text.contains("def  `Main.down`"), "{text}");
+    }
+    let refs = client.at("textDocument/references", &uri, 0, 5);
+    let found: Vec<u64> = refs
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["range"]["start"]["line"].as_u64().unwrap())
+        .collect();
+    assert!(found.contains(&3) && found.contains(&4), "{refs}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

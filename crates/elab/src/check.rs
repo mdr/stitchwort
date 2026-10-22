@@ -290,6 +290,17 @@ impl<'e> Ctx<'e> {
         Ok(Some((term, local.ty.clone())))
     }
 
+    /// A use of `name`, resolved by `local`: a local definition is noted as a
+    /// local, but the recursive call of a definition with `decreasing` (stood
+    /// in for by `%rec`) is a use of the global definition.
+    pub(crate) fn note_local_use(&self, name: &AstName, ty: &Value) {
+        if self.local_entry(&name.text).is_some() {
+            self.e.note_local(self, name, ty);
+        } else {
+            self.e.note_name(name);
+        }
+    }
+
     fn local_entry(&self, name: &str) -> Option<&LocalName> {
         let local = self.locals.iter().rev().find(|l| l.name == name)?;
         let shadowed = self.scope[local.scope..].iter().any(|(n, _)| n == name);
@@ -754,7 +765,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         return apply_args(cx, head, args);
     };
     if let Some(head) = cx.local(&name.text)? {
-        cx.e.note_local(cx, name, &head.1);
+        cx.note_local_use(name, &head.1);
         return apply_args(cx, head, args);
     }
     if let Some(level) = cx.lookup(&name.text) {
@@ -1972,7 +1983,7 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
         return None;
     };
     if let Ok(Some(local)) = cx.local(&name.text) {
-        cx.e.note_local(cx, name, &local.1);
+        cx.note_local_use(name, &local.1);
         return Some(local);
     }
     if let Some(level) = cx.lookup(&name.text) {
