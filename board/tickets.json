@@ -1,5 +1,5 @@
 {
-  "next": 250,
+  "next": 251,
   "tickets": [
     {
       "id": 1,
@@ -3048,17 +3048,17 @@
     {
       "id": 199,
       "title": "Well-founded recursion: write decreasing n instead of fuel (design note)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "design",
         "kernel",
         "proof"
       ],
-      "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n",
+      "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n\n22 Oct 2026 (D472, Matt: yes): write the design note now (note only). Days 1-4 research: Lean authors use termination_by measures (day 4: roll count); 9 of 21 proof-language day 4 files used fuel or gave up.",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3520,11 +3520,11 @@
     {
       "id": 235,
       "title": "List batch 2: maxBy/minBy (first wins), dropWhile, takeWhile, span, dropRight, tails, findIndex, withIndex, splitAt",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
-      "body": "Second list batch (D360, D361; docs/comparisons/aoc-day03-community.md): List.maxBy / minBy (by a key or comparison; on a tie the FIRST element wins, documented and tested, since the day 3 trap is that Haskell maximumBy / Clojure max-key return the last), dropWhile, takeWhile, span, dropRight, tails, findIndex, zipWithIndex (or withIndex), splitAt. Main value first, as SW-219. Tests and cheap lemmas.\n\nDone when: all exist in std/List with tests; the maxBy tie rule has a test that tells the rules apart.\n\n22 Oct 2026: candidates from days 4-5 research — List.flatMap (D435), List.cross, Set.map, Set.any (D424, pending).",
+      "body": "Second list batch (D360, D361; docs/comparisons/aoc-day03-community.md): List.maxBy / minBy (by a key or comparison; on a tie the FIRST element wins, documented and tested, since the day 3 trap is that Haskell maximumBy / Clojure max-key return the last), dropWhile, takeWhile, span, dropRight, tails, findIndex, zipWithIndex (or withIndex), splitAt. Main value first, as SW-219. Tests and cheap lemmas.\n\nDone when: all exist in std/List with tests; the maxBy tie rule has a test that tells the rules apart.\n\n22 Oct 2026: candidates from days 4-5 research — List.flatMap (D435), List.cross, Set.map, Set.any (D424, pending).\n\n22 Oct 2026 (D470, Matt: yes): also Text.words, List.findMap, List.flatMap, List.cross, Set.map, Set.any, Nat.iterate (days 4-7 research).",
       "created": "2026-10-21",
       "updated": "2026-10-22",
       "commits": []
@@ -3735,6 +3735,20 @@
       "where": "",
       "labels": [
         "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 250,
+      "title": "Row/grid helpers: Vec.shiftLeft/shiftRight (fill), Vec.tabulate, Vec.around, List.transposeFill, with getOr lemmas (D471); then port days 4, 6, 7 (one lane per day, keep a port only if its proof shrinks)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "std"
       ],
       "body": "",
       "created": "2026-10-22",
