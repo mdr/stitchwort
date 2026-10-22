@@ -385,7 +385,7 @@ fn run_main_in(
         past_end: 0,
         max_past_end,
     };
-    let result = session.run_main(main, &mut input, &mut output);
+    let result = session.run_main_fast(main, &mut input, &mut output);
     Ok(result.map_err(|error| {
         let error = match error {
             RunError::Write(_) if output.full => Diagnostic::error(
