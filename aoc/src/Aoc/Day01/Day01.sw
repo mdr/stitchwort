@@ -6,8 +6,9 @@
 --
 -- The puzzle input is committed in aoc/inputs/ (D119).
 --
--- The dial is a `Mod n`, a number below `n` that wraps around (`Mod 100` in
--- the puzzle). Part 2 is proved correct, for a dial of any size, in
+-- The dial is a record around a `Mod n`, a number below `n` that wraps around
+-- (`Mod 100` in the puzzle), so the program reads `dial.move turn` and
+-- `dial.isZero`. Part 2 is proved correct, for a dial of any size, in
 -- `Aoc.Day01.Proofs` (Proofs/Part2.sw), and the tests are in `Aoc.Day01.Tests`
 -- (Tests/); `run` checks neither.
 
@@ -25,21 +26,24 @@ def solvePart1 (turns: List Turn): Nat := zerosLandedOn startingDial turns
 
 def solvePart2 (turns: List Turn): Nat := zerosPassed startingDial turns
 
+-- The dial: where it points, on a dial of `n` positions.
+type Dial (n: Nat) = { position: Mod n }
+
 -- The puzzle's dial: 100 positions, 0 to 99, at 50.
-def startingDial: Mod 100 := Mod.ofNat 50
+def startingDial: Dial 100 := { position = Mod.ofNat 50 }
 
 -- Part 1: the positions after each turn that are 0.
-def zerosLandedOn (startingDial: Mod n) (turns: List Turn): Nat :=
+def zerosLandedOn (startingDial: Dial n) (turns: List Turn): Nat :=
   turns
-    |> .scanLeft move startingDial
+    |> .scanLeft Dial.move startingDial
     |> .drop 1
-    |> .count isZero
+    |> .count Dial.isZero
 
 -- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
-def zerosPassed (startingDial: Mod n) (turns: List Turn): Nat :=
+def zerosPassed (startingDial: Dial n) (turns: List Turn): Nat :=
   turns
-    |> .scanLeft move startingDial
-    |> .zipWith zerosDuring turns
+    |> .scanLeft Dial.move startingDial
+    |> .zipWith Dial.zerosDuring turns
     |> .sum
 
 type Turn =
@@ -61,15 +65,15 @@ def Turn.clicks: Turn -> List Turn
   | Right n => List.replicate n (Right 1)
 
 -- Where a turn leaves the dial: left is towards lower numbers.
-def move (dial: Mod n): Turn -> Mod n
-  | Left k  => Mod.ofInt (dial.toInt - k.toInt)
-  | Right k => Mod.ofInt (dial.toInt + k.toInt)
+def Dial.move (dial: Dial n): Turn -> Dial n
+  | Left k  => { position = dial.position.subNat k }
+  | Right k => { position = dial.position.addNat k }
 
-def isZero (dial: Mod n): Bool := dial.value == 0
+def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
 
 -- How many clicks of a turn land on 0. Going right from `dial`, the dial is at
 -- 0 after each click that brings `dial + k` to a multiple of the dial's size.
 -- Going left is the mirror image: 0 is `(size - dial) % size` clicks away.
-def zerosDuring [n: Nat] (dial: Mod n): Turn -> Nat
-  | Right k => (dial.value + k) / Mod.size n
-  | Left k  => ((Mod.size n - dial.value) % Mod.size n + k) / Mod.size n
+def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
+  | Right k => (dial.position.value + k) / Mod.size n
+  | Left k  => ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n
