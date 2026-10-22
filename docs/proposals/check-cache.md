@@ -649,7 +649,10 @@ follows elaboration step by step (`replay_namespace` in
 3. Load the library files it needs, through the same `load_needs` call
    with the same needs. Which files that loads depends on what is loaded
    already, and this way it is the same as elaborating would load in this
-   run. (Those files usually come from their own entries.)
+   run. (Those files usually come from their own entries.) The needs
+   themselves don't depend on what was loaded when the entry was written:
+   a name in a library file counts whether or not that file is loaded
+   (SW-255, below).
 4. Read the rest of the entry, find its dependencies by path and check
    their hashes, then admit its declarations and fill in its tables, as
    for a library file. Then the rest of its names, its members, tests and
@@ -657,11 +660,38 @@ follows elaboration step by step (`replay_namespace` in
 
 A problem found after step 2 has begun is a "late miss": the namespace is
 then elaborated from where replay stopped (the walk isn't done twice, and
-loading the needs again does nothing). That is still checked by the
-kernel, but the order of some names could differ from a fresh run. It
-should never happen: the key covers everything those steps read. The
-statistics count late misses, and the differential test checks there are
-none.
+loading the needs again does nothing). Its first pass claims again, in the
+same place, the names replay declared in step 2 (`replayed_names`), rather
+than finding them taken. That is still checked by the kernel, and the
+differential test checks the result is the same as a fresh run's (with a
+test hook that makes every replay fail late). It should be rare: the key
+covers what those steps read, but not which library files the run loaded
+before (see below). The statistics count late misses, and the
+differential tests check there are none.
+
+**SW-255: one cache, different targets.** `stitchwort check` (the whole
+project) and then `stitchwort run Aoc.Day07.main` from the same cache
+reported every name of `Aoc.Day07` as defined twice (days 3, 4, 6 and 7).
+Two faults together:
+
+1. The needs an entry kept depended on what was loaded when it was
+   written. The dependency pass noted a library file only for a name that
+   was still pending, so in a whole project check, where earlier days had
+   already loaded `std/Fin/Fin.sw` and `std/Vec/Vec.sw`,
+   `Aoc.Day07`'s entry didn't list them. `run` checks only `Aoc.Day07` and
+   what it imports, so replay didn't load them, and the entry's
+   dependency `Std.Fin` wasn't there: a late miss. Now a name in a loaded
+   library file counts too (`note_library_use`, by `LibraryIndex::owner`),
+   and loading skips what is loaded, so elaborating loads what it did.
+2. After a late miss, the names replay had declared were still there, so
+   elaborating found each one taken (`E-DUPLICATE`, "first defined here"
+   at the same place). Now the first pass claims them again, as above.
+
+Fixing either one fixes the command; both are fixed. The canonical dump
+also now shows a navigation reference noted while its library file was
+pending as what its name is at the end, which is how the index reads it,
+since whether the file had loaded by then depends on what else the run
+loaded.
 
 What the namespace adds is found by comparing before and after, as for a
 library file, with one more snapshot: the names present when the
@@ -705,6 +735,13 @@ order of their short names' `followers`.
   nothing else (Merkle); a namespace with errors isn't written; a changed
   included file is a miss; a new namespace or a changed `stitchwort.yaml`
   is a miss for every namespace.
+- Added for SW-255: one target writes the cache and another reads it (the
+  whole project, then one namespace, and the other way round), on a small
+  project with `Tests` namespaces, giving what the reader gives without a
+  cache, with every namespace both checked from the cache and no late
+  miss; in the slow tier, every `aoc` namespace on its own from the whole
+  project's entries; and a replay made to fail late gives the fresh
+  result.
 - `crates/cli/tests/check_cache.rs` runs the built command. What
   `stitchwort check --index - --project P` prints (the index, the
   diagnostics and the exit status) is byte for byte the same with
@@ -712,7 +749,11 @@ order of their short names' `followers`.
   and in the slow tier for all of them and for `aoc`, both the whole
   project and `Aoc.Day05` on its own (the editor's save path) from the
   whole project's entries. Also: a warm `stitchwort test` reports every
-  result from the cache and every namespace `(cached)`.
+  result from the cache and every namespace `(cached)`. And (SW-255)
+  `check`, `check B`, `run`, and `test` in pairs, sharing one cache, each
+  print what they print with `--no-cache`.
+- `crates/cli/tests/aoc_answers.rs` also runs every day from the cache a
+  whole project `check` wrote.
 - `crates/cli/tests/caching.rs`: the test cache's eviction.
 
 ### Measurements

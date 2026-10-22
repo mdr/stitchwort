@@ -341,7 +341,8 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     );
     // What navigation recorded, which its index is made from.
     if let Some(nav) = &e.nav {
-        nav.borrow().dump(&mut out);
+        nav.borrow()
+            .dump(&mut out, &|key| e.scope.get(key).map(|(g, _)| g));
     }
     out
 }

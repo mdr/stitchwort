@@ -292,6 +292,8 @@ impl Elaborator {
             self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
         }
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
+        // Claimed again by now, if this follows a failed replay.
+        self.replayed_names.clear();
         let needs = self.dependencies(&items);
         // For the check cache: the names collected, before the library
         // files load (`cache`).
@@ -762,7 +764,7 @@ impl Elaborator {
                 format!("`{}` is built in and can't be redefined", n.text),
             ));
         }
-        if let Some((_, previous)) = self.scope.get(key) {
+        if let Some(previous) = self.taken(key) {
             return Err(error(
                 "E-DUPLICATE",
                 n.span,
@@ -771,6 +773,18 @@ impl Elaborator {
             .with_label(previous, "first defined here"));
         }
         Ok(())
+    }
+
+    /// Where `key` is declared already, if it is. Not a name a cache replay
+    /// that failed part way declared for this namespace (as a failure),
+    /// which elaborating the namespace claims again in the same place
+    /// (`cache`).
+    fn taken(&self, key: &str) -> Option<Span> {
+        let (global, span) = self.scope.get(key)?;
+        if matches!(global, Global::Failed) && self.replayed_names.contains(key) {
+            return None;
+        }
+        Some(span)
     }
 
     /// Step 2: what each declaration refers to. Also the library files the
