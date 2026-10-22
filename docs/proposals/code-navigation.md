@@ -152,6 +152,22 @@ CodeMirror offset counts. A UI is then: map the click position to a ref,
 and on click or Cmd-click call the page's `goTo(path, line, column)` (add 1
 to the 0-based values), or open the std text for a `std` file.
 
+**Type of a selection (SW-295, D526).** Both calls turn on expression types
+(`Elaborator::enable_expression_types`, as the language server does, SW-293),
+and the index then has an extra `"exprs"` array: `[file, [l1, c1, l2, c2],
+"type"]` for each expression of the program's files (never the library's),
+as `nav::index_data_of` builds it, with the parentheses already put back, so
+the page does only the lookup (no lexing). The page trims the whitespace off
+the textarea's selection and takes the smallest of these ranges that
+contains it. That type is shown in the hover tooltip when the pointer is
+inside a non-empty selection (it takes the place of the name's), and in a
+small `selection: T` pill beside the status line whenever the selection
+changes (the mouse, the keyboard, a phone's handles: `selectionchange`),
+cleared when it is empty or nothing covers it. A selection in a library file
+has none. Cost (native release build, AoC project whole): the index takes
+about 2.2 s instead of 1.56 s and is 9.97 MB instead of 8.04 MB (Day 2 with
+its tests and proofs: 0.91 s instead of 0.66 s, 5.4 MB instead of 4.8 MB).
+
 ## How it's recorded
 
 Off by default: a session opts in (`Elaborator::enable_navigation`), so normal

@@ -70,7 +70,9 @@ fn pairs(paths: &[String], texts: &[String]) -> Vec<(String, String)> {
 /// with the same paths, that the CLI reads from disk. No server is involved.
 fn new_session(paths: &[String], texts: &[String], navigation: bool) -> Session {
     let mut session = if navigation {
-        Session::navigable()
+        let mut session = Session::navigable();
+        session.elab.enable_expression_types();
+        session
     } else {
         Session::new()
     };

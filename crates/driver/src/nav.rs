@@ -240,8 +240,21 @@ pub fn index_json(
     }
     let _ = write!(
         out,
-        r#"],"symbols":[{symbols}],"refs":[{refs}],"diagnostics":[{diags}]}}"#
+        r#"],"symbols":[{symbols}],"refs":[{refs}],"diagnostics":[{diags}]"#
     );
+    // Only when the session recorded them: `[file, range, type]` each, with
+    // the parentheses already put back (see `index_data_of`).
+    if !index.exprs.is_empty() {
+        out.push_str(r#","exprs":["#);
+        for (i, (file, range, ty)) in index.exprs.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            let _ = write!(out, "[{file},{},{}]", json_range(*range), string(ty));
+        }
+        out.push(']');
+    }
+    out.push('}');
     out
 }
 

@@ -75,6 +75,7 @@ pub fn check(source: &str) -> String {
 #[wasm_bindgen]
 pub fn check_index(source: &str) -> String {
     let mut session = Session::navigable();
+    session.elab.enable_expression_types();
     session.elab.limits = session_limits();
     let loaded = session.load(FILE, source);
     let ok = loaded.is_ok();
@@ -613,6 +614,21 @@ mod tests {
         assert!(failed.contains(r#""errors":true,"ok":false"#), "{failed}");
         assert!(std_source("core/Data.sw").contains("type List"));
         assert_eq!(std_source("nope.sw"), "");
+    }
+
+    /// The index carries the types of the program's expressions (not the
+    /// library's), with the parentheses put back, for the type of a selection.
+    #[test]
+    fn the_index_has_the_types_of_the_programs_expressions() {
+        let source = "def f (n: Nat): Nat := (n + 1) + n\n";
+        let index = check_index(source);
+        assert!(index.contains(r#","exprs":[["#), "{index}");
+        // The whole body (it starts at the parenthesis, which the parser drops) and `n`.
+        assert!(index.contains(r#"[0,[0,23,0,34],"Nat"]"#), "{index}");
+        assert!(index.contains(r#"[0,[0,24,0,25],"Nat"]"#), "{index}");
+        // Only file 0, the program: no library file has any.
+        let exprs = &index[index.find(r#""exprs":"#).expect("exprs")..];
+        assert!(!exprs.contains("[1,["), "{exprs}");
     }
 
     #[test]
