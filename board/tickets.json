@@ -4796,7 +4796,7 @@
     {
       "id": 311,
       "title": "Playground: direct links #aoc/dayNN and #example/<name>, kept in sync with the dropdown (D541)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4805,7 +4805,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "fb3581f8"
+      ]
     }
   ]
 }
