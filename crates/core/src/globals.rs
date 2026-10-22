@@ -240,6 +240,17 @@ pub struct Globals {
     /// (`Std` for the prelude, `Main` for a program), which their [`Data::path`]
     /// starts with. Empty: the path is the name.
     pub module: Name,
+    /// Whether evaluation keeps a definition applied to all its arguments
+    /// as the call, a [`Value::Call`], unfolding it only when something
+    /// looks inside (glued evaluation, docs/proposals/folded-calls.md).
+    /// Off unless the elaborator turns it on, and always off while the
+    /// kernel checks (D483) or a program runs.
+    pub glue: Cell<bool>,
+    /// Counts the times metavariable solutions were taken back (undone or
+    /// cleared). A call's kept unfolding records the count it was computed
+    /// at, and is computed again if the count has moved since: it may have
+    /// used a solution that's gone.
+    pub meta_epoch: Cell<u64>,
 }
 
 /// A call the printer shows by a local name (see
@@ -310,8 +321,15 @@ impl Globals {
         self.meta_trail.borrow_mut().push((m, old));
     }
 
+    /// Records that metavariable solutions have been taken back (see
+    /// [`Globals::meta_epoch`]).
+    pub fn metas_taken_back(&self) {
+        self.meta_epoch.set(self.meta_epoch.get() + 1);
+    }
+
     /// Forgets every metavariable (and the record of their solutions).
     pub fn clear_metas(&self) {
+        self.metas_taken_back();
         self.metas.borrow_mut().clear();
         self.frozen_metas.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();

@@ -399,6 +399,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
             }
             term
         }
+        Value::Call(..) => unreachable!("the reference evaluator never glues"),
     })
 }
 

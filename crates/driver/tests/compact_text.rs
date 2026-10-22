@@ -103,7 +103,7 @@ fn value_of(session: &mut Session, expr: &str, compact: bool) -> (Term, Value) {
     let (term, _) = result.unwrap_or_else(|e| panic!("{expr}: {e:?}"));
     let g = &session.elab.globals;
     let _op = g.budget.operation(session.elab.limits);
-    let value = value::eval(g, &[], &term).unwrap();
+    let value = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap();
     (term, value)
 }
 
@@ -961,7 +961,8 @@ fn is_scalar_agrees_with_rust_on_every_code_point() {
         .operation(Limits::stack_only(Limits::default().stack));
     for code in 0..0x11_0100u32 {
         let term = Term::app(Term::Def(is_scalar), Term::Nat(Rc::new(code.into())));
-        let Value::Ctor(_, c, _) = value::eval(g, &[], &term).unwrap() else {
+        let Value::Ctor(_, c, _) = value::force(g, value::eval(g, &[], &term).unwrap()).unwrap()
+        else {
             panic!("`Char.isScalar {code}` is a `Bool`")
         };
         assert_eq!(c == 1, char::from_u32(code).is_some(), "U+{code:X}");

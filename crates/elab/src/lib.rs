@@ -488,7 +488,14 @@ fn name(n: &ast::Name) -> Name {
 
 impl Elaborator {
     pub fn new() -> Self {
-        Self::default()
+        let e = Self::default();
+        // Glued evaluation (docs/proposals/folded-calls.md) is built in
+        // stages and off by default; `STITCHWORT_GLUE=1` turns it on while
+        // elaborating, to test the stages before it is.
+        e.globals
+            .glue
+            .set(std::env::var("STITCHWORT_GLUE").is_ok_and(|v| v == "1"));
+        e
     }
 
     /// Elaborates a closed expression, and infers its type with the kernel.
@@ -626,7 +633,9 @@ impl Elaborator {
         let term = self.finish(&term, 0)?;
         self.finish(&ty, 0)?;
         self.clear_metas();
-        kernel::infer_closed(&self.globals, &term, expr.span())
+        kernel::without_glue(&self.globals, || {
+            kernel::infer_closed(&self.globals, &term, expr.span())
+        })
     }
 
     pub fn eval(&self, term: &Term) -> std::result::Result<Value, stitchwort_core::ResourceError> {

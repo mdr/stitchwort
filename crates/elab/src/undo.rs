@@ -74,6 +74,11 @@ impl Snapshot {
         {
             let mut metas = g.metas.borrow_mut();
             let mut trail = g.meta_trail.borrow_mut();
+            // A call's kept unfolding may have used what's taken back here
+            // (or a metavariable whose number is about to be reused).
+            if trail.len() > self.trail || metas.len() > self.metas {
+                g.metas_taken_back();
+            }
             while trail.len() > self.trail {
                 let (m, old) = trail.pop().expect("longer than the snapshot's");
                 if let Some(meta) = metas.get_mut(m) {

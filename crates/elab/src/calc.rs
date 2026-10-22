@@ -264,16 +264,16 @@ fn order_sides(cx: &Ctx, value: &Value) -> Option<(Value, Value)> {
         return None;
     };
     let (bool_data, true_ix) = builtin_ctor(cx, Builtin::True).ok()?;
-    let Value::Ctor(d, c, _) = &**r else {
+    let Value::Ctor(d, c, _) = force(cx.g(), (**r).clone()).ok()? else {
         return None;
     };
-    if (*d, *c) != (bool_data, true_ix) {
+    if (d, c) != (bool_data, true_ix) {
         return None;
     }
-    let Value::Neutral(Head::Def(id), elims) = &**l else {
+    let Value::Neutral(Head::Def(id), elims) = force(cx.g(), (**l).clone()).ok()? else {
         return None;
     };
-    if builtin_def(cx, Builtin::Leq).ok() != Some(*id) {
+    if builtin_def(cx, Builtin::Leq).ok() != Some(id) {
         return None;
     }
     let [Elim::App(x, _), Elim::App(y, _)] = &elims[..] else {

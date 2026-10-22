@@ -408,7 +408,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
     let mut ty = g.def(id).ty_value.clone();
     let mut level = 0;
     while let Value::Pi(_, _, _, cod) = &ty {
-        ty = cod.apply(g, Value::var(level))?;
+        ty = force(g, cod.apply(g, Value::var(level))?)?;
         level += 1;
     }
     let head = match ty {

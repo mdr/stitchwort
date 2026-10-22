@@ -169,7 +169,7 @@ pub fn unify<'g>(
         // must be its type with the earlier right values.
         let binder_ty = &top.binders[k].1;
         let env_left: Vec<Value> = top.base.iter().chain(&top.lhs[..k]).cloned().collect();
-        let ty = eval(g, &env_left, binder_ty)?;
+        let ty = force(g, eval(g, &env_left, binder_ty)?)?;
         let lhs = force(g, top.lhs[k].clone())?;
         let rhs = force(g, top.rhs[k].clone())?;
         if (0..k).any(|j| binder_ty.mentions(j)) {

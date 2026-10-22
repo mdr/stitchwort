@@ -638,7 +638,7 @@ fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
 /// term has one the goal hasn't solved yet, nothing can be said and the
 /// comparison by conversion is left to decide.
 fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) -> Result<bool> {
-    match kernel::infer(kcx, term) {
+    match kernel::without_glue(cx.g(), || kernel::infer(kcx, term)) {
         Ok((_, ty)) => return cx.unify(&ty, carrier),
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => {}
@@ -649,7 +649,7 @@ fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) ->
         return Ok(true);
     }
     let carrier = cx.eval(&carrier_term)?;
-    match kernel::check(kcx, term, &carrier) {
+    match kernel::without_glue(cx.g(), || kernel::check(kcx, term, &carrier)) {
         Ok(_) => Ok(true),
         Err(e) if fatal(&e) => Err(e),
         Err(_) => Ok(false),
@@ -745,7 +745,7 @@ fn check_motive(
         "_".into(),
         Value::Eq(Rc::new(carrier), Rc::new(rhs), Rc::new(x)),
     );
-    match kernel::check_type(&mut kcx, body) {
+    match kernel::without_glue(cx.g(), || kernel::check_type(&mut kcx, body)) {
         Ok(_) => Ok(()),
         Err(e) if fatal(&e) => Err(e),
         Err(e) => Err(Diagnostic::error(
