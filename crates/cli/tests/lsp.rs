@@ -837,6 +837,43 @@ fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Declarations that end in a closing parenthesis (SW-303).
+const CLOSING_PAREN_PROGRAM: &str = "def k (n: Nat): Nat := Succ (n + 1)\ndef m (n: Nat): Nat :=\n  Succ (Succ (n + 1))\n";
+
+#[test]
+fn outline_ranges_keep_the_closing_parenthesis() {
+    let dir = temp_dir("outline-paren");
+    let file = dir.join("paren.sw");
+    std::fs::write(&file, CLOSING_PAREN_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, CLOSING_PAREN_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let outline = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let lines: Vec<&str> = CLOSING_PAREN_PROGRAM.lines().collect();
+    let ends: Vec<(u64, u64)> = outline
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["range"]["end"]["line"].as_u64().unwrap(),
+                s["range"]["end"]["character"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        ends,
+        [(0, lines[0].len() as u64), (2, lines[2].len() as u64)],
+        "{outline}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A call whose lambda argument is postponed (SW-300): the generic `acc + f x`
 /// can't be checked until `xs` fixes the element type.
 const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft (acc x => acc + f x) Add.zero xs\n";

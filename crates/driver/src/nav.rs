@@ -288,13 +288,24 @@ pub fn index_data_of(
             files.len() - 1
         })
     };
+    let mut parens: HashMap<FileId, Parens> = HashMap::new();
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
         let at = range(&mut lines, sources, symbol.span, last_component(symbol));
-        let full_range = symbol
-            .range
-            .map(|full| range(&mut lines, sources, full, None));
+        // The declaration's end can be a `)` the parser dropped, as an
+        // expression's can.
+        let full_range = symbol.range.map(|full| {
+            let full = if user(full.file) {
+                parens
+                    .entry(full.file)
+                    .or_insert_with(|| Parens::of(full.file, &sources.get(full.file).text))
+                    .around(full, false)
+            } else {
+                full
+            };
+            range(&mut lines, sources, full, None)
+        });
         symbols.push(Symbol {
             name: symbol.name.clone(),
             kind: symbol.kind,
@@ -337,7 +348,6 @@ pub fn index_data_of(
     }
 
     let mut exprs = Vec::new();
-    let mut parens: HashMap<FileId, Parens> = HashMap::new();
     for (span, ty) in &index.exprs {
         if user(span.file) {
             let file = file_of(*span, &mut files);
