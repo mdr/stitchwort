@@ -66,12 +66,6 @@ def Nat.Digits: List Nat -> Prop
   | Nil       => Unit
   | Cons d ds => And (d < 10) (Nat.Digits ds)
 
-theorem Nat.digitsOfSubsequence: (s: List Nat) -> (ds: List Nat) -> List.Subsequence s ds -> Nat.Digits ds -> Nat.Digits s
-  | Nil,       ds,        h,              hd          => Trivial
-  | Cons x xs, Nil,       h,              hd          => Void.exfalso h
-  | Cons x xs, Cons y ys, Inl (Both e h), Both hy hys => Both (Nat.ltCongLeft y x 10 (Eq.sym e) hy) (Nat.digitsOfSubsequence xs ys h hys)
-  | Cons x xs, Cons y ys, Inr h,          Both hy hys => Nat.digitsOfSubsequence (Cons x xs) ys h hys
-
 theorem Or.andWith: [p q r: Prop] -> r -> Or p q -> Or p (And q r)
   | hr, Inl a => Inl a
   | hr, Inr b => Inr (Both b hr)
@@ -264,6 +258,8 @@ theorem Nat.digitsLengthLe: (x: Nat) -> (m: Nat) -> 1 <= m -> x < Nat.pow 10 m -
           (Nat.fromDigitsHeadBound (Nat.digits (Succ y)) (Nat.digitsHead (Succ y) rfl)))
         h)
 
+-- `Char.digitValue` gives a digit, or nothing (so `Char.toDigit` loses
+-- nothing).
 def Option.IsDigit: Option Nat -> Prop
   | None => Unit
   | Some n  => n < 10
@@ -276,14 +272,6 @@ theorem Char.digitValueDigit (c: Char): Option.IsDigit (Char.digitValue c) :=
       (e2 => Nat.subLtAdd (Char.toNat c) 48 10 e1 e2)
       (e2 => Trivial))
     (e1 => Trivial)
-
-theorem List.consSomeDigits: (m: Option Nat) -> (ys: List Nat) -> Option.IsDigit m -> Nat.Digits ys -> Nat.Digits (List.consSome m ys)
-  | None, ys, h, hy => hy
-  | Some n,  ys, h, hy => Both h hy
-
-theorem Char.mapDigitValueDigits: (cs: List Char) -> Nat.Digits (List.filterMap Char.digitValue cs)
-  | Nil       => Trivial
-  | Cons c cs => List.consSomeDigits (Char.digitValue c) (List.filterMap Char.digitValue cs) (Char.digitValueDigit c) (Char.mapDigitValueDigits cs)
 
 theorem Nat.digitsZero: Nat.digits 0 = [0] := rfl
 

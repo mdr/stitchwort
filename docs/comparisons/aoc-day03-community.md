@@ -45,7 +45,7 @@ The main findings:
    file has no `assume` or `{:axiom}` **[checked: read the file and `gh api` commits; not run,
    so "it verifies" is the author's claim]**. Two differences from ours: it stops at
    lexicographic order and never connects it to the number (`ToNat`), which is where our
-   `Nat.fromDigitsHeadLess` and the "digits are below 10" hypothesis come in; and it requires
+   `Nat.fromDigitsHeadLess` and the digits' bound (now the `Fin 10` type of a battery) come in; and it requires
    `0 < count < |bank|`. The Lean attempts stop short: kim-em's two theorems are `sorry`
    ("difficult to prove for the imperative while loop"), natewhite345's part 1 optimality ends
    in `all_goals sorry` after `grind`, and andorp's specification has `allChoices := sorry`
@@ -131,7 +131,7 @@ repeat the patterns.
 | 23 | Gleam | [Zenor27](https://github.com/Zenor27/AOC2025/blob/HEAD/src/days/day03/day03.gleam), [bmatcuk](https://github.com/bmatcuk/adventofcode2025/blob/HEAD/day03/src/day03.gleam), [tilltheis](https://github.com/tilltheis/adventofcode-2025-gleam/blob/HEAD/src/day03.gleam), [houli](https://github.com/houli/advent-of-code-2025/blob/HEAD/src/day3.gleam), [bucsi](https://github.com/bucsi/aoc/blob/HEAD/solutions_gleam/src/aoc_2025/day_3.gleam) | 48–95 | stack (Zenor27); greedy (others); `list.combination_pairs` for part 1 (Zenor27, bucsi) | `[#(_, remains), .._] if remains < remaining`; `undigits` vendored "Deprecated so I vendored it" **[cited]** | no |
 | 24 | Roc, Elm, Admiran | [arnemart](https://github.com/arnemart/aoc/blob/HEAD/2025/03/3.roc), [0xErwin1](https://github.com/0xErwin1/advent-of-code/blob/HEAD/2025/day_3/main.roc), [albertdahlin](https://github.com/albertdahlin/advent-of-code/blob/HEAD/elm/src/Y25/D03.elm), [caseyWebb](https://github.com/caseyWebb/advent/blob/HEAD/2025/src/Day03.elm), [maxhille](https://github.com/maxhille/aoc-2025/blob/HEAD/days/Day03.elm), [taolson](https://github.com/taolson/advent-of-code/blob/HEAD/2025/day03.am) | 26–100 | greedy; look-ahead skip (taolson) | `List.drop_last` (Roc); `indexedFindLastMax` on the reversed list (caseyWebb); elm-test on 3121910778619; taolson: `= go r' n ds, if canSkip & hasBetter`, "The first version of this used memoization" **[cited]** | no |
 | 25 | Chez Scheme | [erickalkman](https://gitlab.com/erickalkman/aoc2025/-/blob/main/day03.sls) (megathread: onrustigescheikundig) | 49 | **search** over a digit-to-positions map, 9 down to 1 | "the first successful result of which must be the maximum" **[cited: megathread]**; about 2 ms | no |
-| — | Stitchwort | `aoc/src/Aoc/Day03/Day03.sw` + `Proofs/Best.sw` | 25 (program) + 9 (tests); 133 (proofs) | greedy window, leftmost largest (`if c < x`) | `pick` as a local definition; `Nat.fromDigits`; the example and real-input answers as tests | **yes**: `bestSub`, `bestLength`, `bestOptimal`, `joltageIsLargest`, numeric, for every k and line; 16 theorems, checked in about 0.5 s |
+| — | Stitchwort | `aoc/src/Aoc/Day03/Day03.sw` + `Proofs/Best.sw` | 25 (program) + 9 (tests); 133 (proofs; 241 lines, 22 theorems since SW-243) | greedy window, leftmost largest (`if c < x`) | `pick` as a local definition; banks of `Fin 10` digits; `Nat.fromDigits`; the example and real-input answers as tests | **yes**: `bestSub`, `bestLength`, `bestOptimal`, `bestIsLargest`, numeric, for every k and bank; 16 theorems, checked in about 0.5 s |
 | — | Stitchwort, three community shapes | scratch `dp.sw`, `greedy.sw`, `stack.sw` | 16–22 | DP fold, greedy, stack | §4 | no |
 
 Also read, and not in the table because they repeat these patterns: Lean frutjus part 1 and
@@ -271,10 +271,11 @@ first one it finds (in my case, it was returning the last)"; DMonitor (Rust) rev
 | Parser combinators | Koka, Lean (dupuisf), Elm (maxhille), Prolog DCG, Haskell megaparsec | `many digit` |
 | Keep the text, compare characters | mstksg, Gleam (houli), Lisp (dzecniv) | `lift "987654321"` |
 
-**Stitchwort today.** `Bank.parse` is `t.toList |> .filterMap Char.digitValue`, and the library
-proves it yields digits (`Char.mapDigitValueDigits`), which the proof uses to discharge "every
-digit is below 10". Nothing is missing here, and the example can be a `"""` text block
-(`dp.sw` **[checked]**).
+**Stitchwort today.** `Bank.parse` is `t.toList |> .filterMap Char.toDigit`, a digit function
+that can fail, like Lean's `Char.toDigit?`: a bank is a `List (Fin 10)`, so "every digit is
+below 10" is the type, not a hypothesis (SW-243; before it, `Char.digitValue` gave `Nat`s and
+a library lemma proved them digits). The example can be a `"""` text block (`dp.sw`
+**[checked]**).
 
 ### 3.2 The four methods
 
@@ -408,11 +409,12 @@ What the community proved for day 3:
 
 **Where ours stands.** Hath995's proof and ours make the same argument; ours goes one step
 further (to the number, `Nat.fromDigits`, with `Nat.fromDigitsHeadLess`), covers banks shorter
-than k (`bestLength`'s `min`), and is stated for an input line (`joltageIsLargest`). It is 133
-lines in 16 theorems, written without arithmetic automation, where Dafny's lemmas lean on the
-solver. Our cost shows elsewhere: `pick`'s `if` is reasoned about by matching on
-`Nat.leq (Succ c) x` and spelling out what the `if` became (`Decidable.elim (Bool.decTrue …)`
-in `pickBestStep`'s statement), and recursive calls passed as hypotheses must be fully applied
+than k (`bestLength`'s `min`), and holds for every bank of `Fin 10` digits, with no hypothesis
+(`bestIsLargest`, stated with `joltage`). It was 133 lines in 16 theorems (241 in 22 since
+SW-243 moved banks to `Fin 10`), written without arithmetic automation, where Dafny's lemmas
+lean on the solver. Our cost shows elsewhere: `pick`'s `if` is reasoned about through a lemma
+turning `Fin`'s `<` into `Nat`'s (`pickStep`) and matching on `Nat.leq (Succ c) x`, and
+recursive calls passed as hypotheses must be fully applied
 (`c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => …`, SW-116). Both were noted in `docs/aoc-2025.md`; the
 community adds no new friction here.
 

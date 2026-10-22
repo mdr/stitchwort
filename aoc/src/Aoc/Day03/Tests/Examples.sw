@@ -3,7 +3,7 @@
 
 namespace Aoc.Day03.Tests
 import Aoc.Day03 (..)
-import Std (List, Text)
+import Std (Fin, List, Text)
 
 def example: List Text := """
   987654321111111
@@ -16,10 +16,13 @@ test "example" := (solvePart1 (parseBanks example), solvePart2 (parseBanks examp
 test "banks part 1" := (parseBanks example).map (joltage 2) == [98, 89, 78, 92]
 test "banks part 2" := (parseBanks example).map (joltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
 
-test "parse" := Bank.parse "102" == [1, 0, 2]
+test "parse" := (Bank.parse "1x02").map Fin.toNat == [1, 0, 2]
 
-test "zeros" := Bank.best 2 [0, 0, 5, 0] == [5, 0]
-test "leftmost wins" := Bank.best 1 [3, 9, 9, 1] == [9]
-test "keep everything" := Bank.best 3 [4, 5, 6] == [4, 5, 6]
-test "too short" := Bank.best 5 [1, 2] == [1, 2]
-test "pick none" := Bank.best 0 [1, 2, 3] == []
+-- `Bank.best k` of the bank written as `digits`, as numbers.
+def bestOf (k: Nat) (digits: Text): List Nat := (Bank.best k (Bank.parse digits)).map Fin.toNat
+
+test "zeros" := bestOf 2 "0050" == [5, 0]
+test "leftmost wins" := bestOf 1 "3991" == [9]
+test "keep everything" := bestOf 3 "456" == [4, 5, 6]
+test "too short" := bestOf 5 "12" == [1, 2]
+test "pick none" := bestOf 0 "123" == []
