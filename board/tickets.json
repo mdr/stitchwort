@@ -1,5 +1,5 @@
 {
-  "next": 287,
+  "next": 289,
   "tickets": [
     {
       "id": 1,
@@ -4333,8 +4333,8 @@
     },
     {
       "id": 285,
-      "title": "AoC Day 2: single weight: Nat -> Int with attach, off fuel (D516), after the attach addendum and build",
-      "status": "backlog",
+      "title": "decreasing stage 3c: Int sum lemmas + AoC Day 2 single weight: Nat -> Int with the guard, off fuel (D516, D519), after stage 3a",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -4360,6 +4360,34 @@
       "commits": [
         "5774233d"
       ]
+    },
+    {
+      "id": 287,
+      "title": "decreasing stage 3a: calls under lambdas via congruence lemmas (FCong by name, shape-checked); sumBy support (D517, D518), after SW-284 revision",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 288,
+      "title": "decreasing stage 3b: List.attach (typed, structural), Member record, attachFrom lemmas, memMap (after 3c)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decreasing"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
