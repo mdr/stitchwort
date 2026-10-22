@@ -1373,16 +1373,17 @@
     },
     {
       "id": 92,
-      "title": "`do e` as shorthand for `\\() => e` (Unison-style)",
-      "status": "backlog",
+      "title": "[cancelled] `do e` as shorthand for `() => e` (Unison-style)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
-        "syntax"
+        "syntax",
+        "cancelled"
       ],
       "body": "From SW-91 research (19 Oct): Unison's `do` delays a block. Stitchwort could make `do e` sugar for the thunk `() => e` (the backslash form `\\() => e` in the original no longer exists, docs/syntax.md:148; `() => e` works today), for passing programs to handlers (`IO.simulate lines (() => main ())` vs `IO.simulate lines (do main ())`; note `IO.simulate input main` already passes `main` directly, examples/accept/adder-fuel.sw:53). Pure sugar, no soundness risk; the saving is five characters, so the case is weak. Not now (Matt).\n\nDone when: Matt asks for it, in which case a short design note covers where `do e` may appear (argument position needs brackets as lambdas do, syntax.md:148) and the parser/printer change; otherwise stays parked.\n\nHistory: SW-91 research; 'not now' (Matt, 19 Oct).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
