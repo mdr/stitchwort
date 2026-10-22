@@ -14,8 +14,8 @@ def example: List Text := """
   """.lines
 
 test "blank column" := isBlank [' ', ' '] && not (isBlank [' ', '7'])
-test "grid width" := gridWidth ["ab", "abcd", "a"] == 4
-test "padded grid" := paddedGrid ["ab", "a"] == [['a', 'b'], ['a', ' ']]
+test "blocks" := blocks ["1 23", "+ *"] == [[['1', '+']], [['2', '*'], ['3', ' ']]]
+test "blocks of a short line" := blocks ["12", "+"] == [[['1', '+'], ['2', ' ']]]
 test "example problems" :=
   (parseWorksheet example).map (p => (p.rowNumbers, p.columnNumbers))
     == [ ([123, 45, 6], [1, 24, 356]), ([328, 64, 98], [369, 248, 8])

@@ -2,8 +2,8 @@
 -- puzzle's grand totals as Proofs/Spec.sw states them (`part1Correct`,
 -- `part2Correct`, at the bottom). The argument:
 --   1. The program's columns are the worksheet's columns cell by cell
---      (`columnsAre`: padding then transposing reads line l, column c as
---      `charAt l c`).
+--      (`columnsAre`: the library's `List.transposeFill` reads line l,
+--      column c as `charAt l c`).
 --   2. Splitting the columns at the blank ones gives exactly the problems the
 --      spec finds by their column numbers (`blocksTotal`, from the library's
 --      `List.splitByRuns`; column `gridWidth` is blank, which closes the last).
@@ -20,35 +20,16 @@ import Std (Bool, Eq, List, Nat, Option, Text)
 -- The spec's problem test is the library's maximal run of non-blank columns.
 theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo hi = Nat.isRun (c => blank lines c) lo hi := rfl
 
--- Padded to width w, each line is its first w columns.
-theorem paddedCells (w: Nat): (lines: List Text) -> Fits w lines ->
-    List.map (line => List.padRight w ' ' (Text.toList line)) lines = List.map (line => List.map (charAt line) (List.range w)) lines
-  | Nil,         fits          => rfl
-  | Cons l rest, Both fit fits =>
-    calc Cons (List.padRight w ' ' (Text.toList l)) (List.map (line => List.padRight w ' ' (Text.toList line)) rest)
-      _ = Cons (List.map (c => List.getOr ' ' c (List.padRight w ' ' (Text.toList l))) (List.range (List.length (List.padRight w ' ' (Text.toList l)))))
-               (List.map (line => List.map (charAt line) (List.range w)) rest)
-          := rewrite List.mapGetOr ' ' (List.padRight w ' ' (Text.toList l)), paddedCells w rest fits
-      _ = Cons (List.map (charAt l) (List.range w)) (List.map (line => List.map (charAt line) (List.range w)) rest)
-          := rewrite List.padRightLength w ' ' (Text.toList l) fit,
-               List.mapCongr (c => List.getOr ' ' c (List.padRight w ' ' (Text.toList l))) (charAt l)
-                 (c => List.getOrPadRight ' ' w c (Text.toList l)) (List.range w)
-
 -- The program's columns are the worksheet's columns, cell by cell.
-theorem columnsAre: (lines: List Text) ->
-    List.transpose (paddedGrid lines) = List.map (c => List.map (line => charAt line c) lines) (List.range (gridWidth lines))
-  | Nil         => rfl
-  | Cons l rest =>
-    calc List.transpose (paddedGrid (Cons l rest))
-      _ = List.transpose (List.map (line => List.map (charAt line) (List.range (gridWidth (Cons l rest)))) (Cons l rest))
-          := Eq.cong List.transpose (paddedCells (gridWidth (Cons l rest)) (Cons l rest) (foldWidenFits 0 (Cons l rest)))
-      _ = List.map (c => List.map (line => charAt line c) (Cons l rest)) (List.range (gridWidth (Cons l rest)))
-          := List.transposeGrid charAt l rest (List.range (gridWidth (Cons l rest)))
+theorem columnsAre (lines: List Text):
+    List.transposeFill ' ' (List.map Text.toList lines) = List.map (c => List.map (line => charAt line c) lines) (List.range (gridWidth lines)) :=
+  Eq.trans (List.transposeFillColumns ' ' (List.map Text.toList lines))
+    (List.mapCongr _ _ (c => List.mapMap (List.getOr ' ' c) Text.toList lines) (List.range (gridWidth lines)))
 
--- Past the widest line, every column is blank.
-theorem blankPast (w: Nat): (lines: List Text) -> Fits w lines -> blank lines w = True
-  | Nil,         fits          => rfl
-  | Cons l rest, Both fit fits => rewrite List.getOrPast ' ' w (Text.toList l) fit in blankPast w rest fits
+-- Past a bound on every line's length, every column is blank.
+theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List.getOr Nil r (List.map Text.toList lines)) <= w) -> blank lines w = True
+  | Nil,         h => rfl
+  | Cons l rest, h => rewrite List.getOrPast ' ' w (Text.toList l) (h 0) in blankPast w rest (r => h (Succ r))
 
 -- One problem's block of columns, as the program reads it, against the
 -- spec's reading of the same cells. `Cons c cs` are the problem's columns.
@@ -137,7 +118,7 @@ theorem blocksTotal (lines: List Text) (answer: List (List Char) -> Nat):
           (List.range (gridWidth lines)) :=
   rewrite Nat.addOne (gridWidth lines), columnsAre lines in
     List.splitByRuns isBlank (c => List.map (line => charAt line c) lines) (c => blank lines c) (c => rfl) answer (gridWidth lines)
-      (blankPast (gridWidth lines) lines (foldWidenFits 0 lines))
+      (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength r (List.map Text.toList lines)))
 
 
 theorem term1 (lines: List Text) (lo: Nat) (hi: Nat):

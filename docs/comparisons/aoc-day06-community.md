@@ -541,7 +541,9 @@ Why this order:
 
 ---
 
-**Status** (short form, 22 Oct 2026): D440 `transposeFill`, pending; D441 trimmed-example test,
+**Status** (short form, 22 Oct 2026): D440 `transposeFill`, done (SW-250: the library has it,
+and Day 06 is ported, proof files 313 lines to 271; see `docs/aoc-2025.md`, "Day 6 on
+`List.transposeFill`"); D441 trimmed-example test,
 pending; D442 `Correct.sw` tidy, pending; D443 `Text.words` and `List.findMap`, pending; D444
 document `transpose`, pending; D445 `Vec.transpose`, pending; D446 snoc pattern, pending.
 Unchanged by day 6: D296 operator sections, D297 text patterns and D299 local mutable variables
