@@ -98,14 +98,22 @@ pub struct FileAnswers {
 }
 
 impl FileAnswers {
-    /// The reference whose range contains the position (as the VS Code
-    /// extension's `refAt` found it).
+    /// The reference whose range contains the position: the innermost, if
+    /// ranges nest. (The VS Code extension's `refAt` searched by binary
+    /// search, which assumes they don't.)
     pub fn ref_at(&self, line: u32, character: u32) -> Option<&LiveRef> {
-        let before = |r: &LiveRef| (r.range[2], r.range[3]) <= (line, character);
-        let i = self.refs.partition_point(before);
+        let at = (line, character);
+        // A file has thousands of references at most: a scan takes
+        // microseconds.
         self.refs
-            .get(i)
-            .filter(|r| (r.range[0], r.range[1]) <= (line, character))
+            .iter()
+            .filter(|r| (r.range[0], r.range[1]) <= at && at < (r.range[2], r.range[3]))
+            .min_by_key(|r| {
+                (
+                    (r.range[2], r.range[3]),
+                    std::cmp::Reverse((r.range[0], r.range[1])),
+                )
+            })
     }
 }
 
