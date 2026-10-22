@@ -78,5 +78,5 @@ def Grid.parse (lines: List Text): Grid := lines.map (l => [l.length])
 def Grid.rolls (grid: Grid): Nat := grid.length
 
 def countRolls(): {IO} () :=
-  let grid := Grid.parse (IO.readAllLines())
+  let grid := Grid.parse IO.readAllLines()
   IO.print grid.rolls.toText

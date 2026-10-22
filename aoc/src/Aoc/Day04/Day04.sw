@@ -35,7 +35,7 @@ def Cell.count: Cell -> Nat
 type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
 
 def main(): {IO} () :=
-  match parseGrid (IO.readAllLines()) with
+  match parseGrid IO.readAllLines() with
     | None   => IO.print "The lines are not all the same length."
     | Some grid =>
       IO.print "Part 1: ${solvePart1 grid}"
