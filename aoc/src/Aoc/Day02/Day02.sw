@@ -37,7 +37,8 @@ def solvePart1 (ranges: List Range): Nat := ranges.sumBy sumOfIdsWrittenTwice
 def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumOfIdsWrittenRepeatedly)
 
 -- An invalid id's digits are a block written several times: its template is the
--- block's length and the number of copies. 1212 has template 2 × 2.
+-- block's length and the number of copies. 121212 is the block 12 written 3
+-- times: its template is { blockLength = 2, copies = 3 }.
 type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 
 -- Every template of two or more copies that fits in the digits of the range's end.
