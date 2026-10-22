@@ -3650,7 +3650,7 @@
     {
       "id": 244,
       "title": "Navigation index isn't deterministic: a symbol is Std.Ord.%equal or Std.Ord.equal, with either of two types, across runs",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3659,7 +3659,9 @@
       "body": "Found by SW-240: six runs of `stitchwort check --no-cache --index - lib.sw` gave different names/types for one symbol. Likely hash-map iteration order in nav.rs or the lifted-helper naming. The check-cache differential test compares raw nav records for this reason.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "04520bb9"
+      ]
     }
   ]
 }
