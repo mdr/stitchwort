@@ -1,5 +1,5 @@
 {
-  "next": 248,
+  "next": 249,
   "tickets": [
     {
       "id": 1,
@@ -1702,9 +1702,9 @@
         "aoc",
         "design"
       ],
-      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n",
+      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3709,6 +3709,20 @@
         "research"
       ],
       "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 248,
+      "title": "Set literals at Int: Set.fromList [1, 2, 3] at Set Int is E-TYPE-MISMATCH (Set Nat found); also [(3, 3)] at Set (Int, Int) (D420)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From docs/comparisons/aoc-day04-community.md (D420). Same lists at List Int pass; some short ones pass. Find the elaboration rule (expected type not reaching number literals through Set.fromList / instance arguments?), fix it, and add the failing cases as tests.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
       "commits": []
