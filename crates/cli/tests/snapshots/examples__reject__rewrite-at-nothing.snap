@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `d` in the type of `h`
+   ╭─[ reject/rewrite-at-nothing.sw:6:35 ]
+   │
+ 6 │   x => Bool.falseNotTrue (rewrite e at h)
+   │                                   ┬  
+   │                                   ╰── looking for `d`
+   │ 
+   │ Note 1: `h`: `Nat.leq 1 n = True`
+   │ 
+   │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the type
+   │ 
+   │ Note 3: to replace the right side by the left, write `rewrite <- …`
+───╯

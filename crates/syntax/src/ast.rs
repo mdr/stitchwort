@@ -136,8 +136,13 @@ pub enum Expr {
     /// `rewrite p, <- q in t` (docs/syntax.md, rewrite): `t` proves the
     /// expected proposition with each rule's left side replaced by its right
     /// side, the rules applied left to right. Without `in t`, `t` is `rfl`.
+    ///
+    /// With `at h` (docs/proposals/rewrite-hypothesis.md) the rules rewrite
+    /// the type of `h` instead: `rewrite p at h in t` checks `t` with `h`
+    /// rebound to the rewritten fact, and `rewrite p at h` is that fact.
     Rewrite {
         rules: Vec<RewriteRule>,
+        target: Option<Box<Expr>>,
         body: Option<Box<Expr>>,
         span: Span,
     },
@@ -382,8 +387,15 @@ fn has_nested(expr: &Expr) -> bool {
                     .iter()
                     .any(|s| nested(&s.rhs) || s.proof.as_ref().is_some_and(nested))
         }
-        Expr::Rewrite { rules, body, .. } => {
-            rules.iter().any(|r| nested(&r.proof)) || body.as_deref().is_some_and(nested)
+        Expr::Rewrite {
+            rules,
+            target,
+            body,
+            ..
+        } => {
+            rules.iter().any(|r| nested(&r.proof))
+                || target.as_deref().is_some_and(nested)
+                || body.as_deref().is_some_and(nested)
         }
         Expr::LocalDefs { body, .. } => nested(body),
         Expr::Match {
@@ -473,9 +485,17 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
                 }
             }
         }
-        Expr::Rewrite { rules, body, .. } => {
+        Expr::Rewrite {
+            rules,
+            target,
+            body,
+            ..
+        } => {
             if let Some(body) = body {
                 take(body);
+            }
+            if let Some(target) = target {
+                take(target);
             }
             for rule in rules {
                 pending.push(std::mem::replace(

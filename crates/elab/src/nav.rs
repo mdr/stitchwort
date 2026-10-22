@@ -1009,8 +1009,14 @@ impl Walk<'_> {
                     }
                     then(&mut stack, work);
                 }
-                Expr::Rewrite { rules, body, .. } => {
+                Expr::Rewrite {
+                    rules,
+                    target,
+                    body,
+                    ..
+                } => {
                     let mut work: Vec<Work> = rules.iter().map(|r| Work::Expr(&r.proof)).collect();
+                    work.extend(target.iter().map(|t| Work::Expr(t)));
                     work.extend(body.iter().map(|b| Work::Expr(b)));
                     then(&mut stack, work);
                 }

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/rewrite-at-mismatch.sw:4:3 ]
+   │
+ 4 │   rewrite e at h
+   │   ───────┬──────  
+   │          ╰──────── expected `a + 1 = 5`, but this has type `b + 1 = 5`
+   │ 
+   │ Note: after `rewrite … at`, `h` is `b + 1 = 5`
+───╯
