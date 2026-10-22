@@ -404,7 +404,7 @@ namespaces are not yet (stage 2).
   nodes it points to. So writing walks a term with a work list and reading
   is one loop, and neither recurses. A subterm shared through an `Rc` is
   written once and read back shared. The header holds a magic number, the
-  format version (`FORMAT`, now 1), the key, the directory's salt and the
+  format version (`FORMAT`, now 2), the key, the directory's salt and the
   dependencies with their expected content hashes. A BLAKE3 checksum of
   everything comes last.
 - **The key** (§4.2) is a BLAKE3 hash of: the compiler version and the
@@ -447,6 +447,18 @@ It calls `declare_def`, `mark_folded`, `mark_instance`,
 elaborating a component does. Option B would replace that one function.
 There is no "admit without checking" in the kernel.
 
+**Library built-ins** (added after SW-241 made 18 `Int` and `Text`
+natives `Home::Library`, bound when `std/Int/Basics.sw` or
+`std/Text/Basics.sw` loads). An entry lists the built-ins its declarations
+are bound to (kind, place, name; `FORMAT` 2). Replay binds each
+declaration as it becomes final through `bind_builtin_def` and
+`bind_builtin_data`, the functions elaborating the prelude or a library
+file binds through, and the result must be the entry's list, or it is a
+miss. Undoing a refused replay also forgets those bindings
+(`Registry::forget_from`). A file that binds a core built-in (one that may
+register a native with the evaluator) or a primitive still can't be
+cached; none does.
+
 After the kernel, the side tables go in through the same insertion
 functions elaboration uses: `Scope::insert` and `mark_member` for names,
 and the records, interfaces, instances, owners, `no_eq`/`no_show`/`no_ord`,
@@ -479,7 +491,8 @@ everything the replay added is removed again first.
    `followers`.
 3. **Some loads can't be cached, and are just elaborated.** That happens
    when a declaration isn't final, when something is exported or has
-   validators, when a built-in is bound, when a test is kept, when an
+   validators, when a core built-in or a primitive is bound, when a test
+   is kept, when an
    older instance or table row changed, or when a path names two
    declarations. Today no library file hits any of these, and the
    differential test checks that.
@@ -518,7 +531,9 @@ loaded, and that the warm run loaded every one from the cache.
   entries copied from another cache directory are misses (salt); an entry
   under another file's key is a miss; navigation has entries of its own;
   writing deletes the unit's older entries and keeps another build's
-  recent ones.
+  recent ones; a library file that runs out of resources (E-RESOURCE) is
+  marked loaded but gets no entry (`cache_after` sees `ok` false), so the
+  next run elaborates it again.
 
 I checked by hand that it catches a forgotten table: taking out the replay
 of lifted helpers, of members, or of local variables' types makes it fail.

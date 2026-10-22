@@ -1505,20 +1505,7 @@ impl Elaborator {
                 .insert(&key, Global::Ctor(d, c), ctor.name.span, true);
         }
         if self.loading_prelude {
-            match registry::bind_data(&mut self.globals, d) {
-                Some(Builtin::Nat) => native::register_nat(&mut self.globals, d)?,
-                Some(Builtin::Bool) => native::register_bool(&mut self.globals, d)?,
-                Some(Builtin::Decidable) => native::register_decidable(&mut self.globals, d)?,
-                // `Char` comes after `List`. If either isn't the declaration
-                // the compact representation of text was written for, text
-                // literals are constructors instead (and a test fails).
-                Some(Builtin::Char) => {
-                    if let Some(list) = self.globals.registry.data(Builtin::List) {
-                        chars::register(&mut self.globals, list, d);
-                    }
-                }
-                _ => {}
-            }
+            self.bind_builtin_data(d)?;
         }
         if self.globals.data(d).record {
             let interface = matches!(
@@ -1867,18 +1854,47 @@ impl Elaborator {
             self.validate_instance(id)?;
         }
         if self.loading_prelude {
-            match registry::bind_def(&mut self.globals, id) {
-                Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.globals, id)?,
-                Some(b) => {
-                    if let Some(op) = Native::ALL.into_iter().find(|n| n.builtin() == b) {
-                        native::register_native(&mut self.globals, id, op)?;
-                    }
-                }
-                None => {}
-            }
+            self.bind_builtin_def(id)?;
         }
         if *export {
             self.add_validators(id)?;
+        }
+        Ok(())
+    }
+
+    /// Binds the built-in data type the prelude's or a library file's final
+    /// data type `d` is, if any, and tells the evaluator about it. Replaying
+    /// a library file from the check cache binds through this too.
+    pub(crate) fn bind_builtin_data(&mut self, d: DataId) -> Result<()> {
+        match registry::bind_data(&mut self.globals, d) {
+            Some(Builtin::Nat) => native::register_nat(&mut self.globals, d)?,
+            Some(Builtin::Bool) => native::register_bool(&mut self.globals, d)?,
+            Some(Builtin::Decidable) => native::register_decidable(&mut self.globals, d)?,
+            // `Char` comes after `List`. If either isn't the declaration
+            // the compact representation of text was written for, text
+            // literals are constructors instead (and a test fails).
+            Some(Builtin::Char) => {
+                if let Some(list) = self.globals.registry.data(Builtin::List) {
+                    chars::register(&mut self.globals, list, d);
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Binds the built-in definition the prelude's or a library file's
+    /// final definition `id` is, if any, with its native implementation.
+    /// Replaying a library file from the check cache binds through this too.
+    pub(crate) fn bind_builtin_def(&mut self, id: DefId) -> Result<()> {
+        match registry::bind_def(&mut self.globals, id) {
+            Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.globals, id)?,
+            Some(b) => {
+                if let Some(op) = Native::ALL.into_iter().find(|n| n.builtin() == b) {
+                    native::register_native(&mut self.globals, id, op)?;
+                }
+            }
+            None => {}
         }
         Ok(())
     }

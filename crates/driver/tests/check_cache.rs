@@ -368,3 +368,36 @@ fn writing_an_entry_deletes_the_units_older_ones() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A library file that runs out of resources is marked loaded (its error
+/// is the program's answer, E-RESOURCE), but no entry is written for it:
+/// a later run elaborates it again and runs out again.
+#[test]
+fn a_file_that_runs_out_of_resources_is_not_written() {
+    let dir = temp_dir("resource");
+    let attempt = || {
+        let mut session = Session::for_stack(STACK);
+        session.elab.limits.work = 20_000;
+        session.use_check_cache(&dir);
+        let result = session.elab.load_all_libraries();
+        (
+            result,
+            session.elab.check_cache_stats(),
+            session.elab.loaded_library_files().len(),
+        )
+    };
+    let (result, cold, loaded) = attempt();
+    let errors = result.expect_err("the limit is too low for the library");
+    assert!(errors.iter().any(|d| d.code == "E-RESOURCE"), "{errors:?}");
+    assert_eq!(cold.uncacheable, 0);
+    assert!(cold.written > 0, "some files load within the limit");
+    assert_eq!(
+        cold.written + 1,
+        loaded,
+        "every file but the one that ran out"
+    );
+    let (result, warm, _) = attempt();
+    assert!(result.is_err_and(|ds| ds.iter().any(|d| d.code == "E-RESOURCE")));
+    assert_eq!((warm.hits, warm.misses), (cold.written, 1));
+    let _ = std::fs::remove_dir_all(&dir);
+}

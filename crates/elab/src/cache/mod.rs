@@ -37,7 +37,8 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::globals::State;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
-use stitchwort_core::registry::Builtin;
+use stitchwort_core::native::Native;
+use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
@@ -52,7 +53,7 @@ use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 1;
+pub const FORMAT: u32 = 2;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -469,6 +470,46 @@ impl Encoding<'_> {
     }
 }
 
+/// The built-ins bound to definitions from `defs` on and data types from
+/// `datas` on: kind (0 a definition, 1 a data type), the declaration's
+/// place after those, and the built-in. A data type's constructors are
+/// bound with it.
+fn bound_builtins(g: &Globals, defs: usize, datas: usize) -> Vec<(u8, usize, Builtin)> {
+    let missing = g.registry.missing();
+    let mut out: Vec<(u8, usize, Builtin)> = Builtin::ALL
+        .iter()
+        .copied()
+        .filter(|b| !missing.contains(b))
+        .filter_map(|b| match b.kind() {
+            Kind::Def => g
+                .registry
+                .def(b)
+                .filter(|id| id.0 >= defs)
+                .map(|id| (0, id.0 - defs, b)),
+            Kind::Data => g
+                .registry
+                .data(b)
+                .filter(|d| d.0 >= datas)
+                .map(|d| (1, d.0 - datas, b)),
+            Kind::Ctor(_) => None,
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// The built-in definition (kind 0) or data type (kind 1) named `name`.
+fn builtin_named(kind: u8, name: &str) -> Option<Builtin> {
+    Builtin::ALL.iter().copied().find(|b| {
+        b.name() == name
+            && match kind {
+                0 => b.kind() == Kind::Def,
+                1 => b.kind() == Kind::Data,
+                _ => false,
+            }
+    })
+}
+
 fn pending_tag(kind: PendingKind) -> u8 {
     match kind {
         PendingKind::Def => 0,
@@ -493,9 +534,10 @@ fn pending_kind(tag: u8) -> Read<PendingKind> {
 impl Elaborator {
     /// The entry for library file `f`, which has just loaded without
     /// errors, or why it can't be cached: a declaration the kernel didn't
-    /// admit, a built-in bound or an export made (the library has none, so
-    /// this isn't encoded), a test kept, or a reference that can't be
-    /// written by path.
+    /// admit, a primitive or core built-in bound or an export made (the
+    /// library has none, so this isn't encoded), a test kept, or a
+    /// reference that can't be written by path. Library built-ins are
+    /// encoded.
     fn encode_library_file(
         &self,
         f: usize,
@@ -516,8 +558,8 @@ impl Elaborator {
             if def.export || !def.validators.is_empty() {
                 return Err(format!("`{}` is exported", def.path));
             }
-            if g.registry.def_builtin(id).is_some() || g.builtins.primitive(id).is_some() {
-                return Err(format!("`{}` is a built-in", def.path));
+            if g.builtins.primitive(id).is_some() {
+                return Err(format!("`{}` is a primitive", def.path));
             }
         }
         for d in datas.clone().map(DataId) {
@@ -525,8 +567,14 @@ impl Elaborator {
             if data.state() != State::Final || !data.validators.is_empty() {
                 return Err(format!("`{}` isn't admitted plainly", data.path));
             }
-            if Builtin::ALL.iter().any(|b| g.registry.data(*b) == Some(d)) {
-                return Err(format!("`{}` is a built-in", data.path));
+        }
+        // The built-ins the file binds: only library ones, which are just
+        // registry entries (a core built-in may also tell the evaluator
+        // about a native, which replay couldn't take back).
+        let bound = bound_builtins(g, before.defs, before.datas);
+        for &(_, _, b) in &bound {
+            if b.home() != Home::Library || Native::ALL.iter().any(|n| n.builtin() == b) {
+                return Err(format!("`{}` is a core built-in", b.name()));
             }
         }
         if self.tests.len() != before.tests {
@@ -653,6 +701,14 @@ impl Elaborator {
             e.w.usize(data.defs_before - before.defs);
             e.w.usize(data.datas_before - before.datas);
             e.span(data.span);
+        }
+        // The built-ins bound: replay binds them again the same way, and
+        // checks it got these.
+        e.w.usize(bound.len());
+        for (kind, offset, b) in bound {
+            e.w.u8(kind);
+            e.w.usize(offset);
+            e.str(b.name());
         }
 
         // The names: those that changed, then the new ones in the order
@@ -1288,6 +1344,20 @@ impl Elaborator {
             });
         }
         let n_datas = datas.len();
+        let n = body.count()?;
+        let mut bound = Vec::with_capacity(n);
+        for _ in 0..n {
+            let kind = body.r.u8()?;
+            let offset = body.r.usize()?;
+            let name = body.str()?;
+            let Some(b) = builtin_named(kind, &name) else {
+                return bad(format!("no built-in `{name}`"));
+            };
+            if offset >= if kind == 0 { n_defs } else { n_datas } {
+                return bad("a built-in bound to a declaration the entry doesn't have");
+            }
+            bound.push((kind, offset, b));
+        }
         body.refs.n_defs = n_defs;
         body.refs.n_datas = n_datas;
         // Every reference the terms make to the entry's own declarations is
@@ -1333,7 +1403,8 @@ impl Elaborator {
         }
         drop(op);
 
-        self.admit_replayed(&defs, &datas)?;
+        bound.sort();
+        self.admit_replayed(&defs, &datas, &bound)?;
         self.replay_tables(f, tables);
         Ok(())
     }
@@ -1346,18 +1417,33 @@ impl Elaborator {
     /// The declarations are made in their original order (a data group
     /// goes where its `defs_before` and `datas_before` say), and each group
     /// is defined as soon as everything it refers to is final, which is no
-    /// later than the elaborator defined it. If the kernel refuses
-    /// anything, what was added is removed and the file is elaborated
-    /// instead.
-    fn admit_replayed(&mut self, defs: &[DefEntry], datas: &[DataEntry]) -> Read<()> {
+    /// later than the elaborator defined it. Each final declaration is
+    /// bound as a built-in, if it is one, as elaborating binds it, and the
+    /// built-ins bound must be the entry's `bound`. If the kernel refuses
+    /// anything, or other built-ins are bound, what was added is removed
+    /// and the file is elaborated instead.
+    fn admit_replayed(
+        &mut self,
+        defs: &[DefEntry],
+        datas: &[DataEntry],
+        bound: &[(u8, usize, Builtin)],
+    ) -> Read<()> {
         let base_defs = self.globals.defs.len();
         let base_datas = self.globals.datas.len();
         let module = self.globals.module.clone();
-        let result = self.submit(defs, datas, base_defs, base_datas);
+        let result = self
+            .submit(defs, datas, base_defs, base_datas)
+            .and_then(|()| {
+                if bound_builtins(&self.globals, base_defs, base_datas) != bound {
+                    return bad("other built-ins were bound");
+                }
+                Ok(())
+            });
         self.globals.module = module;
         if let Err(why) = result {
             // Undo: nothing else refers to what was added yet.
             let g = &mut self.globals;
+            g.registry.forget_from(base_defs, base_datas);
             g.defs.truncate(base_defs);
             g.datas.truncate(base_datas);
             g.hashes.borrow_mut().retain(|k, _| match k {
@@ -1526,6 +1612,8 @@ impl Elaborator {
                             .map_err(refused)?;
                         for m in &group.members {
                             data_final[*m] = true;
+                            self.bind_builtin_data(DataId(base_datas + m))
+                                .map_err(refused)?;
                         }
                     } else {
                         let members: Vec<(DefId, Term)> = group
@@ -1537,6 +1625,8 @@ impl Elaborator {
                             .map_err(refused)?;
                         for m in &group.members {
                             def_final[*m] = true;
+                            self.bind_builtin_def(DefId(base_defs + m))
+                                .map_err(refused)?;
                         }
                     }
                     group.done = true;
