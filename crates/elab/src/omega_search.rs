@@ -203,6 +203,14 @@ struct Search {
     limits: Limits,
 }
 
+/// The rows of one stage of elimination, at most one per coefficient list
+/// (the strongest), with an index by coefficients.
+#[derive(Default)]
+struct Rows {
+    ids: Vec<usize>,
+    by: HashMap<Vec<i128>, usize>,
+}
+
 /// What one Fourier–Motzkin run found.
 enum Fm {
     Contradiction(usize),
@@ -268,7 +276,7 @@ impl Search {
     }
 
     fn fm_inner(&mut self, start: &[usize]) -> Option<Fm> {
-        let mut rows: Vec<usize> = Vec::new();
+        let mut rows = Rows::default();
         for &id in start {
             match self.add_row(&mut rows, id)? {
                 Some(contra) => return Some(Fm::Contradiction(contra)),
@@ -278,7 +286,7 @@ impl Search {
         let mut history: Vec<Elim> = Vec::new();
         loop {
             let active: Vec<usize> = (0..self.n)
-                .filter(|&j| rows.iter().any(|&r| self.row(r).a[j] != 0))
+                .filter(|&j| rows.ids.iter().any(|&r| self.row(r).a[j] != 0))
                 .collect();
             if active.is_empty() {
                 return Some(match self.back_substitute(&history) {
@@ -289,11 +297,13 @@ impl Search {
             // Equalities first: a row whose exact negation is also a row.
             if let Some((pos, neg, var)) = self.find_equality(&rows) {
                 let a = self.row(pos).a[var];
-                let mut next: Vec<usize> = Vec::new();
-                for &r in rows.iter().filter(|&&r| r != pos && r != neg) {
+                let mut next = Rows::default();
+                for &r in rows.ids.iter().filter(|&&r| r != pos && r != neg) {
                     let b = self.row(r).a[var];
                     if b == 0 {
-                        next.push(r);
+                        if let Some(contra) = self.add_row(&mut next, r)? {
+                            return Some(Fm::Contradiction(contra));
+                        }
                         continue;
                     }
                     // Cancel with the side whose coefficient has the other sign.
@@ -310,9 +320,9 @@ impl Search {
                 rows = next;
                 continue;
             }
-            let var = self.choose(&rows, &active);
+            let var = self.choose(&rows.ids, &active);
             let (mut lower, mut upper, mut rest) = (Vec::new(), Vec::new(), Vec::new());
-            for &r in &rows {
+            for &r in &rows.ids {
                 let a = self.row(r).a[var];
                 if a > 0 {
                     lower.push(r);
@@ -322,7 +332,7 @@ impl Search {
                     rest.push(r);
                 }
             }
-            let mut next: Vec<usize> = Vec::new();
+            let mut next = Rows::default();
             for &r in &rest {
                 if let Some(contra) = self.add_row(&mut next, r)? {
                     return Some(Fm::Contradiction(contra));
@@ -353,43 +363,40 @@ impl Search {
     /// Adds `id` (tightened) to `rows`, unless it's implied by a row there or
     /// trivially true; a contradiction, if it is one or contradicts a row
     /// there directly.
-    fn add_row(&mut self, rows: &mut Vec<usize>, id: usize) -> Option<Option<usize>> {
+    fn add_row(&mut self, rows: &mut Rows, id: usize) -> Option<Option<usize>> {
         let id = self.tighten(id)?;
         let r = self.row(id).clone();
         if r.is_closed() {
             return Some((r.c < 0).then_some(id));
         }
         let neg: Vec<i128> = r.a.iter().map(|x| -x).collect();
-        for i in 0..rows.len() {
-            let other = self.row(rows[i]).clone();
-            if other.a == neg && other.c.checked_add(r.c)? < 0 {
-                let contra = self.combine(vec![(1, rows[i]), (1, id)])?;
+        if let Some(&i) = rows.by.get(&neg) {
+            let other = rows.ids[i];
+            if self.row(other).c.checked_add(r.c)? < 0 {
+                let contra = self.combine(vec![(1, other), (1, id)])?;
                 return Some(Some(contra));
             }
-            if other.a == r.a {
-                if r.c < other.c {
-                    rows[i] = id;
-                }
-                return Some(None);
-            }
         }
-        rows.push(id);
+        if let Some(&i) = rows.by.get(&r.a) {
+            if r.c < self.row(rows.ids[i]).c {
+                rows.ids[i] = id;
+            }
+            return Some(None);
+        }
+        rows.by.insert(r.a, rows.ids.len());
+        rows.ids.push(id);
         Some(None)
     }
 
     /// An equality among `rows`: the row with a positive coefficient for the
     /// variable to eliminate, its negation, and the variable, choosing the
     /// smallest coefficient.
-    fn find_equality(&self, rows: &[usize]) -> Option<(usize, usize, usize)> {
-        let mut by_coeffs: HashMap<&[i128], usize> = HashMap::new();
-        for &r in rows {
-            by_coeffs.insert(&self.row(r).a, r);
-        }
+    fn find_equality(&self, rows: &Rows) -> Option<(usize, usize, usize)> {
         let mut best: Option<(i128, usize, usize, usize)> = None;
-        for &r in rows {
+        for &r in &rows.ids {
             let row = self.row(r);
             let neg: Vec<i128> = row.a.iter().map(|x| -x).collect();
-            let Some(&q) = by_coeffs.get(neg.as_slice()) else {
+            let Some(&q) = rows.by.get(&neg).map(|&i| &rows.ids[i]) else {
                 continue;
             };
             if row.c.checked_add(self.row(q).c) != Some(0) {
