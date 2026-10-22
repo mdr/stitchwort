@@ -3563,7 +3563,7 @@
     {
       "id": 239,
       "title": "Check cache stage 0: STITCHWORT_TIMINGS per namespace/library file (elab time, kernel time, term sizes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3572,7 +3572,10 @@
       "body": "docs/proposals/check-cache.md §9 stage 0 (D400). Print per namespace and per library file: elaboration time, kernel time, core term node counts; confirm §6/§8 estimates on aoc and a one-line program.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "d327651d",
+        "117ced31"
+      ]
     },
     {
       "id": 240,
