@@ -4115,7 +4115,7 @@
     {
       "id": 271,
       "title": "Errors inside the core name the core/ file and line, not <prelude>:line",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
@@ -4124,7 +4124,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "4254fed7"
+      ]
     },
     {
       "id": 272,
