@@ -1,5 +1,5 @@
 {
-  "next": 267,
+  "next": 269,
   "tickets": [
     {
       "id": 1,
@@ -4038,6 +4038,34 @@
       "where": "",
       "labels": [
         "elab"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 267,
+      "title": "AoC Day 3: Battery, joltageOf, maxJoltage, maxJoltageIsLargest with named hypotheses (D508)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 268,
+      "title": "AoC Day 3: maxJoltageIsMaximum, reached and largest in one theorem (D509), after SW-267",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
       ],
       "body": "",
       "created": "2026-10-22",
