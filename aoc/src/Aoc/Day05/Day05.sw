@@ -30,14 +30,14 @@ type Database = { fresh: List Range, available: List Nat }
 -- A line is a range if it reads as one, an id if it reads as a number, and
 -- is skipped otherwise (the blank line).
 def parseDatabase (lines: List Text): Database :=
-  { fresh = lines.filterMap Range.parse, available = lines.filterMap Text.toNat }
+  { fresh = lines.filterMap Range.parse, available = lines.filterMap .toNat }
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=
   db.available.count (id => db.fresh.any (r => r.contains id))
 
 -- Part 2: every id the fresh ranges cover.
-def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy Range.size
+def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy .size
 
 -- Merge ranges that overlap or touch. The list is sorted by start, then
 -- folded into a list of merged ranges with the latest first.

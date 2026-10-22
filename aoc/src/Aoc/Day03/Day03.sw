@@ -24,18 +24,16 @@ def main(): {IO} () :=
 
 def parseBanks (lines: List Text): List Bank := lines.map Bank.parse
 
-def solvePart1 (banks: List Bank): Nat := total 2 banks
+def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (joltage 2)
 
-def solvePart2 (banks: List Bank): Nat := total 12 banks
+def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (joltage 12)
 
-def total (k: Nat) (banks: List Bank): Nat := banks |> .sumBy (joltage k)
-
-def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> .map Fin.toNat |> Nat.fromDigits
+def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> .map .toNat |> Nat.fromDigits
 
 -- A bank of batteries: a digit on each.
 def Bank: Type := List (Fin 10)
 
-def Bank.parse (t: Text): Bank := t.toList |> .filterMap Char.toDigit
+def Bank.parse (t: Text): Bank := t.toList |> .filterMap .toDigit
 
 -- The digits of the largest k-digit number that is a subsequence of the bank.
 def Bank.best: Nat -> Bank -> Bank

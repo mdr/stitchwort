@@ -58,7 +58,7 @@ def parseLine (line: Text): List Cell := line.toList.map parseChar
 
 def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 
-def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Cell.count)
+def Grid.rolls (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy .count)
 
 -- Remove every accessible roll, all at once: each row is peeled with the
 -- rows above and below it as they were, and a row of floor past either end.

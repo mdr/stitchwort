@@ -38,18 +38,18 @@ type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers:
 
 def parseWorksheet (lines: List Text): List Problem := (blocks lines).map parseProblem
 
-def isBlank (column: List Char): Bool := column.all Char.isSpace
+def isBlank (column: List Char): Bool := column.all .isSpace
 
 -- The blocks of columns that make the problems: the runs of columns that
 -- aren't blank. A short line reads as spaces past its end, and there are as
 -- many columns as the longest line is long.
 def blocks (lines: List Text): List (List (List Char)) :=
-  (lines.map Text.toList).transposeFill ' ' |> .splitBy isBlank
+  (lines.map .toList).transposeFill ' ' |> .splitBy isBlank
 
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
-  { operator = (columns.filterMap (column => column.last.flatMap Operator.parse)).head
+  { operator = (columns.filterMap (.last.flatMap Operator.parse)).head
   , rowNumbers = rows.init.map readNumber
   , columnNumbers = columns.map (column => readNumber column.init) }
 
@@ -59,7 +59,7 @@ def Operator.parse: Char -> Option Operator
   | _   => None
 
 -- The number written with these digits; spaces (and anything else) are skipped.
-def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap Char.digitValue)
+def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap .digitValue)
 
 def Operator.apply: Operator -> List Nat -> Nat
   | Add,      numbers => numbers.sum
