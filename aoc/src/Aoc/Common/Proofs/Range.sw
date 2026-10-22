@@ -8,12 +8,10 @@ import Std (Bool, Eq, List, Nat, Ordering, Void)
 
 -- Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
 theorem rangeEnd (from: Nat) (to: Nat) (x: Nat) (h1: from <= x) (h2: x < from + (to + 1 - from)): x <= to :=
-  match e: Nat.leq from (to + 1) with
-    | True  => omega [Nat.addSubCancel from (to + 1) e]
-    | False => omega [Nat.subEqZero (to + 1) from omega]
+  omega
 
 theorem rangeIn (from: Nat) (to: Nat) (y: Nat) (h1: from <= y) (h2: y <= to): y < from + (to + 1 - from) :=
-  omega [Nat.addSubCancel from (to + 1) omega]
+  omega
 
 -- Counting the ids that ranges hold, for example to show that disjoint ranges
 -- add up (day 5 uses these in `Aoc.Day05.solvePart2Correct`).
@@ -26,7 +24,7 @@ theorem containsHi (r: Range) (id: Nat) (h: r.contains id = True): id <= r.to :=
 theorem countFrom (r: Range): (c: Nat) -> (s: Nat) -> r.to < s + c ->
     List.occurrences (id => r.contains id) (List.rangeFrom c s) = Succ r.to - Nat.max r.from s
   | Zero,   s, h =>
-    Eq.sym (Nat.subEqZero (Succ r.to) (Nat.max r.from s) (omega [Nat.leMaxRight r.from s]))
+    omega
   | Succ c, s, h =>
     match t: Nat.leq r.from s, i: Nat.leq s r.to with
       | True, True =>
@@ -34,29 +32,25 @@ theorem countFrom (r: Range): (c: Nat) -> (s: Nat) -> r.to < s + c ->
         calc Succ (List.occurrences (id => r.contains id) (List.rangeFrom c (Succ s)))
           _ = Succ (Succ r.to - Nat.max r.from (Succ s))
               := rewrite countFrom r c (Succ s) omega
-          _ = Succ (Succ r.to - Succ s) := rewrite Nat.maxRight r.from (Succ s) omega
-          _ = Succ r.to - s             := Eq.sym (Nat.subSuccRight s (Succ r.to) i)
+          _ = Succ r.to - s := omega
       | True, False =>
         -- (`i` is False, so the match has already dropped the first id from the goal, and `max from s` is `s`)
         calc List.occurrences (id => r.contains id) (List.rangeFrom c (Succ s))
           _ = Succ r.to - Nat.max r.from (Succ s)
               := countFrom r c (Succ s) omega
-          _ = 0
-              := Nat.subEqZero (Succ r.to) (Nat.max r.from (Succ s)) (omega [Nat.leMaxRight r.from (Succ s)])
-          _ = Succ r.to - s := Eq.sym (Nat.subEqZero (Succ r.to) s omega)
+          _ = Succ r.to - s := omega
       | False, _ =>
         -- (the match has already replaced the first id's test by `False`)
         calc List.occurrences (id => r.contains id) (List.rangeFrom c (Succ s))
           _ = Succ r.to - Nat.max r.from (Succ s)
               := countFrom r c (Succ s) omega
-          _ = Succ r.to - r.from            := rewrite Nat.maxLeft r.from (Succ s) omega
+          _ = Succ r.to - r.from := omega
 
 -- A range ending below `n` holds `size` of the ids below `n`.
 theorem countBelow (r: Range) (n: Nat) (h: r.to < n): List.occurrences (id => r.contains id) (List.range n) = r.size :=
   calc List.occurrences (id => r.contains id) (List.range n)
     _ = Succ r.to - Nat.max r.from 0 := countFrom r n 0 h
-    _ = Succ r.to - r.from           := rewrite Nat.maxLeft r.from 0 omega
-    _ = r.size                     := rewrite Nat.addOne r.to
+    _ = r.size                       := omega
 
 -- An empty range (it ends before it starts) holds no ids, and has size 0.
 theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): List.occurrences (id => r.contains id) ids = r.size :=
@@ -67,7 +61,7 @@ theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): 
               | True  => Eq.trans (Bool.decTrueToBool (Nat.leq id r.to)) (Nat.leqFalseOfLess r.to id omega)
               | False => rfl)
           ids
-    _ = r.size := rewrite Nat.addOne r.to, Nat.subEqZero (Succ r.to) r.from omega
+    _ = r.size := omega
 
 -- The derived order on ranges (by start, then end) puts the smaller start first.
 theorem compareFrom: (a: Range) -> (b: Range) -> Ordering.isLessEq (Ord.compare a b) = True -> a.from <= b.from
