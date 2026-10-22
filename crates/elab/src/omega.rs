@@ -33,7 +33,14 @@
 //! computes to exactly the source: a number is `NLit`, `k + x` (what `Succ`
 //! makes) is `NSucc` or `NAdd (NLit k)`, a stuck `a + b` is `NAdd`, `x * k`
 //! is `MulRight`, and `k * x`, which has computed to `x + (x + … + 0)`, is
-//! `MulLeft k x` (up to [`MUL_LEFT_LIMIT`]). Anything else is an atom: two
+//! `MulLeft k x` (up to [`MUL_LEFT_LIMIT`]). `a - b`, `Nat.max a b` and
+//! `Nat.min a b` (stage 2) are atoms with an operation fact saying what
+//! they are (`FSub`/`FMax`/`FMin`, proved by `rfl` since the environment
+//! holds the atom's own term), whose rows always hold and whose two cases
+//! the certificate may split on (`Cases`); `Not (a = b)` facts have cases
+//! too (`FNe`). `x * y` and `y * x` are two atoms with the fact
+//! `Nat.mulComm x y` between them. A goal that isn't arithmetic is proved by
+//! refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
 //! metavariable inside an atom is part of the atom; one in the goal's

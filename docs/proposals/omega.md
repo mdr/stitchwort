@@ -49,6 +49,7 @@ This note can be read without knowing type theory. Draft 1's code references wer
 - [As built (milestone 1a)](#as-built-milestone-1a)
 - [As built (milestone 1b)](#as-built-milestone-1b)
 - [Stage 1 on AoC (SW-326)](#stage-1-on-aoc-sw-326)
+- [As built (stage 2)](#as-built-stage-2)
 - [0. Summary](#0-summary)
 - [1. The problem, with our own code](#1-the-problem-with-our-own-code)
 - [2. Words this note uses](#2-words-this-note-uses)
@@ -633,6 +634,163 @@ lemma call, or an `omega` with a listed fact that a feature would drop):
 Two readings of this against §8.2: `-` first matches the plan, but `%`/`/` by literals, listed
 there next to `-`, would not have helped any AoC proof, and the cheap fallback (item 2) wasn't
 in the plan at all. The failure-message work (D547 `auto` fallback) is unaffected.
+
+## As built (stage 2)
+
+SW-331 (D545's stage 2, approved as D574) built the features ranked in "Stage 1 on AoC" in
+that order, except `Int` (below), then converted the AoC sites they unlock. Everything below is
+**[checked]** against the files named and **[run]** with the release CLI built from this
+branch. User-facing description: [docs/syntax.md](../syntax.md), "`omega`".
+
+**The checker change** (`std/Omega/Omega.sw`), as §6.7 and the review's point 4 asked:
+auxiliary atoms whose environment entry is the real source term, related to their arguments
+by facts, with each case's rows following from a proved lemma. Four new `Omega.Fact`
+constructors and one certificate step:
+
+```
+| FSub (t a b)    -- holds: eval t = eval a - eval b
+| FMax (t a b)    -- holds: eval t = Nat.max (eval a) (eval b)
+| FMin (t a b)    -- holds: eval t = Nat.min (eval a) (eval b)
+| FNe (a b)       -- holds: Not (eval a = eval b)
+
+| Cases (f: Nat) (left: Omega.Cert) (right: Omega.Cert)   -- in Omega.Cert
+```
+
+| Fact | Rows that always hold (`Omega.Fact.rows`) | `Fact.left` | `Fact.right` |
+|---|---|---|---|
+| `FSub t a b` | `t <= a`, `a <= t + b` | `b <= a`, `t + b = a` | `a < b`, `t = 0` |
+| `FMax t a b` | `a <= t`, `b <= t` | `a <= b`, `t = b` | `b < a`, `t = a` |
+| `FMin t a b` | `t <= a`, `t <= b` | `a <= b`, `t = a` | `b < a`, `t = b` |
+| `FNe a b` | none | `a < b` | `b < a` |
+
+The cases are lists of ordinary facts, so a branch's rows are `Facts.rows` of them, appended
+to the rows before the split (`checkCert` now also takes the facts, for `Omega.getFact`).
+`Cases f` is refused unless fact `f` exists and has cases (`Omega.Fact.splits`); a missing
+fact reads as `0 <= 0`, which has none. The search never invents a fact: `t` is an atom whose
+environment entry the compiler writes (`a - b` itself), and the `FSub` fact's proof is
+`rfl`, which the kernel checks by conversion. `a <= t + b` is the bound the review didn't
+list: it holds for truncated subtraction whichever side is larger, and with `t <= a` it closes
+most subtraction goals without a split.
+
+**The proof** (`std/Omega/Sound.sw`, 269 → 370 lines), still with no assumption or
+extensionality: `Omega.leSubAdd` (`a <= (a - b) + b`, by induction), `subLeLeft`,
+`subLeAdd`; one lemma per fact for the cases, each a `Bool.inspect` on the case condition
+using existing `Nat` lemmas (`subCases`: `Nat.addSubCancel`, `subEqZero`; `maxCases`:
+`maxRight`, `maxLeft`; `minCases`: `minLeft`, `minRight`; `neCases`: `leNeSucc`);
+`factCases` dispatching them; `getFactHolds`; `casesHold` (the branch for the case that holds
+gets its rows); and a `Cases` arm in `checkCertSound`, which now carries the facts' proofs.
+`Omega.prove` and `proveEq` keep their statements. New checker tests: `Cases` accepted on a
+subtraction, refused on a fact without cases, on a missing fact, and when a branch uses the
+other case's row.
+
+**The search** (`omega_search.rs`): `Problem` has the facts with cases (`Case`: the fact's
+number and each case's rows). The unsplit attempt has the rows that always hold (§6.7's
+"cheap bounds before splitting"). When it finds a model, the search splits on the first fact
+with cases whose *both* cases the model violates (a split that leaves the model alive in one
+branch can't help), before a fractional split, and never twice on one fact in a branch; the
+six-level depth limit now counts both kinds. Case rows are numbered like split rows (nothing
+is written before a split), and grouping joins every atom a case mentions. Unit tests:
+`cheap_bound_needs_no_split`, `subtraction_splits_on_demand`,
+`subtraction_without_its_cases_fails`, `subtraction_false_goal_fails`, `not_equal_splits`,
+`replay_refuses_a_missing_case`.
+
+**The elaborator** (`omega.rs`):
+
+1. *Subtraction, `max`, `min`.* A stuck `Nat.sub a b`, `Nat.max a b` or `Nat.min a b` is an
+   atom; its arguments are quoted too (nested operations get their own facts), and the
+   atom's fact goes in the candidates with proof `rfl`. `max` and `min` are also recognised
+   after they've computed: `Nat.max` unfolds to `Bool.ifThenElse (Nat.leq a b) (u => b)
+   (u => a)` **[run]**, so an `if` on `Nat.leq a b` whose branches are `b`/`a` is `max a b`
+   and `a`/`b` is `min a b`. Messages name the atom `Nat.max a b`, not the `if`.
+2. *Any goal.* A goal that isn't arithmetic is proved by refuting the facts (`GVoid`), then
+   `Void.exfalso [goal]` for a proposition or `Void.absurd [goal]` for a type of data in
+   `Type` (read off the goal: an equation, or a data type's declared sort). When the facts
+   don't contradict, the error is the old "unsupported structure" with a note saying so.
+3. *Products up to commutativity.* Each `x * y` atom remembers its factors; when another is
+   `y * x` (same terms), the candidates get the fact `x * y = y * x` with proof
+   `Nat.mulComm x y`. Still two atoms, so no checker change; `(x * y) * z` and `x * (y * z)`
+   stay different (`omega-product-order.sw`).
+4. *`a != b`.* `Not (a = b)` facts (also `a != b`) are `FNe`; `Nat.equal a b = False` and
+   `= True` are read through `Nat.equalFalse` and `Nat.equalSound`.
+
+**Examples.** `examples/accept/omega-stage2.sw` (24 theorems: subtraction with and without
+splits, `max`/`min`, the three ways of writing `a != b`, products both ways, a `List`
+equation, a `Bool` equation and a `List Nat` value from contradictory facts);
+`examples/reject/omega-sub-false.sw`, `omega-max-false.sw` (the models name the atoms),
+`omega-no-contradiction.sw`, `omega-product-order.sw`. `omega-neq-fact.sw`, which recorded
+the old limitation, now proves and is removed.
+
+**Costs [run]** (`STITCHWORT_TIMINGS=decls`, elaboration + kernel, one run): the cheap-bound
+goals (`a - b <= a`, `a <= Nat.max a b`) 0.3 ms and about 10,000 steps, like stage 1's
+simplest; one case split (`(a - b) + b = a` from `b <= a`) 1.0 ms, 34,000 steps; the most
+expensive, `a - b - c = a - (b + c)` (two equations, three subtraction atoms, nested
+splits), 3.2 ms and 121,000 steps. `Omega/Sound.sw` now checks in about 16 ms (elaboration + kernel; loaded once per program).
+
+**On AoC.** Theorem statements, programs and tests unchanged; one helper deleted (Day 4
+`subZeroLe`, whose callers now pass its premise straight to `omega`). The kinds of change:
+
+1. *`Void.exfalso omega` → `omega`* (and `Void.exfalso (omega [facts])` → `omega [facts]`):
+   all 20 sites, Days 2, 3, 4, 5, 7, 8.
+2. *Listed facts dropped*: `Nat.leMaxLeft/Right`, `minLeLeft` (Day 5 `topGe`, `coveredTop`,
+   `mergedContains`; Day 2 windows), `Nat.addSubCancel` (Day 2 `twiceBlockCount`,
+   `blockCountRep`), `Nat.predLeSucc` (Day 2), `Nat.mulComm` (Day 2, six sites).
+3. *Lemma-call steps → `omega`*: Common's whole `Range.sw` counting (`countFrom`'s three-step
+   calcs are two steps), Day 4 `fewerRolls`/`mixAbove` and Day 8 `lookupRange`/`memRange`/
+   `memPairs` (`Nat.leNeSucc … (Nat.equalFalse …)` → `omega`), Day 3's `Nat.minLeft`/
+   `addSubLe`/`leSubAdd` arguments, Day 2's `writtenAsFillsDigits` five-line calc.
+4. *A named rewrite rule → a stated one*: where the step is used by `rewrite` or `Eq.cong`,
+   the lemma became `(omega: hi - lo = Succ (hi - Succ lo))`, `(omega: Nat.max s bLo = bLo)`,
+   `(omega: n + 1 - 1 = n)` (Days 1, 2, 3, 6). These say the equation instead of naming it;
+   whether that reads better than `Nat.subSuccRight lo hi h` is a taste call worth Matt's look.
+   One Day 3 site (`bestLengthStep`) now repeats a long `Nat.min k (List.length …) = k` type
+   in the annotation.
+
+Per day, as in "Stage 1 on AoC" (non-blank non-comment lines of `Proofs/`; check time is the
+`Aoc.DayNN.Proofs` row of `STITCHWORT_TIMINGS=1 stitchwort check --no-cache`, elaboration +
+kernel, median of five runs, both columns with this branch's compiler). "Lemma calls" now
+counts the stage-1 list **plus** the lemmas stage 2 covers (`addSubCancel`, `subEqZero`,
+`subSuccRight`, `addSub`, `subLe`, `leSubAdd`, `addSubLe`, `maxLeft/Right`, `minLeft/Right`,
+`leMin`, `leNeSucc`, `mulComm`), so the "before" column is larger than stage 1's "after".
+
+| Day | lines before → after | lemma calls before → after | `omega` | check ms before → after |
+|---|---:|---:|---:|---:|
+| Common | 55 → 49 | 16 → 1 | 16 → 12 | 10.3 → 22.2 |
+| 1 | 139 → 139 | 13 → 10 | 6 → 8 | 40.4 → 43.2 |
+| 2 | 1044 → 1035 | 75 → 34 | 68 → 83 | 279.8 → 300.7 |
+| 3 | 158 → 158 | 9 → 0 | 20 → 28 | 27.9 → 36.5 |
+| 4 | 880 → 878 | 6 → 3 | 46 → 47 | 426.0 → 433.7 |
+| 5 | 143 → 143 | 3 → 0 | 12 → 12 | 21.4 → 21.9 |
+| 6 | 145 → 145 | 2 → 1 | 1 → 2 | 22.6 → 24.5 |
+| 7 | 389 → 389 | 5 → 5 | 16 → 16 | 72.7 → 73.5 |
+| 8 | 541 → 541 | 4 → 0 | 24 → 28 | 712.6 → 727.5 |
+| **all** | **3494 → 3477** | **133 → 54** (-59%) | **209 → 236** | **1613.7 → 1683.7** (+4.3%) |
+
+What the numbers say:
+
+- *Lines* barely move again (-17): the removed lemma calls were arguments inside lines that
+  stay. The 79 lemma mentions that went are the point: what's left in those places is a bare
+  `omega`, a fact about the program, or the equation itself.
+- *Check time* is +70 ms (+4.3%), more than stage 1's +1.2%: case splits cost. The largest
+  relative change is Common, 10.3 → 22.2 ms, almost all `countFrom` (4.4 → 14.0 ms: its
+  `omega`s hold `Succ r.to - Nat.max r.from s`, a subtraction over a `max`; that the cost
+  is the nested case splits is **[inferred]**, not traced). Days 2 and 3 rise by 21 and 9 ms
+  over many sites.
+- *What's left* in the "lemma calls" column outside Day 2 is "Stage 1 on AoC"'s item 7, rewrite
+  rules without a goal: `Nat.addOne`, `addZero`, `addSucc`, `addAssoc` in `rewrite` lists
+  (Days 1, 4, 6, 7; 17 mentions), and two `Nat.leqFalseOfLess` that build a `Bool` equation
+  for a program's `&&`. Day 2's 34 are mostly inside its non-linear products and `%`/`/` by
+  variables. **[checked]** by grep.
+
+**Not built.**
+
+- *`Int` atoms* (item 6 of the ranking, about 4 AoC sites, all in Day 2: `weightsOne`'s
+  `d + (1 - d) = 1`, `divisorWeightsTop`, `divisorWeightsAll`, one `Int.mulZero`). It needs
+  `Int` syntax, `Int` facts and goals over the environment's `Int` list (no non-negativity),
+  their linear forms and a second `linEval`: a second soundness layer for four one-line
+  lemma calls. Left for a later lane; the environment and rows already have the `Int` side.
+- *`/` and `%` by literals* and *`if`/`||` facts*: no AoC site (as the ranking said).
+- *Splits on combinations of atoms* (`omega-rational-model.sw`'s `x - z`) and a smaller
+  budget for the D547 `auto` fallback: unchanged from 1b.
 
 ## 0. Summary
 
