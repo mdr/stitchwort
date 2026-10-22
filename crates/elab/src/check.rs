@@ -1277,9 +1277,9 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     meta
 }
 
-/// An implicit argument from `supply`, or a new one. ([`written_result`]
-/// makes no auto arguments; `pipe.rs` makes them with [`implicit_arg`], so
-/// they're recorded as obligations.)
+/// An implicit argument from `supply`, or a new one. ([`written_result`] records
+/// its auto arguments as obligations itself, as `pipe.rs` does with
+/// [`implicit_arg`].)
 fn supplied_arg(cx: &mut Ctx, icit: Icit, ty: &Value, supply: &mut Supply) -> Term {
     match supply.pop_front() {
         Some(arg) => arg,
@@ -1982,8 +1982,8 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
 /// `apply_args` and then `insert` would give them, returned in order;
 /// parameters given by `args` get fresh variables. `None` if the type
 /// mentions those variables (it depends on the arguments' values), or isn't
-/// known, or an auto parameter is met before or after (solving the result
-/// first could change what proof search finds).
+/// known, or an auto parameter is met after an argument (its proposition
+/// could mention it) or in the result.
 fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Value, Supply)>> {
     let g = cx.g();
     let base = cx.level();
@@ -1995,7 +1995,8 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
             Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
             Arg::Explicit(_) | Arg::Piped(_) => icit == Icit::Explicit,
         };
-        let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, stop)? else {
+        let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, written, stop)?
+        else {
             return Ok(None);
         };
         if icit == Icit::Auto {
@@ -2004,7 +2005,7 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
         ty = cod.apply(g, Value::var(base + written))?;
         written += 1;
     }
-    if implicits(cx, &mut ty, &mut supply, |_, _| false)?.is_none() {
+    if implicits(cx, &mut ty, &mut supply, written, |_, _| false)?.is_none() {
         return Ok(None);
     }
     // What's left: an auto parameter anywhere in it rules propagation out.
@@ -2024,12 +2025,17 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
 
 /// Gives the implicit parameters at the front of `ty` metavariables, added
 /// to `supply`, until `stop` says to stop at one: that parameter's function
-/// type (or `ty`, forced, if it isn't a function type). `None` at an auto
-/// parameter.
+/// type (or `ty`, forced, if it isn't a function type). An auto parameter
+/// met before any argument is written (`Set.fromList [auto ord: Ord k] xs`)
+/// gets a metavariable too, recorded as an obligation as `insert` would, so
+/// the result type reaches the arguments first (its proposition can't
+/// mention an argument). `None` at an auto parameter after `written`
+/// arguments.
 fn implicits(
     cx: &mut Ctx,
     ty: &mut Value,
     supply: &mut Supply,
+    written: usize,
     stop: impl Fn(&Name, Icit) -> bool,
 ) -> Result<Option<Value>> {
     let g = cx.g();
@@ -2037,9 +2043,9 @@ fn implicits(
         let forced = force(g, ty.clone())?;
         match &forced {
             Value::Pi(x, icit, _, _) if stop(x, *icit) => return Ok(Some(forced)),
-            Value::Pi(_, Icit::Auto, _, _) => return Ok(None),
-            Value::Pi(_, Icit::Implicit, _, cod) => {
-                let meta = cx.fresh_meta();
+            Value::Pi(_, Icit::Auto, _, _) if written > 0 => return Ok(None),
+            Value::Pi(_, icit @ (Icit::Implicit | Icit::Auto), dom, cod) => {
+                let meta = implicit_arg(cx, *icit, dom);
                 let value = cx.eval(&meta)?;
                 supply.push_back(meta);
                 *ty = cod.apply(g, value)?;
