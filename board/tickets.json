@@ -1,5 +1,5 @@
 {
-  "next": 238,
+  "next": 239,
   "tickets": [
     {
       "id": 1,
@@ -3540,6 +3540,18 @@
       "body": "Design note: pattern guards (`| p if c => …`, falling through to later arms when c is false), seen in about 11 GitHub files and 5 Reddit comments for day 3 (stack shape: `step (t:ts, d) x | d > 0 && x > t = …`). The arm would know c and later arms not c, tying it to the SW-226 rule for && facts; coverage checking must treat guarded arms as possibly failing. D362. Compare Haskell guards, Scala/Rust `if` guards, OCaml `when`, Lean/Idris.\n\nDone when: the note is reviewed by Matt; implementation separate.\n",
       "created": "2026-10-21",
       "updated": "2026-10-21",
+      "commits": []
+    },
+    {
+      "id": 238,
+      "title": "Native Text.take / drop / contains (trusted natives) for the fast runtime and JS",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Native Text.take, Text.drop and Text.contains (and possibly startsWith/stripPrefix/splitOn), bound by content hash like the other Text natives, in the fast runtime, the JS backend and the kernel if appropriate. Today they are library code over character lists, so every call builds a list of characters: the day 2 brute force spends most of its remaining 11.5 s there (SW-233 profile). Adds to the trusted natives (listed and tested in DESIGN.md), so each needs the usual native-vs-definition tests.\n\nDone when: the natives exist with differential tests against their definitions; day 2 brute force re-measured.\n",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
       "commits": []
     }
   ]
