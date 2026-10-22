@@ -52,6 +52,18 @@ theorem Mod.valueOfInt [n: Nat] (x: Int): (Mod.ofInt x: Mod n).value = Int.modNa
 -- The number as an `Int`.
 def Mod.toInt (i: Mod n): Int := Nat.toInt i.value
 
+-- Whether this is 0.
+def Mod.isZero (i: Mod n): Bool := i.value == 0
+
+-- Move up by k: `i + k`, wrapping around.
+def Mod.addNat [n: Nat] (i: Mod n) (k: Nat): Mod n := Mod.ofInt (i.toInt + k.toInt)
+
+-- Move down by k: `i - k`, wrapping around.
+def Mod.subNat [n: Nat] (i: Mod n) (k: Nat): Mod n := Mod.ofInt (i.toInt - k.toInt)
+
+theorem Mod.addNatOfInt [n: Nat] (i: Mod n) (k: Nat): Mod.addNat i k = Mod.ofInt (i.toInt + k.toInt) := rfl
+theorem Mod.subNatOfInt [n: Nat] (i: Mod n) (k: Nat): Mod.subNat i k = Mod.ofInt (i.toInt - k.toInt) := rfl
+
 -- The number is below the size, so wrapping it changes nothing.
 theorem Mod.valueOfNatValue [n: Nat] (i: Mod n): (Mod.ofNat i.value: Mod n).value = i.value :=
   Eq.trans (Mod.valueOfNat i.value) (Nat.modSmall i.value (Mod.size n) [ok := Mod.sizeNeZero n] i.isLt)
@@ -207,3 +219,6 @@ test "mod: show" := "${(Mod.ofNat 150: Mod 100)}" == "50"
 test "mod: toInt" := Mod.toInt (Mod.ofNat 150: Mod 100) == 50
 test "mod: Fin.toMod" := (Fin.toMod (Fin.ofNat 4: Fin 5)).value == 4
 test "mod: Mod.toFin" := Fin.toNat (Mod.toFin (Mod.ofNat 4: Mod 5)) == 4
+test "mod: subNat wraps" := ((Mod.ofNat 50: Mod 100).subNat 68).value == 82
+test "mod: addNat wraps" := ((Mod.ofNat 99: Mod 100).addNat 1).value == 0 && ((Mod.ofNat 99: Mod 100).addNat 1).isZero
+test "mod: isZero" := (Mod.ofNat 5: Mod 100).isZero == False
