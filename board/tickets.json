@@ -4400,7 +4400,7 @@
     {
       "id": 288,
       "title": "decreasing stage 3b: List.attach (typed, structural), Member record, attachFrom lemmas, memMap (after 3c)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -4409,7 +4409,11 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "9f7abd9e",
+        "5f19c13f",
+        "f10299fe"
+      ]
     },
     {
       "id": 289,
