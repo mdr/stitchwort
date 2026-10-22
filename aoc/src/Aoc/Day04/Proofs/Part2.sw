@@ -6,8 +6,8 @@
 -- For the sweep: each pass is such a process (`passKeeps`, Proofs/Sweep.sw);
 -- the marks are sound, so a pass that marks nothing leaves no accessible
 -- roll (`invSweep`, `settledStable`); and a pass that marks something
--- removes a roll (`fewerRolls`), so as many passes as there are rolls are
--- enough (`settleEnds`).
+-- removes a roll (`fewerRolls`), so the sweep, which goes on while the rolls
+-- left decrease, ends with all marks clear (`settleEnds`).
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
@@ -119,23 +119,6 @@ theorem fewerRolls (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (
       let same := countEqSame grid (mcells (sweep m)) (mcells m) (mcellsInside grid (sweep m)) (mcellsInside grid m) sub eq
       Bool.trueNotFalse (Eq.trans (Eq.sym marked) (marksAll (sweep m) (sameMarks grid m same))))
 
--- Sweeping until a pass marks nothing ends with no accessible roll, having
--- kept every stable set.
-theorem settleEnds (grid: Grid) (s0: Cells): (fuel: Nat) -> (m: Marked grid.width grid.height) -> Inv m -> Keeps grid s0 (mcells m) -> Sub (mcells m) s0 ->
-    rollCount grid (mcells m) <= fuel ->
-    Stable grid (mcells (settleMarked m fuel)) && (Keeps grid s0 (mcells (settleMarked m fuel)) && Sub (mcells (settleMarked m fuel)) s0)
-  | Zero,   m, inv, hk, hs, hc =>
-    Both (emptyStable grid (mcells m) (mcellsInside grid m) (Nat.leAntisym (rollCount grid (mcells m)) 0 hc (Nat.zeroLe (rollCount grid (mcells m))))) (Both hk hs)
-  | Succ n, m, inv, hk, hs, hc =>
-    let next := sweep m
-    let pass := passKeeps grid s0 m hk
-    let hs2 := subTrans (mcells next) (mcells m) s0 (And.right pass) hs
-    match e: Vec.any Pair.snd next with
-      | True  =>
-        settleEnds grid s0 n next (invSweep m inv) (And.left pass) hs2
-          (Nat.leTrans (Succ (rollCount grid (mcells next))) (rollCount grid (mcells m)) (Succ n) (fewerRolls grid s0 m hk e) hc)
-      | False => Both (settledStable grid next (invSweep m inv) (marksNone next e)) (Both (And.left pass) hs2)
-
 -- The start: every row marked.
 
 theorem fstPairs: (rows: Vec (Vec Cell w) h) -> Vec.map Pair.fst (Vec.map (row => (row, True)) rows) = rows
@@ -163,6 +146,43 @@ theorem rollsIsCount (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height):
         (r => List.sumByCongr (c => (rowsCells rows r c).count) (c => Bool.toNat (rowsCells rows r c == Roll)) (c => Eq.sym (isRollCount (rowsCells rows r c))) (List.range grid.width))
         (List.range grid.height))
       (Eq.sym (countPositionsSum grid (r c => rowsCells rows r c == Roll))))
+-- The program's measure is the rolls the spec counts.
+theorem markedRolls (grid: Grid) (m: Marked grid.width grid.height): Marked.rolls m = rollCount grid (mcells m) :=
+  rollsIsCount grid (rowsOf m)
+
+-- One step of `settleMarked`: another pass when it removes a roll, else done.
+theorem settleMore (m: Marked w h) (fewer: Nat.leq (Succ (Marked.rolls (sweep m))) (Marked.rolls m) = True): settleMarked m = settleMarked (sweep m) :=
+  rewrite settleMarked.unfold m in
+  rewrite fewer in
+  rfl
+
+theorem settleDone (m: Marked w h) (done: Nat.leq (Succ (Marked.rolls (sweep m))) (Marked.rolls m) = False): settleMarked m = sweep m :=
+  rewrite settleMarked.unfold m in
+  rewrite done in
+  rfl
+
+-- Sweeping until a pass removes no roll ends with no accessible roll, having
+-- kept every stable set.
+theorem settleEnds (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (inv: Inv m) (hk: Keeps grid s0 (mcells m)) (hs: Sub (mcells m) s0):
+    Stable grid (mcells (settleMarked m)) && (Keeps grid s0 (mcells (settleMarked m)) && Sub (mcells (settleMarked m)) s0)
+  decreasing Marked.rolls m
+:=
+  let next := sweep m
+  let pass := passKeeps grid s0 m hk
+  let hs2 := subTrans (mcells next) (mcells m) s0 (And.right pass) hs
+  match e: Nat.leq (Succ (Marked.rolls next)) (Marked.rolls m) with
+    | True  =>
+      rewrite settleMore m e in
+      settleEnds grid s0 next (invSweep m inv) (And.left pass) hs2 [decreasing := e]
+    | False =>
+      rewrite settleDone m e in
+      match a: Vec.any Pair.snd next with
+        | False => Both (settledStable grid next (invSweep m inv) (marksNone next a)) (Both (And.left pass) hs2)
+        | True  =>
+          let fewer: Nat.leq (Succ (Marked.rolls next)) (Marked.rolls m) = True :=
+            rewrite markedRolls grid next, markedRolls grid m in fewerRolls grid s0 m hk a
+          Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym fewer) e))
+
 
 -- Part 2 is right for every grid: the printed answer is the number of rolls
 -- the puzzle's rounds remove.
@@ -173,10 +193,8 @@ theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
   let same0 := startCells grid
   let keeps0: Keeps grid s0 (mcells m0) := k st sub r c hk => Eq.trans (same0 r c) (sub r c hk)
   let sub0: Sub (mcells m0) s0 := r c h => Eq.trans (Eq.sym (same0 r c)) h
-  let count0: rollCount grid (mcells m0) <= Grid.rolls grid :=
-    rewrite rollCountSame grid (mcells m0) s0 same0, rollsIsCount grid grid.rows in Nat.leRefl start
-  let ends := settleEnds grid s0 (Grid.rolls grid) m0 (startInv grid.rows) keeps0 sub0 count0
-  let f := settleMarked m0 (Grid.rolls grid)
+  let ends := settleEnds grid s0 m0 (startInv grid.rows) keeps0 sub0
+  let f := settleMarked m0
   let spec := rounds grid start s0
   let specKeep := roundsKeep grid s0 start s0 (k st sub => sub) (subRefl s0)
   let specStable := roundsStable grid start s0 (insideGrid grid) (Nat.leRefl start)
