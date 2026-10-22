@@ -3,7 +3,7 @@
 
 namespace Aoc.Day01.Tests
 import Aoc.Day01 (..)
-import Std (Int, List, Nat, Option, Text)
+import Std (Int, List, Mod, Nat, Option, Text)
 
 def example: List Text := """
   L68
@@ -20,13 +20,13 @@ def example: List Text := """
 
 test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
 
-def after (t: Text): Option Nat := (Turn.parse t).map (turn => (dial.move turn).position)
+def after (t: Text): Option Nat := (Turn.parse t).map (turn => (move dial turn).value)
 
 test "parse" := after "L68" == Some 82
 test "parse right" := after "R5" == Some 55
 test "parse junk" := after "X5" == None
 
-def zerosFrom (x: Int) (t: Turn): Nat := (Dial.fromInt 99 x).zerosDuring t
+def zerosFrom (x: Int) (t: Turn): Nat := zerosDuring (Mod.ofInt x: Mod 100) t
 
 test "left past zero" := zerosFrom 10 (Left 40) == 1
 test "left onto zero" := zerosFrom 20 (Left 20) == 1
