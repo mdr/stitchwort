@@ -243,7 +243,7 @@ theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) -> (k: Nat) ->
 
 theorem allOrderInRange (points: List Point): List.all (boxesBelow points.length) (connectionOrder points) = True :=
   rewrite List.allPerm (boxesBelow points.length) (connectionOrder points) (allPairs points.length)
-      (List.sortByPerm (a b => Ord.compare (connectionKey points a) (connectionKey points b)) (allPairs points.length))
+      (List.sortOnPerm (connectionKey points) (allPairs points.length))
     in allPairsBoth (i => Nat.leq (Succ i) points.length) (List.range points.length)
       (List.allRangeIntro (i => Nat.leq (Succ i) points.length) points.length 0 (i lo hi => hi))
 
@@ -314,7 +314,7 @@ theorem memOrder (points: List Point) (a: Nat) (b: Nat) (ab: a < b) (bn: b < poi
   let p: (Nat, Nat) -> Bool := y => y.fst == a && y.snd == b
   memOfAny p (a, b) (y h => pairEq y a b h) (connectionOrder points)
     (rewrite List.anyPerm p (connectionOrder points) (allPairs points.length)
-        (List.sortByPerm (x y => Ord.compare (connectionKey points x) (connectionKey points y)) (allPairs points.length))
+        (List.sortOnPerm (connectionKey points) (allPairs points.length))
       in anyOfMem p (a, b) (rewrite eqSelf a, eqSelf b in rfl) (allPairs points.length) (memPairs a b ab points.length 0 (Nat.zeroLe a) bn))
 
 -- All the connections put all the boxes in one circuit.

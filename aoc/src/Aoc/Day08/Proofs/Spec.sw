@@ -33,13 +33,12 @@ def allPairs (n: Nat): List (Nat, Nat) := (List.range n).pairs
 
 -- What decides the order of the pairs: the squared distance between the
 -- two boxes (in the same order as the distance), then the first box, then
--- the second.
-def connectionKey (points: List Point) (pair: (Nat, Nat)): (Nat, Nat, Nat) :=
-  ((boxAt points pair.fst).squaredDistance (boxAt points pair.snd), pair.fst, pair.snd)
+-- the second. (A `Connection` is ordered by its fields in turn.)
+def connectionKey (points: List Point) (pair: (Nat, Nat)): Connection :=
+  { distance = (boxAt points pair.fst).squaredDistance (boxAt points pair.snd), first = pair.fst, second = pair.snd }
 
 -- Every pair of boxes, in the order they are connected.
-def connectionOrder (points: List Point): List (Nat, Nat) :=
-  allPairs points.length |> .sortBy (a b => Ord.compare (connectionKey points a) (connectionKey points b))
+def connectionOrder (points: List Point): List (Nat, Nat) := allPairs points.length |> .sortOn (connectionKey points)
 
 -- The first k connections.
 def firstConnections (k: Nat) (points: List Point): List (Nat, Nat) := (connectionOrder points).take k

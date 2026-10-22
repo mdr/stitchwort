@@ -4,7 +4,7 @@
 --   1. The program's sorted pairs are the spec's connection order, each
 --      with its key (`closestFirstIsOrder`): numbering the boxes and taking
 --      every pair is `allPairs`, and sorting the keyed pairs is sorting the
---      pairs by their keys (`List.sortByMap`).
+--      pairs by their keys (`List.sortOnMap`).
 --   2. So the program joins exactly the first k connections, and by the
 --      label theorem (Labels.sw) its labels tell which boxes are joined.
 --   3. The program's sizes are `circuitSizes` with "same label" as the test
@@ -17,30 +17,15 @@ import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 
 -- The program's order is the spec's ----------------------------------------
 
--- `compareConnections` is the order of the keys: squared distance, then the
--- first box, then the second.
-theorem compareIsKeyOrder: (a: (Nat, Nat, Nat)) -> (b: (Nat, Nat, Nat)) -> compareConnections a b = Ord.compare a b
-  | (d1, i1, j1), (d2, i2, j2) =>
-    match e: Nat.compare d1 d2 with
-      | Less    => rfl
-      | Equal   => rfl
-      | Greater => rfl
-
 -- The program's pairs, closest first, are the spec's connections in order,
--- each with its key.
+-- each with its key: sorting the keys is sorting the pairs by their keys.
 theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionKey points) (connectionOrder points) :=
   calc closestFirst points
-    _ = List.sortBy compareConnections (List.map (connectionKey points) (allPairs points.length)) :=
+    _ = List.sort (List.map (connectionKey points) (allPairs points.length)) :=
       rewrite List.withIndexRange origin points, List.pairsMap (i => (i, List.getOr origin i points)) (List.range points.length),
         List.mapMap _ _ (List.pairs (List.range points.length))
         in rfl
-    _ = List.map (connectionKey points) (List.sortBy (a b => compareConnections (connectionKey points a) (connectionKey points b)) (allPairs points.length)) :=
-      Eq.sym (List.sortByMap (connectionKey points) compareConnections _ (a b => rfl) (allPairs points.length))
-    _ = List.map (connectionKey points) (connectionOrder points) :=
-      rewrite List.sortByCong (a b => compareConnections (connectionKey points a) (connectionKey points b))
-        (a b => Ord.compare (connectionKey points a) (connectionKey points b)) (allPairs points.length)
-        (a b => compareIsKeyOrder (connectionKey points a) (connectionKey points b))
-        in rfl
+    _ = List.map (connectionKey points) (connectionOrder points) := Eq.sym (List.sortOnMap (connectionKey points) (allPairs points.length))
 
 -- The program's fold joins the first k connections.
 theorem joinedIsJoinAll (k: Nat) (points: List Point):
@@ -89,7 +74,7 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (boxesBelow p
     List.allRangeIntro (i => Nat.leq (Succ i) n) n 0 (i lo hi => hi)
   allTake (boxesBelow n) k (connectionOrder points)
     (rewrite List.allPerm (boxesBelow n) (connectionOrder points) (allPairs n)
-      (List.sortByPerm (a b => Ord.compare (connectionKey points a) (connectionKey points b)) (allPairs n))
+      (List.sortOnPerm (connectionKey points) (allPairs n))
       in allPairsBoth (i => Nat.leq (Succ i) n) (List.range n) below)
 
 -- The program's sizes are the spec's ----------------------------------------

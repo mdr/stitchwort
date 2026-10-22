@@ -18,7 +18,7 @@
 -- The tests are in `Aoc.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Day08
-import Std (Abort, IO, List, Map, Nat, Option, Ordering, Text)
+import Std (Abort, IO, List, Map, Nat, Option, Text)
 import Std.Abort (toOption)
 
 def main(): {IO} () :=
@@ -32,7 +32,7 @@ type Point = { x: Nat, y: Nat, z: Nat }
 
 -- The boxes, and every pair of them closest first (`closestFirst`), sorted
 -- once for both parts.
-type Boxes = { points: List Point, pairs: List (Nat, Nat, Nat) }
+type Boxes = { points: List Point, pairs: List Connection }
 
 def parseBoxes (lines: List Text): Boxes := Boxes.of (parsePoints lines)
 
@@ -56,19 +56,21 @@ def Point.squaredDistance (p: Point) (q: Point): Nat :=
 
 def square (n: Nat): Nat := n * n
 
--- Every pair of boxes, as (squared distance, first box, second box) with
--- the boxes numbered by their place in the list and the first before the
--- second. They are sorted by those three numbers in turn, so pairs at the
--- same distance come in the order of their box numbers.
-def closestFirst (points: List Point): List (Nat, Nat, Nat) :=
-  points.withIndex.pairs
-    |> .map (((first, second)) => (first.snd.squaredDistance second.snd, first.fst, second.fst))
-    |> .sortBy compareConnections
+-- A pair of boxes, with the boxes numbered by their place in the list and
+-- the first before the second. Connections are ordered by those three
+-- numbers in turn (the derived `Ord`: fields left to right), so pairs at
+-- the same distance come in the order of their box numbers.
+type Connection = { distance: Nat, first: Nat, second: Nat }
 
-def compareConnections (a: (Nat, Nat, Nat)) (b: (Nat, Nat, Nat)): Ordering :=
-  match Nat.compare a.fst b.fst with
-    | Equal => Ordering.andThen (Nat.compare a.snd.fst b.snd.fst) (Nat.compare a.snd.snd b.snd.snd)
-    | order => order
+-- Every pair of boxes, closest first.
+def closestFirst (points: List Point): List Connection :=
+  points.withIndex.pairs
+    |> .map (((first, second)) => Connection.between first second)
+    |> .sort
+
+-- The connection of two numbered boxes.
+def Connection.between (first: (Nat, Point)) (second: (Nat, Point)): Connection :=
+  { distance = first.snd.squaredDistance second.snd, first = first.fst, second = second.fst }
 
 -- Which circuit each box is in, and how many circuits there are. The label
 -- of a circuit is the number of one of its boxes.
@@ -93,8 +95,8 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
     }
 
 -- Joins the two boxes of a pair from `closestFirst`.
-def Circuits.connect (circuits: Circuits): (Nat, Nat, Nat) -> Circuits
-  | (distance, first, second) => circuits.join first second
+def Circuits.connect (circuits: Circuits) (connection: Connection): Circuits :=
+  circuits.join connection.first connection.second
 
 -- How many boxes are in each circuit, a circuit counted once, at its first
 -- (lowest-numbered) box.
@@ -123,9 +125,9 @@ def origin: Point := { x = 0, y = 0, z = 0 }
 
 -- The pair that leaves one circuit, joining the pairs in order from the
 -- circuits given.
-def lastJoin (circuits: Circuits): List (Nat, Nat, Nat) -> Option (Nat, Nat)
-  | Nil                                 => None
-  | Cons (distance, first, second) rest =>
-    let joined := circuits.join first second
-    if circuits.count > 1 && joined.count == 1 then Some (first, second)
+def lastJoin (circuits: Circuits): List Connection -> Option (Nat, Nat)
+  | Nil                  => None
+  | Cons connection rest =>
+    let joined := circuits.connect connection
+    if circuits.count > 1 && joined.count == 1 then Some (connection.first, connection.second)
     else lastJoin joined rest
