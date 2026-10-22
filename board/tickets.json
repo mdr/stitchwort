@@ -3969,7 +3969,7 @@
     {
       "id": 262,
       "title": "AoC Day 1: wrap Mod in a Dial record (dial.move turn, dial.isZero) (D502), after Mod helpers and generated ext lemmas",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3978,7 +3978,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "60664bc3"
+      ]
     },
     {
       "id": 263,
