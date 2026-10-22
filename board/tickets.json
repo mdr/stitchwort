@@ -4547,7 +4547,7 @@
     {
       "id": 297,
       "title": "LSP/nav: recursive call inside a decreasing function doesn't navigate; hover shows Int",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -4557,7 +4557,10 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "c67d55f3",
+        "4a66f82c"
+      ]
     },
     {
       "id": 298,
