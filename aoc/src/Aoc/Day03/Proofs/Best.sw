@@ -43,21 +43,10 @@ theorem numberConsLe (c: Fin 10) (s: List (Fin 10)) (r: List (Fin 10)) (hl: List
   (h: number s <= number r): number (Cons c s) <= number (Cons c r) :=
   Nat.fromDigitsConsLe (Fin.toNat c) (List.map Fin.toNat s) (List.map Fin.toNat r) (mapLength s r hl) h
 
--- `c < x` on digits, as `pick` decides it, is `<` on their numbers.
-theorem lessIf (m: Nat) (n: Nat) (yes: r) (no: r):
-    Decidable.elim (Ordering.decEq (Nat.compare m n) Less) (u => yes) (u => no) = (if m < n then yes else no) :=
-  match e: Nat.leq (Succ m) n with
-    | True  => rewrite Nat.compareOfLess m n e
-    | False =>
-      match f: Nat.compare m n with
-        | Less    => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (Nat.lessOfCompare m n f)))
-        | Equal   => rfl
-        | Greater => rfl
-
 theorem pickStep (w: Nat) (x: Fin 10) (more: Bank) (c: Fin 10) (after: Bank):
     Bank.best.pick (Succ w) (Cons x more) c after
       = (if Fin.toNat c < Fin.toNat x then Bank.best.pick w more x more else Bank.best.pick w more c after) :=
-  lessIf (Fin.toNat c) (Fin.toNat x) (Bank.best.pick w more x more) (Bank.best.pick w more c after)
+  rfl
 
 -- What `pick` returns.
 theorem pickGe: (w: Nat) -> (xs: Bank) -> (c: Fin 10) -> (after: Bank) -> Fin.toNat c <= Fin.toNat (Pair.fst (Bank.best.pick w xs c after))
