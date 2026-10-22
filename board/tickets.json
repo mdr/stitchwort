@@ -1,5 +1,5 @@
 {
-  "next": 265,
+  "next": 267,
   "tickets": [
     {
       "id": 1,
@@ -4013,6 +4013,34 @@
       "commits": [
         "5963a110"
       ]
+    },
+    {
+      "id": 265,
+      "title": "AoC: pass methods as sections (.isZero) at 13 sites; inline Day 3 total (D505)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 266,
+      "title": "Sections whose receiver is the last argument elaborate to the partial application; _.name error suggests .name; Day 4 .snd (D506)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
     }
   ]
 }
