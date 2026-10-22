@@ -3140,7 +3140,7 @@
     {
       "id": 204,
       "title": "calc: a first expression containing `||` or `&&` needs parentheses",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane",
       "labels": [
@@ -3150,12 +3150,15 @@
       "body": "SW-157 pain point 6 (docs/aoc-2025.md:2051). Reproduced (21 Oct, release binary): `theorem t (a: Bool) (b: Bool): a || b = b || a := calc a || b` with the step `_ = b || a := Bool.orComm a b` on the next line gives E-PARSE 'expected a step `_ = e` on the next line, indented past `calc`, but found `||`' pointing at the `||` on the calc line, with the note 'a `calc` needs at least one step'; the same happens for a step's expression. `+` and `*` are fine. The parser reads the first expression of a `calc` before it knows an operator may continue it (crates/syntax/src/parser.rs, `starts_calc_step` :330 is the nearby logic). Either parse a full expression after `calc` and in steps, or make the message say to write `(a || b)`.\n\nDone when: `calc a || b` with a `_ = ...` step parses (or the error names the fix), with an accept (or reject) example under examples/.\n",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "418db73d",
+        "b715d205"
+      ]
     },
     {
       "id": 205,
       "title": "match reports only one branch error at a time",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane",
       "labels": [
@@ -3164,7 +3167,10 @@
       "body": "SW-157 pain point 9 (docs/aoc-2025.md:2065): in `mergedContains` three branches were each wrong and each fix revealed the next error. Reproduced (21 Oct, release binary): `def f: Bool -> Nat -> Nat | True, n => True | False, n => False` reports a single E-TYPE-MISMATCH (for the `False` arm) instead of both arms. The branches are independent, so all type errors could be collected and reported. First step: find where the elaborator stops at the first branch error (crates/elab/src/check.rs or the case-tree builder) and whether recovery (checking the remaining branches against their expected type after an error) is safe for unification state.\n\nDone when: a `match` or function with two bad arms reports both errors, with a reject example listing both (examples/reject/ with snapshot).\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "418db73d",
+        "43a12ff5"
+      ]
     },
     {
       "id": 206,
@@ -4584,7 +4590,7 @@
     {
       "id": 299,
       "title": "JS backend: parameterless top-level def whose body is a handler with an if fails (ReferenceError before initialization)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "lane",
       "labels": [
@@ -4593,7 +4599,10 @@
       "body": "Found by SW-296. Reproduces with Abort alone: run --js gives ReferenceError: Cannot access '$Main$dhalves$d$gmatch1' before initialization. Writing def halves(): … works.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "3e79f43c",
+        "f1b26055"
+      ]
     },
     {
       "id": 300,
