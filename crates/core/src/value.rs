@@ -376,18 +376,26 @@ pub fn apply_icit(g: &Globals, f: Value, arg: Value, icit: Icit) -> Result<Value
 /// until neither is at the top. Everything that takes a value apart by its
 /// shape calls this first. Without metavariables and gluing (the kernel),
 /// it returns `value` as it is.
+#[inline]
 pub fn force(g: &Globals, value: Value) -> Result<Value> {
+    if needs_forcing(g, &value) {
+        force_now(g, value)
+    } else {
+        Ok(value)
+    }
+}
+
+/// [`force`] for a value it changes: a call's kept unfolding if there is
+/// one, or else the machine.
+#[inline(never)]
+fn force_now(g: &Globals, value: Value) -> Result<Value> {
     if let Value::Call(_, _, unfolding) = &value
         && let Some(unfolded) = unfolding.get(g)
         && !needs_forcing(g, &unfolded)
     {
         return Ok(unfolded);
     }
-    if needs_forcing(g, &value) {
-        run(g, Control::Force(value))
-    } else {
-        Ok(value)
-    }
+    run(g, Control::Force(value))
 }
 
 /// [`force`] on a borrowed value, copying it only if forcing changes it.
@@ -537,9 +545,53 @@ fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
             Control::Return(Value::Neutral(head, spine))
         }
         // Its unfolding is a function: `run` forces it first.
-        f @ Value::Call(..) => Control::Apply(Box::new((f, arg, icit))),
+        f @ Value::Call(..) => apply_later(f, arg, icit),
         other => panic!("internal error: applying {}", describe(&other)),
     }
+}
+
+// The machine's steps for calls (`Value::Call`), out of line: they only
+// happen while gluing, and the evaluator's hot path stays as it was.
+
+/// Applying call `f` to `arg`: `run` forces `f` first ([`apply_call`]).
+#[cold]
+#[inline(never)]
+fn apply_later(f: Value, arg: Value, icit: Icit) -> Control {
+    Control::Apply(Box::new((f, arg, icit)))
+}
+
+/// Applying call `f` to `arg`: its unfolding, once forced, is applied.
+#[cold]
+#[inline(never)]
+fn apply_call(
+    g: &Globals,
+    stack: &mut Vec<Frame>,
+    f: Value,
+    arg: Value,
+    icit: Icit,
+) -> Result<Control> {
+    push(g, stack, Frame::AppTo(arg, icit))?;
+    Ok(Control::Force(f))
+}
+
+/// Forcing a call: its kept unfolding, or else unfolding it now, to be
+/// kept (`Frame::Unfolded`).
+#[cold]
+#[inline(never)]
+fn force_call(
+    g: &Globals,
+    stack: &mut Vec<Frame>,
+    id: DefId,
+    spine: Spine,
+    unfolding: Rc<Unfolding>,
+) -> Result<Control> {
+    Ok(match unfolding.get(g) {
+        Some(unfolded) => Control::Force(unfolded),
+        None => {
+            push(g, stack, Frame::Unfolded(unfolding))?;
+            unfold_now(g, id, spine, false)?
+        }
+    })
 }
 
 /// Applying a closure: evaluating its body with the argument added.
@@ -565,8 +617,7 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
             Control::Apply(application) => {
                 let (f, arg, icit) = *application;
                 if let Value::Call(..) = f {
-                    push(g, &mut stack, Frame::AppTo(arg, icit))?;
-                    Control::Force(f)
+                    apply_call(g, &mut stack, f, arg, icit)?
                 } else {
                     apply_step(f, arg, icit)
                 }
@@ -603,13 +654,9 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
                     }
                     None => Control::Return(Value::Neutral(Head::Meta(m), spine)),
                 },
-                Value::Call(id, spine, unfolding) => match unfolding.get(g) {
-                    Some(unfolded) => Control::Force(unfolded),
-                    None => {
-                        push(g, &mut stack, Frame::Unfolded(unfolding))?;
-                        unfold_now(g, id, spine)?
-                    }
-                },
+                Value::Call(id, spine, unfolding) => {
+                    force_call(g, &mut stack, id, spine, unfolding)?
+                }
                 other => Control::Return(other),
             },
             Control::Return(value) => match stack.pop() {
@@ -1034,6 +1081,7 @@ pub fn expand_step(g: &Globals, value: Value) -> Value {
 
 /// Whether [`force`] would change `value`: it's headed by a solved
 /// metavariable, or it's a call.
+#[inline]
 fn needs_forcing(g: &Globals, value: &Value) -> bool {
     match value {
         Value::Neutral(Head::Meta(m), _) => g.meta_solution(*m).is_some(),
@@ -1114,35 +1162,26 @@ fn stuck_tree(stuck: Option<(DefId, Spine)>) -> Control {
     }
 }
 
-/// A definition applied to `spine`: kept as the call if it glues
-/// ([`glues`]), or else unfolded now ([`unfold_now`]).
-fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
-    if glues(g, id, &spine) {
-        return Ok(Control::Return(Value::Call(id, spine, Rc::default())));
-    }
-    unfold_now(g, id, spine)
-}
-
-/// Whether definition `id` applied to `spine` is kept as a call
-/// ([`Value::Call`]): gluing is on ([`Globals::glue`], never while a program
-/// runs), and it's a definition with a case tree and all its arguments
-/// that would otherwise unfold now. Natives (which compute at once on
-/// numbers) and dictionaries (folded by name already) are left as they are.
-fn glues(g: &Globals, id: DefId, spine: &Spine) -> bool {
-    if !g.glue.get() || g.erasure.active() {
-        return false;
-    }
-    let def = g.def(id);
-    def.body.is_some()
-        && def.arity == spine.len()
-        && !def.fold
-        && g.builtins.native(id).is_none()
-        && spine.iter().all(|e| matches!(e, Elim::App(..)))
-}
-
 /// A definition applied to `spine`: its native implementation, or its case
-/// tree if it has all its arguments, or else it stays folded.
-fn unfold_now(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
+/// tree if it has all its arguments (kept as the call instead while gluing,
+/// [`glues`]), or else it stays folded.
+fn unfold(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
+    unfold_now(g, id, spine, true)
+}
+
+/// Whether definition `id`, about to run its case tree, is kept as a call
+/// ([`Value::Call`]) instead: gluing is on ([`Globals::glue`]), no program
+/// is running, and it isn't a native (which computes at once on numbers).
+/// Dictionaries, folded by name already, never get this far.
+#[cold]
+#[inline(never)]
+fn glues(g: &Globals, id: DefId) -> bool {
+    !g.erasure.active() && g.builtins.native(id).is_none()
+}
+
+/// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
+#[inline(always)]
+fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
@@ -1168,6 +1207,9 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine) -> Result<Control> {
             })
             .collect();
         if let Some(args) = args {
+            if glue && g.glue.get() && glues(g, id) {
+                return Ok(Control::Return(Value::Call(id, spine, Rc::default())));
+            }
             let tree = Term::peel_lams_rc(body, def.arity);
             return Ok(Control::Tree(tree, args, Some((id, spine))));
         }
@@ -1472,18 +1514,6 @@ fn conv_step(
     b: Value,
     work: &mut Vec<ConvTask>,
 ) -> Result<bool> {
-    // Calls are compared by their unfoldings (D483: the kernel, which
-    // never glues, doesn't compare calls by their arguments first).
-    let a = if let Value::Call(..) = a {
-        force(g, a)?
-    } else {
-        a
-    };
-    let b = if let Value::Call(..) = b {
-        force(g, b)?
-    } else {
-        b
-    };
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`.
     if native::nat_like(g, &a) || native::nat_like(g, &b) {
@@ -1639,6 +1669,14 @@ fn conv_step(
                 };
                 spines || push_eta(g, level, &a, &b, work)?
             }
+        }
+        // Calls are compared by their unfoldings (D483: the kernel doesn't
+        // compare two calls by their arguments first). The cases above
+        // that a call can reach (numbers, compact lists, dictionaries, eta)
+        // look inside it themselves.
+        (Value::Call(..), _) | (_, Value::Call(..)) => {
+            work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
+            true
         }
         _ => push_eta(g, level, &a, &b, work)?,
     })
