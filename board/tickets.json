@@ -3684,7 +3684,7 @@
     {
       "id": 246,
       "title": "Ord.byKey takes < and <= from the key's own relations, so < on Fin/Mod/Vec reduces to < on the key (D414)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3693,7 +3693,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "af78e317"
+      ]
     },
     {
       "id": 247,
