@@ -7,5 +7,6 @@ import Std (Option)
 
 def realInput: Boxes := parseBoxes (include "../../../../inputs/day08.txt").lines
 
-test "real input, part 1" := solvePart1 1000 realInput == 42315
-test "real input, part 2" := solvePart2 realInput == Some 8079278220
+test "real input, both parts" :=
+  let boxes := realInput
+  solvePart1 1000 boxes == 42315 && solvePart2 boxes == Some 8079278220
