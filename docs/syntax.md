@@ -452,13 +452,37 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   doesn't unfold by itself on an argument that isn't known; `rewrite
   f.unfold x in` takes one step. On known arguments it computes: tests and
   `rfl` work as for any definition.
+- A recursive call may be inside a function passed to another, when that
+  one has a **congruence lemma** (stage 3a): `List.sumBy (d => if h: d < n
+  then weight d else 0) xs` needs the proof of `d < n` like any recursive
+  call (here `h`), and the compiler's own proofs use `List.sumByCong`. The
+  lemma is found by name, the function's own name and `Cong`, beside it, and
+  must say: given the function's parameters in order, each function
+  parameter twice (`f1`, `f2`), and then `(x…) -> f1 x… = f2 x…` for each,
+  the two calls are equal. `std` has `List.mapCong`, `List.foldLeftCong`,
+  `List.sumByCong`, `List.filterMapCong` and `List.occurrencesCong`; your
+  own functions can have them too:
+
+  ```
+  theorem List.sumByCong [auto add: Add b] (f1: a -> b) (f2: a -> b) (xs: List a) (ef: (x: a) -> f1 x = f2 x):
+      List.sumBy f1 xs = List.sumBy f2 xs
+  ```
+
+  The function may be in a `let`, take several arguments (`List.foldLeft
+  (acc x => …)`), `match` on its argument, and sit inside another such
+  function; a `theorem` with `decreasing` may recurse inside any function
+  (it needs no lemma).
 - Refused, with `E-DECREASING`: a recursive call `auto` can't prove smaller
-  (the message shows the goal and the hypotheses in scope), a recursive call
-  inside a lambda (`List.map (y => f y) xs`), a measure that uses no header
-  parameter, definitions that call each other, a recursive call in an `if`'s
-  condition or with another recursive call in its arguments, and a body that
-  returns a function. A measure that isn't a `Nat` is `E-TYPE-MISMATCH`. A
-  definition that never calls itself gets `W-DECREASING-UNUSED`.
+  (the message shows the goal and the hypotheses in scope); one inside a
+  function passed to a function with no congruence lemma, or one of the
+  wrong shape (the message says which and why); one inside a function
+  stored in data, passed to a local variable, or returning a function
+  (comparing functions would need function extensionality); a measure that
+  uses no header parameter, definitions that call each other, a recursive
+  call in an `if`'s condition or with another recursive call in its
+  arguments, and a body that returns a function. A measure that isn't a
+  `Nat` is `E-TYPE-MISMATCH`. A definition that never calls itself gets
+  `W-DECREASING-UNUSED`.
 - A recursive call written with a dot (`rest.total`) works when `auto`
   finds the proof; one that gives `[decreasing := …]` is written in prefix
   form.

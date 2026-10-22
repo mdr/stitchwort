@@ -180,10 +180,10 @@ theorem blocksAsIdsRep (r: Range) (k: Nat) (n: Nat):
         := List.sumByMap (y => Nat.keepIf y (r.from <= y && y <= r.to)) (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
     -- and, for each block, "the id if it is in the range" is the sum over the range ids that equal it
     _ = List.sumBy (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        := List.sumByCongr (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to))
+        := List.sumByCong (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to))
              (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from))
-             (b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b n)))
              (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+             (b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b n)))
     _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
         := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
 
@@ -199,8 +199,8 @@ theorem repeatedIds (r: Range) (k: Nat) (hk: 1 <= k): (n: Nat) -> 2 <= n ->
       _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) r.ids
           := blocksAsIdsRep r k (Succ (Succ m))
       _ = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k (Succ (Succ m)))) r.ids
-          := List.sumByCongr (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-               (x => Nat.keepIf x (writtenAs (Nat.digits x) k (Succ (Succ m)))) (x => blockCountRep x m k hk) r.ids
+          := List.sumByCong (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
+               (x => Nat.keepIf x (writtenAs (Nat.digits x) k (Succ (Succ m)))) r.ids (x => blockCountRep x m k hk)
 
 -- The same facts for any n >= 2.
 theorem countOf (x: Nat) (k: Nat): (n: Nat) -> 2 <= n -> writtenAs (Nat.digits x) k n = True -> n * k = List.length (Nat.digits x)
@@ -318,7 +318,7 @@ theorem divisorWeightsAll (w: Nat -> Nat): (m: Nat) -> 1 <= m -> (c: Nat) -> m <
       _ = List.sumBy f (List.rangeFrom k 2) + List.sumBy f (List.rangeFrom (c - k) (2 + k)) := List.sumByAppend f (List.rangeFrom k 2) (List.rangeFrom (c - k) (2 + k))
       _ = List.sumBy f (List.rangeFrom k 2) + 0
           := Eq.cong (t => List.sumBy f (List.rangeFrom k 2) + t)
-               (Eq.trans (List.sumByCongr f (d => Nat.keepIf (w d) (Nat.divides d (Succ k))) (d => Nat.ifKeep (w d) (Nat.divides d (Succ k))) (List.rangeFrom (c - k) (2 + k)))
+               (Eq.trans (List.sumByCong f (d => Nat.keepIf (w d) (Nat.divides d (Succ k))) (List.rangeFrom (c - k) (2 + k)) (d => Nat.ifKeep (w d) (Nat.divides d (Succ k))))
                  (List.sumRangeNone (d => Nat.divides d (Succ k)) w (c - k) (2 + k) (d d1 d2 => Nat.dividesSmall d (Succ k) rfl d1)))
       _ = List.sumBy f (List.rangeFrom k 2) := Nat.addZero (List.sumBy f (List.rangeFrom k 2))
 
@@ -626,10 +626,10 @@ theorem weightedIds (w: Nat -> Nat) (r: Range): weighted w r = List.sumBy (x => 
                (n => List.sumBy (x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids) (size - 1) 2
                (n n1 n2 => termIds w r k k1 n n1))
     _ = List.sumBy (k => List.sumBy (x => List.sumBy (n => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom (size - 1) 2)) r.ids) (List.rangeFrom size 1)
-        := List.sumByCongr (k => List.sumBy (n => List.sumBy (x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids) (List.rangeFrom (size - 1) 2))
+        := List.sumByCong (k => List.sumBy (n => List.sumBy (x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids) (List.rangeFrom (size - 1) 2))
              (k => List.sumBy (x => List.sumBy (n => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom (size - 1) 2)) r.ids)
-             (k => List.sumBySwap (n x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids (List.rangeFrom (size - 1) 2))
              (List.rangeFrom size 1)
+             (k => List.sumBySwap (n x => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids (List.rangeFrom (size - 1) 2))
     _ = List.sumBy (x => idTerms w size x) r.ids
         := List.sumBySwap (k x => List.sumBy (n => w n * Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom (size - 1) 2)) r.ids (List.rangeFrom size 1)
 
@@ -663,4 +663,4 @@ test "part 2 spec" := part2Spec exampleRanges == 4174379265
 -- Part 2 is the sum of the ids, in all the ranges, whose digits are some
 -- block written two or more times. For every input.
 theorem part2Correct (ranges: List Range): solvePart2 ranges = part2Spec ranges :=
-  List.sumByCongr invalid (r => List.sum (List.filter repeats (Range.ids r))) invalidCorrect ranges
+  List.sumByCong invalid (r => List.sum (List.filter repeats (Range.ids r))) ranges invalidCorrect

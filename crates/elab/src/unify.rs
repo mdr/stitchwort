@@ -72,24 +72,10 @@ fn unify_step(
     let a = force(g, a.clone())?;
     let b = force(g, b.clone())?;
     let is_meta = |v: &Value| matches!(v, Value::Neutral(Head::Meta(_), _));
-    // Numbers compare by their `k + x` forms (see `conv`): `3` and `Succ ?x`
-    // unify by solving `?x` with `2`.
-    if !is_meta(&a) && !is_meta(&b) && (native::nat_like(g, &a) || native::nat_like(g, &b)) {
-        return native::compare(
-            g,
-            &a,
-            &b,
-            |x, y| {
-                work.push(Task::Values(level, x.clone(), y.clone()));
-                Ok(true)
-            },
-            |x, v| Ok(is_meta(x) && unify(g, level, x, v)?),
-        );
-    }
     // Dictionaries left folded by name (`Def::fold`), as in `conv`: the same
     // one's arguments first (what that solves is kept only if they all
     // unify), otherwise unfolded. A metavariable against one is solved with
-    // it, by name, below.
+    // it, by name, below. Before numbers, as in `conv`.
     if !is_meta(&a) && !is_meta(&b) && (is_folded(g, &a) || is_folded(g, &b)) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
@@ -103,6 +89,20 @@ fn unify_step(
             work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
             return Ok(true);
         }
+    }
+    // Numbers compare by their `k + x` forms (see `conv`): `3` and `Succ ?x`
+    // unify by solving `?x` with `2`.
+    if !is_meta(&a) && !is_meta(&b) && (native::nat_like(g, &a) || native::nat_like(g, &b)) {
+        return native::compare(
+            g,
+            &a,
+            &b,
+            |x, y| {
+                work.push(Task::Values(level, x.clone(), y.clone()));
+                Ok(true)
+            },
+            |x, v| Ok(is_meta(x) && unify(g, level, x, v)?),
+        );
     }
     let fresh = Value::var(level);
     // Parts are pushed last-first, so they're unified first-first.

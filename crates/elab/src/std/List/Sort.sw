@@ -92,13 +92,6 @@ theorem List.sumAppend [auto add: Add a]: (xs: List a) -> (ys: List a) ->
         (Eq.trans (Eq.sym (add.assoc x (List.sum xs) (List.sum ys)))
           (Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs)))))
 
-theorem List.sumByCongr (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> f x = g x): (xs: List a) -> List.sumBy f xs = List.sumBy g xs
-  | Nil       => rfl
-  | Cons x xs =>
-    Eq.trans (List.sumByCons f x xs)
-      (Eq.trans (Eq.cong (t => t + List.sumBy f xs) (h x))
-        (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongr f g h xs)) (Eq.sym (List.sumByCons g x xs))))
-
 theorem List.sumByMulLeft (c: Nat) (f: a -> Nat): (xs: List a) -> List.sumBy (x => c * f x) xs = c * List.sumBy f xs
   | Nil       => Eq.sym (Nat.mulZero c)
   | Cons x xs =>
@@ -117,7 +110,7 @@ theorem List.sumByRangeShift (f: Nat -> Nat): (n: Nat) -> (s: Nat) ->
 -- A sum over `s, s + 1, ..., s + n - 1`, as one over `0, 1, ..., n - 1`.
 theorem List.sumByRangeOffset (f: Nat -> Nat): (s: Nat) -> (n: Nat) ->
     List.sumBy f (List.rangeFrom n s) = List.sumBy (i => f (s + i)) (List.range n)
-  | Zero,   n => List.sumByCongr f (i => f (0 + i)) (i => rfl) (List.range n)
+  | Zero,   n => List.sumByCong f (i => f (0 + i)) (List.range n) (i => rfl)
   | Succ s, n => Eq.trans (List.sumByRangeShift f n s) (List.sumByRangeOffset (i => f (Succ i)) s n)
 
 theorem List.sumByRangeOffsetExample: List.sumBy (i => i) (List.rangeFrom 3 10) = List.sumBy (i => 10 + i) (List.range 3) := rfl
@@ -243,8 +236,8 @@ theorem List.sumBySwap (h: a -> b -> Nat) (ys: List b): (xs: List a) ->
     Eq.trans (List.sumByCons (x => List.sumBy (y => h x y) ys) x xs)
       (Eq.trans (Eq.cong (t => List.sumBy (y => h x y) ys + t) (List.sumBySwap h ys xs))
         (Eq.trans (Eq.sym (List.sumByAdd (y => h x y) (y => List.sumBy (x => h x y) xs) ys))
-          (List.sumByCongr (y => h x y + List.sumBy (x => h x y) xs) (y => List.sumBy (x => h x y) (Cons x xs))
-            (y => Eq.sym (List.sumByCons (x => h x y) x xs)) ys)))
+          (List.sumByCong (y => h x y + List.sumBy (x => h x y) xs) (y => List.sumBy (x => h x y) (Cons x xs))
+            ys (y => Eq.sym (List.sumByCons (x => h x y) x xs)))))
 
 theorem List.sumByMap (g: b -> Nat) (f: a -> b): (xs: List a) -> List.sumBy g (List.map f xs) = List.sumBy (x => g (f x)) xs
   | Nil       => rfl
@@ -683,15 +676,7 @@ theorem List.sumByReverseOnto (f: a -> Nat): (xs: List a) -> (acc: List a) ->
 theorem List.sumByReverse (f: a -> Nat) (xs: List a): List.sumBy f (List.reverse xs) = List.sumBy f xs :=
   Eq.trans (List.sumByReverseOnto f xs Nil) (Nat.addZero (List.sumBy f xs))
 
--- Counting with tests that agree, with a test nothing passes, and with
--- either of two tests.
-theorem List.occurrencesCongr (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = q x): (xs: List a) ->
-    List.occurrences p xs = List.occurrences q xs
-  | Nil       => rfl
-  | Cons x xs =>
-    Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences p xs) (h x))
-      (Eq.cong (n => Bool.toNat (q x) + n) (List.occurrencesCongr p q h xs))
-
+-- Counting with a test nothing passes, and with either of two tests.
 theorem List.occurrencesNone (p: a -> Bool) (h: (x: a) -> p x = False): (xs: List a) -> List.occurrences p xs = 0
   | Nil       => rfl
   | Cons x xs => Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences p xs) (h x)) (List.occurrencesNone p h xs)
@@ -1027,7 +1012,7 @@ theorem List.productReverse (xs: List Nat): List.product (List.reverse xs) = Lis
 theorem List.sumBySplit (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):
     List.sumBy f xs =List.sumBy g xs + List.sumBy (x => f x - g x) xs :=
   calc List.sumBy f xs
-    _ = List.sumBy (x => g x + (f x - g x)) xs := List.sumByCongr f (x => g x + (f x - g x)) (x => Eq.sym (Nat.addSubCancel (g x) (f x) (h x))) xs
+    _ = List.sumBy (x => g x + (f x - g x)) xs := List.sumByCong f (x => g x + (f x - g x)) xs (x => Eq.sym (Nat.addSubCancel (g x) (f x) (h x)))
     _ = List.sumBy g xs + List.sumBy (x => f x - g x) xs := List.sumByAdd g (x => f x - g x) xs
 
 theorem List.sumByLe (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a): List.sumBy g xs <= List.sumBy f xs :=

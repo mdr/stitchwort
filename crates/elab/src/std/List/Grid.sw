@@ -38,8 +38,8 @@ theorem List.padRightGetOr (fill: a) (w: Nat) (row: List a) (h: List.length row 
         := Eq.sym (List.mapGetOr fill (List.padRight w fill row))
     _ = List.map (c => List.getOr fill c (List.padRight w fill row)) (List.range w) := rewrite List.padRightLength w fill row h
     _ = List.map (c => List.getOr fill c row) (List.range w)
-        := List.mapCongr (c => List.getOr fill c (List.padRight w fill row)) (c => List.getOr fill c row)
-             (c => List.getOrPadRight fill w c row) (List.range w)
+        := List.mapCong (c => List.getOr fill c (List.padRight w fill row)) (c => List.getOr fill c row)
+             (List.range w) (c => List.getOrPadRight fill w c row)
 
 theorem List.padRowsGetOr (fill: a) (w: Nat): (rows: List (List a)) -> ((r: Nat) -> List.length (List.getOr Nil r rows) <= w) ->
     List.map (row => List.padRight w fill row) rows = List.map (row => List.map (c => List.getOr fill c row) (List.range w)) rows

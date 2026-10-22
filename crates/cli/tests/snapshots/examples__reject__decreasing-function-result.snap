@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DECREASING] Error: `offsets` is called inside a function passed to `List.map` whose result is itself a function, which `decreasing` can't handle
+   ╭─[ reject/decreasing-function-result.sw:9:48 ]
+   │
+ 9 │   List.sum (List.map ((g: Nat -> Nat) => g 1) (List.map (d => (m => if h: d < n then offsets d + m else m)) (List.range n)))
+   │                                                ─────────────────────────────────────┬────────────────────────────────────  
+   │                                                                                     ╰────────────────────────────────────── the recursive call is in here
+   │ 
+   │ Note 1: `List.mapCong` needs the results of the two functions it compares to be equal, and equal functions would need function extensionality
+   │ 
+   │ Note 2: give `offsets` a fuel argument for now
+───╯

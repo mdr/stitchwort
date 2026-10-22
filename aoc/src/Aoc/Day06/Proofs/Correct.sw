@@ -24,7 +24,7 @@ theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo 
 theorem columnsAre (lines: List Text):
     List.transposeFill ' ' (List.map Text.toList lines) = List.map (c => List.map (line => charAt line c) lines) (List.range (gridWidth lines)) :=
   Eq.trans (List.transposeFillColumns ' ' (List.map Text.toList lines))
-    (List.mapCongr _ _ (c => List.mapMap (List.getOr ' ' c) Text.toList lines) (List.range (gridWidth lines)))
+    (List.mapCong _ _ (List.range (gridWidth lines)) (c => List.mapMap (List.getOr ' ' c) Text.toList lines))
 
 -- Past a bound on every line's length, every column is blank.
 theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List.getOr Nil r (List.map Text.toList lines)) <= w) -> blank lines w = True
@@ -50,8 +50,8 @@ theorem blockColumns (lines: List Text) (cs: List Nat):
     _ = List.map (x => readNumber (List.init (List.map (line => charAt line x) lines))) cs
         := List.mapMap (column => readNumber (List.init column)) (x => List.map (line => charAt line x) lines) cs
     _ = List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) cs
-        := List.mapCongr (x => readNumber (List.init (List.map (line => charAt line x) lines))) (x => readNumber (List.map (line => charAt line x) (List.init lines)))
-             (x => rewrite List.initMap (line => charAt line x) lines) cs
+        := List.mapCong (x => readNumber (List.init (List.map (line => charAt line x) lines))) (x => readNumber (List.map (line => charAt line x) (List.init lines)))
+             cs (x => rewrite List.initMap (line => charAt line x) lines)
 
 theorem blockOperator (lines: List Text) (cs: List Nat):
     (parseProblem (List.map (x => List.map (line => charAt line x) lines) cs)).operator
@@ -60,10 +60,10 @@ theorem blockOperator (lines: List Text) (cs: List Nat):
     _ = List.head (List.filterMap (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines))) cs)
         := rewrite List.filterMapMap (column => Option.flatMap Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
     _ = List.head (List.filterMap (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs)
-        := rewrite List.filterMapCongr (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines)))
+        := rewrite List.filterMapCong (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines)))
                      (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines))
-                     (x => rewrite List.lastMap (line => charAt line x) lines, Option.flatMapMap Operator.parse (line => charAt line x) (List.last lines))
                      cs
+                     (x => rewrite List.lastMap (line => charAt line x) lines, Option.flatMapMap Operator.parse (line => charAt line x) (List.last lines))
 
 -- Adding and multiplying don't mind the order.
 theorem evaluateReverse: (op: Option Operator) -> (xs: List Nat) -> evaluate op (List.reverse xs) = evaluate op xs
@@ -139,7 +139,7 @@ theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = par
   calc solvePart1 (parseWorksheet lines)
     _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem (blocks lines)
     _ = _ := blocksTotal lines blockAnswer1
-    _ = part1Spec lines := List.sumByCongr _ _ (lo => List.sumByCongr _ _ (hi => term1 lines lo hi) (List.range (gridWidth lines + 1))) (List.range (gridWidth lines))
+    _ = part1Spec lines := List.sumByCong _ _ (List.range (gridWidth lines)) (lo => List.sumByCong _ _ (List.range (gridWidth lines + 1)) (hi => term1 lines lo hi))
 
 -- Part 2 is right: the same, with the numbers read down the columns, right
 -- to left.
@@ -147,4 +147,4 @@ theorem part2Correct (lines: List Text): solvePart2 (parseWorksheet lines) = par
   calc solvePart2 (parseWorksheet lines)
     _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.columnNumbers) parseProblem (blocks lines)
     _ = _ := blocksTotal lines blockAnswer2
-    _ = part2Spec lines := List.sumByCongr _ _ (lo => List.sumByCongr _ _ (hi => term2 lines lo hi) (List.range (gridWidth lines + 1))) (List.range (gridWidth lines))
+    _ = part2Spec lines := List.sumByCong _ _ (List.range (gridWidth lines)) (lo => List.sumByCong _ _ (List.range (gridWidth lines + 1)) (hi => term2 lines lo hi))

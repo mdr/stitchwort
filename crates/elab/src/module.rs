@@ -1873,8 +1873,6 @@ enum Work<'a> {
     Unbind(&'a str),
     /// A name that's a reference.
     Name(&'a ast::Name),
-    /// Entering or leaving a lambda's body.
-    Lambda(bool),
 }
 
 /// The free names of a declaration, in order, each with whether it's in the
@@ -1888,7 +1886,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
     };
     match decl {
         Decl::Signature { ty, .. } => {
-            add(free_names(vec![Work::Expr(ty)], false), true);
+            add(free_names(vec![Work::Expr(ty)]), true);
             let binders = body_binders(ty, equations);
             for eq in equations {
                 let Decl::Equation { patterns, rhs, .. } = eq else {
@@ -1897,7 +1895,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
                 work.extend(patterns.iter().map(Work::Pattern));
                 work.extend(rhs.iter().map(Work::Expr));
-                add(free_names(work, false), false);
+                add(free_names(work), false);
             }
         }
         Decl::Data {
@@ -1915,9 +1913,9 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                     bind_params.push(Work::Bind(&n.text));
                 }
             }
-            add(free_names(header, false), true);
+            add(free_names(header), true);
             if let Some(sort) = sort {
-                add(free_names(vec![Work::Expr(sort)], false), true);
+                add(free_names(vec![Work::Expr(sort)]), true);
             }
             for ctor in ctors {
                 let mut work = bind_params.clone();
@@ -1925,7 +1923,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                     work.push(Work::Expr(&binder.ty));
                     work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
                 }
-                add(free_names(work, false), false);
+                add(free_names(work), false);
             }
         }
         Decl::Ability { params, ops, .. } => {
@@ -1938,14 +1936,14 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                     bind_params.push(Work::Bind(&n.text));
                 }
             }
-            add(free_names(header, false), true);
+            add(free_names(header), true);
             for (_, ty) in ops {
                 let mut work = bind_params.clone();
                 work.push(Work::Expr(ty));
-                add(free_names(work, false), false);
+                add(free_names(work), false);
             }
         }
-        Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)], false), false),
+        Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
         Decl::Equation { .. } => {}
     }
     out
@@ -1953,20 +1951,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
 
 /// The references an expression makes (for `eval` and the REPL).
 pub(crate) fn expr_refs(expr: &Expr) -> Vec<Ref<'_>> {
-    free_names(vec![Work::Expr(expr)], false)
-}
-
-/// The free names written inside a lambda (`x => …`) in `expr`: for
-/// `decreasing`, which refuses a recursive call there
-/// (docs/proposals/well-founded-recursion.md §6.3).
-pub(crate) fn names_in_lambdas(expr: &Expr) -> Vec<&ast::Name> {
-    free_names(vec![Work::Expr(expr)], true)
-        .into_iter()
-        .filter_map(|r| match r {
-            Ref::Name(n) => Some(n),
-            Ref::Dot(..) => None,
-        })
-        .collect()
+    free_names(vec![Work::Expr(expr)])
 }
 
 /// A reference the pre-pass finds: a name, or dot notation's `.field`
@@ -2003,8 +1988,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
 /// The free names in `work`, in order: names used that aren't bound by a
 /// binder around them. A work list rather than recursion, since expressions
 /// can nest more deeply than recursion could follow.
-fn free_names(work: Vec<Work<'_>>, lambdas_only: bool) -> Vec<Ref<'_>> {
-    let mut lambdas = 0usize;
+fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     let mut stack: Vec<Work> = work;
     stack.reverse();
     let mut bound: HashMap<&str, usize> = HashMap::new();
@@ -2025,15 +2009,6 @@ fn free_names(work: Vec<Work<'_>>, lambdas_only: bool) -> Vec<Ref<'_>> {
                 }
                 continue;
             }
-            Work::Lambda(enter) => {
-                if enter {
-                    lambdas += 1;
-                } else {
-                    lambdas -= 1;
-                }
-                continue;
-            }
-            Work::Name(_) if lambdas_only && lambdas == 0 => continue,
             Work::Name(n) => {
                 let is_bound = |x: &str| bound.get(x).copied().unwrap_or(0) > 0;
                 if is_bound(&n.text) {
@@ -2100,9 +2075,7 @@ fn free_names(work: Vec<Work<'_>>, lambdas_only: bool) -> Vec<Ref<'_>> {
             Expr::Lam(names, body, _) => {
                 let (bind, unbind) = binds(names);
                 let mut steps = bind;
-                steps.push(Work::Lambda(true));
                 steps.push(Work::Expr(body));
-                steps.push(Work::Lambda(false));
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
@@ -2110,9 +2083,7 @@ fn free_names(work: Vec<Work<'_>>, lambdas_only: bool) -> Vec<Ref<'_>> {
                 let (bind, unbind) = binds(std::slice::from_ref(name));
                 let mut steps = vec![Work::Expr(ty)];
                 steps.extend(bind);
-                steps.push(Work::Lambda(true));
                 steps.push(Work::Expr(body));
-                steps.push(Work::Lambda(false));
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
@@ -2294,7 +2265,7 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
 
 /// The names a local definition refers to (and doesn't bind itself).
 pub(crate) fn local_refs(def: &ast::LocalDef) -> Vec<String> {
-    free_names(local_def_work(def), false)
+    free_names(local_def_work(def))
         .into_iter()
         .filter_map(|r| match r {
             Ref::Name(n) => Some(n.text.clone()),

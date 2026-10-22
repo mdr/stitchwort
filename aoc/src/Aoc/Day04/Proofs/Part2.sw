@@ -142,9 +142,9 @@ theorem rollsIsCount (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height):
     Vec.sumBy (row => Vec.sumBy Cell.count row) rows = rollCount grid (rowsCells rows) :=
   Eq.trans (rollsCells rows)
     (Eq.trans
-      (List.sumByCongr (r => List.sumBy (c => (rowsCells rows r c).count) (List.range grid.width)) (r => List.sumBy (c => Bool.toNat (rowsCells rows r c == Roll)) (List.range grid.width))
-        (r => List.sumByCongr (c => (rowsCells rows r c).count) (c => Bool.toNat (rowsCells rows r c == Roll)) (c => Eq.sym (isRollCount (rowsCells rows r c))) (List.range grid.width))
-        (List.range grid.height))
+      (List.sumByCong (r => List.sumBy (c => (rowsCells rows r c).count) (List.range grid.width)) (r => List.sumBy (c => Bool.toNat (rowsCells rows r c == Roll)) (List.range grid.width))
+        (List.range grid.height)
+        (r => List.sumByCong (c => (rowsCells rows r c).count) (c => Bool.toNat (rowsCells rows r c == Roll)) (List.range grid.width) (c => Eq.sym (isRollCount (rowsCells rows r c)))))
       (Eq.sym (countPositionsSum grid (r c => rowsCells rows r c == Roll))))
 -- The program's measure is the rolls the spec counts.
 theorem markedRolls (grid: Grid) (m: Marked grid.width grid.height): Marked.rolls m = rollCount grid (mcells m) :=

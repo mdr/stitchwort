@@ -82,7 +82,7 @@ theorem weightedTwice (r: Range): weighted twice r = (List.rangeFrom (Nat.digits
 
 -- (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
-  List.sumByCongr (weighted twice) (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) weightedTwice ranges
+  List.sumByCong (weighted twice) (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) ranges weightedTwice
 
 -- Why part 1 is right (c): `part1Correct` says the printed part 1 is
 -- `part1Spec`, the puzzle's own method: walk every id of every range, keep
@@ -147,8 +147,8 @@ theorem rangeBlocksIds (r: Range):
 
 -- The block walk and the id walk agree on every input.
 theorem blocksAreIds (ranges: List Range): part1Blocks ranges = part1Spec ranges :=
-  List.sumByCongr (r => List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (List.length (Nat.digits r.to)) 1))
-    (r => List.sum (List.filter doubled r.ids)) rangeBlocksIds ranges
+  List.sumByCong (r => List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (List.length (Nat.digits r.to)) 1))
+    (r => List.sum (List.filter doubled r.ids)) ranges rangeBlocksIds
 
 -- (c) Part 1 is the sum of the ids, in all the ranges, whose digits are some
 -- block written twice.
