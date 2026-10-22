@@ -306,6 +306,17 @@ impl Registry {
         }
     }
 
+    /// Built-in definition `b` if it is bound yet. Unlike [`Registry::def`]
+    /// this is for a library built-in too: it asks whether the library file
+    /// that declares `b` has loaded, and a program that hasn't loaded it
+    /// can't refer to it, so "not bound" is an answer, not a bug.
+    pub fn loaded_def(&self, b: Builtin) -> Option<DefId> {
+        match self.entries.get(&b) {
+            Some(Entry::Def(id)) => Some(*id),
+            _ => None,
+        }
+    }
+
     /// A constructor: its data type and index.
     pub fn ctor(&self, b: Builtin) -> Option<(DataId, usize)> {
         self.assert_usable(b);

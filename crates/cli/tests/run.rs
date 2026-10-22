@@ -407,3 +407,17 @@ fn an_endless_partial_main_runs_until_stopped() {
     child.wait().expect("wait for it");
     assert!(running.is_none(), "it stopped by itself: {running:?}");
 }
+
+/// SW-280: a program that imports none of the library files holding the
+/// natives' definitions (`Text.length`, `Nat.toInt`, ...) runs. Binding the
+/// natives asked the registry for those library built-ins, and the debug
+/// assertion that library built-ins are reached only through the loader
+/// panicked. A test binary is a debug build, so it exercises the assertion.
+#[test]
+fn a_program_that_loads_no_native_library_files_runs() {
+    let path = source_file(
+        "no-natives.sw",
+        "import Std (IO, Nat)\n\ndef main(): {IO} () :=\n  IO.print (\"n: \" ++ Nat.toText 3)\n",
+    );
+    assert_eq!(succeeds(&path, b""), "n: 3\n");
+}
