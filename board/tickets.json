@@ -2499,7 +2499,7 @@
     {
       "id": 163,
       "title": "Why the Day 2 and Day 4 proofs are slow: per-declaration timings (was: check --timings) and profiling (D460)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2509,7 +2509,15 @@
       "body": "Problem: finding slow proofs needs ad-hoc measurement; the rewrite metrics line shows counts but not time (SW-157 pain point 8, SW-147). `stitchwort check` has no timing option.\n\nChange: a flag `stitchwort check --timings` listing each declaration's check time and evaluation steps, slowest first (names resolved to full names, namespaces and projects included).\n\nFirst step: decide the output (plain table to stderr) and where the per-declaration step counter lives (elaborator limits/steps).\n\nDone when: `stitchwort check --timings aoc/...` prints the table, with a CLI test on a small file checking the declaration names and the ordering.\n\nHistory: from SW-157, SW-147.\n",
       "created": "2026-10-20",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "843f4393",
+        "082ea4dc",
+        "1ecfdc79",
+        "4ae25728",
+        "ea330569",
+        "af6c543b",
+        "c374f4b0"
+      ]
     },
     {
       "id": 164,
@@ -3524,14 +3532,17 @@
     {
       "id": 235,
       "title": "List batch 2: maxBy/minBy (first wins), dropWhile, takeWhile, span, dropRight, tails, findIndex, withIndex, splitAt",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "Second list batch (D360, D361; docs/comparisons/aoc-day03-community.md): List.maxBy / minBy (by a key or comparison; on a tie the FIRST element wins, documented and tested, since the day 3 trap is that Haskell maximumBy / Clojure max-key return the last), dropWhile, takeWhile, span, dropRight, tails, findIndex, zipWithIndex (or withIndex), splitAt. Main value first, as SW-219. Tests and cheap lemmas.\n\nDone when: all exist in std/List with tests; the maxBy tie rule has a test that tells the rules apart.\n\n22 Oct 2026: candidates from days 4-5 research — List.flatMap (D435), List.cross, Set.map, Set.any (D424, pending).\n\n22 Oct 2026 (D470, Matt: yes): also Text.words, List.findMap, List.flatMap, List.cross, Set.map, Set.any, Nat.iterate (days 4-7 research).",
       "created": "2026-10-21",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "8a7d616e",
+        "addb325f"
+      ]
     },
     {
       "id": 236,
@@ -3766,15 +3777,17 @@
       "labels": [
         "std"
       ],
-      "body": "",
+      "body": "Library part merged (bae399df). Now: ports of days 4, 6, 7 onto the helpers, one lane per day, keep a port only if its proof shrinks (D421/D451).",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "bae399df"
+      ]
     },
     {
       "id": 251,
       "title": "Design note: keep calls folded while checking instead of unfolding into hidden arguments (D480)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3788,7 +3801,7 @@
     {
       "id": 252,
       "title": "Restate Nat.pow b (Succ e) = Nat.pow b e * b and fix the std proofs it breaks (D481)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
