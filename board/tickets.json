@@ -4001,7 +4001,7 @@
     {
       "id": 264,
       "title": "Method sections: pass a method by short name as a function argument, e.g. .count _.isZero (D504 note first)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4010,7 +4010,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "5963a110"
+      ]
     }
   ]
 }
