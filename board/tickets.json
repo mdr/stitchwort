@@ -1,5 +1,5 @@
 {
-  "next": 281,
+  "next": 282,
   "tickets": [
     {
       "id": 1,
@@ -4181,7 +4181,7 @@
     {
       "id": 275,
       "title": "LSP stages 0b+0c: session mark()/rewind() with check-rewind-check differential test; cancellation flag in Budget::step",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -4190,7 +4190,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "804ce7df"
+      ]
     },
     {
       "id": 276,
@@ -4209,7 +4211,7 @@
     {
       "id": 277,
       "title": "decreasing stage 2: List.unfold and iterate-until-stable loops with a measure (D423 deferred, D513)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4258,6 +4260,20 @@
       "where": "",
       "labels": [
         "bug"
+      ],
+      "body": "",
+      "created": "2026-10-22",
+      "updated": "2026-10-22",
+      "commits": []
+    },
+    {
+      "id": 281,
+      "title": "rfl through decreasing definitions computes the decrease proofs: Nat.digits 9876 by rfl runs out of resources (was fine with fuel)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
       ],
       "body": "",
       "created": "2026-10-22",
