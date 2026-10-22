@@ -24,14 +24,21 @@ def main(): {IO} () :=
 
 def parseBanks (lines: List Text): List Bank := lines.map Bank.parse
 
-def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (joltage 2)
+def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
 
-def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (joltage 12)
+def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 12)
 
-def joltage (k: Nat) (bank: Bank): Nat := bank |> .best k |> .map .toNat |> Nat.fromDigits
+-- The joltage of some batteries turned on: the number their digits spell, in order.
+def joltageOf (on: List Battery): Nat := Nat.fromDigits (on.map .toNat)
+
+-- The most joltage from turning on k batteries of the bank.
+def maxJoltage (k: Nat) (bank: Bank): Nat := joltageOf (bank.best k)
+
+-- A battery, labelled with its joltage rating, a digit.
+def Battery: Type := Fin 10
 
 -- A bank of batteries: a digit on each.
-def Bank: Type := List (Fin 10)
+def Bank: Type := List Battery
 
 def Bank.parse (t: Text): Bank := t.toList |> .filterMap .toDigit
 
