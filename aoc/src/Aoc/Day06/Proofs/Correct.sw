@@ -156,34 +156,14 @@ theorem term2 (lines: List Text) (lo: Nat) (hi: Nat):
 -- total with the numbers read along the rows.
 theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = part1Spec lines :=
   calc solvePart1 (parseWorksheet lines)
-    _ = List.sumBy blockAnswer1 (blocks lines) := List.sumByMap ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem (blocks lines)
-    _ = List.sumBy (lo => List.sumBy (hi => Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-          (List.range (gridWidth lines)) := blocksTotal lines blockAnswer1
-    _ = List.sumBy (lo => List.sumBy (hi => if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi) else 0)
-          (List.range (gridWidth lines + 1))) (List.range (gridWidth lines)) :=
-        List.sumByCongr
-          (lo => List.sumBy (hi => Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-          (lo => List.sumBy (hi => if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi) else 0) (List.range (gridWidth lines + 1)))
-          (lo => List.sumByCongr
-             (hi => Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi))
-             (hi => if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi) else 0)
-             (hi => term1 lines lo hi) (List.range (gridWidth lines + 1)))
-          (List.range (gridWidth lines))
+    _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem (blocks lines)
+    _ = _ := blocksTotal lines blockAnswer1
+    _ = part1Spec lines := List.sumByCongr _ _ (lo => List.sumByCongr _ _ (hi => term1 lines lo hi) (List.range (gridWidth lines + 1))) (List.range (gridWidth lines))
 
 -- Part 2 is right: the same, with the numbers read down the columns, right
 -- to left.
 theorem part2Correct (lines: List Text): solvePart2 (parseWorksheet lines) = part2Spec lines :=
   calc solvePart2 (parseWorksheet lines)
-    _ = List.sumBy blockAnswer2 (blocks lines) := List.sumByMap ((p: Problem) => evaluate p.operator p.columnNumbers) parseProblem (blocks lines)
-    _ = List.sumBy (lo => List.sumBy (hi => Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-          (List.range (gridWidth lines)) := blocksTotal lines blockAnswer2
-    _ = List.sumBy (lo => List.sumBy (hi => if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi) else 0)
-          (List.range (gridWidth lines + 1))) (List.range (gridWidth lines)) :=
-        List.sumByCongr
-          (lo => List.sumBy (hi => Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-          (lo => List.sumBy (hi => if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi) else 0) (List.range (gridWidth lines + 1)))
-          (lo => List.sumByCongr
-             (hi => Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) (isProblem lines lo hi))
-             (hi => if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi) else 0)
-             (hi => term2 lines lo hi) (List.range (gridWidth lines + 1)))
-          (List.range (gridWidth lines))
+    _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.columnNumbers) parseProblem (blocks lines)
+    _ = _ := blocksTotal lines blockAnswer2
+    _ = part2Spec lines := List.sumByCongr _ _ (lo => List.sumByCongr _ _ (hi => term2 lines lo hi) (List.range (gridWidth lines + 1))) (List.range (gridWidth lines))
