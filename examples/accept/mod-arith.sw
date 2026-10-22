@@ -37,7 +37,7 @@ theorem modZero: (Mod.ofNat 5: Mod 0) = Mod.ofNat 0 := rfl
 -- The laws `+` and `*` carry, for every modulus: through the interface.
 theorem addComm (i: Mod 7) (j: Mod 7): i + j = j + i := Add.comm i j
 theorem mulAssoc (i: Mod 7) (j: Mod 7) (k: Mod 7): (i * j) * k = i * (j * k) := Mul.assoc i j k
-theorem subSelf (i: Mod n): i.sub i = Mod.zeroMod := Mod.subSelf i
+theorem subSelf (i: Mod n): i.sub i = Mod.zero := Mod.subSelf i
 
 -- The range proof is decided, not built from `Nat.modLt`, so checking an `rfl`
 -- at a large modulus is quick (with `Nat.modLt` this ran out of resources).

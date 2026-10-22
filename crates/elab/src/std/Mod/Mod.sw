@@ -10,11 +10,6 @@
 -- `Nat.modLt`: for a closed number the decision is `rfl`, so checking an `rfl`
 -- about a `Mod 1000000` doesn't unfold that lemma's induction.
 
--- The functions behind the instances are named `addMod`, `mulMod`, `zeroMod`,
--- `oneMod`, `zeroAddMod`, ...: the loader loads every library file with a
--- function whose last name is the field of a dictionary used as `add.zeroAdd`
--- or `Add.add`, so a `Mod.add` would make every `List` program load this file.
-
 type Mod (n: Nat) = { value: Nat, isLt: value < Mod.size n }
 
 -- How many numbers a `Mod n` has.
@@ -62,20 +57,20 @@ theorem Mod.valueOfNatValue [n: Nat] (i: Mod n): (Mod.ofNat i.value: Mod n).valu
 theorem Mod.ofNatValue [n: Nat] (i: Mod n): Mod.ofNat i.value = i := Mod.ext (Mod.ofNat i.value) i (Mod.valueOfNatValue i)
 
 -- Addition, multiplication and negation, wrapping.
-def Mod.addMod (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value + j.value)
+def Mod.add (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value + j.value)
 
-def Mod.mulMod (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value * j.value)
+def Mod.mul (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value * j.value)
 
 def Mod.neg (i: Mod n): Mod n := Mod.ofNat (Mod.size n - i.value)
 
 -- `i` minus `j`, wrapping: `Mod.sub 5 7` is 98 in `Mod 100`, where `Nat`'s `5 - 7` is 0.
 -- Written `i.sub j`.
-def Mod.sub (i: Mod n) (j: Mod n): Mod n := Mod.addMod i (Mod.neg j)
+def Mod.sub (i: Mod n) (j: Mod n): Mod n := Mod.add i (Mod.neg j)
 
-theorem Mod.valueAdd [n: Nat] (i: Mod n) (j: Mod n): (Mod.addMod i j).value = (i.value + j.value) % Mod.size n :=
+theorem Mod.valueAdd [n: Nat] (i: Mod n) (j: Mod n): (Mod.add i j).value = (i.value + j.value) % Mod.size n :=
   Mod.valueOfNat (i.value + j.value)
 
-theorem Mod.valueMul [n: Nat] (i: Mod n) (j: Mod n): (Mod.mulMod i j).value = (i.value * j.value) % Mod.size n :=
+theorem Mod.valueMul [n: Nat] (i: Mod n) (j: Mod n): (Mod.mul i j).value = (i.value * j.value) % Mod.size n :=
   Mod.valueOfNat (i.value * j.value)
 
 theorem Mod.valueNeg [n: Nat] (i: Mod n): (Mod.neg i).value = (Mod.size n - i.value) % Mod.size n :=
@@ -87,72 +82,72 @@ theorem Mod.valueSub [n: Nat] (i: Mod n) (j: Mod n): (Mod.sub i j).value = (i.va
       (Nat.addModMod i.value (Mod.size n - j.value) (Mod.size n) [ok := Mod.sizeNeZero n]))
 
 -- `i + neg i` is 0, and subtracting a number from itself too.
-theorem Mod.addNeg [n: Nat] (i: Mod n): Mod.addMod i (Mod.neg i) = Mod.zeroMod :=
-  Mod.ext (Mod.addMod i (Mod.neg i)) Mod.zeroMod
+theorem Mod.addNeg [n: Nat] (i: Mod n): Mod.add i (Mod.neg i) = Mod.zero :=
+  Mod.ext (Mod.add i (Mod.neg i)) Mod.zero
     (Eq.trans (Mod.valueSub i i)
       (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.addSubCancel i.value (Mod.size n) (Nat.lessLe i.value (Mod.size n) i.isLt)))
         (Nat.modSelf (Mod.size n) [ok := Mod.sizeNeZero n])))
 
-theorem Mod.subSelf [n: Nat] (i: Mod n): Mod.sub i i = Mod.zeroMod := Mod.addNeg i
+theorem Mod.subSelf [n: Nat] (i: Mod n): Mod.sub i i = Mod.zero := Mod.addNeg i
 
 -- 0.
-def Mod.zeroMod [n: Nat]: Mod n := { value = 0, isLt = rfl }
+def Mod.zero [n: Nat]: Mod n := { value = 0, isLt = rfl }
 
-theorem Mod.zeroAddMod [n: Nat] (i: Mod n): Mod.addMod Mod.zeroMod i = i :=
-  Mod.ext (Mod.addMod Mod.zeroMod i) i
-    (Eq.trans (Mod.valueAdd Mod.zeroMod i)
+theorem Mod.zeroAdd [n: Nat] (i: Mod n): Mod.add Mod.zero i = i :=
+  Mod.ext (Mod.add Mod.zero i) i
+    (Eq.trans (Mod.valueAdd Mod.zero i)
       (Nat.modSmall i.value (Mod.size n) [ok := Mod.sizeNeZero n] i.isLt))
 
-theorem Mod.addComm [n: Nat] (i: Mod n) (j: Mod n): Mod.addMod i j = Mod.addMod j i :=
-  Mod.ext (Mod.addMod i j) (Mod.addMod j i)
+theorem Mod.addComm [n: Nat] (i: Mod n) (j: Mod n): Mod.add i j = Mod.add j i :=
+  Mod.ext (Mod.add i j) (Mod.add j i)
     (Eq.trans (Mod.valueAdd i j)
       (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.addComm i.value j.value)) (Eq.sym (Mod.valueAdd j i))))
 
-theorem Mod.addAssoc [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.addMod (Mod.addMod i j) k = Mod.addMod i (Mod.addMod j k) :=
-  Mod.ext (Mod.addMod (Mod.addMod i j) k) (Mod.addMod i (Mod.addMod j k))
-    (Eq.trans (Mod.valueAdd (Mod.addMod i j) k)
+theorem Mod.addAssoc [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.add (Mod.add i j) k = Mod.add i (Mod.add j k) :=
+  Mod.ext (Mod.add (Mod.add i j) k) (Mod.add i (Mod.add j k))
+    (Eq.trans (Mod.valueAdd (Mod.add i j) k)
       (Eq.trans (Eq.cong (t => (t + k.value) % Mod.size n) (Mod.valueAdd i j))
         (Eq.trans (Nat.modAddMod (i.value + j.value) k.value (Mod.size n) [ok := Mod.sizeNeZero n])
           (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.addAssoc i.value j.value k.value))
             (Eq.trans (Eq.sym (Nat.addModMod i.value (j.value + k.value) (Mod.size n) [ok := Mod.sizeNeZero n]))
               (Eq.trans (Eq.cong (t => (i.value + t) % Mod.size n) (Eq.sym (Mod.valueAdd j k)))
-                (Eq.sym (Mod.valueAdd i (Mod.addMod j k)))))))))
+                (Eq.sym (Mod.valueAdd i (Mod.add j k)))))))))
 
 -- 1, which in `Mod 1` is 0.
-def Mod.oneMod [n: Nat]: Mod n := Mod.ofNat 1
+def Mod.one [n: Nat]: Mod n := Mod.ofNat 1
 
-theorem Mod.oneMulMod [n: Nat] (i: Mod n): Mod.mulMod Mod.oneMod i = i :=
-  Mod.ext (Mod.mulMod Mod.oneMod i) i
-    (Eq.trans (Mod.valueMul Mod.oneMod i)
+theorem Mod.oneMul [n: Nat] (i: Mod n): Mod.mul Mod.one i = i :=
+  Mod.ext (Mod.mul Mod.one i) i
+    (Eq.trans (Mod.valueMul Mod.one i)
       (Eq.trans (Eq.cong (t => (t * i.value) % Mod.size n) (Mod.valueOfNat 1))
         (Eq.trans (Nat.modMulMod 1 i.value (Mod.size n) [ok := Mod.sizeNeZero n])
           (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.oneMul i.value))
             (Nat.modSmall i.value (Mod.size n) [ok := Mod.sizeNeZero n] i.isLt)))))
 
-theorem Mod.mulOneMod [n: Nat] (i: Mod n): Mod.mulMod i Mod.oneMod = i :=
-  Mod.ext (Mod.mulMod i Mod.oneMod) i
-    (Eq.trans (Mod.valueMul i Mod.oneMod)
+theorem Mod.mulOne [n: Nat] (i: Mod n): Mod.mul i Mod.one = i :=
+  Mod.ext (Mod.mul i Mod.one) i
+    (Eq.trans (Mod.valueMul i Mod.one)
       (Eq.trans (Eq.cong (t => (i.value * t) % Mod.size n) (Mod.valueOfNat 1))
         (Eq.trans (Nat.mulModMod i.value 1 (Mod.size n) [ok := Mod.sizeNeZero n])
           (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.mulOne i.value))
             (Nat.modSmall i.value (Mod.size n) [ok := Mod.sizeNeZero n] i.isLt)))))
 
-theorem Mod.mulAssoc [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.mulMod (Mod.mulMod i j) k = Mod.mulMod i (Mod.mulMod j k) :=
-  Mod.ext (Mod.mulMod (Mod.mulMod i j) k) (Mod.mulMod i (Mod.mulMod j k))
-    (Eq.trans (Mod.valueMul (Mod.mulMod i j) k)
+theorem Mod.mulAssoc [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.mul (Mod.mul i j) k = Mod.mul i (Mod.mul j k) :=
+  Mod.ext (Mod.mul (Mod.mul i j) k) (Mod.mul i (Mod.mul j k))
+    (Eq.trans (Mod.valueMul (Mod.mul i j) k)
       (Eq.trans (Eq.cong (t => (t * k.value) % Mod.size n) (Mod.valueMul i j))
         (Eq.trans (Nat.modMulMod (i.value * j.value) k.value (Mod.size n) [ok := Mod.sizeNeZero n])
           (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.mulAssoc i.value j.value k.value))
             (Eq.trans (Eq.sym (Nat.mulModMod i.value (j.value * k.value) (Mod.size n) [ok := Mod.sizeNeZero n]))
               (Eq.trans (Eq.cong (t => (i.value * t) % Mod.size n) (Eq.sym (Mod.valueMul j k)))
-                (Eq.sym (Mod.valueMul i (Mod.mulMod j k)))))))))
+                (Eq.sym (Mod.valueMul i (Mod.mul j k)))))))))
 
 -- `+` and `*`.
 instance Mod.instAdd [n: Nat]: Add (Mod n) :=
-  { zero = Mod.zeroMod, add = Mod.addMod, zeroAdd = Mod.zeroAddMod, assoc = Mod.addAssoc, comm = Mod.addComm }
+  { zero = Mod.zero, add = Mod.add, zeroAdd = Mod.zeroAdd, assoc = Mod.addAssoc, comm = Mod.addComm }
 
 instance Mod.instMul [n: Nat]: Mul (Mod n) :=
-  { one = Mod.oneMod, mul = Mod.mulMod, oneMul = Mod.oneMulMod, mulOne = Mod.mulOneMod, assoc = Mod.mulAssoc }
+  { one = Mod.one, mul = Mod.mul, oneMul = Mod.oneMul, mulOne = Mod.mulOne, assoc = Mod.mulAssoc }
 
 -- The number itself: `"${(Mod.ofNat 50: Mod 100)}"` is `50`.
 instance Mod.instShow: Show (Mod n) := Show.fromText (i => Nat.toText i.value)

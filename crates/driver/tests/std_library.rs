@@ -391,6 +391,121 @@ fn a_library_file_may_use_dot_notation_on_a_loaded_file() {
         .unwrap();
 }
 
+/// Library files for dot notation by namespace (SW-234): `Clock` is a type
+/// declared in one file, with functions in it and in another.
+const DOT_FILES: &[(&str, &str)] = &[
+    (
+        "Clock.sw",
+        "type Clock = { hand: Nat }\n\
+         def Clock.size (c: Clock): Nat := c.hand\n",
+    ),
+    // A function in `Clock`'s namespace, away from `Clock`'s file.
+    (
+        "ClockMore.sw",
+        "def Clock.tick (c: Clock): Clock := { hand = c.hand + 1 }\n",
+    ),
+    // `.size` and `.tick` on `List`, whose type is in the core.
+    (
+        "ListMore.sw",
+        "def List.size (xs: List Nat): Nat := List.length xs\n",
+    ),
+    // A file whose functions return a `Clock`: it needs `Clock.sw`.
+    (
+        "Start.sw",
+        "def Nat.clock (n: Nat): Clock := { hand = n }\n",
+    ),
+    // A file that calls `.tick` on a `Clock` it gets from `Start.sw`, so it
+    // needs `ClockMore.sw` though it never names `Clock`.
+    (
+        "Uses.sw",
+        "def Nat.later (n: Nat): Nat := (Nat.clock n).tick.hand\n",
+    ),
+];
+
+fn loaded_by_dot(program: &str) -> Vec<String> {
+    let mut session = Session::with_library_files(DOT_FILES, false, false).unwrap();
+    session
+        .load("t.sw", program)
+        .unwrap_or_else(|e| panic!("{}", messages(&e)));
+    session.elab.loaded_library_files()
+}
+
+#[test]
+fn dot_notation_loads_a_file_only_when_the_receivers_type_can_be_loaded() {
+    // `xs.size` can't mean `Clock.size`: nothing makes a `Clock`.
+    assert_eq!(
+        loaded_by_dot("def x (xs: List Nat) : Nat := xs.size\n"),
+        ["ListMore.sw"]
+    );
+    // With `Clock` named, it might, and `.tick` might mean `Clock.tick`.
+    assert_eq!(
+        loaded_by_dot("import Std (Clock)\ndef x (c: Clock) : Nat := c.tick.size\n"),
+        ["Clock.sw", "ClockMore.sw", "ListMore.sw"]
+    );
+    // A `Clock` from a function in another file: `Clock.sw` loads with it.
+    assert_eq!(
+        loaded_by_dot("import Std (Nat)\ndef x : Nat := (Nat.clock 1).tick.hand\n"),
+        ["Clock.sw", "ClockMore.sw", "Start.sw"]
+    );
+    // A library file's own dot calls, the same way: `Uses.sw` needs
+    // `ClockMore.sw` because it needs `Start.sw`, which needs `Clock.sw`.
+    assert_eq!(
+        loaded_by_dot("import Std (Nat)\ndef x : Nat := Nat.later 1\n"),
+        ["Clock.sw", "ClockMore.sw", "Start.sw", "Uses.sw"]
+    );
+    // Eager and lazy agree on all of these (§4.0).
+    let mut eager = Session::with_library_files(DOT_FILES, true, false).unwrap();
+    eager
+        .load("t.sw", "import Std (Nat)\ndef x : Nat := Nat.later 1\n")
+        .unwrap();
+}
+
+/// The library files a program loads, with the standard library.
+fn std_loaded_by(program: &str) -> Vec<String> {
+    let mut session = Session::new();
+    session
+        .load("t.sw", program)
+        .unwrap_or_else(|e| panic!("{}", messages(&e)));
+    session.elab.loaded_library_files()
+}
+
+#[test]
+fn small_programs_load_only_the_library_files_they_can_use() {
+    // SW-234: `Mod.add`, `Mod.size`, `Mod.value` and the rest are reached
+    // by dot notation only on a `Mod`, so programs that make none don't
+    // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
+    let toolkit = [
+        "Decidable/Decidable.sw",
+        "Nat/Arith.sw",
+        "Option/Option.sw",
+        "Ord/Ord.sw",
+        "List/Toolkit.sw",
+    ];
+    assert_eq!(
+        std_loaded_by("import Std (List)\ntest \"r\" := List.range 3 == [0, 1, 2]\n"),
+        toolkit
+    );
+    assert_eq!(
+        std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft (a b => a + b) 0\n"),
+        toolkit
+    );
+    let mut sort = toolkit.to_vec();
+    sort.push("List/Sort.sw");
+    assert_eq!(
+        std_loaded_by("def s (xs: List Nat): List Nat := xs.sort\n"),
+        sort
+    );
+    // `d.size` and `n.toInt` on types of the program's own and `Nat`.
+    let own = "type Dial = { position: Nat }\n\
+               def Dial.size (d: Dial): Nat := d.position\n\
+               def x (d: Dial): Int := d.size.toInt\n";
+    let loaded = std_loaded_by(own);
+    assert!(!loaded.iter().any(|f| f.starts_with("Mod/")), "{loaded:?}");
+    // A program using `Mod` loads it, of course.
+    let modular = "import Std (Mod)\ndef x : Mod 10 := Mod.ofNat 3 + Mod.ofNat 9\n";
+    assert!(std_loaded_by(modular).contains(&"Mod/Mod.sw".to_string()));
+}
+
 #[test]
 fn a_longer_cycle_names_each_file() {
     let files = [
