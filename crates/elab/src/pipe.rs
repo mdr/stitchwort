@@ -58,7 +58,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
             if let Some(level) = cx.lookup(&name.text) {
                 cx.e.note_local(cx, name, &cx.types[level]);
             } else if let Ok(Some((_, ty))) = cx.local(&name.text) {
-                cx.e.note_local(cx, name, &ty);
+                cx.note_local_use(name, &ty);
             } else {
                 cx.e.note_name(name);
             }
