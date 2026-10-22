@@ -2498,9 +2498,9 @@
     },
     {
       "id": 163,
-      "title": "Per-declaration check-time report (stitchwort check --timings)",
-      "status": "backlog",
-      "agent": "",
+      "title": "Why the Day 2 and Day 4 proofs are slow: per-declaration timings (was: check --timings) and profiling (D460)",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "tooling",
@@ -2508,7 +2508,7 @@
       ],
       "body": "Problem: finding slow proofs needs ad-hoc measurement; the rewrite metrics line shows counts but not time (SW-157 pain point 8, SW-147). `stitchwort check` has no timing option.\n\nChange: a flag `stitchwort check --timings` listing each declaration's check time and evaluation steps, slowest first (names resolved to full names, namespaces and projects included).\n\nFirst step: decide the output (plain table to stderr) and where the per-declaration step counter lives (elaborator limits/steps).\n\nDone when: `stitchwort check --timings aoc/...` prints the table, with a CLI test on a small file checking the declaration names and the ordering.\n\nHistory: from SW-157, SW-147.\n",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3398,13 +3398,13 @@
     {
       "id": 225,
       "title": "REPL accepts import lines (slim prelude follow-up)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "The interactive REPL (`stitchwort repl`, and the playground REPL) accepts `import` lines, so after the slim prelude (D260) `List.map …` works there once `import Std (List)` has been entered. prelude-slim.md §5.7. Today REPL input sees only the prelude (use `Std.List.map` or dot notation).\n\nDone when: a REPL session can enter `import Std (List)` then `List.map …`; CLI and playground; tests.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
@@ -3532,13 +3532,13 @@
     {
       "id": 236,
       "title": "Day 3: a tie test that tells the rules apart, and the brute force as a test",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "Day 3 tests (D363, D364): make the \"leftmost wins\" test tell the tie rules apart ([2, 7, 5, 7, 3] with k = 2 is 77 leftmost, 73 otherwise; today Bank.best 1 [3, 9, 9, 1] passes either way), and keep the every-choice brute force (choices k ds over the example banks) as a test, as day 2 keeps its brute force. docs/comparisons/aoc-day03-community.md.\n\nDone when: both tests in aoc/src/Aoc/Day03, passing; flipping c < x to c <= x makes the tie test fail.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-22",
       "commits": []
     },
     {
