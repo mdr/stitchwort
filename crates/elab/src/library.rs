@@ -50,6 +50,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
     ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
+    ("List/Grid.sw", include_str!("std/List/Grid.sw")),
     ("List/Index.sw", include_str!("std/List/Index.sw")),
     ("List/Sort.sw", include_str!("std/List/Sort.sw")),
     ("List/Toolkit.sw", include_str!("std/List/Toolkit.sw")),
@@ -63,6 +64,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),
     ("Text/Basics.sw", include_str!("std/Text/Basics.sw")),
     ("Text/Text.sw", include_str!("std/Text/Text.sw")),
+    ("Vec/Grid.sw", include_str!("std/Vec/Grid.sw")),
     ("Vec/Vec.sw", include_str!("std/Vec/Vec.sw")),
 ];
 

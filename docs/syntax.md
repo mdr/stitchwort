@@ -371,6 +371,25 @@ Characters are Unicode scalar values, as for `Text.length`. The text comes last.
 
 Proved: `Text.stripPrefix p (p ++ t) = Some t`, `Text.startsWith p (p ++ t) = True`, `Text.take n t ++ Text.drop n t = t`.
 
+## Grid helpers
+
+For puzzles over a grid of rows. A row of a known width is a `Vec a width`. The fill or pad value is the first parameter, so dot notation reads `row.shiftRight 0`.
+
+- `Vec.shiftRight fill v`: element i moves to i + 1, the last element drops off and `fill` comes in at the front (`[1, 2, 3]` gives `[0, 1, 2]`). `Vec.shiftLeft fill v` is the other way round (`[2, 3, 0]`).
+- `Vec.around pad f v`: `f left x right` for each element and its two neighbours, with `pad` past either end. It is `Vec.zipWith3 f (v.shiftRight pad) v (v.shiftLeft pad)` (`Vec.aroundShifts`), in one pass.
+- `Vec.tabulate n f`: `[f 0, …, f (n - 1)]`, where `f` takes a `Fin n` (as `Vec.get` does).
+- `List.transposeFill fill rows`: pads every row with `fill` to the longest row's length (`List.maxLength rows`), then transposes, so no column loses a cell. `List.transpose` keeps only as many columns as the first row is long.
+- These are in `std/Vec/Grid.sw` and `std/List/Grid.sw` (`tabulate` is in `Vec.sw`). A program loads those files only if it uses one of these names.
+
+The lemmas read a result one index at a time with `List.getOr`, which is the form a proof about one column rewrites with. `i < n` is the row's width. The left neighbour is written `List.getOr pad i (Cons pad row)`: at `Succ c` it computes to `getOr pad c row`, and at 0 it is `pad`.
+
+- `Vec.getOrShiftRight d fill v i (h: i < n)`: index i of `v.shiftRight fill` is `List.getOr d i (Cons fill v.toList)`.
+- `Vec.getOrShiftLeft fill v i`: index i of `v.shiftLeft fill` is index `Succ i` of `v`, with `fill` as the default, at every i. `Vec.getOrShiftLeftLt` takes any default and needs `i < n`.
+- `Vec.getOrAround d pad f v i (h: i < n)`: index i is `f` of indices i - 1, i and `Succ i`, read with default `pad`.
+- `Vec.getTabulate` (`Vec.get (Vec.tabulate n f) i = f i`) and `Vec.getOrTabulate d n f i h` (`= f (Fin.ofNatLt n i h)`).
+- `Vec.getOrZipWith` and `Vec.getOrZipWith3`: index i is `f` of index i of each input, when `f` maps the defaults to the default. `Vec.getOrPast`: past the end, `getOr` gives the default.
+- `List.transposeFillCell fill rows c r`: row r of column c is `List.getOr fill c` of row r, with no bounds on r or c (cells past the ends are `fill` on both sides). `List.transposeFillColumns` states the whole result as columns read by index. `List.getOrTransposeFill` gives column c as a list. `List.lengthTransposeFill`, `List.lengthColumnTransposeFill` and `List.lengthLeMaxLength` give the lengths.
+
 ## `Abort`
 
 `Std.Abort` (`crates/elab/src/std/Abort/Abort.sw`) is an ability for giving up, as `do` over `Option` in Lean or `?` in Roc: code that may give up says `{Abort}`, reads each step's `Option` with `need`, and a handler decides what giving up means.

@@ -627,6 +627,10 @@ theorem List.mapReverseOnto (f: a -> b): (xs: List a) -> (acc: List a) ->
 
 theorem List.mapReverse (f: a -> b) (xs: List a): List.map f (List.reverse xs) = List.reverse (List.map f xs) := List.mapReverseOnto f xs Nil
 
+theorem List.mapCongr (f: a -> b) (g: a -> b) (h: (x: a) -> f x = g x): (xs: List a) -> List.map f xs = List.map g xs
+  | Nil       => rfl
+  | Cons x xs => Eq.trans (Eq.cong (y => Cons y (List.map f xs)) (h x)) (Eq.cong (ys => Cons (g x) ys) (List.mapCongr f g h xs))
+
 theorem List.filterMapCongr (f: a -> Option b) (g: a -> Option b) (h: (x: a) -> f x = g x): (xs: List a) -> List.filterMap f xs = List.filterMap g xs
   | Nil       => rfl
   | Cons x xs => rewrite h x, List.filterMapCongr f g h xs
