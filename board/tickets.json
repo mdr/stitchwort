@@ -3611,7 +3611,7 @@
     {
       "id": 242,
       "title": "AoC: move tests, example texts and test-only helpers into Aoc.DayNN.Tests (D405, D406)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3620,12 +3620,16 @@
       "body": "D405: each day's tests go to namespace Aoc.DayNN.Tests in aoc/src/Aoc/DayNN/Tests/, mirroring Proofs, so run doesn't check them. D406: the example puzzle texts and helpers used only by tests move with them; DayNN.sw keeps only the program (and helpers that proofs or dot notation need). Input.sw's real-input tests move to Tests/Input.sw.",
       "created": "2026-10-22",
       "updated": "2026-10-22",
-      "commits": []
+      "commits": [
+        "0a66b677",
+        "5480aea1",
+        "d83efb48"
+      ]
     },
     {
       "id": 243,
       "title": "AoC: theorems over the parsed model (D407): delete Day 3 joltageIsLargest (D408); restate Day 7 over a parsed grid like Day 4 (D409)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
