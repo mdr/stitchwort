@@ -24,7 +24,7 @@ use std::rc::Rc;
 
 use stitchwort_core::{Limits as CoreLimits, ResourceError};
 
-use crate::code::{Image, Instr, compile};
+use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
@@ -433,12 +433,20 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 st.frames.last_mut().expect("a frame").pc = pc as u32
             };
         }
+        // An operand: moved out if it's marked `MOVE`, otherwise copied.
+        macro_rules! get {
+            ($r:expr) => {{
+                let r = $r;
+                if r & MOVE != 0 {
+                    std::mem::take(&mut st.regs[base + (r & !MOVE) as usize])
+                } else {
+                    st.regs[base + r as usize].clone()
+                }
+            }};
+        }
         macro_rules! args {
             ($o:expr) => {
-                ops!($o)
-                    .iter()
-                    .map(|r| st.regs[base + *r as usize].clone())
-                    .collect::<Vec<Value>>()
+                ops!($o).iter().map(|r| get!(*r)).collect::<Vec<Value>>()
             };
         }
         loop {
@@ -479,7 +487,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     let callee = image.global_code[g as usize].expect("a function has code");
                     let new_base = st.regs.len();
                     for r in ops!(args) {
-                        let v = st.regs[base + *r as usize].clone();
+                        let v = get!(*r);
                         st.regs.push(v);
                     }
                     st.regs.resize(
@@ -498,7 +506,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 Instr::TailCall { g, args } => {
                     let callee = image.global_code[g as usize].expect("a function has code");
                     for r in ops!(args) {
-                        let v = st.regs[base + *r as usize].clone();
+                        let v = get!(*r);
                         st.scratch.push(v);
                     }
                     st.replace(image, callee, None)?;
@@ -536,14 +544,14 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::Apply { dst, f, args } => {
                     save!();
-                    let fv = reg!(f).clone();
+                    let fv = get!(f);
                     let args = args!(args);
                     let to = u32::try_from(base + dst as usize).expect("fits");
                     pending = st.apply(program, image, fv, args, Ret::Reg(to))?;
                     continue 'outer;
                 }
                 Instr::TailApply { f, args } => {
-                    let fv = reg!(f).clone();
+                    let fv = get!(f);
                     let args = args!(args);
                     let frame = st.frames.pop().expect("a frame");
                     st.regs.truncate(base);
@@ -558,11 +566,76 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     }));
                 }
                 Instr::Ctor { dst, tag, args } => {
-                    let fields: Rc<[Value]> = ops!(args)
-                        .iter()
-                        .map(|r| st.regs[base + *r as usize].clone())
-                        .collect();
+                    let fields: Rc<[Value]> = ops!(args).iter().map(|r| get!(*r)).collect();
                     reg!(dst) = Value::Data(tag, Fields(fields));
+                }
+                Instr::CtorReuse {
+                    dst,
+                    tag,
+                    args,
+                    token,
+                } => {
+                    let o = ops!(args);
+                    let v = match std::mem::take(&mut reg!(token)) {
+                        Value::Data(_, mut cell)
+                            if cell.len() == o.len() && unique(&cell.0) =>
+                        {
+                            for (i, r) in o.iter().enumerate() {
+                                let v = get!(*r);
+                                Rc::get_mut(&mut cell.0).expect("unique")[i] = v;
+                            }
+                            Value::Data(tag, cell)
+                        }
+                        _ => {
+                            let fields: Rc<[Value]> = o.iter().map(|r| get!(*r)).collect();
+                            Value::Data(tag, Fields(fields))
+                        }
+                    };
+                    reg!(dst) = v;
+                }
+                Instr::Take { dst, src } => {
+                    let v = std::mem::take(&mut reg!(src));
+                    reg!(dst) = v;
+                }
+                Instr::Drop { reg } => reg!(reg) = Value::Erased,
+                Instr::Unpack { src, fields, token } => {
+                    let pairs = ops!(fields);
+                    let Value::Data(tag, mut cell) = std::mem::take(&mut reg!(src)) else {
+                        panic!("internal error: unpacking a value that isn't a constructor")
+                    };
+                    if let Some(slice) = Rc::get_mut(&mut cell.0) {
+                        for p in pairs.chunks_exact(2) {
+                            st.regs[base + p[1] as usize] =
+                                std::mem::take(&mut slice[p[0] as usize]);
+                        }
+                        if token != NO_REG {
+                            // Empty the cell: what the arm doesn't use is
+                            // freed now.
+                            for v in slice.iter_mut() {
+                                *v = Value::Erased;
+                            }
+                            reg!(token) = Value::Data(tag, cell);
+                        }
+                    } else {
+                        for p in pairs.chunks_exact(2) {
+                            st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
+                        }
+                        if token != NO_REG {
+                            reg!(token) = Value::Erased;
+                        }
+                    }
+                }
+                Instr::DropReuse { src, token } => {
+                    let v = match std::mem::take(&mut reg!(src)) {
+                        Value::Data(tag, mut cell) if unique(&cell.0) => {
+                            for v in Rc::get_mut(&mut cell.0).expect("unique").iter_mut() {
+                                *v = Value::Erased;
+                            }
+                            Value::Data(tag, cell)
+                        }
+                        _ => Value::Erased,
+                    };
+                    reg!(token) = v;
                 }
                 Instr::Switch { src, table } => {
                     let tag = reg!(src).tag().expect("a constructor");
@@ -629,4 +702,11 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
             }
         }
     }
+}
+
+/// Whether this is the only reference to the cell, so that it can be
+/// changed in place.
+#[inline]
+fn unique(cell: &Rc<[Value]>) -> bool {
+    Rc::strong_count(cell) == 1 && Rc::weak_count(cell) == 0
 }

@@ -413,6 +413,78 @@ def main(): {IO} () := IO.print (Nat.toText (loop 3000000 0))
     assert_eq!(out, "6000000\n");
 }
 
+/// Reuse in place (stage 4) only ever changes a cell nobody else can see: a
+/// list that's still used after a `map`, `filter` or sort over it, one a
+/// closure captured, one a constant holds, and one bound twice, is
+/// unchanged, both ways.
+#[test]
+fn reuse_leaves_shared_values_alone() {
+    let (out, result) = both_ways(
+        r#"
+import Std (Nat, Text, List)
+
+def show (xs: List Nat): Text := Text.join ',' (xs.map Nat.toText)
+
+def kept: List Nat := [5, 3, 9, 1]
+
+def main(): {IO} () :=
+  let xs := List.range 6
+  let ys := xs.map (x => x * 10)
+  IO.print (show ys)
+  IO.print (show xs)
+  let evens := xs.filter (x => x % 2 == 0)
+  IO.print (show evens ++ " " ++ show xs)
+  let sorted := List.sortBy Nat.compare kept
+  IO.print (show sorted ++ " " ++ show kept)
+  let f := (n: Nat) => show (xs.map (x => x + n))
+  IO.print (f 1 ++ " " ++ f 2 ++ " " ++ show xs)
+  let pair := (xs, xs)
+  IO.print (show (pair.fst.map (x => x + 100)) ++ " " ++ show pair.snd)
+  let fresh := (List.range 4).map (x => x + 1)
+  IO.print (show (fresh.map (x => x * 2)))
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(
+        out,
+        "0,10,20,30,40,50\n0,1,2,3,4,5\n0,2,4 0,1,2,3,4,5\n1,3,5,9 5,3,9,1\n\
+         1,2,3,4,5,6 2,3,4,5,6,7 0,1,2,3,4,5\n100,101,102,103,104,105 0,1,2,3,4,5\n2,4,6,8\n"
+    );
+}
+
+/// `map` builds each new cell in the one it takes apart, when that one is
+/// uniquely owned: its code reuses the cell.
+#[test]
+fn map_reuses_its_cells() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load(
+                "test.sw",
+                "import Std (Nat, Text, List)\n\
+                 def main(): {IO} () := IO.print (Text.join ',' ((List.range 3).map Nat.toText))\n",
+            )
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let main = session.main().expect("main");
+        let program = lowered(&session, &main, "test.sw");
+        let image = stitchwort_rt::code::compile(&program);
+        let map = program
+            .globals
+            .iter()
+            .position(|g| &*g.name == "Std.List.map")
+            .expect("map is used");
+        let code = &image.codes[image.global_code[map].expect("map has code") as usize];
+        assert!(
+            code.instrs
+                .iter()
+                .any(|i| matches!(i, stitchwort_rt::code::Instr::CtorReuse { .. })),
+            "{:?}",
+            code.instrs
+        );
+    });
+}
+
 /// Partial application, over-application and closures, both ways.
 #[test]
 fn functions_as_values() {
