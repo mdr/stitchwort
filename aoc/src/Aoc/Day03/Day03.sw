@@ -18,7 +18,7 @@ namespace Aoc.Day03
 import Std (Char, Fin, IO, Nat)
 
 def main(): {IO} () :=
-  let banks := parseBanks (IO.readAllLines())
+  let banks := parseBanks IO.readAllLines()
   IO.print "Part 1: ${solvePart1 banks}"
   IO.print "Part 2: ${solvePart2 banks}"
 

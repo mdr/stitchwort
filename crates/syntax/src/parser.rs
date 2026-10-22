@@ -2317,23 +2317,20 @@ impl<'t> Parser<'t> {
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
     }
 
-    /// Whether the next tokens are `()` written right after the name before
-    /// them and right before a `.name`, as in `f().x`: a zero-argument call
-    /// whose result the dot applies to. `f ().x` (a space) stays `f (().x)`.
-    fn unit_call_then_dot(&self) -> bool {
+    /// Whether the next tokens are `()` written right after the name or field
+    /// before them, with the parens touching: `f()`, a zero-argument call. It
+    /// is one atom, so `g f()` is `g (f())` and `f().x` is `(f()).x`. With a
+    /// space, `f ()` is ordinary application to the unit.
+    fn unit_call(&self) -> bool {
         let at = |i: usize| self.tokens.get(self.pos + i);
-        let (Some(open), Some(close), Some(dot), Some(name)) = (at(0), at(1), at(2), at(3)) else {
+        let (Some(open), Some(close)) = (at(0), at(1)) else {
             return false;
         };
         open.tok == Tok::LParen
             && close.tok == Tok::RParen
-            && dot.tok == Tok::Dot
-            && matches!(name.tok, Tok::Lower(_))
             && self.pos > 0
             && self.tokens[self.pos - 1].span.end == open.span.start
             && open.span.end == close.span.start
-            && close.span.end == dot.span.start
-            && dot.span.end == name.span.start
     }
 
     /// An atom followed by any field accesses, `p.address.city`. The `.` is
@@ -2343,7 +2340,7 @@ impl<'t> Parser<'t> {
         let start = self.here();
         let mut expr = self.atom_base()?;
         loop {
-            if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call_then_dot() {
+            if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call() {
                 let open = self.bump().span;
                 let close = self.bump().span;
                 expr = Expr::App(Box::new(expr), Box::new(Expr::Unit(open.to(close))));
@@ -2883,7 +2880,7 @@ mod tests {
     }
 
     #[test]
-    fn unit_call_then_dot_applies_to_the_result() {
+    fn unit_call_is_one_atom() {
         let shape = |text: &str| match &expression(text).unwrap() {
             Expr::Field(r, n) => format!("{:?}.{}", matches!(**r, Expr::App(..)), n.text),
             Expr::App(f, _) => format!("app({})", matches!(**f, Expr::Field(..))),
@@ -2903,9 +2900,19 @@ mod tests {
         assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::App(..))));
         // A space keeps ordinary application: `f ().x` is `f (().x)`.
         assert_eq!(shape("f ().x"), "app(false)");
-        // Without a following `.name`, `g f()` is still `g f ()`.
+        // Without a following `.name`, `f()` is still one atom: `g f()` is
+        // `g (f())`, while `g f ()` is `g f ()`.
         let e = expression("g f()").unwrap();
-        assert!(matches!(&e, Expr::App(f, _) if matches!(**f, Expr::App(..))));
+        assert!(matches!(&e, Expr::App(g, a)
+            if matches!(**g, Expr::Var(_)) && matches!(**a, Expr::App(..))));
+        let e = expression("g f ()").unwrap();
+        assert!(matches!(&e, Expr::App(f, u)
+            if matches!(**f, Expr::App(..)) && matches!(**u, Expr::Unit(..))));
+        let e = expression("parseTurns IO.readAllLines()").unwrap();
+        assert!(matches!(&e, Expr::App(_, a) if matches!(**a, Expr::App(..))));
+        // `()` alone and `f ()` are unchanged.
+        assert!(matches!(expression("()").unwrap(), Expr::Unit(..)));
+        assert!(matches!(expression("f ()").unwrap(), Expr::App(..)));
     }
 
     #[test]

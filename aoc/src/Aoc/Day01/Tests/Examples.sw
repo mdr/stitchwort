@@ -20,7 +20,7 @@ def example: List Text := """
 
 test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
 
-def after (t: Text): Option Nat := (Turn.parse t).map (turn => (move dial turn).value)
+def after (t: Text): Option Nat := (Turn.parse t).map (turn => (move startingDial turn).value)
 
 test "parse" := after "L68" == Some 82
 test "parse right" := after "R5" == Some 55

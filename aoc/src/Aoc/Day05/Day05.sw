@@ -20,7 +20,7 @@ import Aoc.Common (Range)
 import Std (IO, Nat, Text)
 
 def main(): {IO} () :=
-  let database := parseDatabase (IO.readAllLines())
+  let database := parseDatabase IO.readAllLines()
   IO.print "Part 1: ${solvePart1 database}"
   IO.print "Part 2: ${solvePart2 database}"
 

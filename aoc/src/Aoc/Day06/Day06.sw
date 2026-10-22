@@ -24,7 +24,7 @@ namespace Aoc.Day06
 import Std (Char, IO, Nat, Text)
 
 def main(): {IO} () :=
-  let problems := parseWorksheet (IO.readAllLines())
+  let problems := parseWorksheet IO.readAllLines()
   IO.print "Part 1: ${solvePart1 problems}"
   IO.print "Part 2: ${solvePart2 problems}"
 

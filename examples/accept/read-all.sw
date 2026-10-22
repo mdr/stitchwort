@@ -20,13 +20,13 @@ def showLine: Option Text -> Text
 def slurp(): {IO} Text := IO.readAll()
 
 def afterOne(): {IO} Pair Text Text :=
-  let first := showLine (IO.readLine())
+  let first := showLine IO.readLine()
   let rest := IO.readAll()
   MkPair first rest
 
 def afterAll(): {IO} Pair Text Text :=
   let all := IO.readAll()
-  let next := showLine (IO.readLine())
+  let next := showLine IO.readLine()
   MkPair all next
 
 def twice(): {IO} Pair Text Text :=
@@ -101,3 +101,20 @@ def inputLines(): {IO} List Text := IO.readAll().lines
 
 test "dot notation applies to the result of a zero-argument call" :=
   result (IO.simulate ["a", "b"] inputLines) == ["a", "b"]
+
+-- `name()` with no space is a call that is one argument: `g f()` is `g (f())`,
+-- while `g f ()` is `g f ()`.
+
+def countLines (ls: List Text): Nat := ls.length
+
+def lineCount(): {IO} Nat := countLines IO.readAllLines()
+
+test "a call with no space is a single argument" :=
+  result (IO.simulate ["a", "b", "c"] lineCount) == 3
+
+def applyTo (f: () -> {IO} Nat) (u: ()): {IO} Nat := f u
+
+def viaApply(): {IO} Nat := applyTo lineCount ()
+
+test "a space keeps two arguments" :=
+  result (IO.simulate ["a", "b"] viaApply) == 2

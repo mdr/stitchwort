@@ -29,7 +29,7 @@ import Std (Abort, Fin, IO, List, Nat, Option, Vec)
 import Std.Abort (toOption)
 
 def main(): {IO} () :=
-  match parseManifold (IO.readAllLines()) with
+  match parseManifold IO.readAllLines() with
     | None       => IO.print "There is no S."
     | Some manifold =>
       IO.print "Part 1: ${solvePart1 manifold}"

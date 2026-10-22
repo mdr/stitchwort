@@ -10,7 +10,7 @@ def orNone: Option Text -> Text
   | None => "none"
   | Some t  => t
 
-def next(): {IO} Text := orNone (IO.readLine())
+def next(): {IO} Text := orNone IO.readLine()
 
 -- `b` is written first, so it reads the first line.
 def backwards(): {IO} Pair2 := { b = next(), a = next() }

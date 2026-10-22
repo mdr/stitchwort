@@ -15,30 +15,30 @@ namespace Aoc.Day01
 import Std (IO, Int, List, Mod)
 
 def main(): {IO} () :=
-  let turns := parseTurns (IO.readAllLines())
+  let turns := parseTurns IO.readAllLines()
   IO.print "Part 1: ${solvePart1 turns}"
   IO.print "Part 2: ${solvePart2 turns}"
 
 def parseTurns (lines: List Text): List Turn := lines.filterMap Turn.parse
 
-def solvePart1 (turns: List Turn): Nat := zerosLandedOn dial turns
+def solvePart1 (turns: List Turn): Nat := zerosLandedOn startingDial turns
 
-def solvePart2 (turns: List Turn): Nat := zerosPassed dial turns
+def solvePart2 (turns: List Turn): Nat := zerosPassed startingDial turns
 
 -- The puzzle's dial: 100 positions, 0 to 99, at 50.
-def dial: Mod 100 := Mod.ofNat 50
+def startingDial: Mod 100 := Mod.ofNat 50
 
 -- Part 1: the positions after each turn that are 0.
-def zerosLandedOn (start: Mod n) (turns: List Turn): Nat :=
+def zerosLandedOn (startingDial: Mod n) (turns: List Turn): Nat :=
   turns
-    |> .scanLeft move start
+    |> .scanLeft move startingDial
     |> .drop 1
     |> .count isZero
 
 -- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
-def zerosPassed (start: Mod n) (turns: List Turn): Nat :=
+def zerosPassed (startingDial: Mod n) (turns: List Turn): Nat :=
   turns
-    |> .scanLeft move start
+    |> .scanLeft move startingDial
     |> .zipWith zerosDuring turns
     |> .sum
 
@@ -61,15 +61,15 @@ def Turn.clicks: Turn -> List Turn
   | Right n => List.replicate n (Right 1)
 
 -- Where a turn leaves the dial: left is towards lower numbers.
-def move (d: Mod n): Turn -> Mod n
-  | Left k  => Mod.ofInt (d.toInt - k.toInt)
-  | Right k => Mod.ofInt (d.toInt + k.toInt)
+def move (dial: Mod n): Turn -> Mod n
+  | Left k  => Mod.ofInt (dial.toInt - k.toInt)
+  | Right k => Mod.ofInt (dial.toInt + k.toInt)
 
-def isZero (d: Mod n): Bool := d.value == 0
+def isZero (dial: Mod n): Bool := dial.value == 0
 
--- How many clicks of a turn land on 0. Going right from `d`, the dial is at
--- 0 after each click that brings `d + k` to a multiple of the dial's size.
--- Going left is the mirror image: 0 is `(size - d) % size` clicks away.
-def zerosDuring [n: Nat] (d: Mod n): Turn -> Nat
-  | Right k => (d.value + k) / Mod.size n
-  | Left k  => ((Mod.size n - d.value) % Mod.size n + k) / Mod.size n
+-- How many clicks of a turn land on 0. Going right from `dial`, the dial is at
+-- 0 after each click that brings `dial + k` to a multiple of the dial's size.
+-- Going left is the mirror image: 0 is `(size - dial) % size` clicks away.
+def zerosDuring [n: Nat] (dial: Mod n): Turn -> Nat
+  | Right k => (dial.value + k) / Mod.size n
+  | Left k  => ((Mod.size n - dial.value) % Mod.size n + k) / Mod.size n

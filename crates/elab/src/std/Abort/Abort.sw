@@ -26,7 +26,7 @@ ability Abort where
   stop: () -> {Abort} Empty
 
 -- Gives up, whatever result was expected.
-def Abort.abort(): {Abort} a := Empty.absurd (Abort.stop())
+def Abort.abort(): {Abort} a := Empty.absurd Abort.stop()
 
 -- The value in an `Option`, or give up.
 def Abort.need (o: Option a): {Abort} a :=

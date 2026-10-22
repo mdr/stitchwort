@@ -106,7 +106,7 @@ test "a clause's own get goes to the outer handler" :=
 -- Abort
 
 def safeDiv (n: Nat) (d: Nat): {Abort} Nat :=
-  if h: d != 0 then n / d else fromEmpty (abort())
+  if h: d != 0 then n / d else fromEmpty abort()
 
 def orZero: Option Nat -> Nat
   | None => 0

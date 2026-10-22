@@ -122,7 +122,7 @@ def logTwice (n: Nat): {Log} () :=
   say n
 
 def bigger(): {State Nat, Log, Ask} Nat :=
-  logTwice (ask())
+  logTwice ask()
   get()
 
 test "a smaller row inside a bigger one" :=

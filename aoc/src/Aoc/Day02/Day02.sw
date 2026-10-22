@@ -25,7 +25,7 @@ import Aoc.Common (Range)
 import Std (List, Nat)
 
 def main(): {IO} () :=
-  let ranges := parseRanges (IO.readAll())
+  let ranges := parseRanges IO.readAll()
   IO.print "Part 1: ${solvePart1 ranges}"
   IO.print "Part 2: ${solvePart2 ranges}"
 

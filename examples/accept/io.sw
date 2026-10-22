@@ -159,7 +159,7 @@ def countIS(): {IO, State Nat} () :=
   put (get() + 1)
   let b := IO.readLine()
   put (get() + 1)
-  IO.print (Nat.toText (get()))
+  IO.print (Nat.toText get())
 
 -- The same, with the row the other way round.
 def countSI(): {State Nat, IO} () :=
@@ -167,7 +167,7 @@ def countSI(): {State Nat, IO} () :=
   put (get() + 1)
   let b := IO.readLine()
   put (get() + 1)
-  IO.print (Nat.toText (get()))
+  IO.print (Nat.toText get())
 
 -- `IO.simulate` outside, `runState` inside.
 def stateInside (prog: () -> {State Nat, IO} ()): Pair (List Text) Nat :=
