@@ -179,7 +179,7 @@ impl Cx {
         let kind = match kind {
             GlobalKind::Function { params, body } => {
                 let body = self.body(body, params, Some(i));
-                if size(&body.expr) <= INLINE_SIZE && !calls(&body.expr, i) {
+                if size(&body.expr) <= INLINE_SIZE && !self.recursive(&body.expr, i) {
                     self.inline[i] = Some(Rc::new((params, body.expr.clone())));
                 }
                 GlobalKind::Function { params, body }
@@ -197,6 +197,29 @@ impl Cx {
         };
         self.globals[i].kind = kind;
         self.busy = None;
+    }
+
+    /// Whether `e` refers to global `g` directly or from the body of a
+    /// closure it makes (SW-253): a function that only recurses inside a
+    /// lambda (`accFuel k n h = AccIntro (m => accFuel k' m ..)`) is
+    /// recursive, and inlining it would unroll that recursion once per
+    /// constant it's called with, as far as the constant goes.
+    fn recursive(&self, e: &Expr, g: usize) -> bool {
+        let mut seen = vec![false; self.lambdas.len()];
+        let mut todo = vec![e];
+        while let Some(e) = todo.pop() {
+            if calls(e, g) {
+                return true;
+            }
+            closures(e, &mut |l| {
+                let l = l.0 as usize;
+                if !seen[l] {
+                    seen[l] = true;
+                    todo.push(&self.lambdas[l].body.expr);
+                }
+            });
+        }
+        false
     }
 
     /// A body simplified, its slots packed again. `global` is the global it
@@ -325,6 +348,48 @@ fn calls(e: &Expr, g: usize) -> bool {
             calls(s, g) || arms.iter().any(|(_, b)| calls(b, g)) || calls(d, g)
         }
         Expr::If(c, t, e) => calls(c, g) || calls(t, g) || calls(e, g),
+    }
+}
+
+/// Calls `f` on each lambda that `e` makes a closure of.
+fn closures(e: &Expr, f: &mut impl FnMut(LambdaId)) {
+    match e {
+        Expr::Closure(l, a) => {
+            f(*l);
+            a.iter().for_each(|x| closures(x, f));
+        }
+        Expr::Local(_)
+        | Expr::Captured(_)
+        | Expr::Global(_)
+        | Expr::Erased
+        | Expr::Lit(_)
+        | Expr::DoneK
+        | Expr::Unreachable => {}
+        Expr::Call(_, a) | Expr::PartialApp(_, a) | Expr::Prim(_, a) | Expr::Ctor(_, _, a) => {
+            a.iter().for_each(|x| closures(x, f));
+        }
+        Expr::Apply(h, a) => {
+            closures(h, f);
+            a.iter().for_each(|x| closures(x, f));
+        }
+        Expr::Let(_, v, b) => {
+            closures(v, f);
+            closures(b, f);
+        }
+        Expr::Match(s, _, arms) => {
+            closures(s, f);
+            arms.iter().for_each(|a| closures(&a.body, f));
+        }
+        Expr::NumSwitch(s, arms, d) => {
+            closures(s, f);
+            arms.iter().for_each(|(_, b)| closures(b, f));
+            closures(d, f);
+        }
+        Expr::If(c, t, e) => {
+            closures(c, f);
+            closures(t, f);
+            closures(e, f);
+        }
     }
 }
 
