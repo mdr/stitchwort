@@ -619,3 +619,122 @@ fn latency_on_aoc() {
     eprintln!("resident: {rss:?} KB");
     client.shutdown();
 }
+
+/// A program where the second declaration has an `if` over arithmetic.
+const SELECTION_PROGRAM: &str = "def double (n: Nat): Nat := n + n\n\ndef h (n: Nat): Nat := if n < 2 then double (n + 1) else 0\n";
+
+/// The range of `needle` in the second declaration's line (line 2).
+fn on_line_2(needle: &str) -> Value {
+    let line = SELECTION_PROGRAM.lines().nth(2).unwrap();
+    let start = line.find(needle).unwrap();
+    json!({
+        "start": {"line": 2, "character": start},
+        "end": {"line": 2, "character": start + needle.len()}
+    })
+}
+
+#[test]
+fn hover_over_a_selection_gives_the_type_of_the_expression() {
+    let dir = temp_dir("hover-range");
+    let file = dir.join("select.sw");
+    std::fs::write(&file, SELECTION_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, SELECTION_PROGRAM);
+    client.diagnostics(&uri, 1);
+    let hover = |client: &mut Client, selection: Value| {
+        let start = selection["start"].clone();
+        client.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": uri}, "position": start, "range": selection}),
+        )
+    };
+    // A call: `double (n + 1)` is a Nat, and the answer's range is the call.
+    let call = on_line_2("double (n + 1)");
+    let found = hover(&mut client, call.clone());
+    assert_eq!(
+        found["contents"]["value"].as_str().unwrap(),
+        "```stitchwort\nNat\n```",
+        "{found}"
+    );
+    assert_eq!(found["range"], call);
+    // A condition: not a Nat.
+    let found = hover(&mut client, on_line_2("n < 2"));
+    let text = found["contents"]["value"].as_str().unwrap();
+    assert!(
+        text.starts_with("```stitchwort\n") && !text.contains("Nat\n```"),
+        "{text}"
+    );
+    // A selection that ends mid-expression: the smallest expression around
+    // it, here the whole `if`.
+    let found = hover(&mut client, on_line_2("2 then double"));
+    assert_eq!(found["range"]["start"]["character"], 23, "{found}");
+    // An empty range is an ordinary hover: `double`'s own type.
+    let at = on_line_2("double (")["start"].clone();
+    let found = client.request(
+        "textDocument/hover",
+        json!({"textDocument": {"uri": uri}, "position": at, "range": {"start": at, "end": at}}),
+    );
+    assert!(
+        found["contents"]["value"]
+            .as_str()
+            .unwrap()
+            .contains("def  `Main.double`"),
+        "{found}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn selection_ranges_walk_outward_through_the_expressions() {
+    let dir = temp_dir("selection-range");
+    let file = dir.join("select.sw");
+    std::fs::write(&file, SELECTION_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, SELECTION_PROGRAM);
+    client.diagnostics(&uri, 1);
+    // On the `1` of `n + 1`.
+    let line = SELECTION_PROGRAM.lines().nth(2).unwrap();
+    let one = line.find("1)").unwrap();
+    let answer = client.request(
+        "textDocument/selectionRange",
+        json!({"textDocument": {"uri": uri}, "positions": [{"line": 2, "character": one}]}),
+    );
+    let mut texts: Vec<String> = Vec::new();
+    let mut node = &answer[0];
+    while node.is_object() {
+        let r = &node["range"];
+        let (l1, l2) = (
+            r["start"]["line"].as_u64().unwrap(),
+            r["end"]["line"].as_u64().unwrap(),
+        );
+        let lines: Vec<&str> = SELECTION_PROGRAM.lines().collect();
+        let text = if l1 == l2 {
+            lines[l1 as usize][r["start"]["character"].as_u64().unwrap() as usize
+                ..r["end"]["character"].as_u64().unwrap() as usize]
+                .to_string()
+        } else {
+            format!("<lines {l1}-{l2}>")
+        };
+        texts.push(text);
+        node = &node["parent"];
+    }
+    // Each step contains the one before; the walk reaches the declaration.
+    let at = |needle: &str| texts.iter().position(|t| t == needle);
+    let (a, b, c) = (
+        at("1"),
+        at("double (n + 1)"),
+        at("if n < 2 then double (n + 1) else 0"),
+    );
+    assert!(a.is_some() && b.is_some() && c.is_some(), "{texts:?}");
+    assert!(a < b && b < c, "{texts:?}");
+    assert_eq!(
+        texts.last().unwrap(),
+        "def h (n: Nat): Nat := if n < 2 then double (n + 1) else 0",
+        "{texts:?}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -32,7 +32,28 @@ const documentSelector = [
 // project's configuration decides which files belong to it.
 const watchedGlob = `**/${CONFIG_FILE}`;
 
+const before = (a, b) => a.line < b.line || (a.line === b.line && a.character < b.character);
+
+// rust-analyzer's "hover range": when the hover position is inside a non-empty
+// selection, the server answers with the type of the selected expression if the
+// request carries the selection as `range`. `selection` and `position` are
+// plain {line, character} pairs (`start`, `end` for the selection). Returns the
+// request's params, or undefined for an ordinary hover.
+function hoverRangeParams(uri, position, selection) {
+  if (!selection) return undefined;
+  const { start, end } = selection;
+  if (!before(start, end)) return undefined; // empty
+  if (before(position, start) || before(end, position)) return undefined;
+  const at = (p) => ({ line: p.line, character: p.character });
+  return {
+    textDocument: { uri },
+    position: at(position),
+    range: { start: at(start), end: at(end) },
+  };
+}
+
 module.exports = {
+  hoverRangeParams,
   STD_SCHEME,
   LANGUAGE,
   CONFIG_FILE,

@@ -93,11 +93,52 @@ pub struct LiveDiagnostic {
 pub struct FileAnswers {
     /// Sorted by position.
     pub refs: Vec<LiveRef>,
+    /// The type of each expression, sorted by start, then longest first
+    /// (empty unless the session records them).
+    pub exprs: Vec<(Range, String)>,
     pub outline: Vec<OutlineItem>,
     pub diagnostics: Vec<LiveDiagnostic>,
 }
 
+/// Whether range `outer` contains range `inner`.
+fn contains(outer: Range, inner: Range) -> bool {
+    (outer[0], outer[1]) <= (inner[0], inner[1]) && (inner[2], inner[3]) <= (outer[2], outer[3])
+}
+
+/// A sort key putting the inner of two nested ranges first.
+fn innermost_first(r: Range) -> (std::cmp::Reverse<(u32, u32)>, (u32, u32)) {
+    (std::cmp::Reverse((r[0], r[1])), (r[2], r[3]))
+}
+
 impl FileAnswers {
+    /// The smallest expression whose range contains `range`, with its
+    /// type. Of two expressions with the same range (an application and
+    /// its last step) the outer one is found first and the type is the
+    /// same anyway.
+    pub fn expr_covering(&self, range: Range) -> Option<(Range, &str)> {
+        self.exprs
+            .iter()
+            .filter(|(r, _)| contains(*r, range))
+            .min_by_key(|(r, _)| innermost_first(*r))
+            .map(|(r, ty)| (*r, ty.as_str()))
+    }
+
+    /// The ranges of the expressions containing `range`, smallest first,
+    /// each once: what Expand Selection steps through.
+    pub fn expr_chain(&self, range: Range) -> Vec<Range> {
+        let mut chain: Vec<Range> = self
+            .exprs
+            .iter()
+            .map(|(r, _)| *r)
+            .filter(|r| contains(*r, range))
+            .collect();
+        // Nested ranges: the later the start, then the earlier the end,
+        // the smaller.
+        chain.sort_by_key(|r| innermost_first(*r));
+        chain.dedup();
+        chain
+    }
+
     /// The reference whose range contains the position: the innermost, if
     /// ranges nest. (The VS Code extension's `refAt` searched by binary
     /// search, which assumes they don't.)
@@ -149,6 +190,12 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         .chain(std::iter::once(&unplaced.to_string()))
         .map(|p| (Place::Program(p.clone()), FileAnswers::default()))
         .collect();
+    for (file, range, ty) in &index.exprs {
+        let at = place(*file);
+        if keep(&at) {
+            out.entry(at).or_default().exprs.push((*range, ty.clone()));
+        }
+    }
     for r in &index.refs {
         let at = place(r.file);
         if !keep(&at) {

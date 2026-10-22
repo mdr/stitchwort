@@ -35,6 +35,21 @@ function startClient() {
       fileEvents: vscode.workspace.createFileSystemWatcher(cfg.watchedGlob),
     },
     outputChannelName: 'Stitchwort',
+    middleware: {
+      // Hovering inside a selection asks for the selected expression's type.
+      provideHover(document, position, token, next) {
+        const editor = vscode.window.activeTextEditor;
+        const params =
+          editor &&
+          editor.document === document &&
+          cfg.hoverRangeParams(document.uri.toString(), position, editor.selection);
+        if (!params) return next(document, position, token);
+        return client.sendRequest('textDocument/hover', params, token).then(
+          (result) => (result ? client.protocol2CodeConverter.asHover(result) : null),
+          () => next(document, position, token),
+        );
+      },
+    },
   };
   client = new LanguageClient('stitchwort', 'Stitchwort', serverOptions, clientOptions);
   client.start().catch((err) => {

@@ -36,6 +36,10 @@ pub struct Index {
     pub symbols: Vec<Symbol>,
     /// Sorted by file, then position.
     pub refs: Vec<Ref>,
+    /// The type of each expression of the program's files, if the session
+    /// recorded them (`Elaborator::enable_expression_types`): file (of
+    /// `files`), range, and the type as printed.
+    pub exprs: Vec<(usize, Range, String)>,
     pub diagnostics: Vec<IndexDiagnostic>,
 }
 
@@ -319,6 +323,19 @@ pub fn index_data_of(
         });
     }
 
+    let mut exprs = Vec::new();
+    for (span, ty) in &index.exprs {
+        if user(span.file) {
+            let file = file_of(*span, &mut files);
+            let span = Span::new(
+                span.file,
+                span.start,
+                closed(&sources.get(span.file).text, *span),
+            );
+            exprs.push((file, range(&mut lines, sources, span, None), ty.clone()));
+        }
+    }
+
     let mut diags = Vec::with_capacity(diagnostics.len());
     for d in diagnostics {
         let at = d.labels.first().map(|first| {
@@ -371,8 +388,30 @@ pub fn index_data_of(
         files,
         symbols,
         refs,
+        exprs,
         diagnostics: diags,
     }
+}
+
+/// Where the expression at `span` ends: a call's span ends at its last
+/// argument, short of the `)` that closes a parenthesised one, so the end
+/// moves over `)`s that close a `(` inside it.
+fn closed(text: &str, span: Span) -> u32 {
+    let Some(inside) = text.get(span.range()) else {
+        return span.end;
+    };
+    let mut open = inside.matches('(').count() as i64 - inside.matches(')').count() as i64;
+    let mut end = span.end as usize;
+    while open > 0 {
+        let rest = &text[end..];
+        let trimmed = rest.trim_start();
+        if !trimmed.starts_with(')') {
+            break;
+        }
+        end += rest.len() - trimmed.len() + 1;
+        open -= 1;
+    }
+    end as u32
 }
 
 fn json_range([l1, c1, l2, c2]: Range) -> String {

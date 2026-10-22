@@ -64,7 +64,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 4;
+pub const FORMAT: u32 = 5;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -187,7 +187,7 @@ impl Elaborator {
             .path
             .trim_end_matches(".sw")
             .replace('/', ".");
-        let nav = if self.nav.is_some() { "+nav" } else { "" };
+        let nav = self.nav_tag();
         format!("std.{path}{nav}")
     }
 
@@ -233,7 +233,7 @@ impl Elaborator {
         let g = &self.globals;
         let l = self.limits;
         format!(
-            "natives {} compact {} succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} nav {}",
+            "natives {} compact {} succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} nav {:?}",
             !g.builtins.disable_natives,
             g.builtins.compact_literals().is_some(),
             self.numbers_as_succ,
@@ -244,8 +244,18 @@ impl Elaborator {
             self.rewrite_budget,
             self.instance_budget,
             self.uniform_operators,
-            self.nav.is_some(),
+            self.nav_tag(),
         )
+    }
+
+    /// What navigation records, as part of a cache key: entries made with
+    /// less aren't used.
+    fn nav_tag(&self) -> &'static str {
+        match &self.nav {
+            None => "",
+            Some(nav) if nav.borrow().exprs => "+nav+ty",
+            Some(_) => "+nav",
+        }
     }
 
     /// Before library file `f` loads: whether to try the cache, and if
@@ -420,7 +430,7 @@ impl Elaborator {
             part(dependency.as_bytes());
             part(self.namespace_keys.get(dependency)?);
         }
-        let nav = if self.nav.is_some() { "+nav" } else { "" };
+        let nav = self.nav_tag();
         Some((format!("ns.{ns}{nav}"), *h.finalize().as_bytes()))
     }
 
@@ -1504,6 +1514,17 @@ impl Elaborator {
                         e.str(dot);
                     }
                 }
+                let mut exprs: Vec<(&Span, &String)> = nav
+                    .expr_types
+                    .iter()
+                    .filter(|(at, _)| own(&at.file))
+                    .collect();
+                exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+                e.w.usize(exprs.len());
+                for (at, ty) in exprs {
+                    e.span(*at);
+                    e.str(ty);
+                }
                 let mut types: Vec<(&(FileId, u32), &String)> = nav
                     .local_types
                     .iter()
@@ -1763,6 +1784,7 @@ enum Target {
 
 struct NavEntry {
     refs: Vec<(Span, String, Target, GlobalEntry, Option<String>)>,
+    exprs: Vec<(Span, String)>,
     local_types: Vec<(Span, String)>,
     locals: Vec<(Span, String, Span)>,
     binders: Vec<(Span, String, Span)>,
@@ -2584,6 +2606,9 @@ impl Elaborator {
                 );
             }
             let mut nav = nav.borrow_mut();
+            for (at, ty) in entry.exprs {
+                nav.expr_types.insert(at, ty);
+            }
             for (at, ty) in entry.local_types {
                 nav.local_types.insert((at.file, at.start), ty);
             }
@@ -2786,6 +2811,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     if b.r.bool()? {
         let mut nav = NavEntry {
             refs: Vec::new(),
+            exprs: Vec::new(),
             local_types: Vec::new(),
             locals: Vec::new(),
             binders: Vec::new(),
@@ -2803,6 +2829,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
             let global = b.global(files)?;
             let dot = if b.r.bool()? { Some(b.string()?) } else { None };
             nav.refs.push((at, key, target, global, dot));
+        }
+        let n = b.count()?;
+        for _ in 0..n {
+            nav.exprs.push((b.span()?, b.string()?));
         }
         let n = b.count()?;
         for _ in 0..n {
