@@ -24,7 +24,7 @@ theorem countdownShrinks (x: Nat) (y: Nat) (v: Nat) (h: countdown x = Some (MkPa
   match x with
     | Zero => Void.exfalso (Option.noneNotSome (MkPair v y) h)
     | Succ k =>
-      let e := Eq.cong Pair.snd (Eq.cong (Option.getOrElse (MkPair v y)) h)
+      let e := Pair.mkInjectiveSnd (Succ k) k v y (Option.someInjective (MkPair (Succ k) k) (MkPair v y) h)
       Nat.ltCongLeft k y (Succ k) e (Nat.leRefl (Succ k))
 
 def countdownFrom (n: Nat): List Nat := List.unfold n countdown (k => k) countdownShrinks
