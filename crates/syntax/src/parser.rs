@@ -645,6 +645,17 @@ impl<'t> Parser<'t> {
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
     fn tuple_component(&mut self) -> Result<Pattern> {
+        if let Some(Tok::Upper(_)) = self.peek() {
+            // A constructor's arguments run to the next `,` or `)`:
+            // `(Some x, Some y)`.
+            let start = self.here();
+            let name = self.upper_q("a constructor")?;
+            let mut args = Vec::new();
+            while !matches!(self.peek(), Some(Tok::Comma | Tok::RParen) | None) {
+                args.push(self.pattern()?);
+            }
+            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+        }
         if self.peek() != Some(&Tok::Minus) {
             return self.pattern();
         }
@@ -3956,6 +3967,22 @@ mod tests {
         let (_, p, _) = let_parts(&e);
         assert!(matches!(p, Pattern::Tuple(l, _, _)
             if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
+    }
+
+    #[test]
+    fn parses_constructors_with_arguments_in_later_tuple_components() {
+        let module = parse("def f : A -> Nat\n  | (Some x, Some y, Some z) => x\n");
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
+            panic!()
+        };
+        // (Some x, (Some y, Some z)): every component keeps its argument.
+        let Pattern::Tuple(l, r, _) = &patterns[0] else {
+            panic!()
+        };
+        assert!(matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1));
+        assert!(matches!(&**r, Pattern::Tuple(m, n, _)
+            if matches!(&**m, Pattern::Ctor(_, a, _) if a.len() == 1)
+                && matches!(&**n, Pattern::Ctor(_, a, _) if a.len() == 1)));
     }
 
     #[test]

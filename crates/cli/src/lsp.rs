@@ -144,10 +144,14 @@ struct Nav {
     workspaces: BTreeMap<PathBuf, WorkspaceNav>,
 }
 
+#[derive(Default)]
 struct WorkspaceNav {
     /// Whether the key is a project's folder (else a file's path).
     project: bool,
     files: BTreeMap<Place, FileAnswers>,
+    /// Each source file's outline from its syntax alone, by path: covers
+    /// the namespaces not checked yet (a file checked is in `files`).
+    outlines: BTreeMap<String, Vec<OutlineItem>>,
 }
 
 impl WorkspaceNav {
@@ -355,21 +359,31 @@ impl Main<'_> {
                         None => r,
                     });
                 if let Some(selection) = selection
-                    && let Some(found) = selection_hover(&nav, &at.text_document.uri, selection)
+                    && let Some(found) = selection_hover(
+                        &nav,
+                        &at.text_document.uri,
+                        self.texts
+                            .borrow()
+                            .get(&at.text_document.uri)
+                            .map(String::as_str),
+                        selection,
+                    )
                 {
                     return serde_json::to_value(Some(found));
                 }
                 let found = lookup(&nav, &at.text_document.uri, at.position);
-                serde_json::to_value(found.map(|(_, _, r)| hover(r)))
+                serde_json::to_value(found.map(|(_, _, r)| hover(&r)))
             }),
             request::SelectionRangeRequest::METHOD => {
                 parse::<lsp_types::SelectionRangeParams>(&request).map(|p| {
+                    let texts = self.texts.borrow();
+                    let text = texts.get(&p.text_document.uri).map(String::as_str);
                     let found = locate(&nav, &p.text_document.uri)
                         .and_then(|(_, ws, place)| ws.files.get(&place));
                     let chains: Vec<lsp_types::SelectionRange> = p
                         .positions
                         .iter()
-                        .map(|at| selection_range(found, *at))
+                        .map(|at| selection_range(found, text, *at))
                         .collect();
                     serde_json::to_value(chains)
                 })
@@ -378,7 +392,7 @@ impl Main<'_> {
                 let at = p.text_document_position;
                 let found = lookup(&nav, &at.text_document.uri, at.position);
                 let locations = found
-                    .map(|(root, ws, r)| references(root, ws, r, p.context.include_declaration));
+                    .map(|(root, ws, r)| references(root, ws, &r, p.context.include_declaration));
                 serde_json::to_value(locations)
             }),
             request::DocumentSymbolRequest::METHOD => {
@@ -453,17 +467,29 @@ fn lookup<'n>(
     nav: &'n Nav,
     uri: &Url,
     at: Position,
-) -> Option<(&'n Path, &'n WorkspaceNav, &'n LiveRef)> {
+) -> Option<(&'n Path, &'n WorkspaceNav, LiveRef)> {
     if let Some(std) = std_path(uri) {
         // Any workspace that has a reference there.
         let place = Place::Library(std);
         return nav.workspaces.iter().find_map(|(root, ws)| {
             let r = ws.files.get(&place)?.ref_at(at.line, at.character)?;
-            Some((root.as_path(), ws, r))
+            Some((root.as_path(), ws, r.clone()))
         });
     }
     let (root, ws, place) = locate(nav, uri)?;
-    let r = ws.files.get(&place)?.ref_at(at.line, at.character)?;
+    let file = ws.files.get(&place)?;
+    // A binder that is used is a reference too, found from its own name.
+    let r = match file.ref_at(at.line, at.character) {
+        Some(r) if r.kind == "local" && r.ty.is_none() => {
+            // A binder's own reference has no type: a use of it does.
+            let ty = file
+                .binder_exactly(&place, r.target.range)
+                .and_then(|b| b.ty);
+            LiveRef { ty, ..r.clone() }
+        }
+        Some(r) => r.clone(),
+        None => file.binder_at(&place, at.line, at.character)?,
+    };
     Some((root, ws, r))
 }
 
@@ -496,9 +522,55 @@ fn trimmed(text: &str, selection: lsp_types::Range) -> lsp_types::Range {
     }
 }
 
+/// The identifier (letters, digits, `_` and `'`) the position is in or at
+/// the end of, as a range; none if it isn't on one.
+fn word_at(text: &str, at: Position) -> Option<lsp_types::Range> {
+    let line = text.split('\n').nth(at.line as usize)?;
+    let line = line.strip_suffix('\r').unwrap_or(line);
+    let is_word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'';
+    // UTF-16 columns of each character's start, and the end of the line.
+    let mut columns = Vec::new();
+    let mut col = 0u32;
+    for c in line.chars() {
+        columns.push((col, c));
+        col += c.len_utf16() as u32;
+    }
+    let index = columns
+        .iter()
+        .position(|(c, _)| *c >= at.character)
+        .unwrap_or(columns.len());
+    let in_word = |i: usize| columns.get(i).is_some_and(|(_, c)| is_word(*c));
+    // The cursor sits between two characters: the word is the one it touches.
+    let mut at_i = if columns.get(index).is_some_and(|(c, _)| *c == at.character) && in_word(index)
+    {
+        index
+    } else if index > 0 && in_word(index - 1) {
+        index - 1
+    } else {
+        return None;
+    };
+    let mut start = at_i;
+    while start > 0 && in_word(start - 1) {
+        start -= 1;
+    }
+    while in_word(at_i + 1) {
+        at_i += 1;
+    }
+    let end_col = columns[at_i].0 + columns[at_i].1.len_utf16() as u32;
+    Some(lsp_types::Range::new(
+        Position::new(at.line, columns[start].0),
+        Position::new(at.line, end_col),
+    ))
+}
+
 /// The type of the smallest expression containing `selection`, for hover
 /// over a selection.
-fn selection_hover(nav: &Nav, uri: &Url, selection: lsp_types::Range) -> Option<Hover> {
+fn selection_hover(
+    nav: &Nav,
+    uri: &Url,
+    text: Option<&str>,
+    selection: lsp_types::Range,
+) -> Option<Hover> {
     let (_, ws, place) = locate(nav, uri)?;
     let file = ws.files.get(&place)?;
     let want = [
@@ -507,6 +579,16 @@ fn selection_hover(nav: &Nav, uri: &Url, selection: lsp_types::Range) -> Option<
         selection.end.line,
         selection.end.character,
     ];
+    // A name on its own: a binder gets its own type (or nothing, when it's
+    // unused); the expression around it isn't what was selected.
+    if text.and_then(|t| word_at(t, selection.start)) == Some(selection) {
+        if let Some(binder) = file.binder_exactly(&place, want) {
+            return Some(hover(&binder));
+        }
+        if file.exprs.iter().all(|(r, _)| *r != want) {
+            return None;
+        }
+    }
     let (at, ty) = file.expr_covering(want)?;
     Some(Hover {
         contents: HoverContents::Markup(MarkupContent {
@@ -520,9 +602,17 @@ fn selection_hover(nav: &Nav, uri: &Url, selection: lsp_types::Range) -> Option<
 /// The ranges around `at`, as Expand Selection steps through them: the
 /// expressions containing it, innermost first, then the declarations. An
 /// empty range at `at` if nothing is known.
-fn selection_range(file: Option<&FileAnswers>, at: Position) -> lsp_types::SelectionRange {
+fn selection_range(
+    file: Option<&FileAnswers>,
+    text: Option<&str>,
+    at: Position,
+) -> lsp_types::SelectionRange {
     let here = [at.line, at.character, at.line, at.character];
-    let mut chain: Vec<[u32; 4]> = vec![here];
+    // The first step is the word under the cursor, if there is one.
+    let word = text
+        .and_then(|t| word_at(t, at))
+        .map(|r| [r.start.line, r.start.character, r.end.line, r.end.character]);
+    let mut chain: Vec<[u32; 4]> = vec![word.unwrap_or(here)];
     if let Some(file) = file {
         let mut outer = file.expr_chain(here);
         let mut decls: Vec<[u32; 4]> = file
@@ -558,7 +648,7 @@ fn hover(r: &LiveRef) -> Hover {
     if let Some(ty) = &r.ty {
         text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
     }
-    text.push_str(&format!("{}  `{}`", r.kind, r.name));
+    text.push_str(&format!("{} `{}`", r.kind, r.name));
     Hover {
         contents: HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,
@@ -656,11 +746,23 @@ fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
     let q = query.to_lowercase();
     let mut scored = Vec::new();
     for (root, ws) in &nav.workspaces {
-        for (place, file) in &ws.files {
-            if matches!(place, Place::Library(_)) {
-                continue;
+        // The checked files' outlines, then those of the project's other
+        // files, read from their syntax (the checker may not have reached
+        // them yet).
+        let mut outlines: Vec<(Place, &[OutlineItem])> = ws
+            .files
+            .iter()
+            .filter(|(place, _)| !matches!(place, Place::Library(_)))
+            .map(|(place, file)| (place.clone(), file.outline.as_slice()))
+            .collect();
+        for (path, outline) in &ws.outlines {
+            let place = Place::Program(path.clone());
+            if !ws.files.contains_key(&place) {
+                outlines.push((place, outline.as_slice()));
             }
-            for item in &file.outline {
+        }
+        for (place, outline) in outlines {
+            for item in outline {
                 let name = short(&item.name);
                 let score = if q.is_empty() {
                     3
@@ -680,7 +782,7 @@ fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
                 let Some(location) = ws.location(root, &loc) else {
                     continue;
                 };
-                let container = item.parent.map(|p| file.outline[p].name.clone());
+                let container = item.parent.map(|p| outline[p].name.clone());
                 #[allow(deprecated)]
                 let symbol = SymbolInformation {
                     name: name.to_string(),
@@ -858,6 +960,22 @@ impl Checker {
             }
             Work::File(f) => f.step(),
         };
+        // The files were read again: their outlines, for the workspace
+        // search, before any namespace but the first is checked.
+        let outlines = match work {
+            Work::Project(p) => p.live.take_outlines(),
+            Work::File(_) => None,
+        };
+        if let Some(outlines) = outlines {
+            let mut nav = self.nav.write().unwrap_or_else(|e| e.into_inner());
+            nav.workspaces
+                .entry(key.to_path_buf())
+                .or_insert_with(|| WorkspaceNav {
+                    project: true,
+                    ..Default::default()
+                })
+                .outlines = outlines;
+        }
         let what = match work {
             Work::Project(p) => p.live.last_checked().unwrap_or_default().to_string(),
             Work::File(_) => key.display().to_string(),
@@ -890,7 +1008,7 @@ impl Checker {
             .entry(key.to_path_buf())
             .or_insert_with(|| WorkspaceNav {
                 project,
-                files: BTreeMap::new(),
+                ..Default::default()
             });
         let mut notes = Vec::new();
         for (place, file) in answers {
@@ -1210,7 +1328,7 @@ mod tests {
         assert_eq!(std_path(&uri).as_deref(), Some("core/Data.sw"));
         let ws = WorkspaceNav {
             project: true,
-            files: BTreeMap::new(),
+            ..Default::default()
         };
         let back = ws.uri(Path::new("/p"), &Place::Library("List/Toolkit.sw".into()));
         assert_eq!(back.unwrap().as_str(), "stitchwort-std:List/Toolkit.sw");
