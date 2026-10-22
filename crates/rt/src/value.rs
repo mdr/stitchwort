@@ -141,6 +141,15 @@ impl Value {
         }
     }
 
+    /// Whether dropping it does anything: it holds a reference.
+    #[inline]
+    pub fn owns(&self) -> bool {
+        !matches!(
+            self,
+            Value::Erased | Value::Nat(_) | Value::Int(_) | Value::Tag(_)
+        )
+    }
+
     /// Whether it may own other values that dropping it could free.
     #[inline]
     fn is_deep(&self) -> bool {

@@ -246,7 +246,7 @@ impl State {
         frame.code = code;
         frame.pc = 0;
         frame.env = env;
-        self.regs.truncate(base);
+        release(&mut self.regs, base);
         self.regs.append(&mut self.scratch);
         self.regs.resize(
             base + image.codes[code as usize].regs as usize,
@@ -584,7 +584,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     }
                     let args = args!(args);
                     let frame = st.frames.pop().expect("a frame");
-                    st.regs.truncate(base);
+                    release(&mut st.regs, base);
                     pending = st.apply(program, image, fv, args, frame.ret)?;
                     continue 'outer;
                 }
@@ -724,12 +724,27 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 Instr::Return { src } => {
                     let v = std::mem::take(&mut reg!(src));
                     let frame = st.frames.pop().expect("a frame");
-                    st.regs.truncate(base);
+                    release(&mut st.regs, base);
                     pending = Some((v, frame.ret));
                     continue 'outer;
                 }
                 Instr::Unreachable => panic!("internal error: reached unreachable code"),
             }
+        }
+    }
+}
+
+/// Drops the registers from `base` on (a frame's, when it ends). Most hold
+/// nothing that needs freeing (moved out, or a number or a tag), so those
+/// are checked inline rather than each going through `Value`'s drop.
+#[inline]
+fn release(regs: &mut Vec<Value>, base: usize) {
+    while regs.len() > base {
+        let v = regs.pop().expect("a register");
+        if v.owns() {
+            drop(v);
+        } else {
+            std::mem::forget(v);
         }
     }
 }
