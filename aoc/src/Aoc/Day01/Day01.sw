@@ -6,13 +6,13 @@
 --
 -- The puzzle input is committed in aoc/inputs/ (D119).
 --
--- The dial's size is a parameter, `highest` being its largest number (99 in
+-- The dial is a `Mod n`, a number below `n` that wraps around (`Mod 100` in
 -- the puzzle). Part 2 is proved correct, for a dial of any size, in
 -- `Aoc.Day01.Proofs` (Proofs/Part2.sw), and the tests are in `Aoc.Day01.Tests`
 -- (Tests/); `run` checks neither.
 
 namespace Aoc.Day01
-import Std (IO, Int, List)
+import Std (IO, Int, List, Mod)
 
 def main(): {IO} () :=
   let turns := parseTurns (IO.readAllLines())
@@ -25,21 +25,21 @@ def solvePart1 (turns: List Turn): Nat := zerosLandedOn dial turns
 
 def solvePart2 (turns: List Turn): Nat := zerosPassed dial turns
 
--- The puzzle's dial, at 50.
-def dial: Dial 99 := { position = 50, inRange = rfl }
+-- The puzzle's dial: 100 positions, 0 to 99, at 50.
+def dial: Mod 100 := Mod.ofNat 50
 
 -- Part 1: the positions after each turn that are 0.
-def zerosLandedOn (start: Dial highest) (turns: List Turn): Nat :=
+def zerosLandedOn (start: Mod n) (turns: List Turn): Nat :=
   turns
-    |> .scanLeft Dial.move start
+    |> .scanLeft move start
     |> .drop 1
-    |> .count Dial.isZero
+    |> .count isZero
 
 -- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
-def zerosPassed (start: Dial highest) (turns: List Turn): Nat :=
+def zerosPassed (start: Mod n) (turns: List Turn): Nat :=
   turns
-    |> .scanLeft Dial.move start
-    |> .zipWith Dial.zerosDuring turns
+    |> .scanLeft move start
+    |> .zipWith zerosDuring turns
     |> .sum
 
 type Turn =
@@ -60,26 +60,16 @@ def Turn.clicks: Turn -> List Turn
   | Left n  => List.replicate n (Left 1)
   | Right n => List.replicate n (Right 1)
 
--- A dial numbered 0 to `highest`, at `position`.
-type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }
+-- Where a turn leaves the dial: left is towards lower numbers.
+def move (d: Mod n): Turn -> Mod n
+  | Left k  => Mod.ofInt (d.toInt - k.toInt)
+  | Right k => Mod.ofInt (d.toInt + k.toInt)
 
--- Any integer, wrapped onto the dial.
-def Dial.fromInt (highest: Nat) (x: Int): Dial highest :=
-  { position = Int.modNat x (Succ highest), inRange = Int.modNatLt x (Succ highest) }
-
--- The number of positions on the dial.
-def Dial.size (d: Dial highest): Nat := Succ highest
-
--- Where a turn leaves the dial.
-def Dial.move (d: Dial highest): Turn -> Dial highest
-  | Left n  => Dial.fromInt highest (d.position.toInt - n.toInt)
-  | Right n => Dial.fromInt highest (d.position.toInt + n.toInt)
-
-def Dial.isZero (d: Dial highest): Bool := d.position == 0
+def isZero (d: Mod n): Bool := d.value == 0
 
 -- How many clicks of a turn land on 0. Going right from `d`, the dial is at
 -- 0 after each click that brings `d + k` to a multiple of the dial's size.
 -- Going left is the mirror image: 0 is `(size - d) % size` clicks away.
-def Dial.zerosDuring (d: Dial highest): Turn -> Nat
-  | Right n => (d.position + n) / d.size
-  | Left n  => ((d.size - d.position) % d.size + n) / d.size
+def zerosDuring [n: Nat] (d: Mod n): Turn -> Nat
+  | Right k => (d.value + k) / Mod.size n
+  | Left k  => ((Mod.size n - d.value) % Mod.size n + k) / Mod.size n

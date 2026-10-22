@@ -15,7 +15,9 @@ type Mod (n: Nat) = { value: Nat, isLt: value < Mod.size n }
 -- How many numbers a `Mod n` has.
 def Mod.size (n: Nat): Nat := Succ (n - 1)
 
-theorem Mod.sizeNeZero (n: Nat): Mod.size n != 0 := Nat.succNotZero (n - 1)
+-- The same proof as `auto` finds for `Succ k != 0`, so that `x % Mod.size n`
+-- here and an `x % Succ k` written elsewhere are the same term.
+theorem Mod.sizeNeZero (n: Nat): Mod.size n != 0 := Nat.equalFalse (Mod.size n) 0 rfl
 
 -- Two numbers with the same value are equal: their proofs are too.
 theorem Mod.mkExt (n: Nat) (a: Nat) (b: Nat) (p: a < Mod.size n) (e: a = b):
