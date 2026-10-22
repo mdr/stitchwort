@@ -1,0 +1,1 @@
+# A dot call on an alias-typed value finds the alias's function from another namespace.

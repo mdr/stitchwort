@@ -660,8 +660,12 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (dom, s1) = check_type(cx, dom)?;
             let mark = cx.mark();
             for (k, name) in names.iter().enumerate() {
-                let ty = cx.eval(&dom.shift(cx.g(), k, 0)?)?;
+                let shifted = Rc::new(dom.shift(cx.g(), k, 0)?);
+                let ty = cx.eval(&shifted)?;
                 cx.bind(&name.text, ty);
+                // The type as written, so dot notation on this variable
+                // starts from an alias (`bank: Bank`), as for a parameter.
+                cx.set_written(crate::dot::Written::Here(shifted));
             }
             let result = check_type(cx, cod);
             cx.reset(mark);

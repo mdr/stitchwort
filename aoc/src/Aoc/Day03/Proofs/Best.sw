@@ -82,7 +82,7 @@ theorem pickSub (t: Bank): (w: Nat) -> (xs: Bank) -> (c: Fin 10) -> (after: Bank
         | False => pickSub t w more c after (s2 g2 => hx s2 (List.subsequenceCons x s2 more g2)) hc s h
 
 -- 1. `best k bank` is a subsequence of `bank`.
-theorem bestSub: (k: Nat) -> (bank: Bank) -> List.Subsequence (Bank.best k bank) bank
+theorem bestSub: (k: Nat) -> (bank: Bank) -> List.Subsequence (bank.best k) bank
   | Zero,   bank        => Trivial
   | Succ k, Nil         => Trivial
   | Succ k, Cons d rest =>
@@ -104,7 +104,7 @@ theorem bestLengthStep (k: Nat) (d: Fin 10) (rest: Bank)
           Nat.minRight k (List.length rest) e
 
 -- 2. `best k bank` has k digits, or all of them if there are fewer.
-theorem bestLength: (k: Nat) -> (bank: Bank) -> List.length (Bank.best k bank) = Nat.min k (List.length bank)
+theorem bestLength: (k: Nat) -> (bank: Bank) -> List.length (bank.best k) = Nat.min k (List.length bank)
   | Zero,   bank        => rfl
   | Succ k, Nil         => rfl
   | Succ k, Cons d rest => bestLengthStep k d rest (a => bestLength k a)
@@ -229,7 +229,7 @@ theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
 -- order, do produce it (the ones `Bank.best k bank` picks), and no k batteries
 -- of the bank produce more.
 theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k <= bank.length):
-  (TurnsOn k bank (Bank.best k bank) && joltageOf (Bank.best k bank) = maxJoltage k bank)
+  (TurnsOn k bank (bank.best k) && joltageOf (bank.best k) = maxJoltage k bank)
       && ((on: List Battery) -> TurnsOn k bank on -> joltageOf on <= maxJoltage k bank) :=
   Both
     (Both
