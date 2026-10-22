@@ -50,7 +50,7 @@ theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits
 
 -- Copies from 3 on count for nothing in part 1.
 theorem otherCopies (r: Range) (k: Nat) (size: Nat): (c: Nat) -> (s: Nat) ->
-    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then sumMatchingTemplate r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom c (Succ (Succ (Succ s)))) = 0
+    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then sumOfIdsMatchingTemplate r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom c (Succ (Succ (Succ s)))) = 0
   | Zero,   s => rfl
   | Succ c, s =>
     match h: Nat.leq (k * Succ (Succ (Succ s))) size with
@@ -59,20 +59,20 @@ theorem otherCopies (r: Range) (k: Nat) (size: Nat): (c: Nat) -> (s: Nat) ->
 
 -- One block length's terms: the block written twice, if it fits.
 theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k * 2) size = False -> repeatedSpec r k 2 = 0) ->
-    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then sumMatchingTemplate r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom (size - 1) 2) = repeatedSpec r k 2
+    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then sumOfIdsMatchingTemplate r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom (size - 1) 2) = repeatedSpec r k 2
   | Zero,   size,          hk, fits => Void.exfalso (Bool.falseNotTrue hk)
   | Succ k, Zero,          hk, fits => Eq.sym (fits rfl)
   | Succ k, Succ Zero,     hk, fits => Eq.sym (fits rfl)
   | Succ k, Succ (Succ s), hk, fits =>
-    let f: Nat -> Nat := n => if Nat.leq (Succ k * n) (Succ (Succ s)) then (if n == 2 then sumMatchingTemplate r { blockLength = Succ k, copies = n } else 0) else 0
+    let f: Nat -> Nat := n => if Nat.leq (Succ k * n) (Succ (Succ s)) then (if n == 2 then sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = n } else 0) else 0
     match h: Nat.leq (Succ k * 2) (Succ (Succ s)) with
       | True =>
         -- (the match has already chosen the first term, n = 2)
-        calc List.foldLeft (acc n => acc + f n) (0 + sumMatchingTemplate r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
-          _ = 0 + sumMatchingTemplate r { blockLength = Succ k, copies = 2 } + List.sumBy f (List.rangeFrom s 3)
-              := List.sumByFrom f (0 + sumMatchingTemplate r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
-          _ = 0 + sumMatchingTemplate r { blockLength = Succ k, copies = 2 } + 0 := rewrite otherCopies r (Succ k) (Succ (Succ s)) s 0
-          _ = sumMatchingTemplate r { blockLength = Succ k, copies = 2 } := Eq.trans (Nat.addZero (0 + sumMatchingTemplate r { blockLength = Succ k, copies = 2 })) (Eq.trans (Nat.addComm 0 (sumMatchingTemplate r { blockLength = Succ k, copies = 2 })) (Nat.addZero (sumMatchingTemplate r { blockLength = Succ k, copies = 2 })))
+        calc List.foldLeft (acc n => acc + f n) (0 + sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
+          _ = 0 + sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 } + List.sumBy f (List.rangeFrom s 3)
+              := List.sumByFrom f (0 + sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
+          _ = 0 + sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 } + 0 := rewrite otherCopies r (Succ k) (Succ (Succ s)) s 0
+          _ = sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 } := Eq.trans (Nat.addZero (0 + sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 })) (Eq.trans (Nat.addComm 0 (sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 })) (Nat.addZero (sumOfIdsMatchingTemplate r { blockLength = Succ k, copies = 2 })))
           _ = repeatedSpec r (Succ k) 2 := repeatedCorrect r (Succ k) 2
       | False => Eq.trans (otherCopies r (Succ k) (Succ (Succ s)) s 0) (Eq.sym (fits rfl))
 
@@ -80,13 +80,13 @@ theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k 
 -- of the blocks written twice.
 theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1) :=
   calc sumOfIdsWrittenTwice r
-    _ = List.sumBy (template => if template.copies == 2 then sumMatchingTemplate r template else 0) (allTemplatesForRange r)
-        := List.sumByFilter (sumMatchingTemplate r) (template => template.copies == 2) (allTemplatesForRange r)
-    _ = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumMatchingTemplate r { blockLength = k, copies = n } else 0) else 0)
+    _ = List.sumBy (template => if template.copies == 2 then sumOfIdsMatchingTemplate r template else 0) (allTemplatesForRange r)
+        := List.sumByFilter (sumOfIdsMatchingTemplate r) (template => template.copies == 2) (allTemplatesForRange r)
+    _ = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumOfIdsMatchingTemplate r { blockLength = k, copies = n } else 0) else 0)
           (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1)
-        := templatesSum r (template => if template.copies == 2 then sumMatchingTemplate r template else 0)
+        := templatesSum r (template => if template.copies == 2 then sumOfIdsMatchingTemplate r template else 0)
     _ = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1)
-        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumMatchingTemplate r { blockLength = k, copies = n } else 0) else 0)
+        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then sumOfIdsMatchingTemplate r { blockLength = k, copies = n } else 0) else 0)
              (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (k => repeatedSpec r k 2) (List.length (Nat.digits r.to)) 1
              (k k1 k2 => twiceTerms r k (List.length (Nat.digits r.to)) k1 (tooLong r k))
 
