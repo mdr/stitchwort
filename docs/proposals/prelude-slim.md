@@ -689,3 +689,20 @@ that only dot calls use). **[estimate: `count_imports.py`]**
   https://www.unison-lang.org/docs/language-reference/name-resolution-and-the-environment/
 - [U2] Unison, "Use clauses": "purely a syntactic convenience".
   https://www.unison-lang.org/docs/language-reference/use-clauses/
+
+## As built (§5.7, REPL imports, 22 October 2026, SW-225)
+
+`stitchwort repl` takes a line starting with `import` and adds it to the imports that
+expressions see, on top of the loaded file's. They accumulate over the session, and the
+forms are a file's (`import Std (List, Nat)`, `import Std.List (map)`, `(..)`). A bad
+import gives the usual error (`E-IMPORT-UNKNOWN`, with the same notes), and a repeat gives
+`W-IMPORT-TWICE`; the names that were fine are kept. A declaration typed in is still not
+accepted. There was no `:imports` command and the REPL has no other meta-commands beyond
+`:t` and `:q`, so none was added. The CLI REPL loads one file, so it has no project
+namespaces; the playground's Evaluate tab does, for a project's own (`import Aoc.Day02
+(solvePart1)`). The Evaluate tab keeps the `import` lines entered in a list above the input,
+checks each one when it is entered (`evaluate` takes the imports so far and an expression,
+which may be empty to only check them), and forgets them when the example or day changes.
+The code is `Session::add_imports` (`crates/driver/src/driver.rs`), which parses the line as
+a module of imports and resolves them as a file's, in file 0's table, where a single file's
+own imports already are.

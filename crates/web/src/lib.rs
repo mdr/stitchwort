@@ -179,24 +179,43 @@ fn known_results(known: &str) -> impl Iterator<Item = (String, Outcome)> + '_ {
 
 /// Evaluates an expression in the context of a program:
 /// `{"ok": true, "value": "…", "type": "…"}`.
+///
+/// `imports` is the `import` lines entered so far (the Evaluate tab keeps
+/// them, as the REPL does); `expr` may be empty to only check them.
 #[wasm_bindgen]
-pub fn evaluate(source: &str, expr: &str) -> String {
+pub fn evaluate(source: &str, imports: &str, expr: &str) -> String {
     let mut session = match load(source) {
         Ok(session) => session,
         Err(failed) => return failed,
     };
+    evaluate_in(&mut session, imports, expr)
+}
+
+/// The answer to [`evaluate`] once the program is loaded.
+fn evaluate_in(session: &mut Session, imports: &str, expr: &str) -> String {
+    if !imports.trim().is_empty() {
+        let diagnostics = session.add_imports("imports", imports);
+        let errors: Vec<Diagnostic> = diagnostics
+            .into_iter()
+            .filter(|d| d.severity == Severity::Error)
+            .collect();
+        if !errors.is_empty() {
+            return failure_in(session, &errors);
+        }
+    }
+    if expr.trim().is_empty() {
+        return r#"{"ok":true,"value":"","type":""}"#.to_string();
+    }
     let result = session
         .parse_expression("expression", expr)
         .and_then(|e| session.elab.eval_expr(&e));
     match result {
-        Ok((value, ty)) => {
-            format!(
-                r#"{{"ok":true,"value":{},"type":{}}}"#,
-                json_string(&value),
-                json_string(&ty)
-            )
-        }
-        Err(error) => failure_in(&session, &[error]),
+        Ok((value, ty)) => format!(
+            r#"{{"ok":true,"value":{},"type":{}}}"#,
+            json_string(&value),
+            json_string(&ty)
+        ),
+        Err(error) => failure_in(session, &[error]),
     }
 }
 
@@ -613,7 +632,7 @@ mod tests {
         );
         assert!(tests.ends_with(r#""}"#), "{tests}");
         assert_eq!(
-            evaluate("def double (n : Nat) : Nat := n + n\n", "double 4"),
+            evaluate("def double (n : Nat) : Nat := n + n\n", "", "double 4"),
             r#"{"ok":true,"value":"8","type":"Nat"}"#
         );
         let js = extract("export def f (n : Nat) : Nat := n\n");
@@ -649,6 +668,25 @@ mod tests {
     }
 
     #[test]
+    fn evaluates_with_the_imports_entered_so_far() {
+        assert_eq!(
+            evaluate(
+                "",
+                "import Std (List)\nimport Std.Nat (add)",
+                "List.length [add 1 2]"
+            ),
+            r#"{"ok":true,"value":"1","type":"Nat"}"#
+        );
+        assert!(evaluate("", "", "List.length [1]").contains("E-UNKNOWN-NAME"));
+        assert!(evaluate("", "import Std (Nope)", "1").contains("E-IMPORT-UNKNOWN"));
+        // An empty expression only checks the imports.
+        assert_eq!(
+            evaluate("", "import Std (List)", ""),
+            r#"{"ok":true,"value":"","type":""}"#
+        );
+    }
+
+    #[test]
     fn a_second_source_replaces_the_remembered_one() {
         reset_loads();
         assert_eq!(check("def a : Nat := 1\n"), r#"{"ok":true}"#);
@@ -676,8 +714,8 @@ mod tests {
         assert_eq!(loads(), 2);
 
         reset_loads();
-        evaluate(source, "1");
-        evaluate(source, "1");
+        evaluate(source, "", "1");
+        evaluate(source, "", "1");
         assert_eq!(loads(), 2);
     }
 

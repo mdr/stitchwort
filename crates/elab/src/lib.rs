@@ -524,6 +524,19 @@ impl Elaborator {
         self.module = module::ModuleState::default();
     }
 
+    /// Adds `import` lines typed into the REPL to the imports names typed in
+    /// see, after any the loaded file has: they accumulate. Returns the
+    /// errors and warnings, as a file's imports would give.
+    pub fn add_session_imports(
+        &mut self,
+        imports: &[stitchwort_syntax::ast::Import],
+    ) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        self.add_imports(imports, false, &mut diagnostics);
+        self.add_imports(imports, true, &mut diagnostics);
+        diagnostics
+    }
+
     /// Ends loading the core: every core built-in must be bound by now. (A
     /// library built-in is bound when its file loads.)
     pub fn finish_core(&mut self) -> Result<()> {

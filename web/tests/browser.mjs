@@ -470,6 +470,28 @@ test("the Evaluate tab", async (page) => {
   assert.match(await page.until(`document.querySelector("#output pre.errors")?.textContent`), /E-UNKNOWN-NAME/);
 });
 
+test("the Evaluate tab takes import lines, which accumulate", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.tab("eval");
+  await page.until(`document.querySelector(".result")?.textContent`);
+  const submit = (text) => page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = ${JSON.stringify(text)};
+    i.form.requestSubmit(); })()`);
+  // `Text.` is no prefix until it is imported (the example imports only Eq and List).
+  await submit("Text.length \"ab\"");
+  assert.match(await page.until(`document.querySelector("#output pre.errors")?.textContent`), /E-UNKNOWN-NAME/);
+  // A bad import is the usual error, and isn't kept.
+  await submit("import Std (Nope)");
+  assert.match(await page.until(`document.querySelector("#output pre.errors")?.textContent.includes("E-IMPORT-UNKNOWN") && document.querySelector("#output pre.errors").textContent`), /E-IMPORT-UNKNOWN/);
+  assert.equal(await page.ev(`document.getElementById("eval-imports").textContent`), "");
+  await submit("import Std (Text)");
+  await page.until(`document.getElementById("eval-imports").textContent === "import Std (Text)"`);
+  await submit("import Std.Nat (add)");
+  await page.until(`document.getElementById("eval-imports").textContent === "import Std (Text)\\nimport Std.Nat (add)"`);
+  await submit("Text.length \"ab\" + add 1 2");
+  assert.equal(await page.until(`document.querySelector(".result")?.textContent`), "5: Nat");
+});
+
 test("the JavaScript tab", async (page) => {
   await page.open();
   await page.untilChecked();
@@ -1137,6 +1159,13 @@ test("Evaluate takes full names in a project", async (page) => {
   await page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = "solvePart1";
     i.form.dispatchEvent(new Event("submit", { cancelable: true })); })()`);
   await page.until(`document.querySelector("#output pre.errors")?.textContent.includes("E-UNKNOWN-NAME")`, 30000, "an unknown name");
+  // An import of the project's namespace gives it.
+  const submit = (text) => page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = ${JSON.stringify(text)};
+    i.form.requestSubmit(); })()`);
+  await submit("import Aoc.Day02 (solvePart1)");
+  await page.until(`document.getElementById("eval-imports").textContent === "import Aoc.Day02 (solvePart1)"`, 30000, "the import");
+  await submit("solvePart1 Aoc.Day02.Tests.exampleRanges");
+  await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value through an import");
 }, { ms: 120000 });
 
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {

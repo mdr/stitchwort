@@ -38,14 +38,14 @@ self.onmessage = async ({ data }) => {
       check: () => b.check_project(data.paths, data.texts, data.targets),
       checkall: () => b.check_project(data.paths, data.texts, ""),
       test: () => b.test_project(data.paths, data.texts, data.targets, data.known ?? ""),
-      evaluate: () => b.evaluate_project(data.paths, data.texts, data.targets, data.expr),
+      evaluate: () => b.evaluate_project(data.paths, data.texts, data.targets, data.imports ?? "", data.expr),
       extract: () => b.extract_project(data.paths, data.texts, data.namespace),
       run: () => b.run_project_streaming(data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
     }[data.action] : {
       index: () => b.check_index(data.source),
       check: () => b.check(data.source),
       test: () => b.test(data.source, data.known ?? ""),
-      evaluate: () => b.evaluate(data.source, data.expr),
+      evaluate: () => b.evaluate(data.source, data.imports ?? "", data.expr),
       extract: () => b.extract(data.source),
       run: () => b.run_streaming(data.source, data.input, data.maxOutput, sink),
     }[data.action];
