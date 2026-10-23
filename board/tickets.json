@@ -1,5 +1,5 @@
 {
-  "next": 349,
+  "next": 350,
   "tickets": [
     {
       "id": 1,
@@ -5502,6 +5502,21 @@
       "where": "worktree lane",
       "labels": [
         "web"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 349,
+      "title": "Build attributes stage 1: @[...] syntax, js.tag, js.name, $tag default, cache tables (SW-341 note, D626)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "js",
+        "syntax"
       ],
       "body": "",
       "created": "2026-10-23",
