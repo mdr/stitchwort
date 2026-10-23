@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: `if` can't choose between proofs yet
+   ╭─[ reject/if-chooses-proofs.sw:3:36 ]
+   │
+ 3 │ theorem choose (b: Bool): 0 = 0 := if b then rfl else rfl
+   │                                    ───────────┬──────────  
+   │                                               ╰──────────── this `if` has proofs as its branches; use `match b with | True => … | False => …`
+───╯

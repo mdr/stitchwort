@@ -18,6 +18,9 @@ use crate::driver::Session;
 pub enum Target {
     Everything,
     Namespaces(Vec<String>),
+    /// Each name's namespace (if there is one) and every namespace under it
+    /// (`Aoc.Day01` and `Aoc.Day01.Tests`), and what they use.
+    Subtrees(Vec<String>),
 }
 
 /// What loading a project checked.
@@ -66,6 +69,25 @@ impl Session {
                     return Err(unknown);
                 }
                 closure(&analysis, names).into_iter().collect()
+            }
+            Target::Subtrees(names) => {
+                let under = |n: &str, root: &str| {
+                    n == root || n.strip_prefix(root).is_some_and(|r| r.starts_with('.'))
+                };
+                let unknown: Vec<Diagnostic> = names
+                    .iter()
+                    .filter(|r| !known.iter().any(|n| under(n, r)))
+                    .map(|n| unknown_namespace(project, n, &known))
+                    .collect();
+                if !unknown.is_empty() {
+                    return Err(unknown);
+                }
+                let roots: Vec<String> = known
+                    .iter()
+                    .filter(|n| names.iter().any(|r| under(n, r)))
+                    .cloned()
+                    .collect();
+                closure(&analysis, &roots).into_iter().collect()
             }
         };
         let order = match canonical_order(&analysis, &needed) {

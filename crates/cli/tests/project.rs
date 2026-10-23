@@ -443,3 +443,51 @@ fn a_wildcard_makes_the_dependency() {
     assert!(stdout.contains("zed"), "{stdout}");
     assert!(stdout.contains("client"), "{stdout}");
 }
+
+#[test]
+fn test_a_namespace_includes_the_namespaces_under_it() {
+    let dir = project(
+        "test_children",
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/Day.sw", "namespace Day\n\ndef x: Nat := 1\n"),
+            (
+                "src/Day/Tests.sw",
+                "namespace Day.Tests\n\nimport Day (x)\n\ntest \"x\" := x == 1\n",
+            ),
+            (
+                "src/Day/Proofs.sw",
+                "namespace Day.Proofs\n\ntest \"p\" := True\n",
+            ),
+            ("src/Other.sw", "namespace Other\n\ntest \"o\" := True\n"),
+        ],
+    );
+    let stdout = succeeds(&dir, &["test", "Day"]);
+    assert!(
+        stdout.contains("Day.Tests") && stdout.contains("Day.Proofs"),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("Other"), "{stdout}");
+    assert!(stdout.contains("2 test(s): 2 passed"), "{stdout}");
+    // A name prefix isn't a parent: `Da` matches nothing.
+    let output = stitchwort(&dir, &["test", "Da"]);
+    assert_eq!(output.status.code(), Some(1));
+}
+
+#[test]
+fn test_warns_when_a_target_matches_no_tests() {
+    let dir = project(
+        "test_none",
+        &[
+            ("stitchwort.yaml", ""),
+            ("src/Bare.sw", "namespace Bare\n\ndef x: Nat := 1\n"),
+        ],
+    );
+    let output = stitchwort(&dir, &["test", "Bare"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        err(&output).contains("warning: no tests matched 'Bare'"),
+        "{}",
+        err(&output)
+    );
+}

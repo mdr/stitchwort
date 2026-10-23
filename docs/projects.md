@@ -262,15 +262,17 @@ stitchwort check Day05            -- Day05 and what it depends on
 stitchwort check path/file.sw     -- file mode
 
 stitchwort test                   -- every test in the project
-stitchwort test Day05             -- Day05's tests and its dependencies'
+stitchwort test Day05             -- Day05's tests, its children's, and its dependencies'
 stitchwort test path/file.sw      -- file mode
 ```
 
 `check` accepts several names at once. `test` and `run` take a single target.
 A namespace target may be dotted, as in `check Aoc.Day05`.
 
-`stitchwort test Day05` runs the tests of `Day05` and of every namespace it
-depends on, grouped by namespace; `Std`'s own tests aren't run. A test moved
+`stitchwort test Day05` runs the tests of `Day05`, of every namespace under
+it (`Day05.Tests`, `Day05.Proofs`), and of every namespace they depend on,
+grouped by namespace. A target that matches no tests prints
+`warning: no tests matched 'Day05'` and exits non-zero; `Std`'s own tests aren't run. A test moved
 between files of one namespace keeps its result.
 
 Results are cached in `.stitchwort/cache` in the **project folder**,
