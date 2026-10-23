@@ -1,7 +1,7 @@
 # Proposal: named fields on variants (patterns, shared access, shared update)
 
 **Status:** draft 1, 23 October 2026, for review. Ticket SW-340, decision D587.
-Nothing is built. The questions for the user are D588 to D590
+Nothing is built. The questions for the user are D593 to D595
 ([§11](#11-decisions-for-the-user)).
 
 Labels, as in the other notes:
@@ -65,11 +65,11 @@ the JS representation doesn't change at all.
 
 **Recommendations:** build all three, in order 1, 2, 3, as one lane each.
 The three decisions: how `C { … }` is told apart from today's `C` applied to
-a record pattern (D588); whether shared accessors are generated for every
+a record pattern (D593); whether shared accessors are generated for every
 data type, including one-constructor types like `Pair`, whose hand-written
-`Pair.fst` and `Pair.snd` they would replace (D589); and whether a bare
+`Pair.fst` and `Pair.snd` they would replace (D594); and whether a bare
 `{ id, .. }` (no constructor) should match a variant by its shared fields
-(D590).
+(D595).
 
 ## 1. The problem
 
@@ -278,7 +278,7 @@ expressions. Patterns have no partial application, so they don't have this
 problem (see 4.2). Named construction can come later with its own spelling
 if wanted; it isn't needed for the boilerplate this note is about.
 
-### 4.2 Telling `C { … }` from `C` applied to a record pattern (D588)
+### 4.2 Telling `C { … }` from `C` applied to a record pattern (D593)
 
 Today `W { name, .. }` is `W` applied to a record pattern, and it checks when
 `W`'s one field is a record ([§2](#2-stitchwort-today)). The new form must not
@@ -312,7 +312,7 @@ When a one-field constructor's field isn't a record and the braces name it
 `E-NOT-A-RECORD`; it gets a note: "`Divider` has one field, so `{ … }` here
 matches that field; write `Divider id`".
 
-**Alternatives** for D588:
+**Alternatives** for D593:
 
 - **(b) Braces after a constructor always name its fields**, and a record
   pattern as a one-field constructor's argument needs brackets:
@@ -341,7 +341,7 @@ field I haven't checked).
 A field name `f` is **shared** by data type `T` when:
 
 1. **Every constructor** of `T` has an **explicit** field named `f` (an
-   implicit field `[n: Nat]` doesn't count, D589 discusses one-constructor
+   implicit field `[n: Nat]` doesn't count, D594 discusses one-constructor
    types). A type with no constructors has no shared fields.
 2. In every constructor, `f`'s declared type **mentions only `T`'s parameters
    and fields that are themselves shared** (and declared before `f` in each
@@ -561,7 +561,7 @@ The other route already planned, **a constructor wrapping a record**
 (`| Slide SlideData`, flattened in JS per the records note's decisions)
 **[checked]**, keeps JS flat, but each record repeats the shared fields, so
 `a.id` still needs a hand-written getter. It combines well with this
-proposal: if every wrapped record has `id`, see D588's one-field rule
+proposal: if every wrapped record has `id`, see D593's one-field rule
 (`Slide { id, .. }` reads the wrapped record) and §12 (shared fields through
 a wrapper are not proposed).
 
@@ -621,7 +621,7 @@ No backwards compatibility is needed, but feature 2 changes some programs:
 
 - Hand-written getters with a shared field's name (`def Annotation.id` in §1)
   become `E-DUPLICATE`; delete them.
-- With D589 (a), every one-constructor data type gets accessors too, so the
+- With D594 (a), every one-constructor data type gets accessors too, so the
   library's hand-written `Pair.fst` and `Pair.snd` (`std/core/Data.sw:89`)
   **[checked]** go, replaced by the generated ones. `Pair.fst` is a registry
   builtin looked up by name (`registry.rs:223`, `Fst = "Pair.fst"`)
@@ -662,7 +662,7 @@ conversion. Generate `T.f` per shared field, generalising `projections`
 (`records.rs:74`) from one branch to one per constructor. Register as
 members; the lazy-loading index must list them (§12). Improve the dot
 lookup's unknown-member error (`dot.rs:594`) with 5.3's notes. Replace
-`Pair.fst`/`Pair.snd` (D589). Tests: the 5.1 table as accepts/rejects,
+`Pair.fst`/`Pair.snd` (D594). Tests: the 5.1 table as accepts/rejects,
 `rfl` on constructors, a proof by cases, `.id` sections, a dependent shared
 field, a proof field, a parameterised type, an indexed family.
 
@@ -676,7 +676,7 @@ the per-constructor dependency reject, update of a proof field with its data.
 
 ## 11. Decisions for the user
 
-**D588. How is `C { … }` in a pattern told apart from `C` applied to a
+**D593. How is `C { … }` in a pattern told apart from `C` applied to a
 record pattern?**
 (a) **Recommended:** by `C`'s declaration: braces as the only argument name
 `C`'s fields unless `C` has exactly one explicit field, where they're that
@@ -685,7 +685,7 @@ field's pattern, as today. No program that checks today changes meaning.
 an argument is written in brackets, `W ({ name, .. })`.
 (c) Spacing: `Slide{ id }` names fields. Not recommended.
 
-**D589. Which data types get shared-field accessors?**
+**D594. Which data types get shared-field accessors?**
 (a) **Recommended:** every data type, by the one rule in 5.1, including
 one-constructor types: `Pair` gets `Pair.fst` and `Pair.snd` generated and
 the hand-written ones are deleted; `Char` gets `Char.code`. One rule, nothing
@@ -693,7 +693,7 @@ to remember.
 (b) Only types with two or more constructors; one-constructor types keep
 hand-written functions (and should be records if they want field syntax).
 
-**D590. Should a bare `{ id, .. }` (no constructor) match a variant by its
+**D595. Should a bare `{ id, .. }` (no constructor) match a variant by its
 shared fields?** `let { id, start, .. } := a`, `| { id, .. } => …`,
 `annotations.map ({ id, .. } => id)`: an irrefutable pattern binding shared
 fields by their accessors (records' pattern `let` already works this way,
@@ -703,7 +703,7 @@ covers the need, and it can be added later without changing anything else.
 
 ## 12. Risks
 
-- **The one-field exception (D588 (a))** is a rule users can trip over:
+- **The one-field exception (D593 (a))** is a rule users can trip over:
   `Divider { id }` on a one-field constructor reads the field as a record.
   The error note (4.2) is the mitigation.
 - **Lazy loading of the library.** The library's index lists names from
@@ -714,7 +714,7 @@ covers the need, and it can be added later without changing anything else.
   in every constructor) and let elaboration confirm them, or elaborate the
   declaration. Record projections already exist for library records, so a
   mechanism is there to extend; the implementing lane must check it.
-- **Registry builtins** (`Pair.fst`, D589 (a)) are found by name; generated
+- **Registry builtins** (`Pair.fst`, D594 (a)) are found by name; generated
   definitions must be found the same way, before anything that uses them.
 - **Accidental sharing.** A type whose constructors happen to share a field
   name and type gets an accessor whether or not the author meant it. Harmless
