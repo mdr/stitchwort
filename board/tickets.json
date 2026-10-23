@@ -5160,7 +5160,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Opus",
-      "where": "23 Oct: D1030 dropped -0 handling (documented divergence; differential 0 unexplained; branch.patch regenerated at app 7fed1b92958); work copy reformatted to house style (src.pre-fmt kept); handover left at pin 868d92f2 until Matt asks (it can't parse column-0 closers). Next private step: speakerData as a real Map after quotients stage 2, then Wire.sw removal",
+      "where": "23 Oct: D1088 running (model holds Map directly, s parameter dropped, Wire.sw deleted, export on Resolver.merge); earlier today: D1030, reformat, variant fields (SW-383)",
       "labels": [
         "design",
         "js"
