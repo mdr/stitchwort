@@ -140,7 +140,7 @@ def Shape.id: Shape -> Text
   | Circle _ id _ _      => id
   | Polygon _ id _ _ _   => id
 
-def withStart (t: Int): Shape -> Shape
+def shiftTo (t: Int): Shape -> Shape
   | Dot r id _           => Dot r id t
   | Circle r id _ x      => Circle r id t x
   | Polygon r id _ d cs  => Polygon r id t d cs
@@ -875,7 +875,7 @@ type Shape =
   | Polygon (ref: Nat) (id: Text) (start: Int) (duration: Nat) (points: List Point)
 
 -- No getters: `a.id`, `a.ref`, `a.start` are generated.
-def withStart (t: Int) (a: Shape): Shape := { a | start = t }
+def shiftTo (t: Int) (a: Shape): Shape := { a | start = t }
 
 def textOf: Shape -> Option Text
   | Circle { text, .. } => Some text
