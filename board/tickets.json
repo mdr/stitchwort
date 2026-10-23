@@ -5672,7 +5672,7 @@
       "title": "Build Float stage 1a: canonical-bits Float, add/sub primitives, natives agreeing with definitions (gate), literals, runtime, JS boundary (float.md §7.2)",
       "status": "doing",
       "agent": "Opus",
-      "where": "worktree lane (D730)",
+      "where": "PAUSED (quota) after step 3 at 7b16d12f; left: lint recheck, WASM gate rerun, step 4 boundary, step 5 plumbing, docs",
       "labels": [
         "kernel",
         "js"
