@@ -361,6 +361,22 @@ until the next edit. The button has the shortcut in its tooltip; the page has
 no other list of shortcuts. Test: "Format rewrites the text, undo restores
 it, and a syntax error is refused" in `web/tests/browser.mjs`.
 
+**F5 as built.** The server (`crates/cli/src/lsp.rs`) advertises
+`documentFormattingProvider` and `documentRangeFormattingProvider`.
+`textDocument/formatting` formats the open document's current text with
+`stitchwort_fmt::format` and returns one edit replacing the whole document, or
+`[]` if the text is unchanged. `textDocument/rangeFormatting` formats the whole
+file the same way (so a file with a syntax error is refused, D1021), then
+splits input and output with `decl_ranges` and returns one edit for each
+declaration the range overlaps whose text changed. A declaration's region runs
+from its first token to the end of its last line, so comments and blank lines
+between declarations are never touched. If input and output have a different
+number of declarations the answer is `[]`. A refusal, an internal formatter
+error, or a document that isn't open all answer `[]`, never an LSP error. The
+VS Code extension needed no code and no `configurationDefaults` (D1022); the
+README gained a paragraph on `editor.formatOnSave`. `editors/vscode/test` runs
+against a fake server and doesn't exercise formatting.
+
 ### 5.4 CI
 
 After the repo reformat, `stitchwort fmt --check` runs over the repo in the
