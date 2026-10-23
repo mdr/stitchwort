@@ -470,9 +470,9 @@
     {
       "id": 31,
       "title": "Language server for .sw (umbrella; stages 0 and 1 done: stitchwort lsp + thin VS Code client; next: stage 2 ? goal holes, stage 3 completion)",
-      "status": "review",
+      "status": "next",
       "agent": "Opus",
-      "where": "stage 2 design note merged (docs/proposals/lsp-goal-holes.md); awaiting D635-D641",
+      "where": "stage 2 note merged (lsp-goal-holes.md); PAUSED by Matt 23 Oct, D635-D641 not decided",
       "labels": [
         "tooling"
       ],
@@ -5505,7 +5505,7 @@
     {
       "id": 348,
       "title": "Playground language guide: concise feature tour with highlighted, checked examples",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
