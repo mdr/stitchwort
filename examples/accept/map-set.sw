@@ -100,3 +100,11 @@ def stored: Map Nat (Nat -> Nat) :=
     | (_, m) => m
 
 test "functions as state" := stored.keys == [1] && Option.map (f => f 2) (stored.get 1) == Some 3
+
+-- Later additions: counts, groupBy, unionWith, ordered lookups, keySet and Set.isSubset.
+test "counts" := (Map.counts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
+test "groupBy" := (Map.groupBy (n => n % 2) [1, 2, 3, 4, 5]).toList == [(0, [2, 4]), (1, [1, 3, 5])]
+test "unionWith" := (Map.unionWith Nat.add (wordCounts ["a", "b"]) (wordCounts ["b", "c"])).toList == [("a", 1), ("b", 2), ("c", 1)]
+test "min and below" := (wordCounts ["b", "a", "c"]).min == Some ("a", 1) && (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
+test "keySet" := (wordCounts ["b", "a"]).keySet == Set.fromList ["a", "b"]
+test "isSubset" := Set.isSubset (visited "R") (visited "RD") && not (Set.isSubset (visited "RD") (visited "R"))

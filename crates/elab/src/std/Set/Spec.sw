@@ -40,3 +40,118 @@ theorem Set.ext [auto ord: Ord k]: (s: Set k) -> (t: Set k) -> ((key: k) -> Set.
     Eq.cong (i => ({ items = i }: Set k))
       (Map.ext m n (key => Set.presentInjective (Map.get key m) (Map.get key n)
         (Eq.trans (Eq.sym (Set.containsPresent key m)) (Eq.trans (h key) (Set.containsPresent key n)))))
+
+-- Maps and sets
+
+theorem Map.containsKeySet [auto ord: Ord k] (key: k) (m: Map k v): Set.contains key (Map.keySet m) = Map.contains key m :=
+  rewrite Map.getMap (value => ()) key m in
+  match c: Map.get key m with
+    | None => rfl
+    | Some value => rfl
+
+theorem Map.getFromKeys [auto ord: Ord k] (ks: Set k) (f: k -> v) (key: k):
+    Map.get key (Map.fromKeys ks f) = (if Set.contains key ks then Some (f key) else None) :=
+  rewrite Map.getMapWithKey (key2 u => f key2) key ks.items in
+  match c: Map.get key ks.items with
+    | None => rfl
+    | Some u => rfl
+
+theorem Map.getRemoveAll [auto ord: Ord k] (ks: Set k) (key: k) (m: Map k v):
+    Map.get key (Map.removeAll ks m) = (if Set.contains key ks then None else Map.get key m) :=
+  rewrite Map.getFilter (key2 value => !(Set.contains key2 ks)) key m in
+  match c: Set.contains key ks with
+    | True =>
+      match d: Map.get key m with
+        | None => rfl
+        | Some value => rfl
+    | False =>
+      match d: Map.get key m with
+        | None => rfl
+        | Some value => rfl
+
+theorem Map.getKeepOnly [auto ord: Ord k] (ks: Set k) (key: k) (m: Map k v):
+    Map.get key (Map.keepOnly ks m) = (if Set.contains key ks then Map.get key m else None) :=
+  rewrite Map.getFilter (key2 value => Set.contains key2 ks) key m in
+  match c: Set.contains key ks with
+    | True =>
+      match d: Map.get key m with
+        | None => rfl
+        | Some value => rfl
+    | False =>
+      match d: Map.get key m with
+        | None => rfl
+        | Some value => rfl
+
+-- The smallest and largest keys, and what `contains` says about each
+-- operation
+
+theorem Set.minToList (s: Set k [ord := o]): Set.min s = List.head (Set.toList s) :=
+  rewrite Map.minToList s.items in
+  match c: Map.toList s.items with
+    | Nil => rfl
+    | Cons e rest => rfl
+
+theorem Set.maxToList (s: Set k [ord := o]): Set.max s = List.last (Set.toList s) :=
+  rewrite Map.maxToList s.items in Set.lastMapFst (Map.toList s.items)
+
+theorem Set.lastMapFst: (xs: List (k, ())) -> Option.map Pair.fst (List.last xs) = List.last (List.map Pair.fst xs)
+  | Nil => rfl
+  | Cons e Nil => rfl
+  | Cons e (Cons f rest) => Set.lastMapFst (Cons f rest)
+
+theorem Set.containsRemove [auto ord: Ord k] (key: k) (s: Set k): Set.contains key (Set.remove key s) = False :=
+  rewrite Map.getRemove key s.items in rfl
+
+theorem Set.containsRemoveOther [auto ord: Ord k] (key: k) (other: k) (ne: Not (other = key)) (s: Set k):
+    Set.contains other (Set.remove key s) = Set.contains other s :=
+  rewrite Map.getRemoveOther key other ne s.items in rfl
+
+theorem Set.containsUnion [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
+    Set.contains key (Set.union a b) = (Set.contains key a || Set.contains key b) :=
+  rewrite Map.getUnion key a.items b.items in
+  match c: Map.get key a.items with
+    | None => rfl
+    | Some u => rfl
+
+theorem Set.containsFilter [auto ord: Ord k] (p: k -> Bool) (key: k) (s: Set k):
+    Set.contains key (Set.filter p s) = (Set.contains key s && p key) :=
+  rewrite Map.getFilter (key2 u => p key2) key s.items in
+  match c: Map.get key s.items with
+    | None => rfl
+    | Some u =>
+      match d: p key with
+        | True => rfl
+        | False => rfl
+
+theorem Set.containsIntersect [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
+    Set.contains key (Set.intersect a b) = (Set.contains key a && Set.contains key b) :=
+  Set.containsFilter (key2 => Set.contains key2 b) key a
+
+theorem Set.containsDifference [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
+    Set.contains key (Set.difference a b) = (Set.contains key a && !(Set.contains key b)) :=
+  Set.containsFilter (key2 => !(Set.contains key2 b)) key a
+
+theorem Set.containsInsertOther [auto ord: Ord k] (key: k) (other: k) (ne: Not (other = key)) (s: Set k):
+    Set.contains other (Set.insert key s) = Set.contains other s :=
+  rewrite Map.getInsertOther key () other ne s.items in rfl
+
+-- Inserting the list's keys: `key` is there if it was, or if the list has it.
+theorem Set.containsFoldInsert [auto ord: Ord k] (key: k): (xs: List k) -> (s: Set k) ->
+    Set.contains key (List.foldLeft (acc x => Set.insert x acc) s xs) = (Set.contains key s || List.any (x => Map.Spec.sameKey key x) xs)
+  | Nil, s =>
+    match c: Set.contains key s with
+      | True => rfl
+      | False => rfl
+  | Cons x rest, s =>
+    rewrite Set.containsFoldInsert key rest (Set.insert x s) in
+    match e: Ord.compare key x with
+      | Equal =>
+        rewrite ord.equal key x e, Set.containsInsert x s in
+        match c: Set.contains x s with
+          | True => rfl
+          | False => rfl
+      | Less => rewrite Set.containsInsertOther x key (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) s in rfl
+      | Greater => rewrite Set.containsInsertOther x key (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) s in rfl
+
+theorem Set.containsFromList [auto ord: Ord k] (key: k) (xs: List k): Set.contains key (Set.fromList xs) = List.any (x => Map.Spec.sameKey key x) xs :=
+  Set.containsFoldInsert key xs Set.empty
