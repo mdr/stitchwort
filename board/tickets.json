@@ -5637,10 +5637,10 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients — stage 1 complete; Quot.ind arity fix merged; stage 2 (Map/Set as quotients, Opus) running",
+      "title": "Map/Set equality: kernel quotients — stage 1 and stage 2.1 (Map/Set are quotients) merged; 2.2 API additions running; D1074-D1076 decided",
       "status": "doing",
       "agent": "Opus",
-      "where": "worktree lane (stage 2)",
+      "where": "worktree lane (2.2)",
       "labels": [
         "design",
         "std"
@@ -5666,7 +5666,9 @@
         "7b622fad",
         "358b639a",
         "f7b3791c",
-        "35d6b03a"
+        "35d6b03a",
+        "ab1a10d5",
+        "5cbddb7d"
       ]
     },
     {
@@ -5854,10 +5856,10 @@
     },
     {
       "id": 367,
-      "title": "Errors with messages (Fail + Result): stages 1-2, D1055 (b) empty-row fix, D1056 dot-call fix merged; stage 3 (AoC parsers) running",
-      "status": "doing",
+      "title": "Errors with messages (Fail + Result) — all stages done: std, main reporting, empty-row and dot-call fixes, AoC parsers report bad input (Days 1-5, 7, 8)",
+      "status": "done",
       "agent": "Opus",
-      "where": "worktree lane (stage 3)",
+      "where": "",
       "labels": [
         "std"
       ],
@@ -5872,7 +5874,8 @@
         "cc431d50",
         "97751e8b",
         "834f1024",
-        "0ca27dd3"
+        "0ca27dd3",
+        "d7299509"
       ]
     },
     {
@@ -6055,17 +6058,21 @@
     },
     {
       "id": 379,
-      "title": "AoC Day 3: external review fixes",
+      "title": "AoC Day 3 review: scaffolding + comments + match on Fin done; Spec.sw (D1071) + short banks (D1072) running; Fin literals running; subsequenceTrans next",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "worktree lane (points 1+4)",
+      "where": "worktree lanes",
       "labels": [
         "aoc"
       ],
       "body": "Verified review (23 Oct). Running: point 1 proof scaffolding + point 4 comments. Next: List.subsequenceTrans in std then restate pickSub/PickBeats (Opus). Parsing via SW-367 stage 3. Open: D1071-D1073.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "b2d69670",
+        "2a477d60",
+        "2420065b"
+      ]
     },
     {
       "id": 380,
