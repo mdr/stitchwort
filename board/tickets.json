@@ -5637,8 +5637,8 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 merged (Map/Set are quotients with the maps.md API); leftovers: isSubsetSpec, memToList, sizeInsert/Remove, Map.induction, O(n+m) merges",
-      "status": "next",
+      "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 merged; leftovers (isSubsetSpec, memToList, sizeInsert/Remove, Map.induction) running; O(n+m) merges later",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -6242,8 +6242,8 @@
     },
     {
       "id": 390,
-      "title": "Research: named and default arguments (design note docs/proposals/named-arguments.md)",
-      "status": "doing",
+      "title": "Research: named and default arguments — note docs/proposals/named-arguments.md merged; D1092-D1101 await Matt",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree lane (design note)",
       "labels": [
