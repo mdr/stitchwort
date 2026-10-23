@@ -5637,10 +5637,10 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients — stage 1 and stage 2.1 (Map/Set are quotients) merged; 2.2 API additions running; D1074-D1076 decided",
-      "status": "doing",
+      "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 merged (Map/Set are quotients with the maps.md API); leftovers: isSubsetSpec, memToList, sizeInsert/Remove, Map.induction, O(n+m) merges",
+      "status": "next",
       "agent": "Opus",
-      "where": "worktree lane (2.2)",
+      "where": "",
       "labels": [
         "design",
         "std"
@@ -5668,7 +5668,10 @@
         "f7b3791c",
         "35d6b03a",
         "ab1a10d5",
-        "5cbddb7d"
+        "5cbddb7d",
+        "a5f8b214",
+        "57bd6784",
+        "f05dd335"
       ]
     },
     {
@@ -6095,7 +6098,7 @@
     {
       "id": 381,
       "title": "Build variant fields feature 2: shared-field access (a.id when every constructor has id) (D1077)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -6104,14 +6107,17 @@
       "body": "Design: docs/proposals/variant-fields.md §5 (SW-340, decisions D603-D605 settled). Never ticketed after feature 1 (SW-347); found 23 Oct when Matt asked why the resolver still hand-writes per-constructor getters. D1077 (Matt): build features 2 and 3, then convert the resolver.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "ba40031c",
+        "0607cddd"
+      ]
     },
     {
       "id": 382,
       "title": "Build variant fields feature 3: shared-field update ({ c | id = x } on any constructor) (D1077)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "lang"
       ],
