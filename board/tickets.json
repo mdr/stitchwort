@@ -5854,10 +5854,10 @@
     },
     {
       "id": 367,
-      "title": "Errors with messages (Fail + Result): stages 1-2 merged; D1055 (b) elaborator fix + D1056 dot-call fix running; then stage 3 (AoC parsers)",
+      "title": "Errors with messages (Fail + Result): stages 1-2 and the D1056 dot-call fix merged; D1055 (b) elaborator fix running; stage 3 (AoC parsers) next",
       "status": "doing",
       "agent": "Opus",
-      "where": "worktree lanes (D1055, D1056)",
+      "where": "worktree lane (D1055)",
       "labels": [
         "std"
       ],
@@ -5868,7 +5868,9 @@
         "504176b9",
         "582959d8",
         "1f42e817",
-        "aca98ffc"
+        "aca98ffc",
+        "cc431d50",
+        "97751e8b"
       ]
     },
     {
