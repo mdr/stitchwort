@@ -31,7 +31,6 @@ import Aoc.Common (Range)
 import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
-import Aoc.Day02.Tests (exampleRanges)
 import Std (Bool, DecEq, Decidable, Eq, Int, List, Nat, Void)
 
 -- (1) n copies ------------------------------------------------------------
@@ -643,13 +642,6 @@ theorem rangeWeighted (r: Range): weighted copiesWeight r = (List.sum (List.filt
 
 
 -- Part 2 is right -------------------------------------------------------------
-
--- The puzzle's method: in every range walk the ids, keep those whose digits
--- are some block written two or more times, add them up.
-def part2Spec (ranges: List Range): Nat :=
-  ranges |> .sumBy (r => r.ids |> .filter repeats |> .sum)
-
-test "part 2 spec" := part2Spec exampleRanges == 4174379265
 
 -- Part 2 is the sum of the ids, in all the ranges, whose digits are some
 -- block written two or more times. For every input. The signed total over

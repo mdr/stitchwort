@@ -8,7 +8,6 @@ import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
-import Aoc.Day02.Tests (exampleRanges)
 import Std (Bool, Eq, Int, List, Nat, Void)
 
 -- Why part 1 is right (b): `part1BlocksCorrect` says the printed part 1 is
@@ -100,11 +99,6 @@ theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks
 -- number of digits (`twiceHalf`), and that k is below the number of digits
 -- of `to` (`twiceAtLeast`), so swapping the sums over ids and block lengths
 -- leaves each doubled id added once.
-
-def part1Spec (ranges: List Range): Nat :=
-  ranges |> .sumBy (r => r.ids |> .filter doubled |> .sum)
-
-test "part 1 spec" := part1Spec exampleRanges == 1227775554
 
 -- For one id `x` up to `to`: over all block lengths, the blocks written twice
 -- that make `x` add up to `x` if `x` is doubled, else 0.
