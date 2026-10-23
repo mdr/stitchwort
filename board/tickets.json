@@ -1,5 +1,5 @@
 {
-  "next": 380,
+  "next": 381,
   "tickets": [
     {
       "id": 1,
@@ -1809,9 +1809,9 @@
         "elab",
         "proof"
       ],
-      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out the lambda wrapper `(c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)` (aoc/src/Aoc/Day03/Proofs/Best.sw:165; docs/aoc-2025.md:1208, 1308). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (the kernel sees an arity-short occurrence) and if so do it automatically. The first step is that investigation.\n\nDone when: either the wrapper in `pickBest` (Best.sw:165) is removable and Day 3 still checks, or the ticket records why it can't be done (and docs/syntax.md says so).\n",
+      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out the lambda wrapper `(c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)` (aoc/src/Aoc/Day03/Proofs/Best.sw:165; docs/aoc-2025.md:1208, 1308). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (the kernel sees an arity-short occurrence) and if so do it automatically. The first step is that investigation.\n\nDone when: either the wrapper in `pickBest` (Best.sw:165) is removable and Day 3 still checks, or the ticket records why it can't be done (and docs/syntax.md says so). 23 Oct: the Day 3 wrapper it cites is now at aoc/src/Aoc/Day03/Proofs/Best.sw:189 (was :165); still needed (E-TERMINATION … takes 13 arguments; it's given 4).",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-23",
       "commits": []
     },
     {
@@ -6062,7 +6062,21 @@
       "labels": [
         "aoc"
       ],
-      "body": "Verified review (23 Oct). Running: point 1 proof scaffolding + point 4 comments. Next: List.subsequenceTrans in std then restate pickSub/PickBeats (Opus). Parsing via SW-367 stage 3. Open: D1065-D1067.",
+      "body": "Verified review (23 Oct). Running: point 1 proof scaffolding + point 4 comments. Next: List.subsequenceTrans in std then restate pickSub/PickBeats (Opus). Parsing via SW-367 stage 3. Open: D1071-D1073.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 380,
+      "title": "Microtypes: distinct id types (one-field records) crossing to TS as plain strings (@[js.unboxed], optional flavour), plus D866 single-field unboxing",
+      "status": "review",
+      "agent": "Matt",
+      "where": "",
+      "labels": [
+        "lang"
+      ],
+      "body": "Design note docs/proposals/microtypes.md merged 23 Oct; decisions D1064-D1070 open. Motivated by a real-world TS app port (private notes in the resolver work folder). Stage 1 waits for SW-356 stage 2 (same map code).",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
