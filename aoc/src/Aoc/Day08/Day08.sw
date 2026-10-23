@@ -18,10 +18,11 @@
 -- The tests are in `Aoc.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Day08
-import Std (Abort, IO, List, Map, Nat, Option, Text)
-import Std.Abort (toOption)
+import Aoc.Common (readLines)
+import Std (Fail, IO, List, Map, Nat, Option, Text)
+import Std.Fail (fail)
 
-def main(): {IO} () :=
+def main(): {IO, Fail} () :=
   let boxes := parseBoxes IO.readAllLines()
   IO.print "Part 1: ${solvePart1 1000 boxes}"
   match solvePart2 boxes with
@@ -34,20 +35,19 @@ type Point = { x: Nat, y: Nat, z: Nat }
 -- once for both parts.
 type Boxes = { points: List Point, pairs: List Connection }
 
-def parseBoxes (lines: List Text): Boxes := Boxes.of (parsePoints lines)
+def parseBoxes (lines: List Text): {Fail} Boxes := Boxes.of (parsePoints lines)
 
 def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst points }
 
--- Lines that aren't three numbers (a blank line at the end) are skipped.
-def parsePoints (lines: List Text): List Point := lines.filterMap parsePoint
+-- One box per line. Spaces around a line or a number are allowed; anything else
+-- fails, naming the line.
+def parsePoints (lines: List Text): {Fail} (List Point) := readLines readPoint lines
 
-def parsePoint (line: Text): Option Point := toOption (() => readPoint line)
-
--- Each number that isn't one makes the whole line give up.
-def readPoint (line: Text): {Abort} Point :=
-  match line.split ',' with
-    | [xText, yText, zText] => { x = xText.toNat.orAbort, y = yText.toNat.orAbort, z = zText.toNat.orAbort }
-    | _ => Abort.abort()
+-- "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
+def readPoint (line: Text): {Fail} Point :=
+  match line.split ',' |> .map (part => part.trim.toNat) with
+    | [Some x, Some y, Some z] => { x, y, z }
+    | _ => fail "expected a box like 162,817,812, got '${line}'"
 
 -- The straight-line distance squared: it orders pairs the same way as the
 -- distance, and needs no square root.
