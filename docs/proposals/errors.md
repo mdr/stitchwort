@@ -470,6 +470,8 @@ to the snapshot. Deviations:
 
 **Decided (Matt, 23 Oct 2026):** D1045–D1049 and D1051–D1053 as recommended below. D1050: (a), a new `List.mapIn` now, plus a separate experiment lane that tries generalising `List.map` itself the Unison way (`(f: a -> {e} b)`) and reports what breaks; if it goes cleanly, `mapIn` is folded into `map` and the convention extends to the other list functions.
 
+**Decided later (Matt, 23 Oct 2026):** D1055 (b): fix the cause in the elaborator, so a handler call whose ability row is empty after instantiation is a plain value and equations about it are ordinary propositions (no proof-only twin). D1056 (a): fix the dot-call-in-handled-lambda bug before stage 3.
+
 **D1045. What does a failure carry?**
 (a) Only a message (`Fail`, `Text`).
 (b) Only a value of a type the program chooses (Unison's `Throw e`). Messages
