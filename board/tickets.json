@@ -5685,7 +5685,7 @@
     {
       "id": 359,
       "title": "JS codec performance: decode/encode of large lists of small records (realistic 1-hour document: ~9k words, ~1k segments) (D790)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5695,7 +5695,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "3a6eeff4"
+      ]
     }
   ]
 }
