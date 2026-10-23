@@ -5363,7 +5363,7 @@
     {
       "id": 340,
       "title": "Design note: named-field constructor patterns, shared-field access and update on variants (D587)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "draft 2 merged; decided D603(a), D604(b), D605(a) named construction with braces like patterns, built with variant fields; building: SW-347 (feature 1)",
       "labels": [
@@ -5382,7 +5382,7 @@
     {
       "id": 341,
       "title": "Design note: attribute syntax @[...] (closed, namespaced; hashing rule) with first uses js.tag / js.name / js.nullable; for external review (D590)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "draft 2 merged; decided D612 (amended): default JS tag key $tag, __proto__ field reported when an export reaches it; D613 (impl, mine): core registry",
       "labels": [
