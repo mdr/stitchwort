@@ -728,7 +728,7 @@ fn options_cross_the_boundary_as_undefined() {
     for declaration in [
         "export type Profile = { readonly name: string; readonly nick?: string; readonly age?: bigint };",
         "export type Cap = { readonly cap?: number };",
-        "export type Peek = { readonly items: readonly (bigint | undefined)[]; readonly extra?: readonly (bigint | undefined)[] };",
+        "export type Peek = { readonly items: (bigint | undefined)[]; readonly extra?: (bigint | undefined)[] };",
         "export type Both =\n  | { readonly $tag: \"MkBoth\"; readonly left: bigint | undefined; readonly right: string };",
         "export declare function withNick(p: Profile, n: string | undefined): Profile;",
         "export declare function halve(arg0: bigint | undefined): bigint | undefined;",
@@ -939,6 +939,177 @@ refused(() => m.odd({ $tag: "Constructor", tag: 1n }), /unknown \$tag "Construct
 console.log("ok");
 "#;
     run_script("attributes", &[("attributes.mjs", attributes)], script);
+}
+
+/// `@[js.optional]` on a constructor's `Option` field
+/// (docs/proposals/attributes.md, "As built (stage 2)"): a missing key or
+/// `undefined` is `None`, `None` is no key, `null` is refused.
+#[test]
+fn optional_variant_fields_cross_as_missing_keys() {
+    let examples = examples();
+    let app = example(&examples, "app-types.sw");
+    let script = r#"
+import * as m from "./app.mjs";
+import assert from "node:assert/strict";
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message), pattern.source);
+
+// A missing key, an explicit `undefined` and a value.
+assert.equal(m.area({ kind: "circle", radius: 2n }), 4n);
+assert.equal(m.area({ kind: "circle", radius: 2n, fill: undefined }), 4n);
+assert.equal(m.area({ kind: "circle", radius: 2n, fill: "red" }), 4n);
+assert.equal(m.tag({ kind: "circle", radius: 2n }), undefined);
+assert.equal(m.tag({ kind: "circle", radius: 2n, fill: "red" }), "red");
+
+// `None` is no key, not a key holding `undefined`.
+const none = m.recolour({ kind: "circle", radius: 2n, fill: "red" });
+assert.deepEqual(none, { kind: "circle", radius: 2n });
+assert.deepEqual(Object.keys(none), ["kind", "radius"]);
+assert.equal("fill" in none, false);
+assert.deepEqual(m.recolour({ kind: "circle", radius: 2n }), { kind: "circle", radius: 2n, fill: "black" });
+assert.deepEqual(m.recolour({ kind: "dot" }), { kind: "dot" });
+
+// The key is the field's own (`js.name`), per constructor.
+assert.deepEqual(m.recolour({ kind: "polygon", points: [], fillColour: "x" }), { kind: "polygon", points: [], fillColour: "grey" });
+assert.deepEqual(m.recolour({ kind: "polygon", points: [], fill: "x" }), { kind: "polygon", points: [], fillColour: "grey" });
+assert.equal(m.tag({ kind: "polygon", points: [], fillColour: "x" }), "x");
+assert.equal(m.tag({ kind: "polygon", points: [], fill: "x" }), undefined);
+
+// `null` is not `undefined`, and the value is checked as an `Option`'s.
+refused(() => m.area({ kind: "circle", radius: 2n, fill: null }), /^arg0\.fill: expected a value or undefined, not null$/);
+refused(() => m.area({ kind: "circle", radius: 2n, fill: 3n }), /^arg0\.fill: expected a string$/);
+refused(() => m.area({ kind: "polygon", points: [], fillColour: null }), /^arg0\.fillColour: expected a value or undefined, not null$/);
+// Only an own property counts: an inherited one is refused, not read.
+refused(() => m.area(Object.assign(Object.create({ fill: "x" }), { kind: "circle", radius: 1n })), /^arg0\.fill: inherited, not the object's own property$/);
+// Required fields stay required.
+refused(() => m.area({ kind: "circle" }), /^arg0\.radius: missing$/);
+refused(() => m.area({ kind: "polygon", fillColour: "x" }), /^arg0\.points: missing$/);
+
+// The property is read once.
+let reads = 0;
+const counted = { kind: "circle", radius: 1n, get fill() { reads++; return "x"; } };
+assert.equal(m.area(counted), 1n);
+assert.equal(reads, 1);
+
+// A record's `Option` field was always an optional property.
+assert.equal(m.total({ id: 1n, lines: [{ sku: "a", quantity: 1n }] }), 1n);
+const coupon = m.withCoupon({ id: 1n, lines: [], coupon: undefined });
+assert.deepEqual(coupon, { id: 1n, lines: [], coupon: "SAVE" });
+
+// Arrays handed back are fresh and mutable, so `T[]` is safe to give.
+const lines = [{ sku: "a", quantity: 1n }];
+const out = m.withCoupon({ id: 1n, lines, coupon: "x" });
+assert.notEqual(out.lines, lines);
+assert.equal(Object.isFrozen(out.lines), false);
+out.lines.push({ sku: "b", quantity: 2n });
+assert.equal(lines.length, 1);
+assert.equal(m.countItems(Object.freeze([{ sku: "a", quantity: 1n }])), 1n);
+console.log("ok");
+"#;
+    run_script("optional-fields", &[("app.mjs", app)], script);
+}
+
+/// The key acceptance test for matching an app's own TypeScript types: types
+/// written by hand with `T[]` and `f?: T` in a discriminated union (a custom
+/// tag from `js.tag`/`js.name`) and the generated ones are assignable both
+/// ways, under `--strict --exactOptionalPropertyTypes`, and the app's objects
+/// can be passed to exported functions. A `readonly` array is still accepted as
+/// a list parameter. Without `js.optional`, or with `readonly` lists in a
+/// declaration, it fails (the last checks below).
+#[test]
+fn generated_types_and_an_apps_types_are_mutually_assignable() {
+    let examples = examples();
+    let session = example(&examples, "app-types.sw");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    let app = r#"
+import { Shape, Order, area, recolour, withCoupon, countItems } from "./module";
+
+// The app's own types.
+type AppPoint = { x: bigint; y: bigint };
+type AppShape =
+  | { kind: "circle"; radius: bigint; fill?: string }
+  | { kind: "polygon"; points: AppPoint[]; fillColour?: string }
+  | { kind: "dot" };
+type AppItem = { sku: string; quantity: bigint };
+type AppOrder = { id: bigint; lines: AppItem[]; coupon?: string };
+
+declare const shape: Shape;
+declare const appShape: AppShape;
+declare const order: Order;
+declare const appOrder: AppOrder;
+
+// Generated to app, and app to generated.
+export const s1: AppShape = shape;
+export const s2: Shape = appShape;
+export const o1: AppOrder = order;
+export const o2: Order = appOrder;
+
+// The app's objects go straight into the exported functions, and what comes
+// back goes straight into the app's types.
+export const a: bigint = area(appShape);
+export const r: AppShape = recolour(appShape);
+export const w: AppOrder = withCoupon(appOrder);
+export const mutable: AppItem[] = w.lines;
+
+// A list parameter takes `readonly` and mutable arrays alike.
+declare const frozen: readonly AppItem[];
+export const n1: bigint = countItems(frozen);
+export const n2: bigint = countItems([{ sku: "a", quantity: 1n }]);
+"#;
+    let run = |name: &str, app: &str, dts: &str| {
+        let dir = std::env::temp_dir().join(format!(
+            "stitchwort-app-types-{}-{name}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        std::fs::write(dir.join("module.d.ts"), dts).expect("write declarations");
+        std::fs::write(dir.join("app.ts"), app).expect("write app");
+        let result = Command::new("tsc")
+            .args([
+                "--noEmit",
+                "--strict",
+                "--exactOptionalPropertyTypes",
+                "module.d.ts",
+                "app.ts",
+            ])
+            .current_dir(&dir)
+            .output()
+            .expect("run `tsc` (is it on the PATH? `nix develop` provides it)");
+        let _ = std::fs::remove_dir_all(&dir);
+        (
+            result.status.success(),
+            format!(
+                "{}{}",
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr)
+            ),
+        )
+    };
+    let (ok, report) = run("good", app, &output.dts);
+    assert!(
+        ok,
+        "the app's types and the generated ones aren't assignable:\n{report}\n{}",
+        output.dts
+    );
+    // The test can fail: `readonly` lists in a declaration, as before.
+    let readonly = output
+        .dts
+        .replace("points: Point[]", "points: readonly Point[]")
+        .replace("lines: Item[]", "lines: readonly Item[]");
+    assert_ne!(readonly, output.dts);
+    let (ok, report) = run("readonly", app, &readonly);
+    assert!(!ok, "readonly lists should not be assignable to `T[]`");
+    assert!(report.contains("readonly"), "{report}");
+    // And `f: T | undefined`, a required property, isn't `f?: T`.
+    let required = output.dts.replace(
+        "readonly fill?: string",
+        "readonly fill: string | undefined",
+    );
+    assert_ne!(required, output.dts);
+    let (ok, report) = run("required", app, &required);
+    assert!(!ok, "a required property should not accept an optional one");
+    assert!(report.contains("fill"), "{report}");
 }
 
 /// `@[js.tag "$tag"]` is exactly the default: the same module and

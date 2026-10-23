@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.optional` can't be used on `ok`: it's a proof, so it has no property in JavaScript
+   ╭─[ reject/attribute-optional-on-erased-field.sw:4:28 ]
+   │
+ 4 │   | MkPositive (n: Nat) (@[js.optional] ok: 0 < n)
+   │                            ─────┬─────  
+   │                                 ╰─────── `ok` is a proof
+───╯

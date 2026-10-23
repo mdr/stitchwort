@@ -65,7 +65,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 7;
+pub const FORMAT: u32 = 8;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1406,6 +1406,9 @@ impl Elaborator {
                     if let Some(key) = key {
                         e.str(key);
                     }
+                }
+                for &optional in &ctor.optional {
+                    e.w.bool(optional);
                 }
             }
         }
@@ -2788,7 +2791,12 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
             let keys = (0..m)
                 .map(|_| Ok(if b.r.bool()? { Some(b.string()?) } else { None }))
                 .collect::<Read<_>>()?;
-            ctors.push(JsCtor { tag, keys });
+            let optional = (0..m).map(|_| b.r.bool()).collect::<Read<_>>()?;
+            ctors.push(JsCtor {
+                tag,
+                keys,
+                optional,
+            });
         }
         t.js_repr.push((d, JsRepr { tag_key, ctors }));
     }

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.optional` takes no argument
+   ╭─[ reject/attribute-optional-with-argument.sw:3:29 ]
+   │
+ 3 │   | Circle (radius: Nat) (@[js.optional "yes"] fill: Option Text)
+   │                             ────────┬────────  
+   │                                     ╰────────── has an argument
+   │ 
+   │ Note: write `@[js.optional]`: a constructor field of type `Option T` crosses as an optional property `f?: T`, absent for `None`, instead of `f: T | undefined`
+───╯

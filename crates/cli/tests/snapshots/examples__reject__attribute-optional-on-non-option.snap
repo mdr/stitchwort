@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.optional` can't be used on `fill`: its type isn't `Option _`
+   ╭─[ reject/attribute-optional-on-non-option.sw:4:29 ]
+   │
+ 4 │   | Circle (radius: Nat) (@[js.optional] fill: Text)
+   │                             ─────┬─────  
+   │                                  ╰─────── this field isn't an `Option`
+   │ 
+   │ Note: `js.optional` applies to a constructor field written with the type `Option T` itself: it makes the property optional, `f?: T`
+───╯

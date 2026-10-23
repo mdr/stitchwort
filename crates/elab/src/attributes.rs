@@ -12,8 +12,9 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::DataId;
 use stitchwort_core::js_repr::{self, Clash, JsRepr, PROTO, Requested};
+use stitchwort_core::registry::Builtin;
+use stitchwort_core::{DataId, Term};
 use stitchwort_syntax::ast::{self, Attribute, Decl};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -44,14 +45,15 @@ pub(crate) struct Spec {
     pub(crate) name: &'static str,
     /// Where it may be written.
     targets: &'static [Target],
-    /// What its string argument means, for messages: `"KEY"`.
+    /// What its string argument means, for messages: `"KEY"`; empty for an
+    /// attribute that takes none (`@[js.optional]`).
     pub(crate) argument: &'static str,
     /// One line, for messages and the reference.
     pub(crate) doc: &'static str,
 }
 
-/// Every attribute the compiler accepts (D597: a closed set). All take one
-/// string. Bare names (`@[inline]`) are reserved for language-level
+/// Every attribute the compiler accepts (D597: a closed set). All but
+/// `js.optional` take one string. Bare names (`@[inline]`) are reserved for language-level
 /// attributes; `js.` is the JavaScript backend's.
 pub(crate) const REGISTRY: &[Spec] = &[
     Spec {
@@ -67,6 +69,13 @@ pub(crate) const REGISTRY: &[Spec] = &[
         argument: "NAME",
         doc: "a constructor's tag value, or a field's key, in JS (without it, the Stitchwort \
               name, with each `'` as `$`)",
+    },
+    Spec {
+        name: "js.optional",
+        targets: &[Target::Field],
+        argument: "",
+        doc: "a constructor field of type `Option T` crosses as an optional property `f?: T`, \
+              absent for `None`, instead of `f: T | undefined`",
     },
 ];
 
@@ -97,7 +106,11 @@ impl Checked<'_> {
 /// The note listing what there is.
 fn known() -> String {
     let names: Vec<String> = REGISTRY.iter().map(|s| format!("`{}`", s.name)).collect();
-    format!("the attributes are {}", names.join(" and "))
+    let list = match names.as_slice() {
+        [init @ .., last] if !init.is_empty() => format!("{} and {last}", init.join(", ")),
+        _ => names.join(""),
+    };
+    format!("the attributes are {list}")
 }
 
 /// The spec of attribute `a`, or `E-ATTRIBUTE-UNKNOWN`.
@@ -156,6 +169,26 @@ fn check<'a>(attrs: &'a [Attribute], place: Place) -> Result<Checked<'a>> {
                 applies.join(" or "),
                 spec.doc
             )));
+        }
+        if spec.argument.is_empty() {
+            if a.arg.is_some() {
+                return Err(Diagnostic::error(
+                    "E-ATTRIBUTE",
+                    format!("`{}` takes no argument", spec.name),
+                )
+                .with_label(a.span, "has an argument")
+                .with_note(format!("write `@[{}]`: {}", spec.name, spec.doc)));
+            }
+            if let Some((_, first, _)) = out.attrs.iter().find(|(s, ..)| s.name == spec.name) {
+                return Err(Diagnostic::error(
+                    "E-ATTRIBUTE",
+                    format!("`{}` is written twice here", spec.name),
+                )
+                .with_label(a.span, "again here")
+                .with_label(first.span, "first here"));
+            }
+            out.attrs.push((spec, a, ""));
+            continue;
         }
         let Some((arg, _)) = &a.arg else {
             return Err(Diagnostic::error(
@@ -314,6 +347,7 @@ impl Elaborator {
         }
         // Where each core field is written: the binders' names in order.
         let mut sites: FieldSites = Vec::new();
+        let option = g.registry.data(Builtin::Option);
         for (c, ctor) in ctors.iter().enumerate() {
             let core = &data.ctors[c];
             let ctor_attrs = check(&ctor.attrs, Place::Target(Target::Ctor))?;
@@ -323,6 +357,7 @@ impl Elaborator {
                 tag = Some(value.to_string());
             }
             let mut keys = Vec::new();
+            let mut optionals = Vec::new();
             let mut ctor_sites = Vec::new();
             for binder in &ctor.fields {
                 if binder.names.len() > 1
@@ -343,6 +378,7 @@ impl Elaborator {
                     ctor_sites.push((n.span, binder.attrs.as_slice()));
                     if binder.attrs.is_empty() {
                         keys.push(None);
+                        optionals.push(false);
                         continue;
                     }
                     let field_attrs = check(&binder.attrs, Place::Target(Target::Field))?;
@@ -372,6 +408,42 @@ impl Elaborator {
                         key = Some(value.to_string());
                     }
                     keys.push(key);
+                    let optional = field_attrs.get("js.optional");
+                    if let Some((a, _)) = optional {
+                        let is_option = matches!(
+                            core.fields[i].1.strip_loc(),
+                            Term::Data(od, _) if Some(*od) == option
+                        );
+                        if *record {
+                            return Err(Diagnostic::error(
+                                "E-ATTRIBUTE",
+                                format!(
+                                    "`js.optional` can't be used on the record field `{}`",
+                                    n.text
+                                ),
+                            )
+                            .with_label(a.span, "on a record field")
+                            .with_note(
+                                "a record's `Option` field already crosses as an optional \
+                                 property, `f?: T`",
+                            ));
+                        }
+                        if !is_option {
+                            return Err(Diagnostic::error(
+                                "E-ATTRIBUTE",
+                                format!(
+                                    "`js.optional` can't be used on `{}`: its type isn't `Option _`",
+                                    n.text
+                                ),
+                            )
+                            .with_label(a.span, "this field isn't an `Option`")
+                            .with_note(
+                                "`js.optional` applies to a constructor field written with the \
+                                 type `Option T` itself: it makes the property optional, `f?: T`",
+                            ));
+                        }
+                    }
+                    optionals.push(optional.is_some());
                 }
             }
             if ctor_sites.len() != core.fields.len() {
@@ -381,6 +453,7 @@ impl Elaborator {
             }
             sites.push(ctor_sites);
             requested.ctors.push((tag, keys));
+            requested.optional.push(optionals);
         }
         let repr = js_repr::resolve(data, &requested).map_err(|clashes| {
             let repr = js_repr::names(data, &requested);

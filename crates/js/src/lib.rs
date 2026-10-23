@@ -63,7 +63,7 @@ pub enum Boundary {
     Text,
     /// `string`, holding exactly one Unicode scalar value.
     Char,
-    /// `readonly T[]`.
+    /// `readonly T[]` as a function's parameter, `T[]` elsewhere.
     List(Box<Boundary>),
     /// The prelude's `Option T` (the `DataId`), as `T | undefined`: in a
     /// record's field, an optional property (D582). An `Option (Option T)`'s
@@ -2669,9 +2669,11 @@ impl<'g> Gen<'g> {
                 .iter()
                 .zip(external_keys(&repr, c))
                 .zip(internal)
-                .map(|(((_, b), external), internal)| {
-                    // A record's `Option` field is an optional property.
-                    let optional = data.record && matches!(b, Boundary::Option(..));
+                .zip(external_optional(&repr, c))
+                .map(|((((_, b), external), internal), flag)| {
+                    // A record's `Option` field is an optional property, and
+                    // so is a variant's with `js.optional`.
+                    let optional = flag || (data.record && matches!(b, Boundary::Option(..)));
                     let rest = if internal != external {
                         format!(", {optional}, {}", js_string_literal(&internal))
                     } else if optional {
@@ -2760,7 +2762,11 @@ impl<'g> Gen<'g> {
         Ok(out)
     }
 
-    /// Inputs are `readonly`; outputs are freshly built, so they're mutable.
+    /// A function's parameters are `readonly`, so a caller may pass either; its
+    /// result, and every list inside a data type's declaration, is a
+    /// mutable `T[]`. The codec copies arrays both ways, so a caller who gets
+    /// one may keep and change it, and a type an app wrote with `T[]` is
+    /// assignable both ways (`readonly T[]` isn't assignable to `T[]`).
     /// `params` names a data type's parameters, inside its alias.
     fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String]) -> String {
         match b {
@@ -2816,16 +2822,24 @@ impl<'g> Gen<'g> {
                         js_string_literal(&repr.ctors[c].tag)
                     ));
                 }
-                for ((_, b), key) in fields.iter().zip(external_keys(&repr, c)) {
-                    // A record's `Option` field is an optional property.
+                for (((_, b), key), flag) in fields
+                    .iter()
+                    .zip(external_keys(&repr, c))
+                    .zip(external_optional(&repr, c))
+                {
+                    // A record's `Option` field is an optional property, and
+                    // so is a variant's with `js.optional`.
                     let (optional, b) = match b {
-                        Boundary::Option(..) if data.record => ("?", b.payload()),
+                        Boundary::Option(..) if data.record || flag => ("?", b.payload()),
                         _ => ("", b.clone()),
                     };
+                    // Lists in a declaration are mutable, `T[]`: an app's own
+                    // types say `T[]`, and `readonly T[]` isn't assignable to
+                    // it (see `ts_type`).
                     parts.push(format!(
                         "readonly {}{optional}: {}",
                         ts_key(key),
-                        self.ts_type(&b, true, &params)
+                        self.ts_type(&b, false, &params)
                     ));
                 }
                 if parts.is_empty() {
@@ -3224,6 +3238,18 @@ fn external_keys(repr: &JsRepr, c: usize) -> Vec<&str> {
         .collect()
 }
 
+/// For each of constructor `c`'s fields that has a key, whether `js.optional`
+/// is written on it: alongside [`external_keys`].
+fn external_optional(repr: &JsRepr, c: usize) -> Vec<bool> {
+    let ctor = &repr.ctors[c];
+    ctor.keys
+        .iter()
+        .zip(&ctor.optional)
+        .filter(|(key, _)| key.is_some())
+        .map(|(_, &optional)| optional)
+        .collect()
+}
+
 /// The key of a constructor's field in a JS object inside generated code
 /// (at the boundary, a field's key is its [`repr`]'s, which the codec
 /// translates to and from this): its name, with each prime as `$`. A name
@@ -3488,12 +3514,19 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 .zip(&ctor.field_erased)
                 .filter(|(_, erased)| !**erased)
                 .map(|(field, _)| field);
-            for (((_, b), field), key) in
-                boundaries.iter().zip(runtime).zip(external_keys(&repr, *c))
+            for ((((_, b), field), key), flag) in boundaries
+                .iter()
+                .zip(runtime)
+                .zip(external_keys(&repr, *c))
+                .zip(external_optional(&repr, *c))
             {
                 let literal = boundary_literal(g, b, field)?;
-                // `None` in a record's `Option` field is no property.
-                if data.record && matches!(b, Boundary::Option(..)) && literal == "undefined" {
+                // `None` in a record's `Option` field, or a variant's with
+                // `js.optional`, is no property.
+                if (data.record || flag)
+                    && matches!(b, Boundary::Option(..))
+                    && literal == "undefined"
+                {
                     continue;
                 }
                 parts.push(format!("{}: {literal}", ts_key(key)));

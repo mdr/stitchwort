@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.optional` can't be used on `value`: its type isn't `Option _`
+   ╭─[ reject/attribute-optional-on-parameter-field.sw:5:13 ]
+   │
+ 5 │   | Full (@[js.optional] value: a)
+   │             ─────┬─────  
+   │                  ╰─────── this field isn't an `Option`
+   │ 
+   │ Note: `js.optional` applies to a constructor field written with the type `Option T` itself: it makes the property optional, `f?: T`
+───╯

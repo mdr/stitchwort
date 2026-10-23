@@ -35,6 +35,11 @@ pub struct JsCtor {
     /// For each field, its key; `None` for an erased field (a proof or a
     /// type), which has no property.
     pub keys: Vec<Option<String>>,
+    /// For each field, whether it crosses as an optional property (`f?: T`,
+    /// from `js.optional`): a missing key or `undefined` is `None`, and
+    /// `None` is no key. Only a variant's `Option` field has it set here; a
+    /// record's `Option` fields are always optional properties, without it.
+    pub optional: Vec<bool>,
 }
 
 /// What the attributes on a type ask for: `None` wherever the default
@@ -43,6 +48,9 @@ pub struct JsCtor {
 pub struct Requested {
     pub tag_key: Option<String>,
     pub ctors: Vec<(Option<String>, Vec<Option<String>>)>,
+    /// One list per constructor, one entry per field: `js.optional` is
+    /// written on it. May be empty (none are).
+    pub optional: Vec<Vec<bool>>,
 }
 
 /// Why a type's resolved names don't work at the boundary.
@@ -193,7 +201,21 @@ pub fn names(data: &Data, requested: &Requested) -> JsRepr {
                 )
             })
             .collect();
-        ctors.push(JsCtor { tag, keys });
+        let optional = (0..ctor.fields.len())
+            .map(|i| {
+                requested
+                    .optional
+                    .get(c)
+                    .and_then(|o| o.get(i))
+                    .copied()
+                    .unwrap_or(false)
+            })
+            .collect();
+        ctors.push(JsCtor {
+            tag,
+            keys,
+            optional,
+        });
     }
     JsRepr { tag_key, ctors }
 }
