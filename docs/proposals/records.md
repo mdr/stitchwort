@@ -643,6 +643,30 @@ type SortedList = { items : List Nat, sorted : IsSorted items }
   the new field expressions: when it isn't a variable, it's bound to one
   first, and the fields that aren't replaced are projections of that
   variable. The base expression is never copied into each projection.
+
+  **An update can change the record's type parameters** (added 23 October
+  2026), as Haskell's record update does: a parameter can change only if
+  every field whose type mentions it is replaced, and no other parameter's
+  type depends on it. With `type Timed (a: Type) = { start: a, end: a, label:
+  Text }` and `t: Timed Int`:
+
+  ```
+  { t | start = Int.toNat t.start, end = Int.toNat t.end }   -- a `Timed Nat`
+  { t | start = Int.toNat t.start }                          -- E-RECORD-UPDATE: the kept `end` has type `a`
+  ```
+
+  Checked against an expected type `Timed Nat`, the base's own type is
+  learnt first (inferred, then undone); if it already is the expected type
+  the update is elaborated as before, otherwise each parameter that differs
+  must be one only replaced fields mention, or the error names the kept
+  field that fixes it. With no expected type, the update is first elaborated
+  as before, at the base's parameters (so `{ t | start = 5 }` stays a `Timed
+  Int`); only if that fails do the parameters only replaced fields mention
+  become new unknowns, which the new fields settle. The term is the same
+  constructor application either way, since constructors carry no type
+  arguments, so no hash moves. (A variant's fields will be updated by
+  `match` (docs/proposals/variant-fields.md); that is a different form and
+  doesn't use this rule.)
 - **Patterns** `{ name = n, age = a }`, `{ name, age }` (punning), and
   `{ name, .. }` (the rest ignored), nested inside other patterns. Like
   `p.name`, a record pattern is resolved by the type of what it matches, so

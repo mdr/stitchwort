@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/generic-constructor-literal-conflict.sw:16:71 ]
+    │
+ 16 │ def bad (m: Mark Text Nat): List (Mark Text Nat) := pair (Point 1 "p" 10) m
+    │                                                                       ─┬  
+    │                                                                        ╰── expected `Text`, but this has type `Nat`
+    │ 
+    │ Note: a numeral can only be the prelude's `Nat` or `Int`
+────╯

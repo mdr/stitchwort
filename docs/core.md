@@ -409,7 +409,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 |---|---|
 | `E-PARSE` | Syntax error |
 | `E-UNKNOWN-NAME` | Name not in scope |
-| `E-UNKNOWN-FIELD` / `E-RECORD-FIELD` / `E-NOT-A-RECORD` / `E-RECORD-UPDATE` | A record, or a constructor in a named-field pattern `C { … }`, has no such (explicit) field; a literal or pattern leaves a field out or gives one twice; a record operation on something that isn't a record; an update that replaces a field without the later fields whose types mention it |
+| `E-UNKNOWN-FIELD` / `E-RECORD-FIELD` / `E-NOT-A-RECORD` / `E-RECORD-UPDATE` | A record, or a constructor in a named-field pattern `C { … }`, has no such (explicit) field; a literal or pattern leaves a field out or gives one twice; a record operation on something that isn't a record; an update that replaces a field without the later fields whose types mention it, or that would change a type parameter a kept field mentions |
 | `E-DUPLICATE` | Name defined twice, or a built-in name redefined |
 | `E-MISSING-DEFINITION` | A `def` header with no body (only the prelude's primitives may) |
 | `E-ARITY` | Wrong number of patterns or arguments |

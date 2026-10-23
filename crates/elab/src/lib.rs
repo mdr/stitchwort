@@ -300,6 +300,11 @@ pub struct Elaborator {
     /// application inside uses its expected type first
     /// (docs/proposals/syntax-conveniences.md §7.4).
     no_propagation: std::cell::Cell<usize>,
+    /// Above zero while an application, list, `if` or comparison is
+    /// elaborated again after failing, with a constructor of a generic type
+    /// that has number literals in it checked after its siblings, so they
+    /// can say what its parameters are (`check::defers_literal`).
+    pub(crate) late_literals: std::cell::Cell<usize>,
     /// What each receiver's dot call was found to call, by the receiver
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every

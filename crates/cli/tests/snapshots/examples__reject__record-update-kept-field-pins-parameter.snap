@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-UPDATE] Error: this update can't change `a` from `Int` to `Nat`
+    ╭─[ reject/record-update-kept-field-pins-parameter.sw:11:38 ]
+    │
+ 11 │ def bad (t: Timed Int): Timed Nat := { t | start = Int.toNat t.start }
+    │                                      ────────────────┬────────────────  
+    │                                                      ╰────────────────── the kept field `end` has a type that mentions `a`, so `a` stays `Int`
+    │ 
+    │ Note: a type parameter can change only if every field whose type mentions it is replaced: give a new `end` too
+────╯
