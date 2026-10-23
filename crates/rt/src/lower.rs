@@ -14,11 +14,7 @@ use num_bigint::BigInt;
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-<<<<<<< HEAD
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, Sort, Term};
-=======
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, QuotForm, Sort, Term};
->>>>>>> worktree-agent-a1e8893d503ea2a35
+use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, Sort, Term};
 use stitchwort_syntax::Diagnostic;
 
 use crate::erasure::{DefShape, def_shape, defs_in, is_done_continuation, reachable, text_literal};
