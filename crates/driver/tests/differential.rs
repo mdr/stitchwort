@@ -346,6 +346,88 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
     });
 }
 
+/// Quotients (docs/proposals/map-equality.md §7.2): both evaluators apply
+/// the one rule, `Quot.lift f h (Quot.mk a)` to `f a`, through definitions
+/// and folded theorems, leave `Quot.ind`, `Quot.sound` and `J` on them
+/// stuck, and keep a definition that lifts a variable folded; and conversion
+/// agrees on all of it. Every definition is compared applied to variables
+/// (`compare_definitions`), so the folded and stuck forms are covered.
+#[test]
+fn the_evaluators_agree_on_quotients() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load(
+                "quotients.sw",
+                "import Std (Eq)\n\n\
+                 def AllTrue (x: Bool) (y: Bool): Prop := Unit\n\
+                 def Q: Type := Quot Bool AllTrue\n\
+                 theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial\n\
+                 def stuck: Nat := J (y p => Nat) 0 same\n\
+                 def byInd: 0 = 0 := Quot.ind [p := q => 0 = 0] (b => rfl) (Quot.mk False: Q)\n\
+                 def stuckToo: Nat := J (y p => Nat) 0 byInd\n\
+                 def BoolEq (x: Bool) (y: Bool): Prop := x = y\n\
+                 def QE: Type := Quot Bool BoolEq\n\
+                 def toNat (b: Bool): Nat := if b then 1 else 0\n\
+                 def toNatRespects (x: Bool) (y: Bool) (same: BoolEq x y): toNat x = toNat y :=\n  \
+                 rewrite same in rfl\n\
+                 def observe (q: QE): Nat := Quot.lift toNat toNatRespects q\n\
+                 def mkTrue: QE := Quot.mk True\n\
+                 def one: Nat := observe mkTrue\n\
+                 def oneDirectly: Nat := Quot.lift toNat toNatRespects mkTrue\n\
+                 def viaMatch (b: Bool) (q: QE): Nat :=\n  \
+                 match b with\n    \
+                 | True => Quot.lift toNat toNatRespects q\n    \
+                 | False => 0\n\
+                 def twice (q: QE): Nat := observe q + observe q\n\
+                 def proofLift (q: Q): 0 = 0 := Quot.lift (b => rfl) (x y r => rfl) q\n\
+                 def propLift (q: Q): Prop := Quot.lift (b => Unit) (x y r => rfl) q\n",
+            )
+            .unwrap();
+        let g = &session.elab.globals;
+        assert!(compare_definitions(g, "quotients.sw") > 20);
+        assert!(compare_conversion(g, "quotients.sw") > 20);
+        let closed = |name: &str| {
+            let term = Term::Def(def(g, name));
+            let fast = value::eval(g, &[], &term).expect("no limits");
+            let slow = reference::eval(g, &[], &term).expect("no limits");
+            assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow), "{name}");
+            normal(g, 0, &fast)
+        };
+        assert_eq!(closed("one"), "Nat(1)");
+        assert_eq!(closed("oneDirectly"), "Nat(1)");
+        // `J` on `Quot.sound`, and on a proof by `Quot.ind`, is stuck: a
+        // closed `Nat` that isn't a number (§9.1, A3 and A6's kernel side).
+        for name in ["stuck", "stuckToo"] {
+            let shown = closed(name);
+            assert!(shown.starts_with("J("), "{name}: {shown}");
+        }
+        // A lift of a variable, folded by name; unfolded, the lift itself.
+        let observe = def(g, "observe");
+        let applied = |f: DefId| {
+            let fast = value::apply(
+                g,
+                value::eval(g, &[], &Term::Def(f)).unwrap(),
+                Value::var(0),
+            )
+            .unwrap();
+            let slow = reference::apply_icit(
+                g,
+                reference::eval(g, &[], &Term::Def(f)).unwrap(),
+                Value::var(0),
+                Icit::Explicit,
+            )
+            .unwrap();
+            assert_eq!(normal(g, 1, &fast), normal(g, 1, &slow));
+            normal(g, 1, &fast)
+        };
+        assert_eq!(
+            applied(observe),
+            format!("App(Def(DefId({})), Var(0), Explicit)", observe.0)
+        );
+    });
+}
+
 /// `let` (docs/proposals/let.md stage 2): both evaluators put the value in
 /// the environment, once, before the body, on closed and open terms, with the
 /// value or the body a function, nested, and under binders. The elaborator

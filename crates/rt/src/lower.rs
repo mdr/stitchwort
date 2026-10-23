@@ -14,7 +14,11 @@ use num_bigint::BigInt;
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
+<<<<<<< HEAD
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, Sort, Term};
+=======
+use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, QuotForm, Sort, Term};
+>>>>>>> worktree-agent-a1e8893d503ea2a35
 use stitchwort_syntax::Diagnostic;
 
 use crate::erasure::{DefShape, def_shape, defs_in, is_done_continuation, reachable, text_literal};
@@ -468,8 +472,23 @@ impl<'g> Lowerer<'g> {
             Term::Ctor(d, c, args) => self.ctor(term, *d, *c, args)?,
             // Proofs are erased, and transport along an equality does nothing.
             Term::J(_, base, _) => self.expr(base)?,
-            Term::Data(..) | Term::Sort(_) | Term::Pi(..) | Term::Eq(..) | Term::Refl => {
-                Expr::Erased
+            Term::Data(..)
+            | Term::Sort(_)
+            | Term::Pi(..)
+            | Term::Eq(..)
+            | Term::Refl
+            | Term::Quot(QuotForm::Type, ..) => Expr::Erased,
+            // Lowering quotients (docs/proposals/map-equality.md §7.4) is
+            // stage 1.3; until then a program that runs one is refused.
+            Term::Quot(form, ..) => {
+                return Err(Diagnostic::error(
+                    "E-RUNTIME",
+                    format!(
+                        "`{}` can't be run by this runtime yet: quotients run only in the \
+                         reference evaluator for now",
+                        form.name()
+                    ),
+                ));
             }
             Term::Case(ix, d, branches) => self.case(*ix, *d, branches)?,
             Term::NumCase(ix, arms, default) => self.num_case(*ix, arms, default)?,

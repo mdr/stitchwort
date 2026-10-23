@@ -1540,6 +1540,38 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   `get`, `insert`, `size`, `foldLeft`, and `eqIffToListEq`, `toListInjective`, `ext`, `DecEq`,
   `Ord`. **Exit (the final gate):** the eight properties (§14.2). Only then does stage 2 start.
 
+**Step 1.2 as built.**
+
+- **The rule.** In the machine (`value.rs`: `Frame::LiftQuotient`, `LiftForced`, `LiftReady`)
+  and the reference evaluator (`reference.rs`: `eval_quot`, `lift`), `Quot.lift` forces its
+  quotient argument, unfolds it if it's a folded call, and applies `f` to the representative only
+  if the result is a `Quot.mk` (`quot_mk_rep`: head `Quot(Mk)` with exactly its three
+  arguments). Anything else leaves the lift neutral with all six arguments. `ind` and `sound`
+  have no case, so they never compute. Conversion is 1.1's structural comparison, every argument
+  compared, unchanged.
+- **Folding.** `Def::lift_leaf` (not hashed, like `fold`) is set by `define_group` when a
+  definition with parameters has a `Quot.lift` leaf in its case tree (through `case` and
+  number-case branches only, which is what the tree walk visits). Such a definition, fully
+  applied, stays folded when the walk reaches a lift whose quotient isn't a `Quot.mk`, as on a
+  `case` that can't step. `is_folded` counts it, so a `case`, `J`, a lift or a comparison that
+  needs it unfolds it again, with the fold off, and sees the lift. The fold is off while a
+  program runs. A definition without parameters evaluates its body directly and never folds.
+- **Review fix.** In the WIP, the machine's tree walk folded on a lift for any definition, not
+  only those with `lift_leaf`. Every path that sets a body computes the flag, so nothing broke,
+  but a call folded without the flag would never be unfolded for a comparison, which breaks
+  §7.2's condition. Both evaluators now fold only when `lift_leaf` is set.
+- **Tests.** A1: `crates/core/tests/quot.rs` (`a1_*`), and `examples/accept/quot-lift.sw`. A4:
+  the `hash.rs` unit tests from 1.1, plus `quotient_forms_round_trip_through_the_cache` in
+  `crates/driver/tests/check_cache.rs` (all five forms, through a project namespace). A8:
+  `a8_a_folded_lift_is_still_its_body`; `funext` through named `evalAt`/`rebuild` in
+  `accept/quot-lift.sw`; and `reject/quot-lift-folded-goal.sw`, whose message shows `observe q`.
+  R7/R8 re-run: `r7_r8_the_rule_is_for_lift_alone`. A lift on a closed quotient that isn't a
+  `Quot.mk` (`J` on `Quot.sound`) stays neutral and is still convertible with a definition that
+  is it: `a_lift_on_a_stuck_closed_quotient_is_neutral_and_still_its_body`. Differential:
+  `the_evaluators_agree_on_quotients`.
+- **Left for 1.3.** The evaluators don't read D921's flags yet: an erased-result lift still
+  computes `f a` under erasure.
+
 ### 14.2 The gate before stage 2: the review's eight properties
 
 1. **Equality computes**: equal entries inserted in different orders give `True`; a changed value

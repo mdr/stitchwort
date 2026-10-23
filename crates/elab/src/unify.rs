@@ -456,15 +456,31 @@ fn rename(
             rename_spine(g, m, renaming, dom, cod, Term::Meta(m2), &spine)?
         }
         Value::Neutral(head, spine) => {
-            let head = match head {
+            let (head, rest) = match head {
                 Head::Meta(_) => return Err(Fail::No),
-                Head::Def(id) => Term::Def(id),
+                Head::Def(id) => (Term::Def(id), &spine[..]),
                 Head::Var(l) => {
                     let new = *renaming.get(&l).ok_or(Fail::No)?;
-                    Term::Var(dom - 1 - new)
+                    (Term::Var(dom - 1 - new), &spine[..])
+                }
+                // The form's own arguments, then what applies its result.
+                Head::Quot(form) => {
+                    let n = spine
+                        .iter()
+                        .take(form.arity())
+                        .take_while(|e| matches!(e, Elim::App(..)))
+                        .count();
+                    let args = spine[..n]
+                        .iter()
+                        .map(|e| match e {
+                            Elim::App(v, _) => go(v).map(Rc::new),
+                            Elim::J { .. } => unreachable!("counted applications"),
+                        })
+                        .collect::<Renamed<_>>()?;
+                    (Term::Quot(form, args, false), &spine[n..])
                 }
             };
-            rename_spine(g, m, renaming, dom, cod, head, &spine)?
+            rename_spine(g, m, renaming, dom, cod, head, rest)?
         }
         // Solutions are read back unfolded: `force` gave the unfolding.
         Value::Call(..) => unreachable!("a forced value is never a call"),
@@ -717,6 +733,7 @@ fn fold_back(
             (None, None, None) => None,
             (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
         },
+        Term::Quot(form, args, e) => all(args, under)?.map(|args| Term::Quot(*form, args, *e)),
         Term::Loc(span, t) => go(t, under)?.map(|t| Term::Loc(*span, t)),
     })
 }
@@ -987,6 +1004,7 @@ fn zonk_changed(
             (None, None, None) => None,
             (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
         },
+        Term::Quot(form, args, e) => all(args)?.map(|args| Term::Quot(*form, args, *e)),
         Term::Loc(span, t) => go(t, level)?.map(|t| Term::Loc(*span, t)),
     })
 }

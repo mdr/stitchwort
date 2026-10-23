@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ soundness/quot-lift-projection.sw:10:63 ]
+    │
+ 10 │ def unwrap (q: Q): Bool := Quot.lift (b => b) (x y related => related) q
+    │                                                               ───┬───  
+    │                                                                  ╰───── expected `x = y`, but this has type `Unit`
+────╯

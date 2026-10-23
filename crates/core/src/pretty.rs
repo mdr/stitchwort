@@ -502,6 +502,29 @@ impl<'g> Printer<'g> {
                 (format!("{lhs} = {rhs}"), Prec::Eq)
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
+            // As written: `Quot.mk a`, the implicit arguments hidden unless
+            // asked for (`Quot.mk [Bool] [AllTrue] a`).
+            Term::Quot(form, args, _) => {
+                let hidden = form.implicit().min(args.len());
+                if self.show_hidden.get() {
+                    let mut text = form.name().to_string();
+                    for arg in &args[..hidden] {
+                        text.push_str(" [");
+                        text.push_str(&self.print(names, arg, Prec::Arrow));
+                        text.push(']');
+                    }
+                    let (rest, prec) =
+                        self.applied(names, String::new(), args[hidden..].iter().map(|a| &**a));
+                    text.push_str(&rest);
+                    let prec = if hidden > 0 { Prec::App } else { prec };
+                    return (text, prec);
+                }
+                self.applied(
+                    names,
+                    form.name().into(),
+                    args[hidden..].iter().map(|a| &**a),
+                )
+            }
         }
     }
 

@@ -59,6 +59,68 @@ impl Sort {
     }
 }
 
+/// One of the quotient term formers (docs/proposals/map-equality.md §7):
+/// `Quot A R`, `Quot.mk [A] [R] a`, `Quot.lift [A] [R] [B] f h q`,
+/// `Quot.ind [A] [R] [P] h q` and `Quot.sound [A] [R] [x] [y] r`. Each has a
+/// fixed number of arguments, the bracketed ones included ([`QuotForm::arity`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum QuotForm {
+    Type,
+    Mk,
+    Lift,
+    Ind,
+    Sound,
+}
+
+impl QuotForm {
+    pub const ALL: [QuotForm; 5] = [
+        QuotForm::Type,
+        QuotForm::Mk,
+        QuotForm::Lift,
+        QuotForm::Ind,
+        QuotForm::Sound,
+    ];
+
+    /// How many arguments the form takes, the implicit ones included.
+    pub fn arity(self) -> usize {
+        match self {
+            QuotForm::Type => 2,
+            QuotForm::Mk => 3,
+            QuotForm::Lift => 6,
+            QuotForm::Ind => 5,
+            QuotForm::Sound => 5,
+        }
+    }
+
+    /// How many of its first arguments are implicit (`[A] [R] …`): the rest
+    /// are written explicitly.
+    pub fn implicit(self) -> usize {
+        match self {
+            QuotForm::Type => 0,
+            QuotForm::Mk => 2,
+            QuotForm::Lift => 3,
+            QuotForm::Ind => 3,
+            QuotForm::Sound => 4,
+        }
+    }
+
+    /// Its surface name.
+    pub fn name(self) -> &'static str {
+        match self {
+            QuotForm::Type => "Quot",
+            QuotForm::Mk => "Quot.mk",
+            QuotForm::Lift => "Quot.lift",
+            QuotForm::Ind => "Quot.ind",
+            QuotForm::Sound => "Quot.sound",
+        }
+    }
+
+    /// The form a surface name stands for.
+    pub fn from_name(name: &str) -> Option<QuotForm> {
+        QuotForm::ALL.into_iter().find(|f| f.name() == name)
+    }
+}
+
 /// Whether a function parameter is explicit `(x : A)`, implicit `[x : A]`, or
 /// an implicit proof found automatically, `[auto x : P]`. Implicit and auto
 /// arguments are filled in by the elaborator. The kernel only checks that
@@ -125,6 +187,15 @@ pub enum Term {
     Refl,
     /// `J motive base proof`: transport along an equality.
     J(Rc<Term>, Rc<Term>, Rc<Term>),
+    /// A quotient form applied to all of its arguments, implicit ones
+    /// included (docs/proposals/map-equality.md §7.1, D860). The flag is
+    /// D921's erasure flag: for `Quot.mk`, whether the representative is
+    /// erased when running (`A` a sort or a type former); for `Quot.lift`,
+    /// whether the result is (`B` a proposition or a type former); `false`
+    /// for the other forms. Like `let`'s, the kernel recomputes it when it
+    /// checks the term, whatever it was given, and hashing ignores it. Use
+    /// [`Term::quot`] to build one.
+    Quot(QuotForm, Vec<Rc<Term>>, bool),
     /// A source location, for error messages. Ignored by evaluation.
     Loc(Span, Rc<Term>),
     /// A metavariable: an unknown the elaborator solves by unification. Never
@@ -182,7 +253,9 @@ fn has_unique_child(term: &Term) -> bool {
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
         Term::Lam(_, _, b) | Term::Loc(_, b) => unique(b),
         Term::Let(_, a, v, b, _) => unique(a) || unique(v) || unique(b),
-        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().any(unique),
+        Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+            args.iter().any(unique)
+        }
         Term::Eq(ty, a, b) => ty.as_ref().is_some_and(unique) || unique(a) || unique(b),
         Term::J(m, b, p) => unique(m) || unique(b) || unique(p),
         Term::Case(_, _, branches) => {
@@ -216,7 +289,9 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
             take(v);
             take(b);
         }
-        Term::Data(_, args) | Term::Ctor(_, _, args) => pending.append(args),
+        Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+            pending.append(args)
+        }
         Term::Eq(ty, a, b) => {
             if let Some(ty) = ty {
                 take(ty);
@@ -290,6 +365,12 @@ impl Term {
 
     pub fn ctor(d: DataId, c: usize, fields: Vec<Term>) -> Term {
         Term::Ctor(d, c, fields.into_iter().map(Rc::new).collect())
+    }
+
+    /// A quotient form applied to `args`, not marked erased: the kernel
+    /// marks it when it checks it.
+    pub fn quot(form: QuotForm, args: Vec<Term>) -> Term {
+        Term::Quot(form, args.into_iter().map(Rc::new).collect(), false)
     }
 
     /// `let x : ty := value; body`, not marked erased: the kernel marks it
@@ -436,6 +517,11 @@ impl Term {
                 go(b, cutoff)?,
             ),
             Term::J(m, b, p) => Term::J(go(m, cutoff)?, go(b, cutoff)?, go(p, cutoff)?),
+            Term::Quot(form, args, erased) => Term::Quot(
+                *form,
+                args.iter().map(|a| go(a, cutoff)).collect::<Result<_>>()?,
+                *erased,
+            ),
             Term::Loc(span, t) => Term::Loc(*span, go(t, cutoff)?),
         })
     }
@@ -475,7 +561,7 @@ impl Term {
             | Term::Sort(_)
             | Term::Refl
             | Term::Meta(_) => {}
-            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
                 for a in args {
                     f(a, 0);
                 }
@@ -603,6 +689,15 @@ mod tests {
             Term::J(rc(v(0)), rc(v(1)), rc(v(2))).shifted(1, 1),
             Term::J(rc(v(0)), rc(v(2)), rc(v(3))),
         );
+        // Every argument of a quotient form, the implicit ones included.
+        assert_same(
+            Term::quot(QuotForm::Lift, vec![v(0), v(1), v(2), v(3), v(4), v(5)]).shifted(2, 3),
+            Term::quot(QuotForm::Lift, vec![v(0), v(1), v(2), v(5), v(6), v(7)]),
+        );
+        assert_same(
+            Term::Quot(QuotForm::Mk, vec![rc(v(0)), rc(v(1)), rc(v(2))], true).shifted(1, 0),
+            Term::Quot(QuotForm::Mk, vec![rc(v(1)), rc(v(2)), rc(v(3))], true),
+        );
         assert_same(
             Term::Ann(
                 rc(data(vec![v(0)])),
@@ -642,6 +737,19 @@ mod tests {
         assert!(Term::J(rc(Term::Refl), rc(Term::Refl), rc(v(0))).mentions(0));
         assert!(Term::J(rc(Term::Refl), rc(v(0)), rc(Term::Refl)).mentions(0));
         assert!(Term::Ann(rc(Term::Refl), rc(v(0))).mentions(0));
+        // In every argument of every quotient form: an occurrence only in
+        // the relation counts (R13).
+        for form in QuotForm::ALL {
+            for i in 0..form.arity() {
+                let args = (0..form.arity())
+                    .map(|j| if j == i { v(0) } else { Term::Refl })
+                    .collect();
+                assert!(Term::quot(form, args).mentions(0), "{form:?} argument {i}");
+            }
+            let closed = (0..form.arity()).map(|_| Term::Refl).collect();
+            assert!(!Term::quot(form, closed).mentions(0));
+        }
+        assert!(!lam(Term::quot(QuotForm::Type, vec![v(0), Term::Refl])).mentions(0));
         assert!(!Term::Meta(0).mentions(0));
     }
 }

@@ -45,7 +45,7 @@
 
 use crate::budget::Result;
 use crate::globals::{Data, Globals, HashKey, State};
-use crate::term::{DataId, DefId, Icit, Sort, Term};
+use crate::term::{DataId, DefId, Icit, QuotForm, Sort, Term};
 
 /// A 256-bit content hash.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -611,10 +611,86 @@ impl<'g> Hasher<'g> {
                     self.tag("j");
                     pending.extend([Item::Term(m), Item::Term(b), Item::Term(p)]);
                 }
+                // Each form its own tag (so `Quot.ind` and `Quot.sound` with
+                // the same arguments differ), then every argument, implicit
+                // ones included. The erasure flag is determined by the rest
+                // (the kernel recomputes it), so it isn't hashed, as for
+                // `let`.
+                Term::Quot(form, args, _) => {
+                    self.tag(quot_tag(*form));
+                    pending.push(Item::Usize(args.len()));
+                    pending.extend(args.iter().map(|t| Item::Term(t)));
+                }
                 Term::Meta(_) => panic!("internal error: hashing an unsolved metavariable"),
             }
             pending[first..].reverse();
         }
         Ok(())
+    }
+}
+
+/// The tag a quotient form is hashed with.
+fn quot_tag(form: QuotForm) -> &'static str {
+    match form {
+        QuotForm::Type => "quot",
+        QuotForm::Mk => "quot-mk",
+        QuotForm::Lift => "quot-lift",
+        QuotForm::Ind => "quot-ind",
+        QuotForm::Sound => "quot-sound",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use super::*;
+
+    /// The hash of a closed term on its own.
+    fn hash_term(term: &Term) -> ContentHash {
+        let g = Globals::default();
+        let mut h = Hasher::new(&g, Itself::Def(DefId(usize::MAX)));
+        h.term(term).unwrap();
+        h.finish()
+    }
+
+    fn args(n: usize) -> Vec<Rc<Term>> {
+        (0..n)
+            .map(|i| Rc::new(Term::Sort(Sort::Type(i as u32))))
+            .collect()
+    }
+
+    /// A4: each form has its own tag, so two forms with the same arguments
+    /// never hash alike (`Quot.ind` and `Quot.sound` take as many).
+    #[test]
+    fn quotient_forms_with_the_same_arguments_hash_differently() {
+        let ind = hash_term(&Term::Quot(QuotForm::Ind, args(5), false));
+        let sound = hash_term(&Term::Quot(QuotForm::Sound, args(5), false));
+        assert_ne!(ind, sound);
+        let hashes: Vec<ContentHash> = QuotForm::ALL
+            .into_iter()
+            .map(|f| hash_term(&Term::Quot(f, args(3), false)))
+            .collect();
+        for (i, a) in hashes.iter().enumerate() {
+            for b in &hashes[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
+        // Every argument counts.
+        let mut other = args(5);
+        other[4] = Rc::new(Term::Sort(Sort::Prop));
+        assert_ne!(ind, hash_term(&Term::Quot(QuotForm::Ind, other, false)));
+    }
+
+    /// A4: D921's erasure flag isn't hashed.
+    #[test]
+    fn the_erasure_flag_isnt_hashed() {
+        for form in [QuotForm::Mk, QuotForm::Lift] {
+            let n = form.arity();
+            assert_eq!(
+                hash_term(&Term::Quot(form, args(n), false)),
+                hash_term(&Term::Quot(form, args(n), true))
+            );
+        }
     }
 }

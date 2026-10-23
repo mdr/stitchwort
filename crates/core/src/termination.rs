@@ -298,7 +298,10 @@ impl Walker<'_> {
                 self.walk(dom)?;
                 self.under(&[(x.clone(), false)], None, cod)?;
             }
-            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+            // A quotient form, `Quot.lift` included, gives no evidence of
+            // descent (it isn't a match), like `J`: calls in its arguments
+            // are checked as any call (docs/proposals/map-equality.md §7.5).
+            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
                 for arg in args {
                     self.walk(arg)?;
                 }

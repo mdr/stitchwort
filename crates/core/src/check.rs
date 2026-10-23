@@ -10,10 +10,10 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::budget;
 use crate::globals::{Ctor, Data, Def, FieldValidator, Globals, State, Validator};
 use crate::pretty;
-use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, Sort, Term};
+use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, QuotForm, Sort, Term};
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
-use crate::value::{Value, apply, conv, eval, force, force_ref, quote, unused};
+use crate::value::{Value, apply, conv, eval, force, force_ref, quot_value, quote, unused};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -367,6 +367,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             ))
         }
         Term::J(motive, base, proof) => infer_j(cx, motive, base, proof),
+        Term::Quot(form, args, _) => infer_quot(cx, *form, args),
         // A constructor of a data type without parameters has only one possible type.
         Term::Ctor(d, _, _)
             if g.datas
@@ -641,6 +642,164 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
         result,
     ))
+}
+
+/// The typing rules of the quotient forms (docs/proposals/map-equality.md
+/// §7.1), with every check on the form itself, whichever path reached it
+/// (inferring, or checking against a type, which infers): the elaborator
+/// isn't trusted for any of them.
+///
+/// - C1: each form has exactly its number of arguments.
+/// - Shared premises, first: the carrier `A` is a type in some `Type i` (C2:
+///   never a proposition), and `R : A -> A -> Prop` exactly (C3).
+/// - C4: `lift`'s and `ind`'s quotient argument has type `Quot A R` for the
+///   form's own `A` and `R`; `sound`'s proof is of the form's `R x y`;
+///   `ind`'s case is about the form's own `Quot.mk`.
+/// - C5: `lift`'s `B` is a type (in any sort) and `f : A -> B` doesn't
+///   depend on its argument's value; `ind`'s motive returns `Prop` exactly.
+/// - C6: `lift`'s respects proof is about the form's own `f`, `R` and `B`.
+///
+/// Also records D921's erasure flag, whatever the term said: for `mk`, that
+/// the representative is erased (`A` a type former: its elements are types);
+/// for `lift`, that the result is (`B` a proposition or a type former).
+fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, Value)> {
+    let g = cx.g;
+    if args.len() != form.arity() {
+        return Err(malformed(
+            cx,
+            format!(
+                "`{}` takes {} arguments, its implicit ones included, but has {}",
+                form.name(),
+                form.arity(),
+                args.len()
+            ),
+        ));
+    }
+    let shift = |t: &Term, by: usize| t.shift(g, by, 0);
+    let rc = Rc::new;
+    let arrow = |x: &str, dom: Term, cod: Term| {
+        Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
+    };
+    let app = |f: Term, a: Term| Term::app(f, a);
+    // The shared premises.
+    let (carrier, sort) = check_type(cx, &args[0])?;
+    let carrier_value = cx.eval(&carrier)?;
+    if sort == Sort::Prop {
+        return Err(cx
+            .error(
+                "E-UNIVERSE",
+                "a quotient of a proposition",
+                format!(
+                    "the carrier of a quotient must be a type in `Type`, but `{}` is a proposition",
+                    cx.show(&carrier_value)
+                ),
+            )
+            .with_note(
+                "quotients are of types' elements, not of a proposition's proofs \
+                 (docs/proposals/map-equality.md §7.1)",
+            ));
+    }
+    let relation_ty = arrow(
+        "x",
+        carrier.clone(),
+        arrow("y", shift(&carrier, 1)?, Term::Sort(Sort::Prop)),
+    );
+    let relation_ty = cx.eval(&relation_ty)?;
+    let relation = check(cx, &args[1], &relation_ty)?;
+    let relation_value = cx.eval(&relation)?;
+    let quot_ty = Term::Quot(
+        QuotForm::Type,
+        vec![rc(carrier.clone()), rc(relation.clone())],
+        false,
+    );
+    let quot_ty_value = quot_value(
+        QuotForm::Type,
+        vec![carrier_value.clone(), relation_value.clone()],
+    );
+    let (out, ty, erased) = match form {
+        QuotForm::Type => (vec![], Value::Sort(sort), false),
+        QuotForm::Mk => {
+            let a = check(cx, &args[2], &carrier_value)?;
+            let erased = is_erased(cx, &carrier_value)?;
+            (vec![a], quot_ty_value, erased)
+        }
+        QuotForm::Lift => {
+            let (result, _) = check_type(cx, &args[2])?;
+            let result_value = cx.eval(&result)?;
+            // f : A -> B
+            let f_ty = arrow("x", carrier.clone(), shift(&result, 1)?);
+            let f_ty = cx.eval(&f_ty)?;
+            let f = check(cx, &args[3], &f_ty)?;
+            // h : (x: A) -> (y: A) -> R x y -> f x = f y
+            let f3 = shift(&f, 3)?;
+            let respects = arrow(
+                "x",
+                carrier.clone(),
+                arrow(
+                    "y",
+                    shift(&carrier, 1)?,
+                    arrow(
+                        "r",
+                        app(app(shift(&relation, 2)?, Term::Var(1)), Term::Var(0)),
+                        Term::Eq(
+                            Some(rc(shift(&result, 3)?)),
+                            rc(app(f3.clone(), Term::Var(2))),
+                            rc(app(f3, Term::Var(1))),
+                        ),
+                    ),
+                ),
+            );
+            let respects = cx.eval(&respects)?;
+            let h = check(cx, &args[4], &respects)?;
+            let q = check(cx, &args[5], &quot_ty_value)?;
+            let erased = is_erased(cx, &result_value)?;
+            (vec![result, f, h, q], result_value, erased)
+        }
+        QuotForm::Ind => {
+            // P : Quot A R -> Prop
+            let motive_ty = arrow("q", quot_ty.clone(), Term::Sort(Sort::Prop));
+            let motive_ty = cx.eval(&motive_ty)?;
+            let motive = check(cx, &args[2], &motive_ty)?;
+            // h : (x: A) -> P (Quot.mk [A] [R] x)
+            let mk = Term::Quot(
+                QuotForm::Mk,
+                vec![
+                    rc(shift(&carrier, 1)?),
+                    rc(shift(&relation, 1)?),
+                    rc(Term::Var(0)),
+                ],
+                false,
+            );
+            let case_ty = arrow("x", carrier.clone(), app(shift(&motive, 1)?, mk));
+            let case_ty = cx.eval(&case_ty)?;
+            let h = check(cx, &args[3], &case_ty)?;
+            let q = check(cx, &args[4], &quot_ty_value)?;
+            let ty = apply(g, cx.eval(&motive)?, cx.eval(&q)?)?;
+            (vec![motive, h, q], ty, false)
+        }
+        QuotForm::Sound => {
+            let x = check(cx, &args[2], &carrier_value)?;
+            let y = check(cx, &args[3], &carrier_value)?;
+            // r : R x y
+            let related = app(app(relation.clone(), x.clone()), y.clone());
+            let related = cx.eval(&related)?;
+            let r = check(cx, &args[4], &related)?;
+            let mk = |v: Value| {
+                Rc::new(quot_value(
+                    QuotForm::Mk,
+                    vec![carrier_value.clone(), relation_value.clone(), v],
+                ))
+            };
+            let ty = Value::Eq(Rc::new(quot_ty_value), mk(cx.eval(&x)?), mk(cx.eval(&y)?));
+            (vec![x, y, r], ty, false)
+        }
+    };
+    let args = [carrier, relation]
+        .into_iter()
+        .chain(out)
+        .map(Rc::new)
+        .collect();
+    Ok((Term::Quot(form, args, erased), ty))
 }
 
 fn motive_error(cx: &Ctx) -> Diagnostic {
@@ -1181,6 +1340,8 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
         Ok(bodies) => {
             for ((id, _), body) in members.iter().zip(bodies) {
                 let def = &mut g.defs[id.0];
+                def.lift_leaf =
+                    def.arity > 0 && crate::value::has_lift_leaf(body.peel_lams(def.arity));
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
@@ -1284,6 +1445,7 @@ pub fn declare_def(
         theorem,
         instance: false,
         fold: false,
+        lift_leaf: false,
         export,
         validators: Vec::new(),
         run_body: None,

@@ -13,7 +13,7 @@ use std::rc::Rc;
 use num_bigint::BigUint;
 use stitchwort_core::chars::Chars;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 use stitchwort_syntax::Span;
 
 /// Why an entry can't be read: it is corrupt, or doesn't fit this session.
@@ -200,6 +200,22 @@ const EQ: u8 = 14;
 const REFL: u8 = 15;
 const J: u8 = 16;
 const LOC: u8 = 17;
+const QUOT: u8 = 18;
+
+/// The byte a quotient form is written as.
+fn quot_form_tag(form: QuotForm) -> u8 {
+    match form {
+        QuotForm::Type => 0,
+        QuotForm::Mk => 1,
+        QuotForm::Lift => 2,
+        QuotForm::Ind => 3,
+        QuotForm::Sound => 4,
+    }
+}
+
+fn read_quot_form(tag: u8) -> Option<QuotForm> {
+    QuotForm::ALL.into_iter().find(|f| quot_form_tag(*f) == tag)
+}
 
 /// Writes terms into a node table, and names into a string table, shared
 /// by everything in one entry.
@@ -406,6 +422,18 @@ impl TermWriter {
                 self.nodes.uint(b);
                 self.nodes.uint(p);
             }
+            // The form, D921's erasure flag (kept, as `let`'s is, so a
+            // loaded term runs as the checked one did), and the arguments.
+            Term::Quot(form, args, erased) => {
+                self.nodes.u8(QUOT);
+                self.nodes.u8(quot_form_tag(*form));
+                self.nodes.bool(*erased);
+                self.nodes.usize(args.len());
+                for a in args {
+                    let a = self.id(a);
+                    self.nodes.uint(a);
+                }
+            }
             Term::Loc(span, b) => {
                 self.nodes.u8(LOC);
                 refs.span(&mut self.nodes, *span);
@@ -444,6 +472,7 @@ fn each_child<'t>(t: &'t Term, f: &mut dyn FnMut(&'t Term)) {
             f(b);
             f(p);
         }
+        Term::Quot(_, args, _) => args.iter().for_each(|a| f(a)),
         Term::Case(_, _, branches) => {
             for branch in branches.iter() {
                 if let Some(b) = &branch.body {
@@ -634,6 +663,15 @@ impl Terms {
                 }
                 REFL => Term::Refl,
                 J => Term::J(self.rc(r)?, self.rc(r)?, self.rc(r)?),
+                QUOT => {
+                    let Some(form) = read_quot_form(r.u8()?) else {
+                        return bad("an unknown quotient form");
+                    };
+                    let erased = r.bool()?;
+                    let n = r.count(1)?;
+                    let args = (0..n).map(|_| self.rc(r)).collect::<Read<_>>()?;
+                    Term::Quot(form, args, erased)
+                }
                 LOC => {
                     let span = refs.span(r)?;
                     Term::Loc(span, self.rc(r)?)

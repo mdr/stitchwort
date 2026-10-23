@@ -338,6 +338,11 @@ impl<'e> Ctx<'e> {
             .map(|(n, _)| n.as_str())
     }
 
+    /// Whether a local definition called `name` is in scope.
+    pub(crate) fn has_local(&self, name: &str) -> bool {
+        self.local_entry(name).is_some()
+    }
+
     fn local_entry(&self, name: &str) -> Option<&LocalName> {
         let local = self.locals.iter().rev().find(|l| l.name == name)?;
         let shadowed = self.scope[local.scope..].iter().any(|(n, _)| n == name);
@@ -814,6 +819,9 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
     }
     if let Some(fields) = as_fields(cx, name) {
         return infer_app(cx, &fields, args);
+    }
+    if let Some(form) = crate::quot::head_form(cx, &name.text) {
+        return crate::quot::elaborate(cx, form, args, None);
     }
     match name.text.as_str() {
         "rfl" => {
@@ -1809,6 +1817,13 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Record { base, fields, .. }, _) => {
             records::check_record(cx, base.as_deref(), fields, &expected)
         }
+        // A quotient form, with the expected type to find its implicit
+        // arguments from.
+        (Expr::Var(_) | Expr::App(..), _) if crate::quot::applied(cx, expr).is_some() => {
+            let (form, args) = crate::quot::applied(cx, expr).expect("just checked");
+            let (term, ty) = crate::quot::elaborate(cx, form, &args, Some(&expected))?;
+            compare(cx, term, &ty, &expected)
+        }
         _ => fallback(cx, expr, &expected),
     }
 }
@@ -2288,7 +2303,10 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
         cx.e.note_local(cx, name, &cx.types[level]);
         return Some((Term::Var(cx.level() - 1 - level), cx.types[level].clone()));
     }
-    if as_fields(cx, name).is_some() || matches!(name.text.as_str(), "rfl" | "J") {
+    if as_fields(cx, name).is_some()
+        || matches!(name.text.as_str(), "rfl" | "J")
+        || crate::quot::head_form(cx, &name.text).is_some()
+    {
         return None;
     }
     match cx.e.named(&name.text) {

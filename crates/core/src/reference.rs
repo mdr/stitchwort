@@ -21,8 +21,8 @@ use std::rc::Rc;
 use crate::budget::Result;
 use crate::globals::Globals;
 use crate::native;
-use crate::term::{Branch, DefId, Icit, Term};
-use crate::value::{Closure, Elim, Head, Spine, Value};
+use crate::term::{Branch, DefId, Icit, QuotForm, Term};
+use crate::value::{Closure, Elim, Head, Spine, Value, quot_mk_rep, quot_value};
 
 pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
@@ -75,7 +75,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             env.push(eval(g, &env, value)?);
             eval(g, &env, body)?
         }
-        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term)?
+        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
             Rc::new(eval(
@@ -99,6 +99,8 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             }
             _ => panic!("internal error: J applied to a non-proof"),
         },
+        // The one computation rule: `Quot.lift f h (Quot.mk a)` is `f a`.
+        Term::Quot(form, args, _) => eval_quot(g, env, *form, args)?,
         Term::Loc(_, t) => eval(g, env, t)?,
     })
 }
@@ -218,6 +220,7 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
         ),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go), go(a), go(b)),
         Term::J(m, b, p) => Term::J(go(m), go(b), go(p)),
+        Term::Quot(form, args, e) => Term::Quot(*form, args.iter().map(go).collect(), *e),
         Term::Loc(span, t) => Term::Loc(*span, go(t)),
     }
 }
@@ -267,7 +270,8 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
             })
             .collect();
         if let Some(args) = args
-            && let Some(value) = eval_tree(g, args, body.peel_lams(def.arity))?
+            && let Some(value) =
+                eval_tree(g, args, body.peel_lams(def.arity), folds_on_lift(g, id))?
         {
             return Ok(value);
         }
@@ -282,17 +286,28 @@ fn folds(g: &Globals, id: DefId) -> bool {
     (def.fold || def.theorem) && !g.erasure.program_running()
 }
 
-/// Whether `value` is a folded definition with all its arguments.
-fn is_folded(g: &Globals, value: &Value) -> bool {
-    matches!(value, Value::Neutral(Head::Def(id), spine)
-        if folds(g, *id) && spine.len() == g.def(*id).arity && g.def(*id).body.is_some())
+/// Whether a definition with all its arguments stays folded when its case
+/// tree reaches a `Quot.lift` on a quotient that isn't a `Quot.mk`, except
+/// while a program runs.
+fn folds_on_lift(g: &Globals, id: DefId) -> bool {
+    g.def(id).lift_leaf && !g.erasure.program_running()
 }
 
-/// A dictionary or theorem left folded, unfolded (repeatedly) for a `case`
-/// or `J` to take it apart; anything else as it is.
+/// Whether `value` is a folded definition with all its arguments (or may
+/// be, folded on a `Quot.lift`).
+fn is_folded(g: &Globals, value: &Value) -> bool {
+    matches!(value, Value::Neutral(Head::Def(id), spine)
+        if (folds(g, *id) || folds_on_lift(g, *id))
+            && spine.len() == g.def(*id).arity
+            && g.def(*id).body.is_some())
+}
+
+/// A dictionary or theorem left folded (or a definition folded on a
+/// `Quot.lift`), unfolded (repeatedly) for a `case` or `J` to take it apart,
+/// or a comparison; anything else as it is.
 fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
     if let Value::Neutral(Head::Def(id), spine) = &value
-        && folds(g, *id)
+        && (folds(g, *id) || folds_on_lift(g, *id))
         && spine.len() == g.def(*id).arity
         && let Some(body) = g.def(*id).body.clone()
     {
@@ -304,7 +319,7 @@ fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
             })
             .collect();
         if let Some(args) = args
-            && let Some(next) = eval_tree(g, args, body.peel_lams(g.def(*id).arity))?
+            && let Some(next) = eval_tree(g, args, body.peel_lams(g.def(*id).arity), false)?
         {
             return unfold_folded(g, force(g, next)?);
         }
@@ -321,7 +336,12 @@ fn number_view(g: &Globals, value: &Value) -> Result<(num_bigint::BigUint, Optio
     native::view_with(g, &value, force)
 }
 
-fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Value>> {
+fn eval_tree(
+    g: &Globals,
+    mut env: Vec<Value>,
+    term: &Term,
+    fold_lifts: bool,
+) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
@@ -339,7 +359,7 @@ fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Val
                 return Ok(None);
             };
             env.extend(fields);
-            eval_tree(g, env, body)
+            eval_tree(g, env, body, fold_lifts)
         }
         Term::NumCase(ix, arms, default) => {
             let (k, base) = number_view(g, &env[env.len() - 1 - ix])?;
@@ -354,10 +374,70 @@ fn eval_tree(g: &Globals, mut env: Vec<Value>, term: &Term) -> Result<Option<Val
             } else {
                 return Ok(None);
             };
-            eval_tree(g, env, body)
+            eval_tree(g, env, body, fold_lifts)
+        }
+        // A `Quot.lift` leaf counts as a case on its quotient: stuck, the
+        // definition stays folded (`fold_lifts`: only one marked for it,
+        // `folds_on_lift`).
+        Term::Quot(QuotForm::Lift, args, _)
+            if fold_lifts && args.len() == QuotForm::Lift.arity() =>
+        {
+            lift_leaf(g, &env, args)
         }
         other => eval(g, &env, other).map(Some),
     }
+}
+
+/// A `Quot.lift` leaf of a case tree: `f a` on `Quot.mk a`, else stuck.
+#[inline(never)]
+fn lift_leaf(g: &Globals, env: &[Value], args: &[std::rc::Rc<Term>]) -> Result<Option<Value>> {
+    Ok(lift(g, env, args)?.ok())
+}
+
+/// A quotient form applied to `args`. The one computation rule:
+/// `Quot.lift f h (Quot.mk a)` is `f a`.
+#[inline(never)]
+fn eval_quot(
+    g: &Globals,
+    env: &[Value],
+    form: QuotForm,
+    args: &[std::rc::Rc<Term>],
+) -> Result<Value> {
+    let eval_all = |args: &[std::rc::Rc<Term>]| -> Result<Vec<Value>> {
+        args.iter().map(|a| eval(g, env, a)).collect()
+    };
+    if form == QuotForm::Lift && args.len() == QuotForm::Lift.arity() {
+        return match lift(g, env, args)? {
+            Ok(value) => Ok(value),
+            Err(q) => {
+                let mut values = eval_all(&args[..5])?;
+                values.push(q);
+                Ok(quot_value(QuotForm::Lift, values))
+            }
+        };
+    }
+    Ok(quot_value(form, eval_all(args)?))
+}
+
+/// `Quot.lift` applied to `args`: `f a` if the quotient is `Quot.mk a`, else
+/// the quotient's value. Its own frame, so `eval`'s and `eval_tree`'s
+/// recursion keep small ones (io.sw's long chain of prints recurses deeply).
+#[inline(never)]
+fn lift(
+    g: &Globals,
+    env: &[Value],
+    args: &[std::rc::Rc<Term>],
+) -> Result<std::result::Result<Value, Value>> {
+    let q = unfold_folded(g, force(g, eval(g, env, &args[5])?)?)?;
+    Ok(match quot_mk_rep(&q) {
+        Some(a) => Ok(apply_icit(
+            g,
+            eval(g, env, &args[3])?,
+            a.clone(),
+            Icit::Explicit,
+        )?),
+        None => Err(q),
+    })
 }
 
 /// Converts a value back into a term, with `level` variables in scope.
@@ -403,12 +483,13 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
         Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty)?)), Rc::new(q(&a)?), Rc::new(q(&b)?)),
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
-            let mut term = match head {
-                Head::Var(l) => Term::Var(level - 1 - l),
-                Head::Def(id) => Term::Def(id),
-                Head::Meta(m) => Term::Meta(m),
+            let (mut term, rest) = match head {
+                Head::Var(l) => (Term::Var(level - 1 - l), &spine[..]),
+                Head::Def(id) => (Term::Def(id), &spine[..]),
+                Head::Meta(m) => (Term::Meta(m), &spine[..]),
+                Head::Quot(form) => quote_quot(g, level, form, &spine)?,
             };
-            for elim in &spine {
+            for elim in rest {
                 term = match elim {
                     Elim::App(v, i) => Term::app_icit(term, q(v)?, *i),
                     Elim::J { motive, base } => {
@@ -420,6 +501,31 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
         }
         Value::Call(..) => unreachable!("the reference evaluator never glues"),
     })
+}
+
+/// A quotient form's own arguments, the first eliminations of `spine`,
+/// quoted, as the form applied to them; and the eliminations after them,
+/// which apply its result. Its own frame, as `lift` is.
+#[inline(never)]
+fn quote_quot<'s>(
+    g: &Globals,
+    level: usize,
+    form: QuotForm,
+    spine: &'s [Elim],
+) -> Result<(Term, &'s [Elim])> {
+    let n = spine
+        .iter()
+        .take(form.arity())
+        .take_while(|e| matches!(e, Elim::App(..)))
+        .count();
+    let args = spine[..n]
+        .iter()
+        .map(|e| match e {
+            Elim::App(v, _) => quote(g, level, v).map(Rc::new),
+            Elim::J { .. } => unreachable!("counted applications"),
+        })
+        .collect::<Result<_>>()?;
+    Ok((Term::Quot(form, args, false), &spine[n..]))
 }
 
 /// Definitional equality (the recursive version `value::conv` was derived
