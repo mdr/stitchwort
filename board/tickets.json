@@ -5363,9 +5363,9 @@
     {
       "id": 340,
       "title": "Design note: named-field constructor patterns, shared-field access and update on variants (D587)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "docs/proposals/variant-fields.md; D593-D595",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "draft 2 lane (D602): fold external review; D593(b) D594(a) D595(b)",
       "labels": [
         "design",
         "syntax"
