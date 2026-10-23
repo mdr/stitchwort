@@ -15,14 +15,18 @@
 -- neither.
 
 namespace Aoc.Day03
-import Std (Char, Fin, IO, Nat)
+import Aoc.Common (readLines)
+import Std (Char, Fail, Fin, IO, Nat)
+import Std.Fail (fail, need)
 
-def main(): {IO} () :=
+def main(): {IO, Fail} () :=
   let banks := parseBanks IO.readAllLines()
   IO.print "Part 1: ${solvePart1 banks}"
   IO.print "Part 2: ${solvePart2 banks}"
 
-def parseBanks (lines: List Text): List Bank := lines.map Bank.parse
+-- One bank per line. Spaces around a bank are allowed; anything else fails,
+-- naming the line.
+def parseBanks (lines: List Text): {Fail} (List Bank) := readLines Bank.read lines
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
 
@@ -40,7 +44,12 @@ def Battery: Type := Fin 10
 -- A bank of batteries: a digit on each.
 def Bank: Type := List Battery
 
-def Bank.parse (t: Text): Bank := t.toList |> .filterMap .toDigit
+-- "818" is the batteries 8, 1, 8. A bank has at least one battery.
+def Bank.read (t: Text): {Fail} Bank :=
+  let msg := "expected a row of digits, got '${t}'"
+  match t.trim.toList with
+    | Nil => fail msg
+    | chars => chars |> .mapIn (c => need c.toDigit msg)
 
 -- The digits of the largest k-digit number that is a subsequence of the bank.
 def Bank.best: Nat -> Bank -> Bank

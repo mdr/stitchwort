@@ -3,16 +3,20 @@
 
 namespace Aoc.Day08.Tests
 import Aoc.Day08 (..)
-import Std (List, Map, Nat, Option, Text)
+import Std (Fail, List, Map, Nat, Option, Result, Text)
 
 -- The puzzle's 20 boxes (also in aoc/examples/day08.txt).
-def example: Boxes := parseBoxes (include "../../../../examples/day08.txt").lines
+def example: Boxes := Fail.orElse (Boxes.of []) (() => parseBoxes (include "../../../../examples/day08.txt").lines)
 
 def box (x: Nat) (y: Nat) (z: Nat): Point := { x, y, z }
 
-test "parse a point" := parsePoint "162,817,812" == Some (box 162 817 812)
-test "parse rejects other lines" := (parsePoint "", parsePoint "1,2", parsePoint "1,2,3,4", parsePoint "1,b,3") == (None, None, None, None)
-test "parse skips a blank last line" := (parsePoints ["1,2,3", ""]).length == 1
+def pointsOf (lines: List Text): Result (List Point) Text := Fail.toResult (() => parsePoints lines)
+
+test "parse a point" := pointsOf ["162,817,812"] == Ok [box 162 817 812]
+test "parse rejects other lines" := pointsOf ["1,2,3", "1,b,3"] == Err "line 2: expected a box like 162,817,812, got '1,b,3'"
+test "parse rejects too few and too many" := (pointsOf ["1,2"], pointsOf ["1,2,3,4"]) == (Err "line 1: expected a box like 162,817,812, got '1,2'", Err "line 1: expected a box like 162,817,812, got '1,2,3,4'")
+test "parse rejects a blank line" := pointsOf ["1,2,3", ""] == Err "line 2: expected a box like 162,817,812, got ''"
+test "parse allows spaces" := pointsOf [" 1, 2 ,3 "] == Ok [box 1 2 3]
 test "example has 20 boxes" := example.points.length == 20
 test "squared distance" := (box 0 0 0).squaredDistance (box 1 2 2) == 9 && (box 5 5 5).squaredDistance (box 2 9 5) == 25
 def connection (distance: Nat) (first: Nat) (second: Nat): Connection := { distance, first, second }

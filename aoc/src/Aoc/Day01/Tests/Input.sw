@@ -3,6 +3,7 @@
 -- the input reruns exactly these tests.
 namespace Aoc.Day01.Tests
 import Aoc.Day01 (..)
+import Std (Fail)
 
-test "real input, part 1" := solvePart1 (parseTurns (include "../../../../inputs/day01.txt").lines) == 1076
-test "real input, part 2" := solvePart2 (parseTurns (include "../../../../inputs/day01.txt").lines) == 6379
+test "real input, part 1" := solvePart1 (Fail.orElse [] (() => parseTurns (include "../../../../inputs/day01.txt").lines)) == 1076
+test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseTurns (include "../../../../inputs/day01.txt").lines)) == 6379

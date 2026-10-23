@@ -3,7 +3,7 @@
 
 namespace Aoc.Day01.Tests
 import Aoc.Day01 (..)
-import Std (Int, List, Mod, Nat, Option, Text)
+import Std (Fail, Int, List, Mod, Nat, Option, Text)
 
 def example: List Text := """
   L68
@@ -18,7 +18,15 @@ def example: List Text := """
   L82
   """.lines
 
-test "example" := (solvePart1 (parseTurns example), solvePart2 (parseTurns example)) == (3, 6)
+def exampleTurns: List Turn := Fail.orElse [] (() => parseTurns example)
+
+def parsed (lines: List Text): Result (List Turn) Text := Fail.toResult (() => parseTurns lines)
+
+test "example" := (solvePart1 exampleTurns, solvePart2 exampleTurns) == (3, 6)
+test "a line that isn't a turn" := parsed ["L68", "L30", "X12"] == Err "line 3: expected a turn like L68, got 'X12'"
+test "a turn without a distance" := parsed ["R"] == Err "line 1: expected a turn like L68, got 'R'"
+test "a blank line" := parsed ["L1", ""] == Err "line 2: expected a turn like L68, got ''"
+test "spaces around a turn" := parsed [" L68", "R5 "] == Ok [Left 68, Right 5]
 
 def after (t: Text): Option Nat := (Turn.parse t).map (turn => (startingDial.move turn).position.value)
 

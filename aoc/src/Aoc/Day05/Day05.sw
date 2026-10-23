@@ -16,10 +16,11 @@
 -- range holds. The tests are in `Aoc.Day05.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Day05
-import Aoc.Common (Range)
-import Std (IO, Nat, Text)
+import Aoc.Common (Range, readLines, readLinesFrom)
+import Std (Fail, IO, Nat, Text)
+import Std.Fail (fail)
 
-def main(): {IO} () :=
+def main(): {IO, Fail} () :=
   let database := parseDatabase IO.readAllLines()
   IO.print "Part 1: ${solvePart1 database}"
   IO.print "Part 2: ${solvePart2 database}"
@@ -27,10 +28,20 @@ def main(): {IO} () :=
 -- The fresh ranges, and the available ids.
 type Database = { fresh: List Range, available: List Nat }
 
--- A line is a range if it reads as one, an id if it reads as a number, and
--- is skipped otherwise (the blank line).
-def parseDatabase (lines: List Text): Database :=
-  { fresh = lines.filterMap Range.parse, available = lines.filterMap .toNat }
+-- No ranges and no ids: what the tests fall back on when a parse fails, so that
+-- a failed parse fails the test.
+def emptyDatabase: Database := { fresh = [], available = [] }
+
+-- Ranges, one per line; a blank line; then ids, one per line. Spaces around a
+-- line are allowed. Anything else fails, naming the line.
+def parseDatabase (lines: List Text): {Fail} Database :=
+  let ranges := lines.takeWhile (line => line.trim != "")
+  match lines.drop ranges.length with
+    | Nil => fail "expected a blank line between the ranges and the ids, got none"
+    | Cons _ ids => {
+      fresh = readLines Range.read ranges,
+      available = readLinesFrom (ranges.length + 2) Text.toNatOrFail ids
+    }
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=

@@ -20,7 +20,8 @@
 -- `Aoc.Day04.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day04
-import Std (IO, Option, Pair, Vec)
+import Std (Fail, IO, Option, Pair, Vec)
+import Std.Fail (need)
 
 type Cell =
   | Roll
@@ -34,12 +35,10 @@ def Cell.count: Cell -> Nat
 -- `height` rows of `width` cells each.
 type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
 
-def main(): {IO} () :=
-  match parseGrid IO.readAllLines() with
-    | None => IO.print "The lines are not all the same length."
-    | Some grid =>
-      IO.print "Part 1: ${solvePart1 grid}"
-      IO.print "Part 2: ${solvePart2 grid}"
+def main(): {IO, Fail} () :=
+  let grid := need (parseGrid IO.readAllLines()) "expected lines that are all the same length, got a line of a different length"
+  IO.print "Part 1: ${solvePart1 grid}"
+  IO.print "Part 2: ${solvePart2 grid}"
 
 -- Part 1: the rolls one round removes.
 def solvePart1 (grid: Grid): Nat := grid.rolls - grid.round.rolls

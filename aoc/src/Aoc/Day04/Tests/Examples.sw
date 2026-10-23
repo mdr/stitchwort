@@ -3,7 +3,7 @@
 
 namespace Aoc.Day04.Tests
 import Aoc.Day04 (..)
-import Std (List, Nat, Option, Text)
+import Std (Bool, Fail, IO, List, Nat, Option, Pair, Result, Text)
 
 def example: List Text := """
   ..@@.@@@@.
@@ -31,3 +31,10 @@ test "ragged" := answers ["@@", "@"] == None
 test "rolls" := Option.map Grid.rolls (parseGrid example) == Some 71
 test "one wide row" := answers ["@@@@@"] == Some (5, 5)
 test "one narrow column" := answers ["@", "@", "@", "@", "@"] == Some (5, 5)
+
+-- What `main` prints and how it ends, for some input lines.
+def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
+  IO.simulate lines (() => Result.map (u => True) (Fail.toResult main))
+
+test "main on ragged lines" := ran ["@@", "@"] == MkPair [] (Err "expected lines that are all the same length, got a line of a different length")
+test "main on a grid" := ran ["@"] == MkPair ["Part 1: 1", "Part 2: 1"] (Ok True)
