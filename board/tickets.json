@@ -303,7 +303,7 @@
     {
       "id": 20,
       "title": "Lifted `match` in a partial function and in the REPL gives E-MATCH-MOTIVE: resolve its draft there",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -313,7 +313,9 @@
       "body": "A `match` nested in a definition is lifted to a helper (a draft) and resolved after elaboration. Drafts aren't resolved in three places, which give `E-MATCH-MOTIVE` \"a `match` can't be used here: it can't be made into a definition\" (crates/elab/src/lib.rs:615-621; docs/proposals/syntax-conveniences.md:1104-1108 and 'Leftovers' ~1184): (a) a partial function, (b) a data or ability declaration, (c) the REPL.\n\nRepro (release binary, 21 Oct):\n  def f (n: Nat): {Partial} Nat :=\n    let r := match n with | 0 => 1 | Succ m => m\n    if r == 3 then 0 else f (n + 1)\nand, in `stitchwort repl`, `(match 2 with | 0 => 1 | Succ m => m) + 1`.\n\nScope: resolve drafts for (a) and (c), the two a user can hit. (b) may stay refused, with a message that says why (a data or ability declaration has nowhere to put the helper). First step: look at how crates/elab/src/lift.rs resolves drafts for ordinary definitions and where the partial translation and the REPL path bypass it.\n\nDone when: examples/accept has a partial function and a REPL-style test using a nested `match`; (b) has an examples/reject file with the improved message.\n",
       "created": "2026-10-19",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "c1d67765"
+      ]
     },
     {
       "id": 21,
@@ -5159,7 +5161,7 @@
     },
     {
       "id": 328,
-      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
+      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo); withStart removal running (after SW-386)",
       "status": "doing",
       "agent": "Opus",
       "where": "23 Oct: D1088 done (model holds Map, no s parameter, Wire.sw deleted, export on Resolver.merge; 57 tests; differential identical; .d.ts: Event/Recording/Transcript lose the parameter). The private integration suites still reference the old module name. D1089 (Abort + names) running.",
