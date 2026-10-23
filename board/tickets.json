@@ -1,5 +1,5 @@
 {
-  "next": 339,
+  "next": 340,
   "tickets": [
     {
       "id": 1,
@@ -5343,6 +5343,20 @@
         "3de9b7ac",
         "6005e9cb"
       ]
+    },
+    {
+      "id": 339,
+      "title": "JS boundary: Option T crosses as an optional property in records and T | undefined elsewhere; None omitted; missing/undefined read as None; nested inner Option tagged (D582)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
