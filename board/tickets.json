@@ -5220,7 +5220,7 @@
     {
       "id": 332,
       "title": "Checkpoint regressions: bench check-list-rfl +574% steps, check-list-sym-rfl +279%, check-closed-* +15%; browser 'Cmd-click in a project … library name shows a tooltip' times out",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane: bisect + fix",
       "labels": [
@@ -5229,8 +5229,12 @@
       ],
       "body": "",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
-      "commits": []
+      "updated": "2026-10-23",
+      "commits": [
+        "e0681ddc",
+        "cecd4fba",
+        "e92d9d76"
+      ]
     },
     {
       "id": 333,
