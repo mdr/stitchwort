@@ -9,8 +9,8 @@ export declare class StitchwortResourceError extends Error {}
 export type Person = { readonly name: string; readonly age: bigint };
 export type Weird = { readonly tag: string; readonly $__proto__: bigint; readonly constructor: bigint; readonly x$: bigint };
 export type Box<a> = { readonly value: a };
-export type SortedList = { readonly items: readonly bigint[] };
-export type Sized = { readonly items: readonly bigint[]; readonly size: bigint };
+export type SortedList = { readonly items: bigint[] };
+export type Sized = { readonly items: bigint[]; readonly size: bigint };
 export type Team = { readonly lead: Person; readonly size: bigint };
 export declare function greet(p: Person): string;
 export declare function birthday(p: Person): Person;

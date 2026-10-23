@@ -10,7 +10,7 @@ export type Shape =
   | { readonly type: "DOT" }
   | { readonly type: "CIRCLE"; readonly radius: bigint; readonly center_x: bigint }
   | { readonly type: "POLYGON"; readonly sides: bigint; readonly label: string };
-export type Drawing = { readonly type: string; readonly items: readonly Shape[] };
+export type Drawing = { readonly type: string; readonly items: Shape[] };
 export type Message =
   | { readonly kind: "Note"; readonly note_id: bigint; readonly body: string }
   | { readonly kind: "Picture"; readonly picture_id: bigint; readonly url: string };

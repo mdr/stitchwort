@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.optional` is written twice here
+   ╭─[ reject/attribute-optional-twice.sw:3:42 ]
+   │
+ 3 │   | Circle (radius: Nat) (@[js.optional, js.optional] fill: Option Text)
+   │                             ─────┬─────  ─────┬─────  
+   │                                  ╰──────────────────── first here
+   │                                               │       
+   │                                               ╰─────── again here
+───╯

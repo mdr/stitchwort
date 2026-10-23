@@ -1,7 +1,7 @@
 # Proposal: attributes, `@[…]`, starting with the JavaScript wire format
 
 **Status:** draft 2, 23 October 2026 (draft 1 was reviewed externally; this draft folds the
-review in, D611). Ticket SW-341. **Stage 1 is built** ([As built](#as-built-stage-1)). D597 to
+review in, D611). Ticket SW-341. **Stage 1 is built** ([As built](#as-built-stage-1)), and so is `js.optional` with mutable lists ([stage 2](#as-built-stage-2)). D597 to
 D599 are **decided, with the review's amendments**; D612 is **decided, amended by Matt** (the
 default tag key is `$tag`), and D613 is **decided** ([§11](#11-decisions)). Written against commit `e5342b96`. Related: DESIGN.md §12 (JavaScript
 extraction), [records.md](records.md) §11 (records at the boundary),
@@ -31,6 +31,7 @@ re-checked). [Sources](#sources) lists the pages.
 10. [What we'd like reviewed (draft 1's questions, answered)](#10-what-wed-like-reviewed)
 11. [Decisions](#11-decisions)
 - [As built (stage 1)](#as-built-stage-1)
+- [As built (stage 2)](#as-built-stage-2)
 12. [Sources](#sources)
 
 ## Response to review (draft 2)
@@ -1085,6 +1086,35 @@ Deviations and choices, with why:
     as before.
 11. Not done here: hover lines, completion and highlighting for attributes (§7.4; stage 3 lists
     the hover and colouring work).
+
+## As built (stage 2)
+
+Built in a second lane on top of stage 1: mutable lists in declarations and `js.optional`. Motivation: an app's own TypeScript types should be mutually assignable with the generated `.d.ts` (the app checks this with a type test), so that it can pass its own objects to the exported functions. Two gaps showed up with `tsc` (7.0.2, `--strict --exactOptionalPropertyTypes`).
+
+**1. Lists.** The declarations printed `readonly T[]` for every list. Experiment (scratchpad, `a.ts`): with `type GenR = { readonly xs: readonly number[] }`, `type GenM = { readonly xs: number[] }` and the app's `type App = { xs: number[] }`:
+
+| assignment | result |
+|---|---|
+| `App` to `GenR` | ok |
+| `GenR` to `App` | `TS2322: The type 'readonly number[]' is 'readonly' and cannot be assigned to the mutable type 'number[]'` |
+| `App` to `GenM`, `GenM` to `App` | ok, both |
+| `fTop(xs: readonly number[])` called with a mutable and a `readonly` array | ok |
+| `fRec(r: GenM)` called with `{ xs: readonly number[] }` | `TS4104` (the cost of mutable declarations) |
+
+(The `readonly` on a *property* never matters to assignability; only the array's does.) The codec copies arrays both ways (decoding builds Stitchwort lists, encoding builds fresh arrays), so giving the caller a mutable array is safe, and there is no reason for `readonly` on what comes out. Choice: **a list is `T[]` everywhere in a data type's declaration (a record's fields, a constructor's fields, the arguments of a generic alias), and in a function's result; a function's own list parameter stays `readonly T[]`**, which accepts both a mutable and a `readonly` array (the one place where `readonly` helps a caller and costs nothing). No attribute: the alternative `@[js.mutable]` would have every app write one on every list field to get what it always wants, and an unattributed type would still print the form no app type is assignable from. The price is that a `readonly` array can't be passed *inside* an object to a function (`{ xs: ro }`, TS4104); spreading it (`[...ro]`) works. The declaration of a list in a function parameter that contains a data type is therefore `readonly Item[]` at the top and `Item[]` inside `Item`. `ts_type` takes the flag as before; `ts_alias` passes `false`. DESIGN.md section 12 and `docs/syntax.md` say so. Snapshots moved: `extract__attributes.d.ts`, `extract__options.d.ts` (the `Peek` record), `extract__records.d.ts` and `extract__text.d.ts`, each only `readonly T[]` to `T[]` inside a declaration.
+
+**2. `@[js.optional]`.** A constructor field of type `Option T` crosses as `readonly f?: T` instead of `readonly f: T | undefined` (D582 made the latter the default). It is a registry entry with no argument (the first), on a field only:
+
+- Decoding: a missing key, or `undefined`, is `None`; a value is `Some`; `null` is refused (`arg0.fill: expected a value or undefined, not null`; `js.nullable` isn't built); an inherited property is refused as before.
+- Encoding: `None` leaves the key out (the runtime's `optional` flag in `define`, which records already used; a record's `Option` fields set it implicitly, a variant's from the new `JsCtor::optional`).
+- `.d.ts`: `readonly f?: T`. Under `exactOptionalPropertyTypes` it is exactly the app's `f?: T`; `f: T | undefined` would not accept the app's `f?: T`, which the acceptance test checks.
+- Errors, all `E-ATTRIBUTE`: on a record field (**error, not a no-op**: the note's "every attribute is consumed or is an error" rule, and a record's `Option` fields are optional anyway, so an attribute there would suggest it changes something); on a field whose type isn't written `Option _` (the check is on the field's declared type, so a field of a parameter type `a` that happens to be an `Option` somewhere is refused, because the `.d.ts` of a generic alias can't know; `Option (Option T)` is accepted and prints `f?: Option<T>`, as a record's does); on a proof or type field (the stage-1 erased-field error); on a constructor, a data type or anywhere else; written twice; and with an argument (`@[js.optional "x"]`). `js.optional` has no place on a record field, so the registry's `Target::Field` is shared and the elaborator refuses the record case with its own note.
+- The registry's note lists the three names (`known()` now joins as "a, b and c"); the two `attribute-unknown*` snapshots moved for that.
+- Resolver: `Requested::optional` and `JsCtor::optional` (per field, aligned with `keys`), written in the `js_repr` cache table, so the check-cache `FORMAT` is **8** (old entries are misses). Not hashed (D598): changing `js.optional` reruns no test.
+
+Acceptance test, `crates/cli/tests/extract.rs`: `generated_types_and_an_apps_types_are_mutually_assignable` writes an app's discriminated union by hand (`kind: "circle"` and so on, from `@[js.tag "kind"]` and `@[js.name]`, with `T[]` lists and `fill?: string`), checks both directions for a variant type and a record, calls `area`, `recolour` and `withCoupon` with the app's objects, passes a `readonly` array to a list parameter, and then shows the test can fail: with `readonly Point[]` in the declaration, and with `fill: string | undefined`, `tsc` refuses. Runtime test `optional_variant_fields_cross_as_missing_keys`: missing key, explicit `undefined`, value, encode omits the key (`Object.keys` has no `fill`), `js.name` on an optional field, `null` refused, inherited refused, read once, results are fresh mutable arrays. Example `examples/extract/app-types.sw` (Shape, Point, Order, Item) with `run:` lines; eight rejects, `examples/reject/attribute-optional-*.sw` (record, non-option, parameter-typed field, erased field, argument, data type, twice, constructor), each with a snapshot.
+
+Not done: `js.nullable` (still unbuilt, so `@[js.nullable]` is `E-ATTRIBUTE-UNKNOWN`); `js.name` on types and exports (stage 3).
 
 ## Sources
 
