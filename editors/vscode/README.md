@@ -14,6 +14,14 @@ Syntax colouring for `.sw` files, and a thin client for the language server
 - **From the server**, through the standard protocol: diagnostics as you type,
   go to definition, find references, hover, and the outline. Nothing of these is
   computed in the extension.
+- **Goals panel.** Run "Stitchwort: Show Goals" from the command palette: a
+  panel opens beside the editor and follows the cursor, showing the open goal
+  there (the declaration, the names in scope with their types and `let`
+  values, and `⊢` the goal). It asks the server's `stitchwort/goalAt` request
+  150 ms after the cursor or the text moves. On a `?`, or elsewhere in a
+  declaration that has one (then the nearest `?`), it shows that goal;
+  elsewhere it says there is none. It shows what the server already published
+  as the blue diagnostics, so it also stays through an edit that doesn't parse.
 - **Formatting.** Format Document and Format Selection work, served by
   `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
   off, as in VS Code generally; to turn it on for Stitchwort files, add
@@ -64,14 +72,16 @@ publishDiagnostics, definition, hover, references, documentSymbol); the tests
 start it the way the client starts the real one. `dev/t vscode` runs
 `npm ci` first if `node_modules` is missing.
 
-The VS Code glue in `extension.js` isn't covered by tests.
+The VS Code glue in `extension.js` isn't covered by tests (the Goals panel's
+page body, `goalHtml`, is, in `client.js`).
 
 ### End-to-end check (with the real server)
 
 Build the CLI, install the extension, open `aoc/` in VS Code, then: type an
 error into a `.sw` file without saving and see the squiggle; F12 on a name,
 Shift-F12 on a definition, hover on a use, and the outline (Cmd-Shift-O) give
-the answers they gave before; F12 on a library name opens a `stitchwort-std:`
+the answers they gave before; write a `?` as a proof and run "Stitchwort: Show Goals": the panel shows the
+goal, follows the cursor and updates as you type; F12 on a library name opens a `stitchwort-std:`
 document; set `stitchwort.path` to a wrong path and see the warning.
 
 ## Uninstall

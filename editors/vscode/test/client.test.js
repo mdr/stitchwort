@@ -96,3 +96,17 @@ test('hover range: only a position inside a non-empty selection sends the select
   assert.strictEqual(cfg.hoverRangeParams('u', p(2, 10), { start: p(2, 10), end: p(2, 10) }), undefined);
   assert.strictEqual(cfg.hoverRangeParams('u', p(2, 10), undefined), undefined);
 });
+
+test('goals panel: the goalAt answer as escaped html, or a note when there is none', () => {
+  assert.strictEqual(cfg.GOAL_AT, 'stitchwort/goalAt');
+  assert.match(cfg.goalHtml(null), /No open goal/);
+  const html = cfg.goalHtml({
+    owner: '`f`',
+    goal: 'a < b',
+    context: [{ name: 'n', type: 'Nat' }, { name: 't', type: 'Nat', value: 'n + 1' }],
+  });
+  assert.match(html, /in `f`/);
+  assert.match(html, /<span class="n">n<\/span>: Nat<\/div>/);
+  assert.match(html, /<span class="n">t<\/span>: Nat := <span class="v">n \+ 1<\/span>/);
+  assert.match(html, /⊢ a &lt; b/);
+});
