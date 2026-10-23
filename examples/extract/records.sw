@@ -60,7 +60,7 @@ instance decIsSorted (xs: List Nat): Decidable (IsSorted xs) := Bool.decTrue (is
 type SortedList = { items: List Nat, ok: IsSorted items }
 
 -- Out: the proof is left out.
-export def sorted (xs: List Nat): Option SortedList := if h: IsSorted xs then Some { items = xs, ok = h } else None
+export def sorted (xs: List Nat): Option SortedList := if h: IsSorted xs then Some ({ items = xs, ok = h }) else None
 
 -- In: `ok` is checked.
 export def smallest: SortedList -> Option Nat

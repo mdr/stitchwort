@@ -2626,12 +2626,28 @@ impl<'t> Parser<'t> {
     fn app(&mut self) -> Result<Expr> {
         // A section's arguments are its own: `.drop 1` is `x => x.drop 1`.
         let section = self.peek() == Some(&Tok::Dot);
-        let mut expr = self.atom()?;
+        let mut expr = self.atom(true)?;
+        if let Expr::CtorFields { ctor, .. } = &expr
+            && self.starts_atom()
+        {
+            return Err(error(
+                self.here(),
+                format!(
+                    "braces after `{}` name its fields, and take no further arguments",
+                    ctor.text
+                ),
+            )
+            .with_note(format!(
+                "to pass a record as `{0}`'s first argument, write it in brackets: \
+                 `{0} ({{ … }}) …`",
+                ctor.text
+            )));
+        }
         while self.starts_atom() {
             if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
                 return Err(self.section_line());
             }
-            let arg = self.atom()?;
+            let arg = self.atom(false)?;
             if section && let Expr::Lam(_, body, span) = &mut expr {
                 *span = span.to(arg.span());
                 let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
@@ -2711,10 +2727,22 @@ impl<'t> Parser<'t> {
 
     /// An atom followed by any field accesses, `p.address.city`. The `.` is
     /// written with no space on either side.
-    fn atom(&mut self) -> Result<Expr> {
+    ///
+    /// At the head of an application (`head`), a constructor followed by
+    /// braces is named construction, `C { f = e, … }`
+    /// (docs/proposals/variant-fields.md §4.5). As an argument it is
+    /// refused: `f C { … }` could mean either `f (C { … })` or `f C ({ … })`.
+    fn atom(&mut self, head: bool) -> Result<Expr> {
         let section = self.peek() == Some(&Tok::Dot);
         let start = self.here();
+        let upper = matches!(self.peek(), Some(Tok::Upper(_)));
         let mut expr = self.atom_base()?;
+        if upper && self.peek() == Some(&Tok::LBrace) {
+            let Expr::Var(ctor) = &expr else {
+                unreachable!("an uppercase name is a variable")
+            };
+            expr = self.ctor_fields_expr(ctor.clone(), head)?;
+        }
         loop {
             if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call() {
                 let open = self.bump().span;
@@ -2784,6 +2812,48 @@ impl<'t> Parser<'t> {
             span: dot,
         });
         Ok(Expr::Field(Box::new(recv), field))
+    }
+
+    /// `C { f = e, g }` after constructor `ctor`: its fields, named
+    /// (docs/proposals/variant-fields.md §4.5). Not as an argument (`head`
+    /// false), and not an update: those are written in brackets.
+    #[inline(never)]
+    fn ctor_fields_expr(&mut self, ctor: Name, head: bool) -> Result<Expr> {
+        let brace = self.here();
+        if !head {
+            return Err(error(
+                brace,
+                format!("braces after `{}` as an argument need brackets", ctor.text),
+            )
+            .with_note(format!(
+                "write `({0} {{ … }})` to build a `{0}` by its fields, or `{0} ({{ … }})` to \
+                 pass `{0}` and a record",
+                ctor.text
+            )));
+        }
+        let Expr::Record { base, fields, span } = &mut self.record_expr()? else {
+            unreachable!("record_expr makes a record")
+        };
+        let (fields, span) = (std::mem::take(fields), *span);
+        if base.is_some() {
+            return Err(error(
+                brace,
+                format!(
+                    "braces after `{}` name its fields; an update isn't one of them",
+                    ctor.text
+                ),
+            )
+            .with_note(format!(
+                "to pass an updated record as `{0}`'s argument, write it in brackets: \
+                 `{0} ({{ r | … }})`",
+                ctor.text
+            )));
+        }
+        Ok(Expr::CtorFields {
+            span: ctor.span.to(span),
+            ctor,
+            fields,
+        })
     }
 
     /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
@@ -3443,6 +3513,58 @@ mod tests {
         assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
         let e = parse_error("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
         assert!(e.message.contains("written in brackets"), "{e:?}");
+    }
+
+    /// Named construction (docs/proposals/variant-fields.md §4.5): braces
+    /// right after a constructor at the head of an application name its
+    /// fields; `C ({ … })` is a record argument.
+    #[test]
+    fn constructor_field_expressions() {
+        let Expr::CtorFields { ctor, fields, .. } =
+            &rhs("def f : S := Shape.Circle { id = \"a\", ref }\n")
+        else {
+            panic!("expected named construction");
+        };
+        assert_eq!(ctor.text, "Shape.Circle");
+        assert_eq!(fields.len(), 2);
+        assert!(matches!(&fields[1].1, Expr::Var(n) if n.text == "ref"));
+        let Expr::App(head, arg) = &rhs("def f : S := W ({ name = n })\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**head, Expr::Var(n) if n.text == "W"));
+        assert!(matches!(&**arg, Expr::Record { base: None, .. }));
+        // After an operator, in brackets and lists, after a field's `=`, and
+        // with a field access after the braces.
+        assert!(matches!(
+            &rhs("def f : Bool := x == C { }\n"),
+            Expr::Binary(_, _, rhs) if matches!(&**rhs, Expr::CtorFields { .. })
+        ));
+        assert!(matches!(
+            &rhs("def f : T := (C { a = 1 }).a\n"),
+            Expr::Field(e, _) if matches!(&**e, Expr::CtorFields { .. })
+        ));
+        assert!(matches!(
+            &rhs("def f : T := C { a = 1 }.a\n"),
+            Expr::Field(e, _) if matches!(&**e, Expr::CtorFields { .. })
+        ));
+        parse("def f : T := [C { a = D { b } }, g (C { a })]\n");
+        // A lower-case name keeps a record argument: `f { a = 1 }`.
+        assert!(matches!(
+            &rhs("def f : T := g { a = 1 }\n"),
+            Expr::App(_, arg) if matches!(&**arg, Expr::Record { .. })
+        ));
+    }
+
+    #[test]
+    fn braces_after_a_constructor_expression_are_its_fields_alone() {
+        let e = parse_error("def f : L := Cons { head = 1 } rest\n");
+        assert!(e.message.contains("take no further arguments"), "{e:?}");
+        assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
+        let e = parse_error("def f : L := g Cons { head = 1 }\n");
+        assert!(e.message.contains("as an argument need brackets"), "{e:?}");
+        assert!(e.notes[0].contains("(Cons { … })"), "{e:?}");
+        let e = parse_error("def f : L := Some { r | a = 1 }\n");
+        assert!(e.message.contains("an update isn't one of them"), "{e:?}");
     }
 
     #[test]

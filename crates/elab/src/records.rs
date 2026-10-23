@@ -276,7 +276,10 @@ impl Elaborator {
         let mut seen: Vec<&ast::Name> = Vec::new();
         for (name, _) in fields {
             if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
-                return Err(self.unknown_ctor_field(d, c, &explicit, name, fields, argument));
+                let names: Vec<&ast::Name> = fields.iter().map(|(n, _)| n).collect();
+                return Err(self.unknown_ctor_field(
+                    d, c, &explicit, name, &names, argument, "match",
+                ));
             }
             if let Some(first) = seen.iter().find(|s| s.text == name.text) {
                 return Err(error(
@@ -375,15 +378,18 @@ impl Elaborator {
         })
     }
 
-    /// `C { f = … }` where `C` has no explicit field `f`.
+    /// `C { f = … }` where `C` has no explicit field `f`. `names` are all
+    /// the names given; `verb` says what the braces do (`match`, `build`).
+    #[allow(clippy::too_many_arguments)]
     fn unknown_ctor_field(
         &self,
         d: DataId,
         c: usize,
         explicit: &[usize],
         name: &ast::Name,
-        fields: &[(ast::Name, Pattern)],
+        names: &[&ast::Name],
         argument: Option<DataId>,
+        verb: &str,
     ) -> Diagnostic {
         let g = &self.globals;
         let ctor = &g.data(d).ctors[c];
@@ -394,9 +400,11 @@ impl Elaborator {
                 format!("`{}` is an implicit field of `{}`", name.text, ctor.name),
             )
             .with_note(format!(
-                "braces name explicit fields only; match an implicit one positionally, \
-                 `{} [{} := p] …`",
-                ctor.name, name.text
+                "braces name explicit fields only; {verb} an implicit one positionally, \
+                 `{} [{} := {}] …`",
+                ctor.name,
+                name.text,
+                if verb == "match" { "p" } else { "e" }
             ));
         }
         let listed: Vec<String> = explicit
@@ -414,10 +422,10 @@ impl Elaborator {
             format!("`{}`'s fields are {}", ctor.name, listed.join(", "))
         });
         if let Some(r) = argument
-            && fields.iter().all(|(n, _)| record_has(g, r, &n.text))
+            && names.iter().all(|n| record_has(g, r, &n.text))
         {
             e = e.with_note(format!(
-                "braces right after a constructor name its own fields; to match the `{}` \
+                "braces right after a constructor name its own fields; to {verb} the `{}` \
                  it holds, write `{} ({{ … }})`",
                 g.data(r).name,
                 ctor.name
@@ -425,6 +433,114 @@ impl Elaborator {
         }
         e
     }
+}
+
+/// `C { f = e, … }` in an expression (docs/proposals/variant-fields.md
+/// §4.5): the positional application `C e₁ … eₙ`, the explicit fields'
+/// values in declaration order, which is then elaborated as if written so
+/// (the same term, so the same hash). As for a record literal, every
+/// explicit field is given once; implicit fields are left to unification,
+/// as in a positional application. `expected`, where known, only adds a
+/// note when the names are those of the record a one-field constructor
+/// holds.
+pub(crate) fn ctor_fields(
+    cx: &mut Ctx,
+    written: &ast::Name,
+    fields: &[(ast::Name, Expr)],
+    span: Span,
+    expected: Option<&Value>,
+) -> Result<Expr> {
+    let (d, c) = match cx.e.ctor_named(&written.text, written.span) {
+        Ok(found) => found,
+        Err(e) if e.code == "E-NOT-A-CONSTRUCTOR" => return not_a_ctor(cx, written, fields, span, e),
+        Err(e) => return Err(e),
+    };
+    let g = cx.g();
+    let ctor = &g.data(d).ctors[c];
+    let explicit: Vec<usize> = (0..ctor.fields.len())
+        .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+        .collect();
+    let mut seen: Vec<&ast::Name> = Vec::new();
+    for (name, _) in fields {
+        if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
+            let argument = cx.e.record_argument(d, c, &explicit, expected)?;
+            let names: Vec<&ast::Name> = fields.iter().map(|(n, _)| n).collect();
+            return Err(cx
+                .e
+                .unknown_ctor_field(d, c, &explicit, name, &names, argument, "build"));
+        }
+        if let Some(first) = seen.iter().find(|s| s.text == name.text) {
+            return Err(error(
+                "E-RECORD-FIELD",
+                name.span,
+                format!("field `{}` is given twice", name.text),
+            )
+            .with_label(first.span, "first given here"));
+        }
+        seen.push(name);
+    }
+    let missing: Vec<String> = explicit
+        .iter()
+        .map(|&i| &ctor.fields[i].0)
+        .filter(|f| !fields.iter().any(|(n, _)| *n.text == ***f))
+        .map(|f| format!("`{f}`"))
+        .collect();
+    if !missing.is_empty() {
+        return Err(Diagnostic::error(
+            "E-RECORD-FIELD",
+            format!("this `{}` is missing {}", ctor.name, missing.join(", ")),
+        )
+        .with_label(span, "every explicit field must be given"));
+    }
+    let mut positional = Expr::Var(written.clone());
+    for &i in &explicit {
+        let field = &ctor.fields[i].0;
+        let (_, value) = fields
+            .iter()
+            .find(|(n, _)| *n.text == **field)
+            .expect("every field is given");
+        positional = Expr::App(Box::new(positional), Box::new(value.clone()));
+    }
+    // After `ctor_named` noted the constructor, so the field names find it.
+    fields
+        .iter()
+        .for_each(|(n, _)| cx.e.note_ctor_field(written.span, n));
+    Ok(positional)
+}
+
+/// `T { … }` where `T` isn't a constructor. A type or a function keeps the
+/// braces' old meaning, a record literal as its argument: `AtR { q = … }`
+/// in a type indexed by a record. A record type's own name is refused,
+/// `e`, with a note: its literal is written without the name.
+fn not_a_ctor(
+    cx: &Ctx,
+    written: &ast::Name,
+    fields: &[(ast::Name, Expr)],
+    span: Span,
+    e: Diagnostic,
+) -> Result<Expr> {
+    if matches!(
+        cx.e.resolve_exact(written),
+        Ok((crate::Global::Data(d), ..)) if cx.g().data(d).record
+    ) {
+        return Err(e.with_note(format!(
+            "`{0}` is a record type: a literal is written without its name, \
+             `({{ … }}: {0})` where the type isn't known",
+            written.text
+        )));
+    }
+    let record = Expr::Record {
+        base: None,
+        fields: fields.to_vec(),
+        span: Span {
+            start: written.span.end + 1,
+            ..span
+        },
+    };
+    Ok(Expr::App(
+        Box::new(Expr::Var(written.clone())),
+        Box::new(record),
+    ))
 }
 
 /// Whether record type `r` has a field `name`.

@@ -126,6 +126,12 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
             Gap::Rule(true)
         };
     }
+    // `Circle { id = "a", … }`: a constructor and the braces naming its
+    // fields, in an expression or a pattern (docs/proposals/variant-fields.md
+    // §4.5). Whitespace never changes what braces after a name mean.
+    if matches!(left, Upper(_)) && *right == LBrace && pair.right_role == Role::Plain {
+        return Gap::Rule(true);
+    }
     // R4: one space between application arguments, and wherever the source
     // had spaces.
     if spaced {

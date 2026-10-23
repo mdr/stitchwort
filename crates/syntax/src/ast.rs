@@ -131,6 +131,16 @@ pub enum Expr {
         fields: Vec<(Name, Expr)>,
         span: Span,
     },
+    /// `C { f = e, g }`: constructor `C` applied to its explicit fields,
+    /// named, in any order (a punned field `{ g }` is `{ g = g }`). Braces
+    /// right after a constructor always name its fields; a record literal as
+    /// its positional argument is written in brackets, `C ({ … })`, which is
+    /// `App(C, Record { … })` (docs/proposals/variant-fields.md §4.5).
+    CtorFields {
+        ctor: Name,
+        fields: Vec<(Name, Expr)>,
+        span: Span,
+    },
     /// `calc e0` followed by steps `_ = e1 := proof`, one per line
     /// (docs/syntax.md, calc): a chain of relations from `e0` to the last
     /// step's expression.
@@ -330,6 +340,7 @@ impl Expr {
             | Expr::Let { span, .. }
             | Expr::LocalDefs { span, .. }
             | Expr::Record { span, .. }
+            | Expr::CtorFields { span, .. }
             | Expr::Handle { span, .. }
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
@@ -421,6 +432,7 @@ fn has_nested(expr: &Expr) -> bool {
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
         Expr::List(items, _) => !items.is_empty(),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
+        Expr::CtorFields { fields, .. } => !fields.is_empty(),
         Expr::Field(e, _) => nested(e),
         _ => false,
     }
@@ -551,6 +563,11 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             if let Some(base) = base {
                 take(base);
             }
+            for (_, value) in fields {
+                pending.push(std::mem::replace(value, Expr::Prop(Span::NOWHERE)));
+            }
+        }
+        Expr::CtorFields { fields, .. } => {
             for (_, value) in fields {
                 pending.push(std::mem::replace(value, Expr::Prop(Span::NOWHERE)));
             }

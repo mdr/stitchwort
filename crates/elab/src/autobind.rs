@@ -388,6 +388,11 @@ fn walk_at(
                 walk(e, value, bound, false, uses)?;
             }
         }
+        Expr::CtorFields { fields, .. } => {
+            for (_, value) in fields {
+                walk(e, value, bound, false, uses)?;
+            }
+        }
         Expr::Field(x, _) => walk(e, x, bound, false, uses)?,
         Expr::Omega { facts, .. } => {
             for fact in facts {

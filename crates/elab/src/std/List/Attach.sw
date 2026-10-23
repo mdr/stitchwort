@@ -13,7 +13,7 @@ type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }
 -- says that what is in `rest` is in `whole`. One pass, structural.
 def List.attachFrom (whole: List a): (rest: List a) -> ((x: a) -> List.Mem x rest -> List.Mem x whole) -> List (List.Member a whole)
   | Nil, sub => Nil
-  | Cons x xs, sub => Cons { value = x, isIn = sub x (Inl rfl) } (List.attachFrom whole xs (y h => sub y (Inr h)))
+  | Cons x xs, sub => Cons ({ value = x, isIn = sub x (Inl rfl) }) (List.attachFrom whole xs (y h => sub y (Inr h)))
 
 -- The elements of `xs`, in order, each with the proof that it's in `xs`.
 -- It builds a new list (for now: returning `xs` itself at run time is a

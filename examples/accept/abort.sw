@@ -49,7 +49,7 @@ def main(): {IO} () :=
     | Some n => IO.print ("total " ++ n.toText)
     | None => IO.print "bad input"
 
-test "a line" := parseTurn "L68 3 red" == Some { left = True, steps = 68, weight = 3, colour = "red" }
+test "a line" := parseTurn "L68 3 red" == Some ({ left = True, steps = 68, weight = 3, colour = "red" })
 test "bad direction" := parseTurn "X68 3 red" == None
 test "bad number" := parseTurn "R6x 3 red" == None
 test "bad colour" := parseTurn "R6 3 pink" == None

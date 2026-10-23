@@ -121,5 +121,5 @@ def nameByField: Wrap -> Text
 def nameByArgument: Wrap -> Text
   | W ({ name, .. }) => name
 
-test "record fields" := nameByField (W { name = "Ann", age = 3 }) == "Ann"
-  && nameByArgument (W { name = "Bo", age = 4 }) == "Bo"
+test "record fields" := nameByField (W { person = { name = "Ann", age = 3 } }) == "Ann"
+  && nameByArgument (W ({ name = "Bo", age = 4 })) == "Bo"

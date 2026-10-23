@@ -1324,6 +1324,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
                 stack.extend(base.as_deref());
                 stack.extend(fields.iter().map(|(_, e)| e));
             }
+            Expr::CtorFields { fields, .. } => stack.extend(fields.iter().map(|(_, e)| e)),
             Expr::Effect(row, ty) => {
                 stack.extend(&row.abilities);
                 stack.push(ty);

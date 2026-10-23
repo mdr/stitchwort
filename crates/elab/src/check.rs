@@ -788,6 +788,10 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             fields,
             ..
         } => records::infer_update(cx, base, fields),
+        Expr::CtorFields { ctor, fields, span } => {
+            let positional = records::ctor_fields(cx, ctor, fields, *span, None)?;
+            infer_inner(cx, &positional)
+        }
         Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
         Expr::List(..) => {
             let list = builtin_data(cx, Builtin::List)?;
@@ -1832,6 +1836,10 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         (Expr::Record { base, fields, .. }, _) => {
             records::check_record(cx, base.as_deref(), fields, &expected)
+        }
+        (Expr::CtorFields { ctor, fields, span }, _) => {
+            let positional = records::ctor_fields(cx, ctor, fields, *span, Some(&expected))?;
+            check_inner(cx, &positional, &expected)
         }
         // A quotient form, with the expected type to find its implicit
         // arguments from.
