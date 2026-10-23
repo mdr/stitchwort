@@ -275,5 +275,5 @@ fn a_programs_own_list_crosses_the_js_boundary_as_itself() {
         "{}",
         out.dts
     );
-    assert!(out.dts.contains("readonly tag: \"Cons\""), "{}", out.dts);
+    assert!(out.dts.contains("readonly $tag: \"Cons\""), "{}", out.dts);
 }
