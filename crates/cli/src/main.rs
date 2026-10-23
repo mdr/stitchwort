@@ -109,6 +109,11 @@ enum Command {
         /// Output directory
         #[arg(short, long, default_value = ".")]
         out: PathBuf,
+        /// Also write a source map (`NAME.js.map`) from the generated
+        /// module to the `.sw` source, one entry per definition, and refer
+        /// to it from the module
+        #[arg(long)]
+        source_map: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -198,10 +203,11 @@ fn run(cli: Cli) -> ExitCode {
         Command::Build {
             target,
             out,
+            source_map,
             project,
             cache,
             ..
-        } => build(&target, &out, project.as_deref(), &cache),
+        } => build(&target, &out, source_map, project.as_deref(), &cache),
     }
 }
 
@@ -882,9 +888,15 @@ fn repl(path: Option<&Path>) -> ExitCode {
     }
 }
 
-fn build(target: &str, out: &Path, project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
+fn build(
+    target: &str,
+    out: &Path,
+    source_map: bool,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
     if !is_file_target(target) {
-        return build_namespace(target, out, project, cache);
+        return build_namespace(target, out, source_map, project, cache);
     }
     let path = Path::new(target);
     let mut session = new_session(false);
@@ -902,7 +914,11 @@ fn build(target: &str, out: &Path, project: Option<&Path>, cache: &CacheArgs) ->
     let stem = path
         .file_stem()
         .map_or("out".into(), |s| s.to_string_lossy());
-    write_output(out, &stem, output)
+    let map = source_map.then_some(MapSources {
+        sources: &session.sources,
+        project: None,
+    });
+    write_output(out, &stem, output, map)
 }
 
 /// `build --js NAMESPACE`: the exports of one namespace of the project, in
@@ -910,6 +926,7 @@ fn build(target: &str, out: &Path, project: Option<&Path>, cache: &CacheArgs) ->
 fn build_namespace(
     namespace: &str,
     out: &Path,
+    source_map: bool,
     project: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
@@ -926,7 +943,13 @@ fn build_namespace(
         return ExitCode::FAILURE;
     }
     match session.extract_namespace(namespace) {
-        Ok(output) => write_output(out, namespace, output),
+        Ok(output) => {
+            let map = source_map.then_some(MapSources {
+                sources: &session.sources,
+                project: Some((&project.name, &project.dir)),
+            });
+            write_output(out, namespace, output, map)
+        }
         Err(diagnostic) => {
             report(&session.sources, &[diagnostic]);
             ExitCode::FAILURE
@@ -934,16 +957,56 @@ fn build_namespace(
     }
 }
 
-/// Writes `{stem}.js` and `{stem}.d.ts` in `out`.
-fn write_output(out: &Path, stem: &str, output: stitchwort_js::Output) -> ExitCode {
+/// What a source map needs to name the `.sw` files: the sources, and for a
+/// project build, the project's name and folder (its files are displayed as
+/// `name/path`).
+struct MapSources<'a> {
+    sources: &'a SourceMap,
+    project: Option<(&'a str, &'a Path)>,
+}
+
+/// Writes `{stem}.js` and `{stem}.d.ts` in `out`, and with `map`,
+/// `{stem}.js.map` too, which the module refers to.
+fn write_output(
+    out: &Path,
+    stem: &str,
+    mut output: stitchwort_js::Output,
+    map: Option<MapSources>,
+) -> ExitCode {
     let js = out.join(format!("{stem}.js"));
     let dts = out.join(format!("{stem}.d.ts"));
+    let map_file = out.join(format!("{stem}.js.map"));
+    if let Some(map) = &map {
+        let json = stitchwort_js::sourcemap::to_json(
+            &format!("{stem}.js"),
+            &output.mappings,
+            map.sources,
+            &|file| source_path(out, map.project, &file.name),
+        );
+        let written = std::fs::create_dir_all(out).and_then(|()| std::fs::write(&map_file, json));
+        if let Err(err) = written {
+            eprintln!("error: can't write output: {err}");
+            return ExitCode::FAILURE;
+        }
+        output
+            .js
+            .push_str(&format!("//# sourceMappingURL={stem}.js.map\n"));
+    }
     let written = std::fs::create_dir_all(out)
         .and_then(|()| std::fs::write(&js, output.js))
         .and_then(|()| std::fs::write(&dts, output.dts));
     match written {
         Ok(()) => {
-            println!("wrote {} and {}", js.display(), dts.display());
+            if map.is_some() {
+                println!(
+                    "wrote {}, {} and {}",
+                    js.display(),
+                    dts.display(),
+                    map_file.display()
+                );
+            } else {
+                println!("wrote {} and {}", js.display(), dts.display());
+            }
             ExitCode::SUCCESS
         }
         Err(err) => {
@@ -951,6 +1014,47 @@ fn write_output(out: &Path, stem: &str, output: stitchwort_js::Output) -> ExitCo
             ExitCode::FAILURE
         }
     }
+}
+
+/// How a source map refers to the file the compiler calls `name`, and
+/// whether the map holds its text: a file on disk by its path from `out`
+/// (the text is there to read), and anything else (the embedded library) as
+/// `stitchwort:{name}`, with its text.
+fn source_path(out: &Path, project: Option<(&str, &Path)>, name: &str) -> (String, bool) {
+    let on_disk = match project {
+        Some((project, dir)) => name
+            .strip_prefix(project)
+            .and_then(|rest| rest.strip_prefix('/'))
+            .map(|rest| dir.join(rest)),
+        None => Some(PathBuf::from(name)),
+    };
+    let relative = on_disk
+        .filter(|path| path.is_file())
+        .and_then(|path| {
+            Some((
+                std::path::absolute(path).ok()?,
+                std::path::absolute(out).ok()?,
+            ))
+        })
+        .map(|(path, out)| relative_path(&out, &path));
+    match relative {
+        Some(path) => (path, false),
+        None => (format!("stitchwort:{name}"), true),
+    }
+}
+
+/// `path` from the folder `from`, written with `/`s. Both are absolute.
+fn relative_path(from: &Path, path: &Path) -> String {
+    let from: Vec<_> = from.components().collect();
+    let path: Vec<_> = path.components().collect();
+    let common = from.iter().zip(&path).take_while(|(a, b)| a == b).count();
+    let mut parts: Vec<String> = vec!["..".into(); from.len() - common];
+    parts.extend(
+        path[common..]
+            .iter()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned()),
+    );
+    parts.join("/")
 }
 
 fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {

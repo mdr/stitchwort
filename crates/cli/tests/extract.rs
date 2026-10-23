@@ -4098,3 +4098,116 @@ console.log("ok");
 "#;
     run_script("changed-text", &[("changed-text.mjs", &session)], script);
 }
+
+/// docs/proposals/js-source-maps.md: a generated definition maps to the
+/// line of its `def`, so a stack trace from the generated module, read under
+/// `node --enable-source-maps`, points at the `.sw` source. The module has
+/// no map unless one is asked for.
+#[test]
+fn source_maps_point_generated_definitions_at_their_source() {
+    use stitchwort_js::sourcemap::{decode_mappings, to_json};
+
+    let examples = examples();
+    let (_, text, session) = examples
+        .iter()
+        .find(|(n, _, _)| n == "trees.sw")
+        .expect("trees.sw");
+    let generate = || {
+        stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+            .expect("extraction succeeds")
+    };
+    let map_of = |output: &stitchwort_js::Output| {
+        to_json("trees.mjs", &output.mappings, &session.sources, &|f| {
+            (f.name.clone(), false)
+        })
+    };
+    let output = generate();
+    assert!(!output.js.contains("sourceMappingURL"));
+    let map = map_of(&output);
+    assert_eq!(
+        map,
+        map_of(&generate()),
+        "the same source gives the same map"
+    );
+
+    // The map says the generated `leaves` is the `def` on its line.
+    assert!(map.contains("\"version\":3"), "{map}");
+    assert!(map.contains("\"leaves\""), "{map}");
+    let sources = map.split("\"sources\":[").nth(1).expect("sources");
+    let sources: Vec<&str> = sources.split(']').next().unwrap().split(',').collect();
+    let trees = sources
+        .iter()
+        .position(|s| *s == "\"trees.sw\"")
+        .expect("the example is a source") as i64;
+    let mappings = map.split("\"mappings\":\"").nth(1).expect("mappings");
+    let segments = decode_mappings(mappings.trim_end_matches("\"}"));
+    let line_of = |prefix: &str| {
+        output
+            .js
+            .lines()
+            .position(|l| l.starts_with(prefix))
+            .unwrap_or_else(|| panic!("no line starts with {prefix}")) as u32
+    };
+    let sw_line = text
+        .lines()
+        .position(|l| l.starts_with("export def leaves"))
+        .unwrap() as i64;
+    let at = |line: u32| {
+        segments
+            .iter()
+            .filter(|s| s.0 == line)
+            .filter_map(|s| s.2)
+            .collect::<Vec<_>>()
+    };
+    // Where `leaves` is written: after `export def `.
+    let here = (trees, sw_line, 11);
+    let defined = at(line_of("const $Main$dleaves = "));
+    assert!(
+        !defined.is_empty() && defined.iter().all(|s| *s == here),
+        "{defined:?}"
+    );
+    // Every line of the definition is mapped, and the export's wrapper maps to
+    // the export too.
+    let wrapper = line_of("function $$leaves(");
+    assert!(at(wrapper).iter().all(|s| *s == here) && !at(wrapper).is_empty());
+    // The runtime has no source: nothing before the first definition maps.
+    let first = line_of("const $");
+    assert!(segments.iter().all(|s| s.0 >= first), "{first}");
+
+    // And Node reads a stack trace through it.
+    let dir = std::env::temp_dir().join(format!("stitchwort-source-map-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    std::fs::write(
+        dir.join("trees.mjs"),
+        format!("{}//# sourceMappingURL=trees.mjs.map\n", output.js),
+    )
+    .expect("write module");
+    std::fs::write(dir.join("trees.mjs.map"), &map).expect("write map");
+    let script = r#"
+import * as trees from "./trees.mjs";
+let deep = { $tag: "Leaf" };
+for (let i = 0; i < 1000000; i++) deep = { $tag: "Node", left: deep, right: { $tag: "Leaf" } };
+try {
+  trees.leaves(deep);
+} catch (e) {
+  console.log(e.cause.stack.split("\n").slice(0, 3).join("\n"));
+}
+"#;
+    std::fs::write(dir.join("test.mjs"), script).expect("write script");
+    let result = Command::new("node")
+        .args(["--enable-source-maps", "test.mjs"])
+        .current_dir(&dir)
+        .output()
+        .expect("run `node`");
+    let stdout = String::from_utf8_lossy(&result.stdout).to_string();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        result.status.success() && stdout.contains("at leaves ("),
+        "{stdout}{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(
+        stdout.contains(&format!("trees.sw:{}:12)", sw_line + 1)),
+        "the stack points at the source line:\n{stdout}"
+    );
+}
