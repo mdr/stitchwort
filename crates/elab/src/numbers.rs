@@ -983,7 +983,16 @@ fn mixed(
                         "an `Int` becomes a `Nat` with `Int.toNat` (negatives become 0) or \
                      `Int.toNatChecked`"
                     }
-                    _ => "numbers of different types don't mix: there are no conversions to or from `Float` yet",
+                    (Kind::Nat, Kind::Float) => {
+                        "a `Nat` becomes a `Float` with `Float.ofNat`, as in `Float.ofNat n`"
+                    }
+                    (Kind::Int, Kind::Float) => {
+                        "an `Int` becomes a `Float` with `Float.ofInt`, as in `Float.ofInt i`"
+                    }
+                    _ => {
+                        "a `Float` becomes an `Int` with `Float.toInt`, which is `None` unless \
+                     it is a whole number"
+                    }
                 })
         }
         _ => Diagnostic::error("E-TYPE-MISMATCH", "type mismatch").with_label(
@@ -1077,17 +1086,21 @@ fn operator(
     b: Term,
 ) -> Result<Term> {
     // `Float` has no `Add` or `Mul`: doubles break their laws
-    // (docs/proposals/float.md §2.4). Its `+` and `-` are the primitives.
+    // (docs/proposals/float.md §2.4). Its `+ - * / %` are the primitives
+    // (`/` and `%` need no proof: `1.0 / 0.0` is `Float.infinity`).
     // `<` and `<=` go through `Ord`, as on any other type.
     if kind == Some(Kind::Float) {
         let prim = match op {
             BinOp::Add => Builtin::FloatAdd,
             BinOp::Sub => Builtin::FloatSub,
+            BinOp::Mul => Builtin::FloatMul,
+            BinOp::Div => Builtin::FloatDiv,
+            BinOp::Mod => Builtin::FloatRem,
             BinOp::Lt | BinOp::Le => Builtin::Float,
             _ => {
                 return Err(cx.error(
                     "E-TYPE-MISMATCH",
-                    format!("`{}` isn't defined on `Float` yet", op_text(op)),
+                    format!("`{}` isn't defined on `Float`", op_text(op)),
                     "this is on `Float`",
                 ));
             }

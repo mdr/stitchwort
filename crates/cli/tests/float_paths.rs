@@ -1,10 +1,15 @@
 //! The four execution paths of `Float` (docs/proposals/float.md §3.3, §7.4):
 //! the native kernel, the WebAssembly kernel, the Rust runtime and Node
-//! compute the same canonical bits for stage 1a's operations (`add`, `sub`,
-//! `neg`, `abs`, `isNaN`, `==`, `Float.ieeeEq`, the record's constructor and
-//! `.bits`), on every pair from an edge set and some random patterns, and on
-//! literals. Results are compared as canonical bit patterns, shown in hex,
-//! never as JSON numbers (which would hide `-0` and lose `NaN`).
+//! compute the same canonical bits for every operation the kernel computes
+//! (the primitives `+ - * / %`, `floor`, `ceil`, `trunc`, `round`, `ofInt`
+//! and `ofNat`; `neg`, `abs`, `isNaN`, `isFinite`, `toInt`, `==`, `<`, `<=`,
+//! `Float.compare`, `Float.ieeeEq`, `ieeeLt`, `ieeeLe`; the record's
+//! constructor and `.bits`), on every pair from an edge set and some random
+//! patterns, and on literal expressions. Results are compared as canonical
+//! bit patterns, shown in hex, never as JSON numbers (which would hide `-0`
+//! and lose `NaN`). `toText`, which only the runtimes compute, has a test of
+//! its own: the Rust runtime against Node's `String(x)`, and `toSource`
+//! read back by the kernel.
 //!
 //! The WebAssembly kernel is the playground's bundle in `web/pkg`, run by
 //! `web/tests/float-wasm.mjs` under Node. Build it first (`web/build.sh`, or
@@ -44,6 +49,9 @@ const EDGES: &[u64] = &[
     0x3FF8_0000_0000_0000,
     0x3FB9_9999_9999_999A,
     4680253341308362424,
+    // -1.5 (a negative half), and 1e100 (whole, far beyond 2^64).
+    0xBFF8_0000_0000_0000,
+    0x54B2_49AD_2594_C37D,
 ];
 
 /// Random valid patterns (xorshift, so the same ones every run).
@@ -74,17 +82,50 @@ const LITERALS: &[&str] = &[
     "9007199254740992 + 1",
     "0.49999999999999994 + 0.5",
     "Float.infinity - Float.infinity",
+    // Stage 1b: the other rounding operations, and an `a * b - c` whose
+    // fused multiply-add would differ (C5).
+    "0.1 * 3.0",
+    "0.1 * 0.1 - 0.01",
+    "1.0 / 0.0",
+    "1.0 / -0.0",
+    "0.0 / 0.0",
+    "-5.5 % 2.0",
+    "1e308 * 10.0",
+    "5e-324 / 2.0",
+    "Float.round 0.49999999999999994",
+    "Float.round (-0.5)",
+    "Float.round (-0.0)",
+    "Float.round 4503599627370497",
+    "Float.round (-2.5)",
+    "Float.ofNat 9007199254740993",
+    "Float.ofNat 9007199254740995",
+    "Float.ofInt (-9007199254740993)",
+    "Float.ofNat (Nat.pow 2 64 + 1)",
+    "Float.ofNat (Nat.pow 10 100)",
+    "Float.ofInt (Int.neg (Nat.toInt (Nat.pow 10 100)))",
+    "Float.ofNat (Nat.pow 2 1024)",
+    "Float.ofNat (Nat.pow 2 1024 - Nat.pow 2 970)",
+    "Float.ofNat (Nat.pow 2 1024 - Nat.pow 2 970 - 1)",
+    "Float.ofInt (Int.neg (Nat.toInt (Nat.pow 2 1024 - Nat.pow 2 970 - 1)))",
 ];
 
-/// The program: `results`, a list of numbers (bits, or 1 and 0 for a
-/// `Bool`), and a `main` printing them one per line. Its values are made
-/// with the record's constructor from bits known only at run time.
+/// The program: `results`, a list of numbers (bits; 1 and 0 for a `Bool`;
+/// 0, 1, 2 for an `Ordering`; an `Option Int` as 0 for `None`, `2n + 1` for
+/// `Some n` with `n >= 0` and `2m` for `Some (-m)`), and a `main` printing
+/// them one per line. Its values are made with the record's constructor
+/// from bits known only at run time, so the operations on them aren't
+/// folded.
 fn program(values: &[u64]) -> (String, usize) {
     let mut src = String::from(
-        "import Std (Float, List, Text)\n\n\
+        "import Std (Float, Int, List, Nat, Text)\n\n\
          def build (b: Nat) (h: Float.isValid b = True): Float := { bits = b, valid = h }\n\n\
          def ofBits (b: Nat): Float := if h: Float.isValid b = True then build b h else Float.nan\n\n\
-         def flag (b: Bool): Nat := if b then 1 else 0\n\n",
+         def flag (b: Bool): Nat := if b then 1 else 0\n\n\
+         def less (x: Float) (y: Float): Nat := if x < y then 1 else 0\n\n\
+         def lessEq (x: Float) (y: Float): Nat := if x <= y then 1 else 0\n\n\
+         def order: Ordering -> Nat\n  | Less => 0\n  | Equal => 1\n  | Greater => 2\n\n\
+         def code: Option Int -> Nat\n  | None => 0\n  | Some (OfNat n) => 2 * n + 1\n  | Some (NegSucc n) => 2 * n + 2\n\n\
+         def backAgain (x: Float): Float := match Float.toInt x with\n  | Some n => Float.ofInt n\n  | None => Float.nan\n\n",
     );
     for (i, bits) in values.iter().enumerate() {
         let _ = writeln!(src, "def v{i}: Float := ofBits {bits}\n");
@@ -95,11 +136,26 @@ fn program(values: &[u64]) -> (String, usize) {
         items.push(format!("(Float.neg v{i}).bits"));
         items.push(format!("(Float.abs v{i}).bits"));
         items.push(format!("flag (Float.isNaN v{i})"));
+        items.push(format!("flag (Float.isFinite v{i})"));
+        items.push(format!("(Float.floor v{i}).bits"));
+        items.push(format!("(Float.ceil v{i}).bits"));
+        items.push(format!("(Float.trunc v{i}).bits"));
+        items.push(format!("(Float.round v{i}).bits"));
+        items.push(format!("code (Float.toInt v{i})"));
+        items.push(format!("(backAgain v{i}).bits"));
         for j in 0..values.len() {
             items.push(format!("(Float.add v{i} v{j}).bits"));
             items.push(format!("(Float.sub v{i} v{j}).bits"));
+            items.push(format!("(Float.mul v{i} v{j}).bits"));
+            items.push(format!("(Float.div v{i} v{j}).bits"));
+            items.push(format!("(Float.rem v{i} v{j}).bits"));
             items.push(format!("flag (v{i} == v{j})"));
             items.push(format!("flag (Float.ieeeEq v{i} v{j})"));
+            items.push(format!("flag (Float.ieeeLt v{i} v{j})"));
+            items.push(format!("flag (Float.ieeeLe v{i} v{j})"));
+            items.push(format!("order (Float.compare v{i} v{j})"));
+            items.push(format!("less v{i} v{j}"));
+            items.push(format!("lessEq v{i} v{j}"));
         }
     }
     for literal in LITERALS {
@@ -110,20 +166,36 @@ fn program(values: &[u64]) -> (String, usize) {
     (src, items.len())
 }
 
-/// What each path computed, as numbers.
-fn numbers(what: &str, text: &str, expected: usize) -> Vec<u128> {
+/// Per value: its bits and the 10 unary results; per pair, 12 results.
+const PER_VALUE: usize = 11;
+const PER_PAIR: usize = 12;
+
+/// What each path computed, as numbers (in decimal: an `Option Int` from
+/// `toInt` can be beyond 128 bits).
+fn numbers(what: &str, text: &str, expected: usize) -> Vec<String> {
     let text = text.trim().trim_start_matches('[').trim_end_matches(']');
-    let out: Vec<u128> = text
+    let out: Vec<String> = text
         .split([',', '\n'])
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(|s| {
-            s.parse()
-                .unwrap_or_else(|_| panic!("{what}: not a number: {s:?}"))
+            assert!(
+                s.bytes().all(|b| b.is_ascii_digit()),
+                "{what}: not a number: {s:?}"
+            );
+            s.to_string()
         })
         .collect();
     assert_eq!(out.len(), expected, "{what}: {} results", out.len());
     out
+}
+
+/// A result as the test reports it: a bit pattern in hex.
+fn shown(n: &str) -> String {
+    match n.parse::<u128>() {
+        Ok(k) => format!("{k:#018x}"),
+        Err(_) => n.to_string(),
+    }
 }
 
 fn stitchwort_run(path: &Path, js: bool) -> String {
@@ -234,7 +306,9 @@ fn the_four_paths_agree_on_canonical_bits() {
         for (i, (a, b)) in base.iter().zip(results).enumerate() {
             if a != b {
                 wrong.push(format!(
-                    "result {i}: {base_name} {a:#018x}, {name} {b:#018x}"
+                    "result {i}: {base_name} {}, {name} {}",
+                    shown(a),
+                    shown(b)
                 ));
             }
         }
@@ -247,8 +321,125 @@ fn the_four_paths_agree_on_canonical_bits() {
     );
     // Every value made from its bits gives them back, through every path.
     for (k, bits) in values.iter().enumerate() {
-        let stride = 4 + 4 * values.len();
-        assert_eq!(base[k * stride], u128::from(*bits), "value {k}");
+        let stride = PER_VALUE + PER_PAIR * values.len();
+        assert_eq!(base[k * stride], bits.to_string(), "value {k}");
+    }
+    eprintln!(
+        "{count} results agree on {} paths: {}",
+        paths.len(),
+        paths.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", ")
+    );
+}
+
+/// Doubles whose `String(x)` exercises each of `Number::toString`'s layouts:
+/// whole numbers up to 10^21, decimals down to 10^-6, and exponents beyond.
+const PRINTED: &[f64] = &[
+    1e21,
+    1e20,
+    123456789012345680000.0,
+    1e-6,
+    1e-7,
+    0.000001234,
+    123.0,
+    100.0,
+    0.1,
+    0.30000000000000004,
+    80281.87,
+    1.5e-7,
+    2.5e300,
+    -1234.5678,
+    9007199254740993.0,
+];
+
+/// `toText` (§2.6, D688): the Rust runtime's is Node's `String(x)` on every
+/// edge value, the doubles above and 5,000 random patterns (a test of the two
+/// interpretations shipped, not a promise across engines); `toSource` is the
+/// same on both, and reads back, as Stitchwort source the kernel elaborates,
+/// as the same bits.
+#[test]
+fn to_text_is_string_and_to_source_reads_back() {
+    let mut values: Vec<u64> = EDGES.to_vec();
+    values.extend(PRINTED.iter().map(|x| x.to_bits()));
+    values.extend(random_patterns(5000));
+    let mut src = String::from(
+        "import Std (Float, List, Text)\n\n\
+         def build (b: Nat) (h: Float.isValid b = True): Float := { bits = b, valid = h }\n\n\
+         def ofBits (b: Nat): Float := if h: Float.isValid b = True then build b h else Float.nan\n\n",
+    );
+    let list = |f: &str| {
+        (0..values.len())
+            .map(|i| format!("{f} (ofBits {})", values[i]))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let _ = writeln!(src, "def texts: List Text := [{}]\n", list("Float.toText"));
+    let _ = writeln!(
+        src,
+        "def sources: List Text := [{}]\n",
+        list("Float.toSource")
+    );
+    src.push_str(
+        "def main(): {IO} () := IO.print (List.append texts sources |> Text.join '\\n')\n",
+    );
+    let dir = std::env::temp_dir().join(format!("stitchwort-float-text-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("text.sw");
+    std::fs::write(&path, &src).expect("write source");
+    let rust = stitchwort_run(&path, false);
+    let node = stitchwort_run(&path, true);
+    let _ = std::fs::remove_dir_all(&dir);
+    let rust: Vec<&str> = rust.lines().collect();
+    let node: Vec<&str> = node.lines().collect();
+    assert_eq!(rust.len(), 2 * values.len(), "{rust:?}");
+    let wrong: Vec<String> = rust
+        .iter()
+        .zip(&node)
+        .enumerate()
+        .filter(|(_, (a, b))| a != b)
+        .map(|(i, (a, b))| {
+            format!(
+                "{:#018x}: Rust runtime {a:?}, Node {b:?}",
+                values[i % values.len()]
+            )
+        })
+        .collect();
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    // Spot checks of `String`'s layouts.
+    for (x, text) in [
+        (1e21, "1e+21"),
+        (1e-7, "1e-7"),
+        (1e-6, "0.000001"),
+        (123.0, "123"),
+        (-0.0, "0"),
+        (f64::NEG_INFINITY, "-Infinity"),
+        (0.30000000000000004, "0.30000000000000004"),
+    ] {
+        let i = values
+            .iter()
+            .position(|b| *b == x.to_bits())
+            .expect("printed");
+        assert_eq!(rust[i], text, "{x}");
+    }
+
+    // `toSource` reads back as the same double.
+    let sources = &rust[values.len()..];
+    let mut back = String::from("import Std (Float, List)\n\n");
+    let items: Vec<String> = sources
+        .iter()
+        .map(|s| format!("(({s}): Float).bits"))
+        .collect();
+    let _ = writeln!(back, "def back: List Nat := [{}]", items.join(", "));
+    let mut session = Session::new();
+    session
+        .load("back.sw", &back)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let expr = session
+        .parse_expression("expression", "back")
+        .expect("parses");
+    let (kernel, _) = session.elab.eval_expr(&expr).expect("evaluates");
+    let got = numbers("toSource read back", &kernel, values.len());
+    for (k, bits) in values.iter().enumerate() {
+        assert_eq!(got[k], bits.to_string(), "{:?} read back", sources[k]);
     }
 }
 
@@ -266,5 +457,5 @@ fn the_gate_passes_on_the_webassembly_kernel() {
         .expect("run node");
     let report = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "{report}");
-    assert!(report.contains("107 passed, 0 failed"), "{report}");
+    assert!(report.contains("1121 passed, 0 failed"), "{report}");
 }

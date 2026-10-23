@@ -468,21 +468,40 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
 
 /// A `Float` operation with a native implementation, where a `Float` is a
 /// native double (a Rust `f64`, a JS `number`; docs/proposals/float.md
-/// §3.5). The primitives (`add`, `sub`) have no definition, and the kernel
-/// computes them the same way (`stitchwort_core::float`); `neg`, `abs`,
-/// `isNaN` and `decEq` are the definitions the kernel has natives for,
-/// bound there by content hash; `ieeeEq` is bound here
-/// ([`FLOAT_NATIVES`]). `FromBits` and `Bits` are the record's constructor
+/// §3.5). The primitives (`add`, `round`, `ofInt`, …) have no definition,
+/// and the kernel computes them the same way (`stitchwort_core::float`),
+/// except `toText`, which only the runtimes compute; `neg`, `abs`, `isNaN`,
+/// `isFinite`, `decEq`, `ieeeLt`, `ieeeLe` and `toInt` are the definitions
+/// the kernel has natives for, bound there by content hash; `ieeeEq` and
+/// `compare` are bound here ([`FLOAT_NATIVES`]). `FromBits` and `Bits` are the record's constructor
 /// and its `bits` field, through the canonical bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FloatPrim {
     Add,
     Sub,
+    Mul,
+    Div,
+    Rem,
+    Floor,
+    Ceil,
+    Trunc,
+    Round,
+    OfInt,
+    OfNat,
+    /// JS's `String(x)`: the runtimes' own `Float.toText`, which the kernel
+    /// doesn't compute.
+    ToText,
     Neg,
     Abs,
     IsNaN,
+    IsFinite,
     DecEq,
     IeeeEq,
+    IeeeLt,
+    IeeeLe,
+    ToInt,
+    /// The total order (`Float.compare`).
+    Compare,
     /// `{ bits = b, valid = _ }`: the double with bits `b`, which the
     /// record's proof says is a valid pattern.
     FromBits,
@@ -493,7 +512,16 @@ pub enum FloatPrim {
 impl FloatPrim {
     pub fn arity(self) -> u32 {
         match self {
-            FloatPrim::Add | FloatPrim::Sub | FloatPrim::DecEq | FloatPrim::IeeeEq => 2,
+            FloatPrim::Add
+            | FloatPrim::Sub
+            | FloatPrim::Mul
+            | FloatPrim::Div
+            | FloatPrim::Rem
+            | FloatPrim::DecEq
+            | FloatPrim::IeeeEq
+            | FloatPrim::IeeeLt
+            | FloatPrim::IeeeLe
+            | FloatPrim::Compare => 2,
             _ => 1,
         }
     }
@@ -501,11 +529,18 @@ impl FloatPrim {
 
 /// The `Float` definitions with natives in the runtimes only, as for
 /// [`TEXT_NATIVES`].
-const FLOAT_NATIVES: &[(Builtin, FloatPrim, &str)] = &[(
-    Builtin::FloatIeeeEq,
-    FloatPrim::IeeeEq,
-    "6a3570208df3d0e9f57218bc99e683ccfffc3fc1e6912d063b9073a0d980c8d1",
-)];
+const FLOAT_NATIVES: &[(Builtin, FloatPrim, &str)] = &[
+    (
+        Builtin::FloatIeeeEq,
+        FloatPrim::IeeeEq,
+        "6a3570208df3d0e9f57218bc99e683ccfffc3fc1e6912d063b9073a0d980c8d1",
+    ),
+    (
+        Builtin::FloatCompare,
+        FloatPrim::Compare,
+        "c740d4004978dba3b37fe8fd6ff190347137680809519e8d993301e4b5c18d27",
+    ),
+];
 
 /// Matches each runtime-only float native with the definition it replaces,
 /// by content hash.
@@ -583,10 +618,24 @@ impl Representation {
                 let prim = match (g.builtins.float_primitive(id), g.builtins.float_native(id)) {
                     (Some(FloatOp::Add), _) => FloatPrim::Add,
                     (Some(FloatOp::Sub), _) => FloatPrim::Sub,
+                    (Some(FloatOp::Mul), _) => FloatPrim::Mul,
+                    (Some(FloatOp::Div), _) => FloatPrim::Div,
+                    (Some(FloatOp::Rem), _) => FloatPrim::Rem,
+                    (Some(FloatOp::Floor), _) => FloatPrim::Floor,
+                    (Some(FloatOp::Ceil), _) => FloatPrim::Ceil,
+                    (Some(FloatOp::Trunc), _) => FloatPrim::Trunc,
+                    (Some(FloatOp::Round), _) => FloatPrim::Round,
+                    (Some(FloatOp::OfInt), _) => FloatPrim::OfInt,
+                    (Some(FloatOp::OfNat), _) => FloatPrim::OfNat,
+                    (Some(FloatOp::ToText), _) => FloatPrim::ToText,
                     (_, Some(FloatNative::Neg)) => FloatPrim::Neg,
                     (_, Some(FloatNative::Abs)) => FloatPrim::Abs,
                     (_, Some(FloatNative::IsNaN)) => FloatPrim::IsNaN,
                     (_, Some(FloatNative::DecEq)) => FloatPrim::DecEq,
+                    (_, Some(FloatNative::IsFinite)) => FloatPrim::IsFinite,
+                    (_, Some(FloatNative::IeeeLt)) => FloatPrim::IeeeLt,
+                    (_, Some(FloatNative::IeeeLe)) => FloatPrim::IeeeLe,
+                    (_, Some(FloatNative::ToInt)) => FloatPrim::ToInt,
                     _ => continue,
                 };
                 float_natives.insert(id, prim);

@@ -1899,7 +1899,7 @@ impl<'g> Gen<'g> {
             return Ok(format!(
                 "const {} = {};\n",
                 def_name(&def.path),
-                float_native_js(*op)
+                float_native_js(*op, self.int.is_some(), self.text.is_some())
             ));
         }
         let Some(body) = def.run_body() else {
@@ -3437,18 +3437,53 @@ pub fn float_literal_js(bits: u64) -> String {
 }
 
 /// JS for a `Float` native: IEEE 754 doubles, as JS has them. `==` is
-/// `Object.is` (the same double), JS's `===` is `Float.ieeeEq`.
-fn float_native_js(op: FloatPrim) -> &'static str {
+/// `Object.is` (the same double), JS's `===` is `Float.ieeeEq`; `<` is the
+/// total order (`Float.compare`), JS's `<` is `Float.ieeeLt`. `native_int`
+/// and `native_text` say whether an `Int` is a `bigint` and a `Text` a
+/// string in generated code ([`Options`]); otherwise the conversions build
+/// and read the constructors.
+fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String {
+    let boolean = |test: &str| format!("({{ tag: {test} ? \"True\" : \"False\" }})");
     match op {
-        FloatPrim::Add => "(a) => (b) => a + b",
-        FloatPrim::Sub => "(a) => (b) => a - b",
-        FloatPrim::Neg => "(a) => -a",
-        FloatPrim::Abs => "(a) => Math.abs(a)",
-        FloatPrim::IsNaN => "(a) => ({ tag: a !== a ? \"True\" : \"False\" })",
-        FloatPrim::DecEq => "(a) => (b) => ({ tag: Object.is(a, b) ? \"Yes\" : \"No\" })",
-        FloatPrim::IeeeEq => "(a) => (b) => ({ tag: a === b ? \"True\" : \"False\" })",
-        FloatPrim::FromBits => "fromCanonicalBits",
-        FloatPrim::Bits => "toCanonicalBits",
+        FloatPrim::Add => "(a) => (b) => a + b".into(),
+        FloatPrim::Sub => "(a) => (b) => a - b".into(),
+        FloatPrim::Mul => "(a) => (b) => a * b".into(),
+        FloatPrim::Div => "(a) => (b) => a / b".into(),
+        FloatPrim::Rem => "(a) => (b) => a % b".into(),
+        FloatPrim::Floor => "(a) => Math.floor(a)".into(),
+        FloatPrim::Ceil => "(a) => Math.ceil(a)".into(),
+        FloatPrim::Trunc => "(a) => Math.trunc(a)".into(),
+        FloatPrim::Round => "(a) => Math.round(a)".into(),
+        FloatPrim::OfNat => "(n) => Number(n)".into(),
+        FloatPrim::OfInt if native_int => "(n) => Number(n)".into(),
+        FloatPrim::OfInt => "(n) => Number(n.tag === \"OfNat\" ? n.n : -n.n - 1n)".into(),
+        FloatPrim::ToText if native_text => "(a) => String(a)".into(),
+        FloatPrim::ToText => "(a) => ({ tag: \"MkText\", chars: charsOfText(String(a)) })".into(),
+        FloatPrim::Neg => "(a) => -a".into(),
+        FloatPrim::Abs => "(a) => Math.abs(a)".into(),
+        FloatPrim::IsNaN => format!("(a) => {}", boolean("a !== a")),
+        FloatPrim::IsFinite => format!("(a) => {}", boolean("Number.isFinite(a)")),
+        FloatPrim::DecEq => "(a) => (b) => ({ tag: Object.is(a, b) ? \"Yes\" : \"No\" })".into(),
+        FloatPrim::IeeeEq => format!("(a) => (b) => {}", boolean("a === b")),
+        FloatPrim::IeeeLt => format!("(a) => (b) => {}", boolean("a < b")),
+        FloatPrim::IeeeLe => format!("(a) => (b) => {}", boolean("a <= b")),
+        // `BigInt` of a whole number is exact (and `BigInt(-0)` is `0n`).
+        FloatPrim::ToInt if native_int => {
+            "(a) => (Number.isInteger(a) ? { tag: \"Some\", value: BigInt(a) } : { tag: \"None\" })"
+                .into()
+        }
+        FloatPrim::ToInt => "(a) => {\n  if (!Number.isInteger(a)) return { tag: \"None\" };\n  \
+             const n = BigInt(a);\n  \
+             return { tag: \"Some\", value: n >= 0n ? { tag: \"OfNat\", n } : { tag: \"NegSucc\", n: -n - 1n } };\n}"
+            .into(),
+        // IEEE 754's totalOrder, the NaN greatest: ordered numbers by `<`;
+        // otherwise equal numbers, two zeros, or a NaN.
+        FloatPrim::Compare => "(a) => (b) => ({\n  tag: a < b ? \"Less\" : a > b ? \"Greater\"\n    \
+             : a !== a ? (b !== b ? \"Equal\" : \"Greater\") : b !== b ? \"Less\"\n    \
+             : Object.is(a, b) ? \"Equal\" : Object.is(a, -0) ? \"Less\" : \"Greater\",\n})"
+            .into(),
+        FloatPrim::FromBits => "fromCanonicalBits".into(),
+        FloatPrim::Bits => "toCanonicalBits".into(),
     }
 }
 

@@ -511,6 +511,53 @@ impl<'p> Interp<'p> {
                         let (x, y) = (a?, bits(&args[1])?);
                         boolean(x != NAN && (x == y || (x | y) & !SIGN == 0))
                     }
+                    FloatPrim::Mul | FloatPrim::Div | FloatPrim::Rem => {
+                        use stitchwort_core::float::FloatOp;
+                        let op = match f {
+                            FloatPrim::Mul => FloatOp::Mul,
+                            FloatPrim::Div => FloatOp::Div,
+                            _ => FloatOp::Rem,
+                        };
+                        V::Float(canonical(
+                            op.apply(f64::from_bits(a?), f64::from_bits(bits(&args[1])?)),
+                        ))
+                    }
+                    FloatPrim::Floor | FloatPrim::Ceil | FloatPrim::Trunc | FloatPrim::Round => {
+                        use stitchwort_core::float::FloatOp;
+                        let op = match f {
+                            FloatPrim::Floor => FloatOp::Floor,
+                            FloatPrim::Ceil => FloatOp::Ceil,
+                            FloatPrim::Trunc => FloatOp::Trunc,
+                            _ => FloatOp::Round,
+                        };
+                        V::Float(canonical(op.apply_unary(f64::from_bits(a?))))
+                    }
+                    FloatPrim::OfInt => V::Float(canonical(stitchwort_core::float::int_to_f64(
+                        &int(&args[0])?,
+                    ))),
+                    FloatPrim::OfNat => V::Float(canonical(stitchwort_core::float::nat_to_f64(
+                        &nat(&args[0])?,
+                    ))),
+                    FloatPrim::ToText => {
+                        V::Text(stitchwort_core::float::js_to_string(f64::from_bits(a?)).into())
+                    }
+                    FloatPrim::IsFinite => boolean(stitchwort_core::float::is_finite(a?)),
+                    FloatPrim::IeeeLt => boolean(stitchwort_core::float::ieee_less(
+                        a?,
+                        bits(&args[1])?,
+                        false,
+                    )),
+                    FloatPrim::IeeeLe => {
+                        boolean(stitchwort_core::float::ieee_less(a?, bits(&args[1])?, true))
+                    }
+                    FloatPrim::ToInt => match stitchwort_core::float::to_int(a?) {
+                        Some(n) => some(V::Int(n)),
+                        None => none(),
+                    },
+                    FloatPrim::Compare => ctor(
+                        (stitchwort_core::float::total_order(a?, bits(&args[1])?) as i8 + 1) as u32,
+                        vec![],
+                    ),
                     FloatPrim::FromBits => V::Float(
                         u64::try_from(nat(&args[0])?).map_err(|_| "bits beyond 64".to_string())?,
                     ),

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/float-nat-mul.sw:6:37 ]
+   │
+ 6 │ def scaled (n: Nat): Float := 1.5 * n
+   │                                     ┬  
+   │                                     ╰── this is a `Nat`, but this arithmetic is on `Float`
+   │ 
+   │ Note 1: a `Nat` becomes a `Float` with `Float.ofNat`, as in `Float.ofNat n`
+   │ 
+   │ Note 2: this arithmetic is on `Float` because `Float` is expected here
+───╯

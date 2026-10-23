@@ -139,6 +139,86 @@ fn floats_print_the_same_both_ways() {
     );
 }
 
+const OPERATORS: &str = r#"import Std (Float, List, Option, Text)
+
+def ofBits (b: Nat): Float := if h: Float.isValid b = True then { bits = b, valid = h } else Float.nan
+
+def yes (b: Bool): Text := if b then "yes" else "no"
+
+-- Generic helpers, specialised to `Float` once inlined: `==` stays the same
+-- double, and `<` the total order (§4.2, §4.4).
+def same [auto eq: DecEq a] (x: a) (y: a): Bool := x == y
+
+def genericLess [auto ord: Ord a] (x: a) (y: a): Bool := if x < y then True else False
+
+type Stamp = { id: Text, time: Float }
+
+-- The zeros, made at run time.
+def zero: Float := ofBits 0
+def minusZero: Float := ofBits 9223372036854775808
+
+def ids (xs: List Stamp): Text := xs |> List.map (s => s.id) |> Text.join ','
+
+-- A comparator as the original JS's `(a, b) => a.time - b.time`: a NaN or
+-- an IEEE tie is `Equal`, and the sort keeps the original order.
+def byTime (a: Stamp) (b: Stamp): Ordering :=
+  if Float.ieeeLt a.time b.time then Less else if Float.ieeeLt b.time a.time then Greater else Equal
+
+def stamps: List Stamp := [{ id = "a", time = zero }, { id = "b", time = minusZero }]
+
+def main(): {IO} () :=
+  IO.print ([
+    yes (same zero minusZero), yes (same ({ id = "x", time = zero }: Stamp) { id = "x", time = minusZero }),
+    yes (minusZero == zero), yes (genericLess minusZero zero), yes (Float.ieeeLt minusZero zero),
+    yes (genericLess Float.infinity (ofBits 9221120237041090560)),
+    yes (Float.ieeeLe (ofBits 9221120237041090560) Float.infinity),
+    ids (List.sortOn (s => s.time) stamps), ids (List.sortBy byTime stamps),
+    "${ofBits 4591870180066957722 + 0.2}", "${minusZero}", "${1.0 / zero}", "${zero / zero}",
+    "${ofBits 4921056587992461136}", Float.toSource (ofBits 4613937818241073152),
+    Float.toSource (Float.ofNat 1000000000000000000000), "${[1.5, -0.0, 3.0]}",
+    "${Float.toInt (ofBits 6103021453049119613)}", "${Float.toInt (Float.round (ofBits 13835058055282163712))}",
+    "${Float.ofInt (-9007199254740993)}"
+  ] |> Text.join ' ')
+"#;
+
+/// Stage 1b's operators through generic code, a port's sort, and printing,
+/// the same with the Rust runtime and Node: `==` and `<` keep their lawful
+/// meanings after specialisation (`-0.0 == 0.0` is false, `-0.0 < 0.0`
+/// holds, the NaN is greatest) while `Float.ieeeLt` stays JS's `<`; a sort
+/// by the total order puts `-0` first, and the original comparator keeps
+/// the original order (§4.5); `toText` is `String(x)`, `toSource` reads
+/// back, and `toInt` and `ofInt` work beyond 2^64.
+#[test]
+fn operators_sorts_and_printing_agree_both_ways() {
+    let dir = temp_dir("operators");
+    let path = dir.join("operators.sw");
+    std::fs::write(&path, OPERATORS).expect("write source");
+    let run = |js: bool| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+        command.args(["run", "--no-cache"]);
+        if js {
+            command.arg("--js");
+        }
+        let out = command.arg(&path).output().expect("start stitchwort");
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    };
+    let (rust, js) = (run(false), run(true));
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(rust, js);
+    assert_eq!(
+        rust.trim(),
+        "no no no yes no yes no b,a a,b 0.30000000000000004 0 Infinity NaN 1e+21 3.0 1e+21 \
+         [1.5, -0.0, 3.0] \
+         Some 10000000000000000159028911097599180468360808563945281389781327557747838772170381060813469985856815104 \
+         Some (-2) -9007199254740992"
+    );
+}
+
 const BOUNDARY: &str = r#"import Std (Float, Option)
 
 export def identity (x: Float): Float := x
@@ -240,4 +320,86 @@ fn typed_arrays_appear_only_in_the_canonical_bits_module() {
             assert!(!rest.contains(word), "{what}: `{word}` outside the module");
         }
     }
+}
+
+/// End to end (§7.4 item 6, §6.4): the exported functions of
+/// `examples/extract/float-times.sw`, called from JS, give what the same
+/// functions written in TS give, compared by canonical bits in hex, and a
+/// `label` printing a time with `${…}` (which the kernel can't compute,
+/// so it isn't in the example) gives the template literal's text, on
+/// 2,000 random two-decimal millisecond times and edge values (signed
+/// zeros, a NaN, the infinities, duplicates).
+#[test]
+fn ported_times_match_the_typescript() {
+    let source = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../examples/extract/float-times.sw"),
+    )
+    .expect("read the example");
+    let source = format!("{source}\nexport def label (t: Float): Text := \"${{t / 1000.0}}s\"\n");
+    let output = extracted(&source);
+    let script = r#"import * as m from "./module.mjs";
+// The original TypeScript, as JS.
+const ts = {
+  inWindow: (start, end, times) => times.filter((t) => start <= t && t < end),
+  shiftAll: (by, times) => times.map((t) => t + by),
+  gaps: (times) => times.slice(1).map((t, i) => t - times[i]),
+  snap: (grid, t) => Math.round(t / grid) * grid,
+  latest: (times) => (times.length === 0 ? undefined : times.reduce((best, t) => (t > best ? t : best))),
+  total: (times) => times.reduce((sum, t) => sum + t, 0),
+  wholeMs: (t) => (Number.isInteger(t) ? BigInt(t) : undefined),
+  fromCount: (n) => Number(n),
+  clamped: (low, high, t) => (t < low ? low : t > high ? high : t),
+  label: (t) => `${t / 1000}s`,
+};
+const view = new DataView(new ArrayBuffer(8));
+const bits = (x) => { if (x !== x) return "nan"; view.setFloat64(0, x); return view.getBigUint64(0).toString(16); };
+const canon = (v) => v === undefined ? "undefined" : typeof v === "number" ? bits(v)
+  : typeof v === "bigint" ? `${v}n` : Array.isArray(v) ? `[${v.map(canon).join(",")}]` : JSON.stringify(v);
+let seed = 12345;
+const random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+const times = [];
+for (let i = 0; i < 2000; i++) times.push(Math.round(random() * 10000000) / 100);
+const edges = [0, -0, NaN, Infinity, -Infinity, 80281.87, 80281.87, 0.1, 0.2, 5e-324, 1e21, -1500.5];
+const all = times.concat(edges);
+const grids = [16.666666666666668, 10, 0.1, 3, -0];
+const differ = [];
+const same = (what, a, b) => { if (canon(a) !== canon(b)) differ.push(`${what}: ${canon(a)} vs ${canon(b)}`); };
+let checks = 0;
+const check = (what, f) => { checks++; same(what, f(m), f(ts)); };
+check("inWindow", (x) => x.inWindow(50000, 60000.25, all));
+check("inWindow zeros", (x) => x.inWindow(-0, 0.5, all));
+check("shiftAll", (x) => x.shiftAll(-80000, all));
+check("gaps", (x) => x.gaps(all));
+check("latest", (x) => x.latest(all));
+check("latest of none", (x) => x.latest([]));
+check("total", (x) => x.total(all));
+for (let i = 0; i < all.length; i++) {
+  const t = all[i];
+  check(`snap ${t}`, (x) => grids.map((g) => x.snap(g, t)));
+  check(`wholeMs ${t}`, (x) => x.wholeMs(t));
+  check(`clamped ${t}`, (x) => x.clamped(1000, 90000.5, t));
+  check(`label ${t}`, (x) => x.label(t));
+}
+for (const n of [0n, -1n, 9007199254740993n, -9007199254740995n, 10n ** 400n, -(2n ** 1024n), 2n ** 1024n - 2n ** 970n])
+  check(`fromCount ${n}`, (x) => x.fromCount(n));
+console.log(JSON.stringify({ checks, differ: differ.slice(0, 20) }));
+"#;
+    let dir = temp_dir("times");
+    std::fs::write(dir.join("module.mjs"), &output.js).expect("write module");
+    std::fs::write(dir.join("test.mjs"), script).expect("write script");
+    let result = Command::new("node")
+        .arg("test.mjs")
+        .current_dir(&dir)
+        .output()
+        .expect("run node");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    assert!(
+        result.status.success(),
+        "{stdout}\n{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert!(stdout.contains(r#""differ":[]"#), "{stdout}");
+    assert!(stdout.contains(r#""checks":8062"#), "{stdout}");
 }
