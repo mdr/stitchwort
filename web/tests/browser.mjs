@@ -1281,7 +1281,7 @@ const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2
 /** Every day has proofs. */
 const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Day02/Day02.sw";
-const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Proofs/Templates.sw", "Common/Proofs/Range.sw", "Common/Range.sw", "Spec/Spec.sw"];
+const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Proofs/Templates.sw", "Common/Lines.sw", "Common/Proofs/Range.sw", "Common/Range.sw", "Spec/Spec.sw"];
 
 /** The labels of the file tabs. */
 const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
@@ -1323,7 +1323,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   await openDay(page, 4);
   await page.until(`document.querySelectorAll("#filetabs button")[0]?.firstChild.textContent === "Day04.sw"`);
   const day4 = await fileTabs(page);
-  assert.ok(day4.includes("Proofs/Part1.sw") && day4.includes("Proofs/Spec.sw"), `day 4's tabs: ${day4}`);
+  assert.ok(day4.includes("Proofs/Part1.sw") && day4.includes("Tests/Spec.sw"), `day 4's tabs: ${day4}`);
 }, { ms: 120000 });
 
 test("every day checks, with its proofs, and runs on its example and on its puzzle input", async (page) => {
@@ -1748,13 +1748,13 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await untilStd(page, "core/Data.sw", "core/Data.sw");
   assert.match(await textAtCaret(page), /^def List\.length\b/);
   // Hover in the library file: a name in its type, then a constructor in its body.
-  await hoverAt(page, await whereIs(page, "List a -> Nat\n  | Nil       => 0", 10, 3));
+  await hoverAt(page, await whereIs(page, "List a -> Nat\n  | Nil => 0", 10, 3));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat")`, 30000, "the tooltip in the library file");
   assert.match(await tooltip(page), /^Std.Nat data\n: Type$/);
   await hoverAt(page, await whereIs(page, "Succ (List.length xs)", 0, 4));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat.Succ") || document.getElementById("navtip").textContent.startsWith("Succ")`, 10000, "the tooltip of a constructor");
   // With Cmd held the name is underlined, and the cursor says it's a link.
-  const nat = await whereIs(page, "List a -> Nat\n  | Nil       => 0", 10, 3);
+  const nat = await whereIs(page, "List a -> Nat\n  | Nil => 0", 10, 3);
   await hoverAt(page, nat, CMD);
   await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 10000, "the underline in the library file");
   assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
