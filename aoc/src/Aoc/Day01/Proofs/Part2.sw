@@ -9,15 +9,8 @@
 
 namespace Aoc.Day01.Proofs
 import Aoc.Day01 (..)
-import Aoc.Day01.Tests (example)
+import Aoc.Day01.Spec (..)
 import Std (Bool, Eq, Fail, Int, List, Mod, Nat)
-
--- The specification of part 2: turn the dial one click at a time, and count
--- the positions after each click that are 0.
-def zerosPassedSpec (startingDial: Dial n) (turns: List Turn): Nat :=
-  turns |> .concatMap Turn.clicks |> zerosLandedOn startingDial
-
-test "example, click by click" := zerosPassedSpec startingDial (Fail.orElse [] (() => parseTurns example)) == 6
 
 -- The zeros after the first turn, then after the rest.
 theorem zerosLandedOnCons [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):

@@ -28,9 +28,8 @@
 -- problem with no operator, which the puzzle never has, counts 0) and
 -- `Operator.parse`.
 
-namespace Aoc.Day06.Proofs
+namespace Aoc.Day06.Spec
 import Aoc.Day06 (..)
-import Aoc.Day06.Tests (example)
 import Std (Char, List, Nat, Text)
 
 -- Column c of a line; a space past its end.
@@ -72,21 +71,3 @@ def grandTotal (lines: List Text) (answer: Nat -> Nat -> Nat): Nat :=
 def part1Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi))
 
 def part2Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi))
-
-test "spec on the example" := (part1Spec example, part2Spec example) == (4277556, 3263827)
-test "spec problem columns" := isProblem example 0 3 && isProblem example 12 15 && not (isProblem example 0 2) && not (isProblem example 1 3)
-test "spec numbers" := (rowNumbers example 4 7, columnNumbers example 4 7, operatorOf example 4 7) == ([328, 64, 98], [8, 248, 369], Some Add)
-
--- Why `readNumber` is the right reading: a number written in decimal, with
--- any spaces before and after it (its alignment in the problem), reads back
--- as itself.
-theorem spacesNoDigits: (k: Nat) -> List.filterMap Char.digitValue (List.replicate k ' ') = Nil
-  | Zero => rfl
-  | Succ k => spacesNoDigits k
-
-theorem readNumberWritten (n: Nat) (before: Nat) (after: Nat):
-    readNumber (List.append (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' '))) = n :=
-  rewrite List.filterMapAppend Char.digitValue (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')),
-    List.filterMapAppend Char.digitValue (Text.toList (Nat.toText n)) (List.replicate after ' '),
-    spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n, List.appendNil (Nat.digits n) in
-      Nat.fromDigitsDigits n

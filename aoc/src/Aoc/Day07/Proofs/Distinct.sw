@@ -8,15 +8,16 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
+import Aoc.Day07.Spec (..)
 import Std (Bool, Eq, Fin, List, Option, Vec)
 
-def Turn.isLeft: Turn -> Bool
+def turnIsLeft: Turn -> Bool
   | Left => True
   | Right => False
 
 -- Two hits at the same splitter that go different ways are different.
 theorem turnsDiffer (r: Nat) (c: Nat): Not (({ row = r, column = c, turn = Left }: Hit) = { row = r, column = c, turn = Right }) :=
-  p => Bool.falseNotTrue (Eq.sym (Eq.cong (h => Turn.isLeft (Hit.turn h)) p))
+  p => Bool.falseNotTrue (Eq.sym (Eq.cong (h => turnIsLeft (Hit.turn h)) p))
 
 -- Putting the same hit in front of two timelines gives different ones only
 -- if the tails were.

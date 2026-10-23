@@ -16,7 +16,7 @@
 -- columns. Each block gives a problem its operator and both readings.
 --
 -- Both answers are proved right for every input, against the puzzle's own
--- wording read cell by cell, in `Aoc.Day06.Proofs` (Proofs/Spec.sw,
+-- wording read cell by cell, in `Aoc.Day06.Spec` (Spec/Spec.sw,
 -- Proofs/Correct.sw; the columns' shape in Proofs/Grid.sw), and the tests are
 -- in `Aoc.Day06.Tests` (Tests/); `run` checks neither.
 

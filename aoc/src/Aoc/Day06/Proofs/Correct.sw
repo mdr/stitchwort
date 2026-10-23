@@ -1,5 +1,5 @@
 -- Day 6, proved end to end: for every input, both printed answers are the
--- puzzle's grand totals as Proofs/Spec.sw states them (`part1Correct`,
+-- puzzle's grand totals as Spec/Spec.sw states them (`part1Correct`,
 -- `part2Correct`, at the bottom). The argument:
 --   1. The program's columns are the worksheet's columns cell by cell
 --      (`columnsAre`: the library's `List.transposeFill` reads line l,
@@ -15,6 +15,7 @@
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
+import Aoc.Day06.Spec (..)
 import Std (Bool, Eq, List, Nat, Option, Text)
 
 -- The spec's problem test is the library's maximal run of non-blank columns.

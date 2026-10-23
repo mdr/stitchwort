@@ -1,6 +1,6 @@
 -- Day 7, part 1, proved for every manifold (`part1Correct`, at the bottom):
 -- the program's count is the number of splitters some timeline of
--- Proofs/Spec.sw reaches. The argument:
+-- Spec/Spec.sw reaches. The argument:
 --   1. `reach ls c k d`: a particle falling into column c of the first of
 --      the rows `ls` can fall into column d of row k. A timeline reaches the
 --      splitter in row k, column d exactly when there is a splitter there and
@@ -19,6 +19,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
+import Aoc.Day07.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, Fin, List, Nat, Option, Vec, Void)
 
 -- Bool and list facts --------------------------------------------------------

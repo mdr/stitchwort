@@ -21,9 +21,8 @@
 --
 -- Shared with the program: `Cell` and the grid's type, `Grid`.
 
-namespace Aoc.Day04.Proofs
+namespace Aoc.Day04.Spec
 import Aoc.Day04 (..)
-import Aoc.Day04.Tests (example)
 import Std (List, Nat, Option, Vec)
 
 -- What each position holds, (row, column) -> cell.
@@ -71,12 +70,3 @@ def rounds (grid: Grid) (n: Nat) (cells: Cells): Cells :=
 def part2Spec (grid: Grid): Nat :=
   let start := rollCount grid (cellsOf grid)
   start - rollCount grid (rounds grid start (cellsOf grid))
-
-def exampleGrid: Grid := Option.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
-
-def plusGrid: Grid := Option.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
-
-test "spec on the example" := part1Spec exampleGrid == 13
-test "spec cells" := ((cellsOf exampleGrid) 0 2, (cellsOf exampleGrid) 0 0, (cellsOf exampleGrid) 10 2, neighbours exampleGrid (cellsOf exampleGrid) 0 2) == (Roll, Floor, Floor, 3)
-test "adjacent" := adjacent 3 4 2 5 && adjacent 0 0 1 1 && not (adjacent 3 4 3 4) && not (adjacent 3 4 5 4)
-test "part 2 spec on a plus" := (part1Spec plusGrid, rollCount plusGrid (rounds plusGrid 1 (cellsOf plusGrid)), part2Spec plusGrid) == (4, 1, 5)

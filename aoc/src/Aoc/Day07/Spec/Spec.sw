@@ -26,9 +26,8 @@
 --     beam once if any timeline reaches it, and not at all if none does.
 --     Count the splitters of the manifold that some timeline reaches.
 
-namespace Aoc.Day07.Proofs
+namespace Aoc.Day07.Spec
 import Aoc.Day07 (..)
-import Aoc.Day07.Tests (example)
 import Std (Fin, List, Option, Vec)
 
 -- Is there a splitter in column c of a row? Past its end, empty space.
@@ -68,18 +67,3 @@ def part1Spec (manifold: Manifold): Nat :=
 
 -- Part 2: the timelines.
 def part2Spec (manifold: Manifold): Nat := (timelines manifold).length
-
-test "spec on the example" := Option.map (m => (part1Spec m, part2Spec m)) (parseManifold example) == Some (21, 40)
-test "spec at the edges" :=
-  (Option.map (m => (part1Spec m, part2Spec m)) (parseManifold ["S.", "^.", ".."]), Option.map (m => (part1Spec m, part2Spec m)) (parseManifold [".S", ".^", ".^"]))
-    == (Some (1, 2), Some (1, 2))
-test "spec timelines" :=
-  Option.map (m => (timelines m).map (t => t.map (hit => (hit.row, hit.column, hit.turn == Left)))) (parseManifold ["..S..", "..^..", ".^.^.", "..^.."])
-    == Some [
-      [(0, 2, True), (1, 1, True)],
-      [(0, 2, True), (1, 1, False), (2, 2, True)],
-      [(0, 2, True), (1, 1, False), (2, 2, False)],
-      [(0, 2, False), (1, 3, True), (2, 2, True)],
-      [(0, 2, False), (1, 3, True), (2, 2, False)],
-      [(0, 2, False), (1, 3, False)]
-    ]

@@ -1,5 +1,5 @@
 -- Day 4, part 2 proved for every grid: the printed answer is the number of
--- rolls the puzzle's rounds remove, as Proofs/Spec.sw states it
+-- rolls the puzzle's rounds remove, as Spec/Spec.sw states it
 -- (`part2Correct`, at the bottom). The program sweeps instead of running
 -- rounds; both are processes that remove only accessible rolls and stop
 -- when none is accessible, so both end at the grid's core (Proofs/Core.sw).
@@ -11,6 +11,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
+import Aoc.Day04.Spec (..)
 import Std (And, Bool, Eq, List, Nat, Pair, Vec, Void)
 
 -- Counting rolls.

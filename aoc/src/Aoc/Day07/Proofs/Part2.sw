@@ -1,5 +1,5 @@
 -- Day 7, part 2, proved for every manifold (`part2Correct`, at the bottom):
--- the program's count is the number of timelines in Proofs/Spec.sw. The
+-- the program's count is the number of timelines in Spec/Spec.sw. The
 -- program works up from the bottom row, and each column's count is the
 -- number of timelines of a particle falling into it (`countsAre`), by
 -- induction on the rows: a column without a splitter has the timelines of
@@ -8,6 +8,7 @@
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
+import Aoc.Day07.Spec (..)
 import Std (Eq, Fin, List, Nat, Option, Vec, Void)
 
 -- `splitRow` column by column.

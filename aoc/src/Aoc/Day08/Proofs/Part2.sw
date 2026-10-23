@@ -18,6 +18,7 @@
 
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
+import Aoc.Day08.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Ordering, Pair, Void)
 
 -- Counting --------------------------------------------------------------------

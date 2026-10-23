@@ -9,6 +9,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
+import Aoc.Day04.Spec (..)
 import Std (And, Bool, Decidable, Eq, List, Nat, Pair, Vec, Void)
 
 -- The rows of a marked grid, and its cells.

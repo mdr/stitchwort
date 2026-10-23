@@ -4,6 +4,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
+import Aoc.Day04.Spec (..)
 import Std (Eq, Fin, List, Nat, Option, Text, Vec, Void)
 
 -- Rows that `traverseOption` accepted, cell by cell.

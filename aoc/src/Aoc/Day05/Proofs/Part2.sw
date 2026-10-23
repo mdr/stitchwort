@@ -7,16 +7,8 @@ namespace Aoc.Day05.Proofs
 import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day05 (..)
-import Aoc.Day05.Tests (example)
+import Aoc.Day05.Spec (..)
 import Std (Bool, Eq, Fail, List, Nat, Ordering, Void)
-
--- Part 2 as the puzzle says it, by brute force: the ids, up to the largest
--- end of a range, that some fresh range holds.
-def countFresh (db: Database): Nat :=
-  let top := db.fresh.foldLeft (m r => Nat.max m r.to) 0
-  List.range (top + 1) |> .count (id => db.fresh.any (r => r.contains id))
-
-test "example brute force" := countFresh (Fail.orElse emptyDatabase (() => parseDatabase example)) == 14
 
 -- Whether some range holds the id.
 def covered (rs: List Range) (id: Nat): Bool := rs.any (r => r.contains id)
