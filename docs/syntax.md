@@ -311,6 +311,8 @@ export declare function addSafe(a: number, b: number): number | undefined;
 
 Example: `examples/extract/safe-numbers.sw`. See DESIGN.md §12.
 
+A `Float` crosses as a `number`, any `number`: `NaN`, the infinities and `-0` included, and a `bigint` or a string is refused (D685). It needs no wrapper, since every double is a `Float`. A program that needs finite input checks it on its own types (`if h: ...`); a proof field in a record checks nothing at run time (D702). Example: `examples/extract/floats.sw`.
+
 ## `Option` in an `export`
 
 An `Option T` crosses the JS boundary as `T | undefined` (D582):
@@ -1059,10 +1061,30 @@ Examples: `examples/accept/omega-basics.sw`, `examples/accept/omega-stage2.sw`, 
 
 ### Numbers
 
-A non-negative numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says); a negative literal such as `-5` is always an `Int`, and `-0` is `0`. An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a prefix minus (which forces `Int`); an operand with no literal in it; any other operand; else `Nat`. So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m := 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.
+A non-negative numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says); a negative literal such as `-5` is always an `Int`, and `-0` is `0`. An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a decimal or exponent literal (`Float`, below); an operand with no literal in it (when there's a prefix minus, only an `Int` or a `Float` one); a prefix minus (which makes it `Int`); any other operand; else `Nat` (D732). So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m := 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.
 
 There is no implicit conversion between `Nat` and `Int`: use `n.toInt`, `Int.toNat` (negatives become 0) or `Int.toNatChecked`.
 
 `+`, `*`, `<` and `<=` work on any type with the instance they need ([Interfaces](#interfaces); docs/proposals/interfaces.md §5.13): `x + y` is `Add.add x y`, `x * y` is `Mul.mul x y`, and `x < y` and `x <= y` are `Ord`'s `lessThan` and `lessEq`, with the dictionary found as for any `auto` argument, so a dictionary in scope is used (`[auto ord: Ord Nat]` makes `<` on `Nat` its order). On `Nat` and `Int` with no other dictionary in scope that's the library's instances, whose fields are the built-in operations, and the term is the operation itself (`Nat.add x y`), as it always was. `if x < y` decides with the decider in the same dictionary (`Ord.decLessThan`), also through a definition that unfolds to it. The operand type is chosen as above; an expression with `-`, `/`, `%` or a prefix minus is still on `Nat` or `Int` only, and so are literals: generic code writes `Add.zero` and `Mul.one` (`E-TYPE-MISMATCH` otherwise, with a note). Missing an instance is `E-INSTANCE-NONE` (`+` on `Bool`, `<` on functions).
 
 A literal argument of a generic function takes its type from the expected result when that is known: with `i: Int`, `chooseFirst 5 i` checked against `Int` works, because the result type is used before the arguments are checked ([syntax-conveniences.md](proposals/syntax-conveniences.md) section 7). The same holds for a constructor of a generic type whose arguments have number literals (`Point 1 "p" 10` of `Mark i n`): the expected type, through an alias too, gives the constructor's parameters before its arguments are checked. Where nothing is expected but a sibling operand has the type (`[Point 1 "p" 10, m]`, `pair (Point 1 "p" 10) m`, `if b then Point 1 "p" 10 else m`, `Point 1 "p" 10 == m`, with `m: Mark Int Nat`), such a constructor is checked after the others, so its literals aren't defaulted to `Nat` first; the terms and the order things run in don't change (`examples/accept/generic-constructor-literals.sw`). Known limit: where nothing says what the result is, such as `let v = chooseFirst 5 i`, the `5` is still checked as a `Nat` first and fails; write `chooseFirst (5: Int) i`. Design: [integers.md](proposals/integers.md); examples: `examples/accept/int-literals.sw`, `examples/accept/int-choose-first.sw`, `examples/accept/expected-types.sw`.
+
+#### `Float`
+
+`Float` (`import Std (Float)`, `std/Float/Float.sw`) is a 64-bit IEEE 754 double, the JS `number`: a Rust `f64` and a JS `number` at run time, and in the logic the record of its 64 bits, `{ bits: Nat, valid: Float.isValid bits = True }`, with one NaN. Stage 1a of [float.md](proposals/float.md) has `+`, `-`, prefix `-`, `Float.abs`, `Float.isNaN`, `==`, `Float.ieeeEq`, `Float.nan`, `Float.infinity` and `x.bits`; the rest (`*`, `/`, `%`, rounding, conversions, the order, printing) is stage 1b.
+
+```
+import Std (Float)
+
+def shift (t: Float) (by: Float): Float := t + by    -- IEEE addition, rounded
+theorem tenths: 0.1 + 0.2 = 0.30000000000000004 := rfl
+test "zeros" := (0.0 == -0.0) = False                  -- `==` is the same double
+test "ieee" := Float.ieeeEq 0.0 (-0.0) = True           -- JS's `===`
+```
+
+- **Literals.** `1.5`, `80281.87`, `1e3`, `1.5e-7`, `2.0E21`: a digit on both sides of `.`, an exponent `e`/`E` with an optional sign. The value is the decimal correctly rounded to the nearest double; `0.10`, `0.1` and `1e-1` are the same double. A literal that would be an infinity (`1e400`) or isn't zero but rounds to zero (`1e-400`) is `E-FLOAT-LITERAL`. A whole literal at `Float` is exact or refused: `9007199254740993` isn't a double (`E-FLOAT-LITERAL`, naming the two nearest), so write one of those or `9007199254740993.0`. A number right after a `.` is never a decimal literal, so `xs.0.1` is `xs` `.` `0` `.` `1` (and an error: there are no numeric projections).
+- **The operand type.** A decimal literal makes the expression a `Float`, before a prefix minus would make it an `Int`: `-1 + 0.5` is `-0.5`. A `Float` operand does too: with `t: Float`, `t + -1` and `-t` are `Float`s. A whole literal in a `Float` expression is a `Float`, and `-k` is `Float.neg k`, so `-0` at `Float` is `-0.0`. `Float` doesn't mix with `Nat` or `Int` (`E-TYPE-MISMATCH`).
+- **Arithmetic** is the IEEE operation in the order written, so `(a + b) + c` and `a + (b + c)` can differ; `+` and `-` aren't `Add`'s (doubles break its laws). The checker computes them on known doubles, so `rfl` proves `0.1 + 0.2 = 0.30000000000000004`, and a goal shows a double as its literal.
+- **Equality.** `==` and `=` are "the same double", JS's `Object.is`: `0.0` and `-0.0` differ, and `Float.nan == Float.nan`. JS's `===` is `Float.ieeeEq`, where the NaN isn't equal to itself and `0.0` equals `-0.0`; port `a === b` as `Float.ieeeEq a b`.
+
+Examples: `examples/accept/float-literals.sw`, `examples/reject/float-*.sw`, `examples/extract/floats.sw`.

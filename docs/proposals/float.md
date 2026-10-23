@@ -1,7 +1,7 @@
 # Proposal: `Float`, a JavaScript number
 
-**Status:** draft 3, signed off after two external reviews; implementation starts with stage 1a
-([§7.2](#72-stages-and-cost)). 23 October 2026. Follows D645 (a JS-number `Float`). Draft 1's
+**Status:** draft 3, signed off after two external reviews; stage 1a is built ([As
+built](#as-built-stage-1a)), stage 1b is next ([§7.2](#72-stages-and-cost)). 23 October 2026. Follows D645 (a JS-number `Float`). Draft 1's
 decisions D680 to D689 keep their numbers; draft 2 adopted every point of the first review (D696),
 flipping D683 and D685, and added D701 and D702; draft 3 applies every amendment of the second
 review (D730) and adds D731 to D733. Every decision is final ([§8](#8-decisions)). Written against
@@ -14,6 +14,98 @@ in [Appendix A](#appendix-a-snippets-run)), **[cited]** (read in the source link
 [Sources](#sources)), **[cited by the review]** (the reviewer quotes or summarises a specification;
 not re-read here), **[inferred]** (my reading, not stated anywhere), **[unverified]** (from
 memory, not re-checked).
+
+## As built (stage 1a)
+
+Stage 1a is built as §7.2 defines it, in its five steps, each step's tests passing before the
+next. What it adds, by step:
+
+1. **The gate.** `std/Float/Float.sw` declares the type, `isValid`, `Bool.canonicalTrue`,
+   `Float.make`, `nan`, `infinity`, `isNaN`, `neg`, `abs`, `bitsExt` (with `mkExt`), `bitsNe`,
+   `decEq` (through `decEqFrom`) and its `DecEq` instance, `isZero`, `ieeeEq`, the primitives
+   `add` and `sub`, and the proof `Float.negNeg : neg (neg x) = x`, with its lemmas about the
+   sign bit. `crates/core/src/float.rs` admits the primitives, reduces them on known bits (always
+   on), and has natives for `neg`, `abs`, `isNaN` and `decEq`. `FLOAT_CONTRACT = 1` is hashed
+   into each primitive's hash (`hash::float_primitive_hash`). The elaborator has decimal literals,
+   `Kind::Float` and D732's order. The gate is `crates/driver/src/float_gate.rs`, run by
+   `crates/driver/tests/float.rs` on the native kernel and, through the playground's
+   `float_gate` export and `web/tests/float-wasm.mjs`, on the WebAssembly kernel.
+2. **The front end.** `Tok::Float`, the rule that a number right after `.` is digits only, the
+   literal refusals (`E-FLOAT-LITERAL`), and §2.4's table as `examples/accept/float-literals.sw`
+   and `examples/reject/float-*.sw`. The pretty-printer shows a double with known bits as its
+   literal, so `rfl` failures read `` `Float.add 0.1 0.2` and `0.3` aren't equal``.
+3. **Run time.** `Value::Float(f64)` in `crates/rt`, made only by `Value::float`, which makes a
+   NaN canonical. Generated JS has the canonical-bits module (`FLOAT_BITS` in `crates/js`). In
+   both, the record's constructor with run-time bits goes through the bits (`FloatPrim::FromBits`,
+   `fromCanonicalBits`), and matching the record, which is what `.bits` is, gives them back
+   (`FloatPrim::Bits`, `toCanonicalBits`).
+4. **The boundary.** `Boundary::Float`, the `FLOAT` codec (every `number`), `number` in the
+   `.d.ts`, and `Float` among the built-in boundary forms (D613): `js.*` attributes on it are
+   refused. `examples/extract/floats.sw`.
+5. **Plumbing.** `crates/driver/build.rs` hashes `rustc -vV` and `TARGET` into `FINGERPRINT`,
+   through `crates/driver/src/fingerprint.rs`. `crates/cli/tests/float_paths.rs` compares the
+   native kernel, the WebAssembly kernel, the Rust runtime and Node on every 1a operation over 32
+   values (the §7.4 edge set and 10 random valid patterns, every pair for the binary operations)
+   and 10 literal expressions, 4,234 results, as canonical bits shown in hex. The contract
+   plumbing rows are tests in `crates/driver/tests/float.rs`.
+
+**The gate's mode (agreed with the coordinator).** The gate runs with natives on, and with the
+float natives off and the number natives on (`Builtins::disable_float_natives`, new). It doesn't
+run in the `n0` mode §3.4 names, every native off, because there no `Float` can be evaluated at
+all. Every bit pattern is a 64-bit number, and `Float.isValid` compares it with
+`Nat.leq n 9218868437227405312`; without the number natives `Nat.leq` counts down one `Succ` at a
+time, about 9·10^18 steps. Evidence: with every native off, loading a program that imports
+`Float` fails with `E-RESOURCE` ("it took more evaluation steps than allowed") at a work budget
+of 2·10^6 steps, and still at 2·10^9 steps (104 s); a test keeps the first
+(`with_every_native_off_float_runs_out_of_budget`). The review's concern, that the float natives
+agree with their definitions, proof fields included, is exactly what the float-natives-off mode
+checks: the definitions then compute on their bits with the number natives, which are trusted and
+tested separately (`crates/driver/tests/natives.rs`). In that mode every row passes: the six
+`rfl` rows; `neg` and `abs` of `{ bits = k, valid = p }` with `p` a variable, on 12 bit patterns,
+normalise to `{ bits = k', valid = rfl }`; `neg (neg 1.5)` normalises to the literal and
+`neg nan` to `Float.nan`; `decEq` gives `Yes (Float.bitsExt x y rfl)` and
+`No (Float.bitsNe x y (Nat.equalFalse m n rfl))`; and every normal form, compared as a term, is
+the same in both modes. 107 checks, on both kernels.
+
+**Deviations and choices.**
+
+- **`isValid`** is written as the three valid regions (`n <= +∞`, the NaN, `2^63 <= n <= -∞`)
+  rather than "below 2^64 and, if a NaN pattern, the canonical one"; the two agree on every `n`.
+  `neg` is defined through `Float.negFrom x (Float.isNaN x) rfl` rather than an `if`, so that the
+  proofs can take the NaN case apart; the sign flip's validity is `Float.flipValid`, proved with
+  `omega`.
+- **Natives are bound by content hash in the kernel**, not by name and type alone as the number
+  natives are: `Float` (`FLOAT_DATA_HASH`, which covers `isValid`) and each definition with a
+  native or referred to by one (`NATIVE_HASHES`). A library that doesn't match is refused with
+  `E-BUILTIN`, rather than silently losing its natives, since the primitives can't work without
+  `Float` and `decEq`'s native names `bitsExt` and `bitsNe`. The runtimes use the kernel's
+  binding, plus `Float.ieeeEq`, bound by hash in `crates/rt/src/natives.rs` (it has no kernel
+  native).
+- **`std/Float/Float.sw` isn't cached** by the check cache: it declares primitives and binds
+  natives, which replay can't do. It checks in a fraction of a second. The check-cache test now
+  expects exactly this file to be uncacheable.
+- **D58** (no decision procedure in a library file): `Float.decEq` and `Float.decEqFrom` are one,
+  because the native needs a definition of its own. They decide only equations between `Float`s,
+  which can't be written without loading the file, so `auto` still can't depend on what else is
+  loaded; the D58 test lists them as the exception.
+- **D732, with a minus sign.** Pass 1 decides only on an `Int` or a `Float` operand when the
+  group has a prefix `-`; any other operand is left inferred, the `-` makes the group `Int`, and
+  that operand's mismatch is reported as before. So no existing error message changed (§2.4
+  expected some to). Every existing example and snapshot is unchanged.
+- **`*`, `/` and `%` on `Float`** are refused in 1a (`` `*` isn't defined on `Float` yet``), and
+  `<` and `<=` go through `Ord`, which has no `Float` instance until 1b. So §2.4's rows `-1 * t`
+  and `1.5 * n` are tested as `+`, and `-(Float.ofInt 5)` as `-(Float.abs 1.5)`.
+- **Literal errors** have their own code, `E-FLOAT-LITERAL`. `Float.infinity` is in 1a because
+  the overflow message names it.
+- **The WebAssembly kernel's paths** (the gate and the four-path test) run from `web/pkg`, the
+  playground's bundle. The tests leave that path out, saying so, when it isn't built. For this
+  stage it was built and both ran.
+- **The extract test's comparisons** now encode `-0`, `NaN` and the infinities as text, so a
+  `Float` result compares as the same double rather than through JSON.
+- **The run-time audit** of typed arrays allows the `stitchwort run --js` runner's
+  `Int32Array` over a `SharedArrayBuffer`, which only sleeps and reinterprets no bits.
+- **The build fingerprint's framing** changed with the refactor into `fingerprint.rs`, so every
+  build's fingerprint is new once (both caches start fresh).
 
 ## Response to review (round 2)
 
