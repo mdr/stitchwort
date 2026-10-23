@@ -1,7 +1,7 @@
 # Proposal: attributes, `@[…]`, starting with the JavaScript wire format
 
 **Status:** draft 1, 23 October 2026, for external review. Ticket SW-341, decision D590.
-Design-review gate: nothing is implemented. Decisions D591 to D593 ([§11](#11-decisions))
+Design-review gate: nothing is implemented. Decisions D597 to D599 ([§11](#11-decisions))
 are for Matt. Written against commit `e9829f37`. Related: DESIGN.md §12 (JavaScript
 extraction), [records.md](records.md) §11 (records at the boundary),
 [check-cache.md](check-cache.md), and two lanes running in parallel: SW-339 (D582, `Option T`
@@ -70,7 +70,7 @@ export type Shape =
 - **Identity.** Recommended: attributes are **not** part of a declaration's content hash. They
   are an elaborator side table, cached with the other side tables, read only by the JS backend.
   Changing a JS name reruns no tests. The alternative (hash them into the data type, as the
-  `record` flag already is) is weighed in [§6](#6-identity-hashing-and-caches) and is D592.
+  `record` flag already is) is weighed in [§6](#6-identity-hashing-and-caches) and is D598.
 - **Cost.** Only the boundary changes: the generated code inside the module keeps `tag` and
   the Stitchwort names, and the table-driven decoder and encoder translate keys as they copy.
   Rough size: one lane for `js.tag` and `js.name` on constructors and fields, a small one for
@@ -414,7 +414,7 @@ enum. Research says it has a real pitfall (serde had to split `rename_all` and
 `rename_all_fields`), and the motivating app has a handful of constructors. **Recommended:
 defer**; if it comes, two separate attributes on the type, `js.tagCase "SCREAMING_SNAKE_CASE"`
 (constructor values) and `js.fieldCase "snake_case"` (field keys), with serde's eight convention
-names, an explicit `js.name` winning, and the clash checks run on the result. D593.
+names, an explicit `js.name` winning, and the clash checks run on the result. D599.
 
 ### 4.6 A complete example
 
@@ -542,7 +542,7 @@ prevent it.
 
 (B) now, with (C) as a later addition if a use appears. The record flag stays hashed (it does
 change meaning: a record has projections and `{ … }` syntax). `docs/core.md`'s list of what's
-hashed gets one line: "attributes aren't hashed". D592.
+hashed gets one line: "attributes aren't hashed". D598.
 
 ### 6.5 The check cache
 
@@ -640,10 +640,10 @@ Sizes are rough **[inferred]** from comparable lanes (records' boundary stage, S
 
 | Stage | Content | Depends on | Size |
 |---|---|---|---|
-| 1 | Grammar, AST, `split_decls`, the table, all errors; `js.tag`; `js.name` on constructors and fields; codec and `.d.ts`; check-cache table; examples (`examples/extract/attributes.sw`, `examples/reject/attribute-*.sw`); extract runtime tests; awkward-names test; docs (`syntax.md`, DESIGN.md §12) | D591, D592 | one lane, roughly 600–900 lines with tests |
+| 1 | Grammar, AST, `split_decls`, the table, all errors; `js.tag`; `js.name` on constructors and fields; codec and `.d.ts`; check-cache table; examples (`examples/extract/attributes.sw`, `examples/reject/attribute-*.sw`); extract runtime tests; awkward-names test; docs (`syntax.md`, DESIGN.md §12) | D597, D598 | one lane, roughly 600–900 lines with tests |
 | 2 | `js.nullable` | SW-339 merged, D583 decided | small |
 | 3 | `js.name` on types and exports; hover lines; grammar colouring | stage 1 | small |
-| later | casing helpers (D593), boundary fingerprint (§6.3 C), other namespaces or bare attributes | each its own decision | — |
+| later | casing helpers (D599), boundary fingerprint (§6.3 C), other namespaces or bare attributes | each its own decision | — |
 
 Risks: the boundary is trusted code, so each stage needs round-trip and refusal tests through a
 real JS engine (as `crates/cli/tests/extract.rs` does today); and the side table must be in the
@@ -681,9 +681,9 @@ check cache or a warm build loses attributes silently (§6.5).
 
 | ID | Question | Recommendation | Alternatives |
 |---|---|---|---|
-| D591 | Adopt attributes: `@[name arg?, …]` before declarations, after a constructor's `\|`, before a field's name; a closed, namespaced, documented set; unknown or misplaced is an error; attributes never change meaning (§4.4) | **Yes**, as §4 | a `with js { … }` clause (§8.1); an `export encoding` block (§8.2) |
-| D592 | Are `js.*` attributes part of content hashes? | **No** (option B): an elaborator side table, stored by the check cache, read only by the JS backend; the kernel never sees them; a boundary fingerprint later if needed | (A) hash them into the data type like the record flag; (C) B plus a boundary hash now |
-| D593 | The first set | **`js.tag`, `js.name` (constructors, fields; then types and exports), `js.nullable`**; a casing helper deferred, and if added, split as `js.tagCase`/`js.fieldCase` | add a casing helper now; leave out `js.name` on types/exports |
+| D597 | Adopt attributes: `@[name arg?, …]` before declarations, after a constructor's `\|`, before a field's name; a closed, namespaced, documented set; unknown or misplaced is an error; attributes never change meaning (§4.4) | **Yes**, as §4 | a `with js { … }` clause (§8.1); an `export encoding` block (§8.2) |
+| D598 | Are `js.*` attributes part of content hashes? | **No** (option B): an elaborator side table, stored by the check cache, read only by the JS backend; the kernel never sees them; a boundary fingerprint later if needed | (A) hash them into the data type like the record flag; (C) B plus a boundary hash now |
+| D599 | The first set | **`js.tag`, `js.name` (constructors, fields; then types and exports), `js.nullable`**; a casing helper deferred, and if added, split as `js.tagCase`/`js.fieldCase` | add a casing helper now; leave out `js.name` on types/exports |
 
 ## Sources
 
