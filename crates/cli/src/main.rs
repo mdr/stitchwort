@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Read};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -12,6 +12,7 @@ use stitchwort_cli::project::{
 use stitchwort_cli::render::render;
 use stitchwort_cli::run::Main;
 use stitchwort_elab::project::FileModeContext;
+use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, SourceMap, parse_namespace_line};
 
 #[derive(Parser)]
@@ -104,6 +105,20 @@ enum Command {
         project: Option<PathBuf>,
         #[command(flatten)]
         cache: CacheArgs,
+    },
+    /// Format source files in place: indentation, spacing, blank lines and brackets, in the house style. Prints the files it changed
+    Fmt {
+        /// Files (`.sw`) or folders to format; `-` reads standard input and
+        /// writes standard output. None: the project's sources
+        files: Vec<PathBuf>,
+        /// Write nothing; list the files that would change, and exit with
+        /// status 1 if any would
+        #[arg(long)]
+        check: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
     },
     /// Evaluate an expression in the context of a file
     Eval {
@@ -213,6 +228,11 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => axioms(&target, name.as_deref(), project.as_deref(), &cache),
+        Command::Fmt {
+            files,
+            check,
+            project,
+        } => fmt_command(&files, check, project.as_deref()),
         Command::Eval { file, expr, cache } => eval(&file, &expr, &cache),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Lsp => {
@@ -743,6 +763,142 @@ fn axioms(target: &str, name: Option<&str>, project: Option<&Path>, cache: &Cach
     }
     discard(session);
     ExitCode::SUCCESS
+}
+
+/// `fmt`: formats files or folders in place (`-` is standard input and
+/// output), or with no files the project's sources.
+fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCode {
+    let mut paths = Vec::new();
+    let mut stdin = false;
+    if files.is_empty() {
+        let Some(project) = locate_project(project, "format", "fmt hello.sw") else {
+            return ExitCode::FAILURE;
+        };
+        let mut sources = SourceMap::new();
+        match project_sources(&project.files, &project.name, &mut sources) {
+            Ok(found) => {
+                paths.extend(found.into_iter().map(|(path, _)| project.dir.join(path)));
+            }
+            Err(diagnostics) => {
+                report(&sources, &diagnostics);
+                return ExitCode::from(2);
+            }
+        }
+    } else {
+        for file in files {
+            if file == Path::new("-") {
+                stdin = true;
+            } else if file.is_dir() {
+                paths.extend(sw_files_in(file));
+            } else {
+                paths.push(file.clone());
+            }
+        }
+    }
+
+    let mut failure = false;
+    let mut would_change = false;
+    if stdin {
+        let mut text = String::new();
+        if let Err(err) = std::io::stdin().read_to_string(&mut text) {
+            eprintln!("error: can't read standard input: {err}");
+            return ExitCode::from(2);
+        }
+        let mut sources = SourceMap::new();
+        let id = sources.add("-", text.clone());
+        match stitchwort_fmt::format_in(id, &text) {
+            Ok(formatted) => {
+                // Always the whole text, changed or not: an editor replaces
+                // its buffer with what this prints.
+                let formatted = formatted.text;
+                would_change |= formatted != text;
+                if !check {
+                    print!("{formatted}");
+                }
+            }
+            Err(FmtError::Refused(diagnostics)) => {
+                report(&sources, &diagnostics);
+                failure = true;
+            }
+            Err(FmtError::Internal(message)) => {
+                eprintln!("error: formatter bug in -: {message} (file left unchanged)");
+                failure = true;
+            }
+        }
+    }
+
+    for path in &paths {
+        failure |= !format_file(path, check, &mut would_change);
+    }
+
+    if failure {
+        ExitCode::from(2)
+    } else if check && would_change {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// Every `.sw` file under `dir`, recursively, sorted by path.
+fn sw_files_in(dir: &Path) -> Vec<PathBuf> {
+    fn walk(dir: &Path, found: &mut Vec<PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, found);
+            } else if path.extension().is_some_and(|extension| extension == "sw") {
+                found.push(path);
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(dir, &mut found);
+    found.sort();
+    found
+}
+
+/// Formats `path` in place, unless `check`; prints it if it changed. Returns
+/// whether the file was formatted (or, with `check`, would be).
+fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("error: can't read {}: {err}", path.display());
+            return false;
+        }
+    };
+    let mut sources = SourceMap::new();
+    let id = sources.add(path.display().to_string(), text.clone());
+    match stitchwort_fmt::format_in(id, &text) {
+        Ok(formatted) => {
+            let formatted = formatted.text;
+            if formatted == text {
+                return true;
+            }
+            *would_change = true;
+            if !check && let Err(err) = std::fs::write(path, &formatted) {
+                eprintln!("error: can't write {}: {err}", path.display());
+                return false;
+            }
+            println!("{}", path.display());
+            true
+        }
+        Err(FmtError::Refused(diagnostics)) => {
+            report(&sources, &diagnostics);
+            false
+        }
+        Err(FmtError::Internal(message)) => {
+            eprintln!(
+                "error: formatter bug in {}: {message} (file left unchanged)",
+                path.display()
+            );
+            false
+        }
+    }
 }
 
 fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
