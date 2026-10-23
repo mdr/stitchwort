@@ -911,6 +911,11 @@ fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
+        // `main` failed and nothing handled it (D1048): not a runtime error.
+        Err(stitchwort_cli::run::RunError::Failed(msg)) => {
+            eprintln!("error: {msg}");
+            ExitCode::FAILURE
+        }
         Err(err) => {
             report(&session.sources, &[err.diagnostic(main)]);
             ExitCode::from(2)
@@ -922,7 +927,7 @@ fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
 /// directory and runs it with Node, which inherits standard input, output
 /// and error.
 fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
-    use stitchwort_js::run::{EXIT_IO, EXIT_RESOURCE};
+    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE};
     let program = match session.extract_program(&main) {
         Ok(program) => program,
         Err(diagnostic) => {
@@ -976,6 +981,11 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
             );
             report(&session.sources, &[diagnostic]);
             ExitCode::from(2)
+        }
+        Some(EXIT_FAIL) => {
+            let msg = std::fs::read_to_string(&error_file).unwrap_or_default();
+            eprintln!("error: {msg}");
+            ExitCode::FAILURE
         }
         Some(EXIT_IO) => {
             report(&session.sources, &[Diagnostic::error("E-IO", message())]);

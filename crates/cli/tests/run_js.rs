@@ -87,6 +87,10 @@ fn examples_print_the_same_both_ways() {
         if !(source.contains("def main()") || source.contains("def main ()")) {
             continue;
         }
+        // These end in an unhandled `Fail` on purpose; see below.
+        if source.contains("(run: fails)") {
+            continue;
+        }
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
             let js = same_both_ways(&path, input, true);
             assert!(
@@ -365,4 +369,36 @@ def main () : {IO} () :=
         text(&js.stdout),
         "7\n42\n42\n11\n42\n8\n44\n42\n45\n109\n204\n271\n"
     );
+}
+
+/// An unhandled `Fail` in `main` (docs/proposals/errors.md §3.5): `run` and
+/// `run --js` prints what came before, then `error: <msg>` on
+/// standard error, and exit with 1; a `main` that doesn't fail exits with 0.
+#[test]
+fn an_unhandled_failure_is_reported_alike() {
+    let pure = source_file(
+        "fail-only.sw",
+        "import Std (Fail)\n\ndef main(): {Fail} () := Fail.fail \"nothing to do\"\n",
+    );
+    let cases = [
+        (
+            examples().join("main-fail.sw"),
+            "reading the numbers\n",
+            "error: expected a whole number, got 'x3'\n",
+            1,
+        ),
+        (
+            examples().join("main-fail-ok.sw"),
+            "reading the numbers\ntotal 6\n",
+            "",
+            0,
+        ),
+        (pure, "", "error: nothing to do\n", 1),
+    ];
+    for (path, stdout, stderr, code) in cases {
+        let js = same_both_ways(&path, b"", true);
+        assert_eq!(text(&js.stdout), stdout, "{}", path.display());
+        assert_eq!(text(&js.stderr), stderr, "{}", path.display());
+        assert_eq!(js.status.code(), Some(code), "{}", path.display());
+    }
 }

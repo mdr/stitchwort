@@ -21,7 +21,8 @@
 //! The runner reports how a run failed by its exit code, with the message
 //! in a file the CLI names: [`EXIT_RESOURCE`] when the program ran out of
 //! the engine's stack or memory (or made a number or string too large for
-//! it), [`EXIT_IO`] when reading or writing failed.
+//! it), [`EXIT_IO`] when reading or writing failed, [`EXIT_FAIL`] when `main`
+//! failed with an unhandled `Fail`.
 
 use std::fmt::Write;
 
@@ -49,6 +50,9 @@ pub const EXIT_RESOURCE: i32 = 70;
 /// The runner's exit code when reading standard input or writing standard
 /// output failed.
 pub const EXIT_IO: i32 = 71;
+/// The runner's exit code when `main` failed with `Fail` and nothing handled
+/// it: the message is in the error file (docs/proposals/errors.md §3.5).
+pub const EXIT_FAIL: i32 = 72;
 
 /// The worker thread's stack, in megabytes. It's reserved, not used: memory
 /// is taken only as deep as the program recurses. 2 GB is about ten million
@@ -173,6 +177,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     js.push_str(
         &RUNNER
             .replace("@EXIT_IO@", &EXIT_IO.to_string())
+            .replace("@EXIT_FAIL@", &EXIT_FAIL.to_string())
             .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string()),
     );
     Ok(Program {
@@ -593,8 +598,13 @@ import * as __wt from "node:worker_threads";
   let code = 0;
   let message = "";
   try {
-    run(MAIN());
+    // `Some msg` if `main` failed with `msg` (the driver wraps it in `Fail.recover`).
+    const result = run(MAIN());
     flush();
+    if (result.tag === SHAPE.just) {
+      code = @EXIT_FAIL@;
+      message = result[SHAPE.someValue];
+    }
   } catch (e) {
     // What was printed before the error still appears. The first error is
     // the one reported.

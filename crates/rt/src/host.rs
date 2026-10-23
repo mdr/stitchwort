@@ -24,6 +24,10 @@ pub enum RunError {
     /// The program couldn't be lowered for the machine (`E-RESOURCE` for
     /// nesting too deep, or an internal error). Only the machine reports it.
     Lowering(Diagnostic),
+    /// `main` failed with this message, and nothing handled it
+    /// (`Fail`, docs/proposals/errors.md §3.5). The runner reports it as
+    /// `error: <msg>` and exits with 1; it is not a runtime error.
+    Failed(String),
 }
 
 impl fmt::Display for RunError {
@@ -36,6 +40,7 @@ impl fmt::Display for RunError {
             }
             RunError::Write(e) => write!(f, "can't write standard output: {e}"),
             RunError::Lowering(d) => write!(f, "{}", d.message),
+            RunError::Failed(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -50,6 +55,7 @@ impl RunError {
                 Diagnostic::from(*e).with_label(main, "while running this program")
             }
             RunError::Lowering(d) => d.clone(),
+            RunError::Failed(msg) => Diagnostic::error("E-FAIL", msg.clone()),
             _ => Diagnostic::error("E-IO", self.to_string()),
         }
     }

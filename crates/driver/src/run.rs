@@ -92,12 +92,30 @@ impl Main {
     }
 }
 
-/// `main ()`, checked against [`MAIN_TYPE`]. The lambda lets a pure or
-/// total `main` through: calling one from code in `{IO, Partial}` is
-/// allowed.
-/// The library's names are written from `Std`, which always means the
-/// library, whatever the program declares.
-const MAIN_CALL: &str = "((u => main ()) : () -> {Std.IO, Partial} ()) ()";
+/// The calls of `name` to try, in order. Both are checked against
+/// [`MAIN_TYPE`], and the lambda lets a pure or total `main` through:
+/// calling one from code in `{IO, Partial}` is allowed. The library's names
+/// are written from `Std`, which always means the library, whatever the
+/// program declares.
+///
+/// 1. `name ()` as it is, for a `name` with abilities among `IO` and
+///    `Partial`: the runner gets `()`.
+/// 2. `name ()` with `Fail` allowed (and not `Partial`: a handler takes a
+///    total computation), an unhandled `Fail` caught by `Std.Fail.recover`
+///    and the result lifted into `{IO, Partial}`. The runner gets `Some msg`
+///    if `name` failed with `msg` and `None` if it finished
+///    (docs/proposals/errors.md §3.5).
+///
+/// One wrapper for the reference evaluator, `stitchwort-rt` and the JS
+/// runner: each only looks at the final value, and a `Some msg` is a failure.
+fn main_calls(name: &str) -> [String; 2] {
+    [
+        format!("((u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()"),
+        format!(
+            "((v => Std.Fail.recover (m => Std.Option.Some m) ((u => Std.Pair.snd (({name} (): ()), (Std.Option.None: Std.Option Text))) : () -> {{Std.IO, Std.Fail}} (Std.Option Text))) : () -> {{Std.IO, Partial}} (Std.Option Text)) ()"
+        ),
+    ]
+}
 
 /// Why a call of a definition to run didn't check.
 enum CallError {
@@ -125,12 +143,12 @@ impl Session {
                 ),
             );
         };
-        match self.main_call(index, MAIN_CALL) {
+        match self.main_call(index, "main") {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
-                "`main` must have type `() -> {IO} ()` or `() -> {IO, Partial} ()`",
+                "`main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, or `() -> {IO, Fail} ()`",
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
@@ -139,27 +157,33 @@ impl Session {
         }
     }
 
-    /// Elaborates `call` (a call of the definition at `index`, in the shape
-    /// of [`MAIN_CALL`]) as a computation in the row `{IO, Partial}`.
-    fn main_call(&mut self, index: usize, call: &str) -> Result<Main, CallError> {
+    /// Elaborates a call of the definition `name` at `index` (the first of
+    /// [`main_calls`] that checks) as a computation in the row
+    /// `{IO, Partial}`.
+    fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
         let def = &self.elab.globals.defs[index];
         let (span, ty) = (def.span, self.elab.show(&def.ty_value));
         let partial = self
             .elab
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
-        let expr = self
-            .parse_internal("<main>", call)
-            .map_err(CallError::Other)?;
-        match self.elab.infer_expr(&expr) {
-            Ok((term, _)) => Ok(Main {
-                term,
-                span,
-                partial,
-            }),
-            Err(d) if d.code == "E-RESOURCE" => Err(CallError::Other(d)),
-            Err(_) => Err(CallError::Type { span, ty }),
+        for call in main_calls(name) {
+            let expr = self
+                .parse_internal("<main>", &call)
+                .map_err(CallError::Other)?;
+            match self.elab.infer_expr(&expr) {
+                Ok((term, _)) => {
+                    return Ok(Main {
+                        term,
+                        span,
+                        partial,
+                    });
+                }
+                Err(d) if d.code == "E-RESOURCE" => return Err(CallError::Other(d)),
+                Err(_) => {}
+            }
         }
+        Err(CallError::Type { span, ty })
     }
 
     /// Finds the definition a project's `run` names by its full name
@@ -193,8 +217,7 @@ impl Session {
             }
             return Err(d);
         };
-        let call = format!("((u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()");
-        match self.main_call(id.0, &call) {
+        match self.main_call(id.0, name) {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
@@ -377,7 +400,16 @@ impl Session {
             // Perform operations until the step ends.
             loop {
                 match obs {
-                    Obs::Now(_) => return Ok(Outcome::Finished),
+                    // `Some msg` if `main` failed with `msg` (see `wrapped_call`).
+                    Obs::Now(v) => {
+                        let _op = g.budget.operation(self.elab.limits);
+                        return match force(g, v)? {
+                            Value::Ctor(d, 1, fields) if d == s.maybe => {
+                                Err(RunError::Failed(s.text_to_string(self, &fields[0])?))
+                            }
+                            _ => Ok(Outcome::Finished),
+                        };
+                    }
                     Obs::Later(rest) => {
                         ticks += 1;
                         trace(Event::Tick);
