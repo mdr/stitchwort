@@ -1,5 +1,5 @@
 {
-  "next": 352,
+  "next": 354,
   "tickets": [
     {
       "id": 1,
@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "D645 revised: fractions are real (Matt's audit); Float design note (public) + private LAWS.md theorem audit running",
+      "where": "private lanes: full model (all 123 fields, D620) + LAWS.md; public: Float note, Map codec",
       "labels": [
         "design",
         "js"
@@ -5558,6 +5558,34 @@
       "where": "worktree lane",
       "labels": [
         "design",
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 352,
+      "title": "JS boundary: Map Text V crosses as a plain object { readonly [k: string]: V } (D651/D665)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 353,
+      "title": "Attributes stage 2: mutable lists in .d.ts, js.optional on constructor fields (queued until SW-349 merges; D665)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
         "js"
       ],
       "body": "",
