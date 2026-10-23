@@ -1,7 +1,7 @@
 # Goal holes in the editor (language server stage 2)
 
-**Status:** design note, 23 October 2026 (SW-31 stage 2). Stops for review
-(design-review gate). Decisions D635–D641 are in the
+**Status:** accepted 23 October 2026 (SW-31 stage 2): D635–D641 as recommended.
+The decisions are in the
 [table at the end](#decisions). It builds on
 [`language-server.md`](language-server.md) §5.2 and D497 ("a new `?` goal
 hole"), and goes into the detail that note left open.
@@ -362,6 +362,8 @@ medium about a day). Estimates.
   don't say, and I didn't install them.
 
 ## Decisions
+
+**Decided (Matt, 23 Oct 2026):** D635–D641 all as recommended below. Stage 2a is next.
 
 | ID | Question | Recommendation |
 |---|---|---|
