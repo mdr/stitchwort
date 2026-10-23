@@ -443,7 +443,7 @@ the goal.
 
 ## Decisions
 
-**Decided (Matt, 23 Oct 2026):** D635–D641 all as recommended below. Stage 2a is next.
+**Decided (Matt, 23 Oct 2026):** D635–D641 all as recommended below. D1057: with a goal open, `check` exits 1, `test` runs the finished tests then exits 1, `run` runs `main` if it is finished, `build --js` refuses, and `eval`/REPL/`axioms` refuse anything unfinished (as built in stage 2a).
 
 | ID | Question | Recommendation |
 |---|---|---|
