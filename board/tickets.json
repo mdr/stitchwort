@@ -1,5 +1,5 @@
 {
-  "next": 371,
+  "next": 377,
   "tickets": [
     {
       "id": 1,
@@ -5160,7 +5160,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Opus",
-      "where": "shipping decided: D830-D833 a, D836 accept, D837 a (old resolver as test-only oracle for one release); waiting on Float 1b -> port switch; then push (Matt) + app branch; no app changes (D714)",
+      "where": "23 Oct: D1030 dropped -0 handling (documented divergence; differential 0 unexplained; branch.patch regenerated at app 7fed1b92958); work copy reformatted to house style (src.pre-fmt kept); handover left at pin 868d92f2 until Matt asks (it can't parse column-0 closers). Next private step: speakerData as a real Map after quotients stage 2, then Wire.sw removal",
       "labels": [
         "design",
         "js"
@@ -5805,10 +5805,10 @@
     },
     {
       "id": 365,
-      "title": "Layout: a closing bracket at column 0 closes its bracket; house style for multi-line brackets (D1012)",
-      "status": "doing",
+      "title": "Layout: a closing bracket at column 0 closes its bracket; house style for multi-line brackets (D1012) — done; the restyle of existing code was done by the formatter's repo reformat (SW-366 F7)",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "worktree lane",
+      "where": "",
       "labels": [
         "syntax"
       ],
@@ -5911,8 +5911,8 @@
       "id": 370,
       "title": "AoC Day 1 review: comments, rightCases, count lemmas done; Mod laws (D1058 a) running, then the left-turn mirror experiment; D1059 if-message + D1060 test children running; parser via SW-367 stage 3",
       "status": "doing",
-      "agent": "Matt",
-      "where": "worktree lanes",
+      "agent": "Opus",
+      "where": "worktree lanes: Mod laws (Opus); D1060 -> SW-371, D1059 -> SW-372",
       "labels": [
         "aoc"
       ],
@@ -5924,6 +5924,90 @@
         "b80108e7",
         "1059eb5e"
       ]
+    },
+    {
+      "id": 371,
+      "title": "CLI: stitchwort test NAMESPACE includes child namespaces; warn and fail when no tests match (D1060)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (with SW-372)",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From the Day 1 review (SW-370): 'stitchwort test Aoc.Day01' ran 0 tests and looked like a pass. D1060 (a), Matt 23 Oct.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 372,
+      "title": "Elaborator: a clear message when 'if' is given proofs (suggest match) (D1059 a)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (with SW-371)",
+      "labels": [
+        "elab"
+      ],
+      "body": "From the Day 1 review: 'if b then rfl else rfl' gives a confusing E-UNIVERSE. D1059 (a) Matt 23 Oct: message now; real support is backlog (see the proof-valued if ticket).",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 373,
+      "title": "Proof-valued if: let if/then/else choose between proofs (D1059 b)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Trigger: Day 1 review; case-by-case proofs via if hit E-UNIVERSE because Bool.ifThenElse/Decidable.elim require a Type result. Needs a short design (Prop-valued variant or universe-polymorphic helpers). Matt 23 Oct: backlog.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 374,
+      "title": "Proof automation: a controlled simplifier emitting checked proof terms, and ring-style polynomial normalisation (D1044)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "body": "Trigger: Day 2 review suggestions C and D (weightedIds restating whole sums; writeTimesMul's 7-step regrouping; omega.md:625 lists Day 2's non-linear residue). Matt 23 Oct: backlog; each needs a proposal.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 375,
+      "title": "Bounded iteration that supplies its bounds to auto (no membership plumbing)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lang"
+      ],
+      "body": "Trigger: Day 2 review suggestion B (the 'if h: d < copies' guard exists only to justify recursion). Agrees with D519 (guard over explicit membership proofs) for today; a future improvement. Matt 23 Oct: backlog.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 376,
+      "title": "Language server stage 2d: goal at the cursor (stitchwort/goalAt, VS Code panel) (D640)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From docs/proposals/lsp-goal-holes.md §8 row 2d; D640 (Matt): later, its own stage. Also there: 2a's known gaps (a ? in a signature used from another namespace says 'has errors'; '? ?' gives a type mismatch; a ? reached in instance search may show the search's error).",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
