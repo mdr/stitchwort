@@ -470,9 +470,9 @@
     {
       "id": 31,
       "title": "Language server for .sw (umbrella; stages 0 and 1 done: stitchwort lsp + thin VS Code client; next: stage 2 ? goal holes, stage 3 completion)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "D635-D641 decided 23 Oct; stage 2a (Opus) starts at the next free lane slot",
+      "where": "worktree lane (stage 2a, Opus)",
       "labels": [
         "tooling"
       ],
