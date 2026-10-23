@@ -854,6 +854,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-elab",
+ "stitchwort-fmt",
  "stitchwort-js",
  "stitchwort-syntax",
 ]

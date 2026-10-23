@@ -304,6 +304,14 @@ stitchwort fmt [--check] [FILES or FOLDERS...]
 - `--check` writes nothing. It lists files that would change and exits 1 if
   any would, as gofmt `-l`, `rustfmt --check` and `prettier --check` do.
 
+**F4 as built.** `stitchwort fmt [--check] [FILES or FOLDERS...]` formats
+files in place and prints each one it changed; a folder is searched
+recursively, and with no files it uses the project's sources, found as
+`check` does. `-` reads standard input and writes standard output. `--check`
+writes nothing and lists what would change. Exit status is 0 normally, 1 if
+`--check` found a file that would change, and 2 if any file was refused (a
+syntax error) or hit a formatter bug; 2 wins over 1.
+
 ### 5.2 Language server and VS Code
 
 The server advertises its capabilities in `crates/cli/src/lsp.rs:75-90` and

@@ -24,6 +24,7 @@ stitchwort test                 # every namespace's tests (results cached in .st
 stitchwort check Day05          # one namespace, and the ones it uses
 stitchwort axioms Day05.total   # the axioms (today only Quot.sound) a definition depends on
 stitchwort axioms file.sw name  # the same for a definition in a single file
+stitchwort fmt                  # format the project's sources in place (--check lists what would change)
 
 nix build .#playground          # the browser playground: open result/index.html via a web server
                                 #   (it needs result/playground-worker.js and result/pkg/ beside it)
