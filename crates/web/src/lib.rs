@@ -498,6 +498,8 @@ fn run_main_in(
             )
             .with_label(main.span, "while running this program")
             .with_note("`IO.readLine()` gives `None` at the end of the input"),
+            // Unhandled `Fail` (D1048): shown like the CLI prints it.
+            RunError::Failed(msg) => return format!("error: {msg}\n"),
             error => error.diagnostic(main),
         };
         rendered(&session, &[error])

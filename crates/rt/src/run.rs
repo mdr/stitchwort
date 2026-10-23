@@ -200,7 +200,7 @@ impl Runner<'_> {
                     }
                 },
                 Focus::Ret(v) => match self.frames.pop() {
-                    None => return Ok(Outcome::Finished),
+                    None => return self.finished(&v),
                     Some(Frame::Bind(k)) => Focus::Eval(self.m.call(k, vec![v])?),
                     Some(Frame::Map(..) | Frame::Tie(_)) => Focus::Ret(v),
                     Some(Frame::Await { cont, upper, back }) => {
@@ -210,6 +210,17 @@ impl Runner<'_> {
                     }
                 },
             };
+        }
+    }
+
+    /// `main` finished with `v`, which is `Some msg` if it failed with `msg`
+    /// (the driver wraps it in `Fail.recover`).
+    fn finished(&self, v: &Value) -> Result<Outcome, RunError> {
+        match v {
+            Value::Data(t, fields) if *t == self.m.shapes().some => Err(RunError::Failed(
+                crate::prims::text_of(&fields[0]).to_string(),
+            )),
+            _ => Ok(Outcome::Finished),
         }
     }
 

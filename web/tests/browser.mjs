@@ -795,6 +795,25 @@ def main () : {IO} () :=
   assert.equal(await page.printed(), "first\n2\nsecond\nthird\nnone\n");
 });
 
+test("Run, with an unhandled Fail in main", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  // What was printed before the failure stays, and the failure is shown as
+  // an error below it, as the command line prints it.
+  await page.setSource(`import Std (Fail)
+
+def main(): {IO, Fail} () :=
+  IO.print "before"
+  Fail.fail "boom"
+`);
+  await page.untilChecked();
+  await page.tab("run");
+  const result = await page.run();
+  assert.equal(await page.printed(), "before\n");
+  assert.match(result, /error: boom/);
+  assert.doesNotMatch(result, /Finished in/);
+});
+
 test("Run's errors", async (page) => {
   await page.open();
   await page.untilChecked();
