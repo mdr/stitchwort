@@ -5639,8 +5639,8 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 merged; leftovers (isSubsetSpec, memToList, sizeInsert/Remove, Map.induction) running; O(n+m) merges later",
-      "status": "doing",
+      "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 and the API leftovers (memToList, sizeInsert/Remove, Map.induction, isSubsetSpec) merged; remaining: O(n+m) merges",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -5673,7 +5673,8 @@
         "5cbddb7d",
         "a5f8b214",
         "57bd6784",
-        "f05dd335"
+        "f05dd335",
+        "c216916c"
       ]
     },
     {
@@ -6291,7 +6292,7 @@
     {
       "id": 393,
       "title": "Pure functions refused where an effect-polymorphic callback is expected: mapIn Succ xs, mapIn f xs (f: Nat -> Nat), mapIn (List.drop 1) xs all E-TYPE-MISMATCH 'expected a -> {?3 ..} ?4, but this has type a -> b'; only lambdas work (found by SW-369; related SW-223)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
