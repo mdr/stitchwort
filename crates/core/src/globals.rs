@@ -236,6 +236,12 @@ pub struct Globals {
     /// them directly once the helpers are declared. Few, so a list; cleared
     /// with `metas`. Never seen by the kernel.
     pub frozen_metas: RefCell<Vec<usize>>,
+    /// For a frozen metavariable once solved with its helper's call: how many
+    /// variables the call is a function of, and the call itself (a term in
+    /// them). Zonking puts this term in, instead of reading the solution
+    /// value back, which would write out what the arguments of the call
+    /// unfold to. Cleared with `metas`.
+    pub lifted_calls: RefCell<std::collections::HashMap<usize, (usize, Rc<Term>)>>,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
     /// not the lifted call with its captures. Cleared with `metas`. Only
@@ -349,6 +355,7 @@ impl Globals {
         self.metas_taken_back();
         self.metas.borrow_mut().clear();
         self.frozen_metas.borrow_mut().clear();
+        self.lifted_calls.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();
         self.print_labels.borrow_mut().clear();
     }
@@ -386,6 +393,7 @@ impl Globals {
             metas: _,
             meta_trail: _,
             frozen_metas: _,
+            lifted_calls: _,
             print_labels: _,
             hashes,
             budget,

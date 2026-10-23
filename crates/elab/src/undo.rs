@@ -87,6 +87,7 @@ impl Snapshot {
             }
             metas.truncate(self.metas);
             g.frozen_metas.borrow_mut().retain(|m| *m < self.metas);
+            g.lifted_calls.borrow_mut().retain(|m, _| *m < self.metas);
             g.print_labels
                 .borrow_mut()
                 .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));

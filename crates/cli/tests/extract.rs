@@ -2240,6 +2240,61 @@ console.log("ok");
     run_script_on("compare", &[("compare.mjs", js)], script);
 }
 
+/// SW-343: the same comparison as the scrutinee of a `match` (a lifted
+/// helper's call, whose argument was read back from its value, unfolding
+/// `Text.decEq` and everything else the lambda calls), with the key taken by
+/// a function defined by pattern matching, alone and inside another function.
+#[test]
+fn a_text_comparison_in_a_match_scrutinee_calls_the_native() {
+    let source = "import Std (Eq, List, Option, Text, Nat, Int)\n\n\
+        type Thing =\n  \
+        | A (ref: Nat) (id: Text) (start: Int)\n  \
+        | B (ref: Nat) (id: Text) (start: Int) (label: Text)\n\n\
+        def thingId: Thing -> Text\n  \
+        | A _ id _ => id\n  \
+        | B _ id _ _ => id\n\n\
+        def findThing (id: Text) (xs: List Thing): Option Thing :=\n  \
+        xs.find (t => thingId t == id)\n\n\
+        export def viaHelper (id: Text) (xs: List Thing): Nat :=\n  \
+        match findThing id xs with\n    \
+        | None => 0\n    \
+        | Some (A r _ _) => r\n    \
+        | Some (B r _ _ _) => r + 100\n\n\
+        export def direct (id: Text) (xs: List Thing): Nat :=\n  \
+        match List.find (t => thingId t == id) xs with\n    \
+        | None => 0\n    \
+        | Some _ => 1\n";
+    let mut session = Session::new();
+    if let Err(errors) = session.load("scrutinee.sw", source) {
+        panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
+    }
+    let g = &session.elab.globals;
+    let js = stitchwort_js::generate(g, Limits::default())
+        .expect("extraction succeeds")
+        .js;
+    for name in ["viaHelper", "direct"] {
+        let line = js
+            .lines()
+            .find(|l| l.starts_with(&format!("const $Main$d{name} =")))
+            .unwrap_or_else(|| panic!("no definition of {name}"));
+        assert!(
+            !line.contains("decEqFrom")
+                && !line.contains("List$ddecEq")
+                && !line.contains("toList")
+                && !line.contains("charsOfText"),
+            "{name} compares characters: {line}"
+        );
+    }
+    let script = r#"
+import * as m from "./scrutinee.mjs";
+import assert from "node:assert/strict";
+assert.equal(m.viaHelper("a", []), 0n);
+assert.equal(m.direct("a", []), 0n);
+console.log("ok");
+"#;
+    run_script_on("scrutinee", &[("scrutinee.mjs", js)], script);
+}
+
 /// Every native integer operation, and the same operations compiled from
 /// their definitions (`DATA_INT`), must agree with each other and with
 /// `BigInt` arithmetic written out here, on all small pairs, values around

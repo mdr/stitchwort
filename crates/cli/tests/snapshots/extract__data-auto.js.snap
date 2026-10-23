@@ -524,6 +524,7 @@ const $Main$dOrdered$d$gcompare = (v1) => {
   const v2 = v1.compare;
   return v2;
 };
+const $Main$dOrdered$dcompare = (v1) => $Main$dOrdered$d$gcompare(v1);
 const $Main$dOrdered$dinstNat = { compare: $Std$dNat$dcompare };
 const $Main$ddescending = { compare: ((v0) => ((v1) => $Std$dNat$dcompare(v1)(v0))) };
 const $Main$dTree$dinsert$d$gmatch1 = (v1) => (v2) => (v3) => (v4) => (v5) => (v6) => {
@@ -549,7 +550,7 @@ const $Main$dTree$dinsert = (v1) => (v2) => (v3) => {
       const v4 = v3.left;
       const v5 = v3.key;
       const v6 = v3.right;
-      return $Main$dTree$dinsert$d$gmatch1(v1)(v2)(v4)(v5)(v6)($Main$dOrdered$d$gcompare(v1)(v2)(v5));
+      return $Main$dTree$dinsert$d$gmatch1(v1)(v2)(v4)(v5)(v6)($Main$dOrdered$dcompare(v1)(v2)(v5));
     }
   }
   throw new Error("unreachable");
