@@ -232,8 +232,8 @@ expression, a constructor applied to a record literal, is more common, about
 fifteen uses, such as `Some { value = n, fits = h }` (`std/Int/Safe.sw:20`) and
 `xs.map (Cons { row = 0, column = c })`
 (`examples/accept/record-literal-in-partial-ctor.sw:11`) **[checked]**.
-`show` prints a record inside a constructor the same way,
-`Some { name = "tea", price = 3 }` (`examples/accept/show.sw:62`)
+`show` used to print a record inside a constructor the same way,
+`Some { name = "tea", price = 3 }`, and now brackets it (§4.5) (`examples/accept/show.sw:62`)
 **[checked]**.
 
 **At the JS boundary** a variant is a tagged object whose keys are the field
@@ -605,13 +605,12 @@ id = "a", text = "t" }` is `Circle 1 "a" "t"`.
   `web/guide/09-namespaces.sw`.
 - **Hashes.** No existing declaration's hash moves: `C ({ … })` parses and
   elaborates as before.
-- **`show` is not changed.** `toSource` still prints a record inside a
-  constructor in the old form, `Some { name = "tea", price = 3 }`, which now
-  reads as named construction and is `E-UNKNOWN-FIELD`. Printing the brackets
-  means changing `Show.arg` and `Option.showWith` to bracket an argument that
-  starts with `{`. That moves the hash of `Std.Show.arg` and of every derived
-  `Show`, so it is left for a decision. Until then this is the one
-  pattern/expression asymmetry left.
+- **`show` brackets a record argument (built, 23 Oct 2026).** `Show.argOf` brackets
+  an argument that starts with `{`, so `toSource` prints
+  `Some ({ name = "tea", price = 3 })`, valid source. This moved the hash of
+  `Std.Show.arg`, `Std.Show.argOf`, `Std.Show.startsBracketed`, `Option.showWith`,
+  `Result.showWith` and every derived `Show`, and their dependents; hash
+  stability is not a goal. Test: `examples/accept/show.sw`.
 
 Examples: `examples/accept/ctor-field-construction.sw`;
 `examples/reject/ctor-construction-*.sw`.
@@ -1229,7 +1228,7 @@ Unchanged: they work constructor by constructor. `Show` keeps printing variants
 positionally (`Circle 1 "a" 0 "t"`) and a record argument as today
 (`Some { name = "tea", price = 3 }`). D605 (a) is built, so that output is
 no longer the source form of the value (`Some ({ name = "tea", price = 3 })`
-is); `show` was left alone for now (4.5).
+is); `show` brackets a record argument (4.5).
 
 ### 9.3 Navigation and the language server
 

@@ -59,7 +59,7 @@ test "parameter" := "${Node Leaf "a" Leaf}" == "Node Leaf \"a\" Leaf"
 test "record" := "${item}" == "{ name = \"tea\", price = 3 }"
 test "record in a list" := "${[item]}" == "[{ name = \"tea\", price = 3 }]"
 test "generic record" := "${({ first = "a", second = 1 }: Pair2 Text Nat)}" == "{ first = \"a\", second = 1 }"
-test "record in a constructor" := "${Some item}" == "Some { name = \"tea\", price = 3 }"
+test "record in a constructor" := "${Some item}" == "Some ({ name = \"tea\", price = 3 })"
 
 -- The module's own instance.
 test "own instance" := "${({ x = 1, y = 2 }: Point)}" == "(1, 2)"
