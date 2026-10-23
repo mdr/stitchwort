@@ -145,6 +145,30 @@ def Map.Tree.map (f: v -> w): Map.Tree k v -> Map.Tree k w
   | Tip => Tip
   | Bin s l kk vv r => Bin s (Map.Tree.map f l) kk (f vv) (Map.Tree.map f r)
 
+def Map.Tree.mapWithKey (f: k -> v -> w): Map.Tree k v -> Map.Tree k w
+  | Tip => Tip
+  | Bin s l kk vv r => Bin s (Map.Tree.mapWithKey f l) kk (f kk vv) (Map.Tree.mapWithKey f r)
+
+def Map.Tree.minOr (found: Option (k, v)): Map.Tree k v -> Option (k, v)
+  | Tip => found
+  | Bin _ l kk vv r => Map.Tree.minOr (Some (kk, vv)) l
+
+def Map.Tree.maxOr (found: Option (k, v)): Map.Tree k v -> Option (k, v)
+  | Tip => found
+  | Bin _ l kk vv r => Map.Tree.maxOr (Some (kk, vv)) r
+
+def Map.Tree.nearestBelow [auto ord: Ord k] (key: k) (found: Option (k, v)): Map.Tree k v -> Option (k, v)
+  | Tip => found
+  | Bin _ l kk vv r => match Ord.compare kk key with
+    | Less => Map.Tree.nearestBelow key (Some (kk, vv)) r
+    | _ => Map.Tree.nearestBelow key found l
+
+def Map.Tree.nearestAbove [auto ord: Ord k] (key: k) (found: Option (k, v)): Map.Tree k v -> Option (k, v)
+  | Tip => found
+  | Bin _ l kk vv r => match Ord.compare key kk with
+    | Less => Map.Tree.nearestAbove key (Some (kk, vv)) l
+    | _ => Map.Tree.nearestAbove key found r
+
 -- Keys in order
 
 -- `lo < x`, where no bound is below everything.
@@ -348,6 +372,12 @@ theorem Map.Tree.mapWithin (ord: Ord k) (f: v -> w): (lo: Option k) -> (hi: Opti
   | lo, hi, Bin s l kk vv r, Both b (Both wl wr) =>
     Both b (Both (Map.Tree.mapWithin ord f lo (Some kk) l wl) (Map.Tree.mapWithin ord f (Some kk) hi r wr))
 
+theorem Map.Tree.mapWithKeyWithin (ord: Ord k) (f: k -> v -> w): (lo: Option k) -> (hi: Option k) -> (t: Map.Tree k v) ->
+    Map.Tree.Within ord lo hi t -> Map.Tree.Within ord lo hi (Map.Tree.mapWithKey f t)
+  | lo, hi, Tip, w => Trivial
+  | lo, hi, Bin s l kk vv r, Both b (Both wl wr) =>
+    Both b (Both (Map.Tree.mapWithKeyWithin ord f lo (Some kk) l wl) (Map.Tree.mapWithKeyWithin ord f (Some kk) hi r wr))
+
 -- Proofs: every operation keeps the stored sizes right. `bin` works the
 -- size out, and each rotation is built from `bin`s.
 
@@ -437,6 +467,16 @@ theorem Map.Tree.mapSized (f: v -> w): (t: Map.Tree k v) -> Map.Tree.Sized t -> 
   | Bin s l kk vv r, Both e (Both sl sr) =>
     Both (rewrite Map.Tree.sizeMap f l, Map.Tree.sizeMap f r in e)
       (Both (Map.Tree.mapSized f l sl) (Map.Tree.mapSized f r sr))
+
+theorem Map.Tree.sizeMapWithKey (f: k -> v -> w): (t: Map.Tree k v) -> Map.Tree.size (Map.Tree.mapWithKey f t) = Map.Tree.size t
+  | Tip => rfl
+  | Bin s l kk vv r => rfl
+
+theorem Map.Tree.mapWithKeySized (f: k -> v -> w): (t: Map.Tree k v) -> Map.Tree.Sized t -> Map.Tree.Sized (Map.Tree.mapWithKey f t)
+  | Tip, st => Trivial
+  | Bin s l kk vv r, Both e (Both sl sr) =>
+    Both (rewrite Map.Tree.sizeMapWithKey f l, Map.Tree.sizeMapWithKey f r in e)
+      (Both (Map.Tree.mapWithKeySized f l sl) (Map.Tree.mapWithKeySized f r sr))
 
 -- Proofs: what `get` finds.
 
@@ -662,6 +702,20 @@ def Map.Raw.filter [auto ord: Ord k] (p: k -> v -> Bool) (m: Map.Raw k v): Map.R
 def Map.Raw.union [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw k v): Map.Raw k v :=
   Map.Raw.foldLeft (acc key value => Map.Raw.insert key value acc) b a
 
+def Map.Raw.mapWithKey (f: k -> v -> w) (m: Map.Raw k v [ord := o]): Map.Raw k w [ord := o] := {
+  tree = Map.Tree.mapWithKey f m.tree,
+  ordered = Map.Tree.mapWithKeyWithin o f None None m.tree m.ordered,
+  sized = Map.Tree.mapWithKeySized f m.tree m.sized
+}
+
+def Map.Raw.min (m: Map.Raw k v [ord := o]): Option (k, v) := Map.Tree.minOr None m.tree
+
+def Map.Raw.max (m: Map.Raw k v [ord := o]): Option (k, v) := Map.Tree.maxOr None m.tree
+
+def Map.Raw.below [auto ord: Ord k] (key: k) (m: Map.Raw k v): Option (k, v) := Map.Tree.nearestBelow key None m.tree
+
+def Map.Raw.above [auto ord: Ord k] (key: k) (m: Map.Raw k v): Option (k, v) := Map.Tree.nearestAbove key None m.tree
+
 -- What `get` says about `insert`, whatever the map was.
 
 theorem Map.Raw.getEmpty [auto ord: Ord k] (key: k): Map.Raw.get key (Map.Raw.empty: Map.Raw k v) = None := rfl
@@ -679,6 +733,10 @@ theorem Map.Raw.getInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value
     Map.Raw.get key (Map.Raw.insertWith f key value m) = Some (Map.Tree.combine f value (Map.Raw.get key m)) :=
   Map.Tree.getInsertWith f key value None None m.tree Trivial Trivial m.ordered
 
+theorem Map.Raw.getInsertWithOther [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (other: k) (ne: Not (other = key)) (m: Map.Raw k v):
+    Map.Raw.get other (Map.Raw.insertWith f key value m) = Map.Raw.get other m :=
+  Map.Tree.getInsertWithOther f key value other ne None None m.tree Trivial Trivial m.ordered
+
 -- What `get` says about `map`: it finds what it did, with `f` applied.
 -- (The tree's keys stay where they are, so the proof needs no ordering facts.)
 theorem Map.Tree.getMap [auto ord: Ord k] (f: v -> w) (key: k): (t: Map.Tree k v) ->
@@ -692,6 +750,19 @@ theorem Map.Tree.getMap [auto ord: Ord k] (f: v -> w) (key: k): (t: Map.Tree k v
 
 theorem Map.Raw.getMap [auto ord: Ord k] (f: v -> w) (key: k) (m: Map.Raw k v): Map.Raw.get key (Map.Raw.map f m) = Option.map f (Map.Raw.get key m) :=
   Map.Tree.getMap f key m.tree
+
+theorem Map.Tree.getMapWithKey [auto ord: Ord k] (f: k -> v -> w) (key: k): (t: Map.Tree k v) ->
+    Map.Tree.get key (Map.Tree.mapWithKey f t) = Option.map (f key) (Map.Tree.get key t)
+  | Tip => rfl
+  | Bin s l kk vv r =>
+    match e: Ord.compare key kk with
+      | Less => Map.Tree.getMapWithKey f key l
+      | Equal => rewrite ord.equal key kk e in rfl
+      | Greater => Map.Tree.getMapWithKey f key r
+
+theorem Map.Raw.getMapWithKey [auto ord: Ord k] (f: k -> v -> w) (key: k) (m: Map.Raw k v):
+    Map.Raw.get key (Map.Raw.mapWithKey f m) = Option.map (f key) (Map.Raw.get key m) :=
+  Map.Tree.getMapWithKey f key m.tree
 
 -- The value of the last pair with that key, which is what `fromList` keeps.
 def Map.lookupLast [auto ord: Ord k] (key: k): List (k, v) -> Option v
