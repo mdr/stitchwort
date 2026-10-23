@@ -548,6 +548,26 @@ enum Frame {
     /// The base of a stuck `J`: its head, spine and motive. (Boxed: it's the
     /// largest frame, and rare.)
     JBase(Box<(Head, Spine, Value)>),
+    /// The quotient argument of the `Quot.lift` `term` (forced next). With
+    /// `stuck`, the lift is a leaf of that definition's case tree.
+    LiftQuotient {
+        term: Rc<Term>,
+        env: Env,
+        stuck: Stuck,
+    },
+    /// The forced quotient argument of a `Quot.lift`.
+    LiftForced {
+        term: Rc<Term>,
+        env: Env,
+        stuck: Stuck,
+    },
+    /// The forced quotient argument of a `Quot.lift`, already unfolded if it
+    /// was a folded call.
+    LiftReady {
+        term: Rc<Term>,
+        env: Env,
+        stuck: Stuck,
+    },
     /// The next argument of a quotient form `term` (after `done`; `last`,
     /// if there, is its final argument, already computed).
     QuotArgs {
@@ -711,6 +731,29 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
                         } else {
                             branch(g, node, env, stuck, scrutinee)?
                         }
+                    }
+                    // A `Quot.lift` leaf counts as a case on its quotient
+                    // (the unfolding policy, `Stuck`): its definition stays
+                    // folded unless the quotient is a `Quot.mk`. Only a
+                    // definition marked for it (`Def::lift_leaf`), so every
+                    // call left folded here is one `is_folded` unfolds again
+                    // for a comparison.
+                    Term::Quot(QuotForm::Lift, args, _)
+                        if args.len() == QuotForm::Lift.arity()
+                            && matches!(&stuck, Some((id, _, true)) if folds_on_lift(g, *id)) =>
+                    {
+                        let q = args[5].clone();
+                        let env: Env = env.into();
+                        push(
+                            g,
+                            &mut stack,
+                            Frame::LiftQuotient {
+                                term: node.clone(),
+                                env: env.clone(),
+                                stuck,
+                            },
+                        )?;
+                        Control::Eval(q, env)
                     }
                     _ => Control::Eval(node, env.into()),
                 }
@@ -887,6 +930,21 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             Control::Eval(ty, env)
         }
         Term::Refl => Control::Return(Value::Refl),
+        // The one computation rule (docs/proposals/map-equality.md §7.2):
+        // `Quot.lift f h (Quot.mk a)` is `f a`. The quotient first, then.
+        Term::Quot(QuotForm::Lift, args, _) if args.len() == QuotForm::Lift.arity() => {
+            let q = args[5].clone();
+            push(
+                g,
+                stack,
+                Frame::LiftQuotient {
+                    term: term.clone(),
+                    env: env.clone(),
+                    stuck: None,
+                },
+            )?;
+            Control::Eval(q, env)
+        }
         Term::Quot(..) => quot_args(g, term.clone(), env, Vec::new(), None, stack)?,
         Term::J(_, _, proof) => {
             let proof = proof.clone();
@@ -1012,6 +1070,30 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
         } => {
             done.push(value);
             quot_args(g, term, env, done, last, stack)?
+        }
+        Frame::LiftQuotient { term, env, stuck } => {
+            push(g, stack, Frame::LiftForced { term, env, stuck })?;
+            Control::Force(value)
+        }
+        // A folded call is taken apart: it unfolds.
+        Frame::LiftForced { term, env, stuck } if is_folded(g, &value) => {
+            unfold_for(g, stack, value, Frame::LiftReady { term, env, stuck })?
+        }
+        Frame::LiftForced { term, env, stuck } | Frame::LiftReady { term, env, stuck } => {
+            let Term::Quot(_, args, _) = &*term else {
+                unreachable!("a `LiftForced` frame is for `Quot.lift`")
+            };
+            match quot_mk_rep(&value) {
+                // `f a`, as an application with `f` computed now.
+                Some(a) => {
+                    push(g, stack, Frame::AppTo(a.clone(), Icit::Explicit))?;
+                    Control::Eval(args[3].clone(), env)
+                }
+                // Stuck: a leaf of a case tree leaves its definition folded;
+                // otherwise it's the lift applied to its arguments.
+                None if matches!(stuck, Some((_, _, true))) => stuck_tree(stuck),
+                None => quot_args(g, term, env, Vec::new(), Some(value), stack)?,
+            }
         }
         Frame::LetBody { term, env } => {
             let Term::Let(_, _, _, body, _) = &*term else {
@@ -1408,10 +1490,48 @@ fn unfold_for(g: &Globals, stack: &mut Vec<Frame>, value: Value, next: Frame) ->
 }
 
 /// Whether `value` is a dictionary left folded by name ([`folds`]) that
-/// [`unfold_folded`] would unfold.
+/// [`unfold_folded`] would unfold; or a definition with a `Quot.lift` leaf
+/// ([`folds_on_lift`]), which may be folded because of it: taking it apart,
+/// or comparing it with something that isn't the same call with the same
+/// arguments, looks at its body (docs/proposals/map-equality.md §7.2: the
+/// policy changes what's shown and when things are computed, never what's
+/// equal).
 pub fn is_folded(g: &Globals, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
-        if folds(g, *id) && spine.len() == g.def(*id).arity && g.def(*id).body.is_some())
+        if (folds(g, *id) || folds_on_lift(g, *id))
+            && spine.len() == g.def(*id).arity
+            && g.def(*id).body.is_some())
+}
+
+/// Whether definition `id`, applied to all its parameters, stays folded when
+/// its case tree reaches a `Quot.lift` whose quotient isn't a `Quot.mk`, as
+/// when it reaches a `case` that can't step: so a goal shows `Map.get k m`,
+/// not the lift it unfolds to. Except while a program runs.
+fn folds_on_lift(g: &Globals, id: DefId) -> bool {
+    g.def(id).lift_leaf && !g.erasure.program_running()
+}
+
+/// Whether case tree `tree` (a definition's body under its parameters) has a
+/// `Quot.lift` leaf: what [`folds_on_lift`] looks for, and what the machine's
+/// tree walk treats as a case.
+pub(crate) fn has_lift_leaf(tree: &Term) -> bool {
+    let mut pending = vec![tree];
+    while let Some(t) = pending.pop() {
+        match t.strip_loc() {
+            Term::Case(_, _, branches) => {
+                pending.extend(branches.iter().filter_map(|b| b.body.as_deref()));
+            }
+            Term::NumCase(_, arms, default) => {
+                pending.extend(arms.iter().map(|a| &*a.body));
+                pending.push(default);
+            }
+            Term::Quot(QuotForm::Lift, args, _) if args.len() == QuotForm::Lift.arity() => {
+                return true;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 /// A dictionary left folded by name, unfolded until it isn't one (its body

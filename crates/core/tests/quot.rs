@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 use common::*;
 use stitchwort_core::check::{self, infer_closed};
-use stitchwort_core::value::{conv, eval};
+use stitchwort_core::value::{conv, eval, quote};
 use stitchwort_core::{DataId, DefId, Globals, QuotForm, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
@@ -975,4 +975,380 @@ fn a_quotient_index_variable_is_solved() {
         ),
     );
     try_define(f.g(), "which", ty, body).expect("which");
+}
+
+// Stage 1.2: the computation rule `Quot.lift f h (Quot.mk a) ⟶ f a`, and
+// the unfolding policy (§7.2).
+
+/// `toNat: Bool -> Nat` (`False` is 0, `True` is 1), with its proof that it
+/// respects `BoolEq`, by `J`; and the lift of it on `Quot Bool BoolEq`.
+struct Lifted {
+    to_nat: DefId,
+    resp: DefId,
+}
+
+impl Lifted {
+    fn new(f: &mut Fix) -> Lifted {
+        let (bool_ty, nat_ty) = (f.bool_ty(), f.nat_ty());
+        let body = lam(
+            "b",
+            case(0, f.bool_, vec![(vec![], f.num(0)), (vec![], f.num(1))]),
+        );
+        let to_nat = define(f.g(), "toNat", arrow(bool_ty, nat_ty), body).expect("toNat");
+        let to_nat_eq = |x: Term, y: Term| {
+            eq(
+                Some(f.nat_ty()),
+                app(Term::Def(to_nat), [x]),
+                app(Term::Def(to_nat), [y]),
+            )
+        };
+        // (x y: Bool) -> BoolEq x y -> toNat x = toNat y
+        let ty = pi(
+            "x",
+            f.bool_ty(),
+            pi(
+                "y",
+                f.bool_ty(),
+                arrow(app(f.bool_eq(), [v(1), v(0)]), to_nat_eq(v(1), v(0))),
+            ),
+        );
+        // x y e => J (y' p => toNat x = toNat y') rfl e
+        let motive = lam("y'", lam("p", to_nat_eq(v(4), v(1))));
+        let body = lam(
+            "x",
+            lam(
+                "y",
+                lam(
+                    "e",
+                    Term::J(Rc::new(motive), Rc::new(Term::Refl), Rc::new(v(0))),
+                ),
+            ),
+        );
+        let resp = define(f.g(), "toNatRespects", ty, body).expect("toNatRespects");
+        Lifted { to_nat, resp }
+    }
+
+    /// `Quot.lift [Bool] [BoolEq] [Nat] toNat toNatRespects q`.
+    fn lift(&self, f: &Fix, q: Term) -> Term {
+        Term::quot(
+            Lift,
+            vec![
+                f.bool_ty(),
+                f.bool_eq(),
+                f.nat_ty(),
+                Term::Def(self.to_nat),
+                Term::Def(self.resp),
+                q,
+            ],
+        )
+    }
+}
+
+/// Defines the theorem `ty := rfl`, which must check.
+#[track_caller]
+fn by_rfl(f: &mut Fix, name: &str, ty: Term) -> DefId {
+    try_define(f.g(), name, ty, Term::Refl).unwrap_or_else(|d| panic!("{name}: {d:?}"))
+}
+
+/// A1, data in `Type 0`: on a `Quot.mk`, written there or reached through a
+/// definition or a `let`.
+#[test]
+fn a1_lift_on_mk_computes() {
+    let mut f = Fix::new();
+    let l = Lifted::new(&mut f);
+    let lifted = l.lift(&f, f.mk_eq(f.tt()));
+    let statement = eq(
+        Some(f.nat_ty()),
+        lifted.clone(),
+        app(Term::Def(l.to_nat), [f.tt()]),
+    );
+    by_rfl(&mut f, "liftIsF", statement);
+    let statement = eq(Some(f.nat_ty()), lifted, f.num(1));
+    by_rfl(&mut f, "liftIsOne", statement);
+    // Through a definition.
+    let (qe_ty, mk) = (f.qe_ty(), f.mk_eq(f.tt()));
+    let mk_true = define(f.g(), "mkTrue", qe_ty, mk).expect("mkTrue");
+    let statement = eq(Some(f.nat_ty()), l.lift(&f, Term::Def(mk_true)), f.num(1));
+    by_rfl(&mut f, "throughADef", statement);
+    // Through a `let`.
+    let through_let = Term::let_("q".into(), f.qe_ty(), f.mk_eq(f.ff()), l.lift(&f, v(0)));
+    let statement = eq(Some(f.nat_ty()), through_let, f.num(0));
+    by_rfl(&mut f, "throughALet", statement);
+    // And `False` and `True` stay apart: the rule computes, it doesn't
+    // identify.
+    let statement = eq(Some(f.nat_ty()), l.lift(&f, f.mk_eq(f.ff())), f.num(1));
+    refused(
+        try_define(f.g(), "wrong", statement, Term::Refl),
+        "E-REFL",
+        "`0` and `1` aren't equal",
+    );
+}
+
+/// A1, for every kind of result and every kind of carrier: data in `Type 1`,
+/// a type (`B := Type`), a proposition (`B := Prop`), a proof (`B : Prop`);
+/// carriers `Type` (in `Type 1`) and `Prop` (in `Type 0`).
+#[test]
+fn a1_lift_computes_at_every_result_and_carrier() {
+    let mut f = Fix::new();
+    let respects = || lam("x", lam("y", lam("r", Term::Refl)));
+    let lift = |f: &Fix, carrier: Term, b: Term, fun: DefId, a: Term| {
+        Term::quot(
+            Lift,
+            vec![
+                carrier.clone(),
+                f.everything(),
+                b,
+                Term::Def(fun),
+                respects(),
+                Term::quot(Mk, vec![carrier, f.everything(), a]),
+            ],
+        )
+    };
+    // Data in `Type 1`: `TBox = MkTBox (t: Type)`.
+    let tbox = data(f.g(), "TBox", vec![], Sort::Type(1));
+    check::define_ctors(f.g(), tbox, vec![ctor("MkTBox", vec![("t", ty())])]).expect("TBox");
+    let tbox_ty = Term::data(tbox, vec![]);
+    let nat_box = Term::ctor(tbox, 0, vec![f.nat_ty()]);
+    let fun_ty = arrow(f.bool_ty(), tbox_ty.clone());
+    let boxed = define(f.g(), "boxed", fun_ty, lam("b", nat_box)).expect("boxed");
+    let statement = eq(
+        Some(tbox_ty.clone()),
+        lift(&f, f.bool_ty(), tbox_ty, boxed, f.ff()),
+        app(Term::Def(boxed), [f.ff()]),
+    );
+    by_rfl(&mut f, "inType1", statement);
+    // A type: `B := Type`.
+    let fun_ty = arrow(f.bool_ty(), ty());
+    let nat_ty = f.nat_ty();
+    let natty = define(f.g(), "natTy", fun_ty, lam("b", nat_ty)).expect("natTy");
+    let statement = eq(
+        Some(ty()),
+        lift(&f, f.bool_ty(), ty(), natty, f.tt()),
+        f.nat_ty(),
+    );
+    by_rfl(&mut f, "aType", statement);
+    // A proposition: `B := Prop`.
+    let fun_ty = arrow(f.bool_ty(), prop());
+    let unit_ty = f.unit_ty();
+    let unit_of = define(f.g(), "unitOf", fun_ty, lam("b", unit_ty)).expect("unitOf");
+    let statement = eq(
+        Some(prop()),
+        lift(&f, f.bool_ty(), prop(), unit_of, f.tt()),
+        f.unit_ty(),
+    );
+    by_rfl(&mut f, "aProposition", statement);
+    // A proof: `B := Unit`, a proposition.
+    let fun_ty = arrow(f.bool_ty(), f.unit_ty());
+    let trivial = f.trivial();
+    let proof_of = define(f.g(), "proofOf", fun_ty, lam("b", trivial)).expect("proofOf");
+    let statement = eq(
+        Some(f.unit_ty()),
+        lift(&f, f.bool_ty(), f.unit_ty(), proof_of, f.ff()),
+        app(Term::Def(proof_of), [f.ff()]),
+    );
+    by_rfl(&mut f, "aProof", statement);
+    // A carrier of types, in `Type 1`: `seven (a: Type): Nat := 7`.
+    let fun_ty = arrow(ty(), f.nat_ty());
+    let seven_body = lam("a", f.num(7));
+    let seven = define(f.g(), "seven", fun_ty, seven_body).expect("seven");
+    let statement = eq(
+        Some(f.nat_ty()),
+        lift(&f, ty(), f.nat_ty(), seven, f.bool_ty()),
+        app(Term::Def(seven), [f.bool_ty()]),
+    );
+    by_rfl(&mut f, "carrierOfTypes", statement);
+    // A carrier of propositions, the universe `Prop`, in `Type 0`.
+    let fun_ty = arrow(prop(), f.nat_ty());
+    let three_body = lam("p", f.num(3));
+    let three = define(f.g(), "three", fun_ty, three_body).expect("three");
+    let statement = eq(
+        Some(f.nat_ty()),
+        lift(&f, prop(), f.nat_ty(), three, f.zero_is_zero()),
+        f.num(3),
+    );
+    by_rfl(&mut f, "carrierOfPropositions", statement);
+}
+
+/// R7 and R8 still hold with the rule in: it's for `lift` alone, and it
+/// doesn't make related values convertible. (The tests above run again too;
+/// these say so where the rule is.)
+#[test]
+fn r7_r8_the_rule_is_for_lift_alone() {
+    let mut f = Fix::new();
+    // `ind` on a `Quot.mk` stays stuck.
+    let h_ty = arrow(f.bool_ty(), f.unit_ty());
+    let trivial = f.trivial();
+    let h = define(f.g(), "h", h_ty, lam("b", trivial)).expect("h");
+    let ind = Term::quot(
+        Ind,
+        vec![
+            f.bool_ty(),
+            f.bool_eq(),
+            lam("_", f.unit_ty()),
+            Term::Def(h),
+            f.mk_eq(f.tt()),
+        ],
+    );
+    let statement = eq(Some(f.unit_ty()), ind, f.trivial());
+    refused(
+        try_define(f.g(), "indComputes", statement, Term::Refl),
+        "E-REFL",
+        "aren't equal",
+    );
+    // Related representatives stay apart under conversion.
+    let statement = eq(Some(f.q_ty()), f.mk(f.ff()), f.mk(f.tt()));
+    refused(
+        try_define(f.g(), "same", statement, Term::Refl),
+        "E-REFL",
+        "`Quot.mk False` and `Quot.mk True` aren't equal",
+    );
+}
+
+/// A8: a definition whose case tree is a `Quot.lift` on its argument stays
+/// folded on a variable (so goals show `observe q`), and that never stops
+/// conversion from comparing it with its body, or with another definition
+/// with the same body, or with itself on different but unused arguments.
+#[test]
+fn a8_a_folded_lift_is_still_its_body() {
+    let mut f = Fix::new();
+    let l = Lifted::new(&mut f);
+    let observe_ty = arrow(f.qe_ty(), f.nat_ty());
+    let observe_body = lam("q", l.lift(&f, v(0)));
+    let observe =
+        define(f.g(), "observe", observe_ty.clone(), observe_body.clone()).expect("observe");
+    let again = define(f.g(), "again", observe_ty, observe_body).expect("again");
+    let applied = |id: DefId| app(Term::Def(id), [v(0)]);
+    let for_all = |f: &Fix, body: Term| pi("q", f.qe_ty(), body);
+    let proof = lam("q", Term::Refl);
+    // observe q = Quot.lift toNat toNatRespects q, both ways round.
+    let statement = for_all(&f, eq(Some(f.nat_ty()), applied(observe), l.lift(&f, v(0))));
+    try_define(f.g(), "unfolds", statement, proof.clone()).expect("unfolds");
+    let statement = for_all(&f, eq(Some(f.nat_ty()), l.lift(&f, v(0)), applied(observe)));
+    try_define(f.g(), "folds", statement, proof.clone()).expect("folds");
+    // Two definitions with the same body.
+    let statement = for_all(&f, eq(Some(f.nat_ty()), applied(observe), applied(again)));
+    try_define(f.g(), "same", statement, proof.clone()).expect("same");
+    // An argument the body doesn't use: different, but equal unfolded.
+    let ignoring_ty = arrow(f.qe_ty(), arrow(f.nat_ty(), f.nat_ty()));
+    let ignoring_body = lam("q", lam("n", l.lift(&f, v(1))));
+    let ignoring = define(f.g(), "ignoring", ignoring_ty, ignoring_body).expect("ignoring");
+    let statement = for_all(
+        &f,
+        eq(
+            Some(f.nat_ty()),
+            app(Term::Def(ignoring), [v(0), f.num(1)]),
+            app(Term::Def(ignoring), [v(0), f.num(2)]),
+        ),
+    );
+    try_define(f.g(), "ignored", statement, proof.clone()).expect("ignored");
+    // A lift under a case is a leaf too.
+    let under_ty = arrow(f.bool_ty(), arrow(f.qe_ty(), f.nat_ty()));
+    let under_body = lam(
+        "b",
+        lam(
+            "q",
+            case(
+                1,
+                f.bool_,
+                vec![(vec![], f.num(0)), (vec![], l.lift(&f, v(0)))],
+            ),
+        ),
+    );
+    let under = define(f.g(), "under", under_ty, under_body).expect("under");
+    let statement = for_all(
+        &f,
+        eq(
+            Some(f.nat_ty()),
+            app(Term::Def(under), [f.tt(), v(0)]),
+            applied(observe),
+        ),
+    );
+    try_define(f.g(), "underCase", statement, proof.clone()).expect("underCase");
+    // On a `Quot.mk`, it computes.
+    let statement = eq(
+        Some(f.nat_ty()),
+        app(Term::Def(observe), [f.mk_eq(f.tt())]),
+        f.num(1),
+    );
+    by_rfl(&mut f, "observeTrue", statement);
+    // Folding changes nothing that's equal: an open `observe q` still
+    // isn't a number.
+    let statement = for_all(&f, eq(Some(f.nat_ty()), applied(observe), f.num(1)));
+    refused(
+        try_define(f.g(), "notOne", statement, proof),
+        "E-REFL",
+        "`observe q` and `1` aren't equal",
+    );
+
+    // What's shown: `observe q`, folded, for a variable `q`; the lift
+    // itself when written out; the number on a `Quot.mk`.
+    let g = &f.p.g;
+    let names: Vec<stitchwort_core::Name> = vec!["q".into()];
+    let shown = |term: &Term, level: usize| {
+        let env: Vec<Value> = (0..level).map(Value::var).collect();
+        let value = eval(g, &env, term).expect("evaluates");
+        let quoted = quote(g, level, &value).expect("quotes");
+        stitchwort_core::pretty::term(g, &names[..level], &quoted)
+    };
+    assert_eq!(shown(&applied(observe), 1), "observe q");
+    let under_true = app(Term::Def(under), [f.tt(), v(0)]);
+    assert_eq!(shown(&under_true, 1), "under True q");
+    assert_eq!(
+        shown(&l.lift(&f, v(0)), 1),
+        "Quot.lift toNat toNatRespects q"
+    );
+    let on_mk = app(Term::Def(observe), [f.mk_eq(f.tt())]);
+    assert_eq!(shown(&on_mk, 0), "1");
+}
+
+/// A lift on a closed quotient that isn't a `Quot.mk` (`J` on `Quot.sound`,
+/// stuck) doesn't compute, in a definition with no parameters too; and that
+/// definition is still its body (A8's condition: whether a definition stays
+/// folded never changes what's equal).
+#[test]
+fn a_lift_on_a_stuck_closed_quotient_is_neutral_and_still_its_body() {
+    let mut f = Fix::new();
+    let q_ty = f.q_ty();
+    // sameQ: Quot.mk False = Quot.mk True := Quot.sound Trivial
+    let same_ty = eq(Some(f.q_ty()), f.mk(f.ff()), f.mk(f.tt()));
+    let sound = q(
+        Sound,
+        vec![f.bool_ty(), f.all_true(), f.ff(), f.tt(), f.trivial()],
+    );
+    let same = try_define(f.g(), "sameQ", same_ty, sound).expect("sameQ");
+    // stuckQ: Q := J (y p => Q) (Quot.mk True) sameQ
+    let motive = lam("y", lam("p", f.q_ty()));
+    let stuck_body = Term::J(
+        Rc::new(motive),
+        Rc::new(f.mk(f.tt())),
+        Rc::new(Term::Def(same)),
+    );
+    let stuck = try_define(f.g(), "stuckQ", q_ty, stuck_body).expect("stuckQ");
+    // constLift: Nat := Quot.lift [Bool] [AllTrue] [Nat] (b => 0) (x y r => rfl) stuckQ
+    let lift = |f: &Fix| {
+        q(
+            Lift,
+            vec![
+                f.bool_ty(),
+                f.all_true(),
+                f.nat_ty(),
+                lam("b", f.num(0)),
+                lam("x", lam("y", lam("r", Term::Refl))),
+                Term::Def(stuck),
+            ],
+        )
+    };
+    let (nat_ty, body) = (f.nat_ty(), lift(&f));
+    let c = try_define(f.g(), "constLift", nat_ty, body).expect("constLift");
+    let statement = eq(Some(f.nat_ty()), Term::Def(c), lift(&f));
+    by_rfl(&mut f, "constLiftIsItsBody", statement);
+    let statement = eq(Some(f.nat_ty()), lift(&f), Term::Def(c));
+    by_rfl(&mut f, "constLiftIsItsBodyBackwards", statement);
+    // Not a number: the rule needs a `Quot.mk`, and `stuckQ` isn't one.
+    let statement = eq(Some(f.nat_ty()), Term::Def(c), f.num(0));
+    refused(
+        try_define(f.g(), "constLiftIsZero", statement, Term::Refl),
+        "E-REFL",
+        "aren't equal",
+    );
 }

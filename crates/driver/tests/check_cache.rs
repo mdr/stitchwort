@@ -778,6 +778,43 @@ fn expression_types_come_back_from_the_cache() {
     );
 }
 
+/// A4 (docs/proposals/map-equality.md §14.3): the five quotient forms
+/// round-trip through the cache. The dump holds every term with its forms'
+/// erasure flags, so a form written or read back wrongly is a difference.
+#[test]
+fn quotient_forms_round_trip_through_the_cache() {
+    let source = "namespace Quotients\n\n\
+                  def AllTrue (x: Bool) (y: Bool): Prop := Unit\n\
+                  def Q: Type := Quot Bool AllTrue\n\
+                  theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial\n\
+                  def zeroOf (q: Q): Nat := Quot.lift (b => 0) (x y r => rfl) q\n\
+                  theorem alwaysZero (q: Q): zeroOf q = 0 :=\n  \
+                  Quot.ind [p := q => zeroOf q = 0] (b => rfl) q\n\
+                  theorem zeroOfTrue: zeroOf (Quot.mk True) = 0 := rfl\n";
+    let dir = temp_project("quotients", &[("src/Quotients.sw", source)]);
+    let project = Source::Project("p".to_string(), dir.clone());
+    let fresh = run(&project, true, None);
+    assert!(
+        fresh.dump.contains("\naccepted true\n"),
+        "not accepted:\n{}",
+        fresh.dump
+    );
+    for form in stitchwort_core::QuotForm::ALL {
+        assert!(
+            fresh.dump.contains(&format!("({} ", form.name())),
+            "no `{}` in the dump",
+            form.name()
+        );
+    }
+    let cache = temp_dir("quotients-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!(cold.namespace_written, 1);
+    let warm = fresh_and_cached(&dir, &cache);
+    assert_eq!((warm.namespace_hits, warm.namespace_misses), (1, 0));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 // ---- Attributes (docs/proposals/attributes.md §6.5, §9.2) ---------------
 
 /// `Shapes` declares attributed types, the field `centerX` with the key

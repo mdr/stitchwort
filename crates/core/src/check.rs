@@ -1340,6 +1340,8 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
         Ok(bodies) => {
             for ((id, _), body) in members.iter().zip(bodies) {
                 let def = &mut g.defs[id.0];
+                def.lift_leaf =
+                    def.arity > 0 && crate::value::has_lift_leaf(body.peel_lams(def.arity));
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
@@ -1443,6 +1445,7 @@ pub fn declare_def(
         theorem,
         instance: false,
         fold: false,
+        lift_leaf: false,
         export,
         validators: Vec::new(),
         run_body: None,

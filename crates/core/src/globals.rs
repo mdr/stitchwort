@@ -63,6 +63,12 @@ pub struct Def {
     /// only when things are computed, never what's equal, so it isn't hashed;
     /// and while a program runs (erasure in effect) it unfolds at once.
     pub fold: bool,
+    /// Its case tree has a `Quot.lift` leaf, so applied to all its
+    /// parameters it may stay folded on a quotient that isn't a `Quot.mk`
+    /// (`value::is_folded`, docs/proposals/map-equality.md §7.2). Set with
+    /// the body, from it; like `fold`, it changes only when things are
+    /// computed, never what's equal, so it isn't hashed.
+    pub(crate) lift_leaf: bool,
     pub export: bool,
     /// For an export: how to check each proof parameter at runtime.
     pub validators: Vec<Validator>,
