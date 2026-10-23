@@ -171,6 +171,7 @@ impl Elaborator {
             no_show,
             no_ord,
             drafts,
+            standalone_inputs: _,
             arounds,
             lifted,
             owner,

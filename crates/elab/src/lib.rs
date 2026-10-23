@@ -351,6 +351,10 @@ pub struct Elaborator {
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
+    /// How many expressions have been elaborated standalone (the REPL's,
+    /// `eval`'s): a `match` in one is lifted to a helper owned by
+    /// `<input N>`, which keeps the helpers of different inputs apart.
+    standalone_inputs: usize,
     /// While lifting, the `let`s each draft's terms are folded back to
     /// (`lift::Arounds`); empty otherwise.
     arounds: RefCell<lift::Arounds>,
@@ -626,10 +630,11 @@ impl Elaborator {
 
     /// Elaborates a closed expression, and infers its type with the kernel.
     /// One operation, with its own resource limits.
-    pub fn infer_expr(&self, expr: &Expr) -> Result<(Term, Value)> {
-        let _op = self.globals.budget.operation(self.limits);
-        self.infer_expr_in_operation(expr)
-            .map_err(|d| self.locate(d, expr.span()))
+    pub fn infer_expr(&mut self, expr: &Expr) -> Result<(Term, Value)> {
+        let saved = self.globals.budget.start(self.limits);
+        let result = self.infer_expr_in_operation(expr);
+        self.globals.budget.restore(saved);
+        result.map_err(|d| self.locate(d, expr.span()))
     }
 
     /// The definition with key `key` (its full name), if there is one.
@@ -726,10 +731,11 @@ impl Elaborator {
     /// Elaborates and evaluates a closed expression: its value and its type,
     /// printed. One operation, with its own resource limits, including
     /// printing the value.
-    pub fn eval_expr(&self, expr: &Expr) -> Result<(String, String)> {
-        let _op = self.globals.budget.operation(self.limits);
+    pub fn eval_expr(&mut self, expr: &Expr) -> Result<(String, String)> {
+        let saved = self.globals.budget.start(self.limits);
+        let inferred = self.infer_expr_in_operation(expr);
         let run = || -> Result<(String, String)> {
-            let (term, ty) = self.infer_expr_in_operation(expr)?;
+            let (term, ty) = inferred?;
             let value = eval(&self.globals, &[], &term)?;
             let g = &self.globals;
             let show = |v: &Value| -> std::result::Result<String, stitchwort_core::ResourceError> {
@@ -737,7 +743,9 @@ impl Elaborator {
             };
             Ok((show(&value)?, show(&ty)?))
         };
-        run().map_err(|d| self.locate(d, expr.span()))
+        let result = run();
+        self.globals.budget.restore(saved);
+        result.map_err(|d| self.locate(d, expr.span()))
     }
 
     /// A diagnostic without a location (running out of resources) is
@@ -750,9 +758,13 @@ impl Elaborator {
         }
     }
 
-    fn infer_expr_in_operation(&self, expr: &Expr) -> Result<(Term, Value)> {
+    fn infer_expr_in_operation(&mut self, expr: &Expr) -> Result<(Term, Value)> {
         self.clear_metas();
-        let (term, ty) = {
+        self.standalone_inputs += 1;
+        let key = format!("<input {}>", self.standalone_inputs);
+        *self.owner.borrow_mut() = vec![key.clone()];
+        self.local_keys.borrow_mut().clear();
+        let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
             let (mut term, mut ty) = infer(&mut cx, expr)?;
             // A call gets its trailing implicit and auto arguments too (so
@@ -761,8 +773,12 @@ impl Elaborator {
             if matches!(expr, Expr::App(..) | Expr::Binary(..)) {
                 (term, ty) = check::insert(&mut cx, term, ty)?;
             }
-            (term, cx.quote(&ty)?)
-        };
+            Ok((term, cx.quote(&ty)?))
+        })();
+        self.owner.borrow_mut().clear();
+        let (term, ty) = elaborated?;
+        // A `match` typed in is lifted to a helper, as in a definition.
+        self.lift(&key, false)?;
         let term = self.finish(&term, 0)?;
         self.finish(&ty, 0)?;
         self.clear_metas();
@@ -884,9 +900,13 @@ impl Elaborator {
                 let span = self.globals.metas.borrow()[m].span;
                 Diagnostic::error(
                     "E-MATCH-MOTIVE",
-                    "a `match` can't be used here: it can't be made into a definition",
+                    "a `match` can't be used here: there is no definition to lift it into",
                 )
                 .with_label(span, "this `match`")
+                .with_note(
+                    "a `match` becomes a helper definition next to the definition it is in; a \
+                     `type` or `ability` declaration has no definition to put one beside",
+                )
                 .with_note(
                     "a top-level helper with a written signature can always do what this \
                      `match` would: define one and call it",
@@ -2310,13 +2330,6 @@ impl Elaborator {
             self.record_validators(ty, &name, span, &mut seen)?;
         }
         Ok(())
-    }
-
-    /// A definition's body, finished: a lifted `match` in it is an error
-    /// (`E-MATCH-MOTIVE`).
-    fn body(&self, id: DefId, def_name: &ast::Name, equations: &[Decl]) -> Result<Term> {
-        let term = self.body_term(id, def_name, equations)?;
-        self.finish(&term, 0)
     }
 
     /// A definition's body, before metavariable solutions are substituted.
