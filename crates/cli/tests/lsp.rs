@@ -1253,3 +1253,100 @@ fn range_formatting_changes_only_the_overlapped_declarations() {
     assert_eq!(client.format_range(uri, (1, 3), (1, 3)), json!([]));
     client.shutdown();
 }
+
+/// The diagnostics that are open goals.
+fn goals(diagnostics: &[Value]) -> Vec<&Value> {
+    diagnostics.iter().filter(|d| d["code"] == "GOAL").collect()
+}
+
+#[test]
+fn an_open_goal_is_an_information_diagnostic() {
+    let dir = temp_dir("goal");
+    let file = dir.join("goal.sw");
+    let with_goal =
+        "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n := ?\n";
+    std::fs::write(&file, with_goal).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, with_goal);
+    let found = client.diagnostics(&uri, 1);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0]["severity"], 3, "{found:?}");
+    assert_eq!(found[0]["code"], "GOAL");
+    assert_eq!(
+        found[0]["range"]["start"],
+        json!({"line": 2, "character": 44})
+    );
+    let message = found[0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("in `twice`")
+            && message.contains("n: Nat")
+            && message.contains("\u{22a2} n + n = n + n"),
+        "{message}"
+    );
+
+    // The proof written: the goal is gone.
+    client.change(&uri, 2, &with_goal.replace("?", "rfl"));
+    let found = client.diagnostics(&uri, 2);
+    assert!(goals(&found).is_empty(), "{found:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn goals_stay_while_their_declaration_does_not_parse() {
+    let dir = temp_dir("goal-unparsable");
+    let file = dir.join("goal.sw");
+    let with_goal = "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n := ?\n\ndef other: Nat := 1\n";
+    std::fs::write(&file, with_goal).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, with_goal);
+    let before = client.diagnostics(&uri, 1);
+    assert_eq!(goals(&before).len(), 1, "{before:?}");
+
+    // Typing a parenthesis: the declaration no longer parses. The goal
+    // stays, beside the parse error.
+    let broken = with_goal.replace(":= ?", ":= (?");
+    client.change(&uri, 2, &broken);
+    let found = client.diagnostics(&uri, 2);
+    assert_eq!(codes(&found), ["E-PARSE", "GOAL"], "{found:?}");
+    assert_eq!(goals(&found)[0], &before[0]);
+
+    // Still broken, differently: still kept.
+    client.change(&uri, 3, &broken.replace("(?", "(? +"));
+    let found = client.diagnostics(&uri, 3);
+    assert_eq!(goals(&found).len(), 1, "{found:?}");
+
+    // It parses again: the goal is the fresh one.
+    client.change(&uri, 4, with_goal);
+    let found = client.diagnostics(&uri, 4);
+    assert_eq!(found, before);
+
+    // Broken, then the `?` replaced: the goal goes with the fix.
+    client.change(&uri, 5, &broken);
+    client.diagnostics(&uri, 5);
+    client.change(&uri, 6, &with_goal.replace("?", "rfl"));
+    let found = client.diagnostics(&uri, 6);
+    assert!(found.is_empty(), "{found:?}");
+
+    // A parse error elsewhere keeps no goal that isn't near it.
+    client.change(
+        &uri,
+        7,
+        &with_goal.replace("def other: Nat := 1", "def other: Nat := (1"),
+    );
+    let found = client.diagnostics(&uri, 7);
+    assert_eq!(codes(&found), ["GOAL", "E-PARSE"], "{found:?}");
+    client.change(
+        &uri,
+        8,
+        &with_goal
+            .replace(":= ?", ":= rfl")
+            .replace("def other: Nat := 1", "def other: Nat := (1"),
+    );
+    let found = client.diagnostics(&uri, 8);
+    assert_eq!(codes(&found), ["E-PARSE"], "{found:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
