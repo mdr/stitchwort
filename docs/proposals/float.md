@@ -1,7 +1,7 @@
 # Proposal: `Float`, a JavaScript number
 
 **Status:** draft 1, 23 October 2026. Design-review gate: nothing is implemented. Follows D645 (a
-JS-number `Float`). New decisions D655 to D664 ([§8](#8-decisions)). Written against commit
+JS-number `Float`). New decisions D680 to D689 ([§8](#8-decisions)). Written against commit
 `421cd172`.
 
 Labels: **[checked]** (read in this repository, `file:line`), **[reported by the port
@@ -32,7 +32,7 @@ The proposal, in one paragraph:
 - **Operators match JS:** `+ - * / %` are the IEEE operations, in the order written. `==`, `!=`,
   `<` and `<=` on `Float` mean what `===`, `!==`, `<` and `<=` mean in JS (`NaN == NaN` is false,
   `0.0 == -0.0` is true). The proposition `x = y`, `DecEq` and derived equality mean "the same
-  double", like `Object.is`. This split is the main decision (D658).
+  double", like `Object.is`. This split is the main decision (D683).
 - **Proofs:** stage 1 proves structural facts (a filter keeps only times after `start`; a sort's
   output is sorted by `Float`'s total order) and facts about literals by computation (`0.1 + 0.2 =
   0.30000000000000004` by `rfl`). Facts needing algebra (`(t - s) + s = t`) are false for
@@ -70,7 +70,7 @@ What to take from this:
 
 ### 2.1 Name and place
 
-`Float` (D655), in `std/Float/Float.sw`, loaded on import like `SafeInt` ([checked]
+`Float` (D680), in `std/Float/Float.sw`, loaded on import like `SafeInt` ([checked]
 `crates/elab/src/std/Int/Safe.sw:14`). `Float` is what Lean, Agda, Elm and ReScript call it [cited],
 and what a TS programmer expects. `Number` reads well in TS but clashes with the general idea of
 "a number" in the docs; `F64` is precise but unfamiliar outside Rust.
@@ -88,7 +88,7 @@ different values and there is one NaN, equal to itself. This is `Object.is` [inf
 
 ### 2.3 Literals
 
-- **Forms:** `1.5`, `80281.87`, `0.25`, and with an exponent `1e3`, `1.5e-7`, `2.0E21` (D661).
+- **Forms:** `1.5`, `80281.87`, `0.25`, and with an exponent `1e3`, `1.5e-7`, `2.0E21` (D686).
   A digit is required on both sides of `.`, so `5.` and `.5` stay errors, and `x.name` and
   `List.map` are untouched (`.` after a digit is lexed as part of a number only when a digit follows;
   today a number is digits only, [checked] `crates/syntax/src/lexer.rs:245-252`).
@@ -110,7 +110,7 @@ Today a group of `+ - * / %` and comparisons gets one operand type, defaulting t
 - A whole literal in a `Float` group is a `Float`: `t - 1000` with `t: Float` is fine. A whole
   literal that isn't exactly a double (above 2^53 and not representable) is refused, with the
   nearest double in the message: JS would round it silently, but a ported program has no reason to
-  write one [recommended in D661].
+  write one [recommended in D686].
 - No mixing: `t + n` with `t: Float`, `n: Int` is the existing mismatch error, and the fix is
   `t + Float.ofInt n`. TS has no `Int`, so the port never needs a silent conversion.
 - **Why a new kind rather than instances:** `+` and `*` on other types go through `Add` and `Mul`
@@ -150,7 +150,7 @@ text.
 differs on four of these (`1000000000000000000000`, `0.0000001`, `inf`, `-0`) [run], so the natives
 use the `ryu-js` crate, a Ryū port that follows ECMAScript's `Number::toString` and is used by the
 Boa engine [cited]. `toSource` gives text that reads back as the same `Float`: `3.0` (not `3`,
-which would default to `Nat`), `-0.0`, `Float.nan`, `Float.infinity` (D663).
+which would default to `Nat`), `-0.0`, `Float.nan`, `Float.infinity` (D688).
 
 ## 3. Semantics in the kernel, the runtime and JS
 
@@ -178,7 +178,7 @@ exactly, then round to nearest-even", which needs the IEEE model. Three options:
 - **(b) Full model now.** Define every operation over the bits, as Lean does [cited]. Correct by
   construction, but it is a software floating-point library written and checked in Stitchwort:
   far more than the port needs.
-- **(c) Bits model, rounding operations bodyless (recommended, D656).** The type is the record of
+- **(c) Bits model, rounding operations bodyless (recommended, D681).** The type is the record of
   §2.2. Everything exact and short is a real definition over the bits: equality (from `Nat`'s),
   the total order, the IEEE comparisons, `neg` (flip the sign bit), `abs` (clear it), `isNaN`,
   `isFinite`. These get natives bound by hash like any other. The rounding operations (`add`,
@@ -195,7 +195,7 @@ with these constants has a model, as the `Delay` argument does.
 
 ### 3.3 What the checker does with `1.5 + 2.0`
 
-It **computes**, natively (D657). When a float primitive is applied to arguments whose `bits` are
+It **computes**, natively (D682). When a float primitive is applied to arguments whose `bits` are
 literals, the evaluator converts the bits to `f64`, applies the Rust operation, canonicalises a NaN
 result, and returns the record with the new bits as a literal. Otherwise the application is stuck
 (a neutral term), and conversion compares stuck applications structurally, as it does for `Delay`.
@@ -256,7 +256,7 @@ The TS app compares with `===` and `<`. A mechanical port turns `===` into `==`.
 for times: `Math.round(-0.3)` is `-0`, and `-0 === 0` is true in JS but `Object.is(-0, 0)` is false
 [run].
 
-**Recommendation (D658):** on `Float`, the operators are JS's:
+**Recommendation (D683):** on `Float`, the operators are JS's:
 
 - `a == b` is `Float.eq a b` (IEEE `===`), `a != b` is `Float.eq a b = False` as a proposition,
   `a < b` is `Float.lt a b = True`, `a <= b` is `Float.le a b = True`. So `if a < b` and
@@ -280,7 +280,7 @@ does reach programs from data: `JSON.parse("-0")` is `-0` [run]. A third option,
 which means removing division (`1/0` vs `1/-0`) and anything else that observes the sign; that
 isn't JS's arithmetic, so it's ruled out.
 
-**`Ord Float` (D659):** IEEE's `totalOrder` on the canonical bits: `-∞ < … < -0.0 < 0.0 < … < +∞ <
+**`Ord Float` (D684):** IEEE's `totalOrder` on the canonical bits: `-∞ < … < -0.0 < 0.0 < … < +∞ <
 NaN`. Built with `Ord.byKey` from a key that maps the bits to an `Int` monotonically, with its
 injectivity proof ([checked] `Ord.byKey` used in `Safe.sw:56-58`). This is what `sort`, `sortOn`,
 `Map Float`, `Set Float` and derived `Ord` use: it is lawful, which `Ord` requires (`equal`, `flip`,
@@ -298,7 +298,7 @@ gives the same order either way [inferred].
 
 - **Type:** `number` in the `.d.ts`. `Option Float` is `number | undefined` (D582 already makes
   `Option T` `T | undefined`), and an optional record field.
-- **Decoding (D660):** accept every finite `number`, including `-0`; refuse NaN, ±Infinity and
+- **Decoding (D685):** accept every finite `number`, including `-0`; refuse NaN, ±Infinity and
   anything else (`bigint`, strings), with the existing `refuse` messages. Reason: the app's data
   comes through JSON, which can't carry NaN or infinities (`JSON.stringify([NaN, Infinity])` is
   `[null,null]` [run]), so one arriving is a bug upstream, and refusing it at the edge is what
@@ -361,7 +361,7 @@ The theorem then shows the algorithm is right over `Int`; it says nothing about 
 can't supply `subAdd` (`-` stops at zero), and `SafeInt` has no closed `add` of its own (a sum can
 leave the safe range), so its operations go through `Int` [inferred].
 
-**Don't add such a record to std yet** (D664): keep `TimeOps` in the ported module, and generalise
+**Don't add such a record to std yet** (D689): keep `TimeOps` in the ported module, and generalise
 it into std when a second program needs one, so its shape comes from real use.
 
 ### 6.3 Later: the full model
@@ -399,7 +399,7 @@ only worthwhile once someone needs a numerical theorem. Nothing in stage 1 block
   by differential tests and listing them in DESIGN.md §13, as for `Nat`'s natives.
 - **NaN bits** differ by platform and in WASM; every path that produces bits must canonicalise. A
   missed path would make `rfl` proofs platform-dependent.
-- **`==` and `=` disagree on `Float`** (D658): a documentation and teaching cost.
+- **`==` and `=` disagree on `Float`** (D683): a documentation and teaching cost.
 - **A new kernel mechanism** (bodyless primitives that compute). Small, but it is kernel code.
 - **Hash binding** means editing `std/Float` needs the natives re-checked; the existing test
   pattern catches it.
@@ -426,29 +426,29 @@ only worthwhile once someone needs a numerical theorem. Nothing in stage 1 block
 
 Recommendations in square brackets.
 
-1. **D655 Name.** [`Float`, in `std/Float`] / `Number` / `F64`.
-2. **D656 Model in the logic.** [(c): a record of the canonical bits; exact operations defined
+1. **D680 Name.** [`Float`, in `std/Float`] / `Number` / `F64`.
+2. **D681 Model in the logic.** [(c): a record of the canonical bits; exact operations defined
    over the bits; rounding operations bodyless primitives] / (a) fully opaque with axioms /
    (b) full IEEE model now.
-3. **D657 Check-time computation.** [The checker computes primitives on literals with Rust `f64`,
+3. **D682 Check-time computation.** [The checker computes primitives on literals with Rust `f64`,
    canonicalising NaN, so `rfl` works on literals] / primitives never reduce.
-4. **D658 Operators on `Float`.** [`== != < <=` are JS's (IEEE); `x = y`, `if h:`, `DecEq` and
+4. **D683 Operators on `Float`.** [`== != < <=` are JS's (IEEE); `x = y`, `if h:`, `DecEq` and
    derived equality are "same double"] / `==` stays `DecEq` (same double) and ported `===`
    becomes `Float.eq a b`.
-5. **D659 `Ord Float`.** [IEEE `totalOrder` with the one NaN greatest, used by sorting, maps and
+5. **D684 `Ord Float`.** [IEEE `totalOrder` with the one NaN greatest, used by sorting, maps and
    deriving] / no `Ord Float` (sort by key explicitly).
-6. **D660 Boundary.** [`number`; decoding refuses NaN and ±Infinity (JSON can't carry them),
+6. **D685 Boundary.** [`number`; decoding refuses NaN and ±Infinity (JSON can't carry them),
    accepts `-0`; encoding passes any `number`] / accept every `number` at decode.
-7. **D661 Literals.** [`1.5`, `1e3`, `1.5e-7`, digits on both sides of `.`; nearest double; a
+7. **D686 Literals.** [`1.5`, `1e3`, `1.5e-7`, digits on both sides of `.`; nearest double; a
    decimal or exponent forces `Float`; whole literals become `Float` in a `Float` group, refused if
    not exact] / also refuse inexact decimals (impossible in practice: `80281.87` isn't exact) /
    no exponent form.
-8. **D662 Stage-1 operations.** [`+ - * / %` (no divisor proof), `neg`, `abs`, `floor`, `ceil`,
+8. **D687 Stage-1 operations.** [`+ - * / %` (no divisor proof), `neg`, `abs`, `floor`, `ceil`,
    `trunc`, `round` (JS rules), `isNaN`, `isFinite`, conversions of §2.5; no `pow` or
    transcendental functions] / also `sqrt`, `min`, `max` now.
-9. **D663 Printing.** [`toText` = JS `String(x)` via `ryu-js`; `toSource` re-readable (`3.0`,
+9. **D688 Printing.** [`toText` = JS `String(x)` via `ryu-js`; `toSource` re-readable (`3.0`,
    `Float.nan`)] / Rust's formatting.
-10. **D664 Operations record for proofs.** [Not in std yet: keep the lawless `TimeOps` record in
+10. **D689 Operations record for proofs.** [Not in std yet: keep the lawless `TimeOps` record in
     the ported module, with laws as a separate hypothesis for exact types; std when a
     second program needs it] / add a generic operations record and a laws record to std in stage 1.
 
