@@ -5489,7 +5489,7 @@
     {
       "id": 347,
       "title": "Build variant fields feature 1: named-field constructor patterns (SW-340 note, D593 b)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane (D615)",
       "labels": [
@@ -5498,7 +5498,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "78e5f910"
+      ]
     },
     {
       "id": 348,
