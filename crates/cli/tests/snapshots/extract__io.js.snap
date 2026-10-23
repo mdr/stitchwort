@@ -984,7 +984,7 @@ const $Main$dlinesOf = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dlinesEchoed = (v0) => (v1) => $Std$dEffect$drunPure($Std$dEffect$dbind($Std$dEffect$dbind($Std$dIO$dsimulate({ tag: "MkSig" })($Main$dlinesOf(v0))(((v2) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$decho(v1)))))(((v2) => ({ tag: "Done", value: $Std$dPair$dfst(v2) }))))(((v2) => ({ tag: "Done", value: $Std$dList$dlength(v2) }))));
+const $Main$dlinesEchoed = (v0) => (v1) => ((v2) => $Std$dList$dlength(v2))($Std$dEffect$drunPure(((v2) => ({ tag: "Done", value: $Std$dPair$dfst(v2) }))($Std$dEffect$drunPure($Std$dIO$dsimulate({ tag: "MkSig" })($Main$dlinesOf(v0))(((v2) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$decho(v1))))))));
 const $Main$dnumberLine = (v0) => (v1) => (v2) => {
   switch (v1.tag) {
     case "None": {
@@ -1018,7 +1018,7 @@ const $Main$dtotalLength = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dnumberedLength = (v0) => $Std$dEffect$drunPure($Std$dEffect$dbind($Std$dEffect$dbind($Std$dIO$dsimulate({ tag: "MkSig" })($Main$dlinesOf(v0))(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dnumberFrom(1n)($Std$dList$dlength(v0))))))(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))))(((v1) => ({ tag: "Done", value: $Main$dtotalLength(v1) }))));
+const $Main$dnumberedLength = (v0) => ((v1) => $Main$dtotalLength(v1))($Std$dEffect$drunPure(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))($Std$dEffect$drunPure($Std$dIO$dsimulate({ tag: "MkSig" })($Main$dlinesOf(v0))(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dnumberFrom(1n)($Std$dList$dlength(v0)))))))));
 const $Main$dcountdown = (v0) => {
   if (v0 === 0n) {
     return { tag: "Call", o: { tag: "L", o: { tag: "%print", x: "liftoff" } }, rest: ((v1) => ({ tag: "Done", value: v1 })) };
@@ -1027,7 +1027,7 @@ const $Main$dcountdown = (v0) => {
     return $Std$dEffect$dbind((((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%print", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })))($Std$dNat$dtoText((v1 + 1n))))(((v2) => $Main$dcountdown(v1)));
   }
 };
-const $Main$dcountdownLines = (v0) => $Std$dEffect$drunPure($Std$dEffect$dbind($Std$dEffect$dbind($Std$dIO$dsimulate({ tag: "MkSig" })({ tag: "Nil" })(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dcountdown(v0)))))(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))))(((v1) => ({ tag: "Done", value: $Std$dList$dlength(v1) }))));
+const $Main$dcountdownLines = (v0) => ((v1) => $Std$dList$dlength(v1))($Std$dEffect$drunPure(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))($Std$dEffect$drunPure($Std$dIO$dsimulate({ tag: "MkSig" })({ tag: "Nil" })(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dcountdown(v0))))))));
 const $Main$dprintLines = (v0) => {
   if (v0 === 0n) {
     return { tag: "Done", value: { tag: "UnitValue" } };
@@ -1036,7 +1036,7 @@ const $Main$dprintLines = (v0) => {
     return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%print", x: "a\u{a}b" } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => $Main$dprintLines(v1)));
   }
 };
-const $Main$doneEntryPerPrint = (v0) => $Std$dEffect$drunPure($Std$dEffect$dbind($Std$dEffect$dbind($Std$dEffect$dbind($Std$dIO$dsimulate({ tag: "MkSig" })({ tag: "Nil" })(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dprintLines(v0)))))(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))))(((v1) => ({ tag: "Done", value: $Std$dList$dlength(v1) }))))(((v1) => ({ tag: "Done", value: $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1)(v0)) }))));
+const $Main$doneEntryPerPrint = (v0) => ((v1) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1)(v0)))($Std$dEffect$drunPure(((v1) => ({ tag: "Done", value: $Std$dList$dlength(v1) }))($Std$dEffect$drunPure(((v1) => ({ tag: "Done", value: $Std$dPair$dfst(v1) }))($Std$dEffect$drunPure($Std$dIO$dsimulate({ tag: "MkSig" })({ tag: "Nil" })(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dprintLines(v0))))))))));
 
 function $$linesEchoed(arg0, arg1) {
   try {
