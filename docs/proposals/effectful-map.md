@@ -71,6 +71,22 @@ today's `List.mapIn` (checked on unmodified `main` with scratch files
 So `mapIn` works today only for lambdas and genuinely effectful functions
 (`Range.read`, `Text.toNatOrFail`).
 
+### Update: fixed by SW-393
+
+A pure function is now accepted where an effectful one is expected. In
+`compare` (`crates/elab/src/check.rs`), `effects::coerce` wraps a function
+whose result type is not a `Comp` as `x … => Done (f x …)`, which fits any
+row, exactly as a lambda with a pure body is elaborated. The row is not
+solved there: like a lambda's, it is left to the call's context (so
+`List.mapIn f xs` is a plain value where a `List b` is expected). A
+constructor checked against such a function type goes through the same
+path. All five calls in the table above now check
+(`examples/accept/effect-poly-pure-callback.sw`). A theorem
+`List.mapIn f xs = List.map f xs` can now be stated, but its `Cons` case
+doesn't follow by `Eq.cong` alone: the left side is
+`runPure (bind (mapIn …) …)`, which needs a lemma to reduce. SW-223 (the
+`orElse 0` case) is a separate mechanism and is unchanged.
+
 ## Not measured
 
 Because the library does not load, these could not be examined: whether the

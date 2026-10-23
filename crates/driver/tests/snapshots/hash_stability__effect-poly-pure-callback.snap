@@ -1,0 +1,18 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.double c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
+Main.doubled 6449254b631bcc3cd822b166d9a2557cd5ace3a79f2021aa17e05081332ecac7
+Main.successors 66acaad8a437bef682abb14ae26b702405d20971848e322c6fad4d4e81f51cb6
+Main.tails 05350a2c0e3a7344004189c6e5efec1030bbc94e8e690029ec355b0c8741bd21
+Main.mapPure 156bc7cfd8e3513396a72cae15d512de83c4d9807c5207644345fdbf96f74e02
+Main.mapEmptyRow 156bc7cfd8e3513396a72cae15d512de83c4d9807c5207644345fdbf96f74e02
+Main.doubledOrFail 3ef601e24c30f36cf32bedecaf3f9bd039f0b2fb8cee9ad820eceb194a6b29c8
+Main.test "mapIn with a named function" b8420e0fb3117014939bfe48fd16fe4b625892932d7b04a194769f192b1cc307
+Main.test "mapIn with a constructor" e56291aad53a4fab563101917529034abbb557f03ead176c878de7cb3470b0db
+Main.test "mapIn with a partial application" 554d4d134b7f177852b467c4436f30c398940900a69264922ad4c35c1937fb77
+Main.test "mapIn with a pure parameter" 46c7c8505676532ecc7a5c1ef503dc5525ec5f746abb3a0713c5844d4933443f
+Main.test "mapIn with an empty-row parameter" 479f28f106134fd92a8e692ea96df78d606f840290e0ce1b8f2b2632cce0bf39
+Main.test "mapIn with a pure callback in a failing computation".%match1 0b52c5c2d1f710e93860adaba1f7ed170d06fed639b905b6b72c7254ac2dd37a
+Main.test "mapIn with a pure callback in a failing computation" 75ed89782d782f0231a16aa360f27f8968b7094343a5a3a0c228cdf6260da6de

@@ -1823,6 +1823,15 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
             match ctor_head(cx, expr)? {
+                // A constructor where an effectful function is expected
+                // (`List.mapIn Succ xs`) is a pure function, made to fit the
+                // row by `compare` (SW-393).
+                Some((d, _, _))
+                    if Some(d) != cx.g().registry.data(Builtin::Comp)
+                        && returns_computation(cx, &expected)? =>
+                {
+                    fallback(cx, expr, &expected)
+                }
                 Some((d, c, args)) => {
                     let (term, ty) = ctor_app(cx, d, c, &args, Some(&expected))?;
                     if cx.unify(&ty, &expected)? {
@@ -2052,6 +2061,26 @@ fn decided_if(
 /// result type is known before its arguments are checked is compared with
 /// `expected` first, so the arguments are checked knowing more
 /// (docs/proposals/syntax-conveniences.md §7).
+/// Whether `ty` is a function type whose result, after all its explicit
+/// arguments, is a computation (`a -> {e} b`, `a -> b -> {Fail} c`).
+fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
+    let g = cx.g();
+    let mark = cx.mark();
+    let mut ty = force(g, ty.clone())?;
+    let mut any = false;
+    let result = (|| -> Result<bool> {
+        while let Value::Pi(x, Icit::Explicit, dom, cod) = ty {
+            let v = Value::var(cx.level());
+            cx.bind_hidden(x, (*dom).clone());
+            ty = force(g, cod.apply(g, v)?)?;
+            any = true;
+        }
+        Ok(any && effects::comp_parts(cx, &ty)?.is_some())
+    })();
+    cx.reset(mark);
+    result
+}
+
 fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if cx.e.no_propagation.get() == 0
         && let Some(found) = propagate(cx, expr, expected)?
