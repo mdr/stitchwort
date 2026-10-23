@@ -6118,7 +6118,7 @@
     {
       "id": 382,
       "title": "Build variant fields feature 3: shared-field update ({ c | id = x } on any constructor) (D1077)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -6127,14 +6127,17 @@
       "body": "Design: variant-fields.md feature 3, D604 (b). After SW-381.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "a8fa8aa4",
+        "a53177d6"
+      ]
     },
     {
       "id": 383,
       "title": "Private resolver: use named-field patterns and shared-field access/update, delete hand-written per-constructor getters/setters (D1077)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "private lane (work copy)",
       "labels": [
         "private"
       ],
