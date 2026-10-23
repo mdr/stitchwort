@@ -6345,7 +6345,7 @@
     {
       "id": 395,
       "title": "Conversion by case tree (SW-386) follow-up: memo of equal pairs (1dc50b2a) — blow24 89 s → 0.5 s, all 27 probes unchanged; held for soundness review before merge",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -6354,7 +6354,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "0fa90197",
+        "68eef18c"
+      ]
     },
     {
       "id": 396,
