@@ -267,10 +267,6 @@ def Omega.optRow: Option Omega.Row -> Omega.Row
   | None   => Omega.Row.zero
   | Some r => r
 
-def Omega.isSome: Option Omega.Row -> Bool
-  | None   => False
-  | Some r => True
-
 def Omega.combine (ctx: List Omega.Row): List (Pair Nat Nat) -> Omega.Row
   | Nil                  => Omega.Row.zero
   | Cons (MkPair k r) ts => Omega.Row.add (Omega.Row.scale (OfNat k) (Omega.getRow ctx r)) (Omega.combine ctx ts)
@@ -318,7 +314,7 @@ def Omega.Row.splitOther (l: Omega.Row): Omega.Row := Omega.Row.sub (MkRow (NegS
 -- make a malformed certificate fail instead of meaning something else.
 def Omega.Step.valid (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Step -> Bool
   | Input i     => Omega.hasRow facts i
-  | NegGoal     => Omega.isSome neg
+  | NegGoal     => Option.isSome neg
   | NatNonneg i => True
   | Combine ts  => Omega.allRefs ctx ts
   | Divide r d  => Omega.hasRow ctx r && Omega.Row.divisible d (Omega.getRow ctx r)
