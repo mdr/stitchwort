@@ -5536,7 +5536,7 @@
     {
       "id": 350,
       "title": "Elaboration: literals in generic constructor applications take the expected type; type-changing record update",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane (D627)",
       "labels": [
@@ -5545,7 +5545,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "b3edfdb2",
+        "2dcb3d66"
+      ]
     }
   ]
 }
