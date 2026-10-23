@@ -1,5 +1,5 @@
 {
-  "next": 351,
+  "next": 352,
   "tickets": [
     {
       "id": 1,
@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "D620 = A (model every field + TS assignability test); private lane: D628 field inventory (FIELDS.md)",
+      "where": "D645 revised: fractions are real (Matt's audit); Float design note (public) + private LAWS.md theorem audit running",
       "labels": [
         "design",
         "js"
@@ -5549,6 +5549,21 @@
         "b3edfdb2",
         "2dcb3d66"
       ]
+    },
+    {
+      "id": 351,
+      "title": "Design note: JS-number Float type (native arithmetic, crosses as number; proofs via an operations interface) (D645)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "design",
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
