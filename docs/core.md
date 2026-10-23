@@ -397,7 +397,7 @@ Division is defined by structural recursion on fuel (`n` steps is always enough 
 
 ## Quotients
 
-A quotient type `Quot A R` is `A` with every pair related by `R` treated as equal. This section says what is built so far (docs/proposals/map-equality.md, ticket SW-356). Stage 1 isn't finished: the library lemmas and the elaborator's messages (1.4) and the Map prototype (1.6) are still to come.
+A quotient type `Quot A R` is `A` with every pair related by `R` treated as equal. This section says what is built so far (docs/proposals/map-equality.md, ticket SW-356). Stage 1 isn't finished: the Map prototype (1.6) is still to come.
 
 **The forms (step 1.1).** There are five, all `Term::Quot(form, args)` with every argument written out, implicit ones included:
 
@@ -413,7 +413,15 @@ A quotient type `Quot A R` is `A` with every pair related by `R` treated as equa
 
 **Axioms.** `Quot.sound` is the one accepted axiom. It doesn't stop a definition being exported or run, but `stitchwort axioms <name>` shows when a definition depends on it. The command lists the axioms a definition or theorem depends on, one per line, sorted, and prints nothing if there are none. Because `Quot.sound` is a term former and not a named declaration, the command scans the checked type and body of every definition it reaches (and of the data types it reaches), at every position, proof arguments included, so an inline `Quot.sound` in a `def` body is found. `Quot.ind`, `Quot.lift`, `J` and `K` are rules of the core and aren't listed. An empty report means no axiom is used; it doesn't mean the term computes to data in the kernel.
 
-**Running.** In progress (step 1.3). While a program runs, `Quot.sound`, `Quot.ind` and a lift whose result is erased (a proof or a type former) evaluate to the placeholder, and the evaluators don't yet read the erasure flags on `Quot.mk` and `Quot.lift`. Until that lands, an erased-result lift still computes `f a` while running.
+**Running (step 1.3).** The checker marks each `Quot.mk` and `Quot.lift` with an erasure flag (not hashed): a `Quot.mk` whose value is erased (a type, say), and a lift whose result is (a proof or a type former). While a program runs, `Quot.ind`, `Quot.sound` and a flagged lift are the placeholder, their arguments not computed, and a flagged `Quot.mk` holds the placeholder; `J` on such a proof takes its base, as for any erased proof. The Rust runtime and JS store `Quot.mk a` as `a` itself, with no wrapper, and run an unflagged `Quot.lift f h q` as `f q`. Every runner (`run --reference`, `test`, `run`, `run --js`) gives the same output (examples/accept/quot-*.sw).
+
+**The library (step 1.4).** `std/Quot/Quot.sw` is loaded when a program uses one of its names (`import Std (Quot)` or `Std.Quot.funext`). It has, at `Type 0` (there's no universe polymorphism, so a version at `Type 1` would be a copy with its own name):
+
+- `Quot.funext a b f g h: f = g` for functions `f g: (x: a) -> b x` that agree at every input (`h: (x: a) -> f x = g x`), from `Quot.sound` on the quotient of functions by agreement;
+- `ProofBox p`, a record holding a proof of `p` as data, and `Quot.funextProp a p f g h: f = g` for functions whose results are proofs, by boxing each result and using `Quot.funext` (a function returning proofs is itself a proof, so it can't be put in a quotient directly);
+- `Quot.exactDec a rel r decides refl symm trans x y same: rel x y`: if `r: a -> a -> Bool` decides `rel` and `rel` is an equivalence, `Quot.mk x = Quot.mk y` gives back `rel x y`. It uses no axiom.
+
+**Messages (step 1.4).** Matching on a quotient is refused with a message that points to `Quot.lift`: a pattern `Quot.mk x` is `E-NOT-A-CONSTRUCTOR` ("a quotient can't be matched on"), and the carrier's constructors on a quotient are `E-TYPE-MISMATCH` with a note. A data type used inside a quotient in its own fields, directly or through a type built on one (a record or definition whose fields or body reach a quotient type), is `E-POSITIVITY` saying it can't be recursive through a quotient yet, and suggesting a table of nodes addressed by ids or a tree and a forest defined together. `==` is never derived for a quotient: there's no general instance (comparing the values two quotients were made from could call equal quotients different), and a record with a quotient field gets `==` only if that field's type has an instance. An instance can only be declared for a type name, so a quotient with a lawful `==` is wrapped in a record (`type Q = { raw: Quot … }`) whose instance is written and proved by hand (examples/accept/quot-deceq.sw).
 
 ## Erasure and JS extraction
 

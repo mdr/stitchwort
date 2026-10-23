@@ -1527,7 +1527,7 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   `rt` and JS lowering as §7.4.1–§7.4.2. **Exit:** A3, A5, A6, A7, each compared across
   `run --reference`, `test`, `run` and `run --js`; the erasure on/off comparisons
   (`crates/driver/tests/erasure.rs`) extended with them.
-- **1.4 Library lemmas and elaborator policy.** `ProofBox`, `Quot.funext`, `Quot.funextProp`,
+- **1.4 Library lemmas and elaborator policy** (**done**; as built below). `ProofBox`, `Quot.funext`, `Quot.funextProp`,
   `Quot.exactDec` at `Type 0` (§8.6–§8.8), in a std module loaded on use; the elaborator messages
   for R2 (matching on a quotient) and R10 (§11.2), and R4's policy. **Exit:** A2, A10; R2, R4 and
   R10 with their messages.
@@ -1604,6 +1604,61 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   cost (`erased_quotient_forms_arent_run`, which fails with either flag ignored). A3 and A6
   can't be compared on/off: without erasure `J` on the opaque proof is stuck, as in the kernel
   (§9.1), so `erasure.rs` asserts that their tests pass only with erasure.
+
+**Step 1.4 as built.**
+
+- **The module.** `crates/elab/src/std/Quot/Quot.sw`, a library file (in `LIBRARY_FILES`), so it
+  is checked only when a program uses one of its names. Full names are `Std.Quot.funext` and so
+  on; `import Std (Quot)` makes `Quot.funext` work, and `ProofBox` is declared at the root of
+  `Std`, like `Iff`, so it needs `import Std (ProofBox)`. Statements, all at `Type 0` (§8.8):
+  - `Quot.funext (a: Type) (b: a -> Type) (f g: (x: a) -> b x) (h: (x: a) -> f x = g x): f = g`;
+  - `type ProofBox (p: Prop) = { proof: p }`;
+  - `Quot.funextProp (a: Type) (p: a -> Prop) (f g: (x: a) -> p x) (h: (x: a) -> f x = g x): f = g`;
+  - `Quot.exactDec (a: Type) (rel: a -> a -> Prop) (r: a -> a -> Bool)
+    (decides: (x y: a) -> Iff (r x y = True) (rel x y)) (refl …) (symm …) (trans …) (x y: a)
+    (same: Quot.mk x = Quot.mk y): rel x y`.
+  The helpers are public: `Quot.Pointwise`, `Quot.Functions` (the quotient of functions by
+  agreement), `Quot.evalAt`, `Quot.rebuild` (A8's named steps) and `Quot.boolEq` (two `Bool`s
+  that are `True` together are equal).
+- **The proofs went through as the note says.** `Quot.funext` is A8's proof
+  (`Eq.cong rebuild (Quot.sound h)`). `Quot.funextProp` is §8.7's sketch with step 2 written with
+  `J` directly, as the note expected; the record and projection steps marked [inferred] check
+  unchanged. `Quot.exactDec` is §8.6's argument; "a decidable equivalence" is spelled out as the
+  `Iff` and three explicit hypotheses for reflexivity, symmetry and transitivity, and the respects
+  proof is `Quot.boolEq` on the two directions. `stitchwort axioms` reports `Quot.sound` for the
+  two funext lemmas and nothing for `Quot.exactDec`.
+- **R2.** The parser used to refuse `Quot.mk b` in a pattern as a qualified name (`E-PARSE`). It now
+  reads `Quot.mk` wherever a constructor pattern may start (`ctor_ahead`, `parser.rs`), and the
+  elaborator's constructor lookup (`ctor_named`) refuses it with `E-NOT-A-CONSTRUCTOR`, "a
+  quotient can't be matched on", with notes on why and on `Quot.lift`. The note named no code;
+  this is the code for "a pattern that isn't a constructor". The carrier's constructors (or
+  number patterns) on a quotient stay `E-TYPE-MISMATCH`, with a note pointing to `Quot.lift`.
+- **R10.** When the kernel refuses a data group with `E-POSITIVITY`, the elaborator
+  (`quot::recursive_through_quotient`) finds the field the error is about (by its span) and, if
+  the group's type occurs in a quotient type's carrier or inside a type built on one (a data type
+  whose fields reach a quotient type, or a type-valued definition whose body does), reports §11.2's
+  message instead: "`T` is used inside a quotient type", the label naming the quotient, and notes
+  saying it can't be recursive through a quotient yet and suggesting a table of nodes addressed by
+  ids or a tree and a forest. An occurrence only in the relation (R13) keeps the kernel's
+  message, since nothing is stored there. The kernel's refusal is unchanged. **`Map` isn't a quotient until
+  stage 2**, so `type Tree = { children: Map Text Tree }` still gets the generic "inside another
+  type" message; once `Map`'s field is a quotient the same check finds it, with no change here.
+  Until then the "built on a quotient" case is tested with a record `Bag` whose field is one.
+- **R4.** Nothing new is needed for the policy itself: there's no `DecEq (Quot A R)` instance, and
+  `derive.rs` only derives for data types, so a quotient field without an instance stops the
+  derivation and `b == b` is `E-INSTANCE-NONE` naming the field. Both that note and the error for
+  `==` on a bare quotient now explain why a quotient has no `==` and how to give it one.
+- **A10, a deviation.** An instance must be for a type name applied to distinct variables
+  (`E-INSTANCE-HEAD`), so a `DecEq` instance for `Q := Quot Bool AllTrue` itself can't be
+  declared. A10 wraps the quotient in a record, `type Q = { raw: Quot Bool AllTrue }`, as `Map`
+  and `ProtoMap` will be, with a hand-written lawful instance (two `Quot.ind`s and `Quot.sound`);
+  `type Box = { q: Q }` derives `DecEq` from it, `rfl: (boxF == boxT) = True` checks, and every
+  runner prints `True`.
+- **Tests.** A2: `accept/quot-library.sw`. A10: `accept/quot-deceq.sw` (with a `test` and a
+  `main`, so the cross-runner tests compare it). R2: `soundness/quot-match.sw` and
+  `soundness/quot-match-constructors.sw`; R4: `soundness/quot-derive-eq.sw`; R10:
+  `soundness/quot-recursive.sw` and `soundness/quot-recursive-wrapped.sw`; each with its message
+  snapshot. The `erase.rs` header's numbered list gains the quotient rule (left over from 1.3).
 
 **Step 1.5 as built.**
 

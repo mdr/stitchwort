@@ -801,9 +801,9 @@ impl<'t> Parser<'t> {
     /// A component of a list pattern: a constructor's arguments run to the
     /// next `,` or `]`; `-k` is allowed, as in a tuple.
     fn list_component(&mut self) -> Result<Pattern> {
-        if let Some(Tok::Upper(_)) = self.peek() {
+        if self.ctor_ahead() {
             let start = self.here();
-            let name = self.upper_q("a constructor")?;
+            let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
                 matches!(t, Some(Tok::Comma | Tok::RBracket) | None)
             });
@@ -814,11 +814,11 @@ impl<'t> Parser<'t> {
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
     fn tuple_component(&mut self) -> Result<Pattern> {
-        if let Some(Tok::Upper(_)) = self.peek() {
+        if self.ctor_ahead() {
             // A constructor's arguments run to the next `,` or `)`:
             // `(Some x, Some y)`.
             let start = self.here();
-            let name = self.upper_q("a constructor")?;
+            let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
                 matches!(t, Some(Tok::Comma | Tok::RParen) | None)
             });
@@ -898,6 +898,28 @@ impl<'t> Parser<'t> {
     fn upper(&mut self, what: &str) -> Result<Name> {
         let name = self.upper_q(what)?;
         unqualified(name)
+    }
+
+    /// Whether a constructor pattern starts here: an uppercase name, or
+    /// `Quot.mk`. `Quot.mk` isn't a constructor (a quotient can't be matched
+    /// on), but it's read as one so that the elaborator can say why, rather
+    /// than the parser refusing a qualified name
+    /// (docs/proposals/map-equality.md §7.6, R2).
+    fn ctor_ahead(&self) -> bool {
+        match self.peek() {
+            Some(Tok::Upper(_)) => true,
+            Some(Tok::Lower(text)) => text == "Quot.mk",
+            _ => false,
+        }
+    }
+
+    /// The name of a constructor pattern, once [`Self::ctor_ahead`] has
+    /// said one starts here.
+    fn ctor_name(&mut self) -> Result<Name> {
+        match self.peek() {
+            Some(Tok::Lower(_)) => self.lower_q("a constructor"),
+            _ => self.upper_q("a constructor"),
+        }
     }
 
     /// An uppercase name, possibly qualified: `Cons` or `List.Cons`.
@@ -1003,7 +1025,7 @@ impl<'t> Parser<'t> {
         self.deeper()?;
         let span = self.here();
         match self.peek() {
-            Some(Tok::Lower(_)) => Ok(Pattern::Var(self.lower("a pattern")?)),
+            Some(Tok::Lower(_)) if !self.ctor_ahead() => Ok(Pattern::Var(self.lower("a pattern")?)),
             Some(Tok::Underscore) => {
                 self.bump();
                 Ok(Pattern::Wildcard(span))
@@ -1017,8 +1039,8 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Pattern::Char(c, span))
             }
-            Some(Tok::Upper(_)) => {
-                let name = self.upper_q("a constructor")?;
+            Some(Tok::Upper(_) | Tok::Lower(_)) => {
+                let name = self.ctor_name()?;
                 Ok(Pattern::Ctor(name, Vec::new(), span))
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
@@ -1096,8 +1118,8 @@ impl<'t> Parser<'t> {
             }
             Some(Tok::LParen) => {
                 self.bump();
-                let pattern = if let Some(Tok::Upper(_)) = self.peek() {
-                    let name = self.upper_q("a constructor")?;
+                let pattern = if self.ctor_ahead() {
+                    let name = self.ctor_name()?;
                     let first = self.ctor_args(name, span, |t| {
                         matches!(t, Some(Tok::RParen | Tok::Comma) | None)
                     })?;
@@ -1196,9 +1218,9 @@ impl<'t> Parser<'t> {
                 let name = self.lower("a field name, or `..`")?;
                 let pattern = if self.eat(&Tok::Equals) {
                     // A constructor's arguments run to the next `,` or `}`.
-                    if let Some(Tok::Upper(_)) = self.peek() {
+                    if self.ctor_ahead() {
                         let start = self.here();
-                        let name = self.upper_q("a constructor")?;
+                        let name = self.ctor_name()?;
                         self.ctor_args(name, start, |t| {
                             matches!(t, Some(Tok::Comma | Tok::RBrace) | None)
                         })?
@@ -1683,9 +1705,9 @@ impl<'t> Parser<'t> {
     /// brackets (`let MkPair a b := p`), running to the `:=` or `:` (or a
     /// mistaken `=`, reported by `let_statement`).
     fn let_pattern(&mut self) -> Result<Pattern> {
-        if let Some(Tok::Upper(_)) = self.peek() {
+        if self.ctor_ahead() {
             let start = self.here();
-            let name = self.upper_q("a constructor")?;
+            let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
                 matches!(t, Some(Tok::Equals | Tok::ColonEq | Tok::Colon) | None)
             });
@@ -1842,9 +1864,9 @@ impl<'t> Parser<'t> {
     /// an equation, so a constructor's arguments need no parentheses
     /// (`Cons x Nil`).
     fn alt_pattern(&mut self) -> Result<Pattern> {
-        if let Some(Tok::Upper(_)) = self.peek() {
+        if self.ctor_ahead() {
             let start = self.here();
-            let name = self.upper_q("a constructor")?;
+            let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
                 matches!(t, Some(Tok::Comma | Tok::Arrow | Tok::FatArrow) | None)
             });

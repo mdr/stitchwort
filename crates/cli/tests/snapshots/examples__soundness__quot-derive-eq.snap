@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Box`
+    ╭─[ soundness/quot-derive-eq.sw:13:28 ]
+    │
+ 13 │ def same (b: Box): Bool := b == b
+    │                            ───┬──  
+    │                               ╰──── this needs `DecEq Box`
+    │ 
+    │ Note 1: `==` isn't derived for `Box`: its field `q` has type `Quot Bool AllTrue`, which has no `DecEq` instance (when `Box` was declared); a quotient has no `==` unless one is written for it: comparing the values two quotients were made from could call equal quotients different; to give one `==`, wrap it in a record (`type Q = { raw: Quot … }`) and declare a `DecEq` instance for the record
+    │ 
+    │ Note 2: an instance of `DecEq` for `Box` can be declared in `Main`
+────╯

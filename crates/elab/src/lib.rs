@@ -1370,7 +1370,22 @@ impl Elaborator {
         if members[0].0.is_some() {
             self.module.item = members[0].0;
         }
+        // Each constructor's fields, kept for a better message if the kernel
+        // finds a member used inside a quotient (R10).
+        let fields: Vec<Vec<(Name, Term, Span)>> = defined
+            .iter()
+            .flat_map(|(_, ctors)| ctors.iter().map(|c| c.fields.clone()))
+            .collect();
         if let Err(d) = kernel::define_data_group(&mut self.globals, defined) {
+            let params: Vec<Name> = self
+                .globals
+                .data(ids[0])
+                .params
+                .iter()
+                .map(|(x, _)| x.clone())
+                .collect();
+            let d = quot::recursive_through_quotient(&self.globals, &ids, &params, &fields, &d)
+                .unwrap_or(d);
             self.fail_data_names(members);
             return vec![(members[0].0, d)];
         }
@@ -3052,6 +3067,11 @@ impl Elaborator {
             text: ctor.to_string(),
             span,
         };
+        // `Quot.mk` is a quotient form, not a constructor (R2). It can't be
+        // the name of one either (those start with a capital letter).
+        if ctor == "Quot.mk" {
+            return Err(quot::mk_pattern_error(span));
+        }
         match self.resolve_exact(&used)? {
             (Global::Ctor(d, c), target, key) => {
                 self.note_found(span, &key, Global::Ctor(d, c), target);
@@ -3371,7 +3391,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let params = match ty {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
-                    return Err(error(
+                    let mut e = error(
                         "E-TYPE-MISMATCH",
                         *span,
                         format!(
@@ -3379,7 +3399,11 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                             data.name,
                             cx.show(&other)
                         ),
-                    ));
+                    );
+                    if let Some(note) = quot::match_note(&other) {
+                        e = e.with_note(note);
+                    }
+                    return Err(e);
                 }
             };
             let goal_term = cx.quote(goal)?;
@@ -3466,14 +3490,18 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             match force(g, cx.types[*x].clone())? {
                 Value::Data(d, params) if Some(d) == nat && params.is_empty() => {}
                 other => {
-                    return Err(error(
+                    let mut e = error(
                         "E-TYPE-MISMATCH",
                         *span,
                         format!(
                             "these patterns match a `Nat`, but the argument has type `{}`",
                             cx.show(&other)
                         ),
-                    ));
+                    );
+                    if let Some(note) = quot::match_note(&other) {
+                        e = e.with_note(note);
+                    }
+                    return Err(e);
                 }
             }
             let goal_term = cx.quote(goal)?;

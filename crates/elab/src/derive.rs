@@ -391,6 +391,11 @@ impl Elaborator {
                     if e.code != "E-INSTANCE-NONE" {
                         reason = format!("{reason}: {}", e.message);
                     }
+                    // R4: a quotient's equality is never derived from its
+                    // representatives.
+                    if needed == dec_eq && crate::quot::is_quotient_type(&ty) {
+                        reason = format!("{reason}; {}", crate::quot::NO_DERIVED_EQ);
+                    }
                     why = Some(reason);
                     break;
                 }

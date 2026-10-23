@@ -21,12 +21,14 @@
 //! the equation it's expected to prove. Nothing here is trusted: the kernel
 //! checks every form (checks C1–C6).
 
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use stitchwort_core::term::QuotForm;
-use stitchwort_core::{Icit, Sort, Term, Value};
-use stitchwort_syntax::Diagnostic;
+use stitchwort_core::value::Head;
+use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::Expr;
+use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Arg, Ctx, check, check_type};
 
@@ -314,3 +316,186 @@ pub(crate) fn elaborate(
         }
     }
 }
+
+/// Whether `ty` is a quotient type, `Quot A R`.
+pub(crate) fn is_quotient_type(ty: &Value) -> bool {
+    matches!(ty, Value::Neutral(Head::Quot(QuotForm::Type), spine) if spine.len() == QuotForm::Type.arity())
+}
+
+/// What to do instead of matching on a quotient (R2).
+const USE_LIFT: &str = "to compute from a quotient, use `Quot.lift f respects q`: it applies `f` \
+                        to the value `q` was made from, given a proof `respects` that `f` gives \
+                        equal results for related values";
+
+/// The error for a pattern `Quot.mk x` (docs/proposals/map-equality.md §7.6,
+/// R2): a quotient can't be matched on, since two equal quotients can be
+/// made from different values, which a match could tell apart.
+pub(crate) fn mk_pattern_error(span: Span) -> Diagnostic {
+    Diagnostic::error("E-NOT-A-CONSTRUCTOR", "a quotient can't be matched on")
+        .with_label(span, "`Quot.mk` isn't a constructor")
+        .with_note(
+            "`Quot.mk x` and `Quot.mk y` are equal whenever `x` and `y` are related, so a match \
+             that gave back `x` could tell equal values apart",
+        )
+        .with_note(USE_LIFT)
+}
+
+/// The note for constructor or number patterns used on a quotient (R2).
+pub(crate) fn match_note(ty: &Value) -> Option<String> {
+    is_quotient_type(ty).then(|| format!("a quotient can't be matched on; {USE_LIFT}"))
+}
+
+/// R10 (docs/proposals/map-equality.md §11.2). The kernel refuses a data
+/// type used inside another type in its own fields (`E-POSITIVITY`). When
+/// `refused` is that error for a field whose occurrence is inside a quotient,
+/// or inside a type built on one (a type whose fields, or a definition whose
+/// body, reach a quotient type), this is the error to report instead: it
+/// says so, and what to write instead. `ctors` is the fields of each
+/// constructor of the `group`, in order, as given to the kernel; `params`
+/// names the group's parameters.
+pub(crate) fn recursive_through_quotient(
+    g: &Globals,
+    group: &[DataId],
+    params: &[Name],
+    ctors: &[Vec<(Name, Term, Span)>],
+    refused: &Diagnostic,
+) -> Option<Diagnostic> {
+    if refused.code != "E-POSITIVITY" {
+        return None;
+    }
+    let at = refused.labels.first()?.span;
+    for fields in ctors {
+        let mut names = params.to_vec();
+        for (x, ty, span) in fields {
+            if *span != at {
+                names.push(x.clone());
+                continue;
+            }
+            let mut seen = Seen::default();
+            // A member in a quotient's relation only (R13) isn't stored in
+            // it: the kernel's message is the one for that.
+            let (inner, depth) = ty.subterms().find(|(t, _)| match t.strip_loc() {
+                Term::Quot(QuotForm::Type, args, _) => args
+                    .first()
+                    .is_some_and(|a| mentions_group(a, group).is_some()),
+                _ => quotient_like(g, t, group, &mut seen) && mentions_group(t, group).is_some(),
+            })?;
+            let member = mentions_group(inner, group)?;
+            let name = &g.data(member).name;
+            let direct = matches!(inner.strip_loc(), Term::Quot(QuotForm::Type, ..));
+            let what = if direct {
+                "which is a quotient type"
+            } else {
+                "which is built on a quotient type"
+            };
+            let label = if depth == 0 {
+                format!(
+                    "field `{x}` has `{name}` inside `{}`, {what}",
+                    pretty::term(g, &names, inner)
+                )
+            } else {
+                format!("field `{x}` has `{name}` inside a type that is or contains a quotient")
+            };
+            return Some(
+                Diagnostic::error(
+                    "E-POSITIVITY",
+                    format!("`{name}` is used inside a quotient type"),
+                )
+                .with_label(at, label)
+                .with_note("data types can't be recursive through a quotient yet")
+                .with_note(
+                    "store the nodes in a separate table addressed by ids (a `Map Nat Node` whose \
+                     nodes hold their children's ids), or define a tree and a forest together, \
+                     with the key and the child in separate constructor fields",
+                ),
+            );
+        }
+    }
+    None
+}
+
+/// The data types and definitions being looked into, so a type that
+/// reaches itself is looked into once.
+#[derive(Default)]
+struct Seen {
+    datas: HashSet<DataId>,
+    defs: HashSet<DefId>,
+}
+
+/// The first member of `group` that `term` mentions as a type.
+fn mentions_group(term: &Term, group: &[DataId]) -> Option<DataId> {
+    term.subterms().find_map(|(t, _)| match t {
+        Term::Data(d, _) if group.contains(d) => Some(*d),
+        _ => None,
+    })
+}
+
+/// Whether `term` is a quotient type, or a type built on one: a data type
+/// outside `group` whose fields reach a quotient type, or a type-valued
+/// definition (applied or not) whose body does.
+fn quotient_like(g: &Globals, term: &Term, group: &[DataId], seen: &mut Seen) -> bool {
+    match term.strip_loc() {
+        Term::Quot(QuotForm::Type, ..) => true,
+        Term::Data(d, _) => !group.contains(d) && data_reaches(g, *d, seen),
+        mut head @ (Term::App(..) | Term::Def(_)) => {
+            while let Term::App(f, _, _) = head {
+                head = f.strip_loc();
+            }
+            matches!(head, Term::Def(f) if def_reaches(g, *f, seen))
+        }
+        _ => false,
+    }
+}
+
+/// Whether `term` contains a quotient type, directly or through the data
+/// types and type-valued definitions it mentions.
+fn reaches(g: &Globals, term: &Term, seen: &mut Seen) -> bool {
+    term.subterms().any(|(t, _)| match t {
+        Term::Quot(QuotForm::Type, ..) => true,
+        Term::Data(d, _) => data_reaches(g, *d, seen),
+        Term::Def(f) => def_reaches(g, *f, seen),
+        _ => false,
+    })
+}
+
+fn data_reaches(g: &Globals, d: DataId, seen: &mut Seen) -> bool {
+    if !seen.datas.insert(d) {
+        return false;
+    }
+    let fields: Vec<Term> = g
+        .data(d)
+        .ctors
+        .iter()
+        .flat_map(|c| c.fields.iter().map(|(_, ty)| ty.clone()))
+        .collect();
+    let found = fields.iter().any(|ty| reaches(g, ty, seen));
+    seen.datas.remove(&d);
+    found
+}
+
+/// Only a definition whose type ends in a sort (one that makes a type) is
+/// looked into: another's body may compute with quotients without being
+/// one.
+fn def_reaches(g: &Globals, f: DefId, seen: &mut Seen) -> bool {
+    let def = g.def(f);
+    let mut ty = def.ty.strip_loc();
+    while let Term::Pi(_, _, _, cod) = ty {
+        ty = cod.strip_loc();
+    }
+    if !matches!(ty, Term::Sort(_)) || !seen.defs.insert(f) {
+        return false;
+    }
+    let found = def.body().is_some_and(|body| reaches(g, body, seen));
+    seen.defs.remove(&f);
+    found
+}
+
+/// Why a quotient has no `==` of its own (R4, docs/proposals/map-equality.md
+/// §7.6). No instance of `DecEq` is provided for quotients in general, and
+/// none is derived: comparing representatives isn't lawful. An instance can
+/// only be declared for a type name, so a quotient with a decidable equality
+/// is wrapped in a record, as `Map` will be.
+pub(crate) const NO_DERIVED_EQ: &str = "a quotient has no `==` unless one is written for it: \
+    comparing the values two quotients were made from could call equal quotients different; to \
+    give one `==`, wrap it in a record (`type Q = { raw: Quot … }`) and declare a `DecEq` \
+    instance for the record";

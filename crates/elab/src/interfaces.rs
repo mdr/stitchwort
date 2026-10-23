@@ -1087,6 +1087,9 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             Value::Pi(..) => {
                 d = d.with_note("functions can't be compared: there's no `==` on them");
             }
+            other if crate::quot::is_quotient_type(&other) => {
+                d = d.with_note(crate::quot::NO_DERIVED_EQ);
+            }
             _ => {}
         }
     }

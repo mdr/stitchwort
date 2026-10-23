@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: these patterns match a `Bool`, but the argument has type `Quot Bool AllTrue`
+    ╭─[ soundness/quot-match-constructors.sw:9:3 ]
+    │
+  9 │ ╭─▶   | False => False
+ 10 │ ├─▶   | True  => True
+    │ │                       
+    │ ╰─────────────────────── these patterns match a `Bool`, but the argument has type `Quot Bool AllTrue`
+    │     
+    │     Note: a quotient can't be matched on; to compute from a quotient, use `Quot.lift f respects q`: it applies `f` to the value `q` was made from, given a proof `respects` that `f` gives equal results for related values
+────╯

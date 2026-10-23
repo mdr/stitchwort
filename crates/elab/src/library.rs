@@ -72,6 +72,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Omega/Sound.sw", include_str!("std/Omega/Sound.sw")),
     ("Option/Option.sw", include_str!("std/Option/Option.sw")),
     ("Ord/Ord.sw", include_str!("std/Ord/Ord.sw")),
+    ("Quot/Quot.sw", include_str!("std/Quot/Quot.sw")),
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),
     ("Set/Spec.sw", include_str!("std/Set/Spec.sw")),
     ("Text/Basics.sw", include_str!("std/Text/Basics.sw")),
