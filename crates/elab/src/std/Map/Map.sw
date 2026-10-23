@@ -2,8 +2,10 @@
 -- binary search tree (Adams's trees, as in Haskell's `Data.Map`), with the
 -- ordering of the keys in the map's type (docs/proposals/interfaces.md
 -- §7.5, D169): `Map Text Nat` is `Map Text Nat [ord := Text.instOrd]`, and a
--- map built with another ordering has another type. The tree carries a
--- proof that its keys are in order (`Map.Tree.Ordered`), erased at run time.
+-- map built with another ordering has another type. The tree carries
+-- proofs that its keys are in order (`Map.Tree.Ordered`) and that its stored
+-- sizes are right (`Map.Tree.Sized`), erased at run time. What each operation
+-- does to the entries, and `Map.Equiv`, are in std/Map/Spec.sw.
 -- Insertion, lookup and removal take O(log n) comparisons; `size` is O(1).
 -- docs/proposals/map-set.md.
 
@@ -163,10 +165,19 @@ def Map.Tree.Within (ord: Ord k): Option k -> Option k -> Map.Tree k v -> Prop
 -- The keys are in order by `ord`.
 def Map.Tree.Ordered (ord: Ord k) (t: Map.Tree k v): Prop := Map.Tree.Within ord None None t
 
--- The map itself: a tree, and the proof that its keys are in order.
+-- Each node's stored size is the number of keys under it, so `size` counts
+-- the entries. Rebalancing reads the sizes, but `get`, `toList` and the
+-- rest never depend on them; `Map.size` does.
+def Map.Tree.Sized: Map.Tree k v -> Prop
+  | Tip           => Unit
+  | Bin s l _ _ r => And (s = Succ (Map.Tree.size l + Map.Tree.size r)) (And (Map.Tree.Sized l) (Map.Tree.Sized r))
+
+-- The map itself: a tree, the proof that its keys are in order, and the
+-- proof that its stored sizes are right (both erased at run time).
 type Map (k: Type) (v: Type) [auto ord: Ord k] =
   { tree: Map.Tree k v
   , ordered: Map.Tree.Ordered ord tree
+  , sized: Map.Tree.Sized tree
   }
 
 -- Proofs: rebalancing, insertion and removal keep the keys in order.
@@ -335,6 +346,96 @@ theorem Map.Tree.mapWithin (ord: Ord k) (f: v -> w): (lo: Option k) -> (hi: Opti
   | lo, hi, Bin s l kk vv r, Both b (Both wl wr) =>
     Both b (Both (Map.Tree.mapWithin ord f lo (Some kk) l wl) (Map.Tree.mapWithin ord f (Some kk) hi r wr))
 
+-- Proofs: every operation keeps the stored sizes right. `bin` works the
+-- size out, and each rotation is built from `bin`s.
+
+theorem Map.Tree.binSized (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v)
+    (sl: Map.Tree.Sized l) (sr: Map.Tree.Sized r): Map.Tree.Sized (Map.Tree.bin l key value r) :=
+  Both rfl (Both sl sr)
+
+theorem Map.Tree.singleLSized (l: Map.Tree k v) (key: k) (value: v) (sl: Map.Tree.Sized l):
+    (r: Map.Tree k v) -> Map.Tree.Sized r -> Map.Tree.Sized (Map.Tree.singleL l key value r)
+  | Tip, sr => Map.Tree.binSized l key value Tip sl sr
+  | Bin _ rl rk rv rr, Both e (Both srl srr) =>
+    Map.Tree.binSized (Map.Tree.bin l key value rl) rk rv rr (Map.Tree.binSized l key value rl sl srl) srr
+
+theorem Map.Tree.doubleLSized (l: Map.Tree k v) (key: k) (value: v) (sl: Map.Tree.Sized l):
+    (r: Map.Tree k v) -> Map.Tree.Sized r -> Map.Tree.Sized (Map.Tree.doubleL l key value r)
+  | Tip, sr => Map.Tree.binSized l key value Tip sl sr
+  | Bin s Tip rk rv rr, sr => Map.Tree.binSized l key value (Bin s Tip rk rv rr) sl sr
+  | Bin _ (Bin _ rll rlk rlv rlr) rk rv rr, Both e (Both (Both e2 (Both srll srlr)) srr) =>
+    Map.Tree.binSized (Map.Tree.bin l key value rll) rlk rlv (Map.Tree.bin rlr rk rv rr)
+      (Map.Tree.binSized l key value rll sl srll) (Map.Tree.binSized rlr rk rv rr srlr srr)
+
+theorem Map.Tree.singleRSized (key: k) (value: v) (r: Map.Tree k v) (sr: Map.Tree.Sized r):
+    (l: Map.Tree k v) -> Map.Tree.Sized l -> Map.Tree.Sized (Map.Tree.singleR key value r l)
+  | Tip, sl => Map.Tree.binSized Tip key value r sl sr
+  | Bin _ ll lk lv lr, Both e (Both sll slr) =>
+    Map.Tree.binSized ll lk lv (Map.Tree.bin lr key value r) sll (Map.Tree.binSized lr key value r slr sr)
+
+theorem Map.Tree.doubleRSized (key: k) (value: v) (r: Map.Tree k v) (sr: Map.Tree.Sized r):
+    (l: Map.Tree k v) -> Map.Tree.Sized l -> Map.Tree.Sized (Map.Tree.doubleR key value r l)
+  | Tip, sl => Map.Tree.binSized Tip key value r sl sr
+  | Bin s ll lk lv Tip, sl => Map.Tree.binSized (Bin s ll lk lv Tip) key value r sl sr
+  | Bin _ ll lk lv (Bin _ lrl lrk lrv lrr), Both e (Both sll (Both e2 (Both slrl slrr))) =>
+    Map.Tree.binSized (Map.Tree.bin ll lk lv lrl) lrk lrv (Map.Tree.bin lrr key value r)
+      (Map.Tree.binSized ll lk lv lrl sll slrl) (Map.Tree.binSized lrr key value r slrr sr)
+
+theorem Map.Tree.rebuildSized (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v)
+    (sl: Map.Tree.Sized l) (sr: Map.Tree.Sized r):
+    (s: Map.Tree.Shape) -> Map.Tree.Sized (Map.Tree.rebuild s l key value r)
+  | Keep    => Map.Tree.binSized l key value r sl sr
+  | SingleL => Map.Tree.singleLSized l key value sl r sr
+  | DoubleL => Map.Tree.doubleLSized l key value sl r sr
+  | SingleR => Map.Tree.singleRSized key value r sr l sl
+  | DoubleR => Map.Tree.doubleRSized key value r sr l sl
+
+theorem Map.Tree.balanceSized (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v)
+    (sl: Map.Tree.Sized l) (sr: Map.Tree.Sized r): Map.Tree.Sized (Map.Tree.balance l key value r) :=
+  Map.Tree.rebuildSized l key value r sl sr (Map.Tree.shape l r)
+
+theorem Map.Tree.insertWithSized [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v):
+    (t: Map.Tree k v) -> Map.Tree.Sized t -> Map.Tree.Sized (Map.Tree.insertWith f key value t)
+  | Tip, st => Both rfl (Both Trivial Trivial)
+  | Bin s l kk vv r, Both e (Both sl sr) =>
+    match c: Ord.compare key kk with
+      | Less    => Map.Tree.balanceSized (Map.Tree.insertWith f key value l) kk vv r (Map.Tree.insertWithSized f key value l sl) sr
+      | Equal   => Both e (Both sl sr)
+      | Greater => Map.Tree.balanceSized l kk vv (Map.Tree.insertWith f key value r) sl (Map.Tree.insertWithSized f key value r sr)
+
+theorem Map.Tree.deleteMinSized: (l: Map.Tree k v) -> (key: k) -> (value: v) -> (r: Map.Tree k v) ->
+    Map.Tree.Sized l -> Map.Tree.Sized r -> Map.Tree.Sized (Map.Tree.deleteMin l key value r)
+  | Tip, key, value, r, sl, sr => sr
+  | Bin _ ll lk lv lr, key, value, r, Both e (Both sll slr), sr =>
+    Map.Tree.balanceSized (Map.Tree.deleteMin ll lk lv lr) key value r (Map.Tree.deleteMinSized ll lk lv lr sll slr) sr
+
+theorem Map.Tree.glueSized: (l: Map.Tree k v) -> (r: Map.Tree k v) ->
+    Map.Tree.Sized l -> Map.Tree.Sized r -> Map.Tree.Sized (Map.Tree.glue l r)
+  | Tip, r, sl, sr => sr
+  | Bin s ll lk lv lr, Tip, sl, sr => sl
+  | Bin s ll lk lv lr, Bin _ rl rk rv rr, sl, Both e (Both srl srr) =>
+    Map.Tree.balanceSized (Bin s ll lk lv lr) (Map.Tree.minKey rk rl) (Map.Tree.minValue rv rl)
+      (Map.Tree.deleteMin rl rk rv rr) sl (Map.Tree.deleteMinSized rl rk rv rr srl srr)
+
+theorem Map.Tree.removeSized [auto ord: Ord k] (key: k):
+    (t: Map.Tree k v) -> Map.Tree.Sized t -> Map.Tree.Sized (Map.Tree.remove key t)
+  | Tip, st => Trivial
+  | Bin s l kk vv r, Both e (Both sl sr) =>
+    match c: Ord.compare key kk with
+      | Less    => Map.Tree.balanceSized (Map.Tree.remove key l) kk vv r (Map.Tree.removeSized key l sl) sr
+      | Equal   => Map.Tree.glueSized l r sl sr
+      | Greater => Map.Tree.balanceSized l kk vv (Map.Tree.remove key r) sl (Map.Tree.removeSized key r sr)
+
+theorem Map.Tree.sizeMap (f: v -> w): (t: Map.Tree k v) -> Map.Tree.size (Map.Tree.map f t) = Map.Tree.size t
+  | Tip             => rfl
+  | Bin s l kk vv r => rfl
+
+theorem Map.Tree.mapSized (f: v -> w): (t: Map.Tree k v) -> Map.Tree.Sized t -> Map.Tree.Sized (Map.Tree.map f t)
+  | Tip, st => Trivial
+  | Bin s l kk vv r, Both e (Both sl sr) =>
+    Both (rewrite Map.Tree.sizeMap f l, Map.Tree.sizeMap f r in e)
+      (Both (Map.Tree.mapSized f l sl) (Map.Tree.mapSized f r sr))
+
 -- Proofs: what `get` finds.
 
 -- The value for the first entry with that key.
@@ -479,13 +580,14 @@ theorem Map.Tree.combineFirst (value: v): (old: Option v) -> Map.Tree.combine (n
 -- Maps
 
 -- No entries.
-def Map.empty [auto ord: Ord k]: Map k v := { tree = Tip, ordered = Trivial }
+def Map.empty [auto ord: Ord k]: Map k v := { tree = Tip, ordered = Trivial, sized = Trivial }
 
 -- `value` at `key`; if `key` has a value already, `f value old` (so
 -- `Map.insertWith Nat.add key 1 counts` counts).
 def Map.insertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map k v): Map k v :=
   { tree = Map.Tree.insertWith f key value m.tree
   , ordered = Map.Tree.insertWithWithin f key value None None m.tree Trivial Trivial m.ordered
+  , sized = Map.Tree.insertWithSized f key value m.tree m.sized
   }
 
 -- `value` at `key`, replacing any value there.
@@ -508,6 +610,7 @@ def Map.contains [auto ord: Ord k] (key: k) (m: Map k v): Bool := match Map.get 
 def Map.remove [auto ord: Ord k] (key: k) (m: Map k v): Map k v :=
   { tree = Map.Tree.remove key m.tree
   , ordered = Map.Tree.removeWithin key None None m.tree m.ordered
+  , sized = Map.Tree.removeSized key m.tree m.sized
   }
 
 -- The value at `key` changed by `f`, which sees `None` when there's none
@@ -546,6 +649,7 @@ def Map.foldLeft (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]): b := Map.
 def Map.map (f: v -> w) (m: Map k v [ord := o]): Map k w [ord := o] :=
   { tree = Map.Tree.map f m.tree
   , ordered = Map.Tree.mapWithin o f None None m.tree m.ordered
+  , sized = Map.Tree.mapSized f m.tree m.sized
   }
 
 -- The entries for which `p` holds.

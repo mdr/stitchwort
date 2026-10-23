@@ -701,3 +701,153 @@ External (all fetched 23 October 2026):
   [Sundar and Tarjan](https://epubs.siam.org/doi/10.1137/S0097539790189733),
   [Hinze, Generalizing generalized tries](https://www.cs.ox.ac.uk/publications/publication4830-abstract.html),
   [patricia-tree (OCaml)](https://ocaml.org/p/patricia-tree/0.9.0/README.html).
+
+## Stage 0 results
+
+**Status:** built, 23 October 2026 (D771), on top of commit `73dfec0a`. No kernel change. New
+files `std/Map/Spec.sw` (agreement lemmas, `Map.Equiv`, respects lemmas, `Map.same`) and
+`std/Set/Spec.sw` (the same for `Set`); one change to `std/Map/Map.sw`, the `sized` field (§S.2).
+Example `examples/accept/map-equiv.sw`; reject example `examples/reject/map-wrong-size.sw`. Paths
+below are under `crates/elab/src/` unless given in full.
+
+### S.1 Types that reach themselves through a `Map` today (D785)
+
+Both forms are **rejected today**, by the kernel's positivity check, with the same error
+[run, commit `73dfec0a`]:
+
+```
+type Tree = { name: Text, children: Map Text Tree }
+type Tree = | Leaf | Node (children: Map Text Tree)
+
+[E-POSITIVITY] Error: `Tree` is used inside another type
+   field `children` has `Tree` inside another type
+   Note 1: a data type's fields can contain it only directly, or as the result of a function
+   field: whether it's safe inside another type (such as a `List`) would depend on how that
+   type uses it, which isn't checked
+   Note 2: for a tree whose children are in a list, write two types defined together instead:
+   a tree, and a forest of trees
+```
+
+`type Tree = { name: Text, children: List Tree }` is rejected the same way: the check refuses
+*every* occurrence of the type being defined inside another type's arguments, not only maps
+[checked: `crates/core/src/check.rs:2131-2145`]. So no recursion over such a tree can be written
+today, structural or `decreasing`, and D785's rule (the first quotient version rejects these) is
+**not a regression**. What works today is a pair of types defined together, a tree and a forest
+of named children (`examples/accept/mutual-data.sw`), with structural recursion across both.
+
+### S.2 The raw invariant (review §4)
+
+**What `Ordered` certified.** Only key order: `Map.Tree.Within ord lo hi t` says every key is
+strictly between the bounds, recursively, and nothing else [checked: `std/Map/Map.sw:159-166`].
+It said nothing about the stored sizes or about balance.
+
+**A map with a wrong size could be built.** The record's fields are public and `Tip`/`Bin` are
+importable (`import Std.Map.Tree (Tip, Bin)`), so on `73dfec0a` this was accepted [run]:
+
+```
+def bad: Map Nat Text := { tree = Bin 5 Tip 1 "a" Tip, ordered = Both (Both Trivial Trivial) (Both Trivial Trivial) }
+-- Map.size bad == 5, Map.toList bad == [(1, "a")]                       (tests passed)
+-- with `Bin 0 …`: Map.isEmpty is True though toList has one entry      (test passed)
+-- Map.toList (Map.singleton 1 "a") == Map.toList bad, but the sizes differ (test passed)
+```
+
+So `size` and `isEmpty` did **not** respect "same entries", exactly the review's conditional
+concern.
+
+**Fixed: a third field.** `Map` is now
+`{ tree, ordered: Map.Tree.Ordered ord tree, sized: Map.Tree.Sized tree }`, where `Sized` says
+every node's stored size is `Succ (size l + size r)` [`std/Map/Map.sw:168-182`]. Every operation
+is proved to keep it (`binSized`, the four rotations, `rebuildSized`, `balanceSized`,
+`insertWithSized`, `deleteMinSized`, `glueSized`, `removeSized`, `mapSized`;
+`std/Map/Map.sw:349-437`), and `Map.sizeToList: m.size = m.toList.length` follows
+[`std/Map/Spec.sw:262`]. The proof is erased like `ordered`; no algorithm changed, `size` is still
+O(1). The hand-built map above is now refused (`examples/reject/map-wrong-size.sw`: `E-REFL`,
+"`5` and `1` aren't equal").
+
+**Balance is still not certified.** A hand-built ordered, correctly sized, unbalanced tree is a
+valid `Map`. Every result is still right (the proofs never assume balance), but the O(log n) bound
+holds only for maps built by the library's operations. Balance as a theorem stays a follow-up
+(map-set.md); it is not needed for equality.
+
+**Every public observation, by what it depends on** (after the fix; `Map.sw` lines are
+`std/Map/Map.sw`):
+
+| Operation | Where | Depends only on the entries? | Proof |
+|---|---|---|---|
+| `get`, `getOr`, `contains` | `Map.sw:600`, `:603`, `:605` | yes | `Map.getToList`: `get key m = lookupList key m.toList` |
+| `insertWith`, `insert`, `singleton`, `remove`, `alter`, `adjust` | `Map.sw:587-628` | yes (result's entries) | `Map.toListInsertWith`, `…Insert`, `…Singleton`, `…Remove`, `…Alter`, `…Adjust` |
+| `fromList` | `Map.sw:642` | yes | `Map.toListFromList` (and `Map.getFromList`) |
+| `map` | `Map.sw:649` | yes | `Map.toListMap` |
+| `filter`, `union` | `Map.sw:656`, `:660` | yes: they fold over the entries in key order | `Map.toListFilter`, `Map.toListFilterList`, `Map.toListUnion` |
+| `toList`, `keys`, `values` | `Map.sw:635-639` | yes; the order is specified: strictly increasing keys | `Map.toListSorted` |
+| `foldLeft` | `Map.sw:646` | yes, for any `f` (not only associative ones): the tree fold is in key order | `Map.foldLeftToList` |
+| `size`, `isEmpty` | `Map.sw:630`, `:632` | **before: no** (stored size at the root); **now: yes** | `Map.sizeToList` (needs `sized`) |
+| `Show` | `Map.sw:723` | yes: prints `toList` | by definition |
+| JS boundary | `crates/js/src/lib.rs:2897-2924` | yes: encodes with `Map.toList`, decodes with `Map.fromList` | by definition |
+| Effectful traversal, iterators | — | none exist: `Map` has no `each`/monadic fold; `Set.map`, `Set.any`, `Set.count` are `foldLeft`s | — |
+| `.tree`, `.ordered`, `.sized`, `Map.Tree.*` on `m.tree` | record fields, `Map.sw:17-166` | **no**: they expose the tree (on `[(1,a)…(4,d)]` inserted forwards the root key is 2, backwards 3 [run]) | — (stage 2's quotient hides them) |
+| `Set` operations | `std/Set/Set.sw` | yes, through `Map`'s | `std/Set/Spec.sw` |
+
+Not audited: how the REPL or `eval` prints a `Map` value (they may print the record, tree and
+all).
+
+### S.3 `Map.Equiv`, agreement and respects lemmas (option B)
+
+`Map.Equiv m n := m.toList = n.toList` [`std/Map/Spec.sw:483`]. The specification is sorted
+association lists, `Map.Spec k v` (a synonym for `List (k, v)`): `insertWith`, `insert`,
+`remove`, `mapValues`, `foldLeft`, `fromList`, `filter`, `union`, `alter`, `adjust`, and the
+existing `Map.Tree.lookupList` for `get`. The proofs work on `toListOnto` with an accumulator,
+so they need no `append` lemmas: rotations don't change the entries (the existing
+`rebuildOnto`), and one lemma, `Map.Tree.pastOnto`, carries any list operation that skips smaller
+keys past a whole subtree.
+
+**Proved** (all in `std/Map/Spec.sw` unless noted):
+
+- Agreement, one per operation: `toListEmpty`, `toListInsertWith`, `toListInsert`,
+  `toListSingleton`, `toListRemove`, `toListMap`, `foldLeftToList`, `getToList`, `sizeToList`,
+  `toListFromList`, `toListFilter` (fold form) and `toListFilterList`
+  (`= List.filter (e => p e.fst e.snd) m.toList`), `toListUnion` (`a`'s entries inserted into
+  `b`'s), `toListAlter`, `toListAdjust`; the generic `toListFold`.
+- `Map.toListSorted`: the entries are in strictly increasing key order (so keys are distinct).
+  It was a listed follow-up in map-set.md.
+- Extensionality: `Map.equivOfGet` (the same `get` for every key gives `Equiv`, through
+  `Map.Spec.extLookup` on sorted lists), and its converse `Map.getRespects`. So `Map.Equiv` is
+  exactly "the same `get` everywhere", and needs no `DecEq v`.
+- `Map.Equiv` is an equivalence (`equivRefl`, `equivSym`, `equivTrans`).
+- Respects, each in a few lines from its agreement lemma: `get`, `getOr`, `contains`, `size`,
+  `isEmpty`, `keys`, `values`, `foldLeft` (equal results); `insertWith`, `insert`, `remove`,
+  `alter`, `adjust`, `map`, `filter`, `union` in both arguments (equivalent results); plus
+  `Map.filterCongr` (predicates that agree pointwise give equivalent results, no funext needed).
+- `Map.same [auto dv: DecEq v] (m n): Bool := m.toList == n.toList`, with `sameSound`,
+  `sameComplete` and `sameIff`. Keys need no extra `DecEq`: the one inside `Ord k` is used. The
+  review's point stands: without `DecEq v` there could be no such `Bool`.
+- `Set`: `Set.Equiv s t := Map.Equiv s.items t.items`; `toListInsert`, `toListRemove`,
+  `sizeToList`; `Set.equivOfContains` and `Set.equivOfToList` (so `Set.Equiv` is "the same keys
+  in order", via `()` having one value); respects for `contains`, `toList`, `size`, `isEmpty`,
+  `foldLeft`, `insert`, `remove`, `filter`, `union`, `intersect` and `difference` (both
+  arguments); `Set.same` (on the key lists, so only the keys' `DecEq`) with soundness and
+  completeness.
+
+**Stated in spec form only, or not proved:**
+
+- `union` as a *merge* of two sorted lists, and `fromList` as "sort, keeping the last value per
+  key": only the fold forms are proved. They suffice for the respects lemmas; the merge form is
+  a list-lemma exercise when something needs it.
+- `insert` commuting for different keys and re-inserting a stored value, as `=`: impossible
+  before stage 2 (different trees). As `Map.Equiv` they follow from `equivOfGet`; the swap is
+  proved in the example (`insertSwap`), not in the library.
+- Balance (§S.2).
+
+**Computation.** On closed maps `toList` computes, so `Map.Equiv m n` is `rfl` for maps built in
+different orders (`forwardsBackwards` in the example, whose trees differ), and
+`Map.sameSound m n (rfl: Map.same m n = True)` works. Written without the ascription,
+`Map.sameSound m n rfl` fails with `E-REFL`, the decision stuck at `DecEq.%decide … 10 10`
+[run]; the cause is likely that the `auto` argument for `DecEq v` is not yet solved when `rfl`
+is checked [unverified].
+
+**Cost.** `Map/Spec.sw` and `Set/Spec.sw` load only when a program uses one of their names;
+`Map.Spec` is declared as a type so that dot calls like `xs.filter` on a list don't pull the file
+in (`std_library`'s loading test caught that). Hashes: every `Std.Map.*`/`Std.Set.*` entry of the
+prelude snapshot moved (58 lines, the `Map` record has a new field), as did every definition in
+the hash snapshots that uses a `Map` (`map-set`, `extract-dictionary`, `int-literals-auto`, one
+in `extract-string-enums`); 152 prelude entries are new. Nothing else moved.
