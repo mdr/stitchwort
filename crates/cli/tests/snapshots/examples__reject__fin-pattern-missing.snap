@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `FZero`
+   ╭─[ reject/fin-pattern-missing.sw:7:3 ]
+   │
+ 7 │ ╭─▶   | 0 => "zero"
+ 8 │ ├─▶   | 2 => "two"
+   │ │                    
+   │ ╰──────────────────── missing case: no arm matches `FZero`
+   │     
+   │     Note: here `i` has type `Fin 2`, and `FZero` can be one
+───╯

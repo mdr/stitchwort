@@ -312,6 +312,9 @@ pub(crate) fn check_literal(
             Ok(Term::Nat(Rc::new(k.clone())))
         }
         Class::Other => {
+            if let Some(term) = fin_literal(cx, k, negative, expected)? {
+                return Ok(term);
+            }
             let found = num_type(cx, if negative { Kind::Int } else { Kind::Nat })?;
             let e = cx
                 .mismatch(expected, &found)
@@ -329,6 +332,94 @@ pub(crate) fn check_literal(
             Err(e)
         }
     }
+}
+
+/// The bound `n` of `ty` if `ty` is the library's `Fin n`: `Some(Some(n))`
+/// when n computes to a number, `Some(None)` when it doesn't (a variable, an
+/// unsolved metavariable), and `None` for any other type.
+pub(crate) fn fin_bound(
+    g: &stitchwort_core::Globals,
+    ty: &Value,
+) -> Result<Option<Option<BigUint>>> {
+    let Some(fin) = g.registry.loaded_data(Builtin::Fin) else {
+        return Ok(None);
+    };
+    match force(g, ty.clone())? {
+        Value::Data(d, params) if d == fin && params.len() == 1 => {
+            Ok(Some(stitchwort_core::native::as_nat(g, &params[0])?))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// The numeral `k` (or `-k`) checked against `expected` if that's `Fin n`
+/// (docs/proposals/fin-literals.md): `Fin.ofNatLt n k rfl` when n is a
+/// known number above k, where the kernel confirms `k < n` by computing it.
+/// `None` if `expected` isn't a `Fin`.
+fn fin_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Result<Option<Term>> {
+    let Some(bound) = fin_bound(cx.g(), expected)? else {
+        return Ok(None);
+    };
+    let shown = cx.show(expected);
+    if negative {
+        return Err(cx
+            .error(
+                "E-FIN-LITERAL",
+                format!("a `{shown}` can't be negative"),
+                format!("this is negative, but a `{shown}` is expected here"),
+            )
+            .with_note("a `Fin n` is a number from 0 up to n - 1"));
+    }
+    let Some(n) = bound else {
+        let unsolved = match force(cx.g(), expected.clone())? {
+            Value::Data(_, params) => matches!(
+                force(cx.g(), params[0].clone())?,
+                Value::Neutral(Head::Meta(_), _)
+            ),
+            _ => false,
+        };
+        let e = cx.error(
+            "E-FIN-LITERAL",
+            format!("`{k}` can't be checked to be below the bound of `{shown}`"),
+            "a numeral can be a `Fin n` only where n is a known number",
+        );
+        return Err(if unsolved {
+            e.with_note(format!(
+                "nothing here says what n is yet: write it, as in `({k}: Fin 10)`"
+            ))
+        } else {
+            e.with_note(format!(
+                "build it with `Fin.ofNatLt`, giving a proof that `{k}` is below the bound"
+            ))
+        });
+    };
+    if *k >= n {
+        return Err(cx
+            .error(
+                "E-FIN-LITERAL",
+                format!("{k} isn't below {n}, so it can't be a `{shown}`"),
+                if n.bits() == 0 {
+                    format!("`{shown}` has no values")
+                } else {
+                    format!("a `{shown}` is a number from 0 to {}", n.clone() - 1u32)
+                },
+            )
+            .with_note(format!("a `Fin {n}` is a number below {n}")));
+    }
+    let of_nat_lt = cx
+        .g()
+        .registry
+        .loaded_def(Builtin::FinOfNatLt)
+        .ok_or_else(|| {
+            cx.error(
+                "E-UNKNOWN-NAME",
+                "a numeral as a `Fin` needs the library's `Fin.ofNatLt`",
+                "here",
+            )
+        })?;
+    let call = Term::app(Term::Def(of_nat_lt), Term::Nat(Rc::new(n)));
+    let call = Term::app(call, Term::Nat(Rc::new(k.clone())));
+    Ok(Some(Term::app(call, Term::Refl)))
 }
 
 fn int_literal(cx: &Ctx, k: &BigUint, negative: bool) -> Result<Term> {

@@ -104,6 +104,10 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FloatIeeeLe,
     Builtin::FloatToInt,
     Builtin::FloatCompare,
+    Builtin::Fin,
+    Builtin::FZero,
+    Builtin::FSucc,
+    Builtin::FinOfNatLt,
 ];
 
 macro_rules! builtins {
@@ -262,6 +266,13 @@ builtins! {
     FloatToInt = "Float.toInt": Def,
     // The total order: a native in the runtimes only
     FloatCompare = "Float.compare": Def,
+    // `Fin n`, the numbers below n (std/Fin/Fin.sw): a numeral `k` checked
+    // against `Fin n` for a known n is `Fin.ofNatLt n k rfl`, and a number
+    // pattern on one is `FZero` or `FSucc` (docs/proposals/fin-literals.md)
+    Fin = "Fin": Data,
+    FZero = "FZero": Ctor(Builtin::Fin),
+    FSucc = "FSucc": Ctor(Builtin::Fin),
+    FinOfNatLt = "Fin.ofNatLt": Def,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),
