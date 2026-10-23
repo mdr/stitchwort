@@ -1533,7 +1533,7 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   R10 with their messages.
 - **1.5 Axiom report and wording.** `stitchwort axioms <name>` per D864 and D925; the wording
   changes of §9.4 in DESIGN.md, core.md and `erase.rs` (D863); core.md's "Quotients" section.
-  **Exit:** A9.
+  **Exit:** A9. *Done (below).*
 - **1.6 Prototype and the final gate.** `ProtoMap k v := { raw: Quot (Map k v) Map.Equiv }` in
   `examples/accept/`, over **today's** `Map` record as the representative (it already is
   `{ tree, ordered, sized }`, and stage 0's respects lemmas are about it), with lifted `toList`,
@@ -1571,6 +1571,26 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   `the_evaluators_agree_on_quotients`.
 - **Left for 1.3.** The evaluators don't read D921's flags yet: an erased-result lift still
   computes `f a` under erasure.
+
+**Step 1.5 as built.**
+
+- **The command.** `stitchwort axioms NAME` (a definition's full name in the project) or
+  `stitchwort axioms FILE.sw NAME`, in `crates/cli/src/main.rs`; the walk is
+  `crates/driver/src/axioms.rs` (`axioms(globals, def)`). Output: one axiom per line, sorted
+  (today only `Quot.sound`), nothing when there are none; an unknown name is an error. The help
+  text says an empty report doesn't mean the term computes to data in the kernel.
+- **The walk (D925).** From the named definition it follows `Term::Def` and, for data types,
+  `Data`/`Ctor`/`Case` references, scanning the checked type and body of each definition (theorems
+  included) and the parameters, indices and constructor fields of each data type, at every
+  subterm, for `Term::Quot(Sound)`. It doesn't use the runtime's `reachable`. It isn't cached by
+  hash: a walk is cheap next to loading and checking. The note left the command's argument shape
+  open, so it follows `run`: a file plus a name, or a project name.
+- **Wording (D863).** DESIGN.md ("Assumption-free", "Total", the safeguards table), core.md (`J`,
+  the Terms table, the running paragraph, a new "Quotients" section with 1.3 marked in progress)
+  and the `erase.rs` header comment (comment only). The README lists the command.
+- **Tests.** A9: `examples/accept/quot-axioms.sw` and `crates/cli/tests/axioms.rs`
+  (`Quot.sound` for an inline `def`, via a theorem, via another `def`; nothing for `plain`,
+  `Quot.lift` and `Quot.ind` uses).
 
 ### 14.2 The gate before stage 2: the review's eight properties
 

@@ -11,8 +11,13 @@
 //! 3. a definition whose result is erased (a theorem, a proof-producing
 //!    function, a type-level function) isn't run once it has all its
 //!    arguments: its value is the placeholder;
-//! 4. `J` on the placeholder takes its base (in a closed program every proof
-//!    of an equation is `refl`, so that's where `J` would go);
+//! 4. `J` on the placeholder takes its base: equality proofs are erased
+//!    while running, and `J` uses the erased representation of its base.
+//!    That is sound because any proof of `x = y` means `x` and `y` are the
+//!    same value in the model (the erasure-preservation contract,
+//!    docs/proposals/map-equality.md §7.4.4, D863). The kernel's evaluator
+//!    doesn't erase, and there transport may stay stuck on an opaque proof,
+//!    including one made by `Quot.ind` or `Quot.sound`;
 //! 5. a `case` on the placeholder, for a type in `Prop`, takes the first
 //!    branch with placeholder fields (its only possible one: if it's
 //!    impossible, every branch is, and the run fails as unreachable;

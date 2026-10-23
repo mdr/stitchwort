@@ -87,6 +87,24 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// List the axioms a definition or theorem depends on, directly or
+    /// through what it uses, one per line, sorted (today only `Quot.sound`).
+    /// An empty report means no axiom is used; it does not mean the term
+    /// computes to data in the kernel (a proof built from `Quot.ind` can
+    /// still be stuck)
+    Axioms {
+        /// A file, or the full name of a definition in the project
+        /// (`Main.total`)
+        target: String,
+        /// The definition's name in the file, when the target is a file
+        name: Option<String>,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// Evaluate an expression in the context of a file
     Eval {
         file: PathBuf,
@@ -189,6 +207,12 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => run_target(&target, js, reference, project.as_deref(), &cache),
+        Command::Axioms {
+            target,
+            name,
+            project,
+            cache,
+        } => axioms(&target, name.as_deref(), project.as_deref(), &cache),
         Command::Eval { file, expr, cache } => eval(&file, &expr, &cache),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Lsp => {
@@ -678,6 +702,47 @@ fn run_target(
     } else {
         run_main(&mut session, &main, reference)
     }
+}
+
+/// `axioms`: loads the file or project, finds the definition and prints
+/// the axioms it depends on (`stitchwort_driver::axioms`).
+fn axioms(target: &str, name: Option<&str>, project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
+    let mut session = new_session(false);
+    let key = if is_file_target(target) {
+        let Some(name) = name else {
+            eprintln!("error: name the definition to report on: `stitchwort axioms {target} NAME`");
+            return ExitCode::FAILURE;
+        };
+        use_cache(&mut session, cache, Path::new("."));
+        if !load_file(&mut session, Path::new(target), None) {
+            return ExitCode::FAILURE;
+        }
+        name
+    } else {
+        if name.is_some() {
+            eprintln!("error: a name in the project takes no second argument");
+            return ExitCode::FAILURE;
+        }
+        let Some(project) = locate_project(project, "report on", "axioms hello.sw NAME") else {
+            return ExitCode::FAILURE;
+        };
+        use_cache(&mut session, cache, &project.dir);
+        if !load_project(&mut session, &project, &Target::Everything) {
+            return ExitCode::FAILURE;
+        }
+        target
+    };
+    session.elab.leave_namespace();
+    let Some(id) = session.elab.lookup_def(key) else {
+        eprintln!("error: there's no definition `{key}`");
+        return ExitCode::FAILURE;
+    };
+    let found = stitchwort_driver::axioms::axioms(&session.elab.globals, id);
+    for axiom in found {
+        println!("{axiom}");
+    }
+    discard(session);
+    ExitCode::SUCCESS
 }
 
 fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {

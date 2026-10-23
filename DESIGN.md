@@ -120,7 +120,7 @@ This section defines what the rest of the document promises.
 
 **Checked.** The kernel has accepted a definition's elaborated core declaration (its type and its body), either in this run or as recorded in the local cache ([§11](#11-content-hashing-and-caching)).
 
-**Assumption-free.** A definition that doesn't depend, directly or indirectly, on any tracked assumption: `assume`, a foreign function declared total, a proof hole, or a conjecture the checker relies on (currently the handler rule in [§8](#8-abilities-and-handlers)). `stitchwort assumptions <name>` lists them.
+**Assumption-free.** A definition that doesn't depend, directly or indirectly, on any tracked assumption: `assume`, a foreign function declared total, a proof hole, or a conjecture the checker relies on (currently the handler rule in [§8](#8-abilities-and-handlers)). `stitchwort assumptions <name>` lists them. "Assumption-free" is relative to the core theory, which includes the quotient axiom `Quot.sound`: that axiom doesn't block anything, and `stitchwort axioms <name>` lists it (and any later axiom) for a definition that depends on it, directly or through what it uses. An empty axiom report says no axiom is used; it doesn't say the term computes to data in the kernel.
 
 **Effect judgment.** Internally, the type checker establishes judgments of the form
 
@@ -135,7 +135,7 @@ meaning "evaluating `t` produces a value of type `A`, and may perform the abilit
 (() => spin 0) ()     -- : Nat                  ! {Partial}  calling it is partial
 ```
 
-**Total.** If `⊢ t : A ! {}` is checked and assumption-free, with `t` closed, then evaluating `t` reaches a value in finitely many steps. `A` may itself contain function types with abilities: those apply when the function is called, not when `t` is evaluated. How this extends to other cases:
+**Total.** If `⊢ t : A ! {}` is checked and assumption-free, with `t` closed, then evaluating `t` reaches a value in finitely many steps. Here "evaluating" means running, with proofs and types erased ([§6](#6-proofs-universes-and-erasure)). The checker's evaluator, which doesn't erase, also terminates, but a closed term that moves data along an opaque equality proof (one made by `Quot.sound` or `Quot.ind`) may stop at a term that isn't a value. `A` may itself contain function types with abilities: those apply when the function is called, not when `t` is evaluated. How this extends to other cases:
 
 | Case | What's guaranteed |
 |---|---|
@@ -943,6 +943,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | **Conservative termination checking** | Rejecting too much is safe. It can be relaxed later without breaking anything. |
 | **Checking never runs effects** | Principle 2. |
 | **Tracked assumptions** | `stitchwort assumptions <name>` lists every `assume`, foreign function, proof hole and conjecture a definition depends on. |
+| **Axiom report** | `stitchwort axioms <name>` lists the axioms a definition depends on, transitively (today only `Quot.sound`, found even when it sits inline in a body). It reports foundational dependencies only; it doesn't promise the term computes to data in the kernel. |
 | **A "must reject" test suite** | Readable example programs that must fail to type-check. |
 | **Native arithmetic is listed and tested** | A few prelude definitions on `Nat` run natively, in the kernel's evaluator and in extracted JS. `Int` has no kernel natives (decision K1): its operations are ordinary definitions over `Nat` constructors, so only `Nat`'s natives run in the kernel. Each native is trusted, so each is compared with its own definition by tests, as the whole result: a native returning a proof must give the definition's own proof term, so natives never change which `rfl` proofs check ([`docs/core.md`](docs/core.md#numbers)). |
 | **Compact text in the kernel is listed and tested** | A text literal's characters are one compact range in the checked term and in the evaluator, standing for `Cons (MkChar c rfl) … Nil`. The rules for it (typing, matching, conversion, quotation, hashing) are trusted, and only used with the exact prelude `List` and `Char` they were written for (by content hash); otherwise literals are constructors. Tests compare complete results with the constructor form ([compact text](docs/proposals/compact-text.md#as-built-stage-2)). A wrong rule could prove something false, as a wrong native could. |
