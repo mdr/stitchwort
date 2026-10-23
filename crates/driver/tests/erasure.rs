@@ -61,15 +61,62 @@ fn examples() -> Vec<(String, String)> {
     found
 }
 
+/// Examples that are also run with erasure off. Without erasure the proofs
+/// are computed again, which is the point of the comparison but costs real
+/// work (all examples together: over 1e9 steps, nearly all of it
+/// `accept/decreasing.sw`), so only examples that keep proofs inside data
+/// are compared both ways: record and constructor proof fields
+/// (`records`, `eqeq-proof-fields`, `dependent-fields`, `mutual-data`),
+/// indexed families (`indexed-families`, `vec-library`), `decreasing` fuel
+/// proofs and `attach` members (`decreasing-*`, `adder-fuel`,
+/// `unfold-until-stable`), bounds and range proofs (`int-dial`, `mod-arith`,
+/// `char-pattern-proofs`, `size-change`) and an omega-using one
+/// (`omega-certificates`). An erasure regression that keeps a proof alive
+/// shows up in these as a differing result or a missing step saving. The
+/// other examples still run with erasure on, where every test must pass.
+const COMPARED_WITHOUT_ERASURE: &[&str] = &[
+    "accept/adder-fuel.sw",
+    "accept/char-pattern-proofs.sw",
+    "accept/decreasing-attach.sw",
+    "accept/decreasing-folded.sw",
+    "accept/decreasing-lambda.sw",
+    "accept/dependent-fields.sw",
+    "accept/eqeq-proof-fields.sw",
+    "accept/indexed-families.sw",
+    "accept/int-dial.sw",
+    "accept/mod-arith.sw",
+    "accept/mutual-data.sw",
+    "accept/omega-certificates.sw",
+    "accept/partial.sw",
+    "accept/records-effects.sw",
+    "accept/records.sw",
+    "accept/size-change.sw",
+    "accept/unfold-until-stable.sw",
+    "accept/vec-library.sw",
+];
+
 #[test]
 fn erasure_doesnt_change_what_examples_print_or_test() {
     with_stack(STACK, || {
-        let (mut tests_run, mut mains_run) = (0, 0);
+        let (mut tests_run, mut mains_run, mut compared) = (0, 0, 0);
         let (mut steps_with, mut steps_without) = (0u64, 0u64);
         let mut cheaper = Vec::new();
         for (name, text) in examples() {
             let mut session = Session::for_stack(STACK);
             session.load(&name, &text).expect("examples check");
+            if !COMPARED_WITHOUT_ERASURE.contains(&name.as_str()) {
+                // Erasure on only: every test passes and the program runs.
+                let a = outcomes(&mut session);
+                for (test, o) in &a {
+                    assert_eq!(*o, "passed", "{name}: {test}");
+                }
+                tests_run += a.len();
+                if session.main().is_ok() && session.simulate(&[]).is_ok() {
+                    mains_run += 1;
+                }
+                continue;
+            }
+            compared += 1;
             let ((a, wa), (b, wb)) = both(&mut session, outcomes);
             assert_eq!(a, b, "{name}: test outcomes differ");
             tests_run += a.len();
@@ -94,13 +141,24 @@ fn erasure_doesnt_change_what_examples_print_or_test() {
                 cheaper.push(format!("{name} (main): {wa} < {wb}"));
             }
         }
-        eprintln!("tests: {tests_run}, mains: {mains_run}");
-        eprintln!("test steps with erasure {steps_with}, without {steps_without}");
+        eprintln!("tests: {tests_run}, mains: {mains_run}, compared both ways: {compared}");
+        eprintln!("compared steps with erasure {steps_with}, without {steps_without}");
         for c in &cheaper {
             eprintln!("cheaper: {c}");
         }
+        assert_eq!(
+            compared,
+            COMPARED_WITHOUT_ERASURE.len(),
+            "an example in COMPARED_WITHOUT_ERASURE doesn't exist"
+        );
         assert!(tests_run > 50, "only {tests_run} tests compared");
         assert!(mains_run > 0, "no main simulated");
+        // The compared examples are the ones that carry proofs in their data
+        // (about 16 times cheaper with erasure when this was written).
+        assert!(
+            steps_with * 5 < steps_without,
+            "{steps_with} steps with erasure is not under a fifth of {steps_without}"
+        );
         assert!(
             !cheaper.is_empty(),
             "erasure never did less work (is the toggle taking effect?)"
