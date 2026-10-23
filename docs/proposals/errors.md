@@ -1,8 +1,7 @@
 # Proposal: errors with messages (`Fail` and `Result`)
 
 **Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Nothing
-here is built. Waiting on Matt's answers to [Decisions](#6-decisions-for-matt),
-D1045 to D1053.
+here is built yet; stage 1 (§5) is next.
 
 ## 1. The problem and the goals
 
