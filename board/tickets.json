@@ -1,5 +1,5 @@
 {
-  "next": 365,
+  "next": 366,
   "tickets": [
     {
       "id": 1,
@@ -5789,6 +5789,20 @@
         "release"
       ],
       "body": "Verified 23 Oct: nix build .#stitchwort-bin works unchanged (47 s warm deps); output byte-identical to the cargo release binary on 6 extract examples (js, d.ts, source maps) and Float tests; nix run works. Cold consumer build unmeasured (est. 5-10 min). D975 caching open; CLI-only narrowing deferred.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 365,
+      "title": "Layout: a closing bracket at column 0 closes its bracket; house style for multi-line brackets (D1012)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D1012 (Matt, 23 Oct): house style for multi-line brackets is a comma at the end of each line, no trailing comma (still accepted), closer in column 0. Today a closer in column 0 starts a new declaration (E-PARSE), contradicting docs/syntax.md:239. Stage A (Sonnet lane): parser fix + example + docs. Stage B (DeepSeek, after A merges): restyle the ~151 leading-comma lines in 25 public files. The private resolver's 63 lines are a separate, later step.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
