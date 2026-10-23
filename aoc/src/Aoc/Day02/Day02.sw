@@ -62,11 +62,13 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect
   require (blockLength * copies <= maxDigits)
   { blockLength, copies })
 
--- Part 1: the ids in the range written exactly twice.
+-- Part 1: the ids in the range written exactly twice: add up, over the block
+-- lengths, the ids that are a block of that length written twice. A block
+-- longer than half the digits of the range's end has no ids in the range,
+-- and `RepetitionTemplate.sumIn` gives 0.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
-  allTemplatesForRange range
-    |> .filter (template => template.copies == 2)
-    |> .sumBy (RepetitionTemplate.sumIn range)
+  List.between 1 (Nat.digits range.to).length
+    |> .sumBy (blockLength => RepetitionTemplate.sumIn range { blockLength, copies = 2 })
 
 -- Part 2: the ids in the range written two or more times, each counted once.
 -- 111111 has templates 1×6, 2×3 and 3×2 (block length × copies); the weights cancel the repeats.

@@ -21,69 +21,17 @@ import Std (Bool, Eq, Int, List, Nat, Void)
 def part1Blocks (ranges: List Range): Nat :=
   ranges |> .sumBy (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2))
 
--- If every block from `low` on makes an id above `to`, none is in the range.
-theorem noneInRange (from: Nat) (to: Nat) (w: Nat -> Nat) (low: Nat) (big: (b: Nat) -> low <= b -> Nat.leq (w b) to = False):
-    (c: Nat) -> (s: Nat) -> low <= s -> List.sum (List.filter (x => from <= x && x <= to) (List.map w (List.rangeFrom c s))) = 0
-  | Zero,   s, h => rfl
-  | Succ c, s, h =>
-    Eq.trans (Eq.cong List.sum (List.filterSkip (x => from <= x && x <= to) (w s) (List.map w (List.rangeFrom c (Succ s))) (Nat.betweenOver from to (w s) (big s h))))
-      (noneInRange from to w low big c (Succ s) omega)
-
--- A block of k digits written twice has 2k digits, too many when `to` has fewer.
-theorem tooLong (r: Range): (k: Nat) -> Nat.leq (k * 2) (List.length (Nat.digits r.to)) = False -> repeatedSpec r k 2 = 0
-  | Zero,   h => Void.exfalso (Bool.trueNotFalse h)
-  | Succ k, h =>
-    noneInRange r.from r.to (b => writeTimes (Succ k) b 2) (Nat.pow 10 k)
-      (b hb => Nat.leqFalseOfLess r.to (b * Nat.pow 10 (Succ k) + b)
-        (calc r.to
-          _ < Nat.pow 10 (List.length (Nat.digits r.to))  := Nat.ltPowTenDigits r.to
-          _ <= Nat.pow 10 (k + Succ k) := Nat.powMono 9 (List.length (Nat.digits r.to)) (k + Succ k) omega
-          _ = Nat.pow 10 k * Nat.pow 10 (Succ k)          := Nat.powAdd 10 k (Succ k)
-          _ <= b * Nat.pow 10 (Succ k)                    := Nat.leMulRight (Nat.pow 10 k) b (Nat.pow 10 (Succ k)) hb
-          _ <= b * Nat.pow 10 (Succ k) + b                := omega))
-      (Nat.pow 10 (Succ k) - Nat.pow 10 k) (Nat.pow 10 k) omega
-
--- Copies from 3 on count for nothing in part 1.
-theorem otherCopies (r: Range) (k: Nat) (size: Nat): (c: Nat) -> (s: Nat) ->
-    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then RepetitionTemplate.sumIn r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom c (Succ (Succ (Succ s)))) = 0
-  | Zero,   s => rfl
-  | Succ c, s =>
-    match h: Nat.leq (k * Succ (Succ (Succ s))) size with
-      | True  => otherCopies r k size c (Succ s)
-      | False => otherCopies r k size c (Succ s)
-
--- One block length's terms: the block written twice, if it fits.
-theorem twiceTerms (r: Range): (k: Nat) -> (size: Nat) -> 1 <= k -> (Nat.leq (k * 2) size = False -> repeatedSpec r k 2 = 0) ->
-    List.sumBy (n => if Nat.leq (k * n) size then (if n == 2 then RepetitionTemplate.sumIn r { blockLength = k, copies = n } else 0) else 0) (List.rangeFrom (size - 1) 2) = repeatedSpec r k 2
-  | Zero,   size,          hk, fits => Void.exfalso (Bool.falseNotTrue hk)
-  | Succ k, Zero,          hk, fits => Eq.sym (fits rfl)
-  | Succ k, Succ Zero,     hk, fits => Eq.sym (fits rfl)
-  | Succ k, Succ (Succ s), hk, fits =>
-    let f: Nat -> Nat := n => if Nat.leq (Succ k * n) (Succ (Succ s)) then (if n == 2 then RepetitionTemplate.sumIn r { blockLength = Succ k, copies = n } else 0) else 0
-    match h: Nat.leq (Succ k * 2) (Succ (Succ s)) with
-      | True =>
-        -- (the match has already chosen the first term, n = 2)
-        calc List.foldLeft (acc n => acc + f n) (0 + RepetitionTemplate.sumIn r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
-          _ = 0 + RepetitionTemplate.sumIn r { blockLength = Succ k, copies = 2 } + List.sumBy f (List.rangeFrom s 3)
-              := List.sumByFrom f (0 + RepetitionTemplate.sumIn r { blockLength = Succ k, copies = 2 }) (List.rangeFrom s 3)
-          _ = 0 + RepetitionTemplate.sumIn r { blockLength = Succ k, copies = 2 } + 0 := rewrite otherCopies r (Succ k) (Succ (Succ s)) s 0
-          _ = RepetitionTemplate.sumIn r { blockLength = Succ k, copies = 2 } := omega
-          _ = repeatedSpec r (Succ k) 2 := repeatedCorrect r (Succ k) 2
-      | False => Eq.trans (otherCopies r (Succ k) (Succ (Succ s)) s 0) (Eq.sym (fits rfl))
-
 -- One range: the ids written exactly twice are the sum over block lengths
 -- of the blocks written twice.
 theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1) :=
+  let size := List.length (Nat.digits r.to)
   calc sumOfIdsWrittenTwice r
-    _ = List.sumBy (template => if template.copies == 2 then RepetitionTemplate.sumIn r template else 0) (allTemplatesForRange r)
-        := List.sumByFilter (RepetitionTemplate.sumIn r) (template => template.copies == 2) (allTemplatesForRange r)
-    _ = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then RepetitionTemplate.sumIn r { blockLength = k, copies = n } else 0) else 0)
-          (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1)
-        := templatesSum r (template => if template.copies == 2 then RepetitionTemplate.sumIn r template else 0)
-    _ = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (Nat.digits r.to).length 1)
-        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then (if n == 2 then RepetitionTemplate.sumIn r { blockLength = k, copies = n } else 0) else 0)
-             (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (k => repeatedSpec r k 2) (List.length (Nat.digits r.to)) 1
-             (k k1 k2 => twiceTerms r k (List.length (Nat.digits r.to)) k1 (tooLong r k))
+    -- (`List.between 1 size` is `List.rangeFrom (size + 1 - 1) 1`)
+    _ = List.sumBy (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (List.rangeFrom size 1)
+        := Eq.cong (n => List.sumBy (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (List.rangeFrom n 1)) (omega : size + 1 - 1 = size)
+    _ = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom size 1)
+        := List.sumRangeCongr (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (k => repeatedSpec r k 2) size 1
+             (k k1 k2 => repeatedCorrect r k 2)
 
 -- (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
