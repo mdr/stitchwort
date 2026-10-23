@@ -546,6 +546,73 @@ theorem Map.Spec.lookupFilter [auto ord: Ord k] (p: k -> v -> Bool) (key: k): (l
               Map.Spec.lookupBelow kk kk rest arest (z => Ordering.equalNotGreater (Eq.trans (Eq.sym (Ord.compareSelf kk)) z)) in
             rfl
 
+-- In a sorted list, an entry is there exactly when looking its key up finds
+-- its value.
+theorem Map.Spec.lookupOfMem [auto ord: Ord k] (key: k) (value: v): (lo: Option k) -> (xs: List (k, v)) -> Map.Spec.Ascending ord lo xs ->
+    List.Mem (key, value) xs -> Map.Tree.lookupList key xs = Some value
+  | lo, Nil, asc, mem => Void.exfalso mem
+  | lo, Cons (kk, vv) rest, Both a arest, Inl e => Eq.trans (Eq.cong (x => Map.Tree.lookupList key (Cons x rest)) e) (Map.Spec.lookupHead key value rest)
+  | lo, Cons (kk, vv) rest, Both a arest, Inr later =>
+    match d: Ord.compare key kk with
+      | Equal =>
+        Void.exfalso (Option.noneNotSome value
+          (Eq.trans (Eq.sym (Map.Spec.lookupBelow key kk rest arest (z => Ordering.equalNotGreater (Eq.trans (Eq.sym d) z))))
+            (Map.Spec.lookupOfMem key value (Some kk) rest arest later)))
+      | Less => Map.Spec.lookupOfMem key value (Some kk) rest arest later
+      | Greater => Map.Spec.lookupOfMem key value (Some kk) rest arest later
+
+theorem Map.Spec.memOfLookup [auto ord: Ord k] (key: k) (value: v): (xs: List (k, v)) ->
+    Map.Tree.lookupList key xs = Some value -> List.Mem (key, value) xs
+  | Nil, h => Void.exfalso (Option.noneNotSome value h)
+  | Cons (kk, vv) rest, h =>
+    match d: Ord.compare key kk with
+      | Equal => Inl (rewrite ord.equal key kk d, Eq.cong (Option.getOrElse vv) h in rfl)
+      | Less => Inr (Map.Spec.memOfLookup key value rest h)
+      | Greater => Inr (Map.Spec.memOfLookup key value rest h)
+
+-- How many entries inserting and removing leave: inserting a new key adds
+-- one, inserting a key that is there adds none; removing a key that is there
+-- takes one away, removing one that isn't changes nothing.
+
+theorem Map.Spec.lengthInsertAbsent [auto ord: Ord k] (key: k) (value: v): (xs: List (k, v)) ->
+    Map.Tree.lookupList key xs = None -> List.length (Map.Spec.insert key value xs) = Succ (List.length xs)
+  | Nil, h => rfl
+  | Cons (kk, vv) rest, h =>
+    match d: Ord.compare key kk with
+      | Less => rfl
+      | Equal => Void.exfalso (Option.someNotNone vv h)
+      | Greater => Eq.cong Succ (Map.Spec.lengthInsertAbsent key value rest h)
+
+theorem Map.Spec.lengthInsertPresent [auto ord: Ord k] (key: k) (value: v) (found: v): (lo: Option k) -> (xs: List (k, v)) ->
+    Map.Spec.Ascending ord lo xs -> Map.Tree.lookupList key xs = Some found -> List.length (Map.Spec.insert key value xs) = List.length xs
+  | lo, Nil, asc, h => Void.exfalso (Option.noneNotSome found h)
+  | lo, Cons (kk, vv) rest, Both a arest, h =>
+    match d: Ord.compare key kk with
+      | Less =>
+        Void.exfalso (Option.noneNotSome found
+          (Eq.trans (Eq.sym (Map.Spec.lookupBelow key kk rest arest (z => Ordering.lessNotGreater (Eq.trans (Eq.sym d) z)))) h))
+      | Equal => rfl
+      | Greater => Eq.cong Succ (Map.Spec.lengthInsertPresent key value found (Some kk) rest arest h)
+
+theorem Map.Spec.removeAbsent [auto ord: Ord k] (key: k): (xs: List (k, v)) -> Map.Tree.lookupList key xs = None -> Map.Spec.remove key xs = xs
+  | Nil, h => rfl
+  | Cons (kk, vv) rest, h =>
+    match d: Ord.compare key kk with
+      | Less => rfl
+      | Equal => Void.exfalso (Option.someNotNone vv h)
+      | Greater => Eq.cong (ys => Cons (kk, vv) ys) (Map.Spec.removeAbsent key rest h)
+
+theorem Map.Spec.lengthRemovePresent [auto ord: Ord k] (key: k) (found: v): (lo: Option k) -> (xs: List (k, v)) ->
+    Map.Spec.Ascending ord lo xs -> Map.Tree.lookupList key xs = Some found -> Succ (List.length (Map.Spec.remove key xs)) = List.length xs
+  | lo, Nil, asc, h => Void.exfalso (Option.noneNotSome found h)
+  | lo, Cons (kk, vv) rest, Both a arest, h =>
+    match d: Ord.compare key kk with
+      | Less =>
+        Void.exfalso (Option.noneNotSome found
+          (Eq.trans (Eq.sym (Map.Spec.lookupBelow key kk rest arest (z => Ordering.lessNotGreater (Eq.trans (Eq.sym d) z)))) h))
+      | Equal => rfl
+      | Greater => Eq.cong Succ (Map.Spec.lengthRemovePresent key found (Some kk) rest arest h)
+
 theorem Map.Raw.getRemove [auto ord: Ord k] (key: k) (m: Map.Raw k v): Map.Raw.get key (Map.Raw.remove key m) = None :=
   Eq.trans (Map.Raw.getToList key (Map.Raw.remove key m))
     (rewrite Map.Raw.toListRemove key m in Map.Spec.lookupRemove key None (Map.Raw.toList m) (Map.Raw.toListSorted m))

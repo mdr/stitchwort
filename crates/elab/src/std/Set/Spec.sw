@@ -155,3 +155,63 @@ theorem Set.containsFoldInsert [auto ord: Ord k] (key: k): (xs: List k) -> (s: S
 
 theorem Set.containsFromList [auto ord: Ord k] (key: k) (xs: List k): Set.contains key (Set.fromList xs) = List.any (x => Map.Spec.sameKey key x) xs :=
   Set.containsFoldInsert key xs Set.empty
+
+-- `isSubset`: every key of `a` is in `b`
+
+-- `all`'s fold over a set's entries is `List.all` over them.
+theorem Set.foldAll (q: k -> Bool): (z: Bool) -> (xs: List (k, ())) ->
+    Map.Spec.foldLeft (acc key unit => acc && q key) z xs = (z && List.all (e => q e.fst) xs)
+  | True, Nil => rfl
+  | False, Nil => rfl
+  | z, Cons (kk, u) rest =>
+    rewrite Set.foldAll q (z && q kk) rest in
+    match c: z with
+      | False => rfl
+      | True =>
+        match d: q kk with
+          | True => rfl
+          | False => rfl
+
+theorem Set.allEntriesElim (q: k -> Bool) (key: k): (xs: List (k, ())) -> List.all (e => q e.fst) xs = True -> List.Mem (key, ()) xs -> q key = True
+  | Nil, h, mem => Void.exfalso mem
+  | Cons (kk, u) rest, h, mem =>
+    match c: q kk with
+      | False => Void.exfalso (Bool.falseNotTrue h)
+      | True =>
+        match mem with
+          | Inl e => Eq.trans (Eq.cong q (Eq.sym (Eq.cong Pair.fst e))) c
+          | Inr later => Set.allEntriesElim q key rest h later
+
+theorem Set.allEntriesIntro (q: k -> Bool): (xs: List (k, ())) -> ((key: k) -> List.Mem (key, ()) xs -> q key = True) -> List.all (e => q e.fst) xs = True
+  | Nil, h => rfl
+  | Cons (kk, u) rest, h =>
+    rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) in
+    Set.allEntriesIntro q rest (key mem => h key (Inr mem))
+
+theorem Set.isSubsetToList [auto ord: Ord k] (a: Set k) (b: Set k): Set.isSubset a b = List.all (e => Set.contains e.fst b) (Map.toList a.items) :=
+  Eq.trans (Map.foldLeftToList (acc key unit => acc && Set.contains key b) True a.items)
+    (Set.foldAll (key => Set.contains key b) True (Map.toList a.items))
+
+-- A set has `key` exactly when its map's entries have `(key, ())`.
+theorem Set.containsToList [auto ord: Ord k] (key: k) (s: Set k): Iff (Set.contains key s = True) (List.Mem (key, ()) (Map.toList s.items)) := {
+  forward = h =>
+    match c: Map.get key s.items with
+      | None => Void.exfalso (Bool.falseNotTrue h)
+      | Some u => (Map.memToList key () s.items).backward (Eq.trans c (Eq.cong Some (Set.unitEq u ()))),
+  backward = mem => rewrite (Map.memToList key () s.items).forward mem in rfl
+}
+
+theorem Set.isSubsetElim [auto ord: Ord k] (a: Set k) (b: Set k) (h: Set.isSubset a b = True) (key: k) (inA: Set.contains key a = True):
+    Set.contains key b = True :=
+  Set.allEntriesElim (key2 => Set.contains key2 b) key (Map.toList a.items) (Eq.trans (Eq.sym (Set.isSubsetToList a b)) h)
+    ((Set.containsToList key a).forward inA)
+
+theorem Set.isSubsetIntro [auto ord: Ord k] (a: Set k) (b: Set k) (h: (key: k) -> Set.contains key a = True -> Set.contains key b = True):
+    Set.isSubset a b = True :=
+  Eq.trans (Set.isSubsetToList a b)
+    (Set.allEntriesIntro (key2 => Set.contains key2 b) (Map.toList a.items) (key mem => h key ((Set.containsToList key a).backward mem)))
+
+-- `isSubset a b` holds exactly when every key of `a` is in `b`.
+theorem Set.isSubsetSpec [auto ord: Ord k] (a: Set k) (b: Set k):
+    Iff (Set.isSubset a b = True) ((key: k) -> Set.contains key a = True -> Set.contains key b = True) :=
+  { forward = Set.isSubsetElim a b, backward = Set.isSubsetIntro a b }

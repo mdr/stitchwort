@@ -271,6 +271,12 @@ theorem Map.toListSorted (m: Map k v [ord := o]): Map.Spec.Sorted o (Map.toList 
 theorem Map.getToList [auto ord: Ord k] (key: k) (m: Map k v): Map.get key m = Map.Tree.lookupList key (Map.toList m) :=
   Map.indRaw [p := m' => Map.get key m' = Map.Tree.lookupList key (Map.toList m')] (r => Map.Raw.getToList key r) m
 
+-- An entry is in `toList` exactly when `get` finds it.
+theorem Map.memToList [auto ord: Ord k] (key: k) (value: v) (m: Map k v): Iff (List.Mem (key, value) (Map.toList m)) (Map.get key m = Some value) := {
+  forward = mem => Eq.trans (Map.getToList key m) (Map.Spec.lookupOfMem key value None (Map.toList m) (Map.toListSorted m) mem),
+  backward = found => Map.Spec.memOfLookup key value (Map.toList m) (Eq.trans (Eq.sym (Map.getToList key m)) found)
+}
+
 -- Maps that agree on every key are equal, whatever their values' type.
 theorem Map.ext (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: (key: k) -> Map.get key m = Map.get key n): m = n :=
   Map.toListInjective m n
@@ -370,6 +376,27 @@ theorem Map.foldLeftToList (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]):
 
 theorem Map.sizeToList (m: Map k v [ord := o]): Map.size m = List.length (Map.toList m) :=
   Map.indRaw [p := m' => Map.size m' = List.length (Map.toList m')] (r => Map.Raw.sizeToList r) m
+
+-- Inserting adds an entry unless the key is there already.
+theorem Map.sizeInsert [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
+    Map.size (Map.insert key value m) = (if Map.contains key m then Map.size m else Map.size m + 1) :=
+  rewrite Map.sizeToList (Map.insert key value m), Map.toListInsert key value m, Map.sizeToList m in
+  match c: Map.get key m with
+    | Some found =>
+      Map.Spec.lengthInsertPresent key value found None (Map.toList m) (Map.toListSorted m) (Eq.trans (Eq.sym (Map.getToList key m)) c)
+    | None =>
+      Eq.trans (Map.Spec.lengthInsertAbsent key value (Map.toList m) (Eq.trans (Eq.sym (Map.getToList key m)) c))
+        (Eq.sym (Nat.addOne (List.length (Map.toList m))))
+
+-- Removing takes an entry away if the key is there.
+theorem Map.sizeRemove [auto ord: Ord k] (key: k) (m: Map k v):
+    Map.size (Map.remove key m) = (if Map.contains key m then Map.size m - 1 else Map.size m) :=
+  rewrite Map.sizeToList (Map.remove key m), Map.toListRemove key m, Map.sizeToList m in
+  match c: Map.get key m with
+    | Some found =>
+      Eq.cong (n => n - 1)
+        (Map.Spec.lengthRemovePresent key found None (Map.toList m) (Map.toListSorted m) (Eq.trans (Eq.sym (Map.getToList key m)) c))
+    | None => Eq.cong List.length (Map.Spec.removeAbsent key (Map.toList m) (Eq.trans (Eq.sym (Map.getToList key m)) c))
 
 theorem Map.toListMapWithKey (f: k -> v -> w) (m: Map k v [ord := o]): Map.toList (Map.mapWithKey f m) = Map.Spec.mapWithKey f (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.mapWithKey f m') = Map.Spec.mapWithKey f (Map.toList m')] (r => Map.Raw.toListMapWithKey f r) m
@@ -669,6 +696,33 @@ theorem Map.removeInsert [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
         Eq.trans (Map.getRemoveOther key other ne (m.insert key value))
           (Eq.trans (Map.getInsertOther key value other ne m) (Eq.sym (Map.getRemoveOther key other ne m))))
 
+-- Induction over maps
+
+-- `Map.induction` on the map whose entries are `xs`: take the first entry
+-- off, and the rest is the smaller map it was inserted into.
+theorem Map.inductionToList [auto ord: Ord k] [p: Map k v -> Prop] (base: p Map.empty)
+    (step: (key: k) -> (value: v) -> (m: Map k v) -> p m -> Map.get key m = None -> p (Map.insert key value m)):
+    (xs: List (k, v)) -> (m: Map k v) -> Map.toList m = xs -> p m
+  | Nil, m, h => rewrite Map.toListInjective m Map.empty h in base
+  | Cons (kk, vv) rest, m, h =>
+    let found: Map.get kk m = Some vv :=
+      Eq.trans (Map.getToList kk m) (Eq.trans (Eq.cong (Map.Tree.lookupList kk) h) (Map.Spec.lookupHead kk vv rest))
+    let back: Map.insert kk vv (Map.remove kk m) = m :=
+      Map.ext ((m.remove kk).insert kk vv) m (other =>
+        match ord.eq.decide other kk with
+          | Yes e => rewrite e in Eq.trans (Map.getInsert kk vv (m.remove kk)) (Eq.sym found)
+          | No ne => Eq.trans (Map.getInsertOther kk vv other ne (m.remove kk)) (Map.getRemoveOther kk other ne m))
+    let smaller: Map.toList (Map.remove kk m) = rest :=
+      Eq.trans (Map.toListRemove kk m) (Eq.trans (Eq.cong (Map.Spec.remove kk) h) (Map.Spec.removeEqual kk kk vv rest (Ord.compareSelf kk)))
+    rewrite Eq.sym back in
+    step kk vv (Map.remove kk m) (Map.inductionToList [p := p] base step rest (Map.remove kk m) smaller) (Map.getRemove kk m)
+
+-- To prove something of every map, prove it of the empty map, and of a map
+-- with a new key inserted, given it of the map before.
+theorem Map.induction [auto ord: Ord k] [p: Map k v -> Prop] (base: p Map.empty)
+    (step: (key: k) -> (value: v) -> (m: Map k v) -> p m -> Map.get key m = None -> p (Map.insert key value m)) (m: Map k v): p m :=
+  Map.inductionToList [p := p] base step (Map.toList m) m rfl
+
 def Map.example: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b")]
 
 test "map: toList is in key order" := Map.toList Map.example == [(1, "a"), (2, "b"), (3, "c")]
@@ -682,6 +736,11 @@ test "map: remove" := Map.toList (Map.remove 2 Map.example) == [(1, "a"), (3, "c
 test "map: alter" := Map.toList (Map.alter (old => None) 1 (Map.alter (old => Some "d") 4 Map.example)) == [(2, "b"), (3, "c"), (4, "d")]
 test "map: adjust" := Map.get 3 (Map.adjust (t => Text.append t "!") 3 Map.example) == Some "c!"
 test "map: size" := Map.size Map.example == 3 && Map.isEmpty (Map.empty: Map Nat Nat)
+test "map: size after insert and remove" :=
+  Map.size (Map.insert 2 "B" Map.example) == 3 && Map.size (Map.insert 4 "d" Map.example) == 4
+    && Map.size (Map.remove 2 Map.example) == 2 && Map.size (Map.remove 4 Map.example) == 3
+    && Map.size (Map.remove 1 (Map.empty: Map Nat Nat)) == 0
+test "map: toList holds what get finds" := List.all (e => Map.get e.fst Map.example == Some e.snd) (Map.toList Map.example)
 test "map: keys and values" := Map.keys Map.example == [1, 2, 3] && Map.values Map.example == ["a", "b", "c"]
 test "map: fromList, later wins" := Map.toList (Map.fromList [(1, 1), (1, 2)]) == [(1, 2)]
 test "map: foldLeft" := Map.foldLeft (acc key t => acc + key) 0 Map.example == 6

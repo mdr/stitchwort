@@ -375,7 +375,14 @@ With list meanings, most of these are short inductions.
   `containsDifference`, `containsFromList`, `ext`, `isSubsetSpec`).
 
 **Status.** Built in stage 2.2: everything above except `memToList`, `sizeInsert`, `sizeRemove`,
-`Map.induction` and `Set.isSubsetSpec`, which are left for a later step.
+`Map.induction` and `Set.isSubsetSpec`, which followed in the SW-356 leftovers step. Their
+statements: `Map.memToList` is `Iff (List.Mem (key, value) (toList m)) (get key m = Some value)`;
+`Map.sizeInsert` gives `size (insert key value m)` as `if contains key m then size m else size m + 1`,
+and `Map.sizeRemove` gives `size (remove key m)` as `if contains key m then size m - 1 else size m`;
+`Map.induction [p]` takes `p empty` and a step `(key) (value) (m) -> p m -> get key m = None -> p (insert key value m)`
+and gives `p m` for every map (proved by taking the first entry of `toList` off with `remove`);
+`Set.isSubsetSpec` is `Iff (isSubset a b = True) ((key) -> contains key a = True -> contains key b = True)`,
+with the two directions as `Set.isSubsetElim` and `Set.isSubsetIntro`.
 Also built: `getInsertWithOther`, `getAlterOther`, `getAdjustOther`, `getOrCounts`, `getRange`,
 `getMapKeys`, `getMapWithKey`, `getIntersectWith`, `getDifference`, `minToList`, `maxToList`,
 `belowToList`, `aboveToList`, `Set.containsInsertOther` and the general `Map.getFold`.
