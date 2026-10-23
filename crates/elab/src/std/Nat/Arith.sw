@@ -208,6 +208,15 @@ theorem Nat.subSuccRight: (j: Nat) -> (t: Nat) -> Succ j <= t -> t - j = Succ (t
   | Zero,   Succ t, h => rfl
   | Succ j, Succ t, h => Nat.subSuccRight j t h
 
+-- `n + 1 - m` (the size of the interval `m..n`): one more than `n - m` when
+-- `m <= n`, and 0 otherwise.
+theorem Nat.addOneSub (n: Nat) (m: Nat) (h: m <= n): n + 1 - m = n - m + 1 :=
+  Eq.trans (Eq.cong (t => t - m) (Nat.addOne n))
+    (Eq.trans (Nat.subSuccRight m (Succ n) h) (Eq.sym (Nat.addOne (n - m))))
+
+theorem Nat.addOneSubEqZero (n: Nat) (m: Nat) (h: Nat.leq m n = False): n + 1 - m = 0 :=
+  Eq.trans (Eq.cong (t => t - m) (Nat.addOne n)) (Nat.subEqZero (Succ n) m (Nat.leqFalse m n h))
+
 theorem Nat.succSub: (t: Nat) -> Succ t - t = 1
   | Zero   => rfl
   | Succ t => Nat.succSub t
