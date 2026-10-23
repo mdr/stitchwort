@@ -378,7 +378,7 @@ fn the_quotient_examples_print_what_they_should() {
             ("quot-transport-sound.sw", &["0", "0"][..]),
             ("quot-lift-proof.sw", &["0", "0"]),
             ("quot-transport-ind.sw", &["0", "0"]),
-            ("quot-lift-types.sw", &["7", "7", "7", "8", "1"]),
+            ("quot-lift-types.sw", &["7", "7", "7", "8", "1", "5"]),
         ] {
             let text = std::fs::read_to_string(root.join(name)).expect("readable");
             let mut session = Session::for_stack(STACK);

@@ -1941,7 +1941,9 @@ Draft 2's, final:
   certified, and complexity claims carry the stated assumption (§12.1, §13.3). *Decided.*
 - **D866: Unboxing records with one run-time field.** **Not part of this design's stages**: a
   separate, optional optimisation with its own checks (§13.1); the prototype and stage 2 use the
-  extra wrapper ("no quotient overhead; one extra pointer per map"). *Decided.*
+  extra wrapper ("no quotient overhead; one extra pointer per map"). *Decided.* **Built** in its
+  own lane (D1067, docs/proposals/microtypes.md stage 2): `Data::unboxed_field` decides for the
+  Rust runtime and JS alike, and a map is its tree at run time.
 - **D867: The review's eight properties, on the prototype, gate stage 2** (§14.2). *Decided.*
 - **D868: Requirements**: `Equiv`/`ext`/injectivity need nothing of `v`; `Map.same`/`DecEq` need
   `DecEq v`; `Ord` needs `Ord v`; both operands share the ordering parameter. *Decided.*

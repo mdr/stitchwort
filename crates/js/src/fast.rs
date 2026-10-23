@@ -436,7 +436,13 @@ impl Gen<'_> {
                 out.push_str(enter);
             }
             out.push_str(&reads);
-            let _ = writeln!(out, "  const o = {{ {} }};", props.join(", "));
+            if self.unboxed(d).is_some() {
+                // Stored as its one run-time field inside generated code
+                // (D866).
+                out.push_str("  const o = f0;\n");
+            } else {
+                let _ = writeln!(out, "  const o = {{ {} }};", props.join(", "));
+            }
             if data.validators.iter().any(|v| v.ctor == 0) {
                 let _ = writeln!(
                     out,
@@ -481,8 +487,15 @@ impl Gen<'_> {
         out
     }
 
-    /// The statements building object `o` from the fields of `v`.
-    fn enc_fields(&self, tag: Option<String>, fields: &[FieldCodec], pad: &str) -> String {
+    /// The statements building object `o` from the fields of `v`, or, if
+    /// `unboxed` (D866), from `v` itself, the one field's value.
+    fn enc_fields(
+        &self,
+        tag: Option<String>,
+        fields: &[FieldCodec],
+        unboxed: bool,
+        pad: &str,
+    ) -> String {
         let mut out = String::new();
         // The leading required fields are in the object literal; once an
         // optional property might be missing, the rest are added in order.
@@ -490,7 +503,11 @@ impl Gen<'_> {
         let mut rest = String::new();
         let mut in_literal = true;
         for (i, f) in fields.iter().enumerate() {
-            let read = format!("v{}", member(&f.inside));
+            let read = if unboxed {
+                "v".to_string()
+            } else {
+                format!("v{}", member(&f.inside))
+            };
             if f.optional {
                 in_literal = false;
                 let _ = writeln!(
@@ -544,7 +561,8 @@ impl Gen<'_> {
         };
         let unguard = if shallow { "" } else { "depth--; " };
         if data.record {
-            let body = self.enc_fields(None, &codecs[0], "  ");
+            let unboxed = self.unboxed(d).is_some();
+            let body = self.enc_fields(None, &codecs[0], unboxed, "  ");
             return format!("function {name}(v) {{\n{guard}{body}  {unguard}return o;\n}}\n");
         }
         let mut out = format!("function {name}(v) {{\n{guard}  switch (v.tag) {{\n");
@@ -554,7 +572,7 @@ impl Gen<'_> {
                 literal_key(&repr.tag_key),
                 js_string_literal(&repr.ctors[c].tag)
             );
-            let body = self.enc_fields(Some(tag), &codecs[c], "      ");
+            let body = self.enc_fields(Some(tag), &codecs[c], false, "      ");
             let _ = writeln!(
                 out,
                 "    case {}: {{\n{body}      {unguard}return o;\n    }}",

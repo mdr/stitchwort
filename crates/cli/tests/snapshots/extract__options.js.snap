@@ -89,10 +89,13 @@ const datatype = (name, tagKey = "$tag") => ({
 // constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds. Names at the boundary may differ
+// value saying whether the proof holds. A record that is `unboxed` has one
+// field, and inside generated code it is that field's value, with no object
+// around it (D866): decoding takes the field out of the object it reads, and
+// encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false) => {
+const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -106,6 +109,7 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     info.recordTag = entries[0].external;
   }
   info.checks = checks;
+  info.unboxed = unboxed;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -226,7 +230,7 @@ const safeNumber = (x, lowest) => {
   }
   return BigInt(x);
 };
-const SAFE_NAT = leaf((x) => ({ value: safeNumber(x, 0) }), (v) => Number(v.value));
+const SAFE_NAT = leaf((x) => safeNumber(x, 0), (v) => Number(v));
 
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
 // code units.
@@ -504,7 +508,7 @@ const decode = (t, x, root, seen = new Map()) => {
           // The map of the entries, by the library's own `Map.fromList`.
           if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
-          value = f.out;
+          value = f.t.info.unboxed ? f.out[f.fields[0][3]] : f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
@@ -598,7 +602,7 @@ const encode = (t, v) => {
         }
       } else if (f.i < f.fields.length) {
         const [, type, , inside] = f.fields[f.i];
-        v = f.v[inside];
+        v = f.t.info.unboxed ? f.v : f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -701,12 +705,12 @@ define(info$Main$dBoth, [
 define(info$Main$dRequired, [
   ["%mk", [["value", option(NAT), true]]],
 ], true, [
-  ["proof field `ok` (`Present value`) doesn't hold", (o) => { const v0 = o.value; return $Main$ddecPresent(v0).tag === "Yes"; }],
-]);
+  ["proof field `ok` (`Present value`) doesn't hold", (o) => { const v0 = o; return $Main$ddecPresent(v0).tag === "Yes"; }],
+], false, true);
 define(info$Main$dCap, [
   ["%mk", [["cap", option(SAFE_NAT), true]]],
 ], true, [
-]);
+], false, true);
 
 const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   switch (v1.tag) {
@@ -901,12 +905,12 @@ const $Main$disSomeNat = (v0) => {
 };
 const $Main$ddecPresent = (v0) => $Std$dBool$ddecTrue($Main$disSomeNat(v0));
 const $Main$dRequired$dvalue = (v0) => {
-  const v1 = v0.value;
+  const v1 = v0;
   return v1;
 };
 const $Main$drequired = (v0) => $Main$dRequired$dvalue(v0);
 const $Main$dCap$dcap = (v0) => {
-  const v1 = v0.cap;
+  const v1 = v0;
   return v1;
 };
 const $Main$dcapOf = (v0) => $Main$dCap$dcap(v0);
@@ -1230,7 +1234,7 @@ function dec$19(x) {
   let r0;
   if (hasOwn(x, "value")) r0 = x.value; else if ("value" in x) throw FAIL;
   const f0 = (r0 === undefined ? { tag: "None" } : r0 === null ? fail() : { tag: "Some", value: NAT.dec(r0) });
-  const o = { value: f0 };
+  const o = f0;
   for (const [, holds] of info$Main$dRequired.checks) if (!holds(o)) throw FAIL;
   return o;
 }
@@ -1239,7 +1243,7 @@ function dec$20(x) {
   let r0;
   if (hasOwn(x, "cap")) r0 = x.cap; else if ("cap" in x) throw FAIL;
   const f0 = (r0 === undefined ? { tag: "None" } : r0 === null ? fail() : { tag: "Some", value: SAFE_NAT.dec(r0) });
-  const o = { cap: f0 };
+  const o = f0;
   return o;
 }
 function enc$21(v) {

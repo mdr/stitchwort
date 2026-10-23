@@ -1065,10 +1065,13 @@ const datatype = (name, tagKey = "$tag") => ({
 // constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds. Names at the boundary may differ
+// value saying whether the proof holds. A record that is `unboxed` has one
+// field, and inside generated code it is that field's value, with no object
+// around it (D866): decoding takes the field out of the object it reads, and
+// encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false) => {
+const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -1082,6 +1085,7 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     info.recordTag = entries[0].external;
   }
   info.checks = checks;
+  info.unboxed = unboxed;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -1501,7 +1505,7 @@ const decode = (t, x, root, seen = new Map()) => {
           // The map of the entries, by the library's own `Map.fromList`.
           if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
-          value = f.out;
+          value = f.t.info.unboxed ? f.out[f.fields[0][3]] : f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
@@ -1595,7 +1599,7 @@ const encode = (t, v) => {
         }
       } else if (f.i < f.fields.length) {
         const [, type, , inside] = f.fields[f.i];
-        v = f.v[inside];
+        v = f.t.info.unboxed ? f.v : f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -1839,6 +1843,19 @@ impl<'g> Gen<'g> {
     /// with it ([`nat_data`]).
     fn kernel_native(&self, id: DefId) -> Option<native::Native> {
         self.nat.and(self.g.builtins.native(id))
+    }
+
+    /// The one run-time field of a record that generated code stores as
+    /// that field's value, with no object around it (D866,
+    /// [`stitchwort_core::globals::Data::unboxed_field`]). A `Float` is a
+    /// `number` instead, when it has that representation. Only inside
+    /// generated code: at the boundary such a record is still an object
+    /// with its field, and the codecs unbox and rebox it.
+    pub(crate) fn unboxed(&self, d: DataId) -> Option<usize> {
+        if Some(d) == self.float {
+            return None;
+        }
+        self.g.data(d).unboxed_field()
     }
 
     /// Whether `id` is replaced by native JS of any kind.
@@ -2102,6 +2119,9 @@ impl<'g> Gen<'g> {
         let scrutinee = self.scrutinee(env, *ix);
         let mut out = String::new();
         let predecessor = var(env.len());
+        // A record stored as its one run-time field (D866): that field is the
+        // value matched.
+        let unboxed = self.unboxed(*d).is_some();
         let mut branch = |out: &mut String, c: usize, b: &Branch, depth: usize| {
             let pad = "  ".repeat(depth);
             let level = env.len();
@@ -2119,6 +2139,8 @@ impl<'g> Gen<'g> {
                         "{pad}const {} = toCanonicalBits({scrutinee});",
                         var(level + f)
                     );
+                } else if !erased && unboxed {
+                    let _ = writeln!(out, "{pad}const {} = {scrutinee};", var(level + f));
                 } else if !erased && Some(*d) != self.nat && Some(*d) != self.int {
                     let _ = writeln!(
                         out,
@@ -2424,11 +2446,13 @@ impl<'g> Gen<'g> {
             return None;
         };
         let data = self.g.data(*d);
+        // A record stored as its field (D866) is no cell either.
         if data.sort == Sort::Prop
             || Some(*d) == self.text
             || Some(*d) == self.nat
             || Some(*d) == self.int
             || Some(*d) == self.float
+            || self.unboxed(*d).is_some()
         {
             return None;
         }
@@ -2730,6 +2754,10 @@ impl<'g> Gen<'g> {
                         (_, None) => format!("(-{} - 1n)", self.expr(&args[0], env)?),
                     });
                 }
+                // A record with one run-time field is that field (D866).
+                if let Some(i) = self.unboxed(*d) {
+                    return self.expr(&args[i], env);
+                }
                 let ctor = &data.ctors[*c];
                 let mut fields = Vec::new();
                 if !data.record {
@@ -2969,7 +2997,8 @@ impl<'g> Gen<'g> {
     /// `SafeNat` and `SafeInt` (only those that cross, given their data
     /// types). At the boundary each is a `number` that is a whole number
     /// within the bounds the types' proof fields state; inside generated
-    /// code it's a record with one field, which holds the `Nat` or `Int`.
+    /// code it's the `Nat` or `Int` itself, since a record with one run-time
+    /// field is stored as that field (D866).
     /// Decoding refuses a `bigint` or anything but a `number`, a fraction,
     /// `NaN`, an infinity and anything out of range (a whole `number` beyond
     /// 2^53 - 1 may already have been rounded, so it can't be trusted), and
@@ -2988,24 +3017,32 @@ impl<'g> Gen<'g> {
                return BigInt(x);\n\
              };\n",
         );
-        let field = |d: DataId| {
+        // How the decoded number is stored, and read back: as itself if the
+        // record is unboxed (D866), which the library's are, or as its field.
+        let field = |d: DataId, value: &str| {
             let data = self.g.data(d);
+            if self.unboxed(d) == Some(0) {
+                return (value.to_string(), "v".to_string());
+            }
             let name = &data.ctors[0].fields[0].0;
             let k = key(self.g, d, name);
-            (ts_key(&k), member(&k))
+            (
+                format!("({{ {}: {value} }})", ts_key(&k)),
+                format!("v{}", member(&k)),
+            )
         };
         if let Some(d) = nat {
-            let (k, m) = field(d);
+            let (dec, enc) = field(d, "safeNumber(x, 0)");
             let _ = writeln!(
                 out,
-                "const SAFE_NAT = leaf((x) => ({{ {k}: safeNumber(x, 0) }}), (v) => Number(v{m}));"
+                "const SAFE_NAT = leaf((x) => {dec}, (v) => Number({enc}));"
             );
         }
         if let Some(d) = int {
-            let (k, m) = field(d);
+            let (dec, enc) = field(d, "INT.dec(safeNumber(x, -9007199254740991))");
             let _ = writeln!(
                 out,
-                "const SAFE_INT = leaf(\n  (x) => ({{ {k}: INT.dec(safeNumber(x, -9007199254740991)) }}),\n  (v) => Number(INT.enc(v{m})),\n);"
+                "const SAFE_INT = leaf(\n  (x) => {dec},\n  (v) => Number(INT.enc({enc})),\n);"
             );
         }
         out
@@ -3152,6 +3189,10 @@ impl<'g> Gen<'g> {
                 let _ = write!(out, "\n  {check},");
             }
             out.push_str("\n]");
+            // Stored as its one run-time field inside generated code (D866).
+            if self.unboxed(d).is_some() {
+                out.push_str(", false, true");
+            }
         }
         out.push_str(");\n");
         Ok(out)
@@ -3165,6 +3206,7 @@ impl<'g> Gen<'g> {
         let ctor = &data.ctors[0];
         let np = data.params.len();
         let yes = self.decision_yes_tag();
+        let unboxed = self.unboxed(d).is_some();
         let mut out = Vec::new();
         let mut validators: Vec<_> = data.validators.iter().filter(|v| v.ctor == 0).collect();
         validators.sort_by_key(|v| v.field);
@@ -3178,7 +3220,10 @@ impl<'g> Gen<'g> {
                 .zip(&ctor.field_erased)
                 .enumerate()
             {
-                if !erased {
+                if !erased && unboxed {
+                    // The record is its one run-time field (D866).
+                    let _ = write!(reads, "const {} = o; ", var(np + j));
+                } else if !erased {
                     let _ = write!(
                         reads,
                         "const {} = o{}; ",

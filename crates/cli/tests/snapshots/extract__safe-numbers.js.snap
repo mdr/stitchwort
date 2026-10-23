@@ -89,10 +89,13 @@ const datatype = (name, tagKey = "$tag") => ({
 // constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds. Names at the boundary may differ
+// value saying whether the proof holds. A record that is `unboxed` has one
+// field, and inside generated code it is that field's value, with no object
+// around it (D866): decoding takes the field out of the object it reads, and
+// encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false) => {
+const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -106,6 +109,7 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     info.recordTag = entries[0].external;
   }
   info.checks = checks;
+  info.unboxed = unboxed;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -229,10 +233,10 @@ const safeNumber = (x, lowest) => {
   }
   return BigInt(x);
 };
-const SAFE_NAT = leaf((x) => ({ value: safeNumber(x, 0) }), (v) => Number(v.value));
+const SAFE_NAT = leaf((x) => safeNumber(x, 0), (v) => Number(v));
 const SAFE_INT = leaf(
-  (x) => ({ value: INT.dec(safeNumber(x, -9007199254740991)) }),
-  (v) => Number(INT.enc(v.value)),
+  (x) => INT.dec(safeNumber(x, -9007199254740991)),
+  (v) => Number(INT.enc(v)),
 );
 
 // `Char` is a string holding exactly one scalar value: one or two UTF-16
@@ -511,7 +515,7 @@ const decode = (t, x, root, seen = new Map()) => {
           // The map of the entries, by the library's own `Map.fromList`.
           if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
-          value = f.out;
+          value = f.t.info.unboxed ? f.out[f.fields[0][3]] : f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
@@ -605,7 +609,7 @@ const encode = (t, v) => {
         }
       } else if (f.i < f.fields.length) {
         const [, type, , inside] = f.fields[f.i];
-        v = f.v[inside];
+        v = f.t.info.unboxed ? f.v : f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -737,22 +741,22 @@ const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
 const $Std$dInt$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
 const $Std$dDecEq$d$gdecide = (v1) => {
-  const v2 = v1.decide;
+  const v2 = v1;
   return v2;
 };
 const $Std$dDecEq$ddecide = (v1) => $Std$dDecEq$d$gdecide(v1);
 const $Std$dSafeNat$dvalue = (v0) => {
-  const v1 = v0.value;
+  const v1 = v0;
   return v1;
 };
 const $Std$dSafeInt$dvalue = (v0) => {
-  const v1 = v0.value;
+  const v1 = v0;
   return v1;
 };
-const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0)(9007199254740991n))(((v1) => ({ tag: "Some", value: { value: v0 } })))(((v1) => ({ tag: "None" })));
-const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1)(9007199254740991n)))($Std$dInt$dnatAbs(v0)))(((v1) => ({ tag: "Some", value: { value: v0 } })))(((v1) => ({ tag: "None" })));
-const $Std$dSafeNat$dinstDecEq = { decide: ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2)(v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" }))))) };
-const $Std$dSafeInt$dinstDecEq = { decide: ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2)(v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" }))))) };
+const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0)(9007199254740991n))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
+const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1)(9007199254740991n)))($Std$dInt$dnatAbs(v0)))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
+const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2)(v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" })))));
+const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2)(v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" })))));
 const $Std$dList$dmap = (v2) => (v3) => {
   let s2 = v2, s3 = v3;
   let h$ = null, l$ = null, k$ = null;

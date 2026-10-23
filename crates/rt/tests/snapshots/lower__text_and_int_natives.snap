@@ -58,7 +58,7 @@ fn Std.Effect.bind(v0, v1) {4 slots} =
         Std.Effect.bind(apply c0(v0), c1))
   }
 native Std.Effect.lift = %Effect.lift/1
-const Std.Text.instDecEq {0 slots} = %mk(Std.Text.decEq)
+const Std.Text.instDecEq {0 slots} = Std.Text.decEq
 fn Std.Ord.%decLessThan(v0) {2 slots} =
   match v0: Ord (record) {
     %mk(decLessThan: v1) => v1

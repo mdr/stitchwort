@@ -152,6 +152,14 @@ fn shape(g: &Globals, d: DataId, c: usize, fields: usize) -> Result<u32> {
         .ctors
         .get(c)
         .ok_or_else(|| internal(format!("`{}` has no constructor {c}", data.name)))?;
+    // The runtime takes these apart as cells, so none may be a record stored
+    // as its field (D866).
+    if data.unboxed_field().is_some() {
+        return Err(internal(format!(
+            "`{}` is stored unboxed, not as a cell",
+            data.name
+        )));
+    }
     let runtime = ctor.field_erased.iter().filter(|erased| !**erased).count();
     if runtime != fields {
         return Err(internal(format!(
@@ -811,6 +819,10 @@ impl<'g> Lowerer<'g> {
                 (_, None) => Expr::Prim(PrimOp::NegSucc, vec![self.expr(&args[0])?]),
             });
         }
+        // A record with one run-time field is that field (D866).
+        if let Some(i) = data.unboxed_field() {
+            return self.expr(&args[i]);
+        }
         let t = self.type_id(d);
         let mut fields = Vec::new();
         for (erased, arg) in data.ctors[c].field_erased.iter().zip(args) {
@@ -853,6 +865,27 @@ impl<'g> Lowerer<'g> {
             let mark = self.mark();
             for _ in &data.ctors[0].fields {
                 self.env.push(Bind::Erased);
+            }
+            let out = match &branch.body {
+                Some(body) => self.expr(body),
+                None => Ok(Expr::Unreachable),
+            };
+            self.leave(mark);
+            return out;
+        }
+        if let Some(field) = data.unboxed_field()
+            && Some(d) != self.repr.float
+        {
+            // A record stored as its one run-time field (D866): the field is
+            // the value matched, so its level stands for the scrutinee's own
+            // variable, and nothing is taken apart.
+            let Some(branch) = branches.first() else {
+                return Ok(Expr::Unreachable);
+            };
+            let bound = self.env[self.env.len() - 1 - ix];
+            let mark = self.mark();
+            for i in 0..data.ctors[0].fields.len() {
+                self.env.push(if i == field { bound } else { Bind::Erased });
             }
             let out = match &branch.body {
                 Some(body) => self.expr(body),
