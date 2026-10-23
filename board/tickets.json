@@ -1,5 +1,5 @@
 {
-  "next": 341,
+  "next": 342,
   "tickets": [
     {
       "id": 1,
@@ -5367,6 +5367,22 @@
       "labels": [
         "design",
         "syntax"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 341,
+      "title": "Design note: attribute syntax @[...] (closed, namespaced; hashing rule) with first uses js.tag / js.name / js.nullable; for external review (D590)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "research + design note lane",
+      "labels": [
+        "design",
+        "syntax",
+        "js"
       ],
       "body": "",
       "created": "2026-10-23",
