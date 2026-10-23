@@ -1,5 +1,5 @@
 {
-  "next": 395,
+  "next": 396,
   "tickets": [
     {
       "id": 1,
@@ -6187,7 +6187,7 @@
     {
       "id": 386,
       "title": "Field update after external review (D1091): fix built (ba7b80f5) — kernel conv compares stuck non-recursive defs by case tree; pick b r fixed; 11 regression tests pass; held for an independent soundness review before merge",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane (investigate + narrow fix)",
       "labels": [
@@ -6196,7 +6196,9 @@
       "body": "Trigger: the private port's proofs needed a named helper because each { a | f = x } expanded to its own hidden match (lemmas didn't transfer). D1086 (b) reverses D604 (b): records take the variant path; existing record-update hashes move once.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "ba7b80f5"
+      ]
     },
     {
       "id": 387,
@@ -6313,6 +6315,20 @@
       "where": "",
       "labels": [
         "language"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 395,
+      "title": "Conversion by case tree (SW-386): exponential on parallel helper chains (20 levels 3.2 s, 24 levels 53 s); add same-hash shortcut / memo; fix 'bounded by the program' comment and docs/core.md 'same type' wording (from the soundness review)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "kernel"
       ],
       "body": "",
       "created": "2026-10-23",
