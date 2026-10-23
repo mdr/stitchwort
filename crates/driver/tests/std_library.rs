@@ -573,6 +573,25 @@ fn small_programs_load_only_the_library_files_they_can_use() {
 }
 
 #[test]
+fn int_only_programs_dont_load_the_list_toolkit() {
+    // SW-322: the `List.sumBy` lemmas about `Int` are in `Int/Sums.sw`, so
+    // `Int/Int.sw` doesn't pull in `List/Toolkit.sw`.
+    let loaded = std_loaded_by("import Std (Int)\ntheorem t (a: Int) (b: Int): a * b = b * a := Int.mulComm a b\n");
+    eprintln!("INT-ONLY LOADED: {loaded:?}");
+    assert!(loaded.contains(&"Int/Int.sw".to_string()), "{loaded:?}");
+    assert!(
+        !loaded.contains(&"List/Toolkit.sw".to_string()),
+        "{loaded:?}"
+    );
+    assert!(!loaded.contains(&"Int/Sums.sw".to_string()), "{loaded:?}");
+    // A program using the lemmas loads the file.
+    let sums = std_loaded_by(
+        "import Std (Int, List)\ntheorem t (xs: List Nat): (List.sumBy (n => n) xs).toInt = List.sumBy (n => n.toInt) xs :=\n  Int.toIntSumBy (n => n) xs\n",
+    );
+    assert!(sums.contains(&"Int/Sums.sw".to_string()), "{sums:?}");
+}
+
+#[test]
 fn a_longer_cycle_names_each_file() {
     let files = [
         ("A.sw", "def Nat.cycA (n: Nat): Nat := Nat.cycB n\n"),
