@@ -125,8 +125,8 @@ impl Gen<'_> {
         let text = match (decode, b) {
             (true, Boundary::List(elem)) => self.dec_list(&name, b, elem),
             (false, Boundary::List(elem)) => self.enc_list(&name, elem),
-            (true, Boundary::Map(_, value)) => self.dec_map(&name, b, value),
-            (false, Boundary::Map(_, value)) => self.enc_map(&name, value),
+            (true, Boundary::Map(_, key, value)) => self.dec_map(&name, b, key, value),
+            (false, Boundary::Map(_, _, value)) => self.enc_map(&name, value),
             (true, Boundary::Data(d, args)) => self.dec_data(&name, b, *d, args),
             (false, Boundary::Data(d, args)) => self.enc_data(&name, *d, args),
             // Any other type is wrapped, as a function of its own.
@@ -208,10 +208,24 @@ impl Gen<'_> {
             Boundary::Option(_, inner) => {
                 !matches!(**inner, Boundary::Option(..)) && self.shallow(inner)
             }
-            Boundary::Data(d, _) => repr(self.g, *d).string_enum,
+            Boundary::Data(d, _) => {
+                let repr = repr(self.g, *d);
+                repr.string_enum || (repr.unboxed && self.shallow(&self.unboxed_field(*d)))
+            }
             Boundary::List(_) | Boundary::Map(..) | Boundary::Param(_) => false,
             _ => true,
         }
+    }
+
+    /// The boundary type of `js.unboxed` record `d`'s one field with a
+    /// property (it has no parameters).
+    fn unboxed_field(&self, d: DataId) -> Boundary {
+        generic_field_boundaries(self.g, d)
+            .into_iter()
+            .flatten()
+            .next()
+            .expect("an unboxed record has one field with a property")
+            .1
     }
 
     /// Whether constructor `c` of `d` is flat, as the runtime's `flatOf` says
@@ -287,10 +301,18 @@ impl Gen<'_> {
         )
     }
 
-    fn dec_map(&self, name: &str, b: &Boundary, value: &Boundary) -> String {
+    fn dec_map(&self, name: &str, b: &Boundary, key: &Boundary, value: &Boundary) -> String {
         let ty = self.type_const(b);
         let lookup = Self::memo_lookup(&ty, "  ");
         let entry = self.dec_expr(value, "r");
+        // A `js.unboxed` key is the string, if its proof fields hold.
+        let checks = match key {
+            Boundary::Data(d, _) if !self.g.data(*d).validators.is_empty() => format!(
+                "\n    for (const [, holds] of {}.checks) if (!holds(k)) throw FAIL;",
+                info_name(&self.g.data(*d).path)
+            ),
+            _ => String::new(),
+        };
         format!(
             "function {name}(x) {{
   if (typeof x !== \"object\" || x === null) throw FAIL;
@@ -301,7 +323,7 @@ impl Gen<'_> {
   let first = null, last = null;
   for (let i = 0; i < n; i++) {{
     const key = keys[i];
-    const k = TEXT.dec(key);
+    const k = TEXT.dec(key);{checks}
     if (!hasOwn(x, key)) throw FAIL;
     const r = x[key];
     const cell = {{ tag: \"Cons\", head: {{ tag: MAP_SHAPE.pair, [MAP_SHAPE.fst]: k, [MAP_SHAPE.snd]: {entry} }}, tail: null }};
@@ -417,6 +439,24 @@ impl Gen<'_> {
                 );
             }
             out.push_str("    default: throw FAIL;\n  }\n}\n");
+            return out;
+        }
+        if repr.unboxed {
+            // `js.unboxed`: the field's own JS form, which is also the
+            // record's value inside generated code (D866), if its proof
+            // fields hold.
+            let mut out = format!(
+                "function {name}(x) {{\n  const o = {};\n",
+                self.dec_expr(&self.unboxed_field(d), "x")
+            );
+            if data.validators.iter().any(|v| v.ctor == 0) {
+                let _ = writeln!(
+                    out,
+                    "  for (const [, holds] of {}.checks) if (!holds(o)) throw FAIL;",
+                    info_name(&data.path)
+                );
+            }
+            out.push_str("  return o;\n}\n");
             return out;
         }
         let ty = self.type_const(b);
@@ -552,6 +592,13 @@ impl Gen<'_> {
             }
             out.push_str("    default: throw FAIL;\n  }\n}\n");
             return out;
+        }
+        if repr.unboxed {
+            // `js.unboxed`: the field's value is the record's (D866).
+            return format!(
+                "function {name}(v) {{\n  return {};\n}}\n",
+                self.enc_expr(&self.unboxed_field(d), "v")
+            );
         }
         let shallow = codecs.iter().flatten().all(|f| self.shallow(&f.b));
         let guard = if shallow {

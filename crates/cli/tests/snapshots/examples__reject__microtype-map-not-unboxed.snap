@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `size` can't be exported
+   ╭─[ reject/microtype-map-not-unboxed.sw:8:1 ]
+   │
+ 8 │ export def size (m: Map UserId Nat): Nat := Map.size m
+   │ ────────────────────┬───────────────────  
+   │                     ╰───────────────────── parameter `m`: `Map UserId Nat [ord := UserId.%instOrd]` can't cross the JS boundary: only maps from `Text`, or from a `js.unboxed` record over `Text`, cross, as plain objects
+───╯

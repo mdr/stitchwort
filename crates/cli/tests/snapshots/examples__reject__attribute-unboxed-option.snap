@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.unboxed` can't be used on `Nickname`: its field `value` is an `Option`
+   ╭─[ reject/attribute-unboxed-option.sw:5:19 ]
+   │
+ 4 │ @[js.unboxed]
+   │   ─────┬────  
+   │        ╰────── here
+ 5 │ type Nickname = { value: Option Text }
+   │                   ──┬──  
+   │                     ╰──── an `Option`, which crosses as `T | undefined`
+   │ 
+   │ Note: unboxed, an `Option` of this record would have two values that are `undefined` (`None` and `Some None`): leave out `js.unboxed`, so it crosses as an object
+───╯

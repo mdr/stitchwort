@@ -294,7 +294,7 @@ def nameOf: Person -> Text
 - **`==`** works on a record whose fields are all data with `DecEq` (none depending on another), or proofs of equations in types with `DecEq` (left out of the comparison: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` gets `==`). A `DecEq` instance is derived when the record is declared, as for other data types (see the operator table). Otherwise it's `E-INSTANCE-NONE`, with a note saying why; declare an instance (`instance T.instDecEq: DecEq T := { decide = … }`) instead.
 - **`T.ext`** is generated for a record, as a checked theorem: two values are equal when their data fields are. `theorem Dial.ext [highest: _] (x: Dial highest) (y: Dial highest) (positionEq: x.position = y.position): x = y`, with one hypothesis `fEq: x.f = y.f` for each data field `f` and none for proof fields (any two proofs of an equation in a type with `DecEq` are equal). It's there when the data fields don't depend on earlier fields (functions are fine), and each proof field proves an equation in a type with `DecEq` that doesn't mention the record or a type parameter; otherwise `T.ext` is an unknown name. A record with no data fields gets `T.ext x y: x = y`. Interfaces, propositions, records defined together with other types and indexed ones get none. The library's records (`Mod`, `Set`) have none generated; `Mod.ext` is written by hand. A `theorem T.ext` of your own in the same module is used instead, with no error (`examples/accept/record-ext.sw`).
 - **After an arrow**, `{` starts an ability row, so a record literal in a function type's result needs parentheses: `(p: Person) -> ({ p | age = p.age } = p)`.
-- At the JS boundary a record is a plain object with its fields as keys, in declared order, and no `tag` (DESIGN.md §12).
+- At the JS boundary a record is a plain object with its fields as keys, in declared order, and no `tag` (DESIGN.md §12); a one-field record with `@[js.unboxed]` is its field's value instead (Microtypes).
 
 ## Numbers in an `export`
 
@@ -374,7 +374,7 @@ export declare function bump(scores: { readonly [k: string]: bigint }, who: stri
 - **Encoding** gives a plain object (prototype `Object.prototype`) with the entries in key order, which is `Text`'s order, by code point. JS lists keys that are array indices (`"9"`, `"10"`) first, in numeric order.
 - **In TypeScript** the type is an index signature, `{ readonly [k: string]: V }` as a function's parameter and `{ [k: string]: V }` in a result and inside a data type's declaration (like lists: `readonly` only where it helps a caller; `readonly` on an index signature never affects assignability, but a list inside it would), the same as `Record<string, V>`, so an app's `Record<SpeakerId, V>` (a flavoured or branded string key) is accepted as an argument and a result assigns back to it. An `interface` with known keys isn't an index signature in TypeScript; a `type` alias is.
 - **Nesting**: `V` can be a record, a list, an `Option` (`{ readonly [k: string]: bigint | undefined }`) or another `Map Text _`.
-- **Only `Text` keys**, ordered by `Text`'s own order. Any other `Map` in an export is `E-EXPORT`: "only maps from `Text` cross, as plain objects".
+- **Only `Text` keys**, ordered by `Text`'s own order, or a microtype's (a `@[js.unboxed]` record over `Text`, see Microtypes) in its derived order, which is the same. Any other `Map` in an export is `E-EXPORT`: "only maps from `Text`, or from a `js.unboxed` record over `Text`, cross, as plain objects".
 
 Example: `examples/extract/dictionary.sw`. See DESIGN.md §12.
 
@@ -405,6 +405,7 @@ export type Drawing = { readonly type: string; readonly shapes: Shape[] };
 | `js.name "NAME"` | a constructor's or a record's field | its key, instead of its name |
 | `js.optional` (no argument) | a constructor's field of type `Option T` | an optional property `f?: T`, instead of `f: T \| undefined` |
 | `js.enum` (no argument) | a data type whose constructors have no fields | a plain string, one per constructor (its name, or its `js.name`), instead of an object |
+| `js.unboxed` (no argument) | a record without parameters with exactly one field that has a property | its field's own JS form (`string` for a `Text`), instead of an object; in TypeScript, `type T = string` (see Microtypes) |
 
 - **Where they go.** Before a declaration (on the line or lines before `type`, or on the same line), after a constructor's `|`, and inside a field's brackets or before a record field's name. Several are written `@[a "x", b "y"]` or `@[a "x"] @[b "y"]`; order doesn't matter. A group may span lines, and its `]` may be at the start of a line. An attribute group always belongs to the next declaration, whatever it is.
 - **Arguments** are plain strings (no `${…}`), used exactly: no `$` for primes, nothing added. Any non-empty string works, `"0"`, `"a-b"` and `"__proto__"` as a tag value included; quotes and other characters are escaped correctly in the JS and the `.d.ts`.
@@ -429,7 +430,39 @@ export type Drawing = { readonly type: string; readonly shapes: Shape[] };
 - **Nowhere else.** An unknown attribute is `E-ATTRIBUTE-UNKNOWN` (with a suggestion), and a known one anywhere else (a theorem, a `def`, an export, an instance, an interface, a type synonym, a test, an ability, a function's or a type's parameter, a lambda, a local definition, a namespace line), twice on one target, without its argument, or on a type with a built-in JS form (`Nat`, `Int`, `SafeNat`, `SafeInt`, `Bool`, `Text`, `Char`, `List`, `Option`) is `E-ATTRIBUTE`. A number or a second string as the argument is `E-PARSE`. Nothing is silently ignored.
 - **Nothing changes inside Stitchwort.** Patterns, field access, `show`, `==` and proofs use the Stitchwort names, and attributes aren't part of content hashes, so changing one reruns no test.
 
-Examples: `examples/extract/attributes.sw`, `examples/extract/app-types.sw`, `examples/extract/string-enums.sw`. See DESIGN.md §12.
+Examples: `examples/extract/attributes.sw`, `examples/extract/app-types.sw`, `examples/extract/string-enums.sw`, `examples/extract/microtypes.sw`. See DESIGN.md §12.
+
+## Microtypes
+
+A *microtype* is a type of its own around one value, so that ids of different kinds can't be mixed up: a one-field record is a different type from any other, with the same fields or not, and `@[js.unboxed]` makes it cross to JavaScript as the value itself (docs/proposals/microtypes.md):
+
+```
+import Std (Map, Option, Show, Text)
+
+@[js.unboxed]
+type UserId = { value: Text }
+
+@[js.unboxed]
+type OrderId = { value: Text }
+
+instance UserId.instShow: Show UserId := Show.fromText (u => u.value)
+
+export def ownerOf (orders: Map OrderId UserId) (o: OrderId): Option UserId := Map.get o orders
+```
+
+```ts
+export type UserId = string;
+export type OrderId = string;
+export declare function ownerOf(orders: { readonly [k: OrderId]: UserId }, o: OrderId): UserId | undefined;
+```
+
+- **Inside Stitchwort it is a record.** Build one with `{ value = t }` (where its type is known), read it with `u.value`; passing an `OrderId` where a `UserId` is expected is `E-TYPE-MISMATCH`. `==`, `<` and `${…}` are derived as for any record; the derived `Show` prints `{ value = "u1" }`, so the one-line instance above makes `"${u}"` print `u1`. `UserId.ext` proves two equal from their `value`s. Converting a list is `ids.map (u => u.value)`: there is no `coerce` (D1069). At run time a record with one field is stored as that field (D866), so a microtype costs nothing.
+- **At the boundary it is its field.** `js.unboxed` is allowed on a record without parameters that has exactly one field with a property (a proof field, like `valid: Email.isValid value = True`, doesn't count and is checked on the way in, as for any record). It crosses as the field's own JS form, both ways, everywhere a type can appear: a function's argument or result, a record's or a constructor's field, an `Option`, a list, a map's value. The old object form `{ value: "u1" }` is refused (`u: expected a string`).
+- **In TypeScript it is a plain alias**, `export type UserId = string;` (or the field's type: `bigint`, `string[]`, …), used by name at every use (D1066). The alias doesn't keep `UserId` and `OrderId` apart in TypeScript; an app passes its plain strings straight in.
+- **Map keys.** `Map UserId V` crosses as a plain object, `{ readonly [k: UserId]: V }`, when the record is `@[js.unboxed]` over `Text` and the map uses its derived order, which compares the field by `Text`'s and so sorts the keys as `Map Text V` does (D1068). A key's proof fields are checked. A microtype key in an order the program wrote (its own `Ord` instance, or `[ord := …]`) is `E-EXPORT`, as is a key that is a record without the attribute or a microtype over anything but `Text`.
+- **Refused** (`E-ATTRIBUTE`): on a data type with constructors, a constructor or a field; on a record with type parameters, with no field with a property, or with two; on a record whose field is an `Option` (an `Option` of it couldn't tell `None` from `Some { value = None }`; an `Option` behind a synonym is `E-EXPORT` when an export reaches it); alongside `js.name` on its field; with an argument, or twice.
+
+Example: `examples/extract/microtypes.sw`.
 
 ## Interfaces
 

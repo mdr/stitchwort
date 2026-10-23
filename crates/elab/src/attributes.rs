@@ -28,6 +28,8 @@ pub(crate) enum Target {
     Ctor,
     /// A constructor's or a record's field that has a property in JS.
     Field,
+    /// A record type.
+    Record,
 }
 
 impl Target {
@@ -36,6 +38,7 @@ impl Target {
             Target::DataType => "a data type",
             Target::Ctor => "a constructor",
             Target::Field => "a field",
+            Target::Record => "a record",
         }
     }
 }
@@ -85,13 +88,21 @@ pub(crate) const REGISTRY: &[Spec] = &[
         doc: "a constructor field of type `Option T` crosses as an optional property `f?: T`, \
               absent for `None`, instead of `f: T | undefined`",
     },
+    Spec {
+        name: "js.unboxed",
+        targets: &[Target::Record],
+        argument: "",
+        doc: "a record without parameters, with exactly one field that has a property, crosses \
+              as that field's own JS form (a `Text` field as a `string`), not as an object, and \
+              its TypeScript type is an alias of the field's",
+    },
 ];
 
 /// Where a group of attributes is written, for checking and for messages.
 #[derive(Clone, Copy)]
 enum Place<'a> {
     Target(Target),
-    /// A record type: no tag, so nothing yet applies to it.
+    /// A record type: no tag, so only `js.unboxed` applies to it.
     Record,
     /// Something no attribute applies to: `"a theorem"`.
     Other(&'a str),
@@ -150,11 +161,16 @@ fn check<'a>(attrs: &'a [Attribute], place: Place) -> Result<Checked<'a>> {
         let spec = spec(a)?;
         let allowed = match place {
             Place::Target(t) => spec.targets.contains(&t),
-            Place::Record | Place::Other(_) => false,
+            Place::Record => spec.targets.contains(&Target::Record),
+            Place::Other(_) => false,
         };
         if !allowed {
             let applies: Vec<&str> = spec.targets.iter().map(|t| t.describe()).collect();
             let (what, why) = match place {
+                Place::Target(Target::DataType) if spec.name == "js.unboxed" => (
+                    "a data type with constructors",
+                    Some("only a record with one field can cross as that field's value"),
+                ),
                 Place::Target(t) => (t.describe(), None),
                 Place::Record if spec.name == "js.tag" => (
                     "a record",
@@ -408,6 +424,10 @@ impl Elaborator {
             }
             requested.string_enum = true;
         }
+        if let Some((a, _)) = type_attrs.get("js.unboxed") {
+            unboxed_record(data, name, ctors, a, g.registry.data(Builtin::Option))?;
+            requested.unboxed = true;
+        }
         // Where each core field is written: the binders' names in order.
         let mut sites: FieldSites = Vec::new();
         let option = g.registry.data(Builtin::Option);
@@ -526,12 +546,107 @@ impl Elaborator {
             requested.ctors.push((tag, keys));
             requested.optional.push(optionals);
         }
+        if requested.unboxed
+            && let Some(renamed) = ctors
+                .iter()
+                .flat_map(|c| &c.fields)
+                .flat_map(|b| &b.attrs)
+                .find(|a| a.name.text == "js.name")
+        {
+            let (unboxed, _) = type_attrs.get("js.unboxed").expect("checked above");
+            return Err(Diagnostic::error(
+                "E-ATTRIBUTE",
+                "`js.name` means nothing with `js.unboxed`",
+            )
+            .with_label(renamed.span, "an unboxed record's field has no key")
+            .with_label(unboxed.span, "crosses as the field's value")
+            .with_note(
+                "remove `js.name`: with `js.unboxed` a value is its field's, not an object",
+            ));
+        }
         let repr = js_repr::resolve(data, &requested).map_err(|clashes| {
             let repr = js_repr::names(data, &requested);
             clash_diagnostic(data, &repr, &clashes[0], ctors, &sites, name.span)
         })?;
         self.globals.datas[d.0].js = Some(Rc::new(repr));
         Ok(())
+    }
+}
+
+/// The checks of `js.unboxed` (attribute `a`) on record `data`, declared as
+/// `name` with `ctors` (D1065): no parameters, exactly one field with a
+/// property in JS, and that field not an `Option`. Whether the field's type
+/// crosses at all is the JS backend's to say, when an export reaches it.
+fn unboxed_record(
+    data: &stitchwort_core::globals::Data,
+    name: &ast::Name,
+    ctors: &[ast::CtorDecl],
+    a: &Attribute,
+    option: Option<DataId>,
+) -> Result<()> {
+    let refuse = |why: String| {
+        Diagnostic::error(
+            "E-ATTRIBUTE",
+            format!("`js.unboxed` can't be used on `{}`: {why}", name.text),
+        )
+    };
+    if let Some((x, _)) = data.params.first() {
+        return Err(refuse("it has type parameters".into())
+            .with_label(a.span, "here")
+            .with_note(format!(
+                "a microtype has no parameters (yet): declare a record for each type `{x}` \
+                 stands for"
+            )));
+    }
+    let ctor = &data.ctors[0];
+    let written: Vec<Span> = ctors
+        .iter()
+        .flat_map(|c| &c.fields)
+        .flat_map(|b| &b.names)
+        .map(|n| n.span)
+        .collect();
+    let site = |i: usize| written.get(i).copied().unwrap_or(name.span);
+    let runtime: Vec<usize> = (0..ctor.fields.len())
+        .filter(|&i| !ctor.field_erased[i])
+        .collect();
+    match runtime.as_slice() {
+        [] => Err(
+            refuse("it has no field with a property in JavaScript".into())
+                .with_label(a.span, "crosses as its one field's value")
+                .with_note(
+                    "a proof or a type field has no property, and `js.unboxed` needs exactly one \
+                 field that has one",
+                ),
+        ),
+        [i] => {
+            let is_option = matches!(
+                ctor.fields[*i].1.strip_loc(),
+                Term::Data(od, _) if Some(*od) == option
+            );
+            if is_option {
+                return Err(
+                    refuse(format!("its field `{}` is an `Option`", ctor.fields[*i].0))
+                        .with_label(site(*i), "an `Option`, which crosses as `T | undefined`")
+                        .with_label(a.span, "here")
+                        .with_note(
+                            "unboxed, an `Option` of this record would have two values that are \
+                     `undefined` (`None` and `Some None`): leave out `js.unboxed`, so it \
+                     crosses as an object",
+                        ),
+                );
+            }
+            Ok(())
+        }
+        [_, second, ..] => Err(refuse(format!(
+            "it has {} fields with a property in JavaScript",
+            runtime.len()
+        ))
+        .with_label(site(*second), "a second field")
+        .with_label(a.span, "crosses as its one field's value")
+        .with_note(
+            "`js.unboxed` needs exactly one field with a property; proof and type fields \
+             don't count",
+        )),
     }
 }
 

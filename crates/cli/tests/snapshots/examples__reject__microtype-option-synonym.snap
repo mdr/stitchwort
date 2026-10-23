@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `nick` can't be exported
+    ╭─[ reject/microtype-option-synonym.sw:11:1 ]
+    │
+ 11 │ export def nick (n: Nickname): Text := "x"
+    │ ─────────────────┬─────────────────  
+    │                  ╰─────────────────── parameter `n`: `Nickname` is `js.unboxed`, so it would cross as its field `value`, which crosses as `T | undefined`: an `Option` of `Nickname` couldn't be told apart from `None`
+────╯

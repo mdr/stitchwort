@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.unboxed` can't be used on `Fact`: it has no field with a property in JavaScript
+   ╭─[ reject/attribute-unboxed-proof-only.sw:3:3 ]
+   │
+ 3 │ @[js.unboxed]
+   │   ─────┬────  
+   │        ╰────── crosses as its one field's value
+   │ 
+   │ Note: a proof or a type field has no property, and `js.unboxed` needs exactly one field that has one
+───╯

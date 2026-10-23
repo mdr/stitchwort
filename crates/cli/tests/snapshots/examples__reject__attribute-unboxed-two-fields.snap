@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.unboxed` can't be used on `Person`: it has 2 fields with a property in JavaScript
+   ╭─[ reject/attribute-unboxed-two-fields.sw:4:29 ]
+   │
+ 3 │ @[js.unboxed]
+   │   ─────┬────  
+   │        ╰────── crosses as its one field's value
+ 4 │ type Person = { name: Text, age: Nat }
+   │                             ─┬─  
+   │                              ╰─── a second field
+   │ 
+   │ Note: `js.unboxed` needs exactly one field with a property; proof and type fields don't count
+───╯

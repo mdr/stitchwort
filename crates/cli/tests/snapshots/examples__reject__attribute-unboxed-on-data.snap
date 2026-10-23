@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.unboxed` can't be used on a data type with constructors
+   ╭─[ reject/attribute-unboxed-on-data.sw:4:3 ]
+   │
+ 4 │ @[js.unboxed]
+   │   ─────┬────  
+   │        ╰────── on a data type with constructors
+   │ 
+   │ Note 1: only a record with one field can cross as that field's value
+   │ 
+   │ Note 2: `js.unboxed` applies to a record: a record without parameters, with exactly one field that has a property, crosses as that field's own JS form (a `Text` field as a `string`), not as an object, and its TypeScript type is an alias of the field's
+───╯

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.unboxed` can't be used on `Id`: it has type parameters
+   ╭─[ reject/attribute-unboxed-parameterised.sw:3:3 ]
+   │
+ 3 │ @[js.unboxed]
+   │   ─────┬────  
+   │        ╰────── here
+   │ 
+   │ Note: a microtype has no parameters (yet): declare a record for each type `a` stands for
+───╯
