@@ -5816,10 +5816,10 @@
     },
     {
       "id": 366,
-      "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): F0-F1 merged; F2 (all constructs, Sonnet) next, needs D1037-D1040",
+      "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): F0-F2 merged; F3 (Sonnet) + F4 CLI (DeepSeek) running; then F5, F6, F7",
       "status": "next",
       "agent": "Opus",
-      "where": "",
+      "where": "F3 worktree lane; F4 OpenCode clone",
       "labels": [
         "tooling"
       ],
@@ -5833,7 +5833,9 @@
         "1ab84584",
         "b1316bf0",
         "a0144dce",
-        "1d915f6d"
+        "1d915f6d",
+        "9f1f0a6a",
+        "2ea6e287"
       ]
     },
     {
