@@ -6,6 +6,7 @@
 //! (`stitchwort-core`), so a bug here can cause a confusing error but can't
 //! make the kernel accept something false.
 
+mod attributes;
 mod auto;
 mod autobind;
 mod bind;
@@ -1014,10 +1015,12 @@ impl Elaborator {
             ctors: sigs
                 .iter()
                 .map(|(op, x, dom, _)| CtorDecl {
+                    attrs: Vec::new(),
                     name: ctor_name(op),
                     fields: vec![Binder {
                         names: vec![x_name(x)],
                         ty: dom.clone(),
+                        attrs: Vec::new(),
                     }],
                     implicit: Vec::new(),
                     result: None,
@@ -1025,6 +1028,7 @@ impl Elaborator {
                 .collect(),
             record: false,
             interface: false,
+            attrs: Vec::new(),
             span: *span,
         };
         self.data(&data_decl)?;
@@ -1053,6 +1057,7 @@ impl Elaborator {
             synonym: false,
             instance: false,
             decreasing: None,
+            attrs: Vec::new(),
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -1151,6 +1156,7 @@ impl Elaborator {
             synonym: false,
             instance: false,
             decreasing: None,
+            attrs: Vec::new(),
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -1650,6 +1656,7 @@ impl Elaborator {
         if self.loading_prelude {
             self.bind_builtin_data(d)?;
         }
+        self.data_attributes(decl, d)?;
         if self.globals.data(d).record {
             let interface = matches!(
                 decl,
@@ -1921,11 +1928,13 @@ impl Elaborator {
             synonym: _,
             instance,
             decreasing: _,
+            attrs: _,
             span,
         } = signature
         else {
             unreachable!()
         };
+        self.definition_attributes(signature)?;
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
         self.module.phase = Phase::Signature;

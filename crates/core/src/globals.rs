@@ -149,6 +149,13 @@ pub struct Data {
     /// Decision procedures for proof fields, which extracted JS runs to
     /// establish them for decoded input. Added once the type is final.
     pub validators: Vec<FieldValidator>,
+    /// How the type crosses the JS boundary, when `js.*` attributes on it
+    /// say (docs/proposals/attributes.md §4.6): resolved and checked by the
+    /// elaborator once the type is final. `None` for a type without them,
+    /// whose default the JS backend resolves when an export reaches it.
+    /// Only the JS backend reads it; it isn't hashed (D598) and the kernel
+    /// never sees it.
+    pub js: Option<std::rc::Rc<crate::js_repr::JsRepr>>,
     /// The data group this type was declared in (`declare_data_group`), in
     /// declaration order, including itself: a group of one for a type on its
     /// own. Every member has the same parameters and universe. Set once, when

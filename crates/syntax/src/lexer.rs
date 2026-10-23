@@ -113,6 +113,9 @@ pub enum Tok {
     Dot,
     /// `..`, the rest of a record pattern: `{ name, .. }`.
     DotDot,
+    /// `@`, always followed by `[`: `@[js.name "X"]` writes attributes
+    /// (docs/syntax.md, Attributes). The `[` is an ordinary [`Tok::LBracket`].
+    At,
 }
 
 #[derive(Clone, Debug)]
@@ -456,6 +459,19 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 }
                 b'>' => Tok::Gt,
                 b'!' => Tok::Bang,
+                // `@[` opens attributes; the `[` is its own token, so every
+                // count of brackets counts it.
+                b'@' if bytes.get(i) == Some(&b'[') => Tok::At,
+                b'@' => {
+                    return Err(error(
+                        file,
+                        start,
+                        i,
+                        "unexpected character `@`: it's only used in `@[…]`, which writes \
+                         attributes"
+                            .to_string(),
+                    ));
+                }
                 _ => {
                     return Err(error(
                         file,

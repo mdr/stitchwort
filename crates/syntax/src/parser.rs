@@ -20,7 +20,7 @@ use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
-use declarations::Param;
+use declarations::{Param, misplaced_attributes};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -80,6 +80,36 @@ pub fn parse_module_recovering(
     };
     for group in groups {
         let mut parser = Parser::new(group, file, text.len(), limit);
+        // The attributes before the declaration, which belong to it.
+        let attrs = match parser.attributes() {
+            Ok(attrs) => attrs,
+            Err(diagnostic) => {
+                errors.push(diagnostic);
+                failed.extend(declared_names_of(group));
+                continue;
+            }
+        };
+        if let Some(first) = attrs.first() {
+            let refused = match parser.peek() {
+                None => Some(
+                    Diagnostic::error(
+                        "E-PARSE",
+                        "attributes must be followed by the declaration they apply to",
+                    )
+                    .with_label(first.span, "nothing follows these attributes"),
+                ),
+                Some(Tok::KwNamespace) => Some(misplaced_attributes(first, "a namespace line")),
+                Some(Tok::KwImport) => Some(misplaced_attributes(first, "an import")),
+                Some(Tok::KwTest) => Some(misplaced_attributes(first, "a test")),
+                Some(Tok::KwAbility) => Some(misplaced_attributes(first, "an ability")),
+                _ => None,
+            };
+            if let Some(diagnostic) = refused {
+                errors.push(diagnostic);
+                failed.extend(declared_names_of(group));
+                continue;
+            }
+        }
         if parser.peek() == Some(&Tok::KwNamespace) {
             if namespace.is_some() {
                 errors.push(
@@ -131,7 +161,17 @@ pub fn parse_module_recovering(
             .decl()
             .and_then(|parsed| parser.finish().map(|()| parsed))
         {
-            Ok(parsed) => decls.extend(parsed),
+            Ok(mut parsed) => {
+                // A declaration with attributes is a data type or a
+                // definition (the others are refused above): its first part.
+                match parsed.first_mut() {
+                    Some(Decl::Data { attrs: a, .. } | Decl::Signature { attrs: a, .. }) => {
+                        *a = attrs;
+                    }
+                    _ => debug_assert!(attrs.is_empty()),
+                }
+                decls.extend(parsed)
+            }
             Err(diagnostic) => {
                 errors.push(diagnostic);
                 failed.extend(declared_names_of(group));
@@ -155,6 +195,16 @@ pub fn parse_module_recovering(
 /// outside brackets (a constructor or operation). Best effort: a
 /// declaration that broke before its name declares nothing.
 fn declared_names_of(group: &[Token]) -> Vec<Name> {
+    // Past the attributes before the declaration.
+    let matching = match_brackets(group);
+    let mut i = 0;
+    while group.get(i).map(|t| &t.tok) == Some(&Tok::At)
+        && let Some(&close) = matching.get(i + 1)
+        && close != NO_PARTNER
+    {
+        i = close as usize + 1;
+    }
+    let group = &group[i..];
     let mut i = 0;
     if group.first().map(|t| &t.tok) == Some(&Tok::KwExport) {
         i = 1;
@@ -180,12 +230,23 @@ fn declared_names_of(group: &[Token]) -> Vec<Name> {
     };
     let mut names: Vec<Name> = name_at(i + 1).into_iter().collect();
     if has_members {
+        let matching = match_brackets(group);
         let mut depth = 0usize;
         for (j, token) in group.iter().enumerate() {
             match token.tok {
                 Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
                 Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
-                Tok::Pipe if depth == 0 => names.extend(name_at(j + 1)),
+                Tok::Pipe if depth == 0 => {
+                    // Past a constructor's attributes, `| @[js.name "X"] C`.
+                    let mut k = j + 1;
+                    while group.get(k).map(|t| &t.tok) == Some(&Tok::At)
+                        && let Some(&close) = matching.get(k + 1)
+                        && close != NO_PARTNER
+                    {
+                        k = close as usize + 1;
+                    }
+                    names.extend(name_at(k));
+                }
                 _ => {}
             }
         }
@@ -260,11 +321,56 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
             "declarations must start at the beginning of a line",
         ));
     }
-    let starts: Vec<usize> = (0..tokens.len())
-        // `:=` never starts a declaration: at the start of a line, it ends
-        // a header (`decreasing e` then `:=`, docs/proposals/well-founded-recursion.md §6.1).
-        .filter(|&i| tokens[i].column == 0 && tokens[i].tok != Tok::ColonEq)
-        .collect();
+    // A token at column 0 starts a declaration, except:
+    // - `:=`, which ends a header (`decreasing e` then `:=`,
+    //   docs/proposals/well-founded-recursion.md §6.1);
+    // - a token inside an open `@[`, so a group of attributes may close with
+    //   `]` at column 0 (but a declaration's keyword still starts one, so an
+    //   unclosed `@[` doesn't swallow the rest of the file);
+    // - the first token after a group that is only attributes so far: they
+    //   belong to the next declaration (docs/syntax.md, Attributes).
+    let mut starts: Vec<usize> = Vec::new();
+    // Brackets open inside the current `@[`, counting its own `[`.
+    let mut depth = 0usize;
+    let mut opening = false;
+    let mut attributes_only = false;
+    for (i, token) in tokens.iter().enumerate() {
+        if token.column == 0 && token.tok != Tok::ColonEq {
+            let keyword = matches!(
+                token.tok,
+                Tok::KwType
+                    | Tok::KwInterface
+                    | Tok::KwDef
+                    | Tok::KwTheorem
+                    | Tok::KwExport
+                    | Tok::KwInstance
+                    | Tok::KwAbility
+                    | Tok::KwTest
+                    | Tok::KwNamespace
+                    | Tok::KwImport
+            );
+            let inside = depth > 0 || opening;
+            if starts.is_empty() || (!inside && !attributes_only) || (inside && keyword) {
+                starts.push(i);
+                depth = 0;
+                opening = false;
+                attributes_only = true;
+            }
+        }
+        match token.tok {
+            Tok::At if depth == 0 => opening = true,
+            Tok::LParen | Tok::LBracket | Tok::LBrace if depth > 0 || opening => {
+                depth += 1;
+                opening = false;
+            }
+            Tok::RParen | Tok::RBracket | Tok::RBrace if depth > 0 => depth -= 1,
+            _ if depth == 0 => {
+                attributes_only = false;
+                opening = false;
+            }
+            _ => {}
+        }
+    }
     let mut groups = Vec::new();
     for (n, &start) in starts.iter().enumerate() {
         let end = starts.get(n + 1).copied().unwrap_or(tokens.len());
@@ -548,6 +654,13 @@ impl<'t> Parser<'t> {
     }
 
     fn unexpected(&self, expected: &str) -> Diagnostic {
+        if !self.is_stop(self.pos)
+            && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At)
+        {
+            return Diagnostic::error("E-ATTRIBUTE", "attributes can't be written here")
+                .with_label(self.here(), format!("expected {expected}"))
+                .with_note(declarations::ATTRIBUTE_PLACES);
+        }
         let found = match self.tokens.get(self.pos) {
             Some(token) if self.is_stop(self.pos) => {
                 return error(
@@ -1014,13 +1127,26 @@ impl<'t> Parser<'t> {
         let mut auto_params = Vec::new();
         loop {
             if self.peek() == Some(&Tok::LParen) {
-                params.push(self.binder()?);
+                let binder = self.binder()?;
+                if let Some(first) = binder.attrs.first() {
+                    return Err(misplaced_attributes(
+                        first,
+                        "a data type's parameter",
+                    ));
+                }
+                params.push(binder);
                 auto_params.push(false);
             } else if self.is_implicit_binder() {
                 // `[auto ord: Ord k]`, filled in by instance search wherever
                 // the type is written (docs/proposals/interfaces.md §7.5).
                 let start = self.here();
                 let (binder, auto) = self.implicit_binder()?;
+                if let Some(first) = binder.attrs.first() {
+                    return Err(misplaced_attributes(
+                        first,
+                        "a data type's parameter",
+                    ));
+                }
                 if !auto {
                     return Err(error(
                         start.to(self.prev_span()),
@@ -1051,6 +1177,12 @@ impl<'t> Parser<'t> {
             loop {
                 if self.is_pi_binder() {
                     let binder = self.binder()?;
+                    if let Some(first) = binder.attrs.first() {
+                        return Err(misplaced_attributes(
+                            first,
+                            "a data type's index",
+                        ));
+                    }
                     self.expect(Tok::Arrow, "`->`")?;
                     for n in binder.names {
                         indices.push((Some(n), binder.ty.clone()));
@@ -1089,6 +1221,7 @@ impl<'t> Parser<'t> {
                 ctors: vec![ctor],
                 record: true,
                 interface: true,
+                attrs: Vec::new(),
             }]);
         }
         if self.eat(&Tok::Equals) {
@@ -1107,6 +1240,7 @@ impl<'t> Parser<'t> {
                 ctors.push(self.record_fields(&name)?);
             } else {
                 while self.eat(&Tok::Pipe) {
+                    let attrs = self.attributes()?;
                     let name =
                         self.upper("a constructor name (starting with an uppercase letter)")?;
                     let mut fields = Vec::new();
@@ -1136,6 +1270,7 @@ impl<'t> Parser<'t> {
                         None
                     };
                     ctors.push(CtorDecl {
+                        attrs,
                         name,
                         fields,
                         implicit,
@@ -1159,6 +1294,7 @@ impl<'t> Parser<'t> {
             ctors,
             record,
             interface: false,
+            attrs: Vec::new(),
         }])
     }
 
@@ -1173,12 +1309,14 @@ impl<'t> Parser<'t> {
                 if self.peek() == Some(&Tok::RBrace) {
                     break;
                 }
+                let attrs = self.attributes()?;
                 let field = self.lower("a field name")?;
                 self.expect(Tok::Colon, "`:`")?;
                 let ty = self.expr()?;
                 fields.push(Binder {
                     names: vec![field],
                     ty,
+                    attrs,
                 });
                 if !self.eat(&Tok::Comma) {
                     break;
@@ -1187,6 +1325,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::RBrace, "`,` or `}`")?;
         Ok(CtorDecl {
+            attrs: Vec::new(),
             name: Name {
                 text: "%mk".into(),
                 span: data.span,
@@ -1203,7 +1342,14 @@ impl<'t> Parser<'t> {
         let name = self.upper_q("an ability name (starting with an uppercase letter)")?;
         let mut params = Vec::new();
         while self.peek() == Some(&Tok::LParen) {
-            params.push(self.binder()?);
+            let binder = self.binder()?;
+            if let Some(first) = binder.attrs.first() {
+                return Err(misplaced_attributes(
+                    first,
+                    "an ability's parameter",
+                ));
+            }
+            params.push(binder);
         }
         self.expect(Tok::KwWhere, "`where`")?;
         let Some(first) = self.tokens.get(self.pos).filter(|_| self.peek().is_some()) else {
@@ -1245,8 +1391,11 @@ impl<'t> Parser<'t> {
             .is_some_and(|t| t.line_start && t.column == column)
     }
 
+    /// `(x y : A)`, with any attributes before the names (which only a
+    /// constructor's field may have: the callers refuse them elsewhere).
     fn binder(&mut self) -> Result<Binder> {
         self.expect(Tok::LParen, "`(`")?;
+        let attrs = self.attributes()?;
         let mut names = vec![self.lower("a name")?];
         while let Some(Tok::Lower(_)) = self.peek() {
             names.push(self.lower("a name")?);
@@ -1254,7 +1403,7 @@ impl<'t> Parser<'t> {
         self.expect(Tok::Colon, "`:`")?;
         let ty = self.expr()?;
         self.expect(Tok::RParen, "`)`")?;
-        Ok(Binder { names, ty })
+        Ok(Binder { names, ty, attrs })
     }
 
     // Expressions, loosest-binding first
@@ -1963,6 +2112,12 @@ impl<'t> Parser<'t> {
         } else {
             (self.binder()?, false)
         };
+        if let Some(first) = binder.attrs.first() {
+            return Err(misplaced_attributes(
+                first,
+                "a function type's parameter",
+            ));
+        }
         self.expect(Tok::Arrow, "`->`")?;
         let cod = self.result_type()?;
         let span = start.to(cod.span());
@@ -2025,13 +2180,21 @@ impl<'t> Parser<'t> {
             return true;
         }
         let mut i = self.pos + 1;
+        // Past attributes, `[@[js.name "n"] count: Nat]`.
+        while self.tokens.get(i).map(|t| &t.tok) == Some(&Tok::At)
+            && let Some(&close) = self.matching.get(i + 1)
+            && close != NO_PARTNER
+        {
+            i = close as usize + 1;
+        }
+        let first_name = i;
         while let Some(Token {
             tok: Tok::Lower(_), ..
         }) = self.tokens.get(i)
         {
             i += 1;
         }
-        i > self.pos + 1 && self.tokens.get(i).map(|t| &t.tok) == Some(&Tok::Colon)
+        i > first_name && self.tokens.get(i).map(|t| &t.tok) == Some(&Tok::Colon)
     }
 
     /// Whether the `[` at token `i` opens an auto binder without a name,
@@ -2053,9 +2216,17 @@ impl<'t> Parser<'t> {
                 text: crate::ast::NAMELESS.to_string(),
                 span: auto,
             }];
-            return Ok((Binder { names, ty }, true));
+            return Ok((
+                Binder {
+                    names,
+                    ty,
+                    attrs: Vec::new(),
+                },
+                true,
+            ));
         }
         self.expect(Tok::LBracket, "`[`")?;
+        let attrs = self.attributes()?;
         let mut names = vec![self.lower("a name")?];
         while let Some(Tok::Lower(_)) = self.peek() {
             names.push(self.lower("a name")?);
@@ -2068,7 +2239,7 @@ impl<'t> Parser<'t> {
         self.expect(Tok::Colon, "`:`")?;
         let ty = self.expr()?;
         self.expect(Tok::RBracket, "`]`")?;
-        Ok((Binder { names, ty }, auto))
+        Ok((Binder { names, ty, attrs }, auto))
     }
 
     /// Whether a lambda starts here: a run of one or more parameters followed
@@ -2896,6 +3067,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwElse => "`else`".into(),
         Tok::Dot => "`.`".into(),
         Tok::DotDot => "`..`".into(),
+        Tok::At => "`@[`".into(),
     }
 }
 
@@ -4879,5 +5051,118 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", text);
         parse_module(file, text)
+    }
+
+    /// The names and arguments of attributes, as written.
+    fn attr_texts(attrs: &[crate::ast::Attribute]) -> Vec<String> {
+        attrs
+            .iter()
+            .map(|a| match &a.arg {
+                Some((arg, _)) => format!("{} {arg:?}", a.name.text),
+                None => a.name.text.clone(),
+            })
+            .collect()
+    }
+
+    fn data_attrs(decl: &Decl) -> (Vec<String>, Vec<Vec<String>>, Vec<Vec<Vec<String>>>) {
+        let Decl::Data { attrs, ctors, .. } = decl else {
+            panic!("expected a data type: {decl:?}");
+        };
+        (
+            attr_texts(attrs),
+            ctors.iter().map(|c| attr_texts(&c.attrs)).collect(),
+            ctors
+                .iter()
+                .map(|c| c.fields.iter().map(|b| attr_texts(&b.attrs)).collect())
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn attributes_on_types_constructors_and_fields() {
+        let module = parse(
+            "@[js.tag \"type\"] type Shape =\n  \
+             | @[js.name \"DOT\"] Dot\n  \
+             | @[js.name \"CIRCLE\", js.other] Circle (@[js.name \"center_x\"] x: Nat) [@[js.name \"n\"] n: Nat]\n\n\
+             type R = { @[js.name \"type\"] kind: Text, size: Nat }\n",
+        );
+        let (on_type, on_ctors, on_fields) = data_attrs(&module.decls[0]);
+        assert_eq!(on_type, ["js.tag \"type\""]);
+        assert_eq!(
+            on_ctors,
+            [vec!["js.name \"DOT\""], vec!["js.name \"CIRCLE\"", "js.other"]]
+        );
+        assert_eq!(
+            on_fields,
+            [vec![], vec![vec!["js.name \"center_x\""], vec!["js.name \"n\""]]]
+        );
+        let (_, _, on_fields) = data_attrs(&module.decls[1]);
+        assert_eq!(on_fields, [vec![vec!["js.name \"type\""], vec![]]]);
+    }
+
+    #[test]
+    fn a_multi_line_attribute_group_may_close_at_column_0() {
+        let module = parse(
+            "@[\n  js.tag \"type\",\n  js.other \"x\",\n]\n-- a comment\n\n@[js.more]\ntype T =\n  | A\n\ndef f: Nat := 1\n",
+        );
+        assert_eq!(module.decls.len(), 3);
+        let (on_type, _, _) = data_attrs(&module.decls[0]);
+        assert_eq!(on_type, ["js.tag \"type\"", "js.other \"x\"", "js.more"]);
+        let Decl::Signature { attrs, .. } = &module.decls[1] else {
+            panic!()
+        };
+        assert!(attrs.is_empty());
+    }
+
+    #[test]
+    fn attributes_before_a_definition_belong_to_its_signature() {
+        let module = parse("@[js.name \"draw\"] export def render (n: Nat): Nat := n\n");
+        let Decl::Signature { attrs, export, .. } = &module.decls[0] else {
+            panic!()
+        };
+        assert!(*export);
+        assert_eq!(attr_texts(attrs), ["js.name \"draw\""]);
+    }
+
+    #[test]
+    fn misplaced_attributes_are_refused() {
+        for (text, code) in [
+            // Attributes always attach to the next declaration, never drift.
+            ("@[js.tag \"x\"]\nnamespace N\n", "E-ATTRIBUTE"),
+            ("@[js.tag \"x\"]\nimport List (map)\n", "E-ATTRIBUTE"),
+            ("@[js.tag \"x\"]\ntest \"t\" := True\n", "E-ATTRIBUTE"),
+            ("@[js.tag \"x\"]\nability A where\n  op: Nat -> Nat\n", "E-ATTRIBUTE"),
+            ("def f (@[js.name \"x\"] n: Nat): Nat := n\n", "E-ATTRIBUTE"),
+            ("def f: (@[js.name \"x\"] n: Nat) -> Nat := n => n\n", "E-ATTRIBUTE"),
+            ("def f: Nat -> Nat := (@[js.name \"x\"] n) => n\n", "E-ATTRIBUTE"),
+            ("type T (@[js.name \"x\"] a: Type) = | A\n", "E-ATTRIBUTE"),
+            (
+                "def f (n: Nat): Nat :=\n  @[js.name \"x\"] def g (m: Nat): Nat := m\n  g n\n",
+                "E-ATTRIBUTE",
+            ),
+            // The grammar: one name, then at most one plain string.
+            ("@[js.name 123] type T = | A\n", "E-PARSE"),
+            ("@[js.name \"x\" \"y\"] type T = | A\n", "E-PARSE"),
+            ("@[] type T = | A\n", "E-PARSE"),
+            ("@[js.name \"${1}\"] type T = | A\n", "E-PARSE"),
+            ("@ type T = | A\n", "E-PARSE"),
+            // Attributes with nothing after them.
+            ("def f: Nat := 1\n\n@[js.tag \"x\"]\n", "E-PARSE"),
+            ("def f: Nat := 1\n@[js.tag \"x\"]\n@[js.name \"y\"]\n", "E-PARSE"),
+        ] {
+            let errors = parse_module_text(text).expect_err(text);
+            assert_eq!(errors[0].code, code, "{text}: {:?}", errors[0].message);
+        }
+    }
+
+    #[test]
+    fn an_unclosed_attribute_group_stops_at_the_next_declaration() {
+        let text = "@[js.tag \"x\"\ntype T = | A\n\ndef f: Nat := 1\n";
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
+        assert_eq!(errors.len(), 1);
+        // `T`, and `f`'s signature and equation.
+        assert_eq!(module.decls.len(), 3, "{module:?}");
     }
 }

@@ -8,8 +8,10 @@
 use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
+use std::rc::Rc;
 
 use stitchwort_core::check::{is_type_former, telescope};
+use stitchwort_core::js_repr::{self, JsRepr};
 use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
@@ -264,30 +266,41 @@ fn boundary(
         }
         Value::Data(d, args) => {
             let data = g.data(*d);
+            // The built-in types with a boundary form of their own, chosen by
+            // identity from the registry's one list (D613): a program's own
+            // `List` is encoded as the data type it is. Where the codec
+            // depends on the declaration, its content hash confirms it;
+            // otherwise the type crosses as the data type it is.
+            let builtin = g.registry.boundary_form(*d);
             // `SafeNat` and `SafeInt` are records of a `Nat` or `Int` inside
             // generated code, and `number`s at the boundary, which the codec
             // needs the `bigint` representations for.
-            if args.is_empty() && safe_nat_data(g) == Some(*d) && nat_data(g).is_some() {
-                return Ok(Boundary::SafeNat);
+            match builtin {
+                Some(Builtin::SafeNat)
+                    if args.is_empty()
+                        && safe_nat_data(g) == Some(*d)
+                        && nat_data(g).is_some() =>
+                {
+                    return Ok(Boundary::SafeNat);
+                }
+                Some(Builtin::SafeInt)
+                    if args.is_empty()
+                        && safe_int_data(g) == Some(*d)
+                        && int_data(g).is_some() =>
+                {
+                    return Ok(Boundary::SafeInt);
+                }
+                Some(Builtin::Int) if args.is_empty() && int_data(g) == Some(*d) => {
+                    return Ok(Boundary::Int);
+                }
+                Some(Builtin::Nat) if args.is_empty() && nat_data(g) == Some(*d) => {
+                    return Ok(Boundary::Nat);
+                }
+                Some(Builtin::Text) if args.is_empty() && text_data(g) == Some(*d) => {
+                    return Ok(Boundary::Text);
+                }
+                _ => {}
             }
-            if args.is_empty() && safe_int_data(g) == Some(*d) && int_data(g).is_some() {
-                return Ok(Boundary::SafeInt);
-            }
-            if args.is_empty() && int_data(g) == Some(*d) {
-                return Ok(Boundary::Int);
-            }
-            if args.is_empty() && nat_data(g) == Some(*d) {
-                return Ok(Boundary::Nat);
-            }
-            if args.is_empty() && text_data(g) == Some(*d) {
-                return Ok(Boundary::Text);
-            }
-            // The prelude's other types have codecs of their own, chosen by
-            // identity: a program's own `List` is encoded as the data type it
-            // is.
-            let builtin = [Builtin::Bool, Builtin::Char, Builtin::List, Builtin::Option]
-                .into_iter()
-                .find(|b| g.registry.is_data(*b, *d));
             match (builtin, args.as_slice()) {
                 (Some(Builtin::Bool), []) => Ok(Boundary::Bool),
                 (Some(Builtin::Char), []) => Ok(Boundary::Char),
@@ -351,16 +364,9 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
         }
         env.push(Value::var(env.len()));
     }
+    // (That each field has its own key at the boundary is checked with the
+    // rest of the type's names, in `check_names`.)
     for (c, (ctor, fields)) in data.ctors.iter().zip(data_fields(g, d)).enumerate() {
-        // Each field has its own key at the boundary.
-        for (i, (field, _)) in ctor.fields.iter().enumerate() {
-            if ctor.fields[..i].iter().any(|(other, _)| other == field) {
-                return Err(format!(
-                    "`{}`'s constructor `{}` has two fields called `{field}`",
-                    data.name, ctor.name
-                ));
-            }
-        }
         for (i, (field, _)) in ctor.fields.iter().enumerate() {
             if !ctor.field_erased[i] {
                 continue;
@@ -515,6 +521,35 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
             collect_datas(g, b, &mut boundary_datas);
         }
     }
+    // Each type's names at the boundary (docs/proposals/attributes.md §4.6):
+    // a type with `js.*` attributes had its checked where it's declared; one
+    // without is checked here, once an export reaches it (D612), so a type
+    // that never crosses may have a field `__proto__`.
+    for &d in &boundary_datas {
+        let data = g.data(d);
+        if data.js.is_some() {
+            continue;
+        }
+        let repr = repr(g, d);
+        if let Some(clash) = js_repr::clashes(&repr, data.record).first() {
+            let mut diagnostic = Diagnostic::error("E-JS-NAME-CLASH", clash.message(data, &repr))
+                .with_label(data.span, "this type crosses the JS boundary");
+            let reaches = |sig: &&ExportSig| {
+                let mut datas = Vec::new();
+                for b in sig.params.iter().map(|(_, b)| b).chain([&sig.result]) {
+                    collect_datas(g, b, &mut datas);
+                }
+                datas.contains(&d)
+            };
+            if let Some(sig) = exports.iter().find(reaches) {
+                diagnostic = diagnostic.with_label(
+                    g.def(sig.id).span,
+                    format!("`{}` is exported, and reaches it", g.def(sig.id).name),
+                );
+            }
+            return Err(diagnostic.with_note(clash.note()));
+        }
+    }
     let mut short_types: HashMap<String, DataId> = HashMap::new();
     for &d in &boundary_datas {
         if let Some(other) = short_types.insert(type_name(&g.data(d).name), d) {
@@ -664,9 +699,16 @@ pub fn generate_exports(
     // types can refer to each other (and themselves).
     for &d in &boundary_datas {
         let data = g.data(d);
+        let tag_key = repr(g, d).tag_key.clone();
+        // The tag key, unless it's the default (or the type is a record).
+        let key = if data.record || tag_key == js_repr::DEFAULT_TAG_KEY {
+            String::new()
+        } else {
+            format!(", {}", js_string_literal(&tag_key))
+        };
         let _ = writeln!(
             js,
-            "const {} = datatype({});",
+            "const {} = datatype({}{key});",
             info_name(&data.path),
             js_string_literal(&data.name)
         );
@@ -897,23 +939,36 @@ const data = (info, args = []) => {
 };
 const paramTypes = [];
 const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount++, i });
-const datatype = (name) => ({
-  name, ctors: new Map(), flat: new Set(), tags: "", instances: new Map(), record: undefined, checks: [],
+// A data type's description. `tagKey` is the property its objects' tag is
+// in at the boundary; inside generated code it's always `tag`.
+const datatype = (name, tagKey = "$tag") => ({
+  name, tagKey, ctors: new Map(), internal: new Map(), flat: new Set(), tags: "",
+  instances: new Map(), record: undefined, checks: [],
 });
 // Each constructor's tag, and its fields' keys and types, in order. A
 // constructor is `flat` if all its fields are leaves. A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds.
+// object saying whether the proof holds. Names at the boundary may differ
+// from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
+// constructor by its tag at the boundary, `internal` by its tag inside.
 const define = (info, ctors, record = false, checks = []) => {
-  // A field is `[key, type]`, or `[key, type, true]` for an optional property.
-  if (record) info.record = ctors[0][1];
+  // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
+  // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
+  // optional property, or `[key, type, optional, key inside]`.
+  const entries = ctors.map(([tag, fields, external = tag]) => ({
+    tag,
+    external,
+    fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
+  }));
+  if (record) info.record = entries[0].fields;
   info.checks = checks;
-  for (const [tag, fields] of ctors) {
-    info.ctors.set(tag, fields);
-    if (fields.every(([, t]) => t.kind === LEAF)) info.flat.add(tag);
+  for (const entry of entries) {
+    info.ctors.set(entry.external, entry);
+    info.internal.set(entry.tag, entry);
+    if (entry.fields.every(([, t]) => t.kind === LEAF)) info.flat.add(entry.external);
   }
-  const tags = ctors.map(([tag]) => JSON.stringify(tag));
+  const tags = entries.map((e) => JSON.stringify(e.external));
   info.tags =
     tags.length > 1 ? `${tags.slice(0, -1).join(", ")} or ${tags.at(-1)}`
     : tags.length === 1 ? tags[0]
@@ -1189,14 +1244,16 @@ const decode = (t, x, root) => {
           done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
-          const tag = own(x, "tag");
-          if (tag === MISSING) refuse(`no tag; expected ${t.info.tags}`);
-          if (tag === INHERITED) refuse("its tag is inherited, not its own property");
-          const fields = t.info.ctors.get(tag);
-          if (fields === undefined) refuse(`unknown tag ${describe(tag)}; expected ${t.info.tags}`);
+          const key = t.info.tagKey;
+          const tag = own(x, key);
+          if (tag === MISSING) refuse(`no ${key}; expected ${t.info.tags}`);
+          if (tag === INHERITED) refuse(`its ${key} is inherited, not its own property`);
+          const ctor = t.info.ctors.get(tag);
+          if (ctor === undefined) refuse(`unknown ${key} ${describe(tag)}; expected ${t.info.tags}`);
+          const fields = ctor.fields;
           if (t.info.flat.has(tag)) done = undefined;
           else done.set(x, INSIDE);
-          frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag } });
+          frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag: ctor.tag } });
         }
       }
       // Give `value` to the frame waiting for it, and finish frames, until
@@ -1212,7 +1269,7 @@ const decode = (t, x, root) => {
             continue;
           }
           if (f.fields === undefined) f.out.push(value);
-          else f.out[f.fields[f.i][0]] = value;
+          else f.out[f.fields[f.i][3]] = value;
           f.i++;
           path.pop();
         }
@@ -1278,11 +1335,12 @@ const encode = (t, v) => {
       frames.push({ t, v, fields: undefined, out: [] });
     } else {
       const record = t.info.record;
-      frames.push(
-        record !== undefined
-          ? { t, v, fields: record, i: 0, out: {} }
-          : { t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } },
-      );
+      if (record !== undefined) {
+        frames.push({ t, v, fields: record, i: 0, out: {} });
+      } else {
+        const ctor = t.info.internal.get(v.tag);
+        frames.push({ t, v, fields: ctor.fields, i: 0, out: { [t.info.tagKey]: ctor.external } });
+      }
     }
     for (;;) {
       const f = frames[frames.length - 1];
@@ -1308,8 +1366,8 @@ const encode = (t, v) => {
           break;
         }
       } else if (f.i < f.fields.length) {
-        const [key, type] = f.fields[f.i];
-        v = f.v[key];
+        const [, type, , inside] = f.fields[f.i];
+        v = f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -2556,29 +2614,55 @@ impl<'g> Gen<'g> {
     /// A data type's constructors, and the keys and types of their fields.
     /// Only names the runtime chose, and `info$`-prefixed ones, are used as
     /// JS names; tags and keys are strings.
+    ///
+    /// A constructor is `[tag, fields]`, with its tag at the boundary third
+    /// when that isn't its name; a field is `[key, type]`, with `true` third
+    /// for an optional property, and its key inside generated code fourth
+    /// when that isn't its key at the boundary. Both come from the type's
+    /// one [`repr`].
     fn define(&self, d: DataId) -> Fallible<String> {
         let data = self.g.data(d);
+        let repr = repr(self.g, d);
         let mut out = format!("define({}, [\n", info_name(&data.path));
-        for (ctor, fields) in data.ctors.iter().zip(generic_field_boundaries(self.g, d)) {
+        for (c, (ctor, fields)) in data
+            .ctors
+            .iter()
+            .zip(generic_field_boundaries(self.g, d))
+            .enumerate()
+        {
+            let internal = (0..ctor.fields.len())
+                .filter(|&i| !ctor.field_erased[i])
+                .map(|i| field_key_at(self.g, d, c, i));
             let fields: Vec<String> = fields
                 .iter()
-                .map(|(field, b)| {
+                .zip(external_keys(&repr, c))
+                .zip(internal)
+                .map(|(((_, b), external), internal)| {
                     // A record's `Option` field is an optional property.
-                    let optional = if data.record && matches!(b, Boundary::Option(..)) {
-                        ", true"
+                    let optional = data.record && matches!(b, Boundary::Option(..));
+                    let rest = if internal != external {
+                        format!(", {optional}, {}", js_string_literal(&internal))
+                    } else if optional {
+                        ", true".to_string()
                     } else {
-                        ""
+                        String::new()
                     };
                     format!(
-                        "[{}, {}{optional}]",
-                        js_string_literal(&key(self.g, d, field)),
+                        "[{}, {}{rest}]",
+                        js_string_literal(external),
                         self.type_expr(b)
                     )
                 })
                 .collect();
+            let tag = &repr.ctors[c].tag;
+            let external = if data.record || *tag == *ctor.name {
+                String::new()
+            } else {
+                format!(", {}", js_string_literal(tag))
+            };
             let _ = writeln!(
                 out,
-                "  [{}, [{}]],",
+                "  [{}, [{}]{external}],",
                 js_string_literal(&ctor.name),
                 fields.join(", ")
             );
@@ -2686,17 +2770,21 @@ impl<'g> Gen<'g> {
 
     fn ts_alias(&self, d: DataId) -> String {
         let data = self.g.data(d);
+        let repr = repr(self.g, d);
         let params = self.ts_params(d);
-        let variants: Vec<String> = data
-            .ctors
-            .iter()
-            .zip(generic_field_boundaries(self.g, d))
-            .map(|(ctor, fields)| {
+        let variants: Vec<String> = generic_field_boundaries(self.g, d)
+            .into_iter()
+            .enumerate()
+            .map(|(c, fields)| {
                 let mut parts = Vec::new();
                 if !data.record {
-                    parts.push(format!("readonly tag: \"{}\"", ctor.name));
+                    parts.push(format!(
+                        "readonly {}: {}",
+                        ts_key(&repr.tag_key),
+                        js_string_literal(&repr.ctors[c].tag)
+                    ));
                 }
-                for (field, b) in &fields {
+                for ((_, b), key) in fields.iter().zip(external_keys(&repr, c)) {
                     // A record's `Option` field is an optional property.
                     let (optional, b) = match b {
                         Boundary::Option(..) if data.record => ("?", b.payload()),
@@ -2704,7 +2792,7 @@ impl<'g> Gen<'g> {
                     };
                     parts.push(format!(
                         "readonly {}{optional}: {}",
-                        ts_key(&key(self.g, d, field)),
+                        ts_key(key),
                         self.ts_type(&b, true, &params)
                     ));
                 }
@@ -3080,12 +3168,38 @@ fn short_name(name: &str) -> &str {
     name.rsplit('.').next().unwrap_or(name)
 }
 
-/// The key of a constructor's field in a JS object, at the boundary and in
-/// generated code: its name, with each prime as `$`. A name the
-/// representation already uses (`tag` for the constructor, and `__proto__`,
-/// which sets an object's prototype) gets a `$` in front: a field `tag` is
-/// `$tag`. Stitchwort names can't contain `$` or start with a prime, so two
-/// fields never get the same key, and no field's key is `tag`.
+/// How data type `d` crosses the boundary (docs/proposals/attributes.md
+/// §4.6): what its `js.*` attributes resolved to where it was declared, or
+/// for a type without any, the default names, whose clashes `check_names`
+/// reports before any code is generated. The codec tables
+/// ([`Gen::define`]), the declarations ([`Gen::ts_alias`]) and
+/// [`boundary_literal`] all read this, never names of their own.
+fn repr(g: &Globals, d: DataId) -> Rc<JsRepr> {
+    let data = g.data(d);
+    data.js
+        .clone()
+        .unwrap_or_else(|| Rc::new(js_repr::names(data, &js_repr::Requested::default())))
+}
+
+/// The keys at the boundary of constructor `c`'s fields that have one (not
+/// erased), in order: alongside [`data_fields`].
+fn external_keys(repr: &JsRepr, c: usize) -> Vec<&str> {
+    repr.ctors[c]
+        .keys
+        .iter()
+        .flatten()
+        .map(String::as_str)
+        .collect()
+}
+
+/// The key of a constructor's field in a JS object inside generated code
+/// (at the boundary, a field's key is its [`repr`]'s, which the codec
+/// translates to and from this): its name, with each prime as `$`. A name
+/// the internal representation already uses (`tag` for the constructor, and
+/// `__proto__`, which sets an object's prototype) gets a `$` in front: a
+/// field `tag` is `$tag`. Stitchwort names can't contain `$` or start with a
+/// prime, so two fields never get the same key, and no field's key is
+/// `tag`.
 pub fn field_key(name: &str) -> String {
     let key = name.replace('\'', "$");
     if RESERVED_KEYS.contains(&name) {
@@ -3327,23 +3441,32 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let data = g.data(*d);
             let ctor = &data.ctors[*c];
+            let repr = repr(g, *d);
             let boundaries = &field_boundaries(g, *d, args)[*c];
             let mut parts = Vec::new();
             if !data.record {
-                parts.push(format!("tag: \"{}\"", ctor.name));
+                parts.push(format!(
+                    "{}: {}",
+                    ts_key(&repr.tag_key),
+                    js_string_literal(&repr.ctors[*c].tag)
+                ));
             }
             let runtime = fields
                 .iter()
                 .zip(&ctor.field_erased)
                 .filter(|(_, erased)| !**erased)
                 .map(|(field, _)| field);
-            for ((name, b), field) in boundaries.iter().zip(runtime) {
+            for (((_, b), field), key) in boundaries
+                .iter()
+                .zip(runtime)
+                .zip(external_keys(&repr, *c))
+            {
                 let literal = boundary_literal(g, b, field)?;
                 // `None` in a record's `Option` field is no property.
                 if data.record && matches!(b, Boundary::Option(..)) && literal == "undefined" {
                     continue;
                 }
-                parts.push(format!("{}: {literal}", ts_key(&key(g, *d, name))));
+                parts.push(format!("{}: {literal}", ts_key(key)));
             }
             Ok(format!("{{ {} }}", parts.join(", ")))
         }

@@ -7,9 +7,9 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Ordering =
-  | { readonly tag: "Less" }
-  | { readonly tag: "Equal" }
-  | { readonly tag: "Greater" };
+  | { readonly $tag: "Less" }
+  | { readonly $tag: "Equal" }
+  | { readonly $tag: "Greater" };
 export type Entry = { readonly count: bigint; readonly delta: bigint };
 export declare function dial(x: bigint): bigint;
 export declare function divide(a: bigint, d: bigint): bigint[];

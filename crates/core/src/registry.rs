@@ -289,6 +289,23 @@ builtins! {
     Simulate = "IO.simulate": Def,
 }
 
+/// The built-in data types with a JavaScript boundary form of their own
+/// (DESIGN.md §12), not the tagged objects a data type crosses as: a codec
+/// written for them, which `js.*` attributes couldn't change, so none may be
+/// written on them (docs/proposals/attributes.md §4.2, D613). The one list
+/// the elaborator and the JS backend both read.
+pub const BOUNDARY_FORMS: &[Builtin] = &[
+    Builtin::Nat,
+    Builtin::Int,
+    Builtin::SafeNat,
+    Builtin::SafeInt,
+    Builtin::Bool,
+    Builtin::Text,
+    Builtin::Char,
+    Builtin::List,
+    Builtin::Option,
+];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Entry {
     Data(DataId),
@@ -358,6 +375,17 @@ impl Registry {
             "compiler code uses the library built-in `{}` before its file loads",
             b.name()
         );
+    }
+
+    /// The built-in data type `d` is, if it has a boundary form of its own
+    /// ([`BOUNDARY_FORMS`]). The elaborator refuses `js.*` attributes on
+    /// such a type, and the JS backend picks its codec by it (confirming
+    /// the declaration by content hash where the codec depends on it).
+    pub fn boundary_form(&self, d: DataId) -> Option<Builtin> {
+        BOUNDARY_FORMS
+            .iter()
+            .copied()
+            .find(|b| self.entries.get(b) == Some(&Entry::Data(d)))
     }
 
     /// Whether `d` is built-in data type `b`.

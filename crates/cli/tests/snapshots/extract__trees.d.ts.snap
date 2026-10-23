@@ -7,7 +7,7 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Tree =
-  | { readonly tag: "Leaf" }
-  | { readonly tag: "Node"; readonly left: Tree; readonly right: Tree };
+  | { readonly $tag: "Leaf" }
+  | { readonly $tag: "Node"; readonly left: Tree; readonly right: Tree };
 export declare function leaves(arg0: Tree): bigint;
 export declare function mirror(arg0: Tree): Tree;

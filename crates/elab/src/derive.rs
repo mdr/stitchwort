@@ -568,6 +568,7 @@ impl Elaborator {
             synonym: false,
             instance,
             decreasing: None,
+            attrs: Vec::new(),
             span,
         };
         let decidable = |p: Expr| apps(var("Std.Decidable"), vec![p]);

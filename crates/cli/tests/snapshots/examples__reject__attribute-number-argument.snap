@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `,` or `]` after the attribute, but found `123`
+   ╭─[ reject/attribute-number-argument.sw:4:15 ]
+   │
+ 4 │   | @[js.name 123] Circle (radius: Nat)
+   │               ─┬─  
+   │                ╰─── expected `,` or `]` after the attribute, but found `123`
+───╯

@@ -35,9 +35,10 @@ def oldestFrom (p: Person): List Person -> Person
   | Nil       => p
   | Cons q qs => oldestFrom (older p q) qs
 
--- A record has no tag, so a field called `tag` keeps the key `tag`;
--- `__proto__` is still `$__proto__`, and a prime is `$`.
-type Weird = { tag: Text, __proto__: Nat, constructor: Nat, x' : Nat }
+-- A field called `tag` keeps the key `tag`, and a prime is `$`. The key
+-- `__proto__` would set an object's prototype, so that field needs a
+-- `js.name` to cross to JavaScript.
+type Weird = { tag: Text, @[js.name "$__proto__"] __proto__: Nat, constructor: Nat, x' : Nat }
 
 export def weird (w : Weird) : Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
 
