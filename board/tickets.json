@@ -5156,7 +5156,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "private lane: re-measure on main, SafeNat/SafeInt, std Option functions (goal: ship exported TS, D563 c)",
+      "where": "private lane: SafeNat wire + 100-item cost breakdown (D614); Map index done",
       "labels": [
         "design",
         "js"
