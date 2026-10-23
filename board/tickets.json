@@ -1,5 +1,5 @@
 {
-  "next": 396,
+  "next": 397,
   "tickets": [
     {
       "id": 1,
@@ -5063,8 +5063,8 @@
     {
       "id": 322,
       "title": "Std load: Int/Int.sw pulls List/Toolkit.sw (~39 ms) only for two List.sumBy lemmas; split them out",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib",
@@ -5072,7 +5072,7 @@
       ],
       "body": "",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-23",
       "commits": []
     },
     {
@@ -5912,8 +5912,8 @@
     },
     {
       "id": 369,
-      "title": "Effectful List.map (D1050): first attempt blocked by SW-393 (fixed); second attempt running — fold mapIn into map if clean",
-      "status": "doing",
+      "title": "Effectful List.map (D1050): second attempt not clean (stuck runPure/bind in proofs; CPS shape in JS) — reverted, report merged; D1110 for Matt (recommend keep map pure, mapIn separate)",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -5923,7 +5923,8 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
-        "31113f28"
+        "31113f28",
+        "f179d6bf"
       ]
     },
     {
@@ -6335,6 +6336,20 @@
       "where": "",
       "labels": [
         "kernel"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 396,
+      "title": "JS: List.mapIn (and effectful list code through bind) overflows the stack at 10,000 elements (non-tail recursion through bind); 1,000 elements 10x slower than map (found by SW-369, docs/proposals/effectful-map.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
       ],
       "body": "",
       "created": "2026-10-23",
