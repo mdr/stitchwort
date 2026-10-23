@@ -6314,8 +6314,8 @@
     {
       "id": 394,
       "title": "Coverage messages for indexed families inside match/let: 'no alternative of this match matches …' rewording and E-LET-REFUTABLE apply to Nat but not to Fin/indexed families (reported later by the family check; found by SW-384, matching.rs)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "language"
