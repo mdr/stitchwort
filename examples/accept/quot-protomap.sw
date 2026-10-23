@@ -1,7 +1,9 @@
 -- A prototype of `Map` as a quotient (docs/proposals/map-equality.md §8,
--- §14.1 step 1.6): `ProtoMap k v` is today's `Map k v` record, with two maps
--- identified when they have the same entries (`Map.Equiv`). Each operation is
--- lifted from `Map`'s with stage 0's respects lemma; `toList` determines a
+-- §14.1 step 1.6): `ProtoMap k v` is a `Map.Raw k v` record (the tree, as
+-- `Map` was before stage 2), with two maps identified when they have the
+-- same entries (`Map.Raw.Equiv`). Std's `Map` is now built the same way
+-- (std/Map/Map.sw); this file keeps the gate's evidence. Each operation is
+-- lifted from `Map.Raw`'s with stage 0's respects lemma; `toList` determines a
 -- map, so equality is equality of entry lists, for any value type; `DecEq`
 -- and `Ord` compare entry lists. Below the prototype, the numbered sections
 -- check the gate's properties (§14.2); the others are in
@@ -22,39 +24,39 @@
 import Std (Eq, Iff, IO, List, Map, Nat, Ord, Quot, Text)
 import Std.Map.Tree (Tip, Bin)
 
-type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map k v [ord := ord]) Map.Equiv }
+type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
 
-def ProtoMap.ofMap [auto ord: Ord k] (m: Map k v): ProtoMap k v := { raw = Quot.mk m }
+def ProtoMap.ofMap [auto ord: Ord k] (m: Map.Raw k v): ProtoMap k v := { raw = Quot.mk m }
 
-def ProtoMap.empty [auto ord: Ord k]: ProtoMap k v := ProtoMap.ofMap Map.empty
+def ProtoMap.empty [auto ord: Ord k]: ProtoMap k v := ProtoMap.ofMap Map.Raw.empty
 
-def ProtoMap.toList (m: ProtoMap k v [ord := o]): List (k, v) := Quot.lift Map.toList (a b same => same) m.raw
+def ProtoMap.toList (m: ProtoMap k v [ord := o]): List (k, v) := Quot.lift Map.Raw.toList (a b same => same) m.raw
 
 def ProtoMap.get [auto ord: Ord k] (key: k) (m: ProtoMap k v): Option v :=
-  Quot.lift (Map.get key) (a b same => Map.getRespects key a b same) m.raw
+  Quot.lift (Map.Raw.get key) (a b same => Map.Raw.getRespects key a b same) m.raw
 
 def ProtoMap.insert [auto ord: Ord k] (key: k) (value: v) (m: ProtoMap k v): ProtoMap k v :=
   { raw = Quot.lift
-    (r => (Quot.mk (Map.insert key value r): Quot (Map k v) Map.Equiv))
-    (a b same => Quot.sound (Map.insertRespects key value a b same))
+    (r => (Quot.mk (Map.Raw.insert key value r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (a b same => Quot.sound (Map.Raw.insertRespects key value a b same))
     m.raw
   }
 
-def ProtoMap.size (m: ProtoMap k v [ord := o]): Nat := Quot.lift Map.size (a b same => Map.sizeRespects a b same) m.raw
+def ProtoMap.size (m: ProtoMap k v [ord := o]): Nat := Quot.lift Map.Raw.size (a b same => Map.Raw.sizeRespects a b same) m.raw
 
-def ProtoMap.isEmpty (m: ProtoMap k v [ord := o]): Bool := Quot.lift Map.isEmpty (a b same => Map.isEmptyRespects a b same) m.raw
+def ProtoMap.isEmpty (m: ProtoMap k v [ord := o]): Bool := Quot.lift Map.Raw.isEmpty (a b same => Map.Raw.isEmptyRespects a b same) m.raw
 
 def ProtoMap.foldLeft (f: b -> k -> v -> b) (z: b) (m: ProtoMap k v [ord := o]): b :=
-  Quot.lift (Map.foldLeft f z) (a b same => Map.foldLeftRespects f z a b same) m.raw
+  Quot.lift (Map.Raw.foldLeft f z) (a b same => Map.Raw.foldLeftRespects f z a b same) m.raw
 
-def ProtoMap.fromList [auto ord: Ord k] (xs: List (k, v)): ProtoMap k v := ProtoMap.ofMap (Map.fromList xs)
+def ProtoMap.fromList [auto ord: Ord k] (xs: List (k, v)): ProtoMap k v := ProtoMap.ofMap (Map.Raw.fromList xs)
 
 -- Two classes with the same entries are the same class.
-theorem ProtoMap.rawInjective (p: Quot (Map k v [ord := o]) Map.Equiv) (q: Quot (Map k v [ord := o]) Map.Equiv):
+theorem ProtoMap.rawInjective (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
     ProtoMap.toList { raw = p } = ProtoMap.toList { raw = q } -> p = q :=
-  let motive: Quot (Map k v [ord := o]) Map.Equiv -> Prop :=
-    p' => (q': Quot (Map k v [ord := o]) Map.Equiv) -> ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } -> p' = q'
-  let fromMk: (a: Map k v [ord := o]) -> motive (Quot.mk a) :=
+  let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv -> Prop :=
+    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) -> ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } -> p' = q'
+  let fromMk: (a: Map.Raw k v [ord := o]) -> motive (Quot.mk a) :=
     a q' =>
       Quot.ind
         [p := q'' => ProtoMap.toList { raw = Quot.mk a } = ProtoMap.toList { raw = q'' } -> Quot.mk a = q'']
@@ -78,14 +80,14 @@ theorem ProtoMap.eqIffToListEq (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [or
 -- in increasing key order, and `get` looks a key up in them.
 theorem ProtoMap.toListSorted: (m: ProtoMap k v [ord := o]) -> Map.Spec.Sorted o (ProtoMap.toList m)
   | { raw = q } =>
-    Quot.ind [p := q' => Map.Spec.Sorted o (ProtoMap.toList { raw = q' })] (a => Map.toListSorted a) q
+    Quot.ind [p := q' => Map.Spec.Sorted o (ProtoMap.toList { raw = q' })] (a => Map.Raw.toListSorted a) q
 
 theorem ProtoMap.getToList (key: k):
     (m: ProtoMap k v [ord := o]) -> ProtoMap.get key m = Map.Tree.lookupList key (ProtoMap.toList m)
   | { raw = q } =>
     Quot.ind
       [p := q' => ProtoMap.get key { raw = q' } = Map.Tree.lookupList key (ProtoMap.toList { raw = q' })]
-      (a => Map.getToList key a)
+      (a => Map.Raw.getToList key a)
       q
 
 -- Maps that agree on every key are equal, whatever their values' type.
@@ -131,12 +133,12 @@ test "a changed value does" := !(forwards == changed)
 test "an extra key does" := !(forwards == backwards.insert 5 "e")
 
 -- The representatives really are different trees: their roots differ.
-def rootKey (m: Map Nat Text): Option Nat := match m.tree with
+def rootKey (m: Map.Raw Nat Text): Option Nat := match m.tree with
   | Tip => None
   | Bin _ _ key _ _ => Some key
 
-theorem forwardsRoot: rootKey (Map.fromList [(1, "a"), (2, "b"), (3, "c"), (4, "d")]) = Some 2 := rfl
-theorem backwardsRoot: rootKey (Map.fromList [(4, "d"), (3, "c"), (2, "b"), (1, "a")]) = Some 3 := rfl
+theorem forwardsRoot: rootKey (Map.Raw.fromList [(1, "a"), (2, "b"), (3, "c"), (4, "d")]) = Some 2 := rfl
+theorem backwardsRoot: rootKey (Map.Raw.fromList [(4, "d"), (3, "c"), (2, "b"), (1, "a")]) = Some 3 := rfl
 
 -- 2. Equality composes: records holding maps, and maps of maps, get `==`
 -- with no deriving change.
@@ -200,7 +202,7 @@ test "ordered by entries" := forwards > changed && !(forwards < backwards) && fo
 -- every map, proved for each representative with `Quot.ind`.
 theorem ProtoMap.sizeToList: (m: ProtoMap k v [ord := o]) -> ProtoMap.size m = List.length (ProtoMap.toList m)
   | { raw = q } =>
-    Quot.ind [p := q' => ProtoMap.size { raw = q' } = List.length (ProtoMap.toList { raw = q' })] (a => Map.sizeToList a) q
+    Quot.ind [p := q' => ProtoMap.size { raw = q' } = List.length (ProtoMap.toList { raw = q' })] (a => Map.Raw.sizeToList a) q
 
 test "size, isEmpty and foldLeft" :=
   ProtoMap.size forwards == 4 && !(ProtoMap.isEmpty forwards)

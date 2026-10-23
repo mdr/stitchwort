@@ -8,10 +8,10 @@
 
 import Std (Eq, Map, Quot)
 
-type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map k v [ord := ord]) Map.Equiv }
+type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
 
-def up: Map Nat Text := Map.fromList [(1, "a"), (2, "b")]
-def down: Map Nat Text := Map.fromList [(2, "b"), (1, "a")]
+def up: Map.Raw Nat Text := Map.Raw.fromList [(1, "a"), (2, "b")]
+def down: Map.Raw Nat Text := Map.Raw.fromList [(2, "b"), (1, "a")]
 
 def forwards: ProtoMap Nat Text := { raw = Quot.mk up }
 def backwards: ProtoMap Nat Text := { raw = Quot.mk down }

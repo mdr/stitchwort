@@ -20,7 +20,8 @@ use stitchwort_cli::driver::Session;
 use stitchwort_cli::render::render;
 use stitchwort_core::hash::data_hash;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{apply, eval, force};
+use stitchwort_core::term::QuotForm;
+use stitchwort_core::value::{apply, eval, force, quot_mk_rep, quot_value};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, Term, Value};
 use stitchwort_js::{
     Boundary, Options, boundary_literal, exportable, field_boundaries, js_string_literal,
@@ -492,12 +493,18 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
             }
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             entries.dedup_by(|a, b| a.0 == b.0);
-            // The tree, then the record's proof fields (`ordered`, `sized`),
-            // which hold for a balanced tree with true sizes; erased, so a
-            // placeholder each.
+            // The raw map: the tree, then the record's proof fields
+            // (`ordered`, `sized`), which hold for a balanced tree with true
+            // sizes; erased, so a placeholder each. The map is `Quot.mk` of
+            // it, whose type and relation nothing looks at.
+            let raw = g.find_data("Map.Raw").expect("library type");
             let mut fields = vec![balanced_tree(g, &entries)];
-            fields.resize(g.data(*d).ctors[0].fields.len(), Value::Refl);
-            Value::Ctor(*d, 0, fields.into())
+            fields.resize(g.data(raw).ctors[0].fields.len(), Value::Refl);
+            let class = quot_value(
+                QuotForm::Mk,
+                vec![Value::Refl, Value::Refl, Value::Ctor(raw, 0, fields.into())],
+            );
+            Value::Ctor(*d, 0, vec![class].into())
         }
         Boundary::Param(_) => panic!("a boundary type of an export has no parameters"),
     }
@@ -557,7 +564,10 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
                     _ => true,
                 }
             }
-            tree_holds(g, inner, &fields[0])
+            match quot_mk_rep(&fields[0]) {
+                Some(Value::Ctor(_, 0, raw)) => tree_holds(g, inner, &raw[0]),
+                _ => false,
+            }
         }
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let data = g.data(*d);

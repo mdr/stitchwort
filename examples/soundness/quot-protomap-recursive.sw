@@ -6,6 +6,6 @@
 -- defined together).
 import Std (Map, Quot)
 
-type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map k v [ord := ord]) Map.Equiv }
+type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
 
 type Tree = { name: Text, children: ProtoMap Text Tree }

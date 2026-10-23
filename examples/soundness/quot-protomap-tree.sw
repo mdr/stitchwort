@@ -8,7 +8,7 @@
 import Std (Map, Quot)
 import Std.Map.Tree (Tip, Bin)
 
-type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map k v [ord := ord]) Map.Equiv }
+type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
 
 def rootKey (m: ProtoMap Nat Text): Option Nat :=
   match m.raw with

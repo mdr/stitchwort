@@ -11,6 +11,10 @@ def wordCounts (words: List Text): Map Text Nat :=
 
 test "counting" := (wordCounts ["b", "a", "b", "c", "b"]).toList == [("a", 1), ("b", 3), ("c", 1)]
 
+-- Maps are equal when they have the same entries, in whatever order they
+-- were made.
+test "equal maps" := wordCounts ["b", "a", "b"] == Map.fromList [("b", 2), ("a", 1)] && wordCounts ["a"] != wordCounts ["a", "a"]
+
 -- A set of pairs: the positions a walk visits, ordered by row, then column.
 def step: (Nat, Nat) -> Char -> (Nat, Nat)
   | (r, c), 'R' => (r, c + 1)
@@ -27,6 +31,7 @@ def visited (moves: Text): Set (Nat, Nat) :=
 test "a walk" := (visited "RRDLLU").size == 6 && (visited "RLRL").size == 2
 test "visited in order" := (visited "RDL").toList == [(0, 0), (0, 1), (1, 0), (1, 1)]
 test "membership" := (visited "RD").contains (1, 1) && not ((visited "RD").contains (1, 0))
+test "equal sets" := visited "RDLU" == visited "DRUL" && visited "R" != visited "D"
 
 -- Removing and altering.
 test "remove" := (wordCounts ["a", "b"] |> Map.remove "a").keys == ["b"]

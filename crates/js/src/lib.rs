@@ -16,7 +16,7 @@ use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{Head, eval, expand_step, quote};
+use stitchwort_core::value::{Head, eval, expand_step, quot_mk_rep, quote};
 use stitchwort_core::{
     BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, ResourceError, Sort, Term, Value,
     pretty,
@@ -4045,9 +4045,14 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         }
         // A map is its tree's entries, in key order, as an object's own
         // properties (`Object.fromEntries` makes a key `__proto__` one too).
+        // Its one field is a quotient, `Quot.mk` of a raw map whose field 0
+        // is the tree (std/Map/Map.sw).
         (Boundary::Map(_, element), Value::Ctor(_, 0, fields)) => {
+            let Some(Value::Ctor(_, 0, raw)) = quot_mk_rep(&fields[0]) else {
+                return Err(stuck());
+            };
             let mut entries = Vec::new();
-            map_entries(g, element, fields[0].clone(), &mut entries)?;
+            map_entries(g, element, raw[0].clone(), &mut entries)?;
             Ok(format!("Object.fromEntries([{}])", entries.join(", ")))
         }
         (Boundary::Option(..), Value::Ctor(_, c, fields)) => {
