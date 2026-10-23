@@ -579,6 +579,138 @@ def List.occurrences (p: a -> Bool): List a -> Nat
   | Nil       => 0
   | Cons x xs => Bool.toNat (p x) + List.occurrences p xs
 
+-- `List.count` is a fold with an accumulator; `List.occurrences` recurses on
+-- the list, which suits proofs. They agree, so the lemmas below are stated
+-- for `List.count` (the program's) and proved through `List.occurrences`.
+-- Also here: counting and `List.scanLeft` over `++`, and permutations.
+
+-- Rearranging sums, for the counting lemmas below.
+theorem Nat.addRotate (a: Nat) (b: Nat) (c: Nat): (a + b) + c = b + (a + c) := Eq.trans (Eq.cong (t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c)
+
+theorem Nat.addLeftComm (a: Nat) (b: Nat) (c: Nat): a + (b + c) = b + (a + c) := Eq.trans (Eq.sym (Nat.addAssoc a b c)) (Nat.addRotate a b c)
+
+theorem List.countStep: (b: Bool) -> (k: Nat) -> (o: Nat) -> Nat.succIf k b + o = k + (Bool.toNat b + o)
+  | True,  k, o => Eq.sym (Nat.addSucc k o)
+  | False, k, o => rfl
+
+theorem List.countFold (p: a -> Bool) (k: Nat): (xs: List a) ->
+    List.foldLeft (n x => Nat.succIf n (p x)) k xs = k + List.occurrences p xs
+  | Nil       => Eq.sym (Nat.addZero k)
+  | Cons x xs => Eq.trans (List.countFold p (Nat.succIf k (p x)) xs) (List.countStep (p x) k (List.occurrences p xs))
+
+theorem List.countOccurrences (p: a -> Bool) (xs: List a): List.count p xs = List.occurrences p xs := List.countFold p 0 xs
+
+theorem List.occurrencesSumBy (p: a -> Bool): (xs: List a) -> List.occurrences p xs = List.sumBy (x => Bool.toNat (p x)) xs
+  | Nil       => rfl
+  | Cons x xs => rewrite List.sumByCons (x => Bool.toNat (p x)) x xs, List.occurrencesSumBy p xs
+
+-- A count is a sum of 1s and 0s, so the sum lemmas apply to it.
+theorem List.countSumBy (p: a -> Bool) (xs: List a): List.count p xs = List.sumBy (x => Bool.toNat (p x)) xs :=
+  Eq.trans (List.countOccurrences p xs) (List.occurrencesSumBy p xs)
+
+theorem List.occurrencesAppend (p: a -> Bool): (xs: List a) -> (ys: List a) ->
+    List.occurrences p (List.append xs ys) = List.occurrences p xs + List.occurrences p ys
+  | Nil,       ys => rfl
+  | Cons x xs, ys =>
+    Eq.trans (Eq.cong (t => Bool.toNat (p x) + t) (List.occurrencesAppend p xs ys))
+      (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p ys)))
+
+theorem List.countNil (p: a -> Bool): List.count p Nil = 0 := rfl
+
+theorem List.countCons (p: a -> Bool) (x: a) (xs: List a): List.count p (Cons x xs) = Bool.toNat (p x) + List.count p xs :=
+  Eq.trans (List.countOccurrences p (Cons x xs)) (Eq.cong (n => Bool.toNat (p x) + n) (Eq.sym (List.countOccurrences p xs)))
+
+theorem List.countAppend (p: a -> Bool) (xs: List a) (ys: List a): List.count p (List.append xs ys) = List.count p xs + List.count p ys :=
+  Eq.trans (List.countOccurrences p (List.append xs ys))
+    (Eq.trans (List.occurrencesAppend p xs ys)
+      (Eq.trans (Eq.cong (n => n + List.occurrences p ys) (Eq.sym (List.countOccurrences p xs)))
+        (Eq.cong (n => List.count p xs + n) (Eq.sym (List.countOccurrences p ys)))))
+
+theorem List.scanLeftCons (f: b -> a -> b) (z: b): (xs: List a) -> List.scanLeft f z xs = Cons z (List.drop 1 (List.scanLeft f z xs))
+  | Nil       => rfl
+  | Cons x xs => rfl
+
+theorem List.scanLeftAppend (f: b -> a -> b) (z: b): (xs: List a) -> (ys: List a) ->
+    List.drop 1 (List.scanLeft f z (List.append xs ys)) = List.append (List.drop 1 (List.scanLeft f z xs)) (List.drop 1 (List.scanLeft f (List.foldLeft f z xs) ys))
+  | Nil,       ys => rfl
+  | Cons x xs, ys =>
+    Eq.trans (List.scanLeftCons f (f z x) (List.append xs ys))
+      (Eq.trans (Eq.cong (Cons (f z x)) (List.scanLeftAppend f (f z x) xs ys))
+        (Eq.cong (l => List.append l (List.drop 1 (List.scanLeft f (List.foldLeft f (f z x) xs) ys))) (Eq.sym (List.scanLeftCons f (f z x) xs))))
+
+-- `xs` and `ys` are permutations of each other: every test is passed by as
+-- many elements of one as of the other. For elements with decidable equality
+-- this is the usual meaning (test with `Nat.equal v` for each `v`). Counting
+-- turns the proofs into arithmetic, and needs no equality on the elements.
+def List.Perm (xs: List a) (ys: List a): Prop := (p: a -> Bool) -> List.occurrences p xs = List.occurrences p ys
+
+theorem List.permRefl (xs: List a): List.Perm xs xs := p => rfl
+
+theorem List.permSym (xs: List a) (ys: List a) (h: List.Perm xs ys): List.Perm ys xs := p => Eq.sym (h p)
+
+theorem List.permTrans (xs: List a) (ys: List a) (zs: List a) (h1: List.Perm xs ys) (h2: List.Perm ys zs): List.Perm xs zs := p => Eq.trans (h1 p) (h2 p)
+
+theorem List.occurrencesTrue: (xs: List a) -> List.occurrences (x => True) xs = List.length xs
+  | Nil       => rfl
+  | Cons x xs => Eq.cong Succ (List.occurrencesTrue xs)
+
+theorem List.permLength (xs: List a) (ys: List a) (h: List.Perm xs ys): List.length xs = List.length ys := Eq.trans (Eq.sym (List.occurrencesTrue xs)) (Eq.trans (h (x => True)) (List.occurrencesTrue ys))
+
+-- Some element passes `p` exactly when at least one does, so permutations
+-- agree on `any`.
+theorem List.anyOccurrences (p: a -> Bool): (xs: List a) -> List.any p xs = Nat.leq 1 (List.occurrences p xs)
+  | Nil       => rfl
+  | Cons x xs =>
+    Bool.inspect (p x) (c => Bool.ifThenElse c (u => True) (u => List.any p xs) = Nat.leq 1 (Bool.toNat c + List.occurrences p xs))
+      (t => rfl) (f => List.anyOccurrences p xs)
+
+theorem List.anyPerm (p: a -> Bool) (xs: List a) (ys: List a) (h: List.Perm xs ys): List.any p xs = List.any p ys :=
+  Eq.trans (List.anyOccurrences p xs) (Eq.trans (Eq.cong (n => Nat.leq 1 n) (h p)) (Eq.sym (List.anyOccurrences p ys)))
+
+-- Reversing is a permutation, and keeps sums.
+theorem List.occurrencesReverseOnto (p: a -> Bool): (xs: List a) -> (acc: List a) ->
+    List.occurrences p (List.reverseOnto xs acc) = List.occurrences p xs + List.occurrences p acc
+  | Nil,       acc => rfl
+  | Cons x xs, acc =>
+    Eq.trans (List.occurrencesReverseOnto p xs (Cons x acc))
+      (Eq.trans (Nat.addLeftComm (List.occurrences p xs) (Bool.toNat (p x)) (List.occurrences p acc))
+        (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p acc))))
+
+theorem List.reversePerm (xs: List a): List.Perm (List.reverse xs) xs := p =>
+  Eq.trans (List.occurrencesReverseOnto p xs Nil) (Nat.addZero (List.occurrences p xs))
+
+theorem List.sumByReverseOnto (f: a -> Nat): (xs: List a) -> (acc: List a) ->
+    List.sumBy f (List.reverseOnto xs acc) = List.sumBy f xs + List.sumBy f acc
+  | Nil,       acc => rfl
+  | Cons x xs, acc =>
+    Eq.trans (List.sumByReverseOnto f xs (Cons x acc))
+      (Eq.trans (Eq.cong (t => List.sumBy f xs + t) (List.sumByCons f x acc))
+        (Eq.trans (Nat.addLeftComm (List.sumBy f xs) (f x) (List.sumBy f acc))
+          (Eq.trans (Eq.sym (Nat.addAssoc (f x) (List.sumBy f xs) (List.sumBy f acc)))
+            (Eq.cong (t => t + List.sumBy f acc) (Eq.sym (List.sumByCons f x xs))))))
+
+theorem List.sumByReverse (f: a -> Nat) (xs: List a): List.sumBy f (List.reverse xs) = List.sumBy f xs :=
+  Eq.trans (List.sumByReverseOnto f xs Nil) (Nat.addZero (List.sumBy f xs))
+
+-- Counting with a test nothing passes, and with either of two tests.
+theorem List.occurrencesNone (p: a -> Bool) (h: (x: a) -> p x = False): (xs: List a) -> List.occurrences p xs = 0
+  | Nil       => rfl
+  | Cons x xs => Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences p xs) (h x)) (List.occurrencesNone p h xs)
+
+-- When nothing passes both `p` and `q`, the elements passing either are those
+-- passing `p` plus those passing `q`.
+theorem List.occurrencesOr (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = False): (xs: List a) ->
+    List.occurrences (x => p x || q x) xs = List.occurrences p xs + List.occurrences q xs
+  | Nil       => rfl
+  | Cons x xs =>
+    Bool.inspect (p x)
+      (c => Bool.toNat (c || q x) + List.occurrences (x => p x || q x) xs
+        = (Bool.toNat c + List.occurrences p xs) + (Bool.toNat (q x) + List.occurrences q xs))
+      (t => Eq.trans (Eq.cong (n => 1 + n) (List.occurrencesOr p q h xs))
+        (Eq.cong (b => (1 + List.occurrences p xs) + (Bool.toNat b + List.occurrences q xs)) (Eq.sym (h x t))))
+      (f => Eq.trans (Eq.cong (n => Bool.toNat (q x) + n) (List.occurrencesOr p q h xs))
+        (Nat.addLeftComm (Bool.toNat (q x)) (List.occurrences p xs) (List.occurrences q xs)))
+
 -- `s` is `xs` with some elements left out, the rest kept in order: each
 -- element of `s` is matched with an element of `xs`, or `xs`'s first element
 -- is skipped.

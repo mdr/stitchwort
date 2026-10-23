@@ -19,31 +19,32 @@ def zerosPassedSpec (startingDial: Dial n) (turns: List Turn): Nat :=
 
 test "example, click by click" := zerosPassedSpec startingDial (parseTurns example) == 6
 
--- The zeros after each turn from `dial`, counted by `List.occurrences`, which
--- suits proofs (it recurses on the list).
-def zerosAfter (dial: Dial n) (turns: List Turn): Nat :=
-  List.occurrences Dial.isZero (List.drop 1 (List.scanLeft Dial.move dial turns))
+-- The zeros after the first turn, then after the rest.
+theorem zerosLandedOnCons [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
+    zerosLandedOn dial (Cons t ts) = Bool.toNat (Dial.isZero (Dial.move dial t)) + zerosLandedOn (Dial.move dial t) ts :=
+  Eq.trans (Eq.cong (List.count Dial.isZero) (List.scanLeftCons Dial.move (Dial.move dial t) ts))
+    (List.countCons Dial.isZero (Dial.move dial t) (List.drop 1 (List.scanLeft Dial.move (Dial.move dial t) ts)))
 
 -- The clicks of one turn, then the rest.
 theorem zerosPassedSplit [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
-    zerosAfter dial (t.clicks ++ List.concatMap Turn.clicks ts)
-      = Dial.zerosDuring dial t + zerosAfter (Dial.move dial t) (List.concatMap Turn.clicks ts) :=
-  calc zerosAfter dial (t.clicks ++ List.concatMap Turn.clicks ts)
-    _ = zerosAfter dial t.clicks + zerosAfter (List.foldLeft Dial.move dial t.clicks) (List.concatMap Turn.clicks ts)
-        := Eq.trans (Eq.cong (List.occurrences Dial.isZero) (List.scanLeftAppend Dial.move dial t.clicks (List.concatMap Turn.clicks ts)))
-             (List.occurrencesAppend Dial.isZero _ _)
-    _ = Dial.zerosDuring dial t + zerosAfter (List.foldLeft Dial.move dial t.clicks) (List.concatMap Turn.clicks ts) := rewrite turnCount dial t
-    _ = Dial.zerosDuring dial t + zerosAfter (Dial.move dial t) (List.concatMap Turn.clicks ts)                      := rewrite turnAt dial t
+    zerosLandedOn dial (t.clicks ++ List.concatMap Turn.clicks ts)
+      = Dial.zerosDuring dial t + zerosLandedOn (Dial.move dial t) (List.concatMap Turn.clicks ts) :=
+  calc zerosLandedOn dial (t.clicks ++ List.concatMap Turn.clicks ts)
+    _ = zerosLandedOn dial t.clicks + zerosLandedOn (List.foldLeft Dial.move dial t.clicks) (List.concatMap Turn.clicks ts)
+        := Eq.trans (Eq.cong (List.count Dial.isZero) (List.scanLeftAppend Dial.move dial t.clicks (List.concatMap Turn.clicks ts)))
+             (List.countAppend Dial.isZero _ _)
+    _ = Dial.zerosDuring dial t + zerosLandedOn (List.foldLeft Dial.move dial t.clicks) (List.concatMap Turn.clicks ts) := rewrite turnCount dial t
+    _ = Dial.zerosDuring dial t + zerosLandedOn (Dial.move dial t) (List.concatMap Turn.clicks ts)                      := rewrite turnAt dial t
 
 theorem zerosPassedFrom [n: Nat] (dial: Dial n): (ts: List Turn) ->
-    zerosPassed dial ts = zerosAfter dial (List.concatMap Turn.clicks ts)
+    zerosPassed dial ts = zerosLandedOn dial (List.concatMap Turn.clicks ts)
   | Nil       => rfl
   | Cons t ts =>
     calc zerosPassed dial (Cons t ts)
       _ = Dial.zerosDuring dial t + zerosPassed (Dial.move dial t) ts
           := List.sumCons (Dial.zerosDuring dial t) (List.zipWith Dial.zerosDuring (List.scanLeft Dial.move (Dial.move dial t) ts) ts)
-      _ = Dial.zerosDuring dial t + zerosAfter (Dial.move dial t) (List.concatMap Turn.clicks ts) := rewrite zerosPassedFrom (Dial.move dial t) ts
-      _ = zerosAfter dial (List.concatMap Turn.clicks (Cons t ts))                   := Eq.sym (zerosPassedSplit dial t ts)
+      _ = Dial.zerosDuring dial t + zerosLandedOn (Dial.move dial t) (List.concatMap Turn.clicks ts) := rewrite zerosPassedFrom (Dial.move dial t) ts
+      _ = zerosLandedOn dial (List.concatMap Turn.clicks (Cons t ts))                   := Eq.sym (zerosPassedSplit dial t ts)
 
 -- Positions stay on the dial by the type `Mod n`, and part 1's code reads as
 -- the puzzle's own statement, so neither needs a theorem. The theorem,
@@ -54,8 +55,7 @@ theorem zerosPassedFrom [n: Nat] (dial: Dial n): (ts: List Turn) ->
 -- The arithmetic count is the click-by-click count, for any dial,
 -- start and turns.
 theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed startingDial turns = zerosPassedSpec startingDial turns :=
-  Eq.trans (zerosPassedFrom startingDial turns)
-    (Eq.sym (List.countOccurrences Dial.isZero (List.drop 1 (List.scanLeft Dial.move startingDial (List.concatMap Turn.clicks turns)))))
+  zerosPassedFrom startingDial turns
 
 -- And so for the puzzle's answer.
 theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec startingDial turns :=
@@ -123,12 +123,12 @@ theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
       rewrite Nat.addOne a, Nat.modSmall (Succ a) d (omega: Succ a < d), Nat.addSucc a n
 
 theorem rightCount [n: Nat] (dial: Dial n): (k: Nat) ->
-    zerosAfter dial (List.replicate k (Right 1)) = (dial.position.value + k) / Mod.size n
+    zerosLandedOn dial (List.replicate k (Right 1)) = (dial.position.value + k) / Mod.size n
   | Zero   => rewrite Nat.addZero dial.position.value, Nat.divSmall dial.position.value (Mod.size n) dial.position.isLt
   | Succ k =>
-    calc zerosAfter dial (List.replicate (Succ k) (Right 1))
+    calc zerosLandedOn dial (List.replicate (Succ k) (Right 1))
       _ = Bool.toNat ((dial.position.value + 1) % Mod.size n == 0) + ((dial.position.value + 1) % Mod.size n + k) / Mod.size n
-          := rewrite List.scanLeftCons Dial.move (Dial.move dial (Right 1)) (List.replicate k (Right 1)), rightCount (Dial.move dial (Right 1)) k, Mod.valueOfInt (dial.position.toInt + Nat.toInt 1)
+          := rewrite zerosLandedOnCons dial (Right 1) (List.replicate k (Right 1)), rightCount (Dial.move dial (Right 1)) k, Mod.valueOfInt (dial.position.toInt + Nat.toInt 1)
       _ = (dial.position.value + Succ k) / Mod.size n := stepRight (Mod.size n) dial.position.value dial.position.isLt k
 
 -- The count after one click left to `m`, from `Succ m`.
@@ -166,16 +166,16 @@ theorem stepLeft (highest: Nat): (a: Nat) -> a <= highest -> (n: Nat) ->
     rewrite leftOne highest m h in stepLeftFrom highest m h n
 
 theorem leftCount [n: Nat] (dial: Dial n): (k: Nat) ->
-    zerosAfter dial (List.replicate k (Left 1)) = ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n
+    zerosLandedOn dial (List.replicate k (Left 1)) = ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n
   | Zero   =>
     rewrite Nat.addZero ((Mod.size n - dial.position.value) % Mod.size n),
         Nat.divSmall ((Mod.size n - dial.position.value) % Mod.size n) (Mod.size n)
           (Nat.modLt (Mod.size n - dial.position.value) (Mod.size n))
   | Succ k =>
-    calc zerosAfter dial (List.replicate (Succ k) (Left 1))
+    calc zerosLandedOn dial (List.replicate (Succ k) (Left 1))
       _ = Bool.toNat (place (n - 1) (Int.subNatNat dial.position.value 1) == 0)
             + ((Mod.size n - place (n - 1) (Int.subNatNat dial.position.value 1)) % Mod.size n + k) / Mod.size n
-          := rewrite List.scanLeftCons Dial.move (Dial.move dial (Left 1)) (List.replicate k (Left 1)), leftCount (Dial.move dial (Left 1)) k, Mod.valueOfInt (dial.position.toInt - Nat.toInt 1)
+          := rewrite zerosLandedOnCons dial (Left 1) (List.replicate k (Left 1)), leftCount (Dial.move dial (Left 1)) k, Mod.valueOfInt (dial.position.toInt - Nat.toInt 1)
       _ = ((Mod.size n - dial.position.value) % Mod.size n + Succ k) / Mod.size n := stepLeft (n - 1) dial.position.value dial.position.isLt k
 
 -- A turn is its clicks, one at a time: it ends in the same place, and
@@ -188,6 +188,6 @@ theorem turnAt [n: Nat] (dial: Dial n): (t: Turn) -> List.foldLeft Dial.move dia
     Dial.ext (List.foldLeft Dial.move dial (Right k).clicks) (Dial.move dial (Right k))
       (Mod.ext _ _ (Eq.trans (rightAt dial k) (Eq.sym (Mod.valueOfInt (dial.position.toInt + k.toInt)))))
 
-theorem turnCount [n: Nat] (dial: Dial n): (t: Turn) -> zerosAfter dial t.clicks = Dial.zerosDuring dial t
+theorem turnCount [n: Nat] (dial: Dial n): (t: Turn) -> zerosLandedOn dial t.clicks = Dial.zerosDuring dial t
   | Left k  => leftCount dial k
   | Right k => rightCount dial k
