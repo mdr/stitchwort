@@ -14,3 +14,4 @@ export declare function toSafeInt(n: bigint): number | undefined;
 export declare function lengths(xs: readonly string[]): (number | undefined)[];
 export declare function bump(c: Counter): number | undefined;
 export declare function sumAll(xs: readonly number[]): number | undefined;
+export declare function sameCounter(a: Counter, b: Counter): boolean;
