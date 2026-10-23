@@ -249,8 +249,10 @@ fn decide_written(cx: &mut Ctx, prop: &Term, value: &Value) -> Result<Term> {
     if let Term::Eq(Some(ty), a, b) = prop.strip_loc()
         && crate::interfaces::dec_eq(cx.e).is_some()
     {
-        let (ty, a, b) = (cx.eval(ty)?, cx.eval(a)?, cx.eval(b)?);
-        return crate::interfaces::decide_eq(cx, &ty, &a, &b);
+        let ty = cx.eval(ty)?;
+        // The operands as written, not read back from their values: a
+        // `let`-bound variable would be written out as its value (SW-345).
+        return crate::interfaces::decide_eq_of(cx, &ty, (**a).clone(), (**b).clone());
     }
     crate::auto::decide(cx, value, 0)
 }

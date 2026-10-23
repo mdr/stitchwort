@@ -1462,6 +1462,14 @@ pub(crate) fn ord(e: &Elaborator) -> Option<DataId> {
 /// it's `DecEq.decide x y` with that dictionary, found later if it can't be
 /// yet.
 pub(crate) fn decide_eq(cx: &mut Ctx, ty: &Value, x: &Value, y: &Value) -> Result<Term> {
+    let (xt, yt) = (cx.quote(x)?, cx.quote(y)?);
+    decide_eq_of(cx, ty, xt, yt)
+}
+
+/// [`decide_eq`] for operands given as terms, as written: reading them back
+/// from their values would write out what a `let`-bound variable stands for
+/// (SW-345).
+pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Result<Term> {
     let Some(dec) = dec_eq(cx.e) else {
         return Err(cx.error(
             "E-AUTO-NONE",
@@ -1472,7 +1480,6 @@ pub(crate) fn decide_eq(cx: &mut Ctx, ty: &Value, x: &Value, y: &Value) -> Resul
     let goal = Value::Data(dec, vec![ty.clone()]);
     let meta = implicit_arg(cx, Icit::Auto, &goal);
     cx.e.solve_tree(&meta, true)?;
-    let (xt, yt) = (cx.quote(x)?, cx.quote(y)?);
     // A definition, applied or not (not a lambda, whose type the kernel
     // can't infer where it's applied).
     let dict = force(cx.g(), cx.eval(&meta)?)?;

@@ -2295,6 +2295,52 @@ console.log("ok");
     run_script_on("scrutinee", &[("scrutinee.mjs", js)], script);
 }
 
+/// SW-345: a `let`-bound value used more than once is computed once. The
+/// decision procedure of `decode e == m` was built from the *value* of `m`,
+/// which wrote out what `work n` unfolds to (`List.map … (rangeFrom n 0)`)
+/// at that use, so the work ran again.
+#[test]
+fn a_let_bound_value_is_not_written_out_at_its_uses() {
+    let source = "import Std (List, Option)\n\n\
+        def work (n: Nat): List Nat := (List.range n).map (i => i + 1)\n\n\
+        def decode (xs: List Nat): List Nat := xs.map (i => i + 0)\n\n\
+        def encode (xs: List Nat): Option (List Nat) :=\n  \
+        let e := xs.map (i => i + 1)\n  \
+        if decode e == xs then Some e else None\n\n\
+        export def viaHelper (n: Nat): Option (List Nat) := encode (work n)\n\n\
+        export def viaLet (n: Nat): Option (List Nat) :=\n  \
+        let m := work n\n  \
+        let e := m.map (i => i + 1)\n  \
+        if decode e == m then Some e else None\n";
+    let mut session = Session::new();
+    if let Err(errors) = session.load("share.sw", source) {
+        panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
+    }
+    let js = stitchwort_js::generate(&session.elab.globals, Limits::default())
+        .expect("extraction succeeds")
+        .js;
+    let line = js
+        .lines()
+        .find(|l| l.starts_with("const $Main$dviaLet ="))
+        .expect("no definition of viaLet");
+    assert_eq!(line.matches("$Main$dwork(").count(), 1, "{line}");
+    assert!(
+        !line.contains("rangeFrom"),
+        "`work n` is written out again: {line}"
+    );
+    let script = r#"
+import * as m from "./share.mjs";
+import assert from "node:assert/strict";
+for (const n of [0n, 1n, 5n]) {
+  assert.deepEqual(m.viaLet(n), m.viaHelper(n));
+}
+assert.deepEqual(m.viaLet(0n), []);
+assert.equal(m.viaLet(3n), undefined);
+console.log("ok");
+"#;
+    run_script_on("share", &[("share.mjs", js)], script);
+}
+
 /// Every native integer operation, and the same operations compiled from
 /// their definitions (`DATA_INT`), must agree with each other and with
 /// `BigInt` arithmetic written out here, on all small pairs, values around
