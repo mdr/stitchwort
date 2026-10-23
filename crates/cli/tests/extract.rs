@@ -220,7 +220,10 @@ fn check_in_node_with(name: &str, g: &Globals, cases: &[Case], options: Options)
         stitchwort_js::generate_with(g, Limits::default(), options).expect("extraction succeeds");
     let mut script = String::from(
         "import * as m from \"./module.mjs\";\n\
-         const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : x) ?? \"undefined\";\n\
+         // A `number` that JSON would lose (`-0`, `NaN`, an infinity) as text,\n\
+         // so a `Float` compares as the same double (`Object.is`).\n\
+         const lossless = (x) => Object.is(x, -0) ? \"number -0\" : Number.isFinite(x) ? x : `number ${x}`;\n\
+         const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : typeof x === \"number\" ? lossless(x) : x) ?? \"undefined\";\n\
          const results = [];\n\
          const attempt = (f) => {\n\
            try { return canon(f()); }\n\
@@ -359,6 +362,35 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
     let named = |name: &str| -> DataId { g.find_data(name).expect("prelude type") };
     match b {
         Boundary::Bool => Value::Ctor(named("Bool"), rng.below(2), vec![].into()),
+        // Doubles from the edges: zeros, the NaN, the infinities, subnormals,
+        // halves, and an ordinary time.
+        Boundary::Float => {
+            const EDGES: [u64; 10] = [
+                0,
+                1 << 63,
+                0x7FF8_0000_0000_0000,
+                0x7FF0_0000_0000_0000,
+                0xFFF0_0000_0000_0000,
+                1,
+                0x3FE0_0000_0000_0000,
+                0xC004_0000_0000_0000,
+                4680253341308362424,
+                0x7FEF_FFFF_FFFF_FFFF,
+            ];
+            let bits = EDGES[rng.below(EDGES.len())];
+            Value::Ctor(
+                g.builtins
+                    .float
+                    .data
+                    .expect("a `Float` crosses only when bound"),
+                0,
+                vec![
+                    Value::Nat(std::rc::Rc::new(BigUint::from(bits))),
+                    Value::Refl,
+                ]
+                .into(),
+            )
+        }
         Boundary::Nat => (0..rng.below(8))
             .fold(Value::Ctor(named("Nat"), 0, vec![].into()), |n, _| {
                 Value::Ctor(named("Nat"), 1, vec![n].into())

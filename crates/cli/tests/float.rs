@@ -138,3 +138,106 @@ fn floats_print_the_same_both_ways() {
          9223372036854775808 no yes yes no yes yes"
     );
 }
+
+const BOUNDARY: &str = r#"import Std (Float, Option)
+
+export def identity (x: Float): Float := x
+
+export def makeInfinity (unused: Bool): Float := Float.infinity
+
+export def bits (x: Float): Nat := x.bits
+
+export def magnitude (x: Float): Option Float := if Float.isNaN x then None else Some (Float.abs x)
+"#;
+
+fn extracted(source: &str) -> stitchwort_js::Output {
+    let mut session = stitchwort_cli::driver::Session::new();
+    session
+        .load("boundary.sw", source)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+}
+
+/// The JS boundary (docs/proposals/float.md §5, D685): every `number`
+/// crosses in and back out as the same value under `Object.is`, `NaN`, the
+/// infinities and `-0` included; a NaN with another payload is `Float.nan`
+/// (its bits are the canonical ones); a `bigint`, a string and other values
+/// are refused; an exported infinity can be passed back; `Option Float` is
+/// `number | undefined`, and `Float` is `number` in the declarations.
+#[test]
+fn every_number_crosses_the_boundary() {
+    let output = extracted(BOUNDARY);
+    assert!(
+        output.dts.contains("identity(x: number): number")
+            && output
+                .dts
+                .contains("magnitude(x: number): number | undefined"),
+        "{}",
+        output.dts
+    );
+    let script = format!(
+        "{}\n{}",
+        "import * as m from \"./module.mjs\";",
+        r#"const out = [];
+for (const x of [-0, 0, 80281.87, NaN, Infinity, -Infinity, 5e-324, Number.MAX_VALUE])
+  out.push(Object.is(m.identity(x), x));
+out.push(Object.is(m.identity(m.makeInfinity(true)), Infinity));
+const view = new DataView(new ArrayBuffer(8));
+view.setBigUint64(0, 0xfff8000000000001n);
+out.push(m.bits(view.getFloat64(0)) === 0x7ff8000000000000n);
+out.push(m.bits(-0) === 0x8000000000000000n);
+out.push(m.magnitude(NaN) === undefined, m.magnitude(-2.5) === 2.5);
+for (const bad of [1n, "1", undefined, null, {}]) {
+  try { m.identity(bad); out.push(false); }
+  catch (e) { out.push(e instanceof m.StitchwortInputError); }
+}
+console.log(JSON.stringify(out));
+"#
+    );
+    let dir = temp_dir("boundary");
+    std::fs::write(dir.join("module.mjs"), &output.js).expect("write module");
+    std::fs::write(dir.join("test.mjs"), script).expect("write script");
+    let result = Command::new("node")
+        .arg("test.mjs")
+        .current_dir(&dir)
+        .output()
+        .expect("run node");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    assert!(
+        result.status.success() && !stdout.contains("false"),
+        "{stdout}\n{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(stdout.matches("true").count(), 18, "{stdout}");
+}
+
+/// All `Float` bit reinterpretation is in the one module (D701): no typed
+/// array or `DataView` anywhere else in generated code, extracted or run.
+/// (The runner's `Int32Array` over a `SharedArrayBuffer`, which only sleeps,
+/// is no reinterpretation.)
+#[test]
+fn typed_arrays_appear_only_in_the_canonical_bits_module() {
+    let mut session = stitchwort_cli::driver::Session::new();
+    session
+        .load("floats.sw", PROGRAM)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let main = session.main().expect("a main");
+    let run = session.extract_program(&main).expect("generates").module;
+    for (what, js) in [("extracted", extracted(BOUNDARY).js), ("run", run)] {
+        let module = stitchwort_js::FLOAT_BITS;
+        assert!(js.contains(module), "{what}: no canonical-bits module");
+        let rest = js.replacen(module, "", 1);
+        for word in [
+            "DataView",
+            "new ArrayBuffer",
+            "Float64Array",
+            "Float32Array",
+            "BigUint64Array",
+            "BigInt64Array",
+        ] {
+            assert!(!rest.contains(word), "{what}: `{word}` outside the module");
+        }
+    }
+}

@@ -339,6 +339,7 @@ pub const BOUNDARY_FORMS: &[Builtin] = &[
     Builtin::List,
     Builtin::Option,
     Builtin::Map,
+    Builtin::Float,
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

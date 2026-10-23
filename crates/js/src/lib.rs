@@ -22,7 +22,8 @@ use stitchwort_core::{
 };
 use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
 use stitchwort_rt::natives::{
-    FloatPrim, Representation, int_data, nat_data, safe_int_data, safe_nat_data, text_data,
+    FloatPrim, Representation, float_data, int_data, nat_data, safe_int_data, safe_nat_data,
+    text_data,
 };
 // Shared with the runtime (D389), and part of this crate's interface.
 pub use stitchwort_rt::natives::{
@@ -55,6 +56,11 @@ pub enum Boundary {
     /// `SafeInt`, when it's the data type the codec was written for
     /// ([`SAFE_INT_HASH`]).
     SafeInt,
+    /// `number`, any number, `NaN`, the infinities and `-0` included: the
+    /// library's `Float` (std/Float/Float.sw), when it's the declaration the
+    /// kernel binds (docs/proposals/float.md §5, D685). Every NaN denotes
+    /// `Float.nan`; the number itself is passed through.
+    Float,
     /// `boolean`.
     Bool,
     /// `string`, well-formed (no lone surrogates): the prelude's `Text`, when
@@ -306,6 +312,9 @@ fn boundary(
                 }
                 Some(Builtin::Int) if args.is_empty() && int_data(g) == Some(*d) => {
                     return Ok(Boundary::Int);
+                }
+                Some(Builtin::Float) if args.is_empty() && float_data(g) == Some(*d) => {
+                    return Ok(Boundary::Float);
                 }
                 Some(Builtin::Nat) if args.is_empty() && nat_data(g) == Some(*d) => {
                     return Ok(Boundary::Nat);
@@ -760,6 +769,9 @@ pub fn generate_exports(
     if let Some(int) = int_data(g).filter(|_| safe_int_crosses || crosses(Boundary::Int)) {
         js.push_str(&codegen.int_codec(int));
     }
+    if crosses(Boundary::Float) {
+        js.push_str(FLOAT_CODEC);
+    }
     if safe_nat_crosses || safe_int_crosses {
         js.push_str(&codegen.safe_codecs(
             safe_nat_data(g).filter(|_| safe_nat_crosses),
@@ -908,6 +920,7 @@ fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
         | Boundary::Int
         | Boundary::SafeNat
         | Boundary::SafeInt
+        | Boundary::Float
         | Boundary::Bool
         | Boundary::Text
         | Boundary::Char
@@ -2867,6 +2880,7 @@ impl<'g> Gen<'g> {
             Boundary::Int => "INT".into(),
             Boundary::SafeNat => "SAFE_NAT".into(),
             Boundary::SafeInt => "SAFE_INT".into(),
+            Boundary::Float => "FLOAT".into(),
             Boundary::Bool => "BOOL".into(),
             Boundary::Text => "TEXT".into(),
             Boundary::Char => "CHAR".into(),
@@ -3016,7 +3030,7 @@ impl<'g> Gen<'g> {
     fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String]) -> String {
         match b {
             Boundary::Nat | Boundary::Int => "bigint".into(),
-            Boundary::SafeNat | Boundary::SafeInt => "number".into(),
+            Boundary::SafeNat | Boundary::SafeInt | Boundary::Float => "number".into(),
             Boundary::Bool => "boolean".into(),
             Boundary::Text | Boundary::Char => "string".into(),
             Boundary::Option(..) => {
@@ -3263,6 +3277,14 @@ const fromCanonicalBits = (b) => {
   return floatView.getFloat64(0);
 };
 "#;
+
+/// The runtime's `FLOAT` codec (docs/proposals/float.md §5, D685): a `Float`
+/// is a `number` inside generated code and at the boundary. Decoding accepts
+/// every `number`, `NaN`, the infinities and `-0` included (finiteness
+/// belongs on the application's own types, D702), and refuses anything else;
+/// encoding passes the number on.
+const FLOAT_CODEC: &str = "\n// `Float` is a `number`, any number, inside generated code too.\n\
+const FLOAT = leaf((x) => (typeof x === \"number\" ? x : refuse(\"expected a number\")), (v) => v);\n";
 
 /// JS for the double with valid `bits`: the shortest decimal that reads back
 /// as it (Rust's `{:?}`, which a JS engine parses exactly, having at most 17
@@ -3743,6 +3765,15 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             match native::as_nat(g, &fields[0]).map_err(|e| e.to_string())? {
                 Some(n) if *c == 0 => Ok(format!("{n}n")),
                 Some(n) => Ok(format!("-{}n", n + 1u32)),
+                None => Err(stuck()),
+            }
+        }
+        // A `Float` with known bits is its `number`.
+        (Boundary::Float, Value::Ctor(_, _, fields)) => {
+            match native::as_nat(g, &fields[0]).map_err(|e| e.to_string())? {
+                Some(n) => Ok(float_literal_js(
+                    u64::try_from(n).map_err(|_| "bits beyond 64".to_string())?,
+                )),
                 None => Err(stuck()),
             }
         }
