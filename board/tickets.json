@@ -5722,8 +5722,8 @@
     },
     {
       "id": 361,
-      "title": "Exploration: source maps for generated JS (stack traces/breakpoints map to .sw lines)",
-      "status": "review",
+      "title": "Source maps for generated JS: per-definition, opt-in build --js --source-map (D940-D945)",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5733,7 +5733,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "dd88db54",
+        "21d6bed6"
+      ]
     },
     {
       "id": 362,
