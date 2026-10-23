@@ -64,6 +64,14 @@ pub(crate) const REGISTRY: &[Spec] = &[
               `$tag`)",
     },
     Spec {
+        name: "js.enum",
+        targets: &[Target::DataType],
+        argument: "",
+        doc: "a type whose constructors have no fields crosses as a string union, each \
+              constructor as a string (its name, or its `js.name`), instead of as tagged \
+              objects",
+    },
+    Spec {
         name: "js.name",
         targets: &[Target::Ctor, Target::Field],
         argument: "NAME",
@@ -151,6 +159,10 @@ fn check<'a>(attrs: &'a [Attribute], place: Place) -> Result<Checked<'a>> {
                 Place::Record if spec.name == "js.tag" => (
                     "a record",
                     Some("a record crosses as an object without a tag"),
+                ),
+                Place::Record if spec.name == "js.enum" => (
+                    "a record",
+                    Some("a record has fields, and a string union has none"),
                 ),
                 Place::Record => ("a record type", None),
                 Place::Other(what) => (what, None),
@@ -345,6 +357,57 @@ impl Elaborator {
             }
             requested.tag_key = Some(key.to_string());
         }
+        if let Some((a, _)) = type_attrs.get("js.enum") {
+            if let Some((tag, _)) = type_attrs.get("js.tag") {
+                return Err(Diagnostic::error(
+                    "E-ATTRIBUTE",
+                    "`js.tag` means nothing with `js.enum`",
+                )
+                .with_label(tag.span, "a string union has no tag key")
+                .with_label(a.span, "crosses as a string")
+                .with_note(
+                    "remove `js.tag`: with `js.enum` a value is its string, not an object",
+                ));
+            }
+            if ctors.is_empty() {
+                return Err(Diagnostic::error(
+                    "E-ATTRIBUTE",
+                    format!(
+                        "`js.enum` can't be used on `{}`: it has no constructors",
+                        name.text
+                    ),
+                )
+                .with_label(a.span, "no strings to list")
+                .with_note("a type without constructors has no values to cross"));
+            }
+            for (c, ctor) in ctors.iter().enumerate() {
+                let core = &data.ctors[c];
+                let mut i = 0;
+                for binder in &ctor.fields {
+                    for n in &binder.names {
+                        if !core.field_erased.get(i).copied().unwrap_or(false) {
+                            return Err(Diagnostic::error(
+                                "E-ATTRIBUTE",
+                                format!(
+                                    "`js.enum` can't be used on `{}`: constructor `{}` has the \
+                                     field `{}`",
+                                    name.text, ctor.name.text, n.text
+                                ),
+                            )
+                            .with_label(n.span, "a field, so it has a property in JavaScript")
+                            .with_label(a.span, "every constructor must be without fields")
+                            .with_note(
+                                "a string union can't hold a field's value: remove `js.enum` to \
+                                 cross as tagged objects, or the field. A proof or a type \
+                                 field, which has no property, is allowed",
+                            ));
+                        }
+                        i += 1;
+                    }
+                }
+            }
+            requested.string_enum = true;
+        }
         // Where each core field is written: the binders' names in order.
         let mut sites: FieldSites = Vec::new();
         let option = g.registry.data(Builtin::Option);
@@ -353,7 +416,15 @@ impl Elaborator {
             let ctor_attrs = check(&ctor.attrs, Place::Target(Target::Ctor))?;
             let mut tag = None;
             if let Some((a, value)) = ctor_attrs.get("js.name") {
-                non_empty(a, value, "a constructor's tag")?;
+                non_empty(
+                    a,
+                    value,
+                    if requested.string_enum {
+                        "a constructor's string"
+                    } else {
+                        "a constructor's tag"
+                    },
+                )?;
                 tag = Some(value.to_string());
             }
             let mut keys = Vec::new();
@@ -497,5 +568,5 @@ fn clash_diagnostic(
     if let Some(other) = clash.other() {
         d = d.with_label(site(other), "and here");
     }
-    d.with_note(clash.note())
+    d.with_note(clash.note(repr))
 }

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.enum` can't be used on a constructor
+   ╭─[ reject/attribute-enum-on-constructor.sw:3:7 ]
+   │
+ 3 │   | @[js.enum] Important
+   │       ───┬───  
+   │          ╰───── on a constructor
+   │ 
+   │ Note: `js.enum` applies to a data type: a type whose constructors have no fields crosses as a string union, each constructor as a string (its name, or its `js.name`), instead of as tagged objects
+───╯

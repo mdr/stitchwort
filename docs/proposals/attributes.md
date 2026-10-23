@@ -32,6 +32,7 @@ re-checked). [Sources](#sources) lists the pages.
 11. [Decisions](#11-decisions)
 - [As built (stage 1)](#as-built-stage-1)
 - [As built (stage 2)](#as-built-stage-2)
+- [As built (stage 2b: string unions)](#as-built-stage-2b-string-unions)
 12. [Sources](#sources)
 
 ## Response to review (draft 2)
@@ -1115,6 +1116,49 @@ Built in a second lane on top of stage 1: mutable lists in declarations and `js.
 Acceptance test, `crates/cli/tests/extract.rs`: `generated_types_and_an_apps_types_are_mutually_assignable` writes an app's discriminated union by hand (`kind: "circle"` and so on, from `@[js.tag "kind"]` and `@[js.name]`, with `T[]` lists and `fill?: string`), checks both directions for a variant type and a record, calls `area`, `recolour` and `withCoupon` with the app's objects, passes a `readonly` array to a list parameter, and then shows the test can fail: with `readonly Point[]` in the declaration, and with `fill: string | undefined`, `tsc` refuses. Runtime test `optional_variant_fields_cross_as_missing_keys`: missing key, explicit `undefined`, value, encode omits the key (`Object.keys` has no `fill`), `js.name` on an optional field, `null` refused, inherited refused, read once, results are fresh mutable arrays. Example `examples/extract/app-types.sw` (Shape, Point, Order, Item) with `run:` lines; eight rejects, `examples/reject/attribute-optional-*.sw` (record, non-option, parameter-typed field, erased field, argument, data type, twice, constructor), each with a snapshot.
 
 Not done: `js.nullable` (still unbuilt, so `@[js.nullable]` is `E-ATTRIBUTE-UNKNOWN`); `js.name` on types and exports (stage 3).
+
+## As built (stage 2b: string unions)
+
+Built in a third lane (D711, decided by Matt). Motivation: an app's TypeScript has string enums (`enum Label { IMPORTANT = "IMPORTANT", SLIDE_TEXT = "SLIDE_TEXT" }`, in data `label: "SLIDE_TEXT"`). In Stitchwort they are data types whose constructors have no fields, which crossed as `{ $tag: "SlideText" }`, so the app's objects couldn't be passed in and its types weren't assignable with the generated ones.
+
+**The attribute: `@[js.enum]`**, on a data type, no argument; `@[js.name "…"]` on each constructor chooses its string (default: the constructor's name), the same attribute that chooses a tag value today. The registry's entry is `js.enum`, target `DataType`, so every rule of the closed registry applies: a second `js.enum`, an argument, and a use on a constructor, a field, a definition and the rest are the existing errors. Why `enum` rather than `string`: the programmer's word for this is "a string enum" (TypeScript's `enum`, serde's unit-variant enums, Java's); `js.string` reads as "this type is a string", which is how a newtype or a `Text` wrapper would be marked, and would collide with that meaning if one is ever added. `enum` also leaves room for `@[js.enum "number"]` (numeric enums) as an extension of the same attribute. The declaration is a string-literal union, not a TypeScript `enum`, so the name says what the Stitchwort type is (an enumeration), not what is printed.
+
+**Rules** (all `E-ATTRIBUTE` unless noted):
+
+| case | |
+|---|---|
+| a constructor with a field that has a property | error, naming the constructor and the field; fields with no property (a proof, a type) and the type's parameters don't count |
+| a record | error, via the existing "can't be used on a record type" path |
+| a type with no constructors | error: nothing to list |
+| together with `js.tag` | error: a string has no tag key |
+| two constructors with the same string (by name or by `js.name`) | `E-JS-NAME-CLASH`, the existing same-tag check with a message about strings |
+| `@[js.name ""]` | error, as for tag values |
+| a built-in boundary type (`Bool`, `Option`, …) | the existing "has a JavaScript form of its own" error (checked first, tested with a changed prelude) |
+| indexed families, parameters | allowed: `@[js.enum] type Fixed (a: Type) = One \| Two` is `Fixed<a> = "One" \| "Two"` (the parameter is unused, and TypeScript allows that). Whether such a type can be exported is the boundary's usual question |
+
+**Codec.** `JsRepr` gained `string_enum: bool` (from `Requested::string_enum`), and the constructors' `tag`s are the strings. In the generated module `define(info, ctors, false, [], true)` marks the type; the decoder treats it like a leaf: `typeof x === "string"` and a lookup in the table of strings (a `Map`, so `"__proto__"` and `"toString"` are just unlisted strings), else `expected "A" or "B", not <what>` (`describe` names a non-string by its type: `not bigint`, `not object`, `not undefined`), with the path (`t.priority`, `arg0.label`, `xs.b`). The encoder writes the constructor's string. A string union is not a frame, so nothing in the decoder's loop, depth handling or sharing changed. Snapshots: every `extract__*.js` moved by the runtime's added hunks (`define`'s fifth parameter and its flag, the decode branch, the encode branch); only `string-enums` has new `define` calls.
+
+**`.d.ts`.** `export type Label = "IMPORTANT" | "SLIDE_TEXT";` on one line (an object union keeps its line per variant). `Option Label` is `Label | undefined`, `f?: Label` in a record or with `js.optional`; a list is `Label[]`, a map `{ [k: string]: Label }`.
+
+**TypeScript enums against string unions** (scratchpad `enumexp/a.ts`, tsc 7.0.2, `--strict --exactOptionalPropertyTypes`, `enum Label { IMPORTANT = "IMPORTANT", SLIDE_TEXT = "SLIDE_TEXT" }` against `type Gen = "IMPORTANT" | "SLIDE_TEXT"`):
+
+| assignment | result |
+|---|---|
+| enum value to `Gen` | ok |
+| `Gen` to enum, a literal `"IMPORTANT"` to `Label.IMPORTANT` or to `Label` | `TS2322: Type '"IMPORTANT"' is not assignable to type 'Label'` |
+| `` `${Label}` `` to `Gen`, `Gen` to `` `${Label}` ``, enum to `` `${Label}` `` | ok (`` `${Label}` `` is the union of the member values) |
+| `` `${Label}` `` to the enum | `TS2322` too |
+| app record `{ label: Label; labels: Label[]; opt?: Label }` to the generated record with `Gen` fields | ok |
+| the generated record to the app's | `TS2375` (`Type 'Gen' is not assignable to type 'Label'`) |
+| `f(Label.IMPORTANT)` for `f(l: Gen): Gen` | ok; `const x: Label = f("IMPORTANT")` fails |
+
+So the two sets of types can be made mutually assignable only when the app's side is written with `` `${Label}` `` (or is a plain literal union); with a real `enum` the app-to-generated direction holds and the other cannot, in TypeScript's rules, whatever Stitchwort prints. What an app's type test must do: compare the generated types against types built with `` `${Label}` `` in place of the enum (or mapped types over it), or assert only the direction that holds and cast results (`toggle(x) as Label`). The test `an_apps_string_enums_meet_the_generated_unions` in `crates/cli/tests/extract.rs` runs exactly those checks: the good program (enum to generated, `` `${AppLabel}` `` both ways in a record, plain literal unions both ways, the app's values into functions, results into `` `${AppLabel}` `` or cast) passes, and four single statements each fail (`AppLabel = label`, `AppLabel = toggle(…)`, `AppTicket = ticket`, `AppLabel = "IMPORTANT"`), plus a wrong literal argument.
+
+**Cache.** The `js_repr` table writes the flag, so the check-cache `FORMAT` is **9** (old entries are misses). The metadata-only-edit acceptance test (`an_attributes_only_edit_in_an_imported_namespace_reaches_the_javascript`) now includes a `js.enum` type in the imported namespace and asserts the strings in the `.d.ts` for the fresh, cold and warm builds, before and after editing a `js.name`.
+
+**Tests.** `examples/extract/string-enums.sw` (Label, Priority, Colour, Fixed, Ticket, Message; `run:` lines; snapshots `extract__string-enums.{js,d.ts}`); runtime test `string_enums_cross_as_plain_strings` (arguments, results, a record's field, `Option`, lists, map values, a constructor's field with `js.optional`, refusals of unknown strings, other cases, non-strings, `{ $tag }` objects in both spellings, `Object.prototype` names, and paths in every position); `an_apps_string_enums_meet_the_generated_unions` (tsc); `examples/accept/string-enums.sw` (proof fields, an indexed type); eleven rejects `examples/reject/attribute-enum-*.sw` (record, field, `js.tag`, same string, same as another's name, empty string, no constructors, twice, argument, on a constructor, on a field), and a `js.enum` case in `built_in_boundary_types_take_no_attributes`. Hash snapshot: `hash_stability__extract-string-enums.snap`. The two `attribute-unknown*` snapshots moved (the registry's note lists the new name).
+
+Not done: numeric enums, and a mixed type (some bare constructors, some with fields) as a union of strings and objects; it stays an object union.
 
 ## Sources
 

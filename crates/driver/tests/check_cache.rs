@@ -779,12 +779,19 @@ fn attributed_project(key: &str) -> Vec<(&'static str, String)> {
                  type Shape =\n  \
                  | @[js.name \"DOT\"] Dot\n  \
                  | @[js.name \"CIRCLE\"] Circle (radius: Nat) (@[js.name \"{key}\"] centerX: Nat)\n\n\
-                 type Drawing = {{ @[js.name \"type\"] kind: Text, shapes: List Shape }}\n"
+                 type Drawing = {{ @[js.name \"type\"] kind: Text, shapes: List Shape }}\n\n\
+                 @[js.enum]\n\
+                 type Palette =\n  \
+                 | @[js.name \"{key}-red\"] Red\n  \
+                 | Green\n"
             ),
         ),
         (
             "src/App.sw",
-            "namespace App\n\nimport Shapes (Shape, Drawing)\n\n\
+            "namespace App\n\nimport Shapes (Shape, Drawing, Palette)\n\n\
+             export def next: Palette -> Palette\n  \
+             | Palette.Red => Palette.Green\n  \
+             | Palette.Green => Palette.Red\n\n\
              export def grow: Shape -> Shape\n  \
              | Shape.Dot => Shape.Dot\n  \
              | Shape.Circle r x => Shape.Circle (r + 1) x\n\n\
@@ -854,6 +861,14 @@ fn an_attributes_only_edit_in_an_imported_namespace_reaches_the_javascript() {
         "{}",
         fresh.dts
     );
+    // A string union's strings travel the same way (`js_repr`'s `string_enum`).
+    assert!(
+        fresh
+            .dts
+            .contains("export type Palette = \"center_x-red\" | \"Green\";"),
+        "{}",
+        fresh.dts
+    );
     let (cold, _, _) = build_app(&dir, Some(&cache));
     let (warm, warm_hashes, stats) = build_app(&dir, Some(&cache));
     assert!(
@@ -878,6 +893,13 @@ fn an_attributes_only_edit_in_an_imported_namespace_reaches_the_javascript() {
     );
     assert!(
         fresh_edited.dts.contains("readonly cx: bigint") && !fresh_edited.dts.contains("center_x"),
+        "{}",
+        fresh_edited.dts
+    );
+    assert!(
+        fresh_edited
+            .dts
+            .contains("export type Palette = \"cx-red\" | \"Green\";"),
         "{}",
         fresh_edited.dts
     );

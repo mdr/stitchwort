@@ -92,7 +92,7 @@ const datatype = (name, tagKey = "$tag") => ({
 // object saying whether the proof holds. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = []) => {
+const define = (info, ctors, record = false, checks = [], strings = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -103,6 +103,9 @@ const define = (info, ctors, record = false, checks = []) => {
   }));
   if (record) info.record = entries[0].fields;
   info.checks = checks;
+  // A string union (`js.enum`): a value is one constructor's string at the
+  // boundary, in place of an object.
+  info.strings = strings;
   for (const entry of entries) {
     info.ctors.set(entry.external, entry);
     info.internal.set(entry.tag, entry);
@@ -385,6 +388,11 @@ const decode = (t, x, root) => {
         // `None`.
       } else if (t.kind === LEAF) {
         value = t.dec(x);
+      } else if (t.kind === DATA && t.info.strings) {
+        // A string union: exactly one of the constructors' strings.
+        const ctor = typeof x === "string" ? t.info.ctors.get(x) : undefined;
+        if (ctor === undefined) refuse(`expected ${t.info.tags}, not ${describe(x)}`);
+        value = { tag: ctor.tag };
       } else {
         if (t.kind === LIST) {
           if (!Array.isArray(x)) refuse("expected an array");
@@ -517,6 +525,8 @@ const encode = (t, v) => {
       // `None`.
     } else if (t.kind === LEAF) {
       value = t.enc(v);
+    } else if (t.kind === DATA && t.info.strings) {
+      value = t.info.internal.get(v.tag).external;
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
     } else if (t.kind === MAP) {

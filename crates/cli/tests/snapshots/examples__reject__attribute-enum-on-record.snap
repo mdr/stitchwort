@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.enum` can't be used on a record
+   ╭─[ reject/attribute-enum-on-record.sw:2:3 ]
+   │
+ 2 │ @[js.enum]
+   │   ───┬───  
+   │      ╰───── on a record
+   │ 
+   │ Note 1: a record has fields, and a string union has none
+   │ 
+   │ Note 2: `js.enum` applies to a data type: a type whose constructors have no fields crosses as a string union, each constructor as a string (its name, or its `js.name`), instead of as tagged objects
+───╯

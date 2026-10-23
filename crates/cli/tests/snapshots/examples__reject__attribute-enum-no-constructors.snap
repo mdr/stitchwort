@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.enum` can't be used on `Never`: it has no constructors
+   ╭─[ reject/attribute-enum-no-constructors.sw:2:3 ]
+   │
+ 2 │ @[js.enum]
+   │   ───┬───  
+   │      ╰───── no strings to list
+   │ 
+   │ Note: a type without constructors has no values to cross
+───╯

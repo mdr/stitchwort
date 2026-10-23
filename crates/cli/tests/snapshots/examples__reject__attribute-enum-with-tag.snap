@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.tag` means nothing with `js.enum`
+   ╭─[ reject/attribute-enum-with-tag.sw:2:12 ]
+   │
+ 2 │ @[js.enum, js.tag "kind"]
+   │   ───┬───  ──────┬──────  
+   │      ╰──────────────────── crosses as a string
+   │                  │        
+   │                  ╰──────── a string union has no tag key
+   │ 
+   │ Note: remove `js.tag`: with `js.enum` a value is its string, not an object
+───╯

@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.enum` can't be used on `Shape`: constructor `Circle` has the field `radius`
+   ╭─[ reject/attribute-enum-with-field.sw:5:13 ]
+   │
+ 2 │ @[js.enum]
+   │   ───┬───  
+   │      ╰───── every constructor must be without fields
+   │ 
+ 5 │   | Circle (radius: Nat)
+   │             ───┬──  
+   │                ╰──── a field, so it has a property in JavaScript
+   │ 
+   │ Note: a string union can't hold a field's value: remove `js.enum` to cross as tagged objects, or the field. A proof or a type field, which has no property, is allowed
+───╯
