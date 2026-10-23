@@ -5638,7 +5638,7 @@
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
       "status": "review",
       "agent": "Opus",
-      "where": "worktree lane",
+      "where": "draft 1 (canonical list + swap-in) rejected by Matt; SOTA design report on map equality running (map-equality.md), then external review",
       "labels": [
         "design",
         "std"
@@ -5653,7 +5653,7 @@
     {
       "id": 357,
       "title": "Attribute: field-less variants cross as string unions (app string enums) (D711)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5662,7 +5662,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "c3e3b641"
+      ]
     },
     {
       "id": 358,
