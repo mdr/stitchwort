@@ -5638,7 +5638,7 @@
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
       "status": "doing",
       "agent": "Opus",
-      "where": "D771 stage 0 lane (Equiv, toList lemmas, invariant audit, recursive check) + D786 draft 2 lane (kernel spec, computation contract)",
+      "where": "draft 2 merged; stage 0 merged (sized invariant, Spec lemmas) — fixing 1 extract failure on main; pending D871 round-2 review",
       "labels": [
         "design",
         "std"
