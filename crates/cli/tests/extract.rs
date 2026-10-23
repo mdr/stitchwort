@@ -3190,7 +3190,7 @@ fn text_maps_cross_the_boundary_as_objects() {
         .expect("extraction succeeds")
         .dts;
     for declaration in [
-        "export type Roster = { readonly title: string; readonly people: { readonly [k: string]: Person } };",
+        "export type Roster = { readonly title: string; readonly people: { [k: string]: Person } };",
         "export declare function total(scores: { readonly [k: string]: bigint }): bigint;",
         "export declare function bump(scores: { readonly [k: string]: bigint }, who: string): { [k: string]: bigint };",
         "export declare function ages(people: { readonly [k: string]: Person }): { [k: string]: bigint };",
@@ -3234,6 +3234,13 @@ const c: Record<string, bigint> = m.ages(people);
 m.total(a);
 m.total(b);
 m.total(c);
+// A declaration's dictionary is mutable, like its lists: an app's own record
+// holding a `Record<Id, V>` is assignable both ways.
+type AppRoster = { title: string; people: Record<SpeakerId, { name: string; age: bigint }> };
+declare const roster: m.Roster;
+declare const appRoster: AppRoster;
+export const r1: AppRoster = roster;
+export const r2: m.Roster = appRoster;
 "#;
     let dir = std::env::temp_dir().join(format!("stitchwort-dictionary-ts-{}", std::process::id()));
     std::fs::create_dir_all(&dir).expect("create temp dir");
