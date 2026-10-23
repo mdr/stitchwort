@@ -4,6 +4,7 @@
 
 namespace Aoc.Day03.Proofs
 import Aoc.Day03 (..)
+import Aoc.Day03.Spec (..)
 import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 
 -- Four facts about `best k bank` (plain-words summary in docs/aoc-2025.md):
@@ -196,10 +197,6 @@ theorem bestOptimalStep (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank
   let enough: k <= rest.length := omega [List.subsequenceLength (Cons y s) (Cons d rest) h]
   pickBest k ih (rest.length - k) rest d rest omega enough (t g => g) y s hk
     (Or.andWith omega h)
-
--- `on` is k of the bank's batteries, turned on in the bank's order.
-def TurnsOn (k: Nat) (bank: Bank) (on: List Battery): Prop :=
-  on.Subsequence bank && on.length = k
 
 -- 4. Whichever k batteries you turn on, they produce no more than maxJoltage.
 theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)

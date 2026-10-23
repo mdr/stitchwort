@@ -19,7 +19,7 @@
 -- left neighbour in it, and shifted left (`shiftLeft`) its right one.
 --
 -- Both answers are proved right for every manifold in `Aoc.Day07.Proofs`
--- (Proofs/Spec.sw states the puzzle over the manifold, with the timelines
+-- (Spec/Spec.sw states the puzzle over the manifold, with the timelines
 -- as explicit lists of the splitters they pass; Proofs/Part1.sw and
 -- Proofs/Part2.sw), and the
 -- tests are in `Aoc.Day07.Tests` (Tests/); `run` checks neither.

@@ -15,7 +15,7 @@
 -- its neighbours' (`peelRow`).
 --
 -- Both parts are proved right for every grid in `Aoc.Day04.Proofs`
--- (Proofs/Spec.sw states the puzzle by positions; Proofs/Part1.sw and
+-- (Spec/Spec.sw states the puzzle by positions; Proofs/Part1.sw and
 -- Proofs/Part2.sw; the parser in Proofs/Parse.sw), and the tests are in
 -- `Aoc.Day04.Tests` (Tests/); `run` checks neither.
 

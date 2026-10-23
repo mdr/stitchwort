@@ -1,6 +1,6 @@
 -- Day 8, part 1, proved for every list of boxes and every number of
 -- connections (`part1Correct`, at the bottom): the program's answer is the
--- product of the three largest circuits of Proofs/Spec.sw. The argument:
+-- product of the three largest circuits of Spec/Spec.sw. The argument:
 --   1. The program's sorted pairs are the spec's connection order, each
 --      with its key (`closestFirstIsOrder`): numbering the boxes and taking
 --      every pair is `allPairs`, and sorting the keyed pairs is sorting the
@@ -13,6 +13,7 @@
 
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
+import Aoc.Day08.Spec (..)
 import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 
 -- The program's order is the spec's ----------------------------------------

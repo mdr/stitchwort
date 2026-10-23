@@ -5,7 +5,8 @@
 
 namespace Aoc.Day06.Proofs
 import Aoc.Day06 (..)
-import Std (List, Nat, Text)
+import Aoc.Day06.Spec (..)
+import Std (Char, List, Nat, Text)
 
 -- Every column has a cell for every line, whatever the input.
 theorem columnsRectangular (lines: List Text) (c: Nat) (h: c < gridWidth lines):
@@ -27,3 +28,17 @@ theorem blocksAreRuns (lines: List Text): List.Groups isBlank (blocks lines) :=
 theorem blocksKeepEveryColumn (lines: List Text):
     List.concat (blocks lines) = ((lines.map Text.toList).transposeFill ' ').filter (column => not (isBlank column)) :=
   List.splitByConcat isBlank ((lines.map Text.toList).transposeFill ' ')
+
+-- Why `readNumber` is the right reading: a number written in decimal, with
+-- any spaces before and after it (its alignment in the problem), reads back
+-- as itself.
+theorem spacesNoDigits: (k: Nat) -> List.filterMap Char.digitValue (List.replicate k ' ') = Nil
+  | Zero => rfl
+  | Succ k => spacesNoDigits k
+
+theorem readNumberWritten (n: Nat) (before: Nat) (after: Nat):
+    readNumber (List.append (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' '))) = n :=
+  rewrite List.filterMapAppend Char.digitValue (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')),
+    List.filterMapAppend Char.digitValue (Text.toList (Nat.toText n)) (List.replicate after ' '),
+    spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n, List.appendNil (Nat.digits n) in
+      Nat.fromDigitsDigits n

@@ -1,5 +1,5 @@
 -- Day 4, part 1 proved for every grid: the printed answer is the number of
--- accessible rolls as Proofs/Spec.sw states it (`part1Correct`, at the
+-- accessible rolls as Spec/Spec.sw states it (`part1Correct`, at the
 -- bottom). The argument: a round leaves each cell as `keep cell window`
 -- (`cellRound`, Proofs/Window.sw), where the window is the 3 by 3 block
 -- around it; the window is the spec's neighbours plus the cell itself
@@ -8,6 +8,7 @@
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
+import Aoc.Day04.Spec (..)
 import Std (Bool, Eq, List, Nat, Vec)
 
 -- The rolls of a row, and of all the rows, cell by cell.
