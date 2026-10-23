@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `pair`
+   ╭─[ goals/two-holes.sw:2:36 ]
+   │
+ 2 │ def pair (n: Nat): (Nat, Text) := (?, ?)
+   │                                    ┬  
+   │                                    ╰── n: Nat
+   │                                        ⊢ Nat
+───╯
+[GOAL] Goal: in `pair`
+   ╭─[ goals/two-holes.sw:2:39 ]
+   │
+ 2 │ def pair (n: Nat): (Nat, Text) := (?, ?)
+   │                                       ┬  
+   │                                       ╰── n: Nat
+   │                                           ⊢ Text
+───╯

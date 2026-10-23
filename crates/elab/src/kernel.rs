@@ -1,9 +1,12 @@
 //! The kernel's checking API, as the elaborator uses it. Everything is
 //! re-exported unchanged except the declare and define calls, which are
 //! timed for `STITCHWORT_TIMINGS` (`timings.rs`). The kernel crate itself
-//! has no timing code.
+//! has no timing code. A definition refused only because it uses
+//! unfinished declarations (an open goal, `?`) is reported as unfinished,
+//! not as an error (`goals.rs`); the kernel's verdict is unchanged.
 
 use stitchwort_core::check as k;
+use stitchwort_core::globals::HashKey;
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -33,10 +36,14 @@ pub fn without_glue<T>(g: &Globals, f: impl FnOnce() -> T) -> T {
 
 pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
     unglued(g, |g| k::define_def(g, id, body))
+        .map_err(|d| crate::goals::unfinished_dependency(g, [body], &[HashKey::Def(id)], d))
 }
 
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    unglued(g, |g| k::define_group(g, members))
+    unglued(g, |g| k::define_group(g, members)).map_err(|d| {
+        let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
+        crate::goals::unfinished_dependency(g, members.iter().map(|(_, t)| t), &own, d)
+    })
 }
 
 pub fn declare_def(
@@ -48,6 +55,7 @@ pub fn declare_def(
     span: Span,
 ) -> Result<DefId> {
     unglued(g, |g| k::declare_def(g, name, ty, theorem, export, span))
+        .map_err(|d| crate::goals::unfinished_dependency(g, [ty], &[], d))
 }
 
 #[allow(dead_code)]

@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `average`
+   ╭─[ goals/let-values.sw:7:3 ]
+   │
+ 7 │   ?
+   │   ┬  
+   │   ╰── xs: List Nat
+   │       total: Nat := List.foldLeft Nat.add 0 xs
+   │       count: Nat := List.length xs
+   │       ⊢ Nat
+───╯

@@ -12,6 +12,8 @@
 //! - pending auto obligations and defaulted-literal records (`Elaborator`);
 //! - with code navigation on, the local variables' types noted for printing
 //!   (`nav.rs`), which may mention the metavariables dropped;
+//! - the open goals noted (`goals.rs`), and the `_`s noted as proofs, for
+//!   the same reason;
 //! - the local context and the current span.
 //!
 //! Warnings aren't part of it: only declaration-level code adds them (it
@@ -36,6 +38,7 @@ pub(crate) struct Snapshot {
     drafts: usize,
     local_keys: usize,
     local_types: usize,
+    goals: usize,
 }
 
 impl Snapshot {
@@ -51,6 +54,7 @@ impl Snapshot {
             drafts: cx.e.drafts.borrow().len(),
             local_keys: cx.e.local_keys.borrow().len(),
             local_types: cx.e.pending_local_types(),
+            goals: cx.e.pending_goals(),
         }
     }
 
@@ -92,12 +96,14 @@ impl Snapshot {
                 .borrow_mut()
                 .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
             cx.e.local_metas.borrow_mut().retain(|m, _| *m < self.metas);
+            cx.e.proof_holes.borrow_mut().retain(|m| *m < self.metas);
         }
         cx.e.obligations.borrow_mut().truncate(self.obligations);
         cx.e.defaulted.borrow_mut().truncate(self.defaulted);
         cx.e.drafts.borrow_mut().truncate(self.drafts);
         cx.e.local_keys.borrow_mut().truncate(self.local_keys);
         cx.e.drop_local_types_since(self.local_types);
+        cx.e.drop_goals_since(self.goals);
         cx.reset(self.mark);
         cx.span = self.span;
     }

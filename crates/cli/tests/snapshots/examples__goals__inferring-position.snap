@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `unknown`
+   ╭─[ goals/inferring-position.sw:3:12 ]
+   │
+ 3 │   let x := ?
+   │            ┬  
+   │            ╰── n: Nat
+   │                ⊢ (the type here isn't known yet)
+───╯

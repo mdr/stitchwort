@@ -2661,6 +2661,7 @@ impl<'t> Parser<'t> {
                     | Tok::LBracket
                     | Tok::LBrace
                     | Tok::Underscore
+                    | Tok::Question
             )
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
     }
@@ -2947,6 +2948,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Expr::Hole(span))
             }
+            Some(Tok::Question) => {
+                self.bump();
+                Ok(Expr::Goal(span))
+            }
             Some(Tok::TypeU) => {
                 self.bump();
                 if let Some(Tok::Num(n)) = self.peek() {
@@ -3115,6 +3120,7 @@ fn describe(tok: &Tok) -> String {
         Tok::Plus => "`+`".into(),
         Tok::PlusPlus => "`++`".into(),
         Tok::Underscore => "`_`".into(),
+        Tok::Question => "`?`".into(),
         Tok::Minus => "`-`".into(),
         Tok::Star => "`*`".into(),
         Tok::Slash => "`/`".into(),

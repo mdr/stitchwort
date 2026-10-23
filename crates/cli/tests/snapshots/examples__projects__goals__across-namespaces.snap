@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `addZero`
+   ╭─[ across-namespaces/src/lemmas.sw:4:40 ]
+   │
+ 4 │ theorem addZero (n: Nat): n + 0 = n := ?
+   │                                        ┬  
+   │                                        ╰── n: Nat
+   │                                            ⊢ n + 0 = n
+───╯

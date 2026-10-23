@@ -112,6 +112,9 @@ pub enum Tok {
     /// `=>`, in a handler clause: `get () => k -> …`.
     FatArrow,
     Underscore,
+    /// `?`: an open goal, a part of a proof or program still to write
+    /// (docs/proposals/lsp-goal-holes.md).
+    Question,
     /// `.`, in field access: `p.name`.
     Dot,
     /// `..`, the rest of a record pattern: `{ name, .. }`.
@@ -583,6 +586,7 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
                 }
                 b'>' => Tok::Gt,
                 b'!' => Tok::Bang,
+                b'?' => Tok::Question,
                 // `@[` opens attributes; the `[` is its own token, so every
                 // count of brackets counts it.
                 b'@' if bytes.get(i) == Some(&b'[') => Tok::At,

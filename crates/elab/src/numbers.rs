@@ -1207,6 +1207,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             | Expr::Type(..)
             | Expr::Prop(_)
             | Expr::Hole(_)
+            | Expr::Goal(_)
             | Expr::Unit(_) => {}
             Expr::App(a, b)
             | Expr::Arrow(a, b)

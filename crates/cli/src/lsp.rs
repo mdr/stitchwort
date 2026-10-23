@@ -1301,6 +1301,7 @@ fn diagnostic(
         severity: Some(match d.severity {
             Severity::Error => DiagnosticSeverity::ERROR,
             Severity::Warning => DiagnosticSeverity::WARNING,
+            Severity::Goal => DiagnosticSeverity::INFORMATION,
         }),
         code: Some(NumberOrString::String(d.code.to_string())),
         code_description: None,

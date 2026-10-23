@@ -78,7 +78,7 @@ pub(crate) fn applies(cx: &Ctx, expr: &Expr, goal: &Value) -> Result<bool> {
 
 /// Whether `ty` is evidently a proposition: an equation, a data type in
 /// `Prop`, or a function into one.
-fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
+pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, ty.clone())? {
         Value::Eq(..) => true,

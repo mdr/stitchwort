@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in test "double"
+   ╭─[ goals/test-hole.sw:4:30 ]
+   │
+ 4 │ test "double" := double 2 == ?
+   │                              ┬  
+   │                              ╰── ⊢ Nat
+───╯

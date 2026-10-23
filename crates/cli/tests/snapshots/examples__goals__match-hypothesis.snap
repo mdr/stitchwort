@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `describe`
+   ╭─[ goals/match-hypothesis.sw:5:15 ]
+   │
+ 5 │   | Succ k => ?
+   │               ┬  
+   │               ╰── xs: List Nat
+   │                   h: List.length xs = Succ k
+   │                   k: Nat
+   │                   ⊢ Text
+───╯

@@ -4,6 +4,10 @@ use crate::Span;
 pub enum Severity {
     Error,
     Warning,
+    /// An open goal, `?`: what must go there, and the names in scope. Not
+    /// an error, but a declaration with one is unfinished, so `check` still
+    /// fails (docs/proposals/lsp-goal-holes.md).
+    Goal,
 }
 
 /// A message attached to a span of source code.
@@ -34,6 +38,10 @@ impl Diagnostic {
 
     pub fn warning(code: &'static str, message: impl Into<String>) -> Self {
         Self::new(Severity::Warning, code, message)
+    }
+
+    pub fn goal(message: impl Into<String>) -> Self {
+        Self::new(Severity::Goal, "GOAL", message)
     }
 
     fn new(severity: Severity, code: &'static str, message: impl Into<String>) -> Self {

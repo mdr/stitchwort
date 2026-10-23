@@ -876,7 +876,10 @@ impl Elaborator {
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;
         lib.order.push(f);
-        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error);
+        // A library file with an open goal (`?`) doesn't check either.
+        let ok = !diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, Severity::Error | Severity::Goal));
         if let (Some(before), Some((unit, key))) = (before, &cached) {
             self.cache_after(f, before, ok, unit, key);
         }
