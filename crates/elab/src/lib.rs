@@ -592,7 +592,7 @@ fn escape_char(c: char) -> String {
     }
 }
 
-fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
+pub(crate) fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
     let mut shown: Vec<String> = keys.take(5).collect();
     match (count, shown.pop()) {
         (n, Some(last)) if n <= 5 && !shown.is_empty() => {
