@@ -5635,10 +5635,10 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients (map-equality.md draft 3) — stage 1.1-1.2 merged; next 1.3 erasure/runtimes",
+      "title": "Map/Set equality: kernel quotients (map-equality.md draft 3) — 1.1-1.2 merged; 1.3 (Opus) and 1.5 (Sonnet) running",
       "status": "doing",
       "agent": "Opus",
-      "where": "draft 3 lane (D920); stage 0 merged (sized invariant, Spec lemmas); next: stage 1 kernel quotients",
+      "where": "worktree lanes 1.3 + 1.5",
       "labels": [
         "design",
         "std"
