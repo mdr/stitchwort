@@ -550,15 +550,15 @@ its data. It's weaker in three ways:
    this way; it needs a hand-written conversion on each side of the boundary,
    which defeats the codecs.
 2. **The type no longer says "one of three things".** `Shape` is now a
-   record whose last field varies, so a function about slides takes an
-   `Shape` and matches `kind`, and anything with "a slide's fields" has
+   record whose last field varies, so a function about circles takes an
+   `Shape` and matches `kind`, and anything with "a circle's fields" has
    to be written as the record plus a proof about `kind`.
 3. **Shared fields can't depend on the kind**, and the shared/own split is
    fixed in the type: moving a field from "every kind" to "some kinds" means
    restructuring every use.
 
 The other route already planned, **a constructor wrapping a record**
-(`| Circle SlideData`, flattened in JS per the records note's decisions)
+(`| Circle CircleData`, flattened in JS per the records note's decisions)
 **[checked]**, keeps JS flat, but each record repeats the shared fields, so
 `a.id` still needs a hand-written getter. It combines well with this
 proposal: if every wrapped record has `id`, see D593's one-field rule
@@ -724,7 +724,7 @@ covers the need, and it can be added later without changing anything else.
   large libraries a few more definitions to check and hash. Small.
 - **Not proposed** and possibly asked for later: named construction
   (`Circle { ref = 1, … }`, 4.1), shared fields through a wrapped record
-  (`| Circle SlideData`), updates on indexed families, generated update
+  (`| Circle CircleData`), updates on indexed families, generated update
   lemmas, and the `.d.ts` base type.
 
 ## 13. What I couldn't verify
