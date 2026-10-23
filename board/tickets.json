@@ -5363,7 +5363,7 @@
     {
       "id": 340,
       "title": "Design note: named-field constructor patterns, shared-field access and update on variants (D587)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "draft 2 lane (D602): fold external review; D593(b) D594(a) D595(b)",
       "labels": [
@@ -5374,13 +5374,15 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
-        "06a11c38"
+        "06a11c38",
+        "08f0ffb2",
+        "54f0b07d"
       ]
     },
     {
       "id": 341,
       "title": "Design note: attribute syntax @[...] (closed, namespaced; hashing rule) with first uses js.tag / js.name / js.nullable; for external review (D590)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "draft 2 lane (D611): fold external review",
       "labels": [
@@ -5392,13 +5394,14 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
-        "35718b98"
+        "35718b98",
+        "58c0cae0"
       ]
     },
     {
       "id": 342,
       "title": "Test failure diagnostics: show useful detail when a test fails, especially equality (both sides) wherever it appears (let blocks, && chains, comparisons) (D601)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5408,7 +5411,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "9fa5f922"
+      ]
     },
     {
       "id": 343,
@@ -5429,7 +5434,7 @@
     {
       "id": 344,
       "title": "Std: DecEq and Ord for SafeNat/SafeInt (records with SafeNat fields can't derive ==)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5438,7 +5443,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "84d8526e"
+      ]
     }
   ]
 }
