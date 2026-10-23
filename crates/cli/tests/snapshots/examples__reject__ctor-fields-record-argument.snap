@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `W` has no field `name`
+    ╭─[ reject/ctor-fields-record-argument.sw:11:9 ]
+    │
+ 11 │   | W { name, .. } => name
+    │         ──┬─  
+    │           ╰─── `W` has no field `name`
+    │ 
+    │ Note 1: `W`'s fields are `person`
+    │ 
+    │ Note 2: braces right after a constructor name its own fields; to match the `Person` it holds, write `W ({ … })`
+────╯

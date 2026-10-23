@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: this pattern doesn't match `Circle`'s field `ref`
+   ╭─[ reject/ctor-fields-missing-field.sw:9:5 ]
+   │
+ 9 │   | Circle { id, text } => id
+   │     ─────────┬─────────  
+   │              ╰─────────── this pattern doesn't match `Circle`'s field `ref`
+   │ 
+   │ Note: add it, or end the pattern with `..` to ignore the other fields
+───╯

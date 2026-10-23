@@ -461,7 +461,9 @@ pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
                 walk(a, out);
                 walk(b, out);
             }
-            Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| walk(p, out)),
+            Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
+                fields.iter().for_each(|(_, p)| walk(p, out))
+            }
             Pattern::Named(_, p, _) => walk(p, out),
             Pattern::Wildcard(_)
             | Pattern::Absurd(_)
@@ -2439,7 +2441,9 @@ impl Elaborator {
             // A column of `Int`s is split by sign first (see `pattern_ctor`).
             if matches!(**pattern, Pattern::Num(..))
                 && !self.numbers_as_succ
-                && !rows.iter().any(|r| matches!(*r.pats[j], Pattern::Ctor(..)))
+                && !rows
+                    .iter()
+                    .any(|r| matches!(*r.pats[j], Pattern::Ctor(..) | Pattern::CtorFields { .. }))
                 && self.number_kind(types[j].as_ref())? != NumberKind::Int
             {
                 return self.compile_numbers(rows, depth, columns, types, j, span);
@@ -2757,6 +2761,33 @@ impl Elaborator {
                     }
                 }
             })),
+            // `C { f = p, .. }`: `C`'s explicit fields by name, `_` for
+            // those left out (docs/proposals/variant-fields.md §4).
+            Pattern::CtorFields {
+                ctor: name,
+                fields,
+                rest,
+                span,
+            } => {
+                let (data, ctor) = self.ctor_named(&name.text, name.span)?;
+                Ok(Some(match pattern {
+                    Cow::Borrowed(Pattern::CtorFields { fields, .. }) => {
+                        self.ctor_fields_pattern(data, ctor, name, fields, *rest, *span, ty)?
+                    }
+                    _ => {
+                        let found =
+                            self.ctor_fields_pattern(data, ctor, name, fields, *rest, *span, ty)?;
+                        CtorPattern {
+                            args: found
+                                .args
+                                .into_iter()
+                                .map(|a| Cow::Owned(a.into_owned()))
+                                .collect(),
+                            ..found
+                        }
+                    }
+                }))
+            }
             Pattern::Tuple(p, q, span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::MkPair, *span)?;
                 let args = match pattern {

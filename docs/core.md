@@ -409,7 +409,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 |---|---|
 | `E-PARSE` | Syntax error |
 | `E-UNKNOWN-NAME` | Name not in scope |
-| `E-UNKNOWN-FIELD` / `E-RECORD-FIELD` / `E-NOT-A-RECORD` / `E-RECORD-UPDATE` | A record has no such field; a literal or pattern leaves a field out or gives one twice; a record operation on something that isn't a record; an update that replaces a field without the later fields whose types mention it |
+| `E-UNKNOWN-FIELD` / `E-RECORD-FIELD` / `E-NOT-A-RECORD` / `E-RECORD-UPDATE` | A record, or a constructor in a named-field pattern `C { … }`, has no such (explicit) field; a literal or pattern leaves a field out or gives one twice; a record operation on something that isn't a record; an update that replaces a field without the later fields whose types mention it |
 | `E-DUPLICATE` | Name defined twice, or a built-in name redefined |
 | `E-MISSING-DEFINITION` | A `def` header with no body (only the prelude's primitives may) |
 | `E-ARITY` | Wrong number of patterns or arguments |
@@ -437,6 +437,7 @@ Only definitions reachable from the exports (and their checks) are emitted, in t
 | `E-IMPLICIT-FIELD` | An automatic implicit field of a constructor whose type would mention a written field: write it out, after that field |
 | `E-RECORD-INDICES` | A record declared with indices |
 | `W-UNREACHABLE` | A warning: an equation whose constructor can never match the indices there; it's dropped unchecked |
+| `W-RECORD-ARGUMENT` | A warning: `C { f = … }` on a one-field constructor whose field holds a record that has a field `f` too names `C`'s own field; `C ({ … })` matches the record's |
 | `E-UNSUPPORTED` | Not implemented yet |
 | `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |
 | `E-HANDLER` | A handler without a `return` clause or a clause for every operation |

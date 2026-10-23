@@ -22,14 +22,16 @@ def nameOf: Person -> Text
 -- A field is read with `.`, which binds tighter than application.
 def older (p: Person) (q: Person): Bool := Nat.leq q.age p.age
 
--- Records nest, and patterns nest inside other patterns.
+-- Records nest, and patterns nest inside other patterns. A record pattern
+-- as a constructor's argument is in brackets: braces right after a
+-- constructor name its own fields (ctor-field-patterns.sw).
 type Team = { lead: Person, size: Nat }
 
 def leadName (t: Team): Text := t.lead.name
 
 def firstLead: List Team -> Text
-  | Nil                                   => "nobody"
-  | Cons { lead = { name, .. }, .. } rest => name
+  | Nil                                     => "nobody"
+  | Cons ({ lead = { name, .. }, .. }) rest => name
 
 -- Parameters and dependent fields, as for data types: `ok` mentions the
 -- earlier fields.

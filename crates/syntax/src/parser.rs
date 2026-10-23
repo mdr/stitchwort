@@ -238,6 +238,22 @@ fn unqualified(name: Name) -> Result<Name> {
     Ok(name)
 }
 
+/// A constructor pattern, its span widened to `span` (its brackets).
+fn with_span(p: Pattern, span: Span) -> Pattern {
+    match p {
+        Pattern::Ctor(name, args, _) => Pattern::Ctor(name, args, span),
+        Pattern::CtorFields {
+            ctor, fields, rest, ..
+        } => Pattern::CtorFields {
+            ctor,
+            fields,
+            rest,
+            span,
+        },
+        other => other,
+    }
+}
+
 /// Whether a pattern contains the absurd pattern `()`, so its equation or
 /// arm needs no right-hand side.
 fn has_absurd(p: &Pattern) -> bool {
@@ -247,6 +263,7 @@ fn has_absurd(p: &Pattern) -> bool {
         Pattern::Tuple(a, b, _) => has_absurd(a) || has_absurd(b),
         Pattern::Cons(a, b, _) => has_absurd(a) || has_absurd(b),
         Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
+        Pattern::CtorFields { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
         _ => false,
     }
 }
@@ -633,11 +650,9 @@ impl<'t> Parser<'t> {
         if let Some(Tok::Upper(_)) = self.peek() {
             let start = self.here();
             let name = self.upper_q("a constructor")?;
-            let mut args = Vec::new();
-            while !matches!(self.peek(), Some(Tok::Comma | Tok::RBracket) | None) {
-                args.push(self.pattern()?);
-            }
-            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+            return self.ctor_args(name, start, |t| {
+                matches!(t, Some(Tok::Comma | Tok::RBracket) | None)
+            });
         }
         self.tuple_component()
     }
@@ -650,11 +665,9 @@ impl<'t> Parser<'t> {
             // `(Some x, Some y)`.
             let start = self.here();
             let name = self.upper_q("a constructor")?;
-            let mut args = Vec::new();
-            while !matches!(self.peek(), Some(Tok::Comma | Tok::RParen) | None) {
-                args.push(self.pattern()?);
-            }
-            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+            return self.ctor_args(name, start, |t| {
+                matches!(t, Some(Tok::Comma | Tok::RParen) | None)
+            });
         }
         if self.peek() != Some(&Tok::Minus) {
             return self.pattern();
@@ -931,17 +944,15 @@ impl<'t> Parser<'t> {
                 self.bump();
                 let pattern = if let Some(Tok::Upper(_)) = self.peek() {
                     let name = self.upper_q("a constructor")?;
-                    let mut args = Vec::new();
-                    while !matches!(self.peek(), Some(Tok::RParen | Tok::Comma) | None) {
-                        args.push(self.pattern()?);
-                    }
+                    let first = self.ctor_args(name, span, |t| {
+                        matches!(t, Some(Tok::RParen | Tok::Comma) | None)
+                    })?;
                     if self.peek() == Some(&Tok::Comma) {
                         // `(Some a, b)`: a constructor as a tuple's first component.
-                        let first = Pattern::Ctor(name, args, span.to(self.prev_span()));
                         return self.tuple_pattern(first, span);
                     }
                     let end = self.expect(Tok::RParen, "`)`")?.span;
-                    Pattern::Ctor(name, args, span.to(end))
+                    with_span(first, span.to(end))
                 } else {
                     let inner = self.pattern()?;
                     if self.peek() == Some(&Tok::Comma) {
@@ -954,6 +965,63 @@ impl<'t> Parser<'t> {
             }
             _ => Err(self.unexpected("a pattern or `=`")),
         }
+    }
+
+    /// Constructor `name`'s arguments, from here to a token `stop` accepts:
+    /// positional patterns, or braces naming its fields, `C { f = p, g, .. }`
+    /// (docs/proposals/variant-fields.md §4). Braces right after a
+    /// constructor always name its fields and take no further arguments; a
+    /// record pattern as a positional argument is written in brackets,
+    /// `C ({ … })`.
+    fn ctor_args(
+        &mut self,
+        name: Name,
+        start: Span,
+        stop: fn(Option<&Tok>) -> bool,
+    ) -> Result<Pattern> {
+        if self.peek() == Some(&Tok::LBrace) {
+            let Pattern::Record { fields, rest, .. } = self.record_pattern()? else {
+                unreachable!("a record pattern");
+            };
+            let span = start.to(self.prev_span());
+            if !stop(self.peek()) {
+                return Err(error(
+                    self.here(),
+                    format!(
+                        "braces after `{}` name its fields, and take no further arguments",
+                        name.text
+                    ),
+                )
+                .with_note(format!(
+                    "to match a record as `{0}`'s first argument, write it in brackets: \
+                     `{0} ({{ … }}) …`",
+                    name.text
+                )));
+            }
+            return Ok(Pattern::CtorFields {
+                ctor: name,
+                fields,
+                rest,
+                span,
+            });
+        }
+        let mut args = Vec::new();
+        while !stop(self.peek()) {
+            if self.peek() == Some(&Tok::LBrace) {
+                return Err(error(
+                    self.here(),
+                    format!(
+                        "a record pattern as an argument of `{}` is written in brackets: `({{ … }})`",
+                        name.text
+                    ),
+                )
+                .with_note(
+                    "braces name a constructor's fields only right after it: `C { f = p, .. }`",
+                ));
+            }
+            args.push(self.pattern()?);
+        }
+        Ok(Pattern::Ctor(name, args, start.to(self.prev_span())))
     }
 
     /// `{ name = p, age, .. }`: fields in any order, each a pattern or punned
@@ -977,11 +1045,9 @@ impl<'t> Parser<'t> {
                     if let Some(Tok::Upper(_)) = self.peek() {
                         let start = self.here();
                         let name = self.upper_q("a constructor")?;
-                        let mut args = Vec::new();
-                        while !matches!(self.peek(), Some(Tok::Comma | Tok::RBrace) | None) {
-                            args.push(self.pattern()?);
-                        }
-                        Pattern::Ctor(name, args, start.to(self.prev_span()))
+                        self.ctor_args(name, start, |t| {
+                            matches!(t, Some(Tok::Comma | Tok::RBrace) | None)
+                        })?
                     } else {
                         self.pattern()?
                     }
@@ -1442,14 +1508,9 @@ impl<'t> Parser<'t> {
         if let Some(Tok::Upper(_)) = self.peek() {
             let start = self.here();
             let name = self.upper_q("a constructor")?;
-            let mut args = Vec::new();
-            while !matches!(
-                self.peek(),
-                Some(Tok::Equals | Tok::ColonEq | Tok::Colon) | None
-            ) {
-                args.push(self.pattern()?);
-            }
-            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+            return self.ctor_args(name, start, |t| {
+                matches!(t, Some(Tok::Equals | Tok::ColonEq | Tok::Colon) | None)
+            });
         }
         self.tuple_component()
     }
@@ -1606,14 +1667,9 @@ impl<'t> Parser<'t> {
         if let Some(Tok::Upper(_)) = self.peek() {
             let start = self.here();
             let name = self.upper_q("a constructor")?;
-            let mut args = Vec::new();
-            while !matches!(
-                self.peek(),
-                Some(Tok::Comma | Tok::Arrow | Tok::FatArrow) | None
-            ) {
-                args.push(self.pattern()?);
-            }
-            return Ok(Pattern::Ctor(name, args, start.to(self.prev_span())));
+            return self.ctor_args(name, start, |t| {
+                matches!(t, Some(Tok::Comma | Tok::Arrow | Tok::FatArrow) | None)
+            });
         }
         self.tuple_component()
     }
@@ -3108,6 +3164,52 @@ mod tests {
             matches!(&fields[1].1, Pattern::Ctor(n, args, _) if n.text == "Succ" && args.len() == 1)
         );
         assert!(matches!(&patterns[1], Pattern::Record { rest: false, .. }));
+    }
+
+    /// Braces right after a constructor name its fields; a record pattern
+    /// as its argument is in brackets (docs/proposals/variant-fields.md §4).
+    #[test]
+    fn constructor_field_patterns() {
+        let module = parse(
+            "def f : S -> S -> S -> Nat\n  | C { id, text = Cons x _, .. }, (W ({ name, .. })), (D { }) => 0\n",
+        );
+        let Decl::Equation { patterns, .. } = &module.decls[1] else {
+            panic!("expected an equation");
+        };
+        let Pattern::CtorFields {
+            ctor,
+            fields,
+            rest: true,
+            ..
+        } = &patterns[0]
+        else {
+            panic!("expected named fields: {:?}", patterns[0]);
+        };
+        assert_eq!(ctor.text, "C");
+        assert!(matches!(&fields[0].1, Pattern::Var(n) if n.text == "id"));
+        assert!(
+            matches!(&fields[1].1, Pattern::Ctor(n, args, _) if n.text == "Cons" && args.len() == 2)
+        );
+        assert!(matches!(&patterns[1], Pattern::Ctor(n, args, _)
+            if n.text == "W" && matches!(&args[..], [Pattern::Record { rest: true, .. }])));
+        assert!(
+            matches!(&patterns[2], Pattern::CtorFields { fields, rest: false, .. }
+            if fields.is_empty())
+        );
+        // Parses in a `match` arm, a `let`, a tuple, a list and after a
+        // field's `=` (`parse` panics on an error).
+        parse(
+            "def g (s: S): Nat :=\n  let C { id, .. } := s\n  match s with\n    | (C { id }, [D { .. }]) => 0\n    | W { p = C { id, .. }, .. } => 1\n",
+        );
+    }
+
+    #[test]
+    fn braces_after_a_constructor_take_no_further_arguments() {
+        let e = parse_error("def f : L -> Nat\n  | Cons { name, .. } rest => 0\n");
+        assert!(e.message.contains("take no further arguments"), "{e:?}");
+        assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
+        let e = parse_error("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
+        assert!(e.message.contains("written in brackets"), "{e:?}");
     }
 
     #[test]
