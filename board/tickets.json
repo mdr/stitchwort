@@ -1,5 +1,5 @@
 {
-  "next": 390,
+  "next": 391,
   "tickets": [
     {
       "id": 1,
@@ -6229,6 +6229,20 @@
         "style"
       ],
       "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 390,
+      "title": "Research: named and default arguments (design note docs/proposals/named-arguments.md)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (design note)",
+      "labels": [
+        "lang"
+      ],
+      "body": "Matt, 23 Oct: investigate how we might have or simulate named and default arguments. Note first, decisions from D1092, stops for review. Related: named construction (SW-387, D605), named implicits [x := …], records as options.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
