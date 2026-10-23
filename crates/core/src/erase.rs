@@ -21,7 +21,17 @@
 //! 5. a `case` on the placeholder, for a type in `Prop`, takes the first
 //!    branch with placeholder fields (its only possible one: if it's
 //!    impossible, every branch is, and the run fails as unreachable;
-//!    docs/proposals/indexed-families.md §6.8).
+//!    docs/proposals/indexed-families.md §6.8);
+//! 6. quotients follow the flags the checker sets on them (D921,
+//!    docs/proposals/map-equality.md §7.4): `Quot.ind`, `Quot.sound` and a
+//!    `Quot.lift` whose result is erased (a proof or a type former) are the
+//!    placeholder, their arguments not evaluated; a `Quot.mk` whose
+//!    representative is erased (a type, say) holds the placeholder as its
+//!    representative, and a lift on it still applies its function. A proof
+//!    made by `Quot.sound` or `Quot.ind` is then erased like any other, and
+//!    `J` on it takes its base by rule 4: in the model, `Quot.mk a` and
+//!    `Quot.mk b` for related `a` and `b` are the same value (the class of
+//!    `a`), so the contract holds for them too.
 //!
 //! Why it's safe: a proof or a type never decides which way a computation of
 //! data goes. Nothing matches on a type, and matching on a proof to produce
