@@ -1,5 +1,5 @@
 {
-  "next": 393,
+  "next": 394,
   "tickets": [
     {
       "id": 1,
@@ -5785,8 +5785,8 @@
     {
       "id": 363,
       "title": "std: list lemmas from a real-world port — id-index lookup, Distinct through filter/filterMap/Perm, memPerm, find lemmas, sorting a sorted list is identity (partial D725)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "std"
@@ -5907,9 +5907,9 @@
     },
     {
       "id": 369,
-      "title": "Experiment: generalise List.map to effectful callbacks (f: a -> {e} b), Unison-style; report what breaks; if clean, fold List.mapIn into map (D1050)",
-      "status": "doing",
-      "agent": "Sonnet",
+      "title": "Experiment done (docs/proposals/effectful-map.md): effectful List.map blocked by SW-393 (pure functions refused as effect-polymorphic callbacks); redo the fold after SW-393 (D1050)",
+      "status": "backlog",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "std"
@@ -5917,7 +5917,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "31113f28"
+      ]
     },
     {
       "id": 370,
@@ -6280,6 +6282,20 @@
       "where": "",
       "labels": [
         "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 393,
+      "title": "Pure functions refused where an effect-polymorphic callback is expected: mapIn Succ xs, mapIn f xs (f: Nat -> Nat), mapIn (List.drop 1) xs all E-TYPE-MISMATCH 'expected a -> {?3 ..} ?4, but this has type a -> b'; only lambdas work (found by SW-369; related SW-223)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "language"
       ],
       "body": "",
       "created": "2026-10-23",
