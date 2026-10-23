@@ -1,7 +1,8 @@
 -- Cross-check against brute force: for each example bank, try every choice of
--- k batteries, and take the largest number. That is what `maxJoltage k` computes
--- greedily, and it is also proved (`Aoc.Day03.Proofs`, Proofs/Best.sw). Kept
--- apart from the program, so `stitchwort run Aoc.Day03.main` doesn't check it.
+-- k batteries, and take the largest number. For banks of at least k batteries,
+-- that is what `maxJoltage k` computes greedily (a shorter bank has no choice
+-- of k, and brute force gives 0), and it is also proved (`Aoc.Day03.Proofs`,
+-- Proofs/Best.sw). Kept apart from the program, so `stitchwort run Aoc.Day03.main` doesn't check it.
 
 namespace Aoc.Day03.Tests
 import Aoc.Day03 (..)
