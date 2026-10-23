@@ -22,7 +22,7 @@ use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
     PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
 };
-use crate::natives::{IntNative, Representation, TextNative};
+use crate::natives::{FloatPrim, IntNative, Representation, TextNative};
 use crate::opt::{Types, optimize};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -288,6 +288,9 @@ impl<'g> Lowerer<'g> {
         }
         if let Some(op) = self.repr.text_natives.get(&id) {
             return Some(PrimOp::Text(*op));
+        }
+        if let Some(op) = self.repr.float_natives.get(&id) {
+            return Some(PrimOp::Float(*op));
         }
         self.repr.int_natives.get(&id).map(|op| PrimOp::Int(*op))
     }
@@ -725,6 +728,22 @@ impl<'g> Lowerer<'g> {
                 ),
             });
         }
+        if Some(d) == self.repr.float {
+            // `{ bits = b, valid = _ }`: a literal if `b` is a number,
+            // otherwise the double made from the bits.
+            return Ok(
+                match self
+                    .nat_literal(&args[0])
+                    .and_then(|b| u64::try_from(b).ok())
+                {
+                    Some(bits) => Expr::Lit(Lit::Float(bits)),
+                    None => Expr::Prim(
+                        PrimOp::Float(FloatPrim::FromBits),
+                        vec![self.expr(&args[0])?],
+                    ),
+                },
+            );
+        }
         if Some(d) == self.repr.int {
             // `OfNat n` is `n`, and `NegSucc n` is `-n - 1`.
             return Ok(match (c, self.nat_literal(&args[0])) {
@@ -787,6 +806,32 @@ impl<'g> Lowerer<'g> {
             return out;
         }
         let scrutinee = self.var(ix);
+        if Some(d) == self.repr.float {
+            // A `Float` is a double: matching its record gives its bits
+            // (the proof field is erased).
+            let Some(branch) = branches.first() else {
+                return Ok(Expr::Unreachable);
+            };
+            let mark = self.mark();
+            let slot = self.bind_slot();
+            self.env.push(Bind::Erased);
+            let body = match &branch.body {
+                Some(body) => self.expr(body),
+                None => Ok(Expr::Unreachable),
+            };
+            let used = self.slot_used(slot);
+            self.leave(mark);
+            let body = body?;
+            return Ok(if used {
+                Expr::Let(
+                    slot,
+                    Box::new(Expr::Prim(PrimOp::Float(FloatPrim::Bits), vec![scrutinee])),
+                    Box::new(body),
+                )
+            } else {
+                body
+            });
+        }
         let kind = if Some(d) == self.repr.nat {
             MatchKind::Nat
         } else if Some(d) == self.repr.int {

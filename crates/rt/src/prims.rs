@@ -21,7 +21,7 @@ use stitchwort_core::native::Native;
 use stitchwort_core::partial::Primitive;
 
 use crate::ir::{PrimOp, Shapes};
-use crate::natives::{IntNative, TextNative};
+use crate::natives::{FloatPrim, IntNative, TextNative};
 use crate::value::{Delay, Value};
 
 fn bad(op: PrimOp, v: &Value) -> ! {
@@ -340,6 +340,7 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
         PrimOp::IntEqual => boolean(s, num_eq(args[0], args[1])),
         PrimOp::TextEqual => boolean(s, text_of(args[0]) == text_of(args[1])),
         PrimOp::Int(i) => int(s, op, i, args),
+        PrimOp::Float(f) => float(s, f, args),
         PrimOp::Text(t) => text(s, op, t, args),
         PrimOp::Delay(p) => {
             let a = || args[0].clone();
@@ -354,6 +355,32 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
                 Primitive::Delay => Value::Erased,
             }
         }
+    }
+}
+
+/// A `Float` operation (docs/proposals/float.md §3.3): IEEE 754 doubles,
+/// every result made canonical by [`Value::float`], so that bits, `==` and
+/// the NaN agree with the kernel's model.
+fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
+    use stitchwort_core::float::{FloatOp, canonical_bits};
+    let x = |i: usize| args[i].to_f64();
+    match f {
+        FloatPrim::Add => Value::float(FloatOp::Add.apply(x(0), x(1))),
+        FloatPrim::Sub => Value::float(FloatOp::Sub.apply(x(0), x(1))),
+        // Rust's `-NaN` has the sign bit set: the NaN stays the NaN.
+        FloatPrim::Neg => Value::float(-x(0)),
+        FloatPrim::Abs => Value::float(x(0).abs()),
+        FloatPrim::IsNaN => boolean(s, x(0).is_nan()),
+        FloatPrim::DecEq => decision(s, canonical_bits(x(0)) == canonical_bits(x(1))),
+        FloatPrim::IeeeEq => boolean(s, x(0) == x(1)),
+        FloatPrim::FromBits => {
+            let bits = match args[0] {
+                Value::Nat(n) => *n,
+                other => bad(PrimOp::Float(f), other),
+            };
+            Value::float(f64::from_bits(bits))
+        }
+        FloatPrim::Bits => Value::Nat(canonical_bits(x(0))),
     }
 }
 

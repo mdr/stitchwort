@@ -31,6 +31,9 @@ pub enum Value {
     /// An `Int` that doesn't.
     BigInt(Rc<BigInt>),
     Text(Rc<str>),
+    /// A `Float`: a double, with every NaN the one NaN (D701). Made only by
+    /// [`Value::float`].
+    Float(f64),
     /// A constructor without runtime fields: its tag.
     Tag(u32),
     /// A constructor with runtime fields (at least one).
@@ -123,6 +126,26 @@ impl Value {
         }
     }
 
+    /// A `Float`, with a NaN made the one NaN, `0x7FF8000000000000`
+    /// (docs/proposals/float.md §3.5, D701): so the bits of every `Float`
+    /// value are canonical, and `.bits`, `==` and hashing can use them.
+    #[inline]
+    pub fn float(x: f64) -> Value {
+        Value::Float(if x.is_nan() {
+            f64::from_bits(stitchwort_core::float::NAN)
+        } else {
+            x
+        })
+    }
+
+    /// A `Float` value's double.
+    pub fn to_f64(&self) -> f64 {
+        match self {
+            Value::Float(x) => *x,
+            other => panic!("internal error: expected a `Float`, got {other:?}"),
+        }
+    }
+
     /// A `Nat` value as a `BigUint`.
     pub fn to_biguint(&self) -> BigUint {
         match self {
@@ -146,7 +169,7 @@ impl Value {
     pub fn owns(&self) -> bool {
         !matches!(
             self,
-            Value::Erased | Value::Nat(_) | Value::Int(_) | Value::Tag(_)
+            Value::Erased | Value::Nat(_) | Value::Int(_) | Value::Float(_) | Value::Tag(_)
         )
     }
 
@@ -256,6 +279,39 @@ mod tests {
     #[test]
     fn a_value_is_three_words() {
         assert_eq!(std::mem::size_of::<Value>(), 24);
+    }
+
+    /// D701: every NaN, of any sign and payload, is stored as the one NaN;
+    /// every other double is kept bit for bit, `-0.0` included.
+    #[test]
+    fn a_float_is_canonical() {
+        let bits = |v: Value| v.to_f64().to_bits();
+        let nan = stitchwort_core::float::NAN;
+        for payload in [
+            0x7FF8_0000_0000_0000u64,
+            0xFFF8_0000_0000_0000,
+            0x7FF0_0000_0000_0001,
+            0xFFF0_0000_0000_0001,
+            0x7FFF_FFFF_FFFF_FFFF,
+            0xFFFF_FFFF_FFFF_FFFF,
+        ] {
+            assert_eq!(
+                bits(Value::float(f64::from_bits(payload))),
+                nan,
+                "{payload:#x}"
+            );
+        }
+        assert_eq!(bits(Value::float(-f64::NAN)), nan);
+        assert_eq!(bits(Value::float(0.0 / 0.0)), nan);
+        for kept in [
+            0u64,
+            1 << 63,
+            1,
+            0x3FF0_0000_0000_0000,
+            0xFFF0_0000_0000_0000,
+        ] {
+            assert_eq!(bits(Value::float(f64::from_bits(kept))), kept, "{kept:#x}");
+        }
     }
 
     #[test]

@@ -466,6 +466,60 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     ),
 ];
 
+/// A `Float` operation with a native implementation, where a `Float` is a
+/// native double (a Rust `f64`, a JS `number`; docs/proposals/float.md
+/// §3.5). The primitives (`add`, `sub`) have no definition, and the kernel
+/// computes them the same way (`stitchwort_core::float`); `neg`, `abs`,
+/// `isNaN` and `decEq` are the definitions the kernel has natives for,
+/// bound there by content hash; `ieeeEq` is bound here
+/// ([`FLOAT_NATIVES`]). `FromBits` and `Bits` are the record's constructor
+/// and its `bits` field, through the canonical bits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatPrim {
+    Add,
+    Sub,
+    Neg,
+    Abs,
+    IsNaN,
+    DecEq,
+    IeeeEq,
+    /// `{ bits = b, valid = _ }`: the double with bits `b`, which the
+    /// record's proof says is a valid pattern.
+    FromBits,
+    /// `x.bits`: the double's bits, the NaN canonical.
+    Bits,
+}
+
+impl FloatPrim {
+    pub fn arity(self) -> u32 {
+        match self {
+            FloatPrim::Add | FloatPrim::Sub | FloatPrim::DecEq | FloatPrim::IeeeEq => 2,
+            _ => 1,
+        }
+    }
+}
+
+/// The `Float` definitions with natives in the runtimes only, as for
+/// [`TEXT_NATIVES`].
+const FLOAT_NATIVES: &[(Builtin, FloatPrim, &str)] = &[(
+    Builtin::FloatIeeeEq,
+    FloatPrim::IeeeEq,
+    "6a3570208df3d0e9f57218bc99e683ccfffc3fc1e6912d063b9073a0d980c8d1",
+)];
+
+/// Matches each runtime-only float native with the definition it replaces,
+/// by content hash.
+pub fn bind_float_natives(g: &Globals) -> Result<Vec<NativeBinding<FloatPrim>>, ResourceError> {
+    bind_natives(g, FLOAT_NATIVES)
+}
+
+/// The library's `Float`, if its file is loaded and it is the declaration
+/// the native double was written for: the kernel binds it only then, by
+/// content hash (`stitchwort_core::float::FLOAT_DATA_HASH`).
+pub fn float_data(g: &Globals) -> Option<DataId> {
+    g.builtins.float.data
+}
+
 /// Which native representations and operations apply to a program: the
 /// prelude's `Nat`, `Int` and `Text` (each only if it's the declaration its
 /// representation was written for), and the operations bound to their
@@ -483,6 +537,12 @@ pub struct Representation {
     /// The prelude's integer operations with native implementations, and
     /// which.
     pub int_natives: HashMap<DefId, IntNative>,
+    /// The library's `Float`, if it is loaded: a `Float` is then a native
+    /// double. (It has no fallback representation: the kernel accepts only
+    /// the declaration it was written for.)
+    pub float: Option<DataId>,
+    /// The `Float` operations with native implementations, and which.
+    pub float_natives: HashMap<DefId, FloatPrim>,
 }
 
 impl Representation {
@@ -515,12 +575,36 @@ impl Representation {
         } else {
             HashMap::new()
         };
+        let float = float_data(g);
+        let mut float_natives = HashMap::new();
+        if float.is_some() {
+            use stitchwort_core::float::{FloatNative, FloatOp};
+            for id in (0..g.defs.len()).map(DefId) {
+                let prim = match (g.builtins.float_primitive(id), g.builtins.float_native(id)) {
+                    (Some(FloatOp::Add), _) => FloatPrim::Add,
+                    (Some(FloatOp::Sub), _) => FloatPrim::Sub,
+                    (_, Some(FloatNative::Neg)) => FloatPrim::Neg,
+                    (_, Some(FloatNative::Abs)) => FloatPrim::Abs,
+                    (_, Some(FloatNative::IsNaN)) => FloatPrim::IsNaN,
+                    (_, Some(FloatNative::DecEq)) => FloatPrim::DecEq,
+                    _ => continue,
+                };
+                float_natives.insert(id, prim);
+            }
+            for b in bind_float_natives(g)? {
+                if let (true, Some(id)) = (b.bound, b.id) {
+                    float_natives.insert(id, b.native);
+                }
+            }
+        }
         Ok(Representation {
             nat: nat_data(g),
             text,
             text_natives,
             int,
             int_natives,
+            float,
+            float_natives,
         })
     }
 
@@ -536,5 +620,6 @@ impl Representation {
         self.kernel_native(g, id).is_some()
             || self.text_natives.contains_key(&id)
             || self.int_natives.contains_key(&id)
+            || self.float_natives.contains_key(&id)
     }
 }

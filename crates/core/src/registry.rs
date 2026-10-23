@@ -88,6 +88,7 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FloatDecEq,
     Builtin::FloatBitsExt,
     Builtin::FloatBitsNe,
+    Builtin::FloatIeeeEq,
 ];
 
 macro_rules! builtins {
@@ -228,6 +229,8 @@ builtins! {
     FloatDecEq = "Float.decEq": Def,
     FloatBitsExt = "Float.bitsExt": Def,
     FloatBitsNe = "Float.bitsNe": Def,
+    // JS's `===` on doubles: a native in the runtimes only
+    FloatIeeeEq = "Float.ieeeEq": Def,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),

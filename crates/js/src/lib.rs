@@ -22,7 +22,7 @@ use stitchwort_core::{
 };
 use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
 use stitchwort_rt::natives::{
-    Representation, int_data, nat_data, safe_int_data, safe_nat_data, text_data,
+    FloatPrim, Representation, int_data, nat_data, safe_int_data, safe_nat_data, text_data,
 };
 // Shared with the runtime (D389), and part of this crate's interface.
 pub use stitchwort_rt::natives::{
@@ -714,13 +714,7 @@ pub fn generate_exports(
         g,
         exports.iter().map(|sig| sig.id).chain(checks),
         |id| match codegen.try_info(id) {
-            Ok(info) => {
-                info.result_erased
-                    || codegen.kernel_native(id).is_some()
-                    || codegen.text_natives.contains_key(&id)
-                    || codegen.int_natives.contains_key(&id)
-                    || info.delay.is_some()
-            }
+            Ok(info) => info.result_erased || codegen.is_native(id) || info.delay.is_some(),
             Err(e) => {
                 failure.borrow_mut().get_or_insert(e);
                 true
@@ -736,6 +730,9 @@ pub fn generate_exports(
     }
     let mut js = String::from(RUNTIME);
     js.push('\n');
+    if codegen.float.is_some() {
+        js.push_str(FLOAT_BITS);
+    }
     if codegen.text.is_some() {
         js.push_str(TEXT_AS_STRING);
         js.push_str(CHARS_OF_TEXT);
@@ -827,7 +824,7 @@ pub fn generate_exports(
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
         let def = g.def(id);
-        if def.body().is_none() && !codegen.info(id).result_erased {
+        if def.body().is_none() && !codegen.info(id).result_erased && !codegen.is_native(id) {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name),
@@ -1558,6 +1555,11 @@ struct Gen<'g> {
     int: Option<DataId>,
     /// The prelude's integer operations with native JS, and which.
     int_natives: HashMap<DefId, IntNative>,
+    /// The library's `Float`, if it's loaded: then a `Float` is a JS
+    /// `number` (docs/proposals/float.md §3.5).
+    float: Option<DataId>,
+    /// The `Float` operations with native JS, and which.
+    float_natives: HashMap<DefId, FloatPrim>,
     /// Per definition, computed on first use ([`Gen::try_info`]).
     infos: Vec<OnceCell<DefInfo>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
@@ -1669,6 +1671,8 @@ impl<'g> Gen<'g> {
             text_natives,
             int,
             int_natives,
+            float,
+            float_natives,
         } = Representation::new(g, options.native_text, options.native_int)
             .map_err(Diagnostic::from)?;
         Ok(Gen {
@@ -1678,6 +1682,8 @@ impl<'g> Gen<'g> {
             text_natives,
             int,
             int_natives,
+            float,
+            float_natives,
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
             run_delay: false,
@@ -1691,6 +1697,14 @@ impl<'g> Gen<'g> {
     /// with it ([`nat_data`]).
     fn kernel_native(&self, id: DefId) -> Option<native::Native> {
         self.nat.and(self.g.builtins.native(id))
+    }
+
+    /// Whether `id` is replaced by native JS of any kind.
+    pub(crate) fn is_native(&self, id: DefId) -> bool {
+        self.kernel_native(id).is_some()
+            || self.text_natives.contains_key(&id)
+            || self.int_natives.contains_key(&id)
+            || self.float_natives.contains_key(&id)
     }
 
     /// What's decided about a definition, from its type: computed on first
@@ -1756,6 +1770,13 @@ impl<'g> Gen<'g> {
                 "const {} = {};\n",
                 def_name(&def.path),
                 run::primitive_js(prim)
+            ));
+        }
+        if let Some(op) = self.float_natives.get(&id) {
+            return Ok(format!(
+                "const {} = {};\n",
+                def_name(&def.path),
+                float_native_js(*op)
             ));
         }
         let Some(body) = def.run_body() else {
@@ -1948,7 +1969,15 @@ impl<'g> Gen<'g> {
                 .zip(&data.ctors[c].field_erased)
                 .enumerate()
             {
-                if !erased && Some(*d) != self.nat && Some(*d) != self.int {
+                if !erased && Some(*d) == self.float {
+                    // A `Float` is a `number`: its one runtime field is
+                    // its bits.
+                    let _ = writeln!(
+                        out,
+                        "{pad}const {} = toCanonicalBits({scrutinee});",
+                        var(level + f)
+                    );
+                } else if !erased && Some(*d) != self.nat && Some(*d) != self.int {
                     let _ = writeln!(
                         out,
                         "{pad}const {} = {scrutinee}{};",
@@ -2035,6 +2064,7 @@ impl<'g> Gen<'g> {
         let data = self.g.data(d);
         if data.sort == Sort::Prop
             || data.record
+            || Some(d) == self.float
             || Some(d) == self.text
             || Some(d) == self.nat
             || Some(d) == self.int
@@ -2256,6 +2286,7 @@ impl<'g> Gen<'g> {
             || Some(*d) == self.text
             || Some(*d) == self.nat
             || Some(*d) == self.int
+            || Some(*d) == self.float
         {
             return None;
         }
@@ -2356,12 +2387,7 @@ impl<'g> Gen<'g> {
         call: &SelfCall,
     ) -> Fallible<Option<String>> {
         let def = self.g.def(id);
-        if id == call.id
-            || def.arity != args.len()
-            || self.text_natives.contains_key(&id)
-            || self.int_natives.contains_key(&id)
-            || self.kernel_native(id).is_some()
-        {
+        if id == call.id || def.arity != args.len() || self.is_native(id) {
             return Ok(None);
         }
         let Some(info) = self.infos[id.0].get() else {
@@ -2537,6 +2563,20 @@ impl<'g> Gen<'g> {
                         (Term::Nat(k), n) => format!("{}n", &**k + n),
                         (_, n) => format!("({} + {n}n)", self.expr(inner, env)?),
                     });
+                }
+                if Some(*d) == self.float {
+                    // A `number`: a literal from the bits if they're known
+                    // (never the source's spelling, docs/proposals/float.md
+                    // §2.3), otherwise the double they encode.
+                    return Ok(
+                        match self
+                            .nat_literal(&args[0])
+                            .and_then(|b| u64::try_from(b).ok())
+                        {
+                            Some(bits) => float_literal_js(bits),
+                            None => format!("fromCanonicalBits({})", self.expr(&args[0], env)?),
+                        },
+                    );
                 }
                 if Some(*d) == self.int {
                     // `OfNat n` is `n`, and `NegSucc n` is `-n - 1n`. A
@@ -3201,6 +3241,63 @@ fn native_js(op: native::Native) -> &'static str {
         Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
         // Proofs, so they're erased and never emitted.
         Native::EqNatRefl | Native::EqNatSound => "undefined",
+    }
+}
+
+/// The one module that reinterprets a `Float`'s bits (docs/proposals/float.md
+/// §3.5, D701): the only place a typed array or a `DataView` appears in
+/// generated code (a test checks). A `Float` is a `number`, and a NaN may
+/// have any payload in JS; these see every NaN as the one NaN.
+/// `toCanonicalBits(fromCanonicalBits(b)) === b` for every valid canonical
+/// `b`, and `Object.is(fromCanonicalBits(toCanonicalBits(x)), x)` for every
+/// `number` `x`.
+pub const FLOAT_BITS: &str = r#"// `Float` bit reinterpretation: a double's 64 bits, any NaN as the one NaN.
+const floatView = new DataView(new ArrayBuffer(8));
+const toCanonicalBits = (x) => {
+  if (x !== x) return 0x7ff8000000000000n;
+  floatView.setFloat64(0, x);
+  return floatView.getBigUint64(0);
+};
+const fromCanonicalBits = (b) => {
+  floatView.setBigUint64(0, b);
+  return floatView.getFloat64(0);
+};
+"#;
+
+/// JS for the double with valid `bits`: the shortest decimal that reads back
+/// as it (Rust's `{:?}`, which a JS engine parses exactly, having at most 17
+/// significant digits), `-0`, `NaN` or an infinity.
+pub fn float_literal_js(bits: u64) -> String {
+    let x = f64::from_bits(bits);
+    if x.is_nan() {
+        "NaN".into()
+    } else if x.is_infinite() {
+        if x > 0.0 { "Infinity" } else { "-Infinity" }.into()
+    } else if x == 0.0 && x.is_sign_negative() {
+        "-0".into()
+    } else {
+        let text = format!("{x:?}");
+        if text.starts_with('-') {
+            format!("({text})")
+        } else {
+            text
+        }
+    }
+}
+
+/// JS for a `Float` native: IEEE 754 doubles, as JS has them. `==` is
+/// `Object.is` (the same double), JS's `===` is `Float.ieeeEq`.
+fn float_native_js(op: FloatPrim) -> &'static str {
+    match op {
+        FloatPrim::Add => "(a) => (b) => a + b",
+        FloatPrim::Sub => "(a) => (b) => a - b",
+        FloatPrim::Neg => "(a) => -a",
+        FloatPrim::Abs => "(a) => Math.abs(a)",
+        FloatPrim::IsNaN => "(a) => ({ tag: a !== a ? \"True\" : \"False\" })",
+        FloatPrim::DecEq => "(a) => (b) => ({ tag: Object.is(a, b) ? \"Yes\" : \"No\" })",
+        FloatPrim::IeeeEq => "(a) => (b) => ({ tag: a === b ? \"True\" : \"False\" })",
+        FloatPrim::FromBits => "fromCanonicalBits",
+        FloatPrim::Bits => "toCanonicalBits",
     }
 }
 
