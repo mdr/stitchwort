@@ -83,7 +83,7 @@ def replacePicked (b: Bool) (r: Pack) (ys: Vec Nat (pick b r).n): Pack :=
   { pick b r | xs = ys }
 
 test "picked base" :=
-  (replacePicked True { n = 1, xs = VCons 1 VNil } (VCons 9 VNil)).xs == VCons 9 VNil
+  (replacePicked True ({ n = 1, xs = VCons 1 VNil }) (VCons 9 VNil)).xs == VCons 9 VNil
 
 -- 8. Reading back from an updated record computes.
 type Point = { x: Nat, y: Nat }
