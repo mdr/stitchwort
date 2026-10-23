@@ -6207,10 +6207,10 @@
     },
     {
       "id": 388,
-      "title": "Private resolver: Option chains rewritten with Abort (resolveBubble and siblings), descriptive names (D1089)",
-      "status": "doing",
+      "title": "Private resolver: Option chains rewritten with Abort, descriptive names — done 23 Oct (4 functions; .d.ts identical; differential identical)",
+      "status": "done",
       "agent": "Opus",
-      "where": "private lane",
+      "where": "",
       "labels": [
         "private"
       ],
