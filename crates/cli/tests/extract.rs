@@ -492,8 +492,12 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
             }
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             entries.dedup_by(|a, b| a.0 == b.0);
-            let tree = balanced_tree(g, &entries);
-            Value::Ctor(*d, 0, vec![tree, Value::Refl].into())
+            // The tree, then the record's proof fields (`ordered`, `sized`),
+            // which hold for a balanced tree with true sizes; erased, so a
+            // placeholder each.
+            let mut fields = vec![balanced_tree(g, &entries)];
+            fields.resize(g.data(*d).ctors[0].fields.len(), Value::Refl);
+            Value::Ctor(*d, 0, fields.into())
         }
         Boundary::Param(_) => panic!("a boundary type of an export has no parameters"),
     }
