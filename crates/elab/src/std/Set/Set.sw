@@ -170,6 +170,8 @@ test "set: min, max, below, above" :=
 test "set: isSubset, disjoint" :=
   Set.isSubset (Set.fromList [1, 2]) Set.example && !(Set.isSubset (Set.fromList [1, 4]) Set.example)
     && Set.disjoint Set.example (Set.fromList [4]) && !(Set.disjoint Set.example (Set.fromList [2]))
+test "set: isSubset, edge cases" :=
+  Set.isSubset Set.empty Set.example && Set.isSubset Set.example Set.example && !(Set.isSubset Set.example Set.empty)
 test "set: partition, all, foldRight" :=
   Set.toList (Set.partition (n => n > 1) Set.example).fst == [2, 3] && Set.toList (Set.partition (n => n > 1) Set.example).snd == [1]
     && Set.all Set.example (n => n > 0) && !(Set.all Set.example (n => n > 1)) && Set.foldRight (n acc => Cons n acc) Nil Set.example == [1, 2, 3]
