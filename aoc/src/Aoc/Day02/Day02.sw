@@ -25,10 +25,10 @@
 
 namespace Aoc.Day02
 import Aoc.Common (Range)
-import Std (Each, Int, List, Nat)
+import Std (Each, Fail, Int, List, Nat)
 import Std.Each (each, require)
 
-def main(): {IO} () :=
+def main(): {IO, Fail} () :=
   let ranges := parseRanges IO.readAll()
   IO.print "Part 1: ${solvePart1 ranges}"
   IO.print "Part 2: ${solvePart2 ranges}"
@@ -106,4 +106,6 @@ def RepetitionTemplate.sumIn (range: Range) (template: RepetitionTemplate): Nat 
     multiplier * Nat.sumBetween firstBlock lastBlock
   else 0
 
-def parseRanges (t: Text): List Range := t.trim.split ',' |> .filterMap Range.parse
+-- Ranges separated by commas. Spaces and a final line ending are allowed;
+-- anything else fails, naming the text that isn't a range.
+def parseRanges (t: Text): {Fail} (List Range) := t.trim.split ',' |> .mapIn Range.read

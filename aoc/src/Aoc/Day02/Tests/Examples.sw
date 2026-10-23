@@ -5,18 +5,26 @@ namespace Aoc.Day02.Tests
 import Aoc.Common (Range)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
-import Std (List, Nat, Text)
+import Std (Fail, List, Nat, Text)
 
 def example: Text := "11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124"
 
 def range (from to: Nat): Range := { from, to }
 
-def exampleRanges: List Range := parseRanges example
+def parsed (t: Text): Result (List Range) Text := Fail.toResult (() => parseRanges t)
+
+def exampleRanges: List Range := Fail.orElse [] (() => parseRanges example)
 
 test "example" := (solvePart1 exampleRanges, solvePart2 exampleRanges) == (1227775554, 4174379265)
 test "part 1 spec" := part1Spec exampleRanges == 1227775554
 test "part 2 spec" := part2Spec exampleRanges == 4174379265
-test "parse" := parseRanges "4-14,1490-3407\n" == [range 4 14, range 1490 3407]
+test "parse" := parsed "4-14,1490-3407\n" == Ok [range 4 14, range 1490 3407]
+test "a field that isn't a range" := parsed "11-22,bad" == Err "expected a range like 11-22, got 'bad'"
+test "a space after a comma" := parsed "11-22, 33-33" == Ok [range 11 22, range 33 33]
+test "spaces around the numbers" := parsed " 11 - 22 \n" == Ok [range 11 22]
+test "a missing number" := parsed "11-" == Err "expected a range like 11-22, got '11-'"
+test "a trailing comma" := parsed "11-22," == Err "expected a range like 11-22, got ''"
+test "backwards" := parsed "22-11" == Err "the range '22-11' ends before it starts"
 
 test "weights" := List.map copiesWeight (List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
