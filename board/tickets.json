@@ -5380,9 +5380,9 @@
     {
       "id": 341,
       "title": "Design note: attribute syntax @[...] (closed, namespaced; hashing rule) with first uses js.tag / js.name / js.nullable; for external review (D590)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "docs/proposals/attributes.md; review pack in scratchpad; D597-D599",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "draft 2 lane (D611): fold external review",
       "labels": [
         "design",
         "syntax",
