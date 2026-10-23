@@ -6179,10 +6179,10 @@
     },
     {
       "id": 386,
-      "title": "Field update through generated update functions, one per field; record update unified with variant update (D1087 a, D1086 b)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "lane stopped before coding: per-field functions regress multi-field dependent updates; options A-F (incl. content-addressed helpers) sent for external review; D1091 open",
+      "title": "Field update after external review (D1091): simultaneous updates kept; investigate/fix generated-helper comparison (E); records keep constructor/projection translation, share checking rules, fix pick b r refusal; (A)/(C) in reserve. Replaces D1087, reverses D1086",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (investigate + narrow fix)",
       "labels": [
         "lang"
       ],
