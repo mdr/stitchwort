@@ -82,15 +82,10 @@ type Option (a: Type): Type =
   | None
   | Some (value: a)
 
--- Two values together.
+-- Two values together. Its fields' accessors, `Pair.fst` and `Pair.snd`, are
+-- generated.
 type Pair (a: Type) (b: Type): Type =
   | MkPair (fst: a) (snd: b)
-
-def Pair.fst: Pair a b -> a
-  | MkPair x y => x
-
-def Pair.snd: Pair a b -> b
-  | MkPair x y => y
 
 -- `List.reverseOnto xs acc` is `xs` reversed, followed by `acc`.
 def List.reverseOnto: List a -> List a -> List a

@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `Shape.id` is already defined
+   ╭─[ reject/shared-field-written-duplicate.sw:8:5 ]
+   │
+ 4 │ ╭─▶ type Shape =
+   ┆ ┆   
+ 6 │ ├─▶   | Circle (id: Text) (r: Nat)
+   │ │                                    
+   │ ╰──────────────────────────────────── first defined here
+   │ 
+ 8 │     def Shape.id: Shape -> Text
+   │         ────┬───  
+   │             ╰───── `Shape.id` is already defined
+   │     
+   │     Note: `id` is a shared field of `Shape`: every constructor (`Dot`, `Circle`) has it, so `Shape.id` is generated; delete this definition and use the field
+───╯

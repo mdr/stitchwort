@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Vec2` has no shared field `n`
+   ╭─[ reject/shared-field-implicit.sw:8:31 ]
+   │
+ 8 │ def nOf (v: Vec2 0): Nat := v.n
+   │                               ┬  
+   │                               ╰── looked in `Vec2`
+   │ 
+   │ Note: `n` is an implicit field of `VCons2`
+───╯

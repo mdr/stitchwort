@@ -27,12 +27,6 @@ import Omega.Cert (Close, Then, Split, Cases)
 type Omega.Env: Type =
   | MkEnv (nats: List Nat) (ints: List Int)
 
-def Omega.Env.nats: Omega.Env -> List Nat
-  | MkEnv ns is => ns
-
-def Omega.Env.ints: Omega.Env -> List Int
-  | MkEnv ns is => is
-
 -- The `i`th entry, or 0 past the end.
 def Omega.natAt: Nat -> List Nat -> Nat
   | i, Nil => 0

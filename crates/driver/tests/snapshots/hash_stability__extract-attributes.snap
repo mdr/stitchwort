@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 103
 expression: "lines(&session, d, f)"
 ---
 data Main.Shape a41ff281d9c4eeaa8a3e5fdd65360b570125c4eb8c48a4d2e9e4d9f01b4da3df
@@ -43,6 +42,7 @@ Main.Drawing.%instOrd 10ce4371a3636717ba3c17b656d84ac4b70b86eee6d5631c6d36550f67
 Main.Drawing.ext 4c87521c845302b5298fc8f0f0687f007557030f39aaaedd56113d4df94dbebb
 Main.render 50edd6ccb3338d3a29a76a569897ad5d1fed6f4e3678dcbef19df74fdda6d5b7
 Main.rename c99985b92064f7256a48b78607edf52bce5eb90841c62983fd99420a2fa4119f
+Main.Message.id 8ea82ed5e1d47b1e258ca317d4ffb0350112bc086650ec0fb00a7287f8f3ed2b
 Main.Message.%tag 617f8036182a7d9a3298b15f063a8c827803bf472380453b8331fc2444ea8a0b
 Main.Message.%Note%0 9aea5b29b93af14fa83232409f3aecf81989387f98eb4e483417bc4c1a4dfa55
 Main.Message.%Note%1 9281316a224145a2207bde5208e381ffa6911282b5b0931741942922ced05f60

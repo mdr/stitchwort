@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Claims` has no shared field `witness`
+   ╭─[ reject/shared-field-prop-elim.sw:9:30 ]
+   │
+ 9 │ def w (c: Claims): Bool := c.witness
+   │                              ───┬───  
+   │                                 ╰───── looked in `Claims`
+   │ 
+   │ Note: `witness`'s type mentions `p`, which isn't shared: `Claims` is a proposition, and `p` is data, which can't be taken out of a proof
+───╯

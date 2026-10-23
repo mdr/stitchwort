@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `U` has no shared field `x`
+    ╭─[ reject/shared-field-cycle.sw:11:26 ]
+    │
+ 11 │ def xOf (u: U): Nat := u.x
+    │                          ┬  
+    │                          ╰── looked in `U`
+    │ 
+    │ Note: `x`'s type mentions `y` in one constructor, and `y`'s type depends on `x` in another
+────╯

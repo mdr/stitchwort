@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Shape` has no shared field `id`
+   ╭─[ reject/shared-field-different-types.sw:8:32 ]
+   │
+ 8 │ def idOf (a: Shape): Text := a.id
+   │                                ─┬  
+   │                                 ╰── looked in `Shape`
+   │ 
+   │ Note: `id` is `Text` in `Dot` but `Nat` in `Polygon`
+───╯

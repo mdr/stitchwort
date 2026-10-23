@@ -752,6 +752,84 @@ aren't invisible.
 - **No eta.** Records' stage 2 eta doesn't apply: a variant isn't determined by
   its shared fields.
 
+### 5.6 As built (feature 2)
+
+Built as 5.1 to 5.5 say (D1077), in `crates/elab/src/shared.rs`, with these
+choices where the note left room or didn't match the code:
+
+- **One generator.** `shared_fields` decides eligibility; `accessors`
+  generates `T.f` for each shared field in its order, registers it as a
+  member of `T`'s namespace, and (in the core) binds it as a built-in, which
+  is how `Pair.fst` and `Pair.snd` stay the registry's. A record's
+  projections are its one-constructor case (`records.rs`, `projections`), so
+  records and variants share one path. An accessor of an indexed family takes
+  the indices implicitly after the parameters.
+- **Eligibility, exactly.** The candidates are the names every constructor
+  has (implicit or not), in the first constructor's order. A candidate fails
+  if it's implicit in some constructor; if its type mentions (D603 (a),
+  `Term::mentions` on the declared type) a field that isn't a candidate, or
+  is an implicit one; or, once what it mentions is decided, if one of those
+  failed (propagation). The rest are decided in dependency order, ties by the
+  first constructor's order: a proof-from-data check (rule 4), then each
+  constructor's type, evaluated with the parameters and the shared fields so
+  far as rigid variables and the rest unused, compared with the first
+  constructor's by the kernel's `conv`. A candidate left undecided is in a
+  cycle. A `conv` that runs out of resources is an error at the declaration,
+  never "not shared" (§12.1 item 6).
+- **No side table, no cache format change.** Why a field isn't shared is
+  computed again when the message needs it (`unshared_member`, from the
+  declaration alone), not stored, so the check cache needed nothing new: the
+  accessors are definitions and names like a record's projections.
+- **Lazy loading (§12.1).** The index lists, for each non-record data type,
+  every field explicit in every constructor as a candidate `T.f`, unless the
+  file writes a `T.f` itself. Loading the file (elaborated or replayed from
+  the cache) replaces the shared ones with their accessors; the index's
+  entries it didn't declare are then removed (`drop_unconfirmed`), so an
+  unshared `T.f` is unknown, as with every file loaded.
+- **Errors.** `a.f` where `f` isn't shared and nothing else is found is
+  `E-UNKNOWN-FIELD`, "`Shape` has no shared field `text`", with one note:
+  "only `Circle` has `text`; match on `a` to read it: `| Circle { text, .. }
+  => …`" (or "`A` and `B` have `f`, but `C` doesn't"); "`id` is `Text` in
+  `Dot` but `Nat` in `Polygon`"; "`xs`'s type mentions `len`, which only `A`
+  has"; "`n` is an implicit field of `VCons`"; "`x`'s type mentions `y` in
+  one constructor, and `y`'s type depends on `x` in another"; and
+  propagation follows the chain to its root: "`witness`'s type mentions `p`,
+  which isn't shared: `Claims` is a proposition, and `p` is data, which can't
+  be taken out of a proof". Records keep their messages. A written `def T.f`
+  when `f` is shared is `E-DUPLICATE` with the note "`id` is a shared field
+  of `Shape`: every constructor (`Dot`, `Circle`) has it, so `Shape.id` is
+  generated; delete this definition and use the field".
+- **Printer and navigation (§9.3).** The printer shows a generated accessor
+  applied to a value as `x.f` (a definition named `T.f` declared at `T`'s
+  declaration, every constructor having `f`). `a.id`, `.id` and `Shape.id`
+  go to the `id` binder of the first constructor having it, and hover shows
+  `Shape.id` with its type, `Shape -> Text`, as a `field`. Not built: the
+  hover line listing the constructors, and listing every constructor's
+  binder as a reference.
+- **Existing code (§9.5).** Deleted as `E-DUPLICATE`: `Pair.fst` and
+  `Pair.snd` (`std/core/Data.sw`), the theorems `And.left` and `And.right`
+  (`std/core/Logic.sw`, now generated definitions), `Omega.Env.nats` and
+  `Omega.Env.ints` (`std/Omega/Omega.sw`), and `Secret.code` in
+  `examples/reject/derive-ord-none.sw`. `Char` gains `Char.code` and the
+  proof accessor `Char.valid`; `Char.toNat` stays. Nothing in `aoc/` changed.
+- **Theorems.** A proof field's accessor on a non-record type is declared a
+  theorem, as the hand-written `And.left` was; a record's proof projections
+  stay definitions, as before. (Declaring `And.left` a definition moved the
+  hashes of 16 core declarations that use it, `Decidable.and` and the derived
+  `Ord` instances among them, and of every derived `Ord` in the examples.)
+- **Hashes.** No existing declaration's hash moves (`hash_stability`): the
+  generated `Pair.fst`, `Pair.snd`, `And.left`, `And.right`,
+  `Omega.Env.nats` and `Omega.Env.ints` hash as the hand-written ones did.
+  The snapshots gain lines only, one per new accessor: in the core and
+  library `Char.code`, `Char.valid`, `Text.chars`, `Int.n`,
+  `Effect.Sig.op`/`res`, `Effect.SigMap.inject`/`reply`, `Omega.Row.*`,
+  `Omega.Fact.a`/`b` and `Effect.Rec.x`; in 30-odd examples, their types'.
+  An ability's generated operations type (constructors `%op`) gets none.
+
+Examples: `examples/accept/shared-fields.sw`, `examples/reject/shared-field-*.sw`
+(acceptance cases 2, 6, 7, 8, 12 and 13 among them); navigation in
+`crates/driver/tests/navigation.rs` (`shared_fields`).
+
 ## 6. Feature 3: shared-field update
 
 ### 6.1 Syntax and rules
