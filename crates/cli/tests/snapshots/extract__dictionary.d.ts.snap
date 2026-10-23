@@ -7,7 +7,7 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Person = { readonly name: string; readonly age: bigint };
-export type Roster = { readonly title: string; readonly people: { readonly [k: string]: Person } };
+export type Roster = { readonly title: string; readonly people: { [k: string]: Person } };
 export declare function total(scores: { readonly [k: string]: bigint }): bigint;
 export declare function bump(scores: { readonly [k: string]: bigint }, who: string): { [k: string]: bigint };
 export declare function keysOf(scores: { readonly [k: string]: bigint }): string[];
