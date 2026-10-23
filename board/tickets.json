@@ -6134,10 +6134,10 @@
     },
     {
       "id": 383,
-      "title": "Private resolver: use named-field patterns and shared-field access/update, delete hand-written per-constructor getters/setters (D1077)",
-      "status": "doing",
+      "title": "Private resolver: use variant fields — done 23 Oct (getters deleted, named patterns; .d.ts identical; differential 0 unexplained)",
+      "status": "done",
       "agent": "Opus",
-      "where": "private lane (work copy)",
+      "where": "",
       "labels": [
         "private"
       ],
