@@ -1,5 +1,5 @@
 {
-  "next": 384,
+  "next": 385,
   "tickets": [
     {
       "id": 1,
@@ -6126,6 +6126,20 @@
         "private"
       ],
       "body": "Work copy only (~/stitchwort-event-resolver-work), handover untouched until Matt asks. After SW-382. Nothing committed to this repo.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 384,
+      "title": "Coverage messages: a missed number in a match on Fin is reported as the number ('no arm for 2'), not in FZero/FSucc terms (D1079)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Trigger: checked Fin literals (fin-literals.md) — number patterns on Fin work, but a missing case is reported one level down in constructor terms. Needs extra work in the indexed-family coverage check.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
