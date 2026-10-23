@@ -5813,8 +5813,8 @@
     {
       "id": 366,
       "title": "Formatter: design note (stitchwort fmt, LSP formatting for VS Code, Playground)",
-      "status": "doing",
-      "agent": "Opus",
+      "status": "review",
+      "agent": "Matt",
       "where": "worktree lane",
       "labels": [
         "tooling"
@@ -5822,7 +5822,10 @@
       "body": "Matt, 23 Oct: plan a Stitchwort formatter usable from the CLI, the VS Code extension and the Playground. Stage 0 (Opus lane): design note docs/proposals/formatter.md with a staged plan and numbered decisions; stops for review before implementation (design review gate). House style D1012 (SW-365) is an input.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "52617012",
+        "e53c93dd"
+      ]
     }
   ]
 }
