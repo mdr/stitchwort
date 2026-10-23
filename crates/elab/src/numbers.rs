@@ -404,6 +404,18 @@ pub(crate) fn map_leaves(
 /// that isn't part of a negative literal), against `expected` if
 /// it's an arithmetic tree and that's given: its term and type.
 pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
+    // A comparison with a constructor with number literals as an operand: as
+    // written first, and if that fails, with that operand last.
+    if let Expr::Binary(op, a, b) = expr
+        && is_comparison(*op)
+        && (crate::check::defers_literal(cx, a)? || crate::check::defers_literal(cx, b)?)
+    {
+        return crate::check::retrying(cx, |cx| group_in(cx, expr, expected));
+    }
+    group_in(cx, expr, expected)
+}
+
+fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
     let mut g = Group::default();
     let (top, sides) = match expr {
         Expr::Binary(op, a, b) if is_comparison(*op) => {
@@ -482,7 +494,19 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
     }
 
     // 4. Pass 2: the rest, except bare literals.
-    for i in 0..g.leaves.len() {
+    // A constructor with a number in it comes last, so it doesn't settle the
+    // group's type (`Point 1 "p" 10 == m`: a `Mark Nat …`) before the others.
+    let mut order = Vec::new();
+    let mut late = Vec::new();
+    for (i, leaf) in g.leaves.iter().enumerate() {
+        if cx.e.late_literals.get() > 0 && crate::check::defers_literal(cx, leaf.expr)? {
+            late.push(i);
+        } else {
+            order.push(i);
+        }
+    }
+    order.extend(late);
+    for i in order {
         if g.leaves[i].bare || !matches!(g.leaves[i].state, State::Waiting) {
             continue;
         }
@@ -910,7 +934,7 @@ fn hopeless(expr: &Expr) -> bool {
 }
 
 /// Whether `expr` contains a numeric literal anywhere.
-fn has_number(expr: &Expr) -> bool {
+pub(crate) fn has_number(expr: &Expr) -> bool {
     let mut stack = vec![expr];
     while let Some(e) = stack.pop() {
         match e {

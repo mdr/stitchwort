@@ -968,10 +968,63 @@ pub(crate) fn apply_args_with(
     args: &[Arg],
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    let mut first_error = None;
-    match apply_args_postponing(cx, head, args, supply, &mut first_error) {
-        Err(e) if !crate::undo::fatal(&e) => Err(first_error.unwrap_or(e)),
-        result => result,
+    let mut relevant = false;
+    for arg in args {
+        if let Arg::Explicit(value) = arg
+            && defers_literal(cx, value)?
+        {
+            relevant = true;
+        }
+    }
+    let run = |cx: &mut Ctx, head: (Term, Value), supply: &mut Supply| {
+        let mut first_error = None;
+        match apply_args_postponing(cx, head, args, supply, &mut first_error) {
+            Err(e) if !crate::undo::fatal(&e) => Err(first_error.unwrap_or(e)),
+            result => result,
+        }
+    };
+    if !relevant {
+        return run(cx, head, supply);
+    }
+    // A constructor with number literals among the arguments: as written
+    // first, and only if that fails with it checked last (`defers_literal`).
+    let saved = supply.clone();
+    let (result, left) = retrying(cx, |cx| {
+        let mut left = saved.clone();
+        run(cx, head.clone(), &mut left).map(|result| (result, left))
+    })?;
+    *supply = left;
+    Ok(result)
+}
+
+/// Runs `f`; if it fails, once more with a constructor of a generic type
+/// that has number literals in it checked after its siblings
+/// ([`defers_literal`]), so what already elaborated is elaborated as before.
+/// If that fails too, its error is the one given.
+pub(crate) fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
+    if cx.e.late_literals.get() > 0 {
+        return f(cx);
+    }
+    let first_try = crate::undo::Snapshot::take(cx);
+    let result = f(cx);
+    if !matches!(&result, Err(e) if !crate::undo::fatal(e)) {
+        return result;
+    }
+    first_try.restore(cx);
+    let second_try = crate::undo::Snapshot::take(cx);
+    cx.e.late_literals.set(1);
+    let again = f(cx);
+    cx.e.late_literals.set(0);
+    match again {
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        // Its error blames the literal that doesn't fit the type its
+        // siblings gave, where the first one blames the siblings for not
+        // being the type the literal defaulted to.
+        Err(e) => {
+            second_try.restore(cx);
+            Err(e)
+        }
+        ok => ok,
     }
 }
 
@@ -1051,6 +1104,33 @@ fn apply_args_postponing(
             Arg::Explicit(value) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
                 let (dom, cod) = function_parts(cx, &ty)?;
+                // `pair (Point 1 "p" 10) m`, where `m: Mark Int Nat`: the
+                // constructor's number would be defaulted to a `Nat` before
+                // `m` said what the parameter is, so it's checked last, as a
+                // lambda whose parameter type isn't known is.
+                let later = args[i + 1..]
+                    .iter()
+                    .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
+                if later
+                    && cx.e.late_literals.get() > 0
+                    && matches!(
+                        force(cx.g(), dom.clone())?,
+                        Value::Neutral(Head::Meta(_), _)
+                    )
+                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
+                    && defers_literal(cx, value)?
+                {
+                    let meta = cx.fresh_meta();
+                    let placeholder = cx.eval(&meta)?;
+                    ty = cod.apply(cx.g(), placeholder.clone())?;
+                    let id = match meta.spine().0 {
+                        Term::Meta(m) => *m,
+                        _ => unreachable!("a fresh metavariable is headed by one"),
+                    };
+                    term = Term::app(term, meta);
+                    postponed.push((*value, dom, placeholder, id));
+                    continue;
+                }
                 let value = check_arg(cx, &term, value, &dom)?;
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
@@ -1072,6 +1152,60 @@ fn apply_args_postponing(
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
+}
+
+/// The items of a list literal checked against `elem`, in order, or when
+/// retrying (`retrying`) and the element type isn't known, those with a
+/// constructor with number literals last (`defers_literal`).
+fn check_items(cx: &mut Ctx, items: &[Expr], elem: &Value) -> Result<Vec<Term>> {
+    let mut order: Vec<usize> = (0..items.len()).collect();
+    if cx.e.late_literals.get() > 0
+        && matches!(
+            force(cx.g(), elem.clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        )
+    {
+        let mut late = Vec::new();
+        order.clear();
+        for (i, item) in items.iter().enumerate() {
+            if defers_literal(cx, item)? {
+                late.push(i);
+            } else {
+                order.push(i);
+            }
+        }
+        order.extend(late);
+    }
+    let mut checked: Vec<Option<Term>> = vec![None; items.len()];
+    for i in order {
+        checked[i] = Some(check(cx, &items[i], elem)?);
+    }
+    Ok(checked.into_iter().flatten().collect())
+}
+
+/// Whether the `else` branch of an `if` whose type isn't known yet
+/// (`unknown`) is checked first: the `then` branch is a constructor with a
+/// number in it and the `else` isn't (`defers_literal`).
+fn else_first(cx: &Ctx, then: &Expr, otherwise: &Expr, unknown: bool) -> Result<bool> {
+    Ok(unknown
+        && cx.e.late_literals.get() > 0
+        && defers_literal(cx, then)?
+        && !defers_literal(cx, otherwise)?)
+}
+
+/// Whether `expr` is a constructor of a parameterised type applied to
+/// arguments with a number literal in them: checked against a type not yet
+/// known, the number would settle a parameter as `Nat` before the other
+/// operands of the application, list, `if` or comparison it's in could say
+/// otherwise, so it's checked after them.
+pub(crate) fn defers_literal(cx: &Ctx, expr: &Expr) -> Result<bool> {
+    if !matches!(expr, Expr::App(..)) || !crate::numbers::has_number(expr) {
+        return Ok(false);
+    }
+    Ok(match ctor_head(cx, expr)? {
+        Some((d, ..)) => !cx.g().data(d).params.is_empty(),
+        None => false,
+    })
 }
 
 /// `term`, an application, with its argument that is the metavariable `id`
@@ -1589,10 +1723,25 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 return fallback(cx, expr, &expected);
             }
             let elem = params[0].clone();
-            let mut terms = Vec::new();
-            for item in items {
-                terms.push(check(cx, item, &elem)?);
+            // An element type not known yet is settled by the first item
+            // that can: if `[Point 1 "p" 10, m]` fails as written, it's
+            // checked as `[m, Point …]` (the terms stay in place), so the
+            // `1` isn't defaulted to a `Nat` first.
+            let unknown = matches!(
+                force(cx.g(), elem.clone())?,
+                Value::Neutral(Head::Meta(_), _)
+            );
+            let mut relevant = false;
+            if unknown {
+                for item in items {
+                    relevant |= defers_literal(cx, item)?;
+                }
             }
+            let terms = if relevant {
+                retrying(cx, |cx| check_items(cx, items, &elem))?
+            } else {
+                check_items(cx, items, &elem)?
+            };
             // A long literal would be a `Cons` chain as deep as it is long,
             // and every pass over terms recurses on that depth (the checker,
             // zonking, lowering, code generation, …): so it's cut into chunks
@@ -1721,6 +1870,26 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
+    let unknown = matches!(
+        force(cx.g(), expected.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    );
+    if unknown && defers_literal(cx, then)? {
+        return retrying(cx, |cx| {
+            check_if_in(cx, binder, cond, then, otherwise, expected)
+        });
+    }
+    check_if_in(cx, binder, cond, then, otherwise, expected)
+}
+
+fn check_if_in(
+    cx: &mut Ctx,
+    binder: Option<&AstName>,
+    cond: &Expr,
+    then: &Expr,
+    otherwise: &Expr,
+    expected: &Value,
+) -> Result<Term> {
     let result_ty = cx.quote(expected)?;
     let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &Expr| -> Result<Term> {
         let mark = cx.mark();
@@ -1742,8 +1911,17 @@ pub(crate) fn check_if(
                 }
             };
             let unit = Value::Data(unit_data, Vec::new());
-            let then = branch(cx, "_", unit.clone(), then)?;
-            let otherwise = branch(cx, "_", unit, otherwise)?;
+            let unknown = matches!(
+                force(cx.g(), expected.clone())?,
+                Value::Neutral(Head::Meta(_), _)
+            );
+            let (then, otherwise) = if else_first(cx, then, otherwise, unknown)? {
+                let otherwise = branch(cx, "_", unit.clone(), otherwise)?;
+                (branch(cx, "_", unit, then)?, otherwise)
+            } else {
+                let then = branch(cx, "_", unit.clone(), then)?;
+                (then, branch(cx, "_", unit, otherwise)?)
+            };
             let ite = builtin_def(cx, Builtin::IfThenElse)?;
             let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
             Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise))
@@ -1792,8 +1970,18 @@ fn decided_if(
     let not = builtin_def(cx, Builtin::Not)?;
     let not_prop =
         stitchwort_core::value::apply(cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
-    let then = branch(cx, name, prop_value, then)?;
-    let otherwise = branch(cx, name, not_prop, otherwise)?;
+    let (then, otherwise) = if else_first(
+        cx,
+        then,
+        otherwise,
+        matches!(result_ty.strip_loc().spine().0, Term::Meta(_)),
+    )? {
+        let otherwise = branch(cx, name, not_prop, otherwise)?;
+        (branch(cx, name, prop_value, then)?, otherwise)
+    } else {
+        let then = branch(cx, name, prop_value, then)?;
+        (then, branch(cx, name, not_prop, otherwise)?)
+    };
     let elim = builtin_def(cx, Builtin::ElimDec)?;
     let head = Term::app_icit(
         Term::app_icit(Term::Def(elim), prop, Icit::Implicit),

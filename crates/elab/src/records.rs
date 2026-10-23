@@ -389,8 +389,11 @@ pub(crate) fn check_record(
             literal(cx, d, &params, fields)
         }
         Some(base) => {
+            if let Some(term) = changing_update(cx, base, fields, expected)? {
+                return Ok(term);
+            }
             let base = check(cx, base, expected)?;
-            update(cx, base, expected, fields)
+            update(cx, base, expected, None, fields)
         }
     }
 }
@@ -403,8 +406,157 @@ pub(crate) fn infer_update(
 ) -> Result<(Term, Value)> {
     let (base, ty) = infer(cx, base)?;
     let (base, ty) = insert(cx, base, ty)?;
-    let term = update(cx, base, &ty, fields)?;
-    Ok((term, ty))
+    let Ok((d, params)) = record_type(cx, &ty, "this update") else {
+        return Ok((update(cx, base, &ty, None, fields)?, ty));
+    };
+    check_field_names(cx.g(), d, fields.iter().map(|(n, _)| n))?;
+    let uses = param_uses(cx.g(), d, fields);
+    if !uses.iter().any(|u| matches!(u, ParamUse::Free)) {
+        return Ok((update(cx, base, &ty, None, fields)?, ty));
+    }
+    // The update as written first, so a literal in it is checked against the
+    // parameters the base has (`{ w | at = 5 }` stays a `W Int`); only if that
+    // fails may the parameters its new fields mention change.
+    let kept = crate::undo::attempt(cx, |cx| update(cx, base.clone(), &ty, None, fields))?;
+    if let Some(term) = kept {
+        return Ok((term, ty));
+    }
+    let mut result = params;
+    for (param, u) in result.iter_mut().zip(&uses) {
+        if matches!(u, ParamUse::Free) {
+            let meta = cx.fresh_meta();
+            *param = cx.eval(&meta)?;
+        }
+    }
+    let term = update(cx, base, &ty, Some(result.clone()), fields)?;
+    Ok((term, Value::Data(d, result)))
+}
+
+/// What an update does with one of the record's type parameters.
+enum ParamUse {
+    /// Only replaced fields mention it: the update may change it.
+    Free,
+    /// A kept field has a type that mentions it (named), so it stays.
+    KeptField(String),
+    /// Another parameter's type mentions it (named), so it stays.
+    Parameter(String),
+    /// No replaced field mentions it, or no field does at all.
+    Unused,
+}
+
+/// For each parameter of record `d`, what an update of `fields` does with it
+/// (as in Haskell's type-changing update: a parameter can change only if
+/// every field whose type mentions it is replaced).
+fn param_uses(
+    g: &stitchwort_core::Globals,
+    d: DataId,
+    fields: &[(ast::Name, Expr)],
+) -> Vec<ParamUse> {
+    let data = g.data(d);
+    let np = data.params.len();
+    let ctor = &data.ctors[0];
+    let replaced = |f: &str| fields.iter().any(|(n, _)| n.text == f);
+    (0..np)
+        .map(|k| {
+            // Parameter `k` as a variable in field `j`'s type, which is in
+            // the context of the parameters and then the earlier fields.
+            let in_field = |j: usize| ctor.fields[j].1.mentions(j + np - 1 - k);
+            let kept =
+                (0..ctor.fields.len()).find(|&j| !replaced(&ctor.fields[j].0) && in_field(j));
+            if let Some(j) = kept {
+                return ParamUse::KeptField(ctor.fields[j].0.to_string());
+            }
+            if let Some(p) = (k + 1..np).find(|&p| data.params[p].1.mentions(p - 1 - k)) {
+                return ParamUse::Parameter(data.params[p].0.to_string());
+            }
+            if (0..ctor.fields.len()).any(|j| replaced(&ctor.fields[j].0) && in_field(j)) {
+                ParamUse::Free
+            } else {
+                ParamUse::Unused
+            }
+        })
+        .collect()
+}
+
+/// `{ base | f = e, … }` checked against `expected` when the base's type
+/// differs from it in parameters (`{ t | start = f t.start }`: a `Timed Int`
+/// made a `Timed Nat`); `None` if the base's type is `expected`, or can't be
+/// told without it, which the caller elaborates as it always has. A
+/// parameter that would have to change but can't is an error naming the kept
+/// field that fixes it.
+fn changing_update(
+    cx: &mut Ctx,
+    base: &Expr,
+    fields: &[(ast::Name, Expr)],
+    expected: &Value,
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    let Value::Data(d, wanted) = force(g, expected.clone())? else {
+        return Ok(None);
+    };
+    let data = g.data(d);
+    if !data.record
+        || data.params.is_empty()
+        || fields
+            .iter()
+            .any(|(n, _)| !data.ctors[0].fields.iter().any(|(f, _)| **f == *n.text))
+    {
+        return Ok(None);
+    }
+    let uses = param_uses(g, d, fields);
+    if uses.iter().all(|u| matches!(u, ParamUse::Unused)) {
+        return Ok(None);
+    }
+    // The base's type, learnt without committing to anything.
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let found = infer(cx, base).and_then(|(term, ty)| insert(cx, term, ty));
+    let learnt = match found {
+        Ok((_, ty)) => match force(cx.g(), ty.clone())? {
+            Value::Data(d2, have) if d2 == d => Some((ty, have)),
+            _ => None,
+        },
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(_) => None,
+    };
+    let same = match &learnt {
+        Some((ty, _)) => cx.unify(ty, expected).unwrap_or(false),
+        None => true,
+    };
+    snapshot.restore(cx);
+    let Some((_, have)) = learnt.filter(|_| !same) else {
+        return Ok(None);
+    };
+    for k in 0..data.params.len() {
+        if matches!(uses[k], ParamUse::Free) || crate::undo::unify(cx, &have[k], &wanted[k])? {
+            continue;
+        }
+        let name = &data.params[k].0;
+        let (old, new) = (cx.show(&have[k]), cx.show(&wanted[k]));
+        let why = match &uses[k] {
+            ParamUse::KeptField(kept) => format!(
+                "the kept field `{kept}` has a type that mentions `{name}`, so `{name}` stays `{old}`"
+            ),
+            ParamUse::Parameter(other) => format!(
+                "the type of the parameter `{other}` depends on `{name}`, so `{name}` stays `{old}`"
+            ),
+            _ => format!("no replaced field mentions `{name}`, so it stays `{old}`"),
+        };
+        let mut error = cx.error(
+            "E-RECORD-UPDATE",
+            format!("this update can't change `{name}` from `{old}` to `{new}`"),
+            why,
+        );
+        if let ParamUse::KeptField(kept) = &uses[k] {
+            error = error.with_note(format!(
+                "a type parameter can change only if every field whose type mentions it is \
+                 replaced: give a new `{kept}` too"
+            ));
+        }
+        return Err(error);
+    }
+    let (base, ty) = infer(cx, base)?;
+    let (base, ty) = insert(cx, base, ty)?;
+    Ok(Some(update(cx, base, &ty, Some(wanted), fields)?))
 }
 
 /// `{ f = e, … }` at record `d` with parameters `params`: every field given
@@ -473,10 +625,23 @@ fn literal(
 /// `{ base | f = e, … }`, where `base : ty`: a new record with the given
 /// fields replaced and the others projected from `base`, which is evaluated
 /// once. A later field whose type mentions a replaced one must be replaced
-/// too (DESIGN.md §9).
-fn update(cx: &mut Ctx, base: Term, ty: &Value, fields: &[(ast::Name, Expr)]) -> Result<Term> {
+/// too (DESIGN.md §9). The new record has `ty`'s parameters, or `result`
+/// (those only replaced fields mention may differ from the base's).
+fn update(
+    cx: &mut Ctx,
+    base: Term,
+    ty: &Value,
+    result: Option<Vec<Value>>,
+    fields: &[(ast::Name, Expr)],
+) -> Result<Term> {
     let g = cx.g();
     let (d, params) = record_type(cx, ty, "this update")?;
+    let uses = param_uses(g, d, fields);
+    let new_ty = match &result {
+        Some(new) => Value::Data(d, new.clone()),
+        None => ty.clone(),
+    };
+    let new_params = result.unwrap_or_else(|| params.clone());
     check_field_names(g, d, fields.iter().map(|(n, _)| n))?;
     fields.iter().for_each(|(n, _)| cx.e.note_field(d, n));
     let data = g.data(d);
@@ -513,7 +678,7 @@ fn update(cx: &mut Ctx, base: Term, ty: &Value, fields: &[(ast::Name, Expr)]) ->
     } else {
         base.clone()
     };
-    let result = update_fields(cx, d, &params, &base_var, fields);
+    let result = update_fields(cx, d, &params, &new_params, &uses, &base_var, fields);
     cx.reset(mark);
     let body = result?;
     if !bound {
@@ -523,7 +688,7 @@ fn update(cx: &mut Ctx, base: Term, ty: &Value, fields: &[(ast::Name, Expr)]) ->
         "%record".into(),
         Icit::Explicit,
         Rc::new(cx.quote(ty)?),
-        Rc::new(quote(g, cx.level() + 1, ty)?),
+        Rc::new(quote(g, cx.level() + 1, &new_ty)?),
     );
     let lam = Term::Lam("%record".into(), Icit::Explicit, Rc::new(body));
     Ok(Term::app(Term::Ann(Rc::new(lam), Rc::new(pi)), base))
@@ -534,18 +699,39 @@ fn update_fields(
     cx: &mut Ctx,
     d: DataId,
     params: &[Value],
+    new_params: &[Value],
+    uses: &[ParamUse],
     base: &Term,
     fields: &[(ast::Name, Expr)],
 ) -> Result<Term> {
     let g = cx.g();
     let data = g.data(d);
     let ctor = &data.ctors[0];
-    let mut env = params.to_vec();
+    let np = params.len();
+    // The replaced fields are checked against the new parameters, the others
+    // taken from `base` at its own.
+    let mut env = new_params.to_vec();
     let mut terms = Vec::new();
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
         let ty = eval(g, &env, field_ty)?;
         let term = match fields.iter().find(|(n, _)| *n.text == **field) {
-            Some((_, expr)) => check(cx, expr, &ty)?,
+            Some((_, expr)) => check(cx, expr, &ty).map_err(|e| {
+                // A type parameter a kept field fixes, which this field's
+                // type mentions: say so, if the field's value didn't fit.
+                let pinned = (0..np).find_map(|k| match &uses[k] {
+                    ParamUse::KeptField(kept) if field_ty.mentions(i + np - 1 - k) => {
+                        Some((&data.params[k].0, kept))
+                    }
+                    _ => None,
+                });
+                match pinned {
+                    Some((param, kept)) if e.code == "E-TYPE-MISMATCH" => e.with_note(format!(
+                        "`{param}` can't change here: the kept field `{kept}` has a type that mentions it; \
+                         replace `{kept}` too, or keep `{param}`"
+                    )),
+                    _ => e,
+                }
+            })?,
             None => {
                 let Some(proj) = cx.e.records.get(&d).and_then(|r| r.projections[i]) else {
                     return Err(cx.error(

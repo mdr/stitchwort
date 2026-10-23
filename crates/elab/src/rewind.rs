@@ -160,6 +160,7 @@ impl Elaborator {
             branch_errors,
             arm_reach,
             no_propagation,
+            late_literals,
             dot_heads,
             dot_failed,
             condition,
@@ -230,6 +231,7 @@ impl Elaborator {
         branch_errors.get_mut().clear();
         *arm_reach.get_mut() = Default::default();
         no_propagation.set(0);
+        late_literals.set(0);
         *dot_heads.get_mut() = mark.dot_heads.clone();
         *dot_failed.get_mut() = mark.dot_failed.clone();
         condition.set(0);
