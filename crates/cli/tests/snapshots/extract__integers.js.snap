@@ -45,7 +45,11 @@ const outOfResources = (name, e) =>
 //   (D582). In a record's field (marked optional in `define`), `None` is a
 //   missing property. An `Option` of an `Option` has the tagged data type
 //   (`OPTION_SHAPE.info`) inside instead, so `Some None` and `None` stay
-//   apart (`payload`).
+//   apart (`payload`);
+// - `map(t)` is a `Map Text t` (the library's), as a plain object: decoding
+//   reads the object's own enumerable string keys and builds the map from
+//   its entries with the library's own `Map.fromList` (`MAP_SHAPE`), and
+//   encoding makes a fresh object, key by key, from `Map.toList`.
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
 // two types are the same exactly when they're the same object, and `decode`
@@ -54,11 +58,12 @@ const outOfResources = (name, e) =>
 // applied to their own parameters (the positivity check), and otherwise only
 // types declared before them, so a boundary type has finitely many types
 // inside it.
-const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4;
+const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
+const map = (elem) => (elem.map ??= { kind: MAP, open: elem.open, id: typeCount++, elem });
 // What an option has in place of `undefined`: its type, or if that's an
 // option too, the tagged data type with that one's type as its argument.
 const payload = (t) =>
@@ -102,6 +107,7 @@ const close = (t, args) =>
   : t.kind === PARAM ? args[t.i]
   : t.kind === LIST ? list(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
+  : t.kind === MAP ? map(close(t.elem, args))
   : data(t.info, t.args.map((a) => close(a, args)));
 
 // A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
@@ -216,7 +222,12 @@ const describe = (x) =>
 // that the message stays short: a run of the same step, or of a cycle of up
 // to three steps, is written once with a count, and the middle of a long path
 // is left out.
-const step = (s) => (typeof s === "number" ? `[${s}]` : `.${s}`);
+// A map's key is any string: one that isn't a name is quoted, and a long one
+// is cut short.
+const step = (s) =>
+  typeof s === "number" ? `[${s}]`
+  : s.length <= 40 && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(s) ? `.${s}`
+  : `[${JSON.stringify(s.length > 40 ? `${s.slice(0, 40)}…` : s)}]`;
 const pathText = (root, path) => {
   if (path.length <= 12) return root + path.map(step).join("");
   const runs = [];
@@ -258,15 +269,47 @@ const NONE = Symbol("none");
 // with that error as the `cause`.
 const hasOwn = Object.hasOwn;
 const MISSING = Symbol("missing"), INHERITED = Symbol("inherited");
+const threw = (e) => {
+  let what = "an error";
+  try {
+    what = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  } catch {}
+  return refuse(`reading it threw ${what.length > 80 ? `${what.slice(0, 80)}…` : what}`, e);
+};
 const own = (x, key) => {
   try {
     return hasOwn(x, key) ? x[key] : key in x ? INHERITED : MISSING;
   } catch (e) {
-    let what = "an error";
-    try {
-      what = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    } catch {}
-    return refuse(`reading it threw ${what.length > 80 ? `${what.slice(0, 80)}…` : what}`, e);
+    return threw(e);
+  }
+};
+
+// The keys of an object that is to be a `Map Text V`: its own enumerable
+// string keys (symbols and inherited or non-enumerable properties aren't
+// entries), in the engine's order. `__proto__` is a key like any other when
+// it's an own property (`JSON.parse` makes one), and nothing here assigns to
+// an object by key. The object must be a plain one, made by `{}`, `JSON.parse`
+// or `Object.create(null)`: a `Map`, a `Date` or a class instance has
+// something else to say, and reading no keys from it would silently give an
+// empty map. (An `Object.prototype` from another realm, as in a `vm` context
+// or an iframe, is a plain one too: a prototype with no prototype that has
+// the `Object.prototype` methods of its own.)
+const plainKeys = (x) => {
+  if (typeof x !== "object" || x === null) refuse("expected an object");
+  if (Array.isArray(x)) refuse("expected an object, not an array");
+  try {
+    const proto = Object.getPrototypeOf(x);
+    const plain =
+      proto === null ||
+      proto === Object.prototype ||
+      (Object.getPrototypeOf(proto) === null && hasOwn(proto, "isPrototypeOf"));
+    if (!plain) {
+      refuse("expected a plain object, not a Map, a class instance or another kind of object");
+    }
+    return Object.keys(x);
+  } catch (e) {
+    if (e instanceof Refusal) throw e;
+    return threw(e);
   }
 };
 
@@ -316,6 +359,9 @@ const decode = (t, x, root) => {
       } else {
         if (t.kind === LIST) {
           if (!Array.isArray(x)) refuse("expected an array");
+        } else if (t.kind === MAP) {
+          // The keys are read once the object turns out not to be known.
+          if (typeof x !== "object" || x === null) refuse("expected an object");
         } else if (typeof x !== "object" || x === null) {
           refuse(`expected a ${t.info.name} object`);
         } else if (Array.isArray(x)) {
@@ -330,6 +376,10 @@ const decode = (t, x, root) => {
         } else if (t.kind === LIST) {
           done.set(x, INSIDE);
           frames.push({ t, x, done, fields: undefined, i: 0, n: x.length, out: [] });
+        } else if (t.kind === MAP) {
+          const keys = plainKeys(x);
+          done.set(x, INSIDE);
+          frames.push({ t, x, done, fields: undefined, keys, key: undefined, i: 0, n: keys.length, out: [] });
         } else if (t.info.record !== undefined) {
           const fields = t.info.record;
           done.set(x, INSIDE);
@@ -357,13 +407,27 @@ const decode = (t, x, root) => {
             value = { tag: OPTION_SHAPE.some, [OPTION_SHAPE.key]: value };
             continue;
           }
-          if (f.fields === undefined) f.out.push(value);
+          if (f.keys !== undefined) {
+            f.out.push({ tag: MAP_SHAPE.pair, [MAP_SHAPE.fst]: f.key, [MAP_SHAPE.snd]: value });
+          } else if (f.fields === undefined) f.out.push(value);
           else f.out[f.fields[f.i][0]] = value;
           f.i++;
           path.pop();
         }
         if (f.i < f.n) {
-          if (f.fields === undefined) {
+          if (f.keys !== undefined) {
+            const key = f.keys[f.i];
+            path.push(key);
+            try {
+              f.key = TEXT.dec(key);
+            } catch (e) {
+              if (e instanceof Refusal) refuse(`the key isn't well-formed text: ${e.message}`);
+              throw e;
+            }
+            x = own(f.x, key);
+            if (x === MISSING || x === INHERITED) refuse("the property is gone");
+            t = f.t.elem;
+          } else if (f.fields === undefined) {
             path.push(f.i);
             x = own(f.x, f.i);
             if (x === MISSING || x === INHERITED) refuse("a hole in the array");
@@ -383,6 +447,8 @@ const decode = (t, x, root) => {
         if (f.fields === undefined) {
           value = { tag: "Nil" };
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
+          // The map of the entries, by the library's own `Map.fromList`.
+          if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
           value = f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
@@ -422,6 +488,12 @@ const encode = (t, v) => {
       value = t.enc(v);
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
+    } else if (t.kind === MAP) {
+      // `v` is the rest of the entries, in key order. The object is a plain
+      // one, and each key is defined on it as an ordinary property: a key
+      // like `__proto__` or `constructor` is data, not the prototype or a
+      // method, and no setter anywhere is called.
+      frames.push({ t, v: MAP_SHAPE.toList(v), fields: undefined, map: true, key: undefined, out: {} });
     } else {
       const record = t.info.record;
       frames.push(
@@ -438,14 +510,28 @@ const encode = (t, v) => {
           frames.pop();
           continue;
         }
-        if (f.fields === undefined) f.out.push(value);
+        if (f.map) {
+          Object.defineProperty(f.out, f.key, {
+            value, writable: true, enumerable: true, configurable: true,
+          });
+        } else if (f.fields === undefined) f.out.push(value);
         else {
           const [key, , optional] = f.fields[f.i++];
           // `None` in an optional property is no property.
           if (!(optional && value === undefined)) f.out[key] = value;
         }
       }
-      if (f.fields === undefined) {
+      if (f.map) {
+        // `f.v` is the rest of the entries: pairs of a key and a value.
+        if (f.v.tag === "Cons") {
+          const entry = f.v.head;
+          f.key = TEXT.enc(entry[MAP_SHAPE.fst]);
+          v = entry[MAP_SHAPE.snd];
+          f.v = f.v.tail;
+          t = f.t.elem;
+          break;
+        }
+      } else if (f.fields === undefined) {
         // `f.v` is the rest of the list.
         if (f.v.tag === "Cons") {
           v = f.v.head;

@@ -76,6 +76,9 @@ const LIBRARY: &[Builtin] = &[
     Builtin::TextFold,
     Builtin::SafeNat,
     Builtin::SafeInt,
+    Builtin::Map,
+    Builtin::MapFromList,
+    Builtin::MapToList,
 ];
 
 macro_rules! builtins {
@@ -197,6 +200,13 @@ builtins! {
     // (std/Int/Safe.sw)
     SafeNat = "SafeNat": Data,
     SafeInt = "SafeInt": Data,
+    // `Map Text V` crosses the JS boundary as a plain object (std/Map/Map.sw):
+    // read and built with these, in the order of the library's `Text`
+    // (DESIGN.md §12)
+    Map = "Map": Data,
+    MapFromList = "Map.fromList": Def,
+    MapToList = "Map.toList": Def,
+    TextInstOrd = "Text.instOrd": Def,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),

@@ -340,6 +340,35 @@ export declare function halve(arg0: bigint | undefined): bigint | undefined;
 
 Example: `examples/extract/options.sw`. See DESIGN.md §12.
 
+## `Map Text V` in an `export`
+
+A `Map Text V` crosses the JS boundary as a plain object, a dictionary from string keys to `V` (D651, D665):
+
+```
+import Std (List, Map, Nat, Text)
+
+type Person = { name: Text, age: Nat }
+
+export def ages (people: Map Text Person): Map Text Nat := Map.map (p => p.age) people
+export def bump (scores: Map Text Nat) (who: Text): Map Text Nat := Map.insertWith Nat.add who 1 scores
+```
+
+```ts
+export type Person = { readonly name: string; readonly age: bigint };
+export declare function ages(people: { readonly [k: string]: Person }): { [k: string]: bigint };
+export declare function bump(scores: { readonly [k: string]: bigint }, who: string): { [k: string]: bigint };
+```
+
+- **Decoding** reads the object's own enumerable string keys (`Object.keys`) and decodes each value with `V`'s codec; the map is built with the library's own `Map.fromList`, so its keys are in order as in any map. Symbol keys, inherited properties and non-enumerable ones are not entries. A key that is a lone surrogate is refused, like any `Text`.
+- **A plain object is required.** `null`, a primitive, an array, a JS `Map`, a `Date` or a class instance is refused (`scores: expected a plain object, not a Map, a class instance or another kind of object`), since reading no keys from it would silently give an empty map. An object made by `{}`, `JSON.parse` or `Object.create(null)` is plain; so is one from another realm (a `vm` context, an iframe).
+- **Awkward keys are data.** `__proto__`, `constructor`, `toString` and the empty string are entries like any other, on input (an own `__proto__` property, as `JSON.parse` makes) and on output. Encoding defines each key as an ordinary data property on a fresh `{}`, so no prototype is set and no setter runs.
+- **Encoding** gives a plain object (prototype `Object.prototype`) with the entries in key order, which is `Text`'s order, by code point. JS lists keys that are array indices (`"9"`, `"10"`) first, in numeric order.
+- **In TypeScript** the type is an index signature, the same as `Record<string, V>`, so an app's `Record<SpeakerId, V>` (a flavoured or branded string key) is accepted as an argument and a result assigns back to it. An `interface` with known keys isn't an index signature in TypeScript; a `type` alias is.
+- **Nesting**: `V` can be a record, a list, an `Option` (`{ readonly [k: string]: bigint | undefined }`) or another `Map Text _`.
+- **Only `Text` keys**, ordered by `Text`'s own order. Any other `Map` in an export is `E-EXPORT`: "only maps from `Text` cross, as plain objects".
+
+Example: `examples/extract/dictionary.sw`. See DESIGN.md §12.
+
 ## Interfaces
 
 An interface describes what a type supports; an instance says how one type supports it; `auto` finds the instance by type (docs/proposals/interfaces.md, stages 1 to 5; `examples/accept/interfaces*.sw`, `examples/accept/eqeq-*.sw`, `examples/accept/operators.sw`).

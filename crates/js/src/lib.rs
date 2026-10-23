@@ -68,6 +68,10 @@ pub enum Boundary {
     /// inner `Option` is the tagged [`Boundary::Data`] instead, so `Some None`
     /// and `None` stay apart: see [`Boundary::payload`].
     Option(DataId, Box<Boundary>),
+    /// The library's `Map Text V` (the `DataId`), ordered by the library's
+    /// `Text` order, as a plain object `{ readonly [k: string]: V }`: the
+    /// keys are the map's keys, the values are `V`'s encoding.
+    Map(DataId, Box<Boundary>),
     /// A tagged object union, with the type's arguments if it has parameters.
     Data(DataId, Vec<Boundary>),
     /// Parameter `i` of the data type whose fields these are: only in the
@@ -84,6 +88,7 @@ impl Boundary {
             Boundary::Param(i) => args[*i].clone(),
             Boundary::List(elem) => Boundary::List(Box::new(elem.instantiate(args))),
             Boundary::Option(d, inner) => Boundary::Option(*d, Box::new(inner.instantiate(args))),
+            Boundary::Map(d, value) => Boundary::Map(*d, Box::new(value.instantiate(args))),
             Boundary::Data(d, own) => {
                 Boundary::Data(*d, own.iter().map(|b| b.instantiate(args)).collect())
             }
@@ -105,12 +110,25 @@ impl Boundary {
         }
     }
 
+    /// Whether a map is this type or inside it (not counting the fields of a
+    /// data type).
+    fn has_map(&self) -> bool {
+        match self {
+            Boundary::Map(..) => true,
+            Boundary::List(elem) | Boundary::Option(_, elem) => elem.has_map(),
+            Boundary::Data(_, args) => args.iter().any(Boundary::has_map),
+            _ => false,
+        }
+    }
+
     /// Whether `leaf` is this type or inside it (not counting the fields of
     /// a data type).
     fn mentions(&self, leaf: &Boundary) -> bool {
         self == leaf
             || match self {
-                Boundary::List(elem) | Boundary::Option(_, elem) => elem.mentions(leaf),
+                Boundary::List(elem) | Boundary::Option(_, elem) | Boundary::Map(_, elem) => {
+                    elem.mentions(leaf)
+                }
                 Boundary::Data(_, args) => args.iter().any(|a| a.mentions(leaf)),
                 _ => false,
             }
@@ -282,6 +300,29 @@ fn boundary(
             if args.is_empty() && text_data(g) == Some(*d) {
                 return Ok(Boundary::Text);
             }
+            // The library's `Map` is a dictionary: a plain object. Only a map
+            // from `Text`, in `Text`'s own order, can be one.
+            if g.registry.loaded_data(Builtin::Map) == Some(*d)
+                && let [key, value, order] = args.as_slice()
+            {
+                let text_key =
+                    matches!(key, Value::Data(t, a) if a.is_empty() && text_data(g) == Some(*t));
+                if !text_key {
+                    return Err(format!(
+                        "`{}` can't cross the JS boundary: only maps from `Text` cross, as plain objects",
+                        pretty::value(g, &[], ty)
+                    ));
+                }
+                if !is_text_order(g, order) {
+                    return Err(format!(
+                        "`{}` can't cross the JS boundary: a map crosses only in `Text`'s own \
+                         order (`Text.instOrd`), which its keys are sorted by",
+                        pretty::value(g, &[], ty)
+                    ));
+                }
+                let value = boundary(g, value, params, visiting)?;
+                return Ok(Boundary::Map(*d, Box::new(value)));
+            }
             // The prelude's other types have codecs of their own, chosen by
             // identity: a program's own `List` is encoded as the data type it
             // is.
@@ -320,6 +361,19 @@ fn boundary(
         }
         Value::Pi(..) => Err("functions can't cross the JS boundary yet".into()),
         other => Err(cannot(other)),
+    }
+}
+
+/// Whether `order` is the library's `Text.instOrd`, the ordering a map that
+/// crosses as an object is sorted by.
+fn is_text_order(g: &Globals, order: &Value) -> bool {
+    let Some(text_order) = g.registry.loaded_def(Builtin::TextInstOrd) else {
+        return false;
+    };
+    match order {
+        Value::Call(id, spine, _) => *id == text_order && spine.is_empty(),
+        Value::Neutral(Head::Def(id), spine) => *id == text_order && spine.is_empty(),
+        _ => false,
     }
 }
 
@@ -598,6 +652,35 @@ pub fn generate_exports(
             Term::Def(id) => Some(*id),
             _ => None,
         });
+    // A map that crosses is built and read with the library's own `Map`
+    // functions, so they're generated, with the `Text` order they're given.
+    let maps_cross = exports
+        .iter()
+        .flat_map(|sig| sig.params.iter().map(|(_, b)| b).chain([&sig.result]))
+        .any(Boundary::has_map)
+        || boundary_datas.iter().any(|d| {
+            generic_field_boundaries(g, *d)
+                .iter()
+                .flatten()
+                .any(|(_, b)| b.has_map())
+        });
+    let map_defs: Vec<DefId> = if maps_cross {
+        [
+            Builtin::MapFromList,
+            Builtin::MapToList,
+            Builtin::TextInstOrd,
+        ]
+        .into_iter()
+        .map(|b| {
+            g.registry
+                .loaded_def(b)
+                .expect("a map crosses only with the library's `Map` loaded")
+        })
+        .collect()
+    } else {
+        Vec::new()
+    };
+    let checks = checks.chain(map_defs.iter().copied());
     let failure = std::cell::RefCell::new(None);
     let used = reachable(
         g,
@@ -721,6 +804,9 @@ pub fn generate_exports(
         }
         js.push_str(&codegen.def(id).map_err(while_generating(id))?);
     }
+    if maps_cross {
+        js.push_str(&codegen.map_shape().map_err(Diagnostic::from)?);
+    }
     for sig in &exports {
         js.push_str(&codegen.wrapper(sig).map_err(while_generating(sig.id))?);
     }
@@ -775,7 +861,7 @@ pub fn generate_exports(
 /// nested one (not counting the fields of data types).
 fn names_option(g: &Globals, b: &Boundary) -> bool {
     match b {
-        Boundary::List(elem) => names_option(g, elem),
+        Boundary::List(elem) | Boundary::Map(_, elem) => names_option(g, elem),
         Boundary::Option(..) => names_option(g, &b.payload()),
         Boundary::Data(d, args) => {
             g.registry.is_data(Builtin::Option, *d) || args.iter().any(|a| names_option(g, a))
@@ -794,7 +880,7 @@ fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
         | Boundary::Text
         | Boundary::Char
         | Boundary::Param(_) => {}
-        Boundary::List(elem) => collect_datas(g, elem, out),
+        Boundary::List(elem) | Boundary::Map(_, elem) => collect_datas(g, elem, out),
         Boundary::Option(d, _) => {
             // The runtime needs `Option`'s description (for the tags of a
             // nested one) whenever an `Option` crosses.
@@ -868,7 +954,11 @@ const outOfResources = (name, e) =>
 //   (D582). In a record's field (marked optional in `define`), `None` is a
 //   missing property. An `Option` of an `Option` has the tagged data type
 //   (`OPTION_SHAPE.info`) inside instead, so `Some None` and `None` stay
-//   apart (`payload`).
+//   apart (`payload`);
+// - `map(t)` is a `Map Text t` (the library's), as a plain object: decoding
+//   reads the object's own enumerable string keys and builds the map from
+//   its entries with the library's own `Map.fromList` (`MAP_SHAPE`), and
+//   encoding makes a fresh object, key by key, from `Map.toList`.
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
 // two types are the same exactly when they're the same object, and `decode`
@@ -877,11 +967,12 @@ const outOfResources = (name, e) =>
 // applied to their own parameters (the positivity check), and otherwise only
 // types declared before them, so a boundary type has finitely many types
 // inside it.
-const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4;
+const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
+const map = (elem) => (elem.map ??= { kind: MAP, open: elem.open, id: typeCount++, elem });
 // What an option has in place of `undefined`: its type, or if that's an
 // option too, the tagged data type with that one's type as its argument.
 const payload = (t) =>
@@ -925,6 +1016,7 @@ const close = (t, args) =>
   : t.kind === PARAM ? args[t.i]
   : t.kind === LIST ? list(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
+  : t.kind === MAP ? map(close(t.elem, args))
   : data(t.info, t.args.map((a) => close(a, args)));
 
 // A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
@@ -1070,7 +1162,12 @@ const describe = (x) =>
 // that the message stays short: a run of the same step, or of a cycle of up
 // to three steps, is written once with a count, and the middle of a long path
 // is left out.
-const step = (s) => (typeof s === "number" ? `[${s}]` : `.${s}`);
+// A map's key is any string: one that isn't a name is quoted, and a long one
+// is cut short.
+const step = (s) =>
+  typeof s === "number" ? `[${s}]`
+  : s.length <= 40 && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(s) ? `.${s}`
+  : `[${JSON.stringify(s.length > 40 ? `${s.slice(0, 40)}…` : s)}]`;
 const pathText = (root, path) => {
   if (path.length <= 12) return root + path.map(step).join("");
   const runs = [];
@@ -1112,15 +1209,47 @@ const NONE = Symbol("none");
 // with that error as the `cause`.
 const hasOwn = Object.hasOwn;
 const MISSING = Symbol("missing"), INHERITED = Symbol("inherited");
+const threw = (e) => {
+  let what = "an error";
+  try {
+    what = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+  } catch {}
+  return refuse(`reading it threw ${what.length > 80 ? `${what.slice(0, 80)}…` : what}`, e);
+};
 const own = (x, key) => {
   try {
     return hasOwn(x, key) ? x[key] : key in x ? INHERITED : MISSING;
   } catch (e) {
-    let what = "an error";
-    try {
-      what = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    } catch {}
-    return refuse(`reading it threw ${what.length > 80 ? `${what.slice(0, 80)}…` : what}`, e);
+    return threw(e);
+  }
+};
+
+// The keys of an object that is to be a `Map Text V`: its own enumerable
+// string keys (symbols and inherited or non-enumerable properties aren't
+// entries), in the engine's order. `__proto__` is a key like any other when
+// it's an own property (`JSON.parse` makes one), and nothing here assigns to
+// an object by key. The object must be a plain one, made by `{}`, `JSON.parse`
+// or `Object.create(null)`: a `Map`, a `Date` or a class instance has
+// something else to say, and reading no keys from it would silently give an
+// empty map. (An `Object.prototype` from another realm, as in a `vm` context
+// or an iframe, is a plain one too: a prototype with no prototype that has
+// the `Object.prototype` methods of its own.)
+const plainKeys = (x) => {
+  if (typeof x !== "object" || x === null) refuse("expected an object");
+  if (Array.isArray(x)) refuse("expected an object, not an array");
+  try {
+    const proto = Object.getPrototypeOf(x);
+    const plain =
+      proto === null ||
+      proto === Object.prototype ||
+      (Object.getPrototypeOf(proto) === null && hasOwn(proto, "isPrototypeOf"));
+    if (!plain) {
+      refuse("expected a plain object, not a Map, a class instance or another kind of object");
+    }
+    return Object.keys(x);
+  } catch (e) {
+    if (e instanceof Refusal) throw e;
+    return threw(e);
   }
 };
 
@@ -1170,6 +1299,9 @@ const decode = (t, x, root) => {
       } else {
         if (t.kind === LIST) {
           if (!Array.isArray(x)) refuse("expected an array");
+        } else if (t.kind === MAP) {
+          // The keys are read once the object turns out not to be known.
+          if (typeof x !== "object" || x === null) refuse("expected an object");
         } else if (typeof x !== "object" || x === null) {
           refuse(`expected a ${t.info.name} object`);
         } else if (Array.isArray(x)) {
@@ -1184,6 +1316,10 @@ const decode = (t, x, root) => {
         } else if (t.kind === LIST) {
           done.set(x, INSIDE);
           frames.push({ t, x, done, fields: undefined, i: 0, n: x.length, out: [] });
+        } else if (t.kind === MAP) {
+          const keys = plainKeys(x);
+          done.set(x, INSIDE);
+          frames.push({ t, x, done, fields: undefined, keys, key: undefined, i: 0, n: keys.length, out: [] });
         } else if (t.info.record !== undefined) {
           const fields = t.info.record;
           done.set(x, INSIDE);
@@ -1211,13 +1347,27 @@ const decode = (t, x, root) => {
             value = { tag: OPTION_SHAPE.some, [OPTION_SHAPE.key]: value };
             continue;
           }
-          if (f.fields === undefined) f.out.push(value);
+          if (f.keys !== undefined) {
+            f.out.push({ tag: MAP_SHAPE.pair, [MAP_SHAPE.fst]: f.key, [MAP_SHAPE.snd]: value });
+          } else if (f.fields === undefined) f.out.push(value);
           else f.out[f.fields[f.i][0]] = value;
           f.i++;
           path.pop();
         }
         if (f.i < f.n) {
-          if (f.fields === undefined) {
+          if (f.keys !== undefined) {
+            const key = f.keys[f.i];
+            path.push(key);
+            try {
+              f.key = TEXT.dec(key);
+            } catch (e) {
+              if (e instanceof Refusal) refuse(`the key isn't well-formed text: ${e.message}`);
+              throw e;
+            }
+            x = own(f.x, key);
+            if (x === MISSING || x === INHERITED) refuse("the property is gone");
+            t = f.t.elem;
+          } else if (f.fields === undefined) {
             path.push(f.i);
             x = own(f.x, f.i);
             if (x === MISSING || x === INHERITED) refuse("a hole in the array");
@@ -1237,6 +1387,8 @@ const decode = (t, x, root) => {
         if (f.fields === undefined) {
           value = { tag: "Nil" };
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
+          // The map of the entries, by the library's own `Map.fromList`.
+          if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
           value = f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
@@ -1276,6 +1428,12 @@ const encode = (t, v) => {
       value = t.enc(v);
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
+    } else if (t.kind === MAP) {
+      // `v` is the rest of the entries, in key order. The object is a plain
+      // one, and each key is defined on it as an ordinary property: a key
+      // like `__proto__` or `constructor` is data, not the prototype or a
+      // method, and no setter anywhere is called.
+      frames.push({ t, v: MAP_SHAPE.toList(v), fields: undefined, map: true, key: undefined, out: {} });
     } else {
       const record = t.info.record;
       frames.push(
@@ -1292,14 +1450,28 @@ const encode = (t, v) => {
           frames.pop();
           continue;
         }
-        if (f.fields === undefined) f.out.push(value);
+        if (f.map) {
+          Object.defineProperty(f.out, f.key, {
+            value, writable: true, enumerable: true, configurable: true,
+          });
+        } else if (f.fields === undefined) f.out.push(value);
         else {
           const [key, , optional] = f.fields[f.i++];
           // `None` in an optional property is no property.
           if (!(optional && value === undefined)) f.out[key] = value;
         }
       }
-      if (f.fields === undefined) {
+      if (f.map) {
+        // `f.v` is the rest of the entries: pairs of a key and a value.
+        if (f.v.tag === "Cons") {
+          const entry = f.v.head;
+          f.key = TEXT.enc(entry[MAP_SHAPE.fst]);
+          v = entry[MAP_SHAPE.snd];
+          f.v = f.v.tail;
+          t = f.t.elem;
+          break;
+        }
+      } else if (f.fields === undefined) {
         // `f.v` is the rest of the list.
         if (f.v.tag === "Cons") {
           v = f.v.head;
@@ -2553,6 +2725,41 @@ impl<'g> Gen<'g> {
         out
     }
 
+    /// How the runtime builds and takes apart a `Map Text V` (only when one
+    /// crosses): `fromList` and `toList` are the library's own `Map.fromList`
+    /// and `Map.toList`, at `Text`'s order, so a decoded map is made by
+    /// inserting its entries, and its ordering invariant holds as it does for
+    /// any map; a pair is `MkPair`'s tag and its fields' keys.
+    fn map_shape(&self) -> Fallible<String> {
+        let g = self.g;
+        let registry = &g.registry;
+        let (pair, ctor) = registry
+            .ctor(Builtin::MkPair)
+            .expect("a checked program has pairs");
+        let at = |b: Builtin| {
+            registry
+                .loaded_def(b)
+                .expect("a map crosses only with the library's `Map` loaded")
+        };
+        // The type arguments are erased, so any term serves for them.
+        let ty = Term::Sort(Sort::Type(0));
+        let order = Term::Def(at(Builtin::TextInstOrd));
+        let mut env = Vec::new();
+        let from_list = self.def_ref(at(Builtin::MapFromList), &[&ty, &ty, &order], &mut env)?;
+        let to_list = self.def_ref(at(Builtin::MapToList), &[&ty, &ty, &order], &mut env)?;
+        Ok(format!(
+            "\n// A map that crosses is built and read by the library's own functions.\n\
+             const MAP_SHAPE = {{\n  \
+               pair: {}, fst: {}, snd: {},\n  \
+               fromList: {from_list},\n  \
+               toList: {to_list},\n\
+             }};\n",
+            js_string_literal(&g.data(pair).ctors[ctor].name),
+            js_string_literal(&field_key_at(g, pair, ctor, 0)),
+            js_string_literal(&field_key_at(g, pair, ctor, 1)),
+        ))
+    }
+
     /// The tag of `Decidable`'s first constructor (`Yes`).
     fn decision_yes_tag(&self) -> String {
         self.g.registry.data(Builtin::Decidable).map_or_else(
@@ -2574,6 +2781,7 @@ impl<'g> Gen<'g> {
             Boundary::Char => "CHAR".into(),
             Boundary::List(elem) => format!("list({})", self.type_expr(elem)),
             Boundary::Option(_, inner) => format!("option({})", self.type_expr(inner)),
+            Boundary::Map(_, value) => format!("map({})", self.type_expr(value)),
             Boundary::Data(d, args) if args.is_empty() => {
                 format!("data({})", info_name(&self.g.data(*d).path))
             }
@@ -2694,6 +2902,12 @@ impl<'g> Gen<'g> {
                     self.ts_type(&b.payload(), readonly, params)
                 )
             }
+            // A dictionary: inputs are read-only, as lists are.
+            Boundary::Map(_, value) => format!(
+                "{{ {}[k: string]: {} }}",
+                if readonly { "readonly " } else { "" },
+                self.ts_type(value, readonly, params)
+            ),
             Boundary::List(elem) if readonly => {
                 // `readonly readonly T[][]` isn't TypeScript, and a union
                 // needs its parentheses too.
@@ -3335,6 +3549,13 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 }
             }
         }
+        // A map is its tree's entries, in key order, as an object's own
+        // properties (`Object.fromEntries` makes a key `__proto__` one too).
+        (Boundary::Map(_, element), Value::Ctor(_, 0, fields)) => {
+            let mut entries = Vec::new();
+            map_entries(g, element, fields[0].clone(), &mut entries)?;
+            Ok(format!("Object.fromEntries([{}])", entries.join(", ")))
+        }
         (Boundary::Option(..), Value::Ctor(_, c, fields)) => {
             if *c == 0 {
                 return Ok("undefined".into());
@@ -3384,6 +3605,28 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             Ok(format!("{{ {} }}", parts.join(", ")))
         }
         _ => Err(stuck()),
+    }
+}
+
+/// The entries of a map's tree, in key order, as JS `[key, value]` pairs. A
+/// balanced tree is as deep as the logarithm of its size.
+fn map_entries(
+    g: &Globals,
+    element: &Boundary,
+    tree: Value,
+    out: &mut Vec<String>,
+) -> Result<(), String> {
+    match expand_step(g, tree) {
+        Value::Ctor(_, 0, _) => Ok(()),
+        // `Bin size left key value right`
+        Value::Ctor(_, 1, parts) => {
+            map_entries(g, element, parts[1].clone(), out)?;
+            let key = boundary_literal(g, &Boundary::Text, &parts[2])?;
+            let value = boundary_literal(g, element, &parts[3])?;
+            out.push(format!("[{key}, {value}]"));
+            map_entries(g, element, parts[4].clone(), out)
+        }
+        other => Err(format!("not a fully evaluated value: {other:?}")),
     }
 }
 

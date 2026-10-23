@@ -447,8 +447,55 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 vec![random_value(g, inner, rng, depth.saturating_sub(1))].into(),
             ),
         },
+        // A few entries with distinct keys, in a balanced tree sorted by
+        // code point (`Text`'s order), as the library's maps are.
+        Boundary::Map(d, value) => {
+            let mut entries: Vec<(String, Value)> = Vec::new();
+            for _ in 0..if depth == 0 { 0 } else { rng.below(5) } {
+                let key: String = (0..rng.below(4))
+                    .map(|_| AWKWARD_CHARS[rng.below(AWKWARD_CHARS.len())])
+                    .collect();
+                let v = random_value(g, value, rng, depth.saturating_sub(1));
+                entries.push((key, v));
+            }
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            entries.dedup_by(|a, b| a.0 == b.0);
+            let tree = balanced_tree(g, &entries);
+            Value::Ctor(*d, 0, vec![tree, Value::Refl].into())
+        }
         Boundary::Param(_) => panic!("a boundary type of an export has no parameters"),
     }
+}
+
+/// A balanced `Map.Tree` of entries sorted by key.
+fn balanced_tree(g: &Globals, entries: &[(String, Value)]) -> Value {
+    let tree = g.find_data("Map.Tree").expect("library type");
+    if entries.is_empty() {
+        return Value::Ctor(tree, 0, vec![].into());
+    }
+    let mid = entries.len() / 2;
+    let (key, value) = &entries[mid];
+    let named = |name: &str| -> DataId { g.find_data(name).expect("prelude type") };
+    let chars = key
+        .chars()
+        .rev()
+        .fold(Value::Ctor(named("List"), 0, vec![].into()), |tail, c| {
+            let code = Value::Nat(std::rc::Rc::new(BigUint::from(u32::from(c))));
+            let ch = Value::Ctor(named("Char"), 0, vec![code, Value::Refl].into());
+            Value::Ctor(named("List"), 1, vec![ch, tail].into())
+        });
+    Value::Ctor(
+        tree,
+        1,
+        vec![
+            Value::Nat(std::rc::Rc::new(BigUint::from(entries.len()))),
+            balanced_tree(g, &entries[..mid]),
+            Value::Ctor(named("Text"), 0, vec![chars].into()),
+            value.clone(),
+            balanced_tree(g, &entries[mid + 1..]),
+        ]
+        .into(),
+    )
 }
 
 /// Whether the proof fields of every record in `value`, of boundary type
@@ -461,6 +508,20 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
         }
         (Boundary::Option(_, inner), Value::Ctor(_, c, fields)) => {
             *c == 0 || proofs_hold(g, inner, &fields[0])
+        }
+        // Every value in the tree: `Bin size left key value right`.
+        (Boundary::Map(_, inner), Value::Ctor(_, 0, fields)) => {
+            fn tree_holds(g: &Globals, inner: &Boundary, tree: &Value) -> bool {
+                match tree {
+                    Value::Ctor(_, 1, p) => {
+                        tree_holds(g, inner, &p[1])
+                            && proofs_hold(g, inner, &p[3])
+                            && tree_holds(g, inner, &p[4])
+                    }
+                    _ => true,
+                }
+            }
+            tree_holds(g, inner, &fields[0])
         }
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let data = g.data(*d);
@@ -2729,6 +2790,315 @@ console.log("ok");
         dts.contains("export type SafeNat = { readonly value: bigint };"),
         "{dts}"
     );
+}
+
+/// `Map Text V` is a dictionary at the boundary: a plain object. Decoding
+/// reads own enumerable string keys and builds the map with the library's
+/// `Map.fromList`; encoding makes a fresh plain object whose keys are all
+/// ordinary data, in key order.
+#[test]
+fn text_maps_cross_the_boundary_as_objects() {
+    let examples = examples();
+    let session = example(&examples, "dictionary.sw");
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .dts;
+    for declaration in [
+        "export type Roster = { readonly title: string; readonly people: { readonly [k: string]: Person } };",
+        "export declare function total(scores: { readonly [k: string]: bigint }): bigint;",
+        "export declare function bump(scores: { readonly [k: string]: bigint }, who: string): { [k: string]: bigint };",
+        "export declare function ages(people: { readonly [k: string]: Person }): { [k: string]: bigint };",
+        "export declare function nested(groups: { readonly [k: string]: { readonly [k: string]: bigint } }): { [k: string]: bigint };",
+        "export declare function sparse(m: { readonly [k: string]: bigint | undefined }): { [k: string]: bigint | undefined };",
+        "export declare function lists(m: { readonly [k: string]: readonly bigint[] }): { [k: string]: bigint[] };",
+        "export declare function noScores(): { [k: string]: bigint };",
+    ] {
+        assert!(dts.contains(declaration), "{declaration}\n{dts}");
+    }
+
+    // An application's own types for dictionaries (a flavoured or a branded
+    // string as the key, a `Record`, an index signature, a record type) are
+    // accepted as arguments, and results go back into them. (An interface
+    // has no implicit index signature, so TypeScript refuses it for any
+    // dictionary parameter.)
+    let consumer = r#"
+import * as m from "./module";
+type Flavor<T, F extends string> = T & { readonly _flavor?: F };
+type Brand<T, B extends string> = T & { readonly __brand: B };
+type SpeakerId = Flavor<string, "SpeakerId">;
+type BrandedId = Brand<string, "BrandedId">;
+declare const flavoured: Record<SpeakerId, bigint>;
+declare const branded: Record<BrandedId, bigint>;
+declare const plain: Record<string, bigint>;
+declare const indexed: { [k: string]: bigint };
+declare const readonlyRecord: Readonly<Record<string, bigint>>;
+declare const written: { a: bigint; b: bigint };
+declare const people: Record<SpeakerId, { name: string; age: bigint }>;
+m.total(flavoured);
+m.total(branded);
+m.total(plain);
+m.total(indexed);
+m.total(readonlyRecord);
+m.total(written);
+m.ages(people);
+m.nested({ x: flavoured, y: plain });
+const a: Record<SpeakerId, bigint> = m.noScores();
+const b: Record<BrandedId, bigint> = m.bump(flavoured, "k");
+const c: Record<string, bigint> = m.ages(people);
+m.total(a);
+m.total(b);
+m.total(c);
+"#;
+    let dir = std::env::temp_dir().join(format!("stitchwort-dictionary-ts-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    std::fs::write(dir.join("module.d.ts"), &dts).expect("write declarations");
+    std::fs::write(dir.join("consumer.ts"), consumer).expect("write TypeScript");
+    let result = Command::new("tsc")
+        .args([
+            "--noEmit",
+            "--strict",
+            "--exactOptionalPropertyTypes",
+            "consumer.ts",
+        ])
+        .current_dir(&dir)
+        .output()
+        .expect("run `tsc`");
+    assert!(
+        result.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let script = r#"
+import * as m from "./dictionary.mjs";
+import assert from "node:assert/strict";
+import vm from "node:vm";
+
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message), String(pattern));
+// What a dictionary result is: a plain object, with the entries as own
+// enumerable data properties.
+const plain = (o) => {
+  assert.equal(Object.getPrototypeOf(o), Object.prototype);
+  for (const key of Reflect.ownKeys(o)) {
+    const d = Object.getOwnPropertyDescriptor(o, key);
+    assert.ok(d.enumerable && d.writable && d.configurable && "value" in d, String(key));
+  }
+};
+const entries = (o) => Object.entries(o);
+
+// A round trip, and values computed from them.
+assert.equal(m.total({ a: 1n, b: 2n, c: 39n }), 42n);
+assert.equal(m.total({}), 0n);
+assert.deepEqual(m.bump({ a: 1n }, "a"), { a: 2n });
+assert.deepEqual(m.bump({ a: 1n }, "b"), { a: 1n, b: 1n });
+plain(m.bump({ a: 1n }, "b"));
+assert.deepEqual(m.noScores(), {});
+plain(m.noScores());
+assert.deepEqual(m.lookup({ a: 1n }, "a"), 1n);
+assert.equal(m.lookup({ a: 1n }, "z"), undefined);
+assert.deepEqual(m.ages({ ada: { name: "Ada", age: 36n }, alan: { name: "Alan", age: 41n } }), { ada: 36n, alan: 41n });
+assert.deepEqual(m.nested({ x: { a: 1n, b: 2n }, y: {}, z: { c: 5n } }), { x: 3n, y: 0n, z: 5n });
+assert.deepEqual(m.merge({ a: 1n, b: 2n }, { b: 20n, c: 30n }), { a: 1n, b: 2n, c: 30n });
+assert.deepEqual(m.grouped(["apple", "avocado", "banana", "", "blueberry"]), {
+  a: ["avocado", "apple"], b: ["blueberry", "banana"],
+});
+assert.deepEqual(m.roster({ title: "T", people: { x: { name: "X", age: 1n } } }), { title: "T", people: { x: { name: "X", age: 1n } } });
+plain(m.roster({ title: "T", people: { x: { name: "X", age: 1n } } }).people);
+assert.deepEqual(m.lists({ x: [1n, 2n], y: [] }), { x: [1n, 2n], y: [] });
+
+// Entries come out in key order: Text's, which is by code point (JS's own
+// sort is by UTF-16 code unit, which puts U+1F600 before U+FFFF). The only
+// exception is the engine's: keys that are array indices come first, in
+// numeric order.
+const unordered = { b: 1n, a: 1n, B: 1n, "é": 1n, "\u{1f600}": 1n, "\uffff": 1n, "": 1n, "\u{10000}": 1n };
+assert.deepEqual(m.keysOf(unordered), ["", "B", "a", "b", "é", "\uffff", "\u{10000}", "\u{1f600}"]);
+assert.deepEqual(Object.keys(m.bump(unordered, "zz")), ["", "B", "a", "b", "zz", "é", "\uffff", "\u{10000}", "\u{1f600}"]);
+assert.deepEqual(Object.keys(m.orders({ "10": 1n, "9": 2n, b: 3n, a: 4n })), ["9", "10", "a", "b"]);
+
+// A key is data. `__proto__`, `constructor` and `toString` are entries like
+// any other, on input and on output, and nothing is inherited.
+for (const key of ["__proto__", "constructor", "toString", "hasOwnProperty", "valueOf", "", "prototype", "__defineGetter__"]) {
+  const out = m.bump({ [key]: 5n }, key);
+  assert.deepEqual(Object.keys(out), [key]);
+  assert.equal(Object.getOwnPropertyDescriptor(out, key).value, 6n);
+  assert.equal(Object.getPrototypeOf(out), Object.prototype);
+  plain(out);
+  assert.equal(m.lookup({ [key]: 5n }, key), 5n);
+  assert.equal(m.total({ [key]: 5n }), 5n);
+}
+// `JSON.parse` makes an own `__proto__` property, which is accepted: the
+// data came from JSON, and nothing here assigns to an object by key.
+const parsed = JSON.parse('{"__proto__": "x", "a": "y"}');
+assert.deepEqual(m.keysOf(Object.fromEntries(Object.keys(parsed).map((k) => [k, 1n]))), ["__proto__", "a"]);
+const fromJson = Object.create(null);
+Object.defineProperty(fromJson, "__proto__", { value: 3n, enumerable: true, writable: true, configurable: true });
+assert.equal(m.total(fromJson), 3n);
+// A lookup of a name an ordinary object inherits is a miss.
+assert.equal(m.lookup({ a: 1n }, "toString"), undefined);
+assert.equal(m.lookup({ a: 1n }, "__proto__"), undefined);
+// Setting `Object.prototype` properties changes nothing.
+Object.prototype.polluted = 1n;
+Object.defineProperty(Object.prototype, "setter", { set() { throw new Error("setter called"); }, configurable: true });
+assert.deepEqual(m.bump({ a: 1n }, "setter"), { a: 1n, setter: 1n });
+assert.equal(m.total({ a: 1n }), 1n);
+delete Object.prototype.polluted;
+delete Object.prototype.setter;
+// The output as the world sees it.
+const wire = m.bump({}, "__proto__");
+assert.equal(JSON.stringify(wire, (k, v) => (typeof v === "bigint" ? Number(v) : v)), '{"__proto__":1}');
+assert.deepEqual(Object.keys({ ...wire }), ["__proto__"]);
+assert.equal(Object.getPrototypeOf({ ...wire }), Object.prototype);
+assert.deepEqual(entries(structuredClone(wire)), [["__proto__", 1n]]);
+
+// Unicode keys cross unchanged, as long as they're well-formed.
+const keys = ["é", "e\u0301", "日本語", "\u{1f600}", "a b", "\n", "\0", "\u2028", "x".repeat(10000)];
+assert.deepEqual(Object.keys(m.merge(Object.fromEntries(keys.map((k) => [k, 1n])), {})).sort(), [...keys].sort());
+refused(() => m.total({ "\ud800": 1n }), /^scores\["\\ud800"\]: the key isn't well-formed text: a lone surrogate \(U\+D800\) at index 0; /);
+refused(() => m.total({ "ok": 1n, "a\udc00b": 1n }), /^scores\["a\\udc00b"\]: the key isn't well-formed text: a lone surrogate \(U\+DC00\) at index 1; /);
+
+// Values are checked with the path to them, quoted when the key isn't a name.
+refused(() => m.total({ a: 1n, b: 2 }), /^scores\.b: expected a non-negative bigint$/);
+refused(() => m.total({ a: -1n }), /^scores\.a: expected a non-negative bigint$/);
+refused(() => m.total({ "two words": "x" }), /^scores\["two words"\]: expected a non-negative bigint$/);
+refused(() => m.total({ "9": 2 }), /^scores\["9"\]: expected a non-negative bigint$/);
+refused(() => m.total({ ["k".repeat(100)]: 2 }), /^scores\["k{40}…"\]: expected a non-negative bigint$/);
+refused(() => m.ages({ ada: { name: "Ada", age: "x" } }), /^people\.ada\.age: expected a non-negative bigint$/);
+refused(() => m.ages({ ada: { name: "Ada" } }), /^people\.ada\.age: missing$/);
+refused(() => m.nested({ x: { a: 1n }, y: { b: "s" } }), /^groups\.y\.b: expected a non-negative bigint$/);
+refused(() => m.nested({ x: 1n }), /^groups\.x: expected an object$/);
+refused(() => m.lists({ x: [1n, "s"] }), /^m\.x\[1\]: expected a non-negative bigint$/);
+refused(() => m.roster({ title: "T", people: { x: { name: 1, age: 1n } } }), /^r\.people\.x\.name: expected a string$/);
+refused(() => m.roster({ title: "T", people: [] }), /^r\.people: expected an object, not an array$/);
+// An optional value: `undefined` is `None`, and a missing key is no entry.
+assert.deepEqual(m.sparse({ a: undefined, b: 3n }), { a: undefined, b: 3n });
+refused(() => m.sparse({ a: null }), /^m\.a: expected a value or undefined, not null$/);
+
+// What isn't a plain object is refused: not an array, `null`, a primitive, a
+// `Map`, a class instance, a `Date`, an object with a prototype.
+refused(() => m.total([]), /^scores: expected an object, not an array$/);
+refused(() => m.total([1n]), /^scores: expected an object, not an array$/);
+for (const bad of [null, undefined, 1n, 1, "a", true, Symbol("s"), () => 1n]) {
+  refused(() => m.total(bad), /^scores: expected an object$/);
+}
+class Scores { constructor() { this.a = 1n; } }
+for (const bad of [new Map([["a", 1n]]), new Scores(), new Date(), /x/, new Set(), Object.create({ a: 1n }), Object.create(Object.create(null)), new Number(1), Buffer.from("a"), new (class extends Object {})()]) {
+  refused(() => m.total(bad), /^scores: expected a plain object, not a Map, a class instance or another kind of object$/);
+}
+// A plain object from another realm is plain, and so is one with no prototype.
+assert.equal(m.total(vm.runInNewContext("({ a: 1n, b: 2n })")), 3n);
+assert.equal(m.total(vm.runInNewContext("Object.assign(Object.create(null), { a: 1n })")), 1n);
+refused(() => m.total(vm.runInNewContext("[]")), /^scores: expected an object, not an array$/);
+refused(() => m.total(vm.runInNewContext("new Map()")), /^scores: expected a plain object/);
+assert.equal(m.total(Object.create(null, { a: { value: 4n, enumerable: true } })), 4n);
+
+// Only own enumerable string keys are entries.
+const hidden = { a: 1n };
+Object.defineProperty(hidden, "hidden", { value: "not a bigint", enumerable: false });
+hidden[Symbol("s")] = "not a bigint";
+assert.equal(m.total(hidden), 1n);
+assert.deepEqual(m.bump(hidden, "z"), { a: 1n, z: 1n });
+// An accessor is read once, and a throwing one is refused with the cause.
+let reads = 0;
+const getter = { get a() { reads++; return 1n; } };
+assert.equal(m.total(getter), 1n);
+assert.equal(reads, 1);
+const boom = new Error("boom");
+const thrower = { get a() { throw boom; } };
+assert.throws(() => m.total(thrower), (e) => e instanceof m.StitchwortInputError && /^scores\.a: reading it threw Error: boom$/.test(e.message) && e.cause === boom);
+const proxy = new Proxy({}, { getPrototypeOf() { throw boom; } });
+assert.throws(() => m.total(proxy), (e) => e instanceof m.StitchwortInputError && /^scores: reading it threw Error: boom$/.test(e.message) && e.cause === boom);
+const keysProxy = new Proxy({ a: 1n }, { ownKeys() { throw boom; } });
+assert.throws(() => m.total(keysProxy), (e) => e instanceof m.StitchwortInputError && e.cause === boom);
+assert.equal(m.total(new Proxy({ a: 1n, b: 1n }, {})), 2n);
+// Frozen and sealed objects are fine, and the input is never changed.
+const frozen = Object.freeze({ a: 1n, b: 2n });
+assert.equal(m.total(frozen), 3n);
+assert.deepEqual(m.bump(frozen, "a"), { a: 2n, b: 2n });
+assert.deepEqual(frozen, { a: 1n, b: 2n });
+
+// An object reached twice is decoded once (it's shared, not copied).
+let sharedReads = 0;
+const shared = { get a() { sharedReads++; return 1n; } };
+assert.deepEqual(m.nested({ x: shared, y: shared, z: shared }), { x: 1n, y: 1n, z: 1n });
+assert.equal(sharedReads, 1);
+
+// Long: ten thousand keys, and a hundred thousand, decode and encode without
+// recursion on the JS stack, in key order.
+for (const n of [10_000, 100_000]) {
+  const big = {};
+  for (let i = 0; i < n; i++) big["k" + String(i).padStart(6, "0")] = BigInt(i);
+  assert.equal(m.total(big), BigInt(n) * BigInt(n - 1) / 2n);
+  const back = m.merge(big, {});
+  assert.equal(Object.keys(back).length, n);
+  assert.deepEqual(Object.keys(back), Object.keys(big));
+  assert.equal(back.k000007, 7n);
+  assert.equal(m.lookup(big, "k" + String(n - 1).padStart(6, "0")), BigInt(n - 1));
+  assert.equal(m.keysOf(big).length, n);
+}
+// Numeric-looking keys, ten thousand of them, come out in numeric order.
+const numbers = {};
+for (let i = 0; i < 10_000; i++) numbers[String(i)] = 1n;
+assert.deepEqual(Object.keys(m.orders(numbers)), Object.keys(numbers));
+console.log("ok");
+"#;
+    run_script("dictionary", &[("dictionary.mjs", session)], script);
+}
+
+/// Only a map from `Text`, in `Text`'s own order, crosses: others are refused
+/// at extraction, saying so.
+#[test]
+fn only_text_keyed_maps_cross_as_objects() {
+    let refuse = |name: &str, source: &str| -> String {
+        let mut session = Session::new();
+        if let Err(diagnostics) = session.load(name, source) {
+            let rendered: String = diagnostics
+                .iter()
+                .map(|d| render(&session.sources, d, false))
+                .collect();
+            return rendered;
+        }
+        let diagnostic = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+            .err()
+            .unwrap_or_else(|| panic!("{name}: extraction should be refused"));
+        render(&session.sources, &diagnostic, false)
+    };
+    let nat = refuse(
+        "nat-keys.sw",
+        "import Std (Map, Nat)\nexport def f (m: Map Nat Nat): Map Nat Nat := m\n",
+    );
+    assert!(nat.contains("E-EXPORT"), "{nat}");
+    assert!(
+        nat.contains("can't cross the JS boundary: only maps from `Text` cross, as plain objects"),
+        "{nat}"
+    );
+    let result = refuse(
+        "nat-result.sw",
+        "import Std (Map, Nat, Text)\nexport def f (m: Map Text Nat): Map Nat Text := Map.empty\n",
+    );
+    assert!(result.contains("only maps from `Text` cross"), "{result}");
+    let reversed = refuse(
+        "reversed.sw",
+        "import Std (Map, Nat, Ord, Text)\n\
+         def reversed: Ord Text :=\n  \
+           Ord.fromCompare (x y => Text.compare y x)\n    \
+             (x y h => Std.Eq.sym (Text.compareEqual y x h))\n    \
+             (x y => Text.compareFlip y x)\n    \
+             (x y z h1 h2 => Text.compareTrans z y x h2 h1)\n\
+         export def f (m: Map Text Nat [ord := reversed]): Nat := Map.size m\n",
+    );
+    assert!(reversed.contains("E-EXPORT"), "{reversed}");
+    assert!(
+        reversed.contains("only in `Text`'s own order"),
+        "{reversed}"
+    );
+    let tuple = refuse(
+        "tuple-keys.sw",
+        "import Std (Map, Nat, Text)\nexport def f (m: Map (Text, Text) Nat): Nat := Map.size m\n",
+    );
+    assert!(tuple.contains("only maps from `Text` cross"), "{tuple}");
 }
 
 /// The prelude with `from` replaced by `to`, which must occur.
