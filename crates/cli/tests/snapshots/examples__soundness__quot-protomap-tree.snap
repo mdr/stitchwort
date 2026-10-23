@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-CONSTRUCTOR] Error: a quotient can't be matched on
+    ╭─[ soundness/quot-protomap-tree.sw:15:7 ]
+    │
+ 15 │     | Quot.mk r => match r.tree with
+    │       ───┬───  
+    │          ╰───── `Quot.mk` isn't a constructor
+    │ 
+    │ Note 1: `Quot.mk x` and `Quot.mk y` are equal whenever `x` and `y` are related, so a match that gave back `x` could tell equal values apart
+    │ 
+    │ Note 2: to compute from a quotient, use `Quot.lift f respects q`: it applies `f` to the value `q` was made from, given a proof `respects` that `f` gives equal results for related values
+────╯

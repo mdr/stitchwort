@@ -1491,7 +1491,7 @@ substitution [inferred]. Kernel-time costs add one `lift` step per operation.
 | Stage | Contents | Gate |
 |---|---|---|
 | 0 (**done**, D771) | `Map.Equiv`, agreement and respects lemmas, `Map.same [DecEq v]` with `sameIff`, the `sized` field, the invariant and API audits, the recursive check; [Stage 0 results](#stage-0-results) | passed |
-| 1 | **Kernel quotients**, in the steps below: the calling-convention fix (D922); the term family with the rejection tests written first; computation; erasure and runtimes; the library lemmas and elaborator policy; the axiom report and wording; a prototype map | **first gate** (end of step 1.1): every kernel rejection test refused for its stated reason before anything is accepted. **Final gate** (end of step 1.6): all R and A tests, then the eight properties (§14.2) on the prototype |
+| 1 (**done**) | **Kernel quotients**, in the steps below: the calling-convention fix (D922); the term family with the rejection tests written first; computation; erasure and runtimes; the library lemmas and elaborator policy; the axiom report and wording; a prototype map | **first gate** (end of step 1.1): every kernel rejection test refused for its stated reason before anything is accepted. **Final gate** (end of step 1.6): all R and A tests, then the eight properties (§14.2) on the prototype. **Both passed** (§14.2) |
 | 2 | `Map` and `Set` become quotients: `Map.Raw` is today's record renamed (§8.1); every operation lifted with its stage-0 respects lemma; `DecEq`, `Ord`, `ext`, `insertComm`, `insertGet`; maps.md's API additions; codec and literal-printer updates (§13.2); users fixed (day 8, `dictionary.sw`, `map-set.sw`) | existing map tests, extraction tests, AoC proofs |
 | separate, optional | D866 record unboxing (§13.1), with its own checks | its own lane, not a prerequisite |
 | separate, later | the constant-motive `J` rule (D924); a recursive-through-quotient design (§11.3); certified balance | each its own proposal |
@@ -1534,7 +1534,7 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
 - **1.5 Axiom report and wording** (**done**; as built below). `stitchwort axioms <name>` per D864 and D925; the wording
   changes of §9.4 in DESIGN.md, core.md and `erase.rs` (D863); core.md's "Quotients" section.
   **Exit:** A9. *Done (below).*
-- **1.6 Prototype and the final gate.** `ProtoMap k v := { raw: Quot (Map k v) Map.Equiv }` in
+- **1.6 Prototype and the final gate** (**done**; as built below). `ProtoMap k v := { raw: Quot (Map k v) Map.Equiv }` in
   `examples/accept/`, over **today's** `Map` record as the representative (it already is
   `{ tree, ordered, sized }`, and stage 0's respects lemmas are about it), with lifted `toList`,
   `get`, `insert`, `size`, `foldLeft`, and `eqIffToListEq`, `toListInjective`, `ext`, `DecEq`,
@@ -1679,6 +1679,63 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
 - **Tests.** A9: `examples/accept/quot-axioms.sw` and `crates/cli/tests/axioms.rs`
   (`Quot.sound` for an inline `def`, via a theorem, via another `def`; nothing for `plain`,
   `Quot.lift` and `Quot.ind` uses).
+
+**Step 1.6 as built.**
+
+- **The prototype.** `examples/accept/quot-protomap.sw`, with no library or compiler change.
+  `type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map k v [ord := ord])
+  Map.Equiv }`, over today's `Map` record and stage 0's `Map.Equiv`, as planned. Operations:
+  `ofMap`, `empty`, `fromList` (`Quot.mk` of the `Map` one); `toList` (respects proof `same`
+  itself), `get`, `size`, `isEmpty`, `foldLeft` (each `Quot.lift` with its stage 0 respects
+  lemma, unchanged); `insert` (§8.1's form: lift to `Quot.mk (r.insert …)`, respected by
+  `Quot.sound (Map.insertRespects …)`). Theorems: `rawInjective` (§8.2's backward direction:
+  two `Quot.ind`s and `Quot.sound`), `toListInjective` (match the records, then `rawInjective`),
+  `eqIffToListEq`, `toListSorted` and `getToList` (stage 0's lemmas, carried to every class by
+  one `Quot.ind`), `ext` (from those, through `Map.Spec.extLookup`, as §8.2 says), `sizeToList`.
+  `DecEq` is §8.3's `decEq` (the branch from `DecEq.decide` on the entry lists; `Quot.sound`
+  only inside `Yes`); `Ord` is §8.4's, with `compare` the list order on `toList` and the laws
+  from `List.instOrd`'s, `equal` through `toListInjective`. All of it is in the file, about 110
+  lines; nothing needed `DecEq v` except `DecEq` and nothing needed `funext`.
+- **Where the plan needed adjusting (small).** (1) An instance must be for `ProtoMap k v
+  [ord := o]`, with the ordering a variable (`E-INSTANCE-HEAD`), as `Map.instShow` already is,
+  so the observations and theorems are written `[ord := o]`, not `[auto ord: Ord k]`; only
+  `get`, `insert` and the constructors take `auto ord`. §8.3's `[auto ord: Ord k]` sketch
+  should read that way in stage 2. (2) A quotient form can't be applied to more arguments than
+  its own: `Quot.ind [p := motive] h p q` (or with brackets, `(Quot.ind … p) q`) is `E-ARITY`,
+  because the elaborator collects every argument of the application spine
+  (`crates/elab/src/quot.rs`, `applied`). `rawInjective` binds the result with `let` and
+  applies that. Stage 2 can live with it; a fix is a few lines in `applied` (stop at the form's
+  arity). (3) `stitchwort fmt` lays out `insert`'s record literal with the lift's arguments at
+  the brace's indentation; harmless.
+- **Axioms.** `stitchwort axioms`: nothing for `ProtoMap.get` (and the other observations);
+  `Quot.sound` for `ProtoMap.insert` (its respects proof), `ProtoMap.instDecEq` (the `Yes`
+  proof) and `transported`; nothing for `transportedByInd`.
+- **Tests.** `accept/quot-protomap.sw` (theorems, 8 `test`s, a `main` printing nine lines,
+  compared by the cross-runner tests and run on the IR by the rt lowering test, and its hash
+  snapshot); `reject/quot-protomap-transport-stuck.sw` (`E-REFL`); `soundness/quot-protomap-tree.sw`
+  (`E-NOT-A-CONSTRUCTOR`, pairs with the prototype) and `soundness/quot-protomap-recursive.sw`
+  (`E-POSITIVITY` with §11.2's message, pairs with `accept/mutual-data.sw`); each with its
+  message snapshot.
+
+**The final gate (§14.2), on the prototype.** "Every runner" is `test`, `run`, `run --reference`
+and `run --js`; all four print the same nine lines for the prototype's `main`
+(`run_reference.rs`, `run_js.rs`), and its tests pass under `test` and on the IR
+(`crates/rt/tests/lower.rs`).
+
+| # | Property | Evidence | Result |
+|---|---|---|---|
+| 1 | Equality computes | `forwards`/`backwards` (four entries inserted in opposite orders; their trees' roots are 2 and 3, `forwardsRoot`, `backwardsRoot`): `rfl: (forwards == backwards) = True`, `rfl: (forwards == changed) = False`, `forwardsIsBackwards: forwards = backwards`; tests "insertion order doesn't matter", "a changed value does", "an extra key does"; `main` prints `True`, `False` in every runner. Wrong claims fail: `rfl` on `(forwards == changed) = True` is `E-REFL` | pass |
+| 2 | Equality composes | `type Inventory = { owner: Text, counts: ProtoMap Text Nat }` derives `==` with no deriving change (A10's route): `rfl` for equal and for differing owners; `ProtoMap Text (ProtoMap Text Nat)` uses the instance at both levels: `rfl` for equal (inner maps built in different orders) and for different inner maps; tests and `main` lines 3–4 in every runner | pass |
+| 3 | Extensionality is general | `ProtoMap.ext` and `ProtoMap.toListInjective` at `ProtoMap Nat (Nat -> Nat)` (`functionMapsExt`, `functionMapsByEntries`), and `functionMapsEqual: fns1 = fns2` for closed maps of functions built in different orders. No `DecEq v`, no funext | pass |
+| 4 | Ordinary computation survives | `rfl` for `get` (present and missing), `toList` after `insert`, `size` after an insert and after a replace, `foldLeft`, `isEmpty`, applying a function value got from the map, and `compare` (`Greater`, `Equal`) | pass |
+| 5 | Representation can't escape | `crates/core/tests/quot.rs`: R1–R3, R5–R9, R11–R14 refused by the kernel (34 tests pass); their `soundness/quot-*` files refused for their stated codes; R4: `soundness/quot-derive-eq.sw`, with A10 (`accept/quot-deceq.sw`) passing. On the prototype: `soundness/quot-protomap-tree.sw` (reading the tree by matching on `raw`) is `E-NOT-A-CONSTRUCTOR`; the only way in is `Quot.lift` with a respects proof | pass |
+| 6 | Computation limits are deliberate | A3 and A6 as in 1.3; on the prototype, `transported` (`J` along `forwardsIsBackwards`, through `Quot.sound`) is stuck in the kernel (`reject/quot-protomap-transport-stuck.sw`, `E-REFL`, the note showing `J … (Quot.sound rfl)`), and so is `transportedByInd` (along `sizeToList forwards`, `Quot.ind` only; checked by hand, the same `E-REFL` with `Quot.ind` in the stuck term); both are `0` in every runner (test "transport runs", `main`'s last line) | pass |
+| 7 | The raw invariant is sufficient | `size`, `isEmpty` and `foldLeft` lift with `Map.sizeRespects`, `isEmptyRespects` and `foldLeftRespects` unchanged; `ProtoMap.sizeToList` holds for every map; `reject/map-wrong-size.sw` still refuses the forged-size representative (`E-REFL`), so no `ProtoMap` can be made from one | pass |
+| 8 | Recursive declarations have a clear outcome | R10: `soundness/quot-recursive.sw`, `quot-recursive-wrapped.sw`, and on the prototype `soundness/quot-protomap-recursive.sw` (`type Tree = { name: Text, children: ProtoMap Text Tree }`): `E-POSITIVITY`, "`Tree` is used inside a quotient type", with §11.2's notes. R13: `soundness/quot-recursive-relation.sw` and the kernel's `r13_*` tests | pass |
+
+**The gate passes; stage 2 may start.** The two adjustments above (instance heads written with
+`[ord := o]`; over-applying a quotient form) are things stage 2 has to write around, not
+design problems.
 
 ### 14.2 The gate before stage 2: the review's eight properties
 
