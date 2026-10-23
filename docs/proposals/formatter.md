@@ -239,10 +239,9 @@ type Sized (a: Type) = {
 
 The opening `{` moves up to the end of the `=` line. The parser must accept
 this, which is what SW-365's "closer in column 0" change is for: a `}` at
-column 0 must close its bracket and not start a new declaration. **As of
-`main` at 4edee0a3, `split_decls` only lets `]` at column 0 continue inside
-an open `@[` (`parser.rs:341-346`), so R7 at the top level depends on SW-365
-landing first.** Nested brackets put the closer at the opening line's
+column 0 must close its bracket and not start a new declaration. SW-365 has
+merged (`98a1a2ab`): a column-0 `,` or closer continues an open bracket in
+`split_decls`. Nested brackets put the closer at the opening line's
 indentation, as D1012 says.
 
 ## 4. Correctness checks
@@ -371,8 +370,7 @@ excluding the folders in D1019.
    committing. A lane in flight when the reformat lands resolves conflicts
    in favour of its own changes, then re-runs `fmt` on the files it touched.
 
-Timing: the reformat should land when few lanes are touching `.sw` files,
-and only after SW-365 (column-0 closers) has merged.
+Timing: the reformat should land when few lanes are touching `.sw` files.
 
 ## 7. Staged plan
 
@@ -392,7 +390,7 @@ needs judgement, **DeepSeek** for mechanical work.
 | **F7** | Dry run, then the one-off repo reformat and the `--check` test (§6) | §6 step 3 checks. Matt approves the dry-run sample | DeepSeek for the run, after Matt's sign-off on the dry run |
 
 F0 must come before F1. F2 to F3 and F4 to F6 can then run in parallel. F7
-comes last and needs SW-365 merged first. Later, if Matt wants it, a stage
+comes last. Later, if Matt wants it, a stage
 **F8** (Opus) adds width-based wrapping (D1014).
 
 ## 8. Decisions for Matt
