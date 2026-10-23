@@ -992,11 +992,11 @@ fn compact_text_is_bound_to_the_prelude() {
 /// as before compact text, and the kernel refuses a compact list.
 #[test]
 fn a_changed_builtin_isnt_bound() {
-    let original = "def Char.isScalar (n : Nat) : Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True";
+    let original = "def Char.isScalar (n: Nat): Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True";
     assert!(stitchwort_elab::PRELUDE.contains(original));
     let changed = stitchwort_elab::PRELUDE.replace(
         original,
-        "def Char.isScalar (n : Nat) : Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114112) else True",
+        "def Char.isScalar (n: Nat): Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114112) else True",
     );
     let mut session = Session {
         sources: SourceMap::new(),
