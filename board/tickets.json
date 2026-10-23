@@ -1,5 +1,5 @@
 {
-  "next": 343,
+  "next": 345,
   "tickets": [
     {
       "id": 1,
@@ -5404,6 +5404,36 @@
       "labels": [
         "tests",
         "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 343,
+      "title": "JS: Text == still compares char lists at some inlined find sites (key function defined by match, inside find's lambda)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js",
+        "performance",
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 344,
+      "title": "Std: DecEq and Ord for SafeNat/SafeInt (records with SafeNat fields can't derive ==)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "stdlib"
       ],
       "body": "",
       "created": "2026-10-23",
