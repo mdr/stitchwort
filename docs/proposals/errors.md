@@ -1,6 +1,6 @@
 # Proposal: errors with messages (`Fail` and `Result`)
 
-**Status:** draft 1, 23 October 2026 (SW-367, D1042 (b)). Design only: nothing
+**Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Nothing
 here is built. Waiting on Matt's answers to [Decisions](#6-decisions-for-matt),
 D1045 to D1053.
 
@@ -428,6 +428,8 @@ lines above it with `Range.read` and the lines below it with
 `Text.toNatOrFail`, and fails with a message if there's no blank line.
 
 ## 6. Decisions for Matt
+
+**Decided (Matt, 23 Oct 2026):** D1045–D1049 and D1051–D1053 as recommended below. D1050: (a), a new `List.mapIn` now, plus a separate experiment lane that tries generalising `List.map` itself the Unison way (`(f: a -> {e} b)`) and reports what breaks; if it goes cleanly, `mapIn` is folded into `map` and the convention extends to the other list functions.
 
 **D1045. What does a failure carry?**
 (a) Only a message (`Fail`, `Text`).
