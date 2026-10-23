@@ -7,15 +7,15 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Ordering =
-  | { readonly tag: "Less" }
-  | { readonly tag: "Equal" }
-  | { readonly tag: "Greater" };
+  | { readonly $tag: "Less" }
+  | { readonly $tag: "Equal" }
+  | { readonly $tag: "Greater" };
 export type Pair<a, b> =
-  | { readonly tag: "MkPair"; readonly fst: a; readonly snd: b };
+  | { readonly $tag: "MkPair"; readonly fst: a; readonly snd: b };
 export type Person =
-  | { readonly tag: "MkPerson"; readonly name: string; readonly initial: string; readonly tags: readonly string[] };
+  | { readonly $tag: "MkPerson"; readonly name: string; readonly initial: string; readonly tags: readonly string[] };
 export type Located =
-  | { readonly tag: "At"; readonly path: string; readonly x: string; readonly inside: readonly string[] };
+  | { readonly $tag: "At"; readonly path: string; readonly x: string; readonly inside: readonly string[] };
 export declare function len(t: string): bigint;
 export declare function chars(t: string): string[];
 export declare function fromChars(cs: readonly string[]): string;

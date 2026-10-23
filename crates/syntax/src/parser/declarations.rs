@@ -8,7 +8,7 @@
 //! frames, since the nesting limit is measured in stack.
 
 use super::{Parser, Result, describe, error, has_absurd};
-use crate::ast::{BinOp, Clause, Decl, Expr, NAMELESS, Name, Pattern};
+use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, NAMELESS, Name, Pattern};
 use crate::lexer::Tok;
 use crate::{Diagnostic, Span};
 
@@ -28,7 +28,80 @@ pub(super) enum Param {
     Unit(Span),
 }
 
+/// `E-ATTRIBUTE`: attributes written where none can apply, `first` being
+/// the first of them. The parser knows no attribute's name, only where any
+/// attribute may go (docs/syntax.md, Attributes); the elaborator decides
+/// which may go on which data type, constructor, field or declaration.
+pub(super) fn misplaced_attributes(first: &Attribute, what: &str) -> Diagnostic {
+    Diagnostic::error("E-ATTRIBUTE", format!("attributes can't be used on {what}"))
+        .with_label(first.span, format!("`{}` is on {what}", first.name.text))
+        .with_note(ATTRIBUTE_PLACES)
+}
+
+/// Where attributes may be written, for messages.
+pub(super) const ATTRIBUTE_PLACES: &str = "attributes go before a data type's `type`, after a \
+     constructor's `|`, or before a field's name: `@[js.tag \"type\"]`, \
+     `| @[js.name \"CIRCLE\"] Circle`, `(@[js.name \"center_x\"] centerX: Nat)`";
+
 impl Parser<'_> {
+    /// The attribute groups at `self.pos`, `@[a, b "x"] @[c]`, if any, in
+    /// the order written. Only their shape is checked: a name of lowercase
+    /// words joined by `.`, then at most one plain string.
+    #[inline(never)]
+    pub(super) fn attributes(&mut self) -> Result<Vec<Attribute>> {
+        let mut attrs = Vec::new();
+        while self.peek() == Some(&Tok::At) {
+            self.bump();
+            self.expect(Tok::LBracket, "`[`")?;
+            let first = attrs.len();
+            loop {
+                if self.peek() == Some(&Tok::RBracket) && attrs.len() > first {
+                    // A trailing comma.
+                    break;
+                }
+                let start = self.lower_q("an attribute's name, such as `js.name`")?;
+                let mut name = start.clone();
+                while self.peek() == Some(&Tok::Dot) {
+                    self.bump();
+                    let part = self.lower_q("the rest of the attribute's name")?;
+                    name.text.push('.');
+                    name.text.push_str(&part.text);
+                    name.span = name.span.to(part.span);
+                }
+                let arg = match self.peek() {
+                    Some(Tok::Str(text)) => {
+                        let text = text.clone();
+                        Some((text, self.bump().span))
+                    }
+                    Some(Tok::StrStart(_)) => {
+                        return Err(error(
+                            self.here(),
+                            "an attribute's argument is a plain string, without `${…}`",
+                        ));
+                    }
+                    _ => None,
+                };
+                let span = arg.as_ref().map_or(name.span, |(_, s)| name.span.to(*s));
+                attrs.push(Attribute { name, arg, span });
+                if !self.eat(&Tok::Comma) {
+                    break;
+                }
+            }
+            self.expect(Tok::RBracket, "`,` or `]` after the attribute")?;
+        }
+        Ok(attrs)
+    }
+
+    /// `E-ATTRIBUTE` if attributes start at `self.pos`, which `what` can't
+    /// have.
+    pub(super) fn no_attributes(&mut self, what: &str) -> Result<()> {
+        if self.peek() != Some(&Tok::At) {
+            return Ok(());
+        }
+        let attrs = self.attributes()?;
+        Err(misplaced_attributes(&attrs[0], what))
+    }
+
     /// A declaration: a definition (a signature and its equations), or one
     /// declaration of another kind.
     #[inline(never)]
@@ -156,6 +229,7 @@ impl Parser<'_> {
             synonym: false,
             instance,
             decreasing,
+            attrs: Vec::new(),
             span,
         }];
         match self.peek() {
@@ -286,6 +360,7 @@ impl Parser<'_> {
                 synonym: true,
                 instance: false,
                 decreasing: None,
+                attrs: Vec::new(),
                 span: start.to(name.span),
             },
             Decl::Equation {
@@ -317,6 +392,7 @@ impl Parser<'_> {
             }
         };
         self.bump();
+        self.no_attributes("a definition's parameter")?;
         let mut names = vec![self.param_name()?];
         while let Some(Tok::Lower(_)) = self.peek() {
             names.push(self.param_name()?);

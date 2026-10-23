@@ -1,5 +1,5 @@
 {
-  "next": 352,
+  "next": 354,
   "tickets": [
     {
       "id": 1,
@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "D645 revised: fractions are real (Matt's audit); Float design note (public) + private LAWS.md theorem audit running",
+      "where": "private lanes: full model (D620) running; then TimeOps generic port (D660, queued); Float note in review (SW-351)",
       "labels": [
         "design",
         "js"
@@ -5521,7 +5521,7 @@
     {
       "id": 349,
       "title": "Build attributes stage 1: @[...] syntax, js.tag, js.name, $tag default, cache tables (SW-341 note, D626)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -5531,7 +5531,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "48e84f0b",
+        "28a1f876"
+      ]
     },
     {
       "id": 350,
@@ -5553,11 +5556,41 @@
     {
       "id": 351,
       "title": "Design note: JS-number Float type (native arithmetic, crosses as number; proofs via an operations interface) (D645)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
-      "where": "worktree lane",
+      "where": "note merged (docs/proposals/float.md); awaiting D680-D689",
       "labels": [
         "design",
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": [
+        "8b3cc867"
+      ]
+    },
+    {
+      "id": 352,
+      "title": "JS boundary: Map Text V crosses as a plain object { readonly [k: string]: V } (D651/D665)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 353,
+      "title": "Attributes stage 2: mutable lists in .d.ts, js.optional on constructor fields (queued until SW-349 merges; D665)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (D665)",
+      "labels": [
         "js"
       ],
       "body": "",

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: attributes on a field apply to one field, and these are on several
+   ╭─[ reject/attribute-several-fields.sw:4:16 ]
+   │
+ 4 │   | MkPoint (@[js.name "x_pos"] x y: Nat)
+   │                ───────┬───────  
+   │                       ╰───────── on all of these fields
+   │ 
+   │ Note: write each field in brackets of its own: `(x …) (y: …)`
+───╯

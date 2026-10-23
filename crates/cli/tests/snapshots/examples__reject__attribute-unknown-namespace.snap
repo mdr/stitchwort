@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE-UNKNOWN] Error: unknown attribute `ts.name`
+   ╭─[ reject/attribute-unknown-namespace.sw:3:3 ]
+   │
+ 3 │ @[ts.name "ShapeDto"]
+   │   ───┬───  
+   │      ╰───── not an attribute the compiler knows
+   │ 
+   │ Note 1: did you mean `js.name`?
+   │ 
+   │ Note 2: the attributes are `js.tag` and `js.name`
+───╯

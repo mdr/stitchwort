@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.name` can't be used on a data type
+   ╭─[ reject/attribute-name-on-type.sw:4:3 ]
+   │
+ 4 │ @[js.name "ShapeDto"]
+   │   ─────────┬────────  
+   │            ╰────────── on a data type
+   │ 
+   │ Note: `js.name` applies to a constructor or a field: a constructor's tag value, or a field's key, in JS (without it, the Stitchwort name, with each `'` as `$`)
+───╯

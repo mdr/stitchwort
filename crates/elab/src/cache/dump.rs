@@ -253,6 +253,9 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             let _ = write!(out, "\n  validator {} {} ", v.ctor, v.field);
             term(&mut out, &v.decision);
         }
+        if let Some(js) = &data.js {
+            let _ = write!(out, "\n  js {js:?}");
+        }
         out.push('\n');
     }
     let _ = writeln!(out, "registry missing {:?}", g.registry.missing());

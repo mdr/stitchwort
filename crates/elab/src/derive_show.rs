@@ -243,6 +243,7 @@ impl Elaborator {
             synonym: false,
             instance,
             decreasing: None,
+            attrs: Vec::new(),
             span,
         };
         let text = |s: &str| Expr::Str(s.to_string(), span);

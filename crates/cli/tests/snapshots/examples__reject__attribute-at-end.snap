@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: attributes must be followed by the declaration they apply to
+   ╭─[ reject/attribute-at-end.sw:5:3 ]
+   │
+ 5 │ @[js.tag "type"]
+   │   ──────┬──────  
+   │         ╰──────── nothing follows these attributes
+───╯

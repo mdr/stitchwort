@@ -1,9 +1,9 @@
 # Proposal: attributes, `@[…]`, starting with the JavaScript wire format
 
 **Status:** draft 2, 23 October 2026 (draft 1 was reviewed externally; this draft folds the
-review in, D611). Ticket SW-341. Design-review gate: nothing is implemented. D597 to D599 are
-**decided, with the review's amendments**; D612 and D613 are new and open
-([§11](#11-decisions)). Written against commit `e5342b96`. Related: DESIGN.md §12 (JavaScript
+review in, D611). Ticket SW-341. **Stage 1 is built** ([As built](#as-built-stage-1)). D597 to
+D599 are **decided, with the review's amendments**; D612 is **decided, amended by Matt** (the
+default tag key is `$tag`), and D613 is **decided** ([§11](#11-decisions)). Written against commit `e5342b96`. Related: DESIGN.md §12 (JavaScript
 extraction), [records.md](records.md) §11 (records at the boundary),
 [check-cache.md](check-cache.md), [variant-fields.md](variant-fields.md) (SW-340, being revised
 in parallel), and SW-339 (D582, merged as `2ba211a0`: `Option T` as `T | undefined`, an optional
@@ -30,6 +30,7 @@ re-checked). [Sources](#sources) lists the pages.
 9. [Staging, cost and tests](#9-staging-cost-and-tests)
 10. [What we'd like reviewed (draft 1's questions, answered)](#10-what-wed-like-reviewed)
 11. [Decisions](#11-decisions)
+- [As built (stage 1)](#as-built-stage-1)
 12. [Sources](#sources)
 
 ## Response to review (draft 2)
@@ -585,7 +586,7 @@ but turned it off as soon as `js.tag` was written, so `@[js.tag "tag"]` and no a
 differed. Draft 2 has one rule for every tagged type, with or without attributes, and one place
 that applies it:
 
-1. **The tag key**: `js.tag`'s argument, else `"tag"`.
+1. **The tag key**: `js.tag`'s argument, else `"$tag"` (D612 as amended; draft 2 said `"tag"`).
 2. **Each constructor's tag value**: its `js.name`, else its Stitchwort name.
 3. **Each encoded field's key**: its `js.name`, else its name with each `'` as `$`. No other
    change: no `$tag`, no `$__proto__`.
@@ -607,6 +608,16 @@ A record has no tag, so steps 1–2 don't apply and a field `tag` is fine, as to
 exported (`examples/accept/dependent-fields.sw` has a constructor field `tag`), so the
 recommendation is to report its clash when an export reaches it, while a type with any `js.*`
 attribute is checked where it is declared.
+
+**D612 as decided (amended by Matt).** The default tag key is `$tag`, not `tag`. A Stitchwort
+identifier starts with a letter or `_` and holds only letters, digits, `_` and `'`
+(`crates/syntax/src/lexer.rs`, the identifier rule), and a prime becomes `$` only after the
+first character, so no field's default key can be `$tag`: a field called `tag` simply keeps the
+key `tag`, and no type without attributes can have a tag clash. The only default key left that
+can fail is `__proto__` (and a constructor with two fields of one name, which only the compiler
+makes): it is `E-JS-NAME-CLASH` at the field, noted at the export, when an export reaches the
+type. A type with any `js.*` attribute is checked where it's declared, including against a
+chosen tag key (`@[js.tag "kind"]` on a type with a field `kind`).
 
 ### 4.7 A complete example
 
@@ -996,11 +1007,84 @@ D612, D613 and the identity contract (§6.4).
 | D597 | Adopt attributes | **Decided, with amendments**: `@[name arg?, …]` before declarations, after a constructor's `\|`, before a field's name; a closed, namespaced registry that is the single source for validation and docs; unknown or misplaced is an error and **every parsed attribute is consumed or rejected**; field attributes only on encoded slots; none on special-codec types; the guarantee of §4.4 replaces "never change meaning" | a `with js { … }` clause (§8.1); an `export encoding` block (§8.2) |
 | D598 | Are `js.*` attributes part of content hashes? | **Decided, with amendments: no** (option B). A logical hash does not identify a JS interface or generated artifact; three identities (§6.4); both tables persisted and remapped; ownership rule; fingerprint deferred, with export names in it | (A) hash into the data type; (C) B plus a fingerprint now |
 | D599 | The first set | **Decided, with amendments**: `js.tag`, `js.name` (constructors, fields; then types and exports), `js.nullable` **strict** (required property, `null` is `None`, missing or `undefined` refused); per-constructor field names allowed; casing helpers deferred | lenient `js.nullable` (normalising missing/`undefined` to `None`) |
-| **D612** | With the `$tag`/`$__proto__` fallbacks gone (§4.6), a variant field called `tag`, or any field called `__proto__`, has no valid default key. When is that reported for a type with **no** `js.*` attribute? | **Recommended: when an export reaches the type** (`E-JS-NAME-CLASH` at the field, noted at the export), so a type that never crosses (`dependent-fields.sw`'s `Node (tag: Bool) …`) is unaffected; a type with any `js.*` attribute is checked where declared. `examples/extract/names.sw` adds `@[js.name "$tag"]` and a rename for `__proto__` | report at the declaration for every type (simpler; breaks never-exported types with a field `tag`); keep the silent fallbacks for unattributed types only (the inconsistency the review removed) |
-| **D613** | Where the special-codec registry lives | **Recommended: `crates/core`'s registry** (a "built-in boundary form" predicate next to `Builtin::SafeNat`/`SafeInt`), read by the elaborator to reject attributes and by the JS backend to pick codecs; the backend keeps its hash check as confirmation | a list in `crates/js` re-exported to `elab` (adds a dependency `elab` → `js`); a list in `crates/rt` (same problem) |
+| **D612** | With the `$tag`/`$__proto__` fallbacks gone (§4.6), a variant field called `tag`, or any field called `__proto__`, has no valid default key. When is that reported for a type with **no** `js.*` attribute? | **Decided, amended by Matt: the default tag key is `$tag`** (instead of `tag`). No Stitchwort field can produce the key `$tag` (identifiers start with a letter or `_`; primes become `$` only after the first character), so a field called `tag` simply stays `tag`, and the silent `$tag` field-renaming fallback goes away. A field called `__proto__` (no valid default key) is reported, `E-JS-NAME-CLASH` at the field and noted at the export, **only when an export reaches the type**; a type with any `js.*` attribute is checked where declared, including clashes with a user-chosen tag key such as `@[js.tag "type"]` on a type with a field `type`. `examples/extract/names.sw` renames its `__proto__` field with `@[js.name "$__proto__"]` | report at the declaration for every type (simpler; breaks never-exported types with a field `__proto__`); keep the tag key `tag` and report a field `tag` at the export (draft 2's recommendation) |
+| **D613** | Where the special-codec registry lives | **Decided: `crates/core`'s registry**: `BOUNDARY_FORMS` and `Registry::boundary_form` next to `Builtin::SafeNat`/`SafeInt`, read by the elaborator to reject attributes and by the JS backend to pick codecs; the backend keeps its hash check as confirmation | a list in `crates/js` re-exported to `elab` (adds a dependency `elab` → `js`); a list in `crates/rt` (same problem) |
 
 D613 is an implementation choice and could be settled without Matt; it is listed because it
 moves a fact between crates that both the kernel side and the backend read.
+
+## As built (stage 1)
+
+Built in SW-341's stage-1 lane: the grammar, the registry with every error, the resolver and the
+uniform clash rule, `js.tag`, `js.name` on constructors and fields, the codec and `.d.ts`, the
+`js_repr` cache table, D612 as amended (the `$tag` default) and D613. Examples:
+`examples/extract/attributes.sw`, `examples/accept/attributes.sw`, `examples/reject/attribute-*.sw`
+(32 files, one per error and target); `names.sw` and `records.sw` rename their `__proto__` field.
+Tests: parser tests in `crates/syntax/src/parser.rs` (`attributes_*`, `misplaced_attributes_*`,
+the column-0 `]`, an unclosed group); `crates/cli/tests/extract.rs`
+(`attributes_cross_the_boundary_as_declared`, `the_default_tag_key_written_out_changes_nothing`,
+`built_in_boundary_types_take_no_attributes`, and `awkward_names_never_collide` extended with
+random `js.tag`/`js.name` from the pool of §7.3); the metadata-only-edit acceptance test of §9.2
+in `crates/driver/tests/check_cache.rs`
+(`an_attributes_only_edit_in_an_imported_namespace_reaches_the_javascript`: warm, cold and fresh
+builds give the same module and `.d.ts` with the new key, and no logical hash changes; it fails if
+the cache stops restoring `js_repr`).
+
+Deviations and choices, with why:
+
+1. **Not built, later stages:** `js.nullable` (stage 2) and `js.name` on data types and exports
+   (stage 3). They aren't in the registry yet, so `@[js.nullable]` is `E-ATTRIBUTE-UNKNOWN` and
+   `js.name` on a type or an export is `E-ATTRIBUTE` ("applies to a constructor or a field").
+   Per-constructor keys for a shared field need nothing more: keys are already per constructor,
+   so they will work once variant fields exist (`attributes.sw`'s `Message` shows the shape).
+2. **No `js_export_names` table.** It would be filled only by `js.name` on exports (stage 3), and
+   a unit with an export is never cached today: `Elaborator::encode` refuses it ("`f` is
+   exported", `crates/elab/src/cache/mod.rs`). The table comes with stage 3, if exports become
+   cacheable by then; the export-rename variant of the §9.2 test goes with it.
+3. **Where the representation lives.** `JsRepr` and the resolver are in `crates/core`
+   (`js_repr.rs`), not `crates/elab`: the JS backend needs the same resolver for an unattributed
+   type's default when an export reaches it (D612), and it can't depend on `elab`. The resolved
+   value is kept on the data type (`Data::js: Option<Rc<JsRepr>>`) rather than in an elaborator
+   `HashMap`, so every consumer of `Globals` (the CLI, the driver, the tests) reads it without a
+   second argument, and rewinding removes it with the type. The kernel never reads it and
+   `hash.rs` doesn't hash it. The check cache writes it as the `js_repr` table of the declaring
+   unit's entry (format 7), by the same data references as `records`, and the canonical dump
+   prints it, so the warm-versus-cold comparisons see it. An unattributed type has no stored
+   value; the backend computes its default (`js_repr::names`) when needed.
+4. **Inside the module nothing changed.** Generated code keeps the tag in `tag` and the field
+   keys of `field_key` (`$tag`, `$__proto__`, `$i`); only the codec translates. `define` writes a
+   constructor as `[tag, fields]`, with its external tag third only when it differs, and a field
+   as `[key, type]`, with `optional` and the internal key third and fourth only when needed;
+   `datatype(name, tagKey)` gives a tag key other than `$tag`. So the snapshots of function
+   bodies didn't move; the runtime and the codec tables did.
+5. **`@[` is two tokens**: `At` (only directly before `[`; `@` alone stays a lexical error) and an
+   ordinary `[`. Every place that counts brackets therefore counts it with no change. In
+   `split_decls`, a column-0 token inside an open `@[` doesn't start a declaration, except a
+   declaration keyword, so an unclosed group can't swallow the rest of the file.
+6. **The parser refuses attributes by position** where the AST has no place for them: a
+   function's, a type's or an ability's parameter, an index, a function type's or a lambda's
+   binder, any `@[` inside an expression (so a local definition), and before `test`, `ability`,
+   `namespace` and `import`. Each is `E-ATTRIBUTE` ("attributes can't be used on …"), without
+   looking at the names. Data types, constructors, fields and every `def`/`theorem`/`instance`/
+   synonym/`export` keep their attributes, and the elaborator's registry consumes or refuses them
+   there (in stage 1 it refuses all of the latter). Only `Decl::Data`, `Decl::Signature`,
+   `CtorDecl` and `Binder` gained an `attrs` field.
+7. **D612's report at an export** labels the type's declaration and the export and names the
+   field in the message, rather than labelling the field: the kernel's data type keeps no field
+   spans. A type with attributes is checked in the elaborator, which labels the attribute or the
+   field. This check also replaced the backend's old "has two fields called `x`" (`E-EXPORT`).
+8. **`type` is a keyword**, so no field can be called `type` (§4.2's erased field named `type` and
+   §4.7's `Drawing` can't be written as such); the examples use `kind` and `@[js.name "type"]`.
+   A record type whose `}` is at column 0 (§4.7) isn't valid layout today, with or without
+   attributes; the examples indent it.
+9. **Messages name the key**: a decoder says `no type; expected "DOT", "CIRCLE" or "POLYGON"` and
+   `unknown type "Circle"`, and without attributes `no $tag; …`.
+10. **Built-in boundary types** reject attributes in their own declarations (only the library can
+    write those); `built_in_boundary_types_take_no_attributes` checks it with a changed prelude.
+    `boundary()` in the JS backend now asks `Registry::boundary_form` first and confirms by hash
+    as before.
+11. Not done here: hover lines, completion and highlighting for attributes (§7.4; stage 3 lists
+    the hover and colouring work).
 
 ## Sources
 

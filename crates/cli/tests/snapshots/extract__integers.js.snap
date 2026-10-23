@@ -79,23 +79,36 @@ const data = (info, args = []) => {
 };
 const paramTypes = [];
 const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount++, i });
-const datatype = (name) => ({
-  name, ctors: new Map(), flat: new Set(), tags: "", instances: new Map(), record: undefined, checks: [],
+// A data type's description. `tagKey` is the property its objects' tag is
+// in at the boundary; inside generated code it's always `tag`.
+const datatype = (name, tagKey = "$tag") => ({
+  name, tagKey, ctors: new Map(), internal: new Map(), flat: new Set(), tags: "",
+  instances: new Map(), record: undefined, checks: [],
 });
 // Each constructor's tag, and its fields' keys and types, in order. A
 // constructor is `flat` if all its fields are leaves. A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds.
+// object saying whether the proof holds. Names at the boundary may differ
+// from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
+// constructor by its tag at the boundary, `internal` by its tag inside.
 const define = (info, ctors, record = false, checks = []) => {
-  // A field is `[key, type]`, or `[key, type, true]` for an optional property.
-  if (record) info.record = ctors[0][1];
+  // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
+  // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
+  // optional property, or `[key, type, optional, key inside]`.
+  const entries = ctors.map(([tag, fields, external = tag]) => ({
+    tag,
+    external,
+    fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
+  }));
+  if (record) info.record = entries[0].fields;
   info.checks = checks;
-  for (const [tag, fields] of ctors) {
-    info.ctors.set(tag, fields);
-    if (fields.every(([, t]) => t.kind === LEAF)) info.flat.add(tag);
+  for (const entry of entries) {
+    info.ctors.set(entry.external, entry);
+    info.internal.set(entry.tag, entry);
+    if (entry.fields.every(([, t]) => t.kind === LEAF)) info.flat.add(entry.external);
   }
-  const tags = ctors.map(([tag]) => JSON.stringify(tag));
+  const tags = entries.map((e) => JSON.stringify(e.external));
   info.tags =
     tags.length > 1 ? `${tags.slice(0, -1).join(", ")} or ${tags.at(-1)}`
     : tags.length === 1 ? tags[0]
@@ -385,14 +398,16 @@ const decode = (t, x, root) => {
           done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
-          const tag = own(x, "tag");
-          if (tag === MISSING) refuse(`no tag; expected ${t.info.tags}`);
-          if (tag === INHERITED) refuse("its tag is inherited, not its own property");
-          const fields = t.info.ctors.get(tag);
-          if (fields === undefined) refuse(`unknown tag ${describe(tag)}; expected ${t.info.tags}`);
+          const key = t.info.tagKey;
+          const tag = own(x, key);
+          if (tag === MISSING) refuse(`no ${key}; expected ${t.info.tags}`);
+          if (tag === INHERITED) refuse(`its ${key} is inherited, not its own property`);
+          const ctor = t.info.ctors.get(tag);
+          if (ctor === undefined) refuse(`unknown ${key} ${describe(tag)}; expected ${t.info.tags}`);
+          const fields = ctor.fields;
           if (t.info.flat.has(tag)) done = undefined;
           else done.set(x, INSIDE);
-          frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag } });
+          frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag: ctor.tag } });
         }
       }
       // Give `value` to the frame waiting for it, and finish frames, until
@@ -410,7 +425,7 @@ const decode = (t, x, root) => {
           if (f.keys !== undefined) {
             f.out.push({ tag: MAP_SHAPE.pair, [MAP_SHAPE.fst]: f.key, [MAP_SHAPE.snd]: value });
           } else if (f.fields === undefined) f.out.push(value);
-          else f.out[f.fields[f.i][0]] = value;
+          else f.out[f.fields[f.i][3]] = value;
           f.i++;
           path.pop();
         }
@@ -496,11 +511,12 @@ const encode = (t, v) => {
       frames.push({ t, v: MAP_SHAPE.toList(v), fields: undefined, map: true, key: undefined, out: {} });
     } else {
       const record = t.info.record;
-      frames.push(
-        record !== undefined
-          ? { t, v, fields: record, i: 0, out: {} }
-          : { t, v, fields: t.info.ctors.get(v.tag), i: 0, out: { tag: v.tag } },
-      );
+      if (record !== undefined) {
+        frames.push({ t, v, fields: record, i: 0, out: {} });
+      } else {
+        const ctor = t.info.internal.get(v.tag);
+        frames.push({ t, v, fields: ctor.fields, i: 0, out: { [t.info.tagKey]: ctor.external } });
+      }
     }
     for (;;) {
       const f = frames[frames.length - 1];
@@ -540,8 +556,8 @@ const encode = (t, v) => {
           break;
         }
       } else if (f.i < f.fields.length) {
-        const [key, type] = f.fields[f.i];
-        v = f.v[key];
+        const [, type, , inside] = f.fields[f.i];
+        v = f.v[inside];
         t = close(type, f.t.args);
         break;
       }

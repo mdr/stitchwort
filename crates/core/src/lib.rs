@@ -10,6 +10,7 @@ pub mod check;
 pub mod erase;
 pub mod globals;
 pub mod hash;
+pub mod js_repr;
 pub mod native;
 pub mod partial;
 pub mod pretty;

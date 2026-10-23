@@ -674,15 +674,35 @@ impl Pattern {
     }
 }
 
+/// An attribute, `js.name "CIRCLE"`, one of those written in `@[…]`
+/// before a declaration, a constructor or a field (docs/syntax.md,
+/// Attributes). The parser checks only its shape; the elaborator's registry
+/// knows the names.
+#[derive(Clone, Debug)]
+pub struct Attribute {
+    /// The name, as written: `js.name`.
+    pub name: Name,
+    /// The argument, a plain string, and where it's written.
+    pub arg: Option<(String, Span)>,
+    /// From the name to the end of the argument.
+    pub span: Span,
+}
+
 /// `(x y : A)`
 #[derive(Clone, Debug)]
 pub struct Binder {
     pub names: Vec<Name>,
     pub ty: Expr,
+    /// The attributes written inside the brackets, before the names:
+    /// `(@[js.name "center_x"] centerX: Nat)`. Only a constructor's or a
+    /// record's field may have any; the parser refuses them elsewhere.
+    pub attrs: Vec<Attribute>,
 }
 
 #[derive(Clone, Debug)]
 pub struct CtorDecl {
+    /// The attributes written after the constructor's `|`.
+    pub attrs: Vec<Attribute>,
     pub name: Name,
     pub fields: Vec<Binder>,
     /// For each binder of `fields`, whether it's implicit, `[n: T]`.
@@ -714,6 +734,8 @@ pub enum Decl {
         /// `interface I (a: Type) = { … }`: a record whose values the
         /// compiler finds by type (docs/proposals/interfaces.md §5.1).
         interface: bool,
+        /// The attributes written before the declaration.
+        attrs: Vec<Attribute>,
         span: Span,
     },
     /// `name : Type`, optionally preceded by `theorem` or `export`.
@@ -733,6 +755,9 @@ pub enum Decl {
         /// well-founded recursive definition or theorem
         /// (docs/proposals/well-founded-recursion.md §6.1).
         decreasing: Option<Box<Expr>>,
+        /// The attributes written before the declaration (before `export`,
+        /// if it's there).
+        attrs: Vec<Attribute>,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.

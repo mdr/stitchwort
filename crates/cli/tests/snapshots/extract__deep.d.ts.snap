@@ -7,14 +7,14 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Chain =
-  | { readonly tag: "End" }
-  | { readonly tag: "More"; readonly head: bigint; readonly tail: Chain };
+  | { readonly $tag: "End" }
+  | { readonly $tag: "More"; readonly head: bigint; readonly tail: Chain };
 export type Tree =
-  | { readonly tag: "Leaf" }
-  | { readonly tag: "Node"; readonly left: Tree; readonly right: Tree };
+  | { readonly $tag: "Leaf" }
+  | { readonly $tag: "Node"; readonly left: Tree; readonly right: Tree };
 export type Seq<a> =
-  | { readonly tag: "Stop" }
-  | { readonly tag: "Step"; readonly item: a; readonly rest: Seq<a> };
+  | { readonly $tag: "Stop" }
+  | { readonly $tag: "Step"; readonly item: a; readonly rest: Seq<a> };
 export declare function echo(c: Chain): Chain;
 export declare function count(c: Chain): bigint;
 export declare function flip(c: Chain): Chain;

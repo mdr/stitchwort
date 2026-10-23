@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `,` or `]` after the attribute, but found `"ROUND"`
+   ╭─[ reject/attribute-two-arguments.sw:3:24 ]
+   │
+ 3 │   | @[js.name "CIRCLE" "ROUND"] Circle (radius: Nat)
+   │                        ───┬───  
+   │                           ╰───── expected `,` or `]` after the attribute, but found `"ROUND"`
+───╯

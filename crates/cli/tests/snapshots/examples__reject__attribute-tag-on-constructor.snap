@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.tag` can't be used on a constructor
+   ╭─[ reject/attribute-tag-on-constructor.sw:3:7 ]
+   │
+ 3 │   | @[js.tag "type"] Circle (radius: Nat)
+   │       ──────┬──────  
+   │             ╰──────── on a constructor
+   │ 
+   │ Note: `js.tag` applies to a data type: the key of the property that says which constructor a JS object is (without it, `$tag`)
+───╯

@@ -1,9 +1,10 @@
 -- Awkward names at the JS boundary (DESIGN.md §12, "Names"). A field's key
--- is its name with each prime as `$`, and a field called `tag` or
--- `__proto__` is `$tag` or `$__proto__`, so that it can't clash with the
--- constructor's tag or set an object's prototype. Nothing a program names
--- can clash with the generated module's own names, or the JS globals it
--- uses.
+-- is its name with each prime as `$`. The tag is in the property `$tag`,
+-- which no field's name can give, so a field called `tag` keeps the key
+-- `tag`. The key `__proto__` would set an object's prototype, so a field of
+-- that name needs a `js.name` (here, the key it had before attributes).
+-- Nothing a program names can clash with the generated module's own names,
+-- or the JS globals it uses.
 --
 -- run: twiddle (Fields 1 2 3 4 5 6 7 8 9 10 11)
 -- run: twiddle Plain
@@ -20,13 +21,14 @@
 
 type Awkward: Type =
   | Plain
-  | Fields (tag: Nat) (__proto__: Nat) (x: Nat) (x' : Nat) (x'' : Nat) (constructor : Nat) (undefined : Nat) (path : Nat) (inside : Nat) (v0 : Nat) (arg0 : Nat)
+  | Fields (tag: Nat) (@[js.name "$__proto__"] __proto__: Nat) (x: Nat) (x' : Nat) (x'' : Nat) (constructor : Nat) (undefined : Nat) (path : Nat) (inside : Nat) (v0 : Nat) (arg0 : Nat)
 
 export def twiddle : Awkward -> Awkward
   | Plain => Plain
   | Fields a b c d e f g h i j k => Fields k j i h g f e d c b a
 
--- The bug this example started from: the field `tag` hid the constructor's.
+-- The bug this example started from: the field `tag` hid the constructor's
+-- (when the tag was in the property `tag`).
 type Labelled: Type =
   | MkLabelled (tag: Text) (count: Nat)
 

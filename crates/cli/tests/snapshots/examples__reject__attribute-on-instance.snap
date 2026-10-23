@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.name` can't be used on an instance
+   ╭─[ reject/attribute-on-instance.sw:4:3 ]
+   │
+ 4 │ @[js.name "showSize"]
+   │   ─────────┬────────  
+   │            ╰────────── on an instance
+   │ 
+   │ Note: `js.name` applies to a constructor or a field: a constructor's tag value, or a field's key, in JS (without it, the Stitchwort name, with each `'` as `$`)
+───╯

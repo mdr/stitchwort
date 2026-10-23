@@ -764,3 +764,140 @@ fn expression_types_come_back_from_the_cache() {
         first_difference(&fresh.dump, &cached.dump)
     );
 }
+
+// ---- Attributes (docs/proposals/attributes.md §6.5, §9.2) ---------------
+
+/// `Shapes` declares attributed types, the field `centerX` with the key
+/// `key` in JavaScript; `App` imports them and exports functions of them.
+fn attributed_project(key: &str) -> Vec<(&'static str, String)> {
+    vec![
+        (
+            "src/Shapes.sw",
+            format!(
+                "namespace Shapes\n\n\
+                 @[js.tag \"type\"]\n\
+                 type Shape =\n  \
+                 | @[js.name \"DOT\"] Dot\n  \
+                 | @[js.name \"CIRCLE\"] Circle (radius: Nat) (@[js.name \"{key}\"] centerX: Nat)\n\n\
+                 type Drawing = {{ @[js.name \"type\"] kind: Text, shapes: List Shape }}\n"
+            ),
+        ),
+        (
+            "src/App.sw",
+            "namespace App\n\nimport Shapes (Shape, Drawing)\n\n\
+             export def grow: Shape -> Shape\n  \
+             | Shape.Dot => Shape.Dot\n  \
+             | Shape.Circle r x => Shape.Circle (r + 1) x\n\n\
+             export def count (d: Drawing): Nat := d.shapes.length\n"
+                .to_string(),
+        ),
+    ]
+}
+
+/// What a build of `App` gives: the module and its declarations, the
+/// logical hashes of every declaration of the project's two namespaces, and
+/// what the cache did.
+fn build_app(dir: &Path, cache: Option<&Path>) -> (stitchwort_js::Output, Vec<String>, Stats) {
+    let mut session = Session::for_stack(STACK);
+    if let Some(dir) = cache {
+        session.use_check_cache(dir);
+    }
+    let files = DiskFiles {
+        root: dir.to_path_buf(),
+    };
+    if let Err(ds) = session.load_project(&files, "p", &Target::Everything) {
+        let rendered: String = ds
+            .iter()
+            .map(|d| render(&session.sources, d, false))
+            .collect();
+        panic!("the project doesn't check:\n{rendered}");
+    }
+    let output = session
+        .extract_namespace("App")
+        .expect("extraction succeeds");
+    let g = &session.elab.globals;
+    let ours = |path: &str| path.contains("Shapes.") || path.contains("App.");
+    let mut hashes = Vec::new();
+    for d in (0..g.datas.len()).map(stitchwort_core::DataId) {
+        if ours(&g.data(d).path) {
+            let hash = stitchwort_core::hash::data_hash(g, d).expect("hashes");
+            hashes.push(format!(
+                "{} {}",
+                g.data(d).path,
+                hash.expect("checked").hex()
+            ));
+        }
+    }
+    for id in (0..g.defs.len()).map(stitchwort_core::DefId) {
+        if ours(&g.def(id).path) {
+            let hash = stitchwort_core::hash::def_hash(g, id).expect("hashes");
+            hashes.push(format!("{} {:?}", g.def(id).path, hash.map(|h| h.hex())));
+        }
+    }
+    (output, hashes, session.elab.check_cache_stats())
+}
+
+/// The metadata-only edit (docs/proposals/attributes.md §9.2): `js_repr`
+/// isn't in any hash, so it travels in the declaring namespace's entry. A
+/// `js.name` changed in an imported namespace reaches the generated code and
+/// declarations whether that namespace is elaborated or loaded from the
+/// cache, and no logical hash changes.
+#[test]
+fn an_attributes_only_edit_in_an_imported_namespace_reaches_the_javascript() {
+    let files = attributed_project("center_x");
+    let files: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, t.as_str())).collect();
+    let dir = temp_project("attributes", &files);
+    let cache = temp_dir("attributes-cache");
+    let (fresh, hashes, _) = build_app(&dir, None);
+    assert!(
+        fresh.dts.contains("readonly center_x: bigint"),
+        "{}",
+        fresh.dts
+    );
+    let (cold, _, _) = build_app(&dir, Some(&cache));
+    let (warm, warm_hashes, stats) = build_app(&dir, Some(&cache));
+    assert!(
+        stats.namespace_hits > 0,
+        "`Shapes` didn't come from the cache"
+    );
+    for (what, out) in [("cold", &cold), ("warm", &warm)] {
+        assert_eq!(out.js, fresh.js, "the {what} build's module differs");
+        assert_eq!(out.dts, fresh.dts, "the {what} build's declarations differ");
+    }
+    assert_eq!(warm_hashes, hashes);
+
+    // Only `Shapes`'s representation changes.
+    let edited = attributed_project("cx");
+    write_file(&dir, "src/Shapes.sw", &edited[0].1);
+    let (fresh_edited, edited_hashes, _) = build_app(&dir, None);
+    let (cold_edited, _, _) = build_app(&dir, Some(&cache));
+    let (warm_edited, warm_edited_hashes, stats) = build_app(&dir, Some(&cache));
+    assert!(
+        stats.namespace_hits > 0,
+        "`Shapes` didn't come from the cache"
+    );
+    assert!(
+        fresh_edited.dts.contains("readonly cx: bigint") && !fresh_edited.dts.contains("center_x"),
+        "{}",
+        fresh_edited.dts
+    );
+    assert!(
+        fresh_edited
+            .js
+            .contains("[\"cx\", NAT, false, \"centerX\"]"),
+        "{}",
+        fresh_edited.js
+    );
+    for (what, out) in [("cold", &cold_edited), ("warm", &warm_edited)] {
+        assert_eq!(out.js, fresh_edited.js, "the {what} build's module differs");
+        assert_eq!(
+            out.dts, fresh_edited.dts,
+            "the {what} build's declarations differ"
+        );
+    }
+    // Attributes aren't part of logical hashes (D598).
+    assert_eq!(edited_hashes, hashes);
+    assert_eq!(warm_edited_hashes, hashes);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}

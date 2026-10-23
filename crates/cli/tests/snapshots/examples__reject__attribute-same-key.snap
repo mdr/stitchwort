@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-JS-NAME-CLASH] Error: field `x` of `MkPoint` and `y` both cross to JavaScript as the key "y"
+   ╭─[ reject/attribute-same-key.sw:3:38 ]
+   │
+ 3 │   | MkPoint (@[js.name "y"] x: Nat) (y: Nat)
+   │                ─────┬─────           ┬  
+   │                     ╰─────────────────── and here
+   │                                      │  
+   │                                      ╰── here
+   │ 
+   │ Note: give one of them another key with `@[js.name "…"]` before its name
+───╯

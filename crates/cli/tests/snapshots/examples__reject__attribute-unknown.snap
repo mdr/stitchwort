@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE-UNKNOWN] Error: unknown attribute `js.rename`
+   ╭─[ reject/attribute-unknown.sw:4:7 ]
+   │
+ 4 │   | @[js.rename "CIRCLE"] Circle (radius: Nat)
+   │       ────┬────  
+   │           ╰────── not an attribute the compiler knows
+   │ 
+   │ Note 1: did you mean `js.name`?
+   │ 
+   │ Note 2: the attributes are `js.tag` and `js.name`
+───╯
