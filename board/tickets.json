@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "D714: no app changes until Stitchwort side complete (37/37 type test, adapter gone, Float); building: D711 string unions, Float 1a; next: apply to port",
+      "where": "private lane (D695): apply stage 2 + js.enum + Map boundary, remove adapter, 37-pair type test; Float 1a building; no app changes (D714)",
       "labels": [
         "design",
         "js"
