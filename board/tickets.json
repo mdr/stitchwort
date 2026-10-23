@@ -4516,15 +4516,15 @@
     {
       "id": 290,
       "title": "Speed up the full suite for daily checkpoints: parallel test binaries (nextest?), trim erasure/check_cache/run_js/rewind (2-3 min each)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tests"
       ],
       "body": "",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-23",
       "commits": []
     },
     {
@@ -5080,7 +5080,7 @@
     {
       "id": 323,
       "title": "Eq.cong whose lambda mentions c % d (auto proof) refused against an identically printed type",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -5090,7 +5090,9 @@
       "body": "Found by SW-314; replacing the term by a variable passes. Unexplained.",
       "created": "2026-10-22",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "fbb49c86"
+      ]
     },
     {
       "id": 324,
