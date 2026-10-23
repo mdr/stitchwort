@@ -201,6 +201,163 @@ theorem Mod.toNatToFin [n: Nat] [auto ok: n != 0] (i: Mod n): Fin.toNat (Mod.toF
 theorem Mod.toModToFin [n: Nat] [auto ok: n != 0] (i: Mod n): Fin.toMod (Mod.toFin i) = i :=
   Mod.ext (Fin.toMod (Mod.toFin i)) i (Mod.toNatToFin i)
 
+-- Laws for `addNat`, `subNat` and `neg`: moving by 0, moving twice, moving
+-- there and back, and `neg` as a mirror (`neg (i.subNat k) = (neg i).addNat k`:
+-- turning left from `i` is turning right from its mirror image, mirrored).
+-- Each is proved through `Mod.ofInt`, by way of the `Int`: wrapping before
+-- adding or negating changes nothing, because adding a multiple of the size,
+-- positive or negative, keeps the remainder.
+
+-- `x - y + y` and `x + y - y` are `x`.
+theorem Int.addNegAdd (x: Int) (y: Int): Int.add (Int.add x (Int.neg y)) y = x :=
+  Eq.trans (Int.addAssoc x (Int.neg y) y)
+    (Eq.trans (Eq.cong (Int.add x) (Int.addComm (Int.neg y) y))
+      (Eq.trans (Eq.cong (Int.add x) (Int.addNeg y)) (Int.addZero x)))
+
+theorem Int.addAddNeg (x: Int) (y: Int): Int.add (Int.add x y) (Int.neg y) = x :=
+  Eq.trans (Int.addAssoc x y (Int.neg y))
+    (Eq.trans (Eq.cong (Int.add x) (Int.addNeg y)) (Int.addZero x))
+
+-- Adding a multiple of `d`, a negative one too, keeps the remainder.
+theorem Int.modNatAddMulInt (x: Int) (d: Nat) [auto ok: d != 0]: (q: Int) ->
+    Int.modNat (Int.add x (Int.mul (Nat.toInt d) q)) d [ok := ok] = Int.modNat x d [ok := ok]
+  | OfNat k =>
+    Eq.trans (Eq.cong (t => Int.modNat (Int.add x (OfNat t)) d [ok := ok]) (Nat.mulComm d k))
+      (Int.modNatAddMul x d [ok := ok] k)
+  | NegSucc k =>
+    Eq.trans (Eq.sym (Int.modNatAddMul (Int.add x (Int.neg (OfNat (d * Succ k)))) d [ok := ok] (Succ k)))
+      (Eq.cong (t => Int.modNat t d [ok := ok])
+        (Eq.trans (Eq.cong (t => Int.add (Int.add x (Int.neg (OfNat (d * Succ k)))) (OfNat t)) (Nat.mulComm (Succ k) d))
+          (Int.addNegAdd x (OfNat (d * Succ k)))))
+
+theorem Int.modNatSubMulInt (x: Int) (d: Nat) [auto ok: d != 0] (q: Int):
+    Int.modNat (Int.add x (Int.neg (Int.mul (Nat.toInt d) q))) d [ok := ok] = Int.modNat x d [ok := ok] :=
+  Eq.trans (Eq.sym (Int.modNatAddMulInt (Int.add x (Int.neg (Int.mul (Nat.toInt d) q))) d [ok := ok] q))
+    (Eq.cong (t => Int.modNat t d [ok := ok]) (Int.addNegAdd x (Int.mul (Nat.toInt d) q)))
+
+-- The division law with the remainder as `Int.modNat`.
+theorem Int.divAddModNat (x: Int) (d: Nat) [auto ok: d != 0]:
+    Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) (Nat.toInt (Int.modNat x d [ok := ok])) = x :=
+  Eq.trans
+    (Eq.cong (t => Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) t)
+      (Int.modNatToInt x d [ok := ok] [ok2 := Nat.toIntNeZero d ok]))
+    (Int.divAddMod x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])
+
+-- Only the remainder of `x` matters to the remainders of `x + y` and `-x`.
+theorem Int.addSwapOf (m: Int) (r: Int) (x: Int) (y: Int) (h: Int.add m r = x): Int.add (Int.add r y) m = Int.add x y :=
+  Eq.trans (Int.addComm (Int.add r y) m)
+    (Eq.trans (Eq.sym (Int.addAssoc m r y)) (Eq.cong (t => Int.add t y) h))
+
+theorem Int.modNatModAdd (x: Int) (y: Int) (d: Nat) [auto ok: d != 0]:
+    Int.modNat (Int.add (Nat.toInt (Int.modNat x d [ok := ok])) y) d [ok := ok] = Int.modNat (Int.add x y) d [ok := ok] :=
+  Eq.trans
+    (Eq.sym (Int.modNatAddMulInt (Int.add (Nat.toInt (Int.modNat x d [ok := ok])) y) d [ok := ok]
+      (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])))
+    (Eq.cong (t => Int.modNat t d [ok := ok])
+      (Int.addSwapOf (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok]))
+        (Nat.toInt (Int.modNat x d [ok := ok])) x y (Int.divAddModNat x d [ok := ok])))
+
+theorem Int.negAddOf (m: Int) (r: Int) (x: Int) (h: Int.add m r = x): Int.add (Int.neg r) (Int.neg m) = Int.neg x :=
+  Eq.trans (Int.addComm (Int.neg r) (Int.neg m)) (Eq.trans (Eq.sym (Int.negAdd m r)) (Eq.cong Int.neg h))
+
+theorem Int.modNatModNeg (x: Int) (d: Nat) [auto ok: d != 0]:
+    Int.modNat (Int.neg (Nat.toInt (Int.modNat x d [ok := ok]))) d [ok := ok] = Int.modNat (Int.neg x) d [ok := ok] :=
+  Eq.trans
+    (Eq.sym (Int.modNatSubMulInt (Int.neg (Nat.toInt (Int.modNat x d [ok := ok]))) d [ok := ok]
+      (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])))
+    (Eq.cong (t => Int.modNat t d [ok := ok])
+      (Int.negAddOf (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok]))
+        (Nat.toInt (Int.modNat x d [ok := ok])) x (Int.divAddModNat x d [ok := ok])))
+
+-- `Mod.ofInt` after `Mod.toInt` changes nothing; wrapping before adding or
+-- negating changes nothing either.
+theorem Mod.ofIntToInt [n: Nat] (i: Mod n): Mod.ofInt i.toInt = i :=
+  Mod.ext (Mod.ofInt i.toInt) i
+    (Eq.trans (Mod.valueOfInt i.toInt) (Nat.modSmall i.value (Mod.size n) [ok := Mod.sizeNeZero n] i.isLt))
+
+theorem Mod.toIntOfInt [n: Nat] (x: Int): (Mod.ofInt x: Mod n).toInt = Nat.toInt (Int.modNat x (Mod.size n) [ok := Mod.sizeNeZero n]) :=
+  Eq.cong Nat.toInt (Mod.valueOfInt x)
+
+theorem Mod.ofIntAdd [n: Nat] (x: Int) (y: Int): (Mod.ofInt (Int.add (Mod.ofInt x: Mod n).toInt y): Mod n) = Mod.ofInt (Int.add x y) :=
+  Mod.ext (Mod.ofInt (Int.add (Mod.ofInt x: Mod n).toInt y)) (Mod.ofInt (Int.add x y))
+    (Eq.trans (Mod.valueOfInt (Int.add (Mod.ofInt x: Mod n).toInt y))
+      (Eq.trans (Eq.cong (t => Int.modNat (Int.add t y) (Mod.size n) [ok := Mod.sizeNeZero n]) (Mod.toIntOfInt x))
+        (Eq.trans (Int.modNatModAdd x y (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.add x y))))))
+
+theorem Mod.ofIntNeg [n: Nat] (x: Int): (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n).toInt): Mod n) = Mod.ofInt (Int.neg x) :=
+  Mod.ext (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n).toInt)) (Mod.ofInt (Int.neg x))
+    (Eq.trans (Mod.valueOfInt (Int.neg (Mod.ofInt x: Mod n).toInt))
+      (Eq.trans (Eq.cong (t => Int.modNat (Int.neg t) (Mod.size n) [ok := Mod.sizeNeZero n]) (Mod.toIntOfInt x))
+        (Eq.trans (Int.modNatModNeg x (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.neg x))))))
+
+-- `Mod.neg` is `-` on the `Int`, wrapped.
+theorem Mod.subModEq (m: Nat) (ok: Succ m != 0): (v: Nat) -> v < Succ m ->
+    (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m) [ok := ok]
+  | Zero, h => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
+  | Succ w, h =>
+    Eq.trans (Nat.modSmall (m - w) (Succ m) (Nat.subLe m w))
+      (Eq.cong (t => m - t) (Eq.sym (Nat.modSmall w (Succ m) omega)))
+
+theorem Mod.negOfInt [n: Nat] (i: Mod n): Mod.neg i = Mod.ofInt (Int.neg i.toInt) :=
+  Mod.ext (Mod.neg i) (Mod.ofInt (Int.neg i.toInt))
+    (Eq.trans (Mod.valueNeg i)
+      (Eq.trans (Mod.subModEq (n - 1) (Mod.sizeNeZero n) i.value i.isLt) (Eq.sym (Mod.valueOfInt (Int.neg i.toInt)))))
+
+-- The laws.
+theorem Mod.addNatZero [n: Nat] (i: Mod n): i.addNat 0 = i :=
+  Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addZero i.toInt)) (Mod.ofIntToInt i)
+
+theorem Mod.subNatZero [n: Nat] (i: Mod n): i.subNat 0 = i :=
+  Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addZero i.toInt)) (Mod.ofIntToInt i)
+
+theorem Mod.addNatAddNat [n: Nat] (i: Mod n) (j: Nat) (k: Nat): (i.addNat j).addNat k = i.addNat (j + k) :=
+  Eq.trans (Mod.ofIntAdd (Int.add i.toInt j.toInt) k.toInt)
+    (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addAssoc i.toInt j.toInt k.toInt))
+
+theorem Mod.subNatSubNat [n: Nat] (i: Mod n) (j: Nat) (k: Nat): (i.subNat j).subNat k = i.subNat (j + k) :=
+  Eq.trans (Mod.ofIntAdd (Int.sub i.toInt j.toInt) (Int.neg k.toInt))
+    (Eq.cong (t => (Mod.ofInt t: Mod n))
+      (Eq.trans (Int.addAssoc i.toInt (Int.neg j.toInt) (Int.neg k.toInt))
+        (Eq.cong (Int.add i.toInt) (Eq.sym (Int.negAdd j.toInt k.toInt)))))
+
+theorem Mod.addNatSubNat [n: Nat] (i: Mod n) (k: Nat): (i.addNat k).subNat k = i :=
+  Eq.trans (Mod.ofIntAdd (Int.add i.toInt k.toInt) (Int.neg k.toInt))
+    (Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addAddNeg i.toInt k.toInt)) (Mod.ofIntToInt i))
+
+theorem Mod.subNatAddNat [n: Nat] (i: Mod n) (k: Nat): (i.subNat k).addNat k = i :=
+  Eq.trans (Mod.ofIntAdd (Int.sub i.toInt k.toInt) k.toInt)
+    (Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addNegAdd i.toInt k.toInt)) (Mod.ofIntToInt i))
+
+theorem Mod.negZero [n: Nat]: Mod.neg (Mod.zero: Mod n) = Mod.zero :=
+  Mod.ext (Mod.neg (Mod.zero: Mod n)) Mod.zero
+    (Eq.trans (Mod.valueNeg (Mod.zero: Mod n)) (Nat.modSelf (Mod.size n) [ok := Mod.sizeNeZero n]))
+
+theorem Mod.negNeg [n: Nat] (i: Mod n): Mod.neg (Mod.neg i) = i :=
+  calc Mod.neg (Mod.neg i)
+    _ = Mod.ofInt (Int.neg (Mod.neg i).toInt) := Mod.negOfInt (Mod.neg i)
+    _ = Mod.ofInt (Int.neg (Mod.ofInt (Int.neg i.toInt): Mod n).toInt) := Eq.cong (j => (Mod.ofInt (Int.neg (Mod.toInt j)): Mod n)) (Mod.negOfInt i)
+    _ = Mod.ofInt (Int.neg (Int.neg i.toInt)) := Mod.ofIntNeg (Int.neg i.toInt)
+    _ = Mod.ofInt i.toInt := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negNeg i.toInt)
+    _ = i := Mod.ofIntToInt i
+
+-- Turning back is the mirror image of turning forward.
+theorem Mod.negSubNat [n: Nat] (i: Mod n) (k: Nat): Mod.neg (i.subNat k) = (Mod.neg i).addNat k :=
+  calc Mod.neg (i.subNat k)
+    _ = Mod.ofInt (Int.neg (i.subNat k).toInt) := Mod.negOfInt (i.subNat k)
+    _ = Mod.ofInt (Int.neg (Int.sub i.toInt k.toInt)) := Mod.ofIntNeg (Int.sub i.toInt k.toInt)
+    _ = Mod.ofInt (Int.add (Int.neg i.toInt) (Int.neg (Int.neg k.toInt))) := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negAdd i.toInt (Int.neg k.toInt))
+    _ = Mod.ofInt (Int.add (Int.neg i.toInt) k.toInt) := Eq.cong (t => (Mod.ofInt (Int.add (Int.neg i.toInt) t): Mod n)) (Int.negNeg k.toInt)
+    _ = Mod.ofInt (Int.add (Mod.ofInt (Int.neg i.toInt): Mod n).toInt k.toInt) := Eq.sym (Mod.ofIntAdd (Int.neg i.toInt) k.toInt)
+    _ = (Mod.neg i).addNat k := Eq.cong (j => Mod.addNat j k) (Eq.sym (Mod.negOfInt i))
+
+theorem Mod.negAddNat [n: Nat] (i: Mod n) (k: Nat): Mod.neg (i.addNat k) = (Mod.neg i).subNat k :=
+  calc Mod.neg (i.addNat k)
+    _ = Mod.ofInt (Int.neg (i.addNat k).toInt) := Mod.negOfInt (i.addNat k)
+    _ = Mod.ofInt (Int.neg (Int.add i.toInt k.toInt)) := Mod.ofIntNeg (Int.add i.toInt k.toInt)
+    _ = Mod.ofInt (Int.add (Int.neg i.toInt) (Int.neg k.toInt)) := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negAdd i.toInt k.toInt)
+    _ = Mod.ofInt (Int.add (Mod.ofInt (Int.neg i.toInt): Mod n).toInt (Int.neg k.toInt)) := Eq.sym (Mod.ofIntAdd (Int.neg i.toInt) (Int.neg k.toInt))
+    _ = (Mod.neg i).subNat k := Eq.cong (j => Mod.subNat j k) (Eq.sym (Mod.negOfInt i))
+
 test "mod: ofNat wraps" := (Mod.ofNat 150: Mod 100).value == 50
 test "mod: ofInt wraps below zero" := (Mod.ofInt (-1): Mod 100).value == 99
 test "mod: ofInt wraps far below zero" := (Mod.ofInt (-205): Mod 100).value == 95
@@ -222,3 +379,7 @@ test "mod: Mod.toFin" := Fin.toNat (Mod.toFin (Mod.ofNat 4: Mod 5)) == 4
 test "mod: subNat wraps" := ((Mod.ofNat 50: Mod 100).subNat 68).value == 82
 test "mod: addNat wraps" := ((Mod.ofNat 99: Mod 100).addNat 1).value == 0 && ((Mod.ofNat 99: Mod 100).addNat 1).isZero
 test "mod: isZero" := (Mod.ofNat 5: Mod 100).isZero == False
+test "mod: addNat twice" := ((Mod.ofNat 90: Mod 100).addNat 7).addNat 8 == (Mod.ofNat 90: Mod 100).addNat 15
+test "mod: subNat then addNat" := (((Mod.ofNat 3: Mod 100).subNat 250).addNat 250).value == 3
+test "mod: neg is a mirror" := Mod.neg ((Mod.ofNat 10: Mod 100).subNat 30) == (Mod.neg (Mod.ofNat 10: Mod 100)).addNat 30
+test "mod: neg (neg i)" := Mod.neg (Mod.neg (Mod.ofNat 30: Mod 100)) == Mod.ofNat 30
