@@ -1,5 +1,5 @@
 {
-  "next": 354,
+  "next": 355,
   "tickets": [
     {
       "id": 1,
@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "private lanes: full model (D620) running; then TimeOps generic port (D660, queued); Float note in review (SW-351)",
+      "where": "full model done (123 fields, 25,002/25,002 identical); private lane: TimeOps generic (D660) + apply js.tag/js.name",
       "labels": [
         "design",
         "js"
@@ -5592,6 +5592,20 @@
       "where": "worktree lane (D665)",
       "labels": [
         "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 354,
+      "title": "Numerals can't be SafeNat/SafeInt: { bytes = 10 } with bytes: SafeNat is E-TYPE-MISMATCH (hit by the resolver port's tests; helper needed at every literal)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
       ],
       "body": "",
       "created": "2026-10-23",
