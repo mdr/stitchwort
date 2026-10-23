@@ -1066,6 +1066,122 @@ mod tests {
         );
     }
 
+    /// The text of a string field of a JSON answer, with the escapes a
+    /// result can hold undone (enough for these answers).
+    fn json_field(json: &str, key: &str) -> String {
+        let start = json.find(&format!(r#""{key}":""#)).expect("the field") + key.len() + 4;
+        let mut out = String::new();
+        let mut chars = json[start..].chars();
+        while let Some(c) = chars.next() {
+            match c {
+                '"' => break,
+                '\\' => match chars.next().expect("an escape") {
+                    'n' => out.push('\n'),
+                    other => out.push(other),
+                },
+                c => out.push(c),
+            }
+        }
+        out
+    }
+
+    /// The text of each `<pre ...ATTRIBUTE="FILE"...>` of the guide, as
+    /// `(file, text)`; the text is the block's content, with the few HTML
+    /// escapes the guide uses undone.
+    fn guide_blocks(page: &str, attribute: &str) -> Vec<(String, String)> {
+        let mark = format!(r#"{attribute}=""#);
+        page.split("<pre")
+            .skip(1)
+            .filter_map(|rest| {
+                let head = &rest[..rest.find('>').expect("the tag ends")];
+                let at = head.find(&mark)? + mark.len();
+                let file = head[at..at + head[at..].find('"').expect("a file")].to_string();
+                let body = &rest[head.len() + 1..rest.find("</pre>").expect("the block ends")];
+                Some((
+                    file,
+                    body.replace("&lt;", "<")
+                        .replace("&gt;", ">")
+                        .replace("&amp;", "&"),
+                ))
+            })
+            .collect()
+    }
+
+    /// The playground's Guide (web/guide/): every example it shows type-checks
+    /// and passes its tests, apart from the one that is there to fail, and
+    /// the output it prints beside two of them is what the compiler says.
+    #[test]
+    fn the_guide_examples_check() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/guide");
+        let page = include_str!("../../../web/guide/guide.html");
+        let shown: Vec<String> = guide_blocks(page, "data-src")
+            .into_iter()
+            .map(|(file, _)| file)
+            .collect();
+        assert!(shown.len() >= 15, "{shown:?}");
+
+        // Nothing is shown twice, and no example is left out of the page.
+        let mut on_disk: Vec<String> = std::fs::read_dir(&dir)
+            .expect("the guide folder")
+            .map(|e| {
+                e.expect("an entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .filter(|name| name.ends_with(".sw"))
+            .collect();
+        on_disk.sort();
+        let mut listed = shown.clone();
+        listed.sort();
+        assert_eq!(listed, on_disk, "the guide page and web/guide/*.sw differ");
+
+        // The one example meant to show a failing test, and what it prints.
+        let failing = guide_blocks(page, "data-failure-of");
+        assert_eq!(failing.len(), 1);
+        for file in &shown {
+            let source = std::fs::read_to_string(dir.join(file)).expect("an example");
+            let answer = check(&source);
+            assert!(answer.starts_with(r#"{"ok":true"#), "{file}: {answer}");
+            let tests = test(&source, "");
+            assert!(tests.starts_with(r#"{"ok":true"#), "{file}: {tests}");
+            let failures = tests.matches(r#""passed":false"#).count();
+            if let Some((_, shown_output)) = failing.iter().find(|(f, _)| f == file) {
+                assert_eq!(failures, 1, "{file}: {tests}");
+                // The failing test's own part of the answer.
+                let at = tests.find(r#""passed":false"#).expect("a failure");
+                let one = &tests[tests[..at].rfind(r#"{"name""#).expect("its start")..];
+                let expected = format!(
+                    "✗ {}  (`{}` is False)\n    left:  {}\n    right: {}",
+                    json_field(one, "name"),
+                    json_field(one, "op"),
+                    json_field(one, "left"),
+                    json_field(one, "right")
+                );
+                assert_eq!(shown_output.trim_end(), expected, "{file}");
+            } else {
+                assert_eq!(failures, 0, "{file}: {tests}");
+            }
+        }
+
+        // The declarations the export example shows are among the generated ones.
+        for (file, text) in guide_blocks(page, "data-dts-of") {
+            let source = std::fs::read_to_string(dir.join(&file)).expect("an example");
+            let extracted = extract(&source);
+            assert!(
+                extracted.starts_with(r#"{"ok":true"#),
+                "{file}: {extracted}"
+            );
+            let dts = json_field(&extracted, "dts");
+            for line in text.lines() {
+                assert!(
+                    dts.lines().any(|l| l == line),
+                    "{file}: `{line}` is not in\n{dts}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn escapes_json_strings() {
         assert_eq!(json_string("a \"b\"\n\\c\u{1}"), r#""a \"b\"\n\\c\u0001""#);

@@ -51,6 +51,7 @@ jobs:
         run: |
           test -s result/index.html
           test -s result/playground-worker.js
+          test -s result/guide/guide.html
           test -s result/pkg/stitchwort_web_bg.wasm
           test -s result/pkg/version.json
           cat result/pkg/version.json
