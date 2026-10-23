@@ -240,11 +240,14 @@ mod tests {
         let _op = cx.g().budget.operation(Limits::default());
         let level = cx.level();
         let work = cx.g().budget.total_work();
+        // The work done inside, whatever implicit_arg itself spends.
+        let spent = std::cell::Cell::new(0);
         let found: Option<()> = transaction(&mut cx, |cx| {
             cx.bind("y", ty(0));
             crate::check::implicit_arg(cx, Icit::Auto, &ty(0));
             assert_eq!(cx.e.obligations.borrow().len(), 1);
             cx.g().budget.step().unwrap();
+            spent.set(cx.g().budget.total_work());
             Ok(None)
         })
         .unwrap();
@@ -253,7 +256,8 @@ mod tests {
         assert!(cx.lookup("y").is_none());
         assert!(cx.e.obligations.borrow().is_empty());
         assert!(cx.g().metas.borrow().is_empty());
-        assert_eq!(cx.g().budget.total_work(), work + 1);
+        assert!(spent.get() > work);
+        assert_eq!(cx.g().budget.total_work(), spent.get());
     }
 
     #[test]
