@@ -5160,7 +5160,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Opus",
-      "where": "23 Oct: D1088 running (model holds Map directly, s parameter dropped, Wire.sw deleted, export on Resolver.merge); earlier today: D1030, reformat, variant fields (SW-383)",
+      "where": "23 Oct: D1088 done (model holds Map, no s parameter, Wire.sw deleted, export on Resolver.merge; 57 tests; differential identical; .d.ts: Event/Recording/Transcript lose the parameter). The private integration suites still reference the old module name. D1089 (Abort + names) running.",
       "labels": [
         "design",
         "js"
@@ -6208,9 +6208,9 @@
     {
       "id": 388,
       "title": "Private resolver: Option chains rewritten with Abort (resolveBubble and siblings), descriptive names (D1089)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "private lane",
       "labels": [
         "private"
       ],
