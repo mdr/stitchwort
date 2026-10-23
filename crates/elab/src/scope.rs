@@ -83,6 +83,12 @@ pub enum Level {
 
 /// What a written name means. Looking a name up allocates nothing unless
 /// it's qualified, ambiguous or followed by field accesses.
+/// Before a declaration's key, a name that means exactly that declaration,
+/// whatever is in scope: the compiler writes one into code it generates at
+/// a use site, where the declaration's own name may mean something else.
+/// No one can write it (`%` isn't in names).
+pub(crate) const EXACT_KEY: &str = "%key:";
+
 pub enum Resolved<'a> {
     Found {
         global: Global,
@@ -551,6 +557,20 @@ impl Elaborator {
 
     /// What a written name means, apart from local variables (the caller's).
     pub(crate) fn resolve(&self, written: &str) -> Resolved<'_> {
+        // A name the compiler wrote for a declaration it has already found
+        // (a shared-field update's constructors): exactly that key.
+        if let Some(key) = written.strip_prefix(EXACT_KEY) {
+            return match self.scope.entry(key) {
+                Some((key, global, span)) => Resolved::Found {
+                    global,
+                    span,
+                    key,
+                    level: Level::Qualified,
+                    rest: Vec::new(),
+                },
+                None => Resolved::Missing,
+            };
+        }
         let Some((first, after)) = written.split_once('.') else {
             return self.resolve_short(written, true);
         };

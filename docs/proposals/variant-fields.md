@@ -995,6 +995,54 @@ type mentions *another* effectful replacement sees only that variable, not
 its value. That's fine for the usual case (`newXs` whose type is `Vec Nat newN`
 with `newN` the variable) **[inferred]**.
 
+### 6.4 As built (feature 3)
+
+Built as 6.1 to 6.3 say (D1077), in `crates/elab/src/shared.rs`
+(`variant_update`, `closed`) with the dispatch in `crates/elab/src/records.rs`.
+Records are unchanged (D604 (b)): a record update keeps its own translation.
+
+- **Elaboration.** `{ c | f = x, … }` on a value of a non-record data type
+  becomes a `let` for the base (none if it's a variable), a `let` for each
+  new value, and then a synthetic `match` on the base, run through the
+  ordinary match path as a lifted helper. Each branch rebuilds its
+  constructor with the named fields replaced. So `{ a | xs = ys }` with
+  `ys: Vec Nat (Sized.n a)` checks, and so does a base that is an
+  expression, `{ pick b a | xs = ys }`.
+- **Constructor names in the generated match.** They're written as
+  `%key:` followed by the constructor's exact scope key, which the resolver
+  understands (`crates/elab/src/scope.rs`, `EXACT_KEY`). A constructor name
+  that is shadowed, or not imported where the update is written, makes no
+  difference.
+- **Navigation.** Nothing inside the generated match is noted. The field
+  names in the update are noted against the accessor `T.f`.
+- **Evaluation and typing order.** As 6.3 says: new values are checked in the
+  shared fields' dependency order; in a computation the base runs first and
+  then the replacements, in the order written.
+- **Dependency closure.** In every constructor, each field (explicit or
+  implicit, data or proof) whose type mentions a replaced field must be named
+  too. If the forced field is shared, the error is `E-RECORD-UPDATE`,
+  "updating `n` needs `xs` updated too". If it's implicit, or is one
+  constructor's own, it's `E-RECORD-UPDATE`, "`n` can't be updated on every
+  `Labelled`", with a note naming the constructor and the field.
+- **Unshared fields.** A field that is not shared is `E-UNKNOWN-FIELD`,
+  "`Shape` has no shared field `text`". The note for "only some constructors
+  have it" reads "only `Circle` has `text`; match on the value and rebuild the
+  constructor: `| Circle { .. } => …`"; the other reasons are 5.6's notes. A
+  name no constructor has is "`Shape` has no field `colour`", with a note
+  listing the shared fields. A field given twice is `E-RECORD-FIELD`.
+- **Indexed families are refused**: `E-RECORD-UPDATE`, "a value of the
+  indexed family `Fam` can't be updated by field". A replaced field could be
+  one an index is computed from.
+- **Records stay as they are.** Because of D604 (b), `{ pick b r | xs = ys }`
+  on a record is still refused, while the variant form is accepted.
+- **Not built.** Named construction (D605).
+- **Hashes.** No existing declaration's hash moves.
+- **Proofs.** In a type position `{` starts an effect row, so a theorem's
+  statement brackets the update: `({ c | id = x }).id = x`.
+
+Examples: `examples/accept/shared-field-update.sw`,
+`examples/reject/shared-field-update-*.sw`.
+
 ## 7. Before and after
 
 Before: §1. After:

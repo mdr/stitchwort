@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-UPDATE] Error: `n` can't be updated on every `Labelled`
+   ╭─[ reject/shared-field-update-forced-implicit.sw:8:34 ]
+   │
+ 8 │ def f (a: Labelled): Labelled := { a | n = 1 }
+   │                                  ──────┬──────  
+   │                                        ╰──────── this update
+   │ 
+   │ Note: in `LA`, the type of the implicit field `h` mentions `n`, and an update can only give shared fields: match on the value and rebuild `LA`
+───╯

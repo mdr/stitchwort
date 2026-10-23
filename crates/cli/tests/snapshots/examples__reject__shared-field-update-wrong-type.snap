@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/shared-field-update-wrong-type.sw:8:39 ]
+   │
+ 8 │ def f (s: Shape): Shape := { s | id = 3 }
+   │                                       ┬  
+   │                                       ╰── expected `Text`, but this has type `Nat`
+   │ 
+   │ Note: a numeral can only be the prelude's `Nat` or `Int`
+───╯

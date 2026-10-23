@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-UPDATE] Error: updating `n` needs `ok` updated too
+   ╭─[ reject/shared-field-update-forced-proof-field.sw:9:28 ]
+   │
+ 9 │ def f (a: Sized): Sized := { a | n = 1, xs = VCons 7 VNil }
+   │                            ────────────────┬───────────────  
+   │                                            ╰───────────────── the type of `ok` mentions `n`
+   │ 
+   │ Note: give a new `ok` for the new `n`: `{ … | n = …, ok = … }`
+───╯
