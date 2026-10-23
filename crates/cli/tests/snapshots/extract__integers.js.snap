@@ -82,11 +82,11 @@ const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount
 // A data type's description. `tagKey` is the property its objects' tag is
 // in at the boundary; inside generated code it's always `tag`.
 const datatype = (name, tagKey = "$tag") => ({
-  name, tagKey, ctors: new Map(), internal: new Map(), flat: new Set(), tags: "",
+  name, tagKey, ctors: new Map(), internal: new Map(), flat: undefined, tags: "",
   instances: new Map(), record: undefined, checks: [],
 });
 // Each constructor's tag, and its fields' keys and types, in order. A
-// constructor is `flat` if all its fields are leaves. A record has one
+// constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
 // object saying whether the proof holds. Names at the boundary may differ
@@ -101,7 +101,10 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     external,
     fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
   }));
-  if (record) info.record = entries[0].fields;
+  if (record) {
+    info.record = entries[0].fields;
+    info.recordTag = entries[0].external;
+  }
   info.checks = checks;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
@@ -109,7 +112,6 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
   for (const entry of entries) {
     info.ctors.set(entry.external, entry);
     info.internal.set(entry.tag, entry);
-    if (entry.fields.every(([, t]) => t.kind === LEAF)) info.flat.add(entry.external);
   }
   const tags = entries.map((e) => JSON.stringify(e.external));
   info.tags =
@@ -151,8 +153,10 @@ const BOOL = leaf(
 // `Text` is a string. Decoding refuses a string with a lone surrogate (which
 // JS allows) rather than repairing it, so encoding gives back exactly the
 // string that was decoded.
+const hasIsWellFormed = typeof "".isWellFormed === "function";
 const wellFormed = (x) => {
   if (typeof x !== "string") refuse("expected a string");
+  if (hasIsWellFormed && x.isWellFormed()) return x;
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
     if (unit < 0xd800 || unit > 0xdfff) continue;
@@ -344,15 +348,31 @@ const plainKeys = (x) => {
 // more (`a = { left: b, right: b }`, `b = { left: c, right: c }`, …). One reached again while it's being decoded at the same type contains
 // itself, and is refused instead of looping forever. (A cycle comes back to
 // the same type eventually, since there are only so many.) An object of a
-// `flat` constructor, whose fields are all leaves, can't contain itself or
-// share anything, and decoding it takes as long as decoding its fields, so
-// it's decoded again each time it's reached, which is quicker than
-// remembering it.
+// `flat` constructor (a record's too), whose fields are all `shallow`, can't
+// contain itself or share anything, and decoding it takes as long as decoding
+// its fields, so it's decoded again each time it's reached, which is quicker
+// than remembering it.
 const INSIDE = Symbol("inside");
-const decode = (t, x, root) => {
+// A value with nothing inside it that could be shared or contain itself: a leaf,
+// a string union, or an `Option` of one.
+const shallow = (t) =>
+  t.kind === LEAF ||
+  (t.kind === DATA && t.info.strings) ||
+  (t.kind === OPTION && t.elem.kind !== OPTION && shallow(t.elem));
+// The tags of a data type's flat constructors (a record's one is `flat` if it's
+// in it), found on first use, when every type is defined.
+const flatOf = (info) => {
+  if (info.flat === undefined) {
+    info.flat = new Set();
+    for (const [tag, entry] of info.ctors) {
+      if (entry.fields.every(([, t]) => shallow(t))) info.flat.add(tag);
+    }
+  }
+  return info.flat;
+};
+const decode = (t, x, root, seen = new Map()) => {
   const frames = [];
   const path = [];
-  const seen = new Map();
   try {
     for (;;) {
       // Start on `x`: a leaf is done at once, as is an array or object
@@ -403,7 +423,8 @@ const decode = (t, x, root) => {
           frames.push({ t, x, done, fields: undefined, keys, key: undefined, i: 0, n: keys.length, out: [] });
         } else if (t.info.record !== undefined) {
           const fields = t.info.record;
-          done.set(x, INSIDE);
+          if (flatOf(t.info).has(t.info.recordTag)) done = undefined;
+          else done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
           const key = t.info.tagKey;
@@ -413,7 +434,7 @@ const decode = (t, x, root) => {
           const ctor = t.info.ctors.get(tag);
           if (ctor === undefined) refuse(`unknown ${key} ${describe(tag)}; expected ${t.info.tags}`);
           const fields = ctor.fields;
-          if (t.info.flat.has(tag)) done = undefined;
+          if (flatOf(t.info).has(tag)) done = undefined;
           else done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag: ctor.tag } });
         }
@@ -575,6 +596,74 @@ const encode = (t, v) => {
       value = f.out;
     }
   }
+};
+
+// The fast path. Each type that crosses has a decoder and an encoder
+// specialised to it, written out in this module: they go straight through a
+// value, with no description of its type to interpret, no frames and no path
+// to keep.
+//
+// A fast decoder does what `decode` does, with the same bookkeeping, in the
+// same order and reading each property once: what it has decoded at each type
+// is remembered (in `seen`, the same table `decode` keeps) so that an object
+// reached twice is decoded once, and one reached while it's being decoded is
+// refused, and objects whose fields are all shallow (`flatOf`) are decoded each
+// time. Where it would nest deeper than `MAX_DEPTH` (it recurses, a loop
+// doesn't), it hands that value to `decode`, with the same `seen`, which has no
+// stack to run out of.
+//
+// A fast decoder never says why it refuses an input. It throws anything at all
+// (`FAIL`, a `Refusal`, a getter's error, a `RangeError` from the stack), and
+// then `decode`, the general one, runs on the whole input and gives the
+// refusal, with its path, or finds that the input is fine after all (a getter
+// that threw once need not throw again). So an input is accepted exactly when
+// `decode` accepts it, to the same value, and refused with `decode`'s message.
+// The only difference is that an input that's refused has been partly read
+// before, by the fast decoder.
+//
+// The encoders read only values Stitchwort made. They give up on being nested
+// deeper than `MAX_DEPTH`, and the general `encode` does it.
+const FAIL = { fast: "gave up" };
+const fail = () => {
+  throw FAIL;
+};
+const MAX_DEPTH = 100;
+let depth = 0, seen = null;
+// What has been decoded at type `t` so far.
+const memoOf = (t) => {
+  let done = seen.get(t);
+  if (done === undefined) seen.set(t, (done = new Map()));
+  return done;
+};
+// `decode` for a value inside the fast path's, sharing what it has seen.
+const decodeDeep = (t, x) => decode(t, x, "", seen);
+// A call into an export from a getter, while another is being decoded, uses
+// the counters afresh and leaves them as it found them.
+const decodeFast = (fast, t, x, root) => {
+  const outerDepth = depth, outerSeen = seen;
+  depth = 0;
+  seen = new Map();
+  try {
+    return fast(x);
+  } catch {
+    // The general decoder will say.
+  } finally {
+    depth = outerDepth;
+    seen = outerSeen;
+  }
+  return decode(t, x, root);
+};
+const encodeFast = (fast, t, v) => {
+  const outerDepth = depth;
+  depth = 0;
+  try {
+    return fast(v);
+  } catch {
+    // The general encoder does it.
+  } finally {
+    depth = outerDepth;
+  }
+  return encode(t, v);
 };
 
 const info$Std$dOrdering = datatype("Ordering");
@@ -873,8 +962,8 @@ const $Main$dentries = (v0) => {
 
 function $$dial(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(INT, $Main$ddial(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$2, ty$1, $Main$ddial(v0));
   } catch (e) {
     throw outOfResources("dial", e);
   }
@@ -882,12 +971,12 @@ function $$dial(arg0) {
 
 function $$divide(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(list(INT), $Main$ddivide(v0)(v1));
+    return encodeFast(enc$3, ty$2, $Main$ddivide(v0)(v1));
   } catch (e) {
     throw outOfResources("divide", e);
   }
@@ -895,8 +984,8 @@ function $$divide(arg0, arg1) {
 
 function $$describe(arg0) {
   try {
-    const v0 = decode(INT, arg0, "arg0");
-    return encode(TEXT, $Main$ddescribe(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
+    return encodeFast(enc$4, ty$3, $Main$ddescribe(v0));
   } catch (e) {
     throw outOfResources("describe", e);
   }
@@ -904,8 +993,8 @@ function $$describe(arg0) {
 
 function $$negatives(arg0) {
   try {
-    const v0 = decode(list(NAT), arg0, "ns");
-    return encode(list(INT), $Main$dnegatives(v0));
+    const v0 = decodeFast(dec$5, ty$4, arg0, "ns");
+    return encodeFast(enc$3, ty$2, $Main$dnegatives(v0));
   } catch (e) {
     throw outOfResources("negatives", e);
   }
@@ -913,8 +1002,8 @@ function $$negatives(arg0) {
 
 function $$neg(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(INT, $Main$dneg(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$2, ty$1, $Main$dneg(v0));
   } catch (e) {
     throw outOfResources("neg", e);
   }
@@ -922,9 +1011,9 @@ function $$neg(arg0) {
 
 function $$add(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(INT, $Main$dadd(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$2, ty$1, $Main$dadd(v0)(v1));
   } catch (e) {
     throw outOfResources("add", e);
   }
@@ -932,9 +1021,9 @@ function $$add(arg0, arg1) {
 
 function $$sub(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(INT, $Main$dsub(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$2, ty$1, $Main$dsub(v0)(v1));
   } catch (e) {
     throw outOfResources("sub", e);
   }
@@ -942,9 +1031,9 @@ function $$sub(arg0, arg1) {
 
 function $$mul(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(INT, $Main$dmul(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$2, ty$1, $Main$dmul(v0)(v1));
   } catch (e) {
     throw outOfResources("mul", e);
   }
@@ -952,12 +1041,12 @@ function $$mul(arg0, arg1) {
 
 function $$eucDiv(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(INT, $Main$deucDiv(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$deucDiv(v0)(v1));
   } catch (e) {
     throw outOfResources("eucDiv", e);
   }
@@ -965,12 +1054,12 @@ function $$eucDiv(arg0, arg1) {
 
 function $$eucMod(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(INT, $Main$deucMod(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$deucMod(v0)(v1));
   } catch (e) {
     throw outOfResources("eucMod", e);
   }
@@ -978,12 +1067,12 @@ function $$eucMod(arg0, arg1) {
 
 function $$tdiv(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(INT, $Main$dtdiv(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dtdiv(v0)(v1));
   } catch (e) {
     throw outOfResources("tdiv", e);
   }
@@ -991,12 +1080,12 @@ function $$tdiv(arg0, arg1) {
 
 function $$tmod(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(INT, $Main$dtmod(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dtmod(v0)(v1));
   } catch (e) {
     throw outOfResources("tmod", e);
   }
@@ -1004,12 +1093,12 @@ function $$tmod(arg0, arg1) {
 
 function $$fdiv(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(INT, $Main$dfdiv(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dfdiv(v0)(v1));
   } catch (e) {
     throw outOfResources("fdiv", e);
   }
@@ -1017,12 +1106,12 @@ function $$fdiv(arg0, arg1) {
 
 function $$fmod(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(INT, $Main$dfmod(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dfmod(v0)(v1));
   } catch (e) {
     throw outOfResources("fmod", e);
   }
@@ -1030,12 +1119,12 @@ function $$fmod(arg0, arg1) {
 
 function $$modNat(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(NAT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$6, ty$5, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(NAT, $Main$dmodNat(v0)(v1));
+    return encodeFast(enc$7, ty$5, $Main$dmodNat(v0)(v1));
   } catch (e) {
     throw outOfResources("modNat", e);
   }
@@ -1043,9 +1132,9 @@ function $$modNat(arg0, arg1) {
 
 function $$decEq(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(BOOL, $Main$ddecEq(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$8, ty$6, $Main$ddecEq(v0)(v1));
   } catch (e) {
     throw outOfResources("decEq", e);
   }
@@ -1053,9 +1142,9 @@ function $$decEq(arg0, arg1) {
 
 function $$leq(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(BOOL, $Main$dleq(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$8, ty$6, $Main$dleq(v0)(v1));
   } catch (e) {
     throw outOfResources("leq", e);
   }
@@ -1063,9 +1152,9 @@ function $$leq(arg0, arg1) {
 
 function $$less(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(BOOL, $Main$dless(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$8, ty$6, $Main$dless(v0)(v1));
   } catch (e) {
     throw outOfResources("less", e);
   }
@@ -1073,9 +1162,9 @@ function $$less(arg0, arg1) {
 
 function $$compare(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "b");
-    return encode(data(info$Std$dOrdering), $Main$dcompare(v0)(v1));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "b");
+    return encodeFast(enc$9, ty$7, $Main$dcompare(v0)(v1));
   } catch (e) {
     throw outOfResources("compare", e);
   }
@@ -1083,8 +1172,8 @@ function $$compare(arg0, arg1) {
 
 function $$natAbs(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(NAT, $Main$dnatAbs(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$7, ty$5, $Main$dnatAbs(v0));
   } catch (e) {
     throw outOfResources("natAbs", e);
   }
@@ -1092,8 +1181,8 @@ function $$natAbs(arg0) {
 
 function $$abs(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(INT, $Main$dabs(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$2, ty$1, $Main$dabs(v0));
   } catch (e) {
     throw outOfResources("abs", e);
   }
@@ -1101,8 +1190,8 @@ function $$abs(arg0) {
 
 function $$toNat(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(NAT, $Main$dtoNat(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$7, ty$5, $Main$dtoNat(v0));
   } catch (e) {
     throw outOfResources("toNat", e);
   }
@@ -1110,8 +1199,8 @@ function $$toNat(arg0) {
 
 function $$toNatChecked(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(option(NAT), $Main$dtoNatChecked(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$10, ty$8, $Main$dtoNatChecked(v0));
   } catch (e) {
     throw outOfResources("toNatChecked", e);
   }
@@ -1119,8 +1208,8 @@ function $$toNatChecked(arg0) {
 
 function $$sign(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(INT, $Main$dsign(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$2, ty$1, $Main$dsign(v0));
   } catch (e) {
     throw outOfResources("sign", e);
   }
@@ -1128,8 +1217,8 @@ function $$sign(arg0) {
 
 function $$ofNat(arg0) {
   try {
-    const v0 = decode(NAT, arg0, "n");
-    return encode(INT, $Main$dofNat(v0));
+    const v0 = decodeFast(dec$6, ty$5, arg0, "n");
+    return encodeFast(enc$2, ty$1, $Main$dofNat(v0));
   } catch (e) {
     throw outOfResources("ofNat", e);
   }
@@ -1137,8 +1226,8 @@ function $$ofNat(arg0) {
 
 function $$toText(arg0) {
   try {
-    const v0 = decode(INT, arg0, "x");
-    return encode(TEXT, $Main$dtoText(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "x");
+    return encodeFast(enc$4, ty$3, $Main$dtoText(v0));
   } catch (e) {
     throw outOfResources("toText", e);
   }
@@ -1146,8 +1235,8 @@ function $$toText(arg0) {
 
 function $$parse(arg0) {
   try {
-    const v0 = decode(TEXT, arg0, "t");
-    return encode(option(INT), $Main$dparse(v0));
+    const v0 = decodeFast(dec$11, ty$3, arg0, "t");
+    return encodeFast(enc$12, ty$9, $Main$dparse(v0));
   } catch (e) {
     throw outOfResources("parse", e);
   }
@@ -1155,8 +1244,8 @@ function $$parse(arg0) {
 
 function $$ofNats(arg0) {
   try {
-    const v0 = decode(list(NAT), arg0, "ns");
-    return encode(list(INT), $Main$dofNats(v0));
+    const v0 = decodeFast(dec$5, ty$4, arg0, "ns");
+    return encodeFast(enc$3, ty$2, $Main$dofNats(v0));
   } catch (e) {
     throw outOfResources("ofNats", e);
   }
@@ -1164,12 +1253,12 @@ function $$ofNats(arg0) {
 
 function $$residue(arg0, arg1) {
   try {
-    const v0 = decode(INT, arg0, "a");
-    const v1 = decode(INT, arg1, "d");
+    const v0 = decodeFast(dec$1, ty$1, arg0, "a");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encode(TEXT, $Main$dresidue(v0)(v1));
+    return encodeFast(enc$4, ty$3, $Main$dresidue(v0)(v1));
   } catch (e) {
     throw outOfResources("residue", e);
   }
@@ -1177,8 +1266,8 @@ function $$residue(arg0, arg1) {
 
 function $$classify(arg0) {
   try {
-    const v0 = decode(INT, arg0, "arg0");
-    return encode(TEXT, $Main$dclassify(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
+    return encodeFast(enc$4, ty$3, $Main$dclassify(v0));
   } catch (e) {
     throw outOfResources("classify", e);
   }
@@ -1186,8 +1275,8 @@ function $$classify(arg0) {
 
 function $$fields(arg0) {
   try {
-    const v0 = decode(INT, arg0, "arg0");
-    return encode(NAT, $Main$dfields(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
+    return encodeFast(enc$7, ty$5, $Main$dfields(v0));
   } catch (e) {
     throw outOfResources("fields", e);
   }
@@ -1195,8 +1284,8 @@ function $$fields(arg0) {
 
 function $$optionInt(arg0) {
   try {
-    const v0 = decode(option(INT), arg0, "arg0");
-    return encode(INT, $Main$doptionInt(v0));
+    const v0 = decodeFast(dec$13, ty$9, arg0, "arg0");
+    return encodeFast(enc$2, ty$1, $Main$doptionInt(v0));
   } catch (e) {
     throw outOfResources("optionInt", e);
   }
@@ -1204,8 +1293,8 @@ function $$optionInt(arg0) {
 
 function $$negateAll(arg0) {
   try {
-    const v0 = decode(list(option(INT)), arg0, "xs");
-    return encode(list(option(INT)), $Main$dnegateAll(v0));
+    const v0 = decodeFast(dec$14, ty$10, arg0, "xs");
+    return encodeFast(enc$15, ty$10, $Main$dnegateAll(v0));
   } catch (e) {
     throw outOfResources("negateAll", e);
   }
@@ -1213,8 +1302,8 @@ function $$negateAll(arg0) {
 
 function $$firstNeg(arg0) {
   try {
-    const v0 = decode(list(INT), arg0, "arg0");
-    return encode(option(INT), $Main$dfirstNeg(v0));
+    const v0 = decodeFast(dec$16, ty$2, arg0, "arg0");
+    return encodeFast(enc$12, ty$9, $Main$dfirstNeg(v0));
   } catch (e) {
     throw outOfResources("firstNeg", e);
   }
@@ -1222,8 +1311,8 @@ function $$firstNeg(arg0) {
 
 function $$apply(arg0) {
   try {
-    const v0 = decode(data(info$Main$dEntry), arg0, "e");
-    return encode(data(info$Main$dEntry), $Main$dapply(v0));
+    const v0 = decodeFast(dec$17, ty$11, arg0, "e");
+    return encodeFast(enc$18, ty$11, $Main$dapply(v0));
   } catch (e) {
     throw outOfResources("apply", e);
   }
@@ -1231,11 +1320,202 @@ function $$apply(arg0) {
 
 function $$entries(arg0) {
   try {
-    const v0 = decode(list(data(info$Main$dEntry)), arg0, "arg0");
-    return encode(INT, $Main$dentries(v0));
+    const v0 = decodeFast(dec$19, ty$12, arg0, "arg0");
+    return encodeFast(enc$2, ty$1, $Main$dentries(v0));
   } catch (e) {
     throw outOfResources("entries", e);
   }
+}
+
+// The fast path's codecs, one decoder and one encoder for each type that
+// crosses (see `decodeFast`).
+const ty$1 = INT;
+const ty$2 = list(INT);
+const ty$3 = TEXT;
+const ty$4 = list(NAT);
+const ty$5 = NAT;
+const ty$6 = BOOL;
+const ty$7 = data(info$Std$dOrdering);
+const ty$8 = option(NAT);
+const ty$9 = option(INT);
+const ty$10 = list(option(INT));
+const ty$11 = data(info$Main$dEntry);
+const ty$12 = list(data(info$Main$dEntry));
+function dec$1(x) {
+  return INT.dec(x);
+}
+function enc$2(v) {
+  return INT.enc(v);
+}
+function enc$3(v) {
+  const out = [];
+  for (let l = v; l.tag === "Cons"; l = l.tail) out.push(INT.enc(l.head));
+  return out;
+}
+function enc$4(v) {
+  return TEXT.enc(v);
+}
+function dec$5(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$4);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$4, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  let first = null, last = null;
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    const cell = { tag: "Cons", head: NAT.dec(r), tail: null };
+    if (last === null) first = cell; else last.tail = cell;
+    last = cell;
+  }
+  const nil = { tag: "Nil" };
+  if (last === null) first = nil; else last.tail = nil;
+  depth--;
+  done.set(x, first);
+  return first;
+}
+function dec$6(x) {
+  return NAT.dec(x);
+}
+function enc$7(v) {
+  return NAT.enc(v);
+}
+function enc$8(v) {
+  return BOOL.enc(v);
+}
+function enc$9(v) {
+  switch (v.tag) {
+    case "Less": {
+      const o = { $tag: "Less" };
+      return o;
+    }
+    case "Equal": {
+      const o = { $tag: "Equal" };
+      return o;
+    }
+    case "Greater": {
+      const o = { $tag: "Greater" };
+      return o;
+    }
+    default: throw FAIL;
+  }
+}
+function enc$10(v) {
+  return (v.tag === "None" ? undefined : NAT.enc(v.value));
+}
+function dec$11(x) {
+  return TEXT.dec(x);
+}
+function enc$12(v) {
+  return (v.tag === "None" ? undefined : INT.enc(v.value));
+}
+function dec$13(x) {
+  return (x === undefined ? { tag: "None" } : x === null ? fail() : { tag: "Some", value: INT.dec(x) });
+}
+function dec$14(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$10);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$10, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  let first = null, last = null;
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    const cell = { tag: "Cons", head: (r === undefined ? { tag: "None" } : r === null ? fail() : { tag: "Some", value: INT.dec(r) }), tail: null };
+    if (last === null) first = cell; else last.tail = cell;
+    last = cell;
+  }
+  const nil = { tag: "Nil" };
+  if (last === null) first = nil; else last.tail = nil;
+  depth--;
+  done.set(x, first);
+  return first;
+}
+function enc$15(v) {
+  const out = [];
+  for (let l = v; l.tag === "Cons"; l = l.tail) out.push((l.head.tag === "None" ? undefined : INT.enc(l.head.value)));
+  return out;
+}
+function dec$16(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$2);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$2, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  let first = null, last = null;
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    const cell = { tag: "Cons", head: INT.dec(r), tail: null };
+    if (last === null) first = cell; else last.tail = cell;
+    last = cell;
+  }
+  const nil = { tag: "Nil" };
+  if (last === null) first = nil; else last.tail = nil;
+  depth--;
+  done.set(x, first);
+  return first;
+}
+function dec$17(x) {
+  if (typeof x !== "object" || x === null || Array.isArray(x)) throw FAIL;
+  if (!hasOwn(x, "count")) throw FAIL;
+  const r0 = x.count;
+  const f0 = NAT.dec(r0);
+  if (!hasOwn(x, "delta")) throw FAIL;
+  const r1 = x.delta;
+  const f1 = INT.dec(r1);
+  const o = { count: f0, delta: f1 };
+  return o;
+}
+function enc$18(v) {
+  const o = { count: NAT.enc(v.count), delta: INT.enc(v.delta) };
+  return o;
+}
+function dec$19(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$12);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$12, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  let first = null, last = null;
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    const cell = { tag: "Cons", head: dec$17(r), tail: null };
+    if (last === null) first = cell; else last.tail = cell;
+    last = cell;
+  }
+  const nil = { tag: "Nil" };
+  if (last === null) first = nil; else last.tail = nil;
+  depth--;
+  done.set(x, first);
+  return first;
 }
 
 export { $$dial as dial, $$divide as divide, $$describe as describe, $$negatives as negatives, $$neg as neg, $$add as add, $$sub as sub, $$mul as mul, $$eucDiv as eucDiv, $$eucMod as eucMod, $$tdiv as tdiv, $$tmod as tmod, $$fdiv as fdiv, $$fmod as fmod, $$modNat as modNat, $$decEq as decEq, $$leq as leq, $$less as less, $$compare as compare, $$natAbs as natAbs, $$abs as abs, $$toNat as toNat, $$toNatChecked as toNatChecked, $$sign as sign, $$ofNat as ofNat, $$toText as toText, $$parse as parse, $$ofNats as ofNats, $$residue as residue, $$classify as classify, $$fields as fields, $$optionInt as optionInt, $$negateAll as negateAll, $$firstNeg as firstNeg, $$apply as apply, $$entries as entries };
