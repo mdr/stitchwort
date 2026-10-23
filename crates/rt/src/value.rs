@@ -302,7 +302,7 @@ mod tests {
             );
         }
         assert_eq!(bits(Value::float(-f64::NAN)), nan);
-        assert_eq!(bits(Value::float(0.0 / 0.0)), nan);
+        assert_eq!(bits(Value::float(f64::INFINITY - f64::INFINITY)), nan);
         for kept in [
             0u64,
             1 << 63,
