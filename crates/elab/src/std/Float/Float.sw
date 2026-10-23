@@ -5,11 +5,14 @@
 -- exactly when their bits are, so `0.0` and `-0.0` differ and the NaN equals
 -- itself (`Object.is`, not `===`; `===` is `Float.ieeeEq`).
 --
--- The exact operations (`neg`, `abs`, `isNaN`, `==`) are ordinary
--- definitions over the bits. The rounding ones (`add`, `sub`) are
--- primitives: the checker computes them on known doubles with Rust's `f64`,
--- under the contract of docs/proposals/float.md §3.3, and otherwise they are
--- unknown functions.
+-- The exact operations (`neg`, `abs`, `isNaN`, `isFinite`, `==`, the
+-- order, the IEEE comparisons, `toInt`) are ordinary definitions over the
+-- bits. The rounding ones (`add`, `sub`, `mul`, `div`, `rem`, `floor`,
+-- `ceil`, `trunc`, `round`, `ofInt`, `ofNat`) are primitives: the checker
+-- computes them on known doubles with Rust's `f64`, under the contract of
+-- docs/proposals/float.md §3.3, and otherwise they are unknown functions.
+-- `toText` is a primitive the checker never computes: each runtime supplies
+-- it (JS's `String(x)`).
 --
 -- The kernel, the runtime and the JS backend rely on these exact
 -- declarations, by content hash: `FLOAT_DATA_HASH` and the native hashes in
@@ -205,3 +208,162 @@ theorem Float.negNeg (x: Float): Float.neg (Float.neg x) = x := Float.negNegFrom
 def Float.add: Float -> Float -> Float
 
 def Float.sub: Float -> Float -> Float
+
+def Float.mul: Float -> Float -> Float
+
+def Float.div: Float -> Float -> Float
+
+-- JS's `%`: the remainder of truncating division, with the sign of the
+-- dividend (`-5.5 % 2.0` is `-1.5`). Exact, like `floor`.
+def Float.rem: Float -> Float -> Float
+
+-- JS's `Math.floor`, `Math.ceil`, `Math.trunc` and `Math.round`: a whole
+-- double (NaN, the infinities and the zeros as they are). `round` takes a
+-- half up, towards +infinity (`round (-2.5)` is `-2.0`), and keeps the sign
+-- of a zero result (`round (-0.4)` is `-0.0`).
+def Float.floor: Float -> Float
+
+def Float.ceil: Float -> Float
+
+def Float.trunc: Float -> Float
+
+def Float.round: Float -> Float
+
+-- The double nearest the integer, ties to even, or an infinity beyond the
+-- largest (JS's `Number(n)` of a `bigint`).
+def Float.ofInt: Int -> Float
+
+def Float.ofNat: Nat -> Float
+
+-- JS's `String(x)`: `0.30000000000000004`, `1e+21`, `NaN`, `-Infinity`, and
+-- `0` for both zeros. The checker doesn't compute it (each runtime supplies
+-- it; docs/proposals/float.md §2.6), so a test about its result runs only at
+-- run time.
+def Float.toText: Float -> Text
+
+-- Neither infinite nor the NaN.
+def Float.isFinite (x: Float): Bool := !(Nat.leq 9218868437227405312 (Float.clearSignBits x.bits))
+
+-- IEEE 754's `totalOrder` as an `Int`: -infinity < ... < -0.0 < 0.0 < ...
+-- < +infinity < the NaN. A pattern with the sign bit set is `-(m + 1)` for
+-- its magnitude `m`, so `-0.0` is `-1`.
+def Float.keyOf (n: Nat) (negative: Bool): Int :=
+  if negative then NegSucc (n - 9223372036854775808) else OfNat n
+
+def Float.orderKey (x: Float): Int := Float.keyOf x.bits (Nat.leq 9223372036854775808 x.bits)
+
+theorem Float.keyOfInjective (a: Nat) (b: Nat):
+    (p: Bool) -> Nat.leq 9223372036854775808 a = p -> (q: Bool) -> Nat.leq 9223372036854775808 b = q
+      -> Float.keyOf a p = Float.keyOf b q -> a = b
+  | True, hp, True, hq, e =>
+    omega [Int.negSuccInjective (a - 9223372036854775808) (b - 9223372036854775808) e]
+  | True, hp, False, hq, e => Void.exfalso (Int.negSuccNotOfNat (a - 9223372036854775808) b e)
+  | False, hp, True, hq, e => Void.exfalso (Int.ofNatNotNegSucc a (b - 9223372036854775808) e)
+  | False, hp, False, hq, e => Int.ofNatInjective a b e
+
+theorem Float.orderKeyInjective (x: Float) (y: Float) (e: Float.orderKey x = Float.orderKey y): x = y :=
+  Float.bitsExt x y
+    (Float.keyOfInjective x.bits y.bits (Nat.leq 9223372036854775808 x.bits) rfl
+      (Nat.leq 9223372036854775808 y.bits) rfl e)
+
+-- The total order: what `<`, `<=`, sorting, `Map Float` and `Set Float`
+-- use. `-0.0 < 0.0`, and the NaN is above everything, equal to itself.
+def Float.compare (x: Float) (y: Float): Ordering := Int.compare (Float.orderKey x) (Float.orderKey y)
+
+instance Float.instOrd: Ord Float :=
+  Ord.fromCompare Float.compare
+    (x y h => Float.orderKeyInjective x y (Int.compareEqual (Float.orderKey x) (Float.orderKey y) h))
+    (x y => Int.compareFlip (Float.orderKey x) (Float.orderKey y))
+    (x y z => Int.compareTrans (Float.orderKey x) (Float.orderKey y) (Float.orderKey z))
+
+-- JavaScript's `<` and `<=`: false when either is the NaN, and `0.0` and
+-- `-0.0` are equal. Port `a > b` as `Float.ieeeLt b a` (docs/syntax.md).
+def Float.ieeeLt (x: Float) (y: Float): Bool :=
+  !(Float.isNaN x) && !(Float.isNaN y) && !(Float.isZero x && Float.isZero y)
+    && Int.less (Float.orderKey x) (Float.orderKey y)
+
+def Float.ieeeLe (x: Float) (y: Float): Bool :=
+  !(Float.isNaN x) && !(Float.isNaN y)
+    && ((Float.isZero x && Float.isZero y) || Int.leq (Float.orderKey x) (Float.orderKey y))
+
+theorem Float.keyLessLeq: (i: Int) -> (j: Int) -> Int.less i j = True -> Int.leq i j = True
+  | OfNat m, OfNat n, h => omega
+  | OfNat m, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
+  | NegSucc m, OfNat n, h => rfl
+  | NegSucc m, NegSucc n, h => omega
+
+theorem Float.ltLeBools: (a: Bool) -> (b: Bool) -> (c: Bool) -> (i: Int) -> (j: Int)
+    -> (a && b && !c && Int.less i j) = True -> (a && b && (c || Int.leq i j)) = True
+  | True, True, False, i, j, h => Float.keyLessLeq i j h
+  | True, True, True, i, j, h => rfl
+  | True, False, c, i, j, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, b, c, i, j, h => Void.exfalso (Bool.falseNotTrue h)
+
+-- JS's `a < b` implies `a <= b`.
+theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True :=
+  Float.ltLeBools (!(Float.isNaN x)) (!(Float.isNaN y)) (Float.isZero x && Float.isZero y)
+    (Float.orderKey x) (Float.orderKey y) h
+
+-- `m / d`, if `d` (positive) divides `m`.
+def Float.exactDiv (m: Nat) (d: Nat): Option Nat :=
+  if Nat.equal (Nat.divFuel m m d * d) m then Some (Nat.divFuel m m d) else None
+
+-- The integer `m * 2^(e - 1075)`, if it is one: a normal double's value,
+-- from its exponent field `e` and its significand `m` (the fraction with
+-- the leading 1).
+def Float.wholeMagnitude (e: Nat) (m: Nat): Option Nat :=
+  if Nat.leq 1075 e then Some (m * Nat.pow 2 (e - 1075)) else Float.exactDiv m (Nat.pow 2 (1075 - e))
+
+def Float.withSign (negative: Bool) (n: Nat): Int := if negative then Int.neg (OfNat n) else OfNat n
+
+-- From the sign and the exponent field `e`, and the rest of the bits, `m =
+-- e * 2^52 + f`.
+def Float.toIntFrom (negative: Bool) (e: Nat) (m: Nat): Option Int :=
+  if Nat.equal e 2047 then None
+  else if Nat.equal e 0 then (if Nat.equal m 0 then Some (OfNat 0) else None)
+  else match Float.wholeMagnitude e (m - e * 4503599627370496 + 4503599627370496) with
+    | Some n => Some (Float.withSign negative n)
+    | None => None
+
+-- The integer the double is, if it is a whole number: `None` for a
+-- fraction, the infinities and the NaN. Every whole double, of any size:
+-- `Float.toInt 1e100` is the integer 1e100's bits stand for, which isn't
+-- 10^100. Both zeros are `Some 0`.
+def Float.toInt (x: Float): Option Int :=
+  Float.toIntFrom (Nat.leq 9223372036854775808 x.bits)
+    (Nat.divFuel (Float.clearSignBits x.bits) (Float.clearSignBits x.bits) 4503599627370496)
+    (Float.clearSignBits x.bits)
+
+-- `toInt`, if the integer is a `SafeInt` (or a `SafeNat`).
+def Float.toSafeInt (x: Float): Option SafeInt :=
+  match Float.toInt x with
+    | Some n => SafeInt.ofInt n
+    | None => None
+
+def Float.toSafeNat (x: Float): Option SafeNat :=
+  match Float.toInt x with
+    | Some (OfNat n) => SafeNat.ofNat n
+    | _ => None
+
+-- Exact: every safe integer is a double.
+def SafeInt.toFloat (n: SafeInt): Float := Float.ofInt n.value
+
+def SafeNat.toFloat (n: SafeNat): Float := Float.ofNat n.value
+
+-- `toText` with `.0` after a whole number, so that it reads back as a
+-- `Float` (`3.0`, `1e+21`, `0.5`).
+def Float.pointed (t: Text): Text :=
+  if Text.contains "." t || Text.contains "e" t then t else Text.append t ".0"
+
+-- Source for the double that reads back as the same double: `1.5`, `3.0`,
+-- `-0.0`, `Float.nan`, `Float.infinity`, `-Float.infinity`. The last four
+-- are decided from the bits, so the checker computes them; the rest go
+-- through `toText`.
+def Float.toSource (x: Float): Text :=
+  if Nat.equal x.bits 9221120237041090560 then "Float.nan"
+  else if Nat.equal x.bits 9218868437227405312 then "Float.infinity"
+  else if Nat.equal x.bits 18442240474082181120 then "-Float.infinity"
+  else if Nat.equal x.bits 9223372036854775808 then "-0.0"
+  else Float.pointed (Float.toText x)
+
+instance Float.instShow: Show Float := { toText = Float.toText, toSource = Float.toSource }

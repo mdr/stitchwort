@@ -19,9 +19,15 @@ fn the_float_natives_agree_with_their_definitions() {
         .map(|c| format!("[{}] {}: {}", c.mode.name(), c.name, c.detail))
         .collect();
     assert!(failed.is_empty(), "{}", failed.join("\n"));
-    // Per mode: the program, 4 natives, 6 pairs, 2 x 12 neutral witnesses;
-    // then 13 + 24 normal forms compared across the modes.
-    assert_eq!(checks.len(), 2 * (1 + 4 + 6 + 24) + 13 + 24, "{checks:#?}");
+    // Per mode: the program, 8 natives, 13 pairs, 2 x 12 neutral witnesses
+    // for `neg` and `abs`, 3 x 12 for `isNaN`, `isFinite` and `toInt`, and
+    // 2 x 12 x 12 for `ieeeLt` and `ieeeLe`; then 33 + 24 + 36 + 288 normal
+    // forms compared across the modes.
+    assert_eq!(
+        checks.len(),
+        2 * (1 + 8 + 13 + 24 + 36 + 288) + 33 + 24 + 36 + 288,
+        "{checks:#?}"
+    );
     // The cross-mode comparisons ran.
     assert!(
         checks
@@ -131,15 +137,15 @@ fn the_fingerprint_changes_with_the_toolchain_and_target() {
     );
 }
 
-/// `Float.ieeeEq`, a native in the runtimes only, is the definition its
-/// native was written for. If this fails, check the JS and Rust natives
-/// (crates/js, crates/rt/src/prims.rs) still compute what it does, then
-/// update its hash in crates/rt/src/natives.rs.
+/// `Float.ieeeEq` and `Float.compare`, natives in the runtimes only, are the
+/// definitions their natives were written for. If this fails, check the JS
+/// and Rust natives (crates/js, crates/rt/src/prims.rs) still compute what
+/// they do, then update the hashes in crates/rt/src/natives.rs.
 #[test]
 fn the_runtime_float_natives_are_bound() {
     let session = loaded();
     let bindings = stitchwort_rt::natives::bind_float_natives(&session.elab.globals).unwrap();
-    assert_eq!(bindings.len(), 1);
+    assert_eq!(bindings.len(), 2);
     for b in &bindings {
         assert!(b.bound, "{}: {:?}", b.name, b.hash);
     }

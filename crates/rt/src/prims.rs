@@ -362,11 +362,35 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
 /// every result made canonical by [`Value::float`], so that bits, `==` and
 /// the NaN agree with the kernel's model.
 fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
-    use stitchwort_core::float::{FloatOp, canonical_bits};
+    use stitchwort_core::float::{
+        FloatOp, canonical_bits, int_to_f64, js_to_string, nat_to_f64, to_int, total_order,
+    };
     let x = |i: usize| args[i].to_f64();
     match f {
         FloatPrim::Add => Value::float(FloatOp::Add.apply(x(0), x(1))),
         FloatPrim::Sub => Value::float(FloatOp::Sub.apply(x(0), x(1))),
+        FloatPrim::Mul => Value::float(FloatOp::Mul.apply(x(0), x(1))),
+        FloatPrim::Div => Value::float(FloatOp::Div.apply(x(0), x(1))),
+        FloatPrim::Rem => Value::float(FloatOp::Rem.apply(x(0), x(1))),
+        FloatPrim::Floor => Value::float(FloatOp::Floor.apply_unary(x(0))),
+        FloatPrim::Ceil => Value::float(FloatOp::Ceil.apply_unary(x(0))),
+        FloatPrim::Trunc => Value::float(FloatOp::Trunc.apply_unary(x(0))),
+        FloatPrim::Round => Value::float(FloatOp::Round.apply_unary(x(0))),
+        FloatPrim::OfInt => Value::float(match args[0] {
+            Value::Int(n) => int_to_f64(&BigInt::from(*n)),
+            Value::BigInt(n) => int_to_f64(n),
+            other => bad(PrimOp::Float(f), other),
+        }),
+        FloatPrim::OfNat => Value::float(nat_to_f64(&args[0].to_biguint())),
+        FloatPrim::ToText => Value::Text(js_to_string(x(0)).into()),
+        FloatPrim::IsFinite => boolean(s, x(0).is_finite()),
+        FloatPrim::IeeeLt => boolean(s, x(0) < x(1)),
+        FloatPrim::IeeeLe => boolean(s, x(0) <= x(1)),
+        FloatPrim::ToInt => match to_int(canonical_bits(x(0))) {
+            None => Value::Tag(s.none),
+            Some(n) => some(s, Value::int(n)),
+        },
+        FloatPrim::Compare => ordering(total_order(canonical_bits(x(0)), canonical_bits(x(1)))),
         // Rust's `-NaN` has the sign bit set: the NaN stays the NaN.
         FloatPrim::Neg => Value::float(-x(0)),
         FloatPrim::Abs => Value::float(x(0).abs()),

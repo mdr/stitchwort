@@ -34,7 +34,8 @@ if (command === "fingerprint") {
   const failed = lines.filter((l) => l.startsWith("FAIL")).length;
   const passed = lines.filter((l) => l.startsWith("PASS")).length;
   console.log(`${passed} passed, ${failed} failed`);
-  process.exit(failed === 0 && passed > 0 ? 0 : 1);
+  // `exitCode`, not `exit()`: into a pipe, `exit()` can cut off the report.
+  process.exitCode = failed === 0 && passed > 0 ? 0 : 1;
 } else if (command === "evaluate") {
   const answer = JSON.parse(web.evaluate(readFileSync(file, "utf8"), "", expr));
   if (!answer.ok) {

@@ -2103,6 +2103,10 @@ impl Elaborator {
                 | Builtin::FloatAbs
                 | Builtin::FloatIsNaN
                 | Builtin::FloatDecEq
+                | Builtin::FloatIsFinite
+                | Builtin::FloatIeeeLt
+                | Builtin::FloatIeeeLe
+                | Builtin::FloatToInt
                 | Builtin::FloatBitsExt
                 | Builtin::FloatBitsNe),
             ) => stitchwort_core::float::register_def(&mut self.globals, id, b)?,

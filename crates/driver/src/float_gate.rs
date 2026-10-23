@@ -71,6 +71,60 @@ def decZeros: Decidable (0.0 = -0.0) := Float.decEq 0.0 (-0.0)
 def decNaN: Decidable (Float.nan = Float.nan) := Float.decEq Float.nan Float.nan
 def isNaNOfNaN: Bool := Float.isNaN Float.nan
 def isNaNOfOne: Bool := Float.isNaN 1.0
+
+theorem product: 0.1 * 3.0 = 0.30000000000000004 := rfl
+theorem quotient: 1.0 / 0.0 = Float.infinity := rfl
+theorem negQuotient: 1.0 / -0.0 = -Float.infinity := rfl
+theorem nanQuotient: 0.0 / 0.0 = Float.nan := rfl
+theorem remainder: -5.5 % 2.0 = -1.5 := rfl
+theorem roundBelowHalf: Float.round 0.49999999999999994 = 0.0 := rfl
+theorem roundMinusHalf: Float.round (-0.5) = -0.0 := rfl
+theorem roundMinusZero: Float.round (-0.0) = -0.0 := rfl
+theorem roundLarge: Float.round 4503599627370497 = 4503599627370497 := rfl
+theorem roundTie: Float.round (-2.5) = -2.0 := rfl
+theorem floorHalf: Float.floor (-0.5) = -1.0 := rfl
+theorem ceilHalf: Float.ceil (-0.5) = -0.0 := rfl
+theorem truncHalf: Float.trunc (-1.5) = -1.0 := rfl
+theorem ofIntNegative: Float.ofInt (-3) = -3.0 := rfl
+theorem ofIntZero: Float.ofInt 0 = 0.0 := rfl
+theorem ofNatTie: Float.ofNat 9007199254740993 = 9007199254740992 := rfl
+theorem toIntNegZero: Float.toInt (-0.0) = Some 0 := rfl
+theorem toIntBig: Float.toInt 1e100 = Some 10000000000000000159028911097599180468360808563945281389781327557747838772170381060813469985856815104 := rfl
+theorem toIntHalf: Float.toInt 0.5 = None := rfl
+theorem zerosOrdered: -0.0 < 0.0 := rfl
+theorem nanGreatest: Float.compare Float.nan Float.infinity = Greater := rfl
+theorem ieeeZeros: Float.ieeeLt (-0.0) 0.0 = False := rfl
+theorem ieeeZerosLe: Float.ieeeLe 0.0 (-0.0) = True := rfl
+theorem sourceNaN: Float.toSource Float.nan = "Float.nan" := rfl
+theorem sourceNegZero: Float.toSource (-0.0) = "-0.0" := rfl
+
+def productLeft: Float := 0.1 * 3.0
+def productRight: Float := 0.30000000000000004
+def quotientLeft: Float := 1.0 / 0.0
+def infinityItself: Float := Float.infinity
+def negQuotientLeft: Float := 1.0 / -0.0
+def negInfinity: Float := -Float.infinity
+def remLeft: Float := -5.5 % 2.0
+def remRight: Float := -1.5
+def roundMinusHalfLeft: Float := Float.round (-0.5)
+def negZero: Float := -0.0
+def ofIntLeft: Float := Float.ofInt (-3)
+def ofIntRight: Float := -3.0
+def ofNatTieLeft: Float := Float.ofNat 9007199254740993
+def ofNatTieRight: Float := 9007199254740992
+def toIntBigLeft: Option Int := Float.toInt 1e100
+def toIntNegZeroLeft: Option Int := Float.toInt (-0.0)
+def toIntNegLeft: Option Int := Float.toInt (-3.0)
+def toIntHalfLeft: Option Int := Float.toInt (-0.5)
+def toIntNaNLeft: Option Int := Float.toInt Float.nan
+def ieeeLtZeros: Bool := Float.ieeeLt (-0.0) 0.0
+def ieeeLeZeros: Bool := Float.ieeeLe 0.0 (-0.0)
+def ieeeLtNaN: Bool := Float.ieeeLt Float.nan 1.0
+def ieeeLtOrdered: Bool := Float.ieeeLt (-1.0) 0.5
+def isFiniteOfInfinity: Bool := Float.isFinite Float.infinity
+def isFiniteOfOne: Bool := Float.isFinite (-1.0)
+def compareZeros: Ordering := Float.compare (-0.0) 0.0
+def sourceOfInfinity: Text := Float.toSource (-Float.infinity)
 "#;
 
 /// Pairs of the program's definitions whose normal forms must be the same
@@ -82,6 +136,13 @@ const SAME: &[(&str, &str)] = &[
     ("minusToNegativeLeft", "negativeOne"),
     ("negNegLeft", "negNegRight"),
     ("negNaNLeft", "nanItself"),
+    ("productLeft", "productRight"),
+    ("quotientLeft", "infinityItself"),
+    ("negQuotientLeft", "negInfinity"),
+    ("remLeft", "remRight"),
+    ("roundMinusHalfLeft", "negZero"),
+    ("ofIntLeft", "ofIntRight"),
+    ("ofNatTieLeft", "ofNatTieRight"),
 ];
 
 /// The program's definitions whose normal forms are compared across modes.
@@ -99,6 +160,26 @@ const COMPARED: &[&str] = &[
     "decNaN",
     "isNaNOfNaN",
     "isNaNOfOne",
+    "productLeft",
+    "quotientLeft",
+    "negQuotientLeft",
+    "remLeft",
+    "roundMinusHalfLeft",
+    "ofIntLeft",
+    "ofNatTieLeft",
+    "toIntBigLeft",
+    "toIntNegZeroLeft",
+    "toIntNegLeft",
+    "toIntHalfLeft",
+    "toIntNaNLeft",
+    "ieeeLtZeros",
+    "ieeeLeZeros",
+    "ieeeLtNaN",
+    "ieeeLtOrdered",
+    "isFiniteOfInfinity",
+    "isFiniteOfOne",
+    "compareZeros",
+    "sourceOfInfinity",
 ];
 
 /// Bit patterns for the checks with a neutral witness: zeros, ones,
@@ -301,6 +382,73 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                 forms.push((format!("{} {bits:#x}", native.name()), form.clone()));
             }
             check(&mut checks, mode, name, result.map(|_| ()));
+        }
+    }
+    // The natives returning a `Bool` or an `Option Int`, on records with a
+    // neutral witness: they compute, to what they give on the literal (the
+    // witness doesn't matter), and the same term in every mode.
+    let with_witness = |bits: u64, level: usize| {
+        Value::Ctor(data, 0, [nat_value(bits.into()), Value::var(level)].into())
+    };
+    let literal =
+        |bits: u64| eval(g, &[], &float::literal_term(data, bits)).map_err(|e| format!("{e:?}"));
+    for native in [
+        FloatNative::IsNaN,
+        FloatNative::IsFinite,
+        FloatNative::ToInt,
+    ] {
+        for &bits in PATTERNS {
+            let name = format!(
+                "`{}` of `{{ bits = {bits:#x}, valid = p }}` is what it is of the literal",
+                native.name()
+            );
+            let result = (|| {
+                let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                    .map_err(|e| format!("{e:?}"))?;
+                let got =
+                    apply(g, f.clone(), with_witness(bits, 0)).map_err(|e| format!("{e:?}"))?;
+                let expected = apply(g, f, literal(bits)?).map_err(|e| format!("{e:?}"))?;
+                let (got, expected) = (normal(g, 1, &got)?, normal(g, 1, &expected)?);
+                if got == expected && !got.contains("Def(") {
+                    Ok(got)
+                } else {
+                    Err(format!("{got} vs {expected}"))
+                }
+            })();
+            if let Ok(form) = &result {
+                forms.push((format!("{} {bits:#x}", native.name()), form.clone()));
+            }
+            check(&mut checks, mode, name, result.map(|_| ()));
+        }
+    }
+    for native in [FloatNative::IeeeLt, FloatNative::IeeeLe] {
+        for &a in PATTERNS {
+            for &b in PATTERNS {
+                let name = format!(
+                    "`{}` of `{{ bits = {a:#x}, valid = p }}` and `{{ bits = {b:#x}, valid = q }}` is what it is of the literals",
+                    native.name()
+                );
+                let result = (|| {
+                    let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                        .map_err(|e| format!("{e:?}"))?;
+                    let partial =
+                        apply(g, f.clone(), with_witness(a, 0)).map_err(|e| format!("{e:?}"))?;
+                    let got =
+                        apply(g, partial, with_witness(b, 1)).map_err(|e| format!("{e:?}"))?;
+                    let partial = apply(g, f, literal(a)?).map_err(|e| format!("{e:?}"))?;
+                    let expected = apply(g, partial, literal(b)?).map_err(|e| format!("{e:?}"))?;
+                    let (got, expected) = (normal(g, 2, &got)?, normal(g, 2, &expected)?);
+                    if got == expected && !got.contains("Def(") {
+                        Ok(got)
+                    } else {
+                        Err(format!("{got} vs {expected}"))
+                    }
+                })();
+                if let Ok(form) = &result {
+                    forms.push((format!("{} {a:#x} {b:#x}", native.name()), form.clone()));
+                }
+                check(&mut checks, mode, name, result.map(|_| ()));
+            }
         }
     }
     Run { checks, forms }
