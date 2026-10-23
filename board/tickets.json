@@ -1,5 +1,5 @@
 {
-  "next": 347,
+  "next": 348,
   "tickets": [
     {
       "id": 1,
@@ -5156,7 +5156,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "private lane: SafeNat wire + 100-item cost breakdown (D614); Map index done",
+      "where": "private lane: D581 options note (unmodelled fields / ref handles); SafeNat wire done",
       "labels": [
         "design",
         "js"
@@ -5453,9 +5453,9 @@
     {
       "id": 345,
       "title": "JS inliner duplicates let-bound values used more than once (work runs repeatedly)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (D615)",
       "labels": [
         "js",
         "bug"
@@ -5468,14 +5468,28 @@
     {
       "id": 346,
       "title": "List.decEq (and derived == over lists) is not stack-safe in exported JS",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (D615)",
       "labels": [
         "js",
         "bug"
       ],
       "body": "Found by the SW-328 private port: in exported JS, `List.range 5000 == List.range 5000` throws 'Maximum call stack size exceeded'; a derived `==` on a record holding a 10,000-element list overflows the same way. List.decEq should be a loop, like the SW-336 TRMC list builders.\n\n```\nimport Std (Bool, List)\n\ntype Item = { id: Nat, name: Text }\n\ndef items (n: Nat): List Item := (List.range n).map (i => { id = i, name = \"x\" })\n\nexport def sameNats (n: Nat): Bool := List.range n == List.range n\n\nexport def sameItems (n: Nat): Bool := items n == items n\n```\n",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 347,
+      "title": "Build variant fields feature 1: named-field constructor patterns (SW-340 note, D593 b)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (D615)",
+      "labels": [
+        "syntax"
+      ],
+      "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
