@@ -4,7 +4,8 @@
 -- which takes `q` or not as `f`'s own type says. Every runner
 -- (`run --reference`, `test`, `run`, `run --js`) gives `7` with the lifted
 -- function a definition, a lambda and a variable (the last needs D922's
--- calling convention for function values).
+-- calling convention for function values). A lift whose result is a
+-- function is applied to a further argument directly.
 --
 --   $ stitchwort run examples/accept/quot-lift-types.sw
 --   7
@@ -12,6 +13,7 @@
 --   7
 --   8
 --   1
+--   5
 import Std (IO, Nat)
 
 def QTy: Type 1 := Quot (Type 0) (a b => a = b)
@@ -37,6 +39,12 @@ def toNat (b: Bool): Nat := if b then 1 else 0
 
 def one: Nat := Quot.lift toNat (x y same => rewrite same in rfl) (Quot.mk True: QE)
 
+def addIf (b: Bool) (n: Nat): Nat := if b then n + 1 else n
+
+def five: Nat := Quot.lift addIf (x y same => rewrite same in rfl) (Quot.mk True: QE) 4
+
+theorem fiveIsFive: five = 5 := rfl
+
 theorem answerIsSeven: answer = 7 := rfl
 
 test "a definition lifted" := answer == 7
@@ -44,6 +52,7 @@ test "a lambda lifted" := answerLambda == 7
 test "a variable lifted" := answerVariable == 7
 test "a variable lifted, given a lambda" := eightVariable == 8
 test "a data representative" := one == 1
+test "a lift applied further" := five == 5
 
 def main(): {IO} () :=
   IO.print (Nat.toText answer)
@@ -51,3 +60,4 @@ def main(): {IO} () :=
   IO.print (Nat.toText answerVariable)
   IO.print (Nat.toText eightVariable)
   IO.print (Nat.toText one)
+  IO.print (Nat.toText five)

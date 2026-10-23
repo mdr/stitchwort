@@ -13,7 +13,9 @@
 //!
 //! Built in, like `J`: each elaborates to the kernel's term former
 //! (`Term::Quot`) applied to all its arguments, so each is written applied
-//! to all its explicit ones. The bracketed arguments are implicit: given by
+//! to all its explicit ones; any further arguments apply its result (as in
+//! `Quot.ind [p := …] h p q`, or a lift whose result is a function). The
+//! bracketed arguments are implicit: given by
 //! name (`Quot.ind [p := q => …] h q`), or found by unification, from the
 //! expected type and the explicit arguments. They're elaborated in an order
 //! that lets each be found from what's already known: a lift's quotient
@@ -91,9 +93,45 @@ pub(crate) fn head_form(cx: &Ctx, name: &str) -> Option<QuotForm> {
     form_named(cx, name)
 }
 
+/// How many of `args` are the form's own: up to its last explicit argument,
+/// and any of its implicit ones given by name straight after. The rest apply
+/// its result.
+fn own_arguments(form: QuotForm, args: &[Arg]) -> usize {
+    let wanted = form.arity() - form.implicit();
+    let names = implicit_names(form);
+    let mut explicit = 0;
+    for (i, arg) in args.iter().enumerate() {
+        match arg {
+            Arg::Named(name, _) if explicit == wanted && !names.contains(&&*name.text) => {
+                return i;
+            }
+            Arg::Named(..) => {}
+            Arg::Explicit(_) | Arg::Piped(_) if explicit == wanted => return i,
+            Arg::Explicit(_) | Arg::Piped(_) => explicit += 1,
+        }
+    }
+    args.len()
+}
+
 /// Elaborates quotient form `form` applied to `args`; `expected` is the type
 /// it's checked against, if any (then only a hint: the caller compares).
+/// Arguments past the form's own apply its result.
 pub(crate) fn elaborate(
+    cx: &mut Ctx,
+    form: QuotForm,
+    args: &[Arg],
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
+    let (own, further) = args.split_at(own_arguments(form, args));
+    if further.is_empty() {
+        return elaborate_own(cx, form, own, expected);
+    }
+    let head = elaborate_own(cx, form, own, None)?;
+    crate::check::apply_args(cx, head, further)
+}
+
+/// [`elaborate`], given the form's own arguments (refusing too few).
+fn elaborate_own(
     cx: &mut Ctx,
     form: QuotForm,
     args: &[Arg],

@@ -1705,7 +1705,8 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   because the elaborator collects every argument of the application spine
   (`crates/elab/src/quot.rs`, `applied`). `rawInjective` binds the result with `let` and
   applies that. Stage 2 can live with it; a fix is a few lines in `applied` (stop at the form's
-  arity). (3) `stitchwort fmt` lays out `insert`'s record literal with the lift's arguments at
+  arity). *Fixed since:* every form takes its own arguments and applies its result to the
+  rest (`own_arguments` in `quot.rs`), and `rawInjective` writes `Quot.ind … p q`. (3) `stitchwort fmt` lays out `insert`'s record literal with the lift's arguments at
   the brace's indentation; harmless.
 - **Axioms.** `stitchwort axioms`: nothing for `ProtoMap.get` (and the other observations);
   `Quot.sound` for `ProtoMap.insert` (its respects proof), `ProtoMap.instDecEq` (the `Yes`
