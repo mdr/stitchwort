@@ -5908,8 +5908,8 @@
     },
     {
       "id": 369,
-      "title": "Experiment done (docs/proposals/effectful-map.md): effectful List.map blocked by SW-393 (pure functions refused as effect-polymorphic callbacks); redo the fold after SW-393 (D1050)",
-      "status": "backlog",
+      "title": "Effectful List.map (D1050): first attempt blocked by SW-393 (fixed); second attempt running — fold mapIn into map if clean",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -6296,7 +6296,7 @@
     {
       "id": 393,
       "title": "Pure functions refused where an effect-polymorphic callback is expected: mapIn Succ xs, mapIn f xs (f: Nat -> Nat), mapIn (List.drop 1) xs all E-TYPE-MISMATCH 'expected a -> {?3 ..} ?4, but this has type a -> b'; only lambdas work (found by SW-369; related SW-223)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -6305,7 +6305,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "48b15d09"
+      ]
     },
     {
       "id": 394,
