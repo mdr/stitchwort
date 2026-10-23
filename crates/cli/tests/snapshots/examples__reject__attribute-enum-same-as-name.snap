@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-JS-NAME-CLASH] Error: constructors `Low` and `High` of `Priority` both cross to JavaScript as the string "Low"
+   ╭─[ reject/attribute-enum-same-as-name.sw:5:7 ]
+   │
+ 4 │   | Low
+   │     ─┬─  
+   │      ╰─── and here
+ 5 │   | @[js.name "Low"] High
+   │       ──────┬──────  
+   │             ╰──────── here
+   │ 
+   │ Note: give one of them another string with `@[js.name "…"]` after its `|`
+───╯

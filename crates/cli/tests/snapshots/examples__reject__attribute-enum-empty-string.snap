@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: a constructor's string can't be the empty string
+   ╭─[ reject/attribute-enum-empty-string.sw:4:7 ]
+   │
+ 4 │   | @[js.name ""] Low
+   │       ─────┬────  
+   │            ╰────── empty
+───╯

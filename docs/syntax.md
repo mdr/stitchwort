@@ -395,17 +395,32 @@ export type Drawing = { readonly type: string; readonly shapes: Shape[] };
 | `js.name "NAME"` | a constructor | its tag value, instead of its name |
 | `js.name "NAME"` | a constructor's or a record's field | its key, instead of its name |
 | `js.optional` (no argument) | a constructor's field of type `Option T` | an optional property `f?: T`, instead of `f: T \| undefined` |
+| `js.enum` (no argument) | a data type whose constructors have no fields | a plain string, one per constructor (its name, or its `js.name`), instead of an object |
 
 - **Where they go.** Before a declaration (on the line or lines before `type`, or on the same line), after a constructor's `|`, and inside a field's brackets or before a record field's name. Several are written `@[a "x", b "y"]` or `@[a "x"] @[b "y"]`; order doesn't matter. A group may span lines, and its `]` may be at the start of a line. An attribute group always belongs to the next declaration, whatever it is.
 - **Arguments** are plain strings (no `${…}`), used exactly: no `$` for primes, nothing added. Any non-empty string works, `"0"`, `"a-b"` and `"__proto__"` as a tag value included; quotes and other characters are escaped correctly in the JS and the `.d.ts`.
 - **Checked.** Tag values must differ, and a constructor's keys must differ from each other and from the tag key; no key may be `__proto__` (assigning it sets an object's prototype): `E-JS-NAME-CLASH`. A type with attributes is checked where it's declared. One without is checked when an export reaches it, so a field called `__proto__` needs a `js.name` only in a type that crosses. A field called `tag` keeps the key `tag`.
 - **Optional properties.** `@[js.optional]` on a constructor's field written with the type `Option T` makes it `readonly f?: T`, as a record's `Option` fields already are: a missing key or `undefined` is `None`, a present value is `Some`, `null` is refused, and an encoded `None` leaves the key out. It is `E-ATTRIBUTE` on a field of any other type (including a type parameter that is an `Option` somewhere), on a record's field (those are optional already), on a proof or type field, on a constructor, a type or anywhere else, written twice, or with an argument.
+- **String unions.** `@[js.enum]` on a data type whose constructors have no fields makes it cross as a string, not an object; `@[js.name "…"]` on a constructor chooses its string (without it, the constructor's name):
+
+  ```
+  @[js.enum]
+  type Label =
+    | @[js.name "IMPORTANT"] Important
+    | @[js.name "SLIDE_TEXT"] SlideText
+  ```
+
+  ```ts
+  export type Label = "IMPORTANT" | "SLIDE_TEXT";
+  ```
+
+  Decoding accepts exactly the listed strings: any other string, a non-string, or the old object form `{ $tag: … }` is refused (`label: expected "IMPORTANT" or "SLIDE_TEXT", not "important"`). It works in every position: a record's field, inside `Option` (`f?: Label`), a list, a map, a constructor's field (with `js.optional`), a function's argument or result. Fields that have no property in JS (a proof, a type) and a type's parameters don't count. It is `E-ATTRIBUTE` on a record, on a type with no constructors, on a type with a constructor that has a field, together with `js.tag` (a string has no tag key), on a constructor or a field, with an argument, or written twice; two constructors with the same string, by name or by `js.name`, is `E-JS-NAME-CLASH`, and `@[js.name ""]` is `E-ATTRIBUTE`. **Against a TypeScript `enum`:** an app's `enum Label { IMPORTANT = "IMPORTANT", … }` member is assignable to the string union (so the app's values go straight into the exported functions), but a string, and so the generated union, is *not* assignable to the enum (tsc 7.0.2, `TS2322`: a result can't be assigned to a variable of the enum's type, and a generated record isn't assignable to the app's record whose fields are the enum). `` `${Label}` ``, the enum's template-literal type, is exactly the generated union, assignable both ways, so an app's type test compares against that (or maps its enum with it); `result as Label` is a cast that compiles.
 - **Lists are mutable in declarations.** Every list in a data type's declaration is `T[]`, so an app's `{ xs: T[] }` and the generated type are assignable both ways (`readonly T[]` isn't assignable to `T[]`), and a function's list parameter is `readonly T[]`, which takes either kind. The codec copies arrays in and out, so the caller owns what it gets.
 - **Only data fields have keys.** A proof field or a type field has no property in JS, so an attribute on one is `E-ATTRIBUTE`; so is one on a binder naming several fields, `(@[…] x y: Nat)`. The same logical field may have a different key in each constructor.
 - **Nowhere else.** An unknown attribute is `E-ATTRIBUTE-UNKNOWN` (with a suggestion), and a known one anywhere else (a theorem, a `def`, an export, an instance, an interface, a type synonym, a test, an ability, a function's or a type's parameter, a lambda, a local definition, a namespace line), twice on one target, without its argument, or on a type with a built-in JS form (`Nat`, `Int`, `SafeNat`, `SafeInt`, `Bool`, `Text`, `Char`, `List`, `Option`) is `E-ATTRIBUTE`. A number or a second string as the argument is `E-PARSE`. Nothing is silently ignored.
 - **Nothing changes inside Stitchwort.** Patterns, field access, `show`, `==` and proofs use the Stitchwort names, and attributes aren't part of content hashes, so changing one reruns no test.
 
-Examples: `examples/extract/attributes.sw`, `examples/extract/app-types.sw`. See DESIGN.md §12.
+Examples: `examples/extract/attributes.sw`, `examples/extract/app-types.sw`, `examples/extract/string-enums.sw`. See DESIGN.md §12.
 
 ## Interfaces
 

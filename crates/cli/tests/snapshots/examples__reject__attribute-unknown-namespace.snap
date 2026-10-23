@@ -11,5 +11,5 @@ expression: output
    │ 
    │ Note 1: did you mean `js.name`?
    │ 
-   │ Note 2: the attributes are `js.tag`, `js.name` and `js.optional`
+   │ Note 2: the attributes are `js.tag`, `js.enum`, `js.name` and `js.optional`
 ───╯

@@ -26,6 +26,9 @@ pub struct JsRepr {
     /// The discriminant's key (a record has none, and ignores it).
     pub tag_key: String,
     pub ctors: Vec<JsCtor>,
+    /// `js.enum`: the type crosses as a plain string, each constructor's
+    /// `tag` being its string (no constructor has a field with a property).
+    pub string_enum: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -51,6 +54,8 @@ pub struct Requested {
     /// One list per constructor, one entry per field: `js.optional` is
     /// written on it. May be empty (none are).
     pub optional: Vec<Vec<bool>>,
+    /// `js.enum` is written on the type.
+    pub string_enum: bool,
 }
 
 /// Why a type's resolved names don't work at the boundary.
@@ -103,6 +108,13 @@ impl Clash {
         };
         let quoted = |s: &str| format!("{s:?}");
         match *self {
+            Clash::SameTag { ctor, other } if repr.string_enum => format!(
+                "constructors `{}` and `{}` of `{}` both cross to JavaScript as the string {}",
+                data.ctors[other].name,
+                data.ctors[ctor].name,
+                data.name,
+                quoted(&repr.ctors[ctor].tag)
+            ),
             Clash::SameTag { ctor, other } => format!(
                 "constructors `{}` and `{}` of `{}` both cross to JavaScript with the tag {}",
                 data.ctors[other].name,
@@ -134,8 +146,11 @@ impl Clash {
     }
 
     /// What to do about it.
-    pub fn note(&self) -> &'static str {
+    pub fn note(&self, repr: &JsRepr) -> &'static str {
         match self {
+            Clash::SameTag { .. } if repr.string_enum => {
+                "give one of them another string with `@[js.name \"…\"]` after its `|`"
+            }
             Clash::SameTag { .. } => {
                 "give one of them another tag with `@[js.name \"…\"]` after its `|`"
             }
@@ -217,7 +232,11 @@ pub fn names(data: &Data, requested: &Requested) -> JsRepr {
             optional,
         });
     }
-    JsRepr { tag_key, ctors }
+    JsRepr {
+        tag_key,
+        ctors,
+        string_enum: requested.string_enum,
+    }
 }
 
 /// The clashes among a representation's names. A record has no tag, so its

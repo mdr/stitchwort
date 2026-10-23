@@ -594,7 +594,7 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
                     format!("`{}` is exported, and reaches it", g.def(sig.id).name),
                 );
             }
-            return Err(diagnostic.with_note(clash.note()));
+            return Err(diagnostic.with_note(clash.note(&repr)));
         }
     }
     let mut short_types: HashMap<String, DataId> = HashMap::new();
@@ -1036,7 +1036,7 @@ const datatype = (name, tagKey = "$tag") => ({
 // object saying whether the proof holds. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = []) => {
+const define = (info, ctors, record = false, checks = [], strings = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -1047,6 +1047,9 @@ const define = (info, ctors, record = false, checks = []) => {
   }));
   if (record) info.record = entries[0].fields;
   info.checks = checks;
+  // A string union (`js.enum`): a value is one constructor's string at the
+  // boundary, in place of an object.
+  info.strings = strings;
   for (const entry of entries) {
     info.ctors.set(entry.external, entry);
     info.internal.set(entry.tag, entry);
@@ -1344,6 +1347,11 @@ const decode = (t, x, root) => {
         // `None`.
       } else if (t.kind === LEAF) {
         value = t.dec(x);
+      } else if (t.kind === DATA && t.info.strings) {
+        // A string union: exactly one of the constructors' strings.
+        const ctor = typeof x === "string" ? t.info.ctors.get(x) : undefined;
+        if (ctor === undefined) refuse(`expected ${t.info.tags}, not ${describe(x)}`);
+        value = { tag: ctor.tag };
       } else {
         if (t.kind === LIST) {
           if (!Array.isArray(x)) refuse("expected an array");
@@ -1476,6 +1484,8 @@ const encode = (t, v) => {
       // `None`.
     } else if (t.kind === LEAF) {
       value = t.enc(v);
+    } else if (t.kind === DATA && t.info.strings) {
+      value = t.info.internal.get(v.tag).external;
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
     } else if (t.kind === MAP) {
@@ -2907,6 +2917,9 @@ impl<'g> Gen<'g> {
             );
         }
         out.push(']');
+        if repr.string_enum {
+            out.push_str(", false, [], true");
+        }
         if data.record {
             out.push_str(", true, [");
             for check in self.field_checks(d)? {
@@ -3073,6 +3086,19 @@ impl<'g> Gen<'g> {
                 "export type {}{generics} = {};\n",
                 type_name(&data.name),
                 variants[0]
+            );
+        }
+        if repr.string_enum {
+            // `js.enum`: each constructor is its string.
+            let strings: Vec<String> = repr
+                .ctors
+                .iter()
+                .map(|c| js_string_literal(&c.tag))
+                .collect();
+            return format!(
+                "export type {}{generics} = {};\n",
+                type_name(&data.name),
+                strings.join(" | ")
             );
         }
         if variants.is_empty() {
@@ -3718,6 +3744,9 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
             let data = g.data(*d);
             let ctor = &data.ctors[*c];
             let repr = repr(g, *d);
+            if repr.string_enum {
+                return Ok(js_string_literal(&repr.ctors[*c].tag));
+            }
             let boundaries = &field_boundaries(g, *d, args)[*c];
             let mut parts = Vec::new();
             if !data.record {

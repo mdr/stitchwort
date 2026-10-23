@@ -1173,6 +1173,220 @@ export const n2: bigint = countItems([{ sku: "a", quantity: 1n }]);
     assert!(report.contains("fill"), "{report}");
 }
 
+/// `@[js.enum]` (docs/proposals/attributes.md, "As built (stage 2b: string
+/// unions)"): a type whose constructors have no fields is a plain string, in
+/// every position. Decoding accepts exactly the listed strings.
+#[test]
+fn string_enums_cross_as_plain_strings() {
+    let examples = examples();
+    let enums = example(&examples, "string-enums.sw");
+    let script = r#"
+import * as m from "./enums.mjs";
+import assert from "node:assert/strict";
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message), pattern.source);
+
+// As an argument and a result: `js.name` strings, and default ones.
+assert.equal(m.toggle("IMPORTANT"), "SLIDE_TEXT");
+assert.equal(m.toggle("SLIDE_TEXT"), "IMPORTANT");
+assert.equal(m.rank("low"), 1n);
+assert.equal(m.rank("high"), 2n);
+assert.equal(m.colourOf("Green"), "Green");
+assert.equal(m.fixed("Two"), "Two");
+
+// In a record's field, inside an `Option` (`f?: "low" | "high"`), in a list.
+assert.deepEqual(m.tickets(), [{ label: "IMPORTANT", priority: "high", tags: ["SLIDE_TEXT"] }]);
+assert.equal(m.describe({ label: "IMPORTANT", priority: "low", tags: [] }), "low");
+assert.equal(m.describe({ label: "IMPORTANT", tags: [] }), "no priority");
+assert.equal(m.describe({ label: "IMPORTANT", priority: undefined, tags: ["IMPORTANT", "SLIDE_TEXT"] }), "no priority");
+
+// As a constructor's field, with `js.optional` (no key for `None`).
+assert.deepEqual(m.shout({ kind: "ping", label: "IMPORTANT" }), { kind: "ping", label: "SLIDE_TEXT" });
+assert.deepEqual(m.shout({ kind: "ping", label: "IMPORTANT", urgency: "low" }), { kind: "ping", label: "SLIDE_TEXT", urgency: "low" });
+assert.deepEqual(Object.keys(m.shout({ kind: "ping", label: "SLIDE_TEXT" })), ["kind", "label"]);
+assert.deepEqual(m.shout({ kind: "pong" }), { kind: "pong" });
+
+// In a dictionary.
+assert.deepEqual(m.byLabel({ a: "IMPORTANT", b: "SLIDE_TEXT" }), { a: "IMPORTANT", b: "SLIDE_TEXT" });
+
+// What comes back is a string, not an object.
+assert.equal(typeof m.toggle("IMPORTANT"), "string");
+assert.equal(typeof m.tickets()[0].label, "string");
+
+// Anything but exactly a listed string is refused, naming the allowed ones
+// and the path.
+refused(() => m.toggle("important"), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not "important"$/);
+refused(() => m.toggle("SlideText"), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not "SlideText"$/);
+refused(() => m.toggle(""), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not ""$/);
+refused(() => m.toggle("IMPORTANT "), /^arg0: expected /);
+refused(() => m.toggle(1n), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not bigint$/);
+refused(() => m.toggle(undefined), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not undefined$/);
+refused(() => m.toggle(null), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not null$/);
+refused(() => m.toggle(["IMPORTANT"]), /^arg0: expected .*, not object$/);
+refused(() => m.toggle(new String("IMPORTANT")), /^arg0: expected .*, not object$/);
+// The old object form is gone, whether it names the constructor or the string.
+refused(() => m.toggle({ $tag: "Important" }), /^arg0: expected "IMPORTANT" or "SLIDE_TEXT", not object$/);
+refused(() => m.toggle({ $tag: "IMPORTANT" }), /^arg0: expected .*, not object$/);
+// The constructor's name isn't its string once `js.name` renamed it.
+refused(() => m.rank("Low"), /^arg0: expected "low" or "high", not "Low"$/);
+refused(() => m.colourOf("red"), /^c: expected "Red" or "Green", not "red"$/);
+// Object keys of `Object.prototype` aren't strings of the type.
+refused(() => m.toggle("__proto__"), /^arg0: expected /);
+refused(() => m.toggle("toString"), /^arg0: expected /);
+refused(() => m.toggle("constructor"), /^arg0: expected /);
+
+// Nested positions give the path.
+refused(() => m.describe({ label: "nope", tags: [] }), /^t\.label: expected "IMPORTANT" or "SLIDE_TEXT", not "nope"$/);
+refused(() => m.describe({ label: "IMPORTANT", priority: "High", tags: [] }), /^t\.priority: expected "low" or "high", not "High"$/);
+refused(() => m.describe({ label: "IMPORTANT", priority: null, tags: [] }), /^t\.priority: expected a value or undefined, not null$/);
+refused(() => m.describe({ label: "IMPORTANT", tags: ["IMPORTANT", 3n] }), /^t\.tags\[1\]: expected /);
+refused(() => m.shout({ kind: "ping", label: { $tag: "Important" } }), /^arg0\.label: expected "IMPORTANT" or "SLIDE_TEXT", not object$/);
+refused(() => m.shout({ kind: "ping", label: "IMPORTANT", urgency: "urgent" }), /^arg0\.urgency: expected "low" or "high", not "urgent"$/);
+refused(() => m.byLabel({ a: "IMPORTANT", b: "x" }), /^xs\.b: expected /);
+console.log("ok");
+"#;
+    run_script("string-enums", &[("enums.mjs", enums)], script);
+}
+
+/// A string-literal union and a TypeScript `enum` of the same strings
+/// (docs/proposals/attributes.md, "As built (stage 2b: string unions)"),
+/// measured with `tsc --strict --exactOptionalPropertyTypes`:
+///
+/// - an app's enum member is assignable to the generated literal union
+///   (so the app's values go straight into exported functions, and an app's
+///   record with enum fields is assignable to the generated record);
+/// - a string literal, and so the generated union, is NOT assignable to the
+///   enum (so a result can't be assigned to a variable of the enum's type,
+///   and the generated record isn't assignable to the app's own);
+/// - the enum's template-literal type, `` `${AppLabel}` ``, is the same
+///   union as the generated one, in both directions: an app's type test
+///   compares against that, or maps the enum with it.
+#[test]
+fn an_apps_string_enums_meet_the_generated_unions() {
+    let examples = examples();
+    let session = example(&examples, "string-enums.sw");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    assert!(
+        output
+            .dts
+            .contains("export type Label = \"IMPORTANT\" | \"SLIDE_TEXT\";"),
+        "{}",
+        output.dts
+    );
+    let header = r#"
+import { Label, Priority, Ticket, toggle, tickets, describe } from "./module";
+
+// The app's own types: a string enum, and plain literal unions.
+enum AppLabel { IMPORTANT = "IMPORTANT", SLIDE_TEXT = "SLIDE_TEXT" }
+type AppPriority = "low" | "high";
+type AppTicket = { label: AppLabel; priority?: AppPriority; tags: AppLabel[] };
+// The same type with the enum written as its strings.
+type WideLabel = `${AppLabel}`;
+type WideTicket = { label: WideLabel; priority?: AppPriority; tags: WideLabel[] };
+
+declare const label: Label;
+declare const appLabel: AppLabel;
+declare const wide: WideLabel;
+declare const priority: Priority;
+declare const appPriority: AppPriority;
+declare const ticket: Ticket;
+declare const appTicket: AppTicket;
+declare const wideTicket: WideTicket;
+"#;
+    let good = format!(
+        r#"{header}
+// App to generated: an enum member is assignable to its literal.
+export const l1: Label = appLabel;
+export const t1: Ticket = appTicket;
+export const l2: Label = AppLabel.IMPORTANT;
+// Plain literal unions are assignable both ways.
+export const p1: Priority = appPriority;
+export const p2: AppPriority = priority;
+// The enum's template-literal type is the generated union, both ways, so a
+// type test compares against it.
+export const w1: Label = wide;
+export const w2: WideLabel = label;
+export const w3: Ticket = wideTicket;
+export const w4: WideTicket = ticket;
+// The app's values go straight into exported functions.
+export const r1: Label = toggle(appLabel);
+export const r2: Label = toggle(AppLabel.SLIDE_TEXT);
+export const r3: string = describe(appTicket);
+// Results go into the widened types, or into the enum with a cast.
+export const r4: WideLabel = toggle(appLabel);
+export const r5: AppLabel = toggle(appLabel) as AppLabel;
+export const r6: WideTicket[] = tickets();
+// Comparing a result with an enum member is allowed.
+export const r7: boolean = toggle(appLabel) === AppLabel.IMPORTANT;
+"#
+    );
+    let (ok, report) = tsc_check("enums-good", &good, &output.dts);
+    assert!(
+        ok,
+        "the app's enums and the generated unions don't meet:\n{report}\n{}",
+        output.dts
+    );
+    // The other directions fail: a string literal isn't an enum member.
+    let bad = |name: &str, statement: &str, mentions: &str| {
+        let app = format!("{header}\n{statement}\n");
+        let (ok, report) = tsc_check(name, &app, &output.dts);
+        assert!(!ok, "`{statement}` should not type-check");
+        assert!(report.contains("error TS"), "{report}");
+        assert!(report.contains(mentions), "{report}");
+    };
+    bad("enums-l", "export const e1: AppLabel = label;", "AppLabel");
+    bad(
+        "enums-r",
+        "export const e2: AppLabel = toggle(appLabel);",
+        "AppLabel",
+    );
+    bad(
+        "enums-t",
+        "export const e3: AppTicket = ticket;",
+        "AppLabel",
+    );
+    bad(
+        "enums-lit",
+        "export const e4: AppLabel = \"IMPORTANT\";",
+        "AppLabel",
+    );
+    bad(
+        "enums-a",
+        "export const e5 = toggle(\"important\");",
+        "important",
+    );
+}
+
+/// Runs `tsc --strict --exactOptionalPropertyTypes` on `app.ts` and a
+/// `module.d.ts`, giving whether it passed and its report.
+fn tsc_check(name: &str, app: &str, dts: &str) -> (bool, String) {
+    let dir = std::env::temp_dir().join(format!("stitchwort-tsc-{}-{name}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    std::fs::write(dir.join("module.d.ts"), dts).expect("write declarations");
+    std::fs::write(dir.join("app.ts"), app).expect("write app");
+    let result = Command::new("tsc")
+        .args([
+            "--noEmit",
+            "--strict",
+            "--exactOptionalPropertyTypes",
+            "module.d.ts",
+            "app.ts",
+        ])
+        .current_dir(&dir)
+        .output()
+        .expect("run `tsc` (is it on the PATH? `nix develop` provides it)");
+    let _ = std::fs::remove_dir_all(&dir);
+    (
+        result.status.success(),
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        ),
+    )
+}
+
 /// `@[js.tag "$tag"]` is exactly the default: the same module and
 /// declarations as writing nothing (docs/proposals/attributes.md §4.6).
 #[test]
@@ -3514,6 +3728,7 @@ fn built_in_boundary_types_take_no_attributes() {
             "type Bool: Type =\n",
             "@[js.tag \"kind\"]\ntype Bool: Type =\n",
         ),
+        ("type Bool: Type =\n", "@[js.enum]\ntype Bool: Type =\n"),
         ("  | True\n", "  | @[js.name \"yes\"] True\n"),
         (
             "  | Some (value: a)\n",
