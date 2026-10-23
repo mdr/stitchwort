@@ -1,9 +1,11 @@
 # Proposal: `Float`, a JavaScript number
 
-**Status:** draft 2, 23 October 2026. Design-review gate: nothing is implemented. Follows D645 (a
-JS-number `Float`). Draft 1's decisions D680 to D689 keep their numbers; this draft adopts every
-correction and recommendation of an external review (D696), which flips D683 and D685. New
-decisions start at D701 ([§8](#8-decisions)). Written against commit `5f26aacf`.
+**Status:** draft 3, signed off after two external reviews; implementation starts with stage 1a
+([§7.2](#72-stages-and-cost)). 23 October 2026. Follows D645 (a JS-number `Float`). Draft 1's
+decisions D680 to D689 keep their numbers; draft 2 adopted every point of the first review (D696),
+flipping D683 and D685, and added D701 and D702; draft 3 applies every amendment of the second
+review (D730) and adds D731 to D733. Every decision is final ([§8](#8-decisions)). Written against
+commit `edc645d5`.
 
 Labels: **[checked]** (read in this repository, `file:line`), **[reported by the port
 analysis]** (measured or checked by a separate analysis of the motivating app, not re-run here),
@@ -13,7 +15,35 @@ in [Appendix A](#appendix-a-snippets-run)), **[cited]** (read in the source link
 not re-read here), **[inferred]** (my reading, not stated anywhere), **[unverified]** (from
 memory, not re-checked).
 
-## Response to review (draft 2)
+## Response to review (round 2)
+
+The second review approved the architecture and both flipped decisions (D683, D685) and asked only
+for tighter specification, plus one early implementation check: that ordinary kernel natives keep
+the definitional behaviour, proof fields included, of the definitions they replace. Every amendment
+is applied (D730). One disagreement, on a point the review left open: `toSource` turns out to be a
+language-level function (a field of `Show`), so it is specified rather than treated as compiler
+tooling (D733).
+
+| Review point | Change in draft 3 |
+|---|---|
+| §2 Bit extensionality is a propositional theorem; it doesn't give definitional agreement | §3.4 now separates the two. `Float.bitsExt : x.bits = y.bits -> x = y`, proved with `Bool.uniqueEq` as `SafeNat.ext` is, is what `DecEq Float`, the total-order key's injectivity and `neg (neg x) = x` use |
+| §2 Ordinary natives must agree with their definitions on proof fields; negative literals cross the `Float.neg` path | §3.4: the requirement is stated (it is already the native-number rule, [checked] `crates/core/src/native.rs:13-17`). Chosen approach (D731): every exact definition returning a `Float` builds it with one checked constructor, `Float.make`, whose witness reduces to `Eq.refl True` on known bits whatever proof it is given; natives fire only on known bits and return the same record |
+| §2 Acceptance checks, natives on and off, compared by conversion | §3.4 table; it is **the first gate of stage 1a** (§7.2) |
+| §3 Typed operands must outrank the unary-minus default | §2.4: concrete constraints (expected type, decimal/exponent literals, typed operands) are collected first; `-` only defaults an otherwise undecided group to `Int`. What changes in `numbers.rs` is stated (D732). The review's seven cases are in §2.4's table and §7.4 |
+| §4 `toInt`/`ofInt` round trip fails on `-0.0`; the general inverse theorem has no model to prove it from | §6.1: the stated relation excludes `-0.0`; stage 1 promises proofs about the exact decoder and concrete computations only; the general theorem is deferred until `ofInt` has a model. §7.2 drops it from the bit-lemma uncertainties |
+| §5 D701: one audited module, both directions | §3.5, D701: `toCanonicalBits` and `fromCanonicalBits`, with their two laws; `.bits`, the dynamic constructor, ordering and hashing go through them; all typed-array/`DataView` code lives there |
+| §5 "NaN is decoded to the canonical NaN" | §5: a statement about the logical value under α, not the JS number's payload |
+| §5 Differential tests compare canonicalised bits, the TS oracle's too | §6.4 item 4, §7.4 |
+| §6 `toText` doesn't have the shared semantics; extend α to every type; the kernel limitation covers any consumer of the string; runtime totality vs kernel executability; `toSource` | §3.3 (scope of the equation, α per type), §2.6 (backend-supplied interpretation, consumers, totality), D733 (`toSource`) |
+| §7 Literal underflow condition; two sentences | §2.3: the condition is "mathematically nonzero, rounds to zero"; the table and both sentences fixed |
+| §7 D702: an erased proof checks nothing | §5, D702 |
+| §8 `>`/`>=` translation keeps operand evaluation order | §4.1, §6.4 item 5 |
+
+## Response to review (round 1, draft 2)
+
+(Kept as written for draft 2. Where round 2 changed a point, the round-2 table above and the body
+take precedence: notably D701's "one representation-sensitive operation" is now one audited
+module with two directions.)
 
 The review approved the architecture (canonical bits, selected primitives, staged scope, a local
 lawless `TimeOps`) and asked for corrections and two policy changes. Every point is adopted; I
@@ -75,8 +105,9 @@ The proposal:
 - **In the logic** it is a record of the double's 64 bits, `{ bits: Nat, valid: … }`, with exactly
   one NaN. This is the shape Lean 4 uses [cited]. Equality, the total order, negation, absolute
   value, the IEEE comparisons and `toInt` are ordinary Stitchwort definitions over the bits, so they
-  can be reasoned about. The rounding operations (`+ - * / %`, `floor`, `round`, `ofInt`) are
-  **bodyless primitives**: the checker computes them with Rust `f64` when their arguments are known
+  can be reasoned about. They build results through one checked constructor, so that their kernel
+  natives agree with them definitionally, proofs included (§3.4, D731). The rounding operations
+  (`+ - * / %`, `floor`, `round`, `ofInt`) are **bodyless primitives**: the checker computes them with Rust `f64` when their arguments are known
   doubles, under an explicit trust contract (§3.3), and otherwise treats them as unknown functions.
 - **Operators keep their meaning (D683):** `==`, `!=`, `<`, `<=` on `Float` are the same lawful
   operators as on every other type: `==` is `DecEq` ("the same double", like `Object.is`), `<` is
@@ -144,16 +175,26 @@ canonical NaN gives `0xFFF8000000000000`, which `isValid` refuses, and Rust's `-
 exactly that pattern [run]. So:
 
 ```
+-- The one way exact definitions build a `Float` (D731, §3.4). The witness is computed from the
+-- bits: on known bits it is `Eq.refl True`, whatever `p` is.
+def Bool.canonicalTrue: (b: Bool) -> b = True -> b = True
+  | True, _ => rfl
+  | False, p => p          -- unreachable in practice; any closed proof would do
+def Float.make (n: Nat) (p: Float.isValid n = True): Float :=
+  { bits = n, valid = Bool.canonicalTrue (Float.isValid n) p }
+
 def Float.neg (x: Float): Float :=
   if Float.isNaN x then Float.nan
-  else Float.flipSign x   -- bits ± 2^63, with its `valid` proof
+  else Float.make (Float.flipSignBits x.bits) (Float.flipSignValid x …)  -- bits ± 2^63
 ```
 
-(`flipSign` is illustrative: it adds or subtracts 2^63 and proves the result is still valid,
-which needs `isNaN x = False`.)
-`neg (neg x) = x` still holds: for NaN both sides are `Float.nan`, otherwise the flip is an
-involution that keeps `isNaN` false [inferred; to be proved in stage 1a]. `abs` (clear the sign
-bit) is closed already, since the canonical NaN's sign bit is clear [inferred].
+(`flipSignBits` and `flipSignValid` are illustrative: the first adds or subtracts 2^63, the second
+proves the result valid from `isNaN x = False`.) `neg (neg x) = x` still holds: for NaN both sides
+are `Float.nan`, otherwise the flip is an involution that keeps `isNaN` false; the two records have
+equal bits but possibly different `valid` proofs, so the proof ends with `Float.bitsExt` (§3.4)
+[inferred; to be proved in stage 1a]. `abs` (clear the sign bit) is closed already, since the
+canonical NaN's sign bit is clear [inferred]; it too returns `Float.make …`, never its argument
+unchanged (§3.4 explains why).
 
 The lesson the review draws, which this draft follows: "exact on the bits" doesn't by itself mean
 "keeps the invariant"; each definition over the bits gets its `valid` obligation discharged in
@@ -193,11 +234,20 @@ tested engine, not the language's definition.
 | `0.1`, `80281.87` | the nearest double | decimal syntax asks for rounding |
 | `9007199254740994` (2^53 + 2) | accepted, exact | it is a double [run] |
 | `9007199254740993` (2^53 + 1) | **refused**: "not exactly a `Float`; the nearest are `9007199254740992` and `9007199254740994`" | JS silently gives `9007199254740992` [run]; a whole literal reads as exact, so rounding it is a surprise. Write `9007199254740992` or `9007199254740993.0` to ask for rounding |
-| `1e400` | **refused** (recommended): "too large for a `Float`; use `Float.infinity`" | JS and Rust give `Infinity` [run]. Turning a literal into infinity is a much larger change than rounding, and a program that means infinity can say so |
-| `1e-400` | **refused** (recommended): "too small for a `Float`: it would be `0.0`" | JS and Rust give `0`, and `-1e-400` gives `-0` [run]. Losing every digit is not rounding in the usual sense. Literals that land on a subnormal (`5e-324`) are accepted |
+| `1e400`, `-1e400` | **refused**: "too large for a `Float`; use `Float.infinity`" | JS and Rust give `Infinity` [run]. Turning a literal into infinity is a much larger change than rounding, and a program that means infinity can say so |
+| `1e-400`, `-1e-400` | **refused**: "too small for a `Float`: it would be `0.0`" (or `-0.0`) | JS and Rust give `0`, and `-1e-400` gives `-0` [run]. Rounding a tiny nonzero value to zero is a valid IEEE result; the language chooses to diagnose it in literal syntax, where it is almost certainly a mistake |
+| `0.0`, `-0.0`, `0e-400`, `0e400` | accepted: `0.0` (`-0.0` for the second) | the mathematical value is zero, so nothing was lost |
+| `5e-324` | accepted: the smallest subnormal | nonzero, and its rounded value is nonzero |
 
-The alternative for the last two is to accept them as JS does. I recommend refusing because no
-ported program needs either, and both read as mistakes; it's a one-line change later.
+**The underflow rule, precisely:** a literal is refused when its mathematical decimal value is
+nonzero but its correctly rounded binary64 value is zero. (The overflow rule: refused when the
+correctly rounded value is infinite.) Both look at the unsigned literal; a leading `-` is
+`Float.neg` (§2.4), so `-1e-400` is refused for the same reason as `1e-400`. Arithmetic and the
+explicit conversions keep IEEE overflow and underflow; only literal syntax is restricted.
+
+The alternative for overflow and underflow is to accept the literals as JS does. They are refused
+because the motivating port doesn't need either and both read as mistakes; accepting them later is
+a one-line change.
 
 **Lexing:** a new token `Tok::Float` holding the source text. Today a number is digits only
 ([checked] `crates/syntax/src/lexer.rs:248-255`). `.` after digits joins the number only when a
@@ -214,27 +264,70 @@ regression test lexes `xs.0.1` as `xs` `.` `0` `.` `1` (and the parser then give
 
 ### 2.4 Groups and defaulting
 
-Today a group of `+ - * / %` and comparisons gets one operand type, decided in order by the
-expected type, a prefix `-` (forcing `Int`), the leaves, and a default of `Nat` ([checked]
-`crates/elab/src/numbers.rs:5-11`, steps 1, 2 and 5 at `numbers.rs:441`, `468`, `523`). Add `Kind::Float`:
+**Today.** A group of `+ - * / %` and comparisons gets one operand type, decided in order by
+([checked] `crates/elab/src/numbers.rs:5-11`, the code at `numbers.rs:441-547`):
 
-- **Step 1 (the expected type)** can now decide `Float`.
-- **New step 1b, before minus signs:** a decimal or exponent literal forces `Float`. So a `-`
-  in the same group is `Float.neg` or `Float.sub`, not a reason for `Int`.
-- **A whole literal in a `Float` group is a `Float`** (exactly, or refused as above).
+1. the expected type (`numbers.rs:441`);
+2. a prefix `-` anywhere in the group, which forces `Int` (`numbers.rs:468-482`; a `Nat`
+   expected type with a `-` is the "negative `Nat`" error);
+3. pass 1: leaves with no numeric literal in them (or with a type ascription), inferred in order;
+   the first with a numeric type decides (`numbers.rs:484-494`);
+4. pass 2: the remaining leaves except bare literals (`numbers.rs:496-521`);
+5. the first inferred numeric leaf, else a default of `Nat` (`numbers.rs:523-547`).
+
+Step 2 runs before the leaves are looked at. On today's types that only shows up in error
+messages (`s + -1` with `s: SafeInt` is a mismatch either way), but with `Float` it would make
+`t + -1` an error for `t: Float`: the `-` would choose `Int` before `t` is seen. The review's
+rule (D732): **collect the concrete type constraints first (the expected type, decimal or
+exponent literals, typed operands), and only then let a unary `-` default an otherwise undecided
+group to `Int`.** A known `Int` operand is still different from an untyped whole literal, so "no
+mixing" stands.
+
+**The new order**, with `Kind::Float` added:
+
+1. **The expected type**, as today; it can now decide `Float`.
+2. **New: a decimal or exponent literal** anywhere in the group decides `Float`.
+3. **Pass 1, the typed operands**, as today's step 3: leaves with no literal in them, or with an
+   ascription. `t` in `t + -1` decides `Float` here.
+4. **Moved: the minus default.** If a prefix `-` occurs and nothing has decided yet, `Int`. If
+   the group was decided as `Nat`, today's "negative `Nat`" error, worded for the decider (the
+   expected type, or the leaf that made it `Nat`). If it was decided as anything else with a
+   `-` (`Int`, `Float`), nothing happens: the `-` is that type's negation or subtraction.
+5. **Pass 2 and the defaults**, as today's steps 4 and 5.
+
+The minus default deliberately goes *before* pass 2, not after it: pass 2 infers leaves with
+literals inside (`f 1`, `id 1`), whose literals would default to `Nat` on their own, so today's
+`-(id 1)` (an `Int`) would become a negative-`Nat` error if pass 2 came first. The cost is that a
+leaf with a literal inside doesn't count as a typed operand before the default: `-(Float.ofInt 5)`
+with nothing else to decide is an `Int` group and a mismatch; an expected type or an ascription
+fixes it. Groups with no `-` and no decimal literal take exactly today's path. Groups with a `-`
+now have their pass-1 leaves inferred before the `Int` default rather than checked against `Int`;
+I expect every group accepted today to get the same type, and the only visible changes to be which
+error a rejected `Nat` or other-type group with a `-` reports [inferred: pass 1 skips the leaves
+that need an expected type (`hopeless`, `numbers.rs:490`); the existing numeric-group tests are
+the real check, in stage 1a step 2].
+
+- **A whole literal in a `Float` group is a `Float`** (exactly, or refused as in §2.3).
 - **A negative literal `-k` at `Float` is `Float.neg (k as Float)`**, so `-0` is `-0.0`, as in JS.
   (At `Int`, `-0` is `OfNat 0`, [checked] `numbers.rs:98-100`; that stays.)
-- **No mixing:** `t + n` with `t: Float`, `n: Int` is the existing mismatch error; the fix is
-  `t + Float.ofInt n`.
+- **No mixing:** `t + i` with `t: Float`, `i: Int` is the existing mismatch error; the fix is
+  `t + Float.ofInt i`.
 
 | Expression | Type | Value | Why |
 |---|---|---|---|
-| `-1 + 0.5` | `Float` | `-0.5` | step 1b decides `Float` before the minus can force `Int` |
+| `-1 + 0.5` | `Float` | `-0.5` | step 2 (decimal literal) decides `Float` before the minus default |
 | `0.5 + -1` | `Float` | `-0.5` | same group; `-1` is `Float.neg 1.0` |
 | `def x: Float := -0` | `Float` | `-0.0` (bits `0x8000000000000000`) | expected type, then `Float.neg 0.0` |
-| `-0` alone | `Int` | `0` | unchanged |
+| `-0`, otherwise unconstrained | `Int` | `0` | unchanged: the minus default |
 | `t - 1000` (`t: Float`) | `Float` | | the leaf decides; `1000` is exact |
+| `t + -1` (`t: Float`) | `Float` | `t + -1.0` | pass 1 decides from `t` before the minus default |
+| `-1 + t` (`t: Float`) | `Float` | | same; leaf order doesn't matter |
+| `-1 * t` (`t: Float`) | `Float` | | same |
+| `-t` (`t: Float`) | `Float` | `Float.neg t` | same |
+| `t + i` (`t: Float`, `i: Int`) | error | | `t` decides `Float`; `i` mismatches |
+| `t + (-i)` (`t: Float`, `i: Int`) | error | | same; the `-` doesn't make the group `Int` |
 | `1.5 * n` (`n: Nat`) | error | | `Float` vs `Nat` mismatch; write `Float.ofNat n` |
+| `-(Float.ofInt 5)`, unconstrained | error | | the leaf has a literal inside, so the minus default comes first; write `(-(Float.ofInt 5): Float)` |
 
 **Why a new kind rather than `Add`/`Mul` instances:** those interfaces carry laws (`zeroAdd`,
 `assoc`, `comm`, [checked] `crates/elab/src/std/core/AddMul.sw:9-25`), and doubles break them:
@@ -258,7 +351,7 @@ and `%` exist only on `Nat` and `Int`. So `Float`'s arithmetic operators go stra
 |---|---|---|
 | `Float.ofInt`, `Float.ofNat` | `Int -> Float`, `Nat -> Float` | nearest double, ties to even, like `Number(bigint)` [cited by the review]; ±∞ beyond the range. A primitive (it rounds) |
 | `SafeInt.toFloat`, `SafeNat.toFloat` | `SafeInt -> Float` … | exact: every safe integer is a double |
-| `Float.toInt` | `Float -> Option Int` | `Some` of the integer the double represents when it is finite and whole, else `None`. Total, like every function; the `Option` is the checked result. **An ordinary definition over the bits**, with a native |
+| `Float.toInt` | `Float -> Option Int` | `Some` of the integer the double represents when it is finite and whole, else `None`. Total, and computable in the kernel too, being a definition; the `Option` is the checked result. **An ordinary definition over the bits**, with a native |
 | `Float.toSafeInt`, `Float.toSafeNat` | `Float -> Option SafeInt` … | `toInt`, then the safe-range check |
 | `Float.trunc`, `floor`, `ceil`, `round` | `Float -> Float` | as JS `Math.*` |
 
@@ -299,16 +392,53 @@ every such double is whole), not built from `floor` or Rust's `round`. All five 
 `Show Float`'s `toText` is JS `String(x)`, because a ported template `` `${t}` `` prints that:
 `0.30000000000000004`, `1e+21`, `1e-7`, `NaN`, `Infinity`, and `-0` prints as `0` [run]. Rust's
 `{}` differs on four of these [run], so the Rust runtime uses the `ryu-js` crate, a Ryū port that
-follows ECMAScript's `Number::toString`, as used by the Boa engine [cited]. `toSource` gives text
-that reads back as the same `Float`: `3.0` (not `3`, which would default to `Nat`), `-0.0`,
-`Float.nan`, `Float.infinity`. The two stay separate.
+follows ECMAScript's `Number::toString`, as used by the Boa engine [cited].
 
-**`toText` does not reduce in the kernel in stage 1** (§3.6 explains why). It is a bodyless
-primitive with no reduction rule, so `Float.toText 0.5 = "0.5"` is not provable by `rfl`, and the
+**`toText` is opaque, with a backend-supplied meaning (D688).** Unlike arithmetic, comparisons,
+conversions, the constructor and the projections, `toText` has no shared concrete semantics
+(§3.3). It is a bodyless primitive with no reduction rule. Each backend (the Rust runtime, the
+generated JS) supplies its interpretation, which must be a pure, deterministic function of the
+value under α (so all NaNs print alike, and `-0.0` and `0.0` may print differently or not, as
+`String` does). Stage 1 does **not** promise identical strings across runtimes: `ryu-js` and a
+conforming JS engine may differ (§3.6). Proofs that use `toText` are valid for every such
+interpretation, because they can't see inside it; they can't show that two differing runtime
+strings are the same string.
+
+**What that costs in the kernel.** `Float.toText 0.5 = "0.5"` is not provable by `rfl`, and the
 kernel evaluator that runs `test` declarations ([checked] `crates/driver/src/driver.rs:899`) gets
-stuck on it: a Stitchwort test that compares printed floats can't be written in stage 1. Tests of
-printing are Rust and Node tests (§7.4). `stitchwort run` uses the Rust runtime ([checked]
+stuck on `Float.toText 0.5`. Not only in tests about printing: any kernel computation that
+*consumes* the string gets stuck too, such as using it as a `Map` key, matching or branching on
+it, or comparing it with `==`, and so does `Show` on any structure containing a `Float` (lists,
+records, `Option`, which print their elements with `toSource`, [checked]
+`crates/elab/src/std/core/Show.sw:120-130`). Tests of printing are Rust and Node tests (§7.4). If
+a ported program uses numeric formatting as part of its algorithm (a key built from
+`` `${t}` ``), the differential tests on the supported engines are the evidence for that
+behaviour, not a kernel test. `stitchwort run` uses the Rust runtime ([checked]
 `crates/driver/src/run.rs:328-332`), so programs still print floats.
+
+**Totality vs kernel executability.** `Float.toText 0.5` is total in the sense of DESIGN.md's
+totality statement ([checked] `DESIGN.md:138`: evaluating a closed, checked, assumption-free term
+reaches a value): the runtime's evaluation does reach a `Text`. It is not *kernel-executable*: in
+the checker its normal form is the neutral `Float.toText 0.5`, not a text constructor. The same
+holds for every float primitive applied to a neutral argument, but only `toText` (and what calls
+it) stays neutral on closed arguments. Docs that describe Stitchwort as total (DESIGN.md §3,
+docs/core.md) get one sentence saying so when stage 1b adds `toText`.
+
+**`toSource` (D733)** is not compiler tooling: it is the second field of the `Show` interface
+([checked] `crates/elab/src/std/core/Show.sw:29-31`), used by `Show` on lists, options and pairs.
+So it is specified here. `Float.toSource` is an **ordinary Stitchwort definition**, not a new
+primitive:
+
+- NaN → `"Float.nan"`; +∞ → `"Float.infinity"`; −∞ → `"-Float.infinity"`; `-0.0` → `"-0.0"`
+  (decided from the bits, so these four reduce in the kernel);
+- otherwise `Float.toText x`, with `".0"` appended when it contains neither `.` nor `e`
+  (`3` → `"3.0"`, `1e+21` and `0.5` unchanged).
+
+Its contract is the one `toText` gives it plus a guarantee that holds on every backend: the result
+reads back, as a Stitchwort literal or expression, as the same `Float`. That needs only that
+`toText` produce a decimal that rounds to `x`, which `Number::toString` requires of every
+conforming engine and `ryu-js` does [cited by the review for the spec; the read-back of each output
+is in §7.4]. Like `toText`, it is stuck in the kernel on finite non-zero values.
 
 ## 3. Semantics in the kernel, the runtime and JS
 
@@ -362,14 +492,21 @@ Three claims, kept apart:
 3. **Preservation** of those semantics by the Rust runtime and the generated JS.
 
 **The commuting equation.** Let α read a run-time double's binary64 representation, keep signed
-zero, and map every NaN to the canonical NaN. For each operation `op`, with `modelOp` the kernel's
-meaning (the reduction rule, or the definition over the bits):
+zero, and map every NaN to the canonical NaN. α is extended to every argument and result type in
+the obvious way: the identity on `Bool` and `Nat` (`.bits`, the comparisons), the run-time `Int`
+to the logical `Int`, componentwise on `Option` (`toInt`), on `Decidable` its constructor (`Yes`
+or `No`; proofs are erased), and the identity on proofs. For each operation `op`, with `modelOp`
+the kernel's meaning (the reduction rule, or the definition over the bits):
 
-> α(runtimeOp(x, y)) = modelOp(α x, α y)
+> α(runtimeOp(x₁, …, xₙ)) = modelOp(α x₁, …, α xₙ)
 
 for the kernel evaluator (native and WASM builds), the Rust runtime and the generated JS. It
-governs arithmetic, the record constructor and `.bits`, `DecEq`, `Ord`, the IEEE comparisons,
-hashing of values, and constant folding. §7.4 tests it, path by path.
+governs arithmetic, conversions, the record constructor and `.bits`, `DecEq`, `Ord`, the IEEE
+comparisons, hashing of values, and constant folding. §7.4 tests it, path by path.
+
+**`toText` is the exception.** It has no `modelOp`: it is opaque, and each backend supplies its own
+interpretation, constrained only to be pure, deterministic and to respect α (§2.6). The equation
+above is the shared semantics of everything else.
 
 **Execution conditions.** The equation is promised only when:
 
@@ -433,7 +570,8 @@ and a new `ryu-js` or other crate version does too, through `Cargo.lock`. What c
 4. **The float reduction rule ignores the natives switch.** With natives off, a native's
    definition unfolds; a primitive has none, so if the rule were a "native" it would make `rfl`
    proofs depend on the mode. It is part of the kernel's evaluation, always on. The definitions
-   over the bits (`DecEq`, `Ord`, `toInt`) are ordinary natives and do switch off.
+   over the bits (`DecEq`, `Ord`, `neg`, `toInt`) are ordinary natives and do switch off; §3.4
+   says what they must agree on for that to be invisible.
 
 ### 3.4 What the checker does with `1.5 + 2.0` (D682)
 
@@ -449,21 +587,94 @@ conversion compares stuck applications structurally, as it does for `Delay`.
 - **A typed result:** `Float.isValid k` for a number `k` evaluates to `True`, so
   `Eq.refl True : Float.isValid k = True` checks by conversion. The literal elaborator builds
   exactly the same record, so `0.1 + 0.2` and the literal `0.30000000000000004` are the same
-  value and `rfl` proves them equal. Without definitional proof irrelevance, a *different* proof
-  in `valid` would make the records only propositionally equal (the `SafeNat.mkExt` pattern,
-  [checked] `crates/elab/src/std/Int/Safe.sw:26-30`), so using one witness everywhere matters
-  [inferred]. A debug assertion and a test evaluate `isValid` on every result.
+  value and `rfl` proves them equal. A debug assertion and a test evaluate `isValid` on every
+  result.
 
 A `Float` value in the kernel is just the record with a `Nat` literal inside; no new `Value`
 variant is needed. The pretty-printer shows a `Float` record with literal bits as its literal
 (`1.5`), so goals stay readable.
 
+**Two different kinds of "the same Float".** The kernel has no definitional proof irrelevance, so
+two records with the same bits and different `valid` proofs are distinct normal forms. That gives
+two separate questions, with separate answers.
+
+*Propositional: bit extensionality.* Equal bits make equal `Float`s:
+
+```
+theorem Float.bitsExt (x: Float) (y: Float) (e: x.bits = y.bits): x = y
+```
+
+The `valid` proofs are proofs of `Float.isValid n = True`, an equation between `Bool`s, and
+`Bool` equations have unique proofs (`Bool.uniqueEq`, [checked]
+`crates/elab/src/std/core/Decidable.sw:123`; the general fact is uniqueness of identity proofs for
+types with decidable equality, as in Rocq's `Eqdep_dec` [cited by the review]). So `bitsExt` is
+`SafeNat.ext`'s proof with `isValid` in place of the bound ([checked]
+`crates/elab/src/std/Int/Safe.sw:26-37`; `Char` does the same, `crates/elab/src/std/core/Char.sw:26`).
+No new axiom. It is used by: `DecEq Float` (a successful bit comparison becomes `x = y`), the
+injectivity proof of the total-order key (§4.5), and proofs such as `neg (neg x) = x` whose two
+sides may carry different witnesses. It says nothing about normal forms: `rfl` can't use it.
+
+*Definitional: natives agree with their definitions, proof fields included.* An ordinary native
+(the exact definitions over the bits: `neg`, `abs`, `isNaN`, `DecEq Float`'s `decide`, `toInt`, …)
+must compute exactly what its definition computes, **as a whole term up to conversion, proof
+fields included**, so that turning natives off never changes which `rfl` proofs check. This is
+already the rule for the `Nat` natives ([checked] `crates/core/src/native.rs:13-17`, and
+`eqNatSound` returns `rfl` "whatever `h` is", `native.rs:64-67`). For `Float` the requirement
+reads: **for an exact operation whose result is a `Float` (or contains one, or a proof about one),
+when the relevant bits are known, the source definition and its native produce definitionally
+equal records.** The primitive reducer and the literal elaborator already produce
+`{ bits = k, valid = Eq.refl True }`; the question is whether the definitions do.
+
+The risk is concrete. Given `p : Float.isValid k = True` as a variable and
+`x := { bits = k, valid = p }` with `k` known, an `abs` defined to return `x` itself when the sign
+is clear unfolds to a record whose `valid` is `p`, a neutral term; a native that reads `k` and
+rebuilds `{ bits = k, valid = Eq.refl True }` differs from it. And `1.0 - 2.0 = -1.0` compares a
+primitive's result with `Float.neg 1.0` (the elaboration of `-1.0`, §2.4), which with natives off
+is whatever `neg`'s definition builds.
+
+**The approach (D731): one checked constructor, and natives only where they reproduce it.**
+
+1. Every exact definition that returns a `Float` builds it with `Float.make n p` (§2.2), never by
+   returning an argument or writing a record literal. `Float.make`'s witness is
+   `Bool.canonicalTrue (Float.isValid n) p`, which reduces to `Eq.refl True` as soon as
+   `Float.isValid n` reduces to `True`, that is, whenever `n` is known and valid, *whatever `p`
+   is*. So on known bits the definition, the native, the primitive reducer and the literal
+   elaborator all produce `{ bits = k, valid = Eq.refl True }`.
+2. A `Float`-returning native fires only when the bits it needs are known numbers (as the `Nat`
+   natives fire only on numbers), and then returns exactly that record. On unknown bits it doesn't
+   fire and the definition unfolds, so there is nothing to disagree about. It also doesn't fire
+   on known bits that fail `isValid` (possible only under an absurd hypothesis `p : Float.isValid
+   k = True`, where `Float.make`'s witness would be `p` itself, not `Eq.refl True`).
+3. A native returning a proof or a proof-carrying value (`DecEq Float`'s `Yes`/`No`) returns the
+   proof term the definition computes, as `decEqNat`'s native does ([checked] `native.rs:58-60`,
+   `130-132`). If the definition's proof term is awkward to reproduce, the native is restricted
+   (to the `Bool`-valued helper it calls, for example) or left out of the kernel entirely: the
+   runtime and JS implementations don't depend on it, and the kernel only loses speed.
+4. A native whose agreement isn't shown by the checks below is not enabled in the kernel.
+
+**Acceptance checks.** Each is run with ordinary natives on and off (the `n0` mode, [checked]
+`crates/driver/src/driver.rs:655-660`), on the native and WASM kernels, and compares the
+**conversion or normal forms of the whole terms**, not `.bits` and not a `DecEq` result, either
+of which would hide a proof-field difference.
+
+| Check | Establishes |
+|---|---|
+| `rfl : 0.5 + 0.25 = 0.75` and `rfl : 0.1 + 0.2 = 0.30000000000000004` | positive primitive result vs positive literal (the shared witness) |
+| `rfl : 0.0 + (-1.0) = -1.0` and `rfl : 1.0 - 2.0 = -1.0` | primitive result vs negative literal (the `Float.neg` elaboration path) |
+| with `p : Float.isValid k = True` a variable and `k` a known valid number: `Float.neg { bits = k, valid = p }` and `Float.abs { bits = k, valid = p }` normalise to `{ bits = k', valid = Eq.refl True }` | native vs definition beyond literal inputs, with a neutral witness |
+| `Float.neg (Float.neg 1.5)` normalises to the literal `1.5`; `neg` of NaN normalises to `Float.nan` | the `Float.make` path through two calls, and the NaN case |
+| `DecEq Float`'s `decide` on equal and on different known values: the same `Yes`/`No` term with natives on and off | proof-carrying native results |
+
+**This is the first gate of stage 1a** (§7.2): it is built and passing before the runtime, JS or
+boundary work starts, because if it fails the fix is in the definitions' shape, which everything
+else builds on.
+
 ### 3.5 Run time and the representation invariant (D701)
 
-The review asks for one of two run-time invariants: (1) every stored `Float` is physically
+The first review asked for one of two run-time invariants: (1) every stored `Float` is physically
 canonical; (2) values may hold any NaN, and every representation-sensitive operation handles them
-canonically. The recommendation is **(1) wherever Stitchwort owns the representation, which leaves
-JS with a one-item audit**:
+canonically. The decision is **(1) wherever Stitchwort owns the representation, and in JS (2)
+with all bit reinterpretation in one audited module**:
 
 - **Kernel:** canonical by construction (the record's `valid` field; the reducer canonicalises).
 - **Rust runtime (`crates/rt`):** a new `Value::Float(f64)`, next to `Value::Nat`/`Int`/`Text`
@@ -475,13 +686,31 @@ JS with a one-item audit**:
   `f64` when `Float`'s hash matches `FLOAT_DATA_HASH`; `.bits` and the constructor become natives.
 - **JS:** a `Float` is a `number`, and canonicalising every result (`x !== x ? NaN : x`) would cost
   a test per operation for nothing observable. JS code can see a NaN's bits only through typed
-  arrays [inferred]; `===`, `<`, `Object.is`, `Map`, `Set` and `String` treat all NaNs alike
-  (`Object.is` of a negative-payload NaN and `NaN` is true, and the payload survives `* 1` in
-  Node) [run]. So JS is invariant (2) with exactly one representation-sensitive operation in
-  generated code, `.bits` (a `Float64Array`/`BigUint64Array` pair), which canonicalises. The audit
-  list for JS: `.bits`; lawful `DecEq` (lowered to `Object.is`, NaN-blind); `Ord` (lowered via the
-  canonical `.bits` key, or written NaN-first); value hashing if the JS backend ever hashes. A test
-  forbids typed arrays anywhere else in the runtime prelude.
+  arrays and `DataView` [inferred]; `===`, `<`, `Object.is`, `Map`, `Set` and `String` treat all
+  NaNs alike (`Object.is` of a negative-payload NaN and `NaN` is true, and the payload survives
+  `* 1` in Node) [run]. So JS is invariant (2). Bit reinterpretation is needed in two directions,
+  not one: `.bits` observes an existing number's representation, and the **dynamic record
+  constructor** `{ bits = b, valid = p }` (with `b` computed at run time) must turn `b` into the
+  double it encodes, which `Number(b)` would not do. (Constant literals need neither: they are
+  emitted as short decimal spellings, §2.3.)
+
+  **One audited module** in the JS runtime prelude holds every Float bit reinterpretation:
+
+  ```
+  toCanonicalBits(x: number): bigint      // the binary64 pattern, any NaN as 0x7FF8000000000000
+  fromCanonicalBits(b: bigint): number    // b a valid canonical pattern (Float.isValid b)
+  ```
+
+  with two laws: `toCanonicalBits(fromCanonicalBits(b)) === b` for every valid canonical `b`, and
+  `Object.is(fromCanonicalBits(toCanonicalBits(x)), x)` for every JS number `x`. Then `.bits` is
+  `toCanonicalBits`; the dynamic constructor is `fromCanonicalBits`; the total-order key (`Ord`)
+  and value hashing, if the JS backend ever hashes, use `toCanonicalBits`. Lawful `DecEq` lowers to
+  `Object.is`, which is NaN-blind and needs neither. The `Float64Array`/`BigUint64Array` (or
+  `DataView`) code lives only in this module; a test fails if either appears anywhere else in the
+  runtime prelude or generated code, and property tests check the two laws on the §7.4 edge set,
+  random patterns and several NaN payloads. The audit rule is "all Float bit reinterpretation goes
+  through this module". The Rust runtime has the same pair (`to_bits` with the canonicalising
+  constructor, `from_bits`), already canonical by construction.
 
 **Scope of the guarantee:** propositional equality corresponds to the value abstraction α
 (`Object.is`, one NaN). Stitchwort does not promise to preserve arbitrary NaN payloads that
@@ -507,9 +736,10 @@ every operation.
 | literal parsing | Stitchwort defines it (correctly rounded); JS may round past 20 significant digits differently | §2.3: JS is generated from the bits, so the engine's literal parser only sees short round-trip spellings |
 | `pow`, `exp`, `log`, trig | **no**: Rust: "precision … is non-deterministic" [cited]; JS engines differ [unverified] | **excluded** from stage 1 |
 
-**On `toText` (D688):** the review's three options are to test and specify supported engines, to
-use one formatting algorithm everywhere (so JS would call a Stitchwort formatter, not `String(x)`),
-or to keep `toText` from reducing in the kernel. The recommendation is the third for stage 1: the
+**On `toText` (D688):** the first review's three options are to test and specify supported
+engines, to use one formatting algorithm everywhere (so JS would call a Stitchwort formatter, not
+`String(x)`), or to keep `toText` from reducing in the kernel. The decision is the third for stage
+1, approved by the second review (opaque, backend-supplied, §2.6): the
 port needs `String(x)` at run time, not proofs about strings, and the first two are each a project
 (an engine conformance suite, or a JS formatter that would also have to match `String(x)` to keep
 ported templates identical). Unlocking it later is a one-rule change once a contract is chosen.
@@ -534,7 +764,8 @@ lawful, as on every other type**, and gives JS's comparisons names:
 | `Float.ieeeLt a b`, `Float.ieeeLe a b` | `Bool`: IEEE comparisons | `a < b`, `a <= b` |
 
 A port writes JS's `a === b` as `Float.ieeeEq a b`, `a !== b` as `!Float.ieeeEq a b`, `a > b` as
-`Float.ieeeLt b a` and `a >= b` as `Float.ieeeLe b a`. Not `!Float.ieeeLt a b` for `>=`: with NaN,
+`Float.ieeeLt b a` and `a >= b` as `Float.ieeeLe b a`, evaluating `a` before `b` when they are
+not plain values (§6.4 item 5). Not `!Float.ieeeLt a b` for `>=`: with NaN,
 `!(a < b)` and `b <= a` differ, as in JS [inferred from IEEE]. The three are definitions over the
 bits, so lemmas such as `Float.ieeeLt a b = True -> Float.ieeeLe a b = True` are provable.
 
@@ -617,7 +848,10 @@ Two cautions, both from the review:
 
 - **Type:** `number` in the `.d.ts`. `Option Float` is `number | undefined` (D582).
 - **Decoding: every JS `number`**, including NaN, ±Infinity and `-0`; refuse anything else
-  (`bigint`, strings), with the existing `refuse` messages. NaN is decoded to the canonical NaN.
+  (`bigint`, strings), with the existing `refuse` messages. Every decoded NaN denotes
+  `Float.nan`: observing its bits through Stitchwort (`.bits`, the total order, hashing) gives the
+  canonical pattern. This is a statement about the logical value under α; the JS number itself
+  is passed through and may keep whatever payload it had (§3.5).
 - **Encoding:** the `number` itself.
 
 Why draft 1's refusal of NaN and ±Infinity is dropped: `Float`'s values include them, so a decoder
@@ -636,9 +870,17 @@ needs an invariant over the computation, not a decoder check.
 **Where finiteness goes (D702):** on the application's own types (a timeline's domain type checks
 its times, with a proof of `Float.isFinite t = True` in a field if a theorem needs it), or on a
 `FiniteFloat` refinement, `{ value: Float, finite: Float.isFinite value = True }`, crossing as a
-checked `number` as `SafeNat` does. Recommended: no `FiniteFloat` in stage 1. The port validates
+checked `number` as `SafeNat` does. Decided: no `FiniteFloat` in stage 1. The port validates
 at its own types; `FiniteFloat` joins std when a program wants the check at the boundary, so its
 shape comes from use.
+
+**An erased proof field checks nothing at run time.** In a record such as `{ time: Float, finite:
+Float.isFinite time = True }` the proof field is erased, so no run-time code tests `isFinite`
+because the field exists; only code that computes the proof does. So an application that needs
+finite input must test finiteness on its decoding or validation path (`if h: Float.isFinite t
+then … else reject`) before it builds the refined value; the type only records that the test was
+made. `FiniteFloat`, when it comes, would be a checked codec like `SafeNat`'s, which is exactly
+that test done at the boundary.
 
 **The guarantee at the boundary** is about the value abstraction: a `number` that crosses in and
 back out is the same value under `Object.is`. NaN payloads set by external typed-array code are not
@@ -659,9 +901,22 @@ preserved (§3.5).
   start end xs` returns are all in `xs`, each satisfies `start <= t` (in the total order) or
   `Float.ieeeLe start t = True`, whichever the code tests; `shiftAll d xs` has the same length as
   `xs`; a sort by `Ord Float` returns a sorted permutation.
-- **Facts about the exact definitions:** `neg (neg x) = x`, `abs` is non-negative in the total
-  order, `ieeeLt a b = True -> ieeeLe a b = True`, `ieeeEq` is symmetric, `toInt` round-trips
-  through `ofInt` on whole doubles.
+- **Facts about the exact definitions:** `Float.bitsExt`, `neg (neg x) = x`, `abs` is
+  non-negative in the total order, `ieeeLt a b = True -> ieeeLe a b = True`, `ieeeEq` is
+  symmetric, and facts about the exact decoder `toInt` itself (`toInt x = Some n` implies `x` is
+  finite; `toInt` of NaN and ±∞ is `None`; `toInt (neg x)` is the negation of `toInt x`).
+- **Conversions, concretely only.** `toInt` and `ofInt` on known values compute (`Float.toInt
+  1e100`, `Float.ofInt 0 = 0.0`, `Float.toInt (-0.0) = Some 0`), so concrete round trips are `rfl`
+  proofs and tests. The general inverse relation is *not* promised in stage 1. Its correct
+  statement excludes negative zero, since `toInt (-0.0) = Some 0` and `ofInt 0 = 0.0 ≠ -0.0`:
+
+  ```
+  Float.toInt x = Some n -> x ≠ -0.0 -> Float.ofInt n = x
+  ```
+
+  But `ofInt` is a bodyless primitive whose rule fires only on known integers, so for a symbolic
+  `n` there is nothing to prove `Float.ofInt n` equal to from; the theorem needs a model of `ofInt`
+  (§6.3), not more `Nat` bit lemmas. It is deferred until `ofInt` has one.
 - **Facts about known doubles, by computation:** `0.1 + 0.2 = 0.30000000000000004` by `rfl`.
 - **The limit:** stage 1 provides no practical general reasoning framework for rounded
   arithmetic. Congruence still works (`x = y -> x + z = y + z`), and the domain is finite, so
@@ -735,10 +990,20 @@ ported TS program, that needs its own arguments:
    comparator; establish that NaN can't arrive, or scope the claim.
 3. **Arithmetic order.** Keep the original grouping and order of operations used to produce keys
    and results (§2.4).
-4. **Differential tests transport bits.** Compare results by their exact binary64 bits (hex) or
-   another lossless encoding, not through JSON or `===`, which hide `-0` vs `0` and turn NaN and
-   ±Infinity into `null`. Include signed-zero equality branches, duplicate times, stability and
-   internally produced non-finite values.
+4. **Differential tests transport canonical bits.** Compare results by their canonicalised
+   binary64 bits, `toCanonicalBits(a) === toCanonicalBits(b)` (§3.5), sent as hex or another
+   lossless encoding, not through JSON or `===`, which hide `-0` vs `0` and turn NaN and ±Infinity
+   into `null`. Canonicalisation changes only NaNs: every other pattern must match exactly, `-0`
+   and `0` included. Apply the same canonicalisation to the original TypeScript program's results,
+   or the oracle would reject NaN payload differences that D701 permits. Include signed-zero
+   equality branches, duplicate times, stability and internally produced non-finite values.
+5. **Comparison translation keeps evaluation order.** `a > b` becomes `Float.ieeeLt b a` and
+   `a >= b` becomes `Float.ieeeLe b a`, but JS evaluates the left operand before the right even
+   for these [cited by the review]. When the operands are expressions with effects (or that may
+   not terminate, or are expensive), evaluate each once, left then right, and then reverse:
+   `left() >= right()` becomes a block with `let l := left()`, then `let r := right()`, then
+   `Float.ieeeLe r l`. For variables
+   and pure expressions (timestamps already computed) the direct form is fine.
 
 These are open obligations for each port, not evidence that a port is wrong.
 
@@ -749,27 +1014,56 @@ These are open obligations for each port, not evidence that a port is wrong.
 | Crate | Work |
 |---|---|
 | `syntax` | `Tok::Float(text)`; no `Float` token right after `.`; AST literal keeps text; lexer and parser tests (`x.name`, `List.map`, `xs.0.1`, `[x, ..rest]` unchanged) |
-| `core` | admission of bodyless float primitives with exact types and names (beside `partial.rs`); the reduction rule (forced arguments, canonical bits out, the standard witness), always on; `FLOAT_CONTRACT` in primitive hashes; pretty-printing `Float` records as literals; DESIGN.md §13 lists the new trusted rules |
+| `core` | admission of bodyless float primitives with exact types and names (beside `partial.rs`); the reduction rule (forced arguments, canonical bits out, the standard witness), always on; `Float` natives for the exact definitions, firing only on known bits (§3.4); `FLOAT_CONTRACT` in primitive hashes; pretty-printing `Float` records as literals; DESIGN.md §13 lists the new trusted rules |
 | `driver` | `build.rs`: rustc version and target in `FINGERPRINT` |
-| `elab` | `Kind::Float` in `numbers.rs` (step 1b, whole literals, refusals, negative literals at `Float`); `std/Float/Float.sw` (type, `isValid`, `neg`/`abs`/`isNaN`/`isFinite`, `ieeeEq`/`ieeeLt`/`ieeeLe`, `toInt`, primitives' signatures, `DecEq`, `Ord`, `Show`, conversions) and their proofs |
+| `elab` | `Kind::Float` in `numbers.rs` (the new decimal-literal step, the minus default moved after pass 1, whole literals, refusals, negative literals at `Float`; §2.4); `std/Float/Float.sw` (type, `isValid`, `Bool.canonicalTrue`, `Float.make`, `bitsExt`, `neg`/`abs`/`isNaN`/`isFinite`, `ieeeEq`/`ieeeLt`/`ieeeLe`, `toInt`, primitives' signatures, `DecEq`, `Ord`, `Show` with `toSource`, conversions) and their proofs |
 | `rt` | `Value::Float(f64)` with the canonicalising constructor; `FloatNative` table bound by hash; lowering of the record, `.bits`, the constructor; `ryu-js` for `toText`; JS `Math.round` rule |
-| `js` | `Boundary::Float` (`number`, all values), codec, `.d.ts`; operators and `Math.*` calls; `Object.is` for `DecEq`, `===` for `ieeeEq`; literals from bits; `.bits` via typed arrays |
+| `js` | `Boundary::Float` (`number`, all values), codec, `.d.ts`; operators and `Math.*` calls; `Object.is` for `DecEq`, `===` for `ieeeEq`; literals from bits; the canonical-bits module (`toCanonicalBits`/`fromCanonicalBits`, §3.5) behind `.bits`, the dynamic constructor, the order key and hashing |
 | docs | `docs/syntax.md` (literals, `Float` operators, `ieeeEq` and porting `===`), `docs/core.md`, DESIGN.md §12–13 |
 
 ### 7.2 Stages and cost
 
 | Stage | Contents | Code size (guess) |
 |---|---|---|
-| 1a | **The thin end-to-end slice**: the representation and its invariant, constructor and `.bits` in all three evaluators, `neg`, `add`, `DecEq` and `ieeeEq`, decimal literals, the boundary codec, the trust contract's plumbing (hash tags, `FLOAT_CONTRACT`, fingerprint), and the four-path differential test for those | 800–1200 lines with tests |
-| 1b | the rest of D687's operations, `Ord Float`, `ieeeLt`/`ieeeLe`, `toInt`, `round`, conversions, printing, the full test table | 900–1300 lines |
-| later | `sqrt`, `min`/`max`, `Float.ofText`, `FiniteFloat`, an operations record in std | small each, when needed |
+| 1a | **The thin end-to-end slice**, below | 800–1200 lines with tests |
+| 1b | the rest of D687's operations (`mul`, `div`, `rem`, `floor`, `ceil`, `trunc`, `round`, `ofInt`/`ofNat`, `isFinite`), `Ord Float`, `ieeeLt`/`ieeeLe`, `toInt` and the safe conversions, `toText`/`toSource`, the full §7.4 table | 900–1300 lines |
+| later | `sqrt`, `min`/`max`, `Float.ofText`, `FiniteFloat`, an operations record in std, the general `toInt`/`ofInt` theorem (needs an `ofInt` model) | small each, when needed |
 | later | full model (§6.3) | large; its own design note |
+
+**Stage 1a, in order.** Each step's tests pass before the next starts.
+
+1. **Gate: definitional agreement in the kernel** (§3.4). `std/Float/Float.sw` with the type,
+   `isValid`, `Bool.canonicalTrue`, `Float.make`, `Float.nan`, `isNaN`, `neg`, `abs`, `bitsExt`,
+   `DecEq Float` (via `bitsExt`) and `ieeeEq`; the bodyless primitives `add` and `sub` with the
+   kernel reduction rule (always on), their admission, operation tags and `FLOAT_CONTRACT`; the
+   ordinary natives for `neg`, `abs`, `isNaN` and `DecEq Float`'s decision; just enough
+   elaboration to write the checks (decimal literals elaborated to `{ bits = k, valid = Eq.refl
+   True }`, `Kind::Float` with the new defaulting order, negative literals as `Float.neg`). Exit:
+   every row of §3.4's acceptance table, natives on and off, native and WASM kernels; `neg (neg
+   x) = x` proved. If a row fails, the definitions' shape (D731) is revisited before anything
+   else is built.
+2. **The rest of the front end:** the lexer's `Tok::Float` and the `xs.0.1` rule; the literal
+   refusals (§2.3's table); the §2.4 defaulting table as elaboration tests; the existing
+   numeric-group and negative-literal elaboration tests still pass (the moved minus default).
+3. **Run time:** `Value::Float` in the Rust runtime with the canonicalising constructor; the
+   generated JS with the canonical-bits module (§3.5); the record constructor and `.bits` in both;
+   natives bound by hash.
+4. **Boundary:** `Boundary::Float`, codec and `.d.ts` (D685).
+5. **Plumbing and paths:** rustc and target in `FINGERPRINT`; the four-path differential test
+   (native kernel, WASM kernel, Rust runtime, Node) for `add`, `sub`, `neg`, `abs`, `DecEq`,
+   `ieeeEq`, the constructor and `.bits`, compared by canonical bits; the contract-plumbing rows
+   of §7.4.
+
+Out of 1a: everything listed for 1b; `toText` (so 1a programs can't print floats yet, only their
+bits, which is enough for its tests).
 
 The line counts are code-size guesses. **The main uncertainty is not code size** but (1) how hard
 the proofs over the bits are (the `valid` obligations of `neg` and friends, `Ord.byKey`'s
-injectivity for the total-order key, `toInt` against `ofInt`), which may need `Nat` bit lemmas that
-don't exist yet; and (2) getting the trusted computation to agree across the four execution paths,
-which 1a is designed to expose early.
+injectivity for the total-order key), which may need `Nat` bit lemmas that don't exist yet; (2)
+whether the exact definitions can be written so that their natives agree with them definitionally
+(§3.4), which step 1 settles first; and (3) getting the trusted computation to agree across the
+four execution paths, which 1a is designed to expose early. The `toInt`/`ofInt` inverse theorem is
+not on this list: it needs a model of `ofInt`, not bit lemmas, and is deferred (§6.1).
 
 ### 7.3 Risks
 
@@ -777,7 +1071,10 @@ which 1a is designed to expose early.
   one; `toText` doesn't reduce in the kernel). Mitigated by the contract (§3.3), the differential
   tests and listing them in DESIGN.md §13.
 - **NaN bits** differ by platform and in WASM; D701 makes the Rust runtime canonical by
-  construction and leaves JS one audited site.
+  construction and keeps all of JS's bit reinterpretation in one audited module.
+- **Natives that disagree with their definitions on proof fields** would make `rfl` proofs depend
+  on the natives mode. D731's single constructor and the §3.4 checks, as stage 1a's first gate,
+  address it; a native that can't be made to agree stays out of the kernel.
 - **Porting `===` and `<` is manual** (D683): a port that writes `==` for `===` compiles and
   differs on `-0` and NaN. Mitigated by §6.4's audit, and docs.
 - **A new kernel mechanism** (bodyless primitives that compute). Small, but it is kernel code.
@@ -788,15 +1085,24 @@ which 1a is designed to expose early.
 
 From draft 1, kept:
 
-1. **Bit for bit** for each operation on random doubles plus an edge set: ±0, NaN, ±∞, the smallest
-   subnormal, `MAX_VALUE`, 2^53 ± 1, halves (`±0.5`, `±2.5`), `0.49999999999999994`,
-   `4503599627370497`. JS results come from Node in the test.
+1. **Canonical bits** for each operation on random doubles plus an edge set: ±0, NaN, ±∞, the
+   smallest subnormal, `MAX_VALUE`, 2^53 ± 1, halves (`±0.5`, `±2.5`), `0.49999999999999994`,
+   `4503599627370497`. JS results come from Node in the test. Results are compared as
+   `toCanonicalBits(a) = toCanonicalBits(b)` in hex (§3.5): only NaNs are canonicalised, every
+   other pattern must match exactly, `-0` vs `0` included. The same canonicalisation is applied to
+   any TypeScript oracle's results.
 2. **Literals:** 10,000 random decimal strings (plus hard cases such as
-   `2.2250738585072011e-308`): elaborated bits = Node's `Number(text)` bits; the §2.3 table's
-   refusals and `9007199254740994`; `-1 + 0.5`, `0.5 + -1`, `def x: Float := -0` (bits
-   `0x8000000000000000`).
-3. **Printing:** the Rust runtime's `toText` = Node's `String(x)` on the same set; `toSource`
-   reads back to the same bits.
+   `2.2250738585072011e-308`): elaborated bits = Node's `Number(text)` bits; the §2.3 table
+   (`0.0`, `-0.0`, `0e-400`, `0e400`, `5e-324` and `9007199254740994` accepted; `±1e-400`,
+   `±1e400`, `9007199254740993` refused).
+
+   **Defaulting** (§2.4's table): `-1 + 0.5`, `0.5 + -1` → `Float`; `def x: Float := -0` (bits
+   `0x8000000000000000`); with `t: Float`: `t + -1`, `-1 + t`, `-1 * t`, `-t` → `Float`; with
+   `i: Int` also: `t + i` and `t + (-i)` → type error; `-0` otherwise unconstrained → `Int`, `0`;
+   `-(id 1)` still `Int`.
+3. **Printing:** the Rust runtime's `toText` = Node's `String(x)` on the same set (a test of the
+   two interpretations we ship, not a cross-runtime promise, §2.6); `toSource` reads back to the
+   same bits on both runtimes; `toSource` of NaN, ±∞ and `-0.0` reduces in the kernel.
 4. **Boundary:** `-0`, `80281.87`, NaN, ±Infinity round-trip (`Object.is`); a `bigint` and a
    string are refused; `identity (makeInfinity ())` works through the exports; `Option Float` as
    `undefined`.
@@ -805,74 +1111,112 @@ From draft 1, kept:
    holds; `Math.round` cases of §2.5; `rfl : 0.1 + 0.2 = 0.30000000000000004`; `x + 0.0` is not
    simplified.
 6. **End to end:** `examples/extract/float-times.sw`, an exported function over times like
-   `80281.87`, called from a TS test, matching the same function written in TS, compared by bits.
-7. **Rejections:** `t + n` with `n: Int`; `9007199254740993`, `1e400`, `1e-400` as `Float`;
+   `80281.87`, called from a TS test, matching the same function written in TS, compared by
+   canonical bits.
+7. **Rejections:** `t + n` with `n: Int`; `9007199254740993`, `±1e400`, `±1e-400` as `Float`;
    `pow` absent; `xs.0.1`.
+8. **Definitional agreement** (round 2): every row of §3.4's acceptance table, natives on and off,
+   compared as whole terms. Stage 1a's first gate.
 
-Added from the review:
+Added from the first review:
 
 | Area | Requirement |
 |---|---|
 | Execution paths | Compare the native kernel, the WASM kernel, the native runtime and generated JS explicitly, for every operation |
 | NaN abstraction | Several NaN signs and payloads (made with typed arrays in JS, `from_bits` in Rust) through `.bits`, `DecEq`, `Ord`, and hashing: all give the canonical result |
+| Canonical-bits module (round 2) | `toCanonicalBits(fromCanonicalBits(b)) === b` for valid canonical `b`, and `Object.is(fromCanonicalBits(toCanonicalBits(x)), x)` for every `x`, on the edge set, random patterns and NaN payloads; the dynamic constructor `{ bits = b, … }` with run-time `b` gives the encoded double; no typed array or `DataView` outside the module |
 | Binary operations | All pairs from the edge set, including signed zeros, subnormals, infinities and extreme magnitudes |
 | Representation lowering | Constructor and `.bits` through generic functions and derived `DecEq` on records with `Float` fields |
 | Operator resolution | After inlining and specialisation, `==` and `Float.ieeeEq` (and `<` vs `ieeeLt`) stay distinct (§4.4) |
 | Conversions | `toInt` on large whole doubles (`1e100`, `MAX_VALUE`), huge positive and negative integers through `ofInt`, halfway cases, the overflow thresholds |
 | Optimisation | Folded vs run-time results agree; no reassociation, no FMA contraction (an `a * b + c` case whose fused result differs) |
 | Port behaviour | Signed-zero equality branches, duplicate timestamps, sort stability, internally produced non-finite values |
-| Test transport | Exchange hex bit patterns (or another lossless encoding), never JSON numbers, including in the app's own differential test |
+| Test transport | Exchange hex canonical bit patterns (or another lossless encoding of them), never JSON numbers, including in the app's own differential test |
 | Contract plumbing | Two float primitives of the same type hash differently; bumping `FLOAT_CONTRACT` changes their hashes; the fingerprint changes with the rustc version |
 
 ## 8. Decisions
 
-Recommendations in square brackets. D680–D689 keep draft 1's numbers; changes are marked.
+All decisions are final. D680–D689 were approved by the first review (D696), which flipped D683 and
+D685; D701 and D702 came from it; the second review approved all of them with the amendments
+listed (D730); D731–D733 are this draft's. Each entry gives the final answer, then the alternatives
+set aside.
 
 1. **D680 Name.** `Float`, in `std/Float`. *Decided.*
-2. **D681 Model in the logic.** [(c): a record of the canonical bits; exact operations defined
-   over the bits; rounding operations bodyless primitives] / (a) fully opaque / (b) full model now.
-   *Approved by the review. Changed:* `neg` has an explicit NaN case; the representation
-   invariant is stated (§2.2); `toInt` moves from primitive to definition.
-3. **D682 Check-time computation.** [The checker computes primitives on known doubles, under the
-   trust contract of §3.3: the commuting equation, conditions C1–C6, reduction on values, primitive
-   names and `FLOAT_CONTRACT` in hashes, rustc and target in the fingerprint, always on] /
-   primitives never reduce. *Approved by the review, with the contract added.*
-4. **D683 Operators on `Float`.** *Flipped.* [`== != < <=` keep their lawful meanings (`DecEq`,
-   `Ord Float`); JS's `===`, `<`, `<=` are `Float.ieeeEq`, `Float.ieeeLt`, `Float.ieeeLe` in ported
-   code; compilation keeps them distinct] / draft 1's IEEE operators on `Float`.
-5. **D684 `Ord Float`.** [IEEE `totalOrder`, one NaN greatest, used by `<`, sorting, maps and
-   deriving] / no `Ord Float`. *Approved; added:* ports keep their comparator and stability
-   (§6.4); native JS `Map`/`Set` lowering would need canonical-bit keys.
-6. **D685 Boundary.** *Flipped.* [`number`; decoding accepts every `number`, NaN and ±Infinity
-   included, NaN made canonical; encoding passes the value] / draft 1's refusal of NaN and
-   ±Infinity on input.
-7. **D686 Literals.** [`1.5`, `1e3`, `1.5e-7`; correctly rounded; elaborated to bits once, hashed
-   as bits, JS generated from the bits; a decimal or exponent forces `Float` before a minus forces
-   `Int`; `-k` at `Float` is `Float.neg`, so `-0` is `-0.0`; whole literals exact or refused; no
-   `Float` token right after `.`] / no exponent form. *Approved, made explicit.* **New
-   sub-choice:** [refuse literals that overflow to ±∞ (`1e400`) or underflow to ±0 (`1e-400`)] /
-   accept them as JS does.
-8. **D687 Stage-1 operations.** [`+ - * / %` (no divisor proof), `neg`, `abs`, `floor`, `ceil`,
+2. **D681 Model in the logic.** (c): a record of the canonical bits; exact operations defined over
+   the bits (`neg` with an explicit NaN case, `toInt` a definition, not a primitive); rounding
+   operations bodyless primitives. Set aside: (a) fully opaque; (b) full model now. *Decided per
+   both reviews.*
+3. **D682 Check-time computation.** The checker computes primitives on known doubles under the
+   trust contract of §3.3 (the commuting equation with α extended to every type, conditions C1–C6,
+   reduction on values, operation tags and `FLOAT_CONTRACT` in hashes, rustc and target in the
+   fingerprint), always on; the reducer returns `{ bits = k, valid = Eq.refl True }`, the same
+   record as the literal elaborator. Set aside: primitives never reduce. *Decided per both
+   reviews.*
+4. **D683 Operators on `Float`.** *Flipped in draft 2.* `== != < <=` keep their lawful meanings
+   (`DecEq`, `Ord Float`); JS's `===`, `<`, `<=` are `Float.ieeeEq`, `Float.ieeeLt`,
+   `Float.ieeeLe` in ported code, with `>`/`>=` reversed after evaluating the operands left to
+   right (§6.4); compilation keeps them distinct. Set aside: draft 1's IEEE operators on `Float`.
+   *Decided per both reviews.*
+5. **D684 `Ord Float`.** IEEE `totalOrder`, one NaN greatest, used by `<`, sorting, maps and
+   deriving; ports keep their comparator and stability (§6.4); native JS `Map`/`Set` lowering
+   would need canonical-bit keys. Set aside: no `Ord Float`. *Decided per both reviews.*
+6. **D685 Boundary.** *Flipped in draft 2.* `number`; decoding accepts every `number`, NaN and
+   ±Infinity included, every NaN denoting `Float.nan` under α (the JS value itself is passed
+   through); encoding passes the value. Set aside: draft 1's refusal of NaN and ±Infinity. *Decided
+   per both reviews.*
+7. **D686 Literals.** `1.5`, `1e3`, `1.5e-7`; correctly rounded; elaborated to bits once, hashed
+   as bits, JS generated from the bits; `-k` at `Float` is `Float.neg`, so `-0` is `-0.0`; whole
+   literals exact or refused; no `Float` token right after `.`; a literal is refused when it
+   overflows (rounds to ±∞) or when its mathematical value is nonzero but rounds to zero (`0e-400`
+   is accepted, `1e-400` refused). Set aside: no exponent form; accepting overflow and underflow
+   as JS does. *Decided per both reviews.* (The defaulting order is D732.)
+8. **D687 Stage-1 operations.** `+ - * / %` (no divisor proof), `neg`, `abs`, `floor`, `ceil`,
    `trunc`, `round` (the full JS rule), `isNaN`, `isFinite`, `ieeeEq`/`ieeeLt`/`ieeeLe`, the
    conversions of §2.5 with `toInt` as a definition over the full range; no `pow` or
-   transcendental functions] / also `sqrt`, `min`, `max` now. *Approved; changed:* `toInt` is a
-   definition, `round` is specified in full.
-9. **D688 Printing.** [`toText` = JS `String(x)` at run time via `ryu-js`; it does **not** reduce in
-   the kernel in stage 1, so no exact string proofs and no Stitchwort tests of printed floats;
-   `toSource` re-readable] / specify and test supported engines' `Number::toString`, then let the
-   kernel reduce it / one Stitchwort formatter on every backend. *Changed:* the kernel no longer
-   computes `toText`.
-10. **D689 Operations record for proofs.** [Not in std yet: `TimeOps` stays in the ported module,
-    laws as a separate hypothesis] / a generic record in std now. *Approved;* the `TimeLaws`
-    comment names `ieeeTimeOps`.
-11. **D701 Run-time representation invariant (new).** [Physically canonical in the kernel and the
-    Rust runtime (one canonicalising constructor); in JS, NaN-agnostic values with `.bits` the one
-    canonicalising, representation-sensitive operation, and no typed arrays elsewhere] / arbitrary
-    NaNs everywhere with every representation-sensitive operation audited / canonicalise every JS
-    result too.
-12. **D702 Finiteness (new).** [Stage 1 has no `FiniteFloat`: the port checks finiteness in its own
-    types; `FiniteFloat`, a checked `number` like `SafeNat`, joins std when a program wants the
-    check at the boundary] / add `FiniteFloat` in stage 1.
+   transcendental functions. Proofs about conversions: the exact decoder and concrete
+   computations; the general `toInt`/`ofInt` inverse (which must exclude `-0.0`) is deferred until
+   `ofInt` has a model (§6.1). Set aside: `sqrt`, `min`, `max` now. *Decided per both reviews.*
+9. **D688 Printing.** `toText` is opaque: a bodyless primitive with no kernel reduction rule and a
+   backend-supplied, pure, deterministic interpretation respecting α (JS `String(x)`; `ryu-js` in
+   the Rust runtime); no promise of identical strings across runtimes in stage 1; kernel
+   computations that consume its result are stuck; it is total at run time but not
+   kernel-executable. Set aside: specify and test supported engines' `Number::toString` and let
+   the kernel reduce it; one Stitchwort formatter on every backend. *Decided per both reviews.*
+   (`toSource` is D733.)
+10. **D689 Operations record for proofs.** `TimeOps` stays in the ported module, laws as a separate
+    hypothesis; the `TimeLaws` comment names `ieeeTimeOps`. Set aside: a generic record in std
+    now. *Decided per both reviews.*
+11. **D701 Run-time representation invariant.** Physically canonical in the kernel and the Rust
+    runtime (one canonicalising constructor); in JS, NaN-agnostic values, with all Float bit
+    reinterpretation in one audited module, `toCanonicalBits`/`fromCanonicalBits`, with the two
+    laws of §3.5: `.bits`, the dynamic constructor, the order key and hashing go through it, and
+    typed arrays and `DataView` appear nowhere else. Differential tests compare canonicalised bits
+    (only NaNs canonicalised), the TS oracle's included. Set aside: arbitrary NaNs everywhere with
+    every representation-sensitive operation audited; canonicalising every JS result. *Decided per
+    both reviews.*
+12. **D702 Finiteness.** No `FiniteFloat` in stage 1: the port checks finiteness on its own
+    decoding or validation path, since an erased proof field checks nothing at run time;
+    `FiniteFloat`, a checked `number` like `SafeNat`, joins std when a program wants the check at
+    the boundary. Set aside: `FiniteFloat` in stage 1. *Decided per both reviews.*
+13. **D731 Native/definition agreement (new).** Every exact definition returning a `Float` builds
+    it with `Float.make`, whose witness `Bool.canonicalTrue (Float.isValid n) p` reduces to
+    `Eq.refl True` on known valid bits whatever `p` is; `Float` natives fire only on known bits and
+    return that record; proof-carrying natives return the definition's proof term, or are
+    restricted or left out of the kernel. Propositional equality of equal-bit records is
+    `Float.bitsExt`, by `Bool.uniqueEq`. §3.4's checks, natives on and off, are stage 1a's first
+    gate. Set aside: natives that reproduce each definition's own proof structure (more trusted
+    code per native); omitting all `Float` kernel natives (slower checking for no gain if the gate
+    passes). *Decided: an implementation choice among the review's options.*
+14. **D732 Defaulting order (new).** Expected type, then decimal/exponent literals, then typed
+    operands (pass 1), then the unary-minus default to `Int` for an otherwise undecided group,
+    then pass 2 and today's defaults (§2.4). Leaves with literals inside are not consulted before
+    the minus default, so `-(id 1)` stays an `Int`. Set aside: the minus default after pass 2
+    (would make `-(id 1)` a negative-`Nat` error). *Decided per the second review.*
+15. **D733 `toSource` (new).** `toSource` is a field of `Show`, so a language-level function, not
+    compiler tooling: `Float.toSource` is an ordinary definition (NaN, ±∞ and `-0.0` decided from
+    the bits; otherwise `toText` with `.0` appended when it has no `.` or `e`), whose output reads
+    back as the same `Float` on every backend. Set aside: a second opaque primitive with its own
+    contract. *Decided: the review asked for it to be specified if it is a language function.*
 
 ## Appendix A: snippets run
 
