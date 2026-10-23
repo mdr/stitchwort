@@ -244,3 +244,70 @@ fn generated_layouts_parse_back_to_the_same_structure() {
         );
     }
 }
+
+/// Parses `text`, returning how many declarations it has.
+fn decl_count(text: &str) -> Result<usize, String> {
+    let mut sources = SourceMap::new();
+    let file = sources.add("column0.sw", text);
+    parse_module(file, text)
+        .map(|m| m.decls.len())
+        .map_err(|e| format!("{e:?}"))
+}
+
+#[test]
+fn column_zero_closers_close_their_bracket() {
+    // Each case is laid out over several lines, and again on one line (which
+    // is known to work): both must give the same number of declarations.
+    let cases = [
+        // Record type declaration.
+        (
+            "type T = {\n  a: Nat,\n  b: Bool\n}\n",
+            "type T = { a: Nat, b: Bool }\n",
+        ),
+        // Record expression.
+        (
+            "def r: Nat :=\n  let p := {\n    a = 1,\n    b = 2\n  }\n  p.a\n",
+            "def r: Nat :=\n  let p := { a = 1, b = 2 }\n  p.a\n",
+        ),
+        // List.
+        (
+            "def l: List Nat := [\n  1,\n  2\n]\n",
+            "def l: List Nat := [1, 2]\n",
+        ),
+        // Tuple and parentheses.
+        (
+            "def t: (Nat, Nat) := (\n  1,\n  2\n)\n",
+            "def t: (Nat, Nat) := (1, 2)\n",
+        ),
+        ("def p: Nat := (\n  1\n)\n", "def p: Nat := (1)\n"),
+        // A comma in column 0.
+        (
+            "def l: List Nat := [\n  1\n, 2\n]\n",
+            "def l: List Nat := [1, 2]\n",
+        ),
+        // Inner closer indented, outer in column 0.
+        (
+            "def n: List (List Nat) := [\n  [\n    1,\n    2\n  ],\n  [ 3 ]\n]\n",
+            "def n: List (List Nat) := [[1, 2], [3]]\n",
+        ),
+    ];
+    for (text, flat) in cases {
+        let count = decl_count(flat).unwrap_or_else(|e| panic!("{flat}: {e}"));
+        assert_eq!(decl_count(text), Ok(count), "wrong declarations:\n{text}");
+    }
+    // Declarations after it are still found.
+    let two = "type T = {\n  a: Nat\n}\n\ndef x: Nat := 1\n";
+    let flat = decl_count("type T = { a: Nat }\n\ndef x: Nat := 1\n");
+    assert_eq!(decl_count(two), flat);
+    assert!(flat.is_ok_and(|n| n >= 2));
+}
+
+#[test]
+fn unclosed_brace_does_not_swallow_the_next_declaration() {
+    let text = "type T = {\n  a: Nat,\n  b: Bool\n\ndef x: Nat := 1\n";
+    let err = decl_count(text).expect_err("an unclosed `{` is an error");
+    // The error is about the missing `}` at the end of `type T`, not about
+    // something inside `def x`.
+    assert!(err.contains("expected"), "{err}");
+    assert!(!err.contains("def x"), "{err}");
+}

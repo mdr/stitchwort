@@ -125,7 +125,8 @@ pub enum Tok {
 pub struct Token {
     pub tok: Tok,
     pub span: Span,
-    /// Byte offset from the start of the line. Declarations start at column 0.
+    /// Byte offset from the start of the line. Declarations start at column 0, except that a `,` or
+    /// closing bracket there continues an open bracket.
     pub column: u32,
     /// Whether this is the first token on its line. Blocks use this to find
     /// where each line starts.
