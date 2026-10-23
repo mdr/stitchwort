@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches 1
+   ╭─[ reject/fin-match-expression-missing.sw:7:3 ]
+   │
+ 7 │ ╭─▶   match index with
+   ┆ ┆   
+ 9 │ ├─▶     | 2 => "two"
+   │ │                      
+   │ ╰────────────────────── missing case: no alternative of this `match` matches 1
+   │     
+   │     Note: here `index` has type `Fin 3`, so it can be 1
+───╯

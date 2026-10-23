@@ -129,20 +129,36 @@ fn compile<'a>(
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
     cx.e.compile(&rows, cx.level(), columns, &types, span)
-        .map_err(|d| match kind {
-            _ if d.code != "E-NONEXHAUSTIVE" => d,
-            MatchKind::Match => {
-                let reword =
-                    |s: &str| s.replace("no arm matches", "no alternative of this `match` matches");
-                let mut d = d;
-                d.message = reword(&d.message);
-                for label in &mut d.labels {
-                    label.message = reword(&label.message);
-                }
-                d
+        .map_err(|d| in_context(cx, d, kind, alts, columns))
+}
+
+/// A coverage error as the construct being matched words it: the same for
+/// the errors found while the alternatives are compiled and for the
+/// indexed-family check made as they are checked (`families::case_branch`).
+/// Anything but a missing case is left as it is.
+fn in_context(
+    cx: &Ctx,
+    d: Diagnostic,
+    kind: MatchKind,
+    alts: &[Alt],
+    columns: &[usize],
+) -> Diagnostic {
+    if d.code != "E-NONEXHAUSTIVE" || !d.message.contains("no arm matches") {
+        return d;
+    }
+    match kind {
+        MatchKind::Match => {
+            let reword =
+                |s: &str| s.replace("no arm matches", "no alternative of this `match` matches");
+            let mut d = d;
+            d.message = reword(&d.message);
+            for label in &mut d.labels {
+                label.message = reword(&label.message);
             }
-            MatchKind::Let | MatchKind::Lambda => refutable(cx, &d, alts, columns),
-        })
+            d
+        }
+        MatchKind::Let | MatchKind::Lambda => refutable(cx, &d, alts, columns),
+    }
 }
 
 /// `E-LET-REFUTABLE` (§5.1): a pattern in `let` or in a lambda must match
@@ -194,6 +210,7 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
     }
     Some(compile(cx, alts, &columns, span, kind).and_then(|tree| {
         crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+            .map_err(|d| in_context(cx, d, kind, alts, &columns))
     }))
 }
 
@@ -308,7 +325,8 @@ fn lifted(
             })
             .collect();
         let tree = compile(cx, alts, &levels, span, kind)?;
-        let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))?;
+        let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+            .map_err(|d| in_context(cx, d, kind, alts, &levels))?;
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
     generalised(cx, columns, exprs, alts, span, kind, goal, base)
@@ -489,7 +507,7 @@ fn generalised(
     );
     let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
     cx.scrutinees.truncate(known);
-    let body = body?;
+    let body = body.map_err(|d| in_context(cx, d, kind, alts, &levels))?;
     lift::draft(cx, base, extra, body, &motive, span)
 }
 
