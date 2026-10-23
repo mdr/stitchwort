@@ -30,7 +30,10 @@ def parseBanks (lines: List Text): {Fail} (List Bank) := readLines Bank.read lin
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
 
-def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 12)
+def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage part2Batteries)
+
+-- Part 2 turns on exactly this many batteries of each bank.
+def part2Batteries: Nat := 12
 
 -- The joltage of some batteries turned on: the number their digits spell, in order.
 def joltageOf (on: List Battery): Nat := Nat.fromDigits (on.map .toNat)
@@ -44,12 +47,17 @@ def Battery: Type := Fin 10
 -- A bank of batteries: a digit on each.
 def Bank: Type := List Battery
 
--- "818" is the batteries 8, 1, 8. A bank has at least one battery.
+-- A row of digits is a bank of that many batteries. A bank must have the
+-- `part2Batteries` that part 2 turns on (and so the 2 of part 1), so the
+-- program only runs on banks the headline theorem covers (`enough` in
+-- Proofs/Best.sw). A shorter one is an input error.
 def Bank.read (t: Text): {Fail} Bank :=
   let msg := "expected a row of digits, got '${t}'"
   match t.trim.toList with
     | Nil => fail msg
-    | chars => chars |> .mapIn (c => need c.toDigit msg)
+    | chars =>
+      let bank := chars |> .mapIn (c => need c.toDigit msg)
+      if bank.length < part2Batteries then fail "expected at least ${part2Batteries} batteries, got ${bank.length}" else bank
 
 -- The digits of the largest k-digit number that is a subsequence of the bank (k digits, or all of them if the bank has fewer).
 def Bank.best: Nat -> Bank -> Bank
