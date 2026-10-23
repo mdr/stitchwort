@@ -23,9 +23,16 @@ pub type Result<T> = std::result::Result<T, Diagnostic>;
 /// (docs/proposals/stack-safe-evaluation.md).
 pub(crate) const PASS: &str = "elaborator";
 
-/// How many elements of a list literal are written as one `Cons` chain; a
-/// longer literal is several chains joined by `append`s (SW-62).
+/// How many elements of a list literal are written as one `Cons` chain when
+/// it's too long to be one; then it's several chains joined by `append`s
+/// (SW-62).
 const LITERAL_CHUNK: usize = 64;
+
+/// The stack a `Cons` chain costs per element, rounded up from what was
+/// measured on 2026-10-22: about 1,850 bytes of the limit's stack (a limit of
+/// 1.2 MB took 640 elements, 50 MB took 27,136, checking and running `main`).
+/// A literal whose chain would use more than the limit's stack is chunked.
+const LITERAL_BYTES: usize = 2400;
 
 pub struct Ctx<'e> {
     pub e: &'e Elaborator,
@@ -1591,8 +1598,17 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             // zonking, lowering, code generation, …): so it's cut into chunks
             // joined by a balanced tree of `append`s, which is as deep as a
             // chunk plus the logarithm of their number (SW-62).
+            // Chunking is a fallback: evaluating the `append`s costs about
+            // 200 steps an element, so a literal that fits the stack as one
+            // chain stays one (SW-332: `rfl` on a 20,000-element literal got
+            // six times dearer).
+            let chunk = if terms.len() <= cx.e.limits.stack / LITERAL_BYTES {
+                usize::MAX
+            } else {
+                LITERAL_CHUNK
+            };
             let mut chunks: Vec<Term> = terms
-                .chunks(LITERAL_CHUNK)
+                .chunks(chunk)
                 .map(|chunk| {
                     let mut term = Term::Ctor(list, nil, Vec::new());
                     for item in chunk.iter().rev() {

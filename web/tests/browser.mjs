@@ -1595,8 +1595,8 @@ test("Cmd-click in a project goes to the definition in another file, and a libra
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
   assert.equal(await sourceText(page), own);
   // Hovering a library name in a project.
-  await hoverAt(page, await whereIs(page, "List.rangeFrom size 1", 5, 9));
-  await page.until(`document.getElementById("navtip").textContent.includes("Std.List.rangeFrom")`, 30000, "a library name's tooltip");
+  await hoverAt(page, await whereIs(page, "List.range template.copies", 5, 5));
+  await page.until(`document.getElementById("navtip").textContent.includes("Std.List.range")`, 30000, "a library name's tooltip");
 }, { ms: 180000 });
 
 // Find references -------------------------------------------------------------------
