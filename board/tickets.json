@@ -5521,7 +5521,7 @@
     {
       "id": 349,
       "title": "Build attributes stage 1: @[...] syntax, js.tag, js.name, $tag default, cache tables (SW-341 note, D626)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -5531,7 +5531,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "48e84f0b",
+        "28a1f876"
+      ]
     },
     {
       "id": 350,
@@ -5584,9 +5587,9 @@
     {
       "id": 353,
       "title": "Attributes stage 2: mutable lists in .d.ts, js.optional on constructor fields (queued until SW-349 merges; D665)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (D665)",
       "labels": [
         "js"
       ],
