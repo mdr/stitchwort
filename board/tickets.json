@@ -1,5 +1,5 @@
 {
-  "next": 397,
+  "next": 399,
   "tickets": [
     {
       "id": 1,
@@ -6030,7 +6030,7 @@
     {
       "id": 376,
       "title": "Language server stage 2d: goal at the cursor (stitchwort/goalAt, VS Code panel) (D640)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -6039,7 +6039,9 @@
       "body": "From docs/proposals/lsp-goal-holes.md §8 row 2d; D640 (Matt): later, its own stage. Also there: 2a's known gaps (a ? in a signature used from another namespace says 'has errors'; '? ?' gives a type mismatch; a ? reached in instance search may show the search's error).",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "69864f03"
+      ]
     },
     {
       "id": 377,
@@ -6354,6 +6356,34 @@
       "where": "",
       "labels": [
         "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 397,
+      "title": "Bench: counts_repeat_within_a_process fails deterministically (counts differ between two runs in one process); cause before 7302d7cc (found by D1080 checkpoint)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 398,
+      "title": "Bench: counts_have_not_regressed fails (check-closed-* +14% from std growth, SW-370; check-nested-parens peak heap +129% from SW-366 F0 lexer; text-append/split-join/number-dependent heap) — investigate parens, rebaseline explained deltas (found by D1080 checkpoint)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tooling"
       ],
       "body": "",
       "created": "2026-10-23",
