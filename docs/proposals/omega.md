@@ -178,7 +178,9 @@ logic); `contraVoid`; then `checkCertSound` by induction on the certificate, and
 on the way: an `Eq.cong (t => Int.add t (c % d))` whose lambda mentions `%` (an `auto` proof)
 was refused against a statement printed identically, while the same step with the `%` term
 abstracted to a variable passed **[run]**; the proof avoids it by stating `Int.mulAddAddMul`
-over variables. Not investigated further.
+over variables. Fixed by SW-323: the lambda's proof was still an unknown applied to `t`, and once
+the lambda was applied to a term (not a variable) unification couldn't solve it; an `auto`
+proof's unknown may now ignore such an argument when its statement doesn't mention it.
 
 **`Int` lemmas added** (`Int/Int.sw`, all by cases on the constructors): `Int.addCong`,
 `Int.addNonneg`, `Int.mulNonneg`, `Int.notNonnegOfIsNeg`, `Int.zeroMul`, `Int.negOneMul`,

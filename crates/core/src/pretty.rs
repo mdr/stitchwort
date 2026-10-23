@@ -431,6 +431,11 @@ impl<'g> Printer<'g> {
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
+            // Asked for the hidden arguments: shown even where the call has a
+            // notation of its own, such as the proof in `c % 7` (SW-323).
+            Term::App(..) if self.show_hidden.get() && has_hidden_argument(term) => {
+                self.applied_with_hidden(names, term)
+            }
             Term::App(..) => {
                 // Implicit arguments are filled in by the compiler, so they
                 // aren't shown.
@@ -696,6 +701,18 @@ fn is_atomic(term: &Term) -> bool {
         term,
         Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Nat(_)
     )
+}
+
+/// Whether a call has an implicit or auto argument.
+fn has_hidden_argument(term: &Term) -> bool {
+    let mut head = term.strip_loc();
+    while let Term::App(f, _, icit) = head {
+        if *icit != Icit::Explicit {
+            return true;
+        }
+        head = f.strip_loc();
+    }
+    false
 }
 
 fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {

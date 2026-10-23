@@ -389,6 +389,11 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
     let mut renaming = HashMap::new();
     let mut repeated = Vec::new();
     let mut icits = Vec::new();
+    // An `auto` argument's unknown proof, inside a lambda that's been
+    // applied to a term (`(t => c % 7) (f x)`), has that term in its spine.
+    // When its statement doesn't depend on that position, a solution may
+    // simply not mention it (SW-323).
+    let ignorable = g.meta_ignorable(m);
     for elim in spine {
         match elim {
             Elim::App(arg, icit) => match force(g, arg.clone())? {
@@ -396,6 +401,12 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
                     if renaming.insert(l, icits.len()).is_some() {
                         repeated.push(l);
                     }
+                    icits.push(*icit);
+                }
+                _ if ignorable
+                    .as_ref()
+                    .is_some_and(|i| i.get(icits.len()) == Some(&true)) =>
+                {
                     icits.push(*icit);
                 }
                 _ => return Ok(false),
@@ -1121,6 +1132,49 @@ mod tests {
         let (m, lhs) = meta(&g, &[0, 0]);
         assert!(unify(&g, 1, &lhs, &ty()).unwrap());
         assert!(g.meta_solution(m).is_some());
+    }
+
+    /// `?m x0 (x0 = x0)`, the second argument not a variable.
+    fn meta_with_a_term(g: &Globals) -> (usize, Value) {
+        let m = g.new_meta(span());
+        let spine = [
+            Elim::App(Value::var(0), Icit::Explicit),
+            Elim::App(eq(Value::var(0), Value::var(0)), Icit::Explicit),
+        ]
+        .into_iter()
+        .collect();
+        (m, Value::Neutral(Head::Meta(m), spine))
+    }
+
+    #[test]
+    fn solves_an_ignorable_argument_that_is_not_a_variable() {
+        let g = globals();
+        // A proof's unknown whose statement doesn't depend on its second
+        // argument (SW-323): ?m x0 (x0 = x0) = x0 is solved by `a b => a`.
+        let (m, lhs) = meta_with_a_term(&g);
+        g.set_meta_ignorable(m, Rc::from([false, true]));
+        assert!(unify(&g, 1, &lhs, &Value::var(0)).unwrap());
+        let solution = g.meta_solution(m).expect("solved");
+        let applied = apply_icit(
+            &g,
+            apply_icit(&g, solution, Value::var(5), Icit::Explicit).unwrap(),
+            Value::var(7),
+            Icit::Explicit,
+        )
+        .unwrap();
+        assert!(is_var(&g, &applied, 5));
+    }
+
+    #[test]
+    fn refuses_an_argument_that_is_not_a_variable_unless_ignorable() {
+        let g = globals();
+        let (m, lhs) = meta_with_a_term(&g);
+        assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
+        assert!(g.meta_solution(m).is_none());
+        let (m, lhs) = meta_with_a_term(&g);
+        g.set_meta_ignorable(m, Rc::from([true, false]));
+        assert!(!unify(&g, 1, &lhs, &Value::var(0)).unwrap());
+        assert!(g.meta_solution(m).is_none());
     }
 
     #[test]
