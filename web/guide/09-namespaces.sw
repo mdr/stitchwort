@@ -13,7 +13,7 @@ def Item.cost (i: Item) (quantity: Nat): Nat := i.cents * quantity
 def parse (line: Text): Option Item :=
   match split ',' line with
     | [name, cents] => Option.map (c => ({ name, cents = c }: Item)) cents.toNat
-    | _             => None
+    | _ => None
 
 test "parse" := parse "tea,250" == Some { name = "tea", cents = 250 }
 test "bad line" := parse "tea" == None

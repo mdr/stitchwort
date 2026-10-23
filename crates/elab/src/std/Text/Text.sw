@@ -5,7 +5,7 @@
 theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := rfl
 
 theorem Text.lengthAppend (a: Text) (b: Text):
-  Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
+    Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
 
 -- `Text.padRight n c t` is `t` followed by enough copies of `c` to make it
 -- n characters long (it is `t` itself when that is already n long or longer).
@@ -23,7 +23,7 @@ def Text.joinPair (s: Char): Pair (List Char) (List (List Char)) -> List Char
 
 theorem Text.joinCons (s: Char) (c: Char) (f: List Char): (fs: List (List Char)) ->
     Text.joinChars s (Cons c f) fs = Cons c (Text.joinChars s f fs)
-  | Nil       => rfl
+  | Nil => rfl
   | Cons g gs => rfl
 
 theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
@@ -35,12 +35,12 @@ theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
 theorem Text.joinSplitChars (s: Char): (cs: List Char) -> Text.joinPair s (Text.splitChars s cs) = cs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons c cs =>
     Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
 
 theorem Text.charListsOfTexts: (fs: List (List Char)) -> Text.charListsOf (Text.textsOf fs) = fs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons f fs => Eq.cong (Cons f) (Text.charListsOfTexts fs)
 
 theorem Text.joinSplitTexts (s: Char): (p: Pair (List Char) (List (List Char))) ->
@@ -55,27 +55,27 @@ theorem Text.joinSplit (s: Char): (t: Text) -> Text.join s (Text.split s t) = t
 
 def Char.isLineFeedCode: Nat -> Bool
   | 10 => True
-  | _  => False
+  | _ => False
 
 def Char.isCarriageReturnCode: Nat -> Bool
   | 13 => True
-  | _  => False
+  | _ => False
 
 -- A line that ended with a line feed, from its characters newest first,
 -- without a carriage return just before the line feed.
 def Text.endLine: List Char -> Text
-  | Nil       => MkText Nil
+  | Nil => MkText Nil
   | Cons c cs => MkText (List.reverseOnto (if Char.isCarriageReturnCode (Char.toNat c) then cs else Cons c cs) Nil)
 
 -- The last line, if the text doesn't end with a line feed: kept whole.
 def Text.lastLine: List Char -> List Text -> List Text
-  | Nil,       acc => acc
+  | Nil, acc => acc
   | Cons c cs, acc => Cons (MkText (List.reverseOnto (Cons c cs) Nil)) acc
 
 -- `line` is the current line's characters, newest first, and `acc` the
 -- finished lines, newest first.
 def Text.linesFrom (line: List Char) (acc: List Text): List Char -> List Text
-  | Nil       => List.reverseOnto (Text.lastLine line acc) Nil
+  | Nil => List.reverseOnto (Text.lastLine line acc) Nil
   | Cons c cs =>
     if Char.isLineFeedCode (Char.toNat c) then Text.linesFrom Nil (Cons (Text.endLine line) acc) cs
     else Text.linesFrom (Cons c line) acc cs
@@ -108,13 +108,13 @@ def Text.sameChar (a: Char) (b: Char): Bool := Nat.equal (Char.toNat a) (Char.to
 
 -- The rest of the characters after the prefix `p`, if they start with it.
 def Text.stripPrefixChars: List Char -> List Char -> Option (List Char)
-  | Nil,       ys        => Some ys
-  | Cons p ps, Nil       => None
+  | Nil, ys => Some ys
+  | Cons p ps, Nil => None
   | Cons p ps, Cons y ys => if Text.sameChar p y then Text.stripPrefixChars ps ys else None
 
 def Text.startsWithChars: List Char -> List Char -> Bool
-  | Nil,       ys        => True
-  | Cons p ps, Nil       => False
+  | Nil, ys => True
+  | Cons p ps, Nil => False
   | Cons p ps, Cons y ys => if Text.sameChar p y then Text.startsWithChars ps ys else False
 
 -- `Text.stripPrefix p t` is the rest of `t` after `p`, or `None` if `t`
@@ -134,7 +134,7 @@ def Text.endsWith (suffix: Text) (t: Text): Bool :=
   Text.startsWithChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList t))
 
 def Text.containsChars (p: List Char): List Char -> Bool
-  | Nil       => Text.startsWithChars p Nil
+  | Nil => Text.startsWithChars p Nil
   | Cons c cs => if Text.startsWithChars p (Cons c cs) then True else Text.containsChars p cs
 
 -- Whether `p` occurs in the text. The empty text occurs in every text.
@@ -145,9 +145,9 @@ def Text.contains (p: Text) (t: Text): Bool := Text.containsChars (Text.toList p
 -- just found are still to be passed over. `n` is the separator's length
 -- less one.
 def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): List Char -> Nat -> List Text
-  | Nil,       skip      => List.reverseOnto (Cons (MkText (List.reverseOnto cur Nil)) acc) Nil
+  | Nil, skip => List.reverseOnto (Cons (MkText (List.reverseOnto cur Nil)) acc) Nil
   | Cons c cs, Succ skip => Text.splitOnLoop sep n cur acc cs skip
-  | Cons c cs, Zero      =>
+  | Cons c cs, Zero =>
     let hit := Text.startsWithChars sep (Cons c cs)
     Text.splitOnLoop sep n
       (if hit then Nil else Cons c cur)
@@ -156,8 +156,8 @@ def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text)
       (if hit then n else Zero)
 
 def Text.splitOnChars: List Char -> List Char -> List Text
-  | Nil,        cs => Cons (MkText cs) Nil
-  | Cons s ss,  cs => Text.splitOnLoop (Cons s ss) (List.length ss) Nil Nil cs Zero
+  | Nil, cs => Cons (MkText cs) Nil
+  | Cons s ss, cs => Text.splitOnLoop (Cons s ss) (List.length ss) Nil Nil cs Zero
 
 -- Splits at each occurrence of the whole separator, scanning left to right
 -- without overlaps: `"a--b".splitOn "-"` gives ["a", "", "b"], and
@@ -172,7 +172,7 @@ theorem Text.sameCharRefl (c: Char): Text.sameChar c c = True := Nat.equalRefl (
 
 theorem Text.stripPrefixCharsAppend (t: List Char): (p: List Char) ->
     Text.stripPrefixChars p (List.append p t) = Some t
-  | Nil       => rfl
+  | Nil => rfl
   | Cons c ps =>
     Eq.trans (Eq.cong (b => if b then Text.stripPrefixChars ps (List.append ps t) else None) (Text.sameCharRefl c))
       (Text.stripPrefixCharsAppend t ps)
@@ -183,7 +183,7 @@ theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix p (Text.app
 
 theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) ->
     Text.startsWithChars p (List.append p t) = True
-  | Nil       => rfl
+  | Nil => rfl
   | Cons c ps =>
     Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps (List.append ps t) else False) (Text.sameCharRefl c))
       (Text.startsWithCharsAppend t ps)
@@ -192,8 +192,8 @@ theorem Text.startsWithAppend (p: Text) (t: Text): Text.startsWith p (Text.appen
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)
 
 theorem Text.takeDropChars: (n: Nat) -> (cs: List Char) -> List.append (List.take n cs) (List.drop n cs) = cs
-  | Zero,   cs        => rfl
-  | Succ n, Nil       => rfl
+  | Zero, cs => rfl
+  | Succ n, Nil => rfl
   | Succ n, Cons c cs => Eq.cong (Cons c) (Text.takeDropChars n cs)
 
 theorem Text.takeAppendDrop (n: Nat) (t: Text): Text.append (Text.take n t) (Text.drop n t) = t :=

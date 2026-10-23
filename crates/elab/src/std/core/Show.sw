@@ -18,18 +18,18 @@ def Char.toText (c: Char): Text := MkText [c]
 
 -- `"True"` or `"False"`, as the constructors are written.
 def Bool.toText: Bool -> Text
-  | True  => "True"
+  | True => "True"
   | False => "False"
 
 def Ordering.toText: Ordering -> Text
-  | Less    => "Less"
-  | Equal   => "Equal"
+  | Less => "Less"
+  | Equal => "Equal"
   | Greater => "Greater"
 
-interface Show (a: Type) =
-  { toText: a -> Text
-  , toSource: a -> Text
-  }
+interface Show (a: Type) = {
+  toText: a -> Text,
+  toSource: a -> Text
+}
 
 -- An instance whose two fields are the same: for numbers, and for a user's
 -- own type with a `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
@@ -47,14 +47,14 @@ def Show.escapeChar (q: Char) (c: Char) (rest: List Char): List Char :=
 -- As above, for a character that's followed by `next`: a `$` before a `{`
 -- would start an interpolation.
 def Show.escapeBefore (q: Char) (c: Char) (rest: List Char): List Char -> List Char
-  | Nil      => Show.escapeChar q c rest
+  | Nil => Show.escapeChar q c rest
   | Cons d _ =>
     if Nat.equal (Char.toNat c) 36 then
       (if Nat.equal (Char.toNat d) 123 then Cons '\\' (Cons c rest) else Cons c rest)
     else Show.escapeChar q c rest
 
 def Show.escapeChars (q: Char): List Char -> List Char
-  | Nil       => Nil
+  | Nil => Nil
   | Cons c cs => Show.escapeBefore q c (Show.escapeChars q cs) cs
 
 -- `"tea"` with its quotes and escapes.
@@ -65,7 +65,7 @@ def Show.quoteText (t: Text): Text :=
 def Show.quoteChar (c: Char): Text := MkText (Cons '\'' (Show.escapeChar '\'' c (Cons '\'' Nil)))
 
 def Show.hasSpace: List Char -> Bool
-  | Nil       => False
+  | Nil => False
   | Cons c cs => if Nat.equal (Char.toNat c) 32 then True else Show.hasSpace cs
 
 -- Whether text starts like a bracketed or quoted thing, which reads as one
@@ -80,7 +80,7 @@ def Show.startsBracketed (c: Char): Bool :=
 -- An argument of a constructor: bracketed when it has spaces and isn't
 -- already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`).
 def Show.argOf (t: Text): List Char -> Text
-  | Nil       => t
+  | Nil => t
   | Cons c cs =>
     if Nat.equal (Char.toNat c) 45 then Text.append "(" (Text.append t ")")
     else if Show.startsBracketed c then t
@@ -90,11 +90,11 @@ def Show.argOf (t: Text): List Char -> Text
 def Show.arg (t: Text): Text := Show.argOf t (Text.toList t)
 
 def Show.itemsAfter (f: a -> Text): List a -> Text
-  | Nil       => ""
+  | Nil => ""
   | Cons x xs => Text.append ", " (Text.append (f x) (Show.itemsAfter f xs))
 
 def Show.items (f: a -> Text): List a -> Text
-  | Nil       => ""
+  | Nil => ""
   | Cons x xs => Text.append (f x) (Show.itemsAfter f xs)
 
 -- `[1, 2, 3]`, the elements through `f`.
@@ -103,7 +103,7 @@ def Show.list (f: a -> Text) (xs: List a): Text :=
 
 def Option.showWith (f: a -> Text): Option a -> Text
   | None => "None"
-  | Some x  => Text.append "Some " (Show.arg (f x))
+  | Some x => Text.append "Some " (Show.arg (f x))
 
 instance Nat.instShow: Show Nat := Show.fromText Nat.toText
 
@@ -124,7 +124,7 @@ instance Option.instShow [auto show: Show a]: Show (Option a) :=
   Show.fromText (Option.showWith (x => Show.toSource x))
 
 def Result.showWith (f: a -> Text) (g: e -> Text): Result a e -> Text
-  | Ok x  => Text.append "Ok " (Show.arg (f x))
+  | Ok x => Text.append "Ok " (Show.arg (f x))
   | Err m => Text.append "Err " (Show.arg (g m))
 
 instance Result.instShow [auto showA: Show a] [auto showE: Show e]: Show (Result a e) :=
@@ -135,4 +135,3 @@ def Pair.showWith (f: a -> Text) (g: b -> Text): Pair a b -> Text
 
 instance Pair.instShow [auto showA: Show a] [auto showB: Show b]: Show (Pair a b) :=
   Show.fromText (Pair.showWith (x => Show.toSource x) (y => Show.toSource y))
-

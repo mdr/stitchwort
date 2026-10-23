@@ -30,7 +30,7 @@ type Team = { lead: Person, size: Nat }
 def leadName (t: Team): Text := t.lead.name
 
 def firstLead: List Team -> Text
-  | Nil                                     => "nobody"
+  | Nil => "nobody"
   | Cons ({ lead = { name, .. }, .. }) rest => name
 
 -- Parameters and dependent fields, as for data types: `ok` mentions the

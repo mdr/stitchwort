@@ -17,15 +17,15 @@ def fromEmpty: Empty -> a
   | ()
 
 def eqNats: List Nat -> List Nat -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 def eqPairs: List (Pair Nat Nat) -> List (Pair Nat Nat) -> Bool
-  | Nil,                  Nil                  => True
+  | Nil, Nil => True
   | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
-  | _,                    _                    => False
+  | _, _ => False
 
 -- Abilities
 
@@ -49,28 +49,28 @@ ability Log where
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => st => MkPair x st
-      | get u, k       => st => k st st
-      | put st2, k     => st => k() st2
+      | return x => st => MkPair x st
+      | get u, k => st => k st st
+      | put st2, k => st => k() st2
   run init
 
 -- Resumes twice: every outcome, `True` first.
 def allResults (prog: () -> {Choose | e} a): {e} List a :=
   handle prog() with
-    | return x       => [x]
-    | choose u, k    => List.append (k True) (k False)
+    | return x => [x]
+    | choose u, k => List.append (k True) (k False)
 
 -- Never resumes.
 def toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x      => Some x
-    | abort u, k    => None
+    | return x => Some x
+    | abort u, k => None
 
 -- Collects what's said, in order.
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x     => MkPair Nil x
-    | say n, k     =>
+    | return x => MkPair Nil x
+    | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 
@@ -92,11 +92,11 @@ test "choice inside state: the state threads through" :=
 -- A clause's own `get` goes to the next `State` handler out.
 def scaleGets (prog: () -> {State Nat | e} a): {State Nat | e} a :=
   handle prog() with
-    | return x      => x
-    | get u, k      =>
+    | return x => x
+    | get u, k =>
       let m := get()
       k (m * 10)
-    | put n, k      =>
+    | put n, k =>
       put n
       k()
 
@@ -110,7 +110,7 @@ def safeDiv (n: Nat) (d: Nat): {Abort} Nat :=
 
 def orZero: Option Nat -> Nat
   | None => 0
-  | Some x  => x
+  | Some x => x
 
 test "abort stops" := orZero (toOption (u => safeDiv 7 0)) == 0
 test "no abort" :=

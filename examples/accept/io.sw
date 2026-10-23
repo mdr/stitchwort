@@ -5,9 +5,9 @@
 import Std (IO, List, Nat, Pair)
 
 def eqTexts: List Text -> List Text -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 -- What a simulated run printed, and its result.
 def printed (r: Pair (List Text) a): List Text := Pair.fst r
@@ -16,11 +16,11 @@ def result (r: Pair (List Text) a): a := Pair.snd r
 
 def isSomeText (t: Text): Option Text -> Bool
   | None => False
-  | Some u  => t == u
+  | Some u => t == u
 
 def isNone: Option a -> Bool
   | None => True
-  | Some x  => False
+  | Some x => False
 
 -- Printing
 
@@ -75,12 +75,12 @@ test "unread input is ignored" :=
 -- bound keeps the recursion structural.
 def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
   | None, more => ()
-  | Some l,  more =>
+  | Some l, more =>
     IO.print l
     more()
 
 def echo: Nat -> {IO} ()
-  | 0      => ()
+  | 0 => ()
   | Succ n => echoLine (IO.readLine()) (u => echo n)
 
 test "echo" :=
@@ -95,12 +95,12 @@ test "echo with no input prints nothing" :=
 -- Numbers each line, and returns how many there were.
 def numberLine (i: Nat): Option Text -> (() -> {IO} Nat) -> {IO} Nat
   | None, more => i - 1
-  | Some l,  more =>
+  | Some l, more =>
     IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
 def numberFrom (i: Nat): Nat -> {IO} Nat
-  | 0      => i - 1
+  | 0 => i - 1
   | Succ n => numberLine i (IO.readLine()) (u => numberFrom (i + 1) n)
 
 def numbered: Pair (List Text) Nat := IO.simulate ["apple", "banana", "cherry"] (u => numberFrom 1 100)
@@ -113,7 +113,7 @@ test "numbering lines: the count" := result numbered == 3
 -- A prompt, then a read, then a reply.
 def textOr (d: Text): Option Text -> Text
   | None => d
-  | Some t  => t
+  | Some t => t
 
 def greet(): {IO} () :=
   IO.print "Name?"
@@ -143,15 +143,15 @@ ability Abort where
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => st => MkPair x st
-      | get u, k       => st => k st st
-      | put st2, k     => st => k() st2
+      | return x => st => MkPair x st
+      | get u, k => st => k st st
+      | put st2, k => st => k() st2
   run init
 
 def toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x      => Some x
-    | abort u, k    => None
+    | return x => Some x
+    | abort u, k => None
 
 -- Reads two lines, counting them in the state, and prints the count.
 def countIS(): {IO, State Nat} () :=
@@ -181,10 +181,10 @@ def stateOutside (prog: () -> {State Nat, IO} ()): Pair (List Text) Nat :=
 
 def checkCount (r: Pair (List Text) Nat): Bool := if eqTexts (Pair.fst r) ["12"] then Pair.snd r == 12 else False
 
-test "IO then State, State handled inside"    := checkCount (stateInside countIS)
-test "IO then State, State handled outside"   := checkCount (stateOutside countIS)
-test "State then IO, State handled inside"    := checkCount (stateInside countSI)
-test "State then IO, State handled outside"   := checkCount (stateOutside countSI)
+test "IO then State, State handled inside" := checkCount (stateInside countIS)
+test "IO then State, State handled outside" := checkCount (stateOutside countIS)
+test "State then IO, State handled inside" := checkCount (stateInside countSI)
+test "State then IO, State handled outside" := checkCount (stateOutside countSI)
 
 -- Prints, then stops.
 def printThenAbort(): {IO, Abort} Nat :=
@@ -228,7 +228,7 @@ test "a program with only State" :=
 -- A long run
 
 def printMany: Nat -> {IO} ()
-  | 0      => ()
+  | 0 => ()
   | Succ n =>
     IO.print "x"
     printMany n

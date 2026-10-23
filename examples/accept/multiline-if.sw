@@ -45,16 +45,16 @@ ability Say where
 
 def withHandler (n: Nat): Nat :=
   handle say n with
-    | return x      => if n == 0 then 7
-                       else 8
-    | say m, k    => if m == 0 then 9
-                       else if m == 1 then 10
-                       else 11
+    | return x => if n == 0 then 7
+      else 8
+    | say m, k => if m == 0 then 9
+      else if m == 1 then 10
+      else 11
 
 -- Indented `else` still works.
 def indented (n: Nat): Nat :=
   if n == 0 then 1
-    else 2
+  else 2
 
 test "sign" := sign 0 == 0
 test "sign of a positive" := sign 5 == 1

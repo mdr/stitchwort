@@ -9,27 +9,27 @@ import Std (Eq, Nat, Void)
 -- In the tree: the whole right-hand side.
 def describe (xs: List Nat): Text :=
   match xs with
-    | Nil        => "empty"
+    | Nil => "empty"
     | Cons x Nil => "one"
-    | _          => "many"
+    | _ => "many"
 
 -- Lifted: the `match` is an argument of `+`. Not a tail call.
 def count (n: Nat): Nat := 1 + match n with
-                | Zero   => 0
-                | Succ k => count k
+  | Zero => 0
+  | Succ k => count k
 
 -- In the tree, with a recursive call in tail position.
 def countTail (n: Nat): Nat := match n with | Zero => 0 | Succ k => countTail k
 
 -- Lifted, with a variable of the equation used in a branch.
 def f (n: Nat) (xs: List Nat): Nat := 1 + match xs with
-               | Nil      => n
-               | Cons x _ => x + n
+  | Nil => n
+  | Cons x _ => x + n
 
 -- A proof by `match`, in the tree.
 theorem appendNil (xs: List a): xs.append Nil = xs :=
   match xs with
-    | Nil       => rfl
+    | Nil => rfl
     | Cons y ys => Eq.cong (Cons y) (appendNil ys)
 
 -- A `match` in a test.
@@ -129,17 +129,17 @@ def sndOf: Pair a b -> b
   | MkPair x y => y
 
 def eqNats: List Nat -> List Nat -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 ability Log where
   say: Nat -> {Log} ()
 
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x     => MkPair Nil x
-    | say n, k     =>
+    | return x => MkPair Nil x
+    | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 

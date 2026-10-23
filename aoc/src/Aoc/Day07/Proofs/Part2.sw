@@ -18,7 +18,7 @@ theorem splitRowAt (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
   rewrite Vec.getOrZipWith3 (s here sides => if s then sides else here) False 1 2 1 rfl row below sides c in
     match e: splitterAt row c with
       | False => rfl
-      | True  =>
+      | True =>
         let inside: c < w := rewrite <- Vec.lengthToList row in setInside (Vec.toList row) c e
         rewrite Vec.getOrZipWith (l r => l + r) 1 1 2 rfl (below.shiftRight 1) (below.shiftLeft 1) c,
           Vec.getOrShiftLeft 1 below c, Vec.getOrShiftRight 1 1 below c inside
@@ -33,16 +33,16 @@ theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (b
     (if splitterAt l c then List.getOr 1 c (Cons 1 below) + List.getOr 1 (Succ c) below else List.getOr 1 c below)
       = List.length (timelinesFrom r c (Cons l rest)) :=
   match e: splitterAt l c with
-    | True  =>
+    | True =>
       match c with
-        | Zero   => rewrite List.lengthMap _ _ in Eq.cong Succ (ih 1)
+        | Zero => rewrite List.lengthMap _ _ in Eq.cong Succ (ih 1)
         | Succ b => rewrite List.lengthAppend _ _, List.lengthMap _ _, List.lengthMap _ _, Nat.addOne b, ih b, ih (Succ (Succ b))
     | False => ih c
 
 -- Every column's count is the number of timelines from it.
 theorem countsAre (w: Nat): (ls: List (Vec Bool w)) -> (r: Nat) -> (c: Nat) ->
     List.getOr 1 c (Vec.toList (countsBelow w ls)) = List.length (timelinesFrom r c ls)
-  | Nil,         r, c => rewrite Vec.toListReplicate 1 w in List.getOrReplicate 1 c w
+  | Nil, r, c => rewrite Vec.toListReplicate 1 w in List.getOrReplicate 1 c w
   | Cons l rest, r, c =>
     rewrite splitRowAt l (countsBelow w rest) c in
       countStep l rest r c (Vec.toList (countsBelow w rest)) (c => countsAre w rest (r + 1) c)

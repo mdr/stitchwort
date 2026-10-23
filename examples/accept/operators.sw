@@ -65,20 +65,20 @@ def Below [auto ord: Ord a] (x: a) (y: a): Prop := x < y
 def below [auto ord: Ord a] (x: a) (y: a): Bool := if Below x y then True else False
 
 -- A named alternative with its own relations and deciders.
-def descending: Ord Nat :=
-  { compare = x y => Nat.compare y x
-  , lessThan = x y => Nat.LessThan y x
-  , lessEq = x y => Nat.LessEq y x
-  , decLessThan = x y => Nat.decLessThan y x
-  , decLessEq = x y => Nat.decLessEq y x
-  , equal = x y h => Eq.sym (Nat.compareEqual y x h)
-  , flip = x y => Nat.compareFlip y x
-  , trans = x y z h1 h2 => Nat.compareTrans z y x h2 h1
-  , lessThanOf = x y => Nat.lessOfCompare y x
-  , lessThanTo = x y => Nat.compareOfLess y x
-  , lessEqOf = x y => Nat.leOfCompare y x
-  , lessEqTo = x y => Nat.compareOfLe y x
-  }
+def descending: Ord Nat := {
+  compare = x y => Nat.compare y x,
+  lessThan = x y => Nat.LessThan y x,
+  lessEq = x y => Nat.LessEq y x,
+  decLessThan = x y => Nat.decLessThan y x,
+  decLessEq = x y => Nat.decLessEq y x,
+  equal = x y h => Eq.sym (Nat.compareEqual y x h),
+  flip = x y => Nat.compareFlip y x,
+  trans = x y z h1 h2 => Nat.compareTrans z y x h2 h1,
+  lessThanOf = x y => Nat.lessOfCompare y x,
+  lessThanTo = x y => Nat.compareOfLess y x,
+  lessEqOf = x y => Nat.leOfCompare y x,
+  lessEqTo = x y => Nat.compareOfLe y x
+}
 
 -- Generalising a function's type doesn't change what it does: `before` and
 -- `beforeNat` agree, with the library's order and with `descending`.

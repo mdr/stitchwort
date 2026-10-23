@@ -42,4 +42,3 @@ def Void.absurd: Void -> a
 -- only be a type of data.)
 def Void.exfalso: [p: Prop] -> Void -> p
   | ()
-

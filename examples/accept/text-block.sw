@@ -16,8 +16,8 @@ def example: Text := """
   """
 
 -- AoC day 1's example, inline: `Text.lines` ignores the final newline.
-test "the example has ten lines"  := example.lines.length == 10
-test "its first line"             := example.lines.head == Some "L68"
+test "the example has ten lines" := example.lines.length == 10
+test "its first line" := example.lines.head == Some "L68"
 test "it is the same as one line" :=
   example == "L68\nL30\nR48\nL5\nR60\nL55\nL1\nL99\nR14\nL82\n"
 

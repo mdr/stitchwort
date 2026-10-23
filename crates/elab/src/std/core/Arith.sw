@@ -51,39 +51,39 @@ theorem Nat.mulAssoc: (a: Nat) -> (b: Nat) -> (c: Nat) -> (a * b) * c = a * (b *
 -- Addition laws, after Lean's core: case analysis on the constructors plus
 -- lemmas about `Int.subNatNat`.
 theorem Int.subNatNatZeroRight: (m: Nat) -> Int.subNatNat m 0 = OfNat m
-  | Zero   => rfl
+  | Zero => rfl
   | Succ m => rfl
 
 theorem Int.subNatNatFromSucc (m: Nat) (n: Nat): (t: Nat) ->
     Int.subNatNatFrom (Succ m) (Succ n) t = Int.subNatNatFrom m n t
-  | Zero   => rfl
+  | Zero => rfl
   | Succ t => rfl
 
 theorem Int.subNatNatSucc (m: Nat) (n: Nat): Int.subNatNat (Succ m) (Succ n) = Int.subNatNat m n := Int.subNatNatFromSucc m n (n - m)
 
 theorem Int.addZero: (a: Int) -> Int.add a (OfNat 0) = a
-  | OfNat m   => Eq.cong OfNat (Nat.addZero m)
+  | OfNat m => Eq.cong OfNat (Nat.addZero m)
   | NegSucc m => rfl
 
 theorem Int.zeroAdd: (a: Int) -> Int.add (OfNat 0) a = a
-  | OfNat m   => rfl
+  | OfNat m => rfl
   | NegSucc m => rfl
 
 theorem Int.addComm: (a: Int) -> (b: Int) -> Int.add a b = Int.add b a
-  | OfNat m,   OfNat n   => Eq.cong OfNat (Nat.addComm m n)
-  | OfNat m,   NegSucc n => rfl
-  | NegSucc m, OfNat n   => rfl
+  | OfNat m, OfNat n => Eq.cong OfNat (Nat.addComm m n)
+  | OfNat m, NegSucc n => rfl
+  | NegSucc m, OfNat n => rfl
   | NegSucc m, NegSucc n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm m n)
 
 -- Adding a natural number to a difference.
 theorem Int.ofNatAddSubNatNat (k: Nat): (m: Nat) -> (n: Nat) ->
     Int.add (OfNat k) (Int.subNatNat m n) = Int.subNatNat (m + k) n
-  | Zero,   Zero   =>
+  | Zero, Zero =>
     Eq.trans (Eq.cong OfNat (Nat.addZero k)) (Eq.sym (Int.subNatNatZeroRight k))
-  | Zero,   Succ n => rfl
-  | Succ m, Zero   =>
+  | Zero, Succ n => rfl
+  | Succ m, Zero =>
     Eq.trans (Eq.cong OfNat (Eq.trans (Nat.addSucc k m) (Eq.cong Succ (Nat.addComm k m))))
-             (Eq.sym (Int.subNatNatZeroRight (Succ (m + k))))
+      (Eq.sym (Int.subNatNatZeroRight (Succ (m + k))))
   | Succ m, Succ n =>
     Eq.trans (Eq.cong (Int.add (OfNat k)) (Int.subNatNatSucc m n))
       (Eq.trans (Int.ofNatAddSubNatNat k m n) (Eq.sym (Int.subNatNatSucc (m + k) n)))
@@ -95,9 +95,9 @@ theorem Int.subNatNatAddOfNat (k: Nat) (m: Nat) (n: Nat):
 -- Adding a negative number to a difference.
 theorem Int.negSuccAddSubNatNat (k: Nat): (m: Nat) -> (n: Nat) ->
     Int.add (NegSucc k) (Int.subNatNat m n) = Int.subNatNat m (Succ (n + k))
-  | Zero,   Zero   => rfl
-  | Zero,   Succ n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm k n)
-  | Succ m, Zero   => rfl
+  | Zero, Zero => rfl
+  | Zero, Succ n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm k n)
+  | Succ m, Zero => rfl
   | Succ m, Succ n =>
     Eq.trans (Eq.cong (Int.add (NegSucc k)) (Int.subNatNatSucc m n))
       (Eq.trans (Int.negSuccAddSubNatNat k m n) (Eq.sym (Int.subNatNatSucc m (Succ (n + k)))))
@@ -108,26 +108,26 @@ theorem Int.subNatNatAddNegSucc (k: Nat) (m: Nat) (n: Nat):
 
 theorem Int.addAssoc: (a: Int) -> (b: Int) -> (c: Int) ->
     Int.add (Int.add a b) c = Int.add a (Int.add b c)
-  | OfNat a,   OfNat b,   OfNat c   => Eq.cong OfNat (Nat.addAssoc a b c)
-  | OfNat a,   OfNat b,   NegSucc c =>
+  | OfNat a, OfNat b, OfNat c => Eq.cong OfNat (Nat.addAssoc a b c)
+  | OfNat a, OfNat b, NegSucc c =>
     Eq.trans (Eq.cong (t => Int.subNatNat t (Succ c)) (Nat.addComm a b))
-             (Eq.sym (Int.ofNatAddSubNatNat a b (Succ c)))
-  | OfNat a,   NegSucc b, OfNat c   =>
+      (Eq.sym (Int.ofNatAddSubNatNat a b (Succ c)))
+  | OfNat a, NegSucc b, OfNat c =>
     Eq.trans (Int.subNatNatAddOfNat c a (Succ b))
       (Eq.trans (Eq.cong (t => Int.subNatNat t (Succ b)) (Nat.addComm a c))
-                (Eq.sym (Int.ofNatAddSubNatNat a c (Succ b))))
-  | NegSucc a, OfNat b,   OfNat c   => Int.subNatNatAddOfNat c b (Succ a)
-  | OfNat a,   NegSucc b, NegSucc c => Int.subNatNatAddNegSucc c a (Succ b)
-  | NegSucc a, OfNat b,   NegSucc c =>
+        (Eq.sym (Int.ofNatAddSubNatNat a c (Succ b))))
+  | NegSucc a, OfNat b, OfNat c => Int.subNatNatAddOfNat c b (Succ a)
+  | OfNat a, NegSucc b, NegSucc c => Int.subNatNatAddNegSucc c a (Succ b)
+  | NegSucc a, OfNat b, NegSucc c =>
     Eq.trans (Int.subNatNatAddNegSucc c b (Succ a))
       (Eq.trans (Eq.cong (t => Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c))
-                (Eq.sym (Int.negSuccAddSubNatNat a b (Succ c))))
-  | NegSucc a, NegSucc b, OfNat c   =>
+        (Eq.sym (Int.negSuccAddSubNatNat a b (Succ c))))
+  | NegSucc a, NegSucc b, OfNat c =>
     Eq.trans (Eq.cong (t => Int.subNatNat c (Succ (Succ t))) (Nat.addComm a b))
-             (Eq.sym (Int.negSuccAddSubNatNat a c (Succ b)))
+      (Eq.sym (Int.negSuccAddSubNatNat a c (Succ b)))
   | NegSucc a, NegSucc b, NegSucc c =>
     Eq.trans (Eq.cong (t => NegSucc (Succ (Succ t))) (Nat.addAssoc a b c))
-             (Eq.cong (t => NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
+      (Eq.cong (t => NegSucc (Succ t)) (Eq.sym (Nat.addSucc a (b + c))))
 
 theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 
@@ -135,43 +135,43 @@ theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 -- `b`'s, negated when exactly one of them is negative.
 def Bool.xor: Bool -> Bool -> Bool
   | False, b => b
-  | True,  b => !b
+  | True, b => !b
 
 theorem Bool.xorAssoc: (a: Bool) -> (b: Bool) -> (c: Bool) -> Bool.xor (Bool.xor a b) c = Bool.xor a (Bool.xor b c)
-  | False, b,     c     => rfl
-  | True,  False, c     => rfl
-  | True,  True,  False => rfl
-  | True,  True,  True  => rfl
+  | False, b, c => rfl
+  | True, False, c => rfl
+  | True, True, False => rfl
+  | True, True, True => rfl
 
 def Int.isNeg: Int -> Bool
-  | OfNat n   => False
+  | OfNat n => False
   | NegSucc n => True
 
 -- `k`, negated if `neg`.
 def Int.signed: Bool -> Nat -> Int
   | False, k => OfNat k
-  | True,  k => Int.neg (OfNat k)
+  | True, k => Int.neg (OfNat k)
 
 theorem Int.mulSigned: (a: Int) -> (b: Int) ->
     Int.mul a b = Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b)
-  | OfNat m,   OfNat n   => rfl
-  | OfNat m,   NegSucc n => rfl
-  | NegSucc m, OfNat n   => rfl
+  | OfNat m, OfNat n => rfl
+  | OfNat m, NegSucc n => rfl
+  | NegSucc m, OfNat n => rfl
   | NegSucc m, NegSucc n => rfl
 
 theorem Int.signedMulLeft: (s: Bool) -> (k: Nat) -> (c: Int) ->
     Int.mul (Int.signed s k) c = Int.signed (Bool.xor s (Int.isNeg c)) (k * Int.natAbs c)
-  | False, k,      c         => Int.mulSigned (OfNat k) c
-  | True,  Zero,   OfNat n   => rfl
-  | True,  Zero,   NegSucc n => rfl
-  | True,  Succ j, c         => Int.mulSigned (NegSucc j) c
+  | False, k, c => Int.mulSigned (OfNat k) c
+  | True, Zero, OfNat n => rfl
+  | True, Zero, NegSucc n => rfl
+  | True, Succ j, c => Int.mulSigned (NegSucc j) c
 
 theorem Int.signedMulRight: (a: Int) -> (s: Bool) -> (k: Nat) ->
     Int.mul a (Int.signed s k) = Int.signed (Bool.xor (Int.isNeg a) s) (Int.natAbs a * k)
-  | a,         False, k      => Int.mulSigned a (OfNat k)
-  | a,         True,  Succ j => Int.mulSigned a (NegSucc j)
-  | OfNat n,   True,  Zero   => rewrite Nat.mulZero n in rfl
-  | NegSucc n, True,  Zero   => rewrite Nat.mulZero (Succ n) in rfl
+  | a, False, k => Int.mulSigned a (OfNat k)
+  | a, True, Succ j => Int.mulSigned a (NegSucc j)
+  | OfNat n, True, Zero => rewrite Nat.mulZero n in rfl
+  | NegSucc n, True, Zero => rewrite Nat.mulZero (Succ n) in rfl
 
 theorem Int.mulAssoc (a: Int) (b: Int) (c: Int): Int.mul (Int.mul a b) c = Int.mul a (Int.mul b c) :=
   Eq.trans (Eq.cong (t => Int.mul t c) (Int.mulSigned a b))
@@ -183,10 +183,9 @@ theorem Int.mulAssoc (a: Int) (b: Int) (c: Int): Int.mul (Int.mul a b) c = Int.m
           (Int.signedMulRight a (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c))))))
 
 theorem Int.oneMul: (a: Int) -> Int.mul (OfNat 1) a = a
-  | OfNat n   => Eq.cong OfNat (Nat.addZero n)
+  | OfNat n => Eq.cong OfNat (Nat.addZero n)
   | NegSucc n => Eq.cong NegSucc (Nat.addZero n)
 
 theorem Int.mulOne: (a: Int) -> Int.mul a (OfNat 1) = a
-  | OfNat n   => Eq.cong OfNat (Nat.mulOne n)
+  | OfNat n => Eq.cong OfNat (Nat.mulOne n)
   | NegSucc n => Eq.cong NegSucc (Nat.mulOne n)
-

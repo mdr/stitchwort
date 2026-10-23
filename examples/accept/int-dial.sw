@@ -18,7 +18,7 @@ def wrap (x: Int): Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
 def start: Pos := wrap 50
 
 def turn (p: Pos): Turn -> Pos
-  | Left n  => wrap (Nat.toInt p.at - Nat.toInt n)
+  | Left n => wrap (Nat.toInt p.at - Nat.toInt n)
   | Right n => wrap (Nat.toInt p.at + Nat.toInt n)
 
 -- Turn through the whole list, counting each time the dial lands on 0. The

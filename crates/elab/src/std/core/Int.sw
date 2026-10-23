@@ -15,23 +15,23 @@ type Int: Type =
 
 -- `-x`
 def Int.neg: Int -> Int
-  | OfNat Zero     => OfNat Zero
+  | OfNat Zero => OfNat Zero
   | OfNat (Succ n) => NegSucc n
-  | NegSucc n      => OfNat (Succ n)
+  | NegSucc n => OfNat (Succ n)
 
 -- `m - n` for naturals, as an integer. One subtraction decides which side
 -- is bigger: `n - m` is zero exactly when `n <= m`.
 def Int.subNatNatFrom (m: Nat) (n: Nat): Nat -> Int
-  | Zero   => OfNat (m - n)
+  | Zero => OfNat (m - n)
   | Succ k => NegSucc k
 
 def Int.subNatNat (m: Nat) (n: Nat): Int := Int.subNatNatFrom m n (n - m)
 
 -- `a + b`
 def Int.add: Int -> Int -> Int
-  | OfNat m,   OfNat n   => OfNat (m + n)
-  | OfNat m,   NegSucc n => Int.subNatNat m (Succ n)
-  | NegSucc m, OfNat n   => Int.subNatNat n (Succ m)
+  | OfNat m, OfNat n => OfNat (m + n)
+  | OfNat m, NegSucc n => Int.subNatNat m (Succ n)
+  | NegSucc m, OfNat n => Int.subNatNat n (Succ m)
   | NegSucc m, NegSucc n => NegSucc (Succ (m + n))
 
 -- `a - b`
@@ -39,25 +39,25 @@ def Int.sub (a: Int) (b: Int): Int := Int.add a (Int.neg b)
 
 -- `a * b`. By constructors first, so `OfNat m * OfNat n` is `OfNat (m * n)`.
 def Int.mul: Int -> Int -> Int
-  | OfNat m,   OfNat n   => OfNat (m * n)
-  | OfNat m,   NegSucc n => Int.neg (OfNat (m * Succ n))
-  | NegSucc m, OfNat n   => Int.neg (OfNat (Succ m * n))
+  | OfNat m, OfNat n => OfNat (m * n)
+  | OfNat m, NegSucc n => Int.neg (OfNat (m * Succ n))
+  | NegSucc m, OfNat n => Int.neg (OfNat (Succ m * n))
   | NegSucc m, NegSucc n => OfNat (Succ m * Succ n)
 
 -- `|x|`, as a `Nat`.
 def Int.natAbs: Int -> Nat
-  | OfNat n   => n
+  | OfNat n => n
   | NegSucc n => Succ n
 
 -- `x` if it isn't negative, otherwise `0`.
 def Int.toNat: Int -> Nat
-  | OfNat n   => n
+  | OfNat n => n
   | NegSucc n => 0
 
 -- The two constructors are different, and each is injective.
 
 def Int.IsOfNat: Int -> Prop
-  | OfNat n   => Unit
+  | OfNat n => Unit
   | NegSucc n => Void
 
 theorem Int.ofNatNotNegSucc (m: Nat) (n: Nat): Not (OfNat m = NegSucc n)
@@ -72,33 +72,33 @@ theorem Int.negSuccInjective (m: Nat) (n: Nat) (p: NegSucc m = NegSucc n): m = n
 
 def Int.decOfNat (m: Nat) (n: Nat): Decidable (m = n) -> Decidable (OfNat m = OfNat n)
   | Yes p => Yes (Eq.cong OfNat p)
-  | No r  => No (p => r (Int.ofNatInjective m n p))
+  | No r => No (p => r (Int.ofNatInjective m n p))
 
 def Int.decNegSucc (m: Nat) (n: Nat): Decidable (m = n) -> Decidable (NegSucc m = NegSucc n)
   | Yes p => Yes (Eq.cong NegSucc p)
-  | No r  => No (p => r (Int.negSuccInjective m n p))
+  | No r => No (p => r (Int.negSuccInjective m n p))
 
 -- For two integers this computes `Yes rfl` or a `No` of constant size,
 -- however big they are, since `Nat.decEq` does.
 def Int.decEq: (a: Int) -> (b: Int) -> Decidable (a = b)
-  | OfNat m,   OfNat n   => Int.decOfNat m n (Nat.decEq m n)
-  | OfNat m,   NegSucc n => No (Int.ofNatNotNegSucc m n)
-  | NegSucc m, OfNat n   => No (Int.negSuccNotOfNat m n)
+  | OfNat m, OfNat n => Int.decOfNat m n (Nat.decEq m n)
+  | OfNat m, NegSucc n => No (Int.ofNatNotNegSucc m n)
+  | NegSucc m, OfNat n => No (Int.negSuccNotOfNat m n)
   | NegSucc m, NegSucc n => Int.decNegSucc m n (Nat.decEq m n)
 
 -- `a <= b`. Every negative is below every non-negative; among negatives the
 -- order flips, since `NegSucc n` is `-(n+1)`.
 def Int.leq: Int -> Int -> Bool
-  | OfNat m,   OfNat n   => Nat.leq m n
-  | OfNat m,   NegSucc n => False
-  | NegSucc m, OfNat n   => True
+  | OfNat m, OfNat n => Nat.leq m n
+  | OfNat m, NegSucc n => False
+  | NegSucc m, OfNat n => True
   | NegSucc m, NegSucc n => Nat.leq n m
 
 -- `a < b`
 def Int.less: Int -> Int -> Bool
-  | OfNat m,   OfNat n   => Nat.leq (Succ m) n
-  | OfNat m,   NegSucc n => False
-  | NegSucc m, OfNat n   => True
+  | OfNat m, OfNat n => Nat.leq (Succ m) n
+  | OfNat m, NegSucc n => False
+  | NegSucc m, OfNat n => True
   | NegSucc m, NegSucc n => Nat.leq (Succ n) m
 
 def Int.LessEq (a: Int) (b: Int): Prop := Int.leq a b = True
@@ -110,14 +110,14 @@ instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.dec
 instance Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
 
 def Int.compare: Int -> Int -> Ordering
-  | OfNat m,   OfNat n   => Nat.compare m n
-  | OfNat m,   NegSucc n => Greater
-  | NegSucc m, OfNat n   => Less
+  | OfNat m, OfNat n => Nat.compare m n
+  | OfNat m, NegSucc n => Greater
+  | NegSucc m, OfNat n => Less
   | NegSucc m, NegSucc n => Nat.compare n m
 
 -- Decimal, with a `-` in front of a negative: `"-42"`. Never `"-0"`.
 def Int.toText: Int -> Text
-  | OfNat n   => Nat.toText n
+  | OfNat n => Nat.toText n
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
 
 -- Division. `a / d` and `a % d` are Euclidean: `a = d * (a / d) + a % d`
@@ -126,18 +126,17 @@ def Int.toText: Int -> Text
 -- The divisor can't be zero, but the case still has to be covered: `ok`
 -- rules it out.
 def Int.div: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a,         OfNat Zero     => Void.absurd (ok rfl)
-  | OfNat m,   OfNat (Succ n) => OfNat (m / Succ n)
+  | a, OfNat Zero => Void.absurd (ok rfl)
+  | OfNat m, OfNat (Succ n) => OfNat (m / Succ n)
   | NegSucc m, OfNat (Succ n) => NegSucc (m / Succ n)
-  | OfNat m,   NegSucc n      => Int.neg (OfNat (m / Succ n))
-  | NegSucc m, NegSucc n      => OfNat (Succ (m / Succ n))
+  | OfNat m, NegSucc n => Int.neg (OfNat (m / Succ n))
+  | NegSucc m, NegSucc n => OfNat (Succ (m / Succ n))
 
 -- Never negative. For `NegSucc m`, `m % Succ n <= n`, so the subtraction
 -- doesn't stop at zero.
 def Int.mod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a,         OfNat Zero     => Void.absurd (ok rfl)
-  | OfNat m,   OfNat (Succ n) => OfNat (m % Succ n)
+  | a, OfNat Zero => Void.absurd (ok rfl)
+  | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)
   | NegSucc m, OfNat (Succ n) => OfNat (n - m % Succ n)
-  | OfNat m,   NegSucc n      => OfNat (m % Succ n)
-  | NegSucc m, NegSucc n      => OfNat (n - m % Succ n)
-
+  | OfNat m, NegSucc n => OfNat (m % Succ n)
+  | NegSucc m, NegSucc n => OfNat (n - m % Succ n)

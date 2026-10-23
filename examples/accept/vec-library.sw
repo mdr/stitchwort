@@ -27,7 +27,7 @@ theorem flipCell (grid: Grid) (r: Fin grid.height) (c: Fin grid.width):
     grid.flip.cell r c = not (grid.cell r c) :=
   calc Vec.get (Vec.get (Vec.map (row => Vec.map not row) grid.rows) r) c
     _ = Vec.get (Vec.map not (Vec.get grid.rows r)) c := Eq.cong (row => Vec.get row c) (Vec.getMap (row => Vec.map not row) grid.rows r)
-    _ = not (Vec.get (Vec.get grid.rows r) c)          := Vec.getMap not (Vec.get grid.rows r) c
+    _ = not (Vec.get (Vec.get grid.rows r) c) := Vec.getMap not (Vec.get grid.rows r) c
 
 -- A sum over a vector is the sum over its list, so the list lemmas apply.
 theorem sumByMap (f: b -> Nat) (g: a -> b) (v: Vec a n): Vec.sumBy f (Vec.map g v) = List.sumBy f (List.map g (Vec.toList v)) :=

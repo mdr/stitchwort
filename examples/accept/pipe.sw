@@ -27,8 +27,8 @@ def total: Nat :=
 def sortedDoubled: List Nat :=
   let xs := [3, 1, 2]
   xs
-  |> List.sort
-  |> List.map (x => x * 2)
+    |> List.sort
+    |> List.map (x => x * 2)
 
 test "total" := total == 55
 test "sorted and doubled" := sortedDoubled == [2, 4, 6]

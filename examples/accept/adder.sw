@@ -26,14 +26,14 @@ import Std (Nat)
 -- The text, or a default at end of input.
 def textOr (d: Text): Option Text -> Text
   | None => d
-  | Some t  => t
+  | Some t => t
 
 -- Reports a line that should be a number, and goes on with the new total.
 def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
   | None, more =>
     IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
-  | Some n,  more =>
+  | Some n, more =>
     IO.print ("  total: " ++ Nat.toText (total + n))
     more (total + n)
 
@@ -44,7 +44,7 @@ def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO, Partial | e} N
 -- recursive call is a request only `addLines`'s own definition can answer.
 def step (total: Nat): Option Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
   | None, more => total
-  | Some l,  more =>
+  | Some l, more =>
     if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds up the numbers on the lines to come, until an empty line or the end

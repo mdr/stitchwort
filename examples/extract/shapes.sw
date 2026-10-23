@@ -15,7 +15,7 @@ export def area: Shape -> Nat
   | Rect w h => w * h
 
 export def areas: List Shape -> List Nat
-  | Nil         => Nil
+  | Nil => Nil
   | Cons s rest => Cons (area s) (areas rest)
 
 export def grow: Shape -> Shape

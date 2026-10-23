@@ -19,15 +19,15 @@ def sndOf: Pair a b -> b
   | MkPair x y => y
 
 def eqNats: List Nat -> List Nat -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 def eqPairs: List (Pair Nat Nat) -> List (Pair Nat Nat) -> Bool
-  | Nil,                  Nil                  => True
+  | Nil, Nil => True
   | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
-  | _,                    _                    => False
+  | _, _ => False
 
 -- Signatures
 
@@ -36,7 +36,7 @@ type StateOp: Type =
   | Put (n: Nat)
 
 def StateRes: StateOp -> Type
-  | Get   => Nat
+  | Get => Nat
   | Put n => Unit1
 
 type ChooseOp: Type =
@@ -64,13 +64,13 @@ def AbortRes: AbortOp -> Type
 -- record and the response.
 def trace [op: Type] [res: op -> Type]
     (answer: (o: op) -> Pair Nat (res o)): Comp op res Nat -> List Nat
-  | Done x      => [1000 + x]
+  | Done x => [1000 + x]
   | Call o rest => Cons (fstOf (answer o)) (trace answer (rest (sndOf (answer o))))
 
 -- `get` gives 7 (recorded as 1), `put n` is recorded as 100 + n, `choose`
 -- gives `True` (recorded as 2), and `tick` is recorded as 3.
 def answerState: (o: StateOp) -> Pair Nat (StateRes o)
-  | Get   => MkPair 1 7
+  | Get => MkPair 1 7
   | Put n => MkPair (100 + n) MkUnit
 
 def answerChoose: (o: ChooseOp) -> Pair Nat (ChooseRes o)
@@ -137,32 +137,32 @@ test "weakening keeps the trace" :=
 -- `State` on the left of any row `e`.
 def runStateL [e: Type] [eres: e -> Type] [a: Type]
     (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a -> Comp e eres (Pair a Nat)
-  | Done x                => Done (MkPair x s)
-  | Call (L Get) rest     => runStateL s (rest s)
+  | Done x => Done (MkPair x s)
+  | Call (L Get) rest => runStateL s (rest s)
   | Call (L (Put n)) rest => runStateL n (rest MkUnit)
-  | Call (R o) rest       => Call o (y => runStateL s (rest y))
+  | Call (R o) rest => Call o (y => runStateL s (rest y))
 
 -- `Choose` on the left of any row `e`: every outcome, `True` first.
 def allResultsL: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
     Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a -> Comp e eres (List a)
-  | Done x               => Done [x]
+  | Done x => Done [x]
   | Call (L Choose) rest =>
     bind (allResultsL (rest True)) (xs =>
       bind (allResultsL (rest False)) (ys => Done (List.append xs ys)))
-  | Call (R o) rest      => Call o (y => allResultsL (rest y))
+  | Call (R o) rest => Call o (y => allResultsL (rest y))
 
 -- Removing the last ability.
 def allResults: Comp ChooseOp ChooseRes a -> List a
-  | Done x           => [x]
+  | Done x => [x]
   | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
 
 def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
-  | Done x            => MkPair x s
-  | Call Get rest     => runState s (rest s)
+  | Done x => MkPair x s
+  | Call Get rest => runState s (rest s)
   | Call (Put n) rest => runState n (rest MkUnit)
 
 def toOption: Comp AbortOp AbortRes a -> Option a
-  | Done x          => Some x
+  | Done x => Some x
   | Call Abort rest => None
 
 def fromSomeNil: Option (List a) -> List a

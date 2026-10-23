@@ -3,10 +3,10 @@
 -- that programs that never state these don't check them.
 
 -- Each of `p` and `q` follows from the other.
-type Iff (p: Prop) (q: Prop): Prop =
-  { forward: p -> q
-  , backward: q -> p
-  }
+type Iff (p: Prop) (q: Prop): Prop = {
+  forward: p -> q,
+  backward: q -> p
+}
 
 theorem Iff.refl (p: Prop): Iff p p := { forward = x => x, backward = x => x }
 
@@ -47,7 +47,6 @@ theorem Exists.example: Exists Nat ((n: Nat) => n * n = 49) := Witness 7 rfl
 
 theorem Exists.mapExample: Exists Nat ((n: Nat) => n = 3) -> Exists Nat ((n: Nat) => n + 1 = 4) :=
   h => Exists.map ((n: Nat) (e: n = 3) => (rewrite e in rfl: n + 1 = 4)) h
-
 
 theorem Exists.elimExample: Exists Nat ((n: Nat) => n = 3) -> Exists Nat ((n: Nat) => n + 1 = 4) :=
   h => Exists.elim h ((n: Nat) (e: n = 3) => (Witness 3 rfl: Exists Nat ((m: Nat) => m + 1 = 4)))

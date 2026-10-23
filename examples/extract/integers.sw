@@ -21,9 +21,9 @@ export def dial (x: Int): Int := x % 100
 export def divide (a: Int) (d: Int): [auto ok: d != 0] -> List Int := [a / d, a % d, Int.tdiv a d, Int.tmod a d, Int.fdiv a d, Int.fmod a d]
 
 export def describe: Int -> Text
-  | 0    => "zero"
+  | 0 => "zero"
   | (-1) => "minus one"
-  | x    => if Int.less x 0 then "negative" else "positive"
+  | x => if Int.less x 0 then "negative" else "positive"
 
 export def negatives (ns: List Nat): List Int := List.map NegSucc ns
 
@@ -126,10 +126,10 @@ export def ofNats (ns: List Nat): List Int := List.map OfNat ns
 export def residue (a: Int) (d: Int): [auto ok: d != 0] -> Text := residueName (a % d)
 
 def residueName: Int -> Text
-  | 0    => "zero"
-  | 1    => "one"
+  | 0 => "zero"
+  | 1 => "one"
   | (-1) => "minus one"
-  | r    => if Int.less r 0 then "negative" else "other"
+  | r => if Int.less r 0 then "negative" else "other"
 
 export def classify: Int -> Text
   | 0 => "zero"

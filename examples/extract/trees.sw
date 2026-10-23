@@ -8,9 +8,9 @@ type Tree: Type =
   | Node (left: Tree) (right: Tree)
 
 export def leaves: Tree -> Nat
-  | Leaf     => 1
+  | Leaf => 1
   | Node l r => leaves l + leaves r
 
 export def mirror: Tree -> Tree
-  | Leaf     => Leaf
+  | Leaf => Leaf
   | Node l r => Node (mirror r) (mirror l)

@@ -9,7 +9,7 @@
 -- `more` is whatever comes next.
 def echoLine: Option Text -> (() -> {IO, Partial | e} ()) -> {IO, Partial | e} ()
   | None, more => ()
-  | Some l,  more =>
+  | Some l, more =>
     IO.print l
     more()
 

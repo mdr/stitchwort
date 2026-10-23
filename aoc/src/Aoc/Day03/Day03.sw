@@ -44,14 +44,14 @@ def Bank.parse (t: Text): Bank := t.toList |> .filterMap .toDigit
 
 -- The digits of the largest k-digit number that is a subsequence of the bank.
 def Bank.best: Nat -> Bank -> Bank
-  | Zero,   _           => []
-  | Succ _, []          => []
+  | Zero, _ => []
+  | Succ _, [] => []
   | Succ k, Cons d rest =>
     -- The leftmost largest of the next w digits, and what follows it. The
     -- candidate so far is c, followed by `after`.
     def pick: Nat -> Bank -> Fin 10 -> Bank -> (Fin 10, Bank)
-      | Zero,   _,           c, after => (c, after)
-      | Succ _, [],          c, after => (c, after)
+      | Zero, _, c, after => (c, after)
+      | Succ _, [], c, after => (c, after)
       | Succ w, Cons x more, c, after =>
         if c < x then pick w more x more else pick w more c after
     let (top, after) := pick (rest.length - k) rest d rest

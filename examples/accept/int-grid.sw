@@ -12,8 +12,8 @@ def origin: Point := { x = 0, y = 0 }
 def move (p: Point): Move -> Point
   | North => { p | y = p.y + 1 }
   | South => { p | y = p.y - 1 }
-  | East  => { p | x = p.x + 1 }
-  | West  => { p | x = p.x - 1 }
+  | East => { p | x = p.x + 1 }
+  | West => { p | x = p.x - 1 }
 
 def walk (p: Point) (ms: List Move): Point := ms.foldLeft move p
 

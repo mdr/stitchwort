@@ -30,7 +30,7 @@ import Std.Abort (toOption)
 
 def main(): {IO} () :=
   match parseManifold IO.readAllLines() with
-    | None       => IO.print "There is no S."
+    | None => IO.print "There is no S."
     | Some manifold =>
       IO.print "Part 1: ${solvePart1 manifold}"
       IO.print "Part 2: ${solvePart2 manifold}"
@@ -64,8 +64,8 @@ def widen (width: Nat) (line: Text): Nat := Nat.max width line.length
 def splitterRow (width: Nat) (line: Text): Vec Bool width := flagsOf width line.toList
 
 def flagsOf: (width: Nat) -> List Char -> Vec Bool width
-  | Zero,   _            => VNil
-  | Succ w, Nil          => VCons False (flagsOf w Nil)
+  | Zero, _ => VNil
+  | Succ w, Nil => VCons False (flagsOf w Nil)
   | Succ w, Cons ch rest => VCons (isSplitter ch) (flagsOf w rest)
 
 def isSplitter (ch: Char): Bool := ch == '^'
@@ -77,7 +77,7 @@ def solvePart1 (manifold: Manifold): Nat :=
 
 -- `beams` are the beams falling into the first of `rows`.
 def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
-  | Nil           => 0
+  | Nil => 0
   | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.

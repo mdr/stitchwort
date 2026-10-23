@@ -16,47 +16,47 @@ type Shape =
 -- Without `..`, every field is named. Each arm names `id`: no counting.
 def idOf: Shape -> Text
   | Dot { ref, id, start } => id
-  | Circle { id, .. }      => id
-  | Polygon { id, .. }     => id
+  | Circle { id, .. } => id
+  | Polygon { id, .. } => id
 
 -- `f = p` matches field `f` with any pattern; fields in any order.
 def label: Shape -> Text
   | Circle { text = t, start = 0, .. } => "at zero: " ++ t
-  | Circle { start, text = t, .. }     => t
-  | Polygon { points = [], .. }        => "empty"
+  | Circle { start, text = t, .. } => t
+  | Polygon { points = [], .. } => "empty"
   -- After `=`, a constructor takes its arguments without brackets.
-  | Polygon { points = Cons p _, .. }  => "from a point"
-  | _                                  => "dot"
+  | Polygon { points = Cons p _, .. } => "from a point"
+  | _ => "dot"
 
 def textOf: Shape -> Option Text
   | Circle { text, .. } => Some text
-  | _                   => None
+  | _ => None
 
 -- `C { .. }` matches any `C`.
 def isPolygon: Shape -> Bool
   | Polygon { .. } => True
-  | _              => False
+  | _ => False
 
 -- Coverage is the positional pattern's: these three arms are exhaustive.
 def duration: Shape -> Nat
   | Polygon { duration, .. } => duration
-  | Circle { .. }            => 1
-  | Dot { .. }               => 0
+  | Circle { .. } => 1
+  | Dot { .. } => 0
 
 -- Named and positional patterns are the same pattern.
 def startNamed: Shape -> Int
-  | Dot { start, .. }     => start
-  | Circle { start, .. }  => start
+  | Dot { start, .. } => start
+  | Circle { start, .. } => start
   | Polygon { start, .. } => start
 
 def startPositional: Shape -> Int
-  | Dot _ _ s           => s
-  | Circle _ _ s _      => s
-  | Polygon _ _ s _ _   => s
+  | Dot _ _ s => s
+  | Circle _ _ s _ => s
+  | Polygon _ _ s _ _ => s
 
 theorem sameStart (a: Shape): startNamed a = startPositional a := match a with
-  | Dot { .. }     => rfl
-  | Circle { .. }  => rfl
+  | Dot { .. } => rfl
+  | Circle { .. } => rfl
   | Polygon { .. } => rfl
 
 def circle: Shape := Circle 1 "c" 5 "hello"
@@ -69,15 +69,15 @@ test "nested" := label (Polygon 3 "p" 1 2 [{ x = 0, y = 0 }]) == "from a point"
 -- nested in each other.
 def firstText (xs: List Shape): Option Text := match xs with
   | [Circle { text, .. }, ..rest] => Some text
-  | _                            => None
+  | _ => None
 
 def bothCircles: (Shape, Shape) -> Bool
   | (Circle { .. }, Circle { .. }) => True
-  | _                              => False
+  | _ => False
 
 def nestedOption: Option Shape -> Nat
   | Some (Polygon { points = [p], .. }) => 1
-  | _                                   => 0
+  | _ => 0
 
 -- A one-constructor type, in `let` and in a lambda's bracketed parameter.
 type Size = | MkSize (width: Nat) (height: Nat)
@@ -97,7 +97,7 @@ type Box (a: Type) =
 
 def contentOr (d: a): Box a -> a
   | Full { content, .. } => content
-  | Empty { }            => d
+  | Empty { } => d
 
 test "parameters" := contentOr 0 (Full 7 2) == 7 && contentOr 0 Empty == 0
 

@@ -18,8 +18,12 @@ test "blocks" := blocks ["1 23", "+ *"] == [[['1', '+']], [['2', '*'], ['3', ' '
 test "blocks of a short line" := blocks ["12", "+"] == [[['1', '+'], ['2', ' ']]]
 test "example problems" :=
   (parseWorksheet example).map (p => (p.rowNumbers, p.columnNumbers))
-    == [ ([123, 45, 6], [1, 24, 356]), ([328, 64, 98], [369, 248, 8])
-       , ([51, 387, 215], [32, 581, 175]), ([64, 23, 314], [623, 431, 4]) ]
+    == [
+      ([123, 45, 6], [1, 24, 356]),
+      ([328, 64, 98], [369, 248, 8]),
+      ([51, 387, 215], [32, 581, 175]),
+      ([64, 23, 314], [623, 431, 4])
+    ]
 test "example operators" :=
   (parseWorksheet example).map (p => p.operator) == [Some Multiply, Some Add, Some Multiply, Some Add]
 test "no operator" := (parseWorksheet ["1", "2", " "]).map (p => p.operator) == [None]

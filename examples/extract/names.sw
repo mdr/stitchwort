@@ -21,9 +21,9 @@
 
 type Awkward: Type =
   | Plain
-  | Fields (tag: Nat) (@[js.name "$__proto__"] __proto__: Nat) (x: Nat) (x' : Nat) (x'' : Nat) (constructor : Nat) (undefined : Nat) (path : Nat) (inside : Nat) (v0 : Nat) (arg0 : Nat)
+  | Fields (tag: Nat) (@[js.name "$__proto__"] __proto__: Nat) (x: Nat) (x': Nat) (x'': Nat) (constructor: Nat) (undefined: Nat) (path: Nat) (inside: Nat) (v0: Nat) (arg0: Nat)
 
-export def twiddle : Awkward -> Awkward
+export def twiddle: Awkward -> Awkward
   | Plain => Plain
   | Fields a b c d e f g h i j k => Fields k j i h g f e d c b a
 
@@ -35,19 +35,19 @@ type Labelled: Type =
 export def labelled: Labelled -> Labelled
   | MkLabelled t n => MkLabelled (t ++ "!") (Succ n)
 
-type Box' : Type =
+type Box': Type =
   | MkBox' (value: Nat)
 
 export def unbox: Box' -> Nat
   | MkBox' n => n
 
-type Tagged' (a : Type) : Type =
-  | MkTagged' (tag: a) (tag' : a)
+type Tagged' (a: Type): Type =
+  | MkTagged' (tag: a) (tag': a)
 
-export def firstTag : Tagged' Nat -> Nat
+export def firstTag: Tagged' Nat -> Nat
   | MkTagged' t u => t
 
-export def tagged : Tagged' Text -> Tagged' Text
+export def tagged: Tagged' Text -> Tagged' Text
   | MkTagged' t u => MkTagged' u t
 
 -- Exports named like the runtime's helpers and like JS globals it uses, and

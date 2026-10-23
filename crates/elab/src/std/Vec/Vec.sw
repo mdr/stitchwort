@@ -22,12 +22,12 @@ def Vec.tail: Vec a (Succ n) -> Vec a n
 -- The first element, or `d` if there is none: for a look ahead along a
 -- vector of unknown length.
 def Vec.headOr (d: a): Vec a n -> a
-  | VNil      => d
+  | VNil => d
   | VCons x _ => x
 
 -- n copies of x.
 def Vec.replicate: (n: Nat) -> a -> Vec a n
-  | Zero,   _ => VNil
+  | Zero, _ => VNil
   | Succ k, x => VCons x (Vec.replicate k x)
 
 -- A vector from a function of the position: `Vec.tabulate 3 f` is
@@ -35,24 +35,24 @@ def Vec.replicate: (n: Nat) -> a -> Vec a n
 -- is a `Fin n`, as `Vec.get` takes, so `Vec.get (Vec.tabulate n f) i` is
 -- `f i`; `Fin.toNat` gives its number.
 def Vec.tabulate: (n: Nat) -> (f: Fin n -> a) -> Vec a n
-  | Zero,   f => VNil
+  | Zero, f => VNil
   | Succ k, f => VCons (f FZero) (Vec.tabulate k (i => f (FSucc i)))
 
 def Vec.map (f: a -> b): Vec a n -> Vec b n
-  | VNil       => VNil
+  | VNil => VNil
   | VCons x xs => VCons (f x) (Vec.map f xs)
 
 def Vec.zipWith (f: a -> b -> c): Vec a n -> Vec b n -> Vec c n
-  | VNil,       VNil       => VNil
+  | VNil, VNil => VNil
   | VCons x xs, VCons y ys => VCons (f x y) (Vec.zipWith f xs ys)
 
 def Vec.zipWith3 (f: a -> b -> c -> d): Vec a n -> Vec b n -> Vec c n -> Vec d n
-  | VNil,       VNil,       VNil       => VNil
+  | VNil, VNil, VNil => VNil
   | VCons x xs, VCons y ys, VCons z zs => VCons (f x y z) (Vec.zipWith3 f xs ys zs)
 
 -- Left fold; tail-recursive. `Vec.foldLeft f z [x, y]` is `f (f z x) y`.
 def Vec.foldLeft (f: b -> a -> b) (z: b): Vec a n -> b
-  | VNil       => z
+  | VNil => z
   | VCons x xs => Vec.foldLeft f (f z x) xs
 
 def Vec.sum (v: Vec Nat n): Nat := Vec.foldLeft Nat.add 0 v
@@ -61,7 +61,7 @@ def Vec.sum (v: Vec Nat n): Nat := Vec.foldLeft Nat.add 0 v
 def Vec.sumBy (f: a -> Nat) (v: Vec a n): Nat := Vec.foldLeft (acc x => acc + f x) 0 v
 
 def Vec.toList: Vec a n -> List a
-  | VNil       => Nil
+  | VNil => Nil
   | VCons x xs => Cons x (Vec.toList xs)
 
 -- A list as a vector of its length, given the length: each `VCons` stores
@@ -69,28 +69,28 @@ def Vec.toList: Vec a n -> List a
 -- the type `Vec a (List.length (Cons x xs))` would store `List.length xs`
 -- at every element, which is quadratic: indexed-families.md §8.1.)
 def Vec.fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
-  | Zero,   Nil,       _  => VNil
+  | Zero, Nil, _ => VNil
   | Succ k, Cons x xs, ok => VCons [n := k] x (Vec.fromListN k xs (Nat.succInjective (List.length xs) k ok))
-  | Zero,   Cons x xs, ok => Void.absurd (Nat.succNotZero (List.length xs) ok)
-  | Succ k, Nil,       ok => Void.absurd (Nat.zeroNotSucc k ok)
+  | Zero, Cons x xs, ok => Void.absurd (Nat.succNotZero (List.length xs) ok)
+  | Succ k, Nil, ok => Void.absurd (Nat.zeroNotSucc k ok)
 
 def Vec.fromList (xs: List a): Vec a (List.length xs) := Vec.fromListN (List.length xs) xs rfl
 
 -- The list as a vector of length n, or `None` if its length isn't n.
 def Vec.ofList: (n: Nat) -> List a -> Option (Vec a n)
-  | Zero,   Nil       => Some VNil
+  | Zero, Nil => Some VNil
   | Succ k, Cons x xs => Option.map (rest => VCons x rest) (Vec.ofList k xs)
-  | _,      _         => None
+  | _, _ => None
 
 -- `f` of every element, or `None` if any is `None`: parsing a vector
 -- of lines into a vector of rows of a fixed width.
 def Vec.traverseOption (f: a -> Option b): Vec a n -> Option (Vec b n)
-  | VNil       => Some VNil
+  | VNil => Some VNil
   | VCons x xs => Option.flatMap (y => Option.map (ys => VCons y ys) (Vec.traverseOption f xs)) (f x)
 
 -- The element at a position.
 def Vec.get: Vec a n -> Fin n -> a
-  | VCons x _,  FZero   => x
+  | VCons x _, FZero => x
   | VCons _ xs, FSucc i => Vec.get xs i
 
 -- The element at a `Nat` index in range: `Vec.getLt v 2` when `v` is known
@@ -99,19 +99,19 @@ def Vec.getLt (v: Vec a n) (i: Nat) [auto ok: i < n]: a := Vec.get v (Fin.ofNatL
 
 -- Whether some element satisfies `p`.
 def Vec.any (p: a -> Bool): Vec a n -> Bool
-  | VNil       => False
+  | VNil => False
   | VCons x xs => p x || Vec.any p xs
 
 -- Lemmas: `toList`.
 
 theorem Vec.lengthToList: (v: Vec a n) -> List.length (Vec.toList v) = n
-  | VNil       => rfl
+  | VNil => rfl
   | VCons x xs => Eq.cong Succ (Vec.lengthToList xs)
 
 -- Vectors with the same list are equal (so `Vec.toList u == Vec.toList v`
 -- decides `u = v`).
 theorem Vec.toListInjective: (u: Vec a n) -> (v: Vec a n) -> Vec.toList u = Vec.toList v -> u = v
-  | VNil,       VNil,       h => rfl
+  | VNil, VNil, h => rfl
   | VCons x xs, VCons y ys, h =>
     Eq.trans (Eq.cong (z => VCons z xs) (Eq.cong (List.headOr x) h))
       (Eq.cong (VCons y) (Vec.toListInjective xs ys (Eq.cong List.tailOf h)))
@@ -122,56 +122,56 @@ theorem Vec.toListInjective: (u: Vec a n) -> (v: Vec a n) -> Vec.toList u = Vec.
 -- "As built (stage 2)").
 instance Vec.instDecEq [auto decEq: DecEq a]: DecEq (Vec a n) :=
   { decide = u v =>
-      if h: Vec.toList u = Vec.toList v then Yes (Vec.toListInjective u v h)
-      else No (e => h (Eq.cong Vec.toList e)) }
+    if h: Vec.toList u = Vec.toList v then Yes (Vec.toListInjective u v h)
+    else No (e => h (Eq.cong Vec.toList e)) }
 
 -- Vectors in order: lexicographic, as their lists (`List.instOrd`).
 instance Vec.instOrd [auto ord: Ord a]: Ord (Vec a n) := Ord.byKey Vec.toList Vec.toListInjective
 
 theorem Vec.toListFromListN: (n: Nat) -> (xs: List a) -> (ok: List.length xs = n) -> Vec.toList (Vec.fromListN n xs ok) = xs
-  | Zero,   Nil,       _  => rfl
+  | Zero, Nil, _ => rfl
   | Succ k, Cons x xs, ok => Eq.cong (Cons x) (Vec.toListFromListN k xs (Nat.succInjective (List.length xs) k ok))
-  | Zero,   Cons x xs, ok => Void.exfalso (Nat.succNotZero (List.length xs) ok)
-  | Succ k, Nil,       ok => Void.exfalso (Nat.zeroNotSucc k ok)
+  | Zero, Cons x xs, ok => Void.exfalso (Nat.succNotZero (List.length xs) ok)
+  | Succ k, Nil, ok => Void.exfalso (Nat.zeroNotSucc k ok)
 
 theorem Vec.toListFromList (xs: List a): Vec.toList (Vec.fromList xs) = xs := Vec.toListFromListN (List.length xs) xs rfl
 
 theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k): (m: Option (Vec a k)) ->
     Option.map (rest => VCons x rest) m = Some (VCons y ys) -> And (x = y) (m = Some ys)
   | None, h => Void.exfalso (Option.noneNotSome (VCons y ys) h)
-  | Some w,  h =>
+  | Some w, h =>
     let e := Eq.cong (Option.getOrElse (VCons x w)) h
     Both (Eq.cong Vec.head e) (Eq.cong Some (Eq.cong Vec.tail e))
 
 -- What `ofList` accepts is the list it was given.
 theorem Vec.ofListToList: (n: Nat) -> (xs: List a) -> (v: Vec a n) -> Vec.ofList n xs = Some v -> Vec.toList v = xs
-  | Zero,   Nil,       VNil,       h => rfl
+  | Zero, Nil, VNil, h => rfl
   | Succ k, Cons x xs, VCons y ys, h =>
     match Vec.ofListCons x y ys (Vec.ofList k xs) h with
       | Both xy rest => Eq.trans (Eq.cong (z => Cons z (Vec.toList ys)) (Eq.sym xy)) (Eq.cong (Cons x) (Vec.ofListToList k xs ys rest))
-  | Zero,   Cons x xs, v,          h => Void.exfalso (Option.noneNotSome v h)
-  | Succ k, Nil,       v,          h => Void.exfalso (Option.noneNotSome v h)
+  | Zero, Cons x xs, v, h => Void.exfalso (Option.noneNotSome v h)
+  | Succ k, Nil, v, h => Void.exfalso (Option.noneNotSome v h)
 
 theorem Vec.toListReplicate (x: a): (n: Nat) -> Vec.toList (Vec.replicate n x) = List.replicate n x
-  | Zero   => rfl
+  | Zero => rfl
   | Succ k => Eq.cong (Cons x) (Vec.toListReplicate x k)
 
 theorem Vec.toListMap (f: a -> b): (v: Vec a n) -> Vec.toList (Vec.map f v) = List.map f (Vec.toList v)
-  | VNil       => rfl
+  | VNil => rfl
   | VCons x xs => Eq.cong (Cons (f x)) (Vec.toListMap f xs)
 
 theorem Vec.toListZipWith (f: a -> b -> c): (u: Vec a n) -> (v: Vec b n) ->
     Vec.toList (Vec.zipWith f u v) = List.zipWith f (Vec.toList u) (Vec.toList v)
-  | VNil,       VNil       => rfl
+  | VNil, VNil => rfl
   | VCons x xs, VCons y ys => Eq.cong (Cons (f x y)) (Vec.toListZipWith f xs ys)
 
 theorem Vec.toListZipWith3 (f: a -> b -> c -> d): (u: Vec a n) -> (v: Vec b n) -> (w: Vec c n) ->
     Vec.toList (Vec.zipWith3 f u v w) = List.zipWith3 f (Vec.toList u) (Vec.toList v) (Vec.toList w)
-  | VNil,       VNil,       VNil       => rfl
+  | VNil, VNil, VNil => rfl
   | VCons x xs, VCons y ys, VCons z zs => Eq.cong (Cons (f x y z)) (Vec.toListZipWith3 f xs ys zs)
 
 theorem Vec.foldLeftToList (f: b -> a -> b): (z: b) -> (v: Vec a n) -> Vec.foldLeft f z v = List.foldLeft f z (Vec.toList v)
-  | z, VNil       => rfl
+  | z, VNil => rfl
   | z, VCons x xs => Vec.foldLeftToList f (f z x) xs
 
 theorem Vec.sumByToList (f: a -> Nat) (v: Vec a n): Vec.sumBy f v = List.sumBy f (Vec.toList v) :=
@@ -185,50 +185,50 @@ theorem Vec.traverseOptionCons (f: a -> Option b) (x: a) (xs: Vec a n) (y: b) (y
   | None, e, h =>
     Void.exfalso (Option.noneNotSome (VCons y ys)
       (Eq.trans (Eq.cong (Option.flatMap (z => Option.map (zs => VCons z zs) (Vec.traverseOption f xs))) (Eq.sym e)) h))
-  | Some z,  e, h =>
+  | Some z, e, h =>
     let parts := Vec.ofListCons z y ys (Vec.traverseOption f xs)
       (Eq.trans (Eq.cong (Option.flatMap (z => Option.map (zs => VCons z zs) (Vec.traverseOption f xs))) (Eq.sym e)) h)
     Both (Eq.trans e (Eq.cong Some (And.left parts))) (And.right parts)
 
 theorem Vec.traverseOptionGet (f: a -> Option b): (v: Vec a n) -> (out: Vec b n) -> Vec.traverseOption f v = Some out ->
     (i: Fin n) -> f (Vec.get v i) = Some (Vec.get out i)
-  | VCons x xs, VCons y ys, h, FZero   => And.left (Vec.traverseOptionCons f x xs y ys (f x) rfl h)
+  | VCons x xs, VCons y ys, h, FZero => And.left (Vec.traverseOptionCons f x xs y ys (f x) rfl h)
   | VCons x xs, VCons y ys, h, FSucc i => Vec.traverseOptionGet f xs ys (And.right (Vec.traverseOptionCons f x xs y ys (f x) rfl h)) i
 
 -- Lemmas: `get`.
 
 -- `get` is `List.getOr` on the list, whatever the default.
 theorem Vec.getToList (d: a): (v: Vec a n) -> (i: Fin n) -> List.getOr d (Fin.toNat i) (Vec.toList v) = Vec.get v i
-  | VCons x xs, FZero   => rfl
+  | VCons x xs, FZero => rfl
   | VCons x xs, FSucc i => Vec.getToList d xs i
 
 theorem Vec.getReplicate (x: a): (n: Nat) -> (i: Fin n) -> Vec.get (Vec.replicate n x) i = x
-  | _, FZero               => rfl
-  | _, FSucc [n := k] i    => Vec.getReplicate x k i
+  | _, FZero => rfl
+  | _, FSucc [n := k] i => Vec.getReplicate x k i
 
 theorem Vec.getMap (f: a -> b): (v: Vec a n) -> (i: Fin n) -> Vec.get (Vec.map f v) i = f (Vec.get v i)
-  | VCons x xs, FZero   => rfl
+  | VCons x xs, FZero => rfl
   | VCons x xs, FSucc i => Vec.getMap f xs i
 
 theorem Vec.getZipWith (f: a -> b -> c): (u: Vec a n) -> (v: Vec b n) -> (i: Fin n) ->
     Vec.get (Vec.zipWith f u v) i = f (Vec.get u i) (Vec.get v i)
-  | VCons x xs, VCons y ys, FZero   => rfl
+  | VCons x xs, VCons y ys, FZero => rfl
   | VCons x xs, VCons y ys, FSucc i => Vec.getZipWith f xs ys i
 
 theorem Vec.getZipWith3 (f: a -> b -> c -> d): (u: Vec a n) -> (v: Vec b n) -> (w: Vec c n) -> (i: Fin n) ->
     Vec.get (Vec.zipWith3 f u v w) i = f (Vec.get u i) (Vec.get v i) (Vec.get w i)
-  | VCons x xs, VCons y ys, VCons z zs, FZero   => rfl
+  | VCons x xs, VCons y ys, VCons z zs, FZero => rfl
   | VCons x xs, VCons y ys, VCons z zs, FSucc i => Vec.getZipWith3 f xs ys zs i
 
 theorem Vec.getTabulate: (n: Nat) -> (f: Fin n -> a) -> (i: Fin n) -> Vec.get (Vec.tabulate n f) i = f i
-  | _, f, FZero            => rfl
+  | _, f, FZero => rfl
   | _, f, FSucc [n := k] i => Vec.getTabulate k (j => f (FSucc j)) i
 
 -- `getOr` of a `tabulate` at a `Nat` index in range.
 theorem Vec.getOrTabulate (d: a): (n: Nat) -> (f: Fin n -> a) -> (i: Nat) -> (h: i < n) ->
     List.getOr d i (Vec.toList (Vec.tabulate n f)) = f (Fin.ofNatLt n i h)
-  | Zero,   f, i,      h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ k, f, Zero,   h => rfl
+  | Zero, f, i, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ k, f, Zero, h => rfl
   | Succ k, f, Succ i, h => Vec.getOrTabulate d k (j => f (FSucc j)) i h
 
 -- Past the end of a vector, `getOr` is the default.
@@ -237,7 +237,7 @@ theorem Vec.getOrPast (d: a) (v: Vec a n) (i: Nat) (h: n <= i): List.getOr d i (
 
 -- `headOr` is index 0 of the list.
 theorem Vec.headOrToList (d: a): (v: Vec a n) -> Vec.headOr d v = List.getOr d 0 (Vec.toList v)
-  | VNil       => rfl
+  | VNil => rfl
   | VCons x xs => rfl
 
 -- `getOr` on the list of a `zipWith`, at any index, with defaults that `f`
@@ -245,8 +245,8 @@ theorem Vec.headOrToList (d: a): (v: Vec a n) -> Vec.headOr d v = List.getOr d 0
 theorem Vec.getOrZipWith (f: a -> b -> c) (d1: a) (d2: b) (d: c) (hd: f d1 d2 = d):
     (u: Vec a n) -> (v: Vec b n) -> (i: Nat) ->
     List.getOr d i (Vec.toList (Vec.zipWith f u v)) = f (List.getOr d1 i (Vec.toList u)) (List.getOr d2 i (Vec.toList v))
-  | VNil,       VNil,       i      => Eq.sym hd
-  | VCons x xs, VCons y ys, Zero   => rfl
+  | VNil, VNil, i => Eq.sym hd
+  | VCons x xs, VCons y ys, Zero => rfl
   | VCons x xs, VCons y ys, Succ i => Vec.getOrZipWith f d1 d2 d hd xs ys i
 
 -- `getOr` on the list of a `zipWith3`, at any index, with defaults that
@@ -254,18 +254,18 @@ theorem Vec.getOrZipWith (f: a -> b -> c) (d1: a) (d2: b) (d: c) (hd: f d1 d2 = 
 theorem Vec.getOrZipWith3 (f: a -> b -> c -> r) (d1: a) (d2: b) (d3: c) (d: r) (hd: f d1 d2 d3 = d):
     (u: Vec a n) -> (v: Vec b n) -> (w: Vec c n) -> (i: Nat) ->
     List.getOr d i (Vec.toList (Vec.zipWith3 f u v w)) = f (List.getOr d1 i (Vec.toList u)) (List.getOr d2 i (Vec.toList v)) (List.getOr d3 i (Vec.toList w))
-  | VNil,       VNil,       VNil,       i      => Eq.sym hd
-  | VCons x xs, VCons y ys, VCons z zs, Zero   => rfl
+  | VNil, VNil, VNil, i => Eq.sym hd
+  | VCons x xs, VCons y ys, VCons z zs, Zero => rfl
   | VCons x xs, VCons y ys, VCons z zs, Succ i => Vec.getOrZipWith3 f d1 d2 d3 d hd xs ys zs i
 
 -- `any` is the list's.
 theorem Vec.anyToList (p: a -> Bool): (v: Vec a n) -> Vec.any p v = List.any p (Vec.toList v)
-  | VNil       => rfl
+  | VNil => rfl
   | VCons x xs => Eq.cong (t => p x || t) (Vec.anyToList p xs)
 
 -- Vectors that agree at every position are equal.
 theorem Vec.ext: (u: Vec a n) -> (v: Vec a n) -> ((i: Fin n) -> Vec.get u i = Vec.get v i) -> u = v
-  | VNil,       VNil,       h => rfl
+  | VNil, VNil, h => rfl
   | VCons x xs, VCons y ys, h =>
     Eq.trans (Eq.cong (z => VCons z xs) (h FZero)) (Eq.cong (VCons y) (Vec.ext xs ys (i => h (FSucc i))))
 

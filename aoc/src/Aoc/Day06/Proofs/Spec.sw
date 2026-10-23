@@ -81,7 +81,7 @@ test "spec numbers" := (rowNumbers example 4 7, columnNumbers example 4 7, opera
 -- any spaces before and after it (its alignment in the problem), reads back
 -- as itself.
 theorem spacesNoDigits: (k: Nat) -> List.filterMap Char.digitValue (List.replicate k ' ') = Nil
-  | Zero   => rfl
+  | Zero => rfl
   | Succ k => spacesNoDigits k
 
 theorem readNumberWritten (n: Nat) (before: Nat) (after: Nat):

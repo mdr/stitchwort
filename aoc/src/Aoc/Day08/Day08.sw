@@ -25,7 +25,7 @@ def main(): {IO} () :=
   let boxes := parseBoxes IO.readAllLines()
   IO.print "Part 1: ${solvePart1 1000 boxes}"
   match solvePart2 boxes with
-    | None        => IO.print "Part 2: the boxes are already in one circuit."
+    | None => IO.print "Part 2: the boxes are already in one circuit."
     | Some answer => IO.print "Part 2: ${answer}"
 
 type Point = { x: Nat, y: Nat, z: Nat }
@@ -47,7 +47,7 @@ def parsePoint (line: Text): Option Point := toOption (() => readPoint line)
 def readPoint (line: Text): {Abort} Point :=
   match line.split ',' with
     | [xText, yText, zText] => { x = xText.toNat.orAbort, y = yText.toNat.orAbort, z = zText.toNat.orAbort }
-    | _                     => Abort.abort()
+    | _ => Abort.abort()
 
 -- The straight-line distance squared: it orders pairs the same way as the
 -- distance, and needs no square root.
@@ -89,10 +89,10 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
   let firstLabel := circuits.labelOf first
   let secondLabel := circuits.labelOf second
   if firstLabel == secondLabel then circuits
-  else
-    { labels = circuits.labels |> Map.map (label => if label == firstLabel then secondLabel else label)
-    , count = circuits.count - 1
-    }
+  else {
+    labels = circuits.labels |> Map.map (label => if label == firstLabel then secondLabel else label),
+    count = circuits.count - 1
+  }
 
 -- Joins the two boxes of a pair from `closestFirst`.
 def Circuits.connect (circuits: Circuits) (connection: Connection): Circuits :=
@@ -126,7 +126,7 @@ def origin: Point := { x = 0, y = 0, z = 0 }
 -- The pair that leaves one circuit, joining the pairs in order from the
 -- circuits given.
 def lastJoin (circuits: Circuits): List Connection -> Option (Nat, Nat)
-  | Nil                  => None
+  | Nil => None
   | Cons connection rest =>
     let joined := circuits.connect connection
     if circuits.count > 1 && joined.count == 1 then Some (connection.first, connection.second)

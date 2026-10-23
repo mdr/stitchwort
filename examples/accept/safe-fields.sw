@@ -39,4 +39,3 @@ test "record ordering by count" :=
 
 test "toNat" := SafeNat.toNat three == 3
 test "toInt" := SafeInt.toInt minusTwo == -2
-

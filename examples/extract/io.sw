@@ -15,16 +15,16 @@ import Std (IO, List, Nat, Pair, Text)
 -- Echoes each line until the input runs out, reading at most `n` lines.
 def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
   | None, more => ()
-  | Some l,  more =>
+  | Some l, more =>
     IO.print l
     more()
 
 def echo: Nat -> {IO} ()
-  | 0      => ()
+  | 0 => ()
   | Succ n => echoLine (IO.readLine()) (u => echo n)
 
 def linesOf: List Nat -> List Text
-  | Nil       => Nil
+  | Nil => Nil
   | Cons n ns => Cons (Nat.toText n) (linesOf ns)
 
 -- How many lines `echo` printed, given those numbers as input lines.
@@ -33,16 +33,16 @@ export def linesEchoed (ns: List Nat) (bound: Nat): Nat := List.length (Pair.fst
 -- Numbers each line ("1: 7", "2: 42", …).
 def numberLine (i: Nat): Option Text -> (() -> {IO} ()) -> {IO} ()
   | None, more => ()
-  | Some l,  more =>
+  | Some l, more =>
     IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
 def numberFrom (i: Nat): Nat -> {IO} ()
-  | 0      => ()
+  | 0 => ()
   | Succ n => numberLine i (IO.readLine()) (u => numberFrom (i + 1) n)
 
 def totalLength: List Text -> Nat
-  | Nil       => 0
+  | Nil => 0
   | Cons t ts => Text.length t + totalLength ts
 
 -- The number of characters printed when numbering the lines.
@@ -50,7 +50,7 @@ export def numberedLength (ns: List Nat): Nat :=
   totalLength (Pair.fst (IO.simulate (linesOf ns) (u => numberFrom 1 (List.length ns))))
 
 def countdown: Nat -> {IO} ()
-  | 0      => IO.print "liftoff"
+  | 0 => IO.print "liftoff"
   | Succ n =>
     IO.print (Nat.toText (Succ n))
     countdown n
@@ -59,7 +59,7 @@ def countdown: Nat -> {IO} ()
 export def countdownLines (n: Nat): Nat := List.length (Pair.fst (IO.simulate [] (u => countdown n)))
 
 def printLines: Nat -> {IO} ()
-  | 0      => ()
+  | 0 => ()
   | Succ n =>
     IO.print "a\nb"
     printLines n

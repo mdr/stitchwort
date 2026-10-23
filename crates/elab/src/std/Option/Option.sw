@@ -3,11 +3,11 @@
 
 def Option.flatMap (f: a -> Option b): Option a -> Option b
   | None => None
-  | Some x  => f x
+  | Some x => f x
 
 def Option.map (f: a -> b): Option a -> Option b
   | None => None
-  | Some x  => Some (f x)
+  | Some x => Some (f x)
 
 -- `Some` is injective: equal `Some`s hold equal values.
 theorem Option.someInjective (x: a) (y: a) (h: Some x = Some y): x = y := Eq.cong (Option.getOrElse x) h
@@ -25,24 +25,24 @@ def Option.isNone: Option a -> Bool
 -- The first option if it is a `Some`, else the second: `x.orElse y`.
 def Option.orElse: Option a -> Option a -> Option a
   | Some x, y => Some x
-  | None,   y => y
+  | None, y => y
 
 -- Combines two options of one type: a lone value stays, two values go through
 -- `both`. `x.merge (a b => a + b) y` adds the values that are there, and is
 -- `None` only when both are.
 def Option.merge (both: a -> a -> a): Option a -> Option a -> Option a
   | Some x, Some y => Some (both x y)
-  | Some x, None   => Some x
-  | None,   Some y => Some y
-  | None,   None   => None
+  | Some x, None => Some x
+  | None, Some y => Some y
+  | None, None => None
 
 -- `merge` for two types: `left` and `right` turn a lone value into the result,
 -- `both` combines two. `x.alignWith f g h y` is `None` only when both are.
 def Option.alignWith (left: a -> c) (right: b -> c) (both: a -> b -> c): Option a -> Option b -> Option c
   | Some x, Some y => Some (both x y)
-  | Some x, None   => Some (left x)
-  | None,   Some y => Some (right y)
-  | None,   None   => None
+  | Some x, None => Some (left x)
+  | None, Some y => Some (right y)
+  | None, None => None
 
 -- Takes the option apart: `none` for `None`, else `some` of the value.
 -- `x.fold 0 (v => v + 1)` is `0` for `None` and `v + 1` for `Some v`.
@@ -69,11 +69,11 @@ def Option.filter (p: a -> Bool): Option a -> Option a
 -- and the second is.
 theorem Option.orElseEqSome (y: Option a) (v: a): (x: Option a) -> Option.orElse x y = Some v -> Or (x = Some v) (And (x = None) (y = Some v))
   | Some w, h => Inl h
-  | None,   h => Inr (Both rfl h)
+  | None, h => Inr (Both rfl h)
 
 theorem Option.orElseNone: (x: Option a) -> Option.orElse x None = x
   | Some w => rfl
-  | None   => rfl
+  | None => rfl
 
 theorem Option.orElseSome (v: a) (y: Option a): Option.orElse (Some v) y = Some v := rfl
 
@@ -82,20 +82,20 @@ theorem Option.noneOrElse (y: Option a): Option.orElse None y = y := rfl
 -- If `map f x` is `Some v`, then `x` held some `u` with `f u = v`.
 theorem Option.mapEqSome [goal: Prop] (f: a -> b) (v: b): (x: Option a) -> Option.map f x = Some v -> ((u: a) -> x = Some u -> f u = v -> goal) -> goal
   | Some u, h, use => use u rfl (Option.someInjective (f u) v h)
-  | None,   h, use => Void.exfalso (Option.noneNotSome v h)
+  | None, h, use => Void.exfalso (Option.noneNotSome v h)
 
 -- If `flatMap f x` is `Some v`, then `x` held some `u` with `f u = Some v`.
 theorem Option.flatMapEqSome [goal: Prop] (f: a -> Option b) (v: b): (x: Option a) -> Option.flatMap f x = Some v -> ((u: a) -> x = Some u -> f u = Some v -> goal) -> goal
   | Some u, h, use => use u rfl h
-  | None,   h, use => Void.exfalso (Option.noneNotSome v h)
+  | None, h, use => Void.exfalso (Option.noneNotSome v h)
 
 -- If `filter p x` is `Some v`, then `x` is `Some v` and `p v` holds.
 theorem Option.filterEqSome (p: a -> Bool) (v: a): (x: Option a) -> Option.filter p x = Some v -> And (x = Some v) (p v = True)
   | Some u, h =>
     match e: p u with
-      | True  => Both h (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective u v h))) e)
+      | True => Both h (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective u v h))) e)
       | False => Void.exfalso (Option.noneNotSome v h)
-  | None,   h => Void.exfalso (Option.noneNotSome v h)
+  | None, h => Void.exfalso (Option.noneNotSome v h)
 
 -- `MkPair` is injective: equal pairs have equal parts.
 theorem Pair.mkInjectiveFst (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): x1 = x2 := Eq.cong Pair.fst h

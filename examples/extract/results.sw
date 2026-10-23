@@ -32,7 +32,7 @@ export def parseRange (t: Text): Result Range Text := Fail.toResult (() => Range
 
 -- A `Result` as an argument, too.
 export def size: Result Range Text -> Result Nat Text
-  | Ok r  => Ok (r.to - r.from + 1)
+  | Ok r => Ok (r.to - r.from + 1)
   | Err m => Err m
 
 export def sizes (ts: List Text): Result (List Nat) Text :=

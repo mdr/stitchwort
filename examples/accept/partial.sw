@@ -87,7 +87,7 @@ def retryWith (n: Nat): {Partial} (Nat -> {Partial} Nat) := x => collatzSteps (x
 
 -- Type parameters are fixed: each recursive call passes them on.
 def mapP (f: a -> {Partial | e} b): List a -> {Partial | e} (List b)
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => Cons (f x) (mapP f xs)
 
 -- A total function is passed where a partial one is expected.
@@ -106,7 +106,7 @@ def logged (n: Nat): {Log} Nat :=
 
 def countLogged (n: Nat): {Partial} Nat :=
   handle logged n with
-    | return x   => x
+    | return x => x
     | say m, k => collatzSteps m + k()
 
 -- Partial code with IO.

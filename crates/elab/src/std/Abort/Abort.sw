@@ -32,7 +32,7 @@ def Abort.abort(): {Abort} a := Empty.absurd Abort.stop()
 def Abort.need (o: Option a): {Abort} a :=
   match o with
     | Some x => x
-    | None   => Abort.abort()
+    | None => Abort.abort()
 
 -- The same, for dot notation: `t.uncons.orAbort`.
 def Option.orAbort (o: Option a): {Abort} a := Abort.need o
@@ -43,22 +43,22 @@ def Abort.ensure (ok: Bool): {Abort} () := if ok then () else Abort.abort()
 -- `Some` of the result, or `None` if the computation gave up.
 def Abort.toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x        => Some x
+    | return x => Some x
     | Abort.stop u, k => None
 
 -- The result, or `d` if the computation gave up.
 def Abort.orElse (d: a) (prog: () -> {Abort | e} a): {e} a :=
   handle prog() with
-    | return x        => x
+    | return x => x
     | Abort.stop u, k => d
 
 -- `need` and `toOption` undo each other.
 theorem Abort.toOptionNeed: (o: Option a) -> Abort.toOption (() => Abort.need o) = o
-  | None   => rfl
+  | None => rfl
   | Some x => rfl
 
 theorem Abort.orElseNeed (d: a): (o: Option a) -> Abort.orElse d (() => Abort.need o) = Option.getOrElse d o
-  | None   => rfl
+  | None => rfl
   | Some x => rfl
 
 theorem Abort.toOptionEnsureFalse: Abort.toOption (() => Abort.ensure False) = None := rfl

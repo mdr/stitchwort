@@ -4,7 +4,7 @@
 import Std (Fin)
 
 def pick: (n: Nat) -> (i: Fin n) -> Nat
-  | Succ k, FZero            => 0
+  | Succ k, FZero => 0
   | Succ k, FSucc [n := j] i => Succ (Fin.toNat i)
 
 test "first" := pick 3 FZero == 0

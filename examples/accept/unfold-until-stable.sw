@@ -15,7 +15,7 @@ import Std (Eq, IO, List, Nat, Option, Pair, Text, Void)
 
 -- A countdown: `None` at zero, else the number, going on from one less.
 def countdown: Nat -> Option (Pair Nat Nat)
-  | Zero   => None
+  | Zero => None
   | Succ k => Some (MkPair (Succ k) k)
 
 -- `shrinks` for it: whatever step `countdown` takes from `x`, the new seed
@@ -36,7 +36,7 @@ test "unfold, nothing to do" := countdownFrom 0 == []
 def drain (water: Nat): Nat := water - 1
 
 theorem drainShrinks: (water: Nat) -> Not (drain water = water) -> drain water < water
-  | Zero,      empty => Void.exfalso (empty rfl)
+  | Zero, empty => Void.exfalso (empty rfl)
   | Succ left, empty => Nat.leRefl (Succ left)
 
 def settle (water: Nat): Nat := Nat.iterateUntilStable water drain (w => w) drainShrinks

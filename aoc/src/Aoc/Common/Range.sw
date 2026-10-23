@@ -10,7 +10,7 @@ type Range = { from: Nat, to: Nat }
 def Range.parse (t: Text): Option Range :=
   match (t.split '-').map Text.toNat with
     | [Some from, Some to] => Some { from, to }
-    | _                    => None
+    | _ => None
 
 def Range.contains (r: Range) (id: Nat): Bool := r.from <= id && id <= r.to
 
@@ -18,4 +18,3 @@ def Range.size (r: Range): Nat := r.to + 1 - r.from
 
 -- Every id in the range, one by one: only for small ranges and specs.
 def Range.ids (r: Range): List Nat := List.rangeFrom r.size r.from
-

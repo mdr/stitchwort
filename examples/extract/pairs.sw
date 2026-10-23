@@ -18,11 +18,11 @@ export def swap: NatPair -> NatPair
 
 -- Two columns of constructor patterns.
 export def zipSum: List Nat -> List Nat -> List Nat
-  | Nil,       ys        => Nil
-  | Cons x xs, Nil       => Nil
+  | Nil, ys => Nil
+  | Cons x xs, Nil => Nil
   | Cons x xs, Cons y ys => Cons (x + y) (zipSum xs ys)
 
 -- Applies the prelude's `Nat.pred` to each element.
 export def predecessors: List Nat -> List Nat
-  | Nil       => Nil
+  | Nil => Nil
   | Cons n ns => Cons (Nat.pred n) (predecessors ns)

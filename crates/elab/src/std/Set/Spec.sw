@@ -36,17 +36,17 @@ theorem Set.unitEq: (u: ()) -> (w: ()) -> u = w
 
 def Set.present: Option () -> Bool
   | Some u => True
-  | None   => False
+  | None => False
 
 theorem Set.containsPresent [auto ord: Ord k] (key: k) (m: Map k ()): Map.contains key m = Set.present (Map.get key m) :=
   match c: Map.get key m with
-    | None   => rfl
+    | None => rfl
     | Some u => rfl
 
 theorem Set.presentInjective: (x: Option ()) -> (y: Option ()) -> Set.present x = Set.present y -> x = y
-  | None,   None,   h => rfl
-  | None,   Some w, h => Void.exfalso (Bool.falseNotTrue h)
-  | Some u, None,   h => Void.exfalso (Bool.trueNotFalse h)
+  | None, None, h => rfl
+  | None, Some w, h => Void.exfalso (Bool.falseNotTrue h)
+  | Some u, None, h => Void.exfalso (Bool.trueNotFalse h)
   | Some u, Some w, h => Eq.cong Some (Set.unitEq u w)
 
 theorem Set.equivOfContains [auto ord: Ord k] (s: Set k) (t: Set k)
@@ -56,9 +56,9 @@ theorem Set.equivOfContains [auto ord: Ord k] (s: Set k) (t: Set k)
 
 -- Entries whose values are all `()` are fixed by their keys.
 theorem Set.unitEntries: (xs: List (k, ())) -> (ys: List (k, ())) -> List.map Pair.fst xs = List.map Pair.fst ys -> xs = ys
-  | Nil,             Nil,             h => rfl
-  | Nil,             Cons (b, w) ys2, h => Void.exfalso (List.nilNotCons b (List.map Pair.fst ys2) h)
-  | Cons (a, u) xs2, Nil,             h => Void.exfalso (List.consNotNil a (List.map Pair.fst xs2) h)
+  | Nil, Nil, h => rfl
+  | Nil, Cons (b, w) ys2, h => Void.exfalso (List.nilNotCons b (List.map Pair.fst ys2) h)
+  | Cons (a, u) xs2, Nil, h => Void.exfalso (List.consNotNil a (List.map Pair.fst xs2) h)
   | Cons (a, u) xs2, Cons (b, w) ys2, h =>
     rewrite Eq.cong (List.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
 

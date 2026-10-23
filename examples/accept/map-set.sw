@@ -16,7 +16,7 @@ def step: (Nat, Nat) -> Char -> (Nat, Nat)
   | (r, c), 'R' => (r, c + 1)
   | (r, c), 'D' => (r + 1, c)
   | (r, c), 'L' => (r, c - 1)
-  | (r, c), _   => (r - 1, c)
+  | (r, c), _ => (r - 1, c)
 
 def visited (moves: Text): Set (Nat, Nat) :=
   def move (acc: ((Nat, Nat), Set (Nat, Nat))) (m: Char): ((Nat, Nat), Set (Nat, Nat)) :=
@@ -68,8 +68,8 @@ ability State (s: Type) where
 def runState (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   let run: s -> {e} (a, s) :=
     handle prog() with
-      | return x   => st => (x, st)
-      | get u, k   => st => k st st
+      | return x => st => (x, st)
+      | get u, k => st => k st st
       | put st2, k => st => k() st2
   run init
 

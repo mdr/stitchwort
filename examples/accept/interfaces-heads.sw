@@ -15,7 +15,7 @@ instance Size.instList [auto s: Size a]: Size (List a) :=
 
 instance Size.instPair [auto sa: Size a] [auto sb: Size b]: Size (a, b) :=
   { size = p => match p with
-      | (x, y) => Size.size x + Size.size y }
+    | (x, y) => Size.size x + Size.size y }
 
 -- An indexed family applied to variables, values among them.
 instance Size.instVec [auto s: Size a]: Size (Vec a n) :=
@@ -33,8 +33,8 @@ type Optional (a: Type) = Option a
 
 instance Size.instOptional [auto s: Size a]: Size (Optional a) :=
   { size = m => match m with
-      | Some x => Size.size x
-      | None => 0 }
+    | Some x => Size.size x
+    | None => 0 }
 
 test "nat" := Size.size 4 == 4
 test "list" := Size.size [1, 2, 3] == 6

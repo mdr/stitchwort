@@ -12,7 +12,7 @@ type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }
 -- The elements of `rest`, a part of `whole`, as members of `whole`: `sub`
 -- says that what is in `rest` is in `whole`. One pass, structural.
 def List.attachFrom (whole: List a): (rest: List a) -> ((x: a) -> List.Mem x rest -> List.Mem x whole) -> List (List.Member a whole)
-  | Nil,       sub => Nil
+  | Nil, sub => Nil
   | Cons x xs, sub => Cons { value = x, isIn = sub x (Inl rfl) } (List.attachFrom whole xs (y h => sub y (Inr h)))
 
 -- The elements of `xs`, in order, each with the proof that it's in `xs`.
@@ -29,7 +29,7 @@ theorem List.attachExample: List.map (e => e.value) (List.attach [3, 1, 2]) = [3
 -- Dropping the proofs gives back the list.
 theorem List.attachFromValues (whole: List a): (rest: List a) -> (sub: (x: a) -> List.Mem x rest -> List.Mem x whole) ->
     List.map (e => e.value) (List.attachFrom whole rest sub) = rest
-  | Nil,       sub => rfl
+  | Nil, sub => rfl
   | Cons x xs, sub => Eq.cong (Cons x) (List.attachFromValues whole xs (y h => sub y (Inr h)))
 
 theorem List.attachValues (xs: List a): List.map (e => e.value) (List.attach xs) = xs := List.attachFromValues xs xs (x h => h)

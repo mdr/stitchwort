@@ -5,15 +5,15 @@
 import Std (IO, Pair, Text)
 
 def eqTexts: List Text -> List Text -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 def result (r: Pair (List Text) a): a := Pair.snd r
 
 def showLine: Option Text -> Text
   | None => "<end>"
-  | Some l  => "[" ++ l ++ "]"
+  | Some l => "[" ++ l ++ "]"
 
 -- readAll
 

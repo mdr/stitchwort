@@ -6,25 +6,25 @@
 -- Lexicographic comparison of lists, by a comparison of their elements:
 -- the first difference decides, and a list comes before its extensions.
 def List.compareLex (cmp: a -> a -> Ordering): List a -> List a -> Ordering
-  | Nil,       Nil       => Equal
-  | Nil,       Cons y ys => Less
-  | Cons x xs, Nil       => Greater
+  | Nil, Nil => Equal
+  | Nil, Cons y ys => Less
+  | Cons x xs, Nil => Greater
   | Cons x xs, Cons y ys => Ordering.andThen (cmp x y) (List.compareLex cmp xs ys)
 
 theorem List.compareLexEqual (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y):
     (xs: List a) -> (ys: List a) -> List.compareLex cmp xs ys = Equal -> xs = ys
-  | Nil,       Nil,       h => rfl
-  | Nil,       Cons y ys, h => Void.exfalso (Ordering.lessNotEqual h)
-  | Cons x xs, Nil,       h => Void.exfalso (Ordering.greaterNotEqual h)
+  | Nil, Nil, h => rfl
+  | Nil, Cons y ys, h => Void.exfalso (Ordering.lessNotEqual h)
+  | Cons x xs, Nil, h => Void.exfalso (Ordering.greaterNotEqual h)
   | Cons x xs, Cons y ys, h =>
     Eq.trans (Eq.cong (t => Cons t xs) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
       (Eq.cong (Cons y) (List.compareLexEqual cmp equal xs ys (And.right (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
 
 theorem List.compareLexFlip (cmp: a -> a -> Ordering) (flip: (x: a) -> (y: a) -> cmp y x = Ordering.flip (cmp x y)):
     (xs: List a) -> (ys: List a) -> List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys)
-  | Nil,       Nil       => rfl
-  | Nil,       Cons y ys => rfl
-  | Cons x xs, Nil       => rfl
+  | Nil, Nil => rfl
+  | Nil, Cons y ys => rfl
+  | Cons x xs, Nil => rfl
   | Cons x xs, Cons y ys =>
     rewrite flip x y, List.compareLexFlip cmp flip xs ys in
       Eq.sym (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
@@ -33,11 +33,11 @@ theorem List.compareLexTrans (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) 
     (trans: (x: a) -> (y: a) -> (z: a) -> cmp x y = Less -> cmp y z = Less -> cmp x z = Less):
     (xs: List a) -> (ys: List a) -> (zs: List a) ->
     List.compareLex cmp xs ys = Less -> List.compareLex cmp ys zs = Less -> List.compareLex cmp xs zs = Less
-  | Nil,       Nil,       zs,        h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
-  | Nil,       Cons y ys, Nil,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Nil,       Cons y ys, Cons z zs, h1, h2 => rfl
-  | Cons x xs, Nil,       zs,        h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
-  | Cons x xs, Cons y ys, Nil,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Nil, Nil, zs, h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | Nil, Cons y ys, Nil, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Nil, Cons y ys, Cons z zs, h1, h2 => rfl
+  | Cons x xs, Nil, zs, h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | Cons x xs, Cons y ys, Nil, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
   | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
     Ordering.andThenTrans (cmp x y) (cmp y z) (cmp x z)
       (List.compareLex cmp xs ys) (List.compareLex cmp ys zs) (List.compareLex cmp xs zs)
@@ -79,34 +79,34 @@ theorem Pair.compareWithTrans (ca: a -> a -> Ordering) (cb: b -> b -> Ordering)
 -- Optional values: `None` first.
 def Option.compareWith (cmp: a -> a -> Ordering): Option a -> Option a -> Ordering
   | None, None => Equal
-  | None, Some y  => Less
-  | Some x,  None => Greater
-  | Some x,  Some y  => cmp x y
+  | None, Some y => Less
+  | Some x, None => Greater
+  | Some x, Some y => cmp x y
 
 theorem Option.compareWithEqual (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) -> cmp x y = Equal -> x = y):
     (m: Option a) -> (n: Option a) -> Option.compareWith cmp m n = Equal -> m = n
   | None, None, h => rfl
-  | None, Some y,  h => Void.exfalso (Ordering.lessNotEqual h)
-  | Some x,  None, h => Void.exfalso (Ordering.greaterNotEqual h)
-  | Some x,  Some y,  h => Eq.cong Some (equal x y h)
+  | None, Some y, h => Void.exfalso (Ordering.lessNotEqual h)
+  | Some x, None, h => Void.exfalso (Ordering.greaterNotEqual h)
+  | Some x, Some y, h => Eq.cong Some (equal x y h)
 
 theorem Option.compareWithFlip (cmp: a -> a -> Ordering) (flip: (x: a) -> (y: a) -> cmp y x = Ordering.flip (cmp x y)):
     (m: Option a) -> (n: Option a) -> Option.compareWith cmp n m = Ordering.flip (Option.compareWith cmp m n)
   | None, None => rfl
-  | None, Some y  => rfl
-  | Some x,  None => rfl
-  | Some x,  Some y  => flip x y
+  | None, Some y => rfl
+  | Some x, None => rfl
+  | Some x, Some y => flip x y
 
 theorem Option.compareWithTrans (cmp: a -> a -> Ordering)
     (trans: (x: a) -> (y: a) -> (z: a) -> cmp x y = Less -> cmp y z = Less -> cmp x z = Less):
     (m: Option a) -> (n: Option a) -> (o: Option a) ->
     Option.compareWith cmp m n = Less -> Option.compareWith cmp n o = Less -> Option.compareWith cmp m o = Less
-  | None, None, o,       h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
-  | None, Some y,  None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | None, Some y,  Some z,  h1, h2 => rfl
-  | Some x,  None, o,       h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
-  | Some x,  Some y,  None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Some x,  Some y,  Some z,  h1, h2 => trans x y z h1 h2
+  | None, None, o, h1, h2 => Void.exfalso (Ordering.equalNotLess h1)
+  | None, Some y, None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | None, Some y, Some z, h1, h2 => rfl
+  | Some x, None, o, h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+  | Some x, Some y, None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
+  | Some x, Some y, Some z, h1, h2 => trans x y z h1 h2
 
 -- Characters, by scalar value.
 def Char.compare (x: Char) (y: Char): Ordering := Nat.compare (Char.toNat x) (Char.toNat y)
@@ -124,9 +124,9 @@ theorem Char.compareTrans (x: Char) (y: Char) (z: Char) (h1: Char.compare x y = 
 -- `Text.compare` is lexicographic by characters: `List.compareLex` with
 -- `Char.compare`, step for step. So its laws are the list's.
 theorem Text.compareCharsLex: (xs: List Char) -> (ys: List Char) -> Text.compareChars xs ys = List.compareLex Char.compare xs ys
-  | Nil,       Nil       => rfl
-  | Nil,       Cons y ys => rfl
-  | Cons x xs, Nil       => rfl
+  | Nil, Nil => rfl
+  | Nil, Cons y ys => rfl
+  | Cons x xs, Nil => rfl
   | Cons x xs, Cons y ys => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
 
 theorem Text.ext: (s: Text) -> (t: Text) -> Text.toList s = Text.toList t -> s = t
@@ -147,4 +147,3 @@ theorem Text.compareTrans (s: Text) (t: Text) (u: Text) (h1: Text.compare s t = 
     (List.compareLexTrans Char.compare Char.compareEqual Char.compareTrans (Text.toList s) (Text.toList t) (Text.toList u)
       (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t))) h1)
       (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList t) (Text.toList u))) h2))
-

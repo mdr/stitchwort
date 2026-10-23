@@ -55,13 +55,13 @@ def SafeInt.toInt (n: SafeInt): Int := n.value
 -- `==` on numbers: equal exactly when their values are.
 instance SafeNat.instDecEq: DecEq SafeNat :=
   { decide = i j =>
-      if h: i.value = j.value then Yes (SafeNat.ext i j h)
-      else No (e => h (Eq.cong (k => k.value) e)) }
+    if h: i.value = j.value then Yes (SafeNat.ext i j h)
+    else No (e => h (Eq.cong (k => k.value) e)) }
 
 instance SafeInt.instDecEq: DecEq SafeInt :=
   { decide = i j =>
-      if h: i.value = j.value then Yes (SafeInt.ext i j h)
-      else No (e => h (Eq.cong (k => k.value) e)) }
+    if h: i.value = j.value then Yes (SafeInt.ext i j h)
+    else No (e => h (Eq.cong (k => k.value) e)) }
 
 -- In order of their values.
 instance SafeNat.instOrd: Ord SafeNat := Ord.byKey (i => i.value) SafeNat.ext

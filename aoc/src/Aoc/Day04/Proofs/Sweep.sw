@@ -41,15 +41,15 @@ theorem mcellsInside (grid: Grid) (m: Marked grid.width grid.height): Inside gri
 
 theorem sweepRowCases (a: Vec Cell w) (ac: Bool) (x: Vec Cell w) (b: Vec Cell w):
     (mv: Bool) -> (bm: Bool) -> (Pair.fst (sweepRow a ac x mv b bm) = x || Pair.fst (sweepRow a ac x mv b bm) = peelRow a x b)
-  | True,  bm    => Inr rfl
-  | False, True  => Inr rfl
+  | True, bm => Inr rfl
+  | False, True => Inr rfl
   | False, False =>
     match ac with
-      | True  => Inr rfl
+      | True => Inr rfl
       | False => Inl rfl
 
 theorem notFalse: (c: Bool) -> not c = False -> c = True
-  | True,  h => rfl
+  | True, h => rfl
   | False, h => Void.exfalso (Bool.trueNotFalse h)
 
 theorem peelSame (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (h: not (Vec.toList (peelRow a x b) == Vec.toList x) = False): peelRow a x b = x :=
@@ -60,32 +60,32 @@ theorem selfEqTrue (x: Vec Cell w): (Vec.toList x == Vec.toList x) = True := Dec
 -- An unmarked row of a pass is the row it was.
 theorem sweepRowSame (a: Vec Cell w) (ac: Bool) (x: Vec Cell w) (b: Vec Cell w): (mv: Bool) -> (bm: Bool) ->
     Pair.snd (sweepRow a ac x mv b bm) = False -> Pair.fst (sweepRow a ac x mv b bm) = x
-  | True,  bm,    h => peelSame a x b h
-  | False, True,  h => peelSame a x b h
+  | True, bm, h => peelSame a x b h
+  | False, True, h => peelSame a x b h
   | False, False, h =>
     match ac with
-      | True  => peelSame a x b h
+      | True => peelSame a x b h
       | False => rfl
 
 -- A row a pass leaves as it was is unmarked.
 theorem sweepRowMark (a: Vec Cell w) (ac: Bool) (x: Vec Cell w) (b: Vec Cell w): (mv: Bool) -> (bm: Bool) ->
     Pair.fst (sweepRow a ac x mv b bm) = x -> Pair.snd (sweepRow a ac x mv b bm) = False
-  | True,  bm,    h => rewrite h, selfEqTrue x in rfl
-  | False, True,  h => rewrite h, selfEqTrue x in rfl
+  | True, bm, h => rewrite h, selfEqTrue x in rfl
+  | False, True, h => rewrite h, selfEqTrue x in rfl
   | False, False, h =>
     match ac with
-      | True  => rewrite h, selfEqTrue x in rfl
+      | True => rewrite h, selfEqTrue x in rfl
       | False => rfl
 
 -- An unmarked row whose own mark, the next row's and the row above's
 -- change were all unset is peeled to itself when that was so already.
 theorem peelOrSettled (a: Vec Cell w) (ac: Bool) (x: Vec Cell w) (b: Vec Cell w): (mv: Bool) -> (bm: Bool) ->
     Pair.snd (sweepRow a ac x mv b bm) = False -> (mv = False -> bm = False -> ac = False -> peelRow a x b = x) -> peelRow a x b = x
-  | True,  bm,    h, skip => peelSame a x b h
-  | False, True,  h, skip => peelSame a x b h
+  | True, bm, h, skip => peelSame a x b h
+  | False, True, h, skip => peelSame a x b h
   | False, False, h, skip =>
     match e: ac with
-      | True  => peelSame a x b h
+      | True => peelSame a x b h
       | False => skip rfl rfl rfl
 
 -- One pass, row by row.
@@ -97,9 +97,9 @@ def stepAt (prev: (Vec Cell w, Bool)) (cur: (Vec Cell w, Bool)) (next: (Vec Cell
 theorem sweepFromAt [w: Nat] [h: Nat] (gap: Vec Cell w): (above: Vec Cell w) -> (ch: Bool) -> (m: Marked w h) -> (r: Nat) -> r < h ->
     List.getOr (gap, False) r (Vec.toList (sweepFrom gap above ch m))
       = stepAt (List.getOr (gap, False) r (Cons (above, ch) (Vec.toList (sweepFrom gap above ch m))))
-          (List.getOr (gap, False) r (Vec.toList m)) (List.getOr (gap, False) (Succ r) (Vec.toList m))
-  | above, ch, VNil,                          r,      hr => Void.exfalso (Bool.falseNotTrue hr)
-  | above, ch, VCons (MkPair row moved) rest, Zero,   hr => rewrite Vec.headOrToList (gap, False) rest
+        (List.getOr (gap, False) r (Vec.toList m)) (List.getOr (gap, False) (Succ r) (Vec.toList m))
+  | above, ch, VNil, r, hr => Void.exfalso (Bool.falseNotTrue hr)
+  | above, ch, VCons (MkPair row moved) rest, Zero, hr => rewrite Vec.headOrToList (gap, False) rest
   | above, ch, VCons (MkPair row moved) rest, Succ r, hr =>
     let y := sweepRow above ch row moved (Pair.fst (Vec.headOr (gap, False) rest)) (Pair.snd (Vec.headOr (gap, False) rest))
     sweepFromAt gap y.fst y.snd rest r hr
@@ -112,7 +112,7 @@ theorem sweepAt [w: Nat] [h: Nat] (m: Marked w h) (r: Nat) (hr: r < h): entry (s
 -- An unmarked row of a pass is the row it was.
 theorem unchanged (m: Marked w h) (j: Nat) (hm: Pair.snd (entry (sweep m) (Succ j)) = False): Pair.fst (entry (sweep m) (Succ j)) = Pair.fst (entry m (Succ j)) :=
   match e: Nat.leq (Succ j) h with
-    | True  =>
+    | True =>
       let st := sweepAt m j e
       let p := entry (sweep m) j
       let x := entry m (Succ j)
@@ -122,7 +122,7 @@ theorem unchanged (m: Marked w h) (j: Nat) (hm: Pair.snd (entry (sweep m) (Succ 
     | False => rewrite entryPast (sweep m) j omega, entryPast m j omega
 
 theorem prevSame (m: Marked w h): (r: Nat) -> Pair.snd (entry (sweep m) r) = False -> Pair.fst (entry (sweep m) r) = Pair.fst (entry m r)
-  | Zero,   hm => rfl
+  | Zero, hm => rfl
   | Succ j, hm => unchanged m j hm
 
 -- The marks are sound.
@@ -159,7 +159,7 @@ theorem mixAbove (k: Nat) (out: Cells) (inp: Cells) (r: Nat) (c: Nat) (h: k <= r
   rewrite Nat.leqFalseOfLess k (Succ r) h in rfl
 
 theorem ifBoth: (b: Bool) -> (x: Cell) -> (y: Cell) -> x = Floor -> y = Floor -> (if b then x else y) = Floor
-  | True,  x, y, hx, hy => hx
+  | True, x, y, hx, hy => hx
   | False, x, y, hx, hy => hy
 
 theorem mixInside (grid: Grid) (k: Nat) (out: Cells) (inp: Cells) (io: Inside grid out) (ii: Inside grid inp): Inside grid (mix k out inp) :=
@@ -167,25 +167,25 @@ theorem mixInside (grid: Grid) (k: Nat) (out: Cells) (inp: Cells) (io: Inside gr
     (r c h => ifBoth (Nat.leq (Succ r) k) (out r c) (inp r c) (And.right io r c h) (And.right ii r c h))
 
 theorem keepRoll: (a: Cell) -> (w: Nat) -> keep a w = Roll -> a = Roll
-  | Roll,  w, h => rfl
+  | Roll, w, h => rfl
   | Floor, w, h => Void.exfalso (rollNotFloor h)
 
 -- A roll a round removes has fewer than 5 rolls in its window.
 theorem keepFloor: (w: Nat) -> keep Roll w = Floor -> w < 5
-  | 0,                                  h => rfl
-  | 1,                                  h => rfl
-  | 2,                                  h => rfl
-  | 3,                                  h => rfl
-  | 4,                                  h => rfl
+  | 0, h => rfl
+  | 1, h => rfl
+  | 2, h => rfl
+  | 3, h => rfl
+  | 4, h => rfl
   | Succ (Succ (Succ (Succ (Succ n)))), h => Void.exfalso (rollNotFloor (Eq.sym h))
 
 -- A roll a round keeps has at least 5.
 theorem keepRollGe: (w: Nat) -> keep Roll w = Roll -> 5 <= w
-  | 0,                                  h => Void.exfalso (rollNotFloor h)
-  | 1,                                  h => Void.exfalso (rollNotFloor h)
-  | 2,                                  h => Void.exfalso (rollNotFloor h)
-  | 3,                                  h => Void.exfalso (rollNotFloor h)
-  | 4,                                  h => Void.exfalso (rollNotFloor h)
+  | 0, h => Void.exfalso (rollNotFloor h)
+  | 1, h => Void.exfalso (rollNotFloor h)
+  | 2, h => Void.exfalso (rollNotFloor h)
+  | 3, h => Void.exfalso (rollNotFloor h)
+  | 4, h => Void.exfalso (rollNotFloor h)
   | Succ (Succ (Succ (Succ (Succ n)))), h => rfl
 
 -- Changing row k only, each cell either kept or as a round leaves it, is a step.
@@ -207,23 +207,23 @@ theorem rowStep (grid: Grid) (s: Cells) (t: Cells) (ins: Inside grid s) (k: Nat)
     (r c ht =>
       match Nat.decEq r k with
         | Yes p => rewrite p in rowSub c (rewrite <- p in ht)
-        | No q  => Eq.trans (Eq.sym (others r c q)) ht)
+        | No q => Eq.trans (Eq.sym (others r c q)) ht)
     (r c hs ht =>
       match Nat.decEq r k with
         | Yes p => rewrite p in rowFew c (rewrite <- p in hs) (rewrite <- p in ht)
-        | No q  => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym ht) (Eq.trans (others r c q) hs))))
+        | No q => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym ht) (Eq.trans (others r c q) hs))))
 
 -- The border rows of `mix k`: rows above k as swept, the rest as they were.
 theorem bordMixOut (k: Nat) (out: Cells) (inp: Cells) (r: Nat) (h: r < k): (j: Nat) -> bord out (Succ r) j = bord (mix k out inp) (Succ r) j
-  | Zero   => rfl
+  | Zero => rfl
   | Succ c => Eq.sym (mixBelow k out inp r c h)
 
 theorem bordMixIn (k: Nat) (out: Cells) (inp: Cells) (r: Nat) (h: k <= r): (j: Nat) -> bord inp (Succ r) j = bord (mix k out inp) (Succ r) j
-  | Zero   => rfl
+  | Zero => rfl
   | Succ c => Eq.sym (mixAbove k out inp r c h)
 
 theorem bordMixPrev (out: Cells) (inp: Cells): (k: Nat) -> (j: Nat) -> bord out k j = bord (mix k out inp) k j
-  | Zero,   j => rfl
+  | Zero, j => rfl
   | Succ r, j => bordMixOut (Succ r) out inp r omega j
 
 theorem rowIsMove (cells: Cells) (other: Cells) (r: Nat) (v: Vec Cell w) (hv: RowIs cells r v) (same: (j: Nat) -> bord cells r j = bord other r j): RowIs other r v :=
@@ -261,7 +261,7 @@ theorem mixStep (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
   rowStep grid (mix k out inp) (mix (Succ k) out inp) (mixInside grid k out inp (mcellsInside grid (sweep m)) (mcellsInside grid m)) k
     (r c ne =>
       match e: Nat.leq (Succ r) k with
-        | True  => mixBelow (Succ k) out inp r c omega
+        | True => mixBelow (Succ k) out inp r c omega
         | False => mixAbove (Succ k) out inp r c omega)
     (c =>
       let now := mixBelow (Succ k) out inp k c omega
@@ -273,7 +273,7 @@ theorem mixStep (grid: Grid) (m: Marked grid.width grid.height) (k: Nat) (hk: k 
 -- A pass keeps the stable sets and only removes rolls.
 theorem mixChain (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (hk: Keeps grid s0 (mcells m)):
     (k: Nat) -> k <= grid.height -> (Keeps grid s0 (mix k (mcells (sweep m)) (mcells m)) && Sub (mix k (mcells (sweep m)) (mcells m)) (mcells m))
-  | Zero,   h => Both hk (subRefl (mcells m))
+  | Zero, h => Both hk (subRefl (mcells m))
   | Succ k, h =>
     let out := mcells (sweep m)
     let inp := mcells m
@@ -289,7 +289,7 @@ theorem passKeeps (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (h
   let chain := mixChain grid s0 m hk grid.height omega
   let same: Same out (mix grid.height out inp) := r c =>
     match e: Nat.leq (Succ r) grid.height with
-      | True  => rfl
+      | True => rfl
       | False =>
         let past: grid.height <= r := omega
         Eq.trans (And.left (mcellsInside grid (sweep m)) r c past) (Eq.sym (And.left (mcellsInside grid m) r c past))
@@ -304,8 +304,8 @@ theorem settledStable (grid: Grid) (m: Marked grid.width grid.height) (inv: Inv 
     let same: keep (cells r c) w = cells r c :=
       calc keep (cells r c) w
         _ = List.getOr Floor c (Vec.toList (peelRow (Pair.fst (entry m r)) (Pair.fst (entry m (Succ r))) (Pair.fst (entry m (Succ (Succ r))))))
-            := Eq.sym (peelRowCells cells r c (Pair.fst (entry m r)) (Pair.fst (entry m (Succ r))) (Pair.fst (entry m (Succ (Succ r))))
-                 (rowIsEntry m r) (rowIsEntry m (Succ r)) (rowIsEntry m (Succ (Succ r))))
+          := Eq.sym (peelRowCells cells r c (Pair.fst (entry m r)) (Pair.fst (entry m (Succ r))) (Pair.fst (entry m (Succ (Succ r))))
+            (rowIsEntry m r) (rowIsEntry m (Succ r)) (rowIsEntry m (Succ (Succ r))))
         _ = List.getOr Floor c (Vec.toList (Pair.fst (entry m (Succ r)))) := rewrite inv r hr (none r) (none (Succ r))
         _ = cells r c := Eq.sym (mcellsEntry m r c)
     let kept: keep Roll w = Roll := Eq.trans (Eq.cong (a => keep a w) (Eq.sym hs)) (Eq.trans same hs)

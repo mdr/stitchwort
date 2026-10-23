@@ -81,7 +81,7 @@ def sumTree (t: Tree): Nat :=
   x + sumForest kids
 
 def sumForest: Forest -> Nat
-  | FNil       => 0
+  | FNil => 0
   | FCons t ts => sumTree t + sumForest ts
 
 -- The same, lifted into a helper (the `let` isn't the whole right-hand side).
@@ -91,7 +91,7 @@ def sumTreeLifted (t: Tree): Nat :=
   x * one + sumForestLifted kids
 
 def sumForestLifted: Forest -> Nat
-  | FNil       => 0
+  | FNil => 0
   | FCons t ts => sumTreeLifted t + sumForestLifted ts
 
 -- Effects: the right-hand side runs once, before the rest of the block.
@@ -109,9 +109,9 @@ def swapLines(): {IO} Nat :=
   n + m
 
 def eqTexts: List Text -> List Text -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 test "tuple" := digitsSum 23 == 5
 test "nested" := flatten ((1, 2), 3) == 6

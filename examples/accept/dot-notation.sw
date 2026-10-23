@@ -72,14 +72,13 @@ test "nat" := showNat 4 == "4"
 -- The pre-pass can't know which `label` `s.label` means, so it groups
 -- `Shape.describe` with every `….label` (§5): here with `Tile.label` too.
 type Shape = { name: Text }
-type Tile  = { shape: Shape }
+type Tile = { shape: Shape }
 
 def Shape.label (s: Shape): Text := s.name
 
 def Tile.label (t: Tile): Text := t.shape.describe
 
 def Shape.describe (s: Shape): Text := s.label
-
 
 test "cycle" := Tile.label { shape = { name = "a" } } == "a"
 

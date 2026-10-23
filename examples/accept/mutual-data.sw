@@ -24,7 +24,7 @@ def size: Tree -> Nat
   | Node n kids => Succ (sizeForest kids)
 
 def sizeForest: Forest -> Nat
-  | FNil       => 0
+  | FNil => 0
   | FCons t ts => size t + sizeForest ts
 
 -- Adding up the labels.
@@ -32,14 +32,14 @@ def sumTree: Tree -> Nat
   | Node n kids => n + sumForest kids
 
 def sumForest: Forest -> Nat
-  | FNil       => 0
+  | FNil => 0
   | FCons t ts => sumTree t + sumForest ts
 
 def mapTree (f: Nat -> Nat): Tree -> Tree
   | Node n kids => Node (f n) (mapForest f kids)
 
 def mapForest (f: Nat -> Nat): Forest -> Forest
-  | FNil       => FNil
+  | FNil => FNil
   | FCons t ts => FCons (mapTree f t) (mapForest f ts)
 
 def leaf (n: Nat): Tree := Node n FNil
@@ -56,10 +56,10 @@ theorem sizeMap (f: Nat -> Nat): (t: Tree) -> size (mapTree f t) = size t
 
 theorem sizeMapForest (f: Nat -> Nat): (ts: Forest) ->
     sizeForest (mapForest f ts) = sizeForest ts
-  | FNil       => rfl
+  | FNil => rfl
   | FCons t ts =>
     Eq.trans (Eq.cong (a => a + sizeForest (mapForest f ts)) (sizeMap f t))
-          (Eq.cong (b => size t + b) (sizeMapForest f ts))
+      (Eq.cong (b => size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
 theorem sizeNotZero: (t: Tree) -> Not (size t = 0)
@@ -74,22 +74,22 @@ type Odd: Type =
   | OSucc (pred: Even)
 
 def evenToNat: Even -> Nat
-  | EZero   => 0
+  | EZero => 0
   | ESucc o => Succ (oddToNat o)
 
 def oddToNat: Odd -> Nat
   | OSucc e => Succ (evenToNat e)
 
 def isEven: Nat -> Bool
-  | 0      => True
+  | 0 => True
   | Succ n => isOdd n
 
 def isOdd: Nat -> Bool
-  | 0      => False
+  | 0 => False
   | Succ n => isEven n
 
 theorem evenIsEven: (e: Even) -> isEven (evenToNat e) = True
-  | EZero   => rfl
+  | EZero => rfl
   | ESucc o => oddIsOdd o
 
 theorem oddIsOdd: (o: Odd) -> isOdd (oddToNat o) = True
@@ -108,7 +108,7 @@ type OddP: Prop =
   | OddSucc (pred: EvenP)
 
 theorem evenTrivial: EvenP -> Unit
-  | EvenZero   => Trivial
+  | EvenZero => Trivial
   | EvenSucc o => oddTrivial o
 
 theorem oddTrivial: OddP -> Unit
@@ -127,7 +127,7 @@ def flatten: Rose a -> List a
   | Bloom x kids => Cons x (flattenAll kids)
 
 def flattenAll: Roses a -> List a
-  | NoRoses        => Nil
+  | NoRoses => Nil
   | MoreRoses r rs => (flatten r).append (flattenAll rs)
 
 test "flatten" := (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Bloom 3 NoRoses) NoRoses)))).length == 3
@@ -162,7 +162,7 @@ type Stmts: Type =
   | Then (first: Stmt) (rest: Stmts)
 
 def exprCount: Expr -> Nat
-  | Num n     => 1
+  | Num n => 1
   | Block b r => stmtsCount b + exprCount r + 1
 
 def stmtCount: Stmt -> Nat

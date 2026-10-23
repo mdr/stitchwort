@@ -2,7 +2,7 @@
 -- differential: skip (100,000 characters is deeper than the recursive reference evaluator can go)
 
 def long: Nat -> Text
-  | Zero   => ""
+  | Zero => ""
   | Succ n => "a" ++ long n
 
 test "same long texts" := long 100000 == long 100000

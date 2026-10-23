@@ -49,20 +49,22 @@ def blocks (lines: List Text): List (List (List Char)) :=
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
-  { operator = (columns.filterMap (.last.flatMap Operator.parse)).head
-  , rowNumbers = rows.init.map readNumber
-  , columnNumbers = columns.map (column => readNumber column.init) }
+  {
+    operator = (columns.filterMap (.last.flatMap Operator.parse)).head,
+    rowNumbers = rows.init.map readNumber,
+    columnNumbers = columns.map (column => readNumber column.init)
+  }
 
 def Operator.parse: Char -> Option Operator
   | '+' => Some Add
   | '*' => Some Multiply
-  | _   => None
+  | _ => None
 
 -- The number written with these digits; spaces (and anything else) are skipped.
 def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap .digitValue)
 
 def Operator.apply: Operator -> List Nat -> Nat
-  | Add,      numbers => numbers.sum
+  | Add, numbers => numbers.sum
   | Multiply, numbers => numbers.product
 
 -- A problem without an operator has no answer; count it as 0.

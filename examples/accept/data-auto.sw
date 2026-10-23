@@ -29,8 +29,8 @@ def Map.empty [auto ord: Ordered k]: Map k v := { entries = [] }
 def Map.insertList [auto ord: Ordered k] (key: k) (value: v): List (k, v) -> List (k, v)
   | [] => [(key, value)]
   | Cons (k2, v2) rest => match compare key k2 with
-    | Less    => Cons (key, value) (Cons (k2, v2) rest)
-    | Equal   => Cons (key, value) rest
+    | Less => Cons (key, value) (Cons (k2, v2) rest)
+    | Equal => Cons (key, value) rest
     | Greater => Cons (k2, v2) (Map.insertList key value rest)
 
 def Map.insert [auto ord: Ordered k] (key: k) (value: v) (m: Map k v): Map k v :=
@@ -82,10 +82,10 @@ interface Pretty (a: Type) =
 
 instance Map.instPretty: Pretty (Map k v [ord := o]) :=
   { pretty = m => match m.entries with
-      | Cons (a, _) (Cons (b, _) _) => match compare [ordered := o] a b with
-        | Less => "in order"
-        | _    => "out of order"
-      | _ => "short" }
+    | Cons (a, _) (Cons (b, _) _) => match compare [ordered := o] a b with
+      | Less => "in order"
+      | _ => "out of order"
+    | _ => "short" }
 
 test "the head's ordering is kept" := Pretty.pretty down == "in order"
 test "for any ordering" := Pretty.pretty words == "in order"
@@ -104,8 +104,8 @@ ability State (s: Type) where
 def runState (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
   let run: s -> {e} (a, s) :=
     handle prog() with
-      | return x   => st => (x, st)
-      | get u, k   => st => k st st
+      | return x => st => (x, st)
+      | get u, k => st => k st st
       | put st2, k => st => k() st2
   run init
 

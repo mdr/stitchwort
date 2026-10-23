@@ -38,34 +38,34 @@ theorem joinedIsJoinAll (k: Nat) (points: List Point):
 -- Every connection is between two of the boxes ------------------------------
 
 theorem allAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.all p xs = True -> List.all p ys = True -> List.all p (List.append xs ys) = True
-  | Nil,       ys, hx, hy => hy
+  | Nil, ys, hx, hy => hy
   | Cons x xs, ys, hx, hy =>
     match e: p x with
-      | True  => allAppend p xs ys hx hy
+      | True => allAppend p xs ys hx hy
       | False => hx
 
 theorem allTake (p: a -> Bool): (k: Nat) -> (xs: List a) -> List.all p xs = True -> List.all p (List.take k xs) = True
-  | Zero,   xs,        h => rfl
-  | Succ k, Nil,       h => rfl
+  | Zero, xs, h => rfl
+  | Succ k, Nil, h => rfl
   | Succ k, Cons x xs, h =>
     match e: p x with
-      | True  => allTake p k xs h
+      | True => allTake p k xs h
       | False => h
 
 -- If every element passes q, so do both ends of every pair.
 theorem allPairsBoth (q: Nat -> Bool): (xs: List Nat) -> List.all q xs = True -> List.all (pair => q pair.fst && q pair.snd) (List.pairs xs) = True
-  | Nil,       h => rfl
+  | Nil, h => rfl
   | Cons x xs, h =>
     match e: q x with
-      | True  => allAppend _ (List.map (y => (x, y)) xs) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
+      | True => allAppend _ (List.map (y => (x, y)) xs) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
       | False => Void.exfalso (Bool.falseNotTrue h)
 
 theorem allMapPairWith (q: Nat -> Bool) (x: Nat) (hx: q x = True): (xs: List Nat) -> List.all q xs = True ->
     List.all (pair => q pair.fst && q pair.snd) (List.map (y => (x, y)) xs) = True
-  | Nil,       h => rfl
+  | Nil, h => rfl
   | Cons y ys, h =>
     match e: q y with
-      | True  => rewrite hx in allMapPairWith q x hx ys h
+      | True => rewrite hx in allMapPairWith q x hx ys h
       | False => Void.exfalso (Bool.falseNotTrue h)
 
 theorem connectionsInRange (k: Nat) (points: List Point): List.all (boxesBelow points.length) (firstConnections k points) = True :=
