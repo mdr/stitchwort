@@ -1,6 +1,9 @@
 // Float on the WebAssembly kernel (docs/proposals/float.md §3.4, §7.4), from
 // the playground's bundle, in Node:
 //
+//   node web/tests/float-wasm.mjs fingerprint
+//       the fingerprint of the sources the bundle was built from, which the
+//       tests compare with their own to tell a stale bundle
 //   node web/tests/float-wasm.mjs gate
 //       the kernel gate (§3.4): every check, with natives on and with the
 //       float natives off; exits 1 if one fails
@@ -21,7 +24,10 @@ const web = await import(join(pkg, "stitchwort_web.js"));
 web.initSync({ module: readFileSync(join(pkg, "stitchwort_web_bg.wasm")) });
 
 const [command, file, expr] = process.argv.slice(2);
-if (command === "gate") {
+if (command === "fingerprint") {
+  // The sources the bundle was built from (absent in a bundle older than this).
+  console.log(web.source_fingerprint ? web.source_fingerprint() : "none");
+} else if (command === "gate") {
   const report = web.float_gate();
   process.stdout.write(report);
   const lines = report.split("\n");

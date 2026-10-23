@@ -9,7 +9,8 @@
 //! The WebAssembly kernel is the playground's bundle in `web/pkg`, run by
 //! `web/tests/float-wasm.mjs` under Node. Build it first (`web/build.sh`, or
 //! its `cargo build --target wasm32-unknown-unknown` and `wasm-bindgen`
-//! steps); without it that path is left out, and the test says so.
+//! steps). Without it, or if it was built from other sources (its source
+//! fingerprint differs), that path is left out, and the test says so.
 
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -144,6 +145,40 @@ fn web_pkg() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/pkg")
 }
 
+fn wasm_script() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/tests/float-wasm.mjs")
+}
+
+/// Whether `web/pkg` holds a bundle built from these sources: absent, or
+/// built from other sources (a stale bundle from before a change), the
+/// WebAssembly kernel's path is left out, saying why and how to rebuild.
+fn wasm_bundle_current() -> bool {
+    let why = if !web_pkg().join("stitchwort_web_bg.wasm").exists() {
+        "isn't built".to_string()
+    } else {
+        let out = Command::new("node")
+            .arg(wasm_script())
+            .arg("fingerprint")
+            .output()
+            .expect("run node");
+        let theirs = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let ours = stitchwort_cli::driver::SOURCE_FINGERPRINT;
+        if out.status.success() && theirs == ours {
+            return true;
+        }
+        format!(
+            "was built from other sources (its fingerprint is {theirs:?}, these sources' {ours:?})"
+        )
+    };
+    eprintln!(
+        "web/pkg {why}: the WebAssembly kernel's path is left out. Rebuild it with \
+         `cargo build -p stitchwort-web --target wasm32-unknown-unknown --release` and \
+         `wasm-bindgen --target web --no-typescript --out-dir web/pkg \
+         target/wasm32-unknown-unknown/release/stitchwort_web.wasm` (or web/build.sh)"
+    );
+    false
+}
+
 #[test]
 fn the_four_paths_agree_on_canonical_bits() {
     let mut values: Vec<u64> = EDGES.to_vec();
@@ -166,10 +201,9 @@ fn the_four_paths_agree_on_canonical_bits() {
     let mut paths = vec![("native kernel", numbers("native kernel", &kernel, count))];
 
     // The WebAssembly kernel, if the bundle is built.
-    if web_pkg().join("stitchwort_web_bg.wasm").exists() {
-        let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/tests/float-wasm.mjs");
+    if wasm_bundle_current() {
         let out = Command::new("node")
-            .arg(&script)
+            .arg(wasm_script())
             .args(["evaluate"])
             .arg(&path)
             .arg("results")
@@ -185,8 +219,6 @@ fn the_four_paths_agree_on_canonical_bits() {
             "WebAssembly kernel",
             numbers("WebAssembly kernel", &text, count),
         ));
-    } else {
-        eprintln!("web/pkg isn't built: the WebAssembly kernel's path is left out");
     }
 
     paths.push((
@@ -224,13 +256,11 @@ fn the_four_paths_agree_on_canonical_bits() {
 /// WebAssembly kernel, if the bundle is built: every check passes there too.
 #[test]
 fn the_gate_passes_on_the_webassembly_kernel() {
-    if !web_pkg().join("stitchwort_web_bg.wasm").exists() {
-        eprintln!("web/pkg isn't built: the gate on the WebAssembly kernel is left out");
+    if !wasm_bundle_current() {
         return;
     }
-    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/tests/float-wasm.mjs");
     let out = Command::new("node")
-        .arg(&script)
+        .arg(wasm_script())
         .arg("gate")
         .output()
         .expect("run node");

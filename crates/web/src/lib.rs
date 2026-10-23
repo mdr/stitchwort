@@ -86,6 +86,15 @@ pub fn check_index(source: &str) -> String {
     stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "", &reported)
 }
 
+/// The fingerprint of the sources this bundle was built from
+/// (`stitchwort_driver::driver::SOURCE_FINGERPRINT`): tests that run the
+/// bundle compare it with their own, to tell a stale `web/pkg`.
+#[doc(hidden)]
+#[wasm_bindgen]
+pub fn source_fingerprint() -> String {
+    stitchwort_driver::driver::SOURCE_FINGERPRINT.to_string()
+}
+
 /// `Float`'s kernel gate (docs/proposals/float.md §3.4) on this build's
 /// kernel, with natives on and with the float natives off: for the test that
 /// runs it on the WebAssembly kernel (web/tests/float-wasm.mjs). One line

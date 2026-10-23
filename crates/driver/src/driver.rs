@@ -652,6 +652,11 @@ const COMPILER: &str = concat!("stitchwort-", env!("CARGO_PKG_VERSION"));
 /// same version number.
 pub const FINGERPRINT: &str = env!("STITCHWORT_FINGERPRINT");
 
+/// [`FINGERPRINT`] without the toolchain and target: the same in a native
+/// and a WebAssembly build of the same sources, so a test can tell whether
+/// the playground's bundle is up to date (`stitchwort_web::source_fingerprint`).
+pub const SOURCE_FINGERPRINT: &str = env!("STITCHWORT_SOURCE_FINGERPRINT");
+
 /// The effective modes of evaluation, for the cache key: whether the native
 /// implementations are used (`n1`) or not (`n0`), and whether text literals
 /// are compact (`c1`) or constructors (`c0`).

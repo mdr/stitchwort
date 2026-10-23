@@ -64,6 +64,7 @@ fn leaf_name(b: &Boundary) -> Option<&'static str> {
         Boundary::Int => "INT",
         Boundary::SafeNat => "SAFE_NAT",
         Boundary::SafeInt => "SAFE_INT",
+        Boundary::Float => "FLOAT",
         Boundary::Bool => "BOOL",
         Boundary::Text => "TEXT",
         Boundary::Char => "CHAR",

@@ -98,8 +98,12 @@ the same in both modes. 107 checks, on both kernels.
 - **Literal errors** have their own code, `E-FLOAT-LITERAL`. `Float.infinity` is in 1a because
   the overflow message names it.
 - **The WebAssembly kernel's paths** (the gate and the four-path test) run from `web/pkg`, the
-  playground's bundle. The tests leave that path out, saying so, when it isn't built. For this
+  playground's bundle. The tests leave that path out, saying so, when it isn't built or was
+  built from other sources (its `source_fingerprint`, the build fingerprint without the toolchain
+  and target, differs from the tests' `SOURCE_FINGERPRINT`). For this
   stage it was built and both ran.
+- **The fast JS codec** (merged from main) uses the `FLOAT` leaf directly, so a `Float` takes
+  the fast path, `-0`, `NaN` and the infinities included.
 - **The extract test's comparisons** now encode `-0`, `NaN` and the infinities as text, so a
   `Float` result compares as the same double rather than through JSON.
 - **The run-time audit** of typed arrays allows the `stitchwort run --js` runner's

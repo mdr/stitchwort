@@ -55,6 +55,10 @@ fn main() {
     let target = std::env::var("TARGET").unwrap_or_default();
     let hex = fingerprint::fingerprint(lock.as_deref(), &sources, &version, &target);
     println!("cargo:rustc-env=STITCHWORT_FINGERPRINT={hex}");
+    // The sources alone, the same for every target: so a test can tell
+    // whether the WebAssembly bundle was built from these sources.
+    let sources_only = fingerprint::fingerprint(lock.as_deref(), &sources, "", "");
+    println!("cargo:rustc-env=STITCHWORT_SOURCE_FINGERPRINT={sources_only}");
 }
 
 /// The Rust and Stitchwort sources under `dir`, recursively.
