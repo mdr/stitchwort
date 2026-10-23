@@ -2486,6 +2486,7 @@ fn safe_numbers_cross_the_boundary_as_numbers() {
         "export declare function toSafe(n: bigint): number | undefined;",
         "export type Counter = { readonly count: number; readonly delta: number };",
         "export declare function sumAll(xs: readonly number[]): number | undefined;",
+        "export declare function sameCounter(a: Counter, b: Counter): boolean;",
     ] {
         assert!(dts.contains(declaration), "{declaration}\n{dts}");
     }
@@ -2570,6 +2571,12 @@ refused(() => m.bump({ count: 1n, delta: 1 }), /^c\.count: expected a number$/);
 refused(() => m.bump({ count: -1, delta: 1 }), /^c\.count: expected a whole number from 0 to 9007199254740991$/);
 refused(() => m.bump({ count: 1, delta: 2 ** 53 }), /^c\.delta: expected a whole number from -/);
 refused(() => m.bump({ count: 1 }), /^c\.delta: missing$/);
+
+// A record with `SafeNat` and `SafeInt` fields has `==` (SW-344): by value.
+assert.equal(m.sameCounter({ count: 1, delta: -1 }, { count: 1, delta: -1 }), true);
+assert.equal(m.sameCounter({ count: 1, delta: -1 }, { count: 2, delta: -1 }), false);
+assert.equal(m.sameCounter({ count: 1, delta: -1 }, { count: 1, delta: 1 }), false);
+refused(() => m.sameCounter({ count: 1, delta: 1.5 }, { count: 1, delta: 1 }), /^a\.delta: expected a whole number$/);
 
 // `Nat` and `Int` are still `bigint`s.
 refused(() => m.toSafe(5), /^n: expected a non-negative bigint$/);

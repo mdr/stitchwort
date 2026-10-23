@@ -495,6 +495,17 @@ define(info$Main$dCounter, [
 
 const $Std$dNat$dadd = (m) => (n) => m + n;
 const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dDecidable$dtoBool = (v1) => {
+  switch (v1.tag) {
+    case "Yes": {
+      return { tag: "True" };
+    }
+    case "No": {
+      return { tag: "False" };
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
   switch (v2.tag) {
     case "Yes": {
@@ -517,10 +528,17 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
 const $Std$dInt$dneg = (a) => -a;
 const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
+const $Std$dInt$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dDecEq$d$gdecide = (v1) => {
+  const v2 = v1.decide;
+  return v2;
+};
+const $Std$dDecEq$ddecide = (v1) => $Std$dDecEq$d$gdecide(v1);
 const $Std$dSafeNat$dvalue = (v0) => {
   const v1 = v0.value;
   return v1;
@@ -531,6 +549,8 @@ const $Std$dSafeInt$dvalue = (v0) => {
 };
 const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0)(9007199254740991n))(((v1) => ({ tag: "Some", value: { value: v0 } })))(((v1) => ({ tag: "None" })));
 const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1)(9007199254740991n)))($Std$dInt$dnatAbs(v0)))(((v1) => ({ tag: "Some", value: { value: v0 } })))(((v1) => ({ tag: "None" })));
+const $Std$dSafeNat$dinstDecEq = { decide: ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2)(v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" }))))) };
+const $Std$dSafeInt$dinstDecEq = { decide: ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2)(v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" }))))) };
 const $Std$dList$dmap = (v2) => (v3) => {
   let s2 = v2, s3 = v3;
   let h$ = null, l$ = null, k$ = null;
@@ -597,8 +617,26 @@ const $Main$dCounter$ddelta = (v0) => {
   const v2 = v0.delta;
   return v2;
 };
+const $Main$dCounter$d$g$gmk$g0 = (v0) => (v1) => {
+  const v2 = v1.count;
+  const v3 = v1.delta;
+  return v2;
+};
+const $Main$dCounter$d$g$gmk$g1 = (v0) => (v1) => {
+  const v2 = v1.count;
+  const v3 = v1.delta;
+  return v3;
+};
+const $Main$dCounter$d$gdecEq = (v0) => (v1) => {
+  const v2 = v0.count;
+  const v3 = v0.delta;
+  const v4 = v1.count;
+  const v5 = v1.delta;
+  return $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeNat$dinstDecEq)(v2)(v4))(((v6) => $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeInt$dinstDecEq)(v3)(v5))(((v7) => ({ tag: "Yes" })))(((v7) => ({ tag: "No" })))))(((v6) => ({ tag: "No" })));
+};
 const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue($Main$dCounter$dcount(v0)))($Std$dInt$dtoNat($Std$dSafeInt$dvalue($Main$dCounter$ddelta(v0)))));
 const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)($Std$dSafeNat$dvalue(v2)))))(0n)(v0));
+const $Main$dsameCounter = (v0) => (v1) => $Std$dDecidable$dtoBool($Main$dCounter$d$gdecEq(v0)(v1));
 
 function $$addSafe(arg0, arg1) {
   try {
@@ -664,4 +702,14 @@ function $$sumAll(arg0) {
   }
 }
 
-export { $$addSafe as addSafe, $$negateSafe as negateSafe, $$toSafe as toSafe, $$toSafeInt as toSafeInt, $$lengths as lengths, $$bump as bump, $$sumAll as sumAll };
+function $$sameCounter(arg0, arg1) {
+  try {
+    const v0 = decode(data(info$Main$dCounter), arg0, "a");
+    const v1 = decode(data(info$Main$dCounter), arg1, "b");
+    return encode(BOOL, $Main$dsameCounter(v0)(v1));
+  } catch (e) {
+    throw outOfResources("sameCounter", e);
+  }
+}
+
+export { $$addSafe as addSafe, $$negateSafe as negateSafe, $$toSafe as toSafe, $$toSafeInt as toSafeInt, $$lengths as lengths, $$bump as bump, $$sumAll as sumAll, $$sameCounter as sameCounter };

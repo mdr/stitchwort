@@ -13,6 +13,8 @@
 -- run: lengths ["ab", "", "cde"]
 -- run: bump { count = { value = 41, fits = rfl }, delta = { value = -1, fits = rfl } }
 -- run: sumAll [{ value = 1, fits = rfl }, { value = 2, fits = rfl }]
+-- run: sameCounter { count = { value = 1, fits = rfl }, delta = { value = -1, fits = rfl } } { count = { value = 1, fits = rfl }, delta = { value = -1, fits = rfl } }
+-- run: sameCounter { count = { value = 1, fits = rfl }, delta = { value = -1, fits = rfl } } { count = { value = 2, fits = rfl }, delta = { value = -1, fits = rfl } }
 -- run: toSafe 5
 -- run: toSafe 9007199254740991
 -- run: toSafe 9007199254740992
@@ -39,3 +41,6 @@ type Counter = { count: SafeNat, delta: SafeInt }
 export def bump (c: Counter): Option SafeNat := SafeNat.ofNat (c.count.value + Int.toNat c.delta.value)
 
 export def sumAll (xs: List SafeNat): Option SafeNat := SafeNat.ofNat (List.foldLeft (acc x => acc + x.value) 0 xs)
+
+-- Records with `SafeNat` and `SafeInt` fields derive `==` (SW-344): equal by value.
+export def sameCounter (a: Counter) (b: Counter): Bool := a == b
