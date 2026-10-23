@@ -5907,10 +5907,10 @@
     },
     {
       "id": 370,
-      "title": "AoC Day 1: external review fixes — comments + rightCases done; next count lemmas (List.count cons/append, move counting lemmas out of Sort.sw); parser via SW-367 stage 3; D1058-D1060 open",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree lane (count lemmas)",
+      "title": "AoC Day 1: external review fixes — comments, rightCases, count lemmas done; parser via SW-367 stage 3; D1058-D1060 open",
+      "status": "next",
+      "agent": "Matt",
+      "where": "",
       "labels": [
         "aoc"
       ],
@@ -5918,7 +5918,9 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
-        "e5018a26"
+        "e5018a26",
+        "b80108e7",
+        "1059eb5e"
       ]
     }
   ]
