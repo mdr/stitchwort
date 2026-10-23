@@ -1,7 +1,7 @@
 # Proposal: maps and sets for practical use
 
 **Status:** draft 1, 23 October 2026. Design only: nothing is built. Ticket SW-356. Stops for
-review (design-review gate). Decisions D705–D714 are at the [end](#7-decisions). Written against
+review (design-review gate). Decisions D740–D749 are at the [end](#7-decisions). Written against
 commit `143d647e`. Follows [map-set.md](map-set.md) (SW-113, the `Map`/`Set` as built).
 
 Labels: **[checked]** read in the Stitchwort source at the `file:line` given; **[run]** a scratch
@@ -29,7 +29,7 @@ imply "equal maps" (§1.1). The port worked around it by keeping a sorted entry 
   Each library operation runs as its tree version, and a theorem checked by the kernel proves the
   tree version agrees with the list version. So run-time speed and stack depth stay as they are
   today, and the only new trusted code is a small, general substitution step in the backends
-  (D706).
+  (D741).
 - The API grows to cover what practical code reached for (§4.3), with the lemmas proofs need
   (§4.4).
 
@@ -284,7 +284,7 @@ type Map (k: Type) (v: Type) [auto ord: Ord k] =
   }
 ```
 
-- **The invariant is a Bool equation (D707),** so proofs of it are unique by `DecEq.uniqueEq`,
+- **The invariant is a Bool equation (D742),** so proofs of it are unique by `DecEq.uniqueEq`,
   and `DecEq (Map k v)` is "the entry lists are equal, then transport". It's written by hand
   (library types aren't derived [checked: `derive.rs:26-27`]) and needs `DecEq v`; keys already
   have one through `ord.eq`. A lemma turns the invariant into the `Prop` `List.Sorted` for
@@ -310,7 +310,7 @@ type Map (k: Type) (v: Type) [auto ord: Ord k] =
   one O(n) conversion, like `MkText` today [checked: `compact-text.md` as built, "Bridges"].
 - **Balance is still not proved,** as today: it's performance only.
 - **`Set`** stays a record around `Map k ()` [checked: `Set.sw:7`] and inherits all of this.
-- **Fallback (D706 b):** write the tree operations as trusted natives in Rust and JS, like the
+- **Fallback (D741 b):** write the tree operations as trusted natives in Rust and JS, like the
   `Text` natives (D389), and test them differentially. This is quicker to start, but it means two
   hand-written implementations, both trusted.
 
@@ -366,7 +366,7 @@ With list meanings, most of these are short inductions.
 - **`Set`:** the same, through `contains` (`containsRemove`, `containsUnion`, `containsIntersect`,
   `containsDifference`, `containsFromList`, `ext`, `isSubsetSpec`).
 
-### 4.5 JS boundary (D709)
+### 4.5 JS boundary (D744)
 
 - **Keep** `Map Text V` (in `Text` order) as a plain object, unchanged.
 - **Add** maps with `Nat`/`Int`/`Char`/`Bool` keys, in the default order, as `ReadonlyMap<K, V>`
@@ -414,7 +414,7 @@ With list meanings, most of these are short inductions.
 - List-based `Map`/`Set` with the full API (§4.3), the lemmas (§4.4), and `DecEq`/`Ord`/`Show`
   instances.
 - It isn't merged to `main` on its own, because run-time speed would regress (§1.2). It merges
-  together with stage 2, or with a temporary trusted-native path (D714).
+  together with stage 2, or with a temporary trusted-native path (D749).
 
 **Stage 2: refinement.** About 3–4 lane-days.
 
@@ -470,25 +470,25 @@ map-set.md marked superseded.
 
 ## 7. Decisions
 
-- **D705 — Equality approach.** (a1) canonical meaning plus refinement / (c) a separate `Eq`
+- **D740 — Equality approach.** (a1) canonical meaning plus refinement / (c) a separate `Eq`
   interface / (b) quotients / (a2) treap / (d) lemmas only. **[(a1) + refinement]**
-- **D706 — How maps run fast.** (a) proved refinement: tree code in Stitchwort, kernel-checked
+- **D741 — How maps run fast.** (a) proved refinement: tree code in Stitchwort, kernel-checked
   agreement theorems, and a generic backend substitution / (b) trusted natives in Rust and JS,
   like `Text` / (c) neither, accept list speed. **[a; b as fallback if stage 2's mechanism costs
   more than estimated]**
-- **D707 — Form of the order invariant.** A Bool equation `isAscending ord entries = True`
+- **D742 — Form of the order invariant.** A Bool equation `isAscending ord entries = True`
   (unique proofs by existing lemmas) / a recursive `Prop`. **[Bool equation, with a lemma to
   `List.Sorted`]**
-- **D708 — API names (§4.3),** including `groupBy`, `counts`, `fromListWith`, `unionWith`,
+- **D743 — API names (§4.3),** including `groupBy`, `counts`, `fromListWith`, `unionWith`,
   `below`/`above`, `range`, `keepOnly`/`removeAll`. **[approve as listed]**
-- **D709 — JS boundary for other keys (§4.5).** Scalar keys as JS `Map`/`Set`, compound keys as
+- **D744 — JS boundary for other keys (§4.5).** Scalar keys as JS `Map`/`Set`, compound keys as
   entry arrays / keep Text-only. **[scalar as `Map`, compound as arrays]**
-- **D710 — `Set` stays a record around `Map k ()`** and gets `DecEq`/`Ord`/`ext` the same way.
+- **D745 — `Set` stays a record around `Map k ()`** and gets `DecEq`/`Ord`/`ext` the same way.
   **[yes]**
-- **D711 — No Bool `Eq` interface now;** `==` stays `DecEq`. **[defer until a type without a
+- **D746 — No Bool `Eq` interface now;** `==` stays `DecEq`. **[defer until a type without a
   canonical form needs it]**
-- **D712 — Hash maps out of scope.** **[yes]**
-- **D713 — Performance targets of §4.6** (no regression at 10^5 and 10^6; stack-safe at 10^6;
+- **D747 — Hash maps out of scope.** **[yes]**
+- **D748 — Performance targets of §4.6** (no regression at 10^5 and 10^6; stack-safe at 10^6;
   O(n + m) bulk operations). **[yes]**
-- **D714 — Staging.** Stages 1 and 2 merge together, so `main` never runs list-speed maps.
+- **D749 — Staging.** Stages 1 and 2 merge together, so `main` never runs list-speed maps.
   **[yes]**
