@@ -1910,6 +1910,16 @@ pub(crate) fn check_if(
         force(cx.g(), expected.clone())?,
         Value::Neutral(Head::Meta(_), _)
     );
+    // `ifThenElse` and `elimDec` return a `Type`, so an `if` whose branches
+    // prove a proposition would fail with a universe mismatch that says
+    // nothing useful: say what's going on.
+    if crate::omega::is_prop(cx, expected)? == Some(true) {
+        return Err(cx.error(
+            "E-UNIVERSE",
+            "`if` can't choose between proofs yet",
+            "this `if` has proofs as its branches; use `match b with | True => … | False => …`",
+        ));
+    }
     if unknown && defers_literal(cx, then)? {
         return retrying(cx, |cx| {
             check_if_in(cx, binder, cond, then, otherwise, expected)

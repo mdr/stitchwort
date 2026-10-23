@@ -544,7 +544,7 @@ fn prove_goal(
 
 /// Whether `goal`, a type, is a proposition (`Some(true)`) or a type of data
 /// in `Type` (`Some(false)`), when that's easy to see.
-fn is_prop(cx: &Ctx, goal: &Value) -> Result<Option<bool>> {
+pub(crate) fn is_prop(cx: &Ctx, goal: &Value) -> Result<Option<bool>> {
     use stitchwort_core::Sort;
     Ok(match force(cx.g(), goal.clone())? {
         Value::Eq(..) => Some(true),
