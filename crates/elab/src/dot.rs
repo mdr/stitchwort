@@ -1008,31 +1008,52 @@ fn call(
 }
 
 /// What `recv.field` calls, if that can be found without elaborating `recv`
-/// (a variable, a definition without implicit parameters, or a call whose
-/// result type is known from the function's type, such as `w.toNat` in
-/// `w.toNat.orAbort`): for deciding whether a call performs operations
-/// before elaborating it.
+/// (a variable, a definition without implicit parameters, a literal, or a
+/// call whose result type is known from the function's type, such as
+/// `w.toNat` in `w.toNat.orAbort`; [`receiver_type`]): for deciding whether
+/// a call performs operations before elaborating it.
 pub(crate) fn target(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<Option<DefId>> {
     target_within(cx, recv, field, 8)
 }
 
 fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result<Option<DefId>> {
-    let g = cx.g();
     if helper(cx, recv, field).is_some() {
         return Ok(None);
     }
-    let Expr::Var(name) = recv else {
-        return Ok(match call_result(cx, recv, depth)? {
-            Some(ty) => find(cx, recv, field, Ty::Value(ty))
-                .ok()
-                .map(|(_, id, _)| id),
-            None => None,
-        });
+    Ok(match receiver_type(cx, recv, depth)? {
+        Some(ty) => find(cx, recv, field, ty).ok().map(|(_, id, _)| id),
+        None => None,
+    })
+}
+
+/// The type of the receiver `recv`, when it can be read off without
+/// elaborating it: a variable's, a literal's (`" 4".toNatOrFail`), that of
+/// either side of `a ++ b` (`(s ++ "").toNatOrFail`), or a call's result
+/// ([`call_result`]). A literal's is the type `infer` gives it with nothing
+/// expected, so the call found is the one dot notation makes.
+fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
+    use stitchwort_core::registry::Builtin;
+    let g = cx.g();
+    let data = |d: DataId| Some(Ty::Value(Value::Data(d, Vec::new())));
+    let name = match recv {
+        Expr::Var(name) => name,
+        Expr::Str(..) | Expr::Include(..) => {
+            return Ok(data(crate::check::builtin_data(cx, Builtin::Text)?));
+        }
+        Expr::Char(..) => return Ok(data(crate::check::builtin_data(cx, Builtin::Char)?)),
+        Expr::Num(..) => return Ok(data(crate::check::nat(cx)?)),
+        Expr::Binary(stitchwort_syntax::ast::BinOp::Append, a, b) if depth > 0 => {
+            return match receiver_type(cx, a, depth - 1)? {
+                Some(ty) => Ok(Some(ty)),
+                None => receiver_type(cx, b, depth - 1),
+            };
+        }
+        _ => return Ok(call_result(cx, recv, depth)?.map(Ty::Value)),
     };
     if cx.local(&name.text)?.is_some() {
         return Ok(None);
     }
-    let ty = if let Some(level) = cx.lookup(&name.text) {
+    Ok(Some(if let Some(level) = cx.lookup(&name.text) {
         match &cx.written[level] {
             Some(Written::Here(t)) => Ty::Term(t.clone(), cx.env[..level].to_vec()),
             Some(Written::With(t, env)) => Ty::Term(t.clone(), env.clone()),
@@ -1045,8 +1066,7 @@ fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result
             }
             _ => return Ok(None),
         }
-    };
-    Ok(find(cx, recv, field, ty).ok().map(|(_, id, _)| id))
+    }))
 }
 
 /// The result type of the call `expr` (`f x`, `x.f`, `x.f y`), when it can be
