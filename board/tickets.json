@@ -1,5 +1,5 @@
 {
-  "next": 386,
+  "next": 388,
   "tickets": [
     {
       "id": 1,
@@ -6090,7 +6090,7 @@
       "labels": [
         "lang"
       ],
-      "body": "Design note docs/proposals/microtypes.md merged 23 Oct; decisions D1064-D1070 open. Motivated by a real-world TS app port (private notes in the resolver work folder). Stage 1 waits for SW-356 stage 2 (same map code).",
+      "body": "D1084 (a): @[js.unboxed] keeps refusing records whose field is an Option (write Option UserId instead). D1081 (b): single-constructor data types stay boxed (D866 covers records only).",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
@@ -6176,6 +6176,34 @@
         "d48c9138",
         "daf7e70a"
       ]
+    },
+    {
+      "id": 386,
+      "title": "Field update through generated update functions, one per field; record update unified with variant update (D1087 a, D1086 b)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "lang"
+      ],
+      "body": "Trigger: the private port's proofs needed a named helper because each { a | f = x } expanded to its own hidden match (lemmas didn't transfer). D1086 (b) reverses D604 (b): records take the variant path; existing record-update hashes move once.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 387,
+      "title": "Named construction: C { f = v, … } for constructors (D605 a, D1085 a)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "lang"
+      ],
+      "body": "Decided in the variant-fields design (D605 a) but never built or ticketed; found by the feature 3 lane.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
