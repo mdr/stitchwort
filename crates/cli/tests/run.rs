@@ -374,6 +374,14 @@ fn collatz_counts_its_steps() {
     );
 }
 
+#[test]
+fn a_match_in_a_partial_function_is_lifted() {
+    assert_eq!(
+        succeeds(&example("partial-match.sw"), b""),
+        "found 4 from 2\n"
+    );
+}
+
 /// A partial `main` that never finishes runs until it's stopped: the
 /// runner has no limit on ticks, and each step between them has its own
 /// budget.

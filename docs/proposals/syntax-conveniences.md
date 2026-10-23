@@ -1101,9 +1101,10 @@ constructor (the helper takes the fields instead); compute the captures
 (§2.1 rules 1 and 2; rule 3 holds because a nested helper's call is
 already in the term, with its captures as arguments); order them; declare
 the helper; solve the frozen metavariable with the call. A frozen
-metavariable left unsolved (a lifted `match` in a partial function, a data
-or ability declaration, or the REPL, which don't resolve drafts yet) is
-`E-MATCH-MOTIVE`, "a `match` can't be used here".
+metavariable left unsolved (a lifted `match` in a data or ability
+declaration, which has no definition to put the helper beside) is
+`E-MATCH-MOTIVE`, "a `match` can't be used here". A partial function's
+bodies and the REPL's expressions resolve their drafts like a definition's.
 
 **Admission (§2.2, step 4).** Every helper is reachable from its owner, so
 a helper is in a cycle with the owner exactly when its body refers to
@@ -1181,8 +1182,10 @@ at the `match` (`Elaborator::explain_lifted`, applied to every diagnostic
 of a definition, signature or test). A non-exhaustive `match` says "no
 alternative of this `match` matches …".
 
-**Leftovers.** A lifted `match` in a partial function, a data or ability
-declaration, or the REPL is refused (above). Drafts are resolved in the
+**Leftovers.** A lifted `match` in a data or ability declaration is refused
+(above; `examples/reject/match-in-type-declaration.sw`). A partial function
+(`partial.rs`) and the REPL (`infer_expr`, owner `<input N>`) resolve drafts
+like a definition. Drafts are resolved in the
 order they were made: a draft whose type only mentions a *later* draft's
 value through a metavariable solution would be refused with the same
 error (not seen in practice). The pretty-printing of a lifted call as

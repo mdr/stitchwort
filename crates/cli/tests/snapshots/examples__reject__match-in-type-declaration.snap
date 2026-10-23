@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MATCH-MOTIVE] Error: a `match` can't be used here: there is no definition to lift it into
+   ╭─[ reject/match-in-type-declaration.sw:6:24 ]
+   │
+ 6 │ type Box = | MkBox (n: match 1 with | 0 => Nat | Succ m => Nat)
+   │                        ───────────────────┬───────────────────  
+   │                                           ╰───────────────────── this `match`
+   │ 
+   │ Note 1: a `match` becomes a helper definition next to the definition it is in; a `type` or `ability` declaration has no definition to put one beside
+   │ 
+   │ Note 2: a top-level helper with a written signature can always do what this `match` would: define one and call it
+───╯

@@ -17,6 +17,20 @@ fn eval(session: &mut Session, source: &str) -> Result<String, &'static str> {
     ))
 }
 
+/// A `match` typed in is lifted to a helper, as in a definition; each
+/// input's helpers are separate.
+#[test]
+fn a_nested_match_is_lifted() {
+    let mut session = Session::new();
+    let source = "(match 2 with | 0 => 1 | Succ m => m) + 1";
+    assert_eq!(eval(&mut session, source).as_deref(), Ok("2 : Nat"));
+    assert_eq!(eval(&mut session, source).as_deref(), Ok("2 : Nat"));
+    assert_eq!(
+        eval(&mut session, "(match 0 with | 0 => 7 | Succ m => m) + 1").as_deref(),
+        Ok("8 : Nat")
+    );
+}
+
 #[test]
 fn evaluates_and_prints_expressions() {
     let mut session = Session::new();

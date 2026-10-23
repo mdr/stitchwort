@@ -469,15 +469,28 @@ impl Elaborator {
         });
         let mut out = Vec::new();
         let mut bodies = Vec::new();
+        let mut pending_helpers: Vec<(DefId, Term)> = Vec::new();
         for (&(item, decl, equations), desc) in members.iter().zip(&descriptions) {
             let Decl::Signature { name: def_name, .. } = decl else {
                 unreachable!()
             };
             self.module.item = Some(item);
             self.module.phase = Phase::Body;
-            self.clear_metas();
-            match self.body(*desc, def_name, equations) {
-                Ok(body) => bodies.push(body),
+            // A `match` in the body is lifted to a helper, as in an ordinary
+            // definition (`lift.rs`); the helper calls the member through
+            // its request function, so it needn't wait for this body.
+            let lifted = self.declaration_key(def_name).and_then(|key| {
+                self.with_local_retries(&key, def_name, |e| {
+                    let term = e.body_term(*desc, def_name, equations)?;
+                    let joined = e.lift(&key, true)?;
+                    Ok((e.finish(&term, 0)?, joined))
+                })
+            });
+            match lifted {
+                Ok((body, joined)) => {
+                    pending_helpers.extend(joined);
+                    bodies.push(body);
+                }
                 Err(d) => out.push((item, d)),
             }
         }
@@ -499,10 +512,21 @@ impl Elaborator {
         if !out.is_empty() {
             return Ok(out);
         }
-        for ((&(item, _, _), body), desc) in members.iter().zip(bodies).zip(&descriptions) {
-            self.module.item = Some(item);
-            if let Err(d) = kernel::define_def(&mut self.globals, *desc, &body) {
-                out.push((item, d));
+        if pending_helpers.is_empty() {
+            // (Each on its own, which keeps the descriptions' hashes.)
+            for ((&(item, _, _), body), desc) in members.iter().zip(bodies).zip(&descriptions) {
+                self.module.item = Some(item);
+                if let Err(d) = kernel::define_def(&mut self.globals, *desc, &body) {
+                    out.push((item, d));
+                }
+            }
+        } else {
+            // Helpers that wait for a description are admitted with them.
+            let mut group = pending_helpers;
+            group.extend(descriptions.iter().copied().zip(bodies));
+            self.module.item = Some(members[0].0);
+            if let Err(d) = kernel::define_group(&mut self.globals, &group) {
+                out.push((members[0].0, d));
             }
         }
         if !out.is_empty() {
