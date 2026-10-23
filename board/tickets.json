@@ -470,16 +470,18 @@
     {
       "id": 31,
       "title": "Language server for .sw (umbrella; stages 0 and 1 done: stitchwort lsp + thin VS Code client; next: stage 2 ? goal holes, stage 3 completion)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
-      "where": "stage 2 design note (goal holes) in a worktree lane (D627)",
+      "where": "stage 2 design note merged (docs/proposals/lsp-goal-holes.md); awaiting D635-D641",
       "labels": [
         "tooling"
       ],
       "body": "Language server for .sw: live errors, hover types, go to definition, completion. This is option C of the 21 Oct code-navigation plan (D238/D239). D239 (Matt, 21 Oct 2026): stays in the backlog until the resolution index (D238) has been used for a while; the server reuses that index, so do not start before then. First step when it is picked up: a short design note (which protocol library, how the server holds a Session across edits, how it reuses the index and the incremental/cached checking).\n\nDone when: an editor (the VS Code extension in editors/) shows live diagnostics, hover types and go to definition for a .sw project.\n\nHistory: D238, D239.\n\n22 Oct 2026: D403 — wait: no LSP design note yet; revisit after the check cache lands.\n\n22 Oct 2026: Matt — start the language server design note (after the check cache landed; D403 wait lifted). Note first, decisions D496-D499.\n\n22 Oct 2026: note docs/proposals/language-server.md merged; D496-D498 asked.\n\n22 Oct 2026: D496 yes (other namespaces re-checked against unsaved text), D497 yes (? goal holes), D498 playground shares the engine not the server. Next: build stages per the note, starting with parser error recovery and per-namespace re-check.",
       "created": "2026-10-19",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "6f49811b"
+      ]
     },
     {
       "id": 32,
