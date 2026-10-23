@@ -1,5 +1,5 @@
 {
-  "next": 340,
+  "next": 341,
   "tickets": [
     {
       "id": 1,
@@ -5352,6 +5352,21 @@
       "where": "worktree lane",
       "labels": [
         "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 340,
+      "title": "Design note: named-field constructor patterns, shared-field access and update on variants (D587)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "design note lane (stop for review)",
+      "labels": [
+        "design",
+        "syntax"
       ],
       "body": "",
       "created": "2026-10-23",
