@@ -66,10 +66,7 @@ def Operator.apply: Operator -> List Nat -> Nat
   | Multiply, numbers => numbers.product
 
 -- A problem without an operator has no answer; count it as 0.
-def evaluate (operator: Option Operator) (numbers: List Nat): Nat :=
-  match operator with
-    | None => 0
-    | Some op => op.apply numbers
+def evaluate (operator: Option Operator) (numbers: List Nat): Nat := operator.fold 0 (op => op.apply numbers)
 
 -- Part 1: the answers of the problems read by rows.
 def solvePart1 (problems: List Problem): Nat := problems.sumBy (p => evaluate p.operator p.rowNumbers)
