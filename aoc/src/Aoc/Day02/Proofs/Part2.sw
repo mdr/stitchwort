@@ -28,229 +28,13 @@
 
 namespace Aoc.Day02.Proofs
 import Aoc.Common (Range)
-import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, Int, List, Nat, Void)
 
 -- (1) n copies ------------------------------------------------------------
--- The twice* lemmas of Repeated.sw, for any number of copies n >= 2.
-
--- The digits `p` written n times make `fromDigits p` written n times.
-theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (List.replicate n p)) = writeTimes p.length (Nat.fromDigits p) n
-  | Zero   => rfl
-  | Succ n =>
-    calc Nat.fromDigits (List.concat (List.replicate (Succ n) p))
-      _ = Nat.fromDigits (List.append (List.concat (List.replicate n p)) p) := Eq.cong Nat.fromDigits (List.concatReplicateSnoc p n)
-      _ = Nat.fromDigits (List.concat (List.replicate n p)) * Nat.pow 10 p.length + Nat.fromDigits p := Nat.fromDigitsAppend (List.concat (List.replicate n p)) p
-      _ = writeTimes p.length (Nat.fromDigits p) n * Nat.pow 10 p.length + Nat.fromDigits p := rewrite fromDigitsRep p n
-
-theorem repAppend (x: Nat) (k: Nat) (n: Nat) (hq: writtenAs (Nat.digits x) k n = True):
-    List.concat (List.replicate n (List.take k (Nat.digits x))) = Nat.digits x :=
-  DecEq.sound (List.concat (List.replicate n (List.take k (Nat.digits x)))) (Nat.digits x) hq
-
--- With two or more copies the block is k digits long (it can't be all of x).
-theorem repBlockLength (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True): List.length (List.take k (Nat.digits x)) = k :=
-  match e: Nat.leq k (List.length (Nat.digits x)) with
-    | True  => List.lengthTake k (Nat.digits x) e
-    | False =>
-      -- Two copies of all the digits, and more, are as many digits as there are.
-      let total: List.length (List.concat (List.replicate (Succ (Succ m)) (Nat.digits x)))
-          = List.length (Nat.digits x) + (List.length (Nat.digits x) + List.length (List.concat (List.replicate m (Nat.digits x)))) :=
-        Eq.trans (List.lengthAppend (Nat.digits x) (List.append (Nat.digits x) (List.concat (List.replicate m (Nat.digits x)))))
-          (Eq.cong (t => List.length (Nat.digits x) + t) (List.lengthAppend (Nat.digits x) (List.concat (List.replicate m (Nat.digits x)))))
-      let same: List.length (List.concat (List.replicate (Succ (Succ m)) (Nat.digits x))) = List.length (Nat.digits x) :=
-        Eq.trans (Eq.cong (l => List.length (List.concat (List.replicate (Succ (Succ m)) l))) (Eq.sym (List.takeAll k (Nat.digits x) omega)))
-          (Eq.cong List.length (repAppend x k (Succ (Succ m)) hq))
-      omega [Nat.digitsNonEmpty x]
-
--- n copies of a k-digit block: n * k digits.
-theorem repCount (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True): Succ (Succ m) * k = List.length (Nat.digits x) :=
-  calc Succ (Succ m) * k
-    _ = Succ (Succ m) * List.length (List.take k (Nat.digits x)) := rewrite repBlockLength x k m hq
-    _ = List.length (List.concat (List.replicate (Succ (Succ m)) (List.take k (Nat.digits x))))
-        := Eq.sym (List.lengthConcatReplicate (List.take k (Nat.digits x)) (Succ (Succ m)))
-    _ = List.length (Nat.digits x) := rewrite repAppend x k (Succ (Succ m)) hq
-
--- x is its first k digits written n times.
-theorem repValue (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True):
-    writeTimes k (Nat.fromDigits (List.take k (Nat.digits x))) (Succ (Succ m)) = x :=
-  calc writeTimes k (Nat.fromDigits (List.take k (Nat.digits x))) (Succ (Succ m))
-    _ = writeTimes (List.length (List.take k (Nat.digits x))) (Nat.fromDigits (List.take k (Nat.digits x))) (Succ (Succ m)) := Eq.cong (t => writeTimes t (Nat.fromDigits (List.take k (Nat.digits x))) (Succ (Succ m))) (Eq.sym (repBlockLength x k m hq))
-    _ = Nat.fromDigits (List.concat (List.replicate (Succ (Succ m)) (List.take k (Nat.digits x)))) := Eq.sym (fromDigitsRep (List.take k (Nat.digits x)) (Succ (Succ m)))
-    _ = Nat.fromDigits (Nat.digits x) := Eq.cong Nat.fromDigits (repAppend x k (Succ (Succ m)) hq)
-    _ = x := Nat.fromDigitsDigits x
-
--- Two or more copies of at least one digit: x isn't 0.
-theorem posOfCount: (x: Nat) -> (k: Nat) -> (m: Nat) -> 1 <= k -> Succ (Succ m) * k = List.length (Nat.digits x) -> 1 <= x
-  | Zero,   Zero,   m, hk, e => Void.exfalso (Bool.falseNotTrue hk)
-  | Zero,   Succ j, m, hk, e =>
-    omega
-  | Succ x, k,      m, hk, e => rfl
-
-theorem repBelow (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True):
-    Nat.fromDigits (List.take k (Nat.digits x)) < Nat.pow 10 k :=
-  calc Nat.fromDigits (List.take k (Nat.digits x))
-    _ < Nat.pow 10 (List.length (List.take k (Nat.digits x)))
-        := Nat.fromDigitsBound (List.take k (Nat.digits x)) (Nat.digitsTake k (Nat.digits x) (Nat.digitsDigits x))
-    _ = Nat.pow 10 k := rewrite repBlockLength x k m hq
-
-theorem repAbove (x: Nat) (k: Nat) (m: Nat) (hk: 1 <= k) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True):
-    Nat.pow 10 (k - 1) <= Nat.fromDigits (List.take k (Nat.digits x)) :=
-  J (t q => Nat.pow 10 (t - 1) <= Nat.fromDigits (List.take k (Nat.digits x)))
-    (Nat.fromDigitsHeadBound (List.take k (Nat.digits x))
-      (omega [List.headTake 0 k (Nat.digits x) hk, Nat.digitsHead x (posOfCount x k m hk (repCount x k m hq))]))
-    (repBlockLength x k m hq)
-
--- The other way: a block of k digits (no leading 0) written n >= 1 times
--- has those digits n times.
-theorem writeTimesPos (k: Nat) (b: Nat) (hb: 1 <= b) (n: Nat): 1 <= writeTimes k b (Succ n) :=
-  omega
-
-theorem digitsRep (b: Nat) (hb: 1 <= b): (n: Nat) ->
-    Nat.digits (writeTimes (List.length (Nat.digits b)) b (Succ n)) = List.concat (List.replicate (Succ n) (Nat.digits b))
-  | Zero   => Eq.sym (List.appendNil (Nat.digits b))
-  | Succ n =>
-    calc Nat.digits (writeTimes (List.length (Nat.digits b)) b (Succ n) * Nat.pow 10 (List.length (Nat.digits b)) + b)
-      _ = Nat.digits (writeTimes (List.length (Nat.digits b)) b (Succ n) * Nat.pow 10 (List.length (Nat.digits b)) + Nat.fromDigits (Nat.digits b)) := rewrite Nat.fromDigitsDigits b
-      _ = List.append (Nat.digits (writeTimes (List.length (Nat.digits b)) b (Succ n))) (Nat.digits b) := Nat.digitsShift (Nat.digits b) (writeTimes (List.length (Nat.digits b)) b (Succ n)) (writeTimesPos (List.length (Nat.digits b)) b hb n) (Nat.digitsDigits b)
-      _ = List.append (List.concat (List.replicate (Succ n) (Nat.digits b))) (Nat.digits b) := rewrite digitsRep b hb n
-      _ = List.concat (List.replicate (Succ (Succ n)) (Nat.digits b)) := Eq.sym (List.concatReplicateSnoc (Nat.digits b) (Succ n))
-
-theorem writtenRepOf (p: List Nat) (k: Nat) (hk: p.length = k) (n: Nat): writtenAs (List.concat (List.replicate (Succ n) p)) k (Succ n) = True :=
-  Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate (Succ n) (List.take k (List.concat (List.replicate (Succ n) p))))) (List.concat (List.replicate (Succ n) p)))
-    (rewrite <- hk, List.takeAppend p (List.concat (List.replicate n p)))
-
-theorem repDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j <= b) (h2: b < Nat.pow 10 (Succ j)) (n: Nat):
-    writtenAs (Nat.digits (writeTimes (Succ j) b (Succ n))) (Succ j) (Succ n) = True :=
-  rewrite <- (calc List.concat (List.replicate (Succ n) (Nat.digits b))
-      _ = Nat.digits (writeTimes (List.length (Nat.digits b)) b (Succ n))
-          := Eq.sym (digitsRep b (omega [Nat.powSuccPos 9 j]) n)
-      _ = Nat.digits (writeTimes (Succ j) b (Succ n)) := rewrite Nat.digitsLength j b h1 h2)
-    in writtenRepOf (Nat.digits b) (Succ j) (Nat.digitsLength j b h1 h2) n
-
-theorem repInjective (k: Nat) (b: Nat) (v: Nat) (m: Nat) (e: writeTimes k b (Succ m) = writeTimes k v (Succ m)): b = v :=
-  Nat.mulSuccCancel b v (Nat.pow 10 k * multiplier k m)
-    (calc b * Succ (Nat.pow 10 k * multiplier k m)
-      _ = b * multiplier k (Succ m)   := rewrite multiplierSucc k m
-      _ = writeTimes k b (Succ m)     := Eq.sym (writeTimesMul k b (Succ m))
-      _ = writeTimes k v (Succ m)     := e
-      _ = v * multiplier k (Succ m)   := writeTimesMul k v (Succ m)
-      _ = v * Succ (Nat.pow 10 k * multiplier k m) := rewrite multiplierSucc k m)
-
--- For one id `x`, block length k and n copies: the blocks written n times
--- that make `x` add up to `x` when x's digits are a k-digit block written n
--- times, and to 0 otherwise (`blockCount` for any n).
-theorem blockCountRep (x: Nat) (m: Nat): (k: Nat) -> 1 <= k ->
-    List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-      = Nat.keepIf x (writtenAs (Nat.digits x) k (Succ (Succ m)))
-  | Zero,   h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ j, h =>
-    match hq: writtenAs (Nat.digits x) (Succ j) (Succ (Succ m)) with
-      | True =>
-        List.sumRangeOne (b => writeTimes (Succ j) b (Succ (Succ m)) == x) (b => x) (Nat.fromDigits (List.take (Succ j) (Nat.digits x)))
-          (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) (Succ (Succ m))) x) (repValue x (Succ j) m hq))
-          (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) (Succ m)
-            (Eq.trans (DecEq.sound (writeTimes (Succ j) b (Succ (Succ m))) x hb) (Eq.sym (repValue x (Succ j) m hq))))
-          (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
-          (repAbove x (Succ j) m rfl hq)
-          (omega [repBelow x (Succ j) m hq, Nat.powTenPredLe (Succ j)])
-      | False =>
-        List.sumRangeNone (b => writeTimes (Succ j) b (Succ (Succ m)) == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
-          (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq (writeTimes (Succ j) b (Succ (Succ m))) x)
-            (e => Bool.trueNotFalse (Eq.trans
-              (Eq.sym (rewrite e at
-                repDigits j b h1
-                  (omega [Nat.powTenPredLe (Succ j)])
-                  (Succ m)))
-              hq)))
-
--- One block length, as a sum over the ids of the range (`blocksAsIds` for any n).
-theorem blocksAsIdsRep (r: Range) (k: Nat) (n: Nat):
-    repeatedSpec r k n
-      = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-          (List.rangeFrom (r.to + 1 - r.from) r.from) :=
-  calc repeatedSpec r k n
-    -- filtering the block ids by the range is summing "the id if it is in the range"
-    _ = List.sumBy (y => Nat.keepIf y (r.from <= y && y <= r.to)) (List.map (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-        := List.sumFilter (x => r.from <= x && x <= r.to) (List.map (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-    _ = List.sumBy (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        := List.sumByMap (y => Nat.keepIf y (r.from <= y && y <= r.to)) (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-    -- and, for each block, "the id if it is in the range" is the sum over the range ids that equal it
-    _ = List.sumBy (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        := List.sumByCong (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to))
-             (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from))
-             (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-             (b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b n)))
-    _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
-        := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-
--- (1) `RepetitionTemplate.sumIn r` of the template k by n adds the ids of the range whose digits are a k-digit
--- block written n times.
-theorem repeatedIds (r: Range) (k: Nat) (hk: 1 <= k): (n: Nat) -> 2 <= n ->
-    RepetitionTemplate.sumIn r { blockLength = k, copies = n } = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
-  | Zero,          h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ Zero,     h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ (Succ m), h =>
-    calc RepetitionTemplate.sumIn r { blockLength = k, copies = Succ (Succ m) }
-      _ = repeatedSpec r k (Succ (Succ m)) := repeatedCorrect r k (Succ (Succ m))
-      _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) r.ids
-          := blocksAsIdsRep r k (Succ (Succ m))
-      _ = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k (Succ (Succ m)))) r.ids
-          := List.sumByCong (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-               (x => Nat.keepIf x (writtenAs (Nat.digits x) k (Succ (Succ m)))) r.ids (x => blockCountRep x m k hk)
-
--- The same facts for any n >= 2.
-theorem countOf (x: Nat) (k: Nat): (n: Nat) -> 2 <= n -> writtenAs (Nat.digits x) k n = True -> n * k = List.length (Nat.digits x)
-  | Zero,          h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ Zero,     h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ (Succ m), h, hq => repCount x k m hq
-
-theorem valueOf (x: Nat) (k: Nat): (n: Nat) -> 2 <= n -> writtenAs (Nat.digits x) k n = True -> writeTimes k (Nat.fromDigits (List.take k (Nat.digits x))) n = x
-  | Zero,          h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ Zero,     h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ (Succ m), h, hq => repValue x k m hq
-
-theorem aboveOf (x: Nat) (k: Nat) (hk: 1 <= k): (n: Nat) -> 2 <= n -> writtenAs (Nat.digits x) k n = True -> Nat.pow 10 (k - 1) <= Nat.fromDigits (List.take k (Nat.digits x))
-  | Zero,          h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ Zero,     h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ (Succ m), h, hq => repAbove x k m hk hq
-
-theorem belowOf (x: Nat) (k: Nat): (n: Nat) -> 2 <= n -> writtenAs (Nat.digits x) k n = True -> Nat.fromDigits (List.take k (Nat.digits x)) < Nat.pow 10 k
-  | Zero,          h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ Zero,     h, hq => Void.exfalso (Bool.falseNotTrue h)
-  | Succ (Succ m), h, hq => repBelow x k m hq
-
-theorem blockAtMost (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True): k <= List.length (Nat.digits x) :=
-  omega [Nat.leMulPos k n omega, countOf x k n hn hq]
-
-
--- The digits of x are some block written n times.
-def copies (x: Nat) (n: Nat): Bool :=
-  List.rangeFrom (Nat.digits x).length 1 |> .any (k => writtenAs (Nat.digits x) k n)
-
--- For one id and repeat count, over all block lengths up to `size`: x if
--- some block written n times makes x, else 0.
-theorem collapse (x: Nat) (n: Nat) (hn: 2 <= n) (size: Nat) (hLS: List.length (Nat.digits x) <= size):
-    List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1) = Nat.keepIf x (copies x n) :=
-  match hc: copies x n with
-    | True =>
-      List.anyRangeElim (k => writtenAs (Nat.digits x) k n) (List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1) = x) (List.length (Nat.digits x)) 1 hc
-        (k0 h1 h2 hk0 => List.sumRangeOne (k => writtenAs (Nat.digits x) k n) (k => x) k0 hk0
-          (k hk => Nat.mulCancelLeft n omega k k0 (Eq.trans (countOf x k n hn hk) (Eq.sym (countOf x k0 n hn hk0))))
-          size 1 h1 omega)
-    | False =>
-      List.sumRangeNone (k => writtenAs (Nat.digits x) k n) (k => x) size 1
-        (k h1 h2 =>
-          match t: writtenAs (Nat.digits x) k n with
-            | True  => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyRangeIntro (k => writtenAs (Nat.digits x) k n) (List.length (Nat.digits x)) 1 k h1 (blockAtMost x k n hn t) t)) hc))
-            | False => rfl)
-
--- The ids of a range have at most as many digits as its end.
-theorem idsBelow (r: Range) (x: Nat) (h1: r.from <= x) (h2: x < r.from + r.size): List.length (Nat.digits x) <= List.length (Nat.digits r.to) :=
-  Nat.digitsLengthLe x (List.length (Nat.digits r.to)) (Nat.digitsNonEmpty r.to)
-    (omega [rangeEnd r.from r.to x h1 h2, Nat.ltPowTenDigits r.to])
-
+-- The n-copies lemmas (`repeatedIds`, `repCount`, `collapse`, `copies`,
+-- `idsBelow`) are in Repeated.sw, shared with part 1.
 
 -- (2) The weights ------------------------------------------------------------
 -- Over the divisors of m from 2 on, `copiesWeight` adds up to 1 when m >= 2, and to
@@ -478,7 +262,7 @@ theorem blockCountLe (x: Nat): blockCount x <= digitCount x :=
 -- A block of k digits written n times: n divides the block count.
 theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (hw: writtenAs (Nat.digits x) k n = True): Nat.divides n (blockCount x) = True :=
   let hk: k != 0 := Nat.nonzeroOfPos k hk1
-  let per := writtenPeriod (Nat.digits x) (digitCountNonZero x) k n omega (omega [countOf x k n hn hw]) hw
+  let per := writtenPeriod (Nat.digits x) (digitCountNonZero x) k n omega (omega [repCount x k n hn hw]) hw
   -- k is t times the smallest period
   let t := k / smallestPeriod x
   let ek: k = t * smallestPeriod x :=
@@ -487,7 +271,7 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 <= n) (k: Nat) (hk1: 1 <= k) (
     Nat.mulSuccCancel (blockCount x) (n * t) (periodIndex x)
       (calc blockCount x * smallestPeriod x
         _ = digitCount x                   := Eq.sym (countTimesPeriod x)
-        _ = n * k                          := Eq.sym (countOf x k n hn hw)
+        _ = n * k                          := Eq.sym (repCount x k n hn hw)
         _ = n * (t * smallestPeriod x)     := Eq.cong (y => n * y) ek
         _ = n * t * smallestPeriod x       := Eq.sym (Nat.mulAssoc n t (smallestPeriod x)))
   rewrite <- Nat.mulComm n t, <- eK at Nat.dividesMul n t
@@ -608,7 +392,7 @@ theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: 
       (x x1 x2 =>
         match t: writtenAs (Nat.digits x) k n with
           | True =>
-            omega [countOf x k n hn t, idsBelow r x x1 x2]
+            omega [repCount x k n hn t, idsBelow r x x1 x2]
           | False => rfl))
 
 -- One range under weights w, id by id.
