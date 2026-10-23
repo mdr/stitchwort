@@ -5167,7 +5167,7 @@
     },
     {
       "id": 328,
-      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo); withStart removed (update syntax; 57 tests, .d.ts identical, differential identical); loose end: integration/ suites reference Resolver.Wire",
+      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo); withStart removed; integration scripts updated for D1088 but the copied app tree is gone (D1111)",
       "status": "doing",
       "agent": "Opus",
       "where": "23 Oct: D1088 done (model holds Map, no s parameter, Wire.sw deleted, export on Resolver.merge; 57 tests; differential identical; .d.ts: Event/Recording/Transcript lose the parameter). The private integration suites still reference the old module name. D1089 (Abort + names) running.",
