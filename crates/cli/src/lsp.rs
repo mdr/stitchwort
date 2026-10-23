@@ -1128,11 +1128,14 @@ impl Checker {
             {
                 let path = uri.to_file_path().ok();
                 let version = path.and_then(|p| self.versions.get(&p).copied());
-                let diagnostics: Vec<lsp_types::Diagnostic> = file
+                let mut diagnostics: Vec<lsp_types::Diagnostic> = file
                     .diagnostics
                     .iter()
                     .map(|d| diagnostic(ws, key, d))
                     .collect();
+                if let Some((_, before)) = self.published.get(&uri) {
+                    diagnostics.extend(goals_kept(before, &file));
+                }
                 // Only what changed, or is for a newer version of the text.
                 let shown = (version, diagnostics.clone());
                 if self.published.get(&uri) == Some(&shown) {
@@ -1422,6 +1425,54 @@ fn diagnostic(
         tags: None,
         data: None,
     }
+}
+
+/// Whether `diagnostic` is an open goal.
+fn is_goal(diagnostic: &lsp_types::Diagnostic) -> bool {
+    diagnostic.severity == Some(DiagnosticSeverity::INFORMATION)
+        && diagnostic.code == Some(NumberOrString::String("GOAL".to_string()))
+}
+
+/// The goals of the last publication that stay while the text between two
+/// declarations doesn't parse. Parser recovery drops a whole broken
+/// declaration, and its goals with it; without this they would vanish
+/// while the next token is typed, and flicker back. A goal stays when it
+/// lies in a stretch outside every declaration that parses, and a parse
+/// error is in the same stretch. It keeps its old place (docs/proposals/
+/// lsp-goal-holes.md §4.1).
+fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_types::Diagnostic> {
+    let position = |p: Position| (p.line, p.character);
+    // The stretch a position is in: the end of the declaration before it
+    // and the start of the one after; `None` inside a declaration.
+    let stretch = |at: (u32, u32)| {
+        let mut previous_end = (0, 0);
+        let mut next_start = (u32::MAX, u32::MAX);
+        for item in file.outline.iter().filter(|item| item.parent.is_none()) {
+            let [l1, c1, l2, c2] = item.full_range;
+            let (start, end) = ((l1, c1), (l2, c2));
+            if start <= at && at <= end {
+                return None;
+            }
+            if end < at {
+                previous_end = previous_end.max(end);
+            } else {
+                next_start = next_start.min(start);
+            }
+        }
+        Some((previous_end, next_start))
+    };
+    let broken: Vec<_> = file
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E-PARSE")
+        .filter_map(|d| stretch((d.range[0], d.range[1])))
+        .collect();
+    before
+        .iter()
+        .filter(|d| is_goal(d))
+        .filter(|d| stretch(position(d.range.start)).is_some_and(|s| broken.contains(&s)))
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]

@@ -422,6 +422,41 @@ metavariable can't be solved for. A `?` in an instance search's zonk, or in
 a lifted local definition's type, may give that path's error instead of
 the goal.
 
+## 8.2 Stage 2b as built
+
+*SW-31 stage 2b, 23 October 2026.*
+
+**Severity.** Already in place from 2a: `Severity::Goal` goes out as
+`severity: 3` (Information), code `GOAL`, the whole goal as the message
+(D635). No client change.
+
+**Goals kept across unparsable edits** (`goals_kept` in `crates/cli/src/lsp.rs`,
+used by `Checker::publish`). Parser recovery drops a broken declaration
+and its goals. The server remembers what it last published per file; a
+goal from that publication is carried into the new one when it lies in a
+stretch of the file outside every declaration that parses (from the
+outline, which covers the declarations that still parse), and an `E-PARSE`
+diagnostic is in the same stretch. It keeps its old range. Since the kept
+goals are part of what is published, they survive further broken edits, and
+go when the declaration parses again (fresh goals take over) or the
+stretch no longer has a parse error.
+
+**PROVISIONAL.** The note left the matching open ("by name, an
+implementation detail"). I match by position (the stretch between parsed
+declarations) rather than by declaration name, as the diagnostic carries no
+name and the broken declaration has none in the outline. Costs: the kept
+goal's range may drift if the broken edit adds or removes lines above it;
+two broken declarations side by side form one stretch, so a goal could stay
+after its own declaration became parseable-but-different only while a
+neighbour is still broken. Alternative: record the declaration name with
+each goal and match on the broken declaration's header text.
+
+**Tests** (`crates/cli/tests/lsp.rs`): `an_open_goal_is_an_information_diagnostic`
+(one diagnostic, severity 3, code `GOAL`, the goal text, gone when `?` is
+replaced by a proof) and `goals_stay_while_their_declaration_does_not_parse`
+(kept through two broken edits, replaced on re-parse, dropped when the `?`
+is fixed, not kept for a parse error elsewhere).
+
 ## 9. Risks
 
 - **The first error in a branch hides later holes** (§4 item 8). Lean
