@@ -5855,10 +5855,10 @@
     },
     {
       "id": 368,
-      "title": "AoC Day 2: external review fixes (D1041): comments, DecEq.sound, rename (D1043), specs to Spec.sw, Part 1 over block lengths; next unify twice/rep lemmas, then Nat.sumBetween + ceilDiv",
+      "title": "AoC Day 2: external review fixes (D1041): done except std Nat.sumBetween (reversed bounds -> 0) + Nat.ceilDiv, running",
       "status": "doing",
       "agent": "Opus",
-      "where": "worktree lane (point 1)",
+      "where": "worktree lane (std sumBetween/ceilDiv, Opus)",
       "labels": [
         "aoc"
       ],
@@ -5868,7 +5868,9 @@
       "commits": [
         "2b9abc3e",
         "0f23f601",
-        "f3528ef9"
+        "f3528ef9",
+        "d3247d89",
+        "a0c9634e"
       ]
     },
     {
