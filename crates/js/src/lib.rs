@@ -2781,9 +2781,43 @@ impl<'g> Gen<'g> {
             Convention::Thunk => format!("{}()", def_name(&self.g.def(id).path)),
             Convention::Value | Convention::Function => def_name(&self.g.def(id).path),
         };
+        // Used as a value with an erased parameter still unsupplied: the
+        // receiver knows only the type, so it passes the type and proof
+        // arguments too. A closure over all the remaining parameters takes
+        // them and ignores the erased ones (D922). The supplied arguments
+        // are computed once, outside it (`$s{i}`), not on every call.
+        let closure = args.len() < mask.len() && mask[args.len()..].iter().any(|erased| *erased);
+        let mut bound = Vec::new();
         for (i, arg) in args.iter().enumerate() {
             if !mask.get(i).copied().unwrap_or(false) {
-                let _ = write!(out, "({})", self.expr(arg, env)?);
+                let value = self.expr(arg, env)?;
+                let simple = value.strip_suffix('n').unwrap_or(&value);
+                let simple = simple.strip_prefix('v').unwrap_or(simple);
+                if closure && !simple.chars().all(|c| c.is_ascii_digit()) {
+                    let _ = write!(out, "($s{i})");
+                    bound.push((i, value));
+                } else {
+                    let _ = write!(out, "({value})");
+                }
+            }
+        }
+        if closure {
+            for (i, erased) in mask.iter().enumerate().skip(args.len()) {
+                if !erased {
+                    let _ = write!(out, "($p{i})");
+                }
+            }
+            for (i, erased) in mask.iter().enumerate().skip(args.len()).rev() {
+                out = if *erased {
+                    format!("((_) => {out})")
+                } else {
+                    format!("(($p{i}) => {out})")
+                };
+            }
+            if !bound.is_empty() {
+                let names: Vec<String> = bound.iter().map(|(i, _)| format!("$s{i}")).collect();
+                let values: Vec<String> = bound.into_iter().map(|(_, v)| v).collect();
+                out = format!("(({}) => {out})({})", names.join(", "), values.join(", "));
             }
         }
         Ok(out)

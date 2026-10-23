@@ -237,3 +237,54 @@ fn reference_and_js_conflict() {
         text(&output.stderr)
     );
 }
+
+/// D922 (test A0): a definition with type or proof parameters, used as a
+/// value, is called by code that knows only its type, which passes those
+/// arguments too. The fast runtime must print what the reference evaluator
+/// prints (the same program is in `run_js.rs`, against JS).
+#[test]
+fn functions_with_erased_parameters_work_as_values() {
+    let path = source_file(
+        "erased_params.sw",
+        r#"
+import Std (Nat, List)
+
+def seven (a: Type): Nat := 7
+def pick (a: Type) (n: Nat): Nat := n + 1
+def pickLate (n: Nat) (a: Type): Nat := n + 2
+def withProof (n: Nat) (h: n = n) (m: Nat): Nat := n + m
+def mid (n: Nat) (a: Type) (m: Nat): Nat := n * 10 + m
+def proofOnly (n: Nat) (h: n = n): Nat := n + 100
+def tag2 (k: Nat) (j: Nat) (a: Type) (n: Nat): Nat := k * 100 + j * 10 + n
+
+def app (f: Type -> Nat): Nat := f Nat
+def app2 (f: Type -> Nat -> Nat): Nat := f Nat 41
+def app2Late (f: Nat -> Type -> Nat): Nat := f 40 Nat
+def app3 (f: Nat -> Nat): Nat := f 41
+def appProof (f: (n: Nat) -> n = n -> Nat -> Nat): Nat := f 5 rfl 6
+def appMid (f: Nat -> Type -> Nat -> Nat): Nat := f 4 Nat 2
+
+type Box = { run: (n: Nat) -> n = n -> Nat }
+
+def main () : {IO} () :=
+  IO.print (Nat.toText (app seven))
+  IO.print (Nat.toText (app2 pick))
+  IO.print (Nat.toText (app2Late pickLate))
+  IO.print (Nat.toText (appProof withProof))
+  IO.print (Nat.toText (appMid mid))
+  IO.print (Nat.toText (app (a => 8)))
+  IO.print (Nat.toText (app2 (a n => n + 3)))
+  IO.print (Nat.toText (app3 (pick Nat)))
+  IO.print (Nat.toText (app3 (withProof 4 rfl)))
+  IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 rfl))
+  IO.print (Nat.toText (List.sum (List.map (f => f 2 rfl) [proofOnly, proofOnly])))
+  IO.print (Nat.toText (app2 (tag2 (1 + 1) (2 + 1))))
+"#,
+    );
+    let fast = same_both_ways(&path, b"", true);
+    assert!(fast.status.success(), "{}", text(&fast.stderr));
+    assert_eq!(
+        text(&fast.stdout),
+        "7\n42\n42\n11\n42\n8\n44\n42\n45\n109\n204\n271\n"
+    );
+}
