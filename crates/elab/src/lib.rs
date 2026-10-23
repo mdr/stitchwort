@@ -100,6 +100,7 @@ core_files!(
     "Char",
     "Division",
     "ListOptionPair",
+    "Result",
     "Ordering",
     "Helpers",
     "Text",

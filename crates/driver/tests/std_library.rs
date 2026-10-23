@@ -522,11 +522,14 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // SW-234: `Mod.add`, `Mod.size`, `Mod.value` and the rest are reached
     // by dot notation only on a `Mod`, so programs that make none don't
     // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
+    // `Result` is a core type, so the toolkit's dot calls (`.map`, `.flatMap`,
+    // ...) may mean its functions too, and `Result/Result.sw` loads with it.
     let toolkit = [
         "Bool/Bool.sw",
         "Nat/Arith.sw",
         "Option/Option.sw",
         "Ord/Ord.sw",
+        "Result/Result.sw",
         "List/Toolkit.sw",
     ];
     assert_eq!(

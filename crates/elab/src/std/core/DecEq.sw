@@ -32,6 +32,9 @@ instance Pair.instDecEq [auto decEqA: DecEq a] [auto decEqB: DecEq b]: DecEq (Pa
 instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) :=
   { decide = Option.decEq (x y => DecEq.decide x y) }
 
+instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (Result a e) :=
+  { decide = Result.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
+
 -- Proofs of an equation in a type with decidable equality are unique:
 -- Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
 -- `x = y` into the one the decision gives, ignoring which proof it was

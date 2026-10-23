@@ -1,7 +1,7 @@
 # Proposal: errors with messages (`Fail` and `Result`)
 
-**Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Nothing
-here is built yet; stage 1 (§5) is next.
+**Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Stage 1
+is built ("Stage 1 as built", §5), without two of §3.7's theorems; stage 2 is next.
 
 ## 1. The problem and the goals
 
@@ -425,6 +425,41 @@ a list of ids, and `filterMap` picks the two lists apart by trying each line as
 both (`Day05.sw:30-33`). The new parser splits at the blank line, reads the
 lines above it with `Range.read` and the lines below it with
 `Text.toNatOrFail`, and fails with a message if there's no blank line.
+
+**Stage 1 as built (23 October 2026).** `Result` is in the core
+(`std/core/Result.sw`) and the prelude, with `Result.decEq`, a `DecEq`
+instance and a `Show` instance (`Ok 2`, `Err "no"`). Its other functions are
+in `std/Result/Result.sw`: §3.2's list, plus `Result.traverse` and
+`Result.errorOrElse`. `Std.Fail` (`std/Fail/Fail.sw`) has §3.1 and §3.3 as
+written, `Text.toNatOrFail` and `Text.toIntOrFail` with D1051's message for
+both (the text is quoted as given, before trimming), and seven of §3.7's
+theorems, each by `rfl` on each case. `List.mapIn` is in
+`std/List/Toolkit.sw`. `docs/syntax.md` has a `Fail` section,
+`examples/accept/fail.sw` has a `main` with `IO` passing through, and
+`examples/extract/results.sw` shows a `Result` crossing to TypeScript as
+§3.6 says. The existing std hashes didn't change; the new names were added
+to the snapshot. Deviations:
+
+- `Fail.context`'s parameter is `label`, not `where`, which is a keyword.
+- `Result` is a core type, so a dot call such as `.map` in a library file
+  may mean `Result.map`, and `Result/Result.sw` now loads with
+  `List/Toolkit.sw` (the expectation in `std_library.rs` is updated).
+- `Fail.toResultNeedThen` and `Fail.toResultMapIn` aren't built. An equation
+  between calls of a handler with an open row (`{e}`, as `toResult` has) is
+  elaborated as a computation over the empty row, `runPure (bind (toResult
+  …) (r => Done (r = …)))`, and is only an equation once the handled
+  computation computes. With an unknown `k x` or `f x` it doesn't, so `rfl`
+  is refused; the same happens to `Abort.toOption c = Abort.toOption c` for
+  any `c`. Through a closed-row handler (`def run (p: () -> {Fail} a):
+  Result a Text := Fail.toResult p`) `NeedThen` checks. `MapIn` still
+  doesn't: its `Cons` case needs `toResult` of a `bind` over an unknown
+  `f x` to split into cases, which needs induction on the computation tree,
+  and no proof can take apart a `{Fail}` computation. Open for Matt.
+- A dot call ending a handled lambda, `Fail.toResult (() => " 4".toNatOrFail)`,
+  isn't run there, so the handler's result type is `{Fail} Nat` (and
+  `==` asks for `DecEq ({Fail} Nat)`). `Abort` behaves the same
+  (`Abort.toOption (() => "4".toNat.orAbort)`); the full name,
+  `Text.toNatOrFail " 4"`, works.
 
 ## 6. Decisions for Matt
 

@@ -6,12 +6,20 @@ theorem List.lengthAppend: (xs: List a) -> (ys: List a) -> List.length (List.app
   | Nil,       ys => rfl
   | Cons x xs, ys => Eq.cong Succ (List.lengthAppend xs ys)
 
--- List toolkit. The callbacks are pure: the library has no convention yet for
--- callbacks with effects or `Partial`. Every function is structurally recursive.
+-- List toolkit. The callbacks are pure, except `List.mapIn`'s: the library has
+-- no convention yet for callbacks with effects or `Partial`. Every function is
+-- structurally recursive.
 
 def List.map (f: a -> b): List a -> List b
   | Nil       => Nil
   | Cons x xs => Cons (f x) (List.map f xs)
+
+-- `map` with a function that may perform abilities, such as `Fail`: `f` runs
+-- on each element in order, so `xs.mapIn Range.read` fails at the first
+-- element that isn't a range (docs/proposals/errors.md §3.4).
+def List.mapIn (f: a -> {e} b): List a -> {e} List b
+  | Nil       => Nil
+  | Cons x xs => Cons (f x) (List.mapIn f xs)
 
 -- One step of `List.filter`: `x` in front of the filtered rest, or not. A
 -- function of its own so the recursive call is written once: with an `if`
