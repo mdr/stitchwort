@@ -469,8 +469,8 @@
     },
     {
       "id": 31,
-      "title": "Language server for .sw: stages 0-1, 2a, 2b done; 2c (Playground goals) running; 2d is SW-376",
-      "status": "next",
+      "title": "Language server for .sw: stages 0-1, 2a, 2b, 2c done (goal holes in VS Code and the Playground); 2d is SW-376",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -483,7 +483,8 @@
         "6f49811b",
         "7e475d14",
         "168abb31",
-        "9ffae1e9"
+        "9ffae1e9",
+        "aa63609b"
       ]
     },
     {
@@ -5907,8 +5908,8 @@
     {
       "id": 369,
       "title": "Experiment: generalise List.map to effectful callbacks (f: a -> {e} b), Unison-style; report what breaks; if clean, fold List.mapIn into map (D1050)",
-      "status": "next",
-      "agent": "Opus",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "std"
@@ -6150,8 +6151,8 @@
     {
       "id": 384,
       "title": "Coverage messages: a missed number in a match on Fin is reported as the number ('no arm for 2'), not in FZero/FSucc terms (D1079)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "elab"
@@ -6258,7 +6259,7 @@
     {
       "id": 391,
       "title": "Show prints a constructor's record argument in brackets, Some ({ … }), so show output stays valid source after named construction (D605 a; hashes move, approved 23 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -6267,7 +6268,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "ceb6aee2"
+      ]
     },
     {
       "id": 392,
