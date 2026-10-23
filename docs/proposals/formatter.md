@@ -1,6 +1,6 @@
 # A formatter for Stitchwort
 
-Ticket SW-366. Status: design, for review before any implementation.
+Ticket SW-366. Status: design accepted with the decisions in §8 (23 Oct 2026).
 
 Matt's brief: "Plan a Stitchwort formatter that we can use, including in the
 VS Code extension and the Playground."
@@ -174,21 +174,17 @@ format_range(text, byte range) -> edits                      -- §5.2
 
 ### 2.5 Code that doesn't parse
 
-Format-on-save happens while code is half-typed, so the formatter has to
-cope with errors.
+**Decided (D1021 (b)): a file with any lexical or syntax error is refused
+whole.** The formatter returns the diagnostics and changes nothing. The CLI
+reports the file and exits non-zero; the editor returns no edits, silently.
+Format-on-save is off by default (D1022), so refusing a half-typed file costs
+little.
 
-- **A lexical error** (an unclosed string, a tab) stops it: it returns the
-  diagnostic and changes nothing. Nothing can be formatted safely without
-  tokens.
-- **A declaration that doesn't parse is copied unchanged**, byte for byte,
-  and every other declaration is formatted. This can only work because
-  declarations are split by column 0 before they are parsed
-  (`parser.rs:332-388`), so one broken declaration can't affect where the
-  others start. Recovery already works at that granularity (`parser.rs:53-61`).
-- The CLI reports skipped declarations as warnings and exits non-zero under
-  `--check`. The editor formats silently.
-
-This is D1021.
+The option not taken, kept for reference: copy a declaration that doesn't
+parse unchanged and format the rest. That works because declarations are
+split by column 0 before they are parsed (`parser.rs:332-388`) and recovery
+works at that granularity (`parser.rs:53-61`), so it can be added later
+without redesign.
 
 ## 3. The style rules
 
@@ -394,6 +390,24 @@ comes last. Later, if Matt wants it, a stage
 **F8** (Opus) adds width-based wrapping (D1014).
 
 ## 8. Decisions for Matt
+
+**Decided (Matt, 23 Oct 2026).** These override the recommendations and
+any text above that disagrees.
+
+| Decision | Choice |
+|---|---|
+| D1013 | (c): keep the author's line breaks in v1; width-based wrapping later, as F8 |
+| D1014 | 120 characters: the width F8 wraps to. v1 doesn't enforce or report it |
+| D1015 | (a): no options at first; add them later only if needed |
+| D1016 | (a): never align |
+| D1017 | (a) and (i): convert, one element per line, opener at the end of the line before. **No exception** for literal-only brackets |
+| D1018 | (a): leave closers of comma-less brackets where they are |
+| D1019 | (b): skip `examples/reject`, `examples/soundness`, `examples/projects/reject` |
+| D1020 | (a): collapse blank-line runs to one, never add any |
+| D1021 | (b): refuse a file with any syntax error (§2.5). Range formatting also needs the whole file to parse |
+| D1022 | VS Code's usual convention: format-on-save off by default (no `configurationDefaults` for it), Format Document works. Users opt in with `"[stitchwort]": { "editor.formatOnSave": true }` |
+
+The original options and reasoning follow.
 
 These are design, semantics and style choices only. Build details are
 settled above.
