@@ -1498,6 +1498,9 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
             Term::Meta(m) => *m,
             _ => unreachable!("a fresh metavariable"),
         };
+        if let Some(ignorable) = ignorable_arguments(cx, ty) {
+            cx.g().set_meta_ignorable(tree, ignorable);
+        }
         cx.e.obligations.borrow_mut().push(crate::auto::Obligation {
             env: cx.env.clone(),
             types: cx.types.clone(),
@@ -1509,6 +1512,44 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
         });
     }
     meta
+}
+
+/// For an `auto` argument's unknown proof of `goal`, made by
+/// [`Ctx::fresh_meta`]: for each variable it's applied to, whether neither
+/// `goal` nor the type of any later variable in scope mentions it (see
+/// `Meta::ignorable`). `None` if a type can't be read back.
+fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
+    let level = cx.level();
+    // The levels mentioned by `goal`, then by each variable's type, latest
+    // first: a level is ignorable if nothing at or after it so far does.
+    let mut mentioned = vec![false; level];
+    let mark = |term: &Term, at: usize, mentioned: &mut Vec<bool>| {
+        for (t, binders) in term.subterms() {
+            if let Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) = t
+                && *i >= binders
+                && *i - binders < at
+            {
+                mentioned[at - 1 - (*i - binders)] = true;
+            }
+        }
+    };
+    let goal = quote(cx.g(), level, goal).ok()?;
+    mark(&goal, level, &mut mentioned);
+    let mut ignorable = vec![false; level];
+    for l in (0..level).rev() {
+        ignorable[l] = !mentioned[l];
+        let ty = quote(cx.g(), l, &cx.types[l]).ok()?;
+        mark(&ty, l, &mut mentioned);
+    }
+    // One entry per argument: the variables `fresh_meta` applies it to.
+    Some(
+        cx.env
+            .iter()
+            .enumerate()
+            .filter(|(l, v)| matches!(v, Value::Neutral(Head::Var(x), s) if x == l && s.is_empty()))
+            .map(|(l, _)| ignorable[l])
+            .collect(),
+    )
 }
 
 /// An implicit argument from `supply`, or a new one. ([`written_result`] records

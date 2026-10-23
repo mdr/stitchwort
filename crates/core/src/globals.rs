@@ -258,6 +258,13 @@ pub struct Meta {
     pub solution: Option<Value>,
     /// Where it was created, for "can't work out" errors.
     pub span: Span,
+    /// For the unknown proof of an `auto` argument, one entry per argument
+    /// it's applied to (the variables in scope where it was made): whether
+    /// neither its statement nor the type of a later variable depends on
+    /// that one. Unification may solve it ignoring such an argument where
+    /// that argument isn't a variable (SW-323: a proof inside a lambda,
+    /// once the lambda is applied to a term).
+    pub ignorable: Option<Rc<[bool]>>,
 }
 
 #[derive(Default)]
@@ -375,8 +382,20 @@ impl Globals {
         metas.push(Meta {
             solution: None,
             span,
+            ignorable: None,
         });
         metas.len() - 1
+    }
+
+    /// Records which arguments metavariable `m` may ignore (see
+    /// [`Meta::ignorable`]).
+    pub fn set_meta_ignorable(&self, m: usize, ignorable: Rc<[bool]>) {
+        self.metas.borrow_mut()[m].ignorable = Some(ignorable);
+    }
+
+    /// See [`Meta::ignorable`].
+    pub fn meta_ignorable(&self, m: usize) -> Option<Rc<[bool]>> {
+        self.metas.borrow()[m].ignorable.clone()
     }
 
     /// Whether metavariable `m` is frozen (see [`Globals::frozen_metas`]).
