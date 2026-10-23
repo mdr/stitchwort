@@ -5812,10 +5812,10 @@
     },
     {
       "id": 366,
-      "title": "Formatter: design note (stitchwort fmt, LSP formatting for VS Code, Playground)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "worktree lane",
+      "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): design accepted, stages F0-F7 next",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
       "labels": [
         "tooling"
       ],
@@ -5824,7 +5824,8 @@
       "updated": "2026-10-23",
       "commits": [
         "52617012",
-        "e53c93dd"
+        "e53c93dd",
+        "1c3a31e8"
       ]
     }
   ]
