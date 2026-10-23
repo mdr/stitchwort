@@ -6,7 +6,7 @@ def describe (n: Nat): Text :=
 
 -- `match` takes values apart. Every case must be covered.
 def countdown: Nat -> List Nat
-  | 0      => []
+  | 0 => []
   | Succ n => Cons (n + 1) (countdown n)
 
 test "describe" := describe 7 == "7 is odd, half is 3"

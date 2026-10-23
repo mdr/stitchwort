@@ -14,23 +14,22 @@ def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else 
 
 -- The first comparison, unless it's `Equal`.
 def Ordering.andThen: Ordering -> Ordering -> Ordering
-  | Less,    o => Less
-  | Equal,   o => o
+  | Less, o => Less
+  | Equal, o => o
   | Greater, o => Greater
 
 def Ordering.index: Ordering -> Nat
-  | Less    => 0
-  | Equal   => 1
+  | Less => 0
+  | Equal => 1
   | Greater => 2
 
 def Ordering.decEq: (a: Ordering) -> (b: Ordering) -> Decidable (a = b)
-  | Less,    Less    => Yes rfl
-  | Less,    Equal   => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
-  | Less,    Greater => No (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
-  | Equal,   Less    => No (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
-  | Equal,   Equal   => Yes rfl
-  | Equal,   Greater => No (p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p)))
-  | Greater, Less    => No (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
-  | Greater, Equal   => No (p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p))))
+  | Less, Less => Yes rfl
+  | Less, Equal => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
+  | Less, Greater => No (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
+  | Equal, Less => No (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
+  | Equal, Equal => Yes rfl
+  | Equal, Greater => No (p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p)))
+  | Greater, Less => No (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
+  | Greater, Equal => No (p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p))))
   | Greater, Greater => Yes rfl
-

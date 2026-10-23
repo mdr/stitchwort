@@ -5,7 +5,7 @@ import List (..)
 import Text (..)
 import Std (List, Text)
 
-def total(xs: List Nat): Nat := sum (map (x => x + 1) (filter (x => not (x == 0)) (reverse xs)))
+def total (xs: List Nat): Nat := sum (map (x => x + 1) (filter (x => not (x == 0)) (reverse xs)))
 
 test "wildcard names" := total [1, 0, 2] == 5
 test "the same name from two namespaces, in full" := List.length [1, 2] + Text.length "abc" == 5

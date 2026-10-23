@@ -9,7 +9,7 @@ def turnOf (c: Char) (n: Nat): Option Turn :=
   match c with
     | 'L' => Some (Left n)
     | 'R' => Some (Right n)
-    | _   => None
+    | _ => None
 
 def isVowel: Char -> Bool
   | 'a' => True
@@ -17,17 +17,17 @@ def isVowel: Char -> Bool
   | 'i' => True
   | 'o' => True
   | 'u' => True
-  | _   => False
+  | _ => False
 
 -- Nested in list and tuple patterns.
 def startsWithHash: List Char -> Bool
   | ['#', _] => True
-  | _        => False
+  | _ => False
 
 def charPair: Pair Char Nat -> Nat
   | ('a', n) => n + 1
   | ('b', n) => n
-  | (_, n)   => 0
+  | (_, n) => 0
 
 test "L" := turnOf 'L' 3 == Some (Left 3)
 test "other" := turnOf 'x' 3 == None

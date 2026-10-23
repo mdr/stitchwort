@@ -106,7 +106,7 @@ theorem Float.validHigh (m: Nat) (h1: 9223372036854775808 <= m) (h2: m <= 184422
 theorem Float.highBound (n: Nat) (v: Float.isValid n = True) (hk: 9223372036854775808 <= n):
     n <= 18442240474082181120 :=
   let v2: ((Nat.leq n 9218868437227405312 || Nat.equal n 9221120237041090560)
-      || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)) = True := v
+    || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)) = True := v
   let a: Nat.leq n 9218868437227405312 = False := omega
   let e: Nat.equal n 9221120237041090560 = False :=
     Bool.falseOfNotTrue (Nat.equal n 9221120237041090560) (h => omega)
@@ -117,7 +117,7 @@ theorem Float.highBound (n: Nat) (v: Float.isValid n = True) (hk: 92233720368547
 theorem Float.lowBound (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221120237041090560 = False)
     (hk: Nat.leq 9223372036854775808 n = False): n <= 9218868437227405312 :=
   let v2: ((Nat.leq n 9218868437227405312 || Nat.equal n 9221120237041090560)
-      || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)) = True := v
+    || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)) = True := v
   match a: Nat.leq n 9218868437227405312 with
     | True => rfl
     | False => Void.exfalso (Bool.falseNotTrue (rewrite e, hk at v2))

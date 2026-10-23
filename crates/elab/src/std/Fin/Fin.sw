@@ -9,25 +9,25 @@ type Fin: Nat -> Type =
 
 -- The number itself: `FSucc FZero` is 1.
 def Fin.toNat: Fin n -> Nat
-  | FZero   => 0
+  | FZero => 0
   | FSucc i => Succ (Fin.toNat i)
 
 theorem Fin.toNatLt: (i: Fin n) -> Fin.toNat i < n
-  | FZero   => rfl
+  | FZero => rfl
   | FSucc i => Fin.toNatLt i
 
 -- `i` as a position below n, from a proof that it is one.
 def Fin.ofNatLt: (n: Nat) -> (i: Nat) -> i < n -> Fin n
-  | Zero,   i,      h => Void.absurd (Bool.falseNotTrue h)
-  | Succ n, Zero,   h => FZero
+  | Zero, i, h => Void.absurd (Bool.falseNotTrue h)
+  | Succ n, Zero, h => FZero
   | Succ n, Succ i, h => FSucc (Fin.ofNatLt n i h)
 
 -- `Fin.ofNat i` when `i < n` is decided for closed numbers: `(Fin.ofNat 2: Fin 5)`.
 def Fin.ofNat (i: Nat) [auto ok: i < n]: Fin n := Fin.ofNatLt n i ok
 
 theorem Fin.toNatOfNatLt: (n: Nat) -> (i: Nat) -> (h: i < n) -> Fin.toNat (Fin.ofNatLt n i h) = i
-  | Zero,   i,      h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ n, Zero,   h => rfl
+  | Zero, i, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ n, Zero, h => rfl
   | Succ n, Succ i, h => Eq.cong Succ (Fin.toNatOfNatLt n i h)
 
 theorem Fin.ofNatExample: Fin.toNat (Fin.ofNat 3: Fin 5) = 3 := rfl
@@ -41,17 +41,17 @@ instance Fin.instShow: Show (Fin n) := Show.fromText (i => Nat.toText (Fin.toNat
 -- Positions with the same number are equal (so `Fin.toNat i == Fin.toNat j`
 -- decides `i = j`).
 theorem Fin.toNatInjective: (i: Fin n) -> (j: Fin n) -> Fin.toNat i = Fin.toNat j -> i = j
-  | FZero,   FZero,   h => rfl
+  | FZero, FZero, h => rfl
   | FSucc i, FSucc j, h => Eq.cong FSucc (Fin.toNatInjective i j (Nat.succInjective (Fin.toNat i) (Fin.toNat j) h))
-  | FZero,   FSucc j, h => Void.exfalso (Nat.zeroNotSucc (Fin.toNat j) h)
-  | FSucc i, FZero,   h => Void.exfalso (Nat.succNotZero (Fin.toNat i) h)
+  | FZero, FSucc j, h => Void.exfalso (Nat.zeroNotSucc (Fin.toNat j) h)
+  | FSucc i, FZero, h => Void.exfalso (Nat.succNotZero (Fin.toNat i) h)
 
 -- `==` on positions: they're equal exactly when their numbers are. Written
 -- by hand: deriving `==` for an indexed family is not supported yet.
 instance Fin.instDecEq: DecEq (Fin n) :=
   { decide = i j =>
-      if h: Fin.toNat i = Fin.toNat j then Yes (Fin.toNatInjective i j h)
-      else No (e => h (Eq.cong Fin.toNat e)) }
+    if h: Fin.toNat i = Fin.toNat j then Yes (Fin.toNatInjective i j h)
+    else No (e => h (Eq.cong Fin.toNat e)) }
 
 -- Positions in order of their numbers.
 instance Fin.instOrd: Ord (Fin n) := Ord.byKey Fin.toNat Fin.toNatInjective
@@ -68,7 +68,7 @@ def Fin.ofNatCheck (n: Nat) (i: Nat): Option (Fin n) := if h: i < n then Some (F
 theorem Fin.ofNatCheckDec (n: Nat) (i: Nat): (d: Decidable (i < n)) -> i < n ->
     Option.map Fin.toNat (Decidable.elim d (h => Some (Fin.ofNatLt n i h)) (h => None)) = Some i
   | Yes h, lt => Eq.cong Some (Fin.toNatOfNatLt n i h)
-  | No r,  lt => Void.exfalso (r lt)
+  | No r, lt => Void.exfalso (r lt)
 
 theorem Fin.ofNatCheckLt (n: Nat) (i: Nat) (h: i < n): Option.map Fin.toNat (Fin.ofNatCheck n i) = Some i :=
   Fin.ofNatCheckDec n i (Bool.decTrue (Nat.leq (Succ i) n)) h
@@ -80,7 +80,7 @@ test "ofNatCheck" := (Option.map Fin.toNat (Fin.ofNatCheck 5 4), Option.map Fin.
 def Char.toDigit (c: Char): Option (Fin 10) := Option.flatMap (Fin.ofNatCheck 10) (Char.digitValue c)
 
 theorem Char.toDigitOf: (m: Option Nat) -> Option.IsDigit m -> Option.map Fin.toNat (Option.flatMap (Fin.ofNatCheck 10) m) = m
-  | None,   h => rfl
+  | None, h => rfl
   | Some d, h => Fin.ofNatCheckLt 10 d h
 
 -- `Char.toDigit` is `Char.digitValue`, with the digit's bound in its type.

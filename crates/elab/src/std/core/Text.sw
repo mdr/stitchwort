@@ -27,14 +27,14 @@ def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a)
 
 def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b) -> Decidable (a = b)
   | Yes p => Yes (Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
-  | No r  => No (p => r (Eq.cong Text.toList p))
+  | No r => No (p => r (Eq.cong Text.toList p))
 
 def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
 
 def Text.compareChars: List Char -> List Char -> Ordering
-  | Nil,       Nil       => Equal
-  | Nil,       Cons y ys => Less
-  | Cons x xs, Nil       => Greater
+  | Nil, Nil => Equal
+  | Nil, Cons y ys => Less
+  | Cons x xs, Nil => Greater
   | Cons x xs, Cons y ys =>
     Ordering.andThen (Nat.compare (Char.toNat x) (Char.toNat y)) (Text.compareChars xs ys)
 
@@ -59,10 +59,9 @@ def Nat.digitChar: Nat -> Char
 -- The digits of `n` in front of `acc`. `fuel` keeps it structurally
 -- recursive; `n + 1` is always enough.
 def Nat.digitsOnto: Nat -> Nat -> List Char -> List Char
-  | Zero,      n, acc => acc
+  | Zero, n, acc => acc
   | Succ fuel, n, acc =>
     if Nat.leq n 9 then Cons (Nat.digitChar n) acc else Nat.digitsOnto fuel (n / 10) (Cons (Nat.digitChar (n % 10)) acc)
 
 -- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 def Nat.toText (n: Nat): Text := MkText (Nat.digitsOnto (Succ n) n Nil)
-

@@ -128,8 +128,8 @@ def withMatch (xs: List Nat): Nat :=
   def go: List Nat -> Nat
     | Nil => 0
     | Cons x rest => 2 * (match x with
-        | Zero => 1
-        | Succ _ => go rest)
+      | Zero => 1
+      | Succ _ => go rest)
   go xs
 
 test "withMatch" := withMatch [1, 2, 0] == 8

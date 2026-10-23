@@ -55,18 +55,18 @@ def Turn.parse (t: Text): Option Turn :=
   match t.uncons with
     | Some ('L', rest) => rest.toNat.map Left
     | Some ('R', rest) => rest.toNat.map Right
-    | _                => None
+    | _ => None
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Day01.Proofs`) use it; it stays
 -- here so that they can write `t.clicks`, a dot name must live with its type.
 def Turn.clicks: Turn -> List Turn
-  | Left n  => List.replicate n (Left 1)
+  | Left n => List.replicate n (Left 1)
   | Right n => List.replicate n (Right 1)
 
 -- Where a turn leaves the dial: left is towards lower numbers.
 def Dial.move (dial: Dial n): Turn -> Dial n
-  | Left k  => { position = dial.position.subNat k }
+  | Left k => { position = dial.position.subNat k }
   | Right k => { position = dial.position.addNat k }
 
 def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
@@ -80,4 +80,4 @@ def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
 -- that is 20 clicks, not 80); it is the position to count right-turns from.
 def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
   | Right k => (dial.position.value + k) / Mod.size n
-  | Left k  => ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n
+  | Left k => ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n

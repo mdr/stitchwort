@@ -119,7 +119,7 @@ export def uncons (t: Text): Option (Pair Char Text) := Text.uncons t
 export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
 
 def countIn (c: Char): List Char -> Nat
-  | Nil       => 0
+  | Nil => 0
   | Cons d ds => if c == d then Succ (countIn c ds) else countIn c ds
 
 export def countChar (c: Char) (t: Text): Nat := countIn c (Text.toList t)
@@ -142,7 +142,7 @@ export def rename (n: Text): Person -> Person
 
 export def orEmpty: Option Text -> Text
   | None => ""
-  | Some t  => t
+  | Some t => t
 
 export def firstOf (p: Pair Char Text): Char := Pair.fst p
 
@@ -163,7 +163,7 @@ export def less (a: Text) (b: Text): Bool := Text.less a b
 export def codes (t: Text): List Nat := Text.fold (c ns => Cons (Char.toNat c) ns) Nil t
 
 def mapList (f: a -> b): List a -> List b
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => Cons (f x) (mapList f xs)
 
 export def lengths (ts: List Text): List Nat := mapList Text.length ts
@@ -173,13 +173,13 @@ export def texts (ls: List (List Char)): List Text := mapList MkText ls
 export def prefixAll (ts: List Text): List Text := mapList (Text.append "pre") ts
 
 def firstOfList: List Text -> Text
-  | Nil       => "none"
+  | Nil => "none"
   | Cons f fs => f
 
 export def firstField (c: Char) (t: Text): Text := firstOfList (Text.split c t)
 
 def leadingChar: Text -> Option Char
-  | MkText Nil         => None
+  | MkText Nil => None
   | MkText (Cons c cs) => Some c
 
 export def trimmedHead (t: Text): Option Char := leadingChar (Text.trim t)

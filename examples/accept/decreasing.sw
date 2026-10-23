@@ -21,7 +21,7 @@ import Std (IO, List, Nat)
 -- The decimal digits of `n`, most significant first, onto `acc`: `n / 10`
 -- isn't a piece of `n`, so structural recursion can't show this ends.
 def digitsOnto (n: Nat) (acc: List Nat): List Nat
-  decreasing n
+    decreasing n
 :=
   if big: Nat.leq n 9 = False
   then digitsOnto (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
@@ -43,7 +43,7 @@ theorem digitsOntoStep (n: Nat) (acc: List Nat):
 
 -- Euclid's algorithm: `a % b < b` when `b != 0`.
 def gcd (a: Nat) (b: Nat): Nat
-  decreasing b
+    decreasing b
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
 
@@ -51,7 +51,7 @@ test "gcd" := gcd 12 18 == 6 && gcd 17 5 == 1 && gcd 0 9 == 9
 
 -- The guard style: test the decrease, and `auto` finds the proof in scope.
 def halvings (n: Nat) (count: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   let next := n / 2
   if h: next < n then halvings next (count + 1) else count
@@ -60,7 +60,7 @@ test "halvings" := halvings 100 0 == 7 && halvings 0 0 == 0
 
 -- A `match` in the body, with the recursive call in one arm.
 def sumDigits (n: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   match e: Nat.leq n 9 with
     | True => n
@@ -71,7 +71,7 @@ test "sum of digits" := sumDigits 1234 == 10
 -- Arms after the colon, an implicit type, and a measure that isn't a
 -- parameter.
 def takeFirst [a: Type] (xs: List a): Nat -> List a
-  decreasing List.length xs
+    decreasing List.length xs
   | Zero => Nil
   | Succ k =>
     match xs with
@@ -90,7 +90,7 @@ def Stack.count: Stack -> Nat
   | Push x rest => Succ (Stack.count rest)
 
 def Stack.total (s: Stack): Nat
-  decreasing Stack.count s
+    decreasing Stack.count s
 :=
   match s with
     | Empty => 0
@@ -101,7 +101,7 @@ test "Stack.total" := Stack.total (Push 1 (Push 2 Empty)) == 3
 -- A theorem can recurse on the same measure: the proof makes the calls the
 -- function makes. `evens.unfold` takes one step of `evens`.
 def evens (n: Nat): List Nat
-  decreasing n
+    decreasing n
 :=
   match n with
     | Zero => Nil
@@ -111,7 +111,7 @@ def evens (n: Nat): List Nat
 test "evens" := evens 7 == [5, 3, 1]
 
 theorem evensShort (n: Nat): List.length (evens n) <= n
-  decreasing n
+    decreasing n
 :=
   rewrite evens.unfold n in
   match n with

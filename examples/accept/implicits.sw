@@ -4,7 +4,7 @@
 import Std (Eq, List)
 
 def mapList (f: a -> b): List a -> List b
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => Cons (f x) (mapList f xs)
 
 -- Inferred from the arguments.
@@ -26,11 +26,11 @@ theorem orComm: Or p q -> Or q p
 
 -- Implicit parameters are in scope in the equations, by name.
 theorem appendNil: (xs: List a) -> xs.append Nil = xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => Eq.cong (ys => Cons x ys) (appendNil xs)
 
 theorem plusZeroNat: (n: Nat) -> n + 0 = n
-  | Zero   => rfl
+  | Zero => rfl
   | Succ m => Eq.cong Succ (plusZeroNat m)
 
 -- `Eq.sym` and `Eq.trans` from the prelude, with everything implicit.
@@ -52,7 +52,7 @@ def three: Nat := applyToThree (x => x)
 
 -- A constructor with both fields missing, used as a function.
 def foldRight (f: a -> b -> b) (z: b): List a -> b
-  | Nil       => z
+  | Nil => z
   | Cons x xs => f x (foldRight f z xs)
 
 def copy (xs: List Nat): List Nat := foldRight Cons Nil xs

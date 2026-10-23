@@ -14,20 +14,20 @@ import Std (List, Nat, Text)
 
 -- Deep enough to overflow the JS stack, if each call used a frame.
 def sumFrom (acc: Nat): Nat -> Nat
-  | 0      => acc
+  | 0 => acc
   | Succ n => sumFrom (acc + Succ n) n
 
 export def sumTo (n: Nat): Nat := sumFrom 0 n
 
 def lastOf (c: Char): List Char -> Char
-  | Nil       => c
+  | Nil => c
   | Cons d ds => lastOf d ds
 
 export def lastChar (t: Text): Char := lastOf '?' (Text.toList t)
 
 -- The recursive call is in tail position; the `if` is in an argument.
 def countFrom (c: Char) (acc: Nat): List Char -> Nat
-  | Nil       => acc
+  | Nil => acc
   | Cons d ds => countFrom c (if c == d then acc + 1 else acc) ds
 
 export def countTail (c: Char) (t: Text): Nat := countFrom c 0 (Text.toList t)
@@ -35,11 +35,11 @@ export def countTail (c: Char) (t: Text): Nat := countFrom c 0 (Text.toList t)
 -- Each turn of the loop makes a closure, which must keep that turn's `n`,
 -- not the last one.
 def adders (acc: List (Nat -> Nat)): Nat -> List (Nat -> Nat)
-  | 0      => acc
+  | 0 => acc
   | Succ n => adders (Cons (x => x + n) acc) n
 
 def applyAll: List (Nat -> Nat) -> List Nat
-  | Nil       => Nil
+  | Nil => Nil
   | Cons f fs => Cons (f 100) (applyAll fs)
 
 export def closures (n: Nat): List Nat := applyAll (adders Nil n)

@@ -7,15 +7,15 @@ interface Base (a: Type) =
   { op: a -> a }
 
 -- `law` mentions the superclass `base`.
-interface Child (a: Type) =
-  { base: Base a
-  , law: (x: a) -> base.op (base.op x) = base.op x
-  }
+interface Child (a: Type) = {
+  base: Base a,
+  law: (x: a) -> base.op (base.op x) = base.op x
+}
 
-interface Named (a: Type) =
-  { base: Base a
-  , name: a -> Text
-  }
+interface Named (a: Type) = {
+  base: Base a,
+  name: a -> Text
+}
 
 instance Base.instNat: Base Nat :=
   { op = n => 0 }

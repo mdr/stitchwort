@@ -9,8 +9,8 @@ import Std (Fin, List, Nat)
 
 -- Every way to pick k batteries of the bank, in order.
 def choices: Nat -> Bank -> List Bank
-  | Zero,   _           => [[]]
-  | Succ _, []          => []
+  | Zero, _ => [[]]
+  | Succ _, [] => []
   | Succ k, Cons d rest => (choices k rest).map (Cons d) ++ choices (Succ k) rest
 
 def bruteForce (k: Nat) (bank: Bank): Nat :=

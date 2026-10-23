@@ -109,8 +109,12 @@ theorem twoXEqOne (x: Nat) (h: 2 * x = 1): Void :=
 -- and rounding down after each division.
 theorem splitRegression (x: Nat) (y: Nat) (h1: 1 <= 2 * x + 3 * y) (h2: 2 * x + 3 * y <= 4) (h3: 2 * y <= 3 * x + 1) (h4: 3 * x <= 2 * y + 2): Void :=
   Omega.prove (MkEnv [x, y] [])
-    [FLe (NLit 1) (NAdd (MulLeft 2 (NV 0)) (MulLeft 3 (NV 1))), FLe (NAdd (MulLeft 2 (NV 0)) (MulLeft 3 (NV 1))) (NLit 4),
-     FLe (MulLeft 2 (NV 1)) (NAdd (MulLeft 3 (NV 0)) (NLit 1)), FLe (MulLeft 3 (NV 0)) (NAdd (MulLeft 2 (NV 1)) (NLit 2))]
+    [
+      FLe (NLit 1) (NAdd (MulLeft 2 (NV 0)) (MulLeft 3 (NV 1))),
+      FLe (NAdd (MulLeft 2 (NV 0)) (MulLeft 3 (NV 1))) (NLit 4),
+      FLe (MulLeft 2 (NV 1)) (NAdd (MulLeft 3 (NV 0)) (NLit 1)),
+      FLe (MulLeft 3 (NV 0)) (NAdd (MulLeft 2 (NV 1)) (NLit 2))
+    ]
     GVoid
     (Then (Input 0) (Then (Input 1) (Then (Input 2) (Then (Input 3)
       (Split (MkRow 0 [0, -1] [])
@@ -125,8 +129,17 @@ theorem chain10 (x0: Nat) (x1: Nat) (x2: Nat) (x3: Nat) (x4: Nat) (x5: Nat) (x6:
     (h0: x0 <= x1) (h1: x1 <= x2) (h2: x2 <= x3) (h3: x3 <= x4) (h4: x4 <= x5) (h5: x5 <= x6) (h6: x6 <= x7) (h7: x7 <= x8) (h8: x8 <= x9):
     3 * x0 <= x9 + 2 * x9 + 7 :=
   Omega.prove (MkEnv [x0, x1, x2, x3, x4, x5, x6, x7, x8, x9] [])
-    [FLe (NV 0) (NV 1), FLe (NV 1) (NV 2), FLe (NV 2) (NV 3), FLe (NV 3) (NV 4), FLe (NV 4) (NV 5), FLe (NV 5) (NV 6), FLe (NV 6) (NV 7),
-     FLe (NV 7) (NV 8), FLe (NV 8) (NV 9)]
+    [
+      FLe (NV 0) (NV 1),
+      FLe (NV 1) (NV 2),
+      FLe (NV 2) (NV 3),
+      FLe (NV 3) (NV 4),
+      FLe (NV 4) (NV 5),
+      FLe (NV 5) (NV 6),
+      FLe (NV 6) (NV 7),
+      FLe (NV 7) (NV 8),
+      FLe (NV 8) (NV 9)
+    ]
     (GLe (MulLeft 3 (NV 0)) (NAdd (NAdd (NV 9) (MulLeft 2 (NV 9))) (NLit 7)))
     (Then (Input 0) (Then (Input 1) (Then (Input 2) (Then (Input 3) (Then (Input 4) (Then (Input 5) (Then (Input 6) (Then (Input 7) (Then (Input 8)
       (Then NegGoal

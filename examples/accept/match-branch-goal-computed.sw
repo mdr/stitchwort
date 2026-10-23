@@ -7,7 +7,7 @@
 import Std (Nat, Eq)
 
 def twice: Nat -> Nat
-  | Zero   => 0
+  | Zero => 0
   | Succ n => Succ (Succ (twice n))
 
 theorem twiceSucc (k: Nat): twice (Succ k) = Succ (Succ (twice k)) := rfl
@@ -16,5 +16,5 @@ theorem twiceSucc (k: Nat): twice (Succ k) = Succ (Succ (twice k)) := rfl
 -- which the lemma's statement equals by computing.
 theorem twiceAdd (n: Nat): twice n = n + n :=
   match n with
-    | Zero   => rfl
+    | Zero => rfl
     | Succ k => Eq.trans (twiceSucc k) (omega [twiceAdd k])

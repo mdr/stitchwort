@@ -41,17 +41,17 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
 -- given, and every proof can be recovered from its canonical one.
 def DecEq.canon: [x y: a] -> Decidable (x = y) -> x = y -> x = y
   | Yes e, p => e
-  | No r,  p => Void.exfalso (r p)
+  | No r, p => Void.exfalso (r p)
 
 theorem DecEq.canonConst: [x y: a] -> (d: Decidable (x = y)) -> (p: x = y) -> (q: x = y) ->
     DecEq.canon d p = DecEq.canon d q
   | Yes e, p, q => rfl
-  | No r,  p, q => Void.exfalso (r p)
+  | No r, p, q => Void.exfalso (r p)
 
 theorem DecEq.symThenSelf [x y: a] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
 
 theorem DecEq.fromCanon [auto decEq: DecEq a] (x: a) (y: a) (p: x = y):
-  p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y) p) :=
+    p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y) p) :=
   J (y' p' => p' = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y') p'))
     (DecEq.symThenSelf (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) p
 
@@ -60,4 +60,3 @@ theorem DecEq.uniqueEq [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p =
     (J (r e => p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) r)
       (DecEq.fromCanon x y p) (DecEq.canonConst (DecEq.decide [decEq := decEq] x y) p q))
     (J (z e => z = q) rfl (DecEq.fromCanon x y q))
-

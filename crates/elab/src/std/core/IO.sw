@@ -8,13 +8,13 @@
 -- The console. Only a host interpreter performs these for real; in Stitchwort
 -- code, `IO.simulate` interprets them as data.
 ability IO where
-  print: Text -> {IO} ()          -- writes the text, then a line ending
-  readLine: () -> {IO} (Option Text)  -- None only at end of input
-  readAll: () -> {IO} Text          -- the rest of the input, all at once
+  print: Text -> {IO} () -- writes the text, then a line ending
+  readLine: () -> {IO} (Option Text) -- None only at end of input
+  readAll: () -> {IO} Text -- the rest of the input, all at once
 
 -- The first line of scripted input, if there is one.
 def IO.nextLine: List Text -> Option Text
-  | Nil       => None
+  | Nil => None
   | Cons l ls => Some l
 
 -- All of the scripted input, as `IO.readAll` gives it: each line followed by a
@@ -33,9 +33,8 @@ def IO.restOf (ins: List Text): Text :=
 def IO.simulate (input: List Text) (prog: () -> {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text -> List Text -> {e} Pair (List Text) a :=
     handle prog() with
-      | return x      => ins out => MkPair (List.reverseOnto out Nil) x
-      | IO.print t, k    => ins out => k() ins (Cons t out)
+      | return x => ins out => MkPair (List.reverseOnto out Nil) x
+      | IO.print t, k => ins out => k() ins (Cons t out)
       | IO.readLine u, k => ins out => k (IO.nextLine ins) (List.tailOf ins) out
-      | IO.readAll u, k  => ins out => k (IO.restOf ins) Nil out
+      | IO.readAll u, k => ins out => k (IO.restOf ins) Nil out
   run input Nil
-

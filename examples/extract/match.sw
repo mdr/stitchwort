@@ -14,8 +14,8 @@
 
 -- Lifted: the `match` is an argument of `+`.
 export def count (n: Nat): Nat := 1 + match n with
-                | Zero   => 0
-                | Succ k => count k
+  | Zero => 0
+  | Succ k => count k
 
 -- In the tree: a loop.
 export def countTail (n: Nat): Nat := match n with | Zero => 0 | Succ k => countTail k
@@ -25,6 +25,6 @@ export def countNamed (n: Nat): Nat := match h: n with | Zero => 0 | Succ k => c
 
 export def describe (xs: List Nat): Text :=
   match xs with
-    | Nil        => "empty"
+    | Nil => "empty"
     | Cons x Nil => "one"
-    | _          => "many"
+    | _ => "many"

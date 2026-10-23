@@ -84,7 +84,7 @@ theorem viaList (a: Nat) (b: Nat) (f: Nat -> Nat) (h: (n: Nat) -> n <= f n): a <
 theorem calcStep (a: Nat) (b: Nat) (h: a + 2 <= b): a < b :=
   calc a
     _ < a + 1 := omega
-    _ <= b    := omega
+    _ <= b := omega
 
 -- `omega` inside a local theorem.
 theorem localDef (a: Nat) (b: Nat): a <= a + b :=
@@ -120,7 +120,7 @@ theorem shared (xs: List Nat) (ys: List Nat)
 
 -- Proof-dependent atoms: the same call with the same proof is the same atom.
 def getP: (n: Nat) -> n < 10 -> Nat
-  | Zero,   h => 0
+  | Zero, h => 0
   | Succ k, h => k
 
 theorem sameProof (n: Nat) (h1: n < 10): getP n h1 <= getP n h1 := omega

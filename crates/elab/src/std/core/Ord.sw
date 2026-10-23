@@ -5,9 +5,9 @@
 
 theorem Bool.toNatInjective: (a: Bool) -> (b: Bool) -> Bool.toNat a = Bool.toNat b -> a = b
   | False, False, h => rfl
-  | False, True,  h => Void.exfalso (Nat.zeroNotSucc 0 h)
-  | True,  False, h => Void.exfalso (Nat.succNotZero 0 h)
-  | True,  True,  h => rfl
+  | False, True, h => Void.exfalso (Nat.zeroNotSucc 0 h)
+  | True, False, h => Void.exfalso (Nat.succNotZero 0 h)
+  | True, True, h => rfl
 
 -- `False` first.
 def Bool.compare (a: Bool) (b: Bool): Ordering := Nat.compare (Bool.toNat a) (Bool.toNat b)
@@ -20,24 +20,24 @@ def Ordering.compare (c: Ordering) (d: Ordering): Ordering := Nat.compare (Order
 -- §6.2, D180; the fields are `lessThan` and `lessEq`, D200). The relations
 -- are fields so that `Nat`'s can be `Nat.LessThan` and `Nat.LessEq`
 -- themselves. Build one with `Ord.fromCompare` or `Ord.byKey`.
-interface Ord (a: Type) =
-  { eq: DecEq a
-  , compare: a -> a -> Ordering
-  , lessThan: a -> a -> Prop
-  , lessEq: a -> a -> Prop
-  , decLessThan: (x: a) -> (y: a) -> Decidable (lessThan x y)
-  , decLessEq: (x: a) -> (y: a) -> Decidable (lessEq x y)
+interface Ord (a: Type) = {
+  eq: DecEq a,
+  compare: a -> a -> Ordering,
+  lessThan: a -> a -> Prop,
+  lessEq: a -> a -> Prop,
+  decLessThan: (x: a) -> (y: a) -> Decidable (lessThan x y),
+  decLessEq: (x: a) -> (y: a) -> Decidable (lessEq x y),
   -- `Equal` means equal; the other way round is the opposite; `Less` is
   -- transitive.
-  , equal: (x: a) -> (y: a) -> compare x y = Equal -> x = y
-  , flip: (x: a) -> (y: a) -> compare y x = Ordering.flip (compare x y)
-  , trans: (x: a) -> (y: a) -> (z: a) -> compare x y = Less -> compare y z = Less -> compare x z = Less
+  equal: (x: a) -> (y: a) -> compare x y = Equal -> x = y,
+  flip: (x: a) -> (y: a) -> compare y x = Ordering.flip (compare x y),
+  trans: (x: a) -> (y: a) -> (z: a) -> compare x y = Less -> compare y z = Less -> compare x z = Less,
   -- The relations agree with `compare`.
-  , lessThanOf: (x: a) -> (y: a) -> compare x y = Less -> lessThan x y
-  , lessThanTo: (x: a) -> (y: a) -> lessThan x y -> compare x y = Less
-  , lessEqOf: (x: a) -> (y: a) -> Not (compare x y = Greater) -> lessEq x y
-  , lessEqTo: (x: a) -> (y: a) -> lessEq x y -> Not (compare x y = Greater)
-  }
+  lessThanOf: (x: a) -> (y: a) -> compare x y = Less -> lessThan x y,
+  lessThanTo: (x: a) -> (y: a) -> lessThan x y -> compare x y = Less,
+  lessEqOf: (x: a) -> (y: a) -> Not (compare x y = Greater) -> lessEq x y,
+  lessEqTo: (x: a) -> (y: a) -> lessEq x y -> Not (compare x y = Greater)
+}
 
 -- From a comparison and its three laws. The relations are
 -- `compare x y = Less` and `Not (compare x y = Greater)`, decided through
@@ -45,50 +45,50 @@ interface Ord (a: Type) =
 def Ord.fromCompare [auto decEq: DecEq a] (compare: a -> a -> Ordering)
     (equal: (x: a) -> (y: a) -> compare x y = Equal -> x = y)
     (flip: (x: a) -> (y: a) -> compare y x = Ordering.flip (compare x y))
-    (trans: (x: a) -> (y: a) -> (z: a) -> compare x y = Less -> compare y z = Less -> compare x z = Less): Ord a :=
-  { compare = compare
-  , lessThan = x y => compare x y = Less
-  , lessEq = x y => Not (compare x y = Greater)
-  , decLessThan = x y => Ordering.decEq (compare x y) Less
-  , decLessEq = x y => Decidable.not (Ordering.decEq (compare x y) Greater)
-  , equal = equal
-  , flip = flip
-  , trans = trans
-  , lessThanOf = x y h => h
-  , lessThanTo = x y h => h
-  , lessEqOf = x y h => h
-  , lessEqTo = x y h => h
-  }
+    (trans: (x: a) -> (y: a) -> (z: a) -> compare x y = Less -> compare y z = Less -> compare x z = Less): Ord a := {
+      compare = compare,
+      lessThan = x y => compare x y = Less,
+      lessEq = x y => Not (compare x y = Greater),
+      decLessThan = x y => Ordering.decEq (compare x y) Less,
+      decLessEq = x y => Decidable.not (Ordering.decEq (compare x y) Greater),
+      equal = equal,
+      flip = flip,
+      trans = trans,
+      lessThanOf = x y h => h,
+      lessThanTo = x y h => h,
+      lessEqOf = x y h => h,
+      lessEqTo = x y h => h
+    }
 
-instance Nat.instOrd: Ord Nat :=
-  { compare = Nat.compare
-  , lessThan = Nat.LessThan
-  , lessEq = Nat.LessEq
-  , decLessThan = Nat.decLessThan
-  , decLessEq = Nat.decLessEq
-  , equal = Nat.compareEqual
-  , flip = Nat.compareFlip
-  , trans = Nat.compareTrans
-  , lessThanOf = Nat.lessOfCompare
-  , lessThanTo = Nat.compareOfLess
-  , lessEqOf = Nat.leOfCompare
-  , lessEqTo = Nat.compareOfLe
-  }
+instance Nat.instOrd: Ord Nat := {
+  compare = Nat.compare,
+  lessThan = Nat.LessThan,
+  lessEq = Nat.LessEq,
+  decLessThan = Nat.decLessThan,
+  decLessEq = Nat.decLessEq,
+  equal = Nat.compareEqual,
+  flip = Nat.compareFlip,
+  trans = Nat.compareTrans,
+  lessThanOf = Nat.lessOfCompare,
+  lessThanTo = Nat.compareOfLess,
+  lessEqOf = Nat.leOfCompare,
+  lessEqTo = Nat.compareOfLe
+}
 
-instance Int.instOrd: Ord Int :=
-  { compare = Int.compare
-  , lessThan = Int.LessThan
-  , lessEq = Int.LessEq
-  , decLessThan = Int.decLessThan
-  , decLessEq = Int.decLessEq
-  , equal = Int.compareEqual
-  , flip = Int.compareFlip
-  , trans = Int.compareTrans
-  , lessThanOf = Int.lessOfCompare
-  , lessThanTo = Int.compareOfLess
-  , lessEqOf = Int.leOfCompare
-  , lessEqTo = Int.compareOfLe
-  }
+instance Int.instOrd: Ord Int := {
+  compare = Int.compare,
+  lessThan = Int.LessThan,
+  lessEq = Int.LessEq,
+  decLessThan = Int.decLessThan,
+  decLessEq = Int.decLessEq,
+  equal = Int.compareEqual,
+  flip = Int.compareFlip,
+  trans = Int.compareTrans,
+  lessThanOf = Int.lessOfCompare,
+  lessThanTo = Int.compareOfLess,
+  lessEqOf = Int.leOfCompare,
+  lessEqTo = Int.compareOfLe
+}
 
 instance Char.instOrd: Ord Char :=
   Ord.fromCompare Char.compare Char.compareEqual Char.compareFlip Char.compareTrans
@@ -125,4 +125,3 @@ instance Pair.instOrd [auto ordA: Ord a] [auto ordB: Ord b]: Ord (Pair a b) :=
     (Pair.compareWithEqual Ord.compare Ord.compare ordA.equal ordB.equal)
     (Pair.compareWithFlip Ord.compare Ord.compare ordA.flip ordB.flip)
     (Pair.compareWithTrans Ord.compare Ord.compare ordA.equal ordA.trans ordB.trans)
-

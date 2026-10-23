@@ -19,7 +19,7 @@ type Map.Tree (k: Type) (v: Type): Type =
   | Bin (size: Nat) (left: Map.Tree k v) (key: k) (value: v) (right: Map.Tree k v)
 
 def Map.Tree.size: Map.Tree k v -> Nat
-  | Tip           => 0
+  | Tip => 0
   | Bin s _ _ _ _ => s
 
 -- A node, with its size worked out.
@@ -39,7 +39,7 @@ type Map.Tree.Shape: Type =
 
 def Map.Tree.singleL (l: Map.Tree k v) (key: k) (value: v): Map.Tree k v -> Map.Tree k v
   | Bin _ rl rk rv rr => Map.Tree.bin (Map.Tree.bin l key value rl) rk rv rr
-  | Tip               => Map.Tree.bin l key value Tip
+  | Tip => Map.Tree.bin l key value Tip
 
 def Map.Tree.doubleL (l: Map.Tree k v) (key: k) (value: v): Map.Tree k v -> Map.Tree k v
   | Bin _ (Bin _ rll rlk rlv rlr) rk rv rr =>
@@ -48,7 +48,7 @@ def Map.Tree.doubleL (l: Map.Tree k v) (key: k) (value: v): Map.Tree k v -> Map.
 
 def Map.Tree.singleR (key: k) (value: v) (r: Map.Tree k v): Map.Tree k v -> Map.Tree k v
   | Bin _ ll lk lv lr => Map.Tree.bin ll lk lv (Map.Tree.bin lr key value r)
-  | Tip               => Map.Tree.bin Tip key value r
+  | Tip => Map.Tree.bin Tip key value r
 
 def Map.Tree.doubleR (key: k) (value: v) (r: Map.Tree k v): Map.Tree k v -> Map.Tree k v
   | Bin _ ll lk lv (Bin _ lrl lrk lrv lrr) =>
@@ -56,7 +56,7 @@ def Map.Tree.doubleR (key: k) (value: v) (r: Map.Tree k v): Map.Tree k v -> Map.
   | l => Map.Tree.bin l key value r
 
 def Map.Tree.rebuild: Map.Tree.Shape -> Map.Tree k v -> k -> v -> Map.Tree k v -> Map.Tree k v
-  | Keep,    l, key, value, r => Map.Tree.bin l key value r
+  | Keep, l, key, value, r => Map.Tree.bin l key value r
   | SingleL, l, key, value, r => Map.Tree.singleL l key value r
   | DoubleL, l, key, value, r => Map.Tree.doubleL l key value r
   | SingleR, l, key, value, r => Map.Tree.singleR key value r l
@@ -65,11 +65,11 @@ def Map.Tree.rebuild: Map.Tree.Shape -> Map.Tree k v -> k -> v -> Map.Tree k v -
 -- Single or double, by the sizes of the heavy side's children.
 def Map.Tree.shapeL: Map.Tree k v -> Map.Tree.Shape
   | Bin _ rl _ _ rr => if Nat.leq (Succ (Map.Tree.size rl)) (Map.Tree.size rr * 2) then SingleL else DoubleL
-  | Tip             => Keep
+  | Tip => Keep
 
 def Map.Tree.shapeR: Map.Tree k v -> Map.Tree.Shape
   | Bin _ ll _ _ lr => if Nat.leq (Succ (Map.Tree.size lr)) (Map.Tree.size ll * 2) then SingleR else DoubleR
-  | Tip             => Keep
+  | Tip => Keep
 
 -- A rotation when one side has more than three times the other's keys
 -- (Data.Map's delta 3 and ratio 2).
@@ -90,57 +90,57 @@ def Map.Tree.balance (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v): Ma
 def Map.Tree.insertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v): Map.Tree k v -> Map.Tree k v
   | Tip => Bin 1 Tip key value Tip
   | Bin s l kk vv r => match Ord.compare key kk with
-    | Less    => Map.Tree.balance (Map.Tree.insertWith f key value l) kk vv r
-    | Equal   => Bin s l kk (f value vv) r
+    | Less => Map.Tree.balance (Map.Tree.insertWith f key value l) kk vv r
+    | Equal => Bin s l kk (f value vv) r
     | Greater => Map.Tree.balance l kk vv (Map.Tree.insertWith f key value r)
 
 def Map.Tree.get [auto ord: Ord k] (key: k): Map.Tree k v -> Option v
   | Tip => None
   | Bin _ l kk vv r => match Ord.compare key kk with
-    | Less    => Map.Tree.get key l
-    | Equal   => Some vv
+    | Less => Map.Tree.get key l
+    | Equal => Some vv
     | Greater => Map.Tree.get key r
 
 -- The smallest key of a node whose key is `key` and whose left subtree is
 -- the tree given, and its value.
 def Map.Tree.minKey (key: k): Map.Tree k v -> k
-  | Tip              => key
-  | Bin _ l lk _ _   => Map.Tree.minKey lk l
+  | Tip => key
+  | Bin _ l lk _ _ => Map.Tree.minKey lk l
 
 def Map.Tree.minValue (value: v): Map.Tree k v -> v
-  | Tip              => value
-  | Bin _ l _ lv _   => Map.Tree.minValue lv l
+  | Tip => value
+  | Bin _ l _ lv _ => Map.Tree.minValue lv l
 
 -- The node `l key value r` without its smallest key.
 def Map.Tree.deleteMin: Map.Tree k v -> k -> v -> Map.Tree k v -> Map.Tree k v
-  | Tip,              key, value, r => r
+  | Tip, key, value, r => r
   | Bin _ ll lk lv lr, key, value, r => Map.Tree.balance (Map.Tree.deleteMin ll lk lv lr) key value r
 
 -- Two trees, every key of the first below every key of the second, as one.
 def Map.Tree.glue: Map.Tree k v -> Map.Tree k v -> Map.Tree k v
-  | Tip, r   => r
-  | l,   Tip => l
-  | l,   Bin _ rl rk rv rr =>
+  | Tip, r => r
+  | l, Tip => l
+  | l, Bin _ rl rk rv rr =>
     Map.Tree.balance l (Map.Tree.minKey rk rl) (Map.Tree.minValue rv rl) (Map.Tree.deleteMin rl rk rv rr)
 
 def Map.Tree.remove [auto ord: Ord k] (key: k): Map.Tree k v -> Map.Tree k v
   | Tip => Tip
   | Bin s l kk vv r => match Ord.compare key kk with
-    | Less    => Map.Tree.balance (Map.Tree.remove key l) kk vv r
-    | Equal   => Map.Tree.glue l r
+    | Less => Map.Tree.balance (Map.Tree.remove key l) kk vv r
+    | Equal => Map.Tree.glue l r
     | Greater => Map.Tree.balance l kk vv (Map.Tree.remove key r)
 
 -- The entries in key order, followed by `acc`.
 def Map.Tree.toListOnto: Map.Tree k v -> List (k, v) -> List (k, v)
-  | Tip,             acc => acc
+  | Tip, acc => acc
   | Bin _ l kk vv r, acc => Map.Tree.toListOnto l (Cons (kk, vv) (Map.Tree.toListOnto r acc))
 
 def Map.Tree.foldLeft (f: b -> k -> v -> b): b -> Map.Tree k v -> b
-  | z, Tip             => z
+  | z, Tip => z
   | z, Bin _ l kk vv r => Map.Tree.foldLeft f (f (Map.Tree.foldLeft f z l) kk vv) r
 
 def Map.Tree.map (f: v -> w): Map.Tree k v -> Map.Tree k w
-  | Tip             => Tip
+  | Tip => Tip
   | Bin s l kk vv r => Bin s (Map.Tree.map f l) kk (f vv) (Map.Tree.map f r)
 
 -- Keys in order
@@ -169,28 +169,28 @@ def Map.Tree.Ordered (ord: Ord k) (t: Map.Tree k v): Prop := Map.Tree.Within ord
 -- the entries. Rebalancing reads the sizes, but `get`, `toList` and the
 -- rest never depend on them; `Map.size` does.
 def Map.Tree.Sized: Map.Tree k v -> Prop
-  | Tip           => Unit
+  | Tip => Unit
   | Bin s l _ _ r => And (s = Succ (Map.Tree.size l + Map.Tree.size r)) (And (Map.Tree.Sized l) (Map.Tree.Sized r))
 
 -- The map itself: a tree, the proof that its keys are in order, and the
 -- proof that its stored sizes are right (both erased at run time).
-type Map (k: Type) (v: Type) [auto ord: Ord k] =
-  { tree: Map.Tree k v
-  , ordered: Map.Tree.Ordered ord tree
-  , sized: Map.Tree.Sized tree
-  }
+type Map (k: Type) (v: Type) [auto ord: Ord k] = {
+  tree: Map.Tree k v,
+  ordered: Map.Tree.Ordered ord tree,
+  sized: Map.Tree.Sized tree
+}
 
 -- Proofs: rebalancing, insertion and removal keep the keys in order.
 
 theorem Map.Tree.aboveTrans (ord: Ord k): (lo: Option k) -> (a: k) -> (b: k) ->
     Map.Tree.Above ord lo a -> Ord.compare a b = Less -> Map.Tree.Above ord lo b
   | None, a, b, h, e => Trivial
-  | Some x,  a, b, h, e => ord.trans x a b h e
+  | Some x, a, b, h, e => ord.trans x a b h e
 
 theorem Map.Tree.belowTrans (ord: Ord k): (hi: Option k) -> (a: k) -> (b: k) ->
     Ord.compare a b = Less -> Map.Tree.Below ord b hi -> Map.Tree.Below ord a hi
   | None, a, b, e, h => Trivial
-  | Some y,  a, b, e, h => ord.trans a b y e h
+  | Some y, a, b, e, h => ord.trans a b y e h
 
 -- `compare y x` is `Less` when `compare x y` is `Greater`.
 theorem Map.Tree.lessOfGreater (ord: Ord k) (x: k) (y: k) (e: Ord.compare x y = Greater):
@@ -202,8 +202,8 @@ theorem Map.Tree.lessOfLeLess (ord: Ord k) (x: k) (y: k) (z: k)
     (h: Not (Ord.compare x y = Greater)) (e: Ord.compare y z = Less):
     Ord.compare x z = Less :=
   match c: Ord.compare x y with
-    | Less    => ord.trans x y z c e
-    | Equal   => rewrite ord.equal x y c in e
+    | Less => ord.trans x y z c e
+    | Equal => rewrite ord.equal x y c in e
     | Greater => Void.exfalso (h rfl)
 
 -- A tree within narrower bounds is within wider ones.
@@ -262,7 +262,7 @@ theorem Map.Tree.rebuildWithin (ord: Ord k) (lo: Option k) (hi: Option k) (l: Ma
     (ab: Map.Tree.Above ord lo key) (be: Map.Tree.Below ord key hi)
     (wl: Map.Tree.Within ord lo (Some key) l) (wr: Map.Tree.Within ord (Some key) hi r):
     (s: Map.Tree.Shape) -> Map.Tree.Within ord lo hi (Map.Tree.rebuild s l key value r)
-  | Keep    => Both (Both ab be) (Both wl wr)
+  | Keep => Both (Both ab be) (Both wl wr)
   | SingleL => Map.Tree.singleLWithin ord lo hi l key value ab wl r be wr
   | DoubleL => Map.Tree.doubleLWithin ord lo hi l key value ab wl r be wr
   | SingleR => Map.Tree.singleRWithin ord lo hi key value r be wr l ab wl
@@ -281,11 +281,11 @@ theorem Map.Tree.insertWithWithin [auto ord: Ord k] (f: v -> v -> v) (key: k) (v
   | lo, hi, Tip, ab, be, w => Both (Both ab be) (Both Trivial Trivial)
   | lo, hi, Bin s l kk vv r, ab, be, Both (Both akk bkk) (Both wl wr) =>
     match e: Ord.compare key kk with
-      | Less    => Map.Tree.balanceWithin ord lo hi (Map.Tree.insertWith f key value l) kk vv r akk bkk
-          (Map.Tree.insertWithWithin f key value lo (Some kk) l ab e wl) wr
-      | Equal   => Both (Both akk bkk) (Both wl wr)
+      | Less => Map.Tree.balanceWithin ord lo hi (Map.Tree.insertWith f key value l) kk vv r akk bkk
+        (Map.Tree.insertWithWithin f key value lo (Some kk) l ab e wl) wr
+      | Equal => Both (Both akk bkk) (Both wl wr)
       | Greater => Map.Tree.balanceWithin ord lo hi l kk vv (Map.Tree.insertWith f key value r) akk bkk
-          wl (Map.Tree.insertWithWithin f key value (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr)
+        wl (Map.Tree.insertWithWithin f key value (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr)
 
 -- The smallest key is above whatever the node's key is above, and below
 -- whatever it's below.
@@ -333,11 +333,11 @@ theorem Map.Tree.removeWithin [auto ord: Ord k] (key: k):
   | lo, hi, Tip, w => Trivial
   | lo, hi, Bin s l kk vv r, Both (Both akk bkk) (Both wl wr) =>
     match e: Ord.compare key kk with
-      | Less    => Map.Tree.balanceWithin ord lo hi (Map.Tree.remove key l) kk vv r akk bkk
-          (Map.Tree.removeWithin key lo (Some kk) l wl) wr
-      | Equal   => Map.Tree.glueWithin ord lo hi kk akk bkk l r wl wr
+      | Less => Map.Tree.balanceWithin ord lo hi (Map.Tree.remove key l) kk vv r akk bkk
+        (Map.Tree.removeWithin key lo (Some kk) l wl) wr
+      | Equal => Map.Tree.glueWithin ord lo hi kk akk bkk l r wl wr
       | Greater => Map.Tree.balanceWithin ord lo hi l kk vv (Map.Tree.remove key r) akk bkk
-          wl (Map.Tree.removeWithin key (Some kk) hi r wr)
+        wl (Map.Tree.removeWithin key (Some kk) hi r wr)
 
 -- Changing the values doesn't move the keys.
 theorem Map.Tree.mapWithin (ord: Ord k) (f: v -> w): (lo: Option k) -> (hi: Option k) -> (t: Map.Tree k v) ->
@@ -384,7 +384,7 @@ theorem Map.Tree.doubleRSized (key: k) (value: v) (r: Map.Tree k v) (sr: Map.Tre
 theorem Map.Tree.rebuildSized (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v)
     (sl: Map.Tree.Sized l) (sr: Map.Tree.Sized r):
     (s: Map.Tree.Shape) -> Map.Tree.Sized (Map.Tree.rebuild s l key value r)
-  | Keep    => Map.Tree.binSized l key value r sl sr
+  | Keep => Map.Tree.binSized l key value r sl sr
   | SingleL => Map.Tree.singleLSized l key value sl r sr
   | DoubleL => Map.Tree.doubleLSized l key value sl r sr
   | SingleR => Map.Tree.singleRSized key value r sr l sl
@@ -399,8 +399,8 @@ theorem Map.Tree.insertWithSized [auto ord: Ord k] (f: v -> v -> v) (key: k) (va
   | Tip, st => Both rfl (Both Trivial Trivial)
   | Bin s l kk vv r, Both e (Both sl sr) =>
     match c: Ord.compare key kk with
-      | Less    => Map.Tree.balanceSized (Map.Tree.insertWith f key value l) kk vv r (Map.Tree.insertWithSized f key value l sl) sr
-      | Equal   => Both e (Both sl sr)
+      | Less => Map.Tree.balanceSized (Map.Tree.insertWith f key value l) kk vv r (Map.Tree.insertWithSized f key value l sl) sr
+      | Equal => Both e (Both sl sr)
       | Greater => Map.Tree.balanceSized l kk vv (Map.Tree.insertWith f key value r) sl (Map.Tree.insertWithSized f key value r sr)
 
 theorem Map.Tree.deleteMinSized: (l: Map.Tree k v) -> (key: k) -> (value: v) -> (r: Map.Tree k v) ->
@@ -422,12 +422,12 @@ theorem Map.Tree.removeSized [auto ord: Ord k] (key: k):
   | Tip, st => Trivial
   | Bin s l kk vv r, Both e (Both sl sr) =>
     match c: Ord.compare key kk with
-      | Less    => Map.Tree.balanceSized (Map.Tree.remove key l) kk vv r (Map.Tree.removeSized key l sl) sr
-      | Equal   => Map.Tree.glueSized l r sl sr
+      | Less => Map.Tree.balanceSized (Map.Tree.remove key l) kk vv r (Map.Tree.removeSized key l sl) sr
+      | Equal => Map.Tree.glueSized l r sl sr
       | Greater => Map.Tree.balanceSized l kk vv (Map.Tree.remove key r) sl (Map.Tree.removeSized key r sr)
 
 theorem Map.Tree.sizeMap (f: v -> w): (t: Map.Tree k v) -> Map.Tree.size (Map.Tree.map f t) = Map.Tree.size t
-  | Tip             => rfl
+  | Tip => rfl
   | Bin s l kk vv r => rfl
 
 theorem Map.Tree.mapSized (f: v -> w): (t: Map.Tree k v) -> Map.Tree.Sized t -> Map.Tree.Sized (Map.Tree.map f t)
@@ -443,14 +443,14 @@ def Map.Tree.lookupList [auto ord: Ord k] (key: k): List (k, v) -> Option v
   | Nil => None
   | Cons (kk, vv) rest => match Ord.compare key kk with
     | Equal => Some vv
-    | _     => Map.Tree.lookupList key rest
+    | _ => Map.Tree.lookupList key rest
 
 def Map.Tree.orElse: Option v -> Option v -> Option v
-  | Some x,  m => Some x
+  | Some x, m => Some x
   | None, m => m
 
 theorem Map.Tree.orElseNone: (m: Option v) -> Map.Tree.orElse m None = m
-  | Some x  => rfl
+  | Some x => rfl
   | None => rfl
 
 -- No key at or below the lower bound is in the tree.
@@ -459,8 +459,8 @@ theorem Map.Tree.getAbsentLow [auto ord: Ord k] (key: k): (lo: k) -> (hi: Option
   | lo, hi, Tip, w, h => rfl
   | lo, hi, Bin s l kk vv r, Both (Both a b) (Both wl wr), h =>
     match e: Ord.compare key kk with
-      | Less    => Map.Tree.getAbsentLow key lo (Some kk) l wl h
-      | Equal   => Void.exfalso (Ordering.equalNotLess (Eq.trans (Eq.sym e) (Map.Tree.lessOfLeLess ord key lo kk h a)))
+      | Less => Map.Tree.getAbsentLow key lo (Some kk) l wl h
+      | Equal => Void.exfalso (Ordering.equalNotLess (Eq.trans (Eq.sym e) (Map.Tree.lessOfLeLess ord key lo kk h a)))
       | Greater => Void.exfalso (Ordering.greaterNotLess (Eq.trans (Eq.sym e) (Map.Tree.lessOfLeLess ord key lo kk h a)))
 
 -- No key at or above the upper bound is in the tree.
@@ -469,8 +469,8 @@ theorem Map.Tree.getAbsentHigh [auto ord: Ord k] (key: k): (lo: Option k) -> (hi
   | lo, hi, Tip, w, h => rfl
   | lo, hi, Bin s l kk vv r, Both (Both a b) (Both wl wr), h =>
     match e: Ord.compare key kk with
-      | Less    => Void.exfalso (h (ord.trans key kk hi e b))
-      | Equal   => Void.exfalso (h (rewrite ord.equal key kk e in b))
+      | Less => Void.exfalso (h (ord.trans key kk hi e b))
+      | Equal => Void.exfalso (h (rewrite ord.equal key kk e in b))
       | Greater => Map.Tree.getAbsentHigh key (Some kk) hi r wr h
 
 -- `get` finds what a search of the entries in order finds.
@@ -481,10 +481,10 @@ theorem Map.Tree.lookupOnto [auto ord: Ord k] (key: k): (lo: Option k) -> (hi: O
   | lo, hi, Bin s l kk vv r, acc, Both (Both a b) (Both wl wr) =>
     rewrite Map.Tree.lookupOnto key lo (Some kk) l (Cons (kk, vv) (Map.Tree.toListOnto r acc)) wl in
     match e: Ord.compare key kk with
-      | Less    =>
+      | Less =>
         rewrite Map.Tree.lookupOnto key (Some kk) hi r acc wr,
           Map.Tree.getAbsentLow key kk hi r wr (x => Ordering.lessNotGreater (Eq.trans (Eq.sym e) x)) in rfl
-      | Equal   => rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.equalNotLess (Eq.trans (Eq.sym e) x)) in rfl
+      | Equal => rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.equalNotLess (Eq.trans (Eq.sym e) x)) in rfl
       | Greater =>
         rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.greaterNotLess (Eq.trans (Eq.sym e) x)),
           Map.Tree.lookupOnto key (Some kk) hi r acc wr in rfl
@@ -497,17 +497,17 @@ theorem Map.Tree.getLookup [auto ord: Ord k] (key: k) (lo: Option k) (hi: Option
 theorem Map.Tree.rebuildOnto: (s: Map.Tree.Shape) -> (l: Map.Tree k v) -> (key: k) -> (value: v) -> (r: Map.Tree k v) ->
     (acc: List (k, v)) ->
     Map.Tree.toListOnto (Map.Tree.rebuild s l key value r) acc = Map.Tree.toListOnto (Map.Tree.bin l key value r) acc
-  | Keep,    l,                                   key, value, r,                                   acc => rfl
-  | SingleL, l,                                   key, value, Tip,                                 acc => rfl
-  | SingleL, l,                                   key, value, Bin _ rl rk rv rr,                   acc => rfl
-  | DoubleL, l,                                   key, value, Tip,                                 acc => rfl
-  | DoubleL, l,                                   key, value, Bin _ Tip rk rv rr,                  acc => rfl
-  | DoubleL, l,                                   key, value, Bin _ (Bin _ rll rlk rlv rlr) rk rv rr, acc => rfl
-  | SingleR, Tip,                                 key, value, r,                                   acc => rfl
-  | SingleR, Bin _ ll lk lv lr,                   key, value, r,                                   acc => rfl
-  | DoubleR, Tip,                                 key, value, r,                                   acc => rfl
-  | DoubleR, Bin _ ll lk lv Tip,                  key, value, r,                                   acc => rfl
-  | DoubleR, Bin _ ll lk lv (Bin _ lrl lrk lrv lrr), key, value, r,                                acc => rfl
+  | Keep, l, key, value, r, acc => rfl
+  | SingleL, l, key, value, Tip, acc => rfl
+  | SingleL, l, key, value, Bin _ rl rk rv rr, acc => rfl
+  | DoubleL, l, key, value, Tip, acc => rfl
+  | DoubleL, l, key, value, Bin _ Tip rk rv rr, acc => rfl
+  | DoubleL, l, key, value, Bin _ (Bin _ rll rlk rlv rlr) rk rv rr, acc => rfl
+  | SingleR, Tip, key, value, r, acc => rfl
+  | SingleR, Bin _ ll lk lv lr, key, value, r, acc => rfl
+  | DoubleR, Tip, key, value, r, acc => rfl
+  | DoubleR, Bin _ ll lk lv Tip, key, value, r, acc => rfl
+  | DoubleR, Bin _ ll lk lv (Bin _ lrl lrk lrv lrr), key, value, r, acc => rfl
 
 -- So `get` on a rebalanced node is `get` on the node.
 theorem Map.Tree.getBalance [auto ord: Ord k] (key: k) (lo: Option k) (hi: Option k)
@@ -521,7 +521,7 @@ theorem Map.Tree.getBalance [auto ord: Ord k] (key: k) (lo: Option k) (hi: Optio
 
 -- What `insertWith` stores: `value`, or `f value old`.
 def Map.Tree.combine (f: v -> v -> v) (value: v): Option v -> v
-  | None  => value
+  | None => value
   | Some old => f value old
 
 theorem Map.Tree.getInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v):
@@ -531,11 +531,11 @@ theorem Map.Tree.getInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (valu
   | lo, hi, Tip, ab, be, w => rewrite Ord.compareSelf key in rfl
   | lo, hi, Bin s l kk vv r, ab, be, Both (Both akk bkk) (Both wl wr) =>
     match e: Ord.compare key kk with
-      | Less    =>
+      | Less =>
         rewrite Map.Tree.getBalance key lo hi (Map.Tree.insertWith f key value l) kk vv r akk bkk
           (Map.Tree.insertWithWithin f key value lo (Some kk) l ab e wl) wr, e in
         Map.Tree.getInsertWith f key value lo (Some kk) l ab e wl
-      | Equal   => rewrite e in rfl
+      | Equal => rewrite e in rfl
       | Greater =>
         rewrite Map.Tree.getBalance key lo hi l kk vv (Map.Tree.insertWith f key value r) akk bkk
           wl (Map.Tree.insertWithWithin f key value (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr), e in
@@ -548,34 +548,34 @@ theorem Map.Tree.getInsertWithOther [auto ord: Ord k] (f: v -> v -> v) (key: k) 
     Map.Tree.get other (Map.Tree.insertWith f key value t) = Map.Tree.get other t
   | lo, hi, Tip, ab, be, w =>
     match e: Ord.compare other key with
-      | Less    => rfl
-      | Equal   => Void.exfalso (ne (ord.equal other key e))
+      | Less => rfl
+      | Equal => Void.exfalso (ne (ord.equal other key e))
       | Greater => rfl
   | lo, hi, Bin s l kk vv r, ab, be, Both (Both akk bkk) (Both wl wr) =>
     match e: Ord.compare key kk with
-      | Less    =>
+      | Less =>
         rewrite Map.Tree.getBalance other lo hi (Map.Tree.insertWith f key value l) kk vv r akk bkk
           (Map.Tree.insertWithWithin f key value lo (Some kk) l ab e wl) wr in
         match c: Ord.compare other kk with
-          | Less    => Map.Tree.getInsertWithOther f key value other ne lo (Some kk) l ab e wl
-          | Equal   => rfl
+          | Less => Map.Tree.getInsertWithOther f key value other ne lo (Some kk) l ab e wl
+          | Equal => rfl
           | Greater => rfl
-      | Equal   =>
+      | Equal =>
         match c: Ord.compare other kk with
-          | Less    => rfl
-          | Equal   => Void.exfalso (ne (Eq.trans (ord.equal other kk c) (Eq.sym (ord.equal key kk e))))
+          | Less => rfl
+          | Equal => Void.exfalso (ne (Eq.trans (ord.equal other kk c) (Eq.sym (ord.equal key kk e))))
           | Greater => rfl
       | Greater =>
         rewrite Map.Tree.getBalance other lo hi l kk vv (Map.Tree.insertWith f key value r) akk bkk
           wl (Map.Tree.insertWithWithin f key value (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr) in
         match c: Ord.compare other kk with
-          | Less    => rfl
-          | Equal   => rfl
+          | Less => rfl
+          | Equal => rfl
           | Greater => Map.Tree.getInsertWithOther f key value other ne (Some kk) hi r (Map.Tree.lessOfGreater ord key kk e) be wr
 
 theorem Map.Tree.combineFirst (value: v): (old: Option v) -> Map.Tree.combine (new o => new) value old = value
   | None => rfl
-  | Some x  => rfl
+  | Some x => rfl
 
 -- Maps
 
@@ -584,11 +584,11 @@ def Map.empty [auto ord: Ord k]: Map k v := { tree = Tip, ordered = Trivial, siz
 
 -- `value` at `key`; if `key` has a value already, `f value old` (so
 -- `Map.insertWith Nat.add key 1 counts` counts).
-def Map.insertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map k v): Map k v :=
-  { tree = Map.Tree.insertWith f key value m.tree
-  , ordered = Map.Tree.insertWithWithin f key value None None m.tree Trivial Trivial m.ordered
-  , sized = Map.Tree.insertWithSized f key value m.tree m.sized
-  }
+def Map.insertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map k v): Map k v := {
+  tree = Map.Tree.insertWith f key value m.tree,
+  ordered = Map.Tree.insertWithWithin f key value None None m.tree Trivial Trivial m.ordered,
+  sized = Map.Tree.insertWithSized f key value m.tree m.sized
+}
 
 -- `value` at `key`, replacing any value there.
 def Map.insert [auto ord: Ord k] (key: k) (value: v) (m: Map k v): Map k v := Map.insertWith (new old => new) key value m
@@ -603,27 +603,27 @@ def Map.get [auto ord: Ord k] (key: k) (m: Map k v): Option v := Map.Tree.get ke
 def Map.getOr [auto ord: Ord k] (d: v) (key: k) (m: Map k v): v := Option.getOrElse d (Map.get key m)
 
 def Map.contains [auto ord: Ord k] (key: k) (m: Map k v): Bool := match Map.get key m with
-  | Some _  => True
+  | Some _ => True
   | None => False
 
 -- Without `key` (the same map if it isn't there).
-def Map.remove [auto ord: Ord k] (key: k) (m: Map k v): Map k v :=
-  { tree = Map.Tree.remove key m.tree
-  , ordered = Map.Tree.removeWithin key None None m.tree m.ordered
-  , sized = Map.Tree.removeSized key m.tree m.sized
-  }
+def Map.remove [auto ord: Ord k] (key: k) (m: Map k v): Map k v := {
+  tree = Map.Tree.remove key m.tree,
+  ordered = Map.Tree.removeWithin key None None m.tree m.ordered,
+  sized = Map.Tree.removeSized key m.tree m.sized
+}
 
 -- The value at `key` changed by `f`, which sees `None` when there's none
 -- and removes the entry by returning `None`.
 def Map.alter [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map k v): Map k v :=
   match f (Map.get key m) with
-    | None    => Map.remove key m
+    | None => Map.remove key m
     | Some value => Map.insert key value m
 
 -- The value at `key` changed by `f`, if there is one.
 def Map.adjust [auto ord: Ord k] (f: v -> v) (key: k) (m: Map k v): Map k v :=
   match Map.get key m with
-    | None  => m
+    | None => m
     | Some old => Map.insert key (f old) m
 
 -- The number of entries, O(1).
@@ -646,11 +646,11 @@ def Map.fromList [auto ord: Ord k] (xs: List (k, v)): Map k v :=
 def Map.foldLeft (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]): b := Map.Tree.foldLeft f z m.tree
 
 -- Every value changed by `f`; the keys stay.
-def Map.map (f: v -> w) (m: Map k v [ord := o]): Map k w [ord := o] :=
-  { tree = Map.Tree.map f m.tree
-  , ordered = Map.Tree.mapWithin o f None None m.tree m.ordered
-  , sized = Map.Tree.mapSized f m.tree m.sized
-  }
+def Map.map (f: v -> w) (m: Map k v [ord := o]): Map k w [ord := o] := {
+  tree = Map.Tree.map f m.tree,
+  ordered = Map.Tree.mapWithin o f None None m.tree m.ordered,
+  sized = Map.Tree.mapSized f m.tree m.sized
+}
 
 -- The entries for which `p` holds.
 def Map.filter [auto ord: Ord k] (p: k -> v -> Bool) (m: Map k v): Map k v :=
@@ -681,11 +681,11 @@ theorem Map.getInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v)
 -- (The tree's keys stay where they are, so the proof needs no ordering facts.)
 theorem Map.Tree.getMap [auto ord: Ord k] (f: v -> w) (key: k): (t: Map.Tree k v) ->
     Map.Tree.get key (Map.Tree.map f t) = Option.map f (Map.Tree.get key t)
-  | Tip             => rfl
+  | Tip => rfl
   | Bin s l kk vv r =>
     match e: Ord.compare key kk with
-      | Less    => Map.Tree.getMap f key l
-      | Equal   => rfl
+      | Less => Map.Tree.getMap f key l
+      | Equal => rfl
       | Greater => Map.Tree.getMap f key r
 
 theorem Map.getMap [auto ord: Ord k] (f: v -> w) (key: k) (m: Map k v): Map.get key (Map.map f m) = Option.map f (Map.get key m) :=
@@ -693,26 +693,26 @@ theorem Map.getMap [auto ord: Ord k] (f: v -> w) (key: k) (m: Map k v): Map.get 
 
 -- The value of the last pair with that key, which is what `fromList` keeps.
 def Map.lookupLast [auto ord: Ord k] (key: k): List (k, v) -> Option v
-  | Nil                => None
+  | Nil => None
   | Cons (kk, vv) rest => match Map.lookupLast key rest with
     | Some x => Some x
-    | None   => match Ord.compare key kk with
+    | None => match Ord.compare key kk with
       | Equal => Some vv
-      | _     => None
+      | _ => None
 
 -- Adding the pairs to any map: the last pair with the key wins, and if there is none, the map's value stays.
 theorem Map.getFoldInsert [auto ord: Ord k] (key: k): (xs: List (k, v)) -> (m: Map k v) ->
     Map.get key (List.foldLeft (acc entry => Map.insert entry.fst entry.snd acc) m xs)
       = Map.Tree.orElse (Map.lookupLast key xs) (Map.get key m)
-  | Nil,                m => rfl
+  | Nil, m => rfl
   | Cons (kk, vv) rest, m =>
     rewrite Map.getFoldInsert key rest (Map.insert kk vv m) in
     match found: Map.lookupLast key rest with
       | Some x => rfl
-      | None   =>
+      | None =>
         match e: Ord.compare key kk with
-          | Less    => rewrite Map.getInsertOther kk vv key (x => Ordering.lessNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
-          | Equal   => rewrite ord.equal key kk e, Map.getInsert kk vv m in rfl
+          | Less => rewrite Map.getInsertOther kk vv key (x => Ordering.lessNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
+          | Equal => rewrite ord.equal key kk e, Map.getInsert kk vv m in rfl
           | Greater => rewrite Map.getInsertOther kk vv key (x => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
 
 -- What `get` says about `fromList`.

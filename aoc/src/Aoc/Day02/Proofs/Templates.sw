@@ -33,9 +33,9 @@ def keptIfFits (size: Nat) (blockLength: Nat) (copies: Nat): List RepetitionTemp
 theorem templatesAsGrid (range: Range):
     allTemplatesForRange range
       = List.flatMap (List.between 1 (List.length (Nat.digits range.to))) (blockLength =>
-          List.flatMap (List.between 2 (List.length (Nat.digits range.to))) (copies =>
-            if Nat.leq (blockLength * copies) (List.length (Nat.digits range.to))
-            then [{ blockLength, copies }] else [])) :=
+        List.flatMap (List.between 2 (List.length (Nat.digits range.to))) (copies =>
+          if Nat.leq (blockLength * copies) (List.length (Nat.digits range.to))
+          then [{ blockLength, copies }] else [])) :=
   let size := List.length (Nat.digits range.to)
   -- The program after it has chosen the block length (and the copies).
   let fitting: Nat -> Nat -> {Each} RepetitionTemplate := k n =>
@@ -45,23 +45,23 @@ theorem templatesAsGrid (range: Range):
   calc allTemplatesForRange range
     -- Choosing a block length: one collection per block length.
     _ = List.flatMap (List.between 1 size) (k => Each.collect (u => withCopies k))
-        := Each.collectEach withCopies (List.between 1 size)
+      := Each.collectEach withCopies (List.between 1 size)
     _ = List.flatMap (List.between 1 size) (k =>
-          List.flatMap (List.between 2 size) (n => keptIfFits size k n))
-        := Eq.cong List.concat (List.mapCong (k => Each.collect (u => withCopies k)) (k =>
-             List.flatMap (List.between 2 size) (n => keptIfFits size k n))
-             (List.between 1 size) (k =>
-             calc Each.collect (u => withCopies k)
-               -- Choosing the copies: one collection per number of copies.
-               _ = List.flatMap (List.between 2 size) (n => Each.collect (u => fitting k n))
-                   := Each.collectEach (fitting k) (List.between 2 size)
-               -- `require` keeps the template if it fits.
-               _ = List.flatMap (List.between 2 size) (n => keptIfFits size k n)
-                   := Eq.cong List.concat (List.mapCong (n => Each.collect (u => fitting k n)) (n =>
-                        keptIfFits size k n)
-                        (List.between 2 size) (n =>
-                        Eq.trans (Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size))
-                          rfl))))
+        List.flatMap (List.between 2 size) (n => keptIfFits size k n))
+      := Eq.cong List.concat (List.mapCong (k => Each.collect (u => withCopies k)) (k =>
+        List.flatMap (List.between 2 size) (n => keptIfFits size k n))
+        (List.between 1 size) (k =>
+        calc Each.collect (u => withCopies k)
+          -- Choosing the copies: one collection per number of copies.
+          _ = List.flatMap (List.between 2 size) (n => Each.collect (u => fitting k n))
+            := Each.collectEach (fitting k) (List.between 2 size)
+          -- `require` keeps the template if it fits.
+          _ = List.flatMap (List.between 2 size) (n => keptIfFits size k n)
+            := Eq.cong List.concat (List.mapCong (n => Each.collect (u => fitting k n)) (n =>
+              keptIfFits size k n)
+              (List.between 2 size) (n =>
+              Eq.trans (Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size))
+                rfl))))
 
 -- The same for sums: summing over the templates is summing over every block
 -- length up to the digits and every number of copies from 2, the templates
@@ -69,34 +69,34 @@ theorem templatesAsGrid (range: Range):
 theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := Eq.cong (t => List.rangeFrom t 1) (omega: n + 1 - 1 = n)
 
 theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
-  | Zero   => rfl
+  | Zero => rfl
   | Succ n => Eq.cong (t => List.rangeFrom t 2) (omega: n + 1 - 1 = n)
 
 -- One template, kept if it fits: its sum is `f` of it, or nothing.
 theorem keptSum [auto add: Add c] (f: RepetitionTemplate -> c) (size: Nat) (k: Nat) (n: Nat):
     List.sumBy f (keptIfFits size k n) = (if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) :=
   match Nat.leq (k * n) size with
-    | True  => add.zeroAdd (f { blockLength = k, copies = n })
+    | True => add.zeroAdd (f { blockLength = k, copies = n })
     | False => rfl
 
 theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
     List.sumBy f (allTemplatesForRange r)
       = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)
-          (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1) :=
+        (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1) :=
   let size := List.length (Nat.digits r.to)
   let cell: Nat -> Nat -> c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
   calc List.sumBy f (allTemplatesForRange r)
     _ = List.sumBy f (List.flatMap (List.between 1 size) (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n)))
-        := Eq.cong (List.sumBy f) (templatesAsGrid r)
+      := Eq.cong (List.sumBy f) (templatesAsGrid r)
     _ = List.sumBy (k => List.sumBy f (List.flatMap (List.between 2 size) (n => keptIfFits size k n))) (List.between 1 size)
-        := List.sumByFlatMap f (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n)) (List.between 1 size)
+      := List.sumByFlatMap f (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n)) (List.between 1 size)
     _ = List.sumBy (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
-        := List.sumByCong (k => List.sumBy f (List.flatMap (List.between 2 size) (n => keptIfFits size k n)))
-             (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
-             (k => Eq.trans (List.sumByFlatMap f (n => keptIfFits size k n) (List.between 2 size))
-               (List.sumByCong (n => List.sumBy f (keptIfFits size k n)) (cell k) (List.between 2 size) (n => keptSum f size k n)))
+      := List.sumByCong (k => List.sumBy f (List.flatMap (List.between 2 size) (n => keptIfFits size k n)))
+        (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
+        (k => Eq.trans (List.sumByFlatMap f (n => keptIfFits size k n) (List.between 2 size))
+          (List.sumByCong (n => List.sumBy f (keptIfFits size k n)) (cell k) (List.between 2 size) (n => keptSum f size k n)))
     _ = List.sumBy (k => List.sumBy (cell k) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
-        := rewrite betweenOne size, betweenTwo size
+      := rewrite betweenOne size, betweenTwo size
 
 -- Membership (1): a listed template fits.
 theorem templateFits (range: Range) (template: RepetitionTemplate)
@@ -180,7 +180,7 @@ theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x ran
   -- so the block has a digit (or the x would have none)
   let blockNotEmpty: 1 <= blockLength :=
     match blockLength with
-      | Zero   => omega [Nat.digitsNonEmpty x]
+      | Zero => omega [Nat.digitsNonEmpty x]
       | Succ k => rfl
   fittingTemplateListed range { blockLength, copies }
     (Both blockNotEmpty (Both atLeastTwo omega))
@@ -188,7 +188,7 @@ theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x ran
 -- What `keptIfFits` gives is at most one template, and it is that of its arguments.
 theorem keptIfFitsDistinct (size: Nat) (blockLength: Nat) (copies: Nat): List.Distinct (keptIfFits size blockLength copies) :=
   match Nat.leq (blockLength * copies) size with
-    | True  => Both (listed => listed) Trivial
+    | True => Both (listed => listed) Trivial
     | False => Trivial
 
 theorem keptIfFitsIsTemplate (size: Nat) (blockLength: Nat) (copies: Nat) (template: RepetitionTemplate)
@@ -213,9 +213,9 @@ theorem templatesDistinct (range: Range): List.Distinct (allTemplatesForRange ra
         (List.between 2 size) (List.distinctBetween 2 size)
         (copyCount _ => keptIfFitsDistinct size blockLength copyCount)
         (copyCount _ template kept => match keptIfFitsIsTemplate size blockLength copyCount template kept with
-                                       | Both _ sameCopies => sameCopies))
+          | Both _ sameCopies => sameCopies))
     (blockLength _ template listed =>
       List.anyElim (copyCount => List.Mem template (keptIfFits size blockLength copyCount)) (template.blockLength = blockLength)
         (List.between 2 size) (List.memFlatMapElim (copyCount => keptIfFits size blockLength copyCount) template (List.between 2 size) listed)
         (copyCount _ kept => match keptIfFitsIsTemplate size blockLength copyCount template kept with
-                              | Both sameBlockLength _ => sameBlockLength))
+          | Both sameBlockLength _ => sameBlockLength))

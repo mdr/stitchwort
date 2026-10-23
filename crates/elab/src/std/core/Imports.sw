@@ -9,9 +9,42 @@
 -- here without a namespace is visible in every program; the rest is written
 -- with its namespace (`List.length`), or imported. The effect machinery is
 -- used throughout what follows, so it's imported here.
-import Effect (Comp, foldComp, bind, Plus, PlusRes, SigMap, sigInject,
-  sigReply, translate, sigId, sigCompose, sigLeft, sigRight, swapOp,
-  swapReply, sigSwap, NoOp, NoRes, Sig, sigOp, sigRes, caseInject, caseReply,
-  sigCase, noInject, noReply, sigFromNo, handlePlus, runPure, Rec, RecRes,
-  Delay, now, lift, bindD, mapSig, pfix)
-
+import Effect (
+  Comp,
+  foldComp,
+  bind,
+  Plus,
+  PlusRes,
+  SigMap,
+  sigInject,
+  sigReply,
+  translate,
+  sigId,
+  sigCompose,
+  sigLeft,
+  sigRight,
+  swapOp,
+  swapReply,
+  sigSwap,
+  NoOp,
+  NoRes,
+  Sig,
+  sigOp,
+  sigRes,
+  caseInject,
+  caseReply,
+  sigCase,
+  noInject,
+  noReply,
+  sigFromNo,
+  handlePlus,
+  runPure,
+  Rec,
+  RecRes,
+  Delay,
+  now,
+  lift,
+  bindD,
+  mapSig,
+  pfix
+)

@@ -11,15 +11,15 @@
 import Std (Bool, List, Nat, Void)
 
 def total: List Nat -> Nat
-  | Nil       => 0
+  | Nil => 0
   | Cons x xs => x + total xs
 
 export def average (xs: List Nat): Nat := if h: List.length xs != 0 then total xs / List.length xs else 0
 
 def get: (xs: List a) -> (i: Nat) -> [auto ok: i < List.length xs] -> a
-  | Cons x xs, Zero   => x
+  | Cons x xs, Zero => x
   | Cons x xs, Succ i => get xs i
-  | Nil,       i      => Void.absurd (Bool.falseNotTrue ok)
+  | Nil, i => Void.absurd (Bool.falseNotTrue ok)
 
 -- The third element, or 0 if there isn't one.
 export def third (xs: List Nat): Nat := if h: 2 < List.length xs then get xs 2 else 0

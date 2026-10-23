@@ -30,8 +30,8 @@ theorem notBack [auto ord: Ord a] (x: a) (y: a) (h: Ord.lessThan x y): Not (Ord.
 -- `Ord.max` is one of its arguments.
 theorem maxIsOne [auto ord: Ord a] (x: a) (y: a): Or (Ord.max x y = y) (Ord.max x y = x) :=
   match Ord.compare [ord := ord] x y with
-    | Less    => Inl rfl
-    | Equal   => Inr rfl
+    | Less => Inl rfl
+    | Equal => Inr rfl
     | Greater => Inr rfl
 
 -- Text's laws, which the library proves through `List.compareLex`.

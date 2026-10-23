@@ -6,11 +6,11 @@
 import Std (Nat)
 
 def reach: List Nat -> Nat -> Nat -> Nat -> Bool
-  | ls,             c, Zero,   d => c == d
-  | Nil,            c, Succ k, d => False
+  | ls, c, Zero, d => c == d
+  | Nil, c, Succ k, d => False
   | Cons line rest, c, Succ k, d =>
     def left: Nat -> Bool
-      | Zero   => False
+      | Zero => False
       | Succ b => reach rest b k d
     if Nat.leq line c then left c || reach rest (c + 1) k d else reach rest c k d
 
@@ -27,7 +27,7 @@ theorem reachSplit (line: Nat) (rest: List Nat) (c: Nat) (k: Nat) (d: Nat) (s: N
 def pick (base: Nat): Option Nat -> Option Nat -> Nat
   | Some x, Some y =>
     def sum: Nat -> Nat
-      | Zero   => x + y + base
+      | Zero => x + y + base
       | Succ n => base + n
     sum 0
   | _, _ => base

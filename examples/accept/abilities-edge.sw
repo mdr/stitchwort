@@ -10,9 +10,9 @@ def sndOf: Pair a b -> b
   | MkPair x y => y
 
 def eqNats: List Nat -> List Nat -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 ability State (s: Type) where
   get: () -> {State s} s
@@ -30,27 +30,27 @@ ability Ask where
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => st => MkPair x st
-      | get(), k      => st => k st st
-      | put st2, k     => st => k() st2
+      | return x => st => MkPair x st
+      | get(), k => st => k st st
+      | put st2, k => st => k() st2
   run init
 
 def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
-    | return x     => MkPair Nil x
-    | say n, k     =>
+    | return x => MkPair Nil x
+    | say n, k =>
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 
 def allResults (prog: () -> {Choose | e} a): {e} List a :=
   handle prog() with
-    | return x       => [x]
-    | choose _, k    => List.append (k True) (k False)
+    | return x => [x]
+    | choose _, k => List.append (k True) (k False)
 
 def answer (n: Nat) (prog: () -> {Ask | e} a): {e} a :=
   handle prog() with
-    | return x     => x
-    | ask(), k    => k n
+    | return x => x
+    | ask(), k => k n
 
 -- Pure lines and pure `let`s among effectful ones.
 def mixed(): {State Nat} Nat :=
@@ -109,7 +109,7 @@ test "four abilities, handled in another order" :=
 -- Choice outermost: each branch has its own state and log. True: says 10,
 -- state 11. False: says 10 then 0, state 1.
 def pairNats: List (Pair (Pair (List Nat) Nat) Nat) -> List Nat
-  | Nil                               => Nil
+  | Nil => Nil
   | Cons (MkPair (MkPair said x) s) r => List.append said (Cons x (Cons s (pairNats r)))
 
 test "four abilities, choice outermost" :=
@@ -177,8 +177,8 @@ def chooseAndSay(): {Choose, Log} Nat :=
 
 def handledHere(): {Log} (List Nat) :=
   handle chooseAndSay() with
-    | return x       => [x]
-    | choose _, k    => List.append (k True) (k False)
+    | return x => [x]
+    | choose _, k => List.append (k True) (k False)
 
 test "a handle expression forwards to a concrete row" :=
   let r := collect handledHere

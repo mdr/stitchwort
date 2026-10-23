@@ -86,7 +86,7 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 -- times is then counted once. The guard `d < copies` always holds; it is
 -- there to show that the recursion ends.
 def copiesWeight (copies: Nat): Int
-  decreasing copies
+    decreasing copies
 :=
   let divisorWeights := List.between 2 (copies - 1) |> .sumBy (d =>
     if h: d < copies then (if Nat.divides d copies then copiesWeight d else 0) else 0)

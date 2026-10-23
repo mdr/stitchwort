@@ -13,14 +13,14 @@ import Std (IO, Nat, Pair)
 -- The text, or a default at end of input.
 def textOr (d: Text): Option Text -> Text
   | None => d
-  | Some t  => t
+  | Some t => t
 
 -- Reports a line that should be a number, and goes on with the new total.
 def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO} Nat) -> {IO} Nat
   | None, more =>
     IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
-  | Some n,  more =>
+  | Some n, more =>
     IO.print ("  total: " ++ Nat.toText (total + n))
     more (total + n)
 
@@ -28,14 +28,14 @@ def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO} Nat) -> {IO} N
 -- of input, stops.
 def step (total: Nat): Option Text -> (Nat -> {IO} Nat) -> {IO} Nat
   | None, more => total
-  | Some l,  more =>
+  | Some l, more =>
     if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of
 -- operations.
 def addLines: Nat -> Nat -> {IO} Nat
-  | 0,      total => total
+  | 0, total => total
   | Succ n, total => step total (IO.readLine()) (t => addLines n t)
 
 def main(): {IO} () :=
@@ -48,34 +48,34 @@ def main(): {IO} () :=
 -- Testing `main` with scripted input
 
 def eqTexts: List Text -> List Text -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 def printed (input: List Text): List Text := Pair.fst (IO.simulate input main)
 
 test "a session" :=
-  eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""])
-    [ "What's your name?"
-    , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
-    , "  total: 1"
-    , "  total: 3"
-    , "\"x\" isn't a number; skipped"
-    , "  total: 42"
-    , "The sum is 42. Goodbye, Ada."
-    ]
+  eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""]) [
+    "What's your name?",
+    "Hello, Ada! Type numbers to add, one per line, and an empty line to stop.",
+    "  total: 1",
+    "  total: 3",
+    "\"x\" isn't a number; skipped",
+    "  total: 42",
+    "The sum is 42. Goodbye, Ada."
+  ]
 
 test "end of input stops it too" :=
-  eqTexts (printed ["Ada", "5"])
-    [ "What's your name?"
-    , "Hello, Ada! Type numbers to add, one per line, and an empty line to stop."
-    , "  total: 5"
-    , "The sum is 5. Goodbye, Ada."
-    ]
+  eqTexts (printed ["Ada", "5"]) [
+    "What's your name?",
+    "Hello, Ada! Type numbers to add, one per line, and an empty line to stop.",
+    "  total: 5",
+    "The sum is 5. Goodbye, Ada."
+  ]
 
 test "no input at all" :=
-  eqTexts (printed [])
-    [ "What's your name?"
-    , "Hello, stranger! Type numbers to add, one per line, and an empty line to stop."
-    , "The sum is 0. Goodbye, stranger."
-    ]
+  eqTexts (printed []) [
+    "What's your name?",
+    "Hello, stranger! Type numbers to add, one per line, and an empty line to stop.",
+    "The sum is 0. Goodbye, stranger."
+  ]

@@ -38,7 +38,7 @@ def signed (line: Text): Int :=
 -- fails at the first bad line (after printing the good ones before it).
 def total (lines: List Text): {IO, Fail} Nat :=
   match lines with
-    | []        => 0
+    | [] => 0
     | [l, ..ls] =>
       let t := turn l
       IO.print t.colour
@@ -47,7 +47,7 @@ def total (lines: List Text): {IO, Fail} Nat :=
 def main(): {IO} () :=
   let lines := IO.readAllLines()
   match toResult (() => total lines) with
-    | Ok n    => IO.print "total ${n}"
+    | Ok n => IO.print "total ${n}"
     | Err msg => IO.print "error: ${msg}"
 
 test "a line" := parseTurn "L68 3 red" == Ok { left = True, steps = 68, weight = 3, colour = "red" }

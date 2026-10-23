@@ -5,14 +5,14 @@
 import Std (Int, List, Option, Text)
 
 def eqTexts: List Text -> List Text -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 -- A dial turn like "L68" or "R5": negative for left, positive for right.
 def turnRight: Option Text -> Option Int
   | Some n => n.toInt
-  | None   => None
+  | None => None
 
 def turnLeft (rest: Option Text): Option Int := Option.map Int.neg (turnRight rest)
 

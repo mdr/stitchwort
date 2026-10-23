@@ -28,7 +28,7 @@ theorem columnsAre (lines: List Text):
 
 -- Past a bound on every line's length, every column is blank.
 theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List.getOr Nil r (List.map Text.toList lines)) <= w) -> blank lines w = True
-  | Nil,         h => rfl
+  | Nil, h => rfl
   | Cons l rest, h => rewrite List.getOrPast ' ' w (Text.toList l) (h 0) in blankPast w rest (r => h (Succ r))
 
 -- One problem's block of columns, as the program reads it, against the
@@ -38,37 +38,37 @@ theorem blockRows (lines: List Text) (c: Nat) (cs: List Nat):
       = List.map (line => readNumber (List.map (x => charAt line x) (Cons c cs))) (List.init lines) :=
   calc List.map readNumber (List.init (List.transpose (List.map (x => List.map (line => charAt line x) lines) (Cons c cs))))
     _ = List.map readNumber (List.init (List.map (line => List.map (x => charAt line x) (Cons c cs)) lines))
-        := rewrite List.transposeGrid (x line => charAt line x) c cs lines
+      := rewrite List.transposeGrid (x line => charAt line x) c cs lines
     _ = List.map (line => readNumber (List.map (x => charAt line x) (Cons c cs))) (List.init lines)
-        := rewrite List.initMap (line => List.map (x => charAt line x) (Cons c cs)) lines,
-             List.mapMap readNumber (line => List.map (x => charAt line x) (Cons c cs)) (List.init lines)
+      := rewrite List.initMap (line => List.map (x => charAt line x) (Cons c cs)) lines,
+        List.mapMap readNumber (line => List.map (x => charAt line x) (Cons c cs)) (List.init lines)
 
 theorem blockColumns (lines: List Text) (cs: List Nat):
     (parseProblem (List.map (x => List.map (line => charAt line x) lines) cs)).columnNumbers
       = List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) cs :=
   calc List.map (column => readNumber (List.init column)) (List.map (x => List.map (line => charAt line x) lines) cs)
     _ = List.map (x => readNumber (List.init (List.map (line => charAt line x) lines))) cs
-        := List.mapMap (column => readNumber (List.init column)) (x => List.map (line => charAt line x) lines) cs
+      := List.mapMap (column => readNumber (List.init column)) (x => List.map (line => charAt line x) lines) cs
     _ = List.map (x => readNumber (List.map (line => charAt line x) (List.init lines))) cs
-        := List.mapCong (x => readNumber (List.init (List.map (line => charAt line x) lines))) (x => readNumber (List.map (line => charAt line x) (List.init lines)))
-             cs (x => rewrite List.initMap (line => charAt line x) lines)
+      := List.mapCong (x => readNumber (List.init (List.map (line => charAt line x) lines))) (x => readNumber (List.map (line => charAt line x) (List.init lines)))
+        cs (x => rewrite List.initMap (line => charAt line x) lines)
 
 theorem blockOperator (lines: List Text) (cs: List Nat):
     (parseProblem (List.map (x => List.map (line => charAt line x) lines) cs)).operator
       = List.head (List.filterMap (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs) :=
   calc List.head (List.filterMap (column => Option.flatMap Operator.parse (List.last column)) (List.map (x => List.map (line => charAt line x) lines) cs))
     _ = List.head (List.filterMap (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines))) cs)
-        := rewrite List.filterMapMap (column => Option.flatMap Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
+      := rewrite List.filterMapMap (column => Option.flatMap Operator.parse (List.last column)) (x => List.map (line => charAt line x) lines) cs
     _ = List.head (List.filterMap (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines)) cs)
-        := rewrite List.filterMapCong (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines)))
-                     (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines))
-                     cs
-                     (x => rewrite List.lastMap (line => charAt line x) lines, Option.flatMapMap Operator.parse (line => charAt line x) (List.last lines))
+      := rewrite List.filterMapCong (x => Option.flatMap Operator.parse (List.last (List.map (line => charAt line x) lines)))
+        (x => Option.flatMap (bottom => Operator.parse (charAt bottom x)) (List.last lines))
+        cs
+        (x => rewrite List.lastMap (line => charAt line x) lines, Option.flatMapMap Operator.parse (line => charAt line x) (List.last lines))
 
 -- Adding and multiplying don't mind the order.
 theorem evaluateReverse: (op: Option Operator) -> (xs: List Nat) -> evaluate op (List.reverse xs) = evaluate op xs
-  | None,       xs => rfl
-  | Some Add,      xs => List.sumReverse xs
+  | None, xs => rfl
+  | Some Add, xs => List.sumReverse xs
   | Some Multiply, xs => List.productReverse xs
 
 -- A problem has at least one column.
@@ -92,7 +92,7 @@ theorem answer1 (lines: List Text) (lo: Nat) (hi: Nat):
     (b: Bool) -> isProblem lines lo hi = b ->
     Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) b
   | False, h => rfl
-  | True,  h =>
+  | True, h =>
     rewrite problemColumns lo hi (problemWide lines lo hi h),
       blockOperator lines (Cons lo (List.rangeFrom (hi - Succ lo) (Succ lo))),
       blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
@@ -101,7 +101,7 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
     (b: Bool) -> isProblem lines lo hi = b ->
     Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) b
   | False, h => rfl
-  | True,  h =>
+  | True, h =>
     rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
       blockColumns lines (List.rangeFrom (hi - lo) lo),
       List.mapReverse (x => readNumber (List.map (line => charAt line x) (List.init lines))) (List.rangeFrom (hi - lo) lo),
@@ -113,11 +113,10 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
 theorem blocksTotal (lines: List Text) (answer: List (List Char) -> Nat):
     List.sumBy answer (blocks lines)
       = List.sumBy (lo => List.sumBy (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-          (List.range (gridWidth lines)) :=
+        (List.range (gridWidth lines)) :=
   rewrite Nat.addOne (gridWidth lines), columnsAre lines in
     List.splitByRuns isBlank (c => List.map (line => charAt line c) lines) (c => blank lines c) (c => rfl) answer (gridWidth lines)
       (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength r (List.map Text.toList lines)))
-
 
 theorem term1 (lines: List Text) (lo: Nat) (hi: Nat):
     Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)

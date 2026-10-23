@@ -11,19 +11,19 @@
 import Std (List)
 
 export def half: Nat -> Nat
-  | 0             => 0
-  | 1             => 0
+  | 0 => 0
+  | 1 => 0
   | Succ (Succ n) => Succ (half n)
 
 -- Exponential, but random inputs are small.
 export def fib: Nat -> Nat
-  | 0             => 0
-  | 1             => 1
+  | 0 => 0
+  | 1 => 1
   | Succ (Succ n) => fib n + fib (Succ n)
 
 export def hasTwo: List Nat -> Bool
   | Cons _ (Cons _ Nil) => True
-  | _                   => False
+  | _ => False
 
 export def describe: Nat -> Nat
   | 3 => 30

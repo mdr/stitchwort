@@ -22,7 +22,7 @@ theorem belowOfRun (d: Nat) (n: Nat) (h: List.Mem d (List.rangeFrom (n - 2) 2)):
 -- decreasing-lambda.sw but with no guard: the proof that `d.value < n` comes
 -- from `d.isIn`.
 def weight (n: Nat): Int
-  decreasing n
+    decreasing n
 :=
   1 - (List.rangeFrom (n - 2) 2 |> .attach |> .sumBy (d =>
     if Nat.divides d.value n then weight d.value [decreasing := belowOfRun d.value n d.isIn] else 0))
@@ -48,7 +48,7 @@ theorem weightPlain (n: Nat):
 -- divisor of the one before and smaller than it. `isIn` is named in the
 -- pattern; `List.memRangeFrom` gives `d < 0 + n`, which is `d < n`.
 def chains (n: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   1 + (List.range n |> .attach |> .sumBy (({ value = d, isIn }) =>
     if Nat.leq 1 d && Nat.divides d n then chains d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0))

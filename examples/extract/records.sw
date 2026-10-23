@@ -28,43 +28,43 @@ export def rename (n: Text) (p: Person): Person := { p | name = n }
 def older (p: Person) (q: Person): Person := if Nat.leq q.age p.age then p else q
 
 export def oldest: List Person -> Option Person
-  | Nil       => None
+  | Nil => None
   | Cons p ps => Some (oldestFrom p ps)
 
 def oldestFrom (p: Person): List Person -> Person
-  | Nil       => p
+  | Nil => p
   | Cons q qs => oldestFrom (older p q) qs
 
 -- A field called `tag` keeps the key `tag`, and a prime is `$`. The key
 -- `__proto__` would set an object's prototype, so that field needs a
 -- `js.name` to cross to JavaScript.
-type Weird = { tag: Text, @[js.name "$__proto__"] __proto__: Nat, constructor: Nat, x' : Nat }
+type Weird = { tag: Text, @[js.name "$__proto__"] __proto__: Nat, constructor: Nat, x': Nat }
 
-export def weird (w : Weird) : Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
+export def weird (w: Weird): Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
 
 -- A parameterised record is a generic TypeScript type.
-type Box (a : Type) = { value : a }
+type Box (a: Type) = { value: a }
 
-export def unbox (b : Box (List Nat)) : Box Nat := { value = List.length b.value }
+export def unbox (b: Box (List Nat)): Box Nat := { value = List.length b.value }
 
 -- A proof field that depends on an earlier field, with a decision procedure.
-def IsSorted (xs : List Nat) : Prop := isSorted xs = True
+def IsSorted (xs: List Nat): Prop := isSorted xs = True
 
-def isSorted : List Nat -> Bool
+def isSorted: List Nat -> Bool
   | Nil => True
   | Cons x Nil => True
   | Cons x (Cons y rest) => if Nat.leq x y then isSorted (Cons y rest) else False
 
-instance decIsSorted (xs : List Nat) : Decidable (IsSorted xs) := Bool.decTrue (isSorted xs)
+instance decIsSorted (xs: List Nat): Decidable (IsSorted xs) := Bool.decTrue (isSorted xs)
 
-type SortedList = { items : List Nat, ok : IsSorted items }
+type SortedList = { items: List Nat, ok: IsSorted items }
 
 -- Out: the proof is left out.
-export def sorted (xs : List Nat) : Option SortedList := if h : IsSorted xs then Some { items = xs, ok = h } else None
+export def sorted (xs: List Nat): Option SortedList := if h: IsSorted xs then Some { items = xs, ok = h } else None
 
 -- In: `ok` is checked.
-export def smallest : SortedList -> Option Nat
-  | { items = Nil, .. }       => None
+export def smallest: SortedList -> Option Nat
+  | { items = Nil, .. } => None
   | { items = Cons x xs, .. } => Some x
 
 -- A proof field about two earlier fields, checked with the prelude's

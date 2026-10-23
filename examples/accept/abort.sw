@@ -20,7 +20,7 @@ def turn (line: Text): {Abort} Turn :=
 
 -- Every line, or give up if any line is bad.
 def turns: List Text -> {Abort} (List Turn)
-  | []        => []
+  | [] => []
   | [l, ..ls] => Cons (turn l) (turns ls)
 
 def parseTurn (line: Text): Option Turn := toOption (() => turn line)
@@ -37,7 +37,7 @@ def signed (line: Text): Int :=
 -- gives up at the first bad line (after printing the good ones before it).
 def total (lines: List Text): {IO, Abort} Nat :=
   match lines with
-    | []        => 0
+    | [] => 0
     | [l, ..ls] =>
       let t := turn l
       IO.print t.colour
@@ -47,7 +47,7 @@ def main(): {IO} () :=
   let lines := IO.readAllLines()
   match toOption (() => total lines) with
     | Some n => IO.print ("total " ++ n.toText)
-    | None   => IO.print "bad input"
+    | None => IO.print "bad input"
 
 test "a line" := parseTurn "L68 3 red" == Some { left = True, steps = 68, weight = 3, colour = "red" }
 test "bad direction" := parseTurn "X68 3 red" == None

@@ -38,7 +38,7 @@ export def fromBits (b: Nat): Option Float :=
   if h: Float.isValid b = True then Some { bits = b, valid = h } else None
 
 export def firstOf: List Float -> Option Float
-  | Nil       => None
+  | Nil => None
   | Cons x xs => Some x
 
 export def magnitudes (xs: List Float): List Float := List.map Float.abs xs

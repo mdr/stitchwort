@@ -19,42 +19,42 @@ def covered (rs: List Range) (id: Nat): Bool := rs.any (r => r.contains id)
 def Below (b: Nat) (rs: List Range): Prop := (id: Nat) -> covered rs id = True -> id < b
 
 def Stacked: List Range -> Prop
-  | Nil         => Unit
+  | Nil => Unit
   | Cons m rest => Below m.from rest && Stacked rest
 
 def LoAtMost (b: Nat): List Range -> Prop
-  | Nil         => Unit
+  | Nil => Unit
   | Cons last _ => last.from <= b
 
 theorem absorbLo (r: Range) (b: Nat) (h: r.from <= b): (merged: List Range) -> LoAtMost r.from merged -> LoAtMost b (absorb merged r)
-  | Nil,               ok => h
+  | Nil, ok => h
   | Cons last earlier, ok =>
     match e: Nat.leq r.from (last.to + 1) with
-      | True  => omega
+      | True => omega
       | False => h
 
 theorem absorbStacked (r: Range): (merged: List Range) -> LoAtMost r.from merged -> Stacked merged -> Stacked (absorb merged r)
-  | Nil,               ok, s           => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
+  | Nil, ok, s => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
   | Cons last earlier, ok, Both b rest =>
     match e: Nat.leq r.from (last.to + 1) with
-      | True  => Both b rest
+      | True => Both b rest
       | False =>
         Both
           (id h =>
             match i: last.contains id with
-              | True  => omega
+              | True => omega
               | False => omega [b id h])
           (Both b rest)
 
 theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max m r.to) z
-  | z, Nil       => Nat.leRefl z
+  | z, Nil => Nat.leRefl z
   | z, Cons r rs => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
 
 theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (m r => Nat.max m r.to) z
-  | z, Nil,       id, h => Void.exfalso (Bool.falseNotTrue h)
+  | z, Nil, id, h => Void.exfalso (Bool.falseNotTrue h)
   | z, Cons r rs, id, h =>
     match e: r.contains id with
-      | True  => omega [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
+      | True => omega [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
       | False => coveredTop (Nat.max z r.to) rs id h
 
 theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from <= r.from) (h2: r.from <= a.to + 1):

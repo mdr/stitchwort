@@ -39,7 +39,7 @@ def Mod.ofNat [n: Nat] (x: Nat): Mod n :=
 theorem Mod.valueOfNat [n: Nat] (x: Nat): (Mod.ofNat x: Mod n).value = x % Mod.size n :=
   match Bool.decEq (Nat.leq (Succ (x % Mod.size n)) (Mod.size n)) True with
     | Yes h => rfl
-    | No h  => Void.exfalso (h (Nat.modLt x (Mod.size n) [ok := Mod.sizeNeZero n]))
+    | No h => Void.exfalso (h (Nat.modLt x (Mod.size n) [ok := Mod.sizeNeZero n]))
 
 -- `x` wrapped into range, Euclidean: `(Mod.ofInt (-1): Mod 100)` is 99.
 def Mod.ofInt [n: Nat] (x: Int): Mod n := Mod.ofNat (Int.modNat x (Mod.size n) [ok := Mod.sizeNeZero n])
@@ -170,8 +170,8 @@ instance Mod.instShow: Show (Mod n) := Show.fromText (i => Nat.toText i.value)
 -- derived `DecEq` is only for proofs of `<=` (as in `Dial`), not `<`.
 instance Mod.instDecEq [n: Nat]: DecEq (Mod n) :=
   { decide = i j =>
-      if h: i.value = j.value then Yes (Mod.ext i j h)
-      else No (e => h (Eq.cong (k => k.value) e)) }
+    if h: i.value = j.value then Yes (Mod.ext i j h)
+    else No (e => h (Eq.cong (k => k.value) e)) }
 
 -- Numbers in order of their values (not of their clock positions: 99 comes
 -- after 0 even though `99 + 1` is 0).
@@ -179,7 +179,7 @@ instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) 
 
 -- Conversions with `Fin`, the type of positions in a `Vec`.
 theorem Mod.ltSize: (n: Nat) -> (x: Nat) -> x < n -> x < Mod.size n
-  | Zero,   x, h => Void.exfalso (Bool.falseNotTrue h)
+  | Zero, x, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, x, h => h
 
 -- A position as a number modulo n (the same number).
@@ -190,7 +190,7 @@ def Mod.toFin [auto ok: n != 0] (i: Mod n): Fin n :=
   Fin.ofNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
 
 theorem Mod.ltOfNeZero: (n: Nat) -> (x: Nat) -> n != 0 -> x < Mod.size n -> x < n
-  | Zero,   x, ok, h => Void.exfalso (ok rfl)
+  | Zero, x, ok, h => Void.exfalso (ok rfl)
   | Succ n, x, ok, h => h
 
 theorem Mod.valueToMod (i: Fin n): (Fin.toMod i).value = Fin.toNat i := rfl

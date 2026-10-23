@@ -26,8 +26,8 @@ ability Each where
 -- Each element of `xs` in turn: the rest of the computation runs once for
 -- each. On `[]` it runs no more.
 def Each.each: List a -> {Each} a
-  | []         => Empty.absurd Each.stop()
-  | [x, ..xs]  => if Each.fork() then x else Each.each xs
+  | [] => Empty.absurd Each.stop()
+  | [x, ..xs] => if Each.fork() then x else Each.each xs
 
 -- Keep this choice only if `ok`.
 def Each.require (ok: Bool): {Each} () := if ok then () else Empty.absurd Each.stop()
@@ -36,9 +36,9 @@ def Each.require (ok: Bool): {Each} () := if ok then () else Empty.absurd Each.s
 -- then those for the second, and so on.
 def Each.collect (prog: () -> {Each} a): List a :=
   handle prog() with
-    | return x        => [x]
-    | Each.fork u, k  => Each.both (b => k b)
-    | Each.stop u, k  => []
+    | return x => [x]
+    | Each.fork u, k => Each.both (b => k b)
+    | Each.stop u, k => []
 
 -- The results for `True`, then those for `False`. `k` is a plain function
 -- here, so `collect`'s clause performs nothing and its lemmas compute.
@@ -49,9 +49,9 @@ def Each.both (k: Bool -> List a): List a := List.append (k True) (k False)
 -- as with `allResults` in `examples/accept/abilities.sw`).
 def Each.collectIn (prog: () -> {Each | e} a): {e} List a :=
   handle prog() with
-    | return x        => [x]
-    | Each.fork u, k  => List.append (k True) (k False)
-    | Each.stop u, k  => []
+    | return x => [x]
+    | Each.fork u, k => List.append (k True) (k False)
+    | Each.stop u, k => []
 
 -- The bridging lemmas: a collected computation is a `flatMap` over each
 -- `each`, an `if` at each `require`, and `[v]` at the end.
@@ -63,7 +63,7 @@ theorem Each.collectPure (v: a): Each.collect (() => v) = [v] := rfl
 -- results for each element in turn.
 theorem Each.collectEach (k: a -> {Each} b): (xs: List a) ->
     Each.collect (() => k (Each.each xs)) = List.flatMap xs (x => Each.collect (() => k x))
-  | []        => rfl
+  | [] => rfl
   | [x, ..xs] => Eq.cong (List.append (Each.collect (u => k x))) (Each.collectEach k xs)
 
 -- `require ok` before `k`: `k`'s results if `ok`, else none.
@@ -71,12 +71,12 @@ theorem Each.collectRequire (k: () -> {Each} b): (ok: Bool) ->
     Each.collect (() =>
       Each.require ok
       k()) = (if ok then Each.collect k else [])
-  | True  => rfl
+  | True => rfl
   | False => rfl
 
 -- `each` of a list collects to the list itself.
 theorem Each.collectEachSelf: (xs: List a) -> Each.collect (() => Each.each xs) = xs
-  | []        => rfl
+  | [] => rfl
   | [x, ..xs] => Eq.cong (Cons x) (Each.collectEachSelf xs)
 
 test "each" := Each.collect (() => Each.each [1, 2, 3]) == [1, 2, 3]

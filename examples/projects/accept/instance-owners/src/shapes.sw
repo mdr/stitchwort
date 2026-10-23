@@ -9,5 +9,5 @@ type Shape =
 
 instance Shape.instArea: Area Shape :=
   { area = s => match s with
-      | Square n => n * n
-      | Rect w h => w * h }
+    | Square n => n * n
+    | Rect w h => w * h }

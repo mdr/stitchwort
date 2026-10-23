@@ -20,7 +20,7 @@ import Std (IO, Int, List, Nat, Text)
 -- function. The guard `d < n` always holds; it's there to show the
 -- recursion ends.
 def weight (n: Nat): Int
-  decreasing n
+    decreasing n
 :=
   1 - (List.rangeFrom (n - 2) 2 |> .sumBy (d => if h: d < n then (if Nat.divides d n then weight d else 0) else 0))
 
@@ -38,7 +38,7 @@ theorem weightStep (n: Nat):
 -- A fold whose function takes two arguments and uses both: the longest
 -- chain of divisors from n down, each dividing the one before.
 def chain (n: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   1 + List.foldLeft (best d => if h: d < n then (if Nat.leq 2 d && Nat.divides d n then Nat.max best (chain d) else best) else best) 0 (List.range n)
 
@@ -46,7 +46,7 @@ test "chain" := chain 12 == 3 && chain 7 == 1 && chain 1 == 1
 
 -- Recursion in the function and in the fold's starting value, in one call.
 def grow (n: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   if h: n - 1 < n
   then List.foldLeft (acc d => acc + (if g: d < n then grow d else 0)) (grow (n - 1)) (List.range n)
@@ -56,7 +56,7 @@ test "grow" := grow 0 == 1 && grow 1 == 2 && grow 2 == 5 && grow 3 == 13
 
 -- The function in a `let`, and a sum inside a sum.
 def pairs (n: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   let term := (d: Nat) => if h: d < n then 1 + pairs d else 0
   List.sumBy (k => List.sumBy term (List.range k)) (List.range n)
@@ -65,7 +65,7 @@ test "pairs" := pairs 0 == 0 && pairs 2 == 1 && pairs 3 == 3
 
 -- A `match` inside the function.
 def oddParts (n: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   1 + List.sumBy (d => match d with
     | Zero => 0
@@ -76,7 +76,7 @@ test "odd parts" := oddParts 1 == 1 && oddParts 3 == 2
 -- A theorem can recurse inside a function too: strong induction, from the
 -- step for every number given the result for the smaller ones.
 theorem strong (p: Nat -> Prop) (step: (n: Nat) -> ((d: Nat) -> d < n -> p d) -> p n) (n: Nat): p n
-  decreasing n
+    decreasing n
 :=
   step n (d h => strong p step d)
 

@@ -28,7 +28,7 @@ type Cell =
 
 -- How many rolls a cell holds.
 def Cell.count: Cell -> Nat
-  | Roll  => 1
+  | Roll => 1
   | Floor => 0
 
 -- `height` rows of `width` cells each.
@@ -36,7 +36,7 @@ type Grid = { height: Nat, width: Nat, rows: Vec (Vec Cell width) height }
 
 def main(): {IO} () :=
   match parseGrid IO.readAllLines() with
-    | None   => IO.print "The lines are not all the same length."
+    | None => IO.print "The lines are not all the same length."
     | Some grid =>
       IO.print "Part 1: ${solvePart1 grid}"
       IO.print "Part 2: ${solvePart2 grid}"
@@ -89,7 +89,7 @@ def sweep (grid: Marked w h): Marked w h :=
 -- `above` is the (already swept) row above the first row of the grid, and
 -- `aboveChanged` says whether this pass changed it.
 def sweepFrom (gap above: Vec Cell w) (aboveChanged: Bool): Marked w h -> Marked w h
-  | VNil                    => VNil
+  | VNil => VNil
   | VCons (row, moved) rest =>
     let (below, belowMoved) := rest.headOr (gap, False)
     let (swept, changed) := sweepRow above aboveChanged row moved below belowMoved
@@ -113,8 +113,7 @@ def Grid.settle (grid: Grid): Grid :=
 def Marked.rolls (grid: Marked w h): Nat := (grid.map Pair.fst).sumBy (row => row.sumBy .count)
 
 def settleMarked (grid: Marked w h): Marked w h
-  decreasing Marked.rolls grid
+    decreasing Marked.rolls grid
 :=
   let next := sweep grid
   if fewer: Marked.rolls next < Marked.rolls grid then settleMarked next else next
-

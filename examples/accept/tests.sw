@@ -5,14 +5,14 @@
 import Std (Nat)
 
 def reverse: List a -> List a
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => (reverse xs).append [x]
 
 def equalLists: List Nat -> List Nat -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if h: x = y then equalLists xs ys else False
-  | Nil,       Cons y ys => False
-  | Cons x xs, Nil       => False
+  | Nil, Cons y ys => False
+  | Cons x xs, Nil => False
 
 test "reverse reverses" := equalLists (reverse [1, 2, 3]) [3, 2, 1]
 test "reverse twice is the identity" := equalLists (reverse (reverse [1, 2, 3])) [1, 2, 3]

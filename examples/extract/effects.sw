@@ -30,25 +30,25 @@ ability Abort where
 
 def allResults (prog: () -> {Choose | e} a): {e} List a :=
   handle prog() with
-    | return x       => [x]
-    | choose u, k    => List.append (k True) (k False)
+    | return x => [x]
+    | choose u, k => List.append (k True) (k False)
 
 def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
   let run: s -> {e} Pair a s :=
     handle prog() with
-      | return x       => st => MkPair x st
-      | get u, k       => st => k st st
-      | put st2, k     => st => k() st2
+      | return x => st => MkPair x st
+      | get u, k => st => k st st
+      | put st2, k => st => k() st2
   run init
 
 def toOption (prog: () -> {Abort | e} a): {e} Option a :=
   handle prog() with
-    | return x      => Some x
-    | abort u, k    => None
+    | return x => Some x
+    | abort u, k => None
 
 -- The sum of some of the numbers, chosen one by one.
 def someSum: List Nat -> {Choose} Nat
-  | Nil       => 0
+  | Nil => 0
   | Cons x xs =>
     let rest := someSum xs
     if choose() then x + rest else rest
@@ -56,7 +56,7 @@ def someSum: List Nat -> {Choose} Nat
 export def subsetSums (xs: List Nat): List Nat := allResults (u => someSum xs)
 
 def tick: Nat -> {State Nat} ()
-  | 0      => ()
+  | 0 => ()
   | Succ n =>
     put (get() + 1)
     tick n
@@ -67,6 +67,6 @@ def safeDiv (n: Nat) (d: Nat): {Abort} Nat := if h: d != 0 then n / d else fromE
 
 def orZero: Option Nat -> Nat
   | None => 0
-  | Some x  => x
+  | Some x => x
 
 export def divideOrZero (n: Nat) (d: Nat): Nat := orZero (toOption (u => safeDiv n d))

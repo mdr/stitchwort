@@ -4,7 +4,7 @@ def twice (f: a -> a) (x: a): a := f (f x)
 -- Implicit arguments are filled in by the compiler. Here `a` is found from
 -- the list you pass; you never write it.
 def firstOr (fallback: a): List a -> a
-  | []       => fallback
+  | [] => fallback
   | Cons x _ => x
 
 -- A type with parameters, like `List a` or `Option a`.

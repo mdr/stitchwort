@@ -28,7 +28,7 @@ export def below (a b: Nat): Nat :=
 
 -- A `let` in a loop: a `const` in each turn.
 export def countUp: Nat -> Nat -> Nat
-  | Zero,   acc => acc
+  | Zero, acc => acc
   | Succ k, acc =>
     let next := acc + 2
     let h: next = acc + 2 := rfl

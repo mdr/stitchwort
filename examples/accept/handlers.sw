@@ -22,7 +22,7 @@ type StateOp: Type =
   | Put (n: Nat)
 
 def StateRes: StateOp -> Type
-  | Get   => Nat
+  | Get => Nat
   | Put n => Unit1
 
 -- `Choose`: a yes/no choice.
@@ -44,18 +44,18 @@ def AbortRes: AbortOp -> Type
 -- Handlers that remove the only ability
 
 def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
-  | Done x            => MkPair x s
-  | Call Get rest     => runState s (rest s)
+  | Done x => MkPair x s
+  | Call Get rest => runState s (rest s)
   | Call (Put n) rest => runState n (rest MkUnit)
 
 -- Resumes twice: every outcome, `True` first.
 def allResults: Comp ChooseOp ChooseRes a -> List a
-  | Done x           => [x]
+  | Done x => [x]
   | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
 
 -- Never resumes.
 def toOption: Comp AbortOp AbortRes a -> Option a
-  | Done x          => Some x
+  | Done x => Some x
   | Call Abort rest => None
 
 -- Handlers for one ability in a row of two. Operations they don't handle are
@@ -63,18 +63,18 @@ def toOption: Comp AbortOp AbortRes a -> Option a
 
 def runStateL [e: Type] [eres: e -> Type] [a: Type]
     (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a -> Comp e eres (Pair a Nat)
-  | Done x                => Done (MkPair x s)
-  | Call (L Get) rest     => runStateL s (rest s)
+  | Done x => Done (MkPair x s)
+  | Call (L Get) rest => runStateL s (rest s)
   | Call (L (Put n)) rest => runStateL n (rest MkUnit)
-  | Call (R o) rest       => Call o (y => runStateL s (rest y))
+  | Call (R o) rest => Call o (y => runStateL s (rest y))
 
 def allResultsR: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
     Comp (Plus e ChooseOp) (PlusRes eres ChooseRes) a -> Comp e eres (List a)
-  | Done x               => Done [x]
+  | Done x => Done [x]
   | Call (R Choose) rest =>
     bind (allResultsR (rest True)) (xs =>
       bind (allResultsR (rest False)) (ys => Done (List.append xs ys)))
-  | Call (L o) rest      => Call o (y => allResultsR (rest y))
+  | Call (L o) rest => Call o (y => allResultsR (rest y))
 
 -- Handler order (from the review)
 
@@ -97,15 +97,15 @@ def p: SC Nat :=
       get))
 
 def eqPairs: List (Pair Nat Nat) -> List (Pair Nat Nat) -> Bool
-  | Nil,                  Nil                  => True
+  | Nil, Nil => True
   | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
-  | _,                    _                    => False
+  | _, _ => False
 
 def eqNats: List Nat -> List Nat -> Bool
-  | Nil,       Nil       => True
+  | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
-  | _,         _         => False
+  | _, _ => False
 
 -- State inside, choice outside: each branch has its own state.
 def stateInside: List (Pair Nat Nat) := allResults (runStateL 0 p)
@@ -128,8 +128,8 @@ test "choice inside state: the state threads through" :=
 -- A clause performing the ability it handles: its `get` goes to the *next*
 -- State handler out, so the handler's own result still has State.
 def scaleGets: Comp StateOp StateRes a -> Comp StateOp StateRes a
-  | Done x            => Done x
-  | Call Get rest     => Call Get (m => scaleGets (rest (m * 10)))
+  | Done x => Done x
+  | Call Get rest => Call Get (m => scaleGets (rest (m * 10)))
   | Call (Put n) rest => Call (Put n) (u => scaleGets (rest u))
 
 -- get() + 1
@@ -146,11 +146,11 @@ def safeDiv (n: Nat) (d: Nat): Comp AbortOp AbortRes Nat := if h: d != 0 then Do
 
 def isNone: Option a -> Bool
   | None => True
-  | Some x  => False
+  | Some x => False
 
 def fromSome0: Option Nat -> Nat
   | None => 0
-  | Some x  => x
+  | Some x => x
 
 test "abort stops" := isNone (toOption (safeDiv 7 0))
 test "no abort" := fromSome0 (toOption (bind (safeDiv 7 2) (q => safeDiv 100 q))) == 33
@@ -177,12 +177,12 @@ type FnStateOp: Type =
   | PutFn (f: Nat -> Comp ChooseOp ChooseRes Nat)
 
 def FnStateRes: FnStateOp -> Type
-  | GetFn   => Nat -> Comp ChooseOp ChooseRes Nat
+  | GetFn => Nat -> Comp ChooseOp ChooseRes Nat
   | PutFn f => Unit1
 
 def runFnState (f: Nat -> Comp ChooseOp ChooseRes Nat): Comp FnStateOp FnStateRes a -> a
-  | Done x              => x
-  | Call GetFn rest     => runFnState f (rest f)
+  | Done x => x
+  | Call GetFn rest => runFnState f (rest f)
   | Call (PutFn g) rest => runFnState g (rest MkUnit)
 
 -- Store "add 0 or 10", then read it back and run it under `allResults`.
@@ -196,17 +196,17 @@ test "effectful function in state" :=
 -- A computation type whose operations come from a type function stuck on a
 -- variable: not a row of abilities, so it's an ordinary data type here.
 def OpsOf: Bool -> Type
-  | True  => ChooseOp
+  | True => ChooseOp
   | False => AbortOp
 
 def ResOf: (b: Bool) -> OpsOf b -> Type
-  | True,  o => ChooseRes o
+  | True, o => ChooseRes o
   | False, o => AbortRes o
 
 def doneAnyway (b: Bool): Comp (OpsOf b) (ResOf b) Nat := Done 7
 
 def valueOr0: [o: Type] -> [r: o -> Type] -> Comp o r Nat -> Nat
-  | Done x      => x
+  | Done x => x
   | Call c rest => 0
 
 test "a stuck operation type isn't a row" := valueOr0 (doneAnyway True) == 7

@@ -64,7 +64,7 @@ def removeAccessible (grid: Grid) (cells: Cells): Cells :=
 -- n rounds.
 def rounds (grid: Grid) (n: Nat) (cells: Cells): Cells :=
   match n with
-    | Zero   => cells
+    | Zero => cells
     | Succ k => rounds grid k (removeAccessible grid cells)
 
 -- Part 2: the rolls removed by as many rounds as there are rolls.

@@ -9,7 +9,7 @@
 -- Counts how many times `d` fits into `n`, using `fuel` to stay structurally
 -- recursive (`n` is always enough fuel when `d` isn't zero).
 def Nat.divFuel: Nat -> Nat -> Nat -> Nat
-  | Zero,      n, d => 0
+  | Zero, n, d => 0
   | Succ fuel, n, d => if Nat.leq d n then Succ (Nat.divFuel fuel (n - d) d) else 0
 
 -- `n / d` and `n % d` need a proof that `d` isn't zero, which `auto` finds.
@@ -37,4 +37,3 @@ theorem Nat.leRefl: (n: Nat) -> n <= n
 theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m <= n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
 
 theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
-

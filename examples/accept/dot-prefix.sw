@@ -24,6 +24,5 @@ def elemPrefix: Bool := List.elem Nat.decEq 2 [1, 2]
 def lookupDot: Option Text := [MkPair 1 "a", MkPair 2 "b"].lookup Nat.decEq 2
 def lookupPrefix: Option Text := List.lookup Nat.decEq 2 [MkPair 1 "a", MkPair 2 "b"]
 
-
 test "the literal's type comes from the expected type" := intsDot == [1, 2]
 test "the others agree" := sortedDot == [1, 2, 3] && elemDot

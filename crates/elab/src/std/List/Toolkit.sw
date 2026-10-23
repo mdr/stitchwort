@@ -3,7 +3,7 @@
 -- "List toolkit" block and the list lemmas beside it.
 
 theorem List.lengthAppend: (xs: List a) -> (ys: List a) -> List.length (List.append xs ys) = List.length xs + List.length ys
-  | Nil,       ys => rfl
+  | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong Succ (List.lengthAppend xs ys)
 
 -- List toolkit. The callbacks are pure, except `List.mapIn`'s: the library has
@@ -11,14 +11,14 @@ theorem List.lengthAppend: (xs: List a) -> (ys: List a) -> List.length (List.app
 -- structurally recursive.
 
 def List.map (f: a -> b): List a -> List b
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => Cons (f x) (List.map f xs)
 
 -- `map` with a function that may perform abilities, such as `Fail`: `f` runs
 -- on each element in order, so `xs.mapIn Range.read` fails at the first
 -- element that isn't a range (docs/proposals/errors.md §3.4).
 def List.mapIn (f: a -> {e} b): List a -> {e} List b
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => Cons (f x) (List.mapIn f xs)
 
 -- One step of `List.filter`: `x` in front of the filtered rest, or not. A
@@ -26,23 +26,23 @@ def List.mapIn (f: a -> {e} b): List a -> {e} List b
 -- around it in both branches, a condition the checker can't decide (one on
 -- a variable) keeps both branches, and the value doubles with every element.
 def List.filterStep (x: a) (rest: List a): Bool -> List a
-  | True  => Cons x rest
+  | True => Cons x rest
   | False => rest
 
 def List.filter (p: a -> Bool): List a -> List a
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => List.filterStep x (List.filter p xs) (p x)
 
 -- Left fold; tail-recursive. `List.foldLeft f z [x, y]` is `f (f z x) y`.
 def List.foldLeft (f: b -> a -> b) (z: b): List a -> b
-  | Nil       => z
+  | Nil => z
   | Cons x xs => List.foldLeft f (f z x) xs
 
 -- Running accumulations, the initial value first (Haskell's `scanLeft`):
 -- `List.scanLeft f z [x, y]` is `[z, f z x, f (f z x) y]`. Always one longer than
 -- the input.
 def List.scanLeft (f: b -> a -> b) (z: b): List a -> List b
-  | Nil       => Cons z Nil
+  | Nil => Cons z Nil
   | Cons x xs => Cons z (List.scanLeft f (f z x) xs)
 
 theorem List.scanLeftNil: List.scanLeft (acc x => acc + x) 5 Nil = [5] := rfl
@@ -51,7 +51,7 @@ theorem List.scanLeftSums: List.scanLeft (acc x => acc + x) 0 [1, 2, 3] = [0, 1,
 
 -- Right fold. `List.foldRight f z [x, y]` is `f x (f y z)`.
 def List.foldRight (f: a -> b -> b) (z: b): List a -> b
-  | Nil       => z
+  | Nil => z
   | Cons x xs => f x (List.foldRight f z xs)
 
 -- The sum of the elements, of any type with `Add` (docs/proposals/interfaces.md
@@ -72,55 +72,55 @@ theorem List.sumByInts: List.sumBy (x => Int.sub 1 x) [1, 2, 3] = -3 := rfl
 def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft Mul.mul Mul.one xs
 
 def List.maximum [auto ord: Ord a]: List a -> Option a
-  | Nil       => None
+  | Nil => None
   | Cons x xs => Some (List.foldLeft Ord.max x xs)
 
 def List.minimum [auto ord: Ord a]: List a -> Option a
-  | Nil       => None
+  | Nil => None
   | Cons x xs => Some (List.foldLeft Ord.min x xs)
 
 -- Pairs up to the shorter list's length.
 def List.zip: List a -> List b -> List (Pair a b)
-  | Nil,       ys        => Nil
-  | Cons x xs, Nil       => Nil
+  | Nil, ys => Nil
+  | Cons x xs, Nil => Nil
   | Cons x xs, Cons y ys => Cons (MkPair x y) (List.zip xs ys)
 
 def List.zipWith (f: a -> b -> c): List a -> List b -> List c
-  | Nil,       ys        => Nil
-  | Cons x xs, Nil       => Nil
+  | Nil, ys => Nil
+  | Cons x xs, Nil => Nil
   | Cons x xs, Cons y ys => Cons (f x y) (List.zipWith f xs ys)
 
 -- Combines three lists up to the shortest list's length.
 def List.zipWith3 (f: a -> b -> c -> d): List a -> List b -> List c -> List d
-  | Nil,       ys,        zs        => Nil
-  | Cons x xs, Nil,       zs        => Nil
-  | Cons x xs, Cons y ys, Nil       => Nil
+  | Nil, ys, zs => Nil
+  | Cons x xs, Nil, zs => Nil
+  | Cons x xs, Cons y ys, Nil => Nil
   | Cons x xs, Cons y ys, Cons z zs => Cons (f x y z) (List.zipWith3 f xs ys zs)
 
 -- The first n elements (all of them if there are fewer).
 def List.take: Nat -> List a -> List a
-  | Zero,   xs        => Nil
-  | Succ n, Nil       => Nil
+  | Zero, xs => Nil
+  | Succ n, Nil => Nil
   | Succ n, Cons x xs => Cons x (List.take n xs)
 
 -- All but the first n elements.
 def List.drop: Nat -> List a -> List a
-  | Zero,   xs        => xs
-  | Succ n, Nil       => Nil
+  | Zero, xs => xs
+  | Succ n, Nil => Nil
   | Succ n, Cons x xs => List.drop n xs
 
 -- The element at index i, counting from 0.
 def List.get: Nat -> List a -> Option a
-  | i,      Nil       => None
-  | Zero,   Cons x xs => Some x
+  | i, Nil => None
+  | Zero, Cons x xs => Some x
   | Succ i, Cons x xs => List.get i xs
 
 def List.any (p: a -> Bool): List a -> Bool
-  | Nil       => False
+  | Nil => False
   | Cons x xs => if p x then True else List.any p xs
 
 def List.all (p: a -> Bool): List a -> Bool
-  | Nil       => True
+  | Nil => True
   | Cons x xs => if p x then List.all p xs else False
 
 -- `n`, plus one if `b`: `List.count`'s step. A function of its own so `n` is
@@ -128,7 +128,7 @@ def List.all (p: a -> Bool): List a -> Bool
 -- checker can't decide the conditions, a count doubles in size with every
 -- element.
 def Nat.succIf (n: Nat): Bool -> Nat
-  | True  => Succ n
+  | True => Succ n
   | False => n
 
 -- How many elements satisfy `p`.
@@ -136,35 +136,35 @@ def List.count (p: a -> Bool) (xs: List a): Nat := List.foldLeft (n x => Nat.suc
 
 -- The first element satisfying `p`.
 def List.find (p: a -> Bool): List a -> Option a
-  | Nil       => None
+  | Nil => None
   | Cons x xs => if p x then Some x else List.find p xs
 
 def List.consSome: Option b -> List b -> List b
   | None, rest => rest
-  | Some y,  rest => Cons y rest
+  | Some y, rest => Cons y rest
 
 -- Keeps the `Some` results, in order.
 def List.filterMap (f: a -> Option b): List a -> List b
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => List.consSome (f x) (List.filterMap f xs)
 
 -- Joins a list of lists.
 def List.concat: List (List a) -> List a
-  | Nil         => Nil
+  | Nil => Nil
   | Cons xs xss => List.append xs (List.concat xss)
 
 -- `List.replicate n x` is n copies of x.
 def List.replicate: Nat -> a -> List a
-  | Zero,   x => Nil
+  | Zero, x => Nil
   | Succ n, x => Cons x (List.replicate n x)
 
 def List.rangeFrom: Nat -> Nat -> List Nat
-  | Zero,   i => Nil
+  | Zero, i => Nil
   | Succ n, i => Cons i (List.rangeFrom n (Succ i))
 
 -- A run of `a + b` numbers is a run of `a` followed by a run of `b`.
 theorem List.rangeFromAppend: (a: Nat) -> (b: Nat) -> (s: Nat) -> List.rangeFrom (a + b) s = List.append (List.rangeFrom a s) (List.rangeFrom b (s + a))
-  | Zero,   b, s => Eq.cong (t => List.rangeFrom b t) (Eq.sym (Nat.addZero s))
+  | Zero, b, s => Eq.cong (t => List.rangeFrom b t) (Eq.sym (Nat.addZero s))
   | Succ a, b, s =>
     Eq.cong (Cons s) (Eq.trans (List.rangeFromAppend a b (Succ s)) (Eq.cong (t => List.append (List.rangeFrom a (Succ s)) (List.rangeFrom b t)) (Eq.sym (Nat.addSucc s a))))
 
@@ -181,13 +181,13 @@ theorem List.betweenRangeFrom (lo: Nat) (hi: Nat): List.between lo hi = List.ran
 def List.reverse (xs: List a): List a := List.reverseOnto xs Nil
 
 def List.last: List a -> Option a
-  | Nil                => None
-  | Cons x Nil         => Some x
+  | Nil => None
+  | Cons x Nil => Some x
   | Cons x (Cons y ys) => List.last (Cons y ys)
 
 -- The first element, or `None` for an empty list.
 def List.head: List a -> Option a
-  | Nil       => None
+  | Nil => None
   | Cons x xs => Some x
 
 theorem List.headExample: List.head [3, 4] = Some 3 := rfl
@@ -196,8 +196,8 @@ theorem List.headEmpty: List.head (Nil: List Nat) = None := rfl
 
 -- All but the last element (`Nil` for an empty list).
 def List.init: List a -> List a
-  | Nil                => Nil
-  | Cons x Nil         => Nil
+  | Nil => Nil
+  | Cons x Nil => Nil
   | Cons x (Cons y ys) => Cons x (List.init (Cons y ys))
 
 theorem List.initExample: List.init [1, 2, 3] = [1, 2] := rfl
@@ -206,7 +206,7 @@ theorem List.initEmpty: List.init (Nil: List Nat) = Nil := rfl
 
 -- Membership, given a decision for equality (as `List.decEq` takes).
 def List.elem (d: (x: a) -> (y: a) -> Decidable (x = y)) (z: a): List a -> Bool
-  | Nil       => False
+  | Nil => False
   | Cons x xs => if Decidable.toBool (d z x) then True else List.elem d z xs
 
 -- The elements that satisfy `p`, and those that don't.
@@ -214,7 +214,7 @@ def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair
 
 -- The value for the first pair whose key is equal, given a decision for equality.
 def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Option v
-  | Nil                    => None
+  | Nil => None
   | Cons (MkPair k v) rest => if Decidable.toBool (d key k) then Some v else List.lookup d key rest
 
 -- `List.padRight n x xs` is `xs` followed by enough copies of `x` to make it
@@ -222,7 +222,7 @@ def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair 
 def List.padRight (n: Nat) (x: a) (xs: List a): List a := List.append xs (List.replicate (n - List.length xs) x)
 
 theorem List.lengthReplicate (x: a): (n: Nat) -> List.length (List.replicate n x) = n
-  | Zero   => rfl
+  | Zero => rfl
   | Succ n => Eq.cong Succ (List.lengthReplicate x n)
 
 -- Padding makes a list exactly n long, when it was no longer than that.
@@ -235,7 +235,7 @@ theorem List.padRightLength (n: Nat) (x: a) (xs: List a) (h: List.length xs <= n
 -- The first `n` columns of a list of rows (`List.transpose`'s loop): column i
 -- is the i-th element of each row that has one.
 def List.transposeN: Nat -> List (List a) -> List (List a)
-  | Zero,   rows => Nil
+  | Zero, rows => Nil
   | Succ n, rows => Cons (List.filterMap (List.get 0) rows) (List.transposeN n (List.map (List.drop 1) rows))
 
 -- Swaps rows and columns: the columns of a list of rows, as many as the first
@@ -253,7 +253,7 @@ theorem List.padRightLongEnough: List.padRight 1 0 [1, 2] = [1, 2] := rfl
 -- Lemmas about `List.transpose`: it has as many columns as the first row is
 -- long, and for a rectangular list, doing it twice gives back the list.
 theorem List.lengthMap (f: a -> b): (xs: List a) -> List.length (List.map f xs) = List.length xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => Eq.cong Succ (List.lengthMap f xs)
 
 theorem List.transposeExample: List.transpose [[1, 2, 3], [4, 5, 6]] = [[1, 4], [2, 5], [3, 6]] := rfl
@@ -263,116 +263,116 @@ theorem List.transposeNone: List.transpose (Nil: List (List Nat)) = Nil := rfl
 theorem List.transposeShortRow: List.transpose [[1, 2], [3], [4, 5]] = [[1, 3, 4], [2, 5]] := rfl
 
 theorem List.transposeNLength: (n: Nat) -> (rows: List (List a)) -> List.length (List.transposeN n rows) = n
-  | Zero,   rows => rfl
+  | Zero, rows => rfl
   | Succ n, rows => Eq.cong Succ (List.transposeNLength n (List.map (List.drop 1) rows))
 
 -- Every element of the list satisfies `p`.
 def List.All (p: a -> Prop): List a -> Prop
-  | Nil       => Unit
+  | Nil => Unit
   | Cons x xs => And (p x) (List.All p xs)
 
 -- Some element of the list satisfies `p`.
 def List.Any (p: a -> Prop): List a -> Prop
-  | Nil       => Void
+  | Nil => Void
   | Cons x xs => Or (p x) (List.Any p xs)
 
 theorem List.allAppend (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.All p xs -> List.All p ys -> List.All p (List.append xs ys)
-  | Nil,       ys, hx, hy => hy
+  | Nil, ys, hx, hy => hy
   | Cons x xs, ys, Both hx hxs, hy => Both hx (List.allAppend p xs ys hxs hy)
 
 theorem List.allAppendLeft (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.All p (List.append xs ys) -> List.All p xs
-  | Nil,       ys, h => Trivial
+  | Nil, ys, h => Trivial
   | Cons x xs, ys, Both h hxs => Both h (List.allAppendLeft p xs ys hxs)
 
 theorem List.allAppendRight (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.All p (List.append xs ys) -> List.All p ys
-  | Nil,       ys, h => h
+  | Nil, ys, h => h
   | Cons x xs, ys, Both h hxs => List.allAppendRight p xs ys hxs
 
 theorem List.allMap (p: b -> Prop) (f: a -> b): (xs: List a) -> List.All (x => p (f x)) xs -> List.All p (List.map f xs)
-  | Nil,       h => Trivial
+  | Nil, h => Trivial
   | Cons x xs, Both h hxs => Both h (List.allMap p f xs hxs)
 
 theorem List.allImplies (p: a -> Prop) (q: a -> Prop) (h: (x: a) -> p x -> q x): (xs: List a) -> List.All p xs -> List.All q xs
-  | Nil,       hp => Trivial
+  | Nil, hp => Trivial
   | Cons x xs, Both hpx hpxs => Both (h x hpx) (List.allImplies p q h xs hpxs)
 
 theorem List.anyAppendLeft (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.Any p xs -> List.Any p (List.append xs ys)
-  | Nil,       ys, h => Void.exfalso h
+  | Nil, ys, h => Void.exfalso h
   | Cons x xs, ys, Inl h => Inl h
   | Cons x xs, ys, Inr h => Inr (List.anyAppendLeft p xs ys h)
 
 theorem List.anyAppendRight (p: a -> Prop): (xs: List a) -> (ys: List a) -> List.Any p ys -> List.Any p (List.append xs ys)
-  | Nil,       ys, h => h
+  | Nil, ys, h => h
   | Cons x xs, ys, h => Inr (List.anyAppendRight p xs ys h)
 
 -- `List.any` of two lists joined: either list has one.
 theorem List.anyAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.any p (List.append xs ys) = (List.any p xs || List.any p ys)
-  | Nil,       ys => rfl
+  | Nil, ys => rfl
   | Cons x xs, ys =>
     match e: p x with
-      | True  => rfl
+      | True => rfl
       | False => List.anyAppend p xs ys
 
 theorem List.anyAppendExample: List.any (x => x == 3) (List.append [1, 2] [3]) = (False || True) := rfl
 
 -- Every row has length n (the list is rectangular).
 def List.AllLength (n: Nat): List (List a) -> Prop
-  | Nil       => Unit
+  | Nil => Unit
   | Cons r rs => And (List.length r = n) (List.AllLength n rs)
 
 theorem List.lengthZero: (xs: List a) -> List.length xs = 0 -> xs = Nil
-  | Nil,       h => rfl
+  | Nil, h => rfl
   | Cons y ys, h => Void.exfalso (Nat.succNotZero (List.length ys) h)
 
 theorem List.transposeNNil: (n: Nat) -> List.transposeN n (Nil: List (List a)) = List.replicate n Nil
-  | Zero   => rfl
+  | Zero => rfl
   | Succ n => Eq.cong (Cons Nil) (List.transposeNNil n)
 
 theorem List.allLengthZero: (rows: List (List a)) -> (n: Nat) -> List.length rows = n -> List.AllLength 0 rows ->
     rows = List.replicate n Nil
-  | Nil,        n,      hl, hr          => J (y q => (Nil: List (List a)) = List.replicate y (Nil: List a)) rfl hl
-  | Cons r rs,  Zero,   hl, hr          => Void.exfalso (Nat.succNotZero (List.length rs) hl)
-  | Cons r rs,  Succ m, hl, Both hr hrs =>
+  | Nil, n, hl, hr => J (y q => (Nil: List (List a)) = List.replicate y (Nil: List a)) rfl hl
+  | Cons r rs, Zero, hl, hr => Void.exfalso (Nat.succNotZero (List.length rs) hl)
+  | Cons r rs, Succ m, hl, Both hr hrs =>
     Eq.trans (Eq.cong (t => Cons t rs) (List.lengthZero r hr))
       (Eq.cong (Cons Nil) (List.allLengthZero rs m (Nat.succInjective (List.length rs) m hl) hrs))
 
 theorem List.tailsAllLength (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
     List.AllLength k (List.map (List.drop 1) rows)
-  | Nil,              hr          => Trivial
-  | Cons Nil rs,      Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
+  | Nil, hr => Trivial
+  | Cons Nil rs, Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
   | Cons (Cons y ys) rs, Both hr hrs => Both (Nat.succInjective (List.length ys) k hr) (List.tailsAllLength k rs hrs)
 
 theorem List.headsLength (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
     List.length (List.filterMap (List.get 0) rows) = List.length rows
-  | Nil,              hr          => rfl
-  | Cons Nil rs,      Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
+  | Nil, hr => rfl
+  | Cons Nil rs, Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
   | Cons (Cons y ys) rs, Both hr hrs => Eq.cong Succ (List.headsLength k rs hrs)
 
 theorem List.rowsAreHeadsAndTails (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
     rows = List.zipWith Cons (List.filterMap (List.get 0) rows) (List.map (List.drop 1) rows)
-  | Nil,              hr          => rfl
-  | Cons Nil rs,      Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
+  | Nil, hr => rfl
+  | Cons Nil rs, Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
   | Cons (Cons y ys) rs, Both hr hrs => Eq.cong (Cons (Cons y ys)) (List.rowsAreHeadsAndTails k rs hrs)
 
 theorem List.columnsAllLength: (w: Nat) -> (rows: List (List a)) -> (h: Nat) -> List.length rows = h -> List.AllLength w rows ->
     List.AllLength h (List.transposeN w rows)
-  | Zero,   rows, h, hl, hr => Trivial
+  | Zero, rows, h, hl, hr => Trivial
   | Succ k, rows, h, hl, hr =>
     Both (Eq.trans (List.headsLength k rows hr) hl)
       (List.columnsAllLength k (List.map (List.drop 1) rows) h (Eq.trans (List.lengthMap (List.drop 1) rows) hl) (List.tailsAllLength k rows hr))
 
 theorem List.transposeNCons: (h: Nat) -> (heads: List a) -> (cols: List (List a)) -> List.length heads = h -> List.AllLength h cols ->
     List.transposeN h (Cons heads cols) = List.zipWith Cons heads (List.transposeN h cols)
-  | Zero,   Nil,        cols, hl, hc => rfl
-  | Zero,   Cons x xs,  cols, hl, hc => Void.exfalso (Nat.succNotZero (List.length xs) hl)
-  | Succ m, Nil,        cols, hl, hc => Void.exfalso (Nat.zeroNotSucc m hl)
-  | Succ m, Cons x xs,  cols, hl, hc =>
+  | Zero, Nil, cols, hl, hc => rfl
+  | Zero, Cons x xs, cols, hl, hc => Void.exfalso (Nat.succNotZero (List.length xs) hl)
+  | Succ m, Nil, cols, hl, hc => Void.exfalso (Nat.zeroNotSucc m hl)
+  | Succ m, Cons x xs, cols, hl, hc =>
     Eq.cong (Cons (Cons x (List.filterMap (List.get 0) cols)))
       (List.transposeNCons m xs (List.map (List.drop 1) cols) (Nat.succInjective (List.length xs) m hl) (List.tailsAllLength m cols hc))
 
 theorem List.transposeNTwice: (w: Nat) -> (h: Nat) -> (rows: List (List a)) -> List.length rows = h -> List.AllLength w rows ->
     List.transposeN h (List.transposeN w rows) = rows
-  | Zero,   h, rows, hl, hr => Eq.trans (List.transposeNNil h) (Eq.sym (List.allLengthZero rows h hl hr))
+  | Zero, h, rows, hl, hr => Eq.trans (List.transposeNNil h) (Eq.sym (List.allLengthZero rows h hl hr))
   | Succ k, h, rows, hl, hr =>
     Eq.trans
       (List.transposeNCons h (List.filterMap (List.get 0) rows) (List.transposeN k (List.map (List.drop 1) rows))
@@ -392,8 +392,8 @@ theorem List.transposeLength (rows: List (List a)): List.length (List.transpose 
 -- and the rows are lost.)
 theorem List.transposeTwice (k: Nat): (rows: List (List a)) -> List.AllLength (Succ k) rows ->
     List.transpose (List.transpose rows) = rows
-  | Nil,        hr          => rfl
-  | Cons r rs,  Both hr hrs =>
+  | Nil, hr => rfl
+  | Cons r rs, Both hr hrs =>
     J (y q => List.transposeN (List.length (List.headOr Nil (List.transposeN y (Cons r rs)))) (List.transposeN y (Cons r rs)) = Cons r rs)
       (List.transposeNTwice (Succ k) (List.length (List.headOr Nil (List.transposeN (Succ k) (Cons r rs)))) (Cons r rs)
         (Eq.sym (List.headsLength k (Cons r rs) (Both hr hrs))) (Both hr hrs))
@@ -407,13 +407,13 @@ def List.splitBy (p: a -> Bool) (xs: List a): List (List a) := List.finishGroups
 -- Reads the list from the right: the group still open at the front, and the
 -- groups finished after it.
 def List.splitGroups (p: a -> Bool): List a -> Pair (List a) (List (List a))
-  | Nil       => MkPair Nil Nil
+  | Nil => MkPair Nil Nil
   | Cons x xs => List.splitStep x (p x) (List.splitGroups p xs)
 
 -- Adds the element `x` in front: a separator (`True`) closes the open group,
 -- anything else joins it.
 def List.splitStep (x: a): Bool -> Pair (List a) (List (List a)) -> Pair (List a) (List (List a))
-  | True,  MkPair cur done => MkPair Nil (List.closeGroup cur done)
+  | True, MkPair cur done => MkPair Nil (List.closeGroup cur done)
   | False, MkPair cur done => MkPair (Cons x cur) done
 
 def List.finishGroups: Pair (List a) (List (List a)) -> List (List a)
@@ -421,25 +421,25 @@ def List.finishGroups: Pair (List a) (List (List a)) -> List (List a)
 
 -- Adds a group to the finished ones, unless it is empty.
 def List.closeGroup: List a -> List (List a) -> List (List a)
-  | Nil,       done => done
+  | Nil, done => done
   | Cons y ys, done => Cons (Cons y ys) done
 
 def List.splitTotal (st: Pair (List a) (List (List a))): Nat := List.length (Pair.fst st) + List.sumBy List.length (Pair.snd st)
 
 theorem List.closeGroupSum: (cur: List a) -> (done: List (List a)) ->
     List.sumBy List.length (List.closeGroup cur done) = List.length cur + List.sumBy List.length done
-  | Nil,       done => rfl
+  | Nil, done => rfl
   | Cons y ys, done => List.sumByCons List.length (Cons y ys) done
 
 theorem List.splitStepTotal (x: a): (b: Bool) -> (st: Pair (List a) (List (List a))) ->
     List.splitTotal (List.splitStep x b st) + Bool.toNat b = Succ (List.splitTotal st)
-  | True,  MkPair cur done =>
+  | True, MkPair cur done =>
     Eq.trans (Nat.addOne (List.sumBy List.length (List.closeGroup cur done))) (Eq.cong Succ (List.closeGroupSum cur done))
   | False, MkPair cur done => Nat.addZero (Succ (List.length cur + List.sumBy List.length done))
 
 theorem List.splitGroupsTotal (p: a -> Bool): (xs: List a) ->
     List.splitTotal (List.splitGroups p xs) + List.occurrences p xs = List.length xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs =>
     Eq.trans (Eq.sym (Nat.addAssoc (List.splitTotal (List.splitStep x (p x) (List.splitGroups p xs))) (Bool.toNat (p x)) (List.occurrences p xs)))
       (Eq.trans (Eq.cong (t => t + List.occurrences p xs) (List.splitStepTotal x (p x) (List.splitGroups p xs)))
@@ -464,7 +464,7 @@ def List.NonSep (p: a -> Bool) (g: List a): Prop := List.all (x => !(p x)) g = T
 
 -- Every group is non-empty and has no separator in it.
 def List.Groups (p: a -> Bool): List (List a) -> Prop
-  | Nil       => Unit
+  | Nil => Unit
   | Cons g gs => And (And (0 < List.length g) (List.NonSep p g)) (List.Groups p gs)
 
 def List.SplitOk (p: a -> Bool): Pair (List a) (List (List a)) -> Prop
@@ -472,7 +472,7 @@ def List.SplitOk (p: a -> Bool): Pair (List a) (List (List a)) -> Prop
 
 theorem List.closeGroupGroups (p: a -> Bool): (cur: List a) -> (done: List (List a)) -> List.NonSep p cur -> List.Groups p done ->
     List.Groups p (List.closeGroup cur done)
-  | Nil,       done, hc, hd => hd
+  | Nil, done, hc, hd => hd
   | Cons y ys, done, hc, hd => Both (Both (Nat.zeroLe (List.length ys)) hc) hd
 
 theorem List.nonSepCons (p: a -> Bool) (x: a) (cur: List a) (h: p x = False) (hc: List.NonSep p cur): List.NonSep p (Cons x cur) :=
@@ -480,11 +480,11 @@ theorem List.nonSepCons (p: a -> Bool) (x: a) (cur: List a) (h: p x = False) (hc
 
 theorem List.splitStepOk (p: a -> Bool) (x: a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) -> List.SplitOk p st ->
     List.SplitOk p (List.splitStep x b st)
-  | True,  e, MkPair cur done, Both hc hd => Both rfl (List.closeGroupGroups p cur done hc hd)
+  | True, e, MkPair cur done, Both hc hd => Both rfl (List.closeGroupGroups p cur done hc hd)
   | False, e, MkPair cur done, Both hc hd => Both (List.nonSepCons p x cur e hc) hd
 
 theorem List.splitGroupsOk (p: a -> Bool): (xs: List a) -> List.SplitOk p (List.splitGroups p xs)
-  | Nil       => Both rfl Trivial
+  | Nil => Both rfl Trivial
   | Cons x xs => List.splitStepOk p x (p x) rfl (List.splitGroups p xs) (List.splitGroupsOk p xs)
 
 theorem List.finishGroupsOk (p: a -> Bool): (st: Pair (List a) (List (List a))) -> List.SplitOk p st -> List.Groups p (List.finishGroups st)
@@ -496,7 +496,7 @@ theorem List.splitByGroups (p: a -> Bool) (xs: List a): List.Groups p (List.spli
 
 theorem List.closeGroupConcat: (cur: List a) -> (done: List (List a)) ->
     List.concat (List.closeGroup cur done) = List.append cur (List.concat done)
-  | Nil,       done => rfl
+  | Nil, done => rfl
   | Cons y ys, done => rfl
 
 def List.SplitKeeps (p: a -> Bool) (xs: List a) (st: Pair (List a) (List (List a))): Prop :=
@@ -504,14 +504,14 @@ def List.SplitKeeps (p: a -> Bool) (xs: List a) (st: Pair (List a) (List (List a
 
 theorem List.splitStepKeeps (p: a -> Bool) (x: a) (xs: List a): (b: Bool) -> p x = b -> (st: Pair (List a) (List (List a))) ->
     List.SplitKeeps p xs st -> List.SplitKeeps p (Cons x xs) (List.splitStep x b st)
-  | True,  e, MkPair cur done, h =>
+  | True, e, MkPair cur done, h =>
     Eq.trans (List.closeGroupConcat cur done)
       (Eq.trans h (Eq.sym (List.filterSkip (z => !(p z)) x xs (Eq.cong Bool.not e))))
   | False, e, MkPair cur done, h =>
     Eq.trans (Eq.cong (Cons x) h) (Eq.sym (List.filterKeep (z => !(p z)) x xs (Eq.cong Bool.not e)))
 
 theorem List.splitGroupsKeeps (p: a -> Bool): (xs: List a) -> List.SplitKeeps p xs (List.splitGroups p xs)
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => List.splitStepKeeps p x xs (p x) rfl (List.splitGroups p xs) (List.splitGroupsKeeps p xs)
 
 theorem List.finishGroupsConcat: (st: Pair (List a) (List (List a))) ->
@@ -537,7 +537,7 @@ theorem Add.addSwap [auto add: Add a] (w: a) (x: a) (y: a) (z: a): (w + x) + (y 
     _ = (w + y) + (x + z) := Eq.sym (add.assoc w y (x + z))
 
 theorem List.sumByFrom [auto add: Add b] (f: a -> b): (z: b) -> (xs: List a) -> List.foldLeft (acc x => acc + f x) z xs = z + List.sumBy f xs
-  | z, Nil       => Eq.sym (Add.addZero z)
+  | z, Nil => Eq.sym (Add.addZero z)
   | z, Cons x xs =>
     calc List.foldLeft (acc x => acc + f x) (z + f x) xs
       _ = (z + f x) + List.sumBy f xs := List.sumByFrom f (z + f x) xs
@@ -559,24 +559,24 @@ theorem List.filterSkip (p: a -> Bool) (x: a) (xs: List a) (h: p x = False): Lis
 
 theorem List.foldLeftAppend (f: b -> a -> b): (z: b) -> (xs: List a) -> (ys: List a) ->
     List.foldLeft f z (List.append xs ys) = List.foldLeft f (List.foldLeft f z xs) ys
-  | z, Nil,       ys => rfl
+  | z, Nil, ys => rfl
   | z, Cons x xs, ys => List.foldLeftAppend f (f z x) xs ys
 
 -- Appending and taking; sums of `Nat.keepIf` terms, which pick out some
 -- elements; swapping two sums; sums and `any` over a run `s .. s + c` that
 -- pick nothing or exactly one element.
 theorem List.appendNil: (xs: List a) -> List.append xs Nil = xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => Eq.cong (Cons x) (List.appendNil xs)
 
 theorem List.appendAssoc: (xs: List a) -> (ys: List a) -> (zs: List a) -> List.append (List.append xs ys) zs = List.append xs (List.append ys zs)
-  | Nil,       ys, zs => rfl
+  | Nil, ys, zs => rfl
   | Cons x xs, ys, zs => Eq.cong (Cons x) (List.appendAssoc xs ys zs)
 
 -- How many elements satisfy `p` (as `List.count`, but recursing on the list,
 -- which suits proofs).
 def List.occurrences (p: a -> Bool): List a -> Nat
-  | Nil       => 0
+  | Nil => 0
   | Cons x xs => Bool.toNat (p x) + List.occurrences p xs
 
 -- `List.count` is a fold with an accumulator; `List.occurrences` recurses on
@@ -590,18 +590,18 @@ theorem Nat.addRotate (a: Nat) (b: Nat) (c: Nat): (a + b) + c = b + (a + c) := E
 theorem Nat.addLeftComm (a: Nat) (b: Nat) (c: Nat): a + (b + c) = b + (a + c) := Eq.trans (Eq.sym (Nat.addAssoc a b c)) (Nat.addRotate a b c)
 
 theorem List.countStep: (b: Bool) -> (k: Nat) -> (o: Nat) -> Nat.succIf k b + o = k + (Bool.toNat b + o)
-  | True,  k, o => Eq.sym (Nat.addSucc k o)
+  | True, k, o => Eq.sym (Nat.addSucc k o)
   | False, k, o => rfl
 
 theorem List.countFold (p: a -> Bool) (k: Nat): (xs: List a) ->
     List.foldLeft (n x => Nat.succIf n (p x)) k xs = k + List.occurrences p xs
-  | Nil       => Eq.sym (Nat.addZero k)
+  | Nil => Eq.sym (Nat.addZero k)
   | Cons x xs => Eq.trans (List.countFold p (Nat.succIf k (p x)) xs) (List.countStep (p x) k (List.occurrences p xs))
 
 theorem List.countOccurrences (p: a -> Bool) (xs: List a): List.count p xs = List.occurrences p xs := List.countFold p 0 xs
 
 theorem List.occurrencesSumBy (p: a -> Bool): (xs: List a) -> List.occurrences p xs = List.sumBy (x => Bool.toNat (p x)) xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => rewrite List.sumByCons (x => Bool.toNat (p x)) x xs, List.occurrencesSumBy p xs
 
 -- A count is a sum of 1s and 0s, so the sum lemmas apply to it.
@@ -610,7 +610,7 @@ theorem List.countSumBy (p: a -> Bool) (xs: List a): List.count p xs = List.sumB
 
 theorem List.occurrencesAppend (p: a -> Bool): (xs: List a) -> (ys: List a) ->
     List.occurrences p (List.append xs ys) = List.occurrences p xs + List.occurrences p ys
-  | Nil,       ys => rfl
+  | Nil, ys => rfl
   | Cons x xs, ys =>
     Eq.trans (Eq.cong (t => Bool.toNat (p x) + t) (List.occurrencesAppend p xs ys))
       (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p ys)))
@@ -627,12 +627,12 @@ theorem List.countAppend (p: a -> Bool) (xs: List a) (ys: List a): List.count p 
         (Eq.cong (n => List.count p xs + n) (Eq.sym (List.countOccurrences p ys)))))
 
 theorem List.scanLeftCons (f: b -> a -> b) (z: b): (xs: List a) -> List.scanLeft f z xs = Cons z (List.drop 1 (List.scanLeft f z xs))
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => rfl
 
 theorem List.scanLeftAppend (f: b -> a -> b) (z: b): (xs: List a) -> (ys: List a) ->
     List.drop 1 (List.scanLeft f z (List.append xs ys)) = List.append (List.drop 1 (List.scanLeft f z xs)) (List.drop 1 (List.scanLeft f (List.foldLeft f z xs) ys))
-  | Nil,       ys => rfl
+  | Nil, ys => rfl
   | Cons x xs, ys =>
     Eq.trans (List.scanLeftCons f (f z x) (List.append xs ys))
       (Eq.trans (Eq.cong (Cons (f z x)) (List.scanLeftAppend f (f z x) xs ys))
@@ -651,7 +651,7 @@ theorem List.permSym (xs: List a) (ys: List a) (h: List.Perm xs ys): List.Perm y
 theorem List.permTrans (xs: List a) (ys: List a) (zs: List a) (h1: List.Perm xs ys) (h2: List.Perm ys zs): List.Perm xs zs := p => Eq.trans (h1 p) (h2 p)
 
 theorem List.occurrencesTrue: (xs: List a) -> List.occurrences (x => True) xs = List.length xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => Eq.cong Succ (List.occurrencesTrue xs)
 
 theorem List.permLength (xs: List a) (ys: List a) (h: List.Perm xs ys): List.length xs = List.length ys := Eq.trans (Eq.sym (List.occurrencesTrue xs)) (Eq.trans (h (x => True)) (List.occurrencesTrue ys))
@@ -659,7 +659,7 @@ theorem List.permLength (xs: List a) (ys: List a) (h: List.Perm xs ys): List.len
 -- Some element passes `p` exactly when at least one does, so permutations
 -- agree on `any`.
 theorem List.anyOccurrences (p: a -> Bool): (xs: List a) -> List.any p xs = Nat.leq 1 (List.occurrences p xs)
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs =>
     Bool.inspect (p x) (c => Bool.ifThenElse c (u => True) (u => List.any p xs) = Nat.leq 1 (Bool.toNat c + List.occurrences p xs))
       (t => rfl) (f => List.anyOccurrences p xs)
@@ -670,7 +670,7 @@ theorem List.anyPerm (p: a -> Bool) (xs: List a) (ys: List a) (h: List.Perm xs y
 -- Reversing is a permutation, and keeps sums.
 theorem List.occurrencesReverseOnto (p: a -> Bool): (xs: List a) -> (acc: List a) ->
     List.occurrences p (List.reverseOnto xs acc) = List.occurrences p xs + List.occurrences p acc
-  | Nil,       acc => rfl
+  | Nil, acc => rfl
   | Cons x xs, acc =>
     Eq.trans (List.occurrencesReverseOnto p xs (Cons x acc))
       (Eq.trans (Nat.addLeftComm (List.occurrences p xs) (Bool.toNat (p x)) (List.occurrences p acc))
@@ -681,7 +681,7 @@ theorem List.reversePerm (xs: List a): List.Perm (List.reverse xs) xs := p =>
 
 theorem List.sumByReverseOnto (f: a -> Nat): (xs: List a) -> (acc: List a) ->
     List.sumBy f (List.reverseOnto xs acc) = List.sumBy f xs + List.sumBy f acc
-  | Nil,       acc => rfl
+  | Nil, acc => rfl
   | Cons x xs, acc =>
     Eq.trans (List.sumByReverseOnto f xs (Cons x acc))
       (Eq.trans (Eq.cong (t => List.sumBy f xs + t) (List.sumByCons f x acc))
@@ -694,14 +694,14 @@ theorem List.sumByReverse (f: a -> Nat) (xs: List a): List.sumBy f (List.reverse
 
 -- Counting with a test nothing passes, and with either of two tests.
 theorem List.occurrencesNone (p: a -> Bool) (h: (x: a) -> p x = False): (xs: List a) -> List.occurrences p xs = 0
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences p xs) (h x)) (List.occurrencesNone p h xs)
 
 -- When nothing passes both `p` and `q`, the elements passing either are those
 -- passing `p` plus those passing `q`.
 theorem List.occurrencesOr (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = False): (xs: List a) ->
     List.occurrences (x => p x || q x) xs = List.occurrences p xs + List.occurrences q xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs =>
     Bool.inspect (p x)
       (c => Bool.toNat (c || q x) + List.occurrences (x => p x || q x) xs
@@ -715,64 +715,64 @@ theorem List.occurrencesOr (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = Tru
 -- element of `s` is matched with an element of `xs`, or `xs`'s first element
 -- is skipped.
 def List.Subsequence: List a -> List a -> Prop
-  | Nil,       ys        => Unit
-  | Cons x xs, Nil       => Void
+  | Nil, ys => Unit
+  | Cons x xs, Nil => Void
   | Cons x xs, Cons y ys => Or (And (x = y) (List.Subsequence xs ys)) (List.Subsequence (Cons x xs) ys)
 
 -- Lemmas for proofs about grids: runs' lengths, `map` and `filterMap` fused,
 -- `init`, `last` and `reverse` of a `map`, and transposing a grid given cell
 -- by cell.
 theorem List.lengthRangeFrom: (n: Nat) -> (s: Nat) -> List.length (List.rangeFrom n s) = n
-  | Zero,   s => rfl
+  | Zero, s => rfl
   | Succ n, s => rewrite List.lengthRangeFrom n (Succ s)
 
 theorem List.mapMap (f: b -> c) (g: a -> b): (xs: List a) -> List.map f (List.map g xs) = List.map (x => f (g x)) xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => rewrite List.mapMap f g xs
 
 theorem List.filterMapMap (f: b -> Option c) (g: a -> b): (xs: List a) -> List.filterMap f (List.map g xs) = List.filterMap (x => f (g x)) xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => rewrite List.filterMapMap f g xs
 
 theorem List.filterMapSome (f: a -> b): (xs: List a) -> List.filterMap (x => Some (f x)) xs = List.map f xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => rewrite List.filterMapSome f xs
 
 theorem List.filterMapAppend (f: a -> Option b): (xs: List a) -> (ys: List a) ->
     List.filterMap f (List.append xs ys) = List.append (List.filterMap f xs) (List.filterMap f ys)
-  | Nil,       ys => rfl
+  | Nil, ys => rfl
   | Cons x xs, ys =>
     match f x with
       | None => List.filterMapAppend f xs ys
-      | Some y  => rewrite List.filterMapAppend f xs ys
+      | Some y => rewrite List.filterMapAppend f xs ys
 
 theorem List.initMap (f: a -> b): (xs: List a) -> List.init (List.map f xs) = List.map f (List.init xs)
-  | Nil                => rfl
-  | Cons x Nil         => rfl
+  | Nil => rfl
+  | Cons x Nil => rfl
   | Cons x (Cons y ys) => rewrite List.initMap f (Cons y ys)
 
 theorem List.lastMap (f: a -> b): (xs: List a) -> List.last (List.map f xs) = Option.map f (List.last xs)
-  | Nil                => rfl
-  | Cons x Nil         => rfl
+  | Nil => rfl
+  | Cons x Nil => rfl
   | Cons x (Cons y ys) => List.lastMap f (Cons y ys)
 theorem List.mapRangeShift (f: Nat -> b): (n: Nat) -> (s: Nat) ->
     List.map f (List.rangeFrom n (Succ s)) = List.map (i => f (Succ i)) (List.rangeFrom n s)
-  | Zero,   s => rfl
+  | Zero, s => rfl
   | Succ n, s => rewrite List.mapRangeShift f n (Succ s)
 
 -- Transposing a grid given cell by cell: row x, column y becomes row y, column x.
 theorem List.transposeNGrid (cell: a -> b -> c) (rows: List a): (cols: List b) ->
     List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) rows) = List.map (y => List.map (x => cell x y) rows) cols
-  | Nil         => rfl
+  | Nil => rfl
   | Cons y cols =>
     calc List.transposeN (Succ (List.length cols)) (List.map (x => List.map (cell x) (Cons y cols)) rows)
       _ = Cons (List.filterMap (List.get 0) (List.map (x => List.map (cell x) (Cons y cols)) rows))
-               (List.transposeN (List.length cols) (List.map (List.drop 1) (List.map (x => List.map (cell x) (Cons y cols)) rows)))
+        (List.transposeN (List.length cols) (List.map (List.drop 1) (List.map (x => List.map (cell x) (Cons y cols)) rows)))
       _ = Cons (List.filterMap (x => Some (cell x y)) rows) (List.transposeN (List.length cols) (List.map (x => List.map (cell x) cols) rows))
-          := rewrite List.filterMapMap (List.get 0) (x => List.map (cell x) (Cons y cols)) rows,
-                     List.mapMap (List.drop 1) (x => List.map (cell x) (Cons y cols)) rows
+        := rewrite List.filterMapMap (List.get 0) (x => List.map (cell x) (Cons y cols)) rows,
+          List.mapMap (List.drop 1) (x => List.map (cell x) (Cons y cols)) rows
       _ = Cons (List.map (x => cell x y) rows) (List.map (z => List.map (x => cell x z) rows) cols)
-          := rewrite List.filterMapSome (x => cell x y) rows, List.transposeNGrid cell rows cols
+        := rewrite List.filterMapSome (x => cell x y) rows, List.transposeNGrid cell rows cols
 
 theorem List.transposeGrid (cell: a -> b -> c) (r: a) (rows: List a) (cols: List b):
     List.transpose (List.map (x => List.map (cell x) cols) (Cons r rows)) = List.map (y => List.map (x => cell x y) (Cons r rows)) cols :=
@@ -783,7 +783,7 @@ theorem List.transposeGrid (cell: a -> b -> c) (r: a) (rows: List a) (cols: List
 
 theorem List.mapReverseOnto (f: a -> b): (xs: List a) -> (acc: List a) ->
     List.map f (List.reverseOnto xs acc) = List.reverseOnto (List.map f xs) (List.map f acc)
-  | Nil,       acc => rfl
+  | Nil, acc => rfl
   | Cons x xs, acc => List.mapReverseOnto f xs (Cons x acc)
 
 theorem List.mapReverse (f: a -> b) (xs: List a): List.map f (List.reverse xs) = List.reverse (List.map f xs) := List.mapReverseOnto f xs Nil
@@ -794,23 +794,23 @@ theorem List.mapReverse (f: a -> b) (xs: List a): List.map f (List.reverse xs) =
 -- (docs/proposals/well-founded-recursion.md, stage 3a): `F`'s parameters in
 -- order, each callback twice, then `(x…) -> f1 x… = f2 x…` for each.
 theorem List.mapCong (f1: a -> b) (f2: a -> b): (xs: List a) -> ((x: a) -> f1 x = f2 x) -> List.map f1 xs = List.map f2 xs
-  | Nil,       ef => rfl
+  | Nil, ef => rfl
   | Cons x xs, ef => Eq.trans (Eq.cong (y => Cons y (List.map f1 xs)) (ef x)) (Eq.cong (ys => Cons (f2 x) ys) (List.mapCong f1 f2 xs ef))
 
 theorem List.filterMapCong (f1: a -> Option b) (f2: a -> Option b): (xs: List a) -> ((x: a) -> f1 x = f2 x) -> List.filterMap f1 xs = List.filterMap f2 xs
-  | Nil,       ef => rfl
+  | Nil, ef => rfl
   | Cons x xs, ef => rewrite ef x, List.filterMapCong f1 f2 xs ef
 
 theorem List.occurrencesCong (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> p1 x = p2 x) ->
     List.occurrences p1 xs = List.occurrences p2 xs
-  | Nil,       ep => rfl
+  | Nil, ep => rfl
   | Cons x xs, ep =>
     Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences p1 xs) (ep x))
       (Eq.cong (n => Bool.toNat (p2 x) + n) (List.occurrencesCong p1 p2 xs ep))
 
 theorem List.foldLeftCong (f1: b -> a -> b) (f2: b -> a -> b): (z: b) -> (xs: List a) -> ((acc: b) -> (x: a) -> f1 acc x = f2 acc x) ->
     List.foldLeft f1 z xs = List.foldLeft f2 z xs
-  | z, Nil,       ef => rfl
+  | z, Nil, ef => rfl
   | z, Cons x xs, ef => Eq.trans (Eq.cong (t => List.foldLeft f1 t xs) (ef z x)) (List.foldLeftCong f1 f2 (f2 z x) xs ef)
 
 theorem List.sumByCong [auto add: Add b] (f1: a -> b) (f2: a -> b) (xs: List a) (ef: (x: a) -> f1 x = f2 x): List.sumBy f1 xs = List.sumBy f2 xs :=
@@ -818,13 +818,13 @@ theorem List.sumByCong [auto add: Add b] (f1: a -> b) (f2: a -> b) (xs: List a) 
 
 theorem Option.flatMapMap (g: b -> Option c) (f: a -> b): (m: Option a) -> Option.flatMap g (Option.map f m) = Option.flatMap (x => g (f x)) m
   | None => rfl
-  | Some x  => rfl
+  | Some x => rfl
 
 theorem List.lengthZipWith3 (f: a -> b -> c -> e): (xs: List a) -> (ys: List b) -> (zs: List c) ->
     List.length ys = List.length xs -> List.length zs = List.length xs -> List.length (List.zipWith3 f xs ys zs) = List.length xs
-  | Nil,       ys,        zs,        h1, h2 => rfl
-  | Cons x xs, Nil,       zs,        h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
-  | Cons x xs, Cons y ys, Nil,       h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
+  | Nil, ys, zs, h1, h2 => rfl
+  | Cons x xs, Nil, zs, h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
+  | Cons x xs, Cons y ys, Nil, h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
   | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
     rewrite List.lengthZipWith3 f xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2)
 
@@ -838,7 +838,7 @@ def List.Disjoint (xs: List a) (ys: List a): Prop := List.All (x => Not (List.Me
 
 -- No element occurs twice.
 def List.Distinct: List a -> Prop
-  | Nil       => Unit
+  | Nil => Unit
   | Cons x xs => And (Not (List.Mem x xs)) (List.Distinct xs)
 
 theorem List.distinctNil: List.Distinct (Nil: List a) := Trivial
@@ -847,7 +847,7 @@ theorem List.distinctCons (x: a) (xs: List a) (h: Not (List.Mem x xs)) (d: List.
 
 -- An element of two lists joined is in one of them.
 theorem List.memAppend (x: a): (xs: List a) -> (ys: List a) -> List.Mem x (List.append xs ys) -> Or (List.Mem x xs) (List.Mem x ys)
-  | Nil,       ys, h => Inr h
+  | Nil, ys, h => Inr h
   | Cons z zs, ys, Inl h => Inl (Inl h)
   | Cons z zs, ys, Inr h =>
     match List.memAppend x zs ys h with
@@ -856,33 +856,33 @@ theorem List.memAppend (x: a): (xs: List a) -> (ys: List a) -> List.Mem x (List.
 
 -- `f x` is in `List.map f xs` only if `x` is in `xs`, for an injective `f`.
 theorem List.memMapInjective (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y) (x: a): (xs: List a) -> List.Mem (f x) (List.map f xs) -> List.Mem x xs
-  | Nil,       h => h
+  | Nil, h => h
   | Cons z zs, Inl h => Inl (inj z x h)
   | Cons z zs, Inr h => Inr (List.memMapInjective f inj x zs h)
 
 -- If `x` is in `xs`, `f x` is in `List.map f xs`.
 theorem List.memMap (f: a -> b) (x: a): (xs: List a) -> List.Mem x xs -> List.Mem (f x) (List.map f xs)
-  | Nil,       h => h
+  | Nil, h => h
   | Cons z zs, Inl h => Inl (Eq.cong f h)
   | Cons z zs, Inr h => Inr (List.memMap f x zs h)
 
 -- Use "some element satisfies `p`": take that element, know it is in the
 -- list, and carry on to the goal. (The library has no `Exists`.)
 theorem List.anyElim (p: a -> Prop) (goal: Prop): (xs: List a) -> List.Any p xs -> ((x: a) -> List.Mem x xs -> p x -> goal) -> goal
-  | Nil,       h,     k => Void.exfalso h
+  | Nil, h, k => Void.exfalso h
   | Cons z zs, Inl h, k => k z (Inl rfl) h
   | Cons z zs, Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
 
 -- What is in `List.map f xs` is `f x` for some `x` in `xs` (said with
 -- `List.Any`, which also says where `x` is: `Exists` wouldn't).
 theorem List.memMapAny (f: a -> b) (y: b): (xs: List a) -> List.Mem y (List.map f xs) -> List.Any (x => f x = y) xs
-  | Nil,       h => h
+  | Nil, h => h
   | Cons z zs, Inl h => Inl h
   | Cons z zs, Inr h => Inr (List.memMapAny f y zs h)
 
 -- What `List.filter p` keeps was in the list, and passes `p`.
 theorem List.memFilter (p: a -> Bool) (x: a): (xs: List a) -> List.Mem x (List.filter p xs) -> And (List.Mem x xs) (p x = True)
-  | Nil,       h => Void.exfalso h
+  | Nil, h => Void.exfalso h
   | Cons y ys, h =>
     match e: p y with
       | True =>
@@ -898,7 +898,7 @@ theorem List.memFilter (p: a -> Bool) (x: a): (xs: List a) -> List.Mem x (List.f
 -- The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 -- including, `s + c`.
 theorem List.memRangeFrom (x: Nat): (c: Nat) -> (s: Nat) -> List.Mem x (List.rangeFrom c s) -> And (s <= x) (x < s + c)
-  | Zero,   s, h => Void.exfalso h
+  | Zero, s, h => Void.exfalso h
   | Succ c, s, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
   | Succ c, s, Inr m =>
     match List.memRangeFrom x c (Succ s) m with
@@ -913,10 +913,10 @@ theorem List.memBetween [x lo hi: Nat] (h: List.Mem x (List.between lo hi)): And
 -- The other way: every number from `s` up to, not including, `s + c` is in
 -- the run `List.rangeFrom c s`.
 theorem List.memRangeFromIntro (x: Nat): (c: Nat) -> (s: Nat) -> s <= x -> x < s + c -> List.Mem x (List.rangeFrom c s)
-  | Zero,   s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
+  | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
   | Succ c, s, lo, hi =>
     match e: Nat.leq (Succ s) x with
-      | True  => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
+      | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
       | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
 
 -- And for `List.between lo hi`: every number from `lo` to `hi`, both included.
@@ -928,13 +928,13 @@ theorem List.memBetweenIntro (x: Nat) (lo: Nat) (hi: Nat) (above: lo <= x) (belo
 
 -- A list's `flatMap`: an element of `f x` for an `x` of the list is in it.
 theorem List.memFlatMapIntro (f: a -> List b) (x: a) (y: b): (xs: List a) -> List.Mem x xs -> List.Mem y (f x) -> List.Mem y (List.flatMap xs f)
-  | Nil,       h, m => Void.exfalso h
+  | Nil, h, m => Void.exfalso h
   | Cons z zs, Inl h, m => List.anyAppendLeft (w => w = y) (f z) (List.concat (List.map f zs)) (rewrite h in m)
   | Cons z zs, Inr h, m => List.anyAppendRight (w => w = y) (f z) (List.concat (List.map f zs)) (List.memFlatMapIntro f x y zs h m)
 
 -- And back: what is in a `flatMap` is in `f x` for some `x` of the list.
 theorem List.memFlatMapElim (f: a -> List b) (y: b): (xs: List a) -> List.Mem y (List.flatMap xs f) -> List.Any (x => List.Mem y (f x)) xs
-  | Nil,       h => h
+  | Nil, h => h
   | Cons z zs, h =>
     match List.memAppend y (f z) (List.concat (List.map f zs)) h with
       | Inl m => Inl m
@@ -942,32 +942,32 @@ theorem List.memFlatMapElim (f: a -> List b) (y: b): (xs: List a) -> List.Mem y 
 
 -- Mapping an injective function keeps a list distinct.
 theorem List.distinctMap (f: a -> b) (inj: (x: a) -> (y: a) -> f x = f y -> x = y): (xs: List a) -> List.Distinct xs -> List.Distinct (List.map f xs)
-  | Nil,       d => Trivial
+  | Nil, d => Trivial
   | Cons x xs, Both h d => Both (m => h (List.memMapInjective f inj x xs m)) (List.distinctMap f inj xs d)
 
 -- Two distinct lists with no element in common, joined, are distinct.
 theorem List.distinctAppend: (xs: List a) -> (ys: List a) -> List.Distinct xs -> List.Distinct ys -> List.Disjoint xs ys -> List.Distinct (List.append xs ys)
-  | Nil,       ys, dx, dy, dj => dy
+  | Nil, ys, dx, dy, dj => dy
   | Cons x xs, ys, Both hx dx, dy, Both hj dj =>
     Both
       (m => match List.memAppend x xs ys m with
-              | Inl inXs => hx inXs
-              | Inr inYs => hj inYs)
+        | Inl inXs => hx inXs
+        | Inr inYs => hj inYs)
       (List.distinctAppend xs ys dx dy dj)
 
 -- A run of numbers has no repeats.
 theorem List.distinctRangeFrom: (c: Nat) -> (s: Nat) -> List.Distinct (List.rangeFrom c s)
-  | Zero,   s => Trivial
+  | Zero, s => Trivial
   | Succ c, s =>
     Both (m => match List.memRangeFrom s c (Succ s) m with
-                 | Both above _ => Nat.lessIrrefl s above)
-         (List.distinctRangeFrom c (Succ s))
+        | Both above _ => Nat.lessIrrefl s above)
+      (List.distinctRangeFrom c (Succ s))
 
 theorem List.distinctBetween (lo: Nat) (hi: Nat): List.Distinct (List.between lo hi) := List.distinctRangeFrom (hi + 1 - lo) lo
 
 -- Every element of the list passes, given that each element that is in it does.
 theorem List.allOfMem (p: a -> Prop): (xs: List a) -> ((x: a) -> List.Mem x xs -> p x) -> List.All p xs
-  | Nil,       h => Trivial
+  | Nil, h => Trivial
   | Cons z zs, h => Both (h z (Inl rfl)) (List.allOfMem p zs (x inZs => h x (Inr inZs)))
 
 -- A `flatMap` of distinct lists has no repeats if the list mapped over has none
@@ -976,7 +976,7 @@ theorem List.distinctFlatMap (f: a -> List b) (key: b -> a): (xs: List a) -> Lis
     ((x: a) -> List.Mem x xs -> List.Distinct (f x)) ->
     ((x: a) -> List.Mem x xs -> (y: b) -> List.Mem y (f x) -> key y = x) ->
     List.Distinct (List.flatMap xs f)
-  | Nil,       d, distinctEach, keyed => Trivial
+  | Nil, d, distinctEach, keyed => Trivial
   | Cons x xs, Both notLater later, distinctEach, keyed =>
     List.distinctAppend (f x) (List.flatMap xs f)
       (distinctEach x (Inl rfl))
@@ -989,9 +989,9 @@ theorem List.distinctFlatMap (f: a -> List b) (key: b -> a): (xs: List a) -> Lis
 
 theorem List.distinctExample: List.Distinct [1, 2] :=
   Both (m => match m with
-               | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
-               | Inr v => v)
-       (Both (m => m) Trivial)
+      | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+      | Inr v => v)
+    (Both (m => m) Trivial)
 
 theorem List.distinctMapExample: List.Distinct (List.map Succ [1, 2]) :=
   List.distinctMap Succ (x y p => Nat.succInjective x y p) [1, 2] List.distinctExample
@@ -1006,15 +1006,15 @@ theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
     (Both (m => m) Trivial)
     (Both (m => m) Trivial)
     (Both (m => match m with
-                  | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
-                  | Inr v => v) Trivial)
+      | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+      | Inr v => v) Trivial)
 
 -- Mapping with a state threaded left to right (Haskell's `mapAccumL`).
 -- `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
 -- The function takes the state and an element and gives the next state and
 -- the mapped element; the result is the final state and the mapped list.
 def List.mapAccumLeftGo (f: s -> a -> Pair s b) (z: s): List a -> Pair s (List b)
-  | Nil       => MkPair z Nil
+  | Nil => MkPair z Nil
   | Cons x xs => List.mapAccumLeftStep f xs (f z x)
 
 def List.mapAccumLeftStep (f: s -> a -> Pair s b) (xs: List a): Pair s b -> Pair s (List b)
@@ -1030,43 +1030,43 @@ def List.unzipCons (x: a) (y: b): Pair (List a) (List b) -> Pair (List a) (List 
   | MkPair xs ys => MkPair (Cons x xs) (Cons y ys)
 
 def List.unzip: List (Pair a b) -> Pair (List a) (List b)
-  | Nil                  => MkPair Nil Nil
+  | Nil => MkPair Nil Nil
   | Cons (MkPair x y) ps => List.unzipCons x y (List.unzip ps)
 
 -- Dropping elements never makes a list longer.
 theorem List.lengthDropLe: (n: Nat) -> (xs: List a) -> List.length (List.drop n xs) <= List.length xs
-  | Zero,   xs        => Nat.leRefl (List.length xs)
-  | Succ n, Nil       => rfl
+  | Zero, xs => Nat.leRefl (List.length xs)
+  | Succ n, Nil => rfl
   | Succ n, Cons x xs => Nat.leTrans (List.length (List.drop n xs)) (List.length xs) (Succ (List.length xs)) (List.lengthDropLe n xs) (Nat.leSucc (List.length xs))
 
 -- Dropping at least one element of a non-empty list leaves a shorter list.
 theorem List.dropConsLess: (n: Nat) -> (x: a) -> (xs: List a) -> n != 0 -> List.length (List.drop n (Cons x xs)) < List.length (Cons x xs)
-  | Zero,   x, xs, h => Void.exfalso (h rfl)
+  | Zero, x, xs, h => Void.exfalso (h rfl)
   | Succ n, x, xs, h => Nat.leLessSucc (List.length (List.drop n xs)) (List.length xs) (List.lengthDropLe n xs)
 
 -- Chunks of `n` elements, in order; the last chunk is shorter when `n` doesn't
 -- divide the length. `n = 0` is no sensible chunk size, so it gives the whole
 -- list as one chunk (`[xs]`, or `[]` for an empty `xs`).
 def List.chunksOfPositive (n: Nat) (xs: List a) [auto pos: n != 0]: List (List a)
-  decreasing List.length xs
+    decreasing List.length xs
 :=
   match xs with
-    | Nil       => Nil
+    | Nil => Nil
     | Cons y ys => Cons (List.take n (Cons y ys)) (List.chunksOfPositive n (List.drop n (Cons y ys)) [decreasing := List.dropConsLess n y ys pos])
 
 -- `xs` is the main value: `xs.chunksOf 2`. `[1, 2, 3].chunksOf 2` is
 -- `[[1, 2], [3]]`.
 def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
   match n with
-    | Zero   => match xs with
-                  | Nil       => Nil
-                  | Cons y ys => Cons (Cons y ys) Nil
+    | Zero => match xs with
+      | Nil => Nil
+      | Cons y ys => Cons (Cons y ys) Nil
     | Succ k => List.chunksOfPositive (Succ k) xs
 
 -- The elements without repeats, keeping the first occurrence of each and the
 -- order. `seen` is what came before. Needs `DecEq`; quadratic.
 def List.distinctFrom [auto eq: DecEq a] (seen: List a): List a -> List a
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => if List.any (y => y == x) seen then List.distinctFrom seen xs else Cons x (List.distinctFrom (Cons x seen) xs)
 
 -- `xs` is the main value: `xs.distinct`. `[3, 1, 3, 2, 1].distinct` is `[3, 1, 2]`.
@@ -1091,34 +1091,34 @@ test "List.distinct empty" := (Nil: List Nat).distinct == Nil
 -- Clojure's `max-key` return the last one, so a port must not assume they agree.)
 def List.maxByStep [auto ord: Ord b] (f: a -> b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
   | Less => x
-  | _    => best
+  | _ => best
 
 def List.maxBy [auto ord: Ord b] (xs: List a) (f: a -> b): Option a :=
   match xs with
-    | Nil       => None
+    | Nil => None
     | Cons x ys => Some (List.foldLeft (best y => List.maxByStep f best y) x ys)
 
 -- The element with the smallest key; on a tie the FIRST one wins, as for
 -- `List.maxBy`.
 def List.minByStep [auto ord: Ord b] (f: a -> b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with
   | Greater => x
-  | _       => best
+  | _ => best
 
 def List.minBy [auto ord: Ord b] (xs: List a) (f: a -> b): Option a :=
   match xs with
-    | Nil       => None
+    | Nil => None
     | Cons x ys => Some (List.foldLeft (best y => List.minByStep f best y) x ys)
 
 -- The longest prefix of elements satisfying `p`.
 def List.takeWhile (xs: List a) (p: a -> Bool): List a :=
   match xs with
-    | Nil       => Nil
+    | Nil => Nil
     | Cons x ys => if p x then Cons x (List.takeWhile ys p) else Nil
 
 -- What is left after `List.takeWhile`: from the first element not satisfying `p`.
 def List.dropWhile (xs: List a) (p: a -> Bool): List a :=
   match xs with
-    | Nil       => Nil
+    | Nil => Nil
     | Cons x ys => if p x then List.dropWhile ys p else Cons x ys
 
 def List.spanCons (x: a): Pair (List a) (List a) -> Pair (List a) (List a)
@@ -1127,7 +1127,7 @@ def List.spanCons (x: a): Pair (List a) (List a) -> Pair (List a) (List a)
 -- `List.takeWhile` and `List.dropWhile` together, in one pass.
 def List.span (xs: List a) (p: a -> Bool): Pair (List a) (List a) :=
   match xs with
-    | Nil       => MkPair Nil Nil
+    | Nil => MkPair Nil Nil
     | Cons x ys => if p x then List.spanCons x (List.span ys p) else MkPair Nil (Cons x ys)
 
 -- The first `n` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
@@ -1139,19 +1139,19 @@ def List.dropRight (xs: List a) (n: Nat): List a := List.take (List.length xs - 
 -- Every suffix, longest first, ending with the empty list:
 -- `[1, 2].tails` is `[[1, 2], [2], []]`.
 def List.tails: List a -> List (List a)
-  | Nil       => Cons Nil Nil
+  | Nil => Cons Nil Nil
   | Cons x xs => Cons (Cons x xs) (List.tails xs)
 
 -- The index of the first element satisfying `p`.
 def List.findIndexFrom (i: Nat) (p: a -> Bool): List a -> Option Nat
-  | Nil       => None
+  | Nil => None
   | Cons x xs => if p x then Some i else List.findIndexFrom (Succ i) p xs
 
 def List.findIndex (xs: List a) (p: a -> Bool): Option Nat := List.findIndexFrom 0 p xs
 
 -- Each element with its index from `i`.
 def List.withIndexFrom (i: Nat): List a -> List (Pair Nat a)
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => Cons (MkPair i x) (List.withIndexFrom (Succ i) xs)
 
 -- Pairs each element with its position, counting from 0, the position first
@@ -1161,7 +1161,7 @@ def List.withIndex (xs: List a): List (Pair Nat a) := List.withIndexFrom 0 xs
 -- The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`).
 def List.findMap (xs: List a) (f: a -> Option b): Option b :=
   match xs with
-    | Nil       => None
+    | Nil => None
     | Cons x ys => Option.orElse (f x) (List.findMap ys f)
 
 -- Maps, then joins: `xs.flatMap f` is `List.concat (List.map f xs)`.
@@ -1174,11 +1174,11 @@ def List.cross (xs: List a) (ys: List b): List (Pair a b) := List.flatMap xs (x 
 -- Every element with each later one, in order: `[1, 2, 3].pairs` is
 -- `[(1, 2), (1, 3), (2, 3)]`. A list of n elements has n(n - 1)/2 of them.
 def List.pairs: List a -> List (Pair a a)
-  | Nil       => Nil
+  | Nil => Nil
   | Cons x xs => List.append (List.map (y => MkPair x y) xs) (List.pairs xs)
 
 theorem List.lengthTails: (xs: List a) -> List.length (List.tails xs) = Succ (List.length xs)
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => Eq.cong Succ (List.lengthTails xs)
 
 theorem List.splitAtFst (xs: List a) (n: Nat): Pair.fst (List.splitAt xs n) = List.take n xs := rfl
@@ -1207,21 +1207,21 @@ test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkP
 -- `map` through the other list functions (SW-198, day 8).
 
 theorem List.mapAppend (f: a -> b): (xs: List a) -> (ys: List a) -> List.map f (List.append xs ys) = List.append (List.map f xs) (List.map f ys)
-  | Nil,       ys => rfl
+  | Nil, ys => rfl
   | Cons x xs, ys => rewrite List.mapAppend f xs ys
 
 theorem List.takeMap (f: a -> b): (k: Nat) -> (xs: List a) -> List.take k (List.map f xs) = List.map f (List.take k xs)
-  | Zero,   xs        => rfl
-  | Succ k, Nil       => rfl
+  | Zero, xs => rfl
+  | Succ k, Nil => rfl
   | Succ k, Cons x xs => rewrite List.takeMap f k xs
 
 theorem List.foldLeftMap (f: c -> b -> c) (g: a -> b): (z: c) -> (xs: List a) ->
     List.foldLeft f z (List.map g xs) = List.foldLeft (acc x => f acc (g x)) z xs
-  | z, Nil       => rfl
+  | z, Nil => rfl
   | z, Cons x xs => List.foldLeftMap f g (f z (g x)) xs
 
 theorem List.anyMap (p: b -> Bool) (f: a -> b): (xs: List a) -> List.any p (List.map f xs) = List.any (x => p (f x)) xs
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs => rewrite List.anyMap p f xs
 
 theorem List.countMap (p: b -> Bool) (f: a -> b) (xs: List a): List.count p (List.map f xs) = List.count (x => p (f x)) xs :=
@@ -1229,13 +1229,13 @@ theorem List.countMap (p: b -> Bool) (f: a -> b) (xs: List a): List.count p (Lis
 
 -- The first k numbers of a longer run.
 theorem List.takeRangeFrom: (k: Nat) -> (n: Nat) -> (s: Nat) -> k <= n -> List.take k (List.rangeFrom n s) = List.rangeFrom k s
-  | Zero,   n,      s, h => rfl
-  | Succ k, Zero,   s, h => Void.exfalso (Bool.falseNotTrue h)
+  | Zero, n, s, h => rfl
+  | Succ k, Zero, s, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ k, Succ n, s, h => rewrite List.takeRangeFrom k n (Succ s) h
 
 -- The pairs of a mapped list are the list's pairs, mapped.
 theorem List.pairsMap (f: a -> b): (xs: List a) -> List.pairs (List.map f xs) = List.map (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (List.pairs xs)
-  | Nil       => rfl
+  | Nil => rfl
   | Cons x xs =>
     rewrite List.mapAppend (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (List.map (y => MkPair x y) xs) (List.pairs xs),
       List.mapMap (y => MkPair (f x) y) f xs, List.mapMap (p => MkPair (f (Pair.fst p)) (f (Pair.snd p))) (y => MkPair x y) xs,
@@ -1244,20 +1244,20 @@ theorem List.pairsMap (f: a -> b): (xs: List a) -> List.pairs (List.map f xs) = 
 -- Callbacks that agree on the list's elements (not everywhere, as for
 -- `List.mapCong`) give the same result.
 theorem List.mapCongMem (f1: a -> b) (f2: a -> b): (xs: List a) -> ((x: a) -> List.Mem x xs -> f1 x = f2 x) -> List.map f1 xs = List.map f2 xs
-  | Nil,       ef => rfl
+  | Nil, ef => rfl
   | Cons x xs, ef => rewrite ef x (Inl rfl), List.mapCongMem f1 f2 xs (y m => ef y (Inr m))
 
 theorem List.filterCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) -> List.filter p1 xs = List.filter p2 xs
-  | Nil,       ep => rfl
+  | Nil, ep => rfl
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.filterCongMem p1 p2 xs (y m => ep y (Inr m))
 
 theorem List.anyCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) -> List.any p1 xs = List.any p2 xs
-  | Nil,       ep => rfl
+  | Nil, ep => rfl
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.anyCongMem p1 p2 xs (y m => ep y (Inr m))
 
 theorem List.occurrencesCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) ->
     List.occurrences p1 xs = List.occurrences p2 xs
-  | Nil,       ep => rfl
+  | Nil, ep => rfl
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem p1 p2 xs (y m => ep y (Inr m))
 
 test "List.pairsMap" := (List.map Succ [1, 2, 3]).pairs == List.map (p => MkPair (Succ p.fst) (Succ p.snd)) [1, 2, 3].pairs

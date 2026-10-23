@@ -30,19 +30,19 @@ theorem sumEqEach (f: Nat -> Nat) (g: Nat -> Nat) (le: (x: Nat) -> g x <= f x) (
   omega [le x, List.sumRangeZero (y => f y - g y) n 0 rest x omega hx]
 
 theorem cellOfToNat: (a: Cell) -> (b: Cell) -> Bool.toNat (a == Roll) = Bool.toNat (b == Roll) -> a = b
-  | Roll,  Roll,  h => rfl
+  | Roll, Roll, h => rfl
   | Floor, Floor, h => rfl
-  | Roll,  Floor, h => omega
-  | Floor, Roll,  h => omega
+  | Roll, Floor, h => omega
+  | Floor, Roll, h => omega
 
 -- Off the grid both are floor: only the grid's positions need checking.
 theorem sameWhere (grid: Grid) (s: Cells) (t: Cells) (is: Inside grid s) (it: Inside grid t)
     (good: (r: Nat) -> (c: Nat) -> r < grid.height -> c < grid.width -> s r c = t r c): Same s t :=
   r c =>
     match e1: Nat.leq (Succ r) grid.height, e2: Nat.leq (Succ c) grid.width with
-      | True,  True  => good r c e1 e2
-      | False, b     => Eq.trans (And.left is r c omega) (Eq.sym (And.left it r c omega))
-      | True,  False => Eq.trans (And.right is r c omega) (Eq.sym (And.right it r c omega))
+      | True, True => good r c e1 e2
+      | False, b => Eq.trans (And.left is r c omega) (Eq.sym (And.left it r c omega))
+      | True, False => Eq.trans (And.right is r c omega) (Eq.sym (And.right it r c omega))
 
 -- Removing rolls without changing the count removes none.
 theorem countEqSame (grid: Grid) (t: Cells) (s: Cells) (it: Inside grid t) (is: Inside grid s) (h: Sub t s) (eq: rollCount grid t = rollCount grid s): Same t s :=
@@ -68,7 +68,7 @@ theorem rowExt (u: Vec Cell w) (v: Vec Cell w) (h: (c: Nat) -> List.getOr Floor 
 
 theorem sameMarks (grid: Grid) (m: Marked grid.width grid.height) (same: Same (mcells (sweep m)) (mcells m)) (r: Nat): Pair.snd (entry (sweep m) (Succ r)) = False :=
   match e: Nat.leq (Succ r) grid.height with
-    | True  =>
+    | True =>
       let st := sweepAt m r e
       let p := entry (sweep m) r
       let x := entry m (Succ r)
@@ -81,21 +81,21 @@ theorem sameMarks (grid: Grid) (m: Marked grid.width grid.height) (same: Same (m
     | False => rewrite entryPast (sweep m) r omega
 
 theorem ifTrueFalse: (b: Bool) -> (c: Bool) -> (if b then True else c) = False -> (b = False && c = False)
-  | True,  c, h => Void.exfalso (Bool.trueNotFalse h)
+  | True, c, h => Void.exfalso (Bool.trueNotFalse h)
   | False, c, h => Both rfl h
 
 theorem ifFalseFalse: (b: Bool) -> (c: Bool) -> b = False -> c = False -> (if b then True else c) = False
   | False, c, hb, hc => hc
-  | True,  c, hb, hc => Void.exfalso (Bool.trueNotFalse hb)
+  | True, c, hb, hc => Void.exfalso (Bool.trueNotFalse hb)
 
 -- `any` says no element holds when none does, and the other way round.
 theorem anyNone (p: a -> Bool) (d: a) (hd: p d = False): (xs: List a) -> List.any p xs = False -> (i: Nat) -> p (List.getOr d i xs) = False
-  | Nil,       h, i      => hd
-  | Cons x xs, h, Zero   => And.left (ifTrueFalse (p x) (List.any p xs) h)
+  | Nil, h, i => hd
+  | Cons x xs, h, Zero => And.left (ifTrueFalse (p x) (List.any p xs) h)
   | Cons x xs, h, Succ i => anyNone p d hd xs (And.right (ifTrueFalse (p x) (List.any p xs) h)) i
 
 theorem anyAll (p: a -> Bool) (d: a): (xs: List a) -> ((i: Nat) -> p (List.getOr d i xs) = False) -> List.any p xs = False
-  | Nil,       h => rfl
+  | Nil, h => rfl
   | Cons x xs, h => ifFalseFalse (p x) (List.any p xs) (h 0) (anyAll p d xs (i => h (Succ i)))
 
 theorem marksNone (m: Marked w h) (none: Vec.any Pair.snd m = False) (r: Nat): Pair.snd (entry m (Succ r)) = False :=
@@ -118,13 +118,13 @@ theorem fewerRolls (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (
 -- The start: every row marked.
 
 theorem fstPairs: (rows: Vec (Vec Cell w) h) -> Vec.map Pair.fst (Vec.map (row => (row, True)) rows) = rows
-  | VNil       => rfl
+  | VNil => rfl
   | VCons x xs => Eq.cong (VCons x) (fstPairs xs)
 
 theorem marksTrue (gap: Vec Cell w): (rows: Vec (Vec Cell w) h) -> (r: Nat) -> r < h ->
     Pair.snd (List.getOr (gap, False) r (Vec.toList (Vec.map (row => (row, True)) rows))) = True
-  | VNil,       r,      hr => Void.exfalso (Bool.falseNotTrue hr)
-  | VCons x xs, Zero,   hr => rfl
+  | VNil, r, hr => Void.exfalso (Bool.falseNotTrue hr)
+  | VCons x xs, Zero, hr => rfl
   | VCons x xs, Succ r, hr => marksTrue gap xs r hr
 
 theorem startInv (rows: Vec (Vec Cell w) h): Inv (Vec.map (row => (row, True)) rows) :=
@@ -160,25 +160,24 @@ theorem settleDone (m: Marked w h) (done: Nat.leq (Succ (Marked.rolls (sweep m))
 -- Sweeping until a pass removes no roll ends with no accessible roll, having
 -- kept every stable set.
 theorem settleEnds (grid: Grid) (s0: Cells) (m: Marked grid.width grid.height) (inv: Inv m) (hk: Keeps grid s0 (mcells m)) (hs: Sub (mcells m) s0):
-    Stable grid (mcells (settleMarked m)) && (Keeps grid s0 (mcells (settleMarked m)) && Sub (mcells (settleMarked m)) s0)
-  decreasing Marked.rolls m
+      Stable grid (mcells (settleMarked m)) && (Keeps grid s0 (mcells (settleMarked m)) && Sub (mcells (settleMarked m)) s0)
+    decreasing Marked.rolls m
 :=
   let next := sweep m
   let pass := passKeeps grid s0 m hk
   let hs2 := subTrans (mcells next) (mcells m) s0 (And.right pass) hs
   match e: Nat.leq (Succ (Marked.rolls next)) (Marked.rolls m) with
-    | True  =>
+    | True =>
       rewrite settleMore m e in
       settleEnds grid s0 next (invSweep m inv) (And.left pass) hs2 [decreasing := e]
     | False =>
       rewrite settleDone m e in
       match a: Vec.any Pair.snd next with
         | False => Both (settledStable grid next (invSweep m inv) (marksNone next a)) (Both (And.left pass) hs2)
-        | True  =>
+        | True =>
           let fewer: Nat.leq (Succ (Marked.rolls next)) (Marked.rolls m) = True :=
             rewrite markedRolls grid next, markedRolls grid m in fewerRolls grid s0 m hk a
           Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym fewer) e))
-
 
 -- Part 2 is right for every grid: the printed answer is the number of rolls
 -- the puzzle's rounds remove.
@@ -198,7 +197,7 @@ theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
     (And.right specKeep) specStable (And.left specKeep)
   calc solvePart2 grid
     _ = start - rollCount grid (mcells f)
-        := Eq.trans (Eq.cong (t => t - Vec.sumBy (row => Vec.sumBy Cell.count row) (rowsOf f)) (rollsIsCount grid grid.rows))
-             (Eq.cong (t => start - t) (rollsIsCount grid (rowsOf f)))
+      := Eq.trans (Eq.cong (t => t - Vec.sumBy (row => Vec.sumBy Cell.count row) (rowsOf f)) (rollsIsCount grid grid.rows))
+        (Eq.cong (t => start - t) (rollsIsCount grid (rowsOf f)))
     _ = start - rollCount grid spec := rewrite rollCountSame grid (mcells f) spec same
     _ = part2Spec grid

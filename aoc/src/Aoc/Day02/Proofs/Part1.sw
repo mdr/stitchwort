@@ -27,10 +27,10 @@ theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (k => repea
   calc sumOfIdsWrittenTwice r
     -- (`List.between 1 size` is `List.rangeFrom (size + 1 - 1) 1`)
     _ = List.sumBy (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (List.rangeFrom size 1)
-        := Eq.cong (n => List.sumBy (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (List.rangeFrom n 1)) (omega : size + 1 - 1 = size)
+      := Eq.cong (n => List.sumBy (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (List.rangeFrom n 1)) (omega: size + 1 - 1 = size)
     _ = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom size 1)
-        := List.sumRangeCongr (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (k => repeatedSpec r k 2) size 1
-             (k k1 k2 => repeatedCorrect r k 2)
+      := List.sumRangeCongr (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (k => repeatedSpec r k 2) size 1
+        (k k1 k2 => repeatedCorrect r k 2)
 
 -- (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
@@ -52,16 +52,16 @@ theorem rangeBlocksIds (r: Range):
   calc List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (List.length (Nat.digits r.to)) 1)
     -- block length by block length, the ids whose digits are that block written twice...
     _ = List.sumBy (k => List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids) (List.rangeFrom (List.length (Nat.digits r.to)) 1)
-        := List.sumRangeCongr (k => repeatedSpec r k 2) (k => List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids)
-             (List.length (Nat.digits r.to)) 1 (k h1 h2 => repeatedSpecIds r k h1 2 rfl)
+      := List.sumRangeCongr (k => repeatedSpec r k 2) (k => List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids)
+        (List.length (Nat.digits r.to)) 1 (k h1 h2 => repeatedSpecIds r k h1 2 rfl)
     -- ...id by id, the block lengths that make it...
     _ = List.sumBy (x => List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1)) r.ids
-        := List.sumBySwap (k x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids (List.rangeFrom (List.length (Nat.digits r.to)) 1)
+      := List.sumBySwap (k x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids (List.rangeFrom (List.length (Nat.digits r.to)) 1)
     -- ...which is the id once if it is doubled, and not at all if not.
     _ = List.sumBy (x => Nat.keepIf x (doubled x)) r.ids
-        := List.sumRangeCongr (x => List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1))
-             (x => Nat.keepIf x (doubled x)) r.size r.from
-             (x h1 h2 => collapse x 2 rfl (List.length (Nat.digits r.to)) (idsBelow r x h1 h2))
+      := List.sumRangeCongr (x => List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1))
+        (x => Nat.keepIf x (doubled x)) r.size r.from
+        (x h1 h2 => collapse x 2 rfl (List.length (Nat.digits r.to)) (idsBelow r x h1 h2))
     _ = List.sum (List.filter doubled r.ids) := Eq.sym (List.sumFilter doubled r.ids)
 
 -- The block walk and the id walk agree on every input.

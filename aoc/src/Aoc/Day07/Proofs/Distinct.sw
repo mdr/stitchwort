@@ -11,7 +11,7 @@ import Aoc.Day07 (..)
 import Std (Bool, Eq, Fin, List, Option, Vec)
 
 def Turn.isLeft: Turn -> Bool
-  | Left  => True
+  | Left => True
   | Right => False
 
 -- Two hits at the same splitter that go different ways are different.
@@ -26,7 +26,7 @@ theorem consInjective (h: Hit) (x: List Hit) (y: List Hit) (p: Cons h x = Cons h
 -- another.
 theorem notMemHeads (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (x: List Hit):
     (ys: List (List Hit)) -> Not (List.Mem (Cons h1 x) (List.map (Cons h2) ys))
-  | Nil,       m => m
+  | Nil, m => m
   | Cons y ys, m =>
     match m with
       | Inl p => ne (Eq.sym (Eq.cong (List.headOr h1) p))
@@ -34,7 +34,7 @@ theorem notMemHeads (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (x: List Hit):
 
 theorem disjointHeads (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (ys: List (List Hit)):
     (xs: List (List Hit)) -> List.Disjoint (List.map (Cons h1) xs) (List.map (Cons h2) ys)
-  | Nil       => Trivial
+  | Nil => Trivial
   | Cons x xs => Both (notMemHeads h1 h2 ne x ys) (disjointHeads h1 h2 ne ys xs)
 
 -- The timelines of the two sides of a split.
@@ -48,7 +48,7 @@ theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hi
 
 -- Every timeline from a column is different from the others.
 theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) -> List.Distinct (timelinesFrom r c rows)
-  | Nil           => Both (m => m) Trivial
+  | Nil => Both (m => m) Trivial
   | Cons row rest =>
     match e: splitterAt row c with
       | True =>
@@ -70,5 +70,5 @@ theorem timelinesDistinct (manifold: Manifold): List.Distinct (timelines manifol
 -- timelines, and that list has no repeats, so it is the number of different
 -- timelines.
 theorem part2Distinct (manifold: Manifold):
-  solvePart2 manifold = List.length (timelines manifold) && List.Distinct (timelines manifold) :=
+    solvePart2 manifold = List.length (timelines manifold) && List.Distinct (timelines manifold) :=
   Both (part2Correct manifold) (timelinesDistinct manifold)

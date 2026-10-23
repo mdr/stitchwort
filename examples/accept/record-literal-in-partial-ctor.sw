@@ -16,7 +16,7 @@ def paths (r: Nat) (c: Nat): List Bool -> List (List Hit)
     if b then
       List.append
         (match c with
-           | Zero => [[{ row = r, column = c }]]
-           | Succ k => (paths (r + 1) k rest).map (Cons { row = r, column = c }))
+          | Zero => [[{ row = r, column = c }]]
+          | Succ k => (paths (r + 1) k rest).map (Cons { row = r, column = c }))
         ((paths (r + 1) (c + 1) rest).map (Cons { row = r, column = c }))
     else paths (r + 1) c rest

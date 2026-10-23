@@ -3,7 +3,7 @@
 -- piece, say what shrinks with `decreasing`; the `if` supplies the proof
 -- that it does.
 def halvings (n: Nat) (count: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   let next := n / 2
   if h: next < n then halvings next (count + 1) else count

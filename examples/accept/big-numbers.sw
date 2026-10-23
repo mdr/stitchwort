@@ -13,7 +13,7 @@ theorem literalIsSucc: 1000000 = Succ 999999 := rfl
 
 -- Matching on a literal takes the `Succ` branch without counting down.
 def isZero: Nat -> Bool
-  | Zero   => True
+  | Zero => True
   | Succ n => False
 
 test "a big number isn't zero" := not (isZero 1000000000000)
@@ -21,7 +21,7 @@ test "a big number isn't zero" := not (isZero 1000000000000)
 -- Unification works through literals: `Succ k` matches `5000` with `k = 4999`.
 def predOf: (n: Nat) -> Nat
   | Succ k => k
-  | Zero   => 0
+  | Zero => 0
 
 test "pred" := Nat.equal (predOf 5000) 4999
 test "division" := Nat.equal (1000000 / 7) 142857
@@ -53,7 +53,7 @@ theorem subShared (x: Nat): (500000 + x) - 500000 = x := rfl
 theorem leqShared (x: Nat): Nat.leq (1000000 + x) (1000000 + Succ x) = Nat.leq x (Succ x) := rfl
 
 def headOr0: List Nat -> Nat
-  | Nil      => 0
+  | Nil => 0
   | Cons x _ => x
 
 test "shifted" := headOr0 (shifted 5) == 1000005

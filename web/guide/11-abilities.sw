@@ -13,8 +13,8 @@ def checkout (items: Nat): {Log} Nat :=
 def collectLog (prog: () -> {Log | e} a): {e} (a, List Text) :=
   let run: List Text -> {e} (a, List Text) :=
     handle prog() with
-      | return x     => acc => (x, acc)
-      | say msg, k   => acc => k () (acc ++ [msg])
+      | return x => acc => (x, acc)
+      | say msg, k => acc => k () (acc ++ [msg])
   run []
 
 test "result" := (collectLog (() => checkout 3)).fst == 15

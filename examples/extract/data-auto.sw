@@ -20,14 +20,14 @@ type Tree (k: Type) [auto ord: Ordered k] =
   | Node (left: Tree k) (key: k) (right: Tree k)
 
 def Tree.insert [auto ord: Ordered k] (x: k): Tree k -> Tree k
-  | Leaf       => Node Leaf x Leaf
+  | Leaf => Node Leaf x Leaf
   | Node l y r => match Ordered.compare x y with
-    | Less    => Node (Tree.insert x l) y r
-    | Equal   => Node l y r
+    | Less => Node (Tree.insert x l) y r
+    | Equal => Node l y r
     | Greater => Node l y (Tree.insert x r)
 
 def Tree.toList: Tree k [ord := o] -> List k
-  | Leaf       => []
+  | Leaf => []
   | Node l y r => List.append (Tree.toList l) (Cons y (Tree.toList r))
 
 export def sorted (xs: List Nat): List Nat :=

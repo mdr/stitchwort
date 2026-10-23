@@ -23,10 +23,10 @@ instance Item.instPretty: Pretty Item :=
 instance Item.instBase: Base Item :=
   { op = i => MkItem }
 
-interface Child (a: Type) =
-  { base: Base a
-  , law: (x: a) -> base.op (base.op x) = base.op x
-  }
+interface Child (a: Type) = {
+  base: Base a,
+  law: (x: a) -> base.op (base.op x) = base.op x
+}
 
 interface Base (a: Type) =
   { op: a -> a }

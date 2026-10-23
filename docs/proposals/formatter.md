@@ -473,6 +473,16 @@ to start at token 0, so the formatter dropped or garbled tokens. Fixed in
 `decl_ranges`, and the formatter keeps such leading tokens as written (golden
 `leading-colon-eq*`).
 
+**F7 as built (done).** Commit `feab72ffefca996805a60b336af98c1a4135d4f1`
+("Reformat the repo with stitchwort fmt") ran `stitchwort fmt` over 387
+tracked `.sw` files and changed 206; 181 were already formatted. Excluded:
+`examples/reject`, `examples/soundness`, `examples/projects/reject` (D1019),
+`crates/fmt/tests/golden` (test data) and `examples/accept/list-literal-layout.sw`
+(exists to exercise layouts the formatter normalises). No file was refused.
+The hash is in `.git-blame-ignore-revs`. The `--check` test is
+`crates/cli/tests/fmt_repo.rs` (the exclusion list is one constant there);
+`docs/workflow.md` tells lanes to run `fmt` before committing.
+
 ## 8. Decisions for Matt
 
 **Decided (Matt, 23 Oct 2026).** These override the recommendations and

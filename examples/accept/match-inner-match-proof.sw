@@ -8,24 +8,24 @@
 import Std (Bool, Void)
 
 def reach (flag: Nat -> Bool): Nat -> Nat -> Nat -> Bool
-  | Zero,   c, d => c == d
+  | Zero, c, d => c == d
   | Succ k, c, d =>
     if flag c then
       (match c with
-         | Zero   => False
-         | Succ b => reach flag k b d)
+          | Zero => False
+          | Succ b => reach flag k b d)
         || reach flag k (c + 1) d
     else reach flag k c d
 
 theorem orCases (goal: Prop): (a: Bool) -> (b: Bool) -> (a || b) = True -> (a = True -> goal) -> (b = True -> goal) -> goal
-  | True,  b, h, f, g => f rfl
+  | True, b, h, f, g => f rfl
   | False, b, h, f, g => g h
 
 -- Where the condition fails, `reach` skips the row.
 theorem skip (flag: Nat -> Bool) (k: Nat) (c: Nat) (d: Nat) (h: reach flag (Succ k) c d = True):
     !(flag c) = True -> reach flag k c d = True :=
   match e: flag c with
-    | True  => n => Void.exfalso (Bool.falseNotTrue n)
+    | True => n => Void.exfalso (Bool.falseNotTrue n)
     | False => n => h
 
 -- The three ways a beam can have got to `d`. The left operand of `||` is the
@@ -35,11 +35,11 @@ theorem ways (flag: Nat -> Bool) (k: Nat) (c: Nat) (d: Nat) (goal: Prop) (h: rea
     (straight: reach flag k c d = True -> goal): goal :=
   let hr: reach flag (Succ k) c d = True := h
   match e: flag c with
-    | True  =>
+    | True =>
       orCases goal _ (reach flag k (c + 1) d) hr
         (hl =>
           match c with
-            | Zero   => Void.exfalso (Bool.falseNotTrue hl)
+            | Zero => Void.exfalso (Bool.falseNotTrue hl)
             | Succ b => left b hl)
         right
     | False => straight hr

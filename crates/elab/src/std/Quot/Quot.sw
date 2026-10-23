@@ -55,9 +55,9 @@ theorem Quot.funextProp (a: Type) (p: a -> Prop) (f: (x: a) -> p x) (g: (x: a) -
 -- Booleans that are `True` together are equal.
 theorem Quot.boolEq: (b: Bool) -> (c: Bool) -> (b = True -> c = True) -> (c = True -> b = True) -> b = c
   | False, False, toC, toB => rfl
-  | False, True,  toC, toB => toB rfl
-  | True,  False, toC, toB => Eq.sym (toC rfl)
-  | True,  True,  toC, toB => rfl
+  | False, True, toC, toB => toB rfl
+  | True, False, toC, toB => Eq.sym (toC rfl)
+  | True, True, toC, toB => rfl
 
 -- If `r` decides `rel`, and `rel` is an equivalence, then `Quot.mk x` and
 -- `Quot.mk y` are equal only when `x` and `y` are related (§8.6). Fix `x`;

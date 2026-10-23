@@ -23,10 +23,10 @@ def inside (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
 -- Matching on either spelling gives the same branches.
 theorem outsideAbove (lo: Nat) (x: Nat) (hi: Nat) (h: hi < x): inside lo x hi = False :=
   match e: lo <= x with
-    | True  => Nat.leqFalseOfLess hi x h
+    | True => Nat.leqFalseOfLess hi x h
     | False => rfl
 
 theorem outsideAboveLeq (lo: Nat) (x: Nat) (hi: Nat) (h: hi < x): inside lo x hi = False :=
   match e: Nat.leq lo x with
-    | True  => Nat.leqFalseOfLess hi x h
+    | True => Nat.leqFalseOfLess hi x h
     | False => rfl

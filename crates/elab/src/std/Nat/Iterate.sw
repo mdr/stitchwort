@@ -4,7 +4,7 @@
 -- `Nat.iterate n f x` is `f` applied `n` times to `x`: `Nat.iterate 3 f x` is
 -- `f (f (f x))`. Written with `n.iterate f x` too.
 def Nat.iterate: Nat -> (a -> a) -> a -> a
-  | Zero,   f, x => x
+  | Zero, f, x => x
   | Succ n, f, x => Nat.iterate n f (f x)
 
 -- One more step is a step first.
@@ -12,7 +12,7 @@ theorem Nat.iterateSucc (n: Nat) (f: a -> a) (x: a): Nat.iterate (Succ n) f x = 
 
 -- Or a step last.
 theorem Nat.iterateSuccLast (f: a -> a): (n: Nat) -> (x: a) -> Nat.iterate (Succ n) f x = f (Nat.iterate n f x)
-  | Zero,   x => rfl
+  | Zero, x => rfl
   | Succ n, x => Nat.iterateSuccLast f n (f x)
 
 test "Nat.iterate" := Nat.iterate 3 (x => x * 2) 1 == 8 && Nat.iterate 0 (x => x * 2) 5 == 5
@@ -25,8 +25,8 @@ test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!
 -- Needs `DecEq` to see that nothing changed. A simulation reads:
 -- `Nat.iterateUntilStable grid step size proof`.
 def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a -> a) (measure: a -> Nat)
-    (shrinks: (y: a) -> Not (step y = y) -> measure (step y) < measure y): a
-  decreasing measure x
+      (shrinks: (y: a) -> Not (step y = y) -> measure (step y) < measure y): a
+    decreasing measure x
 :=
   if h: step x = x
   then x
@@ -36,11 +36,11 @@ def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a -> a) (measure: a 
 -- hand it to these.
 theorem Nat.untilStableDecYes (p: Prop) (x: a) (r: a) (h: p): (d: Decidable p) -> Decidable.elim d (y => x) (n => r) = x
   | Yes y => rfl
-  | No n  => Void.exfalso (n h)
+  | No n => Void.exfalso (n h)
 
 theorem Nat.untilStableDecNo (p: Prop) (x: a) (r: a) (h: Not p): (d: Decidable p) -> Decidable.elim d (y => x) (n => r) = r
   | Yes y => Void.exfalso (h y)
-  | No n  => rfl
+  | No n => rfl
 
 -- A value `step` leaves alone is already the answer.
 theorem Nat.iterateUntilStableStable [auto eq: DecEq a] (x: a) (step: a -> a) (measure: a -> Nat)
@@ -58,9 +58,9 @@ theorem Nat.iterateUntilStableStep [auto eq: DecEq a] (x: a) (step: a -> a) (mea
 
 -- What it returns is a fixed point: `step` leaves it alone.
 theorem Nat.iterateUntilStableFixed [auto eq: DecEq a] (x: a) (step: a -> a) (measure: a -> Nat)
-    (shrinks: (y: a) -> Not (step y = y) -> measure (step y) < measure y):
-    step (Nat.iterateUntilStable x step measure shrinks) = Nat.iterateUntilStable x step measure shrinks
-  decreasing measure x
+      (shrinks: (y: a) -> Not (step y = y) -> measure (step y) < measure y):
+      step (Nat.iterateUntilStable x step measure shrinks) = Nat.iterateUntilStable x step measure shrinks
+    decreasing measure x
 :=
   rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
   match DecEq.decide (step x) x with

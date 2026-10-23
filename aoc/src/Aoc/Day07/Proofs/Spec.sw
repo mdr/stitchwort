@@ -46,13 +46,13 @@ type Hit = { row: Nat, column: Nat, turn: Turn }
 -- are the rows from row r down: each is the list of the splitters it
 -- reaches, in order.
 def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) -> List (List Hit)
-  | Nil           => [Nil]
+  | Nil => [Nil]
   | Cons row rest =>
     if splitterAt row c then
       List.append
         (match c with
-           | Zero   => [[{ row = r, column = c, turn = Left }]]
-           | Succ b => (timelinesFrom (r + 1) b rest).map (Cons { row = r, column = c, turn = Left }))
+          | Zero => [[{ row = r, column = c, turn = Left }]]
+          | Succ b => (timelinesFrom (r + 1) b rest).map (Cons { row = r, column = c, turn = Left }))
         ((timelinesFrom (r + 1) (c + 1) rest).map (Cons { row = r, column = c, turn = Right }))
     else timelinesFrom (r + 1) c rest
 
@@ -75,5 +75,11 @@ test "spec at the edges" :=
     == (Some (1, 2), Some (1, 2))
 test "spec timelines" :=
   Option.map (m => (timelines m).map (t => t.map (hit => (hit.row, hit.column, hit.turn == Left)))) (parseManifold ["..S..", "..^..", ".^.^.", "..^.."])
-    == Some [ [(0, 2, True), (1, 1, True)], [(0, 2, True), (1, 1, False), (2, 2, True)], [(0, 2, True), (1, 1, False), (2, 2, False)],
-              [(0, 2, False), (1, 3, True), (2, 2, True)], [(0, 2, False), (1, 3, True), (2, 2, False)], [(0, 2, False), (1, 3, False)] ]
+    == Some [
+      [(0, 2, True), (1, 1, True)],
+      [(0, 2, True), (1, 1, False), (2, 2, True)],
+      [(0, 2, True), (1, 1, False), (2, 2, False)],
+      [(0, 2, False), (1, 3, True), (2, 2, True)],
+      [(0, 2, False), (1, 3, True), (2, 2, False)],
+      [(0, 2, False), (1, 3, False)]
+    ]

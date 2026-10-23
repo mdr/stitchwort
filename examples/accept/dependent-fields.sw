@@ -2,7 +2,7 @@
 -- fields are bound: matching `tag` refines the types of `payload` and `rest`.
 
 def PayloadType: Bool -> Type
-  | True  => Nat
+  | True => Nat
   | False => Bool
 
 type Tree: Type =
@@ -11,8 +11,8 @@ type Tree: Type =
 
 -- How many nodes, following `rest` with the payload (plus one, for numbers).
 def depth: Tree -> Nat
-  | Leaf              => 0
-  | Node True  n rest => Succ (depth (rest (n + 1)))
+  | Leaf => 0
+  | Node True n rest => Succ (depth (rest (n + 1)))
   | Node False b rest => Succ (depth (rest (not b)))
 
 -- A number node whose `rest` takes a number, then a boolean node.

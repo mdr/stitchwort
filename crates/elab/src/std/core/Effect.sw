@@ -18,13 +18,13 @@ type Effect.Comp (op: Type) (res: op -> Type) (a: Type): Type =
 -- number of times. A deep handler is a fold.
 def Effect.foldComp [op: Type] [res: op -> Type] [a r: Type]
     (done: a -> r) (call: (o: op) -> (res o -> r) -> r): Comp op res a -> r
-  | Done x      => done x
+  | Done x => done x
   | Call o rest => call o (y => foldComp done call (rest y))
 
 -- Sequencing: run `c`, then `next` with its result.
 def Effect.bind: [op: Type] -> [res: op -> Type] -> [a b: Type] ->
     Comp op res a -> (a -> Comp op res b) -> Comp op res b
-  | Done x,      next => next x
+  | Done x, next => next x
   | Call o rest, next => Call o (y => bind (rest y) next)
 
 -- Rows: signatures side by side, and mappings between signatures.
@@ -56,7 +56,7 @@ def Effect.sigReply: [op1: Type] -> [res1: op1 -> Type] -> [op2: Type] -> [res2:
 -- only their names in the signature change.
 def Effect.translate [op1: Type] [res1: op1 -> Type] [op2: Type] [res2: op2 -> Type] [a: Type]
     (m: SigMap op1 res1 op2 res2): Comp op1 res1 a -> Comp op2 res2 a
-  | Done x      => Done x
+  | Done x => Done x
   | Call o rest => Call (sigInject m o) (r => translate m (rest (sigReply m o r)))
 
 def Effect.sigId: [op: Type] -> [res: op -> Type] -> SigMap op res op res := MkSigMap (o => o) (o r => r)
@@ -69,10 +69,10 @@ def Effect.sigCompose: [op1: Type] -> [res1: op1 -> Type] -> [op2: Type] -> [res
 
 -- Weakening: a signature into a row with something else on the right or left.
 def Effect.sigLeft: [l r: Type] -> [lres: l -> Type] -> [rres: r -> Type] ->
-  SigMap l lres (Plus l r) (PlusRes lres rres) := MkSigMap (o => L o) (o x => x)
+    SigMap l lres (Plus l r) (PlusRes lres rres) := MkSigMap (o => L o) (o x => x)
 
 def Effect.sigRight: [l r: Type] -> [lres: l -> Type] -> [rres: r -> Type] ->
-  SigMap r rres (Plus l r) (PlusRes lres rres) := MkSigMap (o => R o) (o x => x)
+    SigMap r rres (Plus l r) (PlusRes lres rres) := MkSigMap (o => R o) (o x => x)
 
 -- Reordering: `{l, r}` to `{r, l}`.
 def Effect.swapOp: [l r: Type] -> Plus l r -> Plus r l
@@ -85,7 +85,7 @@ def Effect.swapReply: [l r: Type] -> [lres: l -> Type] -> [rres: r -> Type] ->
   | R o, x => x
 
 def Effect.sigSwap: [l r: Type] -> [lres: l -> Type] -> [rres: r -> Type] ->
-  SigMap (Plus l r) (PlusRes lres rres) (Plus r l) (PlusRes rres lres) := MkSigMap swapOp swapReply
+    SigMap (Plus l r) (PlusRes lres rres) (Plus r l) (PlusRes rres lres) := MkSigMap swapOp swapReply
 
 -- Support for abilities (docs/proposals/abilities.md). The elaborator
 -- translates `ability`, rows `{A | e}`, effectful code and `handle` into these.
@@ -123,7 +123,7 @@ def Effect.caseReply [l r t: Type] [lres: l -> Type] [rres: r -> Type] [tres: t 
   | R o, x => sigReply mr o x
 
 def Effect.sigCase [l r t: Type] [lres: l -> Type] [rres: r -> Type] [tres: t -> Type]
-  (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): SigMap (Plus l r) (PlusRes lres rres) t tres := MkSigMap (caseInject ml mr) (caseReply ml mr)
+    (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): SigMap (Plus l r) (PlusRes lres rres) t tres := MkSigMap (caseInject ml mr) (caseReply ml mr)
 
 -- The empty signature maps into anything.
 def Effect.noInject: [t: Type] -> NoOp -> t
@@ -182,4 +182,3 @@ def Effect.mapSig: [op1: Type] -> [res1: op1 -> Type] -> [op2: Type] -> [res2: o
 def Effect.pfix: [op: Type] -> [res: op -> Type] -> [req: Type] -> [ans: req -> Type] ->
   ((x: req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) ->
   (x: req) -> Delay op res (ans x)
-

@@ -82,7 +82,7 @@ type Box (k: Type) (o: Ordered k) =
 
 instance Box.instPretty [auto p: Pretty k]: Pretty (Box k o) :=
   { pretty = b => match b with
-      | MkBox x => "box of " ++ Pretty.pretty x }
+    | MkBox x => "box of " ++ Pretty.pretty x }
 
 def box [auto ord: Ordered k] (x: k): Box k ord := MkBox x
 
