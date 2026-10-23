@@ -576,7 +576,9 @@ fn small_programs_load_only_the_library_files_they_can_use() {
 fn int_only_programs_dont_load_the_list_toolkit() {
     // SW-322: the `List.sumBy` lemmas about `Int` are in `Int/Sums.sw`, so
     // `Int/Int.sw` doesn't pull in `List/Toolkit.sw`.
-    let loaded = std_loaded_by("import Std (Int)\ntheorem t (a: Int) (b: Int): a * b = b * a := Int.mulComm a b\n");
+    let loaded = std_loaded_by(
+        "import Std (Int)\ntheorem t (a: Int) (b: Int): a * b = b * a := Int.mulComm a b\n",
+    );
     eprintln!("INT-ONLY LOADED: {loaded:?}");
     assert!(loaded.contains(&"Int/Int.sw".to_string()), "{loaded:?}");
     assert!(

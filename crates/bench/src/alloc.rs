@@ -105,6 +105,12 @@ pub fn start() -> Snapshot {
     }
 }
 
+/// Allocations counted so far, for the difference between two moments while
+/// measuring. Reading it doesn't allocate.
+pub fn allocations() -> u64 {
+    ALLOCATIONS.load(Relaxed)
+}
+
 /// Allocations since `start`, and the most heap in use at once since then
 /// beyond what was in use at `start`.
 pub fn since(start: Snapshot) -> (u64, u64) {

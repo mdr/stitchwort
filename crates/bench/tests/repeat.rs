@@ -19,8 +19,7 @@ fn counts_repeat_within_a_process() {
     }
     let examples = programs::ALL.iter().find(|b| b.name == "examples").unwrap();
     let outcome = run(examples, 2, false).expect("the examples run");
-    assert!(
-        !outcome.varied,
-        "the examples' counts differed between two runs in one process"
-    );
+    if let Some(variation) = outcome.variation {
+        panic!("the examples' counts differed between two runs in one process:\n{variation}");
+    }
 }
