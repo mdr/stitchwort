@@ -53,6 +53,10 @@ pub struct Options {
     pub debounce: Duration,
     /// The checker thread's stack, for the sessions' limits.
     pub stack: usize,
+    /// How many checks have been stopped because an edit made them stale.
+    /// The server only adds to it; a test holds a clone to see that a
+    /// stale check was cancelled, rather than timing the answer.
+    pub cancellations: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl Options {
@@ -60,6 +64,7 @@ impl Options {
         Options {
             debounce: Duration::from_millis(100),
             stack,
+            cancellations: Arc::default(),
         }
     }
 }
@@ -1097,6 +1102,11 @@ impl Checker {
             Work::File(_) => key.display().to_string(),
         };
         trace(|| format!("{what}: {progress:?} in {:?}", started.elapsed()));
+        if progress.is_err() {
+            self.options
+                .cancellations
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         if let Ok(Progress::Checked { focus, done }) = progress
             && (focus || done)
         {

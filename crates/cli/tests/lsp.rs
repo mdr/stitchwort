@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use lsp_server::{Connection, Message, Notification, Request, RequestId};
@@ -23,10 +24,14 @@ struct Client {
 
 impl Client {
     fn start() -> Client {
+        Client::start_with(Options::new(STACK))
+    }
+
+    fn start_with(options: Options) -> Client {
         let (server, conn) = Connection::memory();
         let handle = std::thread::Builder::new()
             .stack_size(8 * 1024 * 1024)
-            .spawn(move || serve(server, Options::new(STACK)))
+            .spawn(move || serve(server, options))
             .unwrap();
         let mut client = Client {
             conn,
@@ -666,15 +671,18 @@ fn small_navigation_issues() {
 }
 
 /// A check made stale by an edit stops, and what it would have said is never
-/// published: the edit's check answers instead, in about the time one check
-/// takes, not two.
+/// published: the edit's check answers instead. The server counts the checks
+/// it cancelled (`Options::cancellations`), so this asserts on that, not on
+/// how long anything takes (which varies with the machine's load).
 #[test]
 fn a_newer_edit_cancels_the_check_running() {
     let project = aoc();
     let path = project.join("src/Aoc/Day04/Proofs/Core.sw");
     let text = std::fs::read_to_string(&path).unwrap();
     let uri = uri(&path);
-    let mut client = Client::start();
+    let options = Options::new(STACK);
+    let cancellations = options.cancellations.clone();
+    let mut client = Client::start_with(options);
     client.open(&uri, &text);
     assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
 
@@ -683,19 +691,19 @@ fn a_newer_edit_cancels_the_check_running() {
     client.change(&uri, 2, &format!("{text}\n-- one\n"));
     assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
     let one = started.elapsed();
+    assert_eq!(cancellations.load(Ordering::SeqCst), 0, "nothing stale yet");
 
-    // An error, then (before its check can finish) a fix.
+    // An error, then (while its check is running) a fix.
     client.change(&uri, 3, &format!("{text}\ndef broken: Nat := \"a\"\n"));
     std::thread::sleep(one / 4);
-    let started = Instant::now();
     client.change(&uri, 4, &format!("{text}\n-- two\n"));
+    // Panics if version 3's diagnostics (the error) are published first.
     let found = client.diagnostics_checking(&uri, 4, Some(3));
-    let after = started.elapsed();
     assert_eq!(found, Vec::<Value>::new());
-    eprintln!("one check {one:?}; after cancelling, {after:?}");
-    assert!(
-        after < one * 3 / 2 + Duration::from_millis(200),
-        "{after:?} vs {one:?}"
+    assert_eq!(
+        cancellations.load(Ordering::SeqCst),
+        1,
+        "the stale check should have been cancelled"
     );
     client.shutdown();
 }
