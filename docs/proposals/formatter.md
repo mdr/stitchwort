@@ -405,6 +405,10 @@ any text above that disagrees.
 | D1019 | (b): skip `examples/reject`, `examples/soundness`, `examples/projects/reject` |
 | D1020 | (a): collapse blank-line runs to one, never add any |
 | D1021 | (b): refuse a file with any syntax error (§2.5). Range formatting also needs the whole file to parse |
+| D1037 | Effect rows stay tight, `{IO}`, `{Abort | e}`; records keep `{ a = 1 }` (needs the AST to tell them apart) |
+| D1038 | `decreasing` lines are header continuations: +4 |
+| D1039 | `f(x)` becomes `f (x)` where both parse identically; `main()`-style unit calls stay (R20) |
+| D1040 | Continuation lines (e.g. further application arguments) at +2 from the line they continue |
 | D1022 | VS Code's usual convention: format-on-save off by default (no `configurationDefaults` for it), Format Document works. Users opt in with `"[stitchwort]": { "editor.formatOnSave": true }` |
 
 The original options and reasoning follow.
