@@ -869,6 +869,76 @@ mod tests {
     }
 
     #[test]
+    fn decimal_and_exponent_literals() {
+        let float = |s: &str| Tok::Float(s.into());
+        let num = |n: u32| Tok::Num(n.into());
+        assert_eq!(
+            tokens("1.5 80281.87 0.25 1e3 1.5e-7 2.0E21 3e+2 42"),
+            Ok(vec![
+                float("1.5"),
+                float("80281.87"),
+                float("0.25"),
+                float("1e3"),
+                float("1.5e-7"),
+                float("2.0E21"),
+                float("3e+2"),
+                num(42),
+            ])
+        );
+        // A digit is needed after `.` and in an exponent: ranges, spreads and
+        // names are untouched.
+        assert_eq!(
+            tokens("1..n [x, ..rest] 5. 2e 2ex x.y List.map"),
+            Ok(vec![
+                num(1),
+                Tok::DotDot,
+                Tok::Lower("n".into()),
+                Tok::LBracket,
+                Tok::Lower("x".into()),
+                Tok::Comma,
+                Tok::DotDot,
+                Tok::Lower("rest".into()),
+                Tok::RBracket,
+                num(5),
+                Tok::Dot,
+                num(2),
+                Tok::Lower("e".into()),
+                num(2),
+                Tok::Lower("ex".into()),
+                Tok::Lower("x".into()),
+                Tok::Dot,
+                Tok::Lower("y".into()),
+                Tok::Lower("List.map".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_number_right_after_a_dot_is_digits_only() {
+        // `xs.0.1` stays `xs` `.` `0` `.` `1`, never `xs` `.` `0.1`
+        // (docs/proposals/float.md §2.3), and `p.fst.snd` is unchanged.
+        assert_eq!(
+            tokens("xs.0.1 p.fst.snd x.1e3"),
+            Ok(vec![
+                Tok::Lower("xs".into()),
+                Tok::Dot,
+                Tok::Num(0u32.into()),
+                Tok::Dot,
+                Tok::Num(1u32.into()),
+                Tok::Lower("p".into()),
+                Tok::Dot,
+                Tok::Lower("fst".into()),
+                Tok::Dot,
+                Tok::Lower("snd".into()),
+                Tok::Lower("x".into()),
+                Tok::Dot,
+                Tok::Num(1u32.into()),
+                Tok::Lower("e3".into()),
+            ])
+        );
+    }
+
+    #[test]
     fn skips_comments_but_not_arrows() {
         assert_eq!(
             tokens("a -- comment -> b\n-> c"),

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/float-nat-mix.sw:5:37 ]
+   │
+ 5 │ def scaled (n: Nat): Float := 1.5 + n
+   │                                     ┬  
+   │                                     ╰── this is a `Nat`, but this arithmetic is on `Float`
+   │ 
+   │ Note 1: numbers of different types don't mix: there are no conversions to or from `Float` yet
+   │ 
+   │ Note 2: this arithmetic is on `Float` because `Float` is expected here
+───╯

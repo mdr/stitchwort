@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FLOAT-LITERAL] Error: `1e-400` is too small for a `Float`: it would be `0.0`
+   ╭─[ reject/float-literal-too-small.sw:5:20 ]
+   │
+ 5 │ def tiny: Float := 1e-400
+   │                    ───┬──  
+   │                       ╰──── this isn't zero, but the nearest double is
+   │ 
+   │ Note: write `0.0` if zero is meant
+───╯
+[E-FLOAT-LITERAL] Error: `-1e-400` is too small for a `Float`: it would be `-0.0`
+   ╭─[ reject/float-literal-too-small.sw:7:28 ]
+   │
+ 7 │ def negativeTiny: Float := -1e-400
+   │                            ───┬───  
+   │                               ╰───── this isn't zero, but the nearest double is
+   │ 
+   │ Note: write `-0.0` if zero is meant
+───╯

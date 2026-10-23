@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FLOAT-LITERAL] Error: `9007199254740993` isn't exactly a `Float`
+   ╭─[ reject/float-literal-not-exact.sw:6:23 ]
+   │
+ 6 │ def between: Float := 9007199254740993
+   │                       ────────┬───────  
+   │                               ╰───────── the nearest are `9007199254740992` and `9007199254740994`
+   │ 
+   │ Note: a whole number reads as exact; write one of those, or `9007199254740993.0` to ask for rounding
+───╯
+[E-FLOAT-LITERAL] Error: `-9007199254740993` isn't exactly a `Float`
+   ╭─[ reject/float-literal-not-exact.sw:8:31 ]
+   │
+ 8 │ def negativeBetween: Float := -9007199254740993
+   │                               ────────┬────────  
+   │                                       ╰────────── the nearest are `-9007199254740992` and `-9007199254740994`
+   │ 
+   │ Note: a whole number reads as exact; write one of those, or `-9007199254740993.0` to ask for rounding
+───╯

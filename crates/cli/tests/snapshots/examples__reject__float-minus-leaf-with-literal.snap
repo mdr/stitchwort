@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/float-minus-leaf-with-literal.sw:7:21 ]
+   │
+ 7 │ def same: Bool := -(Float.abs 1.5) == -(Float.abs 2.5)
+   │                   ───────┬┬──────  
+   │                          ╰───────── this `-` makes it an `Int`
+   │                           │        
+   │                           ╰──────── expected `Int`, but this has type `Float`
+───╯

@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FLOAT-LITERAL] Error: `1e400` is too large for a `Float`
+   ╭─[ reject/float-literal-too-large.sw:5:20 ]
+   │
+ 5 │ def huge: Float := 1e400
+   │                    ──┬──  
+   │                      ╰──── this would be an infinity
+   │ 
+   │ Note: write `Float.infinity` if an infinity is meant
+───╯
+[E-FLOAT-LITERAL] Error: `-1e400` is too large for a `Float`
+   ╭─[ reject/float-literal-too-large.sw:7:28 ]
+   │
+ 7 │ def negativeHuge: Float := -1e400
+   │                            ───┬──  
+   │                               ╰──── this would be an infinity
+   │ 
+   │ Note: write `-Float.infinity` if an infinity is meant
+───╯

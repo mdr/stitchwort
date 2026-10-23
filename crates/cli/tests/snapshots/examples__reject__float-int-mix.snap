@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/float-int-mix.sw:5:44 ]
+   │
+ 5 │ def plus (t: Float) (i: Int): Float := t + i
+   │                                            ┬  
+   │                                            ╰── this is an `Int`, but this arithmetic is on `Float`
+   │ 
+   │ Note 1: numbers of different types don't mix: there are no conversions to or from `Float` yet
+   │ 
+   │ Note 2: this arithmetic is on `Float` because `Float` is expected here
+───╯
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/float-int-mix.sw:7:53 ]
+   │
+ 7 │ def plusNegated (t: Float) (i: Int): Float := t + (-i)
+   │                                                     ┬  
+   │                                                     ╰── this is an `Int`, but this arithmetic is on `Float`
+   │ 
+   │ Note 1: numbers of different types don't mix: there are no conversions to or from `Float` yet
+   │ 
+   │ Note 2: this arithmetic is on `Float` because `Float` is expected here
+───╯

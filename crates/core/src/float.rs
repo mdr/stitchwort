@@ -112,6 +112,21 @@ pub fn canonical_bits(x: f64) -> u64 {
     if x.is_nan() { NAN } else { x.to_bits() }
 }
 
+/// Stitchwort source for the double with valid `bits`, which reads back as
+/// the same double: the shortest decimal that rounds to it (with `.0` when
+/// it's whole), `-0.0`, `Float.nan`, `Float.infinity` or `-Float.infinity`.
+/// For showing values, as the pretty-printer does.
+pub fn source(bits: u64) -> String {
+    match bits {
+        NAN => "Float.nan".into(),
+        INFINITY => "Float.infinity".into(),
+        NEG_INFINITY => "-Float.infinity".into(),
+        // Rust's `{:?}` is the shortest round-trip spelling: `0.1`, `3.0`,
+        // `1e21`, `5e-324`, `-0.0`.
+        _ => format!("{:?}", f64::from_bits(bits)),
+    }
+}
+
 /// A primitive: a rounding operation without a definition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FloatOp {
