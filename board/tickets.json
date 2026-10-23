@@ -5262,7 +5262,7 @@
     {
       "id": 334,
       "title": "Trim erasure.rs without-erasure comparison to targeted examples (~80 s -> <30 s) (D575)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5271,7 +5271,9 @@
       "body": "After SW-333 the without-erasure runs compute every proof again (1.26e9 steps, ~80 s release). Use a few examples with proofs in data; keep catching erasure regressions. Start after the checkpoint rerun.",
       "created": "2026-10-22",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "aa86c6e0"
+      ]
     },
     {
       "id": 335,
