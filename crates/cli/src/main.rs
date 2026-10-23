@@ -55,8 +55,9 @@ enum Command {
     /// `core/Int.sw` is a file of the core), as the index's `std` markers name them
     StdSource { path: String },
     /// Run tests, reusing cached results where nothing they depend on has
-    /// changed: a file's, or a namespace's (and those of the namespaces it
-    /// uses), or the whole project's
+    /// changed: a file's, or a namespace's (with every namespace under it,
+    /// and those they use), or the whole project's. A target that matches
+    /// no tests is a warning and a failure
     Test {
         /// A file, or a namespace of the project
         target: Option<String>,
@@ -621,8 +622,9 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
             let Some(project) = locate_project(project, "test", "test hello.sw") else {
                 return ExitCode::FAILURE;
             };
+            let target_name = target;
             let target = match target {
-                Some(name) => Target::Namespaces(vec![name.to_string()]),
+                Some(name) => Target::Subtrees(vec![name.to_string()]),
                 None => Target::Everything,
             };
             use_cache(&mut session, cache, &project.dir);
@@ -631,11 +633,25 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            let code = print_tests(&session.run_tests(&cache), true);
+            let results = session.run_tests(&cache);
+            let code = print_tests(&results, true);
             discard(session);
+            // A target that matched no tests (a typo, a namespace without
+            // any) must never look like a pass.
+            let none = match target_name {
+                Some(name) if results.is_empty() => {
+                    eprintln!("warning: no tests matched '{name}'");
+                    true
+                }
+                _ => false,
+            };
             let goals = goals_open(&reported);
             report_goals(goals);
-            if goals > 0 { ExitCode::FAILURE } else { code }
+            if goals > 0 || none {
+                ExitCode::FAILURE
+            } else {
+                code
+            }
         }
     }
 }
