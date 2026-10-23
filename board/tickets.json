@@ -5328,7 +5328,7 @@
     {
       "id": 338,
       "title": "Std Option: orElse (move List.orElseSome), merge/alignWith, fold, exists/forall, filter, isSome/isNone, with Some-inversion lemmas; use them in AoC (D584)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -5338,7 +5338,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "5dacbd56",
+        "3de9b7ac"
+      ]
     }
   ]
 }
