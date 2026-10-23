@@ -899,6 +899,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "stitchwort-fmt"
+version = "0.1.0"
+dependencies = [
+ "stitchwort-syntax",
+]
+
+[[package]]
 name = "stitchwort-js"
 version = "0.1.0"
 dependencies = [
