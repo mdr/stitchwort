@@ -1,5 +1,5 @@
 {
-  "next": 358,
+  "next": 359,
   "tickets": [
     {
       "id": 1,
@@ -5556,9 +5556,9 @@
     {
       "id": 351,
       "title": "Design note: JS-number Float type (native arithmetic, crosses as number; proofs via an operations interface) (D645)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "draft 3 lane (D730): fold round-2 review, then signed off; stage 1a build next",
+      "where": "draft 3 signed off (D730); building stage 1a",
       "labels": [
         "design",
         "js"
@@ -5567,7 +5567,8 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
-        "8b3cc867"
+        "8b3cc867",
+        "fed33854"
       ]
     },
     {
@@ -5656,6 +5657,21 @@
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 358,
+      "title": "Build Float stage 1a: canonical-bits Float, add/sub primitives, natives agreeing with definitions (gate), literals, runtime, JS boundary (float.md §7.2)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (D730)",
+      "labels": [
+        "kernel",
         "js"
       ],
       "body": "",
