@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Opus",
-      "where": "shipping: D830 a, D831 a (needs push when Matt chooses), D832 a (commit generated + CI verify); discussing D833-D837; no app changes (D714)",
+      "where": "shipping: D830-D833 a; D834 settled by Float (D645), D835 by D880; discussing D836 bundle, D837 old resolver; no app changes (D714)",
       "labels": [
         "design",
         "js"
