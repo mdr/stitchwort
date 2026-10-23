@@ -1428,3 +1428,48 @@ fn recursive_definitions_are_not_compared_by_their_case_trees() {
     let b = eval(&p.g, &env, &app(Term::Def(copy), [v(0), p.num(1)])).unwrap();
     assert!(!conv(&p.g, 1, &a, &b).unwrap());
 }
+
+/// A chain of `levels` helpers above `{name}0`, a `pred` answering `zero`:
+/// each `{name}k n` is a `case` on `n` calling `{name}(k-1) n` in both
+/// branches. Returns the top one.
+fn define_chain(p: &mut Prelude, name: &str, zero: Term, levels: usize) -> stitchwort_core::DefId {
+    let nat = p.nat;
+    let mut below = define_pred(p, &format!("{name}0"), zero);
+    for level in 1..=levels {
+        let ty = arrow(p.nat_ty(), p.nat_ty());
+        let body = lam(
+            "n",
+            case(
+                0,
+                nat,
+                vec![
+                    (vec![], app(Term::Def(below), [v(0)])),
+                    (vec!["m"], app(Term::Def(below), [v(1)])),
+                ],
+            ),
+        );
+        below = define(&mut p.g, &format!("{name}{level}"), ty, body).unwrap();
+    }
+    below
+}
+
+#[test]
+fn chains_of_helpers_calling_the_next_in_both_branches_are_compared_once_per_level() {
+    // Comparing `a40 n` with `b40 n` meets each pair `a{k} n`, `b{k} n`
+    // 2^(40-k) times. A pair already found equal is answered at once
+    // (SW-395), so a small budget is plenty; without that, it runs out.
+    use stitchwort_core::Limits;
+    let mut p = Prelude::new();
+    let zero = p.num(0);
+    let one = p.num(1);
+    let a = define_chain(&mut p, "a", zero.clone(), 40);
+    let b = define_chain(&mut p, "b", zero, 40);
+    let c = define_chain(&mut p, "c", one, 40);
+    let _op = p.g.budget.operation(Limits {
+        work: 1_000_000,
+        ..Limits::default()
+    });
+    assert!(conv(&p.g, 1, &applied(&p, a), &applied(&p, b)).unwrap());
+    // A difference at the bottom is still found.
+    assert!(!conv(&p.g, 1, &applied(&p, a), &applied(&p, c)).unwrap());
+}

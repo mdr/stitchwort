@@ -598,9 +598,28 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
                 && crate::value::opens_by_tree(g, a)
                 && crate::value::opens_by_tree(g, b) =>
         {
-            let (t1, e1) = tree_of(g, a);
-            let (t2, e2) = tree_of(g, b);
-            same_trees(g, level, &t1, e1, &t2, e2)?
+            // Pairs already found equal in the outermost tree comparison are
+            // equal again (SW-395): without this, a chain of helpers each
+            // calling the next in two branches takes 2^n comparisons here
+            // too. Looked up by the quoted pair, printed: its own key, not
+            // the machine's `identical`.
+            let open = OpenTrees::enter();
+            let key = (
+                level,
+                format!("{:?}", quote(g, level, a)?),
+                format!("{:?}", quote(g, level, b)?),
+            );
+            if open.known(&key) {
+                true
+            } else {
+                let (t1, e1) = tree_of(g, a);
+                let (t2, e2) = tree_of(g, b);
+                let same = same_trees(g, level, &t1, e1, &t2, e2)?;
+                if same {
+                    open.record(key);
+                }
+                same
+            }
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
             (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, s1, s2)?)
@@ -608,6 +627,46 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
         }
         _ => eta(g, level, a, b)?,
     })
+}
+
+/// A pair of calls compared by their trees: the level and the two, quoted.
+type CallPair = (usize, String, String);
+
+thread_local! {
+    /// How many tree comparisons are open, and the pairs of calls found
+    /// equal since the outermost one started.
+    static EQUAL_CALLS: std::cell::RefCell<(usize, std::collections::HashSet<CallPair>)> =
+        std::cell::RefCell::new((0, std::collections::HashSet::new()));
+}
+
+/// One open tree comparison; the record is dropped with the outermost.
+struct OpenTrees;
+
+impl OpenTrees {
+    fn enter() -> OpenTrees {
+        EQUAL_CALLS.with(|m| m.borrow_mut().0 += 1);
+        OpenTrees
+    }
+
+    fn known(&self, pair: &CallPair) -> bool {
+        EQUAL_CALLS.with(|m| m.borrow().1.contains(pair))
+    }
+
+    fn record(&self, pair: CallPair) {
+        EQUAL_CALLS.with(|m| m.borrow_mut().1.insert(pair));
+    }
+}
+
+impl Drop for OpenTrees {
+    fn drop(&mut self) {
+        EQUAL_CALLS.with(|m| {
+            let mut m = m.borrow_mut();
+            m.0 -= 1;
+            if m.0 == 0 {
+                m.1.clear();
+            }
+        });
+    }
 }
 
 /// A stuck call's case tree and arguments.

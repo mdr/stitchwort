@@ -7,8 +7,8 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
 use stitchwort_core::value::{
-    Closure, Elim, Head, apply_icit, eval, expand_step, force, is_folded, opens_by_tree, quote,
-    same_closure, same_stuck_trees, underapplied, unfold_folded,
+    Closure, Elim, Head, Relation, apply_icit, eval, expand_step, force, is_folded, opens_by_tree,
+    quote, same_closure, same_stuck_trees, underapplied, unfold_folded,
 };
 use stitchwort_core::{Globals, Term, Value};
 
@@ -242,12 +242,17 @@ fn unify_step(
         }
         // Two different definitions stuck on a `case`: by their case trees,
         // as in `conv` (`same_stuck_trees`). What that solves is kept only
-        // if they're equal.
+        // if they're equal. Pairs of calls found equal are remembered for the
+        // rest of the outermost such comparison, and forgotten if a solution
+        // is taken back (a new `meta_epoch`), so a chain of helpers each
+        // calling the next in several branches is compared once per level.
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
             let trail = g.meta_trail.borrow().len();
-            let same = same_stuck_trees(g, level, &a, &b, &mut |l, x, y| unify(g, l, x, y))?;
+            let same = same_stuck_trees(g, level, &a, &b, Relation::Unify, &mut |l, x, y| {
+                unify(g, l, x, y)
+            })?;
             if !same {
                 undo_since(g, trail);
             }
