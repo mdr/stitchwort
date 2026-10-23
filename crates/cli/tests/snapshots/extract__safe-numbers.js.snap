@@ -481,17 +481,27 @@ const $Std$dSafeInt$dvalue = (v0) => {
 const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0)(9007199254740991n))(((v1) => ({ tag: "Some", value: { value: v0 } })))(((v1) => ({ tag: "None" })));
 const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1)(9007199254740991n)))($Std$dInt$dnatAbs(v0)))(((v1) => ({ tag: "Some", value: { value: v0 } })))(((v1) => ({ tag: "None" })));
 const $Std$dList$dmap = (v2) => (v3) => {
-  switch (v3.tag) {
-    case "Nil": {
-      return { tag: "Nil" };
+  let s2 = v2, s3 = v3;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v2 = s2, v3 = s3;
+    switch (v3.tag) {
+      case "Nil": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v4 = v3.head;
+        const v5 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "tail";
+        s2 = v2;
+        s3 = v5;
+        continue;
+      }
     }
-    case "Cons": {
-      const v4 = v3.head;
-      const v5 = v3.tail;
-      return { tag: "Cons", head: (v2)(v4), tail: $Std$dList$dmap(v2)(v5) };
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
