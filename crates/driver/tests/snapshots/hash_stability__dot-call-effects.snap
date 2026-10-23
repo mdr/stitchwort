@@ -36,3 +36,23 @@ Main.test "a chain in a sum".%match1 9f3f769ce46836b5e286c3fd38848011f028d1c361a
 Main.test "a chain in a sum" 2ac3ad36c350324cc380bdde52461c946225f59adaec8e89f9c8ef41cd12bbb3
 Main.test "a chain in a pair".%match1 8a63742d8e402c1cb907acc20da4b45b1cd0670b65c11ff65c029f341074a0b2
 Main.test "a chain in a pair" 1fe3ebe7d32b5e4ffd26d77a3a99f48e1d704e69067b1a8953bbe60b67ad1ba9
+Main.spaced f6c340de20dd7e0dc464118f2f3cadbde036cdfae1a3669ffbb38f4153161766
+Main.test "a literal's dot call, last".%match1 36df550ba36918a6104031abbf50e5b976b6e63a0077481756df20d486db424b
+Main.test "a literal's dot call, last".%match2 7137c84c1126f1f97307e445e20c0d4e3031c0d5328a455ba4f89fe623f69d8a
+Main.test "a literal's dot call, last" 7ade58dd335654b00c6dde7f85bfdc1bd96578608397b76fc45b3f43ebb2d756
+Main.test "as the full-name call".%match1 36df550ba36918a6104031abbf50e5b976b6e63a0077481756df20d486db424b
+Main.test "as the full-name call".%match2 36df550ba36918a6104031abbf50e5b976b6e63a0077481756df20d486db424b
+Main.test "as the full-name call" 45e9e9c0ac4e7d191682890095705296a1b5dfd71a4e861cdf35b9a34ce486cc
+Main.test "a literal's chain, with Abort".%match1 6afc0a6135c14e7f46662585250cbaf83347a46c8b07977a0399f619d1326f3f
+Main.test "a literal's chain, with Abort".%match2 41bf4958e65c6680a78a50b618ba1b71d627f69c832e02ffaa4da7fdb186b722
+Main.test "a literal's chain, with Abort" aac0bcb4a9caaff615e52f0abdeff37bd56962c7c1801e5b004ddf0349883d7e
+Main.test "a chain after a pure call".%match1 502ee326800efeec49bf55488041ba7b2a1e8ede7339dd38670d7e5ce18ce42c
+Main.test "a chain after a pure call".%match2 4ec29e61af0a32d014afec18258be5d22c985037b4f6597a135515da2e33b8eb
+Main.test "a chain after a pure call" 07e4b18f3a8569a09cbe0363dc671407615cb4879c32293e179abec15a38a81a
+Main.test "an appended receiver".%match1 e1c46111811ed86f08587f2ece07889eb093d246d90d72e7d9a68c2ed49d7a5e
+Main.test "an appended receiver" 2abccd2af0f462aec33488fb43e49d9d90ff2e0c403d053863441cb45178bd74
+Main.test "in a let".%match1 3945af9cc10657d3b01d02dba8ed4212a42898a840033399f1279a6f9a9a7254
+Main.test "in a let" c82807491bb80f72532fd894cffe5fd517b0fef9b6ed1724367f361a4ddf0dbc
+Main.test "a literal's chain in a sum".%match1 3c9946a64185f81c6eb4580a23101fb5de1d69dd3032d7ebafd2c96be83b6900
+Main.test "a literal's chain in a sum" 0143dd98ae970373d528bef4bc4b069c11f726ce8243e0ce9703436e63a71ba9
+Main.test "pure dot calls are values" 717874b8c38d8eceb64239517693a6c20034f987776ec6e5b4f36709e67f041d
