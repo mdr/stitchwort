@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.AllTrue b4fc11c3a582db1f71ab6a5b3a1e0489e6bedcb97084f8a26c00e29058cfabec
+Main.Q 0976fcfd00ffd8b07380eeb8b18de4e342789f753162bd45f126894a859a3949
+Main.same 44230ad354e59ed15c17a937488226490fcd9af56d959d313c43282973ba2488
+Main.n f3ce1c14c824314706dbc95f6c6baf542bfd260c9a1c491f29b5b9985e7ee61a
+Main.nInline ada3cc88c2228651ad954378561b454746304fdf09bf0faf8524c88987f4ada2
+Main.test "transport along a theorem" 5957fee83ae1e587058d9f70c1eb3997097e489bb476b0bfb6316a698102eb5b
+Main.test "transport along an inline Quot.sound" 43dec334aa41cb0f851a83e0cff292368aa907af640b078fcacf4f2e7fb446dc
+Main.main 51d2eee297a40fe10851fd4af6c86911157231b430918f9e4d34ddf4b27cadea

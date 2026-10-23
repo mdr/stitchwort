@@ -930,6 +930,22 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             Control::Eval(ty, env)
         }
         Term::Refl => Control::Return(Value::Refl),
+        // While running (docs/proposals/map-equality.md §7.4.1, D862,
+        // D921): `Quot.ind` and `Quot.sound` are proofs, and a lift whose
+        // result is erased (a proof, a proposition or a type; the checker's
+        // flag) is too, so each is the placeholder, which `J` takes its
+        // base on (rule 4). A `Quot.mk` whose representative is erased
+        // (its carrier's elements are types) has the placeholder for it.
+        Term::Quot(QuotForm::Lift, _, true) | Term::Quot(QuotForm::Ind | QuotForm::Sound, ..)
+            if g.erasure.active() =>
+        {
+            Control::Return(erased())
+        }
+        Term::Quot(QuotForm::Mk, args, true)
+            if g.erasure.active() && args.len() == QuotForm::Mk.arity() =>
+        {
+            quot_args(g, term.clone(), env, Vec::new(), Some(erased()), stack)?
+        }
         // The one computation rule (docs/proposals/map-equality.md §7.2):
         // `Quot.lift f h (Quot.mk a)` is `f a`. The quotient first, then.
         Term::Quot(QuotForm::Lift, args, _) if args.len() == QuotForm::Lift.arity() => {

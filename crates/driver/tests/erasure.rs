@@ -70,8 +70,10 @@ fn examples() -> Vec<(String, String)> {
 /// indexed families (`indexed-families`, `vec-library`), `decreasing` fuel
 /// proofs and `attach` members (`decreasing-*`, `adder-fuel`,
 /// `unfold-until-stable`), bounds and range proofs (`int-dial`, `mod-arith`,
-/// `char-pattern-proofs`, `size-change`) and an omega-using one
-/// (`omega-certificates`). An erasure regression that keeps a proof alive
+/// `char-pattern-proofs`, `size-change`), an omega-using one
+/// (`omega-certificates`) and quotient lifts whose result or representative
+/// is erased (`quot-lift-proof`, `quot-lift-types`; tests A5 and A7 of
+/// docs/proposals/map-equality.md). An erasure regression that keeps a proof alive
 /// shows up in these as a differing result or a missing step saving. The
 /// other examples still run with erasure on, where every test must pass.
 const COMPARED_WITHOUT_ERASURE: &[&str] = &[
@@ -88,6 +90,8 @@ const COMPARED_WITHOUT_ERASURE: &[&str] = &[
     "accept/mutual-data.sw",
     "accept/omega-certificates.sw",
     "accept/partial.sw",
+    "accept/quot-lift-proof.sw",
+    "accept/quot-lift-types.sw",
     "accept/records-effects.sw",
     "accept/records.sw",
     "accept/size-change.sw",
@@ -334,4 +338,96 @@ test "the data let's value" := withProof 2000 == 2001
         with * 10 < without,
         "{with} steps with erasure is not under a tenth of {without}"
     );
+}
+
+/// Transport along `Quot.sound` and along a `Quot.ind` proof (tests A3 and
+/// A6 of docs/proposals/map-equality.md, §9.1 and §7.4.4): with erasure,
+/// both proofs are the placeholder and `J` takes its base, so the tests pass
+/// and `main` prints `0` twice, as in every other runner. Without it the
+/// proofs are neutral, as in the kernel, and `J` on them is stuck, so the
+/// two can't agree: that's the computation contract, not a bug, and the
+/// comparison checks that it's erasure that makes the difference.
+#[test]
+fn transport_along_opaque_quotient_proofs_takes_its_base_when_erasing() {
+    with_stack(STACK, || {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept");
+        for name in ["quot-transport-sound.sw", "quot-transport-ind.sw"] {
+            let text = std::fs::read_to_string(root.join(name)).expect("readable");
+            let mut session = Session::for_stack(STACK);
+            session.load(name, &text).expect("checks");
+            let ((with, _), (without, _)) = both(&mut session, outcomes);
+            assert_eq!(with.len(), 2, "{name}");
+            for (test, o) in &with {
+                assert_eq!(*o, "passed", "{name}: {test}");
+            }
+            for (test, o) in &without {
+                assert_ne!(*o, "passed", "{name}: {test} passed without erasure");
+            }
+        }
+    });
+}
+
+/// What the quotient examples (tests A3, A5, A6 and A7) print with erasure,
+/// as their headers say. `run_reference.rs` and `run_js.rs` check that the
+/// Rust runtime and JS print the same.
+#[test]
+fn the_quotient_examples_print_what_they_should() {
+    with_stack(STACK, || {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept");
+        for (name, expected) in [
+            ("quot-transport-sound.sw", &["0", "0"][..]),
+            ("quot-lift-proof.sw", &["0", "0"]),
+            ("quot-transport-ind.sw", &["0", "0"]),
+            ("quot-lift-types.sw", &["7", "7", "7", "8", "1"]),
+        ] {
+            let text = std::fs::read_to_string(root.join(name)).expect("readable");
+            let mut session = Session::for_stack(STACK);
+            session.load(name, &text).expect("checks");
+            assert_eq!(session.simulate(&[]).expect("runs"), expected, "{name}");
+        }
+    });
+}
+
+/// D921's flags, each on its own: a lift whose result is a proof, and a
+/// `Quot.mk` whose representative is a type, aren't computed when running.
+/// Each costs `slow 2000` if it is: a lambda's argument isn't erased, so only
+/// the quotient form's own flag skips it.
+#[test]
+fn erased_quotient_forms_arent_run() {
+    const QUOTIENTS: &str = r#"
+def slow : Nat -> Nat
+  | Zero   => 0
+  | Succ n => slow n
+
+def AllTrue (x: Bool) (y: Bool): Prop := Unit
+def Q: Type := Quot Bool AllTrue
+def QTy: Type 1 := Quot (Type 0) (a b => a = b)
+"#;
+    // The result is a proof, which `J` evaluates (a `let` of it would be
+    // skipped by the `let`'s own flag): the lift is erased whole.
+    let proof_lift = r#"
+def proofLift (k: Nat): Nat :=
+  J (y p => Nat) (k + 1) (Quot.lift [b := k = k] (b => ((u => rfl): Nat -> k = k) (slow k))
+    (x y related => rfl) (Quot.mk False: Q))
+
+test "a proof-valued lift" := proofLift 2000 == 2001
+"#;
+    // The representative is a type: it isn't computed, and the lift of a
+    // constant doesn't need it.
+    let type_rep = r#"
+def typeRep (k: Nat): Nat :=
+  Quot.lift (a => k + 2) (a b same => rfl) (Quot.mk (((u => Nat): Nat -> Type 0) (slow k)): QTy)
+
+test "a representative that's a type" := typeRep 2000 == 2002
+"#;
+    for (what, test) in [
+        ("proof-valued lift", proof_lift),
+        ("type representative", type_rep),
+    ] {
+        let (with, without) = tests_pass_both_ways(&format!("{QUOTIENTS}{test}"), 1);
+        assert!(
+            with * 10 < without,
+            "{what}: {with} steps with erasure is not under a tenth of {without}"
+        );
+    }
 }

@@ -474,17 +474,20 @@ impl<'g> Lowerer<'g> {
             | Term::Eq(..)
             | Term::Refl
             | Term::Quot(QuotForm::Type, ..) => Expr::Erased,
-            // Lowering quotients (docs/proposals/map-equality.md §7.4) is
-            // stage 1.3; until then a program that runs one is refused.
-            Term::Quot(form, ..) => {
-                return Err(Diagnostic::error(
-                    "E-RUNTIME",
-                    format!(
-                        "`{}` can't be run by this runtime yet: quotients run only in the \
-                         reference evaluator for now",
-                        form.name()
-                    ),
-                ));
+            // Quotients (docs/proposals/map-equality.md §7.4.1, D921): there
+            // is no wrapper, so `Quot.mk a` is `a`, or the placeholder when
+            // the carrier's elements are erased (the checker's flag); a lift
+            // whose result isn't erased is the application `f q`, through
+            // the usual path, so `f`'s own type decides which arguments it
+            // takes (§7.4.2). Erased-result lifts, `Quot.ind` and
+            // `Quot.sound` are proofs or types.
+            Term::Quot(QuotForm::Mk, args, false) => self.expr(&args[2])?,
+            Term::Quot(QuotForm::Lift, args, false) => {
+                let f_q = Term::App(args[3].clone(), args[5].clone(), Icit::Explicit);
+                self.expr(&f_q)?
+            }
+            Term::Quot(QuotForm::Mk | QuotForm::Lift | QuotForm::Ind | QuotForm::Sound, ..) => {
+                Expr::Erased
             }
             Term::Case(ix, d, branches) => self.case(*ix, *d, branches)?,
             Term::NumCase(ix, arms, default) => self.num_case(*ix, arms, default)?,

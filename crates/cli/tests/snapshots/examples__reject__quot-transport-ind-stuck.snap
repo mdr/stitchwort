@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/quot-transport-ind-stuck.sw:13:27 ]
+    │
+ 13 │ theorem nIsZero: n = 0 := rfl
+    │                           ─┬─  
+    │                            ╰─── `n` and `0` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `J (y proof => Nat) 0 (Quot.ind (b => rfl) (Quot.mk False))`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+────╯
