@@ -513,6 +513,17 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+  switch (v2.tag) {
+    case "Yes": {
+      return (v3)(undefined);
+    }
+    case "No": {
+      return (v4)(undefined);
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dBool$ddecTrue = (v0) => {
   switch (v0.tag) {
     case "False": {
@@ -530,7 +541,109 @@ const $Std$dNat$ddecLessThan = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dle
 const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
 const $Std$dNat$dmod = (v0) => (v1) => $Std$dNat$dsub(v0)($Std$dNat$dmul($Std$dNat$ddiv(v0)(v1))(v1));
+const $Std$dList$dheadOr = (v1) => (v2) => {
+  switch (v2.tag) {
+    case "Nil": {
+      return v1;
+    }
+    case "Cons": {
+      const v3 = v2.head;
+      const v4 = v2.tail;
+      return v3;
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dList$dtailOf = (v1) => {
+  switch (v1.tag) {
+    case "Nil": {
+      return { tag: "Nil" };
+    }
+    case "Cons": {
+      const v2 = v1.head;
+      const v3 = v1.tail;
+      return v3;
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dList$ddecCons = (v1) => (v2) => (v3) => (v4) => (v5) => (v6) => {
+  switch (v5.tag) {
+    case "Yes": {
+      switch (v6.tag) {
+        case "Yes": {
+          return { tag: "Yes" };
+        }
+        case "No": {
+          return { tag: "No" };
+        }
+      }
+      throw new Error("unreachable");
+    }
+    case "No": {
+      return { tag: "No" };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dList$ddecEq = (v1) => (v2) => (v3) => {
+  let s1 = v1, s2 = v2, s3 = v3;
+  for (;;) {
+    const v1 = s1, v2 = s2, v3 = s3;
+    switch (v2.tag) {
+      case "Nil": {
+        switch (v3.tag) {
+          case "Nil": {
+            return { tag: "Yes" };
+          }
+          case "Cons": {
+            const v4 = v3.head;
+            const v5 = v3.tail;
+            return { tag: "No" };
+          }
+        }
+        throw new Error("unreachable");
+      }
+      case "Cons": {
+        const v4 = v2.head;
+        const v5 = v2.tail;
+        switch (v3.tag) {
+          case "Nil": {
+            return { tag: "No" };
+          }
+          case "Cons": {
+            const v6 = v3.head;
+            const v7 = v3.tail;
+            const v9 = v4;
+            const v10 = v6;
+            const v11 = v5;
+            const v12 = v7;
+            const v13 = (v1)(v4)(v6);
+            const p1_1$ = v1;
+            const p2_2$ = v5;
+            const p3_3$ = v7;
+            switch (v13.tag) {
+              case "Yes": {
+                s1 = p1_1$;
+                s2 = p2_2$;
+                s3 = p3_3$;
+                continue;
+              }
+              case "No": {
+                return { tag: "No" };
+              }
+            }
+            throw new Error("unreachable");
+          }
+        }
+        throw new Error("unreachable");
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
 const $Std$dNat$dcompare = (v0) => (v1) => $Std$dBool$difThenElse($Std$dNat$dequal(v0)(v1))(((v2) => ({ tag: "Equal" })))(((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v0)(v1))(((v3) => ({ tag: "Less" })))(((v3) => ({ tag: "Greater" })))));
+const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
 const $Std$dNat$dinstDecEq = { decide: $Std$dNat$ddecEq };
 const $Std$dOrd$d$gcompare = (v1) => {
   const v2 = v1.eq;
@@ -891,6 +1004,28 @@ const $Main$dascending = (v0) => (v1) => {
   }
 };
 const $Main$dsortIsSorted = (v0) => $Main$dascending(0n)($Std$dList$dsort($Std$dNat$dinstOrd)($Main$dscrambled(v0)));
+const $Main$dItem$d$g$gmk$g0 = (v0) => (v1) => {
+  const v2 = v1.id;
+  const v3 = v1.name;
+  return v2;
+};
+const $Main$dItem$d$g$gmk$g1 = (v0) => (v1) => {
+  const v2 = v1.id;
+  const v3 = v1.name;
+  return v3;
+};
+const $Main$dItem$d$gdecEq = (v0) => (v1) => {
+  const v2 = v0.id;
+  const v3 = v0.name;
+  const v4 = v1.id;
+  const v5 = v1.name;
+  return $Std$dDecidable$delim($Std$dNat$ddecEq(v2)(v4))(((v6) => $Std$dDecidable$delim($Std$dText$ddecEq(v3)(v5))(((v7) => ({ tag: "Yes" })))(((v7) => ({ tag: "No" })))))(((v6) => ({ tag: "No" })));
+};
+const $Main$ditems = (v0) => $Std$dList$dmap(((v1) => ({ id: v1, name: "x" })))($Std$dList$drange(v0));
+const $Main$dsameNats = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))))($Std$dList$drange(v0))($Std$dList$drange(v0));
+const $Main$dsameItems = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Main$dItem$d$gdecEq(v3)(v4))))(v1)(v2)))))($Main$ditems(v0))($Main$ditems(v0));
+const $Main$dlastDiffers = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))))($Std$dList$drange(v0))($Std$dList$dmap(((v1) => $Std$dBool$difThenElse((((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2)(v0))))($Std$dNat$dadd(v1)(1n)))(((v2) => $Std$dNat$dadd(v0)(7n)))(((v2) => v1))))($Std$dList$drange(v0)));
+const $Main$dshorter = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))))($Std$dList$drange(v0))($Std$dList$drange($Std$dNat$dadd(v0)(1n)));
 
 function $$mapSum(arg0) {
   try {
@@ -946,4 +1081,40 @@ function $$sortIsSorted(arg0) {
   }
 }
 
-export { $$mapSum as mapSum, $$filterCount as filterCount, $$filterMapSum as filterMapSum, $$appendCount as appendCount, $$sortedFirst as sortedFirst, $$sortIsSorted as sortIsSorted };
+function $$sameNats(arg0) {
+  try {
+    const v0 = decode(NAT, arg0, "n");
+    return encode(BOOL, $Main$dsameNats(v0));
+  } catch (e) {
+    throw outOfResources("sameNats", e);
+  }
+}
+
+function $$sameItems(arg0) {
+  try {
+    const v0 = decode(NAT, arg0, "n");
+    return encode(BOOL, $Main$dsameItems(v0));
+  } catch (e) {
+    throw outOfResources("sameItems", e);
+  }
+}
+
+function $$lastDiffers(arg0) {
+  try {
+    const v0 = decode(NAT, arg0, "n");
+    return encode(BOOL, $Main$dlastDiffers(v0));
+  } catch (e) {
+    throw outOfResources("lastDiffers", e);
+  }
+}
+
+function $$shorter(arg0) {
+  try {
+    const v0 = decode(NAT, arg0, "n");
+    return encode(BOOL, $Main$dshorter(v0));
+  } catch (e) {
+    throw outOfResources("shorter", e);
+  }
+}
+
+export { $$mapSum as mapSum, $$filterCount as filterCount, $$filterMapSum as filterMapSum, $$appendCount as appendCount, $$sortedFirst as sortedFirst, $$sortIsSorted as sortIsSorted, $$sameNats as sameNats, $$sameItems as sameItems, $$lastDiffers as lastDiffers, $$shorter as shorter };

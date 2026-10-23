@@ -1263,6 +1263,34 @@ console.log("ok");
     );
 }
 
+/// SW-346: `==` on lists, and the `==` derived for a record that holds a
+/// list, is a loop in the generated JS (`List.decEq` recurses through
+/// `List.decCons`, which is inlined, so the recursive call is a tail call),
+/// not a stack frame per element. A difference stops it early.
+#[test]
+fn list_equality_is_a_loop() {
+    let examples = examples();
+    let script = r#"
+import * as lists from "./long-lists.mjs";
+import assert from "node:assert/strict";
+
+assert.equal(lists.sameNats(100000n), true);
+assert.equal(lists.sameItems(20000n), true);
+assert.equal(lists.sameItems(100000n), true);
+assert.equal(lists.lastDiffers(100000n), false);
+assert.equal(lists.shorter(100000n), false);
+assert.equal(lists.sameNats(0n), true);
+assert.equal(lists.lastDiffers(0n), true);
+assert.equal(lists.shorter(0n), false);
+console.log("ok");
+"#;
+    run_script(
+        "listeq",
+        &[("long-lists.mjs", example(&examples, "long-lists.sw"))],
+        script,
+    );
+}
+
 /// Property-style differential tests of the text natives: every export of
 /// `examples/extract/text.sw`, generated with native text operations and with
 /// every operation compiled from its list definition, must give the same
