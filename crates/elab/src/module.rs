@@ -44,8 +44,8 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use crate::kernel;
 use stitchwort_core::globals::{HashKey, State};
-use stitchwort_core::{DataId, DefId};
 use stitchwort_core::registry::Builtin;
+use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
@@ -388,7 +388,10 @@ impl Elaborator {
                 };
             }
             let rest = diagnostics.split_off(before);
-            diagnostics.extend(rest.into_iter().filter(|(_, d)| d.code != goals::UNFINISHED));
+            diagnostics.extend(
+                rest.into_iter()
+                    .filter(|(_, d)| d.code != goals::UNFINISHED),
+            );
             let position = items[component[0]].position;
             diagnostics.extend(goals.into_iter().map(|d| (position, d)));
             if unfinished {

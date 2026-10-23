@@ -342,6 +342,86 @@ medium about a day). Estimates.
 
 2a then 2b and 2c in parallel.
 
+## 8.1 Stage 2a as built
+
+*SW-31 stage 2a, 23 October 2026.*
+
+**Syntax.** `?` is a token (`Tok::Question`) and an atom, `Expr::Goal`,
+allowed anywhere an expression is. `x?` lexes as `x ?`.
+
+**The goal** (`crates/elab/src/goals.rs`). `?` checked against `T` is a new
+*frozen* metavariable applied to the variables in scope; unification never
+solves it. The goal noted with it has the span, `T`, and the context: each
+variable in scope that a case split hasn't replaced, outermost first, a
+`let` with its value, a shadowed name with `✝`, compiler-made `%` names
+left out. `?` where the type isn't known (an inferring position) gets a
+fresh metavariable for its type, and "the type here isn't known yet" if
+nothing solves it. Goals are printed when the declaration's metavariables
+are cleared (`Elaborator::clear_metas`, as `flush_navigation`), with a
+printing limit of 4000 characters instead of messages' 240
+(`pretty::value_for_goal`). An undone attempt drops the goals it noted
+(`undo::Snapshot` keeps their count), and a span printed twice keeps the
+last. The diagnostic has its own severity, `Severity::Goal`, and code
+`GOAL`; the CLI shows it as in §3.2, except that the heading is
+"in `addZero`" (the declaration; the branch isn't named: the context and
+the refined goal show it).
+
+**Unfinished declarations** (D636). A goal's metavariable never reaches the
+kernel: zonking keeps goals' metavariables while it looks for other
+unsolved ones (so they're still reported as themselves), then fails with
+the internal error `E-UNFINISHED` if one is left (`Elaborator::zonk_around`).
+(The kernel refuses any metavariable anyway, so this is about the message,
+not soundness.) The module (`module.rs`) turns a component whose only
+errors are `E-UNFINISHED` into `Status::Unfinished`: failed to the kernel
+like any other, but nothing reported except its goals. Its declarations go
+into `Globals::unfinished`, which the kernel never reads; when the kernel
+refuses something only because it uses unfinished declarations
+(`E-FAILED-DEPENDENCY` with every failed reference in that set,
+`kernel.rs`), and when an error is fallout of a stuck unfinished definition
+(`blame_failed_dependency`), that becomes `E-UNFINISHED` too. So what uses an
+unfinished declaration, in the same namespace or another, transitively, is
+unfinished, silently. A namespace with goals, or with an unfinished
+declaration, isn't written to the check cache.
+
+**The commands.** A load with goals but no errors succeeds, with the goals
+among the warnings, so each command decides:
+
+| Command | With goals open |
+|---|---|
+| `check` | Prints them and "N goals open: …", exits 1. |
+| `test` | Runs the tests that are finished (an unfinished test isn't admitted, so it can't run), then "N goals open", exits 1. |
+| `run` | Runs `main` if it's finished, exit code as usual; if it isn't, `E-UNFINISHED`: "`main` isn't finished …" (`Session::main`). |
+| `build --js` | Builds nothing: "nothing was built: N goals open", exits 1. `Session::extract` and `extract_namespace` refuse an unfinished export themselves (`E-UNFINISHED`), for other callers (the playground). |
+| `eval`, the REPL | An expression using an unfinished definition, or with a `?` in it, is `E-UNFINISHED` (`infer_expr`). |
+| `axioms` | Refuses an unfinished definition. |
+
+The language server and the playground get the goal diagnostics as they
+are: the server maps `Severity::Goal` to Information (one line, needed to
+compile; the rest is stage 2b), the playground shows them where it shows
+warnings until stage 2c.
+
+**`_` as a proof** (D641). A `_` checked against a proposition is noted
+(`Elaborator::proof_holes`); if it stays unsolved, `E-UNSOLVED`'s note is
+"write `?` to see what's needed here".
+
+**Tests.** `examples/goals/` (11 files: proof hole, each `match` branch,
+`let` values, `match h:`, implicit parameters, inferring position, two
+holes, beside an error, lemma used later, undone attempt, a test with a
+hole) and `examples/projects/goals/across-namespaces/`, run by
+`crates/cli/tests/examples.rs` (goals reported, no errors unless declared,
+tests of what's finished pass; rendered output snapshot-tested). An
+`accept/` example or project with a goal now fails. The rewind
+differential test (`crates/driver/tests/rewind.rs`) checks every goals
+example. Lexer and parser unit tests for `?`.
+
+**Known gaps.** A `?` in a *signature* makes the declaration's name fail
+before it's declared: a use in the same namespace is unfinished, but one
+from another namespace reports "has errors". A `?` used as a function with
+another `?` as its argument (`? ?`) is a type mismatch, since a frozen
+metavariable can't be solved for. A `?` in an instance search's zonk, or in
+a lifted local definition's type, may give that path's error instead of
+the goal.
+
 ## 9. Risks
 
 - **The first error in a branch hides later holes** (§4 item 8). Lean

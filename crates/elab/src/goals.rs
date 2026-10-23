@@ -82,8 +82,9 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         let is_let = cx.lets[level].is_some();
         let name = &cx.names[level];
         // A variable a case split has replaced by a constructor is gone; a
-        // compiler-made one (`%…`) means nothing to the reader.
-        if !(own || is_let) || name.starts_with('%') {
+        // compiler-made one (`%…`), or one bound as `_`, means nothing to the
+        // reader.
+        if !(own || is_let) || name.starts_with('%') || &**name == "_" {
             continue;
         }
         let name = match cx.name_of_level(level) {

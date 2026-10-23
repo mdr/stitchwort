@@ -980,6 +980,19 @@ mod tests {
     }
 
     #[test]
+    fn a_question_mark_is_its_own_token() {
+        assert_eq!(
+            tokens("f ? x?"),
+            Ok(vec![
+                Tok::Lower("f".into()),
+                Tok::Question,
+                Tok::Lower("x".into()),
+                Tok::Question,
+            ])
+        );
+    }
+
+    #[test]
     fn decimal_and_exponent_literals() {
         let float = |s: &str| Tok::Float(s.into());
         let num = |n: u32| Tok::Num(n.into());

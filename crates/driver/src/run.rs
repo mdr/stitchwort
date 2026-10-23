@@ -154,7 +154,10 @@ impl Session {
                         def.name
                     ),
                 )
-                .with_label(span, "this can't run until every goal it needs is filled in"),
+                .with_label(
+                    span,
+                    "this can't run until every goal it needs is filled in",
+                ),
             ));
         }
         let partial = self

@@ -300,7 +300,11 @@ fn accepted_projects_check() {
             ));
             return failures;
         }
-        if session.warnings.iter().any(|d| d.severity == Severity::Goal) {
+        if session
+            .warnings
+            .iter()
+            .any(|d| d.severity == Severity::Goal)
+        {
             failures.push(format!(
                 "{name} has open goals:\n{}",
                 rendered(&session.sources, &session.warnings)
