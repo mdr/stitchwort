@@ -13,6 +13,7 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 stitchwort-js.workspace = true
 stitchwort-driver.workspace = true
+stitchwort-fmt.workspace = true
 # Must match the wasm-bindgen CLI in the Nix dev shell exactly.
 wasm-bindgen = "=0.2.129"
 

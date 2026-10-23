@@ -347,6 +347,20 @@ straight away. The README gets one paragraph.
   a way the browser can undo, keeping the caret on the same token.
 - Everything runs in the worker, so it fits the static-site rule.
 
+**F6 as built.** `format` returns `{"ok": true, "text": …}`, or `{"ok":
+false, "errors": "…", "diagnostics": [{severity, code, file, line, column,
+text}]}`: `errors` is the rendered text `check` uses, and an internal
+formatter error is one diagnostic (`E-FORMAT-INTERNAL`) saying the file was
+left unchanged. The page sends the open file's text (in a project too, only
+that file). The Format button and Shift+Alt+F replace only the middle part
+of the text that changed, with `execCommand("insertText")`, so the browser's
+own undo and redo work (`setRangeText` would clear them; it is the fallback).
+The caret is mapped by counting the non-blank characters before it. A
+refused file is left as it is, with the errors in a panel above the editor
+until the next edit. The button has the shortcut in its tooltip; the page has
+no other list of shortcuts. Test: "Format rewrites the text, undo restores
+it, and a syntax error is refused" in `web/tests/browser.mjs`.
+
 ### 5.4 CI
 
 After the repo reformat, `stitchwort fmt --check` runs over the repo in the

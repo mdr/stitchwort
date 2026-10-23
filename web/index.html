@@ -391,6 +391,10 @@
 
   .evalrow, .runrow { display: flex; gap: 8px; }
   button.run { margin-left: auto; }
+  #format { margin-left: auto; }
+  #format + button.run { margin-left: 0; }
+  #format-errors { padding: 6px 12px; }
+  #format-errors pre.errors { margin: 4px 0; }
   button:disabled { cursor: default; opacity: 0.55; }
   textarea#run-input {
     width: 100%;
@@ -526,6 +530,7 @@
       <span id="link-notice" class="status idle" role="status" hidden></span>
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
       <span id="seltype" class="status" hidden></span>
+      <button id="format" type="button" title="Format the code (Shift+Alt+F)">Format</button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
     <div id="filebar" class="filebar" hidden>
@@ -542,6 +547,7 @@
       <span>Standard library: <code id="std-name"></code> (read-only)</span>
       <button id="std-back" type="button" title="Back to where you were (Esc, or Alt+Left)">Back</button>
     </div>
+    <div id="format-errors" role="alert" hidden></div>
     <div class="editor" id="editor">
       <pre id="highlight" aria-hidden="true"></pre>
       <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
@@ -928,6 +934,7 @@ export def area: Shape -> Nat
           test: () => compiler.test_project(request.paths, request.texts, request.targets, request.known ?? ""),
           evaluate: () => compiler.evaluate_project(request.paths, request.texts, request.targets, request.imports ?? "", request.expr),
           extract: () => compiler.extract_project(request.paths, request.texts, request.namespace),
+          format: () => compiler.format(request.source),
           run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
         }[request.action] : {
           index: () => compiler.check_index(request.source),
@@ -935,6 +942,7 @@ export def area: Shape -> Nat
           test: () => compiler.test(request.source, request.known ?? ""),
           evaluate: () => compiler.evaluate(request.source, request.imports ?? "", request.expr),
           extract: () => compiler.extract(request.source),
+          format: () => compiler.format(request.source),
           run: () => compiler.run_streaming(request.source, request.input, request.maxOutput, sink),
         }[request.action];
         return { out: JSON.parse(answer()) };
@@ -2652,6 +2660,66 @@ export def area: Shape -> Nat
       }
     });
   }
+
+  // ---- Format (docs/proposals/formatter.md §5.3) -------------------------
+  // Formats the open file in the worker. The new text goes in through
+  // execCommand("insertText"), as typing does, so that the browser's own
+  // undo takes it back (setRangeText would clear the undo history; it's the
+  // fallback). A file with a syntax error is refused whole: the text stays
+  // and the errors show above the editor until the next edit.
+  const formatButton = document.getElementById("format");
+  const formatErrors = document.getElementById("format-errors");
+  /** Where the caret goes in `text`: after as many non-blank characters as were before `at` in `old`. */
+  function mapCaret(old, at, text) {
+    let want = old.slice(0, at).replace(/\s/g, "").length;
+    if (want === 0) return 0;
+    for (let i = 0; i < text.length; i++) {
+      if (!/\s/.test(text[i]) && --want === 0) return i + 1;
+    }
+    return text.length;
+  }
+  async function formatSource() {
+    if (stdView || formatButton.disabled) return;
+    formatButton.disabled = true;
+    const before = source.value;
+    const caret = source.selectionStart;
+    try {
+      const result = await ask({ ...requestFor("format"), source: before });
+      if (!result || source.value !== before) return; // crashed, or edited meanwhile
+      if (!result.ok) {
+        formatErrors.replaceChildren(el("h2", {}, "Not formatted"), el("pre", { className: "errors" }, result.errors));
+        formatErrors.hidden = false;
+        return;
+      }
+      formatErrors.hidden = true;
+      if (result.text === before) return;
+      source.focus();
+      // Only the middle that differs is replaced, a smaller edit for undo.
+      const text = result.text;
+      let start = 0;
+      while (start < before.length && start < text.length && before[start] === text[start]) start++;
+      let end = 0;
+      while (end < before.length - start && end < text.length - start &&
+             before[before.length - 1 - end] === text[text.length - 1 - end]) end++;
+      source.setSelectionRange(start, before.length - end);
+      if (!document.execCommand("insertText", false, text.slice(start, text.length - end))) {
+        source.value = text;
+        refresh();
+      }
+      const to = mapCaret(before, caret, text);
+      source.setSelectionRange(to, to);
+    } finally {
+      formatButton.disabled = false;
+    }
+  }
+  formatButton.addEventListener("click", formatSource);
+  source.addEventListener("input", () => { formatErrors.hidden = true; });
+  source.addEventListener("keydown", (e) => {
+    if (e.code === "KeyF" && e.shiftKey && e.altKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      formatSource();
+    }
+  });
 
   // ---- The language guide (web/guide/) -----------------------------------
   // `#guide` shows it in place of the editor, `#guide/<section>` scrolls to a
