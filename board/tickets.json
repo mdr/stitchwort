@@ -6340,8 +6340,8 @@
     },
     {
       "id": 395,
-      "title": "Conversion by case tree (SW-386): exponential on parallel helper chains (20 levels 3.2 s, 24 levels 53 s); add same-hash shortcut / memo; fix 'bounded by the program' comment and docs/core.md 'same type' wording (from the soundness review)",
-      "status": "doing",
+      "title": "Conversion by case tree (SW-386) follow-up: memo of equal pairs (1dc50b2a) — blow24 89 s → 0.5 s, all 27 probes unchanged; held for soundness review before merge",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
