@@ -88,8 +88,8 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 def copiesWeight (copies: Nat): Int
     decreasing copies
 :=
-  let divisorWeights := List.between 2 (copies - 1) |> .sumBy (d =>
-    if h: d < copies then (if Nat.divides d copies then copiesWeight d else 0) else 0)
+  let divisorWeights := List.between 2 (copies - 1) |> .sumBy (divisor =>
+    if h: divisor < copies then (if Nat.divides divisor copies then copiesWeight divisor else 0) else 0)
   1 - divisorWeights
 
 -- The sum of the ids in the range whose digits are a block of the template's
@@ -108,4 +108,4 @@ def RepetitionTemplate.sumIn (range: Range) (template: RepetitionTemplate): Nat 
 
 -- Ranges separated by commas. Spaces and a final line ending are allowed;
 -- anything else fails, naming the text that isn't a range.
-def parseRanges (t: Text): {Fail} (List Range) := t.trim.split ',' |> .mapIn Range.read
+def parseRanges (text: Text): {Fail} (List Range) := text.trim.split ',' |> .mapIn Range.read

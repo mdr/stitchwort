@@ -10,18 +10,18 @@ type Range = { from: Nat, to: Nat }
 
 -- "11-22" is `{ from = 11, to = 22 }`. Spaces around either number are
 -- allowed: " 11 - 22 " reads the same. Anything else fails, naming the text.
-def Range.read (t: Text): {Fail} Range :=
-  match (t.split '-').map (part => part.trim.toNat) with
+def Range.read (text: Text): {Fail} Range :=
+  match (text.split '-').map (part => part.trim.toNat) with
     | [Some from, Some to] =>
-      ensure (from <= to) "the range '${t}' ends before it starts"
+      ensure (from <= to) "the range '${text}' ends before it starts"
       { from, to }
-    | _ => fail "expected a range like 11-22, got '${t}'"
+    | _ => fail "expected a range like 11-22, got '${text}'"
 
-def Range.parse (t: Text): Option Range := Fail.toOption (() => Range.read t)
+def Range.parse (text: Text): Option Range := Fail.toOption (() => Range.read text)
 
-def Range.contains (r: Range) (id: Nat): Bool := r.from <= id && id <= r.to
+def Range.contains (range: Range) (id: Nat): Bool := range.from <= id && id <= range.to
 
-def Range.size (r: Range): Nat := r.to + 1 - r.from
+def Range.size (range: Range): Nat := range.to + 1 - range.from
 
 -- Every id in the range, one by one: only for small ranges and specs.
-def Range.ids (r: Range): List Nat := List.rangeFrom r.size r.from
+def Range.ids (range: Range): List Nat := List.rangeFrom range.size range.from

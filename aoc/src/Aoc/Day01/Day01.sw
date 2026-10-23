@@ -55,25 +55,25 @@ type Turn =
   | Right (distance: Nat)
 
 -- "L68" is `Left 68`; " R5 " is `Right 5`.
-def Turn.read (t: Text): {Fail} Turn :=
-  match t.trim.uncons with
-    | Some ('L', rest) => Left (need rest.toNat "expected a turn like L68, got '${t}'")
-    | Some ('R', rest) => Right (need rest.toNat "expected a turn like L68, got '${t}'")
-    | _ => fail "expected a turn like L68, got '${t}'"
+def Turn.read (line: Text): {Fail} Turn :=
+  match line.trim.uncons with
+    | Some ('L', rest) => Left (need rest.toNat "expected a turn like L68, got '${line}'")
+    | Some ('R', rest) => Right (need rest.toNat "expected a turn like L68, got '${line}'")
+    | _ => fail "expected a turn like L68, got '${line}'"
 
-def Turn.parse (t: Text): Option Turn := Fail.toOption (() => Turn.read t)
+def Turn.parse (line: Text): Option Turn := Fail.toOption (() => Turn.read line)
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Day01.Proofs`) use it; it stays
--- here so that they can write `t.clicks`, a dot name must live with its type.
+-- here so that they can write `turn.clicks`, a dot name must live with its type.
 def Turn.clicks: Turn -> List Turn
-  | Left n => List.replicate n (Left 1)
-  | Right n => List.replicate n (Right 1)
+  | Left distance => List.replicate distance (Left 1)
+  | Right distance => List.replicate distance (Right 1)
 
 -- Where a turn leaves the dial: left is towards lower numbers.
 def Dial.move (dial: Dial n): Turn -> Dial n
-  | Left k => { position = dial.position.subNat k }
-  | Right k => { position = dial.position.addNat k }
+  | Left distance => { position = dial.position.subNat distance }
+  | Right distance => { position = dial.position.addNat distance }
 
 def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
 
@@ -85,5 +85,5 @@ def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
 -- 100). That mirrored position is not the distance to 0 going left (from 20
 -- that is 20 clicks, not 80); it is the position to count right-turns from.
 def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
-  | Right k => (dial.position.value + k) / Mod.size n
-  | Left k => ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n
+  | Right distance => (dial.position.value + distance) / Mod.size n
+  | Left distance => ((Mod.size n - dial.position.value) % Mod.size n + distance) / Mod.size n

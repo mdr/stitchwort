@@ -38,8 +38,8 @@ def part2Batteries: Nat := 12
 -- The joltage of some batteries turned on: the number their digits spell, in order.
 def joltageOf (on: List Battery): Nat := Nat.fromDigits (on.map .toNat)
 
--- The most joltage from turning on k batteries of the bank, or all of them if the bank has fewer.
-def maxJoltage (k: Nat) (bank: Bank): Nat := joltageOf (bank.best k)
+-- The most joltage from turning on count batteries of the bank, or all of them if the bank has fewer.
+def maxJoltage (count: Nat) (bank: Bank): Nat := joltageOf (bank.best count)
 
 -- A battery, labelled with its joltage rating, a digit.
 def Battery: Type := Fin 10
@@ -51,25 +51,25 @@ def Bank: Type := List Battery
 -- `part2Batteries` that part 2 turns on (and so the 2 of part 1), so the
 -- program only runs on banks the headline theorem covers (`enough` in
 -- Proofs/Best.sw). A shorter one is an input error.
-def Bank.read (t: Text): {Fail} Bank :=
-  let msg := "expected a row of digits, got '${t}'"
-  match t.trim.toList with
+def Bank.read (line: Text): {Fail} Bank :=
+  let msg := "expected a row of digits, got '${line}'"
+  match line.trim.toList with
     | Nil => fail msg
     | chars =>
-      let bank := chars |> .mapIn (c => need c.toDigit msg)
+      let bank := chars |> .mapIn (char => need char.toDigit msg)
       if bank.length < part2Batteries then fail "expected at least ${part2Batteries} batteries, got ${bank.length}" else bank
 
--- The digits of the largest k-digit number that is a subsequence of the bank (k digits, or all of them if the bank has fewer).
+-- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the first argument; all the digits if the bank has fewer).
 def Bank.best: Nat -> Bank -> Bank
   | Zero, _ => []
   | Succ _, [] => []
-  | Succ k, Cons d rest =>
-    -- The leftmost largest of the next w digits, and what follows it. The
-    -- candidate so far is c, followed by `after`.
+  | Succ remaining, Cons first rest =>
+    -- The leftmost largest of the next `window` digits, and what follows it. The
+    -- candidate so far is `candidate`, followed by `after`.
     def pick: Nat -> Bank -> Fin 10 -> Bank -> (Fin 10, Bank)
-      | Zero, _, c, after => (c, after)
-      | Succ _, [], c, after => (c, after)
-      | Succ w, Cons x more, c, after =>
-        if c < x then pick w more x more else pick w more c after
-    let (top, after) := pick (rest.length - k) rest d rest
-    Cons top (Bank.best k after)
+      | Zero, _, candidate, after => (candidate, after)
+      | Succ _, [], candidate, after => (candidate, after)
+      | Succ window, Cons x more, candidate, after =>
+        if candidate < x then pick window more x more else pick window more candidate after
+    let (top, after) := pick (rest.length - remaining) rest first rest
+    Cons top (Bank.best remaining after)
