@@ -259,7 +259,7 @@ fn is_comparison(op: BinOp) -> bool {
     )
 }
 
-fn op_text(op: BinOp) -> &'static str {
+pub(crate) fn op_text(op: BinOp) -> &'static str {
     match op {
         BinOp::Add => "+",
         BinOp::Sub => "-",
@@ -575,44 +575,12 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
         kind,
         &mut leaves,
     )?;
-    record_sides(cx, expr, op, &a, &b);
+    crate::probe::record_sides(cx, expr, op, &a, &b);
     let prop = Value::Sort(Sort::Prop);
     match op {
         BinOp::Lt | BinOp::Le => Ok((operator(cx, op, &t, kind, a, b)?, prop)),
         _ => equation(cx, op, a, b, &t),
     }
-}
-
-/// The span of `expr` if it is a comparison: what a test watches for, to
-/// record its sides (`TestSides`).
-pub(crate) fn comparison_span(expr: &Expr) -> Option<Span> {
-    match expr {
-        Expr::Binary(op, ..) if is_comparison(*op) => Some(expr.span()),
-        _ => None,
-    }
-}
-
-/// If `expr` is the comparison that is the whole of the test being
-/// elaborated, records its sides, in the order they were written (the parser
-/// turns `a > b` into `b < a`: the operands are then in the opposite order in
-/// the source).
-fn record_sides(cx: &Ctx, expr: &Expr, op: BinOp, a: &Term, b: &Term) {
-    let Expr::Binary(_, x, y) = expr else { return };
-    let mut capture = cx.e.sides_capture.borrow_mut();
-    if capture.target != Some(expr.span()) {
-        return;
-    }
-    let flipped = x.span().start > y.span().start;
-    let (op, left, right) = match (op, flipped) {
-        (BinOp::Lt, true) => (">", b, a),
-        (BinOp::Le, true) => (">=", b, a),
-        (op, _) => (op_text(op), a, b),
-    };
-    capture.found = Some(crate::TestSides {
-        op,
-        left: left.clone(),
-        right: right.clone(),
-    });
 }
 
 /// `a = b`, `a != b` or `a == b`, with both sides of type `t`.

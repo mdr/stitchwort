@@ -434,7 +434,8 @@ test "part 1 on the example" := part1 1 == 3
 test "greater" := 1 > part1 5
 test "long value" := List.range 1000 == []
 test "huge value" := List.range 100000 == []
-test "not a comparison" := part1 1 == 2 && part1 2 == 4
+test "not a comparison" := List.all (n => n < 3) [1, 2, 3]
+test "second part" := part1 1 == 2 && part1 2 == 4
 `);
   await page.untilChecked();
   await page.tab("tests");
@@ -446,16 +447,19 @@ test "not a comparison" := part1 1 == 2 && part1 2 == 4
       detail: li.querySelector(".detail")?.textContent ?? null }));
   })()`, 30000, "the tests for this source");
   const rows = await results();
-  assert.equal(rows.length, 5);
+  assert.equal(rows.length, 6);
   assert.equal(rows[0].text, "part 1 on the example (`==` is False)");
   assert.equal(rows[0].detail, "left:  2\nright: 3");
   assert.equal(rows[1].text, "greater (`>` is False)");
   assert.equal(rows[1].detail, "left:  1\nright: 6");
-  assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]$/);
-  assert.ok(rows[2].detail.length < 300, rows[2].detail.length);
+  assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]\nfirst difference at index 0: [^\n]*$/);
+  assert.ok(rows[2].detail.length < 400, rows[2].detail.length);
   assert.equal(rows[3].detail, "left:  … (too large to show)\nright: []");
   assert.equal(rows[4].text, "not a comparison (evaluated to False)");
   assert.equal(rows[4].detail, null);
+  // The false part of an `&&`, with its values and where it is (D601).
+  assert.equal(rows[5].text, "second part (`==` is False)");
+  assert.match(rows[5].detail, /^left:  3\nright: 4\nin: part1 2 == 4  \(\S+:10:39\)$/);
   await shots(page, "sw216-tests-tab");
 });
 

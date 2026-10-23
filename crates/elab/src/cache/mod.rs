@@ -64,7 +64,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 5;
+pub const FORMAT: u32 = 6;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -854,6 +854,33 @@ impl Encoding<'_> {
         }
     }
 
+    /// A test's probe (D601).
+    fn probe(&mut self, p: &crate::Probe) {
+        self.span(p.span);
+        match &p.truth {
+            None => self.w.bool(false),
+            Some(t) => {
+                self.w.bool(true);
+                self.term(t);
+            }
+        }
+        self.w.bool(p.whole);
+        match &p.kind {
+            crate::ProbeKind::Other => self.w.u8(0),
+            crate::ProbeKind::Compare { op, left, right } => {
+                self.w.u8(1);
+                self.str(op);
+                self.term(left);
+                self.term(right);
+            }
+            crate::ProbeKind::And(a, b) => {
+                self.w.u8(2);
+                self.probe(a);
+                self.probe(b);
+            }
+        }
+    }
+
     fn def(&mut self, id: DefId) {
         self.out.def(&mut self.w, id);
     }
@@ -1010,7 +1037,7 @@ fn project_file_name(path: &str) -> String {
     format!("project:{path}")
 }
 
-/// The operators a test's sides can have (`TestSides::op`).
+/// The operators a test's comparison can have (`ProbeKind::Compare::op`).
 const TEST_OPS: [&str; 7] = ["==", "!=", "=", "<", "<=", ">", ">="];
 
 /// A diagnostic's code, as the `'static` text `Diagnostic` holds: the
@@ -1453,13 +1480,11 @@ impl Elaborator {
             e.str(&t.namespace);
             e.def(t.def);
             e.span(t.span);
-            match &t.sides {
+            match &t.probe {
                 None => e.w.bool(false),
-                Some(sides) => {
+                Some(probe) => {
                     e.w.bool(true);
-                    e.str(sides.op);
-                    e.term(&sides.left);
-                    e.term(&sides.right);
+                    e.probe(probe);
                 }
             }
         }
@@ -1773,7 +1798,7 @@ struct TestEntry {
     namespace: String,
     def: DefId,
     span: Span,
-    sides: Option<(&'static str, Term, Term)>,
+    probe: Option<crate::Probe>,
 }
 
 /// Where a reference leads: a span, or the declaration with that key.
@@ -1809,6 +1834,45 @@ impl Body<'_> {
 
     fn term(&mut self) -> Read<Term> {
         self.terms.term(&mut self.r)
+    }
+
+    /// A test's probe, `depth` `&&`s down.
+    fn probe(&mut self, depth: usize) -> Read<crate::Probe> {
+        if depth > 64 {
+            return bad("a probe nested too deep".to_string());
+        }
+        let span = self.span()?;
+        let truth = if self.r.bool()? {
+            Some(self.term()?)
+        } else {
+            None
+        };
+        let whole = self.r.bool()?;
+        let kind = match self.r.u8()? {
+            0 => crate::ProbeKind::Other,
+            1 => {
+                let op = self.string()?;
+                let Some(op) = TEST_OPS.iter().find(|o| **o == op) else {
+                    return bad(format!("no operator `{op}`"));
+                };
+                crate::ProbeKind::Compare {
+                    op,
+                    left: self.term()?,
+                    right: self.term()?,
+                }
+            }
+            2 => crate::ProbeKind::And(
+                Box::new(self.probe(depth + 1)?),
+                Box::new(self.probe(depth + 1)?),
+            ),
+            _ => return bad("an unknown kind of probe".to_string()),
+        };
+        Ok(crate::Probe {
+            span,
+            truth,
+            whole,
+            kind,
+        })
     }
 
     fn def(&mut self) -> Read<DefId> {
@@ -2578,9 +2642,7 @@ impl Elaborator {
                 namespace: test.namespace,
                 def: test.def,
                 span: test.span,
-                sides: test
-                    .sides
-                    .map(|(op, left, right)| crate::TestSides { op, left, right }),
+                probe: test.probe,
             });
         }
         if let (Some(nav), Some(entry)) = (&self.nav, t.nav) {
@@ -2775,21 +2837,13 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         let namespace = b.string()?;
         let def = b.def()?;
         let span = b.span()?;
-        let sides = if b.r.bool()? {
-            let op = b.string()?;
-            let Some(op) = TEST_OPS.iter().find(|o| **o == op) else {
-                return bad(format!("no operator `{op}`"));
-            };
-            Some((*op, b.term()?, b.term()?))
-        } else {
-            None
-        };
+        let probe = if b.r.bool()? { Some(b.probe(0)?) } else { None };
         t.tests.push(TestEntry {
             name,
             namespace,
             def,
             span,
-            sides,
+            probe,
         });
     }
     let n = b.count()?;

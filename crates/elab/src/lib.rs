@@ -39,6 +39,7 @@ mod omega_search;
 mod partial;
 mod patlet;
 mod pipe;
+mod probe;
 pub mod project;
 mod records;
 mod rewind;
@@ -168,26 +169,47 @@ pub struct TestDecl {
     pub namespace: String,
     pub def: DefId,
     pub span: Span,
-    /// For a test that is a comparison, its two sides, so a failure can show
-    /// their values.
-    pub sides: Option<TestSides>,
+    /// What a failure can say about the test's expression (D601): its
+    /// comparison, or the part of an `&&` that is false.
+    pub probe: Option<Probe>,
 }
 
-/// The two sides of a comparison that is a test, in the order the user wrote
-/// them (`a > b` is elaborated as `b < a`, but its left side is `a`).
-pub struct TestSides {
-    /// The operator as written: `==`, `!=`, `=`, `<`, `<=`, `>` or `>=`.
-    pub op: &'static str,
-    pub left: Term,
-    pub right: Term,
+/// The shape of a test's expression, for showing why it failed: through
+/// `let`s and `&&`, down to the comparisons. Its terms are closed (the
+/// `let`s around them are put back), and only run after the test has failed.
+pub struct Probe {
+    /// The expression it is.
+    pub span: Span,
+    /// Whether it holds, as a `Bool`: known for an operand of `&&`.
+    pub truth: Option<Term>,
+    /// Whether it is the whole of the test's expression, `let`s aside: a
+    /// failure then needn't say where in the test it is.
+    pub whole: bool,
+    pub kind: ProbeKind,
 }
 
-/// What elaborating a test records of its top-level comparison (`numbers.rs`):
-/// the span to watch for, then the sides found.
+pub enum ProbeKind {
+    /// A comparison, with its two sides in the order the user wrote them
+    /// (`a > b` is elaborated as `b < a`, but its left side is `a`).
+    Compare {
+        /// The operator as written: `==`, `!=`, `=`, `<`, `<=`, `>` or `>=`.
+        op: &'static str,
+        left: Term,
+        right: Term,
+    },
+    /// `a && b`.
+    And(Box<Probe>, Box<Probe>),
+    /// Anything else: nothing to look into.
+    Other,
+}
+
+/// What elaborating a test records for its [`Probe`] (`probe.rs`): the
+/// expressions to watch for, then the closed terms found for them.
 #[derive(Default)]
 pub(crate) struct SidesCapture {
-    target: Option<Span>,
-    found: Option<TestSides>,
+    pub(crate) wanted: std::collections::HashSet<Span>,
+    pub(crate) sides: std::collections::HashMap<Span, (&'static str, Term, Term)>,
+    pub(crate) truths: std::collections::HashMap<Span, Term>,
 }
 
 #[derive(Default)]
@@ -840,8 +862,8 @@ impl Elaborator {
         };
         let body = self.with_local_retries(&label, &shown, |e| {
             *e.sides_capture.borrow_mut() = SidesCapture {
-                target: numbers::comparison_span(expr),
-                found: None,
+                wanted: probe::wanted(expr),
+                ..SidesCapture::default()
             };
             let term = {
                 // A condition, as `if` takes: a `Bool`, or a decided proposition.
@@ -851,20 +873,13 @@ impl Elaborator {
             // Nothing refers to the test, so its helpers are admitted first.
             e.lift(&label, false)?;
             let body = e.finish(&term, 0)?;
-            // The sides are only for showing a failure: if they can't be
-            // finished, the test just has none.
-            let found = e.sides_capture.borrow_mut().found.take();
-            let sides = found.and_then(|s| {
-                Some(TestSides {
-                    op: s.op,
-                    left: e.finish(&s.left, 0).ok()?,
-                    right: e.finish(&s.right, 0).ok()?,
-                })
-            });
-            Ok((body, sides))
+            // The probe is only for showing a failure: what can't be
+            // finished is left out.
+            let probe = probe::build(e, &e.sides_capture.borrow(), expr);
+            Ok((body, probe))
         })?;
-        let (body, sides) = body;
-        self.sides_capture.borrow_mut().target = None;
+        let (body, probe) = body;
+        *self.sides_capture.borrow_mut() = SidesCapture::default();
         self.local_helpers.clear();
         let ty = Term::Data(bool_data, Vec::new());
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
@@ -875,7 +890,7 @@ impl Elaborator {
             namespace: self.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
-            sides,
+            probe: Some(probe),
         });
         Ok(())
     }

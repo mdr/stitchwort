@@ -573,20 +573,44 @@ pub struct TestResult {
     pub cached: bool,
     /// `None` if hashing the test ran out of resources.
     pub hash: Option<ContentHash>,
-    /// For a failed comparison, what the two sides were.
-    pub detail: Option<Comparison>,
+    /// For a failed test, what can be said about why (D601).
+    pub detail: Option<Failure>,
 }
 
-/// The two sides of a failed comparison test, printed (short ones whole,
-/// long ones cut off with `…`). Found by running the sides again when the
-/// test fails, also for a cached failure: the cache keeps only the outcome,
-/// so a passing test never pays for this.
+/// Why a test failed, as far as it can be told: the part of the test that is
+/// false, and for a comparison, the values of its two sides. Found by running
+/// parts of the test again when it fails, also for a cached failure: the
+/// cache keeps only the outcome, so a passing test never pays for this. It's
+/// only a presentation: the test failed because the kernel found `False`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Failure {
+    /// Which part of the test is false, when it isn't the whole expression
+    /// (the last of some `let`s, or the first false operand of `&&`).
+    pub part: Option<Part>,
+    /// If that part is a comparison, its two sides.
+    pub comparison: Option<Comparison>,
+}
+
+/// A part of a test's expression: its text (on one line, cut off with `…` if
+/// long) and where it starts (`line` and `column` count from 1).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Part {
+    pub text: String,
+    pub file: String,
+    pub line: usize,
+    pub column: usize,
+}
+
+/// The two sides of a failed comparison, printed (short ones whole, long ones
+/// cut off with `…`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Comparison {
     /// The operator as written: `==`, `!=`, `=`, `<`, `<=`, `>` or `>=`.
     pub op: &'static str,
     pub left: String,
     pub right: String,
+    /// For two lists or two texts that aren't equal, where they first differ.
+    pub difference: Option<String>,
 }
 
 /// Test results, stored by the test's content hash (DESIGN.md §11). A test's
@@ -795,6 +819,12 @@ impl Cache {
 /// The most characters of a value shown for a failed comparison.
 const SHOWN: usize = 200;
 
+/// The most characters of a part of a test shown to say where it failed.
+const SHOWN_PART: usize = 100;
+
+/// The most characters of an item shown where two lists first differ.
+const SHOWN_ITEM: usize = 40;
+
 /// The most nodes of a value's term that are quoted to show it.
 const SHOWN_NODES: u64 = 8000;
 
@@ -861,7 +891,7 @@ impl Session {
                         outcome,
                         cached: true,
                         hash: Some(hash),
-                        detail: self.comparison(test, outcome),
+                        detail: self.failure(test, outcome),
                     };
                 }
                 // Proofs and types aren't computed (`erase.rs`).
@@ -881,18 +911,85 @@ impl Session {
                     outcome,
                     cached: false,
                     hash: Some(hash),
-                    detail: self.comparison(test, outcome),
+                    detail: self.failure(test, outcome),
                 }
             })
             .collect()
     }
 
-    /// The values of the sides of `test`, if it failed and is a comparison.
-    fn comparison(&self, test: &stitchwort_elab::TestDecl, outcome: Outcome) -> Option<Comparison> {
+    /// Why `test` failed, if it did and that can be told (D601): walks down
+    /// its probe to the first false operand of each `&&`, then shows the sides
+    /// of the comparison it ends at. Every step runs a closed term of its own,
+    /// so what's wrong with one never changes the outcome.
+    fn failure(&self, test: &stitchwort_elab::TestDecl, outcome: Outcome) -> Option<Failure> {
+        use stitchwort_elab::ProbeKind;
         if outcome != Outcome::Failed {
             return None;
         }
-        let sides = test.sides.as_ref()?;
+        let mut probe = test.probe.as_ref()?;
+        while let ProbeKind::And(a, b) = &probe.kind {
+            // `a && b` is false when `a` is, and otherwise when `b` is.
+            match self.holds(a) {
+                Some(true) => probe = b,
+                Some(false) => probe = a,
+                None => break,
+            }
+        }
+        let part = if probe.whole {
+            None
+        } else {
+            self.part(probe.span)
+        };
+        let comparison = match &probe.kind {
+            ProbeKind::Compare { op, left, right } => Some(self.compare(op, left, right)),
+            _ => None,
+        };
+        if part.is_none() && comparison.is_none() {
+            return None;
+        }
+        Some(Failure { part, comparison })
+    }
+
+    /// Whether the operand `probe` is `True`, if it can be told.
+    fn holds(&self, probe: &stitchwort_elab::Probe) -> Option<bool> {
+        let g = &self.elab.globals;
+        let term = probe.truth.as_ref()?;
+        let _op = g.budget.operation(self.elab.limits);
+        let _erasing = g.erasure.running();
+        match eval(g, &[], term).and_then(|v| force(g, v)) {
+            Ok(Value::Ctor(_, c, _)) => Some(c == 1),
+            _ => None,
+        }
+    }
+
+    /// The text and place of the expression at `span`.
+    fn part(&self, span: stitchwort_syntax::Span) -> Option<Part> {
+        if span.file.index() >= self.sources.len() {
+            return None;
+        }
+        let file = self.sources.get(span.file);
+        let text = file.text.get(span.range())?;
+        let before = file.text.get(..span.range().start)?;
+        let line = before.matches('\n').count() + 1;
+        let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+        let one_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let shown: String = if one_line.chars().count() > SHOWN_PART {
+            let mut cut: String = one_line.chars().take(SHOWN_PART).collect();
+            cut.push('…');
+            cut
+        } else {
+            one_line
+        };
+        Some(Part {
+            text: shown,
+            file: file.name.clone(),
+            line,
+            column,
+        })
+    }
+
+    /// The values of the sides of a comparison.
+    fn compare(&self, op: &'static str, left: &Term, right: &Term) -> Comparison {
         let g = &self.elab.globals;
         // Each side is shown in an operation of its own, with a small limit
         // on the size of the value: a value too big to show is a marker, and
@@ -902,23 +999,115 @@ impl Session {
             size: SHOWN_NODES,
             ..self.elab.limits
         };
-        let show = |term: &Term| -> String {
+        let show = |term: &Term| -> (String, Option<Term>) {
             let _op = g.budget.operation(limits);
             let _erasing = g.erasure.running();
             let Ok(v) = eval(g, &[], term) else {
-                return "…".to_string();
+                return ("…".to_string(), None);
             };
             match stitchwort_core::value::quote(g, 0, &v) {
-                Ok(t) => cut(&stitchwort_core::pretty::term(g, &[], &t)),
-                Err(_) => "… (too large to show)".to_string(),
+                Ok(t) => (cut(&stitchwort_core::pretty::term(g, &[], &t)), Some(t)),
+                Err(_) => ("… (too large to show)".to_string(), None),
             }
         };
-        Some(Comparison {
-            op: sides.op,
-            left: show(&sides.left),
-            right: show(&sides.right),
-        })
+        let (left, left_term) = show(left);
+        let (right, right_term) = show(right);
+        let difference = match (op, &left_term, &right_term) {
+            ("==" | "=", Some(l), Some(r)) => first_difference(g, l, r),
+            _ => None,
+        };
+        Comparison {
+            op,
+            left,
+            right,
+            difference,
+        }
     }
+}
+
+/// The items of a list or the characters of a text, each printed, and the
+/// noun for what they are.
+fn items(g: &Globals, term: &Term) -> Option<(&'static str, Vec<String>)> {
+    use stitchwort_core::registry::Builtin;
+    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let char_of = |t: &Term| -> Option<char> {
+        match t.strip_loc() {
+            Term::Ctor(d, 0, args) if is(Builtin::Char, *d) && args.len() == 2 => {
+                match args[0].strip_loc() {
+                    Term::Nat(k) => char::from_u32(u32::try_from(k.as_ref().clone()).ok()?),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    };
+    let mut out = Vec::new();
+    let (noun, mut rest) = match term.strip_loc() {
+        Term::Ctor(d, 0, args) if is(Builtin::Text, *d) && args.len() == 1 => {
+            ("character", args[0].strip_loc())
+        }
+        t @ Term::Ctor(d, _, _) if is(Builtin::List, *d) => ("element", t),
+        _ => return None,
+    };
+    loop {
+        match rest {
+            Term::Chars(chars) => {
+                out.extend(chars.as_slice().iter().map(|c| format!("{c:?}")));
+                return Some((noun, out));
+            }
+            Term::Ctor(d, 0, _) if is(Builtin::List, *d) => return Some((noun, out)),
+            Term::Ctor(d, 1, args) if is(Builtin::List, *d) => {
+                out.push(match char_of(&args[0]) {
+                    Some(c) => format!("{c:?}"),
+                    None => stitchwort_core::pretty::term(g, &[], &args[0]),
+                });
+                rest = args[1].strip_loc();
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// Where two lists, or two texts, first differ, in words.
+fn first_difference(g: &Globals, left: &Term, right: &Term) -> Option<String> {
+    let (noun, a) = items(g, left)?;
+    let (other, b) = items(g, right)?;
+    if noun != other {
+        return None;
+    }
+    let short = |s: &String| -> String {
+        if s.chars().count() > SHOWN_ITEM {
+            let mut cut: String = s.chars().take(SHOWN_ITEM).collect();
+            cut.push('…');
+            cut
+        } else {
+            s.clone()
+        }
+    };
+    let count = |n: usize| format!("{n} {noun}{}", if n == 1 { "" } else { "s" });
+    let at = (0..a.len().min(b.len())).find(|&i| a[i] != b[i]);
+    Some(match at {
+        Some(i) => format!(
+            "first difference at index {i}: {} vs {}",
+            short(&a[i]),
+            short(&b[i])
+        ),
+        None if a.len() < b.len() => format!(
+            "first difference at index {}: left ends, right has {} (left has {}, right has {})",
+            a.len(),
+            short(&b[a.len()]),
+            count(a.len()),
+            count(b.len())
+        ),
+        None if b.len() < a.len() => format!(
+            "first difference at index {}: right ends, left has {} (left has {}, right has {})",
+            b.len(),
+            short(&a[b.len()]),
+            count(a.len()),
+            count(b.len())
+        ),
+        None => return None,
+    })
 }
 
 #[cfg(test)]

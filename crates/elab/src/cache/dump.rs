@@ -27,6 +27,32 @@ fn icit(i: Icit) -> &'static str {
 }
 
 /// Every node of `t`, names, spans and flags included, without recursing.
+/// A test's probe, as text.
+fn dump_probe(out: &mut String, p: &crate::Probe) {
+    let _ = write!(out, "(whole {} ", p.whole);
+    if let Some(truth) = &p.truth {
+        out.push_str("truth ");
+        term(out, truth);
+        out.push(' ');
+    }
+    match &p.kind {
+        crate::ProbeKind::Other => out.push_str("other"),
+        crate::ProbeKind::Compare { op, left, right } => {
+            let _ = write!(out, "compare {op} ");
+            term(out, left);
+            out.push(' ');
+            term(out, right);
+        }
+        crate::ProbeKind::And(a, b) => {
+            out.push_str("and ");
+            dump_probe(out, a);
+            out.push(' ');
+            dump_probe(out, b);
+        }
+    }
+    out.push(')');
+}
+
 fn term(out: &mut String, t: &Term) {
     enum Item<'t> {
         Term(&'t Term),
@@ -324,11 +350,9 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             t.library, t.namespace, t.name, t.def.0
         );
         span(&mut out, t.span);
-        if let Some(sides) = &t.sides {
-            let _ = write!(out, " sides {} ", sides.op);
-            term(&mut out, &sides.left);
-            out.push(' ');
-            term(&mut out, &sides.right);
+        if let Some(probe) = &t.probe {
+            out.push_str(" probe ");
+            dump_probe(&mut out, probe);
         }
         out.push('\n');
     }

@@ -18,15 +18,19 @@ test "greater" := 1 > part1 5
 test "proposition" := part1 1 = 3
 test "long value" := List.range 1000 == []
 test "huge value" := List.range 100000 == []
-test "not a comparison" := part1 1 == 2 && part1 2 == 4
+test "not a comparison" := List.all (n => n < 3) [1, 2, 3]
 "#;
 
 fn folder(name: &str) -> PathBuf {
+    folder_with(name, SOURCE)
+}
+
+fn folder_with(name: &str, source: &str) -> PathBuf {
     let dir =
         std::env::temp_dir().join(format!("stitchwort-failures-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("t.sw"), SOURCE).unwrap();
+    std::fs::write(dir.join("t.sw"), source).unwrap();
     dir
 }
 
@@ -58,6 +62,63 @@ fn a_cached_failure_still_shows_both_sides() {
     let lines = |s: &str| -> Vec<String> {
         s.lines()
             .filter(|l| l.contains("left:") || l.contains("right:"))
+            .map(str::to_string)
+            .collect()
+    };
+    assert_eq!(lines(&first), lines(&second));
+    assert!(!lines(&second).is_empty());
+}
+
+/// What a failure says about the part of the test that is false (D601):
+/// through `let`s and `&&`, with where the first difference of two lists or
+/// texts is.
+const PARTS: &str = r#"import Std (List, Option)
+
+def part1 (n: Nat): Nat := n + 1
+def nums (n: Nat): List Nat := [1, 2, n]
+
+type Point = { x: Nat, y: Nat }
+
+test "let block" :=
+  let a := part1 1
+  let b := a + 5
+  b == 3
+test "and" := part1 1 == 2 && part1 2 == 4
+test "and, first false" := part1 1 == 5 && part1 2 == 4
+test "and three" := part1 1 == 2 && part1 2 == 3 && part1 3 == 5
+test "and, a proposition" := part1 1 == 2 && 7 < 3
+test "and let" :=
+  let a := part1 1
+  a == 2 && a < 1
+test "and, not a comparison" := part1 1 == 2 && List.all (n => n < 2) [1, 2]
+test "list" := nums 4 == [1, 2, 3]
+test "list shorter" := nums 3 == [1, 2]
+test "list longer" := [1] == nums 3
+test "text" := "hello world" == "hello there"
+test "text prefix" := "hello" == "hello!"
+test "record" := ({ x = 1, y = 2 } : Point) == { x = 1, y = 3 }
+test "option" := (Option.Some 1) == Option.None
+test "list of lists" := [[1, 2], [3]] == [[1, 2], [4]]
+test "long list, late difference" := List.range 1000 == List.append (List.range 500) (List.range 500)
+test "long and" := List.range 1000 == List.range 1000 && List.range 300 == List.range 299
+test "unequal, so no difference" := nums 3 != nums 3
+"#;
+
+#[test]
+fn a_failed_test_names_the_false_part_and_where_values_differ() {
+    let dir = folder_with("parts", PARTS);
+    insta::assert_snapshot!("failed_parts", run(&dir, &["--no-cache"]));
+}
+
+#[test]
+fn a_cached_failure_still_names_the_false_part() {
+    let dir = folder_with("parts-cached", PARTS);
+    let first = run(&dir, &[]);
+    let second = run(&dir, &[]);
+    assert!(second.contains("cached"), "{second}");
+    let lines = |s: &str| -> Vec<String> {
+        s.lines()
+            .filter(|l| l.contains("in: ") || l.contains("first difference"))
             .map(str::to_string)
             .collect()
     };

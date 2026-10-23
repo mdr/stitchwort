@@ -48,15 +48,25 @@ export def total: List Nat -> Nat
   | Cons x xs => x + total xs
 ```
 
-When a test whose whole body is a comparison (`==`, `!=`, `=`, `<`, `<=`, `>`, `>=`) fails, `stitchwort test` and the playground's Tests tab show the values of its two sides, in the order written:
+When a test fails, `stitchwort test` and the playground's Tests tab say why, as far as they can (D601). If the test is a comparison (`==`, `!=`, `=`, `<`, `<=`, `>`, `>=`), they show the values of its two sides, in the order written; for two lists or two texts that aren't equal, also where they first differ (counting from 0):
 
 ```
-  ✗ part 1 on the example  ran  (`==` is False)
-      left:  2
-      right: 3
+  ✗ parses the example  ran  (`==` is False)
+      left:  [1, 2, 4]
+      right: [1, 2, 3]
+      first difference at index 2: 4 vs 3
 ```
 
-The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test costs nothing extra. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that isn't a bare comparison (`a == b && c`) just reports `evaluated to False`.
+The comparison can be the last line of a block of `let`s, or an operand of `&&`: the first operand that is false is the one shown, with its text and where it is:
+
+```
+  ✗ both parts  ran  (`==` is False)
+      left:  3
+      right: 4
+      in: part1 2 == 4  (day1.sw:14:31)
+```
+
+A false operand that isn't a comparison (`isSorted xs`) is named with `in:` alone. The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test never pays for it, and nothing here changes whether a test passes: the kernel found `False` first. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that is neither (`List.all p xs`, `a || b`, `not (a == b)`) reports `evaluated to False`.
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 

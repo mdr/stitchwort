@@ -158,10 +158,12 @@ fn decided(
 /// `expr` as a `Bool`: a decided proposition is `Decidable.toBool` of its
 /// decision.
 pub(crate) fn bool_operand(cx: &mut Ctx, expr: &Expr, what: &str) -> Result<Term> {
-    Ok(match condition(cx, expr, what)? {
+    let term = match condition(cx, expr, what)? {
         Condition::Bool(term) => term,
         Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
-    })
+    };
+    crate::probe::record_truth(cx, expr, &term);
+    Ok(term)
 }
 
 /// The `Bool` reading.
@@ -175,6 +177,7 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         Logic::And(a, b) | Logic::Or(a, b) => (a, b),
     };
     let and = matches!(logic, Logic::And(..));
+    let lhs = a;
     let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
     let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new());
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
@@ -185,6 +188,7 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
     // unused proof of `Unit`, as the branches of `Bool.ifThenElse` take.
     let (head, a, b) = match condition(cx, a, what)? {
         Condition::Bool(a) => {
+            crate::probe::record_truth(cx, lhs, &a);
             let mark = cx.mark();
             cx.bind("_", unit);
             let b = bool_operand(cx, b, what);
@@ -233,6 +237,9 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
             if needs_proofs(cx, before)? {
                 // `if _ : a then b else False`, as `if` makes it: `elimDec`.
                 let elim = builtin_def(cx, Builtin::ElimDec)?;
+                if let Ok(truth) = decision.clone().into_bool(cx, prop.clone()) {
+                    crate::probe::record_truth(cx, lhs, &truth);
+                }
                 let head = Term::app_icit(
                     Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
                     bool_ty,
@@ -245,7 +252,9 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
                 // `if a then b else False` on the decision's `Bool`, as
                 // ever: the same term as `Bool.and (toBool …) b` reads, so
                 // the library's facts about `&&` on `Bool`s apply to it.
-                (ite, decision.into_bool(cx, prop)?, b)
+                let truth = decision.into_bool(cx, prop)?;
+                crate::probe::record_truth(cx, lhs, &truth);
+                (ite, truth, b)
             }
         }
     };
