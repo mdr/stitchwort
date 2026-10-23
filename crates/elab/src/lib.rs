@@ -625,6 +625,12 @@ impl Elaborator {
         e.globals
             .glue
             .set(std::env::var("STITCHWORT_GLUE").is_ok_and(|v| v == "1"));
+        // The names some syntax refers to, built once per process: built
+        // here rather than on first use, so that the first program to use
+        // them doesn't count work later ones don't (the bench's `repeat`
+        // test). After the first time, this does nothing.
+        std::sync::LazyLock::force(&module::FLOAT_TYPE);
+        std::sync::LazyLock::force(&omega::LIBRARY_NAMES);
         e
     }
 

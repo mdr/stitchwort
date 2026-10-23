@@ -458,11 +458,18 @@ fn examples() -> Result<Prepared, String> {
     // once per process (`LibraryIndex::standard`); without this, the first
     // run would count that work and later runs wouldn't. It isn't measured.
     drop(Session::new());
+    let parts = accepted
+        .iter()
+        .chain(&rejected)
+        .map(|(name, _)| name.clone())
+        .collect();
     Ok(Prepared {
         inputs: Some(inputs),
-        run: Box::new(move || {
+        parts,
+        run: Box::new(move |parts| {
             let mut total = Work::default();
             for (name, text) in &accepted {
+                let start = parts.start();
                 let mut session = Session::for_stack(16 * 1024 * 1024);
                 if let Err(ds) = session.load(name, text) {
                     return Err(format!("{name}:\n{}", rendered(&session, &ds)));
@@ -472,14 +479,21 @@ fn examples() -> Result<Prepared, String> {
                         return Err(format!("{name}: test \"{}\" failed", result.name));
                     }
                 }
-                total = total + work(&session);
+                let done = work(&session);
+                drop(session);
+                parts.finish(start, done);
+                total = total + done;
             }
             for (name, text) in &rejected {
+                let start = parts.start();
                 let mut session = Session::new();
                 if let Err(ds) = session.load(name, text) {
                     std::hint::black_box(rendered(&session, &ds));
                 }
-                total = total + work(&session);
+                let done = work(&session);
+                drop(session);
+                parts.finish(start, done);
+                total = total + done;
             }
             Ok(total)
         }),
@@ -502,7 +516,8 @@ fn extract_js() -> Result<Prepared, String> {
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Prepared {
         inputs: Some(inputs),
-        run: Box::new(move || {
+        parts: Vec::new(),
+        run: Box::new(move |_| {
             let mut total = Work::default();
             for session in &sessions {
                 let before = work(session);

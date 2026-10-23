@@ -70,9 +70,9 @@ fn main() -> ExitCode {
         match run(b, runs, timed) {
             Ok(outcome) => {
                 eprintln!(" done");
-                if outcome.varied {
+                if let Some(variation) = &outcome.variation {
                     failures.push(format!(
-                        "{}: the counts differed between runs, so they aren't a reliable signal",
+                        "{}: the counts differed between runs, so they aren't a reliable signal:\n{variation}",
                         b.name
                     ));
                 }
