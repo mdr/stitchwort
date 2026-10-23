@@ -6,6 +6,7 @@
 //! has all its parameters *and* its case tree can take a step. This keeps
 //! comparison from unfolding recursive definitions forever. See `docs/core.md`.
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -2023,13 +2024,17 @@ fn conv_step(
         }
         // Two different definitions, each stuck on a `case`: compared by
         // their case trees (`same_stuck_trees`). Like a partially applied
-        // definition above, this recurses, once per level of nested calls
-        // of such definitions in their leaves, which is bounded by the
-        // program (they aren't recursive).
+        // definition above, this recurses: once per level of nested calls of
+        // such definitions, in their leaves (bounded by the program, as they
+        // aren't recursive) and in the scrutinees and arguments compared
+        // (bounded by how deeply the data nests stuck calls). Deep nesting
+        // ends in the stack guard (`budget.rs`, E-RESOURCE), not a crash.
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
-            same_stuck_trees(g, level, &a, &b, &mut |l, x, y| conv(g, l, x, y))?
+            same_stuck_trees(g, level, &a, &b, Relation::Conv, &mut |l, x, y| {
+                conv(g, l, x, y)
+            })?
         }
         // Calls are compared by their unfoldings (D483: the kernel doesn't
         // compare two calls by their arguments first). The cases above
@@ -2195,12 +2200,15 @@ fn walk_tree(g: &Globals, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<Tre
 
 /// Whether two different definitions, each applied to all its arguments and
 /// stuck ([`opens_by_tree`] holds for both), are equal by their case trees,
-/// with `same` comparing values (the scrutinees, then the leaves).
+/// with `same` comparing values (the scrutinees, then the leaves) by
+/// `relation`. A pair already found equal in the same outermost comparison
+/// is answered at once (see the comment above [`Relation`]).
 pub fn same_stuck_trees(
     g: &Globals,
     level: usize,
     a: &Value,
     b: &Value,
+    relation: Relation,
     same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
 ) -> Result<bool> {
     let tree = |value: &Value| -> (Rc<Term>, Vec<Value>) {
@@ -2218,6 +2226,10 @@ pub fn same_stuck_trees(
             .collect();
         (Term::peel_lams_rc(body, def.arity), args)
     };
+    let memo = TreeMemo::enter(g, level, a, b, relation);
+    if memo.known_equal() {
+        return Ok(true);
+    }
     let (t1, e1) = tree(a);
     let (t2, e2) = tree(b);
     // Pairs of subtrees still to compare, each with its level.
@@ -2255,7 +2267,127 @@ pub fn same_stuck_trees(
             _ => return Ok(false),
         }
     }
+    memo.record_equal();
     Ok(true)
+}
+
+// Remembering the pairs of calls already found equal (SW-395).
+//
+// A tree's leaves can call other definitions compared the same way, so one
+// comparison can start many more, and they can repeat: when each definition
+// calls the next one down in both its branches (`a1 x = match x with | True
+// => a0 x | False => a0 x`, and `b1` likewise with `b0`), comparing `a1 x`
+// with `b1 x` compares `a0 x` with `b0 x` twice, and a chain of 24 levels on
+// each side compared the same 24 pairs 2^24 times (53 s). So, while two trees
+// are compared, the pairs of calls found equal are remembered, and a pair
+// met again is answered "equal" at once: each pair is compared once, and the
+// chain takes a step per level.
+//
+// Why it can't change an answer: whether two values are equal depends only
+// on them, the level and the metavariable solutions, so the same pair at
+// the same level gets the same answer while the solutions stand. A pair is
+// looked up by exact likeness (`identical`: no evaluation, no unfolding), at
+// the same level, by the same relation (`conv`, or the elaborator's
+// unification, which share this code but aren't the same relation), and in
+// the same `meta_epoch`. Within an epoch solutions are only added, and an
+// equality found with fewer solutions still holds with more; taking a
+// solution back starts a new epoch, which makes everything remembered before
+// it unusable. (The kernel's `conv` solves nothing, so its epoch doesn't
+// move.) Only "equal" is remembered: a "different" nearly always ends the
+// comparison it's part of, and in the elaborator it may be followed by
+// solutions being taken back. The record lives as long as the outermost tree comparison (the one
+// not inside another) and is dropped when it ends, so nothing outlives the
+// query that found it.
+//
+// Considered as well: comparing two definitions with the same content hash
+// by their arguments, as for one definition. The kernel keeps no hashes
+// (`hash.rs` computes them on demand, by walking the definition); when the
+// arguments differed it would still have to fall back on the trees, so as
+// not to reject what's accepted now; and it misses chains that are equal in
+// value but not in text (`1` at the bottom of one, `0 + 1` of the other),
+// which the record handles. So it isn't done.
+
+/// Which comparison a [`same_stuck_trees`] call is part of: remembered
+/// equalities are only reused by the same one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Relation {
+    /// The kernel's conversion, [`conv`].
+    Conv,
+    /// The elaborator's unification, which can solve metavariables.
+    Unify,
+}
+
+/// What [`TreeMemo`] looks a pair up by, besides the two values: relation,
+/// level, metavariable epoch and the two definitions.
+type MemoKey = (Relation, usize, u64, DefId, DefId);
+
+/// How many tree comparisons are open, and the pairs of calls found equal
+/// since the outermost one started.
+type Memo = (usize, HashMap<MemoKey, Vec<(Value, Value)>>);
+
+thread_local! {
+    /// The [`Memo`] of this thread's open tree comparisons (dropped when
+    /// the outermost ends).
+    static TREE_MEMO: std::cell::RefCell<Memo> =
+        std::cell::RefCell::new((0, HashMap::new()));
+}
+
+/// One open tree comparison, with the pair it compares; dropping it closes
+/// the comparison (even on an error).
+struct TreeMemo {
+    key: MemoKey,
+    a: Value,
+    b: Value,
+}
+
+impl TreeMemo {
+    fn enter(g: &Globals, level: usize, a: &Value, b: &Value, relation: Relation) -> TreeMemo {
+        let def = |v: &Value| match v {
+            Value::Neutral(Head::Def(id), _) => *id,
+            _ => unreachable!("checked by opens_by_tree"),
+        };
+        TREE_MEMO.with(|m| m.borrow_mut().0 += 1);
+        TreeMemo {
+            key: (relation, level, g.meta_epoch.get(), def(a), def(b)),
+            a: a.clone(),
+            b: b.clone(),
+        }
+    }
+
+    /// Whether this pair was already found equal.
+    fn known_equal(&self) -> bool {
+        !shortcuts_disabled()
+            && TREE_MEMO.with(|m| {
+                m.borrow().1.get(&self.key).is_some_and(|pairs| {
+                    pairs.iter().any(|(x, y)| {
+                        identical(Same::Values(x, &self.a)) && identical(Same::Values(y, &self.b))
+                    })
+                })
+            })
+    }
+
+    /// Remembers that this pair is equal.
+    fn record_equal(&self) {
+        TREE_MEMO.with(|m| {
+            m.borrow_mut()
+                .1
+                .entry(self.key)
+                .or_default()
+                .push((self.a.clone(), self.b.clone()));
+        });
+    }
+}
+
+impl Drop for TreeMemo {
+    fn drop(&mut self) {
+        TREE_MEMO.with(|m| {
+            let mut m = m.borrow_mut();
+            m.0 -= 1;
+            if m.0 == 0 {
+                m.1.clear();
+            }
+        });
+    }
 }
 
 // Recognising the same function without running it.
@@ -2285,8 +2417,9 @@ thread_local! {
 }
 
 /// Turns the identical-closure shortcut of [`conv`] (and of the elaborator's
-/// unification) off, or back on, on this thread: for tests comparing the
-/// verdicts with and without it.
+/// unification), and the record of pairs of calls found equal
+/// ([`same_stuck_trees`]), off, or back on, on this thread: for tests
+/// comparing the verdicts with and without them.
 #[cfg(any(test, feature = "reference"))]
 pub fn set_shortcuts_disabled(disabled: bool) {
     SHORTCUTS_OFF.with(|s| s.set(disabled));
