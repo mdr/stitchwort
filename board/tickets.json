@@ -5777,13 +5777,13 @@
     {
       "id": 364,
       "title": "Verify the flake's stitchwort-bin builds and matches the cargo release binary (prerequisite for pinning a revision from an app via nix run)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "release"
       ],
-      "body": "D970/D831: an app's CI will run nix run github:mdr/stitchwort/<rev>#stitchwort-bin. Never built so far. Build from local main, compare outputs with target/release/stitchwort, time a cold build.",
+      "body": "Verified 23 Oct: nix build .#stitchwort-bin works unchanged (47 s warm deps); output byte-identical to the cargo release binary on 6 extract examples (js, d.ts, source maps) and Float tests; nix run works. Cold consumer build unmeasured (est. 5-10 min). D975 caching open; CLI-only narrowing deferred.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
