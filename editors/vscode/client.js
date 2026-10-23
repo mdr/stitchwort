@@ -52,7 +52,29 @@ function hoverRangeParams(uri, position, selection) {
   };
 }
 
+const GOAL_AT = 'stitchwort/goalAt';
+
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+
+// The body of the Goals panel for the server's `stitchwort/goalAt` answer
+// ({owner, goal, context: [{name, type, value?}]}, or null/undefined when the
+// cursor is not at a goal). Everything from the server is escaped.
+function goalHtml(answer) {
+  if (!answer) return '<p class="none">No open goal at the cursor.</p>';
+  const rows = (answer.context || [])
+    .map((h) => {
+      const value = h.value === undefined ? '' : ` := <span class="v">${escapeHtml(h.value)}</span>`;
+      return `<div class="h"><span class="n">${escapeHtml(h.name)}</span>: ${escapeHtml(h.type)}${value}</div>`;
+    })
+    .join('');
+  return `<div class="owner">in ${escapeHtml(answer.owner)}</div>${rows}<div class="goal">⊢ ${escapeHtml(answer.goal)}</div>`;
+}
+
 module.exports = {
+  GOAL_AT,
+  escapeHtml,
+  goalHtml,
   hoverRangeParams,
   STD_SCHEME,
   LANGUAGE,

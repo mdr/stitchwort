@@ -1350,3 +1350,51 @@ fn goals_stay_while_their_declaration_does_not_parse() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
+    let dir = temp_dir("goal-at");
+    let file = dir.join("goal.sw");
+    let text = "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  ?\n\ndef other: Nat := 1\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let goal_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/goalAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+
+    // On the `?`.
+    let found = goal_at(&mut client, 3, 2);
+    assert_eq!(found["owner"], "`twice`", "{found:?}");
+    assert_eq!(found["goal"], "n + n = n + n", "{found:?}");
+    assert_eq!(
+        found["context"],
+        json!([{"name": "n", "type": "Nat"}]),
+        "{found:?}"
+    );
+    assert_eq!(found["range"]["start"], json!({"line": 3, "character": 2}));
+
+    // Elsewhere in the same declaration: the nearest goal in it.
+    assert_eq!(goal_at(&mut client, 2, 8)["goal"], "n + n = n + n");
+    // In another declaration, or between declarations: nothing.
+    assert_eq!(goal_at(&mut client, 0, 4), Value::Null);
+    assert_eq!(goal_at(&mut client, 5, 4), Value::Null);
+
+    // After an edit that moves the goal down a line.
+    let edited = text.replace("  ?", "\n  ?");
+    client.change(&uri, 2, &edited);
+    client.diagnostics(&uri, 2);
+    assert_eq!(goal_at(&mut client, 4, 2)["range"]["start"]["line"], 4);
+
+    // After the proof is written: no goal.
+    client.change(&uri, 3, &text.replace('?', "rfl"));
+    client.diagnostics(&uri, 3);
+    assert_eq!(goal_at(&mut client, 3, 2), Value::Null);
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

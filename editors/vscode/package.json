@@ -11,6 +11,7 @@
   "activationEvents": ["onLanguage:stitchwort", "workspaceContains:**/stitchwort.yaml"],
   "dependencies": { "vscode-languageclient": "9.0.1" },
   "contributes": {
+    "commands": [{ "command": "stitchwort.showGoals", "title": "Stitchwort: Show Goals" }],
     "languages": [
       {
         "id": "stitchwort",

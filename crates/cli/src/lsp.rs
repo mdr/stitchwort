@@ -144,6 +144,9 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
 #[derive(Default)]
 struct Nav {
     workspaces: BTreeMap<PathBuf, WorkspaceNav>,
+    /// The open goals last published for each file (kept ones included):
+    /// what `stitchwort/goalAt` answers from.
+    goals: HashMap<Url, Vec<lsp_types::Diagnostic>>,
 }
 
 #[derive(Default)]
@@ -411,6 +414,8 @@ impl Main<'_> {
                     serde_json::to_value(WorkspaceSymbolResponse::Flat(found))
                 })
             }
+            GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)
+                .map(|p| serde_json::to_value(goal_at(&nav, &p.text_document.uri, p.position))),
             request::Formatting::METHOD => parse::<lsp_types::DocumentFormattingParams>(&request)
                 .map(|p| {
                     let texts = self.texts.borrow();
@@ -1113,7 +1118,9 @@ impl Checker {
     }
 
     fn publish(&mut self, key: &Path, project: bool, answers: Answers) {
-        let mut nav = self.nav.write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.nav.write().unwrap_or_else(|e| e.into_inner());
+        let nav = &mut *guard;
+        let nav_goals = &mut nav.goals;
         let ws = nav
             .workspaces
             .entry(key.to_path_buf())
@@ -1136,6 +1143,10 @@ impl Checker {
                 if let Some((_, before)) = self.published.get(&uri) {
                     diagnostics.extend(goals_kept(before, &file));
                 }
+                nav_goals.insert(
+                    uri.clone(),
+                    diagnostics.iter().filter(|d| is_goal(d)).cloned().collect(),
+                );
                 // Only what changed, or is for a newer version of the text.
                 let shown = (version, diagnostics.clone());
                 if self.published.get(&uri) == Some(&shown) {
@@ -1151,7 +1162,7 @@ impl Checker {
             }
             ws.files.insert(place, file);
         }
-        drop(nav);
+        drop(guard);
         for params in notes {
             let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
             let _ = self.sender.send(n.into());
@@ -1164,6 +1175,11 @@ impl Checker {
         let Some(ws) = nav.workspaces.remove(key) else {
             return;
         };
+        for place in ws.files.keys() {
+            if let (Place::Program(_), Some(uri)) = (place, ws.uri(key, place)) {
+                nav.goals.remove(&uri);
+            }
+        }
         drop(nav);
         for place in ws.files.keys() {
             if let (Place::Program(_), Some(uri)) = (place, ws.uri(key, place)) {
@@ -1425,6 +1441,62 @@ fn diagnostic(
         tags: None,
         data: None,
     }
+}
+
+/// The custom request for the goal at the cursor (docs/proposals/
+/// lsp-goal-holes.md §5, D640).
+const GOAL_AT: &str = "stitchwort/goalAt";
+
+/// The open goal at `at`: the one whose `?` the position is on or touches,
+/// else the nearest one (by line) in the same declaration. Answers from the
+/// goals last published, kept ones included, so it is the goal the editor
+/// already shows as a diagnostic; there is no second check. The answer is
+/// `{range, owner, goal, context: [{name, type, value?}], text}`, or null.
+fn goal_at(nav: &Nav, uri: &Url, at: Position) -> Option<serde_json::Value> {
+    let goals = nav.goals.get(uri)?;
+    let key = |p: Position| (p.line, p.character);
+    let on =
+        |d: &&lsp_types::Diagnostic| key(d.range.start) <= key(at) && key(at) <= key(d.range.end);
+    let found = goals.iter().find(on).or_else(|| {
+        let file = locate(nav, uri).and_then(|(_, ws, place)| ws.files.get(&place))?;
+        let within = |r: [u32; 4], p: Position| (r[0], r[1]) <= key(p) && key(p) <= (r[2], r[3]);
+        let declaration = file
+            .outline
+            .iter()
+            .find(|item| item.parent.is_none() && within(item.full_range, at))?
+            .full_range;
+        goals
+            .iter()
+            .filter(|d| within(declaration, d.range.start))
+            .min_by_key(|d| d.range.start.line.abs_diff(at.line))
+    })?;
+    let (heading, body) = found
+        .message
+        .split_once('\n')
+        .unwrap_or((&found.message, ""));
+    let owner = heading.strip_prefix("in ").unwrap_or(heading);
+    let mut context = Vec::new();
+    let mut goal = String::new();
+    for line in body.lines() {
+        if let Some(rest) = line.strip_prefix('\u{22a2}') {
+            goal = rest.trim_start().to_string();
+        } else if !goal.is_empty() {
+            goal.push('\n');
+            goal.push_str(line);
+        } else if let Some((name, rest)) = line.split_once(": ") {
+            context.push(match rest.split_once(" := ") {
+                Some((ty, value)) => serde_json::json!({"name": name, "type": ty, "value": value}),
+                None => serde_json::json!({"name": name, "type": rest}),
+            });
+        }
+    }
+    Some(serde_json::json!({
+        "range": found.range,
+        "owner": owner,
+        "goal": goal,
+        "context": context,
+        "text": body,
+    }))
 }
 
 /// Whether `diagnostic` is an open goal.

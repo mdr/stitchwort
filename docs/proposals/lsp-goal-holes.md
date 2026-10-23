@@ -492,6 +492,45 @@ goals" button beside it that selects the Check tab. (2) Only the Check tab
 Run tabs show nothing about them. Recommendation: leave as is until someone
 wants it.
 
+## 8.4 Stage 2d as built
+
+*SW-376 (D640), 24 October 2026.*
+
+**Request** (`goal_at` in `crates/cli/src/lsp.rs`). `stitchwort/goalAt`
+takes `{textDocument, position}` and answers `{range, owner, goal,
+context: [{name, type, value?}], text}` or null. It reads the goals last
+published for the file (`Nav::goals`, filled by `Checker::publish` from the
+very diagnostics it sends, kept goals included, and cleared with them), so
+there is no second check, and a goal kept across an unparsable edit is
+answered too. The structured fields are cut from the goal's message (the
+heading `in \`f\``, one `name: type [:= value]` line per name, the `⊢`
+line); `text` is the unparsed body.
+
+**Which goal.** The goal whose range the position is on or touches; else,
+inside a declaration (from the outline), the nearest goal in that
+declaration by line; else null.
+
+**Extension.** Command "Stitchwort: Show Goals" opens a webview panel beside
+the editor (scripts off; text escaped by `goalHtml` in `client.js`). It
+sends the request 150 ms after a selection, active-editor or diagnostics
+change, and drops answers to superseded questions.
+
+**Tests.** `goal_at_answers_for_the_goal_at_or_near_the_cursor`
+(`crates/cli/tests/lsp.rs`: on the `?`, elsewhere in the declaration,
+outside it, after an edit that moves the goal, after the proof is written);
+the `goalHtml` unit test in `editors/vscode/test/client.test.js`.
+
+**PROVISIONAL.** (1) Only the goals the checker already reports are
+answered. §3.4's "expected type and context at any expression" (a probe
+re-check at a cursor that isn't on a `?`) is not built; it is the part of
+D640 that needs a second path through the elaborator. Recommendation: wait
+for someone to want it. (2) The panel is opened by a command, not a view
+in the sidebar; alternative: a `WebviewView` in the activity bar.
+Recommendation: keep the panel until it proves its worth. (3) The
+structured `context` comes from parsing the printed message. A hypothesis
+whose type contains a newline or `:= ` could split wrongly; `text` is the
+fallback. Alternative: carry the structure in the diagnostic's `data`.
+
 ## 9. Risks
 
 - **The first error in a branch hides later holes** (§4 item 8). Lean
