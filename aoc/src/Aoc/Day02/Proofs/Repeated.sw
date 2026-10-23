@@ -45,9 +45,9 @@ def multiplier (k: Nat) (n: Nat): Nat := List.range n |> .sumBy (i => Nat.pow 10
 
 def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
   if m != 0 then
-    let from := Nat.max low ((r.from + m - 1) / m)
+    let from := Nat.max low (Nat.ceilDiv r.from m)
     let to := Nat.min (p - 1) (r.to / m)
-    if from <= to then m * ((from + to) * (to - from + 1) / 2) else 0
+    m * Nat.sumBetween from to
   else 0
 
 theorem repeatedAt (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
@@ -163,12 +163,11 @@ theorem window (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat)
         windowBelow from to d bLo bHi c s (noA s hA) omega
           (window from to d bLo bHi yesA noA yesB noB c (Succ s))
 
--- The `if` at the end of `blocksAt`, after its `let`s.
-theorem gaussPick (d: Nat) (from: Nat) (to: Nat):
-    (if from <= to then d * ((from + to) * (to - from + 1) / 2) else 0) = d * Nat.span from (Succ to) :=
-  match h: Nat.leq from to with
-    | True  => Nat.gaussSpan d from to h
-    | False => Eq.sym (Eq.trans (Eq.cong (t => d * t) (Nat.spanEmpty from (Succ to) omega)) (Nat.mulZero d))
+-- The sum at the end of `blocksAt`, after its `let`s, as a `Nat.span`; 0
+-- when from > to, so no case split.
+theorem sumBetweenSpan (d: Nat) (from: Nat) (to: Nat): d * Nat.sumBetween from to = d * Nat.span from (Succ to) :=
+  Eq.cong (t => d * t)
+    (Eq.trans (Nat.sumBetweenCorrect from to) (Eq.cong (t => List.sum (List.rangeFrom (t - from) from)) (Nat.addOne to)))
 
 theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m: Nat) ->
     blocksAt r low p m = windowSum r.from r.to m (p - low) low
@@ -176,15 +175,15 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
   | Succ p, hp, hl, Zero   => Eq.sym (windowZero r.from r.to (Succ p - low) low)
   | Succ p, hp, hl, Succ m =>
     calc blocksAt r low (Succ p) (Succ m)
-      _ = Succ m * Nat.span (Nat.max low ((r.from + Succ m - 1) / Succ m)) (Succ (Nat.min p (r.to / Succ m)))
-          := gaussPick (Succ m) (Nat.max low ((r.from + Succ m - 1) / Succ m)) (Nat.min p (r.to / Succ m))
-      _ = Succ m * Nat.span (Nat.max low ((r.from + Succ m - 1) / Succ m)) (Nat.min (Succ p) (Succ (r.to / Succ m)))
+      _ = Succ m * Nat.span (Nat.max low (Nat.ceilDiv r.from (Succ m))) (Succ (Nat.min p (r.to / Succ m)))
+          := sumBetweenSpan (Succ m) (Nat.max low (Nat.ceilDiv r.from (Succ m))) (Nat.min p (r.to / Succ m))
+      _ = Succ m * Nat.span (Nat.max low (Nat.ceilDiv r.from (Succ m))) (Nat.min (Succ p) (Succ (r.to / Succ m)))
           := rewrite Nat.minSucc p (r.to / Succ m)
-      _ = Succ m * Nat.span (Nat.max low ((r.from + Succ m - 1) / Succ m)) (Nat.min (low + (Succ p - low)) (Succ (r.to / Succ m)))
+      _ = Succ m * Nat.span (Nat.max low (Nat.ceilDiv r.from (Succ m))) (Nat.min (low + (Succ p - low)) (Succ (r.to / Succ m)))
           := rewrite (omega: low + (Succ p - low) = Succ p)
       _ = windowSum r.from r.to (Succ m) (Succ p - low) low
-          := Eq.sym (window r.from r.to (Succ m) ((r.from + Succ m - 1) / Succ m) (r.to / Succ m)
-               (Nat.roundUpGe r.from m) (Nat.roundUpNo r.from m) (b h => Nat.mulLeOfLeDiv b r.to (Succ m) h) (Nat.roundDownNo r.to m)
+          := Eq.sym (window r.from r.to (Succ m) (Nat.ceilDiv r.from (Succ m)) (r.to / Succ m)
+               (b h => Nat.leMulOfCeilDivLe r.from b (Succ m) h) (Nat.roundUpNo r.from m) (b h => Nat.mulLeOfLeDiv b r.to (Succ m) h) (Nat.roundDownNo r.to m)
                (Succ p - low) low)
 
 -- (a) The arithmetic sum is the brute-force one.

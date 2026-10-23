@@ -99,19 +99,30 @@ theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo <= hi): d * ((lo + hi)
     (Eq.trans (Eq.cong (t => d * t) (Nat.halfDouble (List.sum (List.rangeFrom (Succ (hi - lo)) lo))))
       (Eq.sym (Eq.cong (t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
--- first + (first + 1) + ... + last, for first <= last: an arithmetic series,
--- the number of terms times their average. (For first > last it isn't 0.)
-def Nat.sumBetween (first: Nat) (last: Nat): Nat := (first + last) * (last - first + 1) / 2
+-- first + (first + 1) + ... + last: an arithmetic series, the number of
+-- terms times their average. There are `last + 1 - first` terms, which is 0
+-- when first > last (as in `List.between`), so then the sum is 0.
+def Nat.sumBetween (first: Nat) (last: Nat): Nat := (first + last) * (last + 1 - first) / 2
 
--- Gauss's formula is the sum of the numbers from first to last.
-theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat) (h: first <= last): Nat.sumBetween first last = (List.between first last).sum :=
-  calc Nat.sumBetween first last
-    _ = 1 * Nat.sumBetween first last := Eq.sym (Nat.oneMul (Nat.sumBetween first last))
-    _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
-    _ = Nat.span first (Succ last) := Nat.oneMul (Nat.span first (Succ last))
-    _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
+-- Gauss's formula is the sum of the numbers from first to last, for any bounds.
+theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first last = (List.between first last).sum :=
+  match h: Nat.leq first last with
+    | True =>
+      calc Nat.sumBetween first last
+        _ = (first + last) * (last - first + 1) / 2 := rewrite (omega: last + 1 - first = last - first + 1)
+        _ = 1 * ((first + last) * (last - first + 1) / 2) := Eq.sym (Nat.oneMul ((first + last) * (last - first + 1) / 2))
+        _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
+        _ = Nat.span first (Succ last) := Nat.oneMul (Nat.span first (Succ last))
+        _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
+    | False =>
+      calc Nat.sumBetween first last
+        _ = (first + last) * 0 / 2 := rewrite (omega: last + 1 - first = 0)
+        _ = 0 := rewrite Nat.mulZero (first + last)
+        _ = (List.between first last).sum := rewrite (omega: last + 1 - first = 0)
 
 test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 && Nat.sumBetween 5 5 == 5 && Nat.sumBetween 1 100 == 5050
+
+test "Nat.sumBetween, reversed bounds" := Nat.sumBetween 5 3 == 0 && Nat.sumBetween 7 3 == 0 && Nat.sumBetween 1 0 == 0
 
 -- How many pairs `List.pairs` makes: n(n - 1)/2. One step of the count:
 -- `x` is paired with the n others, and p is the number of pairs among those.
