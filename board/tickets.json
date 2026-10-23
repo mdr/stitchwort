@@ -5813,9 +5813,9 @@
     {
       "id": 366,
       "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): design accepted, stages F0-F7 next",
-      "status": "next",
-      "agent": "Opus",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (F0)",
       "labels": [
         "tooling"
       ],
