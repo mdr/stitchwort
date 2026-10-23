@@ -1,11 +1,13 @@
 # Proposal: attributes, `@[…]`, starting with the JavaScript wire format
 
-**Status:** draft 1, 23 October 2026, for external review. Ticket SW-341, decision D590.
-Design-review gate: nothing is implemented. Decisions D597 to D599 ([§11](#11-decisions))
-are for Matt. Written against commit `e9829f37`. Related: DESIGN.md §12 (JavaScript
+**Status:** draft 2, 23 October 2026 (draft 1 was reviewed externally; this draft folds the
+review in, D611). Ticket SW-341. Design-review gate: nothing is implemented. D597 to D599 are
+**decided, with the review's amendments**; D612 and D613 are new and open
+([§11](#11-decisions)). Written against commit `e5342b96`. Related: DESIGN.md §12 (JavaScript
 extraction), [records.md](records.md) §11 (records at the boundary),
-[check-cache.md](check-cache.md), and two lanes running in parallel: SW-339 (D582, `Option T`
-as an optional property) and D583 (pending: refuse `null` by default, opt in to it).
+[check-cache.md](check-cache.md), [variant-fields.md](variant-fields.md) (SW-340, being revised
+in parallel), and SW-339 (D582, merged as `2ba211a0`: `Option T` as `T | undefined`, an optional
+property in a record's field, `null` refused).
 
 Claims about Stitchwort cite files at that commit and are **[checked]** against the source.
 Claims about other languages are **[cited]** (read in the primary source while writing this),
@@ -13,6 +15,8 @@ Claims about other languages are **[cited]** (read in the primary source while w
 re-checked). [Sources](#sources) lists the pages.
 
 ## Contents
+
+- [Response to review (draft 2)](#response-to-review-draft-2)
 
 0. [Summary](#0-summary)
 1. [What Stitchwort is (for a reviewer who doesn't know it)](#1-what-stitchwort-is)
@@ -23,10 +27,92 @@ re-checked). [Sources](#sources) lists the pages.
 6. [Identity: hashing and caches](#6-identity-hashing-and-caches)
 7. [Interactions](#7-interactions)
 8. [Alternatives considered](#8-alternatives-considered)
-9. [Staging and cost](#9-staging-and-cost)
-10. [What we'd like reviewed](#10-what-wed-like-reviewed)
+9. [Staging, cost and tests](#9-staging-cost-and-tests)
+10. [What we'd like reviewed (draft 1's questions, answered)](#10-what-wed-like-reviewed)
 11. [Decisions](#11-decisions)
 12. [Sources](#sources)
+
+## Response to review (draft 2)
+
+The reviewer approved the direction and D597 to D599, with amendments. Matt adopted all of
+them. Each point, what changed, and what the code says where it bears on it.
+
+| # | Review point | Change in draft 2 | Where |
+|---|---|---|---|
+| 1 | "Attributes never change meaning" promises too much: invalid attributes produce errors, an export rename resolves a name clash, and JS callers see a different shape | Replaced by the precise guarantee: valid `js.*` attributes don't change the checked core declarations, the kernel's judgments, or evaluation; they specify the external JS representation and are validated separately. A table places future attribute kinds against it; unchecked `implemented_by` stays outside. The `docs/core.md` line becomes "JS representation attributes are excluded from logical content hashes" | [§4.4](#44-what-an-attribute-may-change) |
+| 2 | Option C's fingerprint misses export renames; a logical hash doesn't identify a JS interface; say which tests stay reusable; both metadata tables must be cached and remapped | Option B kept. New identity contract: logical identity, boundary-shape fingerprint (export names, effective schemas including defaults such as D582's, emitted TS names, codec policies), generated-artifact cache key. Which tests are reusable and which observe the boundary. `js_repr` and `js_export_names` both persisted and remapped. The ownership rule. The draft-1 claim that equal hashes crossing differently "can only be the same type after an edit" is dropped | [§6](#6-identity-hashing-and-caches) |
+| 3 | `js.nullable` should be strict on input; state codec laws; resolve the `Option`-field inconsistency | Strict: `null` is `None`; a missing property or `undefined` is an error. Encode always writes the property. Codec laws stated. The baseline now matches what SW-339 landed: a *record* field `Option T` is an optional property `f?: T`; a *constructor* field (and everywhere else) is a required `T \| undefined`. Nested `Option` tested through a generic parameter too | [§4.5](#jsnullable-on-a-field-of-type-option-t), [§7.6](#76-codec-laws) |
+| 4 | An explicit `@[js.tag "tag"]` behaved differently from omitting it | One uniform rule and one resolution order (tag key → tag values → field keys → clash check → one stored representation, read by both the codec and the `.d.ts` printer). No `$tag` fallback at the boundary: a field may ask for `"$tag"` explicitly. When an *unattributed* type's clash is reported is D612 | [§4.6](#46-resolving-a-types-representation), D612 |
+| 5 | Every parsed attribute must be consumed or rejected; field attributes only on encoded slots; special-codec types; `@[` and layout; argument-shape errors | Invariant stated; the AST keeps attributes on every declaration form and every binder, and each handler consumes or rejects them. Field attributes only on fields with an encoded slot, classified by the kernel's `field_erased`, not by implicitness. Special-codec types (`Nat`, `Text`, `SafeNat`, `SafeInt`…) reject attributes anywhere inside them, from one shared registry. `@[` is an opening bracket everywhere the parser counts brackets, and in `split_decls`. Parser tests listed. Wrong-kind and extra arguments are grammar errors (`E-PARSE`), not promised as `E-ATTRIBUTE` | [§4.1](#41-grammar), [§4.2](#42-placement), [§4.8](#48-where-it-lives-in-the-compiler), [§5](#5-errors) |
+| 6 | Shared fields needn't share a `js.name` | Requirement removed: each constructor's field keys are its own. Coordination with [variant-fields.md](variant-fields.md) noted | [§7.5](#75-the-parallel-lanes) |
+| 7 | Arbitrary strings: prototype-named tag values, literal escaping, single reads, numeric keys, generated public names | Kept arbitrary strings, with the obligations listed: dispatch by `Map` (already so), "no escaping" means no key mangling, correct literal escaping (already so), single read (already so), ordering promise narrowed, export and type names checked against the whole generated public namespace | [§7.3](#73-codecs-dts-validation) |
+| 8 | Closed registry, declaration-site encoding, casing, next encodings | Recorded: closed registry; the declaration-site encoding is the type's *default* JS encoding (named encodings possible later); casing deferred, and if added, tag casing and field casing separately, specified by examples; string-literal encodings for field-less variants are the likely next extension | [§4.3](#43-namespaces), [§4.5](#not-in-the-first-set-casing-helpers), [§8.2](#8-alternatives-considered), [§2](#2-the-problem) |
+| 9 | A metadata-only-edit cache acceptance test, plus a list | Added, with the export-rename variant and the reviewer's list | [§9.2](#92-acceptance-tests) |
+
+**Checked against the code while revising** (all at `e5342b96`):
+
+- **Dispatch tables are already `Map`s.** A type's description is built by `datatype(name)` with
+  `ctors: new Map()` and `flat: new Set()`, and the decoder dispatches with
+  `t.info.ctors.get(tag)` (`crates/js/src/lib.rs`, the runtime prelude around lines 900 and
+  1188) **[checked]**. So a tag value `"__proto__"`, `"constructor"` or `"toString"` is safe
+  today; the obligation is to keep it so.
+- **Literal escaping already exists.** Tag values and keys reach the generated JS through
+  `js_string_literal` (escapes `"` and `\`, writes everything outside printable ASCII as
+  `\u{…}`, `lib.rs:3367`), and `.d.ts` keys through `ts_key`, which quotes a non-identifier
+  (`lib.rs:3146`) **[checked]**.
+- **The encoder writes keys by assignment** onto a fresh object literal (`out: { tag: v.tag }`,
+  then `f.out[key] = value`, `lib.rs` around 1283 and 1298) **[checked]**. Assigning `__proto__`
+  that way sets the prototype instead of making a property, which is why `__proto__` stays
+  forbidden as a *key* (§4.5). It is allowed as a *tag value*, which is a property value, not a
+  key.
+- **Each property is read once.** `own(x, key)` checks `hasOwn` (no getter runs) and then reads
+  `x[key]` once; the decoder works on that captured value (`lib.rs:1115`) **[checked]**.
+- **Private helpers can't collide with exports.** Each export's wrapper has an internal name and
+  the module ends `export { wrapper as name }` (`lib.rs` around 727–735), so "exports aren't
+  names in the module's scope" **[checked]**. Export and type names are already checked against
+  `MODULE_NAMES` (`StitchwortInputError`, `StitchwortResourceError`; `lib.rs:178`, `:335`,
+  `:3245`) **[checked]**; a renamed name must go through the same check.
+- **What SW-339 landed.** In `define`, only a *record's* `Option` field gets the optional flag
+  (`data.record && matches!(b, Boundary::Option(..))`, `lib.rs:2566`); a constructor's field
+  without it is decoded as required (`refuse("missing")`) **[checked]**. DESIGN.md §12 and
+  `docs/syntax.md` ("`Option` in an `export`") say the same: record field `nick?: string`;
+  constructor fields, arguments, results and list elements `T | undefined`; `null` refused
+  (`expected a value or undefined, not null`) **[checked]**. So draft 1's §4.5 sentence
+  ("an unannotated `Option` field is an optional property") was wrong for constructor fields.
+- **The check cache stores side tables by remappable reference.** An entry's `Tables`
+  (`crates/elab/src/cache/mod.rs` around 1750) holds data-keyed tables (`records`,
+  `interfaces`, `by_data`…) whose `DataId`s and `DefId`s are written as either an index into the
+  unit's own declarations or an external dependency named by full path and expected hash, and
+  read back through `In::data`/`In::def` (around 1648–1700) **[checked]**. `js_repr` and
+  `js_export_names` would be two more tables of the same kind, with the format number bumped
+  (`FORMAT`, line 63). The key covers the unit's text and its dependencies' keys, so an attribute
+  edit misses the edited unit and everything that depends on it **[checked]**. A warm-versus-cold
+  test harness already exists (`crates/cli/tests/check_cache.rs`) **[checked]**.
+- **`split_decls` isn't bracket-aware.** It starts a group at *every* column-0 token except `:=`
+  (`crates/syntax/src/parser.rs:254`) **[checked]**, so a `]` at column 0 closing a multi-line
+  attribute group would start a group. Bracket depth is counted separately in several places
+  (`parser.rs` around 186, 455, 474, and `parser/declarations.rs`), each matching
+  `LParen | LBracket | LBrace` **[checked]**; `@[` must join every one.
+- **Erasure is the kernel's.** Each constructor has `field_erased` (a proof or a type former;
+  `crates/core/src/check.rs` around 1708, `globals.rs:199`) **[checked]**; "has an encoded slot"
+  means "not erased", whatever the binder's implicitness.
+- **Special codecs live in two places today.** The identities are `Builtin::SafeNat` and
+  `Builtin::SafeInt` in `crates/core/src/registry.rs` (around 77 and 198), and the hashes the JS
+  backend switches on are in `crates/rt/src/natives.rs` (`NAT_DATA_HASH` at 191, `SAFE_NAT_HASH`
+  at 280) **[checked]**. `crates/elab` depends on `core` and `syntax` but not `rt`
+  (`crates/elab/Cargo.toml`) **[checked]**, so the shared registry belongs in `core` (§4.8).
+- **Generated declarations are already checked strictly.** The extraction tests run `tsc --strict
+  --exactOptionalPropertyTypes` on the `.d.ts` (`crates/cli/tests/extract.rs` around 140)
+  **[checked]**.
+
+**Disagreements.** None of substance. Two notes:
+
+- *Private helpers allocated collision-free* (point 7) is already true (above); draft 2 records it
+  as an invariant to keep rather than new work.
+- The uniform clash rule (point 4) also removes today's silent `$__proto__` key for a variant or
+  record field called `__proto__`: with no fallbacks, its default key is `__proto__`, which is
+  forbidden, so it needs a `js.name`. That follows from the rule rather than from the review's
+  text, so it is part of D612.
 
 ## 0. Summary
 
@@ -59,22 +145,26 @@ export type Shape =
   line or the same line), a constructor (after its `|`), or a field (inside its brackets). Lean 4's
   form, with `@` as in Scala, Kotlin, TypeScript, ReScript and Gleam.
 - **A closed set.** Every attribute the compiler accepts is listed in one table in the compiler
-  and in the docs. An unknown one is an error with a suggestion; a known one in the wrong place,
-  or with the wrong argument, is an error. There is no user-defined attribute and no
-  "ignored if not understood".
+  and in the docs. An unknown one is an error with a suggestion; a known one in the wrong place is
+  an error. **Every parsed attribute is either consumed by its target's handler or is an error**:
+  nothing is silently dropped. There is no user-defined attribute and no "ignored if not
+  understood".
 - **Namespaced.** The first set is `js.tag`, `js.name` and `js.nullable`, all about the JS
   boundary. Bare names (`@[inline]`) are reserved for later language-level attributes.
-- **One rule about meaning.** An attribute never changes what a program means to the type
-  checker, the kernel, the evaluator, tests or proofs. Anything that does stays a keyword
-  (`export`, `instance`, `theorem`, `decreasing`). So the kernel never sees attributes.
-- **Identity.** Recommended: attributes are **not** part of a declaration's content hash. They
-  are an elaborator side table, cached with the other side tables, read only by the JS backend.
-  Changing a JS name reruns no tests. The alternative (hash them into the data type, as the
-  `record` flag already is) is weighed in [§6](#6-identity-hashing-and-caches) and is D598.
-- **Cost.** Only the boundary changes: the generated code inside the module keeps `tag` and
-  the Stitchwort names, and the table-driven decoder and encoder translate keys as they copy.
-  Rough size: one lane for `js.tag` and `js.name` on constructors and fields, a small one for
-  `js.nullable` once D582 and D583 have landed, a small one for names of types and exports.
+- **What they may change.** Valid `js.*` attributes don't change the checked core declarations,
+  the kernel's judgments, or evaluation. They specify the external JS representation (the codec
+  and the `.d.ts`) and are validated separately. Later attribute kinds are placed against this
+  guarantee one by one ([§4.4](#44-what-an-attribute-may-change)).
+- **Identity.** Decided (D598, option B): JS representation attributes are excluded from logical
+  content hashes. They are elaborator side tables (`js_repr`, `js_export_names`), cached with the
+  other side tables, read only by the JS backend. A logical hash therefore does **not** identify
+  a JS interface or a generated artifact; anything that caches or compares those must key on the
+  boundary metadata too ([§6](#6-identity-hashing-and-caches)).
+- **`js.nullable`** is strict: the property must be present, `null` is `None`.
+- **Cost.** Only the boundary changes: the generated code inside the module keeps `tag` and the
+  Stitchwort names, and the table-driven decoder and encoder translate keys as they copy. Rough
+  size: one lane for the grammar, the registry, `js.tag` and `js.name` on constructors and
+  fields; a small one for `js.nullable`; a small one for names of types and exports.
 
 ## 1. What Stitchwort is
 
@@ -97,41 +187,43 @@ The facts that matter here:
   are hashed "because they change the JS (each field's key)", and the record flag "because it
   changes the JS representation" **[checked]**.
 - **What uses the hash.** The test cache keys each test result by the test's hash
-  (`docs/core.md`), so a test reruns only when something it depends on changes. Three
-  boundary codecs (`Nat`, `Text`, and the library's `SafeNat`/`SafeInt`, which cross as JS
-  `number`) are switched on by the content hash of the data type they were written for
-  (`crates/js/src/lib.rs:27`, `NAT_DATA_HASH`, `SAFE_NAT_HASH`, …) **[checked]**. The check cache
-  (`docs/proposals/check-cache.md`) skips *elaboration* of an unchanged file, keyed by the
-  compiler build, the file's text and its dependencies' keys; every cached declaration still goes
-  through the kernel again, and each cross-file reference records the hash it expects
-  **[checked]**. The cache also stores about twenty elaborator *side tables* (scope entries,
-  derived-instance reasons, lifted helpers…) that the hash doesn't cover (check-cache.md §4.4,
-  risks: "forgetting a table").
+  (`docs/core.md`), so a test reruns only when something it depends on changes. The boundary
+  codecs for `Nat`, `Text` and the library's `SafeNat`/`SafeInt` (which cross as JS `number`) are
+  switched on by the content hash of the data type they were written for (`NAT_DATA_HASH`,
+  `SAFE_NAT_HASH`, … in `crates/rt/src/natives.rs`, used from `crates/js/src/lib.rs:27`)
+  **[checked]**. The check cache (`docs/proposals/check-cache.md`) skips *elaboration* of an
+  unchanged unit, keyed by the compiler build, the unit's text and its dependencies' keys; every
+  cached declaration still goes through the kernel again, and each cross-unit reference records
+  the full path and hash it expects **[checked]**. The cache also stores about twenty elaborator
+  *side tables* (scope entries, records, derived-instance reasons, lifted helpers…) that the hash
+  doesn't cover (check-cache.md §4.4, risks: "forgetting a table").
 - **The JS boundary** (DESIGN.md §12) **[checked]**. `export def` makes a function callable from
   TS. Each export is wrapped: *decode* every input into fresh internal values (reading each own
   property once; inherited properties, holes, cycles refused), *validate* (decidable
   preconditions run as checks), *compute*, *encode*. A `.d.ts` is generated. Decoding and
-  encoding are a loop driven by per-type description tables (`info$…`), not recursion
-  (`crates/js/src/lib.rs` around 1060–1170). The current representations:
+  encoding are loops driven by per-type description tables (`define(info$…, …)`), not recursion
+  (`crates/js/src/lib.rs`, `decode` and `encode` around 1147–1310). The current representations:
   - a variant: `{ tag: "Square"; side: bigint }`; constructors must name their fields;
   - a record: a plain object, no tag, keys in declared order;
-  - `Option a`: tagged today (`{ tag: "None" } | { tag: "Some"; value: A }`); SW-339 (D582,
-    running) changes an `Option` record field to an optional property, `T | undefined` elsewhere,
-    missing or `undefined` read as `None`, an inner `Option` of a nested one still tagged; D583
-    (pending) refuses `null` by default and opts in to it;
+  - `Option a` (D582, landed in `2ba211a0`): `T | undefined`; in a *record's* field, an optional
+    property `readonly f?: T` (missing or `undefined` is `None`; `None` is encoded by leaving the
+    property out). In a *constructor's* field, an argument, a result, a list element or a type
+    argument it is `T | undefined` with the property required. `null` is refused. Only the
+    outermost `Option` is `T | undefined`; an `Option` directly inside another stays the tagged
+    `{ tag: "None" } | { tag: "Some"; value: T }`, also when it arrives through a type parameter;
   - **names**: a field's key is its name with `'` written `$`; the keys `tag` and `__proto__` are
-    taken, so a variant field called `tag` gets the key `$tag` (`field_key`,
-    `crates/js/src/lib.rs:2936–2945`; a record's field `tag` keeps `tag`, `record_key`). A type's
-    TS name is its short name; two boundary types with the same short name are `E-EXPORT`; an
-    export's JS name is its short name, which must be a JS identifier that isn't reserved.
+    taken, so a variant field called `tag` gets the key `$tag` and one called `__proto__` gets
+    `$__proto__` (`field_key`, `lib.rs:3089`; a record's field `tag` keeps `tag`, `record_key`).
+    A type's TS name is its short name; two boundary types with the same short name are
+    `E-EXPORT`; an export's JS name is its short name, which must be a JS identifier that isn't
+    reserved or one of the module's own names.
   - **Inside the module the same objects are used**: generated code builds `{ tag: "Square",
-    side: … }` and reads `.side` (`lib.rs:1921–1928`). The decoder's output *is* the internal value.
+    side: … }` and reads `.side`. The decoder's output *is* the internal value.
 - **Derived instances.** Every data type gets `==`, `Show` and an order derived automatically
   (`crates/elab/src/derive*.rs`); `Show` prints Stitchwort syntax (constructor names).
 - **Tooling.** The language server offers hover, go to definition, references, document and
-  workspace symbols, selection ranges; no completion yet (`crates/cli/src/lsp.rs:75–88`)
-  **[checked]**. There is a VS Code grammar (`editors/vscode/syntaxes/stitchwort.tmLanguage.json`).
-  There is no formatter **[checked]**.
+  workspace symbols, selection ranges; no completion yet. There is a VS Code grammar
+  (`editors/vscode/syntaxes/stitchwort.tmLanguage.json`). There is no formatter.
 - **Syntax today.** `@` and `#` are not tokens: the lexer rejects them as "unexpected character"
   (`crates/syntax/src/lexer.rs`, the `_ =>` arm of the operator match) **[checked]**, so `@[` is
   free. `%` is the remainder operator. Comments are `--`. Declarations start at column 0, and the
@@ -140,7 +232,7 @@ The facts that matter here:
 
 ## 2. The problem
 
-A generic case from a real-world TypeScript app, which already has
+A TypeScript app already has
 
 ```ts
 type Shape =
@@ -156,18 +248,22 @@ and the Stitchwort library must take and return exactly this. Four gaps:
    `CIRCLE` (a legal constructor name), which leaks the wire format into every pattern match.
 3. **Field keys** are `center_x`. Possible only by naming the field `center_x`; impossible for keys
    that aren't Stitchwort names (`"center-x"`, `"$type"`, `"0"`).
-4. **`null` versus missing.** `label: string | null` is required and nullable; D582 gives
-   `label?: string` (optional property), and D583 would refuse `null`. The app needs a per-field
-   way to say "this one is `T | null`".
+4. **`null` versus missing.** `label: string | null` is required and nullable. Today a
+   constructor field `Option Text` is a required `string | undefined` and `null` is refused
+   (D582). The app needs a per-field way to say "this one is `T | null`".
 
 All four are properties of *one data type's JS form*, set where the type is declared, and none
 changes anything inside Stitchwort. A wider need is in sight (inlining hints, deprecation,
-`simp`-like lemma sets, `@[implemented_by]`-style natives), so the syntax should be general even
-though the first set is small.
+`simp`-like lemma sets, natives), so the syntax should be general even though the first set is
+small.
 
 **Non-goals.** Untagged/unboxed unions (ReScript `@unboxed`, serde `untagged`), adjacent tagging
-(`{ tag, content }`), numeric or boolean discriminants, multiple wire formats for one type,
-changing the format of library types (`Option`, `List`), and user-defined attributes.
+(`{ tag, content }`), numeric or boolean discriminants, several wire formats for one type,
+changing the format of library types (`Option`, `List`), and user-defined attributes. **Likely
+next**, after this note, and its own decision: string-literal encodings for field-less variants
+(`type Direction = "UP" | "DOWN"`), which map directly and need no structural branch selection.
+Numeric and boolean discriminants wait for a demonstrated need; untagged unions need a larger
+design (overlapping alternatives, branch selection, diagnostics).
 
 ## 3. How other languages do it
 
@@ -233,8 +329,7 @@ Lessons:
 - **Clashes between the tag key and a field.** aeson's docs warn that a record field with the
   tag field's name overwrites the tag; STJ's docs say to avoid a discriminator name that
   "conflicts with a property in your type hierarchy" **[cited]**. These are warnings, not errors.
-  Stitchwort today avoids the clash by renaming the field to `$tag`; with a user-chosen key it
-  should be an error ([§5](#5-errors)).
+  Here it is an error ([§4.6](#46-resolving-a-types-representation)).
 - **Casing rules are ambiguous for sums with fields.** serde's `rename_all` on an enum renames
   the *variants*, so serde later added `rename_all_fields`, "a `rename_all` on every struct
   variant of an enum" **[cited]**. A casing helper must say which names it renames.
@@ -258,7 +353,9 @@ Lessons:
 - **Lean 4**: `@[attr, …]` sits "between the documentation comment and the visibility
   modifiers"; `attribute [attr] ident` adds or removes attributes after the fact (`-attr`);
   `local` and `scoped` limit them to a section or to when a namespace is open; the syntax category
-  "is designed to be extended" **[cited]**.
+  "is designed to be extended" **[cited]**. Its `implemented_by` does not check that the two
+  implementations agree; `csimp` is the alternative that requires an equality proof
+  **[cited]** (via the review; see [§4.4](#44-what-an-attribute-may-change)).
 - **OCaml**: three forms by what they attach to (`[@…]`, `[@@…]`, `[@@@…]`); attributes are
   "mostly ignored by the type-checker but can be used by external tools" **[cited]**, so a typo in
   an unknown attribute is silently ignored **[inferred]**.
@@ -282,7 +379,8 @@ Lessons:
    open annotation systems grow into **[inferred]**).
 5. Not Lean's after-the-fact `attribute [...]`, nor `local`/`scoped`: the wire format of a type
    should be visible where the type is, and can't depend on what's imported or in what order.
-6. Unison's position on identity, adapted ([§6](#6-identity-hashing-and-caches)).
+6. Unison's position on identity, adapted, with the boundary's own identity kept separate
+   ([§6](#6-identity-hashing-and-caches)).
 
 ## 4. The design
 
@@ -296,15 +394,22 @@ argument   ::= string                       -- a plain string literal, no interp
 ```
 
 - `@[` is one new token (`@` alone stays an error). The contents are read by the normal lexer.
+- **`@[` is an opening bracket everywhere.** Every place the parser counts bracket depth or
+  suppresses layout inside brackets (today the matches on `LParen | LBracket | LBrace` in
+  `parser.rs` and `parser/declarations.rs`) treats `@[` as opening and its `]` as closing. In
+  `split_decls`, a column-0 token inside an open `@[…]` doesn't start a declaration, so a group
+  may close with `]` at column 0.
 - **Several attributes**: `@[js.tag "type", js.name "ShapeDto"]`, or two groups
   `@[js.tag "type"] @[js.name "ShapeDto"]`. The same. **Order never matters** (each attribute is
-  independent); the same name twice is `E-ATTRIBUTE`.
+  independent); the same name twice on one target is `E-ATTRIBUTE`.
 - **Argument kinds.** The first set needs only *flags* (`js.nullable`) and *strings*. Other
   forms (identifiers, numbers, `key = value`) are reserved: a later attribute can add them
-  without changing existing code. An argument written where none is taken, or missing where one is
-  needed, is `E-ATTRIBUTE`.
-- **Comments** inside `@[…]` are allowed; layout doesn't apply inside the brackets (rule 7 of
-  the layout rules already says brackets end nothing).
+  without changing existing code. Because the grammar admits only an optional string, a number
+  (`@[js.name 123]`) or a second string (`@[js.name "x" "y"]`) is a **grammar error**
+  (`E-PARSE`). A missing argument (`@[js.name]`) or one where none is taken (`@[js.nullable
+  "x"]`) parses, and is `E-ATTRIBUTE` from the registry. Draft 1 promised `E-ATTRIBUTE` for all
+  four; that promise is relaxed.
+- **Comments** inside `@[…]` are allowed; layout doesn't apply inside the brackets.
 
 ### 4.2 Placement
 
@@ -314,23 +419,44 @@ argument   ::= string                       -- a plain string literal, no interp
 | constructor | after its `\|`, before its name | `\| @[js.name "POLYGON"] Polygon (sides: Nat)` |
 | constructor field | inside its brackets, before the name | `(@[js.name "center_x"] centerX: Nat)` |
 | record field | before the name | `{ @[js.name "type"] kind: Text, … }` |
-| `export def` | before `export`, on its own line(s) or the same line | `@[js.name "renderShape"]` then `export def render …` |
+| `export def` | before `export`, on its own line(s) or the same line | `@[js.name "renderDrawing"]` then `export def render …` |
 
-- **Declarations.** Attribute lines belong to the next declaration: the parser's column-0
-  splitting (`split_decls`) treats a group that is only attributes as a prefix of the following
-  group. Blank lines and comments may come between. Attributes followed by nothing, or by another
-  attribute group then end of file, are `E-PARSE`.
+- **Declarations.** Attribute lines belong to the next declaration: `split_decls` treats a group
+  that is only attributes as a prefix of the following group. Blank lines and comments may come
+  between. Attributes followed by nothing, or by another attribute group then end of file, are
+  `E-PARSE`. An attribute group always attaches to the *next* declaration, whatever it is: before
+  a `namespace`, a `theorem` or a `def` it attaches there and is an error there; it never drifts
+  onto a later `type`.
+- **Every parsed attribute is consumed or rejected.** Attributes are kept on every declaration
+  form and every binder the parser builds, not only on the four targets that accept them; each
+  elaboration path either hands them to the registry for its target or reports them. So
+  `@[js.name "x"] theorem t : …`, `def f (@[js.nullable] x: Option Text): …`, an attribute on a
+  lambda's or a `forall`'s binder, on a data type's *parameter*, on a local definition, or before
+  a `namespace` are all errors, never silently ignored. A test per target in the "nowhere else"
+  list below holds this.
+- **Field attributes need an encoded slot.** A field attribute applies to a field that has a
+  property in the JS object: one the kernel doesn't erase (`field_erased`: not a proof, not a
+  type). On an erased field (a record's proof field, a type field) it is `E-ATTRIBUTE` ("`centerOk`
+  is a proof, so it has no property in JS"). Implicitness doesn't decide this: an implicit field
+  that carries data is encoded and can be renamed; an explicit proof field can't. Clash checks
+  run only over encoded slots, so an erased field named `type` never clashes with `js.tag
+  "type"`.
 - **A field binder with an attribute must name one field**: `(@[js.name "x"] a b: Nat)` is
   `E-ATTRIBUTE` (which of the two?). Write two binders.
+- **Special-codec types take no attributes anywhere.** A type with a built-in boundary form
+  (`Nat`, `Text`, `Bool`, `Int`, `SafeNat`, `SafeInt`, `List`, `Option`, and any later one) rejects
+  an attribute on itself, on its constructors and on their fields, since the built-in codec
+  would ignore it. The set comes from one registry shared by the elaborator and the JS backend
+  (§4.8).
 - **Nowhere else** for now: local definitions, `def`s that aren't exported, theorems, tests,
-  abilities and their operations, interfaces, synonyms, parameters of functions, expressions.
-  Each is `E-ATTRIBUTE` ("`js.name` can't be used on a theorem; it applies to data types,
-  constructors, fields and exports"). The grammar allows `@[…]` before every declaration, so the
-  error is about meaning and the message can be specific.
+  abilities and their operations, interfaces, instances, synonyms, namespaces, parameters of
+  functions and of data types, lambda and `forall` binders, expressions. Each is `E-ATTRIBUTE`
+  ("`js.name` can't be used on a theorem; it applies to data types, constructors, fields and
+  exports").
 - **Not after the fact.** There is no `attribute [js.name "X"] Shape.Circle`. A type's wire
   format is written where the type is, once. Consequence: a library type's format (`Option`,
-  `List`, `Pair`) can't be changed by a program; that's what D582/D583 decide for everyone. A
-  program that needs a different format declares its own type.
+  `List`, `Pair`) can't be changed by a program; D582 decides it for everyone. A program that
+  needs a different format declares its own type.
 
 ### 4.3 Namespaces
 
@@ -339,19 +465,39 @@ argument   ::= string                       -- a plain string literal, no interp
   none of which exist yet. Each would come with its own design note.
 - Other namespaces (`ts.`, `lsp.`, `test.`) don't exist; using one is `E-ATTRIBUTE-UNKNOWN`. If
   external tools ever need attributes, the way in is a registered namespace (Rust's tool
-  attributes), not "anything unknown is ignored".
+  attributes), not "anything unknown is ignored". Adding one later is compatible with rejecting
+  it today.
+- **The registry is closed** and is the single source for validation and for the reference
+  documentation (D597, confirmed by the review).
 
-### 4.4 The rule about meaning
+### 4.4 What an attribute may change
 
-**An attribute never changes what a program means**: not typing, elaboration, evaluation,
-`stitchwort run`, tests, proofs, `Show`, `==`, the order, error messages about the program, or
-what a pattern matches. It may change only *how something is represented outside Stitchwort*
-(the JS boundary and `.d.ts`), or, for later attributes, how fast something runs or which
-warnings are shown. A feature that changes meaning is a keyword or ordinary syntax instead
-(`export`, `instance`, `theorem`, `decreasing`, `auto`).
+Draft 1 said "an attribute never changes what a program means". That promised too much: an
+invalid attribute is an error, an export rename can resolve an otherwise clashing public name,
+and the JS attributes deliberately change what a JS caller sees. The guarantee is now precise:
 
-This is the guard against "hidden semantics", and it's what makes the identity rule in §6
-sound: nothing the kernel, the evaluator or a test can observe depends on an attribute.
+> **Valid `js.*` attributes don't change the checked core declarations, the kernel's judgments,
+> or the evaluation of Stitchwort values. They specify the external JavaScript representation
+> and are validated separately.**
+
+So, ignoring source locations, changing valid JS metadata leaves the checked core and its
+logical hashes as they were. It does **not** promise that every stage of compilation behaves
+the same (validation can fail), nor that removing an attribute still yields a valid JS interface
+(two types might then share a TS name). Inside Stitchwort nothing observes them: patterns,
+`Show`, `==`, the order, `stitchwort run`, `stitchwort test` and proofs see Stitchwort names.
+
+Later attribute kinds are judged against this one by one, in their own notes:
+
+| Future kind | Relation to the guarantee |
+|---|---|
+| `inline` | A semantics-preserving compilation hint: may change generated code, performance and generated-code cache keys; not the core or evaluation |
+| `deprecated` | Preserves logical meaning; deliberately changes diagnostics (warnings) |
+| `simp`-style lemma registration | Changes proof elaboration and whether automation succeeds. The kernel still checks the result, so soundness holds, but this is *not* "doesn't change elaboration": its own category, its own note |
+| Proof-backed implementation replacement (Lean's `csimp` style: a replacement plus an equality proof) | Can fit a semantics-preserving compilation category, under the backend's correctness obligations |
+| Unchecked `implemented_by` (execution may disagree with the checked definition) | **Kept outside this contract.** It adds a trust obligation; whether it ever exists, as an attribute or a keyword, is a separate decision about trust, not syntax |
+
+A feature that changes the core or typing stays ordinary syntax or a keyword (`export`,
+`instance`, `theorem`, `decreasing`, `auto`).
 
 ### 4.5 The first set
 
@@ -364,59 +510,105 @@ The discriminant property of this type's variants is `KEY` instead of `tag`.
 
 - Applies to a data type with a tag: not a record (`E-ATTRIBUTE`: "a record has no tag").
 - `KEY` must be non-empty and not `__proto__` (`E-ATTRIBUTE`).
-- **A field whose key equals `KEY` is `E-JS-NAME-CLASH`**, at the field, with a note suggesting
-  `js.name` on the field. With `js.tag`, the `$`-renaming rule for `tag` is off for this type: a
-  field `tag` has the key `tag`, a field `type` under `js.tag "type"` is the clash. (Without
-  `js.tag`, today's rule is unchanged: a field `tag` is `$tag`.) Reason: a user who picks the key
-  is designing the wire format and should see the conflict, not get an invented `$type`
-  (aeson and STJ only warn, [§3.3](#33-serialisation-libraries-the-same-three-knobs-everywhere)).
+- `@[js.tag "tag"]` is exactly the same as writing nothing ([§4.6](#46-resolving-a-types-representation)).
 - Decoding reads `own(x, KEY)`; messages say "no `type`; expected "CIRCLE" or "POLYGON"".
 
 #### `js.name "NAME"` (on a constructor, a field, a data type, or an export)
 
 | On | Changes | Rules (`E-JS-NAME-CLASH` / `E-ATTRIBUTE`) |
 |---|---|---|
-| a constructor | its discriminant value | non-empty; distinct from every other constructor's value in the type (after renaming) |
-| a field (variant or record) | its key | non-empty; not `__proto__`; distinct from the other keys of the same constructor (after renaming); not the type's tag key |
-| a data type | its name in the `.d.ts` (`export type NAME`) | a TS identifier, not reserved, not `StitchwortInputError`/`StitchwortResourceError`; two boundary types with the same TS name stay `E-EXPORT`, but now one can be renamed |
-| an `export def` | the name the module exports it under | a JS identifier that isn't reserved; two exports with the same JS name stay `E-EXPORT` |
+| a constructor | its discriminant value | non-empty; distinct from every other constructor's value in the type (after resolution). Any other string is allowed, including `"__proto__"`, `"constructor"`, `"toString"` |
+| a field with an encoded slot (variant or record) | its key | non-empty; not `__proto__`; distinct from the other encoded keys of the same constructor and from the type's tag key (after resolution) |
+| a data type | its name in the `.d.ts` (`export type NAME`) | a TS identifier, not reserved, not a name the generated module declares itself; two boundary types with the same TS name stay `E-EXPORT`, but now one can be renamed |
+| an `export def` | the name the module exports it under | a JS identifier, not reserved, not a name the generated module exports itself (`StitchwortInputError`, `StitchwortResourceError`, and any later one); two exports with the same JS name stay `E-EXPORT` |
 
-- A renamed field's key is exactly `NAME`: no `$` for primes, no escaping. Any string is a valid
-  property key, and the `.d.ts` quotes it when it isn't an identifier (`ts_key`, which exists).
-- A name is checked where the attribute is written, when the type is declared, even if the type
-  never reaches an export. Clashes that only exist at the boundary (two types' TS names) are
-  found at the export, as today.
+- **"Exactly `NAME`" means no key mangling**: no `$` for primes, no prefix. The generated JS and
+  TS still write it as a correctly escaped string literal (`js_string_literal`, `ts_key`), so
+  quotes, backslashes, control characters and non-ASCII text round-trip.
+- **A name is checked where the attribute is written**, when the type is declared, even if the
+  type never reaches an export. Clashes that only exist at the boundary (two types' TS names, an
+  export against the module's own names) are found at the export, as today.
+- **Generated public names** are checked as one namespace: the module's own exports (the two
+  error classes today), every emitted type alias (including `Option` when a nested one makes it
+  appear), and every export. A later runtime export joins `MODULE_NAMES` and is thereby
+  reserved. *Private* helpers are not part of this: they are already allocated so that no export
+  can collide with them (exports are re-exported as `export { wrapper as name }`), and that stays
+  an invariant, not a list of names users must avoid.
 - The Stitchwort name is still used everywhere inside the language: patterns, `Show`, error
-  messages, the playground's value display. Hover shows both ([§7.4](#74-tooling)).
+  messages about the program, the playground's value display. Hover shows both
+  ([§7.4](#74-tooling)).
 
 #### `js.nullable` (on a field of type `Option T`)
 
-The field is `T | null`: always present, `null` for `None`.
+The field is a **required, nullable** property: `T | null`.
+
+| JS input for `label` | Decoded as |
+|---|---|
+| `"hello"` | `Some "hello"` |
+| `null` | `None` |
+| the property is missing | error: `label: missing` |
+| `undefined` | error: `label: expected a value or null, not undefined` |
 
 - **Encode**: `None` is `null`, `Some v` is `v`'s encoding. The property is always written.
-- **Decode**: `null` is `None`; so are a missing property and `undefined` (D582's rule for
-  optional properties, kept so that `js.nullable` only *adds* `null`); anything else is decoded
-  as `T`.
-- **`.d.ts`**: `readonly label: string | null`. (It describes what the module returns; input
-  is more permissive, as it is for extra properties today. Question 6 in §10.)
+- **`.d.ts`**: `readonly label: string | null`, the same type for inputs and outputs, and it is
+  now exact for both: what the module accepts is what it returns. (Separate input and output
+  types, `label?: string | null | undefined` in, `label: string | null` out, would be needed only
+  for a lenient decoder; not now.)
 - The field's type must be `Option T` after unfolding synonyms (`E-ATTRIBUTE`: "`js.nullable`
-  needs a field of type `Option T`; this one is `Text`"). On `Option (Option T)`, `null` is the
-  outer `None`; the inner `Option` keeps whatever form D582 gives it, so the encoding stays
-  unambiguous.
-- Without the attribute, a field of type `Option T` follows D582 (optional property) and D583
-  (whether `null` is refused). `js.nullable` is the opt-in D583 calls for.
-- It depends on SW-339 landing first ([§9](#9-staging-and-cost)).
+  needs a field of type `Option T`; this one is `Text`"). The field must have an encoded slot.
+- **Nested.** On `Option (Option T)`, `null` is the outer `None`; the inner `Option` is the
+  tagged object as D582 already makes it (`Option<T> | null`), so `None`, `Some None` and
+  `Some (Some v)` stay distinct. The same holds when the inner `Option` arrives through a type
+  parameter (`type Box a = | MkBox (@[js.nullable] v: Option a)` at `Box (Option Nat)`): the
+  runtime's `payload` already turns an option of an option into the tagged form after the
+  parameter is filled in (`lib.rs:887`) **[checked]**, and a test covers it.
+- **Without the attribute**, D582 applies unchanged: in a *record* field, an optional property
+  `label?: string` (missing or `undefined` is `None`, `None` leaves it out); in a *constructor*
+  field, a required `label: string | undefined`; `null` refused in both. `js.nullable` is the
+  per-field opt-in to `null`; the type-level `Nullable` mentioned in DESIGN.md §12 as undecided
+  is not needed for this.
 
-#### Not in the first set: a casing helper
+#### Not in the first set: casing helpers
 
 A `rename_all`-style attribute would save writing `js.name` on every constructor of a long
-enum. Research says it has a real pitfall (serde had to split `rename_all` and
-`rename_all_fields`), and the motivating app has a handful of constructors. **Recommended:
-defer**; if it comes, two separate attributes on the type, `js.tagCase "SCREAMING_SNAKE_CASE"`
-(constructor values) and `js.fieldCase "snake_case"` (field keys), with serde's eight convention
-names, an explicit `js.name` winning, and the clash checks run on the result. D599.
+enum. **Deferred** (D599): explicit `js.name` covers the motivating case. If one comes, it is two
+attributes on the type, one for constructor tag values and one for field keys (serde had to
+split `rename_all` and `rename_all_fields`), specified by exact examples rather than by a
+convention name alone, at least: `HTTPRequest → http_request`, `centerX → center_x`,
+`Polygon2D → POLYGON_2D` (or whichever the note decides), with an explicit `js.name` winning and
+the clash checks of §4.6 run on the transformed names.
 
-### 4.6 A complete example
+### 4.6 Resolving a type's representation
+
+Draft 1 kept today's `$tag` fallback (a variant field called `tag` silently got the key `$tag`)
+but turned it off as soon as `js.tag` was written, so `@[js.tag "tag"]` and no attribute
+differed. Draft 2 has one rule for every tagged type, with or without attributes, and one place
+that applies it:
+
+1. **The tag key**: `js.tag`'s argument, else `"tag"`.
+2. **Each constructor's tag value**: its `js.name`, else its Stitchwort name.
+3. **Each encoded field's key**: its `js.name`, else its name with each `'` as `$`. No other
+   change: no `$tag`, no `$__proto__`.
+4. **Check**, on these final values: tag values distinct; per constructor, keys distinct and
+   none equal to the tag key; no key `__proto__`. A failure is `E-JS-NAME-CLASH` at the
+   offending field or constructor, with a note suggesting `js.name` (for a field called `tag`:
+   "add `@[js.name "$tag"]` to keep today's key, or choose another").
+5. **Store** the result once, as the type's `JsRepr` (tag key, tag values, per-field external
+   keys in declaration order, nullable flags, TS name). The codec tables (`define`) and the
+   `.d.ts` printer (`ts_alias`) both read it; neither derives names on its own.
+
+A field may still have the key `"$tag"`, by asking for it. Internal names are a separate matter:
+inside the module, field keys keep `field_key`'s escaping (`$tag`, `$__proto__`, `$i` for a
+repeated name), so internal and external keys are independent, and the codec maps between them.
+
+A record has no tag, so steps 1–2 don't apply and a field `tag` is fine, as today.
+
+**When a clash in an *unattributed* type is reported** is D612: such a type is often never
+exported (`examples/accept/dependent-fields.sw` has a constructor field `tag`), so the
+recommendation is to report its clash when an export reaches it, while a type with any `js.*`
+attribute is checked where it is declared.
+
+### 4.7 A complete example
 
 ```
 namespace Drawings
@@ -448,108 +640,141 @@ export declare function renderDrawing(d: Drawing): string;
 Inside Stitchwort nothing changes: `match s with | Dot => … | Circle r x => … | Polygon n l => …`,
 `d.kind`, and `Show` prints `Circle 3 0`.
 
-### 4.7 Where it lives in the compiler
+### 4.8 Where it lives in the compiler
 
-- **`crates/syntax`**: a token for `@[`; an `Attribute { name: Name, arg: Option<(String,
-  Span)>, span }`; an `attrs: Vec<Attribute>` on `Decl::Data`, `Decl::Signature` (for
-  `export`), `CtorDecl`, and per field (`Binder` gets `attrs`; record fields are binders already,
-  `parser.rs:1168`). `split_decls` joins attribute-only groups to the next group. The parser
-  checks only the grammar; it knows no attribute names.
-- **`crates/elab`**: one module, `attributes.rs`, holding **the** table: name, allowed targets,
-  argument kind, one-line doc, long doc. It validates every attribute (unknown, place, argument,
-  duplicate, the per-type clash rules) and fills a side table, roughly
-  `js_repr: HashMap<DataId, JsRepr { tag_key, ts_name, ctor_tags, field_keys, nullable }>` and
-  `js_export_names: HashMap<DefId, String>`. Lifted helpers, derived instances and
-  everything else ignore it.
-- **`crates/core`**: unchanged.
-- **`crates/js`**: the per-type description (`info$…`, built around `lib.rs:810`) gets, per
-  constructor, the external tag value and, per field, the external key next to the internal one;
-  the decoder reads external keys and builds internal objects (it already builds fresh objects,
-  `out: { tag }`, so this costs nothing extra); the encoder does the reverse; `nullable` fields get
-  a small leaf-like wrapper; the `.d.ts` printer (`lib.rs:2540–2560`) uses the external names.
-  Function bodies, `field_key_at` for internal access, and the internal tag are untouched.
+- **`crates/syntax`**: a token for `@[`, counted as an opening bracket wherever brackets are
+  counted (§4.1); an `Attribute { name: Name, arg: Option<(String, Span)>, span }`; an
+  `attrs: Vec<Attribute>` on *every* declaration (one generic wrapper, or a field on each
+  `Decl` variant; the implementation chooses), on `CtorDecl`, and on `Binder` (record fields
+  are binders already). `split_decls` joins attribute-only groups to the next group and doesn't
+  split inside an open `@[`. The parser checks only the grammar; it knows no attribute names.
+- **`crates/elab`**: one module, `attributes.rs`, holding **the** registry: name, allowed
+  targets, argument kind, one-line doc, long doc. Each target's elaboration hands its attributes
+  to it; every other path reports them (§4.2). It validates (unknown, place, argument,
+  duplicate, encoded slot, special-codec type), resolves each attributed type's representation
+  (§4.6), and fills two side tables, roughly
+  `js_repr: HashMap<DataId, JsRepr>` and `js_export_names: HashMap<DefId, String>`.
+  Unattributed types get their default `JsRepr` from the same resolver, computed by the JS
+  backend on demand. Lifted helpers, derived instances and everything else ignore the tables.
+- **The special-codec registry** moves to one place both crates read: `crates/core`'s registry,
+  which already names `Builtin::SafeNat` and `Builtin::SafeInt` (a predicate "this data type has
+  a built-in boundary form"). `crates/elab` can't read `crates/rt`, where the hashes are; the JS
+  backend keeps its hash comparison as a second check that the built-in really is the expected
+  declaration, but no longer keeps its own list.
+- **`crates/core`**: otherwise unchanged. The kernel never sees attributes.
+- **`crates/js`**: `define` writes, per constructor, the external tag value, and per field, the
+  external key next to the internal one; the decoder reads external keys and builds internal
+  objects (it already builds fresh objects, so this costs nothing extra); the encoder does the
+  reverse; nullable fields get a small leaf-like wrapper; `ts_alias` and `ts_type` use the
+  external names. Function bodies, `field_key_at` for internal access, and the internal tag are
+  untouched.
 
 ## 5. Errors
 
 | Code | When | Example message |
 |---|---|---|
-| `E-ATTRIBUTE-UNKNOWN` | a name not in the table, in any namespace | "unknown attribute `js.rename`; did you mean `js.name`? The `js` attributes are `js.tag`, `js.name`, `js.nullable`" |
-| `E-ATTRIBUTE` | a known attribute in a place it doesn't apply; a missing, extra or wrong-kind argument; the same attribute twice on one target; `js.tag` on a record; `js.nullable` on a non-`Option` field; an attribute on a binder with two names | "`js.tag` applies to a data type, not a constructor" |
-| `E-JS-NAME-CLASH` | after renaming, two constructors with the same tag value, two fields of one constructor with the same key, a field key equal to the tag key, a key `__proto__`, a type or export name that isn't a valid (non-reserved) JS identifier | "two constructors of `Shape` cross as `"CIRCLE"`: `Circle` (here) and `Ring` (line 4)" |
-| `E-EXPORT` (existing) | boundary-wide clashes: two boundary types with one TS name, two exports with one JS name | as today, naming the attribute when one is involved |
-| `E-PARSE` (existing) | malformed `@[…]`; attributes with no declaration after them | "attributes must be followed by the declaration they apply to" |
+| `E-ATTRIBUTE-UNKNOWN` | a name not in the registry, in any namespace | "unknown attribute `js.rename`; did you mean `js.name`? The `js` attributes are `js.tag`, `js.name`, `js.nullable`" |
+| `E-ATTRIBUTE` | a known attribute on a target it doesn't apply to (including theorems, non-exported `def`s, function and lambda binders, data-type parameters, namespaces, local definitions); a missing argument or one where none is taken; the same attribute twice on one target; `js.tag` on a record; `js.nullable` on a non-`Option` field; a field attribute on an erased field; any attribute on or inside a special-codec type; an attribute on a binder with two names | "`js.tag` applies to a data type, not a constructor" |
+| `E-JS-NAME-CLASH` | after resolution (§4.6): two constructors with the same tag value, two encoded fields of one constructor with the same key, a field key equal to the tag key, a key `__proto__`, a type or export name that isn't a valid, non-reserved JS identifier | "two constructors of `Shape` cross as `"CIRCLE"`: `Circle` (here) and `Ring` (line 4)" |
+| `E-EXPORT` (existing) | boundary-wide clashes: two boundary types with one TS name, two exports with one JS name, a type or export name equal to one the module declares itself | as today, naming the attribute when one is involved |
+| `E-PARSE` (existing) | malformed `@[…]`, including a non-string argument or two arguments; attributes with no declaration after them | "attributes must be followed by the declaration they apply to" |
 
 Every attribute error points at the attribute's span. There's no warning for an attribute on a
-type that no export reaches: types are often declared before the export that uses them.
+type that no export reaches: types are often declared before the export that uses them. The
+codes above are the intended ones; the exact code for an argument-shape mistake follows from
+whether the grammar or the registry catches it (§4.1).
 
 ## 6. Identity: hashing and caches
 
 ### 6.1 The question
 
 Content hashes in Stitchwort decide when a test reruns, which built-in codec applies to a
-type, and whether a cached cross-file reference still matches. Should `js.*` attributes be part
-of a data type's hash?
+type, and whether a cached cross-unit reference still matches. Should `js.*` attributes be part
+of a data type's hash? Decided: **no** (D598, option B). This section states what that decision
+does and doesn't promise.
 
 ### 6.2 Today's precedent points both ways
 
 - **For hashing them:** data types are nominal, and their hash *already* includes facts that
   matter only to JS: the `record` flag "because it changes the JS representation", and field
-  names partly because they are JS keys (`hash.rs`, `fn ctors`) **[checked]**. So the content
-  hash of a data type today means "the type *and* its JS shape".
+  names partly because they are JS keys (`hash.rs`, `fn ctors`) **[checked]**.
 - **Against:** names of definitions aren't hashed; Unison's model is that names and metadata live
-  beside the hash. And the field-name reason is weaker after this note, since a field's JS key
-  is no longer always its name; field names stay hashed for their other reason (they decide
-  which field `p.name` means).
+  beside the hash. The field-name reason is weaker after this note, since a field's JS key is no
+  longer always its name; field names stay hashed for their other reason (they decide which
+  field `p.name` means). The record flag also has source-language reasons (a record has
+  projections and `{ … }` syntax), so it isn't revisited here.
 
-### 6.3 Options
+### 6.3 Options (as reviewed)
 
-**(A) Hash `js.*` attributes into the data type**, only when present (as the `implicit` field
-flags are, so no existing hash changes), passed to the kernel as an opaque, never-interpreted
-blob like the record flag. Exports' `js.name` stays unhashed (export names aren't hashed today).
+**(A) Hash `js.*` attributes into the data type**, as an opaque blob the kernel never reads.
+Renaming a JS key would change the type's hash and every dependent's, rerunning tests that can't
+observe it; and it still wouldn't identify the JS interface, since export names stay unhashed
+(the review's point). Rejected.
 
-- + One identity: two types with different wire formats are different hashes; the hash-keyed
-  codecs (`SAFE_NAT_HASH`…) can't apply to a renamed copy; anything later keyed by hash (a cache
-  of generated JS, an API-compatibility check between releases) is correct without a second key.
-- − Renaming a JS key changes the type's hash and every dependent's, so their **tests rerun**,
-  though no test can observe the change (§4.4). The kernel carries data it never reads.
+**(B) Not hashed; side tables** (**decided**). The logical hash is unchanged by attributes. The
+elaborator keeps `js_repr` and `js_export_names`; the check cache stores both; the JS backend is
+the only reader. The kernel is untouched.
 
-**(B) Not hashed; a side table** (recommended). The logical hash is unchanged by attributes. The
-elaborator keeps the `js_repr` table; the check cache stores it with the other side tables; the
-JS backend is the only reader.
+**(C) B plus a boundary-shape fingerprint now.** Deferred: no consumer yet. §6.4 fixes what it
+would contain, so that the contract is clear before anything relies on it.
 
-- + Matches §4.4: what the kernel and tests can see is exactly what's hashed. Renaming a JS key
-  reruns nothing. The kernel is untouched.
-- + No cache becomes unsound: the check cache keys on file text and dependency keys
-  (check-cache.md §4.2) **[checked]**, so an edited attribute re-elaborates its file and the files
-  that depend on it; and the JS backend reads a type's attributes from the type's own file's
-  tables, never from a dependent's cache entry. The planned "early cutoff" (§4.3 there: key a
-  dependent on the *exported* hashes and side tables, not the text) must include this table;
-  that's one line in its list.
-- − Two declarations with equal hashes may cross differently. Today that can only be the same
-  type (data types hash their names), so the case is the *same type after an attribute edit*,
-  which every build recomputes anyway.
-- − The hash-keyed codecs must refuse attributes on their types: an attribute on `Nat`, `Text`,
-  `SafeNat`, `SafeInt` (or any type with a built-in boundary form) is `E-ATTRIBUTE`. Programs
-  can't annotate library types anyway (§4.2), so this guards the library's own sources.
+### 6.4 The identity contract
 
-**(C) A separate boundary hash** next to the logical one: for each export, a hash of its
-content hash and the `js_repr` of every type its boundary reaches, computed by `crates/js`.
-This is (B) plus a derived fingerprint. Useful later for "did this release change the JS API?"
-(written into the generated module's header, compared in CI). Not needed now; (B) doesn't
-prevent it.
+**A logical declaration hash does not identify a JavaScript interface or a generated
+artifact.** Anything that caches generated JS or `.d.ts`, compares APIs between releases, or
+otherwise depends on the boundary must key on more than the logical hash. Three identities,
+kept apart:
 
-### 6.4 Recommendation
+| Identity | Made from | Used for |
+|---|---|---|
+| **Logical** (exists: the content hash) | the checked declaration and its logical dependencies | the test cache, cross-unit references in the check cache, the hash-keyed built-in codecs |
+| **Boundary-shape fingerprint** (deferred, option C) | the module's public export names (after `js.name`); for each export, the *effective* schema of every type its inputs and output reach: tag keys and values, field keys, optional / nullable / `undefined` policy, special codecs (`SafeNat` as `number`); the emitted TS names; the relevant codec policies (what's refused). *Effective* means after defaults: D582 changed the schema of every `Option` with no attribute involved | "did this release change the JS API shape?", e.g. a hash written into the generated module's header and compared in CI |
+| **Generated-artifact cache key** (none yet) | the implementation's logical dependencies, the boundary metadata, the compiler and backend version, and the options that affect output (e.g. `Text` as a JS string) | caching generated `.js`/`.d.ts` |
 
-(B) now, with (C) as a later addition if a use appears. The record flag stays hashed (it does
-change meaning: a record has projections and `{ … }` syntax). `docs/core.md`'s list of what's
-hashed gets one line: "attributes aren't hashed". D598.
+The fingerprint deliberately leaves out implementation hashes: an implementation-only edit
+shouldn't change "the API shape". And it detects changes in what it includes; it is not a
+proof of compatibility (an export's accepted inputs can change, through a precondition, without
+the printed TypeScript changing).
+
+**Which results stay reusable after a metadata-only edit.** Changing JS representation metadata
+preserves logical test identities. So:
+
+- **Reusable**: `stitchwort test` results, `stitchwort run` and evaluator results, proofs, the
+  kernel's checks.
+- **Not reusable; each must depend on the metadata**: extraction snapshots, JS integration and
+  round-trip tests, `.d.ts` type-checks, codec refusal tests, and any later generated-artifact
+  cache. Today these aren't cached by hash at all (they run whenever their test suite runs), so
+  nothing has to change now; the rule is for whoever adds such a cache.
+
+**Ownership.** Within a build, each data type and export has exactly one effective
+representation, owned by the unit that declares it; its metadata travels with that declaration
+(in that unit's cache entry, remapped with its ids). A logical hash alone never selects or
+overwrites representation metadata: no table is looked up by hash, and a dependent's cache entry
+never carries another unit's `js_repr`. Draft 1 claimed that equal hashes with different
+representations "can only be the same type after an edit"; that is dropped, since future
+content-based deduplication or separately loaded dependencies could break it. The ownership rule
+is what matters, and it is stated for future code, not because of a known failure today.
+
+**Built-in codecs.** The hash-keyed codecs (`NAT_DATA_HASH`, `SAFE_NAT_HASH`, …) are safe because
+special-codec types reject attributes anywhere inside (§4.2): a type the hash selects for a
+built-in codec never has metadata that the codec would ignore.
 
 ### 6.5 The check cache
 
-The side table joins the others the cache stores (check-cache.md's "forgetting a table" risk).
-Its defence applies: the differential test (cached versus uncached elaboration of the library
-must agree) should compare the `js_repr` tables too, and an extraction test should run once
-with a warm cache.
+- **Both tables are persisted and remapped**: `js_repr` (keyed by `DataId`) and
+  `js_export_names` (keyed by `DefId`) join the entry's `Tables`, written through the same
+  reference scheme as `records` or `by_data` (an index into the unit's own declarations, or an
+  external dependency by full path and expected hash), and read back through it, so the ids are
+  correct after loading at any position. The format number is bumped.
+- **Invalidation needs nothing new**: the key covers the unit's text and its dependencies' keys,
+  so an attribute edit re-elaborates its unit and every unit that depends on it **[checked]**.
+  The planned "early cutoff" (check-cache.md §4.3: key a dependent on the exported hashes and side
+  tables rather than the text) must include both tables in what it compares.
+- **Defence against "forgetting a table"**: the warm-versus-cold comparisons
+  (`crates/cli/tests/check_cache.rs`) gain an attributed fixture and compare extraction output,
+  and the acceptance test in §9.2 covers a metadata-only edit across two units.
+- `docs/core.md`'s list of what's hashed gets one line: "JS representation attributes are
+  excluded from logical content hashes."
 
 ## 7. Interactions
 
@@ -562,22 +787,44 @@ reflection feature; out of scope).
 ### 7.2 Records
 
 `js.name` on a record field changes its key; `js.tag` on a record is an error. D582's optional
-properties apply to records' `Option` fields; `js.nullable` overrides them per field.
+properties apply to records' `Option` fields; `js.nullable` replaces that with a required
+`T | null` per field.
 
 ### 7.3 Codecs, `.d.ts`, validation
 
-- Decoding still reads only own properties, each once; a renamed key is just a different key.
-  Path messages use the external keys (`d.shapes[2].center_x: expected a non-negative bigint`), since
-  they describe the JS input.
+- **Own properties, each read once.** Decoding still reads only own properties; each property is
+  read once into a captured value, and the nullable check and the decoding of `T` both work on
+  that value (as `own` does today). A test uses getters that count reads, on the tag property and
+  on a nullable field.
+- **Dispatch on tag values is prototype-safe.** Tag values are looked up in a `Map` (today's
+  `info.ctors`), never as properties of an ordinary object, so `"__proto__"`, `"constructor"`,
+  `"toString"` and `"hasOwnProperty"` dispatch correctly. Any later table keyed by an external
+  string (a field-key lookup, a reverse map) must be a `Map` or a null-prototype object too. An
+  object literal with a quoted `"__proto__"` key is not safe: in an object literal that spelling
+  still sets the prototype.
+- **`__proto__` as a key** stays forbidden (§4.5): the encoder writes keys by assignment, which
+  for `__proto__` would set the prototype. Lifting the ban later means writing that key with
+  `Object.defineProperty`; not now.
+- **Escaping, not mangling.** External strings reach the JS and the `.d.ts` through
+  `js_string_literal` and `ts_key`. The awkward-names property test
+  (`awkward_names_never_collide`, `crates/cli/tests/extract.rs`) extends to generated `js.name`
+  values drawn from a pool with `tag`, `"$tag"`, `constructor`, `toString`, `""` (expected to be
+  refused), `"0"`, `"10"`, `"a-b"`, a double quote, a backslash, a newline and other control
+  characters, a lone `$`, and non-ASCII text (accented letters, a character outside the BMP).
+  `__proto__` is tested twice: refused as a key, accepted as a tag value.
+- **Order.** Fields are decoded, checked and *written* in declaration order. That is the whole
+  promise: a JS object enumerates integer-like keys (`"0"`, `"10"`) in numeric order before all
+  other string keys, so a type whose external keys include such strings doesn't enumerate in
+  declaration order, and the note doesn't claim it does. Keys like `"0"` stay allowed.
+- **Paths in messages** use the external keys (`d.shapes[2].center_x: expected a non-negative
+  bigint`), since they describe the JS input.
 - Validators of record proof fields (DESIGN.md §12) are unaffected: they run on decoded values.
-- `.d.ts`: external names; keys that aren't identifiers quoted; a renamed type's alias name.
-  The awkward-names property test (`awkward_names_never_collide`, `crates/cli/tests/extract.rs`)
-  extends to generated `js.name` values drawn from a pool including `tag`, `__proto__`,
-  `constructor`, `""`, `"0"`, `"a-b"` and non-ASCII strings.
+- **`.d.ts`**: external names; keys that aren't identifiers quoted; a renamed type's alias name;
+  checked with `tsc --strict --exactOptionalPropertyTypes` as today.
 
 ### 7.4 Tooling
 
-- **Hover** on an attribute: its documentation from the table (one line plus the long doc).
+- **Hover** on an attribute: its documentation from the registry (one line plus the long doc).
   Hover on a constructor, field or type with JS attributes adds a line: "crosses to JS as
   `{ type: "CIRCLE", … }`".
 - **Completion** (when the server gets it): after `@[`, the attributes valid at that place.
@@ -589,12 +836,41 @@ properties apply to records' `Option` fields; `js.nullable` overrides them per f
 
 ### 7.5 The parallel lanes
 
-- SW-339 (D582): `js.nullable` builds on its optional-property codec; staged after it.
-- D583 (pending): if the default refuses `null`, `js.nullable` is the opt-in; if the default
-  accepts `null` for `None` on input, `js.nullable` still matters for *output* (`null` written
-  rather than the property omitted) and the `.d.ts`.
-- SW-340 (D587, shared fields on variants): independent; a shared field's `js.name` would have
-  to agree across constructors (checked as a clash).
+- **SW-339 (D582)** has landed (`2ba211a0`); `js.nullable` builds on its optional-property
+  codec. D583 (whether `null` is refused by default) is settled by what landed: `null` is
+  refused, and `js.nullable` is the per-field opt-in.
+- **SW-340 (variant fields, [variant-fields.md](variant-fields.md))**, being revised in
+  parallel. A logical field shared by several constructors may have a **different `js.name` in
+  each**: the decoder picks the constructor by the tag, then maps that constructor's external
+  keys to its internal fields, so a shared projection keeps working on the logical field and the
+  generated TS union describes each branch exactly. Draft 1's "a shared field's `js.name` must
+  agree across constructors" is removed; agreeing names would be a separate API policy, and it
+  would prevent matching some existing schemas. Example:
+
+  ```
+  type Message =
+    | Note    (@[js.name "note_id"] id: Nat) (body: Text)
+    | Picture (@[js.name "picture_id"] id: Nat) (url: Text)
+  ```
+
+  crosses as `{ tag: "Note"; note_id: bigint; body: string } | { tag: "Picture"; picture_id:
+  bigint; url: string }`, and `m.id` (if variant-fields provides shared access) still works inside
+  Stitchwort. The two notes need only agree that external keys are per constructor.
+
+### 7.6 Codec laws
+
+For every boundary type, with `≈` meaning equal as Stitchwort data (ignoring erased proofs and JS
+object identity):
+
+1. **`decode(encode(v)) ≈ v`** for every value `v`.
+2. **`encode(decode(x)) = canonicalize(x)`** whenever decoding `x` succeeds, where
+   `canonicalize` drops properties the type doesn't have (extra properties are ignored today),
+   writes keys in declaration order, and, for a *record*'s unannotated `Option` field, removes
+   a property that was present as `undefined`. With strict `js.nullable` there is no other
+   accepted non-canonical form.
+
+The extraction round-trip tests check law 1 on generated values and law 2 on hand-written
+inputs, including the nullable and nested cases.
 
 ## 8. Alternatives considered
 
@@ -604,12 +880,13 @@ name it changes (drift, checked but noisy), is far from the constructor it descr
 new syntax form useful only to JS. Attributes are one general form for this and later uses.
 
 **8.2 A separate `export encoding` block** (Swift `CodingKeys`, aeson `Options`, STJ's contract
-model). Like 8.1 but anywhere, possibly in another file, possibly several per type. Real
-advantages: logic types stay clean, and a type could have two encodings (API v1 and v2) or a
-library type could get one. Costs: a new top-level form with its own ordering and scoping rules
-(which encoding applies where?), and the format is no longer visible at the type. Rejected for
-now; one type per wire format (a mirror type plus a conversion) covers the rare second encoding.
-Reviewer question 4.
+model). Like 8.1 but anywhere, possibly several per type. Real advantages: logic types stay
+clean, and a type could have two encodings (API v1 and v2) or a library type could get one.
+Costs: a new top-level form with its own ordering and scoping rules, and the format no longer
+visible at the type. Not now. The attributes on a type define its **default** JS encoding;
+named encodings could be added later without changing that. Until then a mirror type plus a
+conversion is the escape hatch. What would reopen it: concrete pressure to expose one large type
+through several API versions, or to adapt an imported type without duplicating its structure.
 
 **8.3 Naming convention.** Name the constructor `CIRCLE` and the field `center_x`. Works
 today for values that happen to be Stitchwort names, at the cost of pattern matches that read
@@ -618,10 +895,11 @@ like JSON; impossible for the tag key and for keys that aren't Stitchwort names.
 **8.4 Pragmas in comments** (`-- @js.name CIRCLE`). Comments that change behaviour are
 hidden semantics, the parser drops comments today, and a typo would be a comment. Rejected.
 
-**8.5 Value-level codecs** (Elm decoders, PureScript codec libraries, aeson's functions). Most
-flexible, but the boundary codec is trusted, table-driven and stack-safe (DESIGN.md §12);
-user-written codecs would be ordinary code at the boundary, losing the own-property, cycle and
-sharing guarantees and the generated `.d.ts`. Rejected for this need; maybe for exotic formats.
+**8.5 Value-level codecs.** Arbitrary user-written decoder functions (Elm decoders, aeson's
+functions) would be ordinary code at the boundary, losing the own-property, single-read, cycle
+and sharing guarantees and the generated `.d.ts`. Rejected for this need. A *declarative* codec
+language is a different matter: it could compile into the same checked tables and keep those
+guarantees. It is deferred for scope, not ruled out.
 
 **8.6 Build-wide options** (`--js-tag-key type`, kotlinx naming strategies, STJ naming policies).
 Wrong granularity: one app's types disagree with each other. Rejected.
@@ -634,56 +912,95 @@ Scala/TS-like language and ReScript use `@`. `@name("x")` with parentheses would
 in a language whose calls are `f x`, and `@js.name "x"` without brackets can't say where an
 argument ends before a constructor name. `@[…]` also groups several. Lean uses exactly this.
 
-## 9. Staging and cost
+## 9. Staging, cost and tests
+
+### 9.1 Stages
 
 Sizes are rough **[inferred]** from comparable lanes (records' boundary stage, SW-337).
 
 | Stage | Content | Depends on | Size |
 |---|---|---|---|
-| 1 | Grammar, AST, `split_decls`, the table, all errors; `js.tag`; `js.name` on constructors and fields; codec and `.d.ts`; check-cache table; examples (`examples/extract/attributes.sw`, `examples/reject/attribute-*.sw`); extract runtime tests; awkward-names test; docs (`syntax.md`, DESIGN.md §12) | D597, D598 | one lane, roughly 600–900 lines with tests |
-| 2 | `js.nullable` | SW-339 merged, D583 decided | small |
-| 3 | `js.name` on types and exports; hover lines; grammar colouring | stage 1 | small |
-| later | casing helpers (D599), boundary fingerprint (§6.3 C), other namespaces or bare attributes | each its own decision | — |
+| 1 | Grammar, AST on every declaration and binder, `@[` as a bracket, `split_decls`; the registry and every error, including rejection on every unsupported target; the shared special-codec registry; the representation resolver (§4.6) and the uniform clash rule (D612); `js.tag`; `js.name` on constructors and fields; codec and `.d.ts`; both check-cache tables; examples (`examples/extract/attributes.sw`, `examples/reject/attribute-*.sw`); updating `examples/extract/names.sw` for the dropped `$tag`/`$__proto__` fallbacks; extract runtime tests; awkward-names test; docs (`syntax.md`, DESIGN.md §12, `docs/core.md`'s hashing line) | D597, D598, D612 | one lane, roughly 700–1000 lines with tests |
+| 2 | `js.nullable` (strict) | stage 1 | small |
+| 3 | `js.name` on types and exports, checked against the generated public namespace; hover lines; grammar colouring | stage 1 | small |
+| later | casing helpers, string-literal encodings for field-less variants, boundary fingerprint (§6.4), other namespaces or bare attributes | each its own decision | — |
+
+### 9.2 Acceptance tests
+
+**The metadata-only-edit cache test** (the most likely contract to be missed):
+
+1. Unit A declares an attributed type (`Shape` as in §4.7).
+2. Unit B imports it and exports a function using it.
+3. Build, filling the check cache.
+4. Change only A's representation metadata (a `js.name` on a field).
+5. Build again warm, and build fresh with no cache.
+6. The two builds give the same generated JS behaviour and the same `.d.ts`, both showing the new
+   key; and every logical hash is the same as before the edit.
+
+Then the same for an **export rename** in B (`@[js.name "renderDrawing"]` → `@[js.name
+"draw"]`), which exercises `js_export_names` rather than `js_repr`. The fixture must be
+attributed; a differential test over the library, which has no attributes, would pass without
+testing this.
+
+**And:**
+
+- Tag key, tag value and field key all differ from the Stitchwort names at once, and pattern
+  matching and field access inside Stitchwort still work.
+- `js.nullable`: `null` is `None`; a missing property and `undefined` are refused, with paths;
+  encode always writes the property.
+- Nested options stay distinct with and without `js.nullable`, directly (`Option (Option T)`)
+  and through a type parameter (`Box (Option Nat)`).
+- The tag property and a nullable field are each read once (counting getters).
+- Tag values `"__proto__"`, `"constructor"`, `"toString"`, `"hasOwnProperty"` dispatch
+  correctly; `__proto__` as a key is refused.
+- Generated declarations compile under `tsc --strict --exactOptionalPropertyTypes`.
+- Errors: an attribute on each unsupported target (theorem, non-exported `def`, function
+  parameter, lambda binder, data-type parameter, namespace, local definition, interface,
+  instance), on an erased field, on a field of a special-codec type; each is an error, none is
+  silently accepted.
+- `@[js.tag "tag"]` behaves exactly like no attribute, and a field `tag` under either is the
+  clash of D612 unless renamed; `@[js.name "$tag"]` restores today's key.
+- An export renamed to `StitchwortInputError` is refused; a type renamed to a name another
+  boundary type has is refused.
+
+**Parser tests:** a multi-line attribute group whose `]` is at column 0; two groups separated by
+a comment; a group on the same line as its declaration; a group before `namespace` (attaches
+there and fails, doesn't drift to the next `type`); a group at end of file; attributes on a
+constructor after `|` and inside a field's brackets; `@[js.name 123]` and `@[js.name "x" "y"]`
+as parse errors.
 
 Risks: the boundary is trusted code, so each stage needs round-trip and refusal tests through a
-real JS engine (as `crates/cli/tests/extract.rs` does today); and the side table must be in the
-check cache or a warm build loses attributes silently (§6.5).
+real JS engine (as `crates/cli/tests/extract.rs` does today); and both side tables must be in the
+check cache, or a warm build loses attributes silently (§6.5).
 
 ## 10. What we'd like reviewed
 
-1. **The rule in §4.4** (attributes never change meaning; anything that does is a keyword). Is
-   it the right line, and is it sustainable once performance attributes (`inline`) or
-   `implemented_by`-style natives come? Lean's `@[implemented_by]` is an attribute that changes
-   run-time behaviour; would you keep such a thing out of attributes?
-2. **Identity (§6).** Is (B), not hashing attributes, sound and wise given that data types are
-   otherwise nominal and the record flag is hashed for JS reasons? Is there a use of content
-   hashes we've missed where two equal hashes crossing differently would bite?
-3. **Closed set and errors.** Is "unknown is an error, no tool namespaces" right for a language
-   with no users, or should a reserved namespace for external tools exist from the start?
-4. **Placement versus a separate encoding block (§8.2).** Is one wire format per type,
-   written on the type, the right default? Would you expect a second encoding to be needed soon?
-5. **Clash policy.** A field whose key equals the chosen tag key is an error rather than
-   renamed (`$type`). Agree? And should constructor values and keys be restricted further
-   (identifier-like only), or is any non-empty string right?
-6. **`js.nullable` (§4.5).** Decode accepts `null`, missing and `undefined`; encode writes
-   `null`; the `.d.ts` says `T | null` (the output shape). Is the asymmetry acceptable, or should
-   the `.d.ts` say `T | null | undefined` / `?: T | null`, or decoding be strict?
-7. **Casing helper (§4.5).** Defer, or ship `js.tagCase`/`js.fieldCase` now? Is serde's list of
-   conventions the right vocabulary, and how should acronyms (`HTTPRequest`) split?
-8. **Grammar (§4.1).** `@[name "arg"]` with juxtaposed arguments and comma-separated
-   attributes: any parsing or readability trap you see, especially on constructors
-   (`| @[js.name "X"] X (f: T)`) and inside field brackets?
-9. **Anything missing from the first set** that a TS interop user hits within a week:
-   numeric or boolean discriminants, `untagged` unions, a constructor-less "enum as string
-   literal" form (`"UP" | "DOWN"` for a type whose constructors have no fields)?
+Draft 1's questions, with the outcome of the review. A second round, if wanted, would be on
+D612, D613 and the identity contract (§6.4).
+
+1. **The rule about meaning (§4.4).** Replaced by the precise guarantee and the table of future
+   kinds; unchecked `implemented_by` outside the contract.
+2. **Identity (§6).** B confirmed; identity contract, ownership rule, fingerprint contents fixed.
+3. **Closed set.** Confirmed.
+4. **Placement versus an encoding block.** Confirmed as the type's default encoding.
+5. **Clash policy.** Uniform rule (§4.6); any non-empty string, with the obligations of §7.3.
+6. **`js.nullable`.** Strict (§4.5).
+7. **Casing helper.** Deferred; split and specified by examples if added.
+8. **Grammar.** Confirmed; `@[` is a bracket everywhere; argument-shape errors are parse errors.
+9. **Missing from the first set.** String-literal encodings for field-less variants next.
 
 ## 11. Decisions
 
-| ID | Question | Recommendation | Alternatives |
+| ID | Question | Outcome / recommendation | Alternatives |
 |---|---|---|---|
-| D597 | Adopt attributes: `@[name arg?, …]` before declarations, after a constructor's `\|`, before a field's name; a closed, namespaced, documented set; unknown or misplaced is an error; attributes never change meaning (§4.4) | **Yes**, as §4 | a `with js { … }` clause (§8.1); an `export encoding` block (§8.2) |
-| D598 | Are `js.*` attributes part of content hashes? | **No** (option B): an elaborator side table, stored by the check cache, read only by the JS backend; the kernel never sees them; a boundary fingerprint later if needed | (A) hash them into the data type like the record flag; (C) B plus a boundary hash now |
-| D599 | The first set | **`js.tag`, `js.name` (constructors, fields; then types and exports), `js.nullable`**; a casing helper deferred, and if added, split as `js.tagCase`/`js.fieldCase` | add a casing helper now; leave out `js.name` on types/exports |
+| D597 | Adopt attributes | **Decided, with amendments**: `@[name arg?, …]` before declarations, after a constructor's `\|`, before a field's name; a closed, namespaced registry that is the single source for validation and docs; unknown or misplaced is an error and **every parsed attribute is consumed or rejected**; field attributes only on encoded slots; none on special-codec types; the guarantee of §4.4 replaces "never change meaning" | a `with js { … }` clause (§8.1); an `export encoding` block (§8.2) |
+| D598 | Are `js.*` attributes part of content hashes? | **Decided, with amendments: no** (option B). A logical hash does not identify a JS interface or generated artifact; three identities (§6.4); both tables persisted and remapped; ownership rule; fingerprint deferred, with export names in it | (A) hash into the data type; (C) B plus a fingerprint now |
+| D599 | The first set | **Decided, with amendments**: `js.tag`, `js.name` (constructors, fields; then types and exports), `js.nullable` **strict** (required property, `null` is `None`, missing or `undefined` refused); per-constructor field names allowed; casing helpers deferred | lenient `js.nullable` (normalising missing/`undefined` to `None`) |
+| **D612** | With the `$tag`/`$__proto__` fallbacks gone (§4.6), a variant field called `tag`, or any field called `__proto__`, has no valid default key. When is that reported for a type with **no** `js.*` attribute? | **Recommended: when an export reaches the type** (`E-JS-NAME-CLASH` at the field, noted at the export), so a type that never crosses (`dependent-fields.sw`'s `Node (tag: Bool) …`) is unaffected; a type with any `js.*` attribute is checked where declared. `examples/extract/names.sw` adds `@[js.name "$tag"]` and a rename for `__proto__` | report at the declaration for every type (simpler; breaks never-exported types with a field `tag`); keep the silent fallbacks for unattributed types only (the inconsistency the review removed) |
+| **D613** | Where the special-codec registry lives | **Recommended: `crates/core`'s registry** (a "built-in boundary form" predicate next to `Builtin::SafeNat`/`SafeInt`), read by the elaborator to reject attributes and by the JS backend to pick codecs; the backend keeps its hash check as confirmation | a list in `crates/js` re-exported to `elab` (adds a dependency `elab` → `js`); a list in `crates/rt` (same problem) |
+
+D613 is an implementation choice and could be settled without Matt; it is listed because it
+moves a fact between crates that both the kernel side and the backend read.
 
 ## Sources
 
@@ -691,6 +1008,7 @@ check cache or a warm build loses attributes silently (§6.5).
 - rustc UI test for a misspelt derive helper (`#[sede]`): https://rust.googlesource.com/rust/+/HEAD/tests/ui/macros/missing-derive-1.stderr
 - serde container attributes: https://serde.rs/container-attrs.html
 - Lean 4 reference, Attributes: https://lean-lang.org/doc/reference/latest/Attributes/
+- Lean 4, `implemented_by` and `csimp` (cited by the reviewer): https://lean-lang.org/doc/reference/latest/
 - ReScript manual, variants: https://rescript-lang.org/docs/manual/variant
 - ReScript blog, "Improving interop" (v11, `@tag`/`@as`): https://www.rescript-lang.org/blog/improving-interop
 - ReScript syntax lookup, `@as`: https://rescript-lang.org/syntax-lookup/decorator_as
@@ -706,8 +1024,11 @@ check cache or a warm build loses attributes silently (§6.5).
 - Scala tour, annotations: https://docs.scala-lang.org/tour/annotations.html
 - Gleam tour, externals: https://tour.gleam.run/advanced-features/externals/
 - Unison, "The big idea": https://www.unison-lang.org/docs/the-big-idea/
+- ECMAScript, object-literal `__proto__` and property enumeration order (cited by the reviewer): https://tc39.es/ecma262/
+- TypeScript, `exactOptionalPropertyTypes` (cited by the reviewer): https://www.typescriptlang.org/tsconfig/#exactOptionalPropertyTypes
 
 **Not verified:** Swift `CodingKeys` (Apple's page didn't render), Lean's and ReScript's
 messages for an unknown attribute, serde's exact error for an unknown key inside `#[serde(…)]`,
 Gleam's attribute set being closed, Elm/PureScript/Roc having no attribute syntax, TypeScript
-decorators' limits. None of these changes the recommendation.
+decorators' limits. The three reviewer-cited sources were not re-read for draft 2. None of these
+changes the recommendation.
