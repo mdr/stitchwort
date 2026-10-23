@@ -8,7 +8,7 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
+use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, with_stack};
 use stitchwort_driver::run::Policy;
 
 const STACK: usize = 64 * 1024 * 1024;
@@ -41,6 +41,17 @@ fn both<T>(session: &mut Session, mut f: impl FnMut(&mut Session) -> T) -> ((T, 
     let with = measure(session, false);
     let without = measure(session, true);
     (with, without)
+}
+
+/// What one example added to the totals of the comparison.
+#[derive(Default)]
+struct Totals {
+    tests_run: usize,
+    mains_run: usize,
+    compared: usize,
+    steps_with: u64,
+    steps_without: u64,
+    cheaper: Vec<String>,
 }
 
 fn examples() -> Vec<(String, String)> {
@@ -102,48 +113,60 @@ const COMPARED_WITHOUT_ERASURE: &[&str] = &[
 #[test]
 fn erasure_doesnt_change_what_examples_print_or_test() {
     with_stack(STACK, || {
-        let (mut tests_run, mut mains_run, mut compared) = (0, 0, 0);
-        let (mut steps_with, mut steps_without) = (0u64, 0u64);
-        let mut cheaper = Vec::new();
-        for (name, text) in examples() {
+        // Each example in its own session, on the thread pool; the totals
+        // are summed in example order afterwards.
+        let per_example = par_map(STACK, &examples(), |(name, text)| {
+            let mut found = Totals::default();
             let mut session = Session::for_stack(STACK);
-            session.load(&name, &text).expect("examples check");
+            session.load(name, text).expect("examples check");
             if !COMPARED_WITHOUT_ERASURE.contains(&name.as_str()) {
                 // Erasure on only: every test passes and the program runs.
                 let a = outcomes(&mut session);
                 for (test, o) in &a {
                     assert_eq!(*o, "passed", "{name}: {test}");
                 }
-                tests_run += a.len();
+                found.tests_run += a.len();
                 if session.main().is_ok() && session.simulate(&[]).is_ok() {
-                    mains_run += 1;
+                    found.mains_run += 1;
                 }
-                continue;
+                return found;
             }
-            compared += 1;
+            found.compared += 1;
             let ((a, wa), (b, wb)) = both(&mut session, outcomes);
             assert_eq!(a, b, "{name}: test outcomes differ");
-            tests_run += a.len();
-            steps_with += wa;
-            steps_without += wb;
+            found.tests_run += a.len();
+            found.steps_with += wa;
+            found.steps_without += wb;
             if wa < wb {
-                cheaper.push(format!("{name} (tests): {wa} < {wb}"));
+                found.cheaper.push(format!("{name} (tests): {wa} < {wb}"));
             }
             // A program without a `main` that checks is skipped; one that
             // fails the same way both times is compared by its error code.
             if session.main().is_err() {
-                continue;
+                return found;
             }
             let ((a, wa), (b, wb)) = both(&mut session, |s| {
                 s.simulate(&[]).map_err(|d| d.code.to_string())
             });
             assert_eq!(a, b, "{name}: printed lines differ");
             if a.is_ok() {
-                mains_run += 1;
+                found.mains_run += 1;
             }
             if wa < wb {
-                cheaper.push(format!("{name} (main): {wa} < {wb}"));
+                found.cheaper.push(format!("{name} (main): {wa} < {wb}"));
             }
+            found
+        });
+        let (mut tests_run, mut mains_run, mut compared) = (0, 0, 0);
+        let (mut steps_with, mut steps_without) = (0u64, 0u64);
+        let mut cheaper = Vec::new();
+        for found in per_example {
+            tests_run += found.tests_run;
+            mains_run += found.mains_run;
+            compared += found.compared;
+            steps_with += found.steps_with;
+            steps_without += found.steps_without;
+            cheaper.extend(found.cheaper);
         }
         eprintln!("tests: {tests_run}, mains: {mains_run}, compared both ways: {compared}");
         eprintln!("compared steps with erasure {steps_with}, without {steps_without}");

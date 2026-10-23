@@ -183,6 +183,7 @@
             pkgs.cargo-watch
             pkgs.cargo-llvm-cov # test coverage
             pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
+            pkgs.cargo-nextest # `dev/t full`: the whole suite with test binaries run in parallel
 
             # Browser playground: Rust -> WASM
             pkgs.wasm-bindgen-cli

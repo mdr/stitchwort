@@ -30,6 +30,10 @@ Areas:
   vscode     node --test on the VS Code extension's client config, against a fake server
   lint       cargo fmt --check and clippy
   all        cargo test --release --workspace
+  full       the whole suite plus the slow tier (STITCHWORT_SLOW=1), by
+             cargo-nextest: test binaries run side by side instead of one
+             after another. Doctests aren't run by nextest. Heavy: uses
+             every core, so run it when nothing else needs the machine.
   slow       just the slow tier (see below), with STITCHWORT_SLOW=1
   gate       nix flake check (the full gate, 6-7 minutes). Bounded so it
              doesn't starve other lanes: `--option cores 6 --option max-jobs 2`
@@ -469,6 +473,17 @@ case "$area" in
   gate)
     echo "the full gate, 6-7 minutes (nix builds use at most ${GATE_CORES:-6} cores, ${GATE_JOBS:-2} jobs)"
     nix flake check --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
+    exit 0
+    ;;
+  full)
+    # Every test binary at once (nextest runs binaries in parallel, each test
+    # in its own process), with the slow tier on, for the daily checkpoint.
+    export STITCHWORT_SLOW=1
+    if [[ -n "${IN_NIX_SHELL:-}" ]]; then
+      cargo nextest run --release --workspace --no-fail-fast ${filter:+"$filter"}
+    else
+      nix develop -c cargo nextest run --release --workspace --no-fail-fast ${filter:+"$filter"}
+    fi
     exit 0
     ;;
   slow)

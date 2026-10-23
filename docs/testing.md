@@ -99,3 +99,21 @@ The baseline is `bench/baseline.toml`: one table per benchmark, so a change read
 - **The kernel must never panic.** If a malformed term can make it panic, that's a bug: it should be an `E-MALFORMED` error.
 - **For a new export shape or codec, add an extraction example.** The random differential test then exercises it automatically.
 - **Before trusting a new test, break the code it tests and watch it fail.** `cargo mutants` does this systematically.
+
+## How long the slow binaries take
+
+Wall time of each slow test binary alone, `cargo test --release` with `STITCHWORT_SLOW=1` (24 Oct 2026, 8-core Mac with other lanes running cargo: load average 10 to 30, so read these as upper bounds). "After" is the same binary after its serial per-example loops moved onto the `par_map` thread pool.
+
+| Binary | Before | After | Where the time goes |
+|---|---|---|---|
+| `driver --test std_library` | 146 s | (unchanged) | four `lazy_loading_changes_nothing_*` tests, each loading every example lazily and eagerly: CPU-bound, already on `par_map` |
+| `driver --test rewind` | 114 s | 77 s | `rewinding_changes_nothing_for_the_examples` (CPU-bound, on `par_map`); the AoC tests were one serial chain of 7 to 10 whole-project checks, now side by side |
+| `driver --test differential` | 79 s | 16 s | one test checking every example in a serial loop, now `par_map` |
+| `driver --test check_cache` | 68 s | 40 s | the AoC test ran its two navigation modes one after the other, now side by side |
+| `cli --test check_cache` | 58 s | (unchanged) | child processes per example project |
+| `cli --test run_js` | 45 s | 12 s | every example run twice per input (`run` and `run --js`) in a serial loop, now `par_map` |
+| `driver --test hash_stability` | 46 s | (unchanged) | already on `par_map` |
+| `driver --test erasure` | 42 s | 8 s | one test with a serial loop over every example, now `par_map` |
+| `cli --test examples` | 13 s | (unchanged) | |
+
+A binary's tests already share the machine through libtest's test threads and `par_map`, so what is left is CPU work. The remaining cost of a whole-suite run is that cargo runs binaries one after another, so each binary's tail (its slowest test) leaves cores idle. `dev/t full` runs the suite under [cargo-nextest](https://nexte.st), which starts the next binary's tests as cores free up and runs every test in its own process. It runs the slow tier but not doctests (nextest does not run them); `nix flake check` is unchanged and is still the gate.
