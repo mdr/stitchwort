@@ -33,26 +33,26 @@ def List.filter (p: a -> Bool): List a -> List a
   | Nil => Nil
   | Cons x xs => List.filterStep x (List.filter p xs) (p x)
 
--- Left fold; tail-recursive. `List.foldLeft f z [x, y]` is `f (f z x) y`.
-def List.foldLeft (f: b -> a -> b) (z: b): List a -> b
-  | Nil => z
-  | Cons x xs => List.foldLeft f (f z x) xs
+-- Left fold; tail-recursive. `List.foldLeft f initial [x, y]` is `f (f initial x) y`.
+def List.foldLeft (f: b -> a -> b) (initial: b): List a -> b
+  | Nil => initial
+  | Cons x xs => List.foldLeft f (f initial x) xs
 
 -- Running accumulations, the initial value first (Haskell's `scanLeft`):
--- `List.scanLeft f z [x, y]` is `[z, f z x, f (f z x) y]`. Always one longer than
+-- `List.scanLeft f initial [x, y]` is `[initial, f initial x, f (f initial x) y]`. Always one longer than
 -- the input.
-def List.scanLeft (f: b -> a -> b) (z: b): List a -> List b
-  | Nil => Cons z Nil
-  | Cons x xs => Cons z (List.scanLeft f (f z x) xs)
+def List.scanLeft (f: b -> a -> b) (initial: b): List a -> List b
+  | Nil => Cons initial Nil
+  | Cons x xs => Cons initial (List.scanLeft f (f initial x) xs)
 
 theorem List.scanLeftNil: List.scanLeft (acc x => acc + x) 5 Nil = [5] := rfl
 
 theorem List.scanLeftSums: List.scanLeft (acc x => acc + x) 0 [1, 2, 3] = [0, 1, 3, 6] := rfl
 
--- Right fold. `List.foldRight f z [x, y]` is `f x (f y z)`.
-def List.foldRight (f: a -> b -> b) (z: b): List a -> b
-  | Nil => z
-  | Cons x xs => f x (List.foldRight f z xs)
+-- Right fold. `List.foldRight f initial [x, y]` is `f x (f y initial)`.
+def List.foldRight (f: a -> b -> b) (initial: b): List a -> b
+  | Nil => initial
+  | Cons x xs => f x (List.foldRight f initial xs)
 
 -- The sum of the elements, of any type with `Add` (docs/proposals/interfaces.md
 -- §7.7): `[1, 2, 3].sum` is `6`, `[3, -5, 1].sum` is `-1`.
@@ -205,17 +205,17 @@ theorem List.initExample: List.init [1, 2, 3] = [1, 2] := rfl
 theorem List.initEmpty: List.init (Nil: List Nat) = Nil := rfl
 
 -- Membership, given a decision for equality (as `List.decEq` takes).
-def List.elem (d: (x: a) -> (y: a) -> Decidable (x = y)) (z: a): List a -> Bool
+def List.elem (decEq: (x: a) -> (y: a) -> Decidable (x = y)) (target: a): List a -> Bool
   | Nil => False
-  | Cons x xs => if Decidable.toBool (d z x) then True else List.elem d z xs
+  | Cons x xs => if Decidable.toBool (decEq target x) then True else List.elem decEq target xs
 
 -- The elements that satisfy `p`, and those that don't.
 def List.partition (p: a -> Bool) (xs: List a): Pair (List a) (List a) := MkPair (List.filter p xs) (List.filter (x => !(p x)) xs)
 
 -- The value for the first pair whose key is equal, given a decision for equality.
-def List.lookup (d: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Option v
+def List.lookup (decEq: (x: k) -> (y: k) -> Decidable (x = y)) (key: k): List (Pair k v) -> Option v
   | Nil => None
-  | Cons (MkPair k v) rest => if Decidable.toBool (d key k) then Some v else List.lookup d key rest
+  | Cons (MkPair k v) rest => if Decidable.toBool (decEq key k) then Some v else List.lookup decEq key rest
 
 -- `List.padRight n x xs` is `xs` followed by enough copies of `x` to make it
 -- n long (it is `xs` itself when that is already n long or longer).
@@ -1013,17 +1013,17 @@ theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
 -- `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
 -- The function takes the state and an element and gives the next state and
 -- the mapped element; the result is the final state and the mapped list.
-def List.mapAccumLeftGo (f: s -> a -> Pair s b) (z: s): List a -> Pair s (List b)
-  | Nil => MkPair z Nil
-  | Cons x xs => List.mapAccumLeftStep f xs (f z x)
+def List.mapAccumLeftGo (f: s -> a -> Pair s b) (initial: s): List a -> Pair s (List b)
+  | Nil => MkPair initial Nil
+  | Cons x xs => List.mapAccumLeftStep f xs (f initial x)
 
 def List.mapAccumLeftStep (f: s -> a -> Pair s b) (xs: List a): Pair s b -> Pair s (List b)
-  | MkPair z y => List.mapAccumLeftCons y (List.mapAccumLeftGo f z xs)
+  | MkPair state y => List.mapAccumLeftCons y (List.mapAccumLeftGo f state xs)
 
 def List.mapAccumLeftCons (y: b): Pair s (List b) -> Pair s (List b)
-  | MkPair z ys => MkPair z (Cons y ys)
+  | MkPair state ys => MkPair state (Cons y ys)
 
-def List.mapAccumLeft (xs: List a) (z: s) (f: s -> a -> Pair s b): Pair s (List b) := List.mapAccumLeftGo f z xs
+def List.mapAccumLeft (xs: List a) (initial: s) (f: s -> a -> Pair s b): Pair s (List b) := List.mapAccumLeftGo f initial xs
 
 -- Splits a list of pairs into the list of firsts and the list of seconds.
 def List.unzipCons (x: a) (y: b): Pair (List a) (List b) -> Pair (List a) (List b)

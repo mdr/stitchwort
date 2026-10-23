@@ -3,11 +3,11 @@
 -- index. A file of its own, so that programs using only the toolkit don't
 -- check these.
 
--- The element at index i, or `d` past the end.
-def List.getOr (d: a): Nat -> List a -> a
-  | i, Nil => d
+-- The element at index i, or `fallback` past the end.
+def List.getOr (fallback: a): Nat -> List a -> a
+  | i, Nil => fallback
   | Zero, Cons x xs => x
-  | Succ i, Cons x xs => List.getOr d i xs
+  | Succ i, Cons x xs => List.getOr fallback i xs
 
 theorem List.getOrExample: List.getOr 0 1 [7, 8] = 8 := rfl
 

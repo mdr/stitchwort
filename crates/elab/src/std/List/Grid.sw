@@ -9,7 +9,7 @@
 -- The length of the longest row (0 for no rows).
 def List.maxLength: List (List a) -> Nat
   | Nil => 0
-  | Cons r rs => Nat.max (List.length r) (List.maxLength rs)
+  | Cons row rows => Nat.max (List.length row) (List.maxLength rows)
 
 -- The columns of rows of any lengths, as many as the longest row is long:
 -- every row is padded on the right with `fill` to that length, then

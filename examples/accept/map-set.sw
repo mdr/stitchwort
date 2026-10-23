@@ -17,10 +17,10 @@ test "equal maps" := wordCounts ["b", "a", "b"] == Map.fromList [("b", 2), ("a",
 
 -- A set of pairs: the positions a walk visits, ordered by row, then column.
 def step: (Nat, Nat) -> Char -> (Nat, Nat)
-  | (r, c), 'R' => (r, c + 1)
-  | (r, c), 'D' => (r + 1, c)
-  | (r, c), 'L' => (r, c - 1)
-  | (r, c), _ => (r - 1, c)
+  | (row, column), 'R' => (row, column + 1)
+  | (row, column), 'D' => (row + 1, column)
+  | (row, column), 'L' => (row, column - 1)
+  | (row, column), _ => (row - 1, column)
 
 def visited (moves: Text): Set (Nat, Nat) :=
   def move (acc: ((Nat, Nat), Set (Nat, Nat))) (m: Char): ((Nat, Nat), Set (Nat, Nat)) :=

@@ -45,7 +45,7 @@ def parseDatabase (lines: List Text): {Fail} Database :=
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=
-  db.available.count (id => db.fresh.any (r => r.contains id))
+  db.available.count (id => db.fresh.any (range => range.contains id))
 
 -- Part 2: every id the fresh ranges cover.
 def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy .size
@@ -59,10 +59,10 @@ def merge (ranges: List Range): List Range :=
     |> .reverse
 
 -- Add a range, starting no earlier than the ones already merged, to them.
-def absorb (merged: List Range) (r: Range): List Range :=
+def absorb (merged: List Range) (range: Range): List Range :=
   match merged with
-    | Nil => [r]
+    | Nil => [range]
     | Cons last earlier =>
-      if r.from <= last.to + 1
-      then Cons ({ from = last.from, to = Nat.max last.to r.to }) earlier
-      else Cons r merged
+      if range.from <= last.to + 1
+      then Cons ({ from = last.from, to = Nat.max last.to range.to }) earlier
+      else Cons range merged

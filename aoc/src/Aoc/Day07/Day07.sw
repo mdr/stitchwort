@@ -45,13 +45,13 @@ def parseManifold (lines: List Text): Option Manifold := toOption (() => readMan
 -- Each step that finds nothing gives up, which makes the result `None`.
 def readManifold (lines: List Text): {Abort} Manifold :=
   let width := gridWidth lines
-  let (r, c) := (findStart lines).orAbort
-  let start := (Fin.ofNatCheck width c).orAbort
-  { width, start, rows = (lines.drop (r + 1)).map (splitterRow width) }
+  let (rowIndex, columnIndex) := (findStart lines).orAbort
+  let start := (Fin.ofNatCheck width columnIndex).orAbort
+  { width, start, rows = (lines.drop (rowIndex + 1)).map (splitterRow width) }
 
 -- Row and column of the first S, reading top to bottom, left to right.
 def findStart (lines: List Text): Option (Nat, Nat) :=
-  lines.withIndex.findMap (((r, line)) => (line.toList.findIndex (c => c == 'S')).map (c => (r, c)))
+  lines.withIndex.findMap (((rowIndex, line)) => (line.toList.findIndex (char => char == 'S')).map (columnIndex => (rowIndex, columnIndex)))
 
 -- The widest line's length.
 def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
@@ -64,15 +64,15 @@ def splitterRow (width: Nat) (line: Text): Vec Bool width := flagsOf width line.
 
 def flagsOf: (width: Nat) -> List Char -> Vec Bool width
   | Zero, _ => VNil
-  | Succ w, Nil => VCons False (flagsOf w Nil)
-  | Succ w, Cons ch rest => VCons (isSplitter ch) (flagsOf w rest)
+  | Succ remaining, Nil => VCons False (flagsOf remaining Nil)
+  | Succ remaining, Cons ch rest => VCons (isSplitter ch) (flagsOf remaining rest)
 
 def isSplitter (ch: Char): Bool := ch == '^'
 
 -- Part 1: carry the beams down, a flag per column, adding up the splitters
 -- each row's beams reach.
 def solvePart1 (manifold: Manifold): Nat :=
-  splitsBelow (Vec.tabulate manifold.width (c => c == manifold.start)) manifold.rows
+  splitsBelow (Vec.tabulate manifold.width (column => column == manifold.start)) manifold.rows
 
 -- `beams` are the beams falling into the first of `rows`.
 def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
@@ -80,14 +80,14 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
   | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith (s b => s && b) row beams).toList.count (x => x)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith (splitter beam => splitter && beam) row beams).toList.count (hit => hit)
 
 -- The beams falling out of a row: a beam passes a column with no splitter,
 -- and a splitter with a beam on it sends one down each side.
 def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
-  let hit := Vec.zipWith (s b => s && b) row beams
+  let hit := Vec.zipWith (splitter beam => splitter && beam) row beams
   Vec.zipWith3 (pass left right => pass || (left || right))
-    (Vec.zipWith (s b => b && not s) row beams) (hit.shiftRight False) (hit.shiftLeft False)
+    (Vec.zipWith (splitter beam => beam && not splitter) row beams) (hit.shiftRight False) (hit.shiftLeft False)
 
 -- Part 2: the timelines of a particle starting at S.
 def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).get manifold.start
@@ -102,5 +102,5 @@ def timelineCounts (manifold: Manifold): Vec Nat manifold.width :=
 -- counts of the columns below on both sides added up. Past either edge a
 -- particle has left the manifold: one timeline.
 def splitRow (row: Vec Bool w) (below: Vec Nat w): Vec Nat w :=
-  Vec.zipWith3 (s here sides => if s then sides else here) row below
-    (Vec.zipWith (l r => l + r) (below.shiftRight 1) (below.shiftLeft 1))
+  Vec.zipWith3 (splitter here sides => if splitter then sides else here) row below
+    (Vec.zipWith (leftCount rightCount => leftCount + rightCount) (below.shiftRight 1) (below.shiftLeft 1))

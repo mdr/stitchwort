@@ -13,7 +13,7 @@ theorem Bool.toNatInjective: (a: Bool) -> (b: Bool) -> Bool.toNat a = Bool.toNat
 def Bool.compare (a: Bool) (b: Bool): Ordering := Nat.compare (Bool.toNat a) (Bool.toNat b)
 
 -- `Less`, `Equal`, `Greater`.
-def Ordering.compare (c: Ordering) (d: Ordering): Ordering := Nat.compare (Ordering.index c) (Ordering.index d)
+def Ordering.compare (first: Ordering) (second: Ordering): Ordering := Nat.compare (Ordering.index first) (Ordering.index second)
 
 -- A total order: a comparison with its laws, and the relations `<` and `<=`
 -- with their decisions, agreeing with it (docs/proposals/interfaces.md

@@ -68,7 +68,7 @@ def Grid.round (grid: Grid): Grid :=
 -- add the three rows column by column, then each column's sum to its
 -- neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: Vec Cell w): Vec Cell w :=
-  let columns := Vec.zipWith3 (a r b => a.count + r.count + b.count) above row below
+  let columns := Vec.zipWith3 (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count) above row below
   let windows := columns.around 0 (left here right => left + here + right)
   Vec.zipWith (roll window => if roll == Roll && 5 <= window then Roll else Floor) row windows
 

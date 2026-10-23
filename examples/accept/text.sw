@@ -29,9 +29,9 @@ test "fold" := "ab".fold (c n => Char.toNat c + n) 0 == 195
 
 def unconsCode: Option (Pair Char Text) -> Nat
   | None => 0
-  | Some (MkPair c cs) => Char.toNat c
+  | Some (MkPair char chars) => Char.toNat char
 
-def firstChar (t: Text): Nat := unconsCode (t.uncons)
+def firstChar (text: Text): Nat := unconsCode (text.uncons)
 
 test "uncons" := firstChar "xyz" == 120
 test "uncons empty" := firstChar "" == 0

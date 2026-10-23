@@ -51,8 +51,8 @@ def readPoint (line: Text): {Fail} Point :=
 
 -- The straight-line distance squared: it orders pairs the same way as the
 -- distance, and needs no square root.
-def Point.squaredDistance (p: Point) (q: Point): Nat :=
-  square (Nat.absDiff p.x q.x) + square (Nat.absDiff p.y q.y) + square (Nat.absDiff p.z q.z)
+def Point.squaredDistance (point: Point) (other: Point): Nat :=
+  square (Nat.absDiff point.x other.x) + square (Nat.absDiff point.y other.y) + square (Nat.absDiff point.z other.z)
 
 def square (n: Nat): Nat := n * n
 
@@ -111,7 +111,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
     |> .foldLeft Circuits.connect (Circuits.separate boxes.points.length)
-  joined.sizes boxes.points.length |> .sortBy (a b => Nat.compare b a) |> .take 3 |> .product
+  joined.sizes boxes.points.length |> .sortBy (first second => Nat.compare second first) |> .take 3 |> .product
 
 -- Part 2: the product of the x coordinates of the two boxes whose joining
 -- leaves one circuit. `None` if there are no such boxes: the points start in

@@ -12,11 +12,11 @@ def colours: List Text := ["red", "green", "blue"]
 -- up wherever a value is expected; each says what went wrong.
 def turn (line: Text): {Fail} Turn :=
   match line.split ' ' with
-    | [dir, w, colour] =>
-      let (c, digits) := need dir.uncons "expected a direction, got nothing"
-      ensure (c == 'L' || c == 'R') "expected L or R, got '${dir}'"
+    | [dir, weightText, colour] =>
+      let (letter, digits) := need dir.uncons "expected a direction, got nothing"
+      ensure (letter == 'L' || letter == 'R') "expected L or R, got '${dir}'"
       ensure (colours.any (k => k == colour)) "expected a colour, got '${colour}'"
-      { left = c == 'L', steps = digits.toNatOrFail, weight = w.toNatOrFail, colour }
+      { left = letter == 'L', steps = digits.toNatOrFail, weight = weightText.toNatOrFail, colour }
     | _ => fail "expected a turn like L68 3 red, got '${line}'"
 
 -- Every line, or the first line's failure, with its line number in front.
@@ -30,19 +30,19 @@ def parseTurn (line: Text): Result Turn Text := toResult (() => turn line)
 -- type: arguments are checked before the result type is known.)
 def signed (line: Text): Int :=
   orElse (0: Int) (() =>
-    let t := turn line
-    let n := t.steps.toInt
-    if t.left then -n else n)
+    let turned := turn line
+    let n := turned.steps.toInt
+    if turned.left then -n else n)
 
 -- Composes with other abilities: prints each line's colour as it goes, and
 -- fails at the first bad line (after printing the good ones before it).
 def total (lines: List Text): {IO, Fail} Nat :=
   match lines with
     | [] => 0
-    | [l, ..ls] =>
-      let t := turn l
-      IO.print t.colour
-      t.steps * t.weight + total ls
+    | [line, ..rest] =>
+      let turned := turn line
+      IO.print turned.colour
+      turned.steps * turned.weight + total rest
 
 def main(): {IO} () :=
   let lines := IO.readAllLines()

@@ -77,7 +77,7 @@ test "ofNatCheck" := (Option.map Fin.toNat (Fin.ofNatCheck 5 4), Option.map Fin.
 
 -- The decimal digit a character shows: `Char.toDigit '7'` is 7, as a
 -- `Fin 10`, and a character that isn't a digit gives `None`.
-def Char.toDigit (c: Char): Option (Fin 10) := Option.flatMap (Fin.ofNatCheck 10) (Char.digitValue c)
+def Char.toDigit (char: Char): Option (Fin 10) := Option.flatMap (Fin.ofNatCheck 10) (Char.digitValue char)
 
 theorem Char.toDigitOf: (m: Option Nat) -> Option.IsDigit m -> Option.map Fin.toNat (Option.flatMap (Fin.ofNatCheck 10) m) = m
   | None, h => rfl

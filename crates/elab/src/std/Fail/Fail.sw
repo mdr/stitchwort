@@ -22,13 +22,13 @@ ability Fail where
 def Fail.fail (msg: Text): {Fail} a := Empty.absurd (Fail.stop msg)
 
 -- The value in an `Option`, or fail with `msg`.
-def Fail.need (o: Option a) (msg: Text): {Fail} a :=
-  match o with
+def Fail.need (option: Option a) (msg: Text): {Fail} a :=
+  match option with
     | Some x => x
     | None => Fail.fail msg
 
 -- The same, for dot notation: `t.toNat.orFail "expected a number, got '${t}'"`.
-def Option.orFail (o: Option a) (msg: Text): {Fail} a := Fail.need o msg
+def Option.orFail (option: Option a) (msg: Text): {Fail} a := Fail.need option msg
 
 -- Fail with `msg` unless `ok`.
 def Fail.ensure (ok: Bool) (msg: Text): {Fail} () := if ok then () else Fail.fail msg
@@ -53,17 +53,17 @@ def Fail.toOption (prog: () -> {Fail | e} a): {e} Option a :=
     | return x => Some x
     | Fail.stop msg, k => None
 
--- The result, or `d` if the computation failed.
-def Fail.orElse (d: a) (prog: () -> {Fail | e} a): {e} a :=
+-- The result, or `fallback` if the computation failed.
+def Fail.orElse (fallback: a) (prog: () -> {Fail | e} a): {e} a :=
   handle prog() with
     | return x => x
-    | Fail.stop msg, k => d
+    | Fail.stop msg, k => fallback
 
--- The result, or `h` of the message if the computation failed.
-def Fail.recover (h: Text -> {e} a) (prog: () -> {Fail | e} a): {e} a :=
+-- The result, or `handler` of the message if the computation failed.
+def Fail.recover (handler: Text -> {e} a) (prog: () -> {Fail | e} a): {e} a :=
   handle prog() with
     | return x => x
-    | Fail.stop msg, k => h msg
+    | Fail.stop msg, k => handler msg
 
 -- The same computation, with `label: ` in front of its failure's message:
 -- `Fail.context "line 3" (() => parseLine l)`. The `fail` in the clause
@@ -90,11 +90,11 @@ def Fail.toAbort (prog: () -> {Fail | e} a): {Abort | e} a :=
 -- Reading numbers, with the same message everywhere (D1051). Spaces at
 -- either end are allowed; the text is quoted as it was given.
 
--- `t` as a `Nat`, or fail with `expected a whole number, got 't'`.
-def Text.toNatOrFail (t: Text): {Fail} Nat := Fail.need (Text.toNat (Text.trim t)) "expected a whole number, got '${t}'"
+-- `text` as a `Nat`, or fail with `expected a whole number, got 't'`.
+def Text.toNatOrFail (text: Text): {Fail} Nat := Fail.need (Text.toNat (Text.trim text)) "expected a whole number, got '${text}'"
 
--- `t` as an `Int`, or fail with `expected a whole number, got 't'`.
-def Text.toIntOrFail (t: Text): {Fail} Int := Fail.need (Text.toInt (Text.trim t)) "expected a whole number, got '${t}'"
+-- `text` as an `Int`, or fail with `expected a whole number, got 't'`.
+def Text.toIntOrFail (text: Text): {Fail} Int := Fail.need (Text.toInt (Text.trim text)) "expected a whole number, got '${text}'"
 
 -- Theorems. A handled computation computes, so each holds by `rfl`, case
 -- by case.

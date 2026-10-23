@@ -4,11 +4,11 @@
 -- check before that (the last chunk would be short).
 import Std (List, Text, Nat)
 
-def repeatsWith (s: Text) (k: Nat): Bool :=
-  k != 0 && s.length % k == 0 && (s.chunksOf k |> .distinct |> .length) == 1
+def repeatsWith (text: Text) (k: Nat): Bool :=
+  k != 0 && text.length % k == 0 && (text.chunksOf k |> .distinct |> .length) == 1
 
 -- Some shorter block length makes the ID a repeat (the whole ID doesn't count).
-def repeatsAny (s: Text): Bool := List.any (k => repeatsWith s k) (List.range s.length)
+def repeatsAny (text: Text): Bool := List.any (k => repeatsWith text k) (List.range text.length)
 
 test "1212 repeats a block of two" := repeatsWith "1212" 2
 test "1212 is not a block of three" := !(repeatsWith "1212" 3)
