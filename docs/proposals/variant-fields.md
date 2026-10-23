@@ -514,7 +514,7 @@ def textOf: Shape -> Option Text
   | Circle { text, .. } => Some text
   | _                  => None
 
-def cardCount: Shape -> Nat
+def pointCount: Shape -> Nat
   | Polygon { points, .. } => points.length
   | _                       => 0
 
