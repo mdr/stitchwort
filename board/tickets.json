@@ -6371,7 +6371,7 @@
     {
       "id": 397,
       "title": "Bench: counts_repeat_within_a_process fails deterministically (counts differ between two runs in one process); cause before 7302d7cc (found by D1080 checkpoint)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -6380,12 +6380,15 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "6b55184e",
+        "0f486430"
+      ]
     },
     {
       "id": 398,
       "title": "Bench: counts_have_not_regressed fails (check-closed-* +14% from std growth, SW-370; check-nested-parens peak heap +129% from SW-366 F0 lexer; text-append/split-join/number-dependent heap) — investigate parens, rebaseline explained deltas (found by D1080 checkpoint)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -6394,7 +6397,11 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "94a6722a",
+        "e7c32a30",
+        "a84e0219"
+      ]
     }
   ]
 }
