@@ -397,7 +397,7 @@ Division is defined by structural recursion on fuel (`n` steps is always enough 
 
 ## Quotients
 
-A quotient type `Quot A R` is `A` with every pair related by `R` treated as equal. This section says what is built so far (docs/proposals/map-equality.md, ticket SW-356). Stage 1 isn't finished: the Map prototype (1.6) is still to come.
+A quotient type `Quot A R` is `A` with every pair related by `R` treated as equal. This section says what is built so far (docs/proposals/map-equality.md, ticket SW-356). Stage 1 is finished: a prototype map built on it, `ProtoMap` (examples/accept/quot-protomap.sw), passed the gate before `Map` itself becomes a quotient.
 
 **The forms (step 1.1).** There are five, all `Term::Quot(form, args)` with every argument written out, implicit ones included:
 
