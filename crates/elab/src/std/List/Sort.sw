@@ -109,16 +109,16 @@ theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first las
   match h: Nat.leq first last with
     | True =>
       calc Nat.sumBetween first last
-        _ = (first + last) * (last - first + 1) / 2 := rewrite (omega: last + 1 - first = last - first + 1)
+        _ = (first + last) * (last - first + 1) / 2 := rewrite Nat.addOneSub last first h
         _ = 1 * ((first + last) * (last - first + 1) / 2) := Eq.sym (Nat.oneMul ((first + last) * (last - first + 1) / 2))
         _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
         _ = Nat.span first (Succ last) := Nat.oneMul (Nat.span first (Succ last))
         _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
     | False =>
       calc Nat.sumBetween first last
-        _ = (first + last) * 0 / 2 := rewrite (omega: last + 1 - first = 0)
+        _ = (first + last) * 0 / 2 := rewrite Nat.addOneSubEqZero last first h
         _ = 0 := rewrite Nat.mulZero (first + last)
-        _ = (List.between first last).sum := rewrite (omega: last + 1 - first = 0)
+        _ = (List.between first last).sum := rewrite Nat.addOneSubEqZero last first h
 
 test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 && Nat.sumBetween 5 5 == 5 && Nat.sumBetween 1 100 == 5050
 
