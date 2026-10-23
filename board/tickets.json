@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "full model done (123 fields, 25,002/25,002 identical); private lane: TimeOps generic (D660) + apply js.tag/js.name",
+      "where": "full model done; D677 accepted (undefined key = missing); private lane: TimeOps generic (D660)",
       "labels": [
         "design",
         "js"
