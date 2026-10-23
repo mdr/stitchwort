@@ -138,7 +138,12 @@ fn generated_code_is_stable_and_the_declarations_type_check() {
         std::fs::create_dir_all(&dir).expect("create temp dir");
         std::fs::write(dir.join("module.d.ts"), &output.dts).expect("write declarations");
         let result = Command::new("tsc")
-            .args(["--noEmit", "--strict", "module.d.ts"])
+            .args([
+                "--noEmit",
+                "--strict",
+                "--exactOptionalPropertyTypes",
+                "module.d.ts",
+            ])
             .current_dir(&dir)
             .output()
             .expect("run `tsc` (is it on the PATH? `nix develop` provides it)");
@@ -215,7 +220,7 @@ fn check_in_node_with(name: &str, g: &Globals, cases: &[Case], options: Options)
         stitchwort_js::generate_with(g, Limits::default(), options).expect("extraction succeeds");
     let mut script = String::from(
         "import * as m from \"./module.mjs\";\n\
-         const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : x);\n\
+         const canon = (v) => JSON.stringify(v, (_, x) => typeof x === \"bigint\" ? `${x}n` : x) ?? \"undefined\";\n\
          const results = [];\n\
          const attempt = (f) => {\n\
            try { return canon(f()); }\n\
@@ -434,6 +439,14 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
                 .collect();
             Value::Ctor(*d, c, fields)
         }
+        Boundary::Option(d, inner) => match rng.below(2) {
+            0 => Value::Ctor(*d, 0, vec![].into()),
+            _ => Value::Ctor(
+                *d,
+                1,
+                vec![random_value(g, inner, rng, depth.saturating_sub(1))].into(),
+            ),
+        },
         Boundary::Param(_) => panic!("a boundary type of an export has no parameters"),
     }
 }
@@ -445,6 +458,9 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
     match (b, value) {
         (Boundary::List(elem), Value::Ctor(_, 1, fields)) => {
             proofs_hold(g, elem, &fields[0]) && proofs_hold(g, b, &fields[1])
+        }
+        (Boundary::Option(_, inner), Value::Ctor(_, c, fields)) => {
+            *c == 0 || proofs_hold(g, inner, &fields[0])
         }
         (Boundary::Data(d, args), Value::Ctor(_, c, fields)) => {
             let data = g.data(*d);
@@ -699,6 +715,122 @@ console.log("ok");
     );
 }
 
+/// `Option T` at the boundary (D582): `T | undefined`, and an optional
+/// property in a record's field; `null` is refused; a nested `Option` keeps
+/// the tagged object.
+#[test]
+fn options_cross_the_boundary_as_undefined() {
+    let examples = examples();
+    let session = example(&examples, "options.sw");
+    let dts = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .dts;
+    for declaration in [
+        "export type Profile = { readonly name: string; readonly nick?: string; readonly age?: bigint };",
+        "export type Cap = { readonly cap?: number };",
+        "export type Peek = { readonly items: readonly (bigint | undefined)[]; readonly extra?: readonly (bigint | undefined)[] };",
+        "export type Both =\n  | { readonly tag: \"MkBoth\"; readonly left: bigint | undefined; readonly right: string };",
+        "export declare function withNick(p: Profile, n: string | undefined): Profile;",
+        "export declare function halve(arg0: bigint | undefined): bigint | undefined;",
+        "export declare function wrap(x: bigint | undefined): Option<bigint> | undefined;",
+        "export declare function unwrap(arg0: Option<bigint> | undefined): bigint | undefined;",
+        "export declare function markAll(xs: readonly bigint[]): (bigint | undefined)[];",
+        "export declare function capOf(c: Cap): number | undefined;",
+    ] {
+        assert!(dts.contains(declaration), "{declaration}\n{dts}");
+    }
+    let script = r#"
+import * as m from "./options.mjs";
+import assert from "node:assert/strict";
+
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+
+// A record's field: a missing property and `undefined` are `None`.
+assert.equal(m.nickname({ name: "Ada" }), "Ada");
+assert.equal(m.nickname({ name: "Ada", nick: undefined }), "Ada");
+assert.equal(m.nickname({ name: "Ada", nick: "Countess" }), "Countess");
+// An empty string is a value, not `None`.
+assert.equal(m.nickname({ name: "Ada", nick: "" }), "");
+// `None` is no property (not one set to `undefined`); `Some` is the value.
+const without = m.withNick({ name: "Ada", nick: "A", age: 36n }, undefined);
+assert.deepEqual(Object.keys(without), ["name", "age"]);
+assert.equal(Object.hasOwn(without, "nick"), false);
+assert.deepEqual(without, { name: "Ada", age: 36n });
+const withIt = m.withNick({ name: "Ada" }, "A");
+assert.deepEqual(Object.keys(withIt), ["name", "nick"]);
+assert.deepEqual(withIt, { name: "Ada", nick: "A" });
+// `null` is refused, in a field and as an argument; so is an inherited field.
+refused(() => m.nickname({ name: "Ada", nick: null }), /^p\.nick: expected a value or undefined, not null$/);
+refused(() => m.withNick({ name: "Ada" }, null), /^n: expected a value or undefined, not null$/);
+refused(() => m.nickname({ name: "Ada", nick: 5 }), /^p\.nick: expected a string$/);
+refused(() => m.nickname({ name: "Ada", age: "x" }), /^p\.age: expected a non-negative bigint$/);
+refused(() => m.nickname(Object.create({ name: "Ada" })), /^p\.name: inherited, not the object's own property$/);
+refused(() => m.nickname({ name: "Ada", __proto__: { nick: "x" } }), /^p\.nick: inherited, not the object's own property$/);
+// A required field is still required.
+refused(() => m.nickname({ nick: "x" }), /^p\.name: missing$/);
+
+// Argument and result.
+assert.equal(m.halve(8n), 4n);
+assert.equal(m.halve(undefined), undefined);
+assert.equal(m.halve(0n), 0n);
+refused(() => m.halve(null), /^arg0: expected a value or undefined, not null$/);
+refused(() => m.halve(8), /^arg0: expected a non-negative bigint$/);
+refused(() => m.halve({ tag: "Some", value: 8n }), /^arg0: expected a non-negative bigint$/);
+
+// Nested: only the outer `Option` is `T | undefined`.
+assert.equal(m.wrap(undefined).tag, "None");
+assert.deepEqual(m.wrap(undefined), { tag: "None" });
+assert.deepEqual(m.wrap(1n), { tag: "Some", value: 1n });
+assert.deepEqual(m.wrap(undefined), { tag: "None" });
+assert.deepEqual(m.unwrap(undefined), undefined);
+assert.deepEqual(m.unwrap({ tag: "None" }), 0n);
+assert.deepEqual(m.unwrap({ tag: "Some", value: 5n }), 5n);
+refused(() => m.unwrap(null), /^arg0: expected a value or undefined, not null$/);
+refused(() => m.unwrap({ tag: "Some" }), /^arg0\.value: missing$/);
+refused(() => m.unwrap({ tag: "Some", value: null }), /^arg0\.value: expected a non-negative bigint$/);
+refused(() => m.unwrap(5n), /^arg0: expected a Option object$/);
+
+// A list's elements: `(T | undefined)[]`, with a hole in the array refused.
+assert.deepEqual(m.keepSome([1n, undefined, 3n]), [1n, 3n]);
+assert.deepEqual(m.markAll([1n, 2n, 3n]), [undefined, 2n, 3n]);
+assert.equal(m.markAll([1n]).length, 1);
+assert.equal(0 in m.markAll([1n]), true);
+refused(() => m.keepSome([1n, null]), /^arg0\[1\]: expected a value or undefined, not null$/);
+refused(() => m.keepSome([1n, "2"]), /^arg0\[1\]: expected a non-negative bigint$/);
+refused(() => m.keepSome([1n, , 3n]), /^arg0\[1\]: a hole in the array$/);
+
+// In a record, around lists and other options; round trip.
+const peek = { items: [1n, undefined], extra: [undefined] };
+assert.deepEqual(m.peek(peek), peek);
+assert.deepEqual(m.peek({ items: [] }), { items: [] });
+assert.equal(Object.hasOwn(m.peek({ items: [] }), "extra"), false);
+assert.deepEqual(m.peek({ items: [], extra: [] }), { items: [], extra: [] });
+refused(() => m.peek({ items: [], extra: [null] }), /^p\.extra\[0\]: expected a value or undefined, not null$/);
+
+// A constructor's field is not a record's: present, as `T | undefined`.
+assert.deepEqual(m.swapSides({ tag: "MkBoth", left: undefined, right: "xy" }), { tag: "MkBoth", left: 2n, right: "none" });
+assert.deepEqual(m.swapSides({ tag: "MkBoth", left: 7n, right: "xy" }), { tag: "MkBoth", left: 2n, right: "7" });
+refused(() => m.swapSides({ tag: "MkBoth", right: "x" }), /^arg0\.left: missing$/);
+refused(() => m.swapSides({ tag: "MkBoth", left: null, right: "x" }), /^arg0\.left: expected a value or undefined, not null$/);
+
+// A proof field about an optional one is checked after it's decoded.
+assert.equal(m.required({ value: 3n }), 3n);
+refused(() => m.required({}), /^r: proof field `ok` \(`Present value`\) doesn't hold$/);
+refused(() => m.required({ value: undefined }), /^r: proof field `ok`/);
+
+// `SafeNat` inside an optional property: a `number`.
+assert.equal(m.capOf({ cap: 7 }), 7);
+assert.equal(m.capOf({}), undefined);
+assert.equal(m.capOf({ cap: 0 }), 0);
+refused(() => m.capOf({ cap: 7n }), /^c\.cap: expected a number$/);
+refused(() => m.capOf({ cap: 2 ** 53 }), /^c\.cap: expected a whole number from 0 to 9007199254740991$/);
+refused(() => m.capOf({ cap: null }), /^c\.cap: expected a value or undefined, not null$/);
+console.log("ok");
+"#;
+    run_script("options", &[("options.mjs", session)], script);
+}
+
 /// Records at the boundary (docs/proposals/records.md §11): plain objects
 /// without a tag, keys in declared order, decoded as strictly as other data,
 /// and proof fields re-established by their decision procedures.
@@ -717,7 +849,7 @@ const ada = r.birthday({ name: "Ada", age: 36n });
 assert.deepEqual(ada, { name: "Ada", age: 37n });
 assert.deepEqual(Object.keys(r.birthday({ age: 1n, name: "x" })), ["name", "age"]);
 assert.equal(Object.getPrototypeOf(ada), Object.prototype);
-assert.deepEqual(r.sorted([1n, 2n]), { tag: "Some", value: { items: [1n, 2n] } });
+assert.deepEqual(r.sorted([1n, 2n]), { items: [1n, 2n] });
 // Awkward keys: `tag` is an ordinary key; `__proto__` is still escaped.
 const w = r.weird({ tag: "t", $__proto__: 1n, constructor: 2n, x$: 3n });
 assert.deepEqual(Object.keys(w), ["tag", "$__proto__", "constructor", "x$"]);
@@ -736,7 +868,7 @@ assert.equal(reads, 1);
 refused(() => r.team({ lead: { name: "Ada" }, size: 1n }), /^t\.lead\.age: missing$/);
 
 // Proof fields: checked after the fields they're about are decoded.
-assert.deepEqual(r.smallest({ items: [1n, 4n] }), { tag: "Some", value: 1n });
+assert.deepEqual(r.smallest({ items: [1n, 4n] }), 1n);
 refused(() => r.smallest({ items: [4n, 1n] }), /^arg0: proof field `ok` \(`IsSorted items`\) doesn't hold$/);
 assert.equal(r.total({ items: [5n, 6n], size: 2n }), 2n);
 refused(() => r.total({ items: [5n, 6n], size: 3n }), /^s: proof field `ok` \(`List.length items = size`\) doesn't hold$/);
@@ -953,13 +1085,13 @@ for (const [bad, index] of [
 // with the path to the problem.
 refused(() => m.fromChars(["a", "\uD800"]), /^cs\[1\]: a lone surrogate/);
 refused(() => m.joinOn(",", ["ok", "x\uDFFF"]), /^ts\[1\]: a lone surrogate \(U\+DFFF\) at index 1/);
-refused(() => m.orEmpty({ tag: "Some", value: "\uD800" }), /^arg0\.value: a lone surrogate/);
+refused(() => m.orEmpty("\uD800"), /^arg0: a lone surrogate/);
 refused(() => m.firstOf({ tag: "MkPair", fst: "a", snd: "\uDBFF" }), /^p\.snd: a lone surrogate/);
 refused(() => m.greet({ tag: "MkPerson", name: "\uDC00", initial: "x", tags: [] }), /^arg0\.name: a lone surrogate/);
 refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "xy", tags: [] }), /^arg0\.initial: expected exactly one character, but the string has 2$/);
 refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "x", tags: ["\uD800"] }), /^arg0\.tags\[0\]: a lone surrogate/);
 assert.equal(m.greet({ tag: "MkPerson", name: "Zoë", initial: "\u{1F600}", tags: [] }), "Hello, Zoë (\u{1F600})");
-assert.deepEqual(m.uncons("\u{1F600}x"), { tag: "Some", value: { tag: "MkPair", fst: "\u{1F600}", snd: "x" } });
+assert.deepEqual(m.uncons("\u{1F600}x"), { tag: "MkPair", fst: "\u{1F600}", snd: "x" });
 
 // A `Char` is exactly one scalar value: a supplementary one (`.length` 2) is
 // accepted; a lone surrogate (one element of `[...s]`) isn't; nor is an
@@ -1078,9 +1210,9 @@ assert.deepEqual(text.order(emoji + "\u{E000}", emoji + "\u{10000}"), { tag: "Le
 assert.equal(text.less(long, long), false);
 assert.equal(text.join(long, long), long + long);
 assert.equal(text.trim(" ".repeat(N) + "x" + " ".repeat(N)), "x");
-assert.deepEqual(text.toNat("7".repeat(N)), { tag: "Some", value: BigInt("7".repeat(N)) });
+assert.deepEqual(text.toNat("7".repeat(N)), BigInt("7".repeat(N)));
 assert.equal(text.fromNat(10n ** 20000n).length, 20001);
-assert.deepEqual(text.uncons(emoji), { tag: "Some", value: { tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) } });
+assert.deepEqual(text.uncons(emoji), { tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) });
 const codes = text.codes("a\u{1F600}".repeat(N / 2));
 assert.equal(codes.length, N);
 assert.equal(codes[1], 0x1f600n);
@@ -1098,7 +1230,7 @@ assert.equal(cs.length, N);
 assert.ok(cs.every((c, i) => c === (i % 2 === 0 ? "a" : "\u{1F600}")));
 assert.equal(text.fromChars(cs), "a\u{1F600}".repeat(N / 2));
 assert.deepEqual(text.texts([cs]), ["a\u{1F600}".repeat(N / 2)]);
-assert.deepEqual(text.trimmedHead(" ".repeat(N) + long), { tag: "Some", value: "a" });
+assert.deepEqual(text.trimmedHead(" ".repeat(N) + long), "a");
 assert.equal(text.isText(long), true);
 
 // User code that recurses once per character still runs out of stack.
@@ -2232,7 +2364,7 @@ for (const a of all) {
     ["natAbs", abs(a)],
     ["abs", abs(a)],
     ["toNat", a < 0n ? 0n : a],
-    ["toNatChecked", a < 0n ? { tag: "None" } : { tag: "Some", value: a }],
+    ["toNatChecked", a < 0n ? undefined : a],
     ["sign", sgn(a)],
     ["toText", a.toString()],
   ]) {
@@ -2244,19 +2376,19 @@ for (const a of all) {
     same(data.ofNat(a), a, tag("ofNat") + " (data)");
   }
   // The round trip.
-  same(native.parse(native.toText(a)), { tag: "Some", value: a }, tag("parse . toText"));
-  same(data.parse(data.toText(a)), { tag: "Some", value: a }, tag("parse . toText") + " (data)");
+  same(native.parse(native.toText(a)), a, tag("parse . toText"));
+  same(data.parse(data.toText(a)), a, tag("parse . toText") + " (data)");
 }
 
 // The grammar: an optional `-`, then one or more ASCII digits, nothing else.
 const cases = ["", "-", "0", "-0", "007", "-007", "+5", " 5", "5 ", "--5", "0x10", "1e3", "12abc",
   "-12", "18446744073709551616", "-18446744073709551617", "٥", "5\n", "-+5", "1_000"];
 for (const t of cases) {
-  const expected = /^-?[0-9]+$/.test(t) ? { tag: "Some", value: BigInt(t) } : { tag: "None" };
+  const expected = /^-?[0-9]+$/.test(t) ? BigInt(t) : undefined;
   same(native.parse(t), expected, `parse ${JSON.stringify(t)}`);
   same(data.parse(t), expected, `parse ${JSON.stringify(t)} (data)`);
 }
-same(native.parse("-0"), { tag: "Some", value: 0n }, "-0 is 0");
+same(native.parse("-0"), 0n, "-0 is 0");
 
 assert.ok(checked > 20000, `only ${checked} checks ran`);
 console.log("ok");
@@ -2281,7 +2413,7 @@ fn int_crosses_the_boundary_strictly() {
         .expect("extraction succeeds")
         .dts;
     assert!(dts.contains("export declare function add(a: bigint, b: bigint): bigint;"));
-    assert!(dts.contains("export declare function optionInt(arg0: Option<bigint>): bigint;"));
+    assert!(dts.contains("export declare function optionInt(arg0: bigint | undefined): bigint;"));
     assert!(
         dts.contains("export type Entry = { readonly count: bigint; readonly delta: bigint };")
     );
@@ -2297,8 +2429,8 @@ const refused = (f, pattern) =>
 for (const x of [0n, 1n, -1n, 5n, -5n, 2n ** 200n, -(2n ** 200n) - 1n]) {
   assert.equal(m.add(x, 0n), x);
   assert.equal(m.neg(m.neg(x)), x);
-  assert.deepEqual(m.optionInt({ tag: "Some", value: x }), x * 2n);
-  assert.deepEqual(m.negateAll([{ tag: "Some", value: x }]), [{ tag: "Some", value: -x }]);
+  assert.deepEqual(m.optionInt(x), x * 2n);
+  assert.deepEqual(m.negateAll([x]), [-x]);
 }
 assert.equal(m.add(-3n, 10n), 7n);
 assert.deepEqual(m.negatives([0n, 4n]), [-1n, -5n]);
@@ -2319,18 +2451,18 @@ refused(() => m.ofNat(-1n), /^n: expected a non-negative bigint$/);
 refused(() => m.ofNats([1n, -1n]), /^ns\[1\]: expected a non-negative bigint$/);
 
 // Inside Option and List (Option Int), in both directions.
-assert.equal(m.optionInt({ tag: "None" }), 0n);
-assert.deepEqual(m.toNatChecked(-1n), { tag: "None" });
-assert.deepEqual(m.parse("-5"), { tag: "Some", value: -5n });
-refused(() => m.optionInt({ tag: "Some", value: 4 }), /^arg0\.value: expected a bigint$/);
-refused(() => m.optionInt({ tag: "Some", value: "4" }), /^arg0\.value: expected a bigint$/);
+assert.equal(m.optionInt(undefined), 0n);
+assert.deepEqual(m.toNatChecked(-1n), undefined);
+assert.deepEqual(m.parse("-5"), -5n);
+refused(() => m.optionInt(4), /^arg0: expected a bigint$/);
+refused(() => m.optionInt("4"), /^arg0: expected a bigint$/);
 assert.deepEqual(
-  m.negateAll([{ tag: "None" }, { tag: "Some", value: 3n }, { tag: "Some", value: -3n }]),
-  [{ tag: "None" }, { tag: "Some", value: -3n }, { tag: "Some", value: 3n }],
+  m.negateAll([undefined, 3n, -3n]),
+  [undefined, -3n, 3n],
 );
-refused(() => m.negateAll([{ tag: "None" }, { tag: "Some", value: 1.5 }]), /^xs\[1\]\.value: expected a bigint$/);
-refused(() => m.negateAll([{ tag: "Some", value: null }]), /^xs\[0\]\.value: expected a bigint$/);
-assert.deepEqual(m.firstNeg([3n, -4n, -5n]), { tag: "Some", value: -4n });
+refused(() => m.negateAll([undefined, 1.5]), /^xs\[1\]: expected a bigint$/);
+refused(() => m.negateAll([null]), /^xs\[0\]: expected a value or undefined, not null$/);
+assert.deepEqual(m.firstNeg([3n, -4n, -5n]), -4n);
 console.log("ok");
 "#;
     run_script("int-boundary", &[("integers.mjs", session)], script);
@@ -2349,11 +2481,11 @@ fn safe_numbers_cross_the_boundary_as_numbers() {
         .expect("extraction succeeds")
         .dts;
     for declaration in [
-        "export declare function addSafe(a: number, b: number): Option<number>;",
-        "export declare function negateSafe(a: number): Option<number>;",
-        "export declare function toSafe(n: bigint): Option<number>;",
+        "export declare function addSafe(a: number, b: number): number | undefined;",
+        "export declare function negateSafe(a: number): number | undefined;",
+        "export declare function toSafe(n: bigint): number | undefined;",
         "export type Counter = { readonly count: number; readonly delta: number };",
-        "export declare function sumAll(xs: readonly number[]): Option<number>;",
+        "export declare function sumAll(xs: readonly number[]): number | undefined;",
     ] {
         assert!(dts.contains(declaration), "{declaration}\n{dts}");
     }
@@ -2364,21 +2496,21 @@ import assert from "node:assert/strict";
 const MAX = 9007199254740991;
 const refused = (f, pattern) =>
   assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
-const some = (value) => ({ tag: "Some", value });
+const some = (value) => value;
 
 // Numbers in, numbers out, exactly.
 assert.deepEqual(m.addSafe(2, 3), some(5));
 assert.deepEqual(m.addSafe(MAX, 0), some(MAX));
 assert.deepEqual(m.addSafe(0, MAX), some(MAX));
 assert.deepEqual(m.addSafe(MAX - 1, 1), some(MAX));
-assert.deepEqual(m.addSafe(MAX, 1), { tag: "None" });
-assert.deepEqual(m.addSafe(MAX, MAX), { tag: "None" });
+assert.deepEqual(m.addSafe(MAX, 1), undefined);
+assert.deepEqual(m.addSafe(MAX, MAX), undefined);
 assert.deepEqual(m.negateSafe(-5), some(5));
 assert.deepEqual(m.negateSafe(-MAX), some(MAX));
 assert.deepEqual(m.negateSafe(MAX), some(-MAX));
 for (const x of [0, 1, 255, 65536, 2 ** 31, 2 ** 32 + 1, 2 ** 52 + 1, MAX]) {
   assert.deepEqual(m.sumAll([x]), some(x));
-  assert.equal(typeof m.sumAll([x]).value, "number");
+  assert.equal(typeof m.sumAll([x]), "number");
   assert.deepEqual(m.negateSafe(-x), some(x));
 }
 assert.deepEqual(m.sumAll([]), some(0));
@@ -2386,17 +2518,17 @@ assert.deepEqual(m.sumAll([1, 2, 3]), some(6));
 assert.deepEqual(m.lengths(["ab", "", "cde"]), [some(2), some(0), some(3)]);
 
 // A result is never -0, whichever way it's produced.
-assert.ok(Object.is(m.negateSafe(0).value, 0));
-assert.ok(Object.is(m.addSafe(0, 0).value, 0));
+assert.ok(Object.is(m.negateSafe(0), 0));
+assert.ok(Object.is(m.addSafe(0, 0), 0));
 
 // `bigint` in, `number` out, and the other way: the bounds decide.
 assert.deepEqual(m.toSafe(5n), some(5));
 assert.deepEqual(m.toSafe(2n ** 53n - 1n), some(MAX));
-assert.deepEqual(m.toSafe(2n ** 53n), { tag: "None" });
-assert.deepEqual(m.toSafe(2n ** 100n), { tag: "None" });
+assert.deepEqual(m.toSafe(2n ** 53n), undefined);
+assert.deepEqual(m.toSafe(2n ** 100n), undefined);
 assert.deepEqual(m.toSafeInt(-(2n ** 53n) + 1n), some(-MAX));
-assert.deepEqual(m.toSafeInt(-(2n ** 53n)), { tag: "None" });
-assert.deepEqual(m.toSafeInt(2n ** 53n), { tag: "None" });
+assert.deepEqual(m.toSafeInt(-(2n ** 53n)), undefined);
+assert.deepEqual(m.toSafeInt(2n ** 53n), undefined);
 assert.deepEqual(m.toSafeInt(-7n), some(-7));
 
 // A `-0` is the whole number 0.
@@ -2599,7 +2731,7 @@ assert.equal(m.classify(of(2n)), "two");
 assert.equal(m.classify(of(77n)), "positive or zero, k = 77");
 assert.equal(m.classify(of(-77n)), "negative, k = 76");
 assert.equal(m.toText(of(-12n)), "-12");
-assert.deepEqual(m.parse("-12"), { tag: "Some", value: of(-12n) });
+assert.deepEqual(m.parse("-12"), of(-12n));
 assert.deepEqual(m.negatives([0n, 4n]), [of(-1n), of(-5n)]);
 assert.deepEqual(m.apply({ count: 3n, delta: of(-10n) }), { count: 3n, delta: of(-7n) });
 // The divisor's precondition is still checked.

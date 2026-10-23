@@ -40,7 +40,12 @@ const outOfResources = (name, e) =>
 // - `data(info, args)` is a data type applied to its arguments: a tagged
 //   object, with the constructors and fields given by `define`, or for a
 //   record, an object without a tag;
-// - `param(i)`, in a field's type, is the data type's parameter `i`.
+// - `param(i)`, in a field's type, is the data type's parameter `i`;
+// - `option(t)` is `undefined` for `None` and `t`'s own encoding for `Some`
+//   (D582). In a record's field (marked optional in `define`), `None` is a
+//   missing property. An `Option` of an `Option` has the tagged data type
+//   (`OPTION_SHAPE.info`) inside instead, so `Some None` and `None` stay
+//   apart (`payload`).
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
 // two types are the same exactly when they're the same object, and `decode`
@@ -49,10 +54,15 @@ const outOfResources = (name, e) =>
 // applied to their own parameters (the positivity check), and otherwise only
 // types declared before them, so a boundary type has finitely many types
 // inside it.
-const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3;
+const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
+const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
+// What an option has in place of `undefined`: its type, or if that's an
+// option too, the tagged data type with that one's type as its argument.
+const payload = (t) =>
+  (t.payload ??= t.elem.kind === OPTION ? data(OPTION_SHAPE.info, [t.elem.elem]) : t.elem);
 const data = (info, args = []) => {
   const key = args.map((a) => a.id).join(" ");
   let t = info.instances.get(key);
@@ -73,6 +83,7 @@ const datatype = (name) => ({
 // proof fields' runtime checks, each a message and a function of a decoded
 // object saying whether the proof holds.
 const define = (info, ctors, record = false, checks = []) => {
+  // A field is `[key, type]`, or `[key, type, true]` for an optional property.
   if (record) info.record = ctors[0][1];
   info.checks = checks;
   for (const [tag, fields] of ctors) {
@@ -90,6 +101,7 @@ const close = (t, args) =>
   !t.open ? t
   : t.kind === PARAM ? args[t.i]
   : t.kind === LIST ? list(close(t.elem, args))
+  : t.kind === OPTION ? option(close(t.elem, args))
   : data(t.info, t.args.map((a) => close(a, args)));
 
 // A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
@@ -284,7 +296,19 @@ const decode = (t, x, root) => {
       // Start on `x`: a leaf is done at once, as is an array or object
       // already decoded at this type; otherwise it gets a frame.
       let value = NONE;
-      if (t.kind === LEAF) {
+      // An `Option` is `undefined`, or what's inside it: `null` is neither.
+      while (t.kind === OPTION) {
+        if (x === undefined) {
+          value = { tag: OPTION_SHAPE.none };
+          break;
+        }
+        if (x === null) refuse("expected a value or undefined, not null");
+        frames.push({ t, opt: true });
+        t = payload(t);
+      }
+      if (value !== NONE) {
+        // `None`.
+      } else if (t.kind === LEAF) {
         value = t.dec(x);
       } else {
         if (t.kind === LIST) {
@@ -324,6 +348,12 @@ const decode = (t, x, root) => {
         const f = frames[frames.length - 1];
         if (value !== NONE) {
           if (f === undefined) return value;
+          if (f.opt) {
+            // `Some`: the option has no step of its own in the path.
+            frames.pop();
+            value = { tag: OPTION_SHAPE.some, [OPTION_SHAPE.key]: value };
+            continue;
+          }
           if (f.fields === undefined) f.out.push(value);
           else f.out[f.fields[f.i][0]] = value;
           f.i++;
@@ -336,9 +366,10 @@ const decode = (t, x, root) => {
             if (x === MISSING || x === INHERITED) refuse("a hole in the array");
             t = f.t.elem;
           } else {
-            const [key, type] = f.fields[f.i];
+            const [key, type, optional] = f.fields[f.i];
             path.push(key);
             x = own(f.x, key);
+            if (x === MISSING && optional) x = undefined;
             if (x === MISSING) refuse("missing");
             if (x === INHERITED) refuse("inherited, not the object's own property");
             t = close(type, f.t.args);
@@ -373,7 +404,18 @@ const encode = (t, v) => {
   const frames = [];
   for (;;) {
     let value = NONE;
-    if (t.kind === LEAF) {
+    while (t.kind === OPTION) {
+      if (v.tag === OPTION_SHAPE.none) {
+        value = undefined;
+        break;
+      }
+      frames.push({ t, opt: true });
+      v = v[OPTION_SHAPE.key];
+      t = payload(t);
+    }
+    if (value !== NONE) {
+      // `None`.
+    } else if (t.kind === LEAF) {
       value = t.enc(v);
     } else if (t.kind === LIST) {
       frames.push({ t, v, fields: undefined, out: [] });
@@ -389,8 +431,16 @@ const encode = (t, v) => {
       const f = frames[frames.length - 1];
       if (value !== NONE) {
         if (f === undefined) return value;
+        if (f.opt) {
+          frames.pop();
+          continue;
+        }
         if (f.fields === undefined) f.out.push(value);
-        else f.out[f.fields[f.i++][0]] = value;
+        else {
+          const [key, , optional] = f.fields[f.i++];
+          // `None` in an optional property is no property.
+          if (!(optional && value === undefined)) f.out[key] = value;
+        }
       }
       if (f.fields === undefined) {
         // `f.v` is the rest of the list.

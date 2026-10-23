@@ -6,9 +6,6 @@ expression: output.dts
 
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
-export type Option<a> =
-  | { readonly tag: "None" }
-  | { readonly tag: "Some"; readonly value: a };
 export type Ordering =
   | { readonly tag: "Less" }
   | { readonly tag: "Equal" }
@@ -25,22 +22,22 @@ export declare function fromChars(cs: readonly string[]): string;
 export declare function echo(t: string): string;
 export declare function echoChar(c: string): string;
 export declare function codeOf(c: string): bigint;
-export declare function charOf(n: bigint): Option<string>;
+export declare function charOf(n: bigint): string | undefined;
 export declare function same(a: string, b: string): boolean;
 export declare function order(a: string, b: string): Ordering;
 export declare function join(a: string, b: string): string;
 export declare function split(c: string, t: string): string[];
 export declare function joinOn(c: string, ts: readonly string[]): string;
 export declare function trim(t: string): string;
-export declare function toNat(t: string): Option<bigint>;
+export declare function toNat(t: string): bigint | undefined;
 export declare function fromNat(n: bigint): string;
-export declare function uncons(t: string): Option<Pair<string, string>>;
+export declare function uncons(t: string): Pair<string, string> | undefined;
 export declare function reverse(t: string): string;
 export declare function countChar(c: string, t: string): bigint;
 export declare function greet(arg0: Person): string;
 export declare function initials(ps: readonly Person[]): string[];
 export declare function rename(n: string, arg1: Person): Person;
-export declare function orEmpty(arg0: Option<string>): string;
+export declare function orEmpty(arg0: string | undefined): string;
 export declare function firstOf(p: Pair<string, string>): string;
 export declare function located(arg0: Located): Located;
 export declare function empty(t: string): boolean;
@@ -50,5 +47,5 @@ export declare function lengths(ts: readonly string[]): bigint[];
 export declare function texts(ls: readonly (readonly string[])[]): string[];
 export declare function prefixAll(ts: readonly string[]): string[];
 export declare function firstField(c: string, t: string): string;
-export declare function trimmedHead(t: string): Option<string>;
+export declare function trimmedHead(t: string): string | undefined;
 export declare function isText(arg0: string): boolean;

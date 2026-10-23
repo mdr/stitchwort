@@ -6,14 +6,11 @@ expression: output.dts
 
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
-export type Option<a> =
-  | { readonly tag: "None" }
-  | { readonly tag: "Some"; readonly value: a };
 export type Counter = { readonly count: number; readonly delta: number };
-export declare function addSafe(a: number, b: number): Option<number>;
-export declare function negateSafe(a: number): Option<number>;
-export declare function toSafe(n: bigint): Option<number>;
-export declare function toSafeInt(n: bigint): Option<number>;
-export declare function lengths(xs: readonly string[]): Option<number>[];
-export declare function bump(c: Counter): Option<number>;
-export declare function sumAll(xs: readonly number[]): Option<number>;
+export declare function addSafe(a: number, b: number): number | undefined;
+export declare function negateSafe(a: number): number | undefined;
+export declare function toSafe(n: bigint): number | undefined;
+export declare function toSafeInt(n: bigint): number | undefined;
+export declare function lengths(xs: readonly string[]): (number | undefined)[];
+export declare function bump(c: Counter): number | undefined;
+export declare function sumAll(xs: readonly number[]): number | undefined;
