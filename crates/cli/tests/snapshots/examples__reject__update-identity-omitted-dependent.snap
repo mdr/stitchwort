@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-UPDATE] Error: updating `n` needs `xs` updated too
+    ╭─[ reject/update-identity-omitted-dependent.sw:11:29 ]
+    │
+ 11 │ def resize (v: Two): Two := { v | n = 3 }
+    │                             ──────┬──────  
+    │                                   ╰──────── the type of `xs` mentions `n`
+    │ 
+    │ Note: give a new `xs` for the new `n`: `{ … | n = …, xs = … }`
+────╯

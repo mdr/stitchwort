@@ -1342,6 +1342,10 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
                 let def = &mut g.defs[id.0];
                 def.lift_leaf =
                     def.arity > 0 && crate::value::has_lift_leaf(body.peel_lams(def.arity));
+                def.recursive = def.group.as_ref().is_none_or(|group| group.len() > 1)
+                    || body
+                        .subterms()
+                        .any(|(t, _)| matches!(t, Term::Def(d) if d == id));
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
@@ -1446,6 +1450,7 @@ pub fn declare_def(
         instance: false,
         fold: false,
         lift_leaf: false,
+        recursive: true,
         export,
         validators: Vec::new(),
         run_body: None,

@@ -1161,8 +1161,9 @@ impl Elaborator {
                 .join(" and ");
             d = d.with_note(format!(
                 "`(match …)` is a `match` written inside {inside}, marked \"this `match`\" \
-                 above; the compiler turned it into a function that source can't name, and \
-                 writing the same `match` again makes a different one. To state a lemma \
+                 above; the compiler turned it into a function that source can't name. The \
+                 same `match` written again is another such function, equal to it only if \
+                 neither calls the definition it's written in. To state a lemma \
                  about it, make it a local `def` in its arm and refer to it as \
                  `owner.name`, where `owner` is the definition it is written in \
                  (docs/syntax.md, \"Proving things about a definition with an inner \
@@ -1172,9 +1173,10 @@ impl Elaborator {
         if inline_helpers >= 2 {
             d = d.with_note(
                 "two different `(match …)` appear here, which print alike but are different \
-                 hidden functions, and two such functions are never equal, even when written \
-                 the same; to prove something about both, name the step as a `def` and use it \
-                 in both places",
+                 hidden functions; two such functions are equal only when they split the same \
+                 value and every branch gives the same result, and neither calls the \
+                 definition it's written in; to prove something about both, name the step as \
+                 a `def` and use it in both places",
             );
         }
         d

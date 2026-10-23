@@ -7,8 +7,8 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
 use stitchwort_core::value::{
-    Closure, Elim, Head, apply_icit, eval, expand_step, force, is_folded, quote, same_closure,
-    underapplied, unfold_folded,
+    Closure, Elim, Head, apply_icit, eval, expand_step, force, is_folded, opens_by_tree, quote,
+    same_closure, same_stuck_trees, underapplied, unfold_folded,
 };
 use stitchwort_core::{Globals, Term, Value};
 
@@ -239,6 +239,19 @@ fn unify_step(
                 };
                 spines || push_eta(g, level, &a, &b, work)?
             }
+        }
+        // Two different definitions stuck on a `case`: by their case trees,
+        // as in `conv` (`same_stuck_trees`). What that solves is kept only
+        // if they're equal.
+        (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
+            if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
+        {
+            let trail = g.meta_trail.borrow().len();
+            let same = same_stuck_trees(g, level, &a, &b, &mut |l, x, y| unify(g, l, x, y))?;
+            if !same {
+                undo_since(g, trail);
+            }
+            same
         }
         _ => push_eta(g, level, &a, &b, work)?,
     })

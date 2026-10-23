@@ -1332,3 +1332,99 @@ fn an_under_applied_definition_is_a_function_for_conversion() {
     let other = eval(&p.g, &[], &lam("n", v(0))).unwrap();
     assert!(!conv(&p.g, 0, &f, &other).unwrap());
 }
+
+// Two different definitions stuck on a `case` (SW-386, D1091)
+
+/// `pred n = case n of Zero -> zero; Succ m -> m`, named `name`.
+fn define_pred(p: &mut Prelude, name: &str, zero: Term) -> stitchwort_core::DefId {
+    let nat = p.nat;
+    let ty = arrow(p.nat_ty(), p.nat_ty());
+    let body = lam("n", case(0, nat, vec![(vec![], zero), (vec!["m"], v(0))]));
+    define(&mut p.g, name, ty, body).unwrap()
+}
+
+/// `f n` for the variable `n` (level 0), as a value.
+fn applied(p: &Prelude, f: stitchwort_core::DefId) -> Value {
+    eval(&p.g, &[Value::var(0)], &app(Term::Def(f), [v(0)])).unwrap()
+}
+
+/// `(n: Nat) -> f n = g n`.
+fn agree(p: &Prelude, f: stitchwort_core::DefId, g: stitchwort_core::DefId) -> Term {
+    pi(
+        "n",
+        p.nat_ty(),
+        eq(None, app(Term::Def(f), [v(0)]), app(Term::Def(g), [v(0)])),
+    )
+}
+
+#[test]
+fn two_definitions_with_the_same_case_tree_are_equal_when_stuck() {
+    let mut p = Prelude::new();
+    let zero = p.num(0);
+    let first = define_pred(&mut p, "first", zero.clone());
+    let second = define_pred(&mut p, "second", zero);
+    assert!(conv(&p.g, 1, &applied(&p, first), &applied(&p, second)).unwrap());
+    // So `rfl` proves it, in the kernel.
+    let statement = agree(&p, first, second);
+    assert!(define(&mut p.g, "same", statement, lam("n", Term::Refl)).is_ok());
+}
+
+#[test]
+fn two_definitions_with_different_branches_stay_different() {
+    let mut p = Prelude::new();
+    let zero = p.num(0);
+    let one = p.num(1);
+    let first = define_pred(&mut p, "first", zero);
+    let second = define_pred(&mut p, "second", one);
+    assert!(!conv(&p.g, 1, &applied(&p, first), &applied(&p, second)).unwrap());
+    let statement = agree(&p, first, second);
+    assert!(define(&mut p.g, "different", statement, lam("n", Term::Refl)).is_err());
+}
+
+#[test]
+fn the_same_case_tree_on_different_scrutinees_stays_different() {
+    let mut p = Prelude::new();
+    let zero = p.num(0);
+    let first = define_pred(&mut p, "first", zero.clone());
+    let second = define_pred(&mut p, "second", zero);
+    let env = [Value::var(0), Value::var(1)];
+    let a = eval(&p.g, &env, &app(Term::Def(first), [v(0)])).unwrap();
+    let b = eval(&p.g, &env, &app(Term::Def(second), [v(1)])).unwrap();
+    assert!(!conv(&p.g, 2, &a, &b).unwrap());
+}
+
+#[test]
+fn recursive_definitions_are_not_compared_by_their_case_trees() {
+    // A copy of `add`: the same tree, but recursive, so it's left alone
+    // (comparing it by its tree could unfold forever).
+    let mut p = Prelude::new();
+    let nat = p.nat;
+    let nat_ty = p.nat_ty();
+    let copy = declare(
+        &mut p.g,
+        "copy",
+        arrow(nat_ty.clone(), arrow(nat_ty.clone(), nat_ty)),
+    );
+    let body = lam(
+        "m",
+        lam(
+            "n",
+            case(
+                1,
+                nat,
+                vec![
+                    (vec![], v(0)),
+                    (
+                        vec!["m'"],
+                        Term::ctor(nat, 1, vec![app(Term::Def(copy), [v(0), v(1)])]),
+                    ),
+                ],
+            ),
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, copy, &body).unwrap();
+    let env = [Value::var(0)];
+    let a = eval(&p.g, &env, &app(Term::Def(p.add), [v(0), p.num(1)])).unwrap();
+    let b = eval(&p.g, &env, &app(Term::Def(copy), [v(0), p.num(1)])).unwrap();
+    assert!(!conv(&p.g, 1, &a, &b).unwrap());
+}

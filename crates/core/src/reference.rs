@@ -592,12 +592,113 @@ pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
             conv(g, level, t1, t2)? && conv(g, level, x1, x2)? && conv(g, level, y1, y2)?
         }
         (Value::Refl, Value::Refl) => true,
+        // Two different definitions stuck on a `case`: by their case trees.
+        (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
+            if i1 != i2
+                && crate::value::opens_by_tree(g, a)
+                && crate::value::opens_by_tree(g, b) =>
+        {
+            let (t1, e1) = tree_of(g, a);
+            let (t2, e2) = tree_of(g, b);
+            same_trees(g, level, &t1, e1, &t2, e2)?
+        }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
             (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, s1, s2)?)
                 || eta(g, level, a, b)?
         }
         _ => eta(g, level, a, b)?,
     })
+}
+
+/// A stuck call's case tree and arguments.
+fn tree_of(g: &Globals, value: &Value) -> (Rc<Term>, Vec<Value>) {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        unreachable!()
+    };
+    let def = g.def(*id);
+    let args = spine
+        .iter()
+        .map(|e| match e {
+            Elim::App(v, _) => v.clone(),
+            Elim::J { .. } => unreachable!(),
+        })
+        .collect();
+    (
+        Term::peel_lams_rc(def.body().expect("a body"), def.arity),
+        args,
+    )
+}
+
+/// Two case trees in their environments: both stuck on equal scrutinees with
+/// equal branches (fields as fresh variables), or both leaves with equal
+/// values. A constructor scrutinee takes its branch first.
+fn same_trees(
+    g: &Globals,
+    level: usize,
+    t1: &Rc<Term>,
+    mut e1: Vec<Value>,
+    t2: &Rc<Term>,
+    mut e2: Vec<Value>,
+) -> Result<bool> {
+    // Steps a tree along constructor scrutinees; `None` if it reaches
+    // anything but a stuck `Case` or a leaf.
+    let settle = |t: &Rc<Term>, e: &mut Vec<Value>| -> Result<Option<(Rc<Term>, Option<Value>)>> {
+        let mut t = t.clone();
+        loop {
+            match t.strip_loc() {
+                Term::Case(ix, _, branches) => {
+                    let s = force(g, e[e.len() - 1 - ix].clone())?;
+                    match &s {
+                        Value::Ctor(_, c, fields) => match &branches[*c].body {
+                            Some(body) => {
+                                e.extend(fields.iter().cloned());
+                                t = body.clone();
+                            }
+                            None => return Ok(None),
+                        },
+                        Value::Neutral(..) if !is_folded(g, &s) => return Ok(Some((t, Some(s)))),
+                        _ => return Ok(None),
+                    }
+                }
+                Term::NumCase(..) => return Ok(None),
+                _ => return Ok(Some((t, None))),
+            }
+        }
+    };
+    let (Some((t1, s1)), Some((t2, s2))) = (settle(t1, &mut e1)?, settle(t2, &mut e2)?) else {
+        return Ok(false);
+    };
+    match (s1, s2) {
+        (None, None) => conv(g, level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?),
+        (Some(s1), Some(s2)) => {
+            let (Term::Case(_, d1, b1), Term::Case(_, d2, b2)) = (t1.strip_loc(), t2.strip_loc())
+            else {
+                unreachable!()
+            };
+            if d1 != d2 || b1.len() != b2.len() || !conv(g, level, &s1, &s2)? {
+                return Ok(false);
+            }
+            for (c, (x, y)) in b1.iter().zip(b2.iter()).enumerate() {
+                match (&x.body, &y.body) {
+                    (None, None) => {}
+                    (Some(x), Some(y)) => {
+                        let k = g.data(*d1).ctors[c].fields.len();
+                        let fresh: Vec<Value> = (level..level + k).map(Value::var).collect();
+                        let mut f1 = e1.clone();
+                        let mut f2 = e2.clone();
+                        f1.extend(fresh.iter().cloned());
+                        f2.extend(fresh);
+                        if !same_trees(g, level + k, x, f1, y, f2)? {
+                            return Ok(false);
+                        }
+                    }
+                    _ => return Ok(false),
+                }
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
 }
 
 fn all_conv(g: &Globals, level: usize, xs: &[Value], ys: &[Value]) -> Result<bool> {
