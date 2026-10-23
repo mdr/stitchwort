@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: this `Circle` is missing `text`
+   ╭─[ reject/ctor-construction-missing-field.sw:8:17 ]
+   │
+ 8 │ def c: Shape := Circle { ref = 1, id = "a" }
+   │                 ──────────────┬─────────────  
+   │                               ╰─────────────── every explicit field must be given
+───╯

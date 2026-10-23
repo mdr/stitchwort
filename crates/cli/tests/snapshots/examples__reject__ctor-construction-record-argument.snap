@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Some` has no field `name`
+   ╭─[ reject/ctor-construction-record-argument.sw:8:32 ]
+   │
+ 8 │ def tea: Option Item := Some { name = "tea", price = 3 }
+   │                                ──┬─  
+   │                                  ╰─── `Some` has no field `name`
+   │ 
+   │ Note 1: `Some`'s fields are `value`
+   │ 
+   │ Note 2: braces right after a constructor name its own fields; to build the `Item` it holds, write `Some ({ … })`
+───╯

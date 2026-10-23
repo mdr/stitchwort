@@ -119,20 +119,58 @@ fn errors(text: &str) -> Vec<Diagnostic> {
 #[test]
 fn named_construction_is_refused_like_a_record_literal() {
     let cases = [
-        ("def c: Shape := Circle { ref = 1, id = \"a\", colour = \"t\" }\n", "E-UNKNOWN-FIELD", "`Circle` has no field `colour`"),
-        ("def c: Shape := Circle { ref = 1, id = \"a\" }\n", "E-RECORD-FIELD", "this `Circle` is missing `text`"),
-        ("def c: Shape := Dot { ref = 1, id = \"a\", ref = 2 }\n", "E-RECORD-FIELD", "field `ref` is given twice"),
-        ("def c: Vec Nat 1 := VCons { n = 0, x = 1, xs = VNil }\n", "E-UNKNOWN-FIELD", "`n` is an implicit field of `VCons`"),
-        ("def c: Option Item := Some { name = \"tea\", price = 3 }\n", "E-UNKNOWN-FIELD", "`Some` has no field `name`"),
-        ("def c: Item := Item { name = \"tea\", price = 3 }\n", "E-NOT-A-CONSTRUCTOR", "`Item` isn't a constructor"),
-        ("def c: Shape := Circle { ref = 1, id = \"a\" } \"t\"\n", "E-PARSE", "take no further arguments"),
-        ("def c: List Shape := List.map (s => s) Dot { ref = 1, id = \"a\" }\n", "E-PARSE", "as an argument need brackets"),
-        ("def c (i: Item): Option Item := Some { i | price = 3 }\n", "E-PARSE", "an update isn't one of them"),
+        (
+            "def c: Shape := Circle { ref = 1, id = \"a\", colour = \"t\" }\n",
+            "E-UNKNOWN-FIELD",
+            "`Circle` has no field `colour`",
+        ),
+        (
+            "def c: Shape := Circle { ref = 1, id = \"a\" }\n",
+            "E-RECORD-FIELD",
+            "this `Circle` is missing `text`",
+        ),
+        (
+            "def c: Shape := Dot { ref = 1, id = \"a\", ref = 2 }\n",
+            "E-RECORD-FIELD",
+            "field `ref` is given twice",
+        ),
+        (
+            "def c: Vec Nat 1 := VCons { n = 0, x = 1, xs = VNil }\n",
+            "E-UNKNOWN-FIELD",
+            "`n` is an implicit field of `VCons`",
+        ),
+        (
+            "def c: Option Item := Some { name = \"tea\", price = 3 }\n",
+            "E-UNKNOWN-FIELD",
+            "`Some` has no field `name`",
+        ),
+        (
+            "def c: Item := Item { name = \"tea\", price = 3 }\n",
+            "E-NOT-A-CONSTRUCTOR",
+            "`Item` isn't a constructor",
+        ),
+        (
+            "def c: Shape := Circle { ref = 1, id = \"a\" } \"t\"\n",
+            "E-PARSE",
+            "take no further arguments",
+        ),
+        (
+            "def c: List Shape := List.map (s => s) Dot { ref = 1, id = \"a\" }\n",
+            "E-PARSE",
+            "as an argument need brackets",
+        ),
+        (
+            "def c (i: Item): Option Item := Some { i | price = 3 }\n",
+            "E-PARSE",
+            "an update isn't one of them",
+        ),
     ];
     for (text, code, message) in cases {
         let found = errors(text);
         assert!(
-            found.iter().any(|e| e.code == code && e.message.contains(message)),
+            found
+                .iter()
+                .any(|e| e.code == code && e.message.contains(message)),
             "{text}: {found:#?}"
         );
     }

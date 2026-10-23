@@ -1881,9 +1881,7 @@ fn comp_compound(
         (
             Some(t),
             Expr::Record { .. } | Expr::CtorFields { .. } | Expr::Tuple(..) | Expr::Neg(..),
-        ) => {
-            (check(cx, &pure, t)?, t.clone())
-        }
+        ) => (check(cx, &pure, t)?, t.clone()),
         (Some(t), Expr::Binary(op, ..)) if crate::numbers::is_arith(*op) => {
             (check(cx, &pure, t)?, t.clone())
         }

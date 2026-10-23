@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: field `ref` is given twice
+   ╭─[ reject/ctor-construction-duplicate-field.sw:8:57 ]
+   │
+ 8 │ def c: Shape := Circle { ref = 1, id = "a", text = "t", ref = 2 }
+   │                          ─┬─                            ─┬─  
+   │                           ╰────────────────────────────────── first given here
+   │                                                          │   
+   │                                                          ╰─── field `ref` is given twice
+───╯

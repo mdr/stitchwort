@@ -277,9 +277,9 @@ impl Elaborator {
         for (name, _) in fields {
             if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
                 let names: Vec<&ast::Name> = fields.iter().map(|(n, _)| n).collect();
-                return Err(self.unknown_ctor_field(
-                    d, c, &explicit, name, &names, argument, "match",
-                ));
+                return Err(
+                    self.unknown_ctor_field(d, c, &explicit, name, &names, argument, "match")
+                );
             }
             if let Some(first) = seen.iter().find(|s| s.text == name.text) {
                 return Err(error(
@@ -452,7 +452,9 @@ pub(crate) fn ctor_fields(
 ) -> Result<Expr> {
     let (d, c) = match cx.e.ctor_named(&written.text, written.span) {
         Ok(found) => found,
-        Err(e) if e.code == "E-NOT-A-CONSTRUCTOR" => return not_a_ctor(cx, written, fields, span, e),
+        Err(e) if e.code == "E-NOT-A-CONSTRUCTOR" => {
+            return not_a_ctor(cx, written, fields, span, e);
+        }
         Err(e) => return Err(e),
     };
     let g = cx.g();
