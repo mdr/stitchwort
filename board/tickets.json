@@ -5636,9 +5636,9 @@
     {
       "id": 356,
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
-      "where": "draft 2 + stage 0 merged, main green; round-2 review with Matt (D871)",
+      "where": "draft 3 lane (D920): fold round-2 review, sign off, then stage 1 kernel quotients",
       "labels": [
         "design",
         "std"
