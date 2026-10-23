@@ -1,5 +1,5 @@
 {
-  "next": 391,
+  "next": 392,
   "tickets": [
     {
       "id": 1,
@@ -469,7 +469,7 @@
     },
     {
       "id": 31,
-      "title": "Language server for .sw: stages 0-1 done; stage 2a (? goal holes) merged; next 2b (LSP info severity), 2c (Playground goals); D1057 open",
+      "title": "Language server for .sw: stages 0-1, 2a done; 2b (LSP info severity) running; next 2c (Playground goals)",
       "status": "next",
       "agent": "Opus",
       "where": "",
@@ -6194,7 +6194,7 @@
     {
       "id": 387,
       "title": "Named construction: C { f = v, … } for constructors (D605 a, D1085 a)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -6203,7 +6203,10 @@
       "body": "Decided in the variant-fields design (D605 a) but never built or ticketed; found by the feature 3 lane.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "70ae737f",
+        "dd71cb75"
+      ]
     },
     {
       "id": 388,
@@ -6221,8 +6224,8 @@
     },
     {
       "id": 389,
-      "title": "Naming sweep: descriptive names in public program code (AoC programs, std bodies, examples) (D1090)",
-      "status": "doing",
+      "title": "Naming sweep: descriptive names in public program code (AoC programs, std bodies, examples) (D1090); proofs, Map/Raw, Omega, Effect and feature-test examples deliberately kept terse",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane",
       "labels": [
@@ -6231,7 +6234,11 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "9efac8a4",
+        "346e99be",
+        "b6864552"
+      ]
     },
     {
       "id": 390,
@@ -6243,6 +6250,20 @@
         "lang"
       ],
       "body": "Matt, 23 Oct: investigate how we might have or simulate named and default arguments. Note first, decisions from D1092, stops for review. Related: named construction (SW-387, D605), named implicits [x := …], records as options.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 391,
+      "title": "Show prints a constructor's record argument in brackets, Some ({ … }), so show output stays valid source after named construction (D605 a; hashes move, approved 23 Oct)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
