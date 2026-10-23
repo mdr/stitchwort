@@ -99,10 +99,11 @@ def RepetitionTemplate.sumIn (range: Range) (template: RepetitionTemplate): Nat 
   let multiplier := template.multiplier
   if multiplier != 0 then
     -- The blocks whose id lies in the range: the block times the multiplier is
-    -- at least range.from (round up) and at most range.to (round down).
-    let firstBlock := Nat.max template.smallestBlock ((range.from + multiplier - 1) / multiplier)
+    -- at least range.from (round up) and at most range.to (round down). When
+    -- no block fits, firstBlock > lastBlock and `Nat.sumBetween` gives 0.
+    let firstBlock := Nat.max template.smallestBlock (Nat.ceilDiv range.from multiplier)
     let lastBlock := Nat.min template.largestBlock (range.to / multiplier)
-    if firstBlock <= lastBlock then multiplier * Nat.sumBetween firstBlock lastBlock else 0
+    multiplier * Nat.sumBetween firstBlock lastBlock
   else 0
 
 def parseRanges (t: Text): List Range := t.trim.split ',' |> .filterMap Range.parse

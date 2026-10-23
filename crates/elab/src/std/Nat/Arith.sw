@@ -342,6 +342,29 @@ theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) 
     (t => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym h) (Nat.leDivOfMulLe b hi (Succ m) t))))
     (f => rfl)
 
+-- Division rounding up: `Nat.ceilDiv 7 2 = 4`. For `d != 0` it is the
+-- smallest `b` with `n <= b * d` (`Nat.ceilDivLe`, `Nat.leMulOfCeilDivLe`),
+-- just as `n / d` is the largest `q` with `q * d <= n`.
+def Nat.ceilDiv (n: Nat) (d: Nat) [auto ok: d != 0]: Nat := (n + d - 1) / d
+
+-- Any `b` with `n <= b * d` is at least `Nat.ceilDiv n d`.
+theorem Nat.ceilDivLe (n: Nat) (b: Nat): (d: Nat) -> [auto ok: d != 0] -> n <= b * d -> Nat.ceilDiv n d <= b
+  | Zero,   h => Void.exfalso (ok rfl)
+  | Succ m, h => Nat.roundUpLe n m b h
+
+-- And any `b` at least `Nat.ceilDiv n d` has `n <= b * d`.
+theorem Nat.leMulOfCeilDivLe (n: Nat) (b: Nat): (d: Nat) -> [auto ok: d != 0] -> Nat.ceilDiv n d <= b -> n <= b * d
+  | Zero,   h => Void.exfalso (ok rfl)
+  | Succ m, h => Nat.roundUpGe n m b h
+
+-- `Nat.ceilDiv n d` copies of `d` cover `n`.
+theorem Nat.leCeilDivMul (n: Nat) (d: Nat) [auto ok: d != 0]: n <= Nat.ceilDiv n d * d :=
+  Nat.leMulOfCeilDivLe n (Nat.ceilDiv n d) d (Nat.leRefl (Nat.ceilDiv n d))
+
+test "Nat.ceilDiv" := Nat.ceilDiv 7 2 == 4 && Nat.ceilDiv 8 2 == 4 && Nat.ceilDiv 9 3 == 3 && Nat.ceilDiv 10 3 == 4
+
+test "Nat.ceilDiv, small numerators" := Nat.ceilDiv 0 5 == 0 && Nat.ceilDiv 1 5 == 1 && Nat.ceilDiv 5 1 == 5
+
 theorem Nat.powTenPredLe: (k: Nat) -> Nat.pow 10 (k - 1) <= Nat.pow 10 k
   | Zero   => rfl
   | Succ k => Nat.leMulPos (Nat.pow 10 k) 10 rfl
