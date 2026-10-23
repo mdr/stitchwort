@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDEX-STUCK] Error: can't tell whether `AtT` can be here
+    ╭─[ soundness/quot-index-in-list.sw:12:3 ]
+    │
+ 12 │   | AtF => 0
+    │   ─────┬────  
+    │        ╰────── the argument has type `AtL [Quot.mk False]`; matching `AtT` needs `Quot.mk False = Quot.mk True`
+    │ 
+    │ Note: matching works when each index is a variable or built from constructors
+────╯

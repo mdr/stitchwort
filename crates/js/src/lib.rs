@@ -18,7 +18,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{Head, eval, expand_step, quote};
 use stitchwort_core::{
-    BigUint, DataId, DefId, Globals, Limits, ResourceError, Sort, Term, Value, pretty,
+    BigUint, DataId, DefId, Globals, Limits, QuotForm, ResourceError, Sort, Term, Value, pretty,
 };
 use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
 use stitchwort_rt::natives::{
@@ -2730,9 +2730,18 @@ impl<'g> Gen<'g> {
             }
             // Proofs are erased, and transport along an equality does nothing.
             Term::J(_, base, _) => self.expr(base, env)?,
-            Term::Data(..) | Term::Sort(_) | Term::Pi(..) | Term::Eq(..) | Term::Refl => {
-                "undefined".into()
-            }
+            Term::Data(..)
+            | Term::Sort(_)
+            | Term::Pi(..)
+            | Term::Eq(..)
+            | Term::Refl
+            | Term::Quot(QuotForm::Type, ..) => "undefined".into(),
+            // Lowering quotients (docs/proposals/map-equality.md §7.4) is
+            // stage 1.3; until then running one fails, loudly.
+            Term::Quot(form, ..) => format!(
+                "(() => {{ throw new Error(\"`{}` can't be run in JavaScript yet\"); }})()",
+                form.name()
+            ),
             Term::Case(..) | Term::NumCase(..) => {
                 panic!("internal error: case outside a case tree")
             }

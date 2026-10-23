@@ -164,7 +164,7 @@ impl Walker<'_> {
                 self.walk(dom)?;
                 self.under(&[false], None, cod)?;
             }
-            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
                 for arg in args {
                     self.walk(arg)?;
                 }

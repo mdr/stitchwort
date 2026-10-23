@@ -65,7 +65,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 9;
+pub const FORMAT: u32 = 10;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 

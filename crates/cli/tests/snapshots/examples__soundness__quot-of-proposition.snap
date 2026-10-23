@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: a quotient of a proposition
+   ╭─[ soundness/quot-of-proposition.sw:5:16 ]
+   │
+ 5 │ def T: Type := Quot (0 = 0) (x y => Unit)
+   │                ────────────┬────────────  
+   │                            ╰────────────── the carrier of a quotient must be a type in `Type`, but `0 = 0` is a proposition
+───╯

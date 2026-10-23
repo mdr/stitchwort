@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: universe mismatch
+   ╭─[ soundness/quot-ind-into-data.sw:9:48 ]
+   │
+ 9 │ def unwrap (q: Q): Bool := Quot.ind [p := q => Bool] (b => b) q
+   │                                                ──┬─  
+   │                                                  ╰─── expected something of type `Prop`, but this has type `Type`
+   │ 
+   │ Note: `Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent
+───╯

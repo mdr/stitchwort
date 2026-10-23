@@ -292,6 +292,11 @@ fn go_replace(
             go(b, under)?,
         ),
         Term::J(m, b, p) => Term::J(go(m, under)?, go(b, under)?, go(p, under)?),
+        Term::Quot(form, args, e) => Term::Quot(
+            *form,
+            args.iter().map(|a| go(a, under)).collect::<Result<_>>()?,
+            *e,
+        ),
         Term::Loc(span, t) => Term::Loc(*span, go(t, under)?),
     })
 }

@@ -22,7 +22,7 @@ use crate::budget::Result;
 use crate::globals::Globals;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, Term};
-use crate::value::{Closure, Elim, Head, Spine, Value};
+use crate::value::{Closure, Elim, Head, Spine, Value, quot_value};
 
 pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
@@ -99,6 +99,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
             }
             _ => panic!("internal error: J applied to a non-proof"),
         },
+        Term::Quot(form, args, _) => quot_value(*form, eval_all(args)?),
         Term::Loc(_, t) => eval(g, env, t)?,
     })
 }
@@ -218,6 +219,7 @@ pub fn expand_term(g: &Globals, term: &Term) -> Term {
         ),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go), go(a), go(b)),
         Term::J(m, b, p) => Term::J(go(m), go(b), go(p)),
+        Term::Quot(form, args, e) => Term::Quot(*form, args.iter().map(go).collect(), *e),
         Term::Loc(span, t) => Term::Loc(*span, go(t)),
     }
 }
@@ -403,12 +405,28 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
         Value::Eq(ty, a, b) => Term::Eq(Some(Rc::new(q(&ty)?)), Rc::new(q(&a)?), Rc::new(q(&b)?)),
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
-            let mut term = match head {
-                Head::Var(l) => Term::Var(level - 1 - l),
-                Head::Def(id) => Term::Def(id),
-                Head::Meta(m) => Term::Meta(m),
+            let (mut term, rest) = match head {
+                Head::Var(l) => (Term::Var(level - 1 - l), &spine[..]),
+                Head::Def(id) => (Term::Def(id), &spine[..]),
+                Head::Meta(m) => (Term::Meta(m), &spine[..]),
+                // The form's own arguments, then what applies its result.
+                Head::Quot(form) => {
+                    let n = spine
+                        .iter()
+                        .take(form.arity())
+                        .take_while(|e| matches!(e, Elim::App(..)))
+                        .count();
+                    let args = spine[..n]
+                        .iter()
+                        .map(|e| match e {
+                            Elim::App(v, _) => q(v).map(Rc::new),
+                            Elim::J { .. } => unreachable!("counted applications"),
+                        })
+                        .collect::<Result<_>>()?;
+                    (Term::Quot(form, args, false), &spine[n..])
+                }
             };
-            for elim in &spine {
+            for elim in rest {
                 term = match elim {
                     Elim::App(v, i) => Term::app_icit(term, q(v)?, *i),
                     Elim::J { motive, base } => {

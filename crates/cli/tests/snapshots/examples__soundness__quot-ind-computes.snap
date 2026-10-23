@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/quot-ind-computes.sw:9:78 ]
+   │
+ 9 │     Quot.ind [p := q => Unit] (b => Trivial) (Quot.mk False: Q) = Trivial := rfl
+   │                                                                              ─┬─  
+   │                                                                               ╰─── `Quot.ind (b => Trivial) (Quot.mk False)` and `Trivial` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

@@ -15,7 +15,7 @@ use crate::chars::{self, Chars};
 use crate::erase::{self, erased};
 use crate::globals::Globals;
 use crate::native;
-use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
+use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -72,6 +72,44 @@ pub enum Head {
     Var(usize),
     Def(DefId),
     Meta(usize),
+    /// A quotient form (docs/proposals/map-equality.md §7), its arguments
+    /// the first [`QuotForm::arity`] applications of the spine (the implicit
+    /// ones marked so), any further ones applying its result. `Quot A R` and
+    /// `Quot.mk a` are values; `Quot.ind` and `Quot.sound` never compute;
+    /// `Quot.lift` here is stuck, its quotient argument not a `Quot.mk`.
+    /// `Quot.mk` is never a constructor (`Value::Ctor`), so nothing that
+    /// takes constructors apart (a `case`, index unification) sees inside it.
+    Quot(QuotForm),
+}
+
+/// The representative of a `Quot.mk` value, if `value` is one.
+pub fn quot_mk_rep(value: &Value) -> Option<&Value> {
+    match value {
+        Value::Neutral(Head::Quot(QuotForm::Mk), spine) if spine.len() == QuotForm::Mk.arity() => {
+            match &spine[2] {
+                Elim::App(a, _) => Some(a),
+                Elim::J { .. } => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+/// A quotient form applied to the values `args`.
+pub fn quot_value(form: QuotForm, args: Vec<Value>) -> Value {
+    let spine = args
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let icit = if i < form.implicit() {
+                Icit::Implicit
+            } else {
+                Icit::Explicit
+            };
+            Elim::App(v, icit)
+        })
+        .collect();
+    Value::Neutral(Head::Quot(form), spine)
 }
 
 #[derive(Clone, Debug)]
@@ -442,6 +480,15 @@ fn describe(value: &Value) -> &'static str {
 
 type Env = Values;
 
+/// The definition whose case tree is being walked, applied to its spine:
+/// what's left folded if the tree can't take a step (`None` for a case
+/// outside a definition). The flag says whether a `Quot.lift` leaf whose
+/// quotient isn't a `Quot.mk` leaves it folded too, as a `case` that can't
+/// step does (docs/proposals/map-equality.md §7.2, the unfolding policy):
+/// when unfolding it normally, but not when taking a folded call apart
+/// ([`unfold_for`], [`unfold_folded`]), which must see its body.
+type Stuck = Option<(DefId, Spine, bool)>;
+
 /// What the machine does next.
 enum Control {
     /// Evaluate a term.
@@ -454,7 +501,7 @@ enum Control {
     Unfold(DefId, Spine),
     /// Walk a case tree. If it's stuck, the result is the definition left
     /// folded (or, for a case outside a definition, an internal error).
-    Tree(Rc<Term>, Vec<Value>, Option<(DefId, Spine)>),
+    Tree(Rc<Term>, Vec<Value>, Stuck),
     /// Replace a solved metavariable at the head of a value.
     Force(Value),
     /// Give a value to the frame on top of the stack.
@@ -501,18 +548,26 @@ enum Frame {
     /// The base of a stuck `J`: its head, spine and motive. (Boxed: it's the
     /// largest frame, and rare.)
     JBase(Box<(Head, Spine, Value)>),
+    /// The next argument of a quotient form `term` (after `done`; `last`,
+    /// if there, is its final argument, already computed).
+    QuotArgs {
+        term: Rc<Term>,
+        env: Env,
+        done: Vec<Value>,
+        last: Option<Value>,
+    },
     /// The forced scrutinee of the case node `tree`.
     Scrutinee {
         tree: Rc<Term>,
         env: Vec<Value>,
-        stuck: Option<(DefId, Spine)>,
+        stuck: Stuck,
     },
     /// The scrutinee of the case node `tree`, already unfolded if it was a
     /// folded call.
     ScrutineeReady {
         tree: Rc<Term>,
         env: Vec<Value>,
-        stuck: Option<(DefId, Spine)>,
+        stuck: Stuck,
     },
     /// The unfolding of a folded call (a dictionary or a theorem, [`folds`])
     /// that the frame `next` takes apart: unfolded again if it's another
@@ -832,6 +887,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             Control::Eval(ty, env)
         }
         Term::Refl => Control::Return(Value::Refl),
+        Term::Quot(..) => quot_args(g, term.clone(), env, Vec::new(), None, stack)?,
         Term::J(_, _, proof) => {
             let proof = proof.clone();
             push(
@@ -892,6 +948,45 @@ fn fields(
     }))
 }
 
+/// Evaluates the arguments of the quotient form `term` after the ones
+/// `done` (and before `last`, its final argument if already computed): as
+/// many as are quick, then a frame for the next. With all of them, the form
+/// applied to them.
+fn quot_args(
+    g: &Globals,
+    term: Rc<Term>,
+    env: Env,
+    mut done: Vec<Value>,
+    last: Option<Value>,
+    stack: &mut Vec<Frame>,
+) -> Result<Control> {
+    let Term::Quot(form, args, _) = &*term else {
+        unreachable!("arguments of a quotient form")
+    };
+    let n = args.len() - usize::from(last.is_some());
+    while let Some(arg) = args[..n].get(done.len()) {
+        match quick(g, arg, &env) {
+            Some(v) => done.push(v),
+            None => {
+                let arg = arg.clone();
+                push(
+                    g,
+                    stack,
+                    Frame::QuotArgs {
+                        term: term.clone(),
+                        env: env.clone(),
+                        done,
+                        last,
+                    },
+                )?;
+                return Ok(Control::Eval(arg, env));
+            }
+        }
+    }
+    done.extend(last);
+    Ok(Control::Return(quot_value(*form, done)))
+}
+
 /// Continues `frame` with the value it was waiting for.
 fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
     Ok(match frame {
@@ -908,6 +1003,15 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
         } => {
             done.push(value);
             fields(g, term, env, done, stack)?
+        }
+        Frame::QuotArgs {
+            term,
+            env,
+            mut done,
+            last,
+        } => {
+            done.push(value);
+            quot_args(g, term, env, done, last, stack)?
         }
         Frame::LetBody { term, env } => {
             let Term::Let(_, _, _, body, _) = &*term else {
@@ -1137,7 +1241,7 @@ fn branch(
     g: &Globals,
     tree: Rc<Term>,
     mut env: Vec<Value>,
-    stuck: Option<(DefId, Spine)>,
+    stuck: Stuck,
     value: Value,
 ) -> Result<Control> {
     // A folded call was unfolded before this (`Frame::Scrutinee`).
@@ -1196,9 +1300,9 @@ fn branch(
 }
 
 /// A case tree that can't take a step: its definition stays folded.
-fn stuck_tree(stuck: Option<(DefId, Spine)>) -> Control {
+fn stuck_tree(stuck: Stuck) -> Control {
     match stuck {
-        Some((id, spine)) => Control::Return(Value::Neutral(Head::Def(id), spine)),
+        Some((id, spine, _)) => Control::Return(Value::Neutral(Head::Def(id), spine)),
         None => panic!("internal error: a case outside a definition's case tree got stuck"),
     }
 }
@@ -1257,7 +1361,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
                 return Ok(Control::Return(Value::Call(id, spine, Rc::default())));
             }
             let tree = Term::peel_lams_rc(body, def.arity);
-            return Ok(Control::Tree(tree, args, Some((id, spine))));
+            return Ok(Control::Tree(tree, args, Some((id, spine, true))));
         }
     }
     Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
@@ -1300,7 +1404,7 @@ fn unfold_for(g: &Globals, stack: &mut Vec<Frame>, value: Value, next: Frame) ->
         stack,
         Frame::Unfolding(Box::new((id, spine.clone(), next))),
     )?;
-    Ok(Control::Tree(tree, args, Some((id, spine))))
+    Ok(Control::Tree(tree, args, Some((id, spine, false))))
 }
 
 /// Whether `value` is a dictionary left folded by name ([`folds`]) that
@@ -1338,7 +1442,10 @@ pub fn unfold_folded(g: &Globals, value: &Value) -> Result<Option<Value>> {
             return Ok(current);
         };
         let tree = Term::peel_lams_rc(body, def.arity);
-        let next = run(g, Control::Tree(tree, args, Some((id, spine.clone()))))?;
+        let next = run(
+            g,
+            Control::Tree(tree, args, Some((id, spine.clone(), false))),
+        )?;
         if let Value::Neutral(Head::Def(id2), s2) = &next
             && *id2 == id
             && s2.ptr_eq(&spine)
@@ -1424,8 +1531,15 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
             QuoteTask::Spine(head, shape) => {
                 let n: usize = shape.iter().map(|s| if s.is_some() { 1 } else { 2 }).sum();
                 let mut parts = done.split_off(done.len() - n).into_iter();
-                let mut term = head;
-                for icit in shape {
+                let (mut term, shape) = match head {
+                    SpineHead::Term(term) => (term, &shape[..]),
+                    // The form's own arguments, then what applies its result.
+                    SpineHead::Quot(form, k) => {
+                        let args = parts.by_ref().take(k).map(Rc::new).collect();
+                        (Term::Quot(form, args, false), &shape[k..])
+                    }
+                };
+                for &icit in shape {
                     term = match icit {
                         Some(icit) => {
                             Term::app_icit(term, parts.next().expect("an argument"), icit)
@@ -1457,7 +1571,25 @@ enum QuoteTask {
     Eq,
     /// A head and its eliminations: `Some(icit)` an application, `None` a
     /// `J` (whose motive and base come first).
-    Spine(Term, Vec<Option<Icit>>),
+    Spine(SpineHead, Vec<Option<Icit>>),
+}
+
+/// The head of a neutral value being quoted.
+pub(crate) enum SpineHead {
+    Term(Term),
+    /// A quotient form, whose arguments are the first this many
+    /// eliminations.
+    Quot(QuotForm, usize),
+}
+
+/// How many of `spine`'s first eliminations are arguments of quotient form
+/// `form`: its arity, unless the spine is malformed.
+pub(crate) fn quot_args_in(form: QuotForm, spine: &[Elim]) -> usize {
+    spine
+        .iter()
+        .take(form.arity())
+        .take_while(|e| matches!(e, Elim::App(..)))
+        .count()
 }
 
 fn pop2(done: &mut Vec<Term>) -> (Term, Term) {
@@ -1517,9 +1649,10 @@ fn visit(
         }
         Value::Neutral(head, spine) => {
             let head = match head {
-                Head::Var(l) => Term::Var(level - 1 - l),
-                Head::Def(id) => Term::Def(id),
-                Head::Meta(m) => Term::Meta(m),
+                Head::Var(l) => SpineHead::Term(Term::Var(level - 1 - l)),
+                Head::Def(id) => SpineHead::Term(Term::Def(id)),
+                Head::Meta(m) => SpineHead::Term(Term::Meta(m)),
+                Head::Quot(form) => SpineHead::Quot(form, quot_args_in(form, &spine)),
             };
             let mut shape = Vec::with_capacity(spine.len());
             let mut parts = Vec::new();
@@ -2122,6 +2255,13 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(m1, m2);
             both(b1, b2);
             both(p1, p2);
+            true
+        }
+        (Term::Quot(f1, xs, e1), Term::Quot(f2, ys, e2)) => {
+            if f1 != f2 || e1 != e2 || xs.len() != ys.len() {
+                return false;
+            }
+            xs.iter().zip(ys).for_each(|(x, y)| both(x, y));
             true
         }
         (Term::Case(i1, d1, br1), Term::Case(i2, d2, br2)) => {

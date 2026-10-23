@@ -201,6 +201,11 @@ fn map_vars(
             go(b, depth)?,
         ),
         Term::J(m, b, p) => Term::J(go(m, depth)?, go(b, depth)?, go(p, depth)?),
+        Term::Quot(form, args, e) => Term::Quot(
+            *form,
+            args.iter().map(|a| go(a, depth)).collect::<Result<_>>()?,
+            *e,
+        ),
         Term::Loc(span, t) => Term::Loc(*span, go(t, depth)?),
     })
 }
@@ -269,6 +274,9 @@ fn zeta(g: &Globals, t: &Term) -> Result<Term> {
         Term::Ann(a, b) => Term::Ann(go(a)?, go(b)?),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
         Term::J(m, b, p) => Term::J(go(m)?, go(b)?, go(p)?),
+        Term::Quot(form, args, e) => {
+            Term::Quot(*form, args.iter().map(go).collect::<Result<_>>()?, *e)
+        }
         Term::Loc(span, inner) => Term::Loc(*span, go(inner)?),
         Term::Case(..) | Term::NumCase(..) => t.clone(),
     })

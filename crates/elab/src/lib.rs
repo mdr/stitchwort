@@ -42,6 +42,7 @@ mod patlet;
 mod pipe;
 mod probe;
 pub mod project;
+mod quot;
 mod records;
 mod rewind;
 mod rewrite;
@@ -136,7 +137,16 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 const UNIT_PATTERN: &str = "%unit";
 
 /// Names with built-in meanings, which can't be redefined.
-const RESERVED: &[&str] = &["rfl", "J", "Partial"];
+const RESERVED: &[&str] = &[
+    "rfl",
+    "J",
+    "Partial",
+    "Quot",
+    "Quot.mk",
+    "Quot.lift",
+    "Quot.ind",
+    "Quot.sound",
+];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Global {

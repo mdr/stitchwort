@@ -694,6 +694,7 @@ fn key(term: &Term, under: usize) -> Option<Key> {
         Term::Eq(..) => Key::Other("equation"),
         Term::Refl => Key::Other("rfl"),
         Term::J(..) => Key::Other("J"),
+        Term::Quot(form, ..) => Key::Other(form.name()),
         Term::Ann(..) => Key::Other("annotation"),
         Term::Let(..) => Key::Other("let"),
         Term::Case(..) | Term::NumCase(..) => Key::Other("case"),
