@@ -1,5 +1,5 @@
 {
-  "next": 356,
+  "next": 357,
   "tickets": [
     {
       "id": 1,
@@ -5622,6 +5622,21 @@
       "agent": "Sonnet",
       "where": "STOPPED: Map's tree shape makes equal-entries => equal-maps false; needs a canonical Map redesign. Port instead keeps a sorted entry list and converts at Wire (D700 b)",
       "labels": [
+        "std"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 356,
+      "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "design",
         "std"
       ],
       "body": "",
