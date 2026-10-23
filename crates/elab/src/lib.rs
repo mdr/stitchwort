@@ -48,6 +48,7 @@ mod records;
 mod rewind;
 mod rewrite;
 mod scope;
+mod shared;
 pub mod timings;
 pub use library::{LIBRARY_FILES, LibraryIndex};
 pub use rewind::Mark;
@@ -1318,15 +1319,48 @@ impl Elaborator {
         {
             return Ok(());
         }
-        if let Some((_, previous)) = self.scope.get(key) {
-            return Err(error(
+        if let Some((global, previous)) = self.scope.get(key) {
+            let mut d = error(
                 "E-DUPLICATE",
                 n.span,
                 format!("`{}` is already defined", n.text),
             )
-            .with_label(previous, "first defined here"));
+            .with_label(previous, "first defined here");
+            if let Some(note) = self.generated_accessor(key, global) {
+                d = d.with_note(note);
+            }
+            return Err(d);
         }
         Ok(())
+    }
+
+    /// If `global`, at `key`, is a data type's generated accessor for a
+    /// shared field `T.f` (docs/proposals/variant-fields.md §5.4): the note
+    /// saying so, for the error when a declaration takes its name.
+    fn generated_accessor(&self, key: &str, global: Global) -> Option<String> {
+        let Global::Def(id) = global else {
+            return None;
+        };
+        let (owner, field) = key.rsplit_once('.')?;
+        let Some((Global::Data(d), _)) = self.scope.get(owner) else {
+            return None;
+        };
+        let data = self.globals.data(d);
+        if self.globals.def(id).span != data.span || data.record {
+            return None;
+        }
+        let ctors: Vec<String> = data.ctors.iter().map(|c| format!("`{}`", c.name)).collect();
+        let every = if ctors.len() == 1 {
+            format!("its constructor {} has", ctors[0])
+        } else {
+            format!("every constructor ({}) has", ctors.join(", "))
+        };
+        Some(format!(
+            "`{field}` is a shared field of `{}`: {every} it, so `{}` is generated; delete \
+             this definition and use the field",
+            scope::display(owner),
+            scope::display(key)
+        ))
     }
 
     /// A data type on its own (one in a component of its own, or one an
@@ -1768,6 +1802,12 @@ impl Elaborator {
             );
             self.after_record(d, interface)?;
         } else {
+            // Its shared fields' accessors (docs/proposals/variant-fields.md
+            // §5), unless it's an ability's operations (constructors `%op`,
+            // which source can't name).
+            if !ctors.iter().any(|c| c.name.text.starts_with('%')) {
+                self.accessors(d, "")?;
+            }
             self.unnoted(|e| {
                 e.derive_data_eq(d)?;
                 e.derive_data_show(d)?;

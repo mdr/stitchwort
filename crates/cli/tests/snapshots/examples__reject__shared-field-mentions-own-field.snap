@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `T` has no shared field `xs`
+    ╭─[ reject/shared-field-mentions-own-field.sw:10:27 ]
+    │
+ 10 │ def xsOf (t: T): Nat := t.xs.length
+    │                           ─┬  
+    │                            ╰── looked in `T`
+    │ 
+    │ Note: `xs`'s type mentions `len`, which only `A` has
+────╯

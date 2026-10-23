@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `G` has no shared field `label`
+    ╭─[ reject/shared-field-mentions-syntactic.sw:11:25 ]
+    │
+ 11 │ def gl (g: G): Nat := g.label
+    │                         ──┬──  
+    │                           ╰──── looked in `G`
+    │ 
+    │ Note: `label`'s type mentions `len`, which only `G1` has
+────╯

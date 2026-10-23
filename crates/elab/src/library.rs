@@ -106,6 +106,10 @@ pub struct IndexedName {
     /// before the file is loaded).
     pub function: bool,
     pub span: Span,
+    /// A data type's field every constructor has: a shared-field accessor
+    /// if its types agree, which loading the file decides (docs/proposals/
+    /// variant-fields.md §12.1).
+    pub candidate: bool,
 }
 
 /// One file of the library, parsed once.
@@ -367,6 +371,15 @@ impl LibraryIndex {
         self.owner.iter().map(|(k, f)| (k.as_str(), *f))
     }
 
+    /// The candidate shared-field accessors: names loading may not declare.
+    pub fn candidates(&self) -> impl Iterator<Item = &str> {
+        self.files
+            .iter()
+            .flat_map(|f| &f.names)
+            .filter(|n| n.candidate)
+            .map(|n| n.key.as_str())
+    }
+
     /// The library functions with this last name component.
     pub fn dot_targets(&self, field: &str) -> &[DotTarget] {
         self.dots_by_short.get(field).map_or(&[], Vec::as_slice)
@@ -484,6 +497,7 @@ pub(crate) fn file_names(
             follower: false,
             function: matches!(decl, Decl::Signature { ty, .. } if crate::module::is_function_type(ty)),
             span: main.span,
+            candidate: false,
         });
         // An interface's fields are its methods: definitions, listed below.
         let interface = matches!(
@@ -503,6 +517,7 @@ pub(crate) fn file_names(
                 follower,
                 function: follower,
                 span: name.span,
+                candidate: false,
             });
         }
         // A record's fields are functions in its namespace.
@@ -520,6 +535,7 @@ pub(crate) fn file_names(
                         follower: false,
                         function: true,
                         span: name.span,
+                        candidate: false,
                     });
                     // An interface's own projections, beside its methods.
                     if interface {
@@ -529,6 +545,57 @@ pub(crate) fn file_names(
                             follower: false,
                             function: true,
                             span: name.span,
+                            candidate: false,
+                        });
+                    }
+                }
+            }
+        }
+        // A data type's shared-field accessors (docs/proposals/variant-fields.md
+        // §12.1): which fields are shared depends on their types, which the
+        // source can't tell, so each field every constructor has explicitly
+        // is a candidate, forcing the file to load like any of its names.
+        // Loading it confirms the shared ones and removes the rest
+        // (`Elaborator::drop_unconfirmed`). A written `T.f` in the file is
+        // listed once, as itself.
+        if let Decl::Data {
+            record: false,
+            ctors,
+            ..
+        } = decl
+        {
+            let explicit = |c: &stitchwort_syntax::ast::CtorDecl| -> Vec<String> {
+                c.fields
+                    .iter()
+                    .enumerate()
+                    .filter(|(k, _)| !c.implicit.get(*k).copied().unwrap_or(false))
+                    .flat_map(|(_, b)| b.names.iter().map(|n| n.text.clone()))
+                    .collect()
+            };
+            let Some((first, rest)) = ctors.split_first() else {
+                continue;
+            };
+            let others: Vec<Vec<String>> = rest.iter().map(explicit).collect();
+            for binder in first
+                .fields
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| !first.implicit.get(*k).copied().unwrap_or(false))
+                .map(|(_, b)| b)
+            {
+                for name in &binder.names {
+                    let member = Elaborator::member_key(&key, &name.text);
+                    if others.iter().all(|o| o.contains(&name.text))
+                        && !out.iter().any(|n: &IndexedName| n.key == member)
+                        && !declares(file, scratch, &member)
+                    {
+                        out.push(IndexedName {
+                            key: member,
+                            kind: PendingKind::Def,
+                            follower: false,
+                            function: true,
+                            span: name.span,
+                            candidate: true,
                         });
                     }
                 }
@@ -536,6 +603,18 @@ pub(crate) fn file_names(
         }
     }
     Ok(out)
+}
+
+/// Whether `file` declares `key` itself, other than as a field: a written
+/// `def T.f` beside a type with a field `f`.
+fn declares(file: &IndexedFile, scratch: &Elaborator, key: &str) -> bool {
+    grouped(&file.module.decls).into_iter().any(|(decl, _)| {
+        matches!(decl, Decl::Signature { .. })
+            && declared_names(decl)
+                .0
+                .and_then(|main| scratch.declaration_key(&main).ok())
+                .is_some_and(|k| k == key)
+    })
 }
 
 /// Whether a library file is loaded.
@@ -842,6 +921,7 @@ impl Elaborator {
             let lib = self.library.as_mut().expect("a library is installed");
             lib.state[f] = LoadState::Loaded;
             lib.order.push(f);
+            self.drop_unconfirmed(f);
             return Ok(());
         }
         let before = cached.as_ref().map(|_| self.cache_before());
@@ -897,7 +977,18 @@ impl Elaborator {
             all.extend(diagnostics);
             return Err(all);
         }
+        self.drop_unconfirmed(f);
         Ok(())
+    }
+
+    /// Removes the index's entries for file `f` that loading it didn't
+    /// declare: candidate shared-field accessors that aren't shared (their
+    /// fields' types differ, say), so `T.f` is then unknown, as it would be
+    /// with every file loaded (docs/proposals/variant-fields.md §12.1).
+    fn drop_unconfirmed(&mut self, f: usize) {
+        self.scope
+            .entries
+            .retain(|_, (g, _)| !matches!(g, Global::Pending(file, _) if *file == f));
     }
 
     /// The error for a reference to a name whose library file isn't

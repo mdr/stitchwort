@@ -24,14 +24,13 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, check, infer, insert};
-use crate::{CtorPattern, Elaborator, Global, Result, auto, error};
+use crate::{CtorPattern, Elaborator, Result, auto, error};
 
 /// What the elaborator knows about a record type, beyond its data type.
 pub(crate) struct RecordInfo {
@@ -67,73 +66,18 @@ impl Elaborator {
         })
     }
 
-    /// Defines `R.field : [params] -> (r : R params) -> T` for each field,
-    /// by matching `r`. In `T`, earlier fields are their projections of `r`.
-    /// For an interface, they're `R.%field`, out of the way of its methods
-    /// (`interfaces.rs`).
+    /// The generated projection of each field of record `d`, in
+    /// declaration order, or `None` where there can't be one: its
+    /// shared-field accessors (`shared.rs`), of which a record is the
+    /// one-constructor case. For an interface, they're `R.%field`, out of
+    /// the way of its methods (`interfaces.rs`).
     fn projections(&mut self, d: DataId, interface: bool) -> Result<Vec<Option<DefId>>> {
-        let mut out: Vec<Option<DefId>> = Vec::new();
-        let count = self.globals.data(d).ctors[0].fields.len();
-        for i in 0..count {
-            let g = &self.globals;
-            let data = g.data(d);
-            let (ctor, np) = (&data.ctors[0], data.params.len());
-            let (field, field_ty) = ctor.fields[i].clone();
-            let missing = |j: usize| out[j].is_none() && field_ty.mentions(i - 1 - j);
-            if (data.sort == Sort::Prop && ctor.field_sorts[i] != Sort::Prop) || (0..i).any(missing)
-            {
-                out.push(None);
-                continue;
-            }
-            // The earlier fields, as projections of `r` (at level `np`).
-            let with_r: Vec<Value> = (0..=np).map(Value::var).collect();
-            let mut env: Vec<Value> = with_r[..np].to_vec();
-            for proj in &out {
-                env.push(match proj {
-                    Some(p) => eval(g, &with_r, &applied(*p, np))?,
-                    None => unused(),
-                });
-            }
-            let result = quote(g, np + 1, &eval(g, &env, &field_ty)?)?;
-            let params: Vec<Term> = (0..np).map(|k| Term::Var(np - 1 - k)).collect();
-            let mut ty = Term::Pi(
-                "r".into(),
-                Icit::Explicit,
-                Rc::new(Term::data(d, params)),
-                Rc::new(result),
-            );
-            let names: Vec<Name> = ctor.fields.iter().map(|(x, _)| x.clone()).collect();
-            let mut body = Term::Lam(
-                "r".into(),
-                Icit::Explicit,
-                Rc::new(Term::Case(
-                    0,
-                    d,
-                    vec![Branch {
-                        body: Some(Rc::new(Term::Var(count - 1 - i))),
-                        names,
-                    }]
-                    .into(),
-                )),
-            );
-            for (x, t) in data.params.iter().rev() {
-                ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
-                body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
-            }
-            let hidden = if interface { "%" } else { "" };
-            let name: Name = format!("{}.{hidden}{field}", data.name).into();
-            let span = data.span;
-            let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
-            kernel::define_def(&mut self.globals, id, &body)?;
-            // In the record's namespace, but not visible by its short name:
-            // fields are reached through a record (`p.name`), or written in
-            // full (`Person.name`).
-            let key = Self::member_key(&self.data_key(d), &format!("{hidden}{field}"));
-            self.scope.insert(&key, Global::Def(id), span, false);
-            self.scope.mark_member(&key);
-            out.push(Some(id));
-        }
-        Ok(out)
+        let made = self.accessors(d, if interface { "%" } else { "" })?;
+        Ok(self.globals.data(d).ctors[0]
+            .fields
+            .iter()
+            .map(|(f, _)| made.get(f).copied())
+            .collect())
     }
 
     /// Finds a decision procedure for each proof field of each record that
@@ -486,16 +430,6 @@ impl Elaborator {
 /// Whether record type `r` has a field `name`.
 fn record_has(g: &stitchwort_core::Globals, r: DataId, name: &str) -> bool {
     g.data(r).ctors[0].fields.iter().any(|(f, _)| **f == *name)
-}
-
-/// `R.field` applied to the parameters (implicitly) and the record, in the
-/// context of the parameters and then the record.
-fn applied(proj: DefId, np: usize) -> Term {
-    let mut term = Term::Def(proj);
-    for k in 0..np {
-        term = Term::app_icit(term, Term::Var(np - k), Icit::Implicit);
-    }
-    Term::app(term, Term::Var(0))
 }
 
 /// Refuses a field name that `d` doesn't have, or one given twice.

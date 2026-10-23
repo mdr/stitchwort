@@ -4,6 +4,7 @@ expression: "lines(&session, d, f)"
 ---
 data Main.Turn bb8dd920c542b2775194aa9619b126688cbaaec837a7609cb2c8fd6da87cd6c2
 data Main.Pos e3ad119aa9d626992cc607ed7493a07ebed931cae7710a24dcbf0c9ccf1f65f1
+Main.Turn.clicks 4b0a94c8a71dc470a8e689ac8296ab2c92969d36295d2842ffbc721e2b27a37d
 Main.Turn.%tag e65862ac2f9f7fc3bec5d329def8b1cfe41281970198fb5d9be482e7fbe7476f
 Main.Turn.%Left%0 bba84bfc1b7c8323702662f2e5488b588736c6509a81432f30c34bc321fb6457
 Main.Turn.%Right%0 3ea287da06df39124faefbe0af751173d27621a0183578f508145b211e5cf389

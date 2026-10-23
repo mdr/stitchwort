@@ -384,3 +384,25 @@ fn constructor_fields_in_patterns() {
         assert!(all.contains(expected), "missing `{expected}` in\n{all}");
     }
 }
+
+/// A shared field's accessor (docs/proposals/variant-fields.md §9.3), by dot
+/// notation, as a section and written in full, refers to the field's binder
+/// in the first constructor, and shows the accessor's type.
+#[test]
+fn shared_fields() {
+    let source = "type Shape =\n  | Dot (id: Text)\n  | Circle (count: Nat) (id: Text)\n\n\
+                  def name (s: Shape): Text := s.id\n\n\
+                  def names (xs: List Shape): List Text := xs.map .id\n\n\
+                  def full (s: Shape): Text := Shape.id s\n";
+    let mut session = Session::navigable();
+    session.load("one.sw", source).expect("checks");
+    let index = index_of(&session);
+    let all = lines(&session, &index, "one.sw");
+    for expected in [
+        "one.sw:5:32 id -> Main.Shape.id [field] one.sw:2:10 : Shape -> Text",
+        "one.sw:7:50 id -> Main.Shape.id [field] one.sw:2:10 : Shape -> Text",
+        "one.sw:9:30 Shape.id -> Main.Shape.id [field] one.sw:2:10 : Shape -> Text",
+    ] {
+        assert!(all.contains(expected), "missing `{expected}` in\n{all}");
+    }
+}

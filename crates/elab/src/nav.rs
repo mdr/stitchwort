@@ -999,11 +999,18 @@ impl Walk<'_> {
                     Some(owner),
                 );
                 // For `C { f = … }` patterns: a field by its constructor.
+                // For a shared field's accessor (`a.f`, `T.f`), found at the
+                // type's declaration: the first constructor's field
+                // (docs/proposals/variant-fields.md §9.3).
                 for binder in &ctor.fields {
                     for field in &binder.names {
                         self.nav
                             .field_spans
                             .insert((ctor.name.span, field.text.clone()), field.span);
+                        self.nav
+                            .field_spans
+                            .entry((span, field.text.clone()))
+                            .or_insert(field.span);
                     }
                 }
             }

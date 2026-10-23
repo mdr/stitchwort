@@ -119,10 +119,17 @@ fn the_index_holds_exactly_the_names_an_eager_load_makes() {
     );
     // Every name the index promises exists, and every name the library
     // declares (not the compiler's `%` names, nor a definition's local
-    // helpers `f.go`) is promised.
+    // helpers `f.go`) is promised. A candidate shared-field accessor is
+    // declared only if its field is shared (docs/proposals/variant-fields.md
+    // §12.1): `Exists.value` isn't (data out of a proof).
     let keys: BTreeSet<String> = session.elab.scope_keys().into_iter().collect();
     let promised: BTreeSet<String> = index.names().map(|(k, _)| k.to_string()).collect();
-    let missing: Vec<&String> = promised.difference(&keys).collect();
+    let candidates: BTreeSet<&str> = index.candidates().collect();
+    assert!(candidates.contains("Std.Exists.value"), "{candidates:?}");
+    let missing: Vec<&String> = promised
+        .difference(&keys)
+        .filter(|k| !candidates.contains(k.as_str()))
+        .collect();
     assert!(missing.is_empty(), "promised but not declared: {missing:?}");
     let unpromised: Vec<&String> = keys.difference(&promised).collect();
     assert!(

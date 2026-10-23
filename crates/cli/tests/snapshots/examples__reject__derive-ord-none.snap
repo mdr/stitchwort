@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INSTANCE-NONE] Error: no `Ord` instance for `Tagged`
-    ╭─[ reject/derive-ord-none.sw:20:50 ]
+    ╭─[ reject/derive-ord-none.sw:17:50 ]
     │
- 20 │ def sortTagged (xs: List Tagged): List Tagged := List.sort xs
+ 17 │ def sortTagged (xs: List Tagged): List Tagged := List.sort xs
     │                                                  ──────┬─────  
     │                                                        ╰─────── this needs `Ord Tagged`
     │ 

@@ -14,7 +14,7 @@ type Unit: Prop =
 
 def Not (p: Prop): Prop := p -> Void
 
--- Both propositions hold.
+-- Both propositions hold. `And.left` and `And.right` are its fields.
 type And (p: Prop) (q: Prop): Prop =
   | Both (left: p) (right: q)
 
@@ -22,12 +22,6 @@ type And (p: Prop) (q: Prop): Prop =
 type Or (p: Prop) (q: Prop): Prop =
   | Inl (left: p)
   | Inr (right: q)
-
-theorem And.left: [p q: Prop] -> And p q -> p
-  | Both a b => a
-
-theorem And.right: [p q: Prop] -> And p q -> q
-  | Both a b => b
 
 theorem Or.neither: [p q: Prop] -> Not p -> Not q -> Not (Or p q)
   | r, s, Inl a => r a

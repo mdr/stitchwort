@@ -12,9 +12,6 @@ instance Secret.instDecEq: DecEq Secret := { decide = (x y => Secret.decide x y)
 def Secret.decide: (x: Secret) -> (y: Secret) -> Decidable (x = y)
   | Hidden m, Hidden n => if h: m = n then Yes (Eq.cong Hidden h) else No (e => h (Eq.cong Secret.code e))
 
-def Secret.code: Secret -> Nat
-  | Hidden n => n
-
 type Tagged = { name: Text, tag: Secret }
 
 def sortTagged (xs: List Tagged): List Tagged := List.sort xs

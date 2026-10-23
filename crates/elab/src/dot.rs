@@ -454,6 +454,17 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                         ),
                     ));
                 }
+                // A field some constructors have, that isn't shared
+                // (docs/proposals/variant-fields.md §5.3).
+                if let TyHead::Data(d) = h
+                    && !g.data(d).record
+                    && let Some((message, note)) =
+                        cx.e.unshared_member(d, &field.text, &shown(recv))
+                {
+                    return Err(Diagnostic::error("E-UNKNOWN-FIELD", message)
+                        .with_label(field.span, format!("looked in {}", tried_list(cx, &tried)))
+                        .with_note(note));
+                }
                 match h {
                     TyHead::Def(id) => match unfold(g, id, at)? {
                         Some(next) => ty = next,

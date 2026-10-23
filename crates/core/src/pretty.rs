@@ -581,25 +581,30 @@ impl<'g> Printer<'g> {
     }
 
     /// The field name of a projection `R.f`, if `id` is one: a record's
-    /// generated projection, or the prelude's `Pair.fst` or `Pair.snd`.
+    /// generated projection, a data type's generated accessor for a shared
+    /// field (docs/proposals/variant-fields.md §9.3), such as the prelude's
+    /// `Pair.fst` or `Pair.snd`.
     fn projection_field(&self, id: DefId) -> Option<String> {
         match self.g.registry.def_builtin(id) {
             Some(Builtin::Fst) => return Some("fst".into()),
             Some(Builtin::Snd) => return Some("snd".into()),
             _ => {}
         }
-        let name = self.g.def(id).name.to_string();
-        let (record, field) = name.rsplit_once('.')?;
+        let def = self.g.def(id);
+        let name = def.name.to_string();
+        let (owner, field) = name.rsplit_once('.')?;
+        // An accessor is declared at its type's declaration.
         let (ix, data) = self
             .g
             .datas
             .iter()
             .enumerate()
-            .find(|(_, d)| d.record && &*d.name == record)?;
-        let is_field = data
-            .ctors
-            .first()
-            .is_some_and(|c| c.fields.iter().any(|(f, _)| &**f == field));
+            .find(|(_, d)| &*d.name == owner && (d.record || d.span == def.span))?;
+        let is_field = !data.ctors.is_empty()
+            && data
+                .ctors
+                .iter()
+                .all(|c| c.fields.iter().any(|(f, _)| &**f == field));
         if !is_field {
             return None;
         }
