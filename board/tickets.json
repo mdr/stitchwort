@@ -1,5 +1,5 @@
 {
-  "next": 357,
+  "next": 358,
   "tickets": [
     {
       "id": 1,
@@ -5590,7 +5590,7 @@
     {
       "id": 353,
       "title": "Attributes stage 2: mutable lists in .d.ts, js.optional on constructor fields (queued until SW-349 merges; D665)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane (D665)",
       "labels": [
@@ -5599,7 +5599,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "c7395069",
+        "113df452"
+      ]
     },
     {
       "id": 354,
@@ -5645,6 +5648,20 @@
       "commits": [
         "14a62fd9"
       ]
+    },
+    {
+      "id": 357,
+      "title": "Attribute: field-less variants cross as string unions (app string enums) (D711)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
