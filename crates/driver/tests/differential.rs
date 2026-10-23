@@ -13,7 +13,7 @@ use stitchwort_core::reference;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{self, Elim, Head, Spine, Value, machine_runs};
 use stitchwort_core::{DefId, Globals, Icit};
-use stitchwort_driver::driver::{Session, with_stack};
+use stitchwort_driver::driver::{Session, par_map, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
 // Debug builds use much more stack per frame (io.sw's 5,000 prints overflow 64 MiB).
@@ -176,12 +176,13 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             conversions > 100,
             "only {conversions} conversions in the prelude"
         );
-        for (name, text) in examples() {
+        // Each example in its own session, on the thread pool.
+        par_map(STACK, &examples(), |(name, text)| {
             let mut session = Session::for_stack(STACK);
-            session.load(&name, &text).expect("examples check");
+            session.load(name, text).expect("examples check");
             let g = &session.elab.globals;
-            compare_definitions(g, &name);
-            compare_conversion(g, &name);
+            compare_definitions(g, name);
+            compare_conversion(g, name);
             for test in &session.elab.tests {
                 let term = Term::Def(test.def);
                 let fast = value::eval(g, &[], &term).expect("no limits");
@@ -193,7 +194,7 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
                     test.name
                 );
             }
-        }
+        });
     });
 }
 

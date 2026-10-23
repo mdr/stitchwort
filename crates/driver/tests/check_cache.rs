@@ -271,9 +271,10 @@ fn the_cache_changes_nothing_for_the_aoc_project() {
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
     let aoc = Source::Project("aoc".to_string(), root);
-    for nav in [false, true] {
+    // With and without navigation recorded: independent, so side by side.
+    par_map(STACK, &[false, true], |&nav| {
         assert_cache_changes_nothing(&aoc, nav);
-    }
+    });
 }
 
 /// A program that loads a few library files.

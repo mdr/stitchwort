@@ -7,6 +7,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use stitchwort_cli::driver::par_map;
+
+/// Stack for the pool threads that wait on child processes.
+const STACK: usize = 8 * 1024 * 1024;
+
 /// Writes `source` to a temporary file called `name`.
 fn source_file(name: &str, source: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("stitchwort-run-js-test-{}", std::process::id()));
@@ -75,24 +80,26 @@ fn same_both_ways(path: &Path, input: &[u8], same_errors: bool) -> Output {
 /// Every example with a `main`, with input that the interactive ones read.
 #[test]
 fn examples_print_the_same_both_ways() {
-    let mut ran = Vec::new();
     let mut entries: Vec<_> = std::fs::read_dir(examples())
         .expect("read examples")
         .map(|e| e.expect("read entry").path())
         .filter(|p| p.extension().is_some_and(|e| e == "sw"))
         .collect();
     entries.sort();
-    for path in entries {
-        let source = std::fs::read_to_string(&path).expect("read example");
+    // Each example (three inputs, two runs each) is a few child processes:
+    // they run on the thread pool, and the names of those that ran come back
+    // in order.
+    let ran: Vec<String> = par_map(STACK, &entries, |path| {
+        let source = std::fs::read_to_string(path).expect("read example");
         if !(source.contains("def main()") || source.contains("def main ()")) {
-            continue;
+            return None;
         }
         // These end in an unhandled `Fail` on purpose; see below.
         if source.contains("(run: fails)") {
-            continue;
+            return None;
         }
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
-            let js = same_both_ways(&path, input, true);
+            let js = same_both_ways(path, input, true);
             assert!(
                 js.status.success(),
                 "{}: {}",
@@ -100,8 +107,11 @@ fn examples_print_the_same_both_ways() {
                 text(&js.stderr)
             );
         }
-        ran.push(path.file_name().unwrap().to_string_lossy().into_owned());
-    }
+        Some(path.file_name().unwrap().to_string_lossy().into_owned())
+    })
+    .into_iter()
+    .flatten()
+    .collect();
     // The examples this covers, so that losing one is noticed.
     if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
         for name in [

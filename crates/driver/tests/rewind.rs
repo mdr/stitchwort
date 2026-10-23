@@ -197,6 +197,19 @@ fn assert_rewinding_changes_nothing(source: &Source) {
     cancel_then_check(source, &fresh);
 }
 
+/// The same checks as `assert_rewinding_changes_nothing`, run side by side:
+/// for one big source (the AoC project), where the examples' parallelism
+/// over sources doesn't help.
+fn assert_rewinding_changes_nothing_in_parallel(source: &Source) {
+    let fresh = fresh(source);
+    let checks: [fn(&Source, &str); 3] = [
+        check_rewind_check,
+        recheck_each_namespace,
+        cancel_then_check,
+    ];
+    par_map(STACK, &checks, |check| check(source, &fresh));
+}
+
 fn examples_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples")
 }
@@ -276,14 +289,22 @@ fn rewinding_changes_nothing_for_the_aoc_project() {
     if !slow_tier("rewinding_changes_nothing_for_the_aoc_project") {
         return;
     }
-    stitchwort_driver::driver::with_stack(STACK, || {
-        let source = aoc();
-        assert_rewinding_changes_nothing(&source);
-        // What a mark and a rewind cost after the whole project is checked
-        // (`--nocapture` shows it).
+    let source = aoc();
+    // The assertions and the timing below are independent: run side by side.
+    let parts: [fn(&Source); 2] = [
+        assert_rewinding_changes_nothing_in_parallel,
+        mark_and_rewind_cost,
+    ];
+    par_map(STACK, &parts, |part| part(&source));
+}
+
+/// What a mark and a rewind cost after the whole project is checked
+/// (`--nocapture` shows it).
+fn mark_and_rewind_cost(source: &Source) {
+    {
         let mut s = session();
         let empty = s.mark();
-        let _ = check(&mut s, &source);
+        let _ = check(&mut s, source);
         let t = std::time::Instant::now();
         let mark = s.mark();
         let marked = t.elapsed();
@@ -298,7 +319,7 @@ fn rewinding_changes_nothing_for_the_aoc_project() {
             rewound.as_secs_f64() * 1000.0,
             t.elapsed().as_secs_f64() * 1000.0
         );
-    });
+    }
 }
 
 /// Cancelled from another thread at various moments of a check of `aoc`:
@@ -310,11 +331,14 @@ fn a_check_cancelled_part_way_rewinds() {
     if !slow_tier("a_check_cancelled_part_way_rewinds") {
         return;
     }
-    stitchwort_driver::driver::with_stack(STACK, || {
-        let source = aoc();
-        let fresh = fresh(&source);
-        let mut cancelled = 0;
-        for delay_ms in [1, 10, 50, 150, 400, 900] {
+    let source = aoc();
+    let fresh = fresh(&source);
+    // Each delay is its own session, so they run side by side; true when
+    // that check was cancelled.
+    let delays = [1u64, 10, 50, 150, 400, 900];
+    let was_cancelled = par_map(STACK, &delays, |&delay_ms| {
+        let mut cancelled = false;
+        {
             let mut s = session();
             let flag = s.cancel_flag();
             let mark = s.mark();
@@ -331,7 +355,7 @@ fn a_check_cancelled_part_way_rewinds() {
             });
             match result {
                 Err(Cancelled) => {
-                    cancelled += 1;
+                    cancelled = true;
                     let late = ended.saturating_duration_since(set_at);
                     eprintln!(
                         "flag set at {delay_ms} ms: the check stopped {:.2} ms later",
@@ -353,6 +377,8 @@ fn a_check_cancelled_part_way_rewinds() {
                 &outcome(&s, &result),
             );
         }
-        assert!(cancelled > 0, "no check was cancelled");
+        cancelled
     });
+    let cancelled = was_cancelled.iter().filter(|c| **c).count();
+    assert!(cancelled > 0, "no check was cancelled");
 }
