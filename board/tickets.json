@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "D581 options note done (scratch D581-OPTIONS.md); discussing D620-D624 with Matt",
+      "where": "D620 = A: model every field + mutual-assignability TS test in the app (app repo only on Matt's say-so); next D628 field inventory",
       "labels": [
         "design",
         "js"
