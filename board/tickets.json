@@ -1,5 +1,5 @@
 {
-  "next": 360,
+  "next": 361,
   "tickets": [
     {
       "id": 1,
@@ -5670,7 +5670,7 @@
     {
       "id": 358,
       "title": "Build Float stage 1a: canonical-bits Float, add/sub primitives, natives agreeing with definitions (gate), literals, runtime, JS boundary (float.md §7.2)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "resumed at 7b16d12f: lint+WASM gate recheck, then steps 4-5, docs",
       "labels": [
@@ -5680,7 +5680,10 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "0b81fe04",
+        "4adce3ca"
+      ]
     },
     {
       "id": 359,
@@ -5698,6 +5701,21 @@
       "commits": [
         "3a6eeff4"
       ]
+    },
+    {
+      "id": 360,
+      "title": "Build Float stage 1b: ieeeLt/ieeeLe, lawful Ord Float (totalOrder), conversions, * / %, rounding, printing (float.md §7.2)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "kernel",
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
