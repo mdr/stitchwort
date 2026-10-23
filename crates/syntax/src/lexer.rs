@@ -177,12 +177,19 @@ pub struct Lexed {
 
 /// The tokens of `text`, without comments.
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
-    lex_with_trivia(file, text).map(|lexed| lexed.tokens)
+    lex_keeping(file, text, false).map(|lexed| lexed.tokens)
 }
 
 /// The tokens of `text` with the comments and blank lines around each. A
 /// `--` inside a string or text literal is part of the literal, not a comment.
 pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
+    lex_keeping(file, text, true)
+}
+
+/// Lexes `text`, recording the trivia only if `keep_trivia` (otherwise
+/// `trivia` and `eof` are empty). Only the formatter needs it, and it takes
+/// more memory than the tokens, so checking doesn't record it.
+fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Diagnostic> {
     let bytes = text.as_bytes();
     let mut tokens: Vec<Token> = Vec::new();
     let mut trivia: Vec<Trivia> = Vec::new();
@@ -203,7 +210,7 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
             seen = tokens.len();
             line_blank = false;
         }
-        while trivia.len() < tokens.len() {
+        while keep_trivia && trivia.len() < tokens.len() {
             trivia.push(Trivia {
                 leading: std::mem::take(&mut pending),
                 blank_lines_before: std::mem::take(&mut blank_run),
@@ -250,6 +257,9 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
                 let start = i;
                 while i < bytes.len() && bytes[i] != b'\n' {
                     i += 1;
+                }
+                if !keep_trivia {
+                    continue;
                 }
                 let end = if bytes[start..i].ends_with(b"\r") {
                     i - 1
@@ -630,7 +640,7 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
             "this string isn't closed with `\"`",
         ));
     }
-    while trivia.len() < tokens.len() {
+    while keep_trivia && trivia.len() < tokens.len() {
         trivia.push(Trivia {
             leading: std::mem::take(&mut pending),
             blank_lines_before: std::mem::take(&mut blank_run),

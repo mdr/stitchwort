@@ -508,6 +508,12 @@ enum Control {
     Return(Value),
 }
 
+// Deep evaluation holds many frames at once, so their size shows in its peak
+// memory (64 to 104 bytes cost the text benchmarks 10%, docs/testing.md):
+// box the large, rare ones.
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(std::mem::size_of::<Frame>() <= 64);
+
 /// Work waiting for a value.
 enum Frame {
     /// The function of `f a` (the argument is next).
@@ -569,12 +575,13 @@ enum Frame {
         stuck: Stuck,
     },
     /// The next argument of a quotient form `term` (after `done`; `last`,
-    /// if there, is its final argument, already computed).
+    /// if there, is its final argument, already computed). (`last` is boxed:
+    /// unboxed, it made this the largest frame, and every frame pays for it.)
     QuotArgs {
         term: Rc<Term>,
         env: Env,
         done: Vec<Value>,
-        last: Option<Value>,
+        last: Option<Box<Value>>,
     },
     /// The forced scrutinee of the case node `tree`.
     Scrutinee {
@@ -1050,7 +1057,7 @@ fn quot_args(
                         term: term.clone(),
                         env: env.clone(),
                         done,
-                        last,
+                        last: last.map(Box::new),
                     },
                 )?;
                 return Ok(Control::Eval(arg, env));
@@ -1085,7 +1092,7 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             last,
         } => {
             done.push(value);
-            quot_args(g, term, env, done, last, stack)?
+            quot_args(g, term, env, done, last.map(|last| *last), stack)?
         }
         Frame::LiftQuotient { term, env, stuck } => {
             push(g, stack, Frame::LiftForced { term, env, stuck })?;

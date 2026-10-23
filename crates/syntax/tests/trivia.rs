@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use stitchwort_syntax::{Lexed, SourceMap, Tok, Trivia, decl_ranges, lex, lex_with_trivia};
+use stitchwort_syntax::{Lexed, SourceMap, Tok, Token, Trivia, decl_ranges, lex, lex_with_trivia};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -137,9 +137,14 @@ fn trivia_rebuilds_every_file() {
             continue;
         };
         checked += 1;
-        // `lex` agrees.
+        // `lex`, which doesn't record trivia, agrees.
         let plain = lex(file, &text).expect("lexes");
-        assert_eq!(plain.len(), lexed.tokens.len(), "{}", path.display());
+        let key = |t: &Token| (t.tok.clone(), t.span, t.line_start);
+        assert!(
+            plain.iter().map(key).eq(lexed.tokens.iter().map(key)),
+            "{}",
+            path.display()
+        );
         assert_eq!(lexed.trivia.len(), lexed.tokens.len());
         let rebuilt = rebuild(&text, &lexed);
         let (mut want, mut got) = (normalise(&text), normalise(&rebuilt));
