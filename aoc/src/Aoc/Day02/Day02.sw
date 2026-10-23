@@ -1,6 +1,7 @@
 -- Advent of Code 2025, day 2: product ids. An id is invalid when its decimal
 -- digits are some block written twice (part 1) or two or more times (part 2).
--- Sum the invalid ids that lie in any of the given ranges.
+-- Sum, range by range, the invalid ids in each of the given ranges (an id in two
+-- overlapping ranges counts twice; the puzzle input's ranges don't overlap).
 --
 --   $ cd aoc && stitchwort run Aoc.Day02.main < inputs/day02.txt
 --
@@ -10,14 +11,14 @@
 -- ids made of a k-digit block written n times (a template of k by n) are
 -- base * m for the k-digit bases, where m = 1 + 10^k + 10^2k + ... (12
 -- written 3 times is 12 * 10101). Those bases form an interval, so their sum
--- is an arithmetic series (`sumOfIdsInRangeMatchingTemplate`). Part 2 must not count
+-- is an arithmetic series (`RepetitionTemplate.sumIn`). Part 2 must not count
 -- 111111 three times (1 six times, 11 three times, 111 twice): by
 -- inclusion-exclusion over n, the ids with some proper period are the sum
 -- over n of -mu(n) times the ids with n copies, where mu is the Moebius
 -- function. The weights -mu(n) are computed (`copiesWeight`, a signed sum
 -- over the divisors), so ids of any length work.
 --
--- That `sumOfIdsInRangeMatchingTemplate` adds up the right ids is proved in
+-- That `RepetitionTemplate.sumIn` adds up the right ids is proved in
 -- `Aoc.Day02.Proofs` (Proofs/Repeated.sw); the tests are in
 -- `Aoc.Day02.Tests` (Tests/), both against the puzzle-literal spec in
 -- `Aoc.Day02.Spec` (Spec/). `run` checks none of them.
@@ -53,7 +54,7 @@ def RepetitionTemplate.largestBlock (template: RepetitionTemplate): Nat := Nat.p
 
 -- Every template that fits in the digits of the range's end: a block of one or
 -- more digits written two or more times. Some may have no ids in the range;
--- `sumOfIdsInRangeMatchingTemplate` gives those 0.
+-- `RepetitionTemplate.sumIn` gives those 0.
 def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect (() =>
   let maxDigits := (Nat.digits range.to).length
   let blockLength := each (List.between 1 maxDigits)
@@ -65,13 +66,13 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect
 def sumOfIdsWrittenTwice (range: Range): Nat :=
   allTemplatesForRange range
     |> .filter (template => template.copies == 2)
-    |> .sumBy (sumOfIdsInRangeMatchingTemplate range)
+    |> .sumBy (RepetitionTemplate.sumIn range)
 
 -- Part 2: the ids in the range written two or more times, each counted once.
--- 111111 has templates 1×6, 11×3 and 111×2; the weights cancel the repeats.
+-- 111111 has templates 1×6, 2×3 and 3×2 (block length × copies); the weights cancel the repeats.
 def sumOfIdsWrittenRepeatedly (range: Range): Int :=
   (allTemplatesForRange range).sumBy (template =>
-    let idsTotal := sumOfIdsInRangeMatchingTemplate range template
+    let idsTotal := RepetitionTemplate.sumIn range template
     let weight := copiesWeight template.copies
     weight * idsTotal.toInt)
 
@@ -79,9 +80,9 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 -- `copies` from 2 to copies - 1. For copies >= 2 this is minus the Moebius
 -- function (the weights of 0 and 1 copies are 1, and are never used). It is
 -- chosen so that for every K >= 2 the weights of K's divisors from 2 on (K
--- itself included) add up to 1: an id whose digits are a block written K
--- times, and no fewer, is then counted once. The guard `d < copies` always
--- holds; it is there to show that the recursion ends.
+-- itself included) add up to 1: an id whose smallest repeating block is written K
+-- times is then counted once. The guard `d < copies` always holds; it is
+-- there to show that the recursion ends.
 def copiesWeight (copies: Nat): Int
   decreasing copies
 :=
@@ -91,7 +92,7 @@ def copiesWeight (copies: Nat): Int
 
 -- The sum of the ids in the range whose digits are a block of the template's
 -- length written the template's number of copies.
-def sumOfIdsInRangeMatchingTemplate (range: Range) (template: RepetitionTemplate): Nat :=
+def RepetitionTemplate.sumIn (range: Range) (template: RepetitionTemplate): Nat :=
   -- Every such id is a block times the multiplier.
   let multiplier := template.multiplier
   if multiplier != 0 then
