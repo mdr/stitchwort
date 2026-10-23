@@ -6030,8 +6030,8 @@
     {
       "id": 376,
       "title": "Language server stage 2d: goal at the cursor (stitchwort/goalAt, VS Code panel) (D640)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
@@ -6319,7 +6319,7 @@
     {
       "id": 394,
       "title": "Coverage messages for indexed families inside match/let: 'no alternative of this match matches …' rewording and E-LET-REFUTABLE apply to Nat but not to Fin/indexed families (reported later by the family check; found by SW-384, matching.rs)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -6328,7 +6328,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "c41a9cb1"
+      ]
     },
     {
       "id": 395,
