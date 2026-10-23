@@ -92,8 +92,9 @@ fn sw_files(dir: &Path) -> Vec<PathBuf> {
 
 /// Examples with quotients, which the runtime doesn't lower until stage 1.3
 /// of docs/proposals/map-equality.md (§14.1): lowering them is refused
-/// (`E-RUNTIME`) rather than guessed at. Empty again once it does.
-const NOT_LOWERED_YET: &[&str] = &["quot-forms.sw"];
+/// (`E-RUNTIME`) rather than guessed at. Stage 1.3 (erasure and runtimes)
+/// removes the skip and empties this list.
+const NOT_LOWERED_YET: &[&str] = &["quot-forms.sw", "quot-lift.sw"];
 
 fn is_main(name: &str) -> bool {
     name == "main" || name.ends_with(".main")
