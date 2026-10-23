@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: field `id` is given twice
+   ╭─[ reject/shared-field-update-duplicate.sw:8:44 ]
+   │
+ 8 │ def f (s: Shape): Shape := { s | id = "a", id = "b" }
+   │                                  ─┬        ─┬  
+   │                                   ╰──────────── first given here
+   │                                             │  
+   │                                             ╰── field `id` is given twice
+───╯

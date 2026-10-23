@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-UPDATE] Error: `n` can't be updated on every `Own`
+   ╭─[ reject/shared-field-update-forced-own-field.sw:9:24 ]
+   │
+ 9 │ def f (a: Own): Own := { a | n = 1 }
+   │                        ──────┬──────  
+   │                              ╰──────── this update
+   │ 
+   │ Note: in `OA`, the type of `v`, which isn't shared, mentions `n`, and an update can only give shared fields: match on the value and rebuild `OA`
+───╯

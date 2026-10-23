@@ -293,6 +293,22 @@ impl Elaborator {
         out
     }
 
+    /// [`Self::unnoted`] in a body's context: `f` elaborates code the
+    /// compiler wrote at a use site (a shared-field update's `match`).
+    pub(crate) fn unnoted_in<'e, T>(
+        cx: &mut crate::check::Ctx<'e>,
+        f: impl FnOnce(&mut crate::check::Ctx<'e>) -> T,
+    ) -> T {
+        if let Some(nav) = &cx.e.nav {
+            nav.borrow_mut().generated += 1;
+        }
+        let out = f(cx);
+        if let Some(nav) = &cx.e.nav {
+            nav.borrow_mut().generated -= 1;
+        }
+        out
+    }
+
     /// `name`, written, resolved to a declaration.
     pub(crate) fn note_name(&self, name: &ast::Name) {
         if self.nav.is_none() {

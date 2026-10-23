@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-UPDATE] Error: a value of the indexed family `Fam` can't be updated by field
+   ╭─[ reject/shared-field-update-indexed-family.sw:8:28 ]
+   │
+ 8 │ def f (a: Fam 0): Fam 0 := { a | k = 1 }
+   │                            ──────┬──────  
+   │                                  ╰──────── this update
+   │ 
+   │ Note: a replaced field could be one an index is computed from; match on the value and rebuild its constructor
+───╯

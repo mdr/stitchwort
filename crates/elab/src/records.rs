@@ -498,6 +498,13 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
     }
 }
 
+/// Whether `ty` is a data type that isn't a record, whose values an update
+/// rebuilds by their constructor (docs/proposals/variant-fields.md §6).
+fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let g = cx.g();
+    Ok(matches!(force(g, ty.clone())?, Value::Data(d, _) if !g.data(d).record))
+}
+
 /// A record literal or update, checked against `expected`.
 pub(crate) fn check_record(
     cx: &mut Ctx,
@@ -511,10 +518,18 @@ pub(crate) fn check_record(
             literal(cx, d, &params, fields)
         }
         Some(base) => {
+            if variant(cx, expected)? {
+                let base = check(cx, base, expected)?;
+                return crate::shared::variant_update(cx, base, expected, fields);
+            }
             if let Some(term) = changing_update(cx, base, fields, expected)? {
                 return Ok(term);
             }
             let base = check(cx, base, expected)?;
+            // The base may have told what `expected` is.
+            if variant(cx, expected)? {
+                return crate::shared::variant_update(cx, base, expected, fields);
+            }
             update(cx, base, expected, None, fields)
         }
     }
@@ -528,6 +543,9 @@ pub(crate) fn infer_update(
 ) -> Result<(Term, Value)> {
     let (base, ty) = infer(cx, base)?;
     let (base, ty) = insert(cx, base, ty)?;
+    if variant(cx, &ty)? {
+        return Ok((crate::shared::variant_update(cx, base, &ty, fields)?, ty));
+    }
     let Ok((d, params)) = record_type(cx, &ty, "this update") else {
         return Ok((update(cx, base, &ty, None, fields)?, ty));
     };

@@ -25,9 +25,11 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{conv, eval, quote, unused};
+use stitchwort_core::value::{conv, eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
+use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
+use crate::check::{Ctx, check};
 use crate::{Elaborator, Global, Result};
 
 /// Why a field every constructor names isn't shared.
@@ -324,6 +326,18 @@ impl Elaborator {
         f: &str,
         recv: &str,
     ) -> Option<(String, String)> {
+        self.unshared_member_for(d, f, recv, "read")
+    }
+
+    /// [`Self::unshared_member`], for a use that would `read` the field or
+    /// `update` it (`{ a | f = … }`, §6.1), which the note's advice suits.
+    pub(crate) fn unshared_member_for(
+        &self,
+        d: DataId,
+        f: &str,
+        recv: &str,
+        use_: &str,
+    ) -> Option<(String, String)> {
         let g = &self.globals;
         let data = g.data(d);
         let has = |c: &&stitchwort_core::globals::Ctor| c.fields.iter().any(|(x, _)| **x == *f);
@@ -353,10 +367,17 @@ impl Elaborator {
             } else {
                 format!("only {} have `{f}`", listed(&holders))
             };
-            let note = format!(
-                "{who}; match on {recv} to read it: `| {} {{ {f}, .. }} => …`",
-                holders[0]
-            );
+            let note = if use_ == "update" {
+                format!(
+                    "{who}; match on {recv} and rebuild the constructor: `| {} {{ .. }} => …`",
+                    holders[0]
+                )
+            } else {
+                format!(
+                    "{who}; match on {recv} to read it: `| {} {{ {f}, .. }} => …`",
+                    holders[0]
+                )
+            };
             return Some((message, note));
         }
         let unshared = self.shared_fields(d).ok()?.unshared;
@@ -435,4 +456,301 @@ impl Elaborator {
             ),
         }
     }
+
+    /// The accessor of `d`'s shared field `f`.
+    fn accessor(&self, d: DataId, f: &str) -> Option<DefId> {
+        let key = Self::member_key(&self.data_key(d), f);
+        match self.scope.get(&key) {
+            Some((Global::Def(id), _)) => Some(id),
+            _ => None,
+        }
+    }
+}
+
+// Updates (docs/proposals/variant-fields.md §6).
+
+/// One `let` an update binds around its `match`: name, type, value.
+type Bound = (Name, Term, Term);
+
+/// `{ base | f = e, … }` where `base : ty`, a data type that isn't a record
+/// (§6): every `f` is a shared field, and the result is the constructor
+/// `base` is, rebuilt with those fields replaced. Elaborated as
+///
+/// ```text
+/// let %base := base            (unless it's a variable)
+/// let %new%f := e  …           (in the shared fields' order)
+/// match %base with
+///   | C x₁ … xₙ => C x₁ … %new%f … xₙ
+///   | …
+/// ```
+///
+/// through the ordinary `match`, so the base and each new value are
+/// evaluated once, and a new value whose type mentions the base is refined
+/// in each alternative (its `let` is copied there as a hypothesis). Every
+/// field whose type mentions a replaced one, in any constructor, must be
+/// replaced too (the closure, §6.1); an indexed family's values aren't
+/// updated. The `match` is code the compiler writes, so navigation notes
+/// nothing in it.
+pub(crate) fn variant_update(
+    cx: &mut Ctx,
+    base: Term,
+    ty: &Value,
+    fields: &[(ast::Name, Expr)],
+) -> Result<Term> {
+    let g = cx.g();
+    let Value::Data(d, args) = force(g, ty.clone())? else {
+        unreachable!("only called on a data type")
+    };
+    let shared = cx.e.shared_fields(d)?.shared;
+    let data = g.data(d);
+    let type_name = crate::scope::display(&cx.e.data_key(d)).to_string();
+    let mut seen: Vec<&ast::Name> = Vec::new();
+    for (name, _) in fields {
+        if let Some(first) = seen.iter().find(|s| s.text == name.text) {
+            return Err(crate::error(
+                "E-RECORD-FIELD",
+                name.span,
+                format!("field `{}` is given twice", name.text),
+            )
+            .with_label(first.span, "first given here"));
+        }
+        seen.push(name);
+        if shared.iter().any(|(f, _)| **f == *name.text) {
+            cx.e.note_field(d, name);
+            continue;
+        }
+        let (message, note) = match cx
+            .e
+            .unshared_member_for(d, &name.text, "the value", "update")
+        {
+            Some(found) => found,
+            None => {
+                let names: Vec<String> = shared.iter().map(|(f, _)| format!("`{f}`")).collect();
+                let note = if names.is_empty() {
+                    "it has no shared fields".to_string()
+                } else {
+                    format!("its shared fields are {}", names.join(", "))
+                };
+                (format!("`{type_name}` has no field `{}`", name.text), note)
+            }
+        };
+        return Err(crate::error("E-UNKNOWN-FIELD", name.span, message).with_note(note));
+    }
+    if !data.indices.is_empty() {
+        return Err(cx
+            .error(
+                "E-RECORD-UPDATE",
+                format!("a value of the indexed family `{type_name}` can't be updated by field"),
+                "this update",
+            )
+            .with_note(
+                "a replaced field could be one an index is computed from; match on the value \
+                 and rebuild its constructor",
+            ));
+    }
+    let named = |f: &Name| fields.iter().any(|(n, _)| *n.text == **f);
+    closed(cx, d, &shared, &named, &type_name)?;
+
+    let params: Vec<Value> = args[..data.params.len()].to_vec();
+    let mark = cx.mark();
+    let mut bound: Vec<Bound> = Vec::new();
+    let result = update_match(cx, d, base, ty, &params, &shared, fields, &mut bound);
+    cx.reset(mark);
+    let mut term = result?;
+    for (x, ty_term, value) in bound.into_iter().rev() {
+        term = Term::let_(x, ty_term, value, term);
+    }
+    Ok(term)
+}
+
+/// [`variant_update`]'s `let`s, bound in `cx` and pushed on `bound`, and
+/// its `match`, in their context.
+#[allow(clippy::too_many_arguments)]
+fn update_match(
+    cx: &mut Ctx,
+    d: DataId,
+    base: Term,
+    ty: &Value,
+    params: &[Value],
+    shared: &[(Name, Vec<usize>)],
+    fields: &[(ast::Name, Expr)],
+    bound: &mut Vec<Bound>,
+) -> Result<Term> {
+    let g = cx.g();
+    let data = g.data(d);
+    let named = |f: &Name| fields.iter().any(|(n, _)| *n.text == **f);
+    // The base, as a variable.
+    let base_name = "%base";
+    match base.strip_loc() {
+        Term::Var(ix) => {
+            let level = cx.level() - 1 - ix;
+            cx.alias(base_name, level);
+        }
+        _ => {
+            let ty_term = cx.quote(ty)?;
+            cx.define(
+                Some(base_name),
+                base_name.into(),
+                ty.clone(),
+                ty_term.clone(),
+                base.clone(),
+            )?;
+            bound.push((base_name.into(), ty_term, base));
+        }
+    }
+    let base_level = cx.lookup(base_name).expect("just bound");
+    let new_name = |f: &str| format!("%new%{f}");
+    // The new values, in the shared fields' order: a field's type mentions
+    // only earlier ones, each its new value if replaced and its accessor of
+    // the base if kept.
+    let first = &data.ctors[0];
+    for (field, positions) in shared {
+        let Some((_, expr)) = fields.iter().find(|(n, _)| *n.text == **field) else {
+            continue;
+        };
+        let mut env = params.to_vec();
+        for (x, _) in &first.fields[..positions[0]] {
+            let accessor = shared
+                .iter()
+                .any(|(f, _)| f == x)
+                .then(|| cx.e.accessor(d, x))
+                .flatten();
+            let value = if let Some(level) = cx.lookup(&new_name(x)) {
+                cx.env[level].clone()
+            } else if let Some(p) = accessor {
+                let mut term = Term::Def(p);
+                for v in params {
+                    term = Term::app_icit(term, cx.quote(v)?, Icit::Implicit);
+                }
+                let base_var = Term::Var(cx.level() - 1 - base_level);
+                cx.eval(&Term::app(term, base_var))?
+            } else {
+                unused()
+            };
+            env.push(value);
+        }
+        let field_ty = eval(g, &env, &first.fields[positions[0]].1)?;
+        let term = check(cx, expr, &field_ty)?;
+        let ty_term = cx.quote(&field_ty)?;
+        let x = new_name(field);
+        cx.define(
+            Some(&x),
+            x.as_str().into(),
+            field_ty,
+            ty_term.clone(),
+            term.clone(),
+        )?;
+        bound.push((x.as_str().into(), ty_term, term));
+    }
+    // The `match`, one alternative per constructor, which names each
+    // constructor by its key, so whatever `C` means here doesn't matter.
+    let span = cx.span;
+    let name = |text: String| ast::Name { text, span };
+    let var = |text: String| Expr::Var(name(text));
+    let owner = cx.e.data_key(d);
+    let old = |k: usize| format!("%old%{k}");
+    let alts: Vec<Alt> = data
+        .ctors
+        .iter()
+        .map(|ctor| {
+            let key = format!(
+                "{}{}",
+                crate::scope::EXACT_KEY,
+                Elaborator::member_key(&owner, &ctor.name)
+            );
+            let mut patterns = Vec::new();
+            let mut body = var(key.clone());
+            for (k, (f, _)) in ctor.fields.iter().enumerate() {
+                let (pattern, arg) = if ctor.implicit.get(k).copied() == Some(true) {
+                    (
+                        Pattern::Named(
+                            name(f.to_string()),
+                            Box::new(Pattern::Var(name(old(k)))),
+                            span,
+                        ),
+                        Expr::NamedArg(name(f.to_string()), Box::new(var(old(k))), span),
+                    )
+                } else if named(f) {
+                    (Pattern::Wildcard(span), var(new_name(f)))
+                } else {
+                    (Pattern::Var(name(old(k))), var(old(k)))
+                };
+                patterns.push(pattern);
+                body = Expr::App(Box::new(body), Box::new(arg));
+            }
+            Alt {
+                patterns: vec![Pattern::Ctor(name(key), patterns, span)],
+                body,
+                span,
+            }
+        })
+        .collect();
+    let expr = Expr::Match {
+        scrutinees: vec![Scrutinee {
+            name: None,
+            expr: var(base_name.to_string()),
+        }],
+        alts,
+        span,
+        kind: MatchKind::Match,
+    };
+    Elaborator::unnoted_in(cx, |cx| crate::matching::check_match(cx, &expr, ty))
+}
+
+/// Refuses an update of the shared fields `named` of `d` unless, in every
+/// constructor, each field whose type mentions a replaced one (explicit or
+/// implicit, data or proof, transitively) is named too (§6.1).
+fn closed(
+    cx: &Ctx,
+    d: DataId,
+    shared: &[(Name, Vec<usize>)],
+    named: &dyn Fn(&Name) -> bool,
+    type_name: &str,
+) -> Result<()> {
+    let data = cx.g().data(d);
+    for ctor in &data.ctors {
+        // For each field: if it's replaced, the named field that forces it.
+        let mut forced: Vec<Option<Name>> = Vec::new();
+        for (j, (field, field_ty)) in ctor.fields.iter().enumerate() {
+            if named(field) {
+                forced.push(Some(field.clone()));
+                continue;
+            }
+            let Some(i) = (0..j).find(|&i| forced[i].is_some() && field_ty.mentions(j - 1 - i))
+            else {
+                forced.push(None);
+                continue;
+            };
+            let root = forced[i].clone().expect("just found");
+            let dep = &ctor.fields[i].0;
+            if shared.iter().any(|(f, _)| f == field) {
+                return Err(cx
+                    .error(
+                        "E-RECORD-UPDATE",
+                        format!("updating `{root}` needs `{field}` updated too"),
+                        format!("the type of `{field}` mentions `{dep}`"),
+                    )
+                    .with_note(format!(
+                        "give a new `{field}` for the new `{dep}`: `{{ … | {dep} = …, {field} = … }}`"
+                    )));
+            }
+            let what = if ctor.implicit.get(j).copied() == Some(true) {
+                format!("the implicit field `{field}`")
+            } else {
+                format!("`{field}`, which isn't shared,")
+            };
+            return Err(cx
+                .error(
+                    "E-RECORD-UPDATE",
+                    format!("`{root}` can't be updated on every `{type_name}`"),
+                    "this update",
+                )
+                .with_note(format!(
+                    "in `{}`, the type of {what} mentions `{dep}`, and an update can only give \
+                     shared fields: match on the value and rebuild `{}`",
+                    ctor.name, ctor.name
+                )));
+        }
+    }
+    Ok(())
 }

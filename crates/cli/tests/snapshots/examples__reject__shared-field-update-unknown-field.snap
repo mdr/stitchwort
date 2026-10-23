@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Shape` has no field `colour`
+   ╭─[ reject/shared-field-update-unknown-field.sw:8:34 ]
+   │
+ 8 │ def f (s: Shape): Shape := { s | colour = "x" }
+   │                                  ───┬──  
+   │                                     ╰──── `Shape` has no field `colour`
+   │ 
+   │ Note: its shared fields are `id`, `start`
+───╯
