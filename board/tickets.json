@@ -5813,9 +5813,9 @@
     {
       "id": 366,
       "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): F0 merged, F1 (core, Opus) next",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree lane (F1, Opus)",
       "labels": [
         "tooling"
       ],
