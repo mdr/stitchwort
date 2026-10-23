@@ -554,6 +554,9 @@ enum Tree<'a> {
 enum NumberKind {
     Nat,
     Int,
+    /// The library's `Fin n`: a number pattern is `FZero` or `FSucc`
+    /// (docs/proposals/fin-literals.md).
+    Fin,
     /// Some other type, or not known.
     Other,
 }
@@ -2581,7 +2584,10 @@ impl Elaborator {
                 && !rows
                     .iter()
                     .any(|r| matches!(*r.pats[j], Pattern::Ctor(..) | Pattern::CtorFields { .. }))
-                && self.number_kind(types[j].as_ref())? != NumberKind::Int
+                && !matches!(
+                    self.number_kind(types[j].as_ref())?,
+                    NumberKind::Int | NumberKind::Fin
+                )
             {
                 return self.compile_numbers(rows, depth, columns, types, j, span);
             }
@@ -2877,10 +2883,15 @@ impl Elaborator {
             // the split reports the mismatch.
             Pattern::NegNum(n, span) => match self.number_kind(ty)? {
                 NumberKind::Nat => Err(negative_nat(*span)),
+                NumberKind::Fin => Err(error("E-FIN-LITERAL", *span, "a `Fin` can't be negative")
+                    .with_note("a `Fin n` is a number from 0 up to n - 1")),
                 _ => self.int_pattern(n, true, *span).map(Some),
             },
             Pattern::Num(n, span) if self.number_kind(ty)? == NumberKind::Int => {
                 self.int_pattern(n, false, *span).map(Some)
+            }
+            Pattern::Num(n, span) if self.number_kind(ty)? == NumberKind::Fin => {
+                self.fin_pattern(n, ty, *span).map(Some)
             }
             Pattern::Record { fields, rest, span } => Ok(Some(match pattern {
                 Cow::Borrowed(Pattern::Record { fields, .. }) => {
@@ -3032,7 +3043,49 @@ impl Elaborator {
             {
                 NumberKind::Int
             }
+            Value::Data(d, params)
+                if params.len() == 1 && Some(d) == g.registry.loaded_data(Builtin::Fin) =>
+            {
+                NumberKind::Fin
+            }
             _ => NumberKind::Other,
+        })
+    }
+
+    /// The constructor pattern for the number pattern `k` on `ty`, a `Fin n`:
+    /// `FZero`, or `FSucc` around `k - 1`. Refused when n is a known number
+    /// not above k (docs/proposals/fin-literals.md).
+    fn fin_pattern<'a>(
+        &self,
+        k: &BigUint,
+        ty: Option<&Value>,
+        span: Span,
+    ) -> Result<CtorPattern<'a>> {
+        if let Some(ty) = ty
+            && let Some(Some(n)) = numbers::fin_bound(&self.globals, ty)?
+            && *k >= n
+        {
+            return Err(error(
+                "E-FIN-LITERAL",
+                span,
+                format!("{k} isn't below {n}, so it can't match a `Fin {n}`"),
+            )
+            .with_note(format!("a `Fin {n}` is a number below {n}")));
+        }
+        let (ctor, args) = if k.bits() == 0 {
+            (Builtin::FZero, Vec::new())
+        } else {
+            (
+                Builtin::FSucc,
+                vec![Cow::Owned(Pattern::Num(k - 1u32, span))],
+            )
+        };
+        let (data, ctor) = self.builtin_ctor(ctor, span)?;
+        Ok(CtorPattern {
+            data,
+            ctor,
+            args,
+            span,
         })
     }
 

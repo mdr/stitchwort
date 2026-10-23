@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FIN-LITERAL] Error: 2 isn't below 2, so it can't match a `Fin 2`
+   ╭─[ reject/fin-pattern-out-of-range.sw:8:5 ]
+   │
+ 8 │   | 2 => "two"
+   │     ┬  
+   │     ╰── 2 isn't below 2, so it can't match a `Fin 2`
+   │ 
+   │ Note: a `Fin 2` is a number below 2
+───╯

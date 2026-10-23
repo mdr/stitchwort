@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FIN-LITERAL] Error: `2` can't be checked to be below the bound of `Fin n`
+   ╭─[ reject/fin-literal-unknown-bound.sw:6:30 ]
+   │
+ 6 │ def third (n: Nat): Fin n := 2
+   │                              ┬  
+   │                              ╰── a numeral can be a `Fin n` only where n is a known number
+   │ 
+   │ Note: build it with `Fin.ofNatLt`, giving a proof that `2` is below the bound
+───╯
+[E-FIN-LITERAL] Error: `3` can't be checked to be below the bound of `Fin ?0`
+   ╭─[ reject/fin-literal-unknown-bound.sw:9:30 ]
+   │
+ 9 │ def unsaid: Nat := Fin.toNat 3
+   │                              ┬  
+   │                              ╰── a numeral can be a `Fin n` only where n is a known number
+   │ 
+   │ Note: nothing here says what n is yet: write it, as in `(3: Fin 10)`
+───╯
