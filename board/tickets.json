@@ -5632,7 +5632,7 @@
     {
       "id": 356,
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -5642,7 +5642,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "14a62fd9"
+      ]
     }
   ]
 }
