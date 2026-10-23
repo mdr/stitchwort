@@ -5556,9 +5556,9 @@
     {
       "id": 351,
       "title": "Design note: JS-number Float type (native arithmetic, crosses as number; proofs via an operations interface) (D645)",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
-      "where": "draft 2 merged; awaiting sign-off or 2nd review (pack: scratchpad/float-review-pack-2.md)",
+      "where": "draft 3 lane (D730): fold round-2 review, then signed off; stage 1a build next",
       "labels": [
         "design",
         "js"
