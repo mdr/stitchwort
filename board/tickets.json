@@ -6295,7 +6295,7 @@
     {
       "id": 392,
       "title": "Flaky under load: lsp test a_newer_edit_cancels_the_check_running asserts a wall-clock bound (after < 1.5 x one check + 200ms); failed once 23 Oct with 5 lanes building, passed 3/3 alone",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -6304,7 +6304,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "40854835"
+      ]
     },
     {
       "id": 393,
