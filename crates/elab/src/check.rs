@@ -2306,6 +2306,68 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
     }
 }
 
+/// [`propagate`] for an effectful call (`effects::comp_app`): `head`, a
+/// function of type `ty`, applied to `args` (already free of operations),
+/// whose result is a computation expected to return an `expected`. That
+/// value type is compared with `expected` before the arguments are checked,
+/// as a pure call's whole result type is, so `Abort.orElse 0 (() => …)` at
+/// `Int` checks the `0` as an `Int` (SW-223). The row isn't compared: the
+/// caller fits it to its own by lifting. `None` if that doesn't apply (no
+/// arguments, an unknown `expected`, a result type that depends on the
+/// arguments or isn't a computation, or a value type that doesn't match), or
+/// if the application then fails: everything is undone, and the caller
+/// applies the arguments as before, so a rejected program keeps its message.
+pub(crate) fn propagate_comp(
+    cx: &mut Ctx,
+    head: &(Term, Value),
+    args: &[Expr],
+    expected: &Value,
+) -> Result<Option<(Term, Value)>> {
+    if args.is_empty()
+        || cx.e.no_propagation.get() != 0
+        || matches!(
+            force(cx.g(), expected.clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        )
+    {
+        return Ok(None);
+    }
+    let args = args_of(args);
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let Some((written, mut supply)) = written_result(cx, &head.1, &args)? else {
+        snapshot.restore(cx);
+        return Ok(None);
+    };
+    let Some((_, value)) = effects::comp_parts(cx, &written)? else {
+        snapshot.restore(cx);
+        return Ok(None);
+    };
+    if !cx.unify(&value, expected)? {
+        snapshot.restore(cx);
+        return Ok(None);
+    }
+    let result = (|| -> Result<(Term, Value)> {
+        let (term, found) = apply_args_with(cx, head.clone(), &args, &mut supply)?;
+        let (term, found) = insert_with(cx, term, found, &mut supply)?;
+        if !supply.is_empty() {
+            // The types as elaborated didn't line up with the walk's.
+            return Err(Diagnostic::error(
+                "E-PROPAGATE",
+                "unused implicit arguments",
+            ));
+        }
+        Ok((term, found))
+    })();
+    match result {
+        Ok(found) => Ok(Some(found)),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            Ok(None)
+        }
+    }
+}
+
 /// `W-LAMBDA-SHADOW` (docs/proposals/lambda-syntax.md §7.2): a lambda with two
 /// or more parameters whose first is a plain name that, in the scope around
 /// the lambda, is a function: `map x => …` where `map (x => …)` was probably

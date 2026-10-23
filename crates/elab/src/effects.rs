@@ -1601,6 +1601,15 @@ fn comp_app(
         }
         other => infer(cx, other)?,
     };
+    // The value type the call returns is compared with the expected one
+    // before the arguments are checked, as a pure call's is (SW-223).
+    if let Some(t) = expected
+        && let Some(applied) =
+            crate::check::propagate_comp(cx, &(term.clone(), ty.clone()), &owned, t)?
+    {
+        (term, ty) = applied;
+        owned.clear();
+    }
     for arg in &owned {
         if performs_after(cx, ty.clone(), 0)? {
             let (t2, ty2) = insert(cx, term, ty)?;
