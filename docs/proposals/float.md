@@ -1,7 +1,8 @@
 # Proposal: `Float`, a JavaScript number
 
-**Status:** draft 3, signed off after two external reviews; stage 1a is built ([As
-built](#as-built-stage-1a)), stage 1b is next ([§7.2](#72-stages-and-cost)). 23 October 2026. Follows D645 (a JS-number `Float`). Draft 1's
+**Status:** draft 3, signed off after two external reviews; stages 1a and 1b are built ([As
+built (stage 1b)](#as-built-stage-1b), [As built (stage 1a)](#as-built-stage-1a)); what §7.2
+leaves for later is next, when a program needs it. 23 October 2026. Follows D645 (a JS-number `Float`). Draft 1's
 decisions D680 to D689 keep their numbers; draft 2 adopted every point of the first review (D696),
 flipping D683 and D685, and added D701 and D702; draft 3 applies every amendment of the second
 review (D730) and adds D731 to D733. Every decision is final ([§8](#8-decisions)). Written against
@@ -14,6 +15,102 @@ in [Appendix A](#appendix-a-snippets-run)), **[cited]** (read in the source link
 [Sources](#sources)), **[cited by the review]** (the reviewer quotes or summarises a specification;
 not re-read here), **[inferred]** (my reading, not stated anywhere), **[unverified]** (from
 memory, not re-checked).
+
+## As built (stage 1b)
+
+Stage 1b is built as §7.2 defines it: the rest of D687's operations, `Ord Float`, the IEEE
+comparisons, the conversions, printing, and the rest of §7.4's table. What it adds:
+
+- **Primitives** (`std/Float/Float.sw`, `crates/core/src/float.rs`), with the 1a trust contract:
+  `mul`, `div`, `rem` (`Float -> Float -> Float`; `%` is the truncated remainder, JS's and
+  Rust's), `floor`, `ceil`, `trunc`, `round` (`Float -> Float`), `ofInt` (`Int -> Float`) and
+  `ofNat` (`Nat -> Float`). Admission now checks each primitive against its own signature
+  (`Signature`). `round` is written to the specification's case split (`js_round`), not built
+  from `floor(x + 0.5)` or Rust's `round`. The conversions round to nearest, ties to even, with
+  infinity from exactly the halfway point past `MAX_VALUE` (`nat_to_f64`: the top 54 bits and a
+  sticky bit, not `num-bigint`'s `to_f64`). `toText` (`Float -> Text`) is a primitive with no
+  reduction rule, as D688 says.
+- **Definitions over the bits, with kernel natives**: `isFinite`, `ieeeLt`, `ieeeLe` (`Bool`s),
+  and `toInt` (`Option Int`, every whole double: `Float.toInt 1e100` is the 101-digit integer of
+  §2.5, `toInt (-0.0)` is `Some 0`). Their natives return what the definitions compute (`None`,
+  `Some (OfNat n)`, `Some (NegSucc n)`, `True`, `False`) and fire only on known valid bits, as
+  in 1a.
+- **`Ord Float`** (D684): `Float.orderKey` maps the bits to an `Int` (`OfNat bits` with the sign
+  clear, `NegSucc magnitude` with it set, so `-0.0` is `-1` and the NaN is greatest),
+  `Float.keyOfInjective` proves it injective (four cases, `omega` for one), and
+  `Float.instOrd := Ord.fromCompare Float.compare …` takes `equal`, `flip` and `trans` from
+  `Int`'s laws through the key. So `<`, `<=`, `List.sort`, `Map Float`, `Set Float` and derived
+  orders are the total order, lawful. `<` on `Float` resolves to `Ord` as on any type; nothing in
+  `numbers.rs` makes it IEEE.
+- **Also**: `Float.ieeeLtLe` (`ieeeLt a b = True -> ieeeLe a b = True`, §4.1), `toSafeInt`,
+  `toSafeNat`, `SafeInt.toFloat`, `SafeNat.toFloat`, `Float.toSource` (D733: the four special
+  values from the bits, otherwise `toText` with `.0` added when it has no `.` or `e`) and
+  `Show Float`. `*`, `/` and `%` on `Float` in `numbers.rs`, with no divisor proof; the D732
+  rows for `*` (`-1 * t` is a `Float`, `1.5 * n` a mismatch) are in
+  `examples/accept/float-operations.sw` and `examples/reject/float-nat-mul.sw`. The mismatch
+  note now names the conversion (`Float.ofNat`, `Float.ofInt`, `Float.toInt`).
+- **Runtimes**: every new operation in `crates/rt` (`FloatPrim`) and the JS backend
+  (`Math.floor`, `Math.round`, `Number(n)`, `Number.isInteger(x) ? BigInt(x) : undefined`,
+  `String(x)`, `<`, `<=`, `Number.isFinite`), with the constructor forms when `Int` or `Text`
+  isn't native (the extract test's other two modes). `Float.compare` has a native in both
+  runtimes only, bound by hash like `ieeeEq`: in JS, numeric `<`/`>` first, then the NaN, then
+  the zeros' signs, so it never reads bits.
+
+**The gate** (`crates/driver/src/float_gate.rs`) now has 1,121 checks per run, on the native
+kernel (`crates/driver/tests/float.rs`) and the WebAssembly kernel (`web/pkg`, rebuilt for this
+stage; both ran and passed): the program's `rfl` rows for every new primitive (the `Math.round`
+cases, `1.0 / -0.0 = -Float.infinity`, `Float.ofNat 9007199254740993 = 9007199254740992`,
+`Float.toInt 1e100`, `-0.0 < 0.0`, `toSource` of the NaN); 7 more pairs that must normalise to
+the same term; `isNaN`, `isFinite` and `toInt` on 12 patterns and `ieeeLt`/`ieeeLe` on all 144
+pairs, each with a neutral witness, giving what they give on the literal; and every normal form
+compared across the two modes (natives on; float natives off with the number natives on, as in
+1a). All pass.
+
+**The four paths** (`crates/cli/tests/float_paths.rs`): every operation the kernel computes, on
+34 values (the edge set plus `-1.5` and `1e100`, and 10 random patterns: every pair for the
+binary ones) and 33 literal expressions (the conversions' tie and overflow thresholds, `0.1 *
+0.1 - 0.01` for contraction, the `Math.round` cases): 14,279 results, the same canonical bits on
+the native kernel, the WebAssembly kernel, the Rust runtime and Node. `toText`, which the
+kernels don't compute, has its own test: the Rust runtime's text equals Node's `String(x)` on
+5,039 values (the edges, 15 values for each layout of `Number::toString`, 5,000 random
+patterns), and every `toSource` reads back through the kernel as the same bits. §7.4 item 6 is
+`examples/extract/float-times.sw`, a port of millisecond-time code (`inWindow` with `ieeeLe` and
+`ieeeLt`, `latest` with `a > b` as `ieeeLt b a`, `snap` with `Math.round`, `wholeMs`,
+`fromCount`, `clamped`), checked against the same functions written in TS on 2,000 random
+two-decimal times and edge values: 8,062 comparisons of canonical bits, all equal
+(`crates/cli/tests/float.rs`, which also runs generic `==` and `<` helpers, a total-order sort
+against the original stable comparator, and printing, under both runtimes).
+
+**Deviations and choices.**
+
+- **`toText` in the Rust runtime isn't `ryu-js`.** No new dependency: Rust's shortest formatting
+  (`{:e}`) gives the number of digits, `closest_digits` picks the closest decimal of that length
+  with an even last digit on an exact tie, and the layout follows `Number::toString`'s cases
+  (`js_to_string`). The tie step is needed: Rust's formatter gives `-1149636667324797.3` for the
+  double exactly halfway between that and `…797.2`, which is what Node gives (found by the random
+  test; now a unit test). The cross-check is against Node only, as §2.6 promises.
+- **`Ord Float` is `Ord.fromCompare` over `Float.compare`, not `Ord.byKey`.** The same key and
+  laws, but `<` then decides through one `Float.compare` call, which the runtimes run natively,
+  rather than computing two keys from the bits. `Float.compare` has no kernel native: the key is a
+  comparison and a subtraction of the bits, which the number natives already compute.
+- **`FLOAT_CONTRACT` stays 1.** The new primitives are additions with their own names, so their
+  hashes are new anyway; `add` and `sub` mean what they did, and bumping would change every 1a
+  hash for no change of meaning.
+- **`toInt` uses `Nat.divFuel`, not `/` and `%`.** Elaborating `m / 4503599627370496` needs the
+  `auto` proof that 2^52 isn't zero, and that search ran out of depth (`E-RESOURCE`); the exponent
+  is passed in from `Nat.divFuel`, which `Nat.div` is defined with.
+- **`Float.toSafeNat`** is `Some` only for `Some (OfNat n)` from `toInt`, so `-0.0` gives `Some
+  0`, as `toInt` does.
+- **`Float.toText` reaches the kernel's `test` evaluator stuck**, as D688 says: a `test` about a
+  double's text doesn't run there, and `examples/accept/float-operations.sw` tests `toSource`
+  only on the four values decided from the bits. DESIGN.md §3 and docs/core.md now say that
+  `toText` is total but not kernel-executable.
+- **`web/tests/float-wasm.mjs`** sets `process.exitCode` instead of calling `process.exit`: with
+  the report now 1,122 lines, `exit()` cut it off in a pipe, and the test read a partial report.
+- **Not built, as §7.2 leaves them for later**: `sqrt`, `min`/`max`, `Float.ofText`,
+  `FiniteFloat`, an operations record in std, and the general `toInt`/`ofInt` theorem. Of §6.1's
+  facts, `neg (neg x) = x` (1a) and `ieeeLt a b = True -> ieeeLe a b = True` are proved; the
+  others (`ieeeEq` symmetric, `toInt` facts) aren't, since nothing needs them yet.
 
 ## As built (stage 1a)
 

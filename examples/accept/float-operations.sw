@@ -58,6 +58,8 @@ test "ieeeLe zeros" := Float.ieeeLe 0.0 (-0.0) = True
 test "ieeeLt NaN" := Float.ieeeLt Float.nan 1.0 = False
 test "ieeeLe NaN" := Float.ieeeLe Float.nan Float.nan = False
 test "ieeeLt" := Float.ieeeLt (-1.0) 0.5 = True
+theorem jsLessIsLessEq (a: Float) (b: Float) (h: Float.ieeeLt a b = True): Float.ieeeLe a b = True :=
+  Float.ieeeLtLe a b h
 
 -- `toSource` of the NaN, the infinities and minus zero computes in the
 -- checker; the rest go through `toText`, which only the runtimes compute.

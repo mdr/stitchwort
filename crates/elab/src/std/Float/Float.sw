@@ -286,6 +286,24 @@ def Float.ieeeLe (x: Float) (y: Float): Bool :=
   !(Float.isNaN x) && !(Float.isNaN y)
     && ((Float.isZero x && Float.isZero y) || Int.leq (Float.orderKey x) (Float.orderKey y))
 
+theorem Float.keyLessLeq: (i: Int) -> (j: Int) -> Int.less i j = True -> Int.leq i j = True
+  | OfNat m, OfNat n, h => omega
+  | OfNat m, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
+  | NegSucc m, OfNat n, h => rfl
+  | NegSucc m, NegSucc n, h => omega
+
+theorem Float.ltLeBools: (a: Bool) -> (b: Bool) -> (c: Bool) -> (i: Int) -> (j: Int)
+    -> (a && b && !c && Int.less i j) = True -> (a && b && (c || Int.leq i j)) = True
+  | True, True, False, i, j, h => Float.keyLessLeq i j h
+  | True, True, True, i, j, h => rfl
+  | True, False, c, i, j, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, b, c, i, j, h => Void.exfalso (Bool.falseNotTrue h)
+
+-- JS's `a < b` implies `a <= b`.
+theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True :=
+  Float.ltLeBools (!(Float.isNaN x)) (!(Float.isNaN y)) (Float.isZero x && Float.isZero y)
+    (Float.orderKey x) (Float.orderKey y) h
+
 -- `m / d`, if `d` (positive) divides `m`.
 def Float.exactDiv (m: Nat) (d: Nat): Option Nat :=
   if Nat.equal (Nat.divFuel m m d * d) m then Some (Nat.divFuel m m d) else None
