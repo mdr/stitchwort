@@ -1522,7 +1522,7 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   conversion) and `reference.rs`; structural conversion with parameters compared; the unfolding
   policy with its condition. **Exit:** A1, A4, A8; R7 and R8 still refused; the evaluator's
   differential tests (`crates/driver/tests/differential.rs`) extended with quotient terms.
-- **1.3 Erasure and the runtimes.** D921's flags (recomputed by the checker, not hashed);
+- **1.3 Erasure and the runtimes** (**done**; as built below). D921's flags (recomputed by the checker, not hashed);
   the reference evaluator's placeholders for `sound`, `ind` and erased-result lifts (D862);
   `rt` and JS lowering as §7.4.1–§7.4.2. **Exit:** A3, A5, A6, A7, each compared across
   `run --reference`, `test`, `run` and `run --js`; the erasure on/off comparisons
@@ -1571,6 +1571,39 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   `the_evaluators_agree_on_quotients`.
 - **Left for 1.3.** The evaluators don't read D921's flags yet: an erased-result lift still
   computes `f a` under erasure.
+
+**Step 1.3 as built.**
+
+- **The flags** were already in place from 1.1: `Term::Quot`'s `bool`, set by `infer_quot`
+  (`check.rs`) from `is_erased` on `B` (lift) and on `A` (mk), whatever the input said, and
+  ignored by hashing (the `hash.rs` unit test from 1.1) but kept by the check-cache codec. 1.3
+  only reads them.
+- **Kernel evaluator when running** (`value.rs`, `eval_step`, only while
+  `g.erasure.active()`): `Quot.ind`, `Quot.sound` and a lift with the flag set return the
+  placeholder without evaluating any argument; a `Quot.mk` with the flag set is the `Quot.mk`
+  value with the placeholder as its representative (`A` and `R` evaluated as before), so a
+  computational lift on it still fires and applies `f` to the placeholder. Nothing changes while
+  checking, so conversion and §7.2 are untouched. `reference.rs` (the differential oracle) has no
+  erasure and is unchanged.
+- **`rt` and JS** (`lower.rs`, `lib.rs` `expr`): `Quot.mk` with the flag clear lowers as its
+  representative, with it set as the placeholder (`Expr::Erased`, `undefined`); a lift with the
+  flag clear lowers as the core term `App(f, q)` through the existing application path (so
+  definitions use their masks, lambdas are beta-reduced, anything else is a uniform call,
+  §7.4.2); every other quotient form is the placeholder. The `E-RUNTIME` refusal and the
+  `NOT_LOWERED_YET` skip in `crates/rt/tests/lower.rs` are gone: `quot-forms.sw` and
+  `quot-lift.sw` lower and their tests run on the IR.
+- **Tests.** A3: `accept/quot-transport-sound.sw` (through a theorem and with `Quot.sound`
+  inline) and `reject/quot-transport-sound-stuck.sw` (`E-REFL`). A5: `accept/quot-lift-proof.sw`,
+  with `rfl: nInline = 0` and, pinning the folding, `rfl: n = 0`, both accepted. A6:
+  `accept/quot-transport-ind.sw` and `reject/quot-transport-ind-stuck.sw` (`E-REFL`). A7:
+  `accept/quot-lift-types.sw`, with `seven`, `a => 7`, and `liftWith` given `seven` and a lambda,
+  plus a data carrier for contrast. Every runner prints `0`/`0` for A3, A5, A6 and
+  `7 7 7 8 1` for A7: `run_reference.rs` and `run_js.rs` compare the runners on every example's
+  `main`, the rt lowering test runs the tests on the IR, and `erasure.rs` adds A5 and A7 to the
+  on/off comparison, checks the printed lines of all four, and checks each flag on its own by
+  cost (`erased_quotient_forms_arent_run`, which fails with either flag ignored). A3 and A6
+  can't be compared on/off: without erasure `J` on the opaque proof is stuck, as in the kernel
+  (§9.1), so `erasure.rs` asserts that their tests pass only with erasure.
 
 ### 14.2 The gate before stage 2: the review's eight properties
 

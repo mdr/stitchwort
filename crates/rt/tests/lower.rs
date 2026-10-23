@@ -90,12 +90,6 @@ fn sw_files(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// Examples with quotients, which the runtime doesn't lower until stage 1.3
-/// of docs/proposals/map-equality.md (§14.1): lowering them is refused
-/// (`E-RUNTIME`) rather than guessed at. Stage 1.3 (erasure and runtimes)
-/// removes the skip and empties this list.
-const NOT_LOWERED_YET: &[&str] = &["quot-forms.sw", "quot-lift.sw"];
-
 fn is_main(name: &str) -> bool {
     name == "main" || name.ends_with(".main")
 }
@@ -123,19 +117,6 @@ fn every_example_lowers() {
                 session
                     .load(&name, &text)
                     .unwrap_or_else(|e| panic!("{what} doesn't check: {e:?}"));
-                if NOT_LOWERED_YET.contains(&name.as_str()) {
-                    let g = &session.elab.globals;
-                    let ids: Vec<DefId> = (0..g.defs.len())
-                        .map(DefId)
-                        .filter(|id| g.def(*id).body().is_some())
-                        .collect();
-                    match lower_definitions(g, session.elab.limits, &ids) {
-                        Err(e) if e.code == "E-RUNTIME" && e.message.contains("yet") => {}
-                        Err(e) => panic!("{what}: refused for another reason: {e:?}"),
-                        Ok(_) => panic!("{what}: lowered; take it off `NOT_LOWERED_YET`"),
-                    }
-                    continue;
-                }
                 files += 1;
                 tests += lower_everything(&session, &what);
                 // A runnable `main`, as `run_js.rs` finds them (some

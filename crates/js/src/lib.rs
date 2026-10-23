@@ -18,7 +18,8 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{Head, eval, expand_step, quote};
 use stitchwort_core::{
-    BigUint, DataId, DefId, Globals, Limits, QuotForm, ResourceError, Sort, Term, Value, pretty,
+    BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, ResourceError, Sort, Term, Value,
+    pretty,
 };
 use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
 use stitchwort_rt::natives::{
@@ -2754,12 +2755,19 @@ impl<'g> Gen<'g> {
             | Term::Eq(..)
             | Term::Refl
             | Term::Quot(QuotForm::Type, ..) => "undefined".into(),
-            // Lowering quotients (docs/proposals/map-equality.md §7.4) is
-            // stage 1.3; until then running one fails, loudly.
-            Term::Quot(form, ..) => format!(
-                "(() => {{ throw new Error(\"`{}` can't be run in JavaScript yet\"); }})()",
-                form.name()
-            ),
+            // Quotients (docs/proposals/map-equality.md §7.4.1, D921), as in
+            // the Rust runtime: `Quot.mk a` is `a` (`undefined` when the
+            // carrier's elements are erased), a lift whose result isn't
+            // erased is the application `f q` (§7.4.2), and the rest are
+            // proofs or types.
+            Term::Quot(QuotForm::Mk, args, false) => self.expr(&args[2], env)?,
+            Term::Quot(QuotForm::Lift, args, false) => {
+                let f_q = Term::App(args[3].clone(), args[5].clone(), Icit::Explicit);
+                self.expr(&f_q, env)?
+            }
+            Term::Quot(QuotForm::Mk | QuotForm::Lift | QuotForm::Ind | QuotForm::Sound, ..) => {
+                "undefined".into()
+            }
             Term::Case(..) | Term::NumCase(..) => {
                 panic!("internal error: case outside a case tree")
             }
