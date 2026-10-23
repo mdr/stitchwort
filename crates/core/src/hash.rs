@@ -106,6 +106,24 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
         g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
+    if def.state == State::Final
+        && let Some(op) = g.builtins.float_primitive(id)
+    {
+        // A float primitive (`Float.add`, …) has no body either: it's its
+        // name, as the operation tag, the version of the semantic contract
+        // its reduction rule follows, and its type (docs/proposals/float.md
+        // §3.3). So two primitives of the same type hash differently, and a
+        // change of meaning changes every hash that depends on one.
+        let mut h = Hasher::new(g, Itself::Def(id));
+        h.tag("primitive");
+        h.str(op.name());
+        h.tag("float-contract");
+        h.usize(crate::float::FLOAT_CONTRACT as usize);
+        h.term(&def.ty)?;
+        let hash = h.finish();
+        g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+        return Ok(Some(hash));
+    }
     let (State::Final, Some(body)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };

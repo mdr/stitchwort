@@ -12,6 +12,9 @@ pub enum Tok {
     Upper(String),
     /// A number literal, of any size.
     Num(BigUint),
+    /// A decimal or exponent literal, `1.5`, `1e3`, `2.5E-7`, as written: a
+    /// `Float` (docs/proposals/float.md §2.3).
+    Float(String),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
     /// The text before `${` in an interpolated string: `"a${x}"`.
@@ -249,10 +252,39 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             while i < bytes.len() && bytes[i].is_ascii_digit() {
                 i += 1;
             }
-            let n = text[start..i]
-                .parse()
-                .expect("a run of ASCII digits is a valid number");
-            Tok::Num(n)
+            // A decimal point needs a digit after it (so `1..n` is a
+            // range), and an exponent at least one digit. A number right
+            // after a `.` is digits only, so `xs.0.1` stays `xs` `.` `0`
+            // `.` `1` (docs/proposals/float.md §2.3).
+            let after_dot = start > 0 && bytes[start - 1] == b'.';
+            let mut float = false;
+            if !after_dot {
+                if bytes.get(i) == Some(&b'.') && bytes.get(i + 1).is_some_and(u8::is_ascii_digit) {
+                    i += 1;
+                    while i < bytes.len() && bytes[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                    float = true;
+                }
+                if matches!(bytes.get(i), Some(b'e' | b'E')) {
+                    let sign = usize::from(matches!(bytes.get(i + 1), Some(b'+' | b'-')));
+                    if bytes.get(i + 1 + sign).is_some_and(u8::is_ascii_digit) {
+                        i += 1 + sign;
+                        while i < bytes.len() && bytes[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                        float = true;
+                    }
+                }
+            }
+            if float {
+                Tok::Float(text[start..i].to_string())
+            } else {
+                let n = text[start..i]
+                    .parse()
+                    .expect("a run of ASCII digits is a valid number");
+                Tok::Num(n)
+            }
         } else if c == b'"' {
             let block = text[i..].starts_with("\"\"\"");
             let (chars, stop, interpolation, rest) = if block {

@@ -1801,7 +1801,7 @@ fn nested_effects(cx: &Ctx, a: &Expr, b: &Expr) -> Result<bool> {
     for side in [a, b] {
         let nested = match side {
             Expr::Binary(op, ..) => crate::numbers::is_arith(*op),
-            Expr::Neg(..) => crate::numbers::literal(side).is_none(),
+            Expr::Neg(..) => !crate::numbers::any_literal(side),
             _ => false,
         };
         if nested && may_perform(cx, side)? {

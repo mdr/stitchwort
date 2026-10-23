@@ -621,6 +621,7 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             Term::Nat(Rc::new(n.clone())),
             Value::Data(nat(cx)?, Vec::new()),
         )),
+        Expr::Float(text, _) => crate::numbers::infer_decimal(cx, text),
         Expr::Char(c, _) => {
             let char_data = builtin_data(cx, Builtin::Char)?;
             Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new())))
@@ -1613,6 +1614,10 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Num(..) | Expr::Neg(..), _) if crate::numbers::literal(expr).is_some() => {
             let (k, negative) = crate::numbers::literal(expr).expect("just checked");
             crate::numbers::check_literal(cx, k, negative, &expected)
+        }
+        (Expr::Float(..) | Expr::Neg(..), _) if crate::numbers::decimal(expr).is_some() => {
+            let (text, negative) = crate::numbers::decimal(expr).expect("just checked");
+            crate::numbers::check_decimal(cx, text, negative, &expected)
         }
         (Expr::Binary(op, ..), _) if crate::numbers::is_arith(*op) => {
             Ok(crate::numbers::group(cx, expr, Some(&expected))?.0)

@@ -62,7 +62,13 @@ struct Run {
     dump: String,
     stats: Stats,
     loaded: usize,
+    /// How many of those can't be cached: `Float/Float.sw`, which declares
+    /// primitives and binds natives (docs/proposals/float.md, "As built").
+    uncacheable: usize,
 }
+
+/// The library files that can't be cached.
+const UNCACHEABLE: &[&str] = &["Float/Float.sw"];
 
 /// Loads `source` in a new session (navigation recorded or not), through
 /// the cache in `cache` if there is one.
@@ -95,6 +101,12 @@ fn run(source: &Source, nav: bool, cache: Option<&Path>) -> Run {
         dump,
         stats: session.elab.check_cache_stats(),
         loaded: session.elab.loaded_library_files().len(),
+        uncacheable: session
+            .elab
+            .loaded_library_files()
+            .iter()
+            .filter(|f| UNCACHEABLE.contains(&f.as_str()))
+            .count(),
     }
 }
 
@@ -135,7 +147,7 @@ fn assert_cache_changes_nothing(source: &Source, nav: bool) {
         "{n}: every library file loaded was written or found uncacheable"
     );
     assert_eq!(
-        cold.stats.uncacheable, 0,
+        cold.stats.uncacheable, fresh.uncacheable,
         "{n}: a library file can't be cached"
     );
     assert!(
@@ -145,8 +157,8 @@ fn assert_cache_changes_nothing(source: &Source, nav: bool) {
     );
     assert_eq!(
         (warm.stats.hits, warm.stats.misses),
-        (fresh.loaded, 0),
-        "{n} (nav {nav}): the warm run elaborated a library file"
+        (fresh.loaded - fresh.uncacheable, fresh.uncacheable),
+        "{n} (nav {nav}): the warm run elaborated a cacheable library file"
     );
     // Every project namespace checked without errors was written, and
     // loaded from the cache the next time; those with errors were
@@ -628,6 +640,7 @@ fn run_target_recording(
         dump,
         stats: session.elab.check_cache_stats(),
         loaded: session.elab.loaded_library_files().len(),
+        uncacheable: 0,
     };
     (run, checked)
 }

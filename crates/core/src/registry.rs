@@ -79,6 +79,15 @@ const LIBRARY: &[Builtin] = &[
     Builtin::Map,
     Builtin::MapFromList,
     Builtin::MapToList,
+    Builtin::Float,
+    Builtin::FloatAdd,
+    Builtin::FloatSub,
+    Builtin::FloatNeg,
+    Builtin::FloatAbs,
+    Builtin::FloatIsNaN,
+    Builtin::FloatDecEq,
+    Builtin::FloatBitsExt,
+    Builtin::FloatBitsNe,
 ];
 
 macro_rules! builtins {
@@ -207,6 +216,18 @@ builtins! {
     MapFromList = "Map.fromList": Def,
     MapToList = "Map.toList": Def,
     TextInstOrd = "Text.instOrd": Def,
+    // `Float`, a double (std/Float/Float.sw, crates/core/src/float.rs): the
+    // type, its primitives, its definitions with natives, and the theorems
+    // `Float.decEq`'s native refers to
+    Float = "Float": Data,
+    FloatAdd = "Float.add": Def,
+    FloatSub = "Float.sub": Def,
+    FloatNeg = "Float.neg": Def,
+    FloatAbs = "Float.abs": Def,
+    FloatIsNaN = "Float.isNaN": Def,
+    FloatDecEq = "Float.decEq": Def,
+    FloatBitsExt = "Float.bitsExt": Def,
+    FloatBitsNe = "Float.bitsNe": Def,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),

@@ -1147,6 +1147,7 @@ impl Walk<'_> {
             match expr {
                 Expr::Var(n) => stack.push(Work::Use(n)),
                 Expr::Num(..)
+                | Expr::Float(..)
                 | Expr::Str(..)
                 | Expr::Include(..)
                 | Expr::Char(..)

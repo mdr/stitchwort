@@ -50,6 +50,7 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ),
     ("Each/Each.sw", include_str!("std/Each/Each.sw")),
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
+    ("Float/Float.sw", include_str!("std/Float/Float.sw")),
     ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
     ("Int/Safe.sw", include_str!("std/Int/Safe.sw")),

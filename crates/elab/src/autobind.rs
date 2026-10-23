@@ -422,6 +422,7 @@ fn walk_at(
         Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses)?,
         Expr::Neg(x, _) => walk(e, x, bound, false, uses)?,
         Expr::Num(..)
+        | Expr::Float(..)
         | Expr::Char(..)
         | Expr::Str(..)
         | Expr::Include(..)

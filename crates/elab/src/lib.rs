@@ -1832,6 +1832,22 @@ impl Elaborator {
             }
             return out;
         }
+        // `Float.add` and the other float primitives, likewise, in the
+        // library's `std/Float/Float.sw` (crates/core/src/float.rs).
+        if let [(item, Decl::Signature { name: n, .. }, [])] = members
+            && self.loading_prelude
+            && let Some(op) = stitchwort_core::float::FloatOp::named(&n.text)
+            && let Ok(key) = self.declaration_key(n)
+        {
+            self.scope.insert(&key, Global::Def(ids[0]), n.span, false);
+            match stitchwort_core::float::define_primitive(&mut self.globals, ids[0], op) {
+                Ok(()) => {
+                    registry::bind_def(&mut self.globals, ids[0]);
+                }
+                Err(d) => out.push((*item, d)),
+            }
+            return out;
+        }
         // Every member can be referred to now, by its signature. None has a
         // body until the kernel admits them all, so none unfolds while the
         // others are checked.
@@ -2062,6 +2078,7 @@ impl Elaborator {
             Some(Builtin::Nat) => native::register_nat(&mut self.globals, d)?,
             Some(Builtin::Bool) => native::register_bool(&mut self.globals, d)?,
             Some(Builtin::Decidable) => native::register_decidable(&mut self.globals, d)?,
+            Some(Builtin::Float) => stitchwort_core::float::register_data(&mut self.globals, d)?,
             // `Char` comes after `List`. If either isn't the declaration
             // the compact representation of text was written for, text
             // literals are constructors instead (and a test fails).
@@ -2081,6 +2098,14 @@ impl Elaborator {
     pub(crate) fn bind_builtin_def(&mut self, id: DefId) -> Result<()> {
         match registry::bind_def(&mut self.globals, id) {
             Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.globals, id)?,
+            Some(
+                b @ (Builtin::FloatNeg
+                | Builtin::FloatAbs
+                | Builtin::FloatIsNaN
+                | Builtin::FloatDecEq
+                | Builtin::FloatBitsExt
+                | Builtin::FloatBitsNe),
+            ) => stitchwort_core::float::register_def(&mut self.globals, id, b)?,
             Some(b) => {
                 if let Some(op) = Native::ALL.into_iter().find(|n| n.builtin() == b) {
                     native::register_native(&mut self.globals, id, op)?;

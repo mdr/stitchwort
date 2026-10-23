@@ -596,9 +596,14 @@ fn a_library_file_that_doesnt_check_is_reported_as_internal() {
 #[test]
 fn no_library_file_declares_a_decision_procedure() {
     let session = Session::eager();
+    // Except `Float`'s equality (docs/proposals/float.md, "As built"): it
+    // decides only equations between `Float`s, which no program can write
+    // without loading std/Float/Float.sw, so `auto` still can't depend on
+    // what else is loaded. It is a definition of its own because the kernel
+    // binds a native to it.
     assert_eq!(
         session.elab.library_decision_procedures(),
-        Vec::<String>::new(),
+        ["Std.Float.decEqFrom", "Std.Float.decEq"],
         "every `Decidable` procedure stays in the core (D58), so `auto` never \
          depends on what is loaded"
     );
