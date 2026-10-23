@@ -254,10 +254,11 @@ fn lifted(
         let (term, ty) = insert(cx, term, ty)?;
         // A proposition with a decision procedure (`match h: a <= b with`) is
         // matched as the `Bool` it decides, as `if` reads it (SW-206 item 5).
-        let (term, ty) = if matches!(
+        let decided = matches!(
             stitchwort_core::value::force(g, ty.clone())?,
             Value::Sort(stitchwort_core::Sort::Prop)
-        ) {
+        );
+        let (term, ty) = if decided {
             snapshot.restore(cx);
             let term = crate::logic::bool_operand(cx, &s.expr, "match")?;
             let bool_ty = Value::Data(
@@ -269,6 +270,15 @@ fn lifted(
             (term, ty)
         };
         let normal = quote(g, base, &cx.eval(&term)?)?;
+        // A decision that computes to `Bool.decTrue b` (`c < x` on a `Fin`,
+        // by `Ord.byKey`, is `Bool.decTrue (Nat.leq (Succ c.toNat) x.toNat)`)
+        // is matched as `b`, the comparison itself, as `Nat`'s is: that is
+        // what an `if` on it holds once unfolded, so the branches see it
+        // decided (D1073).
+        let (term, normal) = match decided.then(|| tested_bool(cx, &normal)).flatten() {
+            Some(b) => (b.clone(), b),
+            None => (term, normal),
+        };
         let ty_term = cx.quote(&ty)?;
         // A `let`'s variable, matched by name: in the alternatives, the
         // name is the matched value, as a variable's name would be.
@@ -302,6 +312,27 @@ fn lifted(
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
     generalised(cx, columns, exprs, alts, span, kind, goal, base)
+}
+
+/// `b`, when `normal` is `Decidable.toBool {p} (Bool.decTrue b)`: the two
+/// are the same `Bool` (by cases on `b`), and `b` is the one an unfolded
+/// `if` on the same decision mentions.
+fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {
+    use stitchwort_core::registry::Builtin;
+    let reg = &cx.g().registry;
+    let is = |t: &Term, b| matches!(t, Term::Def(id) if reg.def(b) == Some(*id));
+    let (head, args) = normal.spine();
+    let [_, d] = args[..] else {
+        return None;
+    };
+    if !is(head, Builtin::ToBool) {
+        return None;
+    }
+    let (head, args) = d.spine();
+    match args[..] {
+        [b] if is(head, Builtin::DecTrue) => Some(b.clone()),
+        _ => None,
+    }
 }
 
 /// An expression scrutinee, elaborated in the `match`'s context.
