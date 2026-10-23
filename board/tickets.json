@@ -5365,7 +5365,7 @@
       "title": "Design note: named-field constructor patterns, shared-field access and update on variants (D587)",
       "status": "review",
       "agent": "Opus",
-      "where": "draft 2 merged; decided D603(a) syntactic 'mentions'; open D604, D605",
+      "where": "draft 2 merged; decided D603(a) syntactic 'mentions', D604(b) records keep their update; open D605",
       "labels": [
         "design",
         "syntax"
