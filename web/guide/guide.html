@@ -1,0 +1,100 @@
+<!-- The playground's language guide: a fragment the page fetches and shows.
+     Every `pre[data-src]` is filled with that file of this folder and
+     coloured by the editor's own highlighter. The files are checked by
+     `the_guide_examples_check` (crates/web/src/lib.rs): each must type-check
+     and pass its tests, and the blocks marked `data-failure-of` and
+     `data-dts-of` must say what the compiler really says. -->
+<p class="guide-intro">A short tour of what Stitchwort can do, one feature at a time. Each example is real code: press <b>Open in editor</b> to run it, change it and see what the compiler says. This is a guide, not a reference; the full details are in the docs folder of the repository.</p>
+
+<section data-slug="definitions" data-title="Definitions and basic types">
+  <p>Everything starts with <code>def</code>. A definition has a name, optional parameters, a type after the colon, and a body after <code>:=</code>. There are <code>Nat</code> (whole numbers with no upper limit), <code>Bool</code>, <code>Text</code> and <code>Char</code>, and <code>Int</code> when you need negatives.</p>
+  <pre data-src="01-definitions.sw"></pre>
+</section>
+
+<section data-slug="control" data-title="let, if and match">
+  <p>A block is a few lines at the same indent: <code>let</code> names an intermediate value and the last line is the result. <code>if</code> is an expression. <code>match</code> (or a function written as a list of <code>|</code> cases) takes a value apart, and the compiler insists every case is covered. Inside text, <code>${...}</code> inserts a value.</p>
+  <pre data-src="02-control.sw"></pre>
+</section>
+
+<section data-slug="records-and-variants" data-title="Records and variants">
+  <p>A <b>variant</b> type lists the shapes a value can have, like a tagged union; each constructor carries its own fields. A <b>record</b> has named fields: read one with <code>.</code>, change some with <code>{ b | field = ... }</code>, take them apart in a pattern with <code>{ title, pages }</code>.</p>
+  <pre data-src="03-data.sw"></pre>
+</section>
+
+<section data-slug="generics" data-title="Generics and implicit arguments">
+  <p>A lowercase name in a type, such as <code>a</code>, stands for any type, so you don't declare it; the compiler works out what it is from the arguments. Types can take parameters too, like <code>List a</code>.</p>
+  <pre data-src="04-generics.sw"></pre>
+</section>
+
+<section data-slug="interfaces" data-title="Interfaces and instances">
+  <p>An <b>interface</b> names operations a type can support, like a TypeScript interface or a Scala trait. An <b>instance</b> says how one type does it. A function asks for one with <code>[auto Describe a]</code>, and the compiler finds the instance from the type, so callers write nothing.</p>
+  <pre data-src="05-interfaces.sw"></pre>
+</section>
+
+<section data-slug="deriving" data-title="Equality, ordering and text for free">
+  <p>Every type you declare gets <code>==</code>, an ordering (<code>Ord.compare</code>, <code>List.sort</code>) and text for <code>${...}</code>, as long as its fields have them too. There is no <code>deriving</code> clause to write. Write your own instance when you want something different.</p>
+  <pre data-src="06-deriving.sw"></pre>
+</section>
+
+<section data-slug="dot-and-pipes" data-title="Dot notation, pipes and sections">
+  <p><code>x.f y</code> calls the function <code>T.f</code> where <code>T</code> is the type of <code>x</code>, so functions on a type read like methods. <code>|&gt;</code> passes the value on its left as the last argument of the call on its right. A leading dot, as in <code>.name</code>, is a short function: <code>p => p.name</code>.</p>
+  <pre data-src="07-dot-pipes.sw"></pre>
+</section>
+
+<section data-slug="option-and-list" data-title="Option and List">
+  <p>There is no null: a value that may be missing has type <code>Option a</code>, which is <code>Some value</code> or <code>None</code>. Lists are written <code>[1, 2, 3]</code> and come with the usual <code>map</code>, <code>filter</code>, <code>find</code>, <code>sum</code> and many more, called with dot notation.</p>
+  <pre data-src="08-option-list.sw"></pre>
+</section>
+
+<section data-slug="namespaces-and-projects" data-title="Namespaces, imports and projects">
+  <p>Names live in namespaces. The library is <code>Std</code>; a few things (<code>Nat</code>, <code>List</code>, <code>Option</code>, <code>==</code>) are always in scope, and <code>import Std (Option)</code> brings in the rest of a namespace such as <code>Option.map</code>. A type owns a namespace (<code>Item.cost</code>), and a <code>namespace Shop</code> line at the top of a file puts the whole file in one. A <b>project</b> is a folder with a <code>stitchwort.yaml</code> of such files; try the Advent of Code entries in the Example menu to see one.</p>
+  <pre data-src="09-namespaces.sw"></pre>
+</section>
+
+<section data-slug="tests" data-title="Tests">
+  <p>A <code>test</code> is a named <code>Bool</code> that must be <code>True</code>. The Tests tab runs them all. When a comparison fails, it shows both sides:</p>
+  <pre data-src="10-tests.sw"></pre>
+  <p class="guide-note">Running the tests above gives:</p>
+  <pre class="guide-output" data-failure-of="10-tests.sw">✗ 2023 is wrong on purpose  (`==` is False)
+    left:  False
+    right: True</pre>
+</section>
+
+<section data-slug="abilities" data-title="Abilities and handlers">
+  <p>Side effects are described, not hidden. An <b>ability</b> lists operations like <code>say</code>; a function that uses them says so in its type (<code>{Log}</code>), and a <b>handler</b> decides what they mean: print them, collect them, or run them in a test. The code that performs them is plain, straight-line code. <code>IO</code> (printing and reading input) is an ability too.</p>
+  <pre data-src="11-abilities.sw"></pre>
+</section>
+
+<section data-slug="each" data-title="Each: trying every combination">
+  <p><code>Each</code> is an ability from the library for searching. <code>each</code> chooses an element from a list, <code>require</code> discards a combination that doesn't qualify, and <code>Each.collect</code> returns every combination that survives. It reads like nested loops with a filter.</p>
+  <pre data-src="12-each.sw"></pre>
+</section>
+
+<section data-slug="proofs" data-title="Theorems and proofs">
+  <p>A <code>theorem</code> states a fact about your programs and the compiler checks the proof. <code>rfl</code> means "both sides compute to the same thing". For a fact about every value of a type, split on the cases like a function does; a call to the theorem on the smaller piece is the induction step.</p>
+  <pre data-src="13-proofs.sw"></pre>
+</section>
+
+<section data-slug="omega" data-title="omega: arithmetic proofs">
+  <p>For facts about numbers built from <code>+</code>, <code>-</code>, comparisons and multiplication by constants, <code>omega</code> finds the proof itself, using the hypotheses in scope.</p>
+  <pre data-src="14-omega.sw"></pre>
+</section>
+
+<section data-slug="termination" data-title="Recursion that must finish">
+  <p>Functions must terminate, since that is what makes proofs about them meaningful. Recursion on a piece of an argument is accepted as written; otherwise name the number that shrinks with <code>decreasing</code>. A <code>decreasing</code> function still runs and tests like any other.</p>
+  <pre data-src="15-decreasing.sw"></pre>
+</section>
+
+<section data-slug="dependent-types" data-title="Dependent types">
+  <p>A type may mention values. <code>Vec a n</code> is a list whose length <code>n</code> is part of its type, so <code>Vec.head</code> can only be given a non-empty vector and <code>Vec.zipWith</code> only vectors of the same length. Mistakes like these become compile errors rather than runtime checks.</p>
+  <pre data-src="16-dependent-types.sw"></pre>
+</section>
+
+<section data-slug="javascript" data-title="Exporting to JavaScript and TypeScript">
+  <p><code>export</code> on a definition makes it part of a generated ES module with TypeScript declarations (the JavaScript tab shows both). Records become plain objects, variants become objects with a <code>tag</code>, <code>Nat</code> is a <code>bigint</code>, and <code>Option a</code> is <code>a | undefined</code>. <code>SafeNat</code> is a whole number that fits a JS <code>number</code>. When a function asks for a proof the caller can't supply, such as <code>percent &lt;= 100</code>, the generated code checks it when called and throws <code>StitchwortInputError</code>. The declarations for the example below:</p>
+  <pre data-src="17-export.sw"></pre>
+  <pre class="guide-output" data-dts-of="17-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
+export declare function displayName(p: Profile): string;
+export declare function toNumber(n: bigint): number | undefined;
+export declare function percentOf(percent: bigint, total: bigint): bigint;</pre>
+</section>

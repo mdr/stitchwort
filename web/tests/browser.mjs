@@ -347,6 +347,167 @@ test("an unknown link at the start gives the default example and a notice", asyn
   assert.equal(await page.ev(`document.getElementById("link-notice").hidden`), true);
 });
 
+// The language guide (web/guide/) ---------------------------------------------
+
+/** Whether the guide is on show, in place of the editor. */
+const guideShown = (page) => page.ev(`!document.getElementById("guide").hidden && document.querySelector("main").hidden`);
+/** Waits for the guide's text and examples to be in the page. */
+const guideReady = (page) => page.until(`document.querySelectorAll("#guide .guide-code pre").length >= 15`, 30000, "the guide's examples");
+/** How far below the top of the window a section starts, in pixels. */
+const sectionTop = (page, slug) => page.ev(`Math.round(document.getElementById("guide-${slug}").getBoundingClientRect().top)`);
+
+test("the Guide opens from its button, lists its sections and colours its code", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.getElementById("guide").hidden`), true, "the guide starts hidden");
+  await page.click("#guide-button");
+  await guideReady(page);
+  assert.ok(await guideShown(page), "the guide replaces the editor");
+  assert.equal(await page.ev(`location.hash`), "#guide");
+  assert.equal(await page.ev(`document.getElementById("guide-button").getAttribute("aria-pressed")`), "true");
+  // A contents list with a link for each section, naming its fragment.
+  const links = await page.ev(`[...document.querySelectorAll("#guide-contents a")].map((a) => [a.textContent, a.getAttribute("href")])`);
+  const sections = await page.ev(`document.querySelectorAll("#guide-article section").length`);
+  assert.ok(links.length >= 15 && links.length === sections, JSON.stringify(links));
+  assert.ok(links.some(([title, href]) => /Records and variants/.test(title) && href === "#guide/records-and-variants"), JSON.stringify(links));
+  // The code is coloured by the editor's tokenizer: its keywords, comments,
+  // and names being defined each get their colour.
+  const coloured = await page.ev(`(() => {
+    const code = document.querySelector("#guide .guide-code pre");
+    const colour = (kind) => { const s = code.querySelector("span.hl-" + kind); return s ? getComputedStyle(s).color : null; };
+    return { text: code.textContent, base: getComputedStyle(code).color,
+             keyword: colour("keyword"), comment: colour("comment"), defined: colour("defined"), number: colour("number"),
+             keywords: [...code.querySelectorAll("span.hl-keyword")].map((s) => s.textContent) };
+  })()`);
+  assert.ok(coloured.text.startsWith("-- A definition names"), coloured.text.slice(0, 40));
+  assert.ok(coloured.keywords.includes("def") && coloured.keywords.includes("test"), JSON.stringify(coloured.keywords));
+  for (const kind of ["keyword", "comment", "defined", "number"]) {
+    assert.ok(coloured[kind] && coloured[kind] !== coloured.base, `${kind} is coloured differently from the plain text: ${JSON.stringify(coloured)}`);
+  }
+  // The button again goes back to the editor.
+  await page.click("#guide-button");
+  assert.ok(!(await guideShown(page)));
+  assert.equal(await page.ev(`document.querySelector("main").hidden`), false);
+  assert.equal(await page.ev(`location.hash`), "#example/proofs-about-lists");
+});
+
+test("a link to a guide section opens it there, and the contents follow the address", async (page) => {
+  await page.open({ hash: "#guide/proofs" });
+  await guideReady(page);
+  assert.ok(await guideShown(page));
+  await page.until(`Math.abs(document.getElementById("guide-proofs").getBoundingClientRect().top) < 40`, 10000, "the section to scroll into view");
+  assert.equal(await page.ev(`location.hash`), "#guide/proofs");
+  assert.equal(await page.ev(`document.querySelector('#guide-contents a[aria-current="true"]').textContent`), "Theorems and proofs");
+  // Changing the fragment moves to another section; the editor stays behind it.
+  await page.ev(`location.hash = "#guide/tests"`);
+  await page.until(`Math.abs(document.getElementById("guide-tests").getBoundingClientRect().top) < 40`, 10000, "the tests section");
+  assert.ok(await guideShown(page));
+  // A contents link does the same, and the failing test's output is there.
+  await page.click('#guide-contents a[href="#guide/abilities"]');
+  await page.until(`Math.abs(document.getElementById("guide-abilities").getBoundingClientRect().top) < 40`, 10000, "the abilities section");
+  assert.match(await page.ev(`document.querySelector("#guide-tests .guide-output").textContent`), /✗ 2023 is wrong on purpose.*\n\s+left:\s+False\n\s+right: True/);
+  // An unknown section shows the top of the guide, not the default example.
+  await page.ev(`location.hash = "#guide/nonsense"`);
+  await page.until(`window.scrollY === 0 && document.querySelectorAll('#guide-contents a[aria-current]').length === 0`, 10000, "the top");
+  assert.ok(await guideShown(page));
+  // Leaving the guide's fragment for an example's shows the editor with it.
+  await page.ev(`(() => { document.getElementById("status").textContent = "(changed)"; location.hash = "#example/safe-division"; })()`);
+  await page.untilChecked();
+  assert.ok(!(await guideShown(page)));
+  assert.equal(await page.ev(`document.getElementById("example").value`), "ex-division");
+});
+
+test("Open in editor puts a guide example in the editor, ready to run, and coloured there", async (page) => {
+  await page.open({ hash: "#guide/records-and-variants" });
+  await guideReady(page);
+  const file = await page.ev(`fetch("guide/03-data.sw").then((r) => r.text())`);
+  await page.ev(`document.getElementById("status").textContent = "(changed)"`);
+  await page.click("#guide-records-and-variants .guide-code button");
+  await page.until(`document.getElementById("guide").hidden`, 5000, "the guide to close");
+  assert.equal(await sourceText(page), file);
+  await page.untilChecked();
+  assert.equal(await page.ev(`location.hash`), "", "the address no longer names the guide");
+  // Its tests, which this one has, are shown.
+  assert.match(await page.output(), /area[\s\S]*update[\s\S]*label/);
+  assert.equal(await page.ev(`document.getElementById("tab-tests").getAttribute("aria-selected")`), "true");
+  // The editor's own colouring covers it, and lines up with the text.
+  const keywords = await page.ev(`(() => {
+    const text = document.getElementById("source").value;
+    return Array.from(CSS.highlights.get("hl-keyword") ?? [], (r) => text.slice(r.startOffset, r.endOffset));
+  })()`);
+  assert.ok(keywords.includes("type") && keywords.includes("def") && keywords.includes("test"), JSON.stringify(keywords));
+  await assertAligned(page, "a guide example in the editor");
+  // Editing it works as with any example, and survives a reload as the draft.
+  await page.setSource(file + "\ntest \"extra\" := 1 == 1\n");
+  await page.untilChecked();
+  await page.reload();
+  await page.untilChecked();
+  assert.match(await sourceText(page), /test "extra"/);
+});
+
+test("every guide example opens, checks, and passes its tests but the failing one", async (page) => {
+  await page.open({ hash: "#guide" });
+  await guideReady(page);
+  const count = await page.ev(`document.querySelectorAll("#guide .guide-code button").length`);
+  assert.ok(count >= 15, String(count));
+  for (let i = 0; i < count; i++) {
+    await page.ev(`location.hash = "#guide"`);
+    await page.until(`!document.getElementById("guide").hidden`, 10000, "the guide");
+    await page.ev(`document.getElementById("status").textContent = "(changed)"`);
+    await page.ev(`document.querySelectorAll("#guide .guide-code button")[${i}].click()`);
+    await page.untilStatus("Checked by the kernel", 60000);
+    const failing = await page.ev(`document.getElementById("source").value.includes("wrong on purpose")`);
+    await page.tab("tests");
+    await page.until(`document.querySelectorAll("ul.tests li").length > 0 || /No tests/i.test(document.getElementById("output").innerText)`, 30000, "the tests");
+    const failures = await page.ev(`document.querySelectorAll("ul.tests li.fail").length`);
+    assert.equal(failures, failing ? 1 : 0, `example ${i}: ${await page.output()}`);
+  }
+}, { ms: 300000 });
+
+test("the Guide on a phone: nothing scrolls sideways, and the contents come first", async (page) => {
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 400, height: 860, deviceScaleFactor: 2, mobile: true });
+  await page.open({ hash: "#guide" });
+  await guideReady(page);
+  const l = await page.ev(`(() => {
+    const r = (s) => document.querySelector(s).getBoundingClientRect();
+    const wide = [...document.querySelectorAll("#guide pre")].filter((p) => p.getBoundingClientRect().right > innerWidth + 1).length;
+    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+             contentsBottom: r("#guide-contents").bottom, articleTop: r("#guide-article").top, wide };
+  })()`);
+  assert.equal(l.width, 400);
+  assert.ok(l.scrollWidth <= l.width, `the page scrolls sideways: ${JSON.stringify(l)}`);
+  assert.ok(l.articleTop >= l.contentsBottom - 1, `the contents are above the text: ${JSON.stringify(l)}`);
+  assert.equal(l.wide, 0, "code blocks stay inside the window (they scroll inside themselves)");
+});
+
+// With GUIDE_SHOTS=DIR, saves pictures of the guide (desktop and phone, light
+// and dark) there, for looking at; otherwise it checks nothing and passes.
+test("pictures of the Guide (only with GUIDE_SHOTS=DIR)", async (page) => {
+  const dir = process.env.GUIDE_SHOTS;
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  for (const [size, mobile] of [[[1280, 900], false], [[400, 860], true]]) {
+    for (const scheme of ["light", "dark"]) {
+      await page.send("Emulation.setDeviceMetricsOverride", { width: size[0], height: size[1], deviceScaleFactor: 1, mobile });
+      await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] });
+      for (const [name, hash] of [["top", "#guide"], ["records", "#guide/records-and-variants"], ["tests", "#guide/tests"], ["export", "#guide/javascript"]]) {
+        await page.open({ hash });
+        await guideReady(page);
+        await sleep(400);
+        const { data } = await page.send("Page.captureScreenshot", { format: "png" });
+        writeFileSync(join(dir, `guide-${size[0]}-${scheme}-${name}.png`), Buffer.from(data, "base64"));
+      }
+      await page.open({ hash: "#guide/records-and-variants" });
+      await guideReady(page);
+      await page.click("#guide-records-and-variants .guide-code button");
+      await page.untilChecked();
+      await sleep(300);
+      const { data } = await page.send("Page.captureScreenshot", { format: "png" });
+      writeFileSync(join(dir, `guide-${size[0]}-${scheme}-editor.png`), Buffer.from(data, "base64"));
+    }
+  }
+});
+
 test("the compiler's files are asked for by content hash (pkg/version.json)", async (page) => {
   await page.open();
   await page.untilChecked();

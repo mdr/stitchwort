@@ -54,6 +54,7 @@
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
               ./web/index.html # the playground's examples are checked
+              ./web/guide # so are the guide's (crates/web)
               ./bench # benchmark counts are checked against the baseline
             ];
           };
@@ -131,6 +132,7 @@
                 wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
                   $out/pkg/stitchwort_web_bg.wasm -o $out/pkg/stitchwort_web_bg.wasm
                 cp ${./web/index.html} $out/index.html
+                cp -r --no-preserve=mode ${./web/guide} $out/guide
                 cp ${./web/playground-worker.js} $out/playground-worker.js
                 bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
                 bash ${./web/write-version.sh} $out
