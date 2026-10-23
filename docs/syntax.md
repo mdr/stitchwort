@@ -394,6 +394,15 @@ Characters are Unicode scalar values, as for `Text.length`. The text comes last.
 
 Proved: `Text.stripPrefix p (p ++ t) = Some t`, `Text.startsWith p (p ++ t) = True`, `Text.take n t ++ Text.drop n t = t`.
 
+## `Option` helpers
+
+`Std.Option` (`crates/elab/src/std/Option/Option.sw`) has the helpers that save a nested `match` on an `Option`. All are reached by dot notation or a pipe (`x |> .filter p`), and each is defined by matching on its options, so a proof can `match e:` on them.
+
+- `Option.map f x`, `Option.flatMap f x`, `Option.getOrElse d x`: the value changed, changed to an option, or the default. `Option.fold none some x` is `none` for `None` and `some v` for `Some v`.
+- `Option.isSome x`, `Option.isNone x`: `Bool`s. `Option.exists p x` is `False` for `None`, `Option.forall p x` is `True`, and both are `p v` for `Some v`. `Option.filter p x` keeps `Some v` only when `p v`.
+- `x.orElse y` is the first `Some` of the two. `x.merge both y` (same type) and `x.alignWith left right both y` (two types) combine two options: a lone value stays (through `left` or `right` for `alignWith`), two values go through `both`, and neither gives `None`.
+- Lemmas: `Option.someInjective`, `Option.orElseEqSome` (`x.orElse y = Some v` means `x = Some v`, or `x = None` and `y = Some v`), `Option.mapEqSome`, `Option.flatMapEqSome` (`x` held some `u`, passed to a continuation that gives the goal) and `Option.filterEqSome` (`x = Some v` and `p v = True`), with `Option.orElseNone`, `Option.orElseSome` and `Option.noneOrElse` for computing.
+
 ## Grid helpers
 
 For puzzles over a grid of rows. A row of a known width is a `Vec a width`. The fill or pad value is the first parameter, so dot notation reads `row.shiftRight 0`.

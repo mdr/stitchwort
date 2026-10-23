@@ -1018,16 +1018,11 @@ def List.withIndexFrom (i: Nat): List a -> List (Pair Nat a)
 -- (Rust's `enumerate`): `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`.
 def List.withIndex (xs: List a): List (Pair Nat a) := List.withIndexFrom 0 xs
 
--- The first option if it is a `Some`, else the second.
-def List.orElseSome: Option b -> Option b -> Option b
-  | Some y, rest => Some y
-  | None,   rest => rest
-
 -- The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`).
 def List.findMap (xs: List a) (f: a -> Option b): Option b :=
   match xs with
     | Nil       => None
-    | Cons x ys => List.orElseSome (f x) (List.findMap ys f)
+    | Cons x ys => Option.orElse (f x) (List.findMap ys f)
 
 -- Maps, then joins: `xs.flatMap f` is `List.concat (List.map f xs)`.
 def List.flatMap (xs: List a) (f: a -> List b): List b := List.concat (List.map f xs)
