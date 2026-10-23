@@ -3,6 +3,7 @@
 -- arithmetic in Day02.sw with. The program itself doesn't use it.
 
 namespace Aoc.Day02.Spec
+import Aoc.Common (Range)
 import Std (List, Nat)
 
 -- The digits are some block of k digits written n times.
@@ -16,3 +17,13 @@ def doubled (x: Nat): Bool :=
 def repeats (x: Nat): Bool :=
   let ds := Nat.digits x
   List.rangeFrom ds.length 1 |> .any (k => List.rangeFrom ds.length 2 |> .any (n => writtenAs ds k n))
+
+-- Part 1 as the puzzle states it: in every range walk the ids, keep those whose
+-- digits are some block written twice, add them up.
+def part1Spec (ranges: List Range): Nat :=
+  ranges |> .sumBy (r => r.ids |> .filter doubled |> .sum)
+
+-- The puzzle's method: in every range walk the ids, keep those whose digits
+-- are some block written two or more times, add them up.
+def part2Spec (ranges: List Range): Nat :=
+  ranges |> .sumBy (r => r.ids |> .filter repeats |> .sum)
