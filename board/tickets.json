@@ -6058,10 +6058,10 @@
     },
     {
       "id": 379,
-      "title": "AoC Day 3 review: scaffolding, comments, match on Fin, Spec.sw, short banks, Fin literals merged; follow-ups running (Best.sw uses c < x, tests use Fin literals, List.subsequenceTrans)",
-      "status": "doing",
+      "title": "AoC Day 3 review — all done: scaffolding, comments, match on Fin, Spec.sw, short banks rejected, Fin literals in tests, List.subsequenceTrans",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "worktree lanes",
+      "where": "",
       "labels": [
         "aoc"
       ],
@@ -6071,7 +6071,11 @@
       "commits": [
         "b2d69670",
         "2a477d60",
-        "2420065b"
+        "2420065b",
+        "5430f6f6",
+        "aead87eb",
+        "f441e7bf",
+        "7f0f29a4"
       ]
     },
     {
