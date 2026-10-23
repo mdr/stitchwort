@@ -5636,9 +5636,9 @@
     {
       "id": 356,
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
-      "where": "map-equality.md reviewed (E preferred, kernel spec needed); D785: v1 rejects types recursive through Map (check today's behaviour first); pending D771 stage 0, D786 draft 2",
+      "where": "D771 stage 0 lane (Equiv, toList lemmas, invariant audit, recursive check) + D786 draft 2 lane (kernel spec, computation contract)",
       "labels": [
         "design",
         "std"
