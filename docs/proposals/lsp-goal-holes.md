@@ -457,6 +457,41 @@ replaced by a proof) and `goals_stay_while_their_declaration_does_not_parse`
 (kept through two broken edits, replaced on re-parse, dropped when the `?`
 is fixed, not kept for a parse error elsewhere).
 
+## 8.3 Stage 2c as built
+
+*SW-31 stage 2c, 23 October 2026.*
+
+**WASM side** (`crates/web/src/lib.rs`, `project.rs`). Open goals are split
+out of the warnings (they come in `Session::warnings` on a load that
+succeeds, and among the diagnostics of one that fails) into their own
+field: `"goals": ["…", …]`, each goal rendered as the CLI prints it, left out
+when there are none. `check`, every answer for a source that doesn't load,
+and the project's `check_project` all carry it; in a project the
+`diagnostics` list still has each goal with severity `"goal"` and its file,
+line and column.
+
+**Page** (`web/index.html`). `goalsView` renders a "Goals (N open)" heading
+and one box per goal, with the goal's full text in a `pre.goals`, above the
+errors (as §6 says) and above the warnings. In a project each goal also has
+the same jump-to-place button the errors have. Goals have their own colour
+(`--goal`, blue, in the light and dark palettes), matching the LSP's
+information severity. With only goals open, the status reads "1 goal open" /
+"N goals open" (not "Checked by the kernel"), and the Check tab says there
+are no errors but the declarations with goals aren't finished, instead of
+"Every definition type-checks".
+
+**Tests.** `web/test.sh "a ? program"` (a `?` program shows a Goals section,
+no errors box; beside an error the goals come first and the errors stay in
+their own box; gone once filled in) and the Rust unit test
+`reports_open_goals_apart_from_warnings_and_errors`.
+
+**PROVISIONAL.** (1) The warning-count button counts warnings only; goals
+get the status text and heading, not a second button. Alternative: a "N
+goals" button beside it that selects the Check tab. (2) Only the Check tab
+(and the "doesn't check" views) shows the goals; the Tests, Evaluate and
+Run tabs show nothing about them. Recommendation: leave as is until someone
+wants it.
+
 ## 9. Risks
 
 - **The first error in a branch hides later holes** (§4 item 8). Lean

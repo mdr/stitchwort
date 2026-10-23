@@ -15,8 +15,8 @@ use stitchwort_syntax::{Diagnostic, Severity};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use super::{
-    MAX_READS_PAST_END, OutputSink, evaluate_in, failure, json_string, rendered, run_by_line_of,
-    test_answer,
+    MAX_READS_PAST_END, OutputSink, evaluate_in, failure, goals_field, json_string, rendered,
+    run_by_line_of, split_goals, test_answer,
 };
 
 /// The project's name in messages: errors show `aoc/src/Aoc/Day02/Day02.sw`,
@@ -151,9 +151,9 @@ fn diagnostics_json(session: &Session, diagnostics: &[&Diagnostic]) -> String {
 /// `{"ok": false, "errors": "…", "warnings": […], "diagnostics": […]}` for
 /// the diagnostics of a load that failed.
 fn failed(session: &Session, diagnostics: Vec<Diagnostic>) -> String {
-    let (warnings, errors): (Vec<_>, Vec<_>) = diagnostics
-        .iter()
-        .partition(|d| d.severity == Severity::Warning);
+    let (goals, others) = split_goals(diagnostics.clone());
+    let (warnings, errors): (Vec<_>, Vec<_>) =
+        others.iter().partition(|d| d.severity == Severity::Warning);
     let each: Vec<String> = warnings
         .iter()
         .map(|w| {
@@ -169,14 +169,20 @@ fn failed(session: &Session, diagnostics: Vec<Diagnostic>) -> String {
     } else {
         format!(r#","warnings":[{}]"#, each.join(","))
     };
-    let all: Vec<&Diagnostic> = errors.iter().chain(&warnings).copied().collect();
+    let all: Vec<&Diagnostic> = errors
+        .iter()
+        .chain(&warnings)
+        .copied()
+        .chain(goals.iter())
+        .collect();
     let text: String = errors
         .iter()
         .map(|d| stitchwort_driver::render::render(&session.sources, d, false))
         .collect();
     format!(
-        r#"{{"ok":false,"errors":{}{warnings_field},{}}}"#,
+        r#"{{"ok":false,"errors":{}{warnings_field}{},{}}}"#,
         json_string(&text),
+        goals_field(session, &goals),
         diagnostics_json(session, &all)
     )
 }
@@ -254,9 +260,8 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
     match load_shared(&paths, &texts, targets) {
         Ok(loaded) => {
             let checked: Vec<String> = loaded.checked.iter().map(|n| json_string(n)).collect();
-            let each: Vec<String> = loaded
-                .session
-                .warnings
+            let (goals, warned) = split_goals(loaded.session.warnings.clone());
+            let each: Vec<String> = warned
                 .iter()
                 .map(|w| {
                     json_string(&stitchwort_driver::render::render(
@@ -273,8 +278,9 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
             };
             let all: Vec<&Diagnostic> = loaded.session.warnings.iter().collect();
             format!(
-                r#"{{"ok":true,"checked":[{}]{warnings},{}}}"#,
+                r#"{{"ok":true,"checked":[{}]{warnings}{},{}}}"#,
                 checked.join(","),
+                goals_field(&loaded.session, &goals),
                 diagnostics_json(&loaded.session, &all)
             )
         }

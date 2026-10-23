@@ -4,7 +4,8 @@
 //!
 //! [`check`]'s answer, and any function's answer when the source doesn't
 //! load, also has the program's warnings, each rendered as text:
-//! `"warnings": ["…", …]`, left out when there are none. (The page checks
+//! `"warnings": ["…", …]`, left out when there are none; open goals (`?`)
+//! likewise as `"goals": ["…", …]`. (The page checks
 //! before anything else, so it gets them from there.)
 
 mod project;
@@ -60,10 +61,14 @@ pub fn limits() -> String {
 #[wasm_bindgen]
 pub fn check(source: &str) -> String {
     match load_shared(source) {
-        Ok(session) => format!(
-            r#"{{"ok":true{}}}"#,
-            warnings_field(&session, &session.warnings)
-        ),
+        Ok(session) => {
+            let (goals, warnings) = split_goals(session.warnings.clone());
+            format!(
+                r#"{{"ok":true{}{}}}"#,
+                warnings_field(&session, &warnings),
+                goals_field(&session, &goals)
+            )
+        }
         Err(failed) => failed,
     }
 }
@@ -619,13 +624,15 @@ fn load(source: &str) -> Result<Session, String> {
     match session.load(FILE, source) {
         Ok(_) => Ok(session),
         Err(diagnostics) => {
+            let (goals, diagnostics) = split_goals(diagnostics);
             let (warnings, errors): (Vec<_>, Vec<_>) = diagnostics
                 .into_iter()
                 .partition(|d| d.severity == Severity::Warning);
             Err(format!(
-                r#"{{"ok":false,"errors":{}{}}}"#,
+                r#"{{"ok":false,"errors":{}{}{}}}"#,
                 json_string(&rendered(&session, &errors)),
-                warnings_field(&session, &warnings)
+                warnings_field(&session, &warnings),
+                goals_field(&session, &goals)
             ))
         }
     }
@@ -641,6 +648,26 @@ fn warnings_field(session: &Session, warnings: &[Diagnostic]) -> String {
         .map(|w| json_string(&render(&session.sources, w, false)))
         .collect();
     format!(r#","warnings":[{}]"#, each.join(","))
+}
+
+/// The open goals (`?`) among `diagnostics`, and the rest.
+pub(crate) fn split_goals(diagnostics: Vec<Diagnostic>) -> (Vec<Diagnostic>, Vec<Diagnostic>) {
+    diagnostics
+        .into_iter()
+        .partition(|d| d.severity == Severity::Goal)
+}
+
+/// `,"goals":["…",…]`, each goal rendered as the CLI prints it, or nothing
+/// if there are none (docs/proposals/lsp-goal-holes.md §6).
+pub(crate) fn goals_field(session: &Session, goals: &[Diagnostic]) -> String {
+    if goals.is_empty() {
+        return String::new();
+    }
+    let each: Vec<String> = goals
+        .iter()
+        .map(|g| json_string(&render(&session.sources, g, false)))
+        .collect();
+    format!(r#","goals":[{}]"#, each.join(","))
 }
 
 fn rendered(session: &Session, errors: &[Diagnostic]) -> String {
@@ -889,6 +916,24 @@ mod tests {
         // Malformed lines are ignored.
         let third = test(source, &format!("nonsense\n{added}"));
         assert!(!third.contains(r#""cached":false"#), "{third}");
+    }
+
+    #[test]
+    fn reports_open_goals_apart_from_warnings_and_errors() {
+        let source = "def two : Nat := 2\n\ntheorem t : two = 2 := ?\n";
+        let checked = check(source);
+        assert!(
+            checked.starts_with(r#"{"ok":true,"goals":["[GOAL] Goal:"#),
+            "{checked}"
+        );
+        assert!(!checked.contains("warnings"), "{checked}");
+        // With an error too, the goals still come out apart from it.
+        let failed = check(&format!("{source}def bad : Nat := rfl\n"));
+        assert!(failed.contains(r#","goals":["[GOAL]"#), "{failed}");
+        assert!(
+            !failed.split_once(r#","goals""#).unwrap().0.contains("GOAL"),
+            "{failed}"
+        );
     }
 
     #[test]

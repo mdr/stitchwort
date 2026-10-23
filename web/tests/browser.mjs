@@ -685,6 +685,41 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   assert.equal(s.warnings, null);
 });
 
+test("a ? program shows its open goals in a Goals section", async (page) => {
+  const shown = () => page.ev(`(() => {
+    const text = (s) => document.querySelector(s)?.textContent ?? null;
+    return { goals: text("#output pre.goals"), errors: text("#output pre.errors"),
+             headings: [...document.querySelectorAll("#output h2")].map((h) => h.textContent),
+             status: document.getElementById("status").textContent,
+             output: document.getElementById("output").innerText };
+  })()`);
+  await page.open();
+  await page.untilChecked();
+  assert.equal((await shown()).goals, null, "no goals in the example");
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n");
+  await page.untilStatus("1 goal open");
+  let s = await shown();
+  assert.deepEqual(s.headings, ["Goals (1 open)"]);
+  assert.match(s.goals, /^\[GOAL\] Goal:/);
+  assert.match(s.goals, /⊢ 2 = 2/);
+  assert.equal(s.errors, null);
+  assert.doesNotMatch(s.output, /Every definition type-checks/);
+  // Beside an error: the goals come first, the errors in their own box.
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := rfl\n");
+  await page.untilStatus("Doesn’t check");
+  s = await shown();
+  assert.deepEqual(s.headings, ["Goals (1 open)", "Errors"]);
+  assert.match(s.goals, /⊢ 2 = 2/);
+  assert.match(s.errors, /E-TYPE-MISMATCH/);
+  assert.doesNotMatch(s.errors, /GOAL/);
+  const colours = await page.ev(`["pre.errors", "pre.goals"].map((s) => getComputedStyle(document.querySelector(s)).color)`);
+  assert.notEqual(colours[0], colours[1], "errors and goals look different");
+  // Gone once filled in.
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
+  await page.untilChecked();
+  assert.equal((await shown()).goals, null);
+});
+
 test("the Evaluate tab", async (page) => {
   await page.open();
   await page.untilChecked();
