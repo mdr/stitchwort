@@ -1508,6 +1508,92 @@ console.log("ok");
     run_script("shared", &[("shared.mjs", &session)], script);
 }
 
+/// The fast path (`fast.rs`) keeps the general decoder's books: a value nested
+/// too deeply for its recursion is handed to the general decoder without
+/// reading anything twice, and what it can't accept is explained by the general
+/// decoder alone, so the messages are the same.
+#[test]
+fn the_fast_path_reads_each_property_once_and_defers_to_the_general_decoder() {
+    let source = "\
+type Tree : Type =
+  | Leaf
+  | Node (left : Tree) (right : Tree)
+
+export def leftDepth (t : Tree) : Nat := leftDepthOnto 0 t
+
+def leftDepthOnto (n : Nat) : Tree -> Nat
+  | Leaf     => n
+  | Node l r => leftDepthOnto (Succ n) l
+
+type Point = { x: Nat, y: Nat }
+
+export def sumX : List Point -> Nat
+  | Nil       => 0
+  | Cons p ps => p.x + sumX ps
+";
+    let mut session = Session::new();
+    session.load("fast.sw", source).expect("checks");
+    let script = r#"
+import * as m from "./fast.mjs";
+import assert from "node:assert/strict";
+
+// A chain far deeper than the fast path recurses: every property is read
+// exactly once, going through the hand-over to the general decoder.
+for (const depth of [50, 99, 100, 101, 5000, 100000]) {
+  let reads = 0;
+  let t = { $tag: "Leaf" };
+  for (let i = 0; i < depth; i++) {
+    const child = t;
+    t = { $tag: "Node", get left() { reads++; return child; }, get right() { reads++; return { $tag: "Leaf" }; } };
+  }
+  assert.equal(m.leftDepth(t), BigInt(depth));
+  assert.equal(reads, 2 * depth, `depth ${depth}`);
+}
+
+// An object reached twice is read once, though the fast path and the general
+// decoder both have a part in it: the second path is under the hand-over.
+{
+  let reads = 0;
+  let shared = { $tag: "Leaf" };
+  for (let i = 0; i < 300; i++) {
+    const child = shared;
+    shared = { $tag: "Node", get left() { reads++; return child; }, get right() { reads++; return child; } };
+  }
+  assert.equal(m.leftDepth(shared), 300n);
+  assert.equal(reads, 600);
+}
+
+// A record whose fields are all leaves is decoded again wherever it's reached.
+{
+  let reads = 0;
+  const point = { get x() { reads++; return 2n; }, y: 0n };
+  assert.equal(m.sumX([point, point, point]), 6n);
+  assert.equal(reads, 3);
+}
+
+// A refusal inside a long list of records gives the general decoder's message,
+// with its path, wherever it is.
+const points = Array.from({ length: 1000 }, (_, i) => ({ x: BigInt(i), y: 0n }));
+for (const [i, bad, message] of [
+  [0, { x: 1, y: 0n }, "arg0[0].x: expected a non-negative bigint"],
+  [999, { x: 1n }, "arg0[999].y: missing"],
+  [500, null, "arg0[500]: expected a Point object"],
+]) {
+  const input = points.slice();
+  input[i] = bad;
+  assert.throws(() => m.sumX(input),
+    (e) => e instanceof m.StitchwortInputError && e.message === message, message);
+}
+// A hole is refused, and the input is never changed.
+const holey = points.slice();
+delete holey[7];
+assert.throws(() => m.sumX(holey), (e) => e instanceof m.StitchwortInputError && e.message === "arg0[7]: a hole in the array");
+assert.equal(m.sumX(points), 499500n);
+console.log("ok");
+"#;
+    run_script("fast", &[("fast.mjs", &session)], script);
+}
+
 /// A definition that failed to check has no body. The driver never extracts
 /// a module with errors, but the generator refuses one rather than emitting
 /// JS that calls a function that isn't there.

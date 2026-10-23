@@ -82,11 +82,11 @@ const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount
 // A data type's description. `tagKey` is the property its objects' tag is
 // in at the boundary; inside generated code it's always `tag`.
 const datatype = (name, tagKey = "$tag") => ({
-  name, tagKey, ctors: new Map(), internal: new Map(), flat: new Set(), tags: "",
+  name, tagKey, ctors: new Map(), internal: new Map(), flat: undefined, tags: "",
   instances: new Map(), record: undefined, checks: [],
 });
 // Each constructor's tag, and its fields' keys and types, in order. A
-// constructor is `flat` if all its fields are leaves. A record has one
+// constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
 // object saying whether the proof holds. Names at the boundary may differ
@@ -101,7 +101,10 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     external,
     fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
   }));
-  if (record) info.record = entries[0].fields;
+  if (record) {
+    info.record = entries[0].fields;
+    info.recordTag = entries[0].external;
+  }
   info.checks = checks;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
@@ -109,7 +112,6 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
   for (const entry of entries) {
     info.ctors.set(entry.external, entry);
     info.internal.set(entry.tag, entry);
-    if (entry.fields.every(([, t]) => t.kind === LEAF)) info.flat.add(entry.external);
   }
   const tags = entries.map((e) => JSON.stringify(e.external));
   info.tags =
@@ -151,8 +153,10 @@ const BOOL = leaf(
 // `Text` is a string. Decoding refuses a string with a lone surrogate (which
 // JS allows) rather than repairing it, so encoding gives back exactly the
 // string that was decoded.
+const hasIsWellFormed = typeof "".isWellFormed === "function";
 const wellFormed = (x) => {
   if (typeof x !== "string") refuse("expected a string");
+  if (hasIsWellFormed && x.isWellFormed()) return x;
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
     if (unit < 0xd800 || unit > 0xdfff) continue;
@@ -341,15 +345,31 @@ const plainKeys = (x) => {
 // more (`a = { left: b, right: b }`, `b = { left: c, right: c }`, …). One reached again while it's being decoded at the same type contains
 // itself, and is refused instead of looping forever. (A cycle comes back to
 // the same type eventually, since there are only so many.) An object of a
-// `flat` constructor, whose fields are all leaves, can't contain itself or
-// share anything, and decoding it takes as long as decoding its fields, so
-// it's decoded again each time it's reached, which is quicker than
-// remembering it.
+// `flat` constructor (a record's too), whose fields are all `shallow`, can't
+// contain itself or share anything, and decoding it takes as long as decoding
+// its fields, so it's decoded again each time it's reached, which is quicker
+// than remembering it.
 const INSIDE = Symbol("inside");
-const decode = (t, x, root) => {
+// A value with nothing inside it that could be shared or contain itself: a leaf,
+// a string union, or an `Option` of one.
+const shallow = (t) =>
+  t.kind === LEAF ||
+  (t.kind === DATA && t.info.strings) ||
+  (t.kind === OPTION && t.elem.kind !== OPTION && shallow(t.elem));
+// The tags of a data type's flat constructors (a record's one is `flat` if it's
+// in it), found on first use, when every type is defined.
+const flatOf = (info) => {
+  if (info.flat === undefined) {
+    info.flat = new Set();
+    for (const [tag, entry] of info.ctors) {
+      if (entry.fields.every(([, t]) => shallow(t))) info.flat.add(tag);
+    }
+  }
+  return info.flat;
+};
+const decode = (t, x, root, seen = new Map()) => {
   const frames = [];
   const path = [];
-  const seen = new Map();
   try {
     for (;;) {
       // Start on `x`: a leaf is done at once, as is an array or object
@@ -400,7 +420,8 @@ const decode = (t, x, root) => {
           frames.push({ t, x, done, fields: undefined, keys, key: undefined, i: 0, n: keys.length, out: [] });
         } else if (t.info.record !== undefined) {
           const fields = t.info.record;
-          done.set(x, INSIDE);
+          if (flatOf(t.info).has(t.info.recordTag)) done = undefined;
+          else done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
           const key = t.info.tagKey;
@@ -410,7 +431,7 @@ const decode = (t, x, root) => {
           const ctor = t.info.ctors.get(tag);
           if (ctor === undefined) refuse(`unknown ${key} ${describe(tag)}; expected ${t.info.tags}`);
           const fields = ctor.fields;
-          if (t.info.flat.has(tag)) done = undefined;
+          if (flatOf(t.info).has(tag)) done = undefined;
           else done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag: ctor.tag } });
         }
@@ -574,6 +595,74 @@ const encode = (t, v) => {
   }
 };
 
+// The fast path. Each type that crosses has a decoder and an encoder
+// specialised to it, written out in this module: they go straight through a
+// value, with no description of its type to interpret, no frames and no path
+// to keep.
+//
+// A fast decoder does what `decode` does, with the same bookkeeping, in the
+// same order and reading each property once: what it has decoded at each type
+// is remembered (in `seen`, the same table `decode` keeps) so that an object
+// reached twice is decoded once, and one reached while it's being decoded is
+// refused, and objects whose fields are all shallow (`flatOf`) are decoded each
+// time. Where it would nest deeper than `MAX_DEPTH` (it recurses, a loop
+// doesn't), it hands that value to `decode`, with the same `seen`, which has no
+// stack to run out of.
+//
+// A fast decoder never says why it refuses an input. It throws anything at all
+// (`FAIL`, a `Refusal`, a getter's error, a `RangeError` from the stack), and
+// then `decode`, the general one, runs on the whole input and gives the
+// refusal, with its path, or finds that the input is fine after all (a getter
+// that threw once need not throw again). So an input is accepted exactly when
+// `decode` accepts it, to the same value, and refused with `decode`'s message.
+// The only difference is that an input that's refused has been partly read
+// before, by the fast decoder.
+//
+// The encoders read only values Stitchwort made. They give up on being nested
+// deeper than `MAX_DEPTH`, and the general `encode` does it.
+const FAIL = { fast: "gave up" };
+const fail = () => {
+  throw FAIL;
+};
+const MAX_DEPTH = 100;
+let depth = 0, seen = null;
+// What has been decoded at type `t` so far.
+const memoOf = (t) => {
+  let done = seen.get(t);
+  if (done === undefined) seen.set(t, (done = new Map()));
+  return done;
+};
+// `decode` for a value inside the fast path's, sharing what it has seen.
+const decodeDeep = (t, x) => decode(t, x, "", seen);
+// A call into an export from a getter, while another is being decoded, uses
+// the counters afresh and leaves them as it found them.
+const decodeFast = (fast, t, x, root) => {
+  const outerDepth = depth, outerSeen = seen;
+  depth = 0;
+  seen = new Map();
+  try {
+    return fast(x);
+  } catch {
+    // The general decoder will say.
+  } finally {
+    depth = outerDepth;
+    seen = outerSeen;
+  }
+  return decode(t, x, root);
+};
+const encodeFast = (fast, t, v) => {
+  const outerDepth = depth;
+  depth = 0;
+  try {
+    return fast(v);
+  } catch {
+    // The general encoder does it.
+  } finally {
+    depth = outerDepth;
+  }
+  return encode(t, v);
+};
+
 const info$Main$dShape = datatype("Shape");
 define(info$Main$dShape, [
   ["Square", [["side", NAT]]],
@@ -634,8 +723,8 @@ const $Main$dgrow = (v0) => {
 
 function $$area(arg0) {
   try {
-    const v0 = decode(data(info$Main$dShape), arg0, "arg0");
-    return encode(NAT, $Main$darea(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
+    return encodeFast(enc$2, ty$2, $Main$darea(v0));
   } catch (e) {
     throw outOfResources("area", e);
   }
@@ -643,8 +732,8 @@ function $$area(arg0) {
 
 function $$areas(arg0) {
   try {
-    const v0 = decode(list(data(info$Main$dShape)), arg0, "arg0");
-    return encode(list(NAT), $Main$dareas(v0));
+    const v0 = decodeFast(dec$3, ty$3, arg0, "arg0");
+    return encodeFast(enc$4, ty$4, $Main$dareas(v0));
   } catch (e) {
     throw outOfResources("areas", e);
   }
@@ -652,10 +741,88 @@ function $$areas(arg0) {
 
 function $$grow(arg0) {
   try {
-    const v0 = decode(data(info$Main$dShape), arg0, "arg0");
-    return encode(data(info$Main$dShape), $Main$dgrow(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
+    return encodeFast(enc$5, ty$1, $Main$dgrow(v0));
   } catch (e) {
     throw outOfResources("grow", e);
+  }
+}
+
+// The fast path's codecs, one decoder and one encoder for each type that
+// crosses (see `decodeFast`).
+const ty$1 = data(info$Main$dShape);
+const ty$2 = NAT;
+const ty$3 = list(data(info$Main$dShape));
+const ty$4 = list(NAT);
+function dec$1(x) {
+  if (typeof x !== "object" || x === null || Array.isArray(x)) throw FAIL;
+  if (!hasOwn(x, "$tag")) throw FAIL;
+  switch (x.$tag) {
+    case "Square": {
+      if (!hasOwn(x, "side")) throw FAIL;
+      const r0 = x.side;
+      const f0 = NAT.dec(r0);
+      const o = { tag: "Square", side: f0 };
+      return o;
+    }
+    case "Rect": {
+      if (!hasOwn(x, "width")) throw FAIL;
+      const r0 = x.width;
+      const f0 = NAT.dec(r0);
+      if (!hasOwn(x, "height")) throw FAIL;
+      const r1 = x.height;
+      const f1 = NAT.dec(r1);
+      const o = { tag: "Rect", width: f0, height: f1 };
+      return o;
+    }
+    default: throw FAIL;
+  }
+}
+function enc$2(v) {
+  return NAT.enc(v);
+}
+function dec$3(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$3);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$3, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  let first = null, last = null;
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    const cell = { tag: "Cons", head: dec$1(r), tail: null };
+    if (last === null) first = cell; else last.tail = cell;
+    last = cell;
+  }
+  const nil = { tag: "Nil" };
+  if (last === null) first = nil; else last.tail = nil;
+  depth--;
+  done.set(x, first);
+  return first;
+}
+function enc$4(v) {
+  const out = [];
+  for (let l = v; l.tag === "Cons"; l = l.tail) out.push(NAT.enc(l.head));
+  return out;
+}
+function enc$5(v) {
+  switch (v.tag) {
+    case "Square": {
+      const o = { $tag: "Square", side: NAT.enc(v.side) };
+      return o;
+    }
+    case "Rect": {
+      const o = { $tag: "Rect", width: NAT.enc(v.width), height: NAT.enc(v.height) };
+      return o;
+    }
+    default: throw FAIL;
   }
 }
 

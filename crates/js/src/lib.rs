@@ -31,6 +31,7 @@ pub use stitchwort_rt::natives::{
 };
 use stitchwort_syntax::Diagnostic;
 
+mod fast;
 pub mod run;
 
 /// Generating code recurses over a definition's body, so each level checks
@@ -770,6 +771,7 @@ pub fn generate_exports(
         ));
     }
     js.push_str(RUNTIME_CODECS);
+    js.push_str(RUNTIME_FAST);
     js.push('\n');
     // Every data type is declared before any is defined, so their fields'
     // types can refer to each other (and themselves).
@@ -845,6 +847,7 @@ pub fn generate_exports(
     for sig in &exports {
         js.push_str(&codegen.wrapper(sig).map_err(while_generating(sig.id))?);
     }
+    js.push_str(&codegen.fast.borrow().module_text());
     // Exports aren't names in the module's scope, so they can't hide its
     // own names or the JS globals it uses (`Set`, `BigInt`, …).
     let exported: Vec<String> = exports
@@ -1026,11 +1029,11 @@ const param = (i) => (paramTypes[i] ??= { kind: PARAM, open: true, id: typeCount
 // A data type's description. `tagKey` is the property its objects' tag is
 // in at the boundary; inside generated code it's always `tag`.
 const datatype = (name, tagKey = "$tag") => ({
-  name, tagKey, ctors: new Map(), internal: new Map(), flat: new Set(), tags: "",
+  name, tagKey, ctors: new Map(), internal: new Map(), flat: undefined, tags: "",
   instances: new Map(), record: undefined, checks: [],
 });
 // Each constructor's tag, and its fields' keys and types, in order. A
-// constructor is `flat` if all its fields are leaves. A record has one
+// constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
 // object saying whether the proof holds. Names at the boundary may differ
@@ -1045,7 +1048,10 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     external,
     fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
   }));
-  if (record) info.record = entries[0].fields;
+  if (record) {
+    info.record = entries[0].fields;
+    info.recordTag = entries[0].external;
+  }
   info.checks = checks;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
@@ -1053,7 +1059,6 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
   for (const entry of entries) {
     info.ctors.set(entry.external, entry);
     info.internal.set(entry.tag, entry);
-    if (entry.fields.every(([, t]) => t.kind === LEAF)) info.flat.add(entry.external);
   }
   const tags = entries.map((e) => JSON.stringify(e.external));
   info.tags =
@@ -1095,8 +1100,10 @@ const BOOL = leaf(
 // `Text` is a string. Decoding refuses a string with a lone surrogate (which
 // JS allows) rather than repairing it, so encoding gives back exactly the
 // string that was decoded.
+const hasIsWellFormed = typeof "".isWellFormed === "function";
 const wellFormed = (x) => {
   if (typeof x !== "string") refuse("expected a string");
+  if (hasIsWellFormed && x.isWellFormed()) return x;
   for (let i = 0; i < x.length; i++) {
     const unit = x.charCodeAt(i);
     if (unit < 0xd800 || unit > 0xdfff) continue;
@@ -1319,15 +1326,31 @@ const plainKeys = (x) => {
 // more (`a = { left: b, right: b }`, `b = { left: c, right: c }`, …). One reached again while it's being decoded at the same type contains
 // itself, and is refused instead of looping forever. (A cycle comes back to
 // the same type eventually, since there are only so many.) An object of a
-// `flat` constructor, whose fields are all leaves, can't contain itself or
-// share anything, and decoding it takes as long as decoding its fields, so
-// it's decoded again each time it's reached, which is quicker than
-// remembering it.
+// `flat` constructor (a record's too), whose fields are all `shallow`, can't
+// contain itself or share anything, and decoding it takes as long as decoding
+// its fields, so it's decoded again each time it's reached, which is quicker
+// than remembering it.
 const INSIDE = Symbol("inside");
-const decode = (t, x, root) => {
+// A value with nothing inside it that could be shared or contain itself: a leaf,
+// a string union, or an `Option` of one.
+const shallow = (t) =>
+  t.kind === LEAF ||
+  (t.kind === DATA && t.info.strings) ||
+  (t.kind === OPTION && t.elem.kind !== OPTION && shallow(t.elem));
+// The tags of a data type's flat constructors (a record's one is `flat` if it's
+// in it), found on first use, when every type is defined.
+const flatOf = (info) => {
+  if (info.flat === undefined) {
+    info.flat = new Set();
+    for (const [tag, entry] of info.ctors) {
+      if (entry.fields.every(([, t]) => shallow(t))) info.flat.add(tag);
+    }
+  }
+  return info.flat;
+};
+const decode = (t, x, root, seen = new Map()) => {
   const frames = [];
   const path = [];
-  const seen = new Map();
   try {
     for (;;) {
       // Start on `x`: a leaf is done at once, as is an array or object
@@ -1378,7 +1401,8 @@ const decode = (t, x, root) => {
           frames.push({ t, x, done, fields: undefined, keys, key: undefined, i: 0, n: keys.length, out: [] });
         } else if (t.info.record !== undefined) {
           const fields = t.info.record;
-          done.set(x, INSIDE);
+          if (flatOf(t.info).has(t.info.recordTag)) done = undefined;
+          else done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: {} });
         } else {
           const key = t.info.tagKey;
@@ -1388,7 +1412,7 @@ const decode = (t, x, root) => {
           const ctor = t.info.ctors.get(tag);
           if (ctor === undefined) refuse(`unknown ${key} ${describe(tag)}; expected ${t.info.tags}`);
           const fields = ctor.fields;
-          if (t.info.flat.has(tag)) done = undefined;
+          if (flatOf(t.info).has(tag)) done = undefined;
           else done.set(x, INSIDE);
           frames.push({ t, x, done, fields, i: 0, n: fields.length, out: { tag: ctor.tag } });
         }
@@ -1553,6 +1577,79 @@ const encode = (t, v) => {
 };
 "#;
 
+/// The runtime's fast path: what `decodeFast` and `encodeFast` do around the
+/// specialised codecs the generator writes for each type that crosses (see
+/// `fast.rs`).
+const RUNTIME_FAST: &str = r#"
+// The fast path. Each type that crosses has a decoder and an encoder
+// specialised to it, written out in this module: they go straight through a
+// value, with no description of its type to interpret, no frames and no path
+// to keep.
+//
+// A fast decoder does what `decode` does, with the same bookkeeping, in the
+// same order and reading each property once: what it has decoded at each type
+// is remembered (in `seen`, the same table `decode` keeps) so that an object
+// reached twice is decoded once, and one reached while it's being decoded is
+// refused, and objects whose fields are all shallow (`flatOf`) are decoded each
+// time. Where it would nest deeper than `MAX_DEPTH` (it recurses, a loop
+// doesn't), it hands that value to `decode`, with the same `seen`, which has no
+// stack to run out of.
+//
+// A fast decoder never says why it refuses an input. It throws anything at all
+// (`FAIL`, a `Refusal`, a getter's error, a `RangeError` from the stack), and
+// then `decode`, the general one, runs on the whole input and gives the
+// refusal, with its path, or finds that the input is fine after all (a getter
+// that threw once need not throw again). So an input is accepted exactly when
+// `decode` accepts it, to the same value, and refused with `decode`'s message.
+// The only difference is that an input that's refused has been partly read
+// before, by the fast decoder.
+//
+// The encoders read only values Stitchwort made. They give up on being nested
+// deeper than `MAX_DEPTH`, and the general `encode` does it.
+const FAIL = { fast: "gave up" };
+const fail = () => {
+  throw FAIL;
+};
+const MAX_DEPTH = 100;
+let depth = 0, seen = null;
+// What has been decoded at type `t` so far.
+const memoOf = (t) => {
+  let done = seen.get(t);
+  if (done === undefined) seen.set(t, (done = new Map()));
+  return done;
+};
+// `decode` for a value inside the fast path's, sharing what it has seen.
+const decodeDeep = (t, x) => decode(t, x, "", seen);
+// A call into an export from a getter, while another is being decoded, uses
+// the counters afresh and leaves them as it found them.
+const decodeFast = (fast, t, x, root) => {
+  const outerDepth = depth, outerSeen = seen;
+  depth = 0;
+  seen = new Map();
+  try {
+    return fast(x);
+  } catch {
+    // The general decoder will say.
+  } finally {
+    depth = outerDepth;
+    seen = outerSeen;
+  }
+  return decode(t, x, root);
+};
+const encodeFast = (fast, t, v) => {
+  const outerDepth = depth;
+  depth = 0;
+  try {
+    return fast(v);
+  } catch {
+    // The general encoder does it.
+  } finally {
+    depth = outerDepth;
+  }
+  return encode(t, v);
+};
+"#;
+
 struct Gen<'g> {
     g: &'g Globals,
     /// The prelude's `Nat`, if the `bigint` representation applies
@@ -1586,6 +1683,8 @@ struct Gen<'g> {
     /// as a field of a constructor in tail position, where it can't be
     /// compiled.
     hole_misused: Cell<bool>,
+    /// The fast path's generated codecs ([`fast`]).
+    fast: RefCell<fast::Fast>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -1693,6 +1792,7 @@ impl<'g> Gen<'g> {
             run_delay: false,
             holes: RefCell::new(Vec::new()),
             hole_misused: Cell::new(false),
+            fast: RefCell::default(),
         })
     }
 
@@ -2637,9 +2737,10 @@ impl<'g> Gen<'g> {
         for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {
             let _ = writeln!(
                 out,
-                "    const {} = decode({}, {}, \"{x}\");",
+                "    const {} = decodeFast({}, {}, {}, \"{x}\");",
                 var(*position),
-                self.type_expr(b),
+                self.fast_decoder(b),
+                self.type_const(b),
                 arg(*position)
             );
             let _ = write!(call, "({})", var(*position));
@@ -2661,8 +2762,9 @@ impl<'g> Gen<'g> {
         }
         let _ = writeln!(
             out,
-            "    return encode({}, {call});\n  }} catch (e) {{\n    throw outOfResources(\"{}\", e);\n  }}\n}}",
-            self.type_expr(&sig.result),
+            "    return encodeFast({}, {}, {call});\n  }} catch (e) {{\n    throw outOfResources(\"{}\", e);\n  }}\n}}",
+            self.fast_encoder(&sig.result),
+            self.type_const(&sig.result),
             sig.name
         );
         Ok(out)
@@ -2755,6 +2857,7 @@ impl<'g> Gen<'g> {
             "\n// A whole number a `number` holds exactly (the library's `SafeNat` and\n\
              // `SafeInt`), as a `bigint`.\n\
              const safeNumber = (x, lowest) => {\n  \
+               if (typeof x === \"number\" && x >= lowest && x <= 9007199254740991 && Number.isInteger(x)) return BigInt(x);\n  \
                if (typeof x !== \"number\") refuse(\"expected a number\");\n  \
                if (!Number.isInteger(x)) refuse(\"expected a whole number\");\n  \
                if (x < lowest || x > 9007199254740991) {\n    \
