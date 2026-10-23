@@ -278,6 +278,44 @@ def main () : {IO} () :=
     );
 }
 
+/// D922: the arguments supplied before the erased parameter are computed
+/// once, outside the adapter closure, not on every call of it. Purity hides
+/// this from the output, so this checks the generated JS: `slow n` is the
+/// argument of a binding wrapped around the closure, and is not inside it.
+#[test]
+fn supplied_arguments_of_an_adapter_are_computed_once() {
+    let path = source_file(
+        "once.sw",
+        r#"
+import Std (Nat)
+
+def slow (n: Nat): Nat := n * n * n
+def tagged (k: Nat) (a: Type) (n: Nat): Nat := k + n
+def app2 (f: Type -> Nat -> Nat): Nat := f Nat 41
+
+export def total (n: Nat): Nat := app2 (tagged (slow n))
+"#,
+    );
+    let out = path.parent().unwrap().join("once-out");
+    let built = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["build", "--js", "--no-cache", "-o"])
+        .arg(&out)
+        .arg(&path)
+        .output()
+        .expect("run stitchwort build");
+    assert!(built.status.success(), "{}", text(&built.stderr));
+    let js = std::fs::read_to_string(out.join("once.js")).expect("read once.js");
+    let line = js
+        .lines()
+        .find(|l| l.starts_with("const $Main$dtotal"))
+        .expect("total is generated");
+    assert!(
+        line.ends_with(")($Main$dslow(v0)));"),
+        "the argument isn't bound outside the closure: {line}"
+    );
+    assert!(line.contains("$Main$dtagged($s0)"), "{line}");
+}
+
 /// D922 (test A0): a definition with type or proof parameters, used as a
 /// value, is called by code that knows only its type, which passes those
 /// arguments too. The output is what the reference evaluator prints (checked
@@ -295,6 +333,7 @@ def pickLate (n: Nat) (a: Type): Nat := n + 2
 def withProof (n: Nat) (h: n = n) (m: Nat): Nat := n + m
 def mid (n: Nat) (a: Type) (m: Nat): Nat := n * 10 + m
 def proofOnly (n: Nat) (h: n = n): Nat := n + 100
+def tag2 (k: Nat) (j: Nat) (a: Type) (n: Nat): Nat := k * 100 + j * 10 + n
 
 def app (f: Type -> Nat): Nat := f Nat
 def app2 (f: Type -> Nat -> Nat): Nat := f Nat 41
@@ -317,12 +356,13 @@ def main () : {IO} () :=
   IO.print (Nat.toText (app3 (withProof 4 rfl)))
   IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 rfl))
   IO.print (Nat.toText (List.sum (List.map (f => f 2 rfl) [proofOnly, proofOnly])))
+  IO.print (Nat.toText (app2 (tag2 (1 + 1) (2 + 1))))
 "#,
     );
     let js = same_both_ways(&path, b"", true);
     assert!(js.status.success(), "{}", text(&js.stderr));
     assert_eq!(
         text(&js.stdout),
-        "7\n42\n42\n11\n42\n8\n44\n42\n45\n109\n204\n"
+        "7\n42\n42\n11\n42\n8\n44\n42\n45\n109\n204\n271\n"
     );
 }

@@ -586,12 +586,20 @@ impl<'g> Lowerer<'g> {
         // unsupplied: whoever receives it knows only its type, so it passes
         // the type and proof arguments too. Eta-expand over all the
         // remaining parameters; the saturated call inside drops the erased
-        // ones as usual (D922).
+        // ones as usual (D922). The supplied run-time arguments are
+        // computed once, in `let`s outside the closure, not on every call.
         if args.len() < mask.len() && mask[args.len()..].iter().any(|erased| *erased) {
             let missing = mask.len() - args.len();
+            let bound: Vec<usize> = (0..args.len())
+                .filter(|i| !mask[*i] && !matches!(strip(args[*i]), Term::Var(_) | Term::Nat(_)))
+                .collect();
+            let n = bound.len();
             let mut spine = Term::Def(id);
-            for a in args {
-                let a = a.shift(self.g, missing, 0)?;
+            for (i, a) in args.iter().enumerate() {
+                let a = match bound.iter().position(|b| *b == i) {
+                    Some(j) => Term::Var(missing + (n - 1 - j)),
+                    None => a.shift(self.g, n + missing, 0)?,
+                };
                 spine = Term::App(Rc::new(spine), Rc::new(a), Icit::Explicit);
             }
             for k in (0..missing).rev() {
@@ -599,6 +607,16 @@ impl<'g> Lowerer<'g> {
             }
             for _ in 0..missing {
                 spine = Term::Lam("x".into(), Icit::Explicit, Rc::new(spine));
+            }
+            for (j, i) in bound.iter().enumerate().rev() {
+                let value = args[*i].shift(self.g, j, 0)?;
+                spine = Term::Let(
+                    "s".into(),
+                    Rc::new(Term::Refl),
+                    Rc::new(value),
+                    Rc::new(spine),
+                    false,
+                );
             }
             return self.expr(&spine);
         }
