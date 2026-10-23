@@ -5635,7 +5635,7 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients (map-equality.md draft 3 signed off) — stage 1",
+      "title": "Map/Set equality: kernel quotients (map-equality.md draft 3) — stage 1.1-1.2 merged; next 1.3 erasure/runtimes",
       "status": "doing",
       "agent": "Opus",
       "where": "draft 3 lane (D920); stage 0 merged (sized invariant, Spec lemmas); next: stage 1 kernel quotients",
@@ -5651,7 +5651,12 @@
         "84f98814",
         "bab03f79",
         "814e42fb",
-        "c1f8558e"
+        "c1f8558e",
+        "b2e95c0d",
+        "66c1a5b4",
+        "dd10244e",
+        "35692b53",
+        "1810af95"
       ]
     },
     {
