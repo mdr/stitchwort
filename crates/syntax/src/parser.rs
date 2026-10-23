@@ -331,10 +331,15 @@ fn has_absurd(p: &Pattern) -> bool {
 
 /// The token range of each top-level declaration, in order: the column-0 split
 /// the parser uses (attributes belong to the declaration after them). Together
-/// the ranges cover `tokens`. Fails if the first token isn't at column 0.
+/// the ranges cover `tokens`, except that tokens before the first range (a file
+/// whose first column-0 token is `:=`, which starts no declaration) are in
+/// none. Fails if the first token isn't at column 0.
 pub fn decl_ranges(tokens: &[Token]) -> Result<Vec<std::ops::Range<usize>>> {
-    let mut start = 0;
-    Ok(split_decls(tokens)?
+    let groups = split_decls(tokens)?;
+    // The groups run to the end of `tokens`, so the first starts after
+    // whatever precedes it.
+    let mut start = tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>();
+    Ok(groups
         .into_iter()
         .map(|group| {
             let range = start..start + group.len();
