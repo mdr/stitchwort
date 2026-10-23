@@ -96,3 +96,63 @@ fn the_kernel_keeps_the_empty_row_apart_from_its_result() {
     let bad2 = check::declare_def(g, &"bad2".into(), &comp, false, false, span()).unwrap();
     assert_eq!(code(check::define_def(g, bad2, &three)), "E-TYPE-MISMATCH");
 }
+
+// A handler with an open row, used where nothing else is performed: its
+// row is empty, so the call runs in place and an equation about it is an
+// ordinary equation (docs/proposals/abilities.md, "Effectful calls at the
+// empty row"). One theorem for each place a call can stand: an equation's
+// side, an argument, a `let`'s value and a `match`'s scrutinee.
+const HANDLERS: &str = "import Std (Abort, Option)
+
+theorem same (c: () -> {Abort} Nat): Abort.toOption c = Abort.toOption c := rfl
+
+theorem asArgument (c: () -> {Abort} Nat): Option.isSome (Abort.toOption c) = Option.isSome (Abort.toOption c) := rfl
+
+def viaLet (c: () -> {Abort} Nat): Bool :=
+  let r := Abort.toOption c
+  Option.isSome r
+
+theorem inLet (c: () -> {Abort} Nat): viaLet c = Option.isSome (Abort.toOption c) := rfl
+
+def viaMatch (c: () -> {Abort} Nat): Nat :=
+  match Abort.toOption c with
+    | Some n => n
+    | None => 0
+
+theorem inMatch (c: () -> {Abort} Nat): viaMatch c = Option.getOrElse 0 (Abort.toOption c) :=
+  match h: Abort.toOption c with
+    | Some n => rfl
+    | None => rfl
+";
+
+/// The statement of `same` is an equation between two `runPure`s, with no
+/// `bind` sequencing the calls.
+#[test]
+fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
+    let mut session = Session::new();
+    if let Err(ds) = session.load("test.sw", HANDLERS) {
+        panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
+    }
+    let g = &session.elab.globals;
+    let ty = g.def(def(g, "same")).ty.clone();
+    let printed = stitchwort_core::pretty::term(g, &[], &ty);
+    assert!(
+        !printed.contains("Effect.bind") && printed.contains("Effect.runPure"),
+        "same's statement: {printed}"
+    );
+}
+
+/// A call that does perform an ability is still refused where none is
+/// allowed: it isn't run in place.
+#[test]
+fn a_call_that_performs_is_still_refused_in_a_pure_place() {
+    let mut session = Session::new();
+    let errors = session
+        .load(
+            "test.sw",
+            "import Std (Abort)\n\
+             theorem bad (c: () -> {Abort} Nat): c () = c () := rfl\n",
+        )
+        .expect_err("`c ()` performs `Abort`");
+    assert_eq!(errors[0].code, "E-ABILITY");
+}

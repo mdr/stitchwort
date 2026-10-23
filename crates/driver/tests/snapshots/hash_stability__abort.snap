@@ -40,15 +40,15 @@ Main.test "bad colour" ec55f76ee5eaf4d1a6898b4bf71a8da4d352a7b377e65a1cdccc76d10
 Main.test "too few fields" 92f99fb47159b474d6e1e8e821b9e245a4694e34ce97f24c63a287400738533d
 Main.test "empty line" 8953ef422e284e5f39a5abbd252fc8fabd4dbce2a4f4d034877da1d46eae3b28
 Main.test "all lines".%match1 2f29815a785f88f10d902d92a24c31d0522ba02195b31781c71f608f1ea9c2e8
-Main.test "all lines" 468750027cf67429cbf5dce2a59880f12df57fb798a5d154100dd709cd07ba51
+Main.test "all lines" 3713589e6c4d76f1f7ecff6100b1a02760a5307650778cee2624fdc6197573dd
 Main.test "one bad line".%match1 74af23dc6e7856bd4d7913c990915b8445bee05b285f499cf3f430482b2f6821
-Main.test "one bad line" d35b407119c983e764aae0c5d54a7dd3c05b6457f9d6aa668b426bb5f733e13e
+Main.test "one bad line" c7d2981adbe06c264f166820d2cd0e81d6258cd7a8117859228bd9d1b91d163c
 Main.test "default" 39dbafe66738a6fd9729676d56e459dd311924ef1d95a0fdd2c1136bf6d70643
 Main.test "with IO".%match2 507bd0aa9da7d09bf8a0a324bf01e87652cf4c30246a19813f918b7c6bec38ae
 Main.test "with IO".%match1 ecc78153ae2190d0fff6ab7accbef316be6e5fb809c782b154f974217be72a09
-Main.test "with IO" 6a43ed960f07c2a854485486a3b318773eb7197030e165b63fcbc82943dd74bd
+Main.test "with IO" d37ad7089e5dc09312225b612672c4ddf3f6a06a9563c371bf7956287b6f8e68
 Main.test "with IO, then a bad line".%match2 10cbca87f64deacc1ee4888733b014086937d4216a835dcf144a48346b4fc751
 Main.test "with IO, then a bad line".%match1 3504e00dcbea872a4388af6843927569a37c00ecacf54996649fcbad89699447
-Main.test "with IO, then a bad line" 11a44d0f8b1e37c76c530a57f28d7828f6e7fc464e65901c04cb1bcebe2e571a
+Main.test "with IO, then a bad line" 0dab3e2cce1b35e75ae98b3b92925d703f46cae6b7bcec79bda323f36f4e124a
 Main.parsesL68 f75d22ef63b35012a3d7b5105b564709af899c9fd578ae08fccd069d67ababd4
 Main.rejectsJunk 0657794fbdff98fbc5b39c974c37504cec6f0f7d721f6f725597fc3831ffa086

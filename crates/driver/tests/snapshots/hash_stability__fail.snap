@@ -41,18 +41,18 @@ Main.test "bad colour" 2fa3b46f6740636000c2e157aacea9135ff77f958e809752dba0eeafb
 Main.test "too few fields" 0e72c04a15a685a12fee7252e387b74e70725db6624a3cc92886c5614751f033
 Main.test "empty direction" aae1b7d9188dc8cd304a1bed60f0514bdc13ab7228a575c2e5dab4a34a75f082
 Main.test "all lines".%match1 a0e089622e4626000c0def9cf187a974ee4787aa009f0b162883049b7f904f78
-Main.test "all lines" a31dc4bc3b95303787cbaa0f64a8244055636d028e4aa1889af5231ac6c93ecb
+Main.test "all lines" b0eceb25fde3284ea8333793e2d1b920c81c11e9ca67f306e211058c1f8ea326
 Main.test "one bad line".%match1 c80ccd742b7a54390ec72a38dbc1ce7971cd76bcb609fe61ae33ab1d56630a1a
-Main.test "one bad line" 62d7d44e5a222aa61e8bbaad86b59dfc4d83fac2114ae9e9618f2018fbb60d43
+Main.test "one bad line" 7bd14200e36db077dd032a969ff6918867408d81915630c95c537bf4864a01f8
 Main.test "default" b0262aa4d1e57670243a0327b17f3427a6a22b304eefae3f9ab3a6c4bb8aefc6
 Main.test "with IO".%match2 27d19592a68077f85d1926c107be79eef8b101c1058de0fe4c67e2d40ce1b84f
 Main.test "with IO".%match1 b9ca8c1fcc68b6207e017254552bd04b5bd6e262b67d77cbdcc73123bdb9732f
-Main.test "with IO" 29cc3e44dd56f62c3096d8cc36bdfb39d17b66beb3943b0b20cebc04acafacff
+Main.test "with IO" 3a106d7f4a2b1498ae0cb1546005638181ec61b7d8b2c8022b55d51e326791a4
 Main.test "with IO, then a bad line".%match2 9abf72316068ccb47f291cbee84f51cac6144ee1417347aec3ee6f7f904dd2e6
 Main.test "with IO, then a bad line".%match1 d32a8b4e8fd15d01def7c156fed2a584f4dee79232b8a528f117f7af70fcd1e5
-Main.test "with IO, then a bad line" deceadcbb8cf2288c427ea701280342d2805a033a562cafd0533592d3eb759ec
+Main.test "with IO, then a bad line" b60b97d7bf2facbf7d5126e1b68710e9159ea33a8b0132839c2b3e3bf9b7dc8a
 Main.test "Abort to Fail".%match2 2004a9a56c0654b6bcdc30c0e216d859a0249566e18d469d45dd252142b8b725
 Main.test "Abort to Fail".%match1 3b301f3678d75930feacce0e33a61c28fb1e5b94ffa2010e867ad9b5207cd6b5
-Main.test "Abort to Fail" 11414efc05aa90a35eff8a3f0085f61292a8ddaa7bbebb6fe15570c1906f01be
+Main.test "Abort to Fail" 0057e8db3ce1a91af35e06ee71daf6762fab5346d85b9d5943a5058b5893cadc
 Main.parsesL68 75522ab986238a5054440395e66496bcae8a8fb52b4a147d90bd329caceba880
 Main.rejectsJunk 7fd9a04d803ebc7992290c8ba0fbfeff22511207eac1b90f1779af0d083eeddb

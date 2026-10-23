@@ -117,6 +117,12 @@ theorem Fail.toResultOrFail: (r: Result a Text) -> Fail.toResult (() => Result.o
   | Ok x => rfl
   | Err m => rfl
 
+-- Reading an `Option` and going on: the form a proof about a parser uses.
+theorem Fail.toResultNeedThen (k: a -> {Fail} b) (msg: Text): (o: Option a) ->
+    Fail.toResult (() => k (Fail.need o msg)) = Option.fold (Err msg) (x => Fail.toResult (() => k x)) o
+  | None => rfl
+  | Some x => rfl
+
 theorem Fail.toOptionNeed (msg: Text): (o: Option a) -> Fail.toOption (() => Fail.need o msg) = o
   | None => rfl
   | Some x => rfl
