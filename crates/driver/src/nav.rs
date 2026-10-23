@@ -181,6 +181,7 @@ pub fn index_json(
         let severity = match d.severity {
             Severity::Error => "error",
             Severity::Warning => "warning",
+            Severity::Goal => "goal",
         };
         let _ = write!(
             diags,

@@ -57,6 +57,10 @@ pub enum Expr {
     NamedArg(Name, Box<Expr>, Span),
     /// `_`: a hole the compiler fills in.
     Hole(Span),
+    /// `?`: an open goal. The checker reports what must go here (its type
+    /// and the names in scope) and carries on; the declaration is
+    /// unfinished, not wrong (docs/proposals/lsp-goal-holes.md).
+    Goal(Span),
     /// `A -> B`
     Arrow(Box<Expr>, Box<Expr>),
     /// `a = b`, `a + b`, …
@@ -317,6 +321,7 @@ impl Expr {
             | Expr::NamedArg(_, _, span)
             | Expr::If { span, .. }
             | Expr::Hole(span)
+            | Expr::Goal(span)
             | Expr::Ann(_, _, span)
             | Expr::Neg(_, span)
             | Expr::List(_, span)
@@ -433,6 +438,7 @@ fn is_leaf(expr: &Expr) -> bool {
             | Expr::Type(..)
             | Expr::Prop(_)
             | Expr::Hole(_)
+            | Expr::Goal(_)
             | Expr::Unit(_)
     )
 }

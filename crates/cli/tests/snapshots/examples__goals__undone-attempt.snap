@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `firstDoubled`
+   ╭─[ goals/undone-attempt.sw:4:61 ]
+   │
+ 4 │ def firstDoubled (xs: List Nat): Option Nat := xs.map (x => ?) |> .head
+   │                                                             ┬  
+   │                                                             ╰── xs: List Nat
+   │                                                                 x: Nat
+   │                                                                 ⊢ Nat
+───╯

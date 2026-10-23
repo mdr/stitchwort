@@ -179,6 +179,8 @@ impl Elaborator {
             local_helpers,
             helper_keys,
             local_metas,
+            goals,
+            proof_holes,
             result_heads,
             performs,
             interfaces,
@@ -252,6 +254,8 @@ impl Elaborator {
         *local_helpers = mark.local_helpers.clone();
         *helper_keys = mark.helper_keys.clone();
         local_metas.get_mut().clear();
+        *goals.get_mut() = Default::default();
+        proof_holes.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         performs.get_mut().retain(|(id, ..), _| id.0 < defs);
         *instances = mark.instances.clone();

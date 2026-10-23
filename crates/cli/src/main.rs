@@ -13,7 +13,7 @@ use stitchwort_cli::render::render;
 use stitchwort_cli::run::Main;
 use stitchwort_elab::project::FileModeContext;
 use stitchwort_fmt::Error as FmtError;
-use stitchwort_syntax::{Diagnostic, SourceMap, parse_namespace_line};
+use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -269,6 +269,29 @@ fn exit(ok: bool) -> ExitCode {
     }
 }
 
+// ---- Goals -------------------------------------------------------------
+
+/// How many open goals (`?`) are among `reported`.
+fn goals_open(reported: &[Diagnostic]) -> usize {
+    reported
+        .iter()
+        .filter(|d| d.severity == Severity::Goal)
+        .count()
+}
+
+/// "2 goals open", after the goals themselves, if there are any
+/// (docs/proposals/lsp-goal-holes.md, D636): a declaration with one isn't
+/// finished, and nor is anything that uses it, so none of them is checked.
+fn report_goals(goals: usize) {
+    if goals > 0 {
+        let s = if goals == 1 { "" } else { "s" };
+        eprintln!(
+            "{goals} goal{s} open: the declarations with them, and what uses them, aren't \
+             finished, so they aren't checked"
+        );
+    }
+}
+
 // ---- Projects ----------------------------------------------------------
 
 struct Project {
@@ -504,7 +527,9 @@ fn check(
                 Some("checked"),
                 &mut reported,
             );
-            ok &= loaded;
+            let goals = goals_open(&reported);
+            report_goals(goals);
+            ok &= loaded && goals == 0;
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
@@ -524,6 +549,9 @@ fn check(
     use_cache(&mut session, cache, &project.dir);
     let mut reported = Vec::new();
     let mut ok = load_project_into(&mut session, &project, &target, &mut reported);
+    let goals = goals_open(&reported);
+    report_goals(goals);
+    ok &= goals == 0;
     if let Some(index) = index {
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
@@ -576,13 +604,18 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
     match target {
         Some(file) if is_file_target(file) => {
             use_cache(&mut session, cache, Path::new("."));
-            if !load_file(&mut session, Path::new(file), Some("tested")) {
+            let mut reported = Vec::new();
+            if !load_file_into(&mut session, Path::new(file), Some("tested"), &mut reported) {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
             let code = print_tests(&session.run_tests(&cache), false);
             discard(session);
-            code
+            // The tests of unfinished declarations aren't checked, so they
+            // didn't run.
+            let goals = goals_open(&reported);
+            report_goals(goals);
+            if goals > 0 { ExitCode::FAILURE } else { code }
         }
         _ => {
             let Some(project) = locate_project(project, "test", "test hello.sw") else {
@@ -593,13 +626,16 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
                 None => Target::Everything,
             };
             use_cache(&mut session, cache, &project.dir);
-            if !load_project(&mut session, &project, &target) {
+            let mut reported = Vec::new();
+            if !load_project_into(&mut session, &project, &target, &mut reported) {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
             let code = print_tests(&session.run_tests(&cache), true);
             discard(session);
-            code
+            let goals = goals_open(&reported);
+            report_goals(goals);
+            if goals > 0 { ExitCode::FAILURE } else { code }
         }
     }
 }
@@ -668,9 +704,12 @@ fn run_target(
     let mut session = new_session(false);
     let main = if is_file_target(target) {
         use_cache(&mut session, cache, Path::new("."));
-        if !load_file(&mut session, Path::new(target), Some("run")) {
+        let mut reported = Vec::new();
+        if !load_file_into(&mut session, Path::new(target), Some("run"), &mut reported) {
             return ExitCode::FAILURE;
         }
+        // What's finished can run; `main` can't if it isn't (`Session::main`).
+        report_goals(goals_open(&reported));
         session.main()
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
@@ -702,7 +741,11 @@ fn run_target(
             analysis,
             &Target::Namespaces(vec![namespace]),
         ) {
-            Ok(_) => report(&session.sources, &std::mem::take(&mut session.warnings)),
+            Ok(_) => {
+                let reported = std::mem::take(&mut session.warnings);
+                report(&session.sources, &reported);
+                report_goals(goals_open(&reported));
+            }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
                 return ExitCode::FAILURE;
@@ -757,6 +800,13 @@ fn axioms(target: &str, name: Option<&str>, project: Option<&Path>, cache: &Cach
         eprintln!("error: there's no definition `{key}`");
         return ExitCode::FAILURE;
     };
+    if session.elab.is_unfinished(id) {
+        eprintln!(
+            "error: `{key}` isn't finished: it, or something it uses, has an open goal (`?`), so \
+             it isn't checked"
+        );
+        return ExitCode::FAILURE;
+    }
     let found = stitchwort_driver::axioms::axioms(&session.elab.globals, id);
     for axiom in found {
         println!("{axiom}");
@@ -1122,7 +1172,11 @@ fn build(
     let path = Path::new(target);
     let mut session = new_session(false);
     use_cache(&mut session, cache, Path::new("."));
-    if !load_file(&mut session, path, Some("built")) {
+    let mut reported = Vec::new();
+    if !load_file_into(&mut session, path, Some("built"), &mut reported) {
+        return ExitCode::FAILURE;
+    }
+    if refuse_goals(&reported) {
         return ExitCode::FAILURE;
     }
     let output = match session.extract() {
@@ -1156,11 +1210,16 @@ fn build_namespace(
     };
     let mut session = new_session(false);
     use_cache(&mut session, cache, &project.dir);
-    if !load_project(
+    let mut reported = Vec::new();
+    if !load_project_into(
         &mut session,
         &project,
         &Target::Namespaces(vec![namespace.to_string()]),
+        &mut reported,
     ) {
+        return ExitCode::FAILURE;
+    }
+    if refuse_goals(&reported) {
         return ExitCode::FAILURE;
     }
     match session.extract_namespace(namespace) {
@@ -1176,6 +1235,20 @@ fn build_namespace(
             ExitCode::FAILURE
         }
     }
+}
+
+/// `build` doesn't write JavaScript while goals are open: only checked code
+/// is built (D636). Says so if there are any.
+fn refuse_goals(reported: &[Diagnostic]) -> bool {
+    let goals = goals_open(reported);
+    if goals > 0 {
+        let s = if goals == 1 { "" } else { "s" };
+        eprintln!(
+            "error: nothing was built: {goals} goal{s} open; fill in every `?` first, so that \
+             everything built is checked"
+        );
+    }
+    goals > 0
 }
 
 /// What a source map needs to name the `.sw` files: the sources, and for a

@@ -2688,6 +2688,7 @@ impl<'t> Parser<'t> {
                     | Tok::LBracket
                     | Tok::LBrace
                     | Tok::Underscore
+                    | Tok::Question
             )
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
     }
@@ -2974,6 +2975,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Expr::Hole(span))
             }
+            Some(Tok::Question) => {
+                self.bump();
+                Ok(Expr::Goal(span))
+            }
             Some(Tok::TypeU) => {
                 self.bump();
                 if let Some(Tok::Num(n)) = self.peek() {
@@ -3142,6 +3147,7 @@ fn describe(tok: &Tok) -> String {
         Tok::Plus => "`+`".into(),
         Tok::PlusPlus => "`++`".into(),
         Tok::Underscore => "`_`".into(),
+        Tok::Question => "`?`".into(),
         Tok::Minus => "`-`".into(),
         Tok::Star => "`*`".into(),
         Tok::Slash => "`/`".into(),
@@ -3704,6 +3710,27 @@ mod tests {
             panic!("expected a call, got {rhs:?}");
         };
         assert!(matches!(&**arg, Expr::NamedArg(n, ..) if n.text == "decreasing"));
+    }
+
+    /// `?` is a goal: an atom, so an argument too, and never a hole.
+    #[test]
+    fn a_question_mark_is_a_goal() {
+        let module = parse("def x : Nat := f ? (?, _)\n");
+        let Decl::Equation { rhs, .. } = &module.decls[1] else {
+            panic!("expected an equation");
+        };
+        let Some(Expr::App(f, pair)) = rhs else {
+            panic!("expected an application, got {rhs:?}");
+        };
+        let Expr::Tuple(first, second, _) = pair.as_ref() else {
+            panic!("expected a tuple, got {pair:?}");
+        };
+        assert!(matches!(first.as_ref(), Expr::Goal(_)));
+        assert!(matches!(second.as_ref(), Expr::Hole(_)));
+        let Expr::App(_, goal) = f.as_ref() else {
+            panic!("expected an application, got {f:?}");
+        };
+        assert!(matches!(goal.as_ref(), Expr::Goal(_)));
     }
 
     #[test]

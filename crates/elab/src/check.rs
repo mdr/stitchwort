@@ -668,6 +668,13 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let ty = cx.eval(&ty)?;
             Ok((cx.fresh_meta(), ty))
         }
+        // A goal where nothing says its type: that's unknown too, and
+        // printed as such if nothing works it out.
+        Expr::Goal(_) => {
+            let ty = cx.fresh_meta();
+            let ty = cx.eval(&ty)?;
+            Ok((crate::goals::hole(cx, &ty), ty))
+        }
         Expr::Lam(..) if expr.section_name().is_some() => {
             Err(crate::dot::section_unknown(cx, expr))
         }
@@ -1555,7 +1562,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let g = cx.g();
     let expected = force(g, expected.clone())?;
     // A computation in a row of abilities: computation mode.
-    if !matches!(expr, Expr::Hole(_))
+    if !matches!(expr, Expr::Hole(_) | Expr::Goal(_))
         && let Some((row, t)) = effects::comp_parts(cx, &expected)?
     {
         return effects::comp_check(cx, expr, &row, &t);
@@ -1576,7 +1583,16 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 Err(cx.mismatch(&expected, &found))
             }
         }
-        (Expr::Hole(_), _) => Ok(cx.fresh_meta()),
+        (Expr::Hole(_), _) => {
+            let hole = cx.fresh_meta();
+            if crate::patlet::proposition(cx, &expected)?
+                && let Term::Meta(m) = hole.spine().0
+            {
+                cx.e.proof_holes.borrow_mut().insert(*m);
+            }
+            Ok(hole)
+        }
+        (Expr::Goal(_), _) => Ok(crate::goals::hole(cx, &expected)),
         (Expr::LocalDefs { defs, body, .. }, _) => {
             crate::local::around(cx, defs, |cx| check(cx, body, &expected))
         }

@@ -237,7 +237,8 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// slow tier, every eighth file and every fourth project (a fixed sample).
+/// slow tier, every eighth file and every fourth project (a fixed sample),
+/// and every one with open goals (`goals/`, few; their tables are new).
 fn examples() -> Vec<Source> {
     let mut files = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
@@ -245,13 +246,17 @@ fn examples() -> Vec<Source> {
     }
     let mut projects = example_projects("accept");
     projects.extend(example_projects("reject"));
-    assert!(!files.is_empty() && !projects.is_empty());
+    let mut goals = example_files("goals");
+    goals.extend(example_projects("goals"));
+    assert!(!files.is_empty() && !projects.is_empty() && !goals.is_empty());
     if slow_tier_on() {
         files.extend(projects);
+        files.extend(goals);
         return files;
     }
     let mut sources: Vec<Source> = files.into_iter().step_by(8).collect();
     sources.extend(projects.into_iter().step_by(4));
+    sources.extend(goals);
     sources
 }
 

@@ -796,6 +796,7 @@ Loosest-binding first:
 | `not a` | `Bool.not a`; where a proposition is expected, `Not a`. Only when `not` is the library's (a local `not` is an ordinary function) and has one argument: `List.map not bs` is `Bool.not` as a function. See below |
 | `f [x := e]` | Supplying the implicit parameter `x` by name |
 | `_` | A hole the compiler fills in |
+| `?` | A goal: a part not written yet. The checker says what must go there. See [Goals](#goals-) |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
 | `0`, `42`, `-5` | Numeric literals: a `Nat`, or an `Int` where one is expected (`Nat` by default); `-5` is always an `Int`. See [Numbers](#numbers) |
 | `'a'`, `'\n'`, `'\u{1F600}'` | `Char` literals: one Unicode scalar value. Escapes are `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\$` and `\u{…}` with 1–6 hex digits; `\u{…}` must name a scalar value, so `'\u{D800}'` is an error. Text literals take the same escapes |
@@ -832,6 +833,35 @@ def example: Text := """
 - **It is an ordinary text literal**: the same term as the `"…\n…"` it stands for, with the same hash (`crates/driver/tests/compact_text.rs`), and still compact. Examples: `examples/accept/text-block.sw`.
 
 A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
+
+### Goals, `?`
+
+`?` stands for a part of a proof or program you haven't written yet. The checker carries on past it and reports, at each `?`, the **goal**: what has to go there, after `⊢`, and the names in scope with their types (a `let`'s with its value too). A `?` can go anywhere an expression can.
+
+```
+theorem addZero (n: Nat): n + 0 = n :=
+  match n with
+    | Zero => rfl
+    | Succ k => ?
+```
+
+```
+[GOAL] Goal: in `addZero`
+   ╭─[ add.sw:4:17 ]
+   │
+ 4 │     | Succ k => ?
+   │                 ┬
+   │                 ╰── k: Nat
+   │                     ⊢ Succ (k + 0) = Succ k
+───╯
+1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+```
+
+- **Inside a branch, the goal is the branch's.** Above, `n` is `Succ k`. Goals are shown *computed*, as `rfl`'s messages are: `Succ (k + 0)`, not `Succ k + 0`. A name the branch replaced isn't listed; one that can't be referred to there (shadowed) is shown as `n✝`. Where nothing says what type the `?` has, the goal says "the type here isn't known yet".
+- **A declaration with a `?` is unfinished, not wrong.** It isn't checked, so nothing that depends on it can be trusted, but it isn't an error either: later declarations can use it by its type. So you can state a lemma, leave its proof as `?`, and use it in the main theorem first (Lean's `sorry`). What uses an unfinished declaration is unfinished too, silently: only the `?`s themselves are reported.
+- **`check` fails while any goal is open**, after printing them and "N goals open", so a project with holes never passes in CI. `test` runs the tests of what's finished, then fails the same way. `run` runs `main` if `main` is finished (if what it needs has a `?`, it says so and doesn't run). `build` builds nothing while a goal is open. `eval` and the REPL refuse an expression that uses something unfinished. `axioms` refuses an unfinished definition.
+- **`?` is never filled in by the compiler**, unlike `_`. Where `_` stands for a proof the compiler can't work out (`E-UNSOLVED`), the error suggests writing `?` there to see what's needed.
+- Examples: `examples/goals/` (each one's goals are in `crates/cli/tests/snapshots/examples__goals__*.snap`). The design: [lsp-goal-holes.md](proposals/lsp-goal-holes.md).
 
 ### `include`
 

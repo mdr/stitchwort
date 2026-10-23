@@ -79,10 +79,27 @@ pub fn value_for_message_hidden(g: &Globals, names: &[Name], value: &Value) -> S
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
+    term_within(g, names, term_, MESSAGE_LIMIT)
+}
+
+/// The longest a term may be in a goal (docs/proposals/lsp-goal-holes.md
+/// §3.3): a goal is the one place the whole term matters.
+const GOAL_LIMIT: usize = 4000;
+
+/// [`value_for_message`], with the larger limit of a goal's types.
+pub fn value_for_goal(g: &Globals, names: &[Name], value: &Value) -> String {
+    let Ok(t) = quote(g, names.len(), value) else {
+        return "…".into();
+    };
+    term_within(g, names, &t, GOAL_LIMIT)
+}
+
+/// [`term_for_message`], with a result longer than `limit` characters
+/// shortened.
+fn term_within(g: &Globals, names: &[Name], term_: &Term, limit: usize) -> String {
     note_failed_mention(g, term_);
     let full = term(g, names, term_);
-    if full.chars().count() <= MESSAGE_LIMIT || std::env::var_os("STITCHWORT_FULL_TERMS").is_some()
-    {
+    if full.chars().count() <= limit || std::env::var_os("STITCHWORT_FULL_TERMS").is_some() {
         return full;
     }
     // Reprint with less and less depth until it fits.
@@ -91,12 +108,12 @@ pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
         let printer = Printer::new(g);
         printer.max_depth.set(Some(depth));
         let text = printer.print(&mut ns, term_, Prec::Arrow);
-        if text.chars().count() <= MESSAGE_LIMIT {
+        if text.chars().count() <= limit {
             return text;
         }
     }
     // Still too wide (a long list, say): cut it off.
-    let mut text: String = full.chars().take(MESSAGE_LIMIT).collect();
+    let mut text: String = full.chars().take(limit).collect();
     text.push('…');
     text
 }

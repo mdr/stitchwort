@@ -269,6 +269,12 @@ pub struct Globals {
     /// definition since the elaborator last cleared this: its errors are
     /// then fallout of that failure, not the declaration's own.
     pub failed_mentioned: Cell<bool>,
+    /// The failed declarations the elaborator gave up on because they, or
+    /// something they use, have an open goal (`?`,
+    /// docs/proposals/lsp-goal-holes.md) rather than an error. To the
+    /// kernel they're failed like any other, and it never reads this: only
+    /// how they're reported differs (*unfinished*, not "has errors").
+    pub unfinished: RefCell<std::collections::HashSet<HashKey>>,
     /// Whether running erases proofs and types, and what each definition
     /// erases (`erase.rs`). Never in effect while checking.
     pub erasure: crate::erase::Erasure,
@@ -411,6 +417,7 @@ impl Globals {
             hashes,
             budget,
             failed_mentioned,
+            unfinished,
             erasure,
             module,
             glue,
@@ -425,6 +432,10 @@ impl Globals {
         builtins.rewind(&mark.builtins, mark.defs);
         registry.forget_from(mark.defs, mark.datas);
         hashes.borrow_mut().retain(|k, _| match k {
+            HashKey::Def(id) => id.0 < mark.defs,
+            HashKey::Data(d) => d.0 < mark.datas,
+        });
+        unfinished.borrow_mut().retain(|k| match k {
             HashKey::Def(id) => id.0 < mark.defs,
             HashKey::Data(d) => d.0 < mark.datas,
         });

@@ -478,10 +478,18 @@ impl Elaborator {
             before: None,
             library_loaded: 0,
         });
+        let unfinished = self.globals.unfinished.borrow().len();
         let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
         let capture = self.namespace_capture.take();
         self.skip_navigation_walk = false;
-        let ok = !diagnostics.iter().any(|d| d.severity == Severity::Error)
+        // A namespace with open goals is unfinished, like one with errors:
+        // checked again each time, so its goals are always fresh. So is one
+        // with a declaration that uses an unfinished one (which reports
+        // nothing), even with no goal of its own.
+        let ok = !diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
+            && self.globals.unfinished.borrow().len() == unfinished
             && !self.globals.budget.cancelled();
         if ok && let Some(capture) = capture {
             match self.encode_namespace(files, capture, &diagnostics, key, store.salt()) {

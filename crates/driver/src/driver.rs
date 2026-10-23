@@ -501,7 +501,33 @@ impl Session {
 
     /// Generates JavaScript for the exports loaded so far.
     pub fn extract(&self) -> Result<stitchwort_js::Output, Diagnostic> {
-        stitchwort_js::generate(&self.elab.globals, self.elab.limits)
+        let g = &self.elab.globals;
+        self.refuse_unfinished((0..g.defs.len()).map(stitchwort_core::DefId))?;
+        stitchwort_js::generate(g, self.elab.limits)
+    }
+
+    /// An error if any of the exports among `ids` is unfinished (it, or
+    /// something it uses, has an open goal, `?`): it has no body to
+    /// generate, and only checked code is built (D636).
+    fn refuse_unfinished(
+        &self,
+        ids: impl Iterator<Item = stitchwort_core::DefId>,
+    ) -> Result<(), Diagnostic> {
+        let g = &self.elab.globals;
+        for id in ids {
+            let def = g.def(id);
+            if def.export && self.elab.is_unfinished(id) {
+                return Err(Diagnostic::error(
+                    "E-UNFINISHED",
+                    format!(
+                        "`{}` can't be built: it, or something it uses, has an open goal (`?`)",
+                        def.name
+                    ),
+                )
+                .with_label(def.span, "fill in every goal it needs first"));
+            }
+        }
+        Ok(())
     }
 
     /// Generates JavaScript for the exports of namespace `namespace` of the
@@ -514,6 +540,7 @@ impl Session {
             .map(stitchwort_core::DefId)
             .filter(|id| g.def(*id).export)
             .collect();
+        self.refuse_unfinished(ids.iter().copied())?;
         stitchwort_js::generate_exports(
             g,
             self.elab.limits,

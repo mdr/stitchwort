@@ -43,13 +43,14 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use crate::kernel;
-use stitchwort_core::DefId;
+use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::registry::Builtin;
+use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
 use crate::project::SourceUnit;
-use crate::{Elaborator, Global, RESERVED, error};
+use crate::{Elaborator, Global, RESERVED, error, goals};
 
 /// What a declaration of the module is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -67,6 +68,17 @@ pub(crate) enum Status {
     Waiting,
     Checked,
     Failed,
+    /// Failed without an error: it has an open goal (`?`), or uses
+    /// something that has (docs/proposals/lsp-goal-holes.md, D636). To the
+    /// kernel it's failed like any other.
+    Unfinished,
+}
+
+impl Status {
+    /// Failed, with errors or unfinished: not checked by the kernel.
+    pub(crate) fn failed(self) -> bool {
+        matches!(self, Status::Failed | Status::Unfinished)
+    }
 }
 
 /// What part of a declaration is being elaborated, which decides what a
@@ -338,6 +350,10 @@ impl Elaborator {
             let saved = self.globals.budget.start(self.limits);
             self.module.current = component.clone();
             let before = diagnostics.len();
+            let (defs_before, datas_before) = (self.globals.defs.len(), self.globals.datas.len());
+            // Goals from before (an expression typed in) aren't this
+            // component's.
+            self.clear_goals();
             self.globals.failed_mentioned.set(false);
             let timed = crate::timings::enabled();
             if timed {
@@ -350,18 +366,36 @@ impl Elaborator {
                 crate::timings::decl_end(&self.globals, label);
             }
             self.blame_failed_dependency(&component, before, diagnostics.as_mut_slice());
-            let failed = diagnostics[before..]
+            // The open goals, printed while their metavariables are solved.
+            let goals = self.take_goals();
+            let errors: Vec<&str> = diagnostics[before..]
                 .iter()
-                .any(|(_, d)| d.severity == Severity::Error)
+                .filter(|(_, d)| d.severity == Severity::Error)
+                .map(|(_, d)| d.code)
+                .collect();
+            let failed = !errors.is_empty()
                 || component
                     .iter()
-                    .any(|i| self.module.items[*i].status == Status::Failed);
+                    .any(|i| self.module.items[*i].status.failed());
+            // Unfinished, not wrong: the only errors stand for open goals
+            // (`goals::UNFINISHED`), which aren't reported as errors (D636).
+            let unfinished = !errors.is_empty() && errors.iter().all(|c| *c == goals::UNFINISHED);
             for &i in &component {
-                self.module.items[i].status = if failed {
-                    Status::Failed
-                } else {
-                    Status::Checked
+                self.module.items[i].status = match (failed, unfinished) {
+                    (false, _) => Status::Checked,
+                    (true, true) => Status::Unfinished,
+                    (true, false) => Status::Failed,
                 };
+            }
+            let rest = diagnostics.split_off(before);
+            diagnostics.extend(
+                rest.into_iter()
+                    .filter(|(_, d)| d.code != goals::UNFINISHED),
+            );
+            let position = items[component[0]].position;
+            diagnostics.extend(goals.into_iter().map(|d| (position, d)));
+            if unfinished {
+                self.mark_unfinished(&component, defs_before, datas_before);
             }
             // A component that failed leaves nothing behind for the next,
             // and anything it left declared is failed, so later uses fail
@@ -444,6 +478,31 @@ impl Elaborator {
         diagnostics
     }
 
+    /// Notes the declarations of `component`, unfinished, as such for the
+    /// kernel's refusals of what uses them (`goals::unfinished_dependency`):
+    /// those its items declared, and the ones made while checking it (from
+    /// definition `defs` and data type `datas` on) that aren't final: failed,
+    /// or pending until the component is abandoned.
+    fn mark_unfinished(&self, component: &[usize], defs: usize, datas: usize) {
+        let g = &self.globals;
+        let mut unfinished = g.unfinished.borrow_mut();
+        for (id, item) in &self.module.def_items {
+            if component.contains(item) && g.def(*id).state() != State::Final {
+                unfinished.insert(HashKey::Def(*id));
+            }
+        }
+        for id in defs..g.defs.len() {
+            if g.defs[id].state() != State::Final {
+                unfinished.insert(HashKey::Def(DefId(id)));
+            }
+        }
+        for d in datas..g.datas.len() {
+            if g.datas[d].state() != State::Final {
+                unfinished.insert(HashKey::Data(DataId(d)));
+            }
+        }
+    }
+
     /// When a message of this component showed a term that uses a failed
     /// definition (`Globals::failed_mentioned`, decided from the terms, not
     /// the text: messages elide), its errors are fallout of that failure (a
@@ -463,13 +522,18 @@ impl Elaborator {
             .filter(|d| {
                 d.speculative.is_none()
                     && !component.contains(&d.item)
-                    && self.module.items[d.item].status == Status::Failed
+                    && self.module.items[d.item].status.failed()
             })
             .map(|d| (d, self.module.items[d.item].name.as_str()))
             .collect();
         if failed.is_empty() || !self.globals.failed_mentioned.get() {
             return;
         }
+        // Blamed on a declaration with errors if there is one; if they're
+        // all unfinished, so is this (D636).
+        let errored = failed
+            .iter()
+            .position(|(d, _)| self.module.items[d.item].status == Status::Failed);
         for (_, d) in &mut diagnostics[before..] {
             if d.severity != Severity::Error
                 || d.code == "E-UNKNOWN-NAME"
@@ -477,7 +541,11 @@ impl Elaborator {
             {
                 continue;
             }
-            let (dep, name) = failed[0];
+            let Some(errored) = errored else {
+                *d = goals::uses_unfinished(d.primary_span());
+                continue;
+            };
+            let (dep, name) = failed[errored];
             let name = ast::Name {
                 text: name.to_string(),
                 span: dep.span,
@@ -1125,7 +1193,7 @@ impl Elaborator {
         let first = &items[component[0]];
         if component
             .iter()
-            .any(|i| self.module.items[*i].status == Status::Failed)
+            .any(|i| self.module.items[*i].status.failed())
         {
             // Already reported (a constructor or operation name taken).
             return;
@@ -1506,6 +1574,9 @@ impl Elaborator {
         if info.status == Status::Failed {
             return failed_name(name);
         }
+        if info.status == Status::Unfinished {
+            return goals::uses_unfinished(Some(name.span));
+        }
         if self.module.in_current(item) {
             let current = self.module.item.unwrap_or(item);
             let owner = &self.module.items[current].name;
@@ -1573,6 +1644,10 @@ impl Elaborator {
                 ));
             } else if item.status == Status::Failed {
                 hints.push(format!("`{name}` has errors, so `auto` can't use it"));
+            } else if item.status == Status::Unfinished {
+                hints.push(format!(
+                    "`{name}` isn't finished (it has an open goal, `?`), so `auto` can't use it"
+                ));
             } else if item.file != here.file {
                 let namespace = self.current_namespace().unwrap_or("this namespace");
                 hints.push(format!(
@@ -2080,6 +2155,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Type(..)
             | Expr::Prop(_)
             | Expr::Hole(_)
+            | Expr::Goal(_)
             | Expr::Unit(_) => {}
             Expr::App(a, b)
             | Expr::Arrow(a, b)

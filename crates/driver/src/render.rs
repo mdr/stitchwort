@@ -8,6 +8,7 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
     let kind = match diagnostic.severity {
         Severity::Error => ReportKind::Error,
         Severity::Warning => ReportKind::Warning,
+        Severity::Goal => ReportKind::Custom("Goal", ariadne::Color::Cyan),
     };
 
     let Some(primary) = diagnostic.primary_span() else {
@@ -63,7 +64,76 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         .finish()
         .write(cache, &mut out)
         .expect("writing to a Vec cannot fail");
-    String::from_utf8(out).expect("ariadne writes UTF-8")
+    let mut out = String::from_utf8(out).expect("ariadne writes UTF-8");
+    if diagnostic.severity == Severity::Goal {
+        // ariadne colours a report kind of its own whatever the setting.
+        if !color {
+            out = without_colour(&out);
+        }
+        for label in &diagnostic.labels {
+            out = indent_continuations(&out, &label.message);
+        }
+    }
+    out
+}
+
+/// `text` without its terminal colour codes.
+fn without_colour(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            // `ESC [ … m`
+            for c in chars.by_ref() {
+                if c == 'm' {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// ariadne writes the lines of a label after its first at the start of the
+/// line: indents them under the first, inside the excerpt's margin. A goal's
+/// label is its context and goal, a line each
+/// (docs/proposals/lsp-goal-holes.md §3.2).
+fn indent_continuations(out: &str, message: &str) -> String {
+    let mut message_lines = message.lines();
+    let (Some(first), rest) = (message_lines.next(), message_lines.collect::<Vec<_>>()) else {
+        return out.to_string();
+    };
+    if rest.is_empty() {
+        return out.to_string();
+    }
+    let lines: Vec<&str> = out.lines().collect();
+    let Some(at) = lines
+        .iter()
+        .position(|l| without_colour(l).ends_with(&format!("── {first}")))
+    else {
+        return out.to_string();
+    };
+    let plain = without_colour(lines[at]);
+    let prefix = &plain[..plain.len() - first.len()];
+    // The margin, up to and including its `│`, then spaces to the text.
+    let Some(bar) = prefix.find('│') else {
+        return out.to_string();
+    };
+    let margin = &prefix[..bar + '│'.len_utf8()];
+    let pad = " ".repeat(prefix[margin.len()..].chars().count());
+    let mut result: Vec<String> = lines.iter().map(|l| l.to_string()).collect();
+    for (i, line) in rest.iter().enumerate() {
+        if result.get(at + 1 + i).map(String::as_str) == Some(*line) {
+            result[at + 1 + i] = format!("{margin}{pad}{line}");
+        }
+    }
+    let mut joined = result.join("\n");
+    if out.ends_with('\n') {
+        joined.push('\n');
+    }
+    joined
 }
 
 /// Where `span` is shown: the file's name and range, but for a span in the

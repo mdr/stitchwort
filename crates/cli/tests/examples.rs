@@ -7,6 +7,9 @@
 //! - In `soundness/`, a file whose first line starts with `-- known-gap` documents
 //!   a soundness hole we haven't fixed: it's expected to be (wrongly) accepted,
 //!   and the test fails once it's rejected so the marker gets removed.
+//! - `goals/` (and `projects/goals/`): must report open goals (`?`), and no
+//!   errors unless the file declares one with `-- expect-error:`; their tests
+//!   must pass. The rendered goals (and errors) are snapshot-tested.
 //!
 //! See `examples/README.md`.
 
@@ -15,7 +18,7 @@ use std::path::{Path, PathBuf};
 use stitchwort_cli::driver::{Cache, Outcome, Session, par_map};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::render;
-use stitchwort_syntax::{Diagnostic, SourceMap};
+use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 
 const KNOWN_GAP: &str = "-- known-gap";
 const EXPECT_ERROR: &str = "-- expect-error:";
@@ -114,6 +117,21 @@ fn accepted_example(example: &Example) -> Vec<String> {
         ));
         return failures;
     }
+    // An open goal (`?`) isn't an error, but what has one isn't checked.
+    let goals: Vec<Diagnostic> = session
+        .warnings
+        .iter()
+        .filter(|d| d.severity == Severity::Goal)
+        .cloned()
+        .collect();
+    if !goals.is_empty() {
+        failures.push(format!(
+            "{} has open goals:\n{}",
+            example.name,
+            rendered(&session.sources, &goals)
+        ));
+        return failures;
+    }
     // Their tests must pass too.
     for result in session.run_tests(&Cache::disabled()) {
         if result.outcome != Outcome::Passed {
@@ -124,6 +142,94 @@ fn accepted_example(example: &Example) -> Vec<String> {
         }
     }
     failures
+}
+
+/// Everything a load reported (errors, warnings and goals), and whether
+/// it loaded.
+fn reported(session: &mut Session, loaded: Result<(), Vec<Diagnostic>>) -> (bool, Vec<Diagnostic>) {
+    match loaded {
+        Ok(()) => (true, std::mem::take(&mut session.warnings)),
+        Err(diagnostics) => (false, diagnostics),
+    }
+}
+
+/// A `goals/` example or project, checked: it reports at least one goal;
+/// no errors, or some with the code it declares; and its tests pass. Gives
+/// the rendered goals and errors, to snapshot.
+fn assert_goals(
+    name: &str,
+    expected: Option<&str>,
+    session: &mut Session,
+    loaded: Result<(), Vec<Diagnostic>>,
+) -> String {
+    let (ok, diagnostics) = reported(session, loaded);
+    let output = rendered(&session.sources, &diagnostics);
+    let errors: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    assert!(
+        diagnostics.iter().any(|d| d.severity == Severity::Goal),
+        "{name} should report an open goal:\n\n{output}"
+    );
+    match expected {
+        None => assert!(
+            errors.is_empty(),
+            "{name} should report only goals:\n\n{output}"
+        ),
+        Some(code) => assert!(
+            errors.iter().any(|d| d.code == code),
+            "{name} should report {code}:\n\n{output}"
+        ),
+    }
+    if ok {
+        for result in session.run_tests(&Cache::disabled()) {
+            assert!(
+                result.outcome == Outcome::Passed,
+                "{name}: test \"{}\" failed",
+                result.name
+            );
+        }
+    }
+    output
+}
+
+#[test]
+fn goal_examples_report_their_goals() {
+    let all = examples("goals");
+    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+        assert!(!all.is_empty());
+    }
+    par_map(STACK, &all, |example| {
+        let mut session = Session::for_stack(STACK);
+        let loaded = session.load(&example.name, &example.text).map(|_| ());
+        let output = assert_goals(
+            &example.name,
+            example.expected_error(),
+            &mut session,
+            loaded,
+        );
+        insta::assert_snapshot!(snapshot_name(example), output);
+    });
+}
+
+#[test]
+fn goal_projects_report_their_goals() {
+    let all = projects("goals");
+    if std::env::var("EXAMPLES").map_or(true, |v| v.is_empty()) {
+        assert!(!all.is_empty());
+    }
+    par_map(STACK, &all, |(name, path)| {
+        let mut session = Session::for_stack(STACK);
+        let loaded = load_project(name, path, &mut session);
+        let output = assert_goals(
+            &format!("projects/goals/{name}"),
+            None,
+            &mut session,
+            loaded,
+        );
+        insta::assert_snapshot!(format!("projects__goals__{name}"), output);
+    });
 }
 
 #[test]
@@ -191,6 +297,17 @@ fn accepted_projects_check() {
             failures.push(format!(
                 "{name}:\n{}",
                 rendered(&session.sources, &diagnostics)
+            ));
+            return failures;
+        }
+        if session
+            .warnings
+            .iter()
+            .any(|d| d.severity == Severity::Goal)
+        {
+            failures.push(format!(
+                "{name} has open goals:\n{}",
+                rendered(&session.sources, &session.warnings)
             ));
             return failures;
         }

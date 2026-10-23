@@ -144,6 +144,22 @@ impl Session {
     fn main_call(&mut self, index: usize, call: &str) -> Result<Main, CallError> {
         let def = &self.elab.globals.defs[index];
         let (span, ty) = (def.span, self.elab.show(&def.ty_value));
+        // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
+        if self.elab.is_unfinished(stitchwort_core::DefId(index)) {
+            return Err(CallError::Other(
+                Diagnostic::error(
+                    "E-UNFINISHED",
+                    format!(
+                        "`{}` isn't finished: it, or something it uses, has an open goal (`?`)",
+                        def.name
+                    ),
+                )
+                .with_label(
+                    span,
+                    "this can't run until every goal it needs is filled in",
+                ),
+            ));
+        }
         let partial = self
             .elab
             .is_partial(stitchwort_core::DefId(index))
@@ -157,7 +173,9 @@ impl Session {
                 span,
                 partial,
             }),
-            Err(d) if d.code == "E-RESOURCE" => Err(CallError::Other(d)),
+            Err(d) if d.code == "E-RESOURCE" || d.code == "E-UNFINISHED" => {
+                Err(CallError::Other(d))
+            }
             Err(_) => Err(CallError::Type { span, ty }),
         }
     }

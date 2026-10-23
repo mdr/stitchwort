@@ -121,6 +121,7 @@ fn diagnostics_json(session: &Session, diagnostics: &[&Diagnostic]) -> String {
             let severity = match d.severity {
                 Severity::Error => "error",
                 Severity::Warning => "warning",
+                Severity::Goal => "goal",
             };
             let place = d.primary_span().map(|span| {
                 let file = session.sources.get(span.file);

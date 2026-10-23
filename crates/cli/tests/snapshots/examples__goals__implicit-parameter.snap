@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `identity`
+   ╭─[ goals/implicit-parameter.sw:2:37 ]
+   │
+ 2 │ def identity [a: Type] (x: a): a := ?
+   │                                     ┬  
+   │                                     ╰── a: Type
+   │                                         x: a
+   │                                         ⊢ a
+───╯
+[GOAL] Goal: in `symmetric`
+   ╭─[ goals/implicit-parameter.sw:4:64 ]
+   │
+ 4 │ theorem symmetric [a: Type] (x: a) (y: a) (h: x = y): y = x := ?
+   │                                                                ┬  
+   │                                                                ╰── a: Type
+   │                                                                    x: a
+   │                                                                    y: a
+   │                                                                    h: x = y
+   │                                                                    ⊢ y = x
+───╯

@@ -1154,6 +1154,7 @@ impl Walk<'_> {
                 | Expr::Type(..)
                 | Expr::Prop(_)
                 | Expr::Hole(_)
+                | Expr::Goal(_)
                 | Expr::Unit(_) => {}
                 Expr::App(a, b)
                 | Expr::Arrow(a, b)

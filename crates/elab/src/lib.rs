@@ -22,6 +22,7 @@ mod derive_show;
 mod dot;
 mod effects;
 mod families;
+mod goals;
 mod interfaces;
 mod kernel;
 mod library;
@@ -374,6 +375,12 @@ pub struct Elaborator {
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
+    /// The open goals, `?`, of the declaration being checked (`goals.rs`).
+    pub(crate) goals: RefCell<goals::Goals>,
+    /// The metavariables standing for a `_` written where a proof goes:
+    /// `E-UNSOLVED` suggests `?` for them (D641). Cleared with the
+    /// metavariables.
+    pub(crate) proof_holes: RefCell<std::collections::HashSet<usize>>,
     /// For each definition, by `DefId`, once worked out: the data type its
     /// result type is (after all its parameters), if it is one. The decision
     /// search (`auto::decision_procedures`) reads it instead of evaluating
@@ -635,6 +642,13 @@ impl Elaborator {
         self.namespace_defs.get(namespace).cloned().unwrap_or(0..0)
     }
 
+    /// Whether definition `id` isn't checked by the kernel. In a session
+    /// that loaded without errors, that's an unfinished one: it, or
+    /// something it uses, has an open goal (`?`).
+    pub fn is_unfinished(&self, id: DefId) -> bool {
+        self.globals.def(id).state() != stitchwort_core::globals::State::Final
+    }
+
     /// Whether anything at all has key `key`.
     pub fn has_key(&self, key: &str) -> bool {
         self.scope.get(key).is_some()
@@ -748,6 +762,16 @@ impl Elaborator {
         let term = self.finish(&term, 0)?;
         self.finish(&ty, 0)?;
         self.clear_metas();
+        // A `?` typed in is never shown as a goal; and nothing unfinished
+        // runs: it has no body.
+        self.clear_goals();
+        let unfinished = term.subterms().any(|(t, _)| match t {
+            Term::Def(id) => self.is_unfinished(*id),
+            _ => false,
+        });
+        if unfinished {
+            return Err(goals::uses_unfinished(Some(expr.span())));
+        }
         kernel::without_glue(&self.globals, || {
             kernel::infer_closed(&self.globals, &term, expr.span())
         })
@@ -766,6 +790,8 @@ impl Elaborator {
 
     fn clear_metas(&self) {
         self.flush_navigation();
+        self.flush_goals();
+        self.proof_holes.borrow_mut().clear();
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
@@ -807,6 +833,34 @@ impl Elaborator {
         keep: &dyn Fn(usize) -> bool,
         lets: &[unify::Around],
     ) -> Result<Term> {
+        // An open goal's metavariable is never solved: a term with one in
+        // it can't be finished (`goals.rs`). Zonked keeping them, so that
+        // any other unsolved metavariable is still reported as itself.
+        if self.pending_goals() > 0 {
+            let keep_goals = |m: usize| keep(m) || self.is_goal(m);
+            let zonked = self.zonk_reporting(term, level, &keep_goals, lets)?;
+            let open = zonked.subterms().find_map(|(t, _)| match t {
+                Term::Meta(m) if !keep(*m) && self.is_goal(*m) => Some(*m),
+                _ => None,
+            });
+            if let Some(m) = open {
+                let span = self.globals.metas.borrow()[m].span;
+                return Err(goals::open_goal(span));
+            }
+            return Ok(zonked);
+        }
+        self.zonk_reporting(term, level, keep, lets)
+    }
+
+    /// [`Elaborator::zonk_around`], with an unsolved metavariable reported
+    /// as what it stands for.
+    fn zonk_reporting(
+        &self,
+        term: &Term,
+        level: usize,
+        keep: &dyn Fn(usize) -> bool,
+        lets: &[unify::Around],
+    ) -> Result<Term> {
         unify::zonk_in(&self.globals, level, term, keep, lets).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
             unify::ZonkError::Unsolved(m) if self.local_metas.borrow().contains_key(&m) => {
@@ -834,11 +888,25 @@ impl Elaborator {
                      `match` would: define one and call it",
                 )
             }
+            // A metavariable made for a goal whose type nothing worked out
+            // (`?` where a type isn't known): the goal says so; it isn't an
+            // error of its own.
+            unify::ZonkError::Unsolved(m)
+                if self.has_goal_at(self.globals.metas.borrow()[m].span) =>
+            {
+                goals::open_goal(self.globals.metas.borrow()[m].span)
+            }
             unify::ZonkError::Unsolved(m) => {
                 let span = self.globals.metas.borrow()[m].span;
+                let note = if self.proof_holes.borrow().contains(&m) {
+                    // A proof left as `_` (D641).
+                    "write `?` to see what's needed here"
+                } else {
+                    "supply it explicitly with `f [x := …]`, or add a type annotation"
+                };
                 Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument")
                     .with_label(span, "the compiler couldn't work out what goes here")
-                    .with_note("supply it explicitly with `f [x := …]`, or add a type annotation")
+                    .with_note(note)
             }
         })
     }
