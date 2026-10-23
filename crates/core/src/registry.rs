@@ -274,6 +274,9 @@ builtins! {
     No = "No": Ctor(Builtin::Decidable),
     FromYes = "Decidable.fromYes": Def,
     ToBool = "Decidable.toBool": Def,
+    // `match h: c < x` on a comparison its decision reduces to `Bool.decTrue b`
+    // for matches on `b` itself (crates/elab/src/matching.rs)
+    DecTrue = "Bool.decTrue": Def,
     ElimDec = "Decidable.elim": Def,
     // Lists, `Option`, pairs
     List = "List": Data,
