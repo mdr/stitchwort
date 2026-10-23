@@ -393,12 +393,12 @@ theorem List.allRangeIntro (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> ((k: Nat) -
 
 theorem List.allRangeExample: List.all (k => k * k != 2) (List.rangeFrom 100 0) = True := rfl
 
--- The first number of the run `s .. s + c - 1` that passes `q` (`s + c` if
+-- The first number of the run `start .. start + count - 1` that passes `passes` (`start + count` if
 -- none does): a least witness, found by computation. Nothing before it passes,
 -- and if some `k` of the run passes, so does it, and it is at most `k`.
-def Nat.firstFrom (q: Nat -> Bool): Nat -> Nat -> Nat
-  | Zero, s => s
-  | Succ c, s => if q s then s else Nat.firstFrom q c (Succ s)
+def Nat.firstFrom (passes: Nat -> Bool): Nat -> Nat -> Nat
+  | Zero, start => start
+  | Succ count, start => if passes start then start else Nat.firstFrom passes count (Succ start)
 
 theorem Nat.firstFromExample: Nat.firstFrom (k => Nat.leq 11 (k * k)) 9 1 = 4 := rfl
 
@@ -487,7 +487,7 @@ def List.merge (le: a -> a -> Bool): List a -> List a -> List a
 def List.pushRun (le: a -> a -> Bool) (run: List a): List (Option (List a)) -> List (Option (List a))
   | Nil => Cons (Some run) Nil
   | Cons None rest => Cons (Some run) rest
-  | Cons (Some r) rest => Cons None (List.pushRun le (List.merge le r run) rest)
+  | Cons (Some older) rest => Cons None (List.pushRun le (List.merge le older run) rest)
 
 def List.buildRuns (le: a -> a -> Bool) (runs: List (Option (List a))): List a -> List (Option (List a))
   | Nil => runs
@@ -497,7 +497,7 @@ def List.buildRuns (le: a -> a -> Bool) (runs: List (Option (List a))): List a -
 def List.mergeRuns (le: a -> a -> Bool) (acc: List a): List (Option (List a)) -> List a
   | Nil => acc
   | Cons None rest => List.mergeRuns le acc rest
-  | Cons (Some r) rest => List.mergeRuns le (List.merge le r acc) rest
+  | Cons (Some older) rest => List.mergeRuns le (List.merge le older acc) rest
 
 -- Sorts by `le`, which says whether its first argument may come before its
 -- second (`Nat.leq` for ascending numbers). Stable: equal elements keep their
@@ -793,7 +793,7 @@ theorem List.splitByStarts (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hsep
 -- one before it is a separator (or lo is 0), it isn't empty, none in it is a
 -- separator, and hi is one.
 def Nat.isRun (sep: Nat -> Bool) (lo: Nat) (hi: Nat): Bool :=
-  (lo == 0 || sep (lo - 1)) && (lo < hi && (List.all (c => !(sep c)) (List.rangeFrom (hi - lo) lo) && sep hi))
+  (lo == 0 || sep (lo - 1)) && (lo < hi && (List.all (i => !(sep i)) (List.rangeFrom (hi - lo) lo) && sep hi))
 
 theorem List.isRunNoEdge (sep: Nat -> Bool) (lo: Nat) (hi: Nat) (h: (lo == 0 || sep (lo - 1)) = False): Nat.isRun sep lo hi = False :=
   calc Nat.isRun sep lo hi
@@ -971,7 +971,7 @@ theorem List.allPerm (p: a -> Bool) (xs: List a) (ys: List a) (h: List.Perm xs y
 def List.mapRuns (f: a -> b): List (Option (List a)) -> List (Option (List b))
   | Nil => Nil
   | Cons None rest => Cons None (List.mapRuns f rest)
-  | Cons (Some r) rest => Cons (Some (List.map f r)) (List.mapRuns f rest)
+  | Cons (Some older) rest => Cons (Some (List.map f older)) (List.mapRuns f rest)
 
 theorem List.mergeMap (f: a -> b) (le: b -> b -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le2 x y = le (f x) (f y)):
     (xs: List a) -> (ys: List a) -> List.map f (List.merge le2 xs ys) = List.merge le (List.map f xs) (List.map f ys)

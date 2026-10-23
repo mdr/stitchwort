@@ -1018,10 +1018,10 @@ def List.mapAccumLeftGo (f: s -> a -> Pair s b) (initial: s): List a -> Pair s (
   | Cons x xs => List.mapAccumLeftStep f xs (f initial x)
 
 def List.mapAccumLeftStep (f: s -> a -> Pair s b) (xs: List a): Pair s b -> Pair s (List b)
-  | MkPair z y => List.mapAccumLeftCons y (List.mapAccumLeftGo f z xs)
+  | MkPair state y => List.mapAccumLeftCons y (List.mapAccumLeftGo f state xs)
 
 def List.mapAccumLeftCons (y: b): Pair s (List b) -> Pair s (List b)
-  | MkPair z ys => MkPair z (Cons y ys)
+  | MkPair state ys => MkPair state (Cons y ys)
 
 def List.mapAccumLeft (xs: List a) (initial: s) (f: s -> a -> Pair s b): Pair s (List b) := List.mapAccumLeftGo f initial xs
 

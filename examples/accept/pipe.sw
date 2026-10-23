@@ -82,8 +82,8 @@ test "pipe in an arm" := inArm 0 == 3 && inArm 4 == 4
 
 -- Effects: the left side runs first, then the right side's arguments, then
 -- the call.
-def say (t: Text) (n: Nat): {IO} Nat :=
-  IO.print t
+def say (text: Text) (n: Nat): {IO} Nat :=
+  IO.print text
   n
 
 def addSay (a: Nat) (b: Nat): {IO} Nat :=

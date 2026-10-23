@@ -11,11 +11,11 @@ def colours: List Text := ["red", "green", "blue"]
 -- Each `need` reads an `Option`; a `None` stops the whole parse.
 def turn (line: Text): {Abort} Turn :=
   match line.split ' ' with
-    | [dir, w, colour] =>
-      let (c, digits) := need dir.uncons
-      ensure (c == 'L' || c == 'R')
+    | [dir, weightText, colour] =>
+      let (letter, digits) := need dir.uncons
+      ensure (letter == 'L' || letter == 'R')
       ensure (colours.any (k => k == colour))
-      { left = c == 'L', steps = need digits.toNat, weight = w.toNat.orAbort, colour }
+      { left = letter == 'L', steps = need digits.toNat, weight = weightText.toNat.orAbort, colour }
     | _ => abort()
 
 -- Every line, or give up if any line is bad.
@@ -29,19 +29,19 @@ def parseTurn (line: Text): Option Turn := toOption (() => turn line)
 -- type: arguments are checked before the result type is known.)
 def signed (line: Text): Int :=
   orElse (0: Int) (() =>
-    let t := turn line
-    let n := t.steps.toInt
-    if t.left then -n else n)
+    let turned := turn line
+    let n := turned.steps.toInt
+    if turned.left then -n else n)
 
 -- Composes with other abilities: prints each line's colour as it goes, and
 -- gives up at the first bad line (after printing the good ones before it).
 def total (lines: List Text): {IO, Abort} Nat :=
   match lines with
     | [] => 0
-    | [l, ..ls] =>
-      let t := turn l
-      IO.print t.colour
-      t.steps * t.weight + total ls
+    | [line, ..rest] =>
+      let turned := turn line
+      IO.print turned.colour
+      turned.steps * turned.weight + total rest
 
 def main(): {IO} () :=
   let lines := IO.readAllLines()

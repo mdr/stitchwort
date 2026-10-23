@@ -49,8 +49,8 @@ def Bool.not: Bool -> Bool
 -- `if c then a else b`. The branches take a (unused) proof of `Unit` so that
 -- only the chosen one is evaluated.
 def Bool.ifThenElse: [a: Type] -> Bool -> (Unit -> a) -> (Unit -> a) -> a
-  | True, t, e => t Trivial
-  | False, t, e => e Trivial
+  | True, thenBranch, elseBranch => thenBranch Trivial
+  | False, thenBranch, elseBranch => elseBranch Trivial
 
 -- `m <= n` and `m < n` are propositions, defined by computation.
 def Nat.leq: Nat -> Nat -> Bool

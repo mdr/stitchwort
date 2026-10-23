@@ -25,7 +25,7 @@ def Nat.digits (n: Nat): List Nat := Nat.digitsAcc n Nil
 -- The number whose decimal digits these are, most significant first. Digits
 -- above 9 carry into their neighbours: it is `Nat.digits`'s inverse only on
 -- real digit lists.
-def Nat.fromDigits (ds: List Nat): Nat := List.foldLeft (acc d => acc * 10 + d) 0 ds
+def Nat.fromDigits (digits: List Nat): Nat := List.foldLeft (acc digit => acc * 10 + digit) 0 digits
 
 -- `Nat.fromDigits` starting from `a` instead of 0: `a` is shifted left past
 -- every digit.
@@ -81,7 +81,7 @@ theorem Nat.ltPowTenDigits (hi: Nat): hi < Nat.pow 10 (List.length (Nat.digits h
 -- Every element is a decimal digit.
 def Nat.Digits: List Nat -> Prop
   | Nil => Unit
-  | Cons d ds => And (d < 10) (Nat.Digits ds)
+  | Cons digit digits => And (digit < 10) (Nat.Digits digits)
 
 theorem Or.andWith: [p q r: Prop] -> r -> Or p q -> Or p (And q r)
   | hr, Inl a => Inl a

@@ -19,7 +19,7 @@ import Std (Eq)
 type Map (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
 
 -- The map whose entries are the raw map's.
-def Map.ofRaw (r: Map.Raw k v [ord := o]): Map k v [ord := o] := { raw = Quot.mk r }
+def Map.ofRaw (rawMap: Map.Raw k v [ord := o]): Map k v [ord := o] := { raw = Quot.mk rawMap }
 
 -- To prove something of every map, prove it of the map of every raw map.
 theorem Map.indRaw [p: Map k v [ord := o] -> Prop] (h: (r: Map.Raw k v [ord := o]) -> p (Map.ofRaw r)):
@@ -72,7 +72,7 @@ def Map.foldLeft (f: b -> k -> v -> b) (initial: b) (m: Map k v [ord := o]): b :
 -- `Map.insertWith Nat.add key 1 counts` counts).
 def Map.insertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map k v): Map k v := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.insertWith f key value r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.insertWith f key value rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.insertWithRespects f key value a b same))
     m.raw
 }
@@ -80,7 +80,7 @@ def Map.insertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Ma
 -- `value` at `key`, replacing any value there.
 def Map.insert [auto ord: Ord k] (key: k) (value: v) (m: Map k v): Map k v := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.insert key value r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.insert key value rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.insertRespects key value a b same))
     m.raw
 }
@@ -88,7 +88,7 @@ def Map.insert [auto ord: Ord k] (key: k) (value: v) (m: Map k v): Map k v := {
 -- Without `key` (the same map if it isn't there).
 def Map.remove [auto ord: Ord k] (key: k) (m: Map k v): Map k v := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.remove key r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.remove key rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.removeRespects key a b same))
     m.raw
 }
@@ -97,7 +97,7 @@ def Map.remove [auto ord: Ord k] (key: k) (m: Map k v): Map k v := {
 -- and removes the entry by returning `None`.
 def Map.alter [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map k v): Map k v := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.alter f key r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.alter f key rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.alterRespects f key a b same))
     m.raw
 }
@@ -105,7 +105,7 @@ def Map.alter [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map k v):
 -- The value at `key` changed by `f`, if there is one.
 def Map.adjust [auto ord: Ord k] (f: v -> v) (key: k) (m: Map k v): Map k v := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.adjust f key r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.adjust f key rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.adjustRespects f key a b same))
     m.raw
 }
@@ -113,7 +113,7 @@ def Map.adjust [auto ord: Ord k] (f: v -> v) (key: k) (m: Map k v): Map k v := {
 -- Every value changed by `f`; the keys stay.
 def Map.map (f: v -> w) (m: Map k v [ord := o]): Map k w [ord := o] := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.map f r): Quot (Map.Raw k w [ord := o]) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.map f rawMap): Quot (Map.Raw k w [ord := o]) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.mapRespects f a b same))
     m.raw
 }
@@ -121,7 +121,7 @@ def Map.map (f: v -> w) (m: Map k v [ord := o]): Map k w [ord := o] := {
 -- The entries for which `p` holds.
 def Map.filter [auto ord: Ord k] (p: k -> v -> Bool) (m: Map k v): Map k v := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.filter p r): Quot (Map.Raw k v) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.filter p rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.filterRespects p a b same))
     m.raw
 }
@@ -136,11 +136,11 @@ def Map.unionRaw [auto ord: Ord k] (a: Map.Raw k v) (q: Quot (Map.Raw k v) Map.R
 -- Both maps' entries; where both have a key, the first map's value.
 def Map.union [auto ord: Ord k] (a: Map k v) (b: Map k v): Map k v := {
   raw = Quot.lift
-    (r => Map.unionRaw r b.raw)
+    (rawMap => Map.unionRaw rawMap b.raw)
     (a1 a2 same =>
       Quot.ind
         [p := q => Map.unionRaw a1 q = Map.unionRaw a2 q]
-        (r => Quot.sound (Map.Raw.unionRespects a1 a2 r r same rfl))
+        (rawMap => Quot.sound (Map.Raw.unionRespects a1 a2 rawMap rawMap same rfl))
         b.raw)
     a.raw
 }
@@ -198,7 +198,7 @@ def Map.difference [auto ord: Ord k] (a: Map k v) (b: Map k w): Map k v := Map.f
 -- Every value changed by `f`, which also sees its key; the keys stay.
 def Map.mapWithKey (f: k -> v -> w) (m: Map k v [ord := o]): Map k w [ord := o] := {
   raw = Quot.lift
-    (r => (Quot.mk (Map.Raw.mapWithKey f r): Quot (Map.Raw k w [ord := o]) Map.Raw.Equiv))
+    (rawMap => (Quot.mk (Map.Raw.mapWithKey f rawMap): Quot (Map.Raw k w [ord := o]) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.mapWithKeyRespects f a b same))
     m.raw
 }

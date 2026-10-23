@@ -10,13 +10,13 @@ theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len != 0
       := Eq.cong (y => (x % len + y) % k) (Eq.trans (Eq.cong (l => (x / len) * l) e) (Eq.sym (Nat.mulAssoc (x / len) t k)))
     _ = x % len % k := Nat.modAddMul (x % len) (x / len * t) k)
 
--- Divisibility, as a test: `Nat.divides d n` when `n` is `t * d` for some
+-- Divisibility, as a test: `Nat.divides divisor n` when `n` is `t * divisor` for some
 -- `t` (so 0 divides only 0). It's a `Bool`, so taking it apart passes the
 -- factor to a continuation (`Nat.dividesElim`), as `List.anyRangeElim` does;
--- `Exists Nat (t => n = t * d)` states it as a proposition.
+-- `Exists Nat (t => n = t * divisor)` states it as a proposition.
 def Nat.divides: Nat -> Nat -> Bool
   | Zero, n => n == 0
-  | Succ d, n => n % Succ d == 0
+  | Succ divisor, n => n % Succ divisor == 0
 
 theorem Nat.dividesExample: Nat.divides 3 12 = True := rfl
 
@@ -52,7 +52,7 @@ theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 <= n) (h: Nat.divides d n = True)
 -- The positive divisors of `n`, ascending: `Nat.divisors 12` is
 -- `[1, 2, 3, 4, 6, 12]`. Every number divides 0, so there is no list to give:
 -- `Nat.divisors 0` is `[]`. `n` is the main value: `n.divisors`.
-def Nat.divisors (n: Nat): List Nat := List.filter (d => Nat.divides d n) (List.rangeFrom n 1)
+def Nat.divisors (n: Nat): List Nat := List.filter (divisor => Nat.divides divisor n) (List.rangeFrom n 1)
 
 test "Nat.divisors" := Nat.divisors 12 == [1, 2, 3, 4, 6, 12] && Nat.divisors 1 == [1] && Nat.divisors 13 == [1, 13]
 test "Nat.divisors of zero" := Nat.divisors 0 == Nil
