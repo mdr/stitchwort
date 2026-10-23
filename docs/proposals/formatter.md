@@ -389,6 +389,32 @@ F0 must come before F1. F2 to F3 and F4 to F6 can then run in parallel. F7
 comes last. Later, if Matt wants it, a stage
 **F8** (Opus) adds width-based wrapping (D1014).
 
+**F2 as built.** Nothing is left on the copy path (`copied_lines` and
+`copied_gaps` are 0 over the repo, and the repo test asserts it). Notes for
+the later stages:
+
+- Indentation is one rule: a line goes at +2 from the line it continues
+  (arms, body lines, `|>`, `calc` steps and further arguments alike), and a
+  definition's header lines at +4 (`decreasing` too). A parent's groups of
+  children keep their order. `then`/`else` below their `if` line up with it
+  (R12). A `|>` under a line of the same column goes at +2 (R13); one after a
+  multi-line expression stays where it is.
+- Braces: a `{` after `:` or `->` is an effect row (`result_type` in the
+  parser is the only place a row can start), tight; every other brace is a
+  record, spaced. Prefix and infix `-` follow the parser's position rule, and
+  `<-` in `rewrite` is kept.
+- Brackets are converted (D1012/D1017) unless they hold a `match`,
+  `rewrite`, `handle`, `calc` or an arm at their own level (their commas may
+  separate patterns) or a comma would have to share a line with two comments.
+  An opener that starts a line joins the line above only if it is the only
+  statement at its column, has no comment or blank line before it, and the
+  line above has no trailing comment. A trailing comma is dropped, also on a
+  one-line bracket. A declaration whose converted text fails the checks is
+  formatted again without conversion (`Stats::unconverted_decls`, 0 over the
+  repo).
+- `crates/fmt/tests/golden/*.sw` are test data in the repo: F7 must leave
+  them out of the reformat.
+
 ## 8. Decisions for Matt
 
 **Decided (Matt, 23 Oct 2026).** These override the recommendations and

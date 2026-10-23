@@ -7,9 +7,9 @@
 //! is the same program (§4.1); if not, it returns [`Error::Internal`] and the
 //! caller keeps the file as it was.
 //!
-//! Stage F1 covers whole-declaration layout. Lines no rule covers yet keep
-//! their distance from the line they continue, and are counted in
-//! [`Stats`], so later stages can drive that count to 0.
+//! Every construct has a rule (stage F2): lines are indented from the line
+//! they continue, brackets that span lines get the D1012 layout, and spacing
+//! follows R3 to R6. [`Stats`] counts what a rule still doesn't decide.
 
 mod check;
 pub mod doc;
@@ -54,11 +54,15 @@ impl std::error::Error for Error {}
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Stats {
     /// Lines whose indentation no rule decided: each kept its distance from
-    /// the line above it that it continues.
+    /// the line above it that it continues. Always 0 since F2.
     pub copied_lines: usize,
     /// Gaps between two tokens on a line whose spacing no rule decided:
     /// copied from the source (several spaces becoming one).
     pub copied_gaps: usize,
+    /// Declarations whose brackets were not converted to D1012, because the
+    /// converted text failed the checks (the rest of the declaration is
+    /// formatted).
+    pub unconverted_decls: usize,
     /// Declarations copied exactly as written, because their formatted text
     /// failed the checks.
     pub verbatim_decls: usize,

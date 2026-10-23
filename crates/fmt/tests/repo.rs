@@ -40,6 +40,7 @@ fn every_repo_file_formats_idempotently_or_is_refused() {
             Ok(result) => {
                 total.copied_lines += result.stats.copied_lines;
                 total.copied_gaps += result.stats.copied_gaps;
+                total.unconverted_decls += result.stats.unconverted_decls;
                 total.verbatim_decls += result.stats.verbatim_decls;
                 if result.text == text {
                     unchanged += 1;
@@ -58,13 +59,20 @@ fn every_repo_file_formats_idempotently_or_is_refused() {
     }
     println!(
         "{} files: {formatted} formatted, {unchanged} unchanged, {refused} refused; \
-         copy path: {} lines, {} gaps; {} declarations kept verbatim",
+         copy path: {} lines, {} gaps; {} declarations without bracket conversion, \
+         {} kept verbatim",
         files.len(),
         total.copied_lines,
         total.copied_gaps,
+        total.unconverted_decls,
         total.verbatim_decls,
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+    assert_eq!(
+        (total.copied_lines, total.copied_gaps),
+        (0, 0),
+        "constructs are left on the copy path"
+    );
     assert_eq!(
         total.verbatim_decls, 0,
         "declarations failed their checks and were kept as written"

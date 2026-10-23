@@ -10,16 +10,29 @@
 //! nearest line above it that starts further left. A line's new indentation
 //! is its parent's plus an offset, and lines with the same parent and old
 //! column (the lines of one block, or the arms of one definition) share it.
-//! A style rule picks the offset (R1, R2); where none applies, the line keeps
-//! its old distance from its parent, moving with it (the copy path, counted
-//! in [`Stats::copied_lines`]). If the rules would reorder or merge the
-//! columns of a parent's children, all of them keep their old distances.
-//! Lines at column 0 stay there: they start or continue declarations.
+//! The offset is 2 (R1, R2: arms, body lines, and D1040: every continuation
+//! line, such as further application arguments, `|>` and `calc` steps), or
+//! 4 for a header's continuation lines (R1, D1038: `decreasing` too). If a
+//! parent's groups of children would get the same offset, each deeper group
+//! gets 2 more than the one before, which keeps their order. Lines at column
+//! 0 stay there: they start or continue declarations (R21: a bare `:=`).
+//! A `|>` line at its expression's own column is moved to its child
+//! (R13), as it continues the line above either way.
+//!
+//! **Brackets.** A bracket with commas that spans lines is converted to the
+//! D1012 layout (D1017): the opener ends a line (a line that began with the
+//! opener joins the line above when that is safe), each element has a line
+//! of its own with a comma at its end (none after the last), and the closer
+//! has a line of its own at the opening line's indentation. The lines of
+//! the new layout get *synthetic* columns for the tree above: an element's
+//! line a column between its opening line and anything inside the bracket,
+//! and a closer the opening line's column.
 //!
 //! Each declaration is checked on its own as it is built (the same checks as
-//! §4.1), and one that fails is copied unchanged and counted in
-//! [`Stats::verbatim_decls`], so a gap in the rules costs one declaration's
-//! formatting rather than the file's.
+//! §4.1). One that fails is formatted again without converting brackets
+//! ([`Stats::unconverted_decls`]), and one that still fails is copied
+//! unchanged ([`Stats::verbatim_decls`]), so a gap in the rules costs one
+//! declaration's formatting rather than the file's.
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -27,21 +40,64 @@ use std::ops::Range;
 use stitchwort_syntax::{Comment, Lexed, Tok, Token, equivalence, lex_with_trivia};
 
 use crate::doc::{Doc, print};
-use crate::spacing::{Gap, gap};
+use crate::spacing::{Gap, Pair, Role, gap};
 use crate::{Stats, check};
 
 /// The indentation unit (R1).
 const INDENT: usize = 2;
 /// A definition's header continuation lines (R1).
 const HEADER_INDENT: usize = 4;
+/// What the synthetic columns of lines inside a converted bracket are
+/// shifted by, per level of nesting: more than any real column.
+const SHIFT: usize = 100_000;
 
-/// One line of code: the tokens from one that starts a line up to the next
-/// (a `"""` text block keeps its tokens in the line it starts on).
-#[derive(Clone, Copy, Debug)]
-struct Line {
-    first: usize,
-    end: usize,
-    column: usize,
+/// One line of the new layout: tokens that start a line, or a bracket's
+/// element or closer.
+#[derive(Debug)]
+struct VLine<'a> {
+    /// The kept tokens, in order (the commas converted away are not here).
+    toks: Vec<usize>,
+    /// The column that decides the line's place in the tree.
+    tcol: usize,
+    /// The column of the line's first token in the source, shifted like
+    /// `tcol` for brackets that were converted.
+    col0: usize,
+    /// The line starts with `|>`.
+    pipe: bool,
+    /// The column of the line's first token in the source.
+    src_col: usize,
+    /// A converted bracket's closer: the index of the line the bracket
+    /// opened on, whose indentation it takes.
+    closer_of: Option<usize>,
+    /// A comma goes at the end of the line (before any comment).
+    comma_after: bool,
+    /// The comment that ended the comma converted away, if the line has no
+    /// comment of its own.
+    extra_trailing: Option<&'a Comment>,
+    /// Own-line comments before the line, with whether a blank line is
+    /// before each.
+    lead: Vec<(&'a str, bool)>,
+    /// A blank line between the comments (or the line above) and this line.
+    blank: bool,
+}
+
+impl VLine<'_> {
+    fn first(&self) -> usize {
+        self.toks[0]
+    }
+
+    fn last(&self) -> usize {
+        *self.toks.last().expect("a line has a token")
+    }
+}
+
+/// A bracket with commas that spans lines, to be converted to D1012.
+#[derive(Debug)]
+struct Conv {
+    open: usize,
+    close: usize,
+    /// The commas between elements, and a trailing comma.
+    seps: Vec<usize>,
 }
 
 /// Which part of a declaration a child of a column-0 line is in: the header
@@ -56,7 +112,81 @@ enum Part {
 pub(crate) struct Layout<'a> {
     text: &'a str,
     lexed: &'a Lexed,
+    roles: Vec<Role>,
     pub(crate) stats: Stats,
+}
+
+/// Whether a token can end an operand, so that a `-` after it is infix.
+fn ends_operand(tok: &Tok) -> bool {
+    use Tok::*;
+    matches!(
+        tok,
+        Lower(_)
+            | Upper(_)
+            | Num(_)
+            | Float(_)
+            | Str(_)
+            | StrEnd(_)
+            | Char(_)
+            | RParen
+            | RBracket
+            | RBrace
+            | Underscore
+            | TypeU
+            | Prop
+            | KwOmega
+    )
+}
+
+/// The role of each token (see [`Role`]).
+fn roles(lexed: &Lexed) -> Vec<Role> {
+    let tokens = &lexed.tokens;
+    let mut roles = vec![Role::Plain; tokens.len()];
+    let mut braces: Vec<bool> = Vec::new();
+    // The column of the first token of the line before the current one.
+    let (mut line_col, mut prev_line_col) = (0u32, 0u32);
+    for (k, t) in tokens.iter().enumerate() {
+        if t.line_start {
+            prev_line_col = line_col;
+            line_col = t.column;
+        }
+        match t.tok {
+            Tok::LBrace => {
+                // Only a function's result type has a row, and it follows
+                // the `:` or `->` before it (`result_type` in the parser).
+                let row = k > 0 && matches!(tokens[k - 1].tok, Tok::Colon | Tok::Arrow);
+                if row {
+                    roles[k] = Role::Row;
+                }
+                braces.push(row);
+            }
+            Tok::RBrace => {
+                if braces.pop().unwrap_or(false) {
+                    roles[k] = Role::Row;
+                }
+            }
+            Tok::Minus => {
+                let before = k.checked_sub(1).map(|j| &tokens[j]);
+                roles[k] = if before.is_some_and(|b| {
+                    b.tok == Tok::Lt && b.span.end == t.span.start && !t.line_start
+                }) {
+                    Role::RewriteArrow
+                } else {
+                    let operand = before.is_some_and(|b| ends_operand(&b.tok));
+                    // A line starting with `-` at or left of the line above
+                    // starts a statement, so the `-` is a prefix.
+                    let continues = !t.line_start || t.column > prev_line_col;
+                    if operand && continues {
+                        Role::Binary
+                    } else {
+                        Role::Unary
+                    }
+                };
+            }
+            _ => {}
+        }
+    }
+    roles
 }
 
 impl<'a> Layout<'a> {
@@ -64,6 +194,7 @@ impl<'a> Layout<'a> {
         Layout {
             text,
             lexed,
+            roles: roles(lexed),
             stats: Stats::default(),
         }
     }
@@ -110,14 +241,21 @@ impl<'a> Layout<'a> {
     }
 
     /// One declaration, without the comments and blank lines above it: its
-    /// formatted text if that passes the checks, otherwise its source.
+    /// formatted text if that passes the checks, then its text without
+    /// converting brackets if that does, otherwise its source.
     fn decl(&mut self, range: Range<usize>) -> String {
         let before = self.decl_source(&range);
         let saved = self.stats;
-        let doc = self.decl_doc(range.clone());
-        let after = print(&doc, None);
-        if after == before || same_decl(before, &after) {
-            return after;
+        for convert in [true, false] {
+            self.stats = saved;
+            let doc = self.decl_doc(range.clone(), convert);
+            let after = print(&doc, None);
+            if after == before || same_decl(before, &after) {
+                if !convert {
+                    self.stats.unconverted_decls += 1;
+                }
+                return after;
+            }
         }
         self.stats = saved;
         self.stats.verbatim_decls += 1;
@@ -137,44 +275,273 @@ impl<'a> Layout<'a> {
         self.text[start..end].trim_end_matches('\r')
     }
 
-    fn decl_doc(&mut self, range: Range<usize>) -> Doc {
-        let tokens = self.tokens();
-        let mut lines: Vec<Line> = Vec::new();
+    /// The brackets of a declaration to convert to D1012: those with commas
+    /// between their elements that span lines. A bracket that holds a
+    /// `match`, `rewrite`, `handle` or `calc`, or an arm, is left alone: its
+    /// commas may separate patterns or rules, not elements.
+    fn find_convs(&self, range: &Range<usize>) -> Vec<Conv> {
+        struct Open {
+            at: usize,
+            seps: Vec<usize>,
+            blocked: bool,
+        }
+        let (tokens, trivia) = (self.tokens(), &self.lexed.trivia);
+        let mut stack: Vec<Open> = Vec::new();
+        let mut convs = Vec::new();
         for k in range.clone() {
-            if k == range.start || tokens[k].line_start {
-                lines.push(Line {
-                    first: k,
-                    end: k + 1,
-                    column: tokens[k].column as usize,
-                });
-            } else if let Some(line) = lines.last_mut() {
-                line.end = k + 1;
+            let t = &tokens[k];
+            match t.tok {
+                Tok::LParen | Tok::LBracket | Tok::LBrace => stack.push(Open {
+                    at: k,
+                    seps: Vec::new(),
+                    blocked: false,
+                }),
+                Tok::Comma => {
+                    if let Some(top) = stack.last_mut() {
+                        top.seps.push(k);
+                    }
+                }
+                Tok::KwMatch | Tok::KwRewrite | Tok::KwHandle | Tok::KwCalc => {
+                    if let Some(top) = stack.last_mut() {
+                        top.blocked = true;
+                    }
+                }
+                Tok::Pipe if t.line_start => {
+                    if let Some(top) = stack.last_mut() {
+                        top.blocked = true;
+                    }
+                }
+                Tok::RParen | Tok::RBracket | Tok::RBrace => {
+                    let Some(top) = stack.pop() else { continue };
+                    let spans_lines = (top.at + 1..=k).any(|j| tokens[j].line_start);
+                    // A comma that ends a line with a comment cannot move to
+                    // the end of an element that has a comment of its own.
+                    let comments_fit = top
+                        .seps
+                        .iter()
+                        .all(|&s| trivia[s - 1].trailing.is_none() || trivia[s].trailing.is_none());
+                    if !top.seps.is_empty() && spans_lines && !top.blocked && comments_fit {
+                        convs.push(Conv {
+                            open: top.at,
+                            close: k,
+                            seps: top.seps,
+                        });
+                    }
+                }
+                _ => {}
             }
         }
-        let header_end = self.header_end(range.clone());
-        let indents = self.indents(&lines, header_end);
+        convs.sort_by_key(|c| c.open);
+        convs
+    }
+
+    /// The lines of a declaration in the new layout.
+    fn vlines(&self, range: &Range<usize>, convert: bool) -> Vec<VLine<'a>> {
+        let (tokens, trivia) = (self.tokens(), &self.lexed.trivia);
+        let n = range.len();
+        let at = |k: usize| k - range.start;
+
+        // The lines of the source, and their tree, for deciding which
+        // openers may join the line above.
+        let mut old: Vec<(usize, usize)> = Vec::new();
+        for k in range.clone() {
+            if k == range.start || tokens[k].line_start {
+                old.push((k, tokens[k].column as usize));
+            }
+        }
+        let mut old_index = vec![usize::MAX; n];
+        let mut old_parent: Vec<Option<usize>> = Vec::with_capacity(old.len());
+        let mut stack: Vec<usize> = Vec::new();
+        for (i, &(first, column)) in old.iter().enumerate() {
+            while stack.last().is_some_and(|&j| old[j].1 >= column) {
+                stack.pop();
+            }
+            old_parent.push(stack.last().copied());
+            stack.push(i);
+            old_index[at(first)] = i;
+        }
+        // What each token is in a converted bracket.
+        let convs = if convert {
+            self.find_convs(range)
+        } else {
+            Vec::new()
+        };
+        let mut opens: Vec<Option<usize>> = vec![None; n];
+        let mut closes: Vec<Option<usize>> = vec![None; n];
+        let mut dropped = vec![false; n];
+        let mut elem_first = vec![false; n];
+        let mut trailing_sep = vec![false; n];
+        for (id, conv) in convs.iter().enumerate() {
+            opens[at(conv.open)] = Some(id);
+            closes[at(conv.close)] = Some(id);
+            elem_first[at(conv.open + 1)] = true;
+            for &s in &conv.seps {
+                dropped[at(s)] = true;
+                if s + 1 == conv.close {
+                    trailing_sep[at(s)] = true;
+                } else {
+                    elem_first[at(s + 1)] = true;
+                }
+            }
+        }
+        // A trailing comma on one line is dropped too (D1012).
+        for k in range.start + 1..range.end {
+            if tokens[k].tok == Tok::Comma
+                && !tokens[k].line_start
+                && !dropped[at(k)]
+                && tokens.get(k + 1).is_some_and(|t| {
+                    k + 1 < range.end && matches!(t.tok, Tok::RParen | Tok::RBracket | Tok::RBrace)
+                })
+                && (trivia[k - 1].trailing.is_none() || trivia[k].trailing.is_none())
+            {
+                dropped[at(k)] = true;
+                trailing_sep[at(k)] = true;
+            }
+        }
+        let mut group_size: HashMap<(Option<usize>, usize), usize> = HashMap::new();
+        for (i, &(first, column)) in old.iter().enumerate() {
+            // Lines that start with a comma or closer converted away aren't
+            // statements of the block.
+            if dropped[at(first)] || closes[at(first)].is_some() {
+                continue;
+            }
+            *group_size.entry((old_parent[i], column)).or_default() += 1;
+        }
+
+        // Openers that join the line above: the first token of a line that
+        // only continues the line above it, with nothing between them.
+        let may_join = |o: usize| -> bool {
+            let i = old_index[at(o)];
+            o > range.start
+                && i != usize::MAX
+                && i > 0
+                && (old_parent[i] == Some(i - 1)
+                    || matches!(
+                        tokens[o - 1].tok,
+                        Tok::ColonEq | Tok::Equals | Tok::FatArrow
+                    ))
+                && group_size[&(old_parent[i], old[i].1)] == 1
+                && !elem_first[at(o)]
+                && trivia[o].leading.is_empty()
+                && trivia[o].blank_lines_before == 0
+                && trivia[o - 1].trailing.is_none()
+        };
+
+        let mut lines: Vec<VLine<'a>> = Vec::new();
+        let mut open_line: Vec<usize> = vec![0; convs.len()];
+        let mut enclosing: Vec<usize> = Vec::new();
+        // Trivia of a comma converted away, for the token after it.
+        let mut carry: Option<usize> = None;
+        for k in range.clone() {
+            let t = &tokens[k];
+            if dropped[at(k)] {
+                if let Some(last) = lines.last_mut() {
+                    if !trailing_sep[at(k)] {
+                        last.comma_after = true;
+                    }
+                    if trivia[last.last()].trailing.is_none() {
+                        last.extra_trailing = trivia[k].trailing.as_ref();
+                    }
+                }
+                if t.line_start {
+                    carry = Some(k);
+                }
+                continue;
+            }
+            let closer = closes[at(k)];
+            let joins = opens[at(k)].is_some()
+                && may_join(k)
+                && lines.last().is_some_and(|l| l.closer_of.is_none());
+            let new_line = k == range.start
+                || closer.is_some()
+                || elem_first[at(k)]
+                || (t.line_start && !joins);
+            if new_line {
+                let depth = enclosing.len();
+                let col0 = t.column as usize + SHIFT * depth;
+                let (tcol, closer_of) = if let Some(id) = closer {
+                    (lines[open_line[id]].tcol, Some(open_line[id]))
+                } else if elem_first[at(k)] {
+                    (SHIFT * depth - 1, None)
+                } else {
+                    let mut column = t.column as usize;
+                    column += SHIFT * depth;
+                    // R13: a `|>` right under a line of the same column
+                    // continues it, so it goes at +2.
+                    let under_same = lines
+                        .last()
+                        .is_some_and(|l| l.col0 == column && (!l.pipe || l.tcol == column + 1));
+                    let tcol = if t.tok == Tok::PipeGt && under_same {
+                        column + 1
+                    } else {
+                        column
+                    };
+                    (tcol, None)
+                };
+                let mut lead: Vec<(&'a str, bool)> = Vec::new();
+                let mut blank = trivia[k].blank_lines_before > 0;
+                if let Some(c) = carry.take() {
+                    for comment in &trivia[c].leading {
+                        lead.push((comment_text(comment), comment.blank_lines_before > 0));
+                    }
+                    if trivia[c].blank_lines_before > 0 {
+                        blank = true;
+                    }
+                }
+                for comment in &trivia[k].leading {
+                    lead.push((comment_text(comment), comment.blank_lines_before > 0));
+                }
+                lines.push(VLine {
+                    toks: vec![k],
+                    tcol,
+                    col0,
+                    pipe: t.tok == Tok::PipeGt,
+                    src_col: t.column as usize,
+                    closer_of,
+                    comma_after: false,
+                    extra_trailing: None,
+                    lead,
+                    blank,
+                });
+            } else if let Some(last) = lines.last_mut() {
+                last.toks.push(k);
+            }
+            if let Some(id) = opens[at(k)] {
+                open_line[id] = lines.len() - 1;
+                enclosing.push(id);
+            }
+            if closer.is_some() {
+                enclosing.pop();
+            }
+        }
+        lines
+    }
+
+    fn decl_doc(&mut self, range: Range<usize>, convert: bool) -> Doc {
+        let lines = self.vlines(&range, convert);
+        let header = self.header_end(range.clone());
+        let indents = self.indents(&lines, header);
         let mut docs = Vec::new();
         for (i, line) in lines.iter().enumerate() {
             let mut parts = Vec::new();
             if i > 0 {
-                let trivia = &self.lexed.trivia[line.first];
                 // R17: no blank line at the start of a body.
                 let opens = self.ends_with_opener(&lines[i - 1]);
-                for (c, comment) in trivia.leading.iter().enumerate() {
+                for (c, &(text, blank)) in line.lead.iter().enumerate() {
                     parts.push(Doc::HardLine);
-                    if comment.blank_lines_before > 0 && !(c == 0 && opens) {
+                    if blank && !(c == 0 && opens) {
                         parts.push(Doc::HardLine);
                     }
                     // R16: an own-line comment is indented like the code
                     // line after it.
-                    parts.push(Doc::text(comment_text(comment)));
+                    parts.push(Doc::text(text));
                 }
                 parts.push(Doc::HardLine);
-                if trivia.blank_lines_before > 0 && !(trivia.leading.is_empty() && opens) {
+                if line.blank && !(line.lead.is_empty() && opens) {
                     parts.push(Doc::HardLine);
                 }
             }
-            let shift = indents[i] as i64 - line.column as i64;
+            let shift = indents[i] as i64 - line.src_col as i64;
             parts.push(self.line_doc(line, shift));
             docs.push(Doc::nest(indents[i], Doc::Concat(parts)));
         }
@@ -185,7 +552,7 @@ impl<'a> Layout<'a> {
     /// its body: the first `:=` (or arm) of a definition, the `=` of a data
     /// type or interface, an ability's `where`. `None` for declarations
     /// without a header (imports, the namespace line).
-    fn header_end(&self, range: Range<usize>) -> Option<usize> {
+    fn header_end(&self, range: Range<usize>) -> Option<(usize, usize)> {
         let tokens = self.tokens();
         let mut k = range.start;
         // Attributes, then `export`.
@@ -221,7 +588,7 @@ impl<'a> Layout<'a> {
         let mut depth = 0i32;
         for (j, t) in tokens.iter().enumerate().take(range.end).skip(k + 1) {
             if depth == 0 && ends(t) {
-                return Some(j);
+                return Some((k, j));
             }
             match t.tok {
                 Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
@@ -235,9 +602,9 @@ impl<'a> Layout<'a> {
     /// Whether a line ends with a token after which the next, deeper line
     /// starts a body (R2): `:=`, `=>`, `where`, `with`; for blank lines
     /// (R17) also `=` and an opening bracket.
-    fn ends_with_opener(&self, line: &Line) -> bool {
+    fn ends_with_opener(&self, line: &VLine) -> bool {
         matches!(
-            self.tokens()[line.end - 1].tok,
+            self.tokens()[line.last()].tok,
             Tok::ColonEq
                 | Tok::FatArrow
                 | Tok::KwWhere
@@ -251,26 +618,47 @@ impl<'a> Layout<'a> {
 
     /// The new indentation of each line of a declaration (see the module
     /// documentation).
-    fn indents(&mut self, lines: &[Line], header_end: Option<usize>) -> Vec<usize> {
+    fn indents(&mut self, lines: &[VLine], header: Option<(usize, usize)>) -> Vec<usize> {
         let tokens = self.tokens();
         // The parent of each line, by a stack of lines with rising columns.
+        let mut tcol: Vec<usize> = lines.iter().map(|l| l.tcol).collect();
         let mut parent: Vec<Option<usize>> = Vec::with_capacity(lines.len());
         let mut stack: Vec<usize> = Vec::new();
         for (i, line) in lines.iter().enumerate() {
-            while stack
-                .last()
-                .is_some_and(|&j| lines[j].column >= line.column)
+            let mut sibling = None;
+            while stack.last().is_some_and(|&j| tcol[j] >= tcol[i]) {
+                sibling = stack.pop().filter(|&j| tcol[j] == tcol[i]);
+            }
+            // The sibling an `else` belongs to, if the author lined it up.
+            let after_if = sibling
+                .is_some_and(|j| matches!(tokens[lines[j].first()].tok, Tok::KwIf | Tok::KwElse));
+            // R12: a `then` or `else` that starts a line below the line of
+            // its `if` lines up with it.
+            if let Some(&p) = stack.last()
+                && matches!(tokens[line.first()].tok, Tok::KwThen | Tok::KwElse)
+                && !after_if
+                && line.closer_of.is_none()
+                && matches!(
+                    tokens[lines[p].first()].tok,
+                    Tok::KwIf | Tok::KwThen | Tok::KwElse
+                )
             {
-                stack.pop();
+                tcol[i] = tcol[p];
+                while stack.last().is_some_and(|&j| tcol[j] >= tcol[i]) {
+                    stack.pop();
+                }
             }
             parent.push(stack.last().copied());
             stack.push(i);
         }
         let part = |i: usize| -> Part {
             let line = &lines[i];
-            let under_top = parent[i].is_some_and(|p| lines[p].column == 0);
-            let in_header = header_end.is_some_and(|h| {
-                line.first < h || (line.first == h && tokens[h].tok != Tok::Pipe && line.column > 0)
+            let under_top = parent[i].is_some_and(|p| tcol[p] == 0);
+            // The header runs from the declaration's keyword (not its
+            // attributes) to the `:=` or `=` or the first arm.
+            let in_header = header.is_some_and(|(start, h)| {
+                (line.first() >= start && line.first() < h)
+                    || (line.first() == h && tokens[h].tok != Tok::Pipe && line.src_col > 0)
             });
             if under_top && in_header {
                 Part::Header
@@ -278,78 +666,68 @@ impl<'a> Layout<'a> {
                 Part::Main
             }
         };
-        // The offset each group of lines (same parent, part and old column)
-        // asks for: `Some` from a rule, `None` to keep its distance.
+        // The offset each group of lines (same parent, part and column)
+        // asks for.
         type Key = (usize, Part, usize);
-        let mut groups: Vec<(Key, Option<usize>)> = Vec::new();
+        let mut groups: Vec<(Key, usize)> = Vec::new();
         let mut index: HashMap<Key, usize> = HashMap::new();
         let mut group_of: Vec<Option<usize>> = vec![None; lines.len()];
         for (i, line) in lines.iter().enumerate() {
             let Some(p) = parent[i] else { continue };
-            let key = (p, part(i), line.column);
+            if line.closer_of.is_some() {
+                continue;
+            }
+            let key = (p, part(i), tcol[i]);
             if let Some(&g) = index.get(&key) {
                 group_of[i] = Some(g);
                 continue;
             }
             index.insert(key, groups.len());
-            let top = lines[p].column == 0;
-            let wanted = if top && tokens[line.first].tok == Tok::Pipe {
+            let top = tcol[p] == 0;
+            let wanted = if top && tokens[line.first()].tok == Tok::Pipe {
                 // R1: arms (and constructors) at +2.
-                Some(INDENT)
+                INDENT
             } else if key.1 == Part::Header {
-                // R1: header continuation lines at +4.
-                Some(HEADER_INDENT)
-            } else if p + 1 == i
-                && matches!(
-                    tokens[lines[p].end - 1].tok,
-                    Tok::ColonEq | Tok::FatArrow | Tok::KwWhere | Tok::KwWith
-                )
-            {
-                // R2: a body on the next line after `:=` or `=>` (or an
-                // ability's `where`, a `match`'s `with`) at +2.
-                Some(INDENT)
-            } else if top && header_end.is_some_and(|h| line.first > h) {
-                // R2: the lines of a declaration's body at +2.
-                Some(INDENT)
+                // R1, D1038: header continuation lines at +4.
+                HEADER_INDENT
             } else {
-                None
+                // R2, D1040: body lines and continuation lines at +2.
+                INDENT
             };
             group_of[i] = Some(groups.len());
             groups.push((key, wanted));
         }
-        // The rules must keep the order of each parent's children's columns.
+        // Groups of one parent keep their order: each is deeper than the
+        // one before it.
         let mut siblings: HashMap<(usize, Part), Vec<(usize, usize)>> = HashMap::new();
         for (g, ((p, part, column), _)) in groups.iter().enumerate() {
             siblings.entry((*p, *part)).or_default().push((*column, g));
         }
-        for ((p, _), mut members) in siblings {
+        for (_, mut members) in siblings {
             members.sort_unstable();
-            let offset = |g: usize| {
-                let ((_, _, column), wanted) = groups[g];
-                wanted.unwrap_or(column - lines[p].column)
-            };
-            let ordered = members.windows(2).all(|w| offset(w[0].1) < offset(w[1].1));
-            if !ordered {
-                for (_, g) in members {
-                    groups[g].1 = None;
-                }
+            let mut before: Option<usize> = None;
+            for (_, g) in members {
+                let wanted = groups[g].1;
+                let offset = match before {
+                    Some(b) if wanted <= b => b + INDENT,
+                    _ => wanted,
+                };
+                groups[g].1 = offset;
+                before = Some(offset);
             }
         }
         let mut indents = vec![0usize; lines.len()];
         for (i, line) in lines.iter().enumerate() {
+            if let Some(open) = line.closer_of {
+                // D1012: the closer lines up with the line the bracket
+                // opened on.
+                indents[i] = indents[open];
+                continue;
+            }
             let (Some(p), Some(g)) = (parent[i], group_of[i]) else {
                 continue;
             };
-            let ((_, _, column), wanted) = groups[g];
-            indents[i] = indents[p]
-                + match wanted {
-                    Some(offset) => offset,
-                    None => {
-                        self.stats.copied_lines += 1;
-                        column - lines[p].column
-                    }
-                };
-            debug_assert_eq!(column, line.column);
+            indents[i] = indents[p] + groups[g].1;
         }
         indents
     }
@@ -358,14 +736,22 @@ impl<'a> Layout<'a> {
     /// `"""` text block moves with the line: its later lines move by `shift`
     /// columns, or as near as their indentation allows (which leaves the
     /// text's value unchanged, since its common indentation is removed).
-    fn line_doc(&mut self, line: &Line, shift: i64) -> Doc {
+    fn line_doc(&mut self, line: &VLine, shift: i64) -> Doc {
         let tokens = self.tokens();
         let mut out = String::new();
-        for k in line.first..line.end {
-            if k > line.first {
-                let (left, right) = (&tokens[k - 1], &tokens[k]);
+        for (n, &k) in line.toks.iter().enumerate() {
+            if n > 0 {
+                let (left, right) = (&tokens[line.toks[n - 1]], &tokens[k]);
                 let spaced = left.span.end != right.span.start;
-                match gap(&left.tok, &right.tok, spaced) {
+                let pair = Pair {
+                    left: &left.tok,
+                    left_role: self.roles[line.toks[n - 1]],
+                    right: &right.tok,
+                    right_role: self.roles[k],
+                    after: tokens.get(k + 1).map(|t| &t.tok),
+                    spaced,
+                };
+                match gap(&pair) {
                     Gap::Source => {
                         out.push_str(&self.text[left.span.end as usize..right.span.start as usize])
                     }
@@ -385,13 +771,20 @@ impl<'a> Layout<'a> {
             if self.source(k).contains('\n') {
                 // A text block: copy the rest of the line, moved.
                 let start = tokens[k].span.start as usize;
-                let end = tokens[line.end - 1].span.end as usize;
+                let end = tokens[line.last()].span.end as usize;
                 out.push_str(&shift_lines(&self.text[start..end], shift));
                 break;
             }
             out.push_str(self.source(k));
         }
-        if let Some(comment) = &self.lexed.trivia[line.end - 1].trailing {
+        if line.comma_after {
+            out.push(',');
+        }
+        let trailing = self.lexed.trivia[line.last()]
+            .trailing
+            .as_ref()
+            .or(line.extra_trailing);
+        if let Some(comment) = trailing {
             // R16: one space before a trailing comment.
             out.push(' ');
             out.push_str(comment_text(comment));
@@ -472,7 +865,7 @@ mod tests {
         assert_eq!(shift_lines(block, -2), "\"\"\"\n  a\n    b\n\n  \"\"\"");
         // At most 4 to the left: `a` reaches column 0.
         assert_eq!(shift_lines(block, -9), "\"\"\"\na\n  b\n\n\"\"\"");
-        // A line of only spaces is left alone.
+        // A line of only spaces stays as it is.
         assert_eq!(shift_lines("x\n   \ny", 2), "x\n   \n  y");
     }
 }
