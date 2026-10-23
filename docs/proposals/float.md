@@ -3,7 +3,7 @@
 **Status:** draft 2, 23 October 2026. Design-review gate: nothing is implemented. Follows D645 (a
 JS-number `Float`). Draft 1's decisions D680 to D689 keep their numbers; this draft adopts every
 correction and recommendation of an external review (D696), which flips D683 and D685. New
-decisions start at D697 ([§8](#8-decisions)). Written against commit `5f26aacf`.
+decisions start at D701 ([§8](#8-decisions)). Written against commit `5f26aacf`.
 
 Labels: **[checked]** (read in this repository, `file:line`), **[reported by the port
 analysis]** (measured or checked by a separate analysis of the motivating app, not re-run here),
@@ -30,14 +30,14 @@ disagree with none. Where the review offered a choice, the choice made is stated
 | §1 Versioned semantic contract; implementation fingerprint in the cache | §3.3 "Caches": the build fingerprint already covers the kernel's source and `Cargo.lock`, but not the Rust toolchain; that is added, plus `FLOAT_CONTRACT` in the primitives' hashes |
 | §1 "A future full model changes no program" | §6.3: source behaviour stays compatible; hashes change and everything downstream is rechecked |
 | §2 `neg` as a sign flip breaks the invariant on NaN | §2.2: `neg` has an explicit NaN case; `neg (neg x) = x` still holds. Rust's `-NaN` is `0xFFF8…` [run] |
-| §2 Canonicalising only `.bits` needs every representation-sensitive operation audited; choose an invariant | §3.5, new D697: physically canonical in the kernel and the Rust runtime (one constructor); in JS the only representation-sensitive operation is `.bits`, which canonicalises. Audit list, including `f64::total_cmp` ordering negative NaNs first [run] |
+| §2 Canonicalising only `.bits` needs every representation-sensitive operation audited; choose an invariant | §3.5, new D701: physically canonical in the kernel and the Rust runtime (one constructor); in JS the only representation-sensitive operation is `.bits`, which canonicalises. Audit list, including `f64::total_cmp` ordering negative NaNs first [run] |
 | §2 Boundary guarantee covers the value abstraction, not NaN payloads | §5 |
 | §3 Keep `==`/`!=` lawful; IEEE equality explicitly named; same for `<` | **D683 flipped.** §4: `== != < <=` keep their existing meanings (`DecEq`, `Ord`); ported `===`, `<`, `<=` become `Float.ieeeEq`, `Float.ieeeLt`, `Float.ieeeLe`. The review's refactoring examples are in §4.2 |
 | §3 Elaboration, inlining, specialisation and backends keep the operation distinct | §4.4 |
 | §4 Theorem-holds vs same-behaviour-as-TS are separate arguments | New §6.4, port verification obligations |
 | §4 Total order changes a stable sort's output on `+0`/`-0` ties | §4.5, §6.4; checked [run] |
 | §4 JS `Map`/`Set` use SameValueZero | §4.5 |
-| §5 Plain `Float` accepts every JS number | **D685 flipped.** §5; finiteness belongs on a refinement or the application's types (new D698) |
+| §5 Plain `Float` accepts every JS number | **D685 flipped.** §5; finiteness belongs on a refinement or the application's types (new D702) |
 | §5 JSON claim wrong (`JSON.parse("1e400")` is `Infinity`; finite inputs don't give finite intermediates) | §5, corrected [run] |
 | §6 `Number::toString` allows several shortest outputs | §3.6, D688: `toText` doesn't reduce in the kernel in stage 1 |
 | §6 RoundMVResult is implementation-defined after 20 digits | §2.3: the literal is elaborated to bits once; JS is generated from the bits |
@@ -135,7 +135,7 @@ type Float = { bits: Nat, valid: Float.isValid bits = True }
 
 **The invariant.** `Float.isValid n` is `n < 2^64` and, if `n` is a NaN pattern (exponent all
 ones, fraction non-zero), `n = 0x7FF8000000000000`. Every `Float` value satisfies it, in the logic
-by the `valid` field and at run time by D697 (§3.5). Two doubles are equal as values (`x = y`)
+by the `valid` field and at run time by D701 (§3.5). Two doubles are equal as values (`x = y`)
 exactly when their bits are, so `0.0` and `-0.0` are different values and there is one NaN, equal
 to itself. This is `Object.is` [inferred; `Object.is(-0, 0)` is false [run]].
 
@@ -377,7 +377,7 @@ hashing of values, and constant folding. §7.4 tests it, path by path.
   specifies [unverified]);
 - **C2** subnormals are kept (no flush-to-zero or denormals-are-zero);
 - **C3** signed zero is kept by every operation and every lowering;
-- **C4** NaN results are made canonical wherever they are observed (D697);
+- **C4** NaN results are made canonical wherever they are observed (D701);
 - **C5** no reassociation, no algebraic simplification (`x + 0.0 → x` is wrong for `-0.0`) and no
   contraction of `a * b + c` into a fused multiply-add, in the compiler's optimiser, in the Rust
   code it is built from, and in generated JS. Rust doesn't contract floating-point expressions
@@ -458,7 +458,7 @@ A `Float` value in the kernel is just the record with a `Nat` literal inside; no
 variant is needed. The pretty-printer shows a `Float` record with literal bits as its literal
 (`1.5`), so goals stay readable.
 
-### 3.5 Run time and the representation invariant (D697)
+### 3.5 Run time and the representation invariant (D701)
 
 The review asks for one of two run-time invariants: (1) every stored `Float` is physically
 canonical; (2) values may hold any NaN, and every representation-sensitive operation handles them
@@ -498,11 +498,11 @@ every operation.
 | `+ - * /`, `sqrt` | yes: correctly rounded IEEE binary64 in both | JS spec's Number::add etc. [unverified]; ECMAScript 2026 requires correctly rounded `Math.sqrt` [cited by the review]; Rust: `sqrt` "guaranteed to be the rounded infinite-precision result" [cited]; `0.1 + 0.2` and `80281.87 - 80000` print identically [run] |
 | `%` | yes: truncated remainder, which is exact | `5.5 % 2` = `1.5`, `-5.5 % 2` = `-1.5` in both [run] |
 | `floor`, `ceil`, `trunc`, `abs` | yes: exact | Rust: "always returns the precise result" [cited] |
-| `neg` | the value yes; NaN bits no | Rust's `-NaN` is `0xFFF8…` [run]; canonicalised by D697 |
+| `neg` | the value yes; NaN bits no | Rust's `-NaN` is `0xFFF8…` [run]; canonicalised by D701 |
 | `round` | **no**: Rust goes away from zero | §2.5 table [run]; the native implements JS's rule |
 | comparisons | yes (IEEE) | [inferred] |
-| total order | **not with `f64::total_cmp`** on raw NaNs | [run]; D697 |
-| NaN bits | **no guarantee**: Rust: "nothing is guaranteed about the specific bit pattern … both payload and sign are arbitrary" [cited]; WebAssembly leaves NaN bits nondeterministic [cited]; x86 produces a negative NaN for `0/0` [unverified]; on arm64 Rust's `0/0` gave `0x7FF8000000000000` [run] | D697 |
+| total order | **not with `f64::total_cmp`** on raw NaNs | [run]; D701 |
+| NaN bits | **no guarantee**: Rust: "nothing is guaranteed about the specific bit pattern … both payload and sign are arbitrary" [cited]; WebAssembly leaves NaN bits nondeterministic [cited]; x86 produces a negative NaN for `0/0` [unverified]; on arm64 Rust's `0/0` gave `0x7FF8000000000000` [run] | D701 |
 | `toText` | **not guaranteed**: `Number::toString` picks the digit count `k` as small as possible, but when several `k`-digit decimals round to `x`, choosing the closest (ties even) is only a recommendation in a note [cited by the review]. `ryu-js` picks the closest; an engine may conform and differ | the kernel doesn't reduce `toText` in stage 1 (D688) |
 | literal parsing | Stitchwort defines it (correctly rounded); JS may round past 20 significant digits differently | §2.3: JS is generated from the bits, so the engine's literal parser only sees short round-trip spellings |
 | `pow`, `exp`, `log`, trig | **no**: Rust: "precision … is non-deterministic" [cited]; JS engines differ [unverified] | **excluded** from stage 1 |
@@ -633,7 +633,7 @@ is `Infinity`, and finite inputs don't give finite intermediates: `Number.MAX_VA
 Number.MAX_VALUE` is `Infinity` [run]. A proof or a compatibility argument that needs finiteness
 needs an invariant over the computation, not a decoder check.
 
-**Where finiteness goes (D698):** on the application's own types (a timeline's domain type checks
+**Where finiteness goes (D702):** on the application's own types (a timeline's domain type checks
 its times, with a proof of `Float.isFinite t = True` in a field if a theorem needs it), or on a
 `FiniteFloat` refinement, `{ value: Float, finite: Float.isFinite value = True }`, crossing as a
 checked `number` as `SafeNat` does. Recommended: no `FiniteFloat` in stage 1. The port validates
@@ -776,7 +776,7 @@ which 1a is designed to expose early.
 - **Trusted base grows** by ~11 reduction rules and the NaN canonicalisation (`toInt` is no longer
   one; `toText` doesn't reduce in the kernel). Mitigated by the contract (§3.3), the differential
   tests and listing them in DESIGN.md §13.
-- **NaN bits** differ by platform and in WASM; D697 makes the Rust runtime canonical by
+- **NaN bits** differ by platform and in WASM; D701 makes the Rust runtime canonical by
   construction and leaves JS one audited site.
 - **Porting `===` and `<` is manual** (D683): a port that writes `==` for `===` compiles and
   differs on `-0` and NaN. Mitigated by §6.4's audit, and docs.
@@ -865,12 +865,12 @@ Recommendations in square brackets. D680–D689 keep draft 1's numbers; changes 
 10. **D689 Operations record for proofs.** [Not in std yet: `TimeOps` stays in the ported module,
     laws as a separate hypothesis] / a generic record in std now. *Approved;* the `TimeLaws`
     comment names `ieeeTimeOps`.
-11. **D697 Run-time representation invariant (new).** [Physically canonical in the kernel and the
+11. **D701 Run-time representation invariant (new).** [Physically canonical in the kernel and the
     Rust runtime (one canonicalising constructor); in JS, NaN-agnostic values with `.bits` the one
     canonicalising, representation-sensitive operation, and no typed arrays elsewhere] / arbitrary
     NaNs everywhere with every representation-sensitive operation audited / canonicalise every JS
     result too.
-12. **D698 Finiteness (new).** [Stage 1 has no `FiniteFloat`: the port checks finiteness in its own
+12. **D702 Finiteness (new).** [Stage 1 has no `FiniteFloat`: the port checks finiteness in its own
     types; `FiniteFloat`, a checked `number` like `SafeNat`, joins std when a program wants the
     check at the boundary] / add `FiniteFloat` in stage 1.
 
