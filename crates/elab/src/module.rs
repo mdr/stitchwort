@@ -2030,10 +2030,11 @@ pub(crate) fn expr_refs(expr: &Expr) -> Vec<Ref<'_>> {
 }
 
 /// The library's `Float`, which a decimal literal refers to.
-static FLOAT_TYPE: std::sync::LazyLock<ast::Name> = std::sync::LazyLock::new(|| ast::Name {
-    text: "Std.Float".to_string(),
-    span: stitchwort_syntax::Span::NOWHERE,
-});
+pub(crate) static FLOAT_TYPE: std::sync::LazyLock<ast::Name> =
+    std::sync::LazyLock::new(|| ast::Name {
+        text: "Std.Float".to_string(),
+        span: stitchwort_syntax::Span::NOWHERE,
+    });
 
 /// A reference the pre-pass finds: a name, or dot notation's `.field`
 /// (with where it's written).
