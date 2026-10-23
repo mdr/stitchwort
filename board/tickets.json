@@ -5638,7 +5638,7 @@
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
       "status": "review",
       "agent": "Opus",
-      "where": "draft 1 (canonical list + swap-in) rejected by Matt; SOTA design report on map equality running (map-equality.md), then external review",
+      "where": "map-equality.md merged (rec: kernel quotients, B as stage 0); pack on clipboard for external review",
       "labels": [
         "design",
         "std"
@@ -5647,7 +5647,8 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": [
-        "14a62fd9"
+        "14a62fd9",
+        "84f98814"
       ]
     },
     {
