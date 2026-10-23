@@ -4518,7 +4518,7 @@
     {
       "id": 290,
       "title": "Speed up the full suite for daily checkpoints: parallel test binaries (nextest?), trim erasure/check_cache/run_js/rewind (2-3 min each)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -4527,7 +4527,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "2988e88b"
+      ]
     },
     {
       "id": 291,
