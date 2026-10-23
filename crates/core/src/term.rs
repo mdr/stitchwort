@@ -18,7 +18,7 @@ pub struct DefId(pub usize);
 pub struct DataId(pub usize);
 
 /// A universe: `Prop`, or `Type i`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Sort {
     Prop,
     Type(u32),
@@ -125,7 +125,7 @@ impl QuotForm {
 /// an implicit proof found automatically, `[auto x : P]`. Implicit and auto
 /// arguments are filled in by the elaborator. The kernel only checks that
 /// functions and applications agree.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Icit {
     Explicit,
     Implicit,

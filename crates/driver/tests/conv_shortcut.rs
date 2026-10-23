@@ -1,7 +1,11 @@
 //! The kernel's conversion check, and the elaborator's unification,
 //! recognise identical closures without running them (`value.rs`,
-//! `same_closure`). That may only skip work, never change a verdict. The
-//! shortcut can only answer "equal", so the risk is a program wrongly
+//! `same_closure`), and, comparing two definitions by their case trees,
+//! answer a pair of calls already found equal from a record
+//! (`same_stuck_trees`, SW-395; `reject/case-tree-chains-*.sw` exercise it,
+//! one with a metavariable solved and then taken back). Both are turned off
+//! together. That may only skip work, never change a verdict. The
+//! shortcuts can only answer "equal", so the risk is a program wrongly
 //! accepted: every rejected example (the soundness suite included) must get
 //! exactly the same diagnostics with the shortcut turned off. Accepted
 //! examples are left out to keep the gate fast (D74, 20 Oct 2026): the

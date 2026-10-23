@@ -68,7 +68,7 @@ impl Unfolding {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Head {
     Var(usize),
     Def(DefId),
@@ -2226,7 +2226,7 @@ pub fn same_stuck_trees(
             .collect();
         (Term::peel_lams_rc(body, def.arity), args)
     };
-    let memo = TreeMemo::enter(g, level, a, b, relation);
+    let memo = TreeMemo::enter(g, level, a, b, relation)?;
     if memo.known_equal() {
         return Ok(true);
     }
@@ -2295,9 +2295,22 @@ pub fn same_stuck_trees(
 // it unusable. (The kernel's `conv` solves nothing, so its epoch doesn't
 // move.) Only "equal" is remembered: a "different" nearly always ends the
 // comparison it's part of, and in the elaborator it may be followed by
-// solutions being taken back. The record lives as long as the outermost tree comparison (the one
-// not inside another) and is dropped when it ends, so nothing outlives the
-// query that found it.
+// solutions being taken back. The record lives as long as the outermost tree
+// comparison (the one not inside another) and is dropped when it ends, so
+// nothing outlives the query that found it.
+//
+// Finding a pair costs about its size, not the number of pairs remembered:
+// pairs are filed by a hash of their shape (`shape_hash`, which follows the
+// same rules as `identical`), and only those with the same hash are compared
+// with `identical`. Many calls of the same two definitions with different
+// arguments (500 calls of `f0 x [0, …, 0, i]`) made each lookup scan all of
+// them before. The hash is only a filing key: a pair is answered "equal" only
+// if `identical` says so, so a collision costs a comparison, never a wrong
+// answer. A shared part (a list's tail, a call's arguments) is hashed once
+// per outermost comparison and then found by its address, so a chain that
+// compares `f (f (f … o))` level by level hashes each level once, not the
+// whole chain at every level. Hashing takes a budget step per part, so its
+// cost is counted like evaluation's.
 //
 // Considered as well: comparing two definitions with the same content hash
 // by their arguments, as for one definition. The kernel keeps no hashes
@@ -2317,19 +2330,23 @@ pub enum Relation {
     Unify,
 }
 
-/// What [`TreeMemo`] looks a pair up by, besides the two values: relation,
-/// level, metavariable epoch and the two definitions.
-type MemoKey = (Relation, usize, u64, DefId, DefId);
+/// What [`TreeMemo`] files a pair under: relation, level, metavariable
+/// epoch, the two definitions and the [`shape_hash`]es of the two calls.
+/// Pairs under one key are told apart by [`identical`].
+type MemoKey = (Relation, usize, u64, DefId, DefId, u64, u64);
 
-/// How many tree comparisons are open, and the pairs of calls found equal
-/// since the outermost one started.
-type Memo = (usize, HashMap<MemoKey, Vec<(Value, Value)>>);
+/// This thread's open tree comparisons: how many, the pairs of calls found
+/// equal since the outermost one started, and the shapes hashed since.
+#[derive(Default)]
+struct Memo {
+    open: usize,
+    pairs: HashMap<MemoKey, Vec<(Value, Value)>>,
+    shapes: ShapeCache,
+}
 
 thread_local! {
-    /// The [`Memo`] of this thread's open tree comparisons (dropped when
-    /// the outermost ends).
-    static TREE_MEMO: std::cell::RefCell<Memo> =
-        std::cell::RefCell::new((0, HashMap::new()));
+    /// The [`Memo`] (emptied when the outermost comparison ends).
+    static TREE_MEMO: std::cell::RefCell<Memo> = std::cell::RefCell::new(Memo::default());
 }
 
 /// One open tree comparison, with the pair it compares; dropping it closes
@@ -2341,24 +2358,39 @@ struct TreeMemo {
 }
 
 impl TreeMemo {
-    fn enter(g: &Globals, level: usize, a: &Value, b: &Value, relation: Relation) -> TreeMemo {
+    fn enter(
+        g: &Globals,
+        level: usize,
+        a: &Value,
+        b: &Value,
+        relation: Relation,
+    ) -> Result<TreeMemo> {
         let def = |v: &Value| match v {
             Value::Neutral(Head::Def(id), _) => *id,
             _ => unreachable!("checked by opens_by_tree"),
         };
-        TREE_MEMO.with(|m| m.borrow_mut().0 += 1);
-        TreeMemo {
-            key: (relation, level, g.meta_epoch.get(), def(a), def(b)),
+        TREE_MEMO.with(|m| m.borrow_mut().open += 1);
+        let mut memo = TreeMemo {
+            key: (relation, level, g.meta_epoch.get(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
+        };
+        if !shortcuts_disabled() {
+            let (ha, hb) = TREE_MEMO.with(|m| -> Result<(u64, u64)> {
+                let shapes = &mut m.borrow_mut().shapes;
+                Ok((shape_hash(g, shapes, a)?, shape_hash(g, shapes, b)?))
+            })?;
+            memo.key.5 = ha;
+            memo.key.6 = hb;
         }
+        Ok(memo)
     }
 
     /// Whether this pair was already found equal.
     fn known_equal(&self) -> bool {
         !shortcuts_disabled()
             && TREE_MEMO.with(|m| {
-                m.borrow().1.get(&self.key).is_some_and(|pairs| {
+                m.borrow().pairs.get(&self.key).is_some_and(|pairs| {
                     pairs.iter().any(|(x, y)| {
                         identical(Same::Values(x, &self.a)) && identical(Same::Values(y, &self.b))
                     })
@@ -2368,9 +2400,12 @@ impl TreeMemo {
 
     /// Remembers that this pair is equal.
     fn record_equal(&self) {
+        if shortcuts_disabled() {
+            return;
+        }
         TREE_MEMO.with(|m| {
             m.borrow_mut()
-                .1
+                .pairs
                 .entry(self.key)
                 .or_default()
                 .push((self.a.clone(), self.b.clone()));
@@ -2382,12 +2417,307 @@ impl Drop for TreeMemo {
     fn drop(&mut self) {
         TREE_MEMO.with(|m| {
             let mut m = m.borrow_mut();
-            m.0 -= 1;
-            if m.0 == 0 {
-                m.1.clear();
+            m.open -= 1;
+            if m.open == 0 {
+                // Moved out first: dropping the values must not find the
+                // memo borrowed.
+                let old = std::mem::take(&mut *m);
+                drop(m);
+                drop(old);
             }
         });
     }
+}
+
+/// A part of a value to hash for [`shape_hash`]. The ones that are a shared
+/// allocation (all but `Value`) are remembered by address in a
+/// [`ShapeCache`].
+#[derive(Clone, Copy)]
+enum Part<'v> {
+    Value(&'v Value),
+    Boxed(&'v Rc<Value>),
+    Fields(&'v Values),
+    Spine(&'v Spine),
+    Closure(&'v Closure),
+    Term(&'v Rc<Term>),
+}
+
+/// The hashes of the shared allocations already hashed, by address, for
+/// the rest of the outermost tree comparison: a value nested in the next
+/// one compared (a chain `f (f (f … o))`, compared level by level) is then
+/// hashed once, not once per level.
+#[derive(Default)]
+struct ShapeCache {
+    hashes: HashMap<(usize, usize), u64, std::hash::BuildHasherDefault<QuickHasher>>,
+    /// The allocations hashed, kept alive while their addresses are keys,
+    /// so no other can be allocated at one.
+    owners: Vec<Owner>,
+}
+
+/// A handle on a shared allocation, only held to keep it alive.
+#[allow(dead_code)]
+enum Owner {
+    Boxed(Rc<Value>),
+    Fields(Values),
+    Spine(Spine),
+    Closure(Closure),
+    Term(Rc<Term>),
+}
+
+/// A fast, non-cryptographic hasher (the multiply-and-rotate step of the
+/// Rust compiler's `FxHasher`), for [`shape_hash`] and its cache. Its
+/// hashes only file pairs to compare: a collision costs a comparison, never
+/// a wrong answer.
+#[derive(Default)]
+struct QuickHasher(u64);
+
+impl QuickHasher {
+    fn add(&mut self, word: u64) {
+        self.0 = (self.0.rotate_left(5) ^ word).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+    }
+}
+
+impl std::hash::Hasher for QuickHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        for chunk in bytes.chunks(8) {
+            let mut word = [0u8; 8];
+            word[..chunk.len()].copy_from_slice(chunk);
+            self.add(u64::from_le_bytes(word));
+        }
+    }
+    fn write_u8(&mut self, n: u8) {
+        self.add(n.into());
+    }
+    fn write_u32(&mut self, n: u32) {
+        self.add(n.into());
+    }
+    fn write_u64(&mut self, n: u64) {
+        self.add(n);
+    }
+    fn write_usize(&mut self, n: usize) {
+        self.add(n as u64);
+    }
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+impl Part<'_> {
+    /// The address this part is remembered by, if it's a shared allocation.
+    fn address(self) -> Option<(usize, usize)> {
+        let at = |p: *const u8| p as usize;
+        match self {
+            Part::Value(_) => None,
+            Part::Boxed(v) => Some((at(Rc::as_ptr(v).cast()), 0)),
+            Part::Fields(f) => Some((at(Rc::as_ptr(&f.0).cast()), 0)),
+            Part::Spine(s) => s.0.as_ref().map(|e| (at(Rc::as_ptr(e).cast()), 0)),
+            // A closure's hash depends on its body and its environment.
+            Part::Closure(c) => Some((
+                at(Rc::as_ptr(&c.env.0).cast()),
+                at(Rc::as_ptr(&c.body).cast()),
+            )),
+            Part::Term(t) => Some((at(Rc::as_ptr(t).cast()), 0)),
+        }
+    }
+
+    /// A handle on the allocation, to keep it alive.
+    fn owner(self) -> Owner {
+        match self {
+            Part::Value(_) => unreachable!("not shared"),
+            Part::Boxed(v) => Owner::Boxed(v.clone()),
+            Part::Fields(f) => Owner::Fields(f.clone()),
+            Part::Spine(s) => Owner::Spine(s.clone()),
+            Part::Closure(c) => Owner::Closure(c.clone()),
+            Part::Term(t) => Owner::Term(t.clone()),
+        }
+    }
+}
+
+/// A hash of `value`'s shape, for filing it among remembered pairs. It
+/// follows [`identical`]'s rules, so identical values hash alike: names and
+/// source locations are left out, and a closure hashes as its body and the
+/// values of the variables the body uses. A glued call ([`Value::Call`])
+/// hashes as just a call, since `identical` takes two with the same
+/// unfolding cell as identical without looking further. Built bottom-up, each
+/// layer from its own data and its parts' hashes, so a shared allocation is
+/// hashed once ([`ShapeCache`]). A work list, as values can nest deeply; a
+/// budget step per part hashed.
+fn shape_hash(g: &Globals, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
+    use std::hash::{Hash, Hasher};
+    enum Task<'v> {
+        Enter(Part<'v>),
+        /// Combine the layer's own hash with its `parts` hashes, the last
+        /// ones on the result stack.
+        Exit(Part<'v>, u64, usize),
+    }
+    let mut work = vec![Task::Enter(Part::Value(value))];
+    let mut results: Vec<u64> = Vec::new();
+    while let Some(task) = work.pop() {
+        match task {
+            Task::Enter(part) => {
+                if let Some(hash) = part.address().and_then(|a| cache.hashes.get(&a)) {
+                    results.push(*hash);
+                    continue;
+                }
+                g.budget.step()?;
+                let mut h = QuickHasher::default();
+                let mut parts: Vec<Part> = Vec::new();
+                match part {
+                    Part::Value(v) => {
+                        std::mem::discriminant(v).hash(&mut h);
+                        match v {
+                            Value::Sort(s) => s.hash(&mut h),
+                            Value::Pi(_, i, a, b) => {
+                                i.hash(&mut h);
+                                parts.extend([Part::Boxed(a), Part::Closure(b)]);
+                            }
+                            Value::Lam(_, i, b) => {
+                                i.hash(&mut h);
+                                parts.push(Part::Closure(b));
+                            }
+                            Value::Data(d, args) => {
+                                (d, args.len()).hash(&mut h);
+                                parts.extend(args.iter().map(Part::Value));
+                            }
+                            Value::Ctor(d, c, fields) => {
+                                (d, c).hash(&mut h);
+                                parts.push(Part::Fields(fields));
+                            }
+                            Value::Nat(n) => n.hash(&mut h),
+                            Value::NatAdd(k, x) => {
+                                k.hash(&mut h);
+                                parts.push(Part::Boxed(x));
+                            }
+                            Value::Chars(chars) => chars.as_slice().hash(&mut h),
+                            Value::Eq(t, x, y) => {
+                                parts.extend([Part::Boxed(t), Part::Boxed(x), Part::Boxed(y)]);
+                            }
+                            Value::Refl | Value::Call(..) => {}
+                            Value::Neutral(head, spine) => {
+                                head.hash(&mut h);
+                                parts.push(Part::Spine(spine));
+                            }
+                        }
+                    }
+                    Part::Boxed(v) => parts.push(Part::Value(v)),
+                    Part::Fields(fields) => {
+                        fields.len().hash(&mut h);
+                        parts.extend(fields.iter().map(Part::Value));
+                    }
+                    Part::Spine(spine) => {
+                        spine.len().hash(&mut h);
+                        for elim in spine.iter() {
+                            match elim {
+                                Elim::App(x, i) => {
+                                    (0u8, i).hash(&mut h);
+                                    parts.push(Part::Value(x));
+                                }
+                                Elim::J { motive, base } => {
+                                    1u8.hash(&mut h);
+                                    parts.extend([Part::Value(motive), Part::Value(base)]);
+                                }
+                            }
+                        }
+                    }
+                    Part::Closure(c) => {
+                        parts.push(Part::Term(&c.body));
+                        for ix in free_variables(&c.body) {
+                            if ix == 0 {
+                                continue;
+                            }
+                            ix.hash(&mut h);
+                            if ix <= c.env.len() {
+                                parts.push(Part::Value(&c.env[c.env.len() - ix]));
+                            }
+                        }
+                    }
+                    Part::Term(t) => {
+                        let t = t.strip_loc();
+                        std::mem::discriminant(t).hash(&mut h);
+                        match t {
+                            Term::Var(i) => i.hash(&mut h),
+                            Term::Def(i) => i.hash(&mut h),
+                            Term::Meta(i) => i.hash(&mut h),
+                            Term::Sort(s) => s.hash(&mut h),
+                            Term::Nat(n) => n.hash(&mut h),
+                            Term::Chars(chars) => chars.as_slice().hash(&mut h),
+                            Term::Refl => {}
+                            Term::Data(d, xs) => {
+                                (d, xs.len()).hash(&mut h);
+                                parts.extend(xs.iter().map(Part::Term));
+                            }
+                            Term::Ctor(d, c, xs) => {
+                                (d, c, xs.len()).hash(&mut h);
+                                parts.extend(xs.iter().map(Part::Term));
+                            }
+                            Term::Pi(_, i, a, b) => {
+                                i.hash(&mut h);
+                                parts.extend([Part::Term(a), Part::Term(b)]);
+                            }
+                            Term::Lam(_, i, b) => {
+                                i.hash(&mut h);
+                                parts.push(Part::Term(b));
+                            }
+                            Term::App(f, a, i) => {
+                                i.hash(&mut h);
+                                parts.extend([Part::Term(f), Part::Term(a)]);
+                            }
+                            Term::Ann(e, ty) => parts.extend([Part::Term(e), Part::Term(ty)]),
+                            Term::Let(_, ty, v, b, s) => {
+                                s.hash(&mut h);
+                                parts.extend([Part::Term(ty), Part::Term(v), Part::Term(b)]);
+                            }
+                            Term::Eq(ty, x, y) => {
+                                ty.is_some().hash(&mut h);
+                                parts.extend(ty.iter().map(Part::Term));
+                                parts.extend([Part::Term(x), Part::Term(y)]);
+                            }
+                            Term::J(m, b, p) => {
+                                parts.extend([Part::Term(m), Part::Term(b), Part::Term(p)]);
+                            }
+                            Term::Quot(f, xs, e) => {
+                                (f, e, xs.len()).hash(&mut h);
+                                parts.extend(xs.iter().map(Part::Term));
+                            }
+                            Term::Case(i, d, branches) => {
+                                (i, d, branches.len()).hash(&mut h);
+                                for branch in branches.iter() {
+                                    (branch.names.len(), branch.body.is_some()).hash(&mut h);
+                                    parts.extend(branch.body.iter().map(Part::Term));
+                                }
+                            }
+                            Term::NumCase(i, arms, default) => {
+                                (i, arms.len()).hash(&mut h);
+                                for arm in arms.iter() {
+                                    arm.value.hash(&mut h);
+                                    parts.push(Part::Term(&arm.body));
+                                }
+                                parts.push(Part::Term(default));
+                            }
+                            // Never identical to anything (`same_term_layer`).
+                            _ => {}
+                        }
+                    }
+                }
+                work.push(Task::Exit(part, h.finish(), parts.len()));
+                work.extend(parts.into_iter().rev().map(Task::Enter));
+            }
+            Task::Exit(part, own, count) => {
+                let mut h = QuickHasher::default();
+                own.hash(&mut h);
+                for hash in results.drain(results.len() - count..) {
+                    hash.hash(&mut h);
+                }
+                let hash = h.finish();
+                if let Some(address) = part.address() {
+                    cache.hashes.insert(address, hash);
+                    cache.owners.push(part.owner());
+                }
+                results.push(hash);
+            }
+        }
+    }
+    Ok(results.pop().expect("the value's hash"))
 }
 
 // Recognising the same function without running it.
@@ -2784,6 +3114,38 @@ mod tests {
         let (equal, with, without) = conv_both(&g, &lam(a), &lam(b));
         assert!(equal);
         assert!(with < without, "the shortcut was taken: {with} < {without}");
+    }
+
+    #[test]
+    fn identical_values_have_the_same_shape_hash() {
+        // The same closures as above, inside separately built constructors
+        // and calls: identical, so filed under the same hash, each with a
+        // cache of its own and with one shared.
+        let g = Globals::default();
+        let a = closure(vec![Value::var(7), Value::var(3)], call_last());
+        let b = closure(vec![Value::var(9), Value::var(3)], call_last());
+        let wrap = |c: Closure| {
+            let fields: Values = vec![lam(c), Value::var(1)].into();
+            let ctor = Value::Ctor(DataId(0), 1, fields);
+            Value::Neutral(
+                Head::Def(DefId(0)),
+                Spine::from(vec![Elim::App(ctor, Icit::Explicit)]),
+            )
+        };
+        let (x, y) = (wrap(a), wrap(b));
+        assert!(identical(Same::Values(&x, &y)));
+        let mut shared = ShapeCache::default();
+        let hash = shape_hash(&g, &mut shared, &x).unwrap();
+        assert_eq!(hash, shape_hash(&g, &mut shared, &y).unwrap());
+        assert_eq!(
+            hash,
+            shape_hash(&g, &mut ShapeCache::default(), &y).unwrap()
+        );
+        // A used variable's value counts.
+        let c = closure(vec![Value::var(7), Value::var(4)], call_last());
+        let z = wrap(c);
+        assert!(!identical(Same::Values(&x, &z)));
+        assert_ne!(hash, shape_hash(&g, &mut shared, &z).unwrap());
     }
 
     #[test]
