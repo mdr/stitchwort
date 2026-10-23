@@ -43,6 +43,7 @@ Variables are de Bruijn indices in terms and de Bruijn levels in values.
 | `Eq(A?, a, b)` | `a = b`. `A` is filled in by the checker |
 | `Refl` | `rfl: a = a` |
 | `J(P, d, p)` | Transport along an equality |
+| `Quot(form, args)` | One of the five quotient forms (`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind`, `Quot.sound`), applied to all its arguments, implicit ones included ([Quotients](#quotients)). It also carries an erasure flag the kernel sets, which hashing ignores |
 | `Loc(span, t)` | A source location, ignored except for error messages |
 | `Meta(m)` | A metavariable. Only used inside the elaborator: the kernel rejects terms containing one |
 
@@ -134,7 +135,7 @@ It evaluates by the value of `x`: a number takes its arm, or the default; `k + x
 ## Equality
 
 - `Eq(A, a, b): Prop` and `Refl ⇐ a = b` when `a ≡ b`.
-- `J` computes: `J P d rfl ⟶ d`. With any other proof it's stuck.
+- `J` computes: `J P d rfl ⟶ d`. With any other proof it's stuck. In a closed term that can still happen, with a proof made by `Quot.sound` or `Quot.ind` (see [Quotients](#quotients)).
 - `Eq` satisfies the elimination rule: one constructor, no fields. So `J` may produce data (transport).
 - There's no definitional proof irrelevance: two different proof terms aren't automatically equal.
 - Axiom K holds: matching deletes an index equation that already holds ([above](#unifying-indices)), so `p = Refl` for `p: Same x x` of an equality family, and through `J`, K for `=`. That's consistent, and rules out only univalent and higher-dimensional readings of equality (docs/proposals/indexed-families.md §6.5).
@@ -200,7 +201,7 @@ Normalisation by evaluation (`crates/core/src/value.rs`):
 - **Arguments are computed only when a type needs them.** The type of `f a` is `f`'s result type with `a`'s value put in, so checking would compute `a`. When the result type doesn't mention its parameter, as in `constant 0 (List.length bigList)`, `a` isn't computed at all; the same goes for constructor fields and data parameters that later types don't mention (`Closure::apply_lazy`, `later_types_mention`). A computation that does appear in a type is still run while checking: in `test "t" = f x == y`, the equation `f x = y` is the type of the decision, so `f x` is computed when the test is checked as well as when it runs.
 - **Conversion `≡`:** structural on values, with eta for functions (`f ≡ x => f x`). Folded definitions are equal when they're the same definition applied to convertible arguments (a folded dictionary is also compared by unfolding, above, before numbers are compared by their `k + x` forms, so a folded `f n` that unfolds to `1 + …` is compared as a number). A definition applied to fewer arguments than it takes is a function too, so it's compared by applying both sides to a fresh variable: `F` defined by `F o = PlusRes … o` equals `PlusRes …`.
 - **`let`** evaluates its value once, strictly, before the body, which sees it in its environment: `eval(Let(x, A, v, b), ρ) = eval(b, ρ ++ [eval(v, ρ)])`. Quoting never produces a `Let`, and conversion needs no case for it, since values don't contain one. A `let` takes a slot in terms (de Bruijn indices count it) but no variable level stands for it, so the levels in use have a gap there, as after a case split. When running (with erasure, below), a `let` the kernel marked is skipped, its slot getting the placeholder: one whose `A` would make a parameter erased (a proposition or a type former), or whose body doesn't use `x`.
-- **Running a program** with `stitchwort run --reference`, or running a `test`, uses the same evaluator, strictly. (`stitchwort run` itself runs the program on a separate, untrusted runtime, `crates/rt`: an erased IR and a machine that keeps its frames on the heap, differential-tested against this evaluator; docs/proposals/fast-runtime.md. Its output can be wrong, but a proof never depends on it.) Arguments are evaluated before calls. `stitchwort run` and `stitchwort test` (never the checker) also **erase** as JS extraction does (`crates/core/src/erase.rs`): arguments for erased parameters (proofs and types) and erased constructor fields aren't computed, a definition whose result is erased isn't run, `J` on an erased proof takes its base, and a `case` on an erased proof takes its only branch. A run that reaches an impossible branch (which a well-typed program never does) fails with an internal error; while checking, such a case just stays stuck. This is safe because nothing matches on a type, and a proof is matched into data only when it has one possible shape (`E-PROP-ELIM` below), so the run takes the same branches with or without erasure; only proofs and types, which are never printed or compared, differ. A record carrying `ok = Int.modNatLt x 100` costs nothing at run time.
+- **Running a program** with `stitchwort run --reference`, or running a `test`, uses the same evaluator, strictly. (`stitchwort run` itself runs the program on a separate, untrusted runtime, `crates/rt`: an erased IR and a machine that keeps its frames on the heap, differential-tested against this evaluator; docs/proposals/fast-runtime.md. Its output can be wrong, but a proof never depends on it.) Arguments are evaluated before calls. `stitchwort run` and `stitchwort test` (never the checker) also **erase** as JS extraction does (`crates/core/src/erase.rs`): arguments for erased parameters (proofs and types) and erased constructor fields aren't computed, a definition whose result is erased isn't run, `J` on an erased proof takes its base (equality proofs are erased while running, and `J` uses the erased representation of its base: any proof of `x = y` means `x` and `y` are the same value in the model; in the kernel, which doesn't erase, transport can stay stuck on an opaque proof, including one made by `Quot.ind` or `Quot.sound`), and a `case` on an erased proof takes its only branch. A run that reaches an impossible branch (which a well-typed program never does) fails with an internal error; while checking, such a case just stays stuck. This is safe because nothing matches on a type, and a proof is matched into data only when it has one possible shape (`E-PROP-ELIM` below), so the run takes the same branches with or without erasure; only proofs and types, which are never printed or compared, differ. A record carrying `ok = Int.modNatLt x 100` costs nothing at run time.
 - **Comparing types** reduces under binders. It never reaches an effectful operation, because there aren't any yet.
 
 ## Numbers
@@ -393,6 +394,26 @@ Renaming a function or reformatting code changes no hashes. Changing a body chan
 - Proofs about `if le x y then ... else ...` case on the condition while remembering `b = True` or `b = False`. In programs that is `match h: Nat.leq x y with` (the AoC proofs, SW-26); the library's own lemmas still use `Bool.inspect b motive t f`, the same thing with the motive written by hand. A separate helper that matched on the `Bool` would lose the size-change evidence for the recursive call.
 
 Division is defined by structural recursion on fuel (`n` steps is always enough when the divisor isn't zero). Its non-zero precondition is what makes `n / 0` a compile-time error rather than a convention.
+
+## Quotients
+
+A quotient type `Quot A R` is `A` with every pair related by `R` treated as equal. This section says what is built so far (docs/proposals/map-equality.md, ticket SW-356). Stage 1 isn't finished: the library lemmas and the elaborator's messages (1.4) and the Map prototype (1.6) are still to come.
+
+**The forms (step 1.1).** There are five, all `Term::Quot(form, args)` with every argument written out, implicit ones included:
+
+- `Quot A R`, the type;
+- `Quot.mk a`, the element of the quotient for `a: A`;
+- `Quot.lift f h q`, which applies `f: A -> B` to a quotient `q`, given `h` that `f` gives equal results on related inputs;
+- `Quot.ind`, which proves a proposition about every element by proving it for each `Quot.mk a`;
+- `Quot.sound`, which turns `R a b` into `Quot.mk a = Quot.mk b`.
+
+`Quot.sound` is an axiom of the core theory, not a definition (below). The kernel checks each form's arguments, hashes them (so definitions using them have stable hashes), and compares two quotient terms structurally, every argument included.
+
+**The lift rule (step 1.2).** `Quot.lift f h (Quot.mk a)` reduces to `f a`. Only `lift` computes. `Quot.ind` and `Quot.sound` never do, and a lift whose quotient isn't a `Quot.mk` (a variable, or a `J` stuck on `Quot.sound`) stays as it is. A definition whose case tree has a `Quot.lift` at a leaf stays folded when fully applied to a quotient that isn't a `Quot.mk`, as one stuck on a `match` does, so goals show `observe q` and not its body; it is still equal to its body, and anything that needs the body unfolds it. The fold is off while a program runs.
+
+**Axioms.** `Quot.sound` is the one accepted axiom. It doesn't stop a definition being exported or run, but `stitchwort axioms <name>` shows when a definition depends on it. The command lists the axioms a definition or theorem depends on, one per line, sorted, and prints nothing if there are none. Because `Quot.sound` is a term former and not a named declaration, the command scans the checked type and body of every definition it reaches (and of the data types it reaches), at every position, proof arguments included, so an inline `Quot.sound` in a `def` body is found. `Quot.ind`, `Quot.lift`, `J` and `K` are rules of the core and aren't listed. An empty report means no axiom is used; it doesn't mean the term computes to data in the kernel.
+
+**Running.** In progress (step 1.3). While a program runs, `Quot.sound`, `Quot.ind` and a lift whose result is erased (a proof or a type former) evaluate to the placeholder, and the evaluators don't yet read the erasure flags on `Quot.mk` and `Quot.lift`. Until that lands, an erased-result lift still computes `f a` while running.
 
 ## Erasure and JS extraction
 
