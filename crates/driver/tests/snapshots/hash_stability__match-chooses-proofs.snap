@@ -1,0 +1,5 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.choose 5b74dd9ab51dc865dfe7020a6a57fada6708ab4223932fe51da26e8aad09b029
