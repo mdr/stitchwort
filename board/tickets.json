@@ -5161,7 +5161,7 @@
     },
     {
       "id": 328,
-      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo); withStart removal running (after SW-386)",
+      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo); withStart removed (update syntax; 57 tests, .d.ts identical, differential identical); loose end: integration/ suites reference Resolver.Wire",
       "status": "doing",
       "agent": "Opus",
       "where": "23 Oct: D1088 done (model holds Map, no s parameter, Wire.sw deleted, export on Resolver.merge; 57 tests; differential identical; .d.ts: Event/Recording/Transcript lose the parameter). The private integration suites still reference the old module name. D1089 (Abort + names) running.",
@@ -5788,7 +5788,7 @@
     {
       "id": 363,
       "title": "std: list lemmas from a real-world port — id-index lookup, Distinct through filter/filterMap/Perm, memPerm, find lemmas, sorting a sorted list is identity (partial D725)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -5797,7 +5797,9 @@
       "body": "D912. Proved privately while proving properties of a real-world TypeScript port; rewrite with neutral names into std/List. Trigger: the port's proofs reuse them; D725 asked for the sort lemma.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "d38e5dd2"
+      ]
     },
     {
       "id": 364,
