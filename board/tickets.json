@@ -6012,7 +6012,7 @@
     {
       "id": 377,
       "title": "VS Code grammar: highlight ? goal holes (D1063)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "OpenCode clone",
       "labels": [
@@ -6021,7 +6021,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "7c123559"
+      ]
     }
   ]
 }
