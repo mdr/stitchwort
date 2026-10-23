@@ -51,6 +51,8 @@ impl Client {
             "referencesProvider",
             "documentSymbolProvider",
             "workspaceSymbolProvider",
+            "documentFormattingProvider",
+            "documentRangeFormattingProvider",
         ] {
             assert_eq!(caps[p], true, "{p}");
         }
@@ -1160,4 +1162,94 @@ fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
     }
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Two declarations that need formatting, with a comment between them.
+const UNFORMATTED: &str = "def a(x : Nat) : Nat := x\n-- between\ndef b(y : Nat) : Nat := y\n";
+
+/// Applies the edits (non-overlapping, ASCII text) to `text`.
+fn apply(text: &str, edits: &Value) -> String {
+    let offset = |p: &Value| -> usize {
+        let line = p["line"].as_u64().unwrap() as usize;
+        let start: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
+        start + p["character"].as_u64().unwrap() as usize
+    };
+    let mut edits: Vec<&Value> = edits.as_array().unwrap().iter().collect();
+    edits.sort_by_key(|e| std::cmp::Reverse(offset(&e["range"]["start"])));
+    let mut out = text.to_string();
+    for e in edits {
+        let (a, b) = (offset(&e["range"]["start"]), offset(&e["range"]["end"]));
+        out.replace_range(a..b, e["newText"].as_str().unwrap());
+    }
+    out
+}
+
+impl Client {
+    fn format(&mut self, uri: &str) -> Value {
+        self.request(
+            "textDocument/formatting",
+            json!({"textDocument": {"uri": uri}, "options": {"tabSize": 2, "insertSpaces": true}}),
+        )
+    }
+
+    fn format_range(&mut self, uri: &str, from: (u32, u32), to: (u32, u32)) -> Value {
+        self.request(
+            "textDocument/rangeFormatting",
+            json!({"textDocument": {"uri": uri}, "options": {"tabSize": 2, "insertSpaces": true},
+                   "range": {"start": {"line": from.0, "character": from.1},
+                             "end": {"line": to.0, "character": to.1}}}),
+        )
+    }
+}
+
+#[test]
+fn formatting_replaces_the_open_text() {
+    let mut client = Client::start();
+    let uri = "file:///tmp/format-test/f.sw";
+    let whole = stitchwort_fmt::format(UNFORMATTED).unwrap();
+    assert_ne!(whole, UNFORMATTED);
+    // The open (unsaved) text is what is formatted.
+    client.open(uri, UNFORMATTED);
+    let edits = client.format(uri);
+    assert_eq!(edits.as_array().unwrap().len(), 1, "{edits}");
+    assert_eq!(edits[0]["newText"], whole.as_str());
+    assert_eq!(
+        edits[0]["range"]["start"],
+        json!({"line": 0, "character": 0})
+    );
+    assert_eq!(edits[0]["range"]["end"], json!({"line": 3, "character": 0}));
+
+    // Already formatted: no edits.
+    client.change(uri, 2, &whole);
+    assert_eq!(client.format(uri), json!([]));
+
+    // A syntax error: no edits, and no error response (`request` asserts
+    // there is none).
+    client.change(uri, 3, "def a(x : Nat : Nat :=\n");
+    assert_eq!(client.format(uri), json!([]));
+    assert_eq!(client.format_range(uri, (0, 0), (0, 1)), json!([]));
+    client.shutdown();
+}
+
+#[test]
+fn range_formatting_changes_only_the_overlapped_declarations() {
+    let mut client = Client::start();
+    let uri = "file:///tmp/format-test/r.sw";
+    let whole = stitchwort_fmt::format(UNFORMATTED).unwrap();
+    client.open(uri, UNFORMATTED);
+    // A cursor inside the first declaration: only it changes.
+    let edits = client.format_range(uri, (0, 5), (0, 5));
+    assert_eq!(edits.as_array().unwrap().len(), 1, "{edits}");
+    let first = whole.lines().next().unwrap();
+    assert_eq!(
+        apply(UNFORMATTED, &edits),
+        format!("{first}\n-- between\ndef b(y : Nat) : Nat := y\n")
+    );
+    // A selection across both: the same as formatting the whole document.
+    let edits = client.format_range(uri, (0, 0), (2, 3));
+    assert_eq!(edits.as_array().unwrap().len(), 2, "{edits}");
+    assert_eq!(apply(UNFORMATTED, &edits), whole);
+    // The comment line alone overlaps no declaration.
+    assert_eq!(client.format_range(uri, (1, 3), (1, 3)), json!([]));
+    client.shutdown();
 }

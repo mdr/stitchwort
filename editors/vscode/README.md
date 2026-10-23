@@ -13,6 +13,10 @@ Syntax colouring for `.sw` files, and a thin client for the language server
 - **From the server**, through the standard protocol: diagnostics as you type,
   go to definition, find references, hover, and the outline. Nothing of these is
   computed in the extension.
+- **Formatting.** Format Document and Format Selection work, served by
+  `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
+  off, as in VS Code generally; to turn it on for Stitchwort files, add
+  `"[stitchwort]": { "editor.formatOnSave": true }` to your settings.
 - **Library source.** Definitions in the standard library open as read-only
   documents with the scheme `stitchwort-std:`, whose text comes from
   `stitchwort std-source` (run by the extension).

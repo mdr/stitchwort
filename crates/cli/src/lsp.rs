@@ -85,7 +85,9 @@ pub fn capabilities() -> serde_json::Value {
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
-        "workspaceSymbolProvider": true
+        "workspaceSymbolProvider": true,
+        "documentFormattingProvider": true,
+        "documentRangeFormattingProvider": true
     })
 }
 
@@ -409,6 +411,25 @@ impl Main<'_> {
                     serde_json::to_value(WorkspaceSymbolResponse::Flat(found))
                 })
             }
+            request::Formatting::METHOD => parse::<lsp_types::DocumentFormattingParams>(&request)
+                .map(|p| {
+                    let texts = self.texts.borrow();
+                    let edits = texts
+                        .get(&p.text_document.uri)
+                        .map(|text| format_edits(text, None))
+                        .unwrap_or_default();
+                    serde_json::to_value(edits)
+                }),
+            request::RangeFormatting::METHOD => {
+                parse::<lsp_types::DocumentRangeFormattingParams>(&request).map(|p| {
+                    let texts = self.texts.borrow();
+                    let edits = texts
+                        .get(&p.text_document.uri)
+                        .map(|text| format_edits(text, Some(p.range)))
+                        .unwrap_or_default();
+                    serde_json::to_value(edits)
+                })
+            }
             _ => {
                 return Response::new_err(
                     id,
@@ -427,6 +448,96 @@ impl Main<'_> {
             Err(e) => Response::new_err(id, ErrorCode::InvalidParams as i32, e),
         }
     }
+}
+
+/// The edits that format `text`: one replacing the whole document, or, with
+/// a `range`, one per declaration the range overlaps whose text changes. No
+/// edits if the file is refused (D1021), the formatter fails, or nothing
+/// changes: formatting never answers with an error.
+fn format_edits(text: &str, range: Option<lsp_types::Range>) -> Vec<lsp_types::TextEdit> {
+    let Ok(output) = stitchwort_fmt::format(text) else {
+        return Vec::new();
+    };
+    if output == text {
+        return Vec::new();
+    }
+    let Some(range) = range else {
+        return vec![lsp_types::TextEdit::new(
+            lsp_types::Range::new(Position::new(0, 0), position_at(text, text.len())),
+            output,
+        )];
+    };
+    let (from, to) = (offset_at(text, range.start), offset_at(text, range.end));
+    let (Some(before), Some(after)) = (decl_regions(text), decl_regions(&output)) else {
+        return Vec::new();
+    };
+    if before.len() != after.len() {
+        return Vec::new();
+    }
+    before
+        .iter()
+        .zip(&after)
+        .filter(|(old, new)| {
+            old.start <= to && from <= old.end && text[(*old).clone()] != output[(*new).clone()]
+        })
+        .map(|(old, new)| {
+            lsp_types::TextEdit::new(
+                lsp_types::Range::new(position_at(text, old.start), position_at(text, old.end)),
+                output[new.clone()].to_string(),
+            )
+        })
+        .collect()
+}
+
+/// The byte range of each declaration of `text`: from its first token to
+/// the end of the line of its last (so a trailing comment goes with it).
+/// Comments and blank lines between declarations are in none.
+fn decl_regions(text: &str) -> Option<Vec<std::ops::Range<usize>>> {
+    let file = stitchwort_syntax::SourceMap::new().add("input.sw", text);
+    let lexed = stitchwort_syntax::lex_with_trivia(file, text).ok()?;
+    let decls = stitchwort_syntax::decl_ranges(&lexed.tokens).ok()?;
+    Some(
+        decls
+            .into_iter()
+            .filter(|d| !d.is_empty())
+            .map(|d| {
+                let start = lexed.tokens[d.start].span.start as usize;
+                let last = lexed.tokens[d.end - 1].span.end as usize;
+                let end = text[last..].find('\n').map_or(text.len(), |i| last + i);
+                let end = if text[..end].ends_with('\r') {
+                    end - 1
+                } else {
+                    end
+                };
+                start..end
+            })
+            .collect(),
+    )
+}
+
+/// The byte offset of an LSP position (UTF-16 columns), clamped to the text.
+fn offset_at(text: &str, at: Position) -> usize {
+    let (mut line, mut col) = (0u32, 0u32);
+    for (i, c) in text.char_indices() {
+        if line > at.line || (line == at.line && col >= at.character) {
+            return i;
+        }
+        if c == '\n' {
+            (line, col) = (line + 1, 0);
+        } else {
+            col += c.len_utf16() as u32;
+        }
+    }
+    text.len()
+}
+
+/// The LSP position of a byte offset.
+fn position_at(text: &str, offset: usize) -> Position {
+    let before = &text[..offset];
+    let line = before.matches('\n').count() as u32;
+    let start = before.rfind('\n').map_or(0, |i| i + 1);
+    let col = before[start..].chars().map(|c| c.len_utf16() as u32).sum();
+    Position::new(line, col)
 }
 
 fn parse<P: serde::de::DeserializeOwned>(request: &Request) -> Result<P, String> {
