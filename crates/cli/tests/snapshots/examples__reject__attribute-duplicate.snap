@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.name` is written twice here
+   ╭─[ reject/attribute-duplicate.sw:3:27 ]
+   │
+ 3 │   | @[js.name "CIRCLE"] @[js.name "ROUND"] Circle (radius: Nat)
+   │       ────────┬───────    ───────┬───────  
+   │               ╰──────────────────────────── first here
+   │                                  │         
+   │                                  ╰───────── again here
+───╯

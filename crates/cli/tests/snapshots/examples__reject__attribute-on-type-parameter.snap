@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: attributes can't be used on a data type's parameter
+   ╭─[ reject/attribute-on-type-parameter.sw:2:13 ]
+   │
+ 2 │ type Box (@[js.name "T"] a: Type) =
+   │             ─────┬─────  
+   │                  ╰─────── `js.name` is on a data type's parameter
+   │ 
+   │ Note: attributes go before a data type's `type`, after a constructor's `|`, or before a field's name: `@[js.tag "type"]`, `| @[js.name "CIRCLE"] Circle`, `(@[js.name "center_x"] centerX: Nat)`
+───╯

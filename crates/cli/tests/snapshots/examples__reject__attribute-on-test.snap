@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: attributes can't be used on a test
+   ╭─[ reject/attribute-on-test.sw:2:3 ]
+   │
+ 2 │ @[js.name "check"]
+   │   ───────┬───────  
+   │          ╰───────── `js.name` is on a test
+   │ 
+   │ Note: attributes go before a data type's `type`, after a constructor's `|`, or before a field's name: `@[js.tag "type"]`, `| @[js.name "CIRCLE"] Circle`, `(@[js.name "center_x"] centerX: Nat)`
+───╯

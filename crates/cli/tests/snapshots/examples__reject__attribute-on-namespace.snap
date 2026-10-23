@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: attributes can't be used on a namespace line
+   ╭─[ reject/attribute-on-namespace.sw:4:3 ]
+   │
+ 4 │ @[js.tag "type"]
+   │   ──────┬──────  
+   │         ╰──────── `js.tag` is on a namespace line
+   │ 
+   │ Note: attributes go before a data type's `type`, after a constructor's `|`, or before a field's name: `@[js.tag "type"]`, `| @[js.name "CIRCLE"] Circle`, `(@[js.name "center_x"] centerX: Nat)`
+───╯

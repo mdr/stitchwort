@@ -175,6 +175,7 @@ impl Elaborator {
             synonym: false,
             instance: false,
             decreasing: None,
+            attrs: Vec::new(),
             span,
         };
         let a = |k: usize| format!("%a{k}");

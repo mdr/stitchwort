@@ -7,16 +7,16 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Awkward =
-  | { readonly tag: "Plain" }
-  | { readonly tag: "Fields"; readonly $tag: bigint; readonly $__proto__: bigint; readonly x: bigint; readonly x$: bigint; readonly x$$: bigint; readonly constructor: bigint; readonly undefined: bigint; readonly path: bigint; readonly inside: bigint; readonly v0: bigint; readonly arg0: bigint };
+  | { readonly $tag: "Plain" }
+  | { readonly $tag: "Fields"; readonly tag: bigint; readonly $__proto__: bigint; readonly x: bigint; readonly x$: bigint; readonly x$$: bigint; readonly constructor: bigint; readonly undefined: bigint; readonly path: bigint; readonly inside: bigint; readonly v0: bigint; readonly arg0: bigint };
 export type Labelled =
-  | { readonly tag: "MkLabelled"; readonly $tag: string; readonly count: bigint };
+  | { readonly $tag: "MkLabelled"; readonly tag: string; readonly count: bigint };
 export type Box$ =
-  | { readonly tag: "MkBox'"; readonly value: bigint };
+  | { readonly $tag: "MkBox'"; readonly value: bigint };
 export type Tagged$<a> =
-  | { readonly tag: "MkTagged'"; readonly $tag: a; readonly tag$: a };
+  | { readonly $tag: "MkTagged'"; readonly tag: a; readonly tag$: a };
 export type Error =
-  | { readonly tag: "Oops"; readonly $tag: string };
+  | { readonly $tag: "Oops"; readonly tag: string };
 export declare function twiddle(arg0: Awkward): Awkward;
 export declare function labelled(arg0: Labelled): Labelled;
 export declare function unbox(arg0: Box$): bigint;

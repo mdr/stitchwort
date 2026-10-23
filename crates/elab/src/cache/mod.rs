@@ -46,6 +46,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::globals::State;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
+use stitchwort_core::js_repr::{JsCtor, JsRepr};
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
@@ -64,7 +65,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 6;
+pub const FORMAT: u32 = 7;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1384,6 +1385,30 @@ impl Elaborator {
                 }
             }
         }
+        // `js_repr`: how the unit's attributed data types cross the JS
+        // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
+        // only this table carries it; it travels with the type's unit.
+        let js: Vec<(DataId, &JsRepr)> = datas
+            .clone()
+            .map(DataId)
+            .filter_map(|d| g.data(d).js.as_deref().map(|r| (d, r)))
+            .collect();
+        e.w.usize(js.len());
+        for (d, repr) in js {
+            e.data(d);
+            e.str(&repr.tag_key);
+            e.w.usize(repr.ctors.len());
+            for ctor in &repr.ctors {
+                e.str(&ctor.tag);
+                e.w.usize(ctor.keys.len());
+                for key in &ctor.keys {
+                    e.w.bool(key.is_some());
+                    if let Some(key) = key {
+                        e.str(key);
+                    }
+                }
+            }
+        }
         let mut interfaces: Vec<(&DataId, &InterfaceInfo)> = self
             .interfaces
             .iter()
@@ -1780,6 +1805,8 @@ struct Tables {
     early: Vec<GlobalEntry>,
     members: Vec<String>,
     records: Vec<(DataId, RecordInfo)>,
+    /// How attributed data types cross the JS boundary.
+    js_repr: Vec<(DataId, JsRepr)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
     instances: Vec<((DataId, DataId), InstanceInfo)>,
     /// `data_owners`, `no_eq`, `no_show`, `no_ord`.
@@ -2626,6 +2653,9 @@ impl Elaborator {
             self.scope.mark_member(&key);
         }
         self.records.extend(t.records);
+        for (d, repr) in t.js_repr {
+            self.globals.datas[d.0].js = Some(Rc::new(repr));
+        }
         self.interfaces.extend(t.interfaces);
         self.instances.extend(t.instances);
         let [owners, no_eq, no_show, no_ord] = t.by_data;
@@ -2709,6 +2739,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         early: Vec::new(),
         members: Vec::new(),
         records: Vec::new(),
+        js_repr: Vec::new(),
         interfaces: Vec::new(),
         instances: Vec::new(),
         by_data: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
@@ -2744,6 +2775,22 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
             projections.push(if b.r.bool()? { Some(b.def()?) } else { None });
         }
         t.records.push((d, RecordInfo { projections }));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let d = b.data()?;
+        let tag_key = b.string()?;
+        let k = b.count()?;
+        let mut ctors = Vec::with_capacity(k);
+        for _ in 0..k {
+            let tag = b.string()?;
+            let m = b.count()?;
+            let keys = (0..m)
+                .map(|_| Ok(if b.r.bool()? { Some(b.string()?) } else { None }))
+                .collect::<Read<_>>()?;
+            ctors.push(JsCtor { tag, keys });
+        }
+        t.js_repr.push((d, JsRepr { tag_key, ctors }));
     }
     let n = b.count()?;
     for _ in 0..n {

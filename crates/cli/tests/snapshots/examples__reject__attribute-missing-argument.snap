@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.name` needs a string
+   ╭─[ reject/attribute-missing-argument.sw:3:7 ]
+   │
+ 3 │   | @[js.name] Circle (radius: Nat)
+   │       ───┬───  
+   │          ╰───── no argument
+   │ 
+   │ Note: write `@[js.name "NAME"]`: a constructor's tag value, or a field's key, in JS (without it, the Stitchwort name, with each `'` as `$`)
+───╯

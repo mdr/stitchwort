@@ -8,11 +8,11 @@ export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Profile = { readonly name: string; readonly nick?: string; readonly age?: bigint };
 export type Option<a> =
-  | { readonly tag: "None" }
-  | { readonly tag: "Some"; readonly value: a };
+  | { readonly $tag: "None" }
+  | { readonly $tag: "Some"; readonly value: a };
 export type Peek = { readonly items: readonly (bigint | undefined)[]; readonly extra?: readonly (bigint | undefined)[] };
 export type Both =
-  | { readonly tag: "MkBoth"; readonly left: bigint | undefined; readonly right: string };
+  | { readonly $tag: "MkBoth"; readonly left: bigint | undefined; readonly right: string };
 export type Required = { readonly value?: bigint };
 export type Cap = { readonly cap?: number };
 export declare function nickname(p: Profile): string;

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: the tag key can't be "__proto__"
+   ╭─[ reject/attribute-proto-tag-key.sw:2:3 ]
+   │
+ 2 │ @[js.tag "__proto__"]
+   │   ─────────┬────────  
+   │            ╰────────── here
+   │ 
+   │ Note: assigning `__proto__` sets an object's prototype instead of making a property
+───╯

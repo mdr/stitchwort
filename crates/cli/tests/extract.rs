@@ -582,35 +582,35 @@ import * as shapes from "./shapes.mjs";
 import assert from "node:assert/strict";
 
 // A tree that contains itself is refused cleanly.
-const loop = { tag: "Node", left: null, right: { tag: "Leaf" } };
+const loop = { $tag: "Node", left: null, right: { $tag: "Leaf" } };
 loop.left = loop;
 assert.throws(() => trees.leaves(loop), (e) => e instanceof trees.StitchwortInputError && /contains itself/.test(e.message));
 
 // Sharing without a cycle is fine: both children are the same object.
-const leaf = { tag: "Leaf" };
-assert.equal(trees.leaves({ tag: "Node", left: leaf, right: leaf }), 2n);
+const leaf = { $tag: "Leaf" };
+assert.equal(trees.leaves({ $tag: "Node", left: leaf, right: leaf }), 2n);
 
 // Each property is read exactly once, so a getter can't change its answer
 // between validation and use.
 let reads = 0;
-const sneaky = { tag: "Square", get side() { reads += 1; return reads === 1 ? 3n : 1000n; } };
+const sneaky = { $tag: "Square", get side() { reads += 1; return reads === 1 ? 3n : 1000n; } };
 assert.equal(shapes.area(sneaky), 9n);
 assert.equal(reads, 1);
 
 // Mutating the input after the call can't affect a result already computed,
 // and a list is copied before use.
-const list = [{ tag: "Square", side: 2n }];
+const list = [{ $tag: "Square", side: 2n }];
 const result = shapes.areas(list);
 list[0].side = 100n;
 assert.deepEqual(result, [4n]);
 
 // Wrong shapes are refused with a path to the problem.
-assert.throws(() => shapes.area({ tag: "Circle" }), / arg0: unknown tag "Circle"; expected "Square" or "Rect"$/);
-assert.throws(() => shapes.area({}), / arg0: no tag; expected "Square" or "Rect"$/);
-assert.throws(() => shapes.area({ tag: "x".repeat(1000) }), (e) => e.message.length < 120);
+assert.throws(() => shapes.area({ $tag: "Circle" }), / arg0: unknown \$tag "Circle"; expected "Square" or "Rect"$/);
+assert.throws(() => shapes.area({}), / arg0: no \$tag; expected "Square" or "Rect"$/);
+assert.throws(() => shapes.area({ $tag: "x".repeat(1000) }), (e) => e.message.length < 120);
 // An inherited property isn't a tag.
-assert.throws(() => shapes.area({ tag: "toString" }), /unknown tag "toString"/);
-assert.throws(() => shapes.areas([{ tag: "Rect", width: 1n, height: -1n }]), /\[0\]\.height: expected a non-negative bigint/);
+assert.throws(() => shapes.area({ $tag: "toString" }), /unknown \$tag "toString"/);
+assert.throws(() => shapes.areas([{ $tag: "Rect", width: 1n, height: -1n }]), /\[0\]\.height: expected a non-negative bigint/);
 console.log("ok");
 "#;
     run_script(
@@ -638,34 +638,34 @@ const inputError = (e) =>
 const refused = (f, pattern) => assert.throws(f, (e) => inputError(e) && pattern.test(e.message));
 
 // An inherited tag, or field, isn't the object's own.
-refused(() => trees.leaves(Object.create({ tag: "Leaf" })),
-  /^arg0: its tag is inherited, not its own property$/);
+refused(() => trees.leaves(Object.create({ $tag: "Leaf" })),
+  /^arg0: its \$tag is inherited, not its own property$/);
 const inheritsSide = Object.create({ side: 3n });
-inheritsSide.tag = "Square";
+inheritsSide.$tag = "Square";
 refused(() => shapes.area(inheritsSide), /^arg0\.side: inherited, not the object's own property$/);
-refused(() => shapes.area({ tag: "Square" }), /^arg0\.side: missing$/);
+refused(() => shapes.area({ $tag: "Square" }), /^arg0\.side: missing$/);
 // So adding to `Object.prototype` can't fill in a missing field.
 Object.prototype.side = 3n;
 try {
-  refused(() => shapes.area({ tag: "Square" }), /^arg0\.side: inherited, not the object's own property$/);
+  refused(() => shapes.area({ $tag: "Square" }), /^arg0\.side: inherited, not the object's own property$/);
 } finally {
   delete Object.prototype.side;
 }
 // Nor a class's getter.
 class Square {
-  get tag() { return "Square"; }
+  get $tag() { return "Square"; }
   side = 2n;
 }
-refused(() => shapes.area(new Square()), /^arg0: its tag is inherited, not its own property$/);
+refused(() => shapes.area(new Square()), /^arg0: its \$tag is inherited, not its own property$/);
 
 // Own properties are fine, whatever the prototype: none, or a class's.
 const bare = Object.create(null);
-bare.tag = "Square";
+bare.$tag = "Square";
 bare.side = 3n;
 assert.equal(shapes.area(bare), 9n);
 class Rect {
   constructor(width, height) {
-    this.tag = "Rect";
+    this.$tag = "Rect";
     this.width = width;
     this.height = height;
   }
@@ -673,31 +673,31 @@ class Rect {
 }
 assert.equal(shapes.area(new Rect(2n, 5n)), 10n);
 // Extra properties are ignored, as TypeScript allows them.
-assert.equal(shapes.area({ tag: "Square", side: 2n, colour: "red" }), 4n);
+assert.equal(shapes.area({ $tag: "Square", side: 2n, colour: "red" }), 4n);
 // Frozen objects and arrays are fine.
-assert.deepEqual(shapes.areas(Object.freeze([Object.freeze({ tag: "Square", side: 2n })])), [4n]);
+assert.deepEqual(shapes.areas(Object.freeze([Object.freeze({ $tag: "Square", side: 2n })])), [4n]);
 
 // A getter that throws refuses the input, with the error as the cause, even
 // an error that would otherwise mean running out of resources.
 const boom = new Error("boom");
-assert.throws(() => shapes.area({ tag: "Square", get side() { throw boom; } }),
+assert.throws(() => shapes.area({ $tag: "Square", get side() { throw boom; } }),
   (e) => e instanceof shapes.StitchwortInputError && e.message === "arg0.side: reading it threw Error: boom" && e.cause === boom);
-assert.throws(() => shapes.area({ tag: "Square", get side() { throw new RangeError("deep"); } }),
+assert.throws(() => shapes.area({ $tag: "Square", get side() { throw new RangeError("deep"); } }),
   (e) => e instanceof shapes.StitchwortInputError && /^arg0\.side: reading it threw RangeError: deep$/.test(e.message));
-refused(() => shapes.area({ get tag() { throw "a string"; } }), /^arg0: reading it threw a string$/);
+refused(() => shapes.area({ get $tag() { throw "a string"; } }), /^arg0: reading it threw a string$/);
 // A getter whose answer changes is read once, even if its object is reached
 // twice.
 let reads = 0;
-const shared = { tag: "Node", left: { tag: "Leaf" }, get right() { reads += 1; return reads === 1 ? { tag: "Leaf" } : 7; } };
-assert.equal(trees.leaves({ tag: "Node", left: shared, right: shared }), 4n);
+const shared = { $tag: "Node", left: { $tag: "Leaf" }, get right() { reads += 1; return reads === 1 ? { $tag: "Leaf" } : 7; } };
+assert.equal(trees.leaves({ $tag: "Node", left: shared, right: shared }), 4n);
 assert.equal(reads, 1);
 
 // Arrays and objects aren't interchangeable, and an array can't have holes
 // (which would be read from `Array.prototype`).
 refused(() => shapes.area(["Square", 2n]), /^arg0: expected a Shape object, not an array$/);
-refused(() => shapes.areas({ 0: { tag: "Square", side: 2n }, length: 1 }), /^arg0: expected an array$/);
-refused(() => shapes.areas([{ tag: "Square", side: 2n }, , { tag: "Square", side: 2n }]), /^arg0\[1\]: a hole in the array$/);
-Array.prototype[0] = { tag: "Square", side: 2n };
+refused(() => shapes.areas({ 0: { $tag: "Square", side: 2n }, length: 1 }), /^arg0: expected an array$/);
+refused(() => shapes.areas([{ $tag: "Square", side: 2n }, , { $tag: "Square", side: 2n }]), /^arg0\[1\]: a hole in the array$/);
+Array.prototype[0] = { $tag: "Square", side: 2n };
 try {
   refused(() => shapes.areas(new Array(1)), /^arg0\[0\]: a hole in the array$/);
 } finally {
@@ -729,7 +729,7 @@ fn options_cross_the_boundary_as_undefined() {
         "export type Profile = { readonly name: string; readonly nick?: string; readonly age?: bigint };",
         "export type Cap = { readonly cap?: number };",
         "export type Peek = { readonly items: readonly (bigint | undefined)[]; readonly extra?: readonly (bigint | undefined)[] };",
-        "export type Both =\n  | { readonly tag: \"MkBoth\"; readonly left: bigint | undefined; readonly right: string };",
+        "export type Both =\n  | { readonly $tag: \"MkBoth\"; readonly left: bigint | undefined; readonly right: string };",
         "export declare function withNick(p: Profile, n: string | undefined): Profile;",
         "export declare function halve(arg0: bigint | undefined): bigint | undefined;",
         "export declare function wrap(x: bigint | undefined): Option<bigint> | undefined;",
@@ -776,19 +776,19 @@ assert.equal(m.halve(undefined), undefined);
 assert.equal(m.halve(0n), 0n);
 refused(() => m.halve(null), /^arg0: expected a value or undefined, not null$/);
 refused(() => m.halve(8), /^arg0: expected a non-negative bigint$/);
-refused(() => m.halve({ tag: "Some", value: 8n }), /^arg0: expected a non-negative bigint$/);
+refused(() => m.halve({ $tag: "Some", value: 8n }), /^arg0: expected a non-negative bigint$/);
 
 // Nested: only the outer `Option` is `T | undefined`.
-assert.equal(m.wrap(undefined).tag, "None");
-assert.deepEqual(m.wrap(undefined), { tag: "None" });
-assert.deepEqual(m.wrap(1n), { tag: "Some", value: 1n });
-assert.deepEqual(m.wrap(undefined), { tag: "None" });
+assert.equal(m.wrap(undefined).$tag, "None");
+assert.deepEqual(m.wrap(undefined), { $tag: "None" });
+assert.deepEqual(m.wrap(1n), { $tag: "Some", value: 1n });
+assert.deepEqual(m.wrap(undefined), { $tag: "None" });
 assert.deepEqual(m.unwrap(undefined), undefined);
-assert.deepEqual(m.unwrap({ tag: "None" }), 0n);
-assert.deepEqual(m.unwrap({ tag: "Some", value: 5n }), 5n);
+assert.deepEqual(m.unwrap({ $tag: "None" }), 0n);
+assert.deepEqual(m.unwrap({ $tag: "Some", value: 5n }), 5n);
 refused(() => m.unwrap(null), /^arg0: expected a value or undefined, not null$/);
-refused(() => m.unwrap({ tag: "Some" }), /^arg0\.value: missing$/);
-refused(() => m.unwrap({ tag: "Some", value: null }), /^arg0\.value: expected a non-negative bigint$/);
+refused(() => m.unwrap({ $tag: "Some" }), /^arg0\.value: missing$/);
+refused(() => m.unwrap({ $tag: "Some", value: null }), /^arg0\.value: expected a non-negative bigint$/);
 refused(() => m.unwrap(5n), /^arg0: expected a Option object$/);
 
 // A list's elements: `(T | undefined)[]`, with a hole in the array refused.
@@ -809,10 +809,10 @@ assert.deepEqual(m.peek({ items: [], extra: [] }), { items: [], extra: [] });
 refused(() => m.peek({ items: [], extra: [null] }), /^p\.extra\[0\]: expected a value or undefined, not null$/);
 
 // A constructor's field is not a record's: present, as `T | undefined`.
-assert.deepEqual(m.swapSides({ tag: "MkBoth", left: undefined, right: "xy" }), { tag: "MkBoth", left: 2n, right: "none" });
-assert.deepEqual(m.swapSides({ tag: "MkBoth", left: 7n, right: "xy" }), { tag: "MkBoth", left: 2n, right: "7" });
-refused(() => m.swapSides({ tag: "MkBoth", right: "x" }), /^arg0\.left: missing$/);
-refused(() => m.swapSides({ tag: "MkBoth", left: null, right: "x" }), /^arg0\.left: expected a value or undefined, not null$/);
+assert.deepEqual(m.swapSides({ $tag: "MkBoth", left: undefined, right: "xy" }), { $tag: "MkBoth", left: 2n, right: "none" });
+assert.deepEqual(m.swapSides({ $tag: "MkBoth", left: 7n, right: "xy" }), { $tag: "MkBoth", left: 2n, right: "7" });
+refused(() => m.swapSides({ $tag: "MkBoth", right: "x" }), /^arg0\.left: missing$/);
+refused(() => m.swapSides({ $tag: "MkBoth", left: null, right: "x" }), /^arg0\.left: expected a value or undefined, not null$/);
 
 // A proof field about an optional one is checked after it's decoded.
 assert.equal(m.required({ value: 3n }), 3n);
@@ -883,6 +883,94 @@ console.log("ok");
     );
 }
 
+/// Attributes at the boundary (docs/proposals/attributes.md §9.2,
+/// `examples/extract/attributes.sw`): the codec reads and writes the names
+/// they give, each property once, and messages name the JS keys; a tag value
+/// that is a property of `Object.prototype` dispatches correctly, and one
+/// that isn't a constructor's is refused.
+#[test]
+fn attributes_cross_the_boundary_as_declared() {
+    let examples = examples();
+    let attributes = example(&examples, "attributes.sw");
+    let script = r#"
+import * as m from "./attributes.mjs";
+import assert from "node:assert/strict";
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message), pattern.source);
+
+// Tag key, tag values and field keys all differ from the Stitchwort names.
+const circle = { type: "CIRCLE", radius: 2n, center_x: 1n };
+assert.equal(m.area(circle), 5n);
+assert.deepEqual(m.grow(circle), { type: "CIRCLE", radius: 3n, center_x: 1n });
+assert.deepEqual(Object.keys(m.grow(circle)), ["type", "radius", "center_x"]);
+assert.deepEqual(m.grow({ type: "DOT" }), { type: "DOT" });
+assert.equal(m.describe(circle), "Circle 2 1");
+
+// The tag and each field are read once.
+let reads = 0;
+const counted = { get type() { reads++; return "CIRCLE"; }, get radius() { reads++; return 1n; }, center_x: 0n };
+assert.equal(m.area(counted), 1n);
+assert.equal(reads, 2);
+
+// Messages say the JS names.
+refused(() => m.area({ radius: 1n }), /^arg0: no type; expected "DOT", "CIRCLE" or "POLYGON"$/);
+refused(() => m.area({ type: "Circle" }), /^arg0: unknown type "Circle"; expected "DOT", "CIRCLE" or "POLYGON"$/);
+refused(() => m.area({ $tag: "CIRCLE", radius: 1n, center_x: 1n }), /^arg0: no type;/);
+refused(() => m.area({ type: "CIRCLE", radius: 1n, centerX: 1n }), /^arg0\.center_x: missing$/);
+refused(() => m.area({ type: "CIRCLE", radius: 1n, center_x: -1n }), /^arg0\.center_x: expected a non-negative bigint$/);
+refused(() => m.render({ type: "svg", items: [{ type: "CIRCLE", radius: 1n }] }), /^d\.items\[0\]\.center_x: missing$/);
+refused(() => m.render({ kind: "svg", items: [] }), /^d\.type: missing$/);
+
+// Records: keys as declared.
+assert.deepEqual(m.rename({ type: "a", items: [] }), { type: "a2", items: [] });
+assert.equal(m.render({ type: "svg", items: [{ type: "DOT" }] }), 4n);
+
+// Each constructor's keys are its own.
+assert.deepEqual(m.flip({ kind: "Note", note_id: 3n, body: "b" }), { kind: "Picture", picture_id: 3n, url: "b" });
+
+// Tag values that are properties of every object.
+assert.deepEqual(m.odd({ $tag: "__proto__", "a-b": "x" }), { $tag: "__proto__", "a-b": "x" });
+assert.equal(Object.getPrototypeOf(m.odd({ $tag: "__proto__", "a-b": "x" })), Object.prototype);
+assert.deepEqual(m.odd({ $tag: "constructor", tag: 1n }), { $tag: "constructor", tag: 1n });
+assert.deepEqual(m.odd({ $tag: "toString" }), { $tag: "toString" });
+refused(() => m.odd({ $tag: "hasOwnProperty" }), /unknown \$tag "hasOwnProperty"/);
+refused(() => m.odd({ $tag: "valueOf" }), /unknown \$tag "valueOf"/);
+refused(() => m.odd({ $tag: "Constructor", tag: 1n }), /unknown \$tag "Constructor"/);
+console.log("ok");
+"#;
+    run_script("attributes", &[("attributes.mjs", attributes)], script);
+}
+
+/// `@[js.tag "$tag"]` is exactly the default: the same module and
+/// declarations as writing nothing (docs/proposals/attributes.md §4.6).
+#[test]
+fn the_default_tag_key_written_out_changes_nothing() {
+    let source = |attr: &str| {
+        format!(
+            "{attr}type Shape =\n  | Dot\n  | Circle (tag: Nat) (radius: Nat)\n\n\
+             export def grow: Shape -> Shape\n  | Dot => Dot\n  | Circle t r => Circle t (r + 1)\n"
+        )
+    };
+    let generated: Vec<stitchwort_js::Output> = ["", "@[js.tag \"$tag\"]\n"]
+        .iter()
+        .map(|attr| {
+            let mut session = Session::new();
+            session.load("shape.sw", &source(attr)).expect("checks");
+            stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+                .expect("extraction succeeds")
+        })
+        .collect();
+    assert_eq!(generated[0].js, generated[1].js);
+    assert_eq!(generated[0].dts, generated[1].dts);
+    assert!(
+        generated[0].dts.contains(
+            "{ readonly $tag: \"Circle\"; readonly tag: bigint; readonly radius: bigint }"
+        ),
+        "{}",
+        generated[0].dts
+    );
+}
+
 /// DESIGN.md §12: an object reached by many paths is decoded once (at each
 /// type), so input with much sharing, such as a DAG with 2^60 paths, decodes
 /// quickly, and the value is the same as if nothing were shared.
@@ -919,17 +1007,17 @@ import assert from "node:assert/strict";
 // `d` levels, each node's children both the next level's one node: 2^d paths
 // to the leaf, through d + 1 objects.
 const dag = (d) => {
-  let t = { tag: "Leaf" };
-  for (let i = 0; i < d; i++) t = { tag: "Node", left: t, right: t };
+  let t = { $tag: "Leaf" };
+  for (let i = 0; i < d; i++) t = { $tag: "Node", left: t, right: t };
   return t;
 };
 // Each node is read once: if not, this fails (quickly) rather than the
 // next line taking forever.
 let reads = 0;
-let counted = { tag: "Leaf" };
+let counted = { $tag: "Leaf" };
 for (let i = 0; i < 20; i++) {
   const child = counted;
-  counted = { tag: "Node", get left() { reads++; return child; }, get right() { reads++; return child; } };
+  counted = { $tag: "Node", get left() { reads++; return child; }, get right() { reads++; return child; } };
 }
 assert.equal(m.leftDepth(counted), 20n);
 assert.equal(reads, 40);
@@ -949,8 +1037,8 @@ for (const stack = [out]; stack.length > 0; ) {
   const t = stack.pop();
   objects.add(t);
   count++;
-  if (t.tag === "Node") stack.push(t.left, t.right);
-  else assert.equal(t.tag, "Leaf");
+  if (t.$tag === "Node") stack.push(t.left, t.right);
+  else assert.equal(t.$tag, "Leaf");
 }
 assert.equal(count, 2 ** 13 - 1);
 assert.equal(objects.size, count);
@@ -958,15 +1046,15 @@ assert.equal(objects.size, count);
 // What's remembered is per type: the same array is a `List Nat` in one place
 // and a `List Text` in another, so it's refused in the second.
 const shared = [1n];
-assert.throws(() => m.echoBoth({ tag: "MkBoth", first: shared, second: shared }),
+assert.throws(() => m.echoBoth({ $tag: "MkBoth", first: shared, second: shared }),
   (e) => e instanceof m.StitchwortInputError && e.message === "p.second[0]: expected a string");
 const empty = [];
-assert.deepEqual(m.echoBoth({ tag: "MkBoth", first: empty, second: empty }),
-  { tag: "MkBoth", first: [], second: [] });
+assert.deepEqual(m.echoBoth({ $tag: "MkBoth", first: empty, second: empty }),
+  { $tag: "MkBoth", first: [], second: [] });
 
 // Cycles are still refused.
-const loop = { tag: "Node", left: { tag: "Leaf" }, right: null };
-loop.right = { tag: "Node", left: loop, right: loop };
+const loop = { $tag: "Node", left: { $tag: "Leaf" }, right: null };
+loop.right = { $tag: "Node", left: loop, right: loop };
 assert.throws(() => m.leftDepth(loop),
   (e) => e instanceof m.StitchwortInputError && e.message === "t.right.left: the input contains itself");
 console.log("ok");
@@ -1086,12 +1174,12 @@ for (const [bad, index] of [
 refused(() => m.fromChars(["a", "\uD800"]), /^cs\[1\]: a lone surrogate/);
 refused(() => m.joinOn(",", ["ok", "x\uDFFF"]), /^ts\[1\]: a lone surrogate \(U\+DFFF\) at index 1/);
 refused(() => m.orEmpty("\uD800"), /^arg0: a lone surrogate/);
-refused(() => m.firstOf({ tag: "MkPair", fst: "a", snd: "\uDBFF" }), /^p\.snd: a lone surrogate/);
-refused(() => m.greet({ tag: "MkPerson", name: "\uDC00", initial: "x", tags: [] }), /^arg0\.name: a lone surrogate/);
-refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "xy", tags: [] }), /^arg0\.initial: expected exactly one character, but the string has 2$/);
-refused(() => m.greet({ tag: "MkPerson", name: "x", initial: "x", tags: ["\uD800"] }), /^arg0\.tags\[0\]: a lone surrogate/);
-assert.equal(m.greet({ tag: "MkPerson", name: "Zoë", initial: "\u{1F600}", tags: [] }), "Hello, Zoë (\u{1F600})");
-assert.deepEqual(m.uncons("\u{1F600}x"), { tag: "MkPair", fst: "\u{1F600}", snd: "x" });
+refused(() => m.firstOf({ $tag: "MkPair", fst: "a", snd: "\uDBFF" }), /^p\.snd: a lone surrogate/);
+refused(() => m.greet({ $tag: "MkPerson", name: "\uDC00", initial: "x", tags: [] }), /^arg0\.name: a lone surrogate/);
+refused(() => m.greet({ $tag: "MkPerson", name: "x", initial: "xy", tags: [] }), /^arg0\.initial: expected exactly one character, but the string has 2$/);
+refused(() => m.greet({ $tag: "MkPerson", name: "x", initial: "x", tags: ["\uD800"] }), /^arg0\.tags\[0\]: a lone surrogate/);
+assert.equal(m.greet({ $tag: "MkPerson", name: "Zoë", initial: "\u{1F600}", tags: [] }), "Hello, Zoë (\u{1F600})");
+assert.deepEqual(m.uncons("\u{1F600}x"), { $tag: "MkPair", fst: "\u{1F600}", snd: "x" });
 
 // A `Char` is exactly one scalar value: a supplementary one (`.length` 2) is
 // accepted; a lone surrogate (one element of `[...s]`) isn't; nor is an
@@ -1106,7 +1194,7 @@ refused(() => m.echoChar("é"), /but the string has 2$/);
 refused(() => m.echoChar("\u{1F600}\u{1F600}"), /but the string has 2$/);
 
 // Only strings: not numbers, arrays, String objects or code points.
-for (const notString of [97n, 97, ["a"], new String("a"), null, undefined, { tag: "MkText" }]) {
+for (const notString of [97n, 97, ["a"], new String("a"), null, undefined, { $tag: "MkText" }]) {
   refused(() => m.echo(notString), /^t: expected a string$/);
   refused(() => m.echoChar(notString), /^c: expected a string$/);
 }
@@ -1205,14 +1293,14 @@ assert.equal(text.len(emoji), BigInt(N));
 assert.equal(text.empty(long), false);
 assert.equal(text.same(long, "a".repeat(N)), true);
 assert.equal(text.same(long, "a".repeat(N - 1) + "b"), false);
-assert.deepEqual(text.order(long, long + "a"), { tag: "Less" });
-assert.deepEqual(text.order(emoji + "\u{E000}", emoji + "\u{10000}"), { tag: "Less" });
+assert.deepEqual(text.order(long, long + "a"), { $tag: "Less" });
+assert.deepEqual(text.order(emoji + "\u{E000}", emoji + "\u{10000}"), { $tag: "Less" });
 assert.equal(text.less(long, long), false);
 assert.equal(text.join(long, long), long + long);
 assert.equal(text.trim(" ".repeat(N) + "x" + " ".repeat(N)), "x");
 assert.deepEqual(text.toNat("7".repeat(N)), BigInt("7".repeat(N)));
 assert.equal(text.fromNat(10n ** 20000n).length, 20001);
-assert.deepEqual(text.uncons(emoji), { tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) });
+assert.deepEqual(text.uncons(emoji), { $tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) });
 const codes = text.codes("a\u{1F600}".repeat(N / 2));
 assert.equal(codes.length, N);
 assert.equal(codes[1], 0x1f600n);
@@ -1240,8 +1328,8 @@ const exhausted = (f, name) =>
       ? new RegExp(`^${name}: ran out of resources`).test(e.message) && e.cause instanceof RangeError
       : false);
 exhausted(() => text.countChar("a", long), "countChar");
-let deep = { tag: "Leaf" };
-for (let i = 0; i < 1000000; i++) deep = { tag: "Node", left: deep, right: { tag: "Leaf" } };
+let deep = { $tag: "Leaf" };
+for (let i = 0; i < 1000000; i++) deep = { $tag: "Node", left: deep, right: { $tag: "Leaf" } };
 exhausted(() => trees.leaves(deep), "leaves");
 // Input errors are still input errors.
 assert.throws(() => text.len("\uD800"), text.StitchwortInputError);
@@ -1249,7 +1337,7 @@ assert.throws(() => text.len(long + "\uD800"), /lone surrogate \(U\+D800\) at in
 
 // Afterwards, everything still works.
 assert.equal(text.countChar("a", "abc"), 1n);
-assert.equal(trees.leaves({ tag: "Node", left: { tag: "Leaf" }, right: { tag: "Leaf" } }), 2n);
+assert.equal(trees.leaves({ $tag: "Node", left: { $tag: "Leaf" }, right: { $tag: "Leaf" } }), 2n);
 console.log("ok");
 "#;
     run_script(
@@ -1459,16 +1547,16 @@ const refused = (f, pattern) =>
 // A user's list, a million long: decoded only, decoded and encoded, and
 // built by Stitchwort code and encoded.
 const chainOf = (n, head = (i) => BigInt(i)) => {
-  let c = { tag: "End" };
-  for (let i = n - 1; i >= 0; i--) c = { tag: "More", head: head(i), tail: c };
+  let c = { $tag: "End" };
+  for (let i = n - 1; i >= 0; i--) c = { $tag: "More", head: head(i), tail: c };
   return c;
 };
 const checkChain = (c, n, head = (i) => BigInt(i)) => {
   let i = 0;
-  for (; c.tag === "More"; c = c.tail, i++) {
+  for (; c.$tag === "More"; c = c.tail, i++) {
     if (c.head !== head(i) || Object.keys(c).length !== 3) assert.fail(`element ${i}`);
   }
-  assert.equal(c.tag, "End");
+  assert.equal(c.$tag, "End");
   assert.equal(i, n);
 };
 const chain = chainOf(N);
@@ -1484,17 +1572,17 @@ refused(() => m.count(chainOf(5, (i) => (i === 4 ? -1n : 0n))),
   /^c\.tail\.tail\.tail\.tail\.head: expected a non-negative bigint$/);
 const loop = chainOf(N);
 let last = loop;
-while (last.tail.tag === "More") last = last.tail;
+while (last.tail.$tag === "More") last = last.tail;
 last.tail = loop;
 refused(() => m.count(loop), /^c\(\.tail ×1000000\): the input contains itself$/);
 
 // A tree a million deep down its left side, both ways.
-let tree = { tag: "Leaf" };
-for (let i = 0; i < N; i++) tree = { tag: "Node", left: tree, right: { tag: "Leaf" } };
+let tree = { $tag: "Leaf" };
+for (let i = 0; i < N; i++) tree = { $tag: "Node", left: tree, right: { $tag: "Leaf" } };
 const checkSpine = (t, n) => {
   let depth = 0;
-  for (; t.tag === "Node"; t = t.left, depth++) {
-    if (t.right.tag !== "Leaf") assert.fail(`depth ${depth}`);
+  for (; t.$tag === "Node"; t = t.left, depth++) {
+    if (t.right.$tag !== "Leaf") assert.fail(`depth ${depth}`);
   }
   assert.equal(depth, n);
 };
@@ -1502,26 +1590,26 @@ checkSpine(m.echoTree(tree), N);
 checkSpine(m.spine(BigInt(N)), N);
 
 // A zigzag path repeats a two-step cycle, which is folded.
-let zigzag = { tag: "Node", left: { tag: "Leaf" }, right: 7 };
+let zigzag = { $tag: "Node", left: { $tag: "Leaf" }, right: 7 };
 for (let i = 0; i < N; i++) {
   zigzag = i % 2 === 0
-    ? { tag: "Node", left: zigzag, right: { tag: "Leaf" } }
-    : { tag: "Node", left: { tag: "Leaf" }, right: zigzag };
+    ? { $tag: "Node", left: zigzag, right: { $tag: "Leaf" } }
+    : { $tag: "Node", left: { $tag: "Leaf" }, right: zigzag };
 }
 refused(() => m.echoTree(zigzag),
   /^t\(\.right\.left ×500000\)\.right: expected a Tree object$/);
 
 // A list type with a parameter.
-let seq = { tag: "Stop" };
-for (let i = 0; i < N; i++) seq = { tag: "Step", item: "x", rest: seq };
+let seq = { $tag: "Stop" };
+for (let i = 0; i < N; i++) seq = { $tag: "Step", item: "x", rest: seq };
 const checkSeq = (s, n) => {
   let i = 0;
-  for (; s.tag === "Step"; s = s.rest, i++) if (s.item !== "x") assert.fail(`item ${i}`);
+  for (; s.$tag === "Step"; s = s.rest, i++) if (s.item !== "x") assert.fail(`item ${i}`);
   assert.equal(i, n);
 };
 checkSeq(m.echoSeq(seq), N);
 checkSeq(m.steps(BigInt(N)), N);
-refused(() => m.echoSeq({ tag: "Step", item: "x", rest: { tag: "Step", item: "\uD800", rest: { tag: "Stop" } } }),
+refused(() => m.echoSeq({ $tag: "Step", item: "x", rest: { $tag: "Step", item: "\uD800", rest: { $tag: "Stop" } } }),
   /^s\.rest\.item: a lone surrogate \(U\+D800\) at index 0;/);
 console.log("ok");
 "#;
@@ -1550,16 +1638,16 @@ const refused = (f, pattern) =>
   assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
 
 // A tree a million deep: each node's only child is the next one down.
-let tree = { tag: "Node", label: 0n, kids: { tag: "FNil" } };
+let tree = { $tag: "Node", label: 0n, kids: { $tag: "FNil" } };
 for (let i = 1; i <= N; i++) {
-  tree = { tag: "Node", label: BigInt(i), kids: { tag: "FCons", first: tree, rest: { tag: "FNil" } } };
+  tree = { $tag: "Node", label: BigInt(i), kids: { $tag: "FCons", first: tree, rest: { $tag: "FNil" } } };
 }
 // Labels count down to 0 at the bottom (`deep`'s count up, so aren't
 // checked).
 const checkDeep = (t, n, labelled = true) => {
   let depth = 0;
-  while (t.kids.tag === "FCons") {
-    if (t.kids.rest.tag !== "FNil" || (labelled && t.label !== BigInt(n - depth))) {
+  while (t.kids.$tag === "FCons") {
+    if (t.kids.rest.$tag !== "FNil" || (labelled && t.label !== BigInt(n - depth))) {
       assert.fail(`depth ${depth}`);
     }
     t = t.kids.first;
@@ -1570,40 +1658,40 @@ const checkDeep = (t, n, labelled = true) => {
 checkDeep(m.echoTree(tree), N);
 checkDeep(m.deep(BigInt(N)), N, false);
 // The forest it's in, too.
-const forest = { tag: "FCons", first: tree, rest: { tag: "FNil" } };
+const forest = { $tag: "FCons", first: tree, rest: { $tag: "FNil" } };
 const back = m.echoForest(forest);
 checkDeep(back.first, N);
 
 // A mistake at the bottom is found, and where it is is summarised.
-let bad = { tag: "Node", label: -1n, kids: { tag: "FNil" } };
-for (let i = 0; i < N; i++) bad = { tag: "Node", label: 0n, kids: { tag: "FCons", first: bad, rest: { tag: "FNil" } } };
+let bad = { $tag: "Node", label: -1n, kids: { $tag: "FNil" } };
+for (let i = 0; i < N; i++) bad = { $tag: "Node", label: 0n, kids: { $tag: "FCons", first: bad, rest: { $tag: "FNil" } } };
 refused(() => m.echoTree(bad),
   /^t\(\.kids\.first ×1000000\)\.label: expected a non-negative bigint$/);
 // An alternating path folds its two-step cycle.
-let alternating = { tag: "Node", label: -1n, kids: { tag: "FNil" } };
-for (let i = 0; i < 6; i++) alternating = { tag: "Node", label: 0n, kids: { tag: "FCons", first: alternating, rest: { tag: "FNil" } } };
+let alternating = { $tag: "Node", label: -1n, kids: { $tag: "FNil" } };
+for (let i = 0; i < 6; i++) alternating = { $tag: "Node", label: 0n, kids: { $tag: "FCons", first: alternating, rest: { $tag: "FNil" } } };
 refused(() => m.echoTree(alternating),
   /^t\(\.kids\.first ×6\)\.label: expected a non-negative bigint$/);
 // A tree that contains itself, through its forest.
-const loop = { tag: "Node", label: 0n, kids: { tag: "FNil" } };
-loop.kids = { tag: "FCons", first: loop, rest: { tag: "FNil" } };
+const loop = { $tag: "Node", label: 0n, kids: { $tag: "FNil" } };
+loop.kids = { $tag: "FCons", first: loop, rest: { $tag: "FNil" } };
 refused(() => m.size(loop), /contains itself/);
 
 // `size` and `sizeForest` call each other, so a deep tree runs out of
 // stack: a resource error, after which the module still works.
 assert.throws(() => m.size(tree), (e) => e instanceof m.StitchwortResourceError);
-assert.equal(m.size({ tag: "Node", label: 0n, kids: { tag: "FNil" } }), 1n);
+assert.equal(m.size({ $tag: "Node", label: 0n, kids: { $tag: "FNil" } }), 1n);
 
 // With a parameter: a rose tree of texts, a million deep.
-let rose = { tag: "Bloom", value: "x", kids: { tag: "NoRoses" } };
+let rose = { $tag: "Bloom", value: "x", kids: { $tag: "NoRoses" } };
 for (let i = 0; i < N; i++) {
-  rose = { tag: "Bloom", value: "x", kids: { tag: "MoreRoses", first: rose, rest: { tag: "NoRoses" } } };
+  rose = { $tag: "Bloom", value: "x", kids: { $tag: "MoreRoses", first: rose, rest: { $tag: "NoRoses" } } };
 }
 let r = m.echoRose(rose);
 let depth = 0;
-for (; r.kids.tag === "MoreRoses"; r = r.kids.first) depth++;
+for (; r.kids.$tag === "MoreRoses"; r = r.kids.first) depth++;
 assert.equal(depth, N);
-refused(() => m.echoRose({ tag: "Bloom", value: 1n, kids: { tag: "NoRoses" } }), /^r\.value: /);
+refused(() => m.echoRose({ $tag: "Bloom", value: 1n, kids: { $tag: "NoRoses" } }), /^r\.value: /);
 console.log("ok");
 "#;
     run_script(
@@ -1630,7 +1718,7 @@ fn a_type_without_values_refuses_everything() {
     let script = r#"
 import * as m from "./never.mjs";
 import assert from "node:assert/strict";
-assert.throws(() => m.fromNever({ tag: "Never" }), /^StitchwortInputError: n: unknown tag "Never"; expected nothing: Never has no values$/);
+assert.throws(() => m.fromNever({ $tag: "Never" }), /^StitchwortInputError: n: unknown \$tag "Never"; expected nothing: Never has no values$/);
 console.log("ok");
 "#;
     run_script("never", &[("never.mjs", &session)], script);
@@ -1643,6 +1731,25 @@ console.log("ok");
 /// was given; every object must have its own key for each of its fields (so
 /// no two fields share one, and none sets the prototype); and the TypeScript
 /// declarations must accept exactly those objects.
+/// `text` as a Stitchwort string literal.
+fn sw_string(text: &str) -> String {
+    let mut out = String::from("\"");
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '$' => out.push_str("\\$"),
+            '\n' => out.push_str("\\n"),
+            c if c.is_control() => {
+                let _ = write!(out, "\\u{{{:x}}}", u32::from(c));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 #[test]
 fn awkward_names_never_collide() {
     const FIELDS: &[&str] = &[
@@ -1744,6 +1851,46 @@ fn awkward_names_never_collide() {
         "Infinity",
     ];
     const CTORS: &[&str] = &["Tag", "Object", "X'", "X''", "Proto", "C"];
+    // Names `js.name` gives tag values and keys, and `js.tag` tag keys
+    // (docs/proposals/attributes.md §7.3): written exactly, never mangled,
+    // and escaped correctly in the JS and the `.d.ts`. `__proto__` is a
+    // tag value only: as a key it's refused, as is the empty name
+    // (`examples/reject/attribute-proto-key.sw`, `attribute-empty-name.sw`).
+    const NAMES: &[&str] = &[
+        "tag",
+        "$tag",
+        "constructor",
+        "toString",
+        "hasOwnProperty",
+        "__proto__",
+        "0",
+        "10",
+        "a-b",
+        "x y",
+        "\"",
+        "\\",
+        "\n",
+        "\u{1}",
+        "\u{7f}",
+        "$",
+        "é",
+        "\u{1F600}",
+        "CIRCLE",
+        "center_x",
+    ];
+    const TAG_KEYS: &[&str] = &[
+        "type",
+        "kind",
+        "tag",
+        "$type",
+        "constructor",
+        "0",
+        "a-b",
+        "é",
+        "\u{1F600}",
+        "\"",
+        "\n",
+    ];
     const ROUNDS: usize = 4;
     const TYPES_PER_ROUND: usize = 8;
     const CASES_PER_EXPORT: usize = 10;
@@ -1760,18 +1907,38 @@ fn awkward_names_never_collide() {
         let types = pick(&mut rng, TYPES, TYPES_PER_ROUND);
         let exports = pick(&mut rng, EXPORTS, TYPES_PER_ROUND);
         let mut source = String::new();
-        // Each constructor's number of fields, which its objects' own keys
-        // must match (one more, for the tag).
+        // Each constructor's tag key, tag value and number of fields, which
+        // its objects' own keys must match (one more, for the tag).
         let mut counts = Vec::new();
         for (k, (ty, export)) in types.iter().zip(&exports).enumerate() {
             let mut field_types = vec!["Nat", "Text", "Bool", "Char", "List Nat", "Option Text"];
             field_types.extend(&types[..k]);
             let mut ctors = Vec::new();
+            // Half the types choose their tag key (docs/proposals/attributes.md).
+            let tag_key = if rng.below(2) == 0 {
+                TAG_KEYS[rng.below(TAG_KEYS.len())]
+            } else {
+                "$tag"
+            };
+            let mut tags_used: Vec<String> = Vec::new();
             let n = 1 + rng.below(3);
             for (c, ctor) in pick(&mut rng, CTORS, n).into_iter().enumerate() {
                 let ctor = format!("{ctor}{round}{k}");
+                // Half the constructors choose their tag value.
+                let mut tag = ctor.clone();
+                let mut attrs = String::new();
+                let value = NAMES[rng.below(NAMES.len())];
+                if rng.below(2) == 0 && !tags_used.iter().any(|t| t == value) {
+                    tag = value.to_string();
+                    attrs = format!("@[js.name {}] ", sw_string(value));
+                }
+                tags_used.push(tag.clone());
                 let n = rng.below(6);
                 let fields = pick(&mut rng, FIELDS, n);
+                // Keys must differ from each other and from the tag key: a
+                // field called `__proto__` always needs another, and a third
+                // of the rest choose one.
+                let mut keys: Vec<String> = Vec::new();
                 let fields: Vec<String> = fields
                     .iter()
                     .map(|f| {
@@ -1781,20 +1948,49 @@ fn awkward_names_never_collide() {
                         } else {
                             field_types[rng.below(field_types.len())]
                         };
-                        format!("({f} : {ty})")
+                        // Another field's default key is never free: it may
+                        // come later.
+                        let default = f.replace('\'', "$");
+                        let free = |key: &str, keys: &[String]| {
+                            key != tag_key
+                                && key != "__proto__"
+                                && !keys.iter().any(|k| k == key)
+                                && !fields.iter().any(|g| g.replace('\'', "$") == key)
+                        };
+                        let chosen = NAMES[rng.below(NAMES.len())];
+                        let default_free = default != tag_key && default != "__proto__";
+                        let renamed = if (!default_free || rng.below(3) == 0) && free(chosen, &keys)
+                        {
+                            Some(chosen.to_string())
+                        } else if !default_free {
+                            Some(format!("$other{}", keys.len()))
+                        } else {
+                            None
+                        };
+                        keys.push(renamed.clone().unwrap_or(default));
+                        match renamed {
+                            Some(key) => format!("(@[js.name {}] {f} : {ty})", sw_string(&key)),
+                            None => format!("({f} : {ty})"),
+                        }
                     })
                     .collect();
                 counts.push(format!(
-                    "{}: {}",
-                    js_string_literal(&ctor),
+                    "[{}, {}, {}]",
+                    js_string_literal(tag_key),
+                    js_string_literal(&tag),
                     fields.len() + 1
                 ));
-                ctors.push((ctor, fields));
+                ctors.push((ctor, attrs, fields));
+            }
+            if tag_key != "$tag" {
+                let _ = writeln!(source, "@[js.tag {}]", sw_string(tag_key));
             }
             let _ = writeln!(source, "type {ty} : Type =");
-            for (ctor, fields) in &ctors {
-                let _ = writeln!(source, "  | {ctor} {}", fields.join(" "));
+            for (ctor, attrs, fields) in &ctors {
+                let _ = writeln!(source, "  | {attrs}{ctor} {}", fields.join(" "));
             }
+            let ctors: Vec<(String, Vec<String>)> =
+                ctors.into_iter().map(|(c, _, f)| (c, f)).collect();
             let param = FIELDS[rng.below(FIELDS.len())];
             let _ = writeln!(source, "\nexport def {export} : ({param} : {ty}) -> {ty}");
             for (ctor, fields) in &ctors {
@@ -1812,10 +2008,28 @@ fn awkward_names_never_collide() {
             field_types.extend(&types);
             let count = 1 + rng.below(6);
             let fields = pick(&mut rng, FIELDS, count);
-            let declared: Vec<String> = fields
-                .iter()
-                .map(|f| format!("{f} : {}", field_types[rng.below(field_types.len())]))
-                .collect();
+            let mut declared: Vec<String> = Vec::new();
+            let mut chosen_keys: Vec<&str> = Vec::new();
+            for (i, f) in fields.iter().enumerate() {
+                let ty = field_types[rng.below(field_types.len())];
+                // `__proto__` needs another key; a third of the rest choose
+                // one, never another field's.
+                let chosen = NAMES[rng.below(NAMES.len())];
+                let free = chosen != "__proto__"
+                    && !chosen_keys.contains(&chosen)
+                    && !fields.iter().any(|g| g.replace('\'', "$") == chosen);
+                if *f == "__proto__" || (rng.below(3) == 0 && free) {
+                    let key = if free {
+                        chosen_keys.push(chosen);
+                        chosen.to_string()
+                    } else {
+                        format!("$other{i}")
+                    };
+                    declared.push(format!("@[js.name {}] {f} : {ty}", sw_string(&key)));
+                } else {
+                    declared.push(format!("{f} : {ty}"));
+                }
+            }
             let _ = writeln!(source, "type Rec{round}{k} = {{ {} }}", declared.join(", "));
             let f = fields[rng.below(fields.len())];
             let _ = writeln!(
@@ -1838,12 +2052,13 @@ fn awkward_names_never_collide() {
         let mut script = format!(
             "import * as m from \"./module.mjs\";\n\
              import assert from \"node:assert/strict\";\n\
-             const counts = {{ {} }};\n\
+             const counts = [{}];\n\
              const check = (v) => {{\n\
                if (typeof v !== \"object\" || v === null) return;\n\
                if (Array.isArray(v)) {{ v.forEach(check); return; }}\n\
                assert.equal(Object.getPrototypeOf(v), Object.prototype);\n\
-               if (Object.hasOwn(counts, v.tag)) assert.equal(Object.keys(v).length, counts[v.tag], JSON.stringify(Object.keys(v)));\n\
+               const matches = counts.filter(([k, t]) => Object.hasOwn(v, k) && v[k] === t);\n\
+               if (matches.length === 1) assert.equal(Object.keys(v).length, matches[0][2], JSON.stringify(Object.keys(v)));\n\
                Object.values(v).forEach(check);\n\
              }};\n",
             counts.join(", ")
@@ -2463,7 +2678,7 @@ for (const [a, b] of pairs) {
   same(native.decEq(a, b), a === b, tag("decEq"));
   same(native.leq(a, b), a <= b, tag("leq"));
   same(native.less(a, b), a < b, tag("less"));
-  same(native.compare(a, b), { tag: a < b ? "Less" : a === b ? "Equal" : "Greater" }, tag("compare"));
+  same(native.compare(a, b), { $tag: a < b ? "Less" : a === b ? "Equal" : "Greater" }, tag("compare"));
   if (b === 0n) continue;
   const d = b;
   for (const [div, mod, convention, range] of [
@@ -2740,6 +2955,34 @@ fn changed_prelude(from: &str, to: &str) -> String {
     stitchwort_elab::PRELUDE.replacen(from, to, 1)
 }
 
+/// A type with a built-in boundary form (`Bool` is `boolean`, `Option T` is
+/// `T | undefined`) takes no attributes, on itself, its constructors or
+/// their fields: the built-in codec would ignore them
+/// (docs/proposals/attributes.md §4.2, D613).
+#[test]
+fn built_in_boundary_types_take_no_attributes() {
+    for (from, to) in [
+        (
+            "type Bool: Type =\n",
+            "@[js.tag \"kind\"]\ntype Bool: Type =\n",
+        ),
+        ("  | True\n", "  | @[js.name \"yes\"] True\n"),
+        (
+            "  | Some (value: a)\n",
+            "  | Some (@[js.name \"it\"] value: a)\n",
+        ),
+    ] {
+        let prelude = changed_prelude(from, to);
+        let Err(report) = Session::try_with_prelude(&prelude) else {
+            panic!("a prelude with `{to}` checks");
+        };
+        assert!(
+            report.contains("E-ATTRIBUTE") && report.contains("form of its own"),
+            "{report}"
+        );
+    }
+}
+
 fn load_example(session: &mut Session, name: &str) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/extract")
@@ -2834,7 +3077,7 @@ fn a_changed_int_type_turns_the_representation_off() {
     assert!(
         output
             .dts
-            .contains(r#"{ readonly tag: "OfNat"; readonly k: bigint }"#)
+            .contains(r#"{ readonly $tag: "OfNat"; readonly k: bigint }"#)
     );
     for native in ["(a) => (b) => a * b", "(a) => -a", "a.toString()"] {
         assert!(
@@ -2851,7 +3094,7 @@ fn a_changed_int_type_turns_the_representation_off() {
 import * as m from "./integers.mjs";
 import assert from "node:assert/strict";
 
-const of = (n) => (n >= 0n ? { tag: "OfNat", k: n } : { tag: "NegSucc", n: -n - 1n });
+const of = (n) => (n >= 0n ? { $tag: "OfNat", k: n } : { $tag: "NegSucc", n: -n - 1n });
 const refused = (f) => assert.throws(f, (e) => e instanceof m.StitchwortInputError);
 
 assert.deepEqual(m.add(of(5n), of(-8n)), of(-3n));
@@ -2875,7 +3118,7 @@ refused(() => m.eucMod(of(5n), of(0n)));
 // A bare bigint is no longer an Int.
 refused(() => m.neg(5n));
 refused(() => m.add(of(1n), 2n));
-refused(() => m.neg({ tag: "OfNat", n: 5n }));
+refused(() => m.neg({ $tag: "OfNat", n: 5n }));
 console.log("ok");
 "#;
     run_script("int-changed-type", &[("integers.mjs", &session)], script);
@@ -2902,7 +3145,7 @@ fn a_changed_nat_type_turns_the_representation_off() {
     assert!(
         output
             .dts
-            .contains(r#"readonly tag: "Succ"; readonly k: Nat"#),
+            .contains(r#"readonly $tag: "Succ"; readonly k: Nat"#),
         "{}",
         output.dts
     );
@@ -2917,8 +3160,8 @@ fn a_changed_nat_type_turns_the_representation_off() {
 import * as m from "./changed-nat.mjs";
 import assert from "node:assert/strict";
 
-const zero = { tag: "Zero" };
-const succ = (n) => ({ tag: "Succ", k: n });
+const zero = { $tag: "Zero" };
+const succ = (n) => ({ $tag: "Succ", k: n });
 
 assert.deepEqual(m.twice(zero), zero);
 assert.deepEqual(m.twice(succ(zero)), succ(succ(zero)));
@@ -2947,7 +3190,7 @@ fn a_changed_text_type_turns_the_representation_off() {
         .expect("extraction succeeds");
     assert!(output.dts.contains("export type Text ="), "{}", output.dts);
     assert!(
-        output.dts.contains(r#"readonly tag: "MkText""#),
+        output.dts.contains(r#"readonly $tag: "MkText""#),
         "{}",
         output.dts
     );
@@ -2962,7 +3205,7 @@ fn a_changed_text_type_turns_the_representation_off() {
 import * as m from "./changed-text.mjs";
 import assert from "node:assert/strict";
 
-const text = (s) => ({ tag: "MkText", cs: [...s] });
+const text = (s) => ({ $tag: "MkText", cs: [...s] });
 
 assert.deepEqual(m.echo(text("a😀")), text("a😀"));
 assert.deepEqual(m.greet(text("!")), text("hi!"));

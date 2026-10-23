@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: a tag key can't be the empty string
+   ╭─[ reject/attribute-empty-tag-key.sw:2:3 ]
+   │
+ 2 │ @[js.tag ""]
+   │   ────┬────  
+   │       ╰────── empty
+───╯

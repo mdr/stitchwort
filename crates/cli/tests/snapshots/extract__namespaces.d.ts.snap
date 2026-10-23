@@ -7,7 +7,7 @@ expression: output.dts
 export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export type Shape =
-  | { readonly tag: "Square"; readonly side: bigint }
-  | { readonly tag: "Rect"; readonly width: bigint; readonly height: bigint };
+  | { readonly $tag: "Square"; readonly side: bigint }
+  | { readonly $tag: "Rect"; readonly width: bigint; readonly height: bigint };
 export declare function area(arg0: Shape): bigint;
 export declare function grow(arg0: Shape): Shape;

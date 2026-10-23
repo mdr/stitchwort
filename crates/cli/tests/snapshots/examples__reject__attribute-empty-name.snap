@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: a constructor's tag can't be the empty string
+   ╭─[ reject/attribute-empty-name.sw:3:7 ]
+   │
+ 3 │   | @[js.name ""] Circle (radius: Nat)
+   │       ─────┬────  
+   │            ╰────── empty
+───╯

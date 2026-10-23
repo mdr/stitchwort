@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.name` can't be used on `valueOk`: it's a proof, so it has no property in JavaScript
+   ╭─[ reject/attribute-on-erased-field.sw:3:33 ]
+   │
+ 3 │ type Positive = { value: Nat, @[js.name "ok"] valueOk: 0 < value }
+   │                                 ──────┬─────  
+   │                                       ╰─────── `valueOk` is a proof
+───╯

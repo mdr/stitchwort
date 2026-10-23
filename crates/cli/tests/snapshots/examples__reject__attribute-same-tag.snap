@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-JS-NAME-CLASH] Error: constructors `Circle` and `Ring` of `Shape` both cross to JavaScript with the tag "ROUND"
+   ╭─[ reject/attribute-same-tag.sw:4:7 ]
+   │
+ 3 │   | @[js.name "ROUND"] Circle (radius: Nat)
+   │       ───────┬───────  
+   │              ╰───────── and here
+ 4 │   | @[js.name "ROUND"] Ring (inner: Nat) (outer: Nat)
+   │       ───────┬───────  
+   │              ╰───────── here
+   │ 
+   │ Note: give one of them another tag with `@[js.name "…"]` after its `|`
+───╯
