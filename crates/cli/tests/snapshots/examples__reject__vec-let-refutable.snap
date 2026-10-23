@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-LET-REFUTABLE] Error: this pattern doesn't match every `Vec Nat 1`: it doesn't match `VCons _ _`
+   ╭─[ reject/vec-let-refutable.sw:9:7 ]
+   │
+ 9 │   let VNil := items
+   │       ──┬─  
+   │         ╰─── doesn't match `VCons _ _`
+   │ 
+   │ Note: use `match` to say what happens otherwise
+───╯

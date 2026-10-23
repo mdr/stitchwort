@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-LET-REFUTABLE] Error: this pattern doesn't match every `Fin 2`: it doesn't match 1
+   ╭─[ reject/fin-let-refutable.sw:6:7 ]
+   │
+ 6 │   let 0 := index
+   │       ┬  
+   │       ╰── doesn't match 1
+   │ 
+   │ Note: use `match` to say what happens otherwise
+───╯
