@@ -6291,7 +6291,7 @@
     {
       "id": 393,
       "title": "Pure functions refused where an effect-polymorphic callback is expected: mapIn Succ xs, mapIn f xs (f: Nat -> Nat), mapIn (List.drop 1) xs all E-TYPE-MISMATCH 'expected a -> {?3 ..} ?4, but this has type a -> b'; only lambdas work (found by SW-369; related SW-223)",
-      "status": "doing",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
