@@ -109,12 +109,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
         .collect();
     let failure = std::cell::RefCell::new(None);
     let used = reachable(g, roots, |id| match codegen.try_info(id) {
-        Ok(info) => {
-            info.result_erased
-                || codegen.kernel_native(id).is_some()
-                || codegen.text_natives.contains_key(&id)
-                || codegen.int_natives.contains_key(&id)
-        }
+        Ok(info) => info.result_erased || codegen.is_native(id),
         Err(e) => {
             failure.borrow_mut().get_or_insert(e);
             true
@@ -139,7 +134,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
                     runtime_arity(prim)
                 )));
             }
-        } else if def.body().is_none() && !info.result_erased {
+        } else if def.body().is_none() && !info.result_erased && !codegen.is_native(id) {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name),
@@ -153,6 +148,9 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
 
     let mut js = String::from(RUNTIME);
     js.push('\n');
+    if codegen.float.is_some() {
+        js.push_str(crate::FLOAT_BITS);
+    }
     js.push_str(TEXT_AS_STRING);
     js.push_str(CHARS_OF_TEXT);
     js.push_str(TEXT_OF_CHARS);

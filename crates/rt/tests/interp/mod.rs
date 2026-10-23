@@ -11,13 +11,15 @@ use num_bigint::{BigInt, BigUint, Sign};
 use stitchwort_core::native::Native;
 use stitchwort_rt::Program;
 use stitchwort_rt::ir::{Expr, GlobalId, GlobalKind, Lit, MatchKind, PrimOp};
-use stitchwort_rt::natives::{IntNative, TextNative};
+use stitchwort_rt::natives::{FloatPrim, IntNative, TextNative};
 
 #[derive(Clone, Debug)]
 pub enum V {
     Nat(BigUint),
     Int(BigInt),
     Text(Rc<str>),
+    /// A `Float`, by its bits, the NaN canonical.
+    Float(u64),
     Ctor(u32, Rc<[V]>),
     Fun(Rc<Fun>),
     Erased,
@@ -196,6 +198,7 @@ impl<'p> Interp<'p> {
                 Lit::Int(n) => V::Int(n.clone()),
                 Lit::Text(t) => V::Text(t.clone()),
                 Lit::Chars(t) => chars(t),
+                Lit::Float(bits) => V::Float(*bits),
             },
             Expr::DoneK => V::Fun(Rc::new(Fun::DoneK)),
             Expr::Call(g, args) => {
@@ -478,6 +481,42 @@ impl<'p> Interp<'p> {
                 }
             }
             PrimOp::Delay(_) => return Err("unsupported: a partial computation".into()),
+            // On the bits, written apart from the runtime's (which works on
+            // `f64`s): the model's definitions (std/Float/Float.sw), with
+            // `f64` only for the rounding operations.
+            PrimOp::Float(f) => {
+                const SIGN: u64 = 1 << 63;
+                const NAN: u64 = 0x7FF8_0000_0000_0000;
+                let bits = |v: &V| match v {
+                    V::Float(b) => Ok(*b),
+                    _ => Err("expected a Float".to_string()),
+                };
+                let canonical = |x: f64| if x.is_nan() { NAN } else { x.to_bits() };
+                let a = bits(&args[0]);
+                match f {
+                    FloatPrim::Add => V::Float(canonical(
+                        f64::from_bits(a?) + f64::from_bits(bits(&args[1])?),
+                    )),
+                    FloatPrim::Sub => V::Float(canonical(
+                        f64::from_bits(a?) - f64::from_bits(bits(&args[1])?),
+                    )),
+                    FloatPrim::Neg => V::Float(match a? {
+                        NAN => NAN,
+                        b => b ^ SIGN,
+                    }),
+                    FloatPrim::Abs => V::Float(a? & !SIGN),
+                    FloatPrim::IsNaN => boolean(a? == NAN),
+                    FloatPrim::DecEq => decision(a? == bits(&args[1])?),
+                    FloatPrim::IeeeEq => {
+                        let (x, y) = (a?, bits(&args[1])?);
+                        boolean(x != NAN && (x == y || (x | y) & !SIGN == 0))
+                    }
+                    FloatPrim::FromBits => V::Float(
+                        u64::try_from(nat(&args[0])?).map_err(|_| "bits beyond 64".to_string())?,
+                    ),
+                    FloatPrim::Bits => V::Nat(BigUint::from(a?)),
+                }
+            }
         })
     }
 }

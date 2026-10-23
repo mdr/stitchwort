@@ -2611,6 +2611,7 @@ impl<'t> Parser<'t> {
                 Tok::Lower(_)
                     | Tok::Upper(_)
                     | Tok::Num(_)
+                    | Tok::Float(_)
                     | Tok::Char(_)
                     | Tok::Str(_)
                     | Tok::StrStart(_)
@@ -2856,6 +2857,11 @@ impl<'t> Parser<'t> {
                 self.bump();
                 Ok(Expr::Num(n.clone(), span))
             }
+            Some(Tok::Float(text)) => {
+                let text = text.clone();
+                self.bump();
+                Ok(Expr::Float(text, span))
+            }
             Some(Tok::Str(s)) => {
                 let s = s.clone();
                 self.bump();
@@ -3045,6 +3051,7 @@ fn describe(tok: &Tok) -> String {
     match tok {
         Tok::Lower(s) | Tok::Upper(s) => format!("`{s}`"),
         Tok::Num(n) => format!("`{n}`"),
+        Tok::Float(text) => format!("`{text}`"),
         Tok::Str(s) => format!("`\"{s}\"`"),
         Tok::StrStart(_) | Tok::StrMid(_) | Tok::StrEnd(_) => "a text literal".into(),
         Tok::Char(c) => format!("`'{c}'`"),

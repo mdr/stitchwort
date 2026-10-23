@@ -141,6 +141,15 @@ pub struct Builtins {
     /// Text literals are elaborated as constructors, not compactly: for tests
     /// that compare the two. The kernel still accepts compact lists.
     pub disable_compact_text: bool,
+    /// The library's `Float` and the theorems a float native refers to
+    /// (`float.rs`), once bound.
+    pub float: crate::float::FloatBinding,
+    /// The float primitives and the definitions with float natives.
+    pub(crate) float_defs: HashMap<DefId, crate::float::FloatDef>,
+    /// Off in tests that compare the float natives with their definitions
+    /// while the number natives stay on (`disable_natives` turns both off).
+    /// The float primitives' reduction rule is never off.
+    pub disable_float_natives: bool,
 }
 
 impl Builtins {
@@ -159,6 +168,40 @@ impl Builtins {
 
     pub(crate) fn register_primitive(&mut self, prim: Primitive, id: DefId) {
         self.primitives.insert(id, prim);
+    }
+
+    /// What the evaluator computes for float definition `id`: a primitive
+    /// always, a native unless natives are off.
+    #[inline]
+    pub fn float_def(&self, id: DefId) -> Option<crate::float::FloatDef> {
+        if self.float_defs.is_empty() {
+            return None;
+        }
+        match self.float_defs.get(&id).copied()? {
+            crate::float::FloatDef::Native(_)
+                if self.disable_natives || self.disable_float_natives =>
+            {
+                None
+            }
+            def => Some(def),
+        }
+    }
+
+    /// Which float primitive `id` is, if it's one.
+    pub fn float_primitive(&self, id: DefId) -> Option<crate::float::FloatOp> {
+        match self.float_defs.get(&id)? {
+            crate::float::FloatDef::Primitive(op) => Some(*op),
+            crate::float::FloatDef::Native(_) => None,
+        }
+    }
+
+    /// Which float native `id` has, if any, whether or not natives are on:
+    /// for the runtimes, which bind their own implementations to it.
+    pub fn float_native(&self, id: DefId) -> Option<crate::float::FloatNative> {
+        match self.float_defs.get(&id)? {
+            crate::float::FloatDef::Native(n) => Some(*n),
+            crate::float::FloatDef::Primitive(_) => None,
+        }
     }
 
     pub fn native(&self, id: DefId) -> Option<Native> {
@@ -181,6 +224,7 @@ impl Builtins {
             decidable: self.decidable,
             nat_neq: self.nat_neq,
             text: self.text.clone(),
+            float: self.float.clone(),
         }
     }
 
@@ -190,13 +234,16 @@ impl Builtins {
     pub(crate) fn rewind(&mut self, mark: &BuiltinsMark, defs: usize) {
         self.natives.retain(|id, _| id.0 < defs);
         self.primitives.retain(|id, _| id.0 < defs);
+        self.float_defs.retain(|id, _| id.0 < defs);
         let BuiltinsMark {
             nat,
             bool,
             decidable,
             nat_neq,
             text,
+            float,
         } = mark.clone();
+        self.float = float;
         self.nat = nat;
         self.bool = bool;
         self.decidable = decidable;
@@ -213,6 +260,7 @@ pub(crate) struct BuiltinsMark {
     decidable: Option<DataId>,
     nat_neq: Option<DefId>,
     text: Option<crate::chars::CompactText>,
+    float: crate::float::FloatBinding,
 }
 
 type Result<T> = std::result::Result<T, Diagnostic>;

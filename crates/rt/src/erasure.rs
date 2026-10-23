@@ -52,7 +52,10 @@ pub fn def_shape(g: &Globals, id: DefId, primitives_whole: bool) -> Result<DefSh
         _ => false,
     };
     let params: Vec<bool> = tel.params.iter().map(|(_, _, erased)| *erased).collect();
-    let mask_len = if primitives_whole && g.builtins.primitive(id).is_some() {
+    // A float primitive has no body either, and no parameter to erase.
+    let mask_len = if (primitives_whole && g.builtins.primitive(id).is_some())
+        || g.builtins.float_primitive(id).is_some()
+    {
         params.len()
     } else {
         def.arity

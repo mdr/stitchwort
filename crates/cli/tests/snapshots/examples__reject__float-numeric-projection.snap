@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a field name after `.`
+   ╭─[ reject/float-numeric-projection.sw:6:23 ]
+   │
+ 6 │ def first: Nat := pair.0.1
+   │                       ┬  
+   │                       ╰── expected a field name after `.`
+   │ 
+   │ Note: `.` is for field access, as in `p.name`
+───╯

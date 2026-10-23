@@ -281,6 +281,24 @@ impl<'g> Printer<'g> {
                 args.iter().map(|a| &**a),
             ),
             Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
+            // A double with known bits and the standard witness, as its
+            // literal: `1.5`, `-0.0`, `Float.nan`.
+            Term::Ctor(d, 0, args)
+                if Some(*d) == self.g.builtins.float.data
+                    && let [bits, witness] = args.as_slice()
+                    && matches!(witness.strip_loc(), Term::Refl)
+                    && let Term::Nat(n) = bits.strip_loc()
+                    && let Some(bits) = num_traits::ToPrimitive::to_u64(&**n)
+                        .filter(|b| crate::float::is_valid(*b)) =>
+            {
+                let text = crate::float::source(bits);
+                let prec = if text.starts_with('-') {
+                    Prec::App
+                } else {
+                    Prec::Atom
+                };
+                (text, prec)
+            }
             // A record, as a literal: `{ name = "A", age = 3 }`.
             Term::Ctor(d, 0, args) if self.g.data(*d).record => {
                 let fields: Vec<String> = self.g.data(*d).ctors[0]

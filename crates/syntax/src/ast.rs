@@ -25,6 +25,8 @@ pub enum Expr {
     /// A variable, function, data type or constructor name.
     Var(Name),
     Num(BigUint, Span),
+    /// A decimal or exponent literal, as written: `1.5`, `1e3`.
+    Float(String, Span),
     /// A text literal: `"héllo"`.
     Str(String, Span),
     /// `include "path"`: the text of a file, read when the program is checked.
@@ -303,6 +305,7 @@ impl Expr {
         match self {
             Expr::Var(name) => name.span,
             Expr::Num(_, span)
+            | Expr::Float(_, span)
             | Expr::Char(_, span)
             | Expr::Str(_, span)
             | Expr::Include(_, span)
@@ -423,6 +426,7 @@ fn is_leaf(expr: &Expr) -> bool {
         expr,
         Expr::Var(_)
             | Expr::Num(..)
+            | Expr::Float(..)
             | Expr::Str(..)
             | Expr::Include(..)
             | Expr::Char(..)

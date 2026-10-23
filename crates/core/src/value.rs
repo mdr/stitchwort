@@ -1226,6 +1226,11 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
+    if g.builtins.float_def(id).is_some()
+        && let Some(value) = crate::float::run(g, id, &spine, force)?
+    {
+        return Ok(Control::Return(value));
+    }
     if let Some(op) = g.builtins.native(id)
         && op.arity() == spine.len()
     {

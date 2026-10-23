@@ -86,6 +86,28 @@ pub fn check_index(source: &str) -> String {
     stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "", &reported)
 }
 
+/// `Float`'s kernel gate (docs/proposals/float.md §3.4) on this build's
+/// kernel, with natives on and with the float natives off: for the test that
+/// runs it on the WebAssembly kernel (web/tests/float-wasm.mjs). One line
+/// per check, `PASS|FAIL [mode] name: detail`.
+#[doc(hidden)]
+#[wasm_bindgen]
+pub fn float_gate() -> String {
+    use stitchwort_driver::float_gate::{Mode, run};
+    run(&[Mode::NativesOn, Mode::FloatNativesOff], session_limits())
+        .iter()
+        .map(|c| {
+            format!(
+                "{} [{}] {}: {}\n",
+                if c.passed { "PASS" } else { "FAIL" },
+                c.mode.name(),
+                c.name,
+                c.detail
+            )
+        })
+        .collect()
+}
+
 /// The text of an embedded library file, by the `std` value of a file of
 /// the index (`List/Toolkit.sw`; `core/Int.sw` is a file of the core): empty if there's
 /// none.

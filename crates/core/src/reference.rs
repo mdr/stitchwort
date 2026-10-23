@@ -242,6 +242,9 @@ pub fn force(g: &Globals, value: Value) -> Result<Value> {
 }
 
 fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
+    if let Some(value) = crate::float::run(g, id, &spine, force)? {
+        return Ok(value);
+    }
     if let Some(op) = g.builtins.native(id)
         && op.arity() == spine.len()
     {

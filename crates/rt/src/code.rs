@@ -642,6 +642,7 @@ impl<'a> Compiler<'a> {
                     Lit::Int(n) => Value::int(n.clone()),
                     Lit::Text(t) => Value::Text(t.clone()),
                     Lit::Chars(t) => crate::prims::chars(&self.program.shapes, t),
+                    Lit::Float(bits) => Value::float(f64::from_bits(*bits)),
                 };
                 let k = self.constant(v);
                 self.simple(Instr::Const { dst, k }, dst, tail);

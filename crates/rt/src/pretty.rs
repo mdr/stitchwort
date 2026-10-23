@@ -136,6 +136,9 @@ impl Program {
                 Lit::Chars(t) => {
                     let _ = write!(out, "chars{:?}", &**t);
                 }
+                Lit::Float(bits) => {
+                    out.push_str(&stitchwort_core::float::source(*bits));
+                }
             },
             Expr::Call(g, args) => {
                 out.push_str(&self.globals[g.0 as usize].name);

@@ -12,6 +12,9 @@ pub enum Tok {
     Upper(String),
     /// A number literal, of any size.
     Num(BigUint),
+    /// A decimal or exponent literal, `1.5`, `1e3`, `2.5E-7`, as written: a
+    /// `Float` (docs/proposals/float.md §2.3).
+    Float(String),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
     /// The text before `${` in an interpolated string: `"a${x}"`.
@@ -249,10 +252,39 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             while i < bytes.len() && bytes[i].is_ascii_digit() {
                 i += 1;
             }
-            let n = text[start..i]
-                .parse()
-                .expect("a run of ASCII digits is a valid number");
-            Tok::Num(n)
+            // A decimal point needs a digit after it (so `1..n` is a
+            // range), and an exponent at least one digit. A number right
+            // after a `.` is digits only, so `xs.0.1` stays `xs` `.` `0`
+            // `.` `1` (docs/proposals/float.md §2.3).
+            let after_dot = start > 0 && bytes[start - 1] == b'.';
+            let mut float = false;
+            if !after_dot {
+                if bytes.get(i) == Some(&b'.') && bytes.get(i + 1).is_some_and(u8::is_ascii_digit) {
+                    i += 1;
+                    while i < bytes.len() && bytes[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                    float = true;
+                }
+                if matches!(bytes.get(i), Some(b'e' | b'E')) {
+                    let sign = usize::from(matches!(bytes.get(i + 1), Some(b'+' | b'-')));
+                    if bytes.get(i + 1 + sign).is_some_and(u8::is_ascii_digit) {
+                        i += 1 + sign;
+                        while i < bytes.len() && bytes[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                        float = true;
+                    }
+                }
+            }
+            if float {
+                Tok::Float(text[start..i].to_string())
+            } else {
+                let n = text[start..i]
+                    .parse()
+                    .expect("a run of ASCII digits is a valid number");
+                Tok::Num(n)
+            }
         } else if c == b'"' {
             let block = text[i..].starts_with("\"\"\"");
             let (chars, stop, interpolation, rest) = if block {
@@ -832,6 +864,76 @@ mod tests {
                 Tok::KwIf,
                 Tok::KwThen,
                 Tok::KwElse,
+            ])
+        );
+    }
+
+    #[test]
+    fn decimal_and_exponent_literals() {
+        let float = |s: &str| Tok::Float(s.into());
+        let num = |n: u32| Tok::Num(n.into());
+        assert_eq!(
+            tokens("1.5 80281.87 0.25 1e3 1.5e-7 2.0E21 3e+2 42"),
+            Ok(vec![
+                float("1.5"),
+                float("80281.87"),
+                float("0.25"),
+                float("1e3"),
+                float("1.5e-7"),
+                float("2.0E21"),
+                float("3e+2"),
+                num(42),
+            ])
+        );
+        // A digit is needed after `.` and in an exponent: ranges, spreads and
+        // names are untouched.
+        assert_eq!(
+            tokens("1..n [x, ..rest] 5. 2e 2ex x.y List.map"),
+            Ok(vec![
+                num(1),
+                Tok::DotDot,
+                Tok::Lower("n".into()),
+                Tok::LBracket,
+                Tok::Lower("x".into()),
+                Tok::Comma,
+                Tok::DotDot,
+                Tok::Lower("rest".into()),
+                Tok::RBracket,
+                num(5),
+                Tok::Dot,
+                num(2),
+                Tok::Lower("e".into()),
+                num(2),
+                Tok::Lower("ex".into()),
+                Tok::Lower("x".into()),
+                Tok::Dot,
+                Tok::Lower("y".into()),
+                Tok::Lower("List.map".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_number_right_after_a_dot_is_digits_only() {
+        // `xs.0.1` stays `xs` `.` `0` `.` `1`, never `xs` `.` `0.1`
+        // (docs/proposals/float.md §2.3), and `p.fst.snd` is unchanged.
+        assert_eq!(
+            tokens("xs.0.1 p.fst.snd x.1e3"),
+            Ok(vec![
+                Tok::Lower("xs".into()),
+                Tok::Dot,
+                Tok::Num(0u32.into()),
+                Tok::Dot,
+                Tok::Num(1u32.into()),
+                Tok::Lower("p".into()),
+                Tok::Dot,
+                Tok::Lower("fst".into()),
+                Tok::Dot,
+                Tok::Lower("snd".into()),
+                Tok::Lower("x".into()),
+                Tok::Dot,
+                Tok::Num(1u32.into()),
+                Tok::Lower("e3".into()),
             ])
         );
     }

@@ -38,8 +38,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
     args.reverse();
     // A number literal takes its type from where it's used: `5 |> f` is
     // `f 5`, whatever number type `f` takes.
-    if crate::numbers::literal(value).is_some() && !matches!(f, Expr::Lam(..) | Expr::TypedLam(..))
-    {
+    if crate::numbers::any_literal(value) && !matches!(f, Expr::Lam(..) | Expr::TypedLam(..)) {
         args.push(Arg::Explicit(value));
         return infer_app(cx, head, &args);
     }

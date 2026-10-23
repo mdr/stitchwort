@@ -29,7 +29,7 @@ use num_bigint::BigInt;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::{BigUint, DataId, DefId, native};
 
-use crate::natives::{IntNative, TextNative};
+use crate::natives::{FloatPrim, IntNative, TextNative};
 
 /// A slot of a frame.
 pub type Slot = u32;
@@ -243,6 +243,8 @@ pub enum Lit {
     Text(Rc<str>),
     /// A `List Char`, stored compactly: a text literal's characters.
     Chars(Rc<str>),
+    /// A `Float`, by its canonical bits.
+    Float(u64),
 }
 
 /// A native operation.
@@ -265,6 +267,8 @@ pub enum PrimOp {
     /// One of `Delay`'s constants, building a partial computation that the
     /// runner steps (docs/proposals/partial.md §7.4).
     Delay(Primitive),
+    /// A `Float` operation, where a `Float` is a native double.
+    Float(FloatPrim),
 }
 
 impl PrimOp {
@@ -306,6 +310,7 @@ impl PrimOp {
                 Primitive::BindD | Primitive::MapSig | Primitive::Pfix => 2,
                 Primitive::Delay => 0,
             },
+            PrimOp::Float(op) => op.arity(),
         }
     }
 
@@ -319,6 +324,7 @@ impl PrimOp {
             PrimOp::TextEqual => "TextEqual".into(),
             PrimOp::Text(op) => format!("{op:?}"),
             PrimOp::Delay(prim) => prim.name().to_string(),
+            PrimOp::Float(op) => format!("Float{op:?}"),
         }
     }
 }

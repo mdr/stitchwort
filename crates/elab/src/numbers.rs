@@ -5,17 +5,19 @@
 //! A group is a maximal tree of `+ - * / %` and prefix `-`, or a comparison
 //! (`=`, `!=`, `==`, `<`, `<=`) with the trees on both sides. Everything else
 //! in it is a *leaf*. The group gets one operand type `T`, decided by, in
-//! order: the expected type, a prefix `-` (which forces `Int`), the leaves
-//! without literals, the other leaves, and finally a default of `Nat`. The
-//! leaves are only *typed* out of order: the term built keeps every leaf in
-//! its place, so evaluation is still left to right.
+//! order (D732, docs/proposals/float.md §2.4): the expected type, a decimal
+//! or exponent literal (`Float`), the leaves without literals, a prefix `-`
+//! (which makes an otherwise undecided group `Int`), the other leaves, and
+//! finally a default of `Nat`. The leaves are only *typed* out of order: the
+//! term built keeps every leaf in its place, so evaluation is still left to
+//! right.
 
 use std::rc::Rc;
 
 use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force};
-use stitchwort_core::{DefId, Icit, Sort, Term, Value};
+use stitchwort_core::{DataId, DefId, Icit, Sort, Term, Value};
 use stitchwort_syntax::ast::{BinOp, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -36,6 +38,8 @@ pub(crate) struct Defaulted {
 enum Kind {
     Nat,
     Int,
+    /// The library's `Float` (std/Float/Float.sw), a double.
+    Float,
 }
 
 impl Kind {
@@ -43,6 +47,7 @@ impl Kind {
         match self {
             Kind::Nat => "a `Nat`",
             Kind::Int => "an `Int`",
+            Kind::Float => "a `Float`",
         }
     }
 }
@@ -67,6 +72,11 @@ fn classify(cx: &Ctx, ty: &Value) -> Result<Class> {
         Value::Data(d, params) if params.is_empty() && Some(d) == g.registry.data(Builtin::Int) => {
             Class::Num(Kind::Int)
         }
+        Value::Data(d, params)
+            if params.is_empty() && Some(d) == g.registry.loaded_data(Builtin::Float) =>
+        {
+            Class::Num(Kind::Float)
+        }
         Value::Neutral(Head::Meta(_), _) => Class::Unknown,
         _ => Class::Other,
     })
@@ -76,8 +86,32 @@ fn num_type(cx: &Ctx, kind: Kind) -> Result<Value> {
     let d = match kind {
         Kind::Nat => nat(cx)?,
         Kind::Int => builtin_data(cx, Builtin::Int)?,
+        Kind::Float => float_data(cx)?,
     };
     Ok(Value::Data(d, Vec::new()))
+}
+
+/// The library's `Float`, which a decimal literal loads (its references
+/// include `Std.Float`, `module.rs`).
+fn float_data(cx: &Ctx) -> Result<DataId> {
+    cx.g().registry.loaded_data(Builtin::Float).ok_or_else(|| {
+        cx.error(
+            "E-UNKNOWN-NAME",
+            "a decimal literal is a `Float`, and the library's `Std.Float` isn't loaded",
+            "here",
+        )
+    })
+}
+
+/// One of the library's `Float` definitions.
+fn float_def(cx: &Ctx, b: Builtin) -> Result<DefId> {
+    cx.g().registry.loaded_def(b).ok_or_else(|| {
+        cx.error(
+            "E-UNKNOWN-NAME",
+            format!("this needs the library's `{}`", b.name()),
+            "here",
+        )
+    })
 }
 
 // Literals
@@ -95,6 +129,150 @@ pub(crate) fn literal(expr: &Expr) -> Option<(&BigUint, bool)> {
     }
 }
 
+/// `d` or `-d`, for a decimal or exponent literal `d`: its text, and
+/// whether it's negative.
+pub(crate) fn decimal(expr: &Expr) -> Option<(&str, bool)> {
+    match expr {
+        Expr::Float(d, _) => Some((d, false)),
+        Expr::Neg(inner, _) => match &**inner {
+            Expr::Float(d, _) => Some((d, true)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// Whether `expr` is a literal on its own, `k`, `d`, `-k` or `-d`: it takes
+/// its type from where it's used.
+pub(crate) fn any_literal(expr: &Expr) -> bool {
+    literal(expr).is_some() || decimal(expr).is_some()
+}
+
+/// The double a decimal literal stands for: the decimal value, correctly
+/// rounded (ties to even), by Rust's `str::parse::<f64>`. Refused when it
+/// overflows to an infinity, or when it isn't zero but rounds to zero
+/// (docs/proposals/float.md §2.3). `negative` is only for the message: the
+/// literal's own text has no sign.
+fn decimal_bits(cx: &Ctx, text: &str, negative: bool) -> Result<u64> {
+    let value: f64 = text
+        .parse()
+        .expect("the lexer only makes decimal and exponent literals");
+    if value.is_infinite() {
+        return Err(cx
+            .error(
+                "E-FLOAT-LITERAL",
+                format!(
+                    "`{}{text}` is too large for a `Float`",
+                    if negative { "-" } else { "" }
+                ),
+                "this would be an infinity",
+            )
+            .with_note(if negative {
+                "write `-Float.infinity` if an infinity is meant"
+            } else {
+                "write `Float.infinity` if an infinity is meant"
+            }));
+    }
+    let mantissa = text.split(['e', 'E']).next().unwrap_or(text);
+    if value == 0.0 && mantissa.bytes().any(|b| (b'1'..=b'9').contains(&b)) {
+        let zero = if negative { "-0.0" } else { "0.0" };
+        return Err(cx
+            .error(
+                "E-FLOAT-LITERAL",
+                format!(
+                    "`{}{text}` is too small for a `Float`: it would be `{zero}`",
+                    if negative { "-" } else { "" }
+                ),
+                "this isn't zero, but the nearest double is",
+            )
+            .with_note(format!("write `{zero}` if zero is meant")));
+    }
+    Ok(value.to_bits())
+}
+
+/// The double a whole literal `k` stands for at `Float`: exactly `k`, or
+/// refused if `k` isn't a double (a whole literal reads as exact, so it
+/// isn't rounded; docs/proposals/float.md §2.3).
+fn whole_bits(cx: &Ctx, k: &BigUint, negative: bool) -> Result<u64> {
+    let sign = if negative { "-" } else { "" };
+    let value: f64 = k.to_string().parse().expect("digits are a valid `f64`");
+    if value.is_infinite() {
+        return Err(cx
+            .error(
+                "E-FLOAT-LITERAL",
+                format!("`{sign}{k}` is too large for a `Float`"),
+                "this would be an infinity",
+            )
+            .with_note("write `Float.infinity` if an infinity is meant"));
+    }
+    // Rust prints a double with a precision exactly, so this is the whole
+    // number the double is.
+    let show = |x: f64| format!("{x:.0}");
+    if show(value) != k.to_string() {
+        let (below, above) = if show(value).parse::<BigUint>().is_ok_and(|v| v > *k) {
+            (value.next_down(), value)
+        } else {
+            (value, value.next_up())
+        };
+        return Err(cx
+            .error(
+                "E-FLOAT-LITERAL",
+                format!("`{sign}{k}` isn't exactly a `Float`"),
+                format!(
+                    "the nearest are `{sign}{}` and `{sign}{}`",
+                    show(below),
+                    show(above)
+                ),
+            )
+            .with_note(format!(
+                "a whole number reads as exact; write one of those, or `{sign}{k}.0` to ask for rounding"
+            )));
+    }
+    Ok(value.to_bits())
+}
+
+/// The term for the double with `bits`, as a literal (`{ bits = k, valid =
+/// Eq.refl True }`, the record the kernel's float rules build), negated by
+/// `Float.neg` if `negative`: so `-0` at `Float` is `-0.0`, as in JS.
+fn float_term(cx: &Ctx, bits: u64, negative: bool) -> Result<Term> {
+    let term = stitchwort_core::float::literal_term(float_data(cx)?, bits);
+    Ok(if negative {
+        Term::app(Term::Def(float_def(cx, Builtin::FloatNeg)?), term)
+    } else {
+        term
+    })
+}
+
+/// Checks the decimal literal `text` (or its negation) against `expected`,
+/// which must be `Float` (or still unknown, when it becomes `Float`).
+pub(crate) fn check_decimal(
+    cx: &mut Ctx,
+    text: &str,
+    negative: bool,
+    expected: &Value,
+) -> Result<Term> {
+    let float = num_type(cx, Kind::Float)?;
+    match classify(cx, expected)? {
+        Class::Num(Kind::Float) => {}
+        Class::Unknown if cx.unify(&float, expected)? => {}
+        _ => {
+            return Err(cx
+                .mismatch(expected, &float)
+                .with_note("a decimal or exponent literal is a `Float`"));
+        }
+    }
+    float_term(cx, decimal_bits(cx, text, negative)?, negative)
+}
+
+/// A decimal literal with nothing expected: a `Float`.
+pub(crate) fn infer_decimal(cx: &mut Ctx, text: &str) -> Result<(Term, Value)> {
+    let float = num_type(cx, Kind::Float)?;
+    Ok((
+        float_term(cx, decimal_bits(cx, text, false)?, false)?,
+        float,
+    ))
+}
+
 /// Checks the literal `k` (or `-k`) against `expected`: a `Nat` is the
 /// number, an `Int` is `OfNat k` or `NegSucc (k - 1)` (and `-0` is
 /// `OfNat 0`). An unknown type becomes `Nat` (or `Int`, for `-k`).
@@ -110,6 +288,7 @@ pub(crate) fn check_literal(
             .with_note("use an `Int` for numbers that can be negative")),
         Class::Num(Kind::Nat) => Ok(Term::Nat(Rc::new(k.clone()))),
         Class::Num(Kind::Int) => int_literal(cx, k, negative),
+        Class::Num(Kind::Float) => float_term(cx, whole_bits(cx, k, negative)?, negative),
         Class::Unknown => {
             let kind = if negative { Kind::Int } else { Kind::Nat };
             let found = num_type(cx, kind)?;
@@ -205,7 +384,8 @@ struct Leaf<'a> {
     expr: &'a Expr,
     /// The operator it's an operand of, for error messages.
     op: &'static str,
-    /// A literal `k` or `-k` on its own: it waits until `T` is decided.
+    /// A literal `k`, `-k`, `d` or `-d` on its own: it waits until `T` is
+    /// decided.
     bare: bool,
     state: State,
 }
@@ -223,6 +403,9 @@ struct Group<'a> {
     leaves: Vec<Leaf<'a>>,
     /// The first prefix `-`, including a negative literal's.
     minus: Option<Span>,
+    /// The first decimal or exponent literal on its own, which makes it a
+    /// `Float` group.
+    decimal: Option<usize>,
     /// Whether it has an arithmetic operator.
     arith: bool,
     /// Whether it's `<` or `<=`.
@@ -297,7 +480,7 @@ impl<'a> Group<'a> {
             Expr::Neg(inner, span) => {
                 self.minus.get_or_insert(*span);
                 self.numeric_only.get_or_insert("-");
-                if literal(expr).is_some() {
+                if any_literal(expr) {
                     return Ok(self.leaf(expr, op));
                 }
                 Ok(Node::Neg(Box::new(self.tree(cx, inner, "-")?), *span))
@@ -307,10 +490,13 @@ impl<'a> Group<'a> {
     }
 
     fn leaf(&mut self, expr: &'a Expr, op: &'static str) -> Node {
+        if decimal(expr).is_some() && self.decimal.is_none() {
+            self.decimal = Some(self.leaves.len());
+        }
         self.leaves.push(Leaf {
             expr,
             op,
-            bare: literal(expr).is_some(),
+            bare: any_literal(expr),
             state: State::Waiting,
         });
         Node::Leaf(self.leaves.len() - 1)
@@ -384,7 +570,7 @@ pub(crate) fn map_leaves(
                 let b = tree(cx, b, f)?;
                 Ok(Expr::Binary(*op, Box::new(a), Box::new(b)))
             }
-            Expr::Neg(inner, span) if literal(expr).is_none() => {
+            Expr::Neg(inner, span) if !any_literal(expr) => {
                 Ok(Expr::Neg(Box::new(tree(cx, inner, f)?), *span))
             }
             _ => f(cx, expr),
@@ -465,7 +651,39 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
         }
     }
 
-    // 2. Minus signs.
+    // 2. A decimal or exponent literal: a `Float`.
+    if decided.is_none()
+        && let Some(i) = g.decimal
+    {
+        decided = Some((num_type(cx, Kind::Float)?, Decider::Leaf(i)));
+    }
+
+    // 3. Pass 1: leaves that can't default anything. With a prefix `-` in
+    // the group, only an `Int` or a `Float` leaf decides here: any other
+    // leaf is left inferred, and the `-` below makes the group `Int`, so the
+    // leaf's mismatch is reported against the `-` (as when the `-` came
+    // first).
+    for i in 0..g.leaves.len() {
+        if decided.is_some() {
+            break;
+        }
+        let expr = g.leaves[i].expr;
+        if !matches!(expr, Expr::Ann(..)) && (has_number(expr) || hopeless(expr)) {
+            continue;
+        }
+        if g.minus.is_some() {
+            if let Some((term, ty)) = probe_leaf(cx, &mut g, i)? {
+                if let Class::Num(kind @ (Kind::Int | Kind::Float)) = classify(cx, &ty)? {
+                    decided = Some((num_type(cx, kind)?, Decider::Leaf(i)));
+                }
+                g.leaves[i].state = State::Inferred(term, ty);
+            }
+            continue;
+        }
+        decided = infer_leaf(cx, &mut g, i, equality)?;
+    }
+
+    // 4. Minus signs: an otherwise undecided group is an `Int`.
     if let Some(span) = g.minus {
         match &decided {
             None => decided = Some((num_type(cx, Kind::Int)?, Decider::Minus(span))),
@@ -481,19 +699,7 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
         }
     }
 
-    // 3. Pass 1: leaves that can't default anything.
-    for i in 0..g.leaves.len() {
-        if decided.is_some() {
-            break;
-        }
-        let expr = g.leaves[i].expr;
-        if !matches!(expr, Expr::Ann(..)) && (has_number(expr) || hopeless(expr)) {
-            continue;
-        }
-        decided = infer_leaf(cx, &mut g, i, equality)?;
-    }
-
-    // 4. Pass 2: the rest, except bare literals.
+    // 5. Pass 2: the rest, except bare literals.
     // A constructor with a number in it comes last, so it doesn't settle the
     // group's type (`Point 1 "p" 10 == m`: a `Mark Nat …`) before the others.
     let mut order = Vec::new();
@@ -520,7 +726,7 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
         }
     }
 
-    // 5. Defaulting.
+    // 6. Defaulting.
     if decided.is_none() {
         for (i, leaf) in g.leaves.iter().enumerate() {
             if let State::Inferred(_, ty) = &leaf.state
@@ -554,7 +760,7 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
         return Err(failed.expect("a group with no type has a leaf that failed"));
     };
 
-    // 6. Finish the leaves.
+    // 7. Finish the leaves.
     for i in 0..g.leaves.len() {
         let state = std::mem::replace(&mut g.leaves[i].state, State::Waiting);
         let term = match state {
@@ -570,7 +776,7 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
         g.leaves[i].state = State::Done(term);
     }
 
-    // 7. Build.
+    // 8. Build.
     let kind = match classify(cx, &t)? {
         Class::Num(kind) => Some(kind),
         _ => None,
@@ -685,6 +891,21 @@ fn infer_leaf(
     Ok(decision)
 }
 
+/// Infers leaf `i` in pass 1 of a group with a prefix `-`: its term and
+/// type, or `None` if it can't be inferred (left for later, with everything
+/// its attempt did undone). Unlike [`infer_leaf`], a type the group's
+/// operators don't support isn't an error here: the leaf is checked against
+/// the group's type at the end.
+fn probe_leaf(cx: &mut Ctx, g: &mut Group, i: usize) -> Result<Option<(Term, Value)>> {
+    match speculate(cx, g.leaves[i].expr)? {
+        Ok(found) => Ok(Some(found)),
+        Err(e) => {
+            g.leaves[i].state = State::Failed(e);
+            Ok(None)
+        }
+    }
+}
+
 /// Infers `expr`, or `Ok(Err(…))` if it can't be inferred, undoing whatever
 /// the attempt did to metavariables and auto obligations: unification isn't
 /// atomic, so a failed attempt may have solved some.
@@ -754,12 +975,15 @@ fn mixed(
                         cx.show(t)
                     ),
                 )
-                .with_note(match k {
-                    Kind::Int => "a `Nat` becomes an `Int` with `.toInt`, as in `n.toInt`",
-                    Kind::Nat => {
+                .with_note(match (f, k) {
+                    (Kind::Nat, Kind::Int) => {
+                        "a `Nat` becomes an `Int` with `.toInt`, as in `n.toInt`"
+                    }
+                    (Kind::Int, Kind::Nat) => {
                         "an `Int` becomes a `Nat` with `Int.toNat` (negatives become 0) or \
                      `Int.toNatChecked`"
                     }
+                    _ => "numbers of different types don't mix: there are no conversions to or from `Float` yet",
                 })
         }
         _ => Diagnostic::error("E-TYPE-MISMATCH", "type mismatch").with_label(
@@ -824,7 +1048,11 @@ fn build(
         }
         Node::Neg(x, span) => {
             let x = build(cx, *x, t, kind, leaves)?;
-            let neg = builtin_def(cx, Builtin::IntNeg)?;
+            let neg = if kind == Some(Kind::Float) {
+                float_def(cx, Builtin::FloatNeg)?
+            } else {
+                builtin_def(cx, Builtin::IntNeg)?
+            };
             Ok(Term::Loc(span, Rc::new(Term::app(Term::Def(neg), x))))
         }
     }
@@ -848,6 +1076,26 @@ fn operator(
     a: Term,
     b: Term,
 ) -> Result<Term> {
+    // `Float` has no `Add` or `Mul`: doubles break their laws
+    // (docs/proposals/float.md §2.4). Its `+` and `-` are the primitives.
+    // `<` and `<=` go through `Ord`, as on any other type.
+    if kind == Some(Kind::Float) {
+        let prim = match op {
+            BinOp::Add => Builtin::FloatAdd,
+            BinOp::Sub => Builtin::FloatSub,
+            BinOp::Lt | BinOp::Le => Builtin::Float,
+            _ => {
+                return Err(cx.error(
+                    "E-TYPE-MISMATCH",
+                    format!("`{}` isn't defined on `Float` yet", op_text(op)),
+                    "this is on `Float`",
+                ));
+            }
+        };
+        if prim != Builtin::Float {
+            return apply_def(cx, float_def(cx, prim)?, vec![a, b]);
+        }
+    }
     let through = match op {
         BinOp::Add => Some(("Std.Add", "add")),
         BinOp::Mul => Some(("Std.Mul", "mul")),
@@ -859,11 +1107,11 @@ fn operator(
         && let Some(interface) = crate::interfaces::library_interface(cx.e, path)
     {
         let dictionary = match kind {
-            None => true,
+            None | Some(Kind::Float) => true,
             Some(k) => {
                 let head = match k {
                     Kind::Nat => nat(cx)?,
-                    Kind::Int => builtin_data(cx, Builtin::Int)?,
+                    Kind::Int | Kind::Float => builtin_data(cx, Builtin::Int)?,
                 };
                 crate::interfaces::instance_ready(cx.e, interface, head)
                     && (cx.e.uniform_operators
@@ -938,7 +1186,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
     let mut stack = vec![expr];
     while let Some(e) = stack.pop() {
         match e {
-            Expr::Num(..) => return true,
+            Expr::Num(..) | Expr::Float(..) => return true,
             Expr::Var(_)
             | Expr::Str(..)
             | Expr::Include(..)
