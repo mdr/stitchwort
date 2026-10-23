@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ARITY] Error: `W` has 2 fields, but this pattern has 1
+    ╭─[ reject/ctor-fields-record-argument-arity.sw:12:5 ]
+    │
+ 12 │   | W ({ name, .. }) => name
+    │     ────────┬───────  
+    │             ╰───────── `W` has 2 fields, but this pattern has 1
+────╯

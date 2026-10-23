@@ -298,6 +298,188 @@ impl Elaborator {
             span,
         })
     }
+
+    /// `C { f = p, g, .. }` (docs/proposals/variant-fields.md §4): the
+    /// positional pattern for constructor `c` of `d`, with the pattern given
+    /// for each explicit field named, `_` for those left out (with `..`).
+    /// Implicit fields are left to `ctor_pattern_args`, which fills them
+    /// with `_` as for a positional pattern. `ty` is the type of what the
+    /// pattern matches, if known: only for the notes about a record
+    /// argument.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn ctor_fields_pattern<'a>(
+        &self,
+        d: DataId,
+        c: usize,
+        written: &ast::Name,
+        fields: &'a [(ast::Name, Pattern)],
+        rest: bool,
+        span: Span,
+        ty: Option<&Value>,
+    ) -> Result<CtorPattern<'a>> {
+        let g = &self.globals;
+        let ctor = &g.data(d).ctors[c];
+        let explicit: Vec<usize> = (0..ctor.fields.len())
+            .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+            .collect();
+        let argument = self.record_argument(d, c, &explicit, ty)?;
+        let mut seen: Vec<&ast::Name> = Vec::new();
+        for (name, _) in fields {
+            if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
+                return Err(self.unknown_ctor_field(d, c, &explicit, name, fields, argument));
+            }
+            if let Some(first) = seen.iter().find(|s| s.text == name.text) {
+                return Err(error(
+                    "E-RECORD-FIELD",
+                    name.span,
+                    format!("field `{}` is given twice", name.text),
+                )
+                .with_label(first.span, "first given here"));
+            }
+            seen.push(name);
+        }
+        fields
+            .iter()
+            .for_each(|(n, _)| self.note_ctor_field(written.span, n));
+        let mut args = Vec::new();
+        for &i in &explicit {
+            let field = &ctor.fields[i].0;
+            match fields.iter().find(|(n, _)| *n.text == **field) {
+                Some((_, p)) => args.push(Cow::Borrowed(p)),
+                None if rest => args.push(Cow::Owned(Pattern::Wildcard(span))),
+                None => {
+                    return Err(error(
+                        "E-RECORD-FIELD",
+                        span,
+                        format!(
+                            "this pattern doesn't match `{}`'s field `{field}`",
+                            ctor.name
+                        ),
+                    )
+                    .with_note("add it, or end the pattern with `..` to ignore the other fields"));
+                }
+            }
+        }
+        // `Some { value = n, .. }` where `Some` holds a record that has a
+        // field `value` too: legal, and names `Some`'s own field, but easily
+        // meant as the record's (variant-fields.md §12.3).
+        if let Some(r) = argument
+            && !fields.is_empty()
+            && fields.iter().all(|(n, _)| record_has(g, r, &n.text))
+        {
+            let field = &ctor.fields[explicit[0]].0;
+            let mut warnings = self.lambda_warnings.borrow_mut();
+            if !warnings
+                .iter()
+                .any(|w| w.labels.first().is_some_and(|l| l.span == span))
+            {
+                warnings.push(
+                    Diagnostic::warning(
+                        "W-RECORD-ARGUMENT",
+                        format!(
+                            "this names `{}`'s own field `{field}`, not a field of the record it holds",
+                            ctor.name
+                        ),
+                    )
+                    .with_label(span, format!("matches `{}`'s field `{field}`", ctor.name))
+                    .with_note(format!(
+                        "`{}`'s field holds the record type `{}`, which has fields of these names; to match \
+                         those, write `{} ({{ … }})`; to keep this meaning, write `{} p`",
+                        ctor.name,
+                        g.data(r).name,
+                        written.text,
+                        written.text
+                    )),
+                );
+            }
+        }
+        Ok(CtorPattern {
+            data: d,
+            ctor: c,
+            args,
+            span,
+        })
+    }
+
+    /// The record type of constructor `c`'s one explicit field, if it has
+    /// exactly one and its type (where the pattern's type `ty` is known) is
+    /// a record.
+    fn record_argument(
+        &self,
+        d: DataId,
+        c: usize,
+        explicit: &[usize],
+        ty: Option<&Value>,
+    ) -> Result<Option<DataId>> {
+        let g = &self.globals;
+        let [only] = explicit else {
+            return Ok(None);
+        };
+        let types = self.field_types(ty, d, c, 0)?;
+        let Some(Some(field_ty)) = types.get(*only) else {
+            return Ok(None);
+        };
+        Ok(match force(g, field_ty.clone())? {
+            Value::Data(r, _) if g.data(r).record => Some(r),
+            _ => None,
+        })
+    }
+
+    /// `C { f = … }` where `C` has no explicit field `f`.
+    fn unknown_ctor_field(
+        &self,
+        d: DataId,
+        c: usize,
+        explicit: &[usize],
+        name: &ast::Name,
+        fields: &[(ast::Name, Pattern)],
+        argument: Option<DataId>,
+    ) -> Diagnostic {
+        let g = &self.globals;
+        let ctor = &g.data(d).ctors[c];
+        if ctor.fields.iter().any(|(f, _)| **f == *name.text) {
+            return error(
+                "E-UNKNOWN-FIELD",
+                name.span,
+                format!("`{}` is an implicit field of `{}`", name.text, ctor.name),
+            )
+            .with_note(format!(
+                "braces name explicit fields only; match an implicit one positionally, \
+                 `{} [{} := p] …`",
+                ctor.name, name.text
+            ));
+        }
+        let listed: Vec<String> = explicit
+            .iter()
+            .map(|&i| format!("`{}`", ctor.fields[i].0))
+            .collect();
+        let mut e = error(
+            "E-UNKNOWN-FIELD",
+            name.span,
+            format!("`{}` has no field `{}`", ctor.name, name.text),
+        )
+        .with_note(if listed.is_empty() {
+            format!("`{}` has no fields", ctor.name)
+        } else {
+            format!("`{}`'s fields are {}", ctor.name, listed.join(", "))
+        });
+        if let Some(r) = argument
+            && fields.iter().all(|(n, _)| record_has(g, r, &n.text))
+        {
+            e = e.with_note(format!(
+                "braces right after a constructor name its own fields; to match the `{}` \
+                 it holds, write `{} ({{ … }})`",
+                g.data(r).name,
+                ctor.name
+            ));
+        }
+        e
+    }
+}
+
+/// Whether record type `r` has a field `name`.
+fn record_has(g: &stitchwort_core::Globals, r: DataId, name: &str) -> bool {
+    g.data(r).ctors[0].fields.iter().any(|(f, _)| **f == *name)
 }
 
 /// `R.field` applied to the parameters (implicitly) and the record, in the

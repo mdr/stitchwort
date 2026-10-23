@@ -628,6 +628,18 @@ pub enum Pattern {
         rest: bool,
         span: Span,
     },
+    /// `C { f = p, g, .. }`: constructor `C` with its explicit fields named,
+    /// as in a record pattern; the fields left out are `_` (with `rest`).
+    /// Braces right after a constructor always name its fields; a record
+    /// pattern as its positional argument is written in brackets,
+    /// `C ({ … })`, which is `Ctor(C, [Record { … }])`
+    /// (docs/proposals/variant-fields.md §4).
+    CtorFields {
+        ctor: Name,
+        fields: Vec<(Name, Pattern)>,
+        rest: bool,
+        span: Span,
+    },
 }
 
 impl Decl {
@@ -656,7 +668,8 @@ impl Pattern {
             | Pattern::Nil(span)
             | Pattern::Cons(_, _, span)
             | Pattern::Named(_, _, span)
-            | Pattern::Record { span, .. } => *span,
+            | Pattern::Record { span, .. }
+            | Pattern::CtorFields { span, .. } => *span,
         }
     }
 }

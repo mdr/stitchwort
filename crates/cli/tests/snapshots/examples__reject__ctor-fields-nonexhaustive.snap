@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches numbers other than 0
+    ╭─[ reject/ctor-fields-nonexhaustive.sw:10:3 ]
+    │
+ 10 │ ╭─▶   | Dot { .. }               => "dot"
+ 11 │ ├─▶   | Circle { start = 0, .. } => "at zero"
+    │ │                                               
+    │ ╰─────────────────────────────────────────────── missing case: no arm matches numbers other than 0
+    │     
+    │     Note: add an arm with a variable or `_` in that position
+────╯

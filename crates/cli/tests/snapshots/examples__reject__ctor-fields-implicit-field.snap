@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `n` is an implicit field of `VCons`
+    ╭─[ reject/ctor-fields-implicit-field.sw:11:13 ]
+    │
+ 11 │   | VCons { n, .. } => Succ n
+    │             ┬  
+    │             ╰── `n` is an implicit field of `VCons`
+    │ 
+    │ Note: braces name explicit fields only; match an implicit one positionally, `VCons [n := p] …`
+────╯

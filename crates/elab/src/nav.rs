@@ -384,6 +384,29 @@ impl Elaborator {
         }
     }
 
+    /// The field `name` of the constructor written at `ctor_at`, named in a
+    /// pattern `C { name = … }` (docs/proposals/variant-fields.md §4.3):
+    /// its target is the field's binder in the constructor's declaration.
+    pub(crate) fn note_ctor_field(&self, ctor_at: Span, name: &ast::Name) {
+        let Some(nav) = &self.nav else {
+            return;
+        };
+        let noted = nav.borrow().refs.get(&ctor_at).cloned();
+        if let Some(ctor) = noted
+            && matches!(ctor.global, Global::Ctor(..))
+        {
+            self.note(
+                name.span,
+                Noted {
+                    key: format!("{}.{}", ctor.key, name.text),
+                    target: ctor.target,
+                    global: ctor.global,
+                    dot: None,
+                },
+            );
+        }
+    }
+
     /// A local variable used at `name`, of type `ty` in `cx`.
     pub(crate) fn note_local(&self, cx: &Ctx, name: &ast::Name, ty: &Value) {
         if let Some(nav) = &self.nav {
@@ -521,15 +544,29 @@ impl Elaborator {
                 Some(span) => (span, "field"),
                 None => (noted.target, self.global_kind(global)),
             };
+            // A constructor's field named in a pattern `C { f = … }` shows
+            // the field's type, not the constructor's.
+            // and is named after the constructor's symbol.
+            let ty_of = || match (field_span, global) {
+                (Some(_), Global::Ctor(d, c)) => self.ctor_field_type(d, c, &last),
+                _ => self.global_type(global),
+            };
+            let name = match (field_span, global) {
+                (Some(_), Global::Ctor(..)) => by_span.get(&noted.target).map_or_else(
+                    || noted.key.clone(),
+                    |&i| format!("{}.{last}", symbols[i].name),
+                ),
+                _ => noted.key.clone(),
+            };
             let shown = !last.starts_with('%');
             let index = *by_span.entry(target).or_insert_with(|| {
                 symbols.push(NavSymbol {
-                    name: noted.key.clone(),
+                    name: name.clone(),
                     kind,
                     span: target,
                     range: None,
                     container: None,
-                    ty: self.global_type(global),
+                    ty: ty_of(),
                 });
                 symbols.len() - 1
             });
@@ -539,16 +576,16 @@ impl Elaborator {
                 // and by its generated member (`Ord.%equal`, a different
                 // type); the index shows the projection and its type.
                 if shown && visible.insert(index) {
-                    symbols[index].name = noted.key.clone();
-                    symbols[index].ty = self.global_type(global);
+                    symbols[index].name = name.clone();
+                    symbols[index].ty = ty_of();
                 } else if !visible.contains(&index) {
-                    symbols[index].name = noted.key.clone();
+                    symbols[index].name = name.clone();
                     if symbols[index].ty.is_none() {
-                        symbols[index].ty = self.global_type(global);
+                        symbols[index].ty = ty_of();
                     }
                 }
             } else if symbols[index].ty.is_none() {
-                symbols[index].ty = self.global_type(global);
+                symbols[index].ty = ty_of();
             }
             refs.push(NavRef {
                 span: *at,
@@ -719,6 +756,18 @@ impl Elaborator {
     }
 
     /// A declaration's type, printed.
+    /// The declared type of constructor `c`'s field `name`, in terms of the
+    /// type's parameters and the constructor's earlier fields.
+    fn ctor_field_type(&self, d: stitchwort_core::DataId, c: usize, name: &str) -> Option<String> {
+        let g = &self.globals;
+        let data = g.data(d);
+        let ctor = &data.ctors[c];
+        let i = ctor.fields.iter().position(|(f, _)| **f == *name)?;
+        let mut names: Vec<Name> = data.params.iter().map(|(n, _)| n.clone()).collect();
+        names.extend(ctor.fields[..i].iter().map(|(n, _)| n.clone()));
+        Some(pretty::term(g, &names, &ctor.fields[i].1))
+    }
+
     fn global_type(&self, global: Global) -> Option<String> {
         let g = &self.globals;
         match global {
@@ -949,6 +998,14 @@ impl Walk<'_> {
                     ctor.name.span,
                     Some(owner),
                 );
+                // For `C { f = … }` patterns: a field by its constructor.
+                for binder in &ctor.fields {
+                    for field in &binder.names {
+                        self.nav
+                            .field_spans
+                            .insert((ctor.name.span, field.text.clone()), field.span);
+                    }
+                }
             }
             for binder in &ctor.fields {
                 work.push(Work::Expr(&binder.ty));
@@ -1070,10 +1127,12 @@ impl Walk<'_> {
                             then(&mut stack, vec![Work::Pattern(a), Work::Pattern(b)]);
                         }
                         Pattern::Named(_, p, _) => then(&mut stack, vec![Work::Pattern(p)]),
-                        Pattern::Record { fields, .. } => then(
-                            &mut stack,
-                            fields.iter().map(|(_, p)| Work::Pattern(p)).collect(),
-                        ),
+                        Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
+                            then(
+                                &mut stack,
+                                fields.iter().map(|(_, p)| Work::Pattern(p)).collect(),
+                            )
+                        }
                         Pattern::Wildcard(_)
                         | Pattern::Absurd(_)
                         | Pattern::Nil(_)
@@ -1266,7 +1325,9 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
             pattern_binders(a, out);
             pattern_binders(b, out);
         }
-        Pattern::Record { fields, .. } => fields.iter().for_each(|(_, p)| pattern_binders(p, out)),
+        Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
+            fields.iter().for_each(|(_, p)| pattern_binders(p, out))
+        }
         Pattern::Named(_, p, _) => pattern_binders(p, out),
         Pattern::Wildcard(_)
         | Pattern::Absurd(_)

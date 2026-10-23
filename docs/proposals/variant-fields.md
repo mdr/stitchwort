@@ -4,7 +4,8 @@
 revision D602. Draft 1 went to an external expert review; draft 2 folds it in
 ([Response to review](#response-to-review-draft-2)). Decided: D593 (b),
 D594 (a), D595 (b). Open: D603 to D605
-([§11](#11-decisions-for-the-user)). Nothing is built.
+([§11](#11-decisions-for-the-user)). Feature 1 is built
+([§4.4](#44-as-built-feature-1)); features 2 and 3 aren't.
 
 Labels, as in the other notes:
 
@@ -489,6 +490,58 @@ generated projection's span, the whole type (`records.rs:74`, `span =
 data.span`) **[checked]**. Per-field spans of constructor binders have to be
 kept for this (the parser has them; whether the elaborator stores them per
 field I haven't checked).
+
+### 4.4 As built (feature 1)
+
+Built as 4.1 to 4.3 say, with these choices where the note left room or
+didn't match the code:
+
+- **No grouping node.** Instead of `Pattern::Group`, the parser decides:
+  wherever a constructor takes arguments (arms, `match`, `let`, tuples,
+  lists, brackets, after a field's `=`), braces right after it give a new
+  node `Pattern::CtorFields { ctor, fields, rest, span }` (`ast.rs`,
+  `Parser::ctor_args`), and `C ({ … })` stays `Ctor(C, [Record …])`, since
+  the record pattern inside brackets is parsed as an ordinary argument. The
+  two are distinguishable without the elaborator ever seeing brackets.
+- **A record pattern as a later argument needs brackets too.**
+  `MkEntry r { name, .. }` is `E-PARSE` ("a record pattern as an argument of
+  `MkEntry` is written in brackets"), so every positional record argument is
+  bracketed, not just the first. Nothing in the repository wrote one.
+  `C { … } p` is `E-PARSE` with the note to write `C ({ … }) …` (4.1).
+- **Elaboration** (`records.rs`, `ctor_fields_pattern`): the constructor is
+  found by name (the matched type isn't needed, unlike a record pattern); the
+  result is the positional pattern for the explicit fields, and
+  `ctor_pattern_args` then fills implicit fields with `_` as for any
+  positional pattern. `C { }` and `C { .. }` are allowed (`C {}` in Haskell).
+- **Errors.** Unknown name: `E-UNKNOWN-FIELD`, "`Circle` has no field
+  `colour`", noting "`Circle`'s fields are `ref`, `id`, `text`"; with the
+  4.2 note added when the constructor has one field holding a record that has
+  every name given. An implicit field's name: `E-UNKNOWN-FIELD`, "`n` is an
+  implicit field of `VCons`", noting the positional `VCons [n := p] …`. A
+  field given twice, or left out without `..`: `E-RECORD-FIELD`, as for
+  records, the latter naming the constructor.
+- **The §12.3 warning** is `W-RECORD-ARGUMENT`: braces after a one-field
+  constructor whose field's type (at the matched type) is a record having
+  every field named, as in `Some { value = n, .. }` on an `Option Item` whose
+  `Item` has a `value`. The pattern keeps its meaning (`Some`'s field).
+- **Navigation.** The walk records each constructor field's binder span by
+  the constructor's span (`field_spans`, as for records); a field name in
+  `C { f = … }` is noted against the constructor, and the index turns it into
+  a `field` symbol at the binder, named `T.C.f`, whose type is the field's
+  declared type in terms of the parameters and earlier fields (`Nat`,
+  `Vec a n`). So the per-field spans 4.3 asked about come from the syntax
+  walk; the elaborator needn't store them.
+- **Existing code.** Only `examples/accept/records.sw:32` changed, to
+  `Cons ({ lead = { name, .. }, .. }) rest` (grep of every `.sw` file,
+  including `aoc/`, `std` and the docs' snippets). Hashes of existing code
+  don't change.
+
+Examples: `examples/accept/ctor-field-patterns.sw`;
+`examples/reject/ctor-fields-*.sw` and `ctor-record-argument-unbracketed.sw`,
+which include acceptance case 1 (the bracketed form becomes `E-ARITY` once
+`W` gains a field) and coverage equal to the positional form
+(`ctor-fields-nonexhaustive.sw`, and `sameStart` by `rfl` in the accept
+example).
 
 ## 5. Feature 2: shared-field access
 

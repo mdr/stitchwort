@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: field `id` is given twice
+   ╭─[ reject/ctor-fields-duplicate-field.sw:9:18 ]
+   │
+ 9 │   | Circle { id, id = other, .. } => id
+   │              ─┬  ─┬  
+   │               ╰────── first given here
+   │                   │  
+   │                   ╰── field `id` is given twice
+───╯
