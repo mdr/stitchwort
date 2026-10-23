@@ -10,6 +10,7 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   `"` strings with `${…}` interpolation and escapes, and `'` chars with escapes)
   and the playground highlighter in `web/index.html`. If the lexer changes,
   update `syntaxes/stitchwort.tmLanguage.json`.
+- `?` goal holes are highlighted; the language server shows each hole's goal on hover.
 - **From the server**, through the standard protocol: diagnostics as you type,
   go to definition, find references, hover, and the outline. Nothing of these is
   computed in the extension.

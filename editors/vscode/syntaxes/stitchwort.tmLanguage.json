@@ -12,6 +12,7 @@
     { "include": "#keyword" },
     { "include": "#number" },
     { "include": "#type-name" },
+    { "include": "#hole" },
     { "include": "#operator" }
   ],
   "repository": {
@@ -106,6 +107,10 @@
     "type-name": {
       "name": "entity.name.type.stitchwort",
       "match": "\\b[A-Z][A-Za-z0-9_']*"
+    },
+    "hole": {
+      "name": "keyword.control.hole.stitchwort",
+      "match": "\\?"
     },
     "operator": {
       "patterns": [
