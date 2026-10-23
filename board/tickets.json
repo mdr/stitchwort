@@ -5158,7 +5158,7 @@
       "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Sonnet",
-      "where": "private lanes: adapter removal (D695), shipping dry run (D790); public: codec perf; Float 1a building; no app changes (D714)",
+      "where": "shipping dry run done (SHIP.md, D830-D837): template events with fractional times are rejected; Float 1a building; no app changes (D714)",
       "labels": [
         "design",
         "js"
@@ -5638,7 +5638,7 @@
       "title": "Design note: better Maps/Sets for practical use (lawful equality, balance, API, proofs, JS) (Matt, 23 Oct)",
       "status": "review",
       "agent": "Opus",
-      "where": "map-equality.md merged (rec: kernel quotients, B as stage 0); pack on clipboard for external review",
+      "where": "map-equality.md reviewed (E preferred, kernel spec needed); D785: v1 rejects types recursive through Map (check today's behaviour first); pending D771 stage 0, D786 draft 2",
       "labels": [
         "design",
         "std"
