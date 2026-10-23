@@ -35,7 +35,7 @@ def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 12)
 -- The joltage of some batteries turned on: the number their digits spell, in order.
 def joltageOf (on: List Battery): Nat := Nat.fromDigits (on.map .toNat)
 
--- The most joltage from turning on k batteries of the bank.
+-- The most joltage from turning on k batteries of the bank, or all of them if the bank has fewer.
 def maxJoltage (k: Nat) (bank: Bank): Nat := joltageOf (bank.best k)
 
 -- A battery, labelled with its joltage rating, a digit.
@@ -51,7 +51,7 @@ def Bank.read (t: Text): {Fail} Bank :=
     | Nil => fail msg
     | chars => chars |> .mapIn (c => need c.toDigit msg)
 
--- The digits of the largest k-digit number that is a subsequence of the bank.
+-- The digits of the largest k-digit number that is a subsequence of the bank (k digits, or all of them if the bank has fewer).
 def Bank.best: Nat -> Bank -> Bank
   | Zero, _ => []
   | Succ _, [] => []
