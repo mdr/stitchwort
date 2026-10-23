@@ -16,7 +16,7 @@ def choices: Nat -> Bank -> List Bank
 def bruteForce (k: Nat) (bank: Bank): Nat :=
   (choices k bank).map joltageOf |> .foldLeft Nat.max 0
 
-test "choices" := (choices 2 (Bank.parse "123")).map (c => c.map Fin.toNat) == [[1, 2], [1, 3], [2, 3]]
-test "brute force, 2 batteries" := (parseBanks example).all (b => maxJoltage 2 b == bruteForce 2 b)
-test "brute force, 3 batteries" := (parseBanks example).all (b => maxJoltage 3 b == bruteForce 3 b)
-test "brute force, 12 batteries" := (parseBanks example).all (b => maxJoltage 12 b == bruteForce 12 b)
+test "choices" := (choices 2 (bankOf "123")).map (c => c.map Fin.toNat) == [[1, 2], [1, 3], [2, 3]]
+test "brute force, 2 batteries" := exampleBanks.all (b => maxJoltage 2 b == bruteForce 2 b)
+test "brute force, 3 batteries" := exampleBanks.all (b => maxJoltage 3 b == bruteForce 3 b)
+test "brute force, 12 batteries" := exampleBanks.all (b => maxJoltage 12 b == bruteForce 12 b)
