@@ -1,7 +1,7 @@
 # Proposal: errors with messages (`Fail` and `Result`)
 
 **Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Stage 1
-is built ("Stage 1 as built", §5), without two of §3.7's theorems; stage 2 is next.
+is built ("Stage 1 as built", §5), without `Fail.toResultMapIn` from §3.7; stage 2 is next.
 
 ## 1. The problem and the goals
 
@@ -432,7 +432,7 @@ instance and a `Show` instance (`Ok 2`, `Err "no"`). Its other functions are
 in `std/Result/Result.sw`: §3.2's list, plus `Result.traverse` and
 `Result.errorOrElse`. `Std.Fail` (`std/Fail/Fail.sw`) has §3.1 and §3.3 as
 written, `Text.toNatOrFail` and `Text.toIntOrFail` with D1051's message for
-both (the text is quoted as given, before trimming), and seven of §3.7's
+both (the text is quoted as given, before trimming), and eight of §3.7's
 theorems, each by `rfl` on each case. `List.mapIn` is in
 `std/List/Toolkit.sw`. `docs/syntax.md` has a `Fail` section,
 `examples/accept/fail.sw` has a `main` with `IO` passing through, and
@@ -444,17 +444,18 @@ to the snapshot. Deviations:
 - `Result` is a core type, so a dot call such as `.map` in a library file
   may mean `Result.map`, and `Result/Result.sw` now loads with
   `List/Toolkit.sw` (the expectation in `std_library.rs` is updated).
-- `Fail.toResultNeedThen` and `Fail.toResultMapIn` aren't built. An equation
-  between calls of a handler with an open row (`{e}`, as `toResult` has) is
-  elaborated as a computation over the empty row, `runPure (bind (toResult
-  …) (r => Done (r = …)))`, and is only an equation once the handled
-  computation computes. With an unknown `k x` or `f x` it doesn't, so `rfl`
-  is refused; the same happens to `Abort.toOption c = Abort.toOption c` for
-  any `c`. Through a closed-row handler (`def run (p: () -> {Fail} a):
-  Result a Text := Fail.toResult p`) `NeedThen` checks. `MapIn` still
-  doesn't: its `Cons` case needs `toResult` of a `bind` over an unknown
-  `f x` to split into cases, which needs induction on the computation tree,
-  and no proof can take apart a `{Fail}` computation. Open for Matt.
+- `Fail.toResultMapIn` isn't built. At first `Fail.toResultNeedThen` wasn't
+  built either: an equation between calls of a handler with an open row
+  (`{e}`, as `toResult` has) was elaborated as a computation over the empty
+  row, `runPure (bind (toResult …) (r => Done (r = …)))`, and was only an
+  equation once the handled computation computed. With an unknown `k x` it
+  doesn't, so `rfl` was refused; the same happened to `Abort.toOption c =
+  Abort.toOption c` for any `c`. D1055 (b) fixed the cause: at the empty row
+  such a call is run in place (abilities.md, "Effectful calls at the empty
+  row"), and `NeedThen` is in `Fail.sw`. `MapIn` still doesn't go through:
+  its `Cons` case needs `toResult` of a `bind` over an unknown `f x` to
+  split into cases, which needs induction on the computation tree, and no
+  proof can take apart a `{Fail}` computation. Open for Matt.
 - A dot call ending a handled lambda, `Fail.toResult (() => " 4".toNatOrFail)`,
   isn't run there, so the handler's result type is `{Fail} Nat` (and
   `==` asks for `DecEq ({Fail} Nat)`). `Abort` behaves the same

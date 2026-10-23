@@ -251,8 +251,20 @@ These come before the direct-style translation:
   - pure functions stay plain;
   - code polymorphic in a row and instantiated at the empty row is run with an explicit `runPure : Comp Empty … a -> a`;
   - a pure function used where an effectful one is expected is wrapped with `Done`.
+
+  Inside pure code, such a call is run where it stands; see "Effectful calls at the empty row" below.
 - **Polymorphic operations.** `abort : () -> {Abort} a` is encoded as a primitive operation returning `Empty`, followed by eliminating the impossible result (as in the tests). Other genuinely polymorphic operations would store a type in the operation, which raises universe questions. They're excluded until needed.
 - **`Partial` in a row.** Handlers here are inductive folds, so `Partial` can't appear in their residual rows until [`partial.md`](partial.md) is settled.
+
+### Effectful calls at the empty row
+
+(SW-367, D1055 (b).) A handler with an open row, such as `Fail.toResult (prog: () -> {Fail | e} a): {e} Result a Text`, has the empty row when nothing else is performed. Pure code that calls it is elaborated in computation mode over the empty row and run with `runPure`. Before this rule, that mode sequenced every call with `bind`, as it does in any row. So `Abort.toOption c = Abort.toOption c` became `runPure (bind (toOption c) (r₁ => bind (toOption c) (r₂ => Done (r₁ = r₂))))`. That is a proposition only once `toOption c` computes to `Done`, so for an unknown `c`, `rfl` was refused.
+
+**The rule.** In the empty row (no abilities, no row variable, not `Partial`), a computation that computation mode would sequence is run where it stands instead. Its result is `runPure c`, bound by a transparent `let` rather than by `bind`'s lambda. This covers an operand of `=` or arithmetic, an argument, a record field, a `let`'s value, a block's line, an `if` condition and a `match` scrutinee. An `if`'s or a `match`'s branches are checked against the plain result type, not against a computation. When what's left is `Done v` under those `let`s, the outer `runPure` is dropped, so the statement above is `let r₁ := runPure (toOption c); let r₂ := runPure (toOption c); r₁ = r₂`. Evaluation unfolds the `let`s, so this is the equation `runPure (toOption c) = runPure (toOption c)`, and `rfl` proves it. A computation that is the whole expression (`def g: Nat := f`) is `runPure f`, as before.
+
+**Why it's sound.** Only the empty row is affected, and nothing can be performed there. A call whose row has an ability is refused when it's lifted into the empty row (`E-ABILITY`), before any of this happens, so a call that performs is never run in place. `runPure`'s `Call` case is absurd, because `NoOp` has no operations. So every computation over the empty row is `Done (runPure c)`, and `bind c k` means the same as `k (runPure c)`. Running a computation in place can't reorder anything observable. Any other row keeps `bind`, and so does every `Partial` row, where a computation may not finish.
+
+**What it changes.** Pure code that uses a handler's result (`test "…" := State.run 0 p == 3`, and the `Abort`/`Fail` theorems) elaborates to `let`s instead of `bind`s, so the hashes of those definitions changed. Programs still behave as before: the same tests pass under every runner. `Fail.toResultNeedThen` now holds by `rfl` for each case, and `Fail.toResult (() => k x)` for an unknown `k` is an ordinary term that a proof can match on or rewrite with. What this doesn't give is reasoning inside a handled computation. `Fail.toResultMapIn`'s `Cons` case needs `toResult` of a `bind` over an unknown `f x` to split into cases, which takes induction on the computation tree. That is still out of reach (errors.md §5).
 
 ### Costs
 

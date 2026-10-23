@@ -104,6 +104,13 @@ impl Row {
         }
     }
 
+    /// Whether this is the empty row: no abilities, no row variable, and
+    /// total. A computation in it can perform nothing, so it's run where it
+    /// stands rather than sequenced (see [`in_place`]).
+    pub fn is_empty(&self) -> bool {
+        self.labels.is_empty() && self.tail.is_none() && !self.partial
+    }
+
     /// The same abilities, in total mode.
     fn total(&self) -> Row {
         Row {
@@ -1214,9 +1221,10 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             otherwise,
             ..
         } => {
-            let expected = comp_type(cx, row, t.clone())?;
             if !may_perform(cx, cond)? {
-                return check_if(cx, binder.as_ref(), cond, then, otherwise, &expected);
+                return branches(cx, row, t, |cx, expected| {
+                    check_if(cx, binder.as_ref(), cond, then, otherwise, expected)
+                });
             }
             if binder.is_some() {
                 return Err(cx.error(
@@ -1233,7 +1241,9 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 span: cond.span(),
             });
             sequence(cx, row, t, "%cond", c, bool_ty, true, |cx| {
-                check_if(cx, None, &var, then, otherwise, &expected)
+                branches(cx, row, t, |cx, expected| {
+                    check_if(cx, None, &var, then, otherwise, expected)
+                })
             })
         }
         Expr::Match {
@@ -1242,13 +1252,14 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             span,
             kind,
         } => {
-            let expected = comp_type(cx, row, t.clone())?;
             let mut performs = false;
             for s in scrutinees {
                 performs |= may_perform(cx, &s.expr)?;
             }
             if !performs {
-                return crate::matching::check_match(cx, expr, &expected);
+                return branches(cx, row, t, |cx, expected| {
+                    crate::matching::check_match(cx, expr, expected)
+                });
             }
             // Every scrutinee runs once, left to right, before anything else,
             // and the `match` matches the results
@@ -1260,7 +1271,9 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                     span: *span,
                     kind: *kind,
                 };
-                crate::matching::check_match(cx, &matched, &expected)
+                branches(cx, row, t, |cx, expected| {
+                    crate::matching::check_match(cx, &matched, expected)
+                })
             })
         }
         Expr::Handle {
@@ -1290,6 +1303,24 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             done(cx, row, t, v)
         }
     }
+}
+
+/// An `if`'s or a `match`'s branches, checked by `check` against a
+/// computation in `row` returning a `t`. In the empty row they're checked
+/// against `t` itself, each running in place what it runs, and the whole is
+/// `Done` of that ([`in_place`]).
+fn branches(
+    cx: &mut Ctx,
+    row: &Row,
+    t: &Value,
+    check: impl FnOnce(&mut Ctx, &Value) -> Result<Term>,
+) -> Result<Term> {
+    if row.is_empty() {
+        let v = check(cx, t)?;
+        return done(cx, row, t, v);
+    }
+    let expected = comp_type(cx, row, t.clone())?;
+    check(cx, &expected)
 }
 
 /// Runs the scrutinees of a `match` in order, binding each result to a new
@@ -1374,6 +1405,15 @@ fn sequence(
     body: impl FnOnce(&mut Ctx) -> Result<Term>,
 ) -> Result<Term> {
     let mark = cx.mark();
+    // In the empty row an effectful value is run in place, and then bound
+    // as a pure one is.
+    let (term, effectful) = match effectful.then(|| in_place(cx, row, &term, &ty)) {
+        Some(found) => match found? {
+            Some(value) => (value, false),
+            None => (term, true),
+        },
+        None => (term, false),
+    };
     if !effectful {
         // A pure `let` is a transparent one around the rest of the
         // computation (docs/proposals/let.md §5, option A).
@@ -1398,9 +1438,63 @@ fn sequence(
 /// A variable holding the result of an earlier computation.
 struct Bound {
     name: String,
+    /// The computation, or in the empty row `runPure` of it.
     comp: Term,
     ty: Value,
     mark: crate::check::Mark,
+    /// In the empty row, the variable is a transparent `let` of `comp`, of
+    /// this type, rather than a `bind`'s.
+    in_place: Option<Term>,
+}
+
+/// Puts the result of `c`, a computation in `row` returning a `ty`, in
+/// scope as `name`, for [`wrap`] to run first.
+fn hold(cx: &mut Ctx, row: &Row, name: &str, c: Term, ty: Value) -> Result<Bound> {
+    let mark = cx.mark();
+    let (comp, in_place) = match in_place(cx, row, &c, &ty)? {
+        Some(value) => {
+            let ty_term = cx.quote(&ty)?;
+            cx.define(
+                Some(name),
+                name.into(),
+                ty.clone(),
+                ty_term.clone(),
+                value.clone(),
+            )?;
+            (value, Some(ty_term))
+        }
+        None => {
+            cx.bind(name, ty.clone());
+            (c, None)
+        }
+    };
+    Ok(Bound {
+        name: name.to_string(),
+        comp,
+        ty,
+        mark,
+        in_place,
+    })
+}
+
+/// `runPure c`, for a computation `c` in the empty row, which is run where
+/// it stands; `None` in any other row. A computation there can't perform
+/// anything (an ability outside the row is refused when a call is lifted
+/// into it, and `runPure`'s `Call` case is absurd), so running it in place
+/// means what sequencing it with `bind` does, and what's built from its
+/// result is an ordinary value: an equation about a handler's result is an
+/// equation (docs/proposals/abilities.md, "Effectful calls at the empty
+/// row").
+fn in_place(cx: &Ctx, row: &Row, c: &Term, ty: &Value) -> Result<Option<Term>> {
+    if !row.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(call(
+        cx,
+        Builtin::RunPure,
+        std::slice::from_ref(ty),
+        vec![c.clone()],
+    )?))
 }
 
 /// An application or variable that performs operations, as a computation
@@ -1511,14 +1605,7 @@ fn comp_app(
             let (from, t) = comp_parts(cx, &ty2)?.expect("reached a computation type");
             let c = lift(cx, t2, from, row, &t)?;
             let name = format!("%{}", cx.level());
-            let mark = cx.mark();
-            cx.bind(&name, t.clone());
-            bound.push(Bound {
-                name: name.clone(),
-                comp: c,
-                ty: t.clone(),
-                mark,
-            });
+            bound.push(hold(cx, row, &name, c, t.clone())?);
             let var = Expr::Var(AstName {
                 text: name,
                 span: head.span(),
@@ -1643,14 +1730,7 @@ fn run_first(cx: &mut Ctx, e: &Expr, row: &Row, bound: &mut Vec<Bound>) -> Resul
     }
     let (c, ty) = comp_infer(cx, e, row)?;
     let name = format!("%{}", cx.level());
-    let mark = cx.mark();
-    cx.bind(&name, ty.clone());
-    bound.push(Bound {
-        name: name.clone(),
-        comp: c,
-        ty,
-        mark,
-    });
+    bound.push(hold(cx, row, &name, c, ty)?);
     Ok(Expr::Var(AstName {
         text: name,
         span: e.span(),
@@ -1677,6 +1757,10 @@ fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value
     }
     for b in bound.into_iter().rev() {
         cx.reset(b.mark);
+        if let Some(ty_term) = b.in_place {
+            result = Term::let_(b.name.as_str().into(), ty_term, b.comp, result);
+            continue;
+        }
         let lam = Term::Lam(b.name.as_str().into(), Icit::Explicit, Rc::new(result));
         result = call(
             cx,
@@ -2039,10 +2123,33 @@ pub fn run_pure(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(
         Some(t) => (comp_check(cx, expr, &empty, t)?, t.clone()),
         None => comp_infer(cx, expr, &empty)?,
     };
+    // What ran in place is `let`s around a `Done v`: that's `v` under the
+    // `let`s, with nothing left to run.
+    if let Some(v) = done_value(cx, &c)? {
+        return Ok((v, ty));
+    }
     Ok((
         call(cx, Builtin::RunPure, std::slice::from_ref(&ty), vec![c])?,
         ty,
     ))
+}
+
+/// `v`, for a computation `Done v` (as [`done`] builds it in a total row)
+/// under any `let`s, with the `let`s around it.
+fn done_value(cx: &Ctx, c: &Term) -> Result<Option<Term>> {
+    Ok(match c {
+        Term::Let(x, a, v, b, e) => {
+            done_value(cx, b)?.map(|b| Term::Let(x.clone(), a.clone(), v.clone(), Rc::new(b), *e))
+        }
+        Term::Loc(span, t) => done_value(cx, t)?.map(|t| Term::Loc(*span, Rc::new(t))),
+        Term::Ann(inner, _) => match inner.strip_loc() {
+            Term::Ctor(d, 0, fields) if *d == data(cx, Builtin::Comp)? && fields.len() == 1 => {
+                Some(fields[0].as_ref().clone())
+            }
+            _ => None,
+        },
+        _ => None,
+    })
 }
 
 // Handlers
