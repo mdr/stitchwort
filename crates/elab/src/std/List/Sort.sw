@@ -607,6 +607,191 @@ theorem List.sortedCongr (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) 
 theorem List.sortSortedNat (xs: List Nat): List.Sorted Nat.leq (List.sort xs) :=
   List.sortedCongr (x y => Ordering.isLessEq (Nat.compare x y)) Nat.leq Nat.compareLeq (List.sort [ord := Nat.instOrd] xs) (List.sortSorted [ord := Nat.instOrd] xs)
 
+-- The front and the back of a sorted list are sorted (SW-363).
+theorem List.sortedPrefix (le: a -> a -> Bool): (xs: List a) -> (ys: List a) -> List.Sorted le (List.append xs ys) -> List.Sorted le xs
+  | Nil, ys, s => Trivial
+  | Cons x Nil, ys, s => Both Trivial Trivial
+  | Cons x (Cons y zs), ys, Both hx s => Both hx (List.sortedPrefix le (Cons y zs) ys s)
+
+theorem List.sortedSuffix (le: a -> a -> Bool): (xs: List a) -> (ys: List a) -> List.Sorted le (List.append xs ys) -> List.Sorted le ys
+  | Nil, ys, s => s
+  | Cons x xs, ys, Both hx s => List.sortedSuffix le xs ys s
+
+-- For a transitive `le`, the first element of a sorted list may come before
+-- every later one.
+theorem List.sortedHeadLe (le: a -> a -> Bool) (trans: (x: a) -> (y: a) -> (z: a) -> le x y = True -> le y z = True -> le x z = True)
+    (x: a) (z: a): (rest: List a) -> List.Sorted le (Cons x rest) -> List.Mem z rest -> le x z = True
+  | Nil, s, m => Void.exfalso m
+  | Cons y ys, Both hxy s, Inl e => rewrite <- e in hxy
+  | Cons y ys, Both hxy s, Inr m => trans x y z hxy (List.sortedHeadLe le trans y z ys s m)
+
+-- `rel` holds of each element and every later one.
+def List.Pairwise (rel: a -> a -> Prop): List a -> Prop
+  | Nil => Unit
+  | Cons x xs => And (List.All (y => rel x y) xs) (List.Pairwise rel xs)
+
+-- For a transitive `le`, sorted is pairwise.
+theorem List.pairwiseOfSorted (le: a -> a -> Bool) (trans: (x: a) -> (y: a) -> (z: a) -> le x y = True -> le y z = True -> le x z = True):
+    (xs: List a) -> List.Sorted le xs -> List.Pairwise (x y => le x y = True) xs
+  | Nil, s => Trivial
+  | Cons x rest, Both hx s =>
+    Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLe le trans x z rest (Both hx s) m)) (List.pairwiseOfSorted le trans rest s)
+
+theorem List.pairwiseAppendLeft (rel: a -> a -> Prop): (xs: List a) -> (ys: List a) -> List.Pairwise rel (List.append xs ys) -> List.Pairwise rel xs
+  | Nil, ys, h => Trivial
+  | Cons x xs, ys, Both a h => Both (List.allAppendLeft (y => rel x y) xs ys a) (List.pairwiseAppendLeft rel xs ys h)
+
+-- Each element of the front is related to each of the back.
+theorem List.pairwiseAppendAcross (rel: a -> a -> Prop): (xs: List a) -> (ys: List a) -> List.Pairwise rel (List.append xs ys) ->
+    (x: a) -> List.Mem x xs -> (y: a) -> List.Mem y ys -> rel x y
+  | Nil, ys, h, x, mx, y, my => Void.exfalso mx
+  | Cons z zs, ys, Both a h, x, Inl e, y, my => rewrite <- e in List.allMem (w => rel z w) y ys (List.allAppendRight (w => rel z w) zs ys a) my
+  | Cons z zs, ys, Both a h, x, Inr mx, y, my => List.pairwiseAppendAcross rel zs ys h x mx y my
+
+-- Merging, when everything in the first list may come before everything in
+-- the second, joins the lists.
+theorem List.mergeAppend (le: a -> a -> Bool): (xs: List a) -> (ys: List a) -> ((x: a) -> List.Mem x xs -> (y: a) -> List.Mem y ys -> le x y = True) ->
+    List.merge le xs ys = List.append xs ys
+  | Nil, ys, h => rfl
+  | Cons x xs, Nil, h => Eq.sym (List.appendNil (Cons x xs))
+  | Cons x xs, Cons y ys, h => rewrite h x (Inl rfl) y (Inl rfl), List.mergeAppend le xs (Cons y ys) (z m => h z (Inr m)) in rfl
+
+-- The runs of `List.sortWith`'s counter, oldest first, joined.
+def List.runsJoined: List (Option (List a)) -> List a
+  | Nil => Nil
+  | Cons None rest => List.runsJoined rest
+  | Cons (Some run) rest => List.append (List.runsJoined rest) run
+
+-- When the runs joined are in order, merging two neighbours joins them.
+theorem List.pairwiseRunsMerge (le: a -> a -> Bool) (front: List a) (older: List a) (newer: List a)
+    (h: List.Pairwise (x y => le x y = True) (List.append (List.append front older) newer)):
+    List.merge le older newer = List.append older newer :=
+  List.mergeAppend le older newer
+    (x mx y my => List.pairwiseAppendAcross (x y => le x y = True) (List.append front older) newer h x
+      (List.anyAppendRight (w => w = x) front older mx) y my)
+
+theorem List.pushRunJoined (le: a -> a -> Bool): (run: List a) -> (c: List (Option (List a))) ->
+    List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) run) ->
+    List.runsJoined (List.pushRun le run c) = List.append (List.runsJoined c) run
+  | run, Nil, h => rfl
+  | run, Cons None rest, h => rfl
+  | run, Cons (Some older) rest, h =>
+    Eq.trans (Eq.cong (r => List.runsJoined (List.pushRun le r rest)) (List.pairwiseRunsMerge le (List.runsJoined rest) older run h))
+      (Eq.trans
+        (List.pushRunJoined le (List.append older run) rest (rewrite List.appendAssoc (List.runsJoined rest) older run at h))
+        (Eq.sym (List.appendAssoc (List.runsJoined rest) older run)))
+
+theorem List.buildRunsJoined (le: a -> a -> Bool): (c: List (Option (List a))) -> (xs: List a) ->
+    List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) xs) ->
+    List.runsJoined (List.buildRuns le c xs) = List.append (List.runsJoined c) xs
+  | c, Nil, h => Eq.sym (List.appendNil (List.runsJoined c))
+  | c, Cons x xs, h =>
+    Eq.trans
+      (List.buildRunsJoined le (List.pushRun le (Cons x Nil) c) xs
+        (rewrite <- List.pushRunJoined le (Cons x Nil) c
+            (List.pairwiseAppendLeft (x y => le x y = True) (List.append (List.runsJoined c) (Cons x Nil)) xs
+              (rewrite <- List.appendAssoc (List.runsJoined c) (Cons x Nil) xs at h))
+          at (rewrite <- List.appendAssoc (List.runsJoined c) (Cons x Nil) xs at h)))
+      (Eq.trans
+        (Eq.cong (r => List.append r xs)
+          (List.pushRunJoined le (Cons x Nil) c
+            (List.pairwiseAppendLeft (x y => le x y = True) (List.append (List.runsJoined c) (Cons x Nil)) xs
+              (rewrite <- List.appendAssoc (List.runsJoined c) (Cons x Nil) xs at h))))
+        (List.appendAssoc (List.runsJoined c) (Cons x Nil) xs))
+
+theorem List.mergeRunsJoined (le: a -> a -> Bool): (acc: List a) -> (c: List (Option (List a))) ->
+    List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) acc) ->
+    List.mergeRuns le acc c = List.append (List.runsJoined c) acc
+  | acc, Nil, h => rfl
+  | acc, Cons None rest, h => List.mergeRunsJoined le acc rest h
+  | acc, Cons (Some older) rest, h =>
+    Eq.trans (Eq.cong (r => List.mergeRuns le r rest) (List.pairwiseRunsMerge le (List.runsJoined rest) older acc h))
+      (Eq.trans
+        (List.mergeRunsJoined le (List.append older acc) rest (rewrite List.appendAssoc (List.runsJoined rest) older acc at h))
+        (Eq.sym (List.appendAssoc (List.runsJoined rest) older acc)))
+
+-- Sorting a list that is already sorted gives it back, for a transitive `le`
+-- (D725). No totality is needed: every merge takes the older run whole.
+theorem List.sortWithOfSorted (le: a -> a -> Bool) (trans: (x: a) -> (y: a) -> (z: a) -> le x y = True -> le y z = True -> le x z = True)
+    (xs: List a) (s: List.Sorted le xs): List.sortWith le xs = xs :=
+  Eq.trans
+    (List.mergeRunsJoined le Nil (List.buildRuns le Nil xs)
+      (rewrite <- List.appendNil xs, <- List.buildRunsJoined le Nil xs (List.pairwiseOfSorted le trans xs s) at List.pairwiseOfSorted le trans xs s))
+    (Eq.trans (List.appendNil (List.runsJoined (List.buildRuns le Nil xs))) (List.buildRunsJoined le Nil xs (List.pairwiseOfSorted le trans xs s)))
+
+theorem List.sortWithOfSortedExample (xs: List Nat) (s: List.Sorted Nat.leq xs): List.sortWith Nat.leq xs = xs :=
+  List.sortWithOfSorted Nat.leq Nat.leTrans xs s
+
+-- Finding by key, and keys that stay distinct when the list is rearranged
+-- (SW-363). Here rather than with `List.find` and `List.Distinct` in the
+-- toolkit because they decide equality with `DecEq`.
+
+-- Finding by key: what is found has the key, and when some element has the
+-- key, something is found.
+theorem List.findKey [auto eq: DecEq k] (key: a -> k) (kk: k) (xs: List a) (y: a) (h: List.find (x => key x == kk) xs = Some y): key y = kk :=
+  match List.findSome (x => key x == kk) xs y h with
+    | Both py m => Decidable.toBoolSound (DecEq.decide (key y) kk) py
+
+theorem List.findKeySome [auto eq: DecEq k] (key: a -> k) (kk: k) (xs: List a) (m: List.Mem kk (List.map key xs)):
+    Not (List.find (x => key x == kk) xs = None) :=
+  h => List.anyElim (x => key x = kk) Void xs (List.memMapAny key kk xs m)
+    (x inXs e => List.findNoneNotMem (z => key z == kk) x (Decidable.toBoolOf (DecEq.decide (key x) kk) e) xs inXs h)
+
+-- Permutations have the same elements.
+theorem List.memPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (h: List.Perm xs ys) (x: a) (m: List.Mem x xs): List.Mem x ys :=
+  List.anyTrueElim (y => y == x) (List.Mem x ys) ys
+    (Eq.trans (Eq.sym (List.anyPerm (y => y == x) xs ys h)) (List.anyOfMem (y => y == x) x (Decidable.toBoolOf (DecEq.decide x x) rfl) xs m))
+    (y inYs e => rewrite <- Decidable.toBoolSound (DecEq.decide y x) e in inYs)
+
+-- Counting with a test the first element passes.
+theorem List.occurrencesConsTrue (p: a -> Bool) (x: a) (xs: List a) (px: p x = True): List.occurrences p (Cons x xs) = Succ (List.occurrences p xs) :=
+  rewrite px in rfl
+
+theorem Bool.toNatAddLeOne: (b: Bool) -> (n: Nat) -> Bool.toNat b + n <= 1 -> n <= 1
+  | False, n, h => h
+  | True, Zero, h => rfl
+  | True, Succ n, h => Void.exfalso (Bool.falseNotTrue h)
+
+-- Distinct keys: at most one element has any key.
+theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (key: a -> k) (kk: k): (xs: List a) -> List.Distinct (List.map key xs) ->
+    List.occurrences (x => key x == kk) xs <= 1
+  | Nil, d => rfl
+  | Cons x xs, Both notMem d =>
+    Bool.inspect (key x == kk) (c => Bool.toNat c + List.occurrences (y => key y == kk) xs <= 1)
+      (t =>
+        match n: List.occurrences (y => key y == kk) xs with
+          | Zero => rfl
+          | Succ m =>
+            Void.exfalso (List.anyTrueElim (y => key y == kk) Void xs (rewrite List.anyOccurrences (y => key y == kk) xs, n in rfl)
+              (y inXs py =>
+                notMem (rewrite Eq.trans (Decidable.toBoolSound (DecEq.decide (key x) kk) t) (Eq.sym (Decidable.toBoolSound (DecEq.decide (key y) kk) py))
+                  in List.memMap key y xs inXs))))
+      (f => List.occurrencesKeyDistinct key kk xs d)
+
+-- And back: when at most one element has any key, the keys are distinct.
+theorem List.distinctOfOccurrences [auto eq: DecEq k] (key: a -> k): (xs: List a) -> ((kk: k) -> List.occurrences (x => key x == kk) xs <= 1) ->
+    List.Distinct (List.map key xs)
+  | Nil, h => Trivial
+  | Cons x xs, h =>
+    Both
+      (m =>
+        List.anyElim (y => key y = key x) Void xs (List.memMapAny key (key x) xs m) (y inXs e =>
+          match n: List.occurrences (z => key z == key x) xs with
+            | Zero =>
+              Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite n at List.anyOccurrences (z => key z == key x) xs))
+                (List.anyOfMem (z => key z == key x) y (Decidable.toBoolOf (DecEq.decide (key y) (key x)) e) xs inXs))
+            | Succ c =>
+              Bool.falseNotTrue (rewrite n at Eq.trans (Eq.sym (Eq.cong (t => Nat.leq t 1)
+                (List.occurrencesConsTrue (z => key z == key x) x xs (Decidable.toBoolOf (DecEq.decide (key x) (key x)) rfl)))) (h (key x)))))
+      (List.distinctOfOccurrences key xs (kk => Bool.toNatAddLeOne (key x == kk) (List.occurrences (z => key z == kk) xs) (h kk)))
+
+-- Rearranging a list keeps its keys distinct.
+theorem List.distinctMapPerm [auto eq: DecEq k] (key: a -> k) (xs: List a) (ys: List a) (h: List.Perm xs ys) (d: List.Distinct (List.map key ys)):
+    List.Distinct (List.map key xs) :=
+  List.distinctOfOccurrences key xs (kk => Eq.trans (Eq.cong (n => Nat.leq n 1) (h (x => key x == kk))) (List.occurrencesKeyDistinct key kk ys d))
+
+theorem List.findKeyExample: List.find (x => Pair.fst x == "b") [MkPair "a" 1, MkPair "b" 2, MkPair "b" 3] = Some (MkPair "b" 2) := rfl
+
 -- Adding an element in front keeps every subsequence.
 theorem List.subsequenceCons (x: a): (s: List a) -> (ys: List a) -> List.Subsequence s ys -> List.Subsequence s (Cons x ys)
   | Nil, ys, h => Trivial

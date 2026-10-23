@@ -713,6 +713,21 @@ def Map.Spec.sameKey [auto ord: Ord k] (a: k) (b: k): Bool := match Ord.compare 
   | Equal => True
   | _ => False
 
+-- `sameKey` says equal, and is `==` (the `DecEq` in the `Ord`).
+theorem Map.Spec.sameKeySound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.sameKey a b = True): a = b :=
+  match e: Ord.compare a b with
+    | Less => Void.exfalso (Bool.falseNotTrue h)
+    | Equal => ord.equal a b e
+    | Greater => Void.exfalso (Bool.falseNotTrue h)
+
+theorem Map.Spec.sameKeyDecide [auto ord: Ord k] (a: k) (b: k): Map.Spec.sameKey a b = (b == a) :=
+  match e: Ord.compare a b with
+    | Less =>
+      Eq.sym (Decidable.toBoolOfNot (DecEq.decide b a) (q => Map.Spec.notEqualOfCompare a b (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z)) (Eq.sym q)))
+    | Equal => Eq.sym (Decidable.toBoolOf (DecEq.decide b a) (Eq.sym (ord.equal a b e)))
+    | Greater =>
+      Eq.sym (Decidable.toBoolOfNot (DecEq.decide b a) (q => Map.Spec.notEqualOfCompare a b (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z)) (Eq.sym q)))
+
 def Map.Spec.nonEmpty: List a -> Option (List a)
   | Nil => None
   | Cons x rest => Some (Cons x rest)
