@@ -1,5 +1,5 @@
 {
-  "next": 367,
+  "next": 368,
   "tickets": [
     {
       "id": 1,
@@ -5831,6 +5831,20 @@
         "a0144dce",
         "1d915f6d"
       ]
+    },
+    {
+      "id": 367,
+      "title": "Errors with messages: a Unison-inspired error ability + Result in std; AoC parsers report bad input (D1042)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (design note)",
+      "labels": [
+        "std"
+      ],
+      "body": "D1042 (b), Matt 23 Oct: parsing failures must be visible and name the offending text (Day 2 review point 3: filterMap drops '11-22,bad' and '11-22, 33-33'). Look at how Unison does it and be inspired by it. Stage 0: design note docs/proposals/errors.md, stop for review. Then std implementation, then convert the AoC days.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
