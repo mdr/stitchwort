@@ -5816,7 +5816,7 @@
     },
     {
       "id": 366,
-      "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): F0-F2, F4 (CLI) merged; F3 running; then F5, F6, F7",
+      "title": "Formatter (stitchwort fmt, LSP formatting for VS Code, Playground): F0-F4 merged; F6 running; F7 dry run running; F5 after SW-31 2a",
       "status": "next",
       "agent": "Opus",
       "where": "F3 worktree lane; F4 OpenCode clone",
@@ -5837,7 +5837,9 @@
         "9f1f0a6a",
         "2ea6e287",
         "cfc7dbe1",
-        "691c2dce"
+        "691c2dce",
+        "7ce4b93a",
+        "505d5a46"
       ]
     },
     {
