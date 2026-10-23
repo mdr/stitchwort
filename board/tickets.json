@@ -1,5 +1,5 @@
 {
-  "next": 364,
+  "next": 365,
   "tickets": [
     {
       "id": 1,
@@ -5770,6 +5770,20 @@
         "std"
       ],
       "body": "D912. Proved privately while proving properties of a real-world TypeScript port; rewrite with neutral names into std/List. Trigger: the port's proofs reuse them; D725 asked for the sort lemma.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 364,
+      "title": "Verify the flake's stitchwort-bin builds and matches the cargo release binary (prerequisite for pinning a revision from an app via nix run)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "release"
+      ],
+      "body": "D970/D831: an app's CI will run nix run github:mdr/stitchwort/<rev>#stitchwort-bin. Never built so far. Build from local main, compare outputs with target/release/stitchwort, time a cold build.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
