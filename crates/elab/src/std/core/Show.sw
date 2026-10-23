@@ -69,20 +69,22 @@ def Show.hasSpace: List Char -> Bool
   | Cons c cs => if Nat.equal (Char.toNat c) 32 then True else Show.hasSpace cs
 
 -- Whether text starts like a bracketed or quoted thing, which reads as one
--- piece: `[`, `(`, `{`, `"`, `'`.
+-- piece: `[`, `(`, `"`, `'`. (`{` is not one: braces straight after a
+-- constructor name its fields, so a record argument is bracketed.)
 def Show.startsBracketed (c: Char): Bool :=
   if Nat.equal (Char.toNat c) 91 then True
   else if Nat.equal (Char.toNat c) 40 then True
-  else if Nat.equal (Char.toNat c) 123 then True
   else if Nat.equal (Char.toNat c) 34 then True
   else Nat.equal (Char.toNat c) 39
 
 -- An argument of a constructor: bracketed when it has spaces and isn't
--- already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`).
+-- already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`,
+-- `Some ({ price = 3 })`).
 def Show.argOf (t: Text): List Char -> Text
   | Nil => t
   | Cons c cs =>
     if Nat.equal (Char.toNat c) 45 then Text.append "(" (Text.append t ")")
+    else if Nat.equal (Char.toNat c) 123 then Text.append "(" (Text.append t ")")
     else if Show.startsBracketed c then t
     else if Show.hasSpace cs then Text.append "(" (Text.append t ")")
     else t
