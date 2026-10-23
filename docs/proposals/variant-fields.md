@@ -41,15 +41,15 @@ field with one arm per constructor, and a hand-written "setter" per shared field
 that rebuilds each constructor. Records already solve all three for
 one-constructor types. This note extends the record forms to variants:
 
-1. **Named-field constructor patterns.** `| Slide { id, .. } => id`,
-   `| Slide { text = t, .. } => …`, anywhere a pattern goes. They mean exactly
+1. **Named-field constructor patterns.** `| Circle { id, .. } => id`,
+   `| Circle { text = t, .. } => …`, anywhere a pattern goes. They mean exactly
    the positional pattern with `_` for the fields left out, so coverage and
    exhaustiveness don't change. Rust and Scala 3.7 have this; Haskell has it for
    record-syntax constructors.
 2. **Shared-field access.** `a.id` works when **every** constructor has an
    explicit field `id` of the **same type** (a type that may mention the type's
    parameters and other shared fields, nothing else). It's a generated
-   function `Annotation.id`, like a record's projection, so dot notation,
+   function `Shape.id`, like a record's projection, so dot notation,
    `.id` sections, pipes, hover and lemmas all treat it like any other
    function. There are never partial accessors: Haskell's experience
    (`-Wpartial-fields`, runtime errors) is what this rule avoids.
@@ -73,24 +73,24 @@ data type, including one-constructor types like `Pair`, whose hand-written
 
 ## 1. The problem
 
-A program models a document's annotations. Each kind has its own data, and
+A program models a document's shapes. Each kind has its own data, and
 all of them have a reference number, an id and a start time:
 
 ```
-type Annotation =
-  | Heading (ref: Nat) (id: Text) (start: Int)
-  | Slide (ref: Nat) (id: Text) (start: Int) (text: Text)
-  | CardGroup (ref: Nat) (id: Text) (start: Int) (duration: Nat) (cards: List Card)
+type Shape =
+  | Dot (ref: Nat) (id: Text) (start: Int)
+  | Circle (ref: Nat) (id: Text) (start: Int) (text: Text)
+  | Polygon (ref: Nat) (id: Text) (start: Int) (duration: Nat) (points: List Point)
 
-def Annotation.id: Annotation -> Text
-  | Heading _ id _       => id
-  | Slide _ id _ _       => id
-  | CardGroup _ id _ _ _ => id
+def Shape.id: Shape -> Text
+  | Dot _ id _       => id
+  | Circle _ id _ _       => id
+  | Polygon _ id _ _ _ => id
 
-def withStart (t: Int): Annotation -> Annotation
-  | Heading r id _        => Heading r id t
-  | Slide r id _ x        => Slide r id t x
-  | CardGroup r id _ d cs => CardGroup r id t d cs
+def withStart (t: Int): Shape -> Shape
+  | Dot r id _        => Dot r id t
+  | Circle r id _ x        => Circle r id t x
+  | Polygon r id _ d cs => Polygon r id t d cs
 ```
 
 This came up in a real port of a TypeScript program whose data was exactly
@@ -119,7 +119,7 @@ name to use.
 - **`e.f`** is ordinary dot notation: it looks up `f` in the namespace of
   `e`'s type and finds the projection there like any `T.f` function
   (`dot.rs:321` `find`) **[checked]**. On a variant it fails:
-  `a.id` with `a: Annotation` is `E-UNKNOWN-FIELD`, "`Annotation` has no field
+  `a.id` with `a: Shape` is `E-UNKNOWN-FIELD`, "`Shape` has no field
   or function `id`" **[run]**.
 - **Update** `{ e | f = … }` builds the constructor, taking the fields not
   replaced from projections of the base, which is bound to a variable first so
@@ -147,9 +147,9 @@ application, `examples/accept/record-literal-in-partial-ctor.sw:11`)
 names. For the type above the `.d.ts` is **[run]**:
 
 ```ts
-export type Annotation =
-  | { readonly tag: "Heading"; readonly ref: bigint; readonly id: string; readonly start: bigint }
-  | { readonly tag: "Slide"; readonly ref: bigint; readonly id: string; readonly start: bigint; readonly text: string };
+export type Shape =
+  | { readonly tag: "Dot"; readonly ref: bigint; readonly id: string; readonly start: bigint }
+  | { readonly tag: "Circle"; readonly ref: bigint; readonly id: string; readonly start: bigint; readonly text: string };
 ```
 
 A field called `tag` is `$tag` (DESIGN.md §12, Names) **[checked]**.
@@ -204,7 +204,7 @@ A case class has a generated `copy` for updates [S1] **[checked]**. A sealed
 trait with an abstract `val id: String`, implemented by each case class, gives
 `a.id` on the trait **[unverified]** (standard Scala, not found stated on the
 page fetched). Updating a shared field across cases needs a match
-(`case s: Slide => s.copy(start = t)` per case) **[unverified]**. Since Scala
+(`case s: Circle => s.copy(start = t)` per case) **[unverified]**. Since Scala
 3.7, named patterns work on case classes: `case City(name = n, zip = 1026,
 population = pop)`, "not all fields of the selector need to be matched", and
 "either all elements of a tuple or constructor pattern are named or none are
@@ -248,11 +248,11 @@ whether its data constructors can declare record fields I didn't confirm
 ### 4.1 Syntax and meaning
 
 ```
-| Slide { id, .. }                  => id
-| Slide { text = t, start, .. }     => …
-| CardGroup { cards = Cons c _, .. } => …     -- nested: a constructor after `=` takes
+| Circle { id, .. }                  => id
+| Circle { text = t, start, .. }     => …
+| Polygon { points = Cons c _, .. } => …     -- nested: a constructor after `=` takes
                                                 -- its arguments without brackets, as in records
-| Heading { ref, id, start }        => …     -- every field named: no `..`
+| Dot { ref, id, start }        => …     -- every field named: no `..`
 ```
 
 `C { f₁ = p₁, f₂, .. }` is the positional pattern `C q₁ … qₙ` where `qᵢ` is
@@ -270,7 +270,7 @@ see the positional pattern.
 `VCons [n := k] _ _`, and are skipped by braces, as they are by positional
 patterns. Braces name explicit fields only.
 
-**Expressions are not part of this.** `Slide { ref = 1, id = "a", … }` as a
+**Expressions are not part of this.** `Circle { ref = 1, id = "a", … }` as a
 way to *build* a constructor by field names would collide with today's
 `Cons { row = r, column = c }`, a constructor partially applied to a record
 literal ([§2](#2-stitchwort-today)), which is common and meaningful in
@@ -321,7 +321,7 @@ matches that field; write `Divider id`".
   brackets it currently drops (`parser.rs:946`: `( p )` returns `p`)
   **[checked]**. Patterns and expressions then read differently
   (`Some { value = n, fits = h }` in an expression is still the record argument).
-- **(c) Spacing**: `Slide{ id }` (no space) for named fields, as `f()` and `e.f`
+- **(c) Spacing**: `Circle{ id }` (no space) for named fields, as `f()` and `e.f`
   already depend on spacing. Too easy to misread; not recommended.
 
 ### 4.3 Navigation
@@ -360,7 +360,7 @@ Cases, checked against the rule **[inferred]**:
 
 | Situation | Shared? |
 |---|---|
-| `id: Text` in every constructor | yes, `Annotation.id: Annotation -> Text` |
+| `id: Text` in every constructor | yes, `Shape.id: Shape -> Text` |
 | `label: a` in every constructor of `Shape (a: Type)` | yes, `Shape.label: [a] -> Shape a -> a` |
 | `n: Nat` and `xs: Vec Nat n` in every constructor | both: `T.xs: (x: T) -> Vec Nat (T.n x)`, the record projections' trick |
 | `xs: Vec Nat len` where `len` is in one constructor only | `xs` isn't; `n` and the rest may be |
@@ -381,22 +381,22 @@ definition by one `Case` with a branch per constructor, each returning that
 constructor's field:
 
 ```
-Annotation.id: Annotation -> Text
-  | Heading _ id _        => id
-  | Slide _ id _ _        => id
-  | CardGroup _ id _ _ _  => id
+Shape.id: Shape -> Text
+  | Dot _ id _        => id
+  | Circle _ id _ _        => id
+  | Polygon _ id _ _ _  => id
 ```
 
 It's registered as a member of `T`'s namespace exactly as a record's projection
 is (`records.rs:74` registers `R.f` with `mark_member`) **[checked]**. So,
 with no change to dot notation **[inferred]** from `dot.rs:321`:
 
-- `a.id` is `Annotation.id a`;
-- `annotations.map .id`, `a |> .id` and `Annotation.id` written in full work;
+- `a.id` is `Shape.id a`;
+- `shapes.map .id`, `a |> .id` and `Shape.id` written in full work;
 - chained access works (`a.start.toText`).
 
 **Why a function rather than a `match` at each use:** the function has a name,
-so goals show `Annotation.id a` (or `a.id` once messages print projections
+so goals show `Shape.id a` (or `a.id` once messages print projections
 that way, a records TODO); a lemma can state facts about it; hover and
 go-to-definition have something to point at; and it's what records do, so
 there is one mechanism. A `match` at the use site would be a different
@@ -417,17 +417,17 @@ expected type `Vec Nat (T.n x)`, refined by the constructor, computes to
 function":
 
 ```
-`Annotation` has no shared field `text`
-note: only `Slide` has `text`; match on `a` to read it: `| Slide { text, .. } => …`
+`Shape` has no shared field `text`
+note: only `Circle` has `text`; match on `a` to read it: `| Circle { text, .. } => …`
 ```
 
-or "`id` is `Text` in `Heading` and `Slide` but `Nat` in `CardGroup`", or
-"`xs`'s type mentions `len`, which only `Slide` has".
+or "`id` is `Text` in `Dot` and `Circle` but `Nat` in `Polygon`", or
+"`xs`'s type mentions `len`, which only `Circle` has".
 
 ### 5.4 Names and clashes
 
-`T.f` is a member of `T`'s namespace, written in full as `Annotation.id`. A
-user's own `def Annotation.id` in the same module is `E-DUPLICATE`, as for
+`T.f` is a member of `T`'s namespace, written in full as `Shape.id`. A
+user's own `def Shape.id` in the same module is `E-DUPLICATE`, as for
 records ([§2](#2-stitchwort-today), **[run]**), with a note that `id` is a
 shared field. That also means a program that wrote the getter by hand (as in
 §1) deletes it. Constructors are uppercase and fields lowercase, so `T.f`
@@ -436,15 +436,15 @@ hash ([§9.6](#96-hashes)).
 
 ### 5.5 Proofs
 
-- **Computation.** `(Slide 1 "a" 0 "t").id` is `"a"` by `rfl`: the accessor's
+- **Computation.** `(Circle 1 "a" 0 "t").id` is `"a"` by `rfl`: the accessor's
   `Case` computes on a constructor.
-- **On an unknown value** `a.id` stays `Annotation.id a`, as any function on an
+- **On an unknown value** `a.id` stays `Shape.id a`, as any function on an
   unknown does. A proof that needs to see through it splits `a` (`match a
   with`), after which each branch's `a.id` computes. That is the normal proof
   style already; no new lemmas are needed for it.
 - **Equation lemmas.** None generated (as for record projections and per
   D231 not to generate Lean-style equation lemmas yet,
-  [equation-lemmas.md](equation-lemmas.md)) **[checked]**. `Annotation.id.unfold`,
+  [equation-lemmas.md](equation-lemmas.md)) **[checked]**. `Shape.id.unfold`,
   if wanted, is the general mechanism's business, not this feature's.
 - **No eta.** Records' stage 2 eta doesn't apply: a variant isn't determined by
   its shared fields.
@@ -453,7 +453,7 @@ hash ([§9.6](#96-hashes)).
 
 ### 6.1 Syntax and rules
 
-`{ a | start = t }` with `a: Annotation` gives the same constructor with
+`{ a | start = t }` with `a: Shape` gives the same constructor with
 `start` replaced; several fields may be given, `{ a | start = t, ref = 0 }`.
 Rules, by analogy with records:
 
@@ -463,8 +463,8 @@ Rules, by analogy with records:
   constructor, every later field whose type mentions a replaced field must be
   replaced too. If that later field is shared, the user gives it
   (`{ x | n = 3, xs = [1, 2, 3] }`); if it's one constructor's own field, the
-  update is impossible and the error says so: "`Slide`'s `items` mentions
-  `len`, so `len` can't be updated on every `Annotation`".
+  update is impossible and the error says so: "`Circle`'s `items` mentions
+  `len`, so `len` can't be updated on every `Shape`".
 - **The base runs once, first**, then the new field expressions in the order
   written, as records (`records.md` §6.1) **[checked]**.
 - **The result type** is `a`'s type. For indexed families (`T ps is`),
@@ -483,9 +483,9 @@ and the new values:
 ```
 { a | start = t }
   ≈  (%v %t => match %v with
-        | Heading r i _         => Heading r i %t
-        | Slide r i _ x         => Slide r i %t x
-        | CardGroup r i _ d cs  => CardGroup r i %t d cs) a t
+        | Dot r i _         => Dot r i %t
+        | Circle r i _ x         => Circle r i %t x
+        | Polygon r i _ d cs  => Polygon r i %t d cs) a t
 ```
 
 with `%v` and `%t` hidden (the records' `%record` device, `records.rs:477`)
@@ -495,31 +495,31 @@ does today), not a lifted `match` helper, so it needs no name.
 
 **In proofs**, `{ a | start = t }.start = t` holds after splitting `a`; on a
 known constructor both sides compute. Generated lemmas such as
-`Annotation.start_update` are not proposed now ([§12](#12-risks)).
+`Shape.start_update` are not proposed now ([§12](#12-risks)).
 
 ## 7. Before and after
 
 Before: §1. After:
 
 ```
-type Annotation =
-  | Heading (ref: Nat) (id: Text) (start: Int)
-  | Slide (ref: Nat) (id: Text) (start: Int) (text: Text)
-  | CardGroup (ref: Nat) (id: Text) (start: Int) (duration: Nat) (cards: List Card)
+type Shape =
+  | Dot (ref: Nat) (id: Text) (start: Int)
+  | Circle (ref: Nat) (id: Text) (start: Int) (text: Text)
+  | Polygon (ref: Nat) (id: Text) (start: Int) (duration: Nat) (points: List Point)
 
 -- No getters: `a.id`, `a.ref`, `a.start` are generated.
-def withStart (t: Int) (a: Annotation): Annotation := { a | start = t }
+def withStart (t: Int) (a: Shape): Shape := { a | start = t }
 
-def textOf: Annotation -> Option Text
-  | Slide { text, .. } => Some text
+def textOf: Shape -> Option Text
+  | Circle { text, .. } => Some text
   | _                  => None
 
-def cardCount: Annotation -> Nat
-  | CardGroup { cards, .. } => cards.length
+def cardCount: Shape -> Nat
+  | Polygon { points, .. } => points.length
   | _                       => 0
 
-def ids (xs: List Annotation): List Text := xs.map .id
-def shift (d: Int) (xs: List Annotation): List Annotation :=
+def ids (xs: List Shape): List Text := xs.map .id
+def shift (d: Int) (xs: List Shape): List Shape :=
   xs.map (a => { a | start = a.start + d })
 ```
 
@@ -531,38 +531,38 @@ underscore-counting pattern.
 The same data can be modelled today, without new features:
 
 ```
-type AnnotationKind =
-  | Heading
-  | Slide (text: Text)
-  | CardGroup (duration: Nat) (cards: List Card)
+type ShapeKind =
+  | Dot
+  | Circle (text: Text)
+  | Polygon (duration: Nat) (points: List Point)
 
-type Annotation = { ref: Nat, id: Text, start: Int, kind: AnnotationKind }
+type Shape = { ref: Nat, id: Text, start: Int, kind: ShapeKind }
 ```
 
 `a.id` and `{ a | start = t }` work now, and a match reads
-`| { kind = Slide text, .. } => …`. It's a good model when the program owns
+`| { kind = Circle text, .. } => …`. It's a good model when the program owns
 its data. It's weaker in three ways:
 
 1. **JS interop.** At the boundary it's `{ ref, id, start, kind: { tag:
-   "Slide", text } }`: nested. A TS program, an API or a stored document whose
-   data is the flat union `{ tag: "Slide", ref, id, start, text }` (the common
+   "Circle", text } }`: nested. A TS program, an API or a stored document whose
+   data is the flat union `{ tag: "Circle", ref, id, start, text }` (the common
    TS idiom, and the shape the port in §1 had to keep) can't be described
    this way; it needs a hand-written conversion on each side of the boundary,
    which defeats the codecs.
-2. **The type no longer says "one of three things".** `Annotation` is now a
+2. **The type no longer says "one of three things".** `Shape` is now a
    record whose last field varies, so a function about slides takes an
-   `Annotation` and matches `kind`, and anything with "a slide's fields" has
+   `Shape` and matches `kind`, and anything with "a slide's fields" has
    to be written as the record plus a proof about `kind`.
 3. **Shared fields can't depend on the kind**, and the shared/own split is
    fixed in the type: moving a field from "every kind" to "some kinds" means
    restructuring every use.
 
 The other route already planned, **a constructor wrapping a record**
-(`| Slide SlideData`, flattened in JS per the records note's decisions)
+(`| Circle SlideData`, flattened in JS per the records note's decisions)
 **[checked]**, keeps JS flat, but each record repeats the shared fields, so
 `a.id` still needs a hand-written getter. It combines well with this
 proposal: if every wrapped record has `id`, see D593's one-field rule
-(`Slide { id, .. }` reads the wrapped record) and §12 (shared fields through
+(`Circle { id, .. }` reads the wrapped record) and §12 (shared fields through
 a wrapper are not proposed).
 
 ## 9. Interactions
@@ -575,7 +575,7 @@ can already write `a.id` on the generated union type ([§2](#2-stitchwort-today)
 **[run]**), so features 2 and 3 make the Stitchwort side match what the TS side
 already allows.
 
-- **Generated code.** `Annotation.id` could compile to `x.id` without a
+- **Generated code.** `Shape.id` could compile to `x.id` without a
   `switch`, since every constructor stores `id` under the same key. An
   optional optimisation, not a requirement.
 - **Optional-field codecs (SW-339, D582).** An `Option T` shared field
@@ -587,7 +587,7 @@ already allows.
   must never be used as the discriminant implicitly; that's the TS idiom of a
   literal-typed common property, which Stitchwort expresses with the tag.
 - **`.d.ts`**: optionally, a named base type
-  (`export type AnnotationBase = { readonly ref: bigint; readonly id: string;
+  (`export type ShapeBase = { readonly ref: bigint; readonly id: string;
   readonly start: bigint }`) for TS code that wants to name it. Not proposed
   now.
 
@@ -595,31 +595,31 @@ already allows.
 
 Unchanged: they work constructor by constructor, and shared fields are
 ordinary fields of each constructor. `Show` keeps printing variants
-positionally (`Slide 1 "a" 0 "t"`); printing `Slide { ref = 1, … }` would be
+positionally (`Circle 1 "a" 0 "t"`); printing `Circle { ref = 1, … }` would be
 a separate choice and would make output longer.
 
 ### 9.3 Navigation and the language server
 
-- Hover on `a.id`: `Annotation.id: Annotation -> Text`, with a line "shared
-  field of `Heading`, `Slide`, `CardGroup`".
+- Hover on `a.id`: `Shape.id: Shape -> Text`, with a line "shared
+  field of `Dot`, `Circle`, `Polygon`".
 - Go to definition: the `id` binder in the first constructor (records go to
   the type today, 4.3). Find references could include every constructor's `id`
   binder.
 - Completion after `a.`: shared fields listed with the type's functions.
-- In `Slide { id, .. }`: the field name goes to `Slide`'s `id`.
+- In `Circle { id, .. }`: the field name goes to `Circle`'s `id`.
 
 ### 9.4 Namespaces and `T.f` functions
 
 A shared field is a member `T.f`, as a record field is, so there's one lookup:
 dot notation finds `T.f` whether it's generated or written. They can't both
 exist (`E-DUPLICATE`, 5.4). Nicknames work as today: `p: Price` with
-`Price = Annotation` tries `Price.id`, then `Annotation.id`.
+`Price = Shape` tries `Price.id`, then `Shape.id`.
 
 ### 9.5 Existing code
 
 No backwards compatibility is needed, but feature 2 changes some programs:
 
-- Hand-written getters with a shared field's name (`def Annotation.id` in §1)
+- Hand-written getters with a shared field's name (`def Shape.id` in §1)
   become `E-DUPLICATE`; delete them.
 - With D594 (a), every one-constructor data type gets accessors too, so the
   library's hand-written `Pair.fst` and `Pair.snd` (`std/core/Data.sw:89`)
@@ -683,7 +683,7 @@ record pattern?**
 field's pattern, as today. No program that checks today changes meaning.
 (b) Braces after a constructor always name its fields; a record pattern as
 an argument is written in brackets, `W ({ name, .. })`.
-(c) Spacing: `Slide{ id }` names fields. Not recommended.
+(c) Spacing: `Circle{ id }` names fields. Not recommended.
 
 **D594. Which data types get shared-field accessors?**
 (a) **Recommended:** every data type, by the one rule in 5.1, including
@@ -695,7 +695,7 @@ hand-written functions (and should be records if they want field syntax).
 
 **D595. Should a bare `{ id, .. }` (no constructor) match a variant by its
 shared fields?** `let { id, start, .. } := a`, `| { id, .. } => …`,
-`annotations.map ({ id, .. } => id)`: an irrefutable pattern binding shared
+`shapes.map ({ id, .. } => id)`: an irrefutable pattern binding shared
 fields by their accessors (records' pattern `let` already works this way,
 `patlet.rs`). It's the pattern form of feature 2, small once 2 exists.
 (a) Yes, in the feature 2 lane. (b) **Recommended:** not now; `a.id`
@@ -723,8 +723,8 @@ covers the need, and it can be added later without changing anything else.
 - **Performance.** One generated definition per shared field per type; for
   large libraries a few more definitions to check and hash. Small.
 - **Not proposed** and possibly asked for later: named construction
-  (`Slide { ref = 1, … }`, 4.1), shared fields through a wrapped record
-  (`| Slide SlideData`), updates on indexed families, generated update
+  (`Circle { ref = 1, … }`, 4.1), shared fields through a wrapped record
+  (`| Circle SlideData`), updates on indexed families, generated update
   lemmas, and the `.d.ts` base type.
 
 ## 13. What I couldn't verify
