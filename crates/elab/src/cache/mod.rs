@@ -65,7 +65,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 10;
+pub const FORMAT: u32 = 11;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1406,6 +1406,7 @@ impl Elaborator {
             e.data(d);
             e.str(&repr.tag_key);
             e.w.bool(repr.string_enum);
+            e.w.bool(repr.unboxed);
             e.w.usize(repr.ctors.len());
             for ctor in &repr.ctors {
                 e.str(&ctor.tag);
@@ -2793,6 +2794,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         let d = b.data()?;
         let tag_key = b.string()?;
         let string_enum = b.r.bool()?;
+        let unboxed = b.r.bool()?;
         let k = b.count()?;
         let mut ctors = Vec::with_capacity(k);
         for _ in 0..k {
@@ -2814,6 +2816,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
                 tag_key,
                 ctors,
                 string_enum,
+                unboxed,
             },
         ));
     }

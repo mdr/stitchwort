@@ -49,7 +49,13 @@ const outOfResources = (name, e) =>
 // - `map(t)` is a `Map Text t` (the library's), as a plain object: decoding
 //   reads the object's own enumerable string keys and builds the map from
 //   its entries with the library's own `Map.fromList` (`MAP_SHAPE`), and
-//   encoding makes a fresh object, key by key, from `Map.toList`.
+//   encoding makes a fresh object, key by key, from `Map.toList`. With a
+//   second type, `map(t, k)`, the keys are `k`, a `js.unboxed` record over
+//   `Text` in its derived order (which is `Text`'s): a string inside
+//   generated code too, whose proof fields are checked;
+// - a `js.unboxed` record (`bare` in `define`) is its one field's JS form,
+//   and inside generated code that field's value (D866): it's decoded and
+//   encoded as the field, and then its proof fields are checked.
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
 // two types are the same exactly when they're the same object, and `decode`
@@ -63,7 +69,13 @@ let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
-const map = (elem) => (elem.map ??= { kind: MAP, open: elem.open, id: typeCount++, elem });
+// A map's keys are `TEXT`, or a `js.unboxed` record over it (`key`).
+const map = (elem, key = TEXT) => {
+  const maps = (elem.maps ??= new Map());
+  let t = maps.get(key);
+  if (t === undefined) maps.set(key, (t = { kind: MAP, open: elem.open, id: typeCount++, elem, key }));
+  return t;
+};
 // What an option has in place of `undefined`: its type, or if that's an
 // option too, the tagged data type with that one's type as its argument.
 const payload = (t) =>
@@ -95,7 +107,9 @@ const datatype = (name, tagKey = "$tag") => ({
 // encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
+const define = (
+  info, ctors, record = false, checks = [], strings = false, unboxed = false, bare = false,
+) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -110,6 +124,8 @@ const define = (info, ctors, record = false, checks = [], strings = false, unbox
   }
   info.checks = checks;
   info.unboxed = unboxed;
+  // `js.unboxed`: at the boundary too, a value is its one field's.
+  info.bare = bare;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -129,7 +145,7 @@ const close = (t, args) =>
   : t.kind === PARAM ? args[t.i]
   : t.kind === LIST ? list(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
-  : t.kind === MAP ? map(close(t.elem, args))
+  : t.kind === MAP ? map(close(t.elem, args), t.key)
   : data(t.info, t.args.map((a) => close(a, args)));
 
 // A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
@@ -355,10 +371,11 @@ const plainKeys = (x) => {
 // than remembering it.
 const INSIDE = Symbol("inside");
 // A value with nothing inside it that could be shared or contain itself: a leaf,
-// a string union, or an `Option` of one.
+// a string union, or an `Option` of one, or a `js.unboxed` record over one.
 const shallow = (t) =>
   t.kind === LEAF ||
   (t.kind === DATA && t.info.strings) ||
+  (t.kind === DATA && t.info.bare && shallow(t.info.record[0][1])) ||
   (t.kind === OPTION && t.elem.kind !== OPTION && shallow(t.elem));
 // The tags of a data type's flat constructors (a record's one is `flat` if it's
 // in it), found on first use, when every type is defined.
@@ -380,7 +397,14 @@ const decode = (t, x, root, seen = new Map()) => {
       // already decoded at this type; otherwise it gets a frame.
       let value = NONE;
       // An `Option` is `undefined`, or what's inside it: `null` is neither.
-      while (t.kind === OPTION) {
+      // A `js.unboxed` record is its field, checked once that's decoded.
+      // Neither has a step of its own in the path.
+      while (t.kind === OPTION || (t.kind === DATA && t.info.bare)) {
+        if (t.kind === DATA) {
+          frames.push({ t, bare: true });
+          t = t.info.record[0][1];
+          continue;
+        }
         if (x === undefined) {
           value = { tag: OPTION_SHAPE.none };
           break;
@@ -452,6 +476,12 @@ const decode = (t, x, root, seen = new Map()) => {
             value = { tag: OPTION_SHAPE.some, [OPTION_SHAPE.key]: value };
             continue;
           }
+          if (f.bare) {
+            // A `js.unboxed` record: its field's value, if its proofs hold.
+            frames.pop();
+            for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
+            continue;
+          }
           if (f.keys !== undefined) {
             f.out.push({ tag: MAP_SHAPE.pair, [MAP_SHAPE.fst]: f.key, [MAP_SHAPE.snd]: value });
           } else if (f.fields === undefined) f.out.push(value);
@@ -468,6 +498,12 @@ const decode = (t, x, root, seen = new Map()) => {
             } catch (e) {
               if (e instanceof Refusal) refuse(`the key isn't well-formed text: ${e.message}`);
               throw e;
+            }
+            // A `js.unboxed` key is the string, if its proofs hold.
+            if (f.t.key !== TEXT) {
+              for (const [message, holds] of f.t.key.info.checks) {
+                if (!holds(f.key)) refuse(`the key's ${message}`);
+              }
             }
             x = own(f.x, key);
             if (x === MISSING || x === INHERITED) refuse("the property is gone");
@@ -518,7 +554,12 @@ const encode = (t, v) => {
   const frames = [];
   for (;;) {
     let value = NONE;
-    while (t.kind === OPTION) {
+    while (t.kind === OPTION || (t.kind === DATA && t.info.bare)) {
+      // A `js.unboxed` record is its field, inside and out.
+      if (t.kind === DATA) {
+        t = t.info.record[0][1];
+        continue;
+      }
       if (v.tag === OPTION_SHAPE.none) {
         value = undefined;
         break;

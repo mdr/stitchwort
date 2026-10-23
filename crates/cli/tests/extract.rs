@@ -482,7 +482,7 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
         },
         // A few entries with distinct keys, in a balanced tree sorted by
         // code point (`Text`'s order), as the library's maps are.
-        Boundary::Map(d, value) => {
+        Boundary::Map(d, key_type, value) => {
             let mut entries: Vec<(String, Value)> = Vec::new();
             for _ in 0..if depth == 0 { 0 } else { rng.below(5) } {
                 let key: String = (0..rng.below(4))
@@ -498,7 +498,7 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
             // sizes; erased, so a placeholder each. The map is `Quot.mk` of
             // it, whose type and relation nothing looks at.
             let raw = g.find_data("Map.Raw").expect("library type");
-            let mut fields = vec![balanced_tree(g, &entries)];
+            let mut fields = vec![balanced_tree(g, key_type, &entries)];
             fields.resize(g.data(raw).ctors[0].fields.len(), Value::Refl);
             let class = quot_value(
                 QuotForm::Mk,
@@ -511,7 +511,7 @@ fn random_value(g: &Globals, b: &Boundary, rng: &mut Rng, depth: usize) -> Value
 }
 
 /// A balanced `Map.Tree` of entries sorted by key.
-fn balanced_tree(g: &Globals, entries: &[(String, Value)]) -> Value {
+fn balanced_tree(g: &Globals, key_type: &Boundary, entries: &[(String, Value)]) -> Value {
     let tree = g.find_data("Map.Tree").expect("library type");
     if entries.is_empty() {
         return Value::Ctor(tree, 0, vec![].into());
@@ -532,13 +532,38 @@ fn balanced_tree(g: &Globals, entries: &[(String, Value)]) -> Value {
         1,
         vec![
             Value::Nat(std::rc::Rc::new(BigUint::from(entries.len()))),
-            balanced_tree(g, &entries[..mid]),
-            Value::Ctor(named("Text"), 0, vec![chars].into()),
+            balanced_tree(g, key_type, &entries[..mid]),
+            as_key(
+                g,
+                key_type,
+                Value::Ctor(named("Text"), 0, vec![chars].into()),
+            ),
             value.clone(),
-            balanced_tree(g, &entries[mid + 1..]),
+            balanced_tree(g, key_type, &entries[mid + 1..]),
         ]
         .into(),
     )
+}
+
+/// A map's key from its `Text`: itself, or a `js.unboxed` record of it, its
+/// proof fields placeholders (`proofs_hold` checks them).
+fn as_key(g: &Globals, key_type: &Boundary, text: Value) -> Value {
+    match key_type {
+        Boundary::Text => text,
+        Boundary::Data(k, _) => {
+            let mut text = Some(text);
+            let fields = g.data(*k).ctors[0]
+                .field_erased
+                .iter()
+                .map(|erased| match erased {
+                    true => Value::Refl,
+                    false => text.take().expect("one field with a property"),
+                })
+                .collect();
+            Value::Ctor(*k, 0, fields)
+        }
+        other => panic!("a map's key is no {other:?}"),
+    }
 }
 
 /// Whether the proof fields of every record in `value`, of boundary type
@@ -553,19 +578,20 @@ fn proofs_hold(g: &Globals, b: &Boundary, value: &Value) -> bool {
             *c == 0 || proofs_hold(g, inner, &fields[0])
         }
         // Every value in the tree: `Bin size left key value right`.
-        (Boundary::Map(_, inner), Value::Ctor(_, 0, fields)) => {
-            fn tree_holds(g: &Globals, inner: &Boundary, tree: &Value) -> bool {
+        (Boundary::Map(_, key, inner), Value::Ctor(_, 0, fields)) => {
+            fn tree_holds(g: &Globals, key: &Boundary, inner: &Boundary, tree: &Value) -> bool {
                 match tree {
                     Value::Ctor(_, 1, p) => {
-                        tree_holds(g, inner, &p[1])
+                        tree_holds(g, key, inner, &p[1])
+                            && proofs_hold(g, key, &p[2])
                             && proofs_hold(g, inner, &p[3])
-                            && tree_holds(g, inner, &p[4])
+                            && tree_holds(g, key, inner, &p[4])
                     }
                     _ => true,
                 }
             }
             match quot_mk_rep(&fields[0]) {
-                Some(Value::Ctor(_, 0, raw)) => tree_holds(g, inner, &raw[0]),
+                Some(Value::Ctor(_, 0, raw)) => tree_holds(g, key, inner, &raw[0]),
                 _ => false,
             }
         }
@@ -1431,6 +1457,116 @@ fn tsc_check(name: &str, app: &str, dts: &str) -> (bool, String) {
             String::from_utf8_lossy(&result.stderr)
         ),
     )
+}
+
+/// `@[js.unboxed]` (docs/proposals/microtypes.md, "As built"): a microtype
+/// crosses as its field's own JS form, in every position, its proof fields
+/// checked; a map from one is a plain object whose keys are checked too. The
+/// general codec (reached when the fast one gives up) agrees.
+#[test]
+fn microtypes_cross_as_their_field() {
+    let examples = examples();
+    let session = example(&examples, "microtypes.sw");
+    let script = r#"
+import * as m from "./micro.mjs";
+import assert from "node:assert/strict";
+
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message));
+
+// A string in and out, not `{ value }`.
+assert.equal(m.wrap("u1"), "u1");
+assert.equal(m.unwrap("u1"), "u1");
+assert.equal(m.same("u1", "u1"), true);
+assert.equal(m.named("Ada"), "user Ada");
+refused(() => m.unwrap({ value: "u1" }), /^u: expected a string$/);
+refused(() => m.unwrap(7), /^u: expected a string$/);
+refused(() => m.unwrap(undefined), /^u: expected a string$/);
+
+// In a record (an `Option` field is optional), a constructor and a list.
+const orders = [{ id: "o1", owner: "u1" }, { id: "o2", owner: "u2", helper: "u3" }];
+assert.deepEqual(m.owners(orders), ["u1", "u2"]);
+assert.equal(m.helperOf(orders[0]), undefined);
+assert.equal(m.helperOf(orders[1]), "u3");
+assert.equal(m.creator({ $tag: "Created", by: "u9" }), "u9");
+refused(() => m.owners([{ id: "o1", owner: { value: "u1" } }]), /^orders\[0\]\.owner: expected a string$/);
+refused(() => m.helperOf({ id: "o1", owner: "u1", helper: null }), /^o\.helper: expected a value or undefined, not null$/);
+
+// Other field types: a `bigint`, a list.
+assert.equal(m.bump(41n), 42n);
+assert.equal(m.tagged(["a", "b"]), 2n);
+refused(() => m.bump(41), /^c: expected a non-negative bigint$/);
+
+// A proof field is checked, wherever the microtype is.
+assert.equal(m.domain("ada@example.com"), "ada@example.com");
+refused(() => m.domain("nobody"), /^e: proof field `valid` \(`Email\.isValid value = True`\) doesn't hold$/);
+
+// Maps from a microtype are plain objects, in `Text`'s order; their keys'
+// proof fields are checked.
+assert.equal(m.ownerOf({ o1: "u1", o2: "u2" }, "o2"), "u2");
+assert.equal(m.ownerOf({}, "o2"), undefined);
+const v = m.visits({ b: 1n, a: 2n }, "c");
+assert.deepEqual(Object.entries(v), [["a", 2n], ["b", 1n], ["c", 1n]]);
+const proto = {};
+Object.defineProperty(proto, "__proto__", { value: 1n, writable: true, enumerable: true, configurable: true });
+assert.equal(Object.getOwnPropertyDescriptor(m.visits(proto, "__proto__"), "__proto__").value, 2n);
+assert.deepEqual(m.mailbox({ "c@d": 1n, "a@b": 2n }), ["a@b", "c@d"]);
+refused(() => m.mailbox({ "a@b": 1n, nobody: 2n }), /^m\.nobody: the key's proof field `valid` .* doesn't hold$/);
+refused(() => m.ownerOf({ o1: { value: "u1" } }, "o1"), /^orders\.o1: expected a string$/);
+
+// The general decoder, after a getter that throws once, gives the same.
+let once = true;
+const tricky = {
+  id: "o1",
+  get owner() {
+    if (once) {
+      once = false;
+      throw new Error("not yet");
+    }
+    return "u1";
+  },
+};
+assert.deepEqual(m.owners([tricky, { id: "o2", owner: "u2" }]), ["u1", "u2"]);
+console.log("ok");
+"#;
+    run_script("microtypes", &[("micro.mjs", session)], script);
+}
+
+/// The `.d.ts` of a microtype is a plain alias (D1066): an app passes its
+/// plain strings in and gets strings out, and its `Record<string, V>` is a
+/// map from one. A plain alias doesn't keep two microtypes apart in
+/// TypeScript (an `OrderId` is accepted as a `UserId`); the checker does.
+#[test]
+fn microtypes_are_plain_aliases_in_typescript() {
+    let examples = examples();
+    let session = example(&examples, "microtypes.sw");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    for line in [
+        "export type UserId = string;",
+        "export type Count = bigint;",
+        "export type Tags = string[];",
+        "export declare function ownerOf(orders: { readonly [k: OrderId]: UserId }, o: OrderId): UserId | undefined;",
+    ] {
+        assert!(output.dts.contains(line), "no `{line}` in:\n{}", output.dts);
+    }
+    let app = r#"
+import { UserId, OrderId, Order, wrap, unwrap, ownerOf, visits, owners } from "./module";
+
+declare const order: OrderId;
+export const s: string = wrap("u1");
+export const u: UserId = "u1";
+export const t: string = unwrap("u1");
+export const o: UserId | undefined = ownerOf({ o1: "u1" }, "o1");
+const scores: Record<string, bigint> = { a: 1n };
+export const r: Record<string, bigint> = visits(scores, "a");
+export const k: string[] = Object.keys(visits(scores, "a"));
+export const x: string = unwrap(order);
+export const p: Order = { id: "o1", owner: "u1" };
+export const ids: string[] = owners([p]);
+"#;
+    let (ok, report) = tsc_check("microtypes", app, &output.dts);
+    assert!(ok, "{report}\n{}", output.dts);
 }
 
 /// `@[js.tag "$tag"]` is exactly the default: the same module and
@@ -3810,14 +3946,20 @@ fn only_text_keyed_maps_cross_as_objects() {
     );
     assert!(nat.contains("E-EXPORT"), "{nat}");
     assert!(
-        nat.contains("can't cross the JS boundary: only maps from `Text` cross, as plain objects"),
+        nat.contains(
+            "can't cross the JS boundary: only maps from `Text`, or from a `js.unboxed` record \
+             over `Text`, cross, as plain objects"
+        ),
         "{nat}"
     );
     let result = refuse(
         "nat-result.sw",
         "import Std (Map, Nat, Text)\nexport def f (m: Map Text Nat): Map Nat Text := Map.empty\n",
     );
-    assert!(result.contains("only maps from `Text` cross"), "{result}");
+    assert!(
+        result.contains("only maps from `Text`, or from"),
+        "{result}"
+    );
     let reversed = refuse(
         "reversed.sw",
         "import Std (Map, Nat, Ord, Text)\n\
@@ -3837,7 +3979,7 @@ fn only_text_keyed_maps_cross_as_objects() {
         "tuple-keys.sw",
         "import Std (Map, Nat, Text)\nexport def f (m: Map (Text, Text) Nat): Nat := Map.size m\n",
     );
-    assert!(tuple.contains("only maps from `Text` cross"), "{tuple}");
+    assert!(tuple.contains("only maps from `Text`, or from"), "{tuple}");
 }
 
 /// The prelude with `from` replaced by `to`, which must occur.

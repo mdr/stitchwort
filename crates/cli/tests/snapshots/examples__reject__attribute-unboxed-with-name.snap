@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `js.name` means nothing with `js.unboxed`
+   ╭─[ reject/attribute-unboxed-with-name.sw:4:19 ]
+   │
+ 3 │ @[js.unboxed]
+   │   ─────┬────  
+   │        ╰────── crosses as the field's value
+ 4 │ type UserId = { @[js.name "id"] value: Text }
+   │                   ──────┬─────  
+   │                         ╰─────── an unboxed record's field has no key
+   │ 
+   │ Note: remove `js.name`: with `js.unboxed` a value is its field's, not an object
+───╯

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `size` can't be exported
+    ╭─[ reject/microtype-map-custom-order.sw:17:1 ]
+    │
+ 17 │ export def size (m: Map UserId Nat [ord := reversed]): Nat := Map.size m
+    │ ─────────────────────────────┬────────────────────────────  
+    │                              ╰────────────────────────────── parameter `m`: `Map UserId Nat [ord := reversed]` can't cross the JS boundary: a map from `UserId` crosses only in `UserId`'s derived order, which is `Text`'s, and this map has another
+────╯

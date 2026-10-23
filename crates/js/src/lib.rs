@@ -81,11 +81,16 @@ pub enum Boundary {
     /// inner `Option` is the tagged [`Boundary::Data`] instead, so `Some None`
     /// and `None` stay apart: see [`Boundary::payload`].
     Option(DataId, Box<Boundary>),
-    /// The library's `Map Text V` (the `DataId`), ordered by the library's
-    /// `Text` order, as a plain object `{ readonly [k: string]: V }`: the
-    /// keys are the map's keys, the values are `V`'s encoding.
-    Map(DataId, Box<Boundary>),
+    /// The library's `Map K V` (the `DataId`), as a plain object
+    /// `{ readonly [k: string]: V }`: the keys are the map's keys, the values
+    /// are `V`'s encoding. The key (the first [`Boundary`]) is
+    /// [`Boundary::Text`], in `Text`'s own order, or a `js.unboxed` record
+    /// over `Text` in its derived order, which is the same (D1068): either
+    /// way a key is a string inside generated code (D866).
+    Map(DataId, Box<Boundary>, Box<Boundary>),
     /// A tagged object union, with the type's arguments if it has parameters.
+    /// A `js.unboxed` record (no arguments) is its one field's JS form
+    /// instead (docs/proposals/microtypes.md, D1065).
     Data(DataId, Vec<Boundary>),
     /// Parameter `i` of the data type whose fields these are: only in the
     /// description of a data type's fields, where `close` (in the runtime)
@@ -101,7 +106,9 @@ impl Boundary {
             Boundary::Param(i) => args[*i].clone(),
             Boundary::List(elem) => Boundary::List(Box::new(elem.instantiate(args))),
             Boundary::Option(d, inner) => Boundary::Option(*d, Box::new(inner.instantiate(args))),
-            Boundary::Map(d, value) => Boundary::Map(*d, Box::new(value.instantiate(args))),
+            Boundary::Map(d, key, value) => {
+                Boundary::Map(*d, key.clone(), Box::new(value.instantiate(args)))
+            }
             Boundary::Data(d, own) => {
                 Boundary::Data(*d, own.iter().map(|b| b.instantiate(args)).collect())
             }
@@ -139,9 +146,8 @@ impl Boundary {
     fn mentions(&self, leaf: &Boundary) -> bool {
         self == leaf
             || match self {
-                Boundary::List(elem) | Boundary::Option(_, elem) | Boundary::Map(_, elem) => {
-                    elem.mentions(leaf)
-                }
+                Boundary::List(elem) | Boundary::Option(_, elem) => elem.mentions(leaf),
+                Boundary::Map(_, key, elem) => key.mentions(leaf) || elem.mentions(leaf),
                 Boundary::Data(_, args) => args.iter().any(|a| a.mentions(leaf)),
                 _ => false,
             }
@@ -333,24 +339,45 @@ fn boundary(
                 (Some(Builtin::Bool), []) => Ok(Boundary::Bool),
                 (Some(Builtin::Char), []) => Ok(Boundary::Char),
                 // The library's `Map` is a dictionary: a plain object. Only a
-                // map from `Text`, in `Text`'s own order, can be one.
+                // map from `Text`, in `Text`'s own order, can be one, or from
+                // a `js.unboxed` record over `Text` in its derived order,
+                // which compares the one field by `Text`'s (D1068).
                 (Some(Builtin::Map), [key, value, order]) => {
-                    let text_key = matches!(key, Value::Data(t, a) if a.is_empty() && text_data(g) == Some(*t));
-                    if !text_key {
-                        return Err(format!(
-                            "`{}` can't cross the JS boundary: only maps from `Text` cross, as plain objects",
-                            pretty::value(g, &[], ty)
-                        ));
-                    }
-                    if !is_text_order(g, order) {
-                        return Err(format!(
-                            "`{}` can't cross the JS boundary: a map crosses only in `Text`'s own \
-                             order (`Text.instOrd`), which its keys are sorted by",
-                            pretty::value(g, &[], ty)
-                        ));
-                    }
+                    let key = match key {
+                        Value::Data(t, a) if a.is_empty() && text_data(g) == Some(*t) => {
+                            if !is_text_order(g, order) {
+                                return Err(format!(
+                                    "`{}` can't cross the JS boundary: a map crosses only in \
+                                     `Text`'s own order (`Text.instOrd`), which its keys are \
+                                     sorted by",
+                                    pretty::value(g, &[], ty)
+                                ));
+                            }
+                            Boundary::Text
+                        }
+                        Value::Data(k, a) if a.is_empty() && unboxed_over_text(g, *k) => {
+                            if !is_derived_order(g, *k, order) {
+                                let key_name = &g.data(*k).name;
+                                return Err(format!(
+                                    "`{}` can't cross the JS boundary: a map from `{key_name}` \
+                                     crosses only in `{key_name}`'s derived order, which is \
+                                     `Text`'s, and this map has another",
+                                    pretty::value(g, &[], ty)
+                                ));
+                            }
+                            check_codec(g, *k, visiting)?;
+                            Boundary::Data(*k, Vec::new())
+                        }
+                        _ => {
+                            return Err(format!(
+                                "`{}` can't cross the JS boundary: only maps from `Text`, or from \
+                                 a `js.unboxed` record over `Text`, cross, as plain objects",
+                                pretty::value(g, &[], ty)
+                            ));
+                        }
+                    };
                     let value = boundary(g, value, params, visiting)?;
-                    Ok(Boundary::Map(*d, Box::new(value)))
+                    Ok(Boundary::Map(*d, Box::new(key), Box::new(value)))
                 }
                 (Some(Builtin::List), [elem]) => Ok(Boundary::List(Box::new(boundary(
                     g, elem, params, visiting,
@@ -395,6 +422,37 @@ fn is_text_order(g: &Globals, order: &Value) -> bool {
         Value::Neutral(Head::Def(id), spine) => *id == text_order && spine.is_empty(),
         _ => false,
     }
+}
+
+/// Whether `d` is a `js.unboxed` record whose one field is the prelude's
+/// `Text`: a map key that crosses as a string (D1068).
+fn unboxed_over_text(g: &Globals, d: DataId) -> bool {
+    let data = g.data(d);
+    if !data.js.as_ref().is_some_and(|r| r.unboxed) {
+        return false;
+    }
+    let Some(i) = data.unboxed_field() else {
+        return false;
+    };
+    let mut env: Vec<Value> = (0..data.params.len()).map(Value::var).collect();
+    env.extend((0..i).map(|j| Value::var(data.params.len() + j)));
+    matches!(
+        eval(g, &env, &data.ctors[0].fields[i].1).expect(OUTSIDE_LIMITS),
+        Value::Data(t, a) if a.is_empty() && text_data(g) == Some(t)
+    )
+}
+
+/// Whether `order` is record `d`'s derived `Ord` instance, `d.%instOrd`
+/// (derive_ord.rs; no program can write a name with `%`). For a record over
+/// `Text` it compares the field by `Text.instOrd`, so it sorts keys as a
+/// `Map Text V` does.
+fn is_derived_order(g: &Globals, d: DataId, order: &Value) -> bool {
+    let id = match order {
+        Value::Call(id, spine, _) if spine.is_empty() => *id,
+        Value::Neutral(Head::Def(id), spine) if spine.is_empty() => *id,
+        _ => return false,
+    };
+    *g.def(id).name == *format!("{}.%instOrd", g.data(d).name)
 }
 
 /// Whether a data type can have a codec: its parameters are types, and its
@@ -457,9 +515,52 @@ fn check_codec(g: &Globals, d: DataId, visiting: &mut HashSet<DataId>) -> Result
             }
         }
         for (field, field_ty) in fields {
-            boundary(g, &field_ty, data.params.len(), visiting)
+            let b = boundary(g, &field_ty, data.params.len(), visiting)
                 .map_err(|why| format!("`{}`'s field `{field}`: {why}", data.name))?;
+            if repr(g, d).unboxed {
+                unboxed_field_crosses(g, d, &field, &b)?;
+            }
         }
+    }
+    Ok(())
+}
+
+/// The checks on `js.unboxed` record `d`'s one field, `field`, crossing as
+/// `b`, that its declaration couldn't make: its JS form isn't
+/// `T | undefined` (an `Option` through a synonym: the attribute check
+/// refuses one written as such), and it isn't `d` again, directly or through
+/// other unboxed records, which would be a value that is only itself.
+fn unboxed_field_crosses(g: &Globals, d: DataId, field: &str, b: &Boundary) -> Result<(), String> {
+    let name = &g.data(d).name;
+    if matches!(b, Boundary::Option(..)) {
+        return Err(format!(
+            "`{name}` is `js.unboxed`, so it would cross as its field `{field}`, which crosses \
+             as `T | undefined`: an `Option` of `{name}` couldn't be told apart from `None`"
+        ));
+    }
+    // Follow the unboxed records inside, by their fields' types (each one's
+    // own field is checked when its codec is).
+    let mut seen = vec![d];
+    let mut next = match b {
+        Boundary::Data(e, _) => Some(*e),
+        _ => None,
+    };
+    while let Some(e) = next.filter(|e| repr(g, *e).unboxed) {
+        if seen.contains(&e) {
+            return Err(format!(
+                "`{name}` is `js.unboxed`, and its field `{field}` is unboxed into `{name}` \
+                 again, so it would cross as nothing but itself"
+            ));
+        }
+        seen.push(e);
+        next = data_fields(g, e)
+            .into_iter()
+            .flatten()
+            .next()
+            .and_then(|(_, ty)| match ty {
+                Value::Data(f, _) => Some(f),
+                _ => None,
+            });
     }
     Ok(())
 }
@@ -927,7 +1028,7 @@ pub fn generate_exports(
 /// nested one (not counting the fields of data types).
 fn names_option(g: &Globals, b: &Boundary) -> bool {
     match b {
-        Boundary::List(elem) | Boundary::Map(_, elem) => names_option(g, elem),
+        Boundary::List(elem) | Boundary::Map(_, _, elem) => names_option(g, elem),
         Boundary::Option(..) => names_option(g, &b.payload()),
         Boundary::Data(d, args) => {
             g.registry.is_data(Builtin::Option, *d) || args.iter().any(|a| names_option(g, a))
@@ -947,7 +1048,11 @@ fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
         | Boundary::Text
         | Boundary::Char
         | Boundary::Param(_) => {}
-        Boundary::List(elem) | Boundary::Map(_, elem) => collect_datas(g, elem, out),
+        Boundary::List(elem) => collect_datas(g, elem, out),
+        Boundary::Map(_, key, elem) => {
+            collect_datas(g, key, out);
+            collect_datas(g, elem, out);
+        }
         Boundary::Option(d, _) => {
             // The runtime needs `Option`'s description (for the tags of a
             // nested one) whenever an `Option` crosses.
@@ -1025,7 +1130,13 @@ const outOfResources = (name, e) =>
 // - `map(t)` is a `Map Text t` (the library's), as a plain object: decoding
 //   reads the object's own enumerable string keys and builds the map from
 //   its entries with the library's own `Map.fromList` (`MAP_SHAPE`), and
-//   encoding makes a fresh object, key by key, from `Map.toList`.
+//   encoding makes a fresh object, key by key, from `Map.toList`. With a
+//   second type, `map(t, k)`, the keys are `k`, a `js.unboxed` record over
+//   `Text` in its derived order (which is `Text`'s): a string inside
+//   generated code too, whose proof fields are checked;
+// - a `js.unboxed` record (`bare` in `define`) is its one field's JS form,
+//   and inside generated code that field's value (D866): it's decoded and
+//   encoded as the field, and then its proof fields are checked.
 // `open` says whether a type mentions a parameter. Each type is made once
 // (`list` and `data` give back the same object for the same arguments), so
 // two types are the same exactly when they're the same object, and `decode`
@@ -1039,7 +1150,13 @@ let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
-const map = (elem) => (elem.map ??= { kind: MAP, open: elem.open, id: typeCount++, elem });
+// A map's keys are `TEXT`, or a `js.unboxed` record over it (`key`).
+const map = (elem, key = TEXT) => {
+  const maps = (elem.maps ??= new Map());
+  let t = maps.get(key);
+  if (t === undefined) maps.set(key, (t = { kind: MAP, open: elem.open, id: typeCount++, elem, key }));
+  return t;
+};
 // What an option has in place of `undefined`: its type, or if that's an
 // option too, the tagged data type with that one's type as its argument.
 const payload = (t) =>
@@ -1071,7 +1188,9 @@ const datatype = (name, tagKey = "$tag") => ({
 // encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
+const define = (
+  info, ctors, record = false, checks = [], strings = false, unboxed = false, bare = false,
+) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -1086,6 +1205,8 @@ const define = (info, ctors, record = false, checks = [], strings = false, unbox
   }
   info.checks = checks;
   info.unboxed = unboxed;
+  // `js.unboxed`: at the boundary too, a value is its one field's.
+  info.bare = bare;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -1105,7 +1226,7 @@ const close = (t, args) =>
   : t.kind === PARAM ? args[t.i]
   : t.kind === LIST ? list(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
-  : t.kind === MAP ? map(close(t.elem, args))
+  : t.kind === MAP ? map(close(t.elem, args), t.key)
   : data(t.info, t.args.map((a) => close(a, args)));
 
 // A leaf decoder refuses its input by throwing a `Refusal`, which `decode`
@@ -1365,10 +1486,11 @@ const plainKeys = (x) => {
 // than remembering it.
 const INSIDE = Symbol("inside");
 // A value with nothing inside it that could be shared or contain itself: a leaf,
-// a string union, or an `Option` of one.
+// a string union, or an `Option` of one, or a `js.unboxed` record over one.
 const shallow = (t) =>
   t.kind === LEAF ||
   (t.kind === DATA && t.info.strings) ||
+  (t.kind === DATA && t.info.bare && shallow(t.info.record[0][1])) ||
   (t.kind === OPTION && t.elem.kind !== OPTION && shallow(t.elem));
 // The tags of a data type's flat constructors (a record's one is `flat` if it's
 // in it), found on first use, when every type is defined.
@@ -1390,7 +1512,14 @@ const decode = (t, x, root, seen = new Map()) => {
       // already decoded at this type; otherwise it gets a frame.
       let value = NONE;
       // An `Option` is `undefined`, or what's inside it: `null` is neither.
-      while (t.kind === OPTION) {
+      // A `js.unboxed` record is its field, checked once that's decoded.
+      // Neither has a step of its own in the path.
+      while (t.kind === OPTION || (t.kind === DATA && t.info.bare)) {
+        if (t.kind === DATA) {
+          frames.push({ t, bare: true });
+          t = t.info.record[0][1];
+          continue;
+        }
         if (x === undefined) {
           value = { tag: OPTION_SHAPE.none };
           break;
@@ -1462,6 +1591,12 @@ const decode = (t, x, root, seen = new Map()) => {
             value = { tag: OPTION_SHAPE.some, [OPTION_SHAPE.key]: value };
             continue;
           }
+          if (f.bare) {
+            // A `js.unboxed` record: its field's value, if its proofs hold.
+            frames.pop();
+            for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
+            continue;
+          }
           if (f.keys !== undefined) {
             f.out.push({ tag: MAP_SHAPE.pair, [MAP_SHAPE.fst]: f.key, [MAP_SHAPE.snd]: value });
           } else if (f.fields === undefined) f.out.push(value);
@@ -1478,6 +1613,12 @@ const decode = (t, x, root, seen = new Map()) => {
             } catch (e) {
               if (e instanceof Refusal) refuse(`the key isn't well-formed text: ${e.message}`);
               throw e;
+            }
+            // A `js.unboxed` key is the string, if its proofs hold.
+            if (f.t.key !== TEXT) {
+              for (const [message, holds] of f.t.key.info.checks) {
+                if (!holds(f.key)) refuse(`the key's ${message}`);
+              }
             }
             x = own(f.x, key);
             if (x === MISSING || x === INHERITED) refuse("the property is gone");
@@ -1528,7 +1669,12 @@ const encode = (t, v) => {
   const frames = [];
   for (;;) {
     let value = NONE;
-    while (t.kind === OPTION) {
+    while (t.kind === OPTION || (t.kind === DATA && t.info.bare)) {
+      // A `js.unboxed` record is its field, inside and out.
+      if (t.kind === DATA) {
+        t = t.info.record[0][1];
+        continue;
+      }
       if (v.tag === OPTION_SHAPE.none) {
         value = undefined;
         break;
@@ -3105,7 +3251,12 @@ impl<'g> Gen<'g> {
             Boundary::Char => "CHAR".into(),
             Boundary::List(elem) => format!("list({})", self.type_expr(elem)),
             Boundary::Option(_, inner) => format!("option({})", self.type_expr(inner)),
-            Boundary::Map(_, value) => format!("map({})", self.type_expr(value)),
+            Boundary::Map(_, key, value) if **key == Boundary::Text => {
+                format!("map({})", self.type_expr(value))
+            }
+            Boundary::Map(_, key, value) => {
+                format!("map({}, {})", self.type_expr(value), self.type_expr(key))
+            }
             Boundary::Data(d, args) if args.is_empty() => {
                 format!("data({})", info_name(&self.g.data(*d).path))
             }
@@ -3189,9 +3340,13 @@ impl<'g> Gen<'g> {
                 let _ = write!(out, "\n  {check},");
             }
             out.push_str("\n]");
-            // Stored as its one run-time field inside generated code (D866).
+            // Stored as its one run-time field inside generated code (D866),
+            // and with `js.unboxed`, at the boundary too.
             if self.unboxed(d).is_some() {
                 out.push_str(", false, true");
+                if repr.unboxed {
+                    out.push_str(", true");
+                }
             }
         }
         out.push_str(");\n");
@@ -3270,9 +3425,12 @@ impl<'g> Gen<'g> {
                 )
             }
             // A dictionary: inputs are read-only, as lists are.
-            Boundary::Map(_, value) => format!(
-                "{{ {}[k: string]: {} }}",
+            // A `js.unboxed` key is named: its alias is `string`, which an
+            // index signature takes.
+            Boundary::Map(_, key, value) => format!(
+                "{{ {}[k: {}]: {} }}",
                 if readonly { "readonly " } else { "" },
+                self.ts_type(key, readonly, params),
                 self.ts_type(value, readonly, params)
             ),
             Boundary::List(elem) if readonly => {
@@ -3305,6 +3463,20 @@ impl<'g> Gen<'g> {
         let data = self.g.data(d);
         let repr = repr(self.g, d);
         let params = self.ts_params(d);
+        if repr.unboxed {
+            // `js.unboxed`: a plain alias of its field's type (D1066). Its
+            // fields are one with a key, and proofs.
+            let field = generic_field_boundaries(self.g, d)
+                .into_iter()
+                .flatten()
+                .next()
+                .expect("an unboxed record has one field with a property");
+            return format!(
+                "export type {} = {};\n",
+                type_name(&data.name),
+                self.ts_type(&field.1, false, &params)
+            );
+        }
         let variants: Vec<String> = generic_field_boundaries(self.g, d)
             .into_iter()
             .enumerate()
@@ -4092,12 +4264,12 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
         // properties (`Object.fromEntries` makes a key `__proto__` one too).
         // Its one field is a quotient, `Quot.mk` of a raw map whose field 0
         // is the tree (std/Map/Map.sw).
-        (Boundary::Map(_, element), Value::Ctor(_, 0, fields)) => {
+        (Boundary::Map(_, key, element), Value::Ctor(_, 0, fields)) => {
             let Some(Value::Ctor(_, 0, raw)) = quot_mk_rep(&fields[0]) else {
                 return Err(stuck());
             };
             let mut entries = Vec::new();
-            map_entries(g, element, raw[0].clone(), &mut entries)?;
+            map_entries(g, key, element, raw[0].clone(), &mut entries)?;
             Ok(format!("Object.fromEntries([{}])", entries.join(", ")))
         }
         (Boundary::Option(..), Value::Ctor(_, c, fields)) => {
@@ -4133,6 +4305,18 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 return Ok(js_string_literal(&repr.ctors[*c].tag));
             }
             let boundaries = &field_boundaries(g, *d, args)[*c];
+            if repr.unboxed {
+                // `js.unboxed`: its one field with a property, as itself.
+                let (field, (_, b)) = fields
+                    .iter()
+                    .zip(&ctor.field_erased)
+                    .filter(|(_, erased)| !**erased)
+                    .map(|(field, _)| field)
+                    .zip(boundaries)
+                    .next()
+                    .ok_or_else(stuck)?;
+                return boundary_literal(g, b, field);
+            }
             let mut parts = Vec::new();
             if !data.record {
                 parts.push(format!(
@@ -4173,6 +4357,7 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
 /// balanced tree is as deep as the logarithm of its size.
 fn map_entries(
     g: &Globals,
+    key_type: &Boundary,
     element: &Boundary,
     tree: Value,
     out: &mut Vec<String>,
@@ -4181,11 +4366,11 @@ fn map_entries(
         Value::Ctor(_, 0, _) => Ok(()),
         // `Bin size left key value right`
         Value::Ctor(_, 1, parts) => {
-            map_entries(g, element, parts[1].clone(), out)?;
-            let key = boundary_literal(g, &Boundary::Text, &parts[2])?;
+            map_entries(g, key_type, element, parts[1].clone(), out)?;
+            let key = boundary_literal(g, key_type, &parts[2])?;
             let value = boundary_literal(g, element, &parts[3])?;
             out.push(format!("[{key}, {value}]"));
-            map_entries(g, element, parts[4].clone(), out)
+            map_entries(g, key_type, element, parts[4].clone(), out)
         }
         other => Err(format!("not a fully evaluated value: {other:?}")),
     }

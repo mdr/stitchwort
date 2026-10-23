@@ -29,6 +29,11 @@ pub struct JsRepr {
     /// `js.enum`: the type crosses as a plain string, each constructor's
     /// `tag` being its string (no constructor has a field with a property).
     pub string_enum: bool,
+    /// `js.unboxed`: a record without parameters, with exactly one field
+    /// that has a property, crosses as that field's own JS form, with no
+    /// object around it, and its `.d.ts` is an alias of the field's type
+    /// (docs/proposals/microtypes.md, D1065, D1066). Its one key is unused.
+    pub unboxed: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,6 +61,8 @@ pub struct Requested {
     pub optional: Vec<Vec<bool>>,
     /// `js.enum` is written on the type.
     pub string_enum: bool,
+    /// `js.unboxed` is written on the record.
+    pub unboxed: bool,
 }
 
 /// Why a type's resolved names don't work at the boundary.
@@ -236,6 +243,7 @@ pub fn names(data: &Data, requested: &Requested) -> JsRepr {
         tag_key,
         ctors,
         string_enum: requested.string_enum,
+        unboxed: requested.unboxed,
     }
 }
 
@@ -243,6 +251,10 @@ pub fn names(data: &Data, requested: &Requested) -> JsRepr {
 /// fields can't clash with it.
 pub fn clashes(repr: &JsRepr, record: bool) -> Vec<Clash> {
     let mut out = Vec::new();
+    // An unboxed record's one field has no property, so no key to clash.
+    if repr.unboxed {
+        return out;
+    }
     for (c, ctor) in repr.ctors.iter().enumerate() {
         if let Some(other) = repr.ctors[..c].iter().position(|o| o.tag == ctor.tag) {
             out.push(Clash::SameTag { ctor: c, other });

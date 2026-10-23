@@ -1,7 +1,9 @@
 # Proposal: microtypes (`UserId`, `OrderId`, `Email` as distinct types over `Text`)
 
-**Status:** draft 1, 23 October 2026. Design only; nothing is built. Decisions D1064 to D1070
-([§8](#8-decisions)). Written against commit `09c2a4fa`. Related:
+**Status:** draft 1, 23 October 2026. Decisions D1064 to D1070 ([§8](#8-decisions)), decided by
+Matt on 23 October: D1064 (a), D1065 as recommended, D1066 **(i) only** (a plain alias; no
+`js.flavor`, no brand), D1067 (built, D866), D1068 (i), D1069 (i), D1070 (i). Stage 2 (D866)
+and stage 1 (SW-380) are built: see [As built](#as-built-stage-1-the-js-boundary). Written against commit `09c2a4fa`. Related:
 [attributes.md](attributes.md) (the closed set of `js.*` attributes),
 [records.md](records.md) (records, and their planned eta rule),
 [map-equality.md](map-equality.md) §13.1 and D866 (unboxing records with one run-time field),
@@ -24,6 +26,7 @@ link to where they can be checked, not re-read while writing this.
 7. [Stages](#7-stages)
 8. [Decisions](#8-decisions)
 9. [Sources](#9-sources)
+10. [As built (stage 1: the JS boundary)](#as-built-stage-1-the-js-boundary)
 
 ## 0. Summary
 
@@ -467,3 +470,76 @@ checked.
   https://lean-lang.org/lean4/doc/dev/ffi.html
 - ReScript, unboxed variants and records: https://rescript-lang.org/docs/manual/latest/variant ;
   OCaml manual, "Unboxed types" (`[@@unboxed]`).
+
+## As built (stage 1: the JS boundary)
+
+Built in SW-380, after D866 (stage 2 of §7, so a microtype already *is* its field inside
+generated code) and SW-356 stage 2.1 (`Map` and `Set` are quotients). `js.flavor` is not built
+(D1066 is the plain alias only), and stage 3's recipe is in `docs/syntax.md` ("Microtypes").
+
+**The attribute.** `js.unboxed`, no argument, in the closed registry
+(`crates/elab/src/attributes.rs`) with a new target, `Record`: the first attribute a record type
+takes. `E-ATTRIBUTE` on a data type with constructors (with a note), a constructor, a field, a
+record with type parameters (D1065: none in stage 1), with no field that has a property (only
+proofs or types), with two or more, whose field is written `Option _`, together with `js.name`
+on its field (it has no key), with an argument, or twice. `JsRepr` gained `unboxed: bool`
+(`crates/core/src/js_repr.rs`), cached with the namespace (check-cache `FORMAT` 11); an unboxed
+record's key is never checked for clashes, since it has no property.
+
+**Two refusals at export (`E-EXPORT`)**, where the elaborator can't see enough: an `Option`
+behind a synonym (`type MaybeText = Option Text`), and a chain of unboxed records that comes back
+to itself (`type T = { value: T }`), which would cross as nothing. Whether the field's type
+crosses at all is the boundary's ordinary question, as for any record.
+
+**Why not an `Option` field** (a narrowing of D1065's "any field type that crosses"): an
+`Option T` crosses as `T | undefined`, and an `Option` of the record would cross as
+`T | undefined | undefined`, so `None` and `Some { value = None }` would be the same JS value.
+`Option (Option T)` avoids that by making the inner one the tagged data type
+(`Boundary::payload`); doing the same through unboxed records would need that rule taught to
+both codecs and the `.d.ts`, for a microtype nobody has asked for. Leaving out the attribute
+gives the object form, which works.
+
+**Codec.** `Boundary` keeps an unboxed record as `Data(d, [])` (so the `.d.ts` names it), and
+each place that reads a type's form asks `repr.unboxed`:
+
+- the general codec: `define(…, unboxed, bare)` marks it; `decode` treats it like an `Option`,
+  a frame with no step in the path, decoding the field's type and then running the record's
+  proof checks on the result; `encode` simply continues at the field's type (the value is
+  already the field's, D866); `shallow` sees through it;
+- the fast codecs (`crates/js/src/fast.rs`): the decoder is the field's decoder plus the checks
+  (`throw FAIL` on a failure, so the general decoder gives the message), the encoder the
+  field's; `shallow` agrees with the runtime's;
+- the literal printer used by the differential tests: the field's literal.
+
+**Map keys (D1068).** `Boundary::Map` gained the key's form: `Text`, or `Data(K, [])` for a
+`js.unboxed` record over the prelude's `Text` whose order argument is `K.%instOrd`, the derived
+instance (derive_ord.rs; a program can't write a name with `%`, so a program's own instance or
+`[ord := …]` is never it). The derived compare is `Text`'s compare of the one field, and inside
+generated code the key is the string, so the map is built and read with the same `MAP_SHAPE`
+(`Map.fromList` and `Map.toList` at `Text.instOrd`) as a `Map Text V`, giving the same tree.
+A key's proof fields are checked (``m.nobody: the key's proof field `valid` (…) doesn't hold``).
+In the runtime, `map(t)` became `map(t, k = TEXT)`, cached per key type. Messages:
+
+- a key that is neither: "`Map Nat Nat` can't cross the JS boundary: only maps from `Text`, or
+  from a `js.unboxed` record over `Text`, cross, as plain objects" (also a record without the
+  attribute, and a microtype over `Nat`);
+- a microtype key in another order: "`Map UserId Nat [ord := reversed]` can't cross the JS
+  boundary: a map from `UserId` crosses only in `UserId`'s derived order, which is `Text`'s,
+  and this map has another".
+
+**`.d.ts`.** `export type UserId = string;` (the field's type, readonly-free as in every
+declaration: `type Tags = string[]`), used by name everywhere, map keys included:
+`{ readonly [k: UserId]: V }`, which TypeScript accepts as an index signature because the alias
+is `string`. tsc 7.0.2 `--strict --exactOptionalPropertyTypes` accepts an app passing plain
+strings and `Record<string, bigint>` in, and assigning results to `string` and
+`Record<string, bigint>`; as D1066 accepts, it also accepts an `OrderId` where a `UserId` is
+expected.
+
+**Tests.** `examples/extract/microtypes.sw` (run lines, the random differential cases with keys
+and proofs, the snapshot, tsc on the `.d.ts`); `microtypes_cross_as_their_field` (node: every
+position, the refusals and their paths, map keys and their proofs, the general decoder after a
+getter that throws once); `microtypes_are_plain_aliases_in_typescript` (tsc); rejects
+`examples/reject/attribute-unboxed-*.sw` (10) and `examples/reject/microtype-*.sw` (4: a custom
+order, a key without the attribute, a microtype key over `Nat`, an `Option` behind a synonym).
+Hashes don't move (attributes aren't hashed, D598); every existing `.js` snapshot changes only
+in the runtime text.
