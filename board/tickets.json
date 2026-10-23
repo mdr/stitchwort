@@ -5380,9 +5380,9 @@
     {
       "id": 341,
       "title": "Design note: attribute syntax @[...] (closed, namespaced; hashing rule) with first uses js.tag / js.name / js.nullable; for external review (D590)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "research + design note lane",
+      "status": "review",
+      "agent": "Matt",
+      "where": "docs/proposals/attributes.md; review pack in scratchpad; D597-D599",
       "labels": [
         "design",
         "syntax",
@@ -5391,7 +5391,9 @@
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "35718b98"
+      ]
     }
   ]
 }
