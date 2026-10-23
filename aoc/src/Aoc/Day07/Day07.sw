@@ -25,15 +25,14 @@
 -- tests are in `Aoc.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day07
-import Std (Abort, Fin, IO, List, Nat, Option, Vec)
+import Std (Abort, Fail, Fin, IO, List, Nat, Option, Vec)
+import Std.Fail (need)
 import Std.Abort (toOption)
 
-def main(): {IO} () :=
-  match parseManifold IO.readAllLines() with
-    | None => IO.print "There is no S."
-    | Some manifold =>
-      IO.print "Part 1: ${solvePart1 manifold}"
-      IO.print "Part 2: ${solvePart2 manifold}"
+def main(): {IO, Fail} () :=
+  let manifold := need (parseManifold IO.readAllLines()) "expected a line with an S, got none"
+  IO.print "Part 1: ${solvePart1 manifold}"
+  IO.print "Part 2: ${solvePart2 manifold}"
 
 -- The rows below S, each a flag per column (True for a splitter), all
 -- `width` long; S is in column `start` of the row above the first.

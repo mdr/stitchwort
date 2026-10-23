@@ -3,7 +3,7 @@
 
 namespace Aoc.Day07.Tests
 import Aoc.Day07 (..)
-import Std (List, Option, Text, Vec)
+import Std (Bool, Fail, IO, List, Option, Pair, Result, Text, Vec)
 
 def example: List Text := """
   .......S.......
@@ -38,3 +38,10 @@ test "splitter at the right edge" := Option.map (m => (solvePart1 m, solvePart2 
 test "beams merge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["..S..", "..^..", ".^.^.", "..^.."]) == Some (4, 6)
 test "nothing below S" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifold ["^^", ".S"]) == Some (0, 1)
 test "no S" := Option.map solvePart1 (parseManifold ["..^.."]) == None
+
+-- What `main` prints and how it ends, for some input lines.
+def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
+  IO.simulate lines (() => Result.map (u => True) (Fail.toResult main))
+
+test "main with no S" := ran ["..^.."] == MkPair [] (Err "expected a line with an S, got none")
+test "main with a final blank line" := ran ["..S..", "..^..", ""] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
