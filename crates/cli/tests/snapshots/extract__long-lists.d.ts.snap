@@ -12,3 +12,7 @@ export declare function filterMapSum(n: bigint): bigint;
 export declare function appendCount(n: bigint): bigint;
 export declare function sortedFirst(n: bigint): bigint;
 export declare function sortIsSorted(n: bigint): boolean;
+export declare function sameNats(n: bigint): boolean;
+export declare function sameItems(n: bigint): boolean;
+export declare function lastDiffers(n: bigint): boolean;
+export declare function shorter(n: bigint): boolean;

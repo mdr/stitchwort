@@ -1622,7 +1622,9 @@ impl<'g> Gen<'g> {
         // The most it can do first: calls modulo constructors, through
         // inlined helpers. If that can't be compiled (a helper uses the
         // result some other way), less, and last, only direct tail calls.
-        for (cons, inline) in [(true, true), (true, false), (false, false)] {
+        // Inlining without cons comes last: `List.decEq`'s step has no
+        // constructor to build, only the call's result to return.
+        for (cons, inline) in [(true, true), (true, false), (false, false), (false, true)] {
             let call = SelfCall::new(id, cons, inline);
             self.holes.borrow_mut().clear();
             self.hole_misused.set(false);
@@ -1700,6 +1702,16 @@ impl<'g> Gen<'g> {
                 None => Ok(format!("{pad}return {};\n", self.expr(term, env)?)),
             };
         };
+        // A match on the result of the call to itself (inside an inlined
+        // helper) that gives the same constructor back, as `List.decCons`'s
+        // `Yes q => Yes ..` and `No r => No ..` do once proofs are erased, is
+        // that result: the call is in tail position after all.
+        if let Some(call) = self_call
+            && self.hole_at(env.len() - 1 - *ix).is_some()
+            && self.is_identity_match(*d, branches)
+        {
+            return self.tail(&Term::Var(*ix), env, depth, call);
+        }
         let data = self.g.data(*d);
         let scrutinee = self.scrutinee(env, *ix);
         let mut out = String::new();
@@ -1792,6 +1804,29 @@ impl<'g> Gen<'g> {
         Ok(out)
     }
 
+    /// Whether a match on a value of data type `d` gives back, in each
+    /// branch, the constructor it matched, whose fields are all erased (a
+    /// decision's `Yes` and `No`, once their proofs are): so the match is the
+    /// value itself.
+    fn is_identity_match(&self, d: DataId, branches: &[Branch]) -> bool {
+        let data = self.g.data(d);
+        if data.sort == Sort::Prop
+            || data.record
+            || Some(d) == self.text
+            || Some(d) == self.nat
+            || Some(d) == self.int
+        {
+            return false;
+        }
+        branches.iter().enumerate().all(|(c, b)| {
+            data.ctors[c].field_erased.iter().all(|erased| *erased)
+                && matches!(
+                    b.body.as_ref().map(|body| body.strip_loc()),
+                    Some(Term::Ctor(d2, c2, _)) if *d2 == d && *c2 == c
+                )
+        })
+    }
+
     /// A `let` in statement position: `const v = value;`, or nothing for
     /// one the kernel marked skipped (a proof, a type, or unused;
     /// docs/proposals/let.md §6.1 rule 5). Adds its variable to `env`,
@@ -1840,6 +1875,7 @@ impl<'g> Gen<'g> {
         if let Term::Var(ix) = term.strip_loc()
             && let Some(passed) = self.hole_at(env.len() - 1 - ix)
         {
+            call.used.set(true);
             return Ok(Self::next_turn(&pad, &passed));
         }
         // A constructor with the call in a field: the call is the next turn,

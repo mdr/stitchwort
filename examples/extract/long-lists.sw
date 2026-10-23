@@ -13,7 +13,12 @@
 -- run: sortIsSorted 100000
 -- run: mapSum 5
 -- run: sortIsSorted 5
-import Std (Bool, List, Nat, Option)
+-- run: sameNats 5
+-- run: sameItems 5
+-- run: lastDiffers 5
+-- run: shorter 5
+-- run: lastDiffers 0
+import Std (Bool, List, Nat, Option, Text)
 
 def sum (xs: List Nat): Nat := List.foldLeft (a x => a + x) 0 xs
 
@@ -42,3 +47,19 @@ def ascending (prev: Nat): List Nat -> Bool
   | Cons x xs => if Nat.leq prev x then ascending x xs else False
 
 export def sortIsSorted (n: Nat): Bool := ascending 0 (List.sort (scrambled n))
+
+-- List equality, and the `==` derived for a record holding a list, is a loop
+-- too: it stops at the first difference and doesn't use a frame per element.
+type Item = { id: Nat, name: Text }
+
+def items (n: Nat): List Item := (List.range n).map (i => { id = i, name = "x" })
+
+export def sameNats (n: Nat): Bool := List.range n == List.range n
+
+export def sameItems (n: Nat): Bool := items n == items n
+
+-- Equal but for the last element, and equal but for the length.
+export def lastDiffers (n: Nat): Bool :=
+  List.range n == (List.range n).map (i => if i + 1 == n then n + 7 else i)
+
+export def shorter (n: Nat): Bool := List.range n == List.range (n + 1)
