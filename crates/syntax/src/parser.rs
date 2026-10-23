@@ -2630,18 +2630,7 @@ impl<'t> Parser<'t> {
         if let Expr::CtorFields { ctor, .. } = &expr
             && self.starts_atom()
         {
-            return Err(error(
-                self.here(),
-                format!(
-                    "braces after `{}` name its fields, and take no further arguments",
-                    ctor.text
-                ),
-            )
-            .with_note(format!(
-                "to pass a record as `{0}`'s first argument, write it in brackets: \
-                 `{0} ({{ … }}) …`",
-                ctor.text
-            )));
+            return Err(self.ctor_fields_then_argument(ctor));
         }
         while self.starts_atom() {
             if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
@@ -2657,6 +2646,25 @@ impl<'t> Parser<'t> {
             expr = Expr::App(Box::new(expr), Box::new(arg));
         }
         Ok(expr)
+    }
+
+    /// `C { … } x`: an argument after named construction. Out of line, like
+    /// the other errors here, so it doesn't add to `app`'s stack frame, which
+    /// every level of nesting pays for.
+    #[inline(never)]
+    fn ctor_fields_then_argument(&self, ctor: &Name) -> Diagnostic {
+        error(
+            self.here(),
+            format!(
+                "braces after `{}` name its fields, and take no further arguments",
+                ctor.text
+            ),
+        )
+        .with_note(format!(
+            "to pass a record as `{0}`'s first argument, write it in brackets: \
+             `{0} ({{ … }}) …`",
+            ctor.text
+        ))
     }
 
     /// A line starting with `.name`, as an argument of the line before.
@@ -2738,10 +2746,7 @@ impl<'t> Parser<'t> {
         let upper = matches!(self.peek(), Some(Tok::Upper(_)));
         let mut expr = self.atom_base()?;
         if upper && self.peek() == Some(&Tok::LBrace) {
-            let Expr::Var(ctor) = &expr else {
-                unreachable!("an uppercase name is a variable")
-            };
-            expr = self.ctor_fields_expr(ctor.clone(), head)?;
+            expr = self.ctor_fields_expr(expr, head)?;
         }
         loop {
             if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call() {
@@ -2818,7 +2823,11 @@ impl<'t> Parser<'t> {
     /// (docs/proposals/variant-fields.md §4.5). Not as an argument (`head`
     /// false), and not an update: those are written in brackets.
     #[inline(never)]
-    fn ctor_fields_expr(&mut self, ctor: Name, head: bool) -> Result<Expr> {
+    fn ctor_fields_expr(&mut self, ctor: Expr, head: bool) -> Result<Expr> {
+        let Expr::Var(ctor) = &ctor else {
+            unreachable!("an uppercase name is a variable")
+        };
+        let ctor = ctor.clone();
         let brace = self.here();
         if !head {
             return Err(error(
