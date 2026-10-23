@@ -157,6 +157,13 @@ def Map.fromListWith [auto ord: Ord k] (f: v -> v -> v) (xs: List (k, v)): Map k
 def Map.groupBy [auto ord: Ord k] (key: a -> k) (xs: List a): Map k (List a) :=
   List.foldRight (x m => Map.insertWith List.append (key x) [x] m) Map.empty xs
 
+-- Each element under its key; where elements share a key, the FIRST one is
+-- kept: `Map.indexBy Text.length ["ab", "c", "de"]` is
+-- `Map.fromList [(1, "c"), (2, "ab")]`. `foldRight` meets the last element
+-- first, so the newer value, from the earlier element, wins.
+def Map.indexBy [auto ord: Ord k] (key: a -> k) (xs: List a): Map k a :=
+  List.foldRight (element index => Map.insertWith (newer older => newer) (key element) element index) Map.empty xs
+
 -- How many times each element occurs.
 def Map.counts [auto ord: Ord k] (xs: List k): Map k Nat := List.foldLeft (m x => Map.insertWith Nat.add x 1 m) Map.empty xs
 
@@ -599,6 +606,38 @@ theorem Map.getGroupBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
           (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (Map.groupBy key rest) in
         Map.getGroupBy key kk rest
 
+-- `indexBy`: the first element whose key is `kk`.
+theorem Map.getIndexBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
+    Map.get kk (Map.indexBy key xs) = List.find (x => Map.Spec.sameKey kk (key x)) xs
+  | Nil => rfl
+  | Cons x rest =>
+    match e: Ord.compare kk (key x) with
+      | Equal =>
+        rewrite ord.equal kk (key x) e, Map.getInsertWith (newer older => newer) (key x) x (Map.indexBy key rest) in
+        Eq.cong Some (Map.Tree.combineFirst x (Map.get (key x) (Map.indexBy key rest)))
+      | Less =>
+        rewrite Map.getInsertWithOther (newer older => newer) (key x) x kk
+          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) (Map.indexBy key rest) in
+        Map.getIndexBy key kk rest
+      | Greater =>
+        rewrite Map.getInsertWithOther (newer older => newer) (key x) x kk
+          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (Map.indexBy key rest) in
+        Map.getIndexBy key kk rest
+
+-- The same with `==`, as a program finding by key writes it.
+theorem Map.getIndexByEq [auto ord: Ord k] (key: a -> k) (kk: k) (xs: List a):
+    Map.get kk (Map.indexBy key xs) = List.find (x => key x == kk) xs :=
+  Eq.trans (Map.getIndexBy key kk xs) (List.findCong (x => Map.Spec.sameKey kk (key x)) (x => key x == kk) xs (x => Map.Spec.sameKeyDecide kk (key x)))
+
+-- What `indexBy` has under `kk` has key `kk`.
+theorem Map.indexByKey [auto ord: Ord k] (key: a -> k) (kk: k) (xs: List a) (y: a) (h: Map.get kk (Map.indexBy key xs) = Some y): key y = kk :=
+  match List.findSome (x => Map.Spec.sameKey kk (key x)) xs y (Eq.trans (Eq.sym (Map.getIndexBy key kk xs)) h) with
+    | Both py m => Eq.sym (Map.Spec.sameKeySound kk (key y) py)
+
+-- For text keys, `==` is `Text`'s own.
+theorem Map.getIndexByText (key: a -> Text) (kk: Text) (xs: List a): Map.get kk (Map.indexBy key xs) = List.find (x => key x == kk) xs :=
+  Map.getIndexByEq key kk xs
+
 theorem Map.getMapWithKey [auto ord: Ord k] (f: k -> v -> w) (key: k) (m: Map k v):
     Map.get key (Map.mapWithKey f m) = Option.map (f key) (Map.get key m) :=
   Map.indRaw [p := m' => Map.get key (Map.mapWithKey f m') = Option.map (f key) (Map.get key m')] (r => Map.Raw.getMapWithKey f key r) m
@@ -758,6 +797,8 @@ def Map.example2: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b"), (7
 test "map: fromListWith combines in list order" :=
   Map.toList (Map.fromListWith (new old => Text.append old new) [(1, "a"), (2, "b"), (1, "c")]) == [(1, "ac"), (2, "b")]
 test "map: groupBy keeps list order" := Map.toList (Map.groupBy (n => n % 3) [1, 2, 3, 4, 5, 6]) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
+test "map: indexBy keeps the first" := Map.toList (Map.indexBy Text.length ["ab", "c", "de", "f"]) == [(1, "c"), (2, "ab")]
+test "map: indexBy empty" := Map.toList (Map.indexBy Text.length Nil) == Nil
 test "map: counts" := Map.toList (Map.counts ['b', 'a', 'b']) == [('a', 1), ('b', 2)]
 test "map: find" := Map.find (key t => key > 2) Map.example2 == Some (3, "c") && Map.find (key t => key > 7) Map.example2 == None
 test "map: min and max" :=

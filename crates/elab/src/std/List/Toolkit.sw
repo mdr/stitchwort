@@ -801,6 +801,10 @@ theorem List.filterMapCong (f1: a -> Option b) (f2: a -> Option b): (xs: List a)
   | Nil, ef => rfl
   | Cons x xs, ef => rewrite ef x, List.filterMapCong f1 f2 xs ef
 
+theorem List.findCong (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> p1 x = p2 x) -> List.find p1 xs = List.find p2 xs
+  | Nil, ep => rfl
+  | Cons x xs, ep => rewrite ep x, List.findCong p1 p2 xs ep
+
 theorem List.occurrencesCong (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> p1 x = p2 x) ->
     List.occurrences p1 xs = List.occurrences p2 xs
   | Nil, ep => rfl
@@ -1008,6 +1012,107 @@ theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
     (Both (m => match m with
       | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
       | Inr v => v) Trivial)
+
+-- What `List.All` says of an element of the list.
+theorem List.allMem (p: a -> Prop) (x: a): (xs: List a) -> List.All p xs -> List.Mem x xs -> p x
+  | Nil, h, m => Void.exfalso m
+  | Cons z zs, Both pz h, Inl e => rewrite <- e in pz
+  | Cons z zs, Both pz h, Inr m => List.allMem p x zs h m
+
+-- `List.find` and `List.any`, and keys that are distinct (SW-363): lemmas
+-- for code that finds records by an id.
+
+-- What `List.find` finds passes the test and is in the list.
+theorem List.findSome (p: a -> Bool): (xs: List a) -> (y: a) -> List.find p xs = Some y -> And (p y = True) (List.Mem y xs)
+  | Nil, y, h => Void.exfalso (Option.noneNotSome y h)
+  | Cons x xs, y, h =>
+    match e: p x with
+      | True => Both (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective x y h))) e) (Inl (Option.someInjective x y h))
+      | False =>
+        match List.findSome p xs y h with
+          | Both py m => Both py (Inr m)
+
+-- `List.find` finds nothing only when no element passes.
+theorem List.findNoneNotMem (p: a -> Bool) (x: a) (px: p x = True): (xs: List a) -> List.Mem x xs -> List.find p xs = None -> Void
+  | Nil, m, h => m
+  | Cons z zs, Inl e, h => Option.someNotNone x (rewrite e, px at h)
+  | Cons z zs, Inr m, h =>
+    match c: p z with
+      | True => Option.someNotNone z h
+      | False => List.findNoneNotMem p x px zs m h
+
+-- An element that passes makes `List.any` true.
+theorem List.anyOfMem (q: a -> Bool) (y: a) (qy: q y = True): (xs: List a) -> List.Mem y xs -> List.any q xs = True
+  | Nil, m => Void.exfalso m
+  | Cons x xs, Inl e => rewrite e, qy in rfl
+  | Cons x xs, Inr m =>
+    match c: q x with
+      | True => rfl
+      | False => List.anyOfMem q y qy xs m
+
+-- And back: when `List.any` is true, some element of the list passes.
+theorem List.anyTrueElim (p: a -> Bool) (goal: Prop): (xs: List a) -> List.any p xs = True -> ((x: a) -> List.Mem x xs -> p x = True -> goal) -> goal
+  | Nil, h, k => Void.exfalso (Bool.falseNotTrue h)
+  | Cons z zs, h, k =>
+    match c: p z with
+      | True => k z (Inl rfl) c
+      | False => List.anyTrueElim p goal zs h (x inZs px => k x (Inr inZs) px)
+
+-- What `List.find p` finds passes any other test some element passes.
+theorem List.findAny (p: a -> Bool) (q: a -> Bool) (xs: List a) (y: a) (qy: q y = True) (h: List.find p xs = Some y): List.any q xs = True :=
+  match List.findSome p xs y h with
+    | Both py m => List.anyOfMem q y qy xs m
+
+-- A key of part of the list is a key of the list.
+theorem List.memMapOfSub (key: a -> k) (s: List a) (xs: List a) (sub: (y: a) -> List.Mem y s -> List.Mem y xs) (z: k)
+    (m: List.Mem z (List.map key s)): List.Mem z (List.map key xs) :=
+  List.anyElim (y => key y = z) (List.Mem z (List.map key xs)) s (List.memMapAny key z s m)
+    (y inS e => rewrite <- e in List.memMap key y xs (sub y inS))
+
+-- Keeping some elements keeps their keys distinct.
+theorem List.distinctMapFilter (key: a -> k) (p: a -> Bool): (xs: List a) -> List.Distinct (List.map key xs) ->
+    List.Distinct (List.map key (List.filter p xs))
+  | Nil, d => Trivial
+  | Cons x xs, Both notMem d =>
+    match e: p x with
+      | True =>
+        Both
+          (m => notMem (List.memMapOfSub key (List.filter p xs) xs (y inFiltered => match List.memFilter p y xs inFiltered with
+            | Both inXs py => inXs) (key x) m))
+          (List.distinctMapFilter key p xs d)
+      | False => List.distinctMapFilter key p xs d
+
+-- A key of a `filterMap`'s result is the key of an element it came from,
+-- when each result has the key of its element.
+theorem List.memMapFilterMap (f: a -> Option b) (ka: a -> k) (kb: b -> k) (hk: (x: a) -> (y: b) -> f x = Some y -> kb y = ka x) (z: k):
+    (xs: List a) -> List.Mem z (List.map kb (List.filterMap f xs)) -> List.Mem z (List.map ka xs)
+  | Nil, m => m
+  | Cons x xs, m =>
+    match e: f x with
+      | None => Inr (List.memMapFilterMap f ka kb hk z xs m)
+      | Some y =>
+        match m with
+          | Inl q => Inl (Eq.trans (Eq.sym (hk x y e)) q)
+          | Inr r => Inr (List.memMapFilterMap f ka kb hk z xs r)
+
+-- So `filterMap` keeps keys distinct.
+theorem List.distinctMapFilterMap (f: a -> Option b) (ka: a -> k) (kb: b -> k) (hk: (x: a) -> (y: b) -> f x = Some y -> kb y = ka x):
+    (xs: List a) -> List.Distinct (List.map ka xs) -> List.Distinct (List.map kb (List.filterMap f xs))
+  | Nil, d => Trivial
+  | Cons x xs, Both notMem d =>
+    match e: f x with
+      | None => List.distinctMapFilterMap f ka kb hk xs d
+      | Some y =>
+        Both (m => notMem (rewrite <- hk x y e in List.memMapFilterMap f ka kb hk (kb y) xs m))
+          (List.distinctMapFilterMap f ka kb hk xs d)
+
+-- Two lists with distinct keys and no key in common, joined, have distinct keys.
+theorem List.distinctMapAppend (key: a -> k) (xs: List a) (ys: List a) (dx: List.Distinct (List.map key xs)) (dy: List.Distinct (List.map key ys))
+    (dj: List.Disjoint (List.map key xs) (List.map key ys)): List.Distinct (List.map key (List.append xs ys)) :=
+  rewrite List.mapAppend key xs ys in List.distinctAppend (List.map key xs) (List.map key ys) dx dy dj
+
+theorem List.distinctMapFilterExample: List.Distinct (List.map Succ (List.filter (x => Nat.leq 2 x) [1, 2])) :=
+  List.distinctMapFilter Succ (x => Nat.leq 2 x) [1, 2] List.distinctMapExample
 
 -- Mapping with a state threaded left to right (Haskell's `mapAccumL`).
 -- `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
