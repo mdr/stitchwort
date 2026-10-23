@@ -2550,20 +2550,33 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
             found = c1.apply(g, v.clone())?;
             expected = c2.apply(g, v)?;
         }
-        // `lift` solves unknown tails on either side, and refuses abilities
-        // that aren't allowed.
-        let (Some((rf, tf)), Some((re, te))) =
-            (comp_parts(cx, &found)?, comp_parts(cx, &expected)?)
-        else {
+        let Some((re, te)) = comp_parts(cx, &expected)? else {
             return Ok(None);
         };
-        if !cx.unify(&tf, &te)? {
-            return Ok(None);
-        }
         let n = names.len();
         let mut applied = term.shift(cx.g(), n, 0)?;
         for i in (0..n).rev() {
             applied = Term::app(applied, Term::Var(i));
+        }
+        let Some((rf, tf)) = comp_parts(cx, &found)? else {
+            // A pure function where an effectful one is expected: it
+            // performs nothing, so it fits any row, as a lambda with a pure
+            // body does: `x … => Done (term x …)` (SW-393). Only for a
+            // function (a pure value isn't a computation here), and not
+            // while its result type is still unknown: that might yet be a
+            // computation.
+            if n == 0
+                || matches!(force(g, found.clone())?, Value::Neutral(Head::Meta(_), _))
+                || !cx.unify(&found, &te)?
+            {
+                return Ok(None);
+            }
+            return Ok(Some(done(cx, &re, &te, applied)?));
+        };
+        // `lift` solves unknown tails on either side, and refuses abilities
+        // that aren't allowed.
+        if !cx.unify(&tf, &te)? {
+            return Ok(None);
         }
         match lift(cx, applied, rf, &re, &tf) {
             Ok(term) => Ok(Some(term)),
