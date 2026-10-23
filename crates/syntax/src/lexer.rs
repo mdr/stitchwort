@@ -133,15 +133,80 @@ pub struct Token {
     pub line_start: bool,
 }
 
+/// A `--` comment, kept by [`lex_with_trivia`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Comment {
+    /// The comment as written, from `--` to the end of the line (without a
+    /// trailing `\r`).
+    pub text: String,
+    pub span: Span,
+    /// Byte offset of the `--` from the start of its line.
+    pub column: u32,
+    /// For an own-line comment, the blank lines directly before it (after the
+    /// previous comment, or the previous token). Always 0 for a trailing comment.
+    pub blank_lines_before: u32,
+}
+
+/// What surrounds one token (or the end of the file) besides spaces.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Trivia {
+    /// Comments on lines of their own before the token, in order.
+    pub leading: Vec<Comment>,
+    /// Blank lines directly before the token's own line (after the last
+    /// leading comment, if any). 0 for a token that doesn't start its line.
+    pub blank_lines_before: u32,
+    /// A comment on the same line after the token. Only the last token of a
+    /// line has one.
+    pub trailing: Option<Comment>,
+}
+
+/// The result of [`lex_with_trivia`].
+#[derive(Clone, Debug)]
+pub struct Lexed {
+    /// The same tokens [`lex`] returns.
+    pub tokens: Vec<Token>,
+    /// `trivia[i]` belongs to `tokens[i]`.
+    pub trivia: Vec<Trivia>,
+    /// What follows the last token: own-line comments, and the blank lines
+    /// after them (or after the last token). Never has a trailing comment.
+    pub eof: Trivia,
+}
+
+/// The tokens of `text`, without comments.
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
+    lex_with_trivia(file, text).map(|lexed| lexed.tokens)
+}
+
+/// The tokens of `text` with the comments and blank lines around each. A
+/// `--` inside a string or text literal is part of the literal, not a comment.
+pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
     let bytes = text.as_bytes();
-    let mut tokens = Vec::new();
+    let mut tokens: Vec<Token> = Vec::new();
+    let mut trivia: Vec<Trivia> = Vec::new();
+    // Own-line comments and blank lines waiting for the next token.
+    let mut pending: Vec<Comment> = Vec::new();
+    let mut blank_run = 0u32;
+    // Whether the current line has had a token or comment, and how many
+    // tokens there were when we last looked.
+    let mut line_blank = true;
+    let mut seen = 0;
     let mut i = 0;
     let mut line_start = 0;
     let mut fresh_line = true;
     let mut interps: Vec<Interp> = Vec::new();
 
     while i < bytes.len() {
+        if tokens.len() != seen {
+            seen = tokens.len();
+            line_blank = false;
+        }
+        while trivia.len() < tokens.len() {
+            trivia.push(Trivia {
+                leading: std::mem::take(&mut pending),
+                blank_lines_before: std::mem::take(&mut blank_run),
+                trailing: None,
+            });
+        }
         let c = bytes[i];
         match c {
             b'\n' => {
@@ -157,6 +222,10 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                         "this string isn't closed with `\"`",
                     ));
                 }
+                if line_blank {
+                    blank_run += 1;
+                }
+                line_blank = true;
                 i += 1;
                 line_start = i;
                 fresh_line = true;
@@ -175,8 +244,30 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
                 ));
             }
             b'-' if bytes.get(i + 1) == Some(&b'-') => {
+                let start = i;
                 while i < bytes.len() && bytes[i] != b'\n' {
                     i += 1;
+                }
+                let end = if bytes[start..i].ends_with(b"\r") {
+                    i - 1
+                } else {
+                    i
+                };
+                let mut comment = Comment {
+                    text: text[start..end].to_string(),
+                    span: Span::new(file, start as u32, end as u32),
+                    column: (start - line_start) as u32,
+                    blank_lines_before: 0,
+                };
+                if fresh_line {
+                    comment.blank_lines_before = std::mem::take(&mut blank_run);
+                    pending.push(comment);
+                    line_blank = false;
+                } else {
+                    trivia
+                        .last_mut()
+                        .expect("a token precedes a trailing comment")
+                        .trailing = Some(comment);
                 }
                 continue;
             }
@@ -535,7 +626,22 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
             "this string isn't closed with `\"`",
         ));
     }
-    Ok(tokens)
+    while trivia.len() < tokens.len() {
+        trivia.push(Trivia {
+            leading: std::mem::take(&mut pending),
+            blank_lines_before: std::mem::take(&mut blank_run),
+            trailing: None,
+        });
+    }
+    Ok(Lexed {
+        tokens,
+        trivia,
+        eof: Trivia {
+            leading: pending,
+            blank_lines_before: blank_run,
+            trailing: None,
+        },
+    })
 }
 
 /// A text literal whose `${…}` is being lexed.
@@ -1213,5 +1319,125 @@ mod tests {
         assert_eq!(columns, vec![0, 2, 6, 2]);
         let fresh: Vec<bool> = ts.iter().map(|t| t.line_start).collect();
         assert_eq!(fresh, vec![true, false, false, true]);
+    }
+
+    fn trivia(text: &str) -> Lexed {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        lex_with_trivia(file, text).expect("lexes")
+    }
+
+    fn texts(comments: &[Comment]) -> Vec<&str> {
+        comments.iter().map(|c| c.text.as_str()).collect()
+    }
+
+    #[test]
+    fn trivia_comment_above_a_declaration() {
+        let l = trivia("-- doc\ndef x := 1\n");
+        assert_eq!(texts(&l.trivia[0].leading), vec!["-- doc"]);
+        assert_eq!(l.trivia[0].leading[0].blank_lines_before, 0);
+        assert_eq!(l.trivia[0].blank_lines_before, 0);
+        assert!(l.trivia[1..].iter().all(|t| t == &Trivia::default()));
+        assert_eq!(l.eof, Trivia::default());
+        assert_eq!(l.trivia.len(), l.tokens.len());
+    }
+
+    #[test]
+    fn trivia_blank_line_between_comment_and_code() {
+        let l = trivia("-- a\n\n\ndef x := 1\n");
+        assert_eq!(texts(&l.trivia[0].leading), vec!["-- a"]);
+        assert_eq!(l.trivia[0].leading[0].blank_lines_before, 0);
+        assert_eq!(l.trivia[0].blank_lines_before, 2);
+    }
+
+    #[test]
+    fn trivia_trailing_comment_attaches_to_last_token_of_the_line() {
+        let l = trivia("def x := 1 -- one\ndef y := 2\n");
+        let one = l.trivia.iter().position(|t| t.trailing.is_some()).unwrap();
+        assert_eq!(l.tokens[one].tok, Tok::Num(1u32.into()));
+        let c = l.trivia[one].trailing.as_ref().unwrap();
+        assert_eq!(c.text, "-- one");
+        assert_eq!(c.column, 11);
+        assert_eq!(l.trivia.iter().filter(|t| t.trailing.is_some()).count(), 1);
+        // The next line's first token has no leading comment.
+        assert!(l.trivia[one + 1].leading.is_empty());
+    }
+
+    #[test]
+    fn trivia_several_comments_in_a_row() {
+        let l = trivia("x\n-- a\n-- b\n\n-- c\n  -- d\n\ny\n");
+        let y = &l.trivia[1];
+        assert_eq!(texts(&y.leading), vec!["-- a", "-- b", "-- c", "-- d"]);
+        let blanks: Vec<u32> = y.leading.iter().map(|c| c.blank_lines_before).collect();
+        assert_eq!(blanks, vec![0, 0, 1, 0]);
+        assert_eq!(y.leading[3].column, 2);
+        assert_eq!(y.blank_lines_before, 1);
+    }
+
+    #[test]
+    fn trivia_at_end_of_file() {
+        let l = trivia("x -- t\n\n-- a\n-- b\n\n");
+        assert_eq!(l.trivia[0].trailing.as_ref().unwrap().text, "-- t");
+        assert_eq!(texts(&l.eof.leading), vec!["-- a", "-- b"]);
+        assert_eq!(l.eof.leading[0].blank_lines_before, 1);
+        assert_eq!(l.eof.blank_lines_before, 1);
+        assert_eq!(l.eof.trailing, None);
+        // Only blank lines, and no final newline.
+        let l = trivia("x\n\n\n");
+        assert_eq!(l.eof.blank_lines_before, 2);
+        let l = trivia("x\n-- last");
+        assert_eq!(texts(&l.eof.leading), vec!["-- last"]);
+        // A file of only comments.
+        let l = trivia("\n-- only\n");
+        assert!(l.tokens.is_empty());
+        assert_eq!(l.eof.leading[0].blank_lines_before, 1);
+    }
+
+    #[test]
+    fn trivia_dashes_in_literals_are_not_comments() {
+        let l =
+            trivia("\"a -- b\" 'x'\n\"\"\"\n  -- not a comment\n\n  also\n\"\"\"\n\"p${x}--q\"\n");
+        assert!(l.trivia.iter().all(|t| t == &Trivia::default()));
+        assert_eq!(l.eof, Trivia::default());
+        assert!(matches!(&l.tokens[0].tok, Tok::Str(s) if s == "a -- b"));
+        // Blank lines inside a text block aren't counted for the next token.
+        assert_eq!(l.trivia[2].blank_lines_before, 0);
+    }
+
+    #[test]
+    fn trivia_arrows_near_dashes() {
+        let l = trivia("a -> b --> c\n-> d --\ne-->f\n");
+        let toks: Vec<Tok> = l.tokens.iter().map(|t| t.tok.clone()).collect();
+        assert_eq!(
+            toks,
+            vec![
+                Tok::Lower("a".into()),
+                Tok::Arrow,
+                Tok::Lower("b".into()),
+                Tok::Arrow,
+                Tok::Lower("d".into()),
+                Tok::Lower("e".into()),
+            ]
+        );
+        assert_eq!(l.trivia[2].trailing.as_ref().unwrap().text, "--> c");
+        assert_eq!(l.trivia[4].trailing.as_ref().unwrap().text, "--");
+        assert_eq!(l.trivia[5].trailing.as_ref().unwrap().text, "-->f");
+    }
+
+    #[test]
+    fn trivia_counts_blank_lines_with_spaces_and_crlf() {
+        let l = trivia("x\r\n  \r\n\r\n-- c\r\ny\r\n");
+        assert_eq!(l.trivia[1].leading[0].text, "-- c");
+        assert_eq!(l.trivia[1].leading[0].blank_lines_before, 2);
+        assert_eq!(l.trivia[1].blank_lines_before, 0);
+        // Blank lines between tokens with no comment.
+        let l = trivia("x\n\n\ny z\n\nw");
+        assert_eq!(
+            l.trivia
+                .iter()
+                .map(|t| t.blank_lines_before)
+                .collect::<Vec<_>>(),
+            vec![0, 2, 0, 1]
+        );
     }
 }
