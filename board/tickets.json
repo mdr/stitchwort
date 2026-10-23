@@ -1,5 +1,5 @@
 {
-  "next": 381,
+  "next": 384,
   "tickets": [
     {
       "id": 1,
@@ -6077,6 +6077,48 @@
         "lang"
       ],
       "body": "Design note docs/proposals/microtypes.md merged 23 Oct; decisions D1064-D1070 open. Motivated by a real-world TS app port (private notes in the resolver work folder). Stage 1 waits for SW-356 stage 2 (same map code).",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 381,
+      "title": "Build variant fields feature 2: shared-field access (a.id when every constructor has id) (D1077)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "lang"
+      ],
+      "body": "Design: docs/proposals/variant-fields.md §5 (SW-340, decisions D603-D605 settled). Never ticketed after feature 1 (SW-347); found 23 Oct when Matt asked why the resolver still hand-writes per-constructor getters. D1077 (Matt): build features 2 and 3, then convert the resolver.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 382,
+      "title": "Build variant fields feature 3: shared-field update ({ c | id = x } on any constructor) (D1077)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "lang"
+      ],
+      "body": "Design: variant-fields.md feature 3, D604 (b). After SW-381.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 383,
+      "title": "Private resolver: use named-field patterns and shared-field access/update, delete hand-written per-constructor getters/setters (D1077)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "private"
+      ],
+      "body": "Work copy only (~/stitchwort-event-resolver-work), handover untouched until Matt asks. After SW-382. Nothing committed to this repo.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
