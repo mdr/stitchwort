@@ -34,6 +34,9 @@ use stitchwort_syntax::Diagnostic;
 
 mod fast;
 pub mod run;
+pub mod sourcemap;
+
+pub use sourcemap::Mapping;
 
 /// Generating code recurses over a definition's body, so each level checks
 /// there's stack left first (docs/proposals/stack-safe-evaluation.md).
@@ -516,6 +519,10 @@ fn generic_field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary
 pub struct Output {
     pub js: String,
     pub dts: String,
+    /// Where generated definitions and export wrappers came from, in order
+    /// of position in `js` (docs/proposals/js-source-maps.md): [`sourcemap`]
+    /// turns them into a source map. `js` doesn't depend on them.
+    pub mappings: Vec<Mapping>,
 }
 
 /// How the generated code represents things.
@@ -833,6 +840,7 @@ pub fn generate_exports(
         .map(DefId)
         .filter(|id| used[id.0] && codegen.info(*id).delay.is_none())
         .collect();
+    let mut mapper = sourcemap::Mapper::new(&js);
     for id in dependency_order(g, &wanted) {
         // Only an admitted definition has a body. The driver doesn't extract
         // a module with errors, but if it were asked to, the JS would call a
@@ -848,14 +856,20 @@ pub fn generate_exports(
                 "it hasn't been checked successfully, so it has no definition to generate",
             ));
         }
-        js.push_str(&codegen.def(id).map_err(while_generating(id))?);
+        let text = codegen.def(id).map_err(while_generating(id))?;
+        mapper.chunk(&js, &text, def.span, &def.name);
+        js.push_str(&text);
     }
+    mapper.end(&js);
     if maps_cross {
         js.push_str(&codegen.map_shape().map_err(Diagnostic::from)?);
     }
     for sig in &exports {
-        js.push_str(&codegen.wrapper(sig).map_err(while_generating(sig.id))?);
+        let text = codegen.wrapper(sig).map_err(while_generating(sig.id))?;
+        mapper.chunk(&js, &text, g.def(sig.id).span, &sig.name);
+        js.push_str(&text);
     }
+    mapper.end(&js);
     js.push_str(&codegen.fast.borrow().module_text());
     // Exports aren't names in the module's scope, so they can't hide its
     // own names or the JS globals it uses (`Set`, `BigInt`, …).
@@ -901,7 +915,11 @@ pub fn generate_exports(
             codegen.ts_type(&sig.result, false, &[])
         );
     }
-    Ok(Output { js, dts })
+    Ok(Output {
+        js,
+        dts,
+        mappings: mapper.finish(),
+    })
 }
 
 /// Whether `b` has the prelude's `Option` as a tagged data type in it: a
