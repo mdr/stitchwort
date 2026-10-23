@@ -469,7 +469,7 @@
     },
     {
       "id": 31,
-      "title": "Language server for .sw: stages 0-1, 2a done; 2b (LSP info severity) running; next 2c (Playground goals)",
+      "title": "Language server for .sw: stages 0-1, 2a, 2b done; 2c (Playground goals) running; 2d is SW-376",
       "status": "next",
       "agent": "Opus",
       "where": "",
@@ -482,7 +482,8 @@
       "commits": [
         "6f49811b",
         "7e475d14",
-        "168abb31"
+        "168abb31",
+        "9ffae1e9"
       ]
     },
     {
