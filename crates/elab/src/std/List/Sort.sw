@@ -623,6 +623,23 @@ theorem List.subsequenceLength: (s: List a) -> (ys: List a) -> List.Subsequence 
   | Cons x xs, Cons y ys, Inr h =>
     Nat.leTrans (List.length (Cons x xs)) (List.length ys) (Succ (List.length ys)) (List.subsequenceLength (Cons x xs) ys h) (Nat.leSucc (List.length ys))
 
+-- Dropping the first element keeps a subsequence.
+theorem List.subsequenceTail (x: a): (s: List a) -> (ys: List a) -> List.Subsequence (Cons x s) ys -> List.Subsequence s ys
+  | s, Nil, h => Void.exfalso h
+  | s, Cons y ys, Inl (Both e h) => List.subsequenceCons y s ys h
+  | s, Cons y ys, Inr h => List.subsequenceCons y s ys (List.subsequenceTail x s ys h)
+
+-- A subsequence of a subsequence is a subsequence.
+theorem List.subsequenceTrans: (xs: List a) -> (ys: List a) -> (zs: List a) ->
+    List.Subsequence xs ys -> List.Subsequence ys zs -> List.Subsequence xs zs
+  | Nil, ys, zs, h1, h2 => Trivial
+  | Cons x xs, Nil, zs, h1, h2 => Void.exfalso h1
+  | Cons x xs, Cons y ys, Nil, h1, h2 => Void.exfalso h2
+  | Cons x xs, Cons y ys, Cons z zs, h1, Inr h2 => Inr (List.subsequenceTrans (Cons x xs) (Cons y ys) zs h1 h2)
+  | Cons x xs, Cons y ys, Cons z zs, Inl (Both e1 h1), Inl (Both e2 h2) =>
+    Inl (Both (Eq.trans e1 e2) (List.subsequenceTrans xs ys zs h1 h2))
+  | Cons x xs, Cons y ys, Cons z zs, Inr h1, Inl (Both e2 h2) => Inr (List.subsequenceTrans (Cons x xs) ys zs h1 h2)
+
 theorem List.mergeCount (le: a -> a -> Bool) (p: a -> Bool): (xs: List a) -> (ys: List a) ->
     List.occurrences p (List.merge le xs ys) = List.occurrences p xs + List.occurrences p ys
   | Nil, ys => rfl
