@@ -5741,7 +5741,7 @@
     {
       "id": 362,
       "title": "Fix: functions with type/proof parameters break when passed as values (Rust runtime + JS drop erased params from the calling convention)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -5750,7 +5750,11 @@
       "body": "Found by map-equality draft 3 (D922, stage 1.0). def seven (a: Type): Nat := 7 passed to app (f: Type -> Nat) := f Nat: ref evaluator 7, Rust runtime panics 'applied Nat(7)', JS 'v0 is not a function'. Causes: crates/rt/src/lower.rs:81-119, :584-600; crates/js/src/lib.rs:2746-2772. Test A0 in map-equality.md.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "fbdeb3af",
+        "c52fbc67",
+        "53a3ce49"
+      ]
     },
     {
       "id": 363,
