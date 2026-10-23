@@ -6,6 +6,8 @@
 use std::borrow::Cow;
 use std::rc::Rc;
 
+use num_bigint::BigUint;
+
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
@@ -484,6 +486,11 @@ fn case_branch(
     let g = cx.g();
     let ctor_name = g.data(d).ctors[c].name.clone();
     let goal = eval(g, &cx.env, goal_term)?;
+    // Before entering, while `x` is still a variable in the context.
+    let number = match subtree {
+        Tree::Missing { .. } => fin_missing(cx, x, d, c)?,
+        _ => None,
+    };
     match enter(cx, x, d, c, args, names, goal)? {
         Entered::Conflict(k) => {
             if !matches!(subtree, Tree::Missing { .. }) {
@@ -513,6 +520,9 @@ fn case_branch(
                         return Ok(Some(term));
                     }
                 }
+                if let Some(missing) = number {
+                    return Err(missing.diagnostic(*span));
+                }
                 let ctor = &g.data(d).ctors[c];
                 let example = std::iter::once(ctor.name.to_string())
                     .chain(
@@ -536,6 +546,92 @@ fn case_branch(
             tree => check_tree(cx, tree, &goal).map(Some),
         },
     }
+}
+
+/// A missing case on a `Fin`, as a number (D1079): just `number` when
+/// `exact` (`FSucc` k times around `FZero` is k), else every number above
+/// it (`FSucc` k times around `FSucc _`: above k).
+struct FinMissing {
+    number: usize,
+    exact: bool,
+    subject: String,
+    ty: String,
+}
+
+impl FinMissing {
+    fn diagnostic(&self, span: Span) -> Diagnostic {
+        let k = self.number;
+        if self.exact {
+            error(
+                "E-NONEXHAUSTIVE",
+                span,
+                format!("missing case: no arm matches {k}"),
+            )
+            .with_note(format!(
+                "here {} has type `{}`, so it can be {k}",
+                self.subject, self.ty
+            ))
+        } else {
+            let listed = crate::list_numbers((0..=k).map(|i| i.to_string()), k + 1);
+            error(
+                "E-NONEXHAUSTIVE",
+                span,
+                format!("missing case: no arm matches numbers other than {listed}"),
+            )
+            .with_note("add an arm with a variable or `_` in that position")
+        }
+    }
+}
+
+/// If constructor `c` of `d`, missing from a case on `x`, is a number on a
+/// `Fin`: `x` is the library's `Fin`, reached from a column through
+/// `FSucc`s' last fields. Read before the branch is entered, while `x` and
+/// the fields above it are still variables.
+fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMissing>> {
+    let g = cx.g();
+    let (Some(fin), Some((_, fsucc))) = (
+        g.registry.loaded_data(Builtin::Fin),
+        g.registry.ctor(Builtin::FSucc),
+    ) else {
+        return Ok(None);
+    };
+    if d != fin {
+        return Ok(None);
+    }
+    // The column above: whose value is `FSucc` around `FSucc` … around `x`,
+    // with the most `FSucc`s.
+    let (mut root, mut below) = (x, 0);
+    for y in 0..x {
+        let mut value = force(g, cx.env[y].clone())?;
+        let mut count = 0;
+        while let Value::Ctor(d2, c2, fields) = &value
+            && *d2 == fin
+            && *c2 == fsucc
+            && let Some(last) = fields.last()
+        {
+            count += 1;
+            value = force(g, last.clone())?;
+        }
+        if count > below
+            && let Value::Neutral(Head::Var(l), spine) = &value
+            && *l == x
+            && spine.is_empty()
+        {
+            (root, below) = (y, count);
+        }
+    }
+    let ty = cx.types[root].clone();
+    // With the bound known, `FSucc _` may leave one number.
+    let only = match crate::numbers::fin_bound(g, &ty)? {
+        Some(Some(n)) if c == fsucc && n == BigUint::from(below + 2) => Some(below + 1),
+        _ => None,
+    };
+    Ok(Some(FinMissing {
+        number: only.unwrap_or(below),
+        exact: c != fsucc || only.is_some(),
+        subject: subject(cx, root),
+        ty: cx.show(&ty),
+    }))
 }
 
 /// What entering a branch found.

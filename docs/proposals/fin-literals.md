@@ -45,6 +45,13 @@ the `Int` case; such a column is split by constructor, not compared as
 numbers). So patterns mix with `FZero`/`FSucc`, coverage is the indexed-family
 coverage (`| 0 | 1 | 2` on `Fin 3` is complete, `| 0 => … | FSucc _ => …`
 works for `Fin (Succ n)`), and a pattern at or above a known n is
-`E-FIN-LITERAL` ("2 isn't below 2, so it can't match a `Fin 2`"). Known gap:
-a missing case is reported in constructor terms (`no arm matches FZero`, one
-level down), not as the missing number.
+`E-FIN-LITERAL` ("2 isn't below 2, so it can't match a `Fin 2`").
+
+**Missing numbers (D1079).** The indexed-family coverage check finds a
+missing case some levels down (`FZero` under two `FSucc`s), and it is
+reported as the number, worded as for `Nat`: `FSucc` twice around `FZero`
+is "no arm matches 2"; twice around `FSucc _` is "no arm matches numbers
+other than 0 and 1", or the one number left when the bound is known
+(`| 0 | 1` on a `Fin 3`: "no arm matches 2"). `fin_missing` in
+`families.rs` climbs from the split variable to the column through the
+`FSucc`s' fields. Other indexed families keep the constructor example.

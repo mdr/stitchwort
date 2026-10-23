@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches numbers other than 0 and 1
+   ╭─[ reject/fin-pattern-missing-above.sw:8:3 ]
+   │
+ 8 │ ╭─▶   | _, 0 => "zero"
+ 9 │ ├─▶   | _, 1 => "one"
+   │ │                       
+   │ ╰─────────────────────── missing case: no arm matches numbers other than 0 and 1
+   │     
+   │     Note: add an arm with a variable or `_` in that position
+───╯
