@@ -5820,10 +5820,10 @@
     },
     {
       "id": 366,
-      "title": "Formatter: F0-F4, F6 merged (stitchwort fmt, Playground Format); F7 dry run running; F5 (VS Code) after SW-31 2a",
-      "status": "next",
-      "agent": "Opus",
-      "where": "F3 worktree lane; F4 OpenCode clone",
+      "title": "Formatter: F0-F6 merged (stitchwort fmt, VS Code Format Document, Playground Format); F7 dry run awaiting Matt (D1061)",
+      "status": "review",
+      "agent": "Matt",
+      "where": "dry-run branch worktree-agent-ab31bc9c292e0a367",
       "labels": [
         "tooling"
       ],
@@ -5845,7 +5845,9 @@
         "7ce4b93a",
         "505d5a46",
         "a9f597ea",
-        "c33e72fc"
+        "c33e72fc",
+        "cff7648e",
+        "bdea2b90"
       ]
     },
     {
