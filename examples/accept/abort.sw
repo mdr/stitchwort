@@ -25,10 +25,9 @@ def turns: List Text -> {Abort} (List Turn)
 
 def parseTurn (line: Text): Option Turn := toOption (() => turn line)
 
--- The signed distance, with a default for a bad line. (The `0` needs its
--- type: arguments are checked before the result type is known.)
+-- The signed distance, with a default for a bad line.
 def signed (line: Text): Int :=
-  orElse (0: Int) (() =>
+  orElse 0 (() =>
     let turned := turn line
     let n := turned.steps.toInt
     if turned.left then -n else n)
@@ -42,6 +41,10 @@ def total (lines: List Text): {IO, Abort} Nat :=
       let turned := turn line
       IO.print turned.colour
       turned.steps * turned.weight + total rest
+
+-- A number read from text, or `0`: the `0` is checked as an `Int`, the
+-- type the whole call is expected to have.
+def intOrZero (text: Text): Int := Abort.orElse 0 (() => Abort.need (text.toInt))
 
 def main(): {IO} () :=
   let lines := IO.readAllLines()
@@ -58,6 +61,7 @@ test "empty line" := parseTurn "" == None
 test "all lines" := toOption (() => turns ["L1 1 red", "R2 2 blue"]) == Some [{ left = True, steps = 1, weight = 1, colour = "red" }, { left = False, steps = 2, weight = 2, colour = "blue" }]
 test "one bad line" := toOption (() => turns ["L1 1 red", "R2"]) == None
 test "default" := signed "L5 1 red" == -5 && signed "?" == 0
+test "a number or zero" := intOrZero "-12" == -12 && intOrZero "x" == 0
 test "with IO" := IO.simulate ["L2 3 red", "R1 1 blue"] (() => toOption (() => total ["L2 3 red", "R1 1 blue"])) == (["red", "blue"], Some 7)
 test "with IO, then a bad line" := IO.simulate [] (() => toOption (() => total ["L2 3 red", "nope", "R1 1 blue"])) == (["red"], None)
 
