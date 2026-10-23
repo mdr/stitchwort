@@ -1,5 +1,5 @@
 {
-  "next": 342,
+  "next": 343,
   "tickets": [
     {
       "id": 1,
@@ -5394,6 +5394,21 @@
       "commits": [
         "35718b98"
       ]
+    },
+    {
+      "id": 342,
+      "title": "Test failure diagnostics: show useful detail when a test fails, especially equality (both sides) wherever it appears (let blocks, && chains, comparisons) (D601)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "tests",
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
