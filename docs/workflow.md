@@ -58,6 +58,12 @@ of the crates they changed, `dev/t AREA`) and the full gate once, at the
 end, before merging. On `main`, when several merges land close together,
 one gate covers them all.
 
+Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
+test `crates/cli/tests/fmt_repo.rs` fails, naming the files, if any tracked
+`.sw` file is not formatted. It skips `examples/reject`, `examples/soundness`,
+`examples/projects/reject`, `crates/fmt/tests/golden` and
+`examples/accept/list-literal-layout.sw`, so leave those as written.
+
 Pushing to GitHub happens only when Matt asks.
 
 ## Lanes and the task list
