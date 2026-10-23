@@ -1,5 +1,5 @@
 {
-  "next": 377,
+  "next": 378,
   "tickets": [
     {
       "id": 1,
@@ -6005,6 +6005,20 @@
         "tooling"
       ],
       "body": "From docs/proposals/lsp-goal-holes.md §8 row 2d; D640 (Matt): later, its own stage. Also there: 2a's known gaps (a ? in a signature used from another namespace says 'has errors'; '? ?' gives a type mismatch; a ? reached in instance search may show the search's error).",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 377,
+      "title": "VS Code grammar: highlight ? goal holes (D1063)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "OpenCode clone",
+      "labels": [
+        "tooling"
+      ],
+      "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
