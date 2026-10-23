@@ -120,13 +120,13 @@ def Int.toText: Int -> Text
   | OfNat n => Nat.toText n
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
 
--- Division. `a / d` and `a % d` are Euclidean: `a = d * (a / d) + a % d`
--- with `0 <= a % d < |d|`, whatever the signs, so `-18 % 100` is `82`.
+-- Division. `dividend / divisor` and `dividend % divisor` are Euclidean: `dividend = divisor * (dividend / divisor) + dividend % divisor`
+-- with `0 <= dividend % divisor < |divisor|`, whatever the signs, so `-18 % 100` is `82`.
 -- Each case divides naturals by a `Succ n`, which `auto` sees isn't zero.
 -- The divisor can't be zero, but the case still has to be covered: `ok`
 -- rules it out.
-def Int.div: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a, OfNat Zero => Void.absurd (ok rfl)
+def Int.div: (dividend: Int) -> (divisor: Int) -> [auto ok: divisor != OfNat 0] -> Int
+  | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m / Succ n)
   | NegSucc m, OfNat (Succ n) => NegSucc (m / Succ n)
   | OfNat m, NegSucc n => Int.neg (OfNat (m / Succ n))
@@ -134,8 +134,8 @@ def Int.div: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
 
 -- Never negative. For `NegSucc m`, `m % Succ n <= n`, so the subtraction
 -- doesn't stop at zero.
-def Int.mod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a, OfNat Zero => Void.absurd (ok rfl)
+def Int.mod: (dividend: Int) -> (divisor: Int) -> [auto ok: divisor != OfNat 0] -> Int
+  | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)
   | NegSucc m, OfNat (Succ n) => OfNat (n - m % Succ n)
   | OfNat m, NegSucc n => OfNat (m % Succ n)

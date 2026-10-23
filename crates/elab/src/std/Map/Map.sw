@@ -46,8 +46,8 @@ def Map.toList (m: Map k v [ord := o]): List (k, v) := Quot.lift Map.Raw.toList 
 def Map.get [auto ord: Ord k] (key: k) (m: Map k v): Option v :=
   Quot.lift (Map.Raw.get key) (a b same => Map.Raw.getRespects key a b same) m.raw
 
--- The value at `key`, or `d`.
-def Map.getOr [auto ord: Ord k] (d: v) (key: k) (m: Map k v): v := Option.getOrElse d (Map.get key m)
+-- The value at `key`, or `fallback`.
+def Map.getOr [auto ord: Ord k] (fallback: v) (key: k) (m: Map k v): v := Option.getOrElse fallback (Map.get key m)
 
 def Map.contains [auto ord: Ord k] (key: k) (m: Map k v): Bool := match Map.get key m with
   | Some _ => True
@@ -62,9 +62,9 @@ def Map.keys (m: Map k v [ord := o]): List k := List.map Pair.fst (Map.toList m)
 
 def Map.values (m: Map k v [ord := o]): List v := List.map Pair.snd (Map.toList m)
 
--- Left fold over the entries in key order: `f (f z k1 v1) k2 v2`.
-def Map.foldLeft (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]): b :=
-  Quot.lift (Map.Raw.foldLeft f z) (a b same => Map.Raw.foldLeftRespects f z a b same) m.raw
+-- Left fold over the entries in key order: `f (f initial k1 v1) k2 v2`.
+def Map.foldLeft (f: b -> k -> v -> b) (initial: b) (m: Map k v [ord := o]): b :=
+  Quot.lift (Map.Raw.foldLeft f initial) (a b same => Map.Raw.foldLeftRespects f initial a b same) m.raw
 
 -- Changing
 
@@ -222,8 +222,8 @@ def Map.mapKeys [auto ord: Ord j] (f: k -> j) (m: Map k v [ord := o]): Map j v :
 
 -- More reading
 
--- Right fold over the entries in key order: `f k1 v1 (f k2 v2 z)`.
-def Map.foldRight (f: k -> v -> b -> b) (z: b) (m: Map k v [ord := o]): b := List.foldRight (e acc => f e.fst e.snd acc) z (Map.toList m)
+-- Right fold over the entries in key order: `f k1 v1 (f k2 v2 initial)`.
+def Map.foldRight (f: k -> v -> b -> b) (initial: b) (m: Map k v [ord := o]): b := List.foldRight (e acc => f e.fst e.snd acc) initial (Map.toList m)
 
 -- Whether some entry satisfies `p`.
 def Map.any (p: k -> v -> Bool) (m: Map k v [ord := o]): Bool := List.any (e => p e.fst e.snd) (Map.toList m)

@@ -19,10 +19,10 @@ def Vec.head: Vec a (Succ n) -> a
 def Vec.tail: Vec a (Succ n) -> Vec a n
   | VCons _ xs => xs
 
--- The first element, or `d` if there is none: for a look ahead along a
+-- The first element, or `fallback` if there is none: for a look ahead along a
 -- vector of unknown length.
-def Vec.headOr (d: a): Vec a n -> a
-  | VNil => d
+def Vec.headOr (fallback: a): Vec a n -> a
+  | VNil => fallback
   | VCons x _ => x
 
 -- n copies of x.
@@ -50,10 +50,10 @@ def Vec.zipWith3 (f: a -> b -> c -> d): Vec a n -> Vec b n -> Vec c n -> Vec d n
   | VNil, VNil, VNil => VNil
   | VCons x xs, VCons y ys, VCons z zs => VCons (f x y z) (Vec.zipWith3 f xs ys zs)
 
--- Left fold; tail-recursive. `Vec.foldLeft f z [x, y]` is `f (f z x) y`.
-def Vec.foldLeft (f: b -> a -> b) (z: b): Vec a n -> b
-  | VNil => z
-  | VCons x xs => Vec.foldLeft f (f z x) xs
+-- Left fold; tail-recursive. `Vec.foldLeft f initial [x, y]` is `f (f initial x) y`.
+def Vec.foldLeft (f: b -> a -> b) (initial: b): Vec a n -> b
+  | VNil => initial
+  | VCons x xs => Vec.foldLeft f (f initial x) xs
 
 def Vec.sum (v: Vec Nat n): Nat := Vec.foldLeft Nat.add 0 v
 

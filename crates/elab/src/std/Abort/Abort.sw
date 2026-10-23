@@ -29,13 +29,13 @@ ability Abort where
 def Abort.abort(): {Abort} a := Empty.absurd Abort.stop()
 
 -- The value in an `Option`, or give up.
-def Abort.need (o: Option a): {Abort} a :=
-  match o with
+def Abort.need (option: Option a): {Abort} a :=
+  match option with
     | Some x => x
     | None => Abort.abort()
 
 -- The same, for dot notation: `t.uncons.orAbort`.
-def Option.orAbort (o: Option a): {Abort} a := Abort.need o
+def Option.orAbort (option: Option a): {Abort} a := Abort.need option
 
 -- Give up unless `ok`.
 def Abort.ensure (ok: Bool): {Abort} () := if ok then () else Abort.abort()
@@ -46,11 +46,11 @@ def Abort.toOption (prog: () -> {Abort | e} a): {e} Option a :=
     | return x => Some x
     | Abort.stop u, k => None
 
--- The result, or `d` if the computation gave up.
-def Abort.orElse (d: a) (prog: () -> {Abort | e} a): {e} a :=
+-- The result, or `fallback` if the computation gave up.
+def Abort.orElse (fallback: a) (prog: () -> {Abort | e} a): {e} a :=
   handle prog() with
     | return x => x
-    | Abort.stop u, k => d
+    | Abort.stop u, k => fallback
 
 -- `need` and `toOption` undo each other.
 theorem Abort.toOptionNeed: (o: Option a) -> Abort.toOption (() => Abort.need o) = o

@@ -304,9 +304,9 @@ theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float
   Float.ltLeBools (!(Float.isNaN x)) (!(Float.isNaN y)) (Float.isZero x && Float.isZero y)
     (Float.orderKey x) (Float.orderKey y) h
 
--- `m / d`, if `d` (positive) divides `m`.
-def Float.exactDiv (m: Nat) (d: Nat): Option Nat :=
-  if Nat.equal (Nat.divFuel m m d * d) m then Some (Nat.divFuel m m d) else None
+-- `m / divisor`, if `divisor` (positive) divides `m`.
+def Float.exactDiv (m: Nat) (divisor: Nat): Option Nat :=
+  if Nat.equal (Nat.divFuel m m divisor * divisor) m then Some (Nat.divFuel m m divisor) else None
 
 -- The integer `m * 2^(e - 1075)`, if it is one: a normal double's value,
 -- from its exponent field `e` and its significand `m` (the fraction with
@@ -352,8 +352,8 @@ def SafeNat.toFloat (n: SafeNat): Float := Float.ofNat n.value
 
 -- `toText` with `.0` after a whole number, so that it reads back as a
 -- `Float` (`3.0`, `1e+21`, `0.5`).
-def Float.pointed (t: Text): Text :=
-  if Text.contains "." t || Text.contains "e" t then t else Text.append t ".0"
+def Float.pointed (text: Text): Text :=
+  if Text.contains "." text || Text.contains "e" text then text else Text.append text ".0"
 
 -- Source for the double that reads back as the same double: `1.5`, `3.0`,
 -- `-0.0`, `Float.nan`, `Float.infinity`, `-Float.infinity`. The last four

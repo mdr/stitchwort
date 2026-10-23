@@ -489,9 +489,9 @@ def List.pushRun (le: a -> a -> Bool) (run: List a): List (Option (List a)) -> L
   | Cons None rest => Cons (Some run) rest
   | Cons (Some r) rest => Cons None (List.pushRun le (List.merge le r run) rest)
 
-def List.buildRuns (le: a -> a -> Bool) (c: List (Option (List a))): List a -> List (Option (List a))
-  | Nil => c
-  | Cons x xs => List.buildRuns le (List.pushRun le (Cons x Nil) c) xs
+def List.buildRuns (le: a -> a -> Bool) (runs: List (Option (List a))): List a -> List (Option (List a))
+  | Nil => runs
+  | Cons x xs => List.buildRuns le (List.pushRun le (Cons x Nil) runs) xs
 
 -- Merges the runs, older (earlier) ones on the left.
 def List.mergeRuns (le: a -> a -> Bool) (acc: List a): List (Option (List a)) -> List a
@@ -512,10 +512,10 @@ def List.sortBy (cmp: a -> a -> Ordering) (xs: List a): List a := List.sortWith 
 -- `List.sort [ord := …] xs`.
 def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy Ord.compare xs
 
--- `List.LeHead le z xs`: `z` may come before the first element of `xs`, if any.
-def List.LeHead (le: a -> a -> Bool) (z: a): List a -> Prop
+-- `List.LeHead le bound xs`: `bound` may come before the first element of `xs`, if any.
+def List.LeHead (le: a -> a -> Bool) (bound: a): List a -> Prop
   | Nil => Unit
-  | Cons y ys => le z y = True
+  | Cons y ys => le bound y = True
 
 -- Each element may come before the next. For a transitive `le`, such as
 -- `Nat.leq`, that orders every pair.

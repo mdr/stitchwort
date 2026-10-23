@@ -10,11 +10,11 @@
 -- parse back. A data type or record declared in a program gets both
 -- derived (`T.%instShow`); a module's own `instance` replaces that.
 
--- Itself: so `"${t}"` works when `t` is already text.
-def Text.toText (t: Text): Text := t
+-- Itself: so `"${text}"` works when `text` is already text.
+def Text.toText (text: Text): Text := text
 
 -- The character on its own: `'a'.toText` is `"a"`.
-def Char.toText (c: Char): Text := MkText [c]
+def Char.toText (char: Char): Text := MkText [char]
 
 -- `"True"` or `"False"`, as the constructors are written.
 def Bool.toText: Bool -> Text
@@ -35,59 +35,59 @@ interface Show (a: Type) = {
 -- own type with a `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
 def Show.fromText (f: a -> Text): Show a := { toText = f, toSource = f }
 
--- A character as it's written in a literal quoted with `q`, then `rest`.
-def Show.escapeChar (q: Char) (c: Char) (rest: List Char): List Char :=
-  if Nat.equal (Char.toNat c) 92 then Cons '\\' (Cons '\\' rest)
-  else if Nat.equal (Char.toNat c) (Char.toNat q) then Cons '\\' (Cons c rest)
-  else if Nat.equal (Char.toNat c) 10 then Cons '\\' (Cons 'n' rest)
-  else if Nat.equal (Char.toNat c) 9 then Cons '\\' (Cons 't' rest)
-  else if Nat.equal (Char.toNat c) 13 then Cons '\\' (Cons 'r' rest)
-  else Cons c rest
+-- A character as it's written in a literal quoted with `quote`, then `rest`.
+def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
+  if Nat.equal (Char.toNat char) 92 then Cons '\\' (Cons '\\' rest)
+  else if Nat.equal (Char.toNat char) (Char.toNat quote) then Cons '\\' (Cons char rest)
+  else if Nat.equal (Char.toNat char) 10 then Cons '\\' (Cons 'n' rest)
+  else if Nat.equal (Char.toNat char) 9 then Cons '\\' (Cons 't' rest)
+  else if Nat.equal (Char.toNat char) 13 then Cons '\\' (Cons 'r' rest)
+  else Cons char rest
 
 -- As above, for a character that's followed by `next`: a `$` before a `{`
 -- would start an interpolation.
-def Show.escapeBefore (q: Char) (c: Char) (rest: List Char): List Char -> List Char
-  | Nil => Show.escapeChar q c rest
-  | Cons d _ =>
-    if Nat.equal (Char.toNat c) 36 then
-      (if Nat.equal (Char.toNat d) 123 then Cons '\\' (Cons c rest) else Cons c rest)
-    else Show.escapeChar q c rest
+def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char -> List Char
+  | Nil => Show.escapeChar quote char rest
+  | Cons next _ =>
+    if Nat.equal (Char.toNat char) 36 then
+      (if Nat.equal (Char.toNat next) 123 then Cons '\\' (Cons char rest) else Cons char rest)
+    else Show.escapeChar quote char rest
 
-def Show.escapeChars (q: Char): List Char -> List Char
+def Show.escapeChars (quote: Char): List Char -> List Char
   | Nil => Nil
-  | Cons c cs => Show.escapeBefore q c (Show.escapeChars q cs) cs
+  | Cons char chars => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
 
 -- `"tea"` with its quotes and escapes.
-def Show.quoteText (t: Text): Text :=
-  MkText (Cons '"' (List.append (Show.escapeChars '"' (Text.toList t)) (Cons '"' Nil)))
+def Show.quoteText (text: Text): Text :=
+  MkText (Cons '"' (List.append (Show.escapeChars '"' (Text.toList text)) (Cons '"' Nil)))
 
 -- `'a'`.
-def Show.quoteChar (c: Char): Text := MkText (Cons '\'' (Show.escapeChar '\'' c (Cons '\'' Nil)))
+def Show.quoteChar (char: Char): Text := MkText (Cons '\'' (Show.escapeChar '\'' char (Cons '\'' Nil)))
 
 def Show.hasSpace: List Char -> Bool
   | Nil => False
-  | Cons c cs => if Nat.equal (Char.toNat c) 32 then True else Show.hasSpace cs
+  | Cons char chars => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars
 
 -- Whether text starts like a bracketed or quoted thing, which reads as one
 -- piece: `[`, `(`, `{`, `"`, `'`.
-def Show.startsBracketed (c: Char): Bool :=
-  if Nat.equal (Char.toNat c) 91 then True
-  else if Nat.equal (Char.toNat c) 40 then True
-  else if Nat.equal (Char.toNat c) 123 then True
-  else if Nat.equal (Char.toNat c) 34 then True
-  else Nat.equal (Char.toNat c) 39
+def Show.startsBracketed (char: Char): Bool :=
+  if Nat.equal (Char.toNat char) 91 then True
+  else if Nat.equal (Char.toNat char) 40 then True
+  else if Nat.equal (Char.toNat char) 123 then True
+  else if Nat.equal (Char.toNat char) 34 then True
+  else Nat.equal (Char.toNat char) 39
 
 -- An argument of a constructor: bracketed when it has spaces and isn't
 -- already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`).
-def Show.argOf (t: Text): List Char -> Text
-  | Nil => t
-  | Cons c cs =>
-    if Nat.equal (Char.toNat c) 45 then Text.append "(" (Text.append t ")")
-    else if Show.startsBracketed c then t
-    else if Show.hasSpace cs then Text.append "(" (Text.append t ")")
-    else t
+def Show.argOf (text: Text): List Char -> Text
+  | Nil => text
+  | Cons char chars =>
+    if Nat.equal (Char.toNat char) 45 then Text.append "(" (Text.append text ")")
+    else if Show.startsBracketed char then text
+    else if Show.hasSpace chars then Text.append "(" (Text.append text ")")
+    else text
 
-def Show.arg (t: Text): Text := Show.argOf t (Text.toList t)
+def Show.arg (text: Text): Text := Show.argOf text (Text.toList text)
 
 def Show.itemsAfter (f: a -> Text): List a -> Text
   | Nil => ""

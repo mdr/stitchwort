@@ -16,8 +16,8 @@ theorem List.nilNotCons (x: a) (xs: List a): Not (Nil = Cons x xs)
 theorem List.consNotNil (x: a) (xs: List a): Not (Cons x xs = Nil)
   | p => List.nilNotCons x xs (Eq.sym p)
 
-def List.headOr (d: a): List a -> a
-  | Nil => d
+def List.headOr (fallback: a): List a -> a
+  | Nil => fallback
   | Cons x xs => x
 
 def List.tailOf: List a -> List a
@@ -58,9 +58,9 @@ theorem Option.noneNotSome (x: a): Not (None = Some x)
 theorem Option.someNotNone (x: a): Not (Some x = None)
   | p => Option.noneNotSome x (Eq.sym p)
 
--- The value, or `d` if there isn't one.
-def Option.getOrElse (d: a): Option a -> a
-  | None => d
+-- The value, or `fallback` if there isn't one.
+def Option.getOrElse (fallback: a): Option a -> a
+  | None => fallback
   | Some x => x
 
 def Option.decSome (x: a) (y: a): Decidable (x = y) -> Decidable (Some x = Some y)

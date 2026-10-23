@@ -6,19 +6,19 @@
 
 -- Division
 
--- Counts how many times `d` fits into `n`, using `fuel` to stay structurally
--- recursive (`n` is always enough fuel when `d` isn't zero).
+-- Counts how many times `divisor` fits into `n`, using `fuel` to stay structurally
+-- recursive (`n` is always enough fuel when `divisor` isn't zero).
 def Nat.divFuel: Nat -> Nat -> Nat -> Nat
-  | Zero, n, d => 0
-  | Succ fuel, n, d => if Nat.leq d n then Succ (Nat.divFuel fuel (n - d) d) else 0
+  | Zero, n, divisor => 0
+  | Succ fuel, n, divisor => if Nat.leq divisor n then Succ (Nat.divFuel fuel (n - divisor) divisor) else 0
 
--- `n / d` and `n % d` need a proof that `d` isn't zero, which `auto` finds.
-def Nat.div (n: Nat) (d: Nat): [auto ok: d != 0] -> Nat := Nat.divFuel n n d
+-- `n / divisor` and `n % divisor` need a proof that `divisor` isn't zero, which `auto` finds.
+def Nat.div (n: Nat) (divisor: Nat): [auto ok: divisor != 0] -> Nat := Nat.divFuel n n divisor
 
 -- The quotient goes on the left: `*` recurses on its left argument, so
--- `(n / d) * 100` stays put while checking, where `100 * (n / d)` would
+-- `(n / divisor) * 100` stays put while checking, where `100 * (n / divisor)` would
 -- unfold into a hundred additions.
-def Nat.mod (n: Nat) (d: Nat): [auto ok: d != 0] -> Nat := n - (n / d) * d
+def Nat.mod (n: Nat) (divisor: Nat): [auto ok: divisor != 0] -> Nat := n - (n / divisor) * divisor
 
 theorem Nat.leSucc: (n: Nat) -> n <= Succ n
   | Zero => rfl

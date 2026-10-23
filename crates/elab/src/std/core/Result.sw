@@ -10,14 +10,14 @@ type Result (a: Type) (e: Type): Type =
   | Ok (value: a)
   | Err (error: e)
 
--- The value, or `d` if there isn't one.
-def Result.getOrElse (d: a): Result a e -> a
+-- The value, or `fallback` if there isn't one.
+def Result.getOrElse (fallback: a): Result a e -> a
   | Ok x => x
-  | Err m => d
+  | Err m => fallback
 
--- The error, or `d` if there isn't one.
-def Result.errorOrElse (d: e): Result a e -> e
-  | Ok x => d
+-- The error, or `fallback` if there isn't one.
+def Result.errorOrElse (fallback: e): Result a e -> e
+  | Ok x => fallback
   | Err m => m
 
 def Result.IsOk: Result a e -> Prop

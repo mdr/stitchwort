@@ -14,9 +14,9 @@ def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else 
 
 -- The first comparison, unless it's `Equal`.
 def Ordering.andThen: Ordering -> Ordering -> Ordering
-  | Less, o => Less
-  | Equal, o => o
-  | Greater, o => Greater
+  | Less, second => Less
+  | Equal, second => second
+  | Greater, second => Greater
 
 def Ordering.index: Ordering -> Nat
   | Less => 0

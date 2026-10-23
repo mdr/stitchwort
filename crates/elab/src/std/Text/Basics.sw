@@ -4,23 +4,23 @@
 -- trims text doesn't also load the lemmas in `Text.sw`.
 
 -- The number of scalar values.
-def Text.length (t: Text): Nat := List.length (Text.toList t)
+def Text.length (text: Text): Nat := List.length (Text.toList text)
 
 def Text.isEmpty: Text -> Bool
   | MkText Nil => True
-  | MkText (Cons c cs) => False
+  | MkText (Cons char chars) => False
 
 -- The first character and the rest, unless the text is empty.
 def Text.uncons: Text -> Option (Pair Char Text)
   | MkText Nil => None
-  | MkText (Cons c cs) => Some (MkPair c (MkText cs))
+  | MkText (Cons char chars) => Some (MkPair char (MkText chars))
 
-def Text.foldChars (f: Char -> b -> b) (z: b): List Char -> b
-  | Nil => z
-  | Cons c cs => f c (Text.foldChars f z cs)
+def Text.foldChars (f: Char -> b -> b) (initial: b): List Char -> b
+  | Nil => initial
+  | Cons char chars => f char (Text.foldChars f initial chars)
 
--- `Text.fold f z "abc"` is `f 'a' (f 'b' (f 'c' z))`.
-def Text.fold (f: Char -> b -> b) (z: b) (t: Text): b := Text.foldChars f z (Text.toList t)
+-- `Text.fold f initial "abc"` is `f 'a' (f 'b' (f 'c' initial))`.
+def Text.fold (f: Char -> b -> b) (initial: b) (text: Text): b := Text.foldChars f initial (Text.toList text)
 
 -- Whitespace, for `Text.trim`: exactly space, tab, line feed, vertical tab,
 -- form feed and carriage return. Not Unicode's `White_Space`.
@@ -33,20 +33,20 @@ def Char.isSpaceCode: Nat -> Bool
   | 32 => True
   | _ => False
 
-def Char.isSpace (c: Char): Bool := Char.isSpaceCode (Char.toNat c)
+def Char.isSpace (char: Char): Bool := Char.isSpaceCode (Char.toNat char)
 
 def Text.dropSpaces: List Char -> List Char
   | Nil => Nil
-  | Cons c cs => if Char.isSpace c then Text.dropSpaces cs else Cons c cs
+  | Cons char chars => if Char.isSpace char then Text.dropSpaces chars else Cons char chars
 
 -- Removes whitespace (as `Char.isSpace` defines it) from both ends.
-def Text.trim (t: Text): Text := MkText (List.reverseOnto (Text.dropSpaces (List.reverseOnto (Text.dropSpaces (Text.toList t)) Nil)) Nil)
+def Text.trim (text: Text): Text := MkText (List.reverseOnto (Text.dropSpaces (List.reverseOnto (Text.dropSpaces (Text.toList text)) Nil)) Nil)
 
-def Char.digitValue (c: Char): Option Nat := if Nat.leq 48 (Char.toNat c) then (if Nat.leq (Char.toNat c) 57 then Some (Char.toNat c - 48) else None) else None
+def Char.digitValue (char: Char): Option Nat := if Nat.leq 48 (Char.toNat char) then (if Nat.leq (Char.toNat char) 57 then Some (Char.toNat char - 48) else None) else None
 
 def Text.readDigits (acc: Nat): List Char -> Option Nat
   | Nil => Some acc
-  | Cons c cs => Option.flatMap (d => Text.readDigits (acc * 10 + d) cs) (Char.digitValue c)
+  | Cons char chars => Option.flatMap (digit => Text.readDigits (acc * 10 + digit) chars) (Char.digitValue char)
 
 -- A non-empty sequence of ASCII digits, and nothing else: no sign,
 -- whitespace or separators. Leading zeros are allowed, so
@@ -54,71 +54,71 @@ def Text.readDigits (acc: Nat): List Char -> Option Nat
 -- reads as 7.
 def Text.toNat: Text -> Option Nat
   | MkText Nil => None
-  | MkText (Cons c cs) => Text.readDigits 0 (Cons c cs)
+  | MkText (Cons char chars) => Text.readDigits 0 (Cons char chars)
 
 -- An optional `-`, then one or more ASCII digits, and nothing else. Leading
 -- zeros are fine and `"-0"` is `0`; `"-"`, `""` and `"+5"` are `None`.
 def Text.toInt: Text -> Option Int
   | MkText Nil => None
-  | MkText (Cons c cs) =>
-    if Nat.equal (Char.toNat c) 45
-    then Option.map (n => Int.neg (OfNat n)) (Text.toNat (MkText cs))
-    else Option.map OfNat (Text.toNat (MkText (Cons c cs)))
+  | MkText (Cons char chars) =>
+    if Nat.equal (Char.toNat char) 45
+    then Option.map (n => Int.neg (OfNat n)) (Text.toNat (MkText chars))
+    else Option.map OfNat (Text.toNat (MkText (Cons char chars)))
 
 -- Splitting and joining
 
--- `Text.splitChars s cs` is the first field and the rest: never empty.
-def Text.splitCons (s: Char) (c: Char): Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
-  | True, MkPair f fs => MkPair Nil (Cons f fs)
-  | False, MkPair f fs => MkPair (Cons c f) fs
+-- `Text.splitChars separator chars` is the first field and the rest: never empty.
+def Text.splitCons (separator: Char) (char: Char): Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
+  | True, MkPair field fields => MkPair Nil (Cons field fields)
+  | False, MkPair field fields => MkPair (Cons char field) fields
 
-def Text.splitChars (s: Char): List Char -> Pair (List Char) (List (List Char))
+def Text.splitChars (separator: Char): List Char -> Pair (List Char) (List (List Char))
   | Nil => MkPair Nil Nil
-  | Cons c cs => Text.splitCons s c (Decidable.toBool (Char.decEq c s)) (Text.splitChars s cs)
+  | Cons char chars => Text.splitCons separator char (Decidable.toBool (Char.decEq char separator)) (Text.splitChars separator chars)
 
-def Text.joinChars (s: Char) (f: List Char): List (List Char) -> List Char
-  | Nil => f
-  | Cons g gs => List.append f (Cons s (Text.joinChars s g gs))
+def Text.joinChars (separator: Char) (field: List Char): List (List Char) -> List Char
+  | Nil => field
+  | Cons nextField laterFields => List.append field (Cons separator (Text.joinChars separator nextField laterFields))
 
 def Text.textsOf: List (List Char) -> List Text
   | Nil => Nil
-  | Cons f fs => Cons (MkText f) (Text.textsOf fs)
+  | Cons field fields => Cons (MkText field) (Text.textsOf fields)
 
 def Text.charListsOf: List Text -> List (List Char)
   | Nil => Nil
-  | Cons t ts => Cons (Text.toList t) (Text.charListsOf ts)
+  | Cons text texts => Cons (Text.toList text) (Text.charListsOf texts)
 
 def Text.splitTexts: Pair (List Char) (List (List Char)) -> List Text
-  | MkPair f fs => Cons (MkText f) (Text.textsOf fs)
+  | MkPair field fields => Cons (MkText field) (Text.textsOf fields)
 
 -- The fields between separators, keeping empty ones: splitting "a,,b" on
 -- ',' gives ["a", "", "b"], and splitting "" gives [""].
-def Text.split (s: Char) (t: Text): List Text := Text.splitTexts (Text.splitChars s (Text.toList t))
+def Text.split (separator: Char) (text: Text): List Text := Text.splitTexts (Text.splitChars separator (Text.toList text))
 
--- The texts with `s` between them. `Text.join s (Text.split s t) = t`.
-def Text.join (s: Char): List Text -> Text
+-- The texts with `separator` between them. `Text.join separator (Text.split separator text) = text`.
+def Text.join (separator: Char): List Text -> Text
   | Nil => MkText Nil
-  | Cons t ts => MkText (Text.joinChars s (Text.toList t) (Text.charListsOf ts))
+  | Cons text texts => MkText (Text.joinChars separator (Text.toList text) (Text.charListsOf texts))
 
 -- Words: the runs of non-whitespace (as `Char.isSpace` defines it) between
--- runs of whitespace, with no empty ones. `Text.wordsChars cs` is the word
--- that `cs` starts with (so far) and the finished words after it.
+-- runs of whitespace, with no empty ones. `Text.wordsChars chars` is the word
+-- that `chars` starts with (so far) and the finished words after it.
 def Text.wordsClose: List Char -> List (List Char) -> List (List Char)
-  | Nil, ws => ws
-  | Cons c cs, ws => Cons (Cons c cs) ws
+  | Nil, words => words
+  | Cons char chars, words => Cons (Cons char chars) words
 
-def Text.wordsStep (c: Char): Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
-  | True, MkPair w ws => MkPair Nil (Text.wordsClose w ws)
-  | False, MkPair w ws => MkPair (Cons c w) ws
+def Text.wordsStep (char: Char): Bool -> Pair (List Char) (List (List Char)) -> Pair (List Char) (List (List Char))
+  | True, MkPair word words => MkPair Nil (Text.wordsClose word words)
+  | False, MkPair word words => MkPair (Cons char word) words
 
 def Text.wordsChars: List Char -> Pair (List Char) (List (List Char))
   | Nil => MkPair Nil Nil
-  | Cons c cs => Text.wordsStep c (Char.isSpace c) (Text.wordsChars cs)
+  | Cons char chars => Text.wordsStep char (Char.isSpace char) (Text.wordsChars chars)
 
 def Text.wordsFinish: Pair (List Char) (List (List Char)) -> List Text
-  | MkPair w ws => Text.textsOf (Text.wordsClose w ws)
+  | MkPair word words => Text.textsOf (Text.wordsClose word words)
 
 -- `"a  b".words` is `["a", "b"]`, where `"a  b".split ' '` is `["a", "", "b"]`;
 -- `"".words` and `"  ".words` are `[]`. Splits on any whitespace, not only
 -- spaces.
-def Text.words (t: Text): List Text := Text.wordsFinish (Text.wordsChars (Text.toList t))
+def Text.words (text: Text): List Text := Text.wordsFinish (Text.wordsChars (Text.toList text))

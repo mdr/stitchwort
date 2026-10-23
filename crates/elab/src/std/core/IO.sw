@@ -15,12 +15,12 @@ ability IO where
 -- The first line of scripted input, if there is one.
 def IO.nextLine: List Text -> Option Text
   | Nil => None
-  | Cons l ls => Some l
+  | Cons line lines => Some line
 
 -- All of the scripted input, as `IO.readAll` gives it: each line followed by a
 -- line feed, as a real interpreter would read it.
 def IO.restOf (ins: List Text): Text :=
-  MkText (List.concatMap (l => List.append (Text.toList l) ['\n']) ins)
+  MkText (List.concatMap (line => List.append (Text.toList line) ['\n']) ins)
 
 -- Runs a program against scripted input lines: each `IO.readLine` takes the
 -- next one, and gives `None` once they're used up; `IO.readAll` takes all

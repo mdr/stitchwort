@@ -21,23 +21,23 @@ def Int.sign: Int -> Int
   | OfNat (Succ n) => OfNat 1
   | NegSucc n => NegSucc 0
 
--- `x % d` as a `Nat`, for indexing: `(x.modNat d).toInt = x % d.toInt`.
-def Int.modNat: Int -> (d: Nat) -> [auto ok: d != 0] -> Nat
+-- `x % divisor` as a `Nat`, for indexing: `(x.modNat divisor).toInt = x % divisor.toInt`.
+def Int.modNat: Int -> (divisor: Nat) -> [auto ok: divisor != 0] -> Nat
   | x, Zero => Void.absurd (ok rfl)
   | OfNat m, Succ n => m % Succ n
   | NegSucc m, Succ n => n - m % Succ n
 
 -- Truncating division, rounding toward zero; the remainder has the
 -- dividend's sign (C, Rust's `/` and `%`, JavaScript's `BigInt`).
-def Int.tdiv: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a, OfNat Zero => Void.absurd (ok rfl)
+def Int.tdiv: (dividend: Int) -> (divisor: Int) -> [auto ok: divisor != OfNat 0] -> Int
+  | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m / Succ n)
   | NegSucc m, OfNat (Succ n) => Int.neg (OfNat (Succ m / Succ n))
   | OfNat m, NegSucc n => Int.neg (OfNat (m / Succ n))
   | NegSucc m, NegSucc n => OfNat (Succ m / Succ n)
 
-def Int.tmod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a, OfNat Zero => Void.absurd (ok rfl)
+def Int.tmod: (dividend: Int) -> (divisor: Int) -> [auto ok: divisor != OfNat 0] -> Int
+  | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)
   | NegSucc m, OfNat (Succ n) => Int.neg (OfNat (Succ m % Succ n))
   | OfNat m, NegSucc n => OfNat (m % Succ n)
@@ -46,16 +46,16 @@ def Int.tmod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
 -- Flooring division, rounding toward negative infinity; the remainder has
 -- the divisor's sign (Python, Haskell's `div` and `mod`). The same as
 -- Euclidean division when the divisor is positive.
-def Int.fdiv: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a, OfNat Zero => Void.absurd (ok rfl)
+def Int.fdiv: (dividend: Int) -> (divisor: Int) -> [auto ok: divisor != OfNat 0] -> Int
+  | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m / Succ n)
   | NegSucc m, OfNat (Succ n) => NegSucc (m / Succ n)
   | OfNat Zero, NegSucc n => OfNat Zero
   | OfNat (Succ m), NegSucc n => NegSucc (m / Succ n)
   | NegSucc m, NegSucc n => OfNat (Succ m / Succ n)
 
-def Int.fmod: (a: Int) -> (d: Int) -> [auto ok: d != OfNat 0] -> Int
-  | a, OfNat Zero => Void.absurd (ok rfl)
+def Int.fmod: (dividend: Int) -> (divisor: Int) -> [auto ok: divisor != OfNat 0] -> Int
+  | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)
   | NegSucc m, OfNat (Succ n) => OfNat (n - m % Succ n)
   | OfNat Zero, NegSucc n => OfNat Zero

@@ -145,8 +145,8 @@ theorem Nat.divMulLe (n: Nat) (d: Nat) (ok: d != 0): (n / d) * d <= n := Nat.div
 theorem Nat.divModEq (n: Nat) (d: Nat) (ok: d != 0): n = (n / d) * d + n % d := Eq.sym (Nat.addSubCancel ((n / d) * d) n (Nat.divMulLe n d ok))
 
 -- Quotient and remainder together, as `/` and `%` give them: `Nat.divMod 17 5`
--- is `MkPair 3 2`. `n` is the main value; `d` isn't zero, found by `auto`.
-def Nat.divMod (n: Nat) (d: Nat) [auto ok: d != 0]: Pair Nat Nat := MkPair (n / d) (n % d)
+-- is `MkPair 3 2`. `n` is the main value; `divisor` isn't zero, found by `auto`.
+def Nat.divMod (n: Nat) (divisor: Nat) [auto ok: divisor != 0]: Pair Nat Nat := MkPair (n / divisor) (n % divisor)
 
 test "Nat.divMod" := Nat.divMod 17 5 == MkPair 3 2 && Nat.divMod 3 5 == MkPair 0 3
 
@@ -351,10 +351,10 @@ theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) 
     (t => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym h) (Nat.leDivOfMulLe b hi (Succ m) t))))
     (f => rfl)
 
--- Division rounding up: `Nat.ceilDiv 7 2 = 4`. For `d != 0` it is the
--- smallest `b` with `n <= b * d` (`Nat.ceilDivLe`, `Nat.leMulOfCeilDivLe`),
--- just as `n / d` is the largest `q` with `q * d <= n`.
-def Nat.ceilDiv (n: Nat) (d: Nat) [auto ok: d != 0]: Nat := (n + d - 1) / d
+-- Division rounding up: `Nat.ceilDiv 7 2 = 4`. For `divisor != 0` it is the
+-- smallest `b` with `n <= b * divisor` (`Nat.ceilDivLe`, `Nat.leMulOfCeilDivLe`),
+-- just as `n / divisor` is the largest `q` with `q * divisor <= n`.
+def Nat.ceilDiv (n: Nat) (divisor: Nat) [auto ok: divisor != 0]: Nat := (n + divisor - 1) / divisor
 
 -- Any `b` with `n <= b * d` is at least `Nat.ceilDiv n d`.
 theorem Nat.ceilDivLe (n: Nat) (b: Nat): (d: Nat) -> [auto ok: d != 0] -> n <= b * d -> Nat.ceilDiv n d <= b
