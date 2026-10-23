@@ -6058,7 +6058,7 @@
     },
     {
       "id": 379,
-      "title": "AoC Day 3 review: scaffolding + comments + match on Fin done; Spec.sw (D1071) + short banks (D1072) running; Fin literals running; subsequenceTrans next",
+      "title": "AoC Day 3 review: scaffolding, comments, match on Fin, Spec.sw, short banks, Fin literals merged; follow-ups running (Best.sw uses c < x, tests use Fin literals, List.subsequenceTrans)",
       "status": "doing",
       "agent": "Sonnet",
       "where": "worktree lanes",
