@@ -1,4 +1,4 @@
--- Day 2, why `sumOfIdsInRangeMatchingTemplate` is right: the arithmetic sum of the ids that are a
+-- Day 2, why `RepetitionTemplate.sumIn` is right: the arithmetic sum of the ids that are a
 -- k-digit block written n times equals the brute-force sum over blocks
 -- (`repeatedCorrect`), and for n = 2 the sum over the ids themselves
 -- (`repeatedTwice`). Kept apart from the program, so `stitchwort run
@@ -9,10 +9,10 @@ import Aoc.Common (..)
 import Aoc.Common.Proofs (..)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
-import Std (Add, Bool, Decidable, Each, Eq, List, Nat, Void)
+import Std (Add, Bool, DecEq, Decidable, Each, Eq, List, Nat, Void)
 import Std.Each (each, require)
 
--- Why `sumOfIdsInRangeMatchingTemplate` is right (a): `sumOfIdsInRangeMatchingTemplate r template` equals
+-- Why `RepetitionTemplate.sumIn` is right (a): `RepetitionTemplate.sumIn r template` equals
 -- `repeatedSpec r k n`, the brute-force sum below, for every range, block
 -- length and repeat count.
 --
@@ -38,7 +38,7 @@ def repeatedSpec (r: Range) (k: Nat) (n: Nat): Nat :=
     |> .filter (x => r.from <= x && x <= r.to)
     |> .sum
 
--- `sumOfIdsInRangeMatchingTemplate` with its parts as parameters: the multiplier `m`, the
+-- `RepetitionTemplate.sumIn` with its parts as parameters: the multiplier `m`, the
 -- smallest block `low` and the first number too long to be a block `p`.
 def multiplier (k: Nat) (n: Nat): Nat := List.range n |> .sumBy (i => Nat.pow 10 (k * i))
 
@@ -49,7 +49,7 @@ def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
     if from <= to then m * ((from + to) * (to - from + 1) / 2) else 0
   else 0
 
-theorem repeatedAt (r: Range) (k: Nat) (n: Nat): sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
+theorem repeatedAt (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
 
 -- The multiplier: writing `b` n times is `b * multiplier k n`.
 theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10 k * multiplier k n :=
@@ -187,12 +187,12 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
                (Succ p - low) low)
 
 -- (a) The arithmetic sum is the brute-force one.
-theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n } = repeatedSpec r k n :=
+theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = repeatedSpec r k n :=
   Eq.trans (blocksWindow r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (Nat.powSuccPos 9 k) (Nat.powTenPredLe k) (multiplier k n))
     (Eq.sym (specWindow r k n))
 
--- Why `sumOfIdsInRangeMatchingTemplate` is right (a'), for a block written twice:
--- `repeatedTwice` says `sumOfIdsInRangeMatchingTemplate r` of the template k by 2 is the sum the puzzle
+-- Why `RepetitionTemplate.sumIn` is right (a'), for a block written twice:
+-- `repeatedTwice` says `RepetitionTemplate.sumIn r` of the template k by 2 is the sum the puzzle
 -- describes, walking the ids of the range and keeping those whose digits are
 -- some k-digit block written twice (any k from 1 on).
 --
@@ -218,7 +218,7 @@ theorem sumIdsEq (from: Nat) (to: Nat) (y: Nat):
 theorem twiceAppend (x: Nat) (k: Nat) (hq: writtenAs (Nat.digits x) k 2 = True):
     List.append (List.take k (Nat.digits x)) (List.take k (Nat.digits x)) = Nat.digits x :=
   Eq.trans (Eq.sym (Eq.cong (List.append (List.take k (Nat.digits x))) (List.appendNil (List.take k (Nat.digits x)))))
-    (Decidable.toBoolSound (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate 2 (List.take k (Nat.digits x)))) (Nat.digits x)) hq)
+    (DecEq.sound (List.concat (List.replicate 2 (List.take k (Nat.digits x)))) (Nat.digits x) hq)
 
 theorem twiceBlockLength (x: Nat) (k: Nat) (hq: writtenAs (Nat.digits x) k 2 = True): List.length (List.take k (Nat.digits x)) = k :=
   match e: Nat.leq k (List.length (Nat.digits x)) with
@@ -311,7 +311,7 @@ theorem twiceBlockCount (x: Nat): (k: Nat) -> 1 <= k ->
         List.sumRangeOne (b => writeTimes (Succ j) b 2 == x) (b => x) (Nat.fromDigits (List.take (Succ j) (Nat.digits x)))
           (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) 2) x) (twiceValue x (Succ j) hq))
           (b hb => twiceInjective (Succ j) b (Nat.fromDigits (List.take (Succ j) (Nat.digits x)))
-            (Eq.trans (Decidable.toBoolSound (Nat.decEq (writeTimes (Succ j) b 2) x) hb) (Eq.sym (twiceValue x (Succ j) hq))))
+            (Eq.trans (DecEq.sound (writeTimes (Succ j) b 2) x hb) (Eq.sym (twiceValue x (Succ j) hq))))
           (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (twiceAbove x (Succ j) hq)
           (omega [twiceBelow x (Succ j) hq, Nat.powTenPredLe (Succ j)])
@@ -353,8 +353,8 @@ theorem twiceIds (r: Range) (k: Nat) (hk: 1 <= k):
 -- (a') A block written twice: the arithmetic sum is the sum of the ids in
 -- the range whose digits are some k-digit block written twice.
 theorem repeatedTwice (r: Range) (k: Nat) (hk: 1 <= k):
-    sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = 2 } = (r.ids |> .filter (x => writtenAs (Nat.digits x) k 2) |> .sum) :=
-  calc sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = 2 }
+    RepetitionTemplate.sumIn r { blockLength = k, copies = 2 } = (r.ids |> .filter (x => writtenAs (Nat.digits x) k 2) |> .sum) :=
+  calc RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }
     _ = repeatedSpec r k 2 := repeatedCorrect r k 2
     _ = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k 2)) r.ids := twiceIds r k hk
     _ = (r.ids |> .filter (x => writtenAs (Nat.digits x) k 2) |> .sum) := Eq.sym (List.sumFilter (x => writtenAs (Nat.digits x) k 2) r.ids)

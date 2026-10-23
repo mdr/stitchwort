@@ -19,7 +19,7 @@
 --   that over the divisors of K from 2 on the weights add up to 1 when K >= 2
 --   (`weightsOne`). So x's terms add up to x itself exactly when x repeats
 --   (`idWeight`).
--- - `sumOfIdsInRangeMatchingTemplate` adds the ids of the range whose digits are a block of the
+-- - `RepetitionTemplate.sumIn` adds the ids of the range whose digits are a block of the
 --   template's length written the template's number of copies (`repeatedIds`). The
 --   program's sum over the templates is a grid of block lengths and copies
 --   (`sumOfIdsWrittenRepeatedlyGrid`); swapping the sums over ids, block lengths and
@@ -32,7 +32,7 @@ import Aoc.Common.Proofs (rangeEnd)
 import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
 import Aoc.Day02.Tests (exampleRanges)
-import Std (Bool, Decidable, Eq, Int, List, Nat, Void)
+import Std (Bool, DecEq, Decidable, Eq, Int, List, Nat, Void)
 
 -- (1) n copies ------------------------------------------------------------
 -- The twice* lemmas of Repeated.sw, for any number of copies n >= 2.
@@ -48,7 +48,7 @@ theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (Li
 
 theorem repAppend (x: Nat) (k: Nat) (n: Nat) (hq: writtenAs (Nat.digits x) k n = True):
     List.concat (List.replicate n (List.take k (Nat.digits x))) = Nat.digits x :=
-  Decidable.toBoolSound (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take k (Nat.digits x)))) (Nat.digits x)) hq
+  DecEq.sound (List.concat (List.replicate n (List.take k (Nat.digits x)))) (Nat.digits x) hq
 
 -- With two or more copies the block is k digits long (it can't be all of x).
 theorem repBlockLength (x: Nat) (k: Nat) (m: Nat) (hq: writtenAs (Nat.digits x) k (Succ (Succ m)) = True): List.length (List.take k (Nat.digits x)) = k :=
@@ -152,7 +152,7 @@ theorem blockCountRep (x: Nat) (m: Nat): (k: Nat) -> 1 <= k ->
         List.sumRangeOne (b => writeTimes (Succ j) b (Succ (Succ m)) == x) (b => x) (Nat.fromDigits (List.take (Succ j) (Nat.digits x)))
           (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) (Succ (Succ m))) x) (repValue x (Succ j) m hq))
           (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) (Succ m)
-            (Eq.trans (Decidable.toBoolSound (Nat.decEq (writeTimes (Succ j) b (Succ (Succ m))) x) hb) (Eq.sym (repValue x (Succ j) m hq))))
+            (Eq.trans (DecEq.sound (writeTimes (Succ j) b (Succ (Succ m))) x hb) (Eq.sym (repValue x (Succ j) m hq))))
           (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (repAbove x (Succ j) m rfl hq)
           (omega [repBelow x (Succ j) m hq, Nat.powTenPredLe (Succ j)])
@@ -186,14 +186,14 @@ theorem blocksAsIdsRep (r: Range) (k: Nat) (n: Nat):
     _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
         := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
 
--- (1) `sumOfIdsInRangeMatchingTemplate r` of the template k by n adds the ids of the range whose digits are a k-digit
+-- (1) `RepetitionTemplate.sumIn r` of the template k by n adds the ids of the range whose digits are a k-digit
 -- block written n times.
 theorem repeatedIds (r: Range) (k: Nat) (hk: 1 <= k): (n: Nat) -> 2 <= n ->
-    sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n } = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
+    RepetitionTemplate.sumIn r { blockLength = k, copies = n } = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
   | Zero,          h => Void.exfalso (Bool.falseNotTrue h)
   | Succ Zero,     h => Void.exfalso (Bool.falseNotTrue h)
   | Succ (Succ m), h =>
-    calc sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = Succ (Succ m) }
+    calc RepetitionTemplate.sumIn r { blockLength = k, copies = Succ (Succ m) }
       _ = repeatedSpec r k (Succ (Succ m)) := repeatedCorrect r k (Succ (Succ m))
       _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b (Succ (Succ m)) == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) r.ids
           := blocksAsIdsRep r k (Succ (Succ m))
@@ -359,7 +359,7 @@ theorem periodMul (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (hp: Period
 def isPeriod (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat): Bool := List.range len |> .all (i => g ((i + p) % len) == g i)
 
 theorem periodOfTest (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (h: isPeriod g len hl p = True): Period g len hl p :=
-  i hi => Decidable.toBoolSound (Nat.decEq (g ((i + p) % len)) (g i)) (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
+  i hi => DecEq.sound (g ((i + p) % len)) (g i) (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
 
 theorem periodTest (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (h: Period g len hl p): isPeriod g len hl p = True :=
   List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => Decidable.toBoolOf (Nat.decEq (g ((i + p) % len)) (g i)) (h i h2))
@@ -392,7 +392,7 @@ theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k != 0] (hn: 1 <
     (j: Nat) (hj: j < ds.length): digitAt ds j = digitAt ds (j % k) :=
   calc List.getOr 0 j ds
     _ = List.getOr 0 j (List.concat (List.replicate n (List.take k ds)))
-        := Eq.cong (l => List.getOr 0 j l) (Eq.sym (Decidable.toBoolSound (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take k ds))) ds) hw))
+        := Eq.cong (l => List.getOr 0 j l) (Eq.sym (DecEq.sound (List.concat (List.replicate n (List.take k ds))) ds hw))
     _ = List.getOr 0 (j % k) (List.take k ds)
         := List.getOrConcatReplicate 0 (List.take k ds) k (List.lengthTake k ds (omega [Nat.leMulPos k n hn])) n j
              omega
@@ -575,7 +575,7 @@ theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms copies
 
 -- A term with more digits than `to` is 0 anyway.
 theorem keptTerm (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt else 0) = w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt :=
+    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0) = w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt :=
   match h: Nat.leq (k * n) (List.length (Nat.digits r.to)) with
     | True  => rfl
     | False => Eq.sym (Eq.trans (Eq.cong (t => w n * t.toInt) (repeatedZero r k hk n hn h)) (Int.mulZero (w n)))
@@ -585,17 +585,17 @@ theorem keptTerm (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 
 -- copies n from 2, the templates that don't fit counting 0.
 def weighted (w: Nat -> Int) (r: Range): Int :=
   let size := List.length (Nat.digits r.to)
-  List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt else 0))
+  List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0))
 
 theorem sumOfIdsWrittenRepeatedlyGrid (r: Range): sumOfIdsWrittenRepeatedly r = weighted copiesWeight r :=
-  templatesSum r (template => copiesWeight template.copies * (sumOfIdsInRangeMatchingTemplate r template).toInt)
+  templatesSum r (template => copiesWeight template.copies * (RepetitionTemplate.sumIn r template).toInt)
 
 -- One term of `weighted`, as a sum over the ids of the range.
 theorem termIds (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt else 0)
+    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0)
       = List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids :=
-  calc (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt else 0)
-    _ = w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt := keptTerm w r k hk n hn
+  calc (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0)
+    _ = w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt := keptTerm w r k hk n hn
     _ = w n * (List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids).toInt := Eq.cong (t => w n * t.toInt) (repeatedIds r k hk n hn)
     _ = w n * List.sumBy (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids
         := Eq.cong (t => w n * t) (Int.toIntSumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids)
@@ -603,7 +603,7 @@ theorem termIds (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2
         := Eq.sym (Int.sumByMulLeft (w n) (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids)
 
 -- A block written n times with more digits than `to` adds nothing.
-theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: Nat.leq (k * n) (List.length (Nat.digits r.to)) = False): sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n } = 0 :=
+theorem repeatedZero (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n) (h: Nat.leq (k * n) (List.length (Nat.digits r.to)) = False): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = 0 :=
   Eq.trans (repeatedIds r k hk n hn)
     (List.sumRangeNone (x => writtenAs (Nat.digits x) k n) (x => x) r.size r.from
       (x x1 x2 =>
@@ -617,9 +617,9 @@ theorem weightedIds (w: Nat -> Int) (r: Range): weighted w r = List.sumBy (x => 
   let size := List.length (Nat.digits r.to)
   calc weighted w r
     _ = List.sumBy (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
-        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) size then w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt else 0) (List.rangeFrom (size - 1) 2))
+        := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) size then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0) (List.rangeFrom (size - 1) 2))
              (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2)) size 1
-             (k k1 k2 => List.sumRangeCongr (n => if Nat.leq (k * n) size then w n * (sumOfIdsInRangeMatchingTemplate r { blockLength = k, copies = n }).toInt else 0)
+             (k k1 k2 => List.sumRangeCongr (n => if Nat.leq (k * n) size then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0)
                (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (size - 1) 2
                (n n1 n2 => termIds w r k k1 n n1))
     _ = List.sumBy (k => List.sumBy (x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids) (List.rangeFrom size 1)
