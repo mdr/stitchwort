@@ -21,6 +21,7 @@
     --bad-soft: #f6e4e1;
     --warn: #865800;
     --warn-soft: #f6ecd5;
+    --goal: #1f5f99;
     /* Syntax colours for the source: hedgerow flowers on the same paper. */
     --hl-keyword: #2d6a3e;
     --hl-name: #1f6470;
@@ -38,7 +39,7 @@
     :root:not([data-theme="light"]) {
       --paper: #111814; --petal: #0b100d; --ink: #e3ece4; --muted: #95a699;
       --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
-      --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; color-scheme: dark;
+      --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; --goal: #7db4ea; color-scheme: dark;
       --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
       --hl-string: #e0b870; --hl-interp: #82c795; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
       --hl-selection: rgb(130 199 149 / 0.25);
@@ -47,7 +48,7 @@
   :root[data-theme="dark"] {
     --paper: #111814; --petal: #0b100d; --ink: #e3ece4; --muted: #95a699;
     --line: #27332b; --leaf: #82c795; --leaf-soft: #1b2a20; --ok: #7fcb95;
-    --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; color-scheme: dark;
+    --bad: #ef8f86; --bad-soft: #2f1a18; --warn: #e3b55e; --warn-soft: #2c2412; --goal: #7db4ea; color-scheme: dark;
     --hl-keyword: #82c795; --hl-name: #7cc4c9; --hl-defined: #9db8ec; --hl-number: #c9a3e0;
     --hl-string: #e0b870; --hl-interp: #82c795; --hl-comment: #7f9184; --hl-operator: #a3b8a8;
     --hl-selection: rgb(130 199 149 / 0.25);
@@ -388,6 +389,8 @@
   }
   pre.errors { color: var(--bad); }
   pre.warnings { color: var(--warn); }
+  pre.goals { color: var(--goal); }
+  .goalbox { border-left: 3px solid var(--goal); padding-left: 10px; margin: 0 0 8px; }
 
   .evalrow, .runrow { display: flex; gap: 8px; }
   button.run { margin-left: auto; }
@@ -1391,8 +1394,9 @@ export def area: Shape -> Nat
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(d);
     }
-    if (groups.size === 0) return errorsView(answer.errors, answer.warnings);
-    const views = [];
+    const goals = goalsView(answer.goals, answer.diagnostics);
+    if (groups.size === 0) return [...goals, ...errorsView(answer.errors, answer.warnings)];
+    const views = [...goals];
     for (const [file, found] of groups) {
       const group = el("div", { className: "errorfile" });
       if (file) group.dataset.file = file;
@@ -1586,6 +1590,27 @@ export def area: Shape -> Nat
     return [el("h2", {}, "Errors"), el("pre", { className: "errors" }, errors), ...warningsView(warnings)];
   }
 
+  /**
+   * The open goals (`?`), if any, each in full, under a "Goals" heading. In a
+   * project, a goal with a place has a button that jumps to it.
+   */
+  function goalsView(goals = [], diagnostics = []) {
+    if (!goals.length) return [];
+    const places = diagnostics.filter((d) => d.severity === "goal" && d.file);
+    const boxes = goals.map((text, i) => {
+      const box = el("div", { className: "goalbox" });
+      const d = project && places.length === goals.length ? places[i] : null;
+      if (d) {
+        const jump = el("button", { type: "button", className: "jump" }, `${d.file}:${d.line}:${d.column}`);
+        jump.addEventListener("click", () => goTo(d.file, d.line, d.column));
+        box.append(jump);
+      }
+      box.append(el("pre", { className: "goals" }, text));
+      return box;
+    });
+    return [el("h2", {}, goals.length === 1 ? "Goals (1 open)" : `Goals (${goals.length} open)`), ...boxes];
+  }
+
   function warningsView(warnings = []) {
     return warnings.length ? [el("h2", {}, "Warnings"), el("pre", { className: "warnings" }, warnings.join(""))] : [];
   }
@@ -1620,11 +1645,14 @@ export def area: Shape -> Nat
     if (!checked) return;
     if (project) markErrors(checked.diagnostics);
     const day = project?.manifest.days[project.day];
-    setStatus(checked.ok
+    const openGoals = checked.goals?.length ?? 0;
+    setStatus(checked.ok && openGoals
+      ? (openGoals === 1 ? "1 goal open" : `${openGoals} goals open`)
+      : checked.ok
       ? (day ? `${day.title}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
       : "Doesn’t check", checked.ok ? "" : "bad");
     /** The errors, with links to their files in a project. */
-    const errorsOf = (answer) => project ? projectErrorsView(answer) : errorsView(answer.errors, answer.warnings);
+    const errorsOf = (answer) => project ? projectErrorsView(answer) : [...goalsView(answer.goals), ...errorsView(answer.errors, answer.warnings)];
 
     if (view === "run") {
       runChecked.replaceChildren(...(checked.ok ? [] :
@@ -1635,9 +1663,13 @@ export def area: Shape -> Nat
     output.replaceChildren();
     if (view === "check") {
       if (checked.ok) {
+        const open = checked.goals?.length ?? 0;
         output.append(
-          el("p", {}, "Every definition type-checks, every recursive function terminates, and every proof holds. The kernel re-checked them all."),
+          el("p", {}, open
+            ? `No errors, but ${open === 1 ? "1 goal is" : open + " goals are"} open: the declarations with ${open === 1 ? "it" : "them"}, and anything that uses them, aren’t finished, so the kernel hasn’t checked them.`
+            : "Every definition type-checks, every recursive function terminates, and every proof holds. The kernel re-checked them all."),
           el("p", { className: "hint" }, "Edit the source to see errors as you type. The Tests, Evaluate, JavaScript and Run tabs use the same program."),
+          ...goalsView(checked.goals, checked.diagnostics),
           ...warningsView(checked.warnings));
       } else {
         output.append(...errorsOf(checked));
