@@ -289,7 +289,7 @@ export def addSafe (a: SafeNat) (b: SafeNat): Option SafeNat := SafeNat.ofNat (a
 ```
 
 ```ts
-export declare function addSafe(a: number, b: number): Option<number>;
+export declare function addSafe(a: number, b: number): number | undefined;
 ```
 
 - **They are records.** `type SafeNat = { value: Nat, fits: value <= 9007199254740991 }` and `type SafeInt = { value: Int, fits: Int.natAbs value <= 9007199254740991 }`: a number and a proof that it's at most 2^53 - 1 in magnitude, the largest whole number a JS `number` holds exactly (`Number.MAX_SAFE_INTEGER`). In Stitchwort they're ordinary records, so `n.value` is the `Nat` or `Int`; `SafeNat.ofNat` and `SafeInt.ofInt` give `Some` when a number is within the bounds, and the `fits` proof is what a function builds by comparing, as above.
@@ -299,6 +299,35 @@ export declare function addSafe(a: number, b: number): Option<number>;
 - **Only the library's types.** A program's own record called `SafeNat` is an ordinary record. The JS codec is used only for the library's exact declarations, by content hash.
 
 Example: `examples/extract/safe-numbers.sw`. See DESIGN.md §12.
+
+## `Option` in an `export`
+
+An `Option T` crosses the JS boundary as `T | undefined` (D582):
+
+```
+import Std (Nat, Option, Text)
+
+type Profile = { name: Text, nick: Option Text }
+
+export def withNick (p: Profile) (n: Option Text): Profile := { p | nick = n }
+export def halve: Option Nat -> Option Nat
+  | None   => None
+  | Some n => Some (Nat.div n 2)
+```
+
+```ts
+export type Profile = { readonly name: string; readonly nick?: string };
+export declare function withNick(p: Profile, n: string | undefined): Profile;
+export declare function halve(arg0: bigint | undefined): bigint | undefined;
+```
+
+- **Decoding.** `undefined` is `None`; any other value is decoded as a `T` and is `Some` of it. `null` is refused (`n: expected a value or undefined, not null`), not read as `None`.
+- **In a record's field** the property is optional, `nick?: string`: a missing property is `None` too. Encoding `None` leaves the property out, not set to `undefined`, so the declarations type-check under `exactOptionalPropertyTypes` as well as `--strict`. A record's other fields are still required, and an inherited property is still refused.
+- **Everywhere else**, in arguments, results, list elements (`(bigint | undefined)[]`), a constructor's fields and the arguments of parameterised types, it is `T | undefined`.
+- **Nested.** Only the outermost `Option` is `T | undefined`: `Option (Option Nat)` is `Option<bigint> | undefined`, where the inner `Option<bigint>` is the tagged object `{ tag: "None" }` or `{ tag: "Some", value }`, so `Some None` and `None` stay distinguishable.
+- **Inside `Option`**, a `SafeNat` is a `number` (`number | undefined`), and a record's proof fields about an optional field are checked after it's decoded.
+
+Example: `examples/extract/options.sw`. See DESIGN.md §12.
 
 ## Interfaces
 
