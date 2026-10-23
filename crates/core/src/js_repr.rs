@@ -102,7 +102,11 @@ impl Clash {
                 data.name,
                 quoted(&repr.ctors[ctor].tag)
             ),
-            Clash::SameKey { ctor, field: i, other } => format!(
+            Clash::SameKey {
+                ctor,
+                field: i,
+                other,
+            } => format!(
                 "{} and `{}` both cross to JavaScript as the key {}",
                 field(ctor, other),
                 data.ctors[ctor].fields[i].0,

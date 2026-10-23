@@ -883,6 +883,94 @@ console.log("ok");
     );
 }
 
+/// Attributes at the boundary (docs/proposals/attributes.md §9.2,
+/// `examples/extract/attributes.sw`): the codec reads and writes the names
+/// they give, each property once, and messages name the JS keys; a tag value
+/// that is a property of `Object.prototype` dispatches correctly, and one
+/// that isn't a constructor's is refused.
+#[test]
+fn attributes_cross_the_boundary_as_declared() {
+    let examples = examples();
+    let attributes = example(&examples, "attributes.sw");
+    let script = r#"
+import * as m from "./attributes.mjs";
+import assert from "node:assert/strict";
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message), pattern.source);
+
+// Tag key, tag values and field keys all differ from the Stitchwort names.
+const circle = { type: "CIRCLE", radius: 2n, center_x: 1n };
+assert.equal(m.area(circle), 5n);
+assert.deepEqual(m.grow(circle), { type: "CIRCLE", radius: 3n, center_x: 1n });
+assert.deepEqual(Object.keys(m.grow(circle)), ["type", "radius", "center_x"]);
+assert.deepEqual(m.grow({ type: "DOT" }), { type: "DOT" });
+assert.equal(m.describe(circle), "Circle 2 1");
+
+// The tag and each field are read once.
+let reads = 0;
+const counted = { get type() { reads++; return "CIRCLE"; }, get radius() { reads++; return 1n; }, center_x: 0n };
+assert.equal(m.area(counted), 1n);
+assert.equal(reads, 2);
+
+// Messages say the JS names.
+refused(() => m.area({ radius: 1n }), /^arg0: no type; expected "DOT", "CIRCLE" or "POLYGON"$/);
+refused(() => m.area({ type: "Circle" }), /^arg0: unknown type "Circle"; expected "DOT", "CIRCLE" or "POLYGON"$/);
+refused(() => m.area({ $tag: "CIRCLE", radius: 1n, center_x: 1n }), /^arg0: no type;/);
+refused(() => m.area({ type: "CIRCLE", radius: 1n, centerX: 1n }), /^arg0\.center_x: missing$/);
+refused(() => m.area({ type: "CIRCLE", radius: 1n, center_x: -1n }), /^arg0\.center_x: expected a non-negative bigint$/);
+refused(() => m.render({ type: "svg", items: [{ type: "CIRCLE", radius: 1n }] }), /^d\.items\[0\]\.center_x: missing$/);
+refused(() => m.render({ kind: "svg", items: [] }), /^d\.type: missing$/);
+
+// Records: keys as declared.
+assert.deepEqual(m.rename({ type: "a", items: [] }), { type: "a2", items: [] });
+assert.equal(m.render({ type: "svg", items: [{ type: "DOT" }] }), 4n);
+
+// Each constructor's keys are its own.
+assert.deepEqual(m.flip({ kind: "Note", note_id: 3n, body: "b" }), { kind: "Picture", picture_id: 3n, url: "b" });
+
+// Tag values that are properties of every object.
+assert.deepEqual(m.odd({ $tag: "__proto__", "a-b": "x" }), { $tag: "__proto__", "a-b": "x" });
+assert.equal(Object.getPrototypeOf(m.odd({ $tag: "__proto__", "a-b": "x" })), Object.prototype);
+assert.deepEqual(m.odd({ $tag: "constructor", tag: 1n }), { $tag: "constructor", tag: 1n });
+assert.deepEqual(m.odd({ $tag: "toString" }), { $tag: "toString" });
+refused(() => m.odd({ $tag: "hasOwnProperty" }), /unknown \$tag "hasOwnProperty"/);
+refused(() => m.odd({ $tag: "valueOf" }), /unknown \$tag "valueOf"/);
+refused(() => m.odd({ $tag: "Constructor", tag: 1n }), /unknown \$tag "Constructor"/);
+console.log("ok");
+"#;
+    run_script("attributes", &[("attributes.mjs", attributes)], script);
+}
+
+/// `@[js.tag "$tag"]` is exactly the default: the same module and
+/// declarations as writing nothing (docs/proposals/attributes.md §4.6).
+#[test]
+fn the_default_tag_key_written_out_changes_nothing() {
+    let source = |attr: &str| {
+        format!(
+            "{attr}type Shape =\n  | Dot\n  | Circle (tag: Nat) (radius: Nat)\n\n\
+             export def grow: Shape -> Shape\n  | Dot => Dot\n  | Circle t r => Circle t (r + 1)\n"
+        )
+    };
+    let generated: Vec<stitchwort_js::Output> = ["", "@[js.tag \"$tag\"]\n"]
+        .iter()
+        .map(|attr| {
+            let mut session = Session::new();
+            session.load("shape.sw", &source(attr)).expect("checks");
+            stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+                .expect("extraction succeeds")
+        })
+        .collect();
+    assert_eq!(generated[0].js, generated[1].js);
+    assert_eq!(generated[0].dts, generated[1].dts);
+    assert!(
+        generated[0].dts.contains(
+            "{ readonly $tag: \"Circle\"; readonly tag: bigint; readonly radius: bigint }"
+        ),
+        "{}",
+        generated[0].dts
+    );
+}
+
 /// DESIGN.md §12: an object reached by many paths is decoded once (at each
 /// type), so input with much sharing, such as a DAG with 2^60 paths, decodes
 /// quickly, and the value is the same as if nothing were shared.
@@ -1763,7 +1851,17 @@ fn awkward_names_never_collide() {
         "center_x",
     ];
     const TAG_KEYS: &[&str] = &[
-        "type", "kind", "tag", "$type", "constructor", "0", "a-b", "é", "\u{1F600}", "\"", "\n",
+        "type",
+        "kind",
+        "tag",
+        "$type",
+        "constructor",
+        "0",
+        "a-b",
+        "é",
+        "\u{1F600}",
+        "\"",
+        "\n",
     ];
     const ROUNDS: usize = 4;
     const TYPES_PER_ROUND: usize = 8;
@@ -1833,8 +1931,7 @@ fn awkward_names_never_collide() {
                         };
                         let chosen = NAMES[rng.below(NAMES.len())];
                         let default_free = default != tag_key && default != "__proto__";
-                        let renamed = if (!default_free || rng.below(3) == 0)
-                            && free(chosen, &keys)
+                        let renamed = if (!default_free || rng.below(3) == 0) && free(chosen, &keys)
                         {
                             Some(chosen.to_string())
                         } else if !default_free {
@@ -2791,9 +2888,15 @@ fn changed_prelude(from: &str, to: &str) -> String {
 #[test]
 fn built_in_boundary_types_take_no_attributes() {
     for (from, to) in [
-        ("type Bool: Type =\n", "@[js.tag \"kind\"]\ntype Bool: Type =\n"),
+        (
+            "type Bool: Type =\n",
+            "@[js.tag \"kind\"]\ntype Bool: Type =\n",
+        ),
         ("  | True\n", "  | @[js.name \"yes\"] True\n"),
-        ("  | Some (value: a)\n", "  | Some (@[js.name \"it\"] value: a)\n"),
+        (
+            "  | Some (value: a)\n",
+            "  | Some (@[js.name \"it\"] value: a)\n",
+        ),
     ] {
         let prelude = changed_prelude(from, to);
         let Err(report) = Session::try_with_prelude(&prelude) else {

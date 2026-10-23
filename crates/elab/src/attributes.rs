@@ -135,9 +135,10 @@ fn check<'a>(attrs: &'a [Attribute], place: Place) -> Result<Checked<'a>> {
             let applies: Vec<&str> = spec.targets.iter().map(|t| t.describe()).collect();
             let (what, why) = match place {
                 Place::Target(t) => (t.describe(), None),
-                Place::Record if spec.name == "js.tag" => {
-                    ("a record", Some("a record crosses as an object without a tag"))
-                }
+                Place::Record if spec.name == "js.tag" => (
+                    "a record",
+                    Some("a record crosses as an object without a tag"),
+                ),
                 Place::Record => ("a record type", None),
                 Place::Other(what) => (what, None),
             };
@@ -183,11 +184,10 @@ fn check<'a>(attrs: &'a [Attribute], place: Place) -> Result<Checked<'a>> {
 /// `E-ATTRIBUTE` for an empty string.
 fn non_empty(a: &Attribute, arg: &str, what: &str) -> Result<()> {
     if arg.is_empty() {
-        return Err(Diagnostic::error(
-            "E-ATTRIBUTE",
-            format!("{what} can't be the empty string"),
-        )
-        .with_label(a.span, "empty"));
+        return Err(
+            Diagnostic::error("E-ATTRIBUTE", format!("{what} can't be the empty string"))
+                .with_label(a.span, "empty"),
+        );
     }
     Ok(())
 }
@@ -349,8 +349,7 @@ impl Elaborator {
                     // Only a field with a property can have attributes: the
                     // kernel's erasure decides, not implicitness (§4.2).
                     if core.field_erased.get(i).copied().unwrap_or(false) {
-                        let what = if core.field_sorts.get(i)
-                            == Some(&stitchwort_core::Sort::Prop)
+                        let what = if core.field_sorts.get(i) == Some(&stitchwort_core::Sort::Prop)
                         {
                             "a proof"
                         } else {

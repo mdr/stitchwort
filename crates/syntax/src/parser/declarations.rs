@@ -33,12 +33,9 @@ pub(super) enum Param {
 /// attribute may go (docs/syntax.md, Attributes); the elaborator decides
 /// which may go on which data type, constructor, field or declaration.
 pub(super) fn misplaced_attributes(first: &Attribute, what: &str) -> Diagnostic {
-    Diagnostic::error(
-        "E-ATTRIBUTE",
-        format!("attributes can't be used on {what}"),
-    )
-    .with_label(first.span, format!("`{}` is on {what}", first.name.text))
-    .with_note(ATTRIBUTE_PLACES)
+    Diagnostic::error("E-ATTRIBUTE", format!("attributes can't be used on {what}"))
+        .with_label(first.span, format!("`{}` is on {what}", first.name.text))
+        .with_note(ATTRIBUTE_PLACES)
 }
 
 /// Where attributes may be written, for messages.

@@ -654,9 +654,7 @@ impl<'t> Parser<'t> {
     }
 
     fn unexpected(&self, expected: &str) -> Diagnostic {
-        if !self.is_stop(self.pos)
-            && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At)
-        {
+        if !self.is_stop(self.pos) && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At) {
             return Diagnostic::error("E-ATTRIBUTE", "attributes can't be written here")
                 .with_label(self.here(), format!("expected {expected}"))
                 .with_note(declarations::ATTRIBUTE_PLACES);
@@ -1129,10 +1127,7 @@ impl<'t> Parser<'t> {
             if self.peek() == Some(&Tok::LParen) {
                 let binder = self.binder()?;
                 if let Some(first) = binder.attrs.first() {
-                    return Err(misplaced_attributes(
-                        first,
-                        "a data type's parameter",
-                    ));
+                    return Err(misplaced_attributes(first, "a data type's parameter"));
                 }
                 params.push(binder);
                 auto_params.push(false);
@@ -1142,10 +1137,7 @@ impl<'t> Parser<'t> {
                 let start = self.here();
                 let (binder, auto) = self.implicit_binder()?;
                 if let Some(first) = binder.attrs.first() {
-                    return Err(misplaced_attributes(
-                        first,
-                        "a data type's parameter",
-                    ));
+                    return Err(misplaced_attributes(first, "a data type's parameter"));
                 }
                 if !auto {
                     return Err(error(
@@ -1178,10 +1170,7 @@ impl<'t> Parser<'t> {
                 if self.is_pi_binder() {
                     let binder = self.binder()?;
                     if let Some(first) = binder.attrs.first() {
-                        return Err(misplaced_attributes(
-                            first,
-                            "a data type's index",
-                        ));
+                        return Err(misplaced_attributes(first, "a data type's index"));
                     }
                     self.expect(Tok::Arrow, "`->`")?;
                     for n in binder.names {
@@ -1344,10 +1333,7 @@ impl<'t> Parser<'t> {
         while self.peek() == Some(&Tok::LParen) {
             let binder = self.binder()?;
             if let Some(first) = binder.attrs.first() {
-                return Err(misplaced_attributes(
-                    first,
-                    "an ability's parameter",
-                ));
+                return Err(misplaced_attributes(first, "an ability's parameter"));
             }
             params.push(binder);
         }
@@ -2113,10 +2099,7 @@ impl<'t> Parser<'t> {
             (self.binder()?, false)
         };
         if let Some(first) = binder.attrs.first() {
-            return Err(misplaced_attributes(
-                first,
-                "a function type's parameter",
-            ));
+            return Err(misplaced_attributes(first, "a function type's parameter"));
         }
         self.expect(Tok::Arrow, "`->`")?;
         let cod = self.result_type()?;
@@ -5064,7 +5047,11 @@ mod tests {
             .collect()
     }
 
-    fn data_attrs(decl: &Decl) -> (Vec<String>, Vec<Vec<String>>, Vec<Vec<Vec<String>>>) {
+    /// A data type's attributes as written: its own, each constructor's, and
+    /// each field's.
+    type DataAttrs = (Vec<String>, Vec<Vec<String>>, Vec<Vec<Vec<String>>>);
+
+    fn data_attrs(decl: &Decl) -> DataAttrs {
         let Decl::Data { attrs, ctors, .. } = decl else {
             panic!("expected a data type: {decl:?}");
         };
@@ -5090,11 +5077,17 @@ mod tests {
         assert_eq!(on_type, ["js.tag \"type\""]);
         assert_eq!(
             on_ctors,
-            [vec!["js.name \"DOT\""], vec!["js.name \"CIRCLE\"", "js.other"]]
+            [
+                vec!["js.name \"DOT\""],
+                vec!["js.name \"CIRCLE\"", "js.other"]
+            ]
         );
         assert_eq!(
             on_fields,
-            [vec![], vec![vec!["js.name \"center_x\""], vec!["js.name \"n\""]]]
+            [
+                vec![],
+                vec![vec!["js.name \"center_x\""], vec!["js.name \"n\""]]
+            ]
         );
         let (_, _, on_fields) = data_attrs(&module.decls[1]);
         assert_eq!(on_fields, [vec![vec!["js.name \"type\""], vec![]]]);
@@ -5131,10 +5124,19 @@ mod tests {
             ("@[js.tag \"x\"]\nnamespace N\n", "E-ATTRIBUTE"),
             ("@[js.tag \"x\"]\nimport List (map)\n", "E-ATTRIBUTE"),
             ("@[js.tag \"x\"]\ntest \"t\" := True\n", "E-ATTRIBUTE"),
-            ("@[js.tag \"x\"]\nability A where\n  op: Nat -> Nat\n", "E-ATTRIBUTE"),
+            (
+                "@[js.tag \"x\"]\nability A where\n  op: Nat -> Nat\n",
+                "E-ATTRIBUTE",
+            ),
             ("def f (@[js.name \"x\"] n: Nat): Nat := n\n", "E-ATTRIBUTE"),
-            ("def f: (@[js.name \"x\"] n: Nat) -> Nat := n => n\n", "E-ATTRIBUTE"),
-            ("def f: Nat -> Nat := (@[js.name \"x\"] n) => n\n", "E-ATTRIBUTE"),
+            (
+                "def f: (@[js.name \"x\"] n: Nat) -> Nat := n => n\n",
+                "E-ATTRIBUTE",
+            ),
+            (
+                "def f: Nat -> Nat := (@[js.name \"x\"] n) => n\n",
+                "E-ATTRIBUTE",
+            ),
             ("type T (@[js.name \"x\"] a: Type) = | A\n", "E-ATTRIBUTE"),
             (
                 "def f (n: Nat): Nat :=\n  @[js.name \"x\"] def g (m: Nat): Nat := m\n  g n\n",
@@ -5148,7 +5150,10 @@ mod tests {
             ("@ type T = | A\n", "E-PARSE"),
             // Attributes with nothing after them.
             ("def f: Nat := 1\n\n@[js.tag \"x\"]\n", "E-PARSE"),
-            ("def f: Nat := 1\n@[js.tag \"x\"]\n@[js.name \"y\"]\n", "E-PARSE"),
+            (
+                "def f: Nat := 1\n@[js.tag \"x\"]\n@[js.name \"y\"]\n",
+                "E-PARSE",
+            ),
         ] {
             let errors = parse_module_text(text).expect_err(text);
             assert_eq!(errors[0].code, code, "{text}: {:?}", errors[0].message);

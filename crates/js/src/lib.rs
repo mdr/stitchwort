@@ -277,16 +277,12 @@ fn boundary(
             // needs the `bigint` representations for.
             match builtin {
                 Some(Builtin::SafeNat)
-                    if args.is_empty()
-                        && safe_nat_data(g) == Some(*d)
-                        && nat_data(g).is_some() =>
+                    if args.is_empty() && safe_nat_data(g) == Some(*d) && nat_data(g).is_some() =>
                 {
                     return Ok(Boundary::SafeNat);
                 }
                 Some(Builtin::SafeInt)
-                    if args.is_empty()
-                        && safe_int_data(g) == Some(*d)
-                        && int_data(g).is_some() =>
+                    if args.is_empty() && safe_int_data(g) == Some(*d) && int_data(g).is_some() =>
                 {
                     return Ok(Boundary::SafeInt);
                 }
@@ -3456,10 +3452,8 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 .zip(&ctor.field_erased)
                 .filter(|(_, erased)| !**erased)
                 .map(|(field, _)| field);
-            for (((_, b), field), key) in boundaries
-                .iter()
-                .zip(runtime)
-                .zip(external_keys(&repr, *c))
+            for (((_, b), field), key) in
+                boundaries.iter().zip(runtime).zip(external_keys(&repr, *c))
             {
                 let literal = boundary_literal(g, b, field)?;
                 // `None` in a record's `Option` field is no property.
