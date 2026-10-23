@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use stitchwort_syntax::{Lexed, SourceMap, Trivia, decl_ranges, lex, lex_with_trivia};
+use stitchwort_syntax::{Lexed, SourceMap, Tok, Trivia, decl_ranges, lex, lex_with_trivia};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -160,9 +160,14 @@ fn trivia_rebuilds_every_file() {
                 got.lines().nth(line.saturating_sub(1)),
             );
         }
-        // The declaration split covers the tokens, in order, each at column 0.
+        // The declaration split covers the tokens, in order, each at column 0,
+        // except a run before the first range, which a column-0 `:=` starts
+        // (it starts no declaration).
         if let Ok(ranges) = decl_ranges(&lexed.tokens) {
-            let mut next = 0;
+            let mut next = ranges.first().map_or(lexed.tokens.len(), |r| r.start);
+            if next > 0 {
+                assert_eq!(lexed.tokens[0].tok, Tok::ColonEq, "{}", path.display());
+            }
             for r in &ranges {
                 assert_eq!(r.start, next, "{}", path.display());
                 assert!(r.end > r.start);
