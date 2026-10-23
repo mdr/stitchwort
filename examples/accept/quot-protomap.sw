@@ -60,8 +60,7 @@ theorem ProtoMap.rawInjective (p: Quot (Map k v [ord := o]) Map.Equiv) (q: Quot 
         [p := q'' => ProtoMap.toList { raw = Quot.mk a } = ProtoMap.toList { raw = q'' } -> Quot.mk a = q'']
         (b same => Quot.sound same)
         q'
-  let forP: motive p := Quot.ind [p := motive] fromMk p
-  forP q
+  Quot.ind [p := motive] fromMk p q
 
 -- Maps with the same entries are equal, whatever their values' type.
 theorem ProtoMap.toListInjective: (m: ProtoMap k v [ord := o]) -> (n: ProtoMap k v [ord := o]) ->

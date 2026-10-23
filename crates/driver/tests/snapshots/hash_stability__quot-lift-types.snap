@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 103
 expression: "lines(&session, d, f)"
 ---
 Main.QTy beb89df7ca65899c9049e7b3099213aa52aea4c35313853d31be4d0e6c4bfc6a
@@ -13,10 +14,14 @@ Main.BoolEq 972241c78e83a976d4d5fd13185c05ce69e30175b11d89cd97777941735d7e32
 Main.QE 5e9daf0b31ad2c0158c6d60fac207f23cdfea1b795f431943699f98ab58f038c
 Main.toNat 28478c62b71b5a0472eb33afcadfbb6027f1b9bf53737e2842d0dd29c05c523b
 Main.one 1c747fb9320fc6514cc49da33a00a6463b4ce9c8eae709b774f5664f9883819b
+Main.addIf 72613430c12594a8e0b0529c10d21c705366978a2c404ef1c3e39664ecbed96b
+Main.five 122e14a75d023c7336d5cd9ae80a8cae06a1c7a8d0cb67a5e8e0809c7db8f4f9
+Main.fiveIsFive 8817133e205794395327316d5063c2d9e1076cfc158136e950d48ab8bef1a01e
 Main.answerIsSeven c48d54dba6696dfaeef43b60129c31dc2d6540009ca2028792458e8a208eb7fd
 Main.test "a definition lifted" 24277a744bf809796e1356b44ae640d6dc20cd9f4a30554bd19cc8b2c1de51ca
 Main.test "a lambda lifted" 301992fe4a1a465450ecddea5bbe675656fa472439c8c540aaaba47b60ef478e
 Main.test "a variable lifted" 37164876b9bc23300bb398dd970b01f5170a51292306437ce08259d326b01a4f
 Main.test "a variable lifted, given a lambda" a76c898040891317c37ae74502506cdcc607c2a71352282ad5287c7f22e56d98
 Main.test "a data representative" c6fe0f826e7f49d6439b626ecefc747c007dc00fa380a980943d19cdf758107e
-Main.main 6098ac9ceaadbc9aa434bb0387c35dd25a5c8e8c173615fd7d6c7c9214854f22
+Main.test "a lift applied further" 20dbc6ad26b878731b0051e9f5b01cc066e888599a2880d4e8a9e4a6ce6c5a9b
+Main.main f0c420e3e27a59dc32a153ecaf623488d031dd8a4a31c1b6596c70dfc9c79ff8

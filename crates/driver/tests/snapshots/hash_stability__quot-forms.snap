@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 103
 expression: "lines(&session, d, f)"
 ---
 data Main.At a8546fc1dc9a8322d85b5186bdbdfb558ded0ffcf63bdfea557e7c4aaee801b2
@@ -17,3 +18,4 @@ Main.QProp 003e607cc06b04ba7e3ccb7a9c083bc9b9a500f74cc956bb3827e4bb4fe6ff7e
 Main.QType beb89df7ca65899c9049e7b3099213aa52aea4c35313853d31be4d0e6c4bfc6a
 Main.which ac658181a69aec4bc65a8f9e32b14c625ad210b00ce01d1e4556fba6607c59ac
 Main.whichPair 5b7a58ab195cf03f826ef88cc4468f89257ec22016123e05519478a04c4dfea9
+Main.allEqual 25a98023aa22f3d15c66e46fee7a1965ed1de54d5b09d324d10db8a45647132c
