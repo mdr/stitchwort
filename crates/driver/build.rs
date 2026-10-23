@@ -9,26 +9,28 @@
 //! any of them, even without a new version number, starts a fresh cache.
 //! That invalidates more than it needs to, which is preferred to tracking
 //! which Rust code a result depends on. The check cache's keys have it too
-//! (docs/proposals/check-cache.md §4.2).
+//! (docs/proposals/check-cache.md §4.2). So do the Rust toolchain and the
+//! target (`rustc -vV`, `TARGET`), which no source or lock file covers:
+//! float literals are parsed by the standard library, and the float
+//! primitives compiled by it (docs/proposals/float.md §3.3).
 
 use std::path::{Path, PathBuf};
+
+#[path = "src/fingerprint.rs"]
+mod fingerprint;
 
 /// The crates whose sources are hashed, relative to this one.
 const SOURCES: &[&str] = &["../syntax/src", "../core/src", "../elab/src", "src"];
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("set by cargo"));
-    let mut hasher = blake3::Hasher::new();
     // The versions of the crates it's built with, too
     // (docs/proposals/check-cache.md §4.2): a new `num-bigint` could change
     // what the checker computes.
     let lock = manifest.join("../../Cargo.lock");
     println!("cargo:rerun-if-changed={}", lock.display());
-    if let Ok(text) = std::fs::read(&lock) {
-        hasher.update(b"Cargo.lock");
-        hasher.update(&(text.len() as u64).to_le_bytes());
-        hasher.update(&text);
-    }
+    let lock = std::fs::read(&lock).ok();
+    let mut sources = Vec::new();
     for dir in SOURCES {
         println!("cargo:rerun-if-changed={dir}");
         let mut files = Vec::new();
@@ -37,19 +39,21 @@ fn main() {
         for file in files {
             let relative = file.strip_prefix(&manifest).unwrap_or(&file);
             let text = std::fs::read(&file).expect("a source file can be read");
-            // Each file's name and contents, with their lengths, so adjacent
-            // files can't run together.
-            let name = relative.to_string_lossy();
-            hasher.update(&(name.len() as u64).to_le_bytes());
-            hasher.update(name.as_bytes());
-            hasher.update(&(text.len() as u64).to_le_bytes());
-            hasher.update(&text);
+            sources.push((relative.to_string_lossy().into_owned(), text));
         }
     }
-    let hex: String = hasher.finalize().as_bytes()[..12]
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    // The compiler: `rustc -vV` names its version, commit and LLVM; and the
+    // target it compiles for.
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
+    let version = std::process::Command::new(&rustc)
+        .arg("-vV")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let hex = fingerprint::fingerprint(lock.as_deref(), &sources, &version, &target);
     println!("cargo:rustc-env=STITCHWORT_FINGERPRINT={hex}");
 }
 

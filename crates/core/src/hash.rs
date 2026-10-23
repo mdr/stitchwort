@@ -106,21 +106,9 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
         g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
-    if def.state == State::Final
-        && let Some(op) = g.builtins.float_primitive(id)
-    {
-        // A float primitive (`Float.add`, …) has no body either: it's its
-        // name, as the operation tag, the version of the semantic contract
-        // its reduction rule follows, and its type (docs/proposals/float.md
-        // §3.3). So two primitives of the same type hash differently, and a
-        // change of meaning changes every hash that depends on one.
-        let mut h = Hasher::new(g, Itself::Def(id));
-        h.tag("primitive");
-        h.str(op.name());
-        h.tag("float-contract");
-        h.usize(crate::float::FLOAT_CONTRACT as usize);
-        h.term(&def.ty)?;
-        let hash = h.finish();
+    if def.state == State::Final && g.builtins.float_primitive(id).is_some() {
+        let hash =
+            float_primitive_hash(g, id, crate::float::FLOAT_CONTRACT)?.expect("a float primitive");
         g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
@@ -142,6 +130,27 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     let hash = h.finish();
     g.hashes.borrow_mut().insert(HashKey::Def(id), hash);
     Ok(Some(hash))
+}
+
+/// The hash of float primitive `id` (`Float.add`, …) under version
+/// `contract` of the float contract: `None` if `id` isn't one. A primitive
+/// has no body: it's its name, as the operation tag, the contract's version
+/// and its type (docs/proposals/float.md §3.3). So two primitives of the same
+/// type hash differently, and a change of meaning (a new `FLOAT_CONTRACT`)
+/// changes every hash that depends on one. [`def_hash`] uses the current
+/// contract; another is for the test that a bump changes the hashes.
+pub fn float_primitive_hash(g: &Globals, id: DefId, contract: u32) -> Result<Option<ContentHash>> {
+    let Some(op) = g.builtins.float_primitive(id) else {
+        return Ok(None);
+    };
+    let def = g.def(id);
+    let mut h = Hasher::new(g, Itself::Def(id));
+    h.tag("primitive");
+    h.str(op.name());
+    h.tag("float-contract");
+    h.usize(contract as usize);
+    h.term(&def.ty)?;
+    Ok(Some(h.finish()))
 }
 
 /// `None` for a data type that isn't final: without its constructors, it
