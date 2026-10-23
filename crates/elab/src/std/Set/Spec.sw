@@ -130,3 +130,28 @@ theorem Set.containsIntersect [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
 theorem Set.containsDifference [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
     Set.contains key (Set.difference a b) = (Set.contains key a && !(Set.contains key b)) :=
   Set.containsFilter (key2 => !(Set.contains key2 b)) key a
+
+theorem Set.containsInsertOther [auto ord: Ord k] (key: k) (other: k) (ne: Not (other = key)) (s: Set k):
+    Set.contains other (Set.insert key s) = Set.contains other s :=
+  rewrite Map.getInsertOther key () other ne s.items in rfl
+
+-- Inserting the list's keys: `key` is there if it was, or if the list has it.
+theorem Set.containsFoldInsert [auto ord: Ord k] (key: k): (xs: List k) -> (s: Set k) ->
+    Set.contains key (List.foldLeft (acc x => Set.insert x acc) s xs) = (Set.contains key s || List.any (x => Map.Spec.sameKey key x) xs)
+  | Nil, s =>
+    match c: Set.contains key s with
+      | True => rfl
+      | False => rfl
+  | Cons x rest, s =>
+    rewrite Set.containsFoldInsert key rest (Set.insert x s) in
+    match e: Ord.compare key x with
+      | Equal =>
+        rewrite ord.equal key x e, Set.containsInsert x s in
+        match c: Set.contains x s with
+          | True => rfl
+          | False => rfl
+      | Less => rewrite Set.containsInsertOther x key (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) s in rfl
+      | Greater => rewrite Set.containsInsertOther x key (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) s in rfl
+
+theorem Set.containsFromList [auto ord: Ord k] (key: k) (xs: List k): Set.contains key (Set.fromList xs) = List.any (x => Map.Spec.sameKey key x) xs :=
+  Set.containsFoldInsert key xs Set.empty

@@ -1134,8 +1134,8 @@ relation laws by `Ord.fromCompare` [checked: `Ord.sw:44-60`]. No extensionality 
 
 | Operation or theorem | Requirement on values | On keys |
 |---|---|---|
-| `Map.Equiv`, `Map.ext`, `Map.eqIffToListEq`, `Map.toListInjective` | none | the map's `Ord k` |
-| `Map.same`, `DecEq (Map k v)`, `==` | `DecEq v` | the map's `Ord k` (its `eq` field) |
+| `Map.Raw.Equiv`, `Map.ext`, `Map.eqIffToListEq`, `Map.toListInjective` | none | the map's `Ord k` |
+| `Map.Raw.same`, `DecEq (Map k v)`, `==` (no public `Map.same`, D1076) | `DecEq v` | the map's `Ord k` (its `eq` field) |
 | `Ord (Map k v)` | `Ord v` | the map's `Ord k` |
 
 ### 8.6 The general quotient-library lemma
@@ -1492,7 +1492,7 @@ substitution [inferred]. Kernel-time costs add one `lift` step per operation.
 |---|---|---|
 | 0 (**done**, D771) | `Map.Equiv`, agreement and respects lemmas, `Map.same [DecEq v]` with `sameIff`, the `sized` field, the invariant and API audits, the recursive check; [Stage 0 results](#stage-0-results) | passed |
 | 1 (**done**) | **Kernel quotients**, in the steps below: the calling-convention fix (D922); the term family with the rejection tests written first; computation; erasure and runtimes; the library lemmas and elaborator policy; the axiom report and wording; a prototype map | **first gate** (end of step 1.1): every kernel rejection test refused for its stated reason before anything is accepted. **Final gate** (end of step 1.6): all R and A tests, then the eight properties (§14.2) on the prototype. **Both passed** (§14.2) |
-| 2 | `Map` and `Set` become quotients: `Map.Raw` is today's record renamed (§8.1); every operation lifted with its stage-0 respects lemma; `DecEq`, `Ord`, `ext`, `insertComm`, `insertGet`; maps.md's API additions; codec and literal-printer updates (§13.2); users fixed (day 8, `dictionary.sw`, `map-set.sw`) | existing map tests, extraction tests, AoC proofs |
+| 2 (**steps 2.1 and 2.2 done**) | `Map` and `Set` become quotients: `Map.Raw` is today's record renamed (§8.1); every operation lifted with its stage-0 respects lemma; `DecEq`, `Ord`, `ext`, `insertComm`, `insertGet`; maps.md's API additions; codec and literal-printer updates (§13.2); users fixed (day 8, `dictionary.sw`, `map-set.sw`) | existing map tests, extraction tests, AoC proofs |
 | separate, optional | D866 record unboxing (§13.1), with its own checks | its own lane, not a prerequisite |
 | separate, later | the constant-motive `J` rule (D924); a recursive-through-quotient design (§11.3); certified balance | each its own proposal |
 
@@ -1775,7 +1775,49 @@ design problems.
   `map-set.sw` gains `==` tests for maps and sets; `map-equiv.sw` now shows equality
   (`==`, derived `==` on a record, `insertComm`, `ext` for maps of functions);
   the `quot-protomap*` examples and `map-wrong-size.sw` use `Map.Raw`.
-- **Left for step 2.2:** maps.md §4.3's API additions and §4.4's further lemmas.
+- **Left for step 2.2:** maps.md §4.3's API additions and §4.4's further lemmas (**done**, below).
+
+**Stage 2, step 2.2 as built (the API additions).**
+
+- **Files.** `std/Map/Raw.sw` gains the tree and raw operations `Map.Tree.minOr`, `maxOr`,
+  `nearestBelow`, `nearestAbove`, `mapWithKey` and `Map.Raw.min`, `max`, `below`, `above`,
+  `mapWithKey`. `std/Map/Spec.sw` gains their `*ToList` and `*Respects` lemmas, the list lemmas
+  behind `get` after `remove` and `filter` (`Map.Spec.lookupRemove`, `lookupFilter`) and the raw
+  `get` lemmas (`Map.Raw.getRemove` … `getAdjustOther`); `std/Map/Map.sw` the public operations
+  and lemmas. `std/Set/Set.sw` and
+  `std/Set/Spec.sw` gain the `Set` operations and the `Map`/`Set` bridge (`Map.keySet`,
+  `Map.fromKeys`, `Map.removeAll`, `Map.keepOnly`).
+- **Operations defined from lifted ones** (no respects lemma of their own): `fromListWith`,
+  `groupBy`, `counts`, `find`, `unionWith`, `intersectWith`, `difference`, `filterMap`,
+  `partition`, `mapKeys`, `foldRight`, `any`, `all`, `count`, `range`, and for `Set` `unions`,
+  `all`, `isSubset`, `disjoint`, `partition`, `foldRight`. They are written with `foldLeft`,
+  `insertWith`, `filter`, `toList` and `fromList`, so equal maps give equal results by what is
+  already proved.
+- **Operations lifted from raw tree operations** (§8.1's form, each with a respects lemma):
+  `min`, `max`, `below`, `above` (O(log n) walks, `Quot.lift` with `Map.Raw.minRespects` and so
+  on) and `mapWithKey` (`Quot.mk` of the raw result, `Map.Raw.mapWithKeyRespects`). `Set.min`,
+  `max`, `below`, `above` read the map's. `Map.range lo hi` returns a map (`lo <= key < hi`).
+  `Map.Tree.nearestBelow` and `nearestAbove` are internal.
+- **Theorems.** `getInsertWithOther`, `getRemove`, `getRemoveOther`, `getAlter`, `getAlterOther`,
+  `getAdjust`, `getAdjustOther`, `getFilter`, `getUnion`, `getUnionWith`, `getFromListWith`
+  (with `Map.lookupWith`), `getOrCounts`, `getGroupBy`, `getMapWithKey`, `getFilterMap`,
+  `getIntersectWith`, `getDifference`, `getRange`, `getMapKeys`, `toListMapWithKey`,
+  `minToList`, `maxToList`, `belowToList`, `aboveToList`, `insertInsert`, `removeInsert` and the
+  general `Map.getFold`; each has a raw `Map.Raw.get*` counterpart where the proof needs one.
+- **`Set`.** `Map.containsKeySet`, `Map.getFromKeys`, `Map.getRemoveAll`, `Map.getKeepOnly`;
+  `Set.minToList`, `maxToList`, `containsRemove`, `containsRemoveOther`, `containsUnion`,
+  `containsFilter`, `containsIntersect`, `containsDifference`, `containsInsertOther`,
+  `containsFromList`.
+- **Decisions (Matt, 23 Oct).** D1074: `Map.decEq` and `Set.decEq` stay in their files, an
+  allowed exception to D58. D1075: the extra loading of `Spec.sw` is accepted. D1076: the old
+  public `Map.same`, `Map.Equiv`, `Set.same` and `Set.Equiv` stay removed; only `Map.Raw.Equiv`
+  and `Map.Raw.same` remain.
+- **Tests.** `Map.sw` and `Set.sw` test every new operation (`std_library` runs them);
+  `examples/accept/map-set.sw` gains tests for `counts`, `groupBy`, `unionWith`,
+  `min`, `below`, `keySet` and `Set.isSubset`.
+- **Left for later:** `Set.isSubsetSpec`, `Map.memToList`,
+  `Map.sizeInsert`, `Map.sizeRemove`, `Map.induction`, and O(n + m) bulk tree versions of the
+  combining operations (maps.md §4.6). Today `unionWith` and friends fold, O(m log n).
 
 ### 14.2 The gate before stage 2: the review's eight properties
 
@@ -1971,6 +2013,12 @@ New in draft 3:
 - **D925: The axiom report scans checked terms**, bodies and types of every reached declaration,
   theorems and proof arguments included, recognising inline `Term::Quot(Sound)` nodes; it doesn't
   reuse the runtime's `reachable`; an empty report claims no kernel canonicity (§10). *Decided.*
+- **D1074: `Map.decEq` and `Set.decEq` stay in `Map.sw` and `Set.sw`**, an allowed exception to
+  D58 (they decide only equations between maps or sets). *Decided* (Matt, 23 Oct).
+- **D1075: The extra loading of `Spec.sw` is accepted**: a program using `Map` loads `Raw.sw`,
+  `Spec.sw` and `Map.sw`. *Decided* (Matt, 23 Oct).
+- **D1076: `Map.same`, `Map.Equiv`, `Set.same` and `Set.Equiv` stay removed** from the public
+  names; only `Map.Raw.Equiv` and `Map.Raw.same` remain. *Decided* (Matt, 23 Oct).
 
 ## Sources
 

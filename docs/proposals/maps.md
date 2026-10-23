@@ -344,6 +344,14 @@ Scala where std has no precedent. **New** items are in bold.
 
 Everything from "Read out" comes in key order, and that is a theorem.
 
+**Status.** Built in SW-356 stage 2.2: every bold item in the table except the `DecEq` and
+`Ord` instances (built in stage 2.1). `min`, `max`, `below`, `above` are O(log n) tree walks;
+`mapWithKey` is a raw tree operation; the rest are defined from `foldLeft`, `insertWith`,
+`filter`, `toList` and `fromList`, so the combining operations are O(m log n), not yet O(n + m)
+(§4.6). Naming: `Set.any`, `Set.all` and `Set.count` take the set first, as the existing
+`Set.any` and `Set.count` do; `Map.range lo hi` returns a map; `Map.Tree.nearestBelow` and
+`nearestAbove` are internal.
+
 ### 4.4 Lemmas to ship
 
 With list meanings, most of these are short inductions.
@@ -365,6 +373,15 @@ With list meanings, most of these are short inductions.
   - `Map.induction` (`P empty`, and `P m -> get k m = None -> P (insert k v m)`).
 - **`Set`:** the same, through `contains` (`containsRemove`, `containsUnion`, `containsIntersect`,
   `containsDifference`, `containsFromList`, `ext`, `isSubsetSpec`).
+
+**Status.** Built in stage 2.2: everything above except `memToList`, `sizeInsert`, `sizeRemove`,
+`Map.induction` and `Set.isSubsetSpec`, which are left for a later step.
+Also built: `getInsertWithOther`, `getAlterOther`, `getAdjustOther`, `getOrCounts`, `getRange`,
+`getMapKeys`, `getMapWithKey`, `getIntersectWith`, `getDifference`, `minToList`, `maxToList`,
+`belowToList`, `aboveToList`, `Set.containsInsertOther` and the general `Map.getFold`.
+`Set.containsFromList` states membership with `List.any (x => Map.Spec.sameKey key x) xs`,
+`Map.getOrCounts` and `Map.getGroupBy` likewise compare keys with `Map.Spec.sameKey` (by the
+ordering's `compare`).
 
 ### 4.5 JS boundary (D744)
 

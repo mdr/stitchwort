@@ -33,6 +33,7 @@ note that the dictionaries differ. Example: `examples/accept/map-set.sw`
 | Looking up | `get key m: Maybe v`, `getOr d key m`, `contains key m` | `contains` |
 | Changing | `remove key m`, `alter f key m` (`f: Maybe v -> Maybe v`; `Nothing` removes), `adjust f key m`, `map f m`, `filter p m`, `union a b` (`a`'s values win) | `remove`, `filter`, `union`, `intersect`, `difference` |
 | Reading out | `size` (O(1)), `isEmpty`, `toList` (in key order), `keys`, `values`, `foldLeft f z m` (`f: b -> k -> v -> b`, in key order) | `size`, `isEmpty`, `toList` (in order), `foldLeft` |
+| More (stage 2.2) | `fromListWith`, `groupBy`, `counts`, `fromKeys`, `find`, `min`, `max`, `below`, `above` (O(log n)), `unionWith`, `intersectWith`, `difference`, `mapWithKey`, `filterMap`, `partition`, `mapKeys`, `removeAll`, `keepOnly`, `foldRight`, `any`, `all`, `count`, `range lo hi`, `keySet` | `unions`, `min`, `max`, `below`, `above`, `all`, `isSubset`, `disjoint`, `partition`, `foldRight` |
 | Theorems | `Map.getInsert` (§7.5), `Map.getInsertOther` (`Not (other = key)` → `get other` unchanged), `Map.getInsertWith`, `Map.getEmpty` | `Set.containsInsert` |
 | `Show` | `Map.fromList [(1, "a"), (2, "b")]`, for any ordering (`Show (Map k v [ord := o])`) | `Set.fromList [1, 2]` |
 
