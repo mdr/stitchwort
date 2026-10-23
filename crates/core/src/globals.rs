@@ -182,6 +182,31 @@ pub struct Data {
 }
 
 impl Data {
+    /// The one run-time field of a record that is stored as that field
+    /// itself, with no box around it (D866, D1067;
+    /// docs/proposals/map-equality.md §13.1): a record (in `Type`, not a
+    /// proposition) whose fields are all erased (proofs and types,
+    /// `Ctor::field_erased`) but one. Every backend that runs programs (the
+    /// Rust runtime, the JS backend and its boundary codecs) decides by this
+    /// one function, so they agree on the layout: building such a record
+    /// gives the field's value, and matching on it binds the field to the
+    /// value matched. Only how a value is stored changes: nothing about the
+    /// type, its checking or its hash.
+    pub fn unboxed_field(&self) -> Option<usize> {
+        if !self.record || self.sort == Sort::Prop || self.ctors.len() != 1 {
+            return None;
+        }
+        let mut runtime = self.ctors[0]
+            .field_erased
+            .iter()
+            .enumerate()
+            .filter(|(_, erased)| !**erased);
+        match (runtime.next(), runtime.next()) {
+            (Some((i, _)), None) => Some(i),
+            _ => None,
+        }
+    }
+
     /// Where the type is in its admission.
     pub fn state(&self) -> State {
         self.state

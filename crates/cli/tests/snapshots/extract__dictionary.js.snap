@@ -89,10 +89,13 @@ const datatype = (name, tagKey = "$tag") => ({
 // constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds. Names at the boundary may differ
+// value saying whether the proof holds. A record that is `unboxed` has one
+// field, and inside generated code it is that field's value, with no object
+// around it (D866): decoding takes the field out of the object it reads, and
+// encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false) => {
+const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -106,6 +109,7 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     info.recordTag = entries[0].external;
   }
   info.checks = checks;
+  info.unboxed = unboxed;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -491,7 +495,7 @@ const decode = (t, x, root, seen = new Map()) => {
           // The map of the entries, by the library's own `Map.fromList`.
           if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
-          value = f.out;
+          value = f.t.info.unboxed ? f.out[f.fields[0][3]] : f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
@@ -585,7 +589,7 @@ const encode = (t, v) => {
         }
       } else if (f.i < f.fields.length) {
         const [, type, , inside] = f.fields[f.i];
-        v = f.v[inside];
+        v = f.t.info.unboxed ? f.v : f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -971,11 +975,11 @@ const $Std$dText$dcompare = (a) => (b) => {
   return { tag: a.length === b.length ? "Equal" : a.length < b.length ? "Less" : "Greater" };
 };
 const $Std$dDecEq$d$gdecide = (v1) => {
-  const v2 = v1.decide;
+  const v2 = v1;
   return v2;
 };
-const $Std$dNat$dinstDecEq = { decide: $Std$dNat$ddecEq };
-const $Std$dText$dinstDecEq = { decide: $Std$dText$ddecEq };
+const $Std$dNat$dinstDecEq = $Std$dNat$ddecEq;
+const $Std$dText$dinstDecEq = $Std$dText$ddecEq;
 const $Std$dOrd$d$geq = (v1) => {
   const v2 = v1.eq;
   const v3 = v1.compare;
@@ -1348,33 +1352,33 @@ const $Std$dMap$dTree$dmap = (v3) => (v4) => {
   throw new Error("unreachable");
 };
 const $Std$dMap$dRaw$dtree = (v2) => (v3) => {
-  const v4 = v3.tree;
+  const v4 = v3;
   return v4;
 };
-const $Std$dMap$dRaw$dempty = (v2) => ({ tree: { tag: "Tip" } });
-const $Std$dMap$dRaw$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => ({ tree: $Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)($Std$dMap$dRaw$dtree(v2)(v6)) });
+const $Std$dMap$dRaw$dempty = (v2) => ({ tag: "Tip" });
+const $Std$dMap$dRaw$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => $Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)($Std$dMap$dRaw$dtree(v2)(v6));
 const $Std$dMap$dRaw$dinsert = (v2) => (v3) => (v4) => (v5) => $Std$dMap$dRaw$dinsertWith(v2)(((v6) => ((v7) => v6)))(v3)(v4)(v5);
 const $Std$dMap$dRaw$dget = (v2) => (v3) => (v4) => $Std$dMap$dTree$dget(v2)(v3)($Std$dMap$dRaw$dtree(v2)(v4));
 const $Std$dMap$dRaw$dtoList = (v2) => (v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2)(v3))({ tag: "Nil" });
 const $Std$dMap$dRaw$dfromList = (v2) => (v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2)($Std$dPair$dfst(v5))($Std$dPair$dsnd(v5))(v4))))($Std$dMap$dRaw$dempty(v2))(v3);
 const $Std$dMap$dRaw$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dTree$dfoldLeft(v4)(v5)($Std$dMap$dRaw$dtree(v3)(v6));
-const $Std$dMap$dRaw$dmap = (v3) => (v4) => (v5) => ({ tree: $Std$dMap$dTree$dmap(v4)($Std$dMap$dRaw$dtree(v3)(v5)) });
+const $Std$dMap$dRaw$dmap = (v3) => (v4) => (v5) => $Std$dMap$dTree$dmap(v4)($Std$dMap$dRaw$dtree(v3)(v5));
 const $Std$dMap$dRaw$dunion = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dfoldLeft(v2)(((v5) => ((v6) => ((v7) => $Std$dMap$dRaw$dinsert(v2)(v6)(v7)(v5)))))(v4)(v3);
 const $Std$dMap$draw = (v2) => (v3) => {
-  const v4 = v3.raw;
+  const v4 = v3;
   return v4;
 };
-const $Std$dMap$dofRaw = (v2) => (v3) => ({ raw: v3 });
+const $Std$dMap$dofRaw = (v2) => (v3) => v3;
 const $Std$dMap$dempty = (v2) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dempty(v2));
 const $Std$dMap$dfromList = (v2) => (v3) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dfromList(v2)(v3));
 const $Std$dMap$dtoList = (v2) => (v3) => $Std$dMap$dRaw$dtoList(v2)($Std$dMap$draw(v2)(v3));
 const $Std$dMap$dget = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dget(v2)(v3)($Std$dMap$draw(v2)(v4));
 const $Std$dMap$dkeys = (v2) => (v3) => $Std$dList$dmap($Std$dPair$dfst)($Std$dMap$dtoList(v2)(v3));
 const $Std$dMap$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dRaw$dfoldLeft(v3)(v4)(v5)($Std$dMap$draw(v3)(v6));
-const $Std$dMap$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => ({ raw: (((v7) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v4)(v5)(v7)))($Std$dMap$draw(v2)(v6)) });
-const $Std$dMap$dmap = (v3) => (v4) => (v5) => ({ raw: (((v6) => $Std$dMap$dRaw$dmap(v3)(v4)(v6)))($Std$dMap$draw(v3)(v5)) });
+const $Std$dMap$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v4)(v5)(v7)))($Std$dMap$draw(v2)(v6));
+const $Std$dMap$dmap = (v3) => (v4) => (v5) => (((v6) => $Std$dMap$dRaw$dmap(v3)(v4)(v6)))($Std$dMap$draw(v3)(v5));
 const $Std$dMap$dunionRaw = (v2) => (v3) => (v4) => (((v5) => $Std$dMap$dRaw$dunion(v2)(v3)(v5)))(v4);
-const $Std$dMap$dunion = (v2) => (v3) => (v4) => ({ raw: (((v5) => $Std$dMap$dunionRaw(v2)(v5)($Std$dMap$draw(v2)(v4))))($Std$dMap$draw(v2)(v3)) });
+const $Std$dMap$dunion = (v2) => (v3) => (v4) => (((v5) => $Std$dMap$dunionRaw(v2)(v5)($Std$dMap$draw(v2)(v4))))($Std$dMap$draw(v2)(v3));
 const $Std$dMap$ddecEq$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => {
   switch (v5.tag) {
     case "Yes": {

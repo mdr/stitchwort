@@ -89,10 +89,13 @@ const datatype = (name, tagKey = "$tag") => ({
 // constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds. Names at the boundary may differ
+// value saying whether the proof holds. A record that is `unboxed` has one
+// field, and inside generated code it is that field's value, with no object
+// around it (D866): decoding takes the field out of the object it reads, and
+// encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false) => {
+const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -106,6 +109,7 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     info.recordTag = entries[0].external;
   }
   info.checks = checks;
+  info.unboxed = unboxed;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -491,7 +495,7 @@ const decode = (t, x, root, seen = new Map()) => {
           // The map of the entries, by the library's own `Map.fromList`.
           if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
-          value = f.out;
+          value = f.t.info.unboxed ? f.out[f.fields[0][3]] : f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
@@ -585,7 +589,7 @@ const encode = (t, v) => {
         }
       } else if (f.i < f.fields.length) {
         const [, type, , inside] = f.fields[f.i];
-        v = f.v[inside];
+        v = f.t.info.unboxed ? f.v : f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -686,12 +690,12 @@ define(info$Main$dWeird, [
 define(info$Main$dBox, [
   ["%mk", [["value", param(0)]]],
 ], true, [
-]);
+], false, true);
 define(info$Main$dSortedList, [
   ["%mk", [["items", list(NAT)]]],
 ], true, [
-  ["proof field `ok` (`IsSorted items`) doesn't hold", (o) => { const v0 = o.items; return $Main$ddecIsSorted(v0).tag === "Yes"; }],
-]);
+  ["proof field `ok` (`IsSorted items`) doesn't hold", (o) => { const v0 = o; return $Main$ddecIsSorted(v0).tag === "Yes"; }],
+], false, true);
 define(info$Main$dSized, [
   ["%mk", [["items", list(NAT)], ["size", NAT]]],
 ], true, [
@@ -828,10 +832,10 @@ const $Main$dWeird$dx$p = (v0) => {
 };
 const $Main$dweird = (v0) => ({ tag: $Std$dText$dappend($Main$dWeird$dtag(v0))("!"), $__proto__: $Main$dWeird$d__proto__(v0), constructor: $Main$dWeird$dconstructor(v0), x$: $Std$dNat$dadd($Std$dNat$dadd($Main$dWeird$dx$p(v0))($Main$dWeird$dconstructor(v0)))($Main$dWeird$d__proto__(v0)) });
 const $Main$dBox$dvalue = (v1) => {
-  const v2 = v1.value;
+  const v2 = v1;
   return v2;
 };
-const $Main$dunbox = (v0) => ({ value: $Std$dList$dlength($Main$dBox$dvalue(v0)) });
+const $Main$dunbox = (v0) => $Std$dList$dlength($Main$dBox$dvalue(v0));
 const $Main$disSorted = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -865,9 +869,9 @@ const $Main$disSorted = (v0) => {
   }
 };
 const $Main$ddecIsSorted = (v0) => $Std$dBool$ddecTrue($Main$disSorted(v0));
-const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0))(((v1) => ({ tag: "Some", value: { items: v0 } })))(((v1) => ({ tag: "None" })));
+const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
 const $Main$dsmallest = (v0) => {
-  const v1 = v0.items;
+  const v1 = v0;
   switch (v1.tag) {
     case "Nil": {
       return { tag: "None" };
@@ -1116,13 +1120,13 @@ function dec$9(x) {
   if (!hasOwn(x, "value")) throw FAIL;
   const r0 = x.value;
   const f0 = dec$10(r0);
-  const o = { value: f0 };
+  const o = f0;
   depth--;
   done.set(x, o);
   return o;
 }
 function enc$11(v) {
-  const o = { value: NAT.enc(v.value) };
+  const o = { value: NAT.enc(v) };
   return o;
 }
 function enc$14(v) {
@@ -1132,7 +1136,7 @@ function enc$14(v) {
 }
 function enc$13(v) {
   if (++depth > MAX_DEPTH) throw FAIL;
-  const o = { items: enc$14(v.items) };
+  const o = { items: enc$14(v) };
   depth--; return o;
 }
 function enc$12(v) {
@@ -1152,7 +1156,7 @@ function dec$15(x) {
   if (!hasOwn(x, "items")) throw FAIL;
   const r0 = x.items;
   const f0 = dec$10(r0);
-  const o = { items: f0 };
+  const o = f0;
   for (const [, holds] of info$Main$dSortedList.checks) if (!holds(o)) throw FAIL;
   depth--;
   done.set(x, o);

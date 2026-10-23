@@ -89,10 +89,13 @@ const datatype = (name, tagKey = "$tag") => ({
 // constructor is `flat` if all its fields are shallow (`flatOf`). A record has one
 // constructor, whose fields are `info.record`, and no tag; `checks` are its
 // proof fields' runtime checks, each a message and a function of a decoded
-// object saying whether the proof holds. Names at the boundary may differ
+// value saying whether the proof holds. A record that is `unboxed` has one
+// field, and inside generated code it is that field's value, with no object
+// around it (D866): decoding takes the field out of the object it reads, and
+// encoding puts it back in one. Names at the boundary may differ
 // from those inside generated code (`js.tag`, `js.name`): `ctors` finds a
 // constructor by its tag at the boundary, `internal` by its tag inside.
-const define = (info, ctors, record = false, checks = [], strings = false) => {
+const define = (info, ctors, record = false, checks = [], strings = false, unboxed = false) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
   // optional property, or `[key, type, optional, key inside]`.
@@ -106,6 +109,7 @@ const define = (info, ctors, record = false, checks = [], strings = false) => {
     info.recordTag = entries[0].external;
   }
   info.checks = checks;
+  info.unboxed = unboxed;
   // A string union (`js.enum`): a value is one constructor's string at the
   // boundary, in place of an object.
   info.strings = strings;
@@ -491,7 +495,7 @@ const decode = (t, x, root, seen = new Map()) => {
           // The map of the entries, by the library's own `Map.fromList`.
           if (f.keys !== undefined) value = MAP_SHAPE.fromList(value);
         } else {
-          value = f.out;
+          value = f.t.info.unboxed ? f.out[f.fields[0][3]] : f.out;
           for (const [message, holds] of f.t.info.checks) if (!holds(value)) refuse(message);
         }
         f.done?.set(f.x, value);
@@ -585,7 +589,7 @@ const encode = (t, v) => {
         }
       } else if (f.i < f.fields.length) {
         const [, type, , inside] = f.fields[f.i];
-        v = f.v[inside];
+        v = f.t.info.unboxed ? f.v : f.v[inside];
         t = close(type, f.t.args);
         break;
       }
@@ -719,18 +723,18 @@ const $Std$dText$djoin = (s) => (ts) => {
   return parts.join(encodeChar(s));
 };
 const $Main$dPretty$d$gpretty = (v1) => {
-  const v2 = v1.pretty;
+  const v2 = v1;
   return v2;
 };
 const $Main$dPretty$dpretty = (v1) => $Main$dPretty$d$gpretty(v1);
-const $Main$dPretty$dinstNat = { pretty: ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0)(0n)))(((v1) => "zero"))(((v1) => "some"))) };
-const $Main$dPretty$dinstList = (v1) => ({ pretty: ((v2) => $Std$dText$dappend("[")($Std$dText$dappend($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap($Main$dPretty$dpretty(v1))(v2)))("]"))) });
+const $Main$dPretty$dinstNat = ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0)(0n)))(((v1) => "zero"))(((v1) => "some")));
+const $Main$dPretty$dinstList = (v1) => ((v2) => $Std$dText$dappend("[")($Std$dText$dappend($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap($Main$dPretty$dpretty(v1))(v2)))("]")));
 const $Main$dOrdered$d$gless = (v1) => {
-  const v2 = v1.less;
+  const v2 = v1;
   return v2;
 };
 const $Main$dOrdered$dless = (v1) => $Main$dOrdered$d$gless(v1);
-const $Main$dOrdered$dinstNat = { less: ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v0)(1n))(v1))) };
+const $Main$dOrdered$dinstNat = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v0)(1n))(v1)));
 const $Main$dsmallestOf = (v1) => (v2) => (v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
   for (;;) {
@@ -758,7 +762,7 @@ const $Main$dsmallestOf = (v1) => (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dflipped = { less: ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v1)(1n))(v0))) };
+const $Main$dflipped = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v1)(1n))(v0)));
 const $Main$ddescribeAll = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstNat))(v0);
 const $Main$ddescribeNested = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstList($Main$dPretty$dinstNat)))(v0);
 const $Main$dsmallest = (v0) => $Main$dsmallestOf($Main$dOrdered$dinstNat)(1000n)(v0);
