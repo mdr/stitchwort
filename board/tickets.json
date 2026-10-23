@@ -1,5 +1,5 @@
 {
-  "next": 385,
+  "next": 386,
   "tickets": [
     {
       "id": 1,
@@ -6080,10 +6080,10 @@
     },
     {
       "id": 380,
-      "title": "Microtypes: distinct id types (one-field records) crossing to TS as plain strings (@[js.unboxed], optional flavour), plus D866 single-field unboxing",
-      "status": "review",
-      "agent": "Matt",
-      "where": "",
+      "title": "Microtypes: decided D1064-D1070; stage 1 (@[js.unboxed], microtype map keys) running; D866 done (SW-385)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane (stage 1: js.unboxed, map keys)",
       "labels": [
         "lang"
       ],
@@ -6147,6 +6147,23 @@
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
+    },
+    {
+      "id": 385,
+      "title": "Unbox one-field records at run time (D866, D1067)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "Merged d48c9138 (daf7e70a): records with one run-time field stored as that field in rt and JS; Map/Set lose two boxes; boundary unchanged. Measured ~2-3% on a Map/Set benchmark. Open follow-up question: single-constructor data types (MkChar, Recur, Done) stay boxed.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": [
+        "d48c9138",
+        "daf7e70a"
+      ]
     }
   ]
 }
