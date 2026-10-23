@@ -1,5 +1,5 @@
 {
-  "next": 345,
+  "next": 347,
   "tickets": [
     {
       "id": 1,
@@ -5449,6 +5449,36 @@
       "commits": [
         "84d8526e"
       ]
+    },
+    {
+      "id": 345,
+      "title": "JS inliner duplicates let-bound values used more than once (work runs repeatedly)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js",
+        "bug"
+      ],
+      "body": "Found by the SW-328 private port: a `let` value used more than once in exported code had its defining call inlined at every use, so the work ran repeatedly (whole merge embedded 5 times in one 46 KB line; 326 ms vs 25 ms at 100 items). Workaround: pass the value through a helper's parameter.\n\nRepro (compare the generated JS of viaLet vs viaHelper):\n```\nimport Std (List, Option)\n\ndef work (n: Nat): List Nat := (List.range n).map (i => i + 1)\n\ndef decode (xs: List Nat): List Nat := xs.map (i => i + 0)\n\ndef encode (xs: List Nat): Option (List Nat) :=\n  let e := xs.map (i => i + 1)\n  if decode e == xs then Some e else None\n\nexport def viaHelper (n: Nat): Option (List Nat) := encode (work n)\n\nexport def viaLet (n: Nat): Option (List Nat) :=\n  let m := work n\n  let e := m.map (i => i + 1)\n  if decode e == m then Some e else None\n```\n\nFix: the JS inliner must not duplicate a non-trivial let-bound value; add an extract regression test that counts calls.\n",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 346,
+      "title": "List.decEq (and derived == over lists) is not stack-safe in exported JS",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js",
+        "bug"
+      ],
+      "body": "Found by the SW-328 private port: in exported JS, `List.range 5000 == List.range 5000` throws 'Maximum call stack size exceeded'; a derived `==` on a record holding a 10,000-element list overflows the same way. List.decEq should be a loop, like the SW-336 TRMC list builders.\n\n```\nimport Std (Bool, List)\n\ntype Item = { id: Nat, name: Text }\n\ndef items (n: Nat): List Item := (List.range n).map (i => { id = i, name = \"x\" })\n\nexport def sameNats (n: Nat): Bool := List.range n == List.range n\n\nexport def sameItems (n: Nat): Bool := items n == items n\n```\n",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
     }
   ]
 }
