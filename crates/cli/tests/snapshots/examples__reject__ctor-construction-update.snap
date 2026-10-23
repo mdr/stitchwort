@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: braces after `Some` name its fields; an update isn't one of them
+   ╭─[ reject/ctor-construction-update.sw:6:41 ]
+   │
+ 6 │ def bump (r: Item): Option Item := Some { r | price = 4 }
+   │                                         ┬  
+   │                                         ╰── braces after `Some` name its fields; an update isn't one of them
+   │ 
+   │ Note: to pass an updated record as `Some`'s argument, write it in brackets: `Some ({ r | … })`
+───╯

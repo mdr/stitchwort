@@ -64,5 +64,5 @@ def absorb (merged: List Range) (r: Range): List Range :=
     | Nil => [r]
     | Cons last earlier =>
       if r.from <= last.to + 1
-      then Cons { from = last.from, to = Nat.max last.to r.to } earlier
+      then Cons ({ from = last.from, to = Nat.max last.to r.to }) earlier
       else Cons r merged

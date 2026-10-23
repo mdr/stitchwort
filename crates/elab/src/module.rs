@@ -2213,6 +2213,13 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(fields.iter().map(|(_, e)| Work::Expr(e)));
                 then(&mut stack, steps);
             }
+            Expr::CtorFields { ctor, fields, .. } => {
+                stack.push(Work::Name(ctor));
+                then(
+                    &mut stack,
+                    fields.iter().map(|(_, e)| Work::Expr(e)).collect(),
+                );
+            }
             Expr::Field(e, field) => {
                 out.push(Ref::Dot(field, field.text.clone()));
                 stack.push(Work::Expr(e));

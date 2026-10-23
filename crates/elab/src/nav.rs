@@ -1232,6 +1232,13 @@ impl Walk<'_> {
                     steps.extend(fields.iter().map(|(_, e)| Work::Expr(e)));
                     then(&mut stack, steps);
                 }
+                Expr::CtorFields { ctor, fields, .. } => {
+                    stack.push(Work::Use(ctor));
+                    then(
+                        &mut stack,
+                        fields.iter().map(|(_, e)| Work::Expr(e)).collect(),
+                    );
+                }
                 Expr::Field(e, _) => stack.push(Work::Expr(e)),
                 Expr::Omega { facts, .. } => {
                     then(&mut stack, facts.iter().map(Work::Expr).collect())

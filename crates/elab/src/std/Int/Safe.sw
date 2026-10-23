@@ -17,11 +17,11 @@ type SafeInt = { value: Int, fits: Int.natAbs value <= 9007199254740991 }
 
 -- `Some` of the number as a `SafeNat`, if it is small enough.
 def SafeNat.ofNat (n: Nat): Option SafeNat :=
-  if h: n <= 9007199254740991 then Some { value = n, fits = h } else None
+  if h: n <= 9007199254740991 then Some ({ value = n, fits = h }) else None
 
 -- `Some` of the number as a `SafeInt`, if it is within the bounds.
 def SafeInt.ofInt (n: Int): Option SafeInt :=
-  if h: Int.natAbs n <= 9007199254740991 then Some { value = n, fits = h } else None
+  if h: Int.natAbs n <= 9007199254740991 then Some ({ value = n, fits = h }) else None
 
 -- Two numbers with the same value are equal: their `fits` proofs are too,
 -- being proofs that a `Bool` is `True` (`Bool.uniqueEq`).

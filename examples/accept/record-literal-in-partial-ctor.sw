@@ -8,7 +8,7 @@ import Std (List)
 type Hit = { row: Nat, column: Nat }
 
 def prefixAll (c: Nat) (xs: List (List Hit)): List (List Hit) :=
-  xs.map (Cons { row = 0, column = c })
+  xs.map (Cons ({ row = 0, column = c }))
 
 def paths (r: Nat) (c: Nat): List Bool -> List (List Hit)
   | Nil => [Nil]
@@ -17,6 +17,6 @@ def paths (r: Nat) (c: Nat): List Bool -> List (List Hit)
       List.append
         (match c with
           | Zero => [[{ row = r, column = c }]]
-          | Succ k => (paths (r + 1) k rest).map (Cons { row = r, column = c }))
-        ((paths (r + 1) (c + 1) rest).map (Cons { row = r, column = c }))
+          | Succ k => (paths (r + 1) k rest).map (Cons ({ row = r, column = c })))
+        ((paths (r + 1) (c + 1) rest).map (Cons ({ row = r, column = c })))
     else paths (r + 1) c rest

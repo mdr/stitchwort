@@ -1010,6 +1010,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             .iter()
             .map(|b| &**b)
             .chain(fields.iter().map(|(_, e)| e)))?,
+        Expr::CtorFields { fields, .. } => any(&mut fields.iter().map(|(_, e)| e))?,
         Expr::Field(e, field) => may_perform(cx, e)? || dot_performs(cx, e, field, 0)?,
         Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) => may_perform(cx, e)?,
         Expr::Tuple(a, b, _) => any(&mut [&**a, &**b].into_iter())?,
@@ -1522,6 +1523,7 @@ pub fn comp_call(
     | Expr::Tuple(..)
     | Expr::Ann(..)
     | Expr::Record { .. }
+    | Expr::CtorFields { .. }
     | Expr::Field(..) = expr
     {
         return comp_compound(cx, expr, row, expected);
@@ -1803,6 +1805,19 @@ fn comp_compound(
                 span: *span,
             }
         }
+        // `C { f = e, … }`: as a record literal, the fields run in the
+        // order written (docs/proposals/variant-fields.md §4.5).
+        Expr::CtorFields { ctor, fields, span } => {
+            let mut pure = Vec::new();
+            for (name, value) in fields {
+                pure.push((name.clone(), run_first(cx, value, row, &mut bound)?));
+            }
+            Expr::CtorFields {
+                ctor: ctor.clone(),
+                fields: pure,
+                span: *span,
+            }
+        }
         Expr::Field(e, name) => {
             Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone())
         }
@@ -1863,9 +1878,10 @@ fn comp_compound(
         _ => unreachable!("only called on compound expressions"),
     };
     let (term, ty) = match (expected, &pure) {
-        (Some(t), Expr::Record { .. } | Expr::Tuple(..) | Expr::Neg(..)) => {
-            (check(cx, &pure, t)?, t.clone())
-        }
+        (
+            Some(t),
+            Expr::Record { .. } | Expr::CtorFields { .. } | Expr::Tuple(..) | Expr::Neg(..),
+        ) => (check(cx, &pure, t)?, t.clone()),
         (Some(t), Expr::Binary(op, ..)) if crate::numbers::is_arith(*op) => {
             (check(cx, &pure, t)?, t.clone())
         }

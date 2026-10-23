@@ -74,12 +74,12 @@ test "below" := two != four && two.value == 2
 test "box fn" := applyBox { item = n => n * 2 } 21 == 42
 test "box nested" := ({ item = { item = 7 } }: Box (Box Nat)).item.item == 7
 test "box list" := ({ item = [1, 2] }: Box (List Nat)).item.length == 2
-test "shape" := area (Circle { n = 2 }) == 12 && area (Square { n = 3 }) == 9
+test "shape" := area (Circle ({ n = 2 })) == 12 && area (Square ({ n = 3 })) == 9
 test "maybe" := orZero { inner = None } == 0 && orZero { inner = Some 4 } == 4
 test "constructor as function" := (List.map (x => ({ n = x }: Count)) [1, 2, 3]) == [{ n = 1 }, { n = 2 }, { n = 3 }]
 test "no field" := wrapped.n == 3
 test "two fields" := ({ a = 1, b = "x" }: Pair2) == { a = 1, b = "x" }
-test "map of records" := (Map.fromList [(1, ({ n = 5 }: Count))]).get 1 == Some { n = 5 }
+test "map of records" := (Map.fromList [(1, ({ n = 5 }: Count))]).get 1 == Some ({ n = 5 })
 test "inventory" := inv.stock.get "pear" == Some 5
 test "interface" := Describe.describe ({ n = 4 }: Count) == "count 4"
 
@@ -104,10 +104,10 @@ def main(): {IO} () :=
   IO.print "${({ item = [1, 2] }: Box (List Nat))}"
   IO.print "${({ item = { item = 7 } }: Box (Box Nat))}"
   IO.print "-- nested"
-  IO.print "${(Some { value = "x" }: Option UserId)}"
+  IO.print "${(Some ({ value = "x" }): Option UserId)}"
   IO.print "${(({ n = 1 }: Count), ({ value = "y" }: UserId))}"
-  IO.print "${area (Circle { n = 2 })} ${area (Square { n = 3 })}"
-  IO.print "${(Circle { n = 2 }: Shape) == Circle { n = 2 }}"
+  IO.print "${area (Circle ({ n = 2 }))} ${area (Square ({ n = 3 }))}"
+  IO.print "${(Circle ({ n = 2 }): Shape) == Circle ({ n = 2 })}"
   IO.print "${orZero { inner = None }} ${orZero { inner = Some 4 }}"
   IO.print "${({ inner = Some 4 }: Maybe)}"
   IO.print "-- erased"

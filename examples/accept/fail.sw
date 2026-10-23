@@ -50,7 +50,7 @@ def main(): {IO} () :=
     | Ok n => IO.print "total ${n}"
     | Err msg => IO.print "error: ${msg}"
 
-test "a line" := parseTurn "L68 3 red" == Ok { left = True, steps = 68, weight = 3, colour = "red" }
+test "a line" := parseTurn "L68 3 red" == Ok ({ left = True, steps = 68, weight = 3, colour = "red" })
 test "bad direction" := parseTurn "X68 3 red" == Err "expected L or R, got 'X68'"
 test "bad number" := parseTurn "R6x 3 red" == Err "expected a whole number, got '6x'"
 test "bad colour" := parseTurn "R6 3 pink" == Err "expected a colour, got 'pink'"

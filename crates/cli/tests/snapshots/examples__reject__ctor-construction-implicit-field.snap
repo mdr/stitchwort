@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `n` is an implicit field of `VCons`
+   ╭─[ reject/ctor-construction-implicit-field.sw:9:31 ]
+   │
+ 9 │ def one: Vec Nat 1 := VCons { n = 0, x = 1, xs = VNil }
+   │                               ┬  
+   │                               ╰── `n` is an implicit field of `VCons`
+   │ 
+   │ Note: braces name explicit fields only; build an implicit one positionally, `VCons [n := e] …`
+───╯

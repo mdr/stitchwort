@@ -8,7 +8,7 @@ type Counter = { name: Text, count: SafeNat, delta: SafeInt }
 
 def counter (n: Nat) (d: Int): Option Counter :=
   match SafeNat.ofNat n, SafeInt.ofInt d with
-    | Some c, Some e => Some { name = "c", count = c, delta = e }
+    | Some c, Some e => Some ({ name = "c", count = c, delta = e })
     | _, _ => None
 
 def three: SafeNat := { value = 3, fits = rfl }
@@ -22,9 +22,9 @@ test "int equal" := minusTwo == { value = -2, fits = rfl }
 test "int different" := minusTwo != five
 
 test "record equality" :=
-  counter 3 (-2) == Some { name = "c", count = three, delta = minusTwo }
+  counter 3 (-2) == Some ({ name = "c", count = three, delta = minusTwo })
 test "record inequality" :=
-  counter 4 (-2) != Some { name = "c", count = three, delta = minusTwo }
+  counter 4 (-2) != Some ({ name = "c", count = three, delta = minusTwo })
 test "out of range is none" := counter 9007199254740992 0 == None
 
 test "ordered" := Ord.compare three four == Less

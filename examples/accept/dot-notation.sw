@@ -62,7 +62,7 @@ test "split" := (splitLine "a,b").length == 2
 test "partial split" := (splitter "a,b,c" ',').length == 3
 test "price" := showPrice 3 == "$3"
 test "read" := readIt { value = 7 } == 7
-test "names" := (names (Put { name = "ab", age = 1 } Empty)).length == 1
+test "names" := (names (Put ({ name = "ab", age = 1 }) Empty)).length == 1
 test "name length" := nameLength { name = "abc", age = 1 } == 3
 test "letp" := letp 4 == "$4"
 test "lets" := lets 4 == "$4"

@@ -51,8 +51,8 @@ def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) -> List (List Hit)
       List.append
         (match c with
           | Zero => [[{ row = r, column = c, turn = Left }]]
-          | Succ b => (timelinesFrom (r + 1) b rest).map (Cons { row = r, column = c, turn = Left }))
-        ((timelinesFrom (r + 1) (c + 1) rest).map (Cons { row = r, column = c, turn = Right }))
+          | Succ b => (timelinesFrom (r + 1) b rest).map (Cons ({ row = r, column = c, turn = Left })))
+        ((timelinesFrom (r + 1) (c + 1) rest).map (Cons ({ row = r, column = c, turn = Right })))
     else timelinesFrom (r + 1) c rest
 
 -- The timelines of the particle from S.

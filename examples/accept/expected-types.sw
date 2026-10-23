@@ -22,7 +22,7 @@ def optionThen: Option a -> (a -> Option b) -> Option b
   | None, f => None
   | Some x, f => f x
 
-def parse (n: Nat) (m: Option Nat): Option Rot := optionThen m (x => Some { dir = TL, amount = n + x })
+def parse (n: Nat) (m: Option Nat): Option Rot := optionThen m (x => Some ({ dir = TL, amount = n + x }))
 
 def amountOf: Option Rot -> Nat
   | None => 0

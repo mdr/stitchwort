@@ -41,4 +41,4 @@ test "singleton range" := merge [{ from = 5, to = 5 }] == [{ from = 5, to = 5 }]
 test "a line that is neither a range nor an id" := parsed ["3-5", "x-7", "", "1"] == Err "line 2: expected a range like 11-22, got 'x-7'"
 test "a bad id" := parsed ["3-5", "", "1", "two"] == Err "line 4: expected a whole number, got 'two'"
 test "no blank line" := parsed ["3-5", "4-6"] == Err "expected a blank line between the ranges and the ids, got none"
-test "spaces around lines" := parsed [" 3 - 5 ", " ", " 4 "] == Ok { fresh = [{ from = 3, to = 5 }], available = [4] }
+test "spaces around lines" := parsed [" 3 - 5 ", " ", " 4 "] == Ok ({ fresh = [{ from = 3, to = 5 }], available = [4] })

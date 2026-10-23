@@ -3,9 +3,11 @@
 **Status:** draft 2, 23 October 2026. Ticket SW-340: the note is D587, this
 revision D602. Draft 1 went to an external expert review; draft 2 folds it in
 ([Response to review](#response-to-review-draft-2)). Decided: D593 (b),
-D594 (a), D595 (b). Open: D603 to D605
+D594 (a), D595 (b), D605 (a) (D1085). Open: D603, D604
 ([§11](#11-decisions-for-the-user)). Feature 1 is built
-([§4.4](#44-as-built-feature-1)); features 2 and 3 aren't.
+([§4.4](#44-as-built-feature-1)), and so is named construction
+([§4.5](#45-as-built-named-construction-d605-a)); features 2 and 3 are built
+too (§5.6, §6.4).
 
 Labels, as in the other notes:
 
@@ -27,6 +29,7 @@ Labels, as in the other notes:
 2. [Stitchwort today](#2-stitchwort-today)
 3. [How other languages do it](#3-how-other-languages-do-it)
 4. [Feature 1: named-field constructor patterns](#4-feature-1-named-field-constructor-patterns)
+   (4.5: [As built, named construction (D605 (a))](#45-as-built-named-construction-d605-a))
 5. [Feature 2: shared-field access](#5-feature-2-shared-field-access)
 6. [Feature 3: shared-field update](#6-feature-3-shared-field-update)
 7. [Before and after](#7-before-and-after)
@@ -476,7 +479,9 @@ the natural choice is the same rule in expressions (braces after a constructor
 name its fields; `Some ({ value = n, fits = h })` for a record argument), which
 would end the asymmetry at the cost of those fifteen expressions and
 `show`'s format. Settling it now means the pattern grammar is chosen knowing
-where expressions are going.
+where expressions are going. (Later: D605 (a) was chosen and built, D1085,
+[§4.5](#45-as-built-named-construction-d605-a); `show`'s format wasn't
+changed.)
 
 Whitespace as the discriminator (`Circle{ id }`) stays rejected: too easy to
 misread.
@@ -542,6 +547,74 @@ which include acceptance case 1 (the bracketed form becomes `E-ARITY` once
 `W` gains a field) and coverage equal to the positional form
 (`ctor-fields-nonexhaustive.sw`, and `sameStart` by `rfl` in the accept
 example).
+
+### 4.5 As built (named construction, D605 (a))
+
+Decided 23 October 2026 as D605 (a), D1085: in an expression, braces right
+after a constructor name its fields, as in a pattern. `Circle { ref = 1,
+id = "a", text = "t" }` is `Circle 1 "a" "t"`.
+
+- **Syntax and parsing.** Only at the head of an application: a new node
+  `Expr::CtorFields { ctor, fields, span }` (`ast.rs`, `Parser::ctor_fields_expr`).
+  Fields come in any order; `f` alone is `f = f`. `C ({ … })` stays
+  `App(C, Record)`, so a record argument is written in brackets, or by the
+  constructor's field name (`Some { value = { … } }`). It works wherever an
+  expression goes: after `:=`, operators, brackets, lists, tuples, a record
+  field's `=`, nested, and with a field access (`(C { … }).id`, `C { … }.id`).
+  Whether the name is a constructor is decided in elaboration, so a type or
+  function followed by braces is parsed the same way (see below).
+- **Parse errors** (`E-PARSE`): `C { … } x` is "braces after `C` name its
+  fields, and take no further arguments" (note: `C ({ … }) …`); `f C { … }` is
+  "braces after `C` as an argument need brackets" (note: `(C { … })` or
+  `C ({ … })`); `Some { r | a = 1 }` is "braces after `Some` name its fields; an
+  update isn't one of them".
+- **Elaboration.** `records::ctor_fields` (`crates/elab/src/records.rs`)
+  builds the positional application, with the explicit fields in declaration
+  order, and elaborates that. The term, and so the hash, is the positional
+  form's (`named_construction_hashes_as_the_positional_form` in
+  `crates/driver/tests/ctor_fields.rs`). Implicit fields are filled by
+  unification as in a positional application (`VCons { x = 1, xs = VNil }`);
+  proof fields are explicit fields and must be given (`MkPos { n = 3, ok =
+  omega }`).
+- **Effects.** In a computation the field expressions run in the order
+  written, as for record literals (`effects.rs`, `comp_compound`): each is
+  bound first, then the positional application is built from the results.
+  So where fields perform operations, the term can differ from the
+  positional form's (which runs arguments through the call path); pure
+  fields are never bound, and give the positional term in any order.
+- **Errors.** Every explicit field is given once. An unknown name:
+  `E-UNKNOWN-FIELD`, "`Circle` has no field `colour`", noting `Circle`'s
+  fields; when the constructor has one field holding a record that has every
+  name given, a second note says to write `Some ({ … })`. A missing field:
+  `E-RECORD-FIELD`, "this `Circle` is missing `text`". A field twice:
+  `E-RECORD-FIELD`, "field `ref` is given twice". An implicit field's name:
+  `E-UNKNOWN-FIELD`, "`n` is an implicit field of `VCons`", noting
+  `VCons [n := e] …`. A record type's own name, `Item { name = … }`:
+  `E-NOT-A-CONSTRUCTOR`, noting that a record literal is written without its
+  name, `({ … }: Item)`.
+- **Non-constructors keep the old reading.** Braces after a type or function
+  that isn't a constructor are still a record literal argument, as in a type
+  indexed by a record, `AtR { q = …, n = 0 }`
+  (`examples/soundness/quot-index-in-record.sw`).
+- **Formatter.** `Circle{ref=1}` becomes `Circle { ref = 1 }` (golden
+  `crates/fmt/tests/golden/ctor-fields.*.sw`).
+- **Existing code migrated.** About 25 expressions that applied a constructor
+  to a record literal became `C ({ … })`: std `Int/Safe.sw` and
+  `List/Attach.sw`; about twenty lines in `examples/accept/` and
+  `examples/extract/`; `aoc/` (Day05, Day07, the common examples); and
+  `web/guide/09-namespaces.sw`.
+- **Hashes.** No existing declaration's hash moves: `C ({ … })` parses and
+  elaborates as before.
+- **`show` is not changed.** `toSource` still prints a record inside a
+  constructor in the old form, `Some { name = "tea", price = 3 }`, which now
+  reads as named construction and is `E-UNKNOWN-FIELD`. Printing the brackets
+  means changing `Show.arg` and `Option.showWith` to bracket an argument that
+  starts with `{`. That moves the hash of `Std.Show.arg` and of every derived
+  `Show`, so it is left for a decision. Until then this is the one
+  pattern/expression asymmetry left.
+
+Examples: `examples/accept/ctor-field-construction.sw`;
+`examples/reject/ctor-construction-*.sw`.
 
 ## 5. Feature 2: shared-field access
 
@@ -1035,7 +1108,7 @@ Records are unchanged (D604 (b)): a record update keeps its own translation.
   one an index is computed from.
 - **Records stay as they are.** Because of D604 (b), `{ pick b r | xs = ys }`
   on a record is still refused, while the variant form is accepted.
-- **Not built.** Named construction (D605).
+- **Named construction (D605)** is built separately (4.5).
 - **Hashes.** No existing declaration's hash moves.
 - **Proofs.** In a type position `{` starts an effect row, so a theorem's
   statement brackets the update: `({ c | id = x }).id = x`.
@@ -1154,8 +1227,9 @@ so features 2 and 3 make the Stitchwort side match what the TS side allows.
 
 Unchanged: they work constructor by constructor. `Show` keeps printing variants
 positionally (`Circle 1 "a" 0 "t"`) and a record argument as today
-(`Some { name = "tea", price = 3 }`); if D605 (a) is adopted when named
-construction is built, the latter becomes `Some ({ name = "tea", price = 3 })`.
+(`Some { name = "tea", price = 3 }`). D605 (a) is built, so that output is
+no longer the source form of the value (`Some ({ name = "tea", price = 3 })`
+is); `show` was left alone for now (4.5).
 
 ### 9.3 Navigation and the language server
 
@@ -1308,9 +1382,9 @@ no program that checks today stops checking **[inferred]**.
 (b) No: records keep their inline constructor-of-projections term, and the
 two differ in that case.
 
-**D605. How will named construction be spelt, when it's built?** (Not built
-now; settled so the pattern grammar fits.)
-(a) **Recommended:** the same rule as patterns: `Circle { ref = 1, id = "a",
+**D605. How will named construction be spelt?** **Decided (a), D1085; built
+([§4.5](#45-as-built-named-construction-d605-a)).**
+(a) **Chosen:** the same rule as patterns: `Circle { ref = 1, id = "a",
 … }` names `Circle`'s fields in an expression too, and a record argument is
 `Some ({ value = n, fits = h })`. Patterns and expressions then agree; about
 fifteen existing expressions and `show`'s format change.
@@ -1393,8 +1467,10 @@ built-ins, found by identity through the registry (`registry.rs:223`,
 
 ### 12.3 Other risks
 
-- **The pattern/expression asymmetry (D593 (b))** until D605 is built: users
-  may copy an expression such as `Some { value = n, fits = h }` into a pattern,
+- **The pattern/expression asymmetry (D593 (b))**, ended by D605 (a) being
+  built (4.5); only `show`'s output still prints a record argument in the old
+  form. Users may copy an expression printed by `show`, such as
+  `Some { value = n, fits = h }`, into a pattern,
   meaning the record argument. As a pattern it names `Some`'s fields, and
   `Option`'s one field happens to be called `value` (`std/core/Data.sw:83`)
   **[checked]**, so `fits` is `E-UNKNOWN-FIELD` and the note (4.2) says to
@@ -1411,8 +1487,8 @@ built-ins, found by identity through the registry (`registry.rs:223`,
 - **Performance.** One generated definition per shared field per type, plus
   the comparisons; for large libraries a few more definitions to check and
   hash. Small.
-- **Not proposed** and possibly asked for later: named construction (D605),
-  bare variant record patterns (D595), shared fields through a wrapped record
+- **Not proposed** and possibly asked for later: `show` printing a record argument in
+  brackets (4.5), bare variant record patterns (D595), shared fields through a wrapped record
   (`| Circle CircleData`), updates on indexed families, accessors from index
   refinements (5.1.2), generated update lemmas, the `.d.ts` base type, and the
   `x.id` optimisation.

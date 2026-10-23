@@ -35,7 +35,7 @@ export def bits (x: Float): Nat := x.bits
 
 -- The record's constructor, with bits known only at run time.
 export def fromBits (b: Nat): Option Float :=
-  if h: Float.isValid b = True then Some { bits = b, valid = h } else None
+  if h: Float.isValid b = True then Some ({ bits = b, valid = h }) else None
 
 export def firstOf: List Float -> Option Float
   | Nil => None
