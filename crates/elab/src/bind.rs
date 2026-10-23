@@ -101,6 +101,7 @@ pub(crate) fn bind_argument(
 }
 
 /// A decision procedure for a proposition: a term of type `Decidable prop`.
+#[derive(Clone)]
 pub(crate) enum Decision {
     /// Found for the proposition as it is.
     Plain(Term),
@@ -111,6 +112,7 @@ pub(crate) enum Decision {
 
 /// A decision found with the proposition's operands bound as variables:
 /// inside `binders`, `decision : Decidable prop`.
+#[derive(Clone)]
 pub(crate) struct Bound {
     /// Each binder's name and type, the type in the scope of the binders
     /// before it.

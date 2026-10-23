@@ -568,7 +568,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
             Outcome::Passed => ("✓", String::new()),
             Outcome::Failed => (
                 "✗",
-                match &result.detail {
+                match result.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
                     Some(c) => format!("  (`{}` is False)", c.op),
                     None => "  (evaluated to False)".to_string(),
                 },
@@ -577,9 +577,17 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
         };
         let how = if result.cached { "cached" } else { "ran" };
         println!("  {mark} {:width$}  {how}{why}", result.name);
-        if let Some(c) = &result.detail {
-            println!("      left:  {}", c.left);
-            println!("      right: {}", c.right);
+        if let Some(detail) = &result.detail {
+            if let Some(c) = &detail.comparison {
+                println!("      left:  {}", c.left);
+                println!("      right: {}", c.right);
+                if let Some(difference) = &c.difference {
+                    println!("      {difference}");
+                }
+            }
+            if let Some(p) = &detail.part {
+                println!("      in: {}  ({}:{}:{})", p.text, p.file, p.line, p.column);
+            }
         }
     }
     let count = |f: fn(&Outcome) -> bool| results.iter().filter(|r| f(&r.outcome)).count();
