@@ -1114,6 +1114,60 @@ test("Tab indents, and undo still undoes earlier typing", async (page) => {
   console.log(`    (undo went back through ${seen.length / 2} steps)`);
 });
 
+test("Format rewrites the text, undo restores it, and a syntax error is refused", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const value = () => page.ev(`document.getElementById("source").value`);
+  const modifier = process.platform === "darwin" ? 4 : 2;
+  // Typed (not assigned), so that the browser has it in its undo history.
+  const typeSource = async (text) => {
+    await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.select(); })()`);
+    await page.type(text);
+    await sleep(50);
+    assert.equal(await value(), text);
+  };
+  const messy = "def   x :  Nat :=   5\n\n\n\ndef y : Nat :=\n        x\n";
+  await typeSource(messy);
+  // The caret is at the end of `x`'s line, after the last token.
+  await page.click("#format");
+  await page.until(`document.getElementById("source").value !== ${JSON.stringify(messy)}`, 10000, "the formatted text");
+  const formatted = await value();
+  assert.equal(formatted, "def x: Nat := 5\n\ndef y: Nat :=\n  x\n");
+  assert.equal(await page.ev(`document.getElementById("format-errors").hidden`), true);
+  assert.equal(await page.ev(`localStorage.getItem("stitchwort.draft")`), formatted, "the draft is the formatted text");
+  await assertAligned(page, "after Format");
+  // The caret was at the end of the text, and is still after the last token.
+  assert.equal(await page.ev(`document.getElementById("source").selectionStart`), formatted.replace(/\n$/, "").length);
+  // One undo step takes it back, then redo brings it again.
+  await page.key("z", "KeyZ", 90, { modifiers: modifier, commands: ["undo"] });
+  await sleep(100);
+  assert.equal(await value(), messy, "undo restored the original text");
+  await page.key("z", "KeyZ", 90, { modifiers: modifier | 8, commands: ["redo"] });
+  await sleep(100);
+  assert.equal(await value(), formatted, "redo formatted it again");
+  // Shift+Alt+F does the same; the text is already formatted, so nothing changes.
+  await page.key("F", "KeyF", 70, { modifiers: 9 });
+  await sleep(300);
+  assert.equal(await value(), formatted);
+
+  // Shift+Alt+F formats a messy file...
+  await typeSource(messy);
+  await page.key("F", "KeyF", 70, { modifiers: 9 });
+  await page.until(`document.getElementById("source").value === ${JSON.stringify(formatted)}`, 10000, "Shift+Alt+F to format");
+
+  // ...and a file with a syntax error is left as it is, with the error shown.
+  const broken = "def   x :  Nat :=\n";
+  await typeSource(broken);
+  await page.click("#format");
+  await page.until(`!document.getElementById("format-errors").hidden`, 10000, "the error");
+  assert.equal(await value(), broken, "a refused file is unchanged");
+  assert.match(await page.ev(`document.getElementById("format-errors").innerText`), /not formatted[\s\S]*\[E-PARSE\]/i);
+  // Editing hides the error.
+  await page.type("5");
+  await sleep(50);
+  assert.equal(await page.ev(`document.getElementById("format-errors").hidden`), true);
+});
+
 test("the page fills the window, and long results scroll in their pane", async (page) => {
   const geometry = () => page.ev(`(() => {
     const s = document.getElementById("source").getBoundingClientRect();

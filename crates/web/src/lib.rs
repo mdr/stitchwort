@@ -16,7 +16,7 @@ use std::rc::Rc;
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 use stitchwort_driver::render::render;
 use stitchwort_driver::run::{Main, RunError};
-use stitchwort_syntax::{Diagnostic, Severity};
+use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// The file name shown in error messages.
@@ -66,6 +66,59 @@ pub fn check(source: &str) -> String {
         ),
         Err(failed) => failed,
     }
+}
+
+/// Formats a file (docs/proposals/formatter.md §5.3): `{"ok": true, "text": …}`,
+/// or `{"ok": false, "errors": "…", "diagnostics": [{"severity", "code",
+/// "file", "line", "column", "text"}, …]}` when the file is refused (a lexical
+/// or syntax error) or the formatter's own check failed, which leaves the
+/// file unchanged. `errors` is rendered as `check`'s is.
+#[wasm_bindgen]
+pub fn format(source: &str) -> String {
+    let mut sources = SourceMap::new();
+    let file = sources.add(FILE, source);
+    let diagnostics = match stitchwort_fmt::format_in(file, source) {
+        Ok(formatted) => {
+            return format!(r#"{{"ok":true,"text":{}}}"#, json_string(&formatted.text));
+        }
+        Err(stitchwort_fmt::Error::Refused(diagnostics)) => diagnostics,
+        Err(stitchwort_fmt::Error::Internal(message)) => vec![Diagnostic::error(
+            "E-FORMAT-INTERNAL",
+            format!(
+                "The formatter could not format this file, so it was left unchanged ({message})."
+            ),
+        )],
+    };
+    let each: Vec<String> = diagnostics
+        .iter()
+        .map(|d| {
+            let place = d.primary_span().map(|span| {
+                let text = &sources.get(span.file).text;
+                let before = &text[..(span.start as usize).min(text.len())];
+                let line = before.matches('\n').count() + 1;
+                let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+                format!(
+                    r#","file":{},"line":{line},"column":{column}"#,
+                    json_string(FILE)
+                )
+            });
+            format!(
+                r#"{{"severity":"error","code":{}{},"text":{}}}"#,
+                json_string(d.code),
+                place.unwrap_or_default(),
+                json_string(&render(&sources, d, false))
+            )
+        })
+        .collect();
+    let rendered: String = diagnostics
+        .iter()
+        .map(|d| render(&sources, d, false))
+        .collect();
+    format!(
+        r#"{{"ok":false,"errors":{},"diagnostics":[{}]}}"#,
+        json_string(&rendered),
+        each.join(",")
+    )
 }
 
 /// The code navigation index of a program (docs/proposals/code-navigation.md):

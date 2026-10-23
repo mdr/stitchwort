@@ -40,6 +40,8 @@ self.onmessage = async ({ data }) => {
       test: () => b.test_project(data.paths, data.texts, data.targets, data.known ?? ""),
       evaluate: () => b.evaluate_project(data.paths, data.texts, data.targets, data.imports ?? "", data.expr),
       extract: () => b.extract_project(data.paths, data.texts, data.namespace),
+      // Formats the open file only: `source` is its text.
+      format: () => b.format(data.source),
       run: () => b.run_project_streaming(data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
     }[data.action] : {
       index: () => b.check_index(data.source),
@@ -47,6 +49,7 @@ self.onmessage = async ({ data }) => {
       test: () => b.test(data.source, data.known ?? ""),
       evaluate: () => b.evaluate(data.source, data.imports ?? "", data.expr),
       extract: () => b.extract(data.source),
+      format: () => b.format(data.source),
       run: () => b.run_streaming(data.source, data.input, data.maxOutput, sink),
     }[data.action];
     self.postMessage({ id: data.id, out: JSON.parse(answer()) });
