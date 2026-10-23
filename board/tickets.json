@@ -1,5 +1,5 @@
 {
-  "next": 363,
+  "next": 364,
   "tickets": [
     {
       "id": 1,
@@ -5748,6 +5748,20 @@
         "bug"
       ],
       "body": "Found by map-equality draft 3 (D922, stage 1.0). def seven (a: Type): Nat := 7 passed to app (f: Type -> Nat) := f Nat: ref evaluator 7, Rust runtime panics 'applied Nat(7)', JS 'v0 is not a function'. Causes: crates/rt/src/lower.rs:81-119, :584-600; crates/js/src/lib.rs:2746-2772. Test A0 in map-equality.md.",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 363,
+      "title": "std: list lemmas from a real-world port — id-index lookup, Distinct through filter/filterMap/Perm, memPerm, find lemmas, sorting a sorted list is identity (partial D725)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "D912. Proved privately while proving properties of a real-world TypeScript port; rewrite with neutral names into std/List. Trigger: the port's proofs reuse them; D725 asked for the sort lemma.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
       "commits": []
