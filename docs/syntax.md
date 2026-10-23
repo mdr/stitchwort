@@ -211,7 +211,7 @@ Examples: `examples/accept/local-defs.sw`, `examples/accept/local-defs-effects.s
 
 ## Namespaces and imports
 
-Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`. A program sees its **prelude** without asking (docs/proposals/prelude-slim.md §3): the types built-in syntax needs, `Nat`, `Int`, `Bool`, `Char`, `Text`, `List`, `Pair`, `Unit`, `Void`, `Not`, `And`, `Or`, `Decidable`, plus `Option` and `Ordering`; the interfaces `DecEq`, `Ord`, `Add`, `Mul` and `Show`; the ability `IO`; and `not`. A prelude type comes with its own declaration: its constructors (`Cons`, `List.Cons`), its record fields, an ability's operations (`IO.print`, `IO.readLine`, `IO.readAll`) and an interface's methods (`Ord.compare`). **The rest of its namespace needs an import**: `List.map`, `Nat.addComm` and `IO.readAllLines` need `import Std (List, Nat, IO)`, and without it the error says so ("`List.map` needs `import Std (List)`"). `Std.List.map`, written in full, always works. **Dot notation and pipes need no import**: in `xs.map f` and `xs |> .map f` the value's type picks the namespace. Other library types (`Map`, `Set`, `Vec`, `Fin`) aren't in the prelude: even the type's name needs `import Std (Map)`. `auto` and instance search see the whole library, whatever is imported.
+Names are grouped into namespaces (docs/proposals/namespaces.md). The library is `Std`. A program sees its **prelude** without asking (docs/proposals/prelude-slim.md §3): the types built-in syntax needs, `Nat`, `Int`, `Bool`, `Char`, `Text`, `List`, `Pair`, `Unit`, `Void`, `Not`, `And`, `Or`, `Decidable`, plus `Option`, `Result` and `Ordering`; the interfaces `DecEq`, `Ord`, `Add`, `Mul` and `Show`; the ability `IO`; and `not`. A prelude type comes with its own declaration: its constructors (`Cons`, `List.Cons`), its record fields, an ability's operations (`IO.print`, `IO.readLine`, `IO.readAll`) and an interface's methods (`Ord.compare`). **The rest of its namespace needs an import**: `List.map`, `Nat.addComm` and `IO.readAllLines` need `import Std (List, Nat, IO)`, and without it the error says so ("`List.map` needs `import Std (List)`"). `Std.List.map`, written in full, always works. **Dot notation and pipes need no import**: in `xs.map f` and `xs |> .map f` the value's type picks the namespace. Other library types (`Map`, `Set`, `Vec`, `Fin`) aren't in the prelude: even the type's name needs `import Std (Map)`. `auto` and instance search see the whole library, whatever is imported.
 
 ```
 import Std (List)
@@ -573,6 +573,33 @@ def parse (t: Text): Option Int := toOption (() => turn t)
 - `Abort.toOption: (() -> {Abort | e} a) -> {e} Option a` and `Abort.orElse: a -> (() -> {Abort | e} a) -> {e} a` are the handlers. Other abilities pass through, so `{IO, Abort}` code works: what was printed before giving up stays printed (`examples/accept/abort.sw`).
 - The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
 - `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
+
+## `Fail` and `Result`
+
+`Std.Fail` (`crates/elab/src/std/Fail/Fail.sw`) is `Abort` with a message: code that may fail says `{Fail}`, and a failure says why ([proposals/errors.md](proposals/errors.md)). `Result a e = Ok (value: a) | Err (error: e)` is in the prelude, next to `Option`, so `Ok` and `Err` need no import, and results compare with `==`.
+
+```
+import Std (Fail)
+import Std.Fail (fail, need, ensure, toResult)
+
+def turn (t: Text): {Fail} Int :=
+  let (c, rest) := need t.uncons "expected a turn, got nothing"
+  ensure (c == 'L' || c == 'R') "expected L or R, got '${t}'"
+  let n := rest.toIntOrFail          -- "expected a whole number, got '…'"
+  if c == 'L' then -n else n
+
+def parse (t: Text): Result Int Text := toResult (() => turn t)
+```
+
+- `Fail.fail: Text -> {Fail} a` fails wherever a value of any type is expected. `Fail.need: Option a -> Text -> {Fail} a`, and `Option.orFail` for dot notation (`o.orFail "msg"`). `Fail.ensure: Bool -> Text -> {Fail} ()` fails on `False`. `Result.orFail: Result a Text -> {Fail} a` fails with the error.
+- The handlers: `Fail.toResult: (() -> {Fail | e} a) -> {e} Result a Text`, `Fail.toOption` (drops the message), `Fail.orElse: a -> (() -> {Fail | e} a) -> {e} a` and `Fail.recover: (Text -> {e} a) -> (() -> {Fail | e} a) -> {e} a`. Other abilities pass through, so `{IO, Fail}` code works: what was printed before the failure stays printed (`examples/accept/fail.sw`).
+- `Fail.context label prog` puts `label: ` in front of a failure's message, and is itself `{Fail | e}`: `context "line 3" (() => turn l)` fails with `line 3: expected L or R, got 'X1'`. The `fail` in its clause goes to the next handler out, as a clause's operations do.
+- With `Abort`: `Abort.orFail msg prog` turns giving up into failing with `msg`, and `Fail.toAbort prog` turns failing into giving up (the message is dropped).
+- `List.mapIn: (a -> {e} b) -> List a -> {e} List b` is `map` for a function that may perform abilities, such as `Fail`: `t.split ',' |> .mapIn Range.read` fails at the first piece that isn't a range. `List.map` stays pure.
+- `Text.toNatOrFail` and `Text.toIntOrFail` trim the text, read it, and otherwise fail with `expected a whole number, got 't'`, quoting the text as given. Messages start in lowercase, say what was expected and then what was found, and quote the found text in single quotes, which shows stray spaces.
+- On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult err o`. A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
+- The operation is `Fail.stop: Text -> {Fail} Empty`, for handlers of your own; `fail msg` is `Empty.absurd (stop msg)`.
+- Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult msg o`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`.
 
 ## `Each`
 

@@ -123,6 +123,13 @@ instance List.instShow [auto show: Show a]: Show (List a) :=
 instance Option.instShow [auto show: Show a]: Show (Option a) :=
   Show.fromText (Option.showWith (x => Show.toSource x))
 
+def Result.showWith (f: a -> Text) (g: e -> Text): Result a e -> Text
+  | Ok x  => Text.append "Ok " (Show.arg (f x))
+  | Err m => Text.append "Err " (Show.arg (g m))
+
+instance Result.instShow [auto showA: Show a] [auto showE: Show e]: Show (Result a e) :=
+  Show.fromText (Result.showWith (x => Show.toSource x) (m => Show.toSource m))
+
 def Pair.showWith (f: a -> Text) (g: b -> Text): Pair a b -> Text
   | MkPair x y => Text.append "(" (Text.append (f x) (Text.append ", " (Text.append (g y) ")")))
 
