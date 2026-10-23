@@ -153,6 +153,12 @@ impl Elaborator {
                 continue;
             };
             pending.extend(args);
+            // The library's `Map` is no record to decode field by field: a
+            // `Map Text V` crosses as an object, built by `Map.fromList`, and
+            // any other map is refused by the extractor, saying so.
+            if self.globals.registry.loaded_data(Builtin::Map) == Some(d) {
+                continue;
+            }
             if !seen.insert(d) {
                 continue;
             }
