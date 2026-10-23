@@ -1,5 +1,5 @@
 {
-  "next": 361,
+  "next": 362,
   "tickets": [
     {
       "id": 1,
@@ -5713,6 +5713,21 @@
       "labels": [
         "kernel",
         "js"
+      ],
+      "body": "",
+      "created": "2026-10-23",
+      "updated": "2026-10-23",
+      "commits": []
+    },
+    {
+      "id": 361,
+      "title": "Exploration: source maps for generated JS (stack traces/breakpoints map to .sw lines)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane",
+      "labels": [
+        "js",
+        "tooling"
       ],
       "body": "",
       "created": "2026-10-23",
