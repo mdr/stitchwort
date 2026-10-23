@@ -24,7 +24,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{eval, force, quote, unused};
+use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -927,29 +927,42 @@ fn update(
         }
     }
     // A base that isn't a variable is bound to one first, so it's evaluated
-    // once, rather than once per field taken from it.
-    let bound = !matches!(base.strip_loc(), Term::Var(_));
+    // once, rather than once per field taken from it. The binding is a
+    // transparent `let` (SW-386, D1091): the variable stands for the base
+    // itself, so a new value whose type mentions the base's fields
+    // (`ys: Vec Nat (pick b r).n` for `xs: Vec Nat n`) fits the type the
+    // kept fields give it (`Vec Nat %record.n`).
     let mark = cx.mark();
-    let base_var = if bound {
-        cx.bind_hidden("%record".into(), ty.clone());
-        Term::Var(0)
-    } else {
-        base.clone()
+    // The `let`'s type, if the base is bound.
+    let bound = match base.strip_loc() {
+        Term::Var(_) => None,
+        _ => {
+            let ty_term = cx.quote(ty)?;
+            cx.define(
+                None,
+                "%record".into(),
+                ty.clone(),
+                ty_term.clone(),
+                base.clone(),
+            )?;
+            Some(ty_term)
+        }
     };
-    let result = update_fields(cx, d, &params, &new_params, &uses, &base_var, fields);
+    let base_term = match bound {
+        Some(_) => Term::Var(0),
+        None => base.clone(),
+    };
+    let result = update_fields(cx, d, &params, &new_params, &uses, &base_term, fields);
     cx.reset(mark);
     let body = result?;
-    if !bound {
-        return Ok(body);
+    match bound {
+        // Annotated, as the constructor alone may not be inferable.
+        Some(ty_term) => Ok(Term::Ann(
+            Rc::new(Term::let_("%record".into(), ty_term, base, body)),
+            Rc::new(cx.quote(&new_ty)?),
+        )),
+        None => Ok(body),
     }
-    let pi = Term::Pi(
-        "%record".into(),
-        Icit::Explicit,
-        Rc::new(cx.quote(ty)?),
-        Rc::new(quote(g, cx.level() + 1, &new_ty)?),
-    );
-    let lam = Term::Lam("%record".into(), Icit::Explicit, Rc::new(body));
-    Ok(Term::app(Term::Ann(Rc::new(lam), Rc::new(pi)), base))
 }
 
 /// The fields of an update, in the context where `base` is a variable.

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 103
 expression: "lines(&session, d, f)"
 ---
 data Main.Entry bfc4f6a733c997ea3dcc7ec9e61b3b1c38f7ac500391ae1b37fe089250e80f20
@@ -46,9 +47,9 @@ Main.Entry.%instOrd c73560049f95d8fd1f990b4d7be58149f8614e73aef74418083aec3e357c
 Main.Entry.ext c33723b50199a92d3e0b1d0fa4fce96cb9a9ec101b7b35fdd304e41f57fc44b1
 Main.entry 084cf6a47789c2f5c734472916bf0344eb94449463d089fe79048311d48cc94d
 Main.test "record with containers" 53b62ce314fbeb50f4c37ddec1fe8272f37362139ad350cbacc25eefd5cdc440
-Main.test "record, list differs" 2eb46b3899ccdda4f7b55c7f9a7216996a652db228fc37b599cd0550bc645bb0
-Main.test "record, tuple differs" be1124e8f6422edef1151e2c530bf7b8728c88d91e2f34d1446e099e7e4652ec
-Main.test "record, Option differs" 0a4a88529cf8ae03b9577b75ad5ea9320fc79f11792b222f8259b942b42fcfd0
+Main.test "record, list differs" f93eecf40344670a157490cbeaea693380eec0c84bf60481d5fce76b3a57cbec
+Main.test "record, tuple differs" 5feb51a4c42c20d3a97573922a026f5d0f89f8bbfeadf84b6e0ef865466b924f
+Main.test "record, Option differs" d6126c210e0fed1a5bf57d93f4a62f36aeec5c68c6c2f9162b9731619f1cad2a
 Main.Tagged.tag e910e06367f789bba060e9597f7d43045298f5ec2f83369c81525d84007fd30f
 Main.Tagged.entry c36f48f96151d5862d53d411e21a218036ac4c0c9f9e5f4c7d6bad3197fc4e3f
 Main.Tagged.%%mk%0 6b95ac2acc1496b4a8d449ff3529c85501d2a58e257513e1b549e1a2108fb254
@@ -65,5 +66,5 @@ Main.Tagged.%instOrd 8de3616a3edbd6c17b0f278dac3fc52db3a64fc83e6362e3d375806ca4e
 Main.Tagged.ext 0e2f4fd0ab12063db48cdca74bdf222b44990815c3f138079b70452a956ce67f
 Main.tagged cfae7000f4aa4ad5e6c60bd1da4766daa87e2bada904fa158c7c02e89255847b
 Main.test "nested record" 3d6299c1239d1f7120733458a9fef28218d47964062888206d62566ccf32afe8
-Main.test "nested record, inner field differs" 61143595eab80ce14467e3cdc2a60cf8514161840cc68e1325f879ce803495db
-Main.test "nested record, outer field differs" f67c7d5e100c04324851b0f11af69f6b829bb366a7f80b2638201aada49a6ed3
+Main.test "nested record, inner field differs" d350da645605f59880b94f2ff6d8c6a3529a04daa98071cfb7b77073f2e50b9a
+Main.test "nested record, outer field differs" 1db29c8d169aa1df58e6af81a74e5eb30e33ec46d8265310e0f1bfb0c321c8c8

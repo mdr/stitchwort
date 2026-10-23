@@ -69,6 +69,12 @@ pub struct Def {
     /// the body, from it; like `fold`, it changes only when things are
     /// computed, never what's equal, so it isn't hashed.
     pub(crate) lift_leaf: bool,
+    /// Whether it may call itself: it's one of a group of two or more, or
+    /// its body mentions it. Set with the body (and `true` until then). A
+    /// definition that isn't recursive, stuck on a `case`, can be compared
+    /// with another by its case tree (`value::same_stuck_trees`). Determined
+    /// by the body, so it isn't hashed.
+    pub(crate) recursive: bool,
     pub export: bool,
     /// For an export: how to check each proof parameter at runtime.
     pub validators: Vec<Validator>,

@@ -2021,6 +2021,16 @@ fn conv_step(
                 spines || push_eta(g, level, &a, &b, work)?
             }
         }
+        // Two different definitions, each stuck on a `case`: compared by
+        // their case trees (`same_stuck_trees`). Like a partially applied
+        // definition above, this recurses, once per level of nested calls
+        // of such definitions in their leaves, which is bounded by the
+        // program (they aren't recursive).
+        (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
+            if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
+        {
+            same_stuck_trees(g, level, &a, &b, &mut |l, x, y| conv(g, l, x, y))?
+        }
         // Calls are compared by their unfoldings (D483: the kernel doesn't
         // compare two calls by their arguments first). The cases above
         // that a call can reach (numbers, compact lists, dictionaries, eta)
@@ -2101,6 +2111,151 @@ pub fn underapplied(g: &Globals, value: &Value) -> Option<Icit> {
         Term::Lam(_, icit, _) => Some(*icit),
         _ => None,
     }
+}
+
+// Comparing two different definitions stuck on a `case` (SW-386, D1091).
+//
+// A definition's body is a case tree, and a call that can't take a step is
+// left folded as the definition's name applied to its arguments: there's no
+// first-class `case` value to compare. So `f c x` and `g c x`, for two
+// definitions with the same tree (two `match`es written alike, each lifted to
+// its own helper), used to differ just because `f` and `g` do. They're equal
+// by the ordinary rules: unfold both (delta), and compare the two case
+// analyses by congruence, the same scrutinee and, for each constructor, the
+// same branch with its fields as fresh variables. That's what this does,
+// without the scrutinee being known. Every equality it finds holds for every
+// value of the scrutinee: whichever constructor it turns out to be, both
+// sides take that branch, with the same fields.
+//
+// Only for definitions that aren't recursive (a recursive one compared this
+// way could unfold forever), aren't folded by name (dictionaries and
+// theorems, compared above) and have no `Quot.lift` leaf. A tree is compared
+// node by node: a `case` whose scrutinee is a constructor takes its branch,
+// as running it would; one stuck on a neutral value is compared with the
+// other side's; leaves are compared as values. Any other shape (a `NumCase`,
+// a number or a list as scrutinee, one side a leaf and the other a `case`)
+// answers "different", as before.
+
+/// Whether `value` is a definition applied to all its arguments that
+/// [`same_stuck_trees`] can compare with another by its case tree.
+pub fn opens_by_tree(g: &Globals, value: &Value) -> bool {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        return false;
+    };
+    let def = g.def(*id);
+    def.body.is_some()
+        && !def.recursive
+        && !def.lift_leaf
+        && !folds(g, *id)
+        && def.arity > 0
+        && spine.len() == def.arity
+        && spine.iter().all(|e| matches!(e, Elim::App(..)))
+        && g.builtins.native(*id).is_none()
+        && g.builtins.float_def(*id).is_none()
+}
+
+/// Where a case tree, walked with its environment, ends up.
+enum TreeEnd {
+    /// A `case` stuck on the (forced) neutral scrutinee.
+    Stuck(Rc<Term>, Vec<Value>, Value),
+    /// A leaf, to evaluate in the environment.
+    Leaf(Rc<Term>, Vec<Value>),
+    /// Anything else: not compared.
+    Other,
+}
+
+/// Walks case tree `tree` in `env`, taking every branch a constructor
+/// selects, to the first `case` that's stuck or to a leaf.
+fn walk_tree(g: &Globals, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd> {
+    loop {
+        g.budget.step()?;
+        let node = Term::strip_loc_rc(&tree);
+        match &*node {
+            Term::Case(ix, _, branches) => {
+                let scrutinee = force(g, env[env.len() - 1 - ix].clone())?;
+                match &scrutinee {
+                    Value::Ctor(_, c, fields) => {
+                        let Some(body) = branches[*c].body.clone() else {
+                            return Ok(TreeEnd::Other);
+                        };
+                        env.extend(fields.iter().cloned());
+                        tree = body;
+                    }
+                    Value::Neutral(..) if !is_folded(g, &scrutinee) => {
+                        return Ok(TreeEnd::Stuck(node, env, scrutinee));
+                    }
+                    _ => return Ok(TreeEnd::Other),
+                }
+            }
+            Term::NumCase(..) => return Ok(TreeEnd::Other),
+            _ => return Ok(TreeEnd::Leaf(node, env)),
+        }
+    }
+}
+
+/// Whether two different definitions, each applied to all its arguments and
+/// stuck ([`opens_by_tree`] holds for both), are equal by their case trees,
+/// with `same` comparing values (the scrutinees, then the leaves).
+pub fn same_stuck_trees(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
+) -> Result<bool> {
+    let tree = |value: &Value| -> (Rc<Term>, Vec<Value>) {
+        let Value::Neutral(Head::Def(id), spine) = value else {
+            unreachable!("checked by opens_by_tree")
+        };
+        let def = g.def(*id);
+        let body = def.body.as_ref().expect("checked by opens_by_tree");
+        let args = spine
+            .iter()
+            .map(|e| match e {
+                Elim::App(v, _) => v.clone(),
+                Elim::J { .. } => unreachable!("checked by opens_by_tree"),
+            })
+            .collect();
+        (Term::peel_lams_rc(body, def.arity), args)
+    };
+    let (t1, e1) = tree(a);
+    let (t2, e2) = tree(b);
+    // Pairs of subtrees still to compare, each with its level.
+    let mut pending = vec![(level, t1, e1, t2, e2)];
+    while let Some((level, t1, e1, t2, e2)) = pending.pop() {
+        match (walk_tree(g, t1, e1)?, walk_tree(g, t2, e2)?) {
+            (TreeEnd::Leaf(t1, e1), TreeEnd::Leaf(t2, e2)) => {
+                if !same(level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?)? {
+                    return Ok(false);
+                }
+            }
+            (TreeEnd::Stuck(n1, e1, s1), TreeEnd::Stuck(n2, e2, s2)) => {
+                let (Term::Case(_, d1, b1), Term::Case(_, d2, b2)) = (&*n1, &*n2) else {
+                    unreachable!("a stuck `case`")
+                };
+                if d1 != d2 || b1.len() != b2.len() || !same(level, &s1, &s2)? {
+                    return Ok(false);
+                }
+                for (c, (x, y)) in b1.iter().zip(b2.iter()).enumerate().rev() {
+                    match (&x.body, &y.body) {
+                        (None, None) => {}
+                        (Some(x), Some(y)) => {
+                            let k = g.data(*d1).ctors[c].fields.len();
+                            let fresh = (level..level + k).map(Value::var);
+                            let mut e1 = e1.clone();
+                            let mut e2 = e2.clone();
+                            e1.extend(fresh.clone());
+                            e2.extend(fresh);
+                            pending.push((level + k, x.clone(), e1, y.clone(), e2));
+                        }
+                        _ => return Ok(false),
+                    }
+                }
+            }
+            _ => return Ok(false),
+        }
+    }
+    Ok(true)
 }
 
 // Recognising the same function without running it.

@@ -1105,8 +1105,10 @@ Records are unchanged (D604 (b)): a record update keeps its own translation.
 - **Indexed families are refused**: `E-RECORD-UPDATE`, "a value of the
   indexed family `Fam` can't be updated by field". A replaced field could be
   one an index is computed from.
-- **Records stay as they are.** Because of D604 (b), `{ pick b r | xs = ys }`
-  on a record is still refused, while the variant form is accepted.
+- **Records keep their own translation.** Because of D604 (b), a record
+  update is still the constructor applied to the new values and the kept
+  fields' projections. As first built, `{ pick b r | xs = ys }` on a record
+  was refused while the variant form was accepted; that's fixed (§6.5).
 - **Named construction (D605)** is built separately (4.5).
 - **Hashes.** No existing declaration's hash moves.
 - **Proofs.** In a type position `{` starts an effect row, so a theorem's
@@ -1114,6 +1116,78 @@ Records are unchanged (D604 (b)): a record update keeps its own translation.
 
 Examples: `examples/accept/shared-field-update.sw`,
 `examples/reject/shared-field-update-*.sw`.
+
+### 6.5 Update, after review (D1091)
+
+A port with proofs found that two identical updates written in different
+places weren't equal: a lemma about `{ a | startTime = s }` didn't apply to
+another one ("two different `(match …)`"). D1086 (one setter per field,
+nested for several) regressed simultaneous dependent updates (`Two`, `Range`)
+and was reversed; after an external review, **D1091** (SW-386, replacing
+D1087): updates stay **simultaneous**, never nested per-field setters; repair
+how generated helpers compare (the review's option (E)); records keep their
+constructor-and-projection translation, sharing only the dependency rules and
+diagnostics; and fix the record path's refusal of `{ pick b r | xs = ys }`.
+
+**Diagnosis.** Each update's `match` is lifted to its own helper, a top-level
+definition `owner.%matchN` whose body is an ordinary case tree (lambdas over
+the captures, then `Case`). The kernel has no first-class `case` value: a
+definition applied to all its arguments whose tree can't step stays folded,
+as `Neutral(Def(id), args)` (`value.rs`, `unfold_now`, `stuck_tree`). So the
+two updates evaluate to `setId.%match1 c x` and `setIdAgain.%match1 c x`, and
+conversion's neutral case required the same head (`h1 == h2`), so it answered
+"different" without looking at the bodies **[run]** (the reported error;
+`/tmp` scratch `same.sw`). The helpers' content was already identical:
+hashes leave out names, so `test "two fields".%match1` and
+`test "two fields, other order".%match1` hash alike
+(`hash_stability__shared-field-update.snap`, `45478b…`) **[checked]**; the
+occurrence counter and the owner's name are display only. Captures are the
+variables the `match` uses, ordered by dependency (`lift.rs`), so an unused
+local or a renamed binder doesn't change a helper; the replacement is bound
+by a `let` (`%new%id`) and passed as an argument, so `{ c | id = f y }`'s
+helper takes `f y` as an argument, the same helper as `{ c | id = x }`'s.
+
+**Fix (in the kernel).** Conversion compares two *different* definitions,
+each applied to all its arguments and stuck, by their case trees
+(`value::same_stuck_trees`, used by `conv`, the reference evaluator's `conv`
+and the elaborator's `unify`): unfold both (delta), take branches whose
+scrutinee is a constructor, then require both stuck on convertible
+scrutinees of the same type with, constructor by constructor, both branches
+impossible or both convertible with the fields as fresh variables, and
+leaves convertible as values. That is delta plus the congruence rule for
+`case`: whichever constructor the scrutinee turns out to be, both sides take
+the same branch with the same fields, so every equality it finds holds
+**[inferred]**. It applies only to definitions that aren't recursive
+(`Def::recursive`, set at admission: one of a group of two or more, or
+mentioning itself; comparing those by tree could unfold forever), aren't
+folded by name (theorems, dictionaries), have no `Quot.lift` leaf and aren't
+native; any other shape is "different", as before. Unification keeps what
+it solves only if the trees are equal. Not built: sharing helpers by content
+hash, which the unfolding makes unnecessary for equality. `docs/core.md`
+(conversion) states the rule; kernel tests in `crates/core/tests/kernel.rs`.
+
+Limits: a helper that calls the definition it's written in (a `match` inside
+a recursive definition) joins that definition's group, so it's recursive
+and still not compared; naming the step is still the way there
+(docs/syntax.md). A `match` in a definition's *body* is a frozen
+metavariable until the body is done, so two updates in one body aren't
+compared with each other while it's elaborated; in a signature, they're
+lifted before the body, so a theorem's statement is fine.
+
+**Records' `pick b r`.** A record update with a base that isn't a variable
+bound the base as a lambda parameter, `((%record: R) => R.mk … : …) base`, so
+inside it `%record` was an opaque variable: `ys: Vec Nat (pick b r).n` was
+checked against `Vec Nat %record.n` and refused. It's now a transparent `let`
+(`let %record: R := base; R.mk …`, annotated), as variant update binds its
+base, so `%record` stands for `pick b r` and the types agree. The record
+stays a constructor of new values and projections, so
+`({ p | x = a }).x = a` is still `rfl` with `p` unknown. This moves the hash
+of every record update whose base isn't a variable: in the examples,
+`eqeq-containers` (five tests), `records` (`grown`, `test "dependent"`) and
+`unboxed-records` (`main`); nothing in the library.
+
+Regression examples: `examples/accept/update-identity.sw`,
+`examples/reject/update-identity-*.sw`.
 
 ## 7. Before and after
 
@@ -1361,6 +1435,12 @@ review's [cited], in Stitchwort terms:
   names no constructor, unlike `Circle { id, .. }`. It needs its own
   specification, not "small once feature 2 exists" (draft 1's claim,
   withdrawn).
+- **D1091 (SW-386; replaces D1087, reverses D1086).** Field update stays
+  simultaneous, never nested per-field setters. Identical updates are made
+  equal by the kernel comparing two stuck non-recursive definitions by their
+  case trees (delta and `case` congruence), not by new updater functions.
+  Records keep their own translation; their base is now a transparent `let`,
+  so `{ pick b r | xs = ys }` is accepted ([§6.5](#65-update-after-review-d1091)).
 
 **Open:**
 

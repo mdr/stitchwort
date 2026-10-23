@@ -973,3 +973,33 @@ fn an_attributes_only_edit_in_an_imported_namespace_reaches_the_javascript() {
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
 }
+
+/// SW-386: a lemma about one `{ c | id = x }` applies to a separately
+/// written, identical update in another namespace, cold and warm.
+#[test]
+fn identical_updates_are_equal_cold_and_warm() {
+    let dir = temp_project(
+        "update-identity",
+        &[
+            (
+                "src/Shapes.sw",
+                "namespace Shapes\n\n\
+                 type Shape =\n  | Dot (ref: Nat) (id: Nat)\n  | Circle (ref: Nat) (id: Nat) (radius: Nat)\n\n\
+                 def setId (c: Shape) (x: Nat): Shape := { c | id = x }\n\n\
+                 theorem idRead (c: Shape) (x: Nat): ({ c | id = x }).id = x :=\n  \
+                 match c with\n    | Dot _ _ => rfl\n    | Circle _ _ _ => rfl\n",
+            ),
+            (
+                "src/User.sw",
+                "namespace User\n\nimport Shapes (Shape, setId, idRead)\n\n\
+                 def setIdAgain (c: Shape) (x: Nat): Shape := { c | id = x }\n\n\
+                 theorem same (c: Shape) (x: Nat): setId c x = setIdAgain c x := rfl\n\n\
+                 theorem read (c: Shape) (x: Nat): (setIdAgain c x).id = x := idRead c x\n",
+            ),
+        ],
+    );
+    let source = Source::Project("p".to_string(), dir.clone());
+    assert!(run(&source, false, None).dump.contains("\naccepted true\n"));
+    assert_cache_changes_nothing(&source, false);
+    let _ = std::fs::remove_dir_all(&dir);
+}

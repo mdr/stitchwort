@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 103
 expression: "lines(&session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
@@ -61,7 +62,7 @@ Main.Sized.%instOrd 19f5d2e4186e830cd190d813271051688ea6185f5795e6a73dde6dddde71
 Main.Sized.ext a16ce7c99c38d2b4e27a324673c89d325f1c16252c5b9aa4105c9bbecd384f00
 Main.empty e06ab7677f4adca9058313d04e5dd6bebe66824e9ab2a1e3114220fc6acd93b6
 Main.push d47f079d3c943f9c9bb5a511f3b8db0b73917654a6dabb30ad3fe4b911103639
-Main.grown e5bab012a7af9a3f2cb60e7cf0f205fc9f8e457ab2b41207fdcb77af943bf4be
+Main.grown 5910b46c8f1291a09672cb49bf0c982ba315d57fcaab4215533840f9fc8376fa
 Main.sizeIsLength dca3cb30ca88ffaff3e28e4623999fd4f70a7dd531629bf39b62f70a95b1e607
 Main.Between.above 6d5d77f9ff09ed3bb3e43abd7f844a5f44ff6fea05de6ea2c63212f7c51e7c2b
 Main.Between.below 52c79b8b9fd4a1ae08e4653f8831631406dc60ae01a63ee1d8afd59a2a273ecf
@@ -92,5 +93,5 @@ Main.test "rest pattern" a21577098c5d248d8e514b449b2958305a16b85cb1f7e8ea3b04391
 Main.test "access binds tightly" 31823a66ab30a250761b3edd804f629fc175d6a45c7daf3e4039ac935797021b
 Main.test "nested" efd4eeaa21e0a75cb3d71a8637b4589671f48af9d10f58e3e2ff0e99ae29030b
 Main.test "nested patterns" 3bd87278bbf62cc382ed8da6db58631ac57318351c0e3d4a0912a3e2938537fe
-Main.test "dependent" 01c14a808737b8ef261e131eeb6e69818403f3addbdbaa98c90e2be56d68ef74
+Main.test "dependent" 0a4929bdfb13302a357e86695b6dd599252a42ac8c2fc41f90ff68b0379562b6
 Main.test "tag field" 710ad980d4f964e84a85f6955afc4ddc137e27f7e9161f4a8c41baa8dcbbf3cf
