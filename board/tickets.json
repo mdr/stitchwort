@@ -3477,13 +3477,13 @@
     {
       "id": 223,
       "title": "Effect-polymorphic calls don't pass the expected type to their arguments (orElse 0 at Int)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "body": "Arguments of a call to an effect-polymorphic function are not checked against the expected type first, as pure calls are (propagate in check.rs), so `Abort.orElse 0 (() => …)` at type Int fails: the 0 becomes a Nat before the result type is known. Workaround: `orElse (0: Int)`. Found by SW-217 (examples/accept/abort.sw notes it).\n\nDone when: `Abort.orElse 0 (() => Abort.need (t.toInt))` checks at Int, with an example.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-23",
       "commits": []
     },
     {
@@ -5063,7 +5063,7 @@
     {
       "id": 322,
       "title": "Std load: Int/Int.sw pulls List/Toolkit.sw (~39 ms) only for two List.sumBy lemmas; split them out",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -5073,7 +5073,9 @@
       "body": "",
       "created": "2026-10-22",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "fd0beed8"
+      ]
     },
     {
       "id": 323,
