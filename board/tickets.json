@@ -5618,9 +5618,9 @@
     {
       "id": 355,
       "title": "Std: DecEq for Map (and Set), so records with Map fields derive == (resolver port hit E-INSTANCE-NONE; D700 a)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "worktree lane",
+      "where": "STOPPED: Map's tree shape makes equal-entries => equal-maps false; needs a canonical Map redesign. Port instead keeps a sorted entry list and converts at Wire (D700 b)",
       "labels": [
         "std"
       ],
