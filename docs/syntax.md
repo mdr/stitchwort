@@ -236,7 +236,14 @@ def total (xs: List Nat): Nat := xs.sum              -- needs nothing
 
 **Type synonyms.** `type Grid = List (List Nat)` is `def Grid: Type := List (List Nat)`: a transparent name, interchangeable with what it stands for, with its own namespace (`def Grid.rolls (g: Grid) …`, then `g.rolls`). Parameters are written as binders, `type Matrix (a: Type) = List (List a)`, and the type can be a tuple, `type Point = (Nat, Nat)`. After `=`, `{` starts a record and `|` a sum type's constructors (each constructor starts with its own `|`, even a single one: `type T = | Foo (x: Nat)`); anything else is the type. `type T = A | B` and `type T = Foo (x: Nat)` look like sums without their `|`, so they're `E-PARSE` with a note saying so (`examples/accept/type-synonyms.sw`, `examples/reject/type-synonym-*.sw`). A synonym can't be recursive: `type A = B` with `type B = A` leaves neither with a type to stand for (`E-SYNONYM-CYCLE`, `examples/reject/synonym-*.sw`).
 
-**Brackets continue lines.** Inside `[ ]`, `( )` and `{ }`, a line starting with `,` or a closing bracket continues the bracket however far left it starts, so a list can be laid out with leading commas (`examples/accept/list-literal-layout.sw`). A trailing comma is allowed in list, tuple and record expressions and patterns, and in a record declaration's fields.
+**Brackets continue lines.** Inside `[ ]`, `( )` and `{ }`, a line starting with `,` or a closing bracket continues the bracket however far left it starts, so a list can be laid out with leading commas (`examples/accept/list-literal-layout.sw`). A trailing comma is allowed in list, tuple and record expressions and patterns, and in a record declaration's fields. Even in column 0, such a `,` or closer continues the bracket rather than starting a declaration; a declaration keyword (`def`, `type`, …) in column 0 still starts one, so a missing closer is reported where it should be. The house style for a bracket that spans lines is a comma at the end of each line, no trailing comma after the last item, and the closer on its own line in column 0:
+
+```
+type Person = {
+  name: Text,
+  age: Nat
+}
+```
 
 ## Indexed data types
 

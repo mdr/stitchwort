@@ -344,6 +344,11 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     // - a token inside an open `@[`, so a group of attributes may close with
     //   `]` at column 0 (but a declaration's keyword still starts one, so an
     //   unclosed `@[` doesn't swallow the rest of the file);
+    // - a `,` or closing bracket while any bracket of the declaration is
+    //   still open, so a multi-line bracket may close (or continue with a
+    //   comma) in column 0, however far left (docs/syntax.md, Brackets
+    //   continue lines). A declaration's keyword in column 0 still starts a
+    //   declaration, so an unclosed `{` doesn't swallow the rest of the file;
     // - the first token after a group that is only attributes so far: they
     //   belong to the next declaration (docs/syntax.md, Attributes).
     let mut starts: Vec<usize> = Vec::new();
@@ -351,6 +356,8 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     let mut depth = 0usize;
     let mut opening = false;
     let mut attributes_only = false;
+    // Brackets open in the current declaration, of any kind.
+    let mut open_brackets = 0usize;
     for (i, token) in tokens.iter().enumerate() {
         if token.column == 0 && token.tok != Tok::ColonEq {
             let keyword = matches!(
@@ -367,12 +374,28 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
                     | Tok::KwImport
             );
             let inside = depth > 0 || opening;
-            if starts.is_empty() || (!inside && !attributes_only) || (inside && keyword) {
+            let continues = open_brackets > 0
+                && matches!(
+                    token.tok,
+                    Tok::Comma | Tok::RParen | Tok::RBracket | Tok::RBrace
+                );
+            if starts.is_empty()
+                || (!inside && !attributes_only && !continues)
+                || (inside && keyword)
+            {
                 starts.push(i);
                 depth = 0;
+                open_brackets = 0;
                 opening = false;
                 attributes_only = true;
             }
+        }
+        match token.tok {
+            Tok::LParen | Tok::LBracket | Tok::LBrace => open_brackets += 1,
+            Tok::RParen | Tok::RBracket | Tok::RBrace => {
+                open_brackets = open_brackets.saturating_sub(1);
+            }
+            _ => {}
         }
         match token.tok {
             Tok::At if depth == 0 => opening = true,
