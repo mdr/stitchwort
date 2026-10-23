@@ -882,6 +882,7 @@ dependencies = [
  "serde-saphyr",
  "stitchwort-core",
  "stitchwort-elab",
+ "stitchwort-fmt",
  "stitchwort-js",
  "stitchwort-partial-model",
  "stitchwort-rt",

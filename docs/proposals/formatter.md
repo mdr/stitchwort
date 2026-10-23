@@ -415,6 +415,26 @@ the later stages:
 - `crates/fmt/tests/golden/*.sw` are test data in the repo: F7 must leave
   them out of the reformat.
 
+**F3 as built.** `crates/driver/tests/fmt_hashes.rs` loads every tracked
+`.sw` file outside D1019's folders and `crates/fmt/tests/golden/` as written
+and as formatted, in fresh sessions, and compares every declaration's
+`def_hash`/`data_hash`, the export flags, the order of declarations and the
+tests. Files inside a project (every `stitchwort.yaml` folder: `aoc` and the
+accepted example projects) are compared by loading the whole project, with a
+`Files` wrapper that formats each `.sw` it reads. Today: 217 standalone files
+and 17 projects (94 files) compared, none skipped; the 55 files under
+`crates/elab/src/std` are compiled into the compiler and can't be loaded
+alone, so they are not covered (only the parser-level checks cover them).
+`FMT_HASHES=<text>` limits a run by path. `crates/fmt/tests/fuzz.rs` uses the
+syntax fuzzer's generator and seed (accepted and rejected examples, mutated,
+plus token soup): no panic, no `Internal` error, and
+`format(format(x)) == format(x)`; 50,000 cases take about 3 s in release
+(`FUZZ_CASES` for more; 1.5 million were clean). It found one bug: a file
+whose first column-0 token is `:=` made `decl_ranges` return ranges shifted
+to start at token 0, so the formatter dropped or garbled tokens. Fixed in
+`decl_ranges`, and the formatter keeps such leading tokens as written (golden
+`leading-colon-eq*`).
+
 ## 8. Decisions for Matt
 
 **Decided (Matt, 23 Oct 2026).** These override the recommendations and

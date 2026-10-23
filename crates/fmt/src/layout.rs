@@ -227,7 +227,13 @@ impl<'a> Layout<'a> {
             for comment in &trivia.leading {
                 item(&mut out, comment.blank_lines_before, comment_text(comment));
             }
-            let text = self.decl(range.clone());
+            // Tokens before the first declaration (it starts with `:=`, which
+            // the parser skips) aren't a declaration: they stay as written.
+            let text = if self.tokens()[range.start].tok == Tok::ColonEq {
+                self.decl_source(range).to_string()
+            } else {
+                self.decl(range.clone())
+            };
             item(&mut out, trivia.blank_lines_before, &text);
         }
         for comment in &self.lexed.eof.leading {

@@ -91,7 +91,16 @@ pub fn format_with_stats(text: &str) -> Result<Formatted, Error> {
 pub fn format_in(file: FileId, text: &str) -> Result<Formatted, Error> {
     let lexed = lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     let module = parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
-    let decls = decl_ranges(&lexed.tokens).map_err(|d| Error::Refused(vec![d]))?;
+    let mut decls = decl_ranges(&lexed.tokens).map_err(|d| Error::Refused(vec![d]))?;
+    // Tokens before the first split (a file that starts with `:=` at column
+    // 0, which the parser skips) belong to no range: they form one of their
+    // own, so none is dropped.
+    let first = decls
+        .first()
+        .map_or(lexed.tokens.len(), |range| range.start);
+    if first > 0 {
+        decls.insert(0, 0..first);
+    }
     let mut layout = layout::Layout::new(text, &lexed);
     let output = layout.file(&decls);
     let stats = layout.stats;
