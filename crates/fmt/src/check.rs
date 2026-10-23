@@ -2,7 +2,7 @@
 //! (docs/proposals/formatter.md §4.1): the same tokens, the same comments in
 //! the same order, and the same syntax tree.
 
-use stitchwort_syntax::{Comment, Lexed};
+use stitchwort_syntax::{Comment, Lexed, Tok, Token};
 
 /// Line and column (from 1) of byte `at` in `text`, for messages.
 fn position(text: &str, at: usize) -> String {
@@ -21,8 +21,15 @@ pub(crate) fn same_tokens(
     after: &str,
     lexed_after: &Lexed,
 ) -> Result<(), String> {
-    let (a, b) = (&lexed_before.tokens, &lexed_after.tokens);
-    for (x, y) in a.iter().zip(b) {
+    // Commas are the one allowed difference: D1012/D1017 add and remove
+    // them at the ends of the lines of a multi-line bracket. The tree check
+    // (§4.1, 3) catches any comma that mattered.
+    let strip = |lexed: &Lexed| -> Vec<Token> {
+        let commas = |t: &&Token| t.tok != Tok::Comma;
+        lexed.tokens.iter().filter(commas).cloned().collect()
+    };
+    let (a, b) = (strip(lexed_before), strip(lexed_after));
+    for (x, y) in a.iter().zip(&b) {
         let text_x = &before[x.span.range()];
         let text_y = &after[y.span.range()];
         let same_text = text_x == text_y || (text_x.contains('\n') && text_y.contains('\n'));

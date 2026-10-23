@@ -1,8 +1,26 @@
-//! Spacing between two tokens on one line: rules R3 to R6
-//! (docs/proposals/formatter.md §3), and copying the source wherever
-//! spacing can change meaning (§2.3).
+//! Spacing between two tokens on one line: rules R3 to R6 and the decisions
+//! D1037 and D1039 (docs/proposals/formatter.md §3, §8), copying the source
+//! wherever spacing can change meaning (§2.3).
 
 use stitchwort_syntax::Tok;
+
+/// What a token is, where its spelling alone doesn't say. Worked out from
+/// the position in the program (see `layout::roles`), the way the parser
+/// reads it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub(crate) enum Role {
+    #[default]
+    Plain,
+    /// A `{` or `}` of an effect row, `{IO}` (D1037): tight, unlike a
+    /// record's `{ a = 1 }`.
+    Row,
+    /// A prefix `-`: `-x`.
+    Unary,
+    /// An infix `-`: `a - b`.
+    Binary,
+    /// The `-` of `<-` in `rewrite <- h in …`, which touches the `<`.
+    RewriteArrow,
+}
 
 /// What goes between two tokens written on one line.
 pub(crate) enum Gap {
@@ -12,30 +30,58 @@ pub(crate) enum Gap {
     /// meaning.
     Kept(bool),
     /// A space or not, copied from the source because no rule covers the
-    /// pair yet: the copy path that later stages remove.
+    /// pair: the copy path, counted in the stats.
     Copied(bool),
     /// The source text between them, exactly: the `${` and `}` of an
     /// interpolation, which belong to no token.
     Source,
 }
 
-/// The gap between `left` and `right`; `spaced` says whether the source had
-/// any space between them.
-pub(crate) fn gap(left: &Tok, right: &Tok, spaced: bool) -> Gap {
+/// The tokens around a gap.
+pub(crate) struct Pair<'a> {
+    pub left: &'a Tok,
+    pub left_role: Role,
+    pub right: &'a Tok,
+    pub right_role: Role,
+    /// The token after `right`, if any.
+    pub after: Option<&'a Tok>,
+    /// Whether the source had any space between `left` and `right`.
+    pub spaced: bool,
+}
+
+/// The gap between two tokens.
+pub(crate) fn gap(pair: &Pair) -> Gap {
     use Tok::*;
+    let (left, right, spaced) = (pair.left, pair.right, pair.spaced);
     if matches!(left, StrStart(_) | StrMid(_)) || matches!(right, StrMid(_) | StrEnd(_)) {
         return Gap::Source;
     }
     // Spacing that changes meaning: `p.name` against `f .name` (a section),
-    // `f()` against `f ()`, `<-` in `rewrite` against `< -`, `-x` against
-    // `a - x` (until unary and binary minus are told apart from the tree),
-    // and `@[`.
-    let kept = matches!(left, Dot | At | Minus | Bang)
-        || matches!(right, Dot | Minus | Bang)
+    // `f()` against `f ()`, `<-` in `rewrite` against `< -`, and `@[`.
+    let kept = matches!(left, Dot | At)
+        || matches!(right, Dot)
         || (*left == LParen && *right == RParen)
-        || (*left == LBrace && *right == RBrace);
+        || (*left == LBrace && *right == RBrace)
+        || pair.left_role == Role::RewriteArrow
+        || pair.right_role == Role::RewriteArrow
+        || (*left == RParen && *right == LParen);
     if kept {
         return Gap::Kept(spaced);
+    }
+    // Minus: `a - b`, `-x`, `a - -b`.
+    if *right == Minus && pair.right_role == Role::Binary {
+        return Gap::Rule(true);
+    }
+    if *left == Minus {
+        return match pair.left_role {
+            Role::Binary => Gap::Rule(true),
+            // `- -x`, not the comment `--x`.
+            _ => Gap::Rule(*right == Minus),
+        };
+    }
+    // `!x`.
+    if *left == Bang {
+        return Gap::Rule(false);
     }
     // R6: `a, b`.
     if *right == Comma {
@@ -44,14 +90,20 @@ pub(crate) fn gap(left: &Tok, right: &Tok, spaced: bool) -> Gap {
     if *left == Comma {
         return Gap::Rule(true);
     }
-    // R5: `(a)`, `[a]`. R5's `{ a }` is left as written for now: it is
-    // right for records, but effect rows are written `{IO}` (see the
-    // F1 report).
+    // R5 and D1037: `{ a = 1 }` for records and `{IO}` for effect rows.
+    if *left == LBrace {
+        return Gap::Rule(pair.left_role != Role::Row);
+    }
+    if *right == RBrace {
+        return Gap::Rule(pair.right_role != Role::Row);
+    }
+    // R5: `(a)`, `[a]`.
     if matches!(left, LParen | LBracket) || matches!(right, RParen | RBracket) {
         return Gap::Rule(false);
     }
-    if *left == LBrace || *right == RBrace {
-        return Gap::Copied(spaced);
+    // `..base`: the spread touches its name.
+    if *left == DotDot {
+        return Gap::Kept(spaced);
     }
     // R3: `(x: Nat)`.
     if *right == Colon {
@@ -65,9 +117,17 @@ pub(crate) fn gap(left: &Tok, right: &Tok, spaced: bool) -> Gap {
     if spaced_operator(left) || spaced_operator(right) {
         return Gap::Rule(true);
     }
+    // D1039: `f(x)` is `f (x)`, which parses the same. `f()` is a call with
+    // no arguments, where `f ()` applies `f` to the unit, so it stays.
+    if *right == LParen && matches!(left, Lower(_) | Upper(_) | Underscore) {
+        return if pair.after == Some(&RParen) {
+            Gap::Kept(spaced)
+        } else {
+            Gap::Rule(true)
+        };
+    }
     // R4: one space between application arguments, and wherever the source
-    // had spaces. Where it had none (`f(x)`, and `f()`, which is a call with
-    // no arguments where `f ()` applies `f` to the unit), none.
+    // had spaces.
     if spaced {
         Gap::Rule(true)
     } else {

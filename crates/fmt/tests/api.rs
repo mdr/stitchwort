@@ -46,21 +46,48 @@ fn errors_say_what_happened() {
 }
 
 #[test]
-fn lines_and_gaps_no_rule_covers_are_counted() {
-    let covered = "def f (x: Nat): Nat :=\n    let y := x\n    y\n";
-    assert_eq!(format_with_stats(covered).unwrap().stats, Stats::default());
-
-    // `(h x)` and `x` continue the line above: their indentation is copied.
-    // So is the missing space in `g(x)`.
-    let copied = "def f (x: Nat): Nat :=\n  g(x)\n     (h x)\n       x\n";
-    let result = format_with_stats(copied).unwrap();
-    assert_eq!(result.text, copied);
+fn every_line_and_gap_has_a_rule() {
+    // F2: continuation lines are at +2 (D1040) and `g(x)` is `g (x)`
+    // (D1039), so nothing is left on the copy path.
+    let text = "def f (x: Nat): Nat :=\n    let y := x\n    g(y)\n         (h x)\n           x\n";
+    let result = format_with_stats(text).unwrap();
     assert_eq!(
-        result.stats,
-        Stats {
-            copied_lines: 2,
-            copied_gaps: 1,
-            verbatim_decls: 0,
-        }
+        result.text,
+        "def f (x: Nat): Nat :=\n  let y := x\n  g (y)\n    (h x)\n      x\n"
+    );
+    assert_eq!(result.stats, Stats::default());
+}
+
+#[test]
+fn a_space_before_a_parenthesis_does_not_change_the_tree() {
+    // D1039: `f(x)` and `f (x)` parse alike wherever the formatter adds the
+    // space; `f()` against `f ()` is the one pair that differs, so it stays.
+    use stitchwort_syntax::equivalence::parse_shape;
+    for (tight, spaced) in [
+        ("def a: Nat := f(x)", "def a: Nat := f (x)"),
+        (
+            "def a: Nat := f(x, y) + g(1)",
+            "def a: Nat := f (x, y) + g (1)",
+        ),
+        ("def a: Nat := g f(x)", "def a: Nat := g f (x)"),
+        ("def a: Nat := f(x).y", "def a: Nat := f (x).y"),
+        ("def a: Nat := p.get(1) z", "def a: Nat := p.get (1) z"),
+        ("def a: Nat := Some(x)", "def a: Nat := Some (x)"),
+        ("def a: Nat := f(g(x))", "def a: Nat := f (g (x))"),
+        (
+            "def a: Nat -> Nat\n  | Some(x) => x\n  | None => 0",
+            "def a: Nat -> Nat\n  | Some (x) => x\n  | None => 0",
+        ),
+    ] {
+        assert_eq!(parse_shape(tight), parse_shape(spaced), "{tight}");
+        assert_eq!(format(tight).unwrap(), format!("{spaced}\n"));
+    }
+    assert_ne!(
+        parse_shape("def a: Nat := g f()"),
+        parse_shape("def a: Nat := g f ()")
+    );
+    assert_eq!(
+        format("def a: Nat := g f()").unwrap(),
+        "def a: Nat := g f()\n"
     );
 }
