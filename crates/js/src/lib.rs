@@ -2768,6 +2768,24 @@ impl<'g> Gen<'g> {
                 let _ = write!(out, "({})", self.expr(arg, env)?);
             }
         }
+        // Used as a value with an erased parameter still unsupplied: the
+        // receiver knows only the type, so it passes the type and proof
+        // arguments too. A closure over all the remaining parameters takes
+        // them and ignores the erased ones (D922).
+        if args.len() < mask.len() && mask[args.len()..].iter().any(|erased| *erased) {
+            for (i, erased) in mask.iter().enumerate().skip(args.len()) {
+                if !erased {
+                    let _ = write!(out, "($p{i})");
+                }
+            }
+            for (i, erased) in mask.iter().enumerate().skip(args.len()).rev() {
+                out = if *erased {
+                    format!("((_) => {out})")
+                } else {
+                    format!("(($p{i}) => {out})")
+                };
+            }
+        }
         Ok(out)
     }
 

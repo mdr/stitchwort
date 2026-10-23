@@ -14,7 +14,7 @@ use num_bigint::BigInt;
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Limits, Sort, Term};
+use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, Sort, Term};
 use stitchwort_syntax::Diagnostic;
 
 use crate::erasure::{DefShape, def_shape, defs_in, is_done_continuation, reachable, text_literal};
@@ -582,6 +582,26 @@ impl<'g> Lowerer<'g> {
             return Ok(Expr::Erased);
         }
         let mask = shape.mask().to_vec();
+        // A definition used as a value while an erased parameter is still
+        // unsupplied: whoever receives it knows only its type, so it passes
+        // the type and proof arguments too. Eta-expand over all the
+        // remaining parameters; the saturated call inside drops the erased
+        // ones as usual (D922).
+        if args.len() < mask.len() && mask[args.len()..].iter().any(|erased| *erased) {
+            let missing = mask.len() - args.len();
+            let mut spine = Term::Def(id);
+            for a in args {
+                let a = a.shift(self.g, missing, 0)?;
+                spine = Term::App(Rc::new(spine), Rc::new(a), Icit::Explicit);
+            }
+            for k in (0..missing).rev() {
+                spine = Term::App(Rc::new(spine), Rc::new(Term::Var(k)), Icit::Explicit);
+            }
+            for _ in 0..missing {
+                spine = Term::Lam("x".into(), Icit::Explicit, Rc::new(spine));
+            }
+            return self.expr(&spine);
+        }
         let runtime: Vec<&Term> = args
             .iter()
             .enumerate()
