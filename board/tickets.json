@@ -5637,7 +5637,7 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients — 1.1-1.5 merged; 1.6 (ProtoMap + eight-property gate) next; then stage 2",
+      "title": "Map/Set equality: kernel quotients — stage 1 complete (1.1-1.6), eight-property gate passed; Quot.ind arity fix running; stage 2 (Map/Set as quotients) after the repo reformat lands",
       "status": "doing",
       "agent": "Opus",
       "where": "",
@@ -5664,7 +5664,9 @@
         "1cb9ba1e",
         "91b88ea5",
         "7b622fad",
-        "358b639a"
+        "358b639a",
+        "f7b3791c",
+        "35d6b03a"
       ]
     },
     {
@@ -5820,10 +5822,10 @@
     },
     {
       "id": 366,
-      "title": "Formatter: F0-F6 merged (stitchwort fmt, VS Code Format Document, Playground Format); F7 dry run awaiting Matt (D1061)",
-      "status": "review",
-      "agent": "Matt",
-      "where": "dry-run branch worktree-agent-ab31bc9c292e0a367",
+      "title": "Formatter: F0-F6 merged; F7 repo reformat approved (D1061), running",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane (F7)",
       "labels": [
         "tooling"
       ],
