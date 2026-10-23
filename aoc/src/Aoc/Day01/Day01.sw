@@ -73,7 +73,11 @@ def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
 
 -- How many clicks of a turn land on 0. Going right from `dial`, the dial is at
 -- 0 after each click that brings `dial + k` to a multiple of the dial's size.
--- Going left is the mirror image: 0 is `(size - dial) % size` clicks away.
+-- Going left is the mirror image: turning left from `dial` is turning right
+-- from `(size - dial) % size`, the dial's position in a mirror, where the
+-- number 0 stays put and the others swap ends (20 becomes 80 on a dial of
+-- 100). That mirrored position is not the distance to 0 going left (from 20
+-- that is 20 clicks, not 80); it is the position to count right-turns from.
 def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
   | Right k => (dial.position.value + k) / Mod.size n
   | Left k  => ((Mod.size n - dial.position.value) % Mod.size n + k) / Mod.size n
