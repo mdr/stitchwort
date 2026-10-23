@@ -5805,7 +5805,10 @@
       "body": "D1012 (Matt, 23 Oct): house style for multi-line brackets is a comma at the end of each line, no trailing comma (still accepted), closer in column 0. Today a closer in column 0 starts a new declaration (E-PARSE), contradicting docs/syntax.md:239. Stage A (Sonnet lane): parser fix + example + docs. Stage B (DeepSeek, after A merges): restyle the ~151 leading-comma lines in 25 public files. The private resolver's 63 lines are a separate, later step.",
       "created": "2026-10-23",
       "updated": "2026-10-23",
-      "commits": []
+      "commits": [
+        "98a1a2ab",
+        "47eb0f7e"
+      ]
     },
     {
       "id": 366,
