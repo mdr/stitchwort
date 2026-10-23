@@ -484,7 +484,11 @@ impl Elaborator {
                 for (arg, icit) in args {
                     call = Term::app_icit(call, arg, icit);
                 }
-                for _ in spine(&d.env[..d.base], &d.lets) {
+                let s = spine(&d.env[..d.base], &d.lets).len();
+                g.lifted_calls
+                    .borrow_mut()
+                    .insert(d.meta, (s, Rc::new(call.clone())));
+                for _ in 0..s {
                     call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
                 }
                 g.solve_meta(d.meta, eval(g, &[], &call)?);

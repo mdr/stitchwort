@@ -777,6 +777,65 @@ fn meta_headed(term: &Term) -> bool {
     matches!(head, Term::Meta(_))
 }
 
+/// The call a lifted helper's frozen metavariable stands for, if `term` is
+/// that metavariable applied to all the variables it is a function of: the
+/// call (a term in those variables), and the arguments.
+fn lifted_call<'a>(g: &Globals, term: &'a Term) -> Option<(Rc<Term>, Vec<&'a Term>)> {
+    let (head, args) = term.spine();
+    let Term::Meta(m) = head else { return None };
+    let (s, call) = g.lifted_calls.borrow().get(m).cloned()?;
+    (g.meta_frozen(*m) && g.meta_solution(*m).is_some() && s == args.len()).then_some((call, args))
+}
+
+/// A lifted helper's call, `?m x y` for the frozen metavariable `?m`, with
+/// the call it was solved with put in, its variables replaced by the
+/// arguments (zonked). Reading the solution back from its value instead
+/// would write out what the call's arguments unfold to: a scrutinee
+/// `findThing id xs` as `List.find (t => …) xs` with the calls in its
+/// lambda, `Text.decEq` among them, unfolded too (SW-343).
+fn zonk_call(
+    g: &Globals,
+    level: usize,
+    call: &Term,
+    args: &[&Term],
+    keep: &dyn Fn(usize) -> bool,
+    lets: &[Around],
+) -> std::result::Result<Term, ZonkError> {
+    let n = args.len();
+    let mut zonked = Vec::with_capacity(n);
+    for a in args {
+        zonked.push(zonk_in(g, level, a, keep, lets)?);
+    }
+    if let Some(m) = call.subterms().find_map(|(t, _)| match t {
+        Term::Meta(m) if !keep(*m) => Some(*m),
+        _ => None,
+    }) {
+        return Err(ZonkError::Unsolved(m));
+    }
+    let failed = std::cell::Cell::new(false);
+    let hook = |t: &Term, under: usize| {
+        let Term::Var(ix) = t else { return None };
+        if *ix < under {
+            return None;
+        }
+        match zonked[n - 1 - (ix - under)].shift(g, under, 0) {
+            Ok(t) => Some(t),
+            Err(_) => {
+                failed.set(true);
+                None
+            }
+        }
+    };
+    let out = fold_back(g, call, 0, &hook);
+    if failed.get() || out.is_err() {
+        return Err(ZonkError::Resource(ResourceError::Nesting(
+            crate::check::PASS,
+        )));
+    }
+    let out = out.ok().flatten().unwrap_or_else(|| call.clone());
+    refold(g, out, level, lets)
+}
+
 /// [`zonk_in`]'s pass: `None` if `term` has nothing to replace. What's
 /// unchanged is shared, not rebuilt: most of a large elaborated term has no
 /// metavariables in it, and rebuilding it (and dropping the old copy) on
@@ -807,6 +866,10 @@ fn zonk_changed(
         Ok(out)
     };
     Ok(match term {
+        Term::App(..) if lifted_call(g, term).is_some() => {
+            let (call, args) = lifted_call(g, term).expect("just found");
+            Some(zonk_call(g, level, &call, &args, keep, lets)?)
+        }
         Term::Meta(_) | Term::App(..) if meta_headed(term) => {
             let env: Vec<Value> = (0..level).map(Value::var).collect();
             let solved = quote(g, level, &eval(g, &env, term)?)?;
