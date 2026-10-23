@@ -1060,15 +1060,22 @@ const $Std$dMap$dTree$dtoListOnto = (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dtree = (v2) => (v3) => {
+const $Std$dMap$dRaw$dtree = (v2) => (v3) => {
   const v4 = v3.tree;
   return v4;
 };
-const $Std$dMap$dempty = (v2) => ({ tree: { tag: "Tip" } });
-const $Std$dMap$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => ({ tree: $Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)($Std$dMap$dtree(v2)(v6)) });
-const $Std$dMap$dinsert = (v2) => (v3) => (v4) => (v5) => $Std$dMap$dinsertWith(v2)(((v6) => ((v7) => v6)))(v3)(v4)(v5);
-const $Std$dMap$dtoList = (v2) => (v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dtree(v2)(v3))({ tag: "Nil" });
-const $Std$dMap$dfromList = (v2) => (v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dinsert(v2)($Std$dPair$dfst(v5))($Std$dPair$dsnd(v5))(v4))))($Std$dMap$dempty(v2))(v3);
+const $Std$dMap$dRaw$dempty = (v2) => ({ tree: { tag: "Tip" } });
+const $Std$dMap$dRaw$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => ({ tree: $Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)($Std$dMap$dRaw$dtree(v2)(v6)) });
+const $Std$dMap$dRaw$dinsert = (v2) => (v3) => (v4) => (v5) => $Std$dMap$dRaw$dinsertWith(v2)(((v6) => ((v7) => v6)))(v3)(v4)(v5);
+const $Std$dMap$dRaw$dtoList = (v2) => (v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2)(v3))({ tag: "Nil" });
+const $Std$dMap$dRaw$dfromList = (v2) => (v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2)($Std$dPair$dfst(v5))($Std$dPair$dsnd(v5))(v4))))($Std$dMap$dRaw$dempty(v2))(v3);
+const $Std$dMap$draw = (v2) => (v3) => {
+  const v4 = v3.raw;
+  return v4;
+};
+const $Std$dMap$dofRaw = (v2) => (v3) => ({ raw: v3 });
+const $Std$dMap$dfromList = (v2) => (v3) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dfromList(v2)(v3));
+const $Std$dMap$dtoList = (v2) => (v3) => $Std$dMap$dRaw$dtoList(v2)($Std$dMap$draw(v2)(v3));
 const $Main$dTicket$dpriority = (v0) => {
   const v1 = v0.label;
   const v2 = v0.priority;

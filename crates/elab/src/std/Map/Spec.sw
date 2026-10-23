@@ -1,9 +1,11 @@
--- What each `Map` operation does to the entries in key order (`Map.toList`),
--- stated with sorted association lists (`Map.Spec`), and `Map.Equiv`: two
--- maps are equivalent when they have the same entries, whatever their trees'
--- shapes. Each operation respects `Map.Equiv`, proved from its agreement
--- lemma; `Map.same` decides it. Stage 0 of docs/proposals/map-equality.md
--- ("Stage 0 results" lists what is and isn't proved).
+-- What each `Map.Raw` operation does to the entries in key order
+-- (`Map.Raw.toList`), stated with sorted association lists (`Map.Spec`), and
+-- `Map.Raw.Equiv`: two raw maps are equivalent when they have the same
+-- entries, whatever their trees' shapes. Each operation respects
+-- `Map.Raw.Equiv`, proved from its agreement lemma; that is what lets `Map`
+-- (std/Map/Map.sw) lift it to the quotient. `Map.Raw.same` decides it.
+-- Stage 0 of docs/proposals/map-equality.md ("Stage 0 results" lists what is
+-- and isn't proved).
 
 import Std (Eq)
 import Map.Tree (Tip, Bin)
@@ -228,94 +230,94 @@ theorem Map.Tree.lengthOnto: (t: Map.Tree k v) -> (acc: List (k, v)) -> Map.Tree
           (Eq.trans (Eq.cong Succ (Eq.sym (Nat.addAssoc (Map.Tree.size l) (Map.Tree.size r) (List.length acc))))
             (Eq.cong (n => n + List.length acc) (Eq.sym e)))))
 
--- The same for maps.
+-- The same for raw maps.
 
-theorem Map.toListEmpty [auto ord: Ord k]: Map.toList (Map.empty: Map k v) = Nil := rfl
+theorem Map.Raw.toListEmpty [auto ord: Ord k]: Map.Raw.toList (Map.Raw.empty: Map.Raw k v) = Nil := rfl
 
-theorem Map.toListInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map k v):
-    Map.toList (Map.insertWith f key value m) = Map.Spec.insertWith f key value (Map.toList m) :=
+theorem Map.Raw.toListInsertWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.insertWith f key value m) = Map.Spec.insertWith f key value (Map.Raw.toList m) :=
   Map.Tree.insertWithOnto f key value None None m.tree Nil m.ordered Trivial
 
-theorem Map.toListInsert [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
-    Map.toList (Map.insert key value m) = Map.Spec.insert key value (Map.toList m) :=
-  Map.toListInsertWith (new old => new) key value m
+theorem Map.Raw.toListInsert [auto ord: Ord k] (key: k) (value: v) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.insert key value m) = Map.Spec.insert key value (Map.Raw.toList m) :=
+  Map.Raw.toListInsertWith (new old => new) key value m
 
-theorem Map.toListSingleton [auto ord: Ord k] (key: k) (value: v):
-    Map.toList (Map.singleton key value: Map k v) = [(key, value)] := rfl
+theorem Map.Raw.toListSingleton [auto ord: Ord k] (key: k) (value: v):
+    Map.Raw.toList (Map.Raw.singleton key value: Map.Raw k v) = [(key, value)] := rfl
 
-theorem Map.toListRemove [auto ord: Ord k] (key: k) (m: Map k v):
-    Map.toList (Map.remove key m) = Map.Spec.remove key (Map.toList m) :=
+theorem Map.Raw.toListRemove [auto ord: Ord k] (key: k) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.remove key m) = Map.Spec.remove key (Map.Raw.toList m) :=
   Map.Tree.removeOnto key None None m.tree Nil m.ordered Trivial
 
-theorem Map.toListMap (f: v -> w) (m: Map k v [ord := o]):
-    Map.toList (Map.map f m) = Map.Spec.mapValues f (Map.toList m) :=
+theorem Map.Raw.toListMap (f: v -> w) (m: Map.Raw k v [ord := o]):
+    Map.Raw.toList (Map.Raw.map f m) = Map.Spec.mapValues f (Map.Raw.toList m) :=
   Map.Tree.mapOnto f m.tree Nil
 
-theorem Map.foldLeftToList (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]):
-    Map.foldLeft f z m = Map.Spec.foldLeft f z (Map.toList m) :=
+theorem Map.Raw.foldLeftToList (f: b -> k -> v -> b) (z: b) (m: Map.Raw k v [ord := o]):
+    Map.Raw.foldLeft f z m = Map.Spec.foldLeft f z (Map.Raw.toList m) :=
   Eq.sym (Map.Tree.foldLeftOnto f z m.tree Nil)
 
-theorem Map.getToList [auto ord: Ord k] (key: k) (m: Map k v):
-    Map.get key m = Map.Tree.lookupList key (Map.toList m) :=
+theorem Map.Raw.getToList [auto ord: Ord k] (key: k) (m: Map.Raw k v):
+    Map.Raw.get key m = Map.Tree.lookupList key (Map.Raw.toList m) :=
   Map.Tree.getLookup key None None m.tree m.ordered
 
-theorem Map.sizeToList (m: Map k v [ord := o]): Map.size m = List.length (Map.toList m) :=
+theorem Map.Raw.sizeToList (m: Map.Raw k v [ord := o]): Map.Raw.size m = List.length (Map.Raw.toList m) :=
   Eq.sym (Eq.trans (Map.Tree.lengthOnto m.tree Nil m.sized) (Nat.addZero (Map.Tree.size m.tree)))
 
 -- A fold whose step agrees with a list step gives the list fold's entries.
-theorem Map.toListFold [auto ord: Ord k] (g: Map k v -> k -> v -> Map k v) (h: List (k, v) -> k -> v -> List (k, v))
-    (step: (m: Map k v) -> (key: k) -> (value: v) -> Map.toList (g m key value) = h (Map.toList m) key value):
-    (m: Map k v) -> (xs: List (k, v)) -> Map.toList (Map.Spec.foldLeft g m xs) = Map.Spec.foldLeft h (Map.toList m) xs
+theorem Map.Raw.toListFold [auto ord: Ord k] (g: Map.Raw k v -> k -> v -> Map.Raw k v) (h: List (k, v) -> k -> v -> List (k, v))
+    (step: (m: Map.Raw k v) -> (key: k) -> (value: v) -> Map.Raw.toList (g m key value) = h (Map.Raw.toList m) key value):
+    (m: Map.Raw k v) -> (xs: List (k, v)) -> Map.Raw.toList (Map.Spec.foldLeft g m xs) = Map.Spec.foldLeft h (Map.Raw.toList m) xs
   | m, Nil => rfl
   | m, Cons (kk, vv) rest =>
-    Eq.trans (Map.toListFold g h step (g m kk vv) rest)
+    Eq.trans (Map.Raw.toListFold g h step (g m kk vv) rest)
       (Eq.cong (l => Map.Spec.foldLeft h l rest) (step m kk vv))
 
-theorem Map.toListFromListOnto [auto ord: Ord k]: (xs: List (k, v)) -> (m: Map k v) ->
-    Map.toList (List.foldLeft (acc entry => Map.insert entry.fst entry.snd acc) m xs)
-      = List.foldLeft (l entry => Map.Spec.insert entry.fst entry.snd l) (Map.toList m) xs
+theorem Map.Raw.toListFromListOnto [auto ord: Ord k]: (xs: List (k, v)) -> (m: Map.Raw k v) ->
+    Map.Raw.toList (List.foldLeft (acc entry => Map.Raw.insert entry.fst entry.snd acc) m xs)
+      = List.foldLeft (l entry => Map.Spec.insert entry.fst entry.snd l) (Map.Raw.toList m) xs
   | Nil, m => rfl
   | Cons (kk, vv) rest, m =>
-    Eq.trans (Map.toListFromListOnto rest (Map.insert kk vv m))
-      (Eq.cong (l => List.foldLeft (l2 entry => Map.Spec.insert entry.fst entry.snd l2) l rest) (Map.toListInsert kk vv m))
+    Eq.trans (Map.Raw.toListFromListOnto rest (Map.Raw.insert kk vv m))
+      (Eq.cong (l => List.foldLeft (l2 entry => Map.Spec.insert entry.fst entry.snd l2) l rest) (Map.Raw.toListInsert kk vv m))
 
-theorem Map.toListFromList [auto ord: Ord k] (xs: List (k, v)):
-    Map.toList (Map.fromList xs: Map k v) = Map.Spec.fromList xs :=
-  Map.toListFromListOnto xs Map.empty
+theorem Map.Raw.toListFromList [auto ord: Ord k] (xs: List (k, v)):
+    Map.Raw.toList (Map.Raw.fromList xs: Map.Raw k v) = Map.Spec.fromList xs :=
+  Map.Raw.toListFromListOnto xs Map.Raw.empty
 
-theorem Map.toListFilterStep [auto ord: Ord k] (p: k -> v -> Bool) (m: Map k v) (key: k) (value: v):
-    Map.toList (if p key value then Map.insert key value m else m)
-      = (if p key value then Map.Spec.insert key value (Map.toList m) else Map.toList m) :=
+theorem Map.Raw.toListFilterStep [auto ord: Ord k] (p: k -> v -> Bool) (m: Map.Raw k v) (key: k) (value: v):
+    Map.Raw.toList (if p key value then Map.Raw.insert key value m else m)
+      = (if p key value then Map.Spec.insert key value (Map.Raw.toList m) else Map.Raw.toList m) :=
   match c: p key value with
-    | True => Map.toListInsert key value m
+    | True => Map.Raw.toListInsert key value m
     | False => rfl
 
-theorem Map.toListFilter [auto ord: Ord k] (p: k -> v -> Bool) (m: Map k v):
-    Map.toList (Map.filter p m) = Map.Spec.filter p (Map.toList m) :=
-  rewrite Map.foldLeftToList (acc key value => if p key value then Map.insert key value acc else acc) Map.empty m in
-  Map.toListFold (acc key value => if p key value then Map.insert key value acc else acc)
+theorem Map.Raw.toListFilter [auto ord: Ord k] (p: k -> v -> Bool) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.filter p m) = Map.Spec.filter p (Map.Raw.toList m) :=
+  rewrite Map.Raw.foldLeftToList (acc key value => if p key value then Map.Raw.insert key value acc else acc) Map.Raw.empty m in
+  Map.Raw.toListFold (acc key value => if p key value then Map.Raw.insert key value acc else acc)
     (l key value => if p key value then Map.Spec.insert key value l else l)
-    (Map.toListFilterStep p) Map.empty (Map.toList m)
+    (Map.Raw.toListFilterStep p) Map.Raw.empty (Map.Raw.toList m)
 
-theorem Map.toListUnion [auto ord: Ord k] (a: Map k v) (b: Map k v):
-    Map.toList (Map.union a b) = Map.Spec.union (Map.toList a) (Map.toList b) :=
-  rewrite Map.foldLeftToList (acc key value => Map.insert key value acc) b a in
-  Map.toListFold (acc key value => Map.insert key value acc) ((l: List (k, v)) (key: k) (value: v) => Map.Spec.insert key value l)
-    (m key value => Map.toListInsert key value m) b (Map.toList a)
+theorem Map.Raw.toListUnion [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.union a b) = Map.Spec.union (Map.Raw.toList a) (Map.Raw.toList b) :=
+  rewrite Map.Raw.foldLeftToList (acc key value => Map.Raw.insert key value acc) b a in
+  Map.Raw.toListFold (acc key value => Map.Raw.insert key value acc) ((l: List (k, v)) (key: k) (value: v) => Map.Spec.insert key value l)
+    (m key value => Map.Raw.toListInsert key value m) b (Map.Raw.toList a)
 
-theorem Map.toListAlter [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map k v):
-    Map.toList (Map.alter f key m) = Map.Spec.alter f key (Map.toList m) :=
-  rewrite Map.getToList key m in
-  match c: f (Map.Tree.lookupList key (Map.toList m)) with
-    | None => Map.toListRemove key m
-    | Some value => Map.toListInsert key value m
+theorem Map.Raw.toListAlter [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.alter f key m) = Map.Spec.alter f key (Map.Raw.toList m) :=
+  rewrite Map.Raw.getToList key m in
+  match c: f (Map.Tree.lookupList key (Map.Raw.toList m)) with
+    | None => Map.Raw.toListRemove key m
+    | Some value => Map.Raw.toListInsert key value m
 
-theorem Map.toListAdjust [auto ord: Ord k] (f: v -> v) (key: k) (m: Map k v):
-    Map.toList (Map.adjust f key m) = Map.Spec.adjust f key (Map.toList m) :=
-  rewrite Map.getToList key m in
-  match c: Map.Tree.lookupList key (Map.toList m) with
+theorem Map.Raw.toListAdjust [auto ord: Ord k] (f: v -> v) (key: k) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.adjust f key m) = Map.Spec.adjust f key (Map.Raw.toList m) :=
+  rewrite Map.Raw.getToList key m in
+  match c: Map.Tree.lookupList key (Map.Raw.toList m) with
     | None => rfl
-    | Some old => Map.toListInsert key (f old) m
+    | Some old => Map.Raw.toListInsert key (f old) m
 
 -- The entries are in strictly increasing key order
 
@@ -356,7 +358,7 @@ theorem Map.Tree.ascendingOnto (ord: Ord k): (lo: Option k) -> (hi: Option k) ->
       (Both akk (Map.Tree.ascendingOnto ord (Some kk) hi r acc wr (Map.Spec.ascendingAbove ord lo kk hi acc bkk asc fits) fits))
       (x => Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf kk)) x))
 
-theorem Map.toListSorted [auto ord: Ord k] (m: Map k v): Map.Spec.Sorted ord (Map.toList m) :=
+theorem Map.Raw.toListSorted [auto ord: Ord k] (m: Map.Raw k v): Map.Spec.Sorted ord (Map.Raw.toList m) :=
   Map.Tree.ascendingOnto ord None None m.tree Nil m.ordered Trivial Trivial
 
 -- In a list whose keys are all above `lo`, no key at or below `lo` is found.
@@ -474,94 +476,94 @@ theorem Map.Spec.filterOnto [auto ord: Ord k] (p: k -> v -> Bool): (ys: List (k,
           (List.appendAssoc ys (Cons (a, b) Nil) (List.filter (e => p e.fst e.snd) rest))
       | False => Map.Spec.filterOnto p ys rest (Map.Spec.ascendingDrop None ys a b rest asc)
 
-theorem Map.toListFilterList [auto ord: Ord k] (p: k -> v -> Bool) (m: Map k v):
-    Map.toList (Map.filter p m) = List.filter (e => p e.fst e.snd) (Map.toList m) :=
-  Eq.trans (Map.toListFilter p m) (Map.Spec.filterOnto p Nil (Map.toList m) (Map.toListSorted m))
+theorem Map.Raw.toListFilterList [auto ord: Ord k] (p: k -> v -> Bool) (m: Map.Raw k v):
+    Map.Raw.toList (Map.Raw.filter p m) = List.filter (e => p e.fst e.snd) (Map.Raw.toList m) :=
+  Eq.trans (Map.Raw.toListFilter p m) (Map.Spec.filterOnto p Nil (Map.Raw.toList m) (Map.Raw.toListSorted m))
 
--- Equivalent maps: the same entries, whatever their trees' shapes
+-- Equivalent raw maps: the same entries, whatever their trees' shapes
 
-def Map.Equiv (m: Map k v [ord := o]) (n: Map k v [ord := o]): Prop := Map.toList m = Map.toList n
+def Map.Raw.Equiv (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]): Prop := Map.Raw.toList m = Map.Raw.toList n
 
-theorem Map.equivRefl (m: Map k v [ord := o]): Map.Equiv m m := rfl
+theorem Map.Raw.equivRefl (m: Map.Raw k v [ord := o]): Map.Raw.Equiv m m := rfl
 
-theorem Map.equivSym (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n): Map.Equiv n m := Eq.sym h
+theorem Map.Raw.equivSym (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.Equiv n m := Eq.sym h
 
-theorem Map.equivTrans (m: Map k v [ord := o]) (n: Map k v [ord := o]) (p: Map k v [ord := o])
-    (h1: Map.Equiv m n) (h2: Map.Equiv n p): Map.Equiv m p :=
+theorem Map.Raw.equivTrans (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (p: Map.Raw k v [ord := o])
+    (h1: Map.Raw.Equiv m n) (h2: Map.Raw.Equiv n p): Map.Raw.Equiv m p :=
   Eq.trans h1 h2
 
 -- The same `get` for every key means the same entries; with
--- `Map.getRespects`, `Map.Equiv` is exactly "the same `get` everywhere".
-theorem Map.equivOfGet [auto ord: Ord k] (m: Map k v) (n: Map k v) (h: (key: k) -> Map.get key m = Map.get key n):
-    Map.Equiv m n :=
-  Map.Spec.extLookup None (Map.toList m) (Map.toList n) (Map.toListSorted m) (Map.toListSorted n)
-    (key => Eq.trans (Eq.sym (Map.getToList key m)) (Eq.trans (h key) (Map.getToList key n)))
+-- `Map.Raw.getRespects`, `Map.Raw.Equiv` is exactly "the same `get` everywhere".
+theorem Map.Raw.equivOfGet [auto ord: Ord k] (m: Map.Raw k v) (n: Map.Raw k v) (h: (key: k) -> Map.Raw.get key m = Map.Raw.get key n):
+    Map.Raw.Equiv m n :=
+  Map.Spec.extLookup None (Map.Raw.toList m) (Map.Raw.toList n) (Map.Raw.toListSorted m) (Map.Raw.toListSorted n)
+    (key => Eq.trans (Eq.sym (Map.Raw.getToList key m)) (Eq.trans (h key) (Map.Raw.getToList key n)))
 
--- Each operation respects `Map.Equiv`: equivalent maps give equal results,
+-- Each operation respects `Map.Raw.Equiv`: equivalent maps give equal results,
 -- or equivalent maps.
 
-theorem Map.getRespects [auto ord: Ord k] (key: k) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.get key m = Map.get key n :=
-  Eq.trans (Map.getToList key m) (Eq.trans (Eq.cong (Map.Tree.lookupList key) h) (Eq.sym (Map.getToList key n)))
+theorem Map.Raw.getRespects [auto ord: Ord k] (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.get key m = Map.Raw.get key n :=
+  Eq.trans (Map.Raw.getToList key m) (Eq.trans (Eq.cong (Map.Tree.lookupList key) h) (Eq.sym (Map.Raw.getToList key n)))
 
-theorem Map.getOrRespects [auto ord: Ord k] (d: v) (key: k) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.getOr d key m = Map.getOr d key n :=
-  Eq.cong (Option.getOrElse d) (Map.getRespects key m n h)
+theorem Map.Raw.getOrRespects [auto ord: Ord k] (d: v) (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.getOr d key m = Map.Raw.getOr d key n :=
+  Eq.cong (Option.getOrElse d) (Map.Raw.getRespects key m n h)
 
-theorem Map.containsRespects [auto ord: Ord k] (key: k) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.contains key m = Map.contains key n :=
-  rewrite Map.getRespects key m n h in rfl
+theorem Map.Raw.containsRespects [auto ord: Ord k] (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.contains key m = Map.Raw.contains key n :=
+  rewrite Map.Raw.getRespects key m n h in rfl
 
-theorem Map.sizeRespects (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n): Map.size m = Map.size n :=
-  Eq.trans (Map.sizeToList m) (Eq.trans (Eq.cong List.length h) (Eq.sym (Map.sizeToList n)))
+theorem Map.Raw.sizeRespects (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.size m = Map.Raw.size n :=
+  Eq.trans (Map.Raw.sizeToList m) (Eq.trans (Eq.cong List.length h) (Eq.sym (Map.Raw.sizeToList n)))
 
-theorem Map.isEmptyRespects (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n): Map.isEmpty m = Map.isEmpty n :=
-  Eq.cong (s => Nat.equal s 0) (Map.sizeRespects m n h)
+theorem Map.Raw.isEmptyRespects (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.isEmpty m = Map.Raw.isEmpty n :=
+  Eq.cong (s => Nat.equal s 0) (Map.Raw.sizeRespects m n h)
 
-theorem Map.keysRespects (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n): Map.keys m = Map.keys n :=
+theorem Map.Raw.keysRespects (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.keys m = Map.Raw.keys n :=
   Eq.cong (List.map Pair.fst) h
 
-theorem Map.valuesRespects (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n): Map.values m = Map.values n :=
+theorem Map.Raw.valuesRespects (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.values m = Map.Raw.values n :=
   Eq.cong (List.map Pair.snd) h
 
-theorem Map.foldLeftRespects (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n):
-    Map.foldLeft f z m = Map.foldLeft f z n :=
-  Eq.trans (Map.foldLeftToList f z m) (Eq.trans (Eq.cong (Map.Spec.foldLeft f z) h) (Eq.sym (Map.foldLeftToList f z n)))
+theorem Map.Raw.foldLeftRespects (f: b -> k -> v -> b) (z: b) (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n):
+    Map.Raw.foldLeft f z m = Map.Raw.foldLeft f z n :=
+  Eq.trans (Map.Raw.foldLeftToList f z m) (Eq.trans (Eq.cong (Map.Spec.foldLeft f z) h) (Eq.sym (Map.Raw.foldLeftToList f z n)))
 
-theorem Map.insertWithRespects [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.Equiv (Map.insertWith f key value m) (Map.insertWith f key value n) :=
-  Eq.trans (Map.toListInsertWith f key value m)
-    (Eq.trans (Eq.cong (Map.Spec.insertWith f key value) h) (Eq.sym (Map.toListInsertWith f key value n)))
+theorem Map.Raw.insertWithRespects [auto ord: Ord k] (f: v -> v -> v) (key: k) (value: v) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.insertWith f key value m) (Map.Raw.insertWith f key value n) :=
+  Eq.trans (Map.Raw.toListInsertWith f key value m)
+    (Eq.trans (Eq.cong (Map.Spec.insertWith f key value) h) (Eq.sym (Map.Raw.toListInsertWith f key value n)))
 
-theorem Map.insertRespects [auto ord: Ord k] (key: k) (value: v) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.Equiv (Map.insert key value m) (Map.insert key value n) :=
-  Map.insertWithRespects (new old => new) key value m n h
+theorem Map.Raw.insertRespects [auto ord: Ord k] (key: k) (value: v) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.insert key value m) (Map.Raw.insert key value n) :=
+  Map.Raw.insertWithRespects (new old => new) key value m n h
 
-theorem Map.removeRespects [auto ord: Ord k] (key: k) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.Equiv (Map.remove key m) (Map.remove key n) :=
-  Eq.trans (Map.toListRemove key m) (Eq.trans (Eq.cong (Map.Spec.remove key) h) (Eq.sym (Map.toListRemove key n)))
+theorem Map.Raw.removeRespects [auto ord: Ord k] (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.remove key m) (Map.Raw.remove key n) :=
+  Eq.trans (Map.Raw.toListRemove key m) (Eq.trans (Eq.cong (Map.Spec.remove key) h) (Eq.sym (Map.Raw.toListRemove key n)))
 
-theorem Map.alterRespects [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.Equiv (Map.alter f key m) (Map.alter f key n) :=
-  Eq.trans (Map.toListAlter f key m) (Eq.trans (Eq.cong (Map.Spec.alter f key) h) (Eq.sym (Map.toListAlter f key n)))
+theorem Map.Raw.alterRespects [auto ord: Ord k] (f: Option v -> Option v) (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.alter f key m) (Map.Raw.alter f key n) :=
+  Eq.trans (Map.Raw.toListAlter f key m) (Eq.trans (Eq.cong (Map.Spec.alter f key) h) (Eq.sym (Map.Raw.toListAlter f key n)))
 
-theorem Map.adjustRespects [auto ord: Ord k] (f: v -> v) (key: k) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.Equiv (Map.adjust f key m) (Map.adjust f key n) :=
-  Eq.trans (Map.toListAdjust f key m) (Eq.trans (Eq.cong (Map.Spec.adjust f key) h) (Eq.sym (Map.toListAdjust f key n)))
+theorem Map.Raw.adjustRespects [auto ord: Ord k] (f: v -> v) (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.adjust f key m) (Map.Raw.adjust f key n) :=
+  Eq.trans (Map.Raw.toListAdjust f key m) (Eq.trans (Eq.cong (Map.Spec.adjust f key) h) (Eq.sym (Map.Raw.toListAdjust f key n)))
 
-theorem Map.mapRespects (f: v -> w) (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: Map.Equiv m n):
-    Map.Equiv (Map.map f m) (Map.map f n) :=
-  Eq.trans (Map.toListMap f m) (Eq.trans (Eq.cong (Map.Spec.mapValues f) h) (Eq.sym (Map.toListMap f n)))
+theorem Map.Raw.mapRespects (f: v -> w) (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.map f m) (Map.Raw.map f n) :=
+  Eq.trans (Map.Raw.toListMap f m) (Eq.trans (Eq.cong (Map.Spec.mapValues f) h) (Eq.sym (Map.Raw.toListMap f n)))
 
-theorem Map.filterRespects [auto ord: Ord k] (p: k -> v -> Bool) (m: Map k v) (n: Map k v) (h: Map.Equiv m n):
-    Map.Equiv (Map.filter p m) (Map.filter p n) :=
-  Eq.trans (Map.toListFilter p m) (Eq.trans (Eq.cong (Map.Spec.filter p) h) (Eq.sym (Map.toListFilter p n)))
+theorem Map.Raw.filterRespects [auto ord: Ord k] (p: k -> v -> Bool) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.Equiv (Map.Raw.filter p m) (Map.Raw.filter p n) :=
+  Eq.trans (Map.Raw.toListFilter p m) (Eq.trans (Eq.cong (Map.Spec.filter p) h) (Eq.sym (Map.Raw.toListFilter p n)))
 
-theorem Map.unionRespects [auto ord: Ord k] (a: Map k v) (a2: Map k v) (b: Map k v) (b2: Map k v)
-    (ha: Map.Equiv a a2) (hb: Map.Equiv b b2): Map.Equiv (Map.union a b) (Map.union a2 b2) :=
-  Eq.trans (Map.toListUnion a b)
-    (Eq.trans (Eq.cong (l => Map.Spec.union l (Map.toList b)) ha)
-      (Eq.trans (Eq.cong (l => Map.Spec.union (Map.toList a2) l) hb) (Eq.sym (Map.toListUnion a2 b2))))
+theorem Map.Raw.unionRespects [auto ord: Ord k] (a: Map.Raw k v) (a2: Map.Raw k v) (b: Map.Raw k v) (b2: Map.Raw k v)
+    (ha: Map.Raw.Equiv a a2) (hb: Map.Raw.Equiv b b2): Map.Raw.Equiv (Map.Raw.union a b) (Map.Raw.union a2 b2) :=
+  Eq.trans (Map.Raw.toListUnion a b)
+    (Eq.trans (Eq.cong (l => Map.Spec.union l (Map.Raw.toList b)) ha)
+      (Eq.trans (Eq.cong (l => Map.Spec.union (Map.Raw.toList a2) l) hb) (Eq.sym (Map.Raw.toListUnion a2 b2))))
 
 -- Folds whose steps agree give the same result; so `filter` with
 -- predicates that agree keeps the same entries.
@@ -572,34 +574,34 @@ theorem Map.Spec.foldLeftCongr (f: b -> k -> v -> b) (g: b -> k -> v -> b)
   | z, Cons (kk, vv) rest =>
     Eq.trans (Map.Spec.foldLeftCongr f g h (f z kk vv) rest) (Eq.cong (y => Map.Spec.foldLeft g y rest) (h z kk vv))
 
-theorem Map.filterCongr [auto ord: Ord k] (p: k -> v -> Bool) (q: k -> v -> Bool)
-    (same: (key: k) -> (value: v) -> p key value = q key value) (m: Map k v):
-    Map.Equiv (Map.filter p m) (Map.filter q m) :=
-  Eq.trans (Map.toListFilter p m)
+theorem Map.Raw.filterCongr [auto ord: Ord k] (p: k -> v -> Bool) (q: k -> v -> Bool)
+    (same: (key: k) -> (value: v) -> p key value = q key value) (m: Map.Raw k v):
+    Map.Raw.Equiv (Map.Raw.filter p m) (Map.Raw.filter q m) :=
+  Eq.trans (Map.Raw.toListFilter p m)
     (Eq.trans (Map.Spec.foldLeftCongr
         ((l: List (k, v)) (key: k) (value: v) => if p key value then Map.Spec.insert key value l else l)
         ((l: List (k, v)) (key: k) (value: v) => if q key value then Map.Spec.insert key value l else l)
-        (l key value => rewrite same key value in rfl) Nil (Map.toList m))
-      (Eq.sym (Map.toListFilter q m)))
+        (l key value => rewrite same key value in rfl) Nil (Map.Raw.toList m))
+      (Eq.sym (Map.Raw.toListFilter q m)))
 
--- Deciding `Map.Equiv` by comparing the entry lists. It needs `DecEq` for
+-- Deciding `Map.Raw.Equiv` by comparing the entry lists. It needs `DecEq` for
 -- the values (the keys have one in their `Ord`): a test that said "same"
 -- exactly when the entries are equal would decide equality of any two
 -- values, through one-entry maps.
-def Map.same [auto dv: DecEq v] (m: Map k v [ord := o]) (n: Map k v [ord := o]): Bool :=
-  Map.toList m == Map.toList n
+def Map.Raw.same [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]): Bool :=
+  Map.Raw.toList m == Map.Raw.toList n
 
-theorem Map.sameSound [auto dv: DecEq v] (m: Map k v [ord := o]) (n: Map k v [ord := o])
-    (h: Map.same m n = True): Map.Equiv m n :=
-  Decidable.toBoolSound (DecEq.decide (Map.toList m) (Map.toList n)) h
+theorem Map.Raw.sameSound [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o])
+    (h: Map.Raw.same m n = True): Map.Raw.Equiv m n :=
+  Decidable.toBoolSound (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)) h
 
-theorem Map.sameComplete [auto dv: DecEq v] (m: Map k v [ord := o]) (n: Map k v [ord := o])
-    (h: Map.Equiv m n): Map.same m n = True :=
-  Decidable.toBoolOf (DecEq.decide (Map.toList m) (Map.toList n)) h
+theorem Map.Raw.sameComplete [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o])
+    (h: Map.Raw.Equiv m n): Map.Raw.same m n = True :=
+  Decidable.toBoolOf (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)) h
 
-theorem Map.sameIff [auto dv: DecEq v] (m: Map k v [ord := o]) (n: Map k v [ord := o]):
-    Iff (Map.same m n = True) (Map.Equiv m n) :=
-  { forward = Map.sameSound m n, backward = Map.sameComplete m n }
+theorem Map.Raw.sameIff [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]):
+    Iff (Map.Raw.same m n = True) (Map.Raw.Equiv m n) :=
+  { forward = Map.Raw.sameSound m n, backward = Map.Raw.sameComplete m n }
 
 def Map.Spec.example: List (Nat, Text) := [(1, "a"), (3, "c")]
 
@@ -610,7 +612,7 @@ test "map spec: insert" :=
 test "map spec: remove" :=
   Map.Spec.remove 1 Map.Spec.example == [(3, "c")] && Map.Spec.remove 2 Map.Spec.example == Map.Spec.example
 test "map spec: fromList, later wins" := Map.Spec.fromList [(2, "x"), (1, "a"), (2, "b")] == [(1, "a"), (2, "b")]
-test "map: same in any order" :=
-  Map.same (Map.fromList [(1, "a"), (2, "b"), (3, "c")]: Map Nat Text) (Map.fromList [(3, "c"), (1, "a"), (2, "b")])
-test "map: same sees a changed value" :=
-  !(Map.same (Map.fromList [(1, "a"), (2, "b")]: Map Nat Text) (Map.fromList [(1, "a"), (2, "B")]))
+test "raw map: same in any order" :=
+  Map.Raw.same (Map.Raw.fromList [(1, "a"), (2, "b"), (3, "c")]: Map.Raw Nat Text) (Map.Raw.fromList [(3, "c"), (1, "a"), (2, "b")])
+test "raw map: same sees a changed value" :=
+  !(Map.Raw.same (Map.Raw.fromList [(1, "a"), (2, "b")]: Map.Raw Nat Text) (Map.Raw.fromList [(1, "a"), (2, "B")]))

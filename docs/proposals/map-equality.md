@@ -1107,11 +1107,11 @@ the design rests on: the quotient identifies exactly the maps with the same entr
 ### 8.3 `DecEq`
 
 ```
-def Map.decEq [auto ord: Ord k] [auto d: DecEq v] (m: Map k v) (n: Map k v): Decidable (m = n) :=
-  match List.decEq (m.toList) (n.toList) with       -- elements (k, v): ord.eq and d
-    | Yes h => Yes (Map.toListInjective h)
+def Map.decEq [auto d: DecEq v] (m: Map k v [ord := o]) (n: Map k v [ord := o]): Decidable (m = n) :=
+  match List.decEq (Pair.decEq o.eq.decide d.decide) (m.toList) (n.toList) with
+    | Yes h => Yes (Map.toListInjective m n h)
     | No h  => No (p => h (Eq.cong Map.toList p))
-instance Map.instDecEq [auto ord: Ord k] [auto d: DecEq v]: DecEq (Map k v) := { decide = Map.decEq }
+instance Map.instDecEq [auto d: DecEq v]: DecEq (Map k v [ord := o]) := { decide = Map.decEq }
 ```
 
 The branch is chosen by comparing lists, which computes in the kernel whenever both maps reach
@@ -1737,6 +1737,45 @@ and `run --js`; all four print the same nine lines for the prototype's `main`
 **The gate passes; stage 2 may start.** The two adjustments above (instance heads written with
 `[ord := o]`; over-applying a quotient form) are things stage 2 has to write around, not
 design problems.
+
+**Stage 2, step 2.1 as built (`Map` and `Set` are quotients).**
+
+- **Files.** `std/Map/Raw.sw` is the old `Map.sw` with the record and its operations and
+  theorems renamed to `Map.Raw` (§8.1; `Map.Tree.*`, `Map.Spec.*` and `Map.lookupLast` keep
+  their names); `std/Map/Spec.sw` is stage 0's file about `Map.Raw` (`Map.Raw.Equiv`, the
+  agreement and respects lemmas, `Map.Raw.same`). The new `std/Map/Map.sw` has
+  `type Map (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }`
+  and needs `Spec.sw` (the respects lemmas), so a program using `Map` now loads `Raw.sw`,
+  `Spec.sw` and `Map.sw`. No compiler change beyond the codecs.
+- **Operations.** `empty`, `singleton`, `fromList` are `Map.ofRaw` (`{ raw = Quot.mk r }`) of
+  the raw ones; `toList`, `get`, `size`, `foldLeft` are `Quot.lift` with the respects lemma;
+  `insertWith`, `insert`, `remove`, `alter`, `adjust`, `map`, `filter` are §8.1's form (lift to
+  `Quot.mk` of the raw result, respected by `Quot.sound` of the raw respects lemma); `union`
+  lifts twice (`Map.unionRaw`, with `Quot.ind` on the second map in the outer respects proof).
+  `getOr`, `contains`, `isEmpty`, `keys`, `values` are written from `get`, `size` and `toList`,
+  as before, so they need no lift.
+- **Theorems.** `rawInjective`, `toListInjective`, `eqIffToListEq`, `toListSorted`, `getToList`,
+  `ext`, `insertComm`, `insertGet`; every stage-0 agreement lemma and `get` lemma that users
+  had (`toListInsert` … `toListUnion`, `foldLeftToList`, `sizeToList`, `getInsert`,
+  `getInsertOther`, `getInsertWith`, `getMap`, `getFromList`), each by `Map.indRaw` (one
+  `Quot.ind`) from the raw lemma. Instances as §8.3 and §8.4 with the ordering a variable;
+  keys are compared by the map's own `o` (`o.eq`, `o.compare`), not by a default instance.
+- **`Set`** stays a record around `Map k ()` (D745): with `Map` a quotient it is one too.
+  `Set.toListInjective`, `Set.decEq`/`instDecEq` and `Set.instOrd` (key lists by `o`) are in
+  `Set.sw`; `Set/Spec.sw` keeps the `toList` lemmas and gains `Set.ext` (by `contains`).
+  Stage 0's `Map.Equiv`, `Map.same`, `Set.Equiv`, `Set.same` and the respects lemmas on the
+  public types are gone (equality replaces them); the raw ones remain.
+- **D58.** `Map.decEq` and `Set.decEq` are decision procedures in library files; like
+  `Float.decEq` they decide only equations between maps or sets, which can't be written
+  without the file loaded, so `std_library`'s D58 test lists them as exceptions.
+- **Codecs (§13.2).** Recognition and `MAP_SHAPE` are unchanged. `boundary_literal` reads the
+  tree through `Quot.mk`'s representative; the extraction test's random maps are built as
+  `{ raw = Quot.mk raw }`.
+- **Users.** AoC day 8 and its proofs check unchanged. `dictionary.sw`'s `same` is `a == b`;
+  `map-set.sw` gains `==` tests for maps and sets; `map-equiv.sw` now shows equality
+  (`==`, derived `==` on a record, `insertComm`, `ext` for maps of functions);
+  the `quot-protomap*` examples and `map-wrong-size.sw` use `Map.Raw`.
+- **Left for step 2.2:** maps.md §4.3's API additions and §4.4's further lemmas.
 
 ### 14.2 The gate before stage 2: the review's eight properties
 

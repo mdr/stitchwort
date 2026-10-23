@@ -54,7 +54,7 @@ export def nested (groups: Map Text (Map Text Nat)): Map Text Nat := Map.map tot
 export def merge (a: Map Text Nat) (b: Map Text Nat): Map Text Nat := Map.union a b
 
 -- Maps have `==`: by entries, in any order the keys were given.
-export def same (a: Map Text Nat) (b: Map Text Nat): Bool := Map.toList a == Map.toList b
+export def same (a: Map Text Nat) (b: Map Text Nat): Bool := a == b
 
 -- An optional value: `number | undefined`.
 export def sparse (m: Map Text (Option Nat)): Map Text (Option Nat) := m

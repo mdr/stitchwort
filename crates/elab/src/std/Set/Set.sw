@@ -2,7 +2,9 @@
 -- ordering in the type as for `Map` (docs/proposals/interfaces.md §7.5):
 -- `Set Nat` is `Set Nat [ord := Nat.instOrd]`. A record around the map, not
 -- a synonym for it, so that dot notation on a set finds `Set`'s functions
--- (`s.insert 3`, `s.toList`). docs/proposals/map-set.md.
+-- (`s.insert 3`, `s.toList`). The map is a quotient, so sets with the same
+-- keys are equal and `==` compares keys (docs/proposals/map-equality.md §8).
+-- docs/proposals/map-set.md.
 
 type Set (k: Type) [auto ord: Ord k] = { items: Map k () [ord := ord] }
 
@@ -47,6 +49,42 @@ def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := Set.filter 
 theorem Set.containsInsert [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
   rewrite Map.getInsert key () s.items in rfl
 
+-- Equality: the same keys. A set's map is a quotient (std/Map/Map.sw), so
+-- sets with the same keys are equal, whatever order they were inserted in.
+
+theorem Set.unitEq: (u: ()) -> (w: ()) -> u = w
+  | (), () => rfl
+
+-- Entries whose values are all `()` are fixed by their keys.
+theorem Set.unitEntries: (xs: List (k, ())) -> (ys: List (k, ())) -> List.map Pair.fst xs = List.map Pair.fst ys -> xs = ys
+  | Nil, Nil, h => rfl
+  | Nil, Cons (b, w) ys2, h => Void.exfalso (List.nilNotCons b (List.map Pair.fst ys2) h)
+  | Cons (a, u) xs2, Nil, h => Void.exfalso (List.consNotNil a (List.map Pair.fst xs2) h)
+  | Cons (a, u) xs2, Cons (b, w) ys2, h =>
+    rewrite Eq.cong (List.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
+
+-- Sets with the same keys in order are equal.
+theorem Set.toListInjective: (s: Set k [ord := o]) -> (t: Set k [ord := o]) -> Set.toList s = Set.toList t -> s = t
+  | { items = m }, { items = n }, same =>
+    Eq.cong (i => ({ items = i }: Set k [ord := o])) (Map.toListInjective m n (Set.unitEntries (Map.toList m) (Map.toList n) same))
+
+-- `==`: compare the keys in order, by the set's ordering.
+def Set.decEq (s: Set k [ord := o]) (t: Set k [ord := o]): Decidable (s = t) :=
+  match List.decEq o.eq.decide (Set.toList s) (Set.toList t) with
+    | Yes same => Yes (Set.toListInjective s t same)
+    | No differ => No (same => differ (Eq.cong Set.toList same))
+
+instance Set.instDecEq: DecEq (Set k [ord := o]) := { decide = Set.decEq }
+
+-- `compare`: the keys in order, lexicographically, by the set's ordering.
+def Set.compare (s: Set k [ord := o]) (t: Set k [ord := o]): Ordering := List.compareLex o.compare (Set.toList s) (Set.toList t)
+
+instance Set.instOrd: Ord (Set k [ord := o]) :=
+  Ord.fromCompare [decEq := Set.instDecEq] Set.compare
+    (s t same => Set.toListInjective s t (List.compareLexEqual o.compare o.equal (Set.toList s) (Set.toList t) same))
+    (s t => List.compareLexFlip o.compare o.flip (Set.toList s) (Set.toList t))
+    (s t u => List.compareLexTrans o.compare o.equal o.trans (Set.toList s) (Set.toList t) (Set.toList u))
+
 -- `Set.fromList [1, 2]`, in order, whatever the ordering.
 instance Set.instShow [auto show: Show k]: Show (Set k [ord := o]) :=
   Show.fromText (s => Text.append "Set.fromList " (Show.list (x => Show.toSource x) (Set.toList s)))
@@ -63,6 +101,8 @@ test "set: union, intersect, difference" :=
   Set.toList (Set.union Set.example (Set.fromList [5, 0])) == [0, 1, 2, 3, 5]
     && Set.toList (Set.intersect Set.example (Set.fromList [2, 3, 4])) == [2, 3]
     && Set.toList (Set.difference Set.example (Set.fromList [2])) == [1, 3]
+test "set: equal in any order" := Set.example == Set.fromList [2, 3, 1] && Set.example != Set.fromList [1, 2]
+test "set: ordered by keys" := Set.fromList [1, 2] < Set.example && Set.example <= Set.fromList [3, 2, 1]
 test "set: show" := "${Set.fromList ["b", "a"]}" == "Set.fromList [\"a\", \"b\"]"
 
 -- The set of `f` applied to each key; keys that map to the same value merge,
