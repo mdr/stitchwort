@@ -3,9 +3,9 @@
 -- Kept apart from the program, so `stitchwort run Aoc.Day01.main` doesn't
 -- check it.
 --
--- The lemmas about the dial are for a dial of any size, `Mod n`; with the
--- literal 100, `x % 100` unfolds to `x - 100 * (x / 100)` and `100 * q` to a
--- hundred additions, so every comparison of such types took seconds.
+-- The lemmas about the dial are for a dial of any size, `Mod n`, not just the
+-- puzzle's 100: the proof then says nothing about the particular number, and
+-- the theorem covers every dial.
 
 namespace Aoc.Day01.Proofs
 import Aoc.Day01 (..)
@@ -69,14 +69,6 @@ theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec start
 -- lemmas below.
 def place (highest: Nat) (x: Int): Nat := Int.modNat x (Succ highest)
 
--- One click right on a dial of size `n`: from `a + 1 = n` the dial goes to
--- 0, otherwise to `a + 1`.
-theorem rightCases (n: Nat) [auto ok: n != 0] (a: Nat) (h: a < n) (goal: Prop)
-    (wraps: a + 1 = n -> goal) (below: Succ a < n -> goal): goal :=
-  match e: Nat.leq n (Succ a) with
-    | True  => wraps omega
-    | False => below omega
-
 theorem stepRightAt (d: Nat) [auto ok: d != 0] (a: Nat) (n: Nat):
     ((a + 1) % d + n) % d = (a + Succ n) % d :=
   calc ((a + 1) % d + n) % d
@@ -118,14 +110,17 @@ theorem leftAt [n: Nat] (dial: Dial n): (k: Nat) ->
 
 theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
-  rightCases d a h (Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d)
-    (e =>
+  match e: Nat.leq d (Succ a) with
+    | True  =>
+      -- the click wraps: `a + 1 = d`, so the dial goes to 0
       calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
-        _ = Succ (n / d)       := rewrite e, Nat.modSelf d
+        _ = Succ (n / d)       := rewrite (omega: a + 1 = d), Nat.modSelf d
         _ = (d + n) / d        := Eq.sym (Nat.addDivSelf d n)
         _ = (Succ a + n) / d   := Eq.cong (x => (x + n) / d) (omega: d = Succ a)
-        _ = (a + Succ n) / d   := rewrite Nat.addSucc a n)
-    (lt => rewrite Nat.addOne a, Nat.modSmall (Succ a) d lt, Nat.addSucc a n)
+        _ = (a + Succ n) / d   := rewrite Nat.addSucc a n
+    | False =>
+      -- no wrap: `Succ a < d`, so the dial goes to `a + 1`
+      rewrite Nat.addOne a, Nat.modSmall (Succ a) d (omega: Succ a < d), Nat.addSucc a n
 
 theorem rightCount [n: Nat] (dial: Dial n): (k: Nat) ->
     zerosAfter dial (List.replicate k (Right 1)) = (dial.position.value + k) / Mod.size n
