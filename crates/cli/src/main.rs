@@ -67,6 +67,10 @@ enum Command {
         /// one above it
         #[arg(long)]
         project: Option<PathBuf>,
+        /// Run the tests on the reference evaluator (the type checker's own,
+        /// which is much slower) instead of the fast runtime
+        #[arg(long)]
+        reference: bool,
     },
     /// Type-check a file, then run its `main`; or run a function of the
     /// project by its full name (`Day05.main`). Reads standard input and
@@ -215,7 +219,8 @@ fn run(cli: Cli) -> ExitCode {
             target,
             cache,
             project,
-        } => test(target.as_deref(), &cache, project.as_deref()),
+            reference,
+        } => test(target.as_deref(), &cache, project.as_deref(), reference),
         Command::Run {
             target,
             js,
@@ -600,8 +605,20 @@ fn test_cache(cache: &CacheArgs, base: &Path) -> Cache {
     cache_dir(cache, base).map_or_else(Cache::disabled, Cache::at)
 }
 
-fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> ExitCode {
+fn test(
+    target: Option<&str>,
+    cache: &CacheArgs,
+    project: Option<&Path>,
+    reference: bool,
+) -> ExitCode {
     let mut session = new_session(false);
+    let run_tests = |session: &Session, cache: &Cache| {
+        if reference {
+            session.run_tests(cache)
+        } else {
+            session.run_tests_fast(cache)
+        }
+    };
     match target {
         Some(file) if is_file_target(file) => {
             use_cache(&mut session, cache, Path::new("."));
@@ -610,7 +627,7 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            let code = print_tests(&session.run_tests(&cache), false);
+            let code = print_tests(&run_tests(&session, &cache), false);
             discard(session);
             // The tests of unfinished declarations aren't checked, so they
             // didn't run.
@@ -633,7 +650,7 @@ fn test(target: Option<&str>, cache: &CacheArgs, project: Option<&Path>) -> Exit
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            let results = session.run_tests(&cache);
+            let results = run_tests(&session, &cache);
             let code = print_tests(&results, true);
             discard(session);
             // A target that matched no tests (a typo, a namespace without

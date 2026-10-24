@@ -876,28 +876,147 @@ fn cut(text: &str) -> String {
     cut
 }
 
+/// Which evaluator runs a test.
+#[derive(Clone, Copy)]
+enum Runner {
+    /// The reference evaluator, the type checker's own.
+    Reference,
+    /// The machine of `stitchwort-rt`, falling back to the reference
+    /// evaluator.
+    Machine,
+}
+
+/// Which of the session's tests to run.
+type Selection<'a> = dyn Fn(&stitchwort_elab::TestDecl) -> bool + 'a;
+
+/// Tests lowered for the machine.
+struct TestMachine {
+    program: stitchwort_rt::Program,
+}
+
+impl TestMachine {
+    /// The outcome of the test `def` on `machine`, if it was lowered and
+    /// finished there: running out of resources is left to the reference
+    /// evaluator, whose limits a test's result is reported against.
+    fn run(
+        &self,
+        machine: &mut stitchwort_rt::Machine,
+        def: stitchwort_core::DefId,
+    ) -> Option<Outcome> {
+        let global = self.program.globals.iter().position(|g| g.def == def)?;
+        let global = stitchwort_rt::ir::GlobalId(u32::try_from(global).ok()?);
+        machine.reset_steps();
+        match machine.global(global) {
+            Ok(stitchwort_rt::value::Value::Tag(tag)) => {
+                Some(if tag == self.program.shapes.true_ {
+                    Outcome::Passed
+                } else {
+                    Outcome::Failed
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
 impl Session {
     /// Runs every test of the program loaded so far, using cached results
     /// where possible. The core's and the library's tests aren't the
     /// program's (docs/proposals/std-library.md §4.7): see
     /// [`Session::run_library_tests`].
     pub fn run_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, false)
+        self.run_selected(cache, &|test| !test.library, Runner::Reference)
+    }
+
+    /// [`Session::run_tests`], for only the tests `keep` keeps.
+    pub fn run_tests_where(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+    ) -> Vec<TestResult> {
+        self.run_selected(
+            cache,
+            &|test| !test.library && keep(test),
+            Runner::Reference,
+        )
+    }
+
+    /// [`Session::run_tests`], on the machine of `stitchwort-rt`
+    /// (docs/proposals/fast-runtime.md) where it can: a test it can't lower
+    /// or finish runs on the reference evaluator, which also still explains
+    /// a failure (SW-412).
+    pub fn run_tests_fast(&self, cache: &Cache) -> Vec<TestResult> {
+        self.run_selected(cache, &|test| !test.library, Runner::Machine)
     }
 
     /// Runs the tests of the core and of the library files loaded (all of
     /// them, in [`Session::with_library_tests`]).
     pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, true)
+        self.run_selected(cache, &|test| test.library, Runner::Reference)
     }
 
-    fn run_selected(&self, cache: &Cache, library: bool) -> Vec<TestResult> {
+    /// The tests `selected` that `cache` has no result for, lowered together
+    /// for the machine, if they can be. One that can't be lowered with the
+    /// others is left out (and runs on the reference evaluator).
+    fn lower_tests(&self, cache: &Cache, selected: &Selection, modes: &str) -> Option<TestMachine> {
         let g = &self.elab.globals;
-        let modes = modes(g);
+        let wanted: Vec<stitchwort_core::DefId> = self
+            .elab
+            .tests
+            .iter()
+            .filter(|test| selected(test))
+            .filter(|test| {
+                let _op = g.budget.operation(self.elab.limits);
+                match def_hash(g, test.def) {
+                    Ok(Some(hash)) => cache
+                        .get(&Cache::unit(&test.namespace, &test.name), &hash, modes)
+                        .is_none(),
+                    _ => false,
+                }
+            })
+            .map(|test| test.def)
+            .collect();
+        if wanted.is_empty() {
+            return None;
+        }
+        let lower = |ids: &[stitchwort_core::DefId]| {
+            stitchwort_rt::lower_definitions(g, self.elab.limits, ids).ok()
+        };
+        // Together, so what they share is lowered once; one at a time only
+        // if some test can't be lowered.
+        let program = lower(&wanted).or_else(|| {
+            let lowerable: Vec<_> = wanted
+                .iter()
+                .copied()
+                .filter(|id| lower(&[*id]).is_some())
+                .collect();
+            lower(&lowerable)
+        })?;
+        Some(TestMachine { program })
+    }
+
+    fn run_selected(&self, cache: &Cache, selected: &Selection, runner: Runner) -> Vec<TestResult> {
+        let g = &self.elab.globals;
+        // A result is kept per runner: the two are only differentially
+        // tested to agree (docs/proposals/fast-runtime.md).
+        let modes = match runner {
+            Runner::Reference => modes(g),
+            Runner::Machine => format!("{}m", modes(g)),
+        };
+        let lowered = match runner {
+            Runner::Reference => None,
+            Runner::Machine => self.lower_tests(cache, selected, &modes),
+        };
+        let mut machine = lowered.as_ref().map(|lowered| {
+            stitchwort_rt::Machine::new(
+                &lowered.program,
+                stitchwort_rt::Limits::from_core(self.elab.limits),
+            )
+        });
         self.elab
             .tests
             .iter()
-            .filter(|test| test.library == library)
+            .filter(|test| selected(test))
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
@@ -926,16 +1045,20 @@ impl Session {
                         detail: self.failure(test, outcome),
                     };
                 }
-                // Proofs and types aren't computed (`erase.rs`).
-                let erasing = g.erasure.running();
-                let result = eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v));
-                drop(erasing);
-                let outcome = match result {
-                    // `Bool` is `False | True`: constructor 1 is `True`.
-                    Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
-                    Ok(_) => Outcome::Failed,
-                    Err(e) => Outcome::OutOfResources(e),
+                let on_machine = match (&lowered, &mut machine) {
+                    (Some(lowered), Some(machine)) => lowered.run(machine, test.def),
+                    _ => None,
                 };
+                let outcome = on_machine.unwrap_or_else(|| {
+                    // Proofs and types aren't computed (`erase.rs`).
+                    let _erasing = g.erasure.running();
+                    match eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v)) {
+                        // `Bool` is `False | True`: constructor 1 is `True`.
+                        Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
+                        Ok(_) => Outcome::Failed,
+                        Err(e) => Outcome::OutOfResources(e),
+                    }
+                });
                 cache.put(&unit, &hash, &modes, outcome);
                 TestResult {
                     name: test.name.clone(),

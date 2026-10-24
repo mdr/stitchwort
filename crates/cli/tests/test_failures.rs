@@ -69,6 +69,19 @@ fn a_cached_failure_still_shows_both_sides() {
     assert!(!lines(&second).is_empty());
 }
 
+/// Tests run on the fast runtime by default and on the reference evaluator
+/// with `--reference` (SW-412): the same outcomes and failures, and each
+/// runner's results are cached apart.
+#[test]
+fn the_reference_evaluator_gives_the_same_results() {
+    let dir = folder("reference");
+    let fast = run(&dir, &[]);
+    let reference = run(&dir, &["--reference"]);
+    assert!(!reference.contains("cached"), "{reference}");
+    assert_eq!(fast, reference);
+    assert!(run(&dir, &["--reference"]).contains("cached"));
+}
+
 /// What a failure says about the part of the test that is false (D601):
 /// through `let`s and `&&`, with where the first difference of two lists or
 /// texts is.
