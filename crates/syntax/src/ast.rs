@@ -189,6 +189,14 @@ pub enum Expr {
         facts: Vec<Expr>,
         span: Span,
     },
+    /// `ring`, or `ring [h1, h2]` with hypotheses (docs/syntax.md, ring): a
+    /// proof of an equation between polynomials over `Nat` or `Int`, checked
+    /// by the kernel normalising both sides
+    /// (docs/proposals/proof-automation.md §6.2).
+    Ring {
+        facts: Vec<Expr>,
+        span: Span,
+    },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
 }
@@ -365,6 +373,7 @@ impl Expr {
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
             | Expr::Omega { span, .. }
+            | Expr::Ring { span, .. }
             | Expr::Match { span, .. } => *span,
             // Down a chain of fields in a loop: `e.span()` here would reach
             // this arm for `e` too, twice per level (the start and the end),
@@ -447,7 +456,7 @@ fn has_nested(expr: &Expr) -> bool {
                 || body.as_deref().is_some_and(nested)
         }
         Expr::LocalDefs { body, .. } => nested(body),
-        Expr::Omega { facts, .. } => facts.iter().any(nested),
+        Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => facts.iter().any(nested),
         Expr::Match {
             scrutinees, alts, ..
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
@@ -560,7 +569,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
         }
         // A long block of local definitions nests its rest here.
         Expr::LocalDefs { body, .. } => take(body),
-        Expr::Omega { facts, .. } => {
+        Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => {
             for fact in facts {
                 pending.push(std::mem::replace(fact, Expr::Prop(Span::NOWHERE)));
             }

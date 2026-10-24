@@ -753,6 +753,7 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Calc { .. } => crate::calc::infer_calc(cx, expr),
         Expr::Rewrite { .. } => crate::rewrite::infer_rewrite(cx, expr),
         Expr::Omega { .. } => Err(crate::omega::no_goal(cx, expr)),
+        Expr::Ring { .. } => Err(crate::ring::no_goal(cx, expr)),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => {
             let (term, sort) = effects::effect_type(cx, row, ty)?;
@@ -2047,6 +2048,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Calc { .. }, _) => crate::calc::check_calc(cx, expr, &expected),
         (Expr::Rewrite { .. }, _) => crate::rewrite::check_rewrite(cx, expr, &expected),
         (Expr::Omega { .. }, _) => crate::omega::check_omega(cx, expr, &expected),
+        (Expr::Ring { .. }, _) => crate::ring::check_ring(cx, expr, &expected),
         (
             Expr::If {
                 binder,

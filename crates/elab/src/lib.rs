@@ -51,6 +51,7 @@ mod records;
 mod reify;
 mod rewind;
 mod rewrite;
+mod ring;
 mod rows;
 mod scope;
 mod shared;
@@ -698,6 +699,7 @@ impl Elaborator {
         // test). After the first time, this does nothing.
         std::sync::LazyLock::force(&module::FLOAT_TYPE);
         std::sync::LazyLock::force(&omega::LIBRARY_NAMES);
+        std::sync::LazyLock::force(&ring::LIBRARY_NAMES);
         e
     }
 

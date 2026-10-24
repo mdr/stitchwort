@@ -2300,6 +2300,11 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
                 then(&mut stack, facts.iter().map(Work::Expr).collect());
             }
+            // And `ring` (crates/elab/src/ring.rs).
+            Expr::Ring { facts, .. } => {
+                out.extend(crate::ring::LIBRARY_NAMES.iter().map(Ref::Name));
+                then(&mut stack, facts.iter().map(Work::Expr).collect());
+            }
             Expr::Calc { first, steps, .. } => {
                 let mut steps_work = vec![Work::Expr(first)];
                 for step in steps {
