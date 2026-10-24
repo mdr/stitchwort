@@ -1,5 +1,5 @@
 {
-  "next": 428,
+  "next": 430,
   "tickets": [
     {
       "id": 1,
@@ -6890,6 +6890,34 @@
       "commits": [
         "c11343d0"
       ]
+    },
+    {
+      "id": 428,
+      "title": "Docs: update and augment the playground feature tour (web/guide)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 429,
+      "title": "Docs: language guide in docs/guide/ (more depth than the tour, not a spec; checked examples)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
     }
   ]
 }
