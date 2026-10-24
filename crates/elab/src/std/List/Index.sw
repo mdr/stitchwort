@@ -142,3 +142,25 @@ theorem List.withIndexRange (d: a) (xs: List a): List.withIndex xs = List.map (i
   List.withIndexFromRange d 0 xs
 
 test "List.withIndexRange" := ["a", "b"].withIndex == List.map (i => MkPair i (List.getOr "" i ["a", "b"])) (List.range 2)
+
+-- The position of the first `x` in the list, counting from 0, or the list's
+-- length if `x` isn't in it: `[5, 7, 5].indexOf 5` is 0, `.indexOf 9` is 3.
+def List.indexOf [auto eq: DecEq a] (x: a): List a -> Nat
+  | Nil => 0
+  | Cons y ys => if y == x then 0 else Succ (List.indexOf x ys)
+
+test "List.indexOf" := [5, 7, 5].indexOf 7 == 1 && [5, 7, 5].indexOf 5 == 0 && [5, 7, 5].indexOf 9 == 3
+
+-- Adding two rows entry by entry.
+theorem List.getOrZipWithAdd: (c: Nat) -> (u: List Nat) -> (v: List Nat) -> c < List.length u -> c < List.length v ->
+    List.getOr 0 c (List.zipWith Nat.add u v) = List.getOr 0 c u + List.getOr 0 c v
+  | c, Nil, v, hu, hv => Void.exfalso (Bool.falseNotTrue hu)
+  | c, Cons x xs, Nil, hu, hv => Void.exfalso (Bool.falseNotTrue hv)
+  | Zero, Cons x xs, Cons y ys, hu, hv => rfl
+  | Succ c, Cons x xs, Cons y ys, hu, hv => List.getOrZipWithAdd c xs ys hu hv
+
+-- Element i of a mapped list, inside it.
+theorem List.getOrMapLt (f: a -> b) (d: a) (e: b): (i: Nat) -> (xs: List a) -> i < List.length xs -> List.getOr e i (List.map f xs) = f (List.getOr d i xs)
+  | i, Nil, h => Void.exfalso (Bool.falseNotTrue h)
+  | Zero, Cons x xs, h => rfl
+  | Succ i, Cons x xs, h => List.getOrMapLt f d e i xs h

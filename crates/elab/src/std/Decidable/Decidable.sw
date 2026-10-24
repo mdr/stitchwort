@@ -26,3 +26,7 @@ theorem Decidable.toBoolOfNot: [p: Prop] -> (d: Decidable p) -> Not p -> Decidab
 -- `x == y` says `x = y`.
 theorem DecEq.sound [auto decEq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y :=
   Decidable.toBoolSound (DecEq.decide x y) h
+
+-- `x == y` is false only for different values.
+theorem DecEq.soundFalse [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = False) (same: x = y): Void :=
+  Bool.falseNotTrue (Eq.trans (Eq.sym h) (Decidable.toBoolOf (DecEq.decide x y) same))

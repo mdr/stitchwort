@@ -858,3 +858,9 @@ test "map: foldRight" := Map.foldRight (key t acc => Text.append t acc) "" Map.e
 test "map: any, all, count" :=
   Map.any (key t => key == 5) Map.example2 && !(Map.all (key t => key < 7) Map.example2) && Map.count (key t => key > 2) Map.example2 == 3
 test "map: range" := Map.keys (Map.range 2 6 Map.example2) == [2, 3, 5] && Map.keys (Map.range 6 2 Map.example2) == Nil
+
+-- Each element of a list by its position, counting from 0, for lookup in
+-- O(log n): `Map.byPosition ["a", "b"]` maps 0 to "a" and 1 to "b".
+def Map.byPosition (xs: List a): Map Nat a := Map.fromList (List.withIndex xs)
+
+test "map: byPosition" := Map.toList (Map.byPosition ["a", "b"]) == [(0, "a"), (1, "b")] && Map.get 2 (Map.byPosition ["a", "b"]) == None

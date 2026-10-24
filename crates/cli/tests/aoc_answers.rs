@@ -24,6 +24,7 @@ const ANSWERS: &[(&str, &str, &str)] = &[
     ("06", "4722948564882", "9581313737063"),
     ("07", "1594", "15650261281478"),
     ("08", "42315", "8079278220"),
+    ("09", "4756718172", "1665679194"),
 ];
 
 /// Spawns `command` while holding [`SPAWN`].
@@ -110,6 +111,11 @@ fn day07() {
 #[test]
 fn day08() {
     check("08");
+}
+
+#[test]
+fn day09() {
+    check("09");
 }
 
 /// Each day run from the check cache a whole project `check` wrote, as

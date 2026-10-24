@@ -59,3 +59,15 @@ theorem Bool.falseOfNotTrue: (x: Bool) -> Not (x = True) -> x = False
   | False, h => rfl
 
 theorem Bool.falseOfNotTrueExample: Nat.leq 3 2 = False := Bool.falseOfNotTrue (Nat.leq 3 2) Bool.falseNotTrue
+
+theorem Bool.orElim (a: Bool) (b: Bool) (goal: Prop) (h: (a || b) = True) (left: a = True -> goal) (right: b = True -> goal): goal :=
+  match e: a with
+    | True => left rfl
+    | False => right h
+
+theorem Bool.orLeft (a: Bool) (b: Bool) (h: a = True): (a || b) = True := rewrite h in rfl
+
+theorem Bool.orRight (a: Bool) (b: Bool) (h: b = True): (a || b) = True :=
+  match e: a with
+    | True => rfl
+    | False => h
