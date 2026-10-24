@@ -1,0 +1,5 @@
+double 21
+summary "Ada" [3, 4]
+:t describe
+import Std (List)
+List.range 4

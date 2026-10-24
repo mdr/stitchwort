@@ -1,0 +1,222 @@
+# 7. Recursion and termination
+
+Stitchwort has no loops; repetition is recursion, and the library's functions (`map`, `foldLeft`, `sum`, …) cover the common cases. Every function must finish, unless its type says it may not. The compiler checks this, because a proof is only meaningful if the functions it talks about return: a "proof" that loops forever would prove anything.
+
+Most recursion is checked without any help. When it isn't, you say why the function finishes, or mark it `Partial`.
+
+## Structural recursion
+
+A recursive call on a part of an argument, such as the tail of a list or the `n` in `Succ n`, is accepted as it is. Each call gets a smaller piece, and the pieces run out:
+
+<!-- snippet: recursion.sw#structural -->
+```stitchwort
+def length: List a -> Nat
+  | [] => 0
+  | Cons _ rest => 1 + length rest
+
+def factorial: Nat -> Nat
+  | 0 => 1
+  | Succ n => Succ n * factorial n
+
+test "structural" := length [1, 2, 3] == 3 && factorial 5 == 120
+```
+
+`Succ n` is the pattern for a number that is one more than `n`, so it matches any `Nat` but 0. (`Zero` and `Succ` are `Nat`'s two constructors; number literals stand for them.)
+
+Extra parameters can change freely, as long as one argument shrinks. An accumulator is the usual case:
+
+<!-- snippet: recursion.sw#accumulator -->
+```stitchwort
+def reverseOnto (done: List a): List a -> List a
+  | [] => done
+  | Cons x rest => reverseOnto (Cons x done) rest
+
+test "an accumulator" := reverseOnto [] [1, 2, 3] == [3, 2, 1]
+```
+
+Trees work the same way: `left` and `right` are parts of the `Node`.
+
+<!-- snippet: recursion.sw#trees -->
+```stitchwort
+type Tree =
+  | Leaf
+  | Node (left: Tree) (value: Nat) (right: Tree)
+
+def Tree.insert (value: Nat): Tree -> Tree
+  | Leaf => Node Leaf value Leaf
+  | Node left here right =>
+    if value < here then Node (left.insert value) here right
+    else Node left here (right.insert value)
+
+def Tree.toList: Tree -> List Nat
+  | Leaf => []
+  | Node left value right => left.toList ++ [value] ++ right.toList
+
+def treeSort (values: List Nat): List Nat := (values.foldLeft (tree value => tree.insert value) Leaf).toList
+
+test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
+```
+
+## When the argument isn't a part: `decreasing`
+
+Halving a number isn't recursion on a part of it, so the compiler can't see that it finishes:
+
+<!-- snippet: errors/termination.sw -->
+```stitchwort
+def halvings (n: Nat): Nat :=
+  if n <= 1 then 0 else 1 + halvings (n / 2)
+```
+
+<!-- output: check errors/termination.sw -->
+```text
+[E-TERMINATION] Error: can't show that `halvings` terminates
+   ╭─[ errors/termination.sw:2:29 ]
+   │
+ 2 │   if n <= 1 then 0 else 1 + halvings (n / 2)
+   │                             ───────┬───────
+   │                                    ╰───────── this recursive call might not terminate: no argument is known to be smaller
+   │
+   │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │
+   │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+───╯
+```
+
+`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. Saying `decreasing n` alone isn't enough, since the compiler still has to know that `n / 2 < n`:
+
+<!-- snippet: errors/decreasing.sw -->
+```stitchwort
+def halvings (n: Nat): Nat
+    decreasing n
+:=
+  if n <= 1 then 0 else 1 + halvings (n / 2)
+```
+
+<!-- output: check errors/decreasing.sw -->
+```text
+[E-DECREASING] Error: can't show `Nat.divFuel n n 2 < n` here, which `decreasing n` needs for this call
+   ╭─[ errors/decreasing.sw:4:29 ]
+   │
+ 4 │   if n <= 1 then 0 else 1 + halvings (n / 2)
+   │                             ───────┬───────
+   │                                    ╰───────── this recursive call
+   │
+   │ Note: give a proof with `[decreasing := …]`, or test it with `if h: Nat.divFuel n n 2 < n then … else …`
+───╯
+```
+
+(The message shows `n / 2` as the library computes it, `Nat.divFuel n n 2`.) The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it:
+
+<!-- snippet: recursion.sw#decreasing -->
+```stitchwort
+def digits (n: Nat): List Nat
+    decreasing n
+:=
+  if n < 10 then [n]
+  else
+    let rest := n / 10
+    if smaller: rest < n then digits rest ++ [n % 10] else [n]
+
+test "decreasing" := digits 2025 == [2, 0, 2, 5]
+```
+
+Here `rest < n` always holds when `n >= 10`, so the `else` branch never runs; the test is there to give the compiler the fact. The same pattern works for Euclid's algorithm, where `a % b < b` once `b != 0`:
+
+<!-- snippet: recursion.sw#gcd -->
+```stitchwort
+def gcd (a: Nat) (b: Nat): Nat
+    decreasing b
+:=
+  if nonzero: b != 0 then
+    if smaller: a % b < b then gcd b (a % b) else a
+  else a
+
+test "gcd" := gcd 84 36 == 12
+```
+
+A proof can also be given directly, as `[decreasing := proof]` after the call. `omega` ([chapter 10](10-proofs.md)) proves most arithmetic facts. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function:
+
+<!-- snippet: recursion.sw#lexicographic -->
+```stitchwort
+def ackermann (m: Nat) (n: Nat): Nat
+    decreasing (m, n)
+:=
+  match m, n with
+    | Zero, n => n + 1
+    | Succ k, Zero => ackermann k 1 [decreasing := omega]
+    | Succ k, Succ j => ackermann k (ackermann (Succ k) j [decreasing := omega]) [decreasing := omega]
+
+test "ackermann" := ackermann 2 3 == 9
+```
+
+A function with `decreasing` runs and tests like any other. For proofs about it, the compiler generates `f.unfold`, the equation that unfolds one step ([syntax.md, `decreasing`](../syntax.md#decreasing)).
+
+## Mutual recursion
+
+Definitions can call each other, in any order in the file. Their termination is checked together:
+
+<!-- snippet: recursion.sw#mutual -->
+```stitchwort
+def isEven: Nat -> Bool
+  | 0 => True
+  | Succ n => isOdd n
+
+def isOdd: Nat -> Bool
+  | 0 => False
+  | Succ n => isEven n
+
+test "mutual recursion" := isEven 10 && isOdd 7
+```
+
+## `Partial`: functions that may not finish
+
+Some functions have no known reason to finish, such as the Collatz sequence. Mark them `Partial`. `Partial` is written in the type like an ability ([chapter 8](08-abilities.md)), and everything that calls a partial function must say `Partial` too:
+
+<!-- snippet: partial.sw -->
+```stitchwort
+-- Chapter 7: a function that may not finish says so with `Partial`.
+import Std (IO, Nat)
+
+def collatzSteps: Nat -> {Partial} Nat
+  | 0 => 0
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+def main(): {IO, Partial} () := IO.print "27 takes ${collatzSteps 27} steps"
+```
+
+<!-- output: run partial.sw -->
+```text
+27 takes 111 steps
+```
+
+Only `stitchwort run` (and the playground) run partial code. Tests and the type checker never do, so a test can't call `collatzSteps`:
+
+<!-- snippet: errors/partial-call.sw -->
+```stitchwort
+def collatzSteps: Nat -> {Partial} Nat
+  | 0 => 0
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+test "27 takes 111 steps" := collatzSteps 27 == 111
+```
+
+<!-- output: check errors/partial-call.sw -->
+```text
+[E-PARTIAL] Error: a computation that might not finish can't run here
+   ╭─[ errors/partial-call.sw:6:30 ]
+   │
+ 6 │ test "27 takes 111 steps" := collatzSteps 27 == 111
+   │                              ───────────┬──────────
+   │                                         ╰──────────── `collatzSteps` is `Partial`: it might not finish
+   │
+   │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; add `Partial` to the enclosing function's type (`-> {Partial} …`)
+───╯
+```
+
+(The note's advice applies to functions; a test can't be `Partial`.) To test such code, give it a limit: a version with an extra "fuel" parameter that counts down is total and testable.
+
+`Partial` keeps the rest of the program honest: a function whose type doesn't say `Partial` is known to finish, which is what proofs about it rely on.
+
+More: [syntax.md, `decreasing`](../syntax.md#decreasing), [`Partial`](../syntax.md#partial), and the design notes [well-founded-recursion.md](../proposals/well-founded-recursion.md), [mutual-recursion.md](../proposals/mutual-recursion.md) and [partial.md](../proposals/partial.md).

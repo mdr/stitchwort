@@ -1,0 +1,404 @@
+# 10. Proofs
+
+A test checks that a program does the right thing for one input. A **theorem** states that it does for every input, and the compiler checks the proof. This chapter explains how to write them, without assuming you've done it before.
+
+## Statements are types
+
+A theorem looks like a definition: a name, parameters, a type, and a body. The type is the statement, and the body is the proof:
+
+<!-- snippet: proofs.sw#rfl -->
+```stitchwort
+def double (n: Nat): Nat := n + n
+
+theorem doubleFour: double 4 = 8 := rfl
+
+theorem zeroPlus (n: Nat): 0 + n = n := rfl
+```
+
+`double 4 = 8` is a type whose values are proofs that `double 4` equals `8`. `rfl` ("reflexivity") is the proof that a thing equals itself, and the checker accepts it when both sides **compute** to the same value. `double 4` computes to `8`, so `rfl` proves the first theorem.
+
+The second is about every `n`, and `rfl` still works, because `+` is defined by recursion on its first argument: `0 + n` computes to `n` without knowing what `n` is. When `rfl` fails, the message shows what each side computed to:
+
+<!-- snippet: errors/rfl.sw -->
+```stitchwort
+def double (n: Nat): Nat := n + n
+
+theorem doubleFour: double 4 = 9 := rfl
+```
+
+<!-- output: check errors/rfl.sw -->
+```text
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ errors/rfl.sw:3:37 ]
+   │
+ 3 │ theorem doubleFour: double 4 = 9 := rfl
+   │                                     ─┬─
+   │                                      ╰─── `double 4` and `9` aren't equal
+   │
+   │ Note 1: computing the left side gives `8`
+   │
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+───╯
+```
+
+A theorem is erased when the program runs: it costs nothing. In a project, `stitchwort run` doesn't even check the namespaces it doesn't need, which is why proofs usually have a namespace of their own.
+
+## Induction is recursion
+
+`n + 0 = n` is true, but `rfl` can't prove it for an unknown `n`: `+` recurses on its first argument, and `n` isn't a known number. The proof goes by cases on `n`, like a function with arms:
+
+<!-- snippet: proofs.sw#induction -->
+```stitchwort
+theorem plusZero: (n: Nat) -> n + 0 = n
+  | Zero => rfl
+  | Succ k => Eq.cong Succ (plusZero k)
+```
+
+In the `Zero` arm the statement is `0 + 0 = 0`, which computes. In the `Succ k` arm it is `Succ k + 0 = Succ k`, which computes to `Succ (k + 0) = Succ k`. The recursive call `plusZero k` proves `k + 0 = k`: this is the induction hypothesis, and calling the theorem on a smaller value is how induction is written. The compiler checks that it terminates, like any recursion. `Eq.cong Succ` turns `x = y` into `Succ x = Succ y`.
+
+The skill is in reading what each case needs. Using the induction hypothesis directly gives a message that shows it:
+
+<!-- snippet: errors/induction.sw -->
+```stitchwort
+import Std (Eq)
+
+theorem plusZero: (n: Nat) -> n + 0 = n
+  | Zero => rfl
+  | Succ k => plusZero k
+```
+
+<!-- output: check errors/induction.sw -->
+```text
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ errors/induction.sw:5:15 ]
+   │
+ 5 │   | Succ k => plusZero k
+   │               ─────┬────
+   │                    ╰────── expected `Succ (k + 0) = Succ k`, but this has type `k + 0 = k`
+───╯
+```
+
+## Goals: `?`
+
+You don't have to know what a case needs before writing it. Put `?` where a proof (or any expression) is missing, and the checker reports the **goal**: the names in scope with their types, and after `⊢`, what has to go there:
+
+<!-- snippet: errors/hole.sw -->
+```stitchwort
+import Std (Eq)
+
+theorem plusZero: (n: Nat) -> n + 0 = n
+  | Zero => rfl
+  | Succ k => ?
+```
+
+<!-- output: check errors/hole.sw -->
+```text
+[GOAL] Goal: in `plusZero`
+   ╭─[ errors/hole.sw:5:15 ]
+   │
+ 5 │   | Succ k => ?
+   │               ┬
+   │               ╰── k: Nat
+   │                   ⊢ Succ (k + 0) = Succ k
+───╯
+1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+```
+
+A declaration with a `?` isn't an error, but it isn't finished either: it isn't checked, and `check` fails until every goal is closed. You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor.
+
+The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `Succ (k + 0)`, not `Succ k + 0`.
+
+## Proofs about lists
+
+The same pattern works for any recursive type. A proof about lists has a `[]` case and a `Cons` case:
+
+<!-- snippet: proofs.sw#lists -->
+```stitchwort
+def mapList (f: a -> b): List a -> List b
+  | [] => []
+  | Cons x rest => Cons (f x) (mapList f rest)
+
+theorem lengthMapList (f: a -> b): (xs: List a) -> (mapList f xs).length = xs.length
+  | [] => rfl
+  | Cons x rest => Eq.cong Succ (lengthMapList f rest)
+```
+
+`(mapList f xs).length` in the `Cons` case computes to `Succ (mapList f rest).length`, so `Eq.cong Succ` of the hypothesis is the proof.
+
+## Rewriting and chains
+
+`rewrite p in t` uses an equation `p: a = b` to replace `a` with `b` in the goal, then proves what's left with `t`. With no `in`, what's left must hold by computing. Several rules are applied in order:
+
+<!-- snippet: proofs.sw#rewrite -->
+```stitchwort
+theorem swapWithZero (a: Nat) (b: Nat): a + b + 0 = b + a :=
+  rewrite Nat.addZero (a + b), Nat.addComm a b
+```
+
+`Nat.addZero (a + b)` turns `a + b + 0` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal.
+
+`calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
+
+<!-- snippet: proofs.sw#calc -->
+```stitchwort
+theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b <= c) (small: c < 10): a < 10 :=
+  calc a
+    _ = b := ab
+    _ <= c := bc
+    _ < 10 := small
+```
+
+A step with no proof is proved by computing.
+
+## Arithmetic: `omega`
+
+For statements in linear arithmetic over `Nat` (`+`, `-`, comparisons, multiplication by a constant), `omega` finds the proof itself, using every fact in scope:
+
+<!-- snippet: proofs.sw#omega -->
+```stitchwort
+theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y <= 10): x + 1 <= 10 := omega
+
+theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
+```
+
+`omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number. When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
+
+<!-- snippet: errors/omega.sw -->
+```stitchwort
+theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <= 10 := omega
+```
+
+<!-- output: check errors/omega.sw -->
+```text
+[E-OMEGA] Error: `omega` can't prove `x + 1 <= 10`
+   ╭─[ errors/omega.sw:1:88 ]
+   │
+ 1 │ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <= 10 := omega
+   │                                                                                        ──┬──
+   │                                                                                          ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │
+   │ Note 1: facts: `x <= y` (before), `y <= 10` (limit)
+   │
+   │ Note 2: atoms: `x`, `y`
+   │
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 10, y = 10
+───╯
+```
+
+With `x = 10`, `x + 1 <= 10` is false: the hypothesis needs to be `x < y`.
+
+## Decisions and facts
+
+`Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
+
+- `if n != 0 then a else b` makes the fact `n != 0` available in `a`. That's how `/` found its proof in [chapter 2](02-values-and-definitions.md#division-needs-a-reason).
+- `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: Not P` in `b`.
+- A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known.
+
+<!-- snippet: proofs.sw#decide -->
+```stitchwort
+def firstOr (fallback: Nat) (xs: List Nat): Nat :=
+  if nonempty: 0 < xs.length then List.headOr fallback xs else fallback
+
+def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
+  if inRange: i < 3 then Some (v.getLt i) else None
+```
+
+`Vec.getLt` takes `[auto ok: i < n]`, so it can't be called out of range. Inside the `then` branch of `if inRange: i < 3`, the fact is in scope and `auto` finds it.
+
+To use a condition in a proof, `match` on it. `match fits: e with` splits on the value of `e`, replaces `e` with that value in the goal, and names the equation `fits`:
+
+<!-- snippet: proofs.sw#match-equation -->
+```stitchwort
+def clampTo (limit: Nat) (n: Nat): Nat := if n <= limit then n else limit
+
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
+  match fits: Nat.leq n limit with
+    | True => fits
+    | False => Nat.leRefl limit
+```
+
+`a <= b` used as a `Bool` is `Nat.leq a b`, so matching on `Nat.leq n limit` finds the `if`'s condition, and in each branch the `if` computes. With `?` in both branches, the goals show what's left:
+
+<!-- snippet: errors/split-goals.sw@clampToAtMost -->
+```stitchwort
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
+  match fits: Nat.leq n limit with
+    | True => ?
+    | False => ?
+```
+
+<!-- output: check errors/split-goals.sw -->
+```text
+[GOAL] Goal: in `clampToAtMost`
+   ╭─[ errors/split-goals.sw:7:15 ]
+   │
+ 7 │     | True => ?
+   │               ┬
+   │               ╰── limit: Nat
+   │                   n: Nat
+   │                   fits: Nat.leq n limit = True
+   │                   ⊢ Nat.leq n limit = True
+───╯
+[GOAL] Goal: in `clampToAtMost`
+   ╭─[ errors/split-goals.sw:8:16 ]
+   │
+ 8 │     | False => ?
+   │                ┬
+   │                ╰── limit: Nat
+   │                    n: Nat
+   │                    fits: Nat.leq n limit = False
+   │                    ⊢ Nat.leq limit limit = True
+───╯
+2 goals open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+```
+
+On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
+
+## Types that mention values
+
+A type can mention values: `Vec Nat 3` is a list of exactly three numbers, and `Fin 3` a number below 3. A function's type can then say more than its name does, and the checker holds callers to it:
+
+<!-- snippet: proofs.sw#dependent -->
+```stitchwort
+def pick (v: Vec Nat 3): Nat := v.get 2
+
+theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := rfl
+```
+
+`v.get 2` needs a `Fin 3`; a `2` is accepted because it's below 3, and `v.get 3` would be an error. A proof is just the most extreme case of this: a type that mentions values, such as `x + 1 <= 10`, with no data in it. You'll find proofs inside ordinary types too, as fields: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` is a number that is known to be in range, everywhere it goes.
+
+## A specification and its program
+
+The useful theorems say that a program meets a **specification**: a definition that is obviously right, even if it's slow. Here the specification is the plain recursive sum, the program a loop with an accumulator, and the theorem says they agree on every input:
+
+<!-- snippet: proofs.sw#spec -->
+```stitchwort
+-- The specification: the plain recursive sum.
+def sumTo: Nat -> Nat
+  | 0 => 0
+  | Succ k => Succ k + sumTo k
+
+-- The program: a loop with an accumulator.
+def sumFast (n: Nat): Nat :=
+  def loop: Nat -> Nat -> Nat
+    | 0, total => total
+    | Succ k, total => loop k (total + Succ k)
+  loop n 0
+
+-- What the loop computes, for any accumulator: the general statement is
+-- what makes the induction go through.
+theorem loopIsSum: (n: Nat) -> (total: Nat) -> sumFast.loop n total = total + sumTo n
+  | Zero, total => Eq.sym (Nat.addZero total)
+  | Succ k, total => omega [loopIsSum k (total + Succ k)]
+
+theorem sumFastIsSum (n: Nat): sumFast n = sumTo n := loopIsSum n 0
+```
+
+The proof shows a common move: the statement about `sumFast` alone isn't provable by induction, because `loop` is called with a changing accumulator. So the lemma `loopIsSum` states what `loop` computes for *every* accumulator, and the main theorem is the case `total = 0`. In the `Succ` case, `sumFast.loop (Succ k) total` computes to `sumFast.loop k (total + Succ k)`, the hypothesis says what that is, and `omega` does the arithmetic.
+
+Two habits help:
+
+- **Prove the function callers use.** The theorem is about `sumFast`, the function the program exports, not just about its inner loop. A proof about a helper says nothing about a wrapper that calls it wrongly.
+- **State the specification the way the problem does**, even if it's slow, and let the proof bridge the gap. If the specification is clever, it can be wrong in the same way as the program.
+
+The same applies to exported functions ([chapter 11](11-running-and-shipping.md)), which are where a theorem is worth most:
+
+<!-- snippet: proofs.sw#export -->
+```stitchwort
+export def clampPercent (n: Nat): Nat := clampTo 100 n
+
+theorem clampPercentAtMost (n: Nat): clampPercent n <= 100 := clampToAtMost 100 n
+```
+
+## Proofs about effectful code
+
+A handler applied to a computation of a known shape computes, so many facts about effectful code are `rfl` ([chapter 8](08-abilities.md)). A law about *any* computation needs to split on what the computation does. `match reify t with` does that, with clauses written as a handler's: one for finishing with a value, and one per operation:
+
+<!-- snippet: proofs.sw#reify -->
+```stitchwort
+theorem orElseIsGetOrElse (fallback: a) (t: () -> {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
+  match reify t with
+    | return x => rfl
+    | Fail.stop message, _ => rfl
+```
+
+In each clause, the computation in the goal is replaced by what it did, and both handlers compute. `reify` is only allowed in proofs: a program can run a computation or hand it to a handler, but can't look inside it.
+
+## Axioms
+
+A proof is only as good as what it assumes. Stitchwort has one axiom, `Quot.sound` (that equal elements of a quotient type are equal), and `stitchwort axioms` lists the axioms a theorem depends on, through everything it uses:
+
+<!-- output: axioms proofs.sw sumFastIsSum -->
+```text
+
+```
+
+Nothing: the proof assumes nothing. Function extensionality (two functions that agree on every input are equal) is a theorem, proved from `Quot.sound`, so a proof that uses it shows the axiom:
+
+<!-- snippet: proofs.sw#funext -->
+```stitchwort
+theorem doubleIsTimesTwo: double = (n => 2 * n) := Quot.funext Nat (n => Nat) double (n => 2 * n) twiceIsDouble
+```
+
+<!-- output: axioms proofs.sw doubleIsTimesTwo -->
+```text
+Quot.sound
+```
+
+## A worked example: Advent of Code 2025, day 1
+
+The [aoc/](../../aoc/) project solves Advent of Code puzzles and proves the answers right. Day 1 turns a dial numbered 0 to 99, starting at 50, and part 2 asks how many clicks land on 0 during a list of turns. The program counts them with arithmetic, one turn at a time:
+
+<!-- snippet: ../../../aoc/src/Aoc/Day01/Day01.sw@zerosPassed,Dial.zerosDuring -->
+```stitchwort
+def zerosPassed (startingDial: Dial n) (turns: List Turn): Nat :=
+  turns
+    |> .scanLeft .move startingDial
+    |> .zipWith .zerosDuring turns
+    |> .sum
+
+def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
+  | Right distance => (dial.position.value + distance) / Mod.size n
+  | Left distance => ((Mod.size n - dial.position.value) % Mod.size n + distance) / Mod.size n
+```
+
+That arithmetic is easy to get wrong. The specification, in its own namespace, says what the puzzle says: turn the dial one click at a time, and count the clicks that land on 0:
+
+<!-- snippet: ../../../aoc/src/Aoc/Day01/Spec/Spec.sw -->
+```stitchwort
+-- Day 1, part 2 as the puzzle states it: turn the dial one click at a time, and
+-- count the positions after each click that are 0. The proofs (Proofs/Part2.sw)
+-- and the tests (Tests/Spec.sw) compare the program's arithmetic count with it.
+
+namespace Aoc.Day01.Spec
+import Aoc.Day01 (..)
+import Std (List, Nat)
+
+-- The specification of part 2: turn the dial one click at a time, and count
+-- the positions after each click that are 0.
+def zerosPassedSpec (startingDial: Dial n) (turns: List Turn): Nat :=
+  turns |> .concatMap Turn.clicks |> zerosLandedOn startingDial
+```
+
+The theorem, in `Aoc.Day01.Proofs`, says they agree for a dial of any size, any start and any turns, and so for the puzzle's answer:
+
+<!-- snippet: ../../../aoc/src/Aoc/Day01/Proofs/Part2.sw@zerosPassedCorrect,part2Puzzle -->
+```stitchwort
+theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed startingDial turns = zerosPassedSpec startingDial turns :=
+  zerosPassedFrom startingDial turns
+
+theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec startingDial turns :=
+  zerosPassedCorrect startingDial turns
+```
+
+The proof ([Proofs/Part2.sw](../../aoc/src/Aoc/Day01/Proofs/Part2.sw)) is about 130 lines: induction on the turns, a lemma for one turn split into clicks, and arithmetic lemmas about one click, with `calc`, `rewrite` and `omega` doing the steps. The day is laid out the way the other days are:
+
+- `Aoc/Day01/Day01.sw`, namespace `Aoc.Day01`: the program, `parseTurns`, `solvePart1`, `solvePart2` and `main`;
+- `Spec/Spec.sw`, `Aoc.Day01.Spec`: the specification, written the way the puzzle states it;
+- `Proofs/`, `Aoc.Day01.Proofs`: the theorems, about the parsed model of the input rather than its text;
+- `Tests/`, `Aoc.Day01.Tests`: the puzzle's example, edge cases, and the real input through `include`.
+
+`stitchwort run Aoc.Day01.main` checks only the program; `stitchwort test Aoc.Day01` checks the proofs and runs the tests. [docs/aoc-2025.md](../aoc-2025.md) describes each day's proofs and what was hard about them.
+
+More: [syntax.md](../syntax.md) sections [Goals](../syntax.md#goals-), [`calc`](../syntax.md#calc), [`rewrite`](../syntax.md#rewrite), [`omega`](../syntax.md#omega), [`match`](../syntax.md#match), [Proofs about effectful code](../syntax.md#proofs-about-effectful-code); the design notes [calc-rewrite.md](../proposals/calc-rewrite.md), [omega.md](../proposals/omega.md), [proof-reification.md](../proposals/proof-reification.md) and [indexed-families.md](../proposals/indexed-families.md).
