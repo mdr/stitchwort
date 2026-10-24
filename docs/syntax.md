@@ -1357,6 +1357,35 @@ theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max 
 
 Examples: `examples/accept/omega-basics.sw`, `examples/accept/omega-stage2.sw`, `examples/accept/omega-day05.sw`, `examples/reject/omega-*.sw`.
 
+### `ring`
+
+`ring` is a proof of an equation between `Nat`s or `Int`s whose two sides are equal as polynomials: equal once products are multiplied out and like terms collected. The compiler writes the proof and the kernel checks it:
+
+```
+theorem square (x: Nat): (x + 1) * (x + 1) = x * x + 2 * x + 1 := ring
+
+theorem pairsStep (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [h]
+
+theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
+  | Zero   => ring
+  | Succ n => rewrite writeTimesMul k b n, multiplierSucc k n in ring
+```
+
+| form | meaning |
+|---|---|
+| `ring` | proves the goal `a = b` |
+| `ring [h1, h2]` | the same, using the equations `h1: l1 = r1`, `h2: l2 = r2` (any proofs): it proves `a + r1 + r2 = b + l1 + l2`, or the same with some `l`s and `r`s swapped, and cancels |
+| `(ring: a = b)` | states what it proves, for `rewrite` or anywhere the expected type isn't known |
+
+`ring` is a keyword and a term, like `omega`: a definition's body, a `calc` step's proof, an argument whose type is fixed (`Nat.leCongRight x y z ring h`), or `rewrite (ring: i + (p + q) = i + p + q)`. Where nothing says what it proves (`let p := ring`) it is `E-RING`. The proof it writes is `Std.Ring.proveNat env a b rfl` (or `proveInt`, or `proveNatWith`/`proveIntWith` with the hypotheses), where `a` and `b` are the sides as syntax over numbered atoms; `rfl` is the kernel computing both normal forms and finding them the same. `Std.Ring`'s soundness theorems are proved, with no axioms, so nothing new is trusted. Design and as built: [proof-automation.md](proposals/proof-automation.md) §6.2.
+
+- **Arithmetic.** `+`, `*`, numbers and `Succ`; at `Int` also `-`, negation, `x.toInt` (so `(x + y).toInt` is `x.toInt + y.toInt`) and literals like `-3`. `Nat.pow e n` with a number `n` is multiplied out; with an unknown exponent it is an atom, but a call that computes to arithmetic is read as what it computes to, so `Nat.pow 10 (Succ k)` is `Nat.pow 10 k * 10`.
+- **Atoms.** Anything else is an unknown: `List.length xs`, `f x`, `multiplier k n`, `x / 2`, `x % 10`, and `a - b` between `Nat`s (truncated subtraction isn't a ring operation; `omega` knows about it). Two atoms are the same if they're the same term or the compiler can quickly show they compute to the same value, as for `omega`.
+- **Hypotheses** must be equations of the goal's type. With up to six, each is tried both ways round; with more, only as written. A hypothesis is added once: `ring [h]` doesn't use `2 * h`.
+- **When it fails** it is `E-RING`, with both sides' normal forms (highest degree first, in the program's own names) and what the left side has more or less of; with hypotheses, the sides are the ones with the hypotheses added. A note names each atom that looks like it should have been arithmetic (`a - b`, `x / 2`, a power with an unknown exponent), and when the statement is false for small values the counterexample note shows them.
+
+Examples: `examples/accept/ring-basics.sw`, `examples/reject/ring-*.sw`.
+
 ### Numbers
 
 A non-negative numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says; a `Fin n` too, where one is expected, [below](#fin-literals), and a `SafeNat` or `SafeInt`, checked to be within 2^53 - 1, [Numbers in an `export`](#numbers-in-an-export)); a negative literal such as `-5` is always an `Int`, and `-0` is `0`. An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a decimal or exponent literal (`Float`, below); an operand with no literal in it (when there's a prefix minus, only an `Int` or a `Float` one); a prefix minus (which makes it `Int`); any other operand; else `Nat` (D732). So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m := 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.

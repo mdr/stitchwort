@@ -1,0 +1,27 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `p + p + p = n + n`
+   ╭─[ reject/ring-hypothesis-short.sw:5:71 ]
+   │
+ 5 │ theorem tooFew (n: Nat) (p: Nat) (h: p + p = n): p + p + p = n + n := ring [h]
+   │                                                                       ────┬───  
+   │                                                                           ╰───── the two sides are different polynomials
+   │ 
+   │ Note 1: with the hypotheses `l = r` added, the left side plus every `r` against the right side plus every `l`:
+   │ 
+   │ Note 2: left:  3 * p + n
+   │ 
+   │ Note 3: right: 2 * p + 2 * n
+   │ 
+   │ Note 4: the left side has `p` more and `n` less
+   │ 
+   │ Note 5: this statement is false; a counterexample:
+   │           n = 2
+   │           p = 1
+   │         `p + p = n` holds
+   │         `p + p + p = n + n` is false:
+   │           left:  3
+   │           right: 4
+───╯

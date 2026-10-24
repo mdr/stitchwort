@@ -57,24 +57,16 @@ theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10
   calc multiplier k (Succ n)
     _ = Nat.pow 10 (k * 0) + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1)
       := List.sumByCons (i => Nat.pow 10 (k * i)) 0 (List.rangeFrom n 1)
-    _ = 1 + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1) := rewrite Nat.mulZero k
+    _ = 1 + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1) := rewrite (ring: k * 0 = 0)
     _ = 1 + List.sumBy (i => Nat.pow 10 (k * Succ i)) (List.range n) := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
     _ = 1 + List.sumBy (i => Nat.pow 10 k * Nat.pow 10 (k * i)) (List.range n)
       := rewrite List.sumByCong (i => Nat.pow 10 (k * Succ i)) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
-        (List.range n) (i => Eq.trans (Eq.cong (t => Nat.pow 10 t) (Nat.mulSucc k i)) (Nat.powAdd 10 k (k * i)))
+        (List.range n) (i => Eq.trans (Eq.cong (t => Nat.pow 10 t) (ring: k * Succ i = k + k * i)) (Nat.powAdd 10 k (k * i)))
     _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (Nat.pow 10 k) (i => Nat.pow 10 (k * i)) (List.range n)
 
 theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
-  | Zero => Eq.sym (Nat.mulZero b)
-  | Succ n =>
-    calc writeTimes k b n * Nat.pow 10 k + b
-      _ = b * multiplier k n * Nat.pow 10 k + b := rewrite writeTimesMul k b n
-      _ = b * (multiplier k n * Nat.pow 10 k) + b := rewrite Nat.mulAssoc b (multiplier k n) (Nat.pow 10 k)
-      _ = b * (Nat.pow 10 k * multiplier k n) + b := rewrite Nat.mulComm (multiplier k n) (Nat.pow 10 k)
-      _ = b + b * (Nat.pow 10 k * multiplier k n) := Nat.addComm (b * (Nat.pow 10 k * multiplier k n)) b
-      _ = b * 1 + b * (Nat.pow 10 k * multiplier k n) := rewrite Nat.mulOne b
-      _ = b * (1 + Nat.pow 10 k * multiplier k n) := rewrite Nat.mulDistribLeft b 1 (Nat.pow 10 k * multiplier k n)
-      _ = b * multiplier k (Succ n) := rewrite multiplierSucc k n
+  | Zero => ring
+  | Succ n => rewrite writeTimesMul k b n, multiplierSucc k n in ring
 
 -- The ids `b * d` for `b` from `s` to `s + c - 1` that lie in `from..to`, added up.
 def windowSum (from: Nat) (to: Nat) (d: Nat) (c: Nat) (s: Nat): Nat :=
@@ -90,7 +82,7 @@ theorem windowZero (from: Nat) (to: Nat): (c: Nat) -> (s: Nat) -> windowSum from
   | Zero, s => rfl
   | Succ c, s =>
     match h: (from <= s * 0 && s * 0 <= to) with
-      | True => rewrite Nat.mulZero s in windowZero from to c (Succ s)
+      | True => rewrite (ring: s * 0 = 0) in windowZero from to c (Succ s)
       | False => windowZero from to c (Succ s)
 
 -- One step of `window`, for each place `s` can be: below `bLo`, in `bLo..bHi`, above `bHi`.
@@ -103,7 +95,7 @@ theorem windowBelow (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat
       := Eq.cong List.sum (List.filterSkip (x => from <= x && x <= to) (s * d) (List.map (b => b * d) (List.rangeFrom c (Succ s))) (Nat.betweenBelow from to (s * d) no))
     _ = d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := ih
     _ = d * Nat.span bLo (Nat.min (Succ s + c) (Succ bHi)) := rewrite (omega: Nat.max (Succ s) bLo = bLo)
-    _ = d * Nat.span bLo (Nat.min (s + Succ c) (Succ bHi)) := rewrite Nat.addSucc s c
+    _ = d * Nat.span bLo (Nat.min (s + Succ c) (Succ bHi)) := rewrite (ring: s + Succ c = Succ s + c)
     _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi)) := rewrite (omega: Nat.max s bLo = bLo)
 
 theorem windowIn (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (s: Nat)
@@ -117,11 +109,10 @@ theorem windowIn (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (
     _ = s * d + d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := rewrite ih
     _ = s * d + d * Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))
       := rewrite (omega: Nat.max (Succ s) bLo = Succ s)
-    _ = d * s + d * Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi)) := omega
-    _ = d * (s + Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))) := Eq.sym (Nat.mulDistribLeft d s (Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))))
+    _ = d * (s + Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))) := ring
     _ = d * Nat.span s (Nat.min (Succ s + c) (Succ bHi))
       := rewrite <- Nat.spanStep s (Nat.min (Succ s + c) (Succ bHi)) (Nat.leMin (Succ s) (Succ s + c) (Succ bHi) omega hB)
-    _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi)) := rewrite (omega: Nat.max s bLo = s), Nat.addSucc s c
+    _ = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi)) := rewrite (omega: Nat.max s bLo = s), (ring: s + Succ c = Succ s + c)
 
 theorem windowAbove (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (s: Nat)
     (low: from <= s * d) (no: Nat.leq (s * d) to = False) (hs: Succ bHi <= s)
@@ -148,9 +139,7 @@ theorem window (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat)
     (noB: (b: Nat) -> Nat.leq b bHi = False -> Nat.leq (b * d) to = False):
     (c: Nat) -> (s: Nat) -> windowSum from to d c s = d * Nat.span (Nat.max s bLo) (Nat.min (s + c) (Succ bHi))
   | Zero, s =>
-    rewrite Nat.spanEmpty (Nat.max s bLo) (Nat.min (s + 0) (Succ bHi))
-        omega,
-      Nat.mulZero d
+    rewrite Nat.spanEmpty (Nat.max s bLo) (Nat.min (s + 0) (Succ bHi)) omega in ring
   | Succ c, s =>
     match hA: Nat.leq bLo s, hB: Nat.leq s bHi with
       | True, True =>
@@ -167,7 +156,7 @@ theorem window (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat)
 -- when from > to, so no case split.
 theorem sumBetweenSpan (d: Nat) (from: Nat) (to: Nat): d * Nat.sumBetween from to = d * Nat.span from (Succ to) :=
   Eq.cong (t => d * t)
-    (Eq.trans (Nat.sumBetweenCorrect from to) (Eq.cong (t => List.sum (List.rangeFrom (t - from) from)) (Nat.addOne to)))
+    (Eq.trans (Nat.sumBetweenCorrect from to) (Eq.cong (t => List.sum (List.rangeFrom (t - from) from)) (ring: to + 1 = Succ to)))
 
 theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m: Nat) ->
     blocksAt r low p m = windowSum r.from r.to m (p - low) low

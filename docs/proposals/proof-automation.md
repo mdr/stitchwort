@@ -1,6 +1,6 @@
 # Proof automation: rewriting under binders, a `ring` normaliser and a controlled `simp`
 
-**Status:** draft 1, 24 October 2026. Design only: nothing here is built. Ticket SW-374
+**Status:** draft 1, 24 October 2026. Stage 2 (`ring`) is built: see [As built (stage 2)](#as-built-stage-2). Ticket SW-374
 (D1044; the trigger was the Day 2 review's suggestions C and D: `weightedIds` restating whole
 sums, `writeTimesMul`'s seven-step regrouping, and the non-linear residue `omega.md` lists in
 "Stage 1 on AoC", item 7 and 8). Four questions for Matt are in [§9](#9-decisions-for-matt).
@@ -64,6 +64,7 @@ Labels, as in the other notes:
 - [7. Staged plan and acceptance tests](#7-staged-plan-and-acceptance-tests)
 - [8. Risks](#8-risks)
 - [9. Decisions for Matt](#9-decisions-for-matt)
+- [As built (stage 2)](#as-built-stage-2)
 - [Sources](#sources)
 
 ## 1. The measurement
@@ -937,6 +938,119 @@ the expanded form is always one code action away for reading, and the kernel che
 term either way. Alternative: expand before commit (proofs read step by step with no
 automation, at the price of the length this note is trying to remove); or a lint that flags
 `simp`s whose expansion is short enough to write out.
+
+## As built (stage 2)
+
+Stage 2 (2a and 2b together) is built: SW-374, D1166 (b), 24 October 2026. `ring`, `ring
+[h1, h2]` and `(ring: a = b)` work as §6.2 describes, at `Nat` and `Int`. Reference:
+[syntax.md, `ring`](../syntax.md#ring); guide: [10-proofs.md](../guide/10-proofs.md);
+examples: `examples/accept/ring-basics.sw`, `examples/reject/ring-*.sw`.
+
+**The library** (`crates/elab/src/std/Ring/Ring.sw`, `Ring/Sound.sw`, 263 and 255
+lines). Where it differs from §6.2:
+
+- **One normal form for both types.** A side is `Ring.NExpr` (atoms, numbers, `+`, `*`,
+  `Succ`) or `Ring.ZExpr` (also `-`, negation, `ZOfNat` for `x.toInt` and `ZNegSucc` for a
+  negative literal). Both normalise to the same `List Ring.Mono`: a monomial is an `Int`
+  coefficient and a sorted list of variables, the list sorted, like terms merged, zero
+  coefficients dropped. A `Nat` side is evaluated *as an `Int`* (`Ring.NExpr.sound` says
+  `Poly.eval env (poly e) = OfNat (eval env e)`), so one set of polynomial lemmas, proved
+  over `Int`, serves both, and `Nat` equality follows because `OfNat` is injective. The
+  environment holds the `Nat` atoms and the `Int` atoms separately (`Ring.Env`); variable `2i`
+  is `Nat` atom `i` and `2i + 1` is `Int` atom `i`, so a mixed `Int` goal with `x.toInt` in it
+  needs nothing special.
+- **Powers** are not a constructor. The reader multiplies `Nat.pow e 3` out to `e * e * e`
+  (a call is read as what it computes to when that is arithmetic), so `Nat.pow 10 (Succ k)` is
+  `Nat.pow 10 k * 10` and only a power whose exponent stays unknown is an atom.
+- **The theorems** `Ring.proveNat env a b (ok: poly a = poly b)`, `Ring.proveInt`, and
+  `Ring.proveNatWith`/`proveIntWith env a b hs ok h`, where `hs` is a list of `(l, r)` pairs
+  and `h` proves each `eval l = eval r`. `stitchwort axioms` prints nothing for any of them,
+  nor for `Ring.NExpr.sound`/`ZExpr.sound` and the converted theorems below **[run]**. The
+  proofs use only the `Int` laws already in `core` and `Int/Int.sw`.
+- **Unit tests** beside the proofs: `rfl` examples of normal forms (library types have no
+  derived `==`) and `test`s of the parts that return numbers.
+
+**The elaborator** (`crates/elab/src/ring.rs`). It reads the goal's two sides into the Rust
+copy of the normal form, compares them, and only then emits `Std.Ring.prove… env a b rfl`;
+before returning it checks, as `omega` does, that the library's normal forms of the emitted
+sides unify, that the theorem's statement unifies with the goal, and that each hypothesis
+proves what the theorem expects, so a bug in the reader is `E-RING-INTERNAL` rather than a
+kernel error. Differences from §6.2:
+
+- **`ring [h]` tries each hypothesis both ways round**, with up to six of them (64
+  comparisons of polynomials in Rust); a reversed one is passed as `Ring.flipNat l r h`.
+  `Nat.fromDigitsFrom`'s step needed this: its two induction hypotheses are used in opposite
+  directions. Multipliers (`2 * h`) are still left out (§9, Q3).
+- **Atoms** are chosen as `omega` chooses them: the same term, or convertible within a
+  budget. A call is kept folded in messages (`multiplier k n`, not its unfolding).
+- **Messages**: §6.2's example comes out as
+
+  ```
+  [E-RING] Error: `ring` can't prove `b * m * p + b = b * m * p + (2 * b)`
+    Note 1: left:  b * m * p + b
+    Note 2: right: b * m * p + 2 * b
+    Note 3: the left side has `b` less
+    Note 4: this statement is false; a counterexample: b = 1, m = 0, p = 0 …
+  ```
+
+  with a note for each atom that looks like failed arithmetic (`a - b` at `Nat`, with a
+  pointer to `omega`; `x / 2`; a power with an unknown exponent) and, with hypotheses, a note
+  that the sides shown have them added. The existing counterexample search runs on `E-RING`
+  as on other proof errors.
+
+**Conversions [run].** Ring-law lemma mentions (the `Nat.`/`Int.` commutativity,
+associativity, distributivity, unit, zero, `Succ` and cancellation laws; the script's regex
+is in the lane's scratch directory), at `1fa973d6` and after:
+
+| where | before | after | gone |
+|---|---|---|---|
+| AoC Day 1 | 4 | 3 | 1 |
+| AoC Day 2 | 33 | 1 | 32 |
+| AoC, all days but 7 (another lane's) | 37 | 4 | **33** (target 30) |
+| `List/Sort.sw` | 72 | 26 | 46 |
+| `Nat/Digits.sw` | 23 | 0 | 23 |
+| library outside `Int/Int.sw` and `Ring/` | 361 | 292 | **69** (target 60) |
+
+Day 2's proof files went from 1,148 to 1,133 lines (`Part2.sw` 435 → 431, `Repeated.sw` 417 →
+406, `Templates.sw` and `Part1.sw` unchanged in length); `Sort.sw` from 1,315 to 1,283 lines,
+`Digits.sw` from 373 to 363. The §1.4 proofs that are `ring`'s: `writeTimesMul` 10 lines → 2,
+`gaussSum` 9 → 2, `pairsStep` 3 → 1, `sumByMulLeft` 5 → 2, so 27 → 7, as estimated. `Nat.addSwap`
+is `ring`. Most of the rest are one-line swaps of a law for `ring` or `ring [h]` (the
+merge-sort counting lemmas, `Nat.keepIfKeepIf`, `List.productReverseOnto`,
+`Nat.shiftDigitArith`), or of a law used as a rewrite rule inside an argument for `(ring:
+i + (p + q) = i + p + q)`. Not converted: the steps that rewrite under `i => …` (stage 1's,
+e.g. `multiplierSucc`), those that need truncated subtraction or `/` and `%` facts
+(`Nat.addSubCancel`, `Nat.divModEq`), and Day 7 (another lane).
+
+**Load cost.** `Sort.sw` and `Digits.sw` now use `ring`, so a program that sorts or takes
+digits also loads `Int/Basics.sw`, `Int/Int.sw`, `Ring/Ring.sw` and `Ring/Sound.sw`: 33 ms
+of elaboration and kernel time (1.8 + 16.7 + 2.3 + 12.4) on a first, uncached check of
+`def s (xs: List Nat): List Nat := xs.sort`, whose whole check is 341 ms wall **[run]**. A
+cached check pays nothing. `Nat/Arith.sw` and `Int/Int.sw` are below `Ring`, so they can't
+use it.
+
+**Times [run]** (`STITCHWORT_TIMINGS=1 … check --no-cache`, median of five, before = this
+lane's library with no proofs converted):
+
+| | before | after |
+|---|---|---|
+| AoC, wall | 5,234 ms | 5,148 ms |
+| AoC, elaboration + kernel | 4,155 + 1,023 ms | 4,113 + 978 ms |
+| every library file, elaboration + kernel | 1,018 + 281 ms | 1,005 + 280 ms |
+| `List/Sort.sw` | 93.0 + 26.6 ms | 96.9 + 28.3 ms |
+| `Nat/Digits.sw` | 23.2 + 8.2 ms | 22.7 + 8.5 ms |
+
+Per proof (`STITCHWORT_TIMINGS=decls`, elaboration + kernel): `writeTimesMul` 1.0 + 0.5 →
+0.5 + 0.2 ms; `gaussSum` 1.1 + 0.5 → 1.0 + 0.7; `pairsStep` 0.3 + 0.1 → 0.3 + 0.2;
+`sumByMulLeft` 0.7 + 0.2 → 0.8 + 0.3; `Nat.fromDigitsFrom` 0.9 + 0.4 → 0.5 + 0.3. Every
+converted proof is within 0.6 ms of its hand proof (the acceptance bound is 2 ms); the
+largest rise is `multiplierSucc`, +0.5 ms, for two `(ring: …)` rules. Degree 4 with two
+atoms, `(a + b)^4` multiplied out (`examples/accept/ring-basics.sw`, `fourth`), is 1.2 + 0.8
+ms. §8's worst case, degree 4 in six atoms (126 monomials, the sum of six atoms to the
+fourth power written two ways), is 150 + 103 ms, 9.3 million evaluation steps, against the
+prototype's 574 ms: usable, but the place to look if a real proof is slow (sparse Horner
+form, §6.2). The AoC and library goals are far smaller: no declaration converted here got
+more than 0.6 ms slower, and the ones that are only `ring` take under 2 ms in all.
 
 ## Sources
 

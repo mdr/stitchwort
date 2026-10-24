@@ -1,0 +1,28 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `a - b + b = a`
+   ╭─[ reject/ring-subtraction.sw:5:54 ]
+   │
+ 5 │ theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := ring
+   │                                                      ──┬─  
+   │                                                        ╰─── the two sides are different polynomials
+   │ 
+   │ Note 1: left:  (a - b) + b
+   │ 
+   │ Note 2: right: a
+   │ 
+   │ Note 3: the left side has `(a - b) + b` more and `a` less
+   │ 
+   │ Note 4: `a - b` is an unknown to `ring`: truncated subtraction isn't a ring operation
+   │ 
+   │ Note 5: `omega` knows about `-` between `Nat`s, given the facts that bound it
+   │ 
+   │ Note 6: this statement is false; a counterexample:
+   │           a = 0
+   │           b = 1
+   │         `a - b + b = a` is false:
+   │           left:  1
+   │           right: 0
+───╯

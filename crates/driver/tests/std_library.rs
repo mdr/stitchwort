@@ -547,10 +547,23 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft (a b => a + b) 0\n"),
         toolkit
     );
-    // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends.
-    let mut sort = toolkit.to_vec();
-    sort.insert(1, "Decidable/Decidable.sw");
-    sort.push("List/Sort.sw");
+    // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends, and
+    // its counting lemmas are proved by `ring`, which needs `Std.Ring` (and
+    // the `Int` files that `Ring/Sound.sw` builds on).
+    let sort = [
+        "Bool/Bool.sw",
+        "Decidable/Decidable.sw",
+        "Int/Basics.sw",
+        "Nat/Arith.sw",
+        "Int/Int.sw",
+        "Option/Option.sw",
+        "Ord/Ord.sw",
+        "Result/Result.sw",
+        "List/Toolkit.sw",
+        "Ring/Ring.sw",
+        "Ring/Sound.sw",
+        "List/Sort.sw",
+    ];
     assert_eq!(
         std_loaded_by("def s (xs: List Nat): List Nat := xs.sort\n"),
         sort

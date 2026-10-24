@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `Nat.pow 10 (k + 1) * b = 10 * b * Nat.pow 10 k`
+   ╭─[ reject/ring-pow-variable.sw:5:85 ]
+   │
+ 5 │ theorem powVar (k: Nat) (b: Nat): Nat.pow 10 (k + 1) * b = 10 * b * Nat.pow 10 k := ring
+   │                                                                                     ──┬─  
+   │                                                                                       ╰─── the two sides are different polynomials
+   │ 
+   │ Note 1: left:  Nat.pow 10 (k + 1) * b
+   │ 
+   │ Note 2: right: 10 * b * Nat.pow 10 k
+   │ 
+   │ Note 3: the left side has `Nat.pow 10 (k + 1) * b` more and `10 * b * Nat.pow 10 k` less
+   │ 
+   │ Note 4: `Nat.pow 10 (k + 1)` is an unknown to `ring`: a power is multiplied out only when its exponent is a number
+   │ 
+   │ Note 5: `Nat.pow 10 k` is an unknown to `ring`: a power is multiplied out only when its exponent is a number
+───╯

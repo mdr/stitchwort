@@ -104,6 +104,9 @@ pub enum Tok {
     /// `omega` or `omega [e1, e2]`: a linear arithmetic proof found by the
     /// compiler (docs/proposals/omega.md).
     KwOmega,
+    /// `ring` or `ring [h1, h2]`: an equation between polynomials, checked by
+    /// normalising both sides (docs/proposals/proof-automation.md §6.2).
+    KwRing,
     /// `decreasing e` in a definition's header, and `[decreasing := p]`
     /// at a recursive call (docs/proposals/well-founded-recursion.md).
     KwDecreasing,
@@ -346,6 +349,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                     "calc" => Tok::KwCalc,
                     "rewrite" => Tok::KwRewrite,
                     "omega" => Tok::KwOmega,
+                    "ring" => Tok::KwRing,
                     "decreasing" => Tok::KwDecreasing,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,

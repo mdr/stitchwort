@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` takes equations between `Nat`s, and this is `n <= 3`
+   ╭─[ reject/ring-hypothesis-not-equation.sw:5:57 ]
+   │
+ 5 │ theorem withLe (n: Nat) (h: n <= 3): n + 0 = n := ring [h]
+   │                                                         ┬  
+   │                                                         ╰── not an equation of the goal's type
+   │ 
+   │ Note: each hypothesis of `ring [h1, h2]` proves `l = r` between `Nat`s, like the goal
+───╯

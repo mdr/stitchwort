@@ -176,7 +176,7 @@ theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x ran
   let fewerDigits: List.length (Nat.digits x) <= List.length (Nat.digits range.to) := Nat.digitsLengthMono x range.to notAfterEnd
   -- The blocks fill the digits,
   let filled: blockLength * copies = List.length (Nat.digits x) :=
-    Eq.trans (Nat.mulComm blockLength copies) (repCount x blockLength copies atLeastTwo written)
+    ring [repCount x blockLength copies atLeastTwo written]
   -- so the block has a digit (or the x would have none)
   let blockNotEmpty: 1 <= blockLength :=
     match blockLength with

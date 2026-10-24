@@ -79,7 +79,7 @@ theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
         _ = Succ (n / d) := rewrite (omega: a + 1 = d), Nat.modSelf d
         _ = (d + n) / d := Eq.sym (Nat.addDivSelf d n)
         _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
-        _ = (a + Succ n) / d := rewrite Nat.addSucc a n
+        _ = (a + Succ n) / d := rewrite (ring: a + Succ n = Succ a + n)
     | False =>
       -- no wrap: `Succ a < d`, so the dial goes to `a + 1`
       rewrite Nat.addOne a, Nat.modSmall (Succ a) d (omega: Succ a < d), Nat.addSucc a n

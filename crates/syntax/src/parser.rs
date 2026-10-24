@@ -2795,6 +2795,7 @@ impl<'t> Parser<'t> {
                     | Tok::StrStart(_)
                     | Tok::KwInclude
                     | Tok::KwOmega
+                    | Tok::KwRing
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -3139,6 +3140,23 @@ impl<'t> Parser<'t> {
                     span: span.to(*list_span),
                 })
             }
+            Some(Tok::KwRing) => {
+                self.bump();
+                // `ring [h1, h2]`: hypotheses, by term.
+                if self.peek() != Some(&Tok::LBracket) {
+                    return Ok(Expr::Ring {
+                        facts: Vec::new(),
+                        span,
+                    });
+                }
+                let Expr::List(facts, list_span) = &mut self.list_expr(self.here())? else {
+                    unreachable!("list_expr makes a list")
+                };
+                Ok(Expr::Ring {
+                    facts: std::mem::take(facts),
+                    span: span.to(*list_span),
+                })
+            }
             Some(Tok::Underscore) => {
                 self.bump();
                 Ok(Expr::Hole(span))
@@ -3360,6 +3378,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
         Tok::KwOmega => "`omega`".into(),
+        Tok::KwRing => "`ring`".into(),
         Tok::KwDecreasing => "`decreasing`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
@@ -5351,6 +5370,28 @@ mod tests {
             panic!("expected a calc");
         };
         assert!(matches!(&steps[0].proof, Some(Expr::Omega { .. })));
+    }
+
+    #[test]
+    fn ring_takes_an_optional_list_of_hypotheses() {
+        let expr = rhs("theorem t (a: Nat): a + 1 = 1 + a := ring\n");
+        assert!(
+            matches!(&expr, Expr::Ring { facts, .. } if facts.is_empty()),
+            "{expr:?}"
+        );
+        let expr = rhs("theorem t (a: Nat): a = a := ring [h a, g]\n");
+        let Expr::Ring { facts, .. } = &expr else {
+            panic!("expected ring, got {expr:?}");
+        };
+        assert_eq!(facts.len(), 2);
+        // As an argument, and as a calc step's proof.
+        let expr = rhs("theorem t (a: Nat): a = a := f ring x\n");
+        assert!(matches!(&expr, Expr::App(..)));
+        let expr = rhs("def f (a: Nat): a = a :=\n  calc a\n    _ = a := ring\n");
+        let Expr::Calc { steps, .. } = &expr else {
+            panic!("expected a calc");
+        };
+        assert!(matches!(&steps[0].proof, Some(Expr::Ring { .. })));
     }
 
     #[test]

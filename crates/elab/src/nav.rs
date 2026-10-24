@@ -1304,7 +1304,7 @@ impl Walk<'_> {
                     );
                 }
                 Expr::Field(e, _) => stack.push(Work::Expr(e)),
-                Expr::Omega { facts, .. } => {
+                Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => {
                     then(&mut stack, facts.iter().map(Work::Expr).collect())
                 }
                 Expr::Calc { first, steps, .. } => {

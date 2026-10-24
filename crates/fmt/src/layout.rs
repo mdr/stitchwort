@@ -135,6 +135,7 @@ fn ends_operand(tok: &Tok) -> bool {
             | TypeU
             | Prop
             | KwOmega
+            | KwRing
     )
 }
 

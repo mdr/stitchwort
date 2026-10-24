@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `Nat.leq a (a + b) = True`
+   ╭─[ reject/ring-not-equation.sw:5:45 ]
+   │
+ 5 │ theorem le (a: Nat) (b: Nat): a <= a + b := ring
+   │                                             ──┬─  
+   │                                               ╰─── this goal isn't an equation between `Nat`s or `Int`s
+   │ 
+   │ Note: `ring` proves `a = b` where `a` and `b` are `Nat`s or `Int`s built from `+`, `*`, numbers and atoms (and `-` at `Int`) that are equal as polynomials
+───╯

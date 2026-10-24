@@ -409,7 +409,7 @@ fn walk_at(
             }
         }
         Expr::Field(x, _) => walk(e, x, bound, false, uses)?,
-        Expr::Omega { facts, .. } => {
+        Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => {
             for fact in facts {
                 walk(e, fact, bound, false, uses)?;
             }
