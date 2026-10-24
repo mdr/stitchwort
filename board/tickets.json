@@ -6584,9 +6584,9 @@
     {
       "id": 408,
       "title": "Effect polymorphism stage 3: fold mapIn into map",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "effects"
       ],
