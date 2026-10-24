@@ -7141,7 +7141,7 @@
     },
     {
       "id": 443,
-      "title": "Effect runtime stage 4 (D1162): 4a JS and 4b native run loops done; 4c IO routing/Partial/wasm in progress; then 4d A' fusion, 4e differential, 4f allocation",
+      "title": "Effect runtime stage 4 (D1162): 4a JS, 4b native loops, 4c routing index/Partial/playground done; 4d A' fusion in progress; then 4e differential (incl. a Map-crossing routing test), 4f allocation",
       "status": "doing",
       "agent": "",
       "where": "-",
@@ -7153,7 +7153,8 @@
       "updated": "2026-10-24",
       "commits": [
         "a9f697cf",
-        "d1f3e288"
+        "d1f3e288",
+        "fb7fafb9"
       ]
     }
   ]
