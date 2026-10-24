@@ -5652,9 +5652,9 @@
     {
       "id": 356,
       "title": "Map/Set equality: kernel quotients, API leftovers and O(n+m) combining operations all merged",
-      "status": "done",
+      "status": "doing",
       "agent": "Opus",
-      "where": "-",
+      "where": "worktree lane: fixing JS stack overflow in List.length after merge (extract test)",
       "labels": [
         "design",
         "std"
