@@ -67,6 +67,9 @@ pub struct Symbol {
     /// The symbol it is declared in, by index.
     pub container: Option<usize>,
     pub ty: Option<String>,
+    /// A function's parameters with their names (the elaborator's
+    /// `NavSymbol::signature`).
+    pub signature: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -315,6 +318,7 @@ pub fn index_data_of(
             full_range,
             container: symbol.container,
             ty: symbol.ty.clone(),
+            signature: symbol.signature.clone(),
         });
     }
 

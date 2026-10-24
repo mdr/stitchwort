@@ -26,6 +26,9 @@ use crate::check::{Arg, Ctx, Piped, Result};
 pub(crate) struct Param {
     pub name: Name,
     pub icit: Icit,
+    /// The type of the parameter, where the signature was read from a
+    /// function type (for the language server's hover over a name).
+    pub ty: Option<Value>,
 }
 
 /// The parameters a call may name (§4.3).
@@ -63,8 +66,12 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
             continue;
         }
         match force(g, ty.clone())? {
-            Value::Pi(x, icit, _, cod) => {
-                params.push(Param { name: x, icit });
+            Value::Pi(x, icit, dom, cod) => {
+                params.push(Param {
+                    name: x,
+                    icit,
+                    ty: Some((*dom).clone()),
+                });
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
@@ -85,7 +92,11 @@ pub(crate) fn declared(params: impl IntoIterator<Item = (Name, Icit)>) -> Signat
     Signature {
         params: params
             .into_iter()
-            .map(|(name, icit)| Param { name, icit })
+            .map(|(name, icit)| Param {
+                name,
+                icit,
+                ty: None,
+            })
             .collect(),
         open: false,
     }
@@ -203,6 +214,11 @@ fn fill<'a>(
             Arg::Named(name, _) | Arg::NamedExplicit(name, _) => {
                 let wants_explicit = matches!(arg, Arg::NamedExplicit(..));
                 let i = find(cx, sig, name, wants_explicit)?;
+                if let Some(ty) = &params[i].ty {
+                    let mut names = cx.names.clone();
+                    names.extend(params[..i].iter().map(|p| p.name.clone()));
+                    cx.e.note_parameter(name, ty, names);
+                }
                 if let Some(earlier) = filled[i] {
                     return Err(duplicate(name, earlier));
                 }

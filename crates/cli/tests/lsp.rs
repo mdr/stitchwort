@@ -1406,3 +1406,66 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn named_arguments_hover_and_complete_parameter_names() {
+    let dir = temp_dir("named-arguments");
+    let file = dir.join("named.sw");
+    let text = "def clampTo (low: Nat) (high: Nat) (value: Nat): Nat := value\n\
+                def pick [count: Nat] [label: Text] (x: Nat): Nat := x\n\
+                def a: Nat := clampTo (high := 9) (low := 3) 5\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+
+    // Hover on the names in `(high := 9)` and `(low := 3)`: the parameter's type.
+    for (character, name) in [(23, "high"), (35, "low")] {
+        let hover = client.at("textDocument/hover", &uri, 2, character);
+        let shown = hover["contents"]["value"].as_str().unwrap();
+        assert!(
+            shown.contains("```stitchwort\nNat\n```") && shown.contains(&format!("`{name}`")),
+            "{name}: {hover}"
+        );
+    }
+
+    // The call being typed does not parse; the names still complete.
+    let typing = format!("{text}def b: Nat := clampTo (high := 9) (\n");
+    client.change(&uri, 2, &typing);
+    client.diagnostics(&uri, 2);
+    let complete = |client: &mut Client, line: u32, character: u32| -> Vec<String> {
+        let found = client.request(
+            "textDocument/completion",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}, "context": {"triggerKind": 1}}),
+        );
+        found
+            .as_array()
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|i| i["label"].as_str().unwrap().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    assert_eq!(complete(&mut client, 3, 35), ["low", "value"]);
+    // Partway through a name.
+    client.change(&uri, 3, &format!("{text}def b: Nat := clampTo (val\n"));
+    client.diagnostics(&uri, 3);
+    assert_eq!(complete(&mut client, 3, 26), ["low", "high", "value"]);
+    // Implicit parameters after `[`.
+    client.change(
+        &uri,
+        4,
+        &format!("{text}def b: Nat := pick [count := 1] [\n"),
+    );
+    client.diagnostics(&uri, 4);
+    assert_eq!(complete(&mut client, 3, 33), ["label"]);
+    // Nothing where no function is called.
+    client.change(&uri, 5, &format!("{text}def b: Nat := (\n"));
+    client.diagnostics(&uri, 5);
+    assert!(complete(&mut client, 3, 15).is_empty());
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
