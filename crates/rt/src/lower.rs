@@ -18,8 +18,8 @@ use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, S
 use stitchwort_syntax::Diagnostic;
 
 use crate::effect::{Carrier, EffectNatives, EffectOp};
-use crate::fusion::StateFusion;
 use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
+use crate::fusion::StateFusion;
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
     PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,

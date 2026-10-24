@@ -520,7 +520,15 @@ impl State {
                 };
                 let (done, call, c) = (arg(), arg(), arg());
                 let handler = Rc::new(Handler::Fold { done, call, lazy });
-                self.eff_run(program, image, c, Value::Erased, handler, Value::Erased, ret)
+                self.eff_run(
+                    program,
+                    image,
+                    c,
+                    Value::Erased,
+                    handler,
+                    Value::Erased,
+                    ret,
+                )
             }
             EffectOp::FoldState | EffectOp::FoldStateComp => {
                 let (done, call, c) = (arg(), arg(), arg());
@@ -541,12 +549,28 @@ impl State {
                 };
                 let (inject, reply) = pair(m);
                 let handler = Rc::new(Handler::Translate { inject, reply });
-                self.eff_run(program, image, c, Value::Erased, handler, Value::Erased, ret)
+                self.eff_run(
+                    program,
+                    image,
+                    c,
+                    Value::Erased,
+                    handler,
+                    Value::Erased,
+                    ret,
+                )
             }
             EffectOp::RunPure => {
                 let c = arg();
                 let handler = Rc::new(Handler::RunPure);
-                self.eff_run(program, image, c, Value::Erased, handler, Value::Erased, ret)
+                self.eff_run(
+                    program,
+                    image,
+                    c,
+                    Value::Erased,
+                    handler,
+                    Value::Erased,
+                    ret,
+                )
             }
         }
     }

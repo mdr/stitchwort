@@ -890,7 +890,7 @@ default stack, Apple M4 Pro, one call per process, median of 5; heap is
 | `askedIn` | overflow at 4,000 | 538 ms | 501 MB | 434 MB |
 | `emittedIn` | overflow at 2,000 | 667 ms | 689 MB | 626 MB |
 | `searchedIn` | overflow at 2,000 | 2,085 ms | 1,649 MB | 1,610 MB |
-| `counted`, `countedChecked` | overflow at 2,000-4,000 | overflow at 8,000 (4d) | | |
+| `counted`, `countedChecked` | overflow at 2,000-4,000 | overflow at 8,000 (run at 1M since 4d, §9.7) | | |
 | `emitted`, `searched` | overflow at 2,000 | overflow at 2,000 (§9.1.7) | | |
 
 `plain`'s generated code is unchanged (it never reaches the runtime).
@@ -1100,6 +1100,99 @@ in"), `checked` 0.9 s, `emitted` 1.6 s, `asked`, `askedIn` 1.7 s,
 build in Node, within the 15-second limit but the closest to it; the
 cause isn't investigated (the page's run streams output and flushes it
 before every read **[inferred]**, which the Node call doesn't).
+
+### 9.7 As built: stage 4d
+
+- **Where.** `crates/rt/src/fusion.rs` recognises the shape and rewrites
+  the fold's arguments, on the core term after elaboration (and after
+  empty-row specialisation), for both backends: `Gen::def_ref` in
+  `crates/js` and `Lowerer::apply_def` in `crates/rt` call it at each
+  `foldComp` before anything else. Nothing in the kernel or the elaborator
+  changed, and no hash moved: `hash_stability`'s snapshots only gained the
+  new examples' definitions **[checked]**.
+- **What is recognised.** A `foldComp` whose carrier is a function type at
+  the empty row: `Comp NoOp NoRes (S -> R)` (a `handle` at the closed empty
+  row, `runPure` around it), or `CompIn Empty (S -> R)`, which empty-row
+  specialisation reduces to `S -> R` itself (a handler written for `{e}`,
+  like the tour's `collectLog`, used at the empty row). At the closed empty
+  row the return clause and every operation clause must be `Done e`; at the
+  empty row any clause will do. A clause whose `e` isn't a lambda is
+  eta-expanded (`s => e s`; generated code is pure and total). The
+  operation clauses are found as the explicit arguments of the ability's
+  eliminator inside `handlePlus`, by erasure (the terms don't reliably say
+  which applications are implicit).
+- **The rewrite.** Each operation clause `x, k => s => body` becomes
+  `x, k => jump => s => body′`, where every `k v s′` in tail position of
+  `body` becomes `jump v s′`: tail positions are followed through `let`s,
+  applied lambdas (`let r := runPure (k v); r s′` is how the elaborator
+  writes `k v s′` at the closed empty row) and both branches of
+  `Bool.ifThenElse` and `Decidable.elim` (how `if` on a comparison is
+  written), which return their branch's result. At the closed empty row the
+  return clause `x => Done e` becomes `x => e`. A fold none of whose clauses
+  has a tail `k v s′` is left as it was.
+- **The loop.** The fold becomes `effFoldState(comp)` in JS and
+  `EffectOp::FoldState` / `FoldStateComp` natively: it builds the state's
+  function (`Done` of it at the closed empty row), and that function, given
+  the state, runs the 4a/4b loop with the state in a variable. At `Done x`
+  it is `done x s`; at an operation it applies the clause to the operation,
+  a real `k`, `jump` and the state. `jump v s′` only records its arguments
+  (an `EffJump` object; natively a `Fun::Jumped` value no program can
+  make). If the clause returns one, the loop goes on with `rest v` and
+  state `s′`, calling nothing; anything else is the handler's result.
+  Natively the clause's result comes back to the loop through a return kind
+  (`Ret::Step`), and the state rides in the loop's `EffRet`, so nothing
+  nests in Rust either.
+- **Fallbacks.** `k` is always a real resumption: called with `y`, it gives
+  the state's function from `rest y` with the pending list where the
+  operation was, which runs the same loop when it gets a state. So every use
+  of `k` that isn't a tail `k v s′` (not last, twice, many times, under a
+  lambda, stored in the result and resumed after the handler returned)
+  means what the tree says; only the tail call became a jump. A handler
+  that doesn't fit at all keeps 4a/4b's fold: at the closed empty row, one
+  with a clause that isn't `Done` of something (`put v, k => k ()`), and
+  any handler with an ability outside it, which is lazy already.
+- **Tests.** `examples/extract/effect-state.sw`: a handler whose operations
+  resume 0, 1 (a jump), 2 (not in tail position), `n` times (under a
+  lambda), in either branch of an `if`, and in tail position in one branch
+  and not the other, at the closed empty row, at the empty row through an
+  open-row handler, and with `Fail` outside (not fused); a resumption
+  stored under a lambda in the result and resumed after the handler
+  returned, three times, with different answers; a state handler around a
+  forwarding handler and around another state handler; a store whose `put`
+  is `k ()`, fused at the empty row and not at the closed empty row. Its
+  `-- run:` lines are checked against the reference evaluator in JS
+  (`extract`) and natively (`run_lines_agree_with_the_reference_evaluator`),
+  and `state_handlers_run_as_a_loop_where_they_fit` pins which of them are
+  fused by their jump counts. `effect-runtime.sw` gained `countedChecked`,
+  `countedOpen` and `logged` (an accumulator writer for `{e}` at the empty
+  row); with `counted`, they run at 1,000,000 elements on Node's default
+  stack and natively, with jumps equal to the elements and the counts per
+  element constant from 1,000 to 100,000, in both backends' tests. The
+  empty-row limit test no longer lists `counted`. The lowering tests'
+  interpreter runs the new natives by their equations.
+
+**Measured** (Apple M4 Pro, Node 22; the build before is `fcb91599`; JS is
+`bench/effect-runtime/once.mjs`, one call per process, median of 5; native
+is a whole `stitchwort run` of `map.sw`, median of 5) **[checked]**:
+
+| run (1,000,000 elements) | before 4d | after 4d | max RSS (heap) after |
+|---|---|---|---|
+| `counted`, JS export | overflow at 4,000 | 583 ms | 523 MB (435 MB) |
+| `countedChecked`, JS export | overflow at 4,000 | 800 ms | 529 MB (434 MB) |
+| `plain`, JS export | 55 ms | 52 ms | 268 MB (191 MB, same) |
+| `checked`, JS export | 460 ms | 459 ms | 524 MB (431 MB, same) |
+| `state` (`counted`), native | 1.42 s, 567 MB | 1.22 s | 453 MB |
+| `plain`, native | 0.31 s | 0.31 s | 420 MB (same) |
+| `fail` (`checked`), native | 0.63 s | 0.61 s | 670 MB (same) |
+
+Natively the jump saves the closure per operation that the clause's state
+function was, and its frame: 14% less time and 20% less memory for
+`state`. The counts per element at 100,000 (steps, pushes = pops, routes,
+resumptions, nodes, jumps), the same in both backends: `counted` and
+`countedOpen` 7, 3, 1, 0, 3, 1; `logged` 5, 2, 1, 0, 2, 1; `countedChecked`
+11, 4, 3, 1, 3, 1 (its `Fail` handler resumes each forwarded `next`
+lazily). AoC's `stitchwort test --no-cache`: 15.8 s and 619 MB before,
+15.7 s and 618 MB after.
 
 ## Appendix A. Benchmark and prototype files
 

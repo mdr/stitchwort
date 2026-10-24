@@ -3512,7 +3512,10 @@ impl<'g> Gen<'g> {
             && let Some(fused) = effect.fuse(self.g, args)?
         {
             let mut out = format!("effFoldState({})", fused.comp);
-            for arg in [&fused.done, &fused.call].into_iter().chain(args[6..].iter().copied()) {
+            for arg in [&fused.done, &fused.call]
+                .into_iter()
+                .chain(args[6..].iter().copied())
+            {
                 let _ = write!(out, "({})", self.expr(arg, env)?);
             }
             return Ok(out);

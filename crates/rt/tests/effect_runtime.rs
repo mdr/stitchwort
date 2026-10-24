@@ -1,9 +1,10 @@
 //! The native effect runtime (docs/proposals/effect-runtime.md §9, D1162,
-//! stage 4b), as `crates/cli/tests/effect_runtime.rs` tests the JS one
-//! (stage 4a): the handler shapes of `examples/extract/effect-runtime.sw`
-//! over 1,000,000 elements on the machine, counts of the runtime's work,
-//! which must grow linearly with the input, and every `-- run:` line of
-//! that file and of `effect-handlers.sw` against the reference evaluator.
+//! stages 4b and 4d), as `crates/cli/tests/effect_runtime.rs` tests the JS
+//! one: the handler shapes of `examples/extract/effect-runtime.sw` over
+//! 1,000,000 elements on the machine, counts of the runtime's work, which
+//! must grow linearly with the input, which state-passing handlers run as a
+//! loop, and every `-- run:` line of that file, `effect-handlers.sw` and
+//! `effect-state.sw` against the reference evaluator.
 
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -133,6 +134,8 @@ enum Check {
     OkOne,
     /// `Ok [0, 2, 4, …]`.
     OkTwice,
+    /// `[0, 2, 4, …]`.
+    Twice,
 }
 
 fn check(p: &Program, name: &str, how: Check, n: u64, v: &Value) {
@@ -151,8 +154,13 @@ fn check(p: &Program, name: &str, how: Check, n: u64, v: &Value) {
             assert_eq!(results.len(), 1, "{name}");
             plus(&results[0], 0);
         }
-        Check::OkTwice => {
-            let xs = numbers(p, ok(v));
+        Check::OkTwice | Check::Twice => {
+            let v = if matches!(how, Check::OkTwice) {
+                ok(v)
+            } else {
+                v
+            };
+            let xs = numbers(p, v);
             assert_eq!(xs.len() as u64, n, "{name}");
             for (i, x) in xs.iter().enumerate() {
                 assert_eq!(*x, 2 * i as u64, "{name} at {i}");
@@ -172,12 +180,23 @@ const SHAPES: &[(&str, Check)] = &[
     ("searchedIn", Check::OkOne),
     ("countedIn", Check::OkTwice),
     ("forwarded", Check::Plus(7)),
+    // State-passing handlers at the empty row, run as a loop (stage 4d).
+    ("counted", Check::Twice),
+    ("countedChecked", Check::OkTwice),
+    ("countedOpen", Check::Twice),
+    ("logged", Check::Plus(0)),
 ];
+
+/// The state-passing handlers among [`SHAPES`]: each operation is a jump of
+/// the handler's loop (stage 4d).
+const STATE_SHAPES: &[&str] = &["counted", "countedChecked", "countedOpen", "logged"];
 
 fn args(name: &str, p: &Program, n: u64) -> Vec<Value> {
     let xs = list(p, n);
     if name == "forwarded" {
         vec![Value::Nat(10), xs]
+    } else if name == "countedChecked" {
+        vec![Value::Nat(n), xs]
     } else {
         vec![xs]
     }
@@ -186,16 +205,15 @@ fn args(name: &str, p: &Program, n: u64) -> Vec<Value> {
 /// Every shape runs natively at 1,000,000 elements with the right answer,
 /// within the default limits; so do the empty-row writer and search, which
 /// stage 4a leaves at JS's stack limit (the machine's frames are on the
-/// heap), and the empty-row state handler. `failsLast` performs its one
-/// operation at the very end, with the whole list pending.
+/// heap). `failsLast` performs its one operation at the very end, with the
+/// whole list pending.
 #[test]
 fn every_shape_runs_at_a_million_elements() {
     with_stack(STACK, || {
         let (session, _) = example("effect-runtime.sw");
         let n = 1_000_000;
         let limits = Limits::from_core(session.elab.limits);
-        let empty_row: &[(&str, Check)] =
-            &[("emitted", Check::Plus(0)), ("counted", Check::Plus(0))];
+        let empty_row: &[(&str, Check)] = &[("emitted", Check::Plus(0))];
         for (name, how) in SHAPES.iter().chain(empty_row) {
             let export = Export::new(&session, name);
             let p = &export.program;
@@ -203,15 +221,7 @@ fn every_shape_runs_at_a_million_elements() {
             let (result, _) = export.call(limits, args(name, p, n));
             let elapsed = start.elapsed();
             let v = result.unwrap_or_else(|e| panic!("{name}: {e}"));
-            match name {
-                // Each element is numbered twice its index (`x + next()`).
-                &"counted" => {
-                    let xs = numbers(p, &v);
-                    assert_eq!(xs.len() as u64, n);
-                    assert!(xs.iter().enumerate().all(|(i, x)| *x == 2 * i as u64));
-                }
-                _ => check(p, name, *how, n, &v),
-            }
+            check(p, name, *how, n, &v);
             eprintln!("{name}\t{} ms", elapsed.as_millis());
         }
         let export = Export::new(&session, "searched");
@@ -255,12 +265,26 @@ fn the_work_per_element_is_constant() {
                     f(c.routes),
                     f(c.resumes),
                     f(c.binds),
+                    f(c.jumps),
                 ]);
+                if STATE_SHAPES.contains(name) {
+                    // Every operation is a jump of the handler's loop, and none
+                    // a resumption by a call (`countedChecked`'s `Fail` handler
+                    // resumes each `next` it forwards lazily, a node each).
+                    assert_eq!(c.jumps, n, "{name}: jumps at {n}");
+                    if *name != "countedChecked" {
+                        assert_eq!(c.resumes, 0, "{name}: resumptions at {n}");
+                    }
+                } else {
+                    assert_eq!(c.jumps, 0, "{name}: jumps at {n}");
+                }
                 last = c;
             }
-            for (i, key) in ["steps", "pushes", "pops", "routes", "resumes", "binds"]
-                .iter()
-                .enumerate()
+            for (i, key) in [
+                "steps", "pushes", "pops", "routes", "resumes", "binds", "jumps",
+            ]
+            .iter()
+            .enumerate()
             {
                 let (small, large) = (per[0][i], per[2][i]);
                 assert!(
@@ -305,6 +329,59 @@ fn bind_of_done_is_a_direct_call() {
                 ..EffectCounts::default()
             }
         );
+    });
+}
+
+/// The list of these numbers, as the machine's value.
+fn nat_list(p: &Program, xs: &[u64]) -> Value {
+    let s = &p.shapes;
+    let mut out = Value::Tag(s.nil);
+    for x in xs.iter().rev() {
+        out = Value::data(s.cons, [Value::Nat(*x), out]);
+    }
+    out
+}
+
+/// Which handlers of `effect-state.sw` run as a loop (stage 4d,
+/// `stitchwort_rt::fusion`), told by the jumps their operations make: a
+/// state-passing handler at the empty row with a tail resumption, whatever
+/// else its clauses do with `k`; not one with an ability outside it, nor
+/// one with a clause that isn't `Done` of a function at the closed empty
+/// row, nor one that never resumes in tail position. (Their answers are the
+/// reference evaluator's: `run_lines_agree_with_the_reference_evaluator`.)
+#[test]
+fn state_handlers_run_as_a_loop_where_they_fit() {
+    with_stack(STACK, || {
+        let (session, _) = example("effect-state.sw");
+        let limits = Limits::from_core(session.elab.limits);
+        let codes: &[u64] = &[0, 2, 3, 4, 5, 1, 0];
+        // The export, its list argument, and the jumps it makes.
+        let cases: &[(&str, &[u64], u64)] = &[
+            // `tick` jumps; `both` resumes twice by calls, and in each branch
+            // `many 3` three times; each of those six runs a `branch`, a jump,
+            // and a `mixed`, a jump unless the state is 0 there, which it is
+            // in three: 1 + 6 + 3 = 10.
+            ("tallied", codes, 10),
+            ("talliedOpen", codes, 10),
+            ("talliedChecked", codes, 0),
+            // `get`, `put` and `get` again for each element.
+            ("stores", &[4, 0, 7], 9),
+            ("storesEta", &[4, 0, 7], 0),
+            ("storesEtaOpen", &[4, 0, 7], 9),
+            ("nestedState", &[1, 2, 3], 3),
+            ("stateInState", &[1, 2, 3], 3),
+        ];
+        for (name, xs, jumps) in cases {
+            let export = Export::new(&session, name);
+            let p = &export.program;
+            let (result, c) = export.call(limits, vec![nat_list(p, xs)]);
+            result.unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(c.jumps, *jumps, "{name}: {c:?}");
+        }
+        let export = Export::new(&session, "stored");
+        let (result, c) = export.call(limits, vec![Value::Nat(3)]);
+        result.expect("stored");
+        assert_eq!(c.jumps, 0, "stored: {c:?}");
     });
 }
 
@@ -399,7 +476,7 @@ fn same(a: &Value, b: &Value) -> bool {
 fn run_lines_agree_with_the_reference_evaluator() {
     with_stack(STACK, || {
         let mut ran = 0;
-        for name in ["effect-runtime.sw", "effect-handlers.sw"] {
+        for name in ["effect-runtime.sw", "effect-handlers.sw", "effect-state.sw"] {
             let (mut session, text) = example(name);
             for line in text.lines().filter_map(|l| l.strip_prefix("-- run:")) {
                 let source = line.trim();

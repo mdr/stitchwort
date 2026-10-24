@@ -21,7 +21,7 @@
 //! - each operation clause `x, k => s => body` (under `Done` at the closed
 //!   empty row) becomes `x, k => jump => s => body′`, where `body′` is
 //!   `body` with every `k v s′` in tail position (through `let`s, applied
-//!   lambdas and `if`) replaced by `jump v s′`;
+//!   lambdas, `if` and `Decidable.elim`) replaced by `jump v s′`;
 //! - at the closed empty row the return clause `x => Done e` becomes
 //!   `x => e`, so it gives the state's function directly.
 //!
@@ -39,8 +39,9 @@
 //! - `Comp NoOp NoRes (S -> R)` (the closed empty row: `handle` with
 //!   `runPure` around it): the return clause must be `Done e` and every
 //!   operation clause `Done e`;
-//! - `CompIn Empty (S -> R)` (an empty-row variant of a handler written for
-//!   `{e}`): any clauses, since `doneIn Empty` is the identity.
+//! - `CompIn Empty (S -> R)`, or `S -> R` once empty-row specialisation has
+//!   reduced that (an empty-row variant of a handler written for `{e}`):
+//!   any clauses, since `doneIn Empty` is the identity.
 //!
 //! A clause whose `e` isn't a lambda is eta-expanded (`s => e s`), which
 //! is sound since generated code is pure and total. A fold none of whose
@@ -69,7 +70,10 @@ pub struct StateFusion {
     /// `runPure`'s parameters, implicit ones included.
     run_pure_params: usize,
     handle_plus: DefId,
+    /// Which of `handlePlus`'s parameters are erased.
+    handle_plus_mask: Vec<bool>,
     if_then_else: Option<DefId>,
+    elim_dec: Option<DefId>,
 }
 
 /// A fold to run as a loop: its rewritten return clause and operation
@@ -89,6 +93,8 @@ impl StateFusion {
         let r = &g.registry;
         let run_pure = r.loaded_def(Builtin::RunPure)?;
         let run_pure_params = def_shape(g, run_pure, false).ok()?.mask().len();
+        let handle_plus = r.loaded_def(Builtin::HandlePlus)?;
+        let handle_plus_mask = def_shape(g, handle_plus, false).ok()?.mask().to_vec();
         let row = r.loaded_data(Builtin::Row).and_then(|d| {
             let empty = g.data(d).ctors.iter().position(|c| &*c.name == "Empty")?;
             Some((d, empty))
@@ -100,8 +106,10 @@ impl StateFusion {
             row,
             run_pure,
             run_pure_params,
-            handle_plus: r.loaded_def(Builtin::HandlePlus)?,
+            handle_plus,
+            handle_plus_mask,
             if_then_else: r.loaded_def(Builtin::IfThenElse),
+            elim_dec: r.loaded_def(Builtin::ElimDec),
         })
     }
 
@@ -126,17 +134,21 @@ impl StateFusion {
         } else {
             args[4].clone()
         };
-        // `handlePlus [5 implicit] (elim [implicit…] clause…) forward`.
+        // `handlePlus [5 implicit] (elim [implicit…] clause…) forward`. The
+        // runtime arguments are told by erasure, not by how they're applied
+        // (a term may have every application marked explicit).
         let Some((head, plus_args)) = spine_icit(args[5]) else {
             return Ok(None);
         };
-        if !matches!(head, Term::Def(id) if *id == self.handle_plus) {
+        if !matches!(head, Term::Def(id) if *id == self.handle_plus)
+            || plus_args.len() > self.handle_plus_mask.len()
+        {
             return Ok(None);
         }
-        let explicit: Vec<usize> = (0..plus_args.len())
-            .filter(|i| plus_args[*i].1 == Icit::Explicit)
+        let runtime: Vec<usize> = (0..plus_args.len())
+            .filter(|i| !self.handle_plus_mask[*i])
             .collect();
-        let [elim_at, forward_at] = explicit[..] else {
+        let [elim_at, forward_at] = runtime[..] else {
             return Ok(None);
         };
         if forward_at != plus_args.len() - 1 {
@@ -145,19 +157,26 @@ impl StateFusion {
         let Some((elim_head, elim_args)) = spine_icit(plus_args[elim_at].0) else {
             return Ok(None);
         };
-        if !matches!(elim_head, Term::Def(_)) {
+        let Term::Def(elim_id) = elim_head else {
+            return Ok(None);
+        };
+        let Ok(elim_shape) = def_shape(g, *elim_id, false) else {
+            return Ok(None);
+        };
+        let elim_mask = elim_shape.mask();
+        if elim_args.len() > elim_mask.len() {
             return Ok(None);
         }
         let mut jumps = 0;
         let mut elim = elim_head.clone();
-        for (arg, icit) in &elim_args {
-            let arg = if *icit == Icit::Explicit {
+        for (i, (arg, icit)) in elim_args.iter().enumerate() {
+            let arg = if elim_mask[i] {
+                (*arg).clone()
+            } else {
                 let Some(clause) = self.clause(g, arg, comp, &mut jumps)? else {
                     return Ok(None);
                 };
                 clause
-            } else {
-                (*arg).clone()
             };
             elim = Term::app_icit(elim, arg, *icit);
         }
@@ -183,7 +202,7 @@ impl StateFusion {
 
     /// Whether the carrier is a state's function at the empty row: `Some
     /// (true)` for `Comp NoOp NoRes (S -> R)`, `Some(false)` for `CompIn
-    /// Empty (S -> R)`.
+    /// Empty (S -> R)` or, once specialisation has reduced that, `S -> R`.
     fn carrier(&self, carrier: &Term) -> Option<bool> {
         let (head, args) = carrier.spine();
         let (comp, t) = match head.strip_loc() {
@@ -196,15 +215,18 @@ impl StateFusion {
             }
             Term::Def(id) if Some(*id) == self.comp_in && args.len() == 2 => {
                 let (row, empty) = self.row?;
-                if !matches!(args[0].strip_loc(), Term::Ctor(d, c, _) if *d == row && *c == empty)
-                {
+                if !matches!(args[0].strip_loc(), Term::Ctor(d, c, _) if *d == row && *c == empty) {
                     return None;
                 }
                 (false, args[1])
             }
+            // `CompIn Empty (S -> R)` with the `CompIn` already reduced away,
+            // as the empty-row specialisation does: a plain type can be a
+            // fold's carrier only that way.
+            Term::Pi(..) if args.is_empty() => (false, carrier),
             _ => return None,
         };
-        matches!(strip(t), Term::Pi(_, Icit::Explicit, _, _)).then_some(comp)
+        matches!(strip(t), Term::Pi(..)).then_some(comp)
     }
 
     /// `e`, if `term` is `Done e`.
@@ -242,10 +264,7 @@ impl StateFusion {
         // between `k` and `s`.
         let (s, body) = match strip(f) {
             Term::Lam(s, _, b) => (s.clone(), b.shift(g, 1, 1)?),
-            other => (
-                "s".into(),
-                Term::app(other.shift(g, 2, 0)?, Term::Var(0)),
-            ),
+            other => ("s".into(), Term::app(other.shift(g, 2, 0)?, Term::Var(0))),
         };
         let body = self.tail(g, &body, 0, jumps)?;
         let lam = |name, icit, body| Term::Lam(name, icit, Rc::new(body));
@@ -255,11 +274,7 @@ impl StateFusion {
             lam(
                 k.clone(),
                 *ki,
-                lam(
-                    "jump".into(),
-                    Icit::Explicit,
-                    lam(s, Icit::Explicit, body),
-                ),
+                lam("jump".into(), Icit::Explicit, lam(s, Icit::Explicit, body)),
             ),
         )))
     }
@@ -270,14 +285,18 @@ impl StateFusion {
         if depth > MAX_DEPTH {
             return Ok(term.clone());
         }
-        let jump = |v: &Term, s: &Term| Term::app(Term::app(Term::Var(1 + depth), v.clone()), s.clone());
+        let jump =
+            |v: &Term, s: &Term| Term::app(Term::app(Term::Var(1 + depth), v.clone()), s.clone());
         match term {
             Term::Loc(span, inner) => {
-                return Ok(Term::Loc(*span, Rc::new(self.tail(g, inner, depth, jumps)?)));
+                return Ok(Term::Loc(
+                    *span,
+                    Rc::new(self.tail(g, inner, depth, jumps)?),
+                ));
             }
             Term::Ann(inner, _) => return self.tail(g, inner, depth, jumps),
             // `k v s′`.
-            Term::App(f, s, Icit::Explicit) => {
+            Term::App(f, s, _) => {
                 if let Some(v) = self.resume(f, depth) {
                     *jumps += 1;
                     return Ok(jump(v, s));
@@ -288,15 +307,15 @@ impl StateFusion {
         // `let r := k v; r s′`, or the same as an applied lambda.
         let bound = match term {
             Term::Let(_, _, value, body, false) => Some((&**value, &**body)),
-            Term::App(f, value, Icit::Explicit) => match strip(f) {
-                Term::Lam(_, Icit::Explicit, body) => Some((&**value, &**body)),
+            Term::App(f, value, _) => match strip(f) {
+                Term::Lam(_, _, body) => Some((&**value, &**body)),
                 _ => None,
             },
             _ => None,
         };
         if let Some((value, body)) = bound {
             if let Some(v) = self.resume(value, depth)
-                && let Term::App(r, s, Icit::Explicit) = strip(body)
+                && let Term::App(r, s, _) = strip(body)
                 && matches!(strip(r), Term::Var(0))
                 && !s.mentions(0)
             {
@@ -324,22 +343,33 @@ impl StateFusion {
         }
         if let Term::Let(x, ty, value, body, true) = term {
             let body = self.tail(g, body, depth + 1, jumps)?;
-            return Ok(Term::Let(x.clone(), ty.clone(), value.clone(), Rc::new(body), true));
+            return Ok(Term::Let(
+                x.clone(),
+                ty.clone(),
+                value.clone(),
+                Rc::new(body),
+                true,
+            ));
         }
-        // `Bool.ifThenElse [a] c (_ => t) (_ => e)`: both branches.
+        // `Bool.ifThenElse [a] c (_ => t) (_ => e)` and `Decidable.elim [p]
+        // [a] d (h => t) (r => e)`: both branches. Each gives its branch's
+        // result as its own, in tail position (`Bool.ifThenElse` is lowered
+        // to a test; `Decidable.elim`'s cases are `yes h` and `no r`).
         if let Some((Term::Def(id), args)) = spine_icit(term)
-            && Some(*id) == self.if_then_else
-            && args.len() == 4
-            && let (Term::Lam(xt, it, t), Term::Lam(xe, ie, e)) = (strip(args[2].0), strip(args[3].0))
+            && let Some(at) = self.branches(*id, args.len())
+            && let (Term::Lam(xt, it, t), Term::Lam(xe, ie, e)) =
+                (strip(args[at].0), strip(args[at + 1].0))
         {
             let t = self.tail(g, t, depth + 1, jumps)?;
             let e = self.tail(g, e, depth + 1, jumps)?;
             let mut out = Term::Def(*id);
             for (i, (arg, icit)) in args.iter().enumerate() {
-                let arg = match i {
-                    2 => Term::Lam(xt.clone(), *it, Rc::new(t.clone())),
-                    3 => Term::Lam(xe.clone(), *ie, Rc::new(e.clone())),
-                    _ => (*arg).clone(),
+                let arg = if i == at {
+                    Term::Lam(xt.clone(), *it, Rc::new(t.clone()))
+                } else if i == at + 1 {
+                    Term::Lam(xe.clone(), *ie, Rc::new(e.clone()))
+                } else {
+                    (*arg).clone()
                 };
                 out = Term::app_icit(out, arg, *icit);
             }
@@ -348,15 +378,25 @@ impl StateFusion {
         Ok(term.clone())
     }
 
+    /// Where the two branches are among the arguments of `id` applied to
+    /// `n` arguments, if it's a conditional whose result is a branch's.
+    fn branches(&self, id: DefId, n: usize) -> Option<usize> {
+        if Some(id) == self.if_then_else && n == 4 {
+            Some(2)
+        } else if Some(id) == self.elim_dec && n == 5 {
+            Some(3)
+        } else {
+            None
+        }
+    }
+
     /// `v`, if `term` is `k`'s state function for `v`: `k v` (an empty-row
     /// variant, where `k` gives the function), or `runPure (k v)` (the
     /// closed empty row, where `k` gives `Done` of it).
     fn resume<'t>(&self, term: &'t Term, depth: usize) -> Option<&'t Term> {
         let k = 2 + depth;
         let call = |t: &'t Term| match strip(t) {
-            Term::App(f, v, Icit::Explicit) if matches!(strip(f), Term::Var(i) if *i == k) => {
-                Some(&**v)
-            }
+            Term::App(f, v, _) if matches!(strip(f), Term::Var(i) if *i == k) => Some(&**v),
             _ => None,
         };
         if let Some(v) = call(term) {

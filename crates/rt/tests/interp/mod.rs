@@ -43,11 +43,42 @@ pub enum Fun {
 #[derive(Debug)]
 pub enum EffK {
     /// `y => bind (rest y) k`.
-    Bind { rest: V, k: V },
+    Bind {
+        rest: V,
+        k: V,
+    },
     /// `y => foldComp done call (rest y)`.
-    Fold { done: V, call: V, rest: V },
+    Fold {
+        done: V,
+        call: V,
+        rest: V,
+    },
     /// `x => translate m (rest (reply o x))`.
-    Translate { m: V, o: V, rest: V },
+    Translate {
+        m: V,
+        o: V,
+        rest: V,
+    },
+    /// A state-passing handler's function of the state, from computation
+    /// `c` (stage 4d: `EffectOp::FoldState`).
+    StateRun {
+        done: V,
+        call: V,
+        comp: bool,
+        c: V,
+    },
+    /// Its `k`: `y => ` the state's function from `rest y`, `Done` of it if
+    /// `comp`.
+    StateK {
+        done: V,
+        call: V,
+        comp: bool,
+        rest: V,
+    },
+    /// `jump`, and `jump v`, which record their arguments as a `Jumped`.
+    Jump,
+    JumpWith(V),
+    Jumped(V, V),
 }
 
 type R<T> = Result<T, String>;
@@ -375,10 +406,54 @@ impl<'p> Interp<'p> {
                     other => Err(format!("translate of {other:?}")),
                 }
             }
+            EffectOp::FoldState | EffectOp::FoldStateComp => {
+                let (done, call, c) = (arg()?, arg()?, arg()?);
+                let comp = op == EffectOp::FoldStateComp;
+                let f = fun(EffK::StateRun {
+                    done,
+                    call,
+                    comp,
+                    c,
+                });
+                Ok(if comp { ctor(s.done, vec![f]) } else { f })
+            }
             EffectOp::RunPure => match arg()? {
                 V::Ctor(t, f) if t == s.done => Ok(f[0].clone()),
                 other => Err(format!("runPure of {other:?}")),
             },
+        }
+    }
+
+    /// A state-passing handler run from `c` with state `s`: a clause's jump
+    /// goes on with the rest from its value and state; anything else it
+    /// gives is the result.
+    fn state_loop(&self, done: &V, call: &V, comp: bool, mut c: V, mut s: V) -> R<V> {
+        let shapes = &self.p.shapes;
+        loop {
+            match c {
+                V::Ctor(t, f) if t == shapes.done => {
+                    let f = self.apply(done.clone(), vec![f[0].clone()])?;
+                    return self.apply(f, vec![s]);
+                }
+                V::Ctor(t, f) if t == shapes.call => {
+                    let rest = f[1].clone();
+                    let k = V::Fun(Rc::new(Fun::Eff(EffK::StateK {
+                        done: done.clone(),
+                        call: call.clone(),
+                        comp,
+                        rest: rest.clone(),
+                    })));
+                    let jump = V::Fun(Rc::new(Fun::Eff(EffK::Jump)));
+                    let r = self.apply(call.clone(), vec![f[0].clone(), k, jump, s])?;
+                    let V::Fun(g) = &r else { return Ok(r) };
+                    let Fun::Eff(EffK::Jumped(y, s2)) = &**g else {
+                        return Ok(r);
+                    };
+                    c = self.apply(rest, vec![y.clone()])?;
+                    s = s2.clone();
+                }
+                other => return Err(format!("a state-passing handler of {other:?}")),
+            }
         }
     }
 
@@ -392,6 +467,34 @@ impl<'p> Interp<'p> {
                 let c = self.apply(rest.clone(), vec![y])?;
                 self.effect(EffectOp::Fold, vec![done.clone(), call.clone(), c])
             }
+            EffK::StateRun {
+                done,
+                call,
+                comp,
+                c,
+            } => self.state_loop(done, call, *comp, c.clone(), y),
+            EffK::StateK {
+                done,
+                call,
+                comp,
+                rest,
+            } => {
+                let c = self.apply(rest.clone(), vec![y])?;
+                let f = V::Fun(Rc::new(Fun::Eff(EffK::StateRun {
+                    done: done.clone(),
+                    call: call.clone(),
+                    comp: *comp,
+                    c,
+                })));
+                Ok(if *comp {
+                    ctor(self.p.shapes.done, vec![f])
+                } else {
+                    f
+                })
+            }
+            EffK::Jump => Ok(V::Fun(Rc::new(Fun::Eff(EffK::JumpWith(y))))),
+            EffK::JumpWith(v) => Ok(V::Fun(Rc::new(Fun::Eff(EffK::Jumped(v.clone(), y))))),
+            EffK::Jumped(..) => Err("applied a jump".into()),
             EffK::Translate { m, o, rest } => {
                 let V::Ctor(_, sig) = m else {
                     return Err("a SigMap that isn't a constructor".into());

@@ -73,10 +73,9 @@ impl EffectOp {
         match self {
             EffectOp::RunPure => 1,
             EffectOp::Bind | EffectOp::Translate => 2,
-            EffectOp::Fold
-            | EffectOp::FoldLazy
-            | EffectOp::FoldState
-            | EffectOp::FoldStateComp => 3,
+            EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldState | EffectOp::FoldStateComp => {
+                3
+            }
             EffectOp::FoldIn => 4,
         }
     }
