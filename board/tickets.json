@@ -466,9 +466,9 @@
       "labels": [
         "elab"
       ],
-      "body": "Problem: a lambda argument whose parameter type is fixed by a later argument is postponed in pure calls (check.rs:903-970, examples/accept/lambda-postponed.sw), but not in effectful ones. Repro (type Person = { name: Text, age: Nat }):\n\n    def appIO (f: a -> {IO} b) (x: a): {IO} b := f x\n    def e1 (p: Person): {IO} Text := appIO (q => q.name) p\n    -- E-CANNOT-INFER: can't tell what `q` is, so can't look up `.name`\n\nThe same call written with `appP` (no `{IO}` in the callback type) checks. A pure call placed after an effectful statement in the same block (`IO.print \"x\"` then `appP (q => q.name) p`) also fails. Cause (not yet confirmed): effectful calls apply arguments one at a time (crates/elab/src/effects.rs comp_call) and never go through apply_args_postponing.\n\nFirst step: confirm the cause in effects.rs, then reuse the postponing path for calls whose arguments perform operations.\n\nDone when: the repro above and a pure-after-effect variant check, with a test in examples/accept/ (extend lambda-postponed.sw) and the gate green.\n\nHistory: was 'leave unless it bites'; reproduced 21 Oct. Related: SW-138 (done).\n",
+      "body": "Problem: a lambda argument whose parameter type is fixed by a later argument is postponed in pure calls (check.rs:903-970, examples/accept/lambda-postponed.sw), but not in effectful ones. Repro (type Person = { name: Text, age: Nat }):\n\n    def appIO (f: a -> {IO} b) (x: a): {IO} b := f x\n    def e1 (p: Person): {IO} Text := appIO (q => q.name) p\n    -- E-CANNOT-INFER: can't tell what `q` is, so can't look up `.name`\n\nThe same call written with `appP` (no `{IO}` in the callback type) checks. A pure call placed after an effectful statement in the same block (`IO.print \"x\"` then `appP (q => q.name) p`) also fails. Cause (not yet confirmed): effectful calls apply arguments one at a time (crates/elab/src/effects.rs comp_call) and never go through apply_args_postponing.\n\nFirst step: confirm the cause in effects.rs, then reuse the postponing path for calls whose arguments perform operations.\n\nDone when: the repro above and a pure-after-effect variant check, with a test in examples/accept/ (extend lambda-postponed.sw) and the gate green.\n\nHistory: was 'leave unless it bites'; reproduced 21 Oct. Related: SW-138 (done).\n\n24 Oct 2026 (board review): both repros now check with a release binary built 24 Oct (appIO (q => q.name) p, and appP after an IO.print). The fixing commit is not identified (probably the effect-polymorphism row work, D1123/D1124, SW-406/SW-437). Remaining before closing: add the two cases to examples/accept/lambda-postponed.sw (neither is covered there), run the gate, then close.",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -1465,17 +1465,19 @@
     {
       "id": 95,
       "title": "Auto-generated `ext` lemmas for records whose other fields are proofs",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design",
         "proof"
       ],
-      "body": "Idea: like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are all proofs (motivation: AoC day 1 `dialExt`). Once proof irrelevance lands (SW-93, D1', docs/proposals/proof-irrelevance.md) the proof fields compare equal by masks, so the lemma is a one-line generated proof.\n\nBlocked on SW-93. First step when unblocked: decide the surface (always generated for such records, or an attribute) and the exact statement for records with several non-proof fields.\n\nDone when: a record with proof fields gets `T.ext`, used to replace the hand-written `dialExt`, with an accept and a reject example.\n\nHistory: 19 Oct idea. Related: SW-202.\n",
+      "body": "Idea: like Lean's `@[ext]`, generate `T.ext : a.f = b.f -> a = b` for a record whose remaining fields are all proofs (motivation: AoC day 1 `dialExt`). Once proof irrelevance lands (SW-93, D1', docs/proposals/proof-irrelevance.md) the proof fields compare equal by masks, so the lemma is a one-line generated proof.\n\nBlocked on SW-93. First step when unblocked: decide the surface (always generated for such records, or an attribute) and the exact statement for records with several non-proof fields.\n\nDone when: a record with proof fields gets `T.ext`, used to replace the hand-written `dialExt`, with an accept and a reject example.\n\nHistory: 19 Oct idea. Related: SW-202.\n\n24 Oct 2026 (board review): done by SW-263 (f09e9e2c, D503): every record gets a generated T.ext, and Day 1 now uses Dial.ext (aoc/src/Aoc/Day01/Proofs/Part2.sw:61-110) instead of the hand-written dialExt. It did not wait for SW-93: proof fields are carried by DecEq.uniqueEq rather than ignored by masks.",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
-      "commits": []
+      "updated": "2026-10-24",
+      "commits": [
+        "f09e9e2c"
+      ]
     },
     {
       "id": 96,
@@ -1756,9 +1758,9 @@
         "aoc",
         "design"
       ],
-      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.",
+      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.\n\n24 Oct 2026 (board review): wording update. `sweep` (Day04.sw:112) no longer exists: Day 4 now settles with settleRows over Vec (aoc/src/Aoc/Day04/Day04.sw:99, decreasing, SW-276). Days 4 to 9 all exist, so the \"measure first\" step can be answered from them.",
       "created": "2026-10-19",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -1819,9 +1821,9 @@
         "elab",
         "proof"
       ],
-      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out the lambda wrapper `(c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)` (aoc/src/Aoc/Day03/Proofs/Best.sw:165; docs/aoc-2025.md:1208, 1308). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (the kernel sees an arity-short occurrence) and if so do it automatically. The first step is that investigation.\n\nDone when: either the wrapper in `pickBest` (Best.sw:165) is removable and Day 3 still checks, or the ticket records why it can't be done (and docs/syntax.md says so). 23 Oct: the Day 3 wrapper it cites is now at aoc/src/Aoc/Day03/Proofs/Best.sw:189 (was :165); still needed (E-TERMINATION … takes 13 arguments; it's given 4).",
+      "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out the lambda wrapper `(c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)` (aoc/src/Aoc/Day03/Proofs/Best.sw:165; docs/aoc-2025.md:1208, 1308). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (the kernel sees an arity-short occurrence) and if so do it automatically. The first step is that investigation.\n\nDone when: either the wrapper in `pickBest` (Best.sw:165) is removable and Day 3 still checks, or the ticket records why it can't be done (and docs/syntax.md says so). 23 Oct: the Day 3 wrapper it cites is now at aoc/src/Aoc/Day03/Proofs/Best.sw:189 (was :165); still needed (E-TERMINATION … takes 13 arguments; it's given 4).\n\n24 Oct 2026 (board review): checked, still current: the wrapper is at aoc/src/Aoc/Day03/Proofs/Best.sw:185-186.",
       "created": "2026-10-19",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -2551,9 +2553,9 @@
         "proof",
         "syntax"
       ],
-      "body": "`rewrite` replaces every occurrence of the rule's left side that matches the goal; there is no way to rewrite one occurrence, so a `J` is kept in `twiceBlockLength` (aoc/src/Aoc/Day02/Proofs/Repeated.sw:231), `twiceAbove` (Repeated.sw:269) and `repAbove` (Aoc/Day02/Proofs/Part2.sw:93). docs/proposals/calc-rewrite.md:1232 lists 'Choosing occurrences' under Stage 3; the pain point is in docs/aoc-2025.md, 'Proofs with rewrite and calc' (:1935).\n\nFirst step: decide the surface (e.g. `rewrite p at 2`, a pattern with holes, or a motive written by the user); compare Rocq's `at` clauses and Lean's `nth_rewrite`, noted in calc-rewrite.md §4.5.\n\nHistory: from SW-157 pain point 1.\n\nDone when: the surface is decided in calc-rewrite.md and the `J` in `twiceBlockLength` is replaced by a `rewrite` with the chosen syntax.\n",
+      "body": "`rewrite` replaces every occurrence of the rule's left side that matches the goal; there is no way to rewrite one occurrence, so a `J` is kept in `twiceBlockLength` (aoc/src/Aoc/Day02/Proofs/Repeated.sw:231), `twiceAbove` (Repeated.sw:269) and `repAbove` (Aoc/Day02/Proofs/Part2.sw:93). docs/proposals/calc-rewrite.md:1232 lists 'Choosing occurrences' under Stage 3; the pain point is in docs/aoc-2025.md, 'Proofs with rewrite and calc' (:1935).\n\nFirst step: decide the surface (e.g. `rewrite p at 2`, a pattern with holes, or a motive written by the user); compare Rocq's `at` clauses and Lean's `nth_rewrite`, noted in calc-rewrite.md §4.5.\n\nHistory: from SW-157 pain point 1.\n\nDone when: the surface is decided in calc-rewrite.md and the `J` in `twiceBlockLength` is replaced by a `rewrite` with the chosen syntax.\n\n24 Oct 2026 (board review): Day 2 was rewritten (SW-285), so twiceBlockLength and twiceAbove no longer exist. One use remains: the J in repAbove (aoc/src/Aoc/Day02/Proofs/Repeated.sw:254-256). Done-when now means replacing that J. docs/proposals/calc-rewrite.md lists \"Choosing occurrences\" at :1236.",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -2694,9 +2696,9 @@
         "elab",
         "syntax"
       ],
-      "body": "D91 (Matt, 20 Oct 2026), after the backslash switch (SW-90, done): lambdas can bind implicit and auto parameters: `[a: Type] => (x: a) => x`, `[auto h: P] => e`. Today the parser refuses it: crates/syntax/src/parser.rs:1985 gives E-PARSE \"implicit lambda parameters aren't supported yet\" (repro 21 Oct: `def idf: [a: Type] -> a -> a := [a: Type] => (x: a) => x`).\n\nThe elaborator needs binder modes `Explicit | Implicit | Auto` (not an implicit flag): checking `[a: Type] => e` consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; `[auto h: P] => e` builds/consumes an auto Pi; distinct from today's silent introduction when `x => x` checks against `[a: Type] -> a -> a`. See docs/proposals/lambda-syntax.md (draft 3).\n\nDone when: the repro checks, with examples/accept for implicit and auto lambdas and examples/reject for a mode mismatch; the parser message is removed.\n",
+      "body": "D91 (Matt, 20 Oct 2026), after the backslash switch (SW-90, done): lambdas can bind implicit and auto parameters: `[a: Type] => (x: a) => x`, `[auto h: P] => e`. Today the parser refuses it: crates/syntax/src/parser.rs:1985 gives E-PARSE \"implicit lambda parameters aren't supported yet\" (repro 21 Oct: `def idf: [a: Type] -> a -> a := [a: Type] => (x: a) => x`).\n\nThe elaborator needs binder modes `Explicit | Implicit | Auto` (not an implicit flag): checking `[a: Type] => e` consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; `[auto h: P] => e` builds/consumes an auto Pi; distinct from today's silent introduction when `x => x` checks against `[a: Type] -> a -> a`. See docs/proposals/lambda-syntax.md (draft 3).\n\nDone when: the repro checks, with examples/accept for implicit and auto lambdas and examples/reject for a mode mismatch; the parser message is removed.\n\n24 Oct 2026 (board review): the parser message is now at crates/syntax/src/parser.rs:2476 (was :1985), with the note \"write the lambda without [...]; the implicit parameter is introduced for you\"; the repro still fails the same way.",
       "created": "2026-10-20",
-      "updated": "2026-10-21",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -3139,7 +3141,7 @@
         "kernel",
         "proof"
       ],
-      "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n\n22 Oct 2026 (D472, Matt: yes): write the design note now (note only). Days 1-4 research: Lean authors use termination_by measures (day 4: roll count); 9 of 21 proof-language day 4 files used fuel or gave up.\n\n22 Oct 2026: note docs/proposals/well-founded-recursion.md merged; D473-D475 asked.\n\n22 Oct 2026: D473 (option B, build stages 1-2), D474 (syntax: decreasing e after the result type; [decreasing := proof] at a call, else auto; also on theorems), D475 (AoC programs use the guard style) — Matt: yes. Stage 1 lane started; stage 2 (Nat.digits, List.chunksOf, day 4 off fuel) after the Nat.pow and day 4 port lanes land.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ae8ad06b9de0ac8ec (branch worktree-agent-ae8ad06b9de0ac8ec, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.",
+      "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n\n22 Oct 2026 (D472, Matt: yes): write the design note now (note only). Days 1-4 research: Lean authors use termination_by measures (day 4: roll count); 9 of 21 proof-language day 4 files used fuel or gave up.\n\n22 Oct 2026: note docs/proposals/well-founded-recursion.md merged; D473-D475 asked.\n\n22 Oct 2026: D473 (option B, build stages 1-2), D474 (syntax: decreasing e after the result type; [decreasing := proof] at a call, else auto; also on theorems), D475 (AoC programs use the guard style) — Matt: yes. Stage 1 lane started; stage 2 (Nat.digits, List.chunksOf, day 4 off fuel) after the Nat.pow and day 4 port lanes land.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ae8ad06b9de0ac8ec (branch worktree-agent-ae8ad06b9de0ac8ec, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.\n\n24 Oct 2026 (board review): of the fuel users listed under Problem, Nat.digitsFuel, the day 4 settle and day 2 weightFuel are off fuel (SW-276, SW-285); Nat.divFuel (crates/elab/src/std/core/Division.sw:11, now not std/core.sw:366) and transposeN remain, on their triggers.",
       "created": "2026-10-21",
       "updated": "2026-10-24",
       "commits": [
@@ -6395,17 +6397,19 @@
     },
     {
       "id": 396,
-      "title": "JS: List.mapIn (and effectful list code through bind) overflows the stack at 10,000 elements (non-tail recursion through bind); 1,000 elements 10x slower than map (found by SW-369, docs/proposals/effectful-map.md)",
-      "status": "backlog",
+      "title": "JS: effectful list code (formerly List.mapIn) overflowed the stack at 10,000 elements (non-tail recursion through bind); fixed by the stage 4a run loop (found by SW-369, docs/proposals/effectful-map.md)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "js"
       ],
-      "body": "",
+      "body": "\n\n24 Oct 2026 (board review): the stack overflow is fixed by SW-443 stage 4a (a9f697cf, JS run loop; docs/proposals/effect-runtime.md section 9.4): effectful map-style exports run on Node's default stack at 1,000,000 elements (checked 447 ms; before 4a it overflowed at 4,000). List.mapIn is folded into List.map (SW-408, fbacc215). The remaining constant-factor cost is tracked by SW-443 (4f allocation).",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
-      "commits": []
+      "updated": "2026-10-24",
+      "commits": [
+        "a9f697cf"
+      ]
     },
     {
       "id": 397,
