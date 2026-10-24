@@ -58,9 +58,7 @@ theorem weightBelow (j: Nat): copiesWeight (Succ (Succ j)) = 1 - divisorWeights 
     _ = 1 - List.sumBy guarded (List.rangeFrom (j + 1 - 1) 2) := copiesWeight.unfold (Succ (Succ j))
     _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := rewrite (omega: j + 1 - 1 = j)
     _ = 1 - List.sumBy plain (List.rangeFrom j 2)
-      := Eq.cong (Int.sub 1)
-        (List.sumRangeCongr guarded plain j 2
-          (d d1 d2 => guardHolds (Nat.decLessThan d (Succ (Succ j))) d2 (plain d) 0))
+      := rewrite guardHolds
 
 theorem divisorWeightsTop (w: Nat -> Int) (j: Nat): divisorWeights w (Succ (Succ j)) (Succ j) = divisorWeights w (Succ (Succ j)) j + w (Succ (Succ j)) :=
   let f: Nat -> Int := d => if Nat.divides d (Succ (Succ j)) then w d else 0
@@ -93,10 +91,7 @@ theorem divisorWeightsAll (w: Nat -> Int): (m: Nat) -> 1 <= m -> (c: Nat) -> m <
       _ = List.sumBy f (List.append (List.rangeFrom k 2) (List.rangeFrom (c - k) (2 + k))) := Eq.cong (List.sumBy f) (List.rangeFromAppend k (c - k) 2)
       _ = List.sumBy f (List.rangeFrom k 2) + List.sumBy f (List.rangeFrom (c - k) (2 + k)) := List.sumByAppend f (List.rangeFrom k 2) (List.rangeFrom (c - k) (2 + k))
       _ = List.sumBy f (List.rangeFrom k 2) + 0
-        := Eq.cong (t => List.sumBy f (List.rangeFrom k 2) + t)
-          (Eq.trans (List.sumRangeCongr f (d => 0) (c - k) (2 + k)
-              (d d1 d2 => Eq.cong (b => if b then w d else 0) (Nat.dividesSmall d (Succ k) rfl d1)))
-            (List.sumByZero [add := Int.instAdd] (List.rangeFrom (c - k) (2 + k))))
+        := rewrite Nat.dividesSmall _ (Succ k) rfl, List.sumByZero [add := Int.instAdd] (List.rangeFrom (c - k) (2 + k))
       _ = List.sumBy f (List.rangeFrom k 2) := ring
 
 theorem mulKeep (v: Int) (x: Nat): (b: Bool) -> v * (Nat.keepIf x b).toInt = x.toInt * (if b then v else 0)
@@ -320,17 +315,8 @@ theorem idTermsDivisors (w: Nat -> Int) (size: Nat) (x: Nat) (hL: digitCount x <
     _ = List.sumBy (n => List.sumBy (k => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom size 1)) (List.rangeFrom (size - 1) 2)
       := List.sumBySwap (k n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2) (List.rangeFrom size 1)
     _ = List.sumBy (n => x.toInt * (if Nat.divides n (blockCount x) then w n else 0)) (List.rangeFrom (size - 1) 2)
-      := List.sumRangeCongr (n => List.sumBy (k => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom size 1))
-        (n => x.toInt * (if Nat.divides n (blockCount x) then w n else 0)) (size - 1) 2
-        (n n1 n2 =>
-          calc List.sumBy (k => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom size 1)
-            _ = w n * List.sumBy (k => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom size 1)
-              := Int.sumByMulLeft (w n) (k => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom size 1)
-            _ = w n * (List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1)).toInt
-              := Eq.cong (t => w n * t) (Eq.sym (Int.toIntSumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1)))
-            _ = w n * (Nat.keepIf x (copies x n)).toInt := rewrite collapse x n n1 size hL
-            _ = w n * (Nat.keepIf x (Nat.divides n (blockCount x))).toInt := rewrite copiesDivides x n n1
-            _ = x.toInt * (if Nat.divides n (blockCount x) then w n else 0) := mulKeep (w n) x (Nat.divides n (blockCount x)))
+      := rewrite Int.sumByMulLeft (w _), <- Int.toIntSumBy _ (List.rangeFrom size 1), collapse x _ _ size hL, copiesDivides x,
+        mulKeep (w _) x
     _ = x.toInt * divisorWeights w (blockCount x) (size - 1)
       := Int.sumByMulLeft x.toInt (n => if Nat.divides n (blockCount x) then w n else 0) (List.rangeFrom (size - 1) 2)
 
@@ -392,11 +378,7 @@ theorem weightedIds (w: Nat -> Int) (r: Range): weighted w r = List.sumBy (x => 
   let size := List.length (Nat.digits r.to)
   calc weighted w r
     _ = List.sumBy (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
-      := List.sumRangeCongr (k => List.sumBy (n => if Nat.leq (k * n) size then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0) (List.rangeFrom (size - 1) 2))
-        (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2)) size 1
-        (k k1 k2 => List.sumRangeCongr (n => if Nat.leq (k * n) size then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0)
-          (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (size - 1) 2
-          (n n1 n2 => termIds w r k k1 n n1))
+      := rewrite termIds w r
     _ = List.sumBy (k => List.sumBy (x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids) (List.rangeFrom size 1)
       := rewrite List.sumBySwap [c := Int] _ r.ids (List.rangeFrom (size - 1) 2)
     _ = List.sumBy (x => idTerms w size x) r.ids
@@ -408,8 +390,7 @@ theorem rangeWeighted (r: Range): weighted copiesWeight r = (List.sum (List.filt
   calc weighted copiesWeight r
     _ = List.sumBy (x => idTerms copiesWeight size x) r.ids := weightedIds copiesWeight r
     _ = List.sumBy (x => (Nat.keepIf x (repeats x)).toInt) r.ids
-      := List.sumRangeCongr (x => idTerms copiesWeight size x) (x => (Nat.keepIf x (repeats x)).toInt) r.size r.from
-        (x x1 x2 => idWeight size x (idsBelow r x x1 x2))
+      := rewrite idWeight size _ (idsBelow r _ _ _)
     _ = (List.sumBy (x => Nat.keepIf x (repeats x)) r.ids).toInt := Eq.sym (Int.toIntSumBy (x => Nat.keepIf x (repeats x)) r.ids)
     _ = (List.sum (List.filter repeats r.ids)).toInt := Eq.cong Nat.toInt (Eq.sym (List.sumFilter repeats r.ids))
 

@@ -76,9 +76,7 @@ theorem crossesRaySame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) 
 -- Tiles whose columns and rows compare alike with the red tiles' are alike.
 theorem redOrGreenSame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
     redOrGreen tiles { x, y } = redOrGreen tiles { x = x2, y = y2 } :=
-  rewrite List.anyCongMem (onStraightLine { x, y }) (onStraightLine { x = x2, y = y2 }) (connections tiles) (onStraightLineSame tiles x y x2 y2 sx sy),
-    List.countCongMem (crossesRay { x, y }) (crossesRay { x = x2, y = y2 }) (connections tiles) (crossesRaySame tiles x y x2 y2 sx sy)
-    in rfl
+  rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy in rfl
 
 -- 2. A key value for every value -------------------------------------------
 

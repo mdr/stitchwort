@@ -1991,6 +1991,9 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         (Expr::Hole(_), _) => {
             let hole = cx.fresh_meta();
+            if let Some(log) = cx.e.hole_log.borrow_mut().as_mut() {
+                log.push((hole.clone(), cx.level(), expected.clone()));
+            }
             if crate::patlet::proposition(cx, &expected)?
                 && let Term::Meta(m) = hole.spine().0
             {

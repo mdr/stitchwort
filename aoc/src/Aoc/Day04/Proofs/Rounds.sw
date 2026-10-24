@@ -29,9 +29,9 @@ theorem insideRows (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): I
 def Stable (grid: Grid) (k: Cells): Prop := (r: Nat) -> (c: Nat) -> k r c = Roll -> 4 <= neighbours grid k r c
 
 -- Counts over positions agree for conditions that agree.
-theorem countPositionsCongr (grid: Grid) (p: Nat -> Nat -> Bool) (q: Nat -> Nat -> Bool) (h: (r: Nat) -> (c: Nat) -> p r c = q r c):
+theorem countPositionsCong (grid: Grid) (p: Nat -> Nat -> Bool) (q: Nat -> Nat -> Bool) (h: (r: Nat) -> (c: Nat) -> p r c = q r c):
     countPositions grid p = countPositions grid q :=
-  rewrite h _ _
+  rewrite h
 
 theorem rollCountSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): rollCount grid s = rollCount grid t :=
   rewrite h _ _

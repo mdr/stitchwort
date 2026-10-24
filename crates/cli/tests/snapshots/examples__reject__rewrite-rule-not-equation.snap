@@ -3,13 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REWRITE-RULE] Error: `rewrite` needs a proof of an equation
-   ╭─[ reject/rewrite-rule-not-equation.sw:7:11 ]
+   ╭─[ reject/rewrite-rule-not-equation.sw:8:11 ]
    │
- 7 │   rewrite Nat.addComm
-   │           ─────┬─────  
-   │                ╰─────── this has type `(m: Nat) -> (n: Nat) -> m + n = n + m`, which isn't an equation
+ 8 │   rewrite h
+   │           ┬  
+   │           ╰── this has type `(n: Nat) -> List.Mem n [n]`, which isn't an equation
    │ 
-   │ Note 1: give a function its arguments: `rewrite Nat.addComm a b`
-   │ 
-   │ Note 2: inside a function argument, write `_` for an argument that mentions the function's variable: `rewrite Nat.mulSucc k _`
+   │ Note: a rule may leave off arguments at its end, but what it proves then must be an equation
 ───╯

@@ -369,6 +369,20 @@ struct Equation {
     /// Metavariables from this index on were made for the rule, and only
     /// they may be solved by matching.
     rule_metas: usize,
+    /// The rule's unknowns that may stand for proofs of its premises, in
+    /// order: once it has matched, those still unknown are proved
+    /// ([`discharge`]).
+    premises: Vec<Premise>,
+}
+
+/// An unknown of a rule that may stand for a proof: a `_` written in it, or
+/// an explicit argument left off its end.
+struct Premise {
+    /// The metavariable, applied to the variables in scope.
+    meta: Term,
+    ty: Value,
+    /// The parameter's name, for a trailing argument.
+    name: Option<stitchwort_core::Name>,
 }
 
 impl Equation {
@@ -385,22 +399,49 @@ impl Equation {
 
 /// Elaborates the rule into an [`Equation`], in `cx`'s context: under a
 /// binder, its `_`s may stand for terms that mention the bound variables.
+/// Explicit arguments left off the end are unknowns, as if written `_`
+/// (`rewrite Nat.addComm` is `rewrite Nat.addComm _ _`).
 fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equation> {
     let g = cx.g();
     let rule_metas = g.metas.borrow().len();
-    let (proof, ty) = infer(cx, &rule.proof)?;
-    let (proof, ty) = insert(cx, proof, ty)?;
+    let outer = cx.e.hole_log.replace(Some(Vec::new()));
+    let inferred = infer(cx, &rule.proof).and_then(|(proof, ty)| insert(cx, proof, ty));
+    let logged = cx.e.hole_log.replace(outer).unwrap_or_default();
+    let (mut proof, mut ty) = inferred?;
+    let level = cx.level();
+    let mut premises: Vec<Premise> = logged
+        .into_iter()
+        .filter(|(_, at, _)| *at == level)
+        .map(|(meta, _, ty)| Premise {
+            meta,
+            ty,
+            name: None,
+        })
+        .collect();
+    let written_ty = ty.clone();
+    while let Value::Pi(name, Icit::Explicit, domain, rest) = force(g, ty.clone())? {
+        let meta = cx.fresh_meta();
+        let value = cx.eval(&meta)?;
+        premises.push(Premise {
+            meta: meta.clone(),
+            ty: (*domain).clone(),
+            name: Some(name.clone()),
+        });
+        (proof, ty) = insert(cx, Term::app(proof, meta), rest.apply(g, value)?)?;
+    }
     let Value::Eq(carrier, left, right) = force(g, ty.clone())? else {
         return Err(
             Diagnostic::error("E-REWRITE-RULE", "`rewrite` needs a proof of an equation")
                 .with_label(
                     rule.proof.span(),
-                    format!("this has type `{}`, which isn't an equation", cx.show(&ty)),
+                    format!(
+                        "this has type `{}`, which isn't an equation",
+                        cx.show(&written_ty)
+                    ),
                 )
-                .with_note("give a function its arguments: `rewrite Nat.addComm a b`")
                 .with_note(
-                    "inside a function argument, write `_` for an argument that mentions the \
-                     function's variable: `rewrite Nat.mulSucc k _`",
+                    "a rule may leave off arguments at its end, but what it proves then must \
+                     be an equation",
                 ),
         );
     };
@@ -428,7 +469,158 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
         rhs,
         to_lhs,
         rule_metas,
+        premises,
     })
+}
+
+/// Proves the premises of a rule that has matched which matching left
+/// unknown, in order: each by a hypothesis in scope of its type (the facts
+/// a congruence lemma gives among them), or else by `omega`. The last
+/// `recent` variables are those bound by the functions the rule is inside,
+/// for the message.
+fn discharge(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    equation: &Equation,
+    recent: usize,
+    remaining: &mut u64,
+) -> Result<()> {
+    let g = cx.g();
+    for premise in &equation.premises {
+        let value = cx.eval(&premise.meta)?;
+        if !matches!(force(g, value.clone())?, Value::Neutral(Head::Meta(_), _)) {
+            continue;
+        }
+        // Read again, so what matching solved is in it (and computes).
+        let ty = force(g, cx.eval(&cx.quote(&premise.ty)?)?)?;
+        // An unknown type is nothing to look for.
+        if matches!(ty, Value::Neutral(Head::Meta(_), _)) || !is_proof_type(cx, &ty)? {
+            continue;
+        }
+        if by_hypothesis(cx, &value, &ty, equation.rule_metas, remaining)? {
+            continue;
+        }
+        if let Some(proof) = crate::omega::prove_premise(cx, &ty, rule.span)? {
+            let proof = cx.eval(&proof)?;
+            if cx.unify(&value, &proof)? {
+                continue;
+            }
+        }
+        return Err(unproved_premise(
+            cx,
+            rule,
+            premise,
+            equation.rule_metas,
+            recent,
+        ));
+    }
+    Ok(())
+}
+
+/// Whether `ty` is the type of proofs: an equation, a proposition, or a
+/// call of a definition whose result is one (`List.Mem x xs`).
+fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
+    if crate::patlet::proposition(cx, ty)? {
+        return Ok(true);
+    }
+    let g = cx.g();
+    Ok(match force(g, ty.clone())? {
+        Value::Neutral(Head::Def(d), spine) => {
+            let (params, result) = crate::decreasing::split_pis(&g.def(d).ty, None);
+            params.len() == spine.len()
+                && matches!(result.strip_loc(), Term::Sort(stitchwort_core::Sort::Prop))
+        }
+        _ => false,
+    })
+}
+
+/// Solves the unknown `value` of type `ty` with a hypothesis in scope of
+/// that type, the latest first; whether one was found.
+fn by_hypothesis(
+    cx: &mut Ctx,
+    value: &Value,
+    ty: &Value,
+    rule_metas: usize,
+    remaining: &mut u64,
+) -> Result<bool> {
+    let g = cx.g();
+    for level in (0..cx.level()).rev() {
+        let hypothesis = cx.types[level].clone();
+        let proof = cx.env[level].clone();
+        let snapshot = Snapshot::take(cx);
+        let outcome = g.budget.limited(remaining, || -> Result<bool> {
+            Ok(cx.unify(ty, &hypothesis)? && cx.unify(value, &proof)?)
+        });
+        match outcome {
+            Ok(Some(true))
+                if snapshot
+                    .solved_since(cx)
+                    .into_iter()
+                    .all(|m| m >= rule_metas) =>
+            {
+                return Ok(true);
+            }
+            Err(e) if fatal(&e) => return Err(e),
+            _ => snapshot.restore(cx),
+        }
+    }
+    Ok(false)
+}
+
+/// `E-REWRITE-PREMISE`: a premise of a rule that matched, which nothing in
+/// scope proves.
+fn unproved_premise(
+    cx: &Ctx,
+    rule: &RewriteRule,
+    premise: &Premise,
+    rule_metas: usize,
+    recent: usize,
+) -> Diagnostic {
+    let shown_ty = shown(cx, &premise.ty);
+    let what = match &premise.name {
+        Some(name) if !matches!(name.as_ref(), "_" | "") => format!("`{name}: {shown_ty}`"),
+        _ => format!("`{shown_ty}`"),
+    };
+    let mut error = Diagnostic::error(
+        "E-REWRITE-PREMISE",
+        format!("`rewrite` can't prove the rule's premise {what}"),
+    )
+    .with_label(
+        rule.proof.span(),
+        format!("this rule matched, but nothing proves its premise {what}"),
+    )
+    .with_note(
+        "a premise left as `_`, or left off the end, is proved by a hypothesis in scope of \
+         exactly its type, or else by `omega`; neither did",
+    );
+    let level = cx.level();
+    let facts: Vec<String> = (level - recent..level)
+        .filter(|&l| is_proof_type(cx, &cx.types[l]).unwrap_or(false))
+        .map(|l| format!("`{}: {}`", cx.names[l], shown(cx, &cx.types[l])))
+        .collect();
+    error = if facts.is_empty() && recent > 0 {
+        error.with_note(
+            "the congruence lemma used to rewrite inside this function gives no facts about its \
+             variables",
+        )
+    } else if !facts.is_empty() {
+        error.with_note(format!(
+            "the facts the congruence lemma gives inside this function: {}",
+            facts.join(", ")
+        ))
+    } else {
+        error
+    };
+    let unknown = cx.quote(&premise.ty).is_ok_and(|t| {
+        t.subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= rule_metas))
+    });
+    if unknown {
+        error = error.with_note(
+            "matching the rule didn't determine all of this premise: give the arguments it              mentions",
+        );
+    }
+    error.with_note("give the proof in the rule instead, in that argument's place")
 }
 
 /// One rule's rewrite of the goal (or of a target's type): the occurrences
@@ -447,7 +639,6 @@ fn rewrite_once(
     stats: &mut Stats,
 ) -> Result<Vec<Step>> {
     let g = cx.g();
-    let equation = elaborate_rule(cx, rule, place)?;
     let goal_value = force(g, goal.clone())?;
     let mut goal_term = cx.quote(&goal_value)?;
     // An `auto` proof still to be found inside the goal could depend on what
@@ -465,6 +656,8 @@ fn rewrite_once(
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         goal_term = cx.quote(&goal_value)?;
     }
+    let before = Snapshot::take(cx);
+    let mut equation = elaborate_rule(cx, rule, place)?;
     let lhs_term = cx.quote(&equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
         return Err(unknown_head(rule, place));
@@ -473,15 +666,20 @@ fn rewrite_once(
     // that use the functions' variables, each rewritten by its congruence
     // lemma, a step each; then the occurrences that use no variable bound
     // inside the goal, in one step.
-    let mut missing = Vec::new();
+    let mut skipped = under::Skipped::default();
     let level = cx.level();
     let open = equation.open(&lhs_term);
+    let mut again = None;
     let sites = if open {
         let keys = under::Keys {
             computed: key,
             written: under::written_key(cx, &equation.lhs),
         };
-        under::sites(cx, rule, &keys, &goal_term, level, remaining, &mut missing)?
+        // Inside each function the rule is elaborated again; this one's
+        // unknowns (and the `auto` proofs it waits for) would be left
+        // unsolved if only those match, so it is made afresh after them.
+        before.restore(cx);
+        under::sites(cx, rule, &keys, &goal_term, level, remaining, &mut skipped)?
     } else {
         Vec::new()
     };
@@ -507,6 +705,10 @@ fn rewrite_once(
             steps.push(step);
         }
     }
+    if open {
+        again = Some(Snapshot::take(cx));
+        equation = elaborate_rule(cx, rule, place)?;
+    }
     let replaced = replace_occurrences(
         cx,
         rule,
@@ -519,13 +721,27 @@ fn rewrite_once(
     )?;
     let found = replaced.stats;
     stats.add(&found);
-    if let Some(step) = replaced.step {
-        steps.push(step);
+    match replaced.step {
+        Some(step) => {
+            discharge(cx, rule, &equation, 0, remaining)?;
+            steps.push(step);
+        }
+        // The rule matched only inside functions: what was made for it
+        // here goes.
+        None if !steps.is_empty() => {
+            if let Some(again) = again {
+                again.restore(cx);
+            }
+        }
+        None => {}
     }
     if !steps.is_empty() {
         return Ok(steps);
     }
-    if let Some(e) = under::missing_lemma(cx, rule, place, &equation.lhs, &missing) {
+    if let Some(e) = skipped.premise {
+        return Err(e);
+    }
+    if let Some(e) = under::missing_lemma(cx, rule, place, &equation.lhs, &skipped.missing) {
         return Err(e);
     }
     let as_written = match place {

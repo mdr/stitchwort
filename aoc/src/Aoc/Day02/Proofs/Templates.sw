@@ -42,26 +42,17 @@ theorem templatesAsGrid (range: Range):
     require (k * n <= size)
     { blockLength = k, copies = n }
   let withCopies: Nat -> {Each} RepetitionTemplate := k => fitting k (each (List.between 2 size))
+  -- `require` keeps the template if it fits.
+  let kept: (k: Nat) -> (n: Nat) -> Each.collect (u => fitting k n) = keptIfFits size k n :=
+    k n => Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size)
   calc allTemplatesForRange range
     -- Choosing a block length: one collection per block length.
     _ = List.flatMap (List.between 1 size) (k => Each.collect (u => withCopies k))
       := Each.collectEach withCopies (List.between 1 size)
     _ = List.flatMap (List.between 1 size) (k =>
         List.flatMap (List.between 2 size) (n => keptIfFits size k n))
-      := Eq.cong List.concat (List.mapCong (k => Each.collect (u => withCopies k)) (k =>
-        List.flatMap (List.between 2 size) (n => keptIfFits size k n))
-        (List.between 1 size) (k =>
-        calc Each.collect (u => withCopies k)
-          -- Choosing the copies: one collection per number of copies.
-          _ = List.flatMap (List.between 2 size) (n => Each.collect (u => fitting k n))
-            := Each.collectEach (fitting k) (List.between 2 size)
-          -- `require` keeps the template if it fits.
-          _ = List.flatMap (List.between 2 size) (n => keptIfFits size k n)
-            := Eq.cong List.concat (List.mapCong (n => Each.collect (u => fitting k n)) (n =>
-              keptIfFits size k n)
-              (List.between 2 size) (n =>
-              Eq.trans (Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size))
-                rfl))))
+      -- Choosing the copies: one collection per number of copies.
+      := rewrite Each.collectEach (fitting _) (List.between 2 size), kept
 
 -- The same for sums: summing over the templates is summing over every block
 -- length up to the digits and every number of copies from 2, the templates

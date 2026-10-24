@@ -192,6 +192,10 @@ theorem Nat.keepIfZero: (b: Bool) -> Nat.keepIf 0 b = 0
   | True => rfl
   | False => rfl
 
+theorem Nat.keepIfOne: (b: Bool) -> Nat.keepIf 1 b = Bool.toNat b
+  | True => rfl
+  | False => rfl
+
 -- Keeping a sum is keeping each term.
 theorem Nat.keepIfSumBy (g: a -> Nat) (xs: List a): (b: Bool) -> Nat.keepIf (List.sumBy g xs) b = List.sumBy (x => Nat.keepIf (g x) b) xs
   | True => rfl
@@ -297,13 +301,13 @@ theorem List.sumRangeOne (q: Nat -> Bool) (g: Nat -> Nat) (v: Nat) (hv: q v = Tr
             (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hv) (Eq.trans (Eq.cong q (Eq.sym e)) hs))))
             (Nat.ltSuccAdd s c v h2))))
 
-theorem List.sumRangeCongr [auto add: Add c] (f: Nat -> c) (g: Nat -> c): (c: Nat) -> (s: Nat) -> ((x: Nat) -> s <= x -> x < s + c -> f x = g x) ->
+theorem List.sumByCongRange [auto add: Add c] (f: Nat -> c) (g: Nat -> c): (c: Nat) -> (s: Nat) -> ((x: Nat) -> s <= x -> x < s + c -> f x = g x) ->
     List.sumBy f (List.rangeFrom c s) = List.sumBy g (List.rangeFrom c s)
   | Zero, s, h => rfl
   | Succ c, s, h =>
     Eq.trans (List.sumByCons f s (List.rangeFrom c (Succ s)))
       (Eq.trans (Eq.cong (t => t + List.sumBy f (List.rangeFrom c (Succ s))) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
-        (Eq.trans (Eq.cong (t => g s + t) (List.sumRangeCongr f g c (Succ s) (x hx1 hx2 => h x (Nat.leTrans s (Succ s) x (Nat.leSucc s) hx1) (Nat.ltAddSucc s c x hx2))))
+        (Eq.trans (Eq.cong (t => g s + t) (List.sumByCongRange f g c (Succ s) (x hx1 hx2 => h x (Nat.leTrans s (Succ s) x (Nat.leSucc s) hx1) (Nat.ltAddSucc s c x hx2))))
           (Eq.sym (List.sumByCons g s (List.rangeFrom c (Succ s))))))
 
 -- A sum over a run of numbers that is 0 has every term 0.
@@ -426,13 +430,13 @@ theorem Nat.firstFromLe (q: Nat -> Bool) (c: Nat) (s: Nat) (k: Nat) (h1: s <= k)
     | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Nat.firstFromBefore q c s k h1 (Nat.leqFalse (Nat.firstFrom q c s) k e))))
 
 -- Sums that agree on the elements passing a check `all` says they all pass.
-theorem List.sumByCongrAll (p: a -> Bool) (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> p x = True -> f x = g x):
+theorem List.sumByCongAll (p: a -> Bool) (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> p x = True -> f x = g x):
     (xs: List a) -> List.all p xs = True -> List.sumBy f xs = List.sumBy g xs
   | Nil, ok => rfl
   | Cons x xs, ok =>
     Eq.trans (List.sumByCons f x xs)
       (Eq.trans (Eq.cong (t => t + List.sumBy f xs) (h x (Bool.andLeft (p x) (List.all p xs) ok)))
-        (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongrAll p f g h xs (Bool.andRight (p x) (List.all p xs) ok)))
+        (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongAll p f g h xs (Bool.andRight (p x) (List.all p xs) ok)))
           (Eq.sym (List.sumByCons g x xs))))
 
 -- `True` for `Less` and `Equal`.
@@ -577,19 +581,19 @@ theorem List.sortSorted [auto ord: Ord a] (xs: List a):
   List.sortBySorted Ord.compare Ord.leTotal xs
 
 -- Sorted by one test is sorted by another that agrees with it.
-theorem List.leHeadCongr (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le1 x y = le2 x y) (z: a):
+theorem List.leHeadCong (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le1 x y = le2 x y) (z: a):
     (xs: List a) -> List.LeHead le1 z xs -> List.LeHead le2 z xs
   | Nil, p => p
   | Cons y ys, p => Eq.trans (Eq.sym (h z y)) p
 
-theorem List.sortedCongr (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le1 x y = le2 x y):
+theorem List.sortedCong (le1: a -> a -> Bool) (le2: a -> a -> Bool) (h: (x: a) -> (y: a) -> le1 x y = le2 x y):
     (xs: List a) -> List.Sorted le1 xs -> List.Sorted le2 xs
   | Nil, p => p
-  | Cons x xs, Both p q => Both (List.leHeadCongr le1 le2 h x xs p) (List.sortedCongr le1 le2 h xs q)
+  | Cons x xs, Both p q => Both (List.leHeadCong le1 le2 h x xs p) (List.sortedCong le1 le2 h xs q)
 
 -- For numbers, that's `Nat.leq`.
 theorem List.sortSortedNat (xs: List Nat): List.Sorted Nat.leq (List.sort xs) :=
-  List.sortedCongr (x y => Ordering.isLessEq (Nat.compare x y)) Nat.leq Nat.compareLeq (List.sort [ord := Nat.instOrd] xs) (List.sortSorted [ord := Nat.instOrd] xs)
+  List.sortedCong (x y => Ordering.isLessEq (Nat.compare x y)) Nat.leq Nat.compareLeq (List.sort [ord := Nat.instOrd] xs) (List.sortSorted [ord := Nat.instOrd] xs)
 
 -- The front and the back of a sorted list are sorted (SW-363).
 theorem List.sortedPrefix (le: a -> a -> Bool): (xs: List a) -> (ys: List a) -> List.Sorted le (List.append xs ys) -> List.Sorted le xs
@@ -1062,7 +1066,7 @@ theorem List.splitByRuns (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hsep: 
     _ = List.sumBy (lo => Nat.keepIf (g (List.runAt f sep n lo)) (!(sep lo) && (lo == 0 || sep (lo - 1)))) (List.range n)
       := Eq.sym (List.runStarts sep (lo => g (List.runAt f sep n lo)) n end)
     _ = List.sumBy (lo => List.sumBy (hi => Nat.keepIf (g (List.map f (List.rangeFrom (hi - lo) lo))) (Nat.isRun sep lo hi)) (List.range (Succ n))) (List.range n)
-      := List.sumRangeCongr (lo => Nat.keepIf (g (List.runAt f sep n lo)) (!(sep lo) && (lo == 0 || sep (lo - 1))))
+      := List.sumByCongRange (lo => Nat.keepIf (g (List.runAt f sep n lo)) (!(sep lo) && (lo == 0 || sep (lo - 1))))
         (lo => List.sumBy (hi => Nat.keepIf (g (List.map f (List.rangeFrom (hi - lo) lo))) (Nat.isRun sep lo hi)) (List.range (Succ n))) n 0
         (lo l1 l2 => Eq.sym (List.runsFrom sep f g n end lo l2))
 
@@ -1104,7 +1108,7 @@ theorem List.sumBySub (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs:
   rewrite List.sumBySplit f g h xs in Nat.addSubLeft (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)
 
 -- Counting with tests that agree on the list's elements (SW-198, day 8).
-theorem List.countCongMem (p1: a -> Bool) (p2: a -> Bool) (xs: List a) (ep: (x: a) -> List.Mem x xs -> p1 x = p2 x): List.count p1 xs = List.count p2 xs :=
+theorem List.countCongMem (p1: a -> Bool) (p2: a -> Bool) (xs: List a) (ep: (x: a) -> (m: List.Mem x xs) -> p1 x = p2 x): List.count p1 xs = List.count p2 xs :=
   rewrite List.countOccurrences p1 xs, List.countOccurrences p2 xs in List.occurrencesCongMem p1 p2 xs ep
 
 -- `all` is "no element fails", so a permutation keeps it.

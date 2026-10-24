@@ -53,7 +53,7 @@ theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r <= List
       PrefixSums.tableAt c top sums topLength sumsLength r (rewrite List.lengthMap (row => PrefixSums.runningSums (List.padRight width 0 row)) rows in hr)
     _ = List.sumBy (i => List.getOr 0 c (List.getOr Nil i sums)) (List.range r) := rewrite List.getOrReplicate 0 c (Succ width) in rfl
     _ = PrefixSums.blockSpec rows 0 r 0 c :=
-      List.sumRangeCongr (i => List.getOr 0 c (List.getOr Nil i sums)) (i => List.sumBy (j => PrefixSums.cell rows i j) (List.rangeFrom (c - 0) 0)) r 0 rowSum
+      List.sumByCongRange (i => List.getOr 0 c (List.getOr Nil i sums)) (i => List.sumBy (j => PrefixSums.cell rows i j) (List.rangeFrom (c - 0) 0)) r 0 rowSum
 
 -- The block from four entries of the table is the sum of its cells.
 theorem PrefixSums.blockSum (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat)

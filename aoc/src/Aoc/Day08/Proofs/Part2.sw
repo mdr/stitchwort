@@ -29,9 +29,7 @@ theorem eqComm (a: Nat) (b: Nat): (a == b) = (b == a) :=
 -- Exactly one of the numbers below n passes q.
 theorem countOne (q: Nat -> Bool) (n: Nat) (v: Nat) (hv: q v = True) (vn: v < n) (uniq: (b: Nat) -> q b = True -> b = v):
     List.occurrences q (List.range n) = 1 :=
-  rewrite List.occurrencesSumBy q (List.range n),
-    List.sumByCong (b => Bool.toNat (q b)) (b => Nat.keepIf 1 (q b)) (List.range n) (b => match q b with | True => rfl | False => rfl)
-    in List.sumRangeOne q (b => 1) v hv uniq n 0 omega vn
+  rewrite List.occurrencesSumBy q (List.range n), <- Nat.keepIfOne _ in List.sumRangeOne q (b => 1) v hv uniq n 0 omega vn
 
 -- Counting p, apart from v and at v.
 theorem occurrencesSplit (p: Nat -> Bool) (v: Nat): (xs: List Nat) ->
@@ -83,9 +81,7 @@ type Counted (n: Nat) (circuits: Circuits): Prop =
 
 theorem countedAtStart (n: Nat): Counted n (Circuits.separate n) :=
   MkCounted
-    (rewrite List.occurrencesCongMem (b => (Circuits.separate n).labelOf b == b) (x => True) (List.range n)
-        (b m => rewrite labelAtStart n b (And.right (List.memRangeFrom b n 0 m)), eqSelf b in rfl),
-      List.occurrencesTrue (List.range n), List.lengthRangeFrom n 0 in rfl)
+    (rewrite labelAtStart n _, eqSelf _, List.occurrencesTrue (List.range n), List.lengthRangeFrom n 0 in rfl)
     (b h => rewrite labelAtStart n b h in h)
     (b h => rewrite labelAtStart n b h, labelAtStart n b h in rfl)
 
@@ -129,8 +125,7 @@ theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
           _ = List.occurrences (b => c.labelOf b == b && !(b == c.labelOf f)) (List.range n) :=
             rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite labelOwn f hf in eqSelf (c.labelOf f)) (labelBelow f hf) in omega
           _ = ownLabels (moved c f s) n :=
-            List.occurrencesCongMem (b => c.labelOf b == b && !(b == c.labelOf f)) (b => (moved c f s).labelOf b == b) (List.range n) (b m =>
-              rewrite after b (And.right (List.memRangeFrom b n 0 m)) in Eq.sym (ownAfterMove c f s n counted hs differ b)))
+            rewrite after _, ownAfterMove c f s n counted hs differ _ in rfl)
         (b h => rewrite after b h in below b h)
         (b h =>
           rewrite after b h, after (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) (below b h) in
@@ -159,10 +154,7 @@ theorem countOneOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled
       let r := c.labelOf 0
       let same: (b: Nat) -> b < n -> c.labelOf b = r :=
         b h => eqTrue (c.labelOf b) r ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
-      rewrite counts,
-        List.occurrencesCongMem (b => c.labelOf b == b) (b => r == b) (List.range n)
-          (b m => rewrite same b (And.right (List.memRangeFrom b n 0 m)) in rfl)
-        in countOne (b => r == b) n r (eqSelf r) (labelBelow 0 some) (b h => Eq.sym (eqTrue r b h))
+      rewrite counts, same _ in countOne (b => r == b) n r (eqSelf r) (labelBelow 0 some) (b h => Eq.sym (eqTrue r b h))
 
 -- With one box its own label, every box has that label, so all are joined.
 theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)

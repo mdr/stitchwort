@@ -1648,21 +1648,21 @@ theorem Map.Raw.mapWithKeyRespects (f: k -> v -> w) (m: Map.Raw k v [ord := o]) 
 
 -- Folds whose steps agree give the same result; so `filter` with
 -- predicates that agree keeps the same entries.
-theorem Map.Spec.foldLeftCongr (f: b -> k -> v -> b) (g: b -> k -> v -> b)
-    (h: (z: b) -> (key: k) -> (value: v) -> f z key value = g z key value):
-    (z: b) -> (xs: List (k, v)) -> Map.Spec.foldLeft f z xs = Map.Spec.foldLeft g z xs
-  | z, Nil => rfl
-  | z, Cons (kk, vv) rest =>
-    Eq.trans (Map.Spec.foldLeftCongr f g h (f z kk vv) rest) (Eq.cong (y => Map.Spec.foldLeft g y rest) (h z kk vv))
+theorem Map.Spec.foldLeftCong (f1: b -> k -> v -> b) (f2: b -> k -> v -> b):
+    (z: b) -> (xs: List (k, v)) -> ((acc: b) -> (key: k) -> (value: v) -> f1 acc key value = f2 acc key value) ->
+    Map.Spec.foldLeft f1 z xs = Map.Spec.foldLeft f2 z xs
+  | z, Nil, h => rfl
+  | z, Cons (kk, vv) rest, h =>
+    Eq.trans (Map.Spec.foldLeftCong f1 f2 (f1 z kk vv) rest h) (Eq.cong (y => Map.Spec.foldLeft f2 y rest) (h z kk vv))
 
-theorem Map.Raw.filterCongr [auto ord: Ord k] (p: k -> v -> Bool) (q: k -> v -> Bool)
+theorem Map.Raw.filterCongEquiv [auto ord: Ord k] (p: k -> v -> Bool) (q: k -> v -> Bool)
     (same: (key: k) -> (value: v) -> p key value = q key value) (m: Map.Raw k v):
     Map.Raw.Equiv (Map.Raw.filter p m) (Map.Raw.filter q m) :=
   Eq.trans (Map.Raw.toListFilter p m)
-    (Eq.trans (Map.Spec.foldLeftCongr
+    (Eq.trans (Map.Spec.foldLeftCong
         ((l: List (k, v)) (key: k) (value: v) => if p key value then Map.Spec.insert key value l else l)
         ((l: List (k, v)) (key: k) (value: v) => if q key value then Map.Spec.insert key value l else l)
-        (l key value => rewrite same key value in rfl) Nil (Map.Raw.toList m))
+        Nil (Map.Raw.toList m) (l key value => rewrite same key value in rfl))
       (Eq.sym (Map.Raw.toListFilter q m)))
 
 -- Deciding `Map.Raw.Equiv` by comparing the entry lists. It needs `DecEq` for
