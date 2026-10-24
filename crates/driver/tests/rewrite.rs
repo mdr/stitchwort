@@ -15,6 +15,44 @@ fn codes(budget: Option<u64>, text: &str) -> Vec<&'static str> {
     }
 }
 
+/// A rule whose left side computes to a long term: `sumMap g 40` is
+/// `g 40 + (g 39 + …)`.
+const LONG_LEFT_SIDE: &str = "\
+def sumMap (g: Nat -> Nat): Nat -> Nat
+  | Zero => 0
+  | Succ n => g (Succ n) + sumMap g n
+
+theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q: Nat -> Prop) (k: q 0):
+    q (f (sumMap g 41)) :=
+  rewrite h 40 in k
+";
+
+#[test]
+fn the_budget_message_shows_both_terms_shortened() {
+    let mut session = Session::new();
+    session.elab.rewrite_budget = Some(20);
+    let Err(errors) = session.load("test.sw", LONG_LEFT_SIDE) else {
+        panic!("expected an error");
+    };
+    let e = &errors[0];
+    assert_eq!(e.code, "E-REWRITE-BUDGET");
+    // The terms are in notes, not the message, and cut short with a pointer
+    // to seeing them whole (SW-207).
+    assert_eq!(
+        e.message,
+        "`rewrite` couldn't decide whether a part of the goal is the rule's left side"
+    );
+    let note = |start: &str| {
+        e.notes
+            .iter()
+            .find(|n| n.starts_with(start))
+            .unwrap_or_else(|| panic!("a note starting `{start}` in {:#?}", e.notes))
+    };
+    assert!(note("the part of the goal, as it computes: `f (g 41 + ").contains('…'));
+    assert!(note("the rule's left side: `f (g 40 + ").contains('…'));
+    note("the terms are shortened (`…`); set `STITCHWORT_FULL_TERMS=1`");
+}
+
 /// Two occurrences that need an unfolding to compare: the second candidate
 /// has to be taken apart to be told from the rule's left side.
 const NEEDS_COMPARING: &str = "\

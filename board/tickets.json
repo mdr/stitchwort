@@ -622,15 +622,15 @@
     {
       "id": 40,
       "title": "More tail calls as loops in generated JS",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "js"
       ],
       "body": "Only a function's calls to itself (including in either branch of a plain `if`) become loops today (self_tail_loop, crates/js/src/lib.rs:1430). A tail call inside `if h: P then a else b` is not recognised, because it is generated as `Decidable.elim … (v => a) (v => b)`; the same goes for helpers like `maybeThen`.\n\nRepro (release binary, 21 Oct): scratch file\n  def loopH (acc: Nat): Nat -> Nat\n    | 0      => acc\n    | Succ n => if h: n = 7 then acc else loopH (acc + 1) n\n  export def count (n: Nat): Nat := loopH 0 n\nbuilt with `stitchwort build --js`; `count(1000000n)` throws `StitchwortResourceError: count: ran out of resources (Maximum call stack size exceeded)`. (The `if h:` here is a Decidable elimination, so the case tree does not see a tail position.)\n\nFirst step: decide whether to treat `Decidable.elim` applications with lambda branches as an `if` in the tail analysis (crates/js/src/lib.rs:1617 `tail`) or to generate `if h:` as a conditional in the first place. Calls between different functions are SW-49.\n\nDone when: the repro above, with 10^7 in place of 10^6, runs; an examples/extract file covers `if h:` in tail position.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -742,17 +742,19 @@
     {
       "id": 48,
       "title": "Test a callback kept after its creator returns, for mutual groups",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "kernel",
         "elab"
       ],
       "body": "Problem: docs/proposals/mutual-recursion.md §6.3 test 2 (:960) is untested for function groups: `f` returns a record (or `Comp` continuation) holding `x => g k x`, and a later, final definition calls it. The milestone-2 notes say it is 'tested for a single definition only' (:2087). The termination argument for it is §6.4 step 4.\n\nChange: add must-accept (the callback's call decreases) and must-reject (it rebuilds the parameter) examples for a function group, plus a differential test, including the unsound-looking case in §6.4 step 4.\n\nDone when: the tests are merged in examples/accept and examples/reject and the gate is green, or a counterexample is found and written up in the note.\n\nHistory: split 19 Oct into SW-117. Playground shows warnings (976b912). Dropped: hash stability under reordering of identical-shaped members (hashes aren't a design constraint).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
-      "commits": []
+      "updated": "2026-10-24",
+      "commits": [
+        "3f22b996"
+      ]
     },
     {
       "id": 49,
@@ -3264,17 +3266,19 @@
     {
       "id": 207,
       "title": "rewrite diagnostics: E-REWRITE-NOTHING after `%` and `/` unfold, and an unreadable E-REWRITE-BUDGET term",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "elab",
         "proof"
       ],
       "body": "SW-157 pain points 7 and 8 (docs/aoc-2025.md:2054-2064). (7) `%` and `/` unfold before `rewrite` searches the goal, so a rule about them finds nothing: `rewrite Nat.divOne n, Nat.divOne (Succ n)` gave E-REWRITE-NOTHING 'found no `Succ (Nat.divFuel n n 1)` in the goal' because the first rule had already rewritten both. The computed goal in the note made each quick to fix, so the improvement is to say in the message that the goal is searched after computation. (8) `E-REWRITE-BUDGET` shows an unreadable term when the rule is closed and big; the per-declaration time report that would have found the slow `rewrite` at once is SW-163 and is not part of this ticket.\n\nNot re-verified on current main. First step: reproduce each with a small example, then change the message text (with reject-example snapshots).\n\nDone when: both messages say what happened (goal searched after computation; the big closed rule is printed abbreviated, cf. STITCHWORT_FULL_TERMS in docs/core.md:276), with reject-example snapshots.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
-      "commits": []
+      "updated": "2026-10-24",
+      "commits": [
+        "c2eff259"
+      ]
     },
     {
       "id": 208,
@@ -5059,16 +5063,16 @@
     {
       "id": 321,
       "title": "Kernel: literal * x unfolds k times; 100000 * x <= 5 := h costs 14.4M steps, 1000000 overflows the stack",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "kernel",
         "performance"
       ],
       "body": "Found by SW-314. theorem (h: 100000 * x <= 5): 100000 * x <= 5 := h alone; not omega's fault. Nat.mul recurses on its first (literal) argument.",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -5629,16 +5633,18 @@
     {
       "id": 354,
       "title": "Numerals can't be SafeNat/SafeInt: { bytes = 10 } with bytes: SafeNat is E-TYPE-MISMATCH (hit by the resolver port's tests; helper needed at every literal)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "bug"
       ],
       "body": "",
       "created": "2026-10-23",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "54d76feb"
+      ]
     },
     {
       "id": 355,
@@ -6504,16 +6510,18 @@
     {
       "id": 404,
       "title": "Named arguments: leftovers from stage 1 — positional E-EFFECT-ORDER message for the sized case (spec §4.5); stages after a skipped parameter; names after a dependent codomain may not be found",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "lang"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "4ad1ceca"
+      ]
     },
     {
       "id": 405,
@@ -6536,7 +6544,7 @@
       "title": "Effect polymorphism stage 1: row-indexed computation type (design C), internal Row (D1122), apartness rule and defaulting (D1123); also settle = operands and if/match branches (D1133) and {Fail} b binders for Fail.toResultMapIn (D1134)",
       "status": "doing",
       "agent": "",
-      "where": "worktree lane (Opus), first part",
+      "where": "worktree lane: first part built (f111cbe4); merging main + small remaining items; D1140-D1142 with Matt",
       "labels": [
         "effects"
       ],
@@ -6606,23 +6614,25 @@
     {
       "id": 411,
       "title": "Dot notation on a call returning an alias of Comp ((stuckThunk xs).finished) looks in the unfolded type's namespace and fails",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "521d3fb8"
+      ]
     },
     {
       "id": 412,
       "title": "AoC input tests via include are very slow in the checker (day 9: 61 s; day 8 also dropped its test) — make include'd-input tests affordable",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "part 1 merged (789349db: kernel no longer computes a costly let in a comparison); part 2 (fb26a3ab: test on the fast runtime, days 8-9 Input.sw) awaits D1137-D1139",
       "labels": [
         "perf"
       ],
@@ -6633,31 +6643,35 @@
     },
     {
       "id": 413,
-      "title": "List.between lo hi is built from hi + 1 - lo, forcing max + 1 into programs and arithmetic through proofs (day 9) — restate on Succ hi or add lemmas",
-      "status": "doing",
+      "title": "List.between friction (day 9): proof uses between's lemmas, List.lengthBetween added; the program's + 1 stays, it comes from PrefixSums.block's half-open bounds",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "std"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "d22aef26"
+      ]
     },
     {
       "id": 414,
       "title": "rewrite runs out of budget comparing two List.map terms with lambdas inside (day 9 had to use calc)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "proofs"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "c2eff259"
+      ]
     }
   ]
 }

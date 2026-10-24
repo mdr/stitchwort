@@ -35,15 +35,10 @@ theorem programAreas (tiles: List Tile):
   let floor := Floor.of tiles
   let both := (p: (Tile, Tile)) => (floor.corner p.fst, floor.corner p.snd)
   let keep := (p: (Tile, Tile)) => Floor.allRedOrGreen floor (both p)
-  calc List.map cornersArea (List.filter (Floor.allRedOrGreen floor) (List.pairs (List.map floor.corner tiles)))
-    _ = List.map cornersArea (List.filter (Floor.allRedOrGreen floor) (List.map both (List.pairs tiles))) :=
-      Eq.cong (pairs => List.map cornersArea (List.filter (Floor.allRedOrGreen floor) pairs)) (List.pairsMap floor.corner tiles)
-    _ = List.map cornersArea (List.map both (List.filter keep (List.pairs tiles))) :=
-      Eq.cong (List.map cornersArea) (List.filterOfMap (Floor.allRedOrGreen floor) both (List.pairs tiles))
-    _ = List.map (p => cornersArea (both p)) (List.filter keep (List.pairs tiles)) := List.mapMap cornersArea both (List.filter keep (List.pairs tiles))
-    _ = List.map (p => cornersArea (both p)) (List.filter (allRedOrGreen tiles) (List.pairs tiles)) :=
-      Eq.cong (List.map (p => cornersArea (both p))) (List.filterCongMem keep (allRedOrGreen tiles) (List.pairs tiles) (programTest tiles))
-    _ = List.map (corners => area corners.fst corners.snd) (List.filter (allRedOrGreen tiles) (rectangles tiles)) := rfl
+  rewrite List.pairsMap floor.corner tiles,
+    List.filterOfMap (Floor.allRedOrGreen floor) both (List.pairs tiles),
+    List.mapMap cornersArea both (List.filter keep (List.pairs tiles)),
+    List.filterCongMem keep (allRedOrGreen tiles) (List.pairs tiles) (programTest tiles)
 
 theorem part2Correct (tiles: List Tile): Part2 tiles (solvePart2 tiles) :=
   let areas := List.map (corners => area corners.fst corners.snd) (List.filter (allRedOrGreen tiles) (rectangles tiles))

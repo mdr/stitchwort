@@ -44,6 +44,25 @@ pub(crate) fn cheap(term: &Term) -> bool {
     }) && nodes.next().is_none()
 }
 
+/// Whether `term`, in the scope of the first `outer` variables of `cx`, is
+/// a variable for a `let` whose value isn't [`cheap`]. Such a variable is
+/// cheap to write but not to compute: the kernel computes a `let`'s value
+/// when a type it evaluates mentions the variable, and its evaluator is
+/// strict. So `let x := solve input; x == 42` decided as
+/// `toBool {x = 42} (Nat.decEq x 42)` computes `solve input` while it's
+/// type-checked; bound, `(y => toBool {y = 42} (Nat.decEq y 42)) x`, the
+/// types mention only `y` (SW-412: day 9's real-input test spent 2 minutes
+/// in the kernel).
+fn costly_let(cx: &Ctx, outer: usize, term: &Term) -> bool {
+    let Term::Var(index) = term.strip_loc() else {
+        return false;
+    };
+    let Some(level) = outer.checked_sub(index + 1) else {
+        return false;
+    };
+    matches!(cx.lets.get(level), Some(Some(def)) if !cheap(&def.value))
+}
+
 /// `use arg`, for `arg : dom` (already checked), elaborated without
 /// computing `arg`: `(name => use name) arg`, if the use's type doesn't
 /// depend on `arg`. `use` elaborates the use, given the term standing for
@@ -327,8 +346,8 @@ fn shape(
     match prop.strip_loc() {
         Term::Eq(Some(ty), a, b) => {
             let dom = eval(g, outer, ty)?;
-            let a = operand(cx, &dom, a, binders, operands)?;
-            let b = operand(cx, &dom, b, binders, operands)?;
+            let a = operand(cx, outer.len(), &dom, a, binders, operands)?;
+            let b = operand(cx, outer.len(), &dom, b, binders, operands)?;
             Ok(Shape::Eq(ty.clone(), Box::new(a), Box::new(b)))
         }
         term @ Term::App(..) => {
@@ -346,7 +365,9 @@ fn shape(
                 let part = match force(g, (*dom).clone())? {
                     // A proposition or type: looked into.
                     Value::Sort(_) => shape(cx, outer, arg, binders, operands)?,
-                    _ if icit == Icit::Explicit => operand(cx, &dom, arg, binders, operands)?,
+                    _ if icit == Icit::Explicit => {
+                        operand(cx, outer.len(), &dom, arg, binders, operands)?
+                    }
                     _ => Shape::Kept(arg.clone()),
                 };
                 ty = match part {
@@ -361,16 +382,17 @@ fn shape(
     }
 }
 
-/// An operand `arg : dom` of a proposition: bound as the next variable,
-/// unless it's cheap.
+/// An operand `arg : dom` of a proposition, in the scope of the first
+/// `outer` variables: bound as the next variable, unless it's cheap.
 fn operand(
     cx: &mut Ctx,
+    outer: usize,
     dom: &Value,
     arg: &Term,
     binders: &mut Vec<(Name, Term)>,
     operands: &mut Vec<Term>,
 ) -> Result<Shape> {
-    if cheap(arg) {
+    if cheap(arg) && !costly_let(cx, outer, arg) {
         return Ok(Shape::Kept(arg.clone()));
     }
     let name: Name = format!("%{}", operands.len()).as_str().into();

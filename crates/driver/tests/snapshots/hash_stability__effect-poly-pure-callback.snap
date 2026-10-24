@@ -15,4 +15,4 @@ Main.test "mapIn with a partial application" 31d75cf648b2642614479b462783dfd3cd6
 Main.test "mapIn with a pure parameter" cf9631b5948430992b841edfffafbd46eddeeaac96ccb052704181e7546c32fe
 Main.test "mapIn with an empty-row parameter" 0a91b24c2c4308a56a58ad0f933234af2066fd8e74a817357dbd017db417bdfe
 Main.test "mapIn with a pure callback in a failing computation".%match1 e948b934071a8cf671f3fda48e67fd56043e58e0a11a101bd5f6a7ccfdcf3ef2
-Main.test "mapIn with a pure callback in a failing computation" 4eb32426b4f50e54ed40887ebdaa9483f847804f60564d399d83b8d73737b4bf
+Main.test "mapIn with a pure callback in a failing computation" 084787e1bb6bef3289a4759d6a0c20ddaffdd68ca23f78b5ada0ab8dea97bf12

@@ -1121,6 +1121,12 @@ pub(crate) fn apply_args_with(
     let ordered;
     let args = if crate::named::any(args) {
         let sig = crate::named::signature(cx, &head.1)?;
+        // Names behind a type that computes once the arguments are given:
+        // `(pick 1) (count := 2)` for `pick 1 (count := 2)`.
+        if let Some((first, rest)) = crate::named::split(cx, &sig, args)? {
+            let head = apply_args_with(cx, head, &first, supply)?;
+            return apply_args_with(cx, head, &rest, supply);
+        }
         let slots = crate::named::plan(cx, &sig, args, None)?;
         match crate::named::positional(&slots) {
             Some(positional) => {
@@ -2452,6 +2458,9 @@ pub(crate) fn ordered_args<'a>(
     args: &[Arg<'a>],
 ) -> Result<Option<Vec<Arg<'a>>>> {
     let sig = crate::named::signature(cx, ty)?;
+    if crate::named::split(cx, &sig, args)?.is_some() {
+        return Ok(None);
+    }
     Ok(match crate::named::plan(cx, &sig, args, None) {
         Ok(slots) => crate::named::positional(&slots),
         Err(_) => None,

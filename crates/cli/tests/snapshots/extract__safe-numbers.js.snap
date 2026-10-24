@@ -895,6 +895,8 @@ const $Main$dCounter$d$gdecEq = (v0) => (v1) => {
 const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue($Main$dCounter$dcount(v0)))($Std$dInt$dtoNat($Std$dSafeInt$dvalue($Main$dCounter$ddelta(v0)))));
 const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)($Std$dSafeNat$dvalue(v2)))))(0n)(v0));
 const $Main$dsameCounter = (v0) => (v1) => $Std$dDecidable$dtoBool($Main$dCounter$d$gdecEq(v0)(v1));
+const $Main$dstartCounter = { count: 41n, delta: -1n };
+const $Main$dlimits = { tag: "Cons", head: 9007199254740991n, tail: { tag: "Cons", head: -9007199254740991n, tail: { tag: "Cons", head: 0n, tail: { tag: "Nil" } } } };
 
 function $$addSafe(arg0, arg1) {
   try {
@@ -970,6 +972,22 @@ function $$sameCounter(arg0, arg1) {
   }
 }
 
+function $$startCounter() {
+  try {
+    return encodeFast(enc$12, ty$9, $Main$dstartCounter);
+  } catch (e) {
+    throw outOfResources("startCounter", e);
+  }
+}
+
+function $$limits() {
+  try {
+    return encodeFast(enc$13, ty$12, $Main$dlimits);
+  } catch (e) {
+    throw outOfResources("limits", e);
+  }
+}
+
 // The fast path's codecs, one decoder and one encoder for each type that
 // crosses (see `decodeFast`).
 const ty$1 = SAFE_NAT;
@@ -983,6 +1001,7 @@ const ty$8 = list(option(SAFE_NAT));
 const ty$9 = data(info$Main$dCounter);
 const ty$10 = list(SAFE_NAT);
 const ty$11 = BOOL;
+const ty$12 = list(SAFE_INT);
 function dec$1(x) {
   return SAFE_NAT.dec(x);
 }
@@ -1072,5 +1091,14 @@ function dec$10(x) {
 function enc$11(v) {
   return BOOL.enc(v);
 }
+function enc$12(v) {
+  const o = { count: SAFE_NAT.enc(v.count), delta: SAFE_INT.enc(v.delta) };
+  return o;
+}
+function enc$13(v) {
+  const out = [];
+  for (let l = v; l.tag === "Cons"; l = l.tail) out.push(SAFE_INT.enc(l.head));
+  return out;
+}
 
-export { $$addSafe as addSafe, $$negateSafe as negateSafe, $$toSafe as toSafe, $$toSafeInt as toSafeInt, $$lengths as lengths, $$bump as bump, $$sumAll as sumAll, $$sameCounter as sameCounter };
+export { $$addSafe as addSafe, $$negateSafe as negateSafe, $$toSafe as toSafe, $$toSafeInt as toSafeInt, $$lengths as lengths, $$bump as bump, $$sumAll as sumAll, $$sameCounter as sameCounter, $$startCounter as startCounter, $$limits as limits };

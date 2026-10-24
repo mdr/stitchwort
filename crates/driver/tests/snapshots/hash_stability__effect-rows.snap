@@ -71,6 +71,6 @@ Main.applyDep 31ca9c0ac65b8ebffd561625492e2052c0473b32bf1b2e130b68dc5d2177205e
 Main.cellAt eef4bc75abab0d3b87dd3ed34192773a13c6d9114a9cc68eeff9bb00b4c78903
 Main.test "a type family stuck on a variable" 4c4e5e427209a862a997ec26a845c06acc9b9e84b744dfd8050661a9106cff7b
 Main.mapTwice a4d7e5733999fe05085d13551542cb355530749fd36b77ce2a13dfd8e2c6cd01
-Main.test "a row-polymorphic callback, pure" ff003e40846de360abcf6efc81c2be18e12f0347b8b0b6b50d4147fafdc390ea
+Main.test "a row-polymorphic callback, pure" 76508400a78c6dfbf87986943e0104c7b3a4530035e2afc7c5611128a3cdf1aa
 Main.test "a row-polymorphic callback, effectful".%match1 388082667605395b94c92f4c606aa16395e9f8fd238a093c38a1d8103ec98275
 Main.test "a row-polymorphic callback, effectful" 4273e0ccd658f749d4678c73f6c06c2510955cb196a738f6dfb2a67ff5ed59c2

@@ -38,6 +38,10 @@ pub(crate) struct Signature {
     /// The walk stopped at an unknown: the names of what follows (if
     /// anything) would come from unification, so they aren't known here.
     pub open: bool,
+    /// The walk stopped at a type that may still compute once the
+    /// parameters have values (`Picker n`, with `n` a parameter): the names
+    /// of what follows are found after applying the arguments ([`split`]).
+    pub stuck: bool,
 }
 
 impl Signature {
@@ -59,7 +63,11 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
     let mut params = Vec::new();
     loop {
         if let Value::Neutral(Head::Meta(_), _) = ty {
-            return Ok(Signature { params, open: true });
+            return Ok(Signature {
+                params,
+                open: true,
+                stuck: false,
+            });
         }
         if let Some((_, value)) = crate::effects::comp_parts(cx, &ty)? {
             ty = value;
@@ -75,11 +83,18 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
-            Value::Neutral(Head::Meta(_), _) => return Ok(Signature { params, open: true }),
-            _ => {
+            Value::Neutral(Head::Meta(_), _) => {
+                return Ok(Signature {
+                    params,
+                    open: true,
+                    stuck: false,
+                });
+            }
+            other => {
                 return Ok(Signature {
                     params,
                     open: false,
+                    stuck: matches!(other, Value::Neutral(Head::Def(_), _)),
                 });
             }
         }
@@ -99,6 +114,7 @@ pub(crate) fn declared(params: impl IntoIterator<Item = (Name, Icit)>) -> Signat
             })
             .collect(),
         open: false,
+        stuck: false,
     }
 }
 
@@ -144,7 +160,7 @@ pub(crate) fn plan<'a>(
     receiver: Option<usize>,
 ) -> Result<Vec<Slot<'a>>> {
     let params = &sig.params;
-    let (filled, overflow) = fill(cx, sig, args, receiver)?;
+    let (filled, overflow) = fill(cx, sig, args, receiver, false)?;
     let last = filled.iter().rposition(Option::is_some);
     let mut slots = Vec::new();
     if let Some(last) = last {
@@ -173,7 +189,7 @@ pub(crate) fn assign<'a>(
     sig: &Signature,
     args: &[Arg<'a>],
 ) -> Result<(Vec<Option<Arg<'a>>>, Vec<Arg<'a>>)> {
-    let (filled, overflow) = fill(cx, sig, args, None)?;
+    let (filled, overflow) = fill(cx, sig, args, None, false)?;
     let assigned = (filled.into_iter())
         .map(|f| match f {
             Some(Fill::Arg(arg)) => Some(placed(arg)),
@@ -183,14 +199,63 @@ pub(crate) fn assign<'a>(
     Ok((assigned, overflow))
 }
 
+/// Splits a call whose signature is [`Signature::stuck`] and that names a
+/// parameter the signature doesn't show: `pick 1 (count := 2)`, with
+/// `pick (n: Nat): Picker n`, where `count` is a parameter of what `Picker 1`
+/// computes to. The arguments are matched as [`plan`] matches them, those
+/// naming something the signature lacks set aside with the positional
+/// arguments past its end; if that fills every explicit parameter, the
+/// result is the arguments for the signature, in parameter order, and the
+/// rest in written order, to be matched against the type of the call
+/// applied to the first: `(pick 1) (count := 2)`, which means the same, a
+/// call meaning the same however it's bracketed (§4.2 rule 1). The names
+/// after the stuck type are then read from what it computes to (§4.3,
+/// "Synonyms and reduction"). `None` if the call isn't such a call.
+#[allow(clippy::type_complexity)]
+pub(crate) fn split<'a>(
+    cx: &Ctx,
+    sig: &Signature,
+    args: &[Arg<'a>],
+) -> Result<Option<(Vec<Arg<'a>>, Vec<Arg<'a>>)>> {
+    if !sig.stuck || !any(args) {
+        return Ok(None);
+    }
+    let unknown_name = |arg: &Arg| match arg {
+        Arg::Named(name, _) | Arg::NamedExplicit(name, _) => {
+            !sig.params.iter().any(|p| *p.name == *name.text)
+        }
+        _ => false,
+    };
+    if !args.iter().any(unknown_name) {
+        return Ok(None);
+    }
+    let (filled, rest) = fill(cx, sig, args, None, true)?;
+    let mut first = Vec::new();
+    for (param, fill) in sig.params.iter().zip(filled) {
+        match fill {
+            Some(Fill::Arg(arg)) => first.push(placed(arg)),
+            None if param.icit == Icit::Explicit => return Ok(None),
+            _ => {}
+        }
+    }
+    // Applying nothing wouldn't change the type.
+    if first.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some((first, rest)))
+}
+
 /// The matching of [`plan`]: what fills each parameter, and the positional
-/// arguments past the end of the signature.
+/// arguments past the end of the signature. With `lenient`, a named
+/// argument the signature has no parameter for goes with those (in written
+/// order) rather than being an error, for [`split`].
 #[allow(clippy::type_complexity)]
 fn fill<'a>(
     cx: &Ctx,
     sig: &Signature,
     args: &[Arg<'a>],
     receiver: Option<usize>,
+    lenient: bool,
 ) -> Result<(Vec<Option<Fill<'a>>>, Vec<Arg<'a>>)> {
     let params = &sig.params;
     let mut filled: Vec<Option<Fill<'a>>> = vec![None; params.len()];
@@ -203,13 +268,23 @@ fn fill<'a>(
         filled[i] = Some(Fill::Receiver);
     }
     let mut overflow: Vec<Arg<'a>> = Vec::new();
+    // Whether a positional argument has gone past the end.
+    let mut spilled = false;
     for arg in args {
         match arg {
             Arg::Explicit(_) | Arg::Piped(_) => {
                 match explicit.iter().find(|&&i| filled[i].is_none()) {
-                    Some(&i) if overflow.is_empty() => filled[i] = Some(Fill::Arg(*arg)),
-                    _ => overflow.push(*arg),
+                    Some(&i) if !spilled => filled[i] = Some(Fill::Arg(*arg)),
+                    _ => {
+                        spilled = true;
+                        overflow.push(*arg)
+                    }
                 }
+            }
+            Arg::Named(name, _) | Arg::NamedExplicit(name, _)
+                if lenient && !sig.params.iter().any(|p| *p.name == *name.text) =>
+            {
+                overflow.push(*arg)
             }
             Arg::Named(name, _) | Arg::NamedExplicit(name, _) => {
                 let wants_explicit = matches!(arg, Arg::NamedExplicit(..));
@@ -304,6 +379,14 @@ fn unknown(cx: &Ctx, sig: &Signature, name: &stitchwort_syntax::ast::Name) -> Di
              `let g: (low: Nat) -> (high: Nat) -> Nat := …`",
         );
     }
+    if sig.stuck && sig.params.is_empty() {
+        return Diagnostic::error(
+            "E-UNKNOWN-NAME",
+            "the parameter names of this function aren't known here",
+        )
+        .with_label(name.span, format!("`{}` can't be found by name", name.text))
+        .with_note("its type doesn't compute to a function type here");
+    }
     let mut d = Diagnostic::error(
         "E-UNKNOWN-NAME",
         format!("this function has no parameter named `{}`", name.text),
@@ -325,6 +408,12 @@ fn unknown(cx: &Ctx, sig: &Signature, name: &stitchwort_syntax::ast::Name) -> Di
             list(shown)
         ))
     };
+    if sig.stuck {
+        d = d.with_note(
+            "its result type is computed from its arguments: the names of what that takes are \
+             found once every explicit parameter before them is given",
+        );
+    }
     if sig.open {
         d = d.with_note(
             "the names of what its result takes aren't known here; add a type annotation to \
@@ -399,7 +488,12 @@ pub(crate) fn reached(
 /// `check::apply_args` does, with each missing parameter bound by a lambda
 /// around the call (§4.2 rule 3): `clampTo (high := 10)` is
 /// `low value => clampTo low 10 value`. The arguments after a missing
-/// parameter are elaborated inside the lambda (§4.5 R4).
+/// parameter are elaborated inside the lambda (§4.5 R4). A stage of the
+/// function reached after a missing parameter runs inside the lambda, each
+/// time it's called (§4.5 R3): with
+/// `f: (x: Nat) -> {Log} ((y: Nat) -> (z: Nat) -> Nat)`, `f (z := 3)` is
+/// `x => (run f x into g, then y => g y 3)`, of type
+/// `(x: Nat) -> {Log} ((y: Nat) -> Nat)`.
 pub(crate) fn apply_slots(
     cx: &mut Ctx,
     head: (Term, Value),
@@ -409,109 +503,177 @@ pub(crate) fn apply_slots(
         let args = positional(slots).expect("no receiver here");
         return crate::check::apply_args(cx, head, &args);
     }
-    match apply_missing(cx, head.clone(), slots, false) {
-        Ok((result, _)) => Ok(result),
-        Err(e) if crate::undo::fatal(&e) => Err(e),
-        Err(e) if e.code == "E-TYPE-MISMATCH" => Err(rigid_note(cx, head, slots, e)),
-        Err(e) => Err(e),
+    let mark = cx.mark();
+    let base = cx.level();
+    match bind_missing(cx, head.clone(), slots, base, false) {
+        // `x… => call`, annotated for the kernel, which doesn't infer a
+        // lambda's type.
+        Ok((term, ty, Some(pi))) => Ok((Term::Ann(Rc::new(term), Rc::new(pi)), ty)),
+        Ok((term, ty, None)) => Ok((term, ty)),
+        Err(e) => {
+            cx.reset(mark);
+            if crate::undo::fatal(&e) {
+                Err(e)
+            } else if e.code == "E-TYPE-MISMATCH" {
+                Err(rigid_note(cx, head, slots, e))
+            } else {
+                Err(e)
+            }
+        }
     }
 }
 
 /// A term and its type.
 type Typed = (Term, Value);
 
-/// [`apply_slots`] with missing parameters: bound as variables, or with
-/// `inferring`, given unknowns (for the note of [`rigid_note`], which reads
-/// what unification makes of them: the second result).
-fn apply_missing(
+/// [`apply_slots`]: `head` applied to `slots`, with the missing parameters
+/// bound by lambdas, `base` being the level outside all of them. `inside`
+/// says whether this is inside one already, where a stage of the function is
+/// run (into a variable, in its own row) rather than left to the caller.
+/// When the result is a lambda, its type is also given as a term, for
+/// [`apply_slots`]'s annotation.
+fn bind_missing(
     cx: &mut Ctx,
     head: Typed,
     slots: &[Slot],
-    inferring: bool,
-) -> Result<(Typed, Vec<(Name, Value)>)> {
+    base: usize,
+    inside: bool,
+) -> Result<(Term, Value, Option<Term>)> {
     let g = cx.g();
-    let mark = cx.mark();
-    // A value piped in was elaborated outside: under the lambda's binders
-    // its term is shifted past them.
+    let mut stages = crate::effects::Stages::new();
+    let (mut term, mut ty) = head;
+    let mut chunk: Vec<Arg> = Vec::new();
+    for (i, slot) in slots.iter().enumerate() {
+        let name = match slot {
+            Slot::Given(arg) => {
+                chunk.push(*arg);
+                continue;
+            }
+            Slot::Receiver => unreachable!("dot notation passes its receiver as an argument"),
+            Slot::Missing(name) => name,
+        };
+        (term, ty) = apply_chunk(cx, &mut stages, (term, ty), &chunk, base, inside)?;
+        if inside && let Some(ran) = stages.run(cx, term.clone(), ty.clone())? {
+            (term, ty) = ran;
+        }
+        (term, ty) = crate::check::insert(cx, term, ty)?;
+        let (dom, cod) = crate::check::function_parts(cx, &ty)?;
+        let mark = cx.mark();
+        let at = cx.level();
+        cx.bind_hidden((*name).clone(), dom.clone());
+        let applied = (
+            Term::app(term.shift(g, 1, 0)?, Term::Var(0)),
+            cod.apply(g, Value::var(at))?,
+        );
+        let (body, body_ty, _) = bind_missing(cx, applied, &slots[i + 1..], base, true)?;
+        let body_ty = cx.quote(&body_ty)?;
+        let dom = quote(g, at, &dom)?;
+        cx.reset(mark);
+        let pi = Term::Pi(
+            (*name).clone(),
+            Icit::Explicit,
+            Rc::new(dom),
+            Rc::new(body_ty),
+        );
+        let lam = Term::Lam((*name).clone(), Icit::Explicit, Rc::new(body));
+        let pi_value = cx.eval(&pi)?;
+        if !stages.ran() {
+            return Ok((lam, pi_value, Some(pi)));
+        }
+        let (term, ty) = stages.finish(cx, lam, pi_value)?;
+        return Ok((term, ty, None));
+    }
+    (term, ty) = apply_chunk(cx, &mut stages, (term, ty), &chunk, base, inside)?;
+    let (term, ty) = stages.finish(cx, term, ty)?;
+    Ok((term, ty, None))
+}
+
+/// Applies `head` to `args`, as `check::apply_args` does. Inside a lambda
+/// (`inside`), a stage of the function reached before the last argument is
+/// run first (`effects::Stages::run`), so the arguments are then applied
+/// one at a time. A value piped in, elaborated outside the lambdas (at level
+/// `base`), is shifted past what has been bound since.
+fn apply_chunk(
+    cx: &mut Ctx,
+    stages: &mut crate::effects::Stages,
+    head: Typed,
+    args: &[Arg],
+    base: usize,
+    inside: bool,
+) -> Result<Typed> {
+    let explicit = (args.iter())
+        .filter(|a| !matches!(a, Arg::Named(..)))
+        .count();
+    if !inside || explicit == 0 || !crate::effects::Stages::ahead(cx, &head.1, explicit - 1)? {
+        return apply_shifted(cx, head, args, base);
+    }
+    let (mut term, mut ty) = head;
+    for arg in args {
+        if !matches!(arg, Arg::Named(..))
+            && let Some(ran) = stages.run(cx, term.clone(), ty.clone())?
+        {
+            (term, ty) = ran;
+        }
+        (term, ty) = apply_shifted(cx, (term, ty), std::slice::from_ref(arg), base)?;
+    }
+    Ok((term, ty))
+}
+
+/// `check::apply_args`, with a value piped in (elaborated at level `base`)
+/// shifted past the variables bound since.
+fn apply_shifted(cx: &mut Ctx, head: Typed, args: &[Arg], base: usize) -> Result<Typed> {
+    let depth = cx.level() - base;
+    if depth == 0 || !args.iter().any(|a| matches!(a, Arg::Piped(_))) {
+        return crate::check::apply_args(cx, head, args);
+    }
+    let g = cx.g();
     let mut shifted: Vec<Piped> = Vec::new();
-    let mut depth = 0;
-    for slot in slots {
-        match slot {
-            Slot::Missing(_) if !inferring => depth += 1,
-            Slot::Given(Arg::Piped(p)) if depth > 0 => shifted.push(Piped {
+    for arg in args {
+        if let Arg::Piped(p) = arg {
+            shifted.push(Piped {
                 term: p.term.shift(g, depth, 0)?,
                 ty: p.ty.clone(),
                 span: p.span,
-            }),
-            _ => {}
+            });
         }
     }
-    let mut binders: Vec<(Name, Value, usize)> = Vec::new();
+    let mut next = shifted.iter();
+    let args: Vec<Arg> = (args.iter())
+        .map(|a| match a {
+            Arg::Piped(_) => Arg::Piped(next.next().expect("shifted above")),
+            other => *other,
+        })
+        .collect();
+    crate::check::apply_args(cx, head, &args)
+}
+
+/// [`apply_slots`] with the missing parameters given unknowns rather than
+/// bound, for the note of [`rigid_note`]: what unification makes of them.
+/// Stages are not run.
+fn infer_missing(cx: &mut Ctx, head: Typed, slots: &[Slot]) -> Result<Vec<(Name, Value)>> {
+    let g = cx.g();
     let mut unknowns: Vec<(Name, Value)> = Vec::new();
-    let result = (|| -> Result<(Term, Value)> {
-        let (mut term, mut ty) = head;
-        let mut chunk: Vec<Arg> = Vec::new();
-        let mut next_shifted = shifted.iter();
-        for slot in slots {
-            match slot {
-                Slot::Given(Arg::Piped(_)) if !binders.is_empty() => {
-                    chunk.push(Arg::Piped(next_shifted.next().expect("shifted above")));
-                }
-                Slot::Given(arg) => chunk.push(*arg),
-                Slot::Receiver => unreachable!("dot notation passes its receiver as an argument"),
-                Slot::Missing(name) => {
-                    (term, ty) = crate::check::apply_args(cx, (term, ty), &chunk)?;
-                    chunk.clear();
-                    (term, ty) = crate::check::insert(cx, term, ty)?;
-                    let (dom, cod) = crate::check::function_parts(cx, &ty)?;
-                    if inferring {
-                        let meta = cx.fresh_meta();
-                        let value = cx.eval(&meta)?;
-                        unknowns.push(((*name).clone(), value.clone()));
-                        term = Term::app(term, meta);
-                        ty = cod.apply(g, value)?;
-                        continue;
-                    }
-                    let at = cx.level();
-                    cx.bind_hidden((*name).clone(), dom.clone());
-                    term = Term::app(term.shift(g, 1, 0)?, Term::Var(0));
-                    ty = cod.apply(g, Value::var(at))?;
-                    binders.push(((*name).clone(), dom, at));
-                }
+    let (mut term, mut ty) = head;
+    let mut chunk: Vec<Arg> = Vec::new();
+    for slot in slots {
+        match slot {
+            Slot::Given(arg) => chunk.push(*arg),
+            Slot::Receiver => unreachable!("dot notation passes its receiver as an argument"),
+            Slot::Missing(name) => {
+                (term, ty) = crate::check::apply_args(cx, (term, ty), &chunk)?;
+                chunk.clear();
+                (term, ty) = crate::check::insert(cx, term, ty)?;
+                let (_, cod) = crate::check::function_parts(cx, &ty)?;
+                let meta = cx.fresh_meta();
+                let value = cx.eval(&meta)?;
+                unknowns.push(((*name).clone(), value.clone()));
+                term = Term::app(term, meta);
+                ty = cod.apply(g, value)?;
             }
         }
-        crate::check::apply_args(cx, (term, ty), &chunk)
-    })();
-    let (mut term, ty) = match result {
-        Ok(found) => found,
-        Err(e) => {
-            cx.reset(mark);
-            return Err(e);
-        }
-    };
-    if inferring {
-        return Ok(((term, ty), unknowns));
     }
-    // `x… => call`, annotated for the kernel, which doesn't infer a
-    // lambda's type.
-    let mut fun_ty = match cx.quote(&ty) {
-        Ok(t) => t,
-        Err(e) => {
-            cx.reset(mark);
-            return Err(e);
-        }
-    };
-    for (x, dom, at) in binders.iter().rev() {
-        let dom = quote(g, *at, dom)?;
-        fun_ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(dom), Rc::new(fun_ty));
-        term = Term::Lam(x.clone(), Icit::Explicit, Rc::new(term));
-    }
-    cx.reset(mark);
-    let value = cx.eval(&fun_ty)?;
-    Ok((
-        (Term::Ann(Rc::new(term), Rc::new(fun_ty)), value),
-        Vec::new(),
-    ))
+    crate::check::apply_args(cx, (term, ty), &chunk)?;
+    Ok(unknowns)
 }
 
 /// A type mismatch in a call with missing parameters: they're variables,
@@ -525,8 +687,8 @@ fn rigid_note(cx: &mut Ctx, head: (Term, Value), slots: &[Slot], e: Diagnostic) 
         })
         .collect();
     let snapshot = crate::undo::Snapshot::take(cx);
-    let solved: Vec<String> = match apply_missing(cx, head, slots, true) {
-        Ok((_, unknowns)) => unknowns
+    let solved: Vec<String> = match infer_missing(cx, head, slots) {
+        Ok(unknowns) => unknowns
             .iter()
             .filter_map(|(x, value)| {
                 let forced = force(cx.g(), value.clone()).ok()?;
@@ -581,7 +743,7 @@ pub(crate) fn dependencies(cx: &Ctx, ty: &Value) -> Result<Vec<Vec<usize>>> {
 /// Which of `args` (by index) fills each parameter of `sig`, as [`plan`]
 /// matches them; `None` if they don't match.
 pub(crate) fn filled_by(cx: &Ctx, sig: &Signature, args: &[Arg]) -> Option<Vec<Option<usize>>> {
-    let (filled, _) = fill(cx, sig, args, None).ok()?;
+    let (filled, _) = fill(cx, sig, args, None, false).ok()?;
     let value = |arg: &Arg| -> Option<*const Expr> {
         match arg {
             Arg::Explicit(e) | Arg::Named(_, e) | Arg::NamedExplicit(_, e) => {

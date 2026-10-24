@@ -178,6 +178,12 @@ def List.between (lo: Nat) (hi: Nat): List Nat := List.rangeFrom (hi + 1 - lo) l
 -- `between` is a `rangeFrom` of the right length.
 theorem List.betweenRangeFrom (lo: Nat) (hi: Nat): List.between lo hi = List.rangeFrom (hi + 1 - lo) lo := rfl
 
+-- It has `hi + 1 - lo` elements: none when `lo > hi`, one when `lo = hi`.
+theorem List.lengthBetween (lo: Nat) (hi: Nat): List.length (List.between lo hi) = hi + 1 - lo := List.lengthRangeFrom (hi + 1 - lo) lo
+
+test "List.lengthBetween" := List.length (List.between 3 3) == 1 && List.length (List.between 5 2) == 0 && List.length (List.between 2 6) == 5
+test "List.between, empty and single" := List.between 5 0 == Nil && List.between 0 0 == [0] && List.between 7 7 == [7]
+
 def List.reverse (xs: List a): List a := List.reverseOnto xs Nil
 
 def List.last: List a -> Option a

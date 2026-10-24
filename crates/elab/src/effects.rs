@@ -2118,17 +2118,7 @@ fn comp_app(
     // the missing ones (R3).
     let written_args = crate::check::args_of(&owned);
     let head_ty = ty.clone();
-    let (given, rest) = if crate::named::any(&written_args) {
-        let sig = crate::named::signature(cx, &ty)?;
-        let slots = crate::named::plan(cx, &sig, &written_args, None)?;
-        let first = (slots.iter())
-            .position(|s| matches!(s, crate::named::Slot::Missing(_)))
-            .unwrap_or(slots.len());
-        let given = crate::named::positional(&slots[..first]).expect("nothing missing before");
-        (given, slots[first..].to_vec())
-    } else {
-        (written_args.clone(), Vec::new())
-    };
+    let planned = plan_call(cx, &ty, &written_args)?;
     let snapshot = crate::undo::Snapshot::take(cx);
     let span = head.span();
     let apply = |cx: &mut Ctx,
@@ -2136,49 +2126,48 @@ fn comp_app(
                  mut term: Term,
                  mut ty: Value|
      -> Result<(Term, Value)> {
-        // The value type the call returns is compared with the expected one
-        // before the arguments are checked, as a pure call's is (SW-223).
-        let mut given = &given[..];
-        if rest.is_empty()
-            && let Some(t) = expected
-            && let Some(applied) =
-                crate::check::propagate_comp(cx, &(term.clone(), ty.clone()), given, t)?
-        {
-            (term, ty) = applied;
-            given = &[];
-        }
-        for arg in given {
-            (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
-            (term, ty) = crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))?;
-        }
+        let mut planned = planned;
+        let rest = loop {
+            let (given, rest, later) = planned;
+            // The value type the call returns is compared with the expected
+            // one before the arguments are checked, as a pure call's is
+            // (SW-223).
+            let mut given = &given[..];
+            if rest.is_empty()
+                && later.is_none()
+                && let Some(t) = expected
+                && let Some(applied) =
+                    crate::check::propagate_comp(cx, &(term.clone(), ty.clone()), given, t)?
+            {
+                (term, ty) = applied;
+                given = &[];
+            }
+            for arg in given {
+                (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
+                (term, ty) = crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))?;
+            }
+            // Names behind a type that computes once these arguments are
+            // given: the rest is matched against the call so far.
+            match later {
+                Some(later) => planned = plan_call(cx, &ty, &later)?,
+                None => break rest,
+            }
+        };
         if rest.is_empty() {
             return Ok((term, ty));
         }
-        // The stages before the first parameter left out run now, once.
+        // The stages before the first parameter left out run now, once;
+        // those after it run inside the function the call makes, each time
+        // it's called (R3, `named::apply_slots`).
         (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
-        let explicit = rest
-            .iter()
-            .filter(|s| !matches!(s, crate::named::Slot::Given(crate::check::Arg::Named(..))))
-            .count();
-        if explicit > 1 && performs_after(cx, ty.clone(), explicit - 1)? {
-            return Err(cx
-                .error(
-                    "E-EFFECT-ORDER",
-                    "this call leaves out a parameter before a stage of the function",
-                    "the function performs operations after taking the parameter left out",
-                )
-                .with_note(
-                    "a stage after a parameter left out would run each time the function the \
-                     call makes is called, which isn't supported yet: write the lambda, as in \
-                     `y => f x y z`",
-                ));
-        }
         crate::named::apply_slots(cx, (term, ty), &rest)
     };
     let applied: Result<(Term, Value)> = apply(cx, &mut bound, term, ty);
     let (term, ty) = match applied {
         Ok(applied) => applied,
-        Err(e) if crate::undo::fatal(&e) || !crate::named::any(&written_args) => return Err(e),
+        // A positional call too: its computations also run first, so the
+        // same diagnosis applies (§4.5 R5, last paragraph).
+        Err(e) if crate::undo::fatal(&e) || bound.is_empty() => return Err(e),
         Err(e) => {
             snapshot.restore(cx);
             let order = effect_order(cx, &head_ty, &written_args, &owned)?;
@@ -2209,6 +2198,106 @@ fn comp_app(
     Ok((result, result_ty, written))
 }
 
+/// The stages of a curried effectful function reached inside the function a
+/// named call makes, after a parameter it leaves out
+/// (docs/proposals/named-arguments.md §4.5 R3): `f (x := 1) (z := 3)`, with
+/// `f: (x: Nat) -> (y: Nat) -> {Log} ((z: Nat) -> Nat)`, is
+/// `y => f 1 y` run, then its result applied to `3`. Each stage is run into
+/// a variable, in the row of the first; [`Stages::finish`] makes what
+/// follows a computation in that row.
+pub(crate) struct Stages {
+    row: Option<Row>,
+    bound: Vec<Bound>,
+}
+
+impl Stages {
+    pub(crate) fn new() -> Stages {
+        Stages {
+            row: None,
+            bound: Vec::new(),
+        }
+    }
+
+    /// Whether a stage has run.
+    pub(crate) fn ran(&self) -> bool {
+        self.row.is_some()
+    }
+
+    /// Whether a function of type `ty` given `explicit` more arguments
+    /// reaches a stage (or is one now, with `explicit` 0).
+    pub(crate) fn ahead(cx: &Ctx, ty: &Value, explicit: usize) -> Result<bool> {
+        performs_after(cx, ty.clone(), explicit)
+    }
+
+    /// If `term: ty` is a computation (once its implicit arguments are
+    /// inserted), runs it: its result is in scope as a variable, returned
+    /// with its type. `None` otherwise.
+    pub(crate) fn run(
+        &mut self,
+        cx: &mut Ctx,
+        term: Term,
+        ty: Value,
+    ) -> Result<Option<(Term, Value)>> {
+        if !performs_after(cx, ty.clone(), 0)? {
+            return Ok(None);
+        }
+        let (term, ty) = insert(cx, term, ty)?;
+        let (from, t) = comp_parts(cx, &ty)?.expect("reached a computation type");
+        let row = self.row.get_or_insert_with(|| from.clone()).clone();
+        let c = lift(cx, term, from, &row, &t)?;
+        let name = format!("%{}", cx.level());
+        self.bound.push(hold(cx, &row, &name, c, t.clone())?);
+        Ok(Some((Term::Var(0), t)))
+    }
+
+    /// `term: ty`, the rest of the function after the stages run: as is if
+    /// none was, otherwise the computation running them and then giving it
+    /// (or running it, if it's a computation itself), with its type. The
+    /// variables [`Stages::run`] bound go out of scope.
+    pub(crate) fn finish(self, cx: &mut Ctx, term: Term, ty: Value) -> Result<(Term, Value)> {
+        let Some(row) = self.row else {
+            return Ok((term, ty));
+        };
+        let (result, result_ty) = match comp_parts(cx, &ty)? {
+            Some((from, t)) => (lift(cx, term, from, &row, &t)?, t),
+            None => (done(cx, &row, &ty, term)?, ty),
+        };
+        let wrapped = wrap(cx, &row, self.bound, result, &result_ty)?;
+        Ok((wrapped, comp_type(cx, &row, result_ty)?))
+    }
+}
+
+/// The arguments of a call `written` applied to a function of type `ty`, as
+/// [`comp_app`] applies them: those up to the first parameter left out, in
+/// parameter order; the slots from there on (`named::plan`); and, for a call
+/// whose names are behind a type that computes once the first are given
+/// (`named::split`), the rest of the written arguments, to plan against the
+/// type of the call so far.
+#[allow(clippy::type_complexity)]
+fn plan_call<'a>(
+    cx: &Ctx,
+    ty: &Value,
+    written: &[crate::check::Arg<'a>],
+) -> Result<(
+    Vec<crate::check::Arg<'a>>,
+    Vec<crate::named::Slot<'a>>,
+    Option<Vec<crate::check::Arg<'a>>>,
+)> {
+    if !crate::named::any(written) {
+        return Ok((written.to_vec(), Vec::new(), None));
+    }
+    let sig = crate::named::signature(cx, ty)?;
+    if let Some((first, rest)) = crate::named::split(cx, &sig, written)? {
+        return Ok((first, Vec::new(), Some(rest)));
+    }
+    let slots = crate::named::plan(cx, &sig, written, None)?;
+    let first = (slots.iter())
+        .position(|s| matches!(s, crate::named::Slot::Missing(_)))
+        .unwrap_or(slots.len());
+    let given = crate::named::positional(&slots[..first]).expect("nothing missing before");
+    Ok((given, slots[first..].to_vec(), None))
+}
+
 /// A partial application `term: ty` that is already a computation (`k s`
 /// with `k : s -> {e} (s -> {e} …)`): run it, into a variable bound for
 /// [`wrap`], and continue with its result. Anything else is returned as it
@@ -2233,7 +2322,7 @@ fn run_stage(
     infer_head(cx, &var)
 }
 
-/// Why a named call that failed can't run its computations where they're
+/// Why a call that failed can't run its computations where they're
 /// written (docs/proposals/named-arguments.md §4.5 R5, D1113): a
 /// computation run first (into a variable, `written[i]` in `owned`) whose
 /// type isn't settled yet, for a parameter whose type needs a parameter the
@@ -2273,20 +2362,46 @@ fn effect_order(
         }
         for &q in deps.get(p).map(|d| &d[..]).unwrap_or(&[]) {
             let needed = &sig.params[q].name;
-            let later = match filled[q] {
-                None if q < last && sig.params[q].icit == Icit::Explicit => None,
-                Some(w2) if w2 > w && ran(w2).is_some() => Some(w2),
+            // What `q` waits for: the computation giving it, or for an
+            // implicit parameter (an unknown, which can only be solved with
+            // what is in scope when it's made), the one giving a parameter
+            // `s` that another parameter's type relates it to (`same: n = k`
+            // for `n`).
+            let (later, through) = match filled[q] {
+                None if q < last && sig.params[q].icit == Icit::Explicit => (None, None),
+                Some(w2) if w2 > w && ran(w2).is_some() => (Some(w2), None),
+                None if sig.params[q].icit != Icit::Explicit => {
+                    let relates = |s: usize| {
+                        (deps.iter().enumerate())
+                            .any(|(r, d)| r != p && d.contains(&q) && d.contains(&s))
+                    };
+                    let found = (0..sig.params.len()).find_map(|s| match filled[s] {
+                        Some(w2) if s != q && w2 > w && ran(w2).is_some() && relates(s) => {
+                            Some((s, w2))
+                        }
+                        _ => None,
+                    });
+                    match found {
+                        Some((s, w2)) => (Some(w2), Some(s)),
+                        None => continue,
+                    }
+                }
                 _ => continue,
             };
             let span = value_span(&owned[w]);
             let mut d = Diagnostic::error(
                 "E-EFFECT-ORDER",
-                match later {
-                    Some(_) => format!(
+                match (later, through) {
+                    (Some(_), None) => format!(
                         "this runs first, where it's written, but its type needs `{needed}`, \
                          which comes later"
                     ),
-                    None => format!(
+                    (Some(_), Some(s)) => format!(
+                        "this runs first, where it's written, but its type needs `{needed}`, \
+                         which is found from `{}`, which comes later",
+                        sig.params[s].name
+                    ),
+                    (None, _) => format!(
                         "this runs first, where it's written, but its type needs `{needed}`, \
                          which the call leaves out"
                     ),
@@ -2294,15 +2409,21 @@ fn effect_order(
             )
             .with_label(span, format!("its type needs `{needed}`"));
             d = match later {
-                Some(w2) => d
-                    .with_label(
+                Some(w2) => {
+                    let given = through.map_or(needed, |s| &sig.params[s].name);
+                    let pass = match &owned[w2] {
+                        Expr::NamedArg(..) => format!("`({given} := {given})`"),
+                        _ => format!("`{given}` in its place"),
+                    };
+                    d.with_label(
                         value_span(&owned[w2]),
-                        format!("`{needed}` is computed here, after it"),
+                        format!("`{given}` is computed here, after it"),
                     )
                     .with_note(format!(
-                        "run them in the order you need, then call: `let {needed} := …` first, \
-                         then pass `({needed} := {needed})`"
-                    )),
+                        "run them in the order you need, then call: `let {given} := …` first, \
+                         then pass {pass}"
+                    ))
+                }
                 None => d.with_note(format!(
                     "give `{needed}` too: a computation in a call runs once, where it's \
                      written, so it can't wait for a parameter of the function the call makes"

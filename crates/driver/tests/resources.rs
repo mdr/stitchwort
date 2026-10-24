@@ -375,6 +375,39 @@ fn a_large_let_is_computed_only_when_a_type_needs_it() {
     );
 }
 
+/// Comparing a large `let` with `==` doesn't compute it while checking: the
+/// decision is made about a bound variable, so the kernel's types never
+/// mention the `let` (SW-412: a real-input test computed its answer in the
+/// kernel, then again when it ran). Its effectful form is the same: the
+/// computation is run in place as a `let`.
+#[test]
+fn comparing_a_large_let_does_not_compute_it_while_checking() {
+    let work = |decl: &str| {
+        let mut session = Session::new();
+        let before = session.elab.globals.budget.total_work();
+        let source = format!("import Std (List)\n{decl}\n");
+        let result = codes(session.load("big.sw", &source));
+        assert!(result.is_empty(), "{result:?}");
+        session.elab.globals.budget.total_work() - before
+    };
+    let small = work("test \"small\" := (List.range 2).length == 2");
+    for decl in [
+        "test \"let\" :=\n  let n := (List.range 200000).length\n  n == 200000",
+        "def f (b: Bool): Bool :=\n  let n := (List.range 200000).length\n  b && n == 200000",
+        "import Std (Fail)\n\
+         test \"effectful\" := Fail.orElse 0 (() => (List.range 200000).length) == 200000",
+    ] {
+        let large = work(decl);
+        eprintln!("{decl:?}: {large} steps (a small one: {small})");
+        // Computing the list while checking takes about 3 times what
+        // loading the library does.
+        assert!(
+            large < small * 2,
+            "{decl:?}: {large} steps, {small} for a small one"
+        );
+    }
+}
+
 /// Freeing a deeply nested term doesn't recurse.
 #[test]
 fn freeing_deep_terms_runs_without_using_the_stack() {
