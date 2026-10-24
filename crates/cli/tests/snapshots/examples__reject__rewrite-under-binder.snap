@@ -11,9 +11,9 @@ expression: output
    │ 
    │ Note 1: goal: `(y: Nat) -> f y = g y`
    │ 
-   │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+   │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
    │ 
    │ Note 3: to replace the right side by the left, write `rewrite <- …`
    │ 
-   │ Note 4: an occurrence under a binder that uses the bound variable can't be rewritten; prove it pointwise and use a lemma like `List.mapCong`
+   │ Note 4: some had the right outer function but use a variable bound inside the goal other than by a function argument (such as `(x: A) -> …`), where `rewrite` can't go: introduce the variable first (`x => rewrite …`)
 ───╯

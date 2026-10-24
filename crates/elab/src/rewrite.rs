@@ -62,6 +62,8 @@ use crate::lift::replace_with;
 use crate::matching::same;
 use crate::undo::{Snapshot, fatal};
 
+mod under;
+
 /// Evaluation steps all the comparisons of one `rewrite` may use between
 /// them (docs/proposals/calc-rewrite.md §6.2). Cheap comparisons use a few
 /// hundred; this is what an expensive candidate runs out of.
@@ -74,6 +76,9 @@ enum Place<'a> {
     Goal,
     /// The target's name, if it is one.
     Target(Option<&'a str>),
+    /// The body of a function passed to a call, rewritten under its binders
+    /// (`under.rs`): what is proved is `body = body'`, as for a target.
+    Inside,
 }
 
 impl Place<'_> {
@@ -83,6 +88,7 @@ impl Place<'_> {
             Place::Goal => "the goal".into(),
             Place::Target(Some(name)) => format!("the type of `{name}`"),
             Place::Target(None) => "the type of the term after `at`".into(),
+            Place::Inside => "a function argument".into(),
         }
     }
 }
@@ -164,9 +170,11 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
             &mut remaining,
             &mut stats,
         ) {
-            Ok(step) => {
-                ty = step.goal;
-                term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+            Ok(steps) => {
+                for step in steps {
+                    ty = step.goal;
+                    term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+                }
             }
             Err(e) => {
                 outcome = Err(e);
@@ -251,9 +259,11 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
             &mut remaining,
             &mut stats,
         ) {
-            Ok(step) => {
-                goal = step.goal.clone();
-                steps.push(step);
+            Ok(found) => {
+                for step in found {
+                    goal = step.goal.clone();
+                    steps.push(step);
+                }
             }
             Err(e) => {
                 outcome = Err(e);
@@ -318,6 +328,17 @@ struct Stats {
     matched: u64,
 }
 
+impl Stats {
+    fn add(&mut self, other: &Stats) {
+        self.visited += other.visited;
+        self.keyed += other.keyed;
+        self.bound += other.bound;
+        self.syntactic += other.syntactic;
+        self.conversions += other.conversions;
+        self.matched += other.matched;
+    }
+}
+
 fn report(span: Span, rules: usize, stats: &Stats, steps: u64) {
     if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_none() {
         return;
@@ -337,18 +358,34 @@ fn report(span: Span, rules: usize, stats: &Stats, steps: u64) {
     );
 }
 
-#[allow(clippy::too_many_arguments)]
-fn rewrite_once(
-    cx: &mut Ctx,
-    rule: &RewriteRule,
-    // How many rules of the same `rewrite` came before this one.
-    index: usize,
-    place: Place,
-    goal: &Value,
-    written: Option<Term>,
-    remaining: &mut u64,
-    stats: &mut Stats,
-) -> Result<Step> {
+/// A rule as an equation `lhs = rhs`, and a proof of it the way `J` takes
+/// it: for the goal `rhs = lhs`; for a target, or inside a function
+/// argument, `lhs = rhs`.
+struct Equation {
+    carrier: Value,
+    lhs: Value,
+    rhs: Value,
+    to_lhs: Term,
+    /// Metavariables from this index on were made for the rule, and only
+    /// they may be solved by matching.
+    rule_metas: usize,
+}
+
+impl Equation {
+    /// Whether the left side, read back as `lhs`, has unknowns of the
+    /// rule's own (its `_`s) for matching to find. Only then can it match an
+    /// occurrence that uses a variable bound inside the goal: one without
+    /// would have to compute that variable away, which is never worth the
+    /// search ([`under`]).
+    fn open(&self, lhs: &Term) -> bool {
+        lhs.subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= self.rule_metas))
+    }
+}
+
+/// Elaborates the rule into an [`Equation`], in `cx`'s context: under a
+/// binder, its `_`s may stand for terms that mention the bound variables.
+fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equation> {
     let g = cx.g();
     let rule_metas = g.metas.borrow().len();
     let (proof, ty) = infer(cx, &rule.proof)?;
@@ -360,7 +397,11 @@ fn rewrite_once(
                     rule.proof.span(),
                     format!("this has type `{}`, which isn't an equation", cx.show(&ty)),
                 )
-                .with_note("give a function its arguments: `rewrite Nat.addComm a b`"),
+                .with_note("give a function its arguments: `rewrite Nat.addComm a b`")
+                .with_note(
+                    "inside a function argument, write `_` for an argument that mentions the \
+                     function's variable: `rewrite Nat.mulSucc k _`",
+                ),
         );
     };
     let carrier = (*carrier).clone();
@@ -381,11 +422,32 @@ fn rewrite_once(
         };
         lemma(cx, Builtin::EqSym, &[piped])?
     };
+    Ok(Equation {
+        carrier,
+        lhs,
+        rhs,
+        to_lhs,
+        rule_metas,
+    })
+}
 
-    let lhs_term = cx.quote(&lhs)?;
-    let Some(key) = key(&lhs_term, 0) else {
-        return Err(unknown_head(rule, place));
-    };
+/// One rule's rewrite of the goal (or of a target's type): the occurrences
+/// that mention no variable bound inside it, in one step, then those inside
+/// functions passed to calls, one step per call ([`under`]).
+#[allow(clippy::too_many_arguments)]
+fn rewrite_once(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    // How many rules of the same `rewrite` came before this one.
+    index: usize,
+    place: Place,
+    goal: &Value,
+    written: Option<Term>,
+    remaining: &mut u64,
+    stats: &mut Stats,
+) -> Result<Vec<Step>> {
+    let g = cx.g();
+    let equation = elaborate_rule(cx, rule, place)?;
     let goal_value = force(g, goal.clone())?;
     let mut goal_term = cx.quote(&goal_value)?;
     // An `auto` proof still to be found inside the goal could depend on what
@@ -403,70 +465,186 @@ fn rewrite_once(
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         goal_term = cx.quote(&goal_value)?;
     }
+    let lhs_term = cx.quote(&equation.lhs)?;
+    let Some(key) = key(&lhs_term, 0) else {
+        return Err(unknown_head(rule, place));
+    };
+    // First the calls with occurrences inside the functions passed to them
+    // that use the functions' variables, each rewritten by its congruence
+    // lemma, a step each; then the occurrences that use no variable bound
+    // inside the goal, in one step.
+    let mut missing = Vec::new();
     let level = cx.level();
+    let open = equation.open(&lhs_term);
+    let sites = if open {
+        let keys = under::Keys {
+            computed: key,
+            written: under::written_key(cx, &equation.lhs),
+        };
+        under::sites(cx, rule, &keys, &goal_term, level, remaining, &mut missing)?
+    } else {
+        Vec::new()
+    };
+    let mut steps = Vec::new();
+    let mut current = goal_value.clone();
+    let mut current_term = goal_term;
+    for site in sites {
+        let equation = site.equation(cx, rule, place)?;
+        let replaced = replace_occurrences(
+            cx,
+            rule,
+            place,
+            &equation,
+            &current,
+            Shape::Whole(&current_term),
+            0,
+            remaining,
+        )?;
+        stats.add(&replaced.stats);
+        if let Some(step) = replaced.step {
+            current = step.goal.clone();
+            current_term = cx.quote(&current)?;
+            steps.push(step);
+        }
+    }
+    let replaced = replace_occurrences(
+        cx,
+        rule,
+        place,
+        &equation,
+        &current,
+        Shape::Whole(&current_term),
+        0,
+        remaining,
+    )?;
+    let found = replaced.stats;
+    stats.add(&found);
+    if let Some(step) = replaced.step {
+        steps.push(step);
+    }
+    if !steps.is_empty() {
+        return Ok(steps);
+    }
+    if let Some(e) = under::missing_lemma(cx, rule, place, &equation.lhs, &missing) {
+        return Err(e);
+    }
+    let as_written = match place {
+        Place::Goal => goal_as_written(cx, written, &goal_value)?,
+        Place::Target(_) | Place::Inside => None,
+    };
+    let done = match place {
+        Place::Goal => holds_by_computing(cx, &goal_value, remaining)?,
+        Place::Target(_) | Place::Inside => false,
+    };
+    Err(nothing_found(
+        cx,
+        rule,
+        Searched {
+            index,
+            place,
+            as_written,
+            done,
+            open,
+        },
+        &equation.lhs,
+        &goal_value,
+        &found,
+    ))
+}
 
+/// Where [`replace_occurrences`] searches: the whole of the goal (or a
+/// target's type), or the right side of `left = right` at `ty`, the left
+/// side kept (inside a function argument, `body = body'` as it grows).
+#[derive(Clone, Copy)]
+enum Shape<'a> {
+    Whole(&'a Term),
+    Right {
+        ty: &'a Term,
+        left: &'a Term,
+        right: &'a Term,
+    },
+}
+
+/// What [`replace_occurrences`] did: a step, if anything matched, and what
+/// the search saw.
+struct Replaced {
+    step: Option<Step>,
+    stats: Stats,
+}
+
+/// Replaces the occurrences of `equation`'s left side that mention no
+/// variable bound inside `goal` (whose term `shape` gives), and checks the
+/// motive: the step, or none if nothing matched. With `recent` above 0,
+/// only occurrences that mention one of the last `recent` variables of
+/// `cx` (those bound by the functions it is inside, [`under`]).
+#[allow(clippy::too_many_arguments)]
+fn replace_occurrences(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    equation: &Equation,
+    goal: &Value,
+    shape: Shape,
+    recent: usize,
+    remaining: &mut u64,
+) -> Result<Replaced> {
+    let g = cx.g();
+    let lhs_term = cx.quote(&equation.lhs)?;
+    let Some(key) = key(&lhs_term, 0) else {
+        return Err(unknown_head(rule, place));
+    };
+    let level = cx.level();
     let kcx = kernel_context(cx)?;
     let search = Search {
         kcx: RefCell::new(kcx),
         cx: RefCell::new(cx),
         rule,
         place,
-        carrier: &carrier,
-        lhs: &lhs,
+        carrier: &equation.carrier,
+        lhs: &equation.lhs,
         lhs_term: RefCell::new(lhs_term),
         key,
-        rule_metas,
+        recent,
+        rule_metas: equation.rule_metas,
         remaining: Cell::new(*remaining),
         stats: RefCell::new(Stats::default()),
         error: RefCell::new(None),
         first: RefCell::new(None),
     };
     // The goal with the occurrences replaced by `x`, under `x _ =>`.
-    let body = replace_with(
-        g,
-        &goal_term,
-        level,
-        &|l| Ok(Term::Var(level + 2 - 1 - l)),
-        &|t, under| search.visit(t, under),
-    );
+    let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
+    let searched_term = match shape {
+        Shape::Whole(term) => term,
+        Shape::Right { right, .. } => right,
+    };
+    let searched = replace_with(g, searched_term, level, &moved, &|t, under| {
+        search.visit(t, under)
+    });
     *remaining = search.remaining.get();
     let found = search.stats.take();
-    stats.visited += found.visited;
-    stats.keyed += found.keyed;
-    stats.bound += found.bound;
-    stats.syntactic += found.syntactic;
-    stats.conversions += found.conversions;
-    stats.matched += found.matched;
     if let Some(e) = search.error.take() {
         return Err(e);
     }
     let first = search.first.take();
     drop(search);
-    let body = body?;
+    let searched = searched?;
     if found.matched == 0 {
-        let as_written = match place {
-            Place::Goal => goal_as_written(cx, written, &goal_value)?,
-            Place::Target(_) => None,
-        };
-        let done = match place {
-            Place::Goal => holds_by_computing(cx, &goal_value, remaining)?,
-            Place::Target(_) => false,
-        };
-        return Err(nothing_found(
-            cx,
-            rule,
-            Searched {
-                index,
-                place,
-                as_written,
-                done,
-            },
-            &lhs,
-            &goal_value,
-            &found,
-        ));
+        return Ok(Replaced {
+            step: None,
+            stats: found,
+        });
     }
-
+    let body = match shape {
+        Shape::Whole(_) => searched,
+        Shape::Right { ty, left, .. } => {
+            let keep = |t: &Term| replace_with(g, t, level, &moved, &|_, _| None);
+            Term::Eq(
+                Some(Rc::new(keep(ty)?)),
+                Rc::new(keep(left)?),
+                Rc::new(searched),
+            )
+        }
+    };
     let motive = Term::Lam(
         "x'".into(),
         Icit::Explicit,
@@ -474,31 +652,34 @@ fn rewrite_once(
     );
     // The motive's proof binder is over `from = x`, where `J` starts.
     let (from, proof_value) = match place {
-        Place::Goal => (&rhs, cx.eval(&to_lhs)?),
-        Place::Target(_) => (&lhs, Value::Refl),
+        Place::Goal => (&equation.rhs, cx.eval(&equation.to_lhs)?),
+        Place::Target(_) | Place::Inside => (&equation.lhs, Value::Refl),
     };
-    check_motive(cx, rule, place, &motive, &carrier, from, &lhs)?;
-    match round_trip(cx, &motive, &lhs, &proof_value, &goal_value, remaining)? {
+    let lhs = &equation.lhs;
+    check_motive(cx, rule, place, &motive, &equation.carrier, from, lhs)?;
+    match round_trip(cx, &motive, lhs, &proof_value, goal, remaining)? {
         Some(true) => {}
         Some(false) => {
-            return Err(round_trip_error(cx, rule, place, &lhs, first.as_ref()));
+            return Err(round_trip_error(cx, rule, place, lhs, first.as_ref()));
         }
         None => {
-            return Err(budget_error(
-                cx,
-                rule,
-                place,
-                first.as_ref().unwrap_or(&goal_term),
-                &lhs,
-            ));
+            let candidate = first.as_ref().unwrap_or(searched_term);
+            return Err(budget_error(cx, rule, place, candidate, lhs));
         }
     }
     let motive_value = cx.eval(&motive)?;
-    let next = apply(g, apply(g, motive_value, rhs)?, Value::Refl)?;
-    Ok(Step {
-        motive,
-        proof: to_lhs,
-        goal: next,
+    let next = apply(
+        g,
+        apply(g, motive_value, equation.rhs.clone())?,
+        Value::Refl,
+    )?;
+    Ok(Replaced {
+        step: Some(Step {
+            motive,
+            proof: equation.to_lhs.clone(),
+            goal: next,
+        }),
+        stats: found,
     })
 }
 
@@ -515,6 +696,9 @@ struct Search<'a, 'e> {
     /// metavariables it solved show, and later copies match by syntax.
     lhs_term: RefCell<Term>,
     key: Key,
+    /// Above 0, only occurrences that mention one of the last `recent`
+    /// variables of `cx` are selected.
+    recent: usize,
     /// Metavariables from this index on were made for the rule.
     rule_metas: usize,
     remaining: Cell<u64>,
@@ -543,6 +727,9 @@ impl Search<'_, '_> {
         self.stats.borrow_mut().keyed += 1;
         if mentions_bound(t, under) {
             self.stats.borrow_mut().bound += 1;
+            return None;
+        }
+        if self.recent > 0 && !mentions_recent(t, under, self.recent) {
             return None;
         }
         match self.decide(t, under) {
@@ -737,6 +924,17 @@ fn mentions_bound(term: &Term, under: usize) -> bool {
             }
             _ => false,
         })
+}
+
+/// Whether `term`, under `under` binders of the goal, mentions one of the
+/// last `recent` variables of the goal's context.
+fn mentions_recent(term: &Term, under: usize, recent: usize) -> bool {
+    term.subterms().any(|(t, binders)| match t {
+        Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) => {
+            *ix >= binders + under && *ix - binders - under < recent
+        }
+        _ => false,
+    })
 }
 
 /// Checks that `x _ => body` is a motive: the body is a type with `x` of
@@ -952,6 +1150,9 @@ struct Searched<'a> {
     as_written: Option<Term>,
     /// The goal already holds by computing.
     done: bool,
+    /// The rule's left side has unknowns of its own, so it was looked for
+    /// inside function arguments too.
+    open: bool,
 }
 
 fn nothing_found(
@@ -967,6 +1168,7 @@ fn nothing_found(
         place,
         as_written,
         done,
+        open,
     } = searched;
     let shown_lhs = shown(cx, lhs);
     let computed_lhs = shown_computed(cx, lhs);
@@ -979,7 +1181,7 @@ fn nothing_found(
     let what = match place {
         Place::Goal => "goal".to_string(),
         Place::Target(Some(name)) => format!("`{name}`"),
-        Place::Target(None) => "its type".to_string(),
+        Place::Target(None) | Place::Inside => "its type".to_string(),
     };
     let after = match index {
         0 => String::new(),
@@ -1012,24 +1214,27 @@ fn nothing_found(
             ),
         });
     }
-    error = error.with_note(format!(
-        "occurrences are looked for by their outer function and compared by computing, \
-         and only where they don't mention a variable bound inside {}",
-        match place {
-            Place::Goal => "the goal",
-            Place::Target(_) => "the type",
-        }
-    ));
+    error = error.with_note(
+        "occurrences are looked for by their outer function and compared by computing; one \
+         that uses a variable bound inside a function argument is rewritten through the \
+         congruence lemma of the call the function is passed to",
+    );
     error = error.with_note(if rule.reverse {
         "to replace the left side by the right, write the rule without `<-`"
     } else {
         "to replace the right side by the left, write `rewrite <- …`"
     });
     if found.bound > 0 {
-        error = error.with_note(
-            "an occurrence under a binder that uses the bound variable can't be rewritten; \
-             prove it pointwise and use a lemma like `List.mapCong`",
-        );
+        error = error.with_note(if open {
+            "some had the right outer function but use a variable bound inside the goal \
+             other than by a function argument (such as `(x: A) -> …`), where `rewrite` \
+             can't go: introduce the variable first (`x => rewrite …`)"
+        } else {
+            "some had the right outer function but use a variable bound inside the goal, and \
+             didn't match there: inside a function argument the rule is elaborated again, \
+             once for each function, so write `_` for its arguments that use the function's \
+             variable (`rewrite Nat.mulSucc k _`)"
+        });
     }
     error
 }

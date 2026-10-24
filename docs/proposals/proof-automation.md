@@ -726,6 +726,53 @@ counted for (A)).
   drop by at least 60; no kernel change; `stitchwort test` in `aoc/` passes; AoC check time
   changes by less than +5%.
 
+#### As built (stage 1, 24 October 2026, SW-374)
+
+- **Mechanism.** `rewrite` (`crates/elab/src/rewrite.rs`, `rewrite/under.rs`) first looks for
+  *sites*: calls `F … (x => body) …` in the goal with an occurrence of the rule's left side
+  inside a function argument that uses its variable. For each, it looks up `FCong` with the
+  lookup `decreasing` uses (moved to `crates/elab/src/congruence.rs`, one cache per check),
+  walks the lemma's statement to pair each function parameter with its premise
+  `(x…) -> f1 x… = f2 x…`, binds the variables named as in the lambda, elaborates the rule
+  again there and rewrites the body (recursively: sites inside first, then ordinary
+  occurrences that use the new variables). The proof is `FCong args… f1 f2 … (x => proof)`;
+  the outer step is an ordinary `J` along that equation, so the motive and round-trip checks
+  are unchanged. Then the ordinary pass rewrites what uses no bound variable. No new syntax,
+  no kernel change.
+- **Unknowns once per function.** Inside each function the rule is elaborated afresh, so `_`
+  (and implicit arguments) are solved per function: `rewrite Nat.mulSucc k _` is `k * Succ i`
+  in one function and `k * Succ j` in the next. A rule with no unknowns of its own doesn't
+  look inside functions (it couldn't name the variable); that gate also keeps the cost of
+  ordinary rewrites where it was (it fixed two `E-REWRITE-BUDGET` regressions on Day 9).
+- **Partial applications** count as functions: `List.map (column lines) cs` with a rule
+  about `column lines _` is rewritten as `x => column lines x`.
+- **Which lemmas.** Only the plain `FCong` shape (§6.1's first convention), beside `F`;
+  effect rows are skipped as `decreasing` skips them. The search sees calls unfolded, so
+  `List.sumBy f xs` is met as `List.foldLeft (acc x => acc + f x) …` and rewritten through
+  `List.foldLeftCong` (the goal shown afterwards is unfolded too, as it was before).
+  Contextual lemmas (`mapCongMem`, `sumRangeCongr`) are not used and the library lemmas were
+  not renamed: both wait for the conditional rules of stage 3, which are what need the facts.
+- **Errors.** `E-REWRITE-CONG` when an occurrence is there only inside a function passed to
+  `F` and there is no `FCong`: it names the lemma and shows its statement for `F`, e.g.
+  `theorem totalCong (f1: Nat -> Nat) (f2: Nat -> Nat) (arg2: List Nat) (ef: (x: Nat) -> f1
+  x = f2 x): total f1 arg2 = total f2 arg2`. Compiler-made functions (`Each.%elim`) are never
+  named. `E-REWRITE-NOTHING`'s note for occurrences under binders now says to write `_`, or,
+  when the rule has unknowns already, that a variable bound by the goal (`(y: Nat) -> …`)
+  must be introduced first.
+- **Tests.** Unit tests in `rewrite/under.rs`; `examples/accept/rewrite-inside-function.sw`
+  (named for what it does: `reject/rewrite-under-binder.sw` already exists, for the goal's
+  own binder, and still fails); `examples/reject/rewrite-inside-function-no-lemma.sw`.
+- **AoC.** 36 steps on Days 2, 4, 5, 6 and 8 were converted. Non-blank, non-comment lines
+  in the 12 changed proof files: 1552 → 1489 (−63); `Cong`/`Congr` mentions in them 64 → 18.
+  The acceptance bar (−60) is met; §5's estimate (−90 to −110) is not, because most of the
+  remaining mentions are contextual (`sumRangeCongr`, `…CongMem`: Day 2 Parts 1 and 2, Day 8,
+  Day 9), which stage 1 doesn't use. Day 7 was being edited by another lane and wasn't
+  touched; its candidates are `Proofs/Part1.sw` (about lines 321 and 352) and
+  `Proofs/Distinct.sw`.
+- **Check time.** `stitchwort check --no-cache` in `aoc/`, median of five, alternating: 4.95 s
+  on main, 5.16 s with this stage (+4.2%, inside the +5% bar). The cost is the search for
+  sites, which runs only for rules with unknowns of their own.
+
 ### 6.2 Stage 2: `ring`
 
 **Surface** (all proof terms, like `omega`):
