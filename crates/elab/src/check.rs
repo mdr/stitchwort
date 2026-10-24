@@ -2900,6 +2900,21 @@ fn ctor_app(
     let mut missing_types = Vec::new();
     let mut missing_level: Vec<Option<usize>> = vec![None; k];
     let mark = cx.mark();
+    // The parameters, if `expected` doesn't fix them, are metavariables made
+    // out here, before the parameters of the lambda are bound: a meta made
+    // under them would take them into its spine, and would leak them when it
+    // solves one of the outer metas of `expected` (`Eq.cong (Call o) p`).
+    let fallback_params: Vec<Value> = if missing.is_empty() {
+        Vec::new()
+    } else {
+        data.params
+            .iter()
+            .map(|_| {
+                let meta = cx.fresh_meta();
+                cx.eval(&meta)
+            })
+            .collect::<Result<_>>()?
+    };
     let mut target = expected.cloned();
     for &i in &missing {
         match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
@@ -2925,6 +2940,7 @@ fn ctor_app(
     let np = data.params.len();
     let params = match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
         Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
+        _ if !missing.is_empty() => fallback_params,
         _ => data
             .params
             .iter()

@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+Main.callCong 83dd6213f32c209a3eff9696a8187e4c72661f76705f57435bc174da14caa53e
+Main.someCong ea077aa80c4462730e463c61c12a712b77b13f452f473409ff4dc4600f2ff448
