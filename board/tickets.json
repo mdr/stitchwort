@@ -6031,8 +6031,8 @@
     },
     {
       "id": 374,
-      "title": "Proof automation (docs/proposals/proof-automation.md): stage 0 done (Eq.cong -> rewrite); stages 1 rewrite under binders, 2 ring await D1166",
-      "status": "next",
+      "title": "Proof automation (docs/proposals/proof-automation.md): stage 0 done; stage 1 rewrite under binders and stage 2 ring in progress (D1166 b); simp decided after their numbers",
+      "status": "doing",
       "agent": "",
       "where": "-",
       "labels": [
