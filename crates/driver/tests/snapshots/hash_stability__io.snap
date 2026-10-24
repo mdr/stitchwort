@@ -12,7 +12,7 @@ Main.isSomeText fd04548a0ef4e49d663a01504150ff52c840fb891ffe52411cc3484f87d5e08c
 Main.isNone 7ec456037029c948794894d536fdc92e7f3cd80ec684360ae2cfabe03a6024ac
 Main.hello 9f2fac60e0daf449c1eef43d471e1895ab7ba2f2581c018497eb0902061c3f61
 Main.test "prints are recorded in order" 34c1bbca90c96b2df7e1b4937482706ff2e19e308e7ef2ddd3275b97253cf535
-Main.test "the result comes back too" 00f11ef51d2ca5777b9169850b2e55c966a0f5aafc881d4b76e30dff06e6e2bb
+Main.test "the result comes back too" cd25d40a6a99e1f22dd66c1942d872aa7ac0017f615d44b64a1b92805d991339
 Main.test "a payload with a newline is one entry" e2154e087dc16313b70dac42b942b48cbdd2da15a8bb09ac7d59db44fce0f2c2
 Main.test "an empty payload is an entry" c578caa3a5d4956f7601dd49eed0e59471c3b3a010c345f64f4e2444cc5c23b8
 Main.test "an empty line is Some """ 50184617aad46a9546b23858f1757ba30da7d5d0496ec6c44f6b80fa28169afe
@@ -61,5 +61,5 @@ Main.test "abort outside simulate, the other row order" bff121dfc7e82702aed89527
 Main.test "a pure program prints nothing" d62762d3446cd64ba2e52f91774b0f07b1fbd6336980e6aa3833898972851f61
 Main.test "a program with only State" 87fac28048419d4bde16fce6bc8323fd0030bd6b7ef86dad2c1495faba1438af
 Main.printMany c73690a86412910ba512deacaae1f53590342b5b8d030875287d250fe4d46aee
-Main.test "5,000 prints" e41a6a4496ab91aac0f58b8d17d44190fd5b9d47ff92d1c8b6770213ab4c0a19
+Main.test "5,000 prints" 6d4b8fef4e801de872f55833084e29a9cd8cca95580af3fc371c752426ee3cad
 Main.greetOutput c8a2b0f9bd087253cc2556865cc2e62e5ebec24eaec7abef76d1479460a110a2
