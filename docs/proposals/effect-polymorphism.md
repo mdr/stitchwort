@@ -1495,6 +1495,8 @@ After stage 1, first part (Matt, 24 Oct 2026): **D1140 (a)** (= D1133): `=` oper
 
 **D1142 (a)** (Matt, 24 Oct 2026, after an [external review of the row design](effect-rows-external-review.md)): programs may declare an effect-row parameter (`[e: Row]`, `type Handlers (e: Row)`) and pass it on; rows stay abstract indices: programs can't construct, inspect, compare or eliminate them (`Empty`, `Ops`, `CompIn` and the row eliminators stay library-internal).
 
+**D1143 (a)** (Matt, 24 Oct 2026): the source name of the row type is `Effects`, not `Row` (`type Handlers (e: Effects)`, `[e: Effects]`), so it names the concept, not the representation; its constructors stay internal.
+
 After stage 0 (Matt, 24 Oct 2026): **D1133** — whether operands of `=` and `if`/`match` branches with a `Comp` expected type pass computations (stage 0 left them running in place) is settled in the stage 1 design. **D1134** — a way to write a `{Fail} b` binder type, which `Fail.toResultMapIn` (SW-378) needs, is part of the stage 1 design too.
 
 Each decision lists its options; the recommended one is marked. D1116 to
