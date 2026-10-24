@@ -1150,7 +1150,7 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
                 None => receiver_type(cx, b, depth - 1),
             };
         }
-        _ => return Ok(call_result(cx, recv, depth)?.map(Ty::Value)),
+        _ => return call_result(cx, recv, depth),
     };
     if cx.local(&name.text)?.is_some() {
         return Ok(None);
@@ -1175,7 +1175,7 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
 /// read off the function's type without elaborating the call: only its head
 /// matters, for finding a namespace. `None` if it can't (a lambda, a local
 /// function, a result that's still a function, or too deep a chain).
-fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Value>> {
+fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
     if depth == 0 {
         return Ok(None);
     }
@@ -1207,6 +1207,30 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Value>> {
         return Ok(None);
     }
     let g = cx.g();
+    // The result type as the function's declaration writes it, so that a
+    // nickname (`Thunk`) is tried before what it stands for. The bound
+    // variables are stand-ins: only the head matters.
+    {
+        let mut term = Rc::new(g.def(id).ty.clone());
+        let mut env: Vec<Value> = Vec::new();
+        let mut left = explicit;
+        let mut level = cx.level();
+        while let Term::Pi(_, icit, _, cod) = term.strip_loc() {
+            if !icit.is_implicit() {
+                if left == 0 {
+                    break;
+                }
+                left -= 1;
+            }
+            env.push(Value::var(level));
+            level += 1;
+            let cod = cod.clone();
+            term = cod;
+        }
+        if left == 0 && !matches!(term.strip_loc(), Term::Pi(..)) {
+            return Ok(Some(Ty::Term(term, env)));
+        }
+    }
     let mut ty = g.def(id).ty_value.clone();
     let mut level = cx.level();
     loop {
@@ -1221,7 +1245,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Value>> {
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
-            other => return Ok((explicit == 0).then_some(other)),
+            other => return Ok((explicit == 0).then_some(Ty::Value(other))),
         }
     }
 }

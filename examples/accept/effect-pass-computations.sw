@@ -112,3 +112,20 @@ theorem mapInIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.mapIn
     Eq.trans
       (Effect.runPureBind (List.mapIn f xs) (rest => Done (Cons (f x) rest)))
       (Eq.cong (Cons (f x)) (mapInIsMap f xs))
+
+-- Dot notation on a call whose declared result is the nickname: the
+-- nickname's namespace is tried first, and the computation is passed, not run.
+def stuckThunk: List Nat -> Thunk
+  | Nil => 0
+  | Cons x xs => 1
+
+def finishedOfCall (xs: List Nat): Bool := (stuckThunk xs).finished
+
+-- The same for a nickname of an ordinary type.
+def Meters: Type := Nat
+
+def Meters.double (m: Meters): Meters := m + m
+
+def meters (n: Nat): Meters := n
+
+def doubled (n: Nat): Meters := (meters n).double
