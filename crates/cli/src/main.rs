@@ -49,6 +49,8 @@ enum Command {
         #[arg(long, value_name = "FILE")]
         index: Option<String>,
         #[command(flatten)]
+        counterexamples: CounterexampleArgs,
+        #[command(flatten)]
         cache: CacheArgs,
     },
     /// Print an embedded standard library file (`List/Toolkit.sw`;
@@ -161,6 +163,50 @@ enum Command {
     },
 }
 
+/// `check --counterexamples` (docs/proposals/counterexample-search.md
+/// §7.3, D1159).
+#[derive(clap::Args)]
+struct CounterexampleArgs {
+    /// Also search every theorem's statement for a counterexample, its
+    /// proof checked or not, and print each one found, then how many
+    /// theorems were found false, had none found (evidence, not a proof),
+    /// gave up, or were out of scope. A counterexample to a theorem that
+    /// checked means something is wrong: an axiom, the compiler, or the
+    /// search
+    #[arg(long)]
+    counterexamples: bool,
+    /// With --counterexamples, print a line for every theorem searched,
+    /// not only those found false
+    #[arg(long, requires = "counterexamples")]
+    verbose: bool,
+    /// With --counterexamples, the time each theorem's search may take, as
+    /// `500ms` or `2s` (default 500ms)
+    #[arg(
+        long,
+        value_name = "TIME",
+        value_parser = parse_millis,
+        requires = "counterexamples"
+    )]
+    counterexample_budget: Option<u64>,
+}
+
+/// Milliseconds from `500ms`, `2s` or `1.5s`.
+fn parse_millis(text: &str) -> Result<u64, String> {
+    let bad = || format!("`{text}` isn't a time: write it as `500ms` or `2s`");
+    let (number, scale) = if let Some(ms) = text.strip_suffix("ms") {
+        (ms, 1.0)
+    } else if let Some(s) = text.strip_suffix('s') {
+        (s, 1000.0)
+    } else {
+        return Err(bad());
+    };
+    let value: f64 = number.trim().parse().map_err(|_| bad())?;
+    if !value.is_finite() || value <= 0.0 {
+        return Err(bad());
+    }
+    Ok((value * scale).round().max(1.0) as u64)
+}
+
 /// The caches: checked library files and project namespaces
 /// (docs/proposals/check-cache.md) and,
 /// for `test`, test results.
@@ -221,8 +267,15 @@ fn run(cli: Cli) -> ExitCode {
             targets,
             project,
             index,
+            counterexamples,
             cache,
-        } => check(&targets, project.as_deref(), index.as_deref(), &cache),
+        } => check(
+            &targets,
+            project.as_deref(),
+            index.as_deref(),
+            &counterexamples,
+            &cache,
+        ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
                 print!("{text}");
@@ -537,6 +590,7 @@ fn check(
     targets: &[String],
     project: Option<&Path>,
     index: Option<&str>,
+    counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
 ) -> ExitCode {
     let files = targets.iter().filter(|t| is_file_target(t)).count();
@@ -570,6 +624,9 @@ fn check(
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
+            if counterexamples.counterexamples {
+                ok = search_counterexamples(&mut session, counterexamples, &|_| true) && ok;
+            }
             discard(session);
         }
         return exit(ok);
@@ -597,8 +654,80 @@ fn check(
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
     }
+    if counterexamples.counterexamples {
+        // The theorems of the namespaces named, and those under them.
+        let keep = |path: &str| {
+            targets.is_empty()
+                || targets.iter().any(|t| {
+                    path.strip_prefix(t.as_str())
+                        .is_some_and(|rest| rest.starts_with('.'))
+                })
+        };
+        ok = search_counterexamples(&mut session, counterexamples, &keep) && ok;
+    }
     discard(session);
     exit(ok)
+}
+
+/// `check --counterexamples` (D1159, docs/proposals/counterexample-search.md
+/// §7.3, §9.3): searches the statement of every theorem `keep` keeps, and
+/// prints each counterexample (with `--verbose`, a line for every theorem)
+/// and a summary. `false` if a counterexample was found.
+fn search_counterexamples(
+    session: &mut Session,
+    args: &CounterexampleArgs,
+    keep: &dyn Fn(&str) -> bool,
+) -> bool {
+    use stitchwort_cli::counterexample::Verdict;
+    use stitchwort_elab::counterexample::{Budget, ON_REQUEST};
+    let budget = Budget {
+        millis: args.counterexample_budget.unwrap_or(ON_REQUEST.millis),
+        ..ON_REQUEST
+    };
+    let searches = session.search_theorems(budget, keep);
+    let verdicts: Vec<_> = searches.iter().map(|s| s.verdict()).collect();
+    let shown = |verdict: Verdict| args.verbose || verdict == Verdict::False;
+    let width = searches
+        .iter()
+        .zip(&verdicts)
+        .filter(|(_, (v, _))| shown(*v))
+        .map(|(s, _)| s.name.len())
+        .max()
+        .unwrap_or(0);
+    let mut counts = [0usize; 5];
+    for (search, (verdict, line)) in searches.iter().zip(verdicts) {
+        counts[verdict as usize] += 1;
+        if !shown(verdict) {
+            continue;
+        }
+        let mark = match verdict {
+            Verdict::False => "✗",
+            Verdict::NoneFound => "~",
+            _ => "-",
+        };
+        println!("  {mark} {:width$}  {line}", search.name);
+        // On a theorem that checked, a counterexample means something is
+        // wrong (§7.3): say what.
+        if search.checked
+            && let Some(note) = &search.note
+        {
+            println!(
+                "      this theorem checked, so an axiom it uses, the compiler or the search is \
+                 wrong; please report it:"
+            );
+            for line in note.lines() {
+                println!("      {line}");
+            }
+        }
+    }
+    let total = searches.len();
+    let [false_, none, gave_up, inconclusive, not_applicable] = counts;
+    eprintln!(
+        "searched {total} theorem{} for counterexamples: {false_} false, {none} with none found, \
+         {gave_up} gave up, {inconclusive} inconclusive, {not_applicable} not applicable",
+        if total == 1 { "" } else { "s" }
+    );
+    false_ == 0
 }
 
 /// Ends with a session that's no longer needed without freeing it: the

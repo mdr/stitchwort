@@ -128,6 +128,6 @@ Tests run on the fast runtime, the same one `stitchwort run` uses. `stitchwort t
 
 ## Property tests
 
-There are no property tests yet. Searching for counterexamples to a theorem's statement, by trying small and random inputs, is designed and being built ([counterexample-search.md](../proposals/counterexample-search.md)).
+There are no property tests yet. A theorem's statement is searched for counterexamples, small inputs first and then random ones, when its proof fails, and `stitchwort check --counterexamples` searches every theorem's ([syntax.md, Counterexamples to a theorem](../syntax.md#counterexamples-to-a-theorem)); property tests, `test` with parameters, are designed and come later ([counterexample-search.md](../proposals/counterexample-search.md)).
 
 More: [syntax.md, Declarations](../syntax.md#declarations) (test failures), and [testing.md](../testing.md) (how the compiler itself is tested).

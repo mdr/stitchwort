@@ -46,7 +46,7 @@ theorem doubleFour: double 4 = 9 := rfl
 ───╯
 ```
 
-The last note comes from a **counterexample search**: when a proof fails, the checker also tries the statement itself on small inputs. Here there are no inputs to try, and the statement computes to false, so no proof could work. A search that finds nothing says nothing.
+The last note comes from a **counterexample search**: when a proof fails, the checker also tries the statement itself on inputs, small ones first, then random ones. Here there are no inputs to try, and the statement computes to false, so no proof could work. A search that finds nothing says nothing.
 
 A theorem is erased when the program runs: it costs nothing. In a project, `stitchwort run` doesn't even check the namespaces it doesn't need, which is why proofs usually have a namespace of their own.
 

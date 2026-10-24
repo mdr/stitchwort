@@ -13,10 +13,133 @@
 
 use std::rc::Rc;
 
+use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{Globals, Limits, Term};
-use stitchwort_elab::counterexample::FAST_STEPS;
+use stitchwort_core::{DefId, Globals, Limits, Term};
+use stitchwort_elab::counterexample::{Budget, FAST_STEPS, SearchLog};
 use stitchwort_rt::value::Value;
+
+use crate::driver::Session;
+
+/// One theorem's search for `check --counterexamples` (D1159).
+pub struct TheoremSearch {
+    /// Its name, as written from the root of its module.
+    pub name: String,
+    /// Whether its proof checked.
+    pub checked: bool,
+    pub log: SearchLog,
+    /// The note, if a counterexample was found.
+    pub note: Option<String>,
+}
+
+/// What a search says about a theorem's statement, as
+/// `check --counterexamples` reports it (§9.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    /// A counterexample: the statement is false.
+    False,
+    /// None found in the inputs tried: evidence, not a proof.
+    NoneFound,
+    /// Fewer than one input in ten made the hypotheses true.
+    GaveUp,
+    /// Most inputs ran out of steps.
+    Inconclusive,
+    /// Out of scope: why.
+    NotApplicable,
+}
+
+impl TheoremSearch {
+    /// The verdict, and the line that says it.
+    pub fn verdict(&self) -> (Verdict, String) {
+        let log = &self.log;
+        if let Some(why) = &log.out_of_scope {
+            return (
+                Verdict::NotApplicable,
+                format!("not applicable: {}", stitchwort_elab::shown::cut(why)),
+            );
+        }
+        if let Some(found) = &log.found {
+            return (
+                Verdict::False,
+                format!("counterexample: {}", found.join(", ")),
+            );
+        }
+        if log.disagreed {
+            return (
+                Verdict::False,
+                "internal error: the fast runtime found a counterexample the reference \
+                 evaluator doesn't confirm; please report it"
+                    .to_string(),
+            );
+        }
+        let held = log.tried - log.discarded - log.out_of_steps;
+        if log.tried == 0 || log.out_of_steps * 2 > log.tried {
+            return (
+                Verdict::Inconclusive,
+                "inconclusive (ran out of steps)".to_string(),
+            );
+        }
+        if held * 10 < log.tried {
+            return (
+                Verdict::GaveUp,
+                format!("gave up (hypotheses true in {held} of {} cases)", log.tried),
+            );
+        }
+        let sizes = if log.exhaustive {
+            "every input".to_string()
+        } else {
+            format!("sizes up to {}", log.enumerated_size.max(log.random_size))
+        };
+        let plural = if log.tried == 1 { "" } else { "s" };
+        (
+            Verdict::NoneFound,
+            format!(
+                "none in {} case{plural} ({sizes}; evidence, not a proof)",
+                log.tried
+            ),
+        )
+    }
+}
+
+impl Session {
+    /// Searches the statement of every theorem of the program (not the
+    /// library's) whose full name `keep` keeps, whether its proof checked or
+    /// failed, within `budget`, in the order they were declared
+    /// (docs/proposals/counterexample-search.md §7.3).
+    pub fn search_theorems(
+        &mut self,
+        budget: Budget,
+        keep: &dyn Fn(&str) -> bool,
+    ) -> Vec<TheoremSearch> {
+        let g = &self.elab.globals;
+        let theorems: Vec<(DefId, String, bool)> = (0..g.defs.len())
+            .map(DefId)
+            .filter_map(|id| {
+                let def = g.def(id);
+                let path = def.path.to_string();
+                let state = def.state();
+                (def.theorem
+                    && !path.contains('%')
+                    && !path.starts_with("Std.")
+                    && matches!(state, State::Final | State::Failed)
+                    && keep(&path))
+                .then(|| (id, def.name.to_string(), state == State::Final))
+            })
+            .collect();
+        theorems
+            .into_iter()
+            .map(|(id, name, checked)| {
+                let (log, note) = self.elab.search_counterexample(id, budget);
+                TheoremSearch {
+                    name,
+                    checked,
+                    log,
+                    note,
+                }
+            })
+            .collect()
+    }
+}
 
 /// Runs `checker` on each of `inputs` on the fast runtime, telling `each`
 /// the results, until it says to stop. `false` if it can't run there.

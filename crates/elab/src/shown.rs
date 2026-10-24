@@ -1,5 +1,5 @@
 //! Showing values in messages, cut to a readable size: a failing test's
-//! sides (D601) and a counterexample's (`counterexample.rs`).
+//! sides (D601) and a counterexample's (`counterexample/`).
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{Globals, Term};

@@ -4,4 +4,4 @@
 pub mod completion;
 pub mod lsp;
 
-pub use stitchwort_driver::{driver, nav, project, render, run};
+pub use stitchwort_driver::{counterexample, driver, nav, project, render, run};
