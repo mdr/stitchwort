@@ -254,9 +254,9 @@
     {
       "id": 162,
       "title": "rewrite: choose which occurrence to rewrite",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "Closed: one J left (repAbove); calc covers choosing occurrences",
       "labels": [
         "proof",
         "syntax"
@@ -494,15 +494,15 @@
     {
       "id": 327,
       "title": "Survey: practical languages with proofs about programs; features to adopt in Stitchwort",
-      "status": "next",
+      "status": "done",
       "agent": "Matt",
-      "where": "docs/comparisons/practical-proof-languages.md; D570-D573",
+      "where": "Survey done; its recommendations became counterexample search (SW-330) and proof automation (SW-374)",
       "labels": [
         "design"
       ],
       "body": "",
       "created": "2026-10-22",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": [
         "4871bc29"
       ]
@@ -1311,20 +1311,6 @@
         "cc6a2970",
         "e59d5935"
       ]
-    },
-    {
-      "id": 375,
-      "title": "Bounded iteration that supplies its bounds to auto (no membership plumbing)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [
-        "lang"
-      ],
-      "body": "Trigger: Day 2 review suggestion B (the 'if h: d < copies' guard exists only to justify recursion). Agrees with D519 (guard over explicit membership proofs) for today; a future improvement. Matt 23 Oct: backlog.",
-      "created": "2026-10-23",
-      "updated": "2026-10-23",
-      "commits": []
     },
     {
       "id": 376,
