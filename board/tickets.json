@@ -6842,16 +6842,18 @@
     {
       "id": 425,
       "title": "AoC day 6: strict worksheet reader for main ({Fail}, column positions in errors; D1153 a), layout regression tests (review items 1, 5, 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "aoc"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "dcce57e4"
+      ]
     },
     {
       "id": 426,
