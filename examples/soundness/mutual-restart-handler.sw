@@ -15,8 +15,8 @@ type Unit1: Type =
 def PingRes: PingOp -> Type
   | Ping => Unit1
 
-def bad: Comp PingOp PingRes a -> a
-  | Done x      => x
+def bad: Comp PingOp PingRes Nat -> Prop
+  | Done x      => Unit
   | Call o rest => again (Call o rest)
 
-def again (c: Comp PingOp PingRes a): a := bad c
+def again (c: Comp PingOp PingRes Nat): Prop := bad c

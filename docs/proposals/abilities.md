@@ -112,7 +112,7 @@ Shallow handlers aren't planned.
 
 ### Semantic tests
 
-Kernel acceptance can't show that a program does the right thing, so these tests pin down behaviour. They're implemented over hand-written trees in `examples/accept/handlers.sw`, and all pass.
+Kernel acceptance can't show that a program does the right thing, so these tests pin down behaviour. They were first written over hand-written trees in `examples/accept/handlers.sw`; that file and `rows.sw` are gone (proof-reification.md, stage R2: a program can no longer take a computation apart), and `examples/accept/abilities.sw` and `effect-rows.sw` carry the same tests in the source syntax.
 
 The test program:
 
@@ -283,7 +283,7 @@ These come before the direct-style translation:
   - `Plus` and `PlusRes` combine two signatures.
   - `SigMap` is a mapping that carries responses back (`inject` and `reply`), and `translate` moves a computation along one.
   - The basic mappings are `sigId`, `sigCompose`, `sigLeft`, `sigRight` and `sigSwap`.
-- **Row tests** in `examples/accept/rows.sw`, comparing operation traces as well as results:
+- **Row tests** in the former `examples/accept/rows.sw` (now `effect-rows.sw`), comparing operation traces as well as results:
   - identity;
   - swap, and swap followed by swap back;
   - two composed weakenings against the direct mapping;

@@ -738,6 +738,13 @@ theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
 - The thunk is a function `() -> {A, B} t` or written in place, `match reify (() => f x) with`. Its row must list its abilities and be closed: `{Fail}` or `{State Nat, Fail}`, not `{Fail | e}` or `{e}`, and not `Partial` (`E-REIFY`). There must be a `return` clause and one clause for each operation of the row (`E-NONEXHAUSTIVE`); an operation of an ability not in the row is `E-ABILITY`.
 - It splits once: the first thing the computation does. Laws about computations that resume (`State`) by induction on everything they do aren't supported yet.
 - **Proofs only.** `reify` may be used only in a declaration whose result is erased: a `theorem`, or a `def` whose type ends in `Prop` or a type (`def Finished (t: () -> {State s} a): Prop := match reify t with …`), including the local definitions and `match`es inside it. Anywhere else (a `def` that computes data, a `test`, an `instance`, an `export`) it is `E-PROOF-ONLY`: what it gives depends on how a computation is represented, so it must never run. To act on a failure at run time, use a handler.
+- **Programs can't take a computation apart either.** `Effect.Comp`'s constructors (`Done`, `Call`) and the definitions that match on it (`Effect.foldComp`, `Effect.bind`, `Effect.translate`, `Effect.runPure`) may be named only in a declaration whose result is erased (the same test), or in a signature or a type. In a `def` that computes data, a `test` or an expression it is `E-PROOF-ONLY`; the standard library is exempt. A program can still pass a computation as a thunk, run it, and give it to a handler: that is all it can do with one. A hand-written tree is only for proofs, and a predicate about one is a `Prop`:
+
+  ```
+  def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+    | Done value => Unit
+    | Call () rest
+  ```
 - `reify` is a keyword only right after `match`; elsewhere it's an ordinary name. `match h: reify t` is refused: the equation would be between computations, whose type has no spelling.
 - `examples/accept/reify-fail.sw` has the laws, `Fail.toResultMapIn` (by induction on the list, with a split on `f x` and then on the rest), and one-step splits of a user's `State` computation.
 

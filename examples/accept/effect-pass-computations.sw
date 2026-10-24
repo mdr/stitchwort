@@ -1,15 +1,17 @@
 -- A computation passed where a computation is expected is passed as it is,
 -- not run in place and re-wrapped as `Done (runPure c)` (stage 0 of
--- docs/proposals/effect-polymorphism.md). `isDone` sees exactly what it's
+-- docs/proposals/effect-polymorphism.md). `IsDone` sees exactly what it's
 -- given: a written `Done` is `Done`, and a computation that is `Done` only
 -- once it computes is `Done` once it computes. The matching
 -- `reject/effect-pass-*.sw` files check that an arbitrary computation is not
 -- known to be `Done`, on each path that once ran it in place.
+-- A program can't take a computation apart (docs/proposals/proof-reification.md,
+-- stage R2), so the predicate `IsDone` is a `Prop` and the checks are theorems.
 import Std (Effect, List, Eq)
 import Std.Effect.Comp (Done, Call)
 
-def isDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Bool
-  | Done value => True
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+  | Done value => Unit
   | Call () rest
 
 def stuckComp: List Nat -> Effect.Comp Effect.NoOp Effect.NoRes Nat
@@ -21,80 +23,78 @@ def identityComp (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect
 -- A name for the type, so dot notation finds `Thunk.finished`.
 def Thunk: Type := Effect.Comp Effect.NoOp Effect.NoRes Nat
 
-def Thunk.finished (computation: Thunk): Bool := isDone computation
+def Thunk.finished (computation: Thunk): Prop := IsDone computation
 
 -- Dot notation on a variable of that type.
-def finishedOf (thunk: Thunk): Bool := thunk.finished
+def finishedOf (thunk: Thunk): Prop := thunk.finished
 
 type Box =
   | MkBox (content: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 
-def boxDone: Box -> Bool
-  | MkBox content => isDone content
+def boxDone: Box -> Prop
+  | MkBox content => IsDone content
 
 type Labelled =
   | MkLabelled (label: Nat) (inner: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 
-def labelledDone: Labelled -> Bool
-  | MkLabelled label inner => isDone inner
+def labelledDone: Labelled -> Prop
+  | MkLabelled label inner => IsDone inner
 
-def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Bool
-  | Nil => True
-  | Cons first rest => isDone first && allDone rest
+def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Prop
+  | Nil => Unit
+  | Cons first rest => And (IsDone first) (allDone rest)
 
-def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Bool
-  | (label, inner) => isDone inner
+def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Prop
+  | (label, inner) => IsDone inner
 
 def passOn (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat := computation
 
 -- A direct argument.
-theorem directDone: isDone (Done 3) = True := rfl
-theorem directComputes: isDone (stuckComp Nil) = True := rfl
+theorem directDone: IsDone (Done 3) := Trivial
+theorem directComputes: IsDone (stuckComp Nil) := Trivial
 
 -- A piped argument.
-theorem pipedDone: (Done 3 |> isDone) = True := rfl
-theorem pipedComputes: (stuckComp Nil |> isDone) = True := rfl
+theorem pipedDone: (Done 3 |> IsDone) := Trivial
+theorem pipedComputes: (stuckComp Nil |> IsDone) := Trivial
 
 -- A dot call's receiver.
-theorem dotDone: (Done 3: Thunk).finished = True := rfl
-theorem dotComputes: finishedOf (stuckComp Nil) = True := rfl
+theorem dotDone: (Done 3: Thunk).finished := Trivial
+theorem dotComputes: finishedOf (stuckComp Nil) := Trivial
 
 -- A constructor's field, by position and by name.
-theorem fieldDone: boxDone (MkBox (Done 3)) = True := rfl
-theorem fieldComputes: boxDone (MkBox (stuckComp Nil)) = True := rfl
-theorem namedFieldDone: labelledDone (MkLabelled { label = 1, inner = Done 3 }) = True := rfl
-theorem namedFieldComputes: labelledDone (MkLabelled { label = 1, inner = stuckComp Nil }) = True := rfl
+theorem fieldDone: boxDone (MkBox (Done 3)) := Trivial
+theorem fieldComputes: boxDone (MkBox (stuckComp Nil)) := Trivial
+theorem namedFieldDone: labelledDone (MkLabelled { label = 1, inner = Done 3 }) := Trivial
+theorem namedFieldComputes: labelledDone (MkLabelled { label = 1, inner = stuckComp Nil }) := Trivial
 
 -- A field of a record literal.
 type Holder = { inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
 
-def holderDone (holder: Holder): Bool := isDone holder.inner
+def holderDone (holder: Holder): Prop := IsDone holder.inner
 
-theorem recordDone: holderDone { inner = Done 3 } = True := rfl
-theorem recordComputes: holderDone { inner = stuckComp Nil } = True := rfl
+theorem recordDone: holderDone { inner = Done 3 } := Trivial
+theorem recordComputes: holderDone { inner = stuckComp Nil } := Trivial
 
 -- An argument given by name.
-def takes (count: Nat) (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Bool := isDone computation
+def takes (count: Nat) (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Prop := IsDone computation
 
-theorem namedArgumentDone: takes (computation := Done 3) (count := 1) = True := rfl
-theorem namedArgumentComputes: takes (computation := stuckComp Nil) (count := 1) = True := rfl
+theorem namedArgumentDone: takes (computation := Done 3) (count := 1) := Trivial
+theorem namedArgumentComputes: takes (computation := stuckComp Nil) (count := 1) := Trivial
 
 -- Items of a list and parts of a tuple.
-theorem listDone: allDone [Done 3, Done 4] = True := rfl
-theorem listComputes: allDone [stuckComp Nil] = True := rfl
-theorem tupleDone: pairDone (1, Done 3) = True := rfl
-theorem tupleComputes: pairDone (1, stuckComp Nil) = True := rfl
+theorem listDone: allDone [Done 3, Done 4] := Both Trivial (Both Trivial Trivial)
+theorem listComputes: allDone [stuckComp Nil] := Both Trivial Trivial
+theorem tupleDone: pairDone (1, Done 3) := Trivial
+theorem tupleComputes: pairDone (1, stuckComp Nil) := Trivial
 
 -- Through a function that takes and returns a computation.
-theorem identityDone: isDone (identityComp (Done 3)) = True := rfl
-theorem identityComputes: isDone (identityComp (stuckComp Nil)) = True := rfl
-theorem bodyDone: isDone (passOn (Done 3)) = True := rfl
+theorem identityDone: IsDone (identityComp (Done 3)) := Trivial
+theorem identityComputes: IsDone (identityComp (stuckComp Nil)) := Trivial
+theorem bodyDone: IsDone (passOn (Done 3)) := Trivial
 
 -- A written `Done` is a computation where one is expected, so `runPure` takes
 -- it (it was refused while the argument was run in place).
-export def runIdentity (n: Nat): Nat := Effect.runPure (identityComp (Done n))
-
-test "runPure of a passed computation" := runIdentity 4 == 4
+theorem runIdentity (n: Nat): Effect.runPure (identityComp (Done n)) = n := rfl
 
 -- `bind` at the empty row, with its arguments passed: the law is stated and
 -- proved by cases on the computation.
@@ -119,7 +119,7 @@ def stuckThunk: List Nat -> Thunk
   | Nil => 0
   | Cons x xs => 1
 
-def finishedOfCall (xs: List Nat): Bool := (stuckThunk xs).finished
+def finishedOfCall (xs: List Nat): Prop := (stuckThunk xs).finished
 
 -- The same for a nickname of an ordinary type.
 def Meters: Type := Nat

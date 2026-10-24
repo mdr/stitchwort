@@ -4,7 +4,7 @@ Status: design note, 24 Oct 2026, for D1141 (d). Decided (Matt, 24 Oct
 2026): all five decisions in §8 as recommended, renumbered D1144 to D1148
 (surface form `match reify` with handler-style clauses; close the run-time
 leak right after R1; any proof may use it; checked per declaration; keyword
-`reify`). Stage R1 is built (SW-419): see "As built (stage R1)" after §8.
+`reify`). Stages R1 (SW-419) and R2 (SW-420) are built: see "As built (stage R1)" and "As built (stage R2)" after §8.
 
 D1141 (d), as decided (effect-polymorphism.md §7, "After stage 1, first
 part"): abilities stay on arrows, so a computation is passed as a thunk
@@ -643,3 +643,58 @@ test "runtime sees the tree, done" := finishedNow (() => failing 3) == True
 ```
 
 `2 test(s): 2 passed, 0 failed`.
+
+## As built (stage R2)
+
+SW-420, 24 Oct 2026. D1145 (close the run-time leak). The kernel is
+unchanged; the check is in name resolution.
+
+**What is refused.** `Elaborator::is_proof_only` (`crates/elab/src/scope.rs`)
+names the built-ins `Effect.Comp`'s constructors (`Done`, `Call`) and the
+definitions `Effect.foldComp`, `Effect.bind`, `Effect.translate` and
+`Effect.runPure`. `Elaborator::resolve` does not find them outside the
+library when the code being elaborated is a body (`Phase::Body`) whose
+declaration's result is not erased, or a body-less expression (a `test`).
+`Elaborator::unknown` then reports `E-PROOF-ONLY`, "`Effect.Comp.Done` takes
+a computation apart, so it can only be used in a proof", with notes saying
+where it is allowed and to use a handler instead. I chose `E-PROOF-ONLY`
+(not `E-INTERNAL`) because the names are usable in proofs, as `reify` is, and
+the test is the same one (`body_erased`, the kernel's own `result_erased`),
+so the two errors read alike.
+
+**Where it is allowed.** The type `Effect.Comp` itself is still nameable
+everywhere (it is a type, and a theorem's statement needs it). The five names
+are allowed in the body of a theorem or of a `Prop`- or type-valued `def`,
+in any signature or data type's fields (`Phase::Signature`, `Header`,
+`Fields`: they are types, never run), and in the library files.
+Elaborator-generated uses (a number literal where a computation is expected,
+`handle`, the empty row's `runPure`) go by identity, not by name, and are
+unaffected.
+
+**Examples.**
+
+- `reject/effect-runtime-sees-tree.sw`: Appendix A's p3 (`viewOf`,
+  `finishedNow`), now `E-PROOF-ONLY` at the `Done` pattern.
+- `accept/effect-pass-computations.sw` and the twelve
+  `reject/effect-pass-*.sw`: `isDone: ... -> Bool` became
+  `IsDone: ... -> Prop` (`Done value => Unit`), `allDone` uses `And`, the
+  `= True := rfl` theorems are `:= Trivial`, and the rejects now fail with
+  `E-TYPE-MISMATCH` (`Unit` where `IsDone c` is wanted) instead of `E-REFL`:
+  the same path is tested, an arbitrary computation is not known to be
+  `Done`. The run-time test `runIdentity` is a theorem.
+- `soundness/{fake-child,hidden-recursive-call,higher-order-recursion,
+  infinite-computation,restart-handler,mutual-restart-handler}.sw`: the same
+  termination checks, with the functions returning `Prop` (in
+  `hidden-recursive-call` the operation's answer is a `Prop` too; in
+  `infinite-computation`, `forever` folds the tree it builds).
+- `accept/handlers.sw` and `accept/rows.sw` are deleted: they were
+  hand-written handlers and row mappings over `Comp`, run as tests, which a
+  program can no longer write. `abilities.sw` and `effect-rows.sw` carry the
+  same scenarios in the source syntax. What only those two files exercised (a
+  dependent `res` that is stuck on a `Bool`, `translate` along `sigSwap`) is
+  now checked only by the library's own use of it.
+- The unknown-name hint still lists a proof-only name as writable
+  (`written` uses `resolve_any`).
+
+**Not changed.** Std, AoC and the other examples never named these outside the
+library, so nothing else moved.

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TERMINATION] Error: can't show that `forever` terminates
-    ╭─[ soundness/infinite-computation.sw:22:73 ]
+    ╭─[ soundness/infinite-computation.sw:22:63 ]
     │
- 22 │ def forever (u: Unit1): Comp LaterOp LaterRes Empty := Call Later (v => forever u)
-    │                                                                         ────┬────  
-    │                                                                             ╰────── this recursive call might not terminate: the 1st argument stays the same
+ 22 │ def forever (u: Unit1): Prop := drain (Call Later (v => Done (forever u)))
+    │                                                               ────┬────  
+    │                                                                   ╰────── this recursive call might not terminate: the 1st argument stays the same
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 
