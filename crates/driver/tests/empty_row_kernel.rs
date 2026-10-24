@@ -196,8 +196,30 @@ fn a_call_that_performs_is_still_refused_in_a_pure_place() {
         .load(
             "test.sw",
             "import Std (Abort)\n\
-             theorem bad (c: () -> {Abort} Nat): c () = c () := rfl\n",
+             theorem bad (c: () -> {Abort} Nat): c () + 1 = c () + 1 := rfl\n",
         )
         .expect_err("`c ()` performs `Abort`");
     assert_eq!(errors[0].code, "E-ABILITY");
+}
+
+/// An operand of `=` whose own type is a computation is passed as written,
+/// not run (D1140 (a), docs/proposals/effect-polymorphism.md): the equation
+/// is between the two computations, at their own type.
+#[test]
+fn an_equation_between_computations_compares_them() {
+    let mut session = Session::new();
+    if let Err(ds) = session.load(
+        "test.sw",
+        "import Std (Abort)\n\
+         theorem same (c: () -> {Abort} Nat): c () = c () := rfl\n",
+    ) {
+        panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
+    }
+    let g = &session.elab.globals;
+    let ty = g.def(def(g, "same")).ty.clone();
+    let printed = stitchwort_core::pretty::term(g, &[], &ty);
+    assert!(
+        !printed.contains("Effect.runPure") && !printed.contains("Effect.bind"),
+        "same's statement: {printed}"
+    );
 }

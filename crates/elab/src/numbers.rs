@@ -540,6 +540,9 @@ struct Leaf<'a> {
     /// A literal `k`, `-k`, `d` or `-d` on its own: it waits until `T` is
     /// decided.
     bare: bool,
+    /// An operand of `=` that is a computation: inferred without running it
+    /// (D1140 (a), docs/proposals/effect-polymorphism.md).
+    passed: bool,
     state: State,
 }
 
@@ -650,6 +653,7 @@ impl<'a> Group<'a> {
             expr,
             op,
             bare: any_literal(expr),
+            passed: false,
             state: State::Waiting,
         });
         Node::Leaf(self.leaves.len() - 1)
@@ -761,6 +765,15 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
             g.ordering = matches!(op, BinOp::Lt | BinOp::Le);
             let a = g.tree(cx, a, op_text(*op))?;
             let b = g.tree(cx, b, op_text(*op))?;
+            if *op == BinOp::Eq {
+                for side in [&a, &b] {
+                    if let Node::Leaf(i) = side
+                        && crate::effects::passed_operand(cx, g.leaves[*i].expr)?
+                    {
+                        g.leaves[*i].passed = true;
+                    }
+                }
+            }
             (Some(*op), (a, Some(b)))
         }
         _ => (None, (g.tree(cx, expr, "")?, None)),
@@ -1009,7 +1022,7 @@ fn infer_leaf(
     equality: bool,
 ) -> Result<Option<(Value, Decider)>> {
     let expr = g.leaves[i].expr;
-    let (term, ty) = match speculate(cx, expr)? {
+    let (term, ty) = match speculate(cx, expr, g.leaves[i].passed)? {
         Ok(found) => found,
         Err(e) => {
             g.leaves[i].state = State::Failed(e);
@@ -1050,7 +1063,7 @@ fn infer_leaf(
 /// operators don't support isn't an error here: the leaf is checked against
 /// the group's type at the end.
 fn probe_leaf(cx: &mut Ctx, g: &mut Group, i: usize) -> Result<Option<(Term, Value)>> {
-    match speculate(cx, g.leaves[i].expr)? {
+    match speculate(cx, g.leaves[i].expr, g.leaves[i].passed)? {
         Ok(found) => Ok(Some(found)),
         Err(e) => {
             g.leaves[i].state = State::Failed(e);
@@ -1061,10 +1074,20 @@ fn probe_leaf(cx: &mut Ctx, g: &mut Group, i: usize) -> Result<Option<(Term, Val
 
 /// Infers `expr`, or `Ok(Err(…))` if it can't be inferred, undoing whatever
 /// the attempt did to metavariables and auto obligations: unification isn't
-/// atomic, so a failed attempt may have solved some.
-fn speculate(cx: &mut Ctx, expr: &Expr) -> Result<std::result::Result<(Term, Value), Diagnostic>> {
+/// atomic, so a failed attempt may have solved some. A `passed` leaf (an
+/// operand of `=` that is a computation, D1140 (a)) isn't run.
+fn speculate(
+    cx: &mut Ctx,
+    expr: &Expr,
+    passed: bool,
+) -> Result<std::result::Result<(Term, Value), Diagnostic>> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    match infer(cx, expr).and_then(|(term, ty)| insert(cx, term, ty)) {
+    let inferred = if passed {
+        crate::check::infer_unrun(cx, expr)
+    } else {
+        infer(cx, expr)
+    };
+    match inferred.and_then(|(term, ty)| insert(cx, term, ty)) {
         Ok(found) => Ok(Ok(found)),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             snapshot.restore(cx);

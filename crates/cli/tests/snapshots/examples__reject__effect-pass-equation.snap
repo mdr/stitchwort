@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/effect-pass-equation.sw:12:3 ]
+    │
+ 12 │   rfl
+    │   ─┬─  
+    │    ╰─── `computation` and `Done (Effect.runPure computation)` aren't equal
+    │ 
+    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

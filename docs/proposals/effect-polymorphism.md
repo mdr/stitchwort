@@ -1890,6 +1890,39 @@ the empty row", and a note saying why
 (`examples/reject/row-defaulted.sw`). Unit tests of `row_rule`, one per row
 of its table, against `unify` and `unify_postponing` (`rows.rs`, `tests`).
 
+## As built (stage 1, remainder)
+
+SW-406, 24 Oct 2026.
+
+**D1140 (a).** Two of stage 0's "Not changed" places now pass a computation
+as written:
+
+- *Operands of `=`.* An operand whose own type, read off its head's type, is
+  a `Comp` (any row: `Comp NoOp NoRes a`, or an effectful call such as
+  `thunk ()` with `thunk: () -> {Abort} Nat`) is passed
+  (`effects::passed_operand`): `may_perform` doesn't count it,
+  `comp_compound` doesn't run it first, and the group infers it with
+  `infer_unrun` (`numbers::speculate`); the other side is checked against
+  its type. So `Effect.bind c Done = c` at `NoOp` is what it says
+  (`Effect.bindDone c` proves it), and `f = 3` with `f: Comp NoOp NoRes Nat`
+  is `f = Done 3`. A computation in a bare row (`CompIn e a`, what
+  `List.mapIn` returns) isn't passed this way: its row is inferred from the
+  other side, as before. `!=` and `==` are unchanged.
+- *Branches.* A check against a computation type (`check_inner`) uses
+  `effects::comp_check_written`: in the empty row an `if`'s or a `match`'s
+  branches (also after a `let`) are checked against the whole
+  `Comp NoOp NoRes a`, so `if b then c else d` is that, not
+  `Done (if b then runPure c else runPure d)`. Computation mode (`run_pure`,
+  handler clauses) still checks them against `a` and wraps the result.
+
+Tests: `examples/accept/effect-pass-equations.sw`,
+`examples/reject/effect-pass-branch.sw` and `effect-pass-equation.sw` (each
+checked before the change, so they test the new path).
+`empty_row_kernel.rs`: `c () = c ()` over `{Abort}` is now accepted
+(`an_equation_between_computations_compares_them`); the refusal test uses
+`c () + 1`, which still runs `c ()`. `accept/empty-row-run.sw`'s
+`fIsThree` now states `f = Done 3` (its hash moved; nothing else's did).
+
 ## Appendix A. Probe files
 
 All are in a scratch directory, checked with `stitchwort check FILE`.

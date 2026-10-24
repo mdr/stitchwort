@@ -1771,7 +1771,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if !matches!(expr, Expr::Hole(_) | Expr::Goal(_))
         && let Some((row, t)) = effects::comp_parts(cx, &expected)?
     {
-        return effects::comp_check(cx, expr, &row, &t);
+        return effects::comp_check_written(cx, expr, &row, &t);
     }
     if effects::may_perform_at(cx, expr, Some(&expected))? {
         // A computation where a computation whose row isn't known yet is

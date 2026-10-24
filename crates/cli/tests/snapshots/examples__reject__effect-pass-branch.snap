@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/effect-pass-branch.sw:17:112 ]
+    │
+ 17 │ theorem anyIsDone (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): IsDone (pick True first second) := Trivial
+    │                                                                                                                ───┬───  
+    │                                                                                                                   ╰───── expected `IsDone (pick True first second)`, but this has type `Unit`
+────╯
