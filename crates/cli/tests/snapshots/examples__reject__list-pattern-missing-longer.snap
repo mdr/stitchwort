@@ -2,11 +2,11 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-NONEXHAUSTIVE] Error: missing case: no arm matches `Cons _ _`
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `[_, _, ..]`
    ╭─[ reject/list-pattern-missing-longer.sw:4:3 ]
    │
  4 │ ╭─▶   | [] => 0
  5 │ ├─▶   | [x] => x
    │ │                  
-   │ ╰────────────────── missing case: no arm matches `Cons _ _`
+   │ ╰────────────────── missing case: no arm matches `[_, _, ..]`
 ───╯

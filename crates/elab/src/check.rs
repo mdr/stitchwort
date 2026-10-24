@@ -695,7 +695,9 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let (head, args) = spine(expr);
             infer_app(cx, head, &args)
         }
-        Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
+        Expr::Pipe(value, f) => {
+            crate::pipe::infer_pipe(cx, value, f).map_err(|e| crate::pipe::compared_pipe_note(e, f))
+        }
         Expr::NamedArg(_, _, _, Bracket::Square) => Err(cx.error(
             "E-PARSE",
             "a named implicit argument must follow a function",

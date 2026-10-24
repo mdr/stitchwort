@@ -621,6 +621,60 @@ pub struct Failure {
     pub comparison: Option<Comparison>,
 }
 
+/// `range` in `text`, widened over the round brackets the parser leaves out
+/// of an expression's span (it has no node for a bracketed expression): an
+/// unmatched closer in the range pulls the start back to its opener, and an
+/// unmatched opener pushes the end on to its closer. Unchanged if the
+/// brackets don't pair up.
+fn balanced_range(text: &str, range: std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let Some(inside) = text.get(range.clone()) else {
+        return range;
+    };
+    let (mut closers, mut openers) = (0usize, 0usize);
+    for c in inside.chars() {
+        match c {
+            '(' => openers += 1,
+            ')' if openers > 0 => openers -= 1,
+            ')' => closers += 1,
+            _ => {}
+        }
+    }
+    let mut start = range.start;
+    let mut need = closers;
+    for (i, c) in text[..range.start].char_indices().rev() {
+        if need == 0 {
+            break;
+        }
+        match c {
+            ')' => need += 1,
+            '(' => {
+                need -= 1;
+                start = i;
+            }
+            _ => {}
+        }
+    }
+    let mut end = range.end;
+    let mut want = openers;
+    for (i, c) in text[range.end..].char_indices() {
+        if want == 0 {
+            break;
+        }
+        match c {
+            '(' => want += 1,
+            ')' => {
+                want -= 1;
+                end = range.end + i + 1;
+            }
+            _ => {}
+        }
+    }
+    if need > 0 || want > 0 {
+        return range;
+    }
+    start..end
+}
+
 /// A part of a test's expression: its text (on one line, cut off with `…` if
 /// long) and where it starts (`line` and `column` count from 1).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1101,8 +1155,9 @@ impl Session {
             return None;
         }
         let file = self.sources.get(span.file);
-        let text = file.text.get(span.range())?;
-        let before = file.text.get(..span.range().start)?;
+        let range = balanced_range(&file.text, span.range());
+        let text = file.text.get(range.clone())?;
+        let before = file.text.get(..range.start)?;
         let line = before.matches('\n').count() + 1;
         let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
         let one_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -1161,6 +1216,18 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_part_keeps_the_brackets_the_parser_left_out_of_its_span() {
+        let text = "a && (f x).y == 2 && g (z) == 1";
+        // `f x).y == 2` is the span the parser gives; `g (z` likewise.
+        let first = text.find("f x").unwrap();
+        let range = first..text.find(" &&").map(|_| 17).unwrap();
+        assert_eq!(&text[balanced_range(text, range)], "(f x).y == 2");
+        let second = text.find("g (z").unwrap();
+        assert_eq!(&text[balanced_range(text, second..second + 4)], "g (z)");
+        assert_eq!(&text[balanced_range(text, 0..4)], "a &&");
+    }
 
     fn session() -> Session {
         let mut session = Session::new();

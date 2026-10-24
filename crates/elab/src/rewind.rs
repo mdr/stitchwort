@@ -132,6 +132,7 @@ impl Elaborator {
             globals,
             tests,
             sides_capture,
+            in_test,
             scope,
             namespace_root,
             project_namespaces,
@@ -219,6 +220,7 @@ impl Elaborator {
         globals.rewind(&mark.globals);
         tests.truncate(mark.tests);
         *sides_capture.get_mut() = Default::default();
+        in_test.set(false);
         *scope = mark.scope.clone();
         *namespace_root = mark.namespace_root.clone();
         *project_namespaces = mark.project_namespaces.clone();

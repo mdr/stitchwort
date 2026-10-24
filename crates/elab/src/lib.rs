@@ -259,6 +259,8 @@ pub struct Elaborator {
     pub globals: Globals,
     pub tests: Vec<TestDecl>,
     sides_capture: RefCell<SidesCapture>,
+    /// While the body of a `test` is elaborated (tests can't be `Partial`).
+    in_test: std::cell::Cell<bool>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
     /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
@@ -1055,6 +1057,7 @@ impl Elaborator {
             text: label.to_string(),
             span,
         };
+        self.in_test.set(true);
         let body = self.with_local_retries(&label, &shown, |e| {
             *e.sides_capture.borrow_mut() = SidesCapture {
                 wanted: probe::wanted(expr),
@@ -1072,7 +1075,9 @@ impl Elaborator {
             // finished is left out.
             let probe = probe::build(e, &e.sides_capture.borrow(), expr);
             Ok((body, probe))
-        })?;
+        });
+        self.in_test.set(false);
+        let body = body?;
         let (body, probe) = body;
         *self.sides_capture.borrow_mut() = SidesCapture::default();
         self.local_helpers.clear();
@@ -2891,10 +2896,7 @@ impl Elaborator {
                 continue;
             }
             if branch_rows.is_empty() {
-                let example = std::iter::once(ctor.name.to_string())
-                    .chain(std::iter::repeat_n("_".to_string(), k))
-                    .collect::<Vec<_>>()
-                    .join(" ");
+                let example = families::missing_example(&self.globals, d, c, k);
                 return Err(error(
                     "E-NONEXHAUSTIVE",
                     span,
@@ -3738,10 +3740,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                                 return Ok(term);
                             }
                         }
-                        let example = std::iter::once(ctor.name.to_string())
-                            .chain(std::iter::repeat_n("_".to_string(), ctor.fields.len()))
-                            .collect::<Vec<_>>()
-                            .join(" ");
+                        let example = families::missing_example(g, *d, c, ctor.fields.len());
                         Err(error(
                             "E-NONEXHAUSTIVE",
                             *span,
