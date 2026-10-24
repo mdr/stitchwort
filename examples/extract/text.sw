@@ -55,6 +55,28 @@
 -- `slice(1)` would cut the emoji in half:
 -- run: uncons "\u{1F600}x"
 -- run: uncons ""
+-- `slice` and `substring` count code units, and would cut an emoji in half:
+-- run: take 1 "\u{1F600}x"
+-- run: take 2 "a\u{1F600}b"
+-- run: take 0 "abc"
+-- run: take 3 "abc"
+-- run: take 4 "abc"
+-- run: take 18446744073709551616 "\u{1F600}"
+-- run: take 2 ""
+-- run: drop 1 "\u{1F600}x"
+-- run: drop 2 "a\u{1F600}b"
+-- run: drop 0 "abc"
+-- run: drop 3 "abc"
+-- run: drop 4 "abc"
+-- run: drop 18446744073709551616 "\u{1F600}"
+-- run: drop 1 "\u{D7FF}\u{E000}\u{10000}"
+-- The empty needle occurs in every text, including the empty one:
+-- run: contains "" ""
+-- run: contains "" "\u{1F600}"
+-- run: contains "\u{1F600}" "a\u{1F600}b"
+-- run: contains "\u{1F601}" "\u{1F600}"
+-- run: contains "ab" "a"
+-- run: contains "\u{E000}" "\u{D7FF}\u{E000}"
 -- `split("").reverse()` would swap the emoji's two halves:
 -- run: reverse "ab\u{1F600}c"
 -- run: countChar '\u{1F600}' "\u{1F600}a\u{1F600}"
@@ -114,6 +136,12 @@ export def toNat (t: Text): Option Nat := Text.toNat t
 export def fromNat (n: Nat): Text := Nat.toText n
 
 export def uncons (t: Text): Option (Pair Char Text) := Text.uncons t
+
+export def take (n: Nat) (t: Text): Text := Text.take n t
+
+export def drop (n: Nat) (t: Text): Text := Text.drop n t
+
+export def contains (needle: Text) (t: Text): Bool := Text.contains needle t
 
 -- User code over the characters.
 export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)

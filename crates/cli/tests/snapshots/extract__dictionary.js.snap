@@ -1017,8 +1017,6 @@ const $Std$dOrdering$ddecEq = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dText$dtoList = charsOfText;
-const $Std$dText$dfromList = textOfChars;
 const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
 const $Std$dText$dcompare = (a) => (b) => {
   const n = Math.min(a.length, b.length);
@@ -1093,34 +1091,6 @@ const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
       }
     }
     throw new Error("unreachable");
-  }
-};
-const $Std$dList$dtake = (v1) => (v2) => {
-  let s1 = v1, s2 = v2;
-  let h$ = null, l$ = null, k$ = null;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    if (v1 === 0n) {
-      { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-    } else {
-      const v3 = v1 - 1n;
-      switch (v2.tag) {
-        case "Nil": {
-          { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-        }
-        case "Cons": {
-          const v4 = v2.head;
-          const v5 = v2.tail;
-          const c1$ = { tag: "Cons", head: v4, tail: null };
-          if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
-          l$ = c1$; k$ = "tail";
-          s1 = v3;
-          s2 = v5;
-          continue;
-        }
-      }
-      throw new Error("unreachable");
-    }
   }
 };
 const $Std$dText$disEmpty = (t) => ({ tag: t === "" ? "True" : "False" });
@@ -1793,7 +1763,16 @@ const $Std$dMap$ddecEq$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => {
   throw new Error("unreachable");
 };
 const $Std$dMap$ddecEq = (v2) => (v3) => (v4) => (v5) => $Std$dMap$ddecEq$d$gmatch1(v2)(v4)(v5)($Std$dList$ddecEq($Std$dPair$ddecEq($Std$dDecEq$d$gdecide($Std$dOrd$d$geq(v2)))($Std$dDecEq$d$gdecide(v3)))($Std$dMap$dtoList(v2)(v4))($Std$dMap$dtoList(v2)(v5)));
-const $Std$dText$dtake = (v0) => (v1) => $Std$dText$dfromList($Std$dList$dtake(v0)($Std$dText$dtoList(v1)));
+const $Std$dText$dtake = (n) => (t) => {
+  if (n >= BigInt(t.length)) return t;
+  const count = Number(n);
+  let i = 0;
+  for (let k = 0; k < count && i < t.length; k++) {
+    const unit = t.charCodeAt(i);
+    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+  }
+  return t.slice(0, i);
+};
 const $Main$dPerson$dage = (v0) => {
   const v1 = v0.name;
   const v2 = v0.age;

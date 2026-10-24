@@ -34,6 +34,9 @@ pub enum TextNative {
     TextUncons,
     TextFold,
     TextTrim,
+    TextTake,
+    TextDrop,
+    TextContains,
     TextSplit,
     TextJoin,
     NatToText,
@@ -96,6 +99,21 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
         Builtin::TextTrim,
         TextNative::TextTrim,
         "ec78b83ebc8635cb689fec17a0d5bc87423a45979d3b4496a68fe995afc37124",
+    ),
+    (
+        Builtin::TextTake,
+        TextNative::TextTake,
+        "1d86440fa363114666e9c513aa214f7fb9667bb834429ea1202fd97f7d956504",
+    ),
+    (
+        Builtin::TextDrop,
+        TextNative::TextDrop,
+        "cda015c4a7a40c0a868ae930f36b99e3ff3ed3e2d3ca94cbce7bd4bec294cf6c",
+    ),
+    (
+        Builtin::TextContains,
+        TextNative::TextContains,
+        "6eeae8406449c2723031abcb23ab5c24470eba5c64d927b6a54685296914102d",
     ),
     (
         Builtin::TextSplit,

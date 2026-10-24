@@ -933,6 +933,27 @@ const $Std$dText$djoin = (s) => (ts) => {
   return parts.join(encodeChar(s));
 };
 const $Std$dText$dless = (v0) => (v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0)(v1));
+const $Std$dText$dtake = (n) => (t) => {
+  if (n >= BigInt(t.length)) return t;
+  const count = Number(n);
+  let i = 0;
+  for (let k = 0; k < count && i < t.length; k++) {
+    const unit = t.charCodeAt(i);
+    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+  }
+  return t.slice(0, i);
+};
+const $Std$dText$ddrop = (n) => (t) => {
+  if (n >= BigInt(t.length)) return "";
+  const count = Number(n);
+  let i = 0;
+  for (let k = 0; k < count && i < t.length; k++) {
+    const unit = t.charCodeAt(i);
+    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+  }
+  return t.slice(i);
+};
+const $Std$dText$dcontains = (needle) => (t) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Main$dlen = (v0) => $Std$dText$dlength(v0);
 const $Main$dchars = (v0) => $Std$dText$dtoList(v0);
 const $Main$dfromChars = (v0) => $Std$dText$dfromList(v0);
@@ -949,6 +970,9 @@ const $Main$dtrim = (v0) => $Std$dText$dtrim(v0);
 const $Main$dtoNat = (v0) => $Std$dText$dtoNat(v0);
 const $Main$dfromNat = (v0) => $Std$dNat$dtoText(v0);
 const $Main$duncons = (v0) => $Std$dText$duncons(v0);
+const $Main$dtake = (v0) => (v1) => $Std$dText$dtake(v0)(v1);
+const $Main$ddrop = (v0) => (v1) => $Std$dText$ddrop(v0)(v1);
+const $Main$dcontains = (v0) => (v1) => $Std$dText$dcontains(v0)(v1);
 const $Main$dreverse = (v0) => $Std$dText$dfromList($Std$dList$dreverseOnto($Std$dText$dtoList(v0))({ tag: "Nil" }));
 const $Main$dcountIn = (v0) => (v1) => {
   let s0 = v0, s1 = v1;
@@ -1259,6 +1283,36 @@ function $$uncons(arg0) {
     return encodeFast(enc$15, ty$10, $Main$duncons(v0));
   } catch (e) {
     throw outOfResources("uncons", e);
+  }
+}
+
+function $$take(arg0, arg1) {
+  try {
+    const v0 = decodeFast(dec$8, ty$2, arg0, "n");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "t");
+    return encodeFast(enc$5, ty$1, $Main$dtake(v0)(v1));
+  } catch (e) {
+    throw outOfResources("take", e);
+  }
+}
+
+function $$drop(arg0, arg1) {
+  try {
+    const v0 = decodeFast(dec$8, ty$2, arg0, "n");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "t");
+    return encodeFast(enc$5, ty$1, $Main$ddrop(v0)(v1));
+  } catch (e) {
+    throw outOfResources("drop", e);
+  }
+}
+
+function $$contains(arg0, arg1) {
+  try {
+    const v0 = decodeFast(dec$1, ty$1, arg0, "needle");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "t");
+    return encodeFast(enc$10, ty$6, $Main$dcontains(v0)(v1));
+  } catch (e) {
+    throw outOfResources("contains", e);
   }
 }
 
@@ -1727,4 +1781,4 @@ function dec$25(x) {
   return first;
 }
 
-export { $$len as len, $$chars as chars, $$fromChars as fromChars, $$echo as echo, $$echoChar as echoChar, $$codeOf as codeOf, $$charOf as charOf, $$same as same, $$order as order, $$join as join, $$split as split, $$joinOn as joinOn, $$trim as trim, $$toNat as toNat, $$fromNat as fromNat, $$uncons as uncons, $$reverse as reverse, $$countChar as countChar, $$greet as greet, $$initials as initials, $$rename as rename, $$orEmpty as orEmpty, $$firstOf as firstOf, $$located as located, $$empty as empty, $$less as less, $$codes as codes, $$lengths as lengths, $$texts as texts, $$prefixAll as prefixAll, $$firstField as firstField, $$trimmedHead as trimmedHead, $$isText as isText };
+export { $$len as len, $$chars as chars, $$fromChars as fromChars, $$echo as echo, $$echoChar as echoChar, $$codeOf as codeOf, $$charOf as charOf, $$same as same, $$order as order, $$join as join, $$split as split, $$joinOn as joinOn, $$trim as trim, $$toNat as toNat, $$fromNat as fromNat, $$uncons as uncons, $$take as take, $$drop as drop, $$contains as contains, $$reverse as reverse, $$countChar as countChar, $$greet as greet, $$initials as initials, $$rename as rename, $$orEmpty as orEmpty, $$firstOf as firstOf, $$located as located, $$empty as empty, $$less as less, $$codes as codes, $$lengths as lengths, $$texts as texts, $$prefixAll as prefixAll, $$firstField as firstField, $$trimmedHead as trimmedHead, $$isText as isText };

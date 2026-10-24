@@ -454,6 +454,17 @@ impl<'p> Interp<'p> {
                             |c: char| matches!(c, ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r');
                         V::Text(text(&args[0])?.trim_matches(space).into())
                     }
+                    TextTake | TextDrop => {
+                        let n = usize::try_from(&nat(&args[0])?).unwrap_or(usize::MAX);
+                        let whole = text(&args[1])?;
+                        let (taken, dropped): (String, String) = {
+                            let mut it = whole.chars();
+                            let taken = it.by_ref().take(n).collect();
+                            (taken, it.collect())
+                        };
+                        V::Text(if t == TextTake { taken } else { dropped }.into())
+                    }
+                    TextContains => boolean(text(&args[1])?.contains(&*text(&args[0])?)),
                     TextSplit => {
                         let s = chr(&args[0])?;
                         let t = text(&args[1])?;

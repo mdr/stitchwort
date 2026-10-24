@@ -2158,6 +2158,12 @@ assert.equal(text.trim(" ".repeat(N) + "x" + " ".repeat(N)), "x");
 assert.deepEqual(text.toNat("7".repeat(N)), BigInt("7".repeat(N)));
 assert.equal(text.fromNat(10n ** 20000n).length, 20001);
 assert.deepEqual(text.uncons(emoji), { $tag: "MkPair", fst: "\u{1F600}", snd: emoji.slice(2) });
+assert.equal(text.take(BigInt(N / 2), emoji), "\u{1F600}".repeat(N / 2));
+assert.equal(text.drop(BigInt(N / 2), emoji), "\u{1F600}".repeat(N / 2));
+assert.equal(text.take(BigInt(N), long), long);
+assert.equal(text.drop(BigInt(N - 1), long), "a");
+assert.equal(text.contains(long.slice(1) + "b", long + "b"), true);
+assert.equal(text.contains("b", long), false);
 const codes = text.codes("a\u{1F600}".repeat(N / 2));
 assert.equal(codes.length, N);
 assert.equal(codes[1], 0x1f600n);
@@ -2326,15 +2332,26 @@ for (const t of texts) {
     agree("countChar", c, t);
     agree("firstField", c, t);
   }
+  const length = BigInt([...t].length);
+  for (const n of [0n, 1n, 2n, length - 1n, length, length + 1n, 2n ** 64n]) {
+    if (n < 0n) continue;
+    agree("take", n, t);
+    agree("drop", n, t);
+  }
 }
 for (const [a, b] of pairs) {
-  for (const name of ["same", "order", "less", "join"]) agree(name, a, b);
+  for (const name of ["same", "order", "less", "join", "contains"]) agree(name, a, b);
   agree("joinOn", ",", [a, b]);
   agree("joinOn", "\u{1F600}", [a, "", b]);
   agree("lengths", [a, b]);
   agree("prefixAll", [a, b]);
   agree("texts", [[...a], [...b]]);
   agree("split", [...b][0] ?? ",", a);
+  // A piece of one in the other, so that most needles occur.
+  const cs = [...a];
+  const from = Math.floor(random() * (cs.length + 1));
+  agree("contains", cs.slice(from, from + Math.floor(random() * 4)).join(""), b);
+  agree("contains", cs.slice(from, from + Math.floor(random() * 4)).join(""), a);
 }
 for (let i = 0; i < 300; i++) {
   agree("joinOn", pick(awkward), Array.from({ length: Math.floor(random() * 6) }, () => randomText(6)));

@@ -1481,7 +1481,7 @@ const $Std$dText$dcontainsChars = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dText$dcontains = (v0) => (v1) => $Std$dText$dcontainsChars($Std$dText$dtoList(v0))($Std$dText$dtoList(v1));
+const $Std$dText$dcontains = (needle) => (t) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Main$dUserId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
