@@ -1,5 +1,5 @@
 {
-  "next": 418,
+  "next": 419,
   "tickets": [
     {
       "id": 1,
@@ -6698,16 +6698,18 @@
     {
       "id": 416,
       "title": "Debug-build panic at crates/core/src/value.rs:1916: cargo test -p stitchwort-web (debug) fails 24 of 25 tests, also on main; release passes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "bug"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "2a66f5c9"
+      ]
     },
     {
       "id": 417,
@@ -6724,6 +6726,20 @@
       "commits": [
         "c3ff5d5c"
       ]
+    },
+    {
+      "id": 418,
+      "title": "Daily gate: run one debug test binary that loads the prelude (e.g. -p stitchwort-driver --test builtins), so debug-only overflow/assert failures are caught (SW-416 went unnoticed a day)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
     }
   ]
 }
