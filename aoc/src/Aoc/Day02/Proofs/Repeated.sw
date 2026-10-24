@@ -60,8 +60,7 @@ theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10
     _ = 1 + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1) := rewrite (ring: k * 0 = 0)
     _ = 1 + List.sumBy (i => Nat.pow 10 (k * Succ i)) (List.range n) := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
     _ = 1 + List.sumBy (i => Nat.pow 10 k * Nat.pow 10 (k * i)) (List.range n)
-      := rewrite List.sumByCong (i => Nat.pow 10 (k * Succ i)) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
-        (List.range n) (i => Eq.trans (Eq.cong (t => Nat.pow 10 t) (ring: k * Succ i = k + k * i)) (Nat.powAdd 10 k (k * i)))
+      := rewrite Nat.mulSucc k _, Nat.powAdd 10 k _
     _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (Nat.pow 10 k) (i => Nat.pow 10 (k * i)) (List.range n)
 
 theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
@@ -74,8 +73,7 @@ def windowSum (from: Nat) (to: Nat) (d: Nat) (c: Nat) (s: Nat): Nat :=
 
 theorem specWindow (r: Range) (k: Nat) (n: Nat):
     repeatedSpec r k n = windowSum r.from r.to (multiplier k n) (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)) :=
-  rewrite List.mapCong (b => writeTimes k b n) (b => b * multiplier k n)
-    (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => writeTimesMul k b n)
+  rewrite writeTimesMul k _ n
 
 -- With a multiplier of 0 every id is 0.
 theorem windowZero (from: Nat) (to: Nat): (c: Nat) -> (s: Nat) -> windowSum from to 0 c s = 0
@@ -353,10 +351,7 @@ theorem blocksAsIds (r: Range) (k: Nat) (n: Nat):
       := List.sumByMap (y => Nat.keepIf y (r.from <= y && y <= r.to)) (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
     -- and, for each block, "the id if it is in the range" is the sum over the range ids that equal it
     _ = List.sumBy (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-      := List.sumByCong (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to))
-        (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from))
-        (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-        (b => Eq.sym (sumIdsEq r.from r.to (writeTimes k b n)))
+      := rewrite <- sumIdsEq r.from r.to _
     _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
       := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
 
@@ -364,9 +359,7 @@ theorem blocksAsIds (r: Range) (k: Nat) (n: Nat):
 -- digits are a k-digit block written n times.
 theorem repeatedSpecIds (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
     repeatedSpec r k n = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids :=
-  Eq.trans (blocksAsIds r k n)
-    (List.sumByCong (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-      (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids (x => repBlockCount x n hn k hk))
+  rewrite blocksAsIds r k n, repBlockCount _ n hn k hk
 
 -- (b) `RepetitionTemplate.sumIn r` of the template k by n adds the ids of the
 -- range whose digits are a k-digit block written n times.

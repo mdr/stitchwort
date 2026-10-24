@@ -88,8 +88,8 @@ theorem sizesAreCircuitSizes (c: Circuits) (n: Nat): c.sizes n = circuitSizes n 
       (List.range n)
       (box m =>
         rewrite List.takeMap c.labelOf box (List.range n), List.takeRangeFrom box n 0 (omega [And.right (List.memRangeFrom box n 0 m)]),
-          List.anyMap (label => label == c.labelOf box) c.labelOf (List.range box) in rfl)
-    in List.mapCong _ _ _ (box => List.countMap (label => label == c.labelOf box) c.labelOf (List.range n))
+          List.anyMap (label => label == c.labelOf box) c.labelOf (List.range box) in rfl),
+    List.countMap (label => label == c.labelOf _) c.labelOf (List.range n)
 
 -- Two tests that agree on the boxes give the same sizes.
 theorem circuitSizesCong (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)

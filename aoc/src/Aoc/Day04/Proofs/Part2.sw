@@ -12,12 +12,7 @@ import Std (Bool, Eq, List, Nat, Vec, Void)
 
 -- The rolls the program counts are the spec's.
 theorem rollsIsCount (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): countRolls rows = rollCount grid (rowsCells rows) :=
-  Eq.trans (rollsCells rows)
-    (Eq.trans
-      (List.sumByCong (r => List.sumBy (c => (rowsCells rows r c).count) (List.range grid.width)) (r => List.sumBy (c => Bool.toNat (rowsCells rows r c == Roll)) (List.range grid.width))
-        (List.range grid.height)
-        (r => List.sumByCong (c => (rowsCells rows r c).count) (c => Bool.toNat (rowsCells rows r c == Roll)) (List.range grid.width) (c => Eq.sym (isRollCount (rowsCells rows r c)))))
-      (Eq.sym (countPositionsSum grid (r c => rowsCells rows r c == Roll))))
+  rewrite rollsCells rows, <- isRollCount _, countPositionsSum grid (r c => rowsCells rows r c == Roll)
 
 -- The program's round is the spec's.
 theorem roundCells (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Same (rowsCells (roundRows rows)) (removeAccessible grid (rowsCells rows)) :=

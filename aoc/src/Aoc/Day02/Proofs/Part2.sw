@@ -398,10 +398,7 @@ theorem weightedIds (w: Nat -> Int) (r: Range): weighted w r = List.sumBy (x => 
           (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (size - 1) 2
           (n n1 n2 => termIds w r k k1 n n1))
     _ = List.sumBy (k => List.sumBy (x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids) (List.rangeFrom size 1)
-      := List.sumByCong (k => List.sumBy (n => List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids) (List.rangeFrom (size - 1) 2))
-        (k => List.sumBy (x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids)
-        (List.rangeFrom size 1)
-        (k => List.sumBySwap (n x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids (List.rangeFrom (size - 1) 2))
+      := rewrite List.sumBySwap [c := Int] _ r.ids (List.rangeFrom (size - 1) 2)
     _ = List.sumBy (x => idTerms w size x) r.ids
       := List.sumBySwap (k x => List.sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom (size - 1) 2)) r.ids (List.rangeFrom size 1)
 
@@ -425,7 +422,7 @@ theorem rangeWeighted (r: Range): weighted copiesWeight r = (List.sum (List.filt
 theorem part2Correct (ranges: List Range): solvePart2 ranges = part2Spec ranges :=
   calc solvePart2 ranges
     _ = Int.toNat (List.sumBy (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges)
-      := Eq.cong Int.toNat (List.sumByCong sumOfIdsWrittenRepeatedly (r => (List.sum (List.filter repeats (Range.ids r))).toInt) ranges (r => Eq.trans (sumOfIdsWrittenRepeatedlyGrid r) (rangeWeighted r)))
+      := rewrite sumOfIdsWrittenRepeatedlyGrid _, rangeWeighted _
     _ = Int.toNat (part2Spec ranges).toInt
       := Eq.cong Int.toNat (Eq.sym (Int.toIntSumBy (r => List.sum (List.filter repeats (Range.ids r))) ranges))
     _ = part2Spec ranges := Int.toNatToInt (part2Spec ranges)

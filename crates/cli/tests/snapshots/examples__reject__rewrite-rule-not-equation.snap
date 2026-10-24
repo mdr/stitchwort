@@ -9,5 +9,7 @@ expression: output
    │           ─────┬─────  
    │                ╰─────── this has type `(m: Nat) -> (n: Nat) -> m + n = n + m`, which isn't an equation
    │ 
-   │ Note: give a function its arguments: `rewrite Nat.addComm a b`
+   │ Note 1: give a function its arguments: `rewrite Nat.addComm a b`
+   │ 
+   │ Note 2: inside a function argument, write `_` for an argument that mentions the function's variable: `rewrite Nat.mulSucc k _`
 ───╯

@@ -13,7 +13,7 @@ expression: output
    │ 
    │ Note 2: the goal already holds by computing, so `rfl` proves it without a `rewrite`
    │ 
-   │ Note 3: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+   │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
    │ 
    │ Note 4: to replace the left side by the right, write the rule without `<-`
 ───╯

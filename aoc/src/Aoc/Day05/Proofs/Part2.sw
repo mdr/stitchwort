@@ -82,7 +82,7 @@ theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
       := Eq.sym (stackedCount (top + 1) (stack db.fresh) (stackStacked db.fresh)
         (id h => omega [coveredTop 0 db.fresh id (Eq.trans (Eq.sym (stackCovers db.fresh id)) h)]))
     _ = List.occurrences (id => covered db.fresh id) (List.range (top + 1))
-      := List.occurrencesCong (id => covered (stack db.fresh) id) (id => covered db.fresh id) (List.range (top + 1)) (stackCovers db.fresh)
+      := rewrite stackCovers db.fresh _
     _ = countFresh db := Eq.sym (List.countOccurrences (id => covered db.fresh id) (List.range (top + 1)))
 
 -- The merged ranges, latest first: `merge` before its `reverse`.

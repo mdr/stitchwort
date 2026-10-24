@@ -13,6 +13,7 @@ mod bind;
 pub mod cache;
 mod calc;
 mod check;
+mod congruence;
 pub mod counterexample;
 mod data_auto;
 mod decreasing;
