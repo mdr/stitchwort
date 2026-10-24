@@ -3,7 +3,7 @@
 //! function values. Pure code only: it refuses `Delay`'s constants. Not the
 //! stage 2 machine, and not part of the crate's interface.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -78,7 +78,16 @@ fn chars(text: &str) -> V {
 pub struct Interp<'p> {
     p: &'p Program,
     constants: RefCell<HashMap<u32, V>>,
+    /// How many `eval`s are nested right now.
+    depth: Cell<usize>,
 }
+
+/// The deepest nesting of `eval`s the walker attempts. It has no tail
+/// calls, so a loop over a big input (day 8's real input is 500000 pairs)
+/// nests as deep as it iterates; past this it gives up with `unsupported`,
+/// as for any program it doesn't run, rather than overflow the thread's
+/// stack. The machine runs those programs (`aoc_answers`).
+const MAX_DEPTH: usize = 100_000;
 
 struct Frame<'a> {
     slots: Vec<Option<V>>,
@@ -90,6 +99,7 @@ impl<'p> Interp<'p> {
         Interp {
             p,
             constants: RefCell::new(HashMap::new()),
+            depth: Cell::new(0),
         }
     }
 
@@ -186,6 +196,17 @@ impl<'p> Interp<'p> {
     }
 
     fn eval(&self, frame: &mut Frame, expr: &Expr) -> R<V> {
+        let depth = self.depth.get();
+        if depth >= MAX_DEPTH {
+            return Err(format!("unsupported: nested over {MAX_DEPTH} deep"));
+        }
+        self.depth.set(depth + 1);
+        let result = self.eval_inner(frame, expr);
+        self.depth.set(depth);
+        result
+    }
+
+    fn eval_inner(&self, frame: &mut Frame, expr: &Expr) -> R<V> {
         Ok(match expr {
             Expr::Local(s) => frame.slots[*s as usize]
                 .clone()
