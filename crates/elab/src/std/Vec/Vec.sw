@@ -60,6 +60,9 @@ def Vec.sum (v: Vec Nat n): Nat := Vec.foldLeft Nat.add 0 v
 -- The sum of `f` over the elements, as `List.sumBy`.
 def Vec.sumBy (f: a -> Nat) (v: Vec a n): Nat := Vec.foldLeft (acc x => acc + f x) 0 v
 
+-- How many elements satisfy `p`, as `List.count`.
+def Vec.count (p: a -> Bool) (v: Vec a n): Nat := Vec.foldLeft (k x => Nat.succIf k (p x)) 0 v
+
 def Vec.toList: Vec a n -> List a
   | VNil => Nil
   | VCons x xs => Cons x (Vec.toList xs)
@@ -299,6 +302,28 @@ theorem Vec.sumByGetOr (f: a -> Nat) (d: a) (v: Vec a n): Vec.sumBy f v = List.s
     _ = List.sumBy (i => f (Vec.getOr d i v)) (List.range (List.length (Vec.toList v))) := List.sumByGetOr f d (Vec.toList v)
     _ = List.sumBy (i => f (Vec.getOr d i v)) (List.range n) := rewrite Vec.lengthToList v
 
+-- Counting lemmas. A count is the list's count, a sum of 1s and 0s, and a
+-- count of the indices 0, 1, …, n - 1 whose element satisfies `p`; it is at
+-- most n.
+
+theorem Vec.countToList (p: a -> Bool) (v: Vec a n): Vec.count p v = List.count p (Vec.toList v) :=
+  Vec.foldLeftToList (k x => Nat.succIf k (p x)) 0 v
+
+theorem Vec.countSumBy (p: a -> Bool) (v: Vec a n): Vec.count p v = Vec.sumBy (x => Bool.toNat (p x)) v :=
+  rewrite Vec.countToList p v, Vec.sumByToList (x => Bool.toNat (p x)) v in List.countSumBy p (Vec.toList v)
+
+theorem Vec.countGetOr (p: a -> Bool) (d: a) (v: Vec a n): Vec.count p v = List.count (i => p (Vec.getOr d i v)) (List.range n) :=
+  rewrite Vec.countSumBy p v, Vec.sumByGetOr (x => Bool.toNat (p x)) d v in
+    Eq.sym (List.countSumBy (i => p (Vec.getOr d i v)) (List.range n))
+
+theorem Vec.countLe (p: a -> Bool): (v: Vec a n) -> Vec.count p v <= n
+  | VNil => rfl
+  | VCons x xs =>
+    rewrite Vec.countToList p (VCons x xs), List.countCons p x (Vec.toList xs), <- Vec.countToList p xs in
+      match p x with
+        | True => omega [Vec.countLe p xs]
+        | False => omega [Vec.countLe p xs]
+
 -- Vectors that agree at every index are equal (one default for both).
 theorem Vec.extGetOr (d: a) (u: Vec a n) (v: Vec a n) (h: (i: Nat) -> Vec.getOr d i u = Vec.getOr d i v): u = v :=
   Vec.toListInjective u v
@@ -324,6 +349,9 @@ test "traverseOption" := Option.map Vec.toList (Vec.traverseOption (x => if x < 
 test "traverseOption fails" := Option.map Vec.toList (Vec.traverseOption (x => if x < 3 then Some x else None) Vec.example) == None
 test "any" := Vec.any (x => x == 2) Vec.example && !(Vec.any (x => x == 4) Vec.example)
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1
+test "count" := Vec.count (x => x > 1) Vec.example == 2 && Vec.count (x => x > 3) Vec.example == 0
+test "count none" := Vec.count (x => x > 1) (VNil: Vec Nat 0) == 0
+test "count all" := Vec.count (x => x > 0) Vec.example == 3
 test "getOr" := Vec.getOr 0 1 Vec.example == 2 && Vec.getOr 0 3 Vec.example == 0
 test "getOr of map, zipWith and replicate" :=
   Vec.getOr 0 1 (Vec.map (x => x * 10) Vec.example) == 20

@@ -984,6 +984,24 @@ theorem List.distinctAppend: (xs: List a) -> (ys: List a) -> List.Distinct xs ->
         | Inr inYs => hj inYs)
       (List.distinctAppend xs ys dx dy dj)
 
+-- The same head in front of two lists gives the same list only if the tails
+-- were the same.
+theorem List.consInjective (x: a) (ys: List a) (zs: List a) (p: Cons x ys = Cons x zs): ys = zs := Eq.cong (List.drop 1) p
+
+-- A list starting with x isn't among lists that all start with y, a
+-- different element.
+theorem List.notMemMapCons (x: a) (y: a) (ne: Not (x = y)) (xs: List a): (ys: List (List a)) -> Not (List.Mem (Cons x xs) (List.map (Cons y) ys))
+  | Nil, m => m
+  | Cons z zs, Inl p => ne (Eq.sym (Eq.cong (List.headOr x) p))
+  | Cons z zs, Inr q => List.notMemMapCons x y ne xs zs q
+
+-- Lists that all start with x and lists that all start with a different y
+-- have none in common.
+theorem List.disjointMapCons (x: a) (y: a) (ne: Not (x = y)) (ys: List (List a)): (xs: List (List a)) ->
+    List.Disjoint (List.map (Cons x) xs) (List.map (Cons y) ys)
+  | Nil => Trivial
+  | Cons z zs => Both (List.notMemMapCons x y ne z ys) (List.disjointMapCons x y ne ys zs)
+
 -- A run of numbers has no repeats.
 theorem List.distinctRangeFrom: (c: Nat) -> (s: Nat) -> List.Distinct (List.rangeFrom c s)
   | Zero, s => Trivial
@@ -1024,6 +1042,17 @@ theorem List.distinctExample: List.Distinct [1, 2] :=
 
 theorem List.distinctMapExample: List.Distinct (List.map Succ [1, 2]) :=
   List.distinctMap Succ (x y p => Nat.succInjective x y p) [1, 2] List.distinctExample
+
+theorem List.consInjectiveExample (ys: List Nat) (zs: List Nat) (p: Cons 1 ys = Cons 1 zs): ys = zs := List.consInjective 1 ys zs p
+
+theorem List.disjointMapConsExample: List.Disjoint (List.map (Cons 0) [[1], [2]]) (List.map (Cons 1) [[1], Nil]) :=
+  List.disjointMapCons 0 1 (p => Nat.succNotZero 0 (Eq.sym p)) [[1], Nil] [[1], [2]]
+
+theorem List.distinctMapConsExample: List.Distinct (List.append (List.map (Cons 0) [Nil]) (List.map (Cons 1) [Nil])) :=
+  List.distinctAppend (List.map (Cons 0) [Nil]) (List.map (Cons 1) [Nil])
+    (List.distinctMap (Cons 0) (List.consInjective 0) [Nil] (Both (m => m) Trivial))
+    (List.distinctMap (Cons 1) (List.consInjective 1) [Nil] (Both (m => m) Trivial))
+    (List.disjointMapCons 0 1 (p => Nat.succNotZero 0 (Eq.sym p)) [Nil] [Nil])
 
 theorem List.memBetweenIntroExample: List.Mem 3 (List.between 1 5) := List.memBetweenIntro 3 1 5 rfl rfl
 
