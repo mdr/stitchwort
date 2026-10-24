@@ -6734,16 +6734,18 @@
     {
       "id": 418,
       "title": "Daily gate: run one debug test binary that loads the prelude (e.g. -p stitchwort-driver --test builtins), so debug-only overflow/assert failures are caught (SW-416 went unnoticed a day)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "tooling"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "4c6ae0e8"
+      ]
     },
     {
       "id": 419,
