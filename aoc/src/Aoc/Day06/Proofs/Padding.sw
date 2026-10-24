@@ -33,12 +33,12 @@ theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c:
     parseWorksheet other = parseWorksheet lines :=
   rewrite blocksOver other (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxRight (gridWidth lines) (gridWidth other)),
     blocksOver lines (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxLeft (gridWidth lines) (gridWidth other)),
-    List.mapCong _ _ (List.range (Nat.max (gridWidth lines) (gridWidth other))) same
+    same _
 
 -- So spaces on the end of the lines, `spaces line` of them on each, change no
 -- problem: a short line reads as ending in spaces.
 theorem parseWorksheetPadded (lines: List Text) (spaces: Text -> Nat):
     parseWorksheet (lines.map (line => line ++ Text.fromList (List.replicate (spaces line) ' '))) = parseWorksheet lines :=
   parseWorksheetSameCells lines _ (c =>
-    Eq.trans (List.mapMap (line => charAt line c) (line => line ++ Text.fromList (List.replicate (spaces line) ' ')) lines)
-      (List.mapCong _ _ lines (line => List.getOrAppendReplicate ' ' (spaces line) c line.toList)))
+    rewrite List.mapMap (line => charAt line c) (line => line ++ Text.fromList (List.replicate (spaces line) ' ')) lines,
+      List.getOrAppendReplicate ' ' (spaces _) c _)

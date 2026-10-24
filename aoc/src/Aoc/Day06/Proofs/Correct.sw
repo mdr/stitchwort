@@ -24,8 +24,7 @@ theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo 
 -- The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre (lines: List Text):
     List.transposeFill ' ' (List.map Text.toList lines) = (List.range (gridWidth lines)).map (column lines) :=
-  Eq.trans (List.transposeFillColumns ' ' (List.map Text.toList lines))
-    (List.mapCong _ _ (List.range (gridWidth lines)) (c => List.mapMap (List.getOr ' ' c) Text.toList lines))
+  rewrite List.transposeFillColumns ' ' (List.map Text.toList lines), List.mapMap (List.getOr ' ' _) Text.toList lines
 
 -- Past a bound on every line's length, every column is blank.
 theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List.getOr Nil r (List.map Text.toList lines)) <= w) -> blank lines w = True
@@ -41,8 +40,7 @@ theorem blockRows (lines: List Text) (c: Nat) (cs: List Nat):
 
 theorem blockColumns (lines: List Text) (cs: List Nat):
     (parseProblem (cs.map (column lines))).columnNumbers = cs.map (c => readNumber (column lines.init c)) :=
-  Eq.trans (List.mapMap (column => readNumber column.init) (column lines) cs)
-    (List.mapCong _ _ cs (c => Eq.cong readNumber (List.initMap (line => charAt line c) lines)))
+  rewrite List.mapMap (column => readNumber column.init) (column lines) cs, List.initMap (line => charAt line _) lines
 
 -- The operator under column c.
 theorem columnOperator (lines: List Text) (c: Nat):
@@ -53,7 +51,7 @@ theorem blockOperator (lines: List Text) (cs: List Nat):
     (parseProblem (cs.map (column lines))).operator = (cs.filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c)))).head :=
   rewrite List.findMapIsHeadFilterMap (column => column.last.flatMap Operator.parse) (cs.map (column lines)),
     List.filterMapMap (column => column.last.flatMap Operator.parse) (column lines) cs,
-    List.filterMapCong _ _ cs (columnOperator lines)
+    columnOperator lines _
 
 -- Adding and multiplying don't mind the order.
 theorem evaluateReverse: (op: Option Operator) -> (xs: List Nat) -> evaluate op (List.reverse xs) = evaluate op xs
@@ -125,7 +123,7 @@ theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = par
   calc solvePart1 (parseWorksheet lines)
     _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem (blocks lines)
     _ = _ := blocksTotal lines blockAnswer1
-    _ = part1Spec lines := List.sumByCong _ _ (List.range (gridWidth lines)) (lo => List.sumByCong _ _ (List.range (gridWidth lines + 1)) (hi => term1 lines lo hi))
+    _ = part1Spec lines := rewrite term1 lines _ _
 
 -- Part 2 is right: the same, with the numbers read down the columns, right
 -- to left.
@@ -133,4 +131,4 @@ theorem part2Correct (lines: List Text): solvePart2 (parseWorksheet lines) = par
   calc solvePart2 (parseWorksheet lines)
     _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.columnNumbers) parseProblem (blocks lines)
     _ = _ := blocksTotal lines blockAnswer2
-    _ = part2Spec lines := List.sumByCong _ _ (List.range (gridWidth lines)) (lo => List.sumByCong _ _ (List.range (gridWidth lines + 1)) (hi => term2 lines lo hi))
+    _ = part2Spec lines := rewrite term2 lines _ _

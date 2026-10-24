@@ -29,12 +29,11 @@ theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (k => repea
     _ = List.sumBy (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (List.rangeFrom size 1)
       := rewrite (omega: size + 1 - 1 = size)
     _ = List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom size 1)
-      := List.sumRangeCongr (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 }) (k => repeatedSpec r k 2) size 1
-        (k k1 k2 => repeatedCorrect r k 2)
+      := rewrite repeatedCorrect r _ 2
 
 -- (b) Part 1 is the brute-force sum over blocks.
 theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
-  List.sumByCong sumOfIdsWrittenTwice (r => List.rangeFrom (Nat.digits r.to).length 1 |> .sumBy (k => repeatedSpec r k 2)) ranges rangeDoubled
+  rewrite rangeDoubled _
 
 -- Why part 1 is right (c): `part1Correct` says the printed part 1 is
 -- `part1Spec`, the puzzle's own method: walk every id of every range, keep
@@ -66,8 +65,7 @@ theorem rangeBlocksIds (r: Range):
 
 -- The block walk and the id walk agree on every input.
 theorem blocksAreIds (ranges: List Range): part1Blocks ranges = part1Spec ranges :=
-  List.sumByCong (r => List.sumBy (k => repeatedSpec r k 2) (List.rangeFrom (List.length (Nat.digits r.to)) 1))
-    (r => List.sum (List.filter doubled r.ids)) ranges rangeBlocksIds
+  rewrite rangeBlocksIds _
 
 -- (c) Part 1 is the sum of the ids, in all the ranges, whose digits are some
 -- block written twice.

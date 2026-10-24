@@ -91,10 +91,7 @@ theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
     _ = List.sumBy (k => List.sumBy f (List.flatMap (List.between 2 size) (n => keptIfFits size k n))) (List.between 1 size)
       := List.sumByFlatMap f (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n)) (List.between 1 size)
     _ = List.sumBy (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
-      := List.sumByCong (k => List.sumBy f (List.flatMap (List.between 2 size) (n => keptIfFits size k n)))
-        (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
-        (k => Eq.trans (List.sumByFlatMap f (n => keptIfFits size k n) (List.between 2 size))
-          (List.sumByCong (n => List.sumBy f (keptIfFits size k n)) (cell k) (List.between 2 size) (n => keptSum f size k n)))
+      := rewrite List.sumByFlatMap f _ (List.between 2 size), keptSum f size _ _
     _ = List.sumBy (k => List.sumBy (cell k) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
       := rewrite betweenOne size, betweenTwo size
 
