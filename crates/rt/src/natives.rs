@@ -75,7 +75,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "755f6819d139e6e964ec2d0543dd619dee5b3b5bb5aca81cc687d7a65e6de894",
+        "c7fb4f69c407e2f9d1871c072e520121830c61cee8f6a799cee60b20962f2504",
     ),
     (
         Builtin::TextCompare,
