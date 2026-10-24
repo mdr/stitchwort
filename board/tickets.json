@@ -3679,13 +3679,13 @@
     {
       "id": 238,
       "title": "Native Text.take / drop / contains (trusted natives) for the fast runtime and JS",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [],
       "body": "Native Text.take, Text.drop and Text.contains (and possibly startsWith/stripPrefix/splitOn), bound by content hash like the other Text natives, in the fast runtime, the JS backend and the kernel if appropriate. Today they are library code over character lists, so every call builds a list of characters: the day 2 brute force spends most of its remaining 11.5 s there (SW-233 profile). Adds to the trusted natives (listed and tested in DESIGN.md), so each needs the usual native-vs-definition tests.\n\nDone when: the natives exist with differential tests against their definitions; day 2 brute force re-measured.\n",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
