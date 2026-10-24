@@ -1,5 +1,5 @@
 {
-  "next": 412,
+  "next": 415,
   "tickets": [
     {
       "id": 1,
@@ -195,17 +195,19 @@
     },
     {
       "id": 13,
-      "title": "AoC day 9 (movie theatre rectangles): start after the current lanes (D1132 a)",
-      "status": "doing",
+      "title": "AoC day 9 (movie theatre rectangles): both parts proved for all inputs (4756718172, 1665679194)",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "aoc"
       ],
       "body": "Open decision (D15, Matt's call; keep open). Days 6 and 7 are solved and proved; day 8 is postponed (SW-198, D225). Day 9 is the remaining AoC 2025 day (aoc/inputs/day09.txt exists, there is no aoc/src/Aoc/Day09).\n\nFirst step: decide whether to start it now and which part. Facts (docs/aoc-2025.md:584-600): part 1 (largest rectangle from two red tiles, all ~122,000 pairs, ~12 million steps) is covered by today's library. Part 2 (largest rectangle inside the loop) needs coordinate compression, a flood fill, a 2D prefix-sum table and a sorted dedup with index lookup; random access in a 2D table is O(n) on lists of lists, so an Array (SW-112, backlog) would make it clean, ~120 million steps (~3 s) on lists. The user's Scala solution has no part 2 (`???`), and docs/aoc-2025.md:785 asks whether day 9 part 2 is out of scope.\nOptions: (a) part 1 only, with its proof; (b) part 1 now, part 2 after SW-112; (c) postpone like day 8.\n\nHistory: D15 (days 6-9 deferred until Matt was happy with days 1-5 learnings); 19 Oct Matt started day 6; 21 Oct review: days 6-7 done, 8 split to SW-198.\n\nDone when: Matt has chosen (a), (b) or (c), and a ticket exists for the chosen work (or this one is closed as postponed).\n\nD241 (Matt, 21 Oct 2026): stays in the backlog; no day 9 for now.\n",
       "created": "2026-10-19",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "1237e124"
+      ]
     },
     {
       "id": 14,
@@ -6607,6 +6609,48 @@
       "where": "",
       "labels": [
         "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 412,
+      "title": "AoC input tests via include are very slow in the checker (day 9: 61 s; day 8 also dropped its test) — make include'd-input tests affordable",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 413,
+      "title": "List.between lo hi is built from hi + 1 - lo, forcing max + 1 into programs and arithmetic through proofs (day 9) — restate on Succ hi or add lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 414,
+      "title": "rewrite runs out of budget comparing two List.map terms with lambdas inside (day 9 had to use calc)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
       ],
       "body": "",
       "created": "2026-10-24",
