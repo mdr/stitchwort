@@ -31,8 +31,9 @@
 //! field doesn't compile until it says how it rewinds; the differential test
 //! (`crates/driver/tests/rewind.rs`) catches a field that rewinds wrongly.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::GlobalsMark;
 use stitchwort_core::{DataId, DefId};
 use stitchwort_syntax::{Diagnostic, FileId, Span};
@@ -216,6 +217,7 @@ impl Elaborator {
             // Settings, and a log that only grows.
             counterexample_runner: _,
             no_counterexamples: _,
+            untimed_counterexamples: _,
             counterexample_log: _,
         } = self;
         let defs = mark.globals.defs();

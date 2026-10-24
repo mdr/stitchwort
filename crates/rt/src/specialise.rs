@@ -32,10 +32,10 @@
 //! or dropping one nothing uses, doesn't change what a program does.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use stitchwort_core::check::telescope;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::force;

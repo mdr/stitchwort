@@ -28,7 +28,7 @@
 //!   known to be a constructor (from an enclosing match) that the branch
 //!   drops ([`Instr::DropReuse`]).
 
-use std::collections::HashMap;
+use stitchwort_core::collections::HashMap;
 
 use num_bigint::BigUint;
 
@@ -509,7 +509,7 @@ impl<'a> Compiler<'a> {
             bound,
             known: Vec::new(),
             tokens: Vec::new(),
-            cache: HashMap::new(),
+            cache: HashMap::default(),
         };
         fill(expr, &mut cx.cache);
         let dst = cx.temp();

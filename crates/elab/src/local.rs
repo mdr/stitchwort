@@ -350,7 +350,7 @@ impl Elaborator {
             return Err(d);
         }
         let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
-        let index: std::collections::HashMap<usize, usize> = drafts
+        let index: stitchwort_core::collections::HashMap<usize, usize> = drafts
             .iter()
             .enumerate()
             .map(|(i, d)| (d.meta, i))

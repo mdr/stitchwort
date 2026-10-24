@@ -316,7 +316,7 @@ pub struct Globals {
     /// them). Zonking puts this term in, instead of reading the solution
     /// value back, which would write out what the arguments of the call
     /// unfold to. Cleared with `metas`.
-    pub lifted_calls: RefCell<std::collections::HashMap<usize, (usize, Rc<Term>)>>,
+    pub lifted_calls: RefCell<crate::collections::HashMap<usize, (usize, Rc<Term>)>>,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
     /// not the lifted call with its captures. Cleared with `metas`. Only
@@ -324,7 +324,7 @@ pub struct Globals {
     pub print_labels: RefCell<Vec<PrintLabel>>,
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
-    pub hashes: RefCell<std::collections::HashMap<HashKey, crate::hash::ContentHash>>,
+    pub hashes: RefCell<crate::collections::HashMap<HashKey, crate::hash::ContentHash>>,
     /// Resource limits for the operation in progress.
     pub budget: crate::budget::Budget,
     /// Whether an error message has shown a term that uses a failed
@@ -336,7 +336,7 @@ pub struct Globals {
     /// docs/proposals/lsp-goal-holes.md) rather than an error. To the
     /// kernel they're failed like any other, and it never reads this: only
     /// how they're reported differs (*unfinished*, not "has errors").
-    pub unfinished: RefCell<std::collections::HashSet<HashKey>>,
+    pub unfinished: RefCell<crate::collections::HashSet<HashKey>>,
     /// Whether running erases proofs and types, and what each definition
     /// erases (`erase.rs`). Never in effect while checking.
     pub erasure: crate::erase::Erasure,

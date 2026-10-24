@@ -254,7 +254,9 @@ impl Elaborator {
             log.out_of_scope = Some("building the checker declared something".to_string());
             return (log, None);
         }
-        let note = self.run_search(&checker, budget, started, &mut log);
+        // The time limit counts from here, unless searches are untimed.
+        let timed = started.filter(|_| !self.untimed_counterexamples);
+        let note = self.run_search(&checker, budget, timed, &mut log);
         log.micros = clock::elapsed_micros(started);
         (log, note)
     }

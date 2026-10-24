@@ -19,10 +19,10 @@
 //! user's.
 
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::collections::HashSet;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};

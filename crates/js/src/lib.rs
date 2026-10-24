@@ -6,11 +6,11 @@
 //! such as `Option Text`), and their proof arguments are checked at runtime.
 
 use std::cell::{Cell, OnceCell, RefCell};
-use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::rc::Rc;
 
 use stitchwort_core::check::{is_type_former, telescope};
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::FieldDefault;
 use stitchwort_core::js_repr::{self, JsRepr};
 use stitchwort_core::native;
@@ -268,12 +268,12 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
                     && !n.starts_with("arg")
             })
             .map_or_else(|| format!("arg{i}"), str::to_string);
-        let boundary = boundary(g, ty, 0, &mut HashSet::new())
+        let boundary = boundary(g, ty, 0, &mut HashSet::default())
             .map_err(|why| refuse(format!("parameter `{js_name}`: {why}")))?;
         params.push((js_name, boundary));
         param_positions.push(i);
     }
-    let result = boundary(g, &tel.result, 0, &mut HashSet::new())
+    let result = boundary(g, &tel.result, 0, &mut HashSet::default())
         .map_err(|why| refuse(format!("its result: {why}")))?;
     Ok(ExportSig {
         id,
@@ -613,7 +613,7 @@ fn generic_field_boundaries(g: &Globals, d: DataId) -> Vec<Vec<(String, Boundary
             fields
                 .into_iter()
                 .map(|(name, ty)| {
-                    let b = boundary(g, &ty, params, &mut HashSet::new())
+                    let b = boundary(g, &ty, params, &mut HashSet::default())
                         .expect("checked by exportable");
                     (name, b)
                 })
@@ -675,7 +675,7 @@ impl Default for Options {
 /// can't both be exported. The same type reached twice is one type. The
 /// data types at the boundary, in the order they're reached.
 fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagnostic> {
-    let mut short_exports: HashMap<&str, DefId> = HashMap::new();
+    let mut short_exports: HashMap<&str, DefId> = HashMap::default();
     for sig in exports {
         if let Some(other) = short_exports.insert(&sig.name, sig.id) {
             return Err(Diagnostic::error(
@@ -727,7 +727,7 @@ fn check_names(g: &Globals, exports: &[ExportSig]) -> Result<Vec<DataId>, Diagno
             return Err(diagnostic.with_note(clash.note(&repr)));
         }
     }
-    let mut short_types: HashMap<String, DataId> = HashMap::new();
+    let mut short_types: HashMap<String, DataId> = HashMap::default();
     for &d in &boundary_datas {
         if let Some(other) = short_types.insert(type_name(&g.data(d).name), d) {
             return Err(Diagnostic::error(
@@ -5177,7 +5177,7 @@ pub fn js_string_literal(text: &str) -> String {
 /// there: the back edge is ignored.
 fn dependency_order(codegen: &Gen, ids: &[DefId]) -> Vec<DefId> {
     let wanted: HashSet<DefId> = ids.iter().copied().collect();
-    let mut state: HashMap<DefId, bool> = HashMap::new(); // false: open, true: done
+    let mut state: HashMap<DefId, bool> = HashMap::default(); // false: open, true: done
     let mut out = Vec::with_capacity(ids.len());
     for &root in ids {
         if state.contains_key(&root) {
@@ -5222,13 +5222,13 @@ fn refs(codegen: &Gen, id: DefId, wanted: &HashSet<DefId>) -> Vec<DefId> {
             _ => None,
         })
         .collect();
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::default();
     found.retain(|d| seen.insert(*d));
     found
 }
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use stitchwort_core::collections::HashMap;
 
     use super::{RUNTIME, def_name, encode, info_name, is_js_identifier, mentions, wrapper_name};
 
@@ -5252,7 +5252,7 @@ mod tests {
 
     #[test]
     fn definition_names_are_distinct_valid_identifiers() {
-        let mut seen: HashMap<String, String> = HashMap::new();
+        let mut seen: HashMap<String, String> = HashMap::default();
         for name in names() {
             let js = def_name(&name);
             assert!(is_js_identifier(&js), "{name:?} is {js:?}");

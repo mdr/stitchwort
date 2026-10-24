@@ -66,11 +66,12 @@ mod unify;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use num_bigint::BigUint;
 use stitchwort_core::chars;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
@@ -251,9 +252,9 @@ pub enum ProbeKind {
 /// expressions to watch for, then the closed terms found for them.
 #[derive(Default)]
 pub(crate) struct SidesCapture {
-    pub(crate) wanted: std::collections::HashSet<Span>,
-    pub(crate) sides: std::collections::HashMap<Span, (&'static str, Term, Term)>,
-    pub(crate) truths: std::collections::HashMap<Span, Term>,
+    pub(crate) wanted: stitchwort_core::collections::HashSet<Span>,
+    pub(crate) sides: stitchwort_core::collections::HashMap<Span, (&'static str, Term, Term)>,
+    pub(crate) truths: stitchwort_core::collections::HashMap<Span, Term>,
 }
 
 #[derive(Default)]
@@ -308,7 +309,7 @@ pub struct Elaborator {
     /// The spans of the `_` a char pattern puts for its proof field
     /// (`'a'` is `MkChar 97 _`), so an arm can make the matched character
     /// the literal itself (`canonical`).
-    char_proofs: RefCell<std::collections::HashSet<Span>>,
+    char_proofs: RefCell<stitchwort_core::collections::HashSet<Span>>,
     /// While the prelude is loaded, its built-in types and natively
     /// implemented definitions are registered with the kernel by name.
     pub loading_prelude: bool,
@@ -368,11 +369,13 @@ pub struct Elaborator {
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every
     /// level (`dot::prefix_form`).
-    pub(crate) dot_heads:
-        RefCell<std::collections::HashMap<dot::CallKey, (dot::TyHead, stitchwort_core::DefId)>>,
+    pub(crate) dot_heads: RefCell<
+        stitchwort_core::collections::HashMap<dot::CallKey, (dot::TyHead, stitchwort_core::DefId)>,
+    >,
     /// Dot calls whose prefix form failed, with the metavariable state it
     /// failed in: not tried again until that changes (`dot::infer_call`).
-    pub(crate) dot_failed: RefCell<std::collections::HashSet<(dot::CallKey, usize, usize)>>,
+    pub(crate) dot_failed:
+        RefCell<stitchwort_core::collections::HashSet<(dot::CallKey, usize, usize)>>,
     /// The address of the condition whose `Bool` reading `logic::condition`
     /// is trying, or 0: a proposition there isn't decided into a `Bool` by
     /// `check::decide_to_bool`, as the condition's proposition reading does
@@ -438,7 +441,7 @@ pub struct Elaborator {
     local_helpers: Vec<(String, DefId, Span)>,
     /// Every local definition's key, so dot notation never finds one
     /// (docs/proposals/syntax-conveniences.md §3.6).
-    pub(crate) helper_keys: std::collections::HashSet<String>,
+    pub(crate) helper_keys: stitchwort_core::collections::HashSet<String>,
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
@@ -447,7 +450,7 @@ pub struct Elaborator {
     /// The metavariables standing for a `_` written where a proof goes:
     /// `E-UNSOLVED` suggests `?` for them (D641). Cleared with the
     /// metavariables.
-    pub(crate) proof_holes: RefCell<std::collections::HashSet<usize>>,
+    pub(crate) proof_holes: RefCell<stitchwort_core::collections::HashSet<usize>>,
     /// While a `rewrite` rule is elaborated (`rewrite.rs`), each `_` it
     /// makes: the metavariable, the number of variables in scope, and the
     /// type expected there, so `rewrite` can prove the premises left open.
@@ -514,7 +517,7 @@ pub struct Elaborator {
     /// The names such a replay declared (as failures) before it failed:
     /// the namespace's first pass claims them again rather than finding
     /// them taken (`cache`, `new_module_name`).
-    replayed_names: std::collections::HashSet<String>,
+    replayed_names: stitchwort_core::collections::HashSet<String>,
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     fail_replays_late: bool,
@@ -534,6 +537,10 @@ pub struct Elaborator {
     pub counterexample_runner: Option<counterexample::FastRunner>,
     /// For tests: no counterexample search when a theorem fails.
     pub no_counterexamples: bool,
+    /// Searches stop at their count of inputs, never at their wall-time
+    /// limit: for the benchmarks, whose counts must be the same on every
+    /// run (a timed search tries as many inputs as the machine manages).
+    pub untimed_counterexamples: bool,
     /// What each counterexample search did, in this session.
     pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
 }
@@ -2434,7 +2441,7 @@ impl Elaborator {
             .map(|(_, ty, _)| ty.clone())
             .chain([tel.result.clone()])
             .collect();
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = stitchwort_core::collections::HashSet::default();
         for ty in &crossing {
             self.record_validators(ty, &name, span, &mut seen)?;
         }

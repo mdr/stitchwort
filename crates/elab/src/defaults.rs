@@ -29,9 +29,10 @@
 //! literal that uses one refers to its helper, so changing a default changes
 //! exactly the hashes of the literals that leave that field out.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashSet;
 use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
@@ -299,7 +300,7 @@ pub(crate) fn construct(
     let np = params.len();
     let given = |i: usize| written.iter().find(|(n, _)| *n.text == *ctor.fields[i].0);
     // The written fields a default left out needs.
-    let mut needed: HashSet<usize> = HashSet::new();
+    let mut needed: HashSet<usize> = HashSet::default();
     for i in 0..ctor.fields.len() {
         if given(i).is_none()
             && let Some(default) = cx.e.field_default(d, c, i)

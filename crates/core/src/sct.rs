@@ -33,7 +33,7 @@
 //! [`Graph::new`] keeps the strongest when given more; dropping an arc can
 //! only turn an acceptance into a rejection.
 
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use crate::budget::{Budget, ResourceError};
@@ -234,7 +234,7 @@ impl Group {
     /// out of either is an error: there's no answer, so nothing is
     /// accepted.
     pub fn check(&self, budget: &Budget, max_graphs: usize) -> Result<Outcome, ResourceError> {
-        let mut seen: HashMap<Graph, usize> = HashMap::new();
+        let mut seen: HashMap<Graph, usize> = HashMap::default();
         let mut closure: Vec<(Graph, Parent)> = Vec::new();
         // Adds a graph unless it's already there; returns the outcome if
         // it's a loop that fails the check.

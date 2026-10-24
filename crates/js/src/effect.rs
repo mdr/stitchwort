@@ -22,7 +22,7 @@
 //! So effectful code nests no JS call per `bind` or per operation, and a run
 //! costs a constant per `bind` and per operation and handler crossed.
 
-use std::collections::HashMap;
+use stitchwort_core::collections::HashMap;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, DefId, Globals, Term};
@@ -92,7 +92,7 @@ impl Effect {
     /// generated `foldComp` couldn't take apart a `Bind` node.
     pub(crate) fn new(g: &Globals, counters: bool) -> Option<Effect> {
         let r = &g.registry;
-        let mut natives = HashMap::new();
+        let mut natives = HashMap::default();
         for (b, native) in [
             (Builtin::Bind, EffectNative::Bind),
             (Builtin::FoldComp, EffectNative::FoldComp),

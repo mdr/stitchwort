@@ -13,9 +13,9 @@
 //! such): a value whose proof field doesn't hold is never made (§5.4).
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{conv, eval, force, quote};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Sort, Term, Value};
@@ -181,8 +181,8 @@ impl<'g> Inputs<'g> {
         Inputs {
             g,
             plans: Vec::new(),
-            keys: HashMap::new(),
-            tiers: RefCell::new(HashMap::new()),
+            keys: HashMap::default(),
+            tiers: RefCell::new(HashMap::default()),
             tier_cap,
         }
     }

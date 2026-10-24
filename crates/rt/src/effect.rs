@@ -32,9 +32,9 @@
 //! crossed, and the frames pending grow only with the program's own
 //! non-tail calls.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, DefId, Globals, Term};
 
@@ -108,7 +108,7 @@ pub struct EffectNatives {
 impl EffectNatives {
     pub fn new(g: &Globals) -> Option<EffectNatives> {
         let r = &g.registry;
-        let mut natives = HashMap::new();
+        let mut natives = HashMap::default();
         for (b, op) in [
             (Builtin::Bind, EffectOp::Bind),
             (Builtin::FoldComp, EffectOp::Fold),

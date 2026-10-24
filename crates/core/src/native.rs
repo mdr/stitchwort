@@ -26,7 +26,7 @@
 //! take off the `Succ`s two such numbers share in one step, as their
 //! definitions do one at a time.
 
-use std::collections::HashMap;
+use crate::collections::HashMap;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
