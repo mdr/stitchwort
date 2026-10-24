@@ -1923,6 +1923,25 @@ checked before the change, so they test the new path).
 `c () + 1`, which still runs `c ()`. `accept/empty-row-run.sw`'s
 `fIsThree` now states `f = Done 3` (its hash moved; nothing else's did).
 
+**One apartness classification.** `unify::rigid_head` says what a value is
+at its outermost layer when no solution of an unknown can change it (a data
+type, a function type, a sort, an equation, a variable applied or not, a
+quotient type, a definition that never unfolds). `row_rule` decides `Empty`
+when the other side has one (after `Comp` and `Delay`), and the instance
+search's `rigidly_distinct` calls two values distinct when their rigid heads
+differ. Where the two copies had differed, the shared one takes the stricter
+reading on each point:
+
+- a stuck `Quot.lift` (a type-valued one stuck on an unknown may yet compute
+  to a `Comp`) is now blocked in `row_rule`, not apart; `Quot.mk`,
+  `Quot.ind` and `Quot.sound` aren't types, so the rule says nothing;
+- `rigidly_distinct` now also sees an applied variable, a quotient type and
+  a definition that never unfolds (`Delay`) as rigid, where before it fell
+  back to asking whether an unknown was left (blocked if so).
+
+No test, std or AoC hash moved. `rows.rs` has a unit test for the quotient
+cases.
+
 ## Appendix A. Probe files
 
 All are in a scratch directory, checked with `stitchwort check FILE`.

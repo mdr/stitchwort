@@ -384,6 +384,31 @@ mod tests {
         });
     }
 
+    /// The classification `row_rule` shares with the instance search
+    /// (`unify::rigid_head`): a quotient type is apart from `Comp`, but a
+    /// `Quot.lift` stuck on an unknown may still compute to one.
+    #[test]
+    fn a_quotient_type_is_apart_and_a_stuck_lift_is_put_aside() {
+        use stitchwort_core::QuotForm;
+        with_core(|e| {
+            let g = &e.globals;
+            let quotient = applied(Head::Quot(QuotForm::Type), vec![nat(g), Value::var(0)]);
+            let (meta, left) = comp_in(g, quotient.clone());
+            assert!(unify(g, 1, &left, &quotient).unwrap());
+            assert!(solved_with(g, meta, Builtin::RowEmpty));
+
+            let unknown = applied(Head::Meta(g.new_meta(span())), Vec::new());
+            let mut args = vec![Value::var(0); QuotForm::Lift.arity() - 1];
+            args.push(unknown);
+            let stuck = applied(Head::Quot(QuotForm::Lift), args);
+            assert_eq!(crate::unify::rigid_head(g, &stuck), None);
+            let (meta, left) = comp_in(g, nat(g));
+            let put_aside = unify_postponing(g, 1, &left, &stuck).unwrap();
+            assert_eq!(put_aside.map(|p| p.len()), Some(1));
+            assert!(g.meta_solution(meta).is_none());
+        });
+    }
+
     #[test]
     fn a_type_stuck_on_an_unknown_is_put_aside() {
         with_core(|e| {

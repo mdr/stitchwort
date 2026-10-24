@@ -36,6 +36,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::auto::Obligation;
 use crate::check::{Ctx, Result, implicit_arg};
+use crate::unify::rigid_head;
 use crate::{Elaborator, Global, error};
 
 /// How many instance steps one obligation, with the prerequisites it
@@ -1271,7 +1272,8 @@ fn tri(cx: &mut Ctx, a: &Value, b: &Value) -> Result<Tri> {
 
 /// Whether `a` and `b` differ in a way no solution of the unknowns could
 /// change: different type or constructor names, numbers, sorts or rigid
-/// variables, here or in arguments of the same name.
+/// variables, or different rigid heads (`unify::rigid_head`, which the row
+/// rule uses too), here or in arguments of the same name.
 fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
     let g = cx.g();
     let mut pending = vec![(a.clone(), b.clone())];
@@ -1299,16 +1301,10 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
             {
                 return Ok(true);
             }
+            // Different rigid heads, as the row rule classifies them
+            // (`unify::rigid_head`); two data types were compared above.
             _ => {
-                let kind = |v: &Value| match v {
-                    Value::Data(..) => Some(0),
-                    Value::Pi(..) => Some(1),
-                    Value::Sort(_) => Some(2),
-                    Value::Eq(..) => Some(3),
-                    Value::Neutral(Head::Var(_), s) if s.is_empty() => Some(4),
-                    _ => None,
-                };
-                if let (Some(k), Some(l)) = (kind(&a), kind(&b))
+                if let (Some(k), Some(l)) = (rigid_head(g, &a), rigid_head(g, &b))
                     && k != l
                 {
                     return Ok(true);
