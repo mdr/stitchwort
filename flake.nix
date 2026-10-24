@@ -112,6 +112,27 @@
           );
           fmt = craneLib.cargoFmt { inherit src; };
 
+          # One test binary that loads the prelude, built and run in the debug
+          # profile (the other checks are release), so debug-only failures such
+          # as arithmetic overflow and `debug_assert!` are caught by the gate.
+          debug-builtins = craneLib.cargoTest (
+            commonArgs
+            // {
+              pname = "stitchwort-debug-builtins";
+              CARGO_PROFILE = "dev";
+              cargoArtifacts = craneLib.buildDepsOnly (
+                commonArgs
+                // {
+                  pname = "stitchwort-debug-builtins";
+                  CARGO_PROFILE = "dev";
+                }
+              );
+              doInstallCargoArtifacts = false; # nothing builds on this one
+              cargoTestExtraArgs = "-p stitchwort-driver --test builtins";
+              INSTA_UPDATE = "no";
+            }
+          );
+
           # The browser playground: the compiler as WebAssembly, plus the page.
           playground = craneLib.buildPackage (
             commonArgs
@@ -154,7 +175,7 @@
           builds = buildsFor pkgs;
         in
         {
-          inherit (builds) stitchwort clippy fmt;
+          inherit (builds) stitchwort clippy fmt debug-builtins;
 
           # The kanban board's tests (board/): Node's standard library only.
           board =
