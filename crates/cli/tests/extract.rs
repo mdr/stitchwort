@@ -4649,3 +4649,61 @@ try {
         "the stack points at the source line:\n{stdout}"
     );
 }
+
+/// Design E's test case (docs/proposals/effect-polymorphism.md, §6 stage 2):
+/// the JS of `List.mapIn` used at the empty row is `List.map`'s loop, the
+/// same but for the numbers of its variables, and a pure caller passes no
+/// row.
+#[test]
+fn map_in_at_the_empty_row_is_maps_loop() {
+    let (_, _, session) = examples()
+        .into_iter()
+        .find(|(name, _, _)| name == "effect-rows.sw")
+        .expect("examples/extract/effect-rows.sw");
+    let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .js;
+    let function = |name: &str| -> String {
+        let start = js
+            .find(&format!("const {name} = "))
+            .unwrap_or_else(|| panic!("no {name} in:\n{js}"));
+        let end = start + js[start..].find("\n};\n").expect("the end of the function");
+        js[start + "const ".len() + name.len()..end].to_string()
+    };
+    // Each variable (`v3`, `s3`) renumbered by order of first appearance.
+    let renumbered = |code: String| -> String {
+        let mut names: Vec<String> = Vec::new();
+        let mut out = String::new();
+        let mut chars = code.chars().peekable();
+        while let Some(c) = chars.next() {
+            let starts_name = (c == 'v' || c == 's')
+                && !out.ends_with(|p: char| p.is_ascii_alphanumeric() || p == '$' || p == '_');
+            if starts_name && chars.peek().is_some_and(|d| d.is_ascii_digit()) {
+                let mut digits = String::new();
+                while let Some(d) = chars.peek().filter(|d| d.is_ascii_digit()) {
+                    digits.push(*d);
+                    chars.next();
+                }
+                let position = names.iter().position(|n| *n == digits).unwrap_or_else(|| {
+                    names.push(digits.clone());
+                    names.len() - 1
+                });
+                let _ = write!(out, "{c}#{position}");
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    };
+    let map = renumbered(function("$Std$dList$dmap"));
+    let map_in = renumbered(function("$Std$dList$dmapIn$e"));
+    assert_eq!(map, map_in, "`mapIn` at the empty row isn't `map`'s loop");
+    let caller = js
+        .lines()
+        .find(|l| l.starts_with("const $Main$ddoubled = "))
+        .expect("the pure caller");
+    assert_eq!(
+        caller,
+        "const $Main$ddoubled = (v0) => $Std$dList$dmapIn$e($Main$ddouble)(v0);"
+    );
+}

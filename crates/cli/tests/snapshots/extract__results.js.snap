@@ -827,60 +827,7 @@ const $Std$dEffect$dsigReply = (v4) => (v5) => (v6) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dtranslate = (v5) => (v6) => {
-  switch (v6.tag) {
-    case "Done": {
-      const v7 = v6.value;
-      return { tag: "Done", value: v7 };
-    }
-    case "Call": {
-      const v7 = v6.o;
-      const v8 = v6.rest;
-      return { tag: "Call", o: $Std$dEffect$dsigInject(v5)(v7), rest: ((v9) => $Std$dEffect$dtranslate(v5)((v8)($Std$dEffect$dsigReply(v5)(v7)(v9)))) };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dEffect$dsigId = { tag: "MkSigMap", inject: ((v2) => v2), reply: ((v2) => ((v3) => v3)) };
-const $Std$dEffect$dsigLeft = { tag: "MkSigMap", inject: ((v4) => ({ tag: "L", o: v4 })), reply: ((v4) => ((v5) => v5)) };
-const $Std$dEffect$dcaseInject = (v6) => (v7) => (v8) => {
-  switch (v8.tag) {
-    case "L": {
-      const v9 = v8.o;
-      return $Std$dEffect$dsigInject(v6)(v9);
-    }
-    case "R": {
-      const v9 = v8.o;
-      return $Std$dEffect$dsigInject(v7)(v9);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dcaseReply = (v6) => (v7) => (v8) => (v9) => {
-  switch (v8.tag) {
-    case "L": {
-      const v10 = v8.o;
-      return $Std$dEffect$dsigReply(v6)(v10)(v9);
-    }
-    case "R": {
-      const v10 = v8.o;
-      return $Std$dEffect$dsigReply(v7)(v10)(v9);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dsigCase = (v6) => (v7) => ({ tag: "MkSigMap", inject: $Std$dEffect$dcaseInject(v6)(v7), reply: $Std$dEffect$dcaseReply(v6)(v7) });
-const $Std$dEffect$dnoInject = (v1) => {
-  switch (v1.tag) {
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dnoReply = (v2) => (v3) => {
-  switch (v2.tag) {
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dsigFromNo = { tag: "MkSigMap", inject: $Std$dEffect$dnoInject, reply: $Std$dEffect$dnoReply };
 const $Std$dEffect$dhandlePlus = (v5) => (v6) => (v7) => (v8) => {
   switch (v7.tag) {
     case "L": {
@@ -928,39 +875,6 @@ const $Std$dEffect$dbindIn = (v2) => (v3) => (v4) => {
     }
     case "Ops": {
       return $Std$dEffect$dbind(v3)(v4);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dliftIn = (v1) => (v2) => {
-  switch (v1.tag) {
-    case "Empty": {
-      return { tag: "Done", value: v2 };
-    }
-    case "Ops": {
-      return v2;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dlowerIn = (v1) => (v2) => {
-  switch (v1.tag) {
-    case "Empty": {
-      return $Std$dEffect$drunPure(v2);
-    }
-    case "Ops": {
-      return v2;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dwidenIn = (v3) => (v4) => (v5) => {
-  switch (v3.tag) {
-    case "Empty": {
-      return v5;
-    }
-    case "Ops": {
-      return $Std$dEffect$dtranslate(v4)(v5);
     }
   }
   throw new Error("unreachable");
@@ -1216,7 +1130,7 @@ const $Std$dFail$dneed = (v1) => (v2) => {
   throw new Error("unreachable");
 };
 const $Std$dFail$densure = (v0) => (v1) => $Std$dBool$difThenElse(v0)(((v2) => ({ tag: "Done", value: { tag: "UnitValue" } })))(((v2) => $Std$dFail$dfail(v1)));
-const $Std$dFail$dtoResult = (v0) => (v2) => $Std$dEffect$dfoldComp(((v3) => $Std$dEffect$ddoneIn(v0)({ tag: "Ok", value: v3 })))($Std$dEffect$dhandlePlus($Std$dFail$d$gelim(((v3) => ((v4) => $Std$dEffect$ddoneIn(v0)({ tag: "Err", error: v3 })))))(((v3) => ((v4) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => $Std$dEffect$dliftIn(v0)((v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)))) })))))((v2)({ tag: "UnitValue" }));
+const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })))($Std$dEffect$dhandlePlus($Std$dFail$d$gelim(((v3) => ((v4) => ({ tag: "Err", error: v3 })))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }));
 const $Std$dText$dtoNatOrFail = (v0) => $Std$dFail$dneed($Std$dText$dtoNat($Std$dText$dtrim(v0)))($Std$dText$dappend("expected a whole number, got '")($Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0))("'")));
 const $Main$dRange$dfrom = (v0) => {
   const v1 = v0.from;
@@ -1262,7 +1176,7 @@ const $Main$dRange$dread$d$gmatch1 = (v0) => (v1) => {
   throw new Error("unreachable");
 };
 const $Main$dRange$dread = (v0) => $Main$dRange$dread$d$gmatch1(v0)($Std$dText$dsplit({ tag: "MkChar", code: 45n })(v0));
-const $Main$dparseRange = (v0) => $Std$dFail$dtoResult({ tag: "Empty" })(((v1) => $Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dRange$dread(v0))));
+const $Main$dparseRange = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dRange$dread(v0)));
 const $Main$dsize = (v0) => {
   switch (v0.tag) {
     case "Ok": {
@@ -1276,7 +1190,7 @@ const $Main$dsize = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsizes = (v0) => $Std$dFail$dtoResult({ tag: "Empty" })(((v1) => $Std$dList$dmapIn({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })($Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dRange$dread(v2)))(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3))($Main$dRange$dfrom(v3)))(1n))))))(v0)));
+const $Main$dsizes = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmapIn({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })($Main$dRange$dread(v2))(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3))($Main$dRange$dfrom(v3)))(1n))))))(v0)));
 
 function $$parseRange(arg0) {
   try {

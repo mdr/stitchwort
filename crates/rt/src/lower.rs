@@ -17,13 +17,14 @@ use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, Sort, Term};
 use stitchwort_syntax::Diagnostic;
 
-use crate::erasure::{DefShape, def_shape, defs_in, is_done_continuation, reachable, text_literal};
+use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
     PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
 };
 use crate::natives::{FloatPrim, IntNative, Representation, TextNative};
 use crate::opt::{Types, optimize};
+use crate::specialise::{self, Specialiser};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -55,32 +56,41 @@ pub fn lower_definitions(g: &Globals, limits: Limits, ids: &[DefId]) -> Result<P
 }
 
 fn lower_program(g: &Globals, limits: Limits, entry: &Term) -> Result<Program> {
-    lower_roots(g, limits, defs_in(entry), entry)
+    // The definitions the entry uses are found by scanning it, which sees
+    // which of its calls are at the empty row.
+    lower_roots(g, limits, Vec::new(), entry)
 }
 
 fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Result<Program> {
     let _op = g.budget.operation(Limits::stack_only(limits.stack));
     let mut cx = Lowerer::new(g)?;
     // What the entry uses, as the JS backend finds it: an erased definition
-    // or a native one is opaque.
+    // or a native one is opaque. A call at the empty row uses the callee's
+    // variant (docs/proposals/effect-polymorphism.md, design E).
     let failure = std::cell::RefCell::new(None);
-    let used = reachable(g, roots, |id| match cx.shape(id) {
+    let reach = specialise::reachable(&cx.spec, roots, &[entry], |id| match cx.shape(id) {
         Ok(shape) => shape.result_erased || cx.native_op(id).is_some(),
         Err(e) => {
             failure.borrow_mut().get_or_insert(e);
             true
         }
-    });
+    })?;
     if let Some(e) = failure.into_inner() {
         return Err(e);
     }
-    // The globals, in declaration order (dependency order).
+    let used = &reach.used;
+    // The globals, in declaration order (dependency order), each variant
+    // just after its definition's place.
     let mut plans = Vec::new();
-    for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
+    for id in (0..g.defs.len())
+        .map(DefId)
+        .filter(|id| used[id.0] || reach.empty[id.0])
+    {
         let shape = cx.shape(id)?;
         if shape.result_erased {
             continue;
         }
+        let mask = shape.mask().to_vec();
         let params = u32::try_from(shape.runtime_arity()).expect("arity fits");
         let native = cx.native_op(id);
         if let Some(op) = native {
@@ -100,19 +110,31 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
                     ),
             );
         }
-        let gid = GlobalId(u32::try_from(plans.len()).expect("globals fit"));
-        cx.global_of.insert(id, (gid, params, native));
-        plans.push((id, params, native));
+        if used[id.0] {
+            let gid = GlobalId(u32::try_from(plans.len()).expect("globals fit"));
+            cx.global_of.insert(id, (gid, params, native));
+            plans.push((id, params, native, false));
+        }
+        if reach.empty[id.0] {
+            let mask = cx.spec.empty_mask(id, &mask)?;
+            let params = u32::try_from(mask.iter().filter(|e| !**e).count()).expect("arity fits");
+            let gid = GlobalId(u32::try_from(plans.len()).expect("globals fit"));
+            cx.empty_of.insert(id, (gid, params, mask));
+            plans.push((id, params, None, true));
+        }
     }
     let mut globals = Vec::with_capacity(plans.len());
-    for (id, params, native) in plans {
+    for (id, params, native, variant) in plans {
         let def = g.def(id);
         let kind = match native {
             Some(op) => GlobalKind::Native(op),
             None => {
-                let body = cx
-                    .def_body(id)
-                    .map_err(|e| e.with_label(def.span, "while lowering this for the runtime"))?;
+                let body = if variant {
+                    cx.empty_body(id)
+                } else {
+                    cx.def_body(id)
+                }
+                .map_err(|e| e.with_label(def.span, "while lowering this for the runtime"))?;
                 if params == 0 {
                     GlobalKind::Constant { body }
                 } else {
@@ -121,7 +143,11 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
             }
         };
         globals.push(Global {
-            name: def.path.clone(),
+            name: if variant {
+                format!("{}[empty]", def.path).into()
+            } else {
+                def.path.clone()
+            },
             def: id,
             kind,
         });
@@ -236,6 +262,10 @@ struct Lowerer<'g> {
     to_bool: Option<DefId>,
     /// Each global's id, runtime arity and native operation.
     global_of: HashMap<DefId, (GlobalId, u32, Option<PrimOp>)>,
+    /// Decides which calls are at the empty row, and makes the variants.
+    spec: Specialiser<'g>,
+    /// Each empty-row variant's global, runtime arity and erasure mask.
+    empty_of: HashMap<DefId, (GlobalId, u32, Vec<bool>)>,
     lambdas: Vec<Lambda>,
     types: Vec<TypeInfo>,
     type_of: HashMap<DataId, TypeId>,
@@ -266,6 +296,8 @@ impl<'g> Lowerer<'g> {
             if_then_else: g.registry.def(Builtin::IfThenElse),
             to_bool: g.registry.def(Builtin::ToBool),
             global_of: HashMap::new(),
+            spec: Specialiser::new(g),
+            empty_of: HashMap::new(),
             lambdas: Vec::new(),
             types: Vec::new(),
             type_of: HashMap::new(),
@@ -452,7 +484,25 @@ impl<'g> Lowerer<'g> {
             .map(|i| mask.get(i).copied().unwrap_or(false))
             .collect();
         let arity = def.arity;
-        self.frame_body(&params, |cx| cx.expr(body.peel_lams(arity)))
+        // Its calls of row eliminators with `Empty` inlined, if it has any.
+        let simplified = self.spec.generic_body(id)?;
+        let tree = simplified
+            .as_deref()
+            .unwrap_or_else(|| body.peel_lams(arity));
+        self.frame_body(&params, |cx| cx.expr(tree))
+    }
+
+    /// The body of `id`'s empty-row variant: its row parameters are erased.
+    fn empty_body(&mut self, id: DefId) -> Result<Body> {
+        let body = self
+            .spec
+            .empty_body(id)?
+            .ok_or_else(|| internal("an empty-row variant that can't be made"))?;
+        let mask = self.empty_of[&id].2.clone();
+        let params: Vec<bool> = (0..self.g.def(id).arity)
+            .map(|i| mask.get(i).copied().unwrap_or(false))
+            .collect();
+        self.frame_body(&params, |cx| cx.expr(&body))
     }
 
     // -------------------------------------------------------- expressions
@@ -612,7 +662,13 @@ impl<'g> Lowerer<'g> {
         if shape.result_erased {
             return Ok(Expr::Erased);
         }
-        let mask = shape.mask().to_vec();
+        // A call at the empty row calls the variant, which takes no row.
+        let variant = self.empty_of.contains_key(&id) && self.spec.empty_call(id, args)?;
+        let mask = if variant {
+            self.empty_of[&id].2.clone()
+        } else {
+            shape.mask().to_vec()
+        };
         // A definition used as a value while an erased parameter is still
         // unsupplied: whoever receives it knows only its type, so it passes
         // the type and proof arguments too. Eta-expand over all the
@@ -658,7 +714,12 @@ impl<'g> Lowerer<'g> {
             .map(|(_, a)| *a)
             .collect();
         let mut runtime = self.exprs(&runtime)?;
-        let (gid, params, native) = self.global(id)?;
+        let (gid, params, native) = if variant {
+            let (gid, params, _) = &self.empty_of[&id];
+            (*gid, *params, None)
+        } else {
+            self.global(id)?
+        };
         let params = params as usize;
         if runtime.len() < params {
             return Ok(if runtime.is_empty() {

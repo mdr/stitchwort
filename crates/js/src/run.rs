@@ -28,12 +28,12 @@ use std::fmt::Write;
 
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, DefId, Globals, Limits, Term};
+use stitchwort_core::{DataId, Globals, Limits, Term};
 use stitchwort_syntax::Diagnostic;
 
 use super::{
     CHARS_OF_TEXT, Convention, Gen, Options, RUNTIME, RUNTIME_CODECS, TEXT_AS_STRING,
-    TEXT_OF_CHARS, erasable, field_key_at, js_string_literal, reachable,
+    TEXT_OF_CHARS, erasable, field_key_at, js_string_literal,
 };
 
 /// The generated files.
@@ -104,28 +104,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     }
     let shapes = Shapes::new(g)?;
 
-    let roots: Vec<DefId> = main
-        .subterms()
-        .filter_map(|(t, _)| match t {
-            Term::Def(id) => Some(*id),
-            _ => None,
-        })
-        .collect();
-    let failure = std::cell::RefCell::new(None);
-    let used = reachable(g, roots, |id| match codegen.try_info(id) {
-        Ok(info) => info.result_erased || codegen.is_native(id),
-        Err(e) => {
-            failure.borrow_mut().get_or_insert(e);
-            true
-        }
-    });
-    if let Some(e) = failure.into_inner() {
-        return Err(e);
-    }
-    let used: Vec<DefId> = (0..g.defs.len())
-        .map(DefId)
-        .filter(|id| used[id.0])
-        .collect();
+    let used = codegen.set_reach([], &[main], false)?;
     for &id in &used {
         let info = codegen.try_info(id)?;
         let def = g.def(id);
@@ -163,7 +142,7 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     js.push_str(&shapes.js());
     js.push_str(DELAY_RUNTIME);
     js.push('\n');
-    for id in crate::dependency_order(g, &used) {
+    for id in crate::dependency_order(&codegen, &used) {
         js.push_str(&codegen.def(id).map_err(|e| {
             Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
         })?);
