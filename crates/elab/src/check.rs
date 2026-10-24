@@ -1670,31 +1670,37 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
 
 /// For an `auto` argument's unknown proof of `goal`, made by
 /// [`Ctx::fresh_meta`]: for each variable it's applied to, whether neither
-/// `goal` nor the type of any later variable in scope mentions it (see
+/// `goal` nor the type of any other variable in scope mentions it (see
 /// `Meta::ignorable`). `None` if a type can't be read back.
+///
+/// Usually a type mentions only earlier variables, but not always: a case
+/// split refines the types of earlier variables in terms of the pattern's
+/// (in `Int.div`'s `| OfNat m, OfNat (Succ n) => …`, `ok: divisor != OfNat
+/// 0` becomes `ok: OfNat (Succ n) != OfNat 0`, which mentions the later
+/// `n`). So every type is read back with all `level` variables in scope,
+/// and a mention by any of them counts (SW-416).
 fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
     let level = cx.level();
-    // The levels mentioned by `goal`, then by each variable's type, latest
-    // first: a level is ignorable if nothing at or after it so far does.
     let mut mentioned = vec![false; level];
-    let mark = |term: &Term, at: usize, mentioned: &mut Vec<bool>| {
+    let mut mark = |value: &Value| -> Option<()> {
+        let term = quote(cx.g(), level, value).ok()?;
         for (t, binders) in term.subterms() {
             if let Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) = t
                 && *i >= binders
-                && *i - binders < at
+                && *i - binders < level
             {
-                mentioned[at - 1 - (*i - binders)] = true;
+                mentioned[level - 1 - (*i - binders)] = true;
             }
         }
+        Some(())
     };
-    let goal = quote(cx.g(), level, goal).ok()?;
-    mark(&goal, level, &mut mentioned);
-    let mut ignorable = vec![false; level];
-    for l in (0..level).rev() {
-        ignorable[l] = !mentioned[l];
-        let ty = quote(cx.g(), l, &cx.types[l]).ok()?;
-        mark(&ty, l, &mut mentioned);
+    mark(goal)?;
+    // A variable's own type can't mention it, so marking every type marks
+    // each variable only by the others.
+    for ty in &cx.types {
+        mark(ty)?;
     }
+    let ignorable: Vec<bool> = mentioned.iter().map(|m| !m).collect();
     // One entry per argument: the variables `fresh_meta` applies it to.
     Some(
         cx.env
@@ -3304,4 +3310,41 @@ fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
         error = error.with_note(computed);
     }
     error.with_note("`rfl` proves `a = b` only when both sides compute to the same value")
+}
+
+#[cfg(test)]
+mod tests {
+    use stitchwort_syntax::SourceMap;
+
+    use super::*;
+
+    fn span() -> Span {
+        let mut sources = SourceMap::new();
+        Span::point(sources.add("test", ""), 0)
+    }
+
+    /// A case split can refine an earlier variable's type to mention a
+    /// later one, as `Int.div`'s `ok: divisor != OfNat 0` mentions `n` in
+    /// its `OfNat (Succ n)` case. That later variable isn't ignorable, and
+    /// reading the earlier type back mustn't assume it mentions only earlier
+    /// variables (SW-416: an overflow in debug builds, and in release a
+    /// mention silently lost).
+    #[test]
+    fn a_later_variable_mentioned_by_an_earlier_refined_type_is_not_ignorable() {
+        let e = Elaborator::new();
+        let type0 = || Value::Sort(Sort::Type(0));
+        let eq = |a: Value, b: Value| {
+            Value::Eq(Rc::new(Value::Sort(Sort::Type(1))), Rc::new(a), Rc::new(b))
+        };
+        // `a: Type0`, `ok: n = n`, `n: Type0`, proving `Type0 = Type0`.
+        let cx = Ctx::from_parts(
+            &e,
+            (0..3).map(Value::var).collect(),
+            vec![type0(), eq(Value::var(2), Value::var(2)), type0()],
+            vec!["a".into(), "ok".into(), "n".into()],
+            span(),
+        );
+        let ignorable = ignorable_arguments(&cx, &eq(type0(), type0())).expect("types read back");
+        assert_eq!(&*ignorable, &[true, true, false]);
+    }
 }
