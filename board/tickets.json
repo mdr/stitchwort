@@ -5059,16 +5059,16 @@
     {
       "id": 321,
       "title": "Kernel: literal * x unfolds k times; 100000 * x <= 5 := h costs 14.4M steps, 1000000 overflows the stack",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "kernel",
         "performance"
       ],
       "body": "Found by SW-314. theorem (h: 100000 * x <= 5): 100000 * x <= 5 := h alone; not omega's fault. Nat.mul recurses on its first (literal) argument.",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
