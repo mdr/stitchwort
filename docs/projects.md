@@ -267,7 +267,7 @@ stitchwort test path/file.sw      -- file mode
 ```
 
 `check` accepts several names at once. `test` and `run` take a single target.
-A namespace target may be dotted, as in `check Aoc.Day05`.
+A namespace target may be dotted, as in `check Aoc.Day05`. On success `check` prints one line to standard error, `checked 39 namespaces of aoc` (a file: `checked path/file.sw`); errors print as before and the exit status is unchanged.
 
 `stitchwort test Day05` runs the tests of `Day05`, of every namespace under
 it (`Day05.Tests`, `Day05.Proofs`), and of every namespace they depend on,

@@ -21,7 +21,7 @@ cargo run -- build --js examples/extract/append.sw -o out/
 cd myproject
 stitchwort run Day05.main       # run a function by its full name
 stitchwort test                 # every namespace's tests (results cached in .stitchwort/)
-stitchwort check Day05          # one namespace, and the ones it uses
+stitchwort check Day05          # one namespace, and the ones it uses (prints "checked N namespaces of NAME")
 stitchwort axioms Day05.total   # the axioms (today only Quot.sound) a definition depends on
 stitchwort axioms file.sw name  # the same for a definition in a single file
 stitchwort fmt                  # format the project's sources in place (--check lists what would change)
