@@ -1743,9 +1743,13 @@ is it replaced by a placeholder and checked after the other arguments and
 after the application's type has been compared with the expected type
 (`apply_args_postponing`). The comparison is skipped (and the in-place
 error given) if implicit parameters remain to insert. Programs that worked
-elaborate exactly as before (no hash moved), and a program still rejected
-keeps the in-place error, as §7.4's retry does. Example:
-`examples/accept/lambda-after-expected-type.sw`. A call in an inferred
+elaborate exactly as before (no hash moved). A program still rejected
+keeps the in-place error if the comparison fails; if the comparison
+succeeds and the lambda fails again, that second error is given, as it
+shows the goal the comparison left (`x + 1 = x`, not `?f1 xs x = ?f2 xs x`;
+decided 24 October 2026). Examples:
+`examples/accept/lambda-after-expected-type.sw`,
+`examples/reject/lambda-after-expected-type.sw`. A call in an inferred
 position (`rewrite List.filterMapCong _ _ cs (…)`) has no expected type, so
 it still needs the functions written.
 

@@ -1372,8 +1372,11 @@ fn apply_args_postponing(
         if implicit_next || !crate::undo::unify(cx, &ty, expected)? {
             return Err(first_error.take().expect("set when the lambda was put off"));
         }
+        // With the expected type compared, a lambda that still fails is
+        // blamed against the goal as it now stands, not the in-place one.
+        *first_error = None;
         for (value, dom, placeholder, id) in after_expected {
-            let checked = check(cx, value, &dom)?;
+            let checked = check_arg(cx, &term, value, &dom)?;
             let evaluated = cx.eval(&checked)?;
             if !cx.unify(&evaluated, &placeholder)? {
                 return Err(cx.mismatch(&placeholder, &evaluated));
