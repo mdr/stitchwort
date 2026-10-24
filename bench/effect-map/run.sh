@@ -7,10 +7,12 @@
 # `RUNS` (default 3) runs of `stitchwort run` (with `--js` for Node). Each length maps
 # 10,000,000 elements in all. The `setup` line is the same run with no
 # rounds (checking, code generation and building the list), to subtract.
+# `MODES` picks the modes (default `setup sum map fail`); `SW` and `SRC`
+# override the binary and the source, to compare with another build.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
-sw="$root/target/release/stitchwort"
-src="$root/bench/effect-map/map.sw"
+sw="${SW:-$root/target/release/stitchwort}"
+src="${SRC:-$root/bench/effect-map/map.sw}"
 if [ $# -eq 0 ]; then set -- 100000 1000000; fi
 
 best() {
@@ -31,7 +33,7 @@ best() {
 for n in "$@"; do
   rounds=$((10000000 / n))
   ((rounds < 1)) && rounds=1
-  for mode in setup sum map mapIn fail; do
+  for mode in ${MODES:-setup sum map fail}; do
     r=$rounds m=$mode
     [ "$mode" = setup ] && r=0 m=map
     echo "rt $mode $n $r $(best "$m $n $r" "$sw" run "$src")"

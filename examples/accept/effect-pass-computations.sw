@@ -104,14 +104,14 @@ theorem runPureBindHere [a b: Type]:
   | Done x, next => rfl
   | Call () rest, next
 
--- `mapIn` with a pure function, run, is `map`: the proof uses the library's
--- `runPureBind` on the stuck `mapIn f xs` (probe 3 of the note).
-theorem mapInIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.mapIn f xs) = List.map f xs
+-- `map` with a pure function, run as a computation, is `map`: the proof uses the library's
+-- `runPureBind` on the stuck `map f xs` (probe 3 of the note).
+theorem runMapIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.map f xs) = List.map f xs
   | Nil => rfl
   | Cons x xs =>
     Eq.trans
-      (Effect.runPureBind (List.mapIn f xs) (rest => Done (Cons (f x) rest)))
-      (Eq.cong (Cons (f x)) (mapInIsMap f xs))
+      (Effect.runPureBind (List.map f xs) (rest => Done (Cons (f x) rest)))
+      (Eq.cong (Cons (f x)) (runMapIsMap f xs))
 
 -- Dot notation on a call whose declared result is the nickname: the
 -- nickname's namespace is tried first, and the computation is passed, not run.

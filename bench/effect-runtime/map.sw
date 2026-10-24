@@ -1,4 +1,4 @@
--- Benchmark for docs/proposals/effect-runtime.md: `List.mapIn` with an
+-- Benchmark for docs/proposals/effect-runtime.md: `List.map` with an
 -- effectful callback over a long list, against plain `List.map`. Run with
 -- bench/effect-runtime/run.sh, or by hand:
 --
@@ -22,34 +22,36 @@ def Counter.number (prog: () -> {Counter} a): Nat -> a :=
 -- Pure `map`: the baseline.
 export def plain (numbers: List Nat): List Nat := List.map (x => x + 1) numbers
 
--- `mapIn` with a pure callback (the empty row).
-export def pureMapIn (numbers: List Nat): List Nat := List.mapIn (x => x + 1) numbers
+-- `map` with a pure callback (the empty row). This was `List.mapIn` before
+-- stage 3 of docs/proposals/effect-polymorphism.md folded it into `map`, so
+-- it is now `plain`; kept under its name for the scripts beside it.
+export def pureMapIn (numbers: List Nat): List Nat := List.map (x => x + 1) numbers
 
--- `mapIn` with `State`-like effect: every element performs `next`.
+-- `map` with `State`-like effect: every element performs `next`.
 export def counted (numbers: List Nat): List Nat :=
-  Counter.number (() => List.mapIn (x => x + Counter.next()) numbers) 0
+  Counter.number (() => List.map (x => x + Counter.next()) numbers) 0
 
--- `mapIn` with `Fail`, never failing: every element is in `{Fail}`, but no
+-- `map` with `Fail`, never failing: every element is in `{Fail}`, but no
 -- operation is performed.
 export def checked (numbers: List Nat): Result (List Nat) Text :=
-  Fail.toResult (() => List.mapIn (x => if x < 100000000 then x + 1 else Fail.fail "too big") numbers)
+  Fail.toResult (() => List.map (x => if x < 100000000 then x + 1 else Fail.fail "too big") numbers)
 
--- `mapIn` with `Fail`, failing at the last element.
+-- `map` with `Fail`, failing at the last element.
 export def failsLast (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
-  Fail.toResult (() => List.mapIn (x => if x + 1 < limit then x + 1 else Fail.fail "last") numbers)
+  Fail.toResult (() => List.map (x => if x + 1 < limit then x + 1 else Fail.fail "last") numbers)
 
 -- Two handlers: `Fail` inside the counter, so each `next` passes through
 -- `Fail.toResult` on its way out. Fails at `limit`.
 export def countedChecked (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
-  Counter.number (() => Fail.toResult (() => List.mapIn (x => if x < limit then x + Counter.next() else Fail.fail "limit") numbers)) 0
+  Counter.number (() => Fail.toResult (() => List.map (x => if x < limit then x + Counter.next() else Fail.fail "limit") numbers)) 0
 
 -- Many resumptions of one continuation: each element is `x` or `x + 10`, so
 -- `n` elements give `2^n` lists. For checking that the runtime resumes a
 -- continuation more than once correctly, not for timing.
 export def choices (numbers: List Nat): List (List Nat) :=
-  Each.collect (() => List.mapIn (x => Each.each [x, x + 10]) numbers)
+  Each.collect (() => List.map (x => Each.each [x, x + 10]) numbers)
 
--- `mapIn` with `IO`: every element is printed, so each is an operation that
+-- `map` with `IO`: every element is printed, so each is an operation that
 -- `main`'s runner performs.
 def echo (x: Nat): {IO} Nat :=
   IO.print "${x}"
@@ -70,6 +72,6 @@ def main(): {IO} () :=
     else if variant == "state" then List.sum (counted numbers)
     else if variant == "fail" then total (checked numbers)
     else if variant == "failLast" then total (failsLast size numbers)
-    else if variant == "io" then List.sum (List.mapIn echo numbers)
+    else if variant == "io" then List.sum (List.map echo numbers)
     else 0
   IO.print "${variant} ${size}: ${answer}"

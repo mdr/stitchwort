@@ -13,7 +13,7 @@ export type Pair<a, b> =
   | { readonly $tag: "MkPair"; readonly fst: a; readonly snd: b };
 export declare function doubled(xs: readonly bigint[]): bigint[];
 export declare function mappedSum(n: bigint): bigint;
-export declare function mapInSum(n: bigint): bigint;
+export declare function pureDoubled(xs: readonly bigint[]): bigint[];
 export declare function doubledEach(xss: readonly (readonly bigint[])[]): bigint[][];
 export declare function twiceDoubled(n: bigint): bigint;
 export declare function parsed(texts: readonly string[]): Result<bigint[], string>;

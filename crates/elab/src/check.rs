@@ -652,9 +652,86 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
     if effects::may_perform(cx, expr)? {
-        return effects::run_pure(cx, expr, None);
+        return match pure_first(cx, expr, None, |cx| infer_value(cx, expr))? {
+            PureFirst::Done(found) => Ok(found),
+            PureFirst::Run(plain_error) => {
+                effects::run_pure(cx, expr, None).map_err(|e| PureFirst::error(plain_error, e))
+            }
+        };
     }
     infer_value(cx, expr)
+}
+
+/// In a pure context, an expression that performs only through calls whose
+/// result is in a bare row (`List.map f xs`, whose result is `{e} (List b)`)
+/// is first elaborated as plain calls, by `plain`: the row is settled by
+/// unification, the empty row when the callbacks are pure (D1123), and the
+/// call is the plain function's (docs/proposals/effect-polymorphism.md,
+/// stage 3). If that fails, or leaves a computation (a callback with
+/// abilities made the row one, D1124), it's undone and `None` is returned:
+/// the caller runs the expression in the empty row as before, which says
+/// which ability isn't allowed. If that fails too, the plain way's error is
+/// the one reported: it's the error the plain function would give.
+fn pure_first(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+    plain: impl FnOnce(&mut Ctx) -> Result<(Term, Value)>,
+) -> Result<PureFirst> {
+    if !effects::performs_only_in_bare_rows(cx, expr, expected)? {
+        return Ok(PureFirst::Run(None));
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    match plain(cx) {
+        Ok((term, ty)) => {
+            let effectful = match effects::comp_parts(cx, &ty)? {
+                Some(_) => effects::unknown_bare_value(cx, &ty)?.is_none(),
+                None => false,
+            };
+            if !effectful {
+                // A row nothing has settled yet is the empty one: the value
+                // is used where it stands, and a proof about it (`rfl` in a
+                // `calc` step) needs the plain function now. The type is then
+                // the value type: `CompIn Empty T` stays stuck as a value until
+                // it's evaluated again.
+                let ty = match effects::unknown_bare_value(cx, &ty)? {
+                    Some(value) => {
+                        effects::settle_empty(cx, &ty)?;
+                        value
+                    }
+                    None => ty,
+                };
+                return Ok(PureFirst::Done((term, ty)));
+            }
+            snapshot.restore(cx);
+            Ok(PureFirst::Run(None))
+        }
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(e) => {
+            snapshot.restore(cx);
+            Ok(PureFirst::Run(Some(e)))
+        }
+    }
+}
+
+/// What [`pure_first`] found.
+enum PureFirst {
+    /// Elaborated as plain calls, with its type.
+    Done((Term, Value)),
+    /// To be run in the empty row; the plain way's error, if it failed.
+    Run(Option<Diagnostic>),
+}
+
+impl PureFirst {
+    /// The error to report when running the expression failed too: the
+    /// plain way's, unless running it found an ability a pure context
+    /// can't perform, which is what the plain way's mismatch came from.
+    fn error(plain_error: Option<Diagnostic>, run_error: Diagnostic) -> Diagnostic {
+        match plain_error {
+            Some(plain) if run_error.code != "E-ABILITY" => plain,
+            _ => run_error,
+        }
+    }
 }
 
 /// [`infer_inner`] once it's known that `expr` isn't run as a whole.
@@ -1872,8 +1949,22 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let (term, found) = insert(cx, term, found)?;
             return compare(cx, term, &found, &expected);
         }
-        return Ok(effects::run_pure(cx, expr, Some(&expected))?.0);
+        let plain = |cx: &mut Ctx| Ok((check_value(cx, expr, &expected)?, expected.clone()));
+        return match pure_first(cx, expr, Some(&expected), plain)? {
+            PureFirst::Done((term, _)) => Ok(term),
+            PureFirst::Run(plain_error) => effects::run_pure(cx, expr, Some(&expected))
+                .map(|(term, _)| term)
+                .map_err(|e| PureFirst::error(plain_error, e)),
+        };
     }
+    check_value(cx, expr, &expected)
+}
+
+/// [`check_inner`] once it's known that `expr` isn't run as a whole, against
+/// a forced `expected` that isn't a computation.
+fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    let g = cx.g();
+    let expected = expected.clone();
     if let Some(logic) = crate::logic::classify(cx, expr) {
         return crate::logic::check_against(cx, logic, &expected);
     }
@@ -2125,7 +2216,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
             match ctor_head(cx, expr)? {
                 // A constructor where an effectful function is expected
-                // (`List.mapIn Succ xs`) is a pure function, made to fit the
+                // (`List.map Succ xs`) is a pure function, made to fit the
                 // row by `compare` (SW-393).
                 Some((d, _, _))
                     if Some(d) != cx.g().registry.data(Builtin::Comp)
@@ -2369,7 +2460,10 @@ fn decided_if(
 /// `expected` first, so the arguments are checked knowing more
 /// (docs/proposals/syntax-conveniences.md §7).
 /// Whether `ty` is a function type whose result, after all its explicit
-/// arguments, is a computation (`a -> {e} b`, `a -> b -> {Fail} c`).
+/// arguments, is a computation (`a -> {e} b`, `a -> b -> {Fail} c`). Not
+/// when that is a `CompIn ?e b` whose row is still unknown: the row rule
+/// settles it once the constructor's type is compared with it, so the
+/// constructor is checked against `b` as any other (`xs.map (Cons { … })`).
 fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     let mark = cx.mark();
@@ -2382,7 +2476,9 @@ fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
             ty = force(g, cod.apply(g, v)?)?;
             any = true;
         }
-        Ok(any && effects::comp_parts(cx, &ty)?.is_some())
+        Ok(any
+            && effects::comp_parts(cx, &ty)?.is_some()
+            && effects::unknown_bare_value(cx, &ty)?.is_none())
     })();
     cx.reset(mark);
     result
@@ -2623,6 +2719,11 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
         snapshot.restore(cx);
         return Ok(None);
     };
+    // A result in a bare row not known yet (`List.map`'s `{e} (List b)`):
+    // its value type is compared, and the row is left to the arguments, so a
+    // callback with abilities makes it effectful (D1124) before the
+    // comparison at the end settles it.
+    let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
     if !cx.unify(&written, expected)? {
         snapshot.restore(cx);
         return Ok(None);
@@ -3101,7 +3202,14 @@ fn ctor_app(
     }
 
     let np = data.params.len();
-    let params = match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
+    // A callback of an effect-polymorphic function whose row isn't known yet
+    // (`xs.map (Cons { … })`, a `CompIn ?e (List Hit)` result): the
+    // parameters are the value type's. The comparison below settles the row.
+    let value_target = match &target {
+        Some(t) => effects::unknown_bare_value(cx, t)?.or_else(|| Some(t.clone())),
+        None => None,
+    };
+    let params = match value_target.map(|t| force(g, t)).transpose()? {
         Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
         _ if !missing.is_empty() => fallback_params,
         _ => data

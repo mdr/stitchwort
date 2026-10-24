@@ -9,18 +9,18 @@ theorem succThen (g: Nat -> {Fail} Nat) (n: Nat):
   Fail.toResultThen (() => g n) (x => Succ x)
 
 theorem mapThen (f: Nat -> {Fail} Nat) (xs: List Nat) (k: List Nat -> {Fail} Nat):
-    Fail.toResult (() => k (xs.mapIn f)) = Result.flatMap (ys => Fail.toResult (() => k ys)) (Fail.toResult (() => xs.mapIn f)) :=
-  Fail.toResultThen (() => xs.mapIn f) k
+    Fail.toResult (() => k (xs.map f)) = Result.flatMap (ys => Fail.toResult (() => k ys)) (Fail.toResult (() => xs.map f)) :=
+  Fail.toResultThen (() => xs.map f) k
 
 theorem mapToOption (f: Nat -> {Fail} Nat) (xs: List Nat):
-    Fail.toOption (() => xs.mapIn f) = Result.toOption (Fail.toResult (() => xs.mapIn f)) :=
-  Fail.toOptionToResult (() => xs.mapIn f)
+    Fail.toOption (() => xs.map f) = Result.toOption (Fail.toResult (() => xs.map f)) :=
+  Fail.toOptionToResult (() => xs.map f)
 
 -- The same law by `rewrite`, in a longer goal.
 theorem lengthThen (f: Nat -> {Fail} Nat) (xs: List Nat):
-    Result.map List.length (Fail.toResult (() => Cons 0 (xs.mapIn f))) =
-      Result.map List.length (Result.flatMap (ys => Ok (Cons 0 ys)) (Fail.toResult (() => xs.mapIn f))) :=
-  rewrite Fail.toResultThen (() => xs.mapIn f) (ys => Cons 0 ys) in rfl
+    Result.map List.length (Fail.toResult (() => Cons 0 (xs.map f))) =
+      Result.map List.length (Result.flatMap (ys => Ok (Cons 0 ys)) (Fail.toResult (() => xs.map f))) :=
+  rewrite Fail.toResultThen (() => xs.map f) (ys => Cons 0 ys) in rfl
 
 -- A thunk whose type mentions its `()` still splits it: the goal becomes
 -- `P ()`.

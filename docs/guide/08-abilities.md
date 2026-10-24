@@ -111,7 +111,7 @@ An operation's result can be anything the handler chooses. Here `next()` asks th
 ability Counter where
   next: () -> {Counter} Nat
 
-def label (names: List Text): {Counter} (List Text) := names.mapIn (name => "${next()}. ${name}")
+def label (names: List Text): {Counter} (List Text) := names.map (name => "${next()}. ${name}")
 
 def counting (start: Nat) (prog: () -> {Counter | e} a): {e} a :=
   let run: Nat -> {e} a :=
@@ -139,7 +139,7 @@ def loggedStep (n: Nat): {Log} Nat :=
 test "with an ability" := collectLog (() => applyTwice loggedStep 0) == (2, ["at 0", "at 1"])
 ```
 
-With a pure callback, `e` is empty and `applyTwice` is an ordinary pure function. This is how `List.mapIn` works: `xs.mapIn f` is `map` for an `f` that may perform abilities, such as reading or failing.
+With a pure callback, `e` is empty and `applyTwice` is an ordinary pure function. This is how `List.map` works: `xs.map f` takes an `f` that may perform abilities, such as reading or failing, and with a pure `f` it is the ordinary pure `map`.
 
 A data type can carry callbacks with abilities too. Give it a parameter of type `Effects` (from `Std.Effect`), and use it as the row of its fields:
 
@@ -177,7 +177,7 @@ def Turn.read (text: Text): {Fail} Turn :=
   ensure (direction == 'L' || direction == 'R') "expected L or R, got '${text}'"
   { left = direction == 'L', distance = rest.toNatOrFail }
 
-def readTurns (lines: List Text): {Fail} (List Turn) := lines.mapIn Turn.read
+def readTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.read
 
 test "a turn" := toResult (() => Turn.read "L68") == Ok ({ left = True, distance = 68 })
 test "a bad turn" := toResult (() => readTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"

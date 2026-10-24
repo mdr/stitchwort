@@ -20,7 +20,7 @@ test "longest word" :=
 -- begin io
 def greetAll(): {IO} () :=
   let names := IO.readAllLines()
-  names.mapIn (name => IO.print "Hello, ${name}!")
+  names.map (name => IO.print "Hello, ${name}!")
   IO.print "Greeted ${names.length}"
 
 test "greets everyone" := (IO.simulate ["Ada", "Grace"] greetAll).fst == ["Hello, Ada!", "Hello, Grace!", "Greeted 2"]

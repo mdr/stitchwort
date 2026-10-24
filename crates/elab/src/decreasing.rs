@@ -2045,6 +2045,13 @@ impl Elaborator {
             _ => return Ok(None),
         };
         let n = desc.params;
+        // The effect-row arguments left out: the lemma is about the empty
+        // row's, so a call in another row isn't rewritten.
+        let all_args = args;
+        let Some(kept) = without_rows(&self.globals, all_args, &desc.rows) else {
+            return Ok(None);
+        };
+        let args: &[(Term, Icit)] = &kept;
         let is_callback = |i: usize| desc.callbacks.contains(&i);
         let callback_used = desc
             .callbacks
@@ -2173,13 +2180,24 @@ impl Elaborator {
             pre: Term::Refl,
             proof,
         });
+        // The call as written, its effect-row arguments (the empty row) back
+        // in their places.
+        let mut kept = out.into_iter();
+        let mut full = Vec::new();
+        for (i, (a, icit)) in all_args[..n + desc.rows.len()].iter().enumerate() {
+            if desc.rows.contains(&i) {
+                full.push(CongArg::Ordinary(Tpl::Plain(a.clone()), *icit));
+            } else {
+                full.push(kept.next().expect("one kept argument per parameter"));
+            }
+        }
         Ok(Some((
             Tpl::Cong {
                 site: sites.len() - 1,
                 head: head.clone(),
-                args: out,
+                args: full,
             },
-            n,
+            n + desc.rows.len(),
         )))
     }
 
@@ -2223,8 +2241,11 @@ impl Elaborator {
 /// for each callback `(x…) -> c1 x… = c2 x…`, proving `F …c1… = F …c2…`.
 struct CongDesc {
     lemma: DefId,
-    /// How many parameters `F` has.
+    /// How many parameters `F` has, besides its effect-row parameters.
     params: usize,
+    /// Where `F`'s effect-row parameters are among all its parameters: a
+    /// call the lemma rewrites passes the empty row for each.
+    rows: Vec<usize>,
     /// Which of them are callbacks, in order.
     callbacks: Vec<usize>,
     /// For each of `F`'s parameters, whether a later parameter's type or
@@ -2304,6 +2325,85 @@ fn substitute(g: &Globals, t: &Term, env: &[Term]) -> Result<Term> {
     })
 }
 
+/// `F`'s telescope and result with its effect-row parameters (implicit, of
+/// type `Effects`) replaced by the empty row and left out, and where they
+/// were.
+fn at_empty_row(
+    g: &Globals,
+    tel: Vec<Binder>,
+    res: Term,
+) -> Result<(Vec<Binder>, Term, Vec<usize>)> {
+    let (Some(row_data), Some((empty_data, empty_ctor))) = (
+        g.registry.data(Builtin::Row),
+        g.registry.ctor(Builtin::RowEmpty),
+    ) else {
+        return Ok((tel, res, Vec::new()));
+    };
+    let rows: Vec<usize> = (tel.iter().enumerate())
+        .filter(|(_, b)| {
+            b.icit.is_implicit()
+                && matches!(b.ty.strip_loc(), Term::Data(d, args) if *d == row_data && args.is_empty())
+        })
+        .map(|(i, _)| i)
+        .collect();
+    if rows.is_empty() {
+        return Ok((tel, res, rows));
+    }
+    let empty = Term::Ctor(empty_data, empty_ctor, Vec::new());
+    // A term written under the first `j` of the old binders, moved under the
+    // binders kept among them.
+    let moved = |t: &Term, j: usize| -> Result<Term> {
+        let kept_before = |level: usize| (0..level).filter(|l| !rows.contains(l)).count();
+        let new_depth = kept_before(j);
+        map_vars(g, t, 0, &|ix, d| {
+            if ix < d {
+                return Ok(Term::Var(ix));
+            }
+            let level = j - 1 - (ix - d);
+            if rows.contains(&level) {
+                return Ok(empty.clone());
+            }
+            Ok(Term::Var(new_depth - 1 - kept_before(level) + d))
+        })
+    };
+    let mut kept = Vec::new();
+    for (j, b) in tel.iter().enumerate() {
+        if rows.contains(&j) {
+            continue;
+        }
+        kept.push(Binder {
+            name: b.name.clone(),
+            icit: b.icit,
+            ty: moved(&b.ty, j)?,
+        });
+    }
+    let res = moved(&res, tel.len())?;
+    Ok((kept, res, rows))
+}
+
+/// `args` without those at `rows`, each of which must be the empty row;
+/// `None` if one isn't.
+fn without_rows<T: Clone + std::borrow::Borrow<Term>>(
+    g: &Globals,
+    args: &[(T, Icit)],
+    rows: &[usize],
+) -> Option<Vec<(T, Icit)>> {
+    let empty = g.registry.ctor(Builtin::RowEmpty);
+    let mut kept = Vec::new();
+    for (i, (a, icit)) in args.iter().enumerate() {
+        if rows.contains(&i) {
+            let is_empty = matches!(a.borrow().strip_loc(), Term::Ctor(d, c, fields)
+                if fields.is_empty() && empty == Some((*d, *c)));
+            if !is_empty {
+                return None;
+            }
+            continue;
+        }
+        kept.push((a.clone(), *icit));
+    }
+    Some(kept)
+}
+
 /// Checks that `lemma`'s statement is a congruence lemma for `f` (3a.4 step
 /// 2), and describes it; or says what's wrong with it.
 fn validate_cong(
@@ -2313,6 +2413,9 @@ fn validate_cong(
 ) -> Result<std::result::Result<CongDesc, String>> {
     let f_name = g.def(f).name.to_string();
     let (ftel, fres) = split_pis(&g.def(f).ty, None);
+    // `F`'s effect-row parameters are the empty row's in a congruence lemma,
+    // which is about `F`'s pure use (`List.map`'s `e`).
+    let (ftel, fres, rows) = at_empty_row(g, ftel, fres)?;
     let (ltel, lres) = split_pis(&g.def(lemma).ty, None);
     let n = ftel.len();
     let total = ltel.len();
@@ -2454,7 +2557,13 @@ fn validate_cong(
         };
         let side = |t: &Term, copy: usize| {
             let (head, args) = spine(t);
-            if !matches!(head, Term::Def(d) if *d == f) || args.len() != n {
+            if !matches!(head, Term::Def(d) if *d == f) {
+                return false;
+            }
+            let Some(args) = without_rows(g, &args, &rows) else {
+                return false;
+            };
+            if args.len() != n {
                 return false;
             }
             args.iter().enumerate().all(|(i, (a, icit))| {
@@ -2485,6 +2594,7 @@ fn validate_cong(
     Ok(Ok(CongDesc {
         lemma,
         params: n,
+        rows,
         callbacks,
         dependent,
         tel: ltel,

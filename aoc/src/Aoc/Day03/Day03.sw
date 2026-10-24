@@ -56,7 +56,7 @@ def Bank.read (line: Text): {Fail} Bank :=
   match line.trim.toList with
     | Nil => fail msg
     | chars =>
-      let bank := chars |> .mapIn (char => need char.toDigit msg)
+      let bank := chars |> .map (char => need char.toDigit msg)
       if bank.length < part2Batteries then fail "expected at least ${part2Batteries} batteries, got ${bank.length}" else bank
 
 -- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the first argument; all the digits if the bank has fewer).

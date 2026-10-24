@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: this may perform `Fail`, which isn't allowed here
+   ╭─[ reject/map-effectful-callback-pure.sw:9:45 ]
+   │
+ 9 │ def lengths (texts: List Text): List Nat := texts.map Text.toNatOrFail
+   │                                             ─────────────┬────────────  
+   │                                                          ╰────────────── `Fail` isn't in the abilities of the enclosing function or handler
+   │ 
+   │ Note: add `Fail` to the function's type (`-> {Fail …} …`), or handle it
+───╯
+[E-ABILITY] Error: this may perform `Fail`, which isn't allowed here
+    ╭─[ reject/map-effectful-callback-pure.sw:13:38 ]
+    │
+ 13 │ def count (texts: List Text): Nat := List.length (texts.map Text.toNatOrFail)
+    │                                      ───────────────────┬───────────────────  
+    │                                                         ╰───────────────────── `Fail` isn't in the abilities of the enclosing function or handler
+    │ 
+    │ Note: add `Fail` to the function's type (`-> {Fail …} …`), or handle it
+────╯

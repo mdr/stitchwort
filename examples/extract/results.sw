@@ -36,6 +36,6 @@ export def size: Result Range Text -> Result Nat Text
   | Err m => Err m
 
 export def sizes (ts: List Text): Result (List Nat) Text :=
-  Fail.toResult (() => ts.mapIn (t =>
+  Fail.toResult (() => ts.map (t =>
     let r := Range.read t
     r.to - r.from + 1))

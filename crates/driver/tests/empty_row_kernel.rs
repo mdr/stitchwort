@@ -154,10 +154,10 @@ fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
 fn a_pure_use_of_an_effect_polymorphic_function_has_no_computation() {
     let mut session = Session::new();
     let source = "import Std (List)\n\
-                  def doubled (xs: List Nat): List Nat := List.mapIn (x => x + x) xs\n\
-                  def successors (xs: List Nat): List Nat := List.mapIn Succ xs\n\
-                  def unannotated (xs: List Nat): Nat :=\n  let ys := List.mapIn (x => x + 1) xs\n  List.sum ys\n\
-                  def emptyRow (f: Nat -> {} Nat) (xs: List Nat): List Nat := List.mapIn f xs\n";
+                  def doubled (xs: List Nat): List Nat := List.map (x => x + x) xs\n\
+                  def successors (xs: List Nat): List Nat := List.map Succ xs\n\
+                  def unannotated (xs: List Nat): Nat :=\n  let ys := List.map (x => x + 1) xs\n  List.sum ys\n\
+                  def emptyRow (f: Nat -> {} Nat) (xs: List Nat): List Nat := List.map f xs\n";
     if let Err(ds) = session.load("test.sw", source) {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }

@@ -352,6 +352,11 @@ pub struct Elaborator {
     /// application inside uses its expected type first
     /// (docs/proposals/syntax-conveniences.md §7.4).
     no_propagation: std::cell::Cell<usize>,
+    /// Set while asking whether an expression in a pure context performs
+    /// anything besides calls whose result is in a bare row (`{e} b`, as
+    /// `List.map`'s): those are elaborated as plain calls first, and the row
+    /// is settled by unification (`check::pure_first`).
+    pub(crate) bare_rows_pure: std::cell::Cell<bool>,
     /// Above zero while an application, list, `if` or comparison is
     /// elaborated again after failing, with a constructor of a generic type
     /// that has number literals in it checked after its siblings, so they
@@ -452,7 +457,7 @@ pub struct Elaborator {
     /// reaches a computation type (`effects::def_performs_after`), once
     /// worked out: asked for every call in every expression checked, and
     /// fixed once the definition is, like `result_heads`.
-    pub(crate) performs: RefCell<HashMap<(DefId, usize, usize, bool), bool>>,
+    pub(crate) performs: RefCell<HashMap<effects::PerformsKey, bool>>,
     /// The interfaces declared so far (docs/proposals/interfaces.md §5.1).
     interfaces: HashMap<DataId, interfaces::InterfaceInfo>,
     /// The global instances, by interface and head (§5.6).

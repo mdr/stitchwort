@@ -791,23 +791,23 @@ const $Std$dOrd$d$gcompare = (v1) => {
 };
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
 const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: $Std$dNat$dcompare, decLessThan: $Std$dNat$ddecLessThan, decLessEq: $Std$dNat$ddecLessEq };
-const $Std$dList$dmap = (v2) => (v3) => {
-  let s2 = v2, s3 = v3;
+const $Std$dList$dmap$e = (v3) => (v4) => {
+  let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v3.tag) {
+    const v3 = s3, v4 = s4;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s2 = v2;
-        s3 = v5;
+        s3 = v3;
+        s4 = v6;
         continue;
       }
     }
@@ -1114,7 +1114,7 @@ const $Main$devenRounds = (v0) => (v1) => {
   }
 };
 const $Main$drounds = (v0) => (v1) => $Main$devenRounds(v0)(v1);
-const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0)($Std$dList$dmap(((v1) => ({ tag: "MkPair", fst: v1, snd: "x" })))($Std$dList$drange($Std$dNat$dadd(v0)(1n))));
+const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0)($Std$dList$dmap$e(((v1) => ({ tag: "MkPair", fst: v1, snd: "x" })))($Std$dList$drange($Std$dNat$dadd(v0)(1n))));
 
 function $$countDown(arg0) {
   try {

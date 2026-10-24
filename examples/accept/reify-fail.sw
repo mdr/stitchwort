@@ -30,22 +30,22 @@ theorem abortThen (t: () -> {Abort} a) (k: a -> {Abort} b):
     | Abort.stop (), _ => rfl
 
 -- A thunk written in place: the split is on `f x` itself.
-theorem mapIn (f: a -> {Fail} b): (xs: List a) ->
-    Fail.toResult (() => xs.mapIn f) = Result.traverse (x => Fail.toResult (() => f x)) xs
+theorem toResultMap (f: a -> {Fail} b): (xs: List a) ->
+    Fail.toResult (() => xs.map f) = Result.traverse (x => Fail.toResult (() => f x)) xs
   | [] => rfl
   | [x, ..xs] =>
-    let rest := mapIn f xs
+    let rest := toResultMap f xs
     match reify (() => f x) with
       | return y =>
-        match reify (() => xs.mapIn f) with
+        match reify (() => xs.map f) with
           | return ys => rewrite <- rest in rfl
           | Fail.stop msg, _ => rewrite <- rest in rfl
       | Fail.stop msg, _ => rfl
 
 -- Std's own, used.
 theorem parsed (xs: List Text):
-    Fail.toResult (() => xs.mapIn Text.toNatOrFail) = Result.traverse (x => Fail.toResult (() => Text.toNatOrFail x)) xs :=
-  Fail.toResultMapIn Text.toNatOrFail xs
+    Fail.toResult (() => xs.map Text.toNatOrFail) = Result.traverse (x => Fail.toResult (() => Text.toNatOrFail x)) xs :=
+  Fail.toResultMap Text.toNatOrFail xs
 
 -- A user's own ability, with two operations that resume: a one-step split
 -- (R1 has no induction over the rest of the computation).

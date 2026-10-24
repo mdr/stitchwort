@@ -1074,30 +1074,7 @@ const $Std$dEmpty$dabsurd = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap = (v2) => (v3) => {
-  let s2 = v2, s3 = v3;
-  let h$ = null, l$ = null, k$ = null;
-  for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v3.tag) {
-      case "Nil": {
-        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-      }
-      case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
-        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
-        l$ = c1$; k$ = "tail";
-        s2 = v2;
-        s3 = v5;
-        continue;
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
-const $Std$dList$dmapIn = (v1) => (v3) => (v4) => {
+const $Std$dList$dmap = (v1) => (v3) => (v4) => {
   switch (v4.tag) {
     case "Nil": {
       return $Std$dEffect$ddoneIn(v1)({ tag: "Nil" });
@@ -1105,12 +1082,12 @@ const $Std$dList$dmapIn = (v1) => (v3) => (v4) => {
     case "Cons": {
       const v5 = v4.head;
       const v6 = v4.tail;
-      return $Std$dEffect$dbindIn(v1)((v3)(v5))(((v7) => $Std$dEffect$dbindIn(v1)($Std$dList$dmapIn(v1)(v3)(v6))(((v8) => $Std$dEffect$ddoneIn(v1)({ tag: "Cons", head: v7, tail: v8 })))));
+      return $Std$dEffect$dbindIn(v1)((v3)(v5))(((v7) => $Std$dEffect$dbindIn(v1)($Std$dList$dmap(v1)(v3)(v6))(((v8) => $Std$dEffect$ddoneIn(v1)({ tag: "Cons", head: v7, tail: v8 })))));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmapIn$e = (v3) => (v4) => {
+const $Std$dList$dmap$e = (v3) => (v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1205,14 +1182,37 @@ const $Std$dFail$dneed = (v1) => (v2) => {
 const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })))($Std$dEffect$dhandlePlus($Std$dFail$d$gelim(((v3) => ((v4) => ({ tag: "Err", error: v3 })))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }));
 const $Main$ddouble = (v0) => $Std$dNat$dadd(v0)(v0);
 const $Main$dsum = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)(v2))))(0n)(v0);
-const $Main$ddoubled = (v0) => $Std$dList$dmapIn$e($Main$ddouble)(v0);
-const $Main$dmappedSum = (v0) => $Main$dsum($Std$dList$dmap(((v1) => $Std$dNat$dadd(v1)(1n)))($Std$dList$drange(v0)));
-const $Main$dmapInSum = (v0) => ((v1) => $Main$dsum(v1))($Std$dList$dmapIn$e(((v1) => $Std$dNat$dadd(v1)(1n)))($Std$dList$drange(v0)));
-const $Main$ddoubledEach = (v0) => $Std$dList$dmap($Std$dList$dmapIn$e($Main$ddouble))(v0);
+const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble)(v0);
+const $Main$dmappedSum = (v0) => $Main$dsum($Std$dList$dmap$e(((v1) => $Std$dNat$dadd(v1)(1n)))($Std$dList$drange(v0)));
+const $Main$dpureMap = (v2) => (v3) => {
+  let s2 = v2, s3 = v3;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v2 = s2, v3 = s3;
+    switch (v3.tag) {
+      case "Nil": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v4 = v3.head;
+        const v5 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+        l$ = c1$; k$ = "tail";
+        s2 = v2;
+        s3 = v5;
+        continue;
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
+const $Main$dpureDoubled = (v0) => $Main$dpureMap($Main$ddouble)(v0);
+const $Main$ddoubledEach = (v0) => $Std$dList$dmap$e($Std$dList$dmap$e($Main$ddouble))(v0);
 const $Main$dtwice$e = (v2) => (v3) => (v2)((v2)(v3));
 const $Main$dtwiceDoubled = (v0) => $Main$dtwice$e($Main$ddouble)(v0);
 const $Main$dparse = (v0) => $Std$dFail$dneed($Std$dText$dtoNat(v0))($Std$dText$dappend("not a number: ")($Std$dShow$dtoText($Std$dText$dinstShow)(v0)));
-const $Main$dparsed = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmapIn({ tag: "Ops" })($Main$dparse)(v0)));
+const $Main$dparsed = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" })($Main$dparse)(v0)));
 const $Main$dCount$d$gelim = (v1) => (v2) => (v3) => {
   switch (v2.tag) {
     case "%count": {
@@ -1224,7 +1224,7 @@ const $Main$dCount$d$gelim = (v1) => (v2) => (v3) => {
 };
 const $Main$dcountAll$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ((v4) => ({ tag: "MkPair", fst: v3, snd: v4 }))))($Std$dEffect$dhandlePlus($Main$dCount$d$gelim(((v3) => ((v4) => ((v5) => (v4)({ tag: "UnitValue" })($Std$dNat$dadd(v5)(1n)))))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }))(0n);
 const $Main$dtally = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%count", x: { tag: "UnitValue" } } }, rest: ((v1) => ({ tag: "Done", value: v1 })) })(((v1) => ({ tag: "Done", value: v0 })));
-const $Main$dcounted = (v0) => $Main$dcountAll$e(((v1) => $Std$dList$dmapIn({ tag: "Ops" })($Main$dtally)(v0)));
+const $Main$dcounted = (v0) => $Main$dcountAll$e(((v1) => $Std$dList$dmap({ tag: "Ops" })($Main$dtally)(v0)));
 
 function $$doubled(arg0) {
   try {
@@ -1244,12 +1244,12 @@ function $$mappedSum(arg0) {
   }
 }
 
-function $$mapInSum(arg0) {
+function $$pureDoubled(arg0) {
   try {
-    const v0 = decodeFast(dec$3, ty$2, arg0, "n");
-    return encodeFast(enc$4, ty$2, $Main$dmapInSum(v0));
+    const v0 = decodeFast(dec$1, ty$1, arg0, "xs");
+    return encodeFast(enc$2, ty$1, $Main$dpureDoubled(v0));
   } catch (e) {
-    throw outOfResources("mapInSum", e);
+    throw outOfResources("pureDoubled", e);
   }
 }
 
@@ -1418,4 +1418,4 @@ function enc$9(v) {
   }
 }
 
-export { $$doubled as doubled, $$mappedSum as mappedSum, $$mapInSum as mapInSum, $$doubledEach as doubledEach, $$twiceDoubled as twiceDoubled, $$parsed as parsed, $$counted as counted };
+export { $$doubled as doubled, $$mappedSum as mappedSum, $$pureDoubled as pureDoubled, $$doubledEach as doubledEach, $$twiceDoubled as twiceDoubled, $$parsed as parsed, $$counted as counted };

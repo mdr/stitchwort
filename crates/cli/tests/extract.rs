@@ -4650,12 +4650,13 @@ try {
     );
 }
 
-/// Design E's test case (docs/proposals/effect-polymorphism.md, §6 stage 2):
-/// the JS of `List.mapIn` used at the empty row is `List.map`'s loop, the
-/// same but for the numbers of its variables, and a pure caller passes no
-/// row.
+/// Design E's test case (docs/proposals/effect-polymorphism.md, §6 stages 2
+/// and 3): the JS of the effect-polymorphic `List.map` used at the empty row
+/// is the loop of a map whose callback type is pure (`pureMap` in the
+/// example, `List.map`'s old definition), the same but for the numbers of
+/// its variables, and a pure caller passes no row.
 #[test]
-fn map_in_at_the_empty_row_is_maps_loop() {
+fn map_at_the_empty_row_is_a_pure_maps_loop() {
     let (_, _, session) = examples()
         .into_iter()
         .find(|(name, _, _)| name == "effect-rows.sw")
@@ -4695,15 +4696,18 @@ fn map_in_at_the_empty_row_is_maps_loop() {
         }
         out
     };
-    let map = renumbered(function("$Std$dList$dmap"));
-    let map_in = renumbered(function("$Std$dList$dmapIn$e"));
-    assert_eq!(map, map_in, "`mapIn` at the empty row isn't `map`'s loop");
+    let pure_map = renumbered(function("$Main$dpureMap"));
+    let map = renumbered(function("$Std$dList$dmap$e"));
+    assert_eq!(
+        pure_map, map,
+        "`map` at the empty row isn't a pure map's loop"
+    );
     let caller = js
         .lines()
         .find(|l| l.starts_with("const $Main$ddoubled = "))
         .expect("the pure caller");
     assert_eq!(
         caller,
-        "const $Main$ddoubled = (v0) => $Std$dList$dmapIn$e($Main$ddouble)(v0);"
+        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble)(v0);"
     );
 }

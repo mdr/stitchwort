@@ -35,4 +35,4 @@ Main.test "splitOn partial prefix" d62b6448a9fc5583d1ec35c8608d90b1509b71714539f
 Main.test "turn left" e6a1b039799744b73e79b2f9dbdbfb7e71e3da7dd43b86d77900148a0dc1f30e
 Main.test "turn right" a3e6bbb2ad38efb5d9534ce36e22c980a2b1ec90f4a13dea3cf0bc8f3faf1376
 Main.test "turn bad" bec495599680faf266f2675c97d38c8252f5b1ed5557d1012fc5487a11e9bdce
-Main.test "lines then turn" ff6c4c08888c8e348b09fe96f3ef0b11f0a53eeeb66bfb422179b3b6c4676ada
+Main.test "lines then turn" 0664034be89d42ba19ee34a746a65b15b4da874cea4a428f64eae7415b443e0a

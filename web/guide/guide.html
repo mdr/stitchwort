@@ -96,7 +96,7 @@
 </section>
 
 <section data-slug="effect-polymorphism" data-title="One function for pure and effectful callbacks">
-  <p>A function type can say <code>{e}</code> for "whatever effects the callback has". Pass it a pure function and the call is pure; pass it one that can fail and the call can fail, with the same definition. The library does this where it matters, as <code>List.mapIn</code>, which is <code>map</code> for callbacks that may perform effects.</p>
+  <p>A function type can say <code>{e}</code> for "whatever effects the callback has". Pass it a pure function and the call is pure; pass it one that can fail and the call can fail, with the same definition. The library does this for <code>List.map</code>, whose callback may perform effects or none.</p>
   <pre data-src="18-effect-polymorphism.sw"></pre>
 </section>
 

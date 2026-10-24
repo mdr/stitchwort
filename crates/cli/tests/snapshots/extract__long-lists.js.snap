@@ -911,23 +911,23 @@ const $Std$dOrd$d$gcompare = (v1) => {
 };
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
 const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: $Std$dNat$dcompare, decLessThan: $Std$dNat$ddecLessThan, decLessEq: $Std$dNat$ddecLessEq };
-const $Std$dList$dmap = (v2) => (v3) => {
-  let s2 = v2, s3 = v3;
+const $Std$dList$dmap$e = (v3) => (v4) => {
+  let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v3.tag) {
+    const v3 = s3, v4 = s4;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s2 = v2;
-        s3 = v5;
+        s3 = v3;
+        s4 = v6;
         continue;
       }
     }
@@ -1218,8 +1218,8 @@ const $Std$dList$dsortBy = (v1) => (v2) => $Std$dList$dsortWith(((v3) => ((v4) =
 const $Std$dList$dsort = (v1) => (v2) => $Std$dList$dsortBy($Std$dOrd$dcompare(v1))(v2);
 const $Main$dsum = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)(v2))))(0n)(v0);
 const $Main$dcount = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)(1n))))(0n)(v0);
-const $Main$dscrambled = (v0) => $Std$dList$dmap(((v1) => $Std$dNat$dmod($Std$dNat$dmul(v1)(7919n))(100003n)))($Std$dList$drange(v0));
-const $Main$dmapSum = (v0) => $Main$dsum($Std$dList$dmap(((v1) => $Std$dNat$dadd(v1)(1n)))($Std$dList$drange(v0)));
+const $Main$dscrambled = (v0) => $Std$dList$dmap$e(((v1) => $Std$dNat$dmod($Std$dNat$dmul(v1)(7919n))(100003n)))($Std$dList$drange(v0));
+const $Main$dmapSum = (v0) => $Main$dsum($Std$dList$dmap$e(((v1) => $Std$dNat$dadd(v1)(1n)))($Std$dList$drange(v0)));
 const $Main$dfilterCount = (v0) => $Main$dcount($Std$dList$dfilter(((v1) => (((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2)(0n))))($Std$dNat$dmod(v1)(3n))))($Std$dList$drange(v0)));
 const $Main$dfilterMapSum = (v0) => $Main$dsum($Std$dList$dfilterMap(((v1) => $Std$dBool$difThenElse((((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2)(0n))))($Std$dNat$dmod(v1)(2n)))(((v2) => ({ tag: "Some", value: $Std$dNat$ddiv(v1)(2n) })))(((v2) => ({ tag: "None" })))))($Std$dList$drange(v0)));
 const $Main$dappendCount = (v0) => $Main$dcount($Std$dList$dappend($Std$dList$drange(v0))($Std$dList$drange(v0)));
@@ -1278,10 +1278,10 @@ const $Main$dItem$d$gdecEq = (v0) => (v1) => {
   const v5 = v1.name;
   return $Std$dDecidable$delim($Std$dNat$ddecEq(v2)(v4))(((v6) => $Std$dDecidable$delim($Std$dText$ddecEq(v3)(v5))(((v7) => ({ tag: "Yes" })))(((v7) => ({ tag: "No" })))))(((v6) => ({ tag: "No" })));
 };
-const $Main$ditems = (v0) => $Std$dList$dmap(((v1) => ({ id: v1, name: "x" })))($Std$dList$drange(v0));
+const $Main$ditems = (v0) => $Std$dList$dmap$e(((v1) => ({ id: v1, name: "x" })))($Std$dList$drange(v0));
 const $Main$dsameNats = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))))($Std$dList$drange(v0))($Std$dList$drange(v0));
 const $Main$dsameItems = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Main$dItem$d$gdecEq(v3)(v4))))(v1)(v2)))))($Main$ditems(v0))($Main$ditems(v0));
-const $Main$dlastDiffers = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))))($Std$dList$drange(v0))($Std$dList$dmap(((v1) => $Std$dBool$difThenElse((((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2)(v0))))($Std$dNat$dadd(v1)(1n)))(((v2) => $Std$dNat$dadd(v0)(7n)))(((v2) => v1))))($Std$dList$drange(v0)));
+const $Main$dlastDiffers = (v0) => ((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))($Std$dList$dmap$e(((v2) => $Std$dBool$difThenElse(((v3) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3)(v0)))($Std$dNat$dadd(v2)(1n)))(((v3) => $Std$dNat$dadd(v0)(7n)))(((v3) => v2))))($Std$dList$drange(v0))))($Std$dList$drange(v0));
 const $Main$dshorter = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3)(v4))))(v1)(v2)))))($Std$dList$drange(v0))($Std$dList$drange($Std$dNat$dadd(v0)(1n)));
 
 function $$mapSum(arg0) {

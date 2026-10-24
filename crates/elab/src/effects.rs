@@ -860,6 +860,29 @@ fn unknown_bare(cx: &Ctx, row: &Row) -> Result<bool> {
     }
 }
 
+/// `T`, for a type `CompIn ?e T` whose row is still unknown; `None` for any
+/// other type. What a value of that type is made of is `T`'s: the row rule
+/// settles `?e` once the value's type is compared with it.
+pub fn unknown_bare_value(cx: &Ctx, ty: &Value) -> Result<Option<Value>> {
+    Ok(match comp_parts(cx, ty)? {
+        Some((row, t)) if unknown_bare(cx, &row)? => Some(t),
+        _ => None,
+    })
+}
+
+/// Settles the row of `ty`, a `CompIn ?e T` whose row is still unknown, as
+/// the empty one, so `ty` is `T`; anything else is left alone. For a value
+/// of a pure context, which can't be a computation (`check::pure_first`).
+pub fn settle_empty(cx: &Ctx, ty: &Value) -> Result<()> {
+    if let Some((row, _)) = comp_parts(cx, ty)?
+        && unknown_bare(cx, &row)?
+        && let Some(tail) = &row.tail
+    {
+        cx.unify(tail, &crate::rows::empty_row_in(cx)?)?;
+    }
+    Ok(())
+}
+
 /// If `row` ends in an unknown, adds `extra` to it, keeping it open for
 /// more (the unknown becomes `extra` and a fresh unknown). Returns the
 /// wider row.
@@ -1405,6 +1428,17 @@ fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Optio
 
 // Computation mode
 
+/// Whether `expr`, which [`may_perform`], performs only through calls whose
+/// result is a computation in a bare row (`List.map f xs`, `{e} (List b)`):
+/// in a pure context those may be plain calls, with the row settled by
+/// unification (`check::pure_first`).
+pub fn performs_only_in_bare_rows(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
+    let before = cx.e.bare_rows_pure.replace(true);
+    let performs = may_perform_at(cx, expr, expected);
+    cx.e.bare_rows_pure.set(before);
+    Ok(!performs?)
+}
+
 /// Whether elaborating `expr` may perform operations: it calls an operation,
 /// an effectful function (with enough arguments), or contains sequencing,
 /// `handle`, or a `let` whose value or rest may. Lambda bodies don't count,
@@ -1607,6 +1641,11 @@ fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
     }
 }
 
+/// What [`def_performs_after`]'s answer is remembered by: the definition, the
+/// explicit arguments, the abilities declared so far, whether a description's
+/// recursion is in scope, and whether bare rows count (`bare_rows_pure`).
+pub(crate) type PerformsKey = (DefId, usize, usize, bool, bool);
+
 /// [`performs_after`] for a call of definition `id`. Remembered for a final
 /// definition (`Elaborator::performs`): its type never changes, and this is
 /// asked for every call each time an expression around it is checked. What
@@ -1614,7 +1653,13 @@ fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
 /// description's recursion is in scope, [`decode`]) is part of the key.
 fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
     let g = cx.g();
-    let key = (id, explicit, cx.e.abilities.len(), cx.e.recursion.is_some());
+    let key = (
+        id,
+        explicit,
+        cx.e.abilities.len(),
+        cx.e.recursion.is_some(),
+        cx.e.bare_rows_pure.get(),
+    );
     if let Some(&known) = cx.e.performs.borrow().get(&key) {
         return Ok(known);
     }
@@ -1626,22 +1671,48 @@ fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
 }
 
 /// Whether a function of type `ty`, given `explicit` arguments, reaches a
-/// computation type.
+/// computation type. While `bare_rows_pure` is set, a computation in a bare
+/// row (`{e} b`) doesn't count.
 fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> {
     let g = cx.g();
     let mut level = cx.level();
+    // Whether a parameter passed is a computation with abilities of its own
+    // (`() -> {Fail | e} a`): a handler, whose row is worked out by running
+    // its argument, as before.
+    let mut handles = false;
     loop {
-        if comp_parts(cx, &ty)?.is_some() {
-            return Ok(true);
+        if let Some((row, _)) = comp_parts(cx, &ty)? {
+            return Ok(!(row.is_bare() && !handles && cx.e.bare_rows_pure.get()));
         }
         match force(g, ty)? {
-            Value::Pi(_, icit, _, cod) => {
+            Value::Pi(_, icit, dom, cod) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
                         return Ok(false);
                     }
                     explicit -= 1;
+                    if cx.e.bare_rows_pure.get() && !handles {
+                        handles = performs_abilities(cx, (*dom).clone(), level)?;
+                    }
                 }
+                ty = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            _ => return Ok(false),
+        }
+    }
+}
+
+/// Whether `ty` (with `level` variables in scope), after all its explicit
+/// parameters, is a computation with at least one ability.
+fn performs_abilities(cx: &Ctx, mut ty: Value, mut level: usize) -> Result<bool> {
+    let g = cx.g();
+    loop {
+        if let Some((row, _)) = comp_parts(cx, &ty)? {
+            return Ok(!row.labels.is_empty());
+        }
+        match force(g, ty)? {
+            Value::Pi(_, _, _, cod) => {
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
@@ -1911,6 +1982,13 @@ fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<
     let compared = |cx: &mut Ctx| -> Result<Option<Term>> {
         let (term, found) = infer(cx, expr)?;
         let (term, found) = insert(cx, term, found)?;
+        // A type not known yet says nothing about the row: comparing it
+        // would only make it the whole computation type (`add 1` for an
+        // `add` whose type a later argument gives, `List.map (add => add 1)
+        // fs`).
+        if is_unknown(cx, &found)? {
+            return Ok(None);
+        }
         let term = crate::check::compare(cx, term, &found, &whole)?;
         let empty = match force(cx.g(), tail.clone())? {
             Value::Ctor(d, c, _) => cx.g().registry.ctor(Builtin::RowEmpty) == Some((d, c)),
@@ -2165,13 +2243,12 @@ fn in_place(cx: &Ctx, row: &Row, c: &Term, ty: &Value) -> Result<Option<Term>> {
         return Ok(None);
     }
     // A plain value made a computation (a call of an effect-polymorphic
-    // function at the empty row, which computes to its result): the value.
-    if let Term::Ann(inner, _) = c
-        && let Term::Ctor(d, 0, fields) = inner.strip_loc()
-        && *d == data(cx, Builtin::Comp)?
-        && fields.len() == 1
-    {
-        return Ok(Some(fields[0].as_ref().clone()));
+    // function at the empty row, which computes to its result, perhaps under
+    // the `let`s of calls that ran in place before it): the value. Its type
+    // may be a proposition (`Eq.cong Succ (lemma (List.map f xs))`), which no
+    // `Comp` can hold.
+    if let Some(value) = done_value(cx, c)? {
+        return Ok(Some(value));
     }
     Ok(Some(call(
         cx,
@@ -2286,7 +2363,22 @@ fn comp_app(
         Expr::Field(recv, field) => {
             let call = {
                 let args = crate::check::args_of(&owned);
-                crate::dot::infer_dot(cx, recv, field, &args)?
+                // Its value type compared with the one expected first, as
+                // for a call in prefix form (`xs.map (Cons { … })` at
+                // `List (List Hit)`), where the prefix form stands for it.
+                let propagated = match expected {
+                    Some(t) => match crate::dot::prefix_form(cx, recv, field, &args)? {
+                        Some((prefix, full)) => {
+                            crate::check::propagate_comp(cx, &prefix, &full, t)?
+                        }
+                        None => None,
+                    },
+                    None => None,
+                };
+                match propagated {
+                    Some(call) => call,
+                    None => crate::dot::infer_dot(cx, recv, field, &args)?,
+                }
             };
             owned.clear();
             call
@@ -2324,9 +2416,17 @@ fn comp_app(
                 (term, ty) = applied;
                 given = &[];
             }
-            for arg in given {
-                (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
-                (term, ty) = crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))?;
+            if given.len() > 1 && no_stage_before_last(cx, &ty, given)? {
+                // Applied together, as a pure call's arguments are, so a
+                // lambda whose parameter type a later argument fixes is
+                // checked after it: `List.map (e => e.value) xs`.
+                (term, ty) = crate::check::apply_args(cx, (term, ty), given)?;
+            } else {
+                for arg in given {
+                    (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
+                    (term, ty) =
+                        crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))?;
+                }
             }
             // Names behind a type that computes once these arguments are
             // given: the rest is matched against the call so far.
@@ -2484,6 +2584,25 @@ fn plan_call<'a>(
 /// with `k : s -> {e} (s -> {e} …)`): run it, into a variable bound for
 /// [`wrap`], and continue with its result. Anything else is returned as it
 /// is.
+/// Whether a function of type `ty` given the explicit arguments `given`
+/// reaches no computation before the last of them, so no stage runs between
+/// them and they can be applied in one go. Only for positional arguments:
+/// [`performs_after`] counts explicit parameters.
+fn no_stage_before_last(cx: &Ctx, ty: &Value, given: &[crate::check::Arg]) -> Result<bool> {
+    if !given
+        .iter()
+        .all(|a| matches!(a, crate::check::Arg::Explicit(_)))
+    {
+        return Ok(false);
+    }
+    for explicit in 0..given.len() {
+        if performs_after(cx, ty.clone(), explicit)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 fn run_stage(
     cx: &mut Ctx,
     row: &Row,

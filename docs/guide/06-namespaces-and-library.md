@@ -98,9 +98,9 @@ import Shop (Order, combine)
 import Std (Fail, IO, List, Map)
 
 def main(): {IO, Fail} () :=
-  let orders := IO.readAllLines().mapIn Order.read
+  let orders := IO.readAllLines().map Order.read
   let totals := combine orders
-  totals.toList.mapIn printTotal
+  totals.toList.map printTotal
   IO.print "Total: ${bill orders} pence"
 
 def printTotal (item: (Text, Nat)): {IO} () :=
@@ -185,7 +185,7 @@ test "with an index" := ["a", "b"].withIndex == [(0, "a"), (1, "b")]
 test "maximum of an empty list" := ([]: List Nat).maximum == None
 ```
 
-Others worth knowing: `count`, `all`, `any`, `flatMap`, `concatMap`, `scanLeft`, `partition`, `span`, `takeWhile`, `dropWhile`, `chunksOf`, `transpose`, `reverse`, `sortOn`, `sortBy`, `maxBy`, `minBy`, `occurrences`, `getOr`, `replicate`, and `mapIn`, a `map` whose function may perform abilities ([chapter 8](08-abilities.md)).
+Others worth knowing: `count`, `all`, `any`, `flatMap`, `concatMap`, `scanLeft`, `partition`, `span`, `takeWhile`, `dropWhile`, `chunksOf`, `transpose`, `reverse`, `sortOn`, `sortBy`, `maxBy`, `minBy`, `occurrences`, `getOr` and `replicate`. `map`'s function may also perform abilities ([chapter 8](08-abilities.md)).
 
 ### Option and Result
 
