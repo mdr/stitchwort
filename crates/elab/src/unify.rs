@@ -80,6 +80,59 @@ pub fn unify_postponing(
     Ok(result?.then_some(postponed))
 }
 
+/// What a value is at its outermost layer, when no solution of an unknown
+/// can change it: it is apart from any value with another head, now and
+/// after any unknown is solved. Shared by the row rule (`row_rule`: a type
+/// apart from `Comp` makes a row unknown `Empty`) and the instance search
+/// (`interfaces::rigidly_distinct`), so the two agree on what is apart
+/// (docs/proposals/effect-polymorphism.md §5.C.1).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Rigid {
+    /// A data type, applied.
+    Data(stitchwort_core::DataId),
+    /// A function type.
+    Pi,
+    /// A sort.
+    Sort,
+    /// An equation type.
+    Eq,
+    /// A variable in scope, applied or not: nothing substitutes for it while
+    /// the declaration is elaborated, so it never computes.
+    Var,
+    /// A quotient type, `Quot A R`.
+    Quot,
+    /// A definition that never unfolds (an opaque primitive such as `Delay`,
+    /// or an axiom), applied.
+    Opaque(stitchwort_core::DefId),
+}
+
+/// The rigid head of `v`, an already forced value, or `None` if it has none
+/// (an unknown, a definition stuck on something that may still compute, a
+/// constructor, a function, a number, a stuck `Quot.lift`).
+pub(crate) fn rigid_head(g: &Globals, v: &Value) -> Option<Rigid> {
+    use stitchwort_core::term::QuotForm;
+    Some(match v {
+        Value::Data(d, _) => Rigid::Data(*d),
+        Value::Pi(..) => Rigid::Pi,
+        Value::Sort(_) => Rigid::Sort,
+        Value::Eq(..) => Rigid::Eq,
+        Value::Neutral(Head::Var(_), _) => Rigid::Var,
+        Value::Neutral(Head::Quot(QuotForm::Type), spine)
+            if spine.len() == QuotForm::Type.arity() =>
+        {
+            Rigid::Quot
+        }
+        Value::Neutral(Head::Def(d), _) => {
+            let def = g.def(*d);
+            if def.body().is_some() || def.state() != stitchwort_core::globals::State::Final {
+                return None;
+            }
+            Rigid::Opaque(*d)
+        }
+        _ => return None,
+    })
+}
+
 /// What design C's rule says about `a ≟ b`, when one side is `CompIn ?e B`
 /// for an unsolved row unknown `?e` (docs/proposals/effect-polymorphism.md
 /// §5.C.1, D1123, D1124). `CompIn Empty B` is `B`, so `?e := Empty` is
@@ -190,21 +243,27 @@ fn row_rule(
                 _ => blocked(a, b),
             }));
         }
-        Value::Data(..)
-        | Value::Pi(..)
-        | Value::Sort(_)
-        | Value::Eq(..)
-        | Value::Neutral(Head::Var(_), _)
-        | Value::Neutral(Head::Quot(_), _) => true,
-        Value::Neutral(Head::Def(d), _) => {
-            if g.builtins.primitive_id(Primitive::Delay) == Some(*d) {
-                return Ok(Some(false));
-            }
-            let def = g.def(*d);
-            def.body().is_none() && def.state() == stitchwort_core::globals::State::Final
+        // A partial computation: a row variable never stands for `Partial`.
+        Value::Neutral(Head::Def(d), _)
+            if g.builtins.primitive_id(Primitive::Delay) == Some(*d) =>
+        {
+            return Ok(Some(false));
         }
-        // Not a type: the rule has nothing to say.
-        _ => return Ok(None),
+        _ => match rigid_head(g, other) {
+            Some(_) => true,
+            // A definition, or a `Quot.lift`, stuck on something that may
+            // still compute: blocked.
+            None if matches!(
+                other,
+                Value::Neutral(Head::Def(_), _)
+                    | Value::Neutral(Head::Quot(stitchwort_core::QuotForm::Lift), _)
+            ) =>
+            {
+                false
+            }
+            // Not a type: the rule has nothing to say.
+            None => return Ok(None),
+        },
     };
     if apart {
         solve_with(work, empty_row, result, other.clone());

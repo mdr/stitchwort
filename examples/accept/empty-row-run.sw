@@ -12,7 +12,8 @@ def f: Comp NoOp NoRes Nat := 3
 def g: Nat := f
 theorem gIsThree: g = 3 := rfl
 
--- Named in a pure context, `f` is its result.
+-- As an operand of `=`, `f` is the computation itself, passed as written
+-- (D1140 (a)), and the `3` on the other side is `Done 3`.
 theorem fIsThree: f = 3 := rfl
 
 -- A parameter of that type, and a function returning one, called.

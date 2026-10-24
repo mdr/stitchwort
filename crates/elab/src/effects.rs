@@ -1446,6 +1446,17 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
                     f => call_performs(cx, f, 1)?,
                 }
         }
+        // An operand of `=` that is a computation is passed (D1140 (a)).
+        Expr::Binary(BinOp::Eq, a, b) => {
+            let mut performs = false;
+            for side in [&**a, &**b] {
+                if may_perform(cx, side)? && !passed_operand(cx, side)? {
+                    performs = true;
+                    break;
+                }
+            }
+            performs
+        }
         Expr::Binary(_, a, b) => any(&mut [&**a, &**b].into_iter())?,
         Expr::Match {
             scrutinees, alts, ..
@@ -1655,10 +1666,32 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
 
 /// Checks `expr` as a computation in `row` returning a `t`.
 pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Term> {
+    comp_check_in(cx, expr, row, t, false)
+}
+
+/// [`comp_check`] for a check against a computation type as written (the
+/// expected type of a check, not the computation mode of the code around
+/// it): in the empty row, an `if`'s or a `match`'s branches are checked
+/// against the whole computation type, so each is passed as written rather
+/// than run in place and wrapped in `Done` (D1140 (a),
+/// docs/proposals/effect-polymorphism.md). In any other row it's
+/// [`comp_check`].
+pub fn comp_check_written(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Term> {
+    comp_check_in(cx, expr, row, t, true)
+}
+
+/// [`comp_check`], or [`comp_check_written`] if `as_written`.
+fn comp_check_in(
+    cx: &mut Ctx,
+    expr: &Expr,
+    row: &Row,
+    t: &Value,
+    as_written: bool,
+) -> Result<Term> {
     cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
         Expr::LocalDefs { defs, body, .. } => {
-            crate::local::around(cx, defs, |cx| comp_check(cx, body, row, t))
+            crate::local::around(cx, defs, |cx| comp_check_in(cx, body, row, t, as_written))
         }
         Expr::Let {
             name,
@@ -1706,7 +1739,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 if let Some(w) = written {
                     cx.set_written(w);
                 }
-                comp_check(cx, body, row, t)
+                comp_check_in(cx, body, row, t, as_written)
             })
         }
         Expr::Seq(first, rest) => {
@@ -1719,7 +1752,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 (term, ty, false)
             };
             sequence(cx, row, t, "_", term, ty, effectful, |cx| {
-                comp_check(cx, rest, row, t)
+                comp_check_in(cx, rest, row, t, as_written)
             })
         }
         Expr::If {
@@ -1730,7 +1763,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             ..
         } => {
             if !may_perform(cx, cond)? {
-                return branches(cx, row, t, |cx, expected| {
+                return branches(cx, row, t, as_written, |cx, expected| {
                     check_if(cx, binder.as_ref(), cond, then, otherwise, expected)
                 });
             }
@@ -1749,7 +1782,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 span: cond.span(),
             });
             sequence(cx, row, t, "%cond", c, bool_ty, true, |cx| {
-                branches(cx, row, t, |cx, expected| {
+                branches(cx, row, t, as_written, |cx, expected| {
                     check_if(cx, None, &var, then, otherwise, expected)
                 })
             })
@@ -1765,7 +1798,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                 performs |= may_perform(cx, &s.expr)?;
             }
             if !performs {
-                return branches(cx, row, t, |cx, expected| {
+                return branches(cx, row, t, as_written, |cx, expected| {
                     crate::matching::check_match(cx, expr, expected)
                 });
             }
@@ -1779,7 +1812,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                     span: *span,
                     kind: *kind,
                 };
-                branches(cx, row, t, |cx, expected| {
+                branches(cx, row, t, as_written, |cx, expected| {
                     crate::matching::check_match(cx, &matched, expected)
                 })
             })
@@ -1796,7 +1829,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
         }
         // `a && b`, `a || b`: as an `if`, so `b` runs only if it's needed.
         Expr::Binary(op @ (BinOp::And | BinOp::Or), a, b) if may_perform(cx, expr)? => {
-            comp_check(cx, &crate::logic::as_if(*op, a, b), row, t)
+            comp_check_in(cx, &crate::logic::as_if(*op, a, b), row, t, as_written)
         }
         _ if may_perform_at(cx, expr, Some(t))? => {
             let (c, ty) = comp_call(cx, expr, row, Some(t))?;
@@ -1823,16 +1856,75 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
                     return Ok(c);
                 }
             }
+            if let Some(c) = unknown_row_value(cx, expr, row, t)? {
+                return Ok(c);
+            }
             let v = check(cx, expr, t)?;
             done(cx, row, t, v)
         }
     }
 }
 
+/// A call (or a variable, a dot call, a pipe) that performs nothing, checked
+/// as a computation in a bare row `{?e}` whose row is still unknown: the body
+/// of a callback checked by eta-expansion against `a -> {?e} b`. Its type `T`
+/// is compared with the whole `CompIn ?e b`, so the row rule
+/// (`unify::row_rule`) decides the row as it does for a function passed
+/// as it is: `Empty` if `T` is apart from a computation (the value is then
+/// `doneIn ?e v`, as before), the computation's row if `T` is one (the value
+/// is that computation), or, if `T` may still compute to one (a definition
+/// stuck on an unknown), put aside until it's known. `None` in any other
+/// row, for any other expression, or if that fails (it's then checked
+/// against `b` as before).
+fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Option<Term>> {
+    if !row.is_bare()
+        || !matches!(
+            expr,
+            Expr::Var(_) | Expr::App(..) | Expr::Field(..) | Expr::Pipe(..)
+        )
+    {
+        return Ok(None);
+    }
+    let tail = row.tail.as_ref().expect("a bare row has a tail");
+    if !is_unknown(cx, tail)? {
+        return Ok(None);
+    }
+    let whole = comp_type(cx, row, t.clone())?;
+    let compared = |cx: &mut Ctx| -> Result<Term> {
+        let (term, found) = infer(cx, expr)?;
+        let (term, found) = insert(cx, term, found)?;
+        let term = crate::check::compare(cx, term, &found, &whole)?;
+        let empty = match force(cx.g(), tail.clone())? {
+            Value::Ctor(d, c, _) => cx.g().registry.ctor(Builtin::RowEmpty) == Some((d, c)),
+            _ => false,
+        };
+        if empty {
+            return done(cx, row, t, term);
+        }
+        Ok(term)
+    };
+    crate::undo::attempt(cx, compared)
+}
+
 /// Whether `expr` is a call (or a variable) whose value has a computation
 /// type ([`is_comp_type`]), read off its head's type: a constructor of
 /// `Comp`, or a function whose result after the arguments written is one.
 fn returns_comp_value(cx: &Ctx, expr: &Expr) -> Result<bool> {
+    comp_value(cx, expr, false)
+}
+
+/// Whether `expr`, an operand of `=`, is passed as written rather than run
+/// (D1140 (a), docs/proposals/effect-polymorphism.md): a call (or a
+/// variable) whose value has a `Comp` type, in any row, read off its head's
+/// type as for [`returns_comp_value`]. A computation in a bare row (`CompIn e
+/// a`, what an effect-polymorphic function returns) isn't one: its row is
+/// inferred from the other side, as before.
+pub(crate) fn passed_operand(cx: &Ctx, expr: &Expr) -> Result<bool> {
+    comp_value(cx, expr, true)
+}
+
+/// [`returns_comp_value`], or with `comp_only` [`passed_operand`].
+fn comp_value(cx: &Ctx, expr: &Expr, comp_only: bool) -> Result<bool> {
     let mut explicit = 0;
     let mut head = expr;
     while let Expr::App(f, a) = head {
@@ -1853,9 +1945,10 @@ fn returns_comp_value(cx: &Ctx, expr: &Expr) -> Result<bool> {
     let g = cx.g();
     let mut ty = ty;
     let mut level = cx.level();
+    let comp = data(cx, Builtin::Comp).ok();
     loop {
         if explicit == 0 && is_comp_type(cx, &ty)? {
-            return Ok(true);
+            return Ok(!comp_only || matches!(force(g, ty)?, Value::Data(d, _) if Some(d) == comp));
         }
         match force(g, ty)? {
             Value::Pi(_, icit, _, cod) => {
@@ -1874,16 +1967,20 @@ fn returns_comp_value(cx: &Ctx, expr: &Expr) -> Result<bool> {
 }
 
 /// An `if`'s or a `match`'s branches, checked by `check` against a
-/// computation in `row` returning a `t`. In the empty row they're checked
-/// against `t` itself, each running in place what it runs, and the whole is
-/// `Done` of that ([`in_place`]).
+/// computation in `row` returning a `t`. In the empty row, in computation
+/// mode, they're checked against `t` itself, each running in place what it
+/// runs, and the whole is `Done` of that ([`in_place`]). Against a
+/// computation type as written (`as_written`), and in any other row, they're
+/// checked against the whole computation type, so a branch that is a
+/// computation is passed as written (D1140 (a)).
 fn branches(
     cx: &mut Ctx,
     row: &Row,
     t: &Value,
+    as_written: bool,
     check: impl FnOnce(&mut Ctx, &Value) -> Result<Term>,
 ) -> Result<Term> {
-    if row.is_empty() {
+    if row.is_empty() && !as_written {
         let v = check(cx, t)?;
         return done(cx, row, t, v);
     }
@@ -2679,6 +2776,28 @@ fn comp_compound(
         }
         run_first(cx, e, row, bound)
     };
+    // An operand of `op`: an operand of `=` that is a computation is passed
+    // (D1140 (a)); any other runs first.
+    let operand = |cx: &mut Ctx, op: BinOp, e: &Expr, bound: &mut Vec<Bound>| -> Result<Expr> {
+        if op == BinOp::Eq && passed_operand(cx, e)? {
+            return Ok(e.clone());
+        }
+        run_first(cx, e, row, bound)
+    };
+    // A group's leaves run first, left to right, except an operand of `=`
+    // that is passed.
+    let leaves = |cx: &mut Ctx, expr: &Expr, bound: &mut Vec<Bound>| -> Result<Expr> {
+        let sides: Vec<&Expr> = match expr {
+            Expr::Binary(BinOp::Eq, a, b) => vec![&**a, &**b],
+            _ => Vec::new(),
+        };
+        crate::numbers::map_leaves(cx, expr, &mut |cx, leaf| {
+            if sides.iter().any(|side| std::ptr::eq(*side, leaf)) && passed_operand(cx, leaf)? {
+                return Ok(leaf.clone());
+            }
+            run_first(cx, leaf, row, bound)
+        })
+    };
     let pure = match expr {
         Expr::Record { base, fields, span } => {
             let base = match base {
@@ -2724,8 +2843,8 @@ fn comp_compound(
             // with an `Int` `i`, the whole group is typed at once.
             let before = |cx: &mut Ctx| -> Result<(Term, Value)> {
                 let mut bound = Vec::new();
-                let a = run_first(cx, a, row, &mut bound)?;
-                let b = run_first(cx, b, row, &mut bound)?;
+                let a = operand(cx, *op, a, &mut bound)?;
+                let b = operand(cx, *op, b, &mut bound)?;
                 let pure = Expr::Binary(*op, Box::new(a), Box::new(b));
                 let (term, ty) = infer(cx, &pure)?;
                 let (term, ty) = insert(cx, term, ty)?;
@@ -2740,15 +2859,9 @@ fn comp_compound(
             if let Some(found) = crate::numbers::attempt(cx, before)? {
                 return Ok(found);
             }
-            crate::numbers::map_leaves(cx, expr, &mut |cx, leaf| {
-                run_first(cx, leaf, row, &mut bound)
-            })?
+            leaves(cx, expr, &mut bound)?
         }
-        Expr::Binary(..) | Expr::Neg(..) => {
-            crate::numbers::map_leaves(cx, expr, &mut |cx, leaf| {
-                run_first(cx, leaf, row, &mut bound)
-            })?
-        }
+        Expr::Binary(..) | Expr::Neg(..) => leaves(cx, expr, &mut bound)?,
         Expr::Tuple(a, b, span) => {
             let a = part(cx, 0, a, &mut bound)?;
             let b = part(cx, 1, b, &mut bound)?;
