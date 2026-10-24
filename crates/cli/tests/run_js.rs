@@ -412,3 +412,83 @@ fn an_unhandled_failure_is_reported_alike() {
         assert_eq!(js.status.code(), Some(code), "{}", path.display());
     }
 }
+
+/// The runner steps computations with the effect runtime's loop
+/// (docs/proposals/effect-runtime.md §9.3, stage 4a): an `IO` operation on
+/// every element of an effectful `map`, so each crosses as many pending
+/// `bind`s as there are elements left, and a `Fail` handler it's forwarded
+/// through. Before stage 4a this was quadratic (16,000 elements took
+/// seconds); a million now take about a second. Checked both ways on a
+/// short list, and in JS alone on the long one (the native runtime is
+/// quadratic until stage 4c).
+#[test]
+fn io_across_many_binds_runs_in_linear_time() {
+    let source = |count: usize| {
+        format!(
+            r#"
+import Std (Fail, List, Nat, Result, Text)
+
+def echo (x: Nat): {{IO, Fail}} Nat :=
+  IO.print (Nat.toText x)
+  if x < 100000000 then x else Fail.fail "too big"
+
+def main(): {{IO}} () :=
+  match Fail.toResult (() => List.map echo (List.range {count})) with
+    | Ok xs => IO.print "total ${{List.sum xs}}"
+    | Err message => IO.print message
+"#
+        )
+    };
+    let short = source_file("io-short.sw", &source(2_000));
+    let js = same_both_ways(&short, b"", true);
+    assert!(text(&js.stdout).ends_with("1999\ntotal 1999000\n"));
+
+    let long = source_file("io-long.sw", &source(1_000_000));
+    let js = run(&long, true, b"");
+    assert!(js.status.success(), "{}", text(&js.stderr));
+    let stdout = text(&js.stdout);
+    assert_eq!(stdout.lines().count(), 1_000_001);
+    assert!(stdout.ends_with("999999\ntotal 499999500000\n"));
+}
+
+/// `Partial` mixed with another ability: a handler inside a partial function
+/// (so its carrier is a `Delay`, and the runtime resumes by calling), which
+/// forwards `IO` to the runner, between recursion requests that the runner's
+/// `Tie` frames answer.
+#[test]
+fn a_handler_inside_a_partial_function_prints_the_same_both_ways() {
+    let path = source_file(
+        "partial-forward.sw",
+        r#"
+import Std (Nat, Text)
+
+ability Env where
+  ask: () -> {Env} Nat
+
+def next (n: Nat): Nat := if n % 2 == 0 then n / 2 else 3 * n + 1
+
+def shown (n: Nat): {IO, Env} Nat :=
+  IO.print (Nat.toText n)
+  Env.ask()
+
+-- Prints each number, asking for the step to add to the count.
+def steps: Nat -> {IO, Partial} Nat
+  | 1 => 0
+  | n =>
+    let step :=
+      handle shown n with
+        | return x => x
+        | Env.ask u, k => k 1
+    step + steps (next n)
+
+def main(): {IO, Partial} () :=
+  IO.print "27 reaches 1 in ${steps 27} steps"
+"#,
+    );
+    let js = same_both_ways(&path, b"", true);
+    assert!(
+        text(&js.stdout).ends_with("27 reaches 1 in 111 steps\n"),
+        "{}",
+        text(&js.stdout)
+    );
+}

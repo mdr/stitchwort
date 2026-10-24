@@ -835,6 +835,71 @@ Each stage is one lane, testable on its own, in this order. "1M" is
 Every stage keeps pure `map` within 10% of today (stage 2's guarantee) and
 leaves the kernel and the elaborator unchanged, so hashes don't move.
 
+### 9.4 As built: stage 4a
+
+- **Where.** `crates/js/src/effect.rs`: the runtime's JS (`effRun`, the
+  loop; `effFold` and `effFoldLazy`; `effTranslate`; `effBind`;
+  `effRunPure`), emitted before the generated definitions whenever a
+  module uses the effect machinery, and the four library definitions
+  replaced by it (`Gen::effect_native`, so they're also never inlined).
+  All four or none: the runtime checks the core's shapes (runtime arities,
+  `Comp`'s and `SigMap`'s fields) and otherwise leaves the library's code.
+- **The carrier rule** (§9.2) is applied in `Gen::def_ref`, at each call of
+  `foldComp` with its carrier argument: `effFoldCompLazy` for `Comp …` or
+  `CompIn (Ops …) t`; `effFoldCompIn(row)` for `CompIn e t` with `e` a
+  run-time row (it tests for `Empty`); the eager fold otherwise.
+- **The `run --js` runner** steps a computation with `effRun`, and keeps the
+  computation's pending list in its own variable, saved in an `Await`
+  frame alongside the continuation; the machine's frames hold only
+  `Delay` frames, so routing an operation still walks only `Map` and `Tie`
+  frames (§9.1.6 holds in JS). A recursion request is a tail call only if
+  nothing is pending either.
+- **Counters.** `Options::effect_counters` makes the runtime count steps,
+  pushes, pops, routes (an operation reaching a fold or `translate`),
+  resumptions and `Bind` nodes, in `globalThis.__stitchwortEffectCounts`.
+- **Tests.** `examples/extract/effect-handlers.sw` (resumed 0, 1, 2 and 3
+  times, multi-shot `Each` at 1,024 results, a resumption stored in the
+  handler's result and resumed after it returned, in different branches
+  and twice; handlers nested 10 and 100 deep forwarding outwards; 10 and
+  100 `translate`s; state through `Fail`) and
+  `examples/extract/effect-runtime.sw` (the shapes), checked against the
+  reference evaluator by the `extract` tests;
+  `crates/cli/tests/effect_runtime.rs` (every 4a shape at 1M on Node's
+  default stack; counts per element constant from 1,000 to 100,000;
+  routing per operation and handler constant at depths 1, 10 and 100; the
+  empty-row limit pinned); and two `run_js` tests (`IO` across a million
+  binds and a forwarding `Fail` handler; a handler inside a partial
+  function forwarding `IO`).
+
+**Measured** (exported functions, 1,000,000 elements, Node 22.23.3 on its
+default stack, Apple M4 Pro, one call per process, median of 5; heap is
+`heapUsed` after the call with the result alive; `bench/effect-runtime`'s
+`map.sw` and `shapes.sw`) **[checked]**:
+
+| export | before 4a | after 4a | max RSS | heap after |
+|---|---|---|---|---|
+| `plain` (pure `map`, median of 11, two rounds) | 97 / 81 ms | 85 / 82 ms | 255 MB | 191 MB |
+| `checked` | overflow at 4,000 | 447 ms | 497 MB | 430 MB |
+| `failsLast` | overflow at 2,000 | 380 ms | 427 MB | 369 MB |
+| `asked` (reader, empty row) | overflow at 2,000 | 485 ms | 502 MB | 435 MB |
+| `askedChecked` | overflow at 4,000 | 708 ms | 503 MB | 434 MB |
+| `askedIn` | overflow at 4,000 | 538 ms | 501 MB | 434 MB |
+| `emittedIn` | overflow at 2,000 | 667 ms | 689 MB | 626 MB |
+| `searchedIn` | overflow at 2,000 | 2,085 ms | 1,649 MB | 1,610 MB |
+| `counted`, `countedChecked` | overflow at 2,000-4,000 | overflow at 8,000 (4d) | | |
+| `emitted`, `searched` | overflow at 2,000 | overflow at 2,000 (§9.1.7) | | |
+
+`plain`'s generated code is unchanged (it never reaches the runtime).
+`run --js` with an `IO` print on every element: 16,000 elements took 7.2 s
+before and 0.6 s after; 1,000,000 take 1.4 s (whole command). The counts
+per element at 100,000 (steps, pushes = pops, routes, resumptions): `checked`
+4, 2, 0, 0; `asked` 9, 4, 1, 1; `askedChecked` 13, 5, 3, 2; `searchedIn`
+21, 8, 4, 2; `forwarded` through 100 handlers 1.99 routes per operation and
+handler crossed (a fold and a `translate` each), the same at 1,000 and
+10,000 elements. Heap is the open problem: `emittedIn` is 3.3 times
+`plain`'s and `searchedIn` 8.4 times, above the review's suggested bound of
+3, which is 4f's to reduce.
+
 ## Appendix A. Benchmark and prototype files
 
 In `bench/effect-runtime/`:

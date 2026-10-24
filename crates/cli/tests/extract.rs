@@ -199,6 +199,7 @@ fn examples() -> Vec<(String, String, Session)> {
 const LIST_TEXT: Options = Options {
     native_text: false,
     native_int: true,
+    effect_counters: false,
 };
 
 /// `Int` as its constructors inside generated code, every integer operation
@@ -206,6 +207,7 @@ const LIST_TEXT: Options = Options {
 const DATA_INT: Options = Options {
     native_text: true,
     native_int: false,
+    effect_counters: false,
 };
 
 /// Runs every case against the generated JS under Node, and compares, with

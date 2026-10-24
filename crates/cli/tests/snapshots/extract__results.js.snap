@@ -730,6 +730,79 @@ define(info$Std$dResult, [
   ["Err", [["error", param(1)]]],
 ]);
 
+
+// The effect runtime (docs/proposals/effect-runtime.md §9). A computation is
+// `Done`, `Call` or a `Bind` node, which only this runtime builds and takes
+// apart: `bind`, `foldComp`, `translate` and `runPure` are these functions.
+const EFF_BIND = "$Bind";
+// `bind c k`: a node, so building a long chain calls nothing.
+const effBind = (c) => (k) => ({ tag: EFF_BIND, c, k });
+// The continuations pending when `effRun` last stopped at an operation.
+let effPending = null;
+// Runs `c` with the continuations `pending` (null, or `{ k, next }`, never
+// changed once made) waiting for its result, until it's `Done` with nothing
+// pending (returned) or reaches an operation: the `Call` is returned, and
+// what is pending there is `effPending`.
+const effRun = (c, pending) => {
+  for (;;) {
+    switch (c.tag) {
+      case EFF_BIND:
+        pending = { k: c.k, next: pending };
+        c = c.c;
+        break;
+      case "Done": {
+        if (pending === null) return c;
+        const k = pending.k;
+        pending = pending.next;
+        c = k(c.value);
+        break;
+      }
+      default:
+        effPending = pending;
+        return c;
+    }
+  }
+};
+const effRunPure = (c) => effRun(c, null).value;
+// `foldComp done call c` with `pending` after `c`, resuming by calling:
+// `k y` folds the rest at once, as the tree's equation says. For a fold whose
+// carrier isn't a computation.
+const effFold = (done, call, c, pending) => {
+  c = effRun(c, pending);
+  if (c.tag === "Done") return done(c.value);
+  const rest = c.rest, after = effPending;
+  return call(c.o)((y) => effFold(done, call, rest(y), after));
+};
+// The same, resuming lazily: `k y` is `Bind (Done y) (z => fold (rest z))`,
+// which whoever runs the clause's result resumes. For a fold whose carrier is
+// a computation (`handle`'s, when the row outside has an ability or is
+// closed).
+const effFoldLazy = (done, call, c, pending) => {
+  c = effRun(c, pending);
+  if (c.tag === "Done") return done(c.value);
+  const rest = c.rest, after = effPending;
+  const resume = (z) => effFoldLazy(done, call, rest(z), after);
+  return call(c.o)((y) => ({ tag: EFF_BIND, c: { tag: "Done", value: y }, k: resume }));
+};
+const effFoldCompLazy = (done) => (call) => (c) => effFoldLazy(done, call, c, null);
+// A fold whose carrier is `CompIn e t`: a computation unless the row is empty.
+const effFoldCompIn = (row) =>
+  row.tag === "Empty"
+    ? (done) => (call) => (c) => effFold(done, call, c, null)
+    : effFoldCompLazy;
+// `translate m c` with `pending` after `c`: each operation renamed by `m`,
+// its reply mapped back.
+const effTranslate = (m, c, pending) => {
+  c = effRun(c, pending);
+  if (c.tag === "Done") return c;
+  const o = c.o, rest = c.rest, after = effPending;
+  return {
+    tag: "Call",
+    o: m.inject(o),
+    rest: (x) => effTranslate(m, rest(m.reply(o)(x)), after),
+  };
+};
+
 const $Std$dNat$dadd = (m) => (n) => m + n;
 const $Std$dNat$dsub = (m) => (n) => (m >= n ? m - n : 0n);
 const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
@@ -779,34 +852,8 @@ const $Std$dChar$dtoNat = (v0) => {
 };
 const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dappend = (a) => (b) => a + b;
-const $Std$dEffect$dfoldComp = (v4) => (v5) => (v6) => {
-  switch (v6.tag) {
-    case "Done": {
-      const v7 = v6.value;
-      return (v4)(v7);
-    }
-    case "Call": {
-      const v7 = v6.o;
-      const v8 = v6.rest;
-      return (v5)(v7)(((v9) => $Std$dEffect$dfoldComp(v4)(v5)((v8)(v9))));
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dbind = (v4) => (v5) => {
-  switch (v4.tag) {
-    case "Done": {
-      const v6 = v4.value;
-      return (v5)(v6);
-    }
-    case "Call": {
-      const v6 = v4.o;
-      const v7 = v4.rest;
-      return { tag: "Call", o: v6, rest: ((v8) => $Std$dEffect$dbind((v7)(v8))(v5)) };
-    }
-  }
-  throw new Error("unreachable");
-};
+const $Std$dEffect$dfoldComp = (done) => (call) => (c) => effFold(done, call, c, null);
+const $Std$dEffect$dbind = effBind;
 const $Std$dEffect$dsigInject = (v4) => (v5) => {
   switch (v4.tag) {
     case "MkSigMap": {
@@ -841,22 +888,7 @@ const $Std$dEffect$dhandlePlus = (v5) => (v6) => (v7) => (v8) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$drunPure = (v1) => {
-  switch (v1.tag) {
-    case "Done": {
-      const v2 = v1.value;
-      return v2;
-    }
-    case "Call": {
-      const v2 = v1.o;
-      const v3 = v1.rest;
-      switch (v2.tag) {
-      }
-      throw new Error("unreachable");
-    }
-  }
-  throw new Error("unreachable");
-};
+const $Std$dEffect$drunPure = effRunPure;
 const $Std$dEffect$ddoneIn = (v1) => (v2) => {
   switch (v1.tag) {
     case "Empty": {

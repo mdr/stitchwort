@@ -1,0 +1,214 @@
+//! The JS effect runtime (docs/proposals/effect-runtime.md §9, D1162, stage
+//! 4a): handler shapes over 1,000,000 elements on Node's default stack, as a
+//! library user or the playground calls an export (D1163), and counts of the
+//! runtime's work, which must grow linearly with the input. Correctness
+//! against the reference evaluator is `examples/extract/effect-runtime.sw`'s
+//! and `effect-handlers.sw`'s `-- run:` lines, in the `extract` tests.
+//!
+//! Requires `node` on the PATH (the Nix dev shell provides it).
+
+use std::path::Path;
+use std::process::Command;
+
+use stitchwort_cli::driver::Session;
+use stitchwort_cli::render::render;
+use stitchwort_core::Limits;
+use stitchwort_js::Options;
+
+/// The generated module for `examples/extract/effect-runtime.sw`, with the
+/// runtime counting its work.
+fn module() -> String {
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/extract/effect-runtime.sw");
+    let text = std::fs::read_to_string(&path).expect("readable example");
+    let mut session = Session::new();
+    if let Err(diagnostics) = session.load("effect-runtime.sw", &text) {
+        let rendered: String = diagnostics
+            .iter()
+            .map(|d| render(&session.sources, d, false))
+            .collect();
+        panic!("effect-runtime.sw doesn't check:\n{rendered}");
+    }
+    let options = Options {
+        effect_counters: true,
+        ..Options::default()
+    };
+    stitchwort_js::generate_with(&session.elab.globals, Limits::default(), options)
+        .expect("extraction succeeds")
+        .js
+}
+
+/// Runs `script` with the module beside it as `module.mjs`, on Node's
+/// default stack, and returns what it printed.
+fn run_script(name: &str, script: &str) -> String {
+    let dir = std::env::temp_dir().join(format!(
+        "stitchwort-effect-runtime-{}-{name}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    std::fs::write(dir.join("module.mjs"), module()).expect("write module");
+    std::fs::write(dir.join("test.mjs"), format!("{PRELUDE}{script}")).expect("write script");
+    let result = Command::new("node")
+        .arg("test.mjs")
+        .current_dir(&dir)
+        .output()
+        .expect("run `node` (is it on the PATH? `nix develop` provides it)");
+    let stdout = String::from_utf8_lossy(&result.stdout).into_owned();
+    assert!(
+        result.status.success(),
+        "node failed:\n{}\n{stdout}",
+        String::from_utf8_lossy(&result.stderr),
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    stdout
+}
+
+const PRELUDE: &str = r#"
+import * as m from "./module.mjs";
+import assert from "node:assert/strict";
+
+const list = (n) => Array.from({ length: n }, (_, i) => BigInt(i));
+const counts = () => globalThis.__stitchwortEffectCounts;
+const reset = () => {
+  const c = counts();
+  for (const key of Object.keys(c)) c[key] = 0;
+};
+const ok = (result) => {
+  assert.equal(result.$tag, "Ok", `expected Ok, got ${JSON.stringify(result.$tag)}`);
+  return result.value;
+};
+// Each shape: the call, and a check of its result for a list of `n`.
+const plus = (k) => (xs) => {
+  assert.equal(xs.length, n);
+  for (let i = 0; i < xs.length; i += 9973) assert.equal(xs[i], BigInt(i) + k);
+  assert.equal(xs[n - 1], BigInt(n - 1) + k);
+};
+let n = 0;
+const shapes = {
+  checked: [(xs) => ok(m.checked(xs)), plus(1n)],
+  asked: [(xs) => m.asked(xs), plus(7n)],
+  askedChecked: [(xs) => ok(m.askedChecked(xs)), plus(7n)],
+  askedIn: [(xs) => ok(m.askedIn(xs)), plus(7n)],
+  emittedIn: [(xs) => ok(m.emittedIn(xs)), plus(0n)],
+  searchedIn: [(xs) => ok(m.searchedIn(xs)), (results) => {
+    assert.equal(results.length, 1);
+    plus(0n)(results[0]);
+  }],
+  countedIn: [(xs) => ok(m.countedIn(xs)), (ys) => {
+    assert.equal(ys.length, n);
+    for (let i = 0; i < n; i += 9973) assert.equal(ys[i], 2n * BigInt(i));
+  }],
+  forwarded10: [(xs) => m.forwarded(10n, xs), plus(7n)],
+};
+"#;
+
+/// Every shape that should be stack-safe in JS under stage 4a runs on Node's
+/// default stack at 1,000,000 elements, with the right answer. `failsLast`
+/// performs its one operation at the very end, so the whole list is pending.
+#[test]
+fn every_shape_runs_at_a_million_elements_on_the_default_stack() {
+    let out = run_script(
+        "million",
+        r#"
+n = 1_000_000;
+const xs = list(n);
+for (const [name, [call, check]] of Object.entries(shapes)) {
+  const start = performance.now();
+  check(call(xs));
+  console.log(`${name}\t${(performance.now() - start).toFixed(0)} ms`);
+}
+const failed = m.failsLast(BigInt(n), xs);
+assert.deepEqual(failed, { $tag: "Err", error: "last" });
+console.log("done");
+"#,
+    );
+    println!("{out}");
+    assert!(out.ends_with("done\n"), "{out}");
+}
+
+/// The runtime's work grows linearly: run-loop steps, pushes and pops of
+/// pending continuations, and resumptions per element are the same at
+/// 1,000, 10,000 and 100,000 elements (so nothing rebuilds a pending list or
+/// rescans it), and an operation is routed through each handler and
+/// `translate` it crosses once, however long the pending list is.
+#[test]
+fn the_work_per_element_is_constant() {
+    let out = run_script(
+        "linear",
+        r#"
+const sizes = [1_000, 10_000, 100_000];
+for (const [name, [call, check]] of Object.entries(shapes)) {
+  const per = [];
+  for (const size of sizes) {
+    n = size;
+    const xs = list(n);
+    reset();
+    check(call(xs));
+    const c = { ...counts() };
+    per.push(Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v / n])));
+  }
+  for (const key of Object.keys(per[0])) {
+    const [small, , large] = per.map((p) => p[key]);
+    // Linear: the work per element doesn't grow (a fixed amount of work per
+    // call shows up as a little more per element at 1,000).
+    assert.ok(large <= small + 0.01, `${name}: ${key} per element grew from ${small} to ${large}`);
+    // And small: a few steps per `bind`, a few `bind`s per element.
+    // (`forwarded10`'s operations each cross eleven handlers.)
+    const crossed = name === "forwarded10" ? 11 : 1;
+    assert.ok(large <= 40 * crossed, `${name}: ${key} per element is ${large}`);
+  }
+  // Every pending continuation pushed is popped.
+  assert.equal(counts().pushes, counts().pops, `${name}: pushes and pops differ`);
+  console.log(name, JSON.stringify(per[2]));
+}
+
+// Routing: at most a constant per operation and handler crossed. `ask` crosses
+// `depth` handlers of another ability (each with a `translate`) on its way to
+// the reader, whatever the length of the list.
+for (const depth of [1, 10, 100]) {
+  const per = [];
+  for (const size of [1_000, 10_000]) {
+    n = size;
+    reset();
+    plus(7n)(m.forwarded(BigInt(depth), list(n)));
+    per.push(counts().routes / (n * (depth + 1)));
+  }
+  assert.ok(per[1] <= per[0] + 0.01, `forwarded ${depth}: routes grew from ${per[0]} to ${per[1]}`);
+  assert.ok(per[1] <= 3, `forwarded ${depth}: ${per[1]} routes per operation and handler`);
+  console.log(`forwarded ${depth}: ${per[1]} routes per operation and handler`);
+}
+console.log("done");
+"#,
+    );
+    println!("{out}");
+    assert!(out.ends_with("done\n"), "{out}");
+}
+
+/// The stage's documented limit (docs/proposals/effect-runtime.md §9.1.7):
+/// a handler at the empty row whose clause uses the resumption's result
+/// inside pure code (`Cons v (k ())`, `Each.collect`) is a pure non-tail
+/// recursion, one level per operation, and keeps JS's stack limit; so does
+/// the empty-row state handler until stage 4d fuses it into a loop. They
+/// work on short lists and fail cleanly, with the module's resource error,
+/// on long ones. If one of them starts to pass, the limit has moved: update
+/// the note and this test.
+#[test]
+fn empty_row_non_tail_handlers_keep_the_stack_limit() {
+    let out = run_script(
+        "limit",
+        r#"
+// About 1,000 to 2,000 operations fit on Node's default stack, as before stage 4a.
+const small = list(500);
+assert.equal(m.emitted(small).length, 500);
+assert.equal(m.searched(small).length, 1);
+assert.equal(m.counted(small).length, 500);
+const large = list(1_000_000);
+for (const name of ["emitted", "searched", "counted"]) {
+  assert.throws(() => m[name](large), (e) => e instanceof m.StitchwortResourceError, name);
+}
+console.log("done");
+"#,
+    );
+    println!("{out}");
+    assert!(out.ends_with("done\n"), "{out}");
+}
