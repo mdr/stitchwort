@@ -1341,7 +1341,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), true, "no file tabs for a single file");
   const days = await page.until(`(() => { const g = document.querySelector("#example optgroup"); return g && { label: g.label,
     days: [...g.children].map((o) => o.textContent) }; })()`, 10000, "the AoC group");
-  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8"] });
+  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8", "Day 9"] });
   await openDay(page, 2);
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
   await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
