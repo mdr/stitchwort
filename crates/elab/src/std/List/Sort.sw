@@ -1250,3 +1250,66 @@ def List.dedupAfter [auto eq: DecEq a] (previous: a): List a -> List a
 
 test "List.dedup" := [1, 1, 2, 3, 3, 3].dedup == [1, 2, 3] && [2, 1, 2].dedup == [2, 1, 2] && (Nil: List Nat).dedup == Nil
 test "List.dedup after sorting" := [3, 1, 3, 2, 1].sort.dedup == [1, 2, 3]
+
+-- dedup ---------------------------------------------------------------------
+
+-- What `List.dedupAfter` keeps was in the list.
+theorem List.memDedupAfter [auto eq: DecEq a] (x: a): (previous: a) -> (xs: List a) -> List.Mem x (List.dedupAfter previous xs) -> List.Mem x xs
+  | previous, Nil, m => m
+  | previous, Cons y ys, m =>
+    match e: y == previous with
+      | True => Inr (List.memDedupAfter x previous ys m)
+      | False =>
+        match m with
+          | Inl q => Inl q
+          | Inr rest => Inr (List.memDedupAfter x y ys rest)
+
+-- And it drops only elements equal to the one before.
+theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a): (previous: a) -> (xs: List a) -> List.Mem x xs ->
+    Or (previous = x) (List.Mem x (List.dedupAfter previous xs))
+  | previous, Nil, m => Void.exfalso m
+  | previous, Cons y ys, m =>
+    match e: y == previous with
+      | True =>
+        match m with
+          | Inl q => Inl (Eq.trans (Eq.sym (DecEq.sound y previous e)) q)
+          | Inr rest => List.memDedupAfterIntro x previous ys rest
+      | False =>
+        match m with
+          | Inl q => Inr (Inl q)
+          | Inr rest =>
+            match List.memDedupAfterIntro x y ys rest with
+              | Inl q => Inr (Inl q)
+              | Inr later => Inr (Inr later)
+
+-- What `List.dedup` keeps was in the list.
+theorem List.memDedupElim [auto eq: DecEq a] (x: a): (xs: List a) -> List.Mem x (List.dedup xs) -> List.Mem x xs
+  | Nil, m => m
+  | Cons y ys, Inl q => Inl q
+  | Cons y ys, Inr rest => Inr (List.memDedupAfter x y ys rest)
+
+-- `List.dedup` keeps every value.
+theorem List.memDedupIntro [auto eq: DecEq a] (x: a): (xs: List a) -> List.Mem x xs -> List.Mem x (List.dedup xs)
+  | Nil, m => m
+  | Cons y ys, Inl q => Inl q
+  | Cons y ys, Inr rest =>
+    match List.memDedupAfterIntro x y ys rest with
+      | Inl q => Inl q
+      | Inr later => Inr later
+
+-- `List.dedup` keeps a list sorted.
+theorem List.sortedDedupAfter [auto eq: DecEq a] (le: a -> a -> Bool): (previous: a) -> (xs: List a) -> List.Sorted le (Cons previous xs) ->
+    List.Sorted le (Cons previous (List.dedupAfter previous xs))
+  | previous, Nil, s => s
+  | previous, Cons y ys, Both first rest =>
+    match e: y == previous with
+      | True => List.sortedDedupAfter le previous ys (rewrite DecEq.sound y previous e at rest)
+      | False => Both first (List.sortedDedupAfter le y ys rest)
+
+theorem List.sortedDedup [auto eq: DecEq a] (le: a -> a -> Bool): (xs: List a) -> List.Sorted le xs -> List.Sorted le (List.dedup xs)
+  | Nil, s => s
+  | Cons y ys, s => List.sortedDedupAfter le y ys s
+
+-- A sum over the first n + 1 numbers is the first term and the sum over the rest.
+theorem List.sumByRangeSucc (f: Nat -> Nat) (n: Nat): List.sumBy f (List.range (Succ n)) = f 0 + List.sumBy (i => f (Succ i)) (List.range n) :=
+  rewrite List.sumByCons f 0 (List.rangeFrom n 1), List.sumByRangeShift f n 0 in rfl

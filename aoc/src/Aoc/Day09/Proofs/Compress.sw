@@ -11,7 +11,7 @@
 --      column just right of the nearest red tile's column to its left.
 --   3. The key columns are sorted, so those from one corner's position to
 --      the other's are the key columns from one corner's column to the
---      other's (`DList.sortedGetOrLe`, `DList.sortedBetween`).
+--      other's (`List.sortedGetOrLe`, `List.sortedBetween`).
 
 namespace Aoc.Day09.Proofs
 import Aoc.Day09 (..)
@@ -30,7 +30,7 @@ def rowsOf (tiles: List Tile): List Nat := tiles.map (tile => tile.y)
 
 theorem lessSame (values: List Nat) (u: Nat) (v: Nat) (w: Nat) (m: List.Mem u values) (s: SameSide values v w):
     Nat.leq (Succ v) u = Nat.leq (Succ w) u :=
-  rewrite DNat.lessNotLe v u, DNat.lessNotLe w u, (s u m).left in rfl
+  rewrite Nat.lessNotLe v u, Nat.lessNotLe w u, (s u m).left in rfl
 
 theorem fromSame (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m1: List.Mem one values) (m2: List.Mem other values) (s: SameSide values v w):
     from one other v = from one other w :=
@@ -39,12 +39,12 @@ theorem fromSame (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m
 -- The ends of a straight line of the loop are red tiles.
 theorem connectionEnds (tiles: List Tile) (ends: (Tile, Tile)) (m: List.Mem ends (connections tiles)):
     And (List.Mem ends.fst tiles) (List.Mem ends.snd tiles) :=
-  match DList.memZip ends tiles (List.append (List.drop 1 tiles) (List.take 1 tiles)) m with
+  match List.memZip ends tiles (List.append (List.drop 1 tiles) (List.take 1 tiles)) m with
     | Both first second =>
       Both first
         (match List.memAppend ends.snd (List.drop 1 tiles) (List.take 1 tiles) second with
-          | Inl d => DList.memDrop ends.snd 1 tiles d
-          | Inr t => DList.memTake ends.snd 1 tiles t)
+          | Inl d => List.memDrop ends.snd 1 tiles d
+          | Inr t => List.memTake ends.snd 1 tiles t)
 
 theorem columnIn (tiles: List Tile) (tile: Tile) (m: List.Mem tile tiles): List.Mem tile.x (columnsOf tiles) := List.memMap (tile => tile.x) tile tiles m
 
@@ -88,10 +88,10 @@ theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem l
     (use: (w: Nat) -> Or (List.Mem w values) (List.Mem w (List.map Succ values)) -> low <= w -> w <= v -> SameSide values v w -> goal): goal :=
   let atMost := List.filter (c => c <= v) values
   let nearest := largest atMost
-  let lowAtMost: List.Mem low atMost := DList.memFilterIntro (c => c <= v) low values lowIn lowLe
+  let lowAtMost: List.Mem low atMost := List.memFilterIntro (c => c <= v) low values lowIn lowLe
   -- Every value up to v is at most the nearest.
   let below: (c: Nat) -> List.Mem c values -> c <= v -> c <= nearest :=
-    c m h => (largestIsLargest atMost).left c (DList.memFilterIntro (c => c <= v) c values m h)
+    c m h => (largestIsLargest atMost).left c (List.memFilterIntro (c => c <= v) c values m h)
   let nearestIn: And (List.Mem nearest values) (Nat.leq nearest v = True) :=
     match largestInList atMost with
       | Inl m => List.memFilter (c => c <= v) nearest values m
@@ -116,7 +116,7 @@ theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem l
 -- 3. The key columns and rows are sorted -------------------------------------
 
 theorem keyLinesSorted (values: List Nat): List.Sorted Nat.leq (keyLines values) :=
-  DList.sortedDedup Nat.leq (List.sort (List.append values (List.map Succ values))) (List.sortSortedNat (List.append values (List.map Succ values)))
+  List.sortedDedup Nat.leq (List.sort (List.append values (List.map Succ values))) (List.sortSortedNat (List.append values (List.map Succ values)))
 
 -- Each value, and each one just after a value, is a key value.
 theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List.Mem v (List.map Succ values))): List.Mem v (keyLines values) :=
@@ -125,7 +125,7 @@ theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List
     match m with
       | Inl l => List.anyAppendLeft (w => w = v) values (List.map Succ values) l
       | Inr r => List.anyAppendRight (w => w = v) values (List.map Succ values) r
-  (DList.memDedup v (List.sort all)).backward (List.memPerm all (List.sort all) (List.permSym (List.sort all) all (List.sortPerm all)) v inAll)
+  List.memDedupIntro v (List.sort all) (List.memPerm all (List.sort all) (List.permSym (List.sort all) all (List.sortPerm all)) v inAll)
 
 -- On a sorted list holding u and v, the elements at their positions, the
 -- lower position first, are the smaller and the larger of them.
@@ -135,16 +135,16 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
       (Nat.max (List.indexOf u xs) (List.indexOf v xs) < List.length xs) :=
   let i := List.indexOf u xs
   let j := List.indexOf v xs
-  let atI: List.getOr 0 i xs = u := DList.getOrIndexOf 0 u xs mu
-  let atJ: List.getOr 0 j xs = v := DList.getOrIndexOf 0 v xs mv
-  let iIn: i < List.length xs := DList.indexOfLt u xs mu
-  let jIn: j < List.length xs := DList.indexOfLt v xs mv
+  let atI: List.getOr 0 i xs = u := List.getOrIndexOf 0 u xs mu
+  let atJ: List.getOr 0 j xs = v := List.getOrIndexOf 0 v xs mv
+  let iIn: i < List.length xs := List.indexOfLt u xs mu
+  let jIn: j < List.length xs := List.indexOfLt v xs mv
   match e: Nat.leq i j with
     | True =>
-      let le := DList.sortedGetOrLe 0 xs s i j e jIn
+      let le := List.sortedGetOrLe 0 xs s i j e jIn
       Both (Both (omega) (omega)) jIn
     | False =>
-      let le := DList.sortedGetOrLe 0 xs s j i (omega) iIn
+      let le := List.sortedGetOrLe 0 xs s j i (omega) iIn
       Both (Both (omega) (omega)) iIn
 
 -- The elements from one position to the other lie from the smaller value to the larger.
@@ -153,8 +153,8 @@ theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
     And (Nat.min u v <= List.getOr 0 k xs) (List.getOr 0 k xs <= Nat.max u v) :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
-      let up := DList.sortedGetOrLe 0 xs s (Nat.min (List.indexOf u xs) (List.indexOf v xs)) k lo (omega)
-      let down := DList.sortedGetOrLe 0 xs s k (Nat.max (List.indexOf u xs) (List.indexOf v xs)) hi maxIn
+      let up := List.sortedGetOrLe 0 xs s (Nat.min (List.indexOf u xs) (List.indexOf v xs)) k lo (omega)
+      let down := List.sortedGetOrLe 0 xs s k (Nat.max (List.indexOf u xs) (List.indexOf v xs)) hi maxIn
       Both (omega) (omega)
 
 -- And every element of the list from the smaller value to the larger is at
@@ -164,7 +164,7 @@ theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
     (w: Nat) (mw: List.Mem w xs) (lo: Nat.min u v <= w) (hi: w <= Nat.max u v): p w :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
-      DList.sortedBetween 0 p xs s (Nat.min (List.indexOf u xs) (List.indexOf v xs)) (Nat.max (List.indexOf u xs) (List.indexOf v xs)) (omega) maxIn
+      List.sortedBetween 0 p xs s (Nat.min (List.indexOf u xs) (List.indexOf v xs)) (Nat.max (List.indexOf u xs) (List.indexOf v xs)) (omega) maxIn
         each w mw (omega) (omega)
 
 -- The smaller of two values is one of them.
@@ -193,8 +193,8 @@ theorem allKeysIsSpec (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a til
   Bool.eqOf (allKeys tiles (floor.corner a) (floor.corner b)) (allRedOrGreen tiles (a, b))
     -- Every tile is red or green like a key tile in the rectangle.
     (keys =>
-      DList.allBetweenIntro _ (Nat.min a.y b.y) (Nat.max a.y b.y) (y ylo yhi =>
-        DList.allBetweenIntro _ (Nat.min a.x b.x) (Nat.max a.x b.x) (x xlo xhi =>
+      List.allBetweenIntro _ (Nat.min a.y b.y) (Nat.max a.y b.y) (y ylo yhi =>
+        List.allBetweenIntro _ (Nat.min a.x b.x) (Nat.max a.x b.x) (x xlo xhi =>
           representative (columnsOf tiles) x (Nat.min a.x b.x) (minIn (columnsOf tiles) a.x b.x ax bx) xlo (redOrGreen tiles { x, y } = True)
             (keyX keyXIn keyXLo keyXHi sx =>
               representative (rowsOf tiles) y (Nat.min a.y b.y) (minIn (rowsOf tiles) a.y b.y ay by) ylo (redOrGreen tiles { x, y } = True)
@@ -203,13 +203,13 @@ theorem allKeysIsSpec (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a til
                     axisCovers rows sr a.y b.y keyAy keyBy (w => redOrGreen tiles { x = keyX, y = w } = True)
                       (r rlo rhi =>
                         axisCovers columns sc a.x b.x keyAx keyBx (v => redOrGreen tiles { x = v, y = List.getOr 0 r rows } = True)
-                          (c clo chi => DList.allBetweenElim _ _ _ (DList.allBetweenElim _ _ _ keys r rlo rhi) c clo chi)
+                          (c clo chi => List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ keys r rlo rhi) c clo chi)
                           keyX (keyLinesHas (columnsOf tiles) keyX keyXIn) keyXLo (omega))
                       keyY (keyLinesHas (rowsOf tiles) keyY keyYIn) keyYLo (omega))))))
     -- Every key tile in the rectangle is a tile of it.
     (spec =>
-      DList.allBetweenIntro _ _ _ (r rlo rhi =>
-        DList.allBetweenIntro _ _ _ (c clo chi =>
+      List.allBetweenIntro _ _ _ (r rlo rhi =>
+        List.allBetweenIntro _ _ _ (c clo chi =>
           let yIn := axisInside rows sr a.y b.y keyAy keyBy r rlo rhi
           let xIn := axisInside columns sc a.x b.x keyAx keyBx c clo chi
-          DList.allBetweenElim _ _ _ (DList.allBetweenElim _ _ _ spec (List.getOr 0 r rows) yIn.left yIn.right) (List.getOr 0 c columns) xIn.left xIn.right)))
+          List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ spec (List.getOr 0 r rows) yIn.left yIn.right) (List.getOr 0 c columns) xIn.left xIn.right)))

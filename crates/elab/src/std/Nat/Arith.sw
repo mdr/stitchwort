@@ -558,3 +558,13 @@ theorem Nat.addEqZero: (a: Nat) -> (b: Nat) -> a + b = 0 -> And (a = 0) (b = 0)
   | Succ a, b, h => Void.exfalso (Nat.succNotZero (a + b) h)
 
 theorem Nat.eqIsEqualExample: (Succ 4 == Succ 2) = (4 == 2) := Eq.trans (Nat.eqIsEqual 5 3) (Eq.sym (Nat.eqIsEqual 4 2))
+
+theorem Nat.compareSelf: (n: Nat) -> Nat.compare n n = Equal
+  | Zero => rfl
+  | Succ n => Nat.compareSelf n
+
+-- `x < u` is "not u <= x".
+theorem Nat.lessNotLe: (x: Nat) -> (u: Nat) -> Nat.leq (Succ x) u = Bool.not (Nat.leq u x)
+  | x, Zero => rfl
+  | Zero, Succ u => rfl
+  | Succ x, Succ u => Nat.lessNotLe x u

@@ -14,15 +14,15 @@ import Std (Eq, List, Nat)
 theorem cornerInside (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
     Inside (Floor.of tiles) ((Floor.of tiles).corner a) ((Floor.of tiles).corner b) :=
   Both
-    (Both (DList.indexOfLt a.x (Floor.of tiles).columns (keyLinesHas (columnsOf tiles) a.x (Inl (columnIn tiles a ma))))
-      (DList.indexOfLt b.x (Floor.of tiles).columns (keyLinesHas (columnsOf tiles) b.x (Inl (columnIn tiles b mb)))))
-    (Both (DList.indexOfLt a.y (Floor.of tiles).rows (keyLinesHas (rowsOf tiles) a.y (Inl (rowIn tiles a ma))))
-      (DList.indexOfLt b.y (Floor.of tiles).rows (keyLinesHas (rowsOf tiles) b.y (Inl (rowIn tiles b mb)))))
+    (Both (List.indexOfLt a.x (Floor.of tiles).columns (keyLinesHas (columnsOf tiles) a.x (Inl (columnIn tiles a ma))))
+      (List.indexOfLt b.x (Floor.of tiles).columns (keyLinesHas (columnsOf tiles) b.x (Inl (columnIn tiles b mb)))))
+    (Both (List.indexOfLt a.y (Floor.of tiles).rows (keyLinesHas (rowsOf tiles) a.y (Inl (rowIn tiles a ma))))
+      (List.indexOfLt b.y (Floor.of tiles).rows (keyLinesHas (rowsOf tiles) b.y (Inl (rowIn tiles b mb)))))
 
 -- The program's test of the rectangle between two red tiles is the spec's.
 theorem programTest (tiles: List Tile) (corners: (Tile, Tile)) (m: List.Mem corners (rectangles tiles)):
     Floor.allRedOrGreen (Floor.of tiles) ((Floor.of tiles).corner corners.fst, (Floor.of tiles).corner corners.snd) = allRedOrGreen tiles corners :=
-  match DList.memPairs corners tiles m with
+  match List.memPairs corners tiles m with
     | Both ma mb =>
       Eq.trans
         (allRedOrGreenKeys tiles ((Floor.of tiles).corner corners.fst) ((Floor.of tiles).corner corners.snd) (cornerInside tiles corners.fst corners.snd ma mb))
@@ -39,7 +39,7 @@ theorem programAreas (tiles: List Tile):
     _ = List.map cornersArea (List.filter (Floor.allRedOrGreen floor) (List.map both (List.pairs tiles))) :=
       Eq.cong (pairs => List.map cornersArea (List.filter (Floor.allRedOrGreen floor) pairs)) (List.pairsMap floor.corner tiles)
     _ = List.map cornersArea (List.map both (List.filter keep (List.pairs tiles))) :=
-      Eq.cong (List.map cornersArea) (DList.filterMap (Floor.allRedOrGreen floor) both (List.pairs tiles))
+      Eq.cong (List.map cornersArea) (List.filterOfMap (Floor.allRedOrGreen floor) both (List.pairs tiles))
     _ = List.map (p => cornersArea (both p)) (List.filter keep (List.pairs tiles)) := List.mapMap cornersArea both (List.filter keep (List.pairs tiles))
     _ = List.map (p => cornersArea (both p)) (List.filter (allRedOrGreen tiles) (List.pairs tiles)) :=
       Eq.cong (List.map (p => cornersArea (both p))) (List.filterCongMem keep (allRedOrGreen tiles) (List.pairs tiles) (programTest tiles))

@@ -1374,3 +1374,141 @@ theorem List.occurrencesCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) ->
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem p1 p2 xs (y m => ep y (Inr m))
 
 test "List.pairsMap" := (List.map Succ [1, 2, 3]).pairs == List.map (p => MkPair (Succ p.fst) (Succ p.snd)) [1, 2, 3].pairs
+
+-- the largest by folding Nat.max --------------------------------------------
+
+-- The fold starts at `start` and never goes down.
+theorem List.foldMaxGe: (start: Nat) -> (xs: List Nat) -> start <= List.foldLeft Nat.max start xs
+  | start, Nil => Nat.leRefl start
+  | start, Cons x xs => Nat.leTrans start (Nat.max start x) (List.foldLeft Nat.max (Nat.max start x) xs) (Nat.leMaxLeft start x) (List.foldMaxGe (Nat.max start x) xs)
+
+-- Every element is at most the largest.
+theorem List.leFoldMax (x: Nat): (start: Nat) -> (xs: List Nat) -> List.Mem x xs -> x <= List.foldLeft Nat.max start xs
+  | start, Nil, m => Void.exfalso m
+  | start, Cons y ys, Inl e => rewrite <- e in Nat.leTrans y (Nat.max start y) (List.foldLeft Nat.max (Nat.max start y) ys) (Nat.leMaxRight start y) (List.foldMaxGe (Nat.max start y) ys)
+  | start, Cons y ys, Inr m => List.leFoldMax x (Nat.max start y) ys m
+
+-- The largest is the start or one of the elements.
+theorem List.foldMaxMem: (start: Nat) -> (xs: List Nat) -> Or (List.foldLeft Nat.max start xs = start) (List.Mem (List.foldLeft Nat.max start xs) xs)
+  | start, Nil => Inl rfl
+  | start, Cons y ys =>
+    match List.foldMaxMem (Nat.max start y) ys with
+      | Inr m => Inr (Inr m)
+      | Inl e =>
+        match h: Nat.leq start y with
+          | True => Inr (Inl (Eq.sym e))
+          | False => Inl e
+
+-- lengths, and sums over ranges ---------------------------------------------
+
+-- Zipping two lists of at least n elements gives at least n.
+theorem List.lengthZipWithAtLeast (f: a -> b -> c): (n: Nat) -> (u: List a) -> (v: List b) -> n <= List.length u -> n <= List.length v ->
+    n <= List.length (List.zipWith f u v)
+  | Zero, u, v, hu, hv => rfl
+  | Succ n, Nil, v, hu, hv => hu
+  | Succ n, Cons x xs, Nil, hu, hv => hv
+  | Succ n, Cons x xs, Cons y ys, hu, hv => List.lengthZipWithAtLeast f n xs ys hu hv
+
+-- Running results: one more than the elements, the start first.
+theorem List.lengthScanLeft (f: b -> a -> b): (start: b) -> (xs: List a) -> List.length (List.scanLeft f start xs) = Succ (List.length xs)
+  | start, Nil => rfl
+  | start, Cons x xs => Eq.cong Succ (List.lengthScanLeft f (f start x) xs)
+
+-- A sum over the numbers below b is the sum below t and the sum from t up to b.
+theorem List.sumByRangeSplit (f: Nat -> Nat) (t: Nat) (b: Nat) (tb: t <= b):
+    List.sumBy f (List.rangeFrom b 0) = List.sumBy f (List.rangeFrom t 0) + List.sumBy f (List.rangeFrom (b - t) t) :=
+  calc List.sumBy f (List.rangeFrom b 0)
+    _ = List.sumBy f (List.rangeFrom (t + (b - t)) 0) := Eq.cong (n => List.sumBy f (List.rangeFrom n 0)) (Eq.sym (Nat.addSubCancel t b tb))
+    _ = List.sumBy f (List.append (List.rangeFrom t 0) (List.rangeFrom (b - t) (0 + t))) := Eq.cong (List.sumBy f) (List.rangeFromAppend t (b - t) 0)
+    _ = List.sumBy f (List.rangeFrom t 0) + List.sumBy f (List.rangeFrom (b - t) t) := List.sumByAppend f (List.rangeFrom t 0) (List.rangeFrom (b - t) t)
+
+-- sums of zero -----------------------------------------------------------------
+
+-- A sum of numbers is 0 only if each is.
+theorem List.sumByZeroElim (f: a -> Nat): (xs: List a) -> List.sumBy f xs = 0 -> (x: a) -> List.Mem x xs -> f x = 0
+  | Nil, h, x, m => Void.exfalso m
+  | Cons y ys, h, x, Inl e => rewrite <- e in (Nat.addEqZero (f y) (List.sumBy f ys) (Eq.trans (Eq.sym (List.sumByCons f y ys)) h)).left
+  | Cons y ys, h, x, Inr m => List.sumByZeroElim f ys (Nat.addEqZero (f y) (List.sumBy f ys) (Eq.trans (Eq.sym (List.sumByCons f y ys)) h)).right x m
+
+theorem List.sumByZeroIntro (f: a -> Nat): (xs: List a) -> ((x: a) -> List.Mem x xs -> f x = 0) -> List.sumBy f xs = 0
+  | Nil, h => rfl
+  | Cons y ys, h => rewrite List.sumByCons f y ys, h y (Inl rfl), List.sumByZeroIntro f ys (x m => h x (Inr m)) in rfl
+
+-- filtering what can't pass anyway ------------------------------------------
+
+-- Dropping elements that fail `q`, when only elements that pass `q` can pass
+-- `p`, changes neither `any p` nor `count p`.
+theorem List.anyFilter (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = True): (xs: List a) -> List.any p (List.filter q xs) = List.any p xs
+  | Nil => rfl
+  | Cons x xs =>
+    match e: q x with
+      | True => rewrite List.anyFilter p q h xs in rfl
+      | False =>
+        match f: p x with
+          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
+          | False => List.anyFilter p q h xs
+
+theorem List.countFromFilter (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = True): (n: Nat) -> (xs: List a) ->
+    List.foldLeft (k x => Nat.succIf k (p x)) n (List.filter q xs) = List.foldLeft (k x => Nat.succIf k (p x)) n xs
+  | n, Nil => rfl
+  | n, Cons x xs =>
+    match e: q x with
+      | True => List.countFromFilter p q h (Nat.succIf n (p x)) xs
+      | False =>
+        match f: p x with
+          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
+          | False => List.countFromFilter p q h n xs
+
+theorem List.countFilter (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = True) (xs: List a): List.count p (List.filter q xs) = List.count p xs :=
+  List.countFromFilter p q h 0 xs
+
+-- membership through zip, take, drop and filter ------------------------------
+
+-- Each pair of `List.zip xs ys` is an element of `xs` with one of `ys`.
+theorem List.memZip (p: (a, b)): (xs: List a) -> (ys: List b) -> List.Mem p (List.zip xs ys) -> And (List.Mem p.fst xs) (List.Mem p.snd ys)
+  | Nil, ys, m => Void.exfalso m
+  | Cons x xs, Nil, m => Void.exfalso m
+  | Cons x xs, Cons y ys, Inl e => rewrite <- e in Both (Inl rfl) (Inl rfl)
+  | Cons x xs, Cons y ys, Inr m =>
+    match List.memZip p xs ys m with
+      | Both inXs inYs => Both (Inr inXs) (Inr inYs)
+
+theorem List.memTake (v: a): (n: Nat) -> (xs: List a) -> List.Mem v (List.take n xs) -> List.Mem v xs
+  | Zero, xs, m => Void.exfalso m
+  | Succ n, Nil, m => m
+  | Succ n, Cons x xs, Inl e => Inl e
+  | Succ n, Cons x xs, Inr m => Inr (List.memTake v n xs m)
+
+theorem List.memDrop (v: a): (n: Nat) -> (xs: List a) -> List.Mem v (List.drop n xs) -> List.Mem v xs
+  | Zero, xs, m => m
+  | Succ n, Nil, m => m
+  | Succ n, Cons x xs, m => Inr (List.memDrop v n xs m)
+
+-- What passes the test is kept.
+theorem List.memFilterIntro (p: a -> Bool) (v: a): (xs: List a) -> List.Mem v xs -> p v = True -> List.Mem v (List.filter p xs)
+  | Nil, m, h => m
+  | Cons x xs, Inl e, h => rewrite <- e at h in (rewrite h in Inl e)
+  | Cons x xs, Inr m, h =>
+    match e: p x with
+      | True => Inr (List.memFilterIntro p v xs m h)
+      | False => List.memFilterIntro p v xs m h
+
+-- Filtering a mapped list is mapping the filtered list.
+theorem List.filterOfMap (q: b -> Bool) (g: a -> b): (xs: List a) -> List.filter q (List.map g xs) = List.map g (List.filter (x => q (g x)) xs)
+  | Nil => rfl
+  | Cons x xs =>
+    match e: q (g x) with
+      | True => rewrite List.filterOfMap q g xs in rfl
+      | False => List.filterOfMap q g xs
+
+-- Each pair of `List.pairs xs` is two elements of `xs`.
+theorem List.memPairs (p: (a, a)): (xs: List a) -> List.Mem p (List.pairs xs) -> And (List.Mem p.fst xs) (List.Mem p.snd xs)
+  | Nil, m => Void.exfalso m
+  | Cons x xs, m =>
+    match List.memAppend p (List.map (y => (x, y)) xs) (List.pairs xs) m with
+      | Inl first =>
+        List.anyElim (y => (x, y) = p) (And (List.Mem p.fst (Cons x xs)) (List.Mem p.snd (Cons x xs))) xs (List.memMapAny (y => (x, y)) p xs first)
+          (y inXs e => rewrite <- e in Both (Inl rfl) (Inr inXs))
+      | Inr later =>
+        match List.memPairs p xs later with
+          | Both one other => Both (Inr one) (Inr other)
