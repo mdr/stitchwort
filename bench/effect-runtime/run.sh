@@ -14,11 +14,13 @@ bin="${STITCHWORT:-$here/../../target/release/stitchwort}"
 backend="$1"; shift
 variant="$1"; shift
 limit="${TIMEOUT:-120}"
+# FILE=bench/effect-runtime/shapes.sw times that file's variants instead.
+file="${FILE:-$here/map.sw}"
 flag=""
 if [ "$backend" = js ]; then flag="--js"; fi
 for size in "$@"; do
   start=$(date +%s.%N 2>/dev/null || python3 -c 'import time; print(time.time())')
-  out=$(printf '%s\n%s\n' "$variant" "$size" | timeout "$limit" "$bin" run $flag "$here/map.sw" 2>&1)
+  out=$(printf '%s\n%s\n' "$variant" "$size" | timeout "$limit" "$bin" run $flag "$file" 2>&1)
   code=$?
   end=$(date +%s.%N 2>/dev/null || python3 -c 'import time; print(time.time())')
   secs=$(echo "$end - $start" | bc)
