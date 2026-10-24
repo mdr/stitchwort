@@ -6764,16 +6764,18 @@
     {
       "id": 420,
       "title": "Proof-only reification stage R2: Comp constructors and eliminators std-only outside erased declarations (close the run-time leak, D1145)",
-      "status": "next",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "8deb7420"
+      ]
     },
     {
       "id": 421,
