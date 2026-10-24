@@ -3266,9 +3266,9 @@
     {
       "id": 207,
       "title": "rewrite diagnostics: E-REWRITE-NOTHING after `%` and `/` unfold, and an unreadable E-REWRITE-BUDGET term",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus), with SW-414",
+      "where": "-",
       "labels": [
         "elab",
         "proof"
@@ -3276,7 +3276,9 @@
       "body": "SW-157 pain points 7 and 8 (docs/aoc-2025.md:2054-2064). (7) `%` and `/` unfold before `rewrite` searches the goal, so a rule about them finds nothing: `rewrite Nat.divOne n, Nat.divOne (Succ n)` gave E-REWRITE-NOTHING 'found no `Succ (Nat.divFuel n n 1)` in the goal' because the first rule had already rewritten both. The computed goal in the note made each quick to fix, so the improvement is to say in the message that the goal is searched after computation. (8) `E-REWRITE-BUDGET` shows an unreadable term when the rule is closed and big; the per-declaration time report that would have found the slow `rewrite` at once is SW-163 and is not part of this ticket.\n\nNot re-verified on current main. First step: reproduce each with a small example, then change the message text (with reject-example snapshots).\n\nDone when: both messages say what happened (goal searched after computation; the big closed rule is printed abbreviated, cf. STITCHWORT_FULL_TERMS in docs/core.md:276), with reject-example snapshots.\n\nD243 (Matt, 21 Oct 2026): proof-ergonomics cluster on ice for now.\n",
       "created": "2026-10-21",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "c2eff259"
+      ]
     },
     {
       "id": 208,
@@ -6658,16 +6660,18 @@
     {
       "id": 414,
       "title": "rewrite runs out of budget comparing two List.map terms with lambdas inside (day 9 had to use calc)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus), with SW-207",
+      "where": "-",
       "labels": [
         "proofs"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "c2eff259"
+      ]
     }
   ]
 }
