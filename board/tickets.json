@@ -6629,17 +6629,19 @@
     },
     {
       "id": 412,
-      "title": "AoC input tests via include are very slow in the checker (day 9: 61 s; day 8 also dropped its test) — make include'd-input tests affordable",
-      "status": "doing",
+      "title": "AoC include'd input tests: kernel no longer computes them while checking; stitchwort test on the fast runtime (D1137 a); playground follows (D1138 b, lane); aoc_agrees skips real-input tests (D1139 a)",
+      "status": "done",
       "agent": "",
-      "where": "part 1 merged (789349db: kernel no longer computes a costly let in a comparison); part 2 (fb26a3ab: test on the fast runtime, days 8-9 Input.sw) awaits D1137-D1139",
+      "where": "-",
       "labels": [
         "perf"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "fb26a3ab"
+      ]
     },
     {
       "id": 413,
