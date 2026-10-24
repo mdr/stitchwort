@@ -529,6 +529,27 @@ theorem List.splitByConcat (p: a -> Bool) (xs: List a):
     List.concat (List.splitBy p xs) = List.filter (x => !(p x)) xs :=
   Eq.trans (List.finishGroupsConcat (List.splitGroups p xs)) (List.splitGroupsKeeps p xs)
 
+-- Only separators: no group, open or finished.
+theorem List.splitGroupsSeparators (p: a -> Bool): (ys: List a) -> List.all p ys = True -> List.splitGroups p ys = MkPair Nil Nil
+  | Nil, h => rfl
+  | Cons y ys, h =>
+    match e: p y with
+      | True => rewrite List.splitGroupsSeparators p ys h
+      | False => Void.exfalso (Bool.falseNotTrue h)
+
+theorem List.splitGroupsAppendSeparators (p: a -> Bool) (ys: List a) (h: List.all p ys = True): (xs: List a) ->
+    List.splitGroups p (List.append xs ys) = List.splitGroups p xs
+  | Nil => List.splitGroupsSeparators p ys h
+  | Cons x xs => rewrite List.splitGroupsAppendSeparators p ys h xs
+
+-- Separators on the end change no group: `[1, 0, 0]` splits as `[1]` does.
+theorem List.splitByAppendSeparators (p: a -> Bool) (xs: List a) (ys: List a) (h: List.all p ys = True):
+    List.splitBy p (List.append xs ys) = List.splitBy p xs :=
+  Eq.cong List.finishGroups (List.splitGroupsAppendSeparators p ys h xs)
+
+test "List.splitBy with separators on the end" :=
+  [1, 0, 2].splitBy (x => x == 0) == [[1], [2]] && [1, 0, 2, 0, 0].splitBy (x => x == 0) == [[1], [2]] && [0, 0].splitBy (x => x == 0) == Nil
+
 -- Sums from a starting total, and one element at a time, for any `Add`:
 -- the laws `zeroAdd`, `assoc` and `comm` (docs/proposals/interfaces.md §7.7).
 theorem Add.addZero [auto add: Add a] (x: a): x + Add.zero = x :=
@@ -1286,6 +1307,15 @@ def List.findMap (xs: List a) (f: a -> Option b): Option b :=
     | Nil => None
     | Cons x ys => Option.orElse (f x) (List.findMap ys f)
 
+-- `findMap` is the first of the `filterMap` results, found without building
+-- the rest.
+theorem List.findMapIsHeadFilterMap (f: a -> Option b): (xs: List a) -> List.findMap xs f = List.head (List.filterMap f xs)
+  | Nil => rfl
+  | Cons x xs =>
+    match f x with
+      | None => List.findMapIsHeadFilterMap f xs
+      | Some y => rfl
+
 -- Maps, then joins: `xs.flatMap f` is `List.concat (List.map f xs)`.
 def List.flatMap (xs: List a) (f: a -> List b): List b := List.concat (List.map f xs)
 
@@ -1320,6 +1350,9 @@ test "List.tails" := [1, 2].tails == [[1, 2], [2], Nil] && (Nil: List Nat).tails
 test "List.findIndex" := [5, 6, 7].findIndex (x => Nat.leq 6 x) == Some 1 && [5].findIndex (x => Nat.leq 10 x) == None
 test "List.withIndex" := ["a", "b"].withIndex == [MkPair 0 "a", MkPair 1 "b"] && (Nil: List Nat).withIndex == Nil
 test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == Some 30 && [1].findMap (x => (None: Option Nat)) == None
+test "List.findMap is the head of filterMap" :=
+  [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == ([1, 2, 3, 4].filterMap (x => if Nat.leq 3 x then Some (x * 10) else None)).head &&
+    [1].findMap (x => (None: Option Nat)) == ([1].filterMap (x => (None: Option Nat))).head
 test "List.between" := List.between 2 5 == [2, 3, 4, 5] && List.between 3 3 == [3] && List.between 4 2 == Nil && List.between 0 1 == [0, 1]
 test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] && (Nil: List Nat).pairs == Nil && [1].pairs == (Nil: List (Pair Nat Nat))
