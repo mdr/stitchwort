@@ -5217,10 +5217,10 @@
     },
     {
       "id": 330,
-      "title": "Counterexample search: try to falsify a theorem statement on small generated inputs (on proof failure, at ? holes, and explicit property tests) (D570)",
+      "title": "Counterexample search stage 1 (docs/proposals/counterexample-search.md; D1154-D1159): on a failed or ? proof, enumerate small inputs, report a falsifying one as a note",
       "status": "doing",
       "agent": "",
-      "where": "design note lane (Opus)",
+      "where": "worktree lane (Opus)",
       "labels": [
         "design",
         "proof"

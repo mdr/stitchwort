@@ -1,6 +1,6 @@
 # Proposal: counterexample search for theorem statements
 
-**Status:** draft 1, 24 October 2026. Ticket SW-330; the intent was decided in D570 ("(a) plus
+**Status:** draft 1, 24 October 2026. **Decided (Matt, 24 Oct 2026): CE-1 to CE-6 each as recommended, recorded as D1154 to D1159** (D1154 run automatically on a failed proof, capped at 200 ms; D1155 property tests are `test` with parameters; D1156 generators built into the compiler first, a library interface for custom generators in stage 4; D1157 polymorphic statements tested at `Nat`, said in the report; D1158 shown as a note on the existing error; D1159 searching every theorem as typed comes later, with `check --counterexamples` meanwhile). Ticket SW-330; the intent was decided in D570 ("(a) plus
 (c)": search when a proof fails and at a `?`, plus explicit property tests, sharing
 generators; "(b)", searching every theorem as it's stated, later). Design note only: nothing
 here changes the compiler. Decisions for the owner are in [§11](#11-decisions-for-the-owner);
@@ -568,6 +568,8 @@ out common; narrowing; searching every theorem as it's typed (D570 (b)), if stag
 it's cheap.
 
 ## 11. Decisions for the owner
+
+**Decided (Matt, 24 Oct 2026):** each as recommended; CE-1 to CE-6 are D1154 to D1159.
 
 - **CE-1. Run on proof failure by default?** (a) yes, in the CLI and the LSP; (b) only with a
   flag; (c) only in the LSP. **Recommend (a)**: it only costs time when a proof already
