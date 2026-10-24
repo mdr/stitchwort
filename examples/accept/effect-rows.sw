@@ -5,7 +5,7 @@
 -- The row is the empty one only when the callback's type can never be a
 -- computation; one that may yet become one waits, and a row nothing decides
 -- is the empty one. One definition per row of the worked-examples table.
-import Std (List, Eq, Vec, Text)
+import Std (List, Eq, Vec, Text, Fail)
 
 ability Log where
   say: Nat -> {Log} ()
@@ -113,6 +113,17 @@ def notLoggedLambda (numbers: List (Tagged False)): List Nat := List.mapIn (tagg
 
 test "an eta-expanded callback whose type computes to a plain type later" :=
   notLoggedLambda [Tag 3, Tag 4] == [3, 4]
+
+-- A pure eta-expanded callback whose row is shared with another argument:
+-- its body doesn't decide the row, the program does (SW-434).
+def sayNonZero (n: Nat): {Log, Fail} Nat :=
+  Log.say n
+  if n == 0 then Fail.fail "zero" else n
+
+def recovered (n: Nat): {Log} Nat := Fail.recover (message => Text.length message) (() => sayNonZero n)
+
+test "a pure handler for an effectful program" :=
+  Log.collect (() => (recovered 0, recovered 7)) == MkPair (4, 7) [0, 7]
 
 -- An effectful callback: the row is its row.
 def sayAll (numbers: List Nat): {Log} (List Nat) := List.mapIn sayAndDouble numbers

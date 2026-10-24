@@ -1978,11 +1978,17 @@ since the body `answer tagged: Answer ?flag` was checked against `?b`
 `?flag` was known. Now `effects::unknown_row_value` infers a call-like body
 (a variable, a call, a dot call or a pipe that performs nothing) in a bare
 row whose row is still unknown and compares its type with the whole
-`CompIn ?e b`, so `row_rule` decides: `Empty` (the value is `doneIn ?e v`,
-the same term as before), the computation's row, or put aside. If that
-fails, the body is checked against `b` as before. Regression tests:
-`loggedLambda` and `notLoggedLambda` in `examples/accept/effect-rows.sw`; no
-existing hash moved. Still refused, and not an eta case: a `let` that binds
+`CompIn ?e b`, so `row_rule` decides: the computation's row, or put aside.
+If that fails, or the rule chooses `Empty` (the body's type is apart from a
+computation), it's undone and the body is checked against `b` as before,
+its value `doneIn ?e v` with `?e` still open. Keeping `?e := Empty` there
+(as first merged) broke every `{IO, Fail}` `main` (SW-434): in the runner's
+`Std.Fail.recover (m => Some m) prog`, the pure handler's body fixed `e`,
+which `prog: () -> {Fail | e} a` needs to be `{IO}`. A pure body fits any
+row, so it decides nothing. Regression tests: `loggedLambda`,
+`notLoggedLambda` and `recovered` in `examples/accept/effect-rows.sw`, and
+`a_main_that_may_fail_runs` in `crates/cli/tests/run.rs`; no existing hash
+moved. Still refused, and not an eta case: a `let` that binds
 `List.mapIn answer numbers` in a `{Log}` body and returns it later (the row
 is defaulted before the `let`'s variable is compared with the result type).
 
