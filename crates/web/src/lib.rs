@@ -204,7 +204,7 @@ pub fn test(source: &str, known: &str) -> String {
 fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
     let cache = Cache::memory(known_results(known));
     let tests: Vec<String> = session
-        .run_tests(&cache)
+        .run_tests_fast(&cache)
         .iter()
         .map(|r| {
             let outcome = match r.outcome {
