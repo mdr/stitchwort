@@ -14,4 +14,4 @@ Main.test "mapIn with a constructor" 1cdc4155752863c4f54dccbda5637443b7d57310488
 Main.test "mapIn with a partial application" 6712a04f8f07c6e92141d74f82872712de491e5e6b2f4eade76bf92b68d7b7cf
 Main.test "mapIn with a pure parameter" 660a44d899348e6ab1c047d78401c21875c078f8e036aaf85ed9aa6870c13413
 Main.test "mapIn with an empty-row parameter" 5dda60c1be906f2f7e40707022a3fdc633d9649e38823eae365725210f307c85
-Main.test "mapIn with a pure callback in a failing computation" 6ec0c3dcd75c42717723c717283ab32df9cc300d2e89f09a425aa2febca8e703
+Main.test "mapIn with a pure callback in a failing computation" 01eadd2634900101c06cf9c90b593b5505e9bfef620b5f4308edea85be7e3bb4

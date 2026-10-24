@@ -954,6 +954,17 @@ const $Std$dEffect$dlowerIn = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dEffect$dwidenIn = (v3) => (v4) => (v5) => {
+  switch (v3.tag) {
+    case "Empty": {
+      return v5;
+    }
+    case "Ops": {
+      return $Std$dEffect$dtranslate(v4)(v5);
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dText$dtoText = (v0) => v0;
 const $Std$dShow$d$gtoText = (v1) => {
   const v2 = v1.toText;
@@ -1251,15 +1262,7 @@ const $Main$dRange$dread$d$gmatch1 = (v0) => (v1) => {
   throw new Error("unreachable");
 };
 const $Main$dRange$dread = (v0) => $Main$dRange$dread$d$gmatch1(v0)($Std$dText$dsplit({ tag: "MkChar", code: 45n })(v0));
-const $Main$dparseRange$d$gmatch1 = (v0) => (v1) => {
-  switch (v1.tag) {
-    case "UnitValue": {
-      return $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dRange$dread(v0));
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Main$dparseRange = (v0) => $Std$dFail$dtoResult({ tag: "Empty" })(((v1) => $Main$dparseRange$d$gmatch1(v0)(v1)));
+const $Main$dparseRange = (v0) => $Std$dFail$dtoResult({ tag: "Empty" })(((v1) => $Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dRange$dread(v0))));
 const $Main$dsize = (v0) => {
   switch (v0.tag) {
     case "Ok": {
@@ -1273,15 +1276,7 @@ const $Main$dsize = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsizes$d$gmatch1 = (v0) => (v1) => {
-  switch (v1.tag) {
-    case "UnitValue": {
-      return $Std$dList$dmapIn({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })($Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dRange$dread(v2)))(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3))($Main$dRange$dfrom(v3)))(1n))))))(v0);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Main$dsizes = (v0) => $Std$dFail$dtoResult({ tag: "Empty" })(((v1) => $Main$dsizes$d$gmatch1(v0)(v1)));
+const $Main$dsizes = (v0) => $Std$dFail$dtoResult({ tag: "Empty" })(((v1) => $Std$dList$dmapIn({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })($Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dRange$dread(v2)))(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3))($Main$dRange$dfrom(v3)))(1n))))))(v0)));
 
 function $$parseRange(arg0) {
   try {

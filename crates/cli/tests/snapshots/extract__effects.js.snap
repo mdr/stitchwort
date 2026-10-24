@@ -955,6 +955,17 @@ const $Std$dEffect$dlowerIn = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dEffect$dwidenIn = (v3) => (v4) => (v5) => {
+  switch (v3.tag) {
+    case "Empty": {
+      return v5;
+    }
+    case "Ops": {
+      return $Std$dEffect$dtranslate(v4)(v5);
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Main$dsndOf = (v2) => {
   switch (v2.tag) {
     case "MkPair": {
@@ -1017,7 +1028,7 @@ const $Main$dsomeSum = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsubsetSums = (v0) => $Main$dallResults({ tag: "Empty" })(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dsomeSum(v0))));
+const $Main$dsubsetSums = (v0) => $Main$dallResults({ tag: "Empty" })(((v1) => $Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dsomeSum(v0))));
 const $Main$dtick = (v0) => {
   if (v0 === 0n) {
     return { tag: "Done", value: { tag: "UnitValue" } };
@@ -1026,7 +1037,7 @@ const $Main$dtick = (v0) => {
     return $Std$dEffect$dbind($Std$dEffect$dbind($Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%get", x: { tag: "UnitValue" } } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => ({ tag: "Done", value: $Std$dNat$dadd(v2)(1n) }))))(((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%put", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }))))(((v2) => $Main$dtick(v1)));
   }
 };
-const $Main$dcountUp = (v0) => ((v1) => $Main$dsndOf(v1))($Main$drunState({ tag: "Empty" })(0n)(((v1) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dtick(v0)))));
+const $Main$dcountUp = (v0) => ((v1) => $Main$dsndOf(v1))($Main$drunState({ tag: "Empty" })(0n)(((v1) => $Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dtick(v0)))));
 const $Main$dsafeDiv = (v0) => (v1) => $Std$dDecidable$delim($Std$dDecidable$dnot($Std$dNat$ddecEq(v1)(0n)))(((v2) => ({ tag: "Done", value: $Std$dNat$ddiv(v0)(v1) })))(((v2) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%abort", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })(((v3) => ({ tag: "Done", value: $Main$dfromEmpty(v3) })))));
 const $Main$dorZero = (v0) => {
   switch (v0.tag) {
@@ -1040,7 +1051,7 @@ const $Main$dorZero = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$ddivideOrZero = (v0) => (v1) => ((v2) => $Main$dorZero(v2))($Main$dtoOption({ tag: "Empty" })(((v2) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dsafeDiv(v0)(v1)))));
+const $Main$ddivideOrZero = (v0) => (v1) => ((v2) => $Main$dorZero(v2))($Main$dtoOption({ tag: "Empty" })(((v2) => $Std$dEffect$dwidenIn({ tag: "Empty" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dsafeDiv(v0)(v1)))));
 
 function $$subsetSums(arg0) {
   try {
