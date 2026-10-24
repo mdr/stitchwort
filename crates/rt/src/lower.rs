@@ -20,6 +20,7 @@ use stitchwort_syntax::Diagnostic;
 use crate::effect::{Carrier, EffectNatives, EffectOp};
 use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
 use crate::fusion::StateFusion;
+use crate::hoist::SigMaps;
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
     PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
@@ -125,6 +126,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
             plans.push((id, params, None, true));
         }
     }
+    cx.hoisted_base = plans.len();
     let mut globals = Vec::with_capacity(plans.len());
     for (id, params, native, variant) in plans {
         let def = g.def(id);
@@ -155,6 +157,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
         });
     }
     let entry = cx.frame_body(&[], |cx| cx.expr(entry))?;
+    globals.append(&mut cx.hoisted);
     // The simplifier needs to recognise, and build, `Bool` and `Decidable`.
     let types = Types {
         bool_: g.registry.data(Builtin::Bool).map(|d| cx.type_id(d)),
@@ -285,6 +288,17 @@ struct Lowerer<'g> {
     /// What each de Bruijn level stands for, outermost first.
     env: Vec<Bind>,
     frames: Vec<Frame>,
+    /// Recognises closed signature maps, each made a constant
+    /// ([`crate::hoist`], stage 4f).
+    sig_maps: Option<SigMaps>,
+    /// The constants made of closed maps, which go after the program's own
+    /// globals (from `hoisted_base`), and each one's index by its code.
+    hoisted: Vec<Global>,
+    hoisted_of: HashMap<String, GlobalId>,
+    hoisted_base: usize,
+    /// Whether a map's own code is being lowered (a map inside it is part
+    /// of the same constant).
+    hoisting: bool,
 }
 
 impl<'g> Lowerer<'g> {
@@ -318,6 +332,11 @@ impl<'g> Lowerer<'g> {
             type_of: HashMap::new(),
             env: Vec::new(),
             frames: Vec::new(),
+            sig_maps: SigMaps::new(g),
+            hoisted: Vec::new(),
+            hoisted_of: HashMap::new(),
+            hoisted_base: 0,
+            hoisting: false,
         })
     }
 
@@ -647,6 +666,32 @@ impl<'g> Lowerer<'g> {
     /// A definition applied to `args`: erased arguments are left out, and
     /// with all its runtime arguments it's a saturated call.
     fn apply_def(&mut self, id: DefId, args: &[&Term]) -> Result<Expr> {
+        // A closed signature map (a `translate`'s, say): a constant,
+        // computed when first used and kept, not built again on every call
+        // (crate::hoist). It reads no variable, so it's lowered in a frame
+        // of its own.
+        if !self.hoisting
+            && let Some(sig_maps) = &self.sig_maps
+            && sig_maps.closed_map(self.g, id, args)
+        {
+            self.hoisting = true;
+            let body = self.frame_body(&[], |cx| cx.apply_def(id, args));
+            self.hoisting = false;
+            let body = body?;
+            let key = format!("{:?}", body.expr);
+            if let Some(gid) = self.hoisted_of.get(&key) {
+                return Ok(Expr::Global(*gid));
+            }
+            let index = self.hoisted_base + self.hoisted.len();
+            let gid = GlobalId(u32::try_from(index).expect("globals fit"));
+            self.hoisted.push(Global {
+                name: format!("{}[map {}]", self.g.def(id).path, self.hoisted.len()).into(),
+                def: id,
+                kind: GlobalKind::Constant { body },
+            });
+            self.hoisted_of.insert(key, gid);
+            return Ok(Expr::Global(gid));
+        }
         if Some(id) == self.if_then_else && args.len() >= 4 {
             return self.if_(args);
         }

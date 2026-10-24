@@ -13,6 +13,7 @@ use std::time::Instant;
 use stitchwort_core::{DefId, ResourceError, Term};
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_rt::effect::EffectCounts;
+use stitchwort_rt::ir::{Global, GlobalKind};
 use stitchwort_rt::value::Value;
 use stitchwort_rt::{
     Limits, Machine, Outcome, Policy, Program, RouteCounts, lower_global, lower_main,
@@ -200,6 +201,34 @@ fn args(name: &str, p: &Program, n: u64) -> Vec<Value> {
     } else {
         vec![xs]
     }
+}
+
+/// A closed signature map is a constant of the machine, computed once
+/// (stage 4f, `stitchwort_rt::hoist`): `searchedIn`'s `Each.each` is wrapped
+/// in a `translate` from `{Each}` to `{Each, Fail}` for every element, and
+/// its map is a global constant, the same one each time; so is the map of
+/// the `translate` around `Fail.fail` in its branch that fails. In
+/// `askedChecked`, the `translate` of the whole `map` and the failing
+/// branch's have a constant each.
+#[test]
+fn closed_signature_maps_are_constants() {
+    with_stack(STACK, || {
+        let (session, _) = example("effect-runtime.sw");
+        for name in ["searchedIn", "askedChecked"] {
+            let export = Export::new(&session, name);
+            let maps: Vec<&Global> = export
+                .program
+                .globals
+                .iter()
+                .filter(|g| g.name.contains("[map "))
+                .collect();
+            assert_eq!(maps.len(), 2, "{name}");
+            assert!(
+                matches!(maps[0].kind, GlobalKind::Constant { .. }),
+                "{name}"
+            );
+        }
+    });
 }
 
 /// Every shape runs natively at 1,000,000 elements with the right answer,

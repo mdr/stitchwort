@@ -136,6 +136,27 @@ console.log("done");
     assert!(out.ends_with("done\n"), "{out}");
 }
 
+/// A closed signature map is built once, at its first use, and kept in a
+/// module variable (stage 4f, stitchwort_rt::hoist): `searchedIn`'s
+/// `Each.each` is wrapped in a `translate` from `{Each}` to `{Each, Fail}`
+/// for every element, and its map is `sigmap$…`, not a call of `sigCase`
+/// on every element.
+#[test]
+fn closed_signature_maps_are_built_once() {
+    let js = module();
+    let def = js
+        .lines()
+        .find(|l| l.starts_with("const $Main$dsearchedIn = "))
+        .expect("searchedIn is generated");
+    let at = def.find("$Std$dEffect$dsigCase(").expect("its map");
+    assert!(def[..at].ends_with(" ??= "), "{def}");
+    assert!(def[..at].contains("(sigmap$"), "{def}");
+    assert!(
+        js.lines().any(|l| l.starts_with("var sigmap$0")),
+        "the maps' variables are declared"
+    );
+}
+
 /// The runtime's work grows linearly: run-loop steps, pushes and pops of
 /// pending continuations, and resumptions per element are the same at
 /// 1,000, 10,000 and 100,000 elements (so nothing rebuilds a pending list or

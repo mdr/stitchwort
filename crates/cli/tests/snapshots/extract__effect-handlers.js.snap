@@ -1211,9 +1211,9 @@ const $Main$dPick$dall = (v0) => (v1) => effFoldCompIn(v0)(((v2) => $Std$dEffect
 const $Main$dPick$dall$e = (v1) => $Std$dEffect$dfoldComp(((v2) => ({ tag: "Cons", head: v2, tail: { tag: "Nil" } })))($Std$dEffect$dhandlePlus($Main$dPick$d$gelim(((v2) => ((v3) => $Main$dresumeEach$e(v3)(v2)))))(((v2) => ((v3) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v2), rest: ((v4) => ({ tag: "Done", value: (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v2)(v4)) })) })))))((v1)({ tag: "UnitValue" }));
 const $Main$dpicks = (v0) => $Std$dEffect$dbind($Std$dList$dmap({ tag: "Ops" })(((v1) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%pick", x: $Std$dNat$dmin(v1)(3n) } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dmul(v2)(10n))))))($Std$dList$dtake(4n)(v0)))(((v1) => ({ tag: "Done", value: $Std$dList$dsum($Std$dNat$dinstAdd)(v1) })));
 const $Main$dresumed = (v0) => $Main$dPick$dall$e(((v1) => $Main$dpicks(v0)));
-const $Main$dresumedChecked = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dPick$dall({ tag: "Ops" })(((v2) => $Std$dEffect$dwidenIn({ tag: "Ops" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Main$dpicks(v0))))));
+const $Main$dresumedChecked = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dPick$dall({ tag: "Ops" })(((v2) => $Std$dEffect$dwidenIn({ tag: "Ops" })((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Main$dpicks(v0))))));
 const $Main$dchoices = (v0) => $Std$dEach$dcollect(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => $Std$dEach$deach({ tag: "Cons", head: v2, tail: { tag: "Cons", head: $Std$dNat$dadd(v2)(10n), tail: { tag: "Nil" } } })))($Std$dList$dtake(10n)(v0))));
-const $Main$dchoicesChecked = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dEach$dcollectIn({ tag: "Ops" })(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dEffect$dwidenIn({ tag: "Ops" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Std$dEach$deach({ tag: "Cons", head: v3, tail: { tag: "Cons", head: $Std$dNat$dadd(v3)(10n), tail: { tag: "Nil" } } }))))($Std$dList$dtake(10n)(v0))))));
+const $Main$dchoicesChecked = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dEach$dcollectIn({ tag: "Ops" })(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dEffect$dwidenIn({ tag: "Ops" })((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Std$dEach$deach({ tag: "Cons", head: v3, tail: { tag: "Cons", head: $Std$dNat$dadd(v3)(10n), tail: { tag: "Nil" } } }))))($Std$dList$dtake(10n)(v0))))));
 const $Main$dOffer$d$gelim = (v1) => (v2) => (v3) => {
   switch (v2.tag) {
     case "%offer": {
@@ -1306,10 +1306,10 @@ const $Main$dlayered = (v1) => (v2) => {
     return (v2)({ tag: "UnitValue" });
   } else {
     const v3 = v1 - 1n;
-    return $Main$dTick$dignore({ tag: "Ops" })(((v4) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Main$dlayered(v3)(v2))));
+    return $Main$dTick$dignore({ tag: "Ops" })(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))))($Main$dlayered(v3)(v2))));
   }
 };
-const $Main$dnested = (v0) => (v1) => $Main$dEnv$dgive(7n)(((v2) => $Main$dTick$dignore({ tag: "Ops" })(((v3) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Main$dlayered($Std$dNat$dmin(v0)(100n))(((v4) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Std$dList$dmap({ tag: "Ops" })(((v5) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%tick", x: { tag: "UnitValue" } } }, rest: ((v6) => ({ tag: "Done", value: v6 })) })(((v6) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "R", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } } }, rest: ((v7) => ({ tag: "Done", value: v7 })) })(((v7) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v5)(v7))))))))(v1)))))))));
+const $Main$dnested = (v0) => (v1) => $Main$dEnv$dgive(7n)(((v2) => $Main$dTick$dignore({ tag: "Ops" })(((v3) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))))($Main$dlayered($Std$dNat$dmin(v0)(100n))(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))))($Std$dList$dmap({ tag: "Ops" })(((v5) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%tick", x: { tag: "UnitValue" } } }, rest: ((v6) => ({ tag: "Done", value: v6 })) })(((v6) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "R", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } } }, rest: ((v7) => ({ tag: "Done", value: v7 })) })(((v7) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v5)(v7))))))))(v1)))))))));
 const $Main$dwidened$d$gmatch1 = (v1) => {
   switch (v1.tag) {
     case "Ok": {
@@ -1318,17 +1318,17 @@ const $Main$dwidened$d$gmatch1 = (v1) => {
     }
     case "Err": {
       const v2 = v1.error;
-      return $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))($Std$dFail$dfail(v2));
+      return $Std$dEffect$dtranslate((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Std$dFail$dfail(v2));
     }
   }
   throw new Error("unreachable");
 };
 const $Main$dwidened = (v1) => (v2) => {
   if (v1 === 0n) {
-    return $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo))((v2)({ tag: "UnitValue" }));
+    return $Std$dEffect$dtranslate((sigmap$2 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))((v2)({ tag: "UnitValue" }));
   } else {
     const v3 = v1 - 1n;
-    return $Std$dEffect$dbind($Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Std$dFail$dtoResult({ tag: "Ops" })(((v4) => $Std$dEffect$dwidenIn({ tag: "Ops" })($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Main$dwidened(v3)(v2))))))(((v4) => $Main$dwidened$d$gmatch1(v4)));
+    return $Std$dEffect$dbind($Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo))))($Std$dFail$dtoResult({ tag: "Ops" })(((v4) => $Std$dEffect$dwidenIn({ tag: "Ops" })((sigmap$3 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo))))($Main$dwidened(v3)(v2))))))(((v4) => $Main$dwidened$d$gmatch1(v4)));
   }
 };
 const $Main$dtranslated = (v0) => (v1) => $Main$dEnv$dgive(3n)(((v2) => $Std$dFail$dtoResult({ tag: "Ops" })(((v3) => $Main$dwidened($Std$dNat$dmin(v0)(100n))(((v4) => $Std$dList$dmap({ tag: "Ops" })(((v5) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v6) => ({ tag: "Done", value: v6 })) })(((v6) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dmul(v5)(v6))))))(v1)))))));
@@ -1342,7 +1342,7 @@ const $Main$dCounter$d$gelim = (v1) => (v2) => (v3) => {
   throw new Error("unreachable");
 };
 const $Main$dCounter$dnumber = (v1) => $Std$dEffect$drunPure(effFoldState(true)(((v2) => ((v3) => v2)))($Std$dEffect$dhandlePlus($Main$dCounter$d$gelim(((v2) => ((v3) => ((v4) => ((v5) => (v4)(v5)($Std$dNat$dadd(v5)(1n))))))))(((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo)(v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo)(v2)(v4))) })))))((v1)({ tag: "UnitValue" })));
-const $Main$dstateThroughFail = (v0) => (v1) => $Main$dCounter$dnumber(((v2) => $Std$dFail$dtoResult({ tag: "Ops" })(((v3) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigCompose($Std$dEffect$dsigRight)($Std$dEffect$dsigRight))))($Std$dList$dmap({ tag: "Ops" })(((v4) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })(((v5) => $Std$dDecidable$delim($Std$dNat$ddecLessThan(v5)(v0))(((v6) => ({ tag: "Done", value: $Std$dNat$dadd(v4)(v5) })))(((v6) => $Std$dEffect$dtranslate($Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo))($Std$dFail$dfail("limit"))))))))(v1))))))(0n);
+const $Main$dstateThroughFail = (v0) => (v1) => $Main$dCounter$dnumber(((v2) => $Std$dFail$dtoResult({ tag: "Ops" })(((v3) => $Std$dEffect$dtranslate((sigmap$4 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigCompose($Std$dEffect$dsigRight)($Std$dEffect$dsigRight)))))($Std$dList$dmap({ tag: "Ops" })(((v4) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })(((v5) => $Std$dDecidable$delim($Std$dNat$ddecLessThan(v5)(v0))(((v6) => ({ tag: "Done", value: $Std$dNat$dadd(v4)(v5) })))(((v6) => $Std$dEffect$dtranslate((sigmap$2 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("limit"))))))))(v1))))))(0n);
 
 function $$resumed(arg0) {
   try {
@@ -1505,5 +1505,8 @@ function enc$5(v) {
 function dec$6(x) {
   return NAT.dec(x);
 }
+
+// Closed signature maps, each built at its first use.
+var sigmap$0, sigmap$1, sigmap$2, sigmap$3, sigmap$4;
 
 export { $$resumed as resumed, $$resumedChecked as resumedChecked, $$choices as choices, $$choicesChecked as choicesChecked, $$branches as branches, $$replayed as replayed, $$nested as nested, $$translated as translated, $$stateThroughFail as stateThroughFail };

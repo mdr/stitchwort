@@ -23,6 +23,7 @@ use stitchwort_core::{
     pretty,
 };
 use stitchwort_rt::erasure::{def_shape, text_literal};
+use stitchwort_rt::hoist::SigMaps;
 use stitchwort_rt::natives::{
     FloatPrim, Representation, float_data, int_data, nat_data, safe_int_data, safe_nat_data,
     text_data,
@@ -982,6 +983,7 @@ pub fn generate_exports(
     }
     mapper.end(&js);
     js.push_str(&codegen.fast.borrow().module_text());
+    js.push_str(&codegen.hoisted_vars());
     // Exports aren't names in the module's scope, so they can't hide its
     // own names or the JS globals it uses (`Set`, `BigInt`, …).
     let exported: Vec<String> = exports
@@ -2002,6 +2004,14 @@ struct Gen<'g> {
     empty: RefCell<Vec<bool>>,
     /// Per definition, its empty-row variant's [`DefInfo`].
     empty_infos: Vec<OnceCell<DefInfo>>,
+    /// Recognises closed signature maps, which are built once
+    /// ([`stitchwort_rt::hoist`], stage 4f).
+    sig_maps: Option<SigMaps>,
+    /// The closed maps found so far: `sigmap$i` is built by the `i`th.
+    hoisted: RefCell<Vec<String>>,
+    /// Whether a map's own code is being generated (a map inside it is
+    /// built with it, not separately).
+    hoisting: Cell<bool>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -2141,6 +2151,9 @@ impl<'g> Gen<'g> {
             used: RefCell::new(vec![true; g.defs.len()]),
             empty: RefCell::new(vec![false; g.defs.len()]),
             empty_infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
+            sig_maps: SigMaps::new(g),
+            hoisted: RefCell::new(Vec::new()),
+            hoisting: Cell::new(false),
         })
     }
 
@@ -3492,6 +3505,49 @@ impl<'g> Gen<'g> {
 
     /// A call to a definition, leaving out its erased arguments.
     fn def_ref(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
+        // A closed signature map (a `translate`'s, say): built at its first
+        // use and kept in a module variable, not built again on every call
+        // (stitchwort_rt::hoist). Generated code is pure and total, so when
+        // it's built doesn't matter, and the first use builds it exactly
+        // where the code did before.
+        if !self.hoisting.get()
+            && let Some(sig_maps) = &self.sig_maps
+            && sig_maps.closed_map(self.g, id, args)
+        {
+            self.hoisting.set(true);
+            let value = self.def_call(id, args, env);
+            self.hoisting.set(false);
+            let value = value?;
+            let mut hoisted = self.hoisted.borrow_mut();
+            let i = match hoisted.iter().position(|v| *v == value) {
+                Some(i) => i,
+                None => {
+                    hoisted.push(value.clone());
+                    hoisted.len() - 1
+                }
+            };
+            return Ok(format!("(sigmap${i} ??= {value})"));
+        }
+        self.def_call(id, args, env)
+    }
+
+    /// The declarations of the module variables that hold the closed
+    /// signature maps, if there are any: `var`s, so that a use earlier in
+    /// the module (any use, since the definitions come first) is fine.
+    pub(crate) fn hoisted_vars(&self) -> String {
+        let n = self.hoisted.borrow().len();
+        if n == 0 {
+            return String::new();
+        }
+        let names: Vec<String> = (0..n).map(|i| format!("sigmap${i}")).collect();
+        format!(
+            "\n// Closed signature maps, each built at its first use.\nvar {};\n",
+            names.join(", ")
+        )
+    }
+
+    /// [`Gen::def_ref`], without building a closed map once.
+    fn def_call(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
         // A partial computation is the token, whatever its arguments: they
         // only feed a `Delay`, which nothing can run, so they aren't
         // computed.
