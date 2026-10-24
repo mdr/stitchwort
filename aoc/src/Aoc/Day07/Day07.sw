@@ -16,7 +16,8 @@
 -- timelines of the column it falls into, or of both columns beside its
 -- splitter added up (`splitRow`). Both work on whole rows of `width`
 -- columns: a row shifted one place right (`shiftRight`) puts each column's
--- left neighbour in it, and shifted left (`shiftLeft`) its right one.
+-- left neighbour in it, shifted left (`shiftLeft`) its right one, and
+-- `around` sees both.
 --
 -- Both answers are proved right for every manifold in `Aoc.Day07.Proofs`
 -- (Spec/Spec.sw states the puzzle over the manifold, with the timelines
@@ -80,7 +81,7 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
   | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith (splitter beam => splitter && beam) row beams).toList.count (hit => hit)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith (splitter beam => splitter && beam) row beams).count (hit => hit)
 
 -- The beams falling out of a row: a beam passes a column with no splitter,
 -- and a splitter with a beam on it sends one down each side.
@@ -99,8 +100,9 @@ def timelineCounts (manifold: Manifold): Vec Nat manifold.width :=
 
 -- A row's timeline counts, given the counts of the row below it: a column
 -- with no splitter has the count of the column below, and a splitter the
--- counts of the columns below on both sides added up. Past either edge a
--- particle has left the manifold: one timeline.
+-- counts of the columns below on both sides added up.
 def splitRow (row: Vec Bool w) (below: Vec Nat w): Vec Nat w :=
-  Vec.zipWith3 (splitter here sides => if splitter then sides else here) row below
-    (Vec.zipWith (leftCount rightCount => leftCount + rightCount) (below.shiftRight 1) (below.shiftLeft 1))
+  -- The pad 1: past either edge a particle has left the manifold, and that
+  -- is one completed timeline.
+  let sides := below.around 1 (left _ right => left + right)
+  Vec.zipWith3 (splitter here sides => if splitter then sides else here) row below sides

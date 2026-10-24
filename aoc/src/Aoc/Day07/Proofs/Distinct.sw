@@ -2,50 +2,28 @@
 -- the count is of different timelines: the spec's list has no repeats
 -- (`timelinesDistinct`). By construction: the two sides of a split start
 -- with the same splitter but a different turn, and each side is distinct
--- by induction. The library's `List.Distinct`, `List.distinctMap` (the
--- timelines of one side all begin with the same hit, which is injective)
--- and `List.distinctAppend` (two sides with nothing in common) do the work.
+-- by induction. The library's `List.Distinct`, `List.distinctMap` with
+-- `List.consInjective` (the timelines of one side all begin with the same
+-- hit), and `List.distinctAppend` with `List.disjointMapCons` (the two
+-- sides begin with different hits, so have nothing in common) do the work.
 
 namespace Aoc.Day07.Proofs
 import Aoc.Day07 (..)
 import Aoc.Day07.Spec (..)
-import Std (Bool, Eq, Fin, List, Option, Vec)
-
-def turnIsLeft: Turn -> Bool
-  | Left => True
-  | Right => False
+import Std (DecEq, Decidable, Eq, Fin, List, Option, Vec)
 
 -- Two hits at the same splitter that go different ways are different.
 theorem turnsDiffer (r: Nat) (c: Nat): Not (({ row = r, column = c, turn = Left }: Hit) = { row = r, column = c, turn = Right }) :=
-  p => Bool.falseNotTrue (Eq.sym (Eq.cong (h => turnIsLeft (Hit.turn h)) p))
-
--- Putting the same hit in front of two timelines gives different ones only
--- if the tails were.
-theorem consInjective (h: Hit) (x: List Hit) (y: List Hit) (p: Cons h x = Cons h y): x = y := Eq.cong (List.drop 1) p
-
--- A timeline that starts with one hit isn't among those that start with
--- another.
-theorem notMemHeads (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (x: List Hit):
-    (ys: List (List Hit)) -> Not (List.Mem (Cons h1 x) (List.map (Cons h2) ys))
-  | Nil, m => m
-  | Cons y ys, m =>
-    match m with
-      | Inl p => ne (Eq.sym (Eq.cong (List.headOr h1) p))
-      | Inr q => notMemHeads h1 h2 ne x ys q
-
-theorem disjointHeads (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (ys: List (List Hit)):
-    (xs: List (List Hit)) -> List.Disjoint (List.map (Cons h1) xs) (List.map (Cons h2) ys)
-  | Nil => Trivial
-  | Cons x xs => Both (notMemHeads h1 h2 ne x ys) (disjointHeads h1 h2 ne ys xs)
+  p => Decidable.toBoolFalse (DecEq.decide (Left: Turn) Right) rfl (Eq.cong Hit.turn p)
 
 -- The timelines of the two sides of a split.
 theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hit)) (ys: List (List Hit))
     (dx: xs.Distinct) (dy: ys.Distinct):
     List.Distinct (List.append (List.map (Cons h1) xs) (List.map (Cons h2) ys)) :=
   List.distinctAppend (List.map (Cons h1) xs) (List.map (Cons h2) ys)
-    (List.distinctMap (Cons h1) (consInjective h1) xs dx)
-    (List.distinctMap (Cons h2) (consInjective h2) ys dy)
-    (disjointHeads h1 h2 ne ys xs)
+    (List.distinctMap (Cons h1) (List.consInjective h1) xs dx)
+    (List.distinctMap (Cons h2) (List.consInjective h2) ys dy)
+    (List.disjointMapCons h1 h2 ne ys xs)
 
 -- Every timeline from a column is different from the others.
 theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) -> List.Distinct (timelinesFrom r c rows)

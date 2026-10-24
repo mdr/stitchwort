@@ -31,7 +31,7 @@ import Aoc.Day07 (..)
 import Std (Fin, List, Option, Vec)
 
 -- Is there a splitter in column c of a row? Past its end, empty space.
-def splitterAt (row: Vec Bool w) (c: Nat): Bool := row.toList.getOr False c
+def splitterAt (row: Vec Bool w) (c: Nat): Bool := row.getOr False c
 
 type Turn =
   | Left
