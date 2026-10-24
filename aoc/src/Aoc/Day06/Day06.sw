@@ -97,7 +97,7 @@ def checkWorksheet (lines: List Text): Result (List Problem) Text :=
 -- The first thing wrong with the worksheet, if anything.
 def worksheetError (lines: List Text): Option Text :=
   if lines.length < 2 then
-    Some "expected number rows followed by an operator row, got ${lines.length} lines"
+    Some "expected number rows followed by an operator row, got ${lines.length} ${if lines.length == 1 then "line" else "lines"}"
   else if (lines.last.map .trim) == Some "" then
     Some "line ${lines.length}: expected the operator row, got a blank line"
   else

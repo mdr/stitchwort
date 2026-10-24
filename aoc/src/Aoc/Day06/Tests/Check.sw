@@ -19,7 +19,7 @@ test "a stray character in the operator row" := checked ["12", "34", "+x"] == Er
 test "a digit in the operator row" := checked ["12", "34", "+ 1"] == Err "line 3, column 3: expected + or * or a space, got '1'"
 test "a trailing blank line" := checked ["12", "34", "+", ""] == Err "line 4: expected the operator row, got a blank line"
 test "a trailing line of spaces" := checked ["12", "34", "+", "  "] == Err "line 4: expected the operator row, got a blank line"
-test "only an operator row" := checked ["*"] == Err "expected number rows followed by an operator row, got 1 lines"
+test "only an operator row" := checked ["*"] == Err "expected number rows followed by an operator row, got 1 line"
 test "no lines" := checked [] == Err "expected number rows followed by an operator row, got 0 lines"
 
 -- The layouts that are fine.
