@@ -1406,6 +1406,26 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
   assert.ok(second.rows.every((r) => r.endsWith("cached")), second.rows.join("\n"));
 }, { ms: 120000 });
 
+test("the real-input tests of AoC days 8 and 9 finish well within the compiler limit (D1138)", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  for (const day of [8, 9]) {
+    await openDay(page, day);
+    await page.tab("tests");
+    const started = Date.now();
+    const results = await page.until(`(() => {
+      const o = document.getElementById("output");
+      const summary = o.querySelector(".summary")?.textContent;
+      if (!summary || !o.querySelector("ul.tests")) return false;
+      return { summary, rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent) };
+    })()`, 30000, `the Day ${day} tests`);
+    console.log(`  Day ${day} tests finished in ${Date.now() - started} ms`);
+    assert.ok(results.rows.some((r) => r.includes("real input")), results.rows.join("\n"));
+    assert.ok(results.rows.every((r) => r.startsWith("✓")), results.rows.join("\n"));
+    assert.doesNotMatch(results.summary, /failed, [1-9]|[1-9]\d* failed/);
+  }
+}, { ms: 120000 });
+
 test("an error in a shared file shows in the Check tab, marks its tab, and links to its line", async (page) => {
   await page.open();
   await page.untilChecked();
