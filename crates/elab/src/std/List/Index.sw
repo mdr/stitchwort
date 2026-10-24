@@ -142,3 +142,11 @@ theorem List.withIndexRange (d: a) (xs: List a): List.withIndex xs = List.map (i
   List.withIndexFromRange d 0 xs
 
 test "List.withIndexRange" := ["a", "b"].withIndex == List.map (i => MkPair i (List.getOr "" i ["a", "b"])) (List.range 2)
+
+-- The position of the first `x` in the list, counting from 0, or the list's
+-- length if `x` isn't in it: `[5, 7, 5].indexOf 5` is 0, `.indexOf 9` is 3.
+def List.indexOf [auto eq: DecEq a] (x: a): List a -> Nat
+  | Nil => 0
+  | Cons y ys => if y == x then 0 else Succ (List.indexOf x ys)
+
+test "List.indexOf" := [5, 7, 5].indexOf 7 == 1 && [5, 7, 5].indexOf 5 == 0 && [5, 7, 5].indexOf 9 == 3

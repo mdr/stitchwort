@@ -1234,3 +1234,19 @@ test "List.sortOn" := List.sortOn (p => p.fst) [MkPair 3 "c", MkPair 1 "a", MkPa
 test "List.sortOn by a tuple key" := List.sortOn (p => (p.snd, p.fst)) [MkPair 2 1, MkPair 1 2, MkPair 1 1] == [MkPair 1 1, MkPair 2 1, MkPair 1 2]
 test "List.sortOn pipes" := ([3, 1, 2] |> .sortOn (n => 10 - n)) == [3, 2, 1]
 test "List.sortOnMap" := List.map (p => p.fst) (List.sortOn (p => p.fst) [MkPair 3 "c", MkPair 1 "a"]) == List.sort [3, 1]
+
+-- Drops each element equal to the one just before it (Rust's `Vec::dedup`),
+-- so on a sorted list it drops every repeat: `[1, 1, 2, 3, 3].dedup` is
+-- `[1, 2, 3]`. `List.sort` then `List.dedup` lists the different values in
+-- order.
+def List.dedup [auto eq: DecEq a]: List a -> List a
+  | Nil => Nil
+  | Cons x xs => Cons x (List.dedupAfter x xs)
+
+-- `List.dedup` after `previous`: the elements not equal to the one before.
+def List.dedupAfter [auto eq: DecEq a] (previous: a): List a -> List a
+  | Nil => Nil
+  | Cons x xs => if x == previous then List.dedupAfter previous xs else Cons x (List.dedupAfter x xs)
+
+test "List.dedup" := [1, 1, 2, 3, 3, 3].dedup == [1, 2, 3] && [2, 1, 2].dedup == [2, 1, 2] && (Nil: List Nat).dedup == Nil
+test "List.dedup after sorting" := [3, 1, 3, 2, 1].sort.dedup == [1, 2, 3]
