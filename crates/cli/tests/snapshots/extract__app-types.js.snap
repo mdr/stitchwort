@@ -112,11 +112,15 @@ const define = (
 ) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
-  // optional property, or `[key, type, optional, key inside]`.
+  // optional property, `[key, type, optional, key inside]`, or, for a field
+  // with a default, `[key, type, false, key inside, default]`: `default` is a
+  // function of the object decoded so far (the earlier fields, by their keys
+  // inside), giving the field's value when its property is missing.
   const entries = ctors.map(([tag, fields, external = tag]) => ({
     tag,
     external,
-    fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
+    fields: fields.map(([key, type, optional = false, inside = key, dflt]) =>
+      [key, type, optional, inside, dflt]),
   }));
   if (record) {
     info.record = entries[0].fields;
@@ -514,9 +518,16 @@ const decode = (t, x, root, seen = new Map()) => {
             if (x === MISSING || x === INHERITED) refuse("a hole in the array");
             t = f.t.elem;
           } else {
-            const [key, type, optional] = f.fields[f.i];
+            const [key, type, optional, , dflt] = f.fields[f.i];
             path.push(key);
             x = own(f.x, key);
+            // A missing property of a field with a default is the default,
+            // computed from the fields before it; a present one, `undefined`
+            // too, is decoded as given (D1114).
+            if (x === MISSING && dflt !== undefined) {
+              value = dflt(f.out);
+              continue;
+            }
             if (x === MISSING && optional) x = undefined;
             if (x === MISSING) refuse("missing");
             if (x === INHERITED) refuse("inherited, not the object's own property");

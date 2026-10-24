@@ -21,7 +21,8 @@ use stitchwort_core::registry::Builtin;
 
 use super::{
     Boundary, Gen, external_keys, external_optional, field_boundaries, field_key_at,
-    generic_field_boundaries, info_name, js_string_literal, member, repr, ts_key,
+    generic_field_boundaries, info_name, js_string_literal, member, optional_property, repr,
+    runtime_fields, ts_key,
 };
 
 /// The functions and type constants generated so far.
@@ -79,6 +80,10 @@ struct FieldCodec {
     inside: String,
     /// Whether a missing property is `None`, and `None` is no property.
     optional: bool,
+    /// For a field with a default: the statements binding the earlier fields
+    /// its helper takes, and the call that gives the default for a missing
+    /// property ([`Gen::default_call`]).
+    default: Option<(String, String)>,
     b: Boundary,
 }
 
@@ -368,25 +373,35 @@ impl Gen<'_> {
     /// Each constructor's fields, as the codecs see them.
     fn field_codecs(&self, d: DataId, args: &[Boundary]) -> Vec<Vec<FieldCodec>> {
         let g = self.g;
-        let data = g.data(d);
         let repr = repr(g, d);
         field_boundaries(g, d, args)
             .into_iter()
             .enumerate()
             .map(|(c, fields)| {
-                let internal: Vec<String> = (0..data.ctors[c].fields.len())
-                    .filter(|&i| !data.ctors[c].field_erased[i])
-                    .map(|i| field_key_at(g, d, c, i))
-                    .collect();
+                let runtime = runtime_fields(g, d, c);
+                // Field `j`'s decoded value, `f{k}` for its position `k`
+                // among those with a key.
+                let decoded = |j: usize| {
+                    let k = runtime
+                        .iter()
+                        .position(|&r| r == j)
+                        .expect("a default takes only fields with a key at run time");
+                    format!("f{k}")
+                };
                 fields
                     .into_iter()
                     .zip(external_keys(&repr, c))
-                    .zip(internal)
+                    .zip(&runtime)
                     .zip(external_optional(&repr, c))
-                    .map(|((((_, b), external), inside), flag)| FieldCodec {
+                    .map(|((((_, b), external), &i), flag)| FieldCodec {
                         external: external.to_string(),
-                        inside,
-                        optional: flag || (data.record && matches!(b, Boundary::Option(..))),
+                        inside: field_key_at(g, d, c, i),
+                        optional: optional_property(g, d, c, i, &b, flag),
+                        // Running out of stack here leaves the call to
+                        // `fail()`: the general decoder then does it.
+                        default: self
+                            .default_call(d, c, i, &decoded)
+                            .unwrap_or_else(|_| Some((String::new(), "fail()".into()))),
                         b,
                     })
                     .collect()
@@ -402,6 +417,17 @@ impl Gen<'_> {
         for (i, f) in fields.iter().enumerate() {
             let key = js_string_literal(&f.external);
             let read = format!("x{}", member(&f.external));
+            if let Some((reads, call)) = &f.default {
+                // A missing property is the default; a present one,
+                // `undefined` too, is decoded as given (D1114).
+                let _ = writeln!(
+                    out,
+                    "{pad}let f{i};\n{pad}if (hasOwn(x, {key})) {{\n{pad}  const r{i} = {read};\n{pad}  f{i} = {};\n{pad}}} else if ({key} in x) throw FAIL;\n{pad}else {{ {reads}f{i} = {call}; }}",
+                    self.dec_expr(&f.b, &format!("r{i}"))
+                );
+                props.push(format!("{}: f{i}", literal_key(&f.inside)));
+                continue;
+            }
             if f.optional {
                 let _ = writeln!(
                     out,

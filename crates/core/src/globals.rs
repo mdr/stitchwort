@@ -131,6 +131,21 @@ pub struct Validator {
     pub decision: Term,
 }
 
+/// One field's default: its helper, and the variables of the constructor's
+/// context (the type's parameters, then its fields) the helper takes, by
+/// level, in order: a level below the number of parameters is that
+/// parameter, any other is field `level - parameters`. The type's
+/// parameters are implicit parameters of the helper, and its fields
+/// explicit ones.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FieldDefault {
+    pub helper: DefId,
+    pub captures: Vec<usize>,
+}
+
+/// A data type's defaults: one list per constructor, one entry per field.
+pub type FieldDefaults = Vec<Vec<Option<FieldDefault>>>;
+
 pub struct Data {
     /// Its name as written from the root of its module: `List`,
     /// `Effect.Comp`, `Geometry.Shape`.
@@ -168,6 +183,15 @@ pub struct Data {
     /// Only the JS backend reads it; it isn't hashed (D598) and the kernel
     /// never sees it.
     pub js: Option<std::rc::Rc<crate::js_repr::JsRepr>>,
+    /// Its fields' default values (docs/proposals/named-arguments.md §5.1,
+    /// §5.2): for each constructor and field, the generated helper that
+    /// computes the default, if the field has one. Set by the elaborator once
+    /// the type is admitted (or loaded from the check cache); `None` for a
+    /// type without defaults. Kept by declaration, never hashed (D1099), and
+    /// never seen by the kernel: the elaborator reads it for literals that
+    /// leave fields out, and the JS backend for decoders that fill absent
+    /// properties (§5.3).
+    pub defaults: Option<Rc<FieldDefaults>>,
     /// The data group this type was declared in (`declare_data_group`), in
     /// declaration order, including itself: a group of one for a type on its
     /// own. Every member has the same parameters and universe. Set once, when

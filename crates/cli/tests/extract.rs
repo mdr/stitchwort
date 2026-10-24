@@ -1142,6 +1142,149 @@ console.log("ok");
     run_script("optional-fields", &[("app.mjs", app)], script);
 }
 
+/// Fields with defaults at the boundary (docs/proposals/named-arguments.md
+/// §5.3, D1114): a missing property is the default, run by the decoder from
+/// the fields before it; a present one, `undefined` included, is decoded as
+/// given, so for an `Option` field `undefined` is `None`. A result has every
+/// field, a defaulted `Option` field holding `None` as `undefined`, so a
+/// round trip keeps it (acceptance invariant 10). The general decoder, which
+/// the fast one hands over to, agrees.
+#[test]
+fn defaulted_fields_may_be_left_out_going_in() {
+    let examples = examples();
+    let app = example(&examples, "field-defaults.sw");
+    let script = r#"
+import * as m from "./app.mjs";
+import assert from "node:assert/strict";
+const refused = (f, pattern) =>
+  assert.throws(f, (e) => e instanceof m.StitchwortInputError && pattern.test(e.message), pattern.source);
+
+// Missing properties are their defaults; present ones are decoded as given.
+assert.deepEqual(m.bounds({ stop: 10n }), [0n, 10n, 1n]);
+assert.deepEqual(m.bounds({ start: 2n, stop: 10n, step: 3n }), [2n, 10n, 3n]);
+// A field without a default is still required.
+refused(() => m.bounds({ start: 2n }), /^options\.stop: missing$/);
+// A present `undefined` asks for no default: for a field that isn't an
+// `Option`, it's a wrong value.
+refused(() => m.bounds({ stop: 10n, step: undefined }), /^options\.step: expected a non-negative bigint$/);
+// Only an own property counts, as for every field.
+refused(() => m.bounds(Object.assign(Object.create({ step: 2n }), { stop: 1n })), /^options\.step: inherited, not the object's own property$/);
+// A result has every field.
+assert.deepEqual(m.widen({ stop: 4n }), { start: 0n, stop: 14n, step: 1n });
+
+// A defaulted `Option`: missing is the default, `undefined` is `None`, and
+// `null` is neither.
+assert.equal(m.colourOf({}), "blue");
+assert.equal(m.colourOf({ colour: undefined }), undefined);
+assert.equal(m.colourOf({ colour: "red" }), "red");
+refused(() => m.colourOf({ colour: null }), /^config\.colour: expected a value or undefined, not null$/);
+// On output it's always present, `None` as `undefined`, so a round trip
+// keeps `None` rather than turning it into the default.
+const none = m.echo({ colour: undefined });
+assert.deepEqual(Object.keys(none), ["colour"]);
+assert.equal(none.colour, undefined);
+assert.equal(m.colourOf(none), undefined);
+assert.deepEqual(m.echo(none), none);
+assert.deepEqual(m.echo({}), { colour: "blue" });
+// An `Option` field without a default keeps its encoding: missing and
+// `undefined` are `None`, and `None` is no property.
+assert.deepEqual(Object.keys(m.echo({ nick: undefined })), ["colour"]);
+assert.deepEqual(m.echo({ nick: "Al" }), { colour: "blue", nick: "Al" });
+
+// Defaults computed from the fields before them, given or defaulted.
+assert.deepEqual(m.area({ width: 3n }), [3n, 3n, 9n]);
+assert.deepEqual(m.area({ width: 3n, height: 2n }), [3n, 2n, 6n]);
+assert.deepEqual(m.area({ width: 3n, area: 7n }), [3n, 3n, 7n]);
+
+// A constructor's field.
+assert.equal(m.label({ $tag: "Circle", radius: 1n }), "circle");
+assert.equal(m.label({ $tag: "Circle", radius: 1n, label: "wheel" }), "wheel");
+refused(() => m.label({ $tag: "Circle" }), /^arg0\.radius: missing$/);
+
+// All the way down: in a list, in a record, and as a type's argument.
+assert.deepEqual(m.steps([{ name: "a", options: { stop: 3n } }, { name: "b", options: { stop: 3n, step: 2n } }]), [1n, 2n]);
+assert.equal(m.boxLabel({ item: 1n }), "box");
+assert.deepEqual(m.nested({ item: { stop: 2n } }), { item: { start: 0n, stop: 2n, step: 1n }, label: "box", extra: [] });
+
+// The general decoder does the same: a getter that throws once makes the
+// fast one give up, and the general one reads the input again.
+const flaky = (value) => {
+  let calls = 0;
+  return { get() { if (calls++ === 0) throw new Error("once"); return value; }, calls: () => calls };
+};
+let g = flaky(3n);
+assert.deepEqual(m.area(Object.defineProperty({}, "width", { get: g.get, enumerable: true })), [3n, 3n, 9n]);
+assert.equal(g.calls(), 2);
+g = flaky(undefined);
+const generalNone = m.echo(Object.defineProperty({ colour: undefined }, "nick", { get: g.get, enumerable: true }));
+assert.deepEqual(Object.keys(generalNone), ["colour"]);
+assert.equal(g.calls(), 2);
+g = flaky(undefined);
+assert.equal(m.colourOf(Object.defineProperty({}, "nick", { get: g.get, enumerable: true })), "blue");
+g = flaky(1n);
+assert.equal(m.label(Object.defineProperty({ $tag: "Circle" }, "radius", { get: g.get, enumerable: true })), "circle");
+g = flaky(3n);
+assert.deepEqual(m.steps([{ name: "a", options: Object.defineProperty({}, "stop", { get: g.get, enumerable: true }) }]), [1n]);
+g = flaky(2n);
+assert.deepEqual(
+  m.nested({ item: Object.defineProperty({}, "stop", { get: g.get, enumerable: true }) }),
+  { item: { start: 0n, stop: 2n, step: 1n }, label: "box", extra: [] },
+);
+console.log("ok");
+"#;
+    run_script("field-defaults", &[("app.mjs", app)], script);
+}
+
+/// The two TypeScript shapes of a record with defaults (D1101): a parameter's
+/// input shape may leave out the defaulted fields, `undefined` included for
+/// a defaulted `Option`; a result's complete shape has every field, so
+/// neither leaves anything out where the other would allow it.
+#[test]
+fn input_shapes_leave_out_defaulted_fields() {
+    let examples = examples();
+    let session = example(&examples, "field-defaults.sw");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    let app = r#"
+import { RangeOptions, RangeOptionsInput, Config, Job, bounds, widen, colourOf, echo, steps, nested } from "./module";
+
+// An input may leave out defaulted fields, and give `undefined` to a
+// defaulted `Option` field.
+export const small: RangeOptionsInput = { stop: 10n };
+export const b: bigint[] = bounds({ stop: 10n });
+export const c1 = colourOf({});
+export const c2 = colourOf({ colour: undefined });
+export const c3 = colourOf({ colour: "red" });
+export const j: bigint[] = steps([{ name: "a", options: { stop: 3n } }]);
+export const n = nested({ item: { stop: 2n } });
+
+// A result has every field: a defaulted `Option` one too, holding
+// `undefined` for `None`.
+export const wide: RangeOptions = widen({ stop: 1n });
+export const step: bigint = wide.step;
+export const config: Config = echo({});
+export const colour: string | undefined = config.colour;
+export const inner: bigint = n.item.step;
+
+// A complete value is an input too.
+export const again: bigint[] = bounds(wide);
+export const echoed: Config = echo(config);
+
+// @ts-expect-error a field without a default is still required
+bounds({ start: 1n });
+// @ts-expect-error a complete shape has every field
+export const partial: RangeOptions = { stop: 1n };
+// @ts-expect-error so does one inside another
+export const job: Job = { name: "a", options: { stop: 1n } };
+// @ts-expect-error a defaulted `Option` field is always present on output
+export const noColour: Config = {};
+// @ts-expect-error `null` isn't `undefined`
+colourOf({ colour: null });
+"#;
+    let (ok, message) = tsc_check("field-defaults", app, &output.dts);
+    assert!(ok, "{message}\n--- module.d.ts ---\n{}", output.dts);
+}
+
 /// The key acceptance test for matching an app's own TypeScript types: types
 /// written by hand with `T[]` and `f?: T` in a discriminated union (a custom
 /// tag from `js.tag`/`js.name`) and the generated ones are assignable both
