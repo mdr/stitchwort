@@ -1,11 +1,11 @@
 -- `parseGrid` reads the lines as the puzzle does: when it makes a grid, the
 -- cell in row r, column c is `parseChar` of line r's character c (`@` is a
--- roll, anything else floor), and floor past the lines (`parseGridCells`).
+-- roll, `.` floor), and floor past the lines (`parseGridCells`).
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
 import Aoc.Day04.Spec (..)
-import Std (Eq, Fin, List, Nat, Option, Text, Vec, Void)
+import Std (Bool, Eq, Fin, List, Nat, Option, Result, Text, Vec, Void)
 
 -- Rows that `traverseOption` accepted, cell by cell.
 theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.headOr "" lines))) lines.length)
@@ -27,7 +27,7 @@ theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.he
       let past: lines.length <= r := omega
       rewrite rowsCellsBelow rows r c past, List.getOrPast "" r lines past
 
-theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Some grid) (r: Nat) (c: Nat):
+theorem gridOfCells (lines: List Text) (grid: Grid) (h: gridOf lines = Some grid) (r: Nat) (c: Nat):
     cellsOf grid r c = List.getOr Floor c (parseLine (List.getOr "" r lines)) :=
   let width := Text.length (List.headOr "" lines)
   let f := (line: Text) => Vec.ofList width (parseLine line)
@@ -37,3 +37,9 @@ theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Som
     | Some rows =>
       let same: g rows = grid := Eq.cong (Option.getOrElse (g rows)) h
       rewrite <- same in parsedCell lines rows e r c
+
+theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok grid) (r: Nat) (c: Nat):
+    cellsOf grid r c = List.getOr Floor c (parseLine (List.getOr "" r lines)) :=
+  match e: findStray lines with
+    | Some (row, column, ch) => Void.exfalso (Bool.falseNotTrue (Eq.cong Result.isOk h))
+    | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (gridOf lines))) (Eq.cong Result.toOption h)) r c
