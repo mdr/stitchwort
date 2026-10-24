@@ -726,6 +726,7 @@ define(info$Main$dRoster, [
 ]);
 
 const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dsub = (m) => (n) => (m >= n ? m - n : 0n);
 const $Std$dNat$dmul = (m) => (n) => m * n;
 const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   switch (v1.tag) {
@@ -805,6 +806,8 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
 const $Std$dList$dheadOr = (v1) => (v2) => {
   switch (v2.tag) {
     case "Nil": {
@@ -1400,26 +1403,373 @@ const $Std$dMap$dRaw$dempty = (v2) => ({ tag: "Tip" });
 const $Std$dMap$dRaw$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => $Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)($Std$dMap$dRaw$dtree(v2)(v6));
 const $Std$dMap$dRaw$dinsert = (v2) => (v3) => (v4) => (v5) => $Std$dMap$dRaw$dinsertWith(v2)(((v6) => ((v7) => v6)))(v3)(v4)(v5);
 const $Std$dMap$dRaw$dget = (v2) => (v3) => (v4) => $Std$dMap$dTree$dget(v2)(v3)($Std$dMap$dRaw$dtree(v2)(v4));
+const $Std$dMap$dRaw$dsize = (v2) => (v3) => $Std$dMap$dTree$dsize($Std$dMap$dRaw$dtree(v2)(v3));
 const $Std$dMap$dRaw$dtoList = (v2) => (v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2)(v3))({ tag: "Nil" });
 const $Std$dMap$dRaw$dfromList = (v2) => (v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2)($Std$dPair$dfst(v5))($Std$dPair$dsnd(v5))(v4))))($Std$dMap$dRaw$dempty(v2))(v3);
 const $Std$dMap$dRaw$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dTree$dfoldLeft(v4)(v5)($Std$dMap$dRaw$dtree(v3)(v6));
 const $Std$dMap$dRaw$dmap = (v3) => (v4) => (v5) => $Std$dMap$dTree$dmap(v4)($Std$dMap$dRaw$dtree(v3)(v5));
-const $Std$dMap$dRaw$dunion = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dfoldLeft(v2)(((v5) => ((v6) => ((v7) => $Std$dMap$dRaw$dinsert(v2)(v6)(v7)(v5)))))(v4)(v3);
+const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
+  switch (v0.tag) {
+    case "Less": {
+      return { tag: "True" };
+    }
+    case "Equal": {
+      return { tag: "False" };
+    }
+    case "Greater": {
+      return { tag: "False" };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dMap$dSpec$disLess = (v1) => (v2) => (v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$dcompare(v1)(v2)(v3));
+const $Std$dMap$dSpec$dconsEntry = (v2) => (v3) => (v4) => {
+  switch (v4.tag) {
+    case "None": {
+      return v3;
+    }
+    case "Some": {
+      const v5 = v4.value;
+      return { tag: "Cons", head: { tag: "MkPair", fst: v2, snd: v5 }, tail: v3 };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dMap$dSpec$dmapMaybe = (v3) => (v4) => {
+  let s3 = v3, s4 = v4;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v3 = s3, v4 = s4;
+    switch (v4.tag) {
+      case "Nil": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        switch (v5.tag) {
+          case "MkPair": {
+            const v7 = v5.fst;
+            const v8 = v5.snd;
+            const v11 = v7;
+            const p1_3$ = v3;
+            const p2_4$ = v6;
+            const v13 = (v3)(v7)(v8);
+            switch (v13.tag) {
+              case "None": {
+                s3 = p1_3$;
+                s4 = p2_4$;
+                continue;
+              }
+              case "Some": {
+                const v14 = v13.value;
+                const c3$ = { tag: "Cons", head: { tag: "MkPair", fst: v11, snd: v14 }, tail: null };
+                if (l$ === null) { h$ = c3$; } else { l$[k$] = c3$; }
+                l$ = c3$; k$ = "tail";
+                s3 = p1_3$;
+                s4 = p2_4$;
+                continue;
+              }
+            }
+            throw new Error("unreachable");
+          }
+        }
+        throw new Error("unreachable");
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
+const $Std$dMap$dSpec$dmerge = (v4) => (v5) => (v6) => (v7) => (v8) => (v9) => {
+  let s4 = v4, s5 = v5, s6 = v6, s7 = v7, s8 = v8, s9 = v9;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v4 = s4, v5 = s5, v6 = s6, v7 = s7, v8 = s8, v9 = s9;
+    switch (v8.tag) {
+      case "Nil": {
+        { const r$ = $Std$dMap$dSpec$dmapMaybe(v7)(v9); if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v10 = v8.head;
+        const v11 = v8.tail;
+        switch (v9.tag) {
+          case "Nil": {
+            { const r$ = $Std$dMap$dSpec$dmapMaybe(v6)({ tag: "Cons", head: v10, tail: v11 }); if (l$ === null) return r$; l$[k$] = r$; return h$; }
+          }
+          case "Cons": {
+            const v12 = v9.head;
+            const v13 = v9.tail;
+            if ($Std$dMap$dSpec$disLess(v4)($Std$dPair$dfst(v10))($Std$dPair$dfst(v12)).tag === "True") {
+              const v17 = $Std$dPair$dfst(v10);
+              const p1_4$ = v4;
+              const p2_5$ = v5;
+              const p3_6$ = v6;
+              const p4_7$ = v7;
+              const p5_8$ = v11;
+              const p6_9$ = { tag: "Cons", head: v12, tail: v13 };
+              const v19 = (v6)($Std$dPair$dfst(v10))($Std$dPair$dsnd(v10));
+              switch (v19.tag) {
+                case "None": {
+                  s4 = p1_4$;
+                  s5 = p2_5$;
+                  s6 = p3_6$;
+                  s7 = p4_7$;
+                  s8 = p5_8$;
+                  s9 = p6_9$;
+                  continue;
+                }
+                case "Some": {
+                  const v20 = v19.value;
+                  const c7$ = { tag: "Cons", head: { tag: "MkPair", fst: v17, snd: v20 }, tail: null };
+                  if (l$ === null) { h$ = c7$; } else { l$[k$] = c7$; }
+                  l$ = c7$; k$ = "tail";
+                  s4 = p1_4$;
+                  s5 = p2_5$;
+                  s6 = p3_6$;
+                  s7 = p4_7$;
+                  s8 = p5_8$;
+                  s9 = p6_9$;
+                  continue;
+                }
+              }
+              throw new Error("unreachable");
+            } else {
+              if ($Std$dMap$dSpec$disLess(v4)($Std$dPair$dfst(v12))($Std$dPair$dfst(v10)).tag === "True") {
+                const v18 = $Std$dPair$dfst(v12);
+                const p8_4$ = v4;
+                const p9_5$ = v5;
+                const p10_6$ = v6;
+                const p11_7$ = v7;
+                const p12_8$ = { tag: "Cons", head: v10, tail: v11 };
+                const p13_9$ = v13;
+                const v20 = (v7)($Std$dPair$dfst(v12))($Std$dPair$dsnd(v12));
+                switch (v20.tag) {
+                  case "None": {
+                    s4 = p8_4$;
+                    s5 = p9_5$;
+                    s6 = p10_6$;
+                    s7 = p11_7$;
+                    s8 = p12_8$;
+                    s9 = p13_9$;
+                    continue;
+                  }
+                  case "Some": {
+                    const v21 = v20.value;
+                    const c14$ = { tag: "Cons", head: { tag: "MkPair", fst: v18, snd: v21 }, tail: null };
+                    if (l$ === null) { h$ = c14$; } else { l$[k$] = c14$; }
+                    l$ = c14$; k$ = "tail";
+                    s4 = p8_4$;
+                    s5 = p9_5$;
+                    s6 = p10_6$;
+                    s7 = p11_7$;
+                    s8 = p12_8$;
+                    s9 = p13_9$;
+                    continue;
+                  }
+                }
+                throw new Error("unreachable");
+              } else {
+                const v18 = $Std$dPair$dfst(v10);
+                const p15_4$ = v4;
+                const p16_5$ = v5;
+                const p17_6$ = v6;
+                const p18_7$ = v7;
+                const p19_8$ = v11;
+                const p20_9$ = v13;
+                const v20 = (v5)($Std$dPair$dfst(v10))($Std$dPair$dsnd(v10))($Std$dPair$dsnd(v12));
+                switch (v20.tag) {
+                  case "None": {
+                    s4 = p15_4$;
+                    s5 = p16_5$;
+                    s6 = p17_6$;
+                    s7 = p18_7$;
+                    s8 = p19_8$;
+                    s9 = p20_9$;
+                    continue;
+                  }
+                  case "Some": {
+                    const v21 = v20.value;
+                    const c21$ = { tag: "Cons", head: { tag: "MkPair", fst: v18, snd: v21 }, tail: null };
+                    if (l$ === null) { h$ = c21$; } else { l$[k$] = c21$; }
+                    l$ = c21$; k$ = "tail";
+                    s4 = p15_4$;
+                    s5 = p16_5$;
+                    s6 = p17_6$;
+                    s7 = p18_7$;
+                    s8 = p19_8$;
+                    s9 = p20_9$;
+                    continue;
+                  }
+                }
+                throw new Error("unreachable");
+              }
+            }
+          }
+        }
+        throw new Error("unreachable");
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
+const $Std$dMap$dSpec$dheadKey = (v2) => {
+  switch (v2.tag) {
+    case "Nil": {
+      return { tag: "None" };
+    }
+    case "Cons": {
+      const v3 = v2.head;
+      const v4 = v2.tail;
+      switch (v3.tag) {
+        case "MkPair": {
+          const v5 = v3.fst;
+          const v6 = v3.snd;
+          return { tag: "Some", value: v5 };
+        }
+      }
+      throw new Error("unreachable");
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dMap$dTree$djoinBuilt$d$gmatch1 = (v2) => (v3) => (v4) => {
+  switch (v4.tag) {
+    case "Nil": {
+      return v3;
+    }
+    case "Cons": {
+      const v5 = v4.head;
+      const v6 = v4.tail;
+      switch (v5.tag) {
+        case "MkPair": {
+          const v7 = v5.fst;
+          const v8 = v5.snd;
+          const v9 = (v2)(v6);
+          return { tag: "MkPair", fst: $Std$dMap$dTree$dbin($Std$dPair$dfst(v3))(v7)(v8)($Std$dPair$dfst(v9)), snd: $Std$dPair$dsnd(v9) };
+        }
+      }
+      throw new Error("unreachable");
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dMap$dTree$djoinBuilt = (v2) => (v3) => $Std$dMap$dTree$djoinBuilt$d$gmatch1(v2)(v3)($Std$dPair$dsnd(v3));
+const $Std$dMap$dTree$dbuildFuel = (v2) => (v3) => (v4) => {
+  if (v2 === 0n) {
+    return { tag: "MkPair", fst: { tag: "Tip" }, snd: v4 };
+  } else {
+    const v5 = v2 - 1n;
+    if (v3 === 0n) {
+      return { tag: "MkPair", fst: { tag: "Tip" }, snd: v4 };
+    } else {
+      const v6 = v3 - 1n;
+      return $Std$dMap$dTree$djoinBuilt(((v7) => $Std$dMap$dTree$dbuildFuel(v5)($Std$dNat$dsub(v6)($Std$dNat$ddiv(v6)(2n)))(v7)))($Std$dMap$dTree$dbuildFuel(v5)($Std$dNat$ddiv(v6)(2n))(v4));
+    }
+  }
+};
+const $Std$dMap$dSpec$dcountOnto = (v2) => (v3) => {
+  let s2 = v2, s3 = v3;
+  for (;;) {
+    const v2 = s2, v3 = s3;
+    switch (v3.tag) {
+      case "Nil": {
+        return v2;
+      }
+      case "Cons": {
+        const v4 = v3.head;
+        const v5 = v3.tail;
+        s2 = (v2 + 1n);
+        s3 = v5;
+        continue;
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
+const $Std$dMap$dSpec$dcountEntries = (v2) => $Std$dMap$dSpec$dcountOnto(0n)(v2);
+const $Std$dMap$dRaw$dfromSorted = (v2) => (v3) => $Std$dPair$dfst($Std$dMap$dTree$dbuildFuel($Std$dMap$dSpec$dcountEntries(v3))($Std$dMap$dSpec$dcountEntries(v3))(v3));
+const $Std$dMap$dSpec$disAscending = (v2) => (v3) => (v4) => {
+  let s2 = v2, s3 = v3, s4 = v4;
+  for (;;) {
+    const v2 = s2, v3 = s3, v4 = s4;
+    switch (v4.tag) {
+      case "Nil": {
+        return { tag: "True" };
+      }
+      case "Cons": {
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        switch (v3.tag) {
+          case "None": {
+            switch (v5.tag) {
+              case "MkPair": {
+                const v7 = v5.fst;
+                const v8 = v5.snd;
+                s2 = v2;
+                s3 = { tag: "Some", value: v7 };
+                s4 = v6;
+                continue;
+              }
+            }
+            throw new Error("unreachable");
+          }
+          case "Some": {
+            const v7 = v3.value;
+            switch (v5.tag) {
+              case "MkPair": {
+                const v8 = v5.fst;
+                const v9 = v5.snd;
+                if ($Std$dMap$dSpec$disLess(v2)(v7)(v8).tag === "True") {
+                  s2 = v2;
+                  s3 = { tag: "Some", value: v8 };
+                  s4 = v6;
+                  continue;
+                } else {
+                  return { tag: "False" };
+                }
+              }
+            }
+            throw new Error("unreachable");
+          }
+        }
+        throw new Error("unreachable");
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
+const $Std$dMap$dRaw$dfromListChecked = (v2) => (v3) => (v4) => {
+  switch (v4.tag) {
+    case "False": {
+      return $Std$dMap$dRaw$dfromList(v2)(v3);
+    }
+    case "True": {
+      return $Std$dMap$dRaw$dfromSorted(v2)(v3);
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dMap$dRaw$dfromListFast = (v2) => (v3) => $Std$dMap$dRaw$dfromListChecked(v2)(v3)($Std$dMap$dSpec$disAscending(v2)({ tag: "None" })(v3));
+const $Std$dMap$dRaw$dmerge = (v4) => (v5) => (v6) => (v7) => (v8) => (v9) => $Std$dMap$dRaw$dfromSorted(v4)($Std$dMap$dSpec$dmerge(v4)(v5)(v6)(v7)($Std$dMap$dRaw$dtoList(v4)(v8))($Std$dMap$dRaw$dtoList(v4)(v9)));
+const $Std$dMap$dRaw$disSmall = (v2) => (v4) => (v5) => $Std$dNat$dleq($Std$dNat$dmul($Std$dMap$dRaw$dsize(v2)(v4))(8n))($Std$dMap$dRaw$dsize(v2)(v5));
+const $Std$dMap$dRaw$dunionWith = (v2) => (v3) => (v4) => (v5) => $Std$dBool$difThenElse($Std$dMap$dRaw$disSmall(v2)(v4)(v5))(((v6) => $Std$dMap$dRaw$dfoldLeft(v2)(((v7) => ((v8) => ((v9) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v8)(v9)(v7)))))(v5)(v4)))(((v6) => $Std$dMap$dRaw$dmerge(v2)(((v7) => ((v8) => ((v9) => ({ tag: "Some", value: (v3)(v8)(v9) })))))(((v7) => ((v8) => ({ tag: "Some", value: v8 }))))(((v7) => ((v8) => ({ tag: "Some", value: v8 }))))(v4)(v5)));
+const $Std$dMap$dRaw$dunion = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dunionWith(v2)(((v5) => ((v6) => v5)))(v3)(v4);
 const $Std$dMap$draw = (v2) => (v3) => {
   const v4 = v3;
   return v4;
 };
 const $Std$dMap$dofRaw = (v2) => (v3) => v3;
 const $Std$dMap$dempty = (v2) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dempty(v2));
-const $Std$dMap$dfromList = (v2) => (v3) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dfromList(v2)(v3));
+const $Std$dMap$dfromList = (v2) => (v3) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dfromListFast(v2)(v3));
 const $Std$dMap$dtoList = (v2) => (v3) => $Std$dMap$dRaw$dtoList(v2)($Std$dMap$draw(v2)(v3));
 const $Std$dMap$dget = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dget(v2)(v3)($Std$dMap$draw(v2)(v4));
 const $Std$dMap$dkeys = (v2) => (v3) => $Std$dList$dmap($Std$dPair$dfst)($Std$dMap$dtoList(v2)(v3));
 const $Std$dMap$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dRaw$dfoldLeft(v3)(v4)(v5)($Std$dMap$draw(v3)(v6));
 const $Std$dMap$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v4)(v5)(v7)))($Std$dMap$draw(v2)(v6));
 const $Std$dMap$dmap = (v3) => (v4) => (v5) => (((v6) => $Std$dMap$dRaw$dmap(v3)(v4)(v6)))($Std$dMap$draw(v3)(v5));
-const $Std$dMap$dunionRaw = (v2) => (v3) => (v4) => (((v5) => $Std$dMap$dRaw$dunion(v2)(v3)(v5)))(v4);
-const $Std$dMap$dunion = (v2) => (v3) => (v4) => (((v5) => $Std$dMap$dunionRaw(v2)(v5)($Std$dMap$draw(v2)(v4))))($Std$dMap$draw(v2)(v3));
+const $Std$dMap$dliftBinaryRaw = (v4) => (v5) => (v7) => (v8) => (((v9) => (v5)(v7)(v9)))(v8);
+const $Std$dMap$dliftBinary = (v4) => (v5) => (v7) => (v8) => (((v9) => $Std$dMap$dliftBinaryRaw(v4)(v5)(v9)($Std$dMap$draw(v4)(v8))))($Std$dMap$draw(v4)(v7));
+const $Std$dMap$dunion = (v2) => (v3) => (v4) => $Std$dMap$dliftBinary(v2)($Std$dMap$dRaw$dunion(v2))(v3)(v4);
 const $Std$dMap$ddecEq$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => {
   switch (v5.tag) {
     case "Yes": {

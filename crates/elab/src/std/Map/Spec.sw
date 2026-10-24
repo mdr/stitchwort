@@ -1251,22 +1251,40 @@ theorem Map.Tree.withinNoneHigh (ord: Ord k) (lo: Option k) (t: Map.Tree k v): (
   | None, w => w
   | Some a, w => Map.Tree.withinHigh ord lo a None t Trivial w
 
+-- The number of entries, counted onto `count` in a loop: `List.length`
+-- recurses once per entry, which overflows the stack in JS for long lists.
+def Map.Spec.countOnto: Nat -> List (k, v) -> Nat
+  | count, Nil => count
+  | count, Cons entry rest => Map.Spec.countOnto (Succ count) rest
+
+def Map.Spec.countEntries (xs: List (k, v)): Nat := Map.Spec.countOnto 0 xs
+
+theorem Map.Spec.countOntoLength: (count: Nat) -> (xs: List (k, v)) -> Map.Spec.countOnto count xs = List.length xs + count
+  | count, Nil => rfl
+  | count, Cons entry rest => Eq.trans (Map.Spec.countOntoLength (Succ count) rest) (Nat.addSucc (List.length rest) count)
+
+theorem Map.Spec.countEntriesLength (xs: List (k, v)): Map.Spec.countEntries xs = List.length xs :=
+  Eq.trans (Map.Spec.countOntoLength 0 xs) (Nat.addZero (List.length xs))
+
+theorem Map.Spec.dropCountEntries (xs: List (k, v)): List.drop (Map.Spec.countEntries xs) xs = Nil :=
+  rewrite Map.Spec.countEntriesLength xs in Map.Tree.dropLength xs
+
 -- The raw map of a sorted list's entries, O(n).
 def Map.Raw.fromSorted [auto ord: Ord k] (xs: List (k, v)) (sorted: Map.Spec.Sorted ord xs): Map.Raw k v := {
-  tree = (Map.Tree.buildFuel (List.length xs) (List.length xs) xs).fst,
+  tree = (Map.Tree.buildFuel (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs).fst,
   ordered =
-    Map.Tree.withinNoneHigh ord None (Map.Tree.buildFuel (List.length xs) (List.length xs) xs).fst
-      (Map.Spec.headKey (Map.Tree.buildFuel (List.length xs) (List.length xs) xs).snd)
-      (Map.Tree.buildWithin ord (List.length xs) (List.length xs) None xs sorted).left,
-  sized = Map.Tree.buildSized (List.length xs) (List.length xs) xs
+    Map.Tree.withinNoneHigh ord None (Map.Tree.buildFuel (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs).fst
+      (Map.Spec.headKey (Map.Tree.buildFuel (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs).snd)
+      (Map.Tree.buildWithin ord (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) None xs sorted).left,
+  sized = Map.Tree.buildSized (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs
 }
 
 theorem Map.Raw.toListFromSorted [auto ord: Ord k] (xs: List (k, v)) (sorted: Map.Spec.Sorted ord xs):
     Map.Raw.toList (Map.Raw.fromSorted xs sorted) = xs :=
   Eq.trans
-    (Eq.cong (rest => Map.Tree.toListOnto (Map.Tree.buildFuel (List.length xs) (List.length xs) xs).fst rest)
-      (Eq.sym (Eq.trans (Map.Tree.buildRest (List.length xs) (List.length xs) xs (Nat.leRefl (List.length xs))) (Map.Tree.dropLength xs))))
-    (Map.Tree.buildOnto (List.length xs) (List.length xs) xs)
+    (Eq.cong (rest => Map.Tree.toListOnto (Map.Tree.buildFuel (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs).fst rest)
+      (Eq.sym (Eq.trans (Map.Tree.buildRest (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs (Nat.leRefl (Map.Spec.countEntries xs))) (Map.Spec.dropCountEntries xs))))
+    (Map.Tree.buildOnto (Map.Spec.countEntries xs) (Map.Spec.countEntries xs) xs)
 
 -- Whether the keys are ascending, each above `lo`: one pass, O(n).
 def Map.Spec.isAscending [auto ord: Ord k]: Option k -> List (k, v) -> Bool
