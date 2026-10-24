@@ -8,4 +8,9 @@ expression: output
  8 │ theorem oneIsTwo: 1 = 2 := Decidable.fromYes (Nat.decEq 1 2) Trivial
    │                                                              ───┬───  
    │                                                                 ╰───── expected `Void`, but this has type `Unit`
+   │ 
+   │ Note: this statement is false:
+   │       `1 = 2` is false:
+   │         left:  1
+   │         right: 2
 ───╯

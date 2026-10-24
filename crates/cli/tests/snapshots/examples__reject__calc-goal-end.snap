@@ -8,4 +8,15 @@ expression: output
  6 │     _ = c := h2
    │         ┬  
    │         ╰── the last line, `c`, differs from the goal's right side `d`
+   │ 
+   │ Note: this statement is false; a counterexample:
+   │         a = 0
+   │         b = 0
+   │         c = 0
+   │         d = 1
+   │       `a = b` holds
+   │       `b = c` holds
+   │       `a = d` is false:
+   │         left:  0
+   │         right: 1
 ───╯

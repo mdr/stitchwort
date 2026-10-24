@@ -14,4 +14,9 @@ expression: output
    │ Note 2: atoms: `Nat.max a b`, `a`, `b`
    │ 
    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): Nat.max a b = 1, a = 0, b = 1
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           a = 0
+   │           b = 1
+   │         `Nat.max a b <= a` is false
 ───╯

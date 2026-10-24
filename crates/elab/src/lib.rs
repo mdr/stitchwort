@@ -13,6 +13,7 @@ mod bind;
 pub mod cache;
 mod calc;
 mod check;
+pub mod counterexample;
 mod data_auto;
 mod decreasing;
 mod defaults;
@@ -53,6 +54,7 @@ mod rewrite;
 mod rows;
 mod scope;
 mod shared;
+pub mod shown;
 pub mod timings;
 pub use library::{LIBRARY_FILES, LibraryIndex};
 pub use rewind::Mark;
@@ -509,6 +511,14 @@ pub struct Elaborator {
     /// A hash of the whole standard library's text, for the keys of
     /// project namespaces.
     library_digest: std::cell::OnceCell<cache::Key>,
+    /// Runs counterexample searches on the fast runtime (the driver's);
+    /// without one they run on the reference evaluator
+    /// (`counterexample.rs`).
+    pub counterexample_runner: Option<counterexample::FastRunner>,
+    /// For tests: no counterexample search when a theorem fails.
+    pub no_counterexamples: bool,
+    /// What each counterexample search did, in this session.
+    pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
 }
 
 /// A pattern that matches a constructor.

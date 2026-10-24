@@ -12,4 +12,8 @@ expression: output
    │ Note 1: the line says `n < n`, which computes to `Nat.leq (Succ n) n = True`
    │ 
    │ Note 2: a step without `:=` must hold by computation alone
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           n = 0
+   │         `n < n` is false
 ───╯

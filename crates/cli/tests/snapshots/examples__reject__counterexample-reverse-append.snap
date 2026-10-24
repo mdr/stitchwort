@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-reverse-append.sw:7:118 ]
+   │
+ 7 │ theorem reverseAppend (xs: List Nat) (ys: List Nat): List.reverse (xs ++ ys) = List.reverse xs ++ List.reverse ys := rfl
+   │                                                                                                                      ─┬─  
+   │                                                                                                                       ╰─── `List.reverse (List.append xs ys)` and `List.append (List.reverse xs) (List.reverse ys)` aren't equal
+   │ 
+   │ Note 1: computing both sides gives `List.reverseOnto (List.append xs ys) []` and `List.append (List.reverseOnto xs []) (List.reverseOnto ys [])`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           xs = [0]
+   │           ys = [1]
+   │         `List.reverse (List.append xs ys) = List.append (List.reverse xs) (List.reverse ys)` is false:
+   │           left:  [1, 0]
+   │           right: [0, 1]
+   │           first difference at index 0: 1 vs 0
+───╯

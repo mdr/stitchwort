@@ -14,4 +14,11 @@ expression: output
     │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
     │ 
     │ Note 3: to replace the right side by the left, write `rewrite <- …`
+    │ 
+    │ Note 4: this statement is false; a counterexample:
+    │           xs = [0]
+    │         `List.map (x => x + 1) xs = List.map (x => x) xs` is false:
+    │           left:  [1]
+    │           right: [0]
+    │           first difference at index 0: 1 vs 0
 ────╯

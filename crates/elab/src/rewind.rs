@@ -209,6 +209,10 @@ impl Elaborator {
             recheck_namespaces: _,
             include_trace,
             library_digest: _,
+            // Settings, and a log that only grows.
+            counterexample_runner: _,
+            no_counterexamples: _,
+            counterexample_log: _,
         } = self;
         let defs = mark.globals.defs();
         let datas = mark.globals.datas();

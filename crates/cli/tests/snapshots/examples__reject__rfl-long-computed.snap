@@ -12,4 +12,12 @@ expression: output
     │ Note 1: computing the left side gives `Decidable.elim (Decidable.not (Nat.decEq (List.foldLeft (acc x => …) 0 (List.rangeFrom n 0)) 0)) (_ => Decidable.elim (Bool.decTrue (Nat.leq … …)) (_ => … * …) (_ => 0)) (_ => 0)`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           r = { lo = 0, hi = 1 }
+    │           k = 1
+    │           n = 1
+    │         `Range.repeated r k n = 0` is false:
+    │           left:  1
+    │           right: 0
 ────╯
