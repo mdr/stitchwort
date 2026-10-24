@@ -617,6 +617,12 @@ pub(crate) fn same(a: &Term, b: &Term) -> bool {
             types && same(a1, a2) && same(b1, b2)
         }
         (J(m1, b1, p1), J(m2, b2, p2)) => same(m1, m2) && same(b1, b2) && same(p1, p2),
+        // Their erasure flags are worked out from the rest (hashing ignores
+        // them too).
+        (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
+            same(t1, t2) && same(v1, v2) && same(b1, b2)
+        }
+        (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
         // Case trees aren't in types or scrutinees.
         _ => false,
     }
@@ -661,6 +667,10 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         (J(m1, b1, p1), J(m2, b2, p2)) => {
             go(m1, m2, cutoff) && go(b1, b2, cutoff) && go(p1, p2, cutoff)
         }
+        (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
+            go(t1, t2, cutoff) && go(v1, v2, cutoff) && go(b1, b2, cutoff + 1)
+        }
+        (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
         // As in `same`.
         _ => false,
     }
@@ -775,5 +785,57 @@ mod tests {
         assert!(occurs(&needle, &under));
         let bound = Term::Lam("y".into(), Icit::Explicit, Rc::new(needle.clone()));
         assert!(!occurs(&needle, &bound));
+    }
+
+    #[test]
+    fn the_occurrence_test_looks_inside_quotients_and_lets() {
+        use stitchwort_core::QuotForm;
+        let rc = Rc::new;
+        // `Quot.mk [#5] [#4] x`, with either erasure flag: a goal that
+        // mentions a `Map` has these inside, and `rewrite` compared every
+        // such candidate by computing (SW-414).
+        let mk = |x: Term, erased: bool| {
+            Term::Quot(
+                QuotForm::Mk,
+                vec![rc(Term::Var(5)), rc(Term::Var(4)), rc(x)],
+                erased,
+            )
+        };
+        assert!(same(&mk(Term::Var(0), false), &mk(Term::Var(0), true)));
+        assert!(!same(&mk(Term::Var(0), false), &mk(Term::Var(1), false)));
+        // `let x: #3 := v; b`, where `b` is under the `let`'s binder.
+        let let_ = |v: Term, b: Term, flag: bool| {
+            Term::Let("x".into(), rc(Term::Var(3)), rc(v), rc(b), flag)
+        };
+        let needle = let_(Term::Var(0), Term::Var(1), false);
+        assert!(same(&needle, &let_(Term::Var(0), Term::Var(1), true)));
+        assert!(!same(&needle, &let_(Term::Var(0), Term::Var(0), false)));
+        // Under one more binder, its free variables are one higher, in the
+        // body too, but the `let`'s own variable isn't.
+        let shifted = Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            rc(Term::Let(
+                "x".into(),
+                rc(Term::Var(4)),
+                rc(Term::Var(1)),
+                rc(Term::Var(2)),
+                false,
+            )),
+        );
+        assert!(occurs(&needle, &shifted));
+        let own = let_(Term::Var(0), Term::Var(0), false);
+        let own_shifted = Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            rc(Term::Let(
+                "x".into(),
+                rc(Term::Var(4)),
+                rc(Term::Var(1)),
+                rc(Term::Var(0)),
+                false,
+            )),
+        );
+        assert!(occurs(&own, &own_shifted));
     }
 }
