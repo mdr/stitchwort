@@ -722,19 +722,41 @@ const encodeFast = (fast, t, v) => {
 
 const $Std$dNat$dadd = (m) => (n) => m + n;
 const $Main$disOdd = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "False" };
-  } else {
-    const v1 = v0 - 1n;
-    return $Main$disEven(v1);
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    if (v0 === 0n) {
+      return { tag: "False" };
+    } else {
+      const v1 = v0 - 1n;
+      const v2 = v1;
+      if (v2 === 0n) {
+        return { tag: "True" };
+      } else {
+        const v3 = v2 - 1n;
+        s0 = v3;
+        continue;
+      }
+    }
   }
 };
 const $Main$disEven = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "True" };
-  } else {
-    const v1 = v0 - 1n;
-    return $Main$disOdd(v1);
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    if (v0 === 0n) {
+      return { tag: "True" };
+    } else {
+      const v1 = v0 - 1n;
+      const v2 = v1;
+      if (v2 === 0n) {
+        return { tag: "False" };
+      } else {
+        const v3 = v2 - 1n;
+        s0 = v3;
+        continue;
+      }
+    }
   }
 };
 const $Main$dmapList = (v2) => (v3) => {
@@ -762,49 +784,109 @@ const $Main$dmapList = (v2) => (v3) => {
 };
 const $Main$dparities = (v0) => $Main$dmapList($Main$disEven)(v0);
 const $Main$doddShift = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return (v1 + 1n);
-  } else {
-    const v2 = v0 - 1n;
-    return $Main$devenShift(v2)(v1);
+  let s0 = v0, s1 = v1;
+  for (;;) {
+    const v0 = s0, v1 = s1;
+    if (v0 === 0n) {
+      return (v1 + 1n);
+    } else {
+      const v2 = v0 - 1n;
+      const v3 = v2;
+      const v4 = v1;
+      if (v3 === 0n) {
+        return v4;
+      } else {
+        const v5 = v3 - 1n;
+        s0 = v5;
+        s1 = v4;
+        continue;
+      }
+    }
   }
 };
 const $Main$devenShift = (v0) => (v1) => {
-  if (v0 === 0n) {
-    return v1;
-  } else {
-    const v2 = v0 - 1n;
-    return $Main$doddShift(v2)(v1);
+  let s0 = v0, s1 = v1;
+  for (;;) {
+    const v0 = s0, v1 = s1;
+    if (v0 === 0n) {
+      return v1;
+    } else {
+      const v2 = v0 - 1n;
+      const v3 = v2;
+      const v4 = v1;
+      if (v3 === 0n) {
+        return (v4 + 1n);
+      } else {
+        const v5 = v3 - 1n;
+        s0 = v5;
+        s1 = v4;
+        continue;
+      }
+    }
   }
 };
 const $Main$dshifted = (v0) => (v1) => $Main$devenShift(v0)(v1);
 const $Main$dten = $Main$disEven(10n);
 const $Main$dtenIsEven = (v0) => $Main$dten;
 const $Main$dinner = (v0) => (v1) => {
-  switch (v0.tag) {
-    case "Nil": {
-      return $Main$dtotal(v1);
+  let s0 = v0, s1 = v1;
+  for (;;) {
+    const v0 = s0, v1 = s1;
+    switch (v0.tag) {
+      case "Nil": {
+        const v2 = v1;
+        switch (v2.tag) {
+          case "Nil": {
+            return 0n;
+          }
+          case "Cons": {
+            const v3 = v2.head;
+            const v4 = v2.tail;
+            s0 = v3;
+            s1 = v4;
+            continue;
+          }
+        }
+        throw new Error("unreachable");
+      }
+      case "Cons": {
+        const v2 = v0.head;
+        const v3 = v0.tail;
+        return $Std$dNat$dadd(v2)($Main$dinner(v3)(v1));
+      }
     }
-    case "Cons": {
-      const v2 = v0.head;
-      const v3 = v0.tail;
-      return $Std$dNat$dadd(v2)($Main$dinner(v3)(v1));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dtotal = (v0) => {
-  switch (v0.tag) {
-    case "Nil": {
-      return 0n;
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    switch (v0.tag) {
+      case "Nil": {
+        return 0n;
+      }
+      case "Cons": {
+        const v1 = v0.head;
+        const v2 = v0.tail;
+        const v3 = v1;
+        const v4 = v2;
+        switch (v3.tag) {
+          case "Nil": {
+            s0 = v4;
+            continue;
+          }
+          case "Cons": {
+            const v5 = v3.head;
+            const v6 = v3.tail;
+            return $Std$dNat$dadd(v5)($Main$dinner(v6)(v4));
+          }
+        }
+        throw new Error("unreachable");
+      }
     }
-    case "Cons": {
-      const v1 = v0.head;
-      const v2 = v0.tail;
-      return $Main$dinner(v1)(v2);
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 
 function $$isEven(arg0) {

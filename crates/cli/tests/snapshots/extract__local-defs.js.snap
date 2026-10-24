@@ -781,19 +781,41 @@ const $Main$dcountIf$dgo = (v0) => (v1) => (v2) => {
 };
 const $Main$dcountIf = (v0) => (v1) => $Main$dcountIf$dgo(v0)(0n)(v1);
 const $Main$dparity$disOdd = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "False" };
-  } else {
-    const v1 = v0 - 1n;
-    return $Main$dparity$disEven(v1);
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    if (v0 === 0n) {
+      return { tag: "False" };
+    } else {
+      const v1 = v0 - 1n;
+      const v2 = v1;
+      if (v2 === 0n) {
+        return { tag: "True" };
+      } else {
+        const v3 = v2 - 1n;
+        s0 = v3;
+        continue;
+      }
+    }
   }
 };
 const $Main$dparity$disEven = (v0) => {
-  if (v0 === 0n) {
-    return { tag: "True" };
-  } else {
-    const v1 = v0 - 1n;
-    return $Main$dparity$disOdd(v1);
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    if (v0 === 0n) {
+      return { tag: "True" };
+    } else {
+      const v1 = v0 - 1n;
+      const v2 = v1;
+      if (v2 === 0n) {
+        return { tag: "False" };
+      } else {
+        const v3 = v2 - 1n;
+        s0 = v3;
+        continue;
+      }
+    }
   }
 };
 const $Main$dparity = (v0) => $Main$dparity$disEven(v0);
