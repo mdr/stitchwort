@@ -1,5 +1,5 @@
 {
-  "next": 425,
+  "next": 428,
   "tickets": [
     {
       "id": 1,
@@ -6836,6 +6836,48 @@
       "commits": [
         "626d63d5"
       ]
+    },
+    {
+      "id": 425,
+      "title": "AoC day 6: strict worksheet reader for main ({Fail}, column positions in errors; D1153 a), layout regression tests (review items 1, 5, 6)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 426,
+      "title": "AoC day 6: findMap for the operator with a std findMap = filterMap.head lemma; proofs use Spec.column; theorem that trailing spaces leave the parsed problems unchanged (review items 2, 3, 6)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 427,
+      "title": "Elaborator: infer the mapped functions in List.mapCong/filterMapCong from the expected equality before checking the callback, so _ works and rewrites inside the callback succeed (day 6 review item 4)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
     }
   ]
 }
