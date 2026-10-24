@@ -6480,16 +6480,18 @@
     {
       "id": 403,
       "title": "Hint for an unknown Done suggests 'import Effect.Comp (Done)', which fails; the working form is 'import Std.Effect.Comp (Done)'",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Sonnet)",
+      "where": "-",
       "labels": [
         "errors"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "ff068f1f"
+      ]
     },
     {
       "id": 404,
