@@ -479,7 +479,8 @@ case "$area" in
     # Every test binary at once (nextest runs binaries in parallel, each test
     # in its own process), with the slow tier on, for the daily checkpoint.
     export STITCHWORT_SLOW=1
-    if [[ -n "${IN_NIX_SHELL:-}" ]]; then
+    # A shell entered before nextest joined the flake has no nextest.
+    if command -v cargo-nextest > /dev/null; then
       cargo nextest run --release --workspace --no-fail-fast ${filter:+"$filter"}
     else
       nix develop -c cargo nextest run --release --workspace --no-fail-fast ${filter:+"$filter"}
