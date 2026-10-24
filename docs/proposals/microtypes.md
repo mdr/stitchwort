@@ -2,8 +2,8 @@
 
 **Status:** draft 1, 23 October 2026. Decisions D1064 to D1070 ([§8](#8-decisions)), decided by
 Matt on 23 October: D1064 (a), D1065 as recommended, D1066 **(i) only** (a plain alias; no
-`js.flavor`, no brand), D1067 (built, D866), D1068 (i), D1069 (i), D1070 (i). Stage 2 (D866)
-and stage 1 (SW-380) are built: see [As built](#as-built-stage-1-the-js-boundary). Written against commit `09c2a4fa`. Related:
+`js.flavor`, no brand), D1067 (built, D866), D1068 (i), D1069 (i), D1070 (i). Stages 1 to 3 (SW-380; stage 2 is D866) are built: see
+[As built](#as-built-stage-1-the-js-boundary) and [stage 3](#as-built-stage-3-recipe-and-conveniences). Written against commit `09c2a4fa`. Related:
 [attributes.md](attributes.md) (the closed set of `js.*` attributes),
 [records.md](records.md) (records, and their planned eta rule),
 [map-equality.md](map-equality.md) §13.1 and D866 (unboxing records with one run-time field),
@@ -27,6 +27,7 @@ link to where they can be checked, not re-read while writing this.
 8. [Decisions](#8-decisions)
 9. [Sources](#9-sources)
 10. [As built (stage 1: the JS boundary)](#as-built-stage-1-the-js-boundary)
+11. [As built (stage 3: recipe and conveniences)](#as-built-stage-3-recipe-and-conveniences)
 
 ## 0. Summary
 
@@ -543,3 +544,26 @@ getter that throws once); `microtypes_are_plain_aliases_in_typescript` (tsc); re
 order, a key without the attribute, a microtype key over `Nat`, an `Option` behind a synonym).
 Hashes don't move (attributes aren't hashed, D598); every existing `.js` snapshot changes only
 in the runtime text.
+
+## As built (stage 3: recipe and conveniences)
+
+Built in SW-380 stage 3. No compiler change.
+
+- **Recipe.** `docs/syntax.md` "Microtypes" now ends with the four steps (declare, validate with
+  a proof field and a smart constructor returning `Option` or `{Fail}`, use as a `Map` key,
+  export). The example is `examples/extract/microtype-orders.sw` (`UserId`, `OrderId`, a
+  validated `Email`, exports over `Map OrderId UserId`), with run lines, tests, and the usual
+  extract snapshots, whose `.d.ts` the extract test already checks with `tsc`.
+- **The one-line `Show`.** Already available and enough: derived `Show` prints
+  `{ value = "u1" }`, and `Show.fromText (u => u.value)` makes `${u}` print `u1`. A derived
+  one-line form for `js.unboxed` records was not added; it would change what `${...}` prints for
+  a record by an attribute whose job is the JS boundary.
+- **Lemmas for `Text` keys, for any key.** A microtype key uses the derived `Ord`, which
+  compares the one field. The `Map` lemmas in the library (`Map.getToList`, `Map.ext`,
+  `Map.memToList`, ...) are already stated for any `[auto ord: Ord k]`, so they apply to
+  `Map OrderId V` unchanged. A lemma a program proved for `Map Text V` generalises by replacing
+  `Text` with a type variable `k` and adding `[auto ord: Ord k]`; the proof goes through if it
+  used only the `Ord` laws (`compare`, `trans`, `flip`) and not facts about `Text`. Where it
+  did use a `Text` fact, the microtype's own order is that fact through the field, because the
+  derived `compare` is `Text`'s compare of `value`.
+- **`js.flavor`** remains not built (D1066: plain alias only).

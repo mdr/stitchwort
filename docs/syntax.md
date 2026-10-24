@@ -465,7 +465,21 @@ export declare function ownerOf(orders: { readonly [k: OrderId]: UserId }, o: Or
 - **Map keys.** `Map UserId V` crosses as a plain object, `{ readonly [k: UserId]: V }`, when the record is `@[js.unboxed]` over `Text` and the map uses its derived order, which compares the field by `Text`'s and so sorts the keys as `Map Text V` does (D1068). A key's proof fields are checked. A microtype key in an order the program wrote (its own `Ord` instance, or `[ord := …]`) is `E-EXPORT`, as is a key that is a record without the attribute or a microtype over anything but `Text`.
 - **Refused** (`E-ATTRIBUTE`): on a data type with constructors, a constructor or a field; on a record with type parameters, with no field with a property, or with two; on a record whose field is an `Option` (an `Option` of it couldn't tell `None` from `Some { value = None }`; an `Option` behind a synonym is `E-EXPORT` when an export reaches it); alongside `js.name` on its field; with an argument, or twice.
 
-Example: `examples/extract/microtypes.sw`.
+**The recipe**, as `examples/extract/microtype-orders.sw` does it:
+
+1. *Declare.* `@[js.unboxed] type UserId = { value: Text }`, one per kind of id. Give it a one-line `Show` if `${u}` should print the text: `instance UserId.instShow: Show UserId := Show.fromText (u => u.value)` (the derived one prints `{ value = "u1" }`).
+2. *Validate.* Put the rule in a proof field, `type Email = { value: Text, valid: Email.isValid value = True }`, so no invalid `Email` exists, and write the one way to make one from arbitrary text, a smart constructor:
+
+   ```
+   def Email.parse (t: Text): Option Email :=
+     if h: Email.isValid t = True then Some ({ value = t, valid = h }) else None
+   ```
+
+   Code that may fail says `{Fail}` instead and uses `(Email.parse t).orFail "not an email address: ${t}"`. An export that returns `Option Email` gives JavaScript `string | undefined`; one that takes an `Email` refuses a string that fails the rule (`e: proof field `valid` ... doesn't hold`).
+3. *Use as a `Map` key.* `Map OrderId UserId` needs nothing more: the derived order compares the field, so `Map.get`, `Map.insert` and the lemmas work as for `Text` keys. Keep the derived `Ord`; a key in another order can't cross (above).
+4. *Export.* `export def ownerOf (owners: Map OrderId UserId) (o: OrderId): Option UserId`. In TypeScript the app passes `{ o1: "u1" }` and `"o1"`.
+
+Examples: `examples/extract/microtypes.sw` (every position), `examples/extract/microtype-orders.sw` (the recipe).
 
 ## Interfaces
 
