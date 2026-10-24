@@ -6103,8 +6103,8 @@
     },
     {
       "id": 380,
-      "title": "Microtypes: stage 1 merged (@[js.unboxed] crosses as the field's JS form; microtype map keys); D866 done; next: stage 3 recipe/docs if needed; open D1084 (Option fields)",
-      "status": "doing",
+      "title": "Microtypes: stages 1, 2 and 3 done (recipe in docs/syntax.md, examples/extract/microtype-orders.sw); js.flavor not built (D1066)",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree lane: stage 3 recipe",
       "labels": [
@@ -6115,7 +6115,8 @@
       "updated": "2026-10-24",
       "commits": [
         "cb312b0e",
-        "0ae50a1f"
+        "0ae50a1f",
+        "f033939e"
       ]
     },
     {
