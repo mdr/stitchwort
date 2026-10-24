@@ -578,15 +578,20 @@ split with `t`. Rejects, one file each: `reify-data-def`, `reify-test`,
   occurrence test generalises the evaluated goal, where `Fail.toResult` has
   already unfolded. So §3's "each branch's goal is one the user can read"
   holds only in part.
-- *Using a law on a thunk written in a proof* is awkward: `() => e` is a
-  lambda over the unit pattern, which becomes a lifted `match` helper, so
-  `Fail.toResultThen (() => xs.mapIn f) …` written in a proof is a
+- *Using a law on a thunk written in a proof* was awkward in R1: `() => e`
+  was a lambda over the unit pattern, which became a lifted `match` helper,
+  so `Fail.toResultThen (() => xs.mapIn f) …` written in a proof was a
   different term from the same thunk in the theorem's statement (`E-TYPE-
-  MISMATCH`, with "two different `(match …)` appear here"). The `MapIn`
-  proof above avoids it by splitting a second time instead of using
-  `toResultThen`. Rewriting with these laws in users' proofs will meet the
-  same thing; a thunk `() => e` elaborated as a plain lambda (its parameter
-  ignored) would fix it, and is outside R1.
+  MISMATCH`, with "two different `(match …)` appear here"). Fixed by SW-422:
+  a thunk whose type doesn't mention its `()` is now the plain lambda
+  `%arg0 => e` (`matching::unit_parameter`), so the two are one term
+  (`examples/accept/reify-thunk-in-proof.sw`). One limit remains: a closed
+  computation used inside a thunk of an open row (`{Fail | e}`, as
+  `Fail.toResult`'s is) is moved into it with `translate`, around the call
+  it was written as. In the `MapIn` step the `translate` is around all of
+  `xs.mapIn f` unfolded, while `toResultThen`'s instance has it around the
+  inner `mapIn f xs`, so `rewrite Fail.toResultThen (() => xs.mapIn f) …`
+  finds nothing there, and that proof still splits a second time.
 
 ## Appendix A. Probes
 
