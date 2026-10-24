@@ -3,7 +3,7 @@
 Status: design note and literature review, revised after external review,
 24 Oct 2026. The row type is now spelled `Effects` in source (D1143 (a)); the
 older sections below still say `Row`, its earlier name. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
-§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices), and the first part of stage 1 ("As built (stage 1, first part)"), which leaves D1133 and D1134 as options for the owner, and stage 2 ("As built (stage 2)"). The two experiments before this note are in
+§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices), and the first part of stage 1 ("As built (stage 1, first part)"), which leaves D1133 and D1134 as options for the owner, stage 2 ("As built (stage 2)") and stage 3 ("As built (stage 3)": `mapIn` folded into `map`). The two experiments before this note are in
 [effectful-map.md](effectful-map.md).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
@@ -2154,6 +2154,119 @@ and the callers no longer wrap the handled computation in
 `translate`, `sigLeft`, `sigCase`, `caseInject`, `caseReply`, `sigFromNo`
 and the generic eliminators are no longer generated for them. An effectful
 use (`mapIn [Ops …]` in `results.sw`'s `sizes`) is unchanged.
+
+## As built (stage 3)
+
+SW-408, 24 Oct 2026. `List.mapIn` is folded into `List.map`.
+
+**Library.** `List.map` has `mapIn`'s type and body,
+`def List.map (f: a -> {e} b): List a -> {e} List b`. `List.mapIn`,
+`List.mapInPure` (`mapIn f xs = map f xs`) and `List.lengthMapIn` are
+deleted, with no alias. `Fail.toResultMapIn` is `Fail.toResultMap`, stated
+about `xs.map f`. Every use was renamed: 149 lines in 39 files
+(std, AoC days 2 and 3 and `Common/Lines.sw`, examples, the language guide and
+its examples, the tour, `docs/syntax.md`, the benchmarks and the Rust tests).
+The design notes are left as written. `bench/effect-runtime/map.sw` keeps its
+export `pureMapIn` (now the same as `plain`), since that benchmark's scripts
+call it by name.
+
+**Theorems.** The 80 theorem statements in std that mention `List.map`
+(counted as in Appendix A) check with no change to statement or proof: at
+the empty row `{e} b` is `b` and `map`'s body computes as before, so each is
+about the pure instance and its old proof goes through. The only statement
+that changed is `Fail.toResultMap`'s, which names `xs.map f` where it named
+`xs.mapIn f`; its proof is unchanged but for the name.
+
+**What the fold needed in the elaborator.** Stage 1's tests used `mapIn`
+where a pure function was expected; std's 80 theorems and every program use
+`map` everywhere. Folding showed that elaborating a pure use as a
+computation in the empty row (stage 1's path: run the call in place, a
+`let` and `doneIn`) differs from the plain call in ways that matter there:
+
+| Symptom with `map` folded, before the fix | Cause | Fix |
+|---|---|---|
+| `Eq.cong Succ (lemma (List.map f xs))` refused by the kernel (`E-UNIVERSE`) | the call ran in place under `let`s, and the proof was wrapped in `runPure` of a `Comp … (Eq …)` | `in_place` takes the value out of a `Done` under `let`s too (`done_value`) |
+| `List.map (e => e.value) (List.attach xs)` can't infer `e` | computation mode applied the arguments one at a time, so the lambda wasn't put off until the list typed it | `comp_app` applies positional arguments together when no stage runs between them (`no_stage_before_last`) |
+| `xs.map (p => p.name)` against `List Text`, `xs.map (Cons { … })`: can't infer | a dot call in computation mode didn't compare its value type with the expected one first; a partially applied constructor checked against `CompIn ?e T` didn't see `T` | `comp_app` propagates through the dot call's prefix form; `ctor_app` and `returns_computation` look through an unknown bare row |
+| `List.map (add => add 1) fs == …`: `?T x := x` | a callback body of unknown type was compared with the whole `CompIn ?e ?b`, solving its type as a computation | `unknown_row_value` gives up when the body's type is still unknown |
+| a `calc` step after `List.map …` not `rfl`; counterexamples showing `let %1 := …; Effect.doneIn Empty …` | the row was settled only at the end of the declaration, and the value's type stayed `CompIn ?e T` (stuck, even once `?e` was solved) | below |
+
+The last row and the error messages led to one general change: **in a pure
+context, plain calls first** (`check::pure_first`). An expression that
+performs only through calls whose result is in a bare row
+(`effects::performs_only_in_bare_rows`: `may_perform` with bare rows not
+counted, `bare_rows_pure`) is first elaborated as ordinary calls, the way
+`map` was before the fold. The row is settled by unification: `propagate`
+compares only the value type of a result in an unknown bare row with the
+expected type, so the callback decides the row first (a callback with
+abilities makes it effectful, D1124), and the comparison at the end decides
+`Empty` by the apartness rule. A row still unknown afterwards is settled as
+the empty one right there (`effects::settle_empty`), and the type returned is
+the value type. If the plain way fails, or its type is a computation, it is
+undone and the expression runs in the empty row as before, which reports the
+ability that isn't allowed (`examples/reject/map-effectful-callback-pure.sw`);
+if that fails too, the plain way's error is reported (the one the plain
+function gave before), unless running it found an ability. Calls of
+handlers (a parameter that is a computation with abilities, such as
+`Abort.toOption`'s) keep the old path: their row comes from running the
+argument, and the plain way gave `Comp NoOp NoRes` results for
+`Option.flatMap (x => Abort.toOption …) (Abort.toOption t)` **[checked]**,
+for a reason not pinned down (**[inferred]**: unifying `{Abort} a` with
+`{Abort | ?e} a` outside `lift`, which is where canonical rows are made).
+
+Zonking writes `doneIn Empty v` as `v` (`unify::empty_row_done`), so a pure
+callback checked while its row was still unknown is the plain callback in the
+final term: what's shown, hashed and followed by `decreasing` is what plain
+`map` gave. The printer shows `CompIn Empty a` and `doneIn Empty v` as their
+values, for terms shown before zonking. `decreasing` checks a congruence
+lemma against `F` with `F`'s effect-row parameters at the empty row
+(`at_empty_row`), and rewrites a call only at the empty row, so
+`List.mapCong` keeps its statement.
+
+**Generated code.** Every pure use of `List.map` now calls its empty-row
+variant (`$Std$dList$dmap$e` in JS, `Std.List.map[empty]` in the runtime's
+IR), which is the loop `List.map` compiled to before, under a new name with
+its variables renumbered. `crates/cli/tests/extract.rs`
+`map_at_the_empty_row_is_a_pure_maps_loop` compares it with the JS of a map
+with a pure callback type written in the example (`pureMap`, `map`'s old
+definition); `crates/rt/tests/lower.rs` `a_pure_use_of_map_has_no_row_dispatch`
+and `machine.rs` `map_reuses_its_cells` look at the variant.
+
+**Performance** (`bench/effect-map/run.sh`, modes `setup sum map`, best of
+five, run alternately with the build before the fold, `main` at `6c877736`,
+and after, twice each, on a machine shared with other work):
+
+| Backend | Mode | n | Before (s) | After (s) |
+|---|---|---|---|---|
+| rt | sum | 1,000,000 | 0.502, 0.506 | 0.501, 0.498 |
+| rt | map | 100,000 | 0.937, 0.942 | 0.942, 0.948 |
+| rt | map | 1,000,000 | 1.031, 1.025 | 1.030, 1.026 |
+| JS | sum | 1,000,000 | 0.352, 0.350 | 0.352, 0.351 |
+| JS | map | 100,000 | 0.435, 0.444 | 0.438, 0.435 |
+| JS | map | 1,000,000 | 0.615, 0.598 | 0.566, 0.579 |
+
+Pure `map` is unchanged within noise on both backends (the code is the same
+loop; JS at 1M is the noisiest row).
+
+AoC (`stitchwort test` in `aoc`, 224 tests, none from the cache, wall time):
+before 14.43 s and 14.43 s (the old build on `6c877736`'s `aoc`), after
+14.49 s and 14.48 s, cache cleared before each run: within half a percent.
+
+**Hashes.** Every definition whose term mentions `List.map` has a new hash
+(164 of the prelude's definitions, and 68 other snapshots): `map`'s own term
+changed (it takes the row and sequences with `bindIn`), and its uses pass
+`Empty`.
+
+**Remaining duplicates.** No other `…In` function in std is a callback
+function's effectful twin. One handler pair remains: `Each.collect`
+(`() -> {Each} a`, pure result) and `Each.collectIn` (`() -> {Each | e} a`,
+result in `{e}`), as `Fail.toResult` was folded before this note. My
+recommendation: fold it when a program needs `collect` inside another
+ability, as a stage 5 item, checking `Each.collectPure` and the other
+bridging lemmas then; the other stage 5 functions (`foldLeft`, `filter`,
+`any`/`all`/`find`, `Option.map`) likewise one at a time, each now a small
+lane since the elaborator handles pure uses of a bare-row function as plain
+calls.
 
 ## Appendix A. Probe files
 
