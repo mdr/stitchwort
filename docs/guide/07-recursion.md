@@ -94,18 +94,18 @@ def halvings (n: Nat): Nat
 
 <!-- output: check errors/decreasing.sw -->
 ```text
-[E-DECREASING] Error: can't show `Nat.divFuel n n 2 < n` here, which `decreasing n` needs for this call
+[E-DECREASING] Error: can't show `n / 2 < n` here, which `decreasing n` needs for this call
    ╭─[ errors/decreasing.sw:4:29 ]
    │
  4 │   if n <= 1 then 0 else 1 + halvings (n / 2)
    │                             ───────┬───────
    │                                    ╰───────── this recursive call
    │
-   │ Note: give a proof with `[decreasing := …]`, or test it with `if h: Nat.divFuel n n 2 < n then … else …`
+   │ Note: give a proof with `[decreasing := …]`, or test it with `if h: n / 2 < n then … else …`
 ───╯
 ```
 
-(The message shows `n / 2` as the library computes it, `Nat.divFuel n n 2`.) The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it:
+The message shows the fact as you wrote it, `n / 2 < n`. The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it:
 
 <!-- snippet: recursion.sw#decreasing -->
 ```stitchwort

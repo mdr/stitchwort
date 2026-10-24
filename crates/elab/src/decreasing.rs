@@ -39,7 +39,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{eval, force, same_term};
+use stitchwort_core::value::{Elim, Head, eval, force, same_term};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
 use stitchwort_syntax::ast::{self, Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -2755,7 +2755,7 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
         return error;
     };
     let old_shown = cx.show(&old);
-    let shown = match cx.eval(&meta) {
+    let shown = match folded_new_measure(cx, goal, less).map(Ok).unwrap_or_else(|| cx.eval(&meta)) {
         Ok(new) => format!("{} < {old_shown}", cx.show(&new)),
         Err(_) => cx.show(goal),
     };
@@ -3115,4 +3115,19 @@ fn lex_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result
     let mut names = plan.lam_names();
     names.push(("p".into(), Icit::Explicit));
     Ok((r_go, lams(&names, proof)))
+}
+
+/// The left side of obligation `new < old` as the call wrote it, folded:
+/// reading the goal's own arguments instead of the solved metavariable
+/// keeps `n / 2` from showing as its unfolding, `Nat.divFuel n n 2`.
+fn folded_new_measure(cx: &Ctx, goal: &Value, less: DefId) -> Option<Value> {
+    let goal = stitchwort_core::value::force_solved(cx.g(), goal.clone()).ok()?;
+    let spine = match &goal {
+        Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) if *id == less => spine,
+        _ => return None,
+    };
+    match spine.first() {
+        Some(Elim::App(new, _)) if spine.len() == 2 => Some(new.clone()),
+        _ => None,
+    }
 }
