@@ -6449,17 +6449,19 @@
     },
     {
       "id": 401,
-      "title": "Field defaults stage 2: field: T := v on records and constructors (named-arguments.md §5)",
-      "status": "doing",
+      "title": "Field defaults stage 2: field: T := v on records and constructors (helpers per default, hash-stable types; interface-method defaults refused)",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "lang"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "bb2523a7"
+      ]
     },
     {
       "id": 402,
