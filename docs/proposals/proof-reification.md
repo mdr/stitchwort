@@ -1,7 +1,10 @@
 # Proof-only reification: letting proofs look inside a computation
 
-Status: design note, 24 Oct 2026, for D1141 (d). No compiler changes. It
-stops for review before anything is built.
+Status: design note, 24 Oct 2026, for D1141 (d). Decided (Matt, 24 Oct
+2026): all five decisions in §8 as recommended, renumbered D1144 to D1148
+(surface form `match reify` with handler-style clauses; close the run-time
+leak right after R1; any proof may use it; checked per declaration; keyword
+`reify`). Nothing built yet.
 
 D1141 (d), as decided (effect-polymorphism.md §7, "After stage 1, first
 part"): abilities stay on arrows, so a computation is passed as a thunk
@@ -430,6 +433,8 @@ existing `match`, one declaration-level check, and std lemmas. R2 is small.
 R2 must land before stage 4 starts, since stage 4 relies on it.
 
 ## 8. Decisions for the owner
+
+**Decided (Matt, 24 Oct 2026):** each as recommended. The numbers below were provisional; they are recorded as D1144 (surface form), D1145 (run-time leak), D1146 (who may use it), D1147 (granularity) and D1148 (keyword).
 
 Numbers are provisional.
 

@@ -1,5 +1,5 @@
 {
-  "next": 419,
+  "next": 421,
   "tickets": [
     {
       "id": 1,
@@ -6735,6 +6735,34 @@
       "where": "",
       "labels": [
         "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 419,
+      "title": "Proof-only reification stage R1: match reify with handler-style clauses, E-PROOF-ONLY, Fail/Abort laws, Fail.toResultMapIn (proof-reification.md, D1144-D1148)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 420,
+      "title": "Proof-only reification stage R2: Comp constructors and eliminators std-only outside erased declarations (close the run-time leak, D1145)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
       ],
       "body": "",
       "created": "2026-10-24",
