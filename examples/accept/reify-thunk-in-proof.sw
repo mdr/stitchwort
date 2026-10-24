@@ -28,3 +28,11 @@ def unitOnly: () -> Type
   | () => Nat
 
 def thunkSplits: (u: ()) -> unitOnly u := () => 3
+
+-- The law on a thunk whose body is bigger than the call it makes: `t ()`
+-- is moved into `toResult`'s row where it's written here, but inside the
+-- law's `t` there. That row turns out empty, so neither move leaves a
+-- trace and the two thunks are one term (SW-424).
+theorem twiceThen (t: () -> {Fail} Nat):
+    Fail.toResult (() => Succ (Succ (t ()))) = Result.flatMap (x => Ok (Succ x)) (Fail.toResult (() => Succ (t ()))) :=
+  rewrite Fail.toResultThen (() => Succ (t ())) (x => Succ x) in rfl

@@ -694,8 +694,27 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         // row's `Comp` already.
     }
     let unmoved = same_shape(cx, &from, to)?;
+    let widens = !unmoved
+        && !from.partial
+        && !to.partial
+        && from.tail.is_none()
+        && to.tail.is_some()
+        && !from.labels.is_empty()
+        && from.labels.len() == to.labels.len()
+        && from
+            .labels
+            .iter()
+            .zip(&to.labels)
+            .all(|(x, y)| x.ability == y.ability);
     let moved = if unmoved {
         term
+    } else if widens {
+        // `{A, B}` into `{A, B | e}`: `widenIn`, which is the computation
+        // itself once `e` is the empty row, so where the move happened
+        // leaves no trace then (docs/proposals/delayed-translate.md).
+        let m = mapping(cx, &from, to)?;
+        let tail = to.tail.as_ref().expect("checked above");
+        widen(cx, &from, t, cx.quote(tail)?, m, term)?
     } else {
         let m = mapping(cx, &from, to)?;
         call(
@@ -734,6 +753,61 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         );
     }
     Ok(moved)
+}
+
+/// `Plus A (Plus B … end)` for the abilities `labels`.
+fn ops_ending(cx: &Ctx, labels: &[Label], end: Value) -> Result<Value> {
+    let plus = data(cx, Builtin::Plus)?;
+    let mut value = end;
+    for label in labels.iter().rev() {
+        value = Value::Data(plus, vec![label_ops(cx, label), value]);
+    }
+    Ok(value)
+}
+
+/// `PlusRes resA (PlusRes resB … end_res)` for the abilities `labels`, whose
+/// operations end in `end_ops`.
+fn res_ending(cx: &Ctx, labels: &[Label], end_ops: Value, end_res: Value) -> Result<Value> {
+    let g = cx.g();
+    let plus_res = def(cx, Builtin::PlusRes)?;
+    let mut value = end_res;
+    for i in (0..labels.len()).rev() {
+        let rest_ops = ops_ending(cx, &labels[i + 1..], end_ops.clone())?;
+        let mut f = Value::Neutral(Head::Def(plus_res), Spine::new());
+        f = stitchwort_core::value::apply_icit(g, f, label_ops(cx, &labels[i]), Icit::Implicit)?;
+        f = stitchwort_core::value::apply_icit(g, f, rest_ops, Icit::Implicit)?;
+        f = apply(g, f, label_res(cx, &labels[i])?)?;
+        value = apply(g, f, value)?;
+    }
+    Ok(value)
+}
+
+/// `widenIn [t] pre preRes tail m term`: `term`, a computation in the closed
+/// row `from`, moved by `m` into `from`'s abilities followed by `tail`.
+fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Result<Term> {
+    let level = cx.level();
+    let quote_at =
+        |depth: usize, v: &Value| stitchwort_core::value::quote(cx.g(), level + depth, v);
+    // `t => Plus A (Plus B … t)`.
+    let pre_body = ops_ending(cx, &from.labels, Value::var(level))?;
+    let pre = Term::Lam("t".into(), Icit::Explicit, Rc::new(quote_at(1, &pre_body)?));
+    // `t r => PlusRes resA (PlusRes resB … r)`.
+    let pre_res_body = res_ending(cx, &from.labels, Value::var(level), Value::var(level + 1))?;
+    let pre_res = Term::Lam(
+        "t".into(),
+        Icit::Explicit,
+        Rc::new(Term::Lam(
+            "r".into(),
+            Icit::Explicit,
+            Rc::new(quote_at(2, &pre_res_body)?),
+        )),
+    );
+    call(
+        cx,
+        Builtin::WidenIn,
+        std::slice::from_ref(t),
+        vec![pre, pre_res, tail, m, term],
+    )
 }
 
 /// `c` then `next`, in `row`: `bind`, `bindD` in a partial row, or

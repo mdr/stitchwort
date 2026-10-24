@@ -595,6 +595,7 @@ impl Elaborator {
                 Builtin::BindIn,
                 Builtin::LiftIn,
                 Builtin::LowerIn,
+                Builtin::WidenIn,
             ]
             .into_iter()
             .any(|b| registry.is_def(b, id)),
