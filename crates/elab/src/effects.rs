@@ -956,12 +956,282 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     })
 }
 
+// Computations passed where computations are expected (stage 0 of
+// docs/proposals/effect-polymorphism.md)
+
+/// Whether `ty` is a `Comp` type, whatever its row: its arguments may still
+/// be unknown. A part of an expression that goes to a place of such a type
+/// is elaborated as a computation of its own and passed as it is, so it
+/// doesn't perform anything where it's written: it's never run in place
+/// and re-wrapped, nor run first.
+pub fn is_comp_type(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let Ok(comp) = data(cx, Builtin::Comp) else {
+        return Ok(false);
+    };
+    Ok(matches!(force(cx.g(), ty.clone())?, Value::Data(d, _) if d == comp))
+}
+
+/// A parameter of a call's head, for [`param_types`].
+struct ParamSlot {
+    name: Name,
+    explicit: bool,
+    /// Its type, with the parameters before it as variables: only its head,
+    /// and the heads of its arguments, are looked at.
+    ty: Value,
+}
+
+/// The parameters of a function of type `ty`, up to the first stage (a
+/// partial application that's already a computation).
+fn pi_slots(cx: &Ctx, mut ty: Value) -> Result<Vec<ParamSlot>> {
+    let g = cx.g();
+    let mut level = cx.level();
+    let mut out = Vec::new();
+    loop {
+        if comp_parts(cx, &ty)?.is_some() {
+            return Ok(out);
+        }
+        match force(g, ty)? {
+            Value::Pi(name, icit, dom, cod) => {
+                out.push(ParamSlot {
+                    name: name.clone(),
+                    explicit: !icit.is_implicit(),
+                    ty: (*dom).clone(),
+                });
+                ty = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            _ => return Ok(out),
+        }
+    }
+}
+
+/// The fields of constructor `c` of `d`, as parameters. Their types are
+/// read with the data type's parameters (`params`, or unknown) and the
+/// earlier fields as variables: only their heads matter.
+fn ctor_slots(cx: &Ctx, d: DataId, c: usize, params: Option<&[Value]>) -> Result<Vec<ParamSlot>> {
+    let g = cx.g();
+    let level = cx.level();
+    let data = g.data(d);
+    let ctor = &data.ctors[c];
+    let mut env: Vec<Value> = match params {
+        Some(params) if params.len() == data.params.len() => params.to_vec(),
+        _ => (0..data.params.len())
+            .map(|i| Value::var(level + i))
+            .collect(),
+    };
+    let mut out = Vec::new();
+    for (k, (name, ty)) in ctor.fields.iter().enumerate() {
+        let ty = stitchwort_core::value::eval(g, &env, ty)?;
+        out.push(ParamSlot {
+            name: name.clone(),
+            explicit: !ctor.implicit.get(k).copied().unwrap_or(false),
+            ty,
+        });
+        env.push(Value::var(level + data.params.len() + k));
+    }
+    Ok(out)
+}
+
+/// The type of the parameter each of `args` goes to (as written: named
+/// ones by name, the others in order), then each of `extra` more
+/// positional values (piped in), where known. Explicit parameter `taken` (a
+/// dot call's receiver) is filled already.
+fn param_types<'a>(
+    slots: &'a [ParamSlot],
+    args: &[&Expr],
+    extra: usize,
+    taken: Option<usize>,
+) -> Vec<Option<&'a Value>> {
+    let explicit: Vec<&ParamSlot> = slots.iter().filter(|s| s.explicit).collect();
+    let named = |name: &AstName, want_explicit: bool| {
+        slots
+            .iter()
+            .find(|s| s.explicit == want_explicit && *s.name == *name.text)
+            .map(|s| &s.ty)
+    };
+    let mut filled = vec![false; explicit.len()];
+    if let Some(k) = taken
+        && k < filled.len()
+    {
+        filled[k] = true;
+    }
+    for arg in args {
+        if let Expr::NamedArg(name, _, _, Bracket::Round) = arg
+            && let Some(i) = explicit.iter().position(|s| *s.name == *name.text)
+        {
+            filled[i] = true;
+        }
+    }
+    let mut next = 0;
+    let mut positional = || {
+        while next < filled.len() && filled[next] {
+            next += 1;
+        }
+        let ty = explicit.get(next).map(|s| &s.ty);
+        next += 1;
+        ty
+    };
+    let mut out = Vec::with_capacity(args.len() + extra);
+    for arg in args {
+        out.push(match arg {
+            Expr::NamedArg(name, _, _, Bracket::Round) => named(name, true),
+            Expr::NamedArg(name, _, _, Bracket::Square) => named(name, false),
+            _ => positional(),
+        });
+    }
+    for _ in 0..extra {
+        out.push(positional());
+    }
+    out
+}
+
+/// For the call `head args…` with `extra` more values piped in after them:
+/// whether each argument, then each value piped in, is passed rather than
+/// run where it's written. An argument is passed if its parameter's type
+/// is a computation type, or if, checked against that type, it performs
+/// nothing (a list of computations for a list of computations); a value
+/// piped in only in the first case. All `false` when the head's type can't
+/// be found without elaborating it.
+fn passed_args(cx: &Ctx, head: &Expr, args: &[&Expr], extra: usize) -> Result<Vec<bool>> {
+    let none = vec![false; args.len() + extra];
+    let (slots, taken) = match head {
+        Expr::Var(name) => match head_type(cx, name) {
+            HeadType::Typed(ty) => (pi_slots(cx, ty)?, None),
+            HeadType::Def(id) => (pi_slots(cx, cx.g().def(id).ty_value.clone())?, None),
+            HeadType::Ctor(d, c) => (ctor_slots(cx, d, c, None)?, None),
+            HeadType::Op | HeadType::Other => return Ok(none),
+        },
+        Expr::Field(recv, field) => match crate::dot::target_place(cx, recv, field)? {
+            Some((f, place)) => (pi_slots(cx, cx.g().def(f).ty_value.clone())?, place),
+            None => return Ok(none),
+        },
+        _ => return Ok(none),
+    };
+    let types = param_types(&slots, args, extra, taken);
+    let mut out = Vec::with_capacity(types.len());
+    for (i, ty) in types.into_iter().enumerate() {
+        out.push(match (ty, args.get(i)) {
+            (None, _) => false,
+            (Some(ty), _) if is_comp_type(cx, ty)? => true,
+            (Some(ty), Some(arg)) => {
+                let value = match arg {
+                    Expr::NamedArg(_, value, ..) => &**value,
+                    other => other,
+                };
+                !may_perform_at(cx, value, Some(ty))?
+            }
+            (Some(_), None) => false,
+        });
+    }
+    Ok(out)
+}
+
+/// Whether the receiver of `recv.field` goes to a parameter of computation
+/// type (a function of `Effect.Comp` called by dot notation).
+pub(crate) fn receiver_passed(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<bool> {
+    let Some((f, Some(k))) = crate::dot::target_place(cx, recv, field)? else {
+        return Ok(false);
+    };
+    let slots = pi_slots(cx, cx.g().def(f).ty_value.clone())?;
+    match slots.iter().filter(|s| s.explicit).nth(k) {
+        Some(slot) => is_comp_type(cx, &slot.ty),
+        None => Ok(false),
+    }
+}
+
+/// Whether the value piped into `f` (`value |> f`) goes to a parameter of
+/// computation type.
+pub(crate) fn piped_passed(cx: &Ctx, f: &Expr) -> Result<bool> {
+    if matches!(f, Expr::Lam(..) | Expr::TypedLam(..)) {
+        return Ok(false);
+    }
+    let mut args = Vec::new();
+    let mut head = f;
+    while let Expr::App(g, a) = head {
+        args.push(a.as_ref());
+        head = g;
+    }
+    args.reverse();
+    Ok(passed_args(cx, head, &args, 1)?
+        .last()
+        .copied()
+        .unwrap_or(false))
+}
+
+/// For a constructor with fields by name, a record literal, a tuple or a
+/// list: whether each part (the fields' values in order, or the items)
+/// goes to a place of computation type. A constructor's fields are known
+/// from its declaration; the others only from `expected`. A record's base
+/// is never passed. `None` if nothing is known.
+fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Option<Vec<bool>>> {
+    let by_name = |slots: &[ParamSlot], fields: &[(AstName, Expr)]| -> Result<Vec<bool>> {
+        let mut out = Vec::with_capacity(fields.len());
+        for (name, _) in fields {
+            out.push(match slots.iter().find(|s| *s.name == *name.text) {
+                Some(slot) => is_comp_type(cx, &slot.ty)?,
+                None => false,
+            });
+        }
+        Ok(out)
+    };
+    let expected = match expected {
+        Some(t) => Some(force(cx.g(), t.clone())?),
+        None => None,
+    };
+    Ok(match expr {
+        Expr::CtorFields { ctor, fields, .. } => match cx.e.named(&ctor.text) {
+            Some((Global::Ctor(d, c), _)) => {
+                let params = match &expected {
+                    Some(Value::Data(e, params)) if e == d => Some(&params[..]),
+                    _ => None,
+                };
+                Some(by_name(&ctor_slots(cx, *d, *c, params)?, fields)?)
+            }
+            _ => None,
+        },
+        Expr::Record { fields, .. } => match &expected {
+            Some(Value::Data(d, params)) if cx.g().data(*d).record => {
+                Some(by_name(&ctor_slots(cx, *d, 0, Some(params))?, fields)?)
+            }
+            _ => None,
+        },
+        Expr::List(items, _) => match &expected {
+            Some(Value::Data(d, params))
+                if Ok(*d) == data(cx, Builtin::List) && params.len() == 1 =>
+            {
+                Some(vec![is_comp_type(cx, &params[0])?; items.len()])
+            }
+            _ => None,
+        },
+        Expr::Tuple(..) => match &expected {
+            Some(Value::Data(d, params))
+                if Ok(*d) == data(cx, Builtin::Pair) && params.len() == 2 =>
+            {
+                Some(vec![
+                    is_comp_type(cx, &params[0])?,
+                    is_comp_type(cx, &params[1])?,
+                ])
+            }
+            _ => None,
+        },
+        _ => None,
+    })
+}
+
 // Computation mode
 
 /// Whether elaborating `expr` may perform operations: it calls an operation,
 /// an effectful function (with enough arguments), or contains sequencing,
-/// `handle`, or a `let` whose value or rest may. Lambda bodies don't count.
+/// `handle`, or a `let` whose value or rest may. Lambda bodies don't count,
+/// and neither does a part that goes to a place of computation type
+/// ([`is_comp_type`]): it's passed, not run.
 pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
+    may_perform_at(cx, expr, None)
+}
+
+/// [`may_perform`] for `expr` checked against `expected`, which may say
+/// that parts of a list, tuple or record literal are computations.
+pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
     cx.g().budget.nesting(crate::check::PASS)?;
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
         for item in items {
@@ -971,11 +1241,32 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
         }
         Ok(false)
     };
+    // The parts of a compound that perform, leaving out those passed.
+    let parts = |items: &[&Expr]| -> Result<bool> {
+        let mut passed: Option<Vec<bool>> = None;
+        for (i, item) in items.iter().enumerate() {
+            if !may_perform(cx, item)? {
+                continue;
+            }
+            if passed.is_none() {
+                passed = Some(passed_parts(cx, expr, expected)?.unwrap_or_default());
+            }
+            if !passed
+                .as_ref()
+                .and_then(|p| p.get(i))
+                .copied()
+                .unwrap_or(false)
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    };
     Ok(match expr {
         Expr::Var(_) | Expr::App(..) => call_performs(cx, expr, 0)?,
         // `x |> y => body` runs `body`; `x |> y z => …` is a function.
         Expr::Pipe(value, f) => {
-            may_perform(cx, value)?
+            (may_perform(cx, value)? && !piped_passed(cx, f)?)
                 || match &**f {
                     Expr::Lam(names, body, _) => names.len() == 1 && may_perform(cx, body)?,
                     Expr::TypedLam(_, _, body, _) => may_perform(cx, body)?,
@@ -1005,15 +1296,20 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             otherwise,
             ..
         } => any(&mut [&**cond, &**then, &**otherwise].into_iter())?,
-        Expr::List(items, _) => any(&mut items.iter())?,
-        Expr::Record { base, fields, .. } => any(&mut base
-            .iter()
-            .map(|b| &**b)
-            .chain(fields.iter().map(|(_, e)| e)))?,
-        Expr::CtorFields { fields, .. } => any(&mut fields.iter().map(|(_, e)| e))?,
-        Expr::Field(e, field) => may_perform(cx, e)? || dot_performs(cx, e, field, 0)?,
+        Expr::List(items, _) => parts(&items.iter().collect::<Vec<_>>())?,
+        Expr::Record { base, fields, .. } => {
+            any(&mut base.iter().map(|b| &**b))?
+                || parts(&fields.iter().map(|(_, e)| e).collect::<Vec<_>>())?
+        }
+        Expr::CtorFields { fields, .. } => {
+            parts(&fields.iter().map(|(_, e)| e).collect::<Vec<_>>())?
+        }
+        Expr::Field(e, field) => {
+            (may_perform(cx, e)? && !receiver_passed(cx, e, field)?)
+                || dot_performs(cx, e, field, 0)?
+        }
         Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _, _) => may_perform(cx, e)?,
-        Expr::Tuple(a, b, _) => any(&mut [&**a, &**b].into_iter())?,
+        Expr::Tuple(a, b, _) => parts(&[&**a, &**b])?,
         _ => false,
     })
 }
@@ -1027,8 +1323,19 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
         args.push(a.as_ref());
         head = f;
     }
-    for arg in &args {
-        if may_perform(cx, arg)? {
+    // An argument performs unless it goes to a parameter of computation
+    // type: then it's passed as it is.
+    let mut passed: Option<Vec<bool>> = None;
+    for (i, arg) in args.iter().enumerate() {
+        if !may_perform(cx, arg)? {
+            continue;
+        }
+        if passed.is_none() {
+            let in_order: Vec<&Expr> = args.iter().rev().copied().collect();
+            passed = Some(passed_args(cx, head, &in_order, 0)?);
+        }
+        let written = args.len() - 1 - i;
+        if !passed.as_ref().is_some_and(|p| p[written]) {
             return Ok(true);
         }
     }
@@ -1058,10 +1365,11 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
                 performs_after(cx, ty.clone(), reached(&ty))?
             }
             HeadType::Def(id) => def_performs_after(cx, id, explicit)?,
-            HeadType::Other => false,
+            HeadType::Ctor(..) | HeadType::Other => false,
         },
         Expr::Field(recv, field) => {
-            may_perform(cx, recv)? || dot_performs(cx, recv, field, explicit)?
+            (may_perform(cx, recv)? && !receiver_passed(cx, recv, field)?)
+                || dot_performs(cx, recv, field, explicit)?
         }
         other => may_perform(cx, other)?,
     })
@@ -1084,6 +1392,7 @@ enum HeadType {
     Op,
     Typed(Value),
     Def(DefId),
+    Ctor(DataId, usize),
     Other,
 }
 
@@ -1097,6 +1406,7 @@ fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
     match cx.e.named(&name.text) {
         Some((Global::Op(..), _)) => HeadType::Op,
         Some((Global::Def(id), _)) => HeadType::Def(*id),
+        Some((Global::Ctor(d, c), _)) => HeadType::Ctor(*d, *c),
         _ => HeadType::Other,
     }
 }
@@ -1306,7 +1616,7 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
         Expr::Binary(op @ (BinOp::And | BinOp::Or), a, b) if may_perform(cx, expr)? => {
             comp_check(cx, &crate::logic::as_if(*op, a, b), row, t)
         }
-        _ if may_perform(cx, expr)? => {
+        _ if may_perform_at(cx, expr, Some(t))? => {
             let (c, ty) = comp_call(cx, expr, row, Some(t))?;
             if cx.unify(&ty, t)? {
                 Ok(c)
@@ -1315,8 +1625,68 @@ pub fn comp_check(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Ter
             }
         }
         _ => {
+            // In the empty row, a value that is already a computation
+            // (`Done 3`, `Effect.bind c k`) is the computation itself, not
+            // the result of one (stage 0 of
+            // docs/proposals/effect-polymorphism.md). Otherwise, or if its
+            // type doesn't fit, it's the result, as before.
+            if row.is_empty() && returns_comp_value(cx, expr)? {
+                let whole = comp_type(cx, row, t.clone())?;
+                let as_is = |cx: &mut Ctx| -> Result<Term> {
+                    let (term, found) = infer(cx, expr)?;
+                    let (term, found) = insert(cx, term, found)?;
+                    crate::check::compare(cx, term, &found, &whole)
+                };
+                if let Some(c) = crate::undo::attempt(cx, as_is)? {
+                    return Ok(c);
+                }
+            }
             let v = check(cx, expr, t)?;
             done(cx, row, t, v)
+        }
+    }
+}
+
+/// Whether `expr` is a call (or a variable) whose value has a computation
+/// type ([`is_comp_type`]), read off its head's type: a constructor of
+/// `Comp`, or a function whose result after the arguments written is one.
+fn returns_comp_value(cx: &Ctx, expr: &Expr) -> Result<bool> {
+    let mut explicit = 0;
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        if !matches!(**a, Expr::NamedArg(.., Bracket::Square)) {
+            explicit += 1;
+        }
+        head = f;
+    }
+    let Expr::Var(name) = head else {
+        return Ok(false);
+    };
+    let ty = match head_type(cx, name) {
+        HeadType::Ctor(d, _) => return Ok(Ok(d) == data(cx, Builtin::Comp)),
+        HeadType::Typed(ty) => ty,
+        HeadType::Def(id) => cx.g().def(id).ty_value.clone(),
+        HeadType::Op | HeadType::Other => return Ok(false),
+    };
+    let g = cx.g();
+    let mut ty = ty;
+    let mut level = cx.level();
+    loop {
+        if explicit == 0 && is_comp_type(cx, &ty)? {
+            return Ok(true);
+        }
+        match force(g, ty)? {
+            Value::Pi(_, icit, _, cod) => {
+                if !icit.is_implicit() {
+                    if explicit == 0 {
+                        return Ok(false);
+                    }
+                    explicit -= 1;
+                }
+                ty = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            _ => return Ok(false),
         }
     }
 }
@@ -1576,12 +1946,16 @@ fn comp_app(
     }
 
     let mut bound: Vec<Bound> = Vec::new();
+    // Arguments that go to parameters of computation type are passed, not
+    // run (stage 0 of docs/proposals/effect-polymorphism.md).
+    let passed = passed_args(cx, head, &args, 0)?;
     // The head, then effectful arguments, run first, left to right, into
     // variables.
     let head = match head {
         Expr::Var(_) => head.clone(),
         // Dot notation: the receiver runs first, then the arguments as
         // written, whatever their places in the call (§4.8.2).
+        Expr::Field(recv, field) if receiver_passed(cx, recv, field)? => head.clone(),
         Expr::Field(recv, field) => Expr::Field(
             Box::new(run_first(cx, recv, row, &mut bound)?),
             field.clone(),
@@ -1589,7 +1963,11 @@ fn comp_app(
         other => run_first(cx, other, row, &mut bound)?,
     };
     let mut owned: Vec<Expr> = Vec::new();
-    for arg in &args {
+    for (arg, passed) in args.iter().zip(passed) {
+        if passed {
+            owned.push((*arg).clone());
+            continue;
+        }
         owned.push(match arg {
             Expr::NamedArg(name, value, span, bracket) => Expr::NamedArg(
                 name.clone(),
@@ -1873,7 +2251,11 @@ fn pipe_call(
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
     let mut bound = Vec::new();
-    let value = run_first(cx, value, row, &mut bound)?;
+    let value = if piped_passed(cx, f)? {
+        value.clone()
+    } else {
+        run_first(cx, value, row, &mut bound)?
+    };
     let (result, ty) = match f {
         Expr::Lam(names, body, span) if names.len() == 1 => {
             let as_let = Expr::Let {
@@ -1987,6 +2369,14 @@ fn comp_compound(
     expected: Option<&Value>,
 ) -> Result<(Term, Value)> {
     let mut bound = Vec::new();
+    // Parts that go to places of computation type are passed, not run.
+    let passed = passed_parts(cx, expr, expected)?.unwrap_or_default();
+    let part = |cx: &mut Ctx, i: usize, e: &Expr, bound: &mut Vec<Bound>| -> Result<Expr> {
+        if passed.get(i).copied().unwrap_or(false) {
+            return Ok(e.clone());
+        }
+        run_first(cx, e, row, bound)
+    };
     let pure = match expr {
         Expr::Record { base, fields, span } => {
             let base = match base {
@@ -1994,8 +2384,8 @@ fn comp_compound(
                 None => None,
             };
             let mut pure = Vec::new();
-            for (name, value) in fields {
-                pure.push((name.clone(), run_first(cx, value, row, &mut bound)?));
+            for (i, (name, value)) in fields.iter().enumerate() {
+                pure.push((name.clone(), part(cx, i, value, &mut bound)?));
             }
             Expr::Record {
                 base,
@@ -2007,8 +2397,8 @@ fn comp_compound(
         // order written (docs/proposals/variant-fields.md §4.5).
         Expr::CtorFields { ctor, fields, span } => {
             let mut pure = Vec::new();
-            for (name, value) in fields {
-                pure.push((name.clone(), run_first(cx, value, row, &mut bound)?));
+            for (i, (name, value)) in fields.iter().enumerate() {
+                pure.push((name.clone(), part(cx, i, value, &mut bound)?));
             }
             Expr::CtorFields {
                 ctor: ctor.clone(),
@@ -2016,6 +2406,7 @@ fn comp_compound(
                 span: *span,
             }
         }
+        Expr::Field(e, name) if receiver_passed(cx, e, name)? => expr.clone(),
         Expr::Field(e, name) => {
             Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone())
         }
@@ -2057,14 +2448,14 @@ fn comp_compound(
             })?
         }
         Expr::Tuple(a, b, span) => {
-            let a = run_first(cx, a, row, &mut bound)?;
-            let b = run_first(cx, b, row, &mut bound)?;
+            let a = part(cx, 0, a, &mut bound)?;
+            let b = part(cx, 1, b, &mut bound)?;
             Expr::Tuple(Box::new(a), Box::new(b), *span)
         }
         Expr::List(items, span) => {
             let mut pure = Vec::new();
-            for item in items {
-                pure.push(run_first(cx, item, row, &mut bound)?);
+            for (i, item) in items.iter().enumerate() {
+                pure.push(part(cx, i, item, &mut bound)?);
             }
             Expr::List(pure, *span)
         }

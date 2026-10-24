@@ -252,7 +252,7 @@ pub(crate) fn infer_dot(
         let head = (Term::Def(id), cx.g().def(id).ty_value.clone());
         return crate::check::apply_args(cx, head, args);
     }
-    let (rterm, rty) = infer(cx, recv)?;
+    let (rterm, rty) = infer_receiver(cx, recv, field)?;
     let (rterm, rty) = insert(cx, rterm, rty)?;
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
     let (owner, f, key) = find(cx, recv, field, start)?;
@@ -274,6 +274,17 @@ pub(crate) fn infer_dot(
     let (term, ty) = call(cx, recv, field, owner, f, &key, rterm, rty, args)?;
     let own = crate::check::own_dictionaries(&term);
     Ok((term, crate::check::found_dictionaries(cx, &own, ty)?))
+}
+
+/// The receiver `recv` of `recv.field`, inferred: as a computation that's
+/// passed, not run, when it goes to a parameter of computation type
+/// (stage 0 of docs/proposals/effect-polymorphism.md).
+fn infer_receiver(cx: &mut Ctx, recv: &Expr, field: &AstName) -> Result<(Term, Value)> {
+    if crate::effects::receiver_passed(cx, recv, field)? {
+        crate::check::infer_unrun(cx, recv)
+    } else {
+        infer(cx, recv)
+    }
 }
 
 /// `f.go`, where `f` is a top-level definition (not a local variable) and
@@ -738,7 +749,7 @@ pub(crate) fn prefix_form<'a>(
     } else {
         let snapshot = crate::undo::Snapshot::take(cx);
         let found = (|| -> Result<(TyHead, DefId)> {
-            let (rterm, rty) = infer(cx, recv)?;
+            let (rterm, rty) = infer_receiver(cx, recv, field)?;
             let (rterm, rty) = insert(cx, rterm, rty)?;
             let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
             let (owner, f, _) = find(cx, recv, field, start)?;
@@ -1082,6 +1093,29 @@ fn call(
 /// a call performs operations before elaborating it.
 pub(crate) fn target(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<Option<DefId>> {
     target_within(cx, recv, field, 8)
+}
+
+/// The function `recv.field` calls, as [`target`] finds it, and the
+/// receiver's place among its explicit parameters (`None` for a local
+/// definition named from outside, whose receiver isn't an argument): for
+/// telling whether the receiver and the arguments go to parameters of
+/// computation type (`effects::passed_args`).
+pub(crate) fn target_place(
+    cx: &Ctx,
+    recv: &Expr,
+    field: &AstName,
+) -> Result<Option<(DefId, Option<usize>)>> {
+    if let Some(f) = helper(cx, recv, field) {
+        return Ok(Some((f, None)));
+    }
+    let Some(ty) = receiver_type(cx, recv, 8)? else {
+        return Ok(None);
+    };
+    let Ok((owner, f, _)) = find(cx, recv, field, ty) else {
+        return Ok(None);
+    };
+    let place = receiver_place(cx, &params(cx.g(), f), owner)?;
+    Ok(Some((f, place.map(|(_, k)| k))))
 }
 
 fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result<Option<DefId>> {
