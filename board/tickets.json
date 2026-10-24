@@ -6632,7 +6632,7 @@
       "title": "AoC input tests via include are very slow in the checker (day 9: 61 s; day 8 also dropped its test) — make include'd-input tests affordable",
       "status": "doing",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "part 1 merged (789349db: kernel no longer computes a costly let in a comparison); part 2 (fb26a3ab: test on the fast runtime, days 8-9 Input.sw) awaits D1137-D1139",
       "labels": [
         "perf"
       ],
