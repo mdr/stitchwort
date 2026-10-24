@@ -30,6 +30,14 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const [input, output, ...flags] = process.argv.slice(2);
 let source = readFileSync(input, "utf8");
+// With `--lazy-resume` (added by effect-runtime-review.md), a handler's `k`
+// doesn't run the rest of the computation when called: it returns a `Bind`
+// node that does, for whoever runs the handler's result. Sound because every
+// `foldComp` the elaborator makes (`handle`) folds into a computation of the
+// row outside; at the empty row the clause's `k` is wrapped in `runPure`,
+// which runs the node at once, so only handlers with abilities left over
+// gain.
+const lazy = flags.includes("--lazy-resume");
 
 const replaceDefinition = (name, replacement) => {
   const start = source.indexOf(`const ${name} = `);
@@ -70,7 +78,9 @@ function $proto$fold(done, call, c, stack) {
   const r = $proto$run(c, stack);
   if (r.tag === "Done") return done(r.value);
   const rest = r.rest, pending = r.stack;
-  return call(r.o)((y) => $proto$fold(done, call, rest(y), pending));
+  return call(r.o)(${lazy
+    ? `(y) => ({ tag: "Bind", c: { tag: "Done", value: y }, k: (z) => $proto$fold(done, call, rest(z), pending) })`
+    : `(y) => $proto$fold(done, call, rest(y), pending)`});
 }
 function $proto$translate(m, c, stack) {
   const r = $proto$run(c, stack);
