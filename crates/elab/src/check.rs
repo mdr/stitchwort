@@ -1210,6 +1210,19 @@ fn apply_args_postponing(
 ) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
     let mut postponed = Vec::new();
+    // Lambdas to check after the application's type is compared with the
+    // type expected of it, if `infer_expecting` says what that is.
+    let expecting = match &*cx.e.app_expected.borrow() {
+        Some((key, expected))
+            if args.iter().any(
+                |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
+            ) =>
+        {
+            Some(expected.clone())
+        }
+        _ => None,
+    };
+    let mut after_expected = Vec::new();
     for (i, arg) in args.iter().enumerate() {
         match arg {
             Arg::Explicit(value @ Expr::Lam(..)) => {
@@ -1221,7 +1234,28 @@ fn apply_args_postponing(
                 let postponable = later
                     && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
                     && unknown_domain(cx, &dom)?;
-                let checked = if !postponable {
+                // Where the application's expected type is known, a lambda
+                // whose type has unknowns that fails in place is checked
+                // again once the application's type has been compared with
+                // it, if no later parameter's type mentions it.
+                let late_able = !postponable
+                    && expecting.is_some()
+                    && only_lambdas_depend_on_it(&cod.body, &[])
+                    && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
+                let mut late = false;
+                let checked = if late_able {
+                    let snapshot = crate::undo::Snapshot::take(cx);
+                    match check_arg(cx, &term, value, &dom) {
+                        Ok(value) => Some(value),
+                        Err(e) if crate::undo::fatal(&e) => return Err(e),
+                        Err(e) => {
+                            snapshot.restore(cx);
+                            first_error.get_or_insert(e);
+                            late = true;
+                            None
+                        }
+                    }
+                } else if !postponable {
                     Some(check_arg(cx, &term, value, &dom)?)
                 } else if value.section_name().is_some() {
                     None
@@ -1252,7 +1286,11 @@ fn apply_args_postponing(
                     _ => unreachable!("a fresh metavariable is headed by one"),
                 };
                 term = Term::app(term, meta);
-                postponed.push((*value, dom, placeholder, id));
+                if late {
+                    after_expected.push((*value, dom, placeholder, id));
+                } else {
+                    postponed.push((*value, dom, placeholder, id));
+                }
             }
             Arg::NamedExplicit(..) => {
                 unreachable!("`apply_args_with` puts named arguments in their places")
@@ -1323,6 +1361,25 @@ fn apply_args_postponing(
         // `r`'s type unknown until now, as `Text.decEqFrom … (List.decEq …)`
         // instead of the call `Text.decEq`, which extraction runs natively).
         term = fill_placeholder(&term, id, &checked).unwrap_or(term);
+    }
+    if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
+        // The type as `fallback` will compare it: with no implicit
+        // parameters left to insert (they'd be made again there).
+        let implicit_next = matches!(
+            force(cx.g(), ty.clone())?,
+            Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
+        );
+        if implicit_next || !crate::undo::unify(cx, &ty, expected)? {
+            return Err(first_error.take().expect("set when the lambda was put off"));
+        }
+        for (value, dom, placeholder, id) in after_expected {
+            let checked = check(cx, value, &dom)?;
+            let evaluated = cx.eval(&checked)?;
+            if !cx.unify(&evaluated, &placeholder)? {
+                return Err(cx.mismatch(&placeholder, &evaluated));
+            }
+            term = fill_placeholder(&term, id, &checked).unwrap_or(term);
+        }
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
@@ -2308,7 +2365,7 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     {
         return found;
     }
-    let (term, found) = infer(cx, expr)?;
+    let (term, found) = infer_expecting(cx, expr, expected)?;
     let (term, found) = insert(cx, term, found)?;
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
@@ -2319,6 +2376,29 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         result => result,
     }
+}
+
+/// [`infer`]s the application `expr`, which is checked against `expected`
+/// afterwards: a lambda argument that fails where its type has unknowns is
+/// checked again after the application's type is compared with `expected`
+/// (`apply_args_postponing`). Its result type may depend on the arguments, so it
+/// couldn't be compared first (`propagate`): `List.mapCong _ _ xs (x => …)`
+/// against `List.map f xs = List.map g xs`.
+fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term, Value)> {
+    let key = match spine(expr).1.last() {
+        Some(Arg::Explicit(last)) => std::ptr::from_ref(*last) as usize,
+        _ => return infer(cx, expr),
+    };
+    if matches!(
+        force(cx.g(), expected.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        return infer(cx, expr);
+    }
+    let outer = cx.e.app_expected.replace(Some((key, expected.clone())));
+    let result = infer(cx, expr);
+    *cx.e.app_expected.borrow_mut() = outer;
+    result
 }
 
 /// A call that is still a function where something else is expected (a

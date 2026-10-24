@@ -166,6 +166,7 @@ impl Elaborator {
             dot_heads,
             dot_failed,
             condition,
+            app_expected,
             decreasing,
             recursion,
             records,
@@ -244,6 +245,7 @@ impl Elaborator {
         *dot_heads.get_mut() = mark.dot_heads.clone();
         *dot_failed.get_mut() = mark.dot_failed.clone();
         condition.set(0);
+        *app_expected.get_mut() = None;
         *decreasing.get_mut() = None;
         *recursion = mark.recursion.clone();
         records.retain(|d, _| d.0 < datas);
