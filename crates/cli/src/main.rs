@@ -48,6 +48,14 @@ enum Command {
         /// output for `-`. One file or any number of namespaces
         #[arg(long, value_name = "FILE")]
         index: Option<String>,
+        /// Also search every theorem's statement for a counterexample, its
+        /// proof checked or not, and print a line for each: one found, none
+        /// found in so many cases (evidence, not a proof), gave up, or not
+        /// applicable (docs/proposals/counterexample-search.md §7.3). A
+        /// counterexample to a theorem that checked means something is
+        /// wrong: an axiom, the compiler, or the search
+        #[arg(long)]
+        counterexamples: bool,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -221,8 +229,15 @@ fn run(cli: Cli) -> ExitCode {
             targets,
             project,
             index,
+            counterexamples,
             cache,
-        } => check(&targets, project.as_deref(), index.as_deref(), &cache),
+        } => check(
+            &targets,
+            project.as_deref(),
+            index.as_deref(),
+            counterexamples,
+            &cache,
+        ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
                 print!("{text}");
@@ -537,6 +552,7 @@ fn check(
     targets: &[String],
     project: Option<&Path>,
     index: Option<&str>,
+    counterexamples: bool,
     cache: &CacheArgs,
 ) -> ExitCode {
     let files = targets.iter().filter(|t| is_file_target(t)).count();
@@ -570,6 +586,9 @@ fn check(
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
+            if counterexamples {
+                ok = search_counterexamples(&mut session, &|_| true) && ok;
+            }
             discard(session);
         }
         return exit(ok);
@@ -597,8 +616,62 @@ fn check(
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
     }
+    if counterexamples {
+        // The theorems of the namespaces named, and those under them.
+        let keep = |path: &str| {
+            targets.is_empty()
+                || targets.iter().any(|t| {
+                    path.strip_prefix(t.as_str())
+                        .is_some_and(|rest| rest.starts_with('.'))
+                })
+        };
+        ok = search_counterexamples(&mut session, &keep) && ok;
+    }
     discard(session);
     exit(ok)
+}
+
+/// `check --counterexamples` (D1159, docs/proposals/counterexample-search.md
+/// §7.3, §9.3): searches the statement of every theorem `keep` keeps, and
+/// prints a line for each and a summary. `false` if a counterexample was
+/// found.
+fn search_counterexamples(session: &mut Session, keep: &dyn Fn(&str) -> bool) -> bool {
+    use stitchwort_cli::counterexample::Verdict;
+    use stitchwort_elab::counterexample::ON_REQUEST;
+    let searches = session.search_theorems(ON_REQUEST, keep);
+    let width = searches.iter().map(|s| s.name.len()).max().unwrap_or(0);
+    let mut counts = [0usize; 5];
+    for search in &searches {
+        let (verdict, line) = search.verdict();
+        counts[verdict as usize] += 1;
+        let mark = match verdict {
+            Verdict::False => "✗",
+            Verdict::NoneFound => "~",
+            _ => "-",
+        };
+        println!("  {mark} {:width$}  {line}", search.name);
+        // On a theorem that checked, a counterexample means something is
+        // wrong (§7.3): say what.
+        if search.checked
+            && let Some(note) = &search.note
+        {
+            println!(
+                "      this theorem checked, so an axiom it uses, the compiler or the search is \
+                 wrong; please report it:"
+            );
+            for line in note.lines() {
+                println!("      {line}");
+            }
+        }
+    }
+    let total = searches.len();
+    let [false_, none, gave_up, inconclusive, not_applicable] = counts;
+    eprintln!(
+        "searched {total} theorem{} for counterexamples: {false_} false, {none} with none found, \
+         {gave_up} gave up, {inconclusive} inconclusive, {not_applicable} not applicable",
+        if total == 1 { "" } else { "s" }
+    );
+    false_ == 0
 }
 
 /// Ends with a session that's no longer needed without freeing it: the

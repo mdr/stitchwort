@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-word-edge.sw:6:43 ]
+   │
+ 6 │ theorem wrapKeeps (n: Nat): wrap n = n := rfl
+   │                                           ─┬─  
+   │                                            ╰─── `wrap n` and `n` aren't equal
+   │ 
+   │ Note 1: computing the left side gives `Decidable.elim (Bool.decTrue (Nat.leq n 18446744073709551615)) (_ => n) (_ => 0)`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           n = 18446744073709551616
+   │         `wrap n = n` is false:
+   │           left:  0
+   │           right: 18446744073709551616
+───╯

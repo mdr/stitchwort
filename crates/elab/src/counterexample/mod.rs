@@ -1,10 +1,12 @@
-//! Counterexample search, stage 1 (docs/proposals/counterexample-search.md,
-//! D1154-D1159).
+//! Counterexample search (docs/proposals/counterexample-search.md,
+//! D1154-D1159), stages 1 and 2.
 //!
 //! When a theorem's statement checks but its proof doesn't (or its whole
-//! proof is `?`), the statement is tried on small inputs, smallest first.
-//! An input that makes every hypothesis true and the conclusion false is a
-//! counterexample: the statement is false, and the error says so in a note.
+//! proof is `?`), the statement is tried on inputs: small ones first, then
+//! random larger ones. An input that makes every hypothesis true and the
+//! conclusion false is a counterexample: the statement is false, and the
+//! error says so in a note. `stitchwort check --counterexamples` runs the
+//! same search on every theorem, with a larger budget (D1159).
 //!
 //! - The statement is turned into a *checker* (§6.1), an ordinary closed
 //!   term: a function of the statement's data parameters to a `Nat`, `j` if
@@ -15,35 +17,55 @@
 //!   Type parameters are `Nat` (D1157); instance parameters are found at
 //!   `Nat`. A statement nothing decides, or with a parameter there are no
 //!   inputs for, is out of scope: nothing is said.
-//! - Inputs are enumerated from the parameters' types (§5): numbers by
-//!   value, and every data type and record of the program by its
-//!   constructors, smallest total size first, so the first counterexample is
-//!   a smallest one. A type with indices, a function field, or a proof or
-//!   type field has no inputs in stage 1 (§5.4); `Map` and `Set` (quotients)
-//!   neither.
+//! - Inputs come from the parameters' types ([`inputs`], §5): first every
+//!   input up to a size, smallest total size first, so a counterexample
+//!   found then is a smallest one; then random inputs of a growing size,
+//!   seeded from the statement, and a counterexample found then is shrunk
+//!   (§5.5).
 //! - The checker runs on the fast runtime when the host gives one
 //!   ([`FastRunner`], the driver's), else on the reference evaluator, as
 //!   tests do; a counterexample is run again on the reference evaluator
-//!   before it's shown (§6.2). At most [`MAX_INPUTS`] inputs, and about
-//!   [`TIME_LIMIT_MS`] milliseconds where there's a clock (D1154).
+//!   before it's shown (§6.2). A [`Budget`] limits the inputs and, where
+//!   there's a clock, the time (D1154).
 //! - It's advisory: nothing here makes a declaration check, and finding no
-//!   counterexample is never shown (§8).
+//!   counterexample is never shown on a failing proof (§8).
 
-use std::cell::RefCell;
-use std::collections::HashMap;
+mod inputs;
+
 use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force, quote};
-use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value};
+use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, Name, Sort, Term, Value};
 
 use crate::check::{Ctx, builtin_data, builtin_def};
 use crate::{Elaborator, shown};
+use inputs::{Inputs, Rng};
 
-/// The most inputs one search tries (§6.3).
+/// How much one search may do (§6.3): inputs tried (half enumerated, half
+/// random), and wall time where there's a clock.
+#[derive(Clone, Copy, Debug)]
+pub struct Budget {
+    pub inputs: usize,
+    pub millis: u64,
+}
+
+/// The search on a failing proof (D1154).
+pub const ON_FAILURE: Budget = Budget {
+    inputs: MAX_INPUTS,
+    millis: TIME_LIMIT_MS,
+};
+
+/// The search `check --counterexamples` runs on each theorem (§6.3).
+pub const ON_REQUEST: Budget = Budget {
+    inputs: 10_000,
+    millis: 2_000,
+};
+
+/// The most inputs a search on a failing proof tries (§6.3).
 pub const MAX_INPUTS: usize = 2000;
 
-/// The wall-time backstop of one search, where there's a clock (§6.3).
+/// The wall-time backstop of a search on a failing proof (§6.3).
 pub const TIME_LIMIT_MS: u64 = 200;
 
 /// Evaluation steps one input may take on the fast runtime.
@@ -61,14 +83,12 @@ const CONFIRM_STEPS: u64 = 50_000_000;
 const OUT_OF_STEPS_IN_A_ROW: usize = 20;
 const OUT_OF_STEPS: usize = 50;
 
-/// The largest total input size enumerated.
-const MAX_SIZE: usize = 100;
+/// The size the random inputs grow to (§5.1): a random list is up to this
+/// long, a random number up to this large (or at a machine word's edge).
+pub const RANDOM_SIZE: usize = 40;
 
-/// The most values of one type and size enumerated.
-const TIER_CAP: usize = 4 * MAX_INPUTS;
-
-/// The most data types one search makes inputs for.
-const MAX_PLANS: usize = 64;
+/// The most rounds of shrinking (§5.5).
+const SHRINK_ROUNDS: usize = 200;
 
 /// Runs a checker on the fast runtime: `checker` applied to each of
 /// `inputs` in turn (closed terms, one per data parameter), telling `each`
@@ -90,25 +110,46 @@ pub enum Runner {
     Reference,
 }
 
-/// What one search did, for tests and measurements.
-#[derive(Clone, Debug)]
+/// Which phase of a search found its counterexample (§5.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+    Enumerated,
+    Random,
+}
+
+/// What one search did, for tests, measurements and
+/// `check --counterexamples`.
+#[derive(Clone, Debug, Default)]
 pub struct SearchLog {
     /// The theorem's name.
     pub theorem: String,
     /// Why it wasn't searched, if it wasn't (out of scope).
     pub out_of_scope: Option<String>,
     pub runner: Option<Runner>,
-    /// Inputs enumerated, and those run.
+    /// Inputs enumerated, and those run (enumerated and random).
     pub inputs: usize,
     pub tried: usize,
+    /// Random inputs run.
+    pub random: usize,
     /// Inputs some hypothesis was false for.
     pub discarded: usize,
     pub out_of_steps: usize,
-    /// The counterexample's bindings as shown, if one was found.
+    /// The largest total size enumerated, and the size random inputs grew
+    /// to.
+    pub enumerated_size: usize,
+    pub random_size: usize,
+    /// Whether the enumeration covered every input there is.
+    pub exhaustive: bool,
+    /// The counterexample's bindings as shown, if one was found; the phase
+    /// that found it; and how many times it was shrunk.
     pub found: Option<Vec<String>>,
+    pub found_by: Option<Phase>,
+    pub shrinks: usize,
     /// Whether the fast runtime's counterexample was not confirmed by the
     /// reference evaluator (an internal error).
     pub disagreed: bool,
+    /// Whether the time limit stopped it.
+    pub timed_out: bool,
     /// Microseconds the search took, where there's a clock.
     pub micros: Option<u64>,
 }
@@ -145,6 +186,16 @@ struct Checker {
     slots: Vec<Slot>,
 }
 
+/// How a batch of inputs ran.
+struct Batch {
+    /// The index of the first counterexample.
+    found: Option<usize>,
+    /// Whether the fast runtime ran it.
+    fast: bool,
+    /// Whether too many inputs ran out of steps.
+    stopped: bool,
+}
+
 /// What one of a statement's binders stands for in the checker.
 enum Slot {
     /// Input `i`.
@@ -164,6 +215,20 @@ impl Elaborator {
         if self.no_counterexamples {
             return None;
         }
+        let (log, note) = self.search_counterexample(def, ON_FAILURE);
+        self.counterexample_log.borrow_mut().push(log);
+        note
+    }
+
+    /// Searches the statement of theorem `def`, whether its proof checked
+    /// or not, within `budget` (`check --counterexamples` runs it on every
+    /// theorem, D1159): what the search did, and the note if it found a
+    /// counterexample. Leaves the metavariables cleared.
+    pub fn search_counterexample(
+        &mut self,
+        def: DefId,
+        budget: Budget,
+    ) -> (SearchLog, Option<String>) {
         let started = clock::now();
         let theorem = self.globals.def(def).name.to_string();
         let saved = self.globals.budget.start(self.limits);
@@ -173,35 +238,24 @@ impl Elaborator {
         self.globals.budget.restore(saved);
         let mut log = SearchLog {
             theorem,
-            out_of_scope: None,
-            runner: None,
-            inputs: 0,
-            tried: 0,
-            discarded: 0,
-            out_of_steps: 0,
-            found: None,
-            disagreed: false,
-            micros: None,
+            ..SearchLog::default()
         };
         let checker = match built {
             Ok(checker) => checker,
             Err(why) => {
                 log.out_of_scope = Some(why);
-                self.counterexample_log.borrow_mut().push(log);
-                return None;
+                return (log, None);
             }
         };
         // Building a checker declares nothing (§12); were it ever to, the
         // search stops there.
         if datas != (self.globals.defs.len(), self.globals.datas.len()) {
             log.out_of_scope = Some("building the checker declared something".to_string());
-            self.counterexample_log.borrow_mut().push(log);
-            return None;
+            return (log, None);
         }
-        let note = self.run_search(&checker, started, &mut log);
+        let note = self.run_search(&checker, budget, started, &mut log);
         log.micros = clock::elapsed_micros(started);
-        self.counterexample_log.borrow_mut().push(log);
-        note
+        (log, note)
     }
 
     /// Whether the theorem `def`'s statement is in scope for the search:
@@ -212,7 +266,7 @@ impl Elaborator {
         let built = self.build_checker(def).and_then(|checker| {
             let g = &self.globals;
             let _op = g.budget.operation(self.limits);
-            let mut inputs = Enumerator::new(g);
+            let mut inputs = Inputs::new(g, 4 * MAX_INPUTS);
             for (name, ty) in &checker.params {
                 if inputs.plan(ty).is_none() {
                     return Err(format!("no inputs for `{name}`"));
@@ -364,21 +418,24 @@ impl Elaborator {
         })
     }
 
-    /// Runs the search for `checker`, and makes the note if it finds a
-    /// counterexample.
+    /// Runs the search for `checker` within `budget`, and makes the note if
+    /// it finds a counterexample: every input up to a size first, then
+    /// random ones of a growing size, a random counterexample shrunk
+    /// (§5.1, §5.5).
     fn run_search(
         &self,
         checker: &Checker,
+        budget: Budget,
         started: Option<clock::Instant>,
         log: &mut SearchLog,
     ) -> Option<String> {
         let g = &self.globals;
-        let inputs = {
+        let mut inputs = Inputs::new(g, 4 * budget.inputs);
+        let mut plans = Vec::new();
+        {
             let _op = g.budget.operation(self.limits);
-            let mut enumerator = Enumerator::new(g);
-            let mut plans = Vec::new();
             for (name, ty) in &checker.params {
-                match enumerator.plan(ty) {
+                match inputs.plan(ty) {
                     Some(plan) => plans.push(plan),
                     None => {
                         log.out_of_scope = Some(format!("no inputs for `{name}`"));
@@ -386,58 +443,94 @@ impl Elaborator {
                     }
                 }
             }
-            enumerator.inputs(&plans, MAX_INPUTS)
+        }
+        let inputs = inputs;
+        // Phase 1: every input up to a size, in at most two fifths of the
+        // time.
+        let (enumerated, largest, exhaustive) = {
+            let _op = g.budget.operation(self.limits);
+            inputs.enumerate(&plans, budget.inputs.div_ceil(2))
         };
-        log.inputs = inputs.len();
-        let falsified = checker.hypotheses as u64 + 1;
-        let mut found = None;
-        let mut in_a_row = 0;
-        let mut each = |i: usize, result: Option<u64>| -> bool {
-            log.tried += 1;
-            match result {
-                Some(code) if code == falsified => {
-                    found = Some(i);
-                    return false;
-                }
-                Some(code) if code < falsified - 1 => log.discarded += 1,
-                Some(_) => {}
-                None => log.out_of_steps += 1,
-            }
-            in_a_row = if result.is_none() { in_a_row + 1 } else { 0 };
-            in_a_row < OUT_OF_STEPS_IN_A_ROW
-                && log.out_of_steps < OUT_OF_STEPS
-                && !clock::past(started, TIME_LIMIT_MS)
-        };
-        let fast = match self.counterexample_runner {
-            Some(run) if !checker.params.is_empty() => {
-                run(g, self.limits, &checker.term, &inputs, &mut each)
-            }
-            _ => false,
-        };
-        log.runner = Some(if fast {
+        log.inputs = enumerated.len();
+        log.enumerated_size = largest;
+        log.exhaustive = exhaustive;
+        let first = self.run_batch(
+            checker,
+            &enumerated,
+            started,
+            budget.millis * 2 / 5,
+            true,
+            log,
+        )?;
+        log.runner = Some(if first.fast {
             Runner::Fast
         } else {
             Runner::Reference
         });
-        if !fast {
-            for (i, input) in inputs.iter().enumerate() {
-                let result = match self.run_reference(checker, input, REFERENCE_STEPS) {
-                    Ok(result) => result,
-                    // Cancelled: no answer.
-                    Err(()) => return None,
-                };
-                if !each(i, result) {
+        let mut found = first
+            .found
+            .map(|i| (enumerated[i].clone(), first.fast, Phase::Enumerated));
+        // Phase 2: random inputs, sizes growing to `RANDOM_SIZE`, until
+        // four fifths of the time.
+        let more = budget.inputs.saturating_sub(log.tried);
+        if found.is_none() && !first.stopped && !exhaustive && !plans.is_empty() && more > 0 {
+            let mut rng = Rng::new(Rng::seed_of(&format!(
+                "{:?} {:?} {}",
+                checker
+                    .params
+                    .iter()
+                    .map(|(x, _)| x.to_string())
+                    .collect::<Vec<_>>(),
+                checker.shown_hypotheses,
+                checker.shown_conclusion
+            )));
+            let random: Vec<Vec<Term>> = {
+                let _op = g.budget.operation(self.limits);
+                (0..more)
+                    .filter_map(|i| {
+                        let size = 1 + i * RANDOM_SIZE / more.max(1);
+                        log.random_size = log.random_size.max(size);
+                        inputs.random_tuple(&plans, size, &mut rng)
+                    })
+                    .collect()
+            };
+            let before = log.tried;
+            let batch =
+                self.run_batch(checker, &random, started, budget.millis * 4 / 5, true, log)?;
+            log.random = log.tried - before;
+            found = batch
+                .found
+                .map(|i| (random[i].clone(), batch.fast, Phase::Random));
+        }
+        let (mut input, mut fast, phase) = found?;
+        log.found_by = Some(phase);
+        // Shrinking (§5.5): the first smaller input that is still a
+        // counterexample, again and again, in the time left.
+        if phase == Phase::Random {
+            for _ in 0..SHRINK_ROUNDS {
+                if clock::past(started, budget.millis) {
+                    log.timed_out = true;
                     break;
                 }
+                let candidates = {
+                    let _op = g.budget.operation(self.limits);
+                    inputs.shrink_tuple(&plans, &input)
+                };
+                let batch =
+                    self.run_batch(checker, &candidates, started, budget.millis, false, log)?;
+                let Some(i) = batch.found else { break };
+                input = candidates[i].clone();
+                fast = batch.fast;
+                log.shrinks += 1;
             }
         }
-        let input = &inputs[found?];
+        let falsified = checker.hypotheses as u64 + 1;
         // Confirmed by the reference evaluator, the trusted semantics.
         let confirmed = matches!(
-            self.run_reference(checker, input, CONFIRM_STEPS),
+            self.run_reference(checker, &input, CONFIRM_STEPS),
             Ok(Some(code)) if code == falsified
         );
-        let bindings = self.show_inputs(checker, input);
+        let bindings = self.show_inputs(checker, &inputs, &plans, &input);
         if !confirmed {
             if fast {
                 log.disagreed = true;
@@ -450,7 +543,76 @@ impl Elaborator {
             return None;
         }
         log.found = Some(bindings.clone());
-        Some(self.counterexample_text(checker, input, &bindings))
+        Some(self.counterexample_text(checker, &input, &bindings))
+    }
+
+    /// Runs `checker` on each of `inputs`, on the fast runtime if it can,
+    /// until one is a counterexample or `until_ms` milliseconds have passed
+    /// since `started`; if `counted`, each is counted in `log`, and too
+    /// many running out of steps stops it. `None` if the check was
+    /// cancelled.
+    fn run_batch(
+        &self,
+        checker: &Checker,
+        inputs: &[Vec<Term>],
+        started: Option<clock::Instant>,
+        until_ms: u64,
+        counted: bool,
+        log: &mut SearchLog,
+    ) -> Option<Batch> {
+        let g = &self.globals;
+        let falsified = checker.hypotheses as u64 + 1;
+        let mut found = None;
+        let mut stopped = false;
+        let mut timed_out = false;
+        let mut in_a_row = 0;
+        let mut each = |i: usize, result: Option<u64>| -> bool {
+            if counted {
+                log.tried += 1;
+                match result {
+                    Some(code) if code < falsified - 1 => log.discarded += 1,
+                    None => log.out_of_steps += 1,
+                    Some(_) => {}
+                }
+            }
+            if result == Some(falsified) {
+                found = Some(i);
+                return false;
+            }
+            in_a_row = if result.is_none() { in_a_row + 1 } else { 0 };
+            if counted && (in_a_row >= OUT_OF_STEPS_IN_A_ROW || log.out_of_steps >= OUT_OF_STEPS) {
+                stopped = true;
+                return false;
+            }
+            if clock::past(started, until_ms) {
+                timed_out = true;
+                return false;
+            }
+            true
+        };
+        let fast = match self.counterexample_runner {
+            Some(run) if !checker.params.is_empty() && !inputs.is_empty() => {
+                run(g, self.limits, &checker.term, inputs, &mut each)
+            }
+            _ => false,
+        };
+        if !fast {
+            for (i, input) in inputs.iter().enumerate() {
+                // Cancelled: no answer.
+                let result = self.run_reference(checker, input, REFERENCE_STEPS).ok()?;
+                if !each(i, result) {
+                    break;
+                }
+            }
+        }
+        if timed_out {
+            log.timed_out = true;
+        }
+        Some(Batch {
+            found,
+            fast,
+            stopped,
+        })
     }
 
     /// `checker` applied to `input` on the reference evaluator, within
@@ -480,13 +642,33 @@ impl Elaborator {
         }
     }
 
-    /// Each input as `name = value`.
-    fn show_inputs(&self, checker: &Checker, input: &[Term]) -> Vec<String> {
+    /// Each input as `name = value`. A map is shown as the `Map.fromList`
+    /// it was made by, and a `Fin` as its number, rather than as their
+    /// values.
+    fn show_inputs(
+        &self,
+        checker: &Checker,
+        inputs: &Inputs,
+        plans: &[usize],
+        input: &[Term],
+    ) -> Vec<String> {
+        let g = &self.globals;
         checker
             .params
             .iter()
-            .zip(input)
-            .map(|((name, _), term)| format!("{name} = {}", self.show_closed(term)))
+            .zip(plans.iter().zip(input))
+            .map(|((name, _), (plan, term))| {
+                let shown = if inputs.shown_as_term(*plan) {
+                    shown::cut(&stitchwort_core::pretty::term_for_message(
+                        g,
+                        &[],
+                        &inputs.shown(*plan, term),
+                    ))
+                } else {
+                    self.show_closed(term)
+                };
+                format!("{name} = {shown}")
+            })
             .collect()
     }
 
@@ -498,6 +680,12 @@ impl Elaborator {
             work: CONFIRM_STEPS,
             ..self.limits
         });
+        // In full first, so a `Float` keeps the proof it prints by.
+        if let Ok(t) = eval(g, &[], term).and_then(|v| quote(g, 0, &v))
+            && is_data(&t)
+        {
+            return shown::cut(&stitchwort_core::pretty::term(g, &[], &t));
+        }
         let _erasing = g.erasure.running();
         self.shown_value(eval(g, &[], term).ok()).0
     }
@@ -690,261 +878,6 @@ fn assemble(
     Ok(body)
 }
 
-/// The values of one type of one size.
-type Tier = Rc<Vec<Term>>;
-
-/// How the values of one type are enumerated.
-enum Plan {
-    /// Being worked out (a recursive type refers to itself).
-    Pending,
-    /// No inputs: some part of it has none.
-    Failed,
-    Nat,
-    Int {
-        int: DataId,
-    },
-    /// A data type or record: for each constructor, its fields' plans.
-    Data {
-        data: DataId,
-        ctors: Vec<Vec<usize>>,
-    },
-}
-
-/// Enumerates the values of types by size (§5.2): a number's size is its
-/// value, a constructor without fields has size 0, and one with fields
-/// 1 plus theirs. Values of each size are made once.
-struct Enumerator<'g> {
-    g: &'g Globals,
-    plans: Vec<Plan>,
-    keys: HashMap<String, usize>,
-    tiers: RefCell<HashMap<(usize, usize), Tier>>,
-}
-
-impl<'g> Enumerator<'g> {
-    fn new(g: &'g Globals) -> Self {
-        Enumerator {
-            g,
-            plans: Vec::new(),
-            keys: HashMap::new(),
-            tiers: RefCell::new(HashMap::new()),
-        }
-    }
-
-    /// The plan for closed type `ty`, if it has inputs.
-    fn plan(&mut self, ty: &Value) -> Option<usize> {
-        let g = self.g;
-        let ty = force(g, ty.clone()).ok()?;
-        let Value::Data(d, args) = &ty else {
-            return None;
-        };
-        let key = stitchwort_core::pretty::term(g, &[], &quote(g, 0, &ty).ok()?);
-        if let Some(&plan) = self.keys.get(&key) {
-            return match self.plans[plan] {
-                Plan::Failed => None,
-                _ => Some(plan),
-            };
-        }
-        if self.plans.len() >= MAX_PLANS {
-            return None;
-        }
-        let at = self.plans.len();
-        self.keys.insert(key, at);
-        let is = |b: Builtin| g.registry.is_data(b, *d);
-        if is(Builtin::Nat) {
-            self.plans.push(Plan::Nat);
-            return Some(at);
-        }
-        self.plans.push(Plan::Pending);
-        let plan = if is(Builtin::Int) {
-            Some(Plan::Int { int: *d })
-        } else {
-            self.data_plan(*d, args)
-        };
-        match plan {
-            Some(plan) => {
-                self.plans[at] = plan;
-                Some(at)
-            }
-            None => {
-                self.plans[at] = Plan::Failed;
-                None
-            }
-        }
-    }
-
-    /// The plan for data type `d` applied to `args`.
-    fn data_plan(&mut self, d: DataId, args: &[Value]) -> Option<Plan> {
-        let g = self.g;
-        let data = g.data(d);
-        if !data.indices.is_empty() || data.sort == Sort::Prop || args.len() != data.params.len() {
-            return None;
-        }
-        let mut ctors = Vec::new();
-        for ctor in &data.ctors {
-            let mut env: Vec<Value> = args.to_vec();
-            let mut fields = Vec::new();
-            for (j, ((_, field_ty), erased)) in
-                ctor.fields.iter().zip(&ctor.field_erased).enumerate()
-            {
-                // A proof or type field (stage 1), or one whose type
-                // depends on an earlier field.
-                if *erased || (0..j).any(|ix| field_ty.mentions(ix)) {
-                    return None;
-                }
-                let field = eval(g, &env, field_ty).ok()?;
-                fields.push(self.plan(&field)?);
-                env.push(Value::var(args.len() + j));
-            }
-            ctors.push(fields);
-        }
-        Some(Plan::Data { data: d, ctors })
-    }
-
-    /// The values of plan `plan` of size `size`, at most [`TIER_CAP`].
-    fn tier(&self, plan: usize, size: usize) -> Tier {
-        if let Some(tier) = self.tiers.borrow().get(&(plan, size)) {
-            return tier.clone();
-        }
-        let number = |n: usize| Term::Nat(Rc::new(BigUint::from(n)));
-        let values = match &self.plans[plan] {
-            Plan::Pending | Plan::Failed => Vec::new(),
-            Plan::Nat => vec![number(size)],
-            // 0, 1, -1, 2, -2, …: `OfNat n` and `NegSucc (n - 1)`.
-            Plan::Int { int } => {
-                let mut values = vec![Term::ctor(*int, 0, vec![number(size)])];
-                if size > 0 {
-                    values.push(Term::ctor(*int, 1, vec![number(size - 1)]));
-                }
-                values
-            }
-            Plan::Data { data, ctors } => {
-                let mut values = Vec::new();
-                for (c, fields) in ctors.iter().enumerate() {
-                    if fields.is_empty() {
-                        if size == 0 {
-                            values.push(Term::ctor(*data, c, Vec::new()));
-                        }
-                    } else if size > 0 {
-                        self.products(fields, size - 1, TIER_CAP, &mut |parts| {
-                            values.push(Term::ctor(*data, c, parts));
-                            values.len() < TIER_CAP
-                        });
-                    }
-                    if values.len() >= TIER_CAP {
-                        break;
-                    }
-                }
-                values
-            }
-        };
-        let values = Rc::new(values);
-        self.tiers.borrow_mut().insert((plan, size), values.clone());
-        values
-    }
-
-    /// Calls `each` with every tuple of values of `plans` whose sizes add up
-    /// to `total`, in order (the first plan's smallest first), until it says
-    /// to stop or `limit` tuples have been made. Whether it stopped.
-    fn products(
-        &self,
-        plans: &[usize],
-        total: usize,
-        limit: usize,
-        each: &mut dyn FnMut(Vec<Term>) -> bool,
-    ) -> bool {
-        let mut made = 0;
-        let mut sizes = vec![0; plans.len()];
-        let mut stop = false;
-        compositions(total, plans.len(), &mut sizes, 0, &mut |sizes| {
-            let tiers: Vec<Tier> = plans
-                .iter()
-                .zip(sizes)
-                .map(|(p, s)| self.tier(*p, *s))
-                .collect();
-            if tiers.iter().any(|t| t.is_empty()) {
-                return true;
-            }
-            // Every combination, the last plan's value changing fastest.
-            let mut at = vec![0; tiers.len()];
-            loop {
-                let tuple = at.iter().zip(&tiers).map(|(i, t)| t[*i].clone()).collect();
-                made += 1;
-                if !each(tuple) || made >= limit {
-                    stop = true;
-                    return false;
-                }
-                let mut k = tiers.len();
-                loop {
-                    if k == 0 {
-                        return true;
-                    }
-                    k -= 1;
-                    at[k] += 1;
-                    if at[k] < tiers[k].len() {
-                        break;
-                    }
-                    at[k] = 0;
-                }
-            }
-        });
-        stop
-    }
-
-    /// Up to `max` tuples of inputs for `plans`, smallest total size first.
-    fn inputs(&self, plans: &[usize], max: usize) -> Vec<Vec<Term>> {
-        if plans.is_empty() {
-            return vec![Vec::new()];
-        }
-        let mut out = Vec::new();
-        let mut empty_sizes = 0;
-        for total in 0..=MAX_SIZE {
-            let before = out.len();
-            let stopped = self.products(plans, total, max - out.len(), &mut |tuple| {
-                out.push(tuple);
-                out.len() < max
-            });
-            if stopped || out.len() >= max {
-                break;
-            }
-            // Only finitely many values (all `Bool`s, say): done.
-            empty_sizes = if out.len() == before {
-                empty_sizes + 1
-            } else {
-                0
-            };
-            if empty_sizes > 8 {
-                break;
-            }
-        }
-        out
-    }
-}
-
-/// Calls `each` with every way of writing `total` as `parts` sizes, in
-/// order, until it says to stop. Whether it was told to stop.
-fn compositions(
-    total: usize,
-    parts: usize,
-    sizes: &mut Vec<usize>,
-    from: usize,
-    each: &mut dyn FnMut(&[usize]) -> bool,
-) -> bool {
-    if from + 1 >= parts {
-        if parts == 0 {
-            return total != 0 || each(sizes);
-        }
-        sizes[from] = total;
-        return each(sizes);
-    }
-    for size in 0..=total {
-        sizes[from] = size;
-        if !compositions(total - size, parts, sizes, from + 1, each) {
-            return false;
-        }
-    }
-    true
-}
-
 /// A clock where there is one: none in WebAssembly, where the count of
 /// inputs is the only limit.
 mod clock {
@@ -974,40 +907,5 @@ mod clock {
             let _ = start;
             None
         };
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::compositions;
-
-    fn all(total: usize, parts: usize) -> Vec<Vec<usize>> {
-        let mut found = Vec::new();
-        let mut sizes = vec![0; parts];
-        compositions(total, parts, &mut sizes, 0, &mut |s| {
-            found.push(s.to_vec());
-            true
-        });
-        found
-    }
-
-    #[test]
-    fn sizes_are_split_every_way_the_first_smallest_first() {
-        assert_eq!(all(2, 2), [[0, 2], [1, 1], [2, 0]]);
-        assert_eq!(all(1, 3), [[0, 0, 1], [0, 1, 0], [1, 0, 0]]);
-        assert_eq!(all(3, 1), [[3]]);
-        assert_eq!(all(0, 2), [[0, 0]]);
-    }
-
-    #[test]
-    fn splitting_stops_when_told() {
-        let mut seen = 0;
-        let mut sizes = vec![0; 2];
-        let finished = compositions(5, 2, &mut sizes, 0, &mut |_| {
-            seen += 1;
-            seen < 3
-        });
-        assert!(!finished);
-        assert_eq!(seen, 3);
     }
 }

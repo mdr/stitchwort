@@ -1,0 +1,81 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-library-types.sw:8:61 ]
+   │
+ 8 │ theorem equalsItself (x: Float): Float.ieeeEq x x = True := rfl
+   │                                                             ─┬─  
+   │                                                              ╰─── `Float.ieeeEq x x` and `True` aren't equal
+   │ 
+   │ Note 1: computing the left side gives `if Bool.not (Nat.equal x.bits 9221120237041090560) then if Nat.equal x.bits x.bits then True else if if … then … else … then if … then … else … else False else False`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           x = Float.nan
+   │         `Float.ieeeEq x x = True` is false:
+   │           left:  False
+   │           right: True
+───╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/counterexample-library-types.sw:10:50 ]
+    │
+ 10 │ theorem belowFour (i: Fin 5): Fin.toNat i < 4 := rfl
+    │                                                  ─┬─  
+    │                                                   ╰─── `Nat.leq (Fin.toNat i) 3` and `True` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           i = 4
+    │         `Fin.toNat i < 4` is false
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/counterexample-library-types.sw:12:54 ]
+    │
+ 12 │ theorem headIsZero (v: Vec Nat 3): Vec.head v = 0 := rfl
+    │                                                      ─┬─  
+    │                                                       ╰─── `Vec.head v` and `0` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           v = Vec.fromList [1, 0, 0]
+    │         `Vec.head v = 0` is false:
+    │           left:  1
+    │           right: 0
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/counterexample-library-types.sw:14:54 ]
+    │
+ 14 │ theorem mapEmpty (m: Map Nat Nat): Map.size m = 0 := rfl
+    │                                                      ─┬─  
+    │                                                       ╰─── `Map.size m` and `0` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           m = Map.fromList [(0, 0)]
+    │         `Map.size m = 0` is false:
+    │           left:  1
+    │           right: 0
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/counterexample-library-types.sw:16:50 ]
+    │
+ 16 │ theorem setEmpty (s: Set Nat): Set.size s = 0 := rfl
+    │                                                  ─┬─  
+    │                                                   ╰─── `Set.size s` and `0` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `Map.size s.items`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           s = { items = Map.fromList [(0, ())] }
+    │         `Set.size s = 0` is false:
+    │           left:  1
+    │           right: 0
+────╯

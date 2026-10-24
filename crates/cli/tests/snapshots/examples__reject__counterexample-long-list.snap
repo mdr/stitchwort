@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-long-list.sw:9:51 ]
+   │
+ 9 │ theorem oneChunk (xs: List Nat): chunks xs = 1 := rfl
+   │                                                   ─┬─  
+   │                                                    ╰─── `chunks xs` and `1` aren't equal
+   │ 
+   │ Note 1: computing the left side gives `Decidable.elim (Bool.decTrue (Nat.leq (List.length xs) 11)) (_ => 1) (_ => 2)`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           xs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+   │         `chunks xs = 1` is false:
+   │           left:  2
+   │           right: 1
+───╯

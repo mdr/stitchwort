@@ -7,8 +7,9 @@
 
 use std::path::Path;
 
+use stitchwort_driver::counterexample::Verdict;
 use stitchwort_driver::driver::{Session, with_stack};
-use stitchwort_elab::counterexample::{MAX_INPUTS, Runner, SearchLog};
+use stitchwort_elab::counterexample::{Budget, MAX_INPUTS, Phase, Runner, SearchLog};
 
 const STACK: usize = 16 * 1024 * 1024;
 
@@ -156,6 +157,148 @@ fn running_out_of_steps_on_every_input_says_nothing() {
     );
 }
 
+// Stage 2 (§10): random inputs, shrinking, more types.
+
+/// A counterexample needing a list of 12 elements is found by a random
+/// list and shrunk to a smallest one.
+#[test]
+fn a_long_list_is_found_at_random_and_shrunk() {
+    let log = only("reject/counterexample-long-list.sw");
+    assert_eq!(found(&log), ["xs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]"]);
+    assert_eq!(log.found_by, Some(Phase::Random), "{log:?}");
+    assert!(log.shrinks > 0, "{log:?}");
+    // Every input up to a size was tried first.
+    assert_eq!(log.tried - log.random, MAX_INPUTS / 2, "{log:?}");
+}
+
+/// A `Nat` bug at 2^64 is found: random numbers include a machine word's
+/// edges.
+#[test]
+fn a_bug_at_a_machine_words_edge_is_found() {
+    let log = only("reject/counterexample-word-edge.sw");
+    assert_eq!(found(&log), ["n = 18446744073709551616"]);
+    assert_eq!(log.found_by, Some(Phase::Random), "{log:?}");
+}
+
+/// A record with `(ok: lo <= hi)` never has `lo > hi`: the true statement
+/// about it holds on every input, none discarded, and the false one's
+/// counterexample is a range that exists.
+#[test]
+fn a_proof_field_is_kept_true() {
+    let (notes, log) = search("reject/counterexample-proof-field.sw", true);
+    assert_eq!(log.len(), 2, "{log:?}");
+    assert!(log[0].found.is_none(), "{:?}", log[0]);
+    assert_eq!(log[0].tried, MAX_INPUTS, "{:?}", log[0]);
+    assert!(log[0].random > 0 && log[0].discarded == 0, "{:?}", log[0]);
+    assert_eq!(found(&log[1]), ["r = { lo = 0, hi = 1, ok = rfl }"]);
+    assert_eq!(notes.len(), 1, "{notes:?}");
+}
+
+#[test]
+fn text_and_characters_are_inputs() {
+    let (_, log) = search("reject/counterexample-text.sw", true);
+    assert_eq!(found(&log[0]), ["t = \"ab\""]);
+    assert_eq!(log[0].found_by, Some(Phase::Enumerated));
+    // Found at random, and shrunk to the smallest character past ASCII.
+    assert_eq!(found(&log[1]), ["c = '\\u{80}'"]);
+    assert_eq!(log[1].found_by, Some(Phase::Random));
+}
+
+#[test]
+fn the_library_types_are_inputs() {
+    let (_, log) = search("reject/counterexample-library-types.sw", true);
+    let found: Vec<Vec<&str>> = log.iter().map(found).collect();
+    assert_eq!(
+        found,
+        [
+            vec!["x = Float.nan"],
+            vec!["i = 4"],
+            vec!["v = Vec.fromList [1, 0, 0]"],
+            vec!["m = Map.fromList [(0, 0)]"],
+            vec!["s = { items = Map.fromList [(0, ())] }"],
+        ]
+    );
+}
+
+/// The same statement gets the same random inputs every time (§5.1).
+#[test]
+fn the_random_inputs_are_the_same_every_time() {
+    let a = only("reject/counterexample-long-list.sw");
+    let b = only("reject/counterexample-long-list.sw");
+    assert_eq!((a.tried, a.shrinks), (b.tried, b.shrinks));
+}
+
+/// `check --counterexamples` (D1159): every theorem of the program is
+/// searched, its proof checked or not, each with a verdict.
+fn verdicts(name: &str) -> Vec<(String, bool, Verdict, String)> {
+    let text = example(name);
+    let name = name.to_string();
+    with_stack(STACK, move || {
+        let mut session = Session::for_stack(STACK);
+        let _ = session.load(&name, &text);
+        let budget = Budget {
+            inputs: 2000,
+            millis: 2000,
+        };
+        session
+            .search_theorems(budget, &|_| true)
+            .into_iter()
+            .map(|s| {
+                let (verdict, line) = s.verdict();
+                (s.name, s.checked, verdict, line)
+            })
+            .collect()
+    })
+}
+
+#[test]
+fn check_counterexamples_gives_every_theorem_a_verdict() {
+    let found = verdicts("reject/counterexample-proof-field.sw");
+    let rows: Vec<(&str, bool, Verdict)> = found
+        .iter()
+        .map(|(name, checked, verdict, _)| (name.as_str(), *checked, *verdict))
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            // The record's own extensionality theorem, which checks.
+            ("Range.ext", true, Verdict::GaveUp),
+            ("rangeOrdered", false, Verdict::NoneFound),
+            ("rangeEmpty", false, Verdict::False),
+        ],
+        "{found:?}"
+    );
+    assert_eq!(
+        found[1].3,
+        "none in 2000 cases (sizes up to 63; evidence, not a proof)"
+    );
+    assert_eq!(
+        found[2].3,
+        "counterexample: r = { lo = 0, hi = 1, ok = rfl }"
+    );
+    // Out of scope: said why.
+    let out = verdicts("reject/counterexample-out-of-scope.sw");
+    assert_eq!(out[0].2, Verdict::NotApplicable, "{out:?}");
+    assert_eq!(out[0].3, "not applicable: `f` is a function");
+}
+
+/// On theorems that check, no counterexample (a soundness canary, §7.3).
+#[test]
+fn theorems_that_check_have_no_counterexample() {
+    for name in ["accept/integers.sw", "accept/list-toolkit.sw"] {
+        let found = verdicts(name);
+        assert!(found.iter().all(|(_, checked, _, _)| *checked), "{name}");
+        assert!(
+            found.iter().all(|(_, _, v, _)| *v != Verdict::False),
+            "{name}: {found:?}"
+        );
+        assert!(
+            found.iter().any(|(_, _, v, _)| *v == Verdict::NoneFound),
+            "{name}: {found:?}"
+        );
+    }
+}
+
 /// Acceptance test 11: the reference evaluator, forced, finds the same
 /// counterexamples (and says the same) as the fast runtime.
 #[test]
@@ -168,6 +311,11 @@ fn the_fast_runtime_and_the_reference_evaluator_agree() {
         "reject/counterexample-record.sw",
         "reject/counterexample-polymorphic.sw",
         "goals/counterexample-at-hole.sw",
+        "reject/counterexample-long-list.sw",
+        "reject/counterexample-word-edge.sw",
+        "reject/counterexample-proof-field.sw",
+        "reject/counterexample-text.sw",
+        "reject/counterexample-library-types.sw",
     ] {
         let (fast_notes, fast) = search(name, true);
         let (reference_notes, reference) = search(name, false);

@@ -2,8 +2,9 @@
 
 **Status:** draft 1, 24 October 2026. **Decided (Matt, 24 Oct 2026): CE-1 to CE-6 each as recommended, recorded as D1154 to D1159** (D1154 run automatically on a failed proof, capped at 200 ms; D1155 property tests are `test` with parameters; D1156 generators built into the compiler first, a library interface for custom generators in stage 4; D1157 polymorphic statements tested at `Nat`, said in the report; D1158 shown as a note on the existing error; D1159 searching every theorem as typed comes later, with `check --counterexamples` meanwhile). Ticket SW-330; the intent was decided in D570 ("(a) plus
 (c)": search when a proof fails and at a `?`, plus explicit property tests, sharing
-generators; "(b)", searching every theorem as it's stated, later). **Stage 1 is built**
-(SW-330, 24 Oct 2026): see [As built (stage 1)](#as-built-stage-1). Decisions for the owner are in [§11](#11-decisions-for-the-owner);
+generators; "(b)", searching every theorem as it's stated, later). **Stages 1 and 2 are built**
+(SW-330, 24 Oct 2026): see [As built (stage 1)](#as-built-stage-1) and
+[As built (stage 2)](#as-built-stage-2). Decisions for the owner are in [§11](#11-decisions-for-the-owner);
 they're labelled CE-1 to CE-6 and need D numbers when recorded.
 
 Labels, as in the other notes:
@@ -30,6 +31,7 @@ Labels, as in the other notes:
 11. [Decisions for the owner](#11-decisions-for-the-owner)
 12. [Risks](#12-risks)
 - [As built (stage 1)](#as-built-stage-1)
+- [As built (stage 2)](#as-built-stage-2)
 - [Sources](#sources)
 
 ## 0. Summary
@@ -733,6 +735,152 @@ the fast runtime: `stitchwort check` of `counterexample-true-statement.sw` (all 
 of `Nat`s of `addComm`'s true statement tried) takes 99-109 ms against 97-109 ms before,
 within noise. The out-of-steps example is the slow case: it stops after 20 inputs of
 1,000,000 steps, and its check takes about 300 ms against about 100 ms before.
+
+## As built (stage 2)
+
+Built 24 October 2026 (SW-330), as §10's stage 2 scopes it. The kernel is unchanged, and so
+is everything stage 1 said that isn't changed below.
+
+**Where.** The search is in `crates/elab/src/counterexample/mod.rs` (the checker, the phases,
+the note) and the inputs in `crates/elab/src/counterexample/inputs.rs` (a `Plan` per type:
+enumerating, drawing at random, shrinking, showing). `check --counterexamples` is
+`Session::search_theorems` and `TheoremSearch::verdict` in `crates/driver/src/counterexample.rs`,
+printed by `crates/cli/src/main.rs`.
+
+**Two phases (§5.1, §6.3).** A search has a `Budget`: on a failing proof (`ON_FAILURE`) 2,000
+inputs and 200 ms, as in stage 1; for `check --counterexamples` (`ON_REQUEST`) 10,000 inputs
+and 2 s per theorem. Half the inputs are enumerated as in stage 1, in at most two fifths of the
+time; the rest are random, until four fifths of the time; shrinking has what's left. Random
+inputs are skipped when the enumeration made every input there is (only finitely many, and no
+`Char` or `Float` in them, whose random values go past what's enumerated), when the statement
+has no data parameters, or when too many inputs ran out of steps (stage 1's limits). The
+random inputs' sizes grow from 1 to 40 over the run; the generator is SplitMix64, seeded with
+a hash of the statement as shown (its parameters' names, hypotheses and conclusion), so the
+same statement gets the same inputs every time (`the_random_inputs_are_the_same_every_time`).
+As in stage 1, a run stopped by time is never cached (nothing is).
+
+**Random values (§5.3).** A `Nat` is uniform up to the size, or, one time in ten, one of 2^32,
+2^63, 2^64 − 1, 2^64, 2^64 + 1; an `Int` the same with either sign. A list's length is uniform
+up to the size and each element is drawn at the size (QuickCheck's way: a list built
+constructor by constructor would rarely be long). Any other data type picks a constructor (one
+without data fields at size 0, where there is one) and shares the size left among its fields
+at random, up to 40 deep. A `Char` is from the alphabet six times in ten, printable ASCII two,
+one of `é ß λ 中 😀` one, and any scalar value one. A `Float` is one of `-0.0`, NaN, ±infinity,
+the largest and smallest normal doubles, `0.1` and `1e300` a quarter of the time, else a
+whole number up to the size divided by 1, 2, 4, 8 or 16.
+
+**Shrinking (§5.5).** Each round tries, for each input in turn, the smaller values of its type,
+and keeps the first candidate still a counterexample: a number's are 0, then it less a half, a
+quarter, an eighth … of itself, down to one less (QuickCheck's `shrinkIntegral`: about log² n
+rounds to a boundary, not n); an `Int`'s its negation if it's negative, then toward 0; a list's
+the empty list, either half, each one-shorter list, then each element shrunk; another data
+type's each field of its own type, then each field shrunk (a proof field made again, and the
+candidate dropped if it no longer holds); a `Char`'s the alphabet's earlier characters, and
+outside it smaller codes; a `Float`'s 0.0, 1.0, its whole part and half of it, where smaller.
+A round's candidates run as one batch, on the fast runtime when it can (lowered again each
+round), at most 200 rounds. The final counterexample is confirmed on the reference evaluator,
+as stage 1's are.
+
+**More types (§5.3, §5.4).**
+
+- *Proof fields.* A constructor's proof field is `rfl`, made only when its proposition, at the
+  fields made, computes to an equation whose sides are convertible (`conv`), or to a
+  conjunction (`And`) of such, or `Unit`. So `{ lo: Nat, hi: Nat, ok: lo <= hi }` is made
+  only with `lo <= hi` (`Nat.LessEq` is `Nat.leq m n = True`); `a_proof_field_is_kept_true`
+  checks that the true statement about it is never falsified and no input is discarded. A
+  proof field whose proposition doesn't compute to equations at all (with the fields as
+  variables) leaves the type without inputs. `Char` (`valid: Char.isScalar code = True`) and
+  `Float` (`valid: Float.isValid bits = True`) come in through this rule, with their own
+  enumeration and random values; `Text` is then `MkText` of a list of `Char`s by the ordinary
+  rule, so `""`, `"a"`, `"b"`, … `"ab"` are enumerated.
+- *`Fin n` and `Vec a n`* for a known `n`: `Fin.ofNatLt n i rfl` for `i` below `n`; a vector
+  of `n` elements from its constructors (`Vec` is found by its name, `Std.Vec`, and its
+  `VCons` fields by their types, since it isn't a registry built-in), up to length 64. `Fin n`
+  with `n` another parameter is still out of scope (its type depends on another parameter).
+- *`Map k v`* is `Map.fromList` (the `MapFromList` built-in) at the map's own key type, value
+  type and ordering, of an enumerated, random or shrunk list of pairs; so its invariant holds
+  by construction (§5.3). *`Set k`*, a record around a `Map k ()`, comes in by the ordinary
+  rule.
+
+**Showing.** An input of a type with a `Map`, `Fin`, `Vec` or proof field in it is shown as the
+term it was made by rather than its value (a map's value is its tree, and a proof is erased in
+a value): `m = Map.fromList [(0, 0)]`, `i = 4`, `v = Vec.fromList [1, 0, 0]`,
+`r = { lo = 0, hi = 1, ok = rfl }`, `s = { items = Map.fromList [(0, ())] }`. Any other input
+is computed in full first, so a `Float` shows as its literal (`x = Float.nan`), and with
+proofs erased if that doesn't give data, as in stage 1.
+
+**`stitchwort check --counterexamples` (§7.3, §9.3, D1159).** After checking, it searches every
+theorem of the files given, or of the namespaces given and those under them (all of the
+project's if none), whose proof checked or failed (not the library's, nor the compiler's own
+`%` ones), with `ON_REQUEST`, and prints a line for each, in declaration order, then a count
+of each verdict on standard error (lines from two examples, put together):
+
+```
+  ✗ rangeEmpty    counterexample: r = { lo = 0, hi = 1, ok = rfl }
+  ~ rangeOrdered  none in 10000 cases (sizes up to 100; evidence, not a proof)
+  - Range.ext     gave up (hypotheses true in 431 of 10000 cases)
+  - mapKeeps      not applicable: `f` is a function
+searched 4 theorems for counterexamples: 1 false, 1 with none found, 1 gave up, 0 inconclusive, 1 not applicable
+```
+
+"Gave up" is fewer than one input in ten getting past the hypotheses; "inconclusive" is more
+than half running out of steps (or none tried); a "not applicable" reason is cut to 200
+characters. "Every input" replaces the sizes when the enumeration covered them all. A
+counterexample to a theorem whose proof checked is followed by the whole note and "this
+theorem checked, so an axiom it uses, the compiler or the search is wrong; please report
+it". Any counterexample makes the command fail. On `aoc/` (every theorem checks): 405
+theorems, 0 false, 143 none found, 41 gave up, 0 inconclusive, 221 not applicable, in about
+160 s (89 of the 143 stopped by the 2 s limit rather than the 10,000 inputs).
+
+**Differences from the note.**
+
+- *Proof fields are decided by computing them*, not by the decision search §5.4 describes:
+  `rfl` is a proof exactly when the sides are convertible, so this is sound by construction,
+  and it covers `<=`, `<`, `=` on data and conjunctions of them; a proof field that needs a
+  decision procedure (`List.Sorted`) leaves the type out.
+- *`Float`s enumerated* are `0.0`, then `1.0` and `-1.0`, then `0.5`, `2.0`, `-0.5`, `-2.0`.
+- *`Vec` up to length 64*, and found by name (above).
+- *The LSP* still runs the search inside the namespace's check (stage 1's difference); stage 2
+  doesn't move it to the background or add a per-file cap.
+
+**Acceptance (§10, stage 2).** Examples with snapshots, and their logs checked in
+`crates/driver/tests/counterexamples.rs`:
+
+- `reject/counterexample-long-list.sw`: false only for lists of 12 or more; 1,000 inputs
+  enumerated without it, then found at random and shrunk (12 rounds) to twelve zeros
+  (`a_long_list_is_found_at_random_and_shrunk`).
+- `reject/counterexample-word-edge.sw`: false at 2^64 only; found at random
+  (`a_bug_at_a_machine_words_edge_is_found`).
+- `reject/counterexample-proof-field.sw`: the record above (`a_proof_field_is_kept_true`).
+- `reject/counterexample-text.sw`: `t = "ab"` (enumerated) and `c = '\u{80}'`, a random
+  non-ASCII character shrunk to the smallest past ASCII.
+- `reject/counterexample-library-types.sw`: `Float.nan`, `Fin`, `Vec`, `Map`, `Set`.
+- Every one of these finds the same counterexample, after the same number of inputs, with the
+  fast runtime taken away (`the_fast_runtime_and_the_reference_evaluator_agree`).
+- `check --counterexamples`: `check_counterexamples_gives_every_theorem_a_verdict` and
+  `theorems_that_check_have_no_counterexample` (on `accept/integers.sw` and
+  `accept/list-toolkit.sw`).
+
+No earlier example's snapshot changed: every note stage 1 gave is found again in the
+enumeration, and no example whose statement stage 1 found true got a random counterexample.
+
+**In scope (§12's measurement), stage 1 → stage 2:**
+
+| | Library | AoC |
+|---|---|---|
+| In scope | 575 → 652 (47%) | 152 → 184 (45%) |
+| No inputs for a parameter's type | 106 → 29 | 37 → 5 |
+| Total | 1,391 | 405 |
+
+The other reasons are unchanged. What's left without inputs: `Map.Raw` (its proof fields
+aren't equations) and an `Ord` instance as a parameter in the library; AoC's grid and
+manifold types. AoC's day 6 (`Text` inputs) is now searched: 25 of its 30 theorems.
+
+**Time.** A theorem that checks still costs nothing. `cd aoc && stitchwort check --no-cache`,
+eight runs each, alternating, on a machine shared with other work: before (`main` at
+`06084471`) fastest 5.01 s, median 5.41 s; after fastest 5.15 s, median 5.48 s, about 1%
+(no search runs). The stage 2 examples' searches each take 1 to 60 ms (`Map` and `Set` the
+slowest, lowering the map library); the 12-element list about 18 ms, shrinking included.
 
 ## Sources
 
