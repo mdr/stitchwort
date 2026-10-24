@@ -196,9 +196,9 @@
     {
       "id": 13,
       "title": "AoC day 9 (movie theatre rectangles): start after the current lanes (D1132 a)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "aoc"
       ],
@@ -6577,16 +6577,18 @@
     {
       "id": 410,
       "title": "Crash: Eq.cong (Call o) p panics in the pretty-printer (pretty.rs:229 index out of bounds); reproduces on main without stage 0",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Sonnet)",
+      "where": "-",
       "labels": [
         "bug"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "4d86c3b1"
+      ]
     },
     {
       "id": 411,
