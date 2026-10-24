@@ -169,6 +169,12 @@ impl Runner<'_> {
                     Focus::Eval(self.m.call(f, vec![x])?)
                 }
                 Focus::Comp(c) => match c {
+                    // A `Bind` node of the effect runtime: run up to its
+                    // first operation, with what it has pending kept in the
+                    // operation's continuation, not in these frames, so
+                    // routing never sees it (docs/proposals/effect-runtime.md
+                    // §9.1.6).
+                    Value::Data(t, _) if t == s.bind_node => Focus::Comp(self.m.step_comp(c)?),
                     Value::Data(t, fields) if t == s.done => Focus::Ret(fields[0].clone()),
                     Value::Data(t, fields) if t == s.call => {
                         let cont = match &fields[1] {

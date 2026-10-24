@@ -25,6 +25,7 @@ use std::rc::Rc;
 use stitchwort_core::{Limits as CoreLimits, ResourceError};
 
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
+use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
@@ -70,6 +71,23 @@ enum Ret {
     Apply(Box<(Vec<Value>, Ret)>),
     /// The accumulator of a `Text.fold`, for its next step.
     Fold(Box<Fold>),
+    /// A computation, for the effect runtime's loop to go on with
+    /// ([`crate::effect`]).
+    Eff(Box<EffRet>),
+    /// The argument of this function, with the result going to the `Ret`.
+    Then(Box<(Value, Ret)>),
+    /// An operation, a `translate` has mapped: `Call` of it and this
+    /// resumption goes to the `Ret`.
+    Inject(Box<(Value, Ret)>),
+}
+
+/// The effect runtime's loop, waiting for a continuation's computation:
+/// its handler, what is still pending after it, and where the loop's
+/// result goes.
+struct EffRet {
+    handler: Rc<Handler>,
+    pending: Value,
+    ret: Ret,
 }
 
 /// A `Text.fold f z t` in progress: `f` is applied to each character of
@@ -98,6 +116,8 @@ struct State {
     steps: u64,
     limits: Limits,
     scratch: Vec<Value>,
+    /// The effect runtime's work so far.
+    counts: EffectCounts,
 }
 
 /// A program, compiled, with its state between runs (the constants
@@ -125,8 +145,34 @@ impl<'p> Machine<'p> {
                 steps: 0,
                 limits,
                 scratch: Vec::new(),
+                counts: EffectCounts::default(),
             },
         }
+    }
+
+    /// The effect runtime's work so far ([`crate::effect`]), for tests.
+    pub fn effect_counts(&self) -> EffectCounts {
+        self.st.counts
+    }
+
+    pub fn reset_effect_counts(&mut self) {
+        self.st.counts = EffectCounts::default();
+    }
+
+    /// Computation `c` run up to its first operation: `Done v`, or
+    /// `Call o rest` with whatever was pending in `c` inside `rest`. For a
+    /// runner that takes computations apart (the `IO` runner, [`crate::run`]),
+    /// since a computation may be a `Bind` node.
+    pub fn step_comp(&mut self, c: Value) -> Result<Value> {
+        let pending = self.st.eff_run(
+            self.program,
+            &self.image,
+            c,
+            Value::Erased,
+            Rc::new(Handler::Step),
+            Ret::Host,
+        );
+        self.finish(pending)
     }
 
     pub fn shapes(&self) -> &Shapes {
@@ -321,6 +367,9 @@ impl State {
                     );
                     self.fold_start(program, image, f, z, &t, ret)
                 }
+                GlobalKind::Native(PrimOp::Effect(op)) => {
+                    self.effect(program, image, *op, args, ret)
+                }
                 GlobalKind::Native(op) => {
                     let refs: Vec<&Value> = args.iter().collect();
                     Ok(Some((prims::eval(&program.shapes, *op, &refs), ret)))
@@ -337,6 +386,10 @@ impl State {
                 Ok(None)
             }
             Fun::DoneK => Ok(Some((Value::data_vec(program.shapes.done, args), ret))),
+            Fun::Resume(resume, lazy) => {
+                let y = args.into_iter().next().expect("one argument");
+                self.resume(program, image, resume, *lazy, y, ret)
+            }
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
     }
@@ -370,6 +423,231 @@ impl State {
         let args = vec![prims::char_value(&program.shapes, c), acc];
         self.apply(program, image, f, args, Ret::Fold(Box::new(fold)))
     }
+
+    // ------------------------------------------------- the effect runtime
+
+    /// One of the effect runtime's natives applied to `args`
+    /// ([`crate::effect`]): a value for `ret` now, or a frame pushed that
+    /// will return it there.
+    fn effect(
+        &mut self,
+        program: &Program,
+        image: &Image,
+        op: EffectOp,
+        args: Vec<Value>,
+        ret: Ret,
+    ) -> Result<Pending> {
+        let s = &program.shapes;
+        let mut args = args.into_iter();
+        let mut arg = || args.next().expect("an effect native's arguments");
+        match op {
+            EffectOp::Bind => {
+                let (c, k) = (arg(), arg());
+                match c {
+                    // `bind (Done x) k = k x`, a direct call: the backend's
+                    // invariant (docs/proposals/effect-runtime.md §9.1.4).
+                    Value::Data(tag, fields) if tag == s.done => {
+                        let x = field(fields, 0);
+                        self.apply(program, image, k, vec![x], ret)
+                    }
+                    c => {
+                        self.counts.binds += 1;
+                        Ok(Some((Value::data(s.bind_node, [c, k]), ret)))
+                    }
+                }
+            }
+            EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
+                let lazy = match op {
+                    EffectOp::FoldLazy => true,
+                    EffectOp::FoldIn => arg().tag() != Some(s.row_empty),
+                    _ => false,
+                };
+                let (done, call, c) = (arg(), arg(), arg());
+                let handler = Rc::new(Handler::Fold { done, call, lazy });
+                self.eff_run(program, image, c, Value::Erased, handler, ret)
+            }
+            EffectOp::Translate => {
+                let (m, c) = (arg(), arg());
+                let Value::Data(_, m) = m else {
+                    panic!("internal error: a `SigMap` that isn't `MkSigMap`")
+                };
+                let (inject, reply) = pair(m);
+                let handler = Rc::new(Handler::Translate { inject, reply });
+                self.eff_run(program, image, c, Value::Erased, handler, ret)
+            }
+            EffectOp::RunPure => {
+                let c = arg();
+                let handler = Rc::new(Handler::RunPure);
+                self.eff_run(program, image, c, Value::Erased, handler, ret)
+            }
+        }
+    }
+
+    /// The run loop: computation `c`, with the continuations `pending`
+    /// (cells `[k, next]`, never changed once made; `Erased` when empty)
+    /// waiting for its result, for `handler`. `Bind` nodes push their
+    /// continuation; `Done` pops one and applies it, on a frame whose result
+    /// comes back here (`Ret::Eff`), or ends the loop; an operation ends it.
+    fn eff_run(
+        &mut self,
+        program: &Program,
+        image: &Image,
+        mut c: Value,
+        mut pending: Value,
+        handler: Rc<Handler>,
+        ret: Ret,
+    ) -> Result<Pending> {
+        let s = &program.shapes;
+        loop {
+            self.counts.steps += 1;
+            self.steps += 1;
+            if self.steps > self.limits.steps {
+                return Err(ResourceError::Work);
+            }
+            let Value::Data(tag, fields) = c else {
+                panic!("internal error: running {c:?}, which isn't a computation")
+            };
+            if tag == s.bind_node {
+                self.counts.pushes += 1;
+                let (inner, k) = pair(fields);
+                pending = Value::data(0, [k, pending]);
+                c = inner;
+            } else if tag == s.done {
+                if let Value::Data(_, cell) = pending {
+                    self.counts.pops += 1;
+                    let (k, next) = pair(cell);
+                    let x = field(fields, 0);
+                    let after = Ret::Eff(Box::new(EffRet {
+                        handler,
+                        pending: next,
+                        ret,
+                    }));
+                    return self.apply(program, image, k, vec![x], after);
+                }
+                return match &*handler {
+                    Handler::Fold { done, .. } => {
+                        let done = done.clone();
+                        self.apply(program, image, done, vec![field(fields, 0)], ret)
+                    }
+                    Handler::RunPure => Ok(Some((field(fields, 0), ret))),
+                    Handler::Translate { .. } | Handler::Step => {
+                        Ok(Some((Value::Data(tag, fields), ret)))
+                    }
+                };
+            } else {
+                debug_assert_eq!(tag, s.call);
+                return self.eff_call(program, image, fields, pending, handler, ret);
+            }
+        }
+    }
+
+    /// The run loop reached operation `Call o rest` (`fields`), with
+    /// `pending` after it.
+    fn eff_call(
+        &mut self,
+        program: &Program,
+        image: &Image,
+        fields: Fields,
+        pending: Value,
+        handler: Rc<Handler>,
+        ret: Ret,
+    ) -> Result<Pending> {
+        let s = &program.shapes;
+        if let Handler::Step = &*handler
+            && matches!(pending, Value::Erased)
+        {
+            // Nothing pending: the operation as it is, so that the runner
+            // can tell a request in tail position by its `rest`.
+            return Ok(Some((Value::Data(s.call, fields), ret)));
+        }
+        let (o, rest) = pair(fields);
+        let resume = |handler, op| {
+            Rc::new(Resume {
+                handler,
+                rest,
+                pending,
+                op,
+            })
+        };
+        match &*handler {
+            Handler::Fold { call, lazy, .. } => {
+                self.counts.routes += 1;
+                let (call, lazy) = (call.clone(), *lazy);
+                let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), lazy)));
+                self.apply(program, image, call, vec![o, k], ret)
+            }
+            Handler::Translate { inject, .. } => {
+                self.counts.routes += 1;
+                let inject = inject.clone();
+                let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, o.clone()), false)));
+                self.apply(
+                    program,
+                    image,
+                    inject,
+                    vec![o],
+                    Ret::Inject(Box::new((k, ret))),
+                )
+            }
+            Handler::Step => {
+                let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), false)));
+                Ok(Some((Value::data(s.call, [o, k]), ret)))
+            }
+            Handler::RunPure => panic!("internal error: an operation reached `runPure`"),
+        }
+    }
+
+    /// Resumption `resume` called with `y`. A lazy one suspends: it gives
+    /// `Bind (Done y) r`, `r` the same resumption, not lazy, for whoever runs
+    /// the clause's result to resume. Otherwise the rest of the computation
+    /// is run for the same handler, from where the operation was.
+    fn resume(
+        &mut self,
+        program: &Program,
+        image: &Image,
+        resume: &Rc<Resume>,
+        lazy: bool,
+        y: Value,
+        ret: Ret,
+    ) -> Result<Pending> {
+        let s = &program.shapes;
+        if lazy {
+            self.counts.resumes += 1;
+            let k = Value::Fun(Rc::new(Fun::Resume(resume.clone(), false)));
+            let c = Value::data(s.bind_node, [Value::data(s.done, [y]), k]);
+            return Ok(Some((c, ret)));
+        }
+        let after = Ret::Eff(Box::new(EffRet {
+            handler: resume.handler.clone(),
+            pending: resume.pending.clone(),
+            ret,
+        }));
+        match &*resume.handler {
+            // `x => translate m (rest (reply o x))`.
+            Handler::Translate { reply, .. } => {
+                let then = Ret::Then(Box::new((resume.rest.clone(), after)));
+                let args = vec![resume.op.clone(), y];
+                self.apply(program, image, reply.clone(), args, then)
+            }
+            _ => self.apply(program, image, resume.rest.clone(), vec![y], after),
+        }
+    }
+}
+
+/// Field `i` of a constructor's cell: moved out if this is the only
+/// reference to the cell, otherwise copied.
+fn field(mut fields: Fields, i: usize) -> Value {
+    match Rc::get_mut(&mut fields.0) {
+        Some(slice) => std::mem::take(&mut slice[i]),
+        None => fields[i].clone(),
+    }
+}
+
+/// The two fields of a constructor's cell, as [`field`] takes one.
+fn pair(mut fields: Fields) -> (Value, Value) {
+    match Rc::get_mut(&mut fields.0) {
+        Some(slice) => (std::mem::take(&mut slice[0]), std::mem::take(&mut slice[1])),
+        None => (fields[0].clone(), fields[1].clone()),
+    }
 }
 
 /// The arity of a function value that isn't a partial application.
@@ -380,7 +658,7 @@ fn arity(program: &Program, head: &Value) -> usize {
     match &**fun {
         Fun::Global(g) => program.globals[*g as usize].kind.params() as usize,
         Fun::Closure { lambda, .. } => program.lambdas[*lambda as usize].params as usize,
-        Fun::DoneK => 1,
+        Fun::DoneK | Fun::Resume(..) => 1,
         Fun::Pap { .. } => unreachable!("a partial application's head"),
     }
 }
@@ -409,6 +687,25 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Ret::Fold(fold) => {
                     pending = st.fold_step(program, image, v, *fold)?;
+                    continue;
+                }
+                Ret::Eff(e) => {
+                    let EffRet {
+                        handler,
+                        pending: after,
+                        ret,
+                    } = *e;
+                    pending = st.eff_run(program, image, v, after, handler, ret)?;
+                    continue;
+                }
+                Ret::Then(then) => {
+                    let (f, ret) = *then;
+                    pending = st.apply(program, image, f, vec![v], ret)?;
+                    continue;
+                }
+                Ret::Inject(inject) => {
+                    let (k, ret) = *inject;
+                    pending = Some((Value::data(s.call, [v, k]), ret));
                     continue;
                 }
             }
@@ -511,6 +808,30 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     }
                     st.replace(image, callee, None)?;
                     continue 'outer;
+                }
+                Instr::Prim {
+                    dst,
+                    op: PrimOp::Effect(op),
+                    args,
+                } => {
+                    save!();
+                    let args = args!(args);
+                    let to = u32::try_from(base + dst as usize).expect("fits");
+                    pending = st.effect(program, image, op, args, Ret::Reg(to))?;
+                    continue 'outer;
+                }
+                Instr::TailPrim {
+                    op: PrimOp::Effect(op),
+                    args,
+                } => {
+                    let args = args!(args);
+                    let frame = st.frames.pop().expect("a frame");
+                    release(&mut st.regs, base);
+                    pending = st.effect(program, image, op, args, frame.ret)?;
+                    continue 'outer;
+                }
+                Instr::TailPrim { op, .. } => {
+                    panic!("internal error: a tail `{}`", op.name())
                 }
                 Instr::Prim { dst, op, args } => {
                     let o = ops!(args);

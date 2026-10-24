@@ -50,13 +50,7 @@ native Std.Text.compare = %TextCompare/2
 native Std.Int.add = %IntAdd/2
 native Std.Int.mul = %IntMul/2
 native Std.Int.toText = %IntToText/1
-fn Std.Effect.bind(v0, v1) {4 slots} =
-  match v0: Effect.Comp {
-    Done(value: v2) => apply v1(v2)
-    Call(o: v2, rest: v3) =>
-      Call(v2, λ0[c0 = v3, c1 = v1](v0) {1 slots} =>
-        Std.Effect.bind(apply c0(v0), c1))
-  }
+native Std.Effect.bind = %EffectBind/2
 fn Std.Effect.doneIn(v0, v1) {2 slots} =
   match v0: Effect.Effects {
     Empty => v1
@@ -65,7 +59,7 @@ fn Std.Effect.doneIn(v0, v1) {2 slots} =
 fn Std.Effect.bindIn(v0, v1, v2) {3 slots} =
   match v0: Effect.Effects {
     Empty => apply v2(v1)
-    Ops => Std.Effect.bind(v1, v2)
+    Ops => %EffectBind(v1, v2)
   }
 native Std.Effect.lift = %Effect.lift/1
 const Std.Text.instDecEq {0 slots} = Std.Text.decEq
@@ -78,13 +72,13 @@ fn Std.Ord.decLessThan(v0) {2 slots} =
     %mk(decLessThan: v1) => v1
   }
 fn Std.Ord.fromCompare(v0, v1) {2 slots} =
-  %mk(v0, v1, λ1[c0 = v1](v0, v1) {3 slots} =>
+  %mk(v0, v1, λ0[c0 = v1](v0, v1) {3 slots} =>
     let v2 = apply c0(v0, v1)
     match v2: Ordering {
       Less => Yes
       Equal => No
       Greater => No
-    }, λ2[c0 = v1](v0, v1) {3 slots} =>
+    }, λ1[c0 = v1](v0, v1) {3 slots} =>
     let v2 = apply c0(v0, v1)
     match v2: Ordering {
       Less => Yes
@@ -92,13 +86,13 @@ fn Std.Ord.fromCompare(v0, v1) {2 slots} =
       Greater => No
     })
 const Std.Text.instOrd {0 slots} =
-  %mk(Std.Text.instDecEq, Std.Text.compare, λ9(v0, v1) {3 slots} =>
+  %mk(Std.Text.instDecEq, Std.Text.compare, λ8(v0, v1) {3 slots} =>
     let v2 = %TextCompare(v0, v1)
     match v2: Ordering {
       Less => Yes
       Equal => No
       Greater => No
-    }, λ10(v0, v1) {3 slots} =>
+    }, λ9(v0, v1) {3 slots} =>
     let v2 = %TextCompare(v0, v1)
     match v2: Ordering {
       Less => Yes
@@ -114,9 +108,9 @@ fn Std.List.map(v0, v1, v2) {8 slots} =
       }
     Cons(head: v3, tail: v4) =>
       let v5 = apply v1(v3)
-      let v6 = λ4[c0 = v0, c1 = v1, c2 = v4](v0) {4 slots} =>
+      let v6 = λ3[c0 = v0, c1 = v1, c2 = v4](v0) {4 slots} =>
         let v1 = Std.List.map(c0, c1, c2)
-        let v2 = λ3[c0 = c0, c1 = v0](v0) {2 slots} =>
+        let v2 = λ2[c0 = c0, c1 = v0](v0) {2 slots} =>
           let v1 = Cons(c1, v0)
           match c0: Effect.Effects {
             Empty => v1
@@ -129,13 +123,13 @@ fn Std.List.map(v0, v1, v2) {8 slots} =
               Empty => v3
               Ops => Done(v3)
             }
-          Ops => Std.Effect.bind(v1, v2)
+          Ops => %EffectBind(v1, v2)
         }
       match v0: Effect.Effects {
         Empty =>
           let v7 = Std.List.map(v0, v1, v4)
           Cons(v5, v7)
-        Ops => Std.Effect.bind(v5, v6)
+        Ops => %EffectBind(v5, v6)
       }
   }
 native Std.Text.length = %TextLength/1
@@ -150,9 +144,9 @@ fn Main.signed.%match1(v0) {2 slots} =
   }
 fn Main.main(v0) {2 slots} =
   let v1 = %TextSplit(MkChar(44), "12,-5,x")
-  Std.Effect.bind(Std.Effect.bind(Std.Effect.bind(Std.List.map[0](Ops, v1), λ6(v0) {1 slots} =>
-    Done(%TextJoin(MkChar(32), v0))), λ7(v0) {1 slots} =>
-    Call(L(%print(v0)), done-k)), λ8(v0) {2 slots} =>
+  %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, v1), λ5(v0) {1 slots} =>
+    Done(%TextJoin(MkChar(32), v0))), λ6(v0) {1 slots} =>
+    Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
     let v1 = {
       if {
         let v1 = %TextLength("abc")
@@ -186,7 +180,7 @@ fn Std.List.map[0](v0, v1) {7 slots} =
         })
         Done(v4)
       }
-      let v5 = λ4[c0 = v0, c1 = λ5(v0) {3 slots} =>
+      let v5 = λ3[c0 = v0, c1 = λ4(v0) {3 slots} =>
         let v1 = %IntToText({
           let v1 = %TextToInt(v0)
           match v1: Option {
@@ -196,7 +190,7 @@ fn Std.List.map[0](v0, v1) {7 slots} =
         })
         Done(v1), c2 = v3](v0) {4 slots} =>
         let v1 = Std.List.map(c0, c1, c2)
-        let v2 = λ3[c0 = c0, c1 = v0](v0) {2 slots} =>
+        let v2 = λ2[c0 = c0, c1 = v0](v0) {2 slots} =>
           let v1 = Cons(c1, v0)
           match c0: Effect.Effects {
             Empty => v1
@@ -209,21 +203,21 @@ fn Std.List.map[0](v0, v1) {7 slots} =
               Empty => v3
               Ops => Done(v3)
             }
-          Ops => Std.Effect.bind(v1, v2)
+          Ops => %EffectBind(v1, v2)
         }
       match v0: Effect.Effects {
         Empty =>
           let v6 = Std.List.map[0](v0, v3)
           Cons(v4, v6)
-        Ops => Std.Effect.bind(v4, v5)
+        Ops => %EffectBind(v4, v5)
       }
   }
 entry {1 slots} =
   %Effect.lift({
     let v0 = %TextSplit(MkChar(44), "12,-5,x")
-    Std.Effect.bind(Std.Effect.bind(Std.Effect.bind(Std.List.map[0](Ops, v0), λ6(v0) {1 slots} =>
-      Done(%TextJoin(MkChar(32), v0))), λ7(v0) {1 slots} =>
-      Call(L(%print(v0)), done-k)), λ8(v0) {2 slots} =>
+    %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, v0), λ5(v0) {1 slots} =>
+      Done(%TextJoin(MkChar(32), v0))), λ6(v0) {1 slots} =>
+      Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
       let v1 = {
         if {
           let v1 = %TextLength("abc")

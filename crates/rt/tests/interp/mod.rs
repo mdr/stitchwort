@@ -10,6 +10,7 @@ use std::rc::Rc;
 use num_bigint::{BigInt, BigUint, Sign};
 use stitchwort_core::native::Native;
 use stitchwort_rt::Program;
+use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{Expr, GlobalId, GlobalKind, Lit, MatchKind, PrimOp};
 use stitchwort_rt::natives::{FloatPrim, IntNative, TextNative};
 
@@ -32,6 +33,21 @@ pub enum Fun {
     /// A global function or native, applied to `args` so far.
     Pap(GlobalId, Vec<V>),
     DoneK,
+    /// A continuation the effect natives make.
+    Eff(EffK),
+}
+
+/// The effect natives' continuations, as the library's definitions make
+/// them: the tree's meaning, with no `Bind` nodes and every fold eager
+/// (lazy resumption only changes how the machine runs it).
+#[derive(Debug)]
+pub enum EffK {
+    /// `y => bind (rest y) k`.
+    Bind { rest: V, k: V },
+    /// `y => foldComp done call (rest y)`.
+    Fold { done: V, call: V, rest: V },
+    /// `x => translate m (rest (reply o x))`.
+    Translate { m: V, o: V, rest: V },
 }
 
 type R<T> = Result<T, String>;
@@ -152,25 +168,25 @@ impl<'p> Interp<'p> {
             let (arity, have) = match &*fun {
                 Fun::Closure(l, _, have) => (self.p.lambdas[*l as usize].params, have.len()),
                 Fun::Pap(g, have) => (self.p.globals[g.0 as usize].kind.params(), have.len()),
-                Fun::DoneK => (1, 0),
+                Fun::DoneK | Fun::Eff(_) => (1, 0),
             };
             let need = arity as usize - have;
             if args.len() < need {
                 let mut all = match &*fun {
                     Fun::Closure(_, _, have) | Fun::Pap(_, have) => have.clone(),
-                    Fun::DoneK => Vec::new(),
+                    Fun::DoneK | Fun::Eff(_) => Vec::new(),
                 };
                 all.extend(args);
                 return Ok(V::Fun(Rc::new(match &*fun {
                     Fun::Closure(l, c, _) => Fun::Closure(*l, c.clone(), all),
                     Fun::Pap(g, _) => Fun::Pap(*g, all),
-                    Fun::DoneK => unreachable!(),
+                    Fun::DoneK | Fun::Eff(_) => unreachable!(),
                 })));
             }
             let rest = args.split_off(need);
             let mut all = match &*fun {
                 Fun::Closure(_, _, have) | Fun::Pap(_, have) => have.clone(),
-                Fun::DoneK => Vec::new(),
+                Fun::DoneK | Fun::Eff(_) => Vec::new(),
             };
             all.extend(args);
             f = match &*fun {
@@ -185,6 +201,7 @@ impl<'p> Interp<'p> {
                 }
                 Fun::Pap(g, _) => self.call(*g, all)?,
                 Fun::DoneK => ctor(0, all),
+                Fun::Eff(k) => self.resume(k, all.pop().expect("one argument"))?,
             };
             args = rest;
         }
@@ -296,6 +313,94 @@ impl<'p> Interp<'p> {
             }
             Expr::Unreachable => return Err("reached unreachable".into()),
         })
+    }
+
+    /// The effect runtime's natives, by the library's equations
+    /// (`core/Effect.sw`).
+    fn effect(&self, op: EffectOp, args: Vec<V>) -> R<V> {
+        let s = &self.p.shapes;
+        let mut args = args.into_iter();
+        if op == EffectOp::FoldIn {
+            args.next();
+        }
+        let mut arg = || args.next().ok_or("too few arguments");
+        let fun = |k: EffK| V::Fun(Rc::new(Fun::Eff(k)));
+        match op {
+            EffectOp::Bind => {
+                let (c, k) = (arg()?, arg()?);
+                match c {
+                    V::Ctor(t, f) if t == s.done => self.apply(k, vec![f[0].clone()]),
+                    V::Ctor(t, f) if t == s.call => {
+                        let rest = f[1].clone();
+                        Ok(ctor(
+                            s.call,
+                            vec![f[0].clone(), fun(EffK::Bind { rest, k })],
+                        ))
+                    }
+                    other => Err(format!("bind of {other:?}")),
+                }
+            }
+            EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
+                let (done, call, c) = (arg()?, arg()?, arg()?);
+                match c {
+                    V::Ctor(t, f) if t == s.done => self.apply(done, vec![f[0].clone()]),
+                    V::Ctor(t, f) if t == s.call => {
+                        let rest = f[1].clone();
+                        let k = fun(EffK::Fold {
+                            done,
+                            call: call.clone(),
+                            rest,
+                        });
+                        self.apply(call, vec![f[0].clone(), k])
+                    }
+                    other => Err(format!("foldComp of {other:?}")),
+                }
+            }
+            EffectOp::Translate => {
+                let (m, c) = (arg()?, arg()?);
+                match c {
+                    V::Ctor(t, _) if t == s.done => Ok(c),
+                    V::Ctor(t, f) if t == s.call => {
+                        let V::Ctor(_, sig) = &m else {
+                            return Err("a SigMap that isn't a constructor".into());
+                        };
+                        let o = f[0].clone();
+                        let injected = self.apply(sig[0].clone(), vec![o.clone()])?;
+                        let rest = f[1].clone();
+                        Ok(ctor(
+                            s.call,
+                            vec![injected, fun(EffK::Translate { m, o, rest })],
+                        ))
+                    }
+                    other => Err(format!("translate of {other:?}")),
+                }
+            }
+            EffectOp::RunPure => match arg()? {
+                V::Ctor(t, f) if t == s.done => Ok(f[0].clone()),
+                other => Err(format!("runPure of {other:?}")),
+            },
+        }
+    }
+
+    fn resume(&self, k: &EffK, y: V) -> R<V> {
+        match k {
+            EffK::Bind { rest, k } => {
+                let c = self.apply(rest.clone(), vec![y])?;
+                self.effect(EffectOp::Bind, vec![c, k.clone()])
+            }
+            EffK::Fold { done, call, rest } => {
+                let c = self.apply(rest.clone(), vec![y])?;
+                self.effect(EffectOp::Fold, vec![done.clone(), call.clone(), c])
+            }
+            EffK::Translate { m, o, rest } => {
+                let V::Ctor(_, sig) = m else {
+                    return Err("a SigMap that isn't a constructor".into());
+                };
+                let reply = self.apply(sig[1].clone(), vec![o.clone(), y])?;
+                let c = self.apply(rest.clone(), vec![reply])?;
+                self.effect(EffectOp::Translate, vec![m.clone(), c])
+            }
+        }
     }
 
     fn prim(&self, op: PrimOp, args: Vec<V>) -> R<V> {
@@ -513,6 +618,7 @@ impl<'p> Interp<'p> {
                 }
             }
             PrimOp::Delay(_) => return Err("unsupported: a partial computation".into()),
+            PrimOp::Effect(op) => return self.effect(op, args),
             // On the bits, written apart from the runtime's (which works on
             // `f64`s): the model's definitions (std/Float/Float.sw), with
             // `f64` only for the rounding operations.

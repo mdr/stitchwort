@@ -17,6 +17,7 @@ use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, Sort, Term};
 use stitchwort_syntax::Diagnostic;
 
+use crate::effect::{Carrier, EffectNatives, EffectOp};
 use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
@@ -221,6 +222,11 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         unit: ctor(Builtin::UnitValue, 0)?,
         done: ctor(Builtin::Done, 1)?,
         call: ctor(Builtin::Call, 2)?,
+        bind_node: ctor(Builtin::Done, 1)?.max(ctor(Builtin::Call, 2)?) + 1,
+        row_empty: match g.registry.ctor(Builtin::RowEmpty) {
+            Some((d, c)) if g.registry.loaded_data(Builtin::Row) == Some(d) => shape(g, d, c, 0)?,
+            _ => u32::MAX,
+        },
         left: nth(Builtin::Plus, 0, 1)?,
         right: nth(Builtin::Plus, 1, 1)?,
         recur: nth(Builtin::Rec, 0, 1)?,
@@ -260,6 +266,9 @@ struct Lowerer<'g> {
     shapes: Vec<OnceCell<DefShape>>,
     if_then_else: Option<DefId>,
     to_bool: Option<DefId>,
+    /// The effect runtime's natives, if the core's effect machinery has the
+    /// shapes they were written for.
+    effect: Option<EffectNatives>,
     /// Each global's id, runtime arity and native operation.
     global_of: HashMap<DefId, (GlobalId, u32, Option<PrimOp>)>,
     /// Decides which calls are at the empty row, and makes the variants.
@@ -295,6 +304,7 @@ impl<'g> Lowerer<'g> {
             shapes: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
             to_bool: g.registry.def(Builtin::ToBool),
+            effect: EffectNatives::new(g),
             global_of: HashMap::new(),
             spec: Specialiser::new(g),
             empty_of: HashMap::new(),
@@ -331,6 +341,9 @@ impl<'g> Lowerer<'g> {
         }
         if let Some(op) = self.repr.float_natives.get(&id) {
             return Some(PrimOp::Float(*op));
+        }
+        if let Some(op) = self.effect.as_ref().and_then(|e| e.native(id)) {
+            return Some(PrimOp::Effect(op));
         }
         self.repr.int_natives.get(&id).map(|op| PrimOp::Int(*op))
     }
@@ -730,11 +743,35 @@ impl<'g> Lowerer<'g> {
         }
         let rest = runtime.split_off(params);
         let call = match native {
+            Some(PrimOp::Effect(EffectOp::Fold)) => self.fold(args, runtime)?,
             Some(op) => Expr::Prim(op, runtime),
             None if params == 0 => Expr::Global(gid),
             None => Expr::Call(gid, runtime),
         };
         Ok(apply(call, rest))
+    }
+
+    /// `foldComp done call c` with its runtime arguments `runtime`: a
+    /// `handle`'s fold, which resumes lazily where its carrier (the fourth
+    /// argument, erased) is a computation (docs/proposals/effect-runtime.md
+    /// §9.2): `EffectFoldLazy` for a `Comp`, `EffectFoldIn` testing the row
+    /// at run time for `CompIn e t`, and the eager fold otherwise (a fold
+    /// used as a value, too, is eager).
+    fn fold(&mut self, args: &[&Term], mut runtime: Vec<Expr>) -> Result<Expr> {
+        let effect = self.effect.as_ref().expect("`foldComp` is native");
+        let carrier = args.get(3).map(|c| effect.carrier(c));
+        let op = match carrier {
+            Some(Carrier::Tree) => EffectOp::FoldLazy,
+            Some(Carrier::Row(row)) => match self.expr(row)? {
+                Expr::Erased => EffectOp::Fold,
+                row => {
+                    runtime.insert(0, row);
+                    EffectOp::FoldIn
+                }
+            },
+            Some(Carrier::Value) | None => EffectOp::Fold,
+        };
+        Ok(Expr::Prim(PrimOp::Effect(op), runtime))
     }
 
     fn global(&self, id: DefId) -> Result<(GlobalId, u32, Option<PrimOp>)> {

@@ -370,6 +370,9 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
                 Primitive::Delay => Value::Erased,
             }
         }
+        PrimOp::Effect(op) => {
+            unreachable!("the machine runs the effect runtime's {op:?} on its frames")
+        }
     }
 }
 

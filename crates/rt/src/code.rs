@@ -99,6 +99,12 @@ pub enum Instr {
         op: PrimOp,
         args: Ops,
     },
+    /// An effect runtime native ([`PrimOp::Effect`]) in tail position: what
+    /// it calls replaces this frame.
+    TailPrim {
+        op: PrimOp,
+        args: Ops,
+    },
     /// A global function or native with too few arguments.
     Pap {
         dst: Reg,
@@ -653,6 +659,16 @@ impl<'a> Compiler<'a> {
                     self.emit(Instr::TailCall { g: g.0, args });
                 } else {
                     self.emit(Instr::Call { dst, g: g.0, args });
+                }
+            }
+            // The effect runtime's natives call functions: in tail position
+            // the call replaces the frame, as a tail call does.
+            Expr::Prim(op @ PrimOp::Effect(_), args) => {
+                let args = self.operand_ops(args, live, true);
+                if tail {
+                    self.emit(Instr::TailPrim { op: *op, args });
+                } else {
+                    self.emit(Instr::Prim { dst, op: *op, args });
                 }
             }
             Expr::Prim(op, args) => {
