@@ -1007,11 +1007,11 @@ theorem Map.Spec.lookupMergeCons [auto ord: Ord k] (both: k -> v -> w -> Option 
             rfl
           | Less =>
             rewrite Map.Spec.lookupConsEntrySkip key kx (Map.Spec.merge both onlyLeft onlyRight xs (Cons (ky, vy) ys))
-                (z => Ordering.lessNotEqual (Eq.trans (Eq.sym d) z)) (onlyLeft kx vx) in
+              (z => Ordering.lessNotEqual (Eq.trans (Eq.sym d) z)) (onlyLeft kx vx) in
             tail (Some kx) (Cons (ky, vy) ys) axs (Both c ays)
           | Greater =>
             rewrite Map.Spec.lookupConsEntrySkip key kx (Map.Spec.merge both onlyLeft onlyRight xs (Cons (ky, vy) ys))
-                (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z)) (onlyLeft kx vx) in
+              (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z)) (onlyLeft kx vx) in
             tail (Some kx) (Cons (ky, vy) ys) axs (Both c ays)
       | Equal =>
         rewrite Eq.trans (ord.flip kx ky) (Eq.cong Ordering.flip c) in
@@ -1045,12 +1045,12 @@ theorem Map.Spec.lookupMergeCons [auto ord: Ord k] (both: k -> v -> w -> Option 
             rfl
           | Less =>
             rewrite Map.Spec.lookupConsEntrySkip key ky (Map.Spec.merge both onlyLeft onlyRight (Cons (kx, vx) xs) ys)
-                (z => Ordering.lessNotEqual (Eq.trans (Eq.sym d) z)) (onlyRight ky vy) in
+              (z => Ordering.lessNotEqual (Eq.trans (Eq.sym d) z)) (onlyRight ky vy) in
             Map.Spec.lookupMergeCons both onlyLeft onlyRight key kx vx xs tail (Some ky) ys
               (Both (Map.Tree.lessOfGreater ord kx ky c) axs) ays
           | Greater =>
             rewrite Map.Spec.lookupConsEntrySkip key ky (Map.Spec.merge both onlyLeft onlyRight (Cons (kx, vx) xs) ys)
-                (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z)) (onlyRight ky vy) in
+              (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z)) (onlyRight ky vy) in
             Map.Spec.lookupMergeCons both onlyLeft onlyRight key kx vx xs tail (Some ky) ys
               (Both (Map.Tree.lessOfGreater ord kx ky c) axs) ays
 
