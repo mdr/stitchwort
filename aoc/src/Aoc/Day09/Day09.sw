@@ -101,9 +101,13 @@ type Floor = { columns: List Nat, rows: List Nat, outside: PrefixSums }
 def Floor.of (tiles: List Tile): Floor :=
   let columns := keyLines (tiles.map (tile => tile.x))
   let rows := keyLines (tiles.map (tile => tile.y))
-  let lines := loopLines tiles
-  let cells := rows.map (y => Floor.outsideRow (lines.filter (touchesRow y)) columns y)
-  { columns, rows, outside = PrefixSums.of cells }
+  { columns, rows, outside = PrefixSums.of (Floor.outsideCells (loopLines tiles) columns rows) }
+
+-- The floor through the key columns and rows, row by row: 1 for each tile
+-- outside the loop. A row's tiles are tested against the lines that touch
+-- the row; the others are too far away to matter.
+def Floor.outsideCells (lines: List (Tile, Tile)) (columns: List Nat) (rows: List Nat): List (List Nat) :=
+  rows.map (y => Floor.outsideRow (lines.filter (touchesRow y)) columns y)
 
 -- One row of the floor: 1 for each tile outside the loop.
 def Floor.outsideRow (lines: List (Tile, Tile)) (columns: List Nat) (y: Nat): List Nat :=
@@ -122,9 +126,9 @@ def Floor.allRedOrGreen (floor: Floor) (corners: (Corner, Corner)): Bool :=
   let second := corners.snd
   floor.outside.block
     (Nat.min first.row second.row)
-    (Succ (Nat.max first.row second.row))
+    (Nat.max first.row second.row + 1)
     (Nat.min first.column second.column)
-    (Succ (Nat.max first.column second.column))
+    (Nat.max first.column second.column + 1)
     == 0
 
 -- The area of the rectangle with a pair of corners.

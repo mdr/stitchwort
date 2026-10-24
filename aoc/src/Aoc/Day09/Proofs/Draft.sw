@@ -306,3 +306,60 @@ theorem DPrefixSums.blockSum (rows: List (List Nat)) (top: Nat) (bottom: Nat) (l
       _ = List.sumBy (r => upTo r left) (List.rangeFrom (bottom - top) top) + PrefixSums.blockSpec rows top bottom left right :=
         List.sumByAdd (r => upTo r left) (r => List.sumBy (j => cell r j) (List.rangeFrom (right - left) left)) (List.rangeFrom (bottom - top) top)
   omega
+
+-- all over between -----------------------------------------------------------
+
+theorem DList.allBetweenElim (q: Nat -> Bool) (lo: Nat) (hi: Nat) (h: List.all q (List.between lo hi) = True) (k: Nat) (lk: lo <= k) (kh: k <= hi): q k = True :=
+  List.allRangeElim q (hi + 1 - lo) lo h k lk (omega)
+
+theorem DList.allBetweenIntro (q: Nat -> Bool) (lo: Nat) (hi: Nat) (h: (k: Nat) -> lo <= k -> k <= hi -> q k = True): List.all q (List.between lo hi) = True :=
+  List.allRangeIntro q (hi + 1 - lo) lo (k lk kh => h k lk (omega))
+
+-- sums of zero -----------------------------------------------------------------
+
+-- A sum of numbers is 0 only if each is.
+theorem DList.sumByZeroElim (f: a -> Nat): (xs: List a) -> List.sumBy f xs = 0 -> (x: a) -> List.Mem x xs -> f x = 0
+  | Nil, h, x, m => Void.exfalso m
+  | Cons y ys, h, x, Inl e => rewrite <- e in omega [List.sumByCons f y ys]
+  | Cons y ys, h, x, Inr m => DList.sumByZeroElim f ys (omega [List.sumByCons f y ys]) x m
+
+theorem DList.sumByZeroIntro (f: a -> Nat): (xs: List a) -> ((x: a) -> List.Mem x xs -> f x = 0) -> List.sumBy f xs = 0
+  | Nil, h => rfl
+  | Cons y ys, h => rewrite List.sumByCons f y ys in omega [h y (Inl rfl), DList.sumByZeroIntro f ys (x m => h x (Inr m))]
+
+-- filtering what can't pass anyway ------------------------------------------
+
+-- Dropping elements that fail `q`, when only elements that pass `q` can pass
+-- `p`, changes neither `any p` nor `count p`.
+theorem DList.anyFilter (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = True): (xs: List a) -> List.any p (List.filter q xs) = List.any p xs
+  | Nil => rfl
+  | Cons x xs =>
+    match e: q x with
+      | True => rewrite DList.anyFilter p q h xs in rfl
+      | False =>
+        match f: p x with
+          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
+          | False => DList.anyFilter p q h xs
+
+theorem DList.countFromFilter (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = True): (n: Nat) -> (xs: List a) ->
+    List.foldLeft (k x => Nat.succIf k (p x)) n (List.filter q xs) = List.foldLeft (k x => Nat.succIf k (p x)) n xs
+  | n, Nil => rfl
+  | n, Cons x xs =>
+    match e: q x with
+      | True => DList.countFromFilter p q h (Nat.succIf n (p x)) xs
+      | False =>
+        match f: p x with
+          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
+          | False => DList.countFromFilter p q h n xs
+
+theorem DList.countFilter (p: a -> Bool) (q: a -> Bool) (h: (x: a) -> p x = True -> q x = True) (xs: List a): List.count p (List.filter q xs) = List.count p xs :=
+  DList.countFromFilter p q h 0 xs
+
+-- Bools ----------------------------------------------------------------------
+
+-- Two Bools are equal when each is true if the other is.
+theorem DBool.ext: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (b = True -> a = True) -> a = b
+  | True, True, f, g => rfl
+  | True, False, f, g => Eq.sym (f rfl)
+  | False, True, f, g => g rfl
+  | False, False, f, g => rfl
