@@ -1,5 +1,5 @@
 {
-  "next": 422,
+  "next": 424,
   "tickets": [
     {
       "id": 1,
@@ -6090,16 +6090,18 @@
     {
       "id": 378,
       "title": "Proof: Fail.toResultMapIn — via proof-only reification (D1141 d); design note in progress",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "via SW-419 (R1)",
+      "where": "-",
       "labels": [
         "proofs"
       ],
       "body": "Trigger: errors stage 1 and the D1055 (b) fix; toResultNeedThen now ships, toResultMapIn's Cons case needs an induction principle over toResult of a bind with an unknown f x.",
       "created": "2026-10-23",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "8bc5f7b5"
+      ]
     },
     {
       "id": 379,
@@ -6746,16 +6748,18 @@
     {
       "id": 419,
       "title": "Proof-only reification stage R1: match reify with handler-style clauses, E-PROOF-ONLY, Fail/Abort laws, Fail.toResultMapIn (proof-reification.md, D1144-D1148)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "8bc5f7b5"
+      ]
     },
     {
       "id": 420,
@@ -6779,6 +6783,34 @@
       "where": "",
       "labels": [
         "runtime"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 422,
+      "title": "A thunk () => e written inside a proof term becomes its own hidden helper, so applying Fail.toResultThen to it doesn't match the same thunk in the statement (kernel: two different (match …)); compile () => e as a plain lambda so the reify laws can be used by rewriting (found in SW-419)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 423,
+      "title": "reify return-clause goals print with the handler unfolded (Effect.foldComp (x => Ok x) …); fold them back for display (SW-419 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
       ],
       "body": "",
       "created": "2026-10-24",
