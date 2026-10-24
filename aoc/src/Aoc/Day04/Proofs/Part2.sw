@@ -19,21 +19,6 @@ theorem rollsIsCount (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height):
         (r => List.sumByCong (c => (rowsCells rows r c).count) (c => Bool.toNat (rowsCells rows r c == Roll)) (List.range grid.width) (c => Eq.sym (isRollCount (rowsCells rows r c)))))
       (Eq.sym (countPositionsSum grid (r c => rowsCells rows r c == Roll))))
 
--- What a round leaves of a cell with `n` rolls around it: floor if it was
--- an accessible roll.
-theorem keepRemove: (a: Cell) -> (n: Nat) -> keep a (n + a.count) = (if a == Roll && n < 4 then Floor else a)
-  | Floor, n => rfl
-  | Roll, n =>
-    match e: Nat.leq 4 n with
-      | True =>
-        let many: Nat.leq 5 (n + 1) = True := omega
-        let notFew: Nat.leq (Succ n) 4 = False := omega
-        rewrite many, notFew in rfl
-      | False =>
-        let notMany: Nat.leq 5 (n + 1) = False := omega
-        let few: Nat.leq (Succ n) 4 = True := omega
-        rewrite notMany, few in rfl
-
 -- The program's round is the spec's.
 theorem roundCells (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Same (rowsCells (roundRows rows)) (removeAccessible grid (rowsCells rows)) :=
   r c =>

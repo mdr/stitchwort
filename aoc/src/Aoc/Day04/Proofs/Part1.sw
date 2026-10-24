@@ -33,11 +33,11 @@ theorem rollsCells (rows: Vec (Vec Cell w) h):
 -- What a round takes from one cell: 1 when it holds an accessible roll.
 theorem taken: (a: Cell) -> (n: Nat) -> Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll && n < 4)
   | Floor, n => rfl
-  | Roll, 0 => rfl
-  | Roll, 1 => rfl
-  | Roll, 2 => rfl
-  | Roll, 3 => rfl
-  | Roll, Succ (Succ (Succ (Succ n))) => rewrite Nat.addOne n
+  | Roll, n =>
+    rewrite keepRemove Roll n in
+      match Nat.leq (Succ n) 4 with
+        | True => rfl
+        | False => rfl
 
 -- Part 1 is right for every grid: the printed answer is the number of rolls
 -- with fewer than four rolls around them.

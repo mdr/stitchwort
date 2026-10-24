@@ -38,6 +38,21 @@ theorem keepLe: (a: Cell) -> (w: Nat) -> Cell.count (keep a w) <= Cell.count a
       | True => rfl
       | False => rfl
 
+-- What a round leaves of a cell with `n` rolls around it: floor if it was
+-- an accessible roll.
+theorem keepRemove: (a: Cell) -> (n: Nat) -> keep a (n + a.count) = (if a == Roll && n < 4 then Floor else a)
+  | Floor, n => rfl
+  | Roll, n =>
+    match e: Nat.leq 4 n with
+      | True =>
+        let many: Nat.leq 5 (n + 1) = True := omega
+        let notFew: Nat.leq (Succ n) 4 = False := omega
+        rewrite many, notFew in rfl
+      | False =>
+        let notMany: Nat.leq 5 (n + 1) = False := omega
+        let few: Nat.leq (Succ n) 4 = True := omega
+        rewrite notMany, few in rfl
+
 -- The rolls in column j (counted from 1) of three rows.
 def tri (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat): Nat :=
   (List.getOr Floor j (Cons Floor (Vec.toList a))).count + (List.getOr Floor j (Cons Floor (Vec.toList x))).count + (List.getOr Floor j (Cons Floor (Vec.toList b))).count
@@ -250,15 +265,9 @@ theorem nineSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid
       := rewrite nearSum (x => rowSum cells (Succ x) c) grid.height (x h => rowSumBelow grid cells below c x h) r,
         rowSumShift cells c r, rowSumShift cells c (Succ r), rowSumShift cells c (Succ (Succ r))
 
-theorem transpose9 (a: Nat) (b: Nat) (c: Nat) (d: Nat) (e: Nat) (f: Nat) (g: Nat) (h: Nat) (i: Nat):
-    (a + b + c) + (d + e + f) + (g + h + i) = (a + d + g) + (b + e + h) + (c + f + i) :=
-  omega
-
 -- The window by rows instead of columns.
 theorem windowRows (cells: Cells) (r: Nat) (c: Nat): window cells r c = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=
-  transpose9 (bord cells r c).count (bord cells (Succ r) c).count (bord cells (Succ (Succ r)) c).count
-    (bord cells r (Succ c)).count (bord cells (Succ r) (Succ c)).count (bord cells (Succ (Succ r)) (Succ c)).count
-    (bord cells r (Succ (Succ c))).count (bord cells (Succ r) (Succ (Succ c))).count (bord cells (Succ (Succ r)) (Succ (Succ c))).count
+  omega
 
 -- The window is the spec's neighbours and the cell itself, for cells that
 -- are floor off the grid.
