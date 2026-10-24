@@ -6682,9 +6682,9 @@
     {
       "id": 415,
       "title": "Generated JS/rt code now contains immediately applied lambdas from SW-412's costly-let binding ((v2 => Nat.decLessEq(v2)(2n))(v1) in extract io/lets snapshots): reduce such redexes when lowering",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Sonnet)",
       "labels": [
         "js"
       ],
