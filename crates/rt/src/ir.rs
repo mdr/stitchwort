@@ -29,6 +29,7 @@ use num_bigint::BigInt;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::{BigUint, DataId, DefId, native};
 
+use crate::effect::EffectOp;
 use crate::natives::{FloatPrim, IntNative, TextNative};
 
 /// A slot of a frame.
@@ -89,6 +90,12 @@ pub struct Shapes {
     /// `Done x`, `Call op rest`.
     pub done: u32,
     pub call: u32,
+    /// The effect runtime's `Bind c k` node, a computation programs never
+    /// see ([`crate::effect`]): a tag that is neither `Done`'s nor `Call`'s.
+    pub bind_node: u32,
+    /// `Effects`' `Empty` (no runtime fields), the empty row; `u32::MAX` if
+    /// the core doesn't have it.
+    pub row_empty: u32,
     /// `L op`, `R op` of `Plus`.
     pub left: u32,
     pub right: u32,
@@ -269,6 +276,10 @@ pub enum PrimOp {
     Delay(Primitive),
     /// A `Float` operation, where a `Float` is a native double.
     Float(FloatPrim),
+    /// One of the effect runtime's natives, which replace the library's
+    /// `bind`, `foldComp`, `translate` and `runPure` ([`crate::effect`]).
+    /// They call functions, so the machine runs them on its frames.
+    Effect(EffectOp),
 }
 
 impl PrimOp {
@@ -311,6 +322,7 @@ impl PrimOp {
                 Primitive::Delay => 0,
             },
             PrimOp::Float(op) => op.arity(),
+            PrimOp::Effect(op) => op.arity(),
         }
     }
 
@@ -325,6 +337,7 @@ impl PrimOp {
             PrimOp::Text(op) => format!("{op:?}"),
             PrimOp::Delay(prim) => prim.name().to_string(),
             PrimOp::Float(op) => format!("Float{op:?}"),
+            PrimOp::Effect(op) => format!("Effect{op:?}"),
         }
     }
 }

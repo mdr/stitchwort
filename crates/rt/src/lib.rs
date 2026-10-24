@@ -12,6 +12,7 @@
 //! ([`erasure`], [`natives`]; D389).
 
 pub mod code;
+pub mod effect;
 pub mod erasure;
 pub mod host;
 pub mod ir;

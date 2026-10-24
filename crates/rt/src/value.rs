@@ -67,6 +67,10 @@ pub enum Fun {
     Pap { head: Value, args: Box<[Value]> },
     /// `y => Done y`.
     DoneK,
+    /// A resumption of the effect runtime ([`crate::effect`]): if the flag
+    /// is set, calling it suspends (gives `Bind (Done y) r`, `r` the same
+    /// resumption unflagged); otherwise it runs the rest of the computation.
+    Resume(Rc<crate::effect::Resume>, bool),
 }
 
 /// A partial computation: one of `Delay`'s constants with its runtime
@@ -205,7 +209,7 @@ fn take_children(v: &mut Value, out: &mut Vec<Value>) {
     }
 }
 
-fn take_from(values: &mut [Value], out: &mut Vec<Value>) {
+pub(crate) fn take_from(values: &mut [Value], out: &mut Vec<Value>) {
     for v in values {
         if v.is_deep() {
             out.push(std::mem::take(v));
@@ -225,6 +229,11 @@ impl Fun {
     fn take_children(&mut self, out: &mut Vec<Value>) {
         match self {
             Fun::Global(_) | Fun::DoneK => {}
+            Fun::Resume(resume, _) => {
+                if let Some(resume) = Rc::get_mut(resume) {
+                    resume.take_children(out);
+                }
+            }
             Fun::Closure { captures, .. } => take_from(captures, out),
             Fun::Pap { head, args } => {
                 take_from(std::slice::from_mut(head), out);

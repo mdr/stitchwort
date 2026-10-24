@@ -900,6 +900,97 @@ handler crossed (a fold and a `translate` each), the same at 1,000 and
 `plain`'s and `searchedIn` 8.4 times, above the review's suggested bound of
 3, which is 4f's to reduce.
 
+### 9.5 As built: stage 4b
+
+- **Where.** `crates/rt/src/effect.rs` (the natives, `EffectOp`; which
+  library definitions they replace, `EffectNatives`, by the same checks as
+  4a's, all four or none; the carrier rule; `Handler`, `Resume` and the
+  counters) and `crates/rt/src/machine.rs` (`State::effect`, `eff_run`, the
+  loop, `eff_call`, `resume`). `bind`, `foldComp`, `translate` and
+  `runPure` lower to `PrimOp::Effect` natives, compiled to `Instr::Prim`,
+  or `Instr::TailPrim` in tail position, which replaces the frame as a tail
+  call does.
+- **Representation.** A `Bind c k` node is a cell with tag
+  `Shapes::bind_node` (one past `Done`'s and `Call`'s tags), which no
+  compiled code switches on, since only the natives and the runner take a
+  computation apart. The pending list is cells `[k, next]`, `Erased` when
+  empty, never changed once made; a resumption is `Fun::Resume`, holding
+  the handler, the operation's `rest` and the pending list, with a flag for
+  a lazy one.
+- **The `Done` invariant (§9.1.4).** `bind (Done x) k` applies `k` to `x`
+  directly, a tail call where `bind` was, and builds no node. Only `bind`
+  of a `Call` or a `Bind` makes a node. A lazy resumption still makes
+  `Bind (Done y) r`: that suspension is the point of laziness, and `bind`
+  never sees it as `Done`. Tested: `checked` (whose callback never
+  performs anything) at 100,000 elements makes no node and runs the loop
+  once (`bind_of_done_is_a_direct_call`).
+- **The loop runs on the machine's frames**, like `Text.fold`: applying a
+  popped continuation, `done`, `call`, a resumption's `rest`, a
+  `translate`'s `inject` and `reply` each go through `apply`, and their
+  results come back to the loop through a return kind (`Ret::Eff`,
+  `Ret::Then`, `Ret::Inject`), never through a Rust call. So nothing nests
+  in Rust (the wasm playground included), and a clause's tail call of `k`
+  stays a tail call.
+- **The carrier rule** (§9.2) is applied in lowering (`Lowerer::fold`), as
+  4a does: `EffectFoldLazy` for a `Comp` carrier, `EffectFoldIn` with the
+  row as an extra argument for `CompIn e t` (lazy unless the row is
+  `Empty`), the eager fold otherwise, and for a `foldComp` used as a value.
+- **The `IO` runner** steps a `Bind` node with `Machine::step_comp`: the
+  loop with a handler that stops at the first operation and returns it
+  with what was pending folded into its continuation (the operation as it
+  was if nothing was pending, so a tail recursion request is still
+  recognised). The pending list never enters the runner's frames, so
+  `Bind`s are invisible to its routing scan, which is unchanged: it still
+  walks the `Delay` frames, as before 4b; indexing them is 4c's (§9.1.6).
+- **Counters.** `Machine::effect_counts` (always on: a few integer adds):
+  loop steps, pushes, pops, routes, lazy resumptions, and `Bind` nodes made
+  by `bind`.
+- **Tests.** `crates/rt/tests/effect_runtime.rs`: every 4a shape, and the
+  empty-row writer and state handler, at 1,000,000 elements within the
+  default limits, and `failsLast` and `searched`; counts per element
+  constant from 1,000 to 100,000, pushes equal to pops; routing per
+  operation and handler crossed constant at depths 1, 10 and 100; the
+  empty-row writer and search reaching the frame limit with the depth
+  error (100,000 frames, 1,000,000 elements) and working below it; and
+  every `-- run:` line of `effect-runtime.sw` and `effect-handlers.sw`
+  against the reference evaluator (the call and the reference's normal
+  form lowered as a pair, the machine's two values compared). The IR
+  snapshots that mention `bind` show the native; the lowering tests'
+  interpreter (`crates/rt/tests/interp`) runs the natives by the library's
+  equations.
+
+**Measured** (whole `stitchwort run` of `bench/effect-runtime`'s `map.sw`
+and `shapes.sw`, so each includes about 0.2 s of checking; median of 3, or
+of 5 interleaved with the build before 4b for the first three rows; max
+RSS; Apple M4 Pro, shared with other jobs, load 20-30) **[checked]**:
+
+| variant (n = 1,000,000 unless given) | before 4b | after 4b | max RSS after |
+|---|---|---|---|
+| `plain` (pure `map`) | 0.29 s | 0.30 s | 400 MB (same) |
+| `fail` (`checked`) | 0.59 s | 0.59-0.60 s | 638 MB (same) |
+| `failLast` | 0.56 s | 0.61 s | 646 MB (same) |
+| `state` (empty-row counter) | 3.77 s at 8,000 | 1.33 s | 540 MB |
+| `io` | 3.68 s at 8,000 | 1.06 s | 505 MB |
+| `asked` | 4.13 s at 8,000 | 1.15 s | 432 MB |
+| `askedChecked` | 7.84 s at 8,000 | 2.01 s | 432 MB |
+| `emitted` (empty row) | 6.03 s at 8,000 | 1.19 s | 570 MB |
+| `searched` (empty row) | 13.75 s at 8,000 (4 GB) | 3.26 s | 1,301 MB |
+
+So `checked` is within 1.02 times today (the 1.2 criterion), `plain` is
+unchanged, and `failLast` is about 1.08 times. In process
+(`every_shape_runs_at_a_million_elements`, one call each, under load):
+`checked` 0.5 s, `asked` 1.2 s, `askedIn` 1.3 s, `emittedIn` 1.5 s,
+`countedIn` 1.7 s, `askedChecked` 2.4 s, `searchedIn` 4.0 s, and
+`forwarded` through 10 handlers 13.5 s (eleven routes per operation). The
+counts per element at 100,000 (steps, pushes = pops, routes, resumptions,
+nodes) are 4a's: `checked` 0, 0, 0, 0, 0 (one step in all); `asked` 9, 4,
+1, 1, 3; `askedChecked` 13, 5, 3, 2, 3; `searchedIn` 21, 8, 4, 2, 6;
+`forwarded` 1.99 routes per operation and handler at depth 100. AoC's
+`stitchwort test --no-cache` takes 14.5 s and 622 MB before and after.
+The empty-row writer and search, at JS's stack limit after 4a, run at
+1,000,000 natively: each nests a heap frame per operation, so they fail
+only past the frame limit (2,000,000 by default).
+
 ## Appendix A. Benchmark and prototype files
 
 In `bench/effect-runtime/`:
