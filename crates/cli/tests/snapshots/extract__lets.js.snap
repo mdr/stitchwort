@@ -768,7 +768,7 @@ const $Std$dBool$ddecTrue = (v0) => {
 };
 const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
 const $Main$dtwice = (v0) => ((v1) => $Std$dNat$dadd(v1)(v1))($Std$dNat$dadd(v0)(1n));
-const $Main$dclamp = (v0) => ((v1) => $Std$dDecidable$delim((((v2) => $Std$dNat$ddecLessEq(v2)(2n)))(v1))(((v2) => 0n))(((v2) => v1)))($Std$dNat$dadd(v0)(1n));
+const $Main$dclamp = (v0) => ((v1) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v1)(2n))(((v2) => 0n))(((v2) => v1)))($Std$dNat$dadd(v0)(1n));
 const $Main$dlessOf = (v0) => (v1) => $Std$dNat$dsub(v1)(v0);
 const $Main$dbelow = (v0) => (v1) => $Main$dlessOf(v0)($Std$dNat$dadd(v0)(v1));
 const $Main$dcountUp = (v0) => (v1) => {

@@ -512,7 +512,12 @@ impl<'g> Lowerer<'g> {
     fn application(&mut self, head: &Term, args: &[&Term]) -> Result<Expr> {
         match strip(head) {
             Term::Def(id) => self.apply_def(*id, args),
-            Term::Lam(..) => self.beta(head, args),
+            Term::Lam(..) => {
+                if let Some(reduced) = crate::erasure::beta_variable(self.g, head, args)? {
+                    return self.expr(&reduced);
+                }
+                self.beta(head, args)
+            }
             _ => {
                 let f = self.expr(head)?;
                 // An erased function (a proof of a `∀`, or a type-level

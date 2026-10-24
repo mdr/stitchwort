@@ -959,7 +959,7 @@ const $Std$dList$dmapIn = (v1) => (v3) => (v4) => {
     case "Cons": {
       const v5 = v4.head;
       const v6 = v4.tail;
-      return $Std$dEffect$dbind((v3)(v5))(((v7) => $Std$dEffect$dbind($Std$dList$dmapIn(v1)(v3)(v6))(((v8) => ({ tag: "Done", value: (((v9) => ((v10) => ({ tag: "Cons", head: v9, tail: v10 }))))(v7)(v8) })))));
+      return $Std$dEffect$dbind((v3)(v5))(((v7) => $Std$dEffect$dbind($Std$dList$dmapIn(v1)(v3)(v6))(((v8) => ({ tag: "Done", value: { tag: "Cons", head: v7, tail: v8 } })))));
     }
   }
   throw new Error("unreachable");

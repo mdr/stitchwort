@@ -2911,6 +2911,9 @@ impl<'g> Gen<'g> {
                 if let Term::Def(id) = head {
                     return self.def_ref(*id, &args, env);
                 }
+                if let Some(reduced) = stitchwort_rt::erasure::beta_variable(self.g, head, &args)? {
+                    return self.expr(&reduced, env);
+                }
                 let head = self.expr(head, env)?;
                 // An erased function (a proof parameter) applied to
                 // anything is erased too.
