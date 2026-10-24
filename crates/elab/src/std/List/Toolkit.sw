@@ -730,13 +730,16 @@ theorem List.mapMap (f: b -> c) (g: a -> b): (xs: List a) -> List.map f (List.ma
   | Nil => rfl
   | Cons x xs => rewrite List.mapMap f g xs
 
--- `mapIn` with a pure function, run, is `map`.
-theorem List.mapInPure (f: a -> b): (xs: List a) -> Effect.runPure (List.mapIn f xs) = List.map f xs
+-- `mapIn` with a pure function is `map`. In the empty row `{e} b` is `b`, and
+-- sequencing is application, so `mapIn` computes as `map` does, and the proof
+-- is `map`'s own (design C of docs/proposals/effect-polymorphism.md).
+theorem List.mapInPure (f: a -> b): (xs: List a) -> List.mapIn f xs = List.map f xs
   | Nil => rfl
-  | Cons x xs =>
-    Eq.trans
-      (Effect.runPureBind (List.mapIn f xs) (rest => Effect.Comp.Done (Cons (f x) rest)))
-      (Eq.cong (Cons (f x)) (List.mapInPure f xs))
+  | Cons x xs => Eq.cong (Cons (f x)) (List.mapInPure f xs)
+
+theorem List.lengthMapIn (f: a -> b): (xs: List a) -> List.length (List.mapIn f xs) = List.length xs
+  | Nil => rfl
+  | Cons x xs => Eq.cong Succ (List.lengthMapIn f xs)
 
 theorem List.filterMapMap (f: b -> Option c) (g: a -> b): (xs: List a) -> List.filterMap f (List.map g xs) = List.filterMap (x => f (g x)) xs
   | Nil => rfl

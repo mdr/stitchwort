@@ -168,7 +168,7 @@ impl<'g> Printer<'g> {
     }
 
     /// `{A args, B | e}`, if `ops` is the operation type of a row: a chain of
-    /// `Plus` ending in `NoOp` or `sigOp e`.
+    /// `Plus` ending in `NoOp` or `rowOp e`.
     fn row(&self, names: &mut Vec<Name>, ops: &Term) -> Option<String> {
         self.row_with(names, ops, false)
     }
@@ -185,7 +185,7 @@ impl<'g> Printer<'g> {
                     ops = args[1].strip_loc();
                 }
                 Term::Data(d, _) if is(self.g, Builtin::NoOp, *d) => break None,
-                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if self.g.registry.is_def(Builtin::SigOp, *id)) =>
+                Term::App(f, e, _) if matches!(f.strip_loc(), Term::Def(id) if self.g.registry.is_def(Builtin::RowOp, *id)) =>
                 {
                     break Some(self.print(names, e, Prec::App));
                 }
@@ -444,6 +444,14 @@ impl<'g> Printer<'g> {
                 // aren't shown.
                 let (head, args) = explicit_spine(term);
                 if let Term::Def(id) = head {
+                    // A computation in a row variable's row: `{e} a`.
+                    if self.g.registry.is_def(Builtin::CompIn, *id)
+                        && let [row, result] = &args[..]
+                    {
+                        let row = self.print(names, row, Prec::App);
+                        let result = self.print(names, result, Prec::App);
+                        return (format!("{{{row}}} {result}"), Prec::App);
+                    }
                     // A projection, as written: `x.name` or `p.fst`.
                     if let Some(field) = self.projection_field(*id)
                         && let [arg] = &args[..]

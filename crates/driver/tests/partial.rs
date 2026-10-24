@@ -152,10 +152,10 @@ def tree : Nat -> {Partial} Nat
   | 0 => 1
   | n => twiceWith (x => tree x) (n - 1)
 
-type Handlers (e : Std.Effect.Sig) : Type =
+type Handlers (e : Std.Effect.Row) : Type =
   | MkHandlers (onStep : Nat -> {Partial | e} Nat) (onDone : Nat -> {Partial | e} Nat)
 
-def drive : [e : Std.Effect.Sig] -> Handlers e -> Nat -> {Partial | e} Nat
+def drive : [e : Std.Effect.Row] -> Handlers e -> Nat -> {Partial | e} Nat
   | MkHandlers onStep onDone, 0 => onDone 0
   | MkHandlers onStep onDone, n => onStep (n - 1)
 

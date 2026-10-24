@@ -49,6 +49,7 @@ mod quot;
 mod records;
 mod rewind;
 mod rewrite;
+mod rows;
 mod scope;
 mod shared;
 pub mod timings;
@@ -262,6 +263,14 @@ pub struct Elaborator {
     next_include_location: Option<String>,
     /// Auto arguments still to be proved in the current declaration.
     obligations: RefCell<Vec<auto::Obligation>>,
+    /// Row unknowns made for row-polymorphic functions' implicit row
+    /// parameters in the current declaration: defaulted to the empty row if
+    /// nothing else decides them (docs/proposals/effect-polymorphism.md
+    /// §5.C.1, D1123).
+    row_metas: RefCell<Vec<rows::RowMeta>>,
+    /// Row comparisons put aside until more is known (`unify_postponing`),
+    /// retried with the obligations.
+    row_constraints: RefCell<Vec<rows::Postponed>>,
     /// Metavariables that literals made `Nat` in the current declaration.
     defaulted: RefCell<Vec<numbers::Defaulted>>,
     /// The characters whose patterns became number patterns (by span), so
@@ -845,6 +854,8 @@ impl Elaborator {
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
+        self.row_metas.borrow_mut().clear();
+        self.row_constraints.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
         self.instance_steps.borrow_mut().clear();
     }
@@ -853,6 +864,7 @@ impl Elaborator {
     /// solutions into `term`, failing if any are unsolved.
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
         self.solve_obligations()?;
+        self.settle_rows()?;
         self.zonk(term, level)
     }
 

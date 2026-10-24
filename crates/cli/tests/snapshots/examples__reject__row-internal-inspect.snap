@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INTERNAL] Error: `Effect.rowOp` is internal to the standard library
+   ╭─[ reject/row-internal-inspect.sw:7:63 ]
+   │
+ 7 │ def operationsOf [e: Effect.Row] (f: Nat -> {e} Nat): Type := Effect.rowOp e
+   │                                                               ──────┬─────  
+   │                                                                     ╰─────── only the standard library can name this
+   │ 
+   │ Note: rows are made by the compiler from `{e}` and `{A | e}` in types; a program can pass a row variable on, but not build or inspect a row
+───╯

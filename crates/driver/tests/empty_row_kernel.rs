@@ -125,8 +125,10 @@ theorem inMatch (c: () -> {Abort} Nat): viaMatch c = Option.getOrElse 0 (Abort.t
     | None => rfl
 ";
 
-/// The statement of `same` is an equation between two `runPure`s, with no
-/// `bind` sequencing the calls.
+/// The statement of `same` is an equation between two calls of
+/// `Abort.toOption` at the empty row, with nothing run or sequenced: its
+/// result type `{e} Option a` is `Option a` there (design C of
+/// docs/proposals/effect-polymorphism.md).
 #[test]
 fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
     let mut session = Session::new();
@@ -137,9 +139,52 @@ fn an_equation_about_a_handler_at_the_empty_row_is_an_equation() {
     let ty = g.def(def(g, "same")).ty.clone();
     let printed = stitchwort_core::pretty::term(g, &[], &ty);
     assert!(
-        !printed.contains("Effect.bind") && printed.contains("Effect.runPure"),
+        !printed.contains("Effect.bind")
+            && !printed.contains("Effect.runPure")
+            && printed.contains("Abort.toOption"),
         "same's statement: {printed}"
     );
+}
+
+/// The canonical form of rows (docs/proposals/effect-polymorphism.md
+/// §5.C.2): a pure use of an effect-polymorphic function elaborates with the
+/// row `Empty`, and no `Comp`, `Done`, `runPure` or `Ops` anywhere in the
+/// term; and `{}` is no row at all.
+#[test]
+fn a_pure_use_of_an_effect_polymorphic_function_has_no_computation() {
+    let mut session = Session::new();
+    let source = "import Std (List)\n\
+                  def doubled (xs: List Nat): List Nat := List.mapIn (x => x + x) xs\n\
+                  def successors (xs: List Nat): List Nat := List.mapIn Succ xs\n\
+                  def unannotated (xs: List Nat): Nat :=\n  let ys := List.mapIn (x => x + 1) xs\n  List.sum ys\n\
+                  def emptyRow (f: Nat -> {} Nat) (xs: List Nat): List Nat := List.mapIn f xs\n";
+    if let Err(ds) = session.load("test.sw", source) {
+        panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
+    }
+    let g = &session.elab.globals;
+    let comp = g.find_data("Effect.Comp").unwrap();
+    let row = g.find_data("Effect.Row").unwrap();
+    let run_pure = def(g, "Effect.runPure");
+    for name in ["doubled", "successors", "unannotated", "emptyRow"] {
+        let d = g.def(def(g, name));
+        let body = d.body().expect("checked").clone();
+        let mut empty_rows = 0;
+        for term in [&d.ty, &*body] {
+            for (t, _) in term.subterms() {
+                match t {
+                    Term::Data(id, _) => assert_ne!(*id, comp, "`{name}` mentions `Comp`"),
+                    Term::Ctor(id, c, _) if *id == comp => {
+                        panic!("`{name}` has a `Comp` constructor ({c})")
+                    }
+                    Term::Ctor(id, 0, _) if *id == row => empty_rows += 1,
+                    Term::Ctor(id, _, _) if *id == row => panic!("`{name}` has an `Ops` row"),
+                    Term::Def(id) => assert_ne!(*id, run_pure, "`{name}` runs `runPure`"),
+                    _ => {}
+                }
+            }
+        }
+        assert!(empty_rows > 0, "`{name}` has no `Empty` row");
+    }
 }
 
 /// A call that does perform an ability is still refused where none is

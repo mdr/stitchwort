@@ -34,6 +34,8 @@ pub(crate) struct Snapshot {
     metas: usize,
     trail: usize,
     obligations: usize,
+    row_metas: usize,
+    row_constraints: usize,
     defaulted: usize,
     drafts: usize,
     local_keys: usize,
@@ -50,6 +52,8 @@ impl Snapshot {
             metas: g.metas.borrow().len(),
             trail: g.meta_trail.borrow().len(),
             obligations: cx.e.obligations.borrow().len(),
+            row_metas: cx.e.row_metas.borrow().len(),
+            row_constraints: cx.e.row_constraints.borrow().len(),
             defaulted: cx.e.defaulted.borrow().len(),
             drafts: cx.e.drafts.borrow().len(),
             local_keys: cx.e.local_keys.borrow().len(),
@@ -99,6 +103,10 @@ impl Snapshot {
             cx.e.proof_holes.borrow_mut().retain(|m| *m < self.metas);
         }
         cx.e.obligations.borrow_mut().truncate(self.obligations);
+        cx.e.row_metas.borrow_mut().truncate(self.row_metas);
+        cx.e.row_constraints
+            .borrow_mut()
+            .truncate(self.row_constraints);
         cx.e.defaulted.borrow_mut().truncate(self.defaulted);
         cx.e.drafts.borrow_mut().truncate(self.drafts);
         cx.e.local_keys.borrow_mut().truncate(self.local_keys);

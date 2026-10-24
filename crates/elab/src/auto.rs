@@ -73,6 +73,11 @@ impl Elaborator {
         loop {
             let obligations = std::mem::take(&mut *self.obligations.borrow_mut());
             if obligations.is_empty() {
+                // Row comparisons put aside: one that's settled now is
+                // progress.
+                if self.retry_rows()? {
+                    progress = true;
+                }
                 if waiting.is_empty() {
                     return Ok(());
                 }

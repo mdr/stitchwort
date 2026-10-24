@@ -1640,6 +1640,7 @@ fn insert_with(
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
     let meta = cx.fresh_meta();
+    crate::rows::note_row_meta(cx, ty, &meta);
     if icit == Icit::Auto {
         let tree = match meta.spine().0 {
             Term::Meta(m) => *m,
@@ -2411,6 +2412,12 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     if let Some(term) =
         crate::undo::transaction(cx, |cx| effects::coerce(cx, &term, found, expected))?
     {
+        return Ok(term);
+    }
+    // A computation type over a row unknown, against a type that may yet
+    // compute to a `Comp`: decided later (docs/proposals/effect-polymorphism.md
+    // §5.C.1, step 5).
+    if crate::rows::postpone(cx, found, expected)? {
         return Ok(term);
     }
     // The message shows the types as the failed comparison left them, as it

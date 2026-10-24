@@ -279,12 +279,14 @@ Abilities are translated into ordinary data before the kernel sees them, so the 
 
   An operation's argument and result can't mention `A` itself (Landin's knot). The kernel's positivity and termination checks would refuse the generated declarations anyway, but less clearly.
 - **Rows.**
-  - `{A, B | e}` is the operation type `Effect.Plus A (Effect.Plus B (Effect.sigOp e))`, with matching result types built from `Effect.PlusRes`.
+  - `{A, B | e}` is the operation type `Effect.Plus A (Effect.Plus B (Effect.rowOp e))`, with matching result types built from `Effect.PlusRes` and `Effect.rowRes`.
   - Abilities are sorted by where they're declared in the source (whatever order they were checked in). A closed row ends in `Effect.NoOp`.
-  - A row variable `e` has type `Effect.Sig` (an operation type together with its result types) and is bound implicitly.
+  - A row variable `e` has type `Effect.Row`, and is bound implicitly. A row is `Effect.Row.Empty` or `Effect.Row.Ops op res` (the operations of a row with at least one ability, and their result types); `rowOp Empty` is `NoOp`. The elaborator keeps rows canonical: a row with no abilities is always `Empty`, never `Ops NoOp NoRes`.
+  - `Row`'s constructors and the definitions that take a row apart (`rowOp`, `rowRes`, `CompIn`, `doneIn`, `bindIn`, `liftIn`, `lowerIn`) can be named only in the standard library (`E-INTERNAL`); a program can name the type `Row` and pass a row variable on, but can't build, inspect or compare a row ([proposals/effect-polymorphism.md](proposals/effect-polymorphism.md) §5.C.2, D1122).
   - Each ability appears at most once (`E-DUPLICATE`).
-  - `a -> {E} b` is `a -> Effect.Comp (ops E) (res E) b`.
-- **Computation mode.** Checking against `Effect.Comp` over a row of abilities:
+  - `a -> {E} b` is `a -> Effect.Comp (ops E) (res E) b`, except for a bare row variable: `a -> {e} b` is `a -> Effect.CompIn e b`. `CompIn` is defined by cases on the row: `CompIn Empty b` is `b` and `CompIn (Ops op res) b` is `Comp op res b`. So a pure use of an effect-polymorphic function is pure code, and its equations hold as they do for a pure function (design C).
+  - A row unknown `?e` (an effect-polymorphic function's row, at a use) is solved by the unifier from what `CompIn ?e B` is compared with: with `Empty` when the other type can never be a computation (a data type, a function type, a sort, an equation, a type variable); with that row when it's a `Comp` over at least one ability; with `Empty` for a `Comp NoOp NoRes A` written by hand (data). A comparison with a type stuck on an unknown is put aside and retried at the end of the declaration; a row unknown nothing decides is set to `Empty` then ([proposals/effect-polymorphism.md](proposals/effect-polymorphism.md) §5.C.1, D1123, D1124).
+- **Computation mode.** Checking against `Effect.Comp` over a row of abilities, or `Effect.CompIn e` for a row variable (where `Done` and `bind` below are `doneIn e` and `bindIn e`, `liftIn e` makes a tree to move into a row with abilities, and `lowerIn e` makes a tree in `{e}` a `CompIn e` again, as a handler whose remaining row is `{e}` does):
   - Expressions that perform nothing become `Effect.Comp.Done v`.
   - An operation call becomes `Effect.Comp.Call (inject op) (r => Effect.Comp.Done r)`, injected into the row with `Effect.Plus.L`/`Effect.Plus.R`.
   - Effectful arguments, conditions and operands run first, left to right, through `Effect.bind`.

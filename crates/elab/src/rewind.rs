@@ -144,6 +144,8 @@ impl Elaborator {
             include_locations,
             next_include_location,
             obligations,
+            row_metas,
+            row_constraints,
             defaulted,
             char_patterns,
             char_proofs,
@@ -223,6 +225,8 @@ impl Elaborator {
         *include_locations = mark.include_locations.clone();
         *next_include_location = mark.next_include_location.clone();
         obligations.get_mut().clear();
+        row_metas.get_mut().clear();
+        row_constraints.get_mut().clear();
         defaulted.get_mut().clear();
         char_patterns.get_mut().clear();
         char_proofs.get_mut().clear();
