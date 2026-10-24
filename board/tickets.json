@@ -7048,30 +7048,34 @@
     {
       "id": 437,
       "title": "Effects: a callback whose type becomes effectful only after the row is settled (type-level, e.g. answer on Tagged True) is mapped as data in a pure function: List.map answer gives List ({Log} Nat), say never runs, no E-ABILITY (D1124). Pre-existing; reject test + re-run D1124 when a blocker resolves to Comp (SW-408 review #1)",
-      "status": "next",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "8866d365"
+      ]
     },
     {
       "id": 438,
       "title": "Effects: remove pure_first's handler exclusion (review couldn't reproduce the malformed Comp NoOp NoRes; prelude, examples, AoC pass without it) or keep it with a test showing why (SW-408 review #2)",
-      "status": "next",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "716c15bf"
+      ]
     },
     {
       "id": 439,
