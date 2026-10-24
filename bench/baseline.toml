@@ -8,15 +8,15 @@
 inputs = "854 files, 8fd27f8f9c69d888"
 steps = 1645667096
 visits = 216591065
-allocations = 1682846464
-peak_bytes = 215422401
+allocations = 1682846805
+peak_bytes = 215422337
 time_ms = 43373.3
 
 [extract-js]
 inputs = "48 files, 9b41d804e51c4dbc"
-steps = 350538
-visits = 190920
-allocations = 988728
+steps = 417034
+visits = 202097
+allocations = 1063361
 peak_bytes = 960311
 time_ms = 60.4
 
