@@ -51,8 +51,8 @@ theorem stableSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (stable: Sta
 
 theorem accessibleSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (r: Nat) (c: Nat): accessible grid s r c = accessible grid t r c :=
   calc accessible grid s r c
-    _ = (t r c == Roll && neighbours grid s r c < 4) := Eq.cong (v => v == Roll && neighbours grid s r c < 4) (h r c)
-    _ = accessible grid t r c := Eq.cong (n => t r c == Roll && n < 4) (neighboursSame grid s t h r c)
+    _ = (t r c == Roll && neighbours grid s r c < 4) := rewrite h r c
+    _ = accessible grid t r c := rewrite neighboursSame grid s t h r c
 
 theorem removeSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): Same (removeAccessible grid s) (removeAccessible grid t) :=
   r c => Eq.trans (Eq.cong (b => if b then Floor else s r c) (accessibleSame grid s t h r c)) (Eq.cong (v => if accessible grid t r c then Floor else v) (h r c))

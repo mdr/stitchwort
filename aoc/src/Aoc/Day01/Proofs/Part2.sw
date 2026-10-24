@@ -78,7 +78,7 @@ theorem stepRight (d: Nat) [auto ok: d != 0] (a: Nat) (h: a < d) (n: Nat):
       calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
         _ = Succ (n / d) := rewrite (omega: a + 1 = d), Nat.modSelf d
         _ = (d + n) / d := Eq.sym (Nat.addDivSelf d n)
-        _ = (Succ a + n) / d := Eq.cong (x => (x + n) / d) (omega: d = Succ a)
+        _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
         _ = (a + Succ n) / d := rewrite Nat.addSucc a n
     | False =>
       -- no wrap: `Succ a < d`, so the dial goes to `a + 1`
@@ -103,7 +103,7 @@ theorem isZeroNeg (m: Nat): (v: Nat) -> v < Succ m -> ((Succ m - v) % Succ m == 
   | Succ w, h => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))
 
 theorem mirrorIsZero [n: Nat] (dial: Dial n): Dial.isZero (mirror dial) = Dial.isZero dial :=
-  Eq.trans (Eq.cong (v => v == 0) (Mod.valueNeg dial.position)) (isZeroNeg (n - 1) dial.position.value dial.position.isLt)
+  rewrite Mod.valueNeg dial.position in isZeroNeg (n - 1) dial.position.value dial.position.isLt
 
 -- One click left, mirrored, is one click right from the mirror.
 theorem mirrorLeft [n: Nat] (dial: Dial n): mirror (Dial.move dial (Left 1)) = Dial.move (mirror dial) (Right 1) :=

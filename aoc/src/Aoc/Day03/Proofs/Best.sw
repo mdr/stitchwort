@@ -140,7 +140,7 @@ theorem pickBase (k: Nat) (ih: BestBelow k) (c: Battery) (after: Bank) (h2: k <=
     (y: Battery) (s: Bank) (hk: s.length = k) (e: y = c) (hs: s.Subsequence after):
     joltageOf (Cons y s) <= joltageOf (Cons c (after.best k)) :=
   calc joltageOf (Cons y s)
-    _ = joltageOf (Cons c s) := Eq.cong (z => joltageOf (Cons z s)) e
+    _ = joltageOf (Cons c s) := rewrite e
     _ <= joltageOf (Cons c (after.best k)) := joltageOfConsLe c s (after.best k) (omega [bestLength k after]) (ih after s hs hk)
 
 -- When `x` ties with `c`, starting from `x` is no better than from `c`, which

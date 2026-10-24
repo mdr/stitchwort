@@ -66,11 +66,11 @@ theorem templatesAsGrid (range: Range):
 -- The same for sums: summing over the templates is summing over every block
 -- length up to the digits and every number of copies from 2, the templates
 -- that don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
-theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := Eq.cong (t => List.rangeFrom t 1) (omega: n + 1 - 1 = n)
+theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
 
 theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
   | Zero => rfl
-  | Succ n => Eq.cong (t => List.rangeFrom t 2) (omega: n + 1 - 1 = n)
+  | Succ n => rewrite (omega: n + 1 - 1 = n)
 
 -- One template, kept if it fits: its sum is `f` of it, or nothing.
 theorem keptSum [auto add: Add c] (f: RepetitionTemplate -> c) (size: Nat) (k: Nat) (n: Nat):
