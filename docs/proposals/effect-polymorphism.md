@@ -1491,7 +1491,7 @@ handlers with open rows.
 
 **Decided (Matt, 24 Oct 2026):** D1116 to D1126, each as recommended below.
 
-After stage 1, first part (Matt, 24 Oct 2026): **D1140 (a)** (= D1133): `=` operands and `if`/`match` branches whose expected type is a computation pass it as written. **D1141 (d)** (= D1134): abilities stay on arrows in the surface language (computations are passed as thunks `() -> {Fail} a`); proofs get an erased, proof-only `reify` or per-ability eliminators to case-split on a computation, so the runtime is not committed to materialised trees. See [computation-values.md](computation-values.md) and its [external review](computation-values-external-review.md); a design note for the proof-only reification comes first.
+After stage 1, first part (Matt, 24 Oct 2026): **D1140 (a)** (= D1133): `=` operands and `if`/`match` branches whose expected type is a computation pass it as written. **D1141 (d)** (= D1134): abilities stay on arrows in the surface language (computations are passed as thunks `() -> {Fail} a`); proofs get an erased, proof-only `reify` or per-ability eliminators to case-split on a computation, so the runtime is not committed to materialised trees. See [computation-values.md](computation-values.md) and its [external review](computation-values-external-review.md); a design note for the proof-only reification comes first: [proof-reification.md](proof-reification.md).
 
 After stage 0 (Matt, 24 Oct 2026): **D1133** — whether operands of `=` and `if`/`match` branches with a `Comp` expected type pass computations (stage 0 left them running in place) is settled in the stage 1 design. **D1134** — a way to write a `{Fail} b` binder type, which `Fail.toResultMapIn` (SW-378) needs, is part of the stage 1 design too.
 
