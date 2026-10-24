@@ -13,7 +13,10 @@ use stitchwort_core::{DefId, ResourceError, Term};
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_rt::effect::EffectCounts;
 use stitchwort_rt::value::Value;
-use stitchwort_rt::{Limits, Machine, Program, lower_global, lower_main};
+use stitchwort_rt::{
+    Limits, Machine, Outcome, Policy, Program, RouteCounts, lower_global, lower_main,
+    run_main_counting,
+};
 use stitchwort_syntax::parse_expression;
 
 const STACK: usize = 256 * 1024 * 1024;
@@ -431,5 +434,118 @@ fn run_lines_agree_with_the_reference_evaluator() {
             }
         }
         assert!(ran >= 30, "{ran}");
+    });
+}
+
+/// `examples/accept/partial-forwarding.sw`'s `main`, lowered: a non-tail
+/// partial recursion `depth` levels deep (the first input line) whose every
+/// level prints, through handlers that forward `IO`, a translation and
+/// recursion requests.
+fn partial_forwarding() -> Program {
+    let name = "partial-forwarding.sw";
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/accept")
+        .join(name);
+    let text = std::fs::read_to_string(&path).expect("readable example");
+    let mut session = Session::for_stack(STACK);
+    session
+        .load(name, &text)
+        .unwrap_or_else(|e| panic!("{name} doesn't check: {e:?}"));
+    let main = session.main().expect("a `main`");
+    lower_main(&session.elab.globals, session.elab.limits, main.term())
+        .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"))
+}
+
+/// What `partial-forwarding.sw` prints last for `depth`: each level adds 1
+/// and the number of Collatz steps from `n % 8 + 1` to 1.
+fn partial_forwarding_total(depth: u64) -> u64 {
+    let collatz = |mut n: u64| {
+        let mut steps = 0;
+        while n != 1 {
+            n = if n.is_multiple_of(2) {
+                n / 2
+            } else {
+                3 * n + 1
+            };
+            steps += 1;
+        }
+        steps
+    };
+    (1..=depth).map(|n| 1 + collatz(n % 8 + 1)).sum()
+}
+
+/// Runs `partial-forwarding.sw` at `depth` with the default limits and
+/// checks what it printed: every level, then the total. The routing counts.
+fn run_partial_forwarding(program: &Program, depth: u64) -> RouteCounts {
+    let mut output = Vec::new();
+    let input = format!("{depth}\n");
+    let (result, counts) = run_main_counting(
+        program,
+        Limits::default(),
+        &Policy::default(),
+        &mut input.as_bytes(),
+        &mut output,
+    );
+    assert_eq!(result.expect("it runs"), Outcome::Finished, "at {depth}");
+    let output = String::from_utf8(output).expect("text");
+    let mut lines = output.lines();
+    for n in (1..=depth).rev() {
+        assert_eq!(lines.next(), Some(n.to_string().as_str()), "at {depth}");
+    }
+    let total = format!("total {}", partial_forwarding_total(depth));
+    assert_eq!(lines.next(), Some(total.as_str()), "at {depth}");
+    assert_eq!(lines.next(), None, "at {depth}");
+    counts
+}
+
+/// The `IO` runner routes an operation by its index of `Map` and `Tie`
+/// frames, never looking at the ordinary frames between them (§9.1.6, stage
+/// 4c): in `partial-forwarding.sw` every `print` leaves the focus with one
+/// waiting frame per level below it, so the frames below the focus per
+/// operation grow with the depth, while the frames routing looks at per
+/// operation stay the same, a few `Tie`s and `Map`s.
+#[test]
+fn routing_work_is_independent_of_control_depth() {
+    with_stack(STACK, || {
+        let program = partial_forwarding();
+        let mut per = Vec::new();
+        for depth in [1_000, 10_000, 100_000] {
+            let c = run_partial_forwarding(&program, depth);
+            let ops = c.operations as f64;
+            eprintln!(
+                "depth {depth}: {c:?}; per operation, {} visited and {} below",
+                c.visited as f64 / ops,
+                c.below as f64 / ops
+            );
+            // Many ordinary frames below each operation...
+            assert!(
+                c.below as f64 / ops >= depth as f64 / 8.0,
+                "depth {depth}: {c:?}"
+            );
+            per.push(c.visited as f64 / ops);
+        }
+        // ...but routing looks at a few, however many.
+        assert!(
+            per[2] <= per[0] + 0.01,
+            "visited per operation grew: {per:?}"
+        );
+        assert!(per[2] <= 4.0, "visited per operation: {per:?}");
+    });
+}
+
+/// `Partial` mixed with other forwarded abilities, a million levels deep,
+/// within the default limits (`partial-forwarding.sw`; the reference
+/// evaluator and `run --js` agree with this runner on it in
+/// `crates/cli/tests/run_reference.rs` and `run_js.rs`).
+#[test]
+fn partial_with_forwarded_abilities_runs_a_million_levels_deep() {
+    with_stack(STACK, || {
+        let program = partial_forwarding();
+        let start = Instant::now();
+        let c = run_partial_forwarding(&program, 1_000_000);
+        eprintln!(
+            "1,000,000 levels: {} ms, {c:?}",
+            start.elapsed().as_millis()
+        );
     });
 }

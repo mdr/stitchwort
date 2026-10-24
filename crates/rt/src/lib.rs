@@ -30,4 +30,4 @@ pub mod value;
 pub use ir::Program;
 pub use lower::{lower_definitions, lower_global, lower_main};
 pub use machine::{Limits, Machine};
-pub use run::{Outcome, Policy, run_main, run_main_with};
+pub use run::{Outcome, Policy, RouteCounts, run_main, run_main_counting, run_main_with};

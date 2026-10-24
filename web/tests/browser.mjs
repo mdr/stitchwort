@@ -876,6 +876,41 @@ test("Run's errors", async (page) => {
   assert.match(result, /E-INPUT.*read past the end of its input more than 10000 times/);
 });
 
+// Effectful `List.map` over 1,000,000 elements, with the page's limits
+// (docs/proposals/effect-runtime.md stage 4c, D1163): web/tests/effect-shapes.sw,
+// whose shapes crates/web's library tests also run. `ioRead` reads a line
+// per element (an `IO` operation each); printing every element would pass
+// the output cap, so `io` itself is left to the library tests.
+test("effectful List.map runs at a million elements", async (page) => {
+  const n = 1000000;
+  const sum = n * (n - 1) / 2;
+  const shapes = [
+    ["ioRead", sum + n * (n + 1) / 2],
+    ["checked", sum + n],
+    ["asked", sum + 7 * n],
+    ["askedChecked", sum + 7 * n],
+    ["askedIn", sum + 7 * n],
+    ["emitted", sum],
+    ["emittedIn", sum],
+    ["searched", sum],
+    ["counted", 2 * sum],
+  ];
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(readFileSync(join(here, "effect-shapes.sw"), "utf8"));
+  await page.untilChecked(60000);
+  await page.tab("run");
+  for (const [name, total] of shapes) {
+    const lines = name === "ioRead" ? Array.from({ length: n }, (_, i) => `${i + 1}\n`).join("") : "";
+    await page.ev(`document.getElementById("run-input").value = ${JSON.stringify(`${name}\n${n}\n${lines}`)}`);
+    const started = Date.now();
+    const result = await page.run(RUN_SECONDS * 1000 + 15000);
+    assert.match(result, /Finished in/, `${name}: ${result.slice(0, 400)}`);
+    assert.equal(await page.printed(), `${name} ${n}: ${total}\n`, name);
+    console.log(`    (${name}: ${Date.now() - started} ms; ${result.match(/Finished in [^\n]*/)[0]})`);
+  }
+}, { ms: 300000 });
+
 test("a long run streams its output, and Stop cancels it", async (page) => {
   await page.open();
   await page.untilChecked();

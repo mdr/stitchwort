@@ -418,9 +418,8 @@ fn an_unhandled_failure_is_reported_alike() {
 /// every element of an effectful `map`, so each crosses as many pending
 /// `bind`s as there are elements left, and a `Fail` handler it's forwarded
 /// through. Before stage 4a this was quadratic (16,000 elements took
-/// seconds); a million now take about a second. Checked both ways on a
-/// short list, and in JS alone on the long one (the native runtime is
-/// quadratic until stage 4c).
+/// seconds); a million now take about a second, natively too (since stage
+/// 4b). Checked both ways on a short list and on the long one.
 #[test]
 fn io_across_many_binds_runs_in_linear_time() {
     let source = |count: usize| {
@@ -444,11 +443,25 @@ def main(): {{IO}} () :=
     assert!(text(&js.stdout).ends_with("1999\ntotal 1999000\n"));
 
     let long = source_file("io-long.sw", &source(1_000_000));
-    let js = run(&long, true, b"");
+    let js = same_both_ways(&long, b"", true);
     assert!(js.status.success(), "{}", text(&js.stderr));
     let stdout = text(&js.stdout);
     assert_eq!(stdout.lines().count(), 1_000_001);
     assert!(stdout.ends_with("999999\ntotal 499999500000\n"));
+}
+
+/// `Partial` mixed with other forwarded abilities, deeper than the examples
+/// test runs it (`examples/accept/partial-forwarding.sw`, 50 levels there):
+/// 2,000 levels of non-tail partial recursion, each printing through
+/// handlers that forward `IO`. A million levels are in
+/// `crates/cli/tests/effect_runtime.rs` (JS) and
+/// `crates/rt/tests/effect_runtime.rs` (native).
+#[test]
+fn partial_with_forwarded_abilities_prints_the_same_both_ways() {
+    let js = same_both_ways(&examples().join("partial-forwarding.sw"), b"2000\n", true);
+    let stdout = text(&js.stdout);
+    assert_eq!(stdout.lines().count(), 2_001);
+    assert!(stdout.starts_with("2000\n1999\n"), "{stdout}");
 }
 
 /// `Partial` mixed with another ability: a handler inside a partial function
