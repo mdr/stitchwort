@@ -1,5 +1,5 @@
 {
-  "next": 433,
+  "next": 434,
   "tickets": [
     {
       "id": 1,
@@ -6965,6 +6965,20 @@
       "where": "",
       "labels": [
         "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 433,
+      "title": "Guide findings (D1161 a): stale/wrong docs (projects.md interfaces, syntax.md ; example, decreasing indent) and clearer messages (list nonexhaustive, divFuel measure, test in: span, E-PARTIAL in tests, |> vs == hint, std-source broken pipe)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
       ],
       "body": "",
       "created": "2026-10-24",
