@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DECREASING] Error: can't show that `(m + 1, j)` comes before `(m, Succ j)` here, which `decreasing (m, Succ j)` needs for this call
+    ╭─[ reject/decreasing-lex-increase.sw:13:17 ]
+    │
+ 13 │     | Succ j => grow (m + 1) j
+    │                 ───────┬──────  
+    │                        ╰──────── this recursive call
+    │ 
+    │ Note 1: that's `m + 1 < m`, or `m + 1` the same as `m` and `j < Succ j`
+    │ 
+    │ Note 2: give a proof with `[decreasing := Nat.LexLess.First …]` (the first got smaller) or `[decreasing := Nat.LexLess.Second rfl …]` (the first stayed the same); `[decreasing := omega]` finds either from the facts in scope
+────╯

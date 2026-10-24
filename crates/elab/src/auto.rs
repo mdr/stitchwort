@@ -22,6 +22,11 @@
 //!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
 //!    which the kernel re-checks by running `d` itself.
 //!
+//! Between 1 and 2, a lexicographic `decreasing` obligation, `Nat.LexLess a1
+//! a2 b1 b2`, is split: `a1 < b1`, or else `a1` the same as `b1` and `a2 <
+//! b2`, each proved this same way (docs/proposals/well-founded-recursion.md,
+//! stage 3d).
+//!
 //! An obligation whose type is an interface applied to a type is an instance
 //! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
 //! One may have to wait, until solving others has said more about its type
@@ -213,6 +218,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             return Ok(Term::Var(cx.level() - 1 - level));
         }
     }
+    if let Some(proof) = lex_less(cx, &goal, depth)? {
+        return Ok(proof);
+    }
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
     match force(cx.g(), cx.eval(&decision)?)? {
@@ -242,6 +250,49 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             )
             .with_note("establish it first, with `if h: … then … else …`")),
     }
+}
+
+/// A proof of `Nat.LexLess a1 a2 b1 b2`, what a recursive call of a
+/// definition with `decreasing (m1, m2)` needs
+/// (docs/proposals/well-founded-recursion.md, stage 3d): `a1 < b1`, or else
+/// `a1` the same as `b1` and `a2 < b2`, each found the way any goal is.
+/// `None` for any other goal, or when neither is found.
+fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
+    let Some(lex) = cx.g().registry.data(Builtin::LexLess) else {
+        return Ok(None);
+    };
+    let (a1, a2, b1, b2) = match goal {
+        Value::Data(d, params) if *d == lex && params.len() == 4 => (
+            params[0].clone(),
+            params[1].clone(),
+            params[2].clone(),
+            params[3].clone(),
+        ),
+        _ => return Ok(None),
+    };
+    let less = builtin_def(cx, Builtin::LessThan)?;
+    let less_than = |cx: &mut Ctx, a: &Value, b: &Value| -> Result<Value> {
+        let term = Term::app(Term::app(Term::Def(less), cx.quote(a)?), cx.quote(b)?);
+        cx.eval(&term)
+    };
+    let first = less_than(cx, &a1, &b1)?;
+    let found = attempt(cx, |cx| match prove(cx, &first, depth + 1) {
+        Ok(proof) => Ok(Some(proof)),
+        Err(e) => give_up_on(e),
+    })?;
+    if let Some(proof) = found {
+        return Ok(Some(Term::ctor(lex, 0, vec![proof])));
+    }
+    let second = less_than(cx, &a2, &b2)?;
+    attempt(cx, |cx| {
+        if !cx.unify(&a1, &b1)? {
+            return Ok(None);
+        }
+        match prove(cx, &second, depth + 1) {
+            Ok(proof) => Ok(Some(Term::ctor(lex, 1, vec![Term::Refl, proof]))),
+            Err(e) => give_up_on(e),
+        }
+    })
 }
 
 /// A term of type `Decidable prop`, from the decision procedures in scope.

@@ -6,7 +6,8 @@ review ([§9](#9-critical-review)) was written as a separate, adversarial pass b
 author, not by an outside reviewer. The [stage 3a
 addendum](#stage-3a-calls-under-lambdas-addendum) (calls under lambdas; SW-284, D516) is a design
 for review, with decisions D517 to D519; its external review is received and draft 2
-answers it. Related: [equation-lemmas.md](equation-lemmas.md) (D226
+answers it. [Stage 3d](#stage-3d-lexicographic-measures) (lexicographic measures, `decreasing
+(m1, m2)`) is designed and built, with no decision of its own. Related: [equation-lemmas.md](equation-lemmas.md) (D226
 to D233; this note brings back a narrow form of D231), [partial.md](partial.md) (`{Partial}`,
 for loops that really might not end), [fast-runtime.md](fast-runtime.md) (`crates/rt`), and
 the day 4 community comparison ([aoc-day04-community.md](../comparisons/aoc-day04-community.md)
@@ -47,6 +48,7 @@ This note can be read without knowing type theory. Code references were checked 
 - [10. Decisions](#10-decisions)
 - [As built (stage 1)](#as-built-stage-1)
 - [Stage 3a: calls under lambdas (addendum)](#stage-3a-calls-under-lambdas-addendum)
+- [Stage 3d: lexicographic measures](#stage-3d-lexicographic-measures)
 - [Sources](#sources)
 
 ## 0. Summary
@@ -749,7 +751,7 @@ today it needs none proved yet [inferred; the lemma name is a placeholder].
 - Calls under lambdas (Lean's attach) when day 2's shape comes up again: designed in the
   [stage 3a addendum](#stage-3a-calls-under-lambdas-addendum).
 - A generated per-branch `f.induct` when proofs by `decreasing` theorems repeat boilerplate.
-- Mutual groups with `decreasing`; lexicographic measures (pairs).
+- Mutual groups with `decreasing`; lexicographic measures (pairs): the latter designed and built as [stage 3d](#stage-3d-lexicographic-measures).
 - `Nat.div` via `decreasing`, if the native's registration can move with it.
 
 ## 9. Critical review
@@ -1559,6 +1561,161 @@ smaller (`Std.Mod.addAssoc` 65,264 → 28,209 nodes, 1.10 M → 0.49 M steps) an
 `Nat.digitsRoundTrip` (`Nat.fromDigits (Nat.digits 9876543210)`), in place of the two tests.
 Stage 1 item 11's remark about the reference evaluator taking 24 s on `digits 1234` should no
 longer hold, so `decreasing.sw` may be able to rejoin the differential test (not tried here).
+
+## Stage 3d: lexicographic measures
+
+**Status:** designed and built 24 October 2026 (SW-199), in one lane: the design keeps the kernel
+unchanged and stays inside the hidden-fuel scheme, so no decision was needed beyond the build
+details listed in [3d.6](#3d6-as-built). Code references were checked at `2c68d0fa`; labels as
+in the rest of the note.
+
+### 3d.1 The problem, and where it comes from
+
+Some recursions shrink a *pair*: a call either makes the first number smaller (and the second
+may then be anything, even bigger), or keeps the first and makes the second smaller. Ackermann's
+function is the classic: `ack (m + 1) (n + 1) = ack m (ack (m + 1) n)`, whose second argument
+grows faster than any measure built from `+` and `*` could follow. A two-counter loop (hours and
+minutes, rows and columns) is the everyday case: a single measure `hours * 60 + minutes` works but
+needs multiplication facts that `omega` doesn't have when the width is a variable.
+
+**Motivating cases in our code** **[checked]**: none today. `grep -rn -i fuel crates/elab/src/std
+aoc/src` finds `Nat.divFuel` (native, §7.4), the core's character `Nat.digitsOnto`
+(`core/Text.sw:59`, stage 2 left it since `Nat.toText` is in the core) and day 4's spec `rounds`
+(§1.1); none of them is lexicographic, and every `decreasing` in `std` and `aoc/` has one measure
+that fits. The kernel's size-change check already accepts structural lexicographic recursion on
+the arguments themselves (§2), which covers merges and swapped-argument loops. So the trigger is
+this note's own stage 3 list and the examples below, not a program waiting for it.
+
+**Elsewhere.** Lean writes `termination_by (a, b)` and orders tuples lexicographically
+(`Prod.Lex`); its `decreasing_tactic` tries the first component and then the second
+**[unverified: from memory, [L1] not re-read for this]**. Dafny writes `decreases a, b` (a list,
+compared lexicographically) and F\* `decreases %[a; b]` [F1] **[checked: F\*]**.
+
+### 3d.2 What you write
+
+```
+def ack (m: Nat) (n: Nat): Nat
+    decreasing (m, n)
+:=
+  match m, n with
+    | Zero, n => n + 1
+    | Succ k, Zero => ack k 1 [decreasing := omega]
+    | Succ k, Succ j => ack k (ack (Succ k) j [decreasing := omega]) [decreasing := omega]
+```
+
+- **Syntax.** `decreasing (m1, m2)`, the pair written as a tuple, in the place D474 gave `decreasing
+  e`. A tuple is already an expression, so the parser doesn't change; Lean's `termination_by (a,
+  b)` reads the same way. Only pairs: `(a, (b, c))` is refused with a message (3d.5).
+- **The obligation** at each recursive call is a new core proposition,
+
+  ```
+  type Nat.LexLess (a1: Nat) (a2: Nat) (b1: Nat) (b2: Nat): Prop =
+    | First (first: a1 < b1)
+    | Second (same: a1 = b1) (second: a2 < b2)
+  ```
+
+  instantiated at the new arguments' measures and the parameters':
+  `Nat.LexLess (m1 y) (m2 y) (m1 x) (m2 x)`. Its own type, rather than `Or (a1 < b1) (And …)`, so
+  that `auto`, `omega` and the messages recognise it, and so that the proofs are constructors
+  (3d.6 item 4 says why that matters).
+- **Discharging it.** Written by hand, `Nat.LexLess.First h` or `Nat.LexLess.Second rfl h`.
+  `[decreasing := omega]` tries `a1 < b1`, then `a1 = b1` and `a2 < b2`, from the facts in scope.
+  With no proof given, `auto` does the same split, each half found as any `auto` goal (a hypothesis
+  in scope, then decision procedures), so the guard style of D475 works: `if h: next < minutes
+  then … minutesLeft hours next` finds `Second Refl h`, the first measure being the same `hours`.
+
+### 3d.3 How it compiles: one fuel per measure
+
+A single fuel can't do it: the number of calls Ackermann makes isn't a function we could compute
+up front, so no starting fuel `k` would be known to be enough **[inferred]**. Two fuels can, because
+the kernel's size-change check accepts a lexicographic descent of two arguments (§2,
+`crates/core/src/sct.rs`):
+
+1. `f.%step` as before; `%rec`'s proof parameter has the type `Nat.LexLess (m1 y) (m2 y) (m1 x)
+   (m2 x)`. The respects lemma (`f.%step.%respects`) doesn't look at that type, so it is unchanged.
+2. `f.%go (k1 k2: Nat) (x…) (h1: m1 x < k1) (h2: m2 x < k2): B`, a case on `k1` then `k2` (a
+   `Zero` contradicts its proof). With both `Succ k1'`, `Succ k2'`, `%rec y… p` decides `m1 y <
+   m1 x` with `Nat.decLessThan` (data, so `Decidable.elim` may branch on it, where a case on the
+   proof `p` would be `E-PROP-ELIM`):
+   - yes (`h`): `f.%go k1' (Succ (m2 y)) y… (Nat.leTrans … h h1) (Nat.leRefl (m2 y))`: the first
+     fuel goes down, the second starts again;
+   - no (`r`): `f.%go (Succ k1') k2' y… (Nat.lexKeepsFirst … p r h1) (Nat.lexSecondLess … p r
+     h2)`: two core lemmas take `p` apart (its `First` case contradicts `r`), giving `m1 y < Succ
+     k1'` and `m2 y < k2'`.
+
+   The size-change graphs: yes, `k1' < k1`; no, `Succ k1' ≤ k1` (the value it was matched as,
+   rebuilt) and `k2' < k2`. Every idempotent loop has a strict arc, so it's accepted.
+3. `f x… := f.%go (Succ (m1 x)) (Succ (m2 x)) x… (Nat.leRefl (m1 x)) (Nat.leRefl (m2 x))`, folded
+   as before.
+4. `f.%irrel`: `go k1 k2 x h1 h2 = go j1 j2 x g1 g2`, by a case on each of the four fuels and then
+   `f.%step.%respects`, whose premise (the two `%rec`s agree) is `Decidable.elimCong` on the one
+   decision both sides make, each branch `f.%irrel` again on smaller fuels.
+5. `f.unfold`, the same statement as for one measure; its proof's premise compares the fuelled
+   `%rec` with `y… => f y…` through a new core lemma, `Decidable.elimEq` (an `if` equals `z` when
+   both branches do), each branch by `f.%irrel`.
+6. A theorem gets 1 to 3 only, as before; its `f.%go` branches with `Decidable.elimProof`, a
+   `Decidable.elim` into `Prop` (`Decidable.elim`'s result is a `Type`, and the kernel refused
+   `Prop` there, `E-UNIVERSE` **[run]**).
+
+The run body is unchanged (`f.%step x (y… => f y…)`), so `stitchwort run` and JS never see the
+fuels. Everything new in the core is ordinary declarations the kernel checks: the type, three
+lemmas and two `Decidable` theorems.
+
+### 3d.4 A recursive call inside another's arguments
+
+Ackermann needs `ack k (ack (Succ k) j)`, which stage 1 refused for one measure as for two ("a
+recursive call whose arguments contain another recursive call"): the respects proof rewrote one
+call at a time and had no order for nested ones. Now the inner calls are rewritten first, and the
+outer call is one site whose arguments are taken as they are by then (all inner calls with `r2`),
+its proof `e` applied to those. One trap **[inferred; the dedup was built before any test could
+show it]**: the outer call's proof may mention the inner call again (a lemma's implicit argument
+`a2` is the inner call's result), and rewriting the two copies one at a time would leave a term
+between them that doesn't type-check. So the same call written twice in a leaf is one site,
+rewritten in one `J`. This is the generator only; it applies to
+single measures too.
+
+### 3d.5 Errors
+
+- A call whose pair doesn't come before the parameters' (the first measure grows, say): `E-DECREASING`,
+  "can't show that `(m + 1, j)` comes before `(m, Succ j)` here", with what that means (`m + 1 <
+  m`, or `m + 1` the same as `m` and `j < Succ j`), the equations in scope, and the three ways to
+  give a proof. `examples/reject/decreasing-lex-increase.sw`.
+- `omega` that finds neither half: `E-OMEGA`, naming both alternatives.
+- `decreasing (a, (b, c))`: `E-DECREASING`, "a lexicographic measure is a pair of `Nat`s; longer
+  tuples aren't supported yet". `examples/reject/decreasing-lex-triple.sw`.
+- A part that isn't a `Nat`: `E-TYPE-MISMATCH`, as for one measure.
+
+### 3d.6 As built
+
+Built as 3d.2 to 3d.5 describe. Build decisions and findings:
+
+1. **Pairs only.** Triples would need either three fuels and a nested `LexLess`, or a `LexLess`
+   over lists; neither has a use yet.
+2. **`auto` and `omega` know `Nat.LexLess` by name** (`auto.rs` `lex_less`, `omega.rs`
+   `lex_less`), first half first. Neither does a case split to decide *which* half holds, so a
+   call whose decrease depends on a case not yet made needs the case made first (as for any
+   `omega` goal) or a written proof.
+3. **The message** shows the pairs evaluated in the call's context (`(m, Succ j)` inside a `Succ j`
+   arm), as the one-measure message shows its goal.
+4. **No `Nat.lexFirst`/`lexSecond` lemmas.** They were built first and removed: `stitchwort test`
+   (the kernel's evaluator with erasure) computes a definition's non-proof arguments even when its
+   result is a proof (`crates/core/src/erase.rs`, rules 1 and 3), so `Nat.lexFirst [k] [ack (Succ
+   k) j] …` computed the inner call again at every level. With them, `test "ack" := ack 2 3 == 9
+   && ack 3 2 == 29` didn't finish in 60 s; with the constructors (whose proof fields are erased
+   and which carry no parameters), `ack 3 3 == 61` takes 0.1 s **[run]**. The same trap applies
+   to any proof that passes an inner recursive call's result to a lemma as a number; `omega` and
+   `auto` build constructors, so they're safe. Not fixing the evaluator here (not evaluating the
+   arguments of a call whose result is erased would remove the trap for every lemma).
+5. **Nested calls** (3d.4) are allowed for single measures too; `docs/syntax.md` no longer lists
+   them as refused.
+6. **`Value::same_term`** (`crates/core/src/value.rs`) exposes the existing alpha-equality on terms
+   for finding the duplicate site; no evaluation or kernel rule changed.
+
+Tests: `examples/accept/decreasing-lex.sw` (Ackermann with written proofs and a nested call,
+`rfl` on `ack 2 3`, `ack.unfold`, and `ackAbove: n < ack m n` as a theorem recursing on the same
+pair with `omega`; subtractive Euclid with `omega`; the hours-and-minutes loop in guard style with
+`auto`; a `main` that agrees under `run`, `run --js` and `run --reference`), and the two reject
+examples above.
 
 ## Sources
 

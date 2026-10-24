@@ -170,6 +170,12 @@ builtins! {
     LeRefl = "Nat.leRefl": Def,
     ElimDecCong = "Decidable.elimCong": Def,
     IfCong = "Bool.ifThenElseCong": Def,
+    // and these for a lexicographic measure, `decreasing (m1, m2)`
+    ElimDecEq = "Decidable.elimEq": Def,
+    ElimDecProof = "Decidable.elimProof": Def,
+    LexLess = "Nat.LexLess": Data,
+    LexKeepsFirst = "Nat.lexKeepsFirst": Def,
+    LexSecondLess = "Nat.lexSecondLess": Def,
     // Numbers: syntax and natives
     Nat = "Nat": Data,
     Zero = "Zero": Ctor(Builtin::Nat),

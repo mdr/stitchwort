@@ -28,6 +28,10 @@
 //! The runtimes run `f.%step x (y c' => f y c') c` instead of the fuelled
 //! body ([`stitchwort_core::globals::Def::run_body`]). A `theorem` gets 1 to
 //! 3 only: its proof recurses on the measure, and nothing unfolds it.
+//!
+//! A pair `decreasing (m1, m2)` is lexicographic (stage 3d): the proof is a
+//! `Nat.LexLess`, and 2, 3, 5 and 6 have two fuels ([`Plan::lex_parts`],
+//! `lex_go`, `lex_irrel`, `lex_unfold_parts`).
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -35,7 +39,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{eval, force};
+use stitchwort_core::value::{eval, force, same_term};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
 use stitchwort_syntax::ast::{self, Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -62,6 +66,8 @@ pub(crate) struct Active {
     /// The measure of the definition's own parameters (the first `header`
     /// variables of the body's context).
     pub measure: Term,
+    /// The second measure of a lexicographic pair, `decreasing (m1, m2)`.
+    pub second: Option<Term>,
     pub header: usize,
 }
 
@@ -313,6 +319,12 @@ struct Prelude {
     elim_cong: DefId,
     if_then_else: DefId,
     if_cong: DefId,
+    elim_eq: DefId,
+    elim_proof: DefId,
+    dec_less: DefId,
+    lex_less: DataId,
+    lex_keeps_first: DefId,
+    lex_second_less: DefId,
 }
 
 impl Prelude {
@@ -339,6 +351,12 @@ impl Prelude {
             elim_cong: def(Builtin::ElimDecCong)?,
             if_then_else: def(Builtin::IfThenElse)?,
             if_cong: def(Builtin::IfCong)?,
+            elim_eq: def(Builtin::ElimDecEq)?,
+            elim_proof: def(Builtin::ElimDecProof)?,
+            dec_less: def(Builtin::DecLessThanNat)?,
+            lex_less: r.data(Builtin::LexLess).ok_or_else(missing)?,
+            lex_keeps_first: def(Builtin::LexKeepsFirst)?,
+            lex_second_less: def(Builtin::LexSecondLess)?,
         })
     }
 
@@ -361,8 +379,11 @@ struct Plan {
     result: Term,
     /// How many of `tel` are the header's: the measure's context.
     header: usize,
-    /// The measure, in the context of `tel[..header]`.
+    /// The measure, in the context of `tel[..header]`; the first of a
+    /// lexicographic pair.
     measure: Term,
+    /// The second measure of a pair, `decreasing (m1, m2)` (stage 3d).
+    second: Option<Term>,
     theorem: bool,
     span: Span,
     p: Prelude,
@@ -382,6 +403,42 @@ impl Plan {
         level: &dyn Fn(usize) -> usize,
     ) -> Result<Term> {
         reindex(g, &self.measure, self.header, depth, level)
+    }
+
+    /// The second measure of a lexicographic pair, as [`Plan::measure_at`].
+    fn second_at(&self, g: &Globals, depth: usize, level: &dyn Fn(usize) -> usize) -> Result<Term> {
+        let second = self
+            .second
+            .as_ref()
+            .ok_or_else(|| internal_error("a second measure where there's only one"))?;
+        reindex(g, second, self.header, depth, level)
+    }
+
+    /// What a recursive call on the parameters at `ys` shows about those at
+    /// `xs`: `m y < m x`, or for a pair `Nat.LexLess (m1 y) (m2 y) (m1 x)
+    /// (m2 x)`.
+    fn obligation(
+        &self,
+        g: &Globals,
+        depth: usize,
+        ys: &dyn Fn(usize) -> usize,
+        xs: &dyn Fn(usize) -> usize,
+    ) -> Result<Term> {
+        if self.second.is_none() {
+            return Ok(self.p.less(
+                self.measure_at(g, depth, ys)?,
+                self.measure_at(g, depth, xs)?,
+            ));
+        }
+        Ok(Term::data(
+            self.p.lex_less,
+            vec![
+                self.measure_at(g, depth, ys)?,
+                self.second_at(g, depth, ys)?,
+                self.measure_at(g, depth, xs)?,
+                self.second_at(g, depth, xs)?,
+            ],
+        ))
     }
 
     /// Parameter `i`'s type, with parameter `l` at level `level(l)`, in a
@@ -438,10 +495,7 @@ impl Plan {
         let proof = Binder {
             name: PROOF.into(),
             icit: Icit::Auto,
-            ty: self.p.less(
-                self.measure_at(g, inner, &|l| depth + l)?,
-                self.measure_at(g, inner, level)?,
-            ),
+            ty: self.obligation(g, inner, &|l| depth + l, level)?,
         };
         let result = self.result_at(g, inner + 1, &|l| depth + l)?;
         Ok(pis(&ys, pis(&[proof], result)))
@@ -501,6 +555,103 @@ impl Plan {
         ))
     }
 
+    /// For a pair, `%rec` in `f.%go` taken apart: given the fuels'
+    /// predecessors `k1` and `k2`, and `h1: m1 x < Succ k1` and `h2: m2 x <
+    /// Succ k2` (terms in a context of `depth` variables, where the `x`s are
+    /// at `level`), its parts under `y… p`, in a context of `depth + n + 1`.
+    /// `%rec y… p` decides `m1 y < m1 x`: if it holds, the first fuel goes
+    /// down and the second starts again from `m2 y`; if not, `p` says the
+    /// first measure stayed the same and the second went down, and so does
+    /// the second fuel.
+    #[allow(clippy::too_many_arguments)]
+    fn lex_parts(
+        &self,
+        g: &Globals,
+        go: DefId,
+        depth: usize,
+        fuels: (&Term, &Term),
+        hyps: (&Term, &Term),
+        level: &dyn Fn(usize) -> usize,
+    ) -> Result<LexParts> {
+        let n = self.n();
+        let inner = depth + n + 1;
+        let ys = |l: usize| depth + l;
+        let up = |t: &Term, by: usize| t.shift(g, by, 0);
+        let m1y = self.measure_at(g, inner, &ys)?;
+        let m2y = self.second_at(g, inner, &ys)?;
+        let m1x = self.measure_at(g, inner, level)?;
+        let m2x = self.second_at(g, inner, level)?;
+        let prop = self.p.less(m1y.clone(), m1x.clone());
+        let result = self.result_at(g, inner, &ys)?;
+        let dec = apps(
+            Term::Def(self.p.dec_less),
+            explicit([m1y.clone(), m1x.clone()]),
+        );
+        // Inside a branch's binder, one deeper.
+        let b = inner + 1;
+        let (k1, k2) = (up(fuels.0, n + 2)?, up(fuels.1, n + 2)?);
+        let (h1, h2) = (up(hyps.0, n + 2)?, up(hyps.1, n + 2)?);
+        let (m1y, m2y, m1x, m2x) = (up(&m1y, 1)?, up(&m2y, 1)?, up(&m1x, 1)?, up(&m2x, 1)?);
+        let yes = [
+            k1.clone(),
+            self.p.succ(m2y.clone()),
+            apps(
+                Term::Def(self.p.le_trans),
+                explicit([
+                    self.p.succ(m1y.clone()),
+                    m1x.clone(),
+                    k1.clone(),
+                    Term::Var(0),
+                    h1.clone(),
+                ]),
+            ),
+            Term::app(Term::Def(self.p.le_refl), m2y.clone()),
+        ];
+        // `p` is at level `depth + n`, the branch's `r` at `inner`.
+        let p = var(b, depth + n);
+        let lex = |lemma: DefId, k: Term, h: Term| {
+            apps(
+                Term::Def(lemma),
+                explicit([
+                    m1y.clone(),
+                    m2y.clone(),
+                    m1x.clone(),
+                    m2x.clone(),
+                    k,
+                    p.clone(),
+                    Term::Var(0),
+                    h,
+                ]),
+            )
+        };
+        let k1_succ = self.p.succ(k1.clone());
+        let no = [
+            k1_succ.clone(),
+            k2.clone(),
+            lex(self.p.lex_keeps_first, k1_succ, h1),
+            lex(self.p.lex_second_less, k2, h2),
+        ];
+        Ok(LexParts {
+            go,
+            depth,
+            n,
+            icits: self.tel.iter().map(|b| b.icit).collect(),
+            prop,
+            result,
+            dec,
+            yes,
+            no,
+        })
+    }
+
+    /// `%rec` in `f.%go` for a pair: `y… p => Decidable.elim (m1 y < m1 x)
+    /// yes no`, from [`Plan::lex_parts`].
+    fn lex_rec_lam(&self, parts: &LexParts) -> Term {
+        let mut names = self.lam_names();
+        names.push((PROOF.into(), Icit::Auto));
+        lams(&names, parts.elim(&self.p, self.theorem))
+    }
+
     /// From a proof of `False = True`, anything of type `goal`.
     fn absurd(&self, goal: Term, proof: Term) -> Term {
         let via = if self.theorem {
@@ -517,6 +668,63 @@ impl Plan {
                     Icit::Explicit,
                 ),
             ],
+        )
+    }
+}
+
+/// `%rec` in `f.%go` for a lexicographic pair, under its `y… p`
+/// ([`Plan::lex_parts`]): `Decidable.elim [prop] [result] dec yes no`, where
+/// each branch is `go` applied to two fuels, the `y`s and two proofs, the
+/// four arguments in `yes` and `no` (in the branch's context, under its
+/// binder).
+struct LexParts {
+    go: DefId,
+    /// Where the `y`s start; `p` is at `depth + n`.
+    depth: usize,
+    n: usize,
+    icits: Vec<Icit>,
+    prop: Term,
+    result: Term,
+    dec: Term,
+    yes: [Term; 4],
+    no: [Term; 4],
+}
+
+impl LexParts {
+    fn implicits(&self) -> [(Term, Icit); 2] {
+        [
+            (self.prop.clone(), Icit::Implicit),
+            (self.result.clone(), Icit::Implicit),
+        ]
+    }
+
+    /// A branch: `go f1 f2 y… q1 q2` under the branch's binder.
+    fn branch(&self, name: &str, args: &[Term; 4]) -> Term {
+        let b = self.depth + self.n + 2;
+        let call = apps(
+            Term::Def(self.go),
+            explicit([args[0].clone(), args[1].clone()])
+                .into_iter()
+                .chain((0..self.n).map(|l| (var(b, self.depth + l), self.icits[l])))
+                .chain(explicit([args[2].clone(), args[3].clone()])),
+        );
+        Term::Lam(name.into(), Icit::Explicit, Rc::new(call))
+    }
+
+    fn yes(&self) -> Term {
+        self.branch("h", &self.yes)
+    }
+
+    fn no(&self) -> Term {
+        self.branch("r", &self.no)
+    }
+
+    fn elim(&self, p: &Prelude, theorem: bool) -> Term {
+        apps(
+            Term::Def(if theorem { p.elim_proof } else { p.elim }),
+            self.implicits()
+                .into_iter()
+                .chain(explicit([self.dec.clone(), self.yes(), self.no()])),
         )
     }
 }
@@ -551,6 +759,12 @@ impl Leaf {
 enum Tpl {
     Plain(Term),
     Site(usize),
+    /// A recursive call with recursive calls in its arguments, as one site
+    /// after theirs: `r1` or `r2` applied to the arguments as they are.
+    Call {
+        site: usize,
+        args: Vec<(Tpl, Icit)>,
+    },
     /// A call of a helper lifted from the body that passes `%rec` on, as
     /// argument `rec`.
     Helper {
@@ -716,7 +930,26 @@ impl Elaborator {
                 def_name.text
             )));
         }
-        let measure_term = self.measure_term(&key, &tel[..header], measure)?;
+        // A pair is a lexicographic measure (stage 3d).
+        let (first, second) = match measure {
+            Expr::Tuple(a, b, _) => (&**a, Some(&**b)),
+            m => (m, None),
+        };
+        for part in [Some(first), second].into_iter().flatten() {
+            if let Expr::Tuple(_, _, span) = part {
+                return Err(Diagnostic::error(
+                    "E-DECREASING",
+                    "a lexicographic measure is a pair of `Nat`s; longer tuples aren't supported yet",
+                )
+                .with_label(*span, "a pair inside the pair")
+                .with_note("write `decreasing (m1, m2)`, each a `Nat`"));
+            }
+        }
+        let measure_term = self.measure_term(&key, &tel[..header], first)?;
+        let second = match second {
+            Some(b) => Some(self.measure_term(&key, &tel[..header], b)?),
+            None => None,
+        };
         let p = Prelude::new(&self.globals)?;
         let plan = Plan {
             f,
@@ -725,6 +958,7 @@ impl Elaborator {
             result,
             header,
             measure: measure_term,
+            second,
             theorem,
             span,
             p,
@@ -756,16 +990,26 @@ impl Elaborator {
         // 3. The function itself.
         {
             let g = &self.globals;
-            let start = plan.p.succ(plan.measure_at(g, n, &|l| l)?);
-            let refl = Term::app(Term::Def(plan.p.le_refl), plan.measure_at(g, n, &|l| l)?);
+            // `go (Succ (m x)) x (Nat.leRefl (m x))`, with a fuel for each
+            // measure of a pair.
+            let mut measures = vec![plan.measure_at(g, n, &|l| l)?];
+            if plan.second.is_some() {
+                measures.push(plan.second_at(g, n, &|l| l)?);
+            }
+            let starts = measures
+                .iter()
+                .map(|m| (plan.p.succ(m.clone()), Icit::Explicit));
+            let refls = measures.iter().map(|m| {
+                (
+                    Term::app(Term::Def(plan.p.le_refl), m.clone()),
+                    Icit::Explicit,
+                )
+            });
             let body = lams(
                 &plan.lam_names(),
                 apps(
                     Term::Def(go),
-                    [(start, Icit::Explicit)]
-                        .into_iter()
-                        .chain(plan.args(n, &|l| l, 0..n))
-                        .chain([(refl, Icit::Explicit)]),
+                    starts.chain(plan.args(n, &|l| l, 0..n)).chain(refls),
                 ),
             );
             kernel::mark_folded(&mut self.globals, f);
@@ -960,6 +1204,7 @@ impl Elaborator {
             target: plan.f,
             used: Cell::new(false),
             measure: plan.measure.clone(),
+            second: plan.second.clone(),
             header: s,
         });
         let ty_value = self.globals.def(step).ty_value.clone();
@@ -1024,6 +1269,9 @@ impl Elaborator {
 
     /// `f.%go`.
     fn decreasing_go(&mut self, plan: &Plan, step: DefId) -> Result<DefId> {
+        if plan.second.is_some() {
+            return self.lex_go(plan, step);
+        }
         let g = &self.globals;
         let (n, s) = (plan.n(), plan.header);
         // k at level 0, x… at 1…n, h at n + 1.
@@ -1093,6 +1341,9 @@ impl Elaborator {
         go: DefId,
         respects: DefId,
     ) -> Result<DefId> {
+        if plan.second.is_some() {
+            return self.lex_irrel(plan, go, respects);
+        }
         let g = &self.globals;
         let (n, s) = (plan.n(), plan.header);
         // k at 0, j at 1, x… at 2…n+1, h at n+2, g at n+3.
@@ -1255,35 +1506,10 @@ impl Elaborator {
         let name: Name = format!("{}.unfold", plan.name).into();
         let unfold = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
         let g = &self.globals;
-        let m_x = plan.measure_at(g, n, &id)?;
-        let refl_x = Term::app(Term::Def(plan.p.le_refl), m_x.clone());
-        let r_go = plan.rec_lam(g, go, n, &m_x, &refl_x, &id)?;
-        // e: y… p => irrel (m x) (Succ (m y)) y… (glue p (leRefl (m x))) (leRefl (m y))
-        let inner = n + n + 1;
-        let m_x_in = m_x.shift(g, n + 1, 0)?;
-        let m_y_in = plan.measure_at(g, inner, &|l| n + l)?;
-        let e = {
-            let call = apps(
-                Term::Def(irrel),
-                explicit([m_x_in.clone(), plan.p.succ(m_y_in.clone())])
-                    .into_iter()
-                    .chain(plan.args(inner, &|l| n + l, 0..n))
-                    .chain(explicit([
-                        plan.glue(
-                            g,
-                            inner,
-                            n,
-                            Term::Var(0),
-                            &m_x_in,
-                            refl_x.shift(g, n + 1, 0)?,
-                            &id,
-                        )?,
-                        Term::app(Term::Def(plan.p.le_refl), m_y_in),
-                    ])),
-            );
-            let mut names = plan.lam_names();
-            names.push(("p".into(), Icit::Explicit));
-            lams(&names, call)
+        let (r_go, e) = if plan.second.is_some() {
+            lex_unfold_parts(plan, g, go, irrel)?
+        } else {
+            single_unfold_parts(plan, g, go, irrel)?
         };
         let proof = apps(
             Term::Def(respects),
@@ -1298,7 +1524,47 @@ impl Elaborator {
         )?;
         Ok(unfold)
     }
+}
 
+/// For `f.unfold` with one measure: `%rec` as `f`'s unfolding has it, and
+/// `e`, the proof that it agrees with `y… => f y…`.
+fn single_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result<(Term, Term)> {
+    let n = plan.n();
+    let id = |l: usize| l;
+    let m_x = plan.measure_at(g, n, &id)?;
+    let refl_x = Term::app(Term::Def(plan.p.le_refl), m_x.clone());
+    let r_go = plan.rec_lam(g, go, n, &m_x, &refl_x, &id)?;
+    // e: y… p => irrel (m x) (Succ (m y)) y… (glue p (leRefl (m x))) (leRefl (m y))
+    let inner = n + n + 1;
+    let m_x_in = m_x.shift(g, n + 1, 0)?;
+    let m_y_in = plan.measure_at(g, inner, &|l| n + l)?;
+    let e = {
+        let call = apps(
+            Term::Def(irrel),
+            explicit([m_x_in.clone(), plan.p.succ(m_y_in.clone())])
+                .into_iter()
+                .chain(plan.args(inner, &|l| n + l, 0..n))
+                .chain(explicit([
+                    plan.glue(
+                        g,
+                        inner,
+                        n,
+                        Term::Var(0),
+                        &m_x_in,
+                        refl_x.shift(g, n + 1, 0)?,
+                        &id,
+                    )?,
+                    Term::app(Term::Def(plan.p.le_refl), m_y_in),
+                ])),
+        );
+        let mut names = plan.lam_names();
+        names.push(("p".into(), Icit::Explicit));
+        lams(&names, call)
+    };
+    Ok((r_go, e))
+}
+
+impl Elaborator {
     /// The lemma that definition `d` (`f.%step`, or a helper lifted from it)
     /// gives equal results for two values of its parameter `c` (`%rec`) that
     /// agree on every argument: declared and admitted once.
@@ -1577,28 +1843,67 @@ impl Elaborator {
                             "a recursive call that isn't given all its arguments",
                         ));
                     }
+                    // `e y… p`, the proof that the call with arguments
+                    // `y… p` gives the same with `r2`.
+                    let site_proof = |args: Vec<(Term, Icit)>| {
+                        apps(
+                            var(depth, leaf.e),
+                            args.into_iter().enumerate().map(|(j, (a, icit))| {
+                                (a, if j + 1 == leaf.arity { Icit::Explicit } else { icit })
+                            }),
+                        )
+                    };
                     if args[..leaf.arity].iter().any(|(a, _)| leaf.mentions(a)) {
-                        return Err(unsupported(
-                            span,
-                            "a recursive call whose arguments contain another recursive call",
-                        ));
+                        // A recursive call in another's arguments
+                        // (Ackermann's `ack k (ack (Succ k) j)`): the inner
+                        // calls are rewritten first, then this one, with its
+                        // arguments as they are by then.
+                        let mut targs = Vec::new();
+                        for (a, icit) in &args[..leaf.arity] {
+                            targs.push((self.template(st, a, leaf, sites, span)?, *icit));
+                        }
+                        let g = &self.globals;
+                        let mut post = Vec::new();
+                        for (a, icit) in &targs {
+                            post.push((
+                                rebuild(g, a, sites, leaf, &|_| Choice::Post, 0, &Term::Refl)?,
+                                *icit,
+                            ));
+                        }
+                        sites.push(Site {
+                            pre: Term::Refl,
+                            proof: site_proof(post),
+                        });
+                        (
+                            Tpl::Call {
+                                site: sites.len() - 1,
+                                args: targs,
+                            },
+                            leaf.arity,
+                        )
+                    } else {
+                        let pre = apps(r1.clone(), args[..leaf.arity].iter().cloned());
+                        // The same call written twice (in an argument and in
+                        // a proof's implicit argument, say) is one site, so
+                        // both are rewritten at once and the terms between
+                        // stay well typed.
+                        let plain = |s: &Site| {
+                            let (head, args) = spine(&s.pre);
+                            leaf.mentions(head) && !args.iter().any(|(a, _)| leaf.mentions(a))
+                        };
+                        let index = match sites
+                            .iter()
+                            .position(|s| plain(s) && same_term(&s.pre, &pre))
+                        {
+                            Some(index) => index,
+                            None => {
+                                let proof = site_proof(args[..leaf.arity].to_vec());
+                                sites.push(Site { pre, proof });
+                                sites.len() - 1
+                            }
+                        };
+                        (Tpl::Site(index), leaf.arity)
                     }
-                    let pre = apps(r1.clone(), args[..leaf.arity].iter().cloned());
-                    let proof = apps(
-                        var(depth, leaf.e),
-                        args[..leaf.arity].iter().enumerate().map(|(j, (a, icit))| {
-                            (
-                                a.clone(),
-                                if j + 1 == leaf.arity {
-                                    Icit::Explicit
-                                } else {
-                                    *icit
-                                },
-                            )
-                        }),
-                    );
-                    sites.push(Site { pre, proof });
-                    (Tpl::Site(sites.len() - 1), leaf.arity)
                 } else if let Some((tpl, used)) = self.congruence(st, &p, &head, &args, leaf, sites, span)? {
                     (tpl, used)
                 } else if let Term::Def(k) = head
@@ -2231,6 +2536,18 @@ fn rebuild(
             }
             Choice::Hole => hole.clone(),
         },
+        Tpl::Call { site, args } => {
+            let r = match choose(*site) {
+                Choice::Hole => return Ok(hole.clone()),
+                Choice::Pre => leaf.r1,
+                Choice::Post => leaf.r2,
+            };
+            let mut term = var(leaf.depth + shift, r);
+            for (a, icit) in args {
+                term = Term::app_icit(term, go(a)?, *icit);
+            }
+            term
+        }
         Tpl::Helper {
             site,
             head,
@@ -2394,12 +2711,19 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
     if crate::undo::fatal(&error) {
         return error;
     }
-    let (measure, header) = match cx.e.decreasing.borrow().as_ref() {
-        Some(active) => (active.measure.clone(), active.header),
+    let (measure, lexicographic, header) = match cx.e.decreasing.borrow().as_ref() {
+        Some(active) => (
+            active.measure.clone(),
+            active.second.is_some(),
+            active.header,
+        ),
         None => return error,
     };
     if cx.level() < header {
         return error;
+    }
+    if lexicographic {
+        return explain_lex(cx, goal, error);
     }
     let g = cx.g();
     let Some(less) = g.registry.def(Builtin::LessThan) else {
@@ -2433,6 +2757,18 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
         Ok(new) => format!("{} < {old_shown}", cx.show(&new)),
         Err(_) => cx.show(goal),
     };
+    let d = Diagnostic::error(
+        "E-DECREASING",
+        format!("can't show `{shown}` here, which `decreasing {old_shown}` needs for this call"),
+    )
+    .with_label(cx.span, "this recursive call");
+    in_scope(cx, d).with_note(format!(
+        "give a proof with `[decreasing := …]`, or test it with `if h: {shown} then … else …`"
+    ))
+}
+
+/// The equations in scope, as a note on `d`.
+fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
     let mut hypotheses = Vec::new();
     for level in 0..cx.level() {
         let name = cx.names[level].to_string();
@@ -2443,15 +2779,338 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
             hypotheses.push(format!("`{name}: {}`", cx.show(&cx.types[level].clone())));
         }
     }
-    let mut d = Diagnostic::error(
-        "E-DECREASING",
-        format!("can't show `{shown}` here, which `decreasing {old_shown}` needs for this call"),
-    )
-    .with_label(cx.span, "this recursive call");
-    if !hypotheses.is_empty() {
-        d = d.with_note(format!("in scope: {}", hypotheses.join(", ")));
+    if hypotheses.is_empty() {
+        d
+    } else {
+        d.with_note(format!("in scope: {}", hypotheses.join(", ")))
     }
-    d.with_note(format!(
-        "give a proof with `[decreasing := …]`, or test it with `if h: {shown} then … else …`"
-    ))
+}
+
+/// [`explain_obligation`] for a pair: the goal is `Nat.LexLess n1 n2 o1 o2`.
+fn explain_lex(cx: &mut Ctx, goal: &Value, error: Diagnostic) -> Diagnostic {
+    let lex = cx.g().registry.data(Builtin::LexLess);
+    let params = match force(cx.g(), goal.clone()) {
+        Ok(Value::Data(d, params)) if Some(d) == lex && params.len() == 4 => params,
+        _ => return error,
+    };
+    let [n1, n2, o1, o2] = [0, 1, 2, 3].map(|i| cx.show(&params[i]));
+    let d = Diagnostic::error(
+        "E-DECREASING",
+        format!(
+            "can't show that `({n1}, {n2})` comes before `({o1}, {o2})` here, which \
+             `decreasing ({o1}, {o2})` needs for this call"
+        ),
+    )
+    .with_label(cx.span, "this recursive call")
+    .with_note(format!(
+        "that's `{n1} < {o1}`, or `{n1}` the same as `{o1}` and `{n2} < {o2}`"
+    ));
+    in_scope(cx, d).with_note(
+        "give a proof with `[decreasing := Nat.LexLess.First …]` (the first got smaller) or \
+         `[decreasing := Nat.LexLess.Second rfl …]` (the first stayed the same); \
+         `[decreasing := omega]` finds either from the facts in scope",
+    )
+}
+
+// A lexicographic pair, `decreasing (m1, m2)` (stage 3d): two fuels, one per
+// measure, and the kernel's termination check sees them decrease
+// lexicographically, which it accepts (`crates/core/src/sct.rs`).
+
+impl Elaborator {
+    /// `f.%go` for a pair: `(k1 k2: Nat) -> (x…) -> m1 x < k1 -> m2 x < k2 ->
+    /// B`. `Zero` for either fuel is impossible; with both `Succ`, it's
+    /// `f.%step` with `%rec` from [`Plan::lex_parts`].
+    fn lex_go(&mut self, plan: &Plan, step: DefId) -> Result<DefId> {
+        let g = &self.globals;
+        let (n, s) = (plan.n(), plan.header);
+        // k1 at level 0, k2 at 1, x… at 2…n+1, h1 at n + 2, h2 at n + 3.
+        let x = |l: usize| 2 + l;
+        let nat = Term::data(plan.p.nat, Vec::new());
+        let mut binders = vec![
+            Binder {
+                name: "k1".into(),
+                icit: Icit::Explicit,
+                ty: nat.clone(),
+            },
+            Binder {
+                name: "k2".into(),
+                icit: Icit::Explicit,
+                ty: nat,
+            },
+        ];
+        binders.extend(plan.binders(g, 2)?);
+        binders.push(Binder {
+            name: "h1".into(),
+            icit: Icit::Explicit,
+            ty: plan.p.less(plan.measure_at(g, n + 2, &x)?, var(n + 2, 0)),
+        });
+        binders.push(Binder {
+            name: "h2".into(),
+            icit: Icit::Explicit,
+            ty: plan.p.less(plan.second_at(g, n + 3, &x)?, var(n + 3, 1)),
+        });
+        let ty = pis(&binders, plan.result_at(g, n + 4, &x)?);
+        let name: Name = format!("{}.%go", plan.name).into();
+        let go = kernel::declare_def(
+            &mut self.globals,
+            &name,
+            &ty,
+            plan.theorem,
+            false,
+            plan.span,
+        )?;
+        let g = &self.globals;
+        // `k1` is `Zero`: `h1: m1 x < 0` is `False = True`.
+        let zero1 = plan.absurd(plan.result_at(g, n + 4, &x)?, var(n + 4, n + 2));
+        // `k1` is `Succ k1'` (k1' at n + 4) and `k2` is `Zero`.
+        let zero2 = plan.absurd(plan.result_at(g, n + 5, &x)?, var(n + 5, n + 3));
+        // Both `Succ`, k2' at n + 5.
+        let depth = n + 6;
+        let parts = plan.lex_parts(
+            g,
+            go,
+            depth,
+            (&var(depth, n + 4), &var(depth, n + 5)),
+            (&var(depth, n + 2), &var(depth, n + 3)),
+            &x,
+        )?;
+        let rec = plan.lex_rec_lam(&parts);
+        let succ = apps(
+            Term::Def(step),
+            plan.args(depth, &x, 0..s)
+                .into_iter()
+                .chain([(rec, Icit::Explicit)])
+                .chain(plan.args(depth, &x, s..n)),
+        );
+        let tree = nat_case(
+            plan,
+            n + 4,
+            0,
+            zero1,
+            "k1",
+            nat_case(plan, n + 5, 1, zero2, "k2", succ),
+        );
+        let mut names = vec![("k1".into(), Icit::Explicit), ("k2".into(), Icit::Explicit)];
+        names.extend(plan.lam_names());
+        names.push(("h1".into(), Icit::Explicit));
+        names.push(("h2".into(), Icit::Explicit));
+        kernel::define_group(&mut self.globals, &[(go, lams(&names, tree))])?;
+        Ok(go)
+    }
+
+    /// `f.%irrel` for a pair: `go k1 k2 x h1 h2 = go j1 j2 x g1 g2`, by
+    /// induction on the four fuels: both sides take the same branch of the
+    /// same decision (`Decidable.elimCong`), and each branch is this lemma
+    /// again on smaller fuels.
+    fn lex_irrel(&mut self, plan: &Plan, go: DefId, respects: DefId) -> Result<DefId> {
+        let g = &self.globals;
+        let (n, s) = (plan.n(), plan.header);
+        // k1 k2 j1 j2 at 0…3, x… at 4…n+3, then h1 h2 g1 g2.
+        let x = |l: usize| 4 + l;
+        let (h1, h2, g1, g2) = (n + 4, n + 5, n + 6, n + 7);
+        let nat = Term::data(plan.p.nat, Vec::new());
+        let mut binders: Vec<Binder> = ["k1", "k2", "j1", "j2"]
+            .iter()
+            .map(|name| Binder {
+                name: (*name).into(),
+                icit: Icit::Explicit,
+                ty: nat.clone(),
+            })
+            .collect();
+        binders.extend(plan.binders(g, 4)?);
+        for (name, at, fuel, first) in [
+            ("h1", h1, 0, true),
+            ("h2", h2, 1, false),
+            ("g1", g1, 2, true),
+            ("g2", g2, 3, false),
+        ] {
+            let measure = if first {
+                plan.measure_at(g, at, &x)?
+            } else {
+                plan.second_at(g, at, &x)?
+            };
+            binders.push(Binder {
+                name: name.into(),
+                icit: Icit::Explicit,
+                ty: plan.p.less(measure, var(at, fuel)),
+            });
+        }
+        let goal = |depth: usize| -> Term {
+            let call = |f1: usize, f2: usize, q1: usize, q2: usize| {
+                apps(
+                    Term::Def(go),
+                    explicit([var(depth, f1), var(depth, f2)])
+                        .into_iter()
+                        .chain(plan.args(depth, &x, 0..n))
+                        .chain(explicit([var(depth, q1), var(depth, q2)])),
+                )
+            };
+            Term::Eq(
+                None,
+                Rc::new(call(0, 1, h1, h2)),
+                Rc::new(call(2, 3, g1, g2)),
+            )
+        };
+        let ty = pis(&binders, goal(n + 8));
+        let name: Name = format!("{}.%irrel", plan.name).into();
+        let irrel = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
+        let g = &self.globals;
+        // The fuels' predecessors: k1' k2' j1' j2' at n + 8 … n + 11.
+        let depth = n + 12;
+        let (k1, k2, j1, j2) = (n + 8, n + 9, n + 10, n + 11);
+        let pk = plan.lex_parts(
+            g,
+            go,
+            depth,
+            (&var(depth, k1), &var(depth, k2)),
+            (&var(depth, h1), &var(depth, h2)),
+            &x,
+        )?;
+        let pj = plan.lex_parts(
+            g,
+            go,
+            depth,
+            (&var(depth, j1), &var(depth, j2)),
+            (&var(depth, g1), &var(depth, g2)),
+            &x,
+        )?;
+        // e: y… p => elimCong d yes_k yes_j no_k no_j (h => irrel …) (r => irrel …)
+        let b = depth + n + 2;
+        let branch = |kargs: &[Term; 4], jargs: &[Term; 4], name: &str| {
+            let call = apps(
+                Term::Def(irrel),
+                explicit([
+                    kargs[0].clone(),
+                    kargs[1].clone(),
+                    jargs[0].clone(),
+                    jargs[1].clone(),
+                ])
+                .into_iter()
+                .chain(plan.args(b, &|l| depth + l, 0..n))
+                .chain(explicit([
+                    kargs[2].clone(),
+                    kargs[3].clone(),
+                    jargs[2].clone(),
+                    jargs[3].clone(),
+                ])),
+            );
+            Term::Lam(name.into(), Icit::Explicit, Rc::new(call))
+        };
+        let cong = apps(
+            Term::Def(plan.p.elim_cong),
+            pk.implicits().into_iter().chain(explicit([
+                pk.dec.clone(),
+                pk.yes(),
+                pj.yes(),
+                pk.no(),
+                pj.no(),
+                branch(&pk.yes, &pj.yes, "h"),
+                branch(&pk.no, &pj.no, "r"),
+            ])),
+        );
+        let e = {
+            let mut names = plan.lam_names();
+            names.push(("p".into(), Icit::Explicit));
+            lams(&names, cong)
+        };
+        let succ = apps(
+            Term::Def(respects),
+            plan.args(depth, &x, 0..s)
+                .into_iter()
+                .chain(explicit([plan.lex_rec_lam(&pk), plan.lex_rec_lam(&pj), e]))
+                .chain(plan.args(depth, &x, s..n)),
+        );
+        // Cases on k1, k2, j1, j2 in turn; a `Zero` contradicts its proof.
+        let mut tree = succ;
+        for (i, hyp, name) in [(3, g2, "j2"), (2, g1, "j1"), (1, h2, "k2"), (0, h1, "k1")] {
+            let at = n + 8 + i;
+            let zero = plan_exfalso(plan, goal(at), var(at, hyp));
+            tree = nat_case(plan, at, i, zero, name, tree);
+        }
+        let mut names: Vec<(Name, Icit)> = ["k1", "k2", "j1", "j2"]
+            .iter()
+            .map(|name| ((*name).into(), Icit::Explicit))
+            .collect();
+        names.extend(plan.lam_names());
+        for name in ["h1", "h2", "g1", "g2"] {
+            names.push((name.into(), Icit::Explicit));
+        }
+        kernel::define_group(&mut self.globals, &[(irrel, lams(&names, tree))])?;
+        Ok(irrel)
+    }
+}
+
+/// A case on the `Nat` at `level`, in a context of `depth` variables:
+/// `zero`, or `succ` with the predecessor (named `name`) bound.
+fn nat_case(plan: &Plan, depth: usize, level: usize, zero: Term, name: &str, succ: Term) -> Term {
+    Term::Case(
+        depth - 1 - level,
+        plan.p.nat,
+        vec![
+            Branch {
+                names: Vec::new(),
+                body: Some(Rc::new(zero)),
+            },
+            Branch {
+                names: vec![name.into()],
+                body: Some(Rc::new(succ)),
+            },
+        ]
+        .into(),
+    )
+}
+
+/// For `f.unfold` with a pair: `%rec` as `f`'s unfolding has it (fuels `m1
+/// x` and `m2 x`), and `e`, the proof that it agrees with `y… => f y…`:
+/// whichever branch the decision takes, it's `go` on other fuels, which
+/// `f.%irrel` equates with `f y…`'s own.
+fn lex_unfold_parts(plan: &Plan, g: &Globals, go: DefId, irrel: DefId) -> Result<(Term, Term)> {
+    let n = plan.n();
+    let id = |l: usize| l;
+    let m1x = plan.measure_at(g, n, &id)?;
+    let m2x = plan.second_at(g, n, &id)?;
+    let refl1 = Term::app(Term::Def(plan.p.le_refl), m1x.clone());
+    let refl2 = Term::app(Term::Def(plan.p.le_refl), m2x.clone());
+    let parts = plan.lex_parts(g, go, n, (&m1x, &m2x), (&refl1, &refl2), &id)?;
+    let r_go = plan.lex_rec_lam(&parts);
+    let inner = n + n + 1;
+    let b = inner + 1;
+    let ys = |l: usize| n + l;
+    let m1y = plan.measure_at(g, b, &ys)?;
+    let m2y = plan.second_at(g, b, &ys)?;
+    let branch = |args: &[Term; 4], name: &str| {
+        let call = apps(
+            Term::Def(irrel),
+            explicit([
+                args[0].clone(),
+                args[1].clone(),
+                plan.p.succ(m1y.clone()),
+                plan.p.succ(m2y.clone()),
+            ])
+            .into_iter()
+            .chain(plan.args(b, &ys, 0..n))
+            .chain(explicit([
+                args[2].clone(),
+                args[3].clone(),
+                Term::app(Term::Def(plan.p.le_refl), m1y.clone()),
+                Term::app(Term::Def(plan.p.le_refl), m2y.clone()),
+            ])),
+        );
+        Term::Lam(name.into(), Icit::Explicit, Rc::new(call))
+    };
+    let f_y = apps(Term::Def(plan.f), plan.args(inner, &ys, 0..n));
+    let proof = apps(
+        Term::Def(plan.p.elim_eq),
+        parts.implicits().into_iter().chain(explicit([
+            parts.dec.clone(),
+            parts.yes(),
+            parts.no(),
+            f_y,
+            branch(&parts.yes, "h"),
+            branch(&parts.no, "r"),
+        ])),
+    );
+    let mut names = plan.lam_names();
+    names.push(("p".into(), Icit::Explicit));
+    Ok((r_go, lams(&names, proof)))
 }

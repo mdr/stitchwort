@@ -40,6 +40,20 @@ theorem Decidable.elimCong: [p: Prop] -> [a: Type] -> (d: Decidable p) -> (y1: p
   | Yes h, y1, y2, n1, n2, ey, en => ey h
   | No r, y1, y2, n1, n2, ey, en => en r
 
+-- `Decidable.elim` for a proof: a theorem with `decreasing (m1, m2)` makes its
+-- recursive calls through it (docs/proposals/well-founded-recursion.md, stage
+-- 3d).
+theorem Decidable.elimProof: [p: Prop] -> [a: Prop] -> Decidable p -> (p -> a) -> (Not p -> a) -> a
+  | Yes h, yes, no => yes h
+  | No r, yes, no => no r
+
+-- An `if` equals `z` when both its branches do. What `decreasing (m1, m2)`
+-- generates proves `f.unfold` with it (docs/proposals/well-founded-recursion.md,
+-- stage 3d).
+theorem Decidable.elimEq: [p: Prop] -> [a: Type] -> (d: Decidable p) -> (y: p -> a) -> (n: Not p -> a) -> (z: a) -> ((h: p) -> y h = z) -> ((r: Not p) -> n r = z) -> Decidable.elim d y n = z
+  | Yes h, y, n, z, ey, en => ey h
+  | No r, y, n, z, ey, en => en r
+
 theorem Bool.ifThenElseCong: [a: Type] -> (c: Bool) -> (t1: Unit -> a) -> (t2: Unit -> a) -> (e1: Unit -> a) -> (e2: Unit -> a) -> ((u: Unit) -> t1 u = t2 u) -> ((u: Unit) -> e1 u = e2 u) -> Bool.ifThenElse c t1 e1 = Bool.ifThenElse c t2 e2
   | True, t1, t2, e1, e2, et, ee => et Trivial
   | False, t1, t2, e1, e2, et, ee => ee Trivial
