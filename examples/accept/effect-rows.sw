@@ -102,6 +102,18 @@ def notLogged (numbers: List (Tagged False)): List Nat := List.mapIn answer numb
 
 test "a callback whose type computes to a plain type later" := notLogged [Tag 3, Tag 4] == [3, 4]
 
+-- The same callbacks eta-expanded: the body's type goes through the same
+-- rule, so the row waits for `?flag` as it does for `answer` itself.
+def loggedLambda (numbers: List (Tagged True)): {Log} (List Nat) := List.mapIn (tagged => answer tagged) numbers
+
+test "an eta-expanded callback whose type becomes a computation later" :=
+  Log.collect (() => loggedLambda [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
+
+def notLoggedLambda (numbers: List (Tagged False)): List Nat := List.mapIn (tagged => answer tagged) numbers
+
+test "an eta-expanded callback whose type computes to a plain type later" :=
+  notLoggedLambda [Tag 3, Tag 4] == [3, 4]
+
 -- An effectful callback: the row is its row.
 def sayAll (numbers: List Nat): {Log} (List Nat) := List.mapIn sayAndDouble numbers
 

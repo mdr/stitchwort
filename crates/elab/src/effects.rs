@@ -1860,10 +1860,54 @@ fn comp_check_in(
                     return Ok(c);
                 }
             }
+            if let Some(c) = unknown_row_value(cx, expr, row, t)? {
+                return Ok(c);
+            }
             let v = check(cx, expr, t)?;
             done(cx, row, t, v)
         }
     }
+}
+
+/// A call (or a variable, a dot call, a pipe) that performs nothing, checked
+/// as a computation in a bare row `{?e}` whose row is still unknown: the body
+/// of a callback checked by eta-expansion against `a -> {?e} b`. Its type `T`
+/// is compared with the whole `CompIn ?e b`, so the row rule
+/// (`unify::row_rule`) decides the row as it does for a function passed
+/// as it is: `Empty` if `T` is apart from a computation (the value is then
+/// `doneIn ?e v`, as before), the computation's row if `T` is one (the value
+/// is that computation), or, if `T` may still compute to one (a definition
+/// stuck on an unknown), put aside until it's known. `None` in any other
+/// row, for any other expression, or if that fails (it's then checked
+/// against `b` as before).
+fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Option<Term>> {
+    if !row.is_bare()
+        || !matches!(
+            expr,
+            Expr::Var(_) | Expr::App(..) | Expr::Field(..) | Expr::Pipe(..)
+        )
+    {
+        return Ok(None);
+    }
+    let tail = row.tail.as_ref().expect("a bare row has a tail");
+    if !is_unknown(cx, tail)? {
+        return Ok(None);
+    }
+    let whole = comp_type(cx, row, t.clone())?;
+    let compared = |cx: &mut Ctx| -> Result<Term> {
+        let (term, found) = infer(cx, expr)?;
+        let (term, found) = insert(cx, term, found)?;
+        let term = crate::check::compare(cx, term, &found, &whole)?;
+        let empty = match force(cx.g(), tail.clone())? {
+            Value::Ctor(d, c, _) => cx.g().registry.ctor(Builtin::RowEmpty) == Some((d, c)),
+            _ => false,
+        };
+        if empty {
+            return done(cx, row, t, term);
+        }
+        Ok(term)
+    };
+    crate::undo::attempt(cx, compared)
 }
 
 /// Whether `expr` is a call (or a variable) whose value has a computation

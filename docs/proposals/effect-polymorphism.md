@@ -1942,6 +1942,23 @@ reading on each point:
 No test, std or AoC hash moved. `rows.rs` has a unit test for the quotient
 cases.
 
+**Eta-expanded callbacks.** Item 3 of the remaining list did refuse
+programs that have a row: `List.mapIn (tagged => answer tagged) numbers`
+in a `{Log}` body was `E-TYPE-MISMATCH` ("expected `List Nat`, but this has
+type `List ({Log} Nat)`") while `List.mapIn answer numbers` was accepted,
+since the body `answer tagged: Answer ?flag` was checked against `?b`
+(solving `?b := Answer ?flag`) and the row defaulted to `Empty` before
+`?flag` was known. Now `effects::unknown_row_value` infers a call-like body
+(a variable, a call, a dot call or a pipe that performs nothing) in a bare
+row whose row is still unknown and compares its type with the whole
+`CompIn ?e b`, so `row_rule` decides: `Empty` (the value is `doneIn ?e v`,
+the same term as before), the computation's row, or put aside. If that
+fails, the body is checked against `b` as before. Regression tests:
+`loggedLambda` and `notLoggedLambda` in `examples/accept/effect-rows.sw`; no
+existing hash moved. Still refused, and not an eta case: a `let` that binds
+`List.mapIn answer numbers` in a `{Log}` body and returns it later (the row
+is defaulted before the `let`'s variable is compared with the result type).
+
 ## Appendix A. Probe files
 
 All are in a scratch directory, checked with `stitchwort check FILE`.
