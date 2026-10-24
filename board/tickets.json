@@ -1,5 +1,5 @@
 {
-  "next": 410,
+  "next": 412,
   "tickets": [
     {
       "id": 1,
@@ -6504,17 +6504,19 @@
     },
     {
       "id": 405,
-      "title": "Effect polymorphism stage 0: pass computations where a Comp is expected; runPureBind, foldCompBind, mapInPure, Fail.toResultMapIn (effect-polymorphism.md §5, §6)",
-      "status": "next",
+      "title": "Effect polymorphism stage 0: computations passed where a Comp is expected; runPureBind, foldCompBind, bindAssoc, mapInPure (Fail.toResultMapIn still open, SW-378)",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "48a15a41"
+      ]
     },
     {
       "id": 406,
@@ -6562,6 +6564,34 @@
       "id": 409,
       "title": "Effect polymorphism stage 4: linear-time, stack-safe effectful runtime; design note starts with close literature reading (D1119)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 410,
+      "title": "Crash: Eq.cong (Call o) p panics in the pretty-printer (pretty.rs:229 index out of bounds); reproduces on main without stage 0",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 411,
+      "title": "Dot notation on a call returning an alias of Comp ((stuckThunk xs).finished) looks in the unfolded type's namespace and fails",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
