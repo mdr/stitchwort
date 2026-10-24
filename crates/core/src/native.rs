@@ -554,6 +554,30 @@ pub fn from_view(k: BigUint, base: Option<Value>) -> Value {
     }
 }
 
+/// Whether `mul k x`, for a number `k > 0` and an `x` that is a variable
+/// (applied to anything), stays folded as the call while checking (SW-321).
+/// Its definition recurses on `k`, so unfolding it all gives
+/// `x + (x + … + 0)` with `k` additions, each stuck on `x`: millions of
+/// steps for `100000 * x`, deep enough to overflow the stack when dropped.
+/// Folded, it's what dictionaries and theorems are (`value::is_folded`):
+/// taking it apart or comparing it with anything but `mul k x'` unfolds one
+/// step, to `add x (mul (k - 1) x)`, which is stuck on `x` too, so it's
+/// never a number, a `Succ` or a constructor. What's equal doesn't change,
+/// only when it's computed. Not while a program runs, nor with natives off.
+pub fn folds_mul(g: &Globals, id: DefId, spine: &[Elim]) -> bool {
+    match spine {
+        [
+            Elim::App(Value::Nat(k), _),
+            Elim::App(Value::Neutral(Head::Var(_), _), _),
+        ] => {
+            !k.is_zero()
+                && g.builtins.native(id) == Some(Native::Mul)
+                && !g.erasure.program_running()
+        }
+        _ => false,
+    }
+}
+
 /// Whether `value` is built from numbers: a number, `k + x`, `Zero` or `Succ`.
 pub fn nat_like(g: &Globals, value: &Value) -> bool {
     match value {

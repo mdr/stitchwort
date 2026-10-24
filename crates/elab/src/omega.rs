@@ -32,8 +32,9 @@
 //! **Quoting** mirrors the computed value's shape, so the tree's meaning
 //! computes to exactly the source: a number is `NLit`, `k + x` (what `Succ`
 //! makes) is `NSucc` or `NAdd (NLit k)`, a stuck `a + b` is `NAdd`, `x * k`
-//! is `MulRight`, and `k * x`, which has computed to `x + (x + … + 0)`, is
-//! `MulLeft k x` (up to [`MUL_LEFT_LIMIT`]). `a - b`, `Nat.max a b` and
+//! is `MulRight`, and `k * x` is `MulLeft k x` (up to [`MUL_LEFT_LIMIT`]),
+//! left folded as the call when `x` is a variable (`native::folds_mul`) and
+//! otherwise computed to `x + (x + … + 0)`. `a - b`, `Nat.max a b` and
 //! `Nat.min a b` (stage 2) are atoms with an operation fact saying what
 //! they are (`FSub`/`FMax`/`FMin`, proved by `rfl` since the environment
 //! holds the atom's own term), whose rows always hold and whose two cases
@@ -973,25 +974,25 @@ impl Quoter {
         if let Value::Neutral(Head::Meta(_), _) = base {
             return Ok(Err(Unknown));
         }
-        if let Some([a, b]) = call_args(&base, lib.add).as_deref() {
-            if let Some((k, t)) = self.mul_left(cx, lib, &base)? {
-                if k > MUL_LEFT_LIMIT {
-                    return Err(Diagnostic::error(
-                        "E-OMEGA",
-                        format!("`omega` doesn't take `{k} * …`: the number is too large"),
-                    )
-                    .with_label(span, format!("the goal or a fact multiplies by {k} on the left"))
-                    .with_note(format!(
-                        "`k * x` computes to `x + (x + … + 0)` with `k` copies, which is slow to check for large `k`; `omega` takes `k` up to {MUL_LEFT_LIMIT}"
-                    ))
-                    .with_note("write `x * k` instead, which stays as it is"));
-                }
-                let inner = match self.quote(cx, lib, &t, span)? {
-                    Ok(t) => t,
-                    Err(u) => return Ok(Err(u)),
-                };
-                return Ok(Ok(NTerm::MulLeft(BigUint::from(k), Box::new(inner))));
+        if let Some((k, t)) = self.mul_left(cx, lib, &base)? {
+            if k > BigUint::from(MUL_LEFT_LIMIT) {
+                return Err(Diagnostic::error(
+                    "E-OMEGA",
+                    format!("`omega` doesn't take `{k} * …`: the number is too large"),
+                )
+                .with_label(span, format!("the goal or a fact multiplies by {k} on the left"))
+                .with_note(format!(
+                    "`k * x` computes to `x + (x + … + 0)` with `k` copies, which is slow to check for large `k`; `omega` takes `k` up to {MUL_LEFT_LIMIT}"
+                ))
+                .with_note("write `x * k` instead, which stays as it is"));
             }
+            let inner = match self.quote(cx, lib, &t, span)? {
+                Ok(t) => t,
+                Err(u) => return Ok(Err(u)),
+            };
+            return Ok(Ok(NTerm::MulLeft(k, Box::new(inner))));
+        }
+        if let Some([a, b]) = call_args(&base, lib.add).as_deref() {
             let a = match self.quote(cx, lib, a, span)? {
                 Ok(t) => t,
                 Err(u) => return Ok(Err(u)),
@@ -1074,9 +1075,17 @@ impl Quoter {
         })
     }
 
-    /// `k * t` as it computes: `t + (t + … + (t + 0))` with `k >= 2` copies.
-    fn mul_left(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(u32, Value)>> {
+    /// `k * t`: left folded as the call when `t` is a variable
+    /// (`native::folds_mul`), and otherwise as it computes,
+    /// `t + (t + … + (t + 0))` with `k >= 2` copies.
+    fn mul_left(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(BigUint, Value)>> {
         let g = cx.g();
+        if let Some([k, t]) = call_args(value, lib.mul).as_deref()
+            && let Value::Nat(k) = k
+            && stitchwort_core::value::is_folded(g, value)
+        {
+            return Ok(Some(((**k).clone(), t.clone())));
+        }
         let args = call_args(value, lib.add);
         let Some([t, _]) = args.as_deref() else {
             return Ok(None);
@@ -1098,7 +1107,7 @@ impl Quoter {
                 _ => {
                     let (k, base) = stitchwort_core::native::view(g, &current_forced)?;
                     let zero = base.is_none() && k == BigUint::default();
-                    return Ok((zero && count >= 2).then_some((count, t)));
+                    return Ok((zero && count >= 2).then_some((BigUint::from(count), t)));
                 }
             }
         }

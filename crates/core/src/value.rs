@@ -1534,6 +1534,7 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
     if let Some(body) = &def.body
         && def.arity == spine.len()
         && !folds(g, id)
+        && !native::folds_mul(g, id, &spine)
     {
         let args: Option<Vec<Value>> = spine
             .iter()
@@ -1602,7 +1603,7 @@ fn unfold_for(g: &Globals, stack: &mut Vec<Frame>, value: Value, next: Frame) ->
 /// equal).
 pub fn is_folded(g: &Globals, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
-        if (folds(g, *id) || folds_on_lift(g, *id))
+        if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
             && g.def(*id).body.is_some())
 }

@@ -35,8 +35,9 @@ def Omega.natAt: Nat -> List Nat -> Nat
 
 -- `Nat`-valued syntax. Each node means what the surface syntax computes to,
 -- so a quoted term converts with the term it quotes: `MulLeft 3 (NV 0)` is
--- `3 * x` (which unfolds), `MulRight (NV 0) 3` is `x * 3` (which doesn't), and
--- `NSucc` is `Succ`, which `1 + x` computes to.
+-- `3 * x` (left folded for a variable `x`, and otherwise unfolding),
+-- `MulRight (NV 0) 3` is `x * 3` (which doesn't unfold), and `NSucc` is
+-- `Succ`, which `1 + x` computes to.
 type Omega.NTerm: Type =
   | NV (i: Nat)
   | NLit (n: Nat)
