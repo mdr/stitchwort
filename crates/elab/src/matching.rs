@@ -95,14 +95,24 @@ fn motive_error(span: stitchwort_syntax::Span, message: impl Into<String>) -> Di
         )
 }
 
-/// Compiles the alternatives into a case tree on `columns`.
+/// Compiles the alternatives into a case tree on `columns`. `absurd` are
+/// rows with no right-hand side, whose `()` patterns say a type has no
+/// values (only the compiler writes them: `reify.rs`).
 fn compile<'a>(
     cx: &Ctx,
     alts: &'a [Alt],
+    absurd: &'a [Vec<Pattern>],
     columns: &[usize],
     span: stitchwort_syntax::Span,
     kind: MatchKind,
 ) -> Result<crate::Tree<'a>> {
+    let absurd_rows = absurd.iter().map(|pats| Row {
+        pats: pats.iter().map(std::borrow::Cow::Borrowed).collect(),
+        aliases: Vec::new(),
+        written: crate::written_names(pats),
+        rhs: None,
+        span,
+    });
     let rows: Vec<Row> = alts
         .iter()
         .map(|alt| Row {
@@ -126,6 +136,7 @@ fn compile<'a>(
             rhs: Some(&alt.body),
             span: alt.span,
         })
+        .chain(absurd_rows)
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
     cx.e.compile(&rows, cx.level(), columns, &types, span)
@@ -208,10 +219,12 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         }
         columns.push(level);
     }
-    Some(compile(cx, alts, &columns, span, kind).and_then(|tree| {
-        crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
-            .map_err(|d| in_context(cx, d, kind, alts, &columns))
-    }))
+    Some(
+        compile(cx, alts, &[], &columns, span, kind).and_then(|tree| {
+            crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+                .map_err(|d| in_context(cx, d, kind, alts, &columns))
+        }),
+    )
 }
 
 /// A `match`, lifted (§4.4).
@@ -324,12 +337,12 @@ fn lifted(
                 _ => unreachable!(),
             })
             .collect();
-        let tree = compile(cx, alts, &levels, span, kind)?;
+        let tree = compile(cx, alts, &[], &levels, span, kind)?;
         let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
             .map_err(|d| in_context(cx, d, kind, alts, &levels))?;
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
-    generalised(cx, columns, exprs, alts, span, kind, goal, base)
+    generalised(cx, columns, exprs, alts, &[], span, kind, goal, base)
 }
 
 /// `b`, when `normal` is `Decidable.toBool {p} (Bool.decTrue b)`: the two
@@ -366,12 +379,58 @@ struct Scrut {
     alias: Option<usize>,
 }
 
+/// A `match` on one expression the compiler has elaborated itself (`term`,
+/// of type `ty`), generalised as an expression scrutinee is: the
+/// alternatives `alts`, and `absurd` rows with no right-hand side
+/// (`match reify`, `reify.rs`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn generalised_term(
+    cx: &mut Ctx,
+    term: Term,
+    ty: Value,
+    scrutinee_span: stitchwort_syntax::Span,
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+) -> Result<Term> {
+    let base = cx.level();
+    let mark = cx.mark();
+    let result = (|| {
+        let normal = quote(cx.g(), base, &cx.eval(&term)?)?;
+        let ty_term = cx.quote(&ty)?;
+        let scrut = Scrut {
+            term,
+            normal,
+            ty,
+            ty_term,
+            name: None,
+            span: scrutinee_span,
+            alias: None,
+        };
+        generalised(
+            cx,
+            vec![Column::Expr(0)],
+            vec![scrut],
+            alts,
+            absurd,
+            span,
+            MatchKind::Match,
+            goal,
+            base,
+        )
+    })();
+    cx.reset(mark);
+    result
+}
+
 #[allow(clippy::too_many_arguments)]
 fn generalised(
     cx: &mut Ctx,
     columns: Vec<Column>,
     exprs: Vec<Scrut>,
     alts: &[Alt],
+    absurd: &[Vec<Pattern>],
     span: stitchwort_syntax::Span,
     kind: MatchKind,
     goal: &Value,
@@ -495,7 +554,7 @@ fn generalised(
             Column::Expr(i) => base + i,
         })
         .collect();
-    let tree = compile(cx, alts, &levels, span, kind)?;
+    let tree = compile(cx, alts, absurd, &levels, span, kind)?;
     // While the alternatives are checked, a mismatch that still contains a
     // scrutinee says why (`Ctx::mismatch`).
     let known = cx.scrutinees.len();

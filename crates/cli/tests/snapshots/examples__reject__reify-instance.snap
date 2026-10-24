@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROOF-ONLY] Error: `reify` can only be used in a proof
+    ╭─[ reject/reify-instance.sw:12:3 ]
+    │
+ 12 │   match reify t with
+    │   ──────┬──────  
+    │         ╰──────── this declaration computes data, so this would run
+    │ 
+    │ Note 1: `reify` may be used in a `theorem`, or a `def` whose type ends in `Prop` or a type: what it computes is never run
+    │ 
+    │ Note 2: state what you need as a theorem and use `reify` there; to act on a failure at run time, use a handler such as `Fail.toResult` or `Fail.orElse`
+────╯

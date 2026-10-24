@@ -1423,7 +1423,12 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
                 stack.extend(scrutinees.iter().map(|s| &s.expr));
                 stack.extend(alts.iter().map(|a| &a.body));
             }
-            Expr::Handle { body, clauses, .. } => {
+            Expr::Handle { body, clauses, .. }
+            | Expr::Reify {
+                thunk: body,
+                clauses,
+                ..
+            } => {
                 stack.push(body);
                 for clause in clauses {
                     stack.push(match clause {

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REIFY] Error: `reify` can't take apart a `Partial` computation: `{Partial} Nat`
+   ╭─[ reject/reify-partial.sw:4:15 ]
+   │
+ 4 │   match reify t with
+   │               ┬  
+   │               ╰── this computation may not finish
+   │ 
+   │ Note: `reify` needs a computation that finishes, so a proof can look at all of it
+───╯

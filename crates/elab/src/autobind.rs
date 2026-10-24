@@ -505,7 +505,12 @@ fn walk_at(
                 bound.truncate(before);
             }
         }
-        Expr::Handle { body, clauses, .. } => {
+        Expr::Handle { body, clauses, .. }
+        | Expr::Reify {
+            thunk: body,
+            clauses,
+            ..
+        } => {
             walk(e, body, bound, false, uses)?;
             for clause in clauses {
                 let before = bound.len();

@@ -126,6 +126,14 @@ pub enum Expr {
         clauses: Vec<Clause>,
         span: Span,
     },
+    /// `match reify t with | return x => … | Fail.stop msg, k => …`: in a
+    /// proof, a split on what the computation `t ()` does first, with
+    /// clauses written as a handler's (docs/proposals/proof-reification.md).
+    Reify {
+        thunk: Box<Expr>,
+        clauses: Vec<Clause>,
+        span: Span,
+    },
     /// `match e with | p -> body | …`; several scrutinees `match a, b with | p, q -> …`;
     /// naming the equation `match h : e with …` (docs/proposals/syntax-conveniences.md §4).
     Match {
@@ -353,6 +361,7 @@ impl Expr {
             | Expr::Record { span, .. }
             | Expr::CtorFields { span, .. }
             | Expr::Handle { span, .. }
+            | Expr::Reify { span, .. }
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
             | Expr::Omega { span, .. }
@@ -420,6 +429,7 @@ fn has_nested(expr: &Expr) -> bool {
             ty, value, body, ..
         } => ty.as_deref().is_some_and(nested) || nested(value) || nested(body),
         Expr::Handle { body, .. } => nested(body),
+        Expr::Reify { thunk, .. } => nested(thunk),
         Expr::Calc { first, steps, .. } => {
             nested(first)
                 || steps
@@ -519,6 +529,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(body);
         }
         Expr::Handle { body, .. } => take(body),
+        Expr::Reify { thunk, .. } => take(thunk),
         Expr::Calc { first, steps, .. } => {
             take(first);
             for step in steps {

@@ -65,6 +65,15 @@ theorem Abort.toOptionEnsureFalse: Abort.toOption (() => Abort.ensure False) = N
 
 theorem Abort.toOptionEnsureTrue: Abort.toOption (() => Abort.ensure True) = Some () := rfl
 
+-- Running `t`, then `k` on its result: gives up if either does. A law about
+-- any computation, by a split on what `t` does first (`match reify`,
+-- docs/proposals/proof-reification.md).
+theorem Abort.toOptionThen (t: () -> {Abort} a) (k: a -> {Abort} b):
+    Abort.toOption (() => k (t ())) = Option.flatMap (x => Abort.toOption (() => k x)) (Abort.toOption t) :=
+  match reify t with
+    | return x => rfl
+    | Abort.stop (), _ => rfl
+
 test "need Some" := Abort.toOption (() => Abort.need (Some 3)) == Some 3
 test "need None" := Abort.toOption (() => Abort.need (None: Option Nat)) == None
 test "orElse" := Abort.orElse 0 (() => Abort.need (None: Option Nat)) == 0

@@ -589,7 +589,15 @@ impl Parser<'_> {
             ));
         }
         self.expect(Tok::Comma, "`,` and a name for the continuation")?;
-        let k = self.lower("a name for the continuation")?;
+        let k = if self.peek() == Some(&Tok::Underscore) {
+            let span = self.bump().span;
+            Name {
+                text: "_".to_string(),
+                span,
+            }
+        } else {
+            self.lower("a name for the continuation")?
+        };
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
                 arg.span().to(self.here()),

@@ -2306,7 +2306,12 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(names.iter().map(|x| Work::Unbind(x)));
                 then(&mut stack, steps);
             }
-            Expr::Handle { body, clauses, .. } => {
+            Expr::Handle { body, clauses, .. }
+            | Expr::Reify {
+                thunk: body,
+                clauses,
+                ..
+            } => {
                 let mut steps = vec![Work::Expr(body)];
                 for clause in clauses {
                     match clause {

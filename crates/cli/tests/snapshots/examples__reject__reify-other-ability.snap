@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: `Abort.stop` isn't an operation this computation can perform: it is `{Fail} a`
+   ╭─[ reject/reify-other-ability.sw:9:7 ]
+   │
+ 9 │     | Abort.stop (), _ => rfl
+   │       ─────┬────  
+   │            ╰────── not in the computation's row
+───╯

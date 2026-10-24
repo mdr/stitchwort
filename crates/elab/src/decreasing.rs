@@ -1211,13 +1211,15 @@ impl Elaborator {
         let written = Rc::new(self.globals.def(step).ty.clone());
         let (body, joined) = self.with_local_retries(&step_key, def_name, |e| {
             let mut cx = Ctx::new(e, def_name.span);
-            let term = e.body_in(
-                &mut cx,
-                ty_value.clone(),
-                Some(written.clone()),
-                def_name,
-                &equations,
-            )?;
+            let term = e.with_body_type(&ty_value, def_name.span, || {
+                e.body_in(
+                    &mut cx,
+                    ty_value.clone(),
+                    Some(written.clone()),
+                    def_name,
+                    &equations,
+                )
+            })?;
             let joined = e.lift(&step_key, true)?;
             Ok((e.finish(&term, 0)?, joined))
         })?;

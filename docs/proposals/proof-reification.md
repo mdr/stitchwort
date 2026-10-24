@@ -4,7 +4,7 @@ Status: design note, 24 Oct 2026, for D1141 (d). Decided (Matt, 24 Oct
 2026): all five decisions in §8 as recommended, renumbered D1144 to D1148
 (surface form `match reify` with handler-style clauses; close the run-time
 leak right after R1; any proof may use it; checked per declaration; keyword
-`reify`). Nothing built yet.
+`reify`). Stage R1 is built (SW-419): see "As built (stage R1)" after §8.
 
 D1141 (d), as decided (effect-polymorphism.md §7, "After stage 1, first
 part"): abilities stay on arrows, so a computation is passed as a thunk
@@ -475,6 +475,118 @@ Numbers are provisional.
 word such as `match outcome t with` or `match steps t with`. `reify` would
 become reserved only after `match`, so no existing name breaks
 **[inferred]**.
+
+## As built (stage R1)
+
+SW-419, 24 Oct 2026. `match reify t with`, the proof-only check, and the
+std laws, as §7's R1 row says, with the deviations below. The kernel is
+unchanged.
+
+**Syntax.** `Expr::Reify { thunk, clauses, span }` (`ast.rs`). The parser
+reads it in `match_expr` when the name after `match` is `reify` and the next
+token isn't `with`, `,` or `:` (`reify_ahead`), so `match reify with` and
+`match reify, x with` still match a variable called `reify`. The clauses are
+a handler's (`handler_clauses`, shared with `handle`). A second scrutinee
+after the thunk is a parse error, and so is `match h: reify t`, with a note
+(`E-PARSE`). A clause's continuation may now be `_`, in handlers too.
+
+**Elaboration** (`crates/elab/src/reify.rs`). `check_reify`:
+
+1. The proof-only check (below).
+2. The computation: for `() => e` (a lambda whose parameter is the unit
+   pattern), `e` itself, elaborated with `infer_unrun`, so a call is passed
+   as a computation and not run; for any other thunk, `t` is inferred, must
+   be a function from `()`, and the scrutinee is `t ()`. Its type must be a
+   `Comp` over a closed row of abilities (`effects::comp_parts`): a bare row
+   `{e}`, an open row `{Fail | e}`, a `Partial` computation, or a type that
+   isn't a computation is `E-REIFY`, each with its own message.
+3. The alternatives, with patterns the compiler writes by identity:
+   `internal_ctor_pattern` names a constructor as `%ctor d c`, which source
+   can't spell and the pattern compiler resolves without a lookup (`lib.rs`,
+   next to `%unit`). `return x` is `Done x`; `Ability.op arg, k` is `Call
+   (R (… (L (op arg)))) k`, with one `R` per ability before it in the row;
+   an operation's `()` argument is the unit pattern. The closed row's end is
+   an absurd row, `Call (R … (R ())) _`, with no right-hand side. A missing
+   `return` or operation clause is `E-NONEXHAUSTIVE` (naming each), a
+   repeated one `E-DUPLICATE`, and an operation of an ability not in the row
+   `E-ABILITY`.
+4. `matching::generalised_term`: the ordinary generalised `match` on that
+   term (as for an expression scrutinee), lifted to `owner.%matchN`.
+   `matching::compile` takes the absurd rows as an extra argument.
+
+**The proof-only check (D1147).** `Elaborator::body_type` holds the
+declared type while a top-level declaration's body is elaborated
+(`body_term`, and the step of a `decreasing` definition). When `reify` is
+met, `Elaborator::body_erased` decides from it whether the result is
+erased, by the kernel's own test (`check::telescope(…).result_erased`,
+which is what `erase::of_def` uses); no variant was needed. Local definitions and
+`match`es inside the body see the top-level declaration's answer. Anywhere
+else (a test, a signature, an expression typed in) it is unset, and `reify`
+is refused there too. `E-PROOF-ONLY`'s label says "this declaration computes
+data, so this would run", or for those "this isn't the body of a proof".
+
+**Std.** In `Fail.sw`: `Fail.toResultThen`, `Fail.toOptionThen`,
+`Fail.toOptionToResult` (`Fail.toOption t = Result.toOption (Fail.toResult
+t)`) and `Fail.toResultMapIn`, as stated in errors.md §3.7. In `Abort.sw`:
+`Abort.toOptionThen`. Each `Then` law and `ToResult` is one split with
+`rfl` in both clauses. `Fail.toResultMapIn` is by induction on the list:
+
+```
+  | [x, ..xs] =>
+    let rest := Fail.toResultMapIn f xs
+    match reify (() => f x) with
+      | return y =>
+        match reify (() => xs.mapIn f) with
+          | return ys => rewrite <- rest in rfl
+          | Fail.stop msg, _ => rewrite <- rest in rfl
+      | Fail.stop msg, _ => rfl
+```
+
+The induction hypothesis is a `let`, so the second split generalises
+`xs.mapIn f` in its type too, and it says what the rest gives (`Ok ys` or
+`Err msg`). `stitchwort axioms` prints nothing for it.
+
+**Tests.** `examples/accept/reify-fail.sw`: the five laws restated and
+proved again, std's `Fail.toResultMapIn` used, and a user's `State s`
+ability: predicates `Finished` and `PutsFirst` (`def`s ending in `Prop`),
+`finishedKeepsState` and `putFirstForgets` (a `put` first makes `runState`
+forget its initial state; `rfl` in the `put` clause), and on the row
+`{State Nat, Fail}` two predicates and `notBoth`, where two hypotheses are
+split with `t`. Rejects, one file each: `reify-data-def`, `reify-test`,
+`reify-instance` (`E-PROOF-ONLY`); `reify-bare-row`, `reify-open-row`,
+`reify-partial` (`E-REIFY`); `reify-other-ability` (`E-ABILITY`);
+`reify-missing-clause` (`E-NONEXHAUSTIVE`); `reify-named-equation`
+(`E-PARSE`).
+
+**Deviations and findings.**
+
+- *The continuation.* `k` is the `Call`'s own continuation, not
+  `y => () => rest y`: a function from what the operation returns to the
+  rest of the computation, so `| State.get (), rest =>` has `rest: s ->
+  {State s} a`, and for `put` (which returns `()`) `rest: () -> {State s}
+  a`. It is still a function, so arrows-only holds, and it needed no extra
+  binding in the generated `match`. For `Fail` and `Abort` it is `Empty ->
+  {Fail} a`.
+- *A new code,* `E-REIFY`, for a thunk `reify` can't split (the note gave
+  the messages but no code).
+- *The thunk written in place* must have a body that is passed as a
+  computation: a call, a variable, a dot call or a pipe (`() => f x`,
+  `() => xs.mapIn f`). A block in a thunk hasn't been tried.
+- *Goals.* In an operation's clause the goal is short (`Err msg = Err msg`
+  in `toResultThen`). In a `return` clause it is shown with the handler
+  unfolded (`Effect.foldComp (x => Ok x) … (k x) = …`), because the
+  occurrence test generalises the evaluated goal, where `Fail.toResult` has
+  already unfolded. So §3's "each branch's goal is one the user can read"
+  holds only in part.
+- *Using a law on a thunk written in a proof* is awkward: `() => e` is a
+  lambda over the unit pattern, which becomes a lifted `match` helper, so
+  `Fail.toResultThen (() => xs.mapIn f) …` written in a proof is a
+  different term from the same thunk in the theorem's statement (`E-TYPE-
+  MISMATCH`, with "two different `(match …)` appear here"). The `MapIn`
+  proof above avoids it by splitting a second time instead of using
+  `toResultThen`. Rewriting with these laws in users' proofs will meet the
+  same thing; a thunk `() => e` elaborated as a plain lambda (its parameter
+  ignored) would fix it, and is outside R1.
 
 ## Appendix A. Probes
 
