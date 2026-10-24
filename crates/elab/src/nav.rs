@@ -1383,7 +1383,12 @@ impl Walk<'_> {
                     steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
                     then(&mut stack, steps);
                 }
-                Expr::Handle { body, clauses, .. } => {
+                Expr::Handle { body, clauses, .. }
+                | Expr::Reify {
+                    thunk: body,
+                    clauses,
+                    ..
+                } => {
                     let mut steps = vec![Work::Expr(body)];
                     for clause in clauses {
                         match clause {

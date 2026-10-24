@@ -190,7 +190,12 @@ fn parsed_shape(e: &Expr) -> String {
             }
         }
         Expr::Lam(names, body, _) => format!("(\\{} {})", names[0].text, parsed_shape(body)),
-        Expr::Handle { body, clauses, .. } => {
+        Expr::Handle { body, clauses, .. }
+        | Expr::Reify {
+            thunk: body,
+            clauses,
+            ..
+        } => {
             let cs: Vec<String> = clauses
                 .iter()
                 .map(|c| match c {

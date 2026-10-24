@@ -1,7 +1,8 @@
 # Proposal: errors with messages (`Fail` and `Result`)
 
 **Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Stage 1
-is built ("Stage 1 as built", §5), without `Fail.toResultMapIn` from §3.7; stage 2 is next.
+is built ("Stage 1 as built", §5); `Fail.toResultMapIn` from §3.7 followed with proof-only
+reification (SW-419, closing SW-378); stage 2 is next.
 
 ## 1. The problem and the goals
 
@@ -461,6 +462,16 @@ to the snapshot. Deviations:
   and `Effect.foldCompBind` exists. The other remains: the case split on
   `f x` needs a binder whose type is a `{Fail}` computation, and that type
   can't be written (effect-polymorphism.md, "As built (stage 0)").
+  **Closed (SW-419, 24 Oct 2026):** D1141 (d) kept abilities on arrows, and
+  proof-only reification (proof-reification.md, stage R1) gives proofs the
+  split: `match reify (() => f x) with | return y => … | Fail.stop msg, _ =>
+  …`. `Fail.toResultMapIn` is in `Fail.sw` as stated in §3.7, by induction
+  on the list with a split on `f x` and then on `xs.mapIn f`, where the
+  induction hypothesis (generalised with it) says what the rest gives. Its
+  axiom report is empty. The general law welcome above,
+  `Fail.toOptionToResult` (`Fail.toOption t = (Fail.toResult t).toOption`),
+  is there too, with `Fail.toResultThen`, `Fail.toOptionThen` and
+  `Abort.toOptionThen`.
 - A dot call ending a handled lambda, `Fail.toResult (() => " 4".toNatOrFail)`,
   isn't run there, so the handler's result type is `{Fail} Nat` (and
   `==` asks for `DecEq ({Fail} Nat)`). `Abort` behaves the same

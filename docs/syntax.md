@@ -700,7 +700,7 @@ def parse (t: Text): Result Int Text := toResult (() => turn t)
 - On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult err o`. A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
 - The operation is `Fail.stop: Text -> {Fail} Empty`, for handlers of your own; `fail msg` is `Empty.absurd (stop msg)`.
 - **`main` may leave `Fail` unhandled:** `def main(): {IO, Fail} () := …` (or `{Fail} ()`) runs under `stitchwort run`, `run --reference`, `run --js` and in the playground. If it fails, what it printed before stays, `error: <message>` goes to standard error (the playground shows it below the output), and the exit status is 1. Runtime errors (`E-IO`, `E-RESOURCE`) exit with 2. `main` can't be both `Fail` and `Partial` yet (`examples/accept/main-fail.sw`).
-- Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult msg o`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`.
+- Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult msg o`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`. About any computation, each by `match reify` ([Proofs about effectful code](#proofs-about-effectful-code)): `Fail.toResultThen t k` (`toResult (() => k (t ())) = Result.flatMap (x => toResult (() => k x)) (toResult t)`), `Fail.toOptionThen` (the same with `toOption` and `Option.flatMap`), `Fail.toOptionToResult t` (`toOption t = (toResult t).toOption`), `Abort.toOptionThen`, and `Fail.toResultMapIn f xs` (`toResult (() => xs.mapIn f) = Result.traverse (x => toResult (() => f x)) xs`).
 
 ## `Each`
 
@@ -721,6 +721,25 @@ def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
 - `Each.collect: (() -> {Each} a) -> List a` gives the results in order, the first choice varying slowest. `Each.collectIn: (() -> {Each | e} a) -> {e} List a` is the same with other abilities passing through; the handler outside decides, so `Abort` outside `Each` gives up on everything, and inside it gives up on one choice.
 - The operations are `Each.fork: () -> {Each} Bool` (both answers) and `Each.stop: () -> {Each} Empty` (none); `each` is a loop of `fork`s. An operation can't be polymorphic, so there is no `each` operation of its own.
 - Proofs: `Each.collectEach k xs` (`collect (() => k (each xs)) = xs.flatMap (x => collect (() => k x))`, by induction), `Each.collectRequire k ok` (`collect` of `require ok` then `k()` is `if ok then collect k else []`, by `rfl` on each case), `Each.collectPure v` (`[v]`, by `rfl`) and `Each.collectEachSelf xs` (`xs`).
+
+## Proofs about effectful code
+
+A handler applied to a computation whose shape is known computes, so a proof about `Fail.toResult (() => need o msg)` splits on `o` and is `rfl` in each case. A law about *any* computation `t: () -> {Fail} a` needs to split on what `t` does. `match reify t with` does that, with clauses written as a handler's ([proposals/proof-reification.md](proposals/proof-reification.md)):
+
+```
+theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+    Fail.toResult (() => k (t ())) = Result.flatMap (x => Fail.toResult (() => k x)) (Fail.toResult t) :=
+  match reify t with
+    | return x => rfl          -- `t` finished with `x`
+    | Fail.stop msg, _ => rfl  -- `t` failed with `msg`
+```
+
+- In each clause, `t ()` in the goal (and in the types of the variables in scope) is replaced by what it did, as a `match` on an expression generalises it ([`match`](#match)), so the handlers in the goal compute. The second name in an operation's clause (`_` here) is the rest of the computation, a function from what the operation returns: `| State.get (), rest =>` has `rest: s -> {State s} a`.
+- The thunk is a function `() -> {A, B} t` or written in place, `match reify (() => f x) with`. Its row must list its abilities and be closed: `{Fail}` or `{State Nat, Fail}`, not `{Fail | e}` or `{e}`, and not `Partial` (`E-REIFY`). There must be a `return` clause and one clause for each operation of the row (`E-NONEXHAUSTIVE`); an operation of an ability not in the row is `E-ABILITY`.
+- It splits once: the first thing the computation does. Laws about computations that resume (`State`) by induction on everything they do aren't supported yet.
+- **Proofs only.** `reify` may be used only in a declaration whose result is erased: a `theorem`, or a `def` whose type ends in `Prop` or a type (`def Finished (t: () -> {State s} a): Prop := match reify t with …`), including the local definitions and `match`es inside it. Anywhere else (a `def` that computes data, a `test`, an `instance`, an `export`) it is `E-PROOF-ONLY`: what it gives depends on how a computation is represented, so it must never run. To act on a failure at run time, use a handler.
+- `reify` is a keyword only right after `match`; elsewhere it's an ordinary name. `match h: reify t` is refused: the equation would be between computations, whose type has no spelling.
+- `examples/accept/reify-fail.sw` has the laws, `Fail.toResultMapIn` (by induction on the list, with a split on `f x` and then on the rest), and one-step splits of a user's `State` computation.
 
 ## `decreasing`
 

@@ -178,6 +178,7 @@ impl Elaborator {
             arounds,
             lifted,
             owner,
+            body_type,
             local_keys,
             preadmitted,
             local_helpers,
@@ -255,6 +256,7 @@ impl Elaborator {
         *arounds.get_mut() = Default::default();
         lifted.truncate(mark.lifted);
         owner.get_mut().clear();
+        *body_type.get_mut() = None;
         local_keys.get_mut().clear();
         preadmitted.get_mut().clear();
         *local_helpers = mark.local_helpers.clone();

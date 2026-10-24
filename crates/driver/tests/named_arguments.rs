@@ -238,7 +238,12 @@ impl Walk {
                 }
                 self.expr(body);
             }
-            Expr::Handle { body, clauses, .. } => {
+            Expr::Handle { body, clauses, .. }
+            | Expr::Reify {
+                thunk: body,
+                clauses,
+                ..
+            } => {
                 self.expr(body);
                 for clause in clauses {
                     match clause {

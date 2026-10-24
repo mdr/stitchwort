@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REIFY] Error: this computation's row is open: `{Fail | e} a`
+   ╭─[ reject/reify-open-row.sw:6:15 ]
+   │
+ 6 │   match reify t with
+   │               ┬  
+   │               ╰── it may perform abilities its row doesn't list
+   │ 
+   │ Note: `reify` needs a closed row, one that lists every ability, such as `{Fail}`; an open row (`{Fail | e}`) isn't supported yet
+───╯

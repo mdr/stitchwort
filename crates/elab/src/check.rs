@@ -648,6 +648,7 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         }
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
+        Expr::Reify { .. } => crate::reify::infer_reify(cx, expr),
         Expr::Calc { .. } => crate::calc::infer_calc(cx, expr),
         Expr::Rewrite { .. } => crate::rewrite::infer_rewrite(cx, expr),
         Expr::Omega { .. } => Err(crate::omega::no_goal(cx, expr)),
@@ -1865,6 +1866,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         }
         (Expr::Neg(..), _) => Ok(crate::numbers::group(cx, expr, Some(&expected))?.0),
         (Expr::Match { .. }, _) => crate::matching::check_match(cx, expr, &expected),
+        (Expr::Reify { .. }, _) => crate::reify::check_reify(cx, expr, &expected),
         (Expr::Calc { .. }, _) => crate::calc::check_calc(cx, expr, &expected),
         (Expr::Rewrite { .. }, _) => crate::rewrite::check_rewrite(cx, expr, &expected),
         (Expr::Omega { .. }, _) => crate::omega::check_omega(cx, expr, &expected),

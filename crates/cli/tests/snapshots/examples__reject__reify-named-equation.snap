@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `match reify` can't name an equation
+   ╭─[ reject/reify-named-equation.sw:7:3 ]
+   │
+ 7 │   match h: reify t with
+   │   ───────┬──────  
+   │          ╰──────── `h:` names an equation here
+   │ 
+   │ Note: both sides would be computations, whose type has no spelling; in each clause the goal already says what the computation did
+───╯

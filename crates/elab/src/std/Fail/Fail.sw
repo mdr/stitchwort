@@ -131,6 +131,44 @@ theorem Abort.orFailNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Abor
   | None => rfl
   | Some x => rfl
 
+-- Laws about any computation. Each splits on what the computation does
+-- first, with `match reify` (docs/proposals/proof-reification.md): in each
+-- clause it has finished or failed, and the handlers compute.
+
+-- Running `t`, then `k` on its result: fails as `t` does, or as `k` does.
+theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+    Fail.toResult (() => k (t ())) = Result.flatMap (x => Fail.toResult (() => k x)) (Fail.toResult t) :=
+  match reify t with
+    | return x => rfl
+    | Fail.stop msg, _ => rfl
+
+theorem Fail.toOptionThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+    Fail.toOption (() => k (t ())) = Option.flatMap (x => Fail.toOption (() => k x)) (Fail.toOption t) :=
+  match reify t with
+    | return x => rfl
+    | Fail.stop msg, _ => rfl
+
+-- `toOption` is `toResult` with the message dropped.
+theorem Fail.toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOption (Fail.toResult t) :=
+  match reify t with
+    | return x => rfl
+    | Fail.stop msg, _ => rfl
+
+-- A map over a list fails with the first element's failure, or gives every
+-- result. By induction on the list; in the step, a split on `f x`, then on
+-- the rest, where the induction hypothesis says what the rest gives.
+theorem Fail.toResultMapIn (f: a -> {Fail} b): (xs: List a) ->
+    Fail.toResult (() => xs.mapIn f) = Result.traverse (x => Fail.toResult (() => f x)) xs
+  | [] => rfl
+  | [x, ..xs] =>
+    let rest := Fail.toResultMapIn f xs
+    match reify (() => f x) with
+      | return y =>
+        match reify (() => xs.mapIn f) with
+          | return ys => rewrite <- rest in rfl
+          | Fail.stop msg, _ => rewrite <- rest in rfl
+      | Fail.stop msg, _ => rfl
+
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3
 test "Fail: need None" := Fail.toResult (() => Fail.need (None: Option Nat) "none") == Err "none"
 test "Fail: orFail" := Fail.toResult (() => Option.orFail (None: Option Nat) "none") == Err "none"

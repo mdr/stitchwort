@@ -12,8 +12,8 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind,
-    Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
+    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, LocalDef,
+    MatchKind, Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -1806,6 +1806,16 @@ impl<'t> Parser<'t> {
     fn handle(&mut self, start: Span) -> Result<Expr> {
         let body = self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
+        let clauses = self.handler_clauses()?;
+        Ok(Expr::Handle {
+            span: start.to(self.prev_span()),
+            body: Box::new(body),
+            clauses,
+        })
+    }
+
+    /// A handler's clauses, each after a `|`; at least one.
+    fn handler_clauses(&mut self) -> Result<Vec<Clause>> {
         let mut clauses = Vec::new();
         // Clauses on their own lines line up: a `|` at another column belongs
         // to an enclosing handler (or isn't a clause at all).
@@ -1825,15 +1835,45 @@ impl<'t> Parser<'t> {
         if clauses.is_empty() {
             return Err(self.unexpected("`|` and a handler clause"));
         }
-        Ok(Expr::Handle {
+        Ok(clauses)
+    }
+
+    /// Whether `reify` starts here as the keyword it is after `match`
+    /// (D1148): followed by the computation, not by `with` or `,` (where it
+    /// is an ordinary name).
+    fn reify_ahead(&self) -> bool {
+        matches!(self.peek(), Some(Tok::Lower(name)) if name == "reify")
+            && !matches!(
+                self.peek_at(1),
+                Some(Tok::KwWith | Tok::Comma | Tok::Colon) | None
+            )
+    }
+
+    /// `match reify t with | return x => … | op arg, k => …`, after `match`
+    /// and `reify` (docs/proposals/proof-reification.md §3 (iii)).
+    fn reify_expr(&mut self, start: Span) -> Result<Expr> {
+        let thunk = self.expr_inline()?;
+        if self.peek() == Some(&Tok::Comma) {
+            return Err(error(
+                self.here(),
+                "`match reify` takes one computation, with nothing else to match",
+            ));
+        }
+        self.expect(Tok::KwWith, "`with`")?;
+        let clauses = self.handler_clauses()?;
+        Ok(Expr::Reify {
             span: start.to(self.prev_span()),
-            body: Box::new(body),
+            thunk: Box::new(thunk),
             clauses,
         })
     }
 
     /// `match e, h : e2 with | p, q => body | …`
     fn match_expr(&mut self, start: Span) -> Result<Expr> {
+        if self.reify_ahead() {
+            self.bump();
+            return self.reify_expr(start);
+        }
         let mut scrutinees = Vec::new();
         loop {
             let name = if matches!(self.peek(), Some(Tok::Lower(_)))
@@ -1845,6 +1885,16 @@ impl<'t> Parser<'t> {
             } else {
                 None
             };
+            if name.is_some() && self.reify_ahead() {
+                return Err(
+                    Diagnostic::error("E-PARSE", "`match reify` can't name an equation")
+                        .with_label(start.to(self.here()), "`h:` names an equation here")
+                        .with_note(
+                            "both sides would be computations, whose type has no spelling; in each \
+                     clause the goal already says what the computation did",
+                        ),
+                );
+            }
             let expr = self.expr_inline()?;
             scrutinees.push(Scrutinee { name, expr });
             if !self.eat(&Tok::Comma) {

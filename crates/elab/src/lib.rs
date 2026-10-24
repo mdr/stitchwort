@@ -47,6 +47,7 @@ mod probe;
 pub mod project;
 mod quot;
 mod records;
+mod reify;
 mod rewind;
 mod rewrite;
 mod rows;
@@ -141,6 +142,28 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 /// The constructor name of the unit pattern `()` the compiler writes: the
 /// prelude's `UnitValue`, by identity. Source can't spell it.
 const UNIT_PATTERN: &str = "%unit";
+
+/// A constructor pattern the compiler writes for a constructor it knows by
+/// identity rather than by name (`Done`, `Plus.L`, an operation's
+/// `Fail.%stop`, for `match reify`): `%ctor d c`. Source can't spell it.
+pub(crate) fn internal_ctor_pattern(
+    data: stitchwort_core::DataId,
+    ctor: usize,
+    args: Vec<Pattern>,
+    span: Span,
+) -> Pattern {
+    let text = format!("%ctor {} {ctor}", data.0);
+    Pattern::Ctor(ast::Name { text, span }, args, span)
+}
+
+/// The constructor an [`internal_ctor_pattern`] names.
+fn internal_ctor(text: &str) -> Option<(stitchwort_core::DataId, usize)> {
+    let (data, ctor) = text.strip_prefix("%ctor ")?.split_once(' ')?;
+    Some((
+        stitchwort_core::DataId(data.parse().ok()?),
+        ctor.parse().ok()?,
+    ))
+}
 
 /// Names with built-in meanings, which can't be redefined.
 const RESERVED: &[&str] = &[
@@ -383,6 +406,10 @@ pub struct Elaborator {
     /// local definitions being elaborated inside it, for their keys
     /// (`local.rs`).
     owner: RefCell<Vec<String>>,
+    /// While a top-level declaration's body is elaborated: its declared type
+    /// (and where it is), whose erasure decides whether `match reify` may be
+    /// used in it (D1147, `reify.rs`). `None` elsewhere.
+    pub(crate) body_type: RefCell<Option<(Value, Span)>>,
     /// The keys of the local definitions met in the current declaration,
     /// for `E-DUPLICATE`. Part of the inference state `undo.rs` restores.
     local_keys: RefCell<Vec<(String, Span)>>,
@@ -2381,13 +2408,37 @@ impl Elaborator {
         let g = &self.globals;
         let mut cx = Ctx::new(self, def_name.span);
         let written = Rc::new(g.def(id).ty.clone());
-        self.body_in(
-            &mut cx,
-            g.def(id).ty_value.clone(),
-            Some(written),
-            def_name,
-            equations,
-        )
+        self.with_body_type(&g.def(id).ty_value, def_name.span, || {
+            self.body_in(
+                &mut cx,
+                g.def(id).ty_value.clone(),
+                Some(written),
+                def_name,
+                equations,
+            )
+        })
+    }
+
+    /// Runs `f`, the elaboration of the body of a top-level declaration of
+    /// type `ty`, with [`Elaborator::body_type`] set to it.
+    pub(crate) fn with_body_type<T>(&self, ty: &Value, span: Span, f: impl FnOnce() -> T) -> T {
+        let was = self.body_type.replace(Some((ty.clone(), span)));
+        let result = f();
+        *self.body_type.borrow_mut() = was;
+        result
+    }
+
+    /// Whether the result of the declaration whose body is being elaborated
+    /// is erased (a proof or a type): the kernel's test, from its declared
+    /// type alone (`check::telescope`, as `erase::of_def` uses it). `None`
+    /// outside a top-level declaration's body.
+    pub(crate) fn body_erased(&self) -> Result<Option<bool>> {
+        let Some((ty, span)) = self.body_type.borrow().clone() else {
+            return Ok(None);
+        };
+        Ok(Some(
+            stitchwort_core::check::telescope(&self.globals, &ty, span)?.result_erased,
+        ))
     }
 
     /// The body of a definition of type `ty` (with `written`, its type as
@@ -3105,6 +3156,8 @@ impl Elaborator {
             Pattern::Ctor(n, args, span) => {
                 let (data, ctor) = if n.text == UNIT_PATTERN {
                     self.builtin_ctor(Builtin::UnitValue, n.span)?
+                } else if let Some(found) = internal_ctor(&n.text) {
+                    found
                 } else {
                     self.ctor_named(&n.text, n.span)?
                 };
