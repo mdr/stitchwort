@@ -538,7 +538,7 @@ def allResults (prog: () -> {Choose | e} a): {e} List a :=
     | choose u, k    => List.append (k True) (k False)
 ```
 
-Effectful code is written in direct style. Arguments are evaluated left to right, and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A dot call to an effectful function is a call like any other and runs where it's written, also with no further arguments and at the end of a chain of pure calls (`1 + w.toNat.orAbort`). A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
+Effectful code is written in direct style. Arguments are evaluated left to right, named ones where they are written ([Named arguments](#named-arguments)), and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A dot call to an effectful function is a call like any other and runs where it's written, also with no further arguments and at the end of a chain of pure calls (`1 + w.toNat.orAbort`). A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
 
 ## `IO`
 
@@ -831,7 +831,7 @@ Loosest-binding first:
 | `f a b` | Application |
 | `!a` | `not a`: prefix "not", written as `-` is. Binds tighter than `*` `/` `%`, `<`, `&&` and the rest, and looser than application and dots: `!xs.isEmpty` is `!(xs.isEmpty)`, `!f x` is `!(f x)`, `!a && b` is `(!a) && b`, `!x > y` is `y < (!x)`. May repeat (`!!a`); not an argument (`f !x` is a syntax error: write `f (!x)`). Like `not`, it's `Bool.not` on a `Bool` and `Not` where a proposition is expected, and `a != b` is unaffected |
 | `not a` | `Bool.not a`; where a proposition is expected, `Not a`. Only when `not` is the library's (a local `not` is an ordinary function) and has one argument: `List.map not bs` is `Bool.not` as a function. See below |
-| `f [x := e]` | Supplying the implicit parameter `x` by name |
+| `f (x := e)`, `f [x := e]` | Supplying the explicit or implicit parameter `x` by name. See [Named arguments](#named-arguments) |
 | `_` | A hole the compiler fills in |
 | `?` | A goal: a part not written yet. The checker says what must go there. See [Goals](#goals-) |
 | `x`, `Nat`, `Succ` | Names. Constructors and data types start with an uppercase letter |
@@ -870,6 +870,28 @@ def example: Text := """
 - **It is an ordinary text literal**: the same term as the `"…\n…"` it stands for, with the same hash (`crates/driver/tests/compact_text.rs`), and still compact. Examples: `examples/accept/text-block.sw`.
 
 A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
+
+### Named arguments
+
+`(x := e)` passes `e` for the explicit parameter named `x`, and `[x := e]` for the implicit or `auto` parameter named `x`: the brackets are the declaration's. They go in any order, mixed with positional arguments, and the call is exactly the positional one, with the same term and hash (`crates/driver/tests/named_arguments.rs` names the arguments of every call in `examples/accept` and compares the hashes).
+
+```
+def clampTo (low: Nat) (high: Nat) (value: Nat): Nat := …
+
+clampTo (value := 50) (high := 10) (low := 0)      -- clampTo 0 10 50
+clampTo 0 (value := 50) (high := 10)               -- the same
+place (y := 2) 1                                   -- place 1 2: 1 takes the first free parameter
+[1, 50, 200].map (clampTo (low := 5) (high := 100)) -- value => clampTo 5 100 value
+pick [label := "a"] [count := 3] 1                 -- implicits in any order
+```
+
+- **Filling.** Arguments fill parameters in the order they're written: a named one takes its parameter, a positional one the first explicit parameter still free, and implicits are inserted as for a positional call. A call means the same however it's bracketed: `(place (y := 2)) 1` is `place 1 2`, and in `(place 1) (x := 2)` the `x` is already given. A name given twice, or given after a positional argument has filled it, is `E-DUPLICATE-ARGUMENT`; a name the function doesn't have is `E-UNKNOWN-NAME`, listing its parameters (`(low)`, `[step]`); the wrong bracket is `E-NAMED-BRACKET` ("`count` is an implicit parameter: write `[count := …]`").
+- **Leaving parameters out.** Explicit parameters before the last one given that the call leaves out make it a function of them, in their order, with their names: `clampTo (high := 10)` is `low value => clampTo low 10 value`, of type `(low: Nat) -> (value: Nat) -> Nat`, so `(clampTo (high := 10)) (value := 4) (low := 5)` works. Parameters after the last one given stay as in a partial application. A parameter left out is a variable of that function, never inferred from the other arguments: `use (xs := three)` with `use (n: Nat) (xs: Vec Nat n)` must work for every `n`, so it's `E-TYPE-MISMATCH`, with a note to write `(n := 3)`. Where a value is expected, such a call gets a note naming what it's still waiting for.
+- **Where the names come from.** The function's declared type: a definition's or constructor's signature, a parameter's or `let`'s annotation (`let g: (start: Nat) -> (stop: Nat) -> Nat := between` renames them), an annotated expression, or a `let` without annotation that keeps its value's type. A partial application keeps the rest of the names. Never unification: in `(if c then f else g) (low := 1)` the names aren't known (`E-UNKNOWN-NAME`, with a note to annotate). A name a function type repeats is `E-AMBIGUOUS` (pass those by position).
+- **Everywhere a call is.** Dot notation (`corner.scale (plus := 1) (by := 2)`, the receiver filling its parameter first), method sections (`.shift (dy := 1) (dx := 2)`), pipes (the value on the left comes last, so it fills the first explicit parameter still free: `5 |> clampTo (high := 3) (low := 0)`), constructors (`Circle (id := "a") (radius := 1)`) and proofs (`between (high := h) (low := l) = between l h := rfl`). A data type's parameters, and the forms of quotients, are given by position.
+- **Run order.** In a computation, every argument runs once, where it's written, then the call, as for a positional call (`f (b := say 2) (a := say 1)` prints 2 then 1). A stage of the function (an effectful function returning a function) runs when the parameters before it are given; a call that leaves out a parameter before a stage is `E-EFFECT-ORDER`. So is an argument whose type needs a parameter that a later computation gives, or that the call leaves out (`use (xs := readVec()) (n := readNat())`): bind it with `let` first.
+
+Examples: `examples/accept/named-arguments.sw`, `examples/accept/named-arguments-effects.sw`, `examples/reject/named-argument-*.sw`. Design: [named-arguments.md](proposals/named-arguments.md).
 
 ### Goals, `?`
 
@@ -944,7 +966,7 @@ It is the loosest operator except `->`, and groups to the left: `x |> f |> g` is
 - **The left side runs first** when it performs operations, then the right side's arguments, then the call: `say "left" 1 |> add (say "right" 2)` prints `left`, then `right`.
 - **A number literal on the left** is just `f 5`: it takes its type from `f`, as an argument would.
 
-Implicit and `auto` arguments, `[x := e]` and constructors work on the right as in a normal call.
+Implicit and `auto` arguments, named arguments and constructors work on the right as in a normal call; the value on the left comes after them, so it fills the first explicit parameter they leave free (`5 |> clampTo (high := 3) (low := 0)` is `clampTo 0 3 5`).
 
 ### Method sections
 

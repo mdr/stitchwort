@@ -172,7 +172,10 @@ fn elaborate_own(
             Arg::NamedExplicit(name, _) => {
                 return Err(Diagnostic::error(
                     "E-UNKNOWN-NAME",
-                    format!("`{}`'s explicit arguments are given by position", form.name()),
+                    format!(
+                        "`{}`'s explicit arguments are given by position",
+                        form.name()
+                    ),
                 )
                 .with_label(name.span, "can't be given by name"));
             }

@@ -65,6 +65,12 @@ test "a partial application keeps the rest of the names" := partially == 10
 def annotatedValue: Nat := (between: (from: Nat) -> (to: Nat) -> Nat) (to := 9) (from := 3)
 test "an annotated expression" := annotatedValue == 6
 
+-- A variable in a named type argument is bound automatically, as it is in
+-- the argument's position.
+def Matrix (a: Type): Type := List (List a)
+def rowCount (m: Matrix (a := a)): Nat := m.length
+test "a variable bound from a named type argument" := rowCount [[1], [2]] == 2
+
 -- Constructors (D1096).
 type Shape =
   | Circle (radius: Nat) (id: Text)
@@ -97,4 +103,4 @@ test "a pipe after a named argument" := (20 |> clampTo (high := 10) (low := 0)) 
 
 -- Proofs see the positional term.
 theorem namedIsPositional (low: Nat) (high: Nat):
-  between (high := high) (low := low) = between low high := rfl
+    between (high := high) (low := low) = between low high := rfl

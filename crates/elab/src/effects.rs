@@ -1045,9 +1045,8 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
         .iter()
         .any(|a| matches!(a, Expr::NamedArg(.., Bracket::Round)));
     args.reverse();
-    let reached = |ty: &Value| {
-        crate::named::reached(cx, ty, expr, &args, extra).unwrap_or(explicit)
-    };
+    let reached =
+        |ty: &Value| crate::named::reached(cx, ty, expr, &args, extra).unwrap_or(explicit);
     Ok(match head {
         Expr::Var(name) => match head_type(cx, name) {
             // An operation on its own is a function value.
@@ -1802,7 +1801,10 @@ fn effect_order(
             .with_label(span, format!("its type needs `{needed}`"));
             d = match later {
                 Some(w2) => d
-                    .with_label(value_span(&owned[w2]), format!("`{needed}` is computed here, after it"))
+                    .with_label(
+                        value_span(&owned[w2]),
+                        format!("`{needed}` is computed here, after it"),
+                    )
                     .with_note(format!(
                         "run them in the order you need, then call: `let {needed} := …` first, \
                          then pass `({needed} := {needed})`"

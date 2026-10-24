@@ -226,7 +226,12 @@ pub(crate) fn positional<'a>(slots: &[Slot<'a>]) -> Option<Vec<Arg<'a>>> {
 }
 
 /// The index of the parameter `name` names, with the bracket written.
-fn find(cx: &Ctx, sig: &Signature, name: &stitchwort_syntax::ast::Name, explicit: bool) -> Result<usize> {
+fn find(
+    cx: &Ctx,
+    sig: &Signature,
+    name: &stitchwort_syntax::ast::Name,
+    explicit: bool,
+) -> Result<usize> {
     let params = &sig.params;
     let matching: Vec<usize> = (0..params.len())
         .filter(|&i| *params[i].name == *name.text)
@@ -277,10 +282,7 @@ fn unknown(cx: &Ctx, sig: &Signature, name: &stitchwort_syntax::ast::Name) -> Di
             "E-UNKNOWN-NAME",
             "the parameter names of this function aren't known here",
         )
-        .with_label(
-            name.span,
-            format!("`{}` can't be found by name", name.text),
-        )
+        .with_label(name.span, format!("`{}` can't be found by name", name.text))
         .with_note(
             "names come from a declared signature or a type annotation; add one, as in \
              `let g: (low: Nat) -> (high: Nat) -> Nat := …`",
@@ -352,7 +354,13 @@ fn arg_span(arg: &Arg) -> stitchwort_syntax::Span {
 /// of a missing one (or all it reaches, if none is missing): for deciding
 /// whether the call performs operations (`effects::call_performs`). `None`
 /// if the arguments can't be matched.
-pub(crate) fn reached(cx: &Ctx, ty: &Value, call: &Expr, args: &[&Expr], extra: usize) -> Option<usize> {
+pub(crate) fn reached(
+    cx: &Ctx,
+    ty: &Value,
+    call: &Expr,
+    args: &[&Expr],
+    extra: usize,
+) -> Option<usize> {
     let sig = signature(cx, ty).ok()?;
     let mut written: Vec<Arg> = args.iter().map(|a| crate::check::arg_of(a)).collect();
     // The value piped in: a positional argument (any expression stands for it).
@@ -393,15 +401,18 @@ pub(crate) fn apply_slots(
     }
 }
 
+/// A term and its type.
+type Typed = (Term, Value);
+
 /// [`apply_slots`] with missing parameters: bound as variables, or with
 /// `inferring`, given unknowns (for the note of [`rigid_note`], which reads
 /// what unification makes of them: the second result).
 fn apply_missing(
     cx: &mut Ctx,
-    head: (Term, Value),
+    head: Typed,
     slots: &[Slot],
     inferring: bool,
-) -> Result<((Term, Value), Vec<(Name, Value)>)> {
+) -> Result<(Typed, Vec<(Name, Value)>)> {
     let g = cx.g();
     let mark = cx.mark();
     // A value piped in was elaborated outside: under the lambda's binders
@@ -481,7 +492,10 @@ fn apply_missing(
     }
     cx.reset(mark);
     let value = cx.eval(&fun_ty)?;
-    Ok(((Term::Ann(Rc::new(term), Rc::new(fun_ty)), value), Vec::new()))
+    Ok((
+        (Term::Ann(Rc::new(term), Rc::new(fun_ty)), value),
+        Vec::new(),
+    ))
 }
 
 /// A type mismatch in a call with missing parameters: they're variables,
@@ -515,7 +529,10 @@ fn rigid_note(cx: &mut Ctx, head: (Term, Value), slots: &[Slot], e: Diagnostic) 
         if missing.len() == 1 { "it" } else { "them" }
     ));
     if !solved.is_empty() {
-        e = e.with_note(format!("to give a particular value, write {}", list(solved)));
+        e = e.with_note(format!(
+            "to give a particular value, write {}",
+            list(solved)
+        ));
     }
     e
 }

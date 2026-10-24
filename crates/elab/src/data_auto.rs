@@ -89,7 +89,9 @@ pub(crate) fn data_app(cx: &mut Ctx, d: DataId, args: &[Arg]) -> Result<(Term, V
     let g = cx.g();
     let data = g.data(d);
     let auto = |k: usize| data.auto_params.get(k).copied().unwrap_or(false);
-    if let Some(Arg::NamedExplicit(name, _)) = args.iter().find(|a| matches!(a, Arg::NamedExplicit(..))) {
+    if let Some(Arg::NamedExplicit(name, _)) =
+        args.iter().find(|a| matches!(a, Arg::NamedExplicit(..)))
+    {
         return Err(Diagnostic::error(
             "E-UNKNOWN-NAME",
             format!("`{}`'s parameters are given by position", data.name),

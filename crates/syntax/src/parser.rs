@@ -12,8 +12,8 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name,
-    NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
+    Alt, BinOp, Binder, Bracket, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind,
+    Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;

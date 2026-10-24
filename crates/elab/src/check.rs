@@ -1011,7 +1011,11 @@ fn ctor_fill<'a>(
         }
     })?;
     if !overflow.is_empty() {
-        let wanted = sig.params.iter().filter(|p| p.icit == Icit::Explicit).count();
+        let wanted = sig
+            .params
+            .iter()
+            .filter(|p| p.icit == Icit::Explicit)
+            .count();
         let given = (args.iter())
             .filter(|a| !matches!(a, CtorArg::Named(..)))
             .count();
@@ -2245,7 +2249,8 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 /// names what it's waiting for (docs/proposals/named-arguments.md §6.3).
 fn awaiting_note(cx: &Ctx, e: Diagnostic, found: &Value, expected: &Value) -> Diagnostic {
     let g = cx.g();
-    let is_function = |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
+    let is_function =
+        |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
     if !is_function(found)
         || is_function(expected)
         || matches!(
@@ -2272,7 +2277,9 @@ fn awaiting_note(cx: &Ctx, e: Diagnostic, found: &Value, expected: &Value) -> Di
     } else {
         format!("{} more arguments", explicit.len())
     };
-    e.with_note(format!("this expression is a function still waiting for {waiting}"))
+    e.with_note(format!(
+        "this expression is a function still waiting for {waiting}"
+    ))
 }
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
@@ -2461,11 +2468,11 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
 }
 
 /// [`propagate`] for an effectful call (`effects::comp_app`): `head`, a
-/// function of type `ty`, applied to `args` (already free of operations, and
-/// in parameter order), whose result is a computation expected to return an `expected`. That
-/// value type is compared with `expected` before the arguments are checked,
-/// as a pure call's whole result type is, so `Abort.orElse 0 (() => …)` at
-/// `Int` checks the `0` as an `Int` (SW-223). The row isn't compared: the
+/// function of type `ty`, applied to `args` (already free of operations,
+/// and in parameter order), whose result is a computation expected to
+/// return an `expected`. That value type is compared with `expected` before
+/// the arguments are checked, as a pure call's whole result type is, so
+/// `Abort.orElse 0 (() => …)` at `Int` checks the `0` as an `Int` (SW-223). The row isn't compared: the
 /// caller fits it to its own by lifting. `None` if that doesn't apply (no
 /// arguments, an unknown `expected`, a result type that depends on the
 /// arguments or isn't a computation, or a value type that doesn't match), or
@@ -2487,7 +2494,7 @@ pub(crate) fn propagate_comp(
         return Ok(None);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply)) = written_result(cx, &head.1, &args)? else {
+    let Some((written, mut supply)) = written_result(cx, &head.1, args)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -2500,7 +2507,7 @@ pub(crate) fn propagate_comp(
         return Ok(None);
     }
     let result = (|| -> Result<(Term, Value)> {
-        let (term, found) = apply_args_with(cx, head.clone(), &args, &mut supply)?;
+        let (term, found) = apply_args_with(cx, head.clone(), args, &mut supply)?;
         let (term, found) = insert_with(cx, term, found, &mut supply)?;
         if !supply.is_empty() {
             // The types as elaborated didn't line up with the walk's.
@@ -2876,11 +2883,7 @@ fn ctor_app(
                 cx.reset(mark);
                 return Err(cx.error(
                     "E-CANNOT-INFER",
-                    format!(
-                        "`{}` is missing {} argument(s)",
-                        ctor.name,
-                        missing.len()
-                    ),
+                    format!("`{}` is missing {} argument(s)", ctor.name, missing.len()),
                     "add the missing arguments, or a type annotation",
                 ));
             }

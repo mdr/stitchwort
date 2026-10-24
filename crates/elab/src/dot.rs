@@ -484,8 +484,8 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
 /// method-sections.md §5, D506), so `xs.any .snd` and `xs.any Pair.snd` are
 /// the same term and a proof restating one with the other still matches.
 /// `None` where the section stays a lambda: the receiver isn't last, the
-/// section has chained fields or named arguments, its argument's type isn't
-/// known yet, or the partial application doesn't fit the expected type.
+/// section has chained fields, its argument's type isn't known yet, or the
+/// partial application doesn't fit the expected type.
 pub(crate) fn section_partial(
     cx: &mut Ctx,
     section: &Expr,
