@@ -316,6 +316,21 @@ fn parse_nat(d: &str) -> Value {
     }
 }
 
+/// The byte offset in `t` after its first `n` characters (scalar values),
+/// or `None` if `t` has `n` characters or fewer. A `Nat` beyond a machine
+/// word is more than any text's length.
+fn char_boundary(t: &str, n: &Value) -> Option<usize> {
+    let n = match n {
+        Value::Nat(n) => usize::try_from(*n).unwrap_or(usize::MAX),
+        _ => usize::MAX,
+    };
+    // A character is at least one byte.
+    if n >= t.len() {
+        return None;
+    }
+    t.char_indices().nth(n).map(|(i, _)| i)
+}
+
 fn nat_to_text(n: &Value) -> Value {
     Value::Text(match n {
         Value::Nat(n) => n.to_string().into(),
@@ -556,6 +571,27 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
                 Value::Text(trimmed.into())
             }
         }
+        // The first `n` characters (scalar values), or the whole text.
+        TextTake => {
+            let t = text_of(args[1]);
+            match char_boundary(t, args[0]) {
+                Some(end) => Value::Text(t[..end].into()),
+                None => args[1].clone(),
+            }
+        }
+        // The text after its first `n` characters, or the empty text.
+        TextDrop => {
+            let t = text_of(args[1]);
+            match char_boundary(t, args[0]) {
+                Some(0) => args[1].clone(),
+                Some(start) => Value::Text(t[start..].into()),
+                None => Value::Text("".into()),
+            }
+        }
+        // UTF-8 is self-synchronising: a match of a needle's bytes starts
+        // and ends between characters, so byte search finds exactly the
+        // character matches. The empty needle occurs in every text.
+        TextContains => boolean(s, text_of(args[1]).contains(&**text_of(args[0]))),
         TextSplit => {
             let sep = char_of(args[0]);
             let parts = text_of(args[1])

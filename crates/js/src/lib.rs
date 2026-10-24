@@ -4092,6 +4092,41 @@ fn text_native_js(op: TextNative) -> &'static str {
   return t.slice(start, end);
 }"#
         }
+        // The first `n` scalar values, or the whole text: a text has at most
+        // as many scalar values as code units, so a count that reaches its
+        // `length` takes it all without counting, and any other count is a
+        // safe integer.
+        TextNative::TextTake => {
+            r#"(n) => (t) => {
+  if (n >= BigInt(t.length)) return t;
+  const count = Number(n);
+  let i = 0;
+  for (let k = 0; k < count && i < t.length; k++) {
+    const unit = t.charCodeAt(i);
+    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+  }
+  return t.slice(0, i);
+}"#
+        }
+        // The text after its first `n` scalar values, or "".
+        TextNative::TextDrop => {
+            r#"(n) => (t) => {
+  if (n >= BigInt(t.length)) return "";
+  const count = Number(n);
+  let i = 0;
+  for (let k = 0; k < count && i < t.length; k++) {
+    const unit = t.charCodeAt(i);
+    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+  }
+  return t.slice(i);
+}"#
+        }
+        // In well-formed strings a match of the needle's code units starts
+        // with a whole scalar value (never a low surrogate) and ends with
+        // one, so it is a match of scalar values. "" occurs in every text.
+        TextNative::TextContains => {
+            r#"(needle) => (t) => ({ tag: t.includes(needle) ? "True" : "False" })"#
+        }
         // The separator is a whole scalar value, and in a well-formed string
         // a match can't start inside a pair. Empty fields are kept, and ""
         // splits into [""], as the definition says.

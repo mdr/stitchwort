@@ -255,6 +255,11 @@ fn both_ways(source: &str, input: &[u8]) -> Run {
 /// A small program's `main`, on the machine only (for what the reference
 /// evaluator takes too long over).
 fn on_the_machine(source: &str, limits: Limits) -> Run {
+    on_the_machine_with(source, limits, b"")
+}
+
+/// A small program's `main`, on the machine only, with `input`.
+fn on_the_machine_with(source: &str, limits: Limits, input: &[u8]) -> Run {
     with_stack(STACK, || {
         let mut session = Session::for_stack(STACK);
         session
@@ -262,7 +267,7 @@ fn on_the_machine(source: &str, limits: Limits) -> Run {
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");
         let program = lowered(&session, &main, "test.sw");
-        machine(&program, limits, b"")
+        machine(&program, limits, input)
     })
 }
 
@@ -411,6 +416,75 @@ def main(): {IO} () := IO.print (Nat.toText (loop 3000000 0))
     );
     assert_eq!(result, Ok(()));
     assert_eq!(out, "6000000\n");
+}
+
+/// `Text.take`, `Text.drop` and `Text.contains` count Unicode scalar values,
+/// not bytes, and agree with their definitions on the edge cases: empty
+/// texts, astral characters, characters either side of the surrogates,
+/// counts of 0, the length, more than the length and beyond a machine word,
+/// and the empty needle.
+#[test]
+fn text_take_drop_and_contains_agree() {
+    let (out, result) = both_ways(
+        r#"
+import Std (Nat, Text, List)
+
+def texts: List Text := ["", "a", "abc", "\u{1F600}", "a\u{1F600}b", "\u{D7FF}\u{E000}\u{10000}\u{10FFFF}", "h\u{E9}llo"]
+def counts: List Nat := [0, 1, 2, 3, 4, 18446744073709551616]
+def needles: List Text := ["", "a", "b", "bc", "\u{1F600}", "\u{1F600}b", "\u{E000}", "\u{10FFFF}", "\u{E9}l", "abcd"]
+
+def show (t: Text): Text := "[" ++ t ++ "]"
+
+def bool (b: Bool): Text := if b then "T" else "F"
+
+def printAll: List Text -> {IO} ()
+  | [] => ()
+  | [t, ..rest] =>
+    IO.print t
+    printAll rest
+
+def main(): {IO} () :=
+  printAll (texts.map (t => Text.join ' ' (counts.map (n => show (Text.take n t) ++ show (Text.drop n t)))))
+  printAll (texts.map (t => Text.join ' ' (needles.map (needle => bool (Text.contains needle t)))))
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 14, "{out}");
+    assert_eq!(
+        lines[4],
+        "[][a\u{1F600}b] [a][\u{1F600}b] [a\u{1F600}][b] [a\u{1F600}b][] [a\u{1F600}b][] [a\u{1F600}b][]"
+    );
+    assert_eq!(lines[7], "T F F F F F F F F F");
+}
+
+/// On a million characters, each of `Text.take`, `Text.drop` and
+/// `Text.contains` is one native step, not one step per character as its
+/// definition would be.
+#[test]
+fn text_take_drop_and_contains_are_native() {
+    let input = "\u{1F600}".repeat(999_999) + "b";
+    let (out, result) = on_the_machine_with(
+        r#"
+import Std (Nat, Text, IO)
+
+def main(): {IO} () :=
+  let input := IO.readAll()
+  let rest := Text.drop 500000 input
+  IO.print (Nat.toText (Text.length (Text.take 250000 rest)))
+  IO.print (Nat.toText (Text.length rest))
+  IO.print (if Text.contains "\u{1F600}b" input then "found" else "missing")
+  IO.print (if Text.contains "ba" input then "found" else "missing")
+"#,
+        Limits {
+            steps: 10_000,
+            frames: 100,
+        },
+        input.as_bytes(),
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "250000\n500000\nfound\nmissing\n");
 }
 
 /// Reuse in place (stage 4) only ever changes a cell nobody else can see: a
