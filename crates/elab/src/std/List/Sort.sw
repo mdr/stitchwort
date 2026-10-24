@@ -1135,22 +1135,6 @@ theorem List.sumBySub (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs:
     List.sumBy f xs - List.sumBy g xs = List.sumBy (x => f x - g x) xs :=
   rewrite List.sumBySplit f g h xs in Nat.addSubLeft (List.sumBy g xs) (List.sumBy (x => f x - g x) xs)
 
--- Terms each at most another's, with the same total over 0, 1, …, n - 1,
--- are equal term by term there: in `Nat` no term can make up for another
--- that falls short. (Removing things one by one without changing a count
--- removed nothing.)
-theorem List.sumRangeEqEach (f: Nat -> Nat) (g: Nat -> Nat) (le: (x: Nat) -> g x <= f x) (n: Nat)
-    (eq: List.sumBy g (List.range n) = List.sumBy f (List.range n)) (x: Nat) (hx: x < n): g x = f x :=
-  let total := List.sumBy g (List.range n)
-  let rest: List.sumBy (y => f y - g y) (List.range n) = 0 :=
-    Nat.addCancelLeft total (List.sumBy (y => f y - g y) (List.range n)) 0
-      (Eq.trans (Eq.sym (List.sumBySplit f g le (List.range n))) (Eq.trans (Eq.sym eq) (Eq.sym (Nat.addZero total))))
-  let gap: f x - g x = 0 := List.sumRangeZero (y => f y - g y) n 0 rest x rfl hx
-  Eq.trans (Eq.sym (Nat.addZero (g x))) (Eq.trans (Eq.cong (t => g x + t) (Eq.sym gap)) (Nat.addSubCancel (g x) (f x) (le x)))
-
-theorem List.sumRangeEqEachExample (g: Nat -> Nat) (le: (x: Nat) -> g x <= x) (eq: List.sumBy g (List.range 3) = 3): g 2 = 2 :=
-  List.sumRangeEqEach (x => x) g le 3 eq 2 rfl
-
 -- Counting with tests that agree on the list's elements (SW-198, day 8).
 theorem List.countCongMem (p1: a -> Bool) (p2: a -> Bool) (xs: List a) (ep: (x: a) -> List.Mem x xs -> p1 x = p2 x): List.count p1 xs = List.count p2 xs :=
   rewrite List.countOccurrences p1 xs, List.countOccurrences p2 xs in List.occurrencesCongMem p1 p2 xs ep
