@@ -1289,7 +1289,7 @@ fn an_open_goal_is_an_information_diagnostic() {
     assert!(
         message.contains("in `twice`")
             && message.contains("n: Nat")
-            && message.contains("\u{22a2} n + n = n + n"),
+            && message.contains("\u{22a2} double n = n + n"),
         "{message}"
     );
 
@@ -1379,7 +1379,7 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     // On the `?`.
     let found = goal_at(&mut client, 3, 2);
     assert_eq!(found["owner"], "`twice`", "{found:?}");
-    assert_eq!(found["goal"], "n + n = n + n", "{found:?}");
+    assert_eq!(found["goal"], "double n = n + n", "{found:?}");
     assert_eq!(
         found["context"],
         json!([{"name": "n", "type": "Nat"}]),
@@ -1388,7 +1388,7 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     assert_eq!(found["range"]["start"], json!({"line": 3, "character": 2}));
 
     // Elsewhere in the same declaration: the nearest goal in it.
-    assert_eq!(goal_at(&mut client, 2, 8)["goal"], "n + n = n + n");
+    assert_eq!(goal_at(&mut client, 2, 8)["goal"], "double n = n + n");
     // In another declaration, or between declarations: nothing.
     assert_eq!(goal_at(&mut client, 0, 4), Value::Null);
     assert_eq!(goal_at(&mut client, 5, 4), Value::Null);
