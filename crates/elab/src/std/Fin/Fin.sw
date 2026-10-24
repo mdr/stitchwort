@@ -88,3 +88,73 @@ theorem Char.toDigitValue (c: Char): Option.map Fin.toNat (Char.toDigit c) = Cha
   Char.toDigitOf (Char.digitValue c) (Char.digitValueDigit c)
 
 test "char to digit" := List.map (c => Option.map Fin.toNat (Char.toDigit c)) (Text.toList "0a9") == [Some 0, None, Some 9]
+
+-- Quantifying over the positions below n ------------------------------------
+
+-- Some position below n passes `p`: `Fin.any 5 (i => Fin.toNat i == 3)` is
+-- True. It tries 0, 1, 2 and so on and stops at the first that passes, as
+-- `List.any` does along `List.range n` (`Fin.anyRange`). A witness is a
+-- `Fin n`, so it comes with its bound (`Fin.toNatLt`).
+def Fin.any: (n: Nat) -> (Fin n -> Bool) -> Bool
+  | Zero, p => False
+  | Succ n, p => if p FZero then True else Fin.any n (i => p (FSucc i))
+
+-- A position that passes makes `Fin.any` true.
+theorem Fin.anyIntro (p: Fin n -> Bool): (i: Fin n) -> p i = True -> Fin.any n p = True
+  | FZero, h => rewrite h in rfl
+  | FSucc i, h =>
+    Bool.inspect (p FZero) (b => Bool.ifThenElse b (u => True) (u => Fin.any _ (j => p (FSucc j))) = True)
+      (t => rfl)
+      (f => Fin.anyIntro (j => p (FSucc j)) i h)
+
+-- And back: when `Fin.any` is true, some position passes.
+theorem Fin.anyElim (goal: Prop): (n: Nat) -> (p: Fin n -> Bool) -> Fin.any n p = True -> ((i: Fin n) -> p i = True -> goal) -> goal
+  | Zero, p, h, use => Void.exfalso (Bool.falseNotTrue h)
+  | Succ n, p, h, use =>
+    Bool.inspect (p FZero) (u => goal)
+      (t => use FZero t)
+      (f => Fin.anyElim goal n (i => p (FSucc i))
+        (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => True) (u => Fin.any n (i => p (FSucc i)))) (Eq.sym f)) h)
+        (i hi => use (FSucc i) hi))
+
+-- The same, with the witness as an `Exists`.
+theorem Fin.anyWitness (n: Nat) (p: Fin n -> Bool) (h: Fin.any n p = True): Exists (Fin n) (i => p i = True) :=
+  Fin.anyElim (Exists (Fin n) (i => p i = True)) n p h (i hi => Witness i hi)
+
+-- Tests that agree at every position agree on `Fin.any`. (`rewrite` uses it
+-- to rewrite inside the test.)
+theorem Fin.anyCong (p1: Fin n -> Bool) (p2: Fin n -> Bool) (ep: (i: Fin n) -> p1 i = p2 i): Fin.any n p1 = Fin.any n p2 :=
+  Bool.eqOf (Fin.any n p1) (Fin.any n p2)
+    (h => Fin.anyElim (Fin.any n p2 = True) n p1 h (i hi => Fin.anyIntro p2 i (Eq.trans (Eq.sym (ep i)) hi)))
+    (h => Fin.anyElim (Fin.any n p1 = True) n p2 h (i hi => Fin.anyIntro p1 i (Eq.trans (ep i) hi)))
+
+-- `Fin.any` on the numbers of the positions is `List.any` on a run of
+-- numbers: positions below n counted from s.
+theorem Fin.anyRangeFrom (q: Nat -> Bool): (n: Nat) -> (s: Nat) -> Fin.any n (i => q (Fin.toNat i + s)) = List.any q (List.rangeFrom n s)
+  | Zero, s => rfl
+  | Succ n, s =>
+    rewrite Fin.anyCong (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i => Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
+      Fin.anyRangeFrom q n (Succ s) in rfl
+
+-- ... so from 0: `Fin.any n` is `List.any` along `List.range n`.
+theorem Fin.anyRange (q: Nat -> Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any q (List.range n) :=
+  Eq.trans (Fin.anyCong (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i => Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
+    (Fin.anyRangeFrom q n 0)
+
+-- Only one position can equal `j`, so asking for one that does and passes
+-- `q` asks whether `j` passes.
+theorem Fin.anyEqAnd (j: Fin n) (q: Fin n -> Bool): Fin.any n (i => (i == j) && q i) = q j :=
+  Bool.eqOf (Fin.any n (i => (i == j) && q i)) (q j)
+    (h => Fin.anyElim (q j = True) n (i => (i == j) && q i) h
+      (i hi => rewrite <- DecEq.sound i j (Bool.andLeft _ _ hi) in Bool.andRight _ _ hi))
+    (h => Fin.anyIntro (i => (i == j) && q i) j (Bool.andIntro _ _ (Decidable.toBoolOf (DecEq.decide j j) rfl) h))
+
+theorem Fin.anyExample: Fin.any 5 (i => Fin.toNat i == 3) = True := rfl
+
+theorem Fin.anyIntroExample: Fin.any 4 (i => i == (Fin.ofNat 2: Fin 4)) = True :=
+  Fin.anyIntro (i => i == (Fin.ofNat 2: Fin 4)) (Fin.ofNat 2) rfl
+
+test "fin any: some position passes" := Fin.any 5 (i => Fin.toNat i == 4)
+test "fin any: none passes" := !(Fin.any 5 (i => Fin.toNat i == 5))
+test "fin any: no positions" := !(Fin.any 0 (i => True))
+test "fin any: as List.any" := Fin.any 6 (i => Fin.toNat i * Fin.toNat i == 16) == List.any (x => x * x == 16) (List.range 6)

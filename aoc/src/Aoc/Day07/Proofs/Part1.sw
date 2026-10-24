@@ -310,18 +310,8 @@ theorem splitsBelowSum (w: Nat): (ls: List (Vec Bool w)) -> (beams: Vec Bool w) 
 theorem beamStart (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat):
     beamReach (Vec.tabulate w (c => c == st)) ls k d = reach ls st.toNat k d :=
   let start := Vec.tabulate w (c => c == st)
-  let at := Vec.getOrTabulate False w (c => c == st)
-  let hs := Fin.toNatLt st
-  Bool.eqOf (beamReach start ls k d) (reach ls st.toNat k d)
-    (h => List.anyRangeElim (c => start.getOr False c && reach ls c k d) (reach ls st.toNat k d = True) w 0 h
-      (c lo hi hc =>
-        let same := DecEq.sound (Fin.ofNatLt w c hi) st (Eq.trans (Eq.sym (at c hi)) (Bool.andLeft _ _ hc))
-        rewrite <- Eq.trans (Eq.sym (Fin.toNatOfNatLt w c hi)) (Eq.cong Fin.toNat same) in Bool.andRight _ _ hc))
-    (h => List.anyRangeIntro (c => start.getOr False c && reach ls c k d) w 0 st.toNat omega hs
-      (Bool.andIntro (start.getOr False st.toNat) (reach ls st.toNat k d)
-        (rewrite at st.toNat hs, Fin.toNatInjective (Fin.ofNatLt w st.toNat hs) st (Fin.toNatOfNatLt w st.toNat hs) in
-          Decidable.toBoolOf (DecEq.decide st st) rfl)
-        h))
+  rewrite <- Fin.anyRange (c => start.getOr False c && reach ls c k d) w, Vec.getOrGet False start _, Vec.getTabulate w (c => c == st) _ in
+    Fin.anyEqAnd st (c => reach ls c.toNat k d)
 
 -- The splitters some timeline reaches in row k: those the beams reach.
 theorem splitsAtReached (manifold: Manifold) (k: Nat):
