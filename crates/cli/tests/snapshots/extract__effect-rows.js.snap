@@ -789,6 +789,35 @@ const effFoldCompIn = (row) =>
   row.tag === "Empty"
     ? (done) => (call) => (c) => effFold(done, call, c, null)
     : effFoldCompLazy;
+// A state-passing handler at the empty row (stage 4d, A′;
+// stitchwort_rt::fusion): its operation clauses were rewritten to take
+// `jump` and the state, and to end with `jump v s′` where they resumed with
+// `k v s′`, so the handler runs as this loop with the state in a variable.
+// A jump goes on with the rest of the computation from `v` and state `s′`,
+// and calls nothing. `k` is a real resumption, for every other use of it:
+// the same loop from where the operation was. `comp`: the carrier is a
+// computation (the closed empty row), so the fold's result and `k`'s are
+// `Done` of the state's function.
+class EffJump {
+  constructor(v, s) { this.v = v; this.s = s; }
+}
+const effJump = (v) => (s) => new EffJump(v, s);
+const effStateLoop = (comp, done, call, c, pending, s) => {
+  for (;;) {
+    c = effRun(c, pending);
+    if (c.tag === "Done") return done(c.value)(s);
+    const rest = c.rest, after = effPending;
+    const k = (y) => effStateFn(comp, (s) => effStateLoop(comp, done, call, rest(y), after, s));
+    const r = call(c.o)(k)(effJump)(s);
+    if (!(r instanceof EffJump)) return r;
+    c = rest(r.v);
+    pending = after;
+    s = r.s;
+  }
+};
+const effStateFn = (comp, f) => (comp ? { tag: "Done", value: f } : f);
+const effFoldState = (comp) => (done) => (call) => (c) =>
+  effStateFn(comp, (s) => effStateLoop(comp, done, call, c, null, s));
 // `translate m c` with `pending` after `c`: each operation renamed by `m`,
 // its reply mapped back.
 const effTranslate = (m, c, pending) => {
@@ -1254,7 +1283,7 @@ const $Main$dCount$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dcountAll$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ((v4) => ({ tag: "MkPair", fst: v3, snd: v4 }))))($Std$dEffect$dhandlePlus($Main$dCount$d$gelim(((v3) => ((v4) => ((v5) => (v4)({ tag: "UnitValue" })($Std$dNat$dadd(v5)(1n)))))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }))(0n);
+const $Main$dcountAll$e = (v2) => effFoldState(false)(((v3) => ((v4) => ({ tag: "MkPair", fst: v3, snd: v4 }))))($Std$dEffect$dhandlePlus($Main$dCount$d$gelim(((v3) => ((v4) => ((v5) => ((v6) => (v5)({ tag: "UnitValue" })($Std$dNat$dadd(v6)(1n))))))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }))(0n);
 const $Main$dtally = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%count", x: { tag: "UnitValue" } } }, rest: ((v1) => ({ tag: "Done", value: v1 })) })(((v1) => ({ tag: "Done", value: v0 })));
 const $Main$dcounted = (v0) => $Main$dcountAll$e(((v1) => $Std$dList$dmap({ tag: "Ops" })($Main$dtally)(v0)));
 

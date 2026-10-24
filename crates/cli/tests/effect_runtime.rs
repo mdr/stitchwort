@@ -1,9 +1,10 @@
-//! The JS effect runtime (docs/proposals/effect-runtime.md §9, D1162, stage
-//! 4a): handler shapes over 1,000,000 elements on Node's default stack, as a
-//! library user or the playground calls an export (D1163), and counts of the
-//! runtime's work, which must grow linearly with the input. Correctness
-//! against the reference evaluator is `examples/extract/effect-runtime.sw`'s
-//! and `effect-handlers.sw`'s `-- run:` lines, in the `extract` tests.
+//! The JS effect runtime (docs/proposals/effect-runtime.md §9, D1162, stages
+//! 4a and 4d): handler shapes over 1,000,000 elements on Node's default
+//! stack, as a library user or the playground calls an export (D1163), and
+//! counts of the runtime's work, which must grow linearly with the input.
+//! Correctness against the reference evaluator is the `-- run:` lines of
+//! `examples/extract/effect-runtime.sw`, `effect-handlers.sw` and
+//! `effect-state.sw`, in the `extract` tests.
 //!
 //! Requires `node` on the PATH (the Nix dev shell provides it).
 
@@ -84,6 +85,12 @@ const plus = (k) => (xs) => {
   assert.equal(xs[n - 1], BigInt(n - 1) + k);
 };
 let n = 0;
+// Each element numbered twice its index (`x + next()`).
+const twice = (ys) => {
+  assert.equal(ys.length, n);
+  for (let i = 0; i < n; i += 9973) assert.equal(ys[i], 2n * BigInt(i));
+  assert.equal(ys[n - 1], 2n * BigInt(n - 1));
+};
 const shapes = {
   checked: [(xs) => ok(m.checked(xs)), plus(1n)],
   asked: [(xs) => m.asked(xs), plus(7n)],
@@ -94,12 +101,15 @@ const shapes = {
     assert.equal(results.length, 1);
     plus(0n)(results[0]);
   }],
-  countedIn: [(xs) => ok(m.countedIn(xs)), (ys) => {
-    assert.equal(ys.length, n);
-    for (let i = 0; i < n; i += 9973) assert.equal(ys[i], 2n * BigInt(i));
-  }],
+  countedIn: [(xs) => ok(m.countedIn(xs)), twice],
   forwarded10: [(xs) => m.forwarded(10n, xs), plus(7n)],
+  // State-passing handlers at the empty row, run as a loop (stage 4d).
+  counted: [(xs) => m.counted(xs), twice],
+  countedChecked: [(xs) => ok(m.countedChecked(BigInt(n), xs)), twice],
+  countedOpen: [(xs) => m.countedOpen(xs), twice],
+  logged: [(xs) => m.logged(xs), plus(0n)],
 };
+const stateShapes = new Set(["counted", "countedChecked", "countedOpen", "logged"]);
 "#;
 
 /// Every shape that should be stack-safe in JS under stage 4a runs on Node's
@@ -145,6 +155,12 @@ for (const [name, [call, check]] of Object.entries(shapes)) {
     reset();
     check(call(xs));
     const c = { ...counts() };
+    if (stateShapes.has(name)) {
+      // Every operation is a jump of the handler's loop.
+      assert.equal(c.jumps, n, `${name}: jumps at ${n}`);
+    } else {
+      assert.equal(c.jumps, 0, `${name}: jumps at ${n}`);
+    }
     per.push(Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v / n])));
   }
   for (const key of Object.keys(per[0])) {
@@ -187,8 +203,7 @@ console.log("done");
 /// The stage's documented limit (docs/proposals/effect-runtime.md §9.1.7):
 /// a handler at the empty row whose clause uses the resumption's result
 /// inside pure code (`Cons v (k ())`, `Each.collect`) is a pure non-tail
-/// recursion, one level per operation, and keeps JS's stack limit; so does
-/// the empty-row state handler until stage 4d fuses it into a loop. They
+/// recursion, one level per operation, and keeps JS's stack limit. They
 /// work on short lists and fail cleanly, with the module's resource error,
 /// on long ones. If one of them starts to pass, the limit has moved: update
 /// the note and this test.
@@ -201,9 +216,8 @@ fn empty_row_non_tail_handlers_keep_the_stack_limit() {
 const small = list(500);
 assert.equal(m.emitted(small).length, 500);
 assert.equal(m.searched(small).length, 1);
-assert.equal(m.counted(small).length, 500);
 const large = list(1_000_000);
-for (const name of ["emitted", "searched", "counted"]) {
+for (const name of ["emitted", "searched"]) {
   assert.throws(() => m[name](large), (e) => e instanceof m.StitchwortResourceError, name);
 }
 console.log("done");

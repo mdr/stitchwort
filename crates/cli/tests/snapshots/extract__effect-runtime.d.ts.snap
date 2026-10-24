@@ -20,4 +20,7 @@ export declare function countedIn(numbers: readonly bigint[]): Result<bigint[], 
 export declare function emitted(numbers: readonly bigint[]): bigint[];
 export declare function searched(numbers: readonly bigint[]): bigint[][];
 export declare function counted(numbers: readonly bigint[]): bigint[];
+export declare function countedChecked(limit: bigint, numbers: readonly bigint[]): Result<bigint[], string>;
+export declare function countedOpen(numbers: readonly bigint[]): bigint[];
+export declare function logged(numbers: readonly bigint[]): bigint[];
 export declare function forwarded(depth: bigint, numbers: readonly bigint[]): bigint[];

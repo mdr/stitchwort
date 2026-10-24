@@ -3504,6 +3504,22 @@ impl<'g> Gen<'g> {
             }
             return Ok(out);
         }
+        // A state-passing handler at the empty row: its fold runs as a loop
+        // with the state in a variable (docs/proposals/effect-runtime.md
+        // §9.1.5, stage 4d).
+        if let Some(effect) = &self.effect
+            && effect.is_fold(id)
+            && let Some(fused) = effect.fuse(self.g, args)?
+        {
+            let mut out = format!("effFoldState({})", fused.comp);
+            for arg in [&fused.done, &fused.call]
+                .into_iter()
+                .chain(args[6..].iter().copied())
+            {
+                let _ = write!(out, "({})", self.expr(arg, env)?);
+            }
+            return Ok(out);
+        }
         // A call at the empty row calls the variant, which takes no row.
         let variant = self.empty_call(id, args);
         let info = if variant {

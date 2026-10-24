@@ -19,6 +19,7 @@ use stitchwort_syntax::Diagnostic;
 
 use crate::effect::{Carrier, EffectNatives, EffectOp};
 use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
+use crate::fusion::StateFusion;
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
     PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
@@ -269,6 +270,9 @@ struct Lowerer<'g> {
     /// The effect runtime's natives, if the core's effect machinery has the
     /// shapes they were written for.
     effect: Option<EffectNatives>,
+    /// Recognises state-passing handlers (stage 4d), when there are
+    /// natives.
+    fusion: Option<StateFusion>,
     /// Each global's id, runtime arity and native operation.
     global_of: HashMap<DefId, (GlobalId, u32, Option<PrimOp>)>,
     /// Decides which calls are at the empty row, and makes the variants.
@@ -305,6 +309,7 @@ impl<'g> Lowerer<'g> {
             if_then_else: g.registry.def(Builtin::IfThenElse),
             to_bool: g.registry.def(Builtin::ToBool),
             effect: EffectNatives::new(g),
+            fusion: EffectNatives::new(g).and_then(|_| StateFusion::new(g)),
             global_of: HashMap::new(),
             spec: Specialiser::new(g),
             empty_of: HashMap::new(),
@@ -674,6 +679,22 @@ impl<'g> Lowerer<'g> {
         let shape = self.shape(id)?;
         if shape.result_erased {
             return Ok(Expr::Erased);
+        }
+        // A state-passing handler at the empty row: its fold runs as a loop
+        // with the state in a variable (docs/proposals/effect-runtime.md
+        // §9.1.5, stage 4d).
+        if self.effect.as_ref().is_some_and(|e| e.is_fold(id))
+            && let Some(fusion) = &self.fusion
+            && let Some(fused) = fusion.fuse(self.g, args)?
+        {
+            let op = if fused.comp {
+                EffectOp::FoldStateComp
+            } else {
+                EffectOp::FoldState
+            };
+            let runtime = self.exprs(&[&fused.done, &fused.call, args[6]])?;
+            let rest = self.exprs(&args[7..])?;
+            return Ok(apply(Expr::Prim(PrimOp::Effect(op), runtime), rest));
         }
         // A call at the empty row calls the variant, which takes no row.
         let variant = self.empty_of.contains_key(&id) && self.spec.empty_call(id, args)?;
