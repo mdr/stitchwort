@@ -6814,16 +6814,18 @@
     {
       "id": 423,
       "title": "reify return-clause goals print with the handler unfolded (Effect.foldComp (x => Ok x) …); fold them back for display (SW-419 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "feeff3e9"
+      ]
     },
     {
       "id": 424,
