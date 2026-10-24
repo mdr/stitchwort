@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-DECREASING] Error: can't show `Nat.divFuel n n 10 < n` here, which `decreasing n` needs for this call
+[E-DECREASING] Error: can't show `n / 10 < n` here, which `decreasing n` needs for this call
     ╭─[ reject/decreasing-missing-proof.sw:10:8 ]
     │
  10 │   then digitsOnto (n / 10) (Cons (n % 10) acc)
@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: in scope: `big: Nat.leq n 9 = False`
     │ 
-    │ Note 2: give a proof with `[decreasing := …]`, or test it with `if h: Nat.divFuel n n 10 < n then … else …`
+    │ Note 2: give a proof with `[decreasing := …]`, or test it with `if h: n / 10 < n then … else …`
 ────╯
