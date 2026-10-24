@@ -604,7 +604,7 @@ to the writer as it happens.
   disagree); a failing comparison test also shows both sides, which needs the evaluator's
   values. Running the 1,100 tests on the machine is already part of the differential tests.
 
-  **Update (24 October 2026, SW-412, provisional pending Matt's decision):** `stitchwort test`
+  **Update (24 October 2026, SW-412; decided by Matt, D1137 (a)):** `stitchwort test`
   now runs tests on the machine (`Session::run_tests_fast`), because real-input tests weren't
   small: day 9's took 70 s on the evaluator and 2 s on the machine. A test the machine can't
   lower or finish runs on the evaluator, which also still shows a failure's sides; results
