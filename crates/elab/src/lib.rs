@@ -355,6 +355,13 @@ pub struct Elaborator {
     /// `eval`'s): a `match` in one is lifted to a helper owned by
     /// `<input N>`, which keeps the helpers of different inputs apart.
     standalone_inputs: usize,
+    /// Whether declarations are elaborated with glued evaluation
+    /// (`Globals::glue`, docs/proposals/folded-calls.md): on unless
+    /// `STITCHWORT_GLUE=0`. The switch in `Globals` is on only while a
+    /// declaration or an expression typed in is elaborated
+    /// ([`Elaborator::glued`]), never while it is checked by the kernel or
+    /// run.
+    pub glue: bool,
     /// While lifting, the `let`s each draft's terms are folded back to
     /// (`lift::Arounds`); empty otherwise.
     arounds: RefCell<lift::Arounds>,
@@ -618,13 +625,10 @@ fn name(n: &ast::Name) -> Name {
 
 impl Elaborator {
     pub fn new() -> Self {
-        let e = Self::default();
-        // Glued evaluation (docs/proposals/folded-calls.md) is built in
-        // stages and off by default; `STITCHWORT_GLUE=1` turns it on while
-        // elaborating, to test the stages before it is.
-        e.globals
-            .glue
-            .set(std::env::var("STITCHWORT_GLUE").is_ok_and(|v| v == "1"));
+        let mut e = Self::default();
+        // Glued evaluation (docs/proposals/folded-calls.md) is on while
+        // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
+        e.glue = std::env::var("STITCHWORT_GLUE").map_or(true, |v| v != "0");
         // The names some syntax refers to, built once per process: built
         // here rather than on first use, so that the first program to use
         // them doesn't count work later ones don't (the bench's `repeat`
@@ -764,7 +768,22 @@ impl Elaborator {
         }
     }
 
+    /// `f` with gluing on if [`Elaborator::glue`] is set: around the
+    /// elaboration of one declaration (or component) or one expression.
+    /// Evaluation outside it (running a program, the driver's own uses of
+    /// the environment) never sees a glued call.
+    pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
+        let was = self.globals.glue.replace(self.glue);
+        let out = f(self);
+        self.globals.glue.set(was);
+        out
+    }
+
     fn infer_expr_in_operation(&mut self, expr: &Expr) -> Result<(Term, Value)> {
+        self.glued(|e| e.infer_expr_glued(expr))
+    }
+
+    fn infer_expr_glued(&mut self, expr: &Expr) -> Result<(Term, Value)> {
         self.clear_metas();
         self.standalone_inputs += 1;
         let key = format!("<input {}>", self.standalone_inputs);

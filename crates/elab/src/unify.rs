@@ -65,7 +65,7 @@ fn unify_step(
     // first, as for dictionaries below; otherwise their unfoldings.
     if let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b)
         && i1 == i2
-        && same_arguments(g, level, s1, s2)?
+        && same_arguments_solving_nothing(g, level, s1, s2)?
     {
         return Ok(true);
     }
@@ -277,6 +277,31 @@ fn same_arguments(g: &Globals, level: usize, s1: &[Elim], s2: &[Elim]) -> Result
             undo_since(g, trail);
             return Ok(false);
         }
+    }
+    Ok(true)
+}
+
+/// [`same_arguments`], but only if that solves no metavariable: two calls
+/// whose arguments unify only by solving one are compared by their
+/// unfoldings instead, with nothing solved, as without gluing. Solving
+/// from the arguments can choose a different solution than the unfoldings
+/// would (`Nat.div m d ?ok` against `Nat.div m d p` solves `?ok := p`,
+/// where `Nat.div`'s unfolding doesn't mention the proof and leaves `?ok`
+/// to `auto`), which would change elaborated terms; gluing doesn't change
+/// them until folded read-back (docs/proposals/folded-calls.md §7, stage 2).
+fn same_arguments_solving_nothing(
+    g: &Globals,
+    level: usize,
+    s1: &[Elim],
+    s2: &[Elim],
+) -> Result<bool> {
+    let trail = g.meta_trail.borrow().len();
+    if !same_arguments(g, level, s1, s2)? {
+        return Ok(false);
+    }
+    if g.meta_trail.borrow().len() > trail {
+        undo_since(g, trail);
+        return Ok(false);
     }
     Ok(true)
 }

@@ -245,7 +245,30 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
 }
 
 /// A term of type `Decidable prop`, from the decision procedures in scope.
+///
+/// The search sees the unfolded proposition (D484,
+/// docs/proposals/folded-calls.md): it runs with gluing off, on `prop`
+/// read back and computed again unglued. Otherwise a procedure would be
+/// matched against a call by its arguments before unfolding (`y < 10`
+/// decided by `Nat.decLessThan y 10` rather than `Nat.decLessEq y 9`, as
+/// `y < 10` computes to `y <= 9`), and the decisions found, and so the
+/// elaborated terms, would depend on gluing.
 pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
+    let g = cx.g();
+    if !g.glue.get() {
+        return decide_unglued(cx, prop, depth);
+    }
+    let written = cx.quote(prop)?;
+    g.glue.set(false);
+    let found = cx
+        .eval(&written)
+        .and_then(|prop| decide_unglued(cx, &prop, depth));
+    g.glue.set(true);
+    found
+}
+
+/// [`decide`], with gluing off.
+fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let decidable = decidable(cx)?;
     // A relation from a dictionary: its paired decider, from the same one
     // (docs/proposals/interfaces.md §5.16 step 2).

@@ -1779,6 +1779,9 @@ fn visit(
             tasks.push(QuoteTask::Data(d, args.len()));
             visit_all(tasks, &args);
         }
+        Value::Ctor(d, 1, args) if Some(d) == g.builtins.nat && has_call_base(g, &args) => {
+            visit(g, level, succ_unglued(g, &args[0])?, tasks, done)?;
+        }
         Value::Ctor(d, c, args) => {
             tasks.push(QuoteTask::Ctor(d, c, args.len()));
             visit_all(tasks, &args);
@@ -1820,6 +1823,50 @@ fn visit(
         Value::Call(..) => unreachable!("a forced value is never a call"),
     }
     Ok(())
+}
+
+/// Whether `Succ` of `args` (a `Succ` value's field) is `Succ` applied,
+/// perhaps several times, to a glued call ([`Value::Call`]). Without
+/// gluing, `Succ` of a number is a number ([`native::ctor`]); a call is
+/// a number only once unfolded, so the `Succ` around it stayed a
+/// constructor. Never true without gluing (the kernel).
+#[inline]
+fn has_call_base(g: &Globals, args: &[Value]) -> bool {
+    let mut field = &args[0];
+    loop {
+        match field {
+            Value::Call(..) => return true,
+            Value::Ctor(d, 1, inner) if Some(*d) == g.builtins.nat => field = &inner[0],
+            _ => return false,
+        }
+    }
+}
+
+/// `Succ field`, built as without gluing: each call under the `Succ`s
+/// unfolded and the `Succ`s put back with [`native::ctor`], which keeps
+/// numbers compact. So read-back gives `2`, not `Succ 1`, for the
+/// unfolding of `List.length [x, y]`, as it does without gluing
+/// (docs/proposals/folded-calls.md, stage 2).
+#[cold]
+#[inline(never)]
+fn succ_unglued(g: &Globals, field: &Value) -> Result<Value> {
+    let nat = g.builtins.nat.expect("a `Succ` value needs `Nat`");
+    let mut succs = 1usize;
+    let mut base = field.clone();
+    loop {
+        base = match base {
+            call @ Value::Call(..) => force(g, call)?,
+            Value::Ctor(d, 1, inner) if d == nat => {
+                succs += 1;
+                inner[0].clone()
+            }
+            _ => break,
+        };
+    }
+    for _ in 0..succs {
+        base = native::ctor(g, nat, 1, vec![base]);
+    }
+    Ok(base)
 }
 
 /// Definitional equality, with `level` variables in scope. Used by the kernel,

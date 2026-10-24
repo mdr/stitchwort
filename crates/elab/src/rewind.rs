@@ -172,6 +172,7 @@ impl Elaborator {
             no_ord,
             drafts,
             standalone_inputs: _,
+            glue: _,
             arounds,
             lifted,
             owner,
