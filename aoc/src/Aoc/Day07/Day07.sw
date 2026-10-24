@@ -25,12 +25,11 @@
 -- tests are in `Aoc.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day07
-import Std (Abort, Fail, Fin, IO, List, Nat, Option, Vec)
-import Std.Fail (need)
+import Std (Abort, Fail, Fin, IO, List, Nat, Option, Result, Text, Vec)
 import Std.Abort (toOption)
 
 def main(): {IO, Fail} () :=
-  let manifold := need (parseManifold IO.readAllLines()) "expected a line with an S, got none"
+  let manifold := (checkManifold IO.readAllLines()).orFail
   IO.print "Part 1: ${solvePart1 manifold}"
   IO.print "Part 2: ${solvePart2 manifold}"
 
@@ -41,6 +40,27 @@ type Manifold = { width: Nat, start: Fin width, rows: List (Vec Bool width) }
 -- `None` if there is no S. (S is always inside the grid, as wide as the
 -- widest line; `Fin.ofNatCheck` checks it.)
 def parseManifold (lines: List Text): Option Manifold := toOption (() => readManifold lines)
+
+-- The strict reader `main` uses. `parseManifold` is forgiving (any character
+-- but ^ is empty space); `checkManifold` refuses a manifold with a character
+-- other than . ^ S (naming its line and column, counting from 1), or with no
+-- S, and otherwise gives exactly `parseManifold lines`
+-- (`Aoc.Day07.Proofs.checkManifoldParses`), so the proofs about the parser
+-- describe what is printed. An S may be anywhere; the first is the start.
+def checkManifold (lines: List Text): Result Manifold Text :=
+  match manifoldError lines with
+    | Some message => Err message
+    | None =>
+      match parseManifold lines with
+        | Some manifold => Ok manifold
+        | None => Err "expected a line with an S, got none"
+
+-- The first character that isn't . ^ or S, if any.
+def manifoldError (lines: List Text): Option Text :=
+  lines.withIndex.findMap (((lineIndex, line)) =>
+    line.toList.withIndex.findMap (((columnIndex, ch)) =>
+      if ch == '.' || ch == '^' || ch == 'S' then None
+      else Some "line ${lineIndex + 1}, column ${columnIndex + 1}: expected . or ^ or S, got '${ch}'"))
 
 -- Each step that finds nothing gives up, which makes the result `None`.
 def readManifold (lines: List Text): {Abort} Manifold :=
