@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EFFECT-ORDER] Error: this runs first, where it's written, but its type needs `n`, which is found from `k`, which comes later
+    ╭─[ reject/effect-order-positional.sw:21:19 ]
+    │
+ 21 │   let r := sized (readVec()) (say 2) rfl
+    │                   ────┬────   ──┬──  
+    │                       ╰────────────── its type needs `n`
+    │                                 │    
+    │                                 ╰──── `k` is computed here, after it
+    │ 
+    │ Note: run them in the order you need, then call: `let k := …` first, then pass `k` in its place
+────╯

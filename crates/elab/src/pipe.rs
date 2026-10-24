@@ -66,6 +66,9 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
             let mut all = args.clone();
             all.push(Arg::Piped(&piped));
             let sig = crate::named::signature(cx, &known.1)?;
+            if crate::named::split(cx, &sig, &all)?.is_some() {
+                return apply_args(cx, known, &all);
+            }
             let slots = crate::named::plan(cx, &sig, &all, None)?;
             return match crate::named::positional(&slots) {
                 Some(ordered) if matches!(ordered.last(), Some(Arg::Piped(_))) => {
