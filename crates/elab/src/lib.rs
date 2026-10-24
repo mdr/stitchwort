@@ -2891,10 +2891,7 @@ impl Elaborator {
                 continue;
             }
             if branch_rows.is_empty() {
-                let example = std::iter::once(ctor.name.to_string())
-                    .chain(std::iter::repeat_n("_".to_string(), k))
-                    .collect::<Vec<_>>()
-                    .join(" ");
+                let example = families::missing_example(&self.globals, d, c, k);
                 return Err(error(
                     "E-NONEXHAUSTIVE",
                     span,
@@ -3738,10 +3735,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                                 return Ok(term);
                             }
                         }
-                        let example = std::iter::once(ctor.name.to_string())
-                            .chain(std::iter::repeat_n("_".to_string(), ctor.fields.len()))
-                            .collect::<Vec<_>>()
-                            .join(" ");
+                        let example = families::missing_example(g, *d, c, ctor.fields.len());
                         Err(error(
                             "E-NONEXHAUSTIVE",
                             *span,

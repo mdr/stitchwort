@@ -524,14 +524,10 @@ fn case_branch(
                     return Err(missing.diagnostic(*span));
                 }
                 let ctor = &g.data(d).ctors[c];
-                let example = std::iter::once(ctor.name.to_string())
-                    .chain(
-                        (0..ctor.fields.len())
-                            .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
-                            .map(|_| "_".to_string()),
-                    )
-                    .collect::<Vec<_>>()
-                    .join(" ");
+                let shown = (0..ctor.fields.len())
+                    .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                    .count();
+                let example = missing_example(g, d, c, shown);
                 Err(error(
                     "E-NONEXHAUSTIVE",
                     *span,
@@ -841,4 +837,26 @@ fn plus(cx: &Ctx, value: &Value) -> Option<(String, String)> {
         return None;
     }
     Some((cx.show(a), cx.show(b)))
+}
+
+/// How a missing constructor case is shown: `Ctor _ _`, except for the
+/// list's own constructors, which are shown in list syntax (`[]`,
+/// `[_, _, ..]`). `shown` is the number of fields written as `_`.
+pub(crate) fn missing_example(
+    g: &stitchwort_core::Globals,
+    d: DataId,
+    c: usize,
+    shown: usize,
+) -> String {
+    let reg = &g.registry;
+    if reg.ctor(Builtin::Nil) == Some((d, c)) {
+        return "[]".to_string();
+    }
+    if shown == 2 && reg.ctor(Builtin::Cons) == Some((d, c)) {
+        return "[_, _, ..]".to_string();
+    }
+    std::iter::once(g.data(d).ctors[c].name.to_string())
+        .chain(std::iter::repeat_n("_".to_string(), shown))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
