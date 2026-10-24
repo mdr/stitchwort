@@ -364,16 +364,26 @@ fn load_project_into(
     target: &Target,
     reported: &mut Vec<Diagnostic>,
 ) -> bool {
+    load_project_counting(session, project, target, reported).is_some()
+}
+
+/// [`load_project_into`], giving the number of namespaces checked.
+fn load_project_counting(
+    session: &mut Session,
+    project: &Project,
+    target: &Target,
+    reported: &mut Vec<Diagnostic>,
+) -> Option<usize> {
     match session.load_project(&project.files, &project.name, target) {
-        Ok(_) => {
+        Ok(loaded) => {
             reported.extend(std::mem::take(&mut session.warnings));
             report(&session.sources, reported);
-            true
+            Some(loaded.checked.len())
         }
         Err(diagnostics) => {
             report(&session.sources, &diagnostics);
             reported.extend(diagnostics);
-            false
+            None
         }
     }
 }
@@ -536,6 +546,9 @@ fn check(
             let goals = goals_open(&reported);
             report_goals(goals);
             ok &= loaded && goals == 0;
+            if loaded && goals == 0 {
+                eprintln!("checked {path}");
+            }
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
@@ -554,10 +567,14 @@ fn check(
     let mut session = new_session(index.is_some());
     use_cache(&mut session, cache, &project.dir);
     let mut reported = Vec::new();
-    let mut ok = load_project_into(&mut session, &project, &target, &mut reported);
+    let checked = load_project_counting(&mut session, &project, &target, &mut reported);
     let goals = goals_open(&reported);
     report_goals(goals);
-    ok &= goals == 0;
+    let mut ok = checked.is_some() && goals == 0;
+    if let (true, Some(count)) = (ok, checked) {
+        let plural = if count == 1 { "" } else { "s" };
+        eprintln!("checked {count} namespace{plural} of {}", project.name);
+    }
     if let Some(index) = index {
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;

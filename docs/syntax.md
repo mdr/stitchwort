@@ -605,7 +605,9 @@ def allResults (prog: () -> {Choose | e} a): {e} List a :=
 
 Effectful code is written in direct style. Arguments are evaluated left to right, named ones where they are written ([Named arguments](#named-arguments)), and the lines of a block in order. A handler's clauses on their own lines must line up: a `|` at another column belongs to an enclosing handler. An operation on its own (`choose`) is a function, `x => choose x`. A dot call to an effectful function is a call like any other and runs where it's written, also with no further arguments and at the end of a chain of pure calls (`1 + w.toNat.orAbort`). A signature can be a computation that isn't a function: `current: {State Nat} Nat`. Naming or calling a computation where a plain value is expected runs it there, so it's allowed only if it may perform nothing: a function over any row `{e}` used at the empty row, or a `Std.Effect.Comp NoOp NoRes a`, gives its `a` ([proposals/let.md](proposals/let.md) §8). Where a computation is expected (a parameter, constructor field, list item or tuple part of type `Std.Effect.Comp …`), a computation is passed as it is and not run: `isDone c` sees `c` itself, and `Effect.runPure (Done 3)` is `3` ([proposals/effect-polymorphism.md](proposals/effect-polymorphism.md), stage 0). The types stay different: a function returning a computation isn't a function returning a value. A row written `{}` is no row: `{} Nat` is `Nat`. Messages print the empty-row computation type in full, `Comp NoOp NoRes Nat`, so it is not mistaken for `Nat`. A pure function can use a handler inside; what it handles doesn't appear in its type. How this is translated into ordinary data is described in `docs/core.md`, under "Abilities".
 
-## `IO`
+`Effects` (`import Std.Effect (Effects)`) is the type of an effect-row parameter, so a data type can be parameterised by effects as it is by types, and the row goes inside the type's functions: `type Handlers (e: Effects): Type = | MkHandlers (onStep: Nat -> {Partial | e} Nat) (onDone: Nat -> {Partial | e} Nat)`, and `def drive: [e: Effects] -> Handlers e -> Nat -> {Partial | e} Nat`, where `{e}` and `{A | e}` stand for that row (`examples/accept/partial.sw`). Rows are abstract indices: a program can declare an `Effects` parameter and pass it on, but cannot build, compare or inspect one ([proposals/effect-polymorphism.md](proposals/effect-polymorphism.md) §7, D1142, D1143).
+
+### `IO`
 
 `IO` is an ability with `print: Text -> {IO} ()`, `readLine: () -> {IO} (Option Text)` and `readAll: () -> {IO} Text` (also `IO.print`, `IO.readLine`, `IO.readAll`). `IO.simulate lines prog` runs `prog` against scripted input and records what it prints.
 
@@ -613,6 +615,101 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 - `IO.readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `IO.readLine()` is `None`; after some `IO.readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.
 - `Text.lines: Text -> List Text` follows Rust's `str::lines`: split on LF, drop a CR right before an LF, and the last line's ending is optional. `"a\nb"` and `"a\nb\n"` both give `["a", "b"]`; `""` gives `[]`; `"\n"` gives `[""]`; `"a\r\nb"` gives `["a", "b"]`. A CR anywhere else stays, including a final one.
 - `IO.readAllLines(): {IO} (List Text)` is `(readAll()).lines`. It is total.
+
+### `Abort`
+
+`Std.Abort` (`crates/elab/src/std/Abort/Abort.sw`) is an ability for giving up, as `do` over `Option` in Lean or `?` in Roc: code that may give up says `{Abort}`, reads each step's `Option` with `need`, and a handler decides what giving up means.
+
+```
+import Std.Abort (need, ensure, abort, toOption)
+
+def turn (t: Text): {Abort} Int :=
+  let (c, rest) := need t.uncons     -- a `None` stops the whole computation
+  ensure (c == 'L' || c == 'R')
+  let n := rest.toInt.orAbort        -- `need`, by dot notation
+  if c == 'L' then -n else n
+
+def parse (t: Text): Option Int := toOption (() => turn t)
+```
+
+- `Abort.need: Option a -> {Abort} a`, and `Option.orAbort` for dot notation (`o.orAbort`). `Abort.ensure: Bool -> {Abort} ()` gives up on `False`. `Abort.abort(): {Abort} a` gives up wherever a value of any type is expected.
+- `Abort.toOption: (() -> {Abort | e} a) -> {e} Option a` and `Abort.orElse: a -> (() -> {Abort | e} a) -> {e} a` are the handlers. Other abilities pass through, so `{IO, Abort}` code works: what was printed before giving up stays printed (`examples/accept/abort.sw`).
+- The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
+- `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
+
+### `Fail` and `Result`
+
+`Std.Fail` (`crates/elab/src/std/Fail/Fail.sw`) is `Abort` with a message: code that may fail says `{Fail}`, and a failure says why ([proposals/errors.md](proposals/errors.md)). `Result a e = Ok (value: a) | Err (error: e)` is in the prelude, next to `Option`, so `Ok` and `Err` need no import, and results compare with `==`.
+
+```
+import Std (Fail)
+import Std.Fail (fail, need, ensure, toResult)
+
+def turn (t: Text): {Fail} Int :=
+  let (c, rest) := need t.uncons "expected a turn, got nothing"
+  ensure (c == 'L' || c == 'R') "expected L or R, got '${t}'"
+  let n := rest.toIntOrFail          -- "expected a whole number, got '…'"
+  if c == 'L' then -n else n
+
+def parse (t: Text): Result Int Text := toResult (() => turn t)
+```
+
+- `Fail.fail: Text -> {Fail} a` fails wherever a value of any type is expected. `Fail.need: Option a -> Text -> {Fail} a`, and `Option.orFail` for dot notation (`o.orFail "msg"`). `Fail.ensure: Bool -> Text -> {Fail} ()` fails on `False`. `Result.orFail: Result a Text -> {Fail} a` fails with the error.
+- The handlers: `Fail.toResult: (() -> {Fail | e} a) -> {e} Result a Text`, `Fail.toOption` (drops the message), `Fail.orElse: a -> (() -> {Fail | e} a) -> {e} a` and `Fail.recover: (Text -> {e} a) -> (() -> {Fail | e} a) -> {e} a`. Other abilities pass through, so `{IO, Fail}` code works: what was printed before the failure stays printed (`examples/accept/fail.sw`).
+- `Fail.context label prog` puts `label: ` in front of a failure's message, and is itself `{Fail | e}`: `context "line 3" (() => turn l)` fails with `line 3: expected L or R, got 'X1'`. The `fail` in its clause goes to the next handler out, as a clause's operations do.
+- With `Abort`: `Abort.orFail msg prog` turns giving up into failing with `msg`, and `Fail.toAbort prog` turns failing into giving up (the message is dropped).
+- `List.mapIn: (a -> {e} b) -> List a -> {e} List b` is `map` for a function that may perform abilities, such as `Fail`: `t.split ',' |> .mapIn Range.read` fails at the first piece that isn't a range. `List.map` stays pure.
+- `Text.toNatOrFail` and `Text.toIntOrFail` trim the text, read it, and otherwise fail with `expected a whole number, got 't'`, quoting the text as given. Messages start in lowercase, say what was expected and then what was found, and quote the found text in single quotes, which shows stray spaces.
+- On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult err o`. A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
+- The operation is `Fail.stop: Text -> {Fail} Empty`, for handlers of your own; `fail msg` is `Empty.absurd (stop msg)`.
+- **`main` may leave `Fail` unhandled:** `def main(): {IO, Fail} () := …` (or `{Fail} ()`) runs under `stitchwort run`, `run --reference`, `run --js` and in the playground. If it fails, what it printed before stays, `error: <message>` goes to standard error (the playground shows it below the output), and the exit status is 1. Runtime errors (`E-IO`, `E-RESOURCE`) exit with 2. `main` can't be both `Fail` and `Partial` yet (`examples/accept/main-fail.sw`).
+- Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult msg o`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`. About any computation, each by `match reify` ([Proofs about effectful code](#proofs-about-effectful-code)): `Fail.toResultThen t k` (`toResult (() => k (t ())) = Result.flatMap (x => toResult (() => k x)) (toResult t)`), `Fail.toOptionThen` (the same with `toOption` and `Option.flatMap`), `Fail.toOptionToResult t` (`toOption t = (toResult t).toOption`), `Abort.toOptionThen`, and `Fail.toResultMapIn f xs` (`toResult (() => xs.mapIn f) = Result.traverse (x => toResult (() => f x)) xs`).
+
+### `Each`
+
+`Std.Each` (`crates/elab/src/std/Each/Each.sw`) runs the rest of a computation once for each element of a list and collects every result, as Scala's `for`/`yield` or Haskell's list monad do ([proposals/each-ability.md](proposals/each-ability.md)).
+
+```
+import Std (Each)
+import Std.Each (each, require)
+
+def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
+  let a := each (List.between 1 n)
+  let b := each (List.between a n)    -- may depend on `a`
+  require (a + b == n)                -- drops this choice unless it holds
+  (a, b))
+```
+
+- `Each.each: List a -> {Each} a` and `Each.require: Bool -> {Each} ()`.
+- `Each.collect: (() -> {Each} a) -> List a` gives the results in order, the first choice varying slowest. `Each.collectIn: (() -> {Each | e} a) -> {e} List a` is the same with other abilities passing through; the handler outside decides, so `Abort` outside `Each` gives up on everything, and inside it gives up on one choice.
+- The operations are `Each.fork: () -> {Each} Bool` (both answers) and `Each.stop: () -> {Each} Empty` (none); `each` is a loop of `fork`s. An operation can't be polymorphic, so there is no `each` operation of its own.
+- Proofs: `Each.collectEach k xs` (`collect (() => k (each xs)) = xs.flatMap (x => collect (() => k x))`, by induction), `Each.collectRequire k ok` (`collect` of `require ok` then `k()` is `if ok then collect k else []`, by `rfl` on each case), `Each.collectPure v` (`[v]`, by `rfl`) and `Each.collectEachSelf xs` (`xs`).
+
+### Proofs about effectful code
+
+A handler applied to a computation whose shape is known computes, so a proof about `Fail.toResult (() => need o msg)` splits on `o` and is `rfl` in each case. A law about *any* computation `t: () -> {Fail} a` needs to split on what `t` does. `match reify t with` does that, with clauses written as a handler's ([proposals/proof-reification.md](proposals/proof-reification.md)):
+
+```
+theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+    Fail.toResult (() => k (t ())) = Result.flatMap (x => Fail.toResult (() => k x)) (Fail.toResult t) :=
+  match reify t with
+    | return x => rfl          -- `t` finished with `x`
+    | Fail.stop msg, _ => rfl  -- `t` failed with `msg`
+```
+
+- In each clause, `t ()` in the goal (and in the types of the variables in scope) is replaced by what it did, as a `match` on an expression generalises it ([`match`](#match)), so the handlers in the goal compute. The second name in an operation's clause (`_` here) is the rest of the computation, a function from what the operation returns: `| State.get (), rest =>` has `rest: s -> {State s} a`.
+- The thunk is a function `() -> {A, B} t` or written in place, `match reify (() => f x) with`. Its row must list its abilities and be closed: `{Fail}` or `{State Nat, Fail}`, not `{Fail | e}` or `{e}`, and not `Partial` (`E-REIFY`). There must be a `return` clause and one clause for each operation of the row (`E-NONEXHAUSTIVE`); an operation of an ability not in the row is `E-ABILITY`.
+- It splits once: the first thing the computation does. Laws about computations that resume (`State`) by induction on everything they do aren't supported yet.
+- **Proofs only.** `reify` may be used only in a declaration whose result is erased: a `theorem`, or a `def` whose type ends in `Prop` or a type (`def Finished (t: () -> {State s} a): Prop := match reify t with …`), including the local definitions and `match`es inside it. Anywhere else (a `def` that computes data, a `test`, an `instance`, an `export`) it is `E-PROOF-ONLY`: what it gives depends on how a computation is represented, so it must never run. To act on a failure at run time, use a handler.
+- **Programs can't take a computation apart either.** `Effect.Comp`'s constructors (`Done`, `Call`) and the definitions that match on it (`Effect.foldComp`, `Effect.bind`, `Effect.translate`, `Effect.runPure`) may be named only in a declaration whose result is erased (the same test), or in a signature or a type. In a `def` that computes data, a `test` or an expression it is `E-PROOF-ONLY`; the standard library is exempt. A program can still pass a computation as a thunk, run it, and give it to a handler: that is all it can do with one. A hand-written tree is only for proofs, and a predicate about one is a `Prop`:
+
+  ```
+  def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+    | Done value => Unit
+    | Call () rest
+  ```
+- `reify` is a keyword only right after `match`; elsewhere it's an ordinary name. `match h: reify t` is refused: the equation would be between computations, whose type has no spelling.
+- `examples/accept/reify-fail.sw` has the laws, `Fail.toResultMapIn` (by induction on the list, with a split on `f x` and then on the rest), and one-step splits of a user's `State` computation.
 
 ## `Text` helpers
 
@@ -654,101 +751,6 @@ The lemmas read a result one index at a time with `Vec.getOr d i v` (element i, 
 - `Vec.getOrZipWith` and `Vec.getOrZipWith3`: index i is `f` of index i of each input, when `f` maps the defaults to the default; `Vec.getOrMap` the same for `map` (default `f d`). `Vec.getOrReplicate`: copies of x read with default x are x. `Vec.getOrPast`: past the end, `getOr` gives the default. `Vec.getOrGet`: in range it is `Vec.get`. `Vec.headOrGetOr`: `headOr d v` is index 0.
 - `Vec.extGetOr d u v h`: vectors equal at every index are equal. `Vec.sumByGetOr f d v`: `v.sumBy f` is the sum of `f` of index i over `List.range n`.
 - `List.transposeFillCell fill rows c r`: row r of column c is `List.getOr fill c` of row r, with no bounds on r or c (cells past the ends are `fill` on both sides). `List.transposeFillColumns` states the whole result as columns read by index. `List.getOrTransposeFill` gives column c as a list. `List.lengthTransposeFill`, `List.lengthColumnTransposeFill` and `List.lengthLeMaxLength` give the lengths.
-
-## `Abort`
-
-`Std.Abort` (`crates/elab/src/std/Abort/Abort.sw`) is an ability for giving up, as `do` over `Option` in Lean or `?` in Roc: code that may give up says `{Abort}`, reads each step's `Option` with `need`, and a handler decides what giving up means.
-
-```
-import Std.Abort (need, ensure, abort, toOption)
-
-def turn (t: Text): {Abort} Int :=
-  let (c, rest) := need t.uncons     -- a `None` stops the whole computation
-  ensure (c == 'L' || c == 'R')
-  let n := rest.toInt.orAbort        -- `need`, by dot notation
-  if c == 'L' then -n else n
-
-def parse (t: Text): Option Int := toOption (() => turn t)
-```
-
-- `Abort.need: Option a -> {Abort} a`, and `Option.orAbort` for dot notation (`o.orAbort`). `Abort.ensure: Bool -> {Abort} ()` gives up on `False`. `Abort.abort(): {Abort} a` gives up wherever a value of any type is expected.
-- `Abort.toOption: (() -> {Abort | e} a) -> {e} Option a` and `Abort.orElse: a -> (() -> {Abort | e} a) -> {e} a` are the handlers. Other abilities pass through, so `{IO, Abort}` code works: what was printed before giving up stays printed (`examples/accept/abort.sw`).
-- The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
-- `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
-
-## `Fail` and `Result`
-
-`Std.Fail` (`crates/elab/src/std/Fail/Fail.sw`) is `Abort` with a message: code that may fail says `{Fail}`, and a failure says why ([proposals/errors.md](proposals/errors.md)). `Result a e = Ok (value: a) | Err (error: e)` is in the prelude, next to `Option`, so `Ok` and `Err` need no import, and results compare with `==`.
-
-```
-import Std (Fail)
-import Std.Fail (fail, need, ensure, toResult)
-
-def turn (t: Text): {Fail} Int :=
-  let (c, rest) := need t.uncons "expected a turn, got nothing"
-  ensure (c == 'L' || c == 'R') "expected L or R, got '${t}'"
-  let n := rest.toIntOrFail          -- "expected a whole number, got '…'"
-  if c == 'L' then -n else n
-
-def parse (t: Text): Result Int Text := toResult (() => turn t)
-```
-
-- `Fail.fail: Text -> {Fail} a` fails wherever a value of any type is expected. `Fail.need: Option a -> Text -> {Fail} a`, and `Option.orFail` for dot notation (`o.orFail "msg"`). `Fail.ensure: Bool -> Text -> {Fail} ()` fails on `False`. `Result.orFail: Result a Text -> {Fail} a` fails with the error.
-- The handlers: `Fail.toResult: (() -> {Fail | e} a) -> {e} Result a Text`, `Fail.toOption` (drops the message), `Fail.orElse: a -> (() -> {Fail | e} a) -> {e} a` and `Fail.recover: (Text -> {e} a) -> (() -> {Fail | e} a) -> {e} a`. Other abilities pass through, so `{IO, Fail}` code works: what was printed before the failure stays printed (`examples/accept/fail.sw`).
-- `Fail.context label prog` puts `label: ` in front of a failure's message, and is itself `{Fail | e}`: `context "line 3" (() => turn l)` fails with `line 3: expected L or R, got 'X1'`. The `fail` in its clause goes to the next handler out, as a clause's operations do.
-- With `Abort`: `Abort.orFail msg prog` turns giving up into failing with `msg`, and `Fail.toAbort prog` turns failing into giving up (the message is dropped).
-- `List.mapIn: (a -> {e} b) -> List a -> {e} List b` is `map` for a function that may perform abilities, such as `Fail`: `t.split ',' |> .mapIn Range.read` fails at the first piece that isn't a range. `List.map` stays pure.
-- `Text.toNatOrFail` and `Text.toIntOrFail` trim the text, read it, and otherwise fail with `expected a whole number, got 't'`, quoting the text as given. Messages start in lowercase, say what was expected and then what was found, and quote the found text in single quotes, which shows stray spaces.
-- On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult err o`. A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
-- The operation is `Fail.stop: Text -> {Fail} Empty`, for handlers of your own; `fail msg` is `Empty.absurd (stop msg)`.
-- **`main` may leave `Fail` unhandled:** `def main(): {IO, Fail} () := …` (or `{Fail} ()`) runs under `stitchwort run`, `run --reference`, `run --js` and in the playground. If it fails, what it printed before stays, `error: <message>` goes to standard error (the playground shows it below the output), and the exit status is 1. Runtime errors (`E-IO`, `E-RESOURCE`) exit with 2. `main` can't be both `Fail` and `Partial` yet (`examples/accept/main-fail.sw`).
-- Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult msg o`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`. About any computation, each by `match reify` ([Proofs about effectful code](#proofs-about-effectful-code)): `Fail.toResultThen t k` (`toResult (() => k (t ())) = Result.flatMap (x => toResult (() => k x)) (toResult t)`), `Fail.toOptionThen` (the same with `toOption` and `Option.flatMap`), `Fail.toOptionToResult t` (`toOption t = (toResult t).toOption`), `Abort.toOptionThen`, and `Fail.toResultMapIn f xs` (`toResult (() => xs.mapIn f) = Result.traverse (x => toResult (() => f x)) xs`).
-
-## `Each`
-
-`Std.Each` (`crates/elab/src/std/Each/Each.sw`) runs the rest of a computation once for each element of a list and collects every result, as Scala's `for`/`yield` or Haskell's list monad do ([proposals/each-ability.md](proposals/each-ability.md)).
-
-```
-import Std (Each)
-import Std.Each (each, require)
-
-def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
-  let a := each (List.between 1 n)
-  let b := each (List.between a n)    -- may depend on `a`
-  require (a + b == n)                -- drops this choice unless it holds
-  (a, b))
-```
-
-- `Each.each: List a -> {Each} a` and `Each.require: Bool -> {Each} ()`.
-- `Each.collect: (() -> {Each} a) -> List a` gives the results in order, the first choice varying slowest. `Each.collectIn: (() -> {Each | e} a) -> {e} List a` is the same with other abilities passing through; the handler outside decides, so `Abort` outside `Each` gives up on everything, and inside it gives up on one choice.
-- The operations are `Each.fork: () -> {Each} Bool` (both answers) and `Each.stop: () -> {Each} Empty` (none); `each` is a loop of `fork`s. An operation can't be polymorphic, so there is no `each` operation of its own.
-- Proofs: `Each.collectEach k xs` (`collect (() => k (each xs)) = xs.flatMap (x => collect (() => k x))`, by induction), `Each.collectRequire k ok` (`collect` of `require ok` then `k()` is `if ok then collect k else []`, by `rfl` on each case), `Each.collectPure v` (`[v]`, by `rfl`) and `Each.collectEachSelf xs` (`xs`).
-
-## Proofs about effectful code
-
-A handler applied to a computation whose shape is known computes, so a proof about `Fail.toResult (() => need o msg)` splits on `o` and is `rfl` in each case. A law about *any* computation `t: () -> {Fail} a` needs to split on what `t` does. `match reify t with` does that, with clauses written as a handler's ([proposals/proof-reification.md](proposals/proof-reification.md)):
-
-```
-theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
-    Fail.toResult (() => k (t ())) = Result.flatMap (x => Fail.toResult (() => k x)) (Fail.toResult t) :=
-  match reify t with
-    | return x => rfl          -- `t` finished with `x`
-    | Fail.stop msg, _ => rfl  -- `t` failed with `msg`
-```
-
-- In each clause, `t ()` in the goal (and in the types of the variables in scope) is replaced by what it did, as a `match` on an expression generalises it ([`match`](#match)), so the handlers in the goal compute. The second name in an operation's clause (`_` here) is the rest of the computation, a function from what the operation returns: `| State.get (), rest =>` has `rest: s -> {State s} a`.
-- The thunk is a function `() -> {A, B} t` or written in place, `match reify (() => f x) with`. Its row must list its abilities and be closed: `{Fail}` or `{State Nat, Fail}`, not `{Fail | e}` or `{e}`, and not `Partial` (`E-REIFY`). There must be a `return` clause and one clause for each operation of the row (`E-NONEXHAUSTIVE`); an operation of an ability not in the row is `E-ABILITY`.
-- It splits once: the first thing the computation does. Laws about computations that resume (`State`) by induction on everything they do aren't supported yet.
-- **Proofs only.** `reify` may be used only in a declaration whose result is erased: a `theorem`, or a `def` whose type ends in `Prop` or a type (`def Finished (t: () -> {State s} a): Prop := match reify t with …`), including the local definitions and `match`es inside it. Anywhere else (a `def` that computes data, a `test`, an `instance`, an `export`) it is `E-PROOF-ONLY`: what it gives depends on how a computation is represented, so it must never run. To act on a failure at run time, use a handler.
-- **Programs can't take a computation apart either.** `Effect.Comp`'s constructors (`Done`, `Call`) and the definitions that match on it (`Effect.foldComp`, `Effect.bind`, `Effect.translate`, `Effect.runPure`) may be named only in a declaration whose result is erased (the same test), or in a signature or a type. In a `def` that computes data, a `test` or an expression it is `E-PROOF-ONLY`; the standard library is exempt. A program can still pass a computation as a thunk, run it, and give it to a handler: that is all it can do with one. A hand-written tree is only for proofs, and a predicate about one is a `Prop`:
-
-  ```
-  def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
-    | Done value => Unit
-    | Call () rest
-  ```
-- `reify` is a keyword only right after `match`; elsewhere it's an ordinary name. `match h: reify t` is refused: the equation would be between computations, whose type has no spelling.
-- `examples/accept/reify-fail.sw` has the laws, `Fail.toResultMapIn` (by induction on the list, with a split on `f x` and then on the rest), and one-step splits of a user's `State` computation.
 
 ## `decreasing`
 
