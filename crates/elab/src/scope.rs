@@ -568,10 +568,10 @@ impl Elaborator {
     }
 
     /// Whether `global` may be named only in the library: the constructors
-    /// of `Effect.Row` and the definitions that take a row apart, so that a
+    /// of `Effect.Effects` and the definitions that take a row apart, so that a
     /// program can't build, inspect or compare rows, and effect polymorphism
     /// stays parametric (docs/proposals/effect-polymorphism.md §5.C.2,
-    /// D1122). The type `Effect.Row` itself can be named, to declare a type
+    /// D1122). The type `Effect.Effects` itself can be named, to declare a type
     /// with a row parameter: without its constructors nothing can be done
     /// with a row but pass it on.
     pub(crate) fn is_internal(&self, global: Global) -> bool {

@@ -6,7 +6,7 @@
 //!   handlers use (see `Elaborator::ability`).
 //! - A row `{A, B | e}` becomes a chain of `Plus`es of the abilities'
 //!   operation types, in declaration order, ending in `NoOp` (closed) or in
-//!   `rowOp e` for a row variable `e : Row`. A function type `a -> {E} b` is
+//!   `rowOp e` for a row variable `e : Effects`. A function type `a -> {E} b` is
 //!   `a -> Comp (ops of E) (results of E) b`, except for a bare row
 //!   variable: `a -> {e} b` is `a -> CompIn e b`, which computes to `b` at the
 //!   empty row and to a `Comp` at any other (design C of
@@ -63,7 +63,7 @@ pub struct AbilityInfo {
 #[derive(Clone)]
 pub struct Row {
     pub labels: Vec<Label>,
-    /// A row variable (a value of type `Row`), or `None` for a closed row.
+    /// A row variable (a value of type `Effects`), or `None` for a closed row.
     pub tail: Option<Value>,
     pub partial: bool,
 }
@@ -250,7 +250,7 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
     ))
 }
 
-/// A row as a value of type `Row`, in canonical form: `Empty` for the empty
+/// A row as a value of type `Effects`, in canonical form: `Empty` for the empty
 /// row, the row variable itself for a bare `{e}`, and `Ops (ops row) (res
 /// row)` only for a row with at least one ability. So the elaborator never
 /// makes `Ops NoOp NoRes` (docs/proposals/effect-polymorphism.md §5.C.2).
@@ -355,8 +355,8 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
 }
 
 /// A row has each ability at most once. Rows written in source and rows the
-/// elaborator builds always do, but a row variable `e : Row` instantiated by
-/// hand with a `Row` that repeats an ability (`{Log | e}` with `e` holding
+/// elaborator builds always do, but a row variable `e : Effects` instantiated by
+/// hand with an `Effects` that repeats an ability (`{Log | e}` with `e` holding
 /// `Log`) reads as a row that doesn't. Source operations always use the
 /// first copy, and moving a computation between rows maps every copy to the
 /// one of the same ability, so the copies would silently merge. This is the

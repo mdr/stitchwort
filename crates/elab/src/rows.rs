@@ -65,7 +65,7 @@ impl Postponed {
 }
 
 /// Records `meta`, made for an implicit parameter of type `ty`, if `ty` is
-/// `Effect.Row`.
+/// `Effect.Effects`.
 pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
     let Ok(Value::Data(d, _)) = force(cx.g(), ty.clone()) else {
         return;

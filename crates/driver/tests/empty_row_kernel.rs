@@ -163,7 +163,7 @@ fn a_pure_use_of_an_effect_polymorphic_function_has_no_computation() {
     }
     let g = &session.elab.globals;
     let comp = g.find_data("Effect.Comp").unwrap();
-    let row = g.find_data("Effect.Row").unwrap();
+    let row = g.find_data("Effect.Effects").unwrap();
     let run_pure = def(g, "Effect.runPure");
     for name in ["doubled", "successors", "unannotated", "emptyRow"] {
         let d = g.def(def(g, name));
