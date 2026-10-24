@@ -6696,9 +6696,9 @@
     {
       "id": 416,
       "title": "Debug-build panic at crates/core/src/value.rs:1916: cargo test -p stitchwort-web (debug) fails 24 of 25 tests, also on main; release passes",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "bug"
       ],
