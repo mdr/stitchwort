@@ -1,5 +1,5 @@
 {
-  "next": 399,
+  "next": 403,
   "tickets": [
     {
       "id": 1,
@@ -6266,8 +6266,8 @@
     },
     {
       "id": 390,
-      "title": "Research: named and default arguments — note revised after external review (46974cbb); D1092-D1101, D1112-D1115 await Matt",
-      "status": "review",
+      "title": "Research: named and default arguments — note docs/proposals/named-arguments.md; all decisions taken as recommended (24 Oct)",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane: revision after external review",
       "labels": [
@@ -6409,6 +6409,62 @@
         "e7c32a30",
         "a84e0219"
       ]
+    },
+    {
+      "id": 399,
+      "title": "Named arguments stage 1: (x := e), any-order [x := e], slot filling, skipped-parameter lambdas, E-EFFECT-ORDER (named-arguments.md §4, §7)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree lane",
+      "labels": [
+        "lang"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 400,
+      "title": "Named arguments stage 1b: formatter, LSP completion and hover for parameter names; examples and docs",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lang"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 401,
+      "title": "Field defaults stage 2: field: T := v on records and constructors (named-arguments.md §5)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lang"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 402,
+      "title": "Field defaults stage 2b: JS input shapes, decoder fills defaults, D1114 absence rule",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lang"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
     }
   ]
 }

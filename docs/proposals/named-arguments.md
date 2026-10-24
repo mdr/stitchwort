@@ -1,8 +1,8 @@
 # Named and default arguments
 
-Status: design only (SW-390). Nothing here is built. Revised after external
-review (24 Oct 2026). Decisions D1092 to D1101 and D1112 to D1115 are open
-(§8).
+Status: decided, not yet built (SW-390). Revised after external review
+(24 Oct 2026). All decisions in §8 were taken as recommended (Matt, 24 Oct
+2026).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
 in the source, or run against `target/debug/stitchwort` built from `main` on
@@ -964,6 +964,9 @@ silently overwrite itself", is replaced by §5.2's evidence that two sets of
 defaults for one type can't meet; metadata is kept per declaration.)
 
 ## 8. Decisions for Matt
+
+**Decided (Matt, 24 Oct 2026):** D1092 to D1101 and D1112 to D1115, each as
+recommended below.
 
 **D1092. Should explicit arguments be nameable at call sites?**
 (a) **[Recommended]** Yes, `f (x := e)`, sugar over positional application
