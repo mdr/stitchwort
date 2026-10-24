@@ -563,6 +563,14 @@ impl Elaborator {
             Resolved::Found { global, .. } if !self.loading_prelude && self.is_internal(global) => {
                 Resolved::Missing
             }
+            Resolved::Found { global, .. }
+                if !self.loading_prelude
+                    && self.is_proof_only(global)
+                    && self.module.phase == crate::module::Phase::Body
+                    && !matches!(self.body_erased(), Ok(Some(true))) =>
+            {
+                Resolved::Missing
+            }
             found => found,
         }
     }
@@ -587,6 +595,28 @@ impl Elaborator {
                 Builtin::BindIn,
                 Builtin::LiftIn,
                 Builtin::LowerIn,
+            ]
+            .into_iter()
+            .any(|b| registry.is_def(b, id)),
+            _ => false,
+        }
+    }
+
+    /// Whether `global` takes a computation apart: the constructors of
+    /// `Effect.Comp` and the definitions that match on them. Outside the
+    /// library they may be named only in a declaration whose result is erased
+    /// (a proof or a type), so that no program depends on how a computation
+    /// is represented (docs/proposals/proof-reification.md, D1145, stage R2).
+    pub(crate) fn is_proof_only(&self, global: Global) -> bool {
+        use stitchwort_core::registry::Builtin;
+        let registry = &self.globals.registry;
+        match global {
+            Global::Ctor(d, _) => registry.is_data(Builtin::Comp, d),
+            Global::Def(id) => [
+                Builtin::FoldComp,
+                Builtin::Bind,
+                Builtin::Translate,
+                Builtin::RunPure,
             ]
             .into_iter()
             .any(|b| registry.is_def(b, id)),
@@ -1058,7 +1088,7 @@ impl Elaborator {
     /// something else.
     pub(crate) fn written(&self, key: &str) -> String {
         let short = display(key);
-        match self.resolve(short) {
+        match self.resolve_any(short) {
             Resolved::Found { key: k, rest, .. } if k == key && rest.is_empty() => {
                 short.to_string()
             }
@@ -1125,6 +1155,30 @@ impl Elaborator {
             .with_note(
                 "rows are made by the compiler from `{e}` and `{A | e}` in types; a program \
                  can pass a row variable on, but not build or inspect a row",
+            );
+        }
+        if let Resolved::Found { global, key, .. } = self.resolve_any(&name.text)
+            && !self.loading_prelude
+            && self.is_proof_only(global)
+        {
+            return Diagnostic::error(
+                "E-PROOF-ONLY",
+                format!(
+                    "`{}` takes a computation apart, so it can only be used in a proof",
+                    display(key)
+                ),
+            )
+            .with_label(
+                name.span,
+                "this declaration computes data, so this would run",
+            )
+            .with_note(
+                "`Effect.Comp`'s constructors and eliminators may be used in a `theorem`, or a \
+                 `def` whose type ends in `Prop` or a type: what it computes is never run",
+            )
+            .with_note(
+                "a program passes computations as thunks `() -> {Fail} a` and observes them \
+                 with a handler such as `Fail.toResult` or `Fail.orElse`",
             );
         }
         if let Some(context) = &self.file_mode

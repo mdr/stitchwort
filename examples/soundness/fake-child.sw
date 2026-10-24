@@ -10,6 +10,6 @@ type ChooseOp: Type =
 def ChooseRes: ChooseOp -> Type
   | Choose => Bool
 
-def loop: Comp ChooseOp ChooseRes Nat -> Nat
-  | Done x      => x
+def loop: Comp ChooseOp ChooseRes Nat -> Prop
+  | Done x      => Unit
   | Call o rest => loop ((b => Call o rest: Bool -> Comp ChooseOp ChooseRes Nat) True)

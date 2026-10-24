@@ -2,12 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
-    ╭─[ reject/effect-pass-stuck.sw:18:78 ]
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/effect-pass-stuck.sw:18:71 ]
     │
- 18 │ theorem stuckIsDone: (xs: List Nat) -> isDone (stuckComp xs) = True := xs => rfl
-    │                                                                              ─┬─  
-    │                                                                               ╰─── `isDone (stuckComp xs)` and `True` aren't equal
-    │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+ 18 │ theorem stuckIsDone: (xs: List Nat) -> IsDone (stuckComp xs) := xs => Trivial
+    │                                                                       ───┬───  
+    │                                                                          ╰───── expected `IsDone (stuckComp xs)`, but this has type `Unit`
 ────╯

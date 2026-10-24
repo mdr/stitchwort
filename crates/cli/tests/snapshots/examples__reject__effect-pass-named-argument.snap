@@ -2,14 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
-    ╭─[ reject/effect-pass-named-argument.sw:16:152 ]
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/effect-pass-named-argument.sw:16:145 ]
     │
- 16 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> takes (computation := computation) (count := 1) = True := computation => rfl
-    │                                                                                                                                                        ─┬─  
-    │                                                                                                                                                         ╰─── `takes 1 computation` and `True` aren't equal
-    │ 
-    │ Note 1: computing the left side gives `isDone computation`
-    │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+ 16 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> takes (computation := computation) (count := 1) := computation => Trivial
+    │                                                                                                                                                 ───┬───  
+    │                                                                                                                                                    ╰───── expected `IsDone computation`, but this has type `Unit`
 ────╯

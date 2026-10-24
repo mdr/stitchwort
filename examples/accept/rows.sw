@@ -57,18 +57,9 @@ type AbortOp: Type =
 def AbortRes: AbortOp -> Type
   | Abort => Empty
 
--- Traces
-
--- Runs a computation with fixed answers, recording a number for each
--- operation and then 1000 + the result. `answer` gives both the number to
--- record and the response.
-def trace [op: Type] [res: op -> Type]
-    (answer: (o: op) -> Pair Nat (res o)): Comp op res Nat -> List Nat
-  | Done x => [1000 + x]
-  | Call o rest => Cons (fstOf (answer o)) (trace answer (rest (sndOf (answer o))))
-
--- `get` gives 7 (recorded as 1), `put n` is recorded as 100 + n, `choose`
--- gives `True` (recorded as 2), and `tick` is recorded as 3.
+-- Answers for the traces: `get` gives 7 (recorded as 1), `put n` is recorded
+-- as 100 + n, `choose` gives `True` (recorded as 2), and `tick` is recorded
+-- as 3.
 def answerState: (o: StateOp) -> Pair Nat (StateRes o)
   | Get => MkPair 1 7
   | Put n => MkPair (100 + n) MkUnit
@@ -86,36 +77,13 @@ def answerPlus [l r: Type] [lres: l -> Type] [rres: r -> Type]
   | R o => ar o
 
 -- A program in the row `{State, Choose}`
-
 def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseRes) a
-
-def get: SC Nat := Call (L Get) (n => Done n)
-
-def put (n: Nat): SC Unit1 := Call (L (Put n)) (u => Done u)
-
-def choose: SC Bool := Call (R Choose) (b => Done b)
-
--- choose, then put 1 if it said yes, then get
-def p: SC Nat := bind choose (b => bind (if b then put 1 else Done MkUnit) (u => get))
 
 def answerSC (o: Plus StateOp ChooseOp): Pair Nat (PlusRes StateRes ChooseRes o) := answerPlus answerState answerChoose o
 
 def answerCS (o: Plus ChooseOp StateOp): Pair Nat (PlusRes ChooseRes StateRes o) := answerPlus answerChoose answerState o
 
-test "the trace itself" := eqNats (trace answerSC p) [2, 101, 1, 1007]
-
--- Mappings preserve traces
-
-test "identity" := eqNats (trace answerSC (translate sigId p)) (trace answerSC p)
-
-test "swap" := eqNats (trace answerCS (translate sigSwap p)) (trace answerSC p)
-
-test "swap, then swap back" :=
-  eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p)
-
 -- Weakening `{Choose}` into `{{State, Choose}, Tick}` in two steps, and in one.
-def chooseOnly: Comp ChooseOp ChooseRes Nat := Call Choose (b => Done (if b then 1 else 0))
-
 def SCT: Type := Plus (Plus StateOp ChooseOp) TickOp
 
 def SCTRes (o: SCT): Type := PlusRes (PlusRes StateRes ChooseRes) TickRes o
@@ -125,54 +93,6 @@ def twoSteps: SigMap ChooseOp ChooseRes SCT SCTRes := sigCompose sigRight sigLef
 def oneStep: SigMap ChooseOp ChooseRes SCT SCTRes := MkSigMap (o => L (R o)) (o x => x)
 
 def answerSCT (o: SCT): Pair Nat (SCTRes o) := answerPlus answerSC answerTick o
-
-test "composed weakenings agree with the direct one" :=
-  eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerSCT (translate oneStep chooseOnly))
-
-test "weakening keeps the trace" :=
-  eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerChoose chooseOnly)
-
--- Handlers over an abstract rest of the row
-
--- `State` on the left of any row `e`.
-def runStateL [e: Type] [eres: e -> Type] [a: Type]
-    (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a -> Comp e eres (Pair a Nat)
-  | Done x => Done (MkPair x s)
-  | Call (L Get) rest => runStateL s (rest s)
-  | Call (L (Put n)) rest => runStateL n (rest MkUnit)
-  | Call (R o) rest => Call o (y => runStateL s (rest y))
-
--- `Choose` on the left of any row `e`: every outcome, `True` first.
-def allResultsL: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
-    Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a -> Comp e eres (List a)
-  | Done x => Done [x]
-  | Call (L Choose) rest =>
-    bind (allResultsL (rest True)) (xs =>
-      bind (allResultsL (rest False)) (ys => Done (List.append xs ys)))
-  | Call (R o) rest => Call o (y => allResultsL (rest y))
-
--- Removing the last ability.
-def allResults: Comp ChooseOp ChooseRes a -> List a
-  | Done x => [x]
-  | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
-
-def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
-  | Done x => MkPair x s
-  | Call Get rest => runState s (rest s)
-  | Call (Put n) rest => runState n (rest MkUnit)
-
-def toOption: Comp AbortOp AbortRes a -> Option a
-  | Done x => Some x
-  | Call Abort rest => None
-
-def fromSomeNil: Option (List a) -> List a
-  | None => Nil
-  | Some xs => xs
-
--- `runStateL` with `e = Choose`.
-def stateThenChoice: List (Pair Nat Nat) := allResults (runStateL 0 p)
-
-test "state inside choice" := eqPairs stateThenChoice [MkPair 1 1, MkPair 0 0]
 
 -- The same program weakened into `{State, {Choose, Abort}}`, so `runStateL`
 -- runs with `e = Plus ChooseOp AbortOp`, and `allResultsL` with `e = Abort`.
@@ -188,12 +108,97 @@ def replySCA: (o: Plus StateOp ChooseOp) -> SCARes (intoSCA o) -> PlusRes StateR
   | L o, x => x
   | R o, x => x
 
-def pWider: Comp SCA SCARes Nat := translate (MkSigMap intoSCA replySCA) p
+def fromSomeNil: Option (List a) -> List a
+  | None => Nil
+  | Some xs => xs
 
-test "the same handler, with a wider rest of the row" :=
-  eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice
+-- A program can't take a computation apart (docs/proposals/proof-reification.md,
+-- stage R2), so the hand-written handlers and programs are local definitions
+-- of a theorem, and each behaviour is a `let` that `rfl` checks.
+theorem rowsBehave: Unit :=
+  -- Traces
 
--- Handling `Choose` when it's on the left instead: swap the program, then
--- use `allResultsL` with `e = State`. Choice inside, state outside.
-test "a handler for the other position" :=
-  eqNats (fstOf (runState 0 (allResultsL (translate sigSwap p)))) [1, 1]
+  -- Runs a computation with fixed answers, recording a number for each
+  -- operation and then 1000 + the result. `answer` gives both the number to
+  -- record and the response.
+  def trace [op: Type] [res: op -> Type]
+      (answer: (o: op) -> Pair Nat (res o)): Comp op res Nat -> List Nat
+    | Done x => [1000 + x]
+    | Call o rest => Cons (fstOf (answer o)) (trace answer (rest (sndOf (answer o))))
+
+  def get: SC Nat := Call (L Get) (n => Done n)
+
+  def put (n: Nat): SC Unit1 := Call (L (Put n)) (u => Done u)
+
+  def choose: SC Bool := Call (R Choose) (b => Done b)
+
+  -- choose, then put 1 if it said yes, then get
+  def p: SC Nat := bind choose (b => bind (if b then put 1 else Done MkUnit) (u => get))
+
+  let theTrace: eqNats (trace answerSC p) [2, 101, 1, 1007] = True := rfl
+
+  -- Mappings preserve traces
+
+  let identity: eqNats (trace answerSC (translate sigId p)) (trace answerSC p) = True := rfl
+
+  let swap: eqNats (trace answerCS (translate sigSwap p)) (trace answerSC p) = True := rfl
+
+  let swapBack:
+    eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p) = True := rfl
+
+  def chooseOnly: Comp ChooseOp ChooseRes Nat := Call Choose (b => Done (if b then 1 else 0))
+
+  let composedWeakenings:
+    eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerSCT (translate oneStep chooseOnly)) = True := rfl
+
+  let weakeningKeepsTrace:
+    eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerChoose chooseOnly) = True := rfl
+
+  -- Handlers over an abstract rest of the row
+
+  -- `State` on the left of any row `e`.
+  def runStateL [e: Type] [eres: e -> Type] [a: Type]
+      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a -> Comp e eres (Pair a Nat)
+    | Done x => Done (MkPair x s)
+    | Call (L Get) rest => runStateL s (rest s)
+    | Call (L (Put n)) rest => runStateL n (rest MkUnit)
+    | Call (R o) rest => Call o (y => runStateL s (rest y))
+
+  -- `Choose` on the left of any row `e`: every outcome, `True` first.
+  def allResultsL: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
+      Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a -> Comp e eres (List a)
+    | Done x => Done [x]
+    | Call (L Choose) rest =>
+      bind (allResultsL (rest True)) (xs =>
+        bind (allResultsL (rest False)) (ys => Done (List.append xs ys)))
+    | Call (R o) rest => Call o (y => allResultsL (rest y))
+
+  -- Removing the last ability.
+  def allResults: Comp ChooseOp ChooseRes a -> List a
+    | Done x => [x]
+    | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
+
+  def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
+    | Done x => MkPair x s
+    | Call Get rest => runState s (rest s)
+    | Call (Put n) rest => runState n (rest MkUnit)
+
+  def toOption: Comp AbortOp AbortRes a -> Option a
+    | Done x => Some x
+    | Call Abort rest => None
+
+  -- `runStateL` with `e = Choose`.
+  let stateThenChoice: List (Pair Nat Nat) := allResults (runStateL 0 p)
+
+  let stateInsideChoice: eqPairs stateThenChoice [MkPair 1 1, MkPair 0 0] = True := rfl
+
+  def pWider: Comp SCA SCARes Nat := translate (MkSigMap intoSCA replySCA) p
+
+  let widerRest:
+    eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice = True := rfl
+
+  -- Handling `Choose` when it's on the left instead: swap the program, then
+  -- use `allResultsL` with `e = State`. Choice inside, state outside.
+  let otherPosition:
+    eqNats (fstOf (runState 0 (allResultsL (translate sigSwap p)))) [1, 1] = True := rfl
+  Trivial

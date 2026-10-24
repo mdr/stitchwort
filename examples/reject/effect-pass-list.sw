@@ -1,4 +1,4 @@
--- expect-error: E-REFL
+-- expect-error: E-TYPE-MISMATCH
 -- A computation passed where a computation is expected, as an item of a list of computations, is
 -- passed as it is: an arbitrary computation isn't known to be `Done`. It was
 -- run in place and re-wrapped as `Done (runPure c)` before stage 0 of
@@ -7,12 +7,12 @@
 import Std (Effect, List)
 import Std.Effect.Comp (Done, Call)
 
-def isDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Bool
-  | Done value => True
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+  | Done value => Unit
   | Call () rest
 
-def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Bool
-  | Nil => True
-  | Cons first rest => isDone first && allDone rest
+def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Prop
+  | Nil => Unit
+  | Cons first rest => And (IsDone first) (allDone rest)
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> allDone [computation] = True := computation => rfl
+theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> allDone [computation] := computation => Trivial
