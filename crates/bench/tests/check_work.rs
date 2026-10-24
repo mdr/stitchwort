@@ -212,3 +212,18 @@ fn stuck_conditions_keep_filter_and_count_linear() {
         );
     }
 }
+
+/// SW-321: `k * x` for a literal `k` and an unknown `x` stays folded as the
+/// call (`value.rs` `folds_call`), so a type that mentions it costs the same
+/// whatever `k` is. It used to unfold `k` times, into `x + (x + ... + 0)`:
+/// 14.4M steps for `100000 * x`, and a stack overflow for `1000000 * x`.
+#[test]
+fn literal_times_unknown_stays_folded() {
+    let program = |k: u64| format!("theorem t (x: Nat) (h: {k} * x <= 5): {k} * x <= 5 := h\n");
+    let small = measure(program(1_000));
+    let large = measure(program(100_000));
+    let huge = measure(program(1_000_000));
+    println!("k * x: {small:?} / {large:?} / {huge:?}");
+    assert_eq!(small, large);
+    assert_eq!(small, huge);
+}

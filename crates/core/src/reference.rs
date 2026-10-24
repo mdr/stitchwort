@@ -261,6 +261,7 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     if let Some(body) = &def.body
         && def.arity == spine.len()
         && !folds(g, id)
+        && !native::folds_mul(g, id, &spine)
     {
         let args: Option<Vec<Value>> = spine
             .iter()
@@ -294,10 +295,11 @@ fn folds_on_lift(g: &Globals, id: DefId) -> bool {
 }
 
 /// Whether `value` is a folded definition with all its arguments (or may
-/// be, folded on a `Quot.lift`).
+/// be, folded on a `Quot.lift`), or `k * x` left folded
+/// (`native::folds_mul`).
 fn is_folded(g: &Globals, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
-        if (folds(g, *id) || folds_on_lift(g, *id))
+        if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
             && g.def(*id).body.is_some())
 }
@@ -307,7 +309,7 @@ fn is_folded(g: &Globals, value: &Value) -> bool {
 /// or a comparison; anything else as it is.
 fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
     if let Value::Neutral(Head::Def(id), spine) = &value
-        && (folds(g, *id) || folds_on_lift(g, *id))
+        && (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
         && spine.len() == g.def(*id).arity
         && let Some(body) = g.def(*id).body.clone()
     {
