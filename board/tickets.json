@@ -6504,16 +6504,18 @@
     {
       "id": 404,
       "title": "Named arguments: leftovers from stage 1 — positional E-EFFECT-ORDER message for the sized case (spec §4.5); stages after a skipped parameter; names after a dependent codomain may not be found",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "lang"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "4ad1ceca"
+      ]
     },
     {
       "id": 405,
@@ -6606,16 +6608,18 @@
     {
       "id": 411,
       "title": "Dot notation on a call returning an alias of Comp ((stuckThunk xs).finished) looks in the unfolded type's namespace and fails",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "521d3fb8"
+      ]
     },
     {
       "id": 412,
