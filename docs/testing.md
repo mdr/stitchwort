@@ -21,7 +21,7 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 | `dev/t browser` | Build and run the playground tests in headless Chrome |
 | `dev/t lint` | `cargo fmt --check` and clippy |
 | `dev/t all` | Every test in the workspace |
-| `dev/t gate` | `nix flake check`, the full gate (6-7 minutes) |
+| `dev/t gate` | `nix flake check`, the full gate (6-7 minutes), including `debug-builtins`: `stitchwort-driver --test builtins` in the debug profile, to catch debug-only panics |
 
 For `dev/t examples` and `dev/t hashes`, `dev/t AREA FILTER` sets `EXAMPLES=FILTER`, so only example files or project folders whose names contain `FILTER` run, for example `dev/t examples synonym`. For the other areas, `FILTER` is passed as the test-name filter after `--`. `dev/t snap AREA` sets `INSTA_UPDATE=always` and then prints the changed snapshots for review; unfiltered snapshots are left alone. Outside `nix develop` the script runs commands through `nix develop -c`; inside the dev shell it calls `cargo` directly.
 

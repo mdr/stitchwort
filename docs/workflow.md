@@ -48,7 +48,7 @@ clones.
 
 Nothing is committed to `main` unless `nix flake check` passes: formatting,
 clippy, all tests, the examples and their snapshots, hash stability and the
-benchmark baseline. New files must be `git add`ed first, since the flake only
+benchmark baseline, and `debug-builtins` (the `stitchwort-driver` `builtins` test binary, which loads the prelude, built and run in the debug profile so overflow checks and `debug_assert!`s are exercised; every other check is release). New files must be `git add`ed first, since the flake only
 sees tracked files. Long runs (the gate, browser tests, builds) go in the
 background.
 
