@@ -21,10 +21,10 @@
 -- in `Aoc.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day06
-import Std (Char, IO, Nat, Text)
+import Std (Char, Fail, IO, Nat, Text)
 
-def main(): {IO} () :=
-  let problems := parseWorksheet IO.readAllLines()
+def main(): {IO, Fail} () :=
+  let problems := (checkWorksheet IO.readAllLines()).orFail
   IO.print "Part 1: ${solvePart1 problems}"
   IO.print "Part 2: ${solvePart2 problems}"
 
@@ -75,3 +75,53 @@ def solvePart1 (problems: List Problem): Nat := problems.sumBy (problem => evalu
 
 -- Part 2: the answers of the problems read by columns.
 def solvePart2 (problems: List Problem): Nat := problems.sumBy (problem => evaluate problem.operator problem.columnNumbers)
+
+-- The strict reader `main` uses. `parseWorksheet` is total and forgiving (it
+-- skips a stray character in a number, takes the first operator of a block,
+-- counts a block without one as 0); `checkWorksheet` refuses a worksheet that
+-- isn't well formed and otherwise gives exactly `parseWorksheet lines`
+-- (`Aoc.Day06.Proofs.checkWorksheetParses`), so the proofs about the parser
+-- describe what is printed. Well formed means:
+--   - at least two lines: number rows, then the operator row;
+--   - the number rows hold only digits and spaces, the operator row only + *
+--     and spaces (lines and columns count from 1 in the messages);
+--   - one operator under each block of columns.
+-- Trailing blank lines are rejected, not skipped: the operator row is the last
+-- line, so an extra blank line would leave it without operators, and the
+-- message says so. Short lines (trailing spaces trimmed) are fine.
+def checkWorksheet (lines: List Text): Result (List Problem) Text :=
+  match worksheetError lines with
+    | Some message => Err message
+    | None => Ok (parseWorksheet lines)
+
+-- The first thing wrong with the worksheet, if anything.
+def worksheetError (lines: List Text): Option Text :=
+  if lines.length < 2 then
+    Some "expected number rows followed by an operator row, got ${lines.length} lines"
+  else if (lines.last.map .trim) == Some "" then
+    Some "line ${lines.length}: expected the operator row, got a blank line"
+  else
+    (lines.init.withIndex.findMap (((index, row)) => characterError (index + 1) "a digit" isDigit row))
+      |> .orElse (lines.last.flatMap (row => characterError lines.length "+ or *" isOperator row))
+      |> .orElse (blockError lines)
+
+def isDigit (ch: Char): Bool := ch.digitValue.isSome
+
+def isOperator (ch: Char): Bool := (Operator.parse ch).isSome
+
+-- The first character of the row that is neither a space nor allowed.
+def characterError (lineNumber: Nat) (expected: Text) (allowed: Char -> Bool) (row: Text): Option Text :=
+  row.toList.withIndex.findMap (((index, ch)) =>
+    if ch == ' ' || allowed ch then None
+    else Some "line ${lineNumber}, column ${index + 1}: expected ${expected} or a space, got '${ch}'")
+
+-- The first block of columns without exactly one operator, named by the
+-- column it starts at. Needs the rows to hold only operators and spaces.
+def blockError (lines: List Text): Option Text :=
+  (lines.map .toList).transposeFill ' ' |> .withIndex |> .splitBy (indexed => isBlank indexed.snd)
+    |> .findMap (block =>
+      let operators := block.count (indexed => (indexed.snd.last.flatMap Operator.parse).isSome)
+      let start := block.headOr (0, []) |> (indexed => indexed.fst + 1)
+      if operators == 1 then None
+      else if operators == 0 then Some "the problem starting at column ${start} has no operator"
+      else Some "the problem starting at column ${start} has ${operators} operators, expected one")
