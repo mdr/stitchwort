@@ -45,12 +45,20 @@ fn lower_everything(session: &Session, what: &str) -> usize {
 /// (`stitchwort test`). A test that uses partial computations, which the
 /// interpreter doesn't run, is skipped. How many tests ran.
 fn run_tests(session: &Session, program: &Program, what: &str, library: bool) -> usize {
+    // The real-input tests are left out, as in `machine.rs`'s `aoc_agrees`:
+    // on the reference evaluator they take minutes (SW-412), and the
+    // machine checks the answers (`aoc_answers`).
+    let keep = |t: &stitchwort_elab::TestDecl| !t.name.starts_with("real input");
     let results = if library {
         session.run_library_tests(&Cache::disabled())
     } else {
-        session.run_tests(&Cache::disabled())
+        session.run_tests_where(&Cache::disabled(), keep)
     };
-    let decls = session.elab.tests.iter().filter(|t| t.library == library);
+    let decls = session
+        .elab
+        .tests
+        .iter()
+        .filter(|t| t.library == library && (library || keep(t)));
     let interp = interp::Interp::new(program);
     let mut ran = 0;
     for (decl, result) in decls.zip(results) {
