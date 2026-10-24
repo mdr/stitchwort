@@ -34,13 +34,13 @@ theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List
 -- One problem's block of columns, as the program reads it, against the
 -- spec's reading of the same cells. `Cons c cs` are the problem's columns.
 theorem blockRows (lines: List Text) (c: Nat) (cs: List Nat):
-    (parseProblem ((Cons c cs).map (column lines))).rowNumbers = lines.init.map (line => readNumber ((Cons c cs).map (charAt line))) :=
+    (parseProblem ((Cons c cs).map (column lines))).rowNumbers = lines.init.map (line => parseNumber ((Cons c cs).map (charAt line))) :=
   rewrite List.transposeGrid (x line => charAt line x) c cs lines, List.initMap (line => (Cons c cs).map (charAt line)) lines in
-    List.mapMap readNumber (line => (Cons c cs).map (charAt line)) lines.init
+    List.mapMap parseNumber (line => (Cons c cs).map (charAt line)) lines.init
 
 theorem blockColumns (lines: List Text) (cs: List Nat):
-    (parseProblem (cs.map (column lines))).columnNumbers = cs.map (c => readNumber (column lines.init c)) :=
-  rewrite List.mapMap (column => readNumber column.init) (column lines) cs, List.initMap (line => charAt line _) lines
+    (parseProblem (cs.map (column lines))).columnNumbers = cs.map (c => parseNumber (column lines.init c)) :=
+  rewrite List.mapMap (column => parseNumber column.init) (column lines) cs, List.initMap (line => charAt line _) lines
 
 -- The operator under column c.
 theorem columnOperator (lines: List Text) (c: Nat):
@@ -92,8 +92,8 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
   | True, h =>
     rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
       blockColumns lines (List.rangeFrom (hi - lo) lo),
-      List.mapReverse (c => readNumber (column lines.init c)) (List.rangeFrom (hi - lo) lo),
-      evaluateReverse (operatorOf lines lo hi) ((List.rangeFrom (hi - lo) lo).map (c => readNumber (column lines.init c)))
+      List.mapReverse (c => parseNumber (column lines.init c)) (List.rangeFrom (hi - lo) lo),
+      evaluateReverse (operatorOf lines lo hi) ((List.rangeFrom (hi - lo) lo).map (c => parseNumber (column lines.init c)))
 
 -- The program's total over the blocks is the total over the problems the
 -- spec finds, for any way `answer` scores a block.

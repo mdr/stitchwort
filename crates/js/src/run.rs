@@ -93,9 +93,25 @@ fn internal(message: String) -> Diagnostic {
 /// `{IO, Partial} ()` that `stitchwort run` runs (`Main`'s term in the
 /// driver).
 pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Program, Diagnostic> {
+    generate_program_with(g, limits, main, Options::default())
+}
+
+/// [`generate_program`] with `options`. With `effect_counters`, the runner
+/// also counts the operations it routes, the frames routing looks at, and
+/// the frames below the focus at each operation (`operations`, `visited`
+/// and `below`, beside the effect runtime's counts; as
+/// `stitchwort_rt::RouteCounts`), and prints them to standard error at the
+/// end as a line `stitchwort-route-counts {"operations":…,…}`, for tests.
+pub fn generate_program_with(
+    g: &Globals,
+    limits: Limits,
+    main: &Term,
+    options: Options,
+) -> Result<Program, Diagnostic> {
     let _op = g.budget.operation(Limits::stack_only(limits.stack));
     erasable(g)?;
-    let mut codegen = Gen::new(g, Options::default())?;
+    let counters = options.effect_counters;
+    let mut codegen = Gen::new(g, options)?;
     codegen.run_delay = true;
     if codegen.text.is_none() {
         return Err(internal(
@@ -163,7 +179,31 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
         &RUNNER
             .replace("@EXIT_IO@", &EXIT_IO.to_string())
             .replace("@EXIT_FAIL@", &EXIT_FAIL.to_string())
-            .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string()),
+            .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string())
+            .replace(
+                "@COUNT_OPERATION@",
+                if counters {
+                    "effCount.operations++;\n          effCount.below += frames.length;\n          "
+                } else {
+                    ""
+                },
+            )
+            .replace(
+                "@COUNT_VISIT@",
+                if counters {
+                    "effCount.visited++;\n            "
+                } else {
+                    ""
+                },
+            )
+            .replace(
+                "@REPORT_COUNTS@",
+                if counters {
+                    "__fs.writeSync(2, `stitchwort-route-counts ${JSON.stringify({ operations: effCount.operations, visited: effCount.visited, below: effCount.below })}\\n`);\n  "
+                } else {
+                    ""
+                },
+            ),
     );
     Ok(Program {
         module: js,
@@ -482,10 +522,14 @@ import * as __wt from "node:worker_threads";
   // waiting for its result: the effect runtime's list, kept apart from the
   // machine's frames, so routing an operation looks only at `Map` and `Tie`
   // frames, never at a computation's continuations one by one
-  // (docs/proposals/effect-runtime.md §9.1).
+  // (docs/proposals/effect-runtime.md §9.1). `marks` holds the positions of
+  // the `Map` and `Tie` frames in `frames`, bottom first, and routing walks
+  // only those, never the `Bind` and `Await` frames between them (§9.1.6): a
+  // deep non-tail recursion leaves an `Await` per level.
   const run = (delay) => {
     let mode = EVAL, a = delay, b, pending = null;
     const frames = [];
+    const marks = [];
     for (;;) {
       switch (mode) {
         case EVAL:
@@ -504,6 +548,7 @@ import * as __wt from "node:worker_threads";
               a = a.a;
               break;
             case D_MAP:
+              marks.push(frames.length);
               frames.push({ k: F_MAP, inject: a.a[SHAPE.inject], reply: a.a[SHAPE.reply] });
               a = a.b;
               break;
@@ -518,6 +563,7 @@ import * as __wt from "node:worker_threads";
           }
           break;
         case ENTER:
+          marks.push(frames.length);
           frames.push({ k: F_TIE, f: a });
           mode = EVAL;
           a = a(b);
@@ -532,12 +578,14 @@ import * as __wt from "node:worker_threads";
           let op = a[SHAPE.callOp];
           const cont = a[SHAPE.callRest];
           const after = effPending;
-          // The operation leaves the focus, outwards through the frames.
+          // The operation leaves the focus, outwards through the marked
+          // frames.
           const back = [];
           let entered = false;
-          for (let j = frames.length - 1; j >= 0; j--) {
+          @COUNT_OPERATION@for (let p = marks.length - 1; p >= 0; p--) {
+            const j = marks[p];
             const frame = frames[j];
-            if (frame.k === F_MAP) {
+            @COUNT_VISIT@if (frame.k === F_MAP) {
               const target = frame.inject(op);
               back.push([j, op]);
               op = target;
@@ -549,6 +597,7 @@ import * as __wt from "node:worker_threads";
               // A recursion request: one tick.
               const request = op[SHAPE.leftOp][SHAPE.recurArg];
               const upper = frames.splice(j);
+              const upperMarks = marks.splice(p);
               const tail =
                 upper.length === 1 && cont === DONE_K && after === null && back.length === 0;
               if (!tail) {
@@ -557,6 +606,7 @@ import * as __wt from "node:worker_threads";
                   cont,
                   after,
                   upper,
+                  marks: upperMarks.map((k) => k - j),
                   back: back.map(([k, s]) => [k - j, s]),
                 });
               }
@@ -582,9 +632,15 @@ import * as __wt from "node:worker_threads";
               mode = EVAL;
               a = frame.f(a);
               break;
+            case F_MAP:
+            case F_TIE:
+              marks.pop();
+              break;
             case F_AWAIT: {
               const v = translateBack(frame.upper, frame.back, a);
+              const base = frames.length;
               for (const f of frame.upper) frames.push(f);
+              for (const k of frame.marks) marks.push(k + base);
               mode = COMP;
               a = frame.cont(v);
               pending = frame.after;
@@ -623,7 +679,7 @@ import * as __wt from "node:worker_threads";
       throw e;
     }
   }
-  if (code !== 0) {
+  @REPORT_COUNTS@if (code !== 0) {
     __fs.writeFileSync(errorFile, message);
     process.exit(code);
   }

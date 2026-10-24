@@ -67,17 +67,50 @@ pub fn run_main_with(
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> Result<Outcome, RunError> {
+    run_main_counting(program, limits, policy, input, output).0
+}
+
+/// How much work routing operations took in a run: for tests of the
+/// invariant that routing never looks at ordinary frames one by one
+/// (docs/proposals/effect-runtime.md §9.1.6).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RouteCounts {
+    /// Operations that reached the runner: performed, or recursion requests.
+    pub operations: u64,
+    /// Frames routing looked at: only `Map` and `Tie` frames, each once per
+    /// operation that crossed it or stopped at it.
+    pub visited: u64,
+    /// The frames below the focus at each operation, summed: what scanning
+    /// them all, as routing did before stage 4c, would have looked at.
+    pub below: u64,
+}
+
+/// Runs `program` as [`run_main_with`] does, and says how much work routing
+/// took, however the run ended.
+pub fn run_main_counting(
+    program: &Program,
+    limits: Limits,
+    policy: &Policy,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+) -> (Result<Outcome, RunError>, RouteCounts) {
     let mut machine = Machine::new(program, limits);
-    let delay = machine.entry()?;
+    let delay = match machine.entry() {
+        Ok(delay) => delay,
+        Err(e) => return (Err(e.into()), RouteCounts::default()),
+    };
     let mut runner = Runner {
         m: machine,
         frames: Vec::new(),
+        marks: Vec::new(),
         limits,
         lines: 0,
         ticks: 0,
         policy: *policy,
+        counts: RouteCounts::default(),
     };
-    runner.run(delay, input, output)
+    let result = runner.run(delay, input, output);
+    (result, runner.counts)
 }
 
 /// What a `Call`'s rest does with the reply.
@@ -92,10 +125,13 @@ enum Frame {
     /// A `mapSig`'s mapping: `inject`, `reply`.
     Map(Value, Value),
     Tie(Value),
-    /// A caller waiting for a recursive call's result (`step.rs`).
+    /// A caller waiting for a recursive call's result (`step.rs`): the
+    /// frames that were above the `Tie` (from the `Tie` up), their marks,
+    /// and the translations the request passed, all relative to the `Tie`.
     Await {
         cont: Cont,
         upper: Vec<Frame>,
+        marks: Vec<usize>,
         back: Vec<(usize, Value)>,
     },
 }
@@ -110,13 +146,29 @@ enum Focus {
 struct Runner<'p> {
     m: Machine<'p>,
     frames: Vec<Frame>,
+    /// Where the `Map` and `Tie` frames are in `frames`, bottom first: the
+    /// only frames an operation has business with, so routing walks these
+    /// and never the `Bind` and `Await` frames between them
+    /// (docs/proposals/effect-runtime.md §9.1.6). A deep non-tail recursion
+    /// leaves an `Await` per level, which routing used to look at for every
+    /// operation.
+    marks: Vec<usize>,
     limits: Limits,
     lines: usize,
     ticks: u64,
     policy: Policy,
+    counts: RouteCounts,
 }
 
 impl Runner<'_> {
+    /// Pushes `frame`, marking it if routing needs it.
+    fn push(&mut self, frame: Frame) {
+        if matches!(frame, Frame::Map(..) | Frame::Tie(_)) {
+            self.marks.push(self.frames.len());
+        }
+        self.frames.push(frame);
+    }
+
     /// One transition of the stepping: a step, within the frame limit.
     fn step(&mut self, steps: &mut u64) -> Result<(), ResourceError> {
         *steps += 1;
@@ -149,14 +201,14 @@ impl Runner<'_> {
                         Delay::Now(v) => Focus::Ret(v.clone()),
                         Delay::Lift(c) => Focus::Comp(c.clone()),
                         Delay::Bind(d, k) => {
-                            self.frames.push(Frame::Bind(k.clone()));
+                            self.push(Frame::Bind(k.clone()));
                             Focus::Eval(d.clone())
                         }
                         Delay::Map(m, d) => {
                             let Value::Data(_, m) = m else {
                                 panic!("internal error: a `SigMap` that isn't `MkSigMap`")
                             };
-                            self.frames.push(Frame::Map(m[0].clone(), m[1].clone()));
+                            self.push(Frame::Map(m[0].clone(), m[1].clone()));
                             Focus::Eval(d.clone())
                         }
                         // Building `pfix f x` ran nothing; stepping it
@@ -165,7 +217,7 @@ impl Runner<'_> {
                     }
                 }
                 Focus::Enter(f, x) => {
-                    self.frames.push(Frame::Tie(f.clone()));
+                    self.push(Frame::Tie(f.clone()));
                     Focus::Eval(self.m.call(f, vec![x])?)
                 }
                 Focus::Comp(c) => match c {
@@ -208,10 +260,20 @@ impl Runner<'_> {
                 Focus::Ret(v) => match self.frames.pop() {
                     None => return self.finished(&v),
                     Some(Frame::Bind(k)) => Focus::Eval(self.m.call(k, vec![v])?),
-                    Some(Frame::Map(..) | Frame::Tie(_)) => Focus::Ret(v),
-                    Some(Frame::Await { cont, upper, back }) => {
+                    Some(Frame::Map(..) | Frame::Tie(_)) => {
+                        self.marks.pop();
+                        Focus::Ret(v)
+                    }
+                    Some(Frame::Await {
+                        cont,
+                        upper,
+                        marks,
+                        back,
+                    }) => {
                         let v = self.translate_back(&upper, &back, v)?;
+                        let base = self.frames.len();
                         self.frames.extend(upper);
+                        self.marks.extend(marks.into_iter().map(|j| j + base));
                         Focus::Comp(self.apply_cont(&cont, v)?)
                     }
                 },
@@ -256,7 +318,9 @@ impl Runner<'_> {
 
     /// Operation `op` leaves the focus, outwards through the frames: a
     /// `Tie` answers a recursion request (one tick); one that reaches the
-    /// bottom is performed, and the reply goes back.
+    /// bottom is performed, and the reply goes back. Only the marked frames
+    /// are looked at, so the work is the number of `Map`s and `Tie`s
+    /// crossed, however many other frames there are.
     fn route(
         &mut self,
         mut op: Value,
@@ -265,12 +329,18 @@ impl Runner<'_> {
         output: &mut impl Write,
     ) -> Result<Routed, RunError> {
         let s = *self.m.shapes();
+        self.counts.operations += 1;
+        self.counts.below += self.frames.len() as u64;
         let mut back: Vec<(usize, Value)> = Vec::new();
-        let mut j = self.frames.len();
-        while j > 0 {
-            j -= 1;
+        let mut p = self.marks.len();
+        while p > 0 {
+            p -= 1;
+            let j = self.marks[p];
+            self.counts.visited += 1;
             match &self.frames[j] {
-                Frame::Bind(_) | Frame::Await { .. } => {}
+                Frame::Bind(_) | Frame::Await { .. } => {
+                    unreachable!("a mark on a frame that isn't a `Map` or a `Tie`")
+                }
                 Frame::Map(inject, _) => {
                     let inject = inject.clone();
                     let target = self.m.call(inject, vec![op.clone()])?;
@@ -292,10 +362,17 @@ impl Runner<'_> {
                     };
                     let f = f.clone();
                     let upper = self.frames.split_off(j);
+                    let marks = self.marks.split_off(p);
                     let tail = upper.len() == 1 && matches!(cont, Cont::Done) && back.is_empty();
                     if !tail {
+                        let marks = marks.into_iter().map(|k| k - j).collect();
                         let back = back.into_iter().map(|(k, src)| (k - j, src)).collect();
-                        self.frames.push(Frame::Await { cont, upper, back });
+                        self.push(Frame::Await {
+                            cont,
+                            upper,
+                            marks,
+                            back,
+                        });
                     }
                     return Ok(Routed::Tick(Focus::Enter(f, request)));
                 }

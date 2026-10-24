@@ -27,7 +27,7 @@ test "example problems" :=
 test "example operators" :=
   (parseWorksheet example).map (p => p.operator) == [Some Multiply, Some Add, Some Multiply, Some Add]
 test "no operator" := (parseWorksheet ["1", "2", " "]).map (p => p.operator) == [None]
-test "read number" := (readNumber [' ', '4', '5'], readNumber ['3', ' ', ' '], readNumber [' ']) == (45, 3, 0)
+test "parse number" := (parseNumber [' ', '4', '5'], parseNumber ['3', ' ', ' '], parseNumber [' ']) == (45, 3, 0)
 test "example part 1" := solvePart1 (parseWorksheet example) == 4277556
 test "example part 2" := solvePart2 (parseWorksheet example) == 3263827
 test "no problems" := (solvePart1 [], solvePart2 []) == (0, 0)

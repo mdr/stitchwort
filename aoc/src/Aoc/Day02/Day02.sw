@@ -108,4 +108,4 @@ def RepetitionTemplate.sumIn (range: Range) (template: RepetitionTemplate): Nat 
 
 -- Ranges separated by commas. Spaces and a final line ending are allowed;
 -- anything else fails, naming the text that isn't a range.
-def parseRanges (text: Text): {Fail} (List Range) := text.trim.split ',' |> .map Range.read
+def parseRanges (text: Text): {Fail} (List Range) := text.trim.split ',' |> .map Range.parse

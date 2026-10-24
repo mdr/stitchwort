@@ -172,16 +172,16 @@ The row is worked out where the value is used; there's no syntax yet for writing
 ```stitchwort
 type Turn = { left: Bool, distance: Nat }
 
-def Turn.read (text: Text): {Fail} Turn :=
+def Turn.parse (text: Text): {Fail} Turn :=
   let (direction, rest) := need text.uncons "expected a turn, got nothing"
   ensure (direction == 'L' || direction == 'R') "expected L or R, got '${text}'"
   { left = direction == 'L', distance = rest.toNatOrFail }
 
-def readTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.read
+def parseTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.parse
 
-test "a turn" := toResult (() => Turn.read "L68") == Ok ({ left = True, distance = 68 })
-test "a bad turn" := toResult (() => readTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"
-test "context" := toResult (() => Fail.context "line 2" (() => Turn.read "R")) == Err "line 2: expected a whole number, got ''"
+test "a turn" := toResult (() => Turn.parse "L68") == Ok ({ left = True, distance = 68 })
+test "a bad turn" := toResult (() => parseTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"
+test "context" := toResult (() => Fail.context "line 2" (() => Turn.parse "R")) == Err "line 2: expected a whole number, got ''"
 ```
 
 `Fail.context` puts a label in front of a failure's message. Other handlers: `Fail.toOption`, `Fail.orElse` (a default) and `Fail.recover` (a function of the message). `Option.orFail` and `Text.toNatOrFail` are dot-notation forms.
@@ -217,7 +217,7 @@ test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 
 `IO` has three operations: `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines.
 
-`main` has the type `{IO} ()`, and may also be `{IO, Fail} ()`: a failure that reaches the top is printed to standard error as `error: …`, after whatever was printed before it, and the exit status is 1. The shop from [chapter 6](06-namespaces-and-library.md), on an order it can't read:
+`main` has the type `{IO} ()`, and may also be `{IO, Fail} ()`: a failure that reaches the top is printed to standard error as `error: …`, after whatever was printed before it, and the exit status is 1. The shop from [chapter 6](06-namespaces-and-library.md), on an order it can't parse:
 
 <!-- output: run --project project Shop.Report.main < project/bad-orders.txt -->
 ```text

@@ -744,7 +744,11 @@ It answers Q1, Q2, Q3 and Q5 of §8 (Q4 is D1163), and amends §6.
    continuation, which may come later).
 7. **The empty-row non-tail limit.** Empty-row handlers that consume a
    resumption non-tail in pure code (`Cons v (k ())`, `Each.collect`) keep
-   JS stack limits this stage. This is a consequence of the current pure
+   JS stack limits this stage. Natively (and in the playground, which runs
+   the native runtime compiled to wasm) the limit is the machine's frame
+   limit, 2,000,000 frames by default, not a host stack: such a handler
+   nests a heap frame per operation, so it runs at 1,000,000 operations and
+   ends with the depth resource error past the limit (stage 4b). This is a consequence of the current pure
    calling convention, not of the `Comp` representation; selective
    transformation of such clauses (defunctionalising the pure context
    around a resumption, and where needed the pure code through which a
@@ -990,6 +994,112 @@ nodes) are 4a's: `checked` 0, 0, 0, 0, 0 (one step in all); `asked` 9, 4,
 The empty-row writer and search, at JS's stack limit after 4a, run at
 1,000,000 natively: each nests a heap frame per operation, so they fail
 only past the frame limit (2,000,000 by default).
+
+### 9.6 As built: stage 4c
+
+- **The routing index (§9.1.6).** Both `main` runners (`crates/rt/src/run.rs`
+  and the `run --js` runner in `crates/js/src/run.rs`) keep, beside their
+  stack of `Delay` frames, `marks`: the positions of the `Map` and `Tie`
+  frames, bottom first. Routing an operation walks `marks` from the top, so
+  it looks only at the translations and partial functions it crosses or
+  stops at, never at the `Bind` frames (a `bindD`'s continuation) or the
+  `Await` frames between them. A recursion request answered by a `Tie`
+  takes the frames above it into the `Await` with their marks, relative to
+  the `Tie`; returning to the `Await` puts both back. Pushing and popping a
+  frame keeps `marks` in step, a constant each. The pending list of a
+  computation never enters these frames (4a, 4b), so nothing else in the
+  runners grows with control depth.
+- **Where the old scan hurt.** A non-tail partial recursion leaves an
+  `Await` per level, and every operation from the innermost level walked
+  all of them: `examples/accept/partial-forwarding.sw` (each level prints
+  through a `Fail.toResult` and an `Env` handler whose carrier is a
+  `Delay`, and calls a partial function with a smaller row) was quadratic
+  on both runners. `bench/effect-runtime`'s `io` was not (its binds are a
+  computation's, in the pending list since 4a/4b), and is unchanged.
+- **Counters.** `stitchwort_rt::run_main_counting` returns `RouteCounts`
+  (operations routed, frames routing looked at, frames below the focus at
+  each operation, summed); `stitchwort_js::run::generate_program_with` with
+  `Options::effect_counters` makes the JS runner count the same and print
+  them to standard error at the end. Both runners give identical counts on
+  `partial-forwarding.sw` **[checked]**:
+
+  | depth | operations | frames looked at per operation | frames below per operation |
+  |---|---|---|---|
+  | 1,000 | 7,252 | 1.000 | 510 |
+  | 10,000 | 72,502 | 1.000 | 5,010 |
+  | 100,000 | 725,002 | 1.000 | 50,010 |
+  | 1,000,000 | 7,250,002 | 1.000 | 500,010 |
+
+  Before 4c the frames looked at were the frames below. Every `print` here
+  crosses one `Tie` (`down`'s); a translation (`Map`) frame is crossed
+  only by operations from inside the translated partial computation, and
+  since a handler can't handle a `Partial` computation and `main` can't be
+  both `Fail` and `Partial`, those are recursion requests stopped by that
+  computation's own `Tie` **[inferred]** from the rows the elaborator
+  allows (E-PARTIAL on a handler around a partial computation **[checked]**).
+- **Tests.** `crates/rt/tests/effect_runtime.rs`
+  (`routing_work_is_independent_of_control_depth`: depths 1,000 to 100,000,
+  frames looked at per operation constant and at most 4, frames below at
+  least depth/8; `partial_with_forwarded_abilities_runs_a_million_levels_deep`,
+  output checked line by line) and the same two in
+  `crates/cli/tests/effect_runtime.rs` for `run --js`. `partial-forwarding.sw`
+  is an example, so `run_js` and `run_reference` compare it across the
+  native runner, `run --js` and the reference evaluator at 50 levels with
+  their usual inputs, and named tests at 2,000 levels (native against JS)
+  and 1,000 (native against the reference). `run_js`'s `io` test now
+  compares native and JS at 1,000,000 elements too.
+- **The playground.** `web/tests/effect-shapes.sw`: the effectful `map`
+  shapes (`io`, `ioRead`, `checked`, `asked`, `askedChecked`, `askedIn`,
+  `emitted`, `emittedIn`, `searched`, `counted`) behind one `main`.
+  `crates/web`'s `effectful_maps_run_at_a_million_elements` runs every one
+  at 1,000,000 through the playground's `run` with its resource limits
+  (natively, as the crate's tests run); web/tests/browser.mjs's "effectful
+  List.map runs at a million elements" runs them in the WebAssembly build
+  in headless Chrome, through the page, within its 15-second run limit and
+  256 KiB output cap. `io` prints every element, about 6.9 MB, past the
+  page's cap, so the browser runs `ioRead` (an `IO.readLine` per element)
+  instead, and `io` itself was run on the WebAssembly build's `run` in Node
+  with a larger cap.
+
+**Measured** (whole `stitchwort run --no-cache`, about 0.2 s of it
+checking; median of 3; max RSS; the build before 4c is `cafdff03`; Apple
+M4 Pro) **[checked]**:
+
+| run | before 4c | after 4c | max RSS after |
+|---|---|---|---|
+| `io` (`map.sw`), 1,000,000, native | 1.22 s | 1.22 s | 507 MB (same) |
+| `io`, 1,000,000, `run --js` | 0.96 s | 0.84 s | 458 MB (same) |
+| `partial-forwarding.sw`, 20,000 levels, native | 0.64 s | 0.48 s | 55 MB |
+| 40,000, native | 1.31 s | 0.74 s | 66 MB |
+| 80,000, native | 3.30 s | 1.28 s | 84 MB |
+| 1,000,000, native | (quadratic) | 13.4 s | 481 MB |
+| 20,000, `run --js` | 1.19 s | 0.41 s | 103 MB |
+| 40,000, `run --js` | 3.37 s | 0.49 s | 115 MB |
+| 80,000, `run --js` | 14.9 s | 0.62 s | 139 MB |
+| 1,000,000, `run --js` | (quadratic) | 3.35 s | 668 MB |
+
+Native per level of `partial-forwarding.sw` is about 13 µs against JS's
+3 µs: a sample of the 1,000,000 run puts nearly all of it in the
+machine's own work for the level (`Machine::call` and what it runs: the
+handlers, `Delay` binds, the text of the number), not in routing; it was
+the same before 4c at small depths, where the scan is short (a variant
+without `collatz`: 0.25 s at 2,000 levels before, 0.24 s after). AoC's `stitchwort test --no-cache`: 14.7 s and 619 MB
+before, 14.8 s and 618 MB after.
+
+The playground's shapes at 1,000,000 (time of the run itself): natively in
+`crates/web`'s test, `checked` 0.7 s, `ioRead` 1.5 s, `asked`, `askedIn`,
+`emitted`, `emittedIn` 1.5 s, `counted` 1.7 s, `io` 1.9 s, `askedChecked`
+2.7 s, `searched` 2.7 s; in the WebAssembly build under Node (the build's
+`run`), `checked` 1.0 s, `asked`, `askedIn`, `emitted`, `ioRead` 1.9 s,
+`counted` 2.2 s, `emittedIn` 2.4 s, `io` 3.0 s, `askedChecked` 3.3 s,
+`searched` 5.3 s; in headless Chrome through the page (its own "Finished
+in"), `checked` 0.9 s, `emitted` 1.6 s, `asked`, `askedIn` 1.7 s,
+`emittedIn` 1.8 s, `counted` 2.0 s, `askedChecked` 3.0 s, `searched`
+3.4 s, and `ioRead` 7.2 s, plus about 9 s for the page to take the
+6.9 MB input. `ioRead` in the page is about 4 times its time on the same
+build in Node, within the 15-second limit but the closest to it; the
+cause isn't investigated (the page's run streams output and flushes it
+before every read **[inferred]**, which the Node call doesn't).
 
 ## Appendix A. Benchmark and prototype files
 

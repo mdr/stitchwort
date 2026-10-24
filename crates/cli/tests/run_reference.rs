@@ -189,6 +189,18 @@ def main () : {IO} () := IO.print (Nat.toText (count (1000 * 1000)))
     assert_eq!(text(&fast.stdout), "1000000\n");
 }
 
+/// `Partial` mixed with other forwarded abilities
+/// (`examples/accept/partial-forwarding.sw`, docs/proposals/effect-runtime.md
+/// stage 4c), deeper than the examples test runs it: 1,000 levels of non-tail
+/// partial recursion, each printing through handlers that forward `IO`.
+#[test]
+fn partial_with_forwarded_abilities_prints_the_same_both_ways() {
+    let fast = same_both_ways(&examples().join("partial-forwarding.sw"), b"1000\n", true);
+    let stdout = text(&fast.stdout);
+    assert_eq!(stdout.lines().count(), 1_001);
+    assert!(stdout.starts_with("1000\n999\n"), "{stdout}");
+}
+
 /// Running out of resources is E-RESOURCE, pointing at `main`, exit code 2,
 /// after what was printed before, whichever runner: a recursion the frame
 /// limit stops.

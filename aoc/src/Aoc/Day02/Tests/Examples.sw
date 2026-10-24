@@ -18,7 +18,7 @@ def exampleRanges: List Range := Fail.orElse [] (() => parseRanges example)
 test "example" := (solvePart1 exampleRanges, solvePart2 exampleRanges) == (1227775554, 4174379265)
 test "part 1 spec" := part1Spec exampleRanges == 1227775554
 test "part 2 spec" := part2Spec exampleRanges == 4174379265
-test "parse" := parsed "4-14,1490-3407\n" == Ok [range 4 14, range 1490 3407]
+test "parseOption" := parsed "4-14,1490-3407\n" == Ok [range 4 14, range 1490 3407]
 test "a field that isn't a range" := parsed "11-22,bad" == Err "expected a range like 11-22, got 'bad'"
 test "a space after a comma" := parsed "11-22, 33-33" == Ok [range 11 22, range 33 33]
 test "spaces around the numbers" := parsed " 11 - 22 \n" == Ok [range 11 22]

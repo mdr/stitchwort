@@ -52,8 +52,8 @@ def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
   {
     operator = columns.findMap (.last.flatMap Operator.parse),
-    rowNumbers = rows.init.map readNumber,
-    columnNumbers = columns.map (column => readNumber column.init)
+    rowNumbers = rows.init.map parseNumber,
+    columnNumbers = columns.map (column => parseNumber column.init)
   }
 
 def Operator.parse: Char -> Option Operator
@@ -62,7 +62,7 @@ def Operator.parse: Char -> Option Operator
   | _ => None
 
 -- The number written with these digits; spaces (and anything else) are skipped.
-def readNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap .digitValue)
+def parseNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap .digitValue)
 
 def Operator.apply: Operator -> List Nat -> Nat
   | Add, numbers => numbers.sum
@@ -77,7 +77,7 @@ def solvePart1 (problems: List Problem): Nat := problems.sumBy (problem => evalu
 -- Part 2: the answers of the problems read by columns.
 def solvePart2 (problems: List Problem): Nat := problems.sumBy (problem => evaluate problem.operator problem.columnNumbers)
 
--- The strict reader `main` uses. `parseWorksheet` is total and forgiving (it
+-- The strict parser `main` uses. `parseWorksheet` is total and forgiving (it
 -- skips a stray character in a number, takes the first operator of a block,
 -- counts a block without one as 0); `checkWorksheet` refuses a worksheet that
 -- isn't well formed and otherwise gives exactly `parseWorksheet lines`

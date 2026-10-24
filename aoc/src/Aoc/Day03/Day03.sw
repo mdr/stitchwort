@@ -15,7 +15,7 @@
 -- neither.
 
 namespace Aoc.Day03
-import Aoc.Common (readLines)
+import Aoc.Common (parseLines)
 import Std (Char, Fail, Fin, IO, Nat)
 import Std.Fail (fail, need)
 
@@ -26,7 +26,7 @@ def main(): {IO, Fail} () :=
 
 -- One bank per line. Spaces around a bank are allowed; anything else fails,
 -- naming the line.
-def parseBanks (lines: List Text): {Fail} (List Bank) := readLines Bank.read lines
+def parseBanks (lines: List Text): {Fail} (List Bank) := parseLines Bank.parse lines
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
 
@@ -51,7 +51,7 @@ def Bank: Type := List Battery
 -- `part2Batteries` that part 2 turns on (and so the 2 of part 1), so the
 -- program only runs on banks the headline theorem covers (`enough` in
 -- Proofs/Best.sw). A shorter one is an input error.
-def Bank.read (line: Text): {Fail} Bank :=
+def Bank.parse (line: Text): {Fail} Bank :=
   let msg := "expected a row of digits, got '${line}'"
   match line.trim.toList with
     | Nil => fail msg

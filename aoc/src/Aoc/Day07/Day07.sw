@@ -40,19 +40,19 @@ type Manifold = { width: Nat, start: Fin width, rows: List (Vec Bool width) }
 
 -- `None` if there is no S. (S is always inside the grid, as wide as the
 -- widest line; `Fin.ofNatCheck` checks it.)
-def parseManifold (lines: List Text): Option Manifold := toOption (() => readManifold lines)
+def parseManifoldOption (lines: List Text): Option Manifold := toOption (() => parseManifold lines)
 
--- The strict reader `main` uses. `parseManifold` is forgiving (any character
+-- The strict parser `main` uses. `parseManifoldOption` is forgiving (any character
 -- but ^ is empty space); `checkManifold` refuses a manifold with a character
 -- other than . ^ S (naming its line and column, counting from 1), or with no
--- S, and otherwise gives exactly `parseManifold lines`
+-- S, and otherwise gives exactly `parseManifoldOption lines`
 -- (`Aoc.Day07.Proofs.checkManifoldParses`), so the proofs about the parser
 -- describe what is printed. An S may be anywhere; the first is the start.
 def checkManifold (lines: List Text): Result Manifold Text :=
   match manifoldError lines with
     | Some message => Err message
     | None =>
-      match parseManifold lines with
+      match parseManifoldOption lines with
         | Some manifold => Ok manifold
         | None => Err "expected a line with an S, got none"
 
@@ -64,7 +64,7 @@ def manifoldError (lines: List Text): Option Text :=
       else Some "line ${lineIndex + 1}, column ${columnIndex + 1}: expected . or ^ or S, got '${ch}'"))
 
 -- Each step that finds nothing gives up, which makes the result `None`.
-def readManifold (lines: List Text): {Abort} Manifold :=
+def parseManifold (lines: List Text): {Abort} Manifold :=
   let width := gridWidth lines
   let (rowIndex, columnIndex) := (findStart lines).orAbort
   let start := (Fin.ofNatCheck width columnIndex).orAbort

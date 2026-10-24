@@ -22,7 +22,7 @@
 -- The tests are in `Aoc.Day09.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Day09
-import Aoc.Common (readLines)
+import Aoc.Common (parseLines)
 import Std (Fail, IO, List, Nat, PrefixSums, Text)
 import Std.Fail (fail)
 
@@ -36,10 +36,10 @@ type Tile = { x: Nat, y: Nat }
 
 -- One red tile per line, in the order the loop joins them. Spaces around a
 -- line or a number are allowed; anything else fails, naming the line.
-def parseTiles (lines: List Text): {Fail} (List Tile) := readLines readTile lines
+def parseTiles (lines: List Text): {Fail} (List Tile) := parseLines parseTile lines
 
 -- "7,1" is `{ x = 7, y = 1 }`.
-def readTile (line: Text): {Fail} Tile :=
+def parseTile (line: Text): {Fail} Tile :=
   match line.split ',' |> .map (part => part.trim.toNat) with
     | [Some x, Some y] => { x, y }
     | _ => fail "expected a red tile like 7,1, got '${line}'"

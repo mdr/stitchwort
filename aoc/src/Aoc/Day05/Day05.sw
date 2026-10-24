@@ -16,7 +16,7 @@
 -- range holds. The tests are in `Aoc.Day05.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Day05
-import Aoc.Common (Range, readLines, readLinesFrom)
+import Aoc.Common (Range, parseLines, parseLinesFrom)
 import Std (Fail, IO, Nat, Text)
 import Std.Fail (fail)
 
@@ -39,8 +39,8 @@ def parseDatabase (lines: List Text): {Fail} Database :=
   match lines.drop ranges.length with
     | Nil => fail "expected a blank line between the ranges and the ids, got none"
     | Cons _ ids => {
-      fresh = readLines Range.read ranges,
-      available = readLinesFrom (ranges.length + 2) Text.toNatOrFail ids
+      fresh = parseLines Range.parse ranges,
+      available = parseLinesFrom (ranges.length + 2) Text.toNatOrFail ids
     }
 
 -- Part 1: the available ids that are fresh.

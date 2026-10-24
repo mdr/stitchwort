@@ -5,5 +5,5 @@ namespace Aoc.Day07.Tests
 import Aoc.Day07 (..)
 import Std (Option)
 
-test "real input, part 1" := Option.map solvePart1 (parseManifold (include "../../../../inputs/day07.txt").lines) == Some 1594
-test "real input, part 2" := Option.map solvePart2 (parseManifold (include "../../../../inputs/day07.txt").lines) == Some 15650261281478
+test "real input, part 1" := Option.map solvePart1 (parseManifoldOption (include "../../../../inputs/day07.txt").lines) == Some 1594
+test "real input, part 2" := Option.map solvePart2 (parseManifoldOption (include "../../../../inputs/day07.txt").lines) == Some 15650261281478
