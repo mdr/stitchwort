@@ -33,7 +33,13 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         args.push(Arg::Explicit(value));
         return infer_app(cx, head, &args);
     }
-    let (term, ty) = infer(cx, value)?;
+    // A computation piped into a parameter of computation type is passed,
+    // not run (stage 0 of docs/proposals/effect-polymorphism.md).
+    let (term, ty) = if crate::effects::piped_passed(cx, f)? {
+        crate::check::infer_unrun(cx, value)?
+    } else {
+        infer(cx, value)?
+    };
     let (term, ty) = insert(cx, term, ty)?;
     let piped = Piped {
         term,

@@ -146,6 +146,24 @@ def Effect.runPure: [a: Type] -> Comp NoOp NoRes a -> a
   | Done x => x
   | Call () rest
 
+-- Laws of computations (docs/proposals/effect-polymorphism.md, "Proof
+-- tooling"). A computation passed where a `Comp` is expected is passed as it
+-- is, so these apply to computations that don't compute yet. The laws whose
+-- proofs need function extensionality (`bindDone`, `bindAssoc`,
+-- `foldCompBind`) are in `Effect/Laws.sw`.
+
+-- Folding a finished computation gives `done` of its result.
+theorem Effect.foldCompDone [op: Type] [res: op -> Type] [a r: Type]
+    (done: a -> r) (call: (o: op) -> (res o -> r) -> r) (x: a):
+    foldComp done call (Done x: Comp op res a) = done x := rfl
+
+-- Running a sequence that performs nothing runs its first part, then the rest.
+theorem Effect.runPureBind [a b: Type]:
+    (computation: Comp NoOp NoRes a) -> (next: a -> Comp NoOp NoRes b) ->
+    runPure (bind computation next) = runPure (next (runPure computation))
+  | Done x, next => rfl
+  | Call () rest, next
+
 -- Partial computations (docs/proposals/partial.md)
 
 -- A recursion request: run the definition being defined again on `x`. A

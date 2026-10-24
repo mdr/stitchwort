@@ -589,12 +589,32 @@ pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     })
 }
 
+/// [`infer`] for an expression whose own value is a computation that goes
+/// to a place of computation type (a call's argument, a dot call's
+/// receiver, a value piped in): its value is the computation, which isn't
+/// run, though anything in it that performs is (stage 0 of
+/// docs/proposals/effect-polymorphism.md).
+pub(crate) fn infer_unrun(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    cx.g().budget.nesting(PASS)?;
+    let span = expr.span();
+    with_span(cx, span, |cx| {
+        let (term, ty) = infer_value(cx, expr)?;
+        cx.e.note_expr(cx, span, &ty);
+        Ok((Term::Loc(span, Rc::new(term)), ty))
+    })
+}
+
 fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
     if effects::may_perform(cx, expr)? {
         return effects::run_pure(cx, expr, None);
     }
+    infer_value(cx, expr)
+}
+
+/// [`infer_inner`] once it's known that `expr` isn't run as a whole.
+fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     if let Some(logic) = crate::logic::classify(cx, expr) {
         return crate::logic::infer(cx, logic);
     }
@@ -1715,7 +1735,19 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     {
         return effects::comp_check(cx, expr, &row, &t);
     }
-    if effects::may_perform(cx, expr)? {
+    if effects::may_perform_at(cx, expr, Some(&expected))? {
+        // A computation where a computation whose row isn't known yet is
+        // expected (`Effect.bind c k`'s `c`): passed as it is, not run
+        // (stage 0 of docs/proposals/effect-polymorphism.md).
+        if matches!(
+            expr,
+            Expr::Var(_) | Expr::App(..) | Expr::Field(..) | Expr::Pipe(..)
+        ) && effects::is_comp_type(cx, &expected)?
+        {
+            let (term, found) = infer_unrun(cx, expr)?;
+            let (term, found) = insert(cx, term, found)?;
+            return compare(cx, term, &found, &expected);
+        }
         return Ok(effects::run_pure(cx, expr, Some(&expected))?.0);
     }
     if let Some(logic) = crate::logic::classify(cx, expr) {

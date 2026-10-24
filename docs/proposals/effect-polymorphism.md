@@ -2,7 +2,7 @@
 
 Status: design note and literature review, revised after external review,
 24 Oct 2026. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
-§7, so design C with stage 0 first. Nothing is built yet. The two experiments before this note are in
+§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices). The two experiments before this note are in
 [effectful-map.md](effectful-map.md).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
@@ -1610,6 +1610,77 @@ an equivalence relation only if a proof needs one.
 from the start.
 Reason: `Comp` is inductive, so ordinary equality and induction suffice;
 (b) adds machinery no current proof needs.
+
+## As built (stage 0)
+
+SW-405, 24 Oct 2026.
+
+**The rule.** A part of an expression whose place has an `Effect.Comp` type,
+whatever its row and with unknowns allowed in it, doesn't perform where it's
+written: it's elaborated as a computation of its own and passed unchanged.
+`effects::is_comp_type` is the test (the head is `Comp`; the row isn't
+decoded). The places, and where each is handled:
+
+| Path | Where it's decided | Where the part is kept from running |
+|---|---|---|
+| Direct argument (positional or named, `(x := c)`) | `call_performs` asks `passed_args`, which reads the parameter types off the head's type (`pi_slots`) or a constructor's fields (`ctor_slots`) | `comp_app` skips `run_first` for it |
+| Piped argument, `c \|> f` | `may_perform`, `Expr::Pipe`, through `piped_passed` | `pipe_call`; `pipe::infer_pipe` infers it without running (`check::infer_unrun`) |
+| Dot call's receiver, `c.f` | `receiver_passed`, through `dot::target_place` (the receiver's place among the target's explicit parameters) | `comp_app`, `comp_compound`; `dot::infer_receiver` in `infer_dot` and `prefix_form` |
+| Constructor field by position | as a direct argument (constructor heads now have a `HeadType::Ctor`) | as a direct argument |
+| Constructor field by name, record literal field, list item, tuple part | `may_perform_at` with the expected type, through `passed_parts` | `comp_compound` |
+| An argument that is a compound of computations (`allDone [c]`) | `passed_args`: an argument is also passed if, checked against its parameter's type, it performs nothing | as a direct argument |
+| A computation where a computation with an unknown row is expected (`Effect.bind c k`'s `c`) | `check_inner`: inferred with `infer_unrun` and compared, not run | |
+| A value that is already a computation in the empty row (`Done 3`, `Effect.bind c k`, `identityComp c`) | `comp_check`'s last case, `returns_comp_value`: checked against the whole `Comp` type first, as the old reading's fallback | |
+
+The last row was needed for the acceptance test `isDone (Done 3) = True`:
+before, a written `Done 3` checked against `Comp NoOp NoRes ?a` was read as
+the result `?a := Comp ?op ?res Nat`, leaving `?op` unsolved, and against
+`Comp NoOp NoRes Nat` it was refused. It only applies in the empty row, and
+only when the head's own type ends in a `Comp`.
+
+**Not changed** (each still runs what it's given, as D1055 says; none is in
+the table above, and changing them would change existing elaborations):
+
+- Operands of `=`: `Effect.bind c Done = c` at a concrete `NoOp` row reads
+  the right side as `Done (runPure c)` (the left side isn't run, since
+  `bind`'s result row is unknown when it's judged). State such laws at a
+  general row, as `Effect/Laws.sw` does, or with `runPure` on both sides.
+- `let x := c`, unannotated: the value is run. `let x: Comp … := c` passes it.
+- The branches of an `if` or `match` whose expected type is
+  `Comp NoOp NoRes a`: checked against `a` and wrapped, so
+  `if b then c else c` is `Done (if b then runPure c else runPure c)`.
+- A parameter whose type is a type variable (`id c` with `id: a -> a`) isn't
+  a computation type when the call is judged, so `c` runs.
+- `Delay` (partial computations) isn't included in `is_comp_type`.
+- Dot notation on a call whose result type is a named alias of a `Comp`
+  (`(stuckThunk xs).finished`) finds the namespace from the unfolded type, as
+  before, so it doesn't find `Thunk.finished`; on a variable it does.
+
+**Library.** In core/Effect.sw: `Effect.foldCompDone` and
+`Effect.runPureBind`. In a new file, `Effect/Laws.sw`: `Effect.bindDone`,
+`Effect.bindAssoc` and `Effect.foldCompBind`, whose `Call` cases need
+function extensionality (`Quot.funext`, so their one axiom is `Quot.sound`);
+the core can't use `Std.Quot`. In List/Toolkit.sw: `List.mapInPure`, stated
+about `Effect.runPure` and `List.mapIn` and proved as probe 3 wanted.
+`Effect.translateBind` and `Effect.morphismBind` weren't attempted.
+
+**`Fail.toResultMapIn` isn't built.** Its proof has to split on whether
+`f x` fails, so it needs a lemma over a `{Fail}` computation given as a
+value, proved by cases on it (`Done`, `Call (L (stop m)) k`). That lemma
+can't be stated: `{Fail} b` is only allowed as a function's result type, and
+the ability's result function has no source name, so no binder can have the
+type of a `{Fail}` computation. A thunk `() -> {Fail} b` can be a binder, but
+`match first () with …` runs the call. Function extensionality isn't the
+obstacle: since `Fail` never resumes, the split needs no induction. What's
+missing is a way to name the type (a `{Fail} b` binder type), which belongs to
+stage 1's design.
+
+**Tests.** `examples/accept/effect-pass-computations.sw` has, for each path, a
+written `Done` seen as `Done` and a stuck call that computes to `Done`, plus
+`runPure (identityComp (Done n))`, probe 1's law and probe 3's proof.
+`examples/reject/effect-pass-*.sw` has one file per path where an arbitrary
+computation would have been `Done`: direct, stuck (probe 4), piped, dot,
+field, named field, named argument, record, list, tuple, identity.
 
 ## Appendix A. Probe files
 
