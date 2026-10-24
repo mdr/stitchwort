@@ -15,6 +15,7 @@ mod calc;
 mod check;
 mod data_auto;
 mod decreasing;
+mod defaults;
 mod derive;
 mod derive_ext;
 mod derive_ord;
@@ -342,6 +343,10 @@ pub struct Elaborator {
     recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
+    /// The default values of data types' fields, for each constructor and
+    /// field, where any field has one (docs/proposals/named-arguments.md
+    /// §5.1, `defaults.rs`).
+    field_defaults: HashMap<DataId, Vec<Vec<Option<defaults::FieldDefault>>>>,
     /// Why `DecEq` isn't derived for a data type or record, for the note
     /// when `==` is used on it (`derive.rs`).
     no_eq: HashMap<DataId, String>,
@@ -1161,6 +1166,7 @@ impl Elaborator {
                         attrs: Vec::new(),
                     }],
                     implicit: Vec::new(),
+                    defaults: Vec::new(),
                     result: None,
                 })
                 .collect(),
@@ -1865,7 +1871,9 @@ impl Elaborator {
                 e.derive_data_ord(d)
             })?;
         }
-        Ok(())
+        // Its fields' defaults (docs/proposals/named-arguments.md §5.1),
+        // which may use what was derived for it.
+        self.field_defaults(decl, d)
     }
 
     /// A definition on its own (one an ability generates): its signature,

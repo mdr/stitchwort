@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `height`
+   ╭─[ reject/field-default-later-field.sw:6:17 ]
+   │
+ 6 │   width: Nat := height * 2,
+   │                 ───┬──  
+   │                    ╰──── not in scope
+   │ 
+   │ Note: `height` is a later field: a default may use only the fields before it
+───╯

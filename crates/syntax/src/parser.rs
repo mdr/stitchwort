@@ -1365,10 +1365,13 @@ impl<'t> Parser<'t> {
                         self.upper("a constructor name (starting with an uppercase letter)")?;
                     let mut fields = Vec::new();
                     let mut implicit = Vec::new();
+                    let mut defaults = Vec::new();
                     loop {
                         if self.peek() == Some(&Tok::LParen) {
-                            fields.push(self.binder()?);
+                            let (binder, default) = self.binder_with_default()?;
+                            fields.push(binder);
                             implicit.push(false);
+                            defaults.push(default);
                         } else if self.is_implicit_binder() {
                             let (binder, auto) = self.implicit_binder()?;
                             if auto {
@@ -1379,6 +1382,7 @@ impl<'t> Parser<'t> {
                             }
                             fields.push(binder);
                             implicit.push(true);
+                            defaults.push(None);
                         } else {
                             break;
                         }
@@ -1389,11 +1393,15 @@ impl<'t> Parser<'t> {
                     } else {
                         None
                     };
+                    if defaults.iter().all(Option::is_none) {
+                        defaults.clear();
+                    }
                     ctors.push(CtorDecl {
                         attrs,
                         name,
                         fields,
                         implicit,
+                        defaults,
                         result,
                     });
                 }
@@ -1424,6 +1432,7 @@ impl<'t> Parser<'t> {
     fn record_fields(&mut self, data: &Name) -> Result<CtorDecl> {
         self.expect(Tok::LBrace, "`{`")?;
         let mut fields = Vec::new();
+        let mut defaults = Vec::new();
         if self.peek() != Some(&Tok::RBrace) {
             loop {
                 if self.peek() == Some(&Tok::RBrace) {
@@ -1433,6 +1442,11 @@ impl<'t> Parser<'t> {
                 let field = self.lower("a field name")?;
                 self.expect(Tok::Colon, "`:`")?;
                 let ty = self.expr()?;
+                defaults.push(if self.eat(&Tok::ColonEq) {
+                    Some(self.expr()?)
+                } else {
+                    None
+                });
                 fields.push(Binder {
                     names: vec![field],
                     ty,
@@ -1444,6 +1458,9 @@ impl<'t> Parser<'t> {
             }
         }
         self.expect(Tok::RBrace, "`,` or `}`")?;
+        if defaults.iter().all(Option::is_none) {
+            defaults.clear();
+        }
         Ok(CtorDecl {
             attrs: Vec::new(),
             name: Name {
@@ -1452,6 +1469,7 @@ impl<'t> Parser<'t> {
             },
             fields,
             implicit: Vec::new(),
+            defaults,
             result: None,
         })
     }
@@ -1511,6 +1529,22 @@ impl<'t> Parser<'t> {
     /// `(x y : A)`, with any attributes before the names (which only a
     /// constructor's field may have: the callers refuse them elsewhere).
     fn binder(&mut self) -> Result<Binder> {
+        let (binder, default) = self.binder_with_default()?;
+        if let Some(default) = default {
+            return Err(
+                error(default.span(), "only a field can have a default value").with_note(
+                    "a record's fields, `{ step: Nat := 1 }`, and a constructor's, \
+                 `| Circle (id: Text := \"a\")`, can have one",
+                ),
+            );
+        }
+        Ok(binder)
+    }
+
+    /// `(x y : A)`, or with a default value, `(x y : A := v)`, which only a
+    /// constructor's field may have (docs/proposals/named-arguments.md
+    /// §5.1).
+    fn binder_with_default(&mut self) -> Result<(Binder, Option<Expr>)> {
         self.expect(Tok::LParen, "`(`")?;
         let attrs = self.attributes()?;
         let mut names = vec![self.lower("a name")?];
@@ -1519,8 +1553,13 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::Colon, "`:`")?;
         let ty = self.expr()?;
+        let default = if self.eat(&Tok::ColonEq) {
+            Some(self.expr()?)
+        } else {
+            None
+        };
         self.expect(Tok::RParen, "`)`")?;
-        Ok(Binder { names, ty, attrs })
+        Ok((Binder { names, ty, attrs }, default))
     }
 
     // Expressions, loosest-binding first

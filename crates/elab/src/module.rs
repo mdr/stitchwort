@@ -1994,8 +1994,13 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
             }
             for ctor in ctors {
                 let mut work = bind_params.clone();
-                for binder in &ctor.fields {
+                for (k, binder) in ctor.fields.iter().enumerate() {
                     work.push(Work::Expr(&binder.ty));
+                    // A default sees the earlier fields
+                    // (docs/proposals/named-arguments.md §5.1).
+                    if let Some(Some(default)) = ctor.defaults.get(k) {
+                        work.push(Work::Expr(default));
+                    }
                     work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
                 }
                 add(free_names(work), false);

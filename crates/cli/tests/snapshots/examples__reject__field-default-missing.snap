@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: this `RangeOptions` is missing `stop`
+    ╭─[ reject/field-default-missing.sw:11:30 ]
+    │
+ 11 │ def missing: RangeOptions := { start = 2 }
+    │                              ──────┬──────  
+    │                                    ╰──────── every field without a default value must be given
+    │ 
+    │ Note: `start` and `step` have default values, so they may be left out
+────╯

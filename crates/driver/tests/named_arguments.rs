@@ -134,6 +134,7 @@ impl Walk {
                             self.bound.insert(n.text.clone());
                         });
                     }
+                    c.defaults.iter().flatten().for_each(|e| self.expr(e));
                 }
             }
             Decl::Ability { ops, .. } => {
@@ -510,4 +511,114 @@ def mixedNamed: Nat := clampTo (high := 2) 1 3
         checked += 1;
     }
     assert_eq!(checked, 8);
+}
+
+/// The hash of each declaration `text` adds, by full name (`data …` for a
+/// data type).
+fn hashes_by_name(text: &str) -> BTreeMap<String, String> {
+    let (_, found) = load("field-defaults.sw", text).expect("the file loads");
+    found.into_iter().collect()
+}
+
+const DEFAULTS: &str = r#"
+type RangeOptions = {
+  start: Nat := START,
+  stop: Nat,
+  step: Nat := 1
+}
+
+type Shape =
+  | Circle (radius: Nat) (id: Text := "anonymous")
+
+def leavesStartOut: RangeOptions := { stop = 10 }
+def givesStart: RangeOptions := { start = 2, stop = 10 }
+def givesEvery: RangeOptions := { start = 2, stop = 10, step = 3 }
+def leavesIdOut: Shape := Circle { radius = 1 }
+"#;
+
+/// Field defaults (docs/proposals/named-arguments.md §7, acceptance
+/// invariant 9): changing a default changes the hashes of exactly the
+/// literals that leave that field out, and its helper's; the type and the
+/// literals that give the field keep theirs.
+#[test]
+fn changing_a_default_changes_only_the_literals_that_use_it() {
+    let before = hashes_by_name(&DEFAULTS.replace("START", "0"));
+    let after = hashes_by_name(&DEFAULTS.replace("START", "5"));
+    let changed: BTreeSet<&str> = before
+        .iter()
+        .filter(|(name, hash)| after.get(*name) != Some(hash))
+        .map(|(name, _)| name.as_str())
+        .collect();
+    assert_eq!(
+        changed,
+        BTreeSet::from(["Main.RangeOptions.start.default", "Main.leavesStartOut"]),
+        "before: {before:#?}\nafter: {after:#?}"
+    );
+    assert!(before.contains_key("Main.RangeOptions.step.default"));
+    assert!(before.contains_key("Main.Shape.Circle.id.default"));
+}
+
+/// A literal that gives every field, and a named construction that does,
+/// are the terms they were before the type had defaults: the same hashes.
+#[test]
+fn literals_giving_every_field_keep_their_hashes() {
+    let text = r#"
+type RangeOptions = {
+  start: Nat DEFAULT,
+  stop: Nat,
+  step: Nat
+}
+
+type Shape =
+  | Circle (radius: Nat) (id: Text DEFAULT2)
+
+def literal: RangeOptions := { start = 2, stop = 10, step = 3 }
+def construction: Shape := Circle { id = "a", radius = 1 }
+def positional: Shape := Circle 1 "a"
+"#;
+    let plain = hashes_by_name(&text.replace("DEFAULT2", "").replace("DEFAULT", ""));
+    let defaulted = hashes_by_name(
+        &text
+            .replace("DEFAULT2", ":= \"anonymous\"")
+            .replace("DEFAULT", ":= 0"),
+    );
+    for name in [
+        "data Main.RangeOptions",
+        "data Main.Shape",
+        "Main.literal",
+        "Main.construction",
+        "Main.positional",
+    ] {
+        assert!(plain.contains_key(name), "{name}: {plain:#?}");
+        assert_eq!(plain.get(name), defaulted.get(name), "{name}");
+    }
+}
+
+/// A written field that a default uses is computed once: bound by a `let`
+/// unless it's a variable or a literal (§5.1 rule 1).
+#[test]
+fn a_default_uses_a_written_field_through_a_let() {
+    let text = r#"
+type Twice = { x: Nat, twice: Nat := x + x }
+
+def computed (n: Nat): Twice := { x = n * 3 }
+def variable (n: Nat): Twice := { x = n }
+def literal: Twice := { x = 4 }
+def unused (n: Nat): Twice := { x = n * 3, twice = 1 }
+"#;
+    let (session, _) = load("twice.sw", text).expect("the file loads");
+    let g = &session.elab.globals;
+    let has_let = |name: &str| {
+        let def = g
+            .defs
+            .iter()
+            .find(|d| d.name.as_ref() == name)
+            .unwrap_or_else(|| panic!("{name} is defined"));
+        let body = def.body().expect("checked");
+        body.subterms().any(|(t, _)| matches!(t, Term::Let(..)))
+    };
+    assert!(has_let("computed"));
+    assert!(!has_let("variable"));
+    assert!(!has_let("literal"));
+    assert!(!has_let("unused"));
 }

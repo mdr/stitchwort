@@ -810,8 +810,12 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             ..
         } => records::infer_update(cx, base, fields),
         Expr::CtorFields { ctor, fields, span } => {
-            let positional = records::ctor_fields(cx, ctor, fields, *span, None)?;
-            infer_inner(cx, &positional)
+            match records::ctor_fields(cx, ctor, fields, *span, None)? {
+                records::Construction::Positional(positional) => infer_inner(cx, &positional),
+                records::Construction::Defaults(d, c) => {
+                    crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
+                }
+            }
         }
         Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
         Expr::List(..) => {
@@ -1991,8 +1995,14 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             records::check_record(cx, base.as_deref(), fields, &expected)
         }
         (Expr::CtorFields { ctor, fields, span }, _) => {
-            let positional = records::ctor_fields(cx, ctor, fields, *span, Some(&expected))?;
-            check_inner(cx, &positional, &expected)
+            match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
+                records::Construction::Positional(positional) => {
+                    check_inner(cx, &positional, &expected)
+                }
+                records::Construction::Defaults(d, c) => {
+                    Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)
+                }
+            }
         }
         // A quotient form, with the expected type to find its implicit
         // arguments from.
