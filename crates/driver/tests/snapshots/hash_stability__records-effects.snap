@@ -23,7 +23,7 @@ Main.backwards 80a9bd53c2a4a299519351a69bc59939108de9c54584a019f709eee1dffa7bcc
 Main.base 309936812cf6451492d6b23ba1f454749022d162abbc76dd2cb89dfcad166843
 Main.updated 4e8d4c3159c3571f0e3c272d87658bd4ab472063f59087023558ffbfea5fca3d
 Main.eqTexts b95607136997866a3b308493b12072fa6e7e93c7a2bf025fb723d4cad2c29db9
-Main.test "fields run in the order written" fd0acb76612b52624a71f00964f0b7572e5271f2b5f258710ffab6eb7a499d1c
-Main.test "and are put where they belong" 1f9c20b9e19fc2dc7e1cafc33a1264599f194522e20fbc71862ea345a7578afe
-Main.test "an update's base runs once" f63fa948bd437fcc7d71b795592d525f0ede508370777742ffa9a02cd1dea674
-Main.test "an update keeps the base's other fields" 5214802ba4e6458f6fdbe96b33978c11b47eade38a7ef969be8d1f54e3cc129e
+Main.test "fields run in the order written" c47e92ed759d87b13f92d15f27e1300a651f941289c8f4b9e11691bf1e9e98bb
+Main.test "and are put where they belong" cde32b3eb462175d77995a2a33a4604a1d4ea55d8c1044d81c4f25603324adf1
+Main.test "an update's base runs once" f3efc20eeaa248769e870a1c1ff91c193f8a5fad6fe30dd6c253047a76368940
+Main.test "an update keeps the base's other fields" c63ebbcb0cc8f7bcf90f0183805d9e31c50f0b1c67259239510dcc64bbd1885f

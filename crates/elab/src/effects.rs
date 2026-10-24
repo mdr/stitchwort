@@ -1676,43 +1676,18 @@ fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
 fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> {
     let g = cx.g();
     let mut level = cx.level();
-    // Whether a parameter passed is a computation with abilities of its own
-    // (`() -> {Fail | e} a`): a handler, whose row is worked out by running
-    // its argument, as before.
-    let mut handles = false;
     loop {
         if let Some((row, _)) = comp_parts(cx, &ty)? {
-            return Ok(!(row.is_bare() && !handles && cx.e.bare_rows_pure.get()));
+            return Ok(!(row.is_bare() && cx.e.bare_rows_pure.get()));
         }
         match force(g, ty)? {
-            Value::Pi(_, icit, dom, cod) => {
+            Value::Pi(_, icit, _, cod) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
                         return Ok(false);
                     }
                     explicit -= 1;
-                    if cx.e.bare_rows_pure.get() && !handles {
-                        handles = performs_abilities(cx, (*dom).clone(), level)?;
-                    }
                 }
-                ty = cod.apply(g, Value::var(level))?;
-                level += 1;
-            }
-            _ => return Ok(false),
-        }
-    }
-}
-
-/// Whether `ty` (with `level` variables in scope), after all its explicit
-/// parameters, is a computation with at least one ability.
-fn performs_abilities(cx: &Ctx, mut ty: Value, mut level: usize) -> Result<bool> {
-    let g = cx.g();
-    loop {
-        if let Some((row, _)) = comp_parts(cx, &ty)? {
-            return Ok(!row.labels.is_empty());
-        }
-        match force(g, ty)? {
-            Value::Pi(_, _, _, cod) => {
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
