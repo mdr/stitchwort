@@ -3982,8 +3982,8 @@
     },
     {
       "id": 257,
-      "title": "Glued values: stages 1 and 2 merged (on by default while elaborating); stage 3 folded read-back next (D482-D484; post-stage-2 decisions in folded-calls.md §10)",
-      "status": "next",
+      "title": "Glued values: stages 1-3 merged (folded read-back; AoC terms -51%, instructions -8%, peak memory -28%)",
+      "status": "done",
       "agent": "Opus",
       "where": "-",
       "labels": [
@@ -3996,7 +3996,8 @@
         "26947d67",
         "cf589335",
         "f43cb4c6",
-        "bd724b9c"
+        "bd724b9c",
+        "e9baf6cd"
       ]
     },
     {
