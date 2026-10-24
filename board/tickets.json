@@ -6824,16 +6824,18 @@
     {
       "id": 424,
       "title": "Row inference: delay translating a closed computation into a still-open row until the row is settled (no translate if it defaults to empty), so reify laws rewrite inside open-row thunks and Fail.toResultMapIn gets the short proof; design note first (SW-422 finding; Each.sw:105-112 must keep working)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "626d63d5"
+      ]
     }
   ]
 }
