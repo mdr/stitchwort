@@ -682,7 +682,17 @@ fn pure_first(
         return Ok(PureFirst::Run(None));
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    match plain(cx) {
+    let first_new = cx.e.row_constraints.borrow().len();
+    // The row comparisons the expression put aside are retried before the
+    // row is looked at: a callback whose type was blocked (`Answer ?flag`)
+    // may have become a computation with abilities once later arguments were
+    // checked, which makes the row effectful (D1124) rather than empty
+    // (SW-437).
+    let found = plain(cx).and_then(|found| {
+        while cx.e.retry_rows_from(first_new)? {}
+        Ok(found)
+    });
+    match found {
         Ok((term, ty)) => {
             let effectful = match effects::comp_parts(cx, &ty)? {
                 Some(_) => effects::unknown_bare_value(cx, &ty)?.is_none(),

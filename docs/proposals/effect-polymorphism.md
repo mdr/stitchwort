@@ -2268,6 +2268,46 @@ bridging lemmas then; the other stage 5 functions (`foldLeft`, `filter`,
 lane since the elaborator handles pure uses of a bare-row function as plain
 calls.
 
+**A callback whose type becomes effectful late (SW-437, 24 Oct 2026).** An
+independent review found that `List.length (List.map answer numbers)`, with
+`answer: Tagged flag -> Answer flag` and `numbers: List (Tagged True)` (so
+`Answer True` is `{Log} Nat`, `examples/accept/effect-rows-uses.sw`), was
+accepted in a pure function, and the list held the unrun `Log` computations
+as data: against D1124. Cause **[checked]**: the comparison `CompIn ?e ?b ≟
+Answer ?flag` is put aside while the flag is unknown; the list argument then
+solves the flag, but before the put-aside comparison is retried, `?e` is
+settled as the empty row, by the apartness rule when the call's value
+type meets `List.length`'s `List ?a` (the case above; tracing showed `?e`
+already `Empty` before any retry), or by `settle_empty`. `CompIn Empty ?b` is
+`?b`, so the retried comparison was just `?b ≟ {Log} Nat`, which holds. The
+same happened when the flag was solved only by a later expression of the
+declaration, and before stage 3 with `mapIn`. Two changes:
+
+- `pure_first` retries the comparisons its expression put aside
+  (`rows::retry_rows_from`) before it looks at the row, so a callback type
+  that became a `Comp` while the expression was elaborated decides the row by
+  D1124 when the row is still open.
+- A put-aside comparison whose row has meanwhile been settled as `Empty` is
+  not compared as it stands (`rows::settled_first`): while its other side is
+  still stuck on an unknown it waits, and once that side is a `Comp` over at
+  least one ability it is `E-ABILITY` ("a callback here returns `{Log} Nat`,
+  which performs abilities where none are allowed", pointing at the
+  callback). After defaulting, when nothing more can be learnt, a waiting
+  comparison is compared as it stands, as before (so
+  `examples/reject/row-defaulted.sw` keeps its message).
+
+`settle_empty` still settles the row where the expression stands, rather
+than in the declaration's rounds: the `calc` and `rfl` uses that needed it
+are unchanged, and settling early can no longer change a program's meaning,
+since later evidence of abilities is now an error rather than data. So D1123's
+"never commits early" holds in the sense that matters (an early commitment is
+never silently wrong), not literally. `examples/reject/map-callback-effectful-later.sw`
+has the reviewer's `countA` and a variant where the flag is known only from a
+later expression; both are `E-ABILITY`. The reviewer's nested-map timing
+script (`List.map p (… xs)` at depths 8 to 18, `check --no-cache`) is
+unchanged within noise: depth 18 pure 1.65 to 1.71 s before and 1.62 to
+1.73 s after, effectful 2.87 to 3.02 s both.
+
 ## Appendix A. Probe files
 
 All are in a scratch directory, checked with `stitchwort check FILE`.

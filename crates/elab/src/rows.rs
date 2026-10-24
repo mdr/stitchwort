@@ -201,13 +201,44 @@ impl Elaborator {
     /// Retries the row comparisons put aside. Whether any was settled. One
     /// that can't hold any more is an error.
     pub(crate) fn retry_rows(&self) -> Result<bool> {
-        let kept = std::mem::take(&mut *self.row_constraints.borrow_mut());
+        self.retry(0, false)
+    }
+
+    /// [`Elaborator::retry_rows`] for the comparisons put aside after the
+    /// first `start`, which are left as they are (`check::pure_first`
+    /// retries those its own expression put aside).
+    pub(crate) fn retry_rows_from(&self, start: usize) -> Result<bool> {
+        self.retry(start, false)
+    }
+
+    /// [`Elaborator::retry_rows_from`]. When `last` (after the row unknowns
+    /// were defaulted, when nothing else will be learnt), a comparison whose
+    /// row was settled as the empty one while its other side was stuck
+    /// ([`SettledFirst::Waiting`]) is compared as it stands.
+    fn retry(&self, start: usize, last: bool) -> Result<bool> {
+        let kept = {
+            let mut all = self.row_constraints.borrow_mut();
+            let start = start.min(all.len());
+            all.split_off(start)
+        };
         let mut progress = false;
         let mut still = Vec::new();
         for item in kept {
             let cx = item.context(self);
             let RowConstraint { level, a, b } = &item.constraint;
-            let (a, b) = (refresh_at(&cx, *level, a)?, refresh_at(&cx, *level, b)?);
+            let (fresh_a, fresh_b) = (refresh_at(&cx, *level, a)?, refresh_at(&cx, *level, b)?);
+            match settled_first(&cx, (a, &fresh_a), (b, &fresh_b))? {
+                SettledFirst::Waiting if !last => {
+                    still.push(item);
+                    continue;
+                }
+                SettledFirst::No | SettledFirst::Waiting => {}
+                SettledFirst::Abilities(comp) => {
+                    self.row_constraints.borrow_mut().extend(still);
+                    return Err(settled_too_early(&cx, &comp));
+                }
+            }
+            let (a, b) = (fresh_a, fresh_b);
             match unify_postponing(cx.g(), *level, &a, &b)? {
                 Some(again) if again.is_empty() => progress = true,
                 Some(again) => {
@@ -244,13 +275,15 @@ impl Elaborator {
         let defaulted = self.default_rows()?;
         if !defaulted.is_empty() {
             let after = self.solve_obligations().and_then(|()| {
-                while self.retry_rows()? {}
+                while self.retry(0, true)? {}
                 Ok(())
             });
             after.map_err(|d| explain_defaulted(d, &defaulted))?;
         } else if let Some(d) = stuck {
             self.obligations.borrow_mut().clear();
             return Err(d);
+        } else {
+            while self.retry(0, true)? {}
         }
         let first = self.row_constraints.borrow().first().cloned();
         if let Some(item) = first {
@@ -287,6 +320,90 @@ impl Elaborator {
         }
         Ok(defaulted)
     }
+}
+
+/// What [`settled_first`] found.
+enum SettledFirst {
+    /// The comparison's row is still unknown, or isn't the empty row: it's
+    /// retried as usual.
+    No,
+    /// The row was settled as the empty one while the other side is still
+    /// stuck on an unknown: kept as it is until that's known.
+    Waiting,
+    /// The row was settled as the empty one, and the other side is a `Comp`
+    /// over at least one ability: this type.
+    Abilities(Value),
+}
+
+/// For a comparison `CompIn ?e B ≟ T` put aside while `T` was blocked,
+/// whether `?e` was meanwhile settled as the empty row (by
+/// `effects::settle_empty`, by the apartness rule in another comparison, or
+/// by defaulting) before `T` was known. `CompIn Empty B` is `B`, so retrying
+/// it as it now stands would compare `B` with `T` and lose what it was for:
+/// if `T` becomes a `Comp` over abilities, D1124 makes the callback
+/// effectful, and going on would pass the computation as data (SW-437). So
+/// while `T` is stuck on an unknown it waits, and once it's such a `Comp` it's
+/// an error. Each side is given as put aside and as computed again.
+fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<SettledFirst> {
+    let g = cx.g();
+    let (Some(comp_in), Some(comp), Some(plus), Some(empty)) = (
+        g.registry.def(Builtin::CompIn),
+        g.registry.data(Builtin::Comp),
+        g.registry.data(Builtin::Plus),
+        g.registry.ctor(Builtin::RowEmpty),
+    ) else {
+        return Ok(SettledFirst::No);
+    };
+    for ((side, _), (_, other)) in [(a, b), (b, a)] {
+        let Value::Neutral(Head::Def(d), spine) = side else {
+            continue;
+        };
+        if *d != comp_in || spine.len() != 2 {
+            continue;
+        }
+        let Some(stitchwort_core::value::Elim::App(row, _)) = spine.first() else {
+            continue;
+        };
+        if !matches!(force(g, row.clone())?, Value::Ctor(d, c, _) if (d, c) == empty) {
+            continue;
+        }
+        let other = force(g, other.clone())?;
+        let decided = match &other {
+            Value::Data(d, args) if *d == comp && args.len() == 3 => {
+                match force(g, args[0].clone())? {
+                    Value::Data(p, _) if p == plus => {
+                        return Ok(SettledFirst::Abilities(other));
+                    }
+                    Value::Data(..) => true,
+                    _ => false,
+                }
+            }
+            _ => crate::unify::rigid_head(g, &other).is_some(),
+        };
+        if !decided && crate::interfaces::unsolved_in(cx, &other)?.is_some() {
+            return Ok(SettledFirst::Waiting);
+        }
+        return Ok(SettledFirst::No);
+    }
+    Ok(SettledFirst::No)
+}
+
+/// The error for [`SettledFirst::Abilities`]: `comp` is the callback's
+/// result type.
+fn settled_too_early(cx: &Ctx, comp: &Value) -> stitchwort_syntax::Diagnostic {
+    let shown = cx.show(comp);
+    cx.error(
+        "E-ABILITY",
+        format!(
+            "a callback here returns `{shown}`, which performs abilities where none are allowed"
+        ),
+        "this call's row was settled as the empty row (pure) before the callback's type was known",
+    )
+    .with_note(
+        "a callback that performs abilities makes the call perform them too (D1124), which \
+         isn't allowed where a pure value is expected; handle the abilities, or make the \
+         callback's type known earlier",
+    )
 }
 
 /// Adds to `d`, an error found after the row unknowns at `defaulted` were set
