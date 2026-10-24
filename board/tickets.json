@@ -7144,7 +7144,7 @@
     },
     {
       "id": 443,
-      "title": "Effect runtime stage 4 (D1162): 4a JS, 4b native, 4c routing/Partial/playground, 4d state-handler loop done; 4e generated differential tests in progress; then 4f allocation",
+      "title": "Effect runtime stage 4 (D1162): 4a-4e done (JS and native loops, routing, Partial, playground, state loop, generated differential tests); 4f allocation in progress",
       "status": "doing",
       "agent": "",
       "where": "-",
@@ -7158,7 +7158,8 @@
         "a9f697cf",
         "d1f3e288",
         "fb7fafb9",
-        "bc0d47fc"
+        "bc0d47fc",
+        "e42aa074"
       ]
     }
   ]
