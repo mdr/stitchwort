@@ -15,7 +15,7 @@ theorem Effect.bindDone [op: Type] [res: op -> Type] [a: Type]:
   | Call o rest =>
     let pointwise: (y: res o) -> bind (rest y) Done = rest y := y => Effect.bindDone (rest y)
     let same := Quot.funext (res o) (y => Comp op res a) (y => bind (rest y) Done) rest pointwise
-    Eq.cong (continuation => (Call o continuation: Comp op res a)) same
+    Eq.cong (Call o) same
 
 -- Sequencing is associative.
 theorem Effect.bindAssoc [op: Type] [res: op -> Type] [a b r: Type]
@@ -33,7 +33,7 @@ theorem Effect.bindAssoc [op: Type] [res: op -> Type] [a b r: Type]
         (y => bind (bind (rest y) first) second)
         (y => bind (rest y) (x => bind (first x) second))
         pointwise
-    Eq.cong (continuation => (Call o continuation: Comp op res r)) same
+    Eq.cong (Call o) same
 
 -- Handler fusion: folding a sequence folds its first part, with folding the
 -- rest as what to do with each result.
