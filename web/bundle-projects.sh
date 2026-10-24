@@ -53,11 +53,11 @@ done
     printf '%s\n    "%s"' "$sep" "$path"
     sep=","
   done
-  # The files `include` reads (the puzzle inputs): sent to the compiler with
+  # The files `include` reads (the puzzle inputs and examples): sent to the compiler with
   # the sources, never shown or edited.
   printf '\n  ],\n  "data": ['
   sep=""
-  for path in $(find inputs -maxdepth 1 -type f -name '*.txt' | sort); do
+  for path in $(find inputs examples -maxdepth 1 -type f -name '*.txt' | sort); do
     printf '%s\n    "%s"' "$sep" "$path"
     sep=","
   done

@@ -1308,11 +1308,12 @@ test("dragging the editor's corner resizes it", async (page) => {
 /** What each day prints for its example input, and for its real input (the CLI's answers). */
 const AOC_EXAMPLE = ["Part 1: 3\nPart 2: 6\n", "Part 1: 1227775554\nPart 2: 4174379265\n", "Part 1: 357\nPart 2: 3121910778619\n",
                      "Part 1: 13\nPart 2: 43\n", "Part 1: 3\nPart 2: 14\n", "Part 1: 4277556\nPart 2: 3263827\n",
-                     "Part 1: 21\nPart 2: 40\n"];
+                     "Part 1: 21\nPart 2: 40\n", "Part 1: 20\nPart 2: 25272\n", "Part 1: 50\nPart 2: 24\n"];
 const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2: 27469417404\n",
                     "Part 1: 17263\nPart 2: 170731717900423\n", "Part 1: 1397\nPart 2: 8758\n",
                     "Part 1: 525\nPart 2: 333892124923577\n", "Part 1: 4722948564882\nPart 2: 9581313737063\n",
-                    "Part 1: 1594\nPart 2: 15650261281478\n"];
+                    "Part 1: 1594\nPart 2: 15650261281478\n", "Part 1: 42315\nPart 2: 8079278220\n",
+                    "Part 1: 4756718172\nPart 2: 1665679194\n"];
 /** Every day has proofs. */
 const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Day02/Day02.sw";
@@ -1364,7 +1365,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
 test("every day checks, with its proofs, and runs on its example and on its puzzle input", async (page) => {
   await page.open();
   await page.untilChecked();
-  for (let day = 1; day <= 7; day++) {
+  for (let day = 1; day <= 9; day++) {
     await openDay(page, day);
     const input = await page.until(`document.getElementById("run-input")?.value || (document.getElementById("run").click(), false)`, 10000, "the input");
     assert.equal(input, await page.ev(`fetch("pkg/projects/aoc/examples/day0${day}.txt").then((r) => r.text())`), `day ${day}: the input box has the example`);
@@ -1379,7 +1380,7 @@ test("every day checks, with its proofs, and runs on its example and on its puzz
     await page.run(60000);
     assert.equal(await page.printed(), AOC_PUZZLE[day - 1], `day ${day} on its puzzle input`);
   }
-}, { ms: 240000 });
+}, { ms: 360000 });
 
 test("the AoC tests are grouped by namespace, and cached on the next visit", async (page) => {
   await page.open();
