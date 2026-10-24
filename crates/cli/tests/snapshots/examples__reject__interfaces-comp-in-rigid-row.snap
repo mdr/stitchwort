@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Label` instance for `{e} Nat`
+    ╭─[ reject/interfaces-comp-in-rigid-row.sw:21:45 ]
+    │
+ 21 │ def abstractOne (f: () -> {e} Nat): Text := describeResult f
+    │                                             ────────┬───────  
+    │                                                     ╰───────── this needs `Label ({e} Nat)`
+────╯

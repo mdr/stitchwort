@@ -123,7 +123,10 @@ pub(crate) fn ops_row(g: &Globals, op: Value, res: Value) -> std::result::Result
     };
     let forced = force(g, op.clone()).map_err(RowFault::Resource)?;
     let none = matches!(forced, Value::Data(d, _) if d == no_op);
-    debug_assert!(!none, "a row with no abilities must be `Empty`, not `Ops NoOp NoRes`");
+    debug_assert!(
+        !none,
+        "a row with no abilities must be `Empty`, not `Ops NoOp NoRes`"
+    );
     if none {
         return Err(RowFault::NoAbilities);
     }
