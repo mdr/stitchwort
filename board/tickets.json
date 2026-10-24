@@ -1,5 +1,5 @@
 {
-  "next": 444,
+  "next": 446,
   "tickets": [
     {
       "id": 13,
@@ -37,7 +37,7 @@
     {
       "id": 30,
       "title": "Lambda postponing in effectful calls",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -269,7 +269,7 @@
     {
       "id": 170,
       "title": "Implicit and auto lambda parameters: [a: Type] (x: a) => x (D91)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -2337,7 +2337,7 @@
     {
       "id": 439,
       "title": "Perf: nested pure List.map in a pure context checks in exponential time (depth 16 0.67 s, 18 1.59 s; error path 6.7 s) since pure_first tries plain then fallback per level (SW-408 review #3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -2415,6 +2415,34 @@
         "bc0d47fc",
         "e42aa074"
       ]
+    },
+    {
+      "id": 444,
+      "title": "JS backend: known functions called with all arguments at once (D1173); merge if faster and tests pass",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 445,
+      "title": "Gate: bench allocation counts nondeterministic (repeat.rs counts_repeat_within_a_process); suspected time-capped counterexample search",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
     }
   ]
 }
