@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-gave-up.sw:6:82 ]
+   │
+ 6 │ theorem longLists (xs: List Nat) (h: List.length xs = 50): List.length xs = 0 := rfl
+   │                                                                                  ─┬─  
+   │                                                                                   ╰─── `List.length xs` and `0` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

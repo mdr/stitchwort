@@ -9,5 +9,12 @@ expression: output
     │                                             ─┬─  
     │                                              ╰─── `evens n` and `[]` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           n = 2
+    │         `evens n = []` is false:
+    │           left:  [0]
+    │           right: []
+    │           first difference at index 0: right ends, left has 0 (left has 1 element, right has 0 elements)
 ────╯

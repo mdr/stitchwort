@@ -1054,6 +1054,30 @@ theorem addZero (n: Nat): n + 0 = n :=
 - **`?` is never filled in by the compiler**, unlike `_`. Where `_` stands for a proof the compiler can't work out (`E-UNSOLVED`), the error suggests writing `?` there to see what's needed.
 - Examples: `examples/goals/` (each one's goals are in `crates/cli/tests/snapshots/examples__goals__*.snap`). The design: [lsp-goal-holes.md](proposals/lsp-goal-holes.md).
 
+### Counterexamples to a theorem
+
+When a theorem's statement checks but its proof doesn't, or its whole proof is `?`, the compiler tries the statement on small inputs. If some input makes every hypothesis true and the conclusion false, the statement itself is false, and the error (or the goal) says so in a note, with the smallest such input and, for an equation, both sides there:
+
+```
+theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl
+```
+
+```
+   │ Note 2: this statement is false; a counterexample:
+   │           a = 0
+   │           b = 1
+   │         `a - b + b = a` is false:
+   │           left:  1
+   │           right: 0
+```
+
+- **Only a found counterexample is shown.** Finding none says nothing, and is never a reason to think the statement is true: only a proof is. Nothing about the search can make a declaration check.
+- **What's tried**: `Nat`s and `Int`s by size (0, 1, −1, 2, …), and every data type and record of the program and the library by its constructors (`Bool`, `List`, `Option`, pairs, your own types), smallest first, up to 2,000 inputs and about 200 ms. A type parameter, `[a: Type]`, is taken to be `Nat`, and the note says `(with a := Nat)`.
+- **Hypotheses are filters**: an input that makes one false is skipped, and later hypotheses may use earlier ones' proofs. With the hypothesis `(h: b <= a)` added, `subAdd` is true, and its (still wrong) proof gets no note.
+- **What's left out, silently**: statements with a function parameter, a parameter whose type depends on another (`Fin n`), a type with a proof field, an index or a function field, `Text`, `Char`, `Float`, `Map` and `Set`; and a hypothesis or conclusion nothing decides (`if` couldn't decide it either: `=` on a type without `DecEq`, `List.Sorted` written as a proposition, `Exists`).
+- **Trustworthy as a failing `test` is**: the statement runs on the fast runtime, and a counterexample is run again on the reference evaluator before it's shown.
+- Examples: `examples/reject/counterexample-*.sw`, `examples/goals/counterexample-*.sw`. The design: [counterexample-search.md](proposals/counterexample-search.md).
+
 ### `include`
 
 `include "path"` is a `Text` with the contents of a file, read when the program is checked: `(include "../../../../inputs/day04.txt").lines` is the lines of a puzzle input. The path is a literal in quotes, written like an argument (put it in brackets before a `.`, as above).

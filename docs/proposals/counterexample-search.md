@@ -2,8 +2,8 @@
 
 **Status:** draft 1, 24 October 2026. **Decided (Matt, 24 Oct 2026): CE-1 to CE-6 each as recommended, recorded as D1154 to D1159** (D1154 run automatically on a failed proof, capped at 200 ms; D1155 property tests are `test` with parameters; D1156 generators built into the compiler first, a library interface for custom generators in stage 4; D1157 polymorphic statements tested at `Nat`, said in the report; D1158 shown as a note on the existing error; D1159 searching every theorem as typed comes later, with `check --counterexamples` meanwhile). Ticket SW-330; the intent was decided in D570 ("(a) plus
 (c)": search when a proof fails and at a `?`, plus explicit property tests, sharing
-generators; "(b)", searching every theorem as it's stated, later). Design note only: nothing
-here changes the compiler. Decisions for the owner are in [§11](#11-decisions-for-the-owner);
+generators; "(b)", searching every theorem as it's stated, later). **Stage 1 is built**
+(SW-330, 24 Oct 2026): see [As built (stage 1)](#as-built-stage-1). Decisions for the owner are in [§11](#11-decisions-for-the-owner);
 they're labelled CE-1 to CE-6 and need D numbers when recorded.
 
 Labels, as in the other notes:
@@ -29,6 +29,7 @@ Labels, as in the other notes:
 10. [Staged plan and acceptance tests](#10-staged-plan-and-acceptance-tests)
 11. [Decisions for the owner](#11-decisions-for-the-owner)
 12. [Risks](#12-risks)
+- [As built (stage 1)](#as-built-stage-1)
 - [Sources](#sources)
 
 ## 0. Summary
@@ -602,6 +603,136 @@ it's cheap.
 - **Decision coverage.** Some hypotheses users write (`List.Sorted`, custom `Prop`
   definitions) may not be found decidable by today's search (§3, gaps). Mitigation: stage 1
   measures how many of the program's and the library's theorems are in scope, and reports it.
+
+## As built (stage 1)
+
+Built 24 October 2026 (SW-330), as §10's stage 1 scopes it, with D1154 to D1159 as
+recommended. The kernel is unchanged.
+
+**Where.** `crates/elab/src/counterexample.rs` builds the checker, enumerates inputs, runs
+them on the reference evaluator when it must, confirms and writes the note;
+`crates/driver/src/counterexample.rs` is the fast runtime's runner, which every `Session`
+gives its elaborator (`Elaborator::counterexample_runner`), so the CLI, the LSP and the
+playground all search. The search runs from the component loop in `module.rs`, after a
+component of one `theorem` has failed and been cleaned up (`note_counterexample`). The
+helpers that show a failing test's sides (`cut`, `first_difference`) moved from the driver to
+`crates/elab/src/shown.rs`, shared by both.
+
+**Capturing the statement (§6.1, §12).** Nothing new is kept. A theorem's definition is
+declared once its signature checks, and a failed component leaves it in the globals, marked
+failed, with its checked type: the search reads that type (`Def::ty_value`) at the end of
+the same component, before the next one starts. If the signature didn't check, there's no
+definition and no search. Nothing the search builds is declared; it checks that the number
+of definitions and data types is unchanged, and searches nothing if it ever weren't.
+
+**The checker (§6.1).** Built from the statement's telescope with the decision search `if`
+uses (`bind::decide`), then finished (metavariables solved and substituted) and never given
+to the kernel:
+
+- a type parameter `[a: Type]` is `Nat` (D1157; one in another universe, or `Type -> Type`,
+  is out of scope); an instance parameter is found at those types (no `Bool` retry);
+- a data parameter is a lambda (an input); its type must not mention earlier parameters
+  (`Fin n`, a grid of `w` columns: out of scope), and must not be a function type;
+- a hypothesis (any parameter whose type is a proposition) is `Decidable.elim` on its
+  decision, its proof bound for what follows; when it's false the result is its index. Inputs
+  after a hypothesis are lambdas inside its branch, so the "false" branch takes and ignores
+  them;
+- the conclusion is innermost: `k` (the number of hypotheses) if it holds, `k + 1` if not.
+
+**Inputs (§5).** Built in (D1156), for one `Plan` per type: a `Nat` by value (size `n`), an
+`Int` as 0, 1, −1, 2, −2, … (size `|n|`), every other data type from its constructors (one
+without fields has size 0, one with fields 1 plus theirs), so `Bool`, `List`, `Option`,
+pairs and the program's own types and records all come from the same rule. Tuples of inputs
+are listed by total size, smallest first, then by each part's size, then in constructor
+order, so the first counterexample is a smallest one and every run gives the same one.
+Limits: 2,000 inputs, total size 100, 8,000 values of one type and size. A type has no
+inputs (and the statement is out of scope) if it has indices, or a constructor with a proof
+or type field (§5.4's rule, stage 1 form: proof fields aren't decided yet), or a field whose
+type depends on an earlier field or is a function. So `Char` and `Float` (proof fields),
+`Text` (a list of `Char`s) and `Map` and `Set` (a `Quot` inside) have none in stage 1.
+
+**Running (§6.2, §6.3).** One program per search: the entry is the pair of the checker and a
+balanced tree of pairs of the inputs (lowering recurses, so a list of 2,000 would nest 2,000
+deep), lowered once; the machine computes it, then calls the checker on each input with its
+own budget of 1,000,000 steps. If the checker can't be lowered, or the statement has no
+data parameters, the reference evaluator runs each input with 1,000,000 steps of work. A
+search stops at the first counterexample, after 2,000 inputs, after about 200 ms, or once 20
+inputs in a row (or 50 in all) have run out of steps. In WebAssembly there's no clock, so
+only the counts limit it. A counterexample is run again on the reference evaluator (50,000,000
+steps); if it disagrees, the note says it's an internal error instead.
+
+**The note (§9.1, D1158).** Added to the declaration's first error, or, for a theorem whose
+whole proof is `?` (`:= ?`), to its goal. The hypotheses and conclusion are shown as written
+(from the declared type, not its computed form); the two sides are shown only for a
+conclusion written as `=` (a `<` computes to an equation of `Bool`s, which would show as
+`False` and `True`). Each side is computed in full first, so a `Float` prints as its literal,
+and with proofs erased if that doesn't give data (a definition by well-founded recursion).
+
+```
+   │ Note 3: this statement is false; a counterexample:
+   │           xs = [0]
+   │           ys = [1]
+   │         `List.reverse (List.append xs ys) = List.append (List.reverse xs) (List.reverse ys)` is false:
+   │           left:  [1, 0]
+   │           right: [0, 1]
+   │           first difference at index 0: 1 vs 0
+```
+
+With a type parameter the first line ends `(with a := Nat)`; a hypothesis that held is a
+line `` `b <= a` holds ``. Nothing is ever said when nothing is found, or the statement is
+out of scope.
+
+**Differences from the note.**
+
+- *In the LSP the search isn't in the background* (§7.1): it runs inside the namespace's
+  check, after the failed theorem, so it's at most about 200 ms per failing theorem, and a
+  search on the fast runtime isn't cancelled part way (one on the reference evaluator is).
+- *Only a wholly `?` proof is searched at a goal*; a `?` inside a proof is stage 3, as
+  planned.
+- *Acceptance tests.* They're examples with snapshots, as planned
+  (`examples/reject/counterexample-*.sw`, `examples/goals/counterexample-*.sw`), and
+  `crates/driver/tests/counterexamples.rs` checks each search's log
+  (`Elaborator::counterexample_log`): the counterexample found, how many inputs were tried,
+  discarded or ran out of steps, and which evaluator ran. Test 4's data type and test 5's
+  record print as `Square 1` and `{ x = 0, y = 1 }`. Test 11 runs each example again with the
+  fast runtime taken away and compares notes and logs. Test 9 is that loading example files
+  full of theorems that check leaves the log empty; the AoC check time is below.
+- *Existing examples.* 18 rejected examples (17 in `reject/`, one in `soundness/`) whose
+  theorems are false now carry the note too
+  (in their snapshots), among them `soundness/fake-decision.sw` (`1 = 2`) and
+  `reject/float-rfl-rounding.sw` (`0.30000000000000004` vs `0.3`).
+
+**In scope (§12's measurement).** `Elaborator::counterexample_scope` asks, for a theorem,
+whether a search could run (checker built, inputs for every parameter);
+`cargo test --release -p stitchwort-driver --test counterexamples -- --ignored --nocapture
+scope` counts it over every theorem of the library and of `aoc/` (all of which check):
+
+| | Library | AoC |
+|---|---|---|
+| In scope | 575 (41%) | 152 (38%) |
+| A function parameter | 374 | 62 |
+| A hypothesis nothing decides | 137 | 77 |
+| The conclusion nothing decides | 73 | 33 |
+| No inputs for a parameter's type | 106 | 37 |
+| A parameter's type depends on another | 79 | 42 |
+| A type parameter that isn't `Type` (`Prop`, `Type -> Type`, …) | 47 | 2 |
+| Total | 1,391 | 405 |
+
+The commonest reasons in AoC: `Text` inputs (`lines`, 20), grid and dial types indexed by a
+size (`rows`, `dial`, 30 or so), function parameters (`s`, `g`, `p`, `cells`), and
+hypotheses that are user propositions with no decision (`Labelled`, `Counted`, `LoAtMost`)
+or `List.Any`, `List.Sorted` and `Exists`-like statements (§3's gaps: `List.Sorted le xs` is
+not decided, as feared). Stage 2's `Text`, `Fin`/`Vec` and decided proof fields would bring
+the largest group in.
+
+**Time.** A theorem that checks costs nothing: no search runs. `cd aoc && stitchwort check
+--no-cache`, three runs each, alternating, on an M-series Mac: 4.81, 4.83, 4.81 s before
+(`main` at `66b9bab8`), 4.87, 4.89, 4.85 s after, about 1% (within what a different binary
+gives; no search runs, since every theorem checks). A search that finds nothing is quick on
+the fast runtime: `stitchwort check` of `counterexample-true-statement.sw` (all 2,000 pairs
+of `Nat`s of `addComm`'s true statement tried) takes 99-109 ms against 97-109 ms before,
+within noise. The out-of-steps example is the slow case: it stops after 20 inputs of
+1,000,000 steps, and its check takes about 300 ms against about 100 ms before.
 
 ## Sources
 

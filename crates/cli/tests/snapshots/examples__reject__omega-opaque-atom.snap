@@ -16,4 +16,9 @@ expression: output
    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 1, x * y = 0
    │ 
    │ Note 4: unsupported structure: `x * y` is an atom (a product of two unknowns isn't linear)
+   │ 
+   │ Note 5: this statement is false; a counterexample:
+   │           x = 1
+   │           y = 0
+   │         `x <= x * y` is false
 ───╯

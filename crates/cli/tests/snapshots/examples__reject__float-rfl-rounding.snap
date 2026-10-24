@@ -12,4 +12,9 @@ expression: output
    │ Note 1: computing the left side gives `0.30000000000000004`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false:
+   │         `Float.add 0.1 0.2 = 0.3` is false:
+   │           left:  0.30000000000000004
+   │           right: 0.3
 ───╯

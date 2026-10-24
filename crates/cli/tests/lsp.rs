@@ -290,6 +290,28 @@ fn a_file_on_its_own_as_you_type() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A false theorem's error carries the counterexample the search found, as
+/// `Note:` lines of the diagnostic's message (D1158).
+#[test]
+fn a_false_theorem_gets_a_counterexample_note() {
+    let dir = temp_dir("counterexample");
+    let file = dir.join("false.sw");
+    let text = "theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    let found = client.diagnostics(&uri, 1);
+    assert_eq!(codes(&found), ["E-REFL"], "{found:?}");
+    let message = found[0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("Note: this statement is false; a counterexample:\n  a = 0\n  b = 1"),
+        "{message}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// What `check --index` says about a project: the extension's lookups,
 /// done on its JSON.
 struct IndexJson(Value);

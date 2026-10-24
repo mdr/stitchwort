@@ -9,5 +9,11 @@ expression: output
     │                                               ─┬─  
     │                                                ╰─── `a16 x` and `c16 x` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           x = False
+    │         `a16 x = c16 x` is false:
+    │           left:  0
+    │           right: 2
 ────╯

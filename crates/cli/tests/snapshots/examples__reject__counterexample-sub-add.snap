@@ -1,0 +1,29 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-sub-add.sw:5:54 ]
+   │
+ 5 │ theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl
+   │                                                      ─┬─  
+   │                                                       ╰─── `a - b + b` and `a` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: this statement is false; a counterexample:
+   │           a = 0
+   │           b = 1
+   │         `a - b + b = a` is false:
+   │           left:  1
+   │           right: 0
+───╯
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-sub-add.sw:7:71 ]
+   │
+ 7 │ theorem subAddBelow (a: Nat) (b: Nat) (h: b <= a): (a - b) + b = a := rfl
+   │                                                                       ─┬─  
+   │                                                                        ╰─── `a - b + b` and `a` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

@@ -411,6 +411,12 @@ impl Elaborator {
                         *d = d.clone().with_label(span, "while checking this");
                     }
                 }
+                // A theorem whose statement checked but whose proof didn't
+                // (or is wholly `?`): is the statement false? Said as a note
+                // on its first error, or on its goal (D1154, D1158).
+                if component.len() == 1 {
+                    self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
+                }
             }
         }
         self.clear_metas();
@@ -476,6 +482,65 @@ impl Elaborator {
             diagnostics.retain(|d| d.code != "E-FAILED-DEPENDENCY");
         }
         diagnostics
+    }
+
+    /// After the single declaration `item` failed, with `diagnostics`: if
+    /// it's a theorem whose statement checked, a note on its first error
+    /// (or the goal of a proof that's wholly `?`) with a counterexample to
+    /// the statement, if the search finds one (`counterexample.rs`).
+    fn note_counterexample(&mut self, item: &Item, diagnostics: &mut [(usize, Diagnostic)]) {
+        let Decl::Signature {
+            theorem: true,
+            span,
+            ..
+        } = item.decl
+        else {
+            return;
+        };
+        // An error, or else the goal of a proof that is wholly `?` (a `?`
+        // inside a proof is a later stage).
+        let wanted = if diagnostics
+            .iter()
+            .any(|(_, d)| d.severity == Severity::Error)
+        {
+            Severity::Error
+        } else if !item.equations.is_empty()
+            && item.equations.iter().all(|eq| {
+                // `:= ?`, under the lambdas a header's parameters make.
+                let Decl::Equation { rhs: Some(rhs), .. } = eq else {
+                    return false;
+                };
+                let mut rhs = rhs;
+                while let Expr::Lam(_, body, _) | Expr::TypedLam(_, _, body, _) = rhs {
+                    rhs = &**body;
+                }
+                matches!(rhs, Expr::Goal(_))
+            })
+        {
+            Severity::Goal
+        } else {
+            return;
+        };
+        // The theorem's own definition, declared once its statement checked.
+        let Some(def) = (self.module.first_def..self.globals.defs.len())
+            .rev()
+            .map(DefId)
+            .find(|id| {
+                let def = self.globals.def(*id);
+                def.theorem && def.span == *span
+            })
+        else {
+            return;
+        };
+        if !diagnostics.iter().any(|(_, d)| d.severity == wanted) {
+            return;
+        }
+        let Some(note) = self.counterexample_note(def) else {
+            return;
+        };
+        if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
+            d.notes.push(note);
+        }
     }
 
     /// Notes the declarations of `component`, unfinished, as such for the

@@ -14,4 +14,10 @@ expression: output
    │ Note 2: atoms: `x`, `y`
    │ 
    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 0, y = 0
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           x = 0
+   │           y = 0
+   │         `x <= y` holds
+   │         `x < y` is false
 ───╯

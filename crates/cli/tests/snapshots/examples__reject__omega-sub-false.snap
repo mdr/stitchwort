@@ -14,4 +14,11 @@ expression: output
    │ Note 2: atoms: `a - b`, `a`, `b`
    │ 
    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): a - b = 0, a = 0, b = 1
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           a = 0
+   │           b = 1
+   │         `a - b + b = a` is false:
+   │           left:  1
+   │           right: 0
 ───╯

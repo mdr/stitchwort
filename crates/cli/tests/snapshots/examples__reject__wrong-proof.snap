@@ -12,4 +12,9 @@ expression: output
    │ Note 1: computing the left side gives `4`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false:
+   │         `2 + 2 = 5` is false:
+   │           left:  4
+   │           right: 5
 ───╯

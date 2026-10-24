@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/counterexample-record.sw:7:57 ]
+   │
+ 7 │ theorem swapKeeps (point: Point): swap point = point := rfl
+   │                                                         ─┬─  
+   │                                                          ╰─── `swap point` and `point` aren't equal
+   │ 
+   │ Note 1: computing the left side gives `{ x = point.y, y = point.x }`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           point = { x = 0, y = 1 }
+   │         `swap point = point` is false:
+   │           left:  { x = 1, y = 0 }
+   │           right: { x = 0, y = 1 }
+───╯

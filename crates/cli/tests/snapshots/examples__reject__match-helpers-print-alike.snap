@@ -23,4 +23,10 @@ expression: output
     │ Note 3: `(match …)` is a `match` written inside `foo` and `bar`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
     │ 
     │ Note 4: two different `(match …)` appear here, which print alike but are different hidden functions; two such functions are equal only when they split the same value and every branch gives the same result, and neither calls the definition it's written in; to prove something about both, name the step as a `def` and use it in both places
+    │ 
+    │ Note 5: this statement is false; a counterexample:
+    │           xs = [None]
+    │         `foo xs = bar xs` is false:
+    │           left:  0
+    │           right: 1
 ────╯
