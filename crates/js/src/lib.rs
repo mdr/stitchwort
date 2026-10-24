@@ -22,11 +22,12 @@ use stitchwort_core::{
     BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, ResourceError, Sort, Term, Value,
     pretty,
 };
-use stitchwort_rt::erasure::{def_shape, reachable, text_literal};
+use stitchwort_rt::erasure::{def_shape, text_literal};
 use stitchwort_rt::natives::{
     FloatPrim, Representation, float_data, int_data, nat_data, safe_int_data, safe_nat_data,
     text_data,
 };
+use stitchwort_rt::specialise::{self, Specialiser};
 // Shared with the runtime (D389), and part of this crate's interface.
 pub use stitchwort_rt::natives::{
     IntBinding, IntNative, NAT_DATA_HASH, NativeBinding, SAFE_INT_HASH, SAFE_NAT_HASH,
@@ -840,25 +841,7 @@ pub fn generate_exports(
         Vec::new()
     };
     let checks = checks.chain(map_defs.iter().copied());
-    let failure = std::cell::RefCell::new(None);
-    let used = reachable(
-        g,
-        exports.iter().map(|sig| sig.id).chain(checks),
-        |id| match codegen.try_info(id) {
-            Ok(info) => info.result_erased || codegen.is_native(id) || info.delay.is_some(),
-            Err(e) => {
-                failure.borrow_mut().get_or_insert(e);
-                true
-            }
-        },
-    );
-    if let Some(e) = failure.into_inner() {
-        return Err(e);
-    }
-    // `reachable` skips a definition without a body, so make sure of the rest.
-    for id in (0..g.defs.len()).map(DefId).filter(|id| used[id.0]) {
-        codegen.try_info(id)?;
-    }
+    let wanted = codegen.set_reach(exports.iter().map(|sig| sig.id).chain(checks), &[], true)?;
     let mut js = String::from(RUNTIME);
     js.push('\n');
     if codegen.float.is_some() {
@@ -942,7 +925,7 @@ pub fn generate_exports(
     }
     js.push('\n');
     // Partial computations are one token (docs/proposals/partial.md §7.6).
-    if (0..g.defs.len()).any(|i| used[i] && codegen.info(DefId(i)).delay.is_some()) {
+    if wanted.iter().any(|id| codegen.info(*id).delay.is_some()) {
         js.push_str("// A partial computation, which nothing here can run.\nconst delayed = Symbol(\"Delay\");\n\n");
     }
     let while_generating = |id: DefId| {
@@ -950,12 +933,12 @@ pub fn generate_exports(
             Diagnostic::from(e).with_label(g.def(id).span, "while generating JavaScript for this")
         }
     };
-    let wanted: Vec<DefId> = (0..g.defs.len())
-        .map(DefId)
-        .filter(|id| used[id.0] && codegen.info(*id).delay.is_none())
+    let wanted: Vec<DefId> = wanted
+        .into_iter()
+        .filter(|id| codegen.info(*id).delay.is_none())
         .collect();
     let mut mapper = sourcemap::Mapper::new(&js);
-    for id in dependency_order(g, &wanted) {
+    for id in dependency_order(&codegen, &wanted) {
         // Only an admitted definition has a body. The driver doesn't extract
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
@@ -1992,6 +1975,15 @@ struct Gen<'g> {
     hole_misused: Cell<bool>,
     /// The fast path's generated codecs ([`fast`]).
     fast: RefCell<fast::Fast>,
+    /// Decides which calls are at the empty row, and makes the variants
+    /// (docs/proposals/effect-polymorphism.md, design E).
+    spec: Specialiser<'g>,
+    /// Per definition: whether it's used as it is, and whether through its
+    /// empty-row variant ([`Gen::set_reach`]).
+    used: RefCell<Vec<bool>>,
+    empty: RefCell<Vec<bool>>,
+    /// Per definition, its empty-row variant's [`DefInfo`].
+    empty_infos: Vec<OnceCell<DefInfo>>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -2055,6 +2047,8 @@ type Cells = (String, String, String, Passed);
 
 struct SelfCall {
     id: DefId,
+    /// Whether the loop is the definition's empty-row variant's.
+    variant: bool,
     /// Whether any call was turned into a loop.
     used: Cell<bool>,
     /// Whether a call in a constructor's field, in tail position, is a turn
@@ -2075,9 +2069,10 @@ struct SelfCall {
 }
 
 impl SelfCall {
-    fn new(id: DefId, cons: bool, inline: bool) -> Self {
+    fn new(id: DefId, variant: bool, cons: bool, inline: bool) -> Self {
         SelfCall {
             id,
+            variant,
             used: Cell::new(false),
             cons,
             cons_used: Cell::new(false),
@@ -2123,7 +2118,97 @@ impl<'g> Gen<'g> {
             fn_holes: RefCell::new(Vec::new()),
             hole_misused: Cell::new(false),
             fast: RefCell::default(),
+            spec: Specialiser::new(g),
+            used: RefCell::new(vec![true; g.defs.len()]),
+            empty: RefCell::new(vec![false; g.defs.len()]),
+            empty_infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
         })
+    }
+
+    /// What the program uses: the definitions `roots` and the terms
+    /// `entries` refer to, directly or indirectly, with calls at the empty
+    /// row using the callee's variant ([`specialise::reachable`]). Recorded
+    /// for [`Gen::def`], and returned as the definitions to generate, by
+    /// [`dependency_order`]. With `delay`, a definition whose result is a
+    /// partial computation is opaque, and isn't generated.
+    fn set_reach(
+        &self,
+        roots: impl IntoIterator<Item = DefId>,
+        entries: &[&Term],
+        delay: bool,
+    ) -> Result<Vec<DefId>, Diagnostic> {
+        let g = self.g;
+        let failure = RefCell::new(None);
+        let reach =
+            specialise::reachable(&self.spec, roots, entries, |id| match self.try_info(id) {
+                Ok(info) => {
+                    info.result_erased || self.is_native(id) || (delay && info.delay.is_some())
+                }
+                Err(e) => {
+                    failure.borrow_mut().get_or_insert(e);
+                    true
+                }
+            })?;
+        if let Some(e) = failure.into_inner() {
+            return Err(e);
+        }
+        let wanted: Vec<DefId> = (0..g.defs.len())
+            .map(DefId)
+            .filter(|id| reach.used[id.0] || reach.empty[id.0])
+            .collect();
+        // `reachable` skips a definition without a body, so make sure of the
+        // rest.
+        for &id in &wanted {
+            self.try_info(id)?;
+        }
+        *self.used.borrow_mut() = reach.used;
+        *self.empty.borrow_mut() = reach.empty;
+        Ok(wanted)
+    }
+
+    /// Whether `id` applied to `args` is a call of its empty-row variant.
+    fn empty_call(&self, id: DefId, args: &[&Term]) -> bool {
+        self.empty.borrow()[id.0] && self.spec.empty_call(id, args).unwrap_or(false)
+    }
+
+    /// The [`DefInfo`] of `id`'s empty-row variant: its row parameters are
+    /// erased.
+    fn empty_info(&self, id: DefId) -> &DefInfo {
+        self.empty_infos[id.0].get_or_init(|| {
+            let info = self.info(id);
+            let mask = self
+                .spec
+                .empty_mask(id, &info.mask)
+                .unwrap_or_else(|_| info.mask.clone());
+            let convention = if mask.iter().any(|erased| !erased) {
+                Convention::Function
+            } else {
+                Convention::Thunk
+            };
+            DefInfo {
+                result_erased: info.result_erased,
+                mask,
+                convention,
+                delay: None,
+            }
+        })
+    }
+
+    /// The JS name of `id`, or of its empty-row variant: the name with
+    /// `$e`, which no definition's name has, since [`encode`] uses `$`
+    /// only for its escapes, none of which is `$e`.
+    fn js_name(&self, id: DefId, variant: bool) -> String {
+        let name = def_name(&self.g.def(id).path);
+        if variant { format!("{name}$e") } else { name }
+    }
+
+    /// Whether `id` applied to `args` is a call of the definition whose loop
+    /// `call` is generating, with all its arguments: the same definition,
+    /// and the variant if the loop is the variant's.
+    fn is_self(&self, call: &SelfCall, id: DefId, args: &[&Term]) -> bool {
+        id == call.id
+            && args.len() == self.g.def(id).arity
+            && self.empty_call(id, args) == call.variant
     }
 
     /// Which kernel-native implementation applies to `id`, if any: the
@@ -2201,14 +2286,41 @@ impl<'g> Gen<'g> {
             .unwrap_or_else(|| panic!("no info for {}", self.g.def(id).name))
     }
 
+    /// The declaration of `id` if the program uses it as it is, followed by
+    /// its empty-row variant's if the program uses that.
     fn def(&self, id: DefId) -> Fallible<String> {
+        let mut out = String::new();
+        if self.used.borrow()[id.0] {
+            out.push_str(&self.def_with(id, false)?);
+        }
+        if self.empty.borrow()[id.0] {
+            out.push_str(&self.def_with(id, true)?);
+        }
+        Ok(out)
+    }
+
+    /// The declaration of `id`, or of its empty-row variant.
+    fn def_with(&self, id: DefId, variant: bool) -> Fallible<String> {
         let def = self.g.def(id);
         let DefInfo {
             mask, convention, ..
-        } = self.info(id);
+        } = if variant {
+            self.empty_info(id)
+        } else {
+            self.info(id)
+        };
         let convention = *convention;
         if convention == Convention::Erased {
             return Ok(String::new());
+        }
+        if variant {
+            let body = self
+                .spec
+                .empty_body(id)
+                .ok()
+                .flatten()
+                .expect("a variant is used only if it can be made");
+            return self.def_body(id, true, &body, mask, convention);
         }
         if self.run_delay
             && let Some(prim) = self.g.builtins.primitive(id)
@@ -2229,6 +2341,7 @@ impl<'g> Gen<'g> {
         let Some(body) = def.run_body() else {
             unreachable!("`generate_with` refuses a definition without a body");
         };
+        let body = body.clone();
         if let Some(op) = self.text_natives.get(&id) {
             return Ok(format!(
                 "const {} = {};\n",
@@ -2250,22 +2363,38 @@ impl<'g> Gen<'g> {
                 native_js(op)
             ));
         }
-        let mut env = mask.clone();
+        // Its calls of row eliminators with `Empty` inlined, if it has any.
+        let simplified = self.spec.generic_body(id).ok().flatten();
+        let tree = simplified
+            .as_deref()
+            .unwrap_or_else(|| body.peel_lams(def.arity));
+        self.def_body(id, false, tree, mask, convention)
+    }
+
+    /// `const f = …;` for `id`, or its empty-row variant, with case tree
+    /// (or body) `tree` under its parameters.
+    fn def_body(
+        &self,
+        id: DefId,
+        variant: bool,
+        tree: &Term,
+        mask: &[bool],
+        convention: Convention,
+    ) -> Fallible<String> {
+        let name = self.js_name(id, variant);
+        let mut env = mask.to_vec();
         let mut params = String::new();
         for (level, erased) in mask.iter().enumerate() {
             if !erased {
                 let _ = write!(params, "({}) => ", var(level));
             }
         }
-        let tree = body.peel_lams(def.arity);
+        let tree = tree.strip_loc();
         let rhs = if matches!(tree, Term::Case(..) | Term::NumCase(..)) {
             if !params.is_empty()
-                && let Some(block) = self.self_tail_loop(id, tree, &mut env)?
+                && let Some(block) = self.self_tail_loop(id, variant, tree, &mut env)?
             {
-                return Ok(format!(
-                    "const {} = {params}{block};\n",
-                    def_name(&def.path)
-                ));
+                return Ok(format!("const {name} = {params}{block};\n"));
             }
             let block = self.tree(tree, &mut env, 1, None)?;
             match convention {
@@ -2279,12 +2408,9 @@ impl<'g> Gen<'g> {
             // `decreasing`.
             if !params.is_empty()
                 && self.may_loop(id, tree)
-                && let Some(block) = self.self_tail_loop(id, tree, &mut env)?
+                && let Some(block) = self.self_tail_loop(id, variant, tree, &mut env)?
             {
-                return Ok(format!(
-                    "const {} = {params}{block};\n",
-                    def_name(&def.path)
-                ));
+                return Ok(format!("const {name} = {params}{block};\n"));
             }
             let rhs = self.expr(tree, &mut env)?;
             // An object literal after `=>` needs parentheses.
@@ -2298,7 +2424,7 @@ impl<'g> Gen<'g> {
                 _ => rhs,
             }
         };
-        Ok(format!("const {} = {params}{rhs};\n", def_name(&def.path)))
+        Ok(format!("const {name} = {params}{rhs};\n"))
     }
 
     /// If the definition `id`, with case tree `tree`, calls itself in tail
@@ -2320,6 +2446,7 @@ impl<'g> Gen<'g> {
     fn self_tail_loop(
         &self,
         id: DefId,
+        variant: bool,
         tree: &Term,
         env: &mut Vec<bool>,
     ) -> Fallible<Option<String>> {
@@ -2329,7 +2456,7 @@ impl<'g> Gen<'g> {
         // Inlining without cons comes last: `List.decEq`'s step has no
         // constructor to build, only the call's result to return.
         for (cons, inline) in [(true, true), (true, false), (false, false), (false, true)] {
-            let call = SelfCall::new(id, cons, inline);
+            let call = SelfCall::new(id, variant, cons, inline);
             self.holes.borrow_mut().clear();
             self.fn_holes.borrow_mut().clear();
             self.hole_misused.set(false);
@@ -2376,6 +2503,11 @@ impl<'g> Gen<'g> {
         let Some(group) = def.group.as_deref() else {
             return false;
         };
+        // A member's body is the generic one, which a variant's loop
+        // doesn't reach: it calls the member's variant instead.
+        if call.variant {
+            return false;
+        }
         if member == call.id || !group.contains(&member) || call.inlined.borrow().contains(&member)
         {
             return false;
@@ -2680,7 +2812,7 @@ impl<'g> Gen<'g> {
         let Term::Def(id) = head else {
             return self.leaf_return(term, env, &pad, call);
         };
-        if *id == call.id && args.len() == self.g.def(*id).arity {
+        if self.is_self(call, *id, &args) {
             call.used.set(true);
             let mut passed = Vec::new();
             for (level, arg) in args.iter().enumerate() {
@@ -2796,8 +2928,7 @@ impl<'g> Gen<'g> {
         }
         let (head, args) = term.spine();
         if let Term::Def(id) = head
-            && *id == call.id
-            && args.len() == self.g.def(*id).arity
+            && self.is_self(call, *id, &args)
         {
             let mut passed = Vec::new();
             for (level, arg) in args.iter().enumerate() {
@@ -2835,8 +2966,7 @@ impl<'g> Gen<'g> {
                 Term::Ctor(..) => self.hole_path(arg, env, call).is_some(),
                 other => {
                     let (head, args) = other.spine();
-                    matches!(head, Term::Def(id) if *id == call.id
-                        && args.len() == self.g.def(*id).arity)
+                    matches!(head, Term::Def(id) if self.is_self(call, *id, &args))
                 }
             };
             if is_hole {
@@ -2938,11 +3068,22 @@ impl<'g> Gen<'g> {
         let Some(info) = self.infos[id.0].get() else {
             return Ok(None);
         };
+        let variant = self.empty_call(id, args);
+        let info = if variant { self.empty_info(id) } else { info };
         if info.convention != Convention::Function || info.delay.is_some() {
             return Ok(None);
         }
-        let Some(body) = def.run_body() else {
-            return Ok(None);
+        let tree = if variant {
+            match self.spec.empty_body(id) {
+                Ok(Some(body)) => body,
+                _ => return Ok(None),
+            }
+        } else {
+            match (self.spec.generic_body(id).ok().flatten(), def.run_body()) {
+                (Some(simplified), _) => simplified,
+                (None, Some(body)) => Rc::new(body.peel_lams(def.arity).clone()),
+                (None, None) => return Ok(None),
+            }
         };
         // The arguments, in this call's environment. A call to itself isn't
         // made: it's the next turn, if the helper puts it in tail position.
@@ -3027,8 +3168,7 @@ impl<'g> Gen<'g> {
         }
         call.inlining.set(call.inlining.get() + 1);
         call.inlined.borrow_mut().push(id);
-        let tree = body.peel_lams(def.arity);
-        let result = self.tree(tree, env, depth, Some(call));
+        let result = self.tree(&tree, env, depth, Some(call));
         call.inlined.borrow_mut().pop();
         call.inlining.set(call.inlining.get() - 1);
         env.truncate(base);
@@ -3059,9 +3199,7 @@ impl<'g> Gen<'g> {
             body = inner.strip_loc();
         }
         let (head, args) = body.spine();
-        (!params.is_empty()
-            && matches!(head, Term::Def(id) if *id == call.id)
-            && args.len() == self.g.def(call.id).arity)
+        (!params.is_empty() && matches!(head, Term::Def(id) if self.is_self(call, *id, &args)))
             .then(|| (params, body.clone()))
     }
 
@@ -3337,12 +3475,18 @@ impl<'g> Gen<'g> {
             }
             return Ok(out);
         }
-        let info = self.info(id);
+        // A call at the empty row calls the variant, which takes no row.
+        let variant = self.empty_call(id, args);
+        let info = if variant {
+            self.empty_info(id)
+        } else {
+            self.info(id)
+        };
         let mask = &info.mask;
         let mut out = match info.convention {
             Convention::Erased => return Ok("undefined".into()),
-            Convention::Thunk => format!("{}()", def_name(&self.g.def(id).path)),
-            Convention::Value | Convention::Function => def_name(&self.g.def(id).path),
+            Convention::Thunk => format!("{}()", self.js_name(id, variant)),
+            Convention::Value | Convention::Function => self.js_name(id, variant),
         };
         // Used as a value with an erased parameter still unsupplied: the
         // receiver knows only the type, so it passes the type and proof
@@ -4912,7 +5056,7 @@ pub fn js_string_literal(text: &str) -> String {
 /// must already exist. A cycle is a group, whose members are functions or
 /// thunks that look each other up only when called, so any order serves
 /// there: the back edge is ignored.
-pub(crate) fn dependency_order(g: &Globals, ids: &[DefId]) -> Vec<DefId> {
+fn dependency_order(codegen: &Gen, ids: &[DefId]) -> Vec<DefId> {
     let wanted: HashSet<DefId> = ids.iter().copied().collect();
     let mut state: HashMap<DefId, bool> = HashMap::new(); // false: open, true: done
     let mut out = Vec::with_capacity(ids.len());
@@ -4922,13 +5066,13 @@ pub(crate) fn dependency_order(g: &Globals, ids: &[DefId]) -> Vec<DefId> {
         }
         state.insert(root, false);
         // (definition, the definitions it refers to, how many are handled)
-        let mut stack = vec![(root, refs(g, root, &wanted), 0)];
+        let mut stack = vec![(root, refs(codegen, root, &wanted), 0)];
         while let Some((id, deps, next)) = stack.last_mut() {
             if let Some(&dep) = deps.get(*next) {
                 *next += 1;
                 if let std::collections::hash_map::Entry::Vacant(e) = state.entry(dep) {
                     e.insert(false);
-                    stack.push((dep, refs(g, dep, &wanted), 0));
+                    stack.push((dep, refs(codegen, dep, &wanted), 0));
                 }
             } else {
                 let id = *id;
@@ -4941,12 +5085,18 @@ pub(crate) fn dependency_order(g: &Globals, ids: &[DefId]) -> Vec<DefId> {
     out
 }
 
-/// The wanted definitions `id`'s body refers to, in order.
-fn refs(g: &Globals, id: DefId, wanted: &HashSet<DefId>) -> Vec<DefId> {
-    let mut found: Vec<DefId> = g
+/// The wanted definitions `id`'s body refers to, in order, then those its
+/// empty-row variant's body does, if it's used.
+fn refs(codegen: &Gen, id: DefId, wanted: &HashSet<DefId>) -> Vec<DefId> {
+    let variant = codegen.empty.borrow()[id.0]
+        .then(|| codegen.spec.empty_body(id).ok().flatten())
+        .flatten();
+    let mut found: Vec<DefId> = codegen
+        .g
         .def(id)
         .run_body()
         .into_iter()
+        .chain(variant.as_ref())
         .flat_map(|b| b.subterms())
         .filter_map(|(t, _)| match t {
             Term::Def(d) if wanted.contains(d) && *d != id => Some(*d),

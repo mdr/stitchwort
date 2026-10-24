@@ -407,3 +407,23 @@ def main(): {IO} () := IO.print "${(digits 12345678).length}"
     let unrolled = ir.matches("AccIntro").count();
     assert!(unrolled < 10, "{unrolled} AccIntro in the IR of main");
 }
+
+/// A pure use of an effect-polymorphic function calls its empty-row variant
+/// (docs/proposals/effect-polymorphism.md, design E): `List.mapIn` at the
+/// empty row is `List.map`'s code, with no row passed and no test of one.
+#[test]
+fn a_pure_use_of_map_in_has_no_row_dispatch() {
+    let ir = ir(r#"
+import Std (List, Nat)
+
+def step (n: Nat): Nat := n + 1
+
+def main(): {IO} () := IO.print (Nat.toText (List.sum (List.mapIn step [1, 2, 3])))
+"#);
+    assert!(!ir.contains("Empty"), "a row in the IR:\n{ir}");
+    assert!(
+        !ir.contains("bindIn") && !ir.contains("doneIn"),
+        "a row eliminator in the IR:\n{ir}"
+    );
+    insta::assert_snapshot!(ir);
+}

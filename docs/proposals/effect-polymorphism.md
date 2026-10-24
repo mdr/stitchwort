@@ -3,7 +3,7 @@
 Status: design note and literature review, revised after external review,
 24 Oct 2026. The row type is now spelled `Effects` in source (D1143 (a)); the
 older sections below still say `Row`, its earlier name. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
-§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices), and the first part of stage 1 ("As built (stage 1, first part)"), which leaves D1133 and D1134 as options for the owner. The two experiments before this note are in
+§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices), and the first part of stage 1 ("As built (stage 1, first part)"), which leaves D1133 and D1134 as options for the owner, and stage 2 ("As built (stage 2)"). The two experiments before this note are in
 [effectful-map.md](effectful-map.md).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
@@ -2027,6 +2027,133 @@ each with a regression test in `examples/accept/effect-rows-uses.sw`:
   flag`, a result type `Cell x` stuck on a variable), which the coercion
   used to wrap in `doneIn ?e`; it is now put aside and defaulted to the empty
   row, as §5.C.1 describes for that case.
+
+## As built (stage 2)
+
+SW-407, 24 Oct 2026. Design E in both backends, as one pass they share:
+`crates/rt/src/specialise.rs` (`Specialiser`), used by the runtime's
+lowering (`lower.rs`) and the JS generator (`crates/js/src/lib.rs`,
+`run.rs`). The kernel, the elaborator and hashes are unchanged.
+
+**Measured first** (`bench/effect-map/`: `map.sw` and `run.sh`; each run
+maps 10,000,000 elements in all, as `n` elements `10,000,000 / n` times, and
+sums each result; the time of a whole `stitchwort run`, with `--js` for
+Node, best of five, on a machine shared with other work; checking,
+generating code and building the list, the same run with no rounds, took
+0.15 to 0.30 s). Before, on `main` at `cbf2ac4a`:
+
+| Backend | Elements | `sum` alone | `map` | `mapIn`, pure | `mapIn`, `{Fail}` |
+|---|---|---|---|---|---|
+| runtime | 100,000 | 0.43 s | 0.95 s | 1.41 s | 3.29 s |
+| runtime | 1,000,000 | 0.50 s | 1.00 s | 1.47 s | 3.40 s |
+| Node | 100,000 | 0.28 s | 0.44 s | 5.59 s | 9.19 s |
+| Node | 1,000,000 | 0.36 s | 0.55 s | 24.68 s | 48.57 s |
+
+The JS of `List.mapIn` was the generic code at every use: a pure caller
+passed `{ tag: "Empty" }`, and each element cost two calls of `bindIn`
+and one of `doneIn` (each a `switch` on the row), two closures, and a stack
+frame, since the recursion wasn't in tail position, so the
+tail-recursion-modulo-cons loop `List.map` gets didn't apply. At 1,000,000
+elements that is 45 times `map`'s time. The runtime did better (1.5 times
+`map`), since its machine has its own stack, but it ran the same generic
+code: the row passed, and tested in each `bindIn` and `doneIn`, with two
+continuations made per element.
+
+**What a variant is.** For a definition with parameters of type `Effects`
+among those its body takes (`Specialiser::rows`; not one whose result is a
+partial computation), a call that passes the constant `Empty` for every one
+of them (`empty_call`) calls the definition's *empty-row variant*. Its body
+(`empty_body`) is the definition's case tree with
+
+1. each row parameter replaced by `Empty`, and a `case` on one by its
+   `Empty` branch;
+2. each call of a *row eliminator* given `Empty` inlined: a definition that
+   isn't recursive, whose body is a single `case` on a row parameter, and
+   whose `Empty` branch is small (64 subterms) with no `case` of its own.
+   That is `doneIn`, `bindIn`, `liftIn`, `lowerIn` and `widenIn`, found by
+   that shape, not by name (and `CompIn`, in types, where it doesn't matter);
+3. the redexes that leaves beta-reduced: an argument goes in place of its
+   parameter if it's a value (a variable, a definition, a literal, a
+   constant constructor; a lambda only if used once), or used once and not
+   inside a lambda; an unused one is dropped; the others are bound by a
+   `let`.
+
+The variant keeps every parameter, so variables keep their indices, and the
+backends treat its row parameters as erased: they aren't passed. Its calls
+that pass `Empty` call variants in turn, so variants are made transitively,
+at most one per definition (keyed by the definition; a definition with
+several row parameters has a variant only for calls with all of them
+`Empty`). A generic body that itself calls a row eliminator with `Empty`
+(a pure lambda passed to `mapIn` is `x => doneIn Empty v`) is simplified the
+same way (`generic_body`). Nothing in the pass mentions `Comp`, `bind` or
+`Done`: it knows only that `Effects` is the parameter type that drives
+specialisation and `Empty` the constructor it specialises on.
+
+The beta step moves a computation to the one place its value is used, or
+drops it: generated code is pure and total (a partial computation is a value
+until the runner runs it), so a program can't tell. A shape the pass doesn't
+handle (a `case` whose variable would become a computation), or a body
+nested more than 1,000 deep (a long list literal), leaves the definition
+without a variant, and its calls use the generic code.
+
+**Reachability.** `specialise::reachable` replaces `erasure::reachable` in
+both backends: it follows a variant's body instead of the definition's
+where a call is at the empty row, so a definition used only at the empty
+row isn't generated at all (`List.mapIn`'s generic code, `bindIn` and
+`doneIn` are gone from a pure program). Each variant is generated just
+after its definition's place, so dependency order holds; in JS it is named
+`$…$e` (`$e` is no escape of `encode`, so no definition's name has it), in
+the runtime's IR `…[empty]`.
+
+**The test case.** The JS of `List.mapIn` at the empty row is now
+`List.map`'s loop, identical but for variable numbers
+(`crates/cli/tests/snapshots/extract__effect-rows.js.snap`,
+`$Std$dList$dmapIn$e` beside `$Std$dList$dmap`), and in the runtime's IR
+`Std.List.mapIn[empty]` is `match v1 { Nil => Nil, Cons(v2, v3) =>
+Cons(apply v0(v2), Std.List.mapIn[empty](v0, v3)) }`, which the runtime's
+simplifier then copies for the known callback as it does for `map`
+(`crates/rt/tests/snapshots/lower__a_pure_use_of_map_in_has_no_row_dispatch.snap`).
+
+**After:**
+
+| Backend | Elements | `sum` alone | `map` | `mapIn`, pure | `mapIn`, `{Fail}` |
+|---|---|---|---|---|---|
+| runtime | 100,000 | 0.43 s | 0.96 s | 0.95 s | 3.43 s |
+| runtime | 1,000,000 | 0.50 s | 1.01 s | 1.02 s | 3.48 s |
+| Node | 100,000 | 0.28 s | 0.46 s | 0.45 s | 9.11 s |
+| Node | 1,000,000 | 0.35 s | 0.54 s | 0.55 s | 48.25 s |
+
+Without the time to check, build and sum the list (the `sum` column), pure
+`mapIn` costs 2% more than `map` on the runtime at 1,000,000 elements
+(0.52 s against 0.51 s;
+before, 0.97 s) and 5% more in Node (0.20 s against 0.19 s; before,
+24.3 s): within noise on a machine shared with other work. The effectful
+`mapIn` is unchanged (its generic code is what it was; only the handler,
+`Fail.toResult` at the empty row, is now a variant), and still quadratic in
+Node, which is stage 4's problem.
+
+**Tests.** `examples/extract/effect-rows.sw`: pure uses of `List.mapIn`
+(directly, at 100,000 elements in Node's default stack, and partially
+applied inside `List.map`), a program's own row-polymorphic function used
+purely, an effectful `mapIn` under `Fail.toResult`, and a handler with an
+open row (`countAll`) at the empty row; its `run:` lines and random inputs
+are checked against the reference evaluator, as for every extraction
+example. `crates/cli/tests/extract.rs`:
+`map_in_at_the_empty_row_is_maps_loop` (the two functions' JS equal after
+renumbering variables, and the pure caller passes no row).
+`crates/rt/tests/lower.rs`: `a_pure_use_of_map_in_has_no_row_dispatch`.
+The existing differential tests (the runtime against the reference on every
+example and the AoC tests, `run --js` likewise) cover the rest.
+
+Three extraction snapshots changed, all the same way: `effects.sw`
+(`allResults`, `runState`, `toOption`), `io.sw` (`IO.simulate`) and
+`results.sw` (`Fail.toResult`) use handlers with an open row at the empty
+row. Those are now `…$e` variants with `doneIn` and `bindIn` folded away,
+and the callers no longer wrap the handled computation in
+`widenIn Empty (sigCase sigLeft sigFromNo) c`, which is `c`; so
+`translate`, `sigLeft`, `sigCase`, `caseInject`, `caseReply`, `sigFromNo`
+and the generic eliminators are no longer generated for them. An effectful
+use (`mapIn [Ops …]` in `results.sw`'s `sizes`) is unchanged.
 
 ## Appendix A. Probe files
 

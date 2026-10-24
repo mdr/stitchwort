@@ -22,6 +22,7 @@ pub mod opt;
 pub mod pretty;
 mod prims;
 pub mod run;
+pub mod specialise;
 mod validate;
 pub mod value;
 

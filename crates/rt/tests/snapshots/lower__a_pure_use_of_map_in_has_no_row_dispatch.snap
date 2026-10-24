@@ -1,0 +1,72 @@
+---
+source: crates/rt/tests/lower.rs
+expression: ir
+---
+native Std.Nat.add = %Nat.add/2
+native Std.Nat.toText = %NatToText/1
+fn Std.Effect.bind(v0, v1) {4 slots} =
+  match v0: Effect.Comp {
+    Done(value: v2) => apply v1(v2)
+    Call(o: v2, rest: v3) =>
+      Call(v2, λ0[c0 = v3, c1 = v1](v0) {1 slots} =>
+        Std.Effect.bind(apply c0(v0), c1))
+  }
+native Std.Effect.lift = %Effect.lift/1
+fn Std.Add.%zero(v0) {2 slots} =
+  match v0: Add (record) {
+    %mk(zero: v1) => v1
+  }
+fn Std.Add.%add(v0) {2 slots} =
+  match v0: Add (record) {
+    %mk(add: v1) => v1
+  }
+fn Std.Add.zero(v0) {2 slots} =
+  match v0: Add (record) {
+    %mk(zero: v1) => v1
+  }
+fn Std.Add.add(v0) {2 slots} =
+  match v0: Add (record) {
+    %mk(add: v1) => v1
+  }
+const Std.Nat.instAdd {0 slots} = %mk(0, Std.Nat.add)
+fn Std.List.mapIn[empty](v0, v1) {4 slots} =
+  match v1: List {
+    Nil => Nil
+    Cons(head: v2, tail: v3) => Cons(apply v0(v2), Std.List.mapIn[empty](v0, v3))
+  }
+fn Std.List.foldLeft(v0, v1, v2) {5 slots} =
+  match v2: List {
+    Nil => v1
+    Cons(head: v3, tail: v4) => Std.List.foldLeft(v0, apply v0(v1, v3), v4)
+  }
+fn Std.List.sum(v0, v1) {3 slots} =
+  Std.List.foldLeft({
+    match v0: Add (record) {
+      %mk(add: v2) => v2
+    }
+  }, {
+    match v0: Add (record) {
+      %mk(zero: v2) => v2
+    }
+  }, v1)
+fn Main.step(v0) {1 slots} = %Nat.add(v0, 1)
+fn Main.main(v0) {1 slots} =
+  Std.Effect.bind(Std.Effect.bind(Std.Effect.bind(Done(Std.List.mapIn[empty][0](Cons(1, Cons(2, Cons(3, Nil))))), λ1(v0) {1 slots} =>
+    Done(Std.List.foldLeft[1](0, v0))), λ2(v0) {1 slots} =>
+    Done(%NatToText(v0))), λ3(v0) {1 slots} =>
+    Call(L(%print(v0)), done-k))
+fn Std.List.mapIn[empty][0](v0) {3 slots} =
+  match v0: List {
+    Nil => Nil
+    Cons(head: v1, tail: v2) => Cons(%Nat.add(v1, 1), Std.List.mapIn[empty][0](v2))
+  }
+fn Std.List.foldLeft[1](v0, v1) {4 slots} =
+  match v1: List {
+    Nil => v0
+    Cons(head: v2, tail: v3) => Std.List.foldLeft[1](%Nat.add(v0, v2), v3)
+  }
+entry {0 slots} =
+  %Effect.lift(Std.Effect.bind(Std.Effect.bind(Std.Effect.bind(Done(Std.List.mapIn[empty][0](Cons(1, Cons(2, Cons(3, Nil))))), λ1(v0) {1 slots} =>
+    Done(Std.List.foldLeft[1](0, v0))), λ2(v0) {1 slots} =>
+    Done(%NatToText(v0))), λ3(v0) {1 slots} =>
+    Call(L(%print(v0)), done-k)))
