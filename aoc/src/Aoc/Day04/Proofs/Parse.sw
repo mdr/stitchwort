@@ -16,8 +16,8 @@ theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.he
     | True =>
       let i := Fin.ofNatLt lines.length r e
       calc rowsCells rows r c
-        _ = List.getOr Floor c (Vec.toList (Vec.get rows i))
-          := rewrite <- Vec.getToList (Vec.replicate width Floor) rows i, Fin.toNatOfNatLt lines.length r e
+        _ = Vec.getOr Floor c (Vec.get rows i)
+          := rewrite <- Vec.getOrGet (Vec.replicate width Floor) rows i, Fin.toNatOfNatLt lines.length r e
         _ = List.getOr Floor c (parseLine (Vec.get (Vec.fromList lines) i))
           := rewrite Vec.ofListToList width (parseLine (Vec.get (Vec.fromList lines) i)) (Vec.get rows i)
             (Vec.traverseOptionGet (line => Vec.ofList width (parseLine line)) (Vec.fromList lines) rows ok i)
