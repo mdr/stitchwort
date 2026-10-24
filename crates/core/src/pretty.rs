@@ -242,7 +242,8 @@ impl<'g> Printer<'g> {
             Term::Data(d, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A computation over a row of abilities: `{State Nat | e} a`.
             Term::Data(d, args) if is(self.g, Builtin::Comp, *d) && args.len() == 3 => {
-                match self.row(names, &args[0]) {
+                // The empty row stays `Comp NoOp NoRes a`: `{} a` reads as `a`.
+                match self.row(names, &args[0]).filter(|row| row != "{}") {
                     Some(row) => {
                         let result = self.print(names, &args[2], Prec::App);
                         (format!("{row} {result}"), Prec::App)

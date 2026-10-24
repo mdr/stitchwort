@@ -49,7 +49,7 @@ const SOURCE: &str = "import Std.Effect (Comp, NoOp, NoRes)\n\
                       def g: Nat := f\n";
 
 /// The elaborated `g` is `runPure f`: the kernel checks a well-typed term,
-/// not a conversion between `{} Nat` and `Nat`.
+/// not a conversion between `Comp NoOp NoRes Nat` and `Nat`.
 #[test]
 fn the_elaborator_runs_the_computation_with_run_pure() {
     let mut session = Session::new();
