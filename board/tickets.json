@@ -3125,9 +3125,9 @@
     {
       "id": 199,
       "title": "Well-founded recursion: decreasing (umbrella; stages 1, 2, 3a, 3c done; 3b List.attach in backlog SW-288)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree lane: stage 3d lexicographic measures",
       "labels": [
         "design",
         "kernel",
@@ -3135,7 +3135,7 @@
       ],
       "body": "Problem: recursion that isn't structural is written with fuel today: Nat.divFuel (`/` and `%`, std/core.sw:366), Nat.digitsFuel (std/Nat/Digits.sw:7), transposeN, AoC day 4 settle, day 2 weightFuel; each needs fuel-enough and fuel-irrelevant lemmas.\n\nDesired: write `decreasing n` instead. Options sketched 21 Oct: A) Acc-based (Lean termination_by; WF definitions compute badly, bad for rfl/test-heavy Stitchwort); B) a measure compiled to hidden fuel plus generated equation lemmas (kernel unchanged; reuses the equation-lemmas work, D231); C) kernel primitive (Dafny-like); D) sized types. Early read: B.\n\nFirst step: write a design note with external review (design review gate), including how B interacts with equation lemmas stages 1-2.\n\nDone when: the note is reviewed and accepted, then `decreasing` exists and Nat.divFuel / Nat.digitsFuel are rewritten with it, with their lemmas shrinking.\n\nHistory: D234 (Matt, 21 Oct 2026): backlog.\n\n22 Oct 2026 (D472, Matt: yes): write the design note now (note only). Days 1-4 research: Lean authors use termination_by measures (day 4: roll count); 9 of 21 proof-language day 4 files used fuel or gave up.\n\n22 Oct 2026: note docs/proposals/well-founded-recursion.md merged; D473-D475 asked.\n\n22 Oct 2026: D473 (option B, build stages 1-2), D474 (syntax: decreasing e after the result type; [decreasing := proof] at a call, else auto; also on theorems), D475 (AoC programs use the guard style) — Matt: yes. Stage 1 lane started; stage 2 (Nat.digits, List.chunksOf, day 4 off fuel) after the Nat.pow and day 4 port lanes land.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ae8ad06b9de0ac8ec (branch worktree-agent-ae8ad06b9de0ac8ec, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.",
       "created": "2026-10-21",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": [
         "7c27c8a0",
         "afa4d4d2",
@@ -3982,15 +3982,15 @@
     {
       "id": 257,
       "title": "Glued values: calls keep their written form, unfolded on demand (stage 1 merged, off by default; stages 2-3 next; D482-D484)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree lane: stage 2 (fresh; old partial work lost)",
       "labels": [
         "perf"
       ],
       "body": "After SW-256 (calc fix) merges. docs/proposals/folded-calls.md. Kernel checking unchanged (D483); rewrite/decision search keep seeing the unfolded goal, messages show the folded one (D484). Fresh lane per stage.\n\n22 Oct 2026: PAUSED (session quota). Partial work in worktree .claude/worktrees/agent-ab769302012a98192 (branch worktree-agent-ab769302012a98192, may be uncommitted); resume by SendMessage to the agent or a fresh lane building on it.",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": [
         "26947d67",
         "cf589335",
@@ -5650,16 +5650,16 @@
     {
       "id": 356,
       "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 and the API leftovers (memToList, sizeInsert/Remove, Map.induction, isSubsetSpec) merged; remaining: O(n+m) merges",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree lane: O(n+m) merges",
       "labels": [
         "design",
         "std"
       ],
       "body": "",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": [
         "14a62fd9",
         "84f98814",
@@ -6104,15 +6104,15 @@
     {
       "id": 380,
       "title": "Microtypes: stage 1 merged (@[js.unboxed] crosses as the field's JS form; microtype map keys); D866 done; next: stage 3 recipe/docs if needed; open D1084 (Option fields)",
-      "status": "next",
-      "agent": "Opus",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree lane: stage 3 recipe",
       "labels": [
         "lang"
       ],
       "body": "D1084 (a): @[js.unboxed] keeps refusing records whose field is an Option (write Option UserId instead). D1081 (b): single-constructor data types stay boxed (D866 covers records only).",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": [
         "cb312b0e",
         "0ae50a1f"
