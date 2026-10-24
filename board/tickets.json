@@ -6568,16 +6568,18 @@
     {
       "id": 407,
       "title": "Effect polymorphism stage 2: empty-row specialisation in JS and rt (design E)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "84a96066"
+      ]
     },
     {
       "id": 408,
@@ -6598,7 +6600,7 @@
       "title": "Effect polymorphism stage 4: linear-time, stack-safe effectful runtime; design note first, starting with close literature reading (D1119)",
       "status": "doing",
       "agent": "",
-      "where": "design note lane (Opus)",
+      "where": "D1162: self-review + research report for external review (Opus lane)",
       "labels": [
         "effects"
       ],
