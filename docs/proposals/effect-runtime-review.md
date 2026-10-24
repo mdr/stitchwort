@@ -53,15 +53,21 @@ its acceptance tests would not have caught that:
    enclosing row. With it, the reader, writer and search run at 1,000,000
    elements in JS whenever another ability remains outside the handler, and
    the reader runs even with none **[measured]**.
-3. **One case remains, and it is inherent.** A handler at the outermost
+3. **One case remains under the current pure calling convention.** A
+   handler at the outermost
    (empty) row whose clause uses `k`'s result inside a pure expression
    (`Cons v (k ())`, `List.append (k True) (k False)`) is a pure
    non-tail recursion, as deep as the number of operations on one path. No
    change confined to the runtime fixes that in JS. It needs a decision
-   (Q2 in §9).
-4. **Allocation, not dispatch, is A's cost.** At 1,000,000 elements, about
-   80% of A's time in JS is garbage collection pauses (heap 441 MB against
-   195 MB for plain `map`) **[measured]**. The note doesn't measure memory.
+   (Q2 in §9). (Revised after the external review: this is a consequence
+   of the current pure calling convention, not of the `Comp`
+   representation; selectively transforming the clauses that consume a
+   resumption is a possible future solution.)
+4. **Allocation, not dispatch, is A's cost.** At 1,000,000 elements, GC
+   pause time is of the same order as about 80% of the measured call time
+   (heap 441 MB against 195 MB for plain `map`) **[measured]**. The GC
+   trace also covers process and input setup, so this is evidence that GC
+   dominates the added cost, not an exact attribution. The note doesn't measure memory.
 5. **The native runtime's `IO` runner scans every frame for every
    operation.** If stage 4a moves `Bind` frames onto that frame stack, `io`
    stays quadratic **[source, inferred]**.
@@ -537,7 +543,10 @@ whole process, including building the input list:
 | counted (A + lazy + A′) | 571–594 ms | 158 | 1 | 387–403 ms | 443 MB |
 | countedChecked | 1.36–2.06 s | 323 | 2 | 0.88–1.24 s | 444 MB |
 
-- **GC is most of the time.** About 80% of A's run time is GC pauses.
+- **GC dominates the added cost.** GC pause time is of the same order as
+  about 80% of the measured call time. The trace also includes process and
+  input setup, so this is evidence that GC dominates the additional cost,
+  not an exact attribution.
 - **Why.** The pending list is *live* for the whole run, because a
   non-tail `mapIn` has `n` pending continuations. So each scavenge copies
   it, and it is promoted to the old generation. Today's direct calls keep
@@ -1009,8 +1018,10 @@ Adopt design A, as the note recommends, with these changes:
    - a differential generator over nested handlers of all shapes in
      §5.1, including `IO` and `Partial` forwarding inside `main`.
 
-The note's alternatives B (CPS) and C (Koka) stay rejected, for its reasons
-plus §7's measurements. D (one-shot fibers or stack switching) stays
+For the note's alternatives B (CPS) and C (Koka), there is no current
+justification for paying their architectural cost, for its reasons plus
+§7's measurements (hand-written models, so this supports not choosing them
+now, not a lasting conclusion). D (one-shot fibers or stack switching) stays
 rejected.
 
 **Does this differ from the note?** In the core data structure, no. In what

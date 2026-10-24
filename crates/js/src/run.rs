@@ -141,6 +141,12 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
     js.push('\n');
     js.push_str(&shapes.js());
     js.push_str(DELAY_RUNTIME);
+    // The runner takes computations apart with the effect runtime's loop.
+    let effect = codegen
+        .effect
+        .as_ref()
+        .ok_or_else(|| internal("the core's effect machinery isn't loaded".into()))?;
+    js.push_str(effect.runtime());
     js.push('\n');
     for id in crate::dependency_order(&codegen, &used) {
         js.push_str(&codegen.def(id).map_err(|e| {
@@ -472,8 +478,13 @@ import * as __wt from "node:worker_threads";
     }
     return v;
   };
+  // In `COMP` mode, `a` is a computation and `pending` the continuations
+  // waiting for its result: the effect runtime's list, kept apart from the
+  // machine's frames, so routing an operation looks only at `Map` and `Tie`
+  // frames, never at a computation's continuations one by one
+  // (docs/proposals/effect-runtime.md §9.1).
   const run = (delay) => {
-    let mode = EVAL, a = delay, b;
+    let mode = EVAL, a = delay, b, pending = null;
     const frames = [];
     for (;;) {
       switch (mode) {
@@ -486,6 +497,7 @@ import * as __wt from "node:worker_threads";
             case D_LIFT:
               mode = COMP;
               a = a.a;
+              pending = null;
               break;
             case D_BIND:
               frames.push({ k: F_BIND, f: a.b });
@@ -511,6 +523,7 @@ import * as __wt from "node:worker_threads";
           a = a(b);
           break;
         case COMP: {
+          a = effRun(a, pending);
           if (a.tag === SHAPE.done) {
             mode = RET;
             a = a[SHAPE.doneValue];
@@ -518,6 +531,7 @@ import * as __wt from "node:worker_threads";
           }
           let op = a[SHAPE.callOp];
           const cont = a[SHAPE.callRest];
+          const after = effPending;
           // The operation leaves the focus, outwards through the frames.
           const back = [];
           let entered = false;
@@ -535,9 +549,16 @@ import * as __wt from "node:worker_threads";
               // A recursion request: one tick.
               const request = op[SHAPE.leftOp][SHAPE.recurArg];
               const upper = frames.splice(j);
-              const tail = upper.length === 1 && cont === DONE_K && back.length === 0;
+              const tail =
+                upper.length === 1 && cont === DONE_K && after === null && back.length === 0;
               if (!tail) {
-                frames.push({ k: F_AWAIT, cont, upper, back: back.map(([k, s]) => [k - j, s]) });
+                frames.push({
+                  k: F_AWAIT,
+                  cont,
+                  after,
+                  upper,
+                  back: back.map(([k, s]) => [k - j, s]),
+                });
               }
               mode = ENTER;
               a = frame.f;
@@ -550,6 +571,7 @@ import * as __wt from "node:worker_threads";
           // For the host.
           const reply = translateBack(frames, back, perform(op));
           a = cont(reply);
+          pending = after;
           break;
         }
         case RET: {
@@ -565,6 +587,7 @@ import * as __wt from "node:worker_threads";
               for (const f of frame.upper) frames.push(f);
               mode = COMP;
               a = frame.cont(v);
+              pending = frame.after;
               break;
             }
           }

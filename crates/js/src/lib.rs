@@ -35,6 +35,7 @@ pub use stitchwort_rt::natives::{
 };
 use stitchwort_syntax::Diagnostic;
 
+mod effect;
 mod fast;
 pub mod run;
 pub mod sourcemap;
@@ -647,6 +648,12 @@ pub struct Options {
     /// natives. Either way, this applies only to the prelude's `Int` as the
     /// representation was written for it ([`bind_int`]).
     pub native_int: bool,
+    /// The effect runtime counts its work (docs/proposals/effect-runtime.md
+    /// §9.3, stage 4a): run-loop steps, pushes and pops of pending
+    /// continuations, operations routed through a fold or a `translate`, and
+    /// resumptions, in `globalThis.__stitchwortEffectCounts`. For tests that
+    /// check how the work grows; off in what users get.
+    pub effect_counters: bool,
 }
 
 impl Default for Options {
@@ -654,6 +661,7 @@ impl Default for Options {
         Options {
             native_text: true,
             native_int: true,
+            effect_counters: false,
         }
     }
 }
@@ -927,6 +935,12 @@ pub fn generate_exports(
     // Partial computations are one token (docs/proposals/partial.md §7.6).
     if wanted.iter().any(|id| codegen.info(*id).delay.is_some()) {
         js.push_str("// A partial computation, which nothing here can run.\nconst delayed = Symbol(\"Delay\");\n\n");
+    }
+    if let Some(effect) = &codegen.effect
+        && wanted.iter().any(|id| effect.native(*id).is_some())
+    {
+        js.push_str(effect.runtime());
+        js.push('\n');
     }
     let while_generating = |id: DefId| {
         move |e: ResourceError| {
@@ -1953,6 +1967,10 @@ struct Gen<'g> {
     if_then_else: Option<DefId>,
     /// `Decidable.elim`, which `if h: p then a else b` becomes.
     elim_dec: Option<DefId>,
+    /// The effect runtime, which replaces the library functions that take a
+    /// computation apart (docs/proposals/effect-runtime.md §9), if the
+    /// core is loaded.
+    effect: Option<effect::Effect>,
     /// For `stitchwort run --js` ([`run`]): a `Delay` is a real value that
     /// the runner steps, rather than the erased token, so partial
     /// definitions are generated, and `Delay`'s constants build
@@ -2113,6 +2131,7 @@ impl<'g> Gen<'g> {
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
             elim_dec: g.registry.def(Builtin::ElimDec),
+            effect: effect::Effect::new(g, options.effect_counters),
             run_delay: false,
             holes: RefCell::new(Vec::new()),
             fn_holes: RefCell::new(Vec::new()),
@@ -2237,6 +2256,13 @@ impl<'g> Gen<'g> {
             || self.text_natives.contains_key(&id)
             || self.int_natives.contains_key(&id)
             || self.float_natives.contains_key(&id)
+            || self.effect_native(id).is_some()
+    }
+
+    /// Which of the library functions the effect runtime replaces `id` is,
+    /// if any.
+    fn effect_native(&self, id: DefId) -> Option<effect::EffectNative> {
+        self.effect.as_ref().and_then(|e| e.native(id))
     }
 
     /// What's decided about a definition, from its type: computed on first
@@ -2321,6 +2347,9 @@ impl<'g> Gen<'g> {
                 .flatten()
                 .expect("a variant is used only if it can be made");
             return self.def_body(id, true, &body, mask, convention);
+        }
+        if let Some(op) = self.effect_native(id) {
+            return Ok(format!("const {} = {};\n", def_name(&def.path), op.js()));
         }
         if self.run_delay
             && let Some(prim) = self.g.builtins.primitive(id)
@@ -3488,6 +3517,24 @@ impl<'g> Gen<'g> {
             Convention::Thunk => format!("{}()", self.js_name(id, variant)),
             Convention::Value | Convention::Function => self.js_name(id, variant),
         };
+        // A `handle`'s fold: lazy resumption where its carrier (the fourth
+        // argument, erased) is a computation (docs/proposals/effect-runtime.md
+        // §9.2). The same parameters, so the call is built the same way.
+        if let Some(effect) = &self.effect
+            && effect.is_fold(id)
+            && let Some(carrier) = args.get(3)
+        {
+            match effect.carrier(carrier) {
+                effect::Carrier::Tree => out = "effFoldCompLazy".into(),
+                effect::Carrier::Row(row) => {
+                    let row = self.expr(row, env)?;
+                    if row != "undefined" {
+                        out = format!("effFoldCompIn({row})");
+                    }
+                }
+                effect::Carrier::Value => {}
+            }
+        }
         // Used as a value with an erased parameter still unsupplied: the
         // receiver knows only the type, so it passes the type and proof
         // arguments too. A closure over all the remaining parameters takes
