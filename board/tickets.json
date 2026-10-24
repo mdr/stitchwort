@@ -6552,7 +6552,7 @@
       "title": "Effect polymorphism stage 1: row-indexed computation type (design C), internal Row (D1122), apartness rule and defaulting (D1123); also settle = operands and if/match branches (D1133) and {Fail} b binders for Fail.toResultMapIn (D1134)",
       "status": "doing",
       "agent": "",
-      "where": "first part merged (7f6db499); remaining: D1140 a + D1141 (external review), shared apartness classification, eta-expanded callbacks bypass row_rule",
+      "where": "two worktree lanes (A: D1140 a, eta, apartness; B: review follow-ups)",
       "labels": [
         "effects"
       ],
@@ -6734,9 +6734,9 @@
     {
       "id": 418,
       "title": "Daily gate: run one debug test binary that loads the prelude (e.g. -p stitchwort-driver --test builtins), so debug-only overflow/assert failures are caught (SW-416 went unnoticed a day)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "tooling"
       ],
@@ -6812,9 +6812,9 @@
     {
       "id": 423,
       "title": "reify return-clause goals print with the handler unfolded (Effect.foldComp (x => Ok x) …); fold them back for display (SW-419 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "effects"
       ],
@@ -6858,30 +6858,34 @@
     {
       "id": 426,
       "title": "AoC day 6: findMap for the operator with a std findMap = filterMap.head lemma; proofs use Spec.column; theorem that trailing spaces leave the parsed problems unchanged (review items 2, 3, 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "aoc"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "8287985a"
+      ]
     },
     {
       "id": 427,
       "title": "Elaborator: infer the mapped functions in List.mapCong/filterMapCong from the expected equality before checking the callback, so _ works and rewrites inside the callback succeed (day 6 review item 4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "aoc"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "c11343d0"
+      ]
     }
   ]
 }
