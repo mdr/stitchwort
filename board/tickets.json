@@ -6500,9 +6500,9 @@
     {
       "id": 404,
       "title": "Named arguments: leftovers from stage 1 — positional E-EFFECT-ORDER message for the sized case (spec §4.5); stages after a skipped parameter; names after a dependent codomain may not be found",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "lang"
       ],
