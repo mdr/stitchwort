@@ -681,6 +681,8 @@ syntax; (b) can follow if a handler that should qualify doesn't.
 cheaper capture.
 Reason: `Each.collect` needs it, and under A it costs nothing extra.
 
+**Decided (Matt, 24 Oct 2026): D1163 (a)** — exported functions and the playground, on the normal stack, at 1,000,000 elements.
+
 **Q4. The JS stack-safety target.**
 (a) **[Recommended]** Exported functions on Node's normal stack and the
 playground, at 1,000,000 elements for effectful `mapIn`.
