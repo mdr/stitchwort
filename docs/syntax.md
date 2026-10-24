@@ -942,6 +942,8 @@ pick [label := "a"] [count := 3] 1                 -- implicits in any order
 - **Everywhere a call is.** Dot notation (`corner.scale (plus := 1) (by := 2)`, the receiver filling its parameter first), method sections (`.shift (dy := 1) (dx := 2)`), pipes (the value on the left comes last, so it fills the first explicit parameter still free: `5 |> clampTo (high := 3) (low := 0)`), constructors (`Circle (id := "a") (radius := 1)`) and proofs (`between (high := h) (low := l) = between l h := rfl`). A data type's parameters, and the forms of quotients, are given by position.
 - **Run order.** In a computation, every argument runs once, where it's written, then the call, as for a positional call (`f (b := say 2) (a := say 1)` prints 2 then 1). A stage of the function (an effectful function returning a function) runs when the parameters before it are given; a call that leaves out a parameter before a stage is `E-EFFECT-ORDER`. So is an argument whose type needs a parameter that a later computation gives, or that the call leaves out (`use (xs := readVec()) (n := readNat())`): bind it with `let` first.
 
+- **In the editor.** `stitchwort fmt` keeps `(x := e)` and `[x := e]` as written, with one space around `:=`. The language server offers the parameters not yet given by name when you type `(` or `[` after a function (`clampTo (` offers `low`, `high` and `value`), and hovering a name in `(x := e)` shows the parameter's type. Going to the definition from the name is not supported yet.
+
 Examples: `examples/accept/named-arguments.sw`, `examples/accept/named-arguments-effects.sw`, `examples/reject/named-argument-*.sw`. Design: [named-arguments.md](proposals/named-arguments.md).
 
 ### Goals, `?`

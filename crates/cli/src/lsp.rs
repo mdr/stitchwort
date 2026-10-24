@@ -40,6 +40,8 @@ use stitchwort_driver::project::{DiskFiles, find_project, parse_config, project_
 use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{Severity, SourceMap};
 
+use crate::completion;
+
 /// The URI scheme of the embedded library's files, which the client shows
 /// read-only (`stitchwort-std:List/Toolkit.sw`; its text is what
 /// `stitchwort std-source List/Toolkit.sw` prints).
@@ -86,6 +88,7 @@ pub fn capabilities() -> serde_json::Value {
         },
         "definitionProvider": true,
         "hoverProvider": true,
+        "completionProvider": { "triggerCharacters": ["(", "["] },
         "selectionRangeProvider": true,
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
@@ -343,6 +346,43 @@ impl Main<'_> {
         }
     }
 
+    /// The parameter names to complete after `(` or `[` in a call (docs/
+    /// proposals/named-arguments.md §6.3): those of the function not given
+    /// by name yet. The function is found by its name among the file's last
+    /// published references, so an edit that doesn't parse (the call being
+    /// typed) doesn't hide it.
+    fn completions(
+        &self,
+        nav: &Nav,
+        uri: &Url,
+        at: Position,
+    ) -> Option<Vec<lsp_types::CompletionItem>> {
+        let texts = self.texts.borrow();
+        let text = texts.get(uri)?;
+        let call = completion::call_at(text, offset_at(text, at));
+        let call = call?;
+        let (_, ws, place) = locate(nav, uri)?;
+        let file = ws.files.get(&place)?;
+        let last = call.head.rsplit('.').next().unwrap_or(&call.head);
+        let signature = file
+            .refs
+            .iter()
+            .filter(|r| r.name == last || r.name.ends_with(&format!(".{last}")))
+            .find_map(|r| r.signature.as_deref())?;
+        let items = completion::parameters(signature)
+            .into_iter()
+            .filter(|p| p.implicit == call.implicit && !call.given.contains(&p.name))
+            .map(|p| lsp_types::CompletionItem {
+                insert_text: Some(format!("{} := ", p.name)),
+                detail: Some(p.ty),
+                kind: Some(lsp_types::CompletionItemKind::VARIABLE),
+                label: p.name,
+                ..Default::default()
+            })
+            .collect();
+        Some(items)
+    }
+
     fn answer(&self, request: Request) -> Response {
         let id = request.id.clone();
         let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
@@ -384,6 +424,13 @@ impl Main<'_> {
                 let found = lookup(&nav, &at.text_document.uri, at.position);
                 serde_json::to_value(found.map(|(_, _, r)| hover(&r)))
             }),
+            request::Completion::METHOD => {
+                parse::<lsp_types::CompletionParams>(&request).map(|p| {
+                    let at = p.text_document_position;
+                    let items = self.completions(&nav, &at.text_document.uri, at.position);
+                    serde_json::to_value(items.map(lsp_types::CompletionResponse::Array))
+                })
+            }
             request::SelectionRangeRequest::METHOD => {
                 parse::<lsp_types::SelectionRangeParams>(&request).map(|p| {
                     let texts = self.texts.borrow();

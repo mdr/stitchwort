@@ -193,6 +193,11 @@ pub struct NavSymbol {
     /// The symbol it's declared in (a constructor's type), by index.
     pub container: Option<usize>,
     pub ty: Option<String>,
+    /// For a function, its parameters with their names, as
+    /// `(low: Nat) -> [n: Nat] -> Nat` (the type above leaves the names of
+    /// parameters nothing depends on out): for completing the names in a
+    /// named argument.
+    pub signature: Option<String>,
 }
 
 pub struct NavRef {
@@ -434,6 +439,27 @@ impl Elaborator {
         }
     }
 
+    /// The name of a parameter in a named argument (`(x := e)`), of type
+    /// `ty` in a context with `names`. It's noted as a local variable that
+    /// is its own binder, so hover shows the parameter's type.
+    pub(crate) fn note_parameter(&self, name: &ast::Name, ty: &Value, names: Vec<Name>) {
+        if let Some(nav) = &self.nav {
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                nav.pending.push((name.span, ty.clone(), names, false));
+                if nav.locals.iter().any(|l| l.span == name.span) {
+                    return;
+                }
+                let local = LocalUse {
+                    span: name.span,
+                    name: name.text.to_string(),
+                    binder: name.span,
+                };
+                nav.locals.push(local);
+            }
+        }
+    }
+
     /// How many local variables' types are waiting to be printed: a
     /// [`crate::undo::Snapshot`] keeps it, to drop the ones an undone
     /// attempt noted.
@@ -525,6 +551,10 @@ impl Elaborator {
                     .scope
                     .get(&key)
                     .and_then(|(global, _)| self.global_type(global)),
+                signature: self
+                    .scope
+                    .get(&key)
+                    .and_then(|(global, _)| self.global_signature(global)),
                 name: item.name.clone(),
                 kind: item.kind,
                 span: item.span,
@@ -583,6 +613,11 @@ impl Elaborator {
                     range: None,
                     container: None,
                     ty: ty_of(),
+                    signature: if field_span.is_none() {
+                        self.global_signature(global)
+                    } else {
+                        None
+                    },
                 });
                 symbols.len() - 1
             });
@@ -671,6 +706,7 @@ impl Elaborator {
                     range: None,
                     container: None,
                     ty: self.global_type(global),
+                    signature: self.global_signature(global),
                 });
                 symbols.len() - 1
             });
@@ -782,6 +818,34 @@ impl Elaborator {
         let mut names: Vec<Name> = data.params.iter().map(|(n, _)| n.clone()).collect();
         names.extend(ctor.fields[..i].iter().map(|(n, _)| n.clone()));
         Some(pretty::term(g, &names, &ctor.fields[i].1))
+    }
+
+    /// The parameters of a definition's type with their names (all of
+    /// them, which [`Self::global_type`] doesn't print for the ones nothing
+    /// depends on), `(low: Nat) -> [n: Nat] -> Nat`.
+    fn global_signature(&self, global: Global) -> Option<String> {
+        let Global::Def(id) = global else {
+            return None;
+        };
+        let g = &self.globals;
+        let mut names: Vec<Name> = Vec::new();
+        let mut parts: Vec<String> = Vec::new();
+        let mut ty = g.def(id).ty.clone();
+        while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+            let shown = pretty::term(g, &names, dom);
+            parts.push(match icit {
+                Icit::Explicit => format!("({name}: {shown})"),
+                _ => format!("[{name}: {shown}]"),
+            });
+            names.push(name.clone());
+            let next = (**cod).clone();
+            ty = next;
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        parts.push(pretty::term(g, &names, &ty));
+        Some(parts.join(" -> "))
     }
 
     fn global_type(&self, global: Global) -> Option<String> {

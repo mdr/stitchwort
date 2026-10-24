@@ -60,6 +60,9 @@ pub struct LiveRef {
     /// The declaration's kind (`def`, `ctor`, ...), or `local`.
     pub kind: &'static str,
     pub ty: Option<String>,
+    /// For a function, its parameters with their names
+    /// (`(low: Nat) -> [n: Nat] -> Nat`).
+    pub signature: Option<String>,
 }
 
 /// A declaration of a file, for its outline.
@@ -234,9 +237,11 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         if !keep(&at) {
             continue;
         }
+        let mut signature = None;
         let (target, name, kind, ty) = match &r.target {
             RefTarget::Symbol(s) => {
                 let s = &index.symbols[*s];
+                signature = s.signature.clone();
                 let target = Loc {
                     place: place(s.file),
                     range: s.range,
@@ -262,6 +267,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             name,
             kind,
             ty,
+            signature,
         });
     }
     // The outline: the program's declarations, by file.

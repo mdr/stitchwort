@@ -1,6 +1,9 @@
 # Named and default arguments
 
-Status: decided, not yet built (SW-390). Revised after external review
+Status: decided (SW-390). Named arguments built: stage 1 (SW-399) and
+stage 1b (SW-400: formatter, completion and hover of parameter names,
+examples, docs). Default fields (stages 2 and 2b) and signature defaults
+(stage 3) not built. Revised after external review
 (24 Oct 2026). All decisions in §8 were taken as recommended (Matt, 24 Oct
 2026).
 
@@ -927,6 +930,20 @@ TypeScript boundary.
 | 2 | Field defaults on records and constructors: syntax, helpers (§5.1 rules 1 to 9), literals and named construction, default metadata in the cache format and the library index | **Opus** | medium |
 | 2b | JS boundary: input shapes (all the way down), decoder fills defaults, absence rule and `Option` output (D1114), `.d.ts` snapshots, `tsc --strict --exactOptionalPropertyTypes` check | Sonnet | small to medium |
 | 3 | (Only if D1097 says so) signature defaults per §5.4 | **Opus** | medium to large |
+
+**As built (stage 1b).** The formatter needed no change (tokens keep their
+spacing; `crates/fmt/tests/golden/named-arguments.*` holds the round trip
+and idempotence case). The language server (`crates/cli/src/completion.rs`)
+completes names after `(` or `[` from the text before the cursor and the
+function's parameters with their names (`NavSymbol::signature`, since the
+printed type leaves out the names nothing depends on); the function is found
+by its written name among the file's last published references, so it works
+while the call doesn't parse. It covers definitions, not constructors,
+local functions or method receivers (a dot call also offers the receiver's
+parameter). Hover on a name in `(x := e)` shows the parameter's type: the
+elaborator notes the name as a local that is its own binder
+(`Elaborator::note_parameter`). Go to definition on the name is not offered:
+a function type's binders carry no source position.
 
 **Acceptance invariants.** Each is a test (an accept or reject example, or
 a differential test), in the stage shown:
