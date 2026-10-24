@@ -6780,16 +6780,18 @@
     {
       "id": 421,
       "title": "rt lower test every_aoc_main_lowers overflows the stack on main (found by SW-415); bisect and fix",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "runtime"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "247a5297"
+      ]
     },
     {
       "id": 422,
