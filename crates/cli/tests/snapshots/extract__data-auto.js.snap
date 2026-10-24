@@ -799,18 +799,52 @@ const $Main$dTree$dinsert$d$gmatch1 = (v1) => (v2) => (v3) => (v4) => (v5) => (v
   throw new Error("unreachable");
 };
 const $Main$dTree$dinsert = (v1) => (v2) => (v3) => {
-  switch (v3.tag) {
-    case "Leaf": {
-      return { tag: "Node", left: { tag: "Leaf" }, key: v2, right: { tag: "Leaf" } };
+  let s1 = v1, s2 = v2, s3 = v3;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v1 = s1, v2 = s2, v3 = s3;
+    switch (v3.tag) {
+      case "Leaf": {
+        { const r$ = { tag: "Node", left: { tag: "Leaf" }, key: v2, right: { tag: "Leaf" } }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Node": {
+        const v4 = v3.left;
+        const v5 = v3.key;
+        const v6 = v3.right;
+        const v8 = v1;
+        const v9 = v2;
+        const v10 = v4;
+        const v11 = v5;
+        const v12 = v6;
+        const v13 = $Main$dOrdered$dcompare(v1)(v2)(v5);
+        switch (v13.tag) {
+          case "Less": {
+            const c1$ = { tag: "Node", left: null, key: v11, right: v12 };
+            if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+            l$ = c1$; k$ = "left";
+            s1 = v8;
+            s2 = v9;
+            s3 = v10;
+            continue;
+          }
+          case "Equal": {
+            { const r$ = { tag: "Node", left: v10, key: v11, right: v12 }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+          }
+          case "Greater": {
+            const c2$ = { tag: "Node", left: v10, key: v11, right: null };
+            if (l$ === null) { h$ = c2$; } else { l$[k$] = c2$; }
+            l$ = c2$; k$ = "right";
+            s1 = v8;
+            s2 = v9;
+            s3 = v12;
+            continue;
+          }
+        }
+        throw new Error("unreachable");
+      }
     }
-    case "Node": {
-      const v4 = v3.left;
-      const v5 = v3.key;
-      const v6 = v3.right;
-      return $Main$dTree$dinsert$d$gmatch1(v1)(v2)(v4)(v5)(v6)($Main$dOrdered$dcompare(v1)(v2)(v5));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dTree$dtoList = (v1) => (v2) => {
   switch (v2.tag) {

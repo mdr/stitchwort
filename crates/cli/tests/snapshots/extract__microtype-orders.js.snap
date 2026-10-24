@@ -1215,20 +1215,47 @@ const $Std$dMap$dTree$dget$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => (v6) => (
   throw new Error("unreachable");
 };
 const $Std$dMap$dTree$dget = (v2) => (v3) => (v4) => {
-  switch (v4.tag) {
-    case "Tip": {
-      return { tag: "None" };
+  let s2 = v2, s3 = v3, s4 = v4;
+  for (;;) {
+    const v2 = s2, v3 = s3, v4 = s4;
+    switch (v4.tag) {
+      case "Tip": {
+        return { tag: "None" };
+      }
+      case "Bin": {
+        const v5 = v4.size;
+        const v6 = v4.left;
+        const v7 = v4.key;
+        const v8 = v4.value;
+        const v9 = v4.right;
+        const v12 = v2;
+        const v13 = v3;
+        const v14 = v6;
+        const v15 = v8;
+        const v16 = v9;
+        const v17 = $Std$dOrd$dcompare(v2)(v3)(v7);
+        switch (v17.tag) {
+          case "Less": {
+            s2 = v12;
+            s3 = v13;
+            s4 = v14;
+            continue;
+          }
+          case "Equal": {
+            return { tag: "Some", value: v15 };
+          }
+          case "Greater": {
+            s2 = v12;
+            s3 = v13;
+            s4 = v16;
+            continue;
+          }
+        }
+        throw new Error("unreachable");
+      }
     }
-    case "Bin": {
-      const v5 = v4.size;
-      const v6 = v4.left;
-      const v7 = v4.key;
-      const v8 = v4.value;
-      const v9 = v4.right;
-      return $Std$dMap$dTree$dget$d$gmatch1(v2)(v3)(v6)(v8)(v9)($Std$dOrd$dcompare(v2)(v3)(v7));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Std$dMap$dTree$dtoListOnto = (v2) => (v3) => {
   let s2 = v2, s3 = v3;

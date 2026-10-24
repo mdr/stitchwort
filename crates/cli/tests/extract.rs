@@ -3078,25 +3078,31 @@ fn safe_numbers_are_bound_to_the_library() {
 }
 
 /// Definitions that call each other (docs/proposals/mutual-recursion.md
-/// §8.6). Only a definition's tail calls to itself are loops, so `isEven` on
-/// a large number uses a stack frame per step and runs out: a resource
-/// error, never a wrong answer, after which the module still works.
+/// §8.6). Tail calls between two members are loops (SW-40): each member's
+/// loop inlines the other, so `isEven` on a large number runs in constant
+/// stack. A call that isn't in tail position (`inner`'s, in `x + inner xs
+/// xss`) still uses a stack frame per step and runs out: a resource error,
+/// never a wrong answer, after which the module still works.
 #[test]
-fn mutual_tail_calls_run_out_of_stack_cleanly() {
+fn mutual_tail_calls_are_loops() {
     let examples = examples();
     let script = r#"
 import * as mutual from "./mutual.mjs";
 import assert from "node:assert/strict";
 
 assert.equal(mutual.isEven(1000n), true);
+assert.equal(mutual.isEven(10000000n), true);
+assert.equal(mutual.isOdd(10000001n), true);
+assert.equal(mutual.shifted(1000001n, 5n), 6n);
 assert.throws(
-  () => mutual.isEven(10000000n),
+  () => mutual.total([Array(1000000).fill(1n)]),
   (e) =>
     e instanceof mutual.StitchwortResourceError &&
-    /^isEven: ran out of resources/.test(e.message) &&
+    /^total: ran out of resources/.test(e.message) &&
     e.cause instanceof RangeError,
 );
 assert.equal(mutual.isOdd(7n), true);
+assert.equal(mutual.total([[1n, 2n], [], [3n]]), 6n);
 console.log("ok");
 "#;
     run_script(
@@ -3110,11 +3116,10 @@ console.log("ok");
 /// section 4). A `match` that is a whole right-hand side is part of the case
 /// tree, so its tail call to the owner is a loop (`countTail`). A lifted
 /// `match` (here because the equation is named, `countNamed`) in tail
-/// position is a pair of mutual tail calls, which aren't loops: it runs out
-/// of stack, cleanly, as a resource error.
-///
-/// The second half documents a limitation: update it when mutual tail calls
-/// become loops (TODO.md, "Mutual tail calls aren't loops").
+/// position is inlined into the owner's loop (SW-40), so its tail call to
+/// the owner is a loop too. A lifted `match` that isn't in tail position
+/// (`count`'s, an argument of `+`) still uses a stack frame per step and
+/// runs out of stack, cleanly, as a resource error.
 #[test]
 fn deep_recursion_through_match() {
     let examples = examples();
@@ -3123,12 +3128,12 @@ import * as m from "./match.mjs";
 import assert from "node:assert/strict";
 
 assert.equal(m.countTail(1000000n), 0n);
-assert.equal(m.countNamed(1000n), 0n);
+assert.equal(m.countNamed(1000000n), 0n);
 assert.throws(
-  () => m.countNamed(1000000n),
+  () => m.count(1000000n),
   (e) =>
     e instanceof m.StitchwortResourceError &&
-    /^countNamed: ran out of resources/.test(e.message) &&
+    /^count: ran out of resources/.test(e.message) &&
     e.cause instanceof RangeError,
 );
 // Afterwards, everything still works.
@@ -3140,6 +3145,127 @@ console.log("ok");
         &[("match.mjs", example(&examples, "match.sw"))],
         script,
     );
+}
+
+/// SW-40: the tail calls of `examples/extract/tail-calls.sw` are loops, so
+/// each runs a million (or ten million) turns deep in Node's default stack:
+/// a call in a branch of `if h:`, a call in a lifted `match` (in an arm, or
+/// after an `if`), and calls between two members of a group. Before, each
+/// overflowed.
+#[test]
+fn more_tail_calls_are_loops() {
+    let examples = examples();
+    let script = r#"
+import * as t from "./tail-calls.mjs";
+import assert from "node:assert/strict";
+
+const N = 1000000n;
+assert.equal(t.countDown(10n * N), 10n * N);
+const ones = Array(1000000).fill(1n);
+assert.equal(t.firstOver(0n, ones), 1n);
+assert.equal(t.firstOver(5n, ones), undefined);
+assert.equal(t.lookupLast(N), "x");
+assert.equal(t.steps(N), N);
+const added = t.closures(N);
+assert.equal(added.length, 1000000);
+assert.equal(added[0], 100n);
+assert.equal(added[999999], 100n + N - 1n);
+assert.equal(t.isEven(10n * N), true);
+assert.equal(t.isOdd(10n * N + 1n), true);
+assert.equal(t.rounds(0n, N), 3n * N / 2n);
+console.log("ok");
+"#;
+    run_script(
+        "tailcalls",
+        &[("tail-calls.mjs", example(&examples, "tail-calls.sw"))],
+        script,
+    );
+}
+
+/// SW-40: a definition by `decreasing` runs `f.%step x (y c p => f y c) c`
+/// (crates/elab/src/decreasing.rs), so its recursive calls are calls of a
+/// parameter of `f.%step`. Its loop inlines `f.%step`, and each call of
+/// that parameter is a turn: in a branch of `if h:` (`pairsIn`), in a
+/// constructor's field (`countdownFrom`, which builds the list a cell at a
+/// time), or in a `match` lifted out of `f.%step`, which is passed the
+/// parameter (`countdownNamed`, shaped like `List.unfold`). Not an example in `examples/extract`, since the reference
+/// evaluator doesn't run such a definition: the answers are checked here.
+#[test]
+fn decreasing_recursion_is_a_loop() {
+    let source = r#"
+import Std (List, Nat)
+
+def pairsIn (n: Nat) (count: Nat): Nat
+    decreasing n
+:=
+  if h: n < 2 then count else pairsIn (n - 2) (count + 1) [decreasing := omega]
+
+export def pairs (n: Nat): Nat := pairsIn n 0
+
+def countdownFrom (n: Nat): List Nat
+    decreasing n
+:=
+  if h: n = 0 then Nil else Cons n (countdownFrom (n - 1) [decreasing := omega])
+
+export def countdown (n: Nat): List Nat := countdownFrom n
+
+def countdownNamed (n: Nat): List Nat
+    decreasing n
+:=
+  match e: n with
+    | Zero => Nil
+    | Succ k => Cons n (countdownNamed k [decreasing := omega])
+
+export def countdownLength (n: Nat): Nat := List.foldLeft (count d => count + 1) 0 (countdownNamed n)
+
+export def digitCount (n: Nat): Nat := List.foldLeft (count d => count + 1) 0 (Nat.digits n)
+"#;
+    let mut session = Session::new();
+    if let Err(diagnostics) = session.load("decreasing.sw", source) {
+        let rendered: String = diagnostics
+            .iter()
+            .map(|d| render(&session.sources, d, false))
+            .collect();
+        panic!("doesn't check:\n{rendered}");
+    }
+    let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .js;
+    // Each loop, from its `const` to the end of its body.
+    let loops: String = [
+        "const $Main$dpairsIn = ",
+        "const $Main$dcountdownFrom = ",
+        "const $Main$dcountdownNamed = ",
+    ]
+    .iter()
+    .map(|start| {
+        let def = &js[js.find(start).expect("the definition is generated")..];
+        &def[..def.find("\n};\n").expect("its body ends") + 4]
+    })
+    .collect();
+    insta::assert_snapshot!("decreasing-loops.js", loops);
+    let script = r#"
+import * as d from "./decreasing.mjs";
+import assert from "node:assert/strict";
+
+const N = 1000000n;
+assert.equal(d.pairs(0n), 0n);
+assert.equal(d.pairs(5n), 2n);
+assert.equal(d.pairs(2n * N + 1n), N);
+assert.deepEqual(d.countdown(0n), []);
+assert.deepEqual(d.countdown(3n), [3n, 2n, 1n]);
+const list = d.countdown(N);
+assert.equal(list.length, 1000000);
+assert.equal(list[0], N);
+assert.equal(list[999999], 1n);
+assert.equal(d.countdownLength(0n), 0n);
+assert.equal(d.countdownLength(N), N);
+// `Nat.digits` is by `decreasing` too.
+assert.equal(d.digitCount(0n), 1n);
+assert.equal(d.digitCount(10n ** 20000n), 20001n);
+console.log("ok");
+"#;
+    run_script_on("decreasing", &[("decreasing.mjs", js)], script);
 }
 
 /// A member of a group with no runtime parameters (only an erased type

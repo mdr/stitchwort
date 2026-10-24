@@ -1968,6 +1968,8 @@ struct Gen<'g> {
     infos: Vec<OnceCell<DefInfo>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
     if_then_else: Option<DefId>,
+    /// `Decidable.elim`, which `if h: p then a else b` becomes.
+    elim_dec: Option<DefId>,
     /// For `stitchwort run --js` ([`run`]): a `Delay` is a real value that
     /// the runner steps, rather than the erased token, so partial
     /// definitions are generated, and `Delay`'s constants build
@@ -1978,6 +1980,12 @@ struct Gen<'g> {
     /// an argument to a helper that's been inlined ([`Gen::tail`]), by
     /// level, with what the next turn of the loop would be passed.
     holes: RefCell<Vec<(usize, Passed)>>,
+    /// While a loop's body is being generated: the variables that stand for
+    /// a function whose body is a call to the definition itself, which was
+    /// an argument to a helper that's been inlined: the `%rec` of a
+    /// definition by `decreasing` (crates/elab/src/decreasing.rs), whose
+    /// runtime body is `f.%step x (y c p => f y c) c`.
+    fn_holes: RefCell<Vec<FnHole>>,
     /// Whether such a variable was used any way but in tail position, or
     /// as a field of a constructor in tail position, where it can't be
     /// compiled.
@@ -2028,6 +2036,19 @@ enum Convention {
 /// What a turn of a loop is passed: parameter levels and JS values.
 type Passed = Vec<(usize, String)>;
 
+/// A variable that stands for `x1 … xk => body`, where `body` is a call to
+/// the definition whose loop is being generated ([`Gen::fn_holes`]).
+struct FnHole {
+    /// The variable's level.
+    level: usize,
+    /// `k`, and the parameters' names.
+    params: Vec<stitchwort_core::Name>,
+    /// The body, under the `k` parameters, in an environment of `site`
+    /// variables.
+    body: Term,
+    site: usize,
+}
+
 /// The cells a constructor makes (`Gen::cons_cells`): the outermost, the
 /// innermost, its field that takes the rest, and what the next turn is passed.
 type Cells = (String, String, String, Passed);
@@ -2048,6 +2069,9 @@ struct SelfCall {
     /// How many helpers are being inlined, and a counter for names.
     inlining: Cell<usize>,
     fresh: Cell<usize>,
+    /// The definitions being inlined, innermost last: one isn't inlined
+    /// into itself.
+    inlined: RefCell<Vec<DefId>>,
 }
 
 impl SelfCall {
@@ -2060,6 +2084,7 @@ impl SelfCall {
             inline,
             inlining: Cell::new(0),
             fresh: Cell::new(0),
+            inlined: RefCell::new(Vec::new()),
         }
     }
 
@@ -2092,8 +2117,10 @@ impl<'g> Gen<'g> {
             float_natives,
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
+            elim_dec: g.registry.def(Builtin::ElimDec),
             run_delay: false,
             holes: RefCell::new(Vec::new()),
+            fn_holes: RefCell::new(Vec::new()),
             hole_misused: Cell::new(false),
             fast: RefCell::default(),
         })
@@ -2246,6 +2273,19 @@ impl<'g> Gen<'g> {
                 _ => format!("{{\n{block}}}"),
             }
         } else {
+            // Not a case tree, but it may still reach a call to itself in
+            // tail position: through a member of its group, inlined (a
+            // lifted `match`), or through the `%rec` of a definition by
+            // `decreasing`.
+            if !params.is_empty()
+                && self.may_loop(id, tree)
+                && let Some(block) = self.self_tail_loop(id, tree, &mut env)?
+            {
+                return Ok(format!(
+                    "const {} = {params}{block};\n",
+                    def_name(&def.path)
+                ));
+            }
             let rhs = self.expr(tree, &mut env)?;
             // An object literal after `=>` needs parentheses.
             let rhs = if convention != Convention::Value && rhs.starts_with('{') {
@@ -2291,16 +2331,68 @@ impl<'g> Gen<'g> {
         for (cons, inline) in [(true, true), (true, false), (false, false), (false, true)] {
             let call = SelfCall::new(id, cons, inline);
             self.holes.borrow_mut().clear();
+            self.fn_holes.borrow_mut().clear();
             self.hole_misused.set(false);
             let block = self.tree(tree, env, 2, Some(&call))?;
             let ok = call.used.get() && !self.hole_misused.get() && (!cons || call.cons_used.get());
             self.holes.borrow_mut().clear();
+            self.fn_holes.borrow_mut().clear();
             self.hole_misused.set(false);
             if ok {
                 return Ok(Some(Self::loop_block(env, &block, cons)));
             }
         }
         Ok(None)
+    }
+
+    /// Whether `body`, the body of definition `id` that isn't a case tree,
+    /// mentions `id` or another member of its group: only then is
+    /// [`Gen::self_tail_loop`] worth trying.
+    fn may_loop(&self, id: DefId, body: &Term) -> bool {
+        let group = self.g.def(id).group.as_deref().unwrap_or(&[]);
+        body.subterms().any(|(t, _)| match t {
+            Term::Def(d) => *d == id || group.contains(d),
+            _ => false,
+        })
+    }
+
+    /// Whether `member`, called in tail position in the loop of `call`'s
+    /// definition, is inlined there, so that its own tail calls to that
+    /// definition are turns of the loop. It's another member of the group,
+    /// not one already being inlined, and either
+    ///
+    /// - a `match` lifted out of the definition (`f.%match1`, or one nested
+    ///   in it), which calls a member: it's inlined wherever it's used,
+    ///   since there are only as many as the source has `match`es; or
+    /// - a member that calls the definition itself (`isOdd`, in `isEven`'s
+    ///   loop). One that only calls other members isn't, so that a big group
+    ///   doesn't inline chains of members into each other: a cycle of three
+    ///   or more such members still uses a stack frame per call.
+    ///
+    /// A definition isn't inlined into a `match` lifted out of it:
+    /// `f.%match1` calls `f`, which loops, rather than holding a copy of it.
+    fn inlines_member(&self, member: DefId, call: &SelfCall) -> bool {
+        let def = self.g.def(call.id);
+        let Some(group) = def.group.as_deref() else {
+            return false;
+        };
+        if member == call.id || !group.contains(&member) || call.inlined.borrow().contains(&member)
+        {
+            return false;
+        }
+        let member_def = self.g.def(member);
+        let path = def.path.to_string();
+        let member_path = member_def.path.to_string();
+        if path.starts_with(&format!("{member_path}.%")) {
+            return false;
+        }
+        let lifted = member_path.starts_with(&format!("{path}.%"));
+        member_def.run_body().is_some_and(|body| {
+            body.subterms().any(|(t, _)| match t {
+                Term::Def(d) => *d == call.id || (lifted && group.contains(d)),
+                _ => false,
+            })
+        })
     }
 
     /// The loop of [`Gen::self_tail_loop`], around the case tree's `block`.
@@ -2548,6 +2640,11 @@ impl<'g> Gen<'g> {
             env.pop();
             return Ok(out);
         }
+        // A function that stands for a call to itself, applied: the call,
+        // with the arguments bound to its parameters.
+        if let Some(reduced) = self.apply_fn_hole(term, env.len())? {
+            return self.tail(&reduced, env, depth, call);
+        }
         // A variable that stands for a call to itself, in a helper that's
         // been inlined: the next turn.
         if let Term::Var(ix) = term.strip_loc()
@@ -2593,19 +2690,26 @@ impl<'g> Gen<'g> {
             }
             return Ok(Self::next_turn(&pad, &passed));
         }
-        if call.inline
-            && call.inlining.get() < 3
-            && let Some(out) = self.inline_helper(*id, &args, env, depth, call)?
-        {
-            return Ok(out);
-        }
-        if Some(*id) == self.if_then_else
+        // `if c then a else b` (`Bool.ifThenElse c (_ => a) (_ => b)`) and
+        // `if h: p then a else b` (`Decidable.elim d (h => a) (h => b)`).
+        let branches = if Some(*id) == self.if_then_else
             && let [_, cond, then, otherwise] = args.as_slice()
+        {
+            Some((cond, then, otherwise, "True".to_string()))
+        } else if Some(*id) == self.elim_dec
+            && let [_, _, cond, then, otherwise] = args.as_slice()
+        {
+            Some((cond, then, otherwise, self.decision_yes_tag()))
+        } else {
+            None
+        };
+        if let Some((cond, then, otherwise, tag)) = branches
             && let (Term::Lam(_, _, then), Term::Lam(_, _, otherwise)) =
                 (then.strip_loc(), otherwise.strip_loc())
         {
             let cond = self.expr(cond, env)?;
-            // The branches' parameter is a proof of `Unit`, so it's erased.
+            // The branches' parameter is a proof (of `Unit`, of `p` or of
+            // `Not p`), so it's erased.
             let mut branch = |body: &Term| -> Fallible<String> {
                 env.push(true);
                 let out = self.tail(body, env, depth + 1, call);
@@ -2615,8 +2719,15 @@ impl<'g> Gen<'g> {
             let then = branch(then)?;
             let otherwise = branch(otherwise)?;
             return Ok(format!(
-                "{pad}if ({cond}.tag === \"True\") {{\n{then}{pad}}} else {{\n{otherwise}{pad}}}\n"
+                "{pad}if ({cond}.tag === {}) {{\n{then}{pad}}} else {{\n{otherwise}{pad}}}\n",
+                js_string_literal(&tag)
             ));
+        }
+        if call.inline
+            && call.inlining.get() < 3
+            && let Some(out) = self.inline_helper(*id, &args, env, depth, call)?
+        {
+            return Ok(out);
         }
         self.leaf_return(term, env, &pad, call)
     }
@@ -2666,7 +2777,7 @@ impl<'g> Gen<'g> {
     /// for a call to itself has no value, so it can't be matched on.
     fn scrutinee(&self, env: &[bool], ix: usize) -> String {
         let level = env.len() - 1 - ix;
-        if self.hole_at(level).is_some() {
+        if self.hole_at(level).is_some() || self.is_fn_hole(level) {
             self.hole_misused.set(true);
         }
         var(level)
@@ -2805,6 +2916,13 @@ impl<'g> Gen<'g> {
     /// the rest as the tail of a `Cons`, or as itself. The calls' results
     /// are variables that can only be used in tail position or in a
     /// constructor there ([`Gen::hole_misused`]).
+    ///
+    /// The same for an argument that's a function whose body is such a
+    /// call, which the helper may only apply, in those places: a
+    /// definition by `decreasing` runs `f.%step x (y c p => f y c) c`
+    /// ([`Gen::fn_holes`]). And for a call to another member of the
+    /// definition's group ([`Gen::inlines_member`]), whose own calls to the
+    /// definition are then in tail position here.
     fn inline_helper(
         &self,
         id: DefId,
@@ -2828,33 +2946,60 @@ impl<'g> Gen<'g> {
         };
         // The arguments, in this call's environment. A call to itself isn't
         // made: it's the next turn, if the helper puts it in tail position.
-        let mut bound: Vec<Option<Result<String, Passed>>> = Vec::new();
+        enum Bound {
+            Erased,
+            Value(String),
+            Hole(Passed),
+            /// The parameters, the body, and the environment's size there.
+            FnHole(Vec<stitchwort_core::Name>, Term, usize),
+        }
+        let member = self.inlines_member(id, call);
+        let mut bound = Vec::new();
         let mut any_hole = false;
         for (i, arg) in args.iter().enumerate() {
             if info.mask[i] {
-                bound.push(None);
+                bound.push(Bound::Erased);
             } else if let Some(passed) = self.hole_passed(arg, env, call)? {
                 any_hole = true;
-                bound.push(Some(Err(passed)));
+                bound.push(Bound::Hole(passed));
+            } else if let Some((params, body)) = self.fn_hole_arg(arg, call) {
+                any_hole = true;
+                bound.push(Bound::FnHole(params, body, env.len()));
+            } else if let Term::Var(ix) = arg.strip_loc()
+                && let Some(hole) = self
+                    .fn_holes
+                    .borrow()
+                    .iter()
+                    .rfind(|h| h.level == env.len() - 1 - ix)
+            {
+                // Passed on (to a `match` lifted out of `f.%step`): it
+                // stands for the same function there.
+                any_hole = true;
+                bound.push(Bound::FnHole(
+                    hole.params.clone(),
+                    hole.body.clone(),
+                    hole.site,
+                ));
             } else {
-                bound.push(Some(Ok(self.expr(arg, env)?)));
+                bound.push(Bound::Value(self.expr(arg, env)?));
             }
         }
-        if !any_hole {
+        if !any_hole && !member {
             return Ok(None);
         }
         let pad = "  ".repeat(depth);
         let base = env.len();
         let mut out = String::new();
         let mut registered = 0;
+        let mut registered_fns = 0;
         for (i, b) in bound.into_iter().enumerate() {
             match b {
-                None => env.push(true),
-                Some(Ok(value)) => {
+                Bound::Erased => env.push(true),
+                Bound::Value(value) => {
                     let _ = writeln!(out, "{pad}const {} = {value};", var(base + i));
                     env.push(false);
                 }
-                Some(Err(passed)) => {
+                Bound::Hole(passed) => {
                     // The values are computed now, as the call's arguments
                     // would have been; the next turn is passed them.
                     let mut named = Vec::new();
@@ -2867,18 +3012,127 @@ impl<'g> Gen<'g> {
                     registered += 1;
                     env.push(false);
                 }
+                Bound::FnHole(params, body, site) => {
+                    // Nothing to compute: the function is only applied.
+                    self.fn_holes.borrow_mut().push(FnHole {
+                        level: base + i,
+                        params,
+                        body,
+                        site,
+                    });
+                    registered_fns += 1;
+                    env.push(false);
+                }
             }
         }
         call.inlining.set(call.inlining.get() + 1);
+        call.inlined.borrow_mut().push(id);
         let tree = body.peel_lams(def.arity);
         let result = self.tree(tree, env, depth, Some(call));
+        call.inlined.borrow_mut().pop();
         call.inlining.set(call.inlining.get() - 1);
         env.truncate(base);
         let mut holes = self.holes.borrow_mut();
         let keep = holes.len() - registered;
         holes.truncate(keep);
         drop(holes);
+        let mut fn_holes = self.fn_holes.borrow_mut();
+        let keep = fn_holes.len() - registered_fns;
+        fn_holes.truncate(keep);
+        drop(fn_holes);
         out.push_str(&result?);
+        Ok(Some(out))
+    }
+
+    /// If `arg` is `x1 … xk => body`, where `body` is a call to `call`'s
+    /// definition with all its arguments, the parameters' names and the
+    /// body ([`Gen::fn_holes`]).
+    fn fn_hole_arg(
+        &self,
+        arg: &Term,
+        call: &SelfCall,
+    ) -> Option<(Vec<stitchwort_core::Name>, Term)> {
+        let mut params = Vec::new();
+        let mut body = arg.strip_loc();
+        while let Term::Lam(name, _, inner) = body {
+            params.push(name.clone());
+            body = inner.strip_loc();
+        }
+        let (head, args) = body.spine();
+        (!params.is_empty()
+            && matches!(head, Term::Def(id) if *id == call.id)
+            && args.len() == self.g.def(call.id).arity)
+            .then(|| (params, body.clone()))
+    }
+
+    /// Whether variable `level` stands for a function whose body is a call
+    /// to the definition itself ([`Gen::fn_holes`]).
+    fn is_fn_hole(&self, level: usize) -> bool {
+        self.fn_holes.borrow().iter().any(|h| h.level == level)
+    }
+
+    /// If `term`, in an environment of `depth` variables, applies a
+    /// function that stands for a call to the definition itself
+    /// ([`Gen::fn_holes`]) to all its parameters, or is a constructor with
+    /// such an application as a field: the term with the function's body
+    /// in place of the application, under `let`s that bind its parameters
+    /// to the arguments, in order (so they're computed as the arguments
+    /// would have been). A parameter the body doesn't use isn't computed,
+    /// as for any `let` whose variable is unused.
+    fn apply_fn_hole(&self, term: &Term, depth: usize) -> Fallible<Option<Term>> {
+        let holes = self.fn_holes.borrow();
+        if holes.is_empty() {
+            return Ok(None);
+        }
+        let applied = |t: &Term| -> Option<(usize, Vec<Term>)> {
+            let (head, args) = t.strip_loc().spine();
+            let Term::Var(ix) = head.strip_loc() else {
+                return None;
+            };
+            let level = depth.checked_sub(ix + 1)?;
+            let h = holes.iter().rposition(|h| h.level == level)?;
+            (holes[h].params.len() == args.len()).then(|| (h, args.into_iter().cloned().collect()))
+        };
+        // The body, under the parameters, moved from its own environment
+        // to this one.
+        let body_here = |h: &FnHole| h.body.shift(self.g, depth - h.site, h.params.len());
+        let (h, args, inner) = if let Some((h, args)) = applied(term) {
+            let inner = body_here(&holes[h])?;
+            (h, args, inner)
+        } else if let Term::Ctor(d, c, fields) = term.strip_loc() {
+            let found: Vec<_> = fields
+                .iter()
+                .enumerate()
+                .filter_map(|(i, f)| applied(f).map(|a| (i, a)))
+                .collect();
+            let [(at, (h, args))] = found.as_slice() else {
+                return Ok(None);
+            };
+            let k = holes[*h].params.len();
+            let mut moved = Vec::new();
+            for (i, f) in fields.iter().enumerate() {
+                moved.push(Rc::new(if i == *at {
+                    body_here(&holes[*h])?
+                } else {
+                    f.shift(self.g, k, 0)?
+                }));
+            }
+            (*h, args.clone(), Term::Ctor(*d, *c, moved))
+        } else {
+            return Ok(None);
+        };
+        let params = &holes[h].params;
+        let mut out = inner;
+        for (j, (name, arg)) in params.iter().zip(&args).enumerate().rev() {
+            let unused = !out.mentions(0);
+            out = Term::Let(
+                name.clone(),
+                Rc::new(Term::Sort(Sort::Prop)),
+                Rc::new(arg.shift(self.g, j, 0)?),
+                Rc::new(out),
+                unused,
+            );
+        }
         Ok(Some(out))
     }
 
@@ -2888,7 +3142,7 @@ impl<'g> Gen<'g> {
             Term::Loc(_, t) | Term::Ann(t, _) => self.expr(t, env)?,
             Term::Var(ix) => {
                 let level = env.len() - 1 - ix;
-                if self.hole_at(level).is_some() {
+                if self.hole_at(level).is_some() || self.is_fn_hole(level) {
                     self.hole_misused.set(true);
                 }
                 if env[level] {

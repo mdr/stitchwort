@@ -4,8 +4,9 @@
 -- between members, an export wrapper for a member, a member passed bare to a
 -- function outside its group, a member returning a function (applied to
 -- more arguments outside the group), and a value computed from a member
--- when the module loads. (Mutual tail calls aren't loops: `isEven` on a
--- large number runs out of stack, as tested in `crates/cli/tests/extract.rs`.)
+-- when the module loads. (Tail calls between two members are loops: each
+-- member's loop inlines the other, so `isEven` on a large number runs in
+-- constant stack, as tested in `crates/cli/tests/extract.rs`.)
 --
 -- run: isEven 10
 -- run: isOdd 7

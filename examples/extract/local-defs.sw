@@ -20,7 +20,8 @@ export def countIf (target: Nat) (xs: List Nat): Nat :=
     | Cons x rest => go (if x == target then acc + 1 else acc) rest
   go 0 xs
 
--- A group. Mutual tail calls are not loops (as at top level), so the input is small.
+-- A group. Its tail calls are loops, as at top level: each member's loop
+-- inlines the other.
 export def parity (n: Nat): Bool :=
   def isEven: Nat -> Bool
     | Zero => True

@@ -751,7 +751,20 @@ const $Main$dcountNamed$d$gmatch1 = (v0) => {
     return $Main$dcountNamed(v1);
   }
 };
-const $Main$dcountNamed = (v0) => $Main$dcountNamed$d$gmatch1(v0);
+const $Main$dcountNamed = (v0) => {
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    const v1 = v0;
+    if (v1 === 0n) {
+      return 0n;
+    } else {
+      const v2 = v1 - 1n;
+      s0 = v2;
+      continue;
+    }
+  }
+};
 const $Main$ddescribe = (v0) => {
   switch (v0.tag) {
     case "Nil": {

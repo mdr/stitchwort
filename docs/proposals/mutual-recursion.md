@@ -292,9 +292,11 @@ definition with no runtime parameters whose body is a case tree (like
 `absurd`) is emitted as a function of no arguments, a *thunk*, and called as
 `f()` wherever it's referenced; that fact is derived twice, once when the
 definition is emitted (`Gen::def`) and once at references (`is_thunk`,
-`def_ref`). A function's tail calls *to itself* become a loop; other
-recursion uses a JS stack frame per call, and running out of stack throws a
-clean `StitchwortResourceError`. The boundary codecs no longer recurse
+`def_ref`). A function's tail calls *to itself* become a loop (and, since
+SW-40, tail calls to another member of its group that calls it back: see
+§8's note); other recursion uses a JS stack frame per call, and running
+out of stack throws a clean `StitchwortResourceError`. The boundary
+codecs no longer recurse
 (commit `0ff6af3`). The kernel's own evaluator is a stack-safe machine in
 which tail calls add no frames
 ([stack-safe-evaluation.md](stack-safe-evaluation.md)).
@@ -1738,7 +1740,11 @@ clause calls back into the handler through a helper is a `≤`-only loop
   only parameters are erased; a member returning a function; a top-level
   value outside the group computed from a member at load time; an export
   wrapper for a member.
-- **Mutual tail calls aren't loops**, and that's not a prerequisite. Only a
+- **Mutual tail calls aren't loops**, and that's not a prerequisite. *As
+  built (SW-40): each member's loop inlines a member it tail-calls that
+  calls it back, so `isEven 10000000` runs in constant stack; cycles of
+  three or more members that don't call each other directly still use a
+  frame per call (docs/core.md, "Tail calls as loops").* Only a
   function's tail calls to itself become loops. `even 100000` recurses
   100 000 deep and throws a clean `StitchwortResourceError` (a resource
   error, never a wrong answer); there should be a test that it does. A later
