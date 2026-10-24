@@ -6633,17 +6633,19 @@
     },
     {
       "id": 413,
-      "title": "List.between lo hi is built from hi + 1 - lo, forcing max + 1 into programs and arithmetic through proofs (day 9) — restate on Succ hi or add lemmas",
-      "status": "doing",
+      "title": "List.between friction (day 9): proof uses between's lemmas, List.lengthBetween added; the program's + 1 stays, it comes from PrefixSums.block's half-open bounds",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "std"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "d22aef26"
+      ]
     },
     {
       "id": 414,
