@@ -1027,6 +1027,34 @@ elaborator notes the name as a local that is its own binder
 (`Elaborator::note_parameter`). Go to definition on the name is not offered:
 a function type's binders carry no source position.
 
+**As built (stage 1 leftovers, SW-404).** Three things stage 1 left undone:
+
+1. *Positional `E-EFFECT-ORDER`* (§4.5 R5, last paragraph). A failed call
+   that ran computations first, named or not, is diagnosed by
+   `effects::effect_order`. Besides R5's two cases it finds an implicit
+   parameter (an unknown made before later results are bound) that another
+   parameter's type relates to a parameter a later computation gives:
+   `sized (readVec()) (say 2) rfl` is now "its type needs `n`, which is
+   found from `k`, which comes later", with a note to `let k := …` first
+   (`examples/reject/effect-order-positional.sw`).
+2. *Stages after a skipped parameter* (R3). Stage 1 refused them; now a
+   stage reached after a missing parameter runs inside the lambda, each time
+   it's called (`named::bind_missing`, `effects::Stages`): the lambda's body
+   is a computation in the stage's row, and a missing parameter after it is
+   a lambda in that computation's result, so `staged (z := 3)` has type
+   `(x: Nat) -> {Log} ((y: Nat) -> Nat)`. Later stages run in the first
+   one's row. A call with no stage after a missing parameter gives the same
+   term as before.
+3. *Names after a computed result type* (§4.3, "Synonyms and reduction").
+   The signature walk stops at a type that can't compute with the
+   parameters as variables (`Scaler n`). When a call names a parameter the
+   signature lacks, `named::split` matches the arguments it can, and if
+   that fills every explicit parameter, the call is elaborated as
+   `(f a…) (rest…)`, which means the same (rule 1); the rest's names come
+   from the computed type. Dot notation's receiver path doesn't split
+   (`examples/accept/named-arguments.sw`, "names after a computed result
+   type").
+
 **Acceptance invariants.** Each is a test (an accept or reject example, or
 a differential test), in the stage shown:
 
