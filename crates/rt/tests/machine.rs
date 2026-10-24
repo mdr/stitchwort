@@ -12,6 +12,7 @@ use stitchwort_core::DefId;
 use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::run::Main;
+use stitchwort_elab::TestDecl;
 use stitchwort_rt::ir::GlobalId;
 use stitchwort_rt::value::Value;
 use stitchwort_rt::{Limits, Machine, Program, lower_definitions, lower_main};
@@ -62,14 +63,30 @@ fn same_both_ways(session: &Session, main: &Main, program: &Program, input: &[u8
 }
 
 /// Runs the program's own tests on the machine and compares each outcome
-/// with `stitchwort test`'s. How many ran.
+/// with the reference evaluator's (`stitchwort test --reference`). How
+/// many ran.
 fn run_tests(session: &Session, program: &Program, what: &str, library: bool) -> usize {
+    run_tests_where(session, program, what, library, |_| true)
+}
+
+/// [`run_tests`], for the tests `keep` keeps.
+fn run_tests_where(
+    session: &Session,
+    program: &Program,
+    what: &str,
+    library: bool,
+    keep: impl Fn(&TestDecl) -> bool + Copy,
+) -> usize {
     let results = if library {
         session.run_library_tests(&Cache::disabled())
     } else {
-        session.run_tests(&Cache::disabled())
+        session.run_tests_where(&Cache::disabled(), keep)
     };
-    let decls = session.elab.tests.iter().filter(|t| t.library == library);
+    let decls = session
+        .elab
+        .tests
+        .iter()
+        .filter(|t| t.library == library && (library || keep(t)));
     let mut m = Machine::new(program, Limits::from_core(session.elab.limits));
     let true_ = program.shapes.true_;
     let mut ran = 0;
@@ -209,7 +226,12 @@ fn aoc_agrees() {
     with_stack(STACK, || {
         let mut session = aoc();
         let what = "aoc";
-        let ran = run_tests(&session, &everything(&session, what), what, false);
+        // The real-input tests are left out: on the reference evaluator they
+        // take minutes (SW-412), and each day's `main` is compared on the
+        // real input below.
+        let ran = run_tests_where(&session, &everything(&session, what), what, false, |t| {
+            !t.name.starts_with("real input")
+        });
         eprintln!("{ran} AoC tests agree");
         for (day, part1, part2) in AOC_ANSWERS {
             let name = format!("Aoc.Day{day}.main");

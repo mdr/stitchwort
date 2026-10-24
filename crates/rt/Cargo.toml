@@ -12,6 +12,7 @@ num-bigint.workspace = true
 
 [dev-dependencies]
 stitchwort-driver.workspace = true
+stitchwort-elab.workspace = true
 insta.workspace = true
 
 [lints]

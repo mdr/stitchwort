@@ -928,6 +928,7 @@ dependencies = [
  "num-bigint",
  "stitchwort-core",
  "stitchwort-driver",
+ "stitchwort-elab",
  "stitchwort-syntax",
 ]
 
