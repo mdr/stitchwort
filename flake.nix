@@ -55,6 +55,7 @@
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
               ./web/index.html # the playground's examples are checked
               ./web/guide # so are the guide's (crates/web)
+              ./web/tests/effect-shapes.sw # the effect-shape tests run it (crates/web)
               ./bench # benchmark counts are checked against the baseline
             ];
           };
