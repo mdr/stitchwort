@@ -1,15 +1,55 @@
 # Effect polymorphism: one function for pure and effectful callbacks
 
-Status: design note and literature review, not decided (D1110; decisions
-D1116 to D1121 in §7). Nothing is built. The two experiments before this
-note are in [effectful-map.md](effectful-map.md).
+Status: design note and literature review, revised after external review,
+24 Oct 2026. Not decided (D1110; decisions D1116 to D1126 in §7). Nothing
+is built. The two experiments before this note are in
+[effectful-map.md](effectful-map.md).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
-in the source on `main` at `754128ca`, or run with
-`target/release/stitchwort` built from `main` on 24 Oct 2026 and Node
-22.23.3) or **[inferred]**. Claims about other languages and papers cite a
-URL. **[unverified]** marks claims written from memory without a source I
-could open. The probe files are in Appendix A, so a reader can rerun them.
+in the source on `main` at `754128ca`, or for the revision at `2934c86e`, or
+run with `target/release/stitchwort` built from `main` on 24 Oct 2026 and
+Node 22.23.3) or **[inferred]**. Claims about other languages and papers
+cite a URL. **[unverified]** marks claims written from memory without a
+source I could open. The probe files are in Appendix A, so a reader can
+rerun them.
+
+## Changes after review
+
+An external reviewer read the first version. They approved stage 0, C with
+E, F as a separate stage, incremental adoption and deferring `Partial`.
+They asked for B to be rejected more firmly, and blocked implementation on
+one point: the unification rule. Each point and what changed:
+
+| Review point | Change | Where |
+|---|---|---|
+| §3: "head is not `Comp`, so `Empty`" is too eager (blocking) | Replaced by an apartness rule: solve `?e := Empty` only when the other type can never become a `Comp`; postpone when it is blocked; a separate rule for a rigid `Comp`. Postponed constraints are retried in the elaborator's existing end-of-declaration rounds. Defaulting an unsolved row to `Empty` is now a separate step after solving, with eligibility conditions. Worked examples. | §5.C.1, D1123, D1124 |
+| §2, §9: `Empty` versus `Ops NoOp NoRes`; rows as user data | `Row` becomes a library-internal index: programs can't construct, inspect or compare rows. Canonical-form invariant stated, with what checks it. Rows are an index semantically and a one-bit runtime argument operationally; E removes it. New probes show that today a program *can* build, pass, return and match a row value (probe 9). | §5.C.2, D1122 |
+| §1: universe levels | Abilities' operations are always in `Type 0` today (probe 10). `Row: Type 1` kept, with the limitation written down; `Row u` is the extension path once universe polymorphism exists. | §5.C.3, D1125 |
+| §5: reject B | B is marked rejected unless C proves infeasible for reasons much stronger than implementation cost. The analysis is kept. | §5.B, D1116 |
+| §4: stage 0 acceptance | An observational test added. New probe 8: today even a bare *variable* of type `Comp NoOp NoRes a` is run in place when passed as an argument; the cause is found (`may_perform`). Every path that runs a computation in place is listed, each with a test. | §5 stage 0, §6 |
+| §6: E as an invariant, not as "`map` gives the same JS" | E is specified as generic partial evaluation on a fixed set of representation-driving parameters (initially only `Row`), with a code-size policy. `map` is the test case. The cache key is unchanged. | §5.E, §6 |
+| §7: don't freeze CPS | Stage 4's requirement is stated first (amortised O(1) `bind`, no rebuilt chains on resumption, stack safety in JS); CPS with a trampoline, a type-aligned continuation queue and evidence or capability passing are candidates for stage 4's own design note. | §5.F, D1119 |
+| §8: proof tooling | A small algebraic library of named lemmas, not an interaction-trees framework. | §5 "Proof tooling", D1126 |
+| §1 wording: prior art | C is described as an effect-indexed computation family with a representation-changing pure index; F★ indexed effects and graded monads are cited for the shape; no exact precedent for `CompIn Empty a ≡ a` was found. The Koka framing is corrected. | §3.1, §3.2 |
+
+Where the codebase differed from the review or from the first version:
+
+- The reviewer says a constraint against an unknown type `?T` should wait.
+  In Stitchwort the ordinary unifier solves `?T := CompIn ?e B` instead,
+  which commits nothing about `?e` (`unify.rs:194-197`) **[checked]**. No
+  row constraint arises. §5.C.1.
+- The reviewer suggests documenting defaulting "like numeric defaulting".
+  Stitchwort's number defaulting is eager: a literal checked against an
+  unknown type makes it `Nat` at once (`numbers.rs:291-312`) **[checked]**.
+  There's no defaulting phase after solving. The phase that does exist is
+  the end-of-declaration rounds for auto arguments and instances
+  (`lib.rs:831-834`, `auto.rs:62-99`) **[checked]**; row defaulting goes
+  there.
+- The first version's Appendix B said there's no syntax for giving an
+  implicit argument by hand. Named implicit arguments `[op := …]` exist now
+  (probe 9) **[checked]**.
+- The first version said probe 4's argument was run in place because it is
+  a call. Even a bare variable is (probe 8) **[checked]**.
 
 ## 0. Summary
 
@@ -42,21 +82,27 @@ What this note finds:
    the list's length, on both backends: 32,000 elements take 62 s natively,
    and JS runs out of stack at about 4,000 (probe 7, §4). The cause is the
    left-nested `bind`s that free-monad encodings are known for (Voigtländer
-   2008). The known fix is to represent computations in continuation-passing
-   style at runtime, which Koka and Effekt do.
+   2008). The known fixes reassociate the binds at runtime: a
+   continuation-passing representation, a queue of continuations, or
+   handler evidence passed down as Koka does.
 4. **One source-language fix is needed by every design.** Today a
    computation passed as an argument at the empty row is always run in place
    and re-wrapped as `Done (runPure c)`, even when the parameter's type is a
-   `Comp` (probe 4). So no lemma about a stuck computation can ever be
-   used. Passing the computation unchanged when a computation is expected
-   fixes this, and makes `runPure (mapIn f xs) = map f xs` provable.
+   `Comp`, and even when the argument is just a variable (probes 4 and 8).
+   So no lemma about a stuck computation can ever be used. Passing the
+   computation unchanged when a computation is expected fixes this, and
+   makes `runPure (mapIn f xs) = map f xs` provable.
 
-**Recommendation** (D1116 to D1121): adopt the row-indexed computation type
+**Recommendation** (D1116 to D1126): adopt the row-indexed computation type
 (design C), preceded by the argument-passing fix (stage 0) and followed by
-empty-row specialisation in both backends (design E). Fold `mapIn` into
-`map` only after both, and extend the convention to other functions one at
-a time as programs need them. Fix the quadratic effectful case with a
-continuation-passing runtime representation (design F) as its own stage.
+empty-row specialisation in both backends (design E). Under C, the row is a
+library-internal index that programs can't construct or inspect (D1122),
+and the elaborator infers the empty row only when the other type can never
+be a computation (D1123). Fold `mapIn` into `map` only after both, and
+extend the convention to other functions one at a time as programs need
+them. Fix the quadratic effectful case as its own stage, against a stated
+requirement, choosing the runtime representation in that stage's own design
+note (design F).
 
 ## 1. How abilities work in Stitchwort today
 
@@ -213,6 +259,19 @@ Each entry ends with what it would mean for Stitchwort.
 
 ### 3.1 Compiling effect polymorphism efficiently
 
+**Koka: row-polymorphic effect types** (Leijen, "Koka: Programming with
+row-polymorphic effect types", 2014,
+[PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/paper-20.pdf);
+the venue, MSFP 2014, is **[unverified]**). Read in the PDF: `map` has the
+type `map : ∀αβµ. (list⟨α⟩, α → µ β) → µ list⟨β⟩`, "where the effect of the
+map function itself is completely determined by the effect of its
+argument". Koka's effect row tracks effects in types; a computation keeps an
+ordinary value representation in the language. So Koka is precedent for
+higher-order functions quantifying over their callback's effect, which is
+what the owner wants. It is *not* precedent for design C's definitional
+equation `CompIn Empty a ≡ a`: Koka has no proofs and no tree encoding that
+would need it **[inferred]**.
+
 **Koka: selective CPS** (Leijen, "Type directed compilation of row-typed
 algebraic effects", POPL 2017,
 [MSR page](https://www.microsoft.com/en-us/research/?p=337556),
@@ -283,9 +342,14 @@ effects carries no cost. Later work on direct style
 [page](https://pl.cs.uni-tuebingen.de/publications/mueller23continuation/))
 translates CPS code back to direct style where control flow is trivial.
 That Effekt's newer backends monomorphise effect polymorphism is
-**[unverified]**. *For Stitchwort:* "zero cost when unused" is achieved by
-compile-time specialisation, not by a cleverer runtime. The same holds for
-design E.
+**[unverified]**. Effekt's present surface design is "contextual effect
+polymorphism" ([effekt-lang.org](https://effekt-lang.org/)): `map` takes a
+block typed `A => B / {}`, the block's effects don't appear in `map`'s type,
+and they are handled at the call site. *For Stitchwort:* "zero cost when
+unused" is achieved by compile-time specialisation, not by a cleverer
+runtime. The same holds for design E. Effekt is comparison material for
+the runtime (design F), not a representation to copy: it has no explicit
+computation trees.
 
 **Eff: optimising compilation** (Karachalias, Koprivec, Pretnar,
 Schrijvers, "Efficient compilation of algebraic effect handlers", OOPSLA
@@ -414,6 +478,23 @@ into larger effects, the same choice as SW-393's `Done` wrapping. It
 doesn't offer a mechanism for one definition being definitionally pure at
 the bottom of a polymorphic effect **[inferred]**.
 
+**F\* indexed effects and graded monads** (Rastogi, Martínez, Fromherz,
+Ramananandro, Swamy, "Programming and proving with indexed effects",
+[PDF](https://fstar-lang.org/papers/indexedeffects/indexedeffects.pdf)).
+Read in the PDF: F\*'s user-defined effects cover "all forms of indexed
+monads", elaborated "into a core language of pure, total functions where
+the monadic structure is made explicit". The paper recalls Katsumata's
+graded monads (2014): a monad indexed by a monoid `{I, ⊕, ε}`, with
+`return : a → G a ε` and `bind : G a i → (a → G b j) → G b (i ⊕ j)`. The
+unit grade `ε` is the pure one. Its first example, `gst a t` with
+`tag = R | RW`, has the *same* representation (a state-passing function)
+at both indices; only a refinement differs. *For Stitchwort:* design C has
+this shape: `CompIn` is an effect-indexed computation family, `Row` is the
+index, `doneIn` is `return` at any index, and `Empty` plays the unit grade.
+What is unusual in C is that the index changes the representation: at
+`Empty` the carrier is the plain type `a`. That is what makes the pure
+equations definitional.
+
 **Idris** (Brady, "Programming and reasoning with algebraic effects and
 dependent types", ICFP 2013, listed on
 [idris-lang.org papers](https://idris-lang.org/pages/papers.html)).
@@ -444,7 +525,12 @@ rules (Agda, and Coq's experimental rewrite rules referred to in the
 "taming of the rew" follow-ups). Lean's `Id` makes the identity monad
 definitionally trivial because `Id` is the identity *function on types*;
 that is the idea design C generalises: dispatch on the effect, not on the
-computation.
+computation. I found no exact precedent for a computation family whose
+pure index is definitionally the plain type, `CompIn Empty a ≡ a`, inside a
+polymorphic effect. So design C is best described as **an effect-indexed
+computation family with a deliberately representation-changing pure
+index**: indexed and graded monads give the shape, Lean's `Id` gives the
+trick at one fixed index, and C combines them.
 
 ### 3.3 What the survey says, in short
 
@@ -456,6 +542,8 @@ computation.
   computations differs from the semantic one in all of them.
 - Free-monad encodings need a CPS or queue representation at runtime to
   avoid quadratic binds.
+- Indexed and graded monads are prior art for the shape of design C. No
+  system found makes the pure index definitionally the plain type.
 
 ## 4. Probes
 
@@ -569,6 +657,55 @@ y) k)`), and each resumption rebuilds them. Native `stitchwort run` of
 0.29 s for `map`, both including checking), because the runtime has its own
 stack **[checked]**.
 
+Probes 8 to 11 were added for the revision, on `main` at `2934c86e`.
+
+**Probe 8: even a variable is run in place.** With probe 4's `isDone`,
+`(c: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> isDone c = True := c =>
+rfl` checks, for an arbitrary `c` **[checked]**. So does the same through
+an identity function on computations. And `Effect.runPure (identityComp
+(Done n))` is refused: "expected `Nat`, but this has type `Comp (?0 n) (?1
+n) Nat`" at `Done n`, because the argument of `runPure` was itself run in
+place **[checked]**. The cause: whether an expression "performs" is decided
+by `may_perform` from the argument alone. A variable or call whose own type
+reaches a `Comp` performs (`effects.rs:1023-1053`, `performs_after` at
+`effects.rs:1109-1115`), and the parameter type it is passed to is never
+consulted. A whole expression that performs, checked against a plain type,
+is elaborated in the empty row and run (`check.rs:1615-1616`,
+`effects.rs:2145-2160`) **[checked]**.
+
+**Probe 9: rows are ordinary terms today.** Each of these checks
+**[checked]**:
+
+- `List.mapIn [e := Effect.Sig.MkSig Effect.NoOp Effect.NoRes] (x => x + 1)
+  xs`: a program builds the empty signature and supplies it by hand, with a
+  named implicit argument.
+- `def leak (f: Nat -> {e} Nat): Effect.Sig := e`: a row variable is a term
+  that can be returned.
+- A function `inspect: Effect.Sig -> Bool` defined by matching `MkSig op
+  res`, applied to a row variable.
+
+Parametricity (an effect-polymorphic function can't behave differently
+depending on its row) holds today only because `Sig` has one constructor
+and a program can't take a `Type` apart. Under design C, `Row` has two
+constructors, so the same freedom would let a program test for `Empty`.
+Storing a row in ordinary data is already refused: `List Effect.Sig` is
+`E-UNIVERSE`, since `Sig` is in `Type 1` **[checked]**.
+
+**Probe 10: abilities live in `Type 0`.** `ability Gen where gen: Type ->
+{Gen} Nat` is refused: "field `x` is too large for `Gen`: its type is in
+`Type 1`, but `Gen` is in `Type`" **[checked]**. `Comp`'s parameters are all
+`Type` (`Effect.sw:12`), and an effectful function's result must be in
+`Type 0` (`effects.rs:887-893`) **[checked]**.
+
+**Probe 11: an unsolved row is an error today.** A local
+`let unused := List.mapIn (x => x + 1)` whose row nothing determines is
+`E-UNSOLVED` ("can't work out an implicit argument") **[checked]**. There is
+no row defaulting today. In practice rows are solved by the effect
+machinery's own row comparison (`solve_tail`, `effects.rs:382-413`), not by
+the general unifier, and a pure context solves an open row with the empty
+one when it runs the call in place **[checked]** for `solve_tail`,
+**[inferred]** for which path solves it in each case.
+
 ## 5. Candidate designs
 
 Each design is judged on: proofs (do the 78 `map` statements go through
@@ -610,6 +747,48 @@ arguments whose parameter is a plain type (abilities.md:263), so a `Comp`
 parameter at the empty row should be rare outside `Effect.sw` itself
 **[inferred]**.
 
+Where the fix goes. Probe 8 shows the decision is made by `may_perform`
+judging each argument by its own type (`effects.rs:1023-1053`). The rule has
+to be applied in every place that decides to run something in place, not
+only in direct arguments, or run-in-place will come back through another
+path. The paths, all **[checked]** to exist, the classification **[inferred]**:
+
+| Path | Where | What stage 0 does |
+|---|---|---|
+| Direct argument of a call | `call_performs`, `effects.rs:1030-1034` | skip an argument whose parameter type is a `Comp` |
+| Piped argument, `c \|> isDone` | `may_perform`, `Expr::Pipe`, `effects.rs:978-985` | the same, for the piped value |
+| Dot call, `c.isDone` | `dot_performs`, `effects.rs:1057-1067` | the receiver is the first argument: the same |
+| Arguments run first inside computation mode | `run_first`, `effects.rs:1738` | the same |
+| Fields of a constructor, record, tuple or list whose field type is a `Comp` | `may_perform`, `effects.rs:1009-1017`; `comp_compound`, `effects.rs:1794` | the same, per field |
+| A body whose declared type is `Comp NoOp NoRes a` | `check_inner`, `check.rs:1609-1613`, then `in_place`, `effects.rs:1489` | a value whose type is already the expected `Comp` is used as it is, not rebuilt as `bind c Done` or run |
+
+The acceptance test is observational, as the reviewer asked: a function
+that explicitly takes a `Comp NoOp NoRes a` must see exactly what it is
+given. With
+
+```
+def isDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Bool
+  | Done value => True
+  | Call () rest
+```
+
+the following must hold, for each path in the table (direct, piped, dot,
+inside a constructor, through an identity function):
+
+- `isDone (Done 3) = True := rfl` checks: a written `Done` is seen as
+  `Done`.
+- `(computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> isDone
+  computation = True := computation => rfl` is refused: an arbitrary
+  computation is not known to be `Done` (it checks today, probe 8).
+- Probe 4's `isDone (stuckComp xs) = True` for a variable `xs` is refused,
+  and `isDone (stuckComp Nil) = True := rfl` checks: the computation is
+  passed, and it reduces as its own definition says.
+- `Effect.runPure (identityComp (Done n))` checks (it is refused today,
+  probe 8).
+
+These tests stay in the suite after stage 0, so a later change that
+re-introduces run-in-place through any path fails them.
+
 ### A. Status quo: two functions plus a proved bridge
 
 Keep pure `map` and effectful `mapIn`, and prove `mapInPure` for each pair
@@ -626,7 +805,17 @@ after stage 0.
 - This is what Lean does (§3.2). It does not meet the owner's "one function
   per operation".
 
-### B. A kernel rule: `runPure (bind c k)` reduces at `NoOp`
+### B. A kernel rule: `runPure (bind c k)` reduces at `NoOp` (rejected)
+
+**Rejected unless design C proves infeasible for reasons much stronger
+than implementation cost.** The analysis below is kept for the record. The
+deciding argument, from the review: the rule fires for a neutral `c` and
+stops being justified after substitution. Definitional equality is
+infrastructure that elaboration, conversion, normalisation and proofs all
+use, and its answer would depend on whether reduction happened before or
+after substitution. That is a bad trade for saving elaborator work in a
+small kernel. C puts the complexity in ordinary terms and the elaborator
+instead.
 
 Add to the kernel's evaluator: `runPure (bind [NoOp] [NoRes] c k) ⟶
 runPure (k (runPure c))` when `c` is neutral (stuck), and keep `bind`'s own
@@ -734,15 +923,17 @@ clause, to `Cons (f x) (map Empty f xs)` with `xs` a variable (probe 5's
 - Hashing: one definition of `map`, hashed once, with a `Row` parameter.
   Every dependant's hash moves once. Hash stability is not a goal while
   there are no users.
-- Unification: `CompIn ?e B` against a plain type `T` can't be inverted in
-  general. The elaborator needs a rule: if `T`'s head is not `Comp`, solve
-  `?e := Empty` and `B := T` (the only solution, since `CompIn (Ops …) B`
-  is a `Comp`); if `T` is a `Comp`, postpone. This replaces the SW-393
-  coercion for the bare-row case. An unsolved `?e` at the end of a pure
-  definition defaults to `Empty`.
+- Unification: `CompIn ?e B` against a type `T` can't be inverted in
+  general. The elaborator needs an apartness rule, a postponement path and
+  a separate defaulting step. They replace the SW-393 coercion for the
+  bare-row case. §5.C.1.
 - Two spellings of "empty": `Empty` and `Ops NoOp NoRes` would both be
-  values of `Row`. The elaborator must always produce `Empty` for an empty
-  row; `Ops NoOp NoRes` would still work, as a tree.
+  values of `Row`, with different representations and different
+  definitional behaviour. `Row` is therefore a library-internal index that
+  programs can't construct or inspect, and the elaborator keeps rows in a
+  canonical form. §5.C.2.
+- Universes: `Row: Type 1`, which assumes abilities stay in `Type 0`.
+  §5.C.3.
 - Speed: by itself, no better than today: the generated code dispatches on
   the row at runtime and isn't a loop (probe 6, and `mapR Empty` overflows at
   5,000 in probe 7). It needs design E. But E becomes simple: the row is a
@@ -762,6 +953,337 @@ handlers only sequence); `examples/` that print elaborated terms or types
 containing `Comp` for a bare row; and the `Sig` value passed at runtime (it
 becomes a `Row`, whose tag the backends must keep).
 
+#### C.1 Inferring the row: apartness, postponement, defaulting
+
+This replaces the first version's rule "if `T`'s head is not `Comp`, solve
+`?e := Empty`". That rule was too eager: a type such as `F ?x`, a definition
+stuck on an unknown, isn't visibly a `Comp` now but may become one once
+`?x` is solved.
+
+**The problem.** The elaborator meets `CompIn ?e B ≟ T` when a callback or a
+call's result is compared with what its context expects. `?e` is the row of
+a row-polymorphic function's use; `B` is often unknown too. Two facts drive
+the rule:
+
+- `CompIn Empty B` *is* `B`. So `?e := Empty, B := T` is a solution for
+  *every* `T`. Picking it is never ill typed; the question is only whether
+  it is the *only* solution.
+- `CompIn (Ops op res) B` is `Comp op res B`. So another solution exists
+  exactly when `T` is, or may become, a `Comp`.
+
+Hence the principle, the same one GHC uses for closed type families
+([GHC user's guide](https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/type_families.html):
+GHC "will select an equation only when it is sure that no incompatible
+previous equation will ever apply"): **choose `Empty` only when `T` is
+rigidly apart from `Comp`**, meaning no solution of the unknowns and no
+reduction can turn it into a `Comp`.
+
+**What "rigid" and "blocked" mean in Stitchwort's values.** Types are
+`Value`s (`crates/core/src/value.rs:22-48`) **[checked]**. The rule first
+puts `T` in weak head normal form with `force` (which also unfolds a
+`Value::Call`, a call kept folded while gluing, and substitutes solved
+unknowns), and unfolds a dictionary left folded by name (`unfold_folded`),
+as the unifier does (`unify.rs:72-91`) **[checked]**. Then it looks at the
+head:
+
+| Head of `T` after forcing | Class | Why |
+|---|---|---|
+| `Value::Data(d, …)` with `d` not `Comp` (`Nat`, `List a`, records, `Vec`, interface dictionaries) | apart | a data type never reduces; records and dictionaries are data types (a record is "a data type with one constructor", `records.rs:1-4`; an interface is a record, `interfaces.rs:3-4`) **[checked]** |
+| `Value::Pi` (a function type), `Value::Sort`, `Value::Eq` | apart | already in normal form; never a `Comp` |
+| `Value::Neutral(Head::Def(d), …)` for an opaque primitive such as `Effect.Delay` | apart | it has no body, so it never reduces (`docs/core.md:14`) **[checked]** |
+| `Value::Neutral(Head::Quot(_), …)` (`Quot A R`) | apart | a quotient type is a value (`value.rs:76-83`) **[checked]** |
+| `Value::Neutral(Head::Var(x), …)` (a type variable of the definition, or one applied to arguments) | apart, for this definition | see below |
+| `Value::Data(Comp, [op, res, A])` | rigid `Comp` | the D1124 rule below |
+| `Value::Neutral(Head::Meta(m), …)`, a bare unknown `?T` | not a row constraint | the ordinary unifier solves `?T := CompIn ?e B` (`unify.rs:194-197`) **[checked]**, the most general answer; `?e` stays open |
+| `Value::Neutral(Head::Def(d), …)` stuck on an unsolved unknown (`F ?x`) | blocked | postpone |
+| `Value::Neutral(Head::Def(d), …)` stuck on a variable (`F x`) | blocked | postpone; defaulting may settle it |
+| `CompIn ?f C`, the same definition stuck on another row unknown | same head | the unifier's spine rule gives `?e := ?f, B := C` |
+
+Three choices in that table need a word.
+
+*Type variables are apart.* A variable such as `a` in `[a: Type]` can't be
+solved while this definition is elaborated: it is rigid here
+(`interfaces.rs:1297-1301` already treats distinct bare variables as
+rigidly distinct) **[checked]**. A caller may later instantiate `a` with a
+`Comp` type, but the elaborated body `CompIn Empty a` is just `a`, so it
+stays well typed after any instantiation. Inside the definition `a` is
+opaque, as a type variable is in any polymorphic language. The reviewer's
+"any future substitution" is about unknowns (metavariables), not about the
+definition's own parameters **[inferred]**.
+
+*The spine rule is an approximation.* `CompIn` is not injective:
+`CompIn Empty (Comp op res C)` equals `CompIn (Ops op res) C`. The unifier
+already compares two stuck calls of the same definition by their arguments
+(`unify.rs:210-220`, "the spines must match") **[checked]**, for every
+definition, and C inherits that. Two uses that share a row unknown are
+nearly always meant to share the row **[inferred]**. Postponing instead is
+the fallback if this ever picks wrongly.
+
+*A definition stuck on a variable is blocked, not apart.* Unlike a bare
+type variable, `F x` is a case tree waiting for `x`, and some of its
+branches may be `Comp` types. Inside this definition it never reduces, so
+`Empty` is a correct answer, but whether it is the intended one depends on
+the branches. The rule postpones it, and defaulting picks `Empty` if
+nothing else decides. Looking into the case tree's leaves, and calling `F
+x` apart when none of them can be a `Comp`, is a possible later refinement.
+
+How "stuck on an unknown" is told apart from "stuck on a variable": the
+instance search already does it. `unsolved_in` finds an unsolved unknown in
+a value (`interfaces.rs:1331-1340`), and `refresh` re-evaluates a value
+after unknowns were solved, so a definition that was stuck takes its step
+(`interfaces.rs:1322-1328`) **[checked]**. The instance search's
+three-valued comparison (equal, rigidly distinct, blocked) and its
+`rigidly_distinct` (`interfaces.rs:1243-1319`) are close to the apartness
+test needed here **[checked]**; stage 1 should share that code.
+
+**The rule.**
+
+```text
+CompIn ?e B ≟ T
+  1. Force T (and unfold a folded dictionary).
+  2. T apart from Comp:           ?e := Empty, then B ≟ T.
+  3. T = Comp op res A (rigid):   the D1124 rule.
+  4. T a bare unknown:            ordinary unification (?T := CompIn ?e B).
+  5. T blocked:                   postpone the constraint.
+```
+
+The same rule applies in the other direction (`T ≟ CompIn ?e B`), which is
+SW-393's case: a pure function passed where `a -> {e} b` is expected.
+
+**The rigid-`Comp` case (D1124).** Here both `?e := Ops op res, B := A` and
+`?e := Empty, B := Comp op res A` are well typed, so unification alone
+can't choose. The elaborator chooses by what a `Comp` means in source:
+
+- `op` headed by `Plus` (the translation of a row with at least one
+  ability, `effects.rs:178-235`) **[checked]**: `?e := Ops op res, B := A`.
+  The callback is effectful and the function becomes effectful. This is
+  today's behaviour, where `{e}` against `{IO}` solves `e` with `IO`
+  (`solve_tail`, `effects.rs:382-413`) **[checked]**, and Unison's.
+- `op` is `NoOp`: `Comp NoOp NoRes A` only appears under C when written out
+  by hand, which is asking for the tree as data (stage 0's tests are an
+  example). So `?e := Empty, B := Comp NoOp NoRes A`. This also keeps the
+  canonical form (§5.C.2): the elaborator never makes `Ops NoOp NoRes`.
+- `op` blocked: postpone.
+
+This is the one place where the elaborator picks one solution among
+several, and it is documented as a convention, not presented as
+unification.
+
+**Where the rule lives and how postponement works.** The unifier has no
+constraint store: `unify` answers yes or no, and a no may be followed by
+trying another way (`unify.rs:15-23`) **[checked]**. Postponement exists in
+the elaborator in three narrower forms today **[checked]**:
+
+1. a lambda argument whose parameter type isn't known yet is checked after
+   the later arguments (`check.rs:1051-1170`);
+2. auto arguments and instances are recorded as obligations and solved
+   once the declaration is elaborated, in rounds that repeat while a round
+   makes progress (`auto.rs:62-99`, called from `finish`, `lib.rs:831-834`);
+3. a mismatch is retried after ready instances are found, and then through
+   the effect coercions (`check.rs:2185-2205`).
+
+So stage 1 splits the rule in two **[inferred]**:
+
+- Steps 2 to 4 are a new case in `unify_step`. Solving `?e := Empty` and
+  pushing `B ≟ T` is ordinary unification, safe wherever `unify` is
+  called.
+- Step 5 returns "no" from `unify`. The mismatch fallback in
+  `check.rs:2185-2205`, where `effects::coerce` is called today, records a
+  *row constraint* (its context, the found and expected types, the span)
+  next to the obligations, and accepts the term as it is. The term is well
+  typed once the constraint is solved. Row constraints are retried in the
+  same rounds as obligations, after `refresh`; one that is solved counts as
+  progress. Anything still unsolved at the end is an error, so nothing
+  unchecked reaches the kernel, which re-checks the final term anyway.
+
+Does the elaborator need `?e` early, before the rounds? Mostly not
+**[inferred]**: a callback body checked against `CompIn ?e B` can be
+elaborated with `doneIn ?e` and `bindIn ?e`, which are correct for any
+row. If the body performs an ability, that already forces `?e` to be
+non-empty, and today's `extend` (`effects.rs:683-695`) **[checked]** does
+the same job: it solves the open row with the ability and a fresh tail.
+
+**Defaulting is a separate step.** When the rounds stop making progress,
+and before errors are reported, each remaining row unknown that is
+*eligible* is set to `Empty`, and the rounds resume (a solved row can
+unblock instances). Eligible means:
+
+1. its type is `Row`, and it was made by instantiating a row-polymorphic
+   function's implicit row parameter (a definition's own row variables are
+   variables, not unknowns, and are never defaulted);
+2. no constraint or obligation made progress in the last round;
+3. no ability was performed against it (that would have solved it
+   already).
+
+Defaulting can't make a term ill typed, since `Empty` solves every
+`CompIn ?e B ≟ T`. What it can do is pick the pure reading where an
+effectful one was meant; that shows up as a type error at the effectful
+use, which gets a note saying the row defaulted to pure, as a defaulted
+number literal gets one today (`Defaulted`, `numbers.rs:28-35`, used by
+`explain_default`, `numbers.rs:441-460`) **[checked]**.
+
+Stitchwort has no defaulting step after solving today. Number literals
+default eagerly, at the literal (`numbers.rs:291-312`), with one retry that
+checks literals last (`check.rs:1024-1048`) **[checked]**. Row defaulting
+can't be eager, because a row is often settled by something checked later,
+so it uses the end-of-declaration rounds instead.
+
+**Worked examples.** For a call written as the elaborator sees it,
+`List.map [e := ?e] callback xs` (after the fold, stage 3), where `map`'s
+parameter is `(f: a -> {e} b)`, so the callback's expected type is
+`a -> CompIn ?e ?b`.
+
+| Callback or context type `T` | Class | Result |
+|---|---|---|
+| `Nat` (a callback `f: Text -> Nat`) | apart | `?e := Empty`, `?b := Nat`; `map` is pure here |
+| `List a` | apart | `?e := Empty`, `?b := List a` |
+| `Nat -> Text` (a callback returning functions) | apart | `?e := Empty`, `?b := Nat -> Text` |
+| `Point`, a record | apart | `?e := Empty`, `?b := Point` |
+| `?T` (a callback whose result type isn't known yet) | bare unknown | `?T := CompIn ?e ?b`; `?e` is decided later, or defaulted |
+| `F ?x`, see below | blocked, then rigid `Comp` | postponed; effectful once `?x` is solved |
+| `Comp (Plus IO NoOp) IO.res Nat` (a callback `f: Text -> {IO} Nat`) | rigid `Comp`, `Plus` | `?e := Ops (Plus IO NoOp) IO.res`, `?b := Nat` |
+| `Vec Nat 3`, against `CompIn ?e (Vec ?b ?n)` (`Vec.map`, a dependent result type) | apart | `?e := Empty`, then `?b := Nat`, `?n := 3` |
+| `Cell ?i` (a type family applied to an unknown index) | blocked | postponed; decided when `?i` is |
+| `CompIn ?f c` (the callback is itself row-polymorphic) | same head | `?e := ?f`, `?b := c` |
+
+The `F ?x` case is the one the old rule got wrong. With
+
+```
+def Answer: Bool -> Type
+  | True => Effect.Comp (Effect.Plus Log Effect.NoOp) Log.res Nat
+  | False => Nat
+```
+
+and a callback of type `Text -> Answer ?x`, where `?x` is fixed by a later
+argument to be `True`: the old rule saw a head that isn't `Comp`, chose
+`?e := Empty` and `?b := Answer ?x`, and `map` became pure, returning a list
+of unrun `Log` computations. Under the new rule the constraint waits; once
+`?x := True`, `Answer True` reduces to a `Comp` over `Plus`, and `map`
+becomes effectful in `Log`, as it would with a callback written
+`Text -> {Log} Nat` **[inferred]**.
+
+A dependent result type that stays stuck on a variable: with
+`Vec.tabulate`-style `(index: Fin n) -> {e} Cell index` and `Cell` defined
+by cases on the index, `Cell index` for the bound variable `index` is
+stuck on a variable, so it is postponed, nothing else decides it, and
+defaulting picks `Empty`. The result `CompIn Empty (Cell index)` is
+`Cell index`, correct for every `index` **[inferred]**.
+
+Today's code has the weakness the reviewer pointed out, in a smaller form:
+SW-393's coercion refuses only when the pure function's result type is a
+bare unknown (`effects.rs:2571-2581`), so a result type stuck on an unknown
+passes that guard **[checked]** for the guard, **[inferred]** that it can
+misfire. Stage 1 replaces that path with the rule above.
+
+#### C.2 `Row` as a library-internal index
+
+The review's point: `CompIn Empty a` is `a`, while `CompIn (Ops NoOp
+NoRes) a` is a tree. Two semantically equal rows would have different
+representations and different definitional behaviour. That is tolerable
+only if programs can't make, inspect or compare rows. Otherwise an
+"effect-polymorphic" function could test whether its row is `Empty` and
+behave differently, and effect polymorphism would stop being parametric.
+
+Probe 9 shows that today a program *can* build a row (`MkSig NoOp NoRes`),
+supply it by hand, return it, and match on it. It does no harm today only
+because `Sig` has one constructor. Under C it would.
+
+**The boundary.**
+
+- `Row`, its constructors `Empty` and `Ops`, and the functions that take a
+  row apart (`CompIn`, `doneIn`, `bindIn`, `liftIn`, `lowerIn`, `rowOp`,
+  `rowRes`) can be *named* only in the standard library. A program that
+  names one gets an error (`E-INTERNAL`, say). Std's own lemmas about
+  `CompIn e` for every row still need to name `Empty` and `Ops`, which is
+  why "only the library" rather than "only `Effect.sw`".
+- A program still gets row variables through `{e}` in types, and may pass
+  one on (`[e := e]`). It can't take one apart (the constructors can't be
+  named, and a match with only a wildcard reveals nothing), can't build
+  `Ops NoOp NoRes`, and can't store a row in ordinary data, because `Row`
+  is in `Type 1` and `List`, `Option` and records hold `Type 0` values
+  (probe 9's `List Effect.Sig` is refused) **[checked]** for `Sig`,
+  **[inferred]** for `Row`. There is no `DecEq Row`, so rows can't be
+  compared.
+- Printed types show `{e} b`, not `CompIn e b`.
+
+**Enforcement, cheapest first** (D1122):
+
+- Today there's no visibility control at all: "Visibility of declarations:
+  everything" (`docs/proposals/multi-file.md:498`) **[checked]**. SW-150
+  (file-private declarations) is in the backlog and is about one file, which
+  is too narrow here: the row's constructors are needed in `Effect.sw` and in
+  every std file whose lemmas quantify over rows **[checked]** for the
+  ticket's scope.
+- `Sig` and `sigOp` aren't protected today (probe 9). The `RESERVED` list
+  (`lib.rs:143-152`) stops names from being *redefined*, not used
+  **[checked]**.
+- The compiler already makes names that source can't spell: `%unit`
+  (`lib.rs:137-139`) and an interface's hidden projections `Pretty.%f`
+  (`interfaces.rs:8-10`); `%` is an operator token, so no source file can
+  declare or name them (`crates/syntax/src/lexer.rs:583`) **[checked]**. But
+  then std's lemmas couldn't name them either.
+- The elaborator already knows whether a file is part of the library (a
+  program can't add to `Std`, `scope.rs:529-535`; library tests are marked,
+  `lib.rs:179`) **[checked]**.
+
+So the cheapest enforcement that keeps std's proofs is a library-only name
+check: the internal declarations are listed (an attribute such as
+`@[internal]`, or a short list in the compiler, as `RESERVED` is), and name
+resolution refuses them outside std **[inferred]**. Later, SW-150's `private`
+could become the general form of the same check.
+
+**Canonical form.** The invariant: *a row with no abilities and no row
+variable is always `Empty`*. The elaborator's row translation (`ops`,
+`res`, `comp_type`, `effects.rs:178-235`) is the one place rows become
+terms **[checked]**; under C it writes `Empty` for the empty row, the row
+variable itself for a bare `{e}`, and `Ops (Plus …) …` only when there's at
+least one ability. What checks it:
+
+1. the boundary: programs can't write `Ops` at all;
+2. a debug assertion in the translation function;
+3. a unit test in stage 1 that `{}` and an instantiated `{e}` at `Empty`
+   elaborate to plain types, with no `Comp` in the term;
+4. the D1124 rule, which never solves a row with `Ops NoOp NoRes`.
+
+The kernel doesn't check it, and doesn't need to: breaking the invariant
+can't make anything unsound. It would only give slower code and pure
+equations that are no longer definitional.
+
+**Runtime data or index?** (The review's §9.) Semantically an index: with
+the boundary, no program can observe a row, so a row only selects a
+representation. Operationally it is still passed. Today a row is passed at
+runtime as an erased `{ tag: "MkSig" }` that carries no information (probe
+6) **[checked]**. Under C the tag carries one bit, `Empty` or `Ops`, and
+unspecialised code dispatches on it in `bindIn` and `doneIn` (probe 6's
+`mapR Empty` passes `{ tag: "Empty" }` and switches on it) **[checked]**.
+The interaction with E: because only the elaborator makes rows, every row
+argument at a call site is either a constructor it wrote or the enclosing
+definition's own row variable. So specialising from each concrete use
+reaches every call with a known constructor **[inferred]**. The exception is
+a row-polymorphic function passed as an argument to a parameter whose type
+quantifies over rows (rare, and only possible at `Type 1`); that call keeps
+the runtime tag and dispatches, which is slower but correct. Rows can't be
+erased everywhere without specialising everything, so the tag stays in
+unspecialised code.
+
+#### C.3 Universe levels
+
+Today abilities' operations always live in `Type 0`: `Comp`'s `op`, `res`
+results and `a` are `Type` (`Effect.sw:12`), an effectful function's result
+must be in `Type 0` (`effects.rs:887-893`), and an operation that takes a
+`Type` is refused (probe 10) **[checked]**. `Sig` is already `Type 1` for
+this reason (`Effect.sw:104`) **[checked]**. So `Row: Type 1` matches the
+present language.
+
+The limitation, stated: under C, abilities whose operations mention `Type`
+(or anything in `Type 1` or above) can't be used in a bare row variable.
+Stitchwort has no universe polymorphism (`docs/core.md:22`; DESIGN.md:407
+"No universe polymorphism at first") **[checked]**. When it comes, the
+extension path is `Row u` and `CompIn u`, one per universe, rather than
+fixing this representation at `Type 1`. Until then a `Type 1` copy would be
+a separate declaration with its own name, as `Quot` is at `Type 0` only
+(`docs/core.md:418`) **[checked]**.
+
 ### D. Lean-style proven replacement (`csimp`)
 
 An attribute `@[replaces List.map at Empty]` on a theorem
@@ -780,30 +1302,65 @@ backends to compile the empty-row use of `map` as `mapPure`.
 - Hashing: the attribute is metadata linking two definitions; the theorem
   has its own hash.
 - Cost: one hand-written twin and one theorem per function: the twins
-  Matt wants to avoid, hidden from users.
+  the owner wants to avoid, hidden from users.
 
 ### E. Backend specialisation at the empty row
 
-For each row-polymorphic definition used at the empty row, the backend
-makes a copy with the row fixed and simplifies it:
+**Specification.** E is generic partial evaluation, not an effect-specific
+pass. The backend knows nothing about rows except that `Row` is in a fixed
+list of *representation-driving* parameter types:
 
-- Under design C, the row argument is the constructor `Empty`. Fixing it,
-  inlining `bindIn Empty c k` to `k c` and `doneIn Empty v` to `v`, and beta
-  reducing turns `map`'s body into `Cons (f x) (map_Empty f xs)`, which the
-  existing TRMC pass makes a loop **[inferred]**; the result is
-  `List.map`'s code (probe 7, "specialised").
-- Under today's encoding, the backend would have to see that the row
-  argument is `MkSig NoOp NoRes`, normalise each `bind`'s implicit `op`
-  argument to `NoOp`, and apply type-directed rewrites (`Done v → v`,
-  `bind c k → k c`, `runPure → id`). Possible, since the JS backend works
-  from kernel terms before erasure, but it needs the kernel evaluator in
-  the backend and changes the runtime representation of values of type
-  `Comp NoOp NoRes a`, which must then never meet unspecialised code
-  **[inferred]**.
+1. **Specialise.** For a definition called with a static constructor
+   argument for a parameter whose type is in the list, make a copy with that
+   argument fixed. Initially the list holds only `Row`, and only the `Empty`
+   constructor is specialised on (the `Ops` constructor's fields are types,
+   which are erased, so an `Ops` copy would be the generic code minus one
+   tag test).
+2. **Inline** small non-recursive definitions called with a static
+   constructor argument (`bindIn`, `doneIn`, `liftIn`, `lowerIn` are each a
+   single case on the row).
+3. **Beta-reduce** and fold `case` on a known constructor.
+4. **Remove dead code** (the unreachable `Ops` branches).
+5. Run the **ordinary pipeline**, including TRMC.
+
+**Test case: `map`.** Under design C, the row argument is the constructor
+`Empty`. Fixing it, inlining `bindIn Empty c k` to `k c` and `doneIn Empty v`
+to `v`, and beta reducing turns `map`'s body into `Cons (f x) (map_Empty f
+xs)`, which the existing TRMC pass makes a loop **[inferred]**; the result
+is `List.map`'s code (probe 7, "specialised"). The JS backend already
+inlines helpers inside self tail loops (`SelfCall`'s `inline`,
+`crates/js/src/lib.rs:1930-1934`, tried in order at `lib.rs:2170-2185`)
+**[checked]**, so step 2 extends something that exists.
+
+Under today's encoding instead, the backend would have to see that the row
+argument is `MkSig NoOp NoRes`, normalise each `bind`'s implicit `op`
+argument to `NoOp`, and apply type-directed rewrites (`Done v → v`,
+`bind c k → k c`, `runPure → id`). Possible, since the JS backend works
+from kernel terms before erasure, but it needs the kernel evaluator in the
+backend and changes the runtime representation of values of type
+`Comp NoOp NoRes a`, which must then never meet unspecialised code
+**[inferred]**. That is the effect-specific knowledge C avoids.
+
+**Transitive specialisation and code size.**
+
 - Copies are made transitively from each use: a specialised function's
-  calls with rows derived from its own `Empty` are specialised too. A copy
-  is keyed by (definition hash, row constructor), so it is made once per
+  calls that pass its own (now fixed) row are specialised too. A copy is
+  keyed by (definition hash, row constructor), so it is made once per
   program.
+- Only parameters in the list drive copies. Nothing else (types, numbers,
+  functions) is specialised by this pass, so it can't grow into general
+  monomorphisation by accident. Adding a type to the list is a design
+  decision, not a tuning knob.
+- A definition with several row parameters is specialised only when all of
+  them are `Empty` (one copy); otherwise the generic code runs. So each
+  row-polymorphic definition has at most one extra copy, and the generated
+  code is at most about twice the reachable row-polymorphic code
+  **[inferred]**.
+- Inlining in step 2 is limited to non-recursive definitions below a size
+  bound, and to definitions that are a single case on a static argument.
+
+Other points:
+
 - The native runtime (`crates/rt`) gets the same pass in its lowering; it
   shares erasure decisions with JS (`crates/rt/src/lib.rs:11`) **[checked]**.
 - Hashing: copies are backend artefacts, not hashed definitions.
@@ -813,21 +1370,43 @@ makes a copy with the row fixed and simplifies it:
 ### F. A different runtime representation for effectful code
 
 Keep `Comp` as the kernel's semantics; change only how the backends run
-it:
+it. The kernel's tree and the runtime representation are already decoupled
+(the backends are untrusted, `crates/rt/src/lib.rs:1-5`) **[checked]**, so
+the architecture doesn't need to commit to one representation now.
 
-1. **Bind-inlining fast path** (Koka, §3.1): compile `bind c k` as
-   `case c of Done x -> k-body | Call … -> slow path`, with join points so
-   code size stays linear. Recursion stays tail recursion on the `Done`
-   path, so TRMC applies within one function.
-2. **CPS (codensity) representation** for the slow path: a computation is
-   a function taking "what to do with the result" and "what to do with an
-   operation". `bind` becomes O(1) and the quadratic behaviour of probe 7
-   goes away (Voigtländer 2008). A trampoline (a loop that runs one step
-   at a time) keeps JS's stack bounded, as Links' JS backend does
-   (FSCD 2017). This is the fix for SW-396 and for the quadratic case.
-3. **Tail-resumptive handlers in place** (Koka, §3.1): a handler clause of
-   the form `op x k => k e` (or, for a state-passing handler, `s => k v s'`)
-   runs at the call site without building a continuation.
+**The requirement** for stage 4:
+
+1. runtime sequencing makes `bind` amortised O(1);
+2. resuming after an operation doesn't rebuild a chain whose length grows
+   with the work done so far (probe 7's quadratic cause);
+3. JS execution is stack-safe (SW-396), since JS has no tail calls;
+4. pure paths keep today's speed: a computation that performs nothing
+   costs little more than a direct call.
+
+**Candidates**, to be evaluated against that requirement in stage 4's own
+design note, with measurements:
+
+- **CPS with a trampoline.** A computation is a function taking "what to do
+  with the result" and "what to do with an operation"; `bind` becomes O(1)
+  (codensity, Voigtländer 2008). A trampoline (a loop that runs one step at
+  a time) bounds JS's stack, as Links' JS backend does (FSCD 2017).
+- **A type-aligned continuation queue.** Keep `Done` and `Call` at runtime,
+  but store a `Call`'s continuation as a queue of functions, so appending
+  is O(1) and a resumption takes from the front (Kiselyov and Ishii 2015).
+  Closer to the kernel's tree, so differential testing is simpler
+  **[inferred]**.
+- **Evidence or capability passing.** Handlers are passed down, and an
+  operation is a lookup and a call (Koka's evidence vectors, Effekt's
+  capabilities, §3.1). Tail-resumptive clauses run in place. This changes
+  the most, and gives the most for state-like handlers.
+
+Whatever is chosen, two techniques apply on top: the **bind-inlining fast
+path** (compile `bind c k` as `case c of Done x -> k-body | Call … -> slow
+path`, with join points so code size stays linear; recursion stays tail
+recursion on the `Done` path, so TRMC applies within one function), and
+**tail-resumptive handlers in place** (a clause of the form `op x k => k e`,
+or for a state-passing handler `s => k v s'`, runs at the call site without
+building a continuation).
 
 The backends are untrusted, so this changes no proof. It needs
 differential tests against the reference evaluator, which the rt already
@@ -844,9 +1423,35 @@ and theorems about the pure twin say nothing about the polymorphic one
 unless a bridging lemma is generated and proved for each. Design C gets
 the same proofs with one hash. Listed for completeness; not recommended.
 
+### Proof tooling for effectful code (every design)
+
+Proofs about genuinely effectful uses are proofs by monad laws, as the
+interaction-trees work shows (§3.2). But Stitchwort's `Comp` is inductive,
+so its laws are ordinary equalities proved by induction, with no
+bisimulation (a proved "behaves the same" relation, needed for
+coinductive trees). So the plan is a small algebraic library in
+`core/Effect.sw`, not an interaction-trees framework:
+
+| Lemma | Statement, informally |
+|---|---|
+| `Effect.bindDone` | `bind c Done = c` (right identity; `bind (Done x) k = k x` is already definitional) |
+| `Effect.bindAssoc` | `bind (bind c k) h = bind c (x => bind (k x) h)` |
+| `Effect.foldCompDone` | `foldComp done call (Done x) = done x` |
+| `Effect.foldCompBind` | `foldComp done call (bind c k) = foldComp (x => foldComp done call (k x)) call c` (handler fusion) |
+| `Effect.translateBind` | moving a computation into a larger row commutes with `bind` (naturality) |
+| `Effect.runPureBind` | `runPure (bind c k) = runPure (k (runPure c))` |
+| `Effect.morphismBind` | a handler that is a monad morphism (it maps `Done` to `return` and `bind` to `bind`) commutes with sequencing |
+
+All are proved by induction on `c` **[inferred]**, and all need stage 0, so
+that `c` is passed rather than run. Most effectful proofs should then be
+equational rewriting or induction on `Comp`. Under design C each has a
+`…In` version for every row, proved by cases on the row, where the `Empty`
+case is `rfl`. An explicit equivalence relation between differently shaped
+trees is added only if a proof needs it; none does today.
+
 ### Comparison
 
-| | A | B | C | D | E | F |
+| | A | B (rejected) | C | D | E | F |
 |---|---|---|---|---|---|---|
 | One function per operation | no | yes | yes | yes, plus hidden twin | n/a | n/a |
 | 78 `map` statements unchanged | yes (untouched) | likely | yes (probe 5) | no help | no help | no help |
@@ -867,59 +1472,69 @@ concrete trigger).
 The main reasons: C is the only design that keeps the existing proofs as
 they are without a kernel rule; it makes D1055 and SW-393 definitional
 instead of special cases; and it reduces E to generic partial evaluation.
-B is less elaborator work but puts a non-standard rule in the kernel with a
-confluence caveat, and covers only `bind` directly under `runPure`.
+B is rejected (§5.B).
 
 | Stage | Work | Lanes, rough cost | Acceptance |
 |---|---|---|---|
-| 0 | Elaborator: pass a computation where a `Comp` is expected. Library: `Effect.runPureBind`, `Effect.foldCompBind`, `List.mapInPure`, `Fail.toResultMapIn` | 1 lane, small | Probe 4's theorem is refused (the argument is now passed); probe 3 checks; the four theorems check; targeted effect tests and `examples/accept/effect*` pass |
-| 1 | Design C: `Row`, `CompIn`, `doneIn`, `bindIn`, `liftIn`, `lowerIn` in `core/Effect.sw`; elaborator uses them for bare row variables; unification rule `CompIn ?e B ≟ T`; default `?e := Empty` | design review, then 1 to 2 lanes, large | probe 5's three theorems hold with `List.mapIn` in place of `mapR`, by the same proofs; every existing effect example and AoC day using `mapIn` checks unchanged in source |
-| 2 | Design E in JS and rt: specialise on a known `Row` constructor, inline non-recursive dispatchers, then TRMC | 1 lane per backend, medium | the JS for `List.mapIn` used at `Empty` is the same loop as `List.map` (diff of the two functions modulo names); within 10% of `map` at 1,000,000 elements; 1,000,000 elements on both backends with a pure callback |
+| 0 | Elaborator: pass a computation where a `Comp` is expected, on every path in the stage 0 table (§5). Library: the proof-tooling lemmas that don't need C (`runPureBind`, `bindDone`, `bindAssoc`, `foldCompDone`, `foldCompBind`), `List.mapInPure`, `Fail.toResultMapIn` | 1 lane, small to medium | the observational `isDone` tests (§5 stage 0) on every path; probe 3 checks; the theorems check; targeted effect tests and `examples/accept/effect*` pass |
+| 1 | Design C: `Row`, `CompIn`, `doneIn`, `bindIn`, `liftIn`, `lowerIn` in `core/Effect.sw`, library-internal (D1122); canonical rows; the elaborator uses them for bare row variables; the apartness rule, row constraints in the end-of-declaration rounds, and row defaulting (§5.C.1) | design review, then 1 to 2 lanes, large | probe 5's three theorems hold with `List.mapIn` in place of `mapR`, by the same proofs; every existing effect example and AoC day using `mapIn` checks unchanged in source; one test per row of the worked-examples table in §5.C.1, including `F ?x`; a program naming `Effect.Row.Empty` is refused; `{}` elaborates to a plain type |
+| 2 | Design E in JS and rt, as generic partial evaluation (§5.E) | 1 lane per backend, medium | `map` as the test case: the JS for `List.mapIn` used at `Empty` is the same loop as `List.map` (diff of the two functions modulo names); within 10% of `map` at 1,000,000 elements; 1,000,000 elements on both backends with a pure callback; the pass contains no reference to `Comp`, `bind` or `Done` |
 | 3 | Fold: `map` gets `mapIn`'s signature, `mapIn` is deleted, callers renamed | 1 lane, small | all 78 statements and their proofs check with no source change; std, AoC and examples pass; JS benchmark of `map` within 10% of today |
-| 4 | Design F: bind-inlining fast path and CPS-plus-trampoline slow path in JS; CPS representation in rt | design note, then 1 to 2 lanes, large | `labelAll` (probe 7) on 1,000,000 elements runs on both backends; doubling `n` at most 2.5 times the time; differential tests against the reference evaluator pass |
-| 5 | Further functions as needed (`foldLeft`, `filter`, `any`/`all`/`find`, `Option.map`, a new `forEach`) | 1 small lane each | each function's existing lemmas check unchanged |
+| 4 | Design F: its own design note evaluates the candidates (§5.F) against the requirement, then implementation in JS and rt | design note, then 1 to 2 lanes, large | `labelAll` (probe 7) on 1,000,000 elements runs on both backends; doubling `n` at most 2.5 times the time; differential tests against the reference evaluator pass |
+| 5 | Further functions as needed (`foldLeft`, `filter`, `any`/`all`/`find`, `Option.map`, a new `forEach`), with `…In` versions of the proof-tooling lemmas when the first effectful proof needs them | 1 small lane each | each function's existing lemmas check unchanged |
 
 Stages 0 and 2 are independently useful: stage 0 makes effectful lemmas
 possible at all, and stage 2 speeds up today's pure uses of `mapIn` and of
 handlers with open rows.
 
-## 7. Decisions for Matt
+## 7. Decisions for the owner
+
+Each decision lists its options; the recommended one is marked. D1116 to
+D1121 are from the first version, with D1116 and D1119 revised after the
+review. D1122 to D1126 are new.
 
 **D1116. Direction for effect-polymorphic library functions.**
 (a) Status quo: separate pure and effectful functions with a proved bridge
 each (design A, as Lean does).
-(b) A kernel reduction rule for `runPure (bind c k)` at the empty signature
-(design B).
+(b) Rejected unless (c) proves infeasible for reasons much stronger than
+implementation cost: a kernel reduction rule for `runPure (bind c k)` at the
+empty signature (design B).
 (c) **[Recommended]** A row type with a separate empty row, and a
 computation type defined by cases on it, so the empty row is the plain type
-(design C).
+(design C), subject to the internal-row boundary (D1122) and the apartness
+rule (D1123).
 (d) Proven replacements for the backends only (design D).
 Reason: (c) is the only option where the existing proofs check unchanged
-with no new kernel rule (probe 5).
+with no new kernel rule (probe 5); (b) would make definitional equality
+depend on the order of reduction and substitution.
 
 **D1117. Pass computations where a computation is expected (stage 0).**
-(a) **[Recommended]** Yes, now, whatever D1116 decides.
+(a) **[Recommended]** Yes, now, whatever D1116 decides, on every path that
+runs computations in place, with observational tests.
 (b) No: keep running every computation argument at the empty row.
-Reason: without it no lemma about a stuck computation can be used (probe 4),
-in any design.
+Reason: without it no lemma about a stuck computation can be used (probes 4
+and 8), in any design.
 
 **D1118. Making pure uses fast in the backends.**
 (a) **[Recommended]** Specialise row-polymorphic definitions at the empty row
-in JS and rt (design E).
+in JS and rt, as generic partial evaluation on a fixed list of
+representation-driving parameters, initially only `Row` (design E).
 (b) Dynamic dispatch only: no specialisation, accept slower pure uses.
 (c) A `csimp`-style attribute with a proven twin per function (design D).
 Reason: (a) restores today's loop with no twins, and under (c) of D1116 it
-is generic constant folding.
+is ordinary partial evaluation with no knowledge of effects.
 
 **D1119. The quadratic, stack-hungry effectful case (SW-396 and probe 7).**
-(a) **[Recommended]** A later stage (stage 4): CPS representation with a
-trampoline for effectful code in both backends, with a Koka-style
-bind-inlining fast path.
+(a) **[Recommended]** A later stage (stage 4) that meets a stated
+requirement: `bind` amortised O(1), resumptions don't rebuild linear
+chains, JS stack-safe, pure paths stay fast. Its own design note compares
+CPS with a trampoline, a type-aligned continuation queue, and evidence or
+capability passing, plus a bind-inlining fast path.
 (b) Only a trampoline for JS stack safety; leave the quadratic time.
 (c) Defer until a program is hurt by it.
 Reason: an effectful `map` over 4,000 elements already fails in JS and
-32,000 take a minute natively, so Unison-style library functions aren't
-usable for real inputs without it.
+32,000 take a minute natively; the requirement is clear, but the best
+representation needs its own measurements.
 
 **D1120. Which functions become effect-polymorphic.**
 (a) **[Recommended]** `map` first (fold `mapIn`), then others one at a time
@@ -935,6 +1550,64 @@ callback needs to be partial.
 (b) Add a third `Row` constructor for partial rows now.
 Reason: no current program passes a partial callback, and `Delay` has its
 own runtime path.
+
+**D1122. How `Row` is kept internal to the library.**
+(a) **[Recommended]** A library-only name check: `Row`, `Empty`, `Ops` and
+the functions that take a row apart can be named only in std files; a
+program that names one gets an error. Programs still get row variables
+through `{e}` and may pass them on.
+(b) Compiler-made hidden names (`%`-names, as `%unit` and `Pretty.%f` are),
+which no source file can spell, std included.
+(c) Wait for file-private declarations (SW-150).
+(d) Convention only: document that programs shouldn't use rows, and check
+nothing.
+Reason: (a) is one check in name resolution and keeps std's lemmas about
+every row possible; (b) would forbid those lemmas, (c) is per file while
+rows are used across std files, and (d) leaves `Ops NoOp NoRes` and
+row-testing functions possible.
+
+**D1123. Inferring the row: unification and defaulting.**
+(a) **[Recommended]** The apartness rule: solve `?e := Empty` only when the
+other type can never become a `Comp`; postpone blocked cases as row
+constraints retried in the end-of-declaration rounds; after the rounds
+stall, default eligible row unknowns to `Empty`, with a note on any later
+error (§5.C.1).
+(b) The apartness rule with no defaulting: an undetermined row is
+`E-UNSOLVED`, as today (probe 11).
+(c) The first version's rule: any head that isn't visibly `Comp` gives
+`Empty`.
+Reason: (a) never commits early and stays convenient; (b) asks for
+annotations in cases where pure is the only sensible answer; (c) picks the
+wrong reading for types that become `Comp` later (the `F ?x` example).
+
+**D1124. A callback whose type is a `Comp` (the rigid-`Comp` case).**
+(a) **[Recommended]** A `Comp` over at least one ability makes the function
+effectful in those abilities (`?e := Ops …`); a `Comp NoOp NoRes` written by
+hand is passed as data (`?e := Empty`).
+(b) Always postpone, and ask for an annotation if nothing else decides it.
+(c) Always treat the `Comp` as data (`?e := Empty`).
+Reason: (a) is today's behaviour and Unison's for effectful callbacks, and
+it never makes the non-canonical `Ops NoOp NoRes`; (b) would need
+annotations on every effectful callback, and (c) would stop `map` from
+running effects.
+
+**D1125. The universe of `Row`.**
+(a) **[Recommended]** `Row: Type 1` now, with the limitation documented:
+abilities whose operations mention `Type` can't be used through a bare row
+variable. Move to `Row u` when universe polymorphism exists.
+(b) Wait for universe polymorphism before building C.
+Reason: abilities are always in `Type 0` today (probe 10), so the
+limitation costs nothing now, and universe polymorphism has no date.
+
+**D1126. Tooling for proofs about effectful code.**
+(a) **[Recommended]** A small library of named algebraic lemmas about `Comp`
+(`bindDone`, `bindAssoc`, `foldCompDone`, `foldCompBind`, naturality of
+`translate`, `runPureBind`, a monad-morphism lemma), proved by induction;
+an equivalence relation only if a proof needs one.
+(b) An interaction-trees-style framework with its own equivalence relation
+from the start.
+Reason: `Comp` is inductive, so ordinary equality and induction suffice;
+(b) adds machinery no current proof needs.
 
 ## Appendix A. Probe files
 
@@ -1069,6 +1742,71 @@ The JS benchmark imports the generated module, with the internal
 times each variant on a prebuilt internal list after one warm-up run (20
 repetitions up to 10,000 elements, 3 above).
 
+**Probe 8** (each theorem checks, which shows the argument was run in
+place; the last definition is refused):
+
+```
+import Std (Effect)
+import Std.Effect.Comp (Done, Call)
+
+def isDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Bool
+  | Done x => True
+  | Call () rest
+
+def identityComp (c: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat := c
+
+theorem variableIsRunInPlace: (c: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> isDone c = True := c => rfl
+
+theorem throughIdentity: (c: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> isDone (identityComp c) = True := c => rfl
+
+export def useIt (n: Nat): Nat := Effect.runPure (identityComp (Done n))
+-- E-TYPE-MISMATCH at `Done n`: expected `Nat`, but this has type `Comp (?0 n) (?1 n) Nat`
+```
+
+(The two theorems and `useIt` were run as separate files.)
+
+**Probe 9** (each file checks):
+
+```
+import Std (Effect, List)
+
+def explicitRow (xs: List Nat): List Nat :=
+  List.mapIn [e := Effect.Sig.MkSig Effect.NoOp Effect.NoRes] (x => x + 1) xs
+
+def leak (f: Nat -> {e} Nat): Effect.Sig := e
+```
+
+```
+import Std (Effect, List)
+import Std.Effect.Sig (MkSig)
+
+def inspect: Effect.Sig -> Bool
+  | MkSig op res => True
+
+def pickRow [e: Effect.Sig] (f: Nat -> {e} Nat): Bool := inspect e
+```
+
+and `def keepRow (f: Nat -> {e} Nat): List Effect.Sig := [e, e]` is refused
+with `E-UNIVERSE` ("expected something of type `Type`, but this has type
+`Type 1`").
+
+**Probe 10** (refused with `E-UNIVERSE`):
+
+```
+ability Gen where
+  gen: Type -> {Gen} Nat
+```
+
+**Probe 11** (refused with `E-UNSOLVED` at the `List.mapIn` call):
+
+```
+import Std (List)
+
+def unconstrained: Nat :=
+  let unused := List.mapIn (x => x + 1)
+  0
+```
+
 **Theorem count** (§2.2): a Python script reads every `.sw` file under
 `crates/elab/src/std/`, takes each `theorem` line plus its indented
 continuation lines up to `:=` or a line starting with `|`, and counts the
@@ -1080,7 +1818,12 @@ digit or dot, and not followed by a letter or digit).
 - The note on `E-UNKNOWN-NAME` for `Done` suggests
   `import Effect.Comp (Done)`, which fails with `E-IMPORT-UNKNOWN`; the
   working form is `import Std.Effect.Comp (Done)` **[checked]**.
-- There is no syntax for giving an implicit argument explicitly:
-  `Effect.bind [Effect.NoOp] …` reads `[Effect.NoOp]` as a list
-  **[checked]**. Whether named arguments (D1092) will allow
-  `Effect.bind (op := Effect.NoOp)` is **[unverified]**.
+- `Effect.bind [Effect.NoOp] …` reads `[Effect.NoOp]` as a list
+  **[checked]**. Named implicit arguments do work: probe 1's statement
+  written with `Effect.bind [op := Effect.NoOp] [res := Effect.NoRes] c k`
+  checks (revision, at `2934c86e`) **[checked]**. The first version said
+  there was no such syntax; that was wrong by the time of the revision.
+- The `E-UNKNOWN-NAME` note for `Effect.MkSig` suggests adding
+  `import Std (Effect)` even when that import is present (seen in probe 9's
+  first attempt) **[checked]**. This looks like the import-hint bug already
+  filed on the board **[inferred]**.
