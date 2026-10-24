@@ -6712,16 +6712,18 @@
     {
       "id": 417,
       "title": "Browser test: the Tests tab runs day 8 and day 9 real-input tests within the playground limit (guards D1138; before, both hit the 60 s limit)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Sonnet)",
+      "where": "-",
       "labels": [
         "playground"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "c3ff5d5c"
+      ]
     }
   ]
 }
