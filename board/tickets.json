@@ -7129,20 +7129,22 @@
     {
       "id": 442,
       "title": "Std: Fin.any with intro/elim lemmas; use it in AoC day 7 beamReachZero, fallKeeps, beamStart (after the day 7 tidy-up; D1167)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "aoc"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "c98c7123"
+      ]
     },
     {
       "id": 443,
-      "title": "Effect runtime stage 4 (D1162): 4a JS, 4b native loops, 4c routing index/Partial/playground done; 4d A' fusion in progress; then 4e differential (incl. a Map-crossing routing test), 4f allocation",
+      "title": "Effect runtime stage 4 (D1162): 4a JS, 4b native, 4c routing/Partial/playground, 4d state-handler loop done; 4e generated differential tests in progress; then 4f allocation",
       "status": "doing",
       "agent": "",
       "where": "-",
@@ -7155,7 +7157,8 @@
       "commits": [
         "a9f697cf",
         "d1f3e288",
-        "fb7fafb9"
+        "fb7fafb9",
+        "bc0d47fc"
       ]
     }
   ]
