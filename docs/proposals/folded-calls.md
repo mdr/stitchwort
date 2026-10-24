@@ -659,6 +659,11 @@ times are rough):
 The instruction counts of stage 3 vary more between runs (0.6%) than
 `main`'s (0.1%); I don't know why.
 
+Measured again after merging `main` at `4ddf508f` (effect polymorphism
+stage 0, the day 4 rewrite, Map and Set additions): nodes 1,827,285 →
+886,565 (−51%), instructions 112.41 G → 102.0–103.4 G (−8 to −9%), peak
+memory 236 MB → 170 MB (−28%), the same `check` output.
+
 The largest declarations (`invalidCorrect` and `twiceTerms` from §5 are
 gone from the project, so these are today's largest):
 

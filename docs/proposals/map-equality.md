@@ -1817,7 +1817,10 @@ design problems.
   `min`, `below`, `keySet` and `Set.isSubset`.
 - **Left for later:** `Set.isSubsetSpec`, `Map.memToList`,
   `Map.sizeInsert`, `Map.sizeRemove`, `Map.induction`, and O(n + m) bulk tree versions of the
-  combining operations (maps.md §4.6). Today `unionWith` and friends fold, O(m log n).
+  combining operations (maps.md §4.6). All of these have since been built (SW-356): the bulk
+  versions merge the two sorted entry lists and build a balanced tree from the result in O(n),
+  so `union`, `unionWith`, `intersectWith`, `difference`, `filter`, `filterMap` and the `Set`
+  versions are O(n + m) (maps.md §4.6, "As built").
 
 ### 14.2 The gate before stage 2: the review's eight properties
 

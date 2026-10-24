@@ -125,11 +125,23 @@ theorem Set.containsFilter [auto ord: Ord k] (p: k -> Bool) (key: k) (s: Set k):
 
 theorem Set.containsIntersect [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
     Set.contains key (Set.intersect a b) = (Set.contains key a && Set.contains key b) :=
-  Set.containsFilter (key2 => Set.contains key2 b) key a
+  rewrite Map.getIntersectWith (here there => ()) key a.items b.items in
+  match c: Map.get key a.items with
+    | None => rfl
+    | Some u =>
+      match d: Map.get key b.items with
+        | None => rfl
+        | Some u2 => rfl
 
 theorem Set.containsDifference [auto ord: Ord k] (key: k) (a: Set k) (b: Set k):
     Set.contains key (Set.difference a b) = (Set.contains key a && !(Set.contains key b)) :=
-  Set.containsFilter (key2 => !(Set.contains key2 b)) key a
+  rewrite Map.getDifference key a.items b.items in
+  match c: Map.get key a.items with
+    | None => rfl
+    | Some u =>
+      match d: Map.contains key b.items with
+        | True => rfl
+        | False => rfl
 
 theorem Set.containsInsertOther [auto ord: Ord k] (key: k) (other: k) (ne: Not (other = key)) (s: Set k):
     Set.contains other (Set.insert key s) = Set.contains other s :=

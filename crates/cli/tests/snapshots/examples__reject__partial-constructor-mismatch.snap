@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/partial-constructor-mismatch.sw:8:3 ]
+   │
+ 8 │   Eq.cong (Call o) rfl
+   │   ──────────┬─────────  
+   │             ╰─────────── expected `Call o f = Call o g`, but this has type `Call o f = Call o f`
+───╯

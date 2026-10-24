@@ -1,31 +1,19 @@
--- Part 2's main argument, about any way of removing rolls. Call a set of
--- rolls stable when every roll in it has at least 4 neighbours in it. A
--- step that removes only rolls accessible at the time never removes a roll
--- of a stable set inside the grid (`stepKeeps`): such a roll always has its
--- 4 neighbours. So a process of such steps that ends with no accessible roll
--- ends at a stable set that contains every stable set inside the grid: the
--- largest one, the "core". Two such processes end at the same rolls
--- (`endsAgree`). The puzzle's rounds are one such process (`roundsKeep`,
--- `roundsStable`: as many rounds as there are rolls are enough); the
--- program's sweep is another (Proofs/Sweep.sw).
+-- Facts about the puzzle's rounds, by positions: a round with an accessible
+-- roll removes one (`roundCount`); once no roll is accessible the grid is
+-- stable, and rounds change nothing (`roundsFixed`); so as many rounds as
+-- there are rolls are enough (`roundsStable`), which is why Spec/Spec.sw
+-- runs that many.
 
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
 import Aoc.Day04.Spec (..)
-import Std (And, Bool, Decidable, Eq, List, Nat, Void)
+import Std (And, Bool, Eq, List, Nat, Vec, Void)
 
 theorem rollNotFloor (h: Floor = Roll): Void := Nat.zeroNotSucc 0 (Eq.cong Cell.count h)
 
 theorem isRoll: (x: Cell) -> (x == Roll) = True -> x = Roll
   | Roll, h => rfl
   | Floor, h => Void.exfalso (Bool.falseNotTrue h)
-
--- Every roll of `k` is a roll of `s`.
-def Sub (k: Cells) (s: Cells): Prop := (r: Nat) -> (c: Nat) -> k r c = Roll -> s r c = Roll
-
-theorem subRefl (s: Cells): Sub s s := r c h => h
-
-theorem subTrans (a: Cells) (b: Cells) (d: Cells) (h1: Sub a b) (h2: Sub b d): Sub a d := r c h => h2 r c (h1 r c h)
 
 -- The same cells everywhere.
 def Same (s: Cells) (t: Cells): Prop := (r: Nat) -> (c: Nat) -> s r c = t r c
@@ -34,18 +22,11 @@ def Same (s: Cells) (t: Cells): Prop := (r: Nat) -> (c: Nat) -> s r c = t r c
 def Inside (grid: Grid) (s: Cells): Prop :=
   ((r: Nat) -> (c: Nat) -> grid.height <= r -> s r c = Floor) && ((r: Nat) -> (c: Nat) -> grid.width <= c -> s r c = Floor)
 
-theorem insideGrid (grid: Grid): Inside grid (cellsOf grid) :=
-  Both (r c h => rowsCellsBelow grid.rows r c h) (r c h => rowsCellsRight grid.rows r c h)
+theorem insideRows (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Inside grid (rowsCells rows) :=
+  Both (r c h => rowsCellsBelow rows r c h) (r c h => rowsCellsRight rows r c h)
 
 -- Every roll of `k` has at least 4 neighbours in `k`.
 def Stable (grid: Grid) (k: Cells): Prop := (r: Nat) -> (c: Nat) -> k r c = Roll -> 4 <= neighbours grid k r c
-
--- `t` is `s` with some rolls removed, each of them accessible in `s`.
-def Step (grid: Grid) (s: Cells) (t: Cells): Prop :=
-  Sub t s && ((r: Nat) -> (c: Nat) -> s r c = Roll -> t r c = Floor -> neighbours grid s r c < 4)
-
--- `s` still holds every stable set of rolls inside `s0`.
-def Keeps (grid: Grid) (s0: Cells) (s: Cells): Prop := (k: Cells) -> Stable grid k -> Sub k s0 -> Sub k s
 
 -- Counts over positions agree for conditions that agree.
 theorem countPositionsCongr (grid: Grid) (p: Nat -> Nat -> Bool) (q: Nat -> Nat -> Bool) (h: (r: Nat) -> (c: Nat) -> p r c = q r c):
@@ -54,48 +35,6 @@ theorem countPositionsCongr (grid: Grid) (p: Nat -> Nat -> Bool) (q: Nat -> Nat 
     List.sumByCong (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width)) (x => List.sumBy (y => Bool.toNat (q x y)) (List.range grid.width))
       (List.range grid.height)
       (x => List.sumByCong (y => Bool.toNat (p x y)) (y => Bool.toNat (q x y)) (List.range grid.width) (y => Eq.cong Bool.toNat (h x y)))
-
--- More rolls, at least as many neighbours.
-theorem termLe: (b: Bool) -> (p: Cell) -> (q: Cell) -> (p = Roll -> q = Roll) -> Bool.toNat (b && p == Roll) <= Bool.toNat (b && q == Roll)
-  | False, p, q, h => rfl
-  | True, Floor, q, h => rfl
-  | True, Roll, Roll, h => rfl
-  | True, Roll, Floor, h => Void.exfalso (rollNotFloor (h rfl))
-
-theorem neighboursMono (grid: Grid) (k: Cells) (s: Cells) (h: Sub k s) (r: Nat) (c: Nat): neighbours grid k r c <= neighbours grid s r c :=
-  rewrite countPositionsSum grid (x y => adjacent r c x y && k x y == Roll), countPositionsSum grid (x y => adjacent r c x y && s x y == Roll) in
-    List.sumByLe (x => List.sumBy (y => Bool.toNat (adjacent r c x y && s x y == Roll)) (List.range grid.width))
-      (x => List.sumBy (y => Bool.toNat (adjacent r c x y && k x y == Roll)) (List.range grid.width))
-      (x => List.sumByLe (y => Bool.toNat (adjacent r c x y && s x y == Roll)) (y => Bool.toNat (adjacent r c x y && k x y == Roll))
-        (y => termLe (adjacent r c x y) (k x y) (s x y) (h x y)) (List.range grid.width))
-      (List.range grid.height)
-
--- A step never removes a roll of a stable set.
-theorem stepKeeps (grid: Grid) (s: Cells) (t: Cells) (step: Step grid s t) (k: Cells) (stable: Stable grid k) (ks: Sub k s): Sub k t :=
-  r c hk =>
-    match e: t r c with
-      | Roll => rfl
-      | Floor =>
-        let few: neighbours grid s r c < 4 := And.right step r c (ks r c hk) e
-        omega [stable r c hk, neighboursMono grid k s ks r c]
-
-theorem keepsStep (grid: Grid) (s0: Cells) (s: Cells) (t: Cells) (hk: Keeps grid s0 s) (step: Step grid s t): Keeps grid s0 t :=
-  k stable ks0 => stepKeeps grid s t step k stable (hk k stable ks0)
-
--- Two sets that each hold the other are the same.
-theorem subSame (a: Cells) (b: Cells) (h1: Sub a b) (h2: Sub b a) (r: Nat) (c: Nat): a r c = b r c :=
-  match e1: a r c, e2: b r c with
-    | Roll, Roll => rfl
-    | Floor, Floor => rfl
-    | Roll, Floor => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym e2) (h1 r c e1)))
-    | Floor, Roll => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym e1) (h2 r c e2)))
-
--- The ends of two processes: each stable, inside `s0`, and holding every
--- stable set inside `s0`. They are the same.
-theorem endsAgree (grid: Grid) (s0: Cells) (f1: Cells) (f2: Cells)
-    (sub1: Sub f1 s0) (stable1: Stable grid f1) (keeps1: Keeps grid s0 f1)
-    (sub2: Sub f2 s0) (stable2: Stable grid f2) (keeps2: Keeps grid s0 f2): Same f1 f2 :=
-  subSame f1 f2 (keeps2 f1 stable1 sub1) (keeps1 f2 stable2 sub2)
 
 theorem rollCountSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): rollCount grid s = rollCount grid t :=
   countPositionsCongr grid (r c => s r c == Roll) (r c => t r c == Roll) (r c => Eq.cong (x => x == Roll) (h r c))
@@ -122,23 +61,6 @@ theorem roundsSame (grid: Grid): (n: Nat) -> (s: Cells) -> (t: Cells) -> Same s 
   | Zero, s, t, h, r, c => h r c
   | Succ n, s, t, h, r, c => roundsSame grid n (removeAccessible grid s) (removeAccessible grid t) (removeSame grid s t h) r c
 
-theorem ifFloorRoll: (b: Bool) -> (x: Cell) -> (if b then Floor else x) = Roll -> (b = False && x = Roll)
-  | True, x, h => Void.exfalso (rollNotFloor h)
-  | False, x, h => Both rfl h
-
-theorem ifFloorFloor: (b: Bool) -> (x: Cell) -> x = Roll -> (if b then Floor else x) = Floor -> b = True
-  | True, x, hx, h => rfl
-  | False, x, hx, h => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym h) hx))
-
--- An accessible roll has fewer than 4 neighbours.
-theorem accessibleFew (grid: Grid) (s: Cells) (r: Nat) (c: Nat) (h: accessible grid s r c = True): neighbours grid s r c < 4 :=
-  Bool.andRight (s r c == Roll) (neighbours grid s r c < 4) h
-
--- A round is a step.
-theorem removeStep (grid: Grid) (s: Cells): Step grid s (removeAccessible grid s) :=
-  Both (r c h => And.right (ifFloorRoll (accessible grid s r c) (s r c) h))
-    (r c hs ht => accessibleFew grid s r c (ifFloorFloor (accessible grid s r c) (s r c) hs ht))
-
 theorem ifFloorKeep: (b: Bool) -> (x: Cell) -> x = Floor -> (if b then Floor else x) = Floor
   | True, x, h => rfl
   | False, x, h => h
@@ -147,20 +69,7 @@ theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (
   Both (r c h => ifFloorKeep (accessible grid s r c) (s r c) (And.left ins r c h))
     (r c h => ifFloorKeep (accessible grid s r c) (s r c) (And.right ins r c h))
 
--- Rounds keep the stable sets, and stay inside the grid's rolls.
-theorem roundsKeep (grid: Grid) (s0: Cells): (n: Nat) -> (s: Cells) -> Keeps grid s0 s -> Sub s s0 ->
-    (Keeps grid s0 (rounds grid n s) && Sub (rounds grid n s) s0)
-  | Zero, s, hk, hs => Both hk hs
-  | Succ n, s, hk, hs =>
-    roundsKeep grid s0 n (removeAccessible grid s) (keepsStep grid s0 s (removeAccessible grid s) hk (removeStep grid s))
-      (subTrans (removeAccessible grid s) s s0 (And.left (removeStep grid s)) hs)
-
-theorem roundsInside (grid: Grid): (n: Nat) -> (s: Cells) -> Inside grid s -> Inside grid (rounds grid n s)
-  | Zero, s, ins => ins
-  | Succ n, s, ins => roundsInside grid n (removeAccessible grid s) (removeInside grid s ins)
-
--- Enough rounds: a round with an accessible roll removes one, and once none
--- is accessible, rounds change nothing.
+-- A round removes the accessible rolls, and no others.
 
 def accCount (grid: Grid) (s: Cells): Nat := countPositions grid (r c => accessible grid s r c)
 

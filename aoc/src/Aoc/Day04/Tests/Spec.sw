@@ -3,11 +3,11 @@
 namespace Aoc.Day04.Tests
 import Aoc.Day04 (..)
 import Aoc.Day04.Spec (..)
-import Std (Option, Vec)
+import Std (Result, Vec)
 
-def exampleGrid: Grid := Option.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
+def exampleGrid: Grid := Result.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
 
-def plusGrid: Grid := Option.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
+def plusGrid: Grid := Result.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
 
 test "spec on the example" := part1Spec exampleGrid == 13
 test "spec cells" := ((cellsOf exampleGrid) 0 2, (cellsOf exampleGrid) 0 0, (cellsOf exampleGrid) 10 2, neighbours exampleGrid (cellsOf exampleGrid) 0 2) == (Roll, Floor, Floor, 3)

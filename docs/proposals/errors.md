@@ -456,6 +456,11 @@ to the snapshot. Deviations:
   its `Cons` case needs `toResult` of a `bind` over an unknown `f x` to
   split into cases, which needs induction on the computation tree, and no
   proof can take apart a `{Fail}` computation. Open for Matt.
+  Effect-polymorphism stage 0 (SW-405) removed one of the two obstacles: a
+  computation passed where a `Comp` is expected is no longer run in place,
+  and `Effect.foldCompBind` exists. The other remains: the case split on
+  `f x` needs a binder whose type is a `{Fail}` computation, and that type
+  can't be written (effect-polymorphism.md, "As built (stage 0)").
 - A dot call ending a handled lambda, `Fail.toResult (() => " 4".toNatOrFail)`,
   isn't run there, so the handler's result type is `{Fail} Nat` (and
   `==` asks for `DecEq ({Fail} Nat)`). `Abort` behaves the same

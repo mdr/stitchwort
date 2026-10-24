@@ -3,7 +3,7 @@
 -- the input reruns exactly these tests.
 namespace Aoc.Day04.Tests
 import Aoc.Day04 (..)
-import Std (Option)
+import Std (Result)
 
-test "real input, part 1" := Option.map solvePart1 (parseGrid (include "../../../../inputs/day04.txt").lines) == Some 1397
-test "real input, part 2" := Option.map solvePart2 (parseGrid (include "../../../../inputs/day04.txt").lines) == Some 8758
+test "real input, part 1" := Result.map solvePart1 (parseGrid (include "../../../../inputs/day04.txt").lines) == Ok 1397
+test "real input, part 2" := Result.map solvePart2 (parseGrid (include "../../../../inputs/day04.txt").lines) == Ok 8758

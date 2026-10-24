@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/effect-pass-record.sw:18:139 ]
+    │
+ 18 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> holderDone { inner = computation } = True := computation => rfl
+    │                                                                                                                                           ─┬─  
+    │                                                                                                                                            ╰─── `holderDone { inner = computation }` and `True` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `isDone computation`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

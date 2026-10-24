@@ -31,12 +31,12 @@ def Vec.aroundFrom (pad: a) (f: a -> a -> a -> b) (left: a): Vec a n -> Vec b n
   | VCons x rest => VCons (f left x (Vec.headOr pad rest)) (Vec.aroundFrom pad f x rest)
 
 -- Lemmas. Index i of a shifted or `around` row, as `getOr` of the row
--- itself. The left neighbour is written `List.getOr pad i (Cons pad row)`:
+-- itself. The left neighbour is written `Vec.getOr pad i (VCons pad row)`:
 -- at `Succ c` it computes to `getOr pad c row`, and at 0 to `pad`.
 
 -- Index i after `shiftRight` is index i of the row with `fill` in front.
 theorem Vec.getOrShiftRight (d: a) (fill: a): (v: Vec a n) -> (i: Nat) -> i < n ->
-    List.getOr d i (Vec.toList (Vec.shiftRight fill v)) = List.getOr d i (Cons fill (Vec.toList v))
+    Vec.getOr d i (Vec.shiftRight fill v) = Vec.getOr d i (VCons fill v)
   | VNil, i, h => Void.exfalso (Bool.falseNotTrue h)
   | VCons x xs, Zero, h => rfl
   | VCons x xs, Succ i, h => Vec.getOrShiftRight d x xs i h
@@ -44,16 +44,16 @@ theorem Vec.getOrShiftRight (d: a) (fill: a): (v: Vec a n) -> (i: Nat) -> i < n 
 -- Index i after `shiftLeft` is index i + 1 before, at every index when the
 -- default is the fill.
 theorem Vec.getOrShiftLeft (fill: a): (v: Vec a n) -> (i: Nat) ->
-    List.getOr fill i (Vec.toList (Vec.shiftLeft fill v)) = List.getOr fill (Succ i) (Vec.toList v)
+    Vec.getOr fill i (Vec.shiftLeft fill v) = Vec.getOr fill (Succ i) v
   | VNil, i => rfl
-  | VCons x xs, Zero => Vec.headOrToList fill xs
+  | VCons x xs, Zero => Vec.headOrGetOr fill xs
   | VCons x xs, Succ i => Vec.getOrShiftLeft fill xs i
 
 -- The same with any default, inside the row.
 theorem Vec.getOrShiftLeftLt (d: a) (fill: a): (v: Vec a n) -> (i: Nat) -> i < n ->
-    List.getOr d i (Vec.toList (Vec.shiftLeft fill v)) = List.getOr fill (Succ i) (Vec.toList v)
+    Vec.getOr d i (Vec.shiftLeft fill v) = Vec.getOr fill (Succ i) v
   | VNil, i, h => Void.exfalso (Bool.falseNotTrue h)
-  | VCons x xs, Zero, h => Vec.headOrToList fill xs
+  | VCons x xs, Zero, h => Vec.headOrGetOr fill xs
   | VCons x xs, Succ i, h => Vec.getOrShiftLeftLt d fill xs i h
 
 theorem Vec.aroundFromShifts (pad: a) (f: a -> a -> a -> b): (left: a) -> (v: Vec a n) ->
@@ -67,17 +67,15 @@ theorem Vec.aroundShifts (pad: a) (f: a -> a -> a -> b) (v: Vec a n):
   Vec.aroundFromShifts pad f pad v
 
 theorem Vec.getOrAroundFrom (d: b) (pad: a) (f: a -> a -> a -> b): (left: a) -> (v: Vec a n) -> (i: Nat) -> i < n ->
-    List.getOr d i (Vec.toList (Vec.aroundFrom pad f left v))
-      = f (List.getOr pad i (Cons left (Vec.toList v))) (List.getOr pad i (Vec.toList v)) (List.getOr pad (Succ i) (Vec.toList v))
+    Vec.getOr d i (Vec.aroundFrom pad f left v) = f (Vec.getOr pad i (VCons left v)) (Vec.getOr pad i v) (Vec.getOr pad (Succ i) v)
   | left, VNil, i, h => Void.exfalso (Bool.falseNotTrue h)
-  | left, VCons x rest, Zero, h => Eq.cong (f left x) (Vec.headOrToList pad rest)
+  | left, VCons x rest, Zero, h => Eq.cong (f left x) (Vec.headOrGetOr pad rest)
   | left, VCons x rest, Succ i, h => Vec.getOrAroundFrom d pad f x rest i h
 
 -- Index i of `around` is `f` of indices i - 1, i and i + 1 of the row, with
 -- `pad` past either end.
 theorem Vec.getOrAround (d: b) (pad: a) (f: a -> a -> a -> b) (v: Vec a n) (i: Nat) (h: i < n):
-    List.getOr d i (Vec.toList (Vec.around pad f v))
-      = f (List.getOr pad i (Cons pad (Vec.toList v))) (List.getOr pad i (Vec.toList v)) (List.getOr pad (Succ i) (Vec.toList v)) :=
+    Vec.getOr d i (Vec.around pad f v) = f (Vec.getOr pad i (VCons pad v)) (Vec.getOr pad i v) (Vec.getOr pad (Succ i) v) :=
   Vec.getOrAroundFrom d pad f pad v i h
 
 def Vec.gridExample: Vec Nat 4 := VCons 1 (VCons 2 (VCons 3 (VCons 4 VNil)))

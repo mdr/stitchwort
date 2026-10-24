@@ -694,14 +694,6 @@ def Map.Raw.map (f: v -> w) (m: Map.Raw k v [ord := o]): Map.Raw k w [ord := o] 
   sized = Map.Tree.mapSized f m.tree m.sized
 }
 
--- The entries for which `p` holds.
-def Map.Raw.filter [auto ord: Ord k] (p: k -> v -> Bool) (m: Map.Raw k v): Map.Raw k v :=
-  Map.Raw.foldLeft (acc key value => if p key value then Map.Raw.insert key value acc else acc) Map.Raw.empty m
-
--- Both maps' entries; where both have a key, the first map's value.
-def Map.Raw.union [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw k v): Map.Raw k v :=
-  Map.Raw.foldLeft (acc key value => Map.Raw.insert key value acc) b a
-
 def Map.Raw.mapWithKey (f: k -> v -> w) (m: Map.Raw k v [ord := o]): Map.Raw k w [ord := o] := {
   tree = Map.Tree.mapWithKey f m.tree,
   ordered = Map.Tree.mapWithKeyWithin o f None None m.tree m.ordered,
@@ -811,5 +803,3 @@ test "raw map: foldLeft" := Map.Raw.foldLeft (acc key t => acc + key) 0 Map.Raw.
 test "raw map: map" := Map.Raw.values (Map.Raw.map Text.length Map.Raw.example) == [1, 1, 1]
 test "raw map: get after map" := Map.Raw.get 2 (Map.Raw.map Text.length Map.Raw.example) == Some 1 && Map.Raw.get 4 (Map.Raw.map Text.length Map.Raw.example) == None
 test "raw map: lookupLast, later wins" := Map.lookupLast 1 [(1, "a"), (2, "b"), (1, "c")] == Some "c" && Map.lookupLast 3 [(1, "a")] == None
-test "raw map: filter" := Map.Raw.keys (Map.Raw.filter (key t => Nat.leq 2 key) Map.Raw.example) == [2, 3]
-test "raw map: union" := Map.Raw.toList (Map.Raw.union (Map.Raw.singleton 1 "x") Map.Raw.example) == [(1, "x"), (2, "b"), (3, "c")]

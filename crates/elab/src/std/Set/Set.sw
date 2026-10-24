@@ -37,14 +37,15 @@ def Set.foldLeft (f: b -> k -> b) (initial: b) (set: Set k [ord := o]): b := Map
 -- The keys for which `p` holds.
 def Set.filter [auto ord: Ord k] (p: k -> Bool) (set: Set k): Set k := { items = Map.filter (key unit => p key) set.items }
 
--- The keys of both.
+-- The keys of both. O(n + m), or O(n log m) when `a` is much smaller
+-- (likewise `intersect` and `difference`; see `Map.union`).
 def Set.union [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.union a.items b.items }
 
 -- The keys of `a` that are also in `b`.
-def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := Set.filter (key => Set.contains key b) a
+def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.intersectWith (here there => ()) a.items b.items }
 
 -- The keys of `a` that aren't in `b`.
-def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := Set.filter (key => !(Set.contains key b)) a
+def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.difference a.items b.items }
 
 -- The keys of every set in the list.
 def Set.unions [auto ord: Ord k] (ss: List (Set k)): Set k := List.foldLeft Set.union Set.empty ss
@@ -145,6 +146,12 @@ test "set: union, intersect, difference" :=
   Set.toList (Set.union Set.example (Set.fromList [5, 0])) == [0, 1, 2, 3, 5]
     && Set.toList (Set.intersect Set.example (Set.fromList [2, 3, 4])) == [2, 3]
     && Set.toList (Set.difference Set.example (Set.fromList [2])) == [1, 3]
+test "set: union, intersect, difference, edge cases" :=
+  Set.toList (Set.union Set.empty Set.example) == [1, 2, 3] && Set.toList (Set.union Set.example Set.empty) == [1, 2, 3]
+    && Set.isEmpty (Set.intersect Set.example Set.empty) && Set.isEmpty (Set.intersect Set.empty Set.example)
+    && Set.toList (Set.difference Set.example Set.empty) == [1, 2, 3] && Set.isEmpty (Set.difference Set.empty Set.example)
+    && Set.toList (Set.intersect Set.example Set.example) == [1, 2, 3] && Set.isEmpty (Set.difference Set.example Set.example)
+    && Set.isEmpty (Set.intersect Set.example (Set.fromList [0, 9])) && Set.toList (Set.difference Set.example (Set.fromList [0, 9])) == [1, 2, 3]
 test "set: equal in any order" := Set.example == Set.fromList [2, 3, 1] && Set.example != Set.fromList [1, 2]
 test "set: ordered by keys" := Set.fromList [1, 2] < Set.example && Set.example <= Set.fromList [3, 2, 1]
 test "set: show" := "${Set.fromList ["b", "a"]}" == "Set.fromList [\"a\", \"b\"]"

@@ -80,7 +80,7 @@ that doesn't balance) and then looking each one up **[run]**:
   That's acceptable for proofs-first code but worth a later target (§4.6).
 - **Bulk operations are O(n log n) through repeated `insert`:** `filter` and `union`
   [checked: `Map.sw:552-557`], and `Set.intersect` and `difference`
-  [checked: `Set.sw:42-45`]. A merge would be O(n + m).
+  [checked: `Set.sw:42-45`]. A merge would be O(n + m). (Since built: §4.6, "As built".)
 - **A comparison, for the canonical alternative:** a plain sorted association list (insert by
   walking the list) at n = 10^4 took 8.5 s in the fast runtime. In exported JS it threw
   `StitchwortResourceError (Maximum call stack size exceeded)`, and in the reference evaluator it
@@ -347,8 +347,8 @@ Everything from "Read out" comes in key order, and that is a theorem.
 **Status.** Built in SW-356 stage 2.2: every bold item in the table except the `DecEq` and
 `Ord` instances (built in stage 2.1). `min`, `max`, `below`, `above` are O(log n) tree walks;
 `mapWithKey` is a raw tree operation; the rest are defined from `foldLeft`, `insertWith`,
-`filter`, `toList` and `fromList`, so the combining operations are O(m log n), not yet O(n + m)
-(§4.6). Naming: `Set.any`, `Set.all` and `Set.count` take the set first, as the existing
+`filter`, `toList` and `fromList`. The combining operations were O(m log n) until the SW-356
+bulk step made them O(n + m) (§4.6, "As built"). Naming: `Set.any`, `Set.all` and `Set.count` take the set first, as the existing
 `Set.any` and `Set.count` do; `Map.range lo hi` returns a map; `Map.Tree.nearestBelow` and
 `nearestAbove` are internal.
 
@@ -417,6 +417,49 @@ ordering's `compare`).
   This is a risk (§5).
 - **Later and separate:** the ~90× gap to native JS `Map` is a constant-factor matter (erased
   record allocation, `bigint` comparisons), not part of this note.
+
+**As built (SW-356, bulk step).** The bulk operations go through sorted lists, as planned:
+`Map.Spec.merge both onlyLeft onlyRight xs ys` walks two ascending entry lists in step, keeping
+what each function returns for keys in both, only the left, or only the right; `unionWith`,
+`intersectWith` and `difference` are instances (`Map.Spec.unionWith` and friends). The result
+goes back into a tree with `Map.Raw.fromSorted`, which builds a perfectly balanced tree from an
+ascending list in O(n) (half the entries left, one at the root, the rest right; the proofs that
+it is ordered and sized come from the list being ascending). So:
+
+- `Map.union`, `unionWith`, `intersectWith`, `difference`, and `Set.union`, `intersect`,
+  `difference`, are O(n + m). When the first map is much smaller (8 × its size ≤ the second's)
+  they instead insert or look up its entries in the second map, O(n log m), so a small update to
+  a big map isn't O(m).
+- `Map.filter` and `Map.filterMap` (through `Map.Raw.mapMaybe`) are O(n): filter the entry list,
+  rebuild.
+- `Map.fromList` checks in one pass whether the keys are strictly ascending, and if so builds the
+  tree directly, O(n); otherwise it inserts as before, O(n log n). `Set.fromList` still inserts.
+- `Set.isSubset` is unchanged: it looks up each key of `a` in `b`, O(n log m), allocates nothing
+  and stops at the first missing key.
+- Every existing lemma still holds with its statement unchanged: `toListUnion`, `toListFilter`,
+  `getUnionWith`, `getUnion`, `getIntersectWith`, `getDifference`, `getFilterMap`, `getFilter`,
+  `Set.containsIntersect`, `containsDifference`, `toListFromList`, `getFromList` and the rest.
+  The new raw operations have `toList` lemmas (`Map.Raw.toListUnionWith`, `toListIntersectWith`,
+  `toListDifference`, `toListMapMaybe`, `toListFromSorted`) and `Equiv`-respect lemmas, and the
+  map operations are lifted through `Map.liftBinary`.
+- Measured **[run]**, 24 Oct: two maps of 10^5 entries each (keys `2i` and `3i`, plus one fresh
+  key per repetition), ten operations per program, wall time of `stitchwort run --no-cache` (fast
+  runtime) and `run --js --no-cache`, best of three, seconds, including checking and building
+  both maps (the `build` row; `Map.fromList` of the sorted input now takes the O(n) path):
+
+  | Program | Before, fast | After, fast | Before, JS | After, JS |
+  |---|---|---|---|---|
+  | build only | 2.27 | 1.21 | 1.50 | 1.26 |
+  | `union` | 8.19 | 2.73 | 4.57 | 1.92 |
+  | `unionWith Nat.add` | 8.22 | 2.59 | 5.06 | 1.86 |
+  | `intersectWith Nat.add` | 7.12 | 1.91 | 4.31 | 1.57 |
+  | `difference` | 9.97 | 2.07 | 6.14 | 1.58 |
+  | `Set.union` + `Set.intersect` of the key sets | 13.87 | 3.81 | 7.20 | 2.34 |
+  | `filter` (a quarter kept) | 5.31 | 1.59 | 3.08 | 1.34 |
+
+  One `union` of two 10^6-entry maps runs in both the fast runtime and exported JS (no stack
+  overflow): the merge is tail-recursive modulo cons, and the tree build recurses only to depth
+  log₂ n.
 
 ### 4.7 Migration
 
