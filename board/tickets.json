@@ -1,5 +1,5 @@
 {
-  "next": 434,
+  "next": 435,
   "tickets": [
     {
       "id": 1,
@@ -6979,6 +6979,20 @@
       "where": "",
       "labels": [
         "docs"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 434,
+      "title": "REGRESSION: stitchwort run refuses {IO, Fail} mains (E-RUN-TYPE) on main after today's merges; guide test fails; bisect, fix, add a CLI run test",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
       ],
       "body": "",
       "created": "2026-10-24",
