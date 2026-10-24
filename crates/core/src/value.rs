@@ -2782,6 +2782,13 @@ pub fn same_closure(a: &Closure, b: &Closure) -> bool {
     !shortcuts_disabled() && identical(Same::Closures(a, b))
 }
 
+/// Whether two terms are alike apart from names and source locations, as
+/// [`same_closure`] compares bodies. The elaborator uses it to find the
+/// same recursive call written twice (`crates/elab/src/decreasing.rs`).
+pub fn same_term(a: &Term, b: &Term) -> bool {
+    identical(Same::Terms(a, b))
+}
+
 /// A pair still to compare for [`identical`].
 enum Same<'v> {
     Values(&'v Value, &'v Value),

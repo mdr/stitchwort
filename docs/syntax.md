@@ -693,6 +693,42 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
 
 - `:=` may start a line of its own after `decreasing e`, at the
   declaration's column. On one line: `def f (n: Nat): Nat decreasing n := …`.
+- **A pair of measures**, `decreasing (m1, m2)`, is lexicographic (stage
+  3d): every recursive call makes `m1` smaller (and `m2` may then be
+  anything), or keeps `m1` the same and makes `m2` smaller. A call's proof
+  is a `Nat.LexLess (m1 new) (m2 new) (m1 old) (m2 old)`, written
+  `Nat.LexLess.First h` (with `h: m1 new < m1 old`) or `Nat.LexLess.Second
+  rfl h` (with `h: m2 new < m2 old`, the first the same), or found:
+  `[decreasing := omega]` tries the first and then the second from the
+  arithmetic facts in scope, and `auto` (no proof given) does the same from
+  the hypotheses in scope, so a guard works as for one measure. A recursive
+  call may sit in another's arguments, as in Ackermann's function:
+
+  ```
+  def ack (m: Nat) (n: Nat): Nat
+    decreasing (m, n)
+  :=
+    match m, n with
+      | Zero, n => n + 1
+      | Succ k, Zero => ack k 1 [decreasing := omega]
+      | Succ k, Succ j => ack k (ack (Succ k) j [decreasing := omega]) [decreasing := omega]
+
+  -- Two counters, guard style: `auto` builds each call's proof from the `if`.
+  def minutesLeft (hours: Nat) (minutes: Nat): Nat
+    decreasing (hours, minutes)
+  :=
+    let earlierMinute := minutes - 1
+    let earlierHour := hours - 1
+    if fewerMinutes: earlierMinute < minutes then 1 + minutesLeft hours earlierMinute
+    else if fewerHours: earlierHour < hours then 1 + minutesLeft earlierHour 59
+    else 0
+  ```
+
+  Both parts are `Nat`s of the header's parameters; a longer tuple isn't
+  supported yet. Write a proof with the constructors rather than a lemma
+  that takes the numbers as arguments: `stitchwort test` computes a lemma's
+  number arguments, and with a nested call one of them is the inner call's
+  result, computed again at every level (`examples/accept/decreasing-lex.sw`).
 - `f.unfold: (x…) -> f x… = <the body, with f in its recursive calls>` is
   generated for every `def` with `decreasing` (not for a theorem). `f x`
   doesn't unfold by itself on an argument that isn't known; `rewrite
@@ -745,8 +781,8 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   stored in data, passed to a local variable, or returning a function
   (comparing functions would need function extensionality); a measure that
   uses no header parameter, definitions that call each other, a recursive
-  call in an `if`'s condition or with another recursive call in its
-  arguments, and a body that returns a function. A measure that isn't a
+  call in an `if`'s condition, a measure with more than two parts, and a
+  body that returns a function. A measure that isn't a
   `Nat` is `E-TYPE-MISMATCH`. A definition that never calls itself gets
   `W-DECREASING-UNUSED`.
 - A recursive call written with a dot (`rest.total`) works when `auto`
@@ -1162,7 +1198,7 @@ theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max 
 
 `omega` is a keyword and a term, like `rfl`: it can be a definition's body, a `calc` step's proof, an argument whose type is fixed, or `(omega: x * 3 = x + x + x)` given to `rewrite`. Where nothing says what it proves (`let p := omega`) it is `E-OMEGA`. The proof it writes is an application of `Std.Omega.prove` (or `Std.Omega.proveEq` for an equation) to the facts and goal as syntax, a certificate saying how to combine them, `rfl` (the kernel running the library's checker) and the facts' proofs; nothing new is trusted. Design and as built: [omega.md](proposals/omega.md).
 
-- **Goals.** `a <= b`, `a < b` and `a = b` between `Nat`s, and `Void` (the facts contradict each other). Any other goal (a `Bool` equation, `xs = Nil`, a type of data) is proved when the facts contradict each other, so `Void.exfalso omega` is just `omega`. Around those: `Not p` (proved as `h => …` with `h: p` as a fact), `And p q`, `(p && q) = True`, `Nat.leq a b = False` (from `b < a`), and a decided proposition `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&` comes out. A goal is read as it computes, so `x < 0` is `False = True` and `2 < 3` is `True = True`, both fine.
+- **Goals.** `a <= b`, `a < b` and `a = b` between `Nat`s, and `Void` (the facts contradict each other). Any other goal (a `Bool` equation, `xs = Nil`, a type of data) is proved when the facts contradict each other, so `Void.exfalso omega` is just `omega`. Around those: `Not p` (proved as `h => …` with `h: p` as a fact), `And p q`, `Nat.LexLess a1 a2 b1 b2` (a lexicographic `decreasing` obligation: `a1 < b1`, else `a1 = b1` and `a2 < b2`), `(p && q) = True`, `Nat.leq a b = False` (from `b < a`), and a decided proposition `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&` comes out. A goal is read as it computes, so `x < 0` is `False = True` and `2 < 3` is `True = True`, both fine.
 - **Arithmetic.** `+`, numbers, `Succ`, and multiplication by a number on either side: `x * 3` and `3 * x` (which computes to `x + (x + (x + 0))`; `k * x` is taken for `k` up to 1000, and a larger `k` is `E-OMEGA` with a note to write `x * k`). Truncated subtraction `a - b`, `Nat.max a b` and `Nat.min a b` (also after `max` and `min` have computed to their `if`) are atoms `omega` knows more about: what always holds (`a - b <= a` and `a <= (a - b) + b`; `a <= Nat.max a b`; `Nat.min a b <= a`, and the same for `b`) and, when it has to, the two cases (`b <= a` and `(a - b) + b = a`, or `a < b` and `a - b = 0`; `max` and `min` are one side or the other). A product of two unknowns `x * y` is an atom, the same atom as `y * x` (by `Nat.mulComm`), but `(x * y) * z` and `x * (y * z)` are different. Anything else of type `Nat` is an **atom**, an unknown `omega` knows only to be at least 0: `List.length xs`, `r.to`, `x / 2`, `x % k`, a call. Two atoms are the same if they're the same term or the compiler can quickly show they compute to the same value; otherwise they're different, which can lose a proof but never makes a wrong one. So `get xs i h1` and `get xs i h2` are different atoms unless they compute to the same thing.
 - **Facts** are every hypothesis in scope (parameters, pattern variables, `match e:` and `if h:` equations, `let`s, local theorems) and the listed terms whose type, after computing, is `a <= b`, `a < b`, `a = b` on `Nat`, `Not (a <= b)`, `Not (a < b)`, `Not (a = b)` (also written `a != b`; `omega` splits it into `a < b` or `b < a` when it has to), `And p q`, `(p && q) = True`, `Nat.leq a b = False`, `Nat.equal a b = True`/`False`, or `Decidable.toBool d = True`/`False` of one of these. The others are ignored. A quantified fact (`(id: Nat) -> covered rs id = True -> id < b`) is used by applying it: `omega [b id h]`. The emitted proof mentions only the facts it uses.
 - **Whole numbers.** `omega` knows the unknowns are whole: from `2 * x <= 3` it gets `x <= 1`, `2 * x = 1` is a contradiction, and when the facts only have fractional solutions it tries a few levels of case splits (`x <= v` or `x >= v + 1`).

@@ -521,6 +521,11 @@ fn prove_goal(
             let q = prove_goal(cx, lib, &params[1], extra, span)?;
             return Ok(Term::ctor(lib.and, 0, vec![p, q]));
         }
+        Value::Data(d, params)
+            if Some(*d) == cx.g().registry.data(Builtin::LexLess) && params.len() == 4 =>
+        {
+            return lex_less(cx, lib, *d, params, extra, span);
+        }
         _ => {}
     }
     if let Some(p) = negated(cx, lib, &goal)? {
@@ -540,6 +545,56 @@ fn prove_goal(
     let which = if prop { lib.exfalso } else { lib.absurd };
     let args = [both(cx, &goal)?, (proof, void)];
     Ok(lemma(cx, which, &args)?.0)
+}
+
+/// `Nat.LexLess a1 a2 b1 b2`, a recursive call's obligation for `decreasing
+/// (m1, m2)` (docs/proposals/well-founded-recursion.md, stage 3d): `a1 <
+/// b1`, or else `a1 = b1` and `a2 < b2`.
+fn lex_less(
+    cx: &mut Ctx,
+    lib: &Lib,
+    lex: DataId,
+    params: &[Value],
+    extra: &[Extra],
+    span: Span,
+) -> Result<Term> {
+    let less = |cx: &mut Ctx, a: &Value, b: &Value| -> Result<Value> {
+        let term = Term::app(
+            Term::app(Term::Def(lib.less_than), cx.quote(a)?),
+            cx.quote(b)?,
+        );
+        cx.eval(&term)
+    };
+    let first = less(cx, &params[0], &params[2])?;
+    if let Some(proof) = crate::undo::attempt(cx, |cx| prove_goal(cx, lib, &first, extra, span))? {
+        return Ok(Term::ctor(lex, 0, vec![proof]));
+    }
+    let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
+    let same = Value::Eq(nat, Rc::new(params[0].clone()), Rc::new(params[2].clone()));
+    let second = less(cx, &params[1], &params[3])?;
+    let both = crate::undo::attempt(cx, |cx| {
+        let same = prove_goal(cx, lib, &same, extra, span)?;
+        let second = prove_goal(cx, lib, &second, extra, span)?;
+        Ok((same, second))
+    })?;
+    if let Some((same, second)) = both {
+        return Ok(Term::ctor(lex, 1, vec![same, second]));
+    }
+    let shown = |cx: &Ctx, v: &Value| cx.show(v);
+    let (a1, a2, b1, b2) = (
+        shown(cx, &params[0]),
+        shown(cx, &params[1]),
+        shown(cx, &params[2]),
+        shown(cx, &params[3]),
+    );
+    Err(Diagnostic::error(
+        "E-OMEGA",
+        format!("`omega` can't show that `({a1}, {a2})` comes before `({b1}, {b2})`"),
+    )
+    .with_label(span, "this `omega`")
+    .with_note(format!(
+        "it needs `{a1} < {b1}`, or `{a1} = {b1}` and `{a2} < {b2}`, from the facts in scope, and found neither"
+    )))
 }
 
 /// Whether `goal`, a type, is a proposition (`Some(true)`) or a type of data
