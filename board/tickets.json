@@ -1,5 +1,5 @@
 {
-  "next": 437,
+  "next": 440,
   "tickets": [
     {
       "id": 1,
@@ -6031,17 +6031,19 @@
     },
     {
       "id": 374,
-      "title": "Proof automation: a controlled simplifier emitting checked proof terms, and ring-style polynomial normalisation (D1044)",
-      "status": "doing",
+      "title": "Proof automation (docs/proposals/proof-automation.md): stage 0 done (Eq.cong -> rewrite); stages 1 rewrite under binders, 2 ring await D1166",
+      "status": "next",
       "agent": "",
-      "where": "design note lane (Opus)",
+      "where": "-",
       "labels": [
         "proofs"
       ],
       "body": "Trigger: Day 2 review suggestions C and D (weightedIds restating whole sums; writeTimesMul's 7-step regrouping; omega.md:625 lists Day 2's non-linear residue). Matt 23 Oct: backlog; each needs a proposal.",
       "created": "2026-10-23",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "dc87398c"
+      ]
     },
     {
       "id": 375,
@@ -6584,16 +6586,18 @@
     {
       "id": 408,
       "title": "Effect polymorphism stage 3: fold mapIn into map",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "fbacc215"
+      ]
     },
     {
       "id": 409,
@@ -7028,11 +7032,55 @@
     {
       "id": 436,
       "title": "Counterexample search stage 2 (counterexample-search.md, D1154-D1159): random inputs with shrinking, check --counterexamples, Text/Char inputs",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "-",
+      "labels": [
+        "proof"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": [
+        "8c6b689c"
+      ]
+    },
+    {
+      "id": 437,
+      "title": "Effects: a callback whose type becomes effectful only after the row is settled (type-level, e.g. answer on Tagged True) is mapped as data in a pure function: List.map answer gives List ({Log} Nat), say never runs, no E-ABILITY (D1124). Pre-existing; reject test + re-run D1124 when a blocker resolves to Comp (SW-408 review #1)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
-        "proof"
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 438,
+      "title": "Effects: remove pure_first's handler exclusion (review couldn't reproduce the malformed Comp NoOp NoRes; prelude, examples, AoC pass without it) or keep it with a test showing why (SW-408 review #2)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 439,
+      "title": "Perf: nested pure List.map in a pure context checks in exponential time (depth 16 0.67 s, 18 1.59 s; error path 6.7 s) since pure_first tries plain then fallback per level (SW-408 review #3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
       ],
       "body": "",
       "created": "2026-10-24",
