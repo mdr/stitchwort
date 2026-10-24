@@ -1,5 +1,5 @@
 {
-  "next": 440,
+  "next": 443,
   "tickets": [
     {
       "id": 1,
@@ -7081,6 +7081,48 @@
       "where": "",
       "labels": [
         "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 440,
+      "title": "AoC day 7 review (D1167): proofs use Vec API, Vec.count, Vec.around in splitRow, library lemmas for local helpers, fallKeeps split into three cases",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 441,
+      "title": "AoC day 7 review (D1167): strict input (unknown characters rejected with position), checkManifold theorem, one-column and padded-row tests",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 442,
+      "title": "Std: Fin.any with intro/elim lemmas; use it in AoC day 7 beamReachZero, fallKeeps, beamStart (after the day 7 tidy-up; D1167)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
       ],
       "body": "",
       "created": "2026-10-24",
