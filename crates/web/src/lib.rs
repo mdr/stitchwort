@@ -1009,6 +1009,55 @@ mod tests {
         );
     }
 
+    /// Effectful `List.map` over 1,000,000 elements runs in the playground
+    /// (docs/proposals/effect-runtime.md stage 4c, D1163): every shape of
+    /// `web/tests/effect-shapes.sw`, through [`run`], on the playground's
+    /// resource limits. The output limit is the page's (256 KiB) but for
+    /// `io`, which prints every element; `ioRead` reads a line per element.
+    /// web/tests/browser.mjs runs them in the WebAssembly build.
+    #[test]
+    fn effectful_maps_run_at_a_million_elements() {
+        let source = include_str!("../../../web/tests/effect-shapes.sw");
+        let n: u64 = 1_000_000;
+        let sum = n * (n - 1) / 2;
+        let shapes = [
+            ("io", sum),
+            ("ioRead", sum + n * (n + 1) / 2),
+            ("checked", sum + n),
+            ("asked", sum + 7 * n),
+            ("askedChecked", sum + 7 * n),
+            ("askedIn", sum + 7 * n),
+            ("emitted", sum),
+            ("emittedIn", sum),
+            ("searched", sum),
+            ("counted", 2 * sum),
+        ];
+        for (name, total) in shapes {
+            let mut input = format!("{name}\n{n}\n");
+            if name == "ioRead" {
+                for i in 1..=n {
+                    input.push_str(&format!("{i}\n"));
+                }
+            }
+            let max_output = if name == "io" { 16 << 20 } else { 256 << 10 };
+            let start = std::time::Instant::now();
+            let result = run(source, &input, max_output);
+            let elapsed = start.elapsed();
+            assert!(
+                result.starts_with(r#"{"ok":true,"#),
+                "{name}: {}",
+                &result[..result.len().min(600)]
+            );
+            let last = format!(r"{name} {n}: {total}\n");
+            assert!(printed(&result).ends_with(&last), "{name}");
+            if name == "io" {
+                assert!(printed(&result).starts_with(r"0\n1\n2\n"), "{name}");
+                assert_eq!(printed(&result).matches(r"\n").count() as u64, n + 1);
+            }
+            eprintln!("{name}\t{} ms", elapsed.as_millis());
+        }
+    }
+
     /// Partial programs (docs/proposals/partial.md) run until they finish,
     /// or until the playground's limits stop them: here the output limit.
     #[test]

@@ -212,3 +212,139 @@ console.log("done");
     println!("{out}");
     assert!(out.ends_with("done\n"), "{out}");
 }
+
+/// `examples/accept/partial-forwarding.sw` as `run --js` runs it, with the
+/// runner counting its routing (`generate_program_with`): a non-tail partial
+/// recursion as deep as the first input line, whose every level prints
+/// through handlers that forward `IO`.
+fn partial_forwarding_program() -> stitchwort_js::run::Program {
+    let name = "partial-forwarding.sw";
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/accept")
+        .join(name);
+    let text = std::fs::read_to_string(&path).expect("readable example");
+    let mut session = Session::new();
+    if let Err(diagnostics) = session.load(name, &text) {
+        let rendered: String = diagnostics
+            .iter()
+            .map(|d| render(&session.sources, d, false))
+            .collect();
+        panic!("{name} doesn't check:\n{rendered}");
+    }
+    let main = session.main().expect("a `main`");
+    let options = Options {
+        effect_counters: true,
+        ..Options::default()
+    };
+    stitchwort_js::run::generate_program_with(
+        &session.elab.globals,
+        session.elab.limits,
+        main.term(),
+        options,
+    )
+    .expect("generation succeeds")
+}
+
+/// What `partial-forwarding.sw` prints last for `depth`: each level adds 1
+/// and the number of Collatz steps from `n % 8 + 1` to 1.
+fn partial_forwarding_total(depth: u64) -> u64 {
+    let collatz = |mut n: u64| {
+        let mut steps = 0;
+        while n != 1 {
+            n = if n.is_multiple_of(2) {
+                n / 2
+            } else {
+                3 * n + 1
+            };
+            steps += 1;
+        }
+        steps
+    };
+    (1..=depth).map(|n| 1 + collatz(n % 8 + 1)).sum()
+}
+
+/// The routing counts of a `run --js` run: operations, frames routing
+/// looked at, and frames below the focus at each operation, summed.
+struct RouteCounts {
+    operations: f64,
+    visited: f64,
+    below: f64,
+}
+
+/// Runs `program` at `depth` under Node, as `run --js` does (in a worker
+/// with a large stack), checks what it printed, and returns its counts.
+fn run_partial_forwarding(program: &stitchwort_js::run::Program, depth: u64) -> RouteCounts {
+    let dir = std::env::temp_dir().join(format!(
+        "stitchwort-partial-forwarding-{}-{depth}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    std::fs::write(dir.join("program.mjs"), &program.module).expect("write program");
+    std::fs::write(dir.join("run.mjs"), &program.launcher).expect("write launcher");
+    std::fs::write(dir.join("input.txt"), format!("{depth}\n")).expect("write input");
+    let result = Command::new("node")
+        .args(["run.mjs", "error.txt"])
+        .current_dir(&dir)
+        .stdin(std::fs::File::open(dir.join("input.txt")).expect("input"))
+        .output()
+        .expect("run `node` (is it on the PATH? `nix develop` provides it)");
+    let stdout = String::from_utf8_lossy(&result.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&result.stderr).into_owned();
+    assert!(result.status.success(), "node failed at {depth}:\n{stderr}");
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut lines = stdout.lines();
+    for n in (1..=depth).rev() {
+        assert_eq!(lines.next(), Some(n.to_string().as_str()), "at {depth}");
+    }
+    let total = format!("total {}", partial_forwarding_total(depth));
+    assert_eq!(lines.next(), Some(total.as_str()), "at {depth}");
+    assert_eq!(lines.next(), None, "at {depth}");
+    let counts = stderr
+        .lines()
+        .find_map(|l| l.strip_prefix("stitchwort-route-counts "))
+        .unwrap_or_else(|| panic!("no counts at {depth}:\n{stderr}"));
+    let field = |key: &str| {
+        let start = counts.find(&format!("\"{key}\":")).expect("the key") + key.len() + 3;
+        let rest = &counts[start..];
+        let end = rest.find([',', '}']).expect("the value ends");
+        rest[..end].parse::<f64>().expect("a number")
+    };
+    RouteCounts {
+        operations: field("operations"),
+        visited: field("visited"),
+        below: field("below"),
+    }
+}
+
+/// The `run --js` runner routes an operation by its index of `Map` and `Tie`
+/// frames, never looking at the ordinary frames between them (§9.1.6, stage
+/// 4c), as the native runner does: in `partial-forwarding.sw` every `print`
+/// leaves the focus with one waiting frame per level below it, so the
+/// frames below the focus per operation grow with the depth, while the
+/// frames routing looks at per operation stay the same, a few.
+#[test]
+fn run_js_routing_work_is_independent_of_control_depth() {
+    let program = partial_forwarding_program();
+    let mut per = Vec::new();
+    for depth in [1_000, 10_000, 100_000] {
+        let c = run_partial_forwarding(&program, depth);
+        let (visited, below) = (c.visited / c.operations, c.below / c.operations);
+        println!("depth {depth}: per operation, {visited} visited and {below} below");
+        assert!(below >= depth as f64 / 8.0, "depth {depth}: {below} below");
+        per.push(visited);
+    }
+    assert!(
+        per[2] <= per[0] + 0.01,
+        "visited per operation grew: {per:?}"
+    );
+    assert!(per[2] <= 4.0, "visited per operation: {per:?}");
+}
+
+/// `Partial` mixed with other forwarded abilities, a million levels deep,
+/// under `run --js`.
+#[test]
+fn run_js_partial_with_forwarded_abilities_runs_a_million_levels_deep() {
+    let program = partial_forwarding_program();
+    let c = run_partial_forwarding(&program, 1_000_000);
+    println!("{} operations, {} visited", c.operations, c.visited);
+}
