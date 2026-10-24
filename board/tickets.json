@@ -7090,16 +7090,18 @@
     {
       "id": 440,
       "title": "AoC day 7 review (D1167): proofs use Vec API, Vec.count, Vec.around in splitRow, library lemmas for local helpers, fallKeeps split into three cases",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "aoc"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "95bf4eae"
+      ]
     },
     {
       "id": 441,
