@@ -5920,16 +5920,16 @@
     },
     {
       "id": 369,
-      "title": "Effectful List.map (D1050): second attempt not clean (stuck runPure/bind in proofs; CPS shape in JS) — reverted, report merged; D1110 for Matt (recommend keep map pure, mapIn separate)",
-      "status": "review",
+      "title": "Effect-polymorphic library functions (D1110): deep review of literature and designs in progress; target one function per operation that proves well and is as fast as pure map at the empty row",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree lane: docs/proposals/effect-polymorphism.md",
       "labels": [
         "std"
       ],
       "body": "",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": [
         "31113f28",
         "f179d6bf"
