@@ -2,7 +2,10 @@
 
 Status: design note for stage 4 of
 [effect-polymorphism.md](effect-polymorphism.md) (SW-409, D1119), 24 Oct
-2026. No compiler changes. Stops for review.
+2026. Reviewed in [effect-runtime-review.md](effect-runtime-review.md) and
+[effect-runtime-external-review.md](effect-runtime-external-review.md).
+**Decided: D1162 (§9)**, which amends the recommendation below and replaces
+the staged plan of §7.
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
 in the source on `main` at `cbf2ac4a`, or run with `target/release/stitchwort`
@@ -63,8 +66,10 @@ resuming one continuation many times (§5).
 Koka's design (evidence passing, operations that resume in place) is faster
 for state-like operations but stays quadratic for operations that really
 capture a continuation, and Koka's own JS output overflows; OCaml 5's fibers
-allow each continuation to be resumed only once. Both are kept as later
-optimisations or rejected (§4).
+allow each continuation to be resumed only once. Koka's ideas are kept as
+later optimisations; there is no current justification for paying the
+architectural cost of CPS (§4, and §9); one-shot designs are rejected
+because `Each` resumes twice.
 
 ## 1. The problem, measured
 
@@ -635,7 +640,7 @@ What this doesn't do: pure non-tail recursion in JS (any `foldRight`-like
 pure function) still uses the JS stack. That's not an effects problem; stage
 2 handles `map`, and other functions are tracked separately.
 
-## 7. Staged plan
+## 7. Staged plan (superseded by §9.3)
 
 | Stage | Work | Acceptance |
 |---|---|---|
@@ -696,6 +701,139 @@ passing).**
 showing at least 1.5 times (stage 4d).
 (b) Designed into stages 4a–4c now.
 Reason: they change constants, not growth, and each adds a path to test.
+
+## 9. Decision (D1162)
+
+Taken 24 Oct 2026, after the self-review
+([effect-runtime-review.md](effect-runtime-review.md)) and the external
+review ([effect-runtime-external-review.md](effect-runtime-external-review.md)).
+It answers Q1, Q2, Q3 and Q5 of §8 (Q4 is D1163), and amends §6.
+
+### 9.1 What was decided
+
+1. **Representation.** At run time a computation is `Done | Call | Bind`,
+   run by an explicit loop. Pending continuations are a persistent,
+   immutable linked list: capturing a continuation and resuming it are
+   taking a pointer, and a continuation may be resumed any number of
+   times, also after its clause has returned (unrestricted multi-shot,
+   Q3 (a)). Chunked persistent segments (blocks of continuations with a
+   link) are a later experiment, measured against the cons list; mutable
+   arrays with copy-on-share are not pursued.
+2. **Lazy resumption.** A handler's resumption `k y` returns a suspended
+   computation, `Bind (Done y) (z => fold … (rest z))`, instead of running
+   the rest of the handled computation at once. The loop that runs the
+   handler's result does the resuming, so a clause that calls `k` doesn't
+   nest a call per operation.
+3. **JS always uses the loop.** `bind` builds a node and calls nothing.
+4. **Native keeps `bind (Done x) k = k x` as a direct call.** This is an
+   explicit backend invariant, not an optimisation: the native machine's
+   frames are on the heap, so a `Bind` node there would pay for a problem
+   that backend doesn't have.
+5. **State-passing handlers (A′)**, the parameterised empty-row handlers
+   whose clauses are all lambdas over the same parameters, are recognised
+   and loop-fused as a post-elaboration (backend) optimisation. The
+   elaborator doesn't change, no hash changes, and there is no surface
+   syntax (Q2: neither (a) nor (b) of §8, but the external review's third
+   option).
+6. **Invariant: running an operation never inspects ordinary `Comp`
+   continuation frames individually.** Routing an operation costs at most
+   the number of handlers and `translate`s it crosses, independent of
+   control depth. The native `IO` runner's per-operation scan of its frame
+   stack is fixed accordingly, and `Comp` continuations stay separate from
+   the `Delay`/runner frames in this stage (not one segmented
+   continuation, which may come later).
+7. **The empty-row non-tail limit.** Empty-row handlers that consume a
+   resumption non-tail in pure code (`Cons v (k ())`, `Each.collect`) keep
+   JS stack limits this stage. This is a consequence of the current pure
+   calling convention, not of the `Comp` representation; selective
+   transformation of such clauses (defunctionalising the pure context
+   around a resumption, and where needed the pure code through which a
+   resumption escapes) is a possible future solution.
+8. **Q5.** Koka's optimisations (a fast path for `bind` in JS, in-place
+   tail-resumptive clauses, evidence passing) stay later and measured. There
+   is no current justification for paying the architectural cost of CPS
+   (design B) or of evidence passing as the continuation representation
+   (design C): the measurements behind that are hand-written models, so
+   they support not choosing them now, not a lasting conclusion.
+
+### 9.2 Why lazy resumption is sound
+
+The library's equation for a deep handler (§2) is
+
+```
+foldComp d c (Call o r) ≈ c o (y => foldComp d c (r y))
+```
+
+Write `k_eager y = foldComp d c (r y)` for the resumption the tree gives,
+and `k_lazy y = Bind (Done y) (z => foldComp d c (r z))` for the one the
+runtime gives. When the fold's result (its carrier) is a computation, the
+only things that can consume `k_lazy y` are `bind`, the folds, `translate`,
+`runPure` and the runners, which all run it with the loop, so
+
+```
+run (k_lazy y)
+  ≈ bind (Done y) (z => foldComp d c (r z))
+  ≈ foldComp d c (r y)                        -- bind (Done x) k ≈ k x
+  = k_eager y
+```
+
+The cases that might worry:
+
+- **Discarded continuation:** neither version runs anything.
+- **Single resumption:** equal by the `bind` law above.
+- **Multiple resumptions:** each call builds its own node around the same
+  captured, immutable pending list, so each runs from the same point.
+- **Stored continuation:** storing the suspended node is storing a value;
+  running it later is the same as running it at once, since pure code has
+  no side effects.
+- **Deep handling:** the fold is still around `r z`, so the resumed
+  computation is handled by the same handler.
+- **Effects before or after the resumption:** sequencing in the enclosing
+  row is `bind`, so operations happen in the tree's order.
+
+This depends on runtime `foldComp` being sealed. Since stage R2 a program
+can't call `foldComp` at run time (§2), so every fold that runs comes from
+`handle` (or from the library, which has none at run time). R2 is doing
+semantic work here, not only hiding an implementation detail.
+
+**A correction found while building 4a.** The reviews said the carrier of
+every `handle` is a computation of the enclosing row. That holds only when
+the enclosing row has an ability or is the closed empty row. The carrier
+is `comp_type(cx, out, t)` (`crates/elab/src/effects.rs:3433`), and
+`comp_type` gives (`effects.rs:232-251`) **[checked]**:
+
+| Enclosing row `out` | Carrier | A tree at run time? |
+|---|---|---|
+| at least one ability | `Comp ops res t` | yes |
+| closed and empty (`runPure` around the fold) | `Comp NoOp NoRes t` | yes |
+| a bare row variable `{e}` | `CompIn e t` | only when `e` isn't `Empty` |
+| `Partial` | `Delay ops res t` | no |
+
+So the backend makes `k` lazy only where it knows the carrier is a tree:
+it reads the fold's carrier argument (an erased type argument, present in
+the term) at each call of `foldComp`. A `Comp` carrier gets the lazy fold;
+`CompIn e t` with `e` a variable gets a fold that tests the row value at
+run time (it is a run-time argument of generic code); anything else, or a
+`foldComp` not applied to its carrier, gets the eager fold, which is
+today's meaning run with the loop. In an empty-row variant, `e` is the
+constant `Empty`, so the fold is eager: that is case 7's limit.
+
+### 9.3 Stages
+
+Each stage is one lane, testable on its own, in this order. "1M" is
+1,000,000 elements.
+
+| Stage | Work | Acceptance |
+|---|---|---|
+| 4a | **JS run loop.** In the JS backend: `bind`, `foldComp`, `translate` and `runPure` replaced by a runtime of `Bind` nodes, a loop and a persistent pending list; lazy resumption at `handle` folds by the carrier rule of §9.2; the `run --js` runner steps computations with the loop, its pending list kept apart from its `Delay` frames (it takes computations apart, so it can't be left for later); an option that counts run-loop steps, pushes, pops and resumptions, for tests | Exported functions on Node's default stack at 1M: `checked`, `failsLast`, the reader at the empty row, and the reader, writer, search and state handlers with another ability outside the handler; `run --js` printing 1M lines; the empty-row writer and search documented as overflowing (a test pins the resource error); instrumented counts: steps, pushes and pops at most `C·n`, the same `C` from 1,000 to 100,000; correctness against the reference evaluator for multi-shot, stored resumptions resumed in different branches, 0/1/2/many resumptions, handlers nested 10 and 100 deep, forwarding, repeated `translate`; plain `map` unchanged |
+| 4b | **Native run loop.** In `crates/rt`: a `Bind` node only for a computation that isn't `Done` (the invariant of §9.1.4), the loop on the machine's own frames (not a Rust function calling back into the machine), lazy resumption by the same carrier rule, the same counters | The 4a shapes natively at 1M in linear time (instrumented counts as in 4a); native `checked` within 1.2 times today; native empty-row writer/search up to the frame limit, with the documented resource error past it |
+| 4c | **Runners and `Partial`.** The native `IO` runner routes an operation by an index of its `Map` and `Tie` frames, never scanning ordinary frames (§9.1.6), in both runners; `Partial` mixed with another forwarded ability; the playground (wasm) | `io` natively and in the playground at 1M; a counter showing routing work at most `C·operations·handlerDepth`, independent of control depth; `Partial` + forwarded ability correct on native, JS and the reference evaluator |
+| 4d | **A′ fusion.** A backend pass that recognises empty-row state-passing handlers after elaboration and runs them as a loop with the parameter in a variable, in JS and natively; no elaborator or hash change | `counted` and `countedChecked` exported at 1M on Node's default stack; `Counter.number`-style handlers in std and AoC unchanged in source, their proofs unchanged; a handler that almost fits (a non-tail `k`) still correct |
+| 4e | **Generated differential tests**, in the style of `crates/partial-model`: random programs of nested handlers of every shape (state, reader, writer, fail, choice, forwarding through open rows, `translate`, `IO`, `Partial` in `main`), run on the reference evaluator, natively and in JS, outputs and traces compared | the generator's programs agree on all three; the existing differential tests pass |
+| 4f | **Allocation**, measured, one lane each: fewer binds per effectful `map` element, a `Bind` node that carries its pending cell, chunked persistent segments, a JS `bind` fast path with a depth counter | each only with a benchmark showing at least 1.5 times (time or GC), judged with heap and GC time, not wall time alone |
+
+Every stage keeps pure `map` within 10% of today (stage 2's guarantee) and
+leaves the kernel and the elaborator unchanged, so hashes don't move.
 
 ## Appendix A. Benchmark and prototype files
 
