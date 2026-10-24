@@ -1491,6 +1491,8 @@ handlers with open rows.
 
 **Decided (Matt, 24 Oct 2026):** D1116 to D1126, each as recommended below.
 
+After stage 0 (Matt, 24 Oct 2026): **D1133** — whether operands of `=` and `if`/`match` branches with a `Comp` expected type pass computations (stage 0 left them running in place) is settled in the stage 1 design. **D1134** — a way to write a `{Fail} b` binder type, which `Fail.toResultMapIn` (SW-378) needs, is part of the stage 1 design too.
+
 Each decision lists its options; the recommended one is marked. D1116 to
 D1121 are from the first version, with D1116 and D1119 revised after the
 review. D1122 to D1126 are new.
