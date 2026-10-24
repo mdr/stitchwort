@@ -6,4 +6,4 @@
 import Std (List, Effect)
 
 def explicitRow (xs: List Nat): List Nat :=
-  List.mapIn [e := Effect.Effects.Empty] (x => x + 1) xs
+  List.map [e := Effect.Effects.Empty] (x => x + 1) xs

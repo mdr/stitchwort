@@ -158,13 +158,13 @@ theorem Fail.toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOp
 -- result. By induction on the list; in the step, a split on `f x`: if it
 -- finishes, `toResultThen` and the induction hypothesis say what the rest
 -- gives.
-theorem Fail.toResultMapIn (f: a -> {Fail} b): (xs: List a) ->
-    Fail.toResult (() => xs.mapIn f) = Result.traverse (x => Fail.toResult (() => f x)) xs
+theorem Fail.toResultMap (f: a -> {Fail} b): (xs: List a) ->
+    Fail.toResult (() => xs.map f) = Result.traverse (x => Fail.toResult (() => f x)) xs
   | [] => rfl
   | [x, ..xs] =>
     match reify (() => f x) with
       | return y =>
-        rewrite Fail.toResultThen (() => xs.mapIn f) (ys => Cons y ys), Fail.toResultMapIn f xs in rfl
+        rewrite Fail.toResultThen (() => xs.map f) (ys => Cons y ys), Fail.toResultMap f xs in rfl
       | Fail.stop msg, _ => rfl
 
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3
@@ -181,8 +181,8 @@ test "Fail: context, no failure" := Fail.toResult (() => Fail.context "line 3" (
 test "Fail: Result.orFail" := Fail.toResult (() => Result.orFail (Err "e": Result Nat Text)) == Err "e"
 test "Fail: Abort.orFail" := Fail.toResult (() => Abort.orFail "gave up" (() => Abort.need (None: Option Nat))) == Err "gave up"
 test "Fail: toAbort" := Abort.toOption (() => Fail.toAbort (() => (Fail.fail "x": Nat))) == None
-test "Fail: mapIn" := Fail.toResult (() => List.mapIn Text.toNatOrFail ["1", " 2 ", "3"]) == Ok [1, 2, 3]
-test "Fail: mapIn fails at the first bad element" :=
-  Fail.toResult (() => List.mapIn Text.toNatOrFail ["1", "x", "-3"]) == Err "expected a whole number, got 'x'"
+test "Fail: map" := Fail.toResult (() => List.map Text.toNatOrFail ["1", " 2 ", "3"]) == Ok [1, 2, 3]
+test "Fail: map fails at the first bad element" :=
+  Fail.toResult (() => List.map Text.toNatOrFail ["1", "x", "-3"]) == Err "expected a whole number, got 'x'"
 test "Fail: toNatOrFail" := Fail.toResult (() => Text.toNatOrFail " 1x") == Err "expected a whole number, got ' 1x'"
 test "Fail: toIntOrFail" := Fail.toResult (() => Text.toIntOrFail " -12 ") == Ok (-12)

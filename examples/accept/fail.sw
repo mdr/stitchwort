@@ -21,7 +21,7 @@ def turn (line: Text): {Fail} Turn :=
 
 -- Every line, or the first line's failure, with its line number in front.
 def turns (lines: List Text): {Fail} (List Turn) :=
-  List.zip (List.range lines.length) lines |> .mapIn (p =>
+  List.zip (List.range lines.length) lines |> .map (p =>
     context "line ${p.fst + 1}" (() => turn p.snd))
 
 def parseTurn (line: Text): Result Turn Text := toResult (() => turn line)

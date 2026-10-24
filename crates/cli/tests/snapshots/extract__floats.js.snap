@@ -806,23 +806,23 @@ const $Std$dBool$ddecEq = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap = (v2) => (v3) => {
-  let s2 = v2, s3 = v3;
+const $Std$dList$dmap$e = (v3) => (v4) => {
+  let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v3.tag) {
+    const v3 = s3, v4 = s4;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s2 = v2;
-        s3 = v5;
+        s3 = v3;
+        s4 = v6;
         continue;
       }
     }
@@ -860,7 +860,7 @@ const $Main$dfirstOf = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dmagnitudes = (v0) => $Std$dList$dmap($Std$dFloat$dabs)(v0);
+const $Main$dmagnitudes = (v0) => $Std$dList$dmap$e($Std$dFloat$dabs)(v0);
 
 function $$identity(arg0) {
   try {

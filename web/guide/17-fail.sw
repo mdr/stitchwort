@@ -15,10 +15,10 @@ def Move.read (line: Text): {Fail} Move :=
   else if direction == 'R' then Right steps
   else fail "expected L or R, got '${line}'"
 
--- `mapIn` is `map` for a function that may fail; the first failure wins.
+-- `map` takes a function that may fail, too; the first failure wins.
 -- `toResult` is a handler: it turns the failure into an `Err`.
 def parse (lines: List Text): Result (List Move) Text :=
-  toResult (() => lines.mapIn Move.read)
+  toResult (() => lines.map Move.read)
 
 test "all good" := parse ["L5", " R3"] == Ok [Left 5, Right 3]
 test "bad direction" := parse ["L5", "X3"] == Err "expected L or R, got 'X3'"

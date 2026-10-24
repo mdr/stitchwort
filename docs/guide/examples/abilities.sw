@@ -51,7 +51,7 @@ def main(): {IO} () :=
 ability Counter where
   next: () -> {Counter} Nat
 
-def label (names: List Text): {Counter} (List Text) := names.mapIn (name => "${next()}. ${name}")
+def label (names: List Text): {Counter} (List Text) := names.map (name => "${next()}. ${name}")
 
 def counting (start: Nat) (prog: () -> {Counter | e} a): {e} a :=
   let run: Nat -> {e} a :=
@@ -82,7 +82,7 @@ def Turn.read (text: Text): {Fail} Turn :=
   ensure (direction == 'L' || direction == 'R') "expected L or R, got '${text}'"
   { left = direction == 'L', distance = rest.toNatOrFail }
 
-def readTurns (lines: List Text): {Fail} (List Turn) := lines.mapIn Turn.read
+def readTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.read
 
 test "a turn" := toResult (() => Turn.read "L68") == Ok ({ left = True, distance = 68 })
 test "a bad turn" := toResult (() => readTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"

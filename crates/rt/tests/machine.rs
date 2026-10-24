@@ -582,7 +582,8 @@ def main(): {IO} () :=
 }
 
 /// `map` builds each new cell in the one it takes apart, when that one is
-/// uniquely owned: its code reuses the cell.
+/// uniquely owned: its code (the empty-row variant, for a pure callback)
+/// reuses the cell.
 #[test]
 fn map_reuses_its_cells() {
     with_stack(STACK, || {
@@ -600,7 +601,7 @@ fn map_reuses_its_cells() {
         let map = program
             .globals
             .iter()
-            .position(|g| &*g.name == "Std.List.map")
+            .position(|g| &*g.name == "Std.List.map[empty]")
             .expect("map is used");
         let code = &image.codes[image.global_code[map].expect("map has code") as usize];
         assert!(

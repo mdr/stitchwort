@@ -11,4 +11,4 @@ def readLines (read: Text -> {Fail} a) (lines: List Text): {Fail} (List a) := re
 -- "line ${first}".
 def readLinesFrom (first: Nat) (read: Text -> {Fail} a) (lines: List Text): {Fail} (List a) :=
   List.zip lines (List.rangeFrom lines.length first)
-    |> .mapIn (numbered => Fail.context "line ${numbered.snd}" (() => read numbered.fst))
+    |> .map (numbered => Fail.context "line ${numbered.snd}" (() => read numbered.fst))

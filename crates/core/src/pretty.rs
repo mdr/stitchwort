@@ -444,6 +444,18 @@ impl<'g> Printer<'g> {
                 // aren't shown.
                 let (head, args) = explicit_spine(term);
                 if let Term::Def(id) = head {
+                    // At the empty row, a computation is its value: `CompIn
+                    // Empty a` is `a`, and `doneIn Empty v` is `v`, as a pure
+                    // callback of an effect-polymorphic function has it.
+                    if (self.g.registry.is_def(Builtin::CompIn, *id)
+                        || self.g.registry.is_def(Builtin::DoneIn, *id))
+                        && let [row, value] = &args[..]
+                        && let Term::Ctor(d, c, fields) = row.strip_loc()
+                        && fields.is_empty()
+                        && self.g.registry.ctor(Builtin::RowEmpty) == Some((*d, *c))
+                    {
+                        return self.go(names, value);
+                    }
                     // A computation in a row variable's row: `{e} a`.
                     if self.g.registry.is_def(Builtin::CompIn, *id)
                         && let [row, result] = &args[..]

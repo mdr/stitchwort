@@ -1309,10 +1309,16 @@ fn zonk_changed(
             (a2, b2) => Some(Term::Pi(x.clone(), *i, or(a2, a), or(b2, b))),
         },
         Term::Lam(x, i, b) => go(b, level + 1)?.map(|b| Term::Lam(x.clone(), *i, b)),
-        Term::App(f, a, i) => match (go(f, level)?, go(a, level)?) {
-            (None, None) => None,
-            (f2, a2) => Some(Term::App(or(f2, f), or(a2, a), *i)),
-        },
+        Term::App(f, a, i) => {
+            let app = match (go(f, level)?, go(a, level)?) {
+                (None, None) => None,
+                (f2, a2) => Some(Term::App(or(f2, f), or(a2, a), *i)),
+            };
+            match empty_row_done(g, app.as_ref().unwrap_or(term)) {
+                Some(value) => Some(value),
+                None => app,
+            }
+        }
         Term::Ann(e, t) => match (go(e, level)?, go(t, level)?) {
             (None, None) => None,
             (e2, t2) => Some(Term::Ann(or(e2, e), or(t2, t))),
@@ -1385,6 +1391,35 @@ fn zonk_changed(
         Term::Quot(form, args, e) => all(args)?.map(|args| Term::Quot(*form, args, *e)),
         Term::Loc(span, t) => go(t, level)?.map(|t| Term::Loc(*span, t)),
     })
+}
+
+/// `v`, for `term` = `doneIn Empty v`: a pure callback of an effect-polymorphic
+/// function, checked while its row was still unknown, once the row is the
+/// empty one. The same term up to computation (`doneIn Empty v` is `v`), as
+/// the plain function's callback is written, so what's shown, hashed and
+/// followed by `decreasing` is the plain term.
+fn empty_row_done(g: &Globals, term: &Term) -> Option<Term> {
+    use stitchwort_core::Icit;
+    use stitchwort_core::registry::Builtin;
+    let Term::App(f, value, Icit::Explicit) = term else {
+        return None;
+    };
+    let Term::App(head, row, Icit::Explicit) = f.strip_loc() else {
+        return None;
+    };
+    let Term::App(done_in, _, Icit::Implicit) = head.strip_loc() else {
+        return None;
+    };
+    let Term::Def(d) = done_in.strip_loc() else {
+        return None;
+    };
+    let Term::Ctor(data, ctor, fields) = row.strip_loc() else {
+        return None;
+    };
+    (g.registry.is_def(Builtin::DoneIn, *d)
+        && fields.is_empty()
+        && g.registry.ctor(Builtin::RowEmpty) == Some((*data, *ctor)))
+    .then(|| value.as_ref().clone())
 }
 
 #[cfg(test)]

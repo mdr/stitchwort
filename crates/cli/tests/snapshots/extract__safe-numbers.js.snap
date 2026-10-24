@@ -809,23 +809,23 @@ const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(
 const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1)(9007199254740991n)))($Std$dInt$dnatAbs(v0)))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
 const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2)(v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" })))));
 const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2)(v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" })))));
-const $Std$dList$dmap = (v2) => (v3) => {
-  let s2 = v2, s3 = v3;
+const $Std$dList$dmap$e = (v3) => (v4) => {
+  let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v3.tag) {
+    const v3 = s3, v4 = s4;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s2 = v2;
-        s3 = v5;
+        s3 = v3;
+        s4 = v6;
         continue;
       }
     }
@@ -864,7 +864,7 @@ const $Main$daddSafe = (v0) => (v1) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$
 const $Main$dnegateSafe = (v0) => $Std$dSafeInt$dofInt($Std$dInt$dneg($Std$dSafeInt$dvalue(v0)));
 const $Main$dtoSafe = (v0) => $Std$dSafeNat$dofNat(v0);
 const $Main$dtoSafeInt = (v0) => $Std$dSafeInt$dofInt(v0);
-const $Main$dlengths = (v0) => $Std$dList$dmap(((v1) => $Std$dSafeNat$dofNat($Std$dText$dlength(v1))))(v0);
+const $Main$dlengths = (v0) => $Std$dList$dmap$e(((v1) => $Std$dSafeNat$dofNat($Std$dText$dlength(v1))))(v0);
 const $Main$dCounter$dcount = (v0) => {
   const v1 = v0.count;
   const v2 = v0.delta;

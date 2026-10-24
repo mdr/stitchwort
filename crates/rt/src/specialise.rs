@@ -6,7 +6,7 @@
 //! and the library's row eliminators (`Effect.bindIn`, `doneIn`, `liftIn`,
 //! `lowerIn`, `widenIn`) test it on every call. Where a call passes the empty
 //! row as a constant, which is how the elaborator writes a pure use
-//! (`List.mapIn [Empty] f xs`), the backend calls a copy of the definition
+//! (`List.map [Empty] f xs`), the backend calls a copy of the definition
 //! made for that row instead: its *empty-row variant*. The variant is the
 //! definition's body with
 //!

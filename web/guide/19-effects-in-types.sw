@@ -10,7 +10,7 @@ type Checker (e: Effects) = {
   check: Nat -> {e} Nat
 }
 
-def Checker.run (c: Checker e) (xs: List Nat): {e} (List Nat) := xs.mapIn c.check
+def Checker.run (c: Checker e) (xs: List Nat): {e} (List Nat) := xs.map c.check
 
 def double (n: Nat): Nat := n * 2
 

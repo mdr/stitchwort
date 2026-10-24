@@ -15,13 +15,12 @@ def halve (n: Nat): {Fail} Nat :=
 test "failing" := toResult (() => applyTwice halve 6) == Err "3 is odd"
 test "fine" := toResult (() => applyTwice halve 8) == Ok 2
 
--- The library works the same way: `mapIn` serves both, and is `map` when
--- the callback is pure.
-def squares (xs: List Nat): List Nat := xs.mapIn (n => n * n)
-def halves (xs: List Nat): {Fail} (List Nat) := xs.mapIn halve
+-- The library works the same way: `map` serves both.
+def squares (xs: List Nat): List Nat := xs.map (n => n * n)
+def halves (xs: List Nat): {Fail} (List Nat) := xs.map halve
 
-test "mapIn, pure" := squares [1, 2, 3] == [1, 4, 9]
-test "mapIn, failing" := toResult (() => halves [4, 6, 7]) == Err "7 is odd"
+test "map, pure" := squares [1, 2, 3] == [1, 4, 9]
+test "map, failing" := toResult (() => halves [4, 6, 7]) == Err "7 is odd"
 
--- So a fact about `map` holds for the pure use of `mapIn`.
-theorem squaresIsMap (xs: List Nat): squares xs = xs.map (n => n * n) := List.mapInPure _ xs
+-- With a pure callback, `map` is the plain map, so its lemmas apply.
+theorem squaresLength (xs: List Nat): (squares xs).length = xs.length := List.lengthMap _ xs

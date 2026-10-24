@@ -26,7 +26,7 @@ import Std (IO, List, Text)
 
 def main(): {IO} () :=
   let names := IO.readAllLines()
-  names.mapIn (name => IO.print (greeting name))
+  names.map (name => IO.print (greeting name))
   IO.print "Greeted ${names.length} people"
 
 def greeting (name: Text): Text := "Hello, ${name}!"

@@ -6,20 +6,18 @@ theorem List.lengthAppend: (xs: List a) -> (ys: List a) -> List.length (List.app
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong Succ (List.lengthAppend xs ys)
 
--- List toolkit. The callbacks are pure, except `List.mapIn`'s: the library has
--- no convention yet for callbacks with effects or `Partial`. Every function is
--- structurally recursive.
+-- List toolkit. The callbacks are pure, except `List.map`'s, which may perform
+-- abilities (docs/proposals/effect-polymorphism.md; more functions follow one
+-- at a time). Every function is structurally recursive.
 
-def List.map (f: a -> b): List a -> List b
+-- `f` on each element, in order. `f` may perform abilities, such as `Fail`:
+-- `xs.map Range.read` fails at the first element that isn't a range
+-- (docs/proposals/errors.md §3.4). With a pure `f` the row is empty and
+-- `{e} b` is `b`, so this is the plain map: its lemmas are proved by
+-- computation as before, and the backends compile it to the same loop.
+def List.map (f: a -> {e} b): List a -> {e} List b
   | Nil => Nil
   | Cons x xs => Cons (f x) (List.map f xs)
-
--- `map` with a function that may perform abilities, such as `Fail`: `f` runs
--- on each element in order, so `xs.mapIn Range.read` fails at the first
--- element that isn't a range (docs/proposals/errors.md §3.4).
-def List.mapIn (f: a -> {e} b): List a -> {e} List b
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (List.mapIn f xs)
 
 -- One step of `List.filter`: `x` in front of the filtered rest, or not. A
 -- function of its own so the recursive call is written once: with an `if`
@@ -757,16 +755,6 @@ theorem List.mapMap (f: b -> c) (g: a -> b): (xs: List a) -> List.map f (List.ma
   | Nil => rfl
   | Cons x xs => rewrite List.mapMap f g xs
 
--- `mapIn` with a pure function is `map`. In the empty row `{e} b` is `b`, and
--- sequencing is application, so `mapIn` computes as `map` does, and the proof
--- is `map`'s own (design C of docs/proposals/effect-polymorphism.md).
-theorem List.mapInPure (f: a -> b): (xs: List a) -> List.mapIn f xs = List.map f xs
-  | Nil => rfl
-  | Cons x xs => Eq.cong (Cons (f x)) (List.mapInPure f xs)
-
-theorem List.lengthMapIn (f: a -> b): (xs: List a) -> List.length (List.mapIn f xs) = List.length xs
-  | Nil => rfl
-  | Cons x xs => Eq.cong Succ (List.lengthMapIn f xs)
 
 theorem List.filterMapMap (f: b -> Option c) (g: a -> b): (xs: List a) -> List.filterMap f (List.map g xs) = List.filterMap (x => f (g x)) xs
   | Nil => rfl

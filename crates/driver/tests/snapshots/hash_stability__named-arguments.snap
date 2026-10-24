@@ -15,7 +15,7 @@ Main.test "positional first, named fills the rest" dbcc031dcd795445cc63d05ba868f
 Main.test "split anywhere" dbcc031dcd795445cc63d05ba868f6ee96b0e4a0a8b730e84835fde96df6d586
 Main.test "implicits in any order" 8a124e01d0191803137525b572808e69494e01e0f57f3f2783a3f5bbb73b3f53
 Main.test "implicits in order" 8a124e01d0191803137525b572808e69494e01e0f57f3f2783a3f5bbb73b3f53
-Main.test "a function of the missing parameters" d5dfefd03858e9d90520b3161f0ebd1ce7d2843e219b1f0ee9031b09241144d8
+Main.test "a function of the missing parameters" 82e2c56a9882ea4ad108545f41355f97daecd711fc921ee15068ff718da68065
 Main.test "leaving out the first" fb6a7c522da07a724d6e3bd0ba9726a15706d78ee9a2744b8c9e5e8923ea23d0
 Main.atMostTen 16bdc7d4e68908a8f67b5551259ce20da2c451dc789643e41ade043d41f855f3
 Main.test "names after a skip" 93d62fa730aa398dba3aaf122520973f5f31e4e4685557957a006a038e8b7e25
@@ -38,7 +38,7 @@ Main.scaler 37513db1bb988a02a85619651895e4e462a4fabec70ebeb132a7867ceb4ba517
 Main.test "names after a computed result type" 10e0e7298c928a42fc88f3a31d1e03cd9fa34ccbf8103c929276058ca13a5a00
 Main.test "named before the argument the type needs" 10e0e7298c928a42fc88f3a31d1e03cd9fa34ccbf8103c929276058ca13a5a00
 Main.test "named after a computed result type, by position" c37c824717a0f7e4736645d1e9eddc5d66d57dc30f3fc9910dc825d981d21ab9
-Main.test "a parameter left out after a computed result type" 8dd566eb3561c18d63d7ea92f1cc2c6622b2a51ef15eae7aa2c2bb3ede393f74
+Main.test "a parameter left out after a computed result type" 49f052cb33a32551424bef4e6c084fa81c7ae1f5af53eb83de7d4c84c6ad533d
 Main.test "a pipe after a computed result type" 10e0e7298c928a42fc88f3a31d1e03cd9fa34ccbf8103c929276058ca13a5a00
 Main.Matrix a4a75824e8cc95864f9df3a6c843b81ee13cd5c7aa86b7c3c6c14e7f7d2c705d
 Main.rowCount b68bccff84b6f89b4519a7209a8213eb55c1895c86bdca22fa893e20e2c0850a
@@ -59,7 +59,7 @@ Main.Shape.%unfold e570c87d90cc0a60438b29f2ca5475e9ba00997e78e81f53f92357a811dde
 Main.Shape.%trans f1e3ff2c7a250169f3d944794dec911ebbf04719b8db6e7b7af49b93f0f68e90
 Main.Shape.%instOrd 7176240dea1add83e792cc8af03948495492c9fd017e643751f904130c01dda7
 Main.test "a constructor by name" 1ae149ae19dbd6e9481b4cdcd1dda9ad85f5123563143f9dd9b6b51ecd9ac11b
-Main.test "a constructor with a field left out" 45e8c0404b7906c024ae9d800198338454adf286a9c03afb97cffae594b3214f
+Main.test "a constructor with a field left out" a17b384e07fbdf0895ebd1163cbd22a40b477388f0ba03f9109e85983d8e2cf4
 Main.Point.x c78ca872cea2b82441d1a270515e32cf3fa150c72b715137752358615378a877
 Main.Point.y c889fd33c7333f54395fc02bf1205a5143b3932ded517e76d3a3a7e6735899cf
 Main.Point.%%mk%0 40b1192d77e199f46e786929402b203365227beb33eb76dcea495e81a20635ea
@@ -79,7 +79,7 @@ Main.Point.shift 3f23a9683e0fba4b6b2777003d914e342bbcfede8bf209b30d40c56ad003d42
 Main.corner aae46c80c2ee02b9471dad0e4b738e2b7e49922207862d47a2f65ac709fc7080
 Main.test "dot notation by name" c261cc52d933e3200394262a11d0d85d58095f056bbfa7501f51db692d0ec12c
 Main.test "dot notation with a parameter left out" c261cc52d933e3200394262a11d0d85d58095f056bbfa7501f51db692d0ec12c
-Main.test "a named section" bb671a5eafcd8cf687b0147588a115bacc2cb359f32b41caa045438ec914d1c8
+Main.test "a named section" d57d8ad6e6a6e7906cfcd56946e22dd2f9d96504b0aa789fe556a4f7b1336a3f
 Main.test "a section of the library" 58caa7a3343165664dcca6abee2295393e9ba91e7c2b00a11c96499a8949125e
 Main.test "a pipe fills the first free parameter" 7b231d78664a5de43ee4b43bb7f87cb7334304322dba272ae92142f69629cb75
 Main.test "a pipe after a named argument" fb6a7c522da07a724d6e3bd0ba9726a15706d78ee9a2744b8c9e5e8923ea23d0

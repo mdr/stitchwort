@@ -1050,23 +1050,23 @@ const $Std$dOrd$d$gcompare = (v1) => {
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
 const $Std$dOrd$dfromCompare = (v1) => (v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7))({ tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7))({ tag: "Greater" })))) });
 const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq)($Std$dText$dcompare);
-const $Std$dList$dmap = (v2) => (v3) => {
-  let s2 = v2, s3 = v3;
+const $Std$dList$dmap$e = (v3) => (v4) => {
+  let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v3.tag) {
+    const v3 = s3, v4 = s4;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v2)(v4), tail: null };
+        const v5 = v4.head;
+        const v6 = v4.tail;
+        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s2 = v2;
-        s3 = v5;
+        s3 = v3;
+        s4 = v6;
         continue;
       }
     }
@@ -1771,7 +1771,7 @@ const $Std$dMap$dempty = (v2) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dempty(v2))
 const $Std$dMap$dfromList = (v2) => (v3) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dfromListFast(v2)(v3));
 const $Std$dMap$dtoList = (v2) => (v3) => $Std$dMap$dRaw$dtoList(v2)($Std$dMap$draw(v2)(v3));
 const $Std$dMap$dget = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dget(v2)(v3)($Std$dMap$draw(v2)(v4));
-const $Std$dMap$dkeys = (v2) => (v3) => $Std$dList$dmap($Std$dPair$dfst)($Std$dMap$dtoList(v2)(v3));
+const $Std$dMap$dkeys = (v2) => (v3) => $Std$dList$dmap$e($Std$dPair$dfst)($Std$dMap$dtoList(v2)(v3));
 const $Std$dMap$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dRaw$dfoldLeft(v3)(v4)(v5)($Std$dMap$draw(v3)(v6));
 const $Std$dMap$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v4)(v5)(v7)))($Std$dMap$draw(v2)(v6));
 const $Std$dMap$dmap = (v3) => (v4) => (v5) => (((v6) => $Std$dMap$dRaw$dmap(v3)(v4)(v6)))($Std$dMap$draw(v3)(v5));

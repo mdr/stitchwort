@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INTERNAL] Error: `Effect.Effects.Empty` is internal to the standard library
-   ╭─[ reject/row-internal-constructor.sw:9:20 ]
+   ╭─[ reject/row-internal-constructor.sw:9:18 ]
    │
- 9 │   List.mapIn [e := Effect.Effects.Empty] (x => x + 1) xs
-   │                    ──────────┬─────────  
-   │                              ╰─────────── only the standard library can name this
+ 9 │   List.map [e := Effect.Effects.Empty] (x => x + 1) xs
+   │                  ──────────┬─────────  
+   │                            ╰─────────── only the standard library can name this
    │ 
    │ Note: effect rows are made by the compiler from `{e}` and `{A | e}` in types; a program can pass an effect-row parameter on, but not build or inspect one
 ───╯
