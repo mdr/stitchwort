@@ -6031,7 +6031,7 @@
     },
     {
       "id": 374,
-      "title": "Proof automation (docs/proposals/proof-automation.md): stages 0 and 2 (ring) done; stage 1 rewrite under binders in progress; simp decided after its numbers",
+      "title": "Proof automation (docs/proposals/proof-automation.md): stages 0, 1 (rewrite under binders) and 2 (ring) done; simp and stage 1 follow-ups await D1168",
       "status": "doing",
       "agent": "",
       "where": "-",
@@ -6043,7 +6043,8 @@
       "updated": "2026-10-24",
       "commits": [
         "dc87398c",
-        "1c359b87"
+        "1c359b87",
+        "cc6a2970"
       ]
     },
     {
