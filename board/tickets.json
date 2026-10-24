@@ -7129,7 +7129,7 @@
     {
       "id": 442,
       "title": "Std: Fin.any with intro/elim lemmas; use it in AoC day 7 beamReachZero, fallKeeps, beamStart (after the day 7 tidy-up; D1167)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
