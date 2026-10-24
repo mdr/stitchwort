@@ -1276,6 +1276,8 @@ acc (k, v) => acc + v
 
 A pattern made only of tuples, records, variables and `_` is instead projections, outside a proof: `let (a, b) := e` is `let a := e.fst` and `let b := e.snd`, with `e` computed once (in a hidden `let`, unless it's a variable). So a function using one computes even when `e` is unknown: after `def sw (p: (A, B)): (B, A) := let (a, b) := p; (b, a)`, `sw p` is `(p.snd, p.fst)` by `rfl`. Where the expected type is a proposition (a proof), it stays the `match`, which splits `e` into a pair and so refines the goal ([proposals/let.md](proposals/let.md) §7, §A.7).
 
+A thunk `() => e` doesn't match at all: its parameter is a `()`, and the lambda is the plain `_ => e` (with the parameter's type `()`), so the same thunk written twice is the same term, and a law about `() => xs.mapIn f` in a theorem's statement applies to `() => xs.mapIn f` written in its proof (`examples/accept/reify-thunk-in-proof.sw`). Only where the type after it mentions the parameter (`(u: ()) -> P u`) is it matched, so that the goal becomes `P ()`.
+
 The one-alternative `match` must cover every value of the type, or the `let` is `E-LET-REFUTABLE`: coverage is by the type, not the value, so `let Some x = Some 3` is rejected by design. Use `match` to say what happens otherwise. Elimination of proofs still applies (`E-PROP-ELIM`). In a block with abilities, the right-hand side runs once, in order, before the rest.
 
 Limits:

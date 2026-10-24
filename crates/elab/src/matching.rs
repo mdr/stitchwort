@@ -232,12 +232,47 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     if crate::patlet::applies(cx, expr, goal)? {
         return crate::patlet::check_let(cx, expr, goal);
     }
+    if let Some(body) = unit_parameter(cx, expr, goal)? {
+        return crate::check::check(cx, body, goal);
+    }
     let (scrutinees, alts, span, kind) = parts(expr);
     let base = cx.level();
     let mark = cx.mark();
     let result = lifted(cx, scrutinees, alts, span, kind, goal, base);
     cx.reset(mark);
     result
+}
+
+/// The body of a thunk `() => body`, if `expr` is the `match` its `()`
+/// parameter stands for (`%arg0 => match %arg0 with | () => body`) and
+/// splitting on it would change nothing: the parameter is a `()` and `goal`
+/// doesn't mention it. The thunk is then the plain lambda `%arg0 => body`.
+/// Lifted, each thunk would be a hidden helper of its own, so the same
+/// thunk written in a law's use and in the statement it proves would be two
+/// terms, only equal once the helpers exist (SW-422). Where the goal
+/// mentions the parameter (a proof of `(u: ()) -> P u`), the split refines
+/// it to `P ()`, so the `match` is kept.
+fn unit_parameter<'e>(cx: &mut Ctx, expr: &'e Expr, goal: &Value) -> Result<Option<&'e Expr>> {
+    let (scrutinees, alts, _, kind) = parts(expr);
+    let ([scrutinee], [alt], MatchKind::Lambda) = (scrutinees, alts, kind) else {
+        return Ok(None);
+    };
+    if !matches!(alt.patterns.as_slice(), [Pattern::Absurd(_)]) {
+        return Ok(None);
+    }
+    let Some(level) = variable(cx, scrutinee) else {
+        return Ok(None);
+    };
+    let index = cx.level() - 1 - level;
+    if cx.quote(goal)?.mentions(index) {
+        return Ok(None);
+    }
+    let unit = Value::Data(
+        crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::UnitType)?,
+        Vec::new(),
+    );
+    let ty = cx.types[level].clone();
+    Ok(crate::undo::unify(cx, &ty, &unit)?.then_some(&alt.body))
 }
 
 /// What a scrutinee is matched as.
