@@ -2755,7 +2755,10 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
         return error;
     };
     let old_shown = cx.show(&old);
-    let shown = match folded_new_measure(cx, goal, less).map(Ok).unwrap_or_else(|| cx.eval(&meta)) {
+    let shown = match folded_new_measure(cx, goal, less)
+        .map(Ok)
+        .unwrap_or_else(|| cx.eval(&meta))
+    {
         Ok(new) => format!("{} < {old_shown}", cx.show(&new)),
         Err(_) => cx.show(goal),
     };

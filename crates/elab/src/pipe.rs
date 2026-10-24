@@ -17,12 +17,34 @@ use std::rc::Rc;
 
 use stitchwort_core::value::{Closure, force, quote};
 use stitchwort_core::{Icit, Name, Term, Value};
-use stitchwort_syntax::ast::Expr;
+use stitchwort_syntax::Diagnostic;
+use stitchwort_syntax::ast::{BinOp, Expr};
 
 use crate::check::{
     Arg, Ctx, Piped, Result, Supply, apply_args, apply_args_with, check, implicit_arg, infer,
     infer_app, infer_head, insert, known_head, piped_mismatch,
 };
+
+/// `x |> f == y` is `x |> (f == y)`, since `|>` binds looser than the
+/// comparisons: when that pipe fails to type, a note says so and suggests
+/// brackets. `f` is the pipe's right side.
+pub(crate) fn compared_pipe_note(error: Diagnostic, f: &Expr) -> Diagnostic {
+    let Expr::Binary(op, _, _) = f else {
+        return error;
+    };
+    let comparison = matches!(
+        op,
+        BinOp::EqEq | BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le
+    );
+    if error.code != "E-TYPE-MISMATCH" || !comparison {
+        return error;
+    }
+    let op = op.symbol();
+    error.with_note(format!(
+        "`|>` binds looser than `{op}`, so `x |> f {op} y` pipes `x` into the whole comparison \
+         `f {op} y`; to compare the result of the pipe, write brackets: `(x |> f) {op} y`"
+    ))
+}
 
 /// `value |> f`.
 pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, Value)> {
