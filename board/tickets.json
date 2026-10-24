@@ -6466,9 +6466,9 @@
     {
       "id": 402,
       "title": "Field defaults stage 2b: JS input shapes, decoder fills defaults, D1114 absence rule",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "lang"
       ],
@@ -6480,9 +6480,9 @@
     {
       "id": 403,
       "title": "Hint for an unknown Done suggests 'import Effect.Comp (Done)', which fails; the working form is 'import Std.Effect.Comp (Done)'",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Sonnet)",
       "labels": [
         "errors"
       ],
