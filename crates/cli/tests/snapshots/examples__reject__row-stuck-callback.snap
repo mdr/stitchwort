@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/row-stuck-callback.sw:15:29 ]
+    │
+ 15 │   let g := (u: ()) => twice h
+    │                             ┬  
+    │                             ╰── expected `Nat`, but this has type `Answer flag`
+────╯

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/row-defaulted.sw:29:27 ]
+    │
+ 29 │   let counter := countAll answer
+    │                  ───────┬────┬──  
+    │                         ╰───────── the row of this call was set to the empty row
+    │                              │    
+    │                              ╰──── expected `Nat`, but this has type `Answer ?1`
+    │ 
+    │ Note: nothing said which abilities this call may perform, so its row defaulted to the empty row (pure); give the callback's type, or annotate the result, if it was meant to perform something
+────╯

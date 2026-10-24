@@ -1860,20 +1860,26 @@ parsed only after `->`; elsewhere `{` starts a record literal or update, so
 
 1. D1133 and D1134, once decided (parser and `may_perform` changes), then
    `Fail.toResultMapIn` (SW-378).
-2. The note on an error after defaulting ("the row of this call defaulted to
-   the empty row"), as `numbers::explain_default` does for literals:
-   `settle_rows` should record which row unknowns it defaulted, and the
-   error paths should mention them.
-3. Share the apartness classification with the instance search's
+2. Share the apartness classification with the instance search's
    `rigidly_distinct` (`interfaces.rs`), as §5.C.1 asked; `row_rule` has its
    own copy.
-4. A test that a callback whose type is stuck on an unknown nothing ever
-   solves (and isn't a row unknown's) is reported with the "row couldn't be
-   worked out" note; and an elab unit test per `row_rule` row against
-   `unify` directly.
-5. Speed is unchanged (design E, stage 2): unspecialised code passes
+3. A callback checked by eta-expansion (a lambda, or a variable of function
+   type checked against `a -> {e} b`) has its body checked in the row
+   `{?e}`'s computation mode, where a pure body of type `T` is compared with
+   `B`, not `CompIn ?e B`, so `row_rule` doesn't see it. Where no row fits
+   (`examples/reject/row-stuck-callback.sw`) that gives the right error;
+   whether it ever refuses a program that has a row hasn't been looked into.
+4. Speed is unchanged (design E, stage 2): unspecialised code passes
    `{ tag: "Empty" }` and dispatches in `doneIn`/`bindIn`, as probe 6's
    `mapR` did.
+
+Done since (same lane): the note on an error after defaulting. `default_rows`
+returns where each defaulted row unknown was made, and an error found after
+defaulting (by the obligations or the comparisons retried, or a comparison
+still put aside) gets a label on that call, "the row of this call was set to
+the empty row", and a note saying why
+(`examples/reject/row-defaulted.sw`). Unit tests of `row_rule`, one per row
+of its table, against `unify` and `unify_postponing` (`rows.rs`, `tests`).
 
 ## Appendix A. Probe files
 
