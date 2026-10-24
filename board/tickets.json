@@ -5629,15 +5629,15 @@
     {
       "id": 354,
       "title": "Numerals can't be SafeNat/SafeInt: { bytes = 10 } with bytes: SafeNat is E-TYPE-MISMATCH (hit by the resolver port's tests; helper needed at every literal)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "bug"
       ],
       "body": "",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -6604,9 +6604,9 @@
     {
       "id": 411,
       "title": "Dot notation on a call returning an alias of Comp ((stuckThunk xs).finished) looks in the unfolded type's namespace and fails",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "effects"
       ],
@@ -6632,9 +6632,9 @@
     {
       "id": 413,
       "title": "List.between lo hi is built from hi + 1 - lo, forcing max + 1 into programs and arithmetic through proofs (day 9) — restate on Succ hi or add lemmas",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "std"
       ],
