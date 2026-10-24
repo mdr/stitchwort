@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE-ARGUMENT] Error: `x` is given twice
+   ╭─[ reject/named-argument-after-positional.sw:8:30 ]
+   │
+ 8 │ def again: Nat := (place 1) (x := 2)
+   │                          ┬   ┬  
+   │                          ╰────── already given here
+   │                              │  
+   │                              ╰── given again here
+───╯

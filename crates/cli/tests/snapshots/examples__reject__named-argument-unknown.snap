@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: this function has no parameter named `middle`
+   ╭─[ reject/named-argument-unknown.sw:7:40 ]
+   │
+ 7 │ def window: Nat := between (low := 1) (middle := 5)
+   │                                        ───┬──  
+   │                                           ╰──── not a parameter of this function
+   │ 
+   │ Note: its parameters are `[step]`, `(low)` and `(high)` (round brackets: explicit, square: implicit)
+───╯

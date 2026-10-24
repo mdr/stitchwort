@@ -2232,7 +2232,47 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
     }
-    compare(cx, term, &found, expected)
+    match compare(cx, term, &found, expected) {
+        Err(e) if e.code == "E-TYPE-MISMATCH" && matches!(expr, Expr::App(..)) => {
+            Err(awaiting_note(cx, e, &found, expected))
+        }
+        result => result,
+    }
+}
+
+/// A call that is still a function where something else is expected (a
+/// partial application, or a call with parameters left out): the note
+/// names what it's waiting for (docs/proposals/named-arguments.md §6.3).
+fn awaiting_note(cx: &Ctx, e: Diagnostic, found: &Value, expected: &Value) -> Diagnostic {
+    let g = cx.g();
+    let is_function = |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
+    if !is_function(found)
+        || is_function(expected)
+        || matches!(
+            force(g, expected.clone()),
+            Ok(Value::Neutral(Head::Meta(_), _))
+        )
+    {
+        return e;
+    }
+    let Ok(sig) = crate::named::signature(cx, found) else {
+        return e;
+    };
+    let explicit: Vec<&crate::named::Param> = (sig.params.iter())
+        .filter(|p| p.icit == Icit::Explicit)
+        .collect();
+    let named: Vec<String> = (explicit.iter())
+        .filter(|p| !p.name.is_empty() && &*p.name != "_" && !p.name.starts_with('%'))
+        .map(|p| format!("`{}`", p.name))
+        .collect();
+    let waiting = if named.len() == explicit.len() && !named.is_empty() {
+        crate::named::list(named)
+    } else if explicit.len() == 1 {
+        "one more argument".to_string()
+    } else {
+        format!("{} more arguments", explicit.len())
+    };
+    e.with_note(format!("this expression is a function still waiting for {waiting}"))
 }
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is

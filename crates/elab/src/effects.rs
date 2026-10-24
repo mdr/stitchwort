@@ -1785,7 +1785,7 @@ fn effect_order(
                 Some(w2) if w2 > w && ran(w2).is_some() => Some(w2),
                 _ => continue,
             };
-            let span = owned[w].span();
+            let span = value_span(&owned[w]);
             let mut d = Diagnostic::error(
                 "E-EFFECT-ORDER",
                 match later {
@@ -1802,7 +1802,7 @@ fn effect_order(
             .with_label(span, format!("its type needs `{needed}`"));
             d = match later {
                 Some(w2) => d
-                    .with_label(owned[w2].span(), format!("`{needed}` is computed here, after it"))
+                    .with_label(value_span(&owned[w2]), format!("`{needed}` is computed here, after it"))
                     .with_note(format!(
                         "run them in the order you need, then call: `let {needed} := …` first, \
                          then pass `({needed} := {needed})`"
@@ -1816,6 +1816,14 @@ fn effect_order(
         }
     }
     Ok(None)
+}
+
+/// Where an argument's value is written: `e` in `(x := e)`.
+fn value_span(arg: &Expr) -> stitchwort_syntax::Span {
+    match arg {
+        Expr::NamedArg(_, value, ..) => value.span(),
+        other => other.span(),
+    }
 }
 
 /// Whether `ty` mentions an unknown nothing has solved.

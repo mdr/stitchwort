@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NAMED-BRACKET] Error: `count` is an implicit parameter: write `[count := …]`
+   ╭─[ reject/named-argument-bracket.sw:7:36 ]
+   │
+ 7 │ def roundForImplicit: Nat := pick (count := 2) 1
+   │                                    ──┬──  
+   │                                      ╰──── `count` is an implicit parameter
+   │ 
+   │ Note: round brackets name an explicit parameter and square brackets an implicit or `auto` one, as in declarations
+───╯
+[E-NAMED-BRACKET] Error: `x` is an explicit parameter: write `(x := …)`
+   ╭─[ reject/named-argument-bracket.sw:8:37 ]
+   │
+ 8 │ def squareForExplicit: Nat := pick [x := 1]
+   │                                     ┬  
+   │                                     ╰── `x` is an explicit parameter
+   │ 
+   │ Note: round brackets name an explicit parameter and square brackets an implicit or `auto` one, as in declarations
+───╯

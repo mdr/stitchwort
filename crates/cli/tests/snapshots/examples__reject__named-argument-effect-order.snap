@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EFFECT-ORDER] Error: this runs first, where it's written, but its type needs `n`, which comes later
+    ╭─[ reject/named-argument-effect-order.sw:19:26 ]
+    │
+ 19 │   let used := use (xs := readVec()) (n := readNat())
+    │                          ────┬────        ────┬────  
+    │                              ╰─────────────────────── its type needs `n`
+    │                                               │      
+    │                                               ╰────── `n` is computed here, after it
+    │ 
+    │ Note: run them in the order you need, then call: `let n := …` first, then pass `(n := n)`
+────╯
