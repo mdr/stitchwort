@@ -755,7 +755,6 @@ theorem List.mapMap (f: b -> c) (g: a -> b): (xs: List a) -> List.map f (List.ma
   | Nil => rfl
   | Cons x xs => rewrite List.mapMap f g xs
 
-
 theorem List.filterMapMap (f: b -> Option c) (g: a -> b): (xs: List a) -> List.filterMap f (List.map g xs) = List.filterMap (x => f (g x)) xs
   | Nil => rfl
   | Cons x xs => rewrite List.filterMapMap f g xs
