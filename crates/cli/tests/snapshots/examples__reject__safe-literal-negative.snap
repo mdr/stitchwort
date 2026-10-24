@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 384
+expression: output
+---
+[E-SAFE-LITERAL] Error: a `SafeNat` can't be negative
+   ╭─[ reject/safe-literal-negative.sw:5:23 ]
+   │
+ 5 │ def below: SafeNat := -1
+   │                       ─┬  
+   │                        ╰── this is negative, but a `SafeNat` is expected here
+   │ 
+   │ Note: use a `SafeInt` for numbers that can be negative
+───╯

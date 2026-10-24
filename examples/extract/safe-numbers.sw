@@ -20,6 +20,8 @@
 -- run: toSafe 9007199254740992
 -- run: toSafeInt (-9007199254740992)
 -- run: toSafeInt (-7)
+-- run: startCounter
+-- run: limits
 
 import Std (Int, List, Nat, Option, SafeInt, SafeNat, Text)
 
@@ -44,3 +46,8 @@ export def sumAll (xs: List SafeNat): Option SafeNat := SafeNat.ofNat (List.fold
 
 -- Records with `SafeNat` and `SafeInt` fields derive `==` (SW-344): equal by value.
 export def sameCounter (a: Counter) (b: Counter): Bool := a == b
+
+-- Numerals as `SafeNat` and `SafeInt` (SW-354): plain `number`s in JS.
+export def startCounter: Counter := { count = 41, delta = -1 }
+
+export def limits: List SafeInt := [9007199254740991, -9007199254740991, 0]
