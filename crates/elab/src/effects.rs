@@ -6,8 +6,14 @@
 //!   handlers use (see `Elaborator::ability`).
 //! - A row `{A, B | e}` becomes a chain of `Plus`es of the abilities'
 //!   operation types, in declaration order, ending in `NoOp` (closed) or in
-//!   `sigOp e` for a row variable `e : Sig`. A function type `a -> {E} b` is
-//!   `a -> Comp (ops of E) (results of E) b`.
+//!   `rowOp e` for a row variable `e : Row`. A function type `a -> {E} b` is
+//!   `a -> Comp (ops of E) (results of E) b`, except for a bare row
+//!   variable: `a -> {e} b` is `a -> CompIn e b`, which computes to `b` at the
+//!   empty row and to a `Comp` at any other (design C of
+//!   docs/proposals/effect-polymorphism.md). Code in a bare row is sequenced
+//!   with `doneIn e` and `bindIn e`; `liftIn e` turns such a computation into
+//!   a tree to move into a row with abilities, and `lowerIn e` turns a tree in
+//!   the row `{e}` back.
 //! - Code checked against `Comp` over a row is elaborated in *computation
 //!   mode*: effectful arguments are run first, left to right, with `bind`; an
 //!   operation call becomes a `Call` of the operation injected into the row;
@@ -57,7 +63,7 @@ pub struct AbilityInfo {
 #[derive(Clone)]
 pub struct Row {
     pub labels: Vec<Label>,
-    /// A row variable (a value of type `Sig`), or `None` for a closed row.
+    /// A row variable (a value of type `Row`), or `None` for a closed row.
     pub tail: Option<Value>,
     pub partial: bool,
 }
@@ -109,6 +115,12 @@ impl Row {
     /// stands rather than sequenced (see [`in_place`]).
     pub fn is_empty(&self) -> bool {
         self.labels.is_empty() && self.tail.is_none() && !self.partial
+    }
+
+    /// Whether this is a bare row variable `{e}`: no abilities, a tail, and
+    /// total. A computation in it is a `CompIn e a`, not a `Comp`.
+    pub fn is_bare(&self) -> bool {
+        self.labels.is_empty() && self.tail.is_some() && !self.partial
     }
 
     /// The same abilities, in total mode.
@@ -180,7 +192,7 @@ pub fn ops(cx: &Ctx, row: &Row) -> Result<Value> {
     let mut value = match &row.tail {
         Some(e) => apply(
             g,
-            Value::Neutral(Head::Def(def(cx, Builtin::SigOp)?), Spine::new()),
+            Value::Neutral(Head::Def(def(cx, Builtin::RowOp)?), Spine::new()),
             e.clone(),
         )?,
         None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new()),
@@ -198,7 +210,7 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
     let mut value = match &row.tail {
         Some(e) => apply(
             g,
-            Value::Neutral(Head::Def(def(cx, Builtin::SigRes)?), Spine::new()),
+            Value::Neutral(Head::Def(def(cx, Builtin::RowRes)?), Spine::new()),
             e.clone(),
         )?,
         None => Value::Neutral(Head::Def(def(cx, Builtin::NoRes)?), Spine::new()),
@@ -216,8 +228,14 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
 }
 
 /// `Comp (ops row) (res row) t`, or `Delay (ops row) (res row) t` for a
-/// partial row.
+/// partial row, or `CompIn e t` for a bare row variable `{e}`.
 pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
+    if row.is_bare() {
+        let tail = row.tail.clone().expect("a bare row has a tail");
+        let comp_in = Value::Neutral(Head::Def(def(cx, Builtin::CompIn)?), Spine::new());
+        let applied = apply(cx.g(), comp_in, tail)?;
+        return Ok(apply(cx.g(), applied, t)?);
+    }
     if row.partial {
         let delay = primitive(cx, Primitive::Delay)?;
         let mut ty = Value::Neutral(Head::Def(delay), Spine::new());
@@ -230,6 +248,25 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
         data(cx, Builtin::Comp)?,
         vec![ops(cx, row)?, res(cx, row)?, t],
     ))
+}
+
+/// A row as a value of type `Row`, in canonical form: `Empty` for the empty
+/// row, the row variable itself for a bare `{e}`, and `Ops (ops row) (res
+/// row)` only for a row with at least one ability. So the elaborator never
+/// makes `Ops NoOp NoRes` (docs/proposals/effect-polymorphism.md §5.C.2).
+fn row_value(cx: &Ctx, row: &Row) -> Result<Value> {
+    debug_assert!(!row.partial, "a row variable never stands for `Partial`");
+    if row.labels.is_empty() {
+        return Ok(match &row.tail {
+            Some(tail) => tail.clone(),
+            None => {
+                let (d, c) = crate::check::builtin_ctor(cx, Builtin::RowEmpty)?;
+                Value::Ctor(d, c, Vec::new().into())
+            }
+        });
+    }
+    let (d, c) = crate::check::builtin_ctor(cx, Builtin::RowOps)?;
+    Ok(Value::Ctor(d, c, vec![ops(cx, row)?, res(cx, row)?].into()))
 }
 
 /// The definition admitted as primitive `prim`.
@@ -248,11 +285,12 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
     let g = cx.g();
     let ability_of =
         |d: DataId| -> Option<usize> { cx.e.abilities.iter().position(|a| a.op_data == d) };
-    let (Ok(plus), Ok(no_op), Ok(sig), Ok(sig_op)) = (
+    let (Ok(plus), Ok(no_op), Ok(row_op), Ok((row_data, empty)), Ok((_, ops_ctor))) = (
         data(cx, Builtin::Plus),
         data(cx, Builtin::NoOp),
-        data(cx, Builtin::Sig),
-        def(cx, Builtin::SigOp),
+        def(cx, Builtin::RowOp),
+        cx.g().registry.ctor(Builtin::RowEmpty).ok_or(()),
+        cx.g().registry.ctor(Builtin::RowOps).ok_or(()),
     ) else {
         return Ok(None);
     };
@@ -290,12 +328,17 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                     partial: false,
                 }));
             }
-            Value::Neutral(Head::Def(id), spine) if id == sig_op && spine.len() == 1 => {
+            Value::Neutral(Head::Def(id), spine) if id == row_op && spine.len() == 1 => {
                 let stitchwort_core::value::Elim::App(x, _) = &spine[0] else {
                     return Ok(None);
                 };
                 match force(g, x.clone())? {
-                    Value::Ctor(d, 0, fields) if d == sig => value = force(g, fields[0].clone())?,
+                    Value::Ctor(d, c, fields) if d == row_data && c == ops_ctor => {
+                        value = force(g, fields[0].clone())?
+                    }
+                    Value::Ctor(d, c, _) if d == row_data && c == empty => {
+                        value = Value::Data(no_op, Vec::new())
+                    }
                     x => {
                         no_duplicates(cx, &labels)?;
                         return Ok(Some(Row {
@@ -312,8 +355,8 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
 }
 
 /// A row has each ability at most once. Rows written in source and rows the
-/// elaborator builds always do, but a row variable `e : Sig` instantiated by
-/// hand with a `Sig` that repeats an ability (`{Log | e}` with `e` holding
+/// elaborator builds always do, but a row variable `e : Row` instantiated by
+/// hand with a `Row` that repeats an ability (`{Log | e}` with `e` holding
 /// `Log`) reads as a row that doesn't. Source operations always use the
 /// first copy, and moving a computation between rows maps every copy to the
 /// one of the same ability, so the copies would silently merge. This is the
@@ -337,14 +380,31 @@ fn no_duplicates(cx: &Ctx, labels: &[Label]) -> Result<()> {
     Ok(())
 }
 
-/// If `ty` is `Comp` or `Delay` over a row of abilities: the row (partial
-/// for a `Delay`) and the result type.
+/// If `ty` is `Comp` or `Delay` over a row of abilities, or `CompIn e t`
+/// for a row variable `e`: the row (partial for a `Delay`, bare for a
+/// `CompIn`) and the result type.
 pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
     let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(None);
     };
     let delay = cx.g().builtins.primitive_id(Primitive::Delay);
+    let comp_in = cx.g().registry.def(Builtin::CompIn);
     Ok(match force(cx.g(), ty.clone())? {
+        // Stuck: its row is a variable or an unknown (at `Empty` or `Ops` it
+        // would have computed).
+        Value::Neutral(Head::Def(d), spine) if Some(d) == comp_in && spine.len() == 2 => {
+            match (&spine[0], &spine[1]) {
+                (Elim::App(tail, _), Elim::App(t, _)) => Some((
+                    Row {
+                        labels: Vec::new(),
+                        tail: Some(tail.clone()),
+                        partial: false,
+                    },
+                    t.clone(),
+                )),
+                _ => None,
+            }
+        }
         Value::Data(d, args) if d == comp => {
             decode(cx, &args[0])?.map(|row| (row, args[2].clone()))
         }
@@ -404,12 +464,8 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
         tail: other.tail.clone(),
         partial: false,
     };
-    let sig = Value::Ctor(
-        data(cx, Builtin::Sig)?,
-        0,
-        vec![ops(cx, &rest)?, res(cx, &rest)?].into(),
-    );
-    cx.unify(tail, &sig)
+    let value = row_value(cx, &rest)?;
+    cx.unify(tail, &value)
 }
 
 fn agree(cx: &mut Ctx, a: &Label, b: &Label) -> Result<()> {
@@ -549,6 +605,9 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
     if from.partial && !to.partial {
         return Err(partial_in_total(cx, &term));
     }
+    // A computation in a bare row `{f}` is a `CompIn f t`: what it is
+    // depends on what `f` turns out to be (see below).
+    let was_bare = from.is_bare();
     let mut from = refresh(cx, &from)?;
     let mut to = refresh(cx, to)?;
     let missing_in = |a: &Row, b: &Row| -> Vec<Label> {
@@ -613,8 +672,29 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
             None => return Err(not_allowed(cx, label)),
         }
     }
-    let to = &to;
-    let moved = if same_shape(cx, &from, to)? {
+    let from = refresh(cx, &from)?;
+    let to = &refresh(cx, &to)?;
+    let mut term = term;
+    if was_bare {
+        if from.labels.is_empty() && from.tail.is_none() {
+            // `CompIn Empty t` is `t`: a plain value.
+            return done(cx, to, t, term);
+        }
+        if from.is_bare() && !(to.is_bare() && same_shape(cx, &from, to)?) {
+            // `CompIn f t` as a tree, to move into `to`.
+            let tail = from.tail.as_ref().expect("bare");
+            term = call(
+                cx,
+                Builtin::LiftIn,
+                std::slice::from_ref(t),
+                vec![cx.quote(tail)?, term],
+            )?;
+        }
+        // Otherwise `f` is a row with abilities, so `CompIn f t` is that
+        // row's `Comp` already.
+    }
+    let unmoved = same_shape(cx, &from, to)?;
+    let moved = if unmoved {
         term
     } else {
         let m = mapping(cx, &from, to)?;
@@ -643,16 +723,37 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
             vec![moved],
         );
     }
+    if to.is_bare() && !unmoved {
+        // Moved into the tree form of `{e}`: back to `CompIn e t`.
+        let tail = to.tail.as_ref().expect("bare");
+        return call(
+            cx,
+            Builtin::LowerIn,
+            std::slice::from_ref(t),
+            vec![cx.quote(tail)?, moved],
+        );
+    }
     Ok(moved)
 }
 
-/// `bind`, or `bindD` in a partial row.
-fn bind_name(row: &Row) -> Builtin {
-    if row.partial {
+/// `c` then `next`, in `row`: `bind`, `bindD` in a partial row, or
+/// `bindIn e` in a bare row `{e}`. `c` returns an `a`, `next` a `b`.
+fn bind_term(cx: &Ctx, row: &Row, a: Value, b: Value, c: Term, next: Term) -> Result<Term> {
+    if row.is_bare() {
+        let tail = row.tail.as_ref().expect("a bare row has a tail");
+        return call(cx, Builtin::BindIn, &[a, b], vec![cx.quote(tail)?, c, next]);
+    }
+    let name = if row.partial {
         Builtin::BindD
     } else {
         Builtin::Bind
-    }
+    };
+    call(
+        cx,
+        name,
+        &[ops(cx, row)?, res(cx, row)?, a, b],
+        vec![c, next],
+    )
 }
 
 /// Re-reads a row whose tail may have been solved since it was read.
@@ -703,12 +804,8 @@ fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Resul
         tail: Some(tail),
         partial: false,
     };
-    let sig = Value::Ctor(
-        data(cx, Builtin::Sig)?,
-        0,
-        vec![ops(cx, &added)?, res(cx, &added)?].into(),
-    );
-    cx.unify(old, &sig)
+    let value = row_value(cx, &added)?;
+    cx.unify(old, &value)
 }
 
 /// A `SigMap` from row `from` into row `to`, whose abilities include all of
@@ -872,8 +969,8 @@ pub fn effect_type(
     let tail = match &row.tail {
         None => None,
         Some(name) => {
-            let sig = Value::Data(data(cx, Builtin::Sig)?, Vec::new());
-            let term = check(cx, &Expr::Var(name.clone()), &sig)?;
+            let row_type = Value::Data(data(cx, Builtin::Row)?, Vec::new());
+            let term = check(cx, &Expr::Var(name.clone()), &row_type)?;
             Some(cx.eval(&term)?)
         }
     };
@@ -968,7 +1065,13 @@ pub fn is_comp_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(false);
     };
-    Ok(matches!(force(cx.g(), ty.clone())?, Value::Data(d, _) if d == comp))
+    let comp_in = cx.g().registry.def(Builtin::CompIn);
+    Ok(match force(cx.g(), ty.clone())? {
+        Value::Data(d, _) => d == comp,
+        // `CompIn e a` for a row variable or an unknown row.
+        Value::Neutral(Head::Def(d), spine) => Some(d) == comp_in && spine.len() == 2,
+        _ => false,
+    })
 }
 
 /// A parameter of a call's head, for [`param_types`].
@@ -1456,6 +1559,15 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
 
 /// `Done v` (or `now v`), as a computation in `row` returning a `t`.
 fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
+    if row.is_bare() {
+        let tail = row.tail.as_ref().expect("a bare row has a tail");
+        return call(
+            cx,
+            Builtin::DoneIn,
+            std::slice::from_ref(t),
+            vec![cx.quote(tail)?, v],
+        );
+    }
     if row.partial {
         return call(
             cx,
@@ -1813,12 +1925,7 @@ fn sequence(
     let result = body(cx);
     cx.reset(mark);
     let lam = Term::Lam(name.into(), Icit::Explicit, Rc::new(result?));
-    call(
-        cx,
-        bind_name(row),
-        &[ops(cx, row)?, res(cx, row)?, ty, t.clone()],
-        vec![term, lam],
-    )
+    bind_term(cx, row, ty, t.clone(), term, lam)
 }
 
 /// A variable holding the result of an earlier computation.
@@ -1874,6 +1981,15 @@ fn hold(cx: &mut Ctx, row: &Row, name: &str, c: Term, ty: Value) -> Result<Bound
 fn in_place(cx: &Ctx, row: &Row, c: &Term, ty: &Value) -> Result<Option<Term>> {
     if !row.is_empty() {
         return Ok(None);
+    }
+    // A plain value made a computation (a call of an effect-polymorphic
+    // function at the empty row, which computes to its result): the value.
+    if let Term::Ann(inner, _) = c
+        && let Term::Ctor(d, 0, fields) = inner.strip_loc()
+        && *d == data(cx, Builtin::Comp)?
+        && fields.len() == 1
+    {
+        return Ok(Some(fields[0].as_ref().clone()));
     }
     Ok(Some(call(
         cx,
@@ -2465,12 +2581,7 @@ fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value
             continue;
         }
         let lam = Term::Lam(b.name.as_str().into(), Icit::Explicit, Rc::new(result));
-        result = call(
-            cx,
-            bind_name(row),
-            &[ops(cx, row)?, res(cx, row)?, b.ty, ty.clone()],
-            vec![b.comp, lam],
-        )?;
+        result = bind_term(cx, row, b.ty, ty.clone(), b.comp, lam)?;
     }
     Ok(result)
 }
@@ -2695,12 +2806,7 @@ fn op_call(
     }
     cx.reset(mark);
     let lam = Term::Lam("%op".into(), Icit::Explicit, Rc::new(inner));
-    let bind = call(
-        cx,
-        bind_name(row),
-        &[ops(cx, row)?, res(cx, row)?, dom, result_ty.clone()],
-        vec![c, lam],
-    )?;
+    let bind = bind_term(cx, row, dom, result_ty.clone(), c, lam)?;
     Ok((bind, result_ty))
 }
 
@@ -3121,7 +3227,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let rest_fn = Term::Lam(
             "y".into(),
             Icit::Explicit,
-            Rc::new(Term::app(Term::Var(1), reply)),
+            Rc::new(Term::app(Term::Var(1), reply.clone())),
         );
         let call_term = if out.partial {
             // `bindD (lift (Call (sigInject m o) Done)) (\y -> k (…))`: the
@@ -3143,6 +3249,37 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             }
             bind = Term::app_icit(bind, quoted(t)?, Icit::Implicit);
             Term::app(Term::app(bind, Term::app(lifted, op)), rest_fn)
+        } else if out.is_bare() {
+            // `lowerIn e (Call (sigInject m o) (y => liftIn e (k (…))))`:
+            // the handler's result is a `CompIn e t`, and an operation
+            // forwarded to `{e}` is a tree.
+            let tail = out.tail.as_ref().expect("bare");
+            let quoted =
+                |v: &Value, depth: usize| stitchwort_core::value::quote(cx.g(), level + depth, v);
+            let lift_in = Term::app(
+                Term::app(
+                    Term::app_icit(
+                        Term::Def(def(cx, Builtin::LiftIn)?),
+                        quoted(t, 3)?,
+                        Icit::Implicit,
+                    ),
+                    quoted(tail, 3)?,
+                ),
+                Term::app(Term::Var(1), reply),
+            );
+            let rest_fn = Term::Lam("y".into(), Icit::Explicit, Rc::new(lift_in));
+            let tree = Term::ctor(data(cx, Builtin::Comp)?, 1, vec![inject, rest_fn]);
+            Term::app(
+                Term::app(
+                    Term::app_icit(
+                        Term::Def(def(cx, Builtin::LowerIn)?),
+                        quoted(t, 2)?,
+                        Icit::Implicit,
+                    ),
+                    quoted(tail, 2)?,
+                ),
+                tree,
+            )
         } else {
             Term::ctor(data(cx, Builtin::Comp)?, 1, vec![inject, rest_fn])
         };

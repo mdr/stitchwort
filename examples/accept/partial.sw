@@ -4,7 +4,7 @@
 -- crates/driver/tests/partial.rs runs them and counts their ticks.
 
 -- Not recursive: an ordinary definition whose result is partial.
-import Std.Effect (Sig)
+import Std.Effect (Row)
 import Std (List, Nat, Pair)
 
 def immediate (n: Nat): {Partial} Nat := n + 1
@@ -73,10 +73,10 @@ def addThen: Nat -> Nat -> {Partial} Nat
   | n, m => useP (addThen (n - 1)) (m + 1)
 
 -- Callbacks kept in a record that's used inside the definition.
-type Handlers (e: Sig): Type =
+type Handlers (e: Row): Type =
   | MkHandlers (onStep: Nat -> {Partial | e} Nat) (onDone: Nat -> {Partial | e} Nat)
 
-def drive: [e: Sig] -> Handlers e -> Nat -> {Partial | e} Nat
+def drive: [e: Row] -> Handlers e -> Nat -> {Partial | e} Nat
   | MkHandlers onStep onDone, 0 => onDone 0
   | MkHandlers onStep onDone, n => onStep n
 

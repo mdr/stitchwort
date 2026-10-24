@@ -1,6 +1,7 @@
 //! Pattern unification for metavariables, and zonking (substituting solutions
 //! back into terms). Follows András Kovács' elaboration-zoo.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -45,6 +46,168 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
         }
     }
     Ok(true)
+}
+
+thread_local! {
+    /// While [`unify_postponing`] runs: the row constraints it put aside.
+    static POSTPONED: RefCell<Option<Vec<RowConstraint>>> = const { RefCell::new(None) };
+}
+
+/// A comparison `CompIn ?e B ≟ T` whose `T` is blocked: a definition stuck on
+/// an unknown or a variable, which may yet compute to a `Comp`
+/// (docs/proposals/effect-polymorphism.md §5.C.1, step 5). `level` variables
+/// are in scope.
+#[derive(Clone)]
+pub struct RowConstraint {
+    pub level: usize,
+    pub a: Value,
+    pub b: Value,
+}
+
+/// [`unify`], except that a row comparison that can't be decided yet is put
+/// aside rather than failing: the constraints put aside, if it succeeds.
+/// The caller keeps them and retries them later; the term is well typed once
+/// they're solved.
+pub fn unify_postponing(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<Option<Vec<RowConstraint>>> {
+    let saved = POSTPONED.with(|p| p.replace(Some(Vec::new())));
+    let result = unify(g, level, a, b);
+    let postponed = POSTPONED.with(|p| p.replace(saved)).unwrap_or_default();
+    Ok(result?.then_some(postponed))
+}
+
+/// What design C's rule says about `a ≟ b`, when one side is `CompIn ?e B`
+/// for an unsolved row unknown `?e` (docs/proposals/effect-polymorphism.md
+/// §5.C.1, D1123, D1124). `CompIn Empty B` is `B`, so `?e := Empty` is
+/// always a solution; another exists only when the other side is, or may
+/// become, a `Comp`. So:
+///
+/// - the other side apart from `Comp` (a data type, a function type, a sort,
+///   an equation, a type variable, a quotient, an opaque primitive): `?e :=
+///   Empty`, then `B ≟ T`;
+/// - a `Comp` over a row with at least one ability (its operations headed
+///   by `Plus`): `?e := Ops op res`, then `B ≟ A` (the callback is
+///   effectful);
+/// - `Comp NoOp NoRes A`, written by hand: passed as data, `?e := Empty`;
+/// - a definition stuck on something unknown, or a `Comp` whose row is: blocked;
+///   put aside under [`unify_postponing`], otherwise no;
+/// - a `Delay` (a partial computation): no, as a row variable never stands
+///   for `Partial`.
+///
+/// `None` when the rule doesn't apply: neither side is such a `CompIn`, or the
+/// other side is an unknown (the ordinary unifier solves it with the
+/// `CompIn` itself, committing nothing about `?e`) or another `CompIn` (the
+/// spines are compared, as for any definition).
+fn row_rule(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    work: &mut Vec<Task>,
+) -> Result<Option<bool>> {
+    use stitchwort_core::partial::Primitive;
+    use stitchwort_core::registry::Builtin;
+    let Some(comp_in) = g.registry.def(Builtin::CompIn) else {
+        return Ok(None);
+    };
+    // `CompIn ?e B`: its row and its result.
+    let unknown_row = |v: &Value| -> Result<Option<(Value, Value)>> {
+        let Value::Neutral(Head::Def(d), spine) = v else {
+            return Ok(None);
+        };
+        if *d != comp_in || spine.len() != 2 {
+            return Ok(None);
+        }
+        let (Elim::App(row, _), Elim::App(result, _)) = (&spine[0], &spine[1]) else {
+            return Ok(None);
+        };
+        Ok(match force(g, row.clone())? {
+            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(m) => {
+                Some((row.clone(), result.clone()))
+            }
+            _ => None,
+        })
+    };
+    let (row, result, other) = match (unknown_row(a)?, unknown_row(b)?) {
+        (Some((row, result)), None) => (row, result, b),
+        (None, Some((row, result))) => (row, result, a),
+        _ => return Ok(None),
+    };
+    let is_comp_in = |v: &Value| matches!(v, Value::Neutral(Head::Def(d), _) if *d == comp_in);
+    if matches!(other, Value::Neutral(Head::Meta(_), _)) || is_comp_in(other) {
+        return Ok(None);
+    }
+    let (Some(comp), Some(plus), Some(no_op), Some((row_data, empty)), Some((_, ops))) = (
+        g.registry.data(Builtin::Comp),
+        g.registry.data(Builtin::Plus),
+        g.registry.data(Builtin::NoOp),
+        g.registry.ctor(Builtin::RowEmpty),
+        g.registry.ctor(Builtin::RowOps),
+    ) else {
+        return Ok(None);
+    };
+    let empty_row = Value::Ctor(row_data, empty, Vec::new().into());
+    // Pushed last-first, so the row is solved first.
+    let solve_with = |work: &mut Vec<Task>, row_value: Value, result_ty: Value, other_ty: Value| {
+        work.push(Task::Values(level, result_ty, other_ty));
+        work.push(Task::Values(level, row.clone(), row_value));
+    };
+    let blocked = |a: &Value, b: &Value| -> bool {
+        POSTPONED.with(|p| match p.borrow_mut().as_mut() {
+            Some(list) => {
+                list.push(RowConstraint {
+                    level,
+                    a: a.clone(),
+                    b: b.clone(),
+                });
+                true
+            }
+            None => false,
+        })
+    };
+    let apart = match other {
+        Value::Data(d, args) if *d == comp && args.len() == 3 => {
+            return Ok(Some(match force(g, args[0].clone())? {
+                // Effectful: the row is the `Comp`'s.
+                Value::Data(p, _) if p == plus => {
+                    let value =
+                        Value::Ctor(row_data, ops, vec![args[0].clone(), args[1].clone()].into());
+                    solve_with(work, value, result, args[2].clone());
+                    true
+                }
+                // `Comp NoOp NoRes A`: data.
+                Value::Data(n, _) if n == no_op => {
+                    solve_with(work, empty_row, result, other.clone());
+                    true
+                }
+                _ => blocked(a, b),
+            }));
+        }
+        Value::Data(..)
+        | Value::Pi(..)
+        | Value::Sort(_)
+        | Value::Eq(..)
+        | Value::Neutral(Head::Var(_), _)
+        | Value::Neutral(Head::Quot(_), _) => true,
+        Value::Neutral(Head::Def(d), _) => {
+            if g.builtins.primitive_id(Primitive::Delay) == Some(*d) {
+                return Ok(Some(false));
+            }
+            let def = g.def(*d);
+            def.body().is_none() && def.state() == stitchwort_core::globals::State::Final
+        }
+        // Not a type: the rule has nothing to say.
+        _ => return Ok(None),
+    };
+    if apart {
+        solve_with(work, empty_row, result, other.clone());
+        return Ok(Some(true));
+    }
+    Ok(Some(blocked(a, b)))
 }
 
 /// Unification still to do.
@@ -107,6 +270,11 @@ fn unify_step(
             },
             |x, v| Ok(is_meta(x) && unify(g, level, x, v)?),
         );
+    }
+    // A computation type over a row unknown, against a type that settles it
+    // (design C's apartness rule).
+    if let Some(answer) = row_rule(g, level, &a, &b, work)? {
+        return Ok(answer);
     }
     let fresh = Value::var(level);
     // Parts are pushed last-first, so they're unified first-first.

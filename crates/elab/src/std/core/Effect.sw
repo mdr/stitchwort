@@ -100,16 +100,6 @@ type Effect.NoOp: Type
 def Effect.NoRes: NoOp -> Type
   | ()
 
--- A signature as one value, so a row variable `e` is one parameter.
-type Effect.Sig: Type 1 =
-  | MkSig (op: Type) (res: op -> Type)
-
-def Effect.sigOp: Sig -> Type
-  | MkSig op res => op
-
-def Effect.sigRes: (s: Sig) -> sigOp s -> Type
-  | MkSig op res, a1 => res a1
-
 -- Combining two mappings into one from `{l, r}`.
 def Effect.caseInject [l r t: Type] [lres: l -> Type] [rres: r -> Type] [tres: t -> Type]
     (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): Plus l r -> t
@@ -145,6 +135,52 @@ def Effect.handlePlus [l r: Type] [lres: l -> Type] [rres: r -> Type] [res: Type
 def Effect.runPure: [a: Type] -> Comp NoOp NoRes a -> a
   | Done x => x
   | Call () rest
+
+-- Rows as values (docs/proposals/effect-polymorphism.md, design C). A row
+-- variable `e` in `{e}` or `{A | e}` is a `Row`: either the empty row, or the
+-- operations and results of a row with at least one ability. Only the
+-- library may name `Row`'s constructors and the definitions below that take
+-- a row apart (D1122); programs get rows only through `{e}` in types.
+-- The elaborator never builds `Ops NoOp NoRes`: a row with no abilities is
+-- always `Empty` (the canonical form).
+type Effect.Row: Type 1 =
+  | Empty
+  | Ops (op: Type) (res: op -> Type)
+
+-- The operation type of a row: what `{A | e}` puts after `A`.
+def Effect.rowOp: Row -> Type
+  | Empty => NoOp
+  | Ops op res => op
+
+def Effect.rowRes: (row: Row) -> rowOp row -> Type
+  | Empty, o => NoRes o
+  | Ops op res, o => res o
+
+-- `{e} a`: a computation in the row `e`. In the empty row it is the plain
+-- type, so pure uses of an effect-polymorphic function compute as pure code.
+def Effect.CompIn: Row -> Type -> Type
+  | Empty, a => a
+  | Ops op res, a => Comp op res a
+
+-- `Done`, in any row.
+def Effect.doneIn [a: Type]: (row: Row) -> a -> CompIn row a
+  | Empty, value => value
+  | Ops op res, value => Done value
+
+-- `bind`, in any row. In the empty row it is application.
+def Effect.bindIn [a b: Type]: (row: Row) -> CompIn row a -> (a -> CompIn row b) -> CompIn row b
+  | Empty, computation, next => next computation
+  | Ops op res, computation, next => bind computation next
+
+-- A computation in `{e}` as a tree, to move into a row with abilities.
+def Effect.liftIn [a: Type]: (row: Row) -> CompIn row a -> Comp (rowOp row) (rowRes row) a
+  | Empty, value => Done value
+  | Ops op res, computation => computation
+
+-- The converse: what a handler whose remaining row is `{e}` ends with.
+def Effect.lowerIn [a: Type]: (row: Row) -> Comp (rowOp row) (rowRes row) a -> CompIn row a
+  | Empty, computation => runPure computation
+  | Ops op res, computation => computation
 
 -- Laws of computations (docs/proposals/effect-polymorphism.md, "Proof
 -- tooling"). A computation passed where a `Comp` is expected is passed as it

@@ -2,7 +2,7 @@
 
 Status: design note and literature review, revised after external review,
 24 Oct 2026. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
-§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices). The two experiments before this note are in
+§7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices), and the first part of stage 1 ("As built (stage 1, first part)"), which leaves D1133 and D1134 as options for the owner. The two experiments before this note are in
 [effectful-map.md](effectful-map.md).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
@@ -1683,6 +1683,203 @@ written `Done` seen as `Done` and a stuck call that computes to `Done`, plus
 `examples/reject/effect-pass-*.sw` has one file per path where an arbitrary
 computation would have been `Done`: direct, stuck (probe 4), piped, dot,
 field, named field, named argument, record, list, tuple, identity.
+
+## As built (stage 1, first part)
+
+SW-406, 24 Oct 2026. Design C's row-indexed computation type, the internal
+row boundary, and inferring rows. `List.mapIn` isn't folded into
+`List.map` yet (stage 3).
+
+**Library** (`core/Effect.sw`). `Effect.Sig`, `MkSig`, `sigOp` and
+`sigRes` are gone. In their place, after `runPure`:
+
+```
+type Effect.Row: Type 1 =
+  | Empty
+  | Ops (op: Type) (res: op -> Type)
+```
+
+with `rowOp`, `rowRes` (`rowOp Empty` is `NoOp`), `CompIn` (`CompIn Empty
+a` is `a`, `CompIn (Ops op res) a` is `Comp op res a`), `doneIn`, `bindIn`,
+`liftIn` (`Done` at `Empty`) and `lowerIn` (`runPure` at `Empty`), each by
+cases on the row, as in §5.C. They are registry built-ins (`Builtin::Row`,
+`RowEmpty`, `RowOps`, `RowOp`, `RowRes`, `CompIn`, `DoneIn`, `BindIn`,
+`LiftIn`, `LowerIn`), which replace `Sig`, `SigOp` and `SigRes`. The
+printer shows `CompIn e a` as `{e} a`.
+
+**Types.** A row variable `e` has type `Row`. `{A | e}` is a `Comp` whose
+operations end in `rowOp e`, as before with `sigOp`. A bare `{e} a` is
+`CompIn e a` (`effects::comp_type`); `comp_parts` reads a `CompIn` stuck on
+its row as the bare row `{e}`. A row with abilities, or a closed one, is a
+`Comp` as before. So at the empty row a function of type `a -> {e} b` is a
+function of type `a -> b`.
+
+**Computation mode in a bare row.** `done` writes `doneIn e v`, and
+`sequence`, `wrap` and an operation's argument use `bindIn e`
+(`effects::bind_term`). `lift`, moving a computation of a callee's row
+into the current one:
+
+- from a bare `{f}` whose `f` turned out `Empty`: the value is plain; it
+  becomes `done` in the current row, and at the empty row `in_place` takes
+  the value out of that `Done` again, so a pure call of `mapIn` is just
+  `List.mapIn [Empty] …`, with no `runPure`;
+- from a bare `{f}` into a row with abilities, or a partial one: `liftIn f`
+  first, then `translate` (and `lift` into `Delay`) as before;
+- into a bare `{e}` from a row that isn't the same bare row (a hand-written
+  `Comp NoOp NoRes a`, say): `translate`, then `lowerIn e`.
+
+A handler whose remaining row is a bare `{e}` forwards an operation as
+`lowerIn e (Call (sigInject m o) (y => liftIn e (k (sigReply m o y))))`,
+since its clauses' results are `CompIn e t`.
+
+Canonical rows: `effects::row_value` writes `Empty` for the empty row, the
+row variable itself for a bare `{f}`, and `Ops (ops row) (res row)` only for
+a row with at least one ability. `solve_tail` and `extend_with` use it, and
+the unifier's rule (below) never makes `Ops NoOp NoRes`.
+
+**Inferring rows (D1123, D1124).** `unify::row_rule`, a case of
+`unify_step`, applies when one side is `CompIn ?e B` for an unsolved,
+unfrozen row unknown and the other side is neither an unknown nor another
+`CompIn` (those keep the ordinary rules: `?T := CompIn ?e B`, and the
+spine rule). After forcing the other side `T`:
+
+| `T` | Result |
+|---|---|
+| a data type other than `Comp`, a function type, a sort, an equation, a type variable, a quotient, an opaque primitive | `?e := Empty`, then `B ≟ T` |
+| `Comp op res A`, `op` headed by `Plus` | `?e := Ops op res`, then `B ≟ A` |
+| `Comp NoOp NoRes A` | `?e := Empty`, then `B ≟ T` (data) |
+| `Delay …` | no: a row variable never stands for `Partial`, so the partial-callback error is unchanged |
+| a definition stuck on an unknown or a variable, or a `Comp` whose operations are stuck | blocked |
+
+A blocked comparison fails, except under `unify::unify_postponing`, which
+`check::compare` calls after the other fallbacks (instances, `coerce`)
+fail. It records the blocked pairs (`unify::RowConstraint`, with their
+level) and succeeds; `compare` keeps them (`rows::postpone`) and accepts
+the term. Kept comparisons are retried in the rounds of `solve_obligations`
+(`Elaborator::retry_rows`: both sides read back and evaluated again, so a
+definition stuck on an unknown solved since takes its step); settling one
+is progress. At the end of a declaration, `Elaborator::settle_rows` (called
+from `finish`) retries them until nothing changes, then defaults: every row
+unknown made for an implicit parameter of type `Row`
+(`check::implicit_arg` notes them, `rows::note_row_meta`) that is still
+unsolved is set to `Empty`; then the obligations and the comparisons are
+retried, and a comparison still put aside is reported as a mismatch. Both
+lists are part of the undo snapshot and are cleared with the metavariables.
+
+The SW-393 coercion (`coerce`, a pure function where an effectful one is
+expected) still runs, for a rigid row variable (`f: a -> b` passed where
+`a -> {e} b` is expected inside a definition with its own `e`: `doneIn e`
+around the call) and for rows with abilities (`Done` around it). For an
+unknown bare row the unifier now settles it first.
+
+**The boundary (D1122).** `Elaborator::resolve` doesn't find
+`Row.Empty`, `Row.Ops`, `rowOp`, `rowRes`, `CompIn`, `doneIn`, `bindIn`,
+`liftIn` or `lowerIn` outside the library (`loading_prelude`), and
+`unknown` reports such a name as `E-INTERNAL`. One change from D1122 as
+written: the *type* `Effect.Row` can be named by programs. A program needs
+it to declare a type with a row parameter (`type Handlers (e: Row)` in
+`examples/accept/partial.sw` and `crates/driver/tests/partial.rs`, which
+named `Effect.Sig` before). Without the constructors and eliminators a
+`Row` value can only be passed on, so parametricity holds. An import of an
+internal name is accepted; using it isn't.
+
+**Tests.** `examples/accept/effect-rows.sw`: probe 5's three theorems with
+`List.mapIn` in place of `mapR`, by the same proofs, and one definition and
+test per row of the worked-examples table (§5.C.1): `Nat`, `List a`, a
+function type, a record, a result type found later, a type that becomes a
+`Comp` only once an unknown is solved (`Answer ?flag`, solved by the list
+after the callback: put aside, then effectful in `Log`; the same with
+`False`: pure), an effectful callback, a dependent result type (`Vec Nat
+3`), a type family stuck on a variable (`Cell x` through a dependent
+`applyDep`), and a row-polymorphic callback, pure and effectful.
+`examples/reject/row-internal-constructor.sw` (`Effect.Row.Empty` in
+`[e := …]`), `row-internal-inspect.sw` (`Effect.rowOp`) and
+`row-internal-match.sw` (matching on `Empty`/`Ops`) are `E-INTERNAL`; the
+old `row-tail-repeats-ability.sw` (a hand-built `Sig` repeating an ability)
+is now that first file, since a program can't build a row at all.
+`crates/driver/tests/empty_row_kernel.rs` gained
+`a_pure_use_of_an_effect_polymorphic_function_has_no_computation` (no
+`Comp`, `Done`, `runPure` or `Ops` in the term, an `Empty` row present, and
+`{}` is no row), and the handler-equation test now expects no `runPure`.
+In std, `List.mapInPure` is now `List.mapIn f xs = List.map f xs` with
+`map`'s proof, and `List.lengthMapIn` is `List.lengthMap`'s proof.
+
+**D1133 and D1134: options, not built.** Both turned out to need a
+language-design choice, so they are written up here and stop for a
+decision.
+
+*D1133: equation operands and branches whose type is a computation.* Under
+C the question only concerns `Comp` types written by hand at the empty row
+(`Comp NoOp NoRes a`) and computations over abilities given as values (a
+`{Fail} b` binder, D1134). A bare row is settled by unification: `List.mapIn
+f xs = List.map f xs` already compares `CompIn ?e (List b)` with `List b`
+and picks `Empty`. But D1134 makes the question real: with a binder
+`c: {Fail} b`, `c = Done x` or `Fail.toResult (() => c) = …` must not run
+`c` in place (in a pure context that is `E-ABILITY`).
+
+- (a) **[Recommended]** A part whose own type is a computation type is
+  passed where it's written: an operand of `=` (the other side is checked
+  against its type), and each branch of an `if` or `match` checked against a
+  `Comp` type that was written as one (the expected type of a check, not
+  the computation mode of an enclosing effectful body). This extends stage
+  0's rule from places to values. It changes the reading of an equation
+  between `Comp NoOp NoRes` computations stated at that concrete row (std
+  has none: `Effect/Laws.sw` states its laws at a general row), and of an
+  `if` checked against such a type (`if b then c else d` is no longer `Done
+  (if b then runPure c else runPure d)`). Over a row with abilities it only
+  accepts what's refused today.
+- (b) Keep stage 0's behaviour: state such laws at a general row or with
+  `runPure` on both sides, and state SW-378's lemma about thunks (`() ->
+  {Fail} b`) with handlers applied to them, never about a computation as a
+  value. Nothing changes, but `Fail.toResultMapIn`'s case split (§ "As built
+  (stage 0)") stays unstatable.
+- (c) Only `=`, not branches.
+
+*D1134: writing a computation type as a binder's type.* `{Fail} b` is
+parsed only after `->`; elsewhere `{` starts a record literal or update, so
+`(c: {Fail} b)` is a parse error ("expected `|` and the fields to update").
+
+- (a) **[Recommended]** `{A, B | e} T` is a type wherever a type is written:
+  binder and `let` annotations, type arguments, constructor fields, and a
+  definition's result. The parser tells it from a record by its contents: a
+  row lists abilities (names applied to arguments, a `| e` tail) and has no
+  `=` before its closing `}`, and is followed by a type. `effect_type`
+  already elaborates `Expr::Effect` wherever a type is checked, so the
+  elaborator needs nothing new; `{e} b` as a binder's type is `CompIn e b`,
+  whose constructors stay internal, so a program can pass such a value or
+  sequence it but not match on it unless the row is concrete.
+- (b) Only in binder annotations (`(c: {Fail} b)`, `[c: …]`, `let c: … :=`),
+  where nothing else can start with `{`.
+- (c) No new syntax; SW-378's lemma is stated about a thunk and proved with a
+  helper whose parameter is written as `Comp` with the ability's types read
+  off a function (as `opsOf`/`resOf` did in the old reject example).
+
+(a) of D1134 needs (a) or (c) of D1133 to be useful for SW-378.
+
+**Remaining for stage 1** (a follow-on lane):
+
+1. D1133 and D1134, once decided (parser and `may_perform` changes), then
+   `Fail.toResultMapIn` (SW-378).
+2. Share the apartness classification with the instance search's
+   `rigidly_distinct` (`interfaces.rs`), as §5.C.1 asked; `row_rule` has its
+   own copy.
+3. A callback checked by eta-expansion (a lambda, or a variable of function
+   type checked against `a -> {e} b`) has its body checked in the row
+   `{?e}`'s computation mode, where a pure body of type `T` is compared with
+   `B`, not `CompIn ?e B`, so `row_rule` doesn't see it. Where no row fits
+   (`examples/reject/row-stuck-callback.sw`) that gives the right error;
+   whether it ever refuses a program that has a row hasn't been looked into.
+4. Speed is unchanged (design E, stage 2): unspecialised code passes
+   `{ tag: "Empty" }` and dispatches in `doneIn`/`bindIn`, as probe 6's
+   `mapR` did.
+
+Done since (same lane): the note on an error after defaulting. `default_rows`
+returns where each defaulted row unknown was made, and an error found after
+defaulting (by the obligations or the comparisons retried, or a comparison
+still put aside) gets a label on that call, "the row of this call was set to
+the empty row", and a note saying why
+(`examples/reject/row-defaulted.sw`). Unit tests of `row_rule`, one per row
+of its table, against `unify` and `unify_postponing` (`rows.rs`, `tests`).
 
 ## Appendix A. Probe files
 

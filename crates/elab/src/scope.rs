@@ -556,7 +556,46 @@ impl Elaborator {
     }
 
     /// What a written name means, apart from local variables (the caller's).
+    /// Outside the library, the library-internal declarations
+    /// ([`Elaborator::is_internal`]) aren't found.
     pub(crate) fn resolve(&self, written: &str) -> Resolved<'_> {
+        match self.resolve_any(written) {
+            Resolved::Found { global, .. } if !self.loading_prelude && self.is_internal(global) => {
+                Resolved::Missing
+            }
+            found => found,
+        }
+    }
+
+    /// Whether `global` may be named only in the library: the constructors
+    /// of `Effect.Row` and the definitions that take a row apart, so that a
+    /// program can't build, inspect or compare rows, and effect polymorphism
+    /// stays parametric (docs/proposals/effect-polymorphism.md §5.C.2,
+    /// D1122). The type `Effect.Row` itself can be named, to declare a type
+    /// with a row parameter: without its constructors nothing can be done
+    /// with a row but pass it on.
+    pub(crate) fn is_internal(&self, global: Global) -> bool {
+        use stitchwort_core::registry::Builtin;
+        let registry = &self.globals.registry;
+        match global {
+            Global::Ctor(d, _) => registry.is_data(Builtin::Row, d),
+            Global::Def(id) => [
+                Builtin::RowOp,
+                Builtin::RowRes,
+                Builtin::CompIn,
+                Builtin::DoneIn,
+                Builtin::BindIn,
+                Builtin::LiftIn,
+                Builtin::LowerIn,
+            ]
+            .into_iter()
+            .any(|b| registry.is_def(b, id)),
+            _ => false,
+        }
+    }
+
+    /// [`Elaborator::resolve`], finding library-internal declarations too.
+    fn resolve_any(&self, written: &str) -> Resolved<'_> {
         // A name the compiler wrote for a declaration it has already found
         // (a shared-field update's constructors): exactly that key.
         if let Some(key) = written.strip_prefix(EXACT_KEY) {
@@ -1074,6 +1113,20 @@ impl Elaborator {
     /// `E-UNKNOWN-NAME`, with the library's declarations of that short name
     /// as suggestions.
     pub(crate) fn unknown(&self, name: &ast::Name) -> Diagnostic {
+        if let Resolved::Found { global, key, .. } = self.resolve_any(&name.text)
+            && !self.loading_prelude
+            && self.is_internal(global)
+        {
+            return Diagnostic::error(
+                "E-INTERNAL",
+                format!("`{}` is internal to the standard library", display(key)),
+            )
+            .with_label(name.span, "only the standard library can name this")
+            .with_note(
+                "rows are made by the compiler from `{e}` and `{A | e}` in types; a program \
+                 can pass a row variable on, but not build or inspect a row",
+            );
+        }
         if let Some(context) = &self.file_mode
             && name.text.contains('.')
             && let Some(d) = context.diagnostic(&name.text, name.span)
