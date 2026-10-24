@@ -744,7 +744,7 @@ define(info$Main$dLocated, [
   ["At", [["path", TEXT], ["x", CHAR], ["inside", list(CHAR)]]],
 ]);
 
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -755,7 +755,7 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {
     case "MkPair": {
@@ -766,7 +766,7 @@ const $Std$dPair$dfst = (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dreverseOnto = (v1) => (v2) => {
+const $Std$dList$dreverseOnto = (v1, v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
     const v1 = s1, v2 = s2;
@@ -796,7 +796,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -807,8 +807,8 @@ const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Std$dBool$ddecEq = (v0) => (v1) => {
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dBool$ddecEq = (v0, v1) => {
   switch (v0.tag) {
     case "False": {
       switch (v1.tag) {
@@ -835,7 +835,7 @@ const $Std$dBool$ddecEq = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$disScalar = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(55296n)(v0))(((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0)(57343n))(((v2) => ({ tag: "False" })))(((v2) => $Std$dNat$dleq(v0)(1114111n)))))(((v1) => ({ tag: "True" })));
+const $Std$dChar$disScalar = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(55296n, v0), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, 57343n), ((v2) => ({ tag: "False" })), ((v2) => $Std$dNat$dleq(v0, 1114111n)))), ((v1) => ({ tag: "True" })));
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
@@ -845,8 +845,8 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1)({ tag: "True" })))($Std$dChar$disScalar(v0)))(((v1) => ({ tag: "Some", value: { tag: "MkChar", code: v0 } })))(((v1) => ({ tag: "None" })));
-const $Std$dChar$ddecEqFrom = (v0) => (v1) => (v2) => {
+const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1, { tag: "True" })))($Std$dChar$disScalar(v0)), ((v1) => ({ tag: "Some", value: { tag: "MkChar", code: v0 } })), ((v1) => ({ tag: "None" })));
+const $Std$dChar$ddecEqFrom = (v0, v1, v2) => {
   switch (v2.tag) {
     case "Yes": {
       return { tag: "Yes" };
@@ -857,12 +857,12 @@ const $Std$dChar$ddecEqFrom = (v0) => (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$ddecEq = (v0) => (v1) => $Std$dChar$ddecEqFrom(v0)(v1)($Std$dNat$ddecEq($Std$dChar$dtoNat(v0))($Std$dChar$dtoNat(v1)));
+const $Std$dChar$ddecEq = (v0, v1) => $Std$dChar$ddecEqFrom(v0, v1, $Std$dNat$ddecEq($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1)));
 const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dfromList = textOfChars;
-const $Std$dText$dappend = (a) => (b) => a + b;
-const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
-const $Std$dText$dcompare = (a) => (b) => {
+const $Std$dText$dappend = (a, b) => a + b;
+const $Std$dText$ddecEq = (a, b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dText$dcompare = (a, b) => {
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
     if (a.charCodeAt(i) !== b.charCodeAt(i)) {
@@ -901,7 +901,7 @@ const $Std$dText$duncons = (t) => {
   const c = { tag: "MkChar", code: BigInt(code) };
   return { tag: "Some", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
 };
-const $Std$dText$dfold = (f) => (z) => (t) => {
+const $Std$dText$dfold = (f, z, t) => {
   let acc = z;
   for (let i = t.length - 1; i >= 0; i--) {
     const code = scalarEndingAt(t, i);
@@ -926,14 +926,14 @@ const $Std$dText$dtoNat = (t) => {
   }
   return { tag: "Some", value: BigInt(t) };
 };
-const $Std$dText$dsplit = (s) => (t) => listOf(t.split(encodeChar(s)));
-const $Std$dText$djoin = (s) => (ts) => {
+const $Std$dText$dsplit = (s, t) => listOf(t.split(encodeChar(s)));
+const $Std$dText$djoin = (s, ts) => {
   const parts = [];
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
   return parts.join(encodeChar(s));
 };
-const $Std$dText$dless = (v0) => (v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0)(v1));
-const $Std$dText$dtake = (n) => (t) => {
+const $Std$dText$dless = (v0, v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0, v1));
+const $Std$dText$dtake = (n, t) => {
   if (n >= BigInt(t.length)) return t;
   const count = Number(n);
   let i = 0;
@@ -943,7 +943,7 @@ const $Std$dText$dtake = (n) => (t) => {
   }
   return t.slice(0, i);
 };
-const $Std$dText$ddrop = (n) => (t) => {
+const $Std$dText$ddrop = (n, t) => {
   if (n >= BigInt(t.length)) return "";
   const count = Number(n);
   let i = 0;
@@ -953,7 +953,7 @@ const $Std$dText$ddrop = (n) => (t) => {
   }
   return t.slice(i);
 };
-const $Std$dText$dcontains = (needle) => (t) => ({ tag: t.includes(needle) ? "True" : "False" });
+const $Std$dText$dcontains = (needle, t) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Main$dlen = (v0) => $Std$dText$dlength(v0);
 const $Main$dchars = (v0) => $Std$dText$dtoList(v0);
 const $Main$dfromChars = (v0) => $Std$dText$dfromList(v0);
@@ -961,20 +961,20 @@ const $Main$decho = (v0) => v0;
 const $Main$dechoChar = (v0) => v0;
 const $Main$dcodeOf = (v0) => $Std$dChar$dtoNat(v0);
 const $Main$dcharOf = (v0) => $Std$dChar$dfromNat(v0);
-const $Main$dsame = (v0) => (v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0)(v1));
-const $Main$dorder = (v0) => (v1) => $Std$dText$dcompare(v0)(v1);
-const $Main$djoin = (v0) => (v1) => $Std$dText$dappend(v0)(v1);
-const $Main$dsplit = (v0) => (v1) => $Std$dText$dsplit(v0)(v1);
-const $Main$djoinOn = (v0) => (v1) => $Std$dText$djoin(v0)(v1);
+const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));
+const $Main$dorder = (v0, v1) => $Std$dText$dcompare(v0, v1);
+const $Main$djoin = (v0, v1) => $Std$dText$dappend(v0, v1);
+const $Main$dsplit = (v0, v1) => $Std$dText$dsplit(v0, v1);
+const $Main$djoinOn = (v0, v1) => $Std$dText$djoin(v0, v1);
 const $Main$dtrim = (v0) => $Std$dText$dtrim(v0);
 const $Main$dtoNat = (v0) => $Std$dText$dtoNat(v0);
 const $Main$dfromNat = (v0) => $Std$dNat$dtoText(v0);
 const $Main$duncons = (v0) => $Std$dText$duncons(v0);
-const $Main$dtake = (v0) => (v1) => $Std$dText$dtake(v0)(v1);
-const $Main$ddrop = (v0) => (v1) => $Std$dText$ddrop(v0)(v1);
-const $Main$dcontains = (v0) => (v1) => $Std$dText$dcontains(v0)(v1);
-const $Main$dreverse = (v0) => $Std$dText$dfromList($Std$dList$dreverseOnto($Std$dText$dtoList(v0))({ tag: "Nil" }));
-const $Main$dcountIn = (v0) => (v1) => {
+const $Main$dtake = (v0, v1) => $Std$dText$dtake(v0, v1);
+const $Main$ddrop = (v0, v1) => $Std$dText$ddrop(v0, v1);
+const $Main$dcontains = (v0, v1) => $Std$dText$dcontains(v0, v1);
+const $Main$dreverse = (v0) => $Std$dText$dfromList($Std$dList$dreverseOnto($Std$dText$dtoList(v0), { tag: "Nil" }));
+const $Main$dcountIn = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -985,8 +985,8 @@ const $Main$dcountIn = (v0) => (v1) => {
       case "Cons": {
         const v2 = v1.head;
         const v3 = v1.tail;
-        if ($Std$dDecidable$dtoBool($Std$dChar$ddecEq(v0)(v2)).tag === "True") {
-          return ($Main$dcountIn(v0)(v3) + 1n);
+        if ($Std$dDecidable$dtoBool($Std$dChar$ddecEq(v0, v2)).tag === "True") {
+          return ($Main$dcountIn(v0, v3) + 1n);
         } else {
           s0 = v0;
           s1 = v3;
@@ -997,14 +997,14 @@ const $Main$dcountIn = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dcountChar = (v0) => (v1) => $Main$dcountIn(v0)($Std$dText$dtoList(v1));
+const $Main$dcountChar = (v0, v1) => $Main$dcountIn(v0, $Std$dText$dtoList(v1));
 const $Main$dgreet = (v0) => {
   switch (v0.tag) {
     case "MkPerson": {
       const v1 = v0.name;
       const v2 = v0.initial;
       const v3 = v0.tags;
-      return $Std$dText$dappend("Hello, ")($Std$dText$dappend(v1)($Std$dText$dappend(" (")($Std$dText$dappend($Std$dText$dfromList({ tag: "Cons", head: v2, tail: { tag: "Nil" } }))(")"))));
+      return $Std$dText$dappend("Hello, ", $Std$dText$dappend(v1, $Std$dText$dappend(" (", $Std$dText$dappend($Std$dText$dfromList({ tag: "Cons", head: v2, tail: { tag: "Nil" } }), ")"))));
     }
   }
   throw new Error("unreachable");
@@ -1040,7 +1040,7 @@ const $Main$dinitialsOf = (v0) => {
   }
 };
 const $Main$dinitials = (v0) => $Main$dinitialsOf(v0);
-const $Main$drename = (v0) => (v1) => {
+const $Main$drename = (v0, v1) => {
   switch (v1.tag) {
     case "MkPerson": {
       const v2 = v1.name;
@@ -1070,15 +1070,15 @@ const $Main$dlocated = (v0) => {
       const v1 = v0.path;
       const v2 = v0.x;
       const v3 = v0.inside;
-      return { tag: "At", path: $Std$dText$dappend(v1)("/"), x: v2, inside: { tag: "Cons", head: v2, tail: v3 } };
+      return { tag: "At", path: $Std$dText$dappend(v1, "/"), x: v2, inside: { tag: "Cons", head: v2, tail: v3 } };
     }
   }
   throw new Error("unreachable");
 };
 const $Main$dempty = (v0) => $Std$dText$disEmpty(v0);
-const $Main$dless = (v0) => (v1) => $Std$dText$dless(v0)(v1);
-const $Main$dcodes = (v0) => $Std$dText$dfold(((v1) => ((v2) => ({ tag: "Cons", head: $Std$dChar$dtoNat(v1), tail: v2 }))))({ tag: "Nil" })(v0);
-const $Main$dmapList = (v2) => (v3) => {
+const $Main$dless = (v0, v1) => $Std$dText$dless(v0, v1);
+const $Main$dcodes = (v0) => $Std$dText$dfold(((v1) => ((v2) => ({ tag: "Cons", head: $Std$dChar$dtoNat(v1), tail: v2 }))), { tag: "Nil" }, v0);
+const $Main$dmapList = (v2, v3) => {
   let s2 = v2, s3 = v3;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1101,9 +1101,9 @@ const $Main$dmapList = (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dlengths = (v0) => $Main$dmapList($Std$dText$dlength)(v0);
-const $Main$dtexts = (v0) => $Main$dmapList(((v1) => textOfChars(v1)))(v0);
-const $Main$dprefixAll = (v0) => $Main$dmapList($Std$dText$dappend("pre"))(v0);
+const $Main$dlengths = (v0) => $Main$dmapList($Std$dText$dlength, v0);
+const $Main$dtexts = (v0) => $Main$dmapList(((v1) => textOfChars(v1)), v0);
+const $Main$dprefixAll = (v0) => $Main$dmapList((($s0) => (($p1) => $Std$dText$dappend($s0, $p1)))("pre"), v0);
 const $Main$dfirstOfList = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -1117,7 +1117,7 @@ const $Main$dfirstOfList = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dfirstField = (v0) => (v1) => $Main$dfirstOfList($Std$dText$dsplit(v0)(v1));
+const $Main$dfirstField = (v0, v1) => $Main$dfirstOfList($Std$dText$dsplit(v0, v1));
 const $Main$dleadingChar = (v0) => {
   const v1 = charsOfText(v0);
   switch (v1.tag) {
@@ -1204,7 +1204,7 @@ function $$same(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$10, ty$6, $Main$dsame(v0)(v1));
+    return encodeFast(enc$10, ty$6, $Main$dsame(v0, v1));
   } catch (e) {
     throw outOfResources("same", e);
   }
@@ -1214,7 +1214,7 @@ function $$order(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$11, ty$7, $Main$dorder(v0)(v1));
+    return encodeFast(enc$11, ty$7, $Main$dorder(v0, v1));
   } catch (e) {
     throw outOfResources("order", e);
   }
@@ -1224,7 +1224,7 @@ function $$join(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$5, ty$1, $Main$djoin(v0)(v1));
+    return encodeFast(enc$5, ty$1, $Main$djoin(v0, v1));
   } catch (e) {
     throw outOfResources("join", e);
   }
@@ -1234,7 +1234,7 @@ function $$split(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$6, ty$4, arg0, "c");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$12, ty$8, $Main$dsplit(v0)(v1));
+    return encodeFast(enc$12, ty$8, $Main$dsplit(v0, v1));
   } catch (e) {
     throw outOfResources("split", e);
   }
@@ -1244,7 +1244,7 @@ function $$joinOn(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$6, ty$4, arg0, "c");
     const v1 = decodeFast(dec$13, ty$8, arg1, "ts");
-    return encodeFast(enc$5, ty$1, $Main$djoinOn(v0)(v1));
+    return encodeFast(enc$5, ty$1, $Main$djoinOn(v0, v1));
   } catch (e) {
     throw outOfResources("joinOn", e);
   }
@@ -1290,7 +1290,7 @@ function $$take(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$8, ty$2, arg0, "n");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$5, ty$1, $Main$dtake(v0)(v1));
+    return encodeFast(enc$5, ty$1, $Main$dtake(v0, v1));
   } catch (e) {
     throw outOfResources("take", e);
   }
@@ -1300,7 +1300,7 @@ function $$drop(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$8, ty$2, arg0, "n");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$5, ty$1, $Main$ddrop(v0)(v1));
+    return encodeFast(enc$5, ty$1, $Main$ddrop(v0, v1));
   } catch (e) {
     throw outOfResources("drop", e);
   }
@@ -1310,7 +1310,7 @@ function $$contains(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "needle");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$10, ty$6, $Main$dcontains(v0)(v1));
+    return encodeFast(enc$10, ty$6, $Main$dcontains(v0, v1));
   } catch (e) {
     throw outOfResources("contains", e);
   }
@@ -1329,7 +1329,7 @@ function $$countChar(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$6, ty$4, arg0, "c");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$2, ty$2, $Main$dcountChar(v0)(v1));
+    return encodeFast(enc$2, ty$2, $Main$dcountChar(v0, v1));
   } catch (e) {
     throw outOfResources("countChar", e);
   }
@@ -1357,7 +1357,7 @@ function $$rename(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "n");
     const v1 = decodeFast(dec$17, ty$11, arg1, "arg1");
-    return encodeFast(enc$19, ty$11, $Main$drename(v0)(v1));
+    return encodeFast(enc$19, ty$11, $Main$drename(v0, v1));
   } catch (e) {
     throw outOfResources("rename", e);
   }
@@ -1403,7 +1403,7 @@ function $$less(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$10, ty$6, $Main$dless(v0)(v1));
+    return encodeFast(enc$10, ty$6, $Main$dless(v0, v1));
   } catch (e) {
     throw outOfResources("less", e);
   }
@@ -1449,7 +1449,7 @@ function $$firstField(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$6, ty$4, arg0, "c");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$5, ty$1, $Main$dfirstField(v0)(v1));
+    return encodeFast(enc$5, ty$1, $Main$dfirstField(v0, v1));
   } catch (e) {
     throw outOfResources("firstField", e);
   }

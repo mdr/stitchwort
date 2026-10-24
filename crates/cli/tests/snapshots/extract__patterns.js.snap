@@ -720,8 +720,8 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dmul = (m) => (n) => m * n;
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dmul = (m, n) => m * n;
 const $Std$dList$dlength = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -746,7 +746,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
 const $Main$dhalf = (v0) => {
   if (v0 === 0n) {
     return 0n;
@@ -769,7 +769,7 @@ const $Main$dfib = (v0) => {
       return 1n;
     } else {
       const v2 = v1 - 1n;
-      return $Std$dNat$dadd($Main$dfib(v2))($Main$dfib((v2 + 1n)));
+      return $Std$dNat$dadd($Main$dfib(v2), $Main$dfib((v2 + 1n)));
     }
   }
 };
@@ -817,8 +817,8 @@ const $Main$ddescribe = (v0) => {
   }
   return v0;
 };
-const $Main$dsameLength = (v0) => (v1) => (((v2) => ((v3) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2)(v3)))))($Std$dList$dlength(v0))($Std$dList$dlength(v1));
-const $Main$dbigEqual = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1)(v2)))))($Std$dNat$dmul(v0)(2n))($Std$dNat$dadd(v0)(v0));
+const $Main$dsameLength = (v0, v1) => (((v2) => ((v3) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2, v3)))))($Std$dList$dlength(v0))($Std$dList$dlength(v1));
+const $Main$dbigEqual = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1, v2)))))($Std$dNat$dmul(v0, 2n))($Std$dNat$dadd(v0, v0));
 
 function $$half(arg0) {
   try {
@@ -860,7 +860,7 @@ function $$sameLength(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$3, ty$2, arg0, "xs");
     const v1 = decodeFast(dec$3, ty$2, arg1, "ys");
-    return encodeFast(enc$4, ty$3, $Main$dsameLength(v0)(v1));
+    return encodeFast(enc$4, ty$3, $Main$dsameLength(v0, v1));
   } catch (e) {
     throw outOfResources("sameLength", e);
   }

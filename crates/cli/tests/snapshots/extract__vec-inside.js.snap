@@ -720,7 +720,7 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dList$dlength = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -746,8 +746,8 @@ const $Std$dAdd$d$gadd = (v1) => {
 };
 const $Std$dAdd$dzero = (v1) => $Std$dAdd$d$gzero(v1);
 const $Std$dAdd$dadd = (v1) => $Std$dAdd$d$gadd(v1);
-const $Std$dNat$dinstAdd = { zero: 0n, add: $Std$dNat$dadd };
-const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
+const $Std$dNat$dinstAdd = { zero: 0n, add: ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)) };
+const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -767,7 +767,7 @@ const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsum = (v1) => (v2) => $Std$dList$dfoldLeft($Std$dAdd$dadd(v1))($Std$dAdd$dzero(v1))(v2);
+const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft($Std$dAdd$dadd(v1), $Std$dAdd$dzero(v1), v2);
 const $Main$dfromList = (v1) => {
   let s1 = v1;
   let h$ = null, l$ = null, k$ = null;
@@ -790,7 +790,7 @@ const $Main$dfromList = (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dhead = (v1) => (v2) => {
+const $Main$dhead = (v1, v2) => {
   switch (v2.tag) {
     case "VNil": {
       throw new Error("unreachable");
@@ -804,7 +804,7 @@ const $Main$dhead = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dzipWith = (v3) => (v4) => (v5) => (v6) => {
+const $Main$dzipWith = (v3, v4, v5, v6) => {
   let s3 = v3, s4 = v4, s5 = v5, s6 = v6;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -852,7 +852,7 @@ const $Main$dzipWith = (v3) => (v4) => (v5) => (v6) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dtoList = (v1) => (v2) => {
+const $Main$dtoList = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -876,7 +876,7 @@ const $Main$dtoList = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dfirstOr = (v0) => (v1) => {
+const $Main$dfirstOr = (v0, v1) => {
   switch (v1.tag) {
     case "Nil": {
       return v0;
@@ -884,18 +884,18 @@ const $Main$dfirstOr = (v0) => (v1) => {
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
-      return $Main$dhead($Std$dList$dlength(v3))($Main$dfromList({ tag: "Cons", head: v2, tail: v3 }));
+      return $Main$dhead($Std$dList$dlength(v3), $Main$dfromList({ tag: "Cons", head: v2, tail: v3 }));
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dsumPairs = (v0) => $Std$dList$dsum($Std$dNat$dinstAdd)($Main$dtoList($Std$dList$dlength(v0))($Main$dzipWith($Std$dList$dlength(v0))(((v1) => ((v2) => $Std$dNat$dadd(v1)(v2))))($Main$dfromList(v0))($Main$dfromList(v0))));
+const $Main$dsumPairs = (v0) => $Std$dList$dsum($Std$dNat$dinstAdd, $Main$dtoList($Std$dList$dlength(v0), $Main$dzipWith($Std$dList$dlength(v0), ((v1) => ((v2) => $Std$dNat$dadd(v1, v2))), $Main$dfromList(v0), $Main$dfromList(v0))));
 
 function $$firstOr(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
     const v1 = decodeFast(dec$2, ty$2, arg1, "arg1");
-    return encodeFast(enc$3, ty$1, $Main$dfirstOr(v0)(v1));
+    return encodeFast(enc$3, ty$1, $Main$dfirstOr(v0, v1));
   } catch (e) {
     throw outOfResources("firstOr", e);
   }
@@ -946,5 +946,9 @@ function dec$2(x) {
 function enc$3(v) {
   return NAT.enc(v);
 }
+
+// Definitions used as values, taking their arguments one at a time, each
+// made at its first use.
+var $Std$dNat$dadd$c;
 
 export { $$firstOr as firstOr, $$sumPairs as sumPairs };

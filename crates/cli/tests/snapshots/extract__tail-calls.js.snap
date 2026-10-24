@@ -730,8 +730,8 @@ define(info$Std$dPair, [
   ["MkPair", [["fst", param(0)], ["snd", param(1)]]],
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -742,8 +742,8 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $Std$dNat$dequal = (m) => (n) => ({ tag: m === n ? "True" : "False" });
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -755,7 +755,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -777,11 +777,11 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
-const $Std$dNat$ddecLessThan = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n))(v1));
-const $Std$dNat$dcompare = (v0) => (v1) => $Std$dBool$difThenElse($Std$dNat$dequal(v0)(v1))(((v2) => ({ tag: "Equal" })))(((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v0)(v1))(((v3) => ({ tag: "Less" })))(((v3) => ({ tag: "Greater" })))));
-const $Std$dNat$dinstDecEq = $Std$dNat$ddecEq;
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, v1));
+const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n), v1));
+const $Std$dNat$dcompare = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dequal(v0, v1), ((v2) => ({ tag: "Equal" })), ((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, v1), ((v3) => ({ tag: "Less" })), ((v3) => ({ tag: "Greater" })))));
+const $Std$dNat$dinstDecEq = ($Std$dNat$ddecEq$c ??= ($p0) => ($p1) => $Std$dNat$ddecEq($p0, $p1));
 const $Std$dOrd$d$gcompare = (v1) => {
   const v2 = v1.eq;
   const v3 = v1.compare;
@@ -790,8 +790,8 @@ const $Std$dOrd$d$gcompare = (v1) => {
   return v3;
 };
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
-const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: $Std$dNat$dcompare, decLessThan: $Std$dNat$ddecLessThan, decLessEq: $Std$dNat$ddecLessEq };
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1)), decLessThan: ($Std$dNat$ddecLessThan$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessThan($p0, $p1)), decLessEq: ($Std$dNat$ddecLessEq$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessEq($p0, $p1)) };
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -814,7 +814,7 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$drangeFrom = (v0) => (v1) => {
+const $Std$dList$drangeFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -832,8 +832,8 @@ const $Std$dList$drangeFrom = (v0) => (v1) => {
     }
   }
 };
-const $Std$dList$drange = (v0) => $Std$dList$drangeFrom(v0)(0n);
-const $Main$dcountFrom = (v0) => (v1) => {
+const $Std$dList$drange = (v0) => $Std$dList$drangeFrom(v0, 0n);
+const $Main$dcountFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -841,29 +841,29 @@ const $Main$dcountFrom = (v0) => (v1) => {
       return v0;
     } else {
       const v2 = v1 - 1n;
-      if ($Std$dNat$ddecEq(v2)(7000000000n).tag === "Yes") {
+      if ($Std$dNat$ddecEq(v2, 7000000000n).tag === "Yes") {
         return v0;
       } else {
-        s0 = $Std$dNat$dadd(v0)(1n);
+        s0 = $Std$dNat$dadd(v0, 1n);
         s1 = v2;
         continue;
       }
     }
   }
 };
-const $Main$dcountDown = (v0) => $Main$dcountFrom(0n)(v0);
-const $Main$dfirstAbove$d$gmatch1 = (v0) => (v1) => (v2) => (v3) => {
+const $Main$dcountDown = (v0) => $Main$dcountFrom(0n, v0);
+const $Main$dfirstAbove$d$gmatch1 = (v0, v1, v2, v3) => {
   switch (v3.tag) {
     case "False": {
       return { tag: "Some", value: v1 };
     }
     case "True": {
-      return $Main$dfirstAbove(v0)(v2);
+      return $Main$dfirstAbove(v0, v2);
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dfirstAbove = (v0) => (v1) => {
+const $Main$dfirstAbove = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -877,7 +877,7 @@ const $Main$dfirstAbove = (v0) => (v1) => {
         const v4 = v0;
         const v5 = v2;
         const v6 = v3;
-        const v7 = $Std$dNat$dleq(v2)(v0);
+        const v7 = $Std$dNat$dleq(v2, v0);
         switch (v7.tag) {
           case "False": {
             return { tag: "Some", value: v5 };
@@ -894,22 +894,22 @@ const $Main$dfirstAbove = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dfirstOver = (v0) => (v1) => $Main$dfirstAbove(v0)(v1);
-const $Main$dlookupIn$d$gmatch1 = (v0) => (v1) => (v2) => (v3) => {
+const $Main$dfirstOver = (v0, v1) => $Main$dfirstAbove(v0, v1);
+const $Main$dlookupIn$d$gmatch1 = (v0, v1, v2, v3) => {
   switch (v3.tag) {
     case "Less": {
-      return $Main$dlookupIn(v0)(v2);
+      return $Main$dlookupIn(v0, v2);
     }
     case "Equal": {
       return { tag: "Some", value: v1 };
     }
     case "Greater": {
-      return $Main$dlookupIn(v0)(v2);
+      return $Main$dlookupIn(v0, v2);
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dlookupIn = (v0) => (v1) => {
+const $Main$dlookupIn = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -952,20 +952,20 @@ const $Main$dlookupIn = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dlookup = (v0) => (v1) => $Main$dlookupIn(v0)(v1);
-const $Main$dstepsFrom$d$gmatch1 = (v0) => (v1) => {
+const $Main$dlookup = (v0, v1) => $Main$dlookupIn(v0, v1);
+const $Main$dstepsFrom$d$gmatch1 = (v0, v1) => {
   if (v1 === 0n) {
     return v0;
   } else {
     const v2 = v1 - 1n;
-    return $Main$dstepsFrom($Std$dNat$dadd(v0)(1n))(v2);
+    return $Main$dstepsFrom($Std$dNat$dadd(v0, 1n), v2);
   }
 };
-const $Main$dstepsFrom = (v0) => (v1) => {
+const $Main$dstepsFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
-    if ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0)(7000000000n)).tag === "True") {
+    if ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 7000000000n)).tag === "True") {
       return v0;
     } else {
       const v3 = v0;
@@ -974,27 +974,27 @@ const $Main$dstepsFrom = (v0) => (v1) => {
         return v3;
       } else {
         const v5 = v4 - 1n;
-        s0 = $Std$dNat$dadd(v3)(1n);
+        s0 = $Std$dNat$dadd(v3, 1n);
         s1 = v5;
         continue;
       }
     }
   }
 };
-const $Main$dsteps = (v0) => $Main$dstepsFrom(0n)(v0);
-const $Main$dadders$d$gmatch1 = (v0) => (v1) => {
+const $Main$dsteps = (v0) => $Main$dstepsFrom(0n, v0);
+const $Main$dadders$d$gmatch1 = (v0, v1) => {
   if (v1 === 0n) {
     return v0;
   } else {
     const v2 = v1 - 1n;
-    return $Main$dadders({ tag: "Cons", head: ((v3) => $Std$dNat$dadd(v3)(v2)), tail: v0 })(v2);
+    return $Main$dadders({ tag: "Cons", head: ((v3) => $Std$dNat$dadd(v3, v2)), tail: v0 }, v2);
   }
 };
-const $Main$dadders = (v0) => (v1) => {
+const $Main$dadders = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
-    if ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1)(7000000000n)).tag === "True") {
+    if ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1, 7000000000n)).tag === "True") {
       return v0;
     } else {
       const v3 = v0;
@@ -1003,7 +1003,7 @@ const $Main$dadders = (v0) => (v1) => {
         return v3;
       } else {
         const v5 = v4 - 1n;
-        s0 = { tag: "Cons", head: ((v6) => $Std$dNat$dadd(v6)(v5)), tail: v3 };
+        s0 = { tag: "Cons", head: ((v6) => $Std$dNat$dadd(v6, v5)), tail: v3 };
         s1 = v5;
         continue;
       }
@@ -1032,7 +1032,7 @@ const $Main$dapplyAll = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dclosures = (v0) => $Main$dapplyAll($Main$dadders({ tag: "Nil" })(v0));
+const $Main$dclosures = (v0) => $Main$dapplyAll($Main$dadders({ tag: "Nil" }, v0));
 const $Main$disOdd = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -1071,7 +1071,7 @@ const $Main$disEven = (v0) => {
     }
   }
 };
-const $Main$doddRounds = (v0) => (v1) => {
+const $Main$doddRounds = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -1079,20 +1079,20 @@ const $Main$doddRounds = (v0) => (v1) => {
       return v0;
     } else {
       const v2 = v1 - 1n;
-      const v3 = $Std$dNat$dadd(v0)(1n);
+      const v3 = $Std$dNat$dadd(v0, 1n);
       const v4 = v2;
       if (v4 === 0n) {
         return v3;
       } else {
         const v5 = v4 - 1n;
-        s0 = $Std$dNat$dadd(v3)(2n);
+        s0 = $Std$dNat$dadd(v3, 2n);
         s1 = v5;
         continue;
       }
     }
   }
 };
-const $Main$devenRounds = (v0) => (v1) => {
+const $Main$devenRounds = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -1100,21 +1100,21 @@ const $Main$devenRounds = (v0) => (v1) => {
       return v0;
     } else {
       const v2 = v1 - 1n;
-      const v3 = $Std$dNat$dadd(v0)(2n);
+      const v3 = $Std$dNat$dadd(v0, 2n);
       const v4 = v2;
       if (v4 === 0n) {
         return v3;
       } else {
         const v5 = v4 - 1n;
-        s0 = $Std$dNat$dadd(v3)(1n);
+        s0 = $Std$dNat$dadd(v3, 1n);
         s1 = v5;
         continue;
       }
     }
   }
 };
-const $Main$drounds = (v0) => (v1) => $Main$devenRounds(v0)(v1);
-const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0)($Std$dList$dmap$e(((v1) => ({ tag: "MkPair", fst: v1, snd: "x" })))($Std$dList$drange($Std$dNat$dadd(v0)(1n))));
+const $Main$drounds = (v0, v1) => $Main$devenRounds(v0, v1);
+const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0, $Std$dList$dmap$e(((v1) => ({ tag: "MkPair", fst: v1, snd: "x" })), $Std$dList$drange($Std$dNat$dadd(v0, 1n))));
 
 function $$countDown(arg0) {
   try {
@@ -1129,7 +1129,7 @@ function $$firstOver(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "limit");
     const v1 = decodeFast(dec$3, ty$2, arg1, "xs");
-    return encodeFast(enc$4, ty$3, $Main$dfirstOver(v0)(v1));
+    return encodeFast(enc$4, ty$3, $Main$dfirstOver(v0, v1));
   } catch (e) {
     throw outOfResources("firstOver", e);
   }
@@ -1139,7 +1139,7 @@ function $$lookup(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "key");
     const v1 = decodeFast(dec$5, ty$4, arg1, "entries");
-    return encodeFast(enc$7, ty$6, $Main$dlookup(v0)(v1));
+    return encodeFast(enc$7, ty$6, $Main$dlookup(v0, v1));
   } catch (e) {
     throw outOfResources("lookup", e);
   }
@@ -1185,7 +1185,7 @@ function $$rounds(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "start");
     const v1 = decodeFast(dec$1, ty$1, arg1, "n");
-    return encodeFast(enc$2, ty$1, $Main$drounds(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$drounds(v0, v1));
   } catch (e) {
     throw outOfResources("rounds", e);
   }
@@ -1309,5 +1309,9 @@ function enc$8(v) {
 function enc$9(v) {
   return BOOL.enc(v);
 }
+
+// Definitions used as values, taking their arguments one at a time, each
+// made at its first use.
+var $Std$dNat$ddecEq$c, $Std$dNat$dcompare$c, $Std$dNat$ddecLessThan$c, $Std$dNat$ddecLessEq$c;
 
 export { $$countDown as countDown, $$firstOver as firstOver, $$lookup as lookup, $$steps as steps, $$closures as closures, $$isEven as isEven, $$isOdd as isOdd, $$rounds as rounds, $$lookupLast as lookupLast };

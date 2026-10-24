@@ -327,7 +327,59 @@ export def total (n: Nat): Nat := app2 (tagged (slow n))
         line.ends_with(")($Main$dslow(v0)));"),
         "the argument isn't bound outside the closure: {line}"
     );
-    assert!(line.contains("$Main$dtagged($s0)"), "{line}");
+    assert!(line.contains("$Main$dtagged($s0, $p2)"), "{line}");
+}
+
+/// D1173: a definition with two or more runtime parameters takes them in
+/// one call, so every other use goes through a closure: partial application
+/// (with and without erased parameters left), over-application of a
+/// definition whose result is a function, a native used as a value, a
+/// definition passed as a value (made once, `f$c`), recursion and mutual
+/// recursion. The output is the reference evaluator's.
+#[test]
+fn uncurried_definitions_work_every_way_they_are_used() {
+    let path = source_file(
+        "uncurried.sw",
+        r#"
+import Std (Nat, List)
+
+def add3 (a: Nat) (b: Nat) (c: Nat): Nat := a * 100 + b * 10 + c
+def adder (a: Nat) (b: Nat): Nat -> Nat := add3 a b
+def withType (a: Nat) (t: Type) (b: Nat): Nat := a * 10 + b
+def twice (f: Nat -> Nat) (x: Nat): Nat := f (f x)
+def apply3 (f: Nat -> Nat -> Nat -> Nat): Nat := f 1 2 3
+def applyT (f: Nat -> Type -> Nat -> Nat): Nat := f 4 Nat 5
+def sumTo (acc: Nat): Nat -> Nat
+  | 0 => acc
+  | Succ m => sumTo (acc + Succ m) m
+def isEven (k: Nat): Nat -> Nat
+  | 0 => k
+  | Succ m => isOdd (k + 1) m
+def isOdd (k: Nat): Nat -> Nat
+  | 0 => k * 1000
+  | Succ m => isEven (k + 1) m
+
+def main () : {IO} () :=
+  IO.print (Nat.toText (add3 1 2 3))
+  IO.print (Nat.toText (twice (add3 1 2) 3))
+  IO.print (Nat.toText (twice (add3 0 (1 + 1)) 3))
+  IO.print (Nat.toText (adder 1 2 3))
+  IO.print (Nat.toText (twice (adder 0 0) 7))
+  IO.print (Nat.toText (apply3 add3))
+  IO.print (Nat.toText (applyT withType))
+  IO.print (Nat.toText (twice (withType 3 Nat) 4))
+  IO.print (Nat.toText (List.sum (List.zipWith Nat.add [1, 2] [30, 40])))
+  IO.print (Nat.toText (List.sum (List.map (add3 1 2) [4, 5])))
+  IO.print (Nat.toText (sumTo 0 100000))
+  IO.print (Nat.toText (isEven 0 7))
+"#,
+    );
+    let js = same_both_ways(&path, b"", true);
+    assert!(js.status.success(), "{}", text(&js.stderr));
+    assert_eq!(
+        text(&js.stdout),
+        "123\n243\n43\n123\n7\n123\n45\n64\n73\n249\n5000050000\n7000\n"
+    );
 }
 
 /// D922 (test A0): a definition with type or proof parameters, used as a

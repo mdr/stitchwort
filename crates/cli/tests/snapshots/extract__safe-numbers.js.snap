@@ -751,8 +751,8 @@ define(info$Main$dCounter, [
 ], true, [
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -764,7 +764,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -786,12 +786,12 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, v1));
 const $Std$dInt$dneg = (a) => -a;
 const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
-const $Std$dInt$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dInt$ddecEq = (a, b) => ({ tag: a === b ? "Yes" : "No" });
 const $Std$dDecEq$d$gdecide = (v1) => {
   const v2 = v1;
   return v2;
@@ -805,11 +805,11 @@ const $Std$dSafeInt$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0)(9007199254740991n))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
-const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1)(9007199254740991n)))($Std$dInt$dnatAbs(v0)))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
-const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2)(v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" })))));
-const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2)(v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)))(((v2) => ({ tag: "Yes" })))(((v2) => ({ tag: "No" })))));
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0, 9007199254740991n), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
+const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1, 9007199254740991n)))($Std$dInt$dnatAbs(v0)), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
+const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2, v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)), ((v2) => ({ tag: "Yes" })), ((v2) => ({ tag: "No" })))));
+const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2, v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)), ((v2) => ({ tag: "Yes" })), ((v2) => ({ tag: "No" })))));
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -832,7 +832,7 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
+const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -860,11 +860,11 @@ const $Std$dText$dlength = (t) => {
   }
   return BigInt(n);
 };
-const $Main$daddSafe = (v0) => (v1) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)));
+const $Main$daddSafe = (v0, v1) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue(v0), $Std$dSafeNat$dvalue(v1)));
 const $Main$dnegateSafe = (v0) => $Std$dSafeInt$dofInt($Std$dInt$dneg($Std$dSafeInt$dvalue(v0)));
 const $Main$dtoSafe = (v0) => $Std$dSafeNat$dofNat(v0);
 const $Main$dtoSafeInt = (v0) => $Std$dSafeInt$dofInt(v0);
-const $Main$dlengths = (v0) => $Std$dList$dmap$e(((v1) => $Std$dSafeNat$dofNat($Std$dText$dlength(v1))))(v0);
+const $Main$dlengths = (v0) => $Std$dList$dmap$e(((v1) => $Std$dSafeNat$dofNat($Std$dText$dlength(v1))), v0);
 const $Main$dCounter$dcount = (v0) => {
   const v1 = v0.count;
   const v2 = v0.delta;
@@ -875,26 +875,26 @@ const $Main$dCounter$ddelta = (v0) => {
   const v2 = v0.delta;
   return v2;
 };
-const $Main$dCounter$d$g$gmk$g0 = (v0) => (v1) => {
+const $Main$dCounter$d$g$gmk$g0 = (v0, v1) => {
   const v2 = v1.count;
   const v3 = v1.delta;
   return v2;
 };
-const $Main$dCounter$d$g$gmk$g1 = (v0) => (v1) => {
+const $Main$dCounter$d$g$gmk$g1 = (v0, v1) => {
   const v2 = v1.count;
   const v3 = v1.delta;
   return v3;
 };
-const $Main$dCounter$d$gdecEq = (v0) => (v1) => {
+const $Main$dCounter$d$gdecEq = (v0, v1) => {
   const v2 = v0.count;
   const v3 = v0.delta;
   const v4 = v1.count;
   const v5 = v1.delta;
-  return $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeNat$dinstDecEq)(v2)(v4))(((v6) => $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeInt$dinstDecEq)(v3)(v5))(((v7) => ({ tag: "Yes" })))(((v7) => ({ tag: "No" })))))(((v6) => ({ tag: "No" })));
+  return $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeNat$dinstDecEq)(v2)(v4), ((v6) => $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeInt$dinstDecEq)(v3)(v5), ((v7) => ({ tag: "Yes" })), ((v7) => ({ tag: "No" })))), ((v6) => ({ tag: "No" })));
 };
-const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue($Main$dCounter$dcount(v0)))($Std$dInt$dtoNat($Std$dSafeInt$dvalue($Main$dCounter$ddelta(v0)))));
-const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)($Std$dSafeNat$dvalue(v2)))))(0n)(v0));
-const $Main$dsameCounter = (v0) => (v1) => $Std$dDecidable$dtoBool($Main$dCounter$d$gdecEq(v0)(v1));
+const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue($Main$dCounter$dcount(v0)), $Std$dInt$dtoNat($Std$dSafeInt$dvalue($Main$dCounter$ddelta(v0)))));
+const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1, $Std$dSafeNat$dvalue(v2)))), 0n, v0));
+const $Main$dsameCounter = (v0, v1) => $Std$dDecidable$dtoBool($Main$dCounter$d$gdecEq(v0, v1));
 const $Main$dstartCounter = { count: 41n, delta: -1n };
 const $Main$dlimits = { tag: "Cons", head: 9007199254740991n, tail: { tag: "Cons", head: -9007199254740991n, tail: { tag: "Cons", head: 0n, tail: { tag: "Nil" } } } };
 
@@ -902,7 +902,7 @@ function $$addSafe(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$2, ty$2, $Main$daddSafe(v0)(v1));
+    return encodeFast(enc$2, ty$2, $Main$daddSafe(v0, v1));
   } catch (e) {
     throw outOfResources("addSafe", e);
   }
@@ -966,7 +966,7 @@ function $$sameCounter(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$9, ty$9, arg0, "a");
     const v1 = decodeFast(dec$9, ty$9, arg1, "b");
-    return encodeFast(enc$11, ty$11, $Main$dsameCounter(v0)(v1));
+    return encodeFast(enc$11, ty$11, $Main$dsameCounter(v0, v1));
   } catch (e) {
     throw outOfResources("sameCounter", e);
   }

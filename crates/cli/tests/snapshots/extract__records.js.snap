@@ -751,15 +751,15 @@ define(info$Main$dSortedList, [
 define(info$Main$dSized, [
   ["%mk", [["items", list(NAT)], ["size", NAT]]],
 ], true, [
-  ["proof field `ok` (`List.length items = size`) doesn't hold", (o) => { const v0 = o.items; const v1 = o.size; return $Std$dNat$ddecEq($Std$dList$dlength(v0))(v1).tag === "Yes"; }],
+  ["proof field `ok` (`List.length items = size`) doesn't hold", (o) => { const v0 = o.items; const v1 = o.size; return $Std$dNat$ddecEq($Std$dList$dlength(v0), v1).tag === "Yes"; }],
 ]);
 define(info$Main$dTeam, [
   ["%mk", [["lead", data(info$Main$dPerson)], ["size", NAT]]],
 ], true, [
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -770,7 +770,7 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlength = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -784,7 +784,7 @@ const $Std$dList$dlength = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -806,8 +806,8 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Std$dText$dappend = (a) => (b) => a + b;
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dText$dappend = (a, b) => a + b;
 const $Main$dPerson$dname = (v0) => {
   const v1 = v0.name;
   const v2 = v0.age;
@@ -818,11 +818,11 @@ const $Main$dPerson$dage = (v0) => {
   const v2 = v0.age;
   return v2;
 };
-const $Main$dgreet = (v0) => $Std$dText$dappend("Hello, ")($Main$dPerson$dname(v0));
-const $Main$dbirthday = (v0) => ({ name: $Main$dPerson$dname(v0), age: $Std$dNat$dadd($Main$dPerson$dage(v0))(1n) });
-const $Main$drename = (v0) => (v1) => ({ name: v0, age: $Main$dPerson$dage(v1) });
-const $Main$dolder = (v0) => (v1) => $Std$dBool$difThenElse($Std$dNat$dleq($Main$dPerson$dage(v1))($Main$dPerson$dage(v0)))(((v2) => v0))(((v2) => v1));
-const $Main$doldestFrom = (v0) => (v1) => {
+const $Main$dgreet = (v0) => $Std$dText$dappend("Hello, ", $Main$dPerson$dname(v0));
+const $Main$dbirthday = (v0) => ({ name: $Main$dPerson$dname(v0), age: $Std$dNat$dadd($Main$dPerson$dage(v0), 1n) });
+const $Main$drename = (v0, v1) => ({ name: v0, age: $Main$dPerson$dage(v1) });
+const $Main$dolder = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dleq($Main$dPerson$dage(v1), $Main$dPerson$dage(v0)), ((v2) => v0), ((v2) => v1));
+const $Main$doldestFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -833,7 +833,7 @@ const $Main$doldestFrom = (v0) => (v1) => {
       case "Cons": {
         const v2 = v1.head;
         const v3 = v1.tail;
-        s0 = $Main$dolder(v0)(v2);
+        s0 = $Main$dolder(v0, v2);
         s1 = v3;
         continue;
       }
@@ -849,7 +849,7 @@ const $Main$doldest = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Some", value: $Main$doldestFrom(v1)(v2) };
+      return { tag: "Some", value: $Main$doldestFrom(v1, v2) };
     }
   }
   throw new Error("unreachable");
@@ -882,7 +882,7 @@ const $Main$dWeird$dx$p = (v0) => {
   const v4 = v0.x$;
   return v4;
 };
-const $Main$dweird = (v0) => ({ tag: $Std$dText$dappend($Main$dWeird$dtag(v0))("!"), $__proto__: $Main$dWeird$d__proto__(v0), constructor: $Main$dWeird$dconstructor(v0), x$: $Std$dNat$dadd($Std$dNat$dadd($Main$dWeird$dx$p(v0))($Main$dWeird$dconstructor(v0)))($Main$dWeird$d__proto__(v0)) });
+const $Main$dweird = (v0) => ({ tag: $Std$dText$dappend($Main$dWeird$dtag(v0), "!"), $__proto__: $Main$dWeird$d__proto__(v0), constructor: $Main$dWeird$dconstructor(v0), x$: $Std$dNat$dadd($Std$dNat$dadd($Main$dWeird$dx$p(v0), $Main$dWeird$dconstructor(v0)), $Main$dWeird$d__proto__(v0)) });
 const $Main$dBox$dvalue = (v1) => {
   const v2 = v1;
   return v2;
@@ -906,7 +906,7 @@ const $Main$disSorted = (v0) => {
           case "Cons": {
             const v3 = v2.head;
             const v4 = v2.tail;
-            if ($Std$dNat$dleq(v1)(v3).tag === "True") {
+            if ($Std$dNat$dleq(v1, v3).tag === "True") {
               s0 = { tag: "Cons", head: v3, tail: v4 };
               continue;
             } else {
@@ -921,7 +921,7 @@ const $Main$disSorted = (v0) => {
   }
 };
 const $Main$ddecIsSorted = (v0) => $Std$dBool$ddecTrue($Main$disSorted(v0));
-const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0))(((v1) => ({ tag: "Some", value: v0 })))(((v1) => ({ tag: "None" })));
+const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
 const $Main$dsmallest = (v0) => {
   const v1 = v0;
   switch (v1.tag) {
@@ -976,7 +976,7 @@ function $$rename(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$4, ty$2, arg0, "n");
     const v1 = decodeFast(dec$1, ty$1, arg1, "p");
-    return encodeFast(enc$3, ty$1, $Main$drename(v0)(v1));
+    return encodeFast(enc$3, ty$1, $Main$drename(v0, v1));
   } catch (e) {
     throw outOfResources("rename", e);
   }

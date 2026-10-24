@@ -720,7 +720,7 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -731,8 +731,8 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $Main$dinterleave = (v0) => (v1) => {
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
+const $Main$dinterleave = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -755,7 +755,7 @@ const $Main$dinterleave = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dmerge = (v0) => (v1) => {
+const $Main$dmerge = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -774,7 +774,7 @@ const $Main$dmerge = (v0) => (v1) => {
           case "Cons": {
             const v4 = v1.head;
             const v5 = v1.tail;
-            if ($Std$dNat$dleq(v2)(v4).tag === "True") {
+            if ($Std$dNat$dleq(v2, v4).tag === "True") {
               const c1$ = { tag: "Cons", head: v2, tail: null };
               if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
               l$ = c1$; k$ = "tail";
@@ -797,7 +797,7 @@ const $Main$dmerge = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dgcdSteps = (v0) => (v1) => (v2) => {
+const $Main$dgcdSteps = (v0, v1, v2) => {
   let s0 = v0, s1 = v1, s2 = v2;
   for (;;) {
     const v0 = s0, v1 = s1, v2 = s2;
@@ -817,7 +817,7 @@ function $$interleave(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
     const v1 = decodeFast(dec$1, ty$1, arg1, "ys");
-    return encodeFast(enc$2, ty$1, $Main$dinterleave(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dinterleave(v0, v1));
   } catch (e) {
     throw outOfResources("interleave", e);
   }
@@ -827,7 +827,7 @@ function $$merge(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
     const v1 = decodeFast(dec$1, ty$1, arg1, "ys");
-    return encodeFast(enc$2, ty$1, $Main$dmerge(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dmerge(v0, v1));
   } catch (e) {
     throw outOfResources("merge", e);
   }
@@ -838,7 +838,7 @@ function $$gcdSteps(arg0, arg1, arg2) {
     const v0 = decodeFast(dec$3, ty$2, arg0, "arg0");
     const v1 = decodeFast(dec$3, ty$2, arg1, "b");
     const v2 = decodeFast(dec$3, ty$2, arg2, "acc");
-    return encodeFast(enc$4, ty$2, $Main$dgcdSteps(v0)(v1)(v2));
+    return encodeFast(enc$4, ty$2, $Main$dgcdSteps(v0, v1, v2));
   } catch (e) {
     throw outOfResources("gcdSteps", e);
   }

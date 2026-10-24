@@ -720,12 +720,12 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Main$dCallback$dcall = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dweigh = (v0) => (v1) => ((v2) => $Main$dCallback$dcall(v2)(v1))($Main$dmake(v0));
+const $Main$dweigh = (v0, v1) => ((v2) => $Main$dCallback$dcall(v2)(v1))($Main$dmake(v0));
 const $Main$dmake = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -734,18 +734,18 @@ const $Main$dmake = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return ((v3) => $Std$dNat$dadd($Main$dweigh(v2)(v3))(v1));
+      return ((v3) => $Std$dNat$dadd($Main$dweigh(v2, v3), v1));
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dtwice = (v0) => (v1) => ((v2) => $Main$dCallback$dcall(v2)($Main$dCallback$dcall(v2)(v1)))($Main$dmake(v0));
+const $Main$dtwice = (v0, v1) => ((v2) => $Main$dCallback$dcall(v2)($Main$dCallback$dcall(v2)(v1)))($Main$dmake(v0));
 
 function $$weigh(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "xs");
     const v1 = decodeFast(dec$2, ty$2, arg1, "x");
-    return encodeFast(enc$3, ty$2, $Main$dweigh(v0)(v1));
+    return encodeFast(enc$3, ty$2, $Main$dweigh(v0, v1));
   } catch (e) {
     throw outOfResources("weigh", e);
   }
@@ -755,7 +755,7 @@ function $$twice(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "xs");
     const v1 = decodeFast(dec$2, ty$2, arg1, "x");
-    return encodeFast(enc$3, ty$2, $Main$dtwice(v0)(v1));
+    return encodeFast(enc$3, ty$2, $Main$dtwice(v0, v1));
   } catch (e) {
     throw outOfResources("twice", e);
   }

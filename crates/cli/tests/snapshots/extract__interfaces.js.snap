@@ -720,8 +720,8 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -732,7 +732,7 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -744,9 +744,9 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Std$dText$dappend = (a) => (b) => a + b;
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dText$dappend = (a, b) => a + b;
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -769,7 +769,7 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dText$djoin = (s) => (ts) => {
+const $Std$dText$djoin = (s, ts) => {
   const parts = [];
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
   return parts.join(encodeChar(s));
@@ -779,15 +779,15 @@ const $Main$dPretty$d$gpretty = (v1) => {
   return v2;
 };
 const $Main$dPretty$dpretty = (v1) => $Main$dPretty$d$gpretty(v1);
-const $Main$dPretty$dinstNat = ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0)(0n)))(((v1) => "zero"))(((v1) => "some")));
-const $Main$dPretty$dinstList = (v1) => ((v2) => $Std$dText$dappend("[")($Std$dText$dappend($Std$dText$djoin({ tag: "MkChar", code: 44n })($Std$dList$dmap$e($Main$dPretty$dpretty(v1))(v2)))("]")));
+const $Main$dPretty$dinstNat = ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => "zero"), ((v1) => "some")));
+const $Main$dPretty$dinstList = (v1) => ((v2) => $Std$dText$dappend("[", $Std$dText$dappend($Std$dText$djoin({ tag: "MkChar", code: 44n }, $Std$dList$dmap$e($Main$dPretty$dpretty(v1), v2)), "]")));
 const $Main$dOrdered$d$gless = (v1) => {
   const v2 = v1;
   return v2;
 };
 const $Main$dOrdered$dless = (v1) => $Main$dOrdered$d$gless(v1);
-const $Main$dOrdered$dinstNat = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v0)(1n))(v1)));
-const $Main$dsmallestOf = (v1) => (v2) => (v3) => {
+const $Main$dOrdered$dinstNat = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v0, 1n), v1)));
+const $Main$dsmallestOf = (v1, v2, v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
   for (;;) {
     const v1 = s1, v2 = s2, v3 = s3;
@@ -814,11 +814,11 @@ const $Main$dsmallestOf = (v1) => (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dflipped = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v1)(1n))(v0)));
+const $Main$dflipped = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v1, 1n), v0)));
 const $Main$ddescribeAll = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstNat))(v0);
 const $Main$ddescribeNested = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstList($Main$dPretty$dinstNat)))(v0);
-const $Main$dsmallest = (v0) => $Main$dsmallestOf($Main$dOrdered$dinstNat)(1000n)(v0);
-const $Main$dsmallestBy = (v0) => $Main$dsmallestOf($Main$dflipped)(0n)(v0);
+const $Main$dsmallest = (v0) => $Main$dsmallestOf($Main$dOrdered$dinstNat, 1000n, v0);
+const $Main$dsmallestBy = (v0) => $Main$dsmallestOf($Main$dflipped, 0n, v0);
 
 function $$describeAll(arg0) {
   try {

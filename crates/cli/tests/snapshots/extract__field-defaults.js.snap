@@ -740,7 +740,7 @@ define(info$Std$dOption, [
   ["Some", [["value", param(0)]]],
 ]);
 define(info$Main$dRect, [
-  ["%mk", [["width", NAT], ["height", NAT, false, "height", (o) => { const v0 = o.width; return $Main$dRect$dheight$ddefault(v0); }], ["area", NAT, false, "area", (o) => { const v0 = o.width; const v1 = o.height; return $Main$dRect$darea$ddefault(v0)(v1); }]]],
+  ["%mk", [["width", NAT], ["height", NAT, false, "height", (o) => { const v0 = o.width; return $Main$dRect$dheight$ddefault(v0); }], ["area", NAT, false, "area", (o) => { const v0 = o.width; const v1 = o.height; return $Main$dRect$darea$ddefault(v0, v1); }]]],
 ], true, [
 ]);
 define(info$Main$dShape, [
@@ -756,9 +756,9 @@ define(info$Main$dBox, [
 ], true, [
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dmul = (m) => (n) => m * n;
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dmul = (m, n) => m * n;
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -802,7 +802,7 @@ const $Main$dRangeOptions$dstep = (v0) => {
 const $Main$dRangeOptions$dstart$ddefault = 0n;
 const $Main$dRangeOptions$dstep$ddefault = 1n;
 const $Main$dbounds = (v0) => ({ tag: "Cons", head: $Main$dRangeOptions$dstart(v0), tail: { tag: "Cons", head: $Main$dRangeOptions$dstop(v0), tail: { tag: "Cons", head: $Main$dRangeOptions$dstep(v0), tail: { tag: "Nil" } } } });
-const $Main$dwiden = (v0) => ({ start: $Main$dRangeOptions$dstart(v0), stop: $Std$dNat$dadd($Main$dRangeOptions$dstop(v0))(10n), step: $Main$dRangeOptions$dstep(v0) });
+const $Main$dwiden = (v0) => ({ start: $Main$dRangeOptions$dstart(v0), stop: $Std$dNat$dadd($Main$dRangeOptions$dstop(v0), 10n), step: $Main$dRangeOptions$dstep(v0) });
 const $Main$dConfig$dcolour = (v0) => {
   const v1 = v0.colour;
   const v2 = v0.nick;
@@ -830,7 +830,7 @@ const $Main$dRect$darea = (v0) => {
   return v3;
 };
 const $Main$dRect$dheight$ddefault = (v0) => v0;
-const $Main$dRect$darea$ddefault = (v0) => (v1) => $Std$dNat$dmul(v0)(v1);
+const $Main$dRect$darea$ddefault = (v0, v1) => $Std$dNat$dmul(v0, v1);
 const $Main$darea = (v0) => ({ tag: "Cons", head: $Main$dRect$dwidth(v0), tail: { tag: "Cons", head: $Main$dRect$dheight(v0), tail: { tag: "Cons", head: $Main$dRect$darea(v0), tail: { tag: "Nil" } } } });
 const $Main$dShape$dCircle$dlabel$ddefault = "circle";
 const $Main$dlabel = (v0) => {
@@ -851,7 +851,7 @@ const $Main$dJob$doptions = (v0) => {
   const v2 = v0.options;
   return v2;
 };
-const $Main$dsteps = (v0) => $Std$dList$dmap$e(((v1) => $Main$dRangeOptions$dstep($Main$dJob$doptions(v1))))(v0);
+const $Main$dsteps = (v0) => $Std$dList$dmap$e(((v1) => $Main$dRangeOptions$dstep($Main$dJob$doptions(v1))), v0);
 const $Main$dBox$dlabel = (v1) => {
   const v2 = v1.item;
   const v3 = v1.label;
@@ -1026,7 +1026,7 @@ function dec$7(x) {
     const r2 = x.area;
     f2 = NAT.dec(r2);
   } else if ("area" in x) throw FAIL;
-  else { const v0 = f0; const v1 = f1; f2 = $Main$dRect$darea$ddefault(v0)(v1); }
+  else { const v0 = f0; const v1 = f1; f2 = $Main$dRect$darea$ddefault(v0, v1); }
   const o = { width: f0, height: f1, area: f2 };
   return o;
 }

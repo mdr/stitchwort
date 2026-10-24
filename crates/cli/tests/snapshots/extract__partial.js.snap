@@ -723,7 +723,7 @@ const encodeFast = (fast, t, v) => {
 // A partial computation, which nothing here can run.
 const delayed = Symbol("Delay");
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Main$ddiscard = (v0) => 0n;
 const $Main$dfirstOf = (v0) => {
   switch (v0.tag) {
@@ -735,7 +735,7 @@ const $Main$dfirstOf = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$danswer = (v0) => $Std$dNat$dadd($Std$dNat$dadd($Main$ddiscard(((_) => delayed)))($Main$ddiscard(((v1) => delayed))))(v0);
+const $Main$danswer = (v0) => $Std$dNat$dadd($Std$dNat$dadd($Main$ddiscard(((_) => delayed)), $Main$ddiscard(((v1) => delayed))), v0);
 const $Main$dkept = (v0) => $Main$dfirstOf({ tag: "MkPair", fst: v0, snd: ((_) => delayed) });
 
 function $$answer(arg0) {
