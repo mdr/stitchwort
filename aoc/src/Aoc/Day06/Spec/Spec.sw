@@ -22,8 +22,8 @@
 --     top line down.
 --   - The grand total adds up every problem's answer.
 --
--- Shared with the program: `readNumber` (the digits of some cells, spaces
--- skipped, as a number; `readNumberWritten` below shows a number written with
+-- Shared with the program: `parseNumber` (the digits of some cells, spaces
+-- skipped, as a number; `parseNumberWritten` below shows a number written with
 -- spaces around it reads back as itself), `evaluate` (+ adds, * multiplies; a
 -- problem with no operator, which the puzzle never has, counts 0) and
 -- `Operator.parse`.
@@ -57,11 +57,11 @@ def operatorOf (lines: List Text) (lo: Nat) (hi: Nat): Option Operator :=
 
 -- Part 1: each number line, read across the problem's columns.
 def rowNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  (numberLines lines).map (line => readNumber ((List.rangeFrom (hi - lo) lo).map (c => charAt line c)))
+  (numberLines lines).map (line => parseNumber ((List.rangeFrom (hi - lo) lo).map (c => charAt line c)))
 
 -- Part 2: each of the problem's columns, right to left, read top to bottom.
 def columnNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  (List.rangeFrom (hi - lo) lo).reverse.map (c => readNumber ((numberLines lines).map (line => charAt line c)))
+  (List.rangeFrom (hi - lo) lo).reverse.map (c => parseNumber ((numberLines lines).map (line => charAt line c)))
 
 -- The answers of all the problems, added up.
 def grandTotal (lines: List Text) (answer: Nat -> Nat -> Nat): Nat :=

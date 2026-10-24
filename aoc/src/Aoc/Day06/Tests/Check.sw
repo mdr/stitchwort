@@ -1,4 +1,4 @@
--- Day 6's strict reader: the malformed worksheets it rejects (and what it
+-- Day 6's strict parser: the malformed worksheets it rejects (and what it
 -- says), and the layouts it must still accept.
 
 namespace Aoc.Day06.Tests

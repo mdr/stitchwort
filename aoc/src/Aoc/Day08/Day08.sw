@@ -18,7 +18,7 @@
 -- The tests are in `Aoc.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Day08
-import Aoc.Common (readLines)
+import Aoc.Common (parseLines)
 import Std (Fail, IO, List, Map, Nat, Option, Text)
 import Std.Fail (fail)
 
@@ -41,10 +41,10 @@ def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst point
 
 -- One box per line. Spaces around a line or a number are allowed; anything else
 -- fails, naming the line.
-def parsePoints (lines: List Text): {Fail} (List Point) := readLines readPoint lines
+def parsePoints (lines: List Text): {Fail} (List Point) := parseLines parsePoint lines
 
 -- "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
-def readPoint (line: Text): {Fail} Point :=
+def parsePoint (line: Text): {Fail} Point :=
   match line.split ',' |> .map (part => part.trim.toNat) with
     | [Some x, Some y, Some z] => { x, y, z }
     | _ => fail "expected a box like 162,817,812, got '${line}'"

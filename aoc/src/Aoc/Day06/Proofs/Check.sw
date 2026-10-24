@@ -1,4 +1,4 @@
--- Day 6, proved: the strict reader `main` uses gives the same problems as the
+-- Day 6, proved: the strict parser `main` uses gives the same problems as the
 -- total parser the other proofs are about, whenever it accepts. So
 -- `part1Correct` and `part2Correct` describe what `main` prints. Kept apart
 -- from the program, so `stitchwort run Aoc.Day06.main` doesn't check it.

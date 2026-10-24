@@ -13,7 +13,7 @@
 -- (Tests/); `run` checks neither.
 
 namespace Aoc.Day01
-import Aoc.Common (readLines)
+import Aoc.Common (parseLines)
 import Std (Fail, IO, Int, List, Mod)
 import Std.Fail (fail, need)
 
@@ -24,7 +24,7 @@ def main(): {IO, Fail} () :=
 
 -- One turn per line. Spaces around a turn are allowed; anything else fails,
 -- naming the line.
-def parseTurns (lines: List Text): {Fail} (List Turn) := readLines Turn.read lines
+def parseTurns (lines: List Text): {Fail} (List Turn) := parseLines Turn.parse lines
 
 def solvePart1 (turns: List Turn): Nat := zerosLandedOn startingDial turns
 
@@ -55,13 +55,13 @@ type Turn =
   | Right (distance: Nat)
 
 -- "L68" is `Left 68`; " R5 " is `Right 5`.
-def Turn.read (line: Text): {Fail} Turn :=
+def Turn.parse (line: Text): {Fail} Turn :=
   match line.trim.uncons with
     | Some ('L', rest) => Left (need rest.toNat "expected a turn like L68, got '${line}'")
     | Some ('R', rest) => Right (need rest.toNat "expected a turn like L68, got '${line}'")
     | _ => fail "expected a turn like L68, got '${line}'"
 
-def Turn.parse (line: Text): Option Turn := Fail.toOption (() => Turn.read line)
+def Turn.parseOption (line: Text): Option Turn := Fail.toOption (() => Turn.parse line)
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Day01.Proofs`) use it; it stays
