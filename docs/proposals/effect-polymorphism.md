@@ -14,7 +14,7 @@ could open. The probe files are in Appendix A, so a reader can rerun them.
 ## 0. Summary
 
 The owner wants one `List.map` that takes either a pure or an effectful
-callback, as in Unison. He asks for two things: the proofs about `map`
+callback, as in Unison, on two conditions: the proofs about `map`
 should keep working, and pure uses should run as fast as today. The two
 earlier attempts failed on both counts.
 
