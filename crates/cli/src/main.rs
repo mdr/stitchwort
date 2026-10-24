@@ -187,7 +187,25 @@ const STACK: usize = 64 * 1024 * 1024;
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+/// Rust ignores `SIGPIPE`, so `println!` into a closed pipe
+/// (`stitchwort std-source … | head`) panics. That is the reader leaving, not
+/// a fault: exit quietly, with the status a shell shows for a process ended by
+/// `SIGPIPE`.
+fn exit_quietly_on_broken_pipe() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let message = (info.payload().downcast_ref::<String>().map(String::as_str))
+            .or_else(|| info.payload().downcast_ref::<&str>().copied())
+            .unwrap_or("");
+        if message.starts_with("failed printing to std") && message.contains("Broken pipe") {
+            std::process::exit(141);
+        }
+        previous(info);
+    }));
+}
+
 fn main() -> ExitCode {
+    exit_quietly_on_broken_pipe();
     let cli = Cli::parse();
     stitchwort_cli::driver::with_stack(STACK, move || {
         stitchwort_elab::timings::start();
