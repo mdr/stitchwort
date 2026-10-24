@@ -1,5 +1,5 @@
 {
-  "next": 415,
+  "next": 416,
   "tickets": [
     {
       "id": 1,
@@ -3679,14 +3679,16 @@
     {
       "id": 238,
       "title": "Native Text.take / drop / contains (trusted natives) for the fast runtime and JS",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [],
       "body": "Native Text.take, Text.drop and Text.contains (and possibly startsWith/stripPrefix/splitOn), bound by content hash like the other Text natives, in the fast runtime, the JS backend and the kernel if appropriate. Today they are library code over character lists, so every call builds a list of characters: the day 2 brute force spends most of its remaining 11.5 s there (SW-233 profile). Adds to the trusted natives (listed and tested in DESIGN.md), so each needs the usual native-vs-definition tests.\n\nDone when: the natives exist with differential tests against their definitions; day 2 brute force re-measured.\n",
       "created": "2026-10-22",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "9960da90"
+      ]
     },
     {
       "id": 239,
@@ -6676,6 +6678,20 @@
       "commits": [
         "c2eff259"
       ]
+    },
+    {
+      "id": 415,
+      "title": "Generated JS/rt code now contains immediately applied lambdas from SW-412's costly-let binding ((v2 => Nat.decLessEq(v2)(2n))(v1) in extract io/lets snapshots): reduce such redexes when lowering",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
     }
   ]
 }
