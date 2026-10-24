@@ -1,8 +1,8 @@
 # Effect polymorphism: one function for pure and effectful callbacks
 
 Status: design note and literature review, revised after external review,
-24 Oct 2026. Not decided (D1110; decisions D1116 to D1126 in §7). Nothing
-is built. The two experiments before this note are in
+24 Oct 2026. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
+§7, so design C with stage 0 first. Nothing is built yet. The two experiments before this note are in
 [effectful-map.md](effectful-map.md).
 
 Claims about the codebase cite `file:line` and are marked **[checked]** (read
@@ -1488,6 +1488,8 @@ possible at all, and stage 2 speeds up today's pure uses of `mapIn` and of
 handlers with open rows.
 
 ## 7. Decisions for the owner
+
+**Decided (Matt, 24 Oct 2026):** D1116 to D1126, each as recommended below.
 
 Each decision lists its options; the recommended one is marked. D1116 to
 D1121 are from the first version, with D1116 and D1119 revised after the

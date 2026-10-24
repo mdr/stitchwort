@@ -598,6 +598,11 @@ with gluing off.
 
 ## 10. Decisions
 
+**Decided after stage 2 (Matt, 24 Oct 2026):** in stage 3, matching two
+calls by their arguments still may not solve hidden arguments (it compares
+the unfoldings instead, as stage 2 does); and the more-reduced glued terms
+in `io.sw` (`NoOp` for `Effect.sigOp (MkSig NoOp NoRes)`) are accepted.
+
 - **D482: Build glued values (option (b)) as the general fix, after the
   `calc` fix.** It is the large change (stages in §7) that keeps hidden
   arguments, helper types and messages folded everywhere. [Yes: the
