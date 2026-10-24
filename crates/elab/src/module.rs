@@ -359,7 +359,7 @@ impl Elaborator {
             if timed {
                 crate::timings::decl_begin(&self.globals);
             }
-            self.check_component(&items, &component, &mut diagnostics);
+            self.glued(|e| e.check_component(&items, &component, &mut diagnostics));
             self.globals.budget.restore(saved);
             if timed {
                 let label = self.component_label(&items, &component);

@@ -452,6 +452,111 @@ types and messages, keeping the unfolded one for `rewrite`'s search,
 arguments may not survive unfolding); that's where the node counts and
 times in §5 should move.
 
+### As built (stage 2, SW-257)
+
+*What changed.* Gluing is on by default. `Elaborator::glue` is the
+session's setting (`STITCHWORT_GLUE=0` turns it off, for comparison), and
+`Elaborator::glued` turns the switch in `Globals` on only around the
+elaboration of one component of declarations (`check_component`) or one
+expression typed in (`infer_expr`). Evaluation outside those (running a
+program, a test, the driver's own uses of the environment) never sees a
+call: the driver tests that evaluate after loading (`differential`,
+`erasure`, `resources`, `natives`, `run`, …) pass with gluing on. The
+kernel still checks with gluing off (D483).
+
+Stage 2 was meant to leave elaborated terms as they were. Gluing on as
+stage 1 left it changed them in three ways, and each is now put back:
+
+- **The decision search sees the unfolded goal (D484).** `auto::decide`
+  reads the proposition back, computes it again with gluing off, and
+  searches with gluing off. Before this, the search matched the call
+  `y < 10` against `Nat.decLessThan`'s `?m < ?n` by its arguments, so
+  `pick` in `examples/accept/and-or-not.sw` was decided by
+  `Nat.decLessThan y 10`. Now it is `Nat.decLessEq y 9` again, as on
+  `main` (`y < 10` computes to `y <= 9`). The same went for `1 < 2` in a
+  test: decided by `Nat.decLessThan 1 2` instead of `Bool.decEq True True`
+  (the unfolded goal is `True = True`).
+- **Unifying two calls by their arguments never solves a metavariable.**
+  If the arguments unify only by solving one, the solutions are undone
+  and the unfoldings are compared, as without gluing
+  (`unify.rs` `same_arguments_solving_nothing`). Before this, in
+  `Int.divAddMod` the auto proof in `m / Succ n` was solved from
+  `Nat.divModEq m (Succ n) (Nat.succNotZero n)`'s type, where `main`
+  leaves it to `auto`, which decides it (`Nat.equalFalse (Succ n) 0 rfl`):
+  `Nat.div`'s unfolding doesn't mention the proof. That is §8's
+  "different hidden-argument solutions". It changed `Int.divAddMod`,
+  `Nat.dividesElim`, `Mod.ofNat` and `Mod.valueOfNat`, and through their
+  hashes everything that uses them, including the pinned hashes of
+  `Float.neg` and `Float.abs` (`core/float.rs`), so the library didn't load.
+  Whether stage 3 should let the arguments solve metavariables (as Lean
+  and smalltt do) is left open; this rule keeps stage 2 neutral.
+- **`Succ` of a call that unfolds to a number reads back as a number.**
+  Without gluing, `Succ` of a number is a number (`native::ctor`), so
+  `List.length [x]` reads back as `1`. With gluing the inner `length`
+  is a call when the `Succ` is built, so it read back as `Succ 0`
+  (`Aoc.Day07.Proofs.countsAre`'s `rewrite` motive). `quote` now unfolds
+  calls under a chain of `Succ`s and rebuilds it with `native::ctor`
+  (`value.rs` `succ_unglued`). This never happens without gluing, so the
+  kernel is unaffected.
+
+*The one difference left.* Two tests of `examples/accept/io.sw`
+("abort outside simulate …") and the lifted helpers
+`Aoc.Day04.Tests.ran.%match1` and `Aoc.Day07.Tests.ran.%match1` (their
+types) come out slightly different. On `main` their terms contain the
+redex `Effect.sigOp (MkSig NoOp NoRes)`; with gluing it is reduced to
+`NoOp`. The row's operations are built as `sigOp e` while `e` is still an
+unsolved metavariable (`effects.rs` `ops`). Without gluing that is a stuck
+value, and it stays stuck after `e` is solved, because only a metavariable
+at the head of a value is replaced later. With gluing it is a call, and
+its unfolding is computed later, after `e` is solved. (This mechanism is
+inferred from the code; the redex in `main`'s term is what the comparison
+shows.) The glued term is the more reduced of the two and the kernel
+accepts both. Making them agree would mean gluing only calls whose case
+tree can take a step now (§4 (b) says so), which needs running the case
+tree when the call is made. I didn't do that. The `io` hash snapshot is
+re-recorded.
+
+*Compared* (release, `--no-cache`, against `main` at `2c68d0fa` built in
+the same directory):
+
+- `check` prints the same, with the same exit code, on all 669 files of
+  `examples/accept`, `examples/reject` and `examples/extract`, with
+  gluing on and with it off.
+- The AoC project checks, with the same (empty) output. Every
+  definition's type and body (a scratch test dumping the core terms of
+  the whole project) is identical except the two helpers above: the
+  `STITCHWORT_TIMINGS` node totals differ by 16 for `Aoc.Day04.Tests` and
+  for `Aoc.Day07.Tests`, and by nothing for any other unit.
+- The library: the core and every library file, loaded eagerly, give
+  identical terms for all 2,359 definitions. So `hash_stability`'s
+  `prelude`, `projects` and every example other than `io` are unchanged.
+- The same dump over every example file shows `io.sw`'s two tests as the
+  only difference.
+
+*Measured* (`aoc/`, `check --no-cache`, 3 runs each; the machine was
+heavily loaded, load average 35–100, so the times are only rough):
+
+| | `main` | stage 2, gluing off | stage 2, gluing on |
+|---|---:|---:|---:|
+| instructions retired | 108.66–108.98 G | 109.03–109.25 G (+0.3%) | 110.80–111.03 G (+1.9%) |
+| peak memory | 238 MB | 238 MB | 203–237 MB |
+| wall time | 8.4–8.6 s | 8.5–18.3 s | 8.4–13.2 s |
+
+(The project has grown since stage 1's 18.8 G, so the counts aren't
+comparable with that table.) For comparison, `main` with
+`STITCHWORT_GLUE=1` (stage 1's session-wide switch) measured
+110.46–110.75 G. Gluing on still gains nothing, as expected: every
+read-back unfolds. The extra 1.9% is the cost of making the calls,
+keeping their unfoldings and the unglued decision search, which reads
+each proposition back and computes it again.
+
+*Next.* Stage 3, unchanged from above. Two things carry over from here:
+whether unifying calls by their arguments may solve metavariables once
+read-back is folded (it would shrink more terms; it changes some
+solutions, as `Int.divAddMod` showed), and whether the decision search
+should keep computing the proposition again or work on the glued value
+with gluing off.
+
 ## 8. Risks
 
 - **A missed place in stage 1** shows up as a spurious "can't decide",

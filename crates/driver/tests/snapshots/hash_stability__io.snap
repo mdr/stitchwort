@@ -56,8 +56,8 @@ Main.printThenAbort 17025f870ee05b763c73ea5d942df74df1609b8d544f58f96ec7a453073c
 Main.abortThenPrint 17025f870ee05b763c73ea5d942df74df1609b8d544f58f96ec7a453073cafb5
 Main.test "abort inside simulate keeps earlier prints" ecd1116b8882a9bdd87091dfb3c6c4a78c253a7351db5a101086b3837f5fcf7f
 Main.test "abort inside simulate, the other row order" ecd1116b8882a9bdd87091dfb3c6c4a78c253a7351db5a101086b3837f5fcf7f
-Main.test "abort outside simulate discards the run" d3cf66694d78fa20f9db583b46c2691b8892dfe4d313b862cbdc2ad4d9d7b10d
-Main.test "abort outside simulate, the other row order" d3cf66694d78fa20f9db583b46c2691b8892dfe4d313b862cbdc2ad4d9d7b10d
+Main.test "abort outside simulate discards the run" bff121dfc7e82702aed89527445ed87a875ac86763d35328e94fbdc4619bc0eb
+Main.test "abort outside simulate, the other row order" bff121dfc7e82702aed89527445ed87a875ac86763d35328e94fbdc4619bc0eb
 Main.test "a pure program prints nothing" 4053056c9a401915ff7ccd0e795be758a7bc12e406780a0f82e4471a576e6675
 Main.test "a program with only State" 27cb5bbc00d3573cac15e541f14a226a7e4e489877ebbb0531f33fb2fc80d9e9
 Main.printMany c73690a86412910ba512deacaae1f53590342b5b8d030875287d250fe4d46aee
