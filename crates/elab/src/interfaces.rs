@@ -1329,7 +1329,7 @@ pub(crate) fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
 }
 
 /// An unknown that `v` mentions and that nothing has solved, if any.
-fn unsolved_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
+pub(crate) fn unsolved_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
     let term = cx.quote(v)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     Ok(term.subterms().find_map(|(t, _)| match t {

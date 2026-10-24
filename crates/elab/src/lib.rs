@@ -367,6 +367,12 @@ pub struct Elaborator {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     condition: std::cell::Cell<usize>,
+    /// While an application checked against a known type is inferred
+    /// (`check::fallback`): the address of its last written argument and
+    /// that type, so a lambda argument that fails where its type still has
+    /// unknowns is checked again once the application's type has been
+    /// compared with it (`check::apply_args_postponing`).
+    pub(crate) app_expected: RefCell<Option<(usize, Value)>>,
     /// While the body of a definition with `decreasing` is elaborated: what
     /// its recursive calls stand for (`decreasing.rs`).
     decreasing: RefCell<Option<decreasing::Active>>,

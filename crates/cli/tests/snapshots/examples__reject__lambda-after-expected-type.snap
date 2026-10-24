@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `x + 0` in the goal
+    ╭─[ reject/lambda-after-expected-type.sw:12:37 ]
+    │
+ 12 │   List.mapCong _ _ xs (x => rewrite addZeroRight x in rfl)
+    │                                     ───────┬──────  
+    │                                            ╰──────── looking for `x + 0`
+    │ 
+    │ Note 1: goal: `x + 1 = x`
+    │ 
+    │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+    │ 
+    │ Note 3: to replace the right side by the left, write `rewrite <- …`
+────╯

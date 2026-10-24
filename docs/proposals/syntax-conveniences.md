@@ -1730,6 +1730,29 @@ reject suite's messages are unchanged, and the new
 `examples/reject/expected-type-retry.sw` shows a retry reporting the old
 path's error.
 
+### 7.8 Lambdas checked after the expected type (SW-427)
+
+Where the result type depends on the arguments, §7.2 compares nothing
+first: `List.mapCong _ _ xs (x => rewrite … in rfl)` against
+`List.map f xs = List.map g xs` checked the callback against
+`?f1 x = ?f2 x`, where `rewrite` found nothing. Now, in an application
+checked against a known type (`fallback`, through `infer_expecting`), a
+lambda argument whose type has unsolved metavariables and that no later
+parameter's type mentions is tried in place as before; only if that fails
+is it replaced by a placeholder and checked after the other arguments and
+after the application's type has been compared with the expected type
+(`apply_args_postponing`). The comparison is skipped (and the in-place
+error given) if implicit parameters remain to insert. Programs that worked
+elaborate exactly as before (no hash moved). A program still rejected
+keeps the in-place error if the comparison fails; if the comparison
+succeeds and the lambda fails again, that second error is given, as it
+shows the goal the comparison left (`x + 1 = x`, not `?f1 xs x = ?f2 xs x`;
+decided 24 October 2026). Examples:
+`examples/accept/lambda-after-expected-type.sw`,
+`examples/reject/lambda-after-expected-type.sw`. A call in an inferred
+position (`rewrite List.filterMapCong _ _ cs (…)`) has no expected type, so
+it still needs the functions written.
+
 ## 8. Implementation plan
 
 "Opus" marks design-heavy work (soundness, the elaborator's core,
