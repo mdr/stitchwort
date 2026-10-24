@@ -17,8 +17,8 @@ Only Node's standard library is used; there is nothing to install.
 ## Command line
 
 ```
-board list [--status S] [--agent A] [--label L] [--json]
-board show N [--json]
+board list [--archived] [--status S] [--agent A] [--label L] [--json]
+board show N [--json]               # also finds archived tickets (read-only)
 board add "title" [--status S] [--agent A] [--where W] [--label L]... [--body TEXT | --body-file F]
 board move N STATUS
 board assign N AGENT [--where W]     # a backlog/next ticket also moves to doing
@@ -28,12 +28,14 @@ board edit N [--title T] [--status S] [--agent A] [--where W] [--body TEXT | --b
              [--add-label L]... [--rm-label L]...
 board commit N HASH...               # record commits on the ticket
 board rm N
+board archive --before DATE         # move old done tickets to board/archive/
 ```
 
 - `N` is a ticket number, written `12` or `SW-12`.
 - `add` prints the new id (`SW-12`), so scripts can capture it:
   `id=$(board/board add "Fix the thing" --label bug)`.
 - `--body-file -` reads the body from standard input.
+- `archive` is described under "Archive" below.
 - Statuses: `backlog`, `next`, `doing`, `review`, `done`.
 - Agents: `Opus`, `Sonnet`, `DeepSeek`, `GLM`, `Matt`, `Claude`, or empty.
 - Errors go to standard error with a message and exit status 1 (2 for no command).
@@ -81,6 +83,34 @@ number, so diffs are readable.
 - Labels are free text. The ones in use: `kernel`, `elab`, `syntax`, `js`,
   `web`, `playground`, `aoc`, `docs`, `design`, `multi-file`, `tooling`,
   `stdlib`, `proof`, `bug`.
+
+## Archive
+
+To keep the board small, finished work moves out of `tickets.json` into
+`board/archive/YYYY-MM.json` (the month of the ticket's `updated` date, which for
+a done ticket is when it was finished). The files have the same ticket format,
+wrapped as `{ "tickets": [...] }`, sorted by number, with no `next`.
+
+```
+board archive --before 2026-10-23   # every done ticket with updated < 2026-10-23
+```
+
+Rule: only `done` tickets are archived, and only those whose `updated` date is
+strictly before DATE; the command is repeatable and merges into existing archive
+files. Run it now and then with a date a day or two back, so recent done work
+stays visible on the board. The first run (24 Oct 2026, `--before 2026-10-23`)
+moved 297 tickets.
+
+- Numbers are never reused: `next` in `tickets.json` is untouched by archiving, so
+  `add` continues from it.
+- `board show N` falls back to the archive and marks the ticket "(archived,
+  read-only)"; `board list --archived` lists archived tickets (with the usual
+  filters). `move`, `edit`, `assign`, `commit` and `rm` on an archived ticket
+  fail with "SW-N is archived (read-only)". To change one, edit the archive file
+  by hand.
+- The web page and its API show only live tickets.
+- The archive files are written before the board file, so a crash can leave a
+  ticket in both (running the command again fixes it), never in neither.
 
 ## Web page
 

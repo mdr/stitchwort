@@ -89,9 +89,84 @@ function withLock(file, fn) {
 function update(fn, file = defaultFile()) {
   return withLock(file, () => {
     const data = load(file);
-    const result = fn(data);
+    let result;
+    try {
+      result = fn(data);
+    } catch (e) {
+      const m = e instanceof BoardError && /^no ticket SW-(\d+)$/.exec(e.message);
+      if (m && findArchived(Number(m[1]), file)) throw new BoardError(`SW-${m[1]} is archived (read-only)`);
+      throw e;
+    }
     save(data, file);
     return result;
+  });
+}
+
+// Archive: old done tickets live in archive/YYYY-MM.json next to the board file
+// (by the month of their `updated` date), in the same ticket format. The board
+// file's `next` is never lowered, so archived numbers are not reused.
+const archiveDir = (file = defaultFile()) => path.join(path.dirname(file), 'archive');
+
+function archiveFiles(file) {
+  const dir = archiveDir(file);
+  let names;
+  try {
+    names = fs.readdirSync(dir);
+  } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    throw e;
+  }
+  return names.filter((n) => /^\d{4}-\d{2}\.json$/.test(n)).sort().map((n) => path.join(dir, n));
+}
+
+function loadArchiveFile(file) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    throw e;
+  }
+  try {
+    return (JSON.parse(text).tickets || []).map(normalizeTicket);
+  } catch (e) {
+    throw new BoardError(`${file} is not valid JSON: ${e.message}`);
+  }
+}
+
+function loadArchived(file = defaultFile()) {
+  return archiveFiles(file).flatMap(loadArchiveFile).sort((a, b) => a.id - b.id);
+}
+
+function findArchived(id, file = defaultFile()) {
+  return loadArchived(file).find((t) => t.id === id) || null;
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Moves every done ticket updated before `before` (YYYY-MM-DD) from the board
+// file into the archive. Returns the archived tickets. The archive files are
+// written before the board file, so a crash can duplicate a ticket (the next
+// run removes it from the board) but never lose one.
+function archiveBefore(before, file = defaultFile()) {
+  if (!DATE.test(before)) throw new BoardError(`not a date (YYYY-MM-DD): ${before}`);
+  return withLock(file, () => {
+    const data = load(file);
+    const old = data.tickets.filter((t) => t.status === 'done' && t.updated < before);
+    const months = {};
+    for (const t of old) (months[t.updated.slice(0, 7)] ||= []).push(t);
+    for (const [month, ts] of Object.entries(months)) {
+      const target = path.join(archiveDir(file), `${month}.json`);
+      const ids = new Set(ts.map((t) => t.id));
+      const merged = loadArchiveFile(target).filter((t) => !ids.has(t.id)).concat(ts).sort((a, b) => a.id - b.id);
+      fs.mkdirSync(archiveDir(file), { recursive: true });
+      const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify({ tickets: merged }, null, 2) + '\n');
+      fs.renameSync(tmp, target);
+    }
+    data.tickets = data.tickets.filter((t) => !old.includes(t));
+    save(data, file);
+    return old;
   });
 }
 
@@ -152,4 +227,5 @@ function removeTicket(data, id) {
 module.exports = {
   STATUSES, AGENTS, BoardError, defaultFile, load, save, serialize, update, find, parseId,
   addTicket, editTicket, removeTicket, normalizeTicket, today,
+  archiveDir, loadArchived, findArchived, archiveBefore,
 };
