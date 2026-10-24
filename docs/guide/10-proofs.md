@@ -38,8 +38,15 @@ theorem doubleFour: double 4 = 9 := rfl
    │ Note 1: computing the left side gives `8`
    │
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │
+   │ Note 3: this statement is false:
+   │         `double 4 = 9` is false:
+   │           left:  8
+   │           right: 9
 ───╯
 ```
+
+The last note comes from a **counterexample search**: when a proof fails, the checker also tries the statement itself on small inputs. Here there are no inputs to try, and the statement computes to false, so no proof could work. A search that finds nothing says nothing.
 
 A theorem is erased when the program runs: it costs nothing. In a project, `stitchwort run` doesn't even check the namespaces it doesn't need, which is why proofs usually have a namespace of their own.
 
@@ -182,10 +189,17 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <=
    │ Note 2: atoms: `x`, `y`
    │
    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 10, y = 10
+   │
+   │ Note 4: this statement is false; a counterexample:
+   │           x = 10
+   │           y = 10
+   │         `x <= y` holds
+   │         `y <= 10` holds
+   │         `x + 1 <= 10` is false
 ───╯
 ```
 
-With `x = 10`, `x + 1 <= 10` is false: the hypothesis needs to be `x < y`.
+With `x = 10`, `x + 1 <= 10` is false: the hypothesis needs to be `x < y`. Note 3 is `omega`'s own model, which may not be real; Note 4 is from the counterexample search, which ran the statement on those values and found every hypothesis true and the conclusion false, so the theorem as written is false.
 
 ## Decisions and facts
 
