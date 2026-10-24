@@ -626,3 +626,93 @@ fn partial_with_forwarded_abilities_runs_a_million_levels_deep() {
         );
     });
 }
+
+/// A program whose `IO` operations, read replies included, go through a
+/// partial recursion (`Tie` frames) and a forwarding handler.
+const CROSSING: &str = "import Std (Fail, IO, Nat, Option, Result, Text)
+
+def echo: Nat -> {IO, Partial} Nat
+  | 0 => 0
+  | n =>
+    let line := Option.getOrElse \"none\" (IO.readLine())
+    let shown := Fail.toResult (() =>
+      IO.print \"${n}: ${line}\"
+      if line == \"stop\" then Fail.fail \"stopped\" else Text.length line)
+    match shown with
+      | Ok length => length + echo (n - 1)
+      | Err message => Text.length message
+
+def main(): {IO, Partial} () :=
+  IO.print \"total ${echo 4}\"
+";
+
+/// An `IO` operation crossing translation (`Map`) frames on its way to the
+/// runner, which stage 4c's note found no source program makes (a
+/// translation around a partial computation is crossed only by its own
+/// recursion requests, E-PARTIAL): `main`'s computation wrapped in two
+/// `Effect.mapSig Effect.sigSwap`s at the term level, so each operation is
+/// renamed twice on the way out (`L io` to `R io` and back) and its reply
+/// mapped back through both (stage 4e). The output is the unwrapped run's,
+/// and routing looks at both translations for every operation.
+#[test]
+fn io_operations_cross_translations_on_their_way_to_the_runner() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("crossing.sw", CROSSING)
+            .unwrap_or_else(|e| panic!("crossing.sw doesn't check: {e:?}"));
+        let main = session.main().expect("a `main`");
+        let g = &session.elab.globals;
+        let limits = session.elab.limits;
+        // Type arguments are erased by the definitions' types, so any term
+        // will do for them.
+        let erased = || Term::Sort(stitchwort_core::Sort::Type(0));
+        let implicit = |id: DefId, n: usize| {
+            (0..n).fold(Term::Def(id), |f, _| {
+                Term::app_icit(f, erased(), stitchwort_core::Icit::Implicit)
+            })
+        };
+        let map_sig = def_named(&session, "Effect.mapSig");
+        let sig_swap = def_named(&session, "Effect.sigSwap");
+        let wrap = |d: Term| Term::app(Term::app(implicit(map_sig, 5), implicit(sig_swap, 4)), d);
+        let plain = lower_main(g, limits, main.term()).expect("lowering main");
+        let wrapped = lower_main(g, limits, &wrap(wrap(main.term().clone())))
+            .expect("lowering the wrapped main");
+        let run = |program: &Program, input: &str| {
+            let mut output = Vec::new();
+            let (result, counts) = run_main_counting(
+                program,
+                Limits::default(),
+                &Policy::default(),
+                &mut input.as_bytes(),
+                &mut output,
+            );
+            assert_eq!(result.expect("it runs"), Outcome::Finished);
+            (String::from_utf8(output).expect("text"), counts)
+        };
+        for input in [
+            "",
+            "a\nbb\n",
+            "one\ntwo\nthree\nfour\nfive\n",
+            "x\nstop\ny\n",
+        ] {
+            let (expected, before) = run(&plain, input);
+            let (output, after) = run(&wrapped, input);
+            assert_eq!(output, expected, "with input {input:?}");
+            assert_eq!(after.operations, before.operations, "with input {input:?}");
+            // Every operation that reaches the runner crosses (or, for a
+            // recursion request, is stopped inside) the two translations:
+            // each `IO` operation is looked at by both.
+            // The prints, and a read before each level's print.
+            let lines = output.lines();
+            let io =
+                lines.clone().count() as u64 + lines.filter(|l| l.contains(": ")).count() as u64;
+            assert!(
+                after.visited >= before.visited + 2 * io,
+                "with input {input:?}: {before:?} unwrapped, {after:?} wrapped"
+            );
+        }
+        let (output, _) = run(&wrapped, "a\nbb\n");
+        assert_eq!(output, "4: a\n3: bb\n2: none\n1: none\ntotal 11\n");
+    });
+}
