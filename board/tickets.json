@@ -6090,9 +6090,9 @@
     {
       "id": 378,
       "title": "Proof: Fail.toResultMapIn — via proof-only reification (D1141 d); design note in progress",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "via SW-419 (R1)",
       "labels": [
         "proofs"
       ],
@@ -6744,9 +6744,9 @@
     {
       "id": 419,
       "title": "Proof-only reification stage R1: match reify with handler-style clauses, E-PROOF-ONLY, Fail/Abort laws, Fail.toResultMapIn (proof-reification.md, D1144-D1148)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "effects"
       ],
