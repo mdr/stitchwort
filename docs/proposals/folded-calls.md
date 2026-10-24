@@ -557,6 +557,137 @@ solutions, as `Int.divAddMod` showed), and whether the decision search
 should keep computing the proposition again or work on the glued value
 with gluing off.
 
+### As built (stage 3, SW-257)
+
+*What changed.* A second read-back, `value.rs` `quote_folded`, writes a
+glued call as the call (`List.sum xs`) with its arguments read back the
+same way. `quote` is unchanged and still gives the normal form. The folded
+one is used for:
+
+- **Hidden-argument solutions** (`unify.rs` `rename`). A call is written as
+  the call. If its arguments can't be written (they mention the
+  metavariable being solved, or a variable out of its scope, which the
+  unfolding may not), the unfolding is written instead, as before. Inside a
+  call's arguments nothing is pruned: the call may not need that argument,
+  so pruning there would solve a metavariable the unfolded solution leaves
+  alone. Such an argument makes the folded attempt fail and the unfolding
+  is written. That keeps to the decision after stage 2: stage 3 changes how
+  solutions are written, not what is solved.
+- **A metavariable against a call** (`unify.rs` `meta_against_call`). The
+  unifier forced both sides before solving, so `?x` against `invalid r`
+  was solved from the unfolding before `rename` saw the call. Now it's
+  solved with the call first; if that fails, unification goes on as before.
+  The one difference in what's solved: a call whose unfolding is a
+  function isn't eta-expanded first, and the two solutions are convertible.
+- **Zonking** (`zonk_changed`). A solution is read back folded, unless the
+  folded term mentions an unsolved metavariable (one inside a call's
+  arguments that the unfolding may not have); then unfolded, as before.
+  `refold` looks for a `let`'s value in both forms (`both_forms`), since a
+  solution may hold either.
+- **Lifted helper types** (`lift.rs`: the goal, the captures' types, the
+  refined variables' values), and the type annotations the elaborator
+  writes (`check.rs`: lambdas, operations, partly applied constructors,
+  list literals, `if`).
+- **Messages** (`pretty.rs` `value_for_message`, `…_hidden`,
+  `value_for_goal`). An `rfl` failure's "computing … gives" note still
+  shows the normal form (`Ctx::show_unfolded`), since that's what it says.
+
+`rewrite`'s search, `refold`'s comparison, `unify_index`'s occurs check,
+the decision search (D484), `omega` and the other places that look at a
+term's shape still use `quote`, so they see what they saw before.
+
+*Calls that match at once are written unfolded* (`value.rs`
+`matches_at_once`). A call whose case tree starts with a case on an
+argument that is already a constructor or a number (or a call that is
+itself like this) is written as its unfolding. Without this, messages got
+worse in a systematic way: an unfolded `reach flag k c d` showed
+`if True then … else …` where `main` showed the branch, and `wrong-step`
+showed `List.length (Cons x (List.append xs ys))` where `main` showed
+`Succ (List.length (List.append xs ys))`. With it, every `check` output
+over `examples/` is the same as `main`'s. Calls on variables or on other
+calls (`invalid r`, `List.length (f xs)`) stay folded. This is a build
+detail; Lean would show `if True then …` here.
+
+*The kernel* is unchanged with gluing off (D483). The trusted crate gains
+`quote_folded`, `force_solved`, `matches_at_once` and `call_args`; `quote`
+itself is the same code with a `false` flag passed through. Two pinned
+hashes in `core/float.rs` are re-recorded (`Float.neg`, `Float.abs`, whose
+elaborated terms got folded hidden arguments). Checked: with
+`STITCHWORT_GLUE=0`, every declaration of the AoC project takes the same
+evaluation steps and makes the same nodes as on `main` (all 2,791
+`STITCHWORT_TIMINGS=decls` rows), and `check` prints exactly what `main`
+prints on every example file except the 12 that use `Float`: their pins
+are now the glued hashes, so with gluing off `Float` no longer loads. The
+elaborator's new work (the second read-back of a `let`'s value, the
+unfolded `rfl` note, the zonking fallback) is skipped when gluing is off,
+so the step counts match exactly.
+
+*Compared* (release, `--no-cache`, against `main` at `381d1061`):
+
+- `check` prints the same, with the same exit code, on all 686 files of
+  `examples/accept`, `examples/reject` and `examples/extract`.
+- Three CLI snapshots changed, all for the better:
+  `goals/let-values` shows `total: Nat := List.sum xs` (was
+  `List.foldLeft Nat.add 0 xs`), `soundness/quot-lift-projection` shows the
+  written `AllTrue x y` (was what it computes to, `Unit`), and
+  `soundness/char-surrogate-constructor` says ``Char.isScalar 55296` and
+  `True` aren't equal`` with a note that the left side computes to `False`.
+  None got worse.
+- Hashes: 137 of the 240 `hash_stability` snapshots changed, 2,383 of
+  their 10,076 declaration hashes; in the prelude 658 of 2,418. Only
+  hashes moved: every snapshot lists the same declarations in the same
+  order.
+- The AoC project checks, with the same output.
+
+*Measured* (`aoc/`, `check --no-cache`; node counts and steps from
+`STITCHWORT_TIMINGS=decls`; the machine was loaded, load average 50–90, so
+times are rough):
+
+| | `main` | stage 3 | change |
+|---|---:|---:|---:|
+| nodes, whole project | 1,746,822 | 877,646 | −50% |
+| nodes, library files | 488,029 | 293,159 | −40% |
+| `Aoc.Day01.Proofs` nodes | 205,716 | 37,882 | −82% |
+| `Aoc.Day02.Proofs` nodes | 83,578 | 57,475 | −31% |
+| `Aoc.Day04.Proofs` nodes | 182,208 | 124,328 | −32% |
+| `Aoc.Day08.Proofs` nodes | 647,418 | 237,642 | −63% |
+| `std/Mod/Mod.sw` nodes | 161,082 | 12,819 | −92% |
+| evaluation steps, all declarations | 261.96 M | 243.60 M | −7% |
+| instructions retired (3 runs each, interleaved) | 110.86–110.93 G | 101.42–102.03 G | −8% |
+| peak memory | 230 MB | 169 MB | −26% |
+
+The instruction counts of stage 3 vary more between runs (0.6%) than
+`main`'s (0.1%); I don't know why.
+
+The largest declarations (`invalidCorrect` and `twiceTerms` from §5 are
+gone from the project, so these are today's largest):
+
+| declaration | nodes | steps |
+|---|---|---|
+| `Aoc.Day08.Proofs.part1Correct` | 228,888 → 58,870 | 7.92 M → 4.92 M |
+| `Aoc.Day01.Proofs.leftMirror` | 155,967 → 27,199 | 3.55 M → 1.15 M |
+| `Aoc.Day08.Proofs.lastNeededExists` | 140,405 → 28,100 | 9.85 M → 6.82 M |
+| `Aoc.Day08.Proofs.part2Correct` | 58,080 → 19,554 | 1.03 M → 0.51 M |
+| `Std.Mod.addAssoc` | 28,209 → 1,247 | 520 k → 82 k |
+| `Aoc.Day04.Proofs.passRow` | 21,263 → 17,514 | 1.18 M → 0.97 M |
+| `Aoc.Day04.Proofs.mixStep` | 13,794 → 10,768 | 455 k → 367 k |
+| `Aoc.Day04.Proofs.settleEnds` | 15,520 → 10,787 | 927 k → 838 k |
+
+25 of 2,791 declarations got slightly bigger (at most 1,374 → 1,478
+nodes, `Aoc.Day06.Problem`): a call written out can be longer than a small
+unfolding. Four `Std.Nat` lemmas take 20–37% more steps
+(`modModOfMul` 30.8 k → 39.7 k, the others under 25 k): a folded solution,
+evaluated again, is a new call whose unfolding is computed again where the
+unfolded solution was already normal.
+
+The Day 4 proofs gained least (−32% nodes, −18% steps on `passRow`).
+Their remaining size is mostly in `rewrite` motives, which are built from
+the unfolded goal (D484) and so stay unfolded.
+
+*Not done.* The bench baseline (`crates/bench`, `baseline.rs`) wasn't
+re-recorded: its test isn't among this lane's targeted ones, and counts
+only fail it when they get worse.
+
 ## 8. Risks
 
 - **A missed place in stage 1** shows up as a spurious "can't decide",

@@ -7,7 +7,9 @@ expression: output
    │
  4 │ def bad: Char := MkChar 55296 rfl
    │                               ─┬─  
-   │                                ╰─── `False` and `True` aren't equal
+   │                                ╰─── `Char.isScalar 55296` and `True` aren't equal
    │ 
-   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: computing the left side gives `False`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

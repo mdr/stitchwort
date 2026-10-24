@@ -7,8 +7,9 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::native;
 use stitchwort_core::value::{
-    Closure, Elim, Head, Relation, apply_icit, eval, expand_step, force, is_folded, opens_by_tree,
-    quote, same_closure, same_stuck_trees, underapplied, unfold_folded,
+    Closure, Elim, Head, Relation, apply_icit, call_args, eval, expand_step, force, force_solved,
+    is_folded, matches_at_once, opens_by_tree, quote, quote_folded, same_closure, same_stuck_trees,
+    underapplied, unfold_folded,
 };
 use stitchwort_core::{Globals, Term, Value};
 
@@ -67,6 +68,9 @@ fn unify_step(
         && i1 == i2
         && same_arguments_solving_nothing(g, level, s1, s2)?
     {
+        return Ok(true);
+    }
+    if meta_against_call(g, level, a, b)? {
         return Ok(true);
     }
     let a = force(g, a.clone())?;
@@ -390,6 +394,35 @@ fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Valu
         )?)
 }
 
+/// An unsolved metavariable against a glued call (`?x` against `invalid r`):
+/// solved with the call itself, before anything forces it, so the solution
+/// is written as the call ([`rename`]; docs/proposals/folded-calls.md,
+/// stage 3). `false` if neither side is such a pair, or if solving fails;
+/// [`unify_step`] then goes on as before, with the call unfolded (and
+/// tries [`first_order`] too). The solution is the same one up to
+/// unfolding, except that a call whose unfolding is a function isn't
+/// eta-expanded first; the two are convertible.
+fn meta_against_call(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    if !g.glue.get()
+        || !matches!(a, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !matches!(b, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+    {
+        return Ok(false);
+    }
+    let a = force_solved(g, a.clone())?;
+    let b = force_solved(g, b.clone())?;
+    let (m, spine, call) = match (&a, &b) {
+        (Value::Neutral(Head::Meta(m), spine), call @ Value::Call(..))
+        | (call @ Value::Call(..), Value::Neutral(Head::Meta(m), spine))
+            if !g.meta_frozen(*m) =>
+        {
+            (*m, spine, call)
+        }
+        _ => return Ok(false),
+    };
+    solve(g, level, m, spine, call)
+}
+
 /// Why a solution couldn't be built: there isn't one of the right shape, or
 /// it ran out of resources finding out.
 enum Fail {
@@ -452,7 +485,8 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
     for l in repeated {
         renaming.remove(&l);
     }
-    let Some(mut solution) = settle(rename(g, m, &renaming, icits.len(), level, rhs))? else {
+    let Some(mut solution) = settle(rename(g, m, &renaming, icits.len(), level, rhs, false))?
+    else {
         return Ok(false);
     };
     for icit in icits.into_iter().rev() {
@@ -468,6 +502,17 @@ type Renamed<T> = std::result::Result<T, Fail>;
 /// Quotes `value` (in a context of `cod` variables) into a term in a context of
 /// `dom` variables, following `renaming`. Fails if `value` mentions `m` itself
 /// (no circular solutions) or a variable the renaming doesn't cover.
+///
+/// A glued call is written as the call (docs/proposals/folded-calls.md,
+/// stage 3), so a solution says `invalid r`, not what that computes to. If
+/// its arguments can't be written (they mention `m` or a variable out of
+/// scope, which its unfolding may not), its unfolding is written instead,
+/// as without gluing. Inside a call's arguments (`in_call`), nothing is
+/// pruned: the call may not need the argument, so pruning there would
+/// solve a metavariable the unfolded solution leaves alone; stage 3
+/// changes how solutions are written, not what is solved (as decided after
+/// stage 2 for matching calls by their arguments). Such an argument fails
+/// instead, and the unfolding is written.
 fn rename(
     g: &Globals,
     m: usize,
@@ -475,16 +520,38 @@ fn rename(
     dom: usize,
     cod: usize,
     value: &Value,
+    in_call: bool,
 ) -> Renamed<Term> {
     g.budget.step()?;
-    let go = |v: &Value| rename(g, m, renaming, dom, cod, v);
+    let go = |v: &Value| rename(g, m, renaming, dom, cod, v, in_call);
     let under = |closure: &Closure| -> Renamed<Term> {
         let mut renaming = renaming.clone();
         renaming.insert(cod, dom);
         let body = closure.apply(g, Value::var(cod))?;
-        rename(g, m, &renaming, dom + 1, cod + 1, &body)
+        rename(g, m, &renaming, dom + 1, cod + 1, &body, in_call)
     };
-    Ok(match force(g, value.clone())? {
+    let value = match force_solved(g, value.clone())? {
+        Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
+            let mut term = Term::Def(id);
+            let mut written = Ok(());
+            for (arg, icit) in call_args(&spine) {
+                match rename(g, m, renaming, dom, cod, &arg, true) {
+                    Ok(arg) => term = Term::app_icit(term, arg, icit),
+                    Err(e) => {
+                        written = Err(e);
+                        break;
+                    }
+                }
+            }
+            match written {
+                Ok(()) => return Ok(term),
+                Err(Fail::Out(e)) => return Err(Fail::Out(e)),
+                Err(Fail::No) => force(g, Value::Call(id, spine, unfolding))?,
+            }
+        }
+        other => force(g, other)?,
+    };
+    Ok(match value {
         Value::Sort(s) => Term::Sort(s),
         Value::Refl => Term::Refl,
         Value::Pi(x, i, a, b) => Term::Pi(x, i, Rc::new(go(&a)?), Rc::new(under(&b)?)),
@@ -493,11 +560,11 @@ fn rename(
         Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(go).collect::<Renamed<_>>()?),
         Value::Nat(n) => Term::Nat(n),
         // Closed: nothing to rename, and no metavariable to occur.
-        Value::Chars(_) => quote(g, cod, value)?,
+        Value::Chars(c) => quote(g, cod, &Value::Chars(c))?,
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
-            if let Some((m3, kept)) = prune(g, m2, &spine, renaming)? {
+            if !in_call && let Some((m3, kept)) = prune(g, m2, &spine, renaming)? {
                 let mut term = Term::Meta(m3);
                 for elim in kept {
                     let Elim::App(v, i) = elim else {
@@ -507,7 +574,7 @@ fn rename(
                 }
                 return Ok(term);
             }
-            rename_spine(g, m, renaming, dom, cod, Term::Meta(m2), &spine)?
+            rename_spine(&go, Term::Meta(m2), &spine)?
         }
         Value::Neutral(head, spine) => {
             let (head, rest) = match head {
@@ -534,23 +601,15 @@ fn rename(
                     (Term::Quot(form, args, false), &spine[n..])
                 }
             };
-            rename_spine(g, m, renaming, dom, cod, head, rest)?
+            rename_spine(&go, head, rest)?
         }
-        // Solutions are read back unfolded: `force` gave the unfolding.
+        // Handled above: the call, or else `force` gave its unfolding.
         Value::Call(..) => unreachable!("a forced value is never a call"),
     })
 }
 
-fn rename_spine(
-    g: &Globals,
-    m: usize,
-    renaming: &HashMap<usize, usize>,
-    dom: usize,
-    cod: usize,
-    head: Term,
-    spine: &[Elim],
-) -> Renamed<Term> {
-    let go = |v: &Value| rename(g, m, renaming, dom, cod, v);
+/// `head` applied to `spine`, each part renamed by `go` ([`rename`]).
+fn rename_spine(go: &dyn Fn(&Value) -> Renamed<Term>, head: Term, spine: &[Elim]) -> Renamed<Term> {
     let mut term = head;
     for elim in spine {
         term = match elim {
@@ -813,8 +872,29 @@ pub(crate) fn worth_folding(normal: &Term) -> bool {
 }
 
 /// A `let` that `term` is inside, in [`zonk_in`]: its level, and its value
-/// as a normal form in the context before it.
+/// as a normal form in the context before it. A `let` may appear twice,
+/// with its value read back folded and unfolded ([`both_forms`]), since a
+/// solution may hold either.
 pub(crate) type Around = (usize, Rc<Term>);
+
+/// `value` read back folded and, if that differs, unfolded: the forms of a
+/// `let`'s value that [`refold`] looks for. A solution is written folded
+/// (stage 3 of docs/proposals/folded-calls.md) but falls back to the
+/// unfolding where a call can't be written, and a decision's solution is
+/// found on the unfolded goal (D484).
+pub(crate) fn both_forms(g: &Globals, level: usize, value: &Value) -> Result<Vec<Term>> {
+    let unfolded = quote(g, level, value)?;
+    if !g.glue.get() {
+        // No calls: the two are the same.
+        return Ok(vec![unfolded]);
+    }
+    let folded = quote_folded(g, level, value)?;
+    Ok(if stitchwort_core::value::same_term(&folded, &unfolded) {
+        vec![folded]
+    } else {
+        vec![folded, unfolded]
+    })
+}
 
 /// Replaces solved metavariables in `term` (with `level` variables in scope,
 /// inside the `let`s `lets`) by their solutions. Fails on an unsolved
@@ -943,11 +1023,21 @@ fn zonk_changed(
         }
         Term::Meta(_) | Term::App(..) if meta_headed(term) => {
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let solved = quote(g, level, &eval(g, &env, term)?)?;
-            if let Some(m) = solved.subterms().find_map(|(t, _)| match t {
-                Term::Meta(m) if !keep(*m) => Some(*m),
-                _ => None,
-            }) {
+            let value = eval(g, &env, term)?;
+            let unsolved = |t: &Term| {
+                t.subterms().find_map(|(t, _)| match t {
+                    Term::Meta(m) if !keep(*m) => Some(*m),
+                    _ => None,
+                })
+            };
+            // Calls folded (docs/proposals/folded-calls.md, stage 3), unless
+            // a call's arguments mention an unsolved metavariable its
+            // unfolding may not: then unfolded, as without gluing.
+            let mut solved = quote_folded(g, level, &value)?;
+            if g.glue.get() && unsolved(&solved).is_some() {
+                solved = quote(g, level, &value)?;
+            }
+            if let Some(m) = unsolved(&solved) {
                 return Err(ZonkError::Unsolved(m));
             }
             Some(refold(g, solved, level, lets)?)
@@ -957,14 +1047,18 @@ fn zonk_changed(
             let v2 = go(v, level)?;
             let v_now = v2.clone().unwrap_or_else(|| v.clone());
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let normal = cheaply(g, || quote(g, level, &eval(g, &env, &v_now)?));
-            let b2 = match normal {
-                Some(normal) if worth_folding(&normal) => {
-                    let mut inner = lets.to_vec();
-                    inner.push((level, Rc::new(normal)));
-                    zonk_changed(g, level + 1, b, keep, &inner)?.map(Rc::new)
-                }
-                _ => go(b, level + 1)?,
+            let normals = cheaply(g, || both_forms(g, level, &eval(g, &env, &v_now)?));
+            let normals: Vec<Term> = normals
+                .unwrap_or_default()
+                .into_iter()
+                .filter(worth_folding)
+                .collect();
+            let b2 = if normals.is_empty() {
+                go(b, level + 1)?
+            } else {
+                let mut inner = lets.to_vec();
+                inner.extend(normals.into_iter().map(|n| (level, Rc::new(n))));
+                zonk_changed(g, level + 1, b, keep, &inner)?.map(Rc::new)
             };
             match (a2, v2, b2) {
                 (None, None, None) => None,
@@ -1115,6 +1209,76 @@ mod tests {
         )
         .unwrap();
         assert!(is_var(&g, &applied, 7));
+    }
+
+    /// Globals with `first: Type -> Type -> Type := a b => a`, gluing on.
+    fn with_first() -> (Globals, stitchwort_core::DefId) {
+        let mut g = globals();
+        let ty_term = Term::Sort(Sort::Type(0));
+        let arrow = |a: Term, b: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b));
+        let fn_ty = arrow(ty_term.clone(), arrow(ty_term.clone(), ty_term));
+        let id = stitchwort_core::check::declare_def(
+            &mut g,
+            &"first".into(),
+            &fn_ty,
+            false,
+            false,
+            span(),
+        )
+        .expect("declared");
+        let body = Term::Lam(
+            "a".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("b".into(), Icit::Explicit, Rc::new(Term::Var(1)))),
+        );
+        stitchwort_core::check::define_def(&mut g, id, &body).expect("defined");
+        g.glue.set(true);
+        (g, id)
+    }
+
+    /// `first x_a x_b`, glued, with `level` variables in scope.
+    fn first_of(
+        g: &Globals,
+        id: stitchwort_core::DefId,
+        level: usize,
+        a: usize,
+        b: usize,
+    ) -> Value {
+        let env: Vec<Value> = (0..level).map(Value::var).collect();
+        let call = Term::app(
+            Term::app(Term::Def(id), Term::Var(level - 1 - a)),
+            Term::Var(level - 1 - b),
+        );
+        let value = eval(g, &env, &call).unwrap();
+        assert!(matches!(value, Value::Call(..)));
+        value
+    }
+
+    #[test]
+    fn a_solution_is_written_with_the_call_folded() {
+        let (g, id) = with_first();
+        // ?m x0 x1 = first x0 x1, so ?m = a b => first a b, not a b => a.
+        let (m, lhs) = meta(&g, &[0, 1]);
+        assert!(unify(&g, 2, &lhs, &first_of(&g, id, 2, 0, 1)).unwrap());
+        let solution = quote_folded(&g, 0, &g.meta_solution(m).expect("solved")).unwrap();
+        assert!(
+            solution
+                .subterms()
+                .any(|(t, _)| matches!(t, Term::Def(d) if *d == id)),
+            "{solution:?}"
+        );
+    }
+
+    #[test]
+    fn a_call_whose_arguments_are_out_of_scope_is_written_unfolded() {
+        let (g, id) = with_first();
+        // ?m x0 = first x0 x1: `x1` can't be in the solution, but
+        // `first x0 x1` unfolds to `x0`, so ?m = a => a.
+        let (m, lhs) = meta(&g, &[0]);
+        assert!(unify(&g, 2, &lhs, &first_of(&g, id, 2, 0, 1)).unwrap());
+        let solution = g.meta_solution(m).expect("solved");
+        let applied = apply_icit(&g, solution, Value::var(5), Icit::Explicit).unwrap();
+        assert!(is_var(&g, &applied, 5));
     }
 
     #[test]

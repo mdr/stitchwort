@@ -33,7 +33,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::globals::State;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{Head, eval, quote};
+use stitchwort_core::value::{Head, eval, quote_folded};
 use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -136,7 +136,7 @@ pub(crate) fn draft(
     span: Span,
 ) -> Result<Term> {
     let g = cx.g();
-    let goal = cx.quote(goal)?;
+    let goal = cx.quote_folded(goal)?;
     let meta = g.new_meta(span);
     g.freeze_meta(meta);
     let mut call = Term::Meta(meta);
@@ -665,7 +665,7 @@ impl Elaborator {
             if is_var(&draft.env[l], l) || (lets && draft.lets[l].is_some()) {
                 Ok(Term::Var(depth - 1 - l))
             } else {
-                Ok(quote(g, depth, &draft.env[l])?)
+                Ok(quote_folded(g, depth, &draft.env[l])?)
             }
         })
     }
@@ -687,18 +687,26 @@ impl Elaborator {
         }
         for l in *done..upto {
             if draft.lets[l].is_some()
-                && let Some(normal) = crate::unify::cheaply(g, || {
-                    let normal = quote(g, l, &draft.env[l])?;
-                    crate::unify::refold(g, normal, l, around).map_err(|e| match e {
-                        crate::unify::ZonkError::Resource(e) => e,
-                        crate::unify::ZonkError::Unsolved(_) => {
-                            unreachable!("refolding solves nothing")
-                        }
-                    })
+                && let Some(normals) = crate::unify::cheaply(g, || {
+                    let mut out = Vec::new();
+                    for normal in crate::unify::both_forms(g, l, &draft.env[l])? {
+                        out.push(crate::unify::refold(g, normal, l, around).map_err(
+                            |e| match e {
+                                crate::unify::ZonkError::Resource(e) => e,
+                                crate::unify::ZonkError::Unsolved(_) => {
+                                    unreachable!("refolding solves nothing")
+                                }
+                            },
+                        )?);
+                    }
+                    Ok(out)
                 })
-                && crate::unify::worth_folding(&normal)
             {
-                around.push((l, Rc::new(normal)));
+                for normal in normals {
+                    if crate::unify::worth_folding(&normal) {
+                        around.push((l, Rc::new(normal)));
+                    }
+                }
             }
         }
         *done = (*done).max(upto);
@@ -890,7 +898,7 @@ impl Elaborator {
                         continue;
                     }
                     if types[i][l].is_none() {
-                        let ty = quote(g, n, &d.types[l])?;
+                        let ty = quote_folded(g, n, &d.types[l])?;
                         types[i][l] = Some(self.unrefine(d, &ty, n, &in_batch)?);
                     }
                     let mut deps = BTreeSet::new();
@@ -1033,7 +1041,7 @@ impl Elaborator {
         let mut ty = into(&goal, n, k)?;
         let mut lam = into(&body, n, k)?;
         for (p, &l) in ordered.iter().enumerate().rev() {
-            let dom = quote(g, n, &draft.types[l])?;
+            let dom = quote_folded(g, n, &draft.types[l])?;
             let dom = into(&self.unrefine(draft, &dom, n, keep)?, n, p)?;
             let x = draft.names[l].clone();
             ty = Term::Pi(x.clone(), kind(l), Rc::new(dom), Rc::new(ty));

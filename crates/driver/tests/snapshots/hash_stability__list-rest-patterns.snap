@@ -3,9 +3,9 @@ source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
 Main.describe a4fb9badc8d6d378a71330caee9fda20d7802a2228fb53902c6c2b6c1e004b0c
-Main.test "describeEmpty" 52fc595ee9176d09f898b6e748e835bad8dc326e9bfc32f76f77c253a289550b
-Main.test "describeOne" f2a688bc2bcc3a1493d019207ba2698fc558a1a3ab5ace8f473ca29e7c8c579f
-Main.test "describeMany" 3cb363626b7f819c771e62df61d58d08e9dd76498512bdc6c8eec6f27e9eb4dc
+Main.test "describeEmpty" 4742c4375bb52df145bead8b7ac29f5e127871d7541227b101d6adc347710da4
+Main.test "describeOne" bba8a15641883a880b0427352f943b4261fe6f16478e29bd01f7a08010677827
+Main.test "describeMany" 0963d5984bfdf13e4f4a91e9f8ebdba366daf97718303be92d96823ed8de91fa
 Main.sumTwo c410fbb45b811b51a22575988cbe7aa6526c51fbd541de77b3f602b1ea29abbc
 Main.test "sumTwoLong" 7c39b4dfa018f998f89c9a62a6441be79e6e2f023a03df63e3bca0cf407a60cb
 Main.test "sumTwoShort" 56dd69794782e7700d74f8e1aa343b679316c42ec0e9c65ecffc260ffb5338b2

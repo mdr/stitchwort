@@ -7,5 +7,5 @@ expression: output
     │
  10 │ def unwrap (q: Q): Bool := Quot.lift (b => b) (x y related => related) q
     │                                                               ───┬───  
-    │                                                                  ╰───── expected `x = y`, but this has type `Unit`
+    │                                                                  ╰───── expected `x = y`, but this has type `AllTrue x y`
 ────╯

@@ -446,6 +446,86 @@ pub fn force_ref<'v>(g: &Globals, value: &'v Value) -> Result<std::borrow::Cow<'
     })
 }
 
+/// [`force`], but stopping at a glued call ([`Value::Call`]): a solved
+/// metavariable at the head is replaced by its solution, applied to the
+/// spine, until none is; a call that gives is returned as the call. For
+/// reading back folded ([`quote_folded`]). Without gluing, it's [`force`]
+/// except on a call itself.
+pub fn force_solved(g: &Globals, value: Value) -> Result<Value> {
+    if !g.glue.get() {
+        // Nothing is glued now, so `force` as usual (taking the same steps);
+        // but a call kept from while gluing (a goal's context, printed
+        // afterwards) is still written as the call.
+        return match value {
+            Value::Call(..) => Ok(value),
+            other => force(g, other),
+        };
+    }
+    let mut value = value;
+    loop {
+        let Value::Neutral(Head::Meta(m), spine) = &value else {
+            return Ok(value);
+        };
+        let Some(solution) = g.meta_solution(*m) else {
+            return Ok(value);
+        };
+        if spine.iter().any(|e| matches!(e, Elim::J { .. })) {
+            return force(g, value);
+        }
+        let mut applied = solution;
+        for elim in spine.iter() {
+            let Elim::App(arg, icit) = elim else {
+                unreachable!("checked above")
+            };
+            applied = apply_icit(g, applied, arg.clone(), *icit)?;
+        }
+        value = applied;
+    }
+}
+
+/// Whether glued call `id spine` takes a step at once by matching: its case
+/// tree starts with a case on an argument that is already a constructor or
+/// a number, or a call that does this itself (`List.length (List.append
+/// (Cons x xs) ys)`); not any other call that might compute to one, which
+/// isn't forced to find out. Read back folded, such a call is written as
+/// its unfolding:
+/// `if True then a else b` is `a`, and `List.length (Cons x xs)` is
+/// `Succ (List.length xs)`, while `invalid r` or `List.length (f xs)` stay
+/// calls (docs/proposals/folded-calls.md, stage 3).
+pub fn matches_at_once(g: &Globals, id: DefId, spine: &Spine) -> Result<bool> {
+    let def = g.def(id);
+    let Some(body) = &def.body else {
+        return Ok(false);
+    };
+    let tree = Term::peel_lams_rc(body, def.arity);
+    let (Term::Case(ix, ..) | Term::NumCase(ix, ..)) = &*tree else {
+        return Ok(false);
+    };
+    let Some(Elim::App(arg, _)) = spine.len().checked_sub(1 + ix).and_then(|i| spine.get(i)) else {
+        return Ok(false);
+    };
+    let arg = match force_solved(g, arg.clone())? {
+        // A call that itself matches at once is looked through.
+        Value::Call(i, s, u) if matches_at_once(g, i, &s)? => force(g, Value::Call(i, s, u))?,
+        other => other,
+    };
+    Ok(matches!(
+        arg,
+        Value::Ctor(..) | Value::Nat(_) | Value::NatAdd(..) | Value::Chars(_) | Value::Refl
+    ))
+}
+
+/// A glued call's arguments, in order, with how each is passed.
+pub fn call_args(spine: &Spine) -> Vec<(Value, Icit)> {
+    spine
+        .iter()
+        .map(|elim| match elim {
+            Elim::App(v, i) => (v.clone(), *i),
+            Elim::J { .. } => unreachable!("a call's spine has only applications"),
+        })
+        .collect()
+}
+
 /// A short description of a value for internal errors, which mustn't print
 /// a value that may be arbitrarily deep.
 fn describe(value: &Value) -> &'static str {
@@ -1627,8 +1707,22 @@ fn erased_arg(g: &Globals, f: &Term) -> bool {
 }
 
 /// Converts a value back into a term, with `level` variables in scope.
-/// Solved metavariables are replaced by their solutions.
+/// Solved metavariables are replaced by their solutions, and a glued call
+/// ([`Value::Call`]) by its unfolding: the normal form.
 pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+    quote_as(g, level, value, false)
+}
+
+/// [`quote`], but a glued call ([`Value::Call`]) is written as the call,
+/// its arguments read back the same way, rather than as its unfolding
+/// (docs/proposals/folded-calls.md, stage 3): `List.length xs`, not what it
+/// computes to. The two terms are convertible. Without gluing (the kernel)
+/// there are no calls, and this is [`quote`].
+pub fn quote_folded(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+    quote_as(g, level, value, true)
+}
+
+fn quote_as(g: &Globals, level: usize, value: &Value, folded: bool) -> Result<Term> {
     // A work list rather than recursion: `tasks` are values still to visit
     // and terms still to assemble, and `done` holds finished terms, which
     // each assembly takes its parts from.
@@ -1645,7 +1739,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
                 if size > limit {
                     return Err(ResourceError::Size);
                 }
-                visit(g, level, value, &mut tasks, &mut done)?;
+                visit(g, level, value, folded, &mut tasks, &mut done)?;
             }
             QuoteTask::Pi(x, i) => {
                 let (a, b) = pop2(&mut done);
@@ -1748,6 +1842,7 @@ fn visit(
     g: &Globals,
     level: usize,
     value: Value,
+    folded: bool,
     tasks: &mut Vec<QuoteTask>,
     done: &mut Vec<Term>,
 ) -> Result<()> {
@@ -1757,7 +1852,25 @@ fn visit(
             tasks.push(QuoteTask::Visit(level, v.clone()));
         }
     };
-    match force(g, value)? {
+    let value = if folded {
+        match force_solved(g, value)? {
+            Value::Call(id, spine, _) if !matches_at_once(g, id, &spine)? => {
+                let args = call_args(&spine);
+                tasks.push(QuoteTask::Spine(
+                    SpineHead::Term(Term::Def(id)),
+                    args.iter().map(|(_, i)| Some(*i)).collect(),
+                ));
+                for (v, _) in args.into_iter().rev() {
+                    tasks.push(QuoteTask::Visit(level, v));
+                }
+                return Ok(());
+            }
+            other => force(g, other)?,
+        }
+    } else {
+        force(g, value)?
+    };
+    match value {
         Value::Sort(s) => done.push(Term::Sort(s)),
         Value::Nat(n) => done.push(Term::Nat(n)),
         // The range, as a term; it means what its expansion would.
@@ -1779,8 +1892,12 @@ fn visit(
             tasks.push(QuoteTask::Data(d, args.len()));
             visit_all(tasks, &args);
         }
-        Value::Ctor(d, 1, args) if Some(d) == g.builtins.nat && has_call_base(g, &args) => {
-            visit(g, level, succ_unglued(g, &args[0])?, tasks, done)?;
+        // Read back folded, `Succ` of a call stays that: the call is what
+        // was written.
+        Value::Ctor(d, 1, args)
+            if !folded && Some(d) == g.builtins.nat && has_call_base(g, &args) =>
+        {
+            visit(g, level, succ_unglued(g, &args[0])?, folded, tasks, done)?;
         }
         Value::Ctor(d, c, args) => {
             tasks.push(QuoteTask::Ctor(d, c, args.len()));
