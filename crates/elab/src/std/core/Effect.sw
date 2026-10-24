@@ -182,6 +182,17 @@ def Effect.lowerIn [a: Type]: (row: Effects) -> Comp (rowOp row) (rowRes row) a 
   | Empty, computation => runPure computation
   | Ops op res, computation => computation
 
+-- A computation over closed abilities moved into the same abilities
+-- followed by a row (`{A, B}` into `{A, B | e}`). `pre t` is the abilities
+-- followed by `t`, `preRes` their results. In the empty row it is the
+-- computation itself, so a closed computation moved into a row that turns
+-- out empty is left as written (docs/proposals/delayed-translate.md).
+def Effect.widenIn [a: Type] (pre: Type -> Type) (preRes: (t: Type) -> (t -> Type) -> pre t -> Type):
+    (row: Effects) -> SigMap (pre NoOp) (preRes NoOp NoRes) (pre (rowOp row)) (preRes (rowOp row) (rowRes row)) ->
+    Comp (pre NoOp) (preRes NoOp NoRes) a -> Comp (pre (rowOp row)) (preRes (rowOp row) (rowRes row)) a
+  | Empty, m, computation => computation
+  | Ops op res, m, computation => translate m computation
+
 -- Laws of computations (docs/proposals/effect-polymorphism.md, "Proof
 -- tooling"). A computation passed where a `Comp` is expected is passed as it
 -- is, so these apply to computations that don't compute yet. The laws whose

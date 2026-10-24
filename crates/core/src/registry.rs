@@ -371,6 +371,7 @@ builtins! {
     BindIn = "Effect.bindIn": Def,
     LiftIn = "Effect.liftIn": Def,
     LowerIn = "Effect.lowerIn": Def,
+    WidenIn = "Effect.widenIn": Def,
     // Partial computations
     Rec = "Effect.Rec": Data,
     RecRes = "Effect.RecRes": Def,
