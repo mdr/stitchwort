@@ -91,7 +91,7 @@ use stitchwort_core::term::Branch;
 use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Span;
-use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
 use crate::check::Ctx;
 use crate::{Elaborator, Global, Result, interfaces};
@@ -619,7 +619,12 @@ impl Elaborator {
             (0..np)
                 .map(|j| {
                     if data.auto_params.get(j) == Some(&true) {
-                        Expr::NamedArg(n(&data.params[j].0), Box::new(var(&param(j))), span)
+                        Expr::NamedArg(
+                            n(&data.params[j].0),
+                            Box::new(var(&param(j))),
+                            span,
+                            Bracket::Square,
+                        )
                     } else {
                         var(&param(j))
                     }

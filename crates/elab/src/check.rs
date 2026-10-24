@@ -9,7 +9,7 @@ use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
+use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Name as AstName};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
@@ -540,9 +540,34 @@ fn with_span<T>(cx: &mut Ctx, span: Span, f: impl FnOnce(&mut Ctx) -> Result<T>)
 #[derive(Clone, Copy)]
 pub(crate) enum Arg<'a> {
     Explicit(&'a Expr),
+    /// `[x := e]`: an implicit or `auto` argument by name.
     Named(&'a AstName, &'a Expr),
+    /// `(x := e)`: an explicit argument by name. `named::plan` puts it in
+    /// its parameter's place, as an `Explicit`, before it's applied.
+    NamedExplicit(&'a AstName, &'a Expr),
     /// The value piped in by `|>`, already elaborated (`pipe.rs`).
     Piped(&'a Piped),
+}
+
+/// An argument as written.
+pub(crate) fn arg_of(arg: &Expr) -> Arg<'_> {
+    match arg {
+        Expr::NamedArg(name, value, _, Bracket::Square) => Arg::Named(name, value),
+        Expr::NamedArg(name, value, _, Bracket::Round) => Arg::NamedExplicit(name, value),
+        other => Arg::Explicit(other),
+    }
+}
+
+/// The arguments of the application `expr` as written, and its head.
+pub(crate) fn spine(expr: &Expr) -> (&Expr, Vec<Arg<'_>>) {
+    let mut args = Vec::new();
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        args.push(arg_of(a));
+        head = f;
+    }
+    args.reverse();
+    (head, args)
 }
 
 /// The left side of `x |> f`, elaborated, as `f`'s last argument.
@@ -602,23 +627,19 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             unreachable!("these may perform operations, so they're handled above")
         }
         Expr::Var(_) | Expr::App(..) => {
-            let mut args = Vec::new();
-            let mut head = expr;
-            while let Expr::App(f, a) = head {
-                args.push(match a.as_ref() {
-                    Expr::NamedArg(name, value, _) => Arg::Named(name, value),
-                    other => Arg::Explicit(other),
-                });
-                head = f;
-            }
-            args.reverse();
+            let (head, args) = spine(expr);
             infer_app(cx, head, &args)
         }
         Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
-        Expr::NamedArg(..) => Err(cx.error(
+        Expr::NamedArg(_, _, _, Bracket::Square) => Err(cx.error(
             "E-PARSE",
             "a named implicit argument must follow a function",
             "write `f [x := …]`",
+        )),
+        Expr::NamedArg(_, _, _, Bracket::Round) => Err(cx.error(
+            "E-PARSE",
+            "a named argument must follow a function",
+            "write `f (x := …)`",
         )),
         // `-k` with nothing expected is an `Int`.
         Expr::Neg(..) => crate::numbers::group(cx, expr, None),
@@ -899,18 +920,12 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         }
         Some((Global::Ctor(d, c), _)) => {
             let explicit = ctor_args(args);
-            let ctor = &g.data(*d).ctors[*c];
-            let fields = (0..ctor.fields.len())
-                .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
-                .count();
-            let given = (explicit.iter())
-                .filter(|a| matches!(a, CtorArg::Pos(_)))
-                .count();
-            let missing = fields.saturating_sub(given);
-            if missing > 0 {
+            let missing = ctor_missing(cx, *d, *c, &explicit)?;
+            if !missing.is_empty() {
                 // A partially applied constructor is a function; unification
-                // works out its type.
-                let expected = fresh_function_type(cx, missing)?;
+                // works out its type. Its parameters keep the fields' names,
+                // so they can be given by name (§4.3).
+                let expected = fresh_function_type(cx, &missing)?;
                 let expected = cx.eval(&expected)?;
                 let (term, ty) = ctor_app(cx, *d, *c, &explicit, Some(&expected))?;
                 let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote(&ty)?));
@@ -922,19 +937,20 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
     }
 }
 
-/// `?a1 -> … -> ?an -> ?b`, with each type a fresh metavariable.
-fn fresh_function_type(cx: &mut Ctx, arity: usize) -> Result<Term> {
-    if arity == 0 {
+/// `(x1: ?a1) -> … -> (xn: ?an) -> ?b`, with each type a fresh
+/// metavariable, for parameters named `names`.
+fn fresh_function_type(cx: &mut Ctx, names: &[Name]) -> Result<Term> {
+    let Some((name, rest)) = names.split_first() else {
         return Ok(cx.fresh_meta());
-    }
+    };
     let dom = cx.fresh_meta();
     let mark = cx.mark();
     let dom_value = cx.eval(&dom)?;
-    cx.bind_hidden("x".into(), dom_value);
-    let cod = fresh_function_type(cx, arity - 1)?;
+    cx.bind_hidden(name.clone(), dom_value);
+    let cod = fresh_function_type(cx, rest)?;
     cx.reset(mark);
     Ok(Term::Pi(
-        "x".into(),
+        name.clone(),
         Icit::Explicit,
         Rc::new(dom),
         Rc::new(cod),
@@ -946,18 +962,87 @@ fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
         .map(|a| match a {
             Arg::Explicit(e) => CtorArg::Pos(e),
             Arg::Named(n, e) => CtorArg::Named(n, e),
+            Arg::NamedExplicit(n, e) => CtorArg::NamedExplicit(n, e),
             Arg::Piped(_) => unreachable!("`|>` applies a constructor as a function"),
         })
         .collect()
 }
 
-/// Applies `head` to one argument, which may be a named implicit `[x := e]`.
-pub(crate) fn apply_one(cx: &mut Ctx, head: (Term, Value), arg: &Expr) -> Result<(Term, Value)> {
-    let arg = match arg {
-        Expr::NamedArg(name, value, _) => Arg::Named(name, value),
-        other => Arg::Explicit(other),
-    };
-    apply_args(cx, head, &[arg])
+/// The fields of constructor `c` of `d` as a signature, for named
+/// arguments.
+fn ctor_signature(cx: &Ctx, d: DataId, c: usize) -> crate::named::Signature {
+    let ctor = &cx.g().data(d).ctors[c];
+    crate::named::declared(ctor.fields.iter().enumerate().map(|(i, (name, _))| {
+        let implicit = ctor.implicit.get(i).copied().unwrap_or(false);
+        let icit = if implicit {
+            Icit::Implicit
+        } else {
+            Icit::Explicit
+        };
+        (name.clone(), icit)
+    }))
+}
+
+/// What `args` give each field of constructor `c` of `d` (§4.2 rule 1,
+/// D1096), or an error if they don't fit its fields.
+fn ctor_fill<'a>(
+    cx: &Ctx,
+    d: DataId,
+    c: usize,
+    args: &[CtorArg<'a>],
+) -> Result<Vec<Option<&'a Expr>>> {
+    let ctor = &cx.g().data(d).ctors[c];
+    let as_args: Vec<Arg<'a>> = (args.iter())
+        .map(|a| match a {
+            CtorArg::Pos(e) => Arg::Explicit(e),
+            CtorArg::Named(n, e) => Arg::Named(n, e),
+            CtorArg::NamedExplicit(n, e) => Arg::NamedExplicit(n, e),
+        })
+        .collect();
+    let sig = ctor_signature(cx, d, c);
+    let (assigned, overflow) = crate::named::assign(cx, &sig, &as_args).map_err(|e| {
+        // The constructor's own wording for a field it doesn't have.
+        if e.code == "E-UNKNOWN-NAME" {
+            let mut e = e;
+            e.message = format!("`{}` has no such field", ctor.name);
+            e
+        } else {
+            e
+        }
+    })?;
+    if !overflow.is_empty() {
+        let wanted = sig
+            .params
+            .iter()
+            .filter(|p| p.icit == Icit::Explicit)
+            .count();
+        let given = (args.iter())
+            .filter(|a| !matches!(a, CtorArg::Named(..)))
+            .count();
+        return Err(cx.error(
+            "E-NOT-A-FUNCTION",
+            format!("`{}` takes {wanted} argument(s)", ctor.name),
+            format!("it's given {given}"),
+        ));
+    }
+    Ok(assigned
+        .into_iter()
+        .map(|a| match a {
+            Some(Arg::Explicit(e) | Arg::Named(_, e)) => Some(e),
+            _ => None,
+        })
+        .collect())
+}
+
+/// The explicit fields of constructor `c` of `d` that `args` leave out: the
+/// parameters of the function the application is.
+fn ctor_missing(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg]) -> Result<Vec<Name>> {
+    let given = ctor_fill(cx, d, c, args)?;
+    let ctor = &cx.g().data(d).ctors[c];
+    Ok((ctor.fields.iter().enumerate())
+        .filter(|(i, _)| !ctor.implicit.get(*i).copied().unwrap_or(false) && given[*i].is_none())
+        .map(|(_, (name, _))| name.clone())
+        .collect())
 }
 
 /// Applies `head` to `args`, inserting implicit arguments where needed.
@@ -988,6 +1073,21 @@ pub(crate) fn apply_args_with(
     args: &[Arg],
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
+    // Named arguments: in their parameters' places (`named.rs`).
+    let ordered;
+    let args = if crate::named::any(args) {
+        let sig = crate::named::signature(cx, &head.1)?;
+        let slots = crate::named::plan(cx, &sig, args, None)?;
+        match crate::named::positional(&slots) {
+            Some(positional) => {
+                ordered = positional;
+                &ordered[..]
+            }
+            None => return crate::named::apply_slots(cx, head, &slots),
+        }
+    } else {
+        args
+    };
     let mut relevant = false;
     for arg in args {
         if let Arg::Explicit(value) = arg
@@ -1102,6 +1202,9 @@ fn apply_args_postponing(
                 };
                 term = Term::app(term, meta);
                 postponed.push((*value, dom, placeholder, id));
+            }
+            Arg::NamedExplicit(..) => {
+                unreachable!("`apply_args_with` puts named arguments in their places")
             }
             Arg::Named(name, value) => {
                 (term, ty) = insert_until(cx, term, ty, name, supply)?;
@@ -2133,7 +2236,50 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
     }
-    compare(cx, term, &found, expected)
+    match compare(cx, term, &found, expected) {
+        Err(e) if e.code == "E-TYPE-MISMATCH" && matches!(expr, Expr::App(..)) => {
+            Err(awaiting_note(cx, e, &found, expected))
+        }
+        result => result,
+    }
+}
+
+/// A call that is still a function where something else is expected (a
+/// partial application, or a call with parameters left out): the note
+/// names what it's waiting for (docs/proposals/named-arguments.md §6.3).
+fn awaiting_note(cx: &Ctx, e: Diagnostic, found: &Value, expected: &Value) -> Diagnostic {
+    let g = cx.g();
+    let is_function =
+        |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
+    if !is_function(found)
+        || is_function(expected)
+        || matches!(
+            force(g, expected.clone()),
+            Ok(Value::Neutral(Head::Meta(_), _))
+        )
+    {
+        return e;
+    }
+    let Ok(sig) = crate::named::signature(cx, found) else {
+        return e;
+    };
+    let explicit: Vec<&crate::named::Param> = (sig.params.iter())
+        .filter(|p| p.icit == Icit::Explicit)
+        .collect();
+    let named: Vec<String> = (explicit.iter())
+        .filter(|p| !p.name.is_empty() && &*p.name != "_" && !p.name.starts_with('%'))
+        .map(|p| format!("`{}`", p.name))
+        .collect();
+    let waiting = if named.len() == explicit.len() && !named.is_empty() {
+        crate::named::list(named)
+    } else if explicit.len() == 1 {
+        "one more argument".to_string()
+    } else {
+        format!("{} more arguments", explicit.len())
+    };
+    e.with_note(format!(
+        "this expression is a function still waiting for {waiting}"
+    ))
 }
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
@@ -2228,6 +2374,21 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
 /// elaborated again the old way, with no propagation inside, and that way's
 /// result is the answer: so a program rejected before keeps its message
 /// (§7.4).
+/// `args`, applied to a function of type `ty`, in their parameters' places
+/// (`named::plan`), if they match and leave no parameter out: for the
+/// speculative walks that elaborate a call as its positional form would be.
+pub(crate) fn ordered_args<'a>(
+    cx: &Ctx,
+    ty: &Value,
+    args: &[Arg<'a>],
+) -> Result<Option<Vec<Arg<'a>>>> {
+    let sig = crate::named::signature(cx, ty)?;
+    Ok(match crate::named::plan(cx, &sig, args, None) {
+        Ok(slots) => crate::named::positional(&slots),
+        Err(_) => None,
+    })
+}
+
 fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Result<Term>>> {
     if matches!(
         force(cx.g(), expected.clone())?,
@@ -2235,19 +2396,10 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
     ) {
         return Ok(None);
     }
-    let mut args = Vec::new();
-    let mut head = expr;
-    while let Expr::App(f, a) = head {
-        args.push(match a.as_ref() {
-            Expr::NamedArg(name, value, _) => Arg::Named(name, value),
-            other => Arg::Explicit(other),
-        });
-        head = f;
-    }
+    let (head, mut args) = spine(expr);
     if args.is_empty() && !matches!(head, Expr::Field(..)) {
         return Ok(None);
     }
-    args.reverse();
     let dotted;
     let (head, args) = if let Expr::Field(recv, field) = head {
         // `recv.f a` is `T.f … recv …` (SW-129).
@@ -2260,6 +2412,15 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
         let Some(head) = known_head(cx, head) else {
             return Ok(None);
         };
+        // Named arguments in their places; a call with a parameter left
+        // out (a function) or arguments that don't match is elaborated
+        // the ordinary way.
+        if crate::named::any(&args) {
+            let Some(ordered) = ordered_args(cx, &head.1, &args)? else {
+                return Ok(None);
+            };
+            args = ordered;
+        }
         (head, &args)
     };
     let snapshot = crate::undo::Snapshot::take(cx);
@@ -2307,11 +2468,11 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
 }
 
 /// [`propagate`] for an effectful call (`effects::comp_app`): `head`, a
-/// function of type `ty`, applied to `args` (already free of operations),
-/// whose result is a computation expected to return an `expected`. That
-/// value type is compared with `expected` before the arguments are checked,
-/// as a pure call's whole result type is, so `Abort.orElse 0 (() => …)` at
-/// `Int` checks the `0` as an `Int` (SW-223). The row isn't compared: the
+/// function of type `ty`, applied to `args` (already free of operations,
+/// and in parameter order), whose result is a computation expected to
+/// return an `expected`. That value type is compared with `expected` before
+/// the arguments are checked, as a pure call's whole result type is, so
+/// `Abort.orElse 0 (() => …)` at `Int` checks the `0` as an `Int` (SW-223). The row isn't compared: the
 /// caller fits it to its own by lifting. `None` if that doesn't apply (no
 /// arguments, an unknown `expected`, a result type that depends on the
 /// arguments or isn't a computation, or a value type that doesn't match), or
@@ -2320,7 +2481,7 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
 pub(crate) fn propagate_comp(
     cx: &mut Ctx,
     head: &(Term, Value),
-    args: &[Expr],
+    args: &[Arg],
     expected: &Value,
 ) -> Result<Option<(Term, Value)>> {
     if args.is_empty()
@@ -2332,9 +2493,8 @@ pub(crate) fn propagate_comp(
     {
         return Ok(None);
     }
-    let args = args_of(args);
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply)) = written_result(cx, &head.1, &args)? else {
+    let Some((written, mut supply)) = written_result(cx, &head.1, args)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -2347,7 +2507,7 @@ pub(crate) fn propagate_comp(
         return Ok(None);
     }
     let result = (|| -> Result<(Term, Value)> {
-        let (term, found) = apply_args_with(cx, head.clone(), &args, &mut supply)?;
+        let (term, found) = apply_args_with(cx, head.clone(), args, &mut supply)?;
         let (term, found) = insert_with(cx, term, found, &mut supply)?;
         if !supply.is_empty() {
             // The types as elaborated didn't line up with the walk's.
@@ -2502,6 +2662,7 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
     for arg in args {
         let stop = |x: &Name, icit: Icit| match arg {
             Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
+            Arg::NamedExplicit(..) => icit == Icit::Explicit,
             Arg::Explicit(_) | Arg::Piped(_) => icit == Icit::Explicit,
         };
         let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, written, stop)?
@@ -2657,7 +2818,8 @@ fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<
         Some((Global::Ctor(d, c), _)) => {
             let args = (args.into_iter())
                 .map(|a| match a {
-                    Expr::NamedArg(n, e, _) => CtorArg::Named(n, e),
+                    Expr::NamedArg(n, e, _, Bracket::Square) => CtorArg::Named(n, e),
+                    Expr::NamedArg(n, e, _, Bracket::Round) => CtorArg::NamedExplicit(n, e),
                     e => CtorArg::Pos(e),
                 })
                 .collect();
@@ -2667,12 +2829,14 @@ fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<
     }
 }
 
-/// An argument of a constructor: positional, for an explicit field, or
-/// `[n := e]`, for an implicit one (docs/proposals/indexed-families.md §7.2).
+/// An argument of a constructor: positional, for an explicit field,
+/// `[n := e]`, for an implicit one (docs/proposals/indexed-families.md §7.2),
+/// or `(n := e)`, for an explicit one by name (D1096).
 #[derive(Clone, Copy)]
 pub(crate) enum CtorArg<'a> {
     Pos(&'a Expr),
     Named(&'a AstName, &'a Expr),
+    NamedExplicit(&'a AstName, &'a Expr),
 }
 
 /// Elaborates constructor `c` of `d` applied to `args`. The data type's
@@ -2693,45 +2857,19 @@ fn ctor_app(
     let implicit: Vec<bool> = (0..k)
         .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
         .collect();
-    let explicit_fields: Vec<usize> = (0..k).filter(|&i| !implicit[i]).collect();
-    let mut named: Vec<Option<&Expr>> = vec![None; k];
-    let mut positional = Vec::new();
-    for arg in args {
-        match arg {
-            CtorArg::Pos(e) => positional.push(*e),
-            CtorArg::Named(n, e) => {
-                let Some(i) = (0..k).find(|&i| implicit[i] && *ctor.fields[i].0 == *n.text) else {
-                    return Err(Diagnostic::error(
-                        "E-UNKNOWN-NAME",
-                        format!("`{}` has no implicit field `{}`", ctor.name, n.text),
-                    )
-                    .with_label(n.span, "not an implicit field of this constructor"));
-                };
-                if named[i].replace(e).is_some() {
-                    return Err(cx.error(
-                        "E-DUPLICATE",
-                        format!("the field `{}` is given twice", n.text),
-                        "here",
-                    ));
-                }
-            }
-        }
-    }
-    let wanted = explicit_fields.len();
-    if positional.len() > wanted {
-        return Err(cx.error(
-            "E-NOT-A-FUNCTION",
-            format!("`{}` takes {wanted} argument(s)", ctor.name),
-            format!("it's given {}", positional.len()),
-        ));
-    }
+    // What each field is given, by position or by name (`named.rs`).
+    let given = ctor_fill(cx, d, c, args)?;
+    let missing: Vec<usize> = (0..k)
+        .filter(|&i| !implicit[i] && given[i].is_none())
+        .collect();
 
-    // Partial application: `x … => C args x …`, checked against a function type.
+    // Partial application: `x … => C args x …`, checked against a function
+    // type, with a parameter for each explicit field not given (§4.2 rule 3).
     let mut missing_types = Vec::new();
     let mut missing_level: Vec<Option<usize>> = vec![None; k];
     let mark = cx.mark();
     let mut target = expected.cloned();
-    for &i in &explicit_fields[positional.len()..] {
+    for &i in &missing {
         match target.as_ref().map(|t| force(g, t.clone())).transpose()? {
             Some(Value::Pi(_, Icit::Explicit, dom, cod)) => {
                 let var = Value::var(cx.level());
@@ -2745,11 +2883,7 @@ fn ctor_app(
                 cx.reset(mark);
                 return Err(cx.error(
                     "E-CANNOT-INFER",
-                    format!(
-                        "`{}` is missing {} argument(s)",
-                        ctor.name,
-                        wanted - positional.len()
-                    ),
+                    format!("`{}` is missing {} argument(s)", ctor.name, missing.len()),
                     "add the missing arguments, or a type annotation",
                 ));
             }
@@ -2788,7 +2922,6 @@ fn ctor_app(
     }
     let mut env = params.clone();
     let mut terms = Vec::new();
-    let mut next = positional.iter();
     for (i, (_, field_ty)) in ctor.fields.iter().enumerate() {
         let ty = eval(g, &env, field_ty)?;
         let term = if let Some(level) = missing_level[i] {
@@ -2798,14 +2931,11 @@ fn ctor_app(
                 return Err(cx.mismatch(&ty, &found));
             }
             Term::Var(cx.level() - 1 - level)
-        } else if implicit[i] {
-            match named[i] {
+        } else {
+            match given[i] {
                 Some(e) => check(cx, e, &ty)?,
                 None => implicit_arg(cx, Icit::Implicit, &ty),
             }
-        } else {
-            let arg = next.next().expect("one argument per explicit field");
-            check(cx, arg, &ty)?
         };
         let needed = kernel::later_types_mention(&ctor.fields, i)
             || ctor.result.iter().any(|r| r.mentions(k - 1 - i));
@@ -2993,13 +3123,7 @@ pub(crate) fn nat(cx: &Ctx) -> Result<DataId> {
 
 /// Arguments as written, for [`apply_args`].
 pub(crate) fn args_of(exprs: &[Expr]) -> Vec<Arg<'_>> {
-    exprs
-        .iter()
-        .map(|a| match a {
-            Expr::NamedArg(name, value, _) => Arg::Named(name, value),
-            other => Arg::Explicit(other),
-        })
-        .collect()
+    exprs.iter().map(arg_of).collect()
 }
 
 /// The two sides of the goal's `=` as they were written, if the type being

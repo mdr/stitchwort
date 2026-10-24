@@ -20,6 +20,16 @@ pub const SECTION: &str = "%section";
 /// name.
 pub const NAMELESS: &str = "_";
 
+/// The brackets a named argument is written in, which say what kind of
+/// parameter it names (D1093).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Bracket {
+    /// `(x := e)`: an explicit parameter.
+    Round,
+    /// `[x := e]`: an implicit or `auto` parameter.
+    Square,
+}
+
 #[derive(Clone, Debug)]
 pub enum Expr {
     /// A variable, function, data type or constructor name.
@@ -52,9 +62,10 @@ pub enum Expr {
         cod: Box<Expr>,
         span: Span,
     },
-    /// `[x := e]`, supplying an implicit argument by name. Only valid as an
-    /// argument in an application.
-    NamedArg(Name, Box<Expr>, Span),
+    /// `[x := e]`, supplying an implicit or `auto` argument by name, or
+    /// `(x := e)`, an explicit one (docs/proposals/named-arguments.md §4).
+    /// Only valid as an argument in an application.
+    NamedArg(Name, Box<Expr>, Span, Bracket),
     /// `_`: a hole the compiler fills in.
     Hole(Span),
     /// `?`: an open goal. The checker reports what must go here (its type
@@ -328,7 +339,7 @@ impl Expr {
             | Expr::Lam(_, _, span)
             | Expr::TypedLam(_, _, _, span)
             | Expr::Pi { span, .. }
-            | Expr::NamedArg(_, _, span)
+            | Expr::NamedArg(_, _, span, _)
             | Expr::If { span, .. }
             | Expr::Hole(span)
             | Expr::Goal(span)
@@ -393,7 +404,7 @@ fn has_nested(expr: &Expr) -> bool {
         | Expr::Binary(_, a, b)
         | Expr::Pipe(a, b)
         | Expr::Seq(a, b) => nested(a) || nested(b),
-        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
+        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
             nested(b)
         }
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
@@ -473,7 +484,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(a);
             take(b);
         }
-        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
+        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
             take(b)
         }
         Expr::Pi { dom, cod, .. } => {

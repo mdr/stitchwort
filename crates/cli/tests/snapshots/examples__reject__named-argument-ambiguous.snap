@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `x` names 2 parameters here
+   ╭─[ reject/named-argument-ambiguous.sw:5:55 ]
+   │
+ 5 │ def apply (h: (x: Nat) -> (x: Nat) -> Nat): Nat := h (x := 1) 2
+   │                                                       ┬  
+   │                                                       ╰── which one is meant can't be told by name
+   │ 
+   │ Note: pass them by position
+───╯

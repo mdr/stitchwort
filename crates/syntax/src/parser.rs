@@ -12,8 +12,8 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind, Module, Name,
-    NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
+    Alt, BinOp, Binder, Bracket, CalcStep, CtorDecl, Decl, Expr, Import, LocalDef, MatchKind,
+    Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -3077,6 +3077,24 @@ impl<'t> Parser<'t> {
                 let end = self.bump().span;
                 Ok(Expr::Unit(span.to(end)))
             }
+            // `(x := e)`: an explicit argument by name
+            // (docs/proposals/named-arguments.md §4.1).
+            Some(Tok::LParen)
+                if matches!(self.peek_at(1), Some(Tok::Lower(_)))
+                    && self.peek_at(2) == Some(&Tok::ColonEq) =>
+            {
+                self.bump();
+                let name = self.lower("a name")?;
+                self.bump();
+                let value = self.expr()?;
+                let end = self.expect(Tok::RParen, "`)`")?.span;
+                Ok(Expr::NamedArg(
+                    name,
+                    Box::new(value),
+                    span.to(end),
+                    Bracket::Round,
+                ))
+            }
             Some(Tok::LParen) => {
                 self.bump();
                 let inner = self.expr()?;
@@ -3113,7 +3131,12 @@ impl<'t> Parser<'t> {
                 self.bump();
                 let value = self.expr()?;
                 let end = self.expect(Tok::RBracket, "`]`")?.span;
-                Ok(Expr::NamedArg(name, Box::new(value), span.to(end)))
+                Ok(Expr::NamedArg(
+                    name,
+                    Box::new(value),
+                    span.to(end),
+                    Bracket::Square,
+                ))
             }
             Some(Tok::LBracket) => self.list_expr(span),
             Some(Tok::LBrace) => self.record_expr(),

@@ -42,7 +42,7 @@
 
 use stitchwort_core::DataId;
 use stitchwort_syntax::Span;
-use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
 use crate::derive::{Field, Plan, fields_equal};
 use crate::{Elaborator, Result, interfaces};
@@ -176,7 +176,12 @@ impl Elaborator {
             (0..np)
                 .map(|j| {
                     if data.auto_params.get(j) == Some(&true) {
-                        Expr::NamedArg(s.n(&data.params[j].0), Box::new(s.var(&param(j))), s.span)
+                        Expr::NamedArg(
+                            s.n(&data.params[j].0),
+                            Box::new(s.var(&param(j))),
+                            s.span,
+                            Bracket::Square,
+                        )
                     } else {
                         s.var(&param(j))
                     }

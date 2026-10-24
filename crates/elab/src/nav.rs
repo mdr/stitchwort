@@ -1209,7 +1209,7 @@ impl Walk<'_> {
                     steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
                     then(&mut stack, steps);
                 }
-                Expr::NamedArg(_, value, _) => stack.push(Work::Expr(value)),
+                Expr::NamedArg(_, value, _, _) => stack.push(Work::Expr(value)),
                 Expr::If {
                     binder,
                     cond,

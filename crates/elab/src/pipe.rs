@@ -26,16 +26,7 @@ use crate::check::{
 
 /// `value |> f`.
 pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, Value)> {
-    let mut args = Vec::new();
-    let mut head = f;
-    while let Expr::App(g, a) = head {
-        args.push(match a.as_ref() {
-            Expr::NamedArg(name, value, _) => Arg::Named(name, value),
-            other => Arg::Explicit(other),
-        });
-        head = g;
-    }
-    args.reverse();
+    let (head, mut args) = crate::check::spine(f);
     // A number literal takes its type from where it's used: `5 |> f` is
     // `f 5`, whatever number type `f` takes.
     if crate::numbers::any_literal(value) && !matches!(f, Expr::Lam(..) | Expr::TypedLam(..)) {
@@ -61,6 +52,22 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
             } else {
                 cx.e.note_name(name);
             }
+        }
+        // Named arguments: the value piped in is the last positional
+        // argument, filling the first explicit parameter not otherwise given
+        // (docs/proposals/named-arguments.md §4.4).
+        if crate::named::any(&args) {
+            let mut all = args.clone();
+            all.push(Arg::Piped(&piped));
+            let sig = crate::named::signature(cx, &known.1)?;
+            let slots = crate::named::plan(cx, &sig, &all, None)?;
+            return match crate::named::positional(&slots) {
+                Some(ordered) if matches!(ordered.last(), Some(Arg::Piped(_))) => {
+                    receiver_first(cx, known, &ordered[..ordered.len() - 1], &piped)
+                }
+                Some(ordered) => apply_args(cx, known, &ordered),
+                None => crate::named::apply_slots(cx, known, &slots),
+            };
         }
         return receiver_first(cx, known, &args, &piped);
     }

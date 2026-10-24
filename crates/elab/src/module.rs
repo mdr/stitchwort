@@ -2191,7 +2191,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
-            Expr::NamedArg(_, value, _) => stack.push(Work::Expr(value)),
+            Expr::NamedArg(_, value, _, _) => stack.push(Work::Expr(value)),
             Expr::If {
                 binder,
                 cond,

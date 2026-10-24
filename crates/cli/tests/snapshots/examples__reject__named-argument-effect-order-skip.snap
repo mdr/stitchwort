@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EFFECT-ORDER] Error: this runs first, where it's written, but its type needs `n`, which the call leaves out
+    ╭─[ reject/named-argument-effect-order-skip.sw:15:26 ]
+    │
+ 15 │   let used := use (xs := readVec())
+    │                          ────┬────  
+    │                              ╰────── its type needs `n`
+    │ 
+    │ Note: give `n` too: a computation in a call runs once, where it's written, so it can't wait for a parameter of the function the call makes
+────╯

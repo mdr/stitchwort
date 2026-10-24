@@ -25,7 +25,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Spine, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{BinOp, Clause, Expr, Name as AstName, Pattern};
+use stitchwort_syntax::ast::{BinOp, Bracket, Clause, Expr, Name as AstName, Pattern};
 
 use crate::Global;
 use crate::check::{
@@ -1012,7 +1012,7 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
             .chain(fields.iter().map(|(_, e)| e)))?,
         Expr::CtorFields { fields, .. } => any(&mut fields.iter().map(|(_, e)| e))?,
         Expr::Field(e, field) => may_perform(cx, e)? || dot_performs(cx, e, field, 0)?,
-        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _) => may_perform(cx, e)?,
+        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _, _) => may_perform(cx, e)?,
         Expr::Tuple(a, b, _) => any(&mut [&**a, &**b].into_iter())?,
         _ => false,
     })
@@ -1035,13 +1035,28 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
     let explicit = extra
         + args
             .iter()
-            .filter(|a| !matches!(a, Expr::NamedArg(..)))
+            .filter(|a| !matches!(a, Expr::NamedArg(.., Bracket::Square)))
             .count();
+    // With explicit arguments by name, what the call reaches is where they
+    // put it: up to the last one given, or, if it leaves a parameter out,
+    // up to that parameter, since the rest is inside the function it
+    // becomes (docs/proposals/named-arguments.md §4.5 R3).
+    let named = args
+        .iter()
+        .any(|a| matches!(a, Expr::NamedArg(.., Bracket::Round)));
+    args.reverse();
+    let reached =
+        |ty: &Value| crate::named::reached(cx, ty, expr, &args, extra).unwrap_or(explicit);
     Ok(match head {
         Expr::Var(name) => match head_type(cx, name) {
             // An operation on its own is a function value.
             HeadType::Op => explicit > 0,
+            HeadType::Typed(ty) if named => performs_after(cx, ty.clone(), reached(&ty))?,
             HeadType::Typed(ty) => performs_after(cx, ty, explicit)?,
+            HeadType::Def(id) if named => {
+                let ty = cx.g().def(id).ty_value.clone();
+                performs_after(cx, ty.clone(), reached(&ty))?
+            }
             HeadType::Def(id) => def_performs_after(cx, id, explicit)?,
             HeadType::Other => false,
         },
@@ -1576,10 +1591,11 @@ fn comp_app(
     let mut owned: Vec<Expr> = Vec::new();
     for arg in &args {
         owned.push(match arg {
-            Expr::NamedArg(name, value, span) => Expr::NamedArg(
+            Expr::NamedArg(name, value, span, bracket) => Expr::NamedArg(
                 name.clone(),
                 Box::new(run_first(cx, value, row, &mut bound)?),
                 *span,
+                *bracket,
             ),
             other => run_first(cx, other, row, &mut bound)?,
         });
@@ -1588,7 +1604,7 @@ fn comp_app(
     // Apply the head one argument at a time: when a partial application is
     // already a computation (`k s s` with `k : s -> {e} (s -> {e} …)`), run
     // it and continue with its result.
-    let (mut term, mut ty) = match &head {
+    let (term, ty) = match &head {
         Expr::Var(_) => infer_head(cx, &head)?,
         // A call by dot notation is elaborated whole, receiver first.
         Expr::Field(recv, field) => {
@@ -1601,30 +1617,80 @@ fn comp_app(
         }
         other => infer(cx, other)?,
     };
-    // The value type the call returns is compared with the expected one
-    // before the arguments are checked, as a pure call's is (SW-223).
-    if let Some(t) = expected
-        && let Some(applied) =
-            crate::check::propagate_comp(cx, &(term.clone(), ty.clone()), &owned, t)?
-    {
-        (term, ty) = applied;
-        owned.clear();
-    }
-    for arg in &owned {
-        if performs_after(cx, ty.clone(), 0)? {
-            let (t2, ty2) = insert(cx, term, ty)?;
-            let (from, t) = comp_parts(cx, &ty2)?.expect("reached a computation type");
-            let c = lift(cx, t2, from, row, &t)?;
-            let name = format!("%{}", cx.level());
-            bound.push(hold(cx, row, &name, c, t.clone())?);
-            let var = Expr::Var(AstName {
-                text: name,
-                span: head.span(),
-            });
-            (term, ty) = infer_head(cx, &var)?;
+    // Named arguments go to their parameters' places, now that what they
+    // compute is in variables: they ran in written order, and the stages
+    // run in parameter order (docs/proposals/named-arguments.md §4.5 R1,
+    // R2). From the first parameter left out on, the call is a function of
+    // the missing ones (R3).
+    let written_args = crate::check::args_of(&owned);
+    let head_ty = ty.clone();
+    let (given, rest) = if crate::named::any(&written_args) {
+        let sig = crate::named::signature(cx, &ty)?;
+        let slots = crate::named::plan(cx, &sig, &written_args, None)?;
+        let first = (slots.iter())
+            .position(|s| matches!(s, crate::named::Slot::Missing(_)))
+            .unwrap_or(slots.len());
+        let given = crate::named::positional(&slots[..first]).expect("nothing missing before");
+        (given, slots[first..].to_vec())
+    } else {
+        (written_args.clone(), Vec::new())
+    };
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let span = head.span();
+    let apply = |cx: &mut Ctx,
+                 bound: &mut Vec<Bound>,
+                 mut term: Term,
+                 mut ty: Value|
+     -> Result<(Term, Value)> {
+        // The value type the call returns is compared with the expected one
+        // before the arguments are checked, as a pure call's is (SW-223).
+        let mut given = &given[..];
+        if rest.is_empty()
+            && let Some(t) = expected
+            && let Some(applied) =
+                crate::check::propagate_comp(cx, &(term.clone(), ty.clone()), given, t)?
+        {
+            (term, ty) = applied;
+            given = &[];
         }
-        (term, ty) = crate::check::apply_one(cx, (term, ty), arg)?;
-    }
+        for arg in given {
+            (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
+            (term, ty) = crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))?;
+        }
+        if rest.is_empty() {
+            return Ok((term, ty));
+        }
+        // The stages before the first parameter left out run now, once.
+        (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
+        let explicit = rest
+            .iter()
+            .filter(|s| !matches!(s, crate::named::Slot::Given(crate::check::Arg::Named(..))))
+            .count();
+        if explicit > 1 && performs_after(cx, ty.clone(), explicit - 1)? {
+            return Err(cx
+                .error(
+                    "E-EFFECT-ORDER",
+                    "this call leaves out a parameter before a stage of the function",
+                    "the function performs operations after taking the parameter left out",
+                )
+                .with_note(
+                    "a stage after a parameter left out would run each time the function the \
+                     call makes is called, which isn't supported yet: write the lambda, as in \
+                     `y => f x y z`",
+                ));
+        }
+        crate::named::apply_slots(cx, (term, ty), &rest)
+    };
+    let applied: Result<(Term, Value)> = apply(cx, &mut bound, term, ty);
+    let (term, ty) = match applied {
+        Ok(applied) => applied,
+        Err(e) if crate::undo::fatal(&e) || !crate::named::any(&written_args) => return Err(e),
+        Err(e) => {
+            snapshot.restore(cx);
+            let order = effect_order(cx, &head_ty, &written_args, &owned)?;
+            return Err(order.unwrap_or(e));
+        }
+    };
     let (term, ty) = insert(cx, term, ty)?;
     let mut written = None;
     let (result, result_ty) = match comp_parts(cx, &ty)? {
@@ -1647,6 +1713,129 @@ fn comp_app(
     }
     let result = wrap(cx, row, bound, result, &result_ty)?;
     Ok((result, result_ty, written))
+}
+
+/// A partial application `term: ty` that is already a computation (`k s`
+/// with `k : s -> {e} (s -> {e} …)`): run it, into a variable bound for
+/// [`wrap`], and continue with its result. Anything else is returned as it
+/// is.
+fn run_stage(
+    cx: &mut Ctx,
+    row: &Row,
+    bound: &mut Vec<Bound>,
+    span: stitchwort_syntax::Span,
+    term: Term,
+    ty: Value,
+) -> Result<(Term, Value)> {
+    if !performs_after(cx, ty.clone(), 0)? {
+        return Ok((term, ty));
+    }
+    let (t2, ty2) = insert(cx, term, ty)?;
+    let (from, t) = comp_parts(cx, &ty2)?.expect("reached a computation type");
+    let c = lift(cx, t2, from, row, &t)?;
+    let name = format!("%{}", cx.level());
+    bound.push(hold(cx, row, &name, c, t.clone())?);
+    let var = Expr::Var(AstName { text: name, span });
+    infer_head(cx, &var)
+}
+
+/// Why a named call that failed can't run its computations where they're
+/// written (docs/proposals/named-arguments.md §4.5 R5, D1113): a
+/// computation run first (into a variable, `written[i]` in `owned`) whose
+/// type isn't settled yet, for a parameter whose type needs a parameter the
+/// call leaves out, or one given by a computation written after it.
+/// `head_ty` is the function's type; the state is as before the arguments
+/// were applied.
+fn effect_order(
+    cx: &Ctx,
+    head_ty: &Value,
+    written: &[crate::check::Arg],
+    owned: &[Expr],
+) -> Result<Option<Diagnostic>> {
+    let sig = crate::named::signature(cx, head_ty)?;
+    let deps = crate::named::dependencies(cx, head_ty)?;
+    let Some(filled) = crate::named::filled_by(cx, &sig, written) else {
+        return Ok(None);
+    };
+    let Some(last) = filled.iter().rposition(Option::is_some) else {
+        return Ok(None);
+    };
+    // The variable a computation was run into, by argument.
+    let ran = |w: usize| -> Option<usize> {
+        let value = match &owned[w] {
+            Expr::NamedArg(_, value, ..) => &**value,
+            other => other,
+        };
+        match value {
+            Expr::Var(name) if name.text.starts_with('%') => cx.lookup(&name.text),
+            _ => None,
+        }
+    };
+    for (p, by) in filled.iter().enumerate() {
+        let Some(w) = *by else { continue };
+        let Some(level) = ran(w) else { continue };
+        if !unsettled(cx, &cx.types[level])? {
+            continue;
+        }
+        for &q in deps.get(p).map(|d| &d[..]).unwrap_or(&[]) {
+            let needed = &sig.params[q].name;
+            let later = match filled[q] {
+                None if q < last && sig.params[q].icit == Icit::Explicit => None,
+                Some(w2) if w2 > w && ran(w2).is_some() => Some(w2),
+                _ => continue,
+            };
+            let span = value_span(&owned[w]);
+            let mut d = Diagnostic::error(
+                "E-EFFECT-ORDER",
+                match later {
+                    Some(_) => format!(
+                        "this runs first, where it's written, but its type needs `{needed}`, \
+                         which comes later"
+                    ),
+                    None => format!(
+                        "this runs first, where it's written, but its type needs `{needed}`, \
+                         which the call leaves out"
+                    ),
+                },
+            )
+            .with_label(span, format!("its type needs `{needed}`"));
+            d = match later {
+                Some(w2) => d
+                    .with_label(
+                        value_span(&owned[w2]),
+                        format!("`{needed}` is computed here, after it"),
+                    )
+                    .with_note(format!(
+                        "run them in the order you need, then call: `let {needed} := …` first, \
+                         then pass `({needed} := {needed})`"
+                    )),
+                None => d.with_note(format!(
+                    "give `{needed}` too: a computation in a call runs once, where it's \
+                     written, so it can't wait for a parameter of the function the call makes"
+                )),
+            };
+            return Ok(Some(d));
+        }
+    }
+    Ok(None)
+}
+
+/// Where an argument's value is written: `e` in `(x := e)`.
+fn value_span(arg: &Expr) -> stitchwort_syntax::Span {
+    match arg {
+        Expr::NamedArg(_, value, ..) => value.span(),
+        other => other.span(),
+    }
+}
+
+/// Whether `ty` mentions an unknown nothing has solved.
+fn unsettled(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let term = cx.quote(ty)?;
+    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    Ok(term.subterms().any(|(t, _)| match t {
+        Term::Meta(m) => cx.g().meta_solution(*m).is_none(),
+        _ => false,
+    }))
 }
 
 /// `term`'s type as written (`dot::written_of`), unless it depends on a

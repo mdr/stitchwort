@@ -27,7 +27,7 @@ use crate::kernel;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{conv, eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
-use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
+use stitchwort_syntax::ast::{self, Alt, Bracket, Expr, MatchKind, Pattern, Scrutinee};
 
 use crate::check::{Ctx, check};
 use crate::{Elaborator, Global, Result};
@@ -668,7 +668,12 @@ fn update_match(
                             Box::new(Pattern::Var(name(old(k)))),
                             span,
                         ),
-                        Expr::NamedArg(name(f.to_string()), Box::new(var(old(k))), span),
+                        Expr::NamedArg(
+                            name(f.to_string()),
+                            Box::new(var(old(k))),
+                            span,
+                            Bracket::Square,
+                        ),
                     )
                 } else if named(f) {
                     (Pattern::Wildcard(span), var(new_name(f)))

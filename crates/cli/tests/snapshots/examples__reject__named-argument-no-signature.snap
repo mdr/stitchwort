@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: the parameter names of this function aren't known here
+   ╭─[ reject/named-argument-no-signature.sw:9:69 ]
+   │
+ 9 │ def pickOne (first: Bool): Nat := (if first then lower else upper) (low := 1) 2
+   │                                                                     ─┬─  
+   │                                                                      ╰─── `low` can't be found by name
+   │ 
+   │ Note: names come from a declared signature or a type annotation; add one, as in `let g: (low: Nat) -> (high: Nat) -> Nat := …`
+───╯

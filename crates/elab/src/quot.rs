@@ -74,10 +74,7 @@ pub(crate) fn applied<'e>(cx: &Ctx, expr: &'e Expr) -> Option<(QuotForm, Vec<Arg
     let mut args = Vec::new();
     let mut head = expr;
     while let Expr::App(f, a) = head {
-        args.push(match a.as_ref() {
-            Expr::NamedArg(name, value, _) => Arg::Named(name, value),
-            other => Arg::Explicit(other),
-        });
+        args.push(crate::check::arg_of(a));
         head = f;
     }
     let Expr::Var(name) = head else {
@@ -106,8 +103,10 @@ fn own_arguments(form: QuotForm, args: &[Arg]) -> usize {
                 return i;
             }
             Arg::Named(..) => {}
-            Arg::Explicit(_) | Arg::Piped(_) if explicit == wanted => return i,
-            Arg::Explicit(_) | Arg::Piped(_) => explicit += 1,
+            Arg::Explicit(_) | Arg::NamedExplicit(..) | Arg::Piped(_) if explicit == wanted => {
+                return i;
+            }
+            Arg::Explicit(_) | Arg::NamedExplicit(..) | Arg::Piped(_) => explicit += 1,
         }
     }
     args.len()
@@ -170,6 +169,16 @@ fn elaborate_own(
                     }));
                 }
             },
+            Arg::NamedExplicit(name, _) => {
+                return Err(Diagnostic::error(
+                    "E-UNKNOWN-NAME",
+                    format!(
+                        "`{}`'s explicit arguments are given by position",
+                        form.name()
+                    ),
+                )
+                .with_label(name.span, "can't be given by name"));
+            }
             Arg::Piped(_) => {
                 return Err(cx.error(
                     "E-ARITY",

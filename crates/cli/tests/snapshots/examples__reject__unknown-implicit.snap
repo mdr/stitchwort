@@ -2,10 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-UNKNOWN-NAME] Error: no implicit parameter named `b` here
+[E-UNKNOWN-NAME] Error: this function has no parameter named `b`
    ╭─[ reject/unknown-implicit.sw:6:30 ]
    │
  6 │ def two: Nat := List.length [b := Nat] [1, 2]
    │                              ┬  
-   │                              ╰── not an implicit parameter of this function
+   │                              ╰── not a parameter of this function
+   │ 
+   │ Note: its parameters are `[a]` (round brackets: explicit, square: implicit)
 ───╯

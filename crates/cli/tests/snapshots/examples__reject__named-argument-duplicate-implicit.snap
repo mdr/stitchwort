@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE-ARGUMENT] Error: `count` is given twice
+   ╭─[ reject/named-argument-duplicate-implicit.sw:7:38 ]
+   │
+ 7 │ def twice: Nat := pick [count := 1] [count := 2] 5
+   │                         ─────┬────   ──┬──  
+   │                              ╰────────────── already given here
+   │                                        │    
+   │                                        ╰──── given again here
+───╯

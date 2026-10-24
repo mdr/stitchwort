@@ -31,7 +31,7 @@
 
 use stitchwort_core::{Icit, Term};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{Expr, Name};
+use stitchwort_syntax::ast::{Bracket, Expr, Name};
 
 use stitchwort_core::ResourceError;
 
@@ -140,8 +140,13 @@ enum Position {
 
 /// The explicit parameters of the type-former `head` (a data type, an
 /// ability, or a definition whose result is a type): for each, whether it's
-/// a type. `None` if `head` isn't one.
-fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<Option<bool>>> {
+/// a type, and for a definition's, its name (a data type's parameters are
+/// given by position). `None` if `head` isn't one.
+fn type_former(
+    e: &Elaborator,
+    head: &Expr,
+    bound: &[String],
+) -> Option<Vec<(Option<String>, Option<bool>)>> {
     let Expr::Var(name) = head else {
         return None;
     };
@@ -156,9 +161,9 @@ fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<Opti
         (Global::Def(id), _) => {
             let mut params = Vec::new();
             let mut ty = &e.globals.def(*id).ty;
-            while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
+            while let Term::Pi(x, icit, dom, cod) = ty.strip_loc() {
                 if *icit == Icit::Explicit {
-                    params.push(Some(is_sort(dom)));
+                    params.push((Some(x.to_string()), Some(is_sort(dom))));
                 }
                 ty = cod;
             }
@@ -173,8 +178,8 @@ fn type_former(e: &Elaborator, head: &Expr, bound: &[String]) -> Option<Vec<Opti
             .iter()
             .enumerate()
             .filter(|(k, _)| data.auto_params.get(*k) != Some(&true))
-            .map(|(_, (_, ty))| Some(is_sort(ty)))
-            .chain(data.indices.iter().map(|_| None))
+            .map(|(_, (_, ty))| (None, Some(is_sort(ty))))
+            .chain(data.indices.iter().map(|_| (None, None)))
             .collect(),
     )
 }
@@ -288,13 +293,17 @@ fn walk_at(
             if params.is_none() {
                 walk(e, head, bound, false, uses)?;
             }
-            // Named arguments are implicit ones, not among `params`.
-            let mut explicit = 0;
+            // Each argument's parameter, filled as a call fills them
+            // (docs/proposals/named-arguments.md §4.2): `(x := e)` takes the
+            // explicit parameter named `x`, and a positional argument the
+            // first one still free.
+            let params = params.unwrap_or_default();
+            let mut filled = vec![false; params.len()];
             for arg in args {
-                let param = match arg {
+                let (found, arg) = match arg {
                     // Only an unknown name: a named alternative of the
                     // module's, `[ord := descending]`, is just that.
-                    Expr::NamedArg(x, value, _)
+                    Expr::NamedArg(x, value, _, Bracket::Square)
                         if matches!(&**value, Expr::Var(v)
                             if matches!(e.resolve(&v.text), Resolved::Missing))
                             && auto_param(e, head, &x.text, bound) =>
@@ -302,13 +311,19 @@ fn walk_at(
                         walk_at(e, value, bound, Position::ValueArg, uses)?;
                         continue;
                     }
-                    Expr::NamedArg(..) => None,
-                    _ => {
-                        explicit += 1;
-                        params.as_ref().and_then(|p| p.get(explicit - 1))
-                    }
+                    Expr::NamedArg(x, value, _, Bracket::Round) => (
+                        params
+                            .iter()
+                            .position(|(name, _)| name.as_deref() == Some(x.text.as_str())),
+                        &**value,
+                    ),
+                    Expr::NamedArg(..) => (None, arg),
+                    _ => (filled.iter().position(|f| !f), arg),
                 };
-                let position = match param {
+                if let Some(k) = found {
+                    filled[k] = true;
+                }
+                let position = match found.map(|k| params[k].1) {
                     Some(Some(true)) => Position::Type,
                     Some(Some(false)) if matches!(arg, Expr::Var(_)) => Position::ValueArg,
                     Some(None) => {
@@ -424,7 +439,7 @@ fn walk_at(
                 walk(e, body, bound, false, uses)?;
             }
         }
-        Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses)?,
+        Expr::NamedArg(_, value, _, _) => walk(e, value, bound, false, uses)?,
         Expr::Neg(x, _) => walk(e, x, bound, false, uses)?,
         Expr::Num(..)
         | Expr::Float(..)
