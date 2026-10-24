@@ -1,0 +1,42 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `toResultThen`
+   ╭─[ goals/reify-return.sw:9:19 ]
+   │
+ 9 │     | return y => ?
+   │                   ┬  
+   │                   ╰── a: Type
+   │                       b: Type
+   │                       t: () -> {Fail} a
+   │                       k: a -> {Fail} b
+   │                       y: a
+   │                       ⊢ Fail.toResult (%arg0 => k y) = Result.flatMap (x => Fail.toResult (%arg0 => k x)) (Fail.toResult (_ => Done y))
+───╯
+[GOAL] Goal: in `toResultThen`
+    ╭─[ goals/reify-return.sw:10:27 ]
+    │
+ 10 │     | Fail.stop msg, _ => ?
+    │                           ┬  
+    │                           ╰── a: Type
+    │                               b: Type
+    │                               t: () -> {Fail} a
+    │                               k: a -> {Fail} b
+    │                               rest✝: Empty -> {Fail} a
+    │                               msg: Text
+    │                               ⊢ Err msg = Err msg
+────╯
+[GOAL] Goal: in `mapIn`
+    ╭─[ goals/reify-return.sw:20:21 ]
+    │
+ 20 │       | return y => ?
+    │                     ┬  
+    │                     ╰── a: Type
+    │                         b: Type
+    │                         f: a -> {Fail} b
+    │                         x: a
+    │                         xs: List a
+    │                         y: b
+    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => Effect.runPure (Call o (y => Done (k y))))) (Effect.bind (List.mapIn f xs) (%8 => Done (Cons y %8))) = Result.map (tail => Cons y tail) (Result.traverse (x => Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => Effect.runPure (Call o (y => Done (k y))))) (f x)) xs)
+────╯

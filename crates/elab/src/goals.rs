@@ -46,6 +46,8 @@ pub(crate) struct Pending {
     context: Vec<Entry>,
     /// What the hole is in: "`addZero`".
     owner: String,
+    /// Shown with calls kept folded, also under binders (`display_goal`).
+    glued: bool,
 }
 
 #[derive(Clone)]
@@ -63,6 +65,44 @@ pub(crate) struct Goals {
     pending: Vec<Pending>,
     /// Printed, each with its span: one per span, the last checked there.
     found: Vec<(Span, Diagnostic)>,
+}
+
+/// The goal of a `match reify` `return` clause's `?`, written in terms of
+/// the statement: its folded form, with the computation replaced by the
+/// variable the clause binds, and the thunk by one that returns it. Only
+/// what is shown: the hole's type, as checked, is the computed goal.
+fn display_goal(cx: &Ctx) -> Option<Value> {
+    let shown = cx.reify_display.as_ref()?;
+    if shown.hole != cx.span {
+        return None;
+    }
+    let result = cx.lookup(&shown.result)?;
+    let level = cx.level();
+    let base = shown.base;
+    let done =
+        |under: usize| Term::ctor(shown.comp, 0, vec![Term::Var(level + under - 1 - result)]);
+    let hook = |t: &Term, under: usize| {
+        if crate::matching::same_shifted(&shown.computation, t, under, 0) {
+            return Some(done(under));
+        }
+        match (shown.thunk, t.strip_loc()) {
+            (Some(thunk), Term::Var(ix)) if *ix == under + base - 1 - thunk => Some(Term::Lam(
+                "()".into(),
+                stitchwort_core::Icit::Explicit,
+                std::rc::Rc::new(done(under + 1)),
+            )),
+            _ => None,
+        }
+    };
+    let term = crate::lift::replace_with(
+        cx.g(),
+        &shown.folded,
+        base,
+        &|l| Ok(Term::Var(level - 1 - l)),
+        &hook,
+    )
+    .ok()?;
+    cx.eval(&term).ok()
 }
 
 /// `?` checked against `expected`: the hole's frozen metavariable, applied
@@ -97,10 +137,12 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
             value: is_let.then(|| value.clone()),
         });
     }
+    let shown = display_goal(cx);
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
-        expected: expected.clone(),
+        expected: shown.clone().unwrap_or_else(|| expected.clone()),
+        glued: shown.is_some(),
         names: cx.names.clone(),
         context,
         owner: cx.e.goal_owner(),
@@ -217,7 +259,14 @@ impl Elaborator {
         let mentioned = g.failed_mentioned.get();
         let printed: Vec<(Span, Diagnostic)> = pending
             .iter()
-            .map(|p| (p.span, self.print_goal(p)))
+            .map(|p| {
+                let was = p.glued.then(|| g.glue.replace(self.glue));
+                let printed = self.print_goal(p);
+                if let Some(was) = was {
+                    g.glue.set(was);
+                }
+                (p.span, printed)
+            })
             .collect();
         g.failed_mentioned.set(mentioned);
         let mut goals = self.goals.borrow_mut();

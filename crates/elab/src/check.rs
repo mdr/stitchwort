@@ -83,7 +83,29 @@ pub struct Ctx<'e> {
     /// the scrutinee as types hold it, and where it is written. A mismatch
     /// that still contains one gets a hint (D230).
     pub(crate) scrutinees: Vec<(usize, Term, Span)>,
+    /// How to show the goal of a `?` that is a `match reify`'s `return`
+    /// clause (`reify.rs`); display only.
+    pub(crate) reify_display: Option<ReifyDisplay>,
     pub span: Span,
+}
+
+/// What `goals::hole` needs to show a `match reify` `return` clause's goal
+/// in terms of what was written, instead of the handlers unfolded.
+#[derive(Clone)]
+pub(crate) struct ReifyDisplay {
+    /// The `?` that is the clause's whole body.
+    pub hole: Span,
+    /// The `match`'s goal, calls kept folded, in `base` variables.
+    pub folded: Term,
+    pub base: usize,
+    /// The computation being taken apart, as the goal holds it.
+    pub computation: Term,
+    /// The thunk, when it is a variable (a level below `base`).
+    pub thunk: Option<usize>,
+    /// The clause's variable: what the computation returns.
+    pub result: String,
+    /// `Comp`, whose `Done` is what the clause says the computation is.
+    pub comp: stitchwort_core::DataId,
 }
 
 /// A `let`'s type and value, as terms in the context of the variables
@@ -130,6 +152,7 @@ impl<'e> Ctx<'e> {
             order: Vec::new(),
             tree_start: 0,
             scrutinees: Vec::new(),
+            reify_display: None,
             span,
         }
     }
@@ -160,6 +183,7 @@ impl<'e> Ctx<'e> {
             order: Vec::new(),
             tree_start: 0,
             scrutinees: Vec::new(),
+            reify_display: None,
             span,
         }
     }
