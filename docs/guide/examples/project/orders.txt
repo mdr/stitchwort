@@ -1,0 +1,4 @@
+tea 3
+milk 2
+tea 1
+biscuits 4
