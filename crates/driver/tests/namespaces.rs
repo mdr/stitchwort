@@ -450,3 +450,32 @@ fn library_types_outside_the_prelude_need_an_import() {
         Vec::<&str>::new()
     );
 }
+
+/// SW-403: the `import` a hint suggests works when pasted, whether or not
+/// the library namespace is already open.
+#[test]
+fn suggested_imports_work_when_pasted() {
+    for (header, name) in [
+        ("", "Done"),
+        ("", "Call"),
+        ("import Std (Effect)\n\n", "Done"),
+        ("import Std (Effect)\n\n", "Call"),
+    ] {
+        let source = format!("{header}def x: Nat := {name}\n");
+        let mut session = Session::new();
+        let errors = session.load("test.sw", &source).expect_err("unknown name");
+        let hint = errors
+            .iter()
+            .flat_map(|d| &d.notes)
+            .find_map(|note| {
+                let start = note.find("`import ")? + 1;
+                Some(note[start..].split('`').next()?.to_string())
+            })
+            .expect("a suggested import");
+        let fixed = format!("{hint}\n\ndef x: Nat := 0\n");
+        let mut session = Session::new();
+        if let Err(errors) = session.load("test.sw", &fixed) {
+            panic!("`{hint}` does not work: {errors:#?}");
+        }
+    }
+}

@@ -1118,7 +1118,7 @@ impl Elaborator {
             ));
         }
         if !name.text.contains('.') {
-            let mut found: Vec<String> = self
+            let mut keys: Vec<&String> = self
                 .scope
                 .keys()
                 .filter(|k| {
@@ -1126,11 +1126,14 @@ impl Elaborator {
                         && short(k) == name.text
                         && parent(k).is_some_and(|p| p.contains('.'))
                 })
-                .map(|k| self.written(k))
                 .collect();
-            found.sort_unstable();
-            if let Some(first) = found.first() {
-                let namespace = parent(first).unwrap_or(first);
+            keys.sort_by_key(|k| self.written(k));
+            let found: Vec<String> = keys.iter().map(|k| self.written(k)).collect();
+            if let Some(first_key) = keys.first() {
+                // The import path names the namespace in full: `written`
+                // may drop the `Std.` that it needs (SW-403).
+                let namespace = parent(first_key).unwrap_or(first_key);
+                let first = &found[0];
                 let shown: Vec<String> = found.iter().map(|k| format!("`{k}`")).collect();
                 // A constructor of a library type outside the prelude comes
                 // with its type (D266).

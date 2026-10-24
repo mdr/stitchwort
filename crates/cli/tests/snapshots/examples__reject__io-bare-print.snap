@@ -9,5 +9,5 @@ expression: output
    │                        ──┬──  
    │                          ╰──── not in scope
    │ 
-   │ Note: the library has `IO.print`: write it in full, or `import IO (print)`
+   │ Note: the library has `IO.print`: write it in full, or `import Std.IO (print)`
 ───╯
