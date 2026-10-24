@@ -876,7 +876,7 @@ const $Std$dShow$dhasSpace = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dShow$dstartsBracketed = (v0) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(91n))(((v1) => ({ tag: "True" })))(((v1) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(40n))(((v2) => ({ tag: "True" })))(((v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(123n))(((v3) => ({ tag: "True" })))(((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(34n))(((v4) => ({ tag: "True" })))(((v4) => $Std$dNat$dequal($Std$dChar$dtoNat(v0))(39n)))))))));
+const $Std$dShow$dstartsBracketed = (v0) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(91n))(((v1) => ({ tag: "True" })))(((v1) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(40n))(((v2) => ({ tag: "True" })))(((v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(34n))(((v3) => ({ tag: "True" })))(((v3) => $Std$dNat$dequal($Std$dChar$dtoNat(v0))(39n)))))));
 const $Std$dShow$dargOf = (v0) => (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -885,7 +885,7 @@ const $Std$dShow$dargOf = (v0) => (v1) => {
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
-      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2))(45n))(((v4) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v4) => $Std$dBool$difThenElse($Std$dShow$dstartsBracketed(v2))(((v5) => v0))(((v5) => $Std$dBool$difThenElse($Std$dShow$dhasSpace(v3))(((v6) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v6) => v0))))));
+      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2))(45n))(((v4) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2))(123n))(((v5) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v5) => $Std$dBool$difThenElse($Std$dShow$dstartsBracketed(v2))(((v6) => v0))(((v6) => $Std$dBool$difThenElse($Std$dShow$dhasSpace(v3))(((v7) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v7) => v0))))))));
     }
   }
   throw new Error("unreachable");

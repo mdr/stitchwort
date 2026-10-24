@@ -8,7 +8,7 @@
 -- run: parseRange "22-11"
 -- run: parseRange "11-x"
 -- run: parseRange "bad"
--- run: size (Ok { from = 3, to = 7 })
+-- run: size (Ok ({ from = 3, to = 7 }))
 -- run: size (Err "no range")
 -- run: sizes ["1-2", "3-5"]
 -- run: sizes ["1-2", " 3 - 5 ", "x"]

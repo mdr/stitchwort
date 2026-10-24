@@ -21,7 +21,7 @@
 -- run: peek { items = [Some 1, None], extra = Some [None] }
 -- run: swapSides (MkBoth (Some 1) "x")
 -- run: required { value = Some 3, ok = rfl }
--- run: capOf { cap = Some { value = 7, fits = rfl } }
+-- run: capOf { cap = Some ({ value = 7, fits = rfl }) }
 -- run: capOf { cap = None }
 
 import Std (Bool, List, Nat, Option, SafeNat, Text)

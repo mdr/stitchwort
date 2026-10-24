@@ -9,10 +9,10 @@
 -- run: unwrap { value = "u1" }
 -- run: same { value = "u1" } { value = "u1" }
 -- run: same { value = "u1" } { value = "u2" }
--- run: owners [{ id = { value = "o1" }, owner = { value = "u1" }, helper = None }, { id = { value = "o2" }, owner = { value = "u2" }, helper = Some { value = "u3" } }]
--- run: helperOf { id = { value = "o1" }, owner = { value = "u1" }, helper = Some { value = "u3" } }
+-- run: owners [{ id = { value = "o1" }, owner = { value = "u1" }, helper = None }, { id = { value = "o2" }, owner = { value = "u2" }, helper = Some ({ value = "u3" }) }]
+-- run: helperOf { id = { value = "o1" }, owner = { value = "u1" }, helper = Some ({ value = "u3" }) }
 -- run: helperOf { id = { value = "o1" }, owner = { value = "u1" }, helper = None }
--- run: creator (Created { value = "u9" })
+-- run: creator (Created ({ value = "u9" }))
 -- run: creator Deleted
 -- run: ownerOf (Map.fromList [({ value = "o1" }, { value = "u1" }), ({ value = "o2" }, { value = "u2" })]) { value = "o2" }
 -- run: ownerOf Map.empty { value = "o2" }
