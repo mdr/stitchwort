@@ -37,16 +37,19 @@
     {
       "id": 30,
       "title": "Lambda postponing in effectful calls",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "Fixed by 6dc28126 (SW-223); cases added in examples/accept/lambda-postponed.sw",
       "labels": [
         "elab"
       ],
       "body": "Problem: a lambda argument whose parameter type is fixed by a later argument is postponed in pure calls (check.rs:903-970, examples/accept/lambda-postponed.sw), but not in effectful ones. Repro (type Person = { name: Text, age: Nat }):\n\n    def appIO (f: a -> {IO} b) (x: a): {IO} b := f x\n    def e1 (p: Person): {IO} Text := appIO (q => q.name) p\n    -- E-CANNOT-INFER: can't tell what `q` is, so can't look up `.name`\n\nThe same call written with `appP` (no `{IO}` in the callback type) checks. A pure call placed after an effectful statement in the same block (`IO.print \"x\"` then `appP (q => q.name) p`) also fails. Cause (not yet confirmed): effectful calls apply arguments one at a time (crates/elab/src/effects.rs comp_call) and never go through apply_args_postponing.\n\nFirst step: confirm the cause in effects.rs, then reuse the postponing path for calls whose arguments perform operations.\n\nDone when: the repro above and a pure-after-effect variant check, with a test in examples/accept/ (extend lambda-postponed.sw) and the gate green.\n\nHistory: was 'leave unless it bites'; reproduced 21 Oct. Related: SW-138 (done).\n\n24 Oct 2026 (board review): both repros now check with a release binary built 24 Oct (appIO (q => q.name) p, and appP after an IO.print). The fixing commit is not identified (probably the effect-polymorphism row work, D1123/D1124, SW-406/SW-437). Remaining before closing: add the two cases to examples/accept/lambda-postponed.sw (neither is covered there), run the gate, then close.",
       "created": "2026-10-19",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "6dc28126",
+        "58292193"
+      ]
     },
     {
       "id": 31,
@@ -2337,9 +2340,9 @@
     {
       "id": 439,
       "title": "Perf: nested pure List.map in a pure context checks in exponential time (depth 16 0.67 s, 18 1.59 s; error path 6.7 s) since pure_first tries plain then fallback per level (SW-408 review #3)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "Re-measured 25 Oct on main: still exponential. Pure: depth 16 0.68 s, 18 1.6 s, 20 5.3 s; error path (effectful callback in pure fn, E-ABILITY): 14 1.9 s, 16 6.4 s, 18 25-31 s, 20 ~100 s. Repro scripts: scratchpad/t439/run.sh. Realistic pipelines (<=8 deep) unaffected.",
       "labels": [
         "effects"
       ],
