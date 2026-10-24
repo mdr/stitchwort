@@ -71,6 +71,19 @@ pub enum Fun {
     /// is set, calling it suspends (gives `Bind (Done y) r`, `r` the same
     /// resumption unflagged); otherwise it runs the rest of the computation.
     Resume(Rc<crate::effect::Resume>, bool),
+    /// A state-passing handler's function of the state ([`crate::effect`],
+    /// stage 4d): given the state, runs the handler's loop.
+    StateRun(Rc<crate::effect::StateRun>),
+    /// A state-passing handler's `k`, for every use that isn't a tail
+    /// resumption: the state's function from where the operation was
+    /// (`Done` of it if the handler's carrier is a computation).
+    StateK(Rc<crate::effect::Resume>),
+    /// `jump v s`, given to a state-passing handler's clauses: records `v`
+    /// and `s` as a [`Fun::Jumped`] for the loop.
+    JumpK,
+    /// What `jump v s` returns: never applied, only recognised by the loop
+    /// it returns to.
+    Jumped(Value, Value),
 }
 
 /// A partial computation: one of `Delay`'s constants with its runtime
@@ -228,8 +241,17 @@ fn free(mut pending: Vec<Value>) {
 impl Fun {
     fn take_children(&mut self, out: &mut Vec<Value>) {
         match self {
-            Fun::Global(_) | Fun::DoneK => {}
-            Fun::Resume(resume, _) => {
+            Fun::Global(_) | Fun::DoneK | Fun::JumpK => {}
+            Fun::StateRun(run) => {
+                if let Some(run) = Rc::get_mut(run) {
+                    run.take_children(out);
+                }
+            }
+            Fun::Jumped(v, s) => {
+                take_from(std::slice::from_mut(v), out);
+                take_from(std::slice::from_mut(s), out);
+            }
+            Fun::Resume(resume, _) | Fun::StateK(resume) => {
                 if let Some(resume) = Rc::get_mut(resume) {
                     resume.take_children(out);
                 }

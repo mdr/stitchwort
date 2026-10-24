@@ -25,7 +25,7 @@ use std::rc::Rc;
 use stitchwort_core::{Limits as CoreLimits, ResourceError};
 
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
-use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
+use crate::effect::{EffectCounts, EffectOp, Handler, Resume, StateRun};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
@@ -79,14 +79,19 @@ enum Ret {
     /// An operation, a `translate` has mapped: `Call` of it and this
     /// resumption goes to the `Ret`.
     Inject(Box<(Value, Ret)>),
+    /// A state-passing handler's clause's result, for the operation whose
+    /// resumption this is: a jump goes on with the loop, anything else goes
+    /// to the `Ret`.
+    Step(Box<(Rc<Resume>, Ret)>),
 }
 
 /// The effect runtime's loop, waiting for a continuation's computation:
-/// its handler, what is still pending after it, and where the loop's
-/// result goes.
+/// its handler, what is still pending after it, the state (a state-passing
+/// handler's; otherwise erased), and where the loop's result goes.
 struct EffRet {
     handler: Rc<Handler>,
     pending: Value,
+    state: Value,
     ret: Ret,
 }
 
@@ -170,6 +175,7 @@ impl<'p> Machine<'p> {
             c,
             Value::Erased,
             Rc::new(Handler::Step),
+            Value::Erased,
             Ret::Host,
         );
         self.finish(pending)
@@ -390,6 +396,56 @@ impl State {
                 let y = args.into_iter().next().expect("one argument");
                 self.resume(program, image, resume, *lazy, y, ret)
             }
+            // A state-passing handler's loop, given the state.
+            Fun::StateRun(run) => {
+                let state = args.into_iter().next().expect("one argument");
+                let StateRun {
+                    handler,
+                    rest,
+                    arg,
+                    pending,
+                } = &**run;
+                let handler = handler.clone();
+                if matches!(rest, Value::Erased) {
+                    return self.eff_run(
+                        program,
+                        image,
+                        arg.clone(),
+                        pending.clone(),
+                        handler,
+                        state,
+                        ret,
+                    );
+                }
+                let after = Ret::Eff(Box::new(EffRet {
+                    handler,
+                    pending: pending.clone(),
+                    state,
+                    ret,
+                }));
+                self.apply(program, image, rest.clone(), vec![arg.clone()], after)
+            }
+            // A state-passing handler's `k y`: the loop from `rest y`, as a
+            // function of the state.
+            Fun::StateK(resume) => {
+                let y = args.into_iter().next().expect("one argument");
+                let Handler::State { comp, .. } = &*resume.handler else {
+                    unreachable!("a state-passing handler's resumption")
+                };
+                let run = StateRun {
+                    handler: resume.handler.clone(),
+                    rest: resume.rest.clone(),
+                    arg: y,
+                    pending: resume.pending.clone(),
+                };
+                Ok(Some((state_fn(&program.shapes, *comp, run), ret)))
+            }
+            Fun::JumpK => {
+                let mut args = args.into_iter();
+                let (v, s) = (args.next().expect("2"), args.next().expect("2"));
+                Ok(Some((Value::Fun(Rc::new(Fun::Jumped(v, s))), ret)))
+            }
+            Fun::Jumped(..) => panic!("internal error: a jump applied"),
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
     }
@@ -464,7 +520,19 @@ impl State {
                 };
                 let (done, call, c) = (arg(), arg(), arg());
                 let handler = Rc::new(Handler::Fold { done, call, lazy });
-                self.eff_run(program, image, c, Value::Erased, handler, ret)
+                self.eff_run(program, image, c, Value::Erased, handler, Value::Erased, ret)
+            }
+            EffectOp::FoldState | EffectOp::FoldStateComp => {
+                let (done, call, c) = (arg(), arg(), arg());
+                let comp = op == EffectOp::FoldStateComp;
+                let handler = Rc::new(Handler::State { done, call, comp });
+                let run = StateRun {
+                    handler,
+                    rest: Value::Erased,
+                    arg: c,
+                    pending: Value::Erased,
+                };
+                Ok(Some((state_fn(s, comp, run), ret)))
             }
             EffectOp::Translate => {
                 let (m, c) = (arg(), arg());
@@ -473,12 +541,12 @@ impl State {
                 };
                 let (inject, reply) = pair(m);
                 let handler = Rc::new(Handler::Translate { inject, reply });
-                self.eff_run(program, image, c, Value::Erased, handler, ret)
+                self.eff_run(program, image, c, Value::Erased, handler, Value::Erased, ret)
             }
             EffectOp::RunPure => {
                 let c = arg();
                 let handler = Rc::new(Handler::RunPure);
-                self.eff_run(program, image, c, Value::Erased, handler, ret)
+                self.eff_run(program, image, c, Value::Erased, handler, Value::Erased, ret)
             }
         }
     }
@@ -488,6 +556,8 @@ impl State {
     /// waiting for its result, for `handler`. `Bind` nodes push their
     /// continuation; `Done` pops one and applies it, on a frame whose result
     /// comes back here (`Ret::Eff`), or ends the loop; an operation ends it.
+    /// `state` is a state-passing handler's state, erased for the others.
+    #[allow(clippy::too_many_arguments)]
     fn eff_run(
         &mut self,
         program: &Program,
@@ -495,6 +565,7 @@ impl State {
         mut c: Value,
         mut pending: Value,
         handler: Rc<Handler>,
+        state: Value,
         ret: Ret,
     ) -> Result<Pending> {
         let s = &program.shapes;
@@ -520,6 +591,7 @@ impl State {
                     let after = Ret::Eff(Box::new(EffRet {
                         handler,
                         pending: next,
+                        state,
                         ret,
                     }));
                     return self.apply(program, image, k, vec![x], after);
@@ -529,6 +601,12 @@ impl State {
                         let done = done.clone();
                         self.apply(program, image, done, vec![field(fields, 0)], ret)
                     }
+                    // `done v s`.
+                    Handler::State { done, .. } => {
+                        let done = done.clone();
+                        let then = Ret::Apply(Box::new((vec![state], ret)));
+                        self.apply(program, image, done, vec![field(fields, 0)], then)
+                    }
                     Handler::RunPure => Ok(Some((field(fields, 0), ret))),
                     Handler::Translate { .. } | Handler::Step => {
                         Ok(Some((Value::Data(tag, fields), ret)))
@@ -536,13 +614,14 @@ impl State {
                 };
             } else {
                 debug_assert_eq!(tag, s.call);
-                return self.eff_call(program, image, fields, pending, handler, ret);
+                return self.eff_call(program, image, fields, pending, handler, state, ret);
             }
         }
     }
 
     /// The run loop reached operation `Call o rest` (`fields`), with
     /// `pending` after it.
+    #[allow(clippy::too_many_arguments)]
     fn eff_call(
         &mut self,
         program: &Program,
@@ -550,6 +629,7 @@ impl State {
         fields: Fields,
         pending: Value,
         handler: Rc<Handler>,
+        state: Value,
         ret: Ret,
     ) -> Result<Pending> {
         let s = &program.shapes;
@@ -575,6 +655,16 @@ impl State {
                 let (call, lazy) = (call.clone(), *lazy);
                 let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), lazy)));
                 self.apply(program, image, call, vec![o, k], ret)
+            }
+            // `call o k jump s`, its result back to `Ret::Step`.
+            Handler::State { call, .. } => {
+                self.counts.routes += 1;
+                let call = call.clone();
+                let resume = resume(handler, Value::Erased);
+                let k = Value::Fun(Rc::new(Fun::StateK(resume.clone())));
+                let jump = Value::Fun(Rc::new(Fun::JumpK));
+                let then = Ret::Step(Box::new((resume, ret)));
+                self.apply(program, image, call, vec![o, k, jump, state], then)
             }
             Handler::Translate { inject, .. } => {
                 self.counts.routes += 1;
@@ -619,6 +709,7 @@ impl State {
         let after = Ret::Eff(Box::new(EffRet {
             handler: resume.handler.clone(),
             pending: resume.pending.clone(),
+            state: Value::Erased,
             ret,
         }));
         match &*resume.handler {
@@ -630,6 +721,54 @@ impl State {
             }
             _ => self.apply(program, image, resume.rest.clone(), vec![y], after),
         }
+    }
+
+    /// A state-passing handler's clause returned `v` for the operation
+    /// whose resumption is `resume`: a jump `v′ s′` goes on with the loop
+    /// from `rest v′` with state `s′`, on no new frame; anything else is the
+    /// handler's result.
+    fn state_step(
+        &mut self,
+        program: &Program,
+        image: &Image,
+        v: Value,
+        resume: Rc<Resume>,
+        ret: Ret,
+    ) -> Result<Pending> {
+        let Value::Fun(mut f) = v else {
+            return Ok(Some((v, ret)));
+        };
+        if !matches!(&*f, Fun::Jumped(..)) {
+            return Ok(Some((Value::Fun(f), ret)));
+        }
+        let (y, state) = match Rc::get_mut(&mut f) {
+            Some(Fun::Jumped(y, state)) => (std::mem::take(y), std::mem::take(state)),
+            _ => match &*f {
+                Fun::Jumped(y, state) => (y.clone(), state.clone()),
+                _ => unreachable!("a jump"),
+            },
+        };
+        self.counts.jumps += 1;
+        let (handler, rest, pending) = match Rc::try_unwrap(resume) {
+            Ok(Resume {
+                handler,
+                rest,
+                pending,
+                ..
+            }) => (handler, rest, pending),
+            Err(resume) => (
+                resume.handler.clone(),
+                resume.rest.clone(),
+                resume.pending.clone(),
+            ),
+        };
+        let after = Ret::Eff(Box::new(EffRet {
+            handler,
+            pending,
+            state,
+            ret,
+        }));
+        self.apply(program, image, rest, vec![y], after)
     }
 }
 
@@ -650,6 +789,13 @@ fn pair(mut fields: Fields) -> (Value, Value) {
     }
 }
 
+/// A state-passing handler's function of the state, `Done` of it if the
+/// handler's carrier is a computation.
+fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
+    let f = Value::Fun(Rc::new(Fun::StateRun(Rc::new(run))));
+    if comp { Value::data(s.done, [f]) } else { f }
+}
+
 /// The arity of a function value that isn't a partial application.
 fn arity(program: &Program, head: &Value) -> usize {
     let Value::Fun(fun) = head else {
@@ -658,7 +804,9 @@ fn arity(program: &Program, head: &Value) -> usize {
     match &**fun {
         Fun::Global(g) => program.globals[*g as usize].kind.params() as usize,
         Fun::Closure { lambda, .. } => program.lambdas[*lambda as usize].params as usize,
-        Fun::DoneK | Fun::Resume(..) => 1,
+        Fun::DoneK | Fun::Resume(..) | Fun::StateRun(_) | Fun::StateK(_) => 1,
+        Fun::JumpK => 2,
+        Fun::Jumped(..) => panic!("internal error: a jump applied"),
         Fun::Pap { .. } => unreachable!("a partial application's head"),
     }
 }
@@ -693,9 +841,10 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     let EffRet {
                         handler,
                         pending: after,
+                        state,
                         ret,
                     } = *e;
-                    pending = st.eff_run(program, image, v, after, handler, ret)?;
+                    pending = st.eff_run(program, image, v, after, handler, state, ret)?;
                     continue;
                 }
                 Ret::Then(then) => {
@@ -706,6 +855,11 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 Ret::Inject(inject) => {
                     let (k, ret) = *inject;
                     pending = Some((Value::data(s.call, [v, k]), ret));
+                    continue;
+                }
+                Ret::Step(step) => {
+                    let (resume, ret) = *step;
+                    pending = st.state_step(program, image, v, resume, ret)?;
                     continue;
                 }
             }

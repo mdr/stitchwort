@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, DefId, Globals, Term};
 use stitchwort_rt::erasure::def_shape;
+use stitchwort_rt::fusion::{Fused, StateFusion};
 
 use crate::{field_key_at, js_string_literal, member, ts_key};
 
@@ -80,6 +81,8 @@ pub(crate) struct Effect {
     /// `Effect.CompIn`, and `Effects` with its `Empty` and `Ops`.
     comp_in: Option<DefId>,
     row: Option<(DataId, usize, usize)>,
+    /// Recognises state-passing handlers (stage 4d).
+    fusion: Option<StateFusion>,
     runtime: String,
 }
 
@@ -159,6 +162,7 @@ impl Effect {
             .replace("@ROUTE@", &count("routes"))
             .replace("@RESUME@", &count_in("resumes"))
             .replace("@BIND_NODE@", &count_in("binds"))
+            .replace("@JUMP@", &count("jumps"))
             .replace("@DONE_TAG@", &js_string_literal(&data.ctors[0].name))
             .replace("@VALUE_KEY@", &ts_key(&done_keys[0]))
             .replace("@VALUE@", &member(&done_keys[0]))
@@ -176,6 +180,7 @@ impl Effect {
             comp,
             comp_in: r.loaded_def(Builtin::CompIn),
             row,
+            fusion: StateFusion::new(g),
             runtime,
         })
     }
@@ -188,6 +193,20 @@ impl Effect {
     /// Whether `id` is `Effect.foldComp`.
     pub(crate) fn is_fold(&self, id: DefId) -> bool {
         id == self.fold
+    }
+
+    /// A fold's arguments rewritten to run as a loop with the state in a
+    /// variable (`effFoldState`), if it's a state-passing handler at the
+    /// empty row ([`stitchwort_rt::fusion`]).
+    pub(crate) fn fuse(
+        &self,
+        g: &Globals,
+        args: &[&Term],
+    ) -> stitchwort_core::budget::Result<Option<Fused>> {
+        match &self.fusion {
+            Some(fusion) => fusion.fuse(g, args),
+            None => Ok(None),
+        }
     }
 
     /// The runtime's JS, to go before the generated definitions.
@@ -223,7 +242,7 @@ const NO_COUNTERS: &str = "";
 
 const COUNTERS: &str = r#"// Counts of the runtime's work, for tests (`Options::effect_counters`).
 const effCount = (globalThis.__stitchwortEffectCounts ??= {
-  steps: 0, pushes: 0, pops: 0, routes: 0, resumes: 0, binds: 0,
+  steps: 0, pushes: 0, pops: 0, routes: 0, resumes: 0, binds: 0, jumps: 0,
   // The `run --js` runner's: operations routed, frames routing looked at,
   // and frames below the focus at each operation, summed.
   operations: 0, visited: 0, below: 0,
@@ -290,6 +309,35 @@ const effFoldCompIn = (row) =>
   row.tag === @EMPTY_TAG@
     ? (done) => (call) => (c) => effFold(done, call, c, null)
     : effFoldCompLazy;
+// A state-passing handler at the empty row (stage 4d, A′;
+// stitchwort_rt::fusion): its operation clauses were rewritten to take
+// `jump` and the state, and to end with `jump v s′` where they resumed with
+// `k v s′`, so the handler runs as this loop with the state in a variable.
+// A jump goes on with the rest of the computation from `v` and state `s′`,
+// and calls nothing. `k` is a real resumption, for every other use of it:
+// the same loop from where the operation was. `comp`: the carrier is a
+// computation (the closed empty row), so the fold's result and `k`'s are
+// `Done` of the state's function.
+class EffJump {
+  constructor(v, s) { this.v = v; this.s = s; }
+}
+const effJump = (v) => (s) => new EffJump(v, s);
+const effStateLoop = (comp, done, call, c, pending, s) => {
+  for (;;) {
+    c = effRun(c, pending);
+    if (c.tag === @DONE_TAG@) return done(c@VALUE@)(s);
+    @ROUTE@const rest = c@REST@, after = effPending;
+    const k = (y) => effStateFn(comp, (s) => effStateLoop(comp, done, call, rest(y), after, s));
+    const r = call(c@OP@)(k)(effJump)(s);
+    if (!(r instanceof EffJump)) return r;
+    @JUMP@c = rest(r.v);
+    pending = after;
+    s = r.s;
+  }
+};
+const effStateFn = (comp, f) => (comp ? { tag: @DONE_TAG@, @VALUE_KEY@: f } : f);
+const effFoldState = (comp) => (done) => (call) => (c) =>
+  effStateFn(comp, (s) => effStateLoop(comp, done, call, c, null, s));
 // `translate m c` with `pending` after `c`: each operation renamed by `m`,
 // its reply mapped back.
 const effTranslate = (m, c, pending) => {

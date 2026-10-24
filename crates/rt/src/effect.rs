@@ -55,6 +55,13 @@ pub enum EffectOp {
     /// `CompIn row t` with `row` a run-time value. Lazy unless `row` is
     /// `Empty`.
     FoldIn,
+    /// A state-passing handler's fold, its clauses rewritten by
+    /// [`crate::fusion`]: the state's function, run as a loop with the state
+    /// in a variable. For a carrier `CompIn Empty (S -> R)`.
+    FoldState,
+    /// The same for a carrier `Comp NoOp NoRes (S -> R)`: the result, and
+    /// `k`'s, are `Done` of the state's function.
+    FoldStateComp,
     /// `translate m c`.
     Translate,
     /// `runPure c`.
@@ -66,7 +73,10 @@ impl EffectOp {
         match self {
             EffectOp::RunPure => 1,
             EffectOp::Bind | EffectOp::Translate => 2,
-            EffectOp::Fold | EffectOp::FoldLazy => 3,
+            EffectOp::Fold
+            | EffectOp::FoldLazy
+            | EffectOp::FoldState
+            | EffectOp::FoldStateComp => 3,
             EffectOp::FoldIn => 4,
         }
     }
@@ -192,6 +202,17 @@ pub enum Handler {
         call: Value,
         lazy: bool,
     },
+    /// A state-passing handler ([`EffectOp::FoldState`]): `done v s` at the
+    /// end; at an operation, `call o k jump s`, whose result, if it's a
+    /// jump, goes on with the rest of the computation in the same loop. The
+    /// state itself is the loop's (`EffRet`'s), not the handler's.
+    State {
+        done: Value,
+        call: Value,
+        /// The carrier is a computation: `k`'s result is `Done` of the
+        /// state's function.
+        comp: bool,
+    },
     /// `translate (MkSigMap inject reply)`.
     Translate { inject: Value, reply: Value },
     /// `runPure`: the result at the end; no operation can happen.
@@ -214,21 +235,45 @@ pub struct Resume {
     pub op: Value,
 }
 
+/// A state-passing handler's function of the state, before it's given one:
+/// the loop from computation `arg` (if `rest` is `Erased`) or from `rest
+/// arg` (a resumption's), with `pending` after it.
+#[derive(Debug)]
+pub struct StateRun {
+    pub handler: Rc<Handler>,
+    pub rest: Value,
+    pub arg: Value,
+    pub pending: Value,
+}
+
+impl StateRun {
+    pub(crate) fn take_children(&mut self, out: &mut Vec<Value>) {
+        take_handler(&mut self.handler, out);
+        crate::value::take_from(std::slice::from_mut(&mut self.rest), out);
+        crate::value::take_from(std::slice::from_mut(&mut self.arg), out);
+        crate::value::take_from(std::slice::from_mut(&mut self.pending), out);
+    }
+}
+
+fn take_handler(handler: &mut Rc<Handler>, out: &mut Vec<Value>) {
+    if let Some(handler) = Rc::get_mut(handler) {
+        match handler {
+            Handler::Fold { done, call, .. } | Handler::State { done, call, .. } => {
+                crate::value::take_from(std::slice::from_mut(done), out);
+                crate::value::take_from(std::slice::from_mut(call), out);
+            }
+            Handler::Translate { inject, reply } => {
+                crate::value::take_from(std::slice::from_mut(inject), out);
+                crate::value::take_from(std::slice::from_mut(reply), out);
+            }
+            Handler::RunPure | Handler::Step => {}
+        }
+    }
+}
+
 impl Resume {
     pub(crate) fn take_children(&mut self, out: &mut Vec<Value>) {
-        if let Some(handler) = Rc::get_mut(&mut self.handler) {
-            match handler {
-                Handler::Fold { done, call, .. } => {
-                    crate::value::take_from(std::slice::from_mut(done), out);
-                    crate::value::take_from(std::slice::from_mut(call), out);
-                }
-                Handler::Translate { inject, reply } => {
-                    crate::value::take_from(std::slice::from_mut(inject), out);
-                    crate::value::take_from(std::slice::from_mut(reply), out);
-                }
-                Handler::RunPure | Handler::Step => {}
-            }
-        }
+        take_handler(&mut self.handler, out);
         crate::value::take_from(std::slice::from_mut(&mut self.rest), out);
         crate::value::take_from(std::slice::from_mut(&mut self.pending), out);
         crate::value::take_from(std::slice::from_mut(&mut self.op), out);
@@ -250,4 +295,7 @@ pub struct EffectCounts {
     pub resumes: u64,
     /// `Bind` nodes made by `bind` (not by a lazy resumption).
     pub binds: u64,
+    /// Resumptions a state-passing handler made as a jump of its loop
+    /// (stage 4d), not as a call.
+    pub jumps: u64,
 }
