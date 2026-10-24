@@ -147,6 +147,8 @@ test "evens" := [1, 2, 3, 4] |> .filter (n => n % 2 == 0) == [2, 4]
    │                                             ╰──────────────────────── this is a function, but the expected type is `List Nat`
    │                                                                 │
    │                                                                 ╰──── this comparison is on `List Nat` because of this
+   │
+   │ Note: `|>` binds looser than `==`, so `x |> f == y` pipes `x` into the whole comparison `f == y`; to compare the result of the pipe, write brackets: `(x |> f) == y`
 ───╯
 ```
 

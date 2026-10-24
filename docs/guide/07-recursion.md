@@ -211,11 +211,11 @@ test "27 takes 111 steps" := collatzSteps 27 == 111
    │                              ───────────┬──────────
    │                                         ╰──────────── `collatzSteps` is `Partial`: it might not finish
    │
-   │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; add `Partial` to the enclosing function's type (`-> {Partial} …`)
+   │ Note: a test must finish, so it can't run anything that might not (and a test's type can't say `Partial`); test a total function instead, such as one that takes a step limit
 ───╯
 ```
 
-(The note's advice applies to functions; a test can't be `Partial`.) To test such code, give it a limit: a version with an extra "fuel" parameter that counts down is total and testable.
+A test can't be `Partial`, so the note suggests testing a total function. To test such code, give it a limit: a version with an extra "fuel" parameter that counts down is total and testable.
 
 `Partial` keeps the rest of the program honest: a function whose type doesn't say `Partial` is known to finish, which is what proofs about it rely on.
 
