@@ -185,3 +185,107 @@ test('the migrated board file is well-formed', () => {
   }
   assert.equal(fs.readFileSync(path.join(__dirname, 'tickets.json'), 'utf8'), lib.serialize(d));
 });
+
+function archiveFixture() {
+  const f = tmpFile();
+  const t = (id, status, updated) => ({ id, title: `t${id}`, status, updated, created: updated, body: `body ${id}` });
+  fs.writeFileSync(f, JSON.stringify({
+    next: 20,
+    tickets: [
+      t(1, 'done', '2026-09-30'), t(2, 'done', '2026-10-05'), t(3, 'backlog', '2026-10-01'),
+      t(4, 'done', '2026-10-22'), t(5, 'done', '2026-10-23'), t(19, 'doing', '2026-10-20'),
+    ],
+  }));
+  return f;
+}
+
+test('archive --before moves only old done tickets, by month, and keeps next', () => {
+  const f = archiveFixture();
+  const r = cli(f, 'archive', '--before', '2026-10-23');
+  assert.equal(r.code, 0);
+  assert.match(r.out, /archived 3 done tickets/);
+  const d = lib.load(f);
+  assert.deepEqual(d.tickets.map((x) => x.id), [3, 5, 19]);
+  assert.equal(JSON.parse(fs.readFileSync(f, 'utf8')).next, 20);
+  const dir = path.join(path.dirname(f), 'archive');
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['2026-09.json', '2026-10.json']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '2026-09.json'), 'utf8')).tickets.map((x) => x.id), [1]);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '2026-10.json'), 'utf8')).tickets.map((x) => x.id), [2, 4]);
+  // The archived ticket keeps its fields and the usual key order.
+  const a = lib.findArchived(2, f);
+  assert.deepEqual(Object.keys(a), ['id', 'title', 'status', 'agent', 'where', 'labels', 'body', 'created', 'updated', 'commits']);
+  assert.equal(a.body, 'body 2');
+});
+
+test('archive is repeatable and merges into an existing archive month', () => {
+  const f = archiveFixture();
+  cli(f, 'archive', '--before', '2026-10-10');
+  assert.deepEqual(lib.load(f).tickets.map((x) => x.id), [3, 4, 5, 19]);
+  assert.equal(cli(f, 'archive', '--before', '2026-10-10').out, 'archived 0 done tickets updated before 2026-10-10');
+  cli(f, 'archive', '--before', '2026-10-23');
+  assert.deepEqual(lib.load(f).tickets.map((x) => x.id), [3, 5, 19]);
+  assert.deepEqual(lib.loadArchived(f).map((x) => x.id), [1, 2, 4]);
+  const dir = path.join(path.dirname(f), 'archive');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '2026-10.json'), 'utf8')).tickets.map((x) => x.id), [2, 4]);
+});
+
+test('numbers of archived tickets are never reused by add', () => {
+  const f = archiveFixture();
+  cli(f, 'archive', '--before', '2099-01-01');
+  assert.equal(cli(f, 'add', 'new').out, 'SW-20');
+  assert.equal(cli(f, 'add', 'newer').out, 'SW-21');
+  // Even when everything is archived and the board is empty.
+  const g = tmpFile();
+  cli(g, 'add', 'a');
+  cli(g, 'move', '1', 'done');
+  cli(g, 'archive', '--before', '2099-01-01');
+  assert.deepEqual(lib.load(g).tickets, []);
+  assert.equal(cli(g, 'add', 'b').out, 'SW-2');
+});
+
+test('show finds archived tickets, list --archived lists them, edits are refused', () => {
+  const f = archiveFixture();
+  cli(f, 'archive', '--before', '2026-10-23');
+  assert.match(cli(f, 'show', 'SW-2').out, /^SW-2 {2}t2[\s\S]*body 2[\s\S]*\(archived, read-only\)$/);
+  assert.equal(JSON.parse(cli(f, 'show', '1', '--json').out).title, 't1');
+  assert.equal(cli(f, 'show', '3').out.includes('archived'), false);
+  assert.equal(cli(f, 'list').out.includes('SW-2 '), false);
+  assert.deepEqual(cli(f, 'list', '--archived').out.split('\n').map((l) => l.split(' ')[0]), ['SW-1', 'SW-2', 'SW-4']);
+  assert.deepEqual(JSON.parse(cli(f, 'list', '--archived', '--json').out).map((x) => x.id), [1, 2, 4]);
+  const before = fs.readFileSync(f, 'utf8');
+  for (const args of [['move', '2', 'next'], ['edit', '2', '--title', 'x'], ['rm', '2']]) {
+    const r = cli(f, ...args);
+    assert.notEqual(r.code, 0);
+    assert.match(r.err, /^board: SW-2 is archived \(read-only\)$/);
+  }
+  assert.equal(cli(f, 'show', '77').code, 1);
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+});
+
+test('archive needs a valid date and leaves the file alone otherwise', () => {
+  const f = archiveFixture();
+  const before = fs.readFileSync(f, 'utf8');
+  for (const args of [['archive'], ['archive', '--before', 'yesterday'], ['archive', '--before', '2026-10-23', 'x']]) {
+    const r = cli(f, ...args);
+    assert.notEqual(r.code, 0, args.join(' '));
+    assert.match(r.err, /^board: /);
+  }
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+  assert.equal(fs.existsSync(path.join(path.dirname(f), 'archive')), false);
+});
+
+test('the committed archive is well-formed and disjoint from the board', () => {
+  const board = path.join(__dirname, 'tickets.json');
+  const live = lib.load(board);
+  const archived = lib.loadArchived(board);
+  const ids = [...live.tickets, ...archived].map((t) => t.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(live.next > Math.max(...ids));
+  for (const t of archived) assert.equal(t.status, 'done', `SW-${t.id}`);
+  for (const file of fs.readdirSync(lib.archiveDir(board)).filter((n) => n.endsWith('.json'))) {
+    const text = fs.readFileSync(path.join(lib.archiveDir(board), file), 'utf8');
+    const ts = JSON.parse(text).tickets;
+    assert.equal(text, JSON.stringify({ tickets: ts.map(lib.normalizeTicket) }, null, 2) + '\n', file);
+    assert.ok(ts.every((t) => t.updated.startsWith(file.slice(0, 7))), file);
+  }
+});

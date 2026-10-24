@@ -5,8 +5,8 @@ const fs = require('fs');
 const lib = require('./lib');
 
 const USAGE = `usage: board <command> [args]
-  list [--status S] [--agent A] [--label L] [--json]
-  show N [--json]
+  list [--archived] [--status S] [--agent A] [--label L] [--json]
+  show N [--json]                   (also finds archived tickets, read-only)
   add "title" [--status S] [--agent A] [--where W] [--label L]... [--body TEXT | --body-file F]
   move N STATUS
   assign N AGENT [--where W]        (also moves a backlog/next ticket to doing)
@@ -15,12 +15,13 @@ const USAGE = `usage: board <command> [args]
          [--label L]... | [--add-label L]... [--rm-label L]...
   commit N HASH...
   rm N
+  archive --before DATE             (moves done tickets updated before DATE to archive/YYYY-MM.json)
 statuses: ${lib.STATUSES.join(', ')}
 agents:   ${lib.AGENTS.filter(Boolean).join(', ')}
 N is a ticket number, with or without the SW- prefix. BOARD_FILE overrides the data file.`;
 
 const REPEATABLE = new Set(['label', 'add-label', 'rm-label']);
-const WITH_VALUE = new Set(['status', 'agent', 'where', 'body', 'body-file', 'title', ...REPEATABLE]);
+const WITH_VALUE = new Set(['before', 'status', 'agent', 'where', 'body', 'body-file', 'title', ...REPEATABLE]);
 
 function parseArgs(argv) {
   const pos = [];
@@ -30,7 +31,7 @@ function parseArgs(argv) {
     if (a === '--') { pos.push(...argv.slice(i + 1)); break; }
     if (!a.startsWith('--')) { pos.push(a); continue; }
     let [name, value] = a.slice(2).split(/=(.*)/s, 2);
-    if (name === 'json') { opt.json = true; continue; }
+    if (name === 'json' || name === 'archived') { opt[name] = true; continue; }
     if (!WITH_VALUE.has(name)) throw new lib.BoardError(`unknown option --${name}`);
     if (value === undefined) {
       if (i + 1 >= argv.length) throw new lib.BoardError(`--${name} needs a value`);
@@ -97,7 +98,7 @@ function main(argv) {
     case 'list': {
       noExtra(pos, 0);
       if (opt.status && !lib.STATUSES.includes(opt.status)) throw new lib.BoardError(`unknown status "${opt.status}"`);
-      let ts = lib.load().tickets;
+      let ts = opt.archived ? lib.loadArchived() : lib.load().tickets;
       if (opt.status) ts = ts.filter((t) => t.status === opt.status);
       if (opt.agent) ts = ts.filter((t) => t.agent.toLowerCase() === opt.agent.toLowerCase());
       if (opt.label) ts = ts.filter((t) => t.labels.includes(opt.label[0]));
@@ -108,8 +109,17 @@ function main(argv) {
     case 'show': {
       const id = needId(pos);
       noExtra(pos, 1);
-      const t = lib.find(lib.load(), id);
-      console.log(opt.json ? JSON.stringify(t, null, 2) : show(t));
+      const live = lib.load().tickets.find((x) => x.id === id);
+      const t = live || lib.findArchived(id);
+      if (!t) throw new lib.BoardError(`no ticket SW-${id}`);
+      console.log(opt.json ? JSON.stringify(t, null, 2) : show(t) + (live ? '' : '\n\n(archived, read-only)'));
+      return 0;
+    }
+    case 'archive': {
+      noExtra(pos, 0);
+      if (!opt.before) throw new lib.BoardError('archive needs --before DATE (YYYY-MM-DD)');
+      const moved = lib.archiveBefore(opt.before);
+      console.log(`archived ${moved.length} done ticket${moved.length === 1 ? '' : 's'} updated before ${opt.before}`);
       return 0;
     }
     case 'add': {
