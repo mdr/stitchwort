@@ -3,7 +3,7 @@
 -- `List.map (p => p.name) people`, `people` fixes `p`'s type first. Only
 -- the checking order changes; the arguments are passed as written.
 
-import Std (List)
+import Std (IO, List)
 
 type Person = { name: Text, age: Nat }
 
@@ -36,3 +36,15 @@ test "nested lambdas" := nested == [[30, 4], [7]]
 def doubled: List Nat := List.map (x => x * 2) [1, 2, 3]
 
 test "a lambda that needs no waiting" := doubled == [2, 4, 6]
+
+-- The same holds when the callback is effectful (SW-30): `p` fixes `q`.
+def appIO (f: a -> {IO} b) (x: a): {IO} b := f x
+
+def nameIO (p: Person): {IO} Text := appIO (q => q.name) p
+
+-- ... and in a pure call that follows an effectful statement.
+def appP (f: a -> b) (x: a): b := f x
+
+def nameAfterPrint (p: Person): {IO} Text :=
+  IO.print "x"
+  appP (q => q.name) p
