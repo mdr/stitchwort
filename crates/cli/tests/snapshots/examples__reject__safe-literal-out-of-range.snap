@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 384
 expression: output
 ---
 [E-SAFE-LITERAL] Error: `9007199254740992` is out of range for a `SafeNat`

@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 384
 expression: output
 ---
 [E-SAFE-LITERAL] Error: a `SafeNat` can't be negative
