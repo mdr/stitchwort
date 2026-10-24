@@ -189,6 +189,8 @@ impl Elaborator {
             local_metas,
             goals,
             proof_holes,
+            hole_log: _,
+            cong_candidates,
             result_heads,
             performs,
             interfaces,
@@ -274,6 +276,7 @@ impl Elaborator {
         local_metas.get_mut().clear();
         *goals.get_mut() = Default::default();
         proof_holes.get_mut().clear();
+        cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         performs.get_mut().retain(|(id, ..), _| id.0 < defs);
         *instances = mark.instances.clone();

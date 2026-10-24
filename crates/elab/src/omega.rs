@@ -130,6 +130,47 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
     prove_goal(cx, &lib, expected, &extra, *span)
 }
 
+/// `omega` for a premise of a `rewrite` rule left unknown (`rewrite.rs`,
+/// `discharge`): a proof of `goal` from the facts in scope, if `goal` is
+/// arithmetic `omega` reads directly (not any goal by contradiction), and
+/// `None` if it isn't, if `omega` can't prove it, or if its library isn't
+/// loaded.
+pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
+    // One that computes to `a = a`, such as `2 <= 2`.
+    if let Value::Eq(_, l, r) = force(cx.g(), goal.clone())?
+        && conv(cx.g(), cx.level(), &l, &r)?
+    {
+        return Ok(Some(Term::Refl));
+    }
+    let Ok(lib) = Lib::new(cx, span) else {
+        return Ok(None);
+    };
+    let arithmetic = match force(cx.g(), goal.clone())? {
+        Value::Eq(ty, l, r) if is_data(cx, &ty, lib.bool)? => {
+            (is_ctor(cx, &r, lib.tru)? || is_ctor(cx, &r, lib.fls)?)
+                && bool_form(cx, &lib, &l)?.is_some()
+        }
+        Value::Eq(ty, _, _) => is_data(cx, &ty, lib.nat)?,
+        Value::Data(d, params) => {
+            (d == lib.and && params.len() == 2)
+                || (Some(d) == cx.g().registry.data(Builtin::LexLess) && params.len() == 4)
+        }
+        other => negated(cx, &lib, &other)?.is_some(),
+    };
+    if !arithmetic {
+        return Ok(None);
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    match prove_goal(cx, &lib, goal, &[], span) {
+        Ok(proof) => Ok(Some(proof)),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            Ok(None)
+        }
+    }
+}
+
 /// A fact given by term (`omega [e]`), elaborated in the context of the
 /// `omega`.
 #[derive(Clone)]

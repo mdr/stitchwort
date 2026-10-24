@@ -5,6 +5,15 @@
 //! one lookup and validator, so a lemma one accepts the other accepts:
 //! `decreasing`'s generated "respects" lemma (`decreasing.rs`) and `rewrite`
 //! under a binder (`rewrite.rs`; docs/proposals/proof-automation.md §6.1).
+//!
+//! `rewrite` also uses congruence lemmas whose premises give facts about
+//! the variables (stage 1b): `FCongRange` and `FCongMem`, beside `F` like
+//! `FCong`, whose premise is `(x…) -> facts… -> f1 x… = f2 x…` and whose
+//! other parameters may be anything the call's arguments determine
+//! (`List.foldLeftCongRange` is about `List.foldLeft f z (List.rangeFrom c
+//! s)`, with the facts `s <= x` and `x < s + c`). They are tried before
+//! `FCong`, most specific first ([`candidates`]), each by unifying its left
+//! side with the call.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -14,7 +23,232 @@ use stitchwort_core::value::eval;
 use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
 
 use crate::decreasing::{Binder, map_vars, spine, split_pis};
+use crate::matching::same;
 use crate::{Elaborator, Global, Result};
+
+/// The suffixes of `F`'s congruence lemmas for `rewrite`, in the order they
+/// are tried: the most specific facts first, then none.
+pub(crate) const SUFFIXES: [&str; 3] = ["CongRange", "CongMem", "Cong"];
+
+/// A congruence lemma in the form `rewrite` applies it
+/// ([`validate_contextual`]).
+pub(crate) struct Contextual {
+    pub(crate) lemma: DefId,
+    /// The lemma's parameters before its premises.
+    pub(crate) params: usize,
+    /// How many arguments the call has on either side of its result.
+    pub(crate) arity: usize,
+    /// The functions it compares, in the order of its premises.
+    pub(crate) callbacks: Vec<Callback>,
+}
+
+impl Contextual {
+    /// The callback whose copy is parameter `level`, and whether it is the
+    /// second copy.
+    pub(crate) fn copy(&self, level: usize) -> Option<(usize, bool)> {
+        self.callbacks.iter().enumerate().find_map(|(m, c)| {
+            if c.first == level {
+                Some((m, false))
+            } else if c.second == level {
+                Some((m, true))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+/// A function a congruence lemma compares.
+pub(crate) struct Callback {
+    /// Its position among the call's arguments.
+    pub(crate) position: usize,
+    /// The levels of its two copies among the lemma's parameters.
+    pub(crate) first: usize,
+    pub(crate) second: usize,
+    /// Its premise's binders: the function's variables, then the facts.
+    pub(crate) binders: Vec<Binder>,
+    /// How many of them are the function's variables.
+    pub(crate) vars: usize,
+}
+
+/// `F`'s congruence lemmas that `rewrite` can use, most specific first.
+pub(crate) type Candidates = Rc<[Rc<Contextual>]>;
+
+/// `F`'s congruence lemmas for `rewrite` ([`SUFFIXES`]), beside `F` as for
+/// [`lookup`], those whose statement fits ([`validate_contextual`]); looked
+/// up once per definition until another declaration is added.
+pub(crate) fn candidates(e: &Elaborator, f: DefId) -> Result<Candidates> {
+    let defs = e.globals.defs.len();
+    if let Some((at, found)) = e.cong_candidates.borrow().get(&f)
+        && *at == defs
+    {
+        return Ok(found.clone());
+    }
+    let g = &e.globals;
+    let r = &g.registry;
+    let lemmas: Vec<DefId> = if Some(f) == r.def(Builtin::ElimDec) {
+        r.def(Builtin::ElimDecCong).into_iter().collect()
+    } else if Some(f) == r.def(Builtin::IfThenElse) {
+        r.def(Builtin::IfCong).into_iter().collect()
+    } else {
+        let name = g.def(f).name.to_string();
+        let key = [format!("Std.{name}"), name]
+            .into_iter()
+            .find(|k| matches!(e.scope.get(k), Some((Global::Def(id), _)) if id == f));
+        match key {
+            None => Vec::new(),
+            Some(k) => SUFFIXES
+                .iter()
+                .filter_map(|suffix| match e.scope.get(&format!("{k}{suffix}")) {
+                    Some((Global::Def(id), _)) => Some(id),
+                    _ => None,
+                })
+                .collect(),
+        }
+    };
+    let found: Candidates = lemmas
+        .into_iter()
+        .filter_map(|lemma| validate_contextual(g, f, lemma).ok().map(Rc::new))
+        .collect::<Vec<_>>()
+        .into();
+    e.cong_candidates
+        .borrow_mut()
+        .insert(f, (defs, found.clone()));
+    Ok(found)
+}
+
+/// Checks that `lemma`'s statement is a congruence lemma for `f` that
+/// `rewrite` can apply, and describes it; or says what's wrong with it. It
+/// is
+///
+/// ```text
+/// (p…) -> ((x…) -> facts… -> c1 x… = c2 x…)… -> F t… = F u…
+/// ```
+///
+/// where the two sides differ only where `t` is a parameter `c1` and `u`
+/// another, `c2` (a function compared), with a premise for each such
+/// position, in order; nothing but its premise mentions `c1` or `c2`; and
+/// the left side mentions every other parameter, so unifying it with a
+/// call finds them all.
+pub(crate) fn validate_contextual(
+    g: &Globals,
+    f: DefId,
+    lemma: DefId,
+) -> std::result::Result<Contextual, String> {
+    let f_name = g.def(f).name.to_string();
+    let (tel, res) = split_pis(&g.def(lemma).ty, None);
+    let total = tel.len();
+    let sides = format!("its result should be `{f_name} … = {f_name} …`");
+    let Term::Eq(_, lhs, rhs) = res.strip_loc() else {
+        return Err(sides);
+    };
+    let (lhead, largs) = spine(lhs);
+    let (rhead, rargs) = spine(rhs);
+    let is_f = |h: &Term| matches!(h.strip_loc(), Term::Def(d) if *d == f);
+    if !is_f(lhead) || !is_f(rhead) || largs.len() != rargs.len() {
+        return Err(sides);
+    }
+    let level_of = |t: &Term| match t.strip_loc() {
+        Term::Var(ix) if *ix < total => Some(total - 1 - ix),
+        _ => None,
+    };
+    let mut positions = Vec::new();
+    for (j, ((a, ai), (b, bi))) in largs.iter().zip(&rargs).enumerate() {
+        match (level_of(a), level_of(b)) {
+            (Some(l1), Some(l2)) if l1 != l2 && ai == bi => positions.push((j, l1, l2)),
+            _ if ai == bi && same(a, b) => {}
+            _ => {
+                return Err(format!(
+                    "its two sides should differ only in the functions passed to `{f_name}`"
+                ));
+            }
+        }
+    }
+    let k = positions.len();
+    if k == 0 || total < k {
+        return Err("it compares no functions".into());
+    }
+    let params = total - k;
+    let mut callbacks = Vec::new();
+    for (m, &(position, first, second)) in positions.iter().enumerate() {
+        let wrong = || {
+            format!(
+                "its premise {} isn't `(x…) -> facts… -> f1 x… = f2 x…` for the two copies of \
+                 a function",
+                m + 1
+            )
+        };
+        if first >= params || second >= params {
+            return Err(wrong());
+        }
+        let level = params + m;
+        let (binders, body) = split_pis(&tel[level].ty, None);
+        let depth = level + binders.len();
+        let Term::Eq(_, a, b) = body.strip_loc() else {
+            return Err(wrong());
+        };
+        // `c x…`, applied to the premise's first binders: how many.
+        let applied = |t: &Term, copy: usize| -> Option<usize> {
+            let (head, args) = spine(t);
+            let Term::Var(ix) = head.strip_loc() else {
+                return None;
+            };
+            if *ix >= depth || depth - 1 - ix != copy || args.len() > binders.len() {
+                return None;
+            }
+            for (i, (arg, icit)) in args.iter().enumerate() {
+                if !matches!(arg.strip_loc(), Term::Var(v) if *v == binders.len() - 1 - i)
+                    || *icit != binders[i].icit
+                {
+                    return None;
+                }
+            }
+            Some(args.len())
+        };
+        let (Some(vars), Some(vars2)) = (applied(a, first), applied(b, second)) else {
+            return Err(wrong());
+        };
+        if vars != vars2 {
+            return Err(wrong());
+        }
+        // The variables' and facts' types mention neither copy.
+        for (i, binder) in binders.iter().enumerate() {
+            let d = level + i;
+            if binder.ty.mentions(d - 1 - first) || binder.ty.mentions(d - 1 - second) {
+                return Err(wrong());
+            }
+        }
+        callbacks.push(Callback {
+            position,
+            first,
+            second,
+            binders,
+            vars,
+        });
+    }
+    let desc = Contextual {
+        lemma,
+        params,
+        arity: largs.len(),
+        callbacks,
+    };
+    for j in 0..params {
+        if desc.copy(j).is_some() {
+            if (j + 1..params).any(|l| tel[l].ty.mentions(l - 1 - j)) {
+                return Err(format!(
+                    "a parameter's type mentions `{}`, a function it compares",
+                    tel[j].name
+                ));
+            }
+        } else if !largs.iter().any(|(a, _)| a.mentions(total - 1 - j)) {
+            return Err(format!(
+                "its parameter `{}` isn't in its left side, so a call can't determine it",
+                tel[j].name
+            ));
+        }
+    }
+    Ok(desc)
+}
 
 /// `F`'s congruence lemma, `FCong` beside `F`'s own declaration (not
 /// however a call spelled `F`), checked against `F`. `Decidable.elim` and

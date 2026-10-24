@@ -9,7 +9,7 @@
 --      label theorem (Labels.sw) its labels tell which boxes are joined.
 --   3. The program's sizes are `circuitSizes` with "same label" as the test
 --      (`sizesAreCircuitSizes`), and any two tests that tell give the same
---      sizes (`circuitSizesCong`).
+--      sizes (`circuitSizesCongRange`).
 
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
@@ -82,30 +82,14 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (boxesBelow p
 
 -- Counted with "same label" as the test, the spec's sizes are the program's.
 theorem sizesAreCircuitSizes (c: Circuits) (n: Nat): c.sizes n = circuitSizes n (a b => c.labelOf a == c.labelOf b) :=
-  rewrite List.filterCongMem
-      (box => !(List.any (label => label == c.labelOf box) (List.take box (List.map c.labelOf (List.range n)))))
-      (box => !(List.any (other => c.labelOf other == c.labelOf box) (List.range box)))
-      (List.range n)
-      (box m =>
-        rewrite List.takeMap c.labelOf box (List.range n), List.takeRangeFrom box n 0 (omega [And.right (List.memRangeFrom box n 0 m)]),
-          List.anyMap (label => label == c.labelOf box) c.labelOf (List.range box) in rfl),
+  rewrite List.takeMap c.labelOf _ (List.range n), List.takeRangeFrom _ n 0, List.anyMap (label => label == c.labelOf _) c.labelOf _,
     List.countMap (label => label == c.labelOf _) c.labelOf (List.range n)
 
 -- Two tests that agree on the boxes give the same sizes.
-theorem circuitSizesCong (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
+theorem circuitSizesCongRange (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
     (agree: (a: Nat) -> (b: Nat) -> a < n -> b < n -> same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
   let below: (x: Nat) -> List.Mem x (List.range n) -> x < n := x m => And.right (List.memRangeFrom x n 0 m)
-  rewrite List.filterCongMem
-      (box => !(List.any (other => same1 other box) (List.range box)))
-      (box => !(List.any (other => same2 other box) (List.range box)))
-      (List.range n)
-      (box m =>
-        rewrite List.anyCongMem (other => same1 other box) (other => same2 other box) (List.range box)
-          (other m2 => agree other box (omega [And.right (List.memRangeFrom other box 0 m2), below box m]) (below box m))
-          in rfl)
-    in List.mapCongMem _ _ _
-      (box m => List.countCongMem (other => same1 other box) (other => same2 other box) (List.range n)
-        (other m2 => agree other box (below other m2) (below box (And.left (List.memFilter _ box (List.range n) m)))))
+  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter _ _ (List.range n) _)))
 
 -- Two tests that tell agree.
 theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
@@ -126,6 +110,6 @@ theorem part1Correct (k: Nat) (points: List Point) (sameCircuit: Nat -> Nat -> B
     _ = threeLargestProduct (joined.sizes n) := rewrite <- joinedIsJoinAll k points in rfl
     _ = threeLargestProduct (circuitSizes n (a b => joined.labelOf a == joined.labelOf b)) := rewrite sizesAreCircuitSizes joined n in rfl
     _ = threeLargestProduct (circuitSizes n sameCircuit) :=
-      rewrite circuitSizesCong n (a b => joined.labelOf a == joined.labelOf b) sameCircuit
+      rewrite circuitSizesCongRange n (a b => joined.labelOf a == joined.labelOf b) sameCircuit
         (tellersAgree n (firstConnections k points) _ sameCircuit (labelsTell n (firstConnections k points) (connectionsInRange k points)) tells)
         in rfl

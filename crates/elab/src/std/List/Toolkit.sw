@@ -1414,22 +1414,57 @@ theorem List.pairsMap (f: a -> b): (xs: List a) -> List.pairs (List.map f xs) = 
 
 -- Callbacks that agree on the list's elements (not everywhere, as for
 -- `List.mapCong`) give the same result.
-theorem List.mapCongMem (f1: a -> b) (f2: a -> b): (xs: List a) -> ((x: a) -> List.Mem x xs -> f1 x = f2 x) -> List.map f1 xs = List.map f2 xs
+theorem List.mapCongMem (f1: a -> b) (f2: a -> b): (xs: List a) -> ((x: a) -> (m: List.Mem x xs) -> f1 x = f2 x) -> List.map f1 xs = List.map f2 xs
   | Nil, ef => rfl
   | Cons x xs, ef => rewrite ef x (Inl rfl), List.mapCongMem f1 f2 xs (y m => ef y (Inr m))
 
-theorem List.filterCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) -> List.filter p1 xs = List.filter p2 xs
+theorem List.filterCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> (m: List.Mem x xs) -> p1 x = p2 x) -> List.filter p1 xs = List.filter p2 xs
   | Nil, ep => rfl
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.filterCongMem p1 p2 xs (y m => ep y (Inr m))
 
-theorem List.anyCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) -> List.any p1 xs = List.any p2 xs
+theorem List.anyCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> (m: List.Mem x xs) -> p1 x = p2 x) -> List.any p1 xs = List.any p2 xs
   | Nil, ep => rfl
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.anyCongMem p1 p2 xs (y m => ep y (Inr m))
 
-theorem List.occurrencesCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> List.Mem x xs -> p1 x = p2 x) ->
+theorem List.occurrencesCongMem (p1: a -> Bool) (p2: a -> Bool): (xs: List a) -> ((x: a) -> (m: List.Mem x xs) -> p1 x = p2 x) ->
     List.occurrences p1 xs = List.occurrences p2 xs
   | Nil, ep => rfl
   | Cons x xs, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem p1 p2 xs (y m => ep y (Inr m))
+
+theorem List.foldLeftCongMem (f1: b -> a -> b) (f2: b -> a -> b): (z: b) -> (xs: List a) -> ((acc: b) -> (x: a) -> (m: List.Mem x xs) -> f1 acc x = f2 acc x) ->
+    List.foldLeft f1 z xs = List.foldLeft f2 z xs
+  | z, Nil, ef => rfl
+  | z, Cons x xs, ef =>
+    Eq.trans (Eq.cong (t => List.foldLeft f1 t xs) (ef z x (Inl rfl))) (List.foldLeftCongMem f1 f2 (f2 z x) xs (acc y m => ef acc y (Inr m)))
+
+-- Over a run of numbers, the facts are the run's bounds. `rewrite` tries a
+-- function's `…CongRange` lemma first, then `…CongMem`, then `…Cong`, and
+-- rewriting inside the function has the facts as hypotheses.
+theorem List.mapCongRange (f1: Nat -> b) (f2: Nat -> b) (c: Nat) (s: Nat)
+    (ef: (x: Nat) -> (low: s <= x) -> (high: x < s + c) -> f1 x = f2 x):
+    List.map f1 (List.rangeFrom c s) = List.map f2 (List.rangeFrom c s) :=
+  List.mapCongMem f1 f2 (List.rangeFrom c s) (x m => ef x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.filterCongRange (p1: Nat -> Bool) (p2: Nat -> Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) -> (low: s <= x) -> (high: x < s + c) -> p1 x = p2 x):
+    List.filter p1 (List.rangeFrom c s) = List.filter p2 (List.rangeFrom c s) :=
+  List.filterCongMem p1 p2 (List.rangeFrom c s) (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.anyCongRange (p1: Nat -> Bool) (p2: Nat -> Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) -> (low: s <= x) -> (high: x < s + c) -> p1 x = p2 x):
+    List.any p1 (List.rangeFrom c s) = List.any p2 (List.rangeFrom c s) :=
+  List.anyCongMem p1 p2 (List.rangeFrom c s) (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.occurrencesCongRange (p1: Nat -> Bool) (p2: Nat -> Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) -> (low: s <= x) -> (high: x < s + c) -> p1 x = p2 x):
+    List.occurrences p1 (List.rangeFrom c s) = List.occurrences p2 (List.rangeFrom c s) :=
+  List.occurrencesCongMem p1 p2 (List.rangeFrom c s) (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.foldLeftCongRange (f1: b -> Nat -> b) (f2: b -> Nat -> b) (z: b) (c: Nat) (s: Nat)
+    (ef: (acc: b) -> (x: Nat) -> (low: s <= x) -> (high: x < s + c) -> f1 acc x = f2 acc x):
+    List.foldLeft f1 z (List.rangeFrom c s) = List.foldLeft f2 z (List.rangeFrom c s) :=
+  List.foldLeftCongMem f1 f2 z (List.rangeFrom c s)
+    (acc x m => ef acc x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 test "List.pairsMap" := (List.map Succ [1, 2, 3]).pairs == List.map (p => MkPair (Succ p.fst) (Succ p.snd)) [1, 2, 3].pairs
 

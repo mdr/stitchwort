@@ -268,6 +268,8 @@ impl Elaborator {
         files: &[SourceUnit],
         closure: Option<&[String]>,
     ) -> Vec<Diagnostic> {
+        // A namespace has its own scope, so its own congruence lemmas.
+        self.cong_candidates.borrow_mut().clear();
         // User code is elaborated only once every built-in is bound
         // (docs/proposals/namespaces.md §4.7).
         if !self.loading_prelude
@@ -992,6 +994,16 @@ impl Elaborator {
                 }
             };
             for (r, in_header) in decl_refs(item.decl, item.equations) {
+                if matches!(r, Ref::Name(n) if std::ptr::eq(n, &*REWRITE_MARKER)) {
+                    if let Some(index) = &library
+                        && own.is_none()
+                    {
+                        for name in crate::omega::LIBRARY_NAMES.iter() {
+                            self.note_library_use(index, &Ref::Name(name), &mut needs);
+                        }
+                    }
+                    continue;
+                }
                 if let Some(index) = &library {
                     self.note_library_use(index, &r, &mut needs);
                 }
@@ -2113,6 +2125,17 @@ pub(crate) enum Ref<'a> {
     Dot(&'a ast::Name, String),
 }
 
+/// A reference no declaration can have: a `rewrite` is here. A program's
+/// module loads `omega`'s library for it ([`Elaborator::dependencies`]);
+/// a library file doesn't, since `omega`'s library is built on files that
+/// use `rewrite` (an edge back would be a cycle), so there a premise is
+/// proved by `omega` only where the file loads it anyway.
+pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
+    std::sync::LazyLock::new(|| ast::Name {
+        text: "%rewrite".to_string(),
+        span: Span::NOWHERE,
+    });
+
 /// The variables a pattern binds.
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
@@ -2319,6 +2342,10 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 body,
                 ..
             } => {
+                // `rewrite` proves a rule's premises by `omega` (rewrite.rs,
+                // `discharge`): a program's `rewrite` loads its library
+                // ([`REWRITE_MARKER`]).
+                out.push(Ref::Name(&REWRITE_MARKER));
                 let mut steps_work: Vec<Work> =
                     rules.iter().map(|r| Work::Expr(&r.proof)).collect();
                 steps_work.extend(target.iter().map(|t| Work::Expr(t)));

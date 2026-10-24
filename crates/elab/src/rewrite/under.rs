@@ -37,7 +37,7 @@ use super::{
 };
 use crate::calc::lemma;
 use crate::check::{Ctx, Piped, Result};
-use crate::congruence::{self, Lookup, without_rows};
+use crate::congruence::{self, Lookup};
 use crate::decreasing::spine;
 use crate::lift::replace_with;
 use crate::matching::same;
@@ -83,8 +83,22 @@ impl Site {
             rhs,
             to_lhs,
             rule_metas: cx.g().metas.borrow().len(),
+            premises: Vec::new(),
         })
     }
+}
+
+/// What the search inside functions passed over, for the message when
+/// nothing is rewritten at all.
+#[derive(Default)]
+pub(super) struct Skipped {
+    /// Calls whose function has no congruence lemma.
+    pub(super) missing: Vec<Missing>,
+    /// The first match inside a function whose premise nothing proves
+    /// (`E-REWRITE-PREMISE`). Inside a function a rule whose premises
+    /// aren't found isn't used there, as `simp`'s conditional rules will
+    /// (§6.3), so another rule can do it.
+    pub(super) premise: Option<Diagnostic>,
 }
 
 /// A call with an occurrence inside a function passed to it, whose
@@ -113,7 +127,7 @@ pub(super) fn sites(
     // by the functions being rewritten inside.
     base: usize,
     remaining: &mut u64,
-    missing: &mut Vec<Missing>,
+    missing: &mut Skipped,
 ) -> Result<Vec<Site>> {
     let g = cx.g();
     let level = cx.level();
@@ -232,7 +246,7 @@ fn site(
     call: &Term,
     base: usize,
     remaining: &mut u64,
-    missing: &mut Vec<Missing>,
+    missing: &mut Skipped,
 ) -> Result<Option<Site>> {
     let g = cx.g();
     let (head, args) = spine(call);
@@ -242,108 +256,163 @@ fn site(
     if !args.iter().any(|(a, _)| keys.wanted(a)) {
         return Ok(None);
     }
-    let desc = match congruence::lookup(cx.e, *f)? {
-        Lookup::Found(desc) => desc,
-        Lookup::Missing(lemma) => {
-            note(missing, g, *f, lemma, None);
-            return Ok(None);
+    let candidates = congruence::candidates(cx.e, *f)?;
+    if candidates.is_empty() {
+        match congruence::lookup(cx.e, *f)? {
+            Lookup::Found(_) => {}
+            Lookup::Missing(lemma) => note(missing, g, *f, lemma, None),
+            Lookup::Bad(lemma, why) => note(missing, g, *f, lemma, Some(why)),
         }
-        Lookup::Bad(lemma, why) => {
-            note(missing, g, *f, lemma, Some(why));
-            return Ok(None);
-        }
-    };
-    // A call given more arguments is found again as its prefix; one given
-    // fewer can't be rewritten.
-    if args.len() != desc.params + desc.rows.len() {
         return Ok(None);
     }
-    let Some(kept) = without_rows(g, &args, &desc.rows) else {
-        return Ok(None);
-    };
-    // The lemma's type, its parameters given the call's arguments (each
-    // function twice), so its premises say what each function's body is.
-    let lemma_ty = g.def(desc.lemma).ty.clone();
-    let mut ty = eval(g, &[], &lemma_ty)?;
+    for desc in candidates.iter() {
+        // A call given more arguments is found again as its prefix; one
+        // given fewer can't be rewritten.
+        if args.len() != desc.arity
+            || !desc
+                .callbacks
+                .iter()
+                .any(|c| keys.wanted(args[c.position].0))
+        {
+            continue;
+        }
+        let found = by_lemma(cx, rule, keys, call, &args, desc, base, remaining, missing)?;
+        if let Some(found) = found {
+            return Ok(found);
+        }
+    }
+    Ok(None)
+}
+
+/// `call` rewritten by the congruence lemma `desc`: `None` if the lemma's
+/// left side doesn't unify with the call, `Some(None)` if it does but
+/// nothing changed.
+#[allow(clippy::too_many_arguments)]
+fn by_lemma(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    keys: &Keys,
+    call: &Term,
+    args: &[(&Term, Icit)],
+    desc: &congruence::Contextual,
+    base: usize,
+    remaining: &mut u64,
+    missing: &mut Skipped,
+) -> Result<Option<Option<Site>>> {
+    let g = cx.g();
+    let snapshot = Snapshot::take(cx);
+    let metas = g.metas.borrow().len();
+    // The lemma's parameters: each function compared the call's own (twice,
+    // for now), the others unknowns for the call to determine.
+    let mut ty = eval(g, &[], &g.def(desc.lemma).ty)?;
     let mut lemma_args: Vec<(Term, Icit)> = Vec::new();
-    for (i, (arg, _)) in kept.iter().enumerate() {
-        let copies = if desc.callbacks.contains(&i) { 2 } else { 1 };
-        let value = cx.eval(arg)?;
-        for _ in 0..copies {
-            let Value::Pi(_, _, _, rest) = force(g, ty)? else {
-                return Ok(None);
-            };
-            ty = rest.apply(g, value.clone())?;
-            lemma_args.push(((*arg).clone(), desc.tel[lemma_args.len()].icit));
-        }
-    }
-    let mut changed: Vec<(usize, Term)> = Vec::new();
-    let mut premises = Vec::new();
-    for (m, &i) in desc.callbacks.iter().enumerate() {
-        let Value::Pi(_, _, premise, rest) = force(g, ty)? else {
+    for level in 0..desc.params {
+        let Value::Pi(_, icit, _, rest) = force(g, ty)? else {
+            snapshot.restore(cx);
             return Ok(None);
         };
-        let callback = kept[i].0;
-        let binders = &desc.premises[m];
-        let names = binder_names(callback, binders);
-        let inside = if keys.wanted(callback) {
-            rewrite_premise(cx, rule, &premise, &names, base, remaining, missing)?
+        let arg = match desc.copy(level) {
+            Some((m, _)) => args[desc.callbacks[m].position].0.clone(),
+            None => cx.fresh_meta(),
+        };
+        ty = rest.apply(g, cx.eval(&arg)?)?;
+        lemma_args.push((arg, icit));
+    }
+    let mut premises = Vec::new();
+    for _ in &desc.callbacks {
+        let Value::Pi(_, icit, premise, rest) = force(g, ty)? else {
+            snapshot.restore(cx);
+            return Ok(None);
+        };
+        premises.push(((*premise).clone(), icit));
+        ty = rest.apply(g, Value::Refl)?;
+    }
+    let Value::Eq(carrier, lhs, _) = force(g, ty)? else {
+        snapshot.restore(cx);
+        return Ok(None);
+    };
+    let call_value = cx.eval(call)?;
+    let unified = g.budget.limited(remaining, || cx.unify(&lhs, &call_value));
+    let foreign = snapshot.solved_since(cx).into_iter().any(|m| m < metas);
+    match unified {
+        Ok(Some(true)) if !foreign => {}
+        Err(e) if fatal(&e) => return Err(e),
+        _ => {
+            snapshot.restore(cx);
+            return Ok(None);
+        }
+    }
+    // The unknowns as the call determined them.
+    for (level, (arg, _)) in lemma_args.iter_mut().enumerate() {
+        if desc.copy(level).is_none() {
+            *arg = cx.quote(&cx.eval(arg)?)?;
+            if arg
+                .subterms()
+                .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= metas))
+            {
+                snapshot.restore(cx);
+                return Ok(None);
+            }
+        }
+    }
+    // The premises read again with them, so the facts compute (`s <= x`
+    // made with `s` unknown is stuck until then).
+    for (premise, _) in premises.iter_mut() {
+        *premise = cx.eval(&cx.quote_folded(premise)?)?;
+    }
+    let mut changed: Vec<(usize, Term)> = Vec::new();
+    let mut proofs = Vec::new();
+    for (m, callback) in desc.callbacks.iter().enumerate() {
+        let (premise, icit) = &premises[m];
+        let function = args[callback.position].0;
+        let names = binder_names(function, callback);
+        let inside = if keys.wanted(function) {
+            let names = (names.as_slice(), callback.vars);
+            rewrite_premise(cx, rule, premise, names, base, remaining, missing)?
         } else {
             None
         };
         let proof = match inside {
             Some((after, proof)) => {
-                changed.push((i, lams(&names, after)));
+                changed.push((m, lams(&names[..callback.vars], after)));
                 lams(&names, proof)
             }
             None => lams(&names, Term::Refl),
         };
-        premises.push((proof, desc.tel[desc.params + desc.callbacks.len() + m].icit));
-        ty = rest.apply(g, Value::Refl)?;
+        proofs.push((proof, *icit));
     }
     if changed.is_empty() {
-        return Ok(None);
+        return Ok(Some(None));
     }
-    let Value::Eq(carrier, _, _) = force(g, ty)? else {
-        return Ok(None);
-    };
     // The second copy of each function changed.
-    for (i, after) in &changed {
-        let m = desc
-            .callbacks
-            .iter()
-            .position(|c| c == i)
-            .expect("a callback");
-        lemma_args[desc.callback_level(m) + 1].0 = after.clone();
+    for (m, after) in &changed {
+        lemma_args[desc.callbacks[*m].second].0 = after.clone();
     }
     let proof = lemma_args
         .into_iter()
-        .chain(premises)
+        .chain(proofs)
         .fold(Term::Def(desc.lemma), |f, (a, icit)| {
             Term::app_icit(f, a, icit)
         });
-    // The call with those functions, its effect-row arguments in place.
-    let mut kept_index = 0;
-    let mut after = (*head).clone();
+    // The call with those functions.
+    let (head, _) = spine(call);
+    let mut after = head.clone();
     for (j, (arg, icit)) in args.iter().enumerate() {
-        let arg = if desc.rows.contains(&j) {
-            (*arg).clone()
-        } else {
-            let i = kept_index;
-            kept_index += 1;
-            match changed.iter().find(|(c, _)| *c == i) {
-                Some((_, new)) => new.clone(),
-                None => (*arg).clone(),
-            }
+        let arg = match changed
+            .iter()
+            .find(|(m, _)| desc.callbacks[*m].position == j)
+        {
+            Some((_, new)) => new.clone(),
+            None => (*arg).clone(),
         };
         after = Term::app_icit(after, arg, *icit);
     }
-    Ok(Some(Site {
+    Ok(Some(Some(Site {
         call: call.clone(),
         after,
         carrier: (*carrier).clone(),
         proof,
-    }))
+    })))
 }
 
 /// The key of `lhs` as written, calls as calls.
@@ -351,15 +420,15 @@ pub(super) fn written_key(cx: &Ctx, lhs: &Value) -> Option<Key> {
     key(&cx.quote_folded(lhs).ok()?, 0)
 }
 
-fn note(missing: &mut Vec<Missing>, g: &Globals, f: DefId, lemma: String, why: Option<String>) {
+fn note(skipped: &mut Skipped, g: &Globals, f: DefId, lemma: String, why: Option<String>) {
     let function = g.def(f).name.to_string();
     // A function the compiler made (an effect's handler, `Each.%elim`) is
     // nothing the program wrote, so no lemma for it can be asked for.
     if function.contains('%') {
         return;
     }
-    if !missing.iter().any(|m| m.function == function) {
-        missing.push(Missing {
+    if !skipped.missing.iter().any(|m| m.function == function) {
+        skipped.missing.push(Missing {
             function,
             lemma,
             why,
@@ -368,19 +437,24 @@ fn note(missing: &mut Vec<Missing>, g: &Globals, f: DefId, lemma: String, why: O
     }
 }
 
-/// The names of a premise's binders: the callback's own, if it is written
-/// as a lambda, else the lemma's.
-fn binder_names(callback: &Term, binders: &[crate::decreasing::Binder]) -> Vec<(Name, Icit)> {
+/// The names of a premise's binders: for the function's variables, the
+/// function's own if it is written as a lambda, else the lemma's; for the
+/// facts, the lemma's.
+fn binder_names(function: &Term, callback: &congruence::Callback) -> Vec<(Name, Icit)> {
     let mut names = Vec::new();
-    let mut t = callback.strip_loc();
-    for b in binders {
+    let mut t = function.strip_loc();
+    for (i, b) in callback.binders.iter().enumerate() {
         while let Term::Ann(inner, _) = t {
             t = inner.strip_loc();
         }
         match t {
-            Term::Lam(name, _, body) => {
+            Term::Lam(name, _, body) if i < callback.vars => {
                 names.push((name.clone(), b.icit));
                 t = body.strip_loc();
+            }
+            _ if i >= callback.vars && matches!(b.name.as_ref(), "_" | "") => {
+                let name = format!("fact{}", i - callback.vars + 1);
+                names.push((name.as_str().into(), b.icit));
             }
             _ => names.push((b.name.clone(), b.icit)),
         }
@@ -394,16 +468,19 @@ fn lams(names: &[(Name, Icit)], body: Term) -> Term {
     })
 }
 
-/// A premise `(x…) -> c x… = c x…`: `c x…` rewritten with `x…` in scope,
-/// as a term there and a proof of `c x… = ` it; `None` if nothing changed.
+/// A premise `(x…) -> facts… -> c x… = c x…` (its binders' names, and how
+/// many are the function's variables): `c x…` rewritten with `x…` and the
+/// facts in scope, as a term with only `x…` in scope and a proof of `c x…
+/// = ` it with all of them; `None` if nothing changed, or if what it
+/// changed to needs a fact.
 fn rewrite_premise(
     cx: &mut Ctx,
     rule: &RewriteRule,
     premise: &Value,
-    names: &[(Name, Icit)],
+    (names, vars): (&[(Name, Icit)], usize),
     base: usize,
     remaining: &mut u64,
-    missing: &mut Vec<Missing>,
+    missing: &mut Skipped,
 ) -> Result<Option<(Term, Term)>> {
     let g = cx.g();
     let mark = cx.mark();
@@ -424,7 +501,25 @@ fn rewrite_premise(
         _ => Ok(None),
     };
     cx.reset(mark);
-    result
+    // The function's new body, without the facts.
+    let facts = names.len() - vars;
+    match result? {
+        Some((after, proof)) if facts > 0 => {
+            let needs_fact = std::cell::Cell::new(false);
+            let after = crate::decreasing::map_vars(g, &after, 0, &|ix, d| {
+                Ok(if ix < d {
+                    Term::Var(ix)
+                } else if ix - d < facts {
+                    needs_fact.set(true);
+                    Term::Var(ix)
+                } else {
+                    Term::Var(ix - facts)
+                })
+            })?;
+            Ok((!needs_fact.get()).then_some((after, proof)))
+        }
+        found => Ok(found),
+    }
 }
 
 /// `body`, of type `ty`, rewritten with the rule: `body'` and a proof of
@@ -437,7 +532,7 @@ fn rewrite_body(
     ty: &Value,
     base: usize,
     remaining: &mut u64,
-    missing: &mut Vec<Missing>,
+    missing: &mut Skipped,
 ) -> Result<Option<(Term, Term)>> {
     let g = cx.g();
     let snapshot = Snapshot::take(cx);
@@ -473,7 +568,7 @@ fn rewrite_body(
                               current: &mut Value,
                               proof: &mut Term,
                               remaining: &mut u64|
-         -> Result<()> {
+         -> Result<bool> {
             let right = cx.quote(current)?;
             let replaced = replace_occurrences(
                 cx,
@@ -500,8 +595,9 @@ fn rewrite_body(
                     Rc::new(step.proof),
                 );
                 changed = true;
+                return Ok(true);
             }
-            Ok(())
+            Ok(false)
         };
         // As for the goal (`rewrite_once`): the calls inside, then the
         // occurrences that use one of the functions' variables (those that
@@ -510,7 +606,9 @@ fn rewrite_body(
             let equation = site.equation(cx, rule, Place::Inside)?;
             apply_step(cx, &equation, 0, &mut current, &mut proof, remaining)?;
         }
-        apply_step(cx, &equation, recent, &mut current, &mut proof, remaining)?;
+        if apply_step(cx, &equation, recent, &mut current, &mut proof, remaining)? {
+            super::discharge(cx, rule, &equation, recent, remaining)?;
+        }
         if !changed {
             return Ok(None);
         }
@@ -521,7 +619,13 @@ fn rewrite_body(
         Err(e) if fatal(e) => {}
         _ => snapshot.restore(cx),
     }
-    result
+    match result {
+        Err(e) if e.code == "E-REWRITE-PREMISE" => {
+            missing.premise.get_or_insert(e);
+            Ok(None)
+        }
+        result => result,
+    }
 }
 
 /// The error when the only occurrences are inside functions passed to calls
@@ -719,13 +823,131 @@ theorem fixed (mulSucc: (a: Nat) -> (b: Nat) -> a * Succ b = a + a * b) (k: Nat)
             icit: Icit::Explicit,
             ty: Term::Refl,
         };
+        let callback =
+            |binders: Vec<crate::decreasing::Binder>, vars: usize| congruence::Callback {
+                position: 0,
+                first: 0,
+                second: 1,
+                binders,
+                vars,
+            };
         let lam = Term::Lam("box".into(), Icit::Explicit, Rc::new(Term::Var(0)));
-        let names = binder_names(&lam, &[binder("x")]);
+        let names = binder_names(&lam, &callback(vec![binder("x")], 1));
         assert_eq!(&*names[0].0, "box");
-        let names = binder_names(&Term::Var(3), &[binder("acc"), binder("x")]);
+        let names = binder_names(
+            &Term::Var(3),
+            &callback(vec![binder("acc"), binder("x")], 2),
+        );
         assert_eq!(
             names.iter().map(|(n, _)| &**n).collect::<Vec<_>>(),
             ["acc", "x"]
         );
+        // The facts keep the lemma's names, or are numbered: never the
+        // lambda's, which has no binder for them.
+        let names = binder_names(
+            &lam,
+            &callback(vec![binder("x"), binder("low"), binder("_")], 1),
+        );
+        assert_eq!(
+            names.iter().map(|(n, _)| &**n).collect::<Vec<_>>(),
+            ["box", "low", "fact2"]
+        );
+    }
+
+    const MEM_LEMMA: &str = "
+def total (f: Nat -> Nat): List Nat -> Nat
+  | Nil => 0
+  | Cons x xs => f x + total f xs
+
+def In (x: Nat): List Nat -> Prop
+  | Nil => Void
+  | Cons y ys => Or (y = x) (In x ys)
+
+theorem totalCongMem (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (ef: (x: Nat) -> (m: In x xs) -> f1 x = f2 x): total f1 xs = total f2 xs :=
+  match xs with
+    | Nil => rfl
+    | Cons x rest => rewrite ef x (Inl rfl), totalCongMem f1 f2 rest (y m => ef y (Inr m))
+";
+
+    #[test]
+    fn a_lemma_giving_facts_is_validated_and_its_facts_prove_premises() {
+        // `sub` stands for a rule with a premise; inside `total` the fact
+        // `In x xs` proves it, unification filling in the list.
+        let source = format!(
+            "{MEM_LEMMA}
+theorem inside (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x + 0 = x) (xs: List Nat): total (x => x + 0) xs = total (x => x) xs :=
+  rewrite sub
+
+-- The fact fills a `_` in an argument given explicitly.
+theorem given (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x + 0 = x) (same: (x: Nat) -> (xs: List Nat) -> In x xs -> In x xs) (xs: List Nat):
+    total (x => x + 0) xs = total (x => x) xs :=
+  rewrite sub _ xs (same _ _ _)
+"
+        );
+        with_source(source, |e, errors| {
+            assert!(errors.is_empty(), "{errors:?}");
+            let total = e.lookup_def("total").expect("defined");
+            let lemma = e.lookup_def("totalCongMem").expect("defined");
+            let desc = congruence::validate_contextual(&e.globals, total, lemma).expect("valid");
+            assert_eq!((desc.params, desc.arity, desc.callbacks.len()), (3, 2, 1));
+            let callback = &desc.callbacks[0];
+            assert_eq!(
+                (callback.position, callback.first, callback.second),
+                (0, 0, 1)
+            );
+            assert_eq!((callback.vars, callback.binders.len()), (1, 2));
+        });
+    }
+
+    #[test]
+    fn a_premise_nothing_proves_is_an_error_naming_it() {
+        let source = format!(
+            "{MEM_LEMMA}
+theorem stuck (sub: (x: Nat) -> (ys: List Nat) -> In x ys -> x + 0 = x) (xs: List Nat) (ys: List Nat): total (x => x + 0) xs = total (x => x) xs :=
+  rewrite sub _ ys
+"
+        );
+        with_source(source, |_, errors| {
+            assert_eq!(errors, ["E-REWRITE-PREMISE"])
+        });
+    }
+
+    #[test]
+    fn a_lemma_whose_left_side_leaves_a_parameter_unknown_is_not_used() {
+        // `k` is in no argument of the call, so unifying can't find it.
+        let source = "
+def total (f: Nat -> Nat): List Nat -> Nat
+  | Nil => 0
+  | Cons x xs => f x + total f xs
+
+theorem totalCongMem (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (k: Nat) (ef: (x: Nat) -> f1 x = f2 x): total f1 xs = total f2 xs :=
+  match xs with
+    | Nil => rfl
+    | Cons x rest => rewrite ef x, totalCongMem f1 f2 rest k ef
+"
+        .to_string();
+        with_source(source, |e, errors| {
+            assert!(errors.is_empty(), "{errors:?}");
+            let total = e.lookup_def("total").expect("defined");
+            let lemma = e.lookup_def("totalCongMem").expect("defined");
+            let why = congruence::validate_contextual(&e.globals, total, lemma)
+                .err()
+                .expect("refused");
+            assert!(why.contains("`k`"), "{why}");
+        });
+    }
+
+    #[test]
+    fn trailing_explicit_arguments_are_unknowns_and_premises_go_to_omega() {
+        let source = "
+theorem swapped (addComm: (a: Nat) -> (b: Nat) -> a + b = b + a) (a: Nat) (b: Nat): a + b = b + a :=
+  rewrite addComm
+
+-- The premise is proved by computing (`2 <= 2` is `True = True`).
+theorem computed (f: Nat -> Nat) (two: (n: Nat) -> 2 <= n -> f n = n): f 2 = 2 :=
+  rewrite two
+"
+        .to_string();
+        with_source(source, |_, errors| assert!(errors.is_empty(), "{errors:?}"));
     }
 }

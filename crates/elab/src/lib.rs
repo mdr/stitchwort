@@ -448,6 +448,14 @@ pub struct Elaborator {
     /// `E-UNSOLVED` suggests `?` for them (D641). Cleared with the
     /// metavariables.
     pub(crate) proof_holes: RefCell<std::collections::HashSet<usize>>,
+    /// While a `rewrite` rule is elaborated (`rewrite.rs`), each `_` it
+    /// makes: the metavariable, the number of variables in scope, and the
+    /// type expected there, so `rewrite` can prove the premises left open.
+    pub(crate) hole_log: RefCell<Option<Vec<(Term, usize, Value)>>>,
+    /// Each definition's congruence lemmas for `rewrite`
+    /// (`congruence::candidates`), with how many definitions there were
+    /// when they were looked up: a later declaration may add one.
+    pub(crate) cong_candidates: RefCell<HashMap<DefId, (usize, congruence::Candidates)>>,
     /// For each definition, by `DefId`, once worked out: the data type its
     /// result type is (after all its parameters), if it is one. The decision
     /// search (`auto::decision_procedures`) reads it instead of evaluating
@@ -701,6 +709,7 @@ impl Elaborator {
         std::sync::LazyLock::force(&module::FLOAT_TYPE);
         std::sync::LazyLock::force(&omega::LIBRARY_NAMES);
         std::sync::LazyLock::force(&ring::LIBRARY_NAMES);
+        std::sync::LazyLock::force(&module::REWRITE_MARKER);
         e
     }
 
