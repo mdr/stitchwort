@@ -36,3 +36,6 @@ test "no problems" := (solvePart1 [], solvePart2 []) == (0, 0)
 def trimmedExample: List Text := ["123 328  51 64", " 45 64  387 23", "  6 98  215 314", "*   +   *   +"]
 
 test "trimmed example" := (solvePart1 (parseWorksheet trimmedExample), solvePart2 (parseWorksheet trimmedExample)) == (4277556, 3263827)
+test "padded lines" :=
+  (parseWorksheet ["1 23", "+ *"]).map (p => (p.operator, p.rowNumbers, p.columnNumbers))
+    == (parseWorksheet ["1 23   ", "+ * "]).map (p => (p.operator, p.rowNumbers, p.columnNumbers))

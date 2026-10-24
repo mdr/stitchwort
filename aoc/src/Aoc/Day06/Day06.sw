@@ -17,7 +17,8 @@
 --
 -- Both answers are proved right for every input, against the puzzle's own
 -- wording read cell by cell, in `Aoc.Day06.Spec` (Spec/Spec.sw,
--- Proofs/Correct.sw; the columns' shape in Proofs/Grid.sw), and the tests are
+-- Proofs/Correct.sw; the columns' shape in Proofs/Grid.sw; trailing spaces
+-- changing nothing in Proofs/Padding.sw), and the tests are
 -- in `Aoc.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Day06
@@ -50,7 +51,7 @@ def blocks (lines: List Text): List (List (List Char)) :=
 def parseProblem (columns: List (List Char)): Problem :=
   let rows := columns.transpose
   {
-    operator = (columns.filterMap (.last.flatMap Operator.parse)).head,
+    operator = columns.findMap (.last.flatMap Operator.parse),
     rowNumbers = rows.init.map readNumber,
     columnNumbers = columns.map (column => readNumber column.init)
   }
