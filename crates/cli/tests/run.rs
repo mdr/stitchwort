@@ -42,10 +42,17 @@ fn example(name: &str) -> PathBuf {
 
 /// Runs `stitchwort run path` with `input` piped to it.
 fn run(path: &Path, input: &[u8]) -> Output {
+    run_in(Path::new("."), path.as_os_str(), input)
+}
+
+/// Runs `stitchwort run target` in `cwd` with `input` piped to it: a file,
+/// or a function of the project `cwd` is in, by its full name.
+fn run_in(cwd: &Path, target: &std::ffi::OsStr, input: &[u8]) -> Output {
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
             .args(["run", "--no-cache"])
-            .arg(path)
+            .arg(target)
+            .current_dir(cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped()),
@@ -322,6 +329,51 @@ fn main_must_have_the_right_type() {
     insta::assert_snapshot!(
         stderr(&run(&path, b"")).replace(path.to_str().unwrap(), "main-type.sw")
     );
+}
+
+/// A `main` that may fail, as every AoC day's does: it reads a line, and
+/// fails on `bad`.
+const FAILING_MAIN: &str = "import Std (Fail)
+
+def main(): {IO, Fail} () :=
+  let line := IO.readLine ()
+  if line == Option.Some \"bad\" then Fail.fail \"the input was bad\" else IO.print \"fine\"
+";
+
+/// The failure's message is printed on standard error, and the exit code is 1.
+fn fails_with_message(output: &Output) {
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(output));
+    assert_eq!(stdout(output), "");
+    assert_eq!(stderr(output), "error: the input was bad\n");
+}
+
+// SW-434: `run` refused every `{IO, Fail}` main, since the wrapper that
+// handles `Fail` (`Std.Fail.recover (m => Some m) …`, `driver::run`) stopped
+// checking: the pure handler's body fixed the row it shares with the
+// program to `Empty`.
+#[test]
+fn a_main_that_may_fail_runs() {
+    let path = source_file("may-fail.sw", FAILING_MAIN);
+    assert_eq!(succeeds(&path, b"ok\n"), "fine\n");
+    fails_with_message(&run(&path, b"bad\n"));
+}
+
+#[test]
+fn a_project_function_that_may_fail_runs() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-run-{}-project", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src/Day")).expect("create project");
+    std::fs::write(dir.join("stitchwort.yaml"), "").expect("write project file");
+    std::fs::write(
+        dir.join("src/Day/Day.sw"),
+        format!("namespace Day\n\n{FAILING_MAIN}"),
+    )
+    .expect("write source");
+    let name = std::ffi::OsStr::new("Day.main");
+    let output = run_in(&dir, name, b"ok\n");
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "fine\n");
+    fails_with_message(&run_in(&dir, name, b"bad\n"));
 }
 
 #[test]

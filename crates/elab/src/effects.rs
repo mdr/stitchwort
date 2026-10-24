@@ -1870,12 +1870,17 @@ fn comp_check_in(
 /// of a callback checked by eta-expansion against `a -> {?e} b`. Its type `T`
 /// is compared with the whole `CompIn ?e b`, so the row rule
 /// (`unify::row_rule`) decides the row as it does for a function passed
-/// as it is: `Empty` if `T` is apart from a computation (the value is then
-/// `doneIn ?e v`, as before), the computation's row if `T` is one (the value
-/// is that computation), or, if `T` may still compute to one (a definition
-/// stuck on an unknown), put aside until it's known. `None` in any other
-/// row, for any other expression, or if that fails (it's then checked
-/// against `b` as before).
+/// as it is: the computation's row if `T` is one (the value is that
+/// computation), or, if `T` may still compute to one (a definition stuck on
+/// an unknown), put aside until it's known.
+///
+/// If `T` is apart from a computation, the rule would solve `?e := Empty`;
+/// that is undone, and `None` returned, so the body is checked against `b`
+/// and wrapped as `doneIn ?e v` with `?e` still open. A pure body fits any
+/// row, and `?e` may be shared with another argument that needs a non-empty
+/// one: in `Fail.recover (m => Some m) prog`, `e` is the row `prog` performs
+/// beyond `Fail` (SW-434). `None` too in any other row, for any other
+/// expression, or if the comparison fails.
 fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<Option<Term>> {
     if !row.is_bare()
         || !matches!(
@@ -1890,7 +1895,8 @@ fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<
         return Ok(None);
     }
     let whole = comp_type(cx, row, t.clone())?;
-    let compared = |cx: &mut Ctx| -> Result<Term> {
+    // `Ok(None)` undoes everything, including `?e := Empty`.
+    let compared = |cx: &mut Ctx| -> Result<Option<Term>> {
         let (term, found) = infer(cx, expr)?;
         let (term, found) = insert(cx, term, found)?;
         let term = crate::check::compare(cx, term, &found, &whole)?;
@@ -1898,12 +1904,9 @@ fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<
             Value::Ctor(d, c, _) => cx.g().registry.ctor(Builtin::RowEmpty) == Some((d, c)),
             _ => false,
         };
-        if empty {
-            return done(cx, row, t, term);
-        }
-        Ok(term)
+        Ok((!empty).then_some(term))
     };
-    crate::undo::attempt(cx, compared)
+    Ok(crate::undo::attempt(cx, |cx| crate::undo::transaction(cx, compared))?.flatten())
 }
 
 /// Whether `expr` is a call (or a variable) whose value has a computation
