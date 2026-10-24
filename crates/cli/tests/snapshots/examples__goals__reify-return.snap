@@ -12,7 +12,7 @@ expression: output
    │                       t: () -> {Fail} a
    │                       k: a -> {Fail} b
    │                       y: a
-   │                       ⊢ Fail.toResult (%arg0 => k y) = Result.flatMap (x => Fail.toResult (%arg0 => k x)) (Fail.toResult (_ => Done y))
+   │                       ⊢ Fail.toResult (%arg0 => k y) = Result.flatMap (x => Fail.toResult (%arg0 => k x)) (Fail.toResult (() => Done y))
 ───╯
 [GOAL] Goal: in `toResultThen`
     ╭─[ goals/reify-return.sw:10:27 ]

@@ -85,14 +85,18 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
         if crate::matching::same_shifted(&shown.computation, t, under, 0) {
             return Some(done(under));
         }
-        match (shown.thunk, t.strip_loc()) {
-            (Some(thunk), Term::Var(ix)) if *ix == under + base - 1 - thunk => Some(Term::Lam(
-                "()".into(),
-                stitchwort_core::Icit::Explicit,
-                std::rc::Rc::new(done(under + 1)),
-            )),
-            _ => None,
-        }
+        // A thunk of the computation: `() => y`.
+        let Term::Lam(_, icit, body) = t.strip_loc() else {
+            return None;
+        };
+        let applied_thunk = match (shown.thunk, body.strip_loc()) {
+            (Some(thunk), Term::App(f, _, _)) => {
+                matches!(f.strip_loc(), Term::Var(ix) if *ix == under + base - thunk)
+            }
+            _ => false,
+        };
+        (applied_thunk || crate::matching::same_shifted(&shown.computation, body, under + 1, 0))
+            .then(|| Term::Lam("()".into(), *icit, std::rc::Rc::new(done(under + 1))))
     };
     let term = crate::lift::replace_with(
         cx.g(),
