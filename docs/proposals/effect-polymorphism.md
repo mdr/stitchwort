@@ -1498,6 +1498,8 @@ After stage 1, first part (Matt, 24 Oct 2026): **D1140 (a)** (= D1133): `=` oper
 
 **D1143 (a)** (Matt, 24 Oct 2026): the source name of the row type is `Effects`, not `Row` (`type Handlers (e: Effects)`, `[e: Effects]`), so it names the concept, not the representation; its constructors stay internal.
 
+**D1160 deferred** (Matt, 24 Oct 2026): concrete effects as a type argument (`Checker {Fail}`, `{}`) are not built; a type's `Effects` parameter is only inferred from callbacks. Revisit when a real program (std or AoC), not a documentation example, needs to name such a type. Focus stays on one `List.map` that is fast, stack-safe and provable (stages 2 to 4).
+
 After stage 0 (Matt, 24 Oct 2026): **D1133** — whether operands of `=` and `if`/`match` branches with a `Comp` expected type pass computations (stage 0 left them running in place) is settled in the stage 1 design. **D1134** — a way to write a `{Fail} b` binder type, which `Fail.toResultMapIn` (SW-378) needs, is part of the stage 1 design too.
 
 Each decision lists its options; the recommended one is marked. D1116 to

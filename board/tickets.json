@@ -1,5 +1,5 @@
 {
-  "next": 432,
+  "next": 433,
   "tickets": [
     {
       "id": 1,
@@ -5218,9 +5218,9 @@
     {
       "id": 330,
       "title": "Counterexample search stage 1 (docs/proposals/counterexample-search.md; D1154-D1159): on a failed or ? proof, enumerate small inputs, report a falsifying one as a note",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "design",
         "proof"
@@ -5228,7 +5228,9 @@
       "body": "From the language survey (docs/comparisons/practical-proof-languages.md, shortlist #1; Isabelle Quickcheck/Nitpick, Lean Plausible). Motivation: wrong specs are the costly mistakes in real deployments. Design note first. D570 (Matt, 22 Oct): yes, in Next; not started yet.",
       "created": "2026-10-22",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "f5b6d8ec"
+      ]
     },
     {
       "id": 331,
@@ -6550,23 +6552,25 @@
     {
       "id": 406,
       "title": "Effect polymorphism stage 1: row-indexed computation type (design C), internal Row (D1122), apartness rule and defaulting (D1123); also settle = operands and if/match branches (D1133) and {Fail} b binders for Fail.toResultMapIn (D1134)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "two worktree lanes (A: D1140 a, eta, apartness; B: review follow-ups)",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "3684b797"
+      ]
     },
     {
       "id": 407,
       "title": "Effect polymorphism stage 2: empty-row specialisation in JS and rt (design E)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "effects"
       ],
@@ -6591,10 +6595,10 @@
     },
     {
       "id": 409,
-      "title": "Effect polymorphism stage 4: linear-time, stack-safe effectful runtime; design note starts with close literature reading (D1119)",
-      "status": "next",
+      "title": "Effect polymorphism stage 4: linear-time, stack-safe effectful runtime; design note first, starting with close literature reading (D1119)",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "design note lane (Opus)",
       "labels": [
         "effects"
       ],
@@ -6910,23 +6914,25 @@
     {
       "id": 429,
       "title": "Docs: language guide in docs/guide/ (more depth than the tour, not a spec; checked examples)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "docs"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "e1980bb4"
+      ]
     },
     {
       "id": 430,
       "title": "Row defaulting vs instances: [1,2,3].mapIn (n => n * n) == [1,4,9] in a test fails E-INSTANCE-STUCK ({?1} List Nat), and toResult (() => xs.mapIn halve) == Err … fails E-INSTANCE-NONE; the row should be settled (defaulted) before instance resolution gives up (found writing the tour)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane",
       "labels": [
         "effects"
       ],
@@ -6938,11 +6944,27 @@
     {
       "id": 431,
       "title": "docs/syntax.md: document Effects as the type of effect parameters (type Handlers (e: Effects)); fix the Abort/Fail/Proofs-about-effectful-code heading levels; stitchwort check prints a one-line summary on success",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "-",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": [
+        "b8594f18"
+      ]
+    },
+    {
+      "id": 432,
+      "title": "Row inference: in a {Log} body, let mapped := List.mapIn answer numbers then returning mapped is refused: the row is defaulted before the let's variable meets the result type (found in SW-406)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
-        "docs"
+        "effects"
       ],
       "body": "",
       "created": "2026-10-24",
