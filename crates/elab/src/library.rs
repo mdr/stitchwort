@@ -77,8 +77,6 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ("Omega/Omega.sw", include_str!("std/Omega/Omega.sw")),
     ("Omega/Sound.sw", include_str!("std/Omega/Sound.sw")),
     ("Option/Option.sw", include_str!("std/Option/Option.sw")),
-    ("Ring/Ring.sw", include_str!("std/Ring/Ring.sw")),
-    ("Ring/Sound.sw", include_str!("std/Ring/Sound.sw")),
     ("Ord/Ord.sw", include_str!("std/Ord/Ord.sw")),
     (
         "PrefixSums/BlockSum.sw",
@@ -90,6 +88,8 @@ pub const LIBRARY_FILES: &[(&str, &str)] = &[
     ),
     ("Quot/Quot.sw", include_str!("std/Quot/Quot.sw")),
     ("Result/Result.sw", include_str!("std/Result/Result.sw")),
+    ("Ring/Ring.sw", include_str!("std/Ring/Ring.sw")),
+    ("Ring/Sound.sw", include_str!("std/Ring/Sound.sw")),
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),
     ("Set/Spec.sw", include_str!("std/Set/Spec.sw")),
     ("Text/Basics.sw", include_str!("std/Text/Basics.sw")),

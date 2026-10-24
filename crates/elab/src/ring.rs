@@ -101,7 +101,7 @@ pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<
             "`ring` proves `a = b` where `a` and `b` are `Nat`s or `Int`s built from `+`, `*`, numbers and atoms (and `-` at `Int`) that are equal as polynomials",
         ));
     };
-    let mut hyps = Vec::new();
+    let mut hyps: Vec<Hyp> = Vec::new();
     for fact in facts {
         let (term, ty) = infer(cx, fact)?;
         let (term, ty) = insert(cx, term, ty)?;
@@ -163,33 +163,62 @@ pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<
     }
 
     // The sides checked: with hypotheses, `a + (r1 + …)` and `b + (l1 + …)`.
-    let sum = |terms: Vec<&Side>| -> Side {
-        terms
-            .into_iter()
-            .rev()
-            .fold(Side::zero(sort), |acc, t| Side::add(t.clone(), acc))
+    // Each hypothesis may be needed either way round (`l = r` or `r = l`),
+    // so with a few of them every orientation is tried, as polynomials.
+    let (pa, pb) = (a.poly(), b.poly());
+    let hyp_polys: Vec<(Poly, Poly)> = sides.iter().map(|(l, r)| (l.poly(), r.poly())).collect();
+    let checked = |flips: u32| -> (Poly, Poly) {
+        hyp_polys
+            .iter()
+            .enumerate()
+            .fold((pa.clone(), pb.clone()), |(left, right), (i, (l, r))| {
+                if flips & (1 << i) == 0 {
+                    (left.add(r), right.add(l))
+                } else {
+                    (left.add(l), right.add(r))
+                }
+            })
     };
-    let (checked_a, checked_b) = if sides.is_empty() {
-        (a.clone(), b.clone())
+    let tries: u32 = if hyps.len() <= MAX_FLIPPED_HYPS {
+        1 << hyps.len()
     } else {
-        (
-            Side::add(a.clone(), sum(sides.iter().map(|(_, r)| r).collect())),
-            Side::add(b.clone(), sum(sides.iter().map(|(l, _)| l).collect())),
-        )
+        1
     };
-    let pa = checked_a.poly();
-    let pb = checked_b.poly();
-    if pa != pb {
+    let Some(flips) = (0..tries).find(|&flips| {
+        let (left, right) = checked(flips);
+        left == right
+    }) else {
+        let (left, right) = checked(0);
         return Err(different(
             cx,
             &reader,
             sort,
             expected,
-            &pa,
-            &pb,
+            &left,
+            &right,
             !hyps.is_empty(),
             span,
         ));
+    };
+    for (i, (h, side)) in hyps.iter_mut().zip(sides.iter_mut()).enumerate() {
+        if flips & (1 << i) == 0 {
+            continue;
+        }
+        let flip = match sort {
+            Sort::Nat => lib.flip_nat,
+            Sort::Int => lib.flip_int,
+        };
+        let proof = apps(
+            Term::Def(flip),
+            vec![cx.quote(&h.l)?, cx.quote(&h.r)?, h.proof.clone()],
+        );
+        let Value::Eq(t, l, r) = force(cx.g(), h.ty.clone())? else {
+            unreachable!("a hypothesis is an equation")
+        };
+        h.ty = Value::Eq(t, r, l);
+        h.proof = proof;
+        std::mem::swap(&mut h.l, &mut h.r);
+        std::mem::swap(&mut side.0, &mut side.1);
     }
     emit(
         cx, &lib, sort, expected, &reader, &a, &b, &sides, &hyps, span,
@@ -241,6 +270,8 @@ struct Lib {
     prove_int: DefId,
     prove_nat_with: DefId,
     prove_int_with: DefId,
+    flip_nat: DefId,
+    flip_int: DefId,
     npoly: DefId,
     zpoly: DefId,
     mk_env: (DataId, usize),
@@ -300,6 +331,8 @@ impl Lib {
             prove_int: def("Std.Ring.proveInt")?,
             prove_nat_with: def("Std.Ring.proveNatWith")?,
             prove_int_with: def("Std.Ring.proveIntWith")?,
+            flip_nat: def("Std.Ring.flipNat")?,
+            flip_int: def("Std.Ring.flipInt")?,
             npoly: def("Std.Ring.NExpr.poly")?,
             zpoly: def("Std.Ring.ZExpr.poly")?,
             mk_env: ctor("Std.Ring.Env.MkEnv")?,
@@ -393,14 +426,6 @@ impl Side {
         match sort {
             Sort::Nat => Side::N(N::Num(BigUint::default())),
             Sort::Int => Side::Z(Z::OfNat(N::Num(BigUint::default()))),
-        }
-    }
-
-    fn add(a: Side, b: Side) -> Side {
-        match (a, b) {
-            (Side::N(a), Side::N(b)) => Side::N(N::Add(Box::new(a), Box::new(b))),
-            (Side::Z(a), Side::Z(b)) => Side::Z(Z::Add(Box::new(a), Box::new(b))),
-            _ => unreachable!("both sides of one `ring` have the goal's type"),
         }
     }
 
@@ -519,6 +544,10 @@ impl Poly {
 }
 
 /// Why `a - b` on `Nat` is an atom.
+/// With up to this many hypotheses, `ring [..]` tries each one both ways round
+/// (`2^n` polynomial comparisons); with more, only as written.
+const MAX_FLIPPED_HYPS: usize = 6;
+
 const SUBTRACTION: &str = "truncated subtraction isn't a ring operation";
 
 /// Reading stopped at an unsolved metavariable.
@@ -803,7 +832,7 @@ impl Reader {
     /// The atom at variable `v` (`2i` for `Nat` atom `i`, `2j + 1` for `Int`
     /// atom `j`).
     fn at_var(&self, v: usize) -> &Atom {
-        let (sort, i) = if v % 2 == 0 {
+        let (sort, i) = if v.is_multiple_of(2) {
             (Sort::Nat, v / 2)
         } else {
             (Sort::Int, v / 2)

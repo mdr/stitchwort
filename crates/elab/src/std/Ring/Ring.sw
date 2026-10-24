@@ -217,7 +217,6 @@ def Ring.ZExpr.poly: Ring.ZExpr -> List Ring.Mono
   | ZOfNat e => Ring.NExpr.poly e
   | ZNegSucc e => Ring.neg (Ring.add (Ring.NExpr.poly e) (Ring.const (OfNat 1)))
 
-
 -- Unit tests. Library types have no derived `==`, so the normal forms are
 -- checked as `rfl` examples (the kernel computes both sides), and the parts
 -- that return numbers and lists of numbers as tests.

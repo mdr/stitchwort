@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `(a + b) * (a + b) = a * a + (b * b)`
+   ╭─[ reject/ring-int-square.sw:5:72 ]
+   │
+ 5 │ theorem square (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
+   │                                                                        ──┬─  
+   │                                                                          ╰─── the two sides are different polynomials
+   │ 
+   │ Note 1: left:  a * a + 2 * a * b + b * b
+   │ 
+   │ Note 2: right: a * a + b * b
+   │ 
+   │ Note 3: the left side has `2 * a * b` more
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           a = 1
+   │           b = 1
+   │         `(a + b) * (a + b) = a * a + (b * b)` is false:
+   │           left:  4
+   │           right: 2
+───╯

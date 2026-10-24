@@ -44,6 +44,14 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y <= 10): x + 1 <= 
 theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 -- end omega
 
+-- begin ring
+theorem squareOfSum (a: Nat) (b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
+
+theorem areaGrows (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
+
+theorem pairCount (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
+-- end ring
+
 -- begin spec
 -- The specification: the plain recursive sum.
 def sumTo: Nat -> Nat

@@ -13,9 +13,7 @@ theorem Nat.leqTotal (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.leq n m = T
 
 -- Sums of lists: one element at a time, sums of intervals (Gauss), and
 -- rewriting under `map`, `filter` and `foldLeft`.
-theorem Nat.addSwap (a: Nat) (b: Nat) (c: Nat) (d: Nat): (a + b) + (c + d) = (a + c) + (b + d) :=
-  Eq.trans (Nat.addAssoc a b (c + d))
-    (Eq.trans (Eq.cong (t => a + t) (Nat.addLeftComm b c d)) (Eq.sym (Nat.addAssoc a c (b + d))))
+theorem Nat.addSwap (a: Nat) (b: Nat) (c: Nat) (d: Nat): (a + b) + (c + d) = (a + c) + (b + d) := ring
 
 -- Sums from a starting total, one element at a time and of two lists, for
 -- any `Add` (docs/proposals/interfaces.md §7.7). At `Nat` they state the
@@ -42,11 +40,8 @@ theorem List.sumAppend [auto add: Add a]: (xs: List a) -> (ys: List a) ->
           (Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs)))))
 
 theorem List.sumByMulLeft (c: Nat) (f: a -> Nat): (xs: List a) -> List.sumBy (x => c * f x) xs = c * List.sumBy f xs
-  | Nil => Eq.sym (Nat.mulZero c)
-  | Cons x xs =>
-    Eq.trans (List.sumByCons (y => c * f y) x xs)
-      (Eq.trans (Eq.cong (t => c * f x + t) (List.sumByMulLeft c f xs))
-        (Eq.sym (Eq.trans (Eq.cong (t => c * t) (List.sumByCons f x xs)) (Nat.mulDistribLeft c (f x) (List.sumBy f xs)))))
+  | Nil => ring
+  | Cons x xs => rewrite List.sumByCons (y => c * f y) x xs, List.sumByCons f x xs, List.sumByMulLeft c f xs in ring
 
 theorem List.sumByRangeShift (f: Nat -> Nat): (n: Nat) -> (s: Nat) ->
     List.sumBy f (List.rangeFrom n (Succ s)) = List.sumBy (i => f (Succ i)) (List.rangeFrom n s)
@@ -67,15 +62,8 @@ theorem List.sumByRangeOffsetExample: List.sumBy (i => i) (List.rangeFrom 3 10) 
 -- Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
 theorem List.gaussSum: (d: Nat) -> (x: Nat) ->
     List.sum (List.rangeFrom (Succ d) x) + List.sum (List.rangeFrom (Succ d) x) = Succ d * (x + (x + d))
-  | Zero, x => Eq.sym (Eq.trans (Nat.addZero (x + (x + 0))) (Eq.cong (t => x + t) (Nat.addZero x)))
-  | Succ d, x =>
-    Eq.trans (Eq.cong (t => t + t) (List.sumCons x (List.rangeFrom (Succ d) (Succ x))))
-      (Eq.trans (Nat.addSwap x (List.sum (List.rangeFrom (Succ d) (Succ x))) x (List.sum (List.rangeFrom (Succ d) (Succ x))))
-        (Eq.trans (Eq.cong (t => (x + x) + t) (List.gaussSum d (Succ x)))
-          (Eq.trans (Eq.cong (t => (x + x) + Succ d * Succ (x + t)) (Eq.sym (Nat.addSucc x d)))
-            (Eq.trans (Eq.cong (t => (x + x) + t) (Nat.mulSucc (Succ d) (x + (x + Succ d))))
-              (Eq.trans (Eq.sym (Nat.addAssoc (x + x) (Succ d) (Succ d * (x + (x + Succ d)))))
-                (Eq.cong (t => t + Succ d * (x + (x + Succ d))) (Nat.addAssoc x x (Succ d))))))))
+  | Zero, x => ring
+  | Succ d, x => rewrite List.sumCons x (List.rangeFrom (Succ d) (Succ x)) in ring [List.gaussSum d (Succ x)]
 
 -- `x + (x + 1) + ... + (y - 1)`
 def Nat.span (x: Nat) (y: Nat): Nat := List.sum (List.rangeFrom (y - x) x)
@@ -106,9 +94,9 @@ theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first las
     | True =>
       calc Nat.sumBetween first last
         _ = (first + last) * (last - first + 1) / 2 := rewrite Nat.addOneSub last first h
-        _ = 1 * ((first + last) * (last - first + 1) / 2) := Eq.sym (Nat.oneMul ((first + last) * (last - first + 1) / 2))
+        _ = 1 * ((first + last) * (last - first + 1) / 2) := ring
         _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
-        _ = Nat.span first (Succ last) := Nat.oneMul (Nat.span first (Succ last))
+        _ = Nat.span first (Succ last) := ring
         _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
     | False =>
       calc Nat.sumBetween first last
@@ -123,9 +111,7 @@ test "Nat.sumBetween, reversed bounds" := Nat.sumBetween 5 3 == 0 && Nat.sumBetw
 -- How many pairs `List.pairs` makes: n(n - 1)/2. One step of the count:
 -- `x` is paired with the n others, and p is the number of pairs among those.
 theorem List.pairsStep (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n :=
-  rewrite Nat.addSucc ((n + p) + (n + p)) n, Nat.addSwap n p n p, Nat.addAssoc (n + n) (p + p) n,
-    Nat.addAssoc n n (p + p + n), h, Nat.mulSucc n n
-    in rfl
+  ring [h]
 
 -- Twice the number of pairs, and the number of elements, make n * n.
 theorem List.lengthPairsDouble: (xs: List a) ->
@@ -136,10 +122,8 @@ theorem List.lengthPairsDouble: (xs: List a) ->
       in List.pairsStep (List.length xs) (List.length (List.pairs xs)) (List.lengthPairsDouble xs)
 
 theorem List.pairsDoubleSub: (n: Nat) -> (p: Nat) -> p + p + n = n * n -> p + p = n * (n - 1)
-  | Zero, p, h => Eq.trans (Eq.sym (Nat.addZero (p + p))) h
-  | Succ m, p, h =>
-    Nat.addCancelLeft (Succ m) (p + p) (Succ m * m)
-      (Eq.trans (Eq.trans (Nat.addComm (Succ m) (p + p)) h) (Nat.mulSucc (Succ m) m))
+  | Zero, p, h => ring [h]
+  | Succ m, p, h => ring [h]
 
 -- Twice the number of pairs is n * (n - 1).
 theorem List.lengthPairsDoubled (xs: List a):
@@ -215,14 +199,14 @@ theorem Nat.keepIfSumBy (g: a -> Nat) (xs: List a): (b: Bool) -> Nat.keepIf (Lis
 
 -- `keepIf` as multiplying by 1 or 0.
 theorem Nat.mulToNat (x: Nat): (a: Bool) -> x * Bool.toNat a = Nat.keepIf x a
-  | True => Nat.mulOne x
-  | False => Nat.mulZero x
+  | True => ring
+  | False => ring
 
 theorem Nat.keepIfKeepIf (x: Nat): (a: Bool) -> (b: Bool) -> Nat.keepIf (Nat.keepIf x a) b = x * Bool.toNat (a && b)
-  | True, True => Eq.sym (Nat.mulOne x)
-  | True, False => Eq.sym (Nat.mulZero x)
-  | False, True => Eq.sym (Nat.mulZero x)
-  | False, False => Eq.sym (Nat.mulZero x)
+  | True, True => ring
+  | True, False => ring
+  | False, True => ring
+  | False, False => ring
 
 theorem List.sumByAdd [auto add: Add c] (f: a -> c) (g: a -> c): (xs: List a) -> List.sumBy (x => f x + g x) xs = List.sumBy f xs + List.sumBy g xs
   | Nil => Eq.sym (add.zeroAdd Add.zero)
@@ -296,7 +280,7 @@ theorem List.sumRangeNone (q: Nat -> Bool) (g: Nat -> Nat): (c: Nat) -> (s: Nat)
 
 theorem List.sumRangeOne (q: Nat -> Bool) (g: Nat -> Nat) (v: Nat) (hv: q v = True) (uniq: (b: Nat) -> q b = True -> b = v):
     (c: Nat) -> (s: Nat) -> s <= v -> v < s + c -> List.sumBy (b => Nat.keepIf (g b) (q b)) (List.rangeFrom c s) = g v
-  | Zero, s, h1, h2 => Void.exfalso (Nat.lessIrrefl v (Nat.leTrans (Succ v) s v (Nat.ltCongRight v (s + 0) s (Nat.addZero s) h2) h1))
+  | Zero, s, h1, h2 => Void.exfalso (Nat.lessIrrefl v (Nat.leTrans (Succ v) s v (Nat.ltCongRight v (s + 0) s ring h2) h1))
   | Succ c, s, h1, h2 =>
     Bool.inspect (q s) (u => List.sumBy (b => Nat.keepIf (g b) (q b)) (List.rangeFrom (Succ c) s) = g v)
       (hs => Eq.trans (List.sumByCons (b => Nat.keepIf (g b) (q b)) s (List.rangeFrom c (Succ s)))
@@ -325,7 +309,7 @@ theorem List.sumRangeCongr [auto add: Add c] (f: Nat -> c) (g: Nat -> c): (c: Na
 -- A sum over a run of numbers that is 0 has every term 0.
 theorem List.sumRangeZero (f: Nat -> Nat): (c: Nat) -> (s: Nat) -> List.sumBy f (List.rangeFrom c s) = 0 ->
     (x: Nat) -> s <= x -> x < s + c -> f x = 0
-  | Zero, s, h, x, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) h2) h1))
+  | Zero, s, h, x, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s ring h2) h1))
   | Succ c, s, h, x, h1, h2 =>
     let parts := Nat.addEqZero (f s) (List.sumBy f (List.rangeFrom c (Succ s))) (Eq.trans (Eq.sym (List.sumByCons f s (List.rangeFrom c (Succ s)))) h)
     match e: Nat.equal s x with
@@ -363,7 +347,7 @@ theorem List.anyRangeElim (q: Nat -> Bool) (goal: Prop): (c: Nat) -> (s: Nat) ->
         (j h1 h2 hj => k j (Nat.leTrans s (Succ s) j (Nat.leSucc s) h1) (Nat.ltAddSucc s c j h2) hj))
 
 theorem List.anyRangeIntro (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (k: Nat) -> s <= k -> k < s + c -> q k = True -> List.any q (List.rangeFrom c s) = True
-  | Zero, s, k, h1, h2, hk => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s (Nat.addZero s) h2) h1))
+  | Zero, s, k, h1, h2, hk => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s ring h2) h1))
   | Succ c, s, k, h1, h2, hk =>
     Bool.inspect (q s) (u => List.any q (List.rangeFrom (Succ c) s) = True)
       (t => Eq.cong (b => Bool.ifThenElse b (u => True) (u => List.any q (List.rangeFrom c (Succ s)))) t)
@@ -375,7 +359,7 @@ theorem List.anyRangeIntro (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (k: Nat) ->
 -- about every number of the run.
 theorem List.allRangeElim (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> List.all q (List.rangeFrom c s) = True ->
     (k: Nat) -> s <= k -> k < s + c -> q k = True
-  | Zero, s, h, k, h1, h2 => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s (Nat.addZero s) h2) h1))
+  | Zero, s, h, k, h1, h2 => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s ring h2) h1))
   | Succ c, s, h, k, h1, h2 =>
     Bool.inspect (q s) (u => q k = True)
       (t => Bool.inspect (k == s) (u => q k = True)
@@ -427,7 +411,7 @@ theorem Nat.firstFromBefore (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (j: Nat) -
           (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) (Nat.firstFrom q c (Succ s)) (Nat.firstFromSkip q c s f) h2)))
 
 theorem Nat.firstFromFound (q: Nat -> Bool): (c: Nat) -> (s: Nat) -> (k: Nat) -> s <= k -> k < s + c -> q k = True -> q (Nat.firstFrom q c s) = True
-  | Zero, s, k, h1, h2, hk => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s (Nat.addZero s) h2) h1))
+  | Zero, s, k, h1, h2, hk => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s ring h2) h1))
   | Succ c, s, k, h1, h2, hk =>
     Bool.inspect (q s) (u => q (Nat.firstFrom q (Succ c) s) = True)
       (t => rewrite <- Nat.firstFromStop q c s t at t)
@@ -828,15 +812,13 @@ theorem List.subsequenceTrans: (xs: List a) -> (ys: List a) -> (zs: List a) ->
 theorem List.mergeCount (le: a -> a -> Bool) (p: a -> Bool): (xs: List a) -> (ys: List a) ->
     List.occurrences p (List.merge le xs ys) = List.occurrences p xs + List.occurrences p ys
   | Nil, ys => rfl
-  | Cons x xs, Nil => Eq.sym (Nat.addZero (List.occurrences p (Cons x xs)))
+  | Cons x xs, Nil => ring
   | Cons x xs, Cons y ys =>
     Bool.inspect (le x y)
       (c => List.occurrences p (if c then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys))
         = List.occurrences p (Cons x xs) + List.occurrences p (Cons y ys))
-      (e => Eq.trans (Eq.cong (t => Bool.toNat (p x) + t) (List.mergeCount le p xs (Cons y ys)))
-        (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences p xs) (List.occurrences p (Cons y ys)))))
-      (e => Eq.trans (Eq.cong (t => Bool.toNat (p y) + t) (List.mergeCount le p (Cons x xs) ys))
-        (Nat.addLeftComm (Bool.toNat (p y)) (List.occurrences p (Cons x xs)) (List.occurrences p ys)))
+      (e => ring [List.mergeCount le p xs (Cons y ys)])
+      (e => ring [List.mergeCount le p (Cons x xs) ys])
 
 -- How many elements of all the runs satisfy `p`.
 def List.runsCount (p: a -> Bool): List (Option (List a)) -> Nat
@@ -848,28 +830,18 @@ theorem List.pushRunCount (le: a -> a -> Bool) (p: a -> Bool) (run: List a): (c:
     List.runsCount p (List.pushRun le run c) = List.occurrences p run + List.runsCount p c
   | Nil => rfl
   | Cons None rest => rfl
-  | Cons (Some r) rest =>
-    Eq.trans (List.pushRunCount le p (List.merge le r run) rest)
-      (Eq.trans (Eq.cong (t => t + List.runsCount p rest) (List.mergeCount le p r run))
-        (Nat.addRotate (List.occurrences p r) (List.occurrences p run) (List.runsCount p rest)))
+  | Cons (Some r) rest => ring [List.pushRunCount le p (List.merge le r run) rest, List.mergeCount le p r run]
 
 theorem List.buildRunsCount (le: a -> a -> Bool) (p: a -> Bool) (c: List (Option (List a))): (xs: List a) ->
     List.runsCount p (List.buildRuns le c xs) = List.runsCount p c + List.occurrences p xs
-  | Nil => Eq.sym (Nat.addZero (List.runsCount p c))
-  | Cons x xs =>
-    Eq.trans (List.buildRunsCount le p (List.pushRun le (Cons x Nil) c) xs)
-      (Eq.trans (Eq.cong (t => t + List.occurrences p xs) (List.pushRunCount le p (Cons x Nil) c))
-        (Eq.trans (Eq.cong (t => (t + List.runsCount p c) + List.occurrences p xs) (Nat.addZero (Bool.toNat (p x))))
-          (Nat.addRotate (Bool.toNat (p x)) (List.runsCount p c) (List.occurrences p xs))))
+  | Nil => ring
+  | Cons x xs => ring [List.buildRunsCount le p (List.pushRun le (Cons x Nil) c) xs, List.pushRunCount le p (Cons x Nil) c]
 
 theorem List.mergeRunsCount (le: a -> a -> Bool) (p: a -> Bool) (acc: List a): (c: List (Option (List a))) ->
     List.occurrences p (List.mergeRuns le acc c) = List.occurrences p acc + List.runsCount p c
-  | Nil => Eq.sym (Nat.addZero (List.occurrences p acc))
+  | Nil => ring
   | Cons None rest => List.mergeRunsCount le p acc rest
-  | Cons (Some r) rest =>
-    Eq.trans (List.mergeRunsCount le p (List.merge le r acc) rest)
-      (Eq.trans (Eq.cong (t => t + List.runsCount p rest) (List.mergeCount le p r acc))
-        (Nat.addRotate (List.occurrences p r) (List.occurrences p acc) (List.runsCount p rest)))
+  | Cons (Some r) rest => ring [List.mergeRunsCount le p (List.merge le r acc) rest, List.mergeCount le p r acc]
 
 theorem List.sortWithPerm (le: a -> a -> Bool) (xs: List a): List.Perm (List.sortWith le xs) xs := p =>
   Eq.trans (List.mergeRunsCount le p Nil (List.buildRuns le Nil xs)) (List.buildRunsCount le p Nil xs)
@@ -1110,16 +1082,12 @@ theorem List.productCons [auto mul: Mul a] (x: a) (xs: List a): List.product (Co
   Eq.trans (Eq.cong (t => List.foldLeft Mul.mul t xs) (mul.oneMul x)) (List.productFrom x xs)
 
 theorem List.productReverseOnto: (xs: List Nat) -> (acc: List Nat) -> List.product (List.reverseOnto xs acc) = List.product xs * List.product acc
-  | Nil, acc => Eq.sym (Nat.oneMul (List.product acc))
+  | Nil, acc => ring
   | Cons x xs, acc =>
-    calc List.product (List.reverseOnto xs (Cons x acc))
-      _ = List.product xs * (x * List.product acc) := rewrite List.productReverseOnto xs (Cons x acc), List.productCons x acc
-      _ = (x * List.product xs) * List.product acc
-        := rewrite <- Nat.mulAssoc (List.product xs) x (List.product acc), Nat.mulComm (List.product xs) x
-      _ = List.product (Cons x xs) * List.product acc := rewrite List.productCons x xs
+    rewrite List.productReverseOnto xs (Cons x acc), List.productCons x acc, List.productCons x xs in ring
 
 theorem List.productReverse (xs: List Nat): List.product (List.reverse xs) = List.product xs :=
-  rewrite List.productReverseOnto xs Nil in Nat.mulOne (List.product xs)
+  rewrite List.productReverseOnto xs Nil in ring
 
 -- Taking away a smaller sum term by term.
 theorem List.sumBySplit (f: a -> Nat) (g: a -> Nat) (h: (x: a) -> g x <= f x) (xs: List a):

@@ -202,6 +202,12 @@ theorem Ring.proveInt (env: Ring.Env) (a: Ring.ZExpr) (b: Ring.ZExpr) (ok: Ring.
 
 -- With hypotheses `l1 = r1`, ...: `a + (r1 + ...) = b + (l1 + ...)` as
 -- polynomials, and the two sums are equal, so `a = b` (`ring [h1, ...]`).
+-- A hypothesis that has to go the other way round is given as `r = l`, by
+-- `Ring.flipNat` or `Ring.flipInt`.
+
+theorem Ring.flipNat (l: Nat) (r: Nat) (h: l = r): r = l := Eq.sym h
+
+theorem Ring.flipInt (l: Int) (r: Int) (h: l = r): r = l := Eq.sym h
 
 theorem Ring.NExpr.sidesAgree (env: Ring.Env): (hs: List (Pair Ring.NExpr Ring.NExpr)) -> Ring.NExpr.allHold env hs ->
     Ring.NExpr.eval env (Ring.NExpr.lefts hs) = Ring.NExpr.eval env (Ring.NExpr.rights hs)

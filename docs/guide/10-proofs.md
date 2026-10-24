@@ -201,6 +201,52 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <=
 
 With `x = 10`, `x + 1 <= 10` is false: the hypothesis needs to be `x < y`. Note 3 is `omega`'s own model, which may not be real; Note 4 is from the counterexample search, which ran the statement on those values and found every hypothesis true and the conclusion false, so the theorem as written is false.
 
+## Algebra: `ring`
+
+`omega` doesn't multiply unknowns together. For an equation that holds by the laws of `+` and `*` (`x * y = y * x`, multiplying out brackets), `ring` multiplies both sides out, collects like terms, and checks that they match. It works over `Nat` and `Int`, and treats anything else (`xs.length`, `a - b` between `Nat`s, a function call) as an unknown. `ring [h]` also uses the equation `h`:
+
+<!-- snippet: proofs.sw#ring -->
+```stitchwort
+theorem squareOfSum (a: Nat) (b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
+
+theorem areaGrows (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
+
+theorem pairCount (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
+```
+
+When the two sides differ, the error shows both multiplied out, and the difference:
+
+<!-- snippet: errors/ring.sw -->
+```stitchwort
+theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
+```
+
+<!-- output: check errors/ring.sw -->
+```
+[E-RING] Error: `ring` can't prove `(a + b) * (a + b) = a * a + (b * b)`
+   ╭─[ errors/ring.sw:1:77 ]
+   │
+ 1 │ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
+   │                                                                             ──┬─
+   │                                                                               ╰─── the two sides are different polynomials
+   │
+   │ Note 1: left:  a * a + 2 * a * b + b * b
+   │
+   │ Note 2: right: a * a + b * b
+   │
+   │ Note 3: the left side has `2 * a * b` more
+   │
+   │ Note 4: this statement is false; a counterexample:
+   │           a = 1
+   │           b = 1
+   │         `(a + b) * (a + b) = a * a + (b * b)` is false:
+   │           left:  4
+   │           right: 2
+───╯
+```
+
+`(ring: a = b)` states the equation, so it can be given to `rewrite`: `rewrite (ring: i + (p + q) = i + p + q)`.
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
@@ -415,4 +461,4 @@ The proof ([Proofs/Part2.sw](../../aoc/src/Aoc/Day01/Proofs/Part2.sw)) is about 
 
 `stitchwort run Aoc.Day01.main` checks only the program; `stitchwort test Aoc.Day01` checks the proofs and runs the tests. [docs/aoc-2025.md](../aoc-2025.md) describes each day's proofs and what was hard about them.
 
-More: [syntax.md](../syntax.md) sections [Goals](../syntax.md#goals-), [`calc`](../syntax.md#calc), [`rewrite`](../syntax.md#rewrite), [`omega`](../syntax.md#omega), [`match`](../syntax.md#match), [Proofs about effectful code](../syntax.md#proofs-about-effectful-code); the design notes [calc-rewrite.md](../proposals/calc-rewrite.md), [omega.md](../proposals/omega.md), [proof-reification.md](../proposals/proof-reification.md) and [indexed-families.md](../proposals/indexed-families.md).
+More: [syntax.md](../syntax.md) sections [Goals](../syntax.md#goals-), [`calc`](../syntax.md#calc), [`rewrite`](../syntax.md#rewrite), [`omega`](../syntax.md#omega), [`ring`](../syntax.md#ring), [`match`](../syntax.md#match), [Proofs about effectful code](../syntax.md#proofs-about-effectful-code); the design notes [calc-rewrite.md](../proposals/calc-rewrite.md), [omega.md](../proposals/omega.md), [proof-reification.md](../proposals/proof-reification.md) and [indexed-families.md](../proposals/indexed-families.md).
