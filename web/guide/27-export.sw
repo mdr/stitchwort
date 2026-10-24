@@ -11,5 +11,10 @@ export def displayName (p: Profile): Text := Option.getOrElse p.name p.nickname
 -- `number`, and `ofNat` says `None` when it doesn't.
 export def toNumber (n: Nat): Option SafeNat := SafeNat.ofNat n
 
+-- A numeral can be a `SafeNat` directly; the compiler checks its bound.
+def kilobyte: SafeNat := 1024
+
+test "a safe literal" := kilobyte.value == 1024
+
 -- A proof the caller can't give statically becomes a runtime check.
 export def percentOf (percent: Nat) (total: Nat): [auto ok: percent <= 100] -> Nat := total * percent / 100
