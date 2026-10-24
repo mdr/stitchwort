@@ -1194,6 +1194,106 @@ resumptions, nodes, jumps), the same in both backends: `counted` and
 lazily). AoC's `stitchwort test --no-cache`: 15.8 s and 619 MB before,
 15.7 s and 618 MB after.
 
+### 9.8 As built: stage 4e
+
+- **Where.** `crates/cli/tests/effect_differential.rs`: a generator of
+  random well-typed effectful programs, and a test that runs them on the
+  reference evaluator (`Session::run_main`), natively
+  (`Session::run_main_fast`) and as JavaScript under Node (the `run --js`
+  program from `Session::extract_program`), in process, and requires the
+  same standard output and the same ending from all three. The output is
+  the trace: every `IO.print` in a function or a clause, in order, and each
+  program's result.
+- **The programs.** Each is a tree of functions over `Nat` whose rows are
+  drawn from four abilities (`Ab1`-`Ab4`, each with `call: Nat -> Nat` and
+  `peek: () -> Nat`), `Fail` and `IO`; every function and handler is used
+  once. A function's statements are `let`s of an operation, a call of a
+  function with the same or a smaller row (a `translate`), a handler around
+  such a call, an `if`, an effectful `List.map` of 0 to 200 elements, a
+  tower of 1 to 100 copies of one handler (the body's operations forwarded
+  through all of them, or its own ability handled by the innermost), or 1
+  to 100 `Fail.toResult`s that re-raise (as many `translate`s), and
+  `IO.print`s and `Fail.ensure`s; every `let` reaches the result. Handlers:
+  - a plain result (`Nat`), whose `call` clause discards `k`, resumes it
+    once in tail position or not, twice (in an expression, or with `let`s
+    in the other order), 0 to 3 times through a recursive helper, or in one
+    branch of an `if`;
+  - state (`Nat -> Nat`): `s => k v s′` (fused by 4d at the empty row),
+    `k s s`, `k 0 v`, eta-reduced `k v` (not fused at the closed row), not
+    in tail position, twice, discarding, in both branches of an `if`, and
+    in tail position in one branch only;
+  - a list of every result, then digested: discard, once, `Cons v (k …)`,
+    twice, 0 to 3 times, `k v ++ [v]`;
+  - stored: `k` kept in a `Paused` result and resumed after the handler
+    returned, by `explore`, in two branches to a depth of 1 to 4, with and
+    without a state;
+  - `Fail`: `orElse`, `toResult`, `toOption`, a custom handler, and
+    `Fail.context` where `Fail` is outside too (handled, then raised again);
+  - written for the closed row `{A}`, for `{A | e}` (also used where `e` is
+    the empty row), or for a concrete row `{A, R}` to `{R}`, whose `call`
+    clause may perform an operation of `R` or print before it resumes, and
+    whose return clause may perform one; `peek`'s clause resumes in tail
+    position, not, or discards, so a handler's clauses differ in shape.
+
+  `main` runs eight programs in turn, each inside a `Partial` loop of 1 to 4
+  levels a quarter of the time. Work is capped by construction: operations
+  of a handler resuming more than once are counted (at most six per
+  program), kept out of `map`s longer than 3, and allowed only for the
+  innermost such handler (an outer one's operation inside an inner one's
+  region would run once per inner resumption, each re-running the rest:
+  an early version made such a program, which ran out of resources
+  natively and didn't finish in a minute on the reference evaluator or in
+  20 seconds in JS **[checked]**, with the cause **[inferred]** from its shape). The default run requires
+  that no program runs out of resources; a longer run counts such modules
+  as skipped, not as failures, since the backends may run out at
+  different points.
+- **Seeds and budget.** Programs come from a SplitMix64 seed per module.
+  The test runs 64 modules (512 programs) from seed 1 by default;
+  `STITCHWORT_EFFECT_FUZZ_BATCHES` and `STITCHWORT_EFFECT_FUZZ_SEED` run
+  more or others, and `STITCHWORT_EFFECT_FUZZ_DUMP=dir` keeps every module.
+  The default run also requires every shape above to have been generated
+  (a list of 49 names), so a generator change that loses one fails.
+- **On a disagreement** the test finds the first program whose lines
+  differ, checks that it disagrees alone, and shrinks it (statements
+  removed, atoms replaced by `1`, handlers by plain calls, clauses by tail
+  resumption, depths to 1, the `Partial` loop dropped) while it still
+  checks and still disagrees, for at most two minutes; it fails with the
+  seed, the smallest program (also written to the temporary directory) and
+  each backend's output. Checked by breaking the JS state loop on purpose
+  (the state after a jump off by one): the test failed and shrank
+  the first failing program to a three-function program of one state
+  handler, then the break was reverted.
+- **`IO` crossing a `Map` frame.** No source program sends an `IO`
+  operation through a runner's `Map` frame (§9.6), so
+  `io_operations_cross_translations_on_their_way_to_the_runner`
+  (`crates/rt/tests/effect_runtime.rs`) and
+  `io_crossing_translations_runs_alike_in_js` (the new test file) build
+  one at the term level: `main` (a partial recursion that reads, prints
+  through a forwarding `Fail` handler and stops early on one input) wrapped
+  in two `Effect.mapSig Effect.sigSwap`s, so each operation is renamed from
+  `L io` to `R io` and back on its way out and its reply mapped back
+  through both. Natively the output is the unwrapped program's, with the
+  same operations, and the frames routing looks at grow by two per `IO`
+  operation; in JS the output is the reference evaluator's for the
+  unwrapped program, on four inputs.
+- **Found.** No disagreement **[checked]**: the default 512 programs, and
+  longer runs of 20,000 programs (seeds 100,000 to 102,499, the generator
+  as committed) and 12,000 (seeds 1,000 to 2,499, an earlier version
+  without `peek`, concrete rows or effectful clauses), all agree on the
+  three backends, with nothing out of resources in the 20,000. So stage 4e
+  made no backend change.
+- **Measured** (Apple M4 Pro, shared with other jobs, release build, the
+  modules checked and run on all cores) **[checked]**: about 100 programs
+  a second (104 for the default run, 117 for the 20,000, which took 171 s).
+  The default run takes 4.9 s, and the whole test binary, the two
+  `Map`-crossing tests included, 6.2 s of wall time with the build already
+  done; the native crossing test adds 0.3 s to `crates/rt`'s
+  `effect_runtime`. In the default run a program has about six handlers on
+  average (2,395 of user abilities, 655 of `Fail`, in 512 programs), and
+  every one of the 49 shapes appears at least 13 times: chains of 100
+  re-raising `Fail` handlers 14 times, the fused closed-row state handler
+  31, towers of 100 handlers 78, stored resumptions 155.
+
 ## Appendix A. Benchmark and prototype files
 
 In `bench/effect-runtime/`:
