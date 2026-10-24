@@ -376,6 +376,33 @@ fn a_project_function_that_may_fail_runs() {
     fails_with_message(&run_in(&dir, name, b"bad\n"));
 }
 
+// SW-435: when `main`'s type is runnable but the call that runs it doesn't
+// check, `run` reports that error, not the generic type note.
+#[test]
+fn a_main_with_a_runnable_type_reports_why_its_call_does_not_check() {
+    // The wrapper writes `Option Text` with `Text` as the program sees it.
+    let path = source_file(
+        "shadowed-text.sw",
+        "import Std (Fail)\n\ndef Text : Type := Nat\n\ndef main(): {IO, Fail} () := ()\n",
+    );
+    let output = run(&path, b"");
+    let message = stderr(&output);
+    assert!(!message.contains("E-MAIN-TYPE"), "{message}");
+    assert!(
+        message.contains("(while preparing `main` to run)"),
+        "{message}"
+    );
+}
+
+#[test]
+fn an_unrunnable_main_lists_fail_among_the_allowed_abilities() {
+    let path = source_file(
+        "partial-fail.sw",
+        "import Std (Fail)\n\ndef main(): {IO, Partial, Fail} () := ()\n",
+    );
+    assert_eq!(fails(&path, b"", "E-MAIN-TYPE"), "");
+}
+
 #[test]
 fn a_missing_file_is_an_error() {
     let output = run(Path::new("no/such/file.sw"), b"");

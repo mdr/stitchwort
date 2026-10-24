@@ -126,6 +126,33 @@ enum CallError {
         span: stitchwort_syntax::Span,
         ty: String,
     },
+    /// The definition's type is runnable, but the call built to run it
+    /// didn't check (SW-435): the checking error.
+    Prepare(stitchwort_syntax::Span, Diagnostic),
+}
+
+/// A diagnostic for a runnable definition whose call didn't check: the
+/// checking error, moved onto the definition (its own labels point into the
+/// generated call, which has no source to show), with a note on when it
+/// happened.
+fn prepare_error(name: &str, span: stitchwort_syntax::Span, error: Diagnostic) -> Diagnostic {
+    let mut d = Diagnostic::error(
+        error.code,
+        format!("{} (while preparing `{name}` to run)", error.message),
+    )
+    .with_label(
+        span,
+        "this has a type that can be run, but the call that runs it didn't check",
+    );
+    for label in &error.labels {
+        d = d.with_note(label.message.clone());
+    }
+    for note in error.notes {
+        d = d.with_note(note);
+    }
+    d.with_note(
+        "the call is built by `stitchwort run` (`Std.Fail.recover (m => Std.Option.Some m) …` for a `main` with `Fail`); something it names may be shadowed by the program",
+    )
 }
 
 impl Session {
@@ -146,6 +173,7 @@ impl Session {
         match self.main_call(index, "main") {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
+            Err(CallError::Prepare(span, d)) => Err(prepare_error("main", span, d)),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
                 "`main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, or `() -> {IO, Fail} ()`",
@@ -183,7 +211,8 @@ impl Session {
             .elab
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
-        for call in main_calls(name) {
+        let mut wrapper_error = None;
+        for (attempt, call) in main_calls(name).into_iter().enumerate() {
             let expr = self
                 .parse_internal("<main>", &call)
                 .map_err(CallError::Other)?;
@@ -198,7 +227,23 @@ impl Session {
                 Err(d) if d.code == "E-RESOURCE" || d.code == "E-UNFINISHED" => {
                     return Err(CallError::Other(d));
                 }
-                Err(_) => {}
+                Err(d) => {
+                    if attempt == 1 {
+                        wrapper_error = Some(d);
+                    }
+                }
+            }
+        }
+        // The type is runnable in shape when `name ()` checks in
+        // `{IO, Fail}` (what the wrapper needs, and nothing else from the
+        // library): then the wrapper's own error is the real one.
+        if let Some(error) = wrapper_error {
+            let probe = format!("((u => {name} ()) : () -> {{Std.IO, Std.Fail}} ())");
+            let expr = self
+                .parse_internal("<main>", &probe)
+                .map_err(CallError::Other)?;
+            if self.elab.infer_expr(&expr).is_ok() {
+                return Err(CallError::Prepare(span, error));
             }
         }
         Err(CallError::Type { span, ty })
@@ -238,13 +283,14 @@ impl Session {
         match self.main_call(id.0, name) {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
+            Err(CallError::Prepare(span, d)) => Err(prepare_error(name, span, d)),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-RUN-TYPE",
                 format!("`{name}` can't be run: it has type `{ty}`"),
             )
             .with_label(span, "defined here")
             .with_note(
-                "a function to run takes `()` and returns `()`, with abilities among IO and Partial: `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {Partial} ()` or `() -> ()`",
+                "a function to run takes `()` and returns `()`, with abilities among IO, Partial and Fail (not Partial with Fail): `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {Partial} ()`, `() -> {IO, Fail} ()` or `() -> ()`",
             )),
         }
     }
