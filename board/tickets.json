@@ -622,16 +622,18 @@
     {
       "id": 40,
       "title": "More tail calls as loops in generated JS",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "js"
       ],
       "body": "Only a function's calls to itself (including in either branch of a plain `if`) become loops today (self_tail_loop, crates/js/src/lib.rs:1430). A tail call inside `if h: P then a else b` is not recognised, because it is generated as `Decidable.elim … (v => a) (v => b)`; the same goes for helpers like `maybeThen`.\n\nRepro (release binary, 21 Oct): scratch file\n  def loopH (acc: Nat): Nat -> Nat\n    | 0      => acc\n    | Succ n => if h: n = 7 then acc else loopH (acc + 1) n\n  export def count (n: Nat): Nat := loopH 0 n\nbuilt with `stitchwort build --js`; `count(1000000n)` throws `StitchwortResourceError: count: ran out of resources (Maximum call stack size exceeded)`. (The `if h:` here is a Decidable elimination, so the case tree does not see a tail position.)\n\nFirst step: decide whether to treat `Decidable.elim` applications with lambda branches as an `if` in the tail analysis (crates/js/src/lib.rs:1617 `tail`) or to generate `if h:` as a conditional in the first place. Calls between different functions are SW-49.\n\nDone when: the repro above, with 10^7 in place of 10^6, runs; an examples/extract file covers `if h:` in tail position.\n",
       "created": "2026-10-19",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "7bd06f68"
+      ]
     },
     {
       "id": 41,
@@ -6548,7 +6550,7 @@
       "title": "Effect polymorphism stage 1: row-indexed computation type (design C), internal Row (D1122), apartness rule and defaulting (D1123); also settle = operands and if/match branches (D1133) and {Fail} b binders for Fail.toResultMapIn (D1134)",
       "status": "doing",
       "agent": "",
-      "where": "worktree lane: first part built (f111cbe4); merging main + small remaining items; D1140-D1142 with Matt",
+      "where": "first part merged (7f6db499); remaining: D1140 a + D1141 (external review), shared apartness classification, eta-expanded callbacks bypass row_rule",
       "labels": [
         "effects"
       ],
