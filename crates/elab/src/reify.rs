@@ -24,7 +24,7 @@
 //! thunk whose row is closed and lists its abilities.
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::force;
+use stitchwort_core::value::{force, quote, quote_folded};
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Clause, Expr, MatchKind, Pattern};
@@ -56,7 +56,47 @@ pub(crate) fn check_reify(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     proof_only(cx, written)?;
     let (term, ty, row) = computation(cx, thunk)?;
     let (alts, absurd) = alternatives(cx, clauses, &row, &ty, *span)?;
-    crate::matching::generalised_term(cx, term, ty, thunk.span(), &alts, &absurd, *span, goal)
+    let display = return_display(cx, clauses, thunk, &term, goal);
+    let saved = std::mem::replace(&mut cx.reify_display, display);
+    let result =
+        crate::matching::generalised_term(cx, term, ty, thunk.span(), &alts, &absurd, *span, goal);
+    cx.reify_display = saved;
+    result
+}
+
+/// How to show the goal of a `return` clause that is just `?`: the
+/// statement with the computation replaced by the clause's variable, not the
+/// goal as the split computes it (`goals::hole`). Display only.
+fn return_display(
+    cx: &Ctx,
+    clauses: &[Clause],
+    thunk: &Expr,
+    term: &Term,
+    goal: &Value,
+) -> Option<crate::check::ReifyDisplay> {
+    let (var, hole) = clauses.iter().find_map(|c| match c {
+        Clause::Return {
+            var,
+            body: Expr::Goal(span),
+        } => Some((var, *span)),
+        _ => None,
+    })?;
+    let base = cx.level();
+    let computation = quote(cx.g(), base, &cx.eval(term).ok()?).ok()?;
+    let folded = quote_folded(cx.g(), base, goal).ok()?;
+    let thunk = match thunk {
+        Expr::Var(name) => cx.lookup(&name.text),
+        _ => None,
+    };
+    Some(crate::check::ReifyDisplay {
+        hole,
+        folded,
+        base,
+        computation,
+        thunk,
+        result: var.text.clone(),
+        comp: builtin_data(cx, Builtin::Comp).ok()?,
+    })
 }
 
 /// `E-PROOF-ONLY`: `reify` only in a declaration whose result is erased
