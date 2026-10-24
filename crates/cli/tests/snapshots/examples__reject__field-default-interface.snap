@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FIELD-DEFAULT] Error: an interface's methods can't have default values
+   ╭─[ reject/field-default-interface.sw:7:3 ]
+   │
+ 7 │   name: Text := "thing"
+   │   ──┬─  
+   │     ╰─── an interface's methods can't have default values
+   │ 
+   │ Note: give every method in each instance
+───╯

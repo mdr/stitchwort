@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RECORD-FIELD] Error: this `Circle` is missing `radius`
+   ╭─[ reject/field-default-ctor-missing.sw:9:21 ]
+   │
+ 9 │ def shape: Shape := Circle { id = "a" }
+   │                     ─────────┬─────────  
+   │                              ╰─────────── every explicit field without a default value must be given
+   │ 
+   │ Note: `id` has a default value, so it may be left out
+───╯

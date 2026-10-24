@@ -299,6 +299,45 @@ def nameOf: Person -> Text
 - **After an arrow**, `{` starts an ability row, so a record literal in a function type's result needs parentheses: `(p: Person) -> ({ p | age = p.age } = p)`.
 - At the JS boundary a record is a plain object with its fields as keys, in declared order, and no `tag` (DESIGN.md §12); a one-field record with `@[js.unboxed]` is its field's value instead (Microtypes).
 
+### Field defaults
+
+A record's field, or a constructor's explicit field, may have a default value, written after `:=` (docs/proposals/named-arguments.md §5.1). A record literal or a named construction may then leave that field out.
+
+```
+type RangeOptions = {
+  start: Nat := 0,
+  stop: Nat,
+  step: Nat := 1
+}
+
+def small: RangeOptions := { stop = 10 }                   -- start = 0, step = 1
+def evens: RangeOptions := { stop = 10, step = 2 }
+
+type Sized = {
+  size: Nat := 8,
+  cells: Vec Bool size := Vec.replicate size False         -- uses the actual `size`
+}
+
+type Shape =
+  | Circle (radius: Nat) (id: Text := "anonymous")
+  | Square (side: Nat)
+
+Circle { radius = 1 }      -- a Shape: id is "anonymous"
+Circle 1 "a"               -- positional: every field, as before
+Circle (radius := 1)       -- named arguments: a function still waiting for `id`
+```
+
+- **What may be left out.** Only a field with a default; leaving out any other is `E-RECORD-FIELD`, with a note naming the fields that have defaults. `{}` is a literal of a record whose fields all have defaults, and `C {}` a construction. Positional application and named arguments ([Named arguments](#named-arguments)) still give every explicit field, so no existing call changes meaning. An update `{ r | a = 5 }` keeps the other fields' values (a default is how a value is built, not a computed property), and patterns are unchanged: without `..` they name every field.
+- **What a default may use**: the type's parameters, the fields before it (implicit ones too), and anything in scope at the declaration. A later field is `E-UNKNOWN-NAME`, with a note. It must be pure, and so finish: an operation is `E-ABILITY`, and calling something `Partial` is `E-PARTIAL`. So when a default is computed, and how often, can't be seen. A default may still be a function that performs operations when called (`onDone: Nat -> {IO} () := n => IO.print "done"`).
+- **Checked for any earlier values.** A default is checked once, at the declaration, for every value of the fields before it, since a literal may give them: `ok: size = 8 := rfl` after `size: Nat := 8` is `E-REFL`. A later field's type may mention a defaulted field, and the default computes there: `{ cells = Vec.replicate 8 False }` checks for `Sized`.
+- **Leaving a field out commits to its default.** Nothing is inferred from the other fields: with `size: Nat := 0`, `{ cells = threeCells }` is `E-TYPE-MISMATCH`, with a note that `size` is left out and is `0`.
+- **Run order.** In a computation, the fields given run once, in the order written, then the record is built, and the defaults use their results: with `type Twice = { x: Nat, twice: Nat := x + x }`, `{ x = readNat() }` reads once. In pure code, a given field that a default uses is bound by a `let` first (unless it's a variable or a literal), so it isn't computed twice.
+- **Identity.** Each default is a generated definition, `RangeOptions.step.default` (for a constructor's field, `Shape.Circle.id.default`), taking the parameters and earlier fields it needs. A literal that leaves a field out calls it, so `{ stop = 10 }` equals `{ start = 0, stop = 10, step = 1 }` (`rfl` proves it), but the two have different hashes. Defaults aren't part of the type's hash: changing one changes the hashes (and reruns the tests) of exactly the literals that leave that field out. A literal that gives every field is the same term, with the same hash, as before the type had defaults. These names can't be written in source.
+- **Where defaults can't go.** A function's parameter (`(step: Nat := 1)` in a `def` or a function type) is `E-PARSE`, with a note to use a record; an implicit constructor field can't have one; an interface's methods can't (`E-FIELD-DEFAULT`).
+- **A default that names a definition of its module** makes the type depend on it, so that definition can't mention the type (`E-MUTUAL-KIND`, as for any cycle between a data type and a definition).
+
+Examples: `examples/accept/field-defaults.sw`, `examples/reject/field-default-*.sw`. Design: [named-arguments.md](proposals/named-arguments.md) §5.1 and §5.2.
+
 ## Numbers in an `export`
 
 An exported `Nat` or `Int` crosses the JS boundary as a `bigint`. To take or return a plain JS `number`, use the library's `SafeNat` or `SafeInt` (`std/Int/Safe.sw`, SW-337) as the parameter or result type:

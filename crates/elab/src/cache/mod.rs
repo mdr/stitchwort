@@ -52,6 +52,7 @@ use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
+use crate::defaults::FieldDefault;
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InstanceParam, InterfaceInfo};
 use crate::library::{Needs, PendingKind};
@@ -65,7 +66,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 11;
+pub const FORMAT: u32 = 12;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -326,6 +327,7 @@ impl Elaborator {
     fn by_data(&self) -> Vec<Vec<DataId>> {
         vec![
             self.records.keys().copied().collect(),
+            self.field_defaults.keys().copied().collect(),
             self.interfaces.keys().copied().collect(),
             self.data_owners.keys().copied().collect(),
             self.no_eq.keys().copied().collect(),
@@ -1393,6 +1395,32 @@ impl Elaborator {
                 }
             }
         }
+        // Fields' defaults (docs/proposals/named-arguments.md §5.2): for
+        // each constructor and field, its helper and what the helper takes.
+        let mut defaults: Vec<(&DataId, &Vec<Vec<Option<FieldDefault>>>)> = self
+            .field_defaults
+            .iter()
+            .filter(|(d, _)| new_data(d))
+            .collect();
+        defaults.sort_by_key(|(d, _)| d.0);
+        e.w.usize(defaults.len());
+        for (d, ctors) in defaults {
+            e.data(*d);
+            e.w.usize(ctors.len());
+            for fields in ctors {
+                e.w.usize(fields.len());
+                for field in fields {
+                    e.w.bool(field.is_some());
+                    if let Some(field) = field {
+                        e.def(field.helper);
+                        e.w.usize(field.captures.len());
+                        for &l in &field.captures {
+                            e.w.usize(l);
+                        }
+                    }
+                }
+            }
+        }
         // `js_repr`: how the unit's attributed data types cross the JS
         // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
         // only this table carries it; it travels with the type's unit.
@@ -1818,6 +1846,7 @@ struct Tables {
     early: Vec<GlobalEntry>,
     members: Vec<String>,
     records: Vec<(DataId, RecordInfo)>,
+    field_defaults: Vec<(DataId, Vec<Vec<Option<FieldDefault>>>)>,
     /// How attributed data types cross the JS boundary.
     js_repr: Vec<(DataId, JsRepr)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
@@ -2666,6 +2695,7 @@ impl Elaborator {
             self.scope.mark_member(&key);
         }
         self.records.extend(t.records);
+        self.field_defaults.extend(t.field_defaults);
         for (d, repr) in t.js_repr {
             self.globals.datas[d.0].js = Some(Rc::new(repr));
         }
@@ -2752,6 +2782,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         early: Vec::new(),
         members: Vec::new(),
         records: Vec::new(),
+        field_defaults: Vec::new(),
         js_repr: Vec::new(),
         interfaces: Vec::new(),
         instances: Vec::new(),
@@ -2788,6 +2819,28 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
             projections.push(if b.r.bool()? { Some(b.def()?) } else { None });
         }
         t.records.push((d, RecordInfo { projections }));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let d = b.data()?;
+        let k = b.count()?;
+        let mut ctors = Vec::with_capacity(k);
+        for _ in 0..k {
+            let m = b.count()?;
+            let mut fields = Vec::with_capacity(m);
+            for _ in 0..m {
+                fields.push(if b.r.bool()? {
+                    let helper = b.def()?;
+                    let c = b.count()?;
+                    let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
+                    Some(FieldDefault { helper, captures })
+                } else {
+                    None
+                });
+            }
+            ctors.push(fields);
+        }
+        t.field_defaults.push((d, ctors));
     }
     let n = b.count()?;
     for _ in 0..n {

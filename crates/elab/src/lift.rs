@@ -308,7 +308,7 @@ fn go_replace(
 /// gives for that metavariable: `(s, used)`, where `s` is how many
 /// arguments stand for variables in scope and `used` those the draft
 /// captures (§2.1 rule 3).
-fn uses(
+pub(crate) fn uses(
     term: &Term,
     depth: usize,
     calls: &dyn Fn(usize) -> Option<(usize, BTreeSet<usize>)>,

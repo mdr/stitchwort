@@ -745,6 +745,11 @@ pub struct CtorDecl {
     pub fields: Vec<Binder>,
     /// For each binder of `fields`, whether it's implicit, `[n: T]`.
     pub implicit: Vec<bool>,
+    /// For each binder of `fields`, its default value, `(id: Text :=
+    /// "anonymous")`, or in a record `step: Nat := 1`
+    /// (docs/proposals/named-arguments.md §5.1). Empty when no field has
+    /// one; only explicit fields can.
+    pub defaults: Vec<Option<Expr>>,
     /// The result type, `: Vec a (Succ n)`, if written
     /// (docs/proposals/indexed-families.md §7.1).
     pub result: Option<Expr>,

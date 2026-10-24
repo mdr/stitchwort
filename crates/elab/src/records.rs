@@ -442,18 +442,19 @@ impl Elaborator {
 /// explicit field is given once; implicit fields are left to unification,
 /// as in a positional application. `expected`, where known, only adds a
 /// note when the names are those of the record a one-field constructor
-/// holds.
+/// holds. Fields with defaults may be left out
+/// (docs/proposals/named-arguments.md §5.1).
 pub(crate) fn ctor_fields(
     cx: &mut Ctx,
     written: &ast::Name,
     fields: &[(ast::Name, Expr)],
     span: Span,
     expected: Option<&Value>,
-) -> Result<Expr> {
+) -> Result<Construction> {
     let (d, c) = match cx.e.ctor_named(&written.text, written.span) {
         Ok(found) => found,
         Err(e) if e.code == "E-NOT-A-CONSTRUCTOR" => {
-            return not_a_ctor(cx, written, fields, span, e);
+            return not_a_ctor(cx, written, fields, span, e).map(Construction::Positional);
         }
         Err(e) => return Err(e),
     };
@@ -481,18 +482,36 @@ pub(crate) fn ctor_fields(
         }
         seen.push(name);
     }
+    let left_out = |i: &usize| !fields.iter().any(|(n, _)| *n.text == *ctor.fields[*i].0);
     let missing: Vec<String> = explicit
         .iter()
-        .map(|&i| &ctor.fields[i].0)
-        .filter(|f| !fields.iter().any(|(n, _)| *n.text == ***f))
-        .map(|f| format!("`{f}`"))
+        .filter(|i| left_out(i) && cx.e.field_default(d, c, **i).is_none())
+        .map(|&i| format!("`{}`", ctor.fields[i].0))
         .collect();
     if !missing.is_empty() {
-        return Err(Diagnostic::error(
+        let defaulted = cx.e.defaulted_fields(d, c);
+        let mut error = Diagnostic::error(
             "E-RECORD-FIELD",
             format!("this `{}` is missing {}", ctor.name, missing.join(", ")),
         )
-        .with_label(span, "every explicit field must be given"));
+        .with_label(
+            span,
+            if defaulted.is_empty() {
+                "every explicit field must be given"
+            } else {
+                "every explicit field without a default value must be given"
+            },
+        );
+        if let Some(note) = crate::defaults::defaulted_note(&defaulted) {
+            error = error.with_note(note);
+        }
+        return Err(error);
+    }
+    if explicit.iter().any(left_out) {
+        fields
+            .iter()
+            .for_each(|(n, _)| cx.e.note_ctor_field(written.span, n));
+        return Ok(Construction::Defaults(d, c));
     }
     let mut positional = Expr::Var(written.clone());
     for &i in &explicit {
@@ -507,7 +526,16 @@ pub(crate) fn ctor_fields(
     fields
         .iter()
         .for_each(|(n, _)| cx.e.note_ctor_field(written.span, n));
-    Ok(positional)
+    Ok(Construction::Positional(positional))
+}
+
+/// What a named construction `C { f = e, … }` is elaborated as.
+pub(crate) enum Construction {
+    /// The positional application, every explicit field given.
+    Positional(Expr),
+    /// Constructor `c` of `d`, leaving out fields that have defaults
+    /// (`defaults::ctor_with_defaults`).
+    Defaults(DataId, usize),
 }
 
 /// `T { … }` where `T` isn't a constructor. A type or a function keeps the
@@ -841,19 +869,41 @@ fn literal(
         .fields
         .iter()
         .enumerate()
-        .filter(|(i, (f, _))| !supers.contains(i) && !fields.iter().any(|(n, _)| *n.text == **f))
+        .filter(|(i, (f, _))| {
+            !supers.contains(i)
+                && cx.e.field_default(d, 0, *i).is_none()
+                && !fields.iter().any(|(n, _)| *n.text == **f)
+        })
         .map(|(_, (f, _))| format!("`{f}`"))
         .collect();
     if !missing.is_empty() {
-        return Err(cx.error(
+        let defaulted = cx.e.defaulted_fields(d, 0);
+        let mut error = cx.error(
             "E-RECORD-FIELD",
             format!(
                 "this `{}` is missing {}",
                 g.data(d).name,
                 missing.join(", ")
             ),
-            "every field must be given",
-        ));
+            if defaulted.is_empty() {
+                "every field must be given"
+            } else {
+                "every field without a default value must be given"
+            },
+        );
+        if let Some(note) = crate::defaults::defaulted_note(&defaulted) {
+            error = error.with_note(note);
+        }
+        return Err(error);
+    }
+    if cx.e.field_defaults.contains_key(&d) {
+        // Fields left out are their defaults (docs/proposals/named-arguments.md
+        // §5.1); a record with defaults isn't an interface, so none is a
+        // superclass.
+        let mut none = |_: &mut Ctx, _: usize, _: &Value| -> Result<Term> {
+            unreachable!("every field without a default is given")
+        };
+        return Ok(crate::defaults::construct(cx, d, 0, params, fields, &mut none)?.0);
     }
     let mut env = params.to_vec();
     let mut terms = Vec::new();

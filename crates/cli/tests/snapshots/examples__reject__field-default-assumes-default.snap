@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/field-default-assumes-default.sw:8:19 ]
+   │
+ 8 │   ok: size = 8 := rfl
+   │                   ─┬─  
+   │                    ╰─── `size` and `8` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: a field's default must work for any values of the earlier fields (`size`), since a value may give them and leave this one out
+───╯

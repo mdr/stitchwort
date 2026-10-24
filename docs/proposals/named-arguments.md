@@ -1,6 +1,7 @@
 # Named and default arguments
 
-Status: decided, not yet built (SW-390). Revised after external review
+Status: decided; stage 1 (named arguments, SW-399) and stage 2 (field
+defaults, SW-401) built, see "As built (stage 2)". Revised after external review
 (24 Oct 2026). All decisions in §8 were taken as recommended (Matt, 24 Oct
 2026).
 
@@ -27,6 +28,88 @@ precise elaboration specification first. What changed, by review point:
 | §8 Default metadata | New §5.2 text: defaults are metadata of the declaration, kept by declaration, not by type hash. Two versions of one type can't meet in one environment (evidence in §5.2), so no conflict policy is needed. Elaborated terms name helpers directly; check-cache keys already cover defaults; JS output depends on them; the compatibility promise is narrowed. |
 | §9 JS absence | New §5.3 text: an absent property means "use the default", a present `undefined` means `None`. Defaulted `Option` fields are always present in output (new D1114). Functions can't cross the boundary today, so stage 2b only has "parameter" and "result" directions. |
 | Prior art, acceptance | Lean's structure-field defaults added to §3. §7 replaces the broad acceptance statements with ten invariants. |
+
+## As built (stage 2)
+
+Field defaults (§5.1, §5.2) are built as specified, with these build
+details (SW-401). The kernel is unchanged: defaults are elaborator sugar.
+
+1. **Syntax.** `field: T := v` in a record, `(field: T := v)` among a
+   constructor's explicit fields (`ast::CtorDecl::defaults`, one entry per
+   binder). `(a b: T := v)` gives each field its own default, the same
+   expression. An implicit field can't have one (`[n: Nat := 0]` is
+   `E-PARSE`, "expected `]`"). A default anywhere else is `E-PARSE`: in a
+   `def` header, "a parameter can't have a default value", with a note to
+   use a record; in a function type or a data type's parameter, "only a
+   field can have a default value". The formatter needed no change
+   (`crates/fmt/tests/golden/field-defaults.*`).
+2. **Helpers** (`crates/elab/src/defaults.rs`). After a data type is
+   admitted and its instances are derived, each default is elaborated in
+   the empty row, in a context of the type's parameters and the fields
+   before it (implicit ones included, so an indexed family's constructor
+   works too), against the field's type, then lifted to a definition
+   `RangeOptions.step.default`, or for a constructor's field
+   `Shape.Circle.id.default`. Rule 5's closure is computed directly on the
+   elaborated value and its type (the variables they mention, closed under
+   the variables their types mention, in context order), with `lift.rs`'s
+   variable collector and substitution. The general draft machinery of
+   `lift.rs` isn't used: its frozen metavariables and refinements exist for
+   helpers inside a body, while a default's context is only binders. A
+   `match` inside a default is lifted by the ordinary machinery, under the
+   helper. The type's parameters are implicit parameters of the helper and
+   its fields explicit ones.
+3. **Metadata.** For each constructor and field, the helper and the
+   context levels it takes (`defaults::FieldDefault`), in
+   `Elaborator::field_defaults`, keyed by `DataId`: by declaration, never
+   by hash (§5.2). The check cache stores the table with the type's unit;
+   the format is now 12.
+4. **Not in the name table or the library index.** A name with two dots
+   can't be written in source (`R.start.default` is dot notation on the
+   projection), so the helpers are reached only through the metadata, and
+   the library index, which maps names to files, needn't list them. They
+   live in the type's file and load with it, as §5.2 asks.
+5. **Literals.** `records::literal` and named construction
+   (`records::ctor_fields`) leave the path they had when every field is
+   given, so those terms and hashes don't move (tested). A literal or
+   construction that leaves a defaulted field out goes through
+   `defaults::construct`: fields are checked in declaration order, a field
+   left out becomes the helper applied to the parameters and to the terms
+   of the earlier fields it takes, and a written field a later default
+   takes is bound by a transparent `let` unless it's a variable, a
+   definition's name, a number, text or a constructor without fields
+   (rule 1). A named
+   construction that leaves fields out takes the type's parameters from
+   the expected type, or makes unknowns for them, and makes unknowns for
+   implicit fields, as a positional application does.
+6. **Dependencies.** A default's free names are part of its data type's
+   references (`module::decl_refs`), so a definition it names is checked
+   first, and a definition that both a default names and mentions the type
+   is a data/definition cycle, `E-MUTUAL-KIND`.
+7. **Errors.** Missing fields: `E-RECORD-FIELD`, noting which fields have
+   defaults. Rule 3: `E-TYPE-MISMATCH` with "`size` is left out, so it is
+   its default value, `0`". Rule 2: the default's own error (`E-REFL`,
+   `E-TYPE-MISMATCH`) with a note that it must work for any values of the
+   earlier fields. An operation or a `Partial` call in a default:
+   `E-ABILITY` or `E-PARTIAL`, the usual note (add it to the function's
+   type) replaced by one saying a default can't perform operations. A
+   later field: `E-UNKNOWN-NAME` with a note. A default on an interface's
+   method: `E-FIELD-DEFAULT` (new), since every instance gives every
+   method; default methods would be a separate design.
+8. **Not done here.** The JS boundary (§5.3, stage 2b, SW-402): today an
+   exported function taking a record with defaults still needs every field
+   from JS, and generated code calls the helpers as ordinary definitions.
+   The metadata in item 3 is what 2b's decoder and `.d.ts` input shapes
+   need. Signature defaults (§5.4) aren't built.
+
+Tests: `examples/accept/field-defaults.sw`,
+`examples/reject/field-default-*.sw` (eight), and in
+`crates/driver/tests/named_arguments.rs`:
+`changing_a_default_changes_only_the_literals_that_use_it` (invariant 9),
+`literals_giving_every_field_keep_their_hashes` and
+`a_default_uses_a_written_field_through_a_let` (rule 1). Invariants 7 and
+8 are the accept example's "a given field runs once" and the reject
+examples `field-default-assumes-default.sw` and
+`field-default-left-out-commits.sw`.
 
 ## 0. Summary
 

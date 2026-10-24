@@ -445,6 +445,14 @@ impl Parser<'_> {
         }
         self.bump();
         let ty = self.expr()?;
+        if self.peek() == Some(&Tok::ColonEq) {
+            return Err(
+                error(self.here(), "a parameter can't have a default value").with_note(
+                    "only a record's or a constructor's fields can: take the options as a \
+                     record, `{ step: Nat := 1, … }`, and leave out fields when calling",
+                ),
+            );
+        }
         if self.peek() != Some(&closing) {
             return Err(self.unexpected(&format!("`{close}` to close the parameter `{written}`")));
         }
