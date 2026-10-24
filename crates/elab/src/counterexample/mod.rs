@@ -56,10 +56,11 @@ pub const ON_FAILURE: Budget = Budget {
     millis: TIME_LIMIT_MS,
 };
 
-/// The search `check --counterexamples` runs on each theorem (§6.3).
+/// The search `check --counterexamples` runs on each theorem by default
+/// (§6.3; `--counterexample-budget` changes the time).
 pub const ON_REQUEST: Budget = Budget {
     inputs: 10_000,
-    millis: 2_000,
+    millis: 500,
 };
 
 /// The most inputs a search on a failing proof tries (§6.3).

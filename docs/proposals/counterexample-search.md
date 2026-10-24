@@ -749,7 +749,7 @@ printed by `crates/cli/src/main.rs`.
 
 **Two phases (§5.1, §6.3).** A search has a `Budget`: on a failing proof (`ON_FAILURE`) 2,000
 inputs and 200 ms, as in stage 1; for `check --counterexamples` (`ON_REQUEST`) 10,000 inputs
-and 2 s per theorem. Half the inputs are enumerated as in stage 1, in at most two fifths of the
+and 500 ms per theorem, or the time `--counterexample-budget` gives. Half the inputs are enumerated as in stage 1, in at most two fifths of the
 time; the rest are random, until four fifths of the time; shrinking has what's left. Random
 inputs are skipped when the enumeration made every input there is (only finitely many, and no
 `Char` or `Float` in them, whose random values go past what's enumerated), when the statement
@@ -812,8 +812,10 @@ proofs erased if that doesn't give data, as in stage 1.
 **`stitchwort check --counterexamples` (§7.3, §9.3, D1159).** After checking, it searches every
 theorem of the files given, or of the namespaces given and those under them (all of the
 project's if none), whose proof checked or failed (not the library's, nor the compiler's own
-`%` ones), with `ON_REQUEST`, and prints a line for each, in declaration order, then a count
-of each verdict on standard error (lines from two examples, put together):
+`%` ones), with `ON_REQUEST` (10,000 inputs and 500 ms each; `--counterexample-budget 2s`
+gives each more time, `500ms` or `1.5s` style), and prints a line for each theorem found false,
+in declaration order, then a count of each verdict on standard error. With `--verbose` it
+prints a line for every theorem searched (lines from two examples, put together):
 
 ```
   ✗ rangeEmpty    counterexample: r = { lo = 0, hi = 1, ok = rfl }
@@ -823,14 +825,21 @@ of each verdict on standard error (lines from two examples, put together):
 searched 4 theorems for counterexamples: 1 false, 1 with none found, 1 gave up, 0 inconclusive, 1 not applicable
 ```
 
+Without `--verbose`, only the first line and the count.
+
 "Gave up" is fewer than one input in ten getting past the hypotheses; "inconclusive" is more
 than half running out of steps (or none tried); a "not applicable" reason is cut to 200
 characters. "Every input" replaces the sizes when the enumeration covered them all. A
 counterexample to a theorem whose proof checked is followed by the whole note and "this
 theorem checked, so an axiom it uses, the compiler or the search is wrong; please report
-it". Any counterexample makes the command fail. On `aoc/` (every theorem checks): 405
-theorems, 0 false, 143 none found, 41 gave up, 0 inconclusive, 221 not applicable, in about
-160 s (89 of the 143 stopped by the 2 s limit rather than the 10,000 inputs).
+it". Any counterexample makes the command fail. On `aoc/` (every theorem checks), with the
+default 500 ms: 405 theorems, 0 false, 144 or 145 none found, 40 or 39 gave up, 0
+inconclusive, 221 not applicable, in 52 to 59 s (two runs, the machine shared with other
+work), against about 160 s with 2 s each (143 none found, 41 gave up). With 500 ms, 50 of
+the 145 searches reached the 10,000 inputs and the rest stopped at the time limit; since a
+search stopped by time tries a number of inputs that depends on the machine, a theorem whose
+hypotheses hold for about one input in ten can come out "gave up" on one run and "none found"
+on another.
 
 **Differences from the note.**
 
@@ -842,6 +851,9 @@ theorems, 0 false, 143 none found, 41 gave up, 0 inconclusive, 221 not applicabl
 - *`Vec` up to length 64*, and found by name (above).
 - *The LSP* still runs the search inside the namespace's check (stage 1's difference); stage 2
   doesn't move it to the background or add a per-file cap.
+- *`check --counterexamples`* takes 500 ms per theorem by default, not §6.3's 2 s (which took
+  about 160 s on `aoc/`), with `--counterexample-budget` to change it; and it prints only the
+  theorems found false unless `--verbose`, rather than §9.3's line for every theorem.
 
 **Acceptance (§10, stage 2).** Examples with snapshots, and their logs checked in
 `crates/driver/tests/counterexamples.rs`:
