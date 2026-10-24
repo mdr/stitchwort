@@ -6577,9 +6577,9 @@
     {
       "id": 410,
       "title": "Crash: Eq.cong (Call o) p panics in the pretty-printer (pretty.rs:229 index out of bounds); reproduces on main without stage 0",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Sonnet)",
       "labels": [
         "bug"
       ],
