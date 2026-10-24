@@ -6435,9 +6435,9 @@
     {
       "id": 400,
       "title": "Named arguments stage 1b: formatter, LSP completion and hover for parameter names; examples and docs",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Sonnet)",
       "labels": [
         "lang"
       ],
@@ -6449,9 +6449,9 @@
     {
       "id": 401,
       "title": "Field defaults stage 2: field: T := v on records and constructors (named-arguments.md §5)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "lang"
       ],
