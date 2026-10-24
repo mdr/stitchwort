@@ -774,6 +774,82 @@ counted for (A)).
   on main, 5.16 s with this stage (+4.2%, inside the +5% bar). The cost is the search for
   sites, which runs only for rules with unknowns of their own.
 
+#### As built (stage 1b, 24 October 2026, SW-374, D1168 (b))
+
+- **Lemmas that give facts.** For a call `F …` with an occurrence inside a function passed to
+  it, `rewrite` now tries `FCongRange`, then `FCongMem`, then `FCong` (all beside `F`,
+  `crates/elab/src/congruence.rs`, `candidates`), each validated once per check: its result
+  must be `F t… = F u…` with the two sides differing only at function arguments, each with a
+  premise `(x…) -> facts… -> f1 x… = f2 x…`, where the facts mention no copy and every other
+  parameter is fixed by the left side. A lemma is used when its left side *unifies* with the
+  call (under the rewrite budget), so `List.foldLeftCongRange` is used only where the list is
+  `List.rangeFrom c s`, and `FCongMem` wherever there is a list. The facts are in scope as
+  hypotheses while the function's body is rewritten, named as in the lemma (`low`, `high`,
+  `m`; `factN` if unnamed); the proof built is `L args… (x… facts… => proof)`.
+- **Naming convention.** `FCong` (no facts), `FCongMem` (`List.Mem x xs`), `FCongRange`
+  (`s <= x`, `x < s + c`). Other names that start `FCong` are free for lemmas `rewrite`
+  doesn't use (`List.sumByCongAll`, `Map.Raw.filterCongEquiv`). Renamed, with no aliases:
+  `List.sumRangeCongr` → `List.sumByCongRange`, `List.sumByCongrAll` → `List.sumByCongAll`,
+  `List.leHeadCongr` → `List.leHeadCong`, `List.sortedCongr` → `List.sortedCong`,
+  `Map.Spec.foldLeftCongr` → `Map.Spec.foldLeftCong` (parameters reordered to the
+  convention), `Map.Raw.filterCongr` → `Map.Raw.filterCongEquiv` (it proves `Equiv`, not
+  `=`), and in AoC `countPositionsCongr` → `countPositionsCong`, `circuitSizesCong` →
+  `circuitSizesCongRange`. New: `List.foldLeftCongMem`, and `CongRange` lemmas for
+  `List.foldLeft`, `map`, `filter`, `any` and `occurrences` (`std/List/Toolkit.sw`; `sumBy`
+  computes to `foldLeft`, so the `foldLeft` one serves it); `Nat.keepIfOne`.
+  `docs/proposals/` notes from before keep the old names, as history.
+- **Premises.** Explicit arguments left off the end of a rule are unknowns, as if written `_`
+  (`rewrite h` for `rewrite h _ _`); what is left must then be an equation (`E-REWRITE-RULE`
+  otherwise, saying so). A premise still unknown once the rule has matched, either one left
+  off or a `_` where a proof goes, is proved in order by: unification with the rest of the
+  rule (a `_` filled by matching); a hypothesis in scope of exactly its type, latest first
+  (the facts among them); `omega` (`omega::prove_premise`: an equation whose sides compute
+  to the same value, or an arithmetic shape). An `[auto]` argument waits until the match
+  has fixed what it is about (`rewrite Nat.modSmall`: `d != 0` once `d` is known). A
+  program's `rewrite` loads `omega`'s library (a marker reference, `REWRITE_MARKER` in
+  `module.rs`); a standard-library file doesn't, as that library is built on files that use
+  `rewrite`.
+- **Inside functions a rule is conditional.** Where a premise can't be proved inside one
+  function, the rule isn't used there (the occurrence stays, as §6.3 has it for conditional
+  rules), and a later rule of the same `rewrite` may do it. Only when the rule then rewrites
+  nothing is it `E-REWRITE-PREMISE`: "`rewrite` can't prove the rule's premise `x <= n`",
+  with notes on what was tried, the facts the congruence lemma gives there (`m: List.Mem x
+  xs`), that matching didn't fix the premise (when so), and to give the proof in the
+  argument's place. Outside functions a premise nothing proves is the same error at once.
+- **Limits.** A rule whose left side computes (`repeatedSpecIds r _ _ 2`, where the unfolded
+  left side has `k * 2`) needs that argument given, as before. Two steps stay explicit
+  because the automatic one runs out of budget (`E-REWRITE-BUDGET`): Day 8's
+  `circuitSizesCongRange … sameCircuit` (`rewrite tellersAgree`) and Day 9 Part 2's
+  `List.filterCongMem … programTest`.
+- **Tests.** Unit tests in `rewrite/under.rs` (a fact-giving lemma validated and its fact
+  proving a premise, also in a `_`; a lemma with a parameter its left side doesn't fix
+  refused; an unproved premise; trailing arguments; a premise proved by computing);
+  `examples/accept/rewrite-premises.sw`, `examples/reject/rewrite-premise-unproved.sw`;
+  `examples/reject/rewrite-rule-not-equation.sw` now uses a rule that isn't an equation
+  whatever its arguments.
+- **AoC.** Non-blank, non-comment lines, and `Cong` mentions in code:
+
+  | file | lines | `Cong` mentions |
+  |---|---|---|
+  | Day02/Proofs/Part1.sw | 33 → 30 | 2 → 0 |
+  | Day02/Proofs/Part2.sw | 291 → 272 | 6 → 0 |
+  | Day02/Proofs/Templates.sw | 154 → 145 | 2 → 0 |
+  | Day04/Proofs/Rounds.sw | 103 → 103 | 1 → 1 |
+  | Day07/Proofs/Part1.sw | 257 → 242 | 6 → 0 |
+  | Day07/Proofs/Distinct.sw | 32 → 32 | 0 → 0 |
+  | Day08/Proofs/Part1.sw | 91 → 75 | 7 → 2 |
+  | Day08/Proofs/Part2.sw | 280 → 272 | 4 → 0 |
+  | Day09/Proofs/Compress.sw | 156 → 154 | 2 → 0 |
+  | Day09/Proofs/Part2.sw | 32 → 32 | 1 → 1 |
+  | total | 1429 → 1357 (−72) | 31 → 4 |
+
+  The four left: two definitions (`countPositionsCong`, `circuitSizesCongRange`, which
+  `rewrite` uses) and the two budget cases above. `Distinct.sw` had none left (D1167).
+- **Check time.** `stitchwort check --no-cache` in `aoc/`, ten runs each, alternating with
+  main's binary on main's `aoc/`: median 5.00 s on main, 5.15 s here (+3%). With stage 1's
+  +4.2%, the two stages together are about +7% over the pre-stage-1 time, over the +5% bar
+  (the branch also checks the converted proofs, so not all of it is the compiler).
+
 ### 6.2 Stage 2: `ring`
 
 **Surface** (all proof terms, like `omega`):
