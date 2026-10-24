@@ -1,5 +1,5 @@
 {
-  "next": 403,
+  "next": 404,
   "tickets": [
     {
       "id": 1,
@@ -5920,8 +5920,8 @@
     },
     {
       "id": 369,
-      "title": "Effect-polymorphic library functions (D1110): deep review of literature and designs in progress; target one function per operation that proves well and is as fast as pure map at the empty row",
-      "status": "doing",
+      "title": "Effect-polymorphic library functions: design note docs/proposals/effect-polymorphism.md (row-indexed computation type, empty-row specialisation); D1116-D1121 await Matt",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree lane: docs/proposals/effect-polymorphism.md",
       "labels": [
@@ -5932,7 +5932,8 @@
       "updated": "2026-10-24",
       "commits": [
         "31113f28",
-        "f179d6bf"
+        "f179d6bf",
+        "a10fbac9"
       ]
     },
     {
@@ -6461,6 +6462,20 @@
       "where": "",
       "labels": [
         "lang"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 403,
+      "title": "Hint for an unknown Done suggests 'import Effect.Comp (Done)', which fails; the working form is 'import Std.Effect.Comp (Done)'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
       ],
       "body": "",
       "created": "2026-10-24",
