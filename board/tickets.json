@@ -6266,17 +6266,19 @@
     },
     {
       "id": 390,
-      "title": "Research: named and default arguments — note docs/proposals/named-arguments.md merged; D1092-D1101 await Matt",
+      "title": "Research: named and default arguments — note revised after external review (46974cbb); D1092-D1101, D1112-D1115 await Matt",
       "status": "review",
       "agent": "Opus",
-      "where": "worktree lane (design note)",
+      "where": "worktree lane: revision after external review",
       "labels": [
         "lang"
       ],
       "body": "Matt, 23 Oct: investigate how we might have or simulate named and default arguments. Note first, decisions from D1092, stops for review. Related: named construction (SW-387, D605), named implicits [x := …], records as options.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
-      "commits": []
+      "updated": "2026-10-24",
+      "commits": [
+        "46974cbb"
+      ]
     },
     {
       "id": 391,
