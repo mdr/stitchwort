@@ -307,4 +307,4 @@ also covers `(..)` written twice for the same namespace.
 
 ## Not yet
 
-Adding definitions to another namespace waits for its own design, and interfaces are planned but not designed yet.
+Adding definitions to another namespace waits for its own design, and interface features beyond the current design (see [syntax.md](syntax.md#interfaces)) are not designed yet.

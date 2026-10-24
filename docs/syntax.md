@@ -763,7 +763,7 @@ call gives it as `[decreasing := proof]`.
 
 ```
 def digitsOnto (n: Nat) (acc: List Nat): List Nat
-  decreasing n
+    decreasing n
 :=
   if big: Nat.leq n 9 = False
   then digitsOnto (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
@@ -771,7 +771,7 @@ def digitsOnto (n: Nat) (acc: List Nat): List Nat
 
 -- The guard style: the `if` puts the proof in scope, and `auto` finds it.
 def halvings (n: Nat) (count: Nat): Nat
-  decreasing n
+    decreasing n
 :=
   let next := n / 2
   if h: next < n then halvings next (count + 1) else count
@@ -779,7 +779,7 @@ def halvings (n: Nat) (count: Nat): Nat
 -- A theorem recursing on the same measure; `evens.unfold n` is `evens n`'s
 -- own equation.
 theorem evensShort (n: Nat): List.length (evens n) <= n
-  decreasing n
+    decreasing n
 :=
   rewrite evens.unfold n in
   match n with …
@@ -1309,7 +1309,8 @@ acc (k, v) => acc + v
 
 `let p := e` followed by the rest of the block means `match e with | p => rest`, and a lambda's pattern parameters are matched against its arguments in the same way. `let x := e` and `let (x) := e` are the ordinary `let`.
 
-A pattern made only of tuples, records, variables and `_` is instead projections, outside a proof: `let (a, b) := e` is `let a := e.fst` and `let b := e.snd`, with `e` computed once (in a hidden `let`, unless it's a variable). So a function using one computes even when `e` is unknown: after `def sw (p: (A, B)): (B, A) := let (a, b) := p; (b, a)`, `sw p` is `(p.snd, p.fst)` by `rfl`. Where the expected type is a proposition (a proof), it stays the `match`, which splits `e` into a pair and so refines the goal ([proposals/let.md](proposals/let.md) §7, §A.7).
+A pattern made only of tuples, records, variables and `_` is instead projections, outside a proof: `let (a, b) := e` is `let a := e.fst` and `let b := e.snd`, with `e` computed once (in a hidden `let`, unless it's a variable). So a function using one computes even when `e` is unknown: after `def sw (p: (A, B)): (B, A) := { let (a, b) := p
+  (b, a) }`, `sw p` is `(p.snd, p.fst)` by `rfl`. Where the expected type is a proposition (a proof), it stays the `match`, which splits `e` into a pair and so refines the goal ([proposals/let.md](proposals/let.md) §7, §A.7).
 
 A thunk `() => e` doesn't match at all: its parameter is a `()`, and the lambda is the plain `_ => e` (with the parameter's type `()`), so the same thunk written twice is the same term, and a law about `() => xs.mapIn f` in a theorem's statement applies to `() => xs.mapIn f` written in its proof (`examples/accept/reify-thunk-in-proof.sw`). Only where the type after it mentions the parameter (`(u: ()) -> P u`) is it matched, so that the goal becomes `P ()`.
 
