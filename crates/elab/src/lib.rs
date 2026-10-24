@@ -906,8 +906,8 @@ impl Elaborator {
     /// Proves outstanding auto arguments, then substitutes metavariable
     /// solutions into `term`, failing if any are unsolved.
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
-        self.solve_obligations()?;
-        self.settle_rows()?;
+        let stuck = self.solve_obligations_until_stuck()?;
+        self.settle_rows(stuck)?;
         self.zonk(term, level)
     }
 
