@@ -1,5 +1,5 @@
 {
-  "next": 424,
+  "next": 425,
   "tickets": [
     {
       "id": 1,
@@ -6794,6 +6794,22 @@
     {
       "id": 422,
       "title": "A thunk () => e written inside a proof term becomes its own hidden helper, so applying Fail.toResultThen to it doesn't match the same thunk in the statement (kernel: two different (match …)); compile () => e as a plain lambda so the reify laws can be used by rewriting (found in SW-419)",
+      "status": "done",
+      "agent": "",
+      "where": "-",
+      "labels": [
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": [
+        "102ba42c"
+      ]
+    },
+    {
+      "id": 423,
+      "title": "reify return-clause goals print with the handler unfolded (Effect.foldComp (x => Ok x) …); fold them back for display (SW-419 finding)",
       "status": "next",
       "agent": "",
       "where": "",
@@ -6806,9 +6822,9 @@
       "commits": []
     },
     {
-      "id": 423,
-      "title": "reify return-clause goals print with the handler unfolded (Effect.foldComp (x => Ok x) …); fold them back for display (SW-419 finding)",
-      "status": "next",
+      "id": 424,
+      "title": "Row inference: delay translating a closed computation into a still-open row until the row is settled (no translate if it defaults to empty), so reify laws rewrite inside open-row thunks and Fail.toResultMapIn gets the short proof; design note first (SW-422 finding; Each.sw:105-112 must keep working)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
