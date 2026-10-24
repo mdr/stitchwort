@@ -1,5 +1,5 @@
 {
-  "next": 404,
+  "next": 405,
   "tickets": [
     {
       "id": 1,
@@ -6415,8 +6415,8 @@
     },
     {
       "id": 399,
-      "title": "Named arguments stage 1: (x := e), any-order [x := e], slot filling, skipped-parameter lambdas, E-EFFECT-ORDER (named-arguments.md §4, §7)",
-      "status": "doing",
+      "title": "Named arguments stage 1: (x := e), any-order [x := e], slot filling, skipped-parameter lambdas, E-EFFECT-ORDER — merged; 2985-argument differential test keeps every hash",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree lane",
       "labels": [
@@ -6425,7 +6425,9 @@
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "732ed81b"
+      ]
     },
     {
       "id": 400,
@@ -6477,6 +6479,20 @@
       "where": "",
       "labels": [
         "errors"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 404,
+      "title": "Named arguments: leftovers from stage 1 — positional E-EFFECT-ORDER message for the sized case (spec §4.5); stages after a skipped parameter; names after a dependent codomain may not be found",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lang"
       ],
       "body": "",
       "created": "2026-10-24",
