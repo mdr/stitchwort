@@ -6438,16 +6438,18 @@
     {
       "id": 400,
       "title": "Named arguments stage 1b: formatter, LSP completion and hover for parameter names; examples and docs",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Sonnet)",
+      "where": "-",
       "labels": [
         "lang"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "ec84e6d2"
+      ]
     },
     {
       "id": 401,
