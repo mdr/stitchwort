@@ -31,6 +31,15 @@ test "implicit arguments are inferred" := pairUp 1 "one" == (1, "one")
 test "or given by name" := pairUp [b := Text] 1 "one" == (1, "one")
 -- end implicit
 
+-- begin implicit-lambda
+def pairUpLambda: [a: Type] -> [b: Type] -> a -> b -> (a, b) :=
+  [a: Type] [b: Type] (x: a) (y: b) => (x, y)
+
+test "a lambda with implicit parameters" :=
+  let flip := [a: Type] [b: Type] (x: a) (y: b) => (y, x)
+  flip 1 "one" == ("one", 1) && pairUpLambda 1 "one" == (1, "one")
+-- end implicit-lambda
+
 -- begin named
 def clamp (low: Nat) (high: Nat) (value: Nat): Nat :=
   if value < low then low else if value > high then high else value

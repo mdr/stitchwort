@@ -2576,8 +2576,20 @@ impl Elaborator {
                 written = Some(cod.clone());
             }
         };
+        // A right-hand side written as a lambda with an implicit or auto
+        // parameter, `[a: Type] => …`, takes the implicit parameters after
+        // the last pattern itself (docs/proposals/lambda-syntax.md §4.3), so
+        // they're left in the type it's checked against.
+        let binds_itself = equations.iter().all(|&(_, rhs, _)| {
+            matches!(rhs, Some(Expr::TypedLam(_, mode, ..)) if *mode != ast::Mode::Explicit)
+        });
         loop {
             match force(g, ty.clone())? {
+                Value::Pi(_, icit, ..)
+                    if icit.is_implicit() && binds_itself && columns.len() == arity =>
+                {
+                    break;
+                }
                 // Implicit and auto parameters are in scope by name, wherever
                 // they are in the signature.
                 Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
@@ -3905,7 +3917,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
             }
             Expr::Pi { dom, cod, .. } => pending.extend([&**dom, &**cod]),
             Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _, _) => pending.push(b),
-            Expr::TypedLam(_, t, b, _) => pending.extend([&**t, &**b]),
+            Expr::TypedLam(_, _, t, b, _) => pending.extend([&**t, &**b]),
             Expr::Tuple(a, b, _) => pending.extend([&**a, &**b]),
             Expr::List(items, _) => pending.extend(items),
             Expr::Record { base, fields, .. } => {

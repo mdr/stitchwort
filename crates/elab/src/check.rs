@@ -9,7 +9,7 @@ use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Name as AstName};
+use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
@@ -859,9 +859,12 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "can't work out the type of this function",
             "add a type annotation: `(…: T)`",
         )),
-        // `(x: A) => body`: the parameter's type is written, so the
-        // function's type follows from the body's.
-        Expr::TypedLam(name, ann, body, _) => {
+        // `(x: A) => body`, `[a: Type] => body`, `[auto h: P] => body`:
+        // the parameter's type is written, so the function's type follows
+        // from the body's, with the parameter's mode (§4.3 of
+        // docs/proposals/lambda-syntax.md).
+        Expr::TypedLam(name, mode, ann, body, _) => {
+            let icit = mode_icit(*mode);
             let (dom, _) = check_type(cx, ann)?;
             let dom = cx.eval(&dom)?;
             let mark = cx.mark();
@@ -873,13 +876,16 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             cx.reset(mark);
             let (body, cod) = inferred?;
             let x: Name = name.text.as_str().into();
-            let lam = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+            let lam = Term::Lam(x.clone(), icit, Rc::new(body));
             let cod = Closure {
                 env: cx.env.as_slice().into(),
                 body: Rc::new(cod),
             };
-            let pi = Value::Pi(x, Icit::Explicit, Rc::new(dom), cod);
+            let pi = Value::Pi(x, icit, Rc::new(dom), cod);
             // Annotated for the kernel, which doesn't infer a lambda's type.
+            // For an implicit or auto lambda, this shape (an annotation
+            // straight around the lambda) is what tells [`insert`] not to
+            // apply it to unknowns.
             let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote_folded(&pi)?));
             Ok((ann, pi))
         }
@@ -1797,8 +1803,36 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
 /// Applies `term` to a fresh metavariable for each leading implicit or auto
 /// parameter. An auto argument is also recorded as an obligation, to be proved
 /// once the declaration has been elaborated (see `auto.rs`).
+///
+/// A lambda written with an implicit or auto parameter, `[a: Type] => …`,
+/// is left as it is: it was written to take that parameter, so it isn't
+/// applied to an unknown in its place (as in Agda; the elaboration-zoo's
+/// `insert`). An application still applies it ([`insert_with`]).
 pub fn insert(cx: &mut Ctx, term: Term, ty: Value) -> Result<(Term, Value)> {
+    if binder_lambda(&term) {
+        return Ok((term, ty));
+    }
     insert_with(cx, term, ty, &mut Supply::new())
+}
+
+/// Whether `term` is what [`infer`] makes of a lambda with an implicit or
+/// auto parameter: the lambda straight inside its annotation. Elsewhere a
+/// lambda in an annotation comes from [`check`], which wraps it in a
+/// location first.
+fn binder_lambda(term: &Term) -> bool {
+    matches!(
+        term.strip_loc(),
+        Term::Ann(lam, _) if matches!(&**lam, Term::Lam(_, icit, _) if icit.is_implicit())
+    )
+}
+
+/// The kind of function a lambda parameter's mode makes.
+pub(crate) fn mode_icit(mode: Mode) -> Icit {
+    match mode {
+        Mode::Explicit => Icit::Explicit,
+        Mode::Implicit => Icit::Implicit,
+        Mode::Auto => Icit::Auto,
+    }
 }
 
 /// [`insert`], taking implicit arguments from `supply` first.
@@ -1927,6 +1961,93 @@ fn insert_until(
     }
 }
 
+/// A typed lambda's parameter `name: ann`, checked against a function type
+/// of the same kind, `dom` to `cod`: the written type must be `dom`.
+fn typed_lambda(
+    cx: &mut Ctx,
+    name: &AstName,
+    icit: Icit,
+    ann: &Expr,
+    body: &Expr,
+    dom: &Value,
+    cod: &Closure,
+) -> Result<Term> {
+    let g = cx.g();
+    let (written, _) = check_type(cx, ann)?;
+    let written = cx.eval(&written)?;
+    if !cx.unify(&written, dom)? {
+        let (expected, found) = (cx.show(dom), cx.show(&written));
+        return with_span(cx, ann.span(), |cx| {
+            Err(cx.error(
+                "E-TYPE-MISMATCH",
+                "type mismatch",
+                format!(
+                    "this parameter is annotated `{found}`, but the function is \
+                     expected to take `{expected}`"
+                ),
+            ))
+        });
+    }
+    let mark = cx.mark();
+    let var = Value::var(cx.level());
+    cx.bind(&name.text, dom.clone());
+    let cod = cod.apply(g, var)?;
+    let result = check(cx, body, &cod);
+    cx.reset(mark);
+    Ok(Term::Lam(name.text.as_str().into(), icit, Rc::new(result?)))
+}
+
+/// `[a: Type] => body` or `[auto h: P] => body` (`lambda`, with its mode),
+/// checked against `expected`: it consumes a function type of its own kind,
+/// binding the parameter by name. It never has an implicit parameter
+/// introduced in front of it: the first parameter of the expected type must
+/// be the one it writes (§4.3 of docs/proposals/lambda-syntax.md, D91).
+fn check_binder_lambda(
+    cx: &mut Ctx,
+    expr: &Expr,
+    lambda: (&AstName, Mode, &Expr, &Expr),
+    expected: &Value,
+) -> Result<Term> {
+    let (name, mode, ann, body) = lambda;
+    let icit = mode_icit(mode);
+    match expected {
+        Value::Pi(_, found, dom, cod) if *found == icit => {
+            typed_lambda(cx, name, icit, ann, body, dom, cod)
+        }
+        // Not known yet: the lambda's own type settles it.
+        Value::Neutral(Head::Meta(_), _) => fallback(cx, expr, expected),
+        _ => {
+            let takes = match mode {
+                Mode::Auto => "an `auto` parameter",
+                _ => "an implicit parameter",
+            };
+            let instead = match expected {
+                Value::Pi(_, Icit::Explicit, ..) => "takes an explicit one",
+                Value::Pi(_, Icit::Implicit, ..) => "takes an implicit one",
+                Value::Pi(_, Icit::Auto, ..) => "takes an `auto` one",
+                _ => "isn't a function type",
+            };
+            let shown = cx.show(expected);
+            let error = cx.error(
+                "E-TYPE-MISMATCH",
+                "type mismatch",
+                format!(
+                    "this lambda takes {takes} first, but the expected type `{shown}` {instead}"
+                ),
+            );
+            Err(match expected {
+                Value::Pi(..) => error.with_note(
+                    "a lambda takes its expected type's parameters in order: `[a: …]` takes \
+                     `[a: …] -> …`, `[auto h: …]` takes `[auto h: …] -> …`, and `x` or \
+                     `(x: …)` takes `(x: …) -> …` (with implicit ones in front of it \
+                     introduced for you)",
+                ),
+                _ => error,
+            })
+        }
+    }
+}
+
 pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     cx.g().budget.nesting(PASS)?;
     let span = expr.span();
@@ -2033,6 +2154,12 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let b = check(cx, b, &params[1])?;
             Ok(Term::ctor(pair, mk, vec![a, b]))
         }
+        // `[a: Type] => body` and `[auto h: P] => body` take the parameter
+        // of the function type they're checked against, rather than having
+        // it introduced for them (§4.3 of docs/proposals/lambda-syntax.md).
+        (Expr::TypedLam(name, mode, ann, body, _), _) if *mode != Mode::Explicit => {
+            check_binder_lambda(cx, expr, (name, *mode, ann, body), &expected)
+        }
         // Implicit parameters are introduced automatically.
         (_, Value::Pi(x, icit, dom, cod)) if icit.is_implicit() => {
             let mark = cx.mark();
@@ -2097,34 +2224,10 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 Rc::new(result?),
             ))
         }
-        (Expr::TypedLam(name, ann, body, _), Value::Pi(_, Icit::Explicit, dom, cod)) => {
-            let (written, _) = check_type(cx, ann)?;
-            let written = cx.eval(&written)?;
-            if !cx.unify(&written, dom)? {
-                let (expected, found) = (cx.show(dom), cx.show(&written));
-                return with_span(cx, ann.span(), |cx| {
-                    Err(cx.error(
-                        "E-TYPE-MISMATCH",
-                        "type mismatch",
-                        format!(
-                            "this parameter is annotated `{found}`, but the function is \
-                             expected to take `{expected}`"
-                        ),
-                    ))
-                });
-            }
-            let mark = cx.mark();
-            let var = Value::var(cx.level());
-            cx.bind(&name.text, (**dom).clone());
-            let cod = cod.apply(g, var)?;
-            let result = check(cx, body, &cod);
-            cx.reset(mark);
-            Ok(Term::Lam(
-                name.text.as_str().into(),
-                Icit::Explicit,
-                Rc::new(result?),
-            ))
-        }
+        (
+            Expr::TypedLam(name, Mode::Explicit, ann, body, _),
+            Value::Pi(_, Icit::Explicit, dom, cod),
+        ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
         (Expr::Lam(names, _, span), _) => {
             let shadowed = lambda_shadow(cx, names, *span)?;
             Err(shadow_note(
@@ -3580,5 +3683,79 @@ mod tests {
         );
         let ignorable = ignorable_arguments(&cx, &eq(type0(), type0())).expect("types read back");
         assert_eq!(&*ignorable, &[true, true, false]);
+    }
+
+    /// Elaborates `text`, a closed expression, with no library: the shown
+    /// type, or the error's message and labels.
+    fn elaborate(text: &str) -> std::result::Result<String, String> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test", text);
+        let expr = stitchwort_syntax::parse_expression(file, text).expect("parses");
+        let mut e = Elaborator::new();
+        match e.infer_expr(&expr) {
+            Ok((_, ty)) => Ok(e.show(&ty)),
+            Err(d) => Err(format!(
+                "{} {}",
+                d.message,
+                d.labels
+                    .iter()
+                    .map(|l| l.message.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )),
+        }
+    }
+
+    /// docs/proposals/lambda-syntax.md §4.3 (D91): inferring a lambda with
+    /// an implicit or auto parameter builds a function type of that kind.
+    #[test]
+    fn a_binder_lambda_infers_a_function_type_of_its_mode() {
+        assert_eq!(
+            elaborate("[a: Type] (x: a) => x").as_deref(),
+            Ok("[a: Type] -> a -> a")
+        );
+        assert_eq!(
+            elaborate("[a: Type] [auto h: a] (x: a) => h").as_deref(),
+            Ok("[a: Type] -> [auto h: a] -> a -> a")
+        );
+        // Not applied to an unknown in an annotation, either.
+        assert_eq!(
+            elaborate("([a: Type] (x: a) => x: [b: Type] -> b -> b)").as_deref(),
+            Ok("[b: Type] -> b -> b")
+        );
+    }
+
+    /// Checking consumes a function type of the lambda's mode, and only
+    /// that: a mismatch says which kind each side has.
+    #[test]
+    fn a_binder_lambda_consumes_only_its_own_kind_of_parameter() {
+        let mismatch = |text: &str, says: &str| {
+            let message = elaborate(text).expect_err(text);
+            assert!(message.contains(says), "{text}: {message}");
+        };
+        mismatch(
+            "([a: Type] (x: a) => x: Type -> Type)",
+            "takes an implicit parameter first, but the expected type `Type -> Type` takes an \
+             explicit one",
+        );
+        mismatch(
+            "([a: Type] (x: a) => x: [auto h: Type] -> Type)",
+            "takes an `auto` one",
+        );
+        mismatch(
+            "([auto h: Type] => h: [a: Type] -> Type)",
+            "this lambda takes an `auto` parameter first",
+        );
+        mismatch("([a: Type] => a: Type)", "isn't a function type");
+        // The written type must agree with the expected one.
+        mismatch(
+            "([a: Type 1] => a: [a: Type] -> Type)",
+            "this parameter is annotated `Type 1`",
+        );
+        // A plain lambda still has the implicit parameter introduced.
+        assert_eq!(
+            elaborate("(x => x: [a: Type] -> a -> a)").as_deref(),
+            Ok("[a: Type] -> a -> a")
+        );
     }
 }

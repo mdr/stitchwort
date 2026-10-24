@@ -174,7 +174,7 @@ impl Walk {
                 });
                 self.expr(body);
             }
-            Expr::TypedLam(name, ty, body, _) => {
+            Expr::TypedLam(name, _, ty, body, _) => {
                 self.bound.insert(name.text.clone());
                 self.expr(ty);
                 self.expr(body);

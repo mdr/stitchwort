@@ -1255,7 +1255,7 @@ impl Walk<'_> {
                     steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
                     then(&mut stack, steps);
                 }
-                Expr::TypedLam(name, ty, body, _) => then(
+                Expr::TypedLam(name, _, ty, body, _) => then(
                     &mut stack,
                     vec![
                         Work::Expr(ty),

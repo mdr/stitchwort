@@ -30,6 +30,19 @@ pub enum Bracket {
     Square,
 }
 
+/// How a lambda's parameter is passed: one mode for each kind of function
+/// type, `(x: A) -> B`, `[x: A] -> B` and `[auto x: P] -> B`
+/// (docs/proposals/lambda-syntax.md §4.3, D91).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    /// `(x: A) => body`, or `x => body`.
+    Explicit,
+    /// `[a: Type] => body`.
+    Implicit,
+    /// `[auto h: P] => body`, or without a name, `[auto P] => body`.
+    Auto,
+}
+
 #[derive(Clone, Debug)]
 pub enum Expr {
     /// A variable, function, data type or constructor name.
@@ -49,9 +62,10 @@ pub enum Expr {
     App(Box<Expr>, Box<Expr>),
     /// `x y => body`
     Lam(Vec<Name>, Box<Expr>, Span),
-    /// `(x: A) => body`: a lambda whose parameter has a written type (one
-    /// parameter; several are nested).
-    TypedLam(Name, Box<Expr>, Box<Expr>, Span),
+    /// `(x: A) => body`, `[a: Type] => body` or `[auto h: P] => body`: a
+    /// lambda whose parameter has a written type (one parameter; several
+    /// are nested), with the mode saying which kind of function it is.
+    TypedLam(Name, Mode, Box<Expr>, Box<Expr>, Span),
     /// `(x y : A) -> B`, `[x y : A] -> B` with `implicit`, or
     /// `[auto x : P] -> B` with `implicit` and `auto`.
     Pi {
@@ -353,7 +367,7 @@ impl Expr {
             | Expr::Type(_, span)
             | Expr::Prop(span)
             | Expr::Lam(_, _, span)
-            | Expr::TypedLam(_, _, _, span)
+            | Expr::TypedLam(_, _, _, _, span)
             | Expr::Pi { span, .. }
             | Expr::NamedArg(_, _, span, _)
             | Expr::If { span, .. }
@@ -427,7 +441,7 @@ fn has_nested(expr: &Expr) -> bool {
         }
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
         Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => nested(e) || nested(t),
-        Expr::TypedLam(_, t, b, _) => nested(t) || nested(b),
+        Expr::TypedLam(_, _, t, b, _) => nested(t) || nested(b),
         Expr::If {
             cond,
             then,
@@ -514,7 +528,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(e);
             take(t);
         }
-        Expr::TypedLam(_, t, b, _) => {
+        Expr::TypedLam(_, _, t, b, _) => {
             take(t);
             take(b);
         }
