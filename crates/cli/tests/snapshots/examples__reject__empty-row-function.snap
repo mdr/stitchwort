@@ -7,5 +7,5 @@ expression: output
    │
  9 │ def bad: Nat := apply next 1
    │                       ──┬─  
-   │                         ╰─── expected `Nat -> Nat`, but this has type `Nat -> {} Nat`
+   │                         ╰─── expected `Nat -> Nat`, but this has type `Nat -> Comp Effect.NoOp Effect.NoRes Nat`
 ───╯
