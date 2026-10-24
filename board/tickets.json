@@ -6534,9 +6534,9 @@
     {
       "id": 406,
       "title": "Effect polymorphism stage 1: row-indexed computation type (design C), internal Row (D1122), apartness rule and defaulting (D1123); also settle = operands and if/match branches (D1133) and {Fail} b binders for Fail.toResultMapIn (D1134)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus), first part",
       "labels": [
         "effects"
       ],
