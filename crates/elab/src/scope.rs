@@ -577,9 +577,10 @@ impl Elaborator {
 
     /// Whether `global` may be named only in the library: the constructors
     /// of `Effect.Effects` and the definitions that take a row apart, so that a
-    /// program can't build, inspect or compare rows, and effect polymorphism
-    /// stays parametric (docs/proposals/effect-polymorphism.md §5.C.2,
-    /// D1122). The type `Effect.Effects` itself can be named, to declare a type
+    /// program can't build, inspect, compare or branch on an effect-row
+    /// parameter (docs/proposals/effect-polymorphism.md §5.C.2, D1122; not
+    /// parametricity in the strong sense, as computation differs at the empty
+    /// row by design). The type `Effect.Effects` itself can be named, to declare a type
     /// with a row parameter: without its constructors nothing can be done
     /// with a row but pass it on.
     pub(crate) fn is_internal(&self, global: Global) -> bool {
@@ -1154,8 +1155,8 @@ impl Elaborator {
             )
             .with_label(name.span, "only the standard library can name this")
             .with_note(
-                "rows are made by the compiler from `{e}` and `{A | e}` in types; a program \
-                 can pass a row variable on, but not build or inspect a row",
+                "effect rows are made by the compiler from `{e}` and `{A | e}` in types; a program \
+                 can pass an effect-row parameter on, but not build or inspect one",
             );
         }
         if let Resolved::Found { global, key, .. } = self.resolve_any(&name.text)

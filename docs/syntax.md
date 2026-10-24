@@ -585,7 +585,9 @@ ability State (s: Type) where
 
 -- A function type may list the abilities calling it performs, and a row
 -- variable `e` (bound automatically, like a type variable) for "whatever
--- else". `{e}` alone is just the variable. `A -> B` is pure and total.
+-- else". `{e}` alone is just the variable (an effect-row parameter: code
+-- abstract over it can't construct, inspect or branch on it). `A -> B` is pure
+-- and total.
 def tick(): {State Nat} Nat :=
   let n := get()
   put (n + 1)

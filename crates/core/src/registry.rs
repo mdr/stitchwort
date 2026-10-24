@@ -360,7 +360,7 @@ builtins! {
     SigFromNo = "Effect.sigFromNo": Def,
     HandlePlus = "Effect.handlePlus": Def,
     RunPure = "Effect.runPure": Def,
-    // Rows as values (docs/proposals/effect-polymorphism.md, design C)
+    // Effect-row parameters (docs/proposals/effect-polymorphism.md, design C)
     Row = "Effect.Effects": Data,
     RowEmpty = "Empty": Ctor(Builtin::Row),
     RowOps = "Ops": Ctor(Builtin::Row),

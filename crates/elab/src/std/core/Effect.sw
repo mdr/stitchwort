@@ -136,11 +136,15 @@ def Effect.runPure: [a: Type] -> Comp NoOp NoRes a -> a
   | Done x => x
   | Call () rest
 
--- Rows as values (docs/proposals/effect-polymorphism.md, design C). A row
--- variable `e` in `{e}` or `{A | e}` is an `Effects`: either the empty row, or the
--- operations and results of a row with at least one ability. Only the
--- library may name the constructors of `Effects` and the definitions below that take
--- a row apart (D1122); programs get rows only through `{e}` in types.
+-- Effect-row parameters (docs/proposals/effect-polymorphism.md, design C). A
+-- row parameter `e` in `{e}` or `{A | e}` is an `Effects`, used only as an
+-- index: either the empty row, or the operations and results of a row with at
+-- least one ability. Only the library may name the constructors of `Effects`
+-- and the definitions below that take a row apart (D1122); programs get rows
+-- only through `{e}` in types. So code abstract over an effects parameter
+-- can't construct, inspect, compare or branch on it. This is not
+-- parametricity in the strong sense: the type theory computes differently at
+-- the empty row by design (`CompIn Empty a` is `a`).
 -- The elaborator never builds `Ops NoOp NoRes`: a row with no abilities is
 -- always `Empty` (the canonical form).
 type Effect.Effects: Type 1 =

@@ -1577,6 +1577,14 @@ every row possible; (b) would forbid those lemmas, (c) is per file while
 rows are used across std files, and (d) leaves `Ops NoOp NoRes` and
 row-testing functions possible.
 
+*Note, 24 Oct 2026 (external review follow-up, SW-406).* D1122's guarantee is
+not "parametricity" in the strong sense. What it gives: code abstract over an
+effects parameter can't construct, inspect, compare or branch on it. The type
+theory itself computes differently at the empty row, by design (design C:
+`CompIn Empty a` is `a`, `CompIn (Ops op res) a` is `Comp op res a`). In
+user-facing material rows are "effect-row parameters" or "indices", not
+"values". The sections above are left as written.
+
 **D1123. Inferring the row: unification and defaulting.**
 (a) **[Recommended]** The apartness rule: solve `?e := Empty` only when the
 other type can never become a `Comp`; postpone blocked cases as row
