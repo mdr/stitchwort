@@ -56,7 +56,7 @@ theorem weightBelow (j: Nat): copiesWeight (Succ (Succ j)) = 1 - divisorWeights 
   let plain: Nat -> Int := d => if Nat.divides d (Succ (Succ j)) then copiesWeight d else 0
   calc copiesWeight (Succ (Succ j))
     _ = 1 - List.sumBy guarded (List.rangeFrom (j + 1 - 1) 2) := copiesWeight.unfold (Succ (Succ j))
-    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := Eq.cong (t => 1 - List.sumBy guarded (List.rangeFrom t 2)) (omega: j + 1 - 1 = j)
+    _ = 1 - List.sumBy guarded (List.rangeFrom j 2) := rewrite (omega: j + 1 - 1 = j)
     _ = 1 - List.sumBy plain (List.rangeFrom j 2)
       := Eq.cong (Int.sub 1)
         (List.sumRangeCongr guarded plain j 2
@@ -69,9 +69,9 @@ theorem divisorWeightsTop (w: Nat -> Int) (j: Nat): divisorWeights w (Succ (Succ
     _ = List.sumBy f (List.append (List.rangeFrom j 2) (List.rangeFrom 1 (2 + j))) := Eq.cong (List.sumBy f) (List.rangeFromAppend j 1 2)
     _ = List.sumBy f (List.rangeFrom j 2) + List.sumBy f (List.rangeFrom 1 (2 + j)) := List.sumByAppend f (List.rangeFrom j 2) (List.rangeFrom 1 (2 + j))
     _ = List.sumBy f (List.rangeFrom j 2) + f (Succ (Succ j))
-      := Eq.cong (t => List.sumBy f (List.rangeFrom j 2) + t) (Int.zeroAdd (f (Succ (Succ j))))
+      := rewrite Int.zeroAdd (f (Succ (Succ j)))
     _ = List.sumBy f (List.rangeFrom j 2) + w (Succ (Succ j))
-      := Eq.cong (c => List.sumBy f (List.rangeFrom j 2) + (if c then w (Succ (Succ j)) else 0)) (Nat.dividesSelf (Succ (Succ j)))
+      := rewrite Nat.dividesSelf (Succ (Succ j))
 
 -- The key fact: the weights of the divisors of m from 2 on add up to 1.
 theorem weightsOne: (m: Nat) -> 1 <= m -> divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt
@@ -81,7 +81,7 @@ theorem weightsOne: (m: Nat) -> 1 <= m -> divisorWeights copiesWeight m (m - 1) 
     calc divisorWeights copiesWeight (Succ (Succ j)) (Succ j)
       _ = divisorWeights copiesWeight (Succ (Succ j)) j + copiesWeight (Succ (Succ j)) := divisorWeightsTop copiesWeight j
       _ = divisorWeights copiesWeight (Succ (Succ j)) j + (1 - divisorWeights copiesWeight (Succ (Succ j)) j)
-        := Eq.cong (t => divisorWeights copiesWeight (Succ (Succ j)) j + t) (weightBelow j)
+        := rewrite weightBelow j
       _ = 1 := Int.addSubCancel (divisorWeights copiesWeight (Succ (Succ j)) j) 1
 
 -- Divisors of m beyond m count for nothing.
@@ -119,7 +119,7 @@ theorem periodLen (g: Nat -> Nat) (len: Nat) (hl: len != 0): Period g len hl len
 theorem periodAdd (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (q: Nat) (hp: Period g len hl p) (hq: Period g len hl q): Period g len hl (p + q) :=
   i hi =>
     calc g ((i + (p + q)) % len)
-      _ = g (((i + p) + q) % len) := Eq.cong (y => g (y % len)) (Eq.sym (Nat.addAssoc i p q))
+      _ = g (((i + p) + q) % len) := rewrite <- Nat.addAssoc i p q
       _ = g (((i + p) % len + q) % len) := Eq.cong g (Eq.sym (Nat.modAddMod (i + p) q len))
       _ = g ((i + p) % len) := hq ((i + p) % len) (Nat.modLess (i + p) len hl)
       _ = g i := hp i hi
@@ -130,7 +130,7 @@ theorem periodSub (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (q: Nat) (h
       _ = g (((i + (p - q)) % len + q) % len) := Eq.sym (hq ((i + (p - q)) % len) (Nat.modLess (i + (p - q)) len hl))
       _ = g ((i + (p - q) + q) % len) := Eq.cong g (Nat.modAddMod (i + (p - q)) q len)
       _ = g ((i + p) % len)
-        := Eq.cong (y => g (y % len)) (omega: i + (p - q) + q = i + p)
+        := rewrite (omega: i + (p - q) + q = i + p)
       _ = g i := hp i hi
 
 theorem periodMul (g: Nat -> Nat) (len: Nat) (hl: len != 0) (p: Nat) (hp: Period g len hl p): (t: Nat) -> Period g len hl (t * p)
@@ -281,9 +281,9 @@ theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 <= n): (t: Nat) -> blockCount 
     let ekn: k * n = digitCount x :=
       calc (Succ t * smallestPeriod x) * n
         _ = Succ t * (smallestPeriod x * n) := Nat.mulAssoc (Succ t) (smallestPeriod x) n
-        _ = Succ t * (n * smallestPeriod x) := Eq.cong (y => Succ t * y) (Nat.mulComm (smallestPeriod x) n)
+        _ = Succ t * (n * smallestPeriod x) := rewrite Nat.mulComm (smallestPeriod x) n
         _ = (Succ t * n) * smallestPeriod x := Eq.sym (Nat.mulAssoc (Succ t) n (smallestPeriod x))
-        _ = blockCount x * smallestPeriod x := Eq.cong (y => y * smallestPeriod x) (Eq.sym e)
+        _ = blockCount x * smallestPeriod x := rewrite <- e
         _ = digitCount x := Eq.sym (countTimesPeriod x)
     let hw: writtenAs (Nat.digits x) k n = True :=
       periodWritten (Nat.digits x) (digitCountNonZero x) k n omega ekn
@@ -332,8 +332,8 @@ theorem idTermsDivisors (w: Nat -> Int) (size: Nat) (x: Nat) (hL: digitCount x <
               := Int.sumByMulLeft (w n) (k => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) (List.rangeFrom size 1)
             _ = w n * (List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1)).toInt
               := Eq.cong (t => w n * t) (Eq.sym (Int.toIntSumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1)))
-            _ = w n * (Nat.keepIf x (copies x n)).toInt := Eq.cong (t => w n * t.toInt) (collapse x n n1 size hL)
-            _ = w n * (Nat.keepIf x (Nat.divides n (blockCount x))).toInt := Eq.cong (b => w n * (Nat.keepIf x b).toInt) (copiesDivides x n n1)
+            _ = w n * (Nat.keepIf x (copies x n)).toInt := rewrite collapse x n n1 size hL
+            _ = w n * (Nat.keepIf x (Nat.divides n (blockCount x))).toInt := rewrite copiesDivides x n n1
             _ = x.toInt * (if Nat.divides n (blockCount x) then w n else 0) := mulKeep (w n) x (Nat.divides n (blockCount x)))
     _ = x.toInt * divisorWeights w (blockCount x) (size - 1)
       := Int.sumByMulLeft x.toInt (n => if Nat.divides n (blockCount x) then w n else 0) (List.rangeFrom (size - 1) 2)
@@ -344,8 +344,8 @@ theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x <= size): idTerms copies
   let hc: m <= Succ (size - 1) := omega [blockCountLe x]
   calc idTerms copiesWeight size x
     _ = x.toInt * divisorWeights copiesWeight m (size - 1) := idTermsDivisors copiesWeight size x hL
-    _ = x.toInt * divisorWeights copiesWeight m (m - 1) := Eq.cong (t => x.toInt * t) (divisorWeightsAll copiesWeight m (blockCountPos x) (size - 1) hc)
-    _ = x.toInt * (Bool.toNat (Nat.leq 2 m)).toInt := Eq.cong (t => x.toInt * t) (weightsOne m (blockCountPos x))
+    _ = x.toInt * divisorWeights copiesWeight m (m - 1) := rewrite divisorWeightsAll copiesWeight m (blockCountPos x) (size - 1) hc
+    _ = x.toInt * (Bool.toNat (Nat.leq 2 m)).toInt := rewrite weightsOne m (blockCountPos x)
     _ = (x * Bool.toNat (Nat.leq 2 m)).toInt := Eq.sym (Int.toIntMul x (Bool.toNat (Nat.leq 2 m)))
     _ = (Nat.keepIf x (repeats x)).toInt
       := Eq.cong Nat.toInt (Eq.trans (Nat.mulToNat x (Nat.leq 2 m)) (Eq.cong (Nat.keepIf x) (Eq.sym (repeatsBlocks x))))
@@ -375,9 +375,9 @@ theorem termIds (w: Nat -> Int) (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2
       = List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids :=
   calc (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt else 0)
     _ = w n * (RepetitionTemplate.sumIn r { blockLength = k, copies = n }).toInt := keptTerm w r k hk n hn
-    _ = w n * (List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids).toInt := Eq.cong (t => w n * t.toInt) (repeatedIds r k hk n hn)
+    _ = w n * (List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids).toInt := rewrite repeatedIds r k hk n hn
     _ = w n * List.sumBy (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids
-      := Eq.cong (t => w n * t) (Int.toIntSumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids)
+      := rewrite Int.toIntSumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
     _ = List.sumBy (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids
       := Eq.sym (Int.sumByMulLeft (w n) (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids)
 

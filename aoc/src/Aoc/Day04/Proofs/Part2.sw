@@ -70,7 +70,6 @@ theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
   let same := settleRounds grid grid.rows start (omega [rollsIsCount grid grid.rows])
   calc solvePart2 grid
     _ = start - rollCount grid (rowsCells settled)
-      := Eq.trans (Eq.cong (t => t - countRolls settled) (rollsIsCount grid grid.rows))
-        (Eq.cong (t => start - t) (rollsIsCount grid settled))
+      := rewrite rollsIsCount grid grid.rows, rollsIsCount grid settled
     _ = start - rollCount grid (rounds grid start cells) := rewrite rollCountSame grid (rowsCells settled) (rounds grid start cells) same
     _ = part2Spec grid
