@@ -2206,13 +2206,12 @@ the value type. If the plain way fails, or its type is a computation, it is
 undone and the expression runs in the empty row as before, which reports the
 ability that isn't allowed (`examples/reject/map-effectful-callback-pure.sw`);
 if that fails too, the plain way's error is reported (the one the plain
-function gave before), unless running it found an ability. Calls of
-handlers (a parameter that is a computation with abilities, such as
-`Abort.toOption`'s) keep the old path: their row comes from running the
-argument, and the plain way gave `Comp NoOp NoRes` results for
-`Option.flatMap (x => Abort.toOption …) (Abort.toOption t)` **[checked]**,
-for a reason not pinned down (**[inferred]**: unifying `{Abort} a` with
-`{Abort | ?e} a` outside `lift`, which is where canonical rows are made).
+function gave before), unless running it found an ability. As first built,
+calls of handlers (a parameter that is a computation with abilities, such as
+`Abort.toOption`'s) kept the old path, because the plain way was seen to give
+`Comp NoOp NoRes` results for `Option.flatMap (x => Abort.toOption …)
+(Abort.toOption t)`. That couldn't be reproduced on the merged code, and the
+exclusion was removed (SW-438, below), so handlers take the plain way too.
 
 Zonking writes `doneIn Empty v` as `v` (`unify::empty_row_done`), so a pure
 callback checked while its row was still unknown is the plain callback in the
@@ -2307,6 +2306,33 @@ later expression; both are `E-ABILITY`. The reviewer's nested-map timing
 script (`List.map p (… xs)` at depths 8 to 18, `check --no-cache`) is
 unchanged within noise: depth 18 pure 1.65 to 1.71 s before and 1.62 to
 1.73 s after, effectful 2.87 to 3.02 s both.
+
+**The handler exclusion removed (SW-438, 24 Oct 2026).** Stage 3 kept calls
+of handlers out of `pure_first` (`effects::performs_after` counted a call as
+performing when one of its explicit parameters was a computation with
+abilities), citing `Comp NoOp NoRes` results for nested `Abort.toOption`
+calls. The review turned the exclusion off and found nothing that needed it;
+reproduced here, on the merged stage 3 with SW-437's change, both ways: with
+the exclusion off, the reviewer's probe (`thenLaw` and nested
+`Option.flatMap`/`Abort.toOption`) checks, the prelude, every accept and
+reject example (same codes and messages), AoC (`check`, and 224 of 224 tests)
+and the elaborator's tests are unchanged, and a probe of handlers in pure
+contexts (nested, in a `map` callback, around an effectful `map`, matched on)
+gives the same test results as before. So it is removed, and that probe is
+`examples/accept/handlers-pure-context.sw`. What the stage 3 lane saw is not
+known; **[inferred]** it came from a state before one of its later fixes
+(`unknown_row_value`, or `ctor_app` looking through a bare row).
+
+What moved: hashes only, for terms that call a handler where a pure value is
+expected. 18 prelude definitions (the `Abort.toOption…`, `Fail.toResult…`
+and `Fail.toOption…` lemmas, `Abort.orElseNeed`, `Abort.orFailNeed`) and 28
+example snapshots, each line a hash. The old path bound a handler's result
+with a `let` and then used it; the plain way passes it directly, which shows
+in the generated JS: `extract` snapshots `effects.js` (`countUp`,
+`divideOrZero`) and `io.js` (`linesEchoed`, `numberedLength`,
+`countdownLines`, `oneEntryPerPrint`) lose a redex such as
+`((v1) => sndOf(v1))(runState(…))`, now `sndOf(runState(…))`. The nested-map
+timing script is unchanged (depth 18: pure 1.66 s, effectful 2.94 s).
 
 ## Appendix A. Probe files
 
