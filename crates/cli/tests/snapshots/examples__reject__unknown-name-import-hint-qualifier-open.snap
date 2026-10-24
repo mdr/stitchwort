@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `Done`
+   ╭─[ reject/unknown-name-import-hint-qualifier-open.sw:6:15 ]
+   │
+ 6 │ def x: Nat := Done
+   │               ──┬─  
+   │                 ╰─── not in scope
+   │ 
+   │ Note: the library has `Effect.Comp.Done`: write it in full, or `import Std.Effect.Comp (Done)`
+───╯
