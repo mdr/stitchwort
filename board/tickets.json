@@ -6089,8 +6089,8 @@
     },
     {
       "id": 378,
-      "title": "Proof: Fail.toResult over List.mapIn (Fail.toResultMapIn) — needs induction over the computation tree under bind",
-      "status": "backlog",
+      "title": "Proof: Fail.toResultMapIn — via proof-only reification (D1141 d); design note in progress",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -6098,7 +6098,7 @@
       ],
       "body": "Trigger: errors stage 1 and the D1055 (b) fix; toResultNeedThen now ships, toResultMapIn's Cons case needs an induction principle over toResult of a bind with an unknown f x.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
