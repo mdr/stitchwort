@@ -2084,8 +2084,8 @@ kernel-built group whose member has only an erased parameter (a thunk).
   checking order changes `f`'s hash in
   `abilities_are_ordered_by_where_they_are_written`.
 
-**Not done in milestone 2.** §6.3 test 2 (a callback retained after its
-creator returns) is tested for a single definition only. Ties between
+**Not done in milestone 2.** (§6.3 test 2, a callback retained after its
+creator returns, was added for groups later: accept/mutual-callback.sw, soundness/mutual-callback-*.sw.) Ties between
 members with the same shape are broken by submission order and are tested
 for determinism, not for stability under reordering (they may change, as
 §8.4 allows). The playground doesn't display warnings. Error labels for a
