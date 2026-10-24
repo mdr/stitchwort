@@ -343,10 +343,6 @@ pub struct Elaborator {
     recursion: Option<effects::Recursion>,
     /// The record types declared so far (docs/proposals/records.md).
     records: HashMap<DataId, records::RecordInfo>,
-    /// The default values of data types' fields, for each constructor and
-    /// field, where any field has one (docs/proposals/named-arguments.md
-    /// §5.1, `defaults.rs`).
-    field_defaults: HashMap<DataId, Vec<Vec<Option<defaults::FieldDefault>>>>,
     /// Why `DecEq` isn't derived for a data type or record, for the note
     /// when `==` is used on it (`derive.rs`).
     no_eq: HashMap<DataId, String>,

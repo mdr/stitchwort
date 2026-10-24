@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `Options`'s input shape and `OptionsInput` would both be called `OptionsInput` in the TypeScript declarations
+   ╭─[ reject/export-input-name-clash.sw:6:1 ]
+   │
+ 6 │ type Options = { size: Nat := 1 }
+   │ ────────────────┬────────────────  
+   │                 ╰────────────────── its input shape is `OptionsInput`
+   │ 
+ 8 │ type OptionsInput = { text: Text }
+   │ ─────────────────┬────────────────  
+   │                  ╰────────────────── and this type crosses the JS boundary too
+   │ 
+   │ Note: a parameter's `Options` may leave out fields with defaults, in it or inside it, so its type is `OptionsInput`; rename one of the types
+───╯

@@ -167,7 +167,6 @@ impl Elaborator {
             decreasing,
             recursion,
             records,
-            field_defaults,
             no_eq,
             no_show,
             no_ord,
@@ -243,7 +242,6 @@ impl Elaborator {
         *decreasing.get_mut() = None;
         *recursion = mark.recursion.clone();
         records.retain(|d, _| d.0 < datas);
-        field_defaults.retain(|d, _| d.0 < datas);
         no_eq.retain(|d, _| d.0 < datas);
         no_show.retain(|d, _| d.0 < datas);
         no_ord.retain(|d, _| d.0 < datas);

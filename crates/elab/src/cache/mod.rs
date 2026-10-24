@@ -52,7 +52,6 @@ use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Globals, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
-use crate::defaults::FieldDefault;
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InstanceParam, InterfaceInfo};
 use crate::library::{Needs, PendingKind};
@@ -62,6 +61,7 @@ use crate::records::RecordInfo;
 use crate::scope::ScopeOp;
 use crate::{Elaborator, Global};
 use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
+use stitchwort_core::globals::{FieldDefault, FieldDefaults};
 use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
@@ -327,7 +327,10 @@ impl Elaborator {
     fn by_data(&self) -> Vec<Vec<DataId>> {
         vec![
             self.records.keys().copied().collect(),
-            self.field_defaults.keys().copied().collect(),
+            (0..self.globals.datas.len())
+                .map(DataId)
+                .filter(|d| self.globals.data(*d).defaults.is_some())
+                .collect(),
             self.interfaces.keys().copied().collect(),
             self.data_owners.keys().copied().collect(),
             self.no_eq.keys().copied().collect(),
@@ -1397,15 +1400,14 @@ impl Elaborator {
         }
         // Fields' defaults (docs/proposals/named-arguments.md §5.2): for
         // each constructor and field, its helper and what the helper takes.
-        let mut defaults: Vec<(&DataId, &Vec<Vec<Option<FieldDefault>>>)> = self
-            .field_defaults
-            .iter()
-            .filter(|(d, _)| new_data(d))
+        let defaults: Vec<(DataId, &FieldDefaults)> = datas
+            .clone()
+            .map(DataId)
+            .filter_map(|d| g.data(d).defaults.as_deref().map(|t| (d, t)))
             .collect();
-        defaults.sort_by_key(|(d, _)| d.0);
         e.w.usize(defaults.len());
         for (d, ctors) in defaults {
-            e.data(*d);
+            e.data(d);
             e.w.usize(ctors.len());
             for fields in ctors {
                 e.w.usize(fields.len());
@@ -1846,7 +1848,7 @@ struct Tables {
     early: Vec<GlobalEntry>,
     members: Vec<String>,
     records: Vec<(DataId, RecordInfo)>,
-    field_defaults: Vec<(DataId, Vec<Vec<Option<FieldDefault>>>)>,
+    field_defaults: Vec<(DataId, FieldDefaults)>,
     /// How attributed data types cross the JS boundary.
     js_repr: Vec<(DataId, JsRepr)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
@@ -2695,7 +2697,9 @@ impl Elaborator {
             self.scope.mark_member(&key);
         }
         self.records.extend(t.records);
-        self.field_defaults.extend(t.field_defaults);
+        for (d, table) in t.field_defaults {
+            self.globals.datas[d.0].defaults = Some(Rc::new(table));
+        }
         for (d, repr) in t.js_repr {
             self.globals.datas[d.0].js = Some(Rc::new(repr));
         }

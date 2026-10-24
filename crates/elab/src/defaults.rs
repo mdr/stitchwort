@@ -24,7 +24,7 @@
 //!
 //! The helpers' names contain two dots, which source can't write, so they
 //! are kept out of the name table; [`FieldDefault`]s, kept per declaration
-//! (`Elaborator::field_defaults`, and in the check cache), are how a
+//! (`Data::defaults`, and in the check cache), are how a
 //! literal finds them. Defaults aren't part of the type's hash (D1099): a
 //! literal that uses one refers to its helper, so changing a default changes
 //! exactly the hashes of the literals that leave that field out.
@@ -33,7 +33,7 @@ use std::collections::{BTreeSet, HashSet};
 use std::rc::Rc;
 
 use stitchwort_core::value::{eval, force, unused};
-use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Decl, Expr};
 
@@ -41,19 +41,11 @@ use crate::check::{Ctx, check, implicit_arg};
 use crate::module::Phase;
 use crate::{Elaborator, Result, error, kernel};
 
-/// One field's default: its helper, and the variables of the constructor's
-/// context (the type's parameters, then its fields) the helper takes, by
-/// level, in order: a level below the number of parameters is that
-/// parameter, any other is field `level - parameters`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct FieldDefault {
-    pub helper: DefId,
-    pub captures: Vec<usize>,
-}
+pub(crate) use stitchwort_core::globals::FieldDefault;
 
 impl Elaborator {
     /// After data type `d` (declared by `decl`) is admitted: a helper for
-    /// each field's default, recorded in `field_defaults`.
+    /// each field's default, recorded in its `Data::defaults`.
     pub(crate) fn field_defaults(&mut self, decl: &Decl, d: DataId) -> Result<()> {
         let Decl::Data {
             ctors, interface, ..
@@ -102,7 +94,7 @@ impl Elaborator {
                 .expect("the constructor has the field it declares");
             table[c][i] = Some(self.default_helper(d, c, i, value)?);
         }
-        self.field_defaults.insert(d, table);
+        self.globals.datas[d.0].defaults = Some(Rc::new(table));
         Ok(())
     }
 
@@ -242,7 +234,13 @@ impl Elaborator {
 
     /// The default of field `i` of constructor `c` of `d`, if it has one.
     pub(crate) fn field_default(&self, d: DataId, c: usize, i: usize) -> Option<&FieldDefault> {
-        self.field_defaults.get(&d)?.get(c)?.get(i)?.as_ref()
+        self.globals
+            .data(d)
+            .defaults
+            .as_ref()?
+            .get(c)?
+            .get(i)?
+            .as_ref()
     }
 
     /// The names of the fields of constructor `c` of `d` that have defaults.

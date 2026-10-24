@@ -1682,6 +1682,7 @@ pub fn declare_indexed_data_group(
             record,
             validators: Vec::new(),
             js: None,
+            defaults: None,
             group: group.clone(),
             defs_before,
             datas_before,

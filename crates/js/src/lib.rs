@@ -11,6 +11,7 @@ use std::fmt::Write;
 use std::rc::Rc;
 
 use stitchwort_core::check::{is_type_former, telescope};
+use stitchwort_core::globals::FieldDefault;
 use stitchwort_core::js_repr::{self, JsRepr};
 use stitchwort_core::native;
 use stitchwort_core::partial::Primitive;
@@ -752,7 +753,8 @@ pub fn exports_fit_together_among(
         .filter(|id| g.def(*id).export)
         .map(|id| exportable(g, id))
         .collect::<Result<Vec<_>, _>>()?;
-    check_names(g, &exports).map(|_| ())
+    let boundary_datas = check_names(g, &exports)?;
+    input_datas(g, &boundary_datas).map(|_| ())
 }
 
 pub fn generate(g: &Globals, limits: Limits) -> Result<Output, Diagnostic> {
@@ -782,6 +784,7 @@ pub fn generate_exports(
         .collect::<Result<Vec<_>, _>>()?;
 
     let boundary_datas = check_names(g, &exports)?;
+    let inputs = input_datas(g, &boundary_datas)?;
 
     erasable(g)?;
     let codegen = Gen::new(g, options)?;
@@ -791,6 +794,8 @@ pub fn generate_exports(
     // group. Those are thunks or functions, never values, so they look each
     // other up only when called, after all of them are defined.
     // What records' proof-field checks use, too.
+    // And the helpers of their fields' defaults, which decoders call for
+    // missing properties (docs/proposals/named-arguments.md §5.3).
     let checks = boundary_datas
         .iter()
         .flat_map(|d| &g.data(*d).validators)
@@ -798,7 +803,14 @@ pub fn generate_exports(
         .filter_map(|(t, _)| match t {
             Term::Def(id) => Some(*id),
             _ => None,
-        });
+        })
+        .chain(boundary_datas.iter().flat_map(|d| {
+            g.data(*d)
+                .defaults
+                .iter()
+                .flat_map(|table| table.iter().flatten().flatten())
+                .map(|default| default.helper)
+        }));
     // A map that crosses is built and read with the library's own `Map`
     // functions, so they're generated, with the `Text` order they're given.
     let maps_cross = exports
@@ -1001,20 +1013,24 @@ pub fn generate_exports(
         if g.registry.is_data(Builtin::Option, d) && !tagged_option {
             continue;
         }
-        dts.push_str(&codegen.ts_alias(d));
+        dts.push_str(&codegen.ts_alias(d, None));
+        // Its input shape, next to it, if it has one.
+        if inputs.contains(&d) {
+            dts.push_str(&codegen.ts_alias(d, Some(&inputs)));
+        }
     }
     for sig in &exports {
         let params: Vec<String> = sig
             .params
             .iter()
-            .map(|(x, b)| format!("{x}: {}", codegen.ts_type(b, true, &[])))
+            .map(|(x, b)| format!("{x}: {}", codegen.ts_type(b, true, &[], Some(&inputs))))
             .collect();
         let _ = writeln!(
             dts,
             "export declare function {}({}): {};",
             sig.name,
             params.join(", "),
-            codegen.ts_type(&sig.result, false, &[])
+            codegen.ts_type(&sig.result, false, &[], None)
         );
     }
     Ok(Output {
@@ -1035,6 +1051,94 @@ fn names_option(g: &Globals, b: &Boundary) -> bool {
         }
         _ => false,
     }
+}
+
+/// Which data types have an input shape in the TypeScript declarations, as
+/// a set: given to [`Gen::ts_type`] for an export's parameters, `None` for
+/// its result.
+type Inputs<'a> = Option<&'a HashSet<DataId>>;
+
+/// What an input shape's name adds to the type's: `RangeOptionsInput`.
+const INPUT_SUFFIX: &str = "Input";
+
+/// The data types at the boundary that need an input shape
+/// (docs/proposals/named-arguments.md §5.3, D1101): those with a field with
+/// a default, which an input may leave out, and, all the way down, those
+/// whose fields' types mention one (`JobInput`, with
+/// `options: RangeOptionsInput`). A type parameter isn't a reason: a
+/// generic type's input is written with input arguments, `Box<RangeOptionsInput>`.
+/// A `js.unboxed` record is its one field at the boundary, so its own
+/// default never applies there. Each input shape's name must be free among
+/// the boundary's types.
+fn input_datas(g: &Globals, boundary_datas: &[DataId]) -> Result<HashSet<DataId>, Diagnostic> {
+    let own_default = |d: DataId| {
+        let data = g.data(d);
+        !repr(g, d).unboxed
+            && data.ctors.iter().enumerate().any(|(c, ctor)| {
+                (0..ctor.fields.len())
+                    .any(|i| !ctor.field_erased[i] && field_default(g, d, c, i).is_some())
+            })
+    };
+    let mut inputs: HashSet<DataId> = boundary_datas
+        .iter()
+        .copied()
+        .filter(|d| own_default(*d))
+        .collect();
+    fn mentions(b: &Boundary, inputs: &HashSet<DataId>) -> bool {
+        match b {
+            Boundary::List(elem) | Boundary::Option(_, elem) => mentions(elem, inputs),
+            Boundary::Map(_, key, value) => mentions(key, inputs) || mentions(value, inputs),
+            Boundary::Data(d, args) => {
+                inputs.contains(d) || args.iter().any(|a| mentions(a, inputs))
+            }
+            _ => false,
+        }
+    }
+    loop {
+        let more: Vec<DataId> = boundary_datas
+            .iter()
+            .copied()
+            .filter(|d| {
+                !inputs.contains(d)
+                    && generic_field_boundaries(g, *d)
+                        .iter()
+                        .flatten()
+                        .any(|(_, b)| mentions(b, &inputs))
+            })
+            .collect();
+        if more.is_empty() {
+            break;
+        }
+        inputs.extend(more);
+    }
+    for &d in boundary_datas.iter().filter(|d| inputs.contains(d)) {
+        let input = format!("{}{INPUT_SUFFIX}", type_name(&g.data(d).name));
+        if let Some(&other) = boundary_datas
+            .iter()
+            .find(|e| type_name(&g.data(**e).name) == input)
+        {
+            return Err(Diagnostic::error(
+                "E-EXPORT",
+                format!(
+                    "`{}`'s input shape and `{}` would both be called `{input}` in the \
+                     TypeScript declarations",
+                    g.data(d).name,
+                    g.data(other).name
+                ),
+            )
+            .with_label(g.data(d).span, format!("its input shape is `{input}`"))
+            .with_label(
+                g.data(other).span,
+                "and this type crosses the JS boundary too",
+            )
+            .with_note(format!(
+                "a parameter's `{}` may leave out fields with defaults, in it or inside it, \
+                 so its type is `{input}`; rename one of the types",
+                type_name(&g.data(d).name)
+            )));
+        }
+    }
+    Ok(inputs)
 }
 
 fn collect_datas(g: &Globals, b: &Boundary, out: &mut Vec<DataId>) {
@@ -1193,11 +1297,15 @@ const define = (
 ) => {
   // A constructor is `[tag, fields]`, or `[tag, fields, tag at the
   // boundary]`. A field is `[key, type]`, `[key, type, true]` for an
-  // optional property, or `[key, type, optional, key inside]`.
+  // optional property, `[key, type, optional, key inside]`, or, for a field
+  // with a default, `[key, type, false, key inside, default]`: `default` is a
+  // function of the object decoded so far (the earlier fields, by their keys
+  // inside), giving the field's value when its property is missing.
   const entries = ctors.map(([tag, fields, external = tag]) => ({
     tag,
     external,
-    fields: fields.map(([key, type, optional = false, inside = key]) => [key, type, optional, inside]),
+    fields: fields.map(([key, type, optional = false, inside = key, dflt]) =>
+      [key, type, optional, inside, dflt]),
   }));
   if (record) {
     info.record = entries[0].fields;
@@ -1629,9 +1737,16 @@ const decode = (t, x, root, seen = new Map()) => {
             if (x === MISSING || x === INHERITED) refuse("a hole in the array");
             t = f.t.elem;
           } else {
-            const [key, type, optional] = f.fields[f.i];
+            const [key, type, optional, , dflt] = f.fields[f.i];
             path.push(key);
             x = own(f.x, key);
+            // A missing property of a field with a default is the default,
+            // computed from the fields before it; a present one, `undefined`
+            // too, is decoded as given (D1114).
+            if (x === MISSING && dflt !== undefined) {
+              value = dflt(f.out);
+              continue;
+            }
             if (x === MISSING && optional) x = undefined;
             if (x === MISSING) refuse("missing");
             if (x === INHERITED) refuse("inherited, not the object's own property");
@@ -3291,32 +3406,42 @@ impl<'g> Gen<'g> {
             .zip(generic_field_boundaries(self.g, d))
             .enumerate()
         {
-            let internal = (0..ctor.fields.len())
-                .filter(|&i| !ctor.field_erased[i])
-                .map(|i| field_key_at(self.g, d, c, i));
-            let fields: Vec<String> = fields
+            let mut entries = Vec::new();
+            for ((((_, b), external), i), flag) in fields
                 .iter()
                 .zip(external_keys(&repr, c))
-                .zip(internal)
+                .zip(runtime_fields(self.g, d, c))
                 .zip(external_optional(&repr, c))
-                .map(|((((_, b), external), internal), flag)| {
-                    // A record's `Option` field is an optional property, and
-                    // so is a variant's with `js.optional`.
-                    let optional = flag || (data.record && matches!(b, Boundary::Option(..)));
-                    let rest = if internal != external {
-                        format!(", {optional}, {}", js_string_literal(&internal))
-                    } else if optional {
-                        ", true".to_string()
+            {
+                let internal = field_key_at(self.g, d, c, i);
+                let optional = optional_property(self.g, d, c, i, b, flag);
+                // A field with a default: a function of the object decoded
+                // so far (its earlier fields, by their keys inside), giving
+                // the default for a missing property (§5.3).
+                let default = self.default_call(d, c, i, &|j| {
+                    format!("o{}", member(&field_key_at(self.g, d, c, j)))
+                })?;
+                let rest = if let Some((reads, call)) = default {
+                    let function = if reads.is_empty() {
+                        format!("() => {call}")
                     } else {
-                        String::new()
+                        format!("(o) => {{ {reads}return {call}; }}")
                     };
-                    format!(
-                        "[{}, {}{rest}]",
-                        js_string_literal(external),
-                        self.type_expr(b)
-                    )
-                })
-                .collect();
+                    format!(", false, {}, {function}", js_string_literal(&internal))
+                } else if internal != external {
+                    format!(", {optional}, {}", js_string_literal(&internal))
+                } else if optional {
+                    ", true".to_string()
+                } else {
+                    String::new()
+                };
+                entries.push(format!(
+                    "[{}, {}{rest}]",
+                    js_string_literal(external),
+                    self.type_expr(b)
+                ));
+            }
+            let fields = entries;
             let tag = &repr.ctors[c].tag;
             let external = if data.record || *tag == *ctor.name {
                 String::new()
@@ -3351,6 +3476,45 @@ impl<'g> Gen<'g> {
         }
         out.push_str(");\n");
         Ok(out)
+    }
+
+    /// The default of field `i` of constructor `c` of `d`, if it has one,
+    /// as a call of its helper (docs/proposals/named-arguments.md §5.3):
+    /// statements binding the earlier fields the helper takes, each read by
+    /// `read` (given the field's index among all the constructor's fields),
+    /// and the call. The type's parameters, and erased fields, are types and
+    /// proofs, which the call leaves out.
+    pub(crate) fn default_call(
+        &self,
+        d: DataId,
+        c: usize,
+        i: usize,
+        read: &dyn Fn(usize) -> String,
+    ) -> Fallible<Option<(String, String)>> {
+        let Some(default) = field_default(self.g, d, c, i) else {
+            return Ok(None);
+        };
+        let data = self.g.data(d);
+        let ctor = &data.ctors[c];
+        let np = data.params.len();
+        let mut env: Vec<bool> = vec![true; np];
+        env.extend(&ctor.field_erased[..i]);
+        let n = env.len();
+        let mut reads = String::new();
+        let mut call = Term::Def(default.helper);
+        for &l in &default.captures {
+            if !env[l] {
+                let _ = write!(reads, "const {} = {}; ", var(l), read(l - np));
+            }
+            let icit = if l < np {
+                Icit::Implicit
+            } else {
+                Icit::Explicit
+            };
+            call = Term::app_icit(call, Term::Var(n - 1 - l), icit);
+        }
+        let call = self.expr(&call, &mut env)?;
+        Ok(Some((reads, call)))
     }
 
     /// For each proof field of record `d` with a decision procedure: the
@@ -3412,7 +3576,12 @@ impl<'g> Gen<'g> {
     /// one may keep and change it, and a type an app wrote with `T[]` is
     /// assignable both ways (`readonly T[]` isn't assignable to `T[]`).
     /// `params` names a data type's parameters, inside its alias.
-    fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String]) -> String {
+    ///
+    /// With `inputs`, the type is an input's (an export's parameter): a data
+    /// type in `inputs` is its input shape, `RangeOptionsInput`, with its
+    /// defaulted fields optional (docs/proposals/named-arguments.md §5.3,
+    /// D1101). Without, it's a result's, where every field is present.
+    fn ts_type(&self, b: &Boundary, readonly: bool, params: &[String], inputs: Inputs) -> String {
         match b {
             Boundary::Nat | Boundary::Int => "bigint".into(),
             Boundary::SafeNat | Boundary::SafeInt | Boundary::Float => "number".into(),
@@ -3421,7 +3590,7 @@ impl<'g> Gen<'g> {
             Boundary::Option(..) => {
                 format!(
                     "{} | undefined",
-                    self.ts_type(&b.payload(), readonly, params)
+                    self.ts_type(&b.payload(), readonly, params, inputs)
                 )
             }
             // A dictionary: inputs are read-only, as lists are.
@@ -3430,13 +3599,13 @@ impl<'g> Gen<'g> {
             Boundary::Map(_, key, value) => format!(
                 "{{ {}[k: {}]: {} }}",
                 if readonly { "readonly " } else { "" },
-                self.ts_type(key, readonly, params),
-                self.ts_type(value, readonly, params)
+                self.ts_type(key, readonly, params, inputs),
+                self.ts_type(value, readonly, params, inputs)
             ),
             Boundary::List(elem) if readonly => {
                 // `readonly readonly T[][]` isn't TypeScript, and a union
                 // needs its parentheses too.
-                let text = self.ts_type(elem, true, params);
+                let text = self.ts_type(elem, true, params, inputs);
                 if text.starts_with("readonly ") || matches!(**elem, Boundary::Option(..)) {
                     format!("readonly ({text})[]")
                 } else {
@@ -3444,25 +3613,44 @@ impl<'g> Gen<'g> {
                 }
             }
             Boundary::List(elem) if matches!(**elem, Boundary::Option(..)) => {
-                format!("({})[]", self.ts_type(elem, false, params))
+                format!("({})[]", self.ts_type(elem, false, params, inputs))
             }
-            Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false, params)),
-            Boundary::Data(d, args) if args.is_empty() => type_name(&self.g.data(*d).name),
+            Boundary::List(elem) => format!("{}[]", self.ts_type(elem, false, params, inputs)),
             Boundary::Data(d, args) => {
+                let mut name = type_name(&self.g.data(*d).name);
+                if inputs.is_some_and(|set| set.contains(d)) {
+                    name.push_str(INPUT_SUFFIX);
+                }
+                if args.is_empty() {
+                    return name;
+                }
                 let args: Vec<String> = args
                     .iter()
-                    .map(|a| self.ts_type(a, readonly, params))
+                    .map(|a| self.ts_type(a, readonly, params, inputs))
                     .collect();
-                format!("{}<{}>", type_name(&self.g.data(*d).name), args.join(", "))
+                format!("{name}<{}>", args.join(", "))
             }
             Boundary::Param(i) => params[*i].clone(),
         }
     }
 
-    fn ts_alias(&self, d: DataId) -> String {
+    /// The declaration of data type `d`: its complete shape, which results
+    /// have, or with `inputs` (when `d` is in it), its input shape
+    /// `RangeOptionsInput`, which parameters have (§5.3, D1101). A field with
+    /// a default is optional in the input shape: `step?: bigint`, or for an
+    /// `Option`, `colour?: string | undefined`, since there `undefined` is
+    /// `None` and a missing property the default (D1114). In the complete
+    /// shape, a defaulted `Option` field is always present,
+    /// `colour: string | undefined`. Other fields' types are input shapes
+    /// too, all the way down.
+    fn ts_alias(&self, d: DataId, inputs: Inputs) -> String {
         let data = self.g.data(d);
         let repr = repr(self.g, d);
         let params = self.ts_params(d);
+        let mut name = type_name(&data.name);
+        if inputs.is_some() {
+            name.push_str(INPUT_SUFFIX);
+        }
         if repr.unboxed {
             // `js.unboxed`: a plain alias of its field's type (D1066). Its
             // fields are one with a key, and proofs.
@@ -3472,9 +3660,8 @@ impl<'g> Gen<'g> {
                 .next()
                 .expect("an unboxed record has one field with a property");
             return format!(
-                "export type {} = {};\n",
-                type_name(&data.name),
-                self.ts_type(&field.1, false, &params)
+                "export type {name} = {};\n",
+                self.ts_type(&field.1, false, &params, inputs)
             );
         }
         let variants: Vec<String> = generic_field_boundaries(self.g, d)
@@ -3489,16 +3676,21 @@ impl<'g> Gen<'g> {
                         js_string_literal(&repr.ctors[c].tag)
                     ));
                 }
-                for (((_, b), key), flag) in fields
+                for ((((_, b), key), flag), i) in fields
                     .iter()
                     .zip(external_keys(&repr, c))
                     .zip(external_optional(&repr, c))
+                    .zip(runtime_fields(self.g, d, c))
                 {
                     // A record's `Option` field is an optional property, and
-                    // so is a variant's with `js.optional`.
-                    let (optional, b) = match b {
-                        Boundary::Option(..) if data.record || flag => ("?", b.payload()),
-                        _ => ("", b.clone()),
+                    // so is a variant's with `js.optional`; in an input, so
+                    // is a field with a default.
+                    let (optional, b) = if optional_property(self.g, d, c, i, b, flag) {
+                        ("?", b.payload())
+                    } else if inputs.is_some() && field_default(self.g, d, c, i).is_some() {
+                        ("?", b.clone())
+                    } else {
+                        ("", b.clone())
                     };
                     // Lists in a declaration are mutable, `T[]`: an app's own
                     // types say `T[]`, and `readonly T[]` isn't assignable to
@@ -3506,7 +3698,7 @@ impl<'g> Gen<'g> {
                     parts.push(format!(
                         "readonly {}{optional}: {}",
                         ts_key(key),
-                        self.ts_type(&b, false, &params)
+                        self.ts_type(&b, false, &params, inputs)
                     ));
                 }
                 if parts.is_empty() {
@@ -3525,11 +3717,7 @@ impl<'g> Gen<'g> {
             // Structural, like every TypeScript object type: another record
             // with the same fields is accepted too (docs/proposals/records.md
             // §11.1).
-            return format!(
-                "export type {}{generics} = {};\n",
-                type_name(&data.name),
-                variants[0]
-            );
+            return format!("export type {name}{generics} = {};\n", variants[0]);
         }
         if repr.string_enum {
             // `js.enum`: each constructor is its string.
@@ -3538,19 +3726,14 @@ impl<'g> Gen<'g> {
                 .iter()
                 .map(|c| js_string_literal(&c.tag))
                 .collect();
-            return format!(
-                "export type {}{generics} = {};\n",
-                type_name(&data.name),
-                strings.join(" | ")
-            );
+            return format!("export type {name}{generics} = {};\n", strings.join(" | "));
         }
         if variants.is_empty() {
             // A type without constructors has no values.
-            return format!("export type {}{generics} = never;\n", type_name(&data.name));
+            return format!("export type {name}{generics} = never;\n");
         }
         format!(
-            "export type {}{generics} =\n  | {};\n",
-            type_name(&data.name),
+            "export type {name}{generics} =\n  | {};\n",
             variants.join("\n  | ")
         )
     }
@@ -4030,6 +4213,32 @@ fn external_optional(repr: &JsRepr, c: usize) -> Vec<bool> {
         .collect()
 }
 
+/// The indices, among all of constructor `c`'s fields, of those that have a
+/// key (not erased), in order: alongside [`external_keys`].
+fn runtime_fields(g: &Globals, d: DataId, c: usize) -> Vec<usize> {
+    let ctor = &g.data(d).ctors[c];
+    (0..ctor.fields.len())
+        .filter(|&i| !ctor.field_erased[i])
+        .collect()
+}
+
+/// The default of field `i` of constructor `c` of `d`, if it has one
+/// (docs/proposals/named-arguments.md §5.1).
+fn field_default(g: &Globals, d: DataId, c: usize, i: usize) -> Option<&FieldDefault> {
+    g.data(d).defaults.as_ref()?.get(c)?.get(i)?.as_ref()
+}
+
+/// Whether field `i` of constructor `c` of `d`, whose boundary type is `b`,
+/// is an optional property, where a missing property and `undefined` are
+/// both `None`, and `None` is no property (D582): a record's `Option` field,
+/// or a variant's with `js.optional` (`flag`). A field with a default never
+/// is: a missing property is its default, and a defaulted `Option` field is
+/// always present on output, `None` as `undefined` (D1114).
+fn optional_property(g: &Globals, d: DataId, c: usize, i: usize, b: &Boundary, flag: bool) -> bool {
+    field_default(g, d, c, i).is_none()
+        && (flag || (g.data(d).record && matches!(b, Boundary::Option(..))))
+}
+
 /// The key of a constructor's field in a JS object inside generated code
 /// (at the boundary, a field's key is its [`repr`]'s, which the codec
 /// translates to and from this): its name, with each prime as `$`. A name
@@ -4330,19 +4539,16 @@ pub fn boundary_literal(g: &Globals, b: &Boundary, value: &Value) -> Result<Stri
                 .zip(&ctor.field_erased)
                 .filter(|(_, erased)| !**erased)
                 .map(|(field, _)| field);
-            for ((((_, b), field), key), flag) in boundaries
+            for (((((_, b), field), key), flag), i) in boundaries
                 .iter()
                 .zip(runtime)
                 .zip(external_keys(&repr, *c))
                 .zip(external_optional(&repr, *c))
+                .zip(runtime_fields(g, *d, *c))
             {
                 let literal = boundary_literal(g, b, field)?;
-                // `None` in a record's `Option` field, or a variant's with
-                // `js.optional`, is no property.
-                if (data.record || flag)
-                    && matches!(b, Boundary::Option(..))
-                    && literal == "undefined"
-                {
+                // `None` in an optional property is no property.
+                if optional_property(g, *d, *c, i, b, flag) && literal == "undefined" {
                     continue;
                 }
                 parts.push(format!("{}: {literal}", ts_key(key)));

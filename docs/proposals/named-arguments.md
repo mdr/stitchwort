@@ -1,9 +1,9 @@
 # Named and default arguments
 
 Status: decided (SW-390). Built: stage 1 (named arguments, SW-399), stage 1b
-(SW-400: formatter, completion and hover of parameter names) and stage 2
-(field defaults, SW-401); see the "As built" sections. Stage 2b (JS input
-shapes) and stage 3 (signature defaults) not built. Revised after external review
+(SW-400: formatter, completion and hover of parameter names), stage 2 (field
+defaults, SW-401) and stage 2b (field defaults at the JS boundary, SW-402); see
+the "As built" sections. Stage 3 (signature defaults) not built. Revised after external review
 (24 Oct 2026). All decisions in §8 were taken as recommended (Matt, 24 Oct
 2026).
 
@@ -97,11 +97,9 @@ details (SW-401). The kernel is unchanged: defaults are elaborator sugar.
    later field: `E-UNKNOWN-NAME` with a note. A default on an interface's
    method: `E-FIELD-DEFAULT` (new), since every instance gives every
    method; default methods would be a separate design.
-8. **Not done here.** The JS boundary (§5.3, stage 2b, SW-402): today an
-   exported function taking a record with defaults still needs every field
-   from JS, and generated code calls the helpers as ordinary definitions.
-   The metadata in item 3 is what 2b's decoder and `.d.ts` input shapes
-   need. Signature defaults (§5.4) aren't built.
+8. **Not done here.** The JS boundary (§5.3, stage 2b, SW-402): built
+   since, see "As built (stage 2b)", which also moved item 3's table into
+   `Data`. Signature defaults (§5.4) aren't built.
 
 Tests: `examples/accept/field-defaults.sw`,
 `examples/reject/field-default-*.sw` (eight), and in
@@ -112,6 +110,64 @@ Tests: `examples/accept/field-defaults.sw`,
 8 are the accept example's "a given field runs once" and the reject
 examples `field-default-assumes-default.sw` and
 `field-default-left-out-commits.sw`.
+
+## As built (stage 2b)
+
+The JS boundary (§5.3) is built as specified, D1101 (a) and D1114 (a),
+with these build details (SW-402).
+
+1. **Where the table lives.** Stage 2's per-type defaults table moved from
+   the elaborator into the kernel's `Data` as `Data::defaults`
+   (`stitchwort_core::globals::FieldDefault`), next to `Data::js`: the JS
+   backend sees only `Globals`. Like `js`, the kernel never reads it and it
+   isn't hashed. The elaborator's side table is gone, so there is one copy;
+   the check-cache bytes are unchanged (format 12), the loader writes the
+   table into `Data`, and rewinding drops it with the data type.
+2. **Decoders.** `define` gives a defaulted field a fifth entry, a function
+   of the object decoded so far that calls the helper with the earlier
+   fields it takes (the type's parameters and erased fields are left out,
+   as in any call). The general `decode` calls it for a missing own
+   property and decodes a present one as given; the fast decoders inline
+   the same call (`f2 = $Main$dRect$darea$ddefault(v0)(v1)`), reading the
+   earlier fields from their decoded values. The helpers are generated with
+   the module, as records' proof checks are. A missing property is decided
+   by `own`, so an inherited property is still refused, never defaulted.
+   Decoded values may share a default's value (a helper that is a
+   constant); values are never changed, so that is safe.
+3. **Optional properties** are decided in one place
+   (`optional_property`), used by the codec table, the fast codecs, the
+   declarations and the differential tests' literals: a field with a
+   default is never an optional property, so a defaulted `Option` field is
+   always encoded, `None` as `undefined`, and a missing property is the
+   default rather than `None`.
+4. **Input shapes.** `input_datas` finds the boundary types that need one:
+   those with a defaulted field that has a property, then, to a fixed
+   point, those whose fields' types mention one. A type parameter isn't a
+   reason: `Box<RangeOptions>` as a parameter is `BoxInput<RangeOptionsInput>`
+   when `Box` has defaults, `Box<RangeOptionsInput>` when it hasn't. Each
+   input shape is declared right after its complete shape. Export
+   parameters use input shapes; results never do. A `js.unboxed` record is
+   its field at the boundary, so its own default doesn't count, but its
+   field's type can still make it need an input shape (`type W = RangeOptions`
+   gives `WInput = RangeOptionsInput`).
+5. **Two new errors.** An input shape's name taken by another type at the
+   boundary (`type OptionsInput` beside a defaulted `Options`) is
+   `E-EXPORT`, reported when exports are checked
+   (`examples/reject/export-input-name-clash.sw`). `@[js.optional]` on a
+   field with a default is `E-ATTRIBUTE`: absence already means the default
+   (`examples/reject/field-default-js-optional.sw`).
+6. **`null`** in a defaulted `Option` field is refused, as in any `Option`
+   (§5.3 doesn't change it).
+
+Tests: `examples/extract/field-defaults.sw` (run lines, random inputs,
+generated-code and `.d.ts` snapshots under `tsc --strict
+--exactOptionalPropertyTypes`), and in `crates/cli/tests/extract.rs`
+`defaulted_fields_may_be_left_out_going_in` (absent, present, `undefined`,
+`null`, inherited; dependent defaults; a constructor's field; nested and
+generic types; the round trip of invariant 10; the general decoder, by a
+getter that throws once) and `input_shapes_leave_out_defaulted_fields` (an
+app's TypeScript against both shapes, with `@ts-expect-error` for what each
+refuses).
 
 ## 0. Summary
 

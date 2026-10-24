@@ -450,7 +450,9 @@ impl Elaborator {
             let mut keys = Vec::new();
             let mut optionals = Vec::new();
             let mut ctor_sites = Vec::new();
-            for binder in &ctor.fields {
+            for (b, binder) in ctor.fields.iter().enumerate() {
+                // Empty when no field has a default.
+                let default = ctor.defaults.get(b).and_then(Option::as_ref);
                 if binder.names.len() > 1
                     && let Some(a) = binder.attrs.first()
                 {
@@ -531,6 +533,22 @@ impl Elaborator {
                             .with_note(
                                 "`js.optional` applies to a constructor field written with the \
                                  type `Option T` itself: it makes the property optional, `f?: T`",
+                            ));
+                        }
+                        // A missing property already asks for the default
+                        // (docs/proposals/named-arguments.md §5.3, D1114).
+                        if default.is_some() {
+                            return Err(Diagnostic::error(
+                                "E-ATTRIBUTE",
+                                format!(
+                                    "`js.optional` can't be used on `{}`: it has a default value",
+                                    n.text
+                                ),
+                            )
+                            .with_label(a.span, "on a field with a default")
+                            .with_note(
+                                "a field with a default is already optional in JavaScript: a \
+                                 missing property is the default, and `undefined` is `None`",
                             ));
                         }
                     }
