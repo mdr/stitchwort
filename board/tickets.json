@@ -1,5 +1,5 @@
 {
-  "next": 443,
+  "next": 444,
   "tickets": [
     {
       "id": 1,
@@ -7104,7 +7104,23 @@
     {
       "id": 441,
       "title": "AoC day 7 review (D1167): strict input (unknown characters rejected with position), checkManifold theorem, one-column and padded-row tests",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "-",
+      "labels": [
+        "aoc"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": [
+        "43fed6a3"
+      ]
+    },
+    {
+      "id": 442,
+      "title": "Std: Fin.any with intro/elim lemmas; use it in AoC day 7 beamReachZero, fallKeeps, beamStart (after the day 7 tidy-up; D1167)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7116,13 +7132,13 @@
       "commits": []
     },
     {
-      "id": 442,
-      "title": "Std: Fin.any with intro/elim lemmas; use it in AoC day 7 beamReachZero, fallKeeps, beamStart (after the day 7 tidy-up; D1167)",
-      "status": "next",
+      "id": 443,
+      "title": "Effect runtime stage 4 (D1162 decided): 4a JS run loop with Bind, persistent pending list, lazy resumption, step-count + 1M stack tests; note updated with the decision and stage plan",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
-        "aoc"
+        "effects"
       ],
       "body": "",
       "created": "2026-10-24",
