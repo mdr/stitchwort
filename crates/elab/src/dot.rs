@@ -1144,6 +1144,9 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         }
         Expr::Char(..) => return Ok(data(crate::check::builtin_data(cx, Builtin::Char)?)),
         Expr::Num(..) => return Ok(data(crate::check::nat(cx)?)),
+        // A list literal is a `List` (its element type doesn't matter for
+        // finding the namespace), as `infer` makes it.
+        Expr::List(..) => return Ok(data(crate::check::builtin_data(cx, Builtin::List)?)),
         Expr::Binary(stitchwort_syntax::ast::BinOp::Append, a, b) if depth > 0 => {
             return match receiver_type(cx, a, depth - 1)? {
                 Some(ty) => Ok(Some(ty)),

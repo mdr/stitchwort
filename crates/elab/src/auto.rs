@@ -68,6 +68,22 @@ impl Elaborator {
     /// instance that can't be found yet waits; the waiting ones are retried
     /// while anything else gets solved, and reported once nothing does.
     pub(crate) fn solve_obligations(&self) -> Result<()> {
+        match self.solve_obligations_until_stuck()? {
+            None => Ok(()),
+            Some(stuck) => {
+                // Reported: nothing is left waiting.
+                self.obligations.borrow_mut().clear();
+                Err(stuck)
+            }
+        }
+    }
+
+    /// [`Elaborator::solve_obligations`], except that when the instances
+    /// still waiting stop making progress they're kept, to be retried, and
+    /// the error that would be reported is returned instead: at the end of a
+    /// declaration a row unknown defaulted to the empty row may yet settle
+    /// them (`Elaborator::settle_rows`, D1123).
+    pub(crate) fn solve_obligations_until_stuck(&self) -> Result<Option<Diagnostic>> {
         let mut waiting: Vec<(Obligation, Diagnostic)> = Vec::new();
         let mut progress = false;
         loop {
@@ -79,10 +95,14 @@ impl Elaborator {
                     progress = true;
                 }
                 if waiting.is_empty() {
-                    return Ok(());
+                    return Ok(None);
                 }
                 if !progress {
-                    return Err(waiting.swap_remove(0).1);
+                    let stuck = waiting.swap_remove(0);
+                    let mut kept = self.obligations.borrow_mut();
+                    kept.push(stuck.0);
+                    kept.extend(waiting.into_iter().map(|(ob, _)| ob));
+                    return Ok(Some(stuck.1));
                 }
                 progress = false;
                 self.obligations

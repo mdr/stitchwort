@@ -848,6 +848,15 @@ fn is_unknown(cx: &Ctx, value: &Value) -> Result<bool> {
     ))
 }
 
+/// Whether `row` is a bare row `{?e}` whose row is still unknown: the row
+/// rule's to decide (`unify::row_rule`), or to put aside, never a coercion's.
+fn unknown_bare(cx: &Ctx, row: &Row) -> Result<bool> {
+    match &row.tail {
+        Some(tail) if row.is_bare() => is_unknown(cx, tail),
+        _ => Ok(false),
+    }
+}
+
 /// If `row` ends in an unknown, adds `extra` to it, keeping it open for
 /// more (the unknown becomes `extra` and a fresh unknown). Returns the
 /// wider row.
@@ -3597,6 +3606,7 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
             // computation.
             if n == 0
                 || matches!(force(g, found.clone())?, Value::Neutral(Head::Meta(_), _))
+                || unknown_bare(cx, &re)?
                 || !cx.unify(&found, &te)?
             {
                 return Ok(None);

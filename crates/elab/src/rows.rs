@@ -233,7 +233,13 @@ impl Elaborator {
     /// remaining row unknowns to the empty row and retries once more, with
     /// the auto arguments and instances. A comparison still put aside then
     /// is reported.
-    pub(crate) fn settle_rows(&self) -> Result<()> {
+    ///
+    /// `stuck` is the error for the instances the rounds left waiting (kept
+    /// as obligations): an instance whose type is stuck on a row unknown
+    /// (`DecEq ({?e} List Nat)`) is found once the row is defaulted, so it's
+    /// reported only if defaulting changes nothing. Instance resolution
+    /// itself never guesses a row (SW-430).
+    pub(crate) fn settle_rows(&self, stuck: Option<stitchwort_syntax::Diagnostic>) -> Result<()> {
         while self.retry_rows()? {}
         let defaulted = self.default_rows()?;
         if !defaulted.is_empty() {
@@ -242,6 +248,9 @@ impl Elaborator {
                 Ok(())
             });
             after.map_err(|d| explain_defaulted(d, &defaulted))?;
+        } else if let Some(d) = stuck {
+            self.obligations.borrow_mut().clear();
+            return Err(d);
         }
         let first = self.row_constraints.borrow().first().cloned();
         if let Some(item) = first {

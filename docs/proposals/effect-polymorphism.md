@@ -1983,8 +1983,43 @@ the same term as before), the computation's row, or put aside. If that
 fails, the body is checked against `b` as before. Regression tests:
 `loggedLambda` and `notLoggedLambda` in `examples/accept/effect-rows.sw`; no
 existing hash moved. Still refused, and not an eta case: a `let` that binds
-`List.mapIn answer numbers` in a `{Log}` body and returns it later (the row
-is defaulted before the `let`'s variable is compared with the result type).
+`List.mapIn answer numbers` in a `{Log}` body and returns it later (fixed
+since, SW-432, below).
+
+*Note, 24 Oct 2026: SW-430 and SW-432.* Three rough edges of the inference,
+each with a regression test in `examples/accept/effect-rows-uses.sw`:
+
+- *An instance stuck on a row unknown waits for defaulting* (SW-430).
+  `[1, 2, 3].mapIn (n => n * n) == [1, 4, 9]` in a `test` needs
+  `DecEq ({?e} List Nat)`; nothing decides `?e` (the right side is checked
+  against `{?e} List Nat` as `doneIn ?e [1, 4, 9]`), and the obligation
+  rounds gave up with `E-INSTANCE-STUCK` before `settle_rows` could default
+  it. Now `finish` runs the rounds with
+  `solve_obligations_until_stuck`, which keeps the waiting instances and
+  hands back the error instead of reporting it; `settle_rows` defaults the
+  row unknowns and retries them, and reports that error only if nothing was
+  defaulted. The resolver still never guesses a row: a rigid row variable is
+  not an unknown, so `reject/interfaces-comp-in-rigid-row.sw` is unchanged.
+- *A list literal's dot call is seen to perform* (SW-430). `may_perform`
+  reads a dot call's target off the receiver's type without elaborating it
+  (`dot::receiver_type`), and had no case for a list literal, so
+  `[4, 6, 7].mapIn halve` inside `() => …` was taken for a pure value of type
+  `{?e} List Nat`, and `Fail.toResult`'s `a` became `{Fail} List Nat`
+  (`E-INSTANCE-NONE` for its `DecEq`). A list literal is now a `List` there,
+  as `infer` makes it.
+- *SW-393's coercion leaves an unknown bare row to the row rule* (SW-432).
+  The cause was not defaulting: with no expected type (a `let`), `answer:
+  Tagged ?flag -> Answer ?flag` against `?a -> {?e} ?b` is blocked in
+  `row_rule`, and `compare` tried `coerce` before putting it aside. `coerce`
+  read `answer` as a pure function, solved `?b := Answer ?flag` and wrapped
+  it in `doneIn ?e`, so once `?flag := True` the list held unrun `{Log} Nat`
+  computations (`List ({Log} Nat)`). This was the weakness noted at the end
+  of §5.C.1. `coerce` now declines when the expected row is an unknown bare
+  row, so the comparison is put aside and decided once `?flag` is known.
+  One hash moved: `cellAt` in `accept/effect-rows.sw` (`applyDep cellOf
+  flag`, a result type `Cell x` stuck on a variable), which the coercion
+  used to wrap in `doneIn ?e`; it is now put aside and defaulted to the empty
+  row, as §5.C.1 describes for that case.
 
 ## Appendix A. Probe files
 
