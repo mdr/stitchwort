@@ -3342,14 +3342,16 @@
     {
       "id": 212,
       "title": "Messages print the empty-row computation type as {} a, which reads as a",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Sonnet)",
+      "where": "-",
       "labels": [],
       "body": "Messages print `Comp NoOp NoRes a` as `{} a`, but a row written `{}` is no row at all (`{} Nat` is `Nat`, effects.rs:802-804), so messages contradict themselves: \"expected `Nat -> Nat`, but this has type `Nat -> {} Nat`\" (examples/reject/empty-row-function.sw snapshot, from SW-124). First step: decide how the empty computation type is shown (e.g. `Comp NoOp NoRes Nat` spelled out, or a distinct notation), then change the printer.\n\nDone when: no message shows `{} T` for a type that isn't `T`; the reject snapshot reads sensibly.\n",
       "created": "2026-10-21",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "5d303e57"
+      ]
     },
     {
       "id": 213,
