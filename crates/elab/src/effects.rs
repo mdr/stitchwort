@@ -31,7 +31,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Spine, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{BinOp, Bracket, Clause, Expr, Name as AstName, Pattern};
+use stitchwort_syntax::ast::{BinOp, Bracket, Clause, Expr, Mode, Name as AstName, Pattern};
 
 use crate::Global;
 use crate::check::{
@@ -1488,7 +1488,7 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             (may_perform(cx, value)? && !piped_passed(cx, f)?)
                 || match &**f {
                     Expr::Lam(names, body, _) => names.len() == 1 && may_perform(cx, body)?,
-                    Expr::TypedLam(_, _, body, _) => may_perform(cx, body)?,
+                    Expr::TypedLam(_, Mode::Explicit, _, body, _) => may_perform(cx, body)?,
                     f => call_performs(cx, f, 1)?,
                 }
         }
@@ -2780,7 +2780,7 @@ fn pipe_call(
             };
             comp_infer(cx, &as_let, row)?
         }
-        Expr::TypedLam(name, ty, body, span) => {
+        Expr::TypedLam(name, Mode::Explicit, ty, body, span) => {
             let as_let = Expr::Let {
                 name: name.clone(),
                 ty: Some(ty.clone()),

@@ -13,7 +13,7 @@
 
 use crate::ast::{
     Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, LocalDef,
-    MatchKind, Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
+    MatchKind, Mode, Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::stack::StackLimit;
@@ -440,10 +440,10 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
 }
 
 /// A lambda parameter: a name (with the pattern it stands for, if it was
-/// written as one), or a name with a written type.
+/// written as one), or a name with a written type and its mode.
 enum LamParam {
     Plain(Name, Option<Pattern>),
-    Typed(Name, Expr),
+    Typed(Name, Mode, Expr),
 }
 
 struct Parser<'t> {
@@ -1990,7 +1990,23 @@ impl<'t> Parser<'t> {
                         unreachable!("an annotated parameter is a named one")
                     };
                     for name in names {
-                        params.push(LamParam::Typed(name, ty.clone()));
+                        params.push(LamParam::Typed(name, Mode::Explicit, ty.clone()));
+                    }
+                }
+                // `[a: Type]`, `[auto h: P]`, `[auto P]`: implicit and auto
+                // parameters, as in a header (§4.3, D91).
+                Some(Tok::LBracket)
+                    if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
+                {
+                    let Param::Named {
+                        names, ty, auto, ..
+                    } = self.header_param()?
+                    else {
+                        unreachable!("an implicit parameter is a named one")
+                    };
+                    let mode = if auto { Mode::Auto } else { Mode::Implicit };
+                    for name in names {
+                        params.push(LamParam::Typed(name, mode, ty.clone()));
                     }
                 }
                 Some(Tok::LParen | Tok::LBrace) => match self.pattern()? {
@@ -2045,12 +2061,12 @@ impl<'t> Parser<'t> {
         for param in params.into_iter().rev() {
             match param {
                 LamParam::Plain(name, _) => run.push(name),
-                LamParam::Typed(name, ty) => {
+                LamParam::Typed(name, mode, ty) => {
                     if !run.is_empty() {
                         run.reverse();
                         result = Expr::Lam(std::mem::take(&mut run), Box::new(result), span);
                     }
-                    result = Expr::TypedLam(name, Box::new(ty), Box::new(result), span);
+                    result = Expr::TypedLam(name, mode, Box::new(ty), Box::new(result), span);
                 }
             }
         }
@@ -2441,12 +2457,11 @@ impl<'t> Parser<'t> {
     /// `[` opening an implicit binder), which the scan skips in one step with
     /// the bracket table. The run continues while the next token isn't a
     /// stop, and the `=>` after it isn't one either. Nothing is consumed.
-    /// An implicit group in the run is an error: not supported yet.
+    /// An implicit group is `[a: Type]`, `[auto h: P]` or `[auto P]` (§4.3).
     #[inline(never)]
     fn lambda_ahead(&self) -> Result<bool> {
         let mut i = self.pos;
         let mut count = 0;
-        let mut implicit: Option<usize> = None;
         while i < self.tokens.len() && !self.is_stop(i) {
             match &self.tokens[i].tok {
                 Tok::Lower(w) if !w.contains('.') => i += 1,
@@ -2455,35 +2470,25 @@ impl<'t> Parser<'t> {
                     NO_PARTNER => return Ok(false),
                     close => i = close as usize + 1,
                 },
-                Tok::LBracket if self.implicit_group_at(i) => match self.matching[i] {
-                    NO_PARTNER => return Ok(false),
-                    close => {
-                        implicit.get_or_insert(i);
-                        i = close as usize + 1;
+                Tok::LBracket if self.implicit_group_at(i) || self.nameless_auto_at(i) => {
+                    match self.matching[i] {
+                        NO_PARTNER => return Ok(false),
+                        close => i = close as usize + 1,
                     }
-                },
+                }
                 _ => break,
             }
             count += 1;
         }
-        let is_lambda = count > 0
+        Ok(count > 0
             && i < self.tokens.len()
             && self.tokens[i].tok == Tok::FatArrow
-            && !self.is_stop(i);
-        match (is_lambda, implicit) {
-            (true, Some(at)) => Err(error(
-                self.tokens[at].span,
-                "implicit lambda parameters aren't supported yet",
-            )
-            .with_note(
-                "write the lambda without `[…]`; the implicit parameter is introduced for you",
-            )),
-            (is_lambda, _) => Ok(is_lambda),
-        }
+            && !self.is_stop(i))
     }
 
     /// Whether the `[` at token `i` opens an implicit binder: `[name+ :`
-    /// (this covers `[auto name :`).
+    /// (this covers `[auto name :`), or `[name+]`, one missing its type,
+    /// which `header_param` reports when it ends a lambda's run.
     fn implicit_group_at(&self, i: usize) -> bool {
         let mut j = i + 1;
         while matches!(
@@ -2499,7 +2504,7 @@ impl<'t> Parser<'t> {
             && matches!(
                 self.tokens.get(j),
                 Some(Token {
-                    tok: Tok::Colon,
+                    tok: Tok::Colon | Tok::RBracket,
                     ..
                 })
             )
@@ -4751,7 +4756,7 @@ mod tests {
         // (name, type, body) of a typed lambda.
         fn typed(e: &Expr) -> (String, String, Expr) {
             match e {
-                Expr::TypedLam(name, ty, body, _) => {
+                Expr::TypedLam(name, Mode::Explicit, ty, body, _) => {
                     (name.text.clone(), pshape(ty), body.as_ref().clone())
                 }
                 other => panic!("expected a typed lambda, got {other:?}"),
@@ -4889,12 +4894,60 @@ mod tests {
         assert!(crate::lex(file, "\\").is_err());
     }
 
+    /// docs/proposals/lambda-syntax.md §4.3 (D91): implicit and auto
+    /// parameters are written as in a header, and each gets its mode.
     #[test]
-    fn implicit_lambda_parameters_are_not_supported_yet() {
-        let message = error_text("def f : Nat := [a: Type] (x: a) => x\n");
-        assert!(message.contains("aren't supported yet"), "{message}");
-        // The function type with the same start is unaffected.
-        assert!(rhs_of("def f : Nat := [a: Type] -> a -> a\n").is_ok());
+    fn lambdas_bind_implicit_and_auto_parameters() {
+        // (name, mode, type, body) of a typed lambda.
+        fn typed(e: &Expr) -> (String, Mode, String, Expr) {
+            match e {
+                Expr::TypedLam(name, mode, ty, body, _) => {
+                    (name.text.clone(), *mode, pshape(ty), body.as_ref().clone())
+                }
+                other => panic!("expected a typed lambda, got {other:?}"),
+            }
+        }
+        let (name, mode, ty, body) = typed(&rhs("def f : Nat := [a: Kind] (x: a) => x\n"));
+        assert_eq!(
+            (name.as_str(), mode, ty.as_str()),
+            ("a", Mode::Implicit, "Kind")
+        );
+        let (name, mode, _, body) = typed(&body);
+        assert_eq!((name.as_str(), mode), ("x", Mode::Explicit));
+        assert!(matches!(body, Expr::Var(_)));
+        // On its own, and as a group sharing one type.
+        let (_, mode, _, body) = typed(&rhs("def f : Nat := [a b: Kind] => a\n"));
+        assert_eq!(mode, Mode::Implicit);
+        let (name, mode, _, _) = typed(&body);
+        assert_eq!((name.as_str(), mode), ("b", Mode::Implicit));
+        // `auto`, with a name and without one.
+        let (name, mode, ty, _) = typed(&rhs("def f : Nat := [auto h: Ord a] => h\n"));
+        assert_eq!(
+            (name.as_str(), mode, ty.as_str()),
+            ("h", Mode::Auto, "(Ord a)")
+        );
+        let (name, mode, _, _) = typed(&rhs("def f : Nat := [auto Ord a] => 0\n"));
+        assert_eq!((name.as_str(), mode), (crate::ast::NAMELESS, Mode::Auto));
+        // Mixed with plain parameters, in any order.
+        match &rhs("def f : Nat := x [a: Kind] y => x\n") {
+            Expr::Lam(names, body, _) => {
+                assert_eq!(names.len(), 1);
+                let (_, mode, _, body) = typed(body);
+                assert_eq!(mode, Mode::Implicit);
+                assert!(matches!(&body, Expr::Lam(names, _, _) if names.len() == 1));
+            }
+            other => panic!("expected a lambda, got {other:?}"),
+        }
+        // The function type with the same start is unaffected, and so is a
+        // list.
+        assert!(matches!(
+            rhs("def f : Nat := [a: Type] -> a -> a\n"),
+            Expr::Pi { implicit: true, .. }
+        ));
+        assert!(matches!(rhs("def f : Nat := [a, b]\n"), Expr::List(..)));
+        // A missing type is the header's error.
+        let message = error_text("def f : Nat := [a] => a\n");
+        assert!(message.contains("needs a type"), "{message}");
     }
 
     #[test]

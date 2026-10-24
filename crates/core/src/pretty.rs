@@ -410,12 +410,15 @@ impl<'g> Printer<'g> {
             // Nested lambdas are one run: `x y => body`. A lambda is a whole
             // expression only; everywhere else it gets brackets, since it
             // prints at the loosest precedence (docs/proposals/lambda-syntax.md §8.3).
-            Term::Lam(x, _, b) => {
-                let mut params = vec![x.to_string()];
+            // Implicit and auto parameters are written as such (§4.3), with
+            // their types left to be worked out, since a lambda doesn't
+            // record them: `[a: _] x => x`.
+            Term::Lam(x, icit, b) => {
+                let mut params = vec![lambda_param(x, *icit)];
                 names.push(x.clone());
                 let mut body = &**b;
-                while let Term::Lam(y, _, inner) = body.strip_loc() {
-                    params.push(y.to_string());
+                while let Term::Lam(y, icit, inner) = body.strip_loc() {
+                    params.push(lambda_param(y, *icit));
                     names.push(y.clone());
                     body = inner;
                 }
@@ -724,6 +727,15 @@ fn is_atomic(term: &Term) -> bool {
         term,
         Term::Var(_) | Term::Def(_) | Term::Sort(_) | Term::Refl | Term::Nat(_)
     )
+}
+
+/// A lambda's parameter `x` as written: `x`, `[x: _]` or `[auto x: _]`.
+fn lambda_param(x: &Name, icit: Icit) -> String {
+    match icit {
+        Icit::Explicit => x.to_string(),
+        Icit::Implicit => format!("[{x}: _]"),
+        Icit::Auto => format!("[auto {x}: _]"),
+    }
 }
 
 /// Whether a call has an implicit or auto argument.

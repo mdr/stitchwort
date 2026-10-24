@@ -316,3 +316,22 @@ fn brackets_a_function_domain_of_a_nondependent_arrow() {
         "(Nat -> Nat) -> Nat"
     );
 }
+
+/// docs/proposals/lambda-syntax.md §4.3: implicit and auto parameters are
+/// printed as such, with their types left out (a lambda doesn't keep them).
+#[test]
+fn prints_implicit_and_auto_lambda_parameters() {
+    let p = Prelude::new();
+    let lam = |x: &str, icit, body| Term::Lam(x.into(), icit, Rc::new(body));
+    let id = lam("a", Icit::Implicit, lam("x", Icit::Explicit, v(0)));
+    assert_eq!(show(&p, &[], &id), "[a: _] x => x");
+    let with_auto = lam(
+        "a",
+        Icit::Implicit,
+        lam("h", Icit::Auto, lam("x", Icit::Explicit, v(0))),
+    );
+    assert_eq!(show(&p, &[], &with_auto), "[a: _] [auto h: _] x => x");
+    // Explicit ones are unchanged.
+    let k = lam("x", Icit::Explicit, lam("y", Icit::Explicit, v(1)));
+    assert_eq!(show(&p, &[], &k), "x y => x");
+}

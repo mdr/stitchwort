@@ -354,7 +354,7 @@ fn walk_at(
             walk(e, body, bound, false, uses)?;
             bound.truncate(before);
         }
-        Expr::TypedLam(name, ty, body, _) => {
+        Expr::TypedLam(name, _, ty, body, _) => {
             walk(e, ty, bound, true, uses)?;
             let before = bound.len();
             bound.push(name.text.clone());

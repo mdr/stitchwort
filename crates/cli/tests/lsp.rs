@@ -692,6 +692,46 @@ fn small_navigation_issues() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+const IMPLICIT_LAMBDA_PROGRAM: &str = "def idf: [a: Type] -> a -> a := [a: Type] => (x: a) => x\n\ndef lets: Nat :=\n  let pick := [a: Type] (x: a) (y: a) => x\n  pick 1 2\n";
+
+/// SW-170: the parameters of `[a: Type] => …` hover with their types, and a
+/// lambda inferred with one has an implicit function type.
+#[test]
+fn implicit_lambda_parameters_hover_with_their_types() {
+    let dir = temp_dir("implicit-lambda");
+    let file = dir.join("implicit.sw");
+    std::fs::write(&file, IMPLICIT_LAMBDA_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, IMPLICIT_LAMBDA_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = IMPLICIT_LAMBDA_PROGRAM.lines().collect();
+    let col = |line: usize, needle: &str, nth: usize| {
+        lines[line].match_indices(needle).nth(nth).unwrap().0 as u32
+    };
+    let hover = |client: &mut Client, line: usize, at: u32| {
+        let found = client.at("textDocument/hover", &uri, line as u32, at);
+        found["contents"]["value"].as_str().unwrap().to_string()
+    };
+    // The lambda's own `[a: Type]` (the third `a` on the line), and its use
+    // in `(x: a)`.
+    let binder = col(0, "[a", 1) + 1;
+    assert_eq!(
+        hover(&mut client, 0, binder),
+        "```stitchwort\nType\n```\nlocal `a`"
+    );
+    let x = col(0, "(x", 0) + 1;
+    assert_eq!(hover(&mut client, 0, x), "```stitchwort\na\n```\nlocal `x`");
+    // `pick`, inferred: an implicit function.
+    let pick = col(3, "pick", 0);
+    assert_eq!(
+        hover(&mut client, 3, pick),
+        "```stitchwort\n[a: Type] -> a -> a -> a\n```\nlocal `pick`"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A check made stale by an edit stops, and what it would have said is never
 /// published: the edit's check answers instead. The server counts the checks
 /// it cancelled (`Options::cancellations`), so this asserts on that, not on
