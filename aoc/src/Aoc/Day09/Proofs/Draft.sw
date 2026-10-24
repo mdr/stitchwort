@@ -363,3 +363,60 @@ theorem DBool.ext: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (b = True
   | True, False, f, g => Eq.sym (f rfl)
   | False, True, f, g => g rfl
   | False, False, f, g => rfl
+
+-- membership through zip, take, drop and filter ------------------------------
+
+-- Each pair of `List.zip xs ys` is an element of `xs` with one of `ys`.
+theorem DList.memZip (p: (a, b)): (xs: List a) -> (ys: List b) -> List.Mem p (List.zip xs ys) -> And (List.Mem p.fst xs) (List.Mem p.snd ys)
+  | Nil, ys, m => Void.exfalso m
+  | Cons x xs, Nil, m => Void.exfalso m
+  | Cons x xs, Cons y ys, Inl e => rewrite <- e in Both (Inl rfl) (Inl rfl)
+  | Cons x xs, Cons y ys, Inr m =>
+    match DList.memZip p xs ys m with
+      | Both inXs inYs => Both (Inr inXs) (Inr inYs)
+
+theorem DList.memTake (v: a): (n: Nat) -> (xs: List a) -> List.Mem v (List.take n xs) -> List.Mem v xs
+  | Zero, xs, m => Void.exfalso m
+  | Succ n, Nil, m => m
+  | Succ n, Cons x xs, Inl e => Inl e
+  | Succ n, Cons x xs, Inr m => Inr (DList.memTake v n xs m)
+
+theorem DList.memDrop (v: a): (n: Nat) -> (xs: List a) -> List.Mem v (List.drop n xs) -> List.Mem v xs
+  | Zero, xs, m => m
+  | Succ n, Nil, m => m
+  | Succ n, Cons x xs, m => Inr (DList.memDrop v n xs m)
+
+-- What passes the test is kept.
+theorem DList.memFilterIntro (p: a -> Bool) (v: a): (xs: List a) -> List.Mem v xs -> p v = True -> List.Mem v (List.filter p xs)
+  | Nil, m, h => m
+  | Cons x xs, Inl e, h => rewrite <- e at h in (rewrite h in Inl e)
+  | Cons x xs, Inr m, h =>
+    match e: p x with
+      | True => Inr (DList.memFilterIntro p v xs m h)
+      | False => DList.memFilterIntro p v xs m h
+
+-- `x < u` is "not u <= x".
+theorem DNat.lessNotLe: (x: Nat) -> (u: Nat) -> Nat.leq (Succ x) u = Bool.not (Nat.leq u x)
+  | x, Zero => rfl
+  | Zero, Succ u => rfl
+  | Succ x, Succ u => DNat.lessNotLe x u
+
+-- Filtering a mapped list is mapping the filtered list.
+theorem DList.filterMap (q: b -> Bool) (g: a -> b): (xs: List a) -> List.filter q (List.map g xs) = List.map g (List.filter (x => q (g x)) xs)
+  | Nil => rfl
+  | Cons x xs =>
+    match e: q (g x) with
+      | True => rewrite DList.filterMap q g xs in rfl
+      | False => DList.filterMap q g xs
+
+-- Each pair of `List.pairs xs` is two elements of `xs`.
+theorem DList.memPairs (p: (a, a)): (xs: List a) -> List.Mem p (List.pairs xs) -> And (List.Mem p.fst xs) (List.Mem p.snd xs)
+  | Nil, m => Void.exfalso m
+  | Cons x xs, m =>
+    match List.memAppend p (List.map (y => (x, y)) xs) (List.pairs xs) m with
+      | Inl first =>
+        List.anyElim (y => (x, y) = p) (And (List.Mem p.fst (Cons x xs)) (List.Mem p.snd (Cons x xs))) xs (List.memMapAny (y => (x, y)) p xs first)
+          (y inXs e => rewrite <- e in Both (Inl rfl) (Inr inXs))
+      | Inr later =>
+        match DList.memPairs p xs later with
+          | Both one other => Both (Inr one) (Inr other)
