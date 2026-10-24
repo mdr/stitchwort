@@ -5,7 +5,6 @@
 -- `PrefixSums.block` sums a block of it. The theorem at the bottom says the
 -- block is the sum of its cells (`PrefixSums.blockSum`).
 
-
 -- The table: entry (r, c) is the sum of the cells above row r and left of
 -- column c, for r up to the number of rows and c up to the longest row's
 -- length, kept for lookup by position.
