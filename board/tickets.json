@@ -5921,9 +5921,9 @@
     {
       "id": 369,
       "title": "Effect-polymorphic library functions: design note docs/proposals/effect-polymorphism.md (row-indexed computation type, empty-row specialisation); D1116-D1121 await Matt",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
-      "where": "worktree lane: docs/proposals/effect-polymorphism.md",
+      "where": "worktree lane: revising effect-polymorphism.md after external review",
       "labels": [
         "std"
       ],
