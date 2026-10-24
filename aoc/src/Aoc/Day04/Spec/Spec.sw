@@ -16,7 +16,7 @@
 --     to access more rolls of paper": remove the accessible rolls (all at
 --     once, a round), and repeat until none is accessible. Count the rolls
 --     removed. Each round that changes anything removes a roll, so as many
---     rounds as there are rolls are enough; Proofs/Core.sw proves that no
+--     rounds as there are rolls are enough; Proofs/Rounds.sw proves that no
 --     roll is accessible after them (`roundsStable`).
 --
 -- Shared with the program: `Cell` and the grid's type, `Grid`.
@@ -31,7 +31,7 @@ type Cells = Nat -> Nat -> Cell
 -- The grid's cells: row r (counted from 0, and a row of floor past the last),
 -- then cell c of it (floor past the last).
 def cellsOf (grid: Grid): Cells :=
-  r c => grid.rows |> Vec.toList |> List.getOr (Vec.replicate grid.width Floor) r |> Vec.toList |> List.getOr Floor c
+  r c => grid.rows |> Vec.getOr (Vec.replicate grid.width Floor) r |> Vec.getOr Floor c
 
 -- How many positions (r, c) of the grid satisfy `p`.
 def countPositions (grid: Grid) (p: Nat -> Nat -> Bool): Nat :=
@@ -61,10 +61,7 @@ def removeAccessible (grid: Grid) (cells: Cells): Cells :=
   r c => if accessible grid cells r c then Floor else cells r c
 
 -- n rounds.
-def rounds (grid: Grid) (n: Nat) (cells: Cells): Cells :=
-  match n with
-    | Zero => cells
-    | Succ k => rounds grid k (removeAccessible grid cells)
+def rounds (grid: Grid) (n: Nat) (cells: Cells): Cells := Nat.iterate n (removeAccessible grid) cells
 
 -- Part 2: the rolls removed by as many rounds as there are rolls.
 def part2Spec (grid: Grid): Nat :=

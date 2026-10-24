@@ -11,38 +11,27 @@ import Aoc.Day04 (..)
 import Aoc.Day04.Spec (..)
 import Std (Bool, Eq, List, Nat, Vec)
 
--- The rolls of a row, and of all the rows, cell by cell.
-theorem rowRolls (row: Vec Cell w): Vec.sumBy Cell.count row = List.sumBy (c => (List.getOr Floor c (Vec.toList row)).count) (List.range w) :=
-  calc Vec.sumBy Cell.count row
-    _ = List.sumBy Cell.count (Vec.toList row) := Vec.sumByToList Cell.count row
-    _ = List.sumBy (c => (List.getOr Floor c (Vec.toList row)).count) (List.range (List.length (Vec.toList row))) := List.sumByGetOr Cell.count Floor (Vec.toList row)
-    _ = List.sumBy (c => (List.getOr Floor c (Vec.toList row)).count) (List.range w) := rewrite Vec.lengthToList row
-
-theorem rollsCells (rows: Vec (Vec Cell w) h):
-    Vec.sumBy (row => Vec.sumBy Cell.count row) rows = List.sumBy (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w)) (List.range h) :=
+-- The rolls of all the rows, cell by cell.
+theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w)) (List.range h) :=
   let gap := Vec.replicate w Floor
-  calc Vec.sumBy (row => Vec.sumBy Cell.count row) rows
-    _ = List.sumBy (row => Vec.sumBy Cell.count row) (Vec.toList rows) := Vec.sumByToList (row => Vec.sumBy Cell.count row) rows
-    _ = List.sumBy (r => Vec.sumBy Cell.count (List.getOr gap r (Vec.toList rows))) (List.range (List.length (Vec.toList rows)))
-      := List.sumByGetOr (row => Vec.sumBy Cell.count row) gap (Vec.toList rows)
-    _ = List.sumBy (r => Vec.sumBy Cell.count (List.getOr gap r (Vec.toList rows))) (List.range h) := rewrite Vec.lengthToList rows
+  calc countRolls rows
+    _ = List.sumBy (r => Vec.sumBy Cell.count (Vec.getOr gap r rows)) (List.range h) := Vec.sumByGetOr (row => Vec.sumBy Cell.count row) gap rows
     _ = List.sumBy (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w)) (List.range h)
-      := List.sumByCong (r => Vec.sumBy Cell.count (List.getOr gap r (Vec.toList rows))) (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w))
-        (List.range h) (r => rowRolls (List.getOr gap r (Vec.toList rows)))
+      := List.sumByCong (r => Vec.sumBy Cell.count (Vec.getOr gap r rows)) (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w))
+        (List.range h) (r => Vec.sumByGetOr Cell.count Floor (Vec.getOr gap r rows))
 
 -- What a round takes from one cell: 1 when it holds an accessible roll.
 theorem taken: (a: Cell) -> (n: Nat) -> Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll && n < 4)
   | Floor, n => rfl
-  | Roll, 0 => rfl
-  | Roll, 1 => rfl
-  | Roll, 2 => rfl
-  | Roll, 3 => rfl
-  | Roll, Succ (Succ (Succ (Succ n))) => rewrite Nat.addOne n
+  | Roll, n =>
+    rewrite keepRemove Roll n in
+      match Nat.leq (Succ n) 4 with
+        | True => rfl
+        | False => rfl
 
 -- Part 1 is right for every grid: the printed answer is the number of rolls
 -- with fewer than four rolls around them.
 theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
-  let gap := Vec.replicate grid.width Floor
   let cells := cellsOf grid
   let below := (r: Nat) => (c: Nat) => (h: grid.height <= r) => rowsCellsBelow grid.rows r c h
   let right := (r: Nat) => (c: Nat) => (h: grid.width <= c) => rowsCellsRight grid.rows r c h
@@ -50,13 +39,13 @@ theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
   let k := (r: Nat) => (c: Nat) => (keep (cells r c) (window cells r c)).count
   let sum2 := (f: Nat -> Nat -> Nat) => List.sumBy (r => List.sumBy (c => f r c) (List.range grid.width)) (List.range grid.height)
   calc solvePart1 grid
-    _ = sum2 a - sum2 (r c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count)
-      := rewrite rollsCells grid.rows, rollsCells (Vec.around gap peelRow grid.rows)
+    _ = sum2 a - sum2 (r c => (rowsCells (roundRows grid.rows) r c).count)
+      := rewrite rollsCells grid.rows, rollsCells (roundRows grid.rows)
     _ = sum2 a - sum2 k
       := Eq.cong (t => sum2 a - t)
-        (List.sumByCong (r => List.sumBy (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
+        (List.sumByCong (r => List.sumBy (c => (rowsCells (roundRows grid.rows) r c).count) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
           (List.range grid.height)
-          (r => List.sumByCong (c => (rowsCells (Vec.around gap peelRow grid.rows) r c).count) (c => k r c)
+          (r => List.sumByCong (c => (rowsCells (roundRows grid.rows) r c).count) (c => k r c)
             (List.range grid.width) (c => Eq.cong Cell.count (cellRound grid.rows r c))))
     _ = sum2 (r c => a r c - k r c)
       := rewrite List.sumBySub (r => List.sumBy (c => a r c) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))

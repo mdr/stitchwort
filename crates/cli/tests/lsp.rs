@@ -677,7 +677,7 @@ fn small_navigation_issues() {
 #[test]
 fn a_newer_edit_cancels_the_check_running() {
     let project = aoc();
-    let path = project.join("src/Aoc/Day04/Proofs/Core.sw");
+    let path = project.join("src/Aoc/Day04/Proofs/Rounds.sw");
     let text = std::fs::read_to_string(&path).unwrap();
     let uri = uri(&path);
     let options = Options::new(STACK);
@@ -720,7 +720,7 @@ fn latency_on_aoc() {
     let mut version = 1;
     let paths = [
         ("Aoc.Day01", "src/Aoc/Day01/Day01.sw"),
-        ("Aoc.Day04.Proofs", "src/Aoc/Day04/Proofs/Core.sw"),
+        ("Aoc.Day04.Proofs", "src/Aoc/Day04/Proofs/Rounds.sw"),
     ];
     for (_, path) in paths {
         let uri = uri(&project.join(path));
