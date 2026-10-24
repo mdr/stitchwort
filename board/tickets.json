@@ -3124,10 +3124,10 @@
     },
     {
       "id": 199,
-      "title": "Well-founded recursion: decreasing (umbrella; stages 1, 2, 3a, 3c done; 3b List.attach in backlog SW-288)",
-      "status": "doing",
+      "title": "Well-founded recursion: decreasing (stages 1, 2, 3a, 3b, 3c, 3d lexicographic pairs done; remaining stage-3 items on their triggers: f.induct, mutual groups, Nat.div)",
+      "status": "next",
       "agent": "Opus",
-      "where": "worktree lane: stage 3d lexicographic measures",
+      "where": "-",
       "labels": [
         "design",
         "kernel",
@@ -3139,7 +3139,8 @@
       "commits": [
         "7c27c8a0",
         "afa4d4d2",
-        "23ef6aa7"
+        "23ef6aa7",
+        "ed1b2442"
       ]
     },
     {
@@ -5920,10 +5921,10 @@
     },
     {
       "id": 369,
-      "title": "Effect-polymorphic library functions: design note docs/proposals/effect-polymorphism.md (row-indexed computation type, empty-row specialisation); D1116-D1121 await Matt",
-      "status": "doing",
+      "title": "Effect-polymorphic library functions: note revised after external review; D1116-D1126 await Matt",
+      "status": "review",
       "agent": "Opus",
-      "where": "worktree lane: revising effect-polymorphism.md after external review",
+      "where": "-",
       "labels": [
         "std"
       ],
