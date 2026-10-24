@@ -1,5 +1,7 @@
 # Computations as values: a survey for D1141
 
+**Decided (Matt, 24 Oct 2026): D1141 (d)** — arrows only, plus erased proof-only reification, following the [external review](computation-values-external-review.md), not this note's recommendation (b).
+
 Status: research note, 24 Oct 2026. No compiler changes. It informs
 **D1141**: whether a computation type such as `{Fail} Range` may be written
 as an input type (parameters, `let`, fields: "anywhere a type is written"),
