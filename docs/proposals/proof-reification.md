@@ -687,12 +687,12 @@ unaffected.
   termination checks, with the functions returning `Prop` (in
   `hidden-recursive-call` the operation's answer is a `Prop` too; in
   `infinite-computation`, `forever` folds the tree it builds).
-- `accept/handlers.sw` and `accept/rows.sw` are deleted: they were
-  hand-written handlers and row mappings over `Comp`, run as tests, which a
-  program can no longer write. `abilities.sw` and `effect-rows.sw` carry the
-  same scenarios in the source syntax. What only those two files exercised (a
-  dependent `res` that is stuck on a `Bool`, `translate` along `sigSwap`) is
-  now checked only by the library's own use of it.
+- `accept/handlers.sw` and `accept/rows.sw` keep their scenarios: the
+  hand-written handlers and programs over `Comp` are local definitions of one
+  theorem each (`handlersBehave`, `rowsBehave`), and each former `test` is a
+  `let` checked by `rfl` (the dependent `res` stuck on a `Bool`, `translate`
+  along `sigSwap`, the traces). Signatures, type-valued definitions and pure
+  helpers stay at the top level.
 - The unknown-name hint still lists a proof-only name as writable
   (`written` uses `resolve_any`).
 
