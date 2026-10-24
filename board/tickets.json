@@ -742,16 +742,16 @@
     {
       "id": 48,
       "title": "Test a callback kept after its creator returns, for mutual groups",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Sonnet)",
       "labels": [
         "kernel",
         "elab"
       ],
       "body": "Problem: docs/proposals/mutual-recursion.md §6.3 test 2 (:960) is untested for function groups: `f` returns a record (or `Comp` continuation) holding `x => g k x`, and a later, final definition calls it. The milestone-2 notes say it is 'tested for a single definition only' (:2087). The termination argument for it is §6.4 step 4.\n\nChange: add must-accept (the callback's call decreases) and must-reject (it rebuilds the parameter) examples for a function group, plus a differential test, including the unsound-looking case in §6.4 step 4.\n\nDone when: the tests are merged in examples/accept and examples/reject and the gate is green, or a counterexample is found and written up in the note.\n\nHistory: split 19 Oct into SW-117. Playground shows warnings (976b912). Dropped: hash stability under reordering of identical-shaped members (hashes aren't a design constraint).\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -6624,9 +6624,9 @@
     {
       "id": 412,
       "title": "AoC input tests via include are very slow in the checker (day 9: 61 s; day 8 also dropped its test) — make include'd-input tests affordable",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "worktree lane (Opus)",
       "labels": [
         "perf"
       ],
