@@ -5218,16 +5218,16 @@
     {
       "id": 330,
       "title": "Counterexample search: try to falsify a theorem statement on small generated inputs (on proof failure, at ? holes, and explicit property tests) (D570)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "design note lane (Opus)",
       "labels": [
         "design",
         "proof"
       ],
       "body": "From the language survey (docs/comparisons/practical-proof-languages.md, shortlist #1; Isabelle Quickcheck/Nitpick, Lean Plausible). Motivation: wrong specs are the costly mistakes in real deployments. Design note first. D570 (Matt, 22 Oct): yes, in Next; not started yet.",
       "created": "2026-10-22",
-      "updated": "2026-10-22",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
