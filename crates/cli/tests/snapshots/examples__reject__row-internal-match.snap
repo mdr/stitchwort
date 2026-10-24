@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-INTERNAL] Error: `Effect.Row.Empty` is internal to the standard library
+[E-INTERNAL] Error: `Effect.Effects.Empty` is internal to the standard library
    ╭─[ reject/row-internal-match.sw:7:5 ]
    │
  7 │   | Empty => True

@@ -361,7 +361,7 @@ builtins! {
     HandlePlus = "Effect.handlePlus": Def,
     RunPure = "Effect.runPure": Def,
     // Rows as values (docs/proposals/effect-polymorphism.md, design C)
-    Row = "Effect.Row": Data,
+    Row = "Effect.Effects": Data,
     RowEmpty = "Empty": Ctor(Builtin::Row),
     RowOps = "Ops": Ctor(Builtin::Row),
     RowOp = "Effect.rowOp": Def,

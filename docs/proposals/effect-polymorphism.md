@@ -1,7 +1,8 @@
 # Effect polymorphism: one function for pure and effectful callbacks
 
 Status: design note and literature review, revised after external review,
-24 Oct 2026. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
+24 Oct 2026. The row type is now spelled `Effects` in source (D1143 (a)); the
+older sections below still say `Row`, its earlier name. Decided (Matt, 24 Oct 2026): D1116 to D1126 as recommended in
 §7, so design C with stage 0 first. Stage 0 is built ("As built (stage 0)", before the appendices), and the first part of stage 1 ("As built (stage 1, first part)"), which leaves D1133 and D1134 as options for the owner. The two experiments before this note are in
 [effectful-map.md](effectful-map.md).
 
@@ -1700,7 +1701,7 @@ row boundary, and inferring rows. `List.mapIn` isn't folded into
 `sigRes` are gone. In their place, after `runPure`:
 
 ```
-type Effect.Row: Type 1 =
+type Effect.Effects: Type 1 =
   | Empty
   | Ops (op: Type) (res: op -> Type)
 ```
@@ -1711,9 +1712,11 @@ a` is `a`, `CompIn (Ops op res) a` is `Comp op res a`), `doneIn`, `bindIn`,
 cases on the row, as in §5.C. They are registry built-ins (`Builtin::Row`,
 `RowEmpty`, `RowOps`, `RowOp`, `RowRes`, `CompIn`, `DoneIn`, `BindIn`,
 `LiftIn`, `LowerIn`), which replace `Sig`, `SigOp` and `SigRes`. The
-printer shows `CompIn e a` as `{e} a`.
+printer shows `CompIn e a` as `{e} a`. (The type was named `Row` when stage 1
+was first built; D1143 (a) renamed it `Effects`. The built-in is still
+`Builtin::Row`.)
 
-**Types.** A row variable `e` has type `Row`. `{A | e}` is a `Comp` whose
+**Types.** A row variable `e` has type `Effects`. `{A | e}` is a `Comp` whose
 operations end in `rowOp e`, as before with `sigOp`. A bare `{e} a` is
 `CompIn e a` (`effects::comp_type`); `comp_parts` reads a `CompIn` stuck on
 its row as the bare row `{e}`. A row with abilities, or a closed one, is a
@@ -1779,14 +1782,14 @@ around the call) and for rows with abilities (`Done` around it). For an
 unknown bare row the unifier now settles it first.
 
 **The boundary (D1122).** `Elaborator::resolve` doesn't find
-`Row.Empty`, `Row.Ops`, `rowOp`, `rowRes`, `CompIn`, `doneIn`, `bindIn`,
+`Effects.Empty`, `Effects.Ops`, `rowOp`, `rowRes`, `CompIn`, `doneIn`, `bindIn`,
 `liftIn` or `lowerIn` outside the library (`loading_prelude`), and
 `unknown` reports such a name as `E-INTERNAL`. One change from D1122 as
-written: the *type* `Effect.Row` can be named by programs. A program needs
-it to declare a type with a row parameter (`type Handlers (e: Row)` in
+written: the *type* `Effect.Effects` can be named by programs. A program needs
+it to declare a type with a row parameter (`type Handlers (e: Effects)` in
 `examples/accept/partial.sw` and `crates/driver/tests/partial.rs`, which
 named `Effect.Sig` before). Without the constructors and eliminators a
-`Row` value can only be passed on, so parametricity holds. An import of an
+`Effects` value can only be passed on, so parametricity holds. An import of an
 internal name is accepted; using it isn't.
 
 **Tests.** `examples/accept/effect-rows.sw`: probe 5's three theorems with
@@ -1798,7 +1801,7 @@ after the callback: put aside, then effectful in `Log`; the same with
 `False`: pure), an effectful callback, a dependent result type (`Vec Nat
 3`), a type family stuck on a variable (`Cell x` through a dependent
 `applyDep`), and a row-polymorphic callback, pure and effectful.
-`examples/reject/row-internal-constructor.sw` (`Effect.Row.Empty` in
+`examples/reject/row-internal-constructor.sw` (`Effect.Effects.Empty` in
 `[e := …]`), `row-internal-inspect.sw` (`Effect.rowOp`) and
 `row-internal-match.sw` (matching on `Empty`/`Ops`) are `E-INTERNAL`; the
 old `row-tail-repeats-ability.sw` (a hand-built `Sig` repeating an ability)

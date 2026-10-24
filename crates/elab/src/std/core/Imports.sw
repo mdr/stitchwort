@@ -36,7 +36,7 @@ import Effect (
   sigFromNo,
   handlePlus,
   runPure,
-  Row,
+  Effects,
   rowOp,
   rowRes,
   CompIn,
