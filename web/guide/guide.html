@@ -21,79 +21,129 @@
   <pre data-src="03-data.sw"></pre>
 </section>
 
+<section data-slug="variant-fields" data-title="Constructors with named fields">
+  <p>A constructor's fields have names, and you can use them. <code>Circle { radius = 3, id }</code> builds one by name, in any order, and a pattern <code>Circle { radius, .. }</code> picks fields by name. When every constructor has a field of the same name and type, as <code>id</code> is here, the field works on the whole type: <code>shape.id</code> reads it and <code>{ shape | id = x }</code> changes it, whichever constructor the shape is.</p>
+  <pre data-src="04-variant-fields.sw"></pre>
+</section>
+
+<section data-slug="named-arguments" data-title="Named arguments">
+  <p>Any explicit parameter can be passed by name with <code>(name := value)</code>, in any order and mixed with positional arguments; <code>[name := value]</code> does the same for implicit ones. Name only some and the rest become a function, in their original order. It is the same call as the positional one, so nothing about the function changes.</p>
+  <pre data-src="05-named-arguments.sw"></pre>
+</section>
+
+<section data-slug="field-defaults" data-title="Default values for fields">
+  <p>A field of a record, or of a constructor, can have a default after <code>:=</code>, and a literal may then leave it out. This is how Stitchwort does options: a record with a few defaulted fields in place of optional parameters. The default can use the fields before it. A function's own parameters have no defaults; use a record.</p>
+  <pre data-src="06-defaults.sw"></pre>
+</section>
+
 <section data-slug="generics" data-title="Generics and implicit arguments">
   <p>A lowercase name in a type, such as <code>a</code>, stands for any type, so you don't declare it; the compiler works out what it is from the arguments. Types can take parameters too, like <code>List a</code>.</p>
-  <pre data-src="04-generics.sw"></pre>
+  <pre data-src="07-generics.sw"></pre>
 </section>
 
 <section data-slug="interfaces" data-title="Interfaces and instances">
   <p>An <b>interface</b> names operations a type can support, like a TypeScript interface or a Scala trait. An <b>instance</b> says how one type does it. A function asks for one with <code>[auto Describe a]</code>, and the compiler finds the instance from the type, so callers write nothing.</p>
-  <pre data-src="05-interfaces.sw"></pre>
+  <pre data-src="08-interfaces.sw"></pre>
 </section>
 
 <section data-slug="deriving" data-title="Equality, ordering and text for free">
   <p>Every type you declare gets <code>==</code>, an ordering (<code>Ord.compare</code>, <code>List.sort</code>) and text for <code>${...}</code>, as long as its fields have them too. There is no <code>deriving</code> clause to write. Write your own instance when you want something different.</p>
-  <pre data-src="06-deriving.sw"></pre>
+  <pre data-src="09-deriving.sw"></pre>
 </section>
 
 <section data-slug="dot-and-pipes" data-title="Dot notation, pipes and sections">
   <p><code>x.f y</code> calls the function <code>T.f</code> where <code>T</code> is the type of <code>x</code>, so functions on a type read like methods. <code>|&gt;</code> passes the value on its left as the last argument of the call on its right. A leading dot, as in <code>.name</code>, is a short function: <code>p => p.name</code>.</p>
-  <pre data-src="07-dot-pipes.sw"></pre>
+  <pre data-src="10-dot-pipes.sw"></pre>
 </section>
 
 <section data-slug="option-and-list" data-title="Option and List">
   <p>There is no null: a value that may be missing has type <code>Option a</code>, which is <code>Some value</code> or <code>None</code>. Lists are written <code>[1, 2, 3]</code> and come with the usual <code>map</code>, <code>filter</code>, <code>find</code>, <code>sum</code> and many more, called with dot notation.</p>
-  <pre data-src="08-option-list.sw"></pre>
+  <pre data-src="11-option-list.sw"></pre>
+</section>
+
+<section data-slug="map-and-set" data-title="Map and Set">
+  <p><code>Map k v</code> and <code>Set k</code> are ordered collections: they keep their keys sorted, so <code>toList</code>, <code>keys</code> and printing come out in a fixed order, and two maps with the same entries are equal. Insert, lookup and remove are logarithmic. They live in <code>Std</code> and need an import.</p>
+  <pre data-src="12-map-set.sw"></pre>
 </section>
 
 <section data-slug="namespaces-and-projects" data-title="Namespaces, imports and projects">
   <p>Names live in namespaces. The library is <code>Std</code>; a few things (<code>Nat</code>, <code>List</code>, <code>Option</code>, <code>==</code>) are always in scope, and <code>import Std (Option)</code> brings in the rest of a namespace such as <code>Option.map</code>. A type owns a namespace (<code>Item.cost</code>), and a <code>namespace Shop</code> line at the top of a file puts the whole file in one. A <b>project</b> is a folder with a <code>stitchwort.yaml</code> of such files; try the Advent of Code entries in the Example menu to see one.</p>
-  <pre data-src="09-namespaces.sw"></pre>
+  <pre data-src="13-namespaces.sw"></pre>
 </section>
 
 <section data-slug="tests" data-title="Tests">
-  <p>A <code>test</code> is a named <code>Bool</code> that must be <code>True</code>. The Tests tab runs them all. When a comparison fails, it shows both sides:</p>
-  <pre data-src="10-tests.sw"></pre>
+  <p>A <code>test</code> is a named <code>Bool</code> that must be <code>True</code>. The Tests tab runs them all, on the same fast runtime as <b>Run</b>; from a terminal, <code>stitchwort test</code> does the same for a whole project. When a comparison fails, it shows both sides:</p>
+  <pre data-src="14-tests.sw"></pre>
   <p class="guide-note">Running the tests above gives:</p>
-  <pre class="guide-output" data-failure-of="10-tests.sw">✗ 2023 is wrong on purpose  (`==` is False)
+  <pre class="guide-output" data-failure-of="14-tests.sw">✗ 2023 is wrong on purpose  (`==` is False)
     left:  False
     right: True</pre>
 </section>
 
 <section data-slug="abilities" data-title="Abilities and handlers">
   <p>Side effects are described, not hidden. An <b>ability</b> lists operations like <code>say</code>; a function that uses them says so in its type (<code>{Log}</code>), and a <b>handler</b> decides what they mean: print them, collect them, or run them in a test. The code that performs them is plain, straight-line code. <code>IO</code> (printing and reading input) is an ability too.</p>
-  <pre data-src="11-abilities.sw"></pre>
+  <pre data-src="15-abilities.sw"></pre>
 </section>
 
 <section data-slug="each" data-title="Each: trying every combination">
   <p><code>Each</code> is an ability from the library for searching. <code>each</code> chooses an element from a list, <code>require</code> discards a combination that doesn't qualify, and <code>Each.collect</code> returns every combination that survives. It reads like nested loops with a filter.</p>
-  <pre data-src="12-each.sw"></pre>
+  <pre data-src="16-each.sw"></pre>
+</section>
+
+<section data-slug="fail" data-title="Fail: errors with messages">
+  <p><code>Fail</code> is an ability for giving up with a reason, so there are no exceptions and the type shows which code can fail. <code>need</code> takes an <code>Option</code> and fails if it is <code>None</code>; <code>fail</code> stops with a message; the handler <code>toResult</code> turns the outcome into <code>Ok</code> or <code>Err</code>. A <code>main</code> of type <code>{IO, Fail} ()</code> may leave <code>Fail</code> unhandled: the message goes to standard error and the exit status is 1. That makes strict input parsing short: read every line, and a bad line stops the run saying which. (<code>Abort</code> is the same without a message.)</p>
+  <pre data-src="17-fail.sw"></pre>
+</section>
+
+<section data-slug="effect-polymorphism" data-title="One function for pure and effectful callbacks">
+  <p>A function type can say <code>{e}</code> for "whatever effects the callback has". Pass it a pure function and the call is pure; pass it one that can fail and the call can fail, with the same definition. The library does this where it matters, as <code>List.mapIn</code>, which is <code>map</code> for callbacks that may perform effects.</p>
+  <pre data-src="18-effect-polymorphism.sw"></pre>
+</section>
+
+<section data-slug="effects-in-types" data-title="Effects as a type parameter">
+  <p>When a data type holds callbacks, its effects become a parameter of type <code>Effects</code>, just as an element type is a parameter of <code>List</code>. You never write an <code>Effects</code> value yourself; the compiler works it out from the functions you put in.</p>
+  <pre data-src="19-effects-in-types.sw"></pre>
 </section>
 
 <section data-slug="proofs" data-title="Theorems and proofs">
   <p>A <code>theorem</code> states a fact about your programs and the compiler checks the proof. <code>rfl</code> means "both sides compute to the same thing". For a fact about every value of a type, split on the cases like a function does; a call to the theorem on the smaller piece is the induction step.</p>
-  <pre data-src="13-proofs.sw"></pre>
+  <pre data-src="20-proofs.sw"></pre>
 </section>
 
 <section data-slug="omega" data-title="omega: arithmetic proofs">
   <p>For facts about numbers built from <code>+</code>, <code>-</code>, comparisons and multiplication by constants, <code>omega</code> finds the proof itself, using the hypotheses in scope.</p>
-  <pre data-src="14-omega.sw"></pre>
+  <pre data-src="21-omega.sw"></pre>
+</section>
+
+<section data-slug="calc-and-rewrite" data-title="calc and rewrite">
+  <p>Two ways to write longer proofs readably. <code>calc</code> is a chain of steps, each related to the one before (<code>=</code>, <code>&lt;=</code>, <code>&lt;</code>), each with its reason. <code>rewrite p in t</code> replaces, in the goal, the left side of the equation <code>p</code> by its right side, so you don't write out the expression around it. When a lemma takes functions as arguments, such as <code>List.mapCong</code>, write <code>_</code> for them and the compiler reads them off the goal.</p>
+  <pre data-src="22-calc-rewrite.sw"></pre>
+</section>
+
+<section data-slug="proofs-about-effects" data-title="Proofs about effectful code">
+  <p>A handler applied to code it can see through just computes, so a proof about it is often <code>rfl</code>. For a fact about <em>any</em> computation, <code>match reify t with</code> splits on what the computation does first, with the clauses written as a handler's. It works only in proofs, so programs can never take a computation apart.</p>
+  <pre data-src="23-reify.sw"></pre>
 </section>
 
 <section data-slug="termination" data-title="Recursion that must finish">
   <p>Functions must terminate, since that is what makes proofs about them meaningful. Recursion on a piece of an argument is accepted as written; otherwise name the number that shrinks with <code>decreasing</code>. A <code>decreasing</code> function still runs and tests like any other.</p>
-  <pre data-src="15-decreasing.sw"></pre>
+  <pre data-src="24-decreasing.sw"></pre>
+</section>
+
+<section data-slug="mutual" data-title="Any order, and mutual recursion">
+  <p>Declarations can come in any order, so <code>main</code> can come first and its helpers below. Definitions may call each other, and types may refer to each other; the compiler checks them together and still requires every cycle of calls to get smaller.</p>
+  <pre data-src="25-mutual.sw"></pre>
 </section>
 
 <section data-slug="dependent-types" data-title="Dependent types">
   <p>A type may mention values. <code>Vec a n</code> is a list whose length <code>n</code> is part of its type, so <code>Vec.head</code> can only be given a non-empty vector and <code>Vec.zipWith</code> only vectors of the same length. Mistakes like these become compile errors rather than runtime checks.</p>
-  <pre data-src="16-dependent-types.sw"></pre>
+  <pre data-src="26-dependent-types.sw"></pre>
 </section>
 
 <section data-slug="javascript" data-title="Exporting to JavaScript and TypeScript">
   <p><code>export</code> on a definition makes it part of a generated ES module with TypeScript declarations (the JavaScript tab shows both). Records become plain objects, variants become objects with a <code>tag</code>, <code>Nat</code> is a <code>bigint</code>, and <code>Option a</code> is <code>a | undefined</code>. <code>SafeNat</code> is a whole number that fits a JS <code>number</code>. When a function asks for a proof the caller can't supply, such as <code>percent &lt;= 100</code>, the generated code checks it when called and throws <code>StitchwortInputError</code>. The declarations for the example below:</p>
-  <pre data-src="17-export.sw"></pre>
-  <pre class="guide-output" data-dts-of="17-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
+  <pre data-src="27-export.sw"></pre>
+  <pre class="guide-output" data-dts-of="27-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
 export declare function displayName(p: Profile): string;
 export declare function toNumber(n: bigint): number | undefined;
 export declare function percentOf(percent: bigint, total: bigint): bigint;</pre>
