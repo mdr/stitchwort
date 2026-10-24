@@ -410,6 +410,17 @@ impl<'e> Ctx<'e> {
         Ok(quote(self.g(), self.level(), value)?)
     }
 
+    /// [`Ctx::quote`] with calls written as calls, not their unfoldings
+    /// (`value::quote_folded`): for terms the elaboration produces, such as
+    /// annotations and helper types.
+    pub fn quote_folded(&self, value: &Value) -> Result<Term> {
+        Ok(stitchwort_core::value::quote_folded(
+            self.g(),
+            self.level(),
+            value,
+        )?)
+    }
+
     /// `Ok(false)` if `a` and `b` can't be made equal; an error if it ran out
     /// of resources finding out.
     pub fn unify(&self, a: &Value, b: &Value) -> Result<bool> {
@@ -418,6 +429,15 @@ impl<'e> Ctx<'e> {
 
     pub fn show(&self, value: &Value) -> String {
         pretty::value_for_message(self.g(), &self.names, value)
+    }
+
+    /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
+    /// for a message that says so.
+    pub fn show_unfolded(&self, value: &Value) -> String {
+        match quote(self.g(), self.level(), value) {
+            Ok(term) => pretty::term_for_message(self.g(), &self.names, &term),
+            Err(_) => "…".into(),
+        }
     }
 
     /// [`Ctx::show`], with the arguments the compiler fills in.
@@ -733,7 +753,7 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             cx.bind(&name.text, dom.clone());
             let inferred = infer(cx, body).and_then(|(term, ty)| {
                 let (term, ty) = insert(cx, term, ty)?;
-                Ok((term, cx.quote(&ty)?))
+                Ok((term, cx.quote_folded(&ty)?))
             });
             cx.reset(mark);
             let (body, cod) = inferred?;
@@ -745,7 +765,7 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             };
             let pi = Value::Pi(x, Icit::Explicit, Rc::new(dom), cod);
             // Annotated for the kernel, which doesn't infer a lambda's type.
-            let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote(&pi)?));
+            let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote_folded(&pi)?));
             Ok((ann, pi))
         }
         Expr::Pi {
@@ -920,7 +940,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         )),
         Some((Global::Op(a, i), _)) if args.is_empty() => {
             let (term, ty) = effects::op_value(cx, *a, *i)?;
-            let ty_term = cx.quote(&ty)?;
+            let ty_term = cx.quote_folded(&ty)?;
             Ok((Term::Ann(Rc::new(term), Rc::new(ty_term)), ty))
         }
         Some((Global::Op(a, _), _)) => {
@@ -948,7 +968,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
                 let expected = fresh_function_type(cx, &missing)?;
                 let expected = cx.eval(&expected)?;
                 let (term, ty) = ctor_app(cx, *d, *c, &explicit, Some(&expected))?;
-                let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote(&ty)?));
+                let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(&ty)?));
                 return Ok((ann, ty));
             }
             let (term, ty) = ctor_app(cx, *d, *c, &explicit, None)?;
@@ -1978,7 +1998,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             if chunks.len() > 1 {
                 let append = Term::app_icit(
                     Term::Def(builtin_def(cx, Builtin::Append)?),
-                    cx.quote(&elem)?,
+                    cx.quote_folded(&elem)?,
                     Icit::Implicit,
                 );
                 while chunks.len() > 1 {
@@ -2062,7 +2082,7 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let head = match force(cx.g(), ty.clone())? {
         Value::Data(d, _) if d == text => Term::Def(builtin_def(cx, Builtin::TextAppend)?),
         Value::Data(d, params) if d == list => {
-            let elem = cx.quote(&params[0])?;
+            let elem = cx.quote_folded(&params[0])?;
             Term::app_icit(
                 Term::Def(builtin_def(cx, Builtin::Append)?),
                 elem,
@@ -2129,7 +2149,7 @@ fn check_if_in(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
-    let result_ty = cx.quote(expected)?;
+    let result_ty = cx.quote_folded(expected)?;
     let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &Expr| -> Result<Term> {
         let mark = cx.mark();
         cx.bind(name, ty);
@@ -3017,7 +3037,7 @@ fn ctor_app(
 fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
     Ok(match force(cx.g(), ty.clone())? {
         Value::Data(d, _) if !cx.g().data(d).params.is_empty() => {
-            Term::Ann(Rc::new(term), Rc::new(cx.quote(ty)?))
+            Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(ty)?))
         }
         _ => term,
     })
@@ -3210,20 +3230,30 @@ fn written_equal(label: &str) -> bool {
 #[inline(never)]
 fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let (shown_a, shown_b) = (cx.show(a), cx.show(b));
+    // What the sides compute to: their normal forms, calls unfolded.
+    let (normal_a, normal_b) = if cx.g().glue.get() {
+        (cx.show_unfolded(a), cx.show_unfolded(b))
+    } else {
+        (shown_a.clone(), shown_b.clone())
+    };
+    let computed = |sa: &str, sb: &str| match (sa != normal_a, sb != normal_b) {
+        (true, true) => Some(format!(
+            "computing both sides gives `{normal_a}` and `{normal_b}`"
+        )),
+        (true, false) => Some(format!("computing the left side gives `{normal_a}`")),
+        (false, true) => Some(format!("computing the right side gives `{normal_b}`")),
+        (false, false) => None,
+    };
     let written = written_sides(cx, a, b);
     let (label, computed) = match written {
-        Some((wa, wb)) => {
-            let computed = match (wa != shown_a, wb != shown_b) {
-                (true, true) => Some(format!(
-                    "computing both sides gives `{shown_a}` and `{shown_b}`"
-                )),
-                (true, false) => Some(format!("computing the left side gives `{shown_a}`")),
-                (false, true) => Some(format!("computing the right side gives `{shown_b}`")),
-                (false, false) => None,
-            };
-            (format!("`{wa}` and `{wb}` aren't equal"), computed)
-        }
-        None => (format!("`{shown_a}` and `{shown_b}` aren't equal"), None),
+        Some((wa, wb)) => (
+            format!("`{wa}` and `{wb}` aren't equal"),
+            computed(&wa, &wb),
+        ),
+        None => (
+            format!("`{shown_a}` and `{shown_b}` aren't equal"),
+            computed(&shown_a, &shown_b),
+        ),
     };
     // Both sides print the same: they differ in what the compiler fills in
     // (`Int.modNat x 3 [ok := p]` with two different proofs `p`).

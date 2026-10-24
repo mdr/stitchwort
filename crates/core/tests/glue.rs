@@ -1,4 +1,4 @@
-//! Glued evaluation (docs/proposals/folded-calls.md, stage 1): with
+//! Glued evaluation (docs/proposals/folded-calls.md, stages 1 and 3): with
 //! `Globals::glue` on, a definition applied to all its arguments evaluates to
 //! a `Value::Call`, which means exactly its unfolding. Gluing is off
 //! everywhere by default, so these tests are what exercises it: everything
@@ -7,7 +7,7 @@
 mod common;
 
 use common::*;
-use stitchwort_core::value::{Value, apply, conv, eval, force, quote};
+use stitchwort_core::value::{Value, apply, conv, eval, force, quote, quote_folded};
 use stitchwort_core::{DefId, Globals, Term};
 
 /// The prelude, with `double n = n + n` written as recursion (so it isn't
@@ -183,4 +183,61 @@ fn natives_never_glue() {
     let sum = eval(g, &[], &d.p.plus(d.p.num(2), d.p.num(3))).unwrap();
     g.glue.set(false);
     assert!(!matches!(sum, Value::Call(..)), "{sum:?}");
+}
+
+/// `term` (with `level` variables) evaluated with gluing on and read back
+/// folded; checked convertible with its value without gluing.
+fn folded(g: &Globals, level: usize, term: &Term) -> Term {
+    let env: Vec<Value> = (0..level).map(Value::var).collect();
+    g.glue.set(true);
+    let on = eval(g, &env, term).unwrap();
+    let written = quote_folded(g, level, &on).unwrap();
+    g.glue.set(false);
+    let off = eval(g, &env, term).unwrap();
+    let again = eval(g, &env, &written).unwrap();
+    assert!(conv(g, level, &off, &again).unwrap(), "convertible");
+    // Without gluing there are no calls: folded is the normal form.
+    assert_eq!(
+        format!("{:?}", quote_folded(g, level, &off).unwrap()),
+        format!("{:?}", quote(g, level, &off).unwrap()),
+    );
+    written
+}
+
+/// Whether `term` mentions definition `id`.
+fn mentions(term: &Term, id: DefId) -> bool {
+    term.subterms()
+        .any(|(t, _)| matches!(t, Term::Def(d) if *d == id))
+}
+
+#[test]
+fn reading_back_folded_writes_the_call() {
+    let d = defs();
+    let g = &d.p.g;
+    // Stuck on a variable: the call, not what it unfolds to.
+    let call = app(Term::Def(d.double), [v(0)]);
+    assert_eq!(format!("{:?}", folded(g, 1, &call)), format!("{call:?}"));
+    // A case on a call stuck on a variable: both calls stay.
+    let nested = app(Term::Def(d.is_zero), [call]);
+    assert_eq!(
+        format!("{:?}", folded(g, 1, &nested)),
+        format!("{nested:?}")
+    );
+}
+
+#[test]
+fn a_call_that_matches_at_once_is_written_unfolded() {
+    let d = defs();
+    let g = &d.p.g;
+    // `double 1` takes its `Succ` branch at once: written as its unfolding,
+    // the inner `double 0` (also on a constructor) unfolded in turn.
+    let term = app(Term::Def(d.double), [d.p.num(1)]);
+    let written = folded(g, 0, &term);
+    assert!(!mentions(&written, d.double), "{written:?}");
+    // `isZero (double (Succ x))`: the inner call matches at once, so the
+    // outer one does too, through it; `double x` stays a call.
+    let succ_x = Term::ctor(d.p.nat, 1, vec![v(0)]);
+    let term = app(Term::Def(d.is_zero), [app(Term::Def(d.double), [succ_x])]);
+    let written = folded(g, 1, &term);
+    assert!(!mentions(&written, d.is_zero), "{written:?}");
 }

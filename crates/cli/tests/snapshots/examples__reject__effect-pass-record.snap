@@ -7,7 +7,9 @@ expression: output
     │
  18 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> holderDone { inner = computation } = True := computation => rfl
     │                                                                                                                                           ─┬─  
-    │                                                                                                                                            ╰─── `isDone computation` and `True` aren't equal
+    │                                                                                                                                            ╰─── `holderDone { inner = computation }` and `True` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: computing the left side gives `isDone computation`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

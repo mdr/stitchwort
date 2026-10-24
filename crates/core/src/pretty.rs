@@ -12,7 +12,7 @@ use crate::budget::Result;
 use crate::globals::Globals;
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, quote};
+use crate::value::{Value, quote, quote_folded};
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
 pub fn term(g: &Globals, names: &[Name], term: &Term) -> String {
@@ -50,10 +50,12 @@ const MESSAGE_LIMIT: usize = 240;
 
 /// Prints `value` for an error message: like [`value`], but a result longer
 /// than [`MESSAGE_LIMIT`] characters has its inner parts replaced by `…`,
-/// keeping the outermost layers. Setting `STITCHWORT_FULL_TERMS` shows
-/// everything.
+/// keeping the outermost layers. Calls are shown as written
+/// (`List.length xs`), not as what they compute to ([`quote_folded`];
+/// docs/proposals/folded-calls.md, stage 3). Setting
+/// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
-    let Ok(t) = quote(g, names.len(), value) else {
+    let Ok(t) = quote_folded(g, names.len(), value) else {
         return "…".into();
     };
     term_for_message(g, names, &t)
@@ -62,7 +64,7 @@ pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
 /// [`value_for_message`], showing the arguments the compiler fills in, for
 /// two types that print the same without them.
 pub fn value_for_message_hidden(g: &Globals, names: &[Name], value: &Value) -> String {
-    let Ok(t) = quote(g, names.len(), value) else {
+    let Ok(t) = quote_folded(g, names.len(), value) else {
         return "…".into();
     };
     let mut ns = names.to_vec();
@@ -88,7 +90,7 @@ const GOAL_LIMIT: usize = 4000;
 
 /// [`value_for_message`], with the larger limit of a goal's types.
 pub fn value_for_goal(g: &Globals, names: &[Name], value: &Value) -> String {
-    let Ok(t) = quote(g, names.len(), value) else {
+    let Ok(t) = quote_folded(g, names.len(), value) else {
         return "…".into();
     };
     term_within(g, names, &t, GOAL_LIMIT)

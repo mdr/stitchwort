@@ -24,11 +24,11 @@ Main.chain fc148523f04faddd25f3ad36d26bcd64a39fd14322ed2e278b305335019ba622
 Main.chainInSum 3cc029fd0b4cf309cb103cbde029d234c9a68a9637de3c3cb22ac0bc44646cf1
 Main.chainInPair 43f27adc662d8490204e163d8f530b290dce486f087f2ee88828336e4e18b70b
 Main.test "as an argument".%match1 cb6efd03192bf58b4a2d6e5cd195ca32a07d43add8edf33ff01093e6ff2a929f
-Main.test "as an argument" 016b782997d227bab811fa8920174413ad6e11bd1353553979178ebb73c7e9af
+Main.test "as an argument" f80a1d5320de028674f5cdc134a13282c86c7d778d99c0b475bb0f5ac221fb4b
 Main.test "after a call".%match1 6c4163f97a75f3c3f4ff1f549d26b6edab06ba69046ee0d12329c45a48487bb4
-Main.test "after a call" b565d89e94679578578187a272648bd4a5f7ebb5fee697d39f5577cd6deaa211
+Main.test "after a call" 531df109839d371bc986a6d286295859c29c244a90f0c6648e9d47045c7df0b0
 Main.test "in a sum".%match1 d1b5278fdb56ddc88753f5808fd896703b258699448a77e42ec6540b421617d8
-Main.test "in a sum" fc2b70bbe3d7d006ceb594bcc62fb106083cc64d8273a434ef3a427dec2b54d0
+Main.test "in a sum" 3fd164aad1d594a7a6bb99e1da1fb98fd6ce41f3d0ad2c1333d56e030174445d
 Main.test "a chain".%match1 aaa4508f9fa8890d65c97dbe9bab67f4df7eac9cf0f8d6f78c250fa74bb50b9d
 Main.test "a chain".%match2 3b79ecd97026f853413afd00962b0475c817bd08606ed1831c09ea7742974bee
 Main.test "a chain" 2d3a7ac03530a6b6af7e53fd3cf5297ba17ea52f3a28b47200c9b1250e206480
@@ -39,20 +39,20 @@ Main.test "a chain in a pair" 3bbfb3d845d55e9eb1a88708a74d26919fc0dda52fcaccca7c
 Main.spaced f6c340de20dd7e0dc464118f2f3cadbde036cdfae1a3669ffbb38f4153161766
 Main.test "a literal's dot call, last".%match1 36df550ba36918a6104031abbf50e5b976b6e63a0077481756df20d486db424b
 Main.test "a literal's dot call, last".%match2 7137c84c1126f1f97307e445e20c0d4e3031c0d5328a455ba4f89fe623f69d8a
-Main.test "a literal's dot call, last" 98411cd55c205ef45d8307f3699360600e1c910efc5d47eb6e05e30dbbd84a60
+Main.test "a literal's dot call, last" 71d3a7f21be2c7a1327d498605b66f25834b6bd225a020e2ba29155fcafb80c3
 Main.test "as the full-name call".%match1 36df550ba36918a6104031abbf50e5b976b6e63a0077481756df20d486db424b
 Main.test "as the full-name call".%match2 36df550ba36918a6104031abbf50e5b976b6e63a0077481756df20d486db424b
-Main.test "as the full-name call" 9bde7f3ec73ea4c342603577362d21d30c1290a2ef7a6544ba2a00d5af2dc83c
+Main.test "as the full-name call" 7eb283034d3ef99f8fd536a7c33ccb8e5edb277e88d51e03fa06969d0ce78a91
 Main.test "a literal's chain, with Abort".%match1 6afc0a6135c14e7f46662585250cbaf83347a46c8b07977a0399f619d1326f3f
 Main.test "a literal's chain, with Abort".%match2 41bf4958e65c6680a78a50b618ba1b71d627f69c832e02ffaa4da7fdb186b722
 Main.test "a literal's chain, with Abort" 085e27398bb43103f1d646edb944987724ae266a2833fa0f83e8053e9a2d6d49
 Main.test "a chain after a pure call".%match1 502ee326800efeec49bf55488041ba7b2a1e8ede7339dd38670d7e5ce18ce42c
 Main.test "a chain after a pure call".%match2 4ec29e61af0a32d014afec18258be5d22c985037b4f6597a135515da2e33b8eb
-Main.test "a chain after a pure call" ccb2a8c3c22f3a1c4995c67b8e14a9b87fccd6fabfeafd89fd2b3a2452456e36
+Main.test "a chain after a pure call" 6b973e452d86fdea4bba422f8bcd5cd53c1e090f83635a713fb5909b873ee83b
 Main.test "an appended receiver".%match1 e1c46111811ed86f08587f2ece07889eb093d246d90d72e7d9a68c2ed49d7a5e
-Main.test "an appended receiver" 9cb75ca72345857f643f6c0c588c60b43dfeb95ef1369f23e208617a74c73166
+Main.test "an appended receiver" 8ab3c35b0fca7a77e7f218257c5b2fe883317ab84d8f7a760b62c822f91600e5
 Main.test "in a let".%match1 3945af9cc10657d3b01d02dba8ed4212a42898a840033399f1279a6f9a9a7254
-Main.test "in a let" 8720b88987fd71246bd8e3459df0f0d991bb0f7a1e745c85f4ed62a2ac973830
+Main.test "in a let" 843bbb263dbd6a52de69b78c4f13a1f3ffc0be8afaabe6f4eb4ed838c224e311
 Main.test "a literal's chain in a sum".%match1 3c9946a64185f81c6eb4580a23101fb5de1d69dd3032d7ebafd2c96be83b6900
 Main.test "a literal's chain in a sum" 6d802dc03367c8f112a2fef29e76ce98112324c33ebe27001a78c24b52d396c3
-Main.test "pure dot calls are values" 717874b8c38d8eceb64239517693a6c20034f987776ec6e5b4f36709e67f041d
+Main.test "pure dot calls are values" 45109f0ade7ff9b9d50e770f676b2f09a1ba7ea5f295112d84bb759d761f695a

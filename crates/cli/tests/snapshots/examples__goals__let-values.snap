@@ -8,7 +8,7 @@ expression: output
  7 │   ?
    │   ┬  
    │   ╰── xs: List Nat
-   │       total: Nat := List.foldLeft Nat.add 0 xs
+   │       total: Nat := List.sum xs
    │       count: Nat := List.length xs
    │       ⊢ Nat
 ───╯

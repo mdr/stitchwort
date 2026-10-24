@@ -7,7 +7,9 @@ expression: output
     │
  16 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> takes (computation := computation) (count := 1) = True := computation => rfl
     │                                                                                                                                                        ─┬─  
-    │                                                                                                                                                         ╰─── `isDone computation` and `True` aren't equal
+    │                                                                                                                                                         ╰─── `takes 1 computation` and `True` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: computing the left side gives `isDone computation`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯
