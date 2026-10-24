@@ -1,5 +1,5 @@
 {
-  "next": 421,
+  "next": 422,
   "tickets": [
     {
       "id": 1,
@@ -6684,16 +6684,18 @@
     {
       "id": 415,
       "title": "Generated JS/rt code now contains immediately applied lambdas from SW-412's costly-let binding ((v2 => Nat.decLessEq(v2)(2n))(v1) in extract io/lets snapshots): reduce such redexes when lowering",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Sonnet)",
+      "where": "-",
       "labels": [
         "js"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "edc2b793"
+      ]
     },
     {
       "id": 416,
@@ -6763,6 +6765,20 @@
       "where": "",
       "labels": [
         "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 421,
+      "title": "rt lower test every_aoc_main_lowers overflows the stack on main (found by SW-415); bisect and fix",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
       ],
       "body": "",
       "created": "2026-10-24",

@@ -153,3 +153,32 @@ pub fn text_literal(chars: &Term) -> Option<String> {
         }
     }
 }
+
+/// `(x => body) v` for a variable `v`, reduced by substitution: `body` with
+/// `x` replaced by `v`, applied to the rest of `args`. Nothing is computed
+/// or duplicated, so strict evaluation can't tell; a backend is spared the
+/// binding for the argument (SW-415: the elaborator writes a comparison on a
+/// costly `let` variable this way, SW-412). `None` unless `head` is a lambda
+/// (under locations and annotations) and the first argument a variable.
+/// Both backends call it on an application's spine.
+pub fn beta_variable(
+    g: &Globals,
+    head: &Term,
+    args: &[&Term],
+) -> stitchwort_core::budget::Result<Option<Term>> {
+    let mut head = head;
+    while let Term::Loc(_, t) | Term::Ann(t, _) = head {
+        head = t;
+    }
+    let (Term::Lam(_, _, body), Some(first)) = (head, args.first()) else {
+        return Ok(None);
+    };
+    let Term::Var(to) = first.strip_loc() else {
+        return Ok(None);
+    };
+    let mut out = body.instantiate_var(g, *to)?;
+    for arg in &args[1..] {
+        out = Term::app(out, (*arg).clone());
+    }
+    Ok(Some(out))
+}

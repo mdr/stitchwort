@@ -451,12 +451,35 @@ impl Term {
     /// Adds `by` to every variable at or above `cutoff`, for moving a term
     /// under `by` new binders.
     pub fn shift(&self, g: &Globals, by: usize, cutoff: usize) -> Result<Term> {
+        self.map_vars(g, cutoff, &|ix, cutoff| {
+            if ix >= cutoff { ix + by } else { ix }
+        })
+    }
+
+    /// The body of a lambda applied to the variable `to` (an index outside
+    /// the lambda): `self`, the body under the binder, with its variable 0
+    /// replaced by `to` and the rest lowered by one.
+    pub fn instantiate_var(&self, g: &Globals, to: usize) -> Result<Term> {
+        self.map_vars(g, 0, &|ix, depth| match ix.cmp(&depth) {
+            std::cmp::Ordering::Less => ix,
+            std::cmp::Ordering::Equal => to + depth,
+            std::cmp::Ordering::Greater => ix - 1,
+        })
+    }
+
+    /// Renumbers every variable: `f(ix, depth)` is the new index of variable
+    /// `ix` with `depth` binders entered inside the starting point.
+    fn map_vars(
+        &self,
+        g: &Globals,
+        cutoff: usize,
+        f: &dyn Fn(usize, usize) -> usize,
+    ) -> Result<Term> {
         g.budget.nesting("elaborator")?;
-        let go = |t: &Rc<Term>, cutoff| Ok(Rc::new(t.shift(g, by, cutoff)?));
+        let go = |t: &Rc<Term>, cutoff| Ok(Rc::new(t.map_vars(g, cutoff, f)?));
         Ok(match self {
-            Term::Var(ix) if *ix >= cutoff => Term::Var(ix + by),
-            Term::Var(_)
-            | Term::Def(_)
+            Term::Var(ix) => Term::Var(f(*ix, cutoff)),
+            Term::Def(_)
             | Term::Nat(_)
             | Term::Chars(_)
             | Term::Sort(_)
@@ -483,7 +506,7 @@ impl Term {
                 *e,
             ),
             Term::Case(ix, d, branches) => Term::Case(
-                if *ix >= cutoff { ix + by } else { *ix },
+                f(*ix, cutoff),
                 *d,
                 branches
                     .iter()
@@ -500,7 +523,7 @@ impl Term {
                     .collect::<Result<_>>()?,
             ),
             Term::NumCase(ix, arms, default) => Term::NumCase(
-                if *ix >= cutoff { ix + by } else { *ix },
+                f(*ix, cutoff),
                 arms.iter()
                     .map(|a| {
                         Ok(NumArm {
@@ -655,6 +678,36 @@ mod tests {
     /// Compares terms by their debug output (binder names are all the same here).
     fn assert_same(actual: Term, expected: Term) {
         assert_eq!(format!("{actual:?}"), format!("{expected:?}"));
+    }
+
+    #[test]
+    fn instantiating_a_body_with_a_variable_renumbers_around_it() {
+        let g = Globals::default();
+        // Body `v0 v1 (y => v0 v1 v2)` applied to outer v3: the bound v0
+        // becomes v3, free v1 becomes v0; under y, v1 is that same bound
+        // variable (now v4), v2 is the old v1 (now v1), v0 is y.
+        let body = Term::app(
+            Term::app(v(0), v(1)),
+            Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                rc(Term::app(Term::app(v(0), v(1)), v(2))),
+            ),
+        );
+        let expected = Term::app(
+            Term::app(v(3), v(0)),
+            Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                rc(Term::app(Term::app(v(0), v(4)), v(1))),
+            ),
+        );
+        assert_same(body.instantiate_var(&g, 3).unwrap(), expected);
+        // A case on the bound variable scrutinises the new one.
+        assert_same(
+            case(0, 1, v(1)).instantiate_var(&g, 2).unwrap(),
+            case(2, 1, v(3)),
+        );
     }
 
     #[test]
