@@ -1,5 +1,5 @@
 {
-  "next": 436,
+  "next": 437,
   "tickets": [
     {
       "id": 1,
@@ -6032,15 +6032,15 @@
     {
       "id": 374,
       "title": "Proof automation: a controlled simplifier emitting checked proof terms, and ring-style polynomial normalisation (D1044)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "design note lane (Opus)",
       "labels": [
         "proofs"
       ],
       "body": "Trigger: Day 2 review suggestions C and D (weightedIds restating whole sums; writeTimesMul's 7-step regrouping; omega.md:625 lists Day 2's non-linear residue). Matt 23 Oct: backlog; each needs a proposal.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-24",
       "commits": []
     },
     {
@@ -7012,11 +7012,25 @@
     {
       "id": 435,
       "title": "run: when neither of run's two calls checks, show the real checking error instead of the generic 'abilities among IO and Partial' note (it hid SW-434's cause)",
-      "status": "next",
+      "status": "doing",
+      "agent": "",
+      "where": "worktree lane (Sonnet)",
+      "labels": [
+        "tooling"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 436,
+      "title": "Counterexample search stage 2 (counterexample-search.md, D1154-D1159): random inputs with shrinking, check --counterexamples, Text/Char inputs",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "proof"
       ],
       "body": "",
       "created": "2026-10-24",
