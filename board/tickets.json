@@ -1,5 +1,5 @@
 {
-  "next": 435,
+  "next": 436,
   "tickets": [
     {
       "id": 1,
@@ -6930,16 +6930,18 @@
     {
       "id": 430,
       "title": "Row defaulting vs instances: [1,2,3].mapIn (n => n * n) == [1,4,9] in a test fails E-INSTANCE-STUCK ({?1} List Nat), and toResult (() => xs.mapIn halve) == Err … fails E-INSTANCE-NONE; the row should be settled (defaulted) before instance resolution gives up (found writing the tour)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "a4cf83e1"
+      ]
     },
     {
       "id": 431,
@@ -6960,39 +6962,59 @@
     {
       "id": 432,
       "title": "Row inference: in a {Log} body, let mapped := List.mapIn answer numbers then returning mapped is refused: the row is defaulted before the let's variable meets the result type (found in SW-406)",
-      "status": "next",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "a4cf83e1"
+      ]
     },
     {
       "id": 433,
       "title": "Guide findings (D1161 a): stale/wrong docs (projects.md interfaces, syntax.md ; example, decreasing indent) and clearer messages (list nonexhaustive, divFuel measure, test in: span, E-PARTIAL in tests, |> vs == hint, std-source broken pipe)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "docs"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "bc173b58"
+      ]
     },
     {
       "id": 434,
       "title": "REGRESSION: stitchwort run refuses {IO, Fail} mains (E-RUN-TYPE) on main after today's merges; guide test fails; bisect, fix, add a CLI run test",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "-",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": [
+        "a9865066"
+      ]
+    },
+    {
+      "id": 435,
+      "title": "run: when neither of run's two calls checks, show the real checking error instead of the generic 'abilities among IO and Partial' note (it hid SW-434's cause)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
-        "bug"
+        "tooling"
       ],
       "body": "",
       "created": "2026-10-24",
