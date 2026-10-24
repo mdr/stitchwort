@@ -7139,17 +7139,19 @@
     },
     {
       "id": 443,
-      "title": "Effect runtime stage 4 (D1162 decided): 4a JS run loop with Bind, persistent pending list, lazy resumption, step-count + 1M stack tests; note updated with the decision and stage plan",
+      "title": "Effect runtime stage 4 (D1162): 4a JS run loop + lazy resumption done; 4b native run loop in progress; then 4c IO runners/Partial/wasm, 4d A' fusion, 4e differential, 4f allocation",
       "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "a9f697cf"
+      ]
     }
   ]
 }
