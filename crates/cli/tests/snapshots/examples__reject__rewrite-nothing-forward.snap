@@ -11,7 +11,9 @@ expression: output
    │ 
    │ Note 1: goal: `Succ b = Succ b`
    │ 
-   │ Note 2: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+   │ Note 2: the goal already holds by computing, so `rfl` proves it without a `rewrite`
    │ 
-   │ Note 3: to replace the right side by the left, write `rewrite <- …`
+   │ Note 3: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+   │ 
+   │ Note 4: to replace the right side by the left, write `rewrite <- …`
 ───╯

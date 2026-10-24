@@ -153,8 +153,17 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     };
     let mut term = fact;
     let mut outcome = Ok(());
-    for rule in rules {
-        match rewrite_once(cx, rule, place, &ty, None, &mut remaining, &mut stats) {
+    for (index, rule) in rules.iter().enumerate() {
+        match rewrite_once(
+            cx,
+            rule,
+            index,
+            place,
+            &ty,
+            None,
+            &mut remaining,
+            &mut stats,
+        ) {
             Ok(step) => {
                 ty = step.goal;
                 term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
@@ -231,10 +240,11 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
     };
     let mut steps: Vec<Step> = Vec::new();
     let mut outcome = Ok(());
-    for rule in rules {
+    for (index, rule) in rules.iter().enumerate() {
         match rewrite_once(
             cx,
             rule,
+            index,
             Place::Goal,
             &goal,
             written.take(),
@@ -331,6 +341,8 @@ fn report(span: Span, rules: usize, stats: &Stats, steps: u64) {
 fn rewrite_once(
     cx: &mut Ctx,
     rule: &RewriteRule,
+    // How many rules of the same `rewrite` came before this one.
+    index: usize,
     place: Place,
     goal: &Value,
     written: Option<Term>,
@@ -398,6 +410,7 @@ fn rewrite_once(
         kcx: RefCell::new(kcx),
         cx: RefCell::new(cx),
         rule,
+        place,
         carrier: &carrier,
         lhs: &lhs,
         lhs_term: RefCell::new(lhs_term),
@@ -435,13 +448,21 @@ fn rewrite_once(
             Place::Goal => goal_as_written(cx, written, &goal_value)?,
             Place::Target(_) => None,
         };
+        let done = match place {
+            Place::Goal => holds_by_computing(cx, &goal_value, remaining)?,
+            Place::Target(_) => false,
+        };
         return Err(nothing_found(
             cx,
             rule,
-            place,
+            Searched {
+                index,
+                place,
+                as_written,
+                done,
+            },
             &lhs,
             &goal_value,
-            as_written,
             &found,
         ));
     }
@@ -466,6 +487,7 @@ fn rewrite_once(
             return Err(budget_error(
                 cx,
                 rule,
+                place,
                 first.as_ref().unwrap_or(&goal_term),
                 &lhs,
             ));
@@ -486,6 +508,7 @@ struct Search<'a, 'e> {
     /// The kernel's view of the same context, for the types of candidates.
     kcx: RefCell<kernel::Ctx<'e>>,
     rule: &'a RewriteRule,
+    place: Place<'a>,
     carrier: &'a Value,
     lhs: &'a Value,
     /// The left side as a term. Read back again after each match, so the
@@ -498,7 +521,7 @@ struct Search<'a, 'e> {
     stats: RefCell<Stats>,
     /// Why the search stopped, if it did.
     error: RefCell<Option<Diagnostic>>,
-    /// The first occurrence selected, as it is in the goal.
+    /// The first occurrence selected, in the goal's own context.
     first: RefCell<Option<Term>>,
 }
 
@@ -523,16 +546,16 @@ impl Search<'_, '_> {
             return None;
         }
         match self.decide(t, under) {
-            Ok(true) => {
+            Ok(Some(candidate)) => {
                 self.stats.borrow_mut().matched += 1;
                 let mut first = self.first.borrow_mut();
                 if first.is_none() {
-                    *first = Some(t.clone());
+                    *first = Some(candidate);
                 }
                 // Under the motive's `x` and `_`, and the goal's own binders.
                 Some(Term::Var(under + 1))
             }
-            Ok(false) => None,
+            Ok(None) => None,
             Err(e) => {
                 *self.error.borrow_mut() = Some(e);
                 Some(t.clone())
@@ -541,8 +564,9 @@ impl Search<'_, '_> {
     }
 
     /// Whether `t` is an occurrence of the left side, solving the rule's
-    /// metavariables if it is and nothing if it isn't.
-    fn decide(&self, t: &Term, under: usize) -> Result<bool> {
+    /// metavariables if it is and nothing if it isn't. An occurrence comes
+    /// back as a term in the goal's own context.
+    fn decide(&self, t: &Term, under: usize) -> Result<Option<Term>> {
         let mut cx = self.cx.borrow_mut();
         let cx: &mut Ctx = &mut cx;
         let g = cx.g();
@@ -562,7 +586,7 @@ impl Search<'_, '_> {
         };
         if same(&candidate, &self.lhs_term.borrow()) {
             self.stats.borrow_mut().syntactic += 1;
-            return Ok(true);
+            return Ok(Some(candidate));
         }
         self.stats.borrow_mut().conversions += 1;
         let snapshot = Snapshot::take(cx);
@@ -584,19 +608,21 @@ impl Search<'_, '_> {
                     .any(|m| m < self.rule_metas);
                 if foreign {
                     snapshot.restore(cx);
-                    return Ok(false);
+                    return Ok(None);
                 }
                 let solved = cx.quote(self.lhs)?;
                 *self.lhs_term.borrow_mut() = solved;
-                Ok(true)
+                Ok(Some(candidate))
             }
             Ok(Some(false)) => {
                 snapshot.restore(cx);
-                Ok(false)
+                Ok(None)
             }
             Ok(None) => {
                 snapshot.restore(cx);
-                Err(budget_error(cx, self.rule, &candidate, self.lhs))
+                Err(budget_error(
+                    cx, self.rule, self.place, &candidate, self.lhs,
+                ))
             }
             Err(e) => {
                 if !fatal(&e) {
@@ -808,6 +834,18 @@ fn round_trip(
 /// A term for a message. An unknown the rule left open is shown as `?3`,
 /// not applied to every variable in scope as it is made.
 fn written(cx: &Ctx, term: &Term) -> String {
+    stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, &tidy(cx, term))
+}
+
+/// Whether [`written`] shortens `term` (to `…` inside).
+fn shortened(cx: &Ctx, term: &Term) -> bool {
+    let tidy = tidy(cx, term);
+    let short = stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, &tidy);
+    short != stitchwort_core::pretty::term(cx.g(), &cx.names, &tidy)
+}
+
+/// `term` with each unknown the rule left open bare, as [`written`] shows it.
+fn tidy(cx: &Ctx, term: &Term) -> Term {
     let level = cx.level();
     let bare = |t: &Term, _: usize| {
         let (head, args) = t.spine();
@@ -821,21 +859,54 @@ fn written(cx: &Ctx, term: &Term) -> String {
             _ => None,
         }
     };
-    let tidy = replace_with(
+    replace_with(
         cx.g(),
         term,
         level,
         &|l| Ok(Term::Var(level - 1 - l)),
         &bare,
-    );
-    stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, tidy.as_ref().unwrap_or(term))
+    )
+    .unwrap_or_else(|_| term.clone())
 }
 
-/// A value for a message, as [`written`].
+/// A value for a message, as [`written`], with calls as calls (`n / 1`),
+/// as other messages show them (docs/proposals/folded-calls.md, stage 3).
 fn shown(cx: &Ctx, value: &Value) -> String {
+    match folded(cx, value) {
+        Some(term) => written(cx, &term),
+        None => "…".into(),
+    }
+}
+
+/// `value` read back with calls as calls, if it can be.
+fn folded(cx: &Ctx, value: &Value) -> Option<Term> {
+    cx.quote_folded(value).ok()
+}
+
+/// A value for a message, as [`written`], as it computes: what the search
+/// compares (D484).
+fn shown_computed(cx: &Ctx, value: &Value) -> String {
     match cx.quote(value) {
         Ok(term) => written(cx, &term),
         Err(_) => "…".into(),
+    }
+}
+
+/// Whether the goal, an equation, already holds by computing (`rfl`):
+/// within what is left of the search budget, and solving nothing.
+fn holds_by_computing(cx: &mut Ctx, goal: &Value, remaining: &mut u64) -> Result<bool> {
+    let g = cx.g();
+    let Value::Eq(_, left, right) = force(g, goal.clone())? else {
+        return Ok(false);
+    };
+    let snapshot = Snapshot::take(cx);
+    match g.budget.limited(remaining, || cx.unify(&left, &right)) {
+        Err(e) if fatal(&e) => Err(e),
+        outcome => {
+            let solved_nothing = snapshot.solved_since(cx).is_empty();
+            snapshot.restore(cx);
+            Ok(matches!(outcome, Ok(Some(true))) && solved_nothing)
+        }
     }
 }
 
@@ -872,34 +943,74 @@ fn goal_as_written(cx: &mut Ctx, written: Option<Term>, goal: &Value) -> Result<
     Ok(None)
 }
 
+/// What a search that found nothing looked through, for [`nothing_found`].
+struct Searched<'a> {
+    /// How many rules of the same `rewrite` came before.
+    index: usize,
+    place: Place<'a>,
+    /// The goal as it was written, if that is what it computes from.
+    as_written: Option<Term>,
+    /// The goal already holds by computing.
+    done: bool,
+}
+
 fn nothing_found(
     cx: &Ctx,
     rule: &RewriteRule,
-    place: Place,
+    searched: Searched,
     lhs: &Value,
     goal: &Value,
-    as_written: Option<Term>,
     found: &Stats,
 ) -> Diagnostic {
-    let shown = shown(cx, lhs);
-    let computed = cx.show(goal);
+    let Searched {
+        index,
+        place,
+        as_written,
+        done,
+    } = searched;
+    let shown_lhs = shown(cx, lhs);
+    let computed_lhs = shown_computed(cx, lhs);
+    let goal_text = cx.show(goal);
     let mut error = Diagnostic::error(
         "E-REWRITE-NOTHING",
-        format!("`rewrite` found no `{shown}` in {}", place.the()),
+        format!("`rewrite` found no `{shown_lhs}` in {}", place.the()),
     )
-    .with_label(rule.span, format!("looking for `{shown}`"));
+    .with_label(rule.span, format!("looking for `{shown_lhs}`"));
     let what = match place {
         Place::Goal => "goal".to_string(),
         Place::Target(Some(name)) => format!("`{name}`"),
         Place::Target(None) => "its type".to_string(),
     };
+    let after = match index {
+        0 => String::new(),
+        1 => " after the rule before this one".to_string(),
+        _ => format!(" after the {index} rules before this one"),
+    };
     match as_written.map(|t| written(cx, &t)) {
-        Some(text) if text != computed => {
+        Some(text) if text != goal_text => {
             error = error
-                .with_note(format!("{what}: `{text}`"))
-                .with_note(format!("searched as it computes: `{computed}`"));
+                .with_note(format!("{what} as written: `{text}`"))
+                .with_note(format!("{what} as it computes{after}: `{goal_text}`"));
         }
-        _ => error = error.with_note(format!("{what}: `{computed}`")),
+        _ => error = error.with_note(format!("{what}{after}: `{goal_text}`")),
+    }
+    if computed_lhs != shown_lhs {
+        error = error.with_note(format!(
+            "the search compares what terms compute to: it looked for `{computed_lhs}`, what \
+             `{shown_lhs}` computes to, in what {} computes to",
+            place.the()
+        ));
+    }
+    if done {
+        // Only a goal is tested (an equation `rfl` would prove).
+        error = error.with_note(match index {
+            0 => "the goal already holds by computing, so `rfl` proves it without a `rewrite`"
+                .to_string(),
+            _ => format!(
+                "the goal already holds by computing{after}, so `rfl` proves it: this rule and \
+                 what follows it aren't needed"
+            ),
+        });
     }
     error = error.with_note(format!(
         "occurrences are looked for by their outer function and compared by computing, \
@@ -923,19 +1034,43 @@ fn nothing_found(
     error
 }
 
-fn budget_error(cx: &Ctx, rule: &RewriteRule, candidate: &Term, lhs: &Value) -> Diagnostic {
-    let (candidate, lhs) = (written(cx, candidate), shown(cx, lhs));
-    Diagnostic::error(
+/// `candidate` is a term of the goal (or the target's type) in `cx`'s
+/// context, as the search saw it: computed, so it can be long. Both terms
+/// are put in notes, shortened.
+fn budget_error(
+    cx: &Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    candidate: &Term,
+    lhs: &Value,
+) -> Diagnostic {
+    let side = if rule.reverse { "right" } else { "left" };
+    let long = shortened(cx, candidate) || folded(cx, lhs).is_some_and(|term| shortened(cx, &term));
+    let mut error = Diagnostic::error(
         "E-REWRITE-BUDGET",
-        format!("`rewrite` couldn't decide whether `{candidate}` is `{lhs}`"),
+        format!(
+            "`rewrite` couldn't decide whether a part of {} is the rule's {side} side",
+            place.the()
+        ),
     )
     .with_label(
         rule.span,
         "comparing them by computing ran out of budget, so the rewrite can't tell which \
          occurrences to replace",
     )
-    .with_note("this is about cost, not truth: the two may well be equal")
-    .with_note("state the step with `calc`, or rewrite with a more specific equation")
+    .with_note(format!(
+        "the part of {}, as it computes: `{}`",
+        place.the(),
+        written(cx, candidate)
+    ))
+    .with_note(format!("the rule's {side} side: `{}`", shown(cx, lhs)))
+    .with_note("this is about cost, not truth: the two may well be equal");
+    if long {
+        error = error.with_note(
+            "the terms are shortened (`…`); set `STITCHWORT_FULL_TERMS=1` to see them whole",
+        );
+    }
+    error.with_note("state the step with `calc`, or rewrite with a more specific equation")
 }
 
 fn round_trip_error(

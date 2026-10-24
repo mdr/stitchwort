@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `Succ n / 1` in the goal
+    ╭─[ reject/rewrite-nothing-computed.sw:10:25 ]
+    │
+ 10 │   rewrite Nat.divOne n, Nat.divOne (Succ n)
+    │                         ─────────┬────────  
+    │                                  ╰────────── looking for `Succ n / 1`
+    │ 
+    │ Note 1: goal after the rule before this one: `n + Succ n = n + Succ n`
+    │ 
+    │ Note 2: the search compares what terms compute to: it looked for `Succ (Nat.divFuel n n 1)`, what `Succ n / 1` computes to, in what the goal computes to
+    │ 
+    │ Note 3: the goal already holds by computing after the rule before this one, so `rfl` proves it: this rule and what follows it aren't needed
+    │ 
+    │ Note 4: occurrences are looked for by their outer function and compared by computing, and only where they don't mention a variable bound inside the goal
+    │ 
+    │ Note 5: to replace the right side by the left, write `rewrite <- …`
+────╯
