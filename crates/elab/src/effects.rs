@@ -259,14 +259,10 @@ fn row_value(cx: &Ctx, row: &Row) -> Result<Value> {
     if row.labels.is_empty() {
         return Ok(match &row.tail {
             Some(tail) => tail.clone(),
-            None => {
-                let (d, c) = crate::check::builtin_ctor(cx, Builtin::RowEmpty)?;
-                Value::Ctor(d, c, Vec::new().into())
-            }
+            None => crate::rows::empty_row_in(cx)?,
         });
     }
-    let (d, c) = crate::check::builtin_ctor(cx, Builtin::RowOps)?;
-    Ok(Value::Ctor(d, c, vec![ops(cx, row)?, res(cx, row)?].into()))
+    crate::rows::ops_row_in(cx, ops(cx, row)?, res(cx, row)?)
 }
 
 /// The definition admitted as primitive `prim`.

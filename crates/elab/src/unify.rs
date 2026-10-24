@@ -141,16 +141,14 @@ fn row_rule(
     if matches!(other, Value::Neutral(Head::Meta(_), _)) || is_comp_in(other) {
         return Ok(None);
     }
-    let (Some(comp), Some(plus), Some(no_op), Some((row_data, empty)), Some((_, ops))) = (
+    let (Some(comp), Some(plus), Some(no_op), Some(empty_row)) = (
         g.registry.data(Builtin::Comp),
         g.registry.data(Builtin::Plus),
         g.registry.data(Builtin::NoOp),
-        g.registry.ctor(Builtin::RowEmpty),
-        g.registry.ctor(Builtin::RowOps),
+        crate::rows::empty_row(g),
     ) else {
         return Ok(None);
     };
-    let empty_row = Value::Ctor(row_data, empty, Vec::new().into());
     // Pushed last-first, so the row is solved first.
     let solve_with = |work: &mut Vec<Task>, row_value: Value, result_ty: Value, other_ty: Value| {
         work.push(Task::Values(level, result_ty, other_ty));
@@ -174,10 +172,15 @@ fn row_rule(
             return Ok(Some(match force(g, args[0].clone())? {
                 // Effectful: the row is the `Comp`'s.
                 Value::Data(p, _) if p == plus => {
-                    let value =
-                        Value::Ctor(row_data, ops, vec![args[0].clone(), args[1].clone()].into());
-                    solve_with(work, value, result, args[2].clone());
-                    true
+                    match crate::rows::ops_row(g, args[0].clone(), args[1].clone()) {
+                        Ok(value) => {
+                            solve_with(work, value, result, args[2].clone());
+                            true
+                        }
+                        Err(crate::rows::RowFault::Resource(e)) => return Err(e),
+                        // Unreachable: the operations are headed by `Plus`.
+                        Err(_) => false,
+                    }
                 }
                 // `Comp NoOp NoRes A`: data.
                 Value::Data(n, _) if n == no_op => {

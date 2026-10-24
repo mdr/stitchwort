@@ -15,9 +15,10 @@
 //! reported as a mismatch. Nothing unchecked reaches the kernel, which
 //! re-checks the final term anyway.
 
+use stitchwort_core::budget::ResourceError;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force, quote};
-use stitchwort_core::{Name, Term, Value};
+use stitchwort_core::{Globals, Name, Term, Value};
 use stitchwort_syntax::Span;
 
 use crate::Elaborator;
@@ -80,6 +81,86 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
         meta: meta.clone(),
         span: cx.span,
     });
+}
+
+/// Why a row couldn't be built.
+#[derive(Debug)]
+pub(crate) enum RowFault {
+    /// The prelude hasn't declared `Effects` yet.
+    Missing,
+    /// Computing the operation type took too long.
+    Resource(ResourceError),
+    /// The operations are `NoOp`: a row with no abilities, which must be
+    /// `Empty`.
+    NoAbilities,
+}
+
+/// The empty row, `Empty`. With [`ops_row`], the only place the elaborator
+/// makes a value of type `Effects`, so the canonical-form invariant (a row
+/// with no abilities is `Empty`, never `Ops NoOp NoRes`;
+/// docs/proposals/effect-polymorphism.md §5.C.2) is checked in one place.
+/// Rows are made by `effects::row_value` (the rows of `{A | e}` types),
+/// `unify::row_rule` (a row unknown solved from a `Comp`) and
+/// `default_rows` (an unsolved row unknown set to the empty row).
+pub(crate) fn empty_row(g: &Globals) -> Option<Value> {
+    let (data, ctor) = g.registry.ctor(Builtin::RowEmpty)?;
+    Some(Value::Ctor(data, ctor, Vec::new().into()))
+}
+
+/// `Ops op res`, the row of a computation with at least one ability. `op`
+/// is checked not to be `NoOp` (once computed): a debug assertion, and in
+/// release builds a [`RowFault::NoAbilities`] the caller reports. The check
+/// stays in release because a non-canonical row is silently wrong, not a
+/// crash: `CompIn (Ops NoOp NoRes) a` is a tree where `CompIn Empty a` is
+/// `a`, so the same pure function would compile two ways. It costs one
+/// `force` of a term the caller just built.
+pub(crate) fn ops_row(g: &Globals, op: Value, res: Value) -> std::result::Result<Value, RowFault> {
+    let (Some((data, ctor)), Some(no_op)) = (
+        g.registry.ctor(Builtin::RowOps),
+        g.registry.data(Builtin::NoOp),
+    ) else {
+        return Err(RowFault::Missing);
+    };
+    let forced = force(g, op.clone()).map_err(RowFault::Resource)?;
+    let none = matches!(forced, Value::Data(d, _) if d == no_op);
+    debug_assert!(
+        !none,
+        "a row with no abilities must be `Empty`, not `Ops NoOp NoRes`"
+    );
+    if none {
+        return Err(RowFault::NoAbilities);
+    }
+    Ok(Value::Ctor(data, ctor, vec![op, res].into()))
+}
+
+/// [`empty_row`], for the elaborator: an error if the prelude lacks it.
+pub(crate) fn empty_row_in(cx: &Ctx) -> Result<Value> {
+    match empty_row(cx.g()) {
+        Some(value) => Ok(value),
+        None => Err(missing(cx, Builtin::RowEmpty)),
+    }
+}
+
+/// [`ops_row`], for the elaborator: a violation is an `E-INTERNAL` error.
+pub(crate) fn ops_row_in(cx: &Ctx, op: Value, res: Value) -> Result<Value> {
+    ops_row(cx.g(), op, res).map_err(|fault| match fault {
+        RowFault::Missing => missing(cx, Builtin::RowOps),
+        RowFault::Resource(e) => e.into(),
+        RowFault::NoAbilities => cx
+            .error(
+                "E-INTERNAL",
+                "internal error: the elaborator made `Ops NoOp NoRes`, a row with no abilities",
+                "here",
+            )
+            .with_note("a row with no abilities is `Empty`: a bug in the compiler"),
+    })
+}
+
+fn missing(cx: &Ctx, b: Builtin) -> stitchwort_syntax::Diagnostic {
+    match crate::check::builtin_ctor(cx, b) {
+        Err(d) => d,
+        Ok(_) => cx.error("E-INTERNAL", "internal error: no row constructor", "here"),
+    }
 }
 
 /// After `found` failed to unify with `expected`: whether they unify once
@@ -190,8 +271,7 @@ impl Elaborator {
             ) {
                 continue;
             }
-            let (d, c) = crate::check::builtin_ctor(&cx, Builtin::RowEmpty)?;
-            let empty = Value::Ctor(d, c, Vec::new().into());
+            let empty = empty_row_in(&cx)?;
             if cx.unify(&value, &empty)? {
                 defaulted.push(item.span);
             }
@@ -397,6 +477,29 @@ mod tests {
             let put_aside = unify_postponing(g, 0, &left, &stuck).unwrap();
             assert_eq!(put_aside.map(|p| p.len()), Some(1));
             assert!(g.meta_solution(meta).is_none());
+        });
+    }
+
+    /// The canonical-form invariant: a row with no abilities is `Empty`
+    /// (docs/proposals/effect-polymorphism.md §5.C.2), so `ops_row` refuses
+    /// `NoOp`.
+    #[test]
+    fn ops_row_refuses_no_abilities_and_accepts_an_ability() {
+        with_core(|e| {
+            let g = &e.globals;
+            let no_op = data(g, Builtin::NoOp, Vec::new());
+            let res = Value::Sort(Sort::Type(0));
+            // `Plus Nat NoOp`: one ability.
+            let plus = data(g, Builtin::Plus, vec![nat(g), no_op.clone()]);
+            assert!(matches!(ops_row(g, plus, res.clone()), Ok(Value::Ctor(..))));
+            // `NoOp`: a debug build asserts, a release build reports it.
+            let no_abilities = std::panic::AssertUnwindSafe(|| ops_row(g, no_op, res));
+            if cfg!(debug_assertions) {
+                assert!(std::panic::catch_unwind(no_abilities).is_err());
+            } else {
+                assert!(matches!(no_abilities(), Err(RowFault::NoAbilities)));
+            }
+            assert!(matches!(empty_row(g), Some(Value::Ctor(..))));
         });
     }
 }
