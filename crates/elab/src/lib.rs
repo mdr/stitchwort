@@ -625,10 +625,12 @@ fn name(n: &ast::Name) -> Name {
 
 impl Elaborator {
     pub fn new() -> Self {
-        let mut e = Self::default();
         // Glued evaluation (docs/proposals/folded-calls.md) is on while
         // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
-        e.glue = std::env::var("STITCHWORT_GLUE").map_or(true, |v| v != "0");
+        let e = Self {
+            glue: std::env::var("STITCHWORT_GLUE").map_or(true, |v| v != "0"),
+            ..Self::default()
+        };
         // The names some syntax refers to, built once per process: built
         // here rather than on first use, so that the first program to use
         // them doesn't count work later ones don't (the bench's `repeat`
