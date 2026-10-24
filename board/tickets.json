@@ -5651,10 +5651,10 @@
     },
     {
       "id": 356,
-      "title": "Map/Set equality: kernel quotients — stages 1, 2.1, 2.2 and the API leftovers (memToList, sizeInsert/Remove, Map.induction, isSubsetSpec) merged; remaining: O(n+m) merges",
-      "status": "doing",
+      "title": "Map/Set equality: kernel quotients, API leftovers and O(n+m) combining operations all merged",
+      "status": "done",
       "agent": "Opus",
-      "where": "worktree lane: O(n+m) merges",
+      "where": "-",
       "labels": [
         "design",
         "std"
@@ -5686,7 +5686,8 @@
         "a5f8b214",
         "57bd6784",
         "f05dd335",
-        "c216916c"
+        "c216916c",
+        "96b79502"
       ]
     },
     {
