@@ -1871,16 +1871,18 @@
     {
       "id": 409,
       "title": "Effect polymorphism stage 4: linear-time, stack-safe effectful runtime; design note first, starting with close literature reading (D1119)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "D1162: self-review + research report for external review (Opus lane)",
+      "where": "-",
       "labels": [
         "effects"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "1e2b7dbc"
+      ]
     },
     {
       "id": 410,
