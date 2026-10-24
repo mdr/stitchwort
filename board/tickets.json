@@ -6472,16 +6472,18 @@
     {
       "id": 402,
       "title": "Field defaults stage 2b: JS input shapes, decoder fills defaults, D1114 absence rule",
-      "status": "doing",
+      "status": "done",
       "agent": "",
-      "where": "worktree lane (Opus)",
+      "where": "-",
       "labels": [
         "lang"
       ],
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-24",
-      "commits": []
+      "commits": [
+        "dd6c4acd"
+      ]
     },
     {
       "id": 403,
