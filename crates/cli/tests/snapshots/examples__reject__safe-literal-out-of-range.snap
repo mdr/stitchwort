@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-SAFE-LITERAL] Error: `9007199254740992` is out of range for a `SafeNat`
+   ╭─[ reject/safe-literal-out-of-range.sw:5:26 ]
+   │
+ 5 │ def tooLarge: SafeNat := 9007199254740992
+   │                          ────────┬───────  
+   │                                  ╰───────── a `SafeNat` is a whole number from 0 to 9007199254740991
+   │ 
+   │ Note: 9007199254740991 is 2^53 - 1, the largest whole number a JS `number` holds exactly; use a `Nat` for larger numbers
+───╯
+[E-SAFE-LITERAL] Error: `-9007199254740992` is out of range for a `SafeInt`
+   ╭─[ reject/safe-literal-out-of-range.sw:7:35 ]
+   │
+ 7 │ def tooSmall: List SafeInt := [1, -9007199254740992]
+   │                                   ────────┬────────  
+   │                                           ╰────────── a `SafeInt` is a whole number from -9007199254740991 to 9007199254740991
+   │ 
+   │ Note: 9007199254740991 is 2^53 - 1, the largest whole number a JS `number` holds exactly; use an `Int` for larger numbers
+───╯

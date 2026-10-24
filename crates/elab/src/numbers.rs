@@ -315,6 +315,9 @@ pub(crate) fn check_literal(
             if let Some(term) = fin_literal(cx, k, negative, expected)? {
                 return Ok(term);
             }
+            if let Some(term) = safe_literal(cx, k, negative, expected)? {
+                return Ok(term);
+            }
             let found = num_type(cx, if negative { Kind::Int } else { Kind::Nat })?;
             let e = cx
                 .mismatch(expected, &found)
@@ -420,6 +423,65 @@ fn fin_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Resul
     let call = Term::app(Term::Def(of_nat_lt), Term::Nat(Rc::new(n)));
     let call = Term::app(call, Term::Nat(Rc::new(k.clone())));
     Ok(Some(Term::app(call, Term::Refl)))
+}
+
+/// The bound of the library's `SafeNat` and `SafeInt` (std/Int/Safe.sw):
+/// 2^53 - 1, JS's `Number.MAX_SAFE_INTEGER`.
+const SAFE_BOUND: u64 = 9_007_199_254_740_991;
+
+/// The numeral `k` (or `-k`) checked against `expected` if that's the
+/// library's `SafeNat` or `SafeInt` (SW-354): the record `{ value = k, fits =
+/// rfl }`, with `k` as a `Nat` or an `Int`, where the kernel confirms the
+/// bound by computing it, as for a `Fin` literal. `None` for any other type.
+fn safe_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Result<Option<Term>> {
+    let g = cx.g();
+    let Value::Data(d, params) = force(g, expected.clone())? else {
+        return Ok(None);
+    };
+    if !params.is_empty() {
+        return Ok(None);
+    }
+    let (name, int) = if Some(d) == g.registry.loaded_data(Builtin::SafeNat) {
+        ("SafeNat", false)
+    } else if Some(d) == g.registry.loaded_data(Builtin::SafeInt) {
+        ("SafeInt", true)
+    } else {
+        return Ok(None);
+    };
+    if negative && !int {
+        return Err(cx
+            .error(
+                "E-SAFE-LITERAL",
+                "a `SafeNat` can't be negative",
+                "this is negative, but a `SafeNat` is expected here",
+            )
+            .with_note("use a `SafeInt` for numbers that can be negative"));
+    }
+    if *k > BigUint::from(SAFE_BOUND) {
+        let sign = if negative { "-" } else { "" };
+        let range = if int {
+            format!("a `SafeInt` is a whole number from -{SAFE_BOUND} to {SAFE_BOUND}")
+        } else {
+            format!("a `SafeNat` is a whole number from 0 to {SAFE_BOUND}")
+        };
+        return Err(cx
+            .error(
+                "E-SAFE-LITERAL",
+                format!("`{sign}{k}` is out of range for a `{name}`"),
+                range,
+            )
+            .with_note(format!(
+                "{SAFE_BOUND} is 2^53 - 1, the largest whole number a JS `number` holds \
+                 exactly; use {} for larger numbers",
+                if int { "an `Int`" } else { "a `Nat`" }
+            )));
+    }
+    let value = if int {
+        int_literal(cx, k, negative)?
+    } else {
+        Term::Nat(Rc::new(k.clone()))
+    };
+    Ok(Some(Term::ctor(d, 0, vec![value, Term::Refl])))
 }
 
 fn int_literal(cx: &Ctx, k: &BigUint, negative: bool) -> Result<Term> {
