@@ -70,4 +70,8 @@ expression: "run(&dir, &[\"--no-cache\"])"
   ✗ unequal, so no difference   ran  (`!=` is False)
       left:  [1, 2, 3]
       right: [1, 2, 3]
-18 test(s): 0 passed, 18 failed (0 from the cache)
+  ✗ and, a bracketed operand    ran  (`==` is False)
+      left:  3
+      right: 2
+      in: (nums 3).length == 2  (t.sw:31:52)
+19 test(s): 0 passed, 19 failed (0 from the cache)

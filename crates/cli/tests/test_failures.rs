@@ -115,6 +115,7 @@ test "list of lists" := [[1, 2], [3]] == [[1, 2], [4]]
 test "long list, late difference" := List.range 1000 == List.append (List.range 500) (List.range 500)
 test "long and" := List.range 1000 == List.range 1000 && List.range 300 == List.range 299
 test "unequal, so no difference" := nums 3 != nums 3
+test "and, a bracketed operand" := part1 1 == 2 && (nums 3).length == 2
 "#;
 
 #[test]
