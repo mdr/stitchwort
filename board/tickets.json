@@ -1,5 +1,5 @@
 {
-  "next": 430,
+  "next": 432,
   "tickets": [
     {
       "id": 1,
@@ -6894,6 +6894,22 @@
     {
       "id": 428,
       "title": "Docs: update and augment the playground feature tour (web/guide)",
+      "status": "done",
+      "agent": "",
+      "where": "-",
+      "labels": [
+        "docs"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": [
+        "245258c9"
+      ]
+    },
+    {
+      "id": 429,
+      "title": "Docs: language guide in docs/guide/ (more depth than the tour, not a spec; checked examples)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -6906,8 +6922,22 @@
       "commits": []
     },
     {
-      "id": 429,
-      "title": "Docs: language guide in docs/guide/ (more depth than the tour, not a spec; checked examples)",
+      "id": 430,
+      "title": "Row defaulting vs instances: [1,2,3].mapIn (n => n * n) == [1,4,9] in a test fails E-INSTANCE-STUCK ({?1} List Nat), and toResult (() => xs.mapIn halve) == Err … fails E-INSTANCE-NONE; the row should be settled (defaulted) before instance resolution gives up (found writing the tour)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "effects"
+      ],
+      "body": "",
+      "created": "2026-10-24",
+      "updated": "2026-10-24",
+      "commits": []
+    },
+    {
+      "id": 431,
+      "title": "docs/syntax.md: document Effects as the type of effect parameters (type Handlers (e: Effects)); fix the Abort/Fail/Proofs-about-effectful-code heading levels; stitchwort check prints a one-line summary on success",
       "status": "doing",
       "agent": "",
       "where": "",
