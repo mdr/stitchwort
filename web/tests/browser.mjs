@@ -1341,7 +1341,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), true, "no file tabs for a single file");
   const days = await page.until(`(() => { const g = document.querySelector("#example optgroup"); return g && { label: g.label,
     days: [...g.children].map((o) => o.textContent) }; })()`, 10000, "the AoC group");
-  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8"] });
+  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8", "Day 9"] });
   await openDay(page, 2);
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
   await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
@@ -1404,6 +1404,26 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
   await page.until(`document.getElementById("status").textContent === ${JSON.stringify(dayStatus(3))}`, 60000);
   const second = await results();
   assert.ok(second.rows.every((r) => r.endsWith("cached")), second.rows.join("\n"));
+}, { ms: 120000 });
+
+test("the real-input tests of AoC days 8 and 9 finish well within the compiler limit (D1138)", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  for (const day of [8, 9]) {
+    await openDay(page, day);
+    await page.tab("tests");
+    const started = Date.now();
+    const results = await page.until(`(() => {
+      const o = document.getElementById("output");
+      const summary = o.querySelector(".summary")?.textContent;
+      if (!summary || !o.querySelector("ul.tests")) return false;
+      return { summary, rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent) };
+    })()`, 30000, `the Day ${day} tests`);
+    console.log(`  Day ${day} tests finished in ${Date.now() - started} ms`);
+    assert.ok(results.rows.some((r) => r.includes("real input")), results.rows.join("\n"));
+    assert.ok(results.rows.every((r) => r.startsWith("✓")), results.rows.join("\n"));
+    assert.doesNotMatch(results.summary, /failed, [1-9]|[1-9]\d* failed/);
+  }
 }, { ms: 120000 });
 
 test("an error in a shared file shows in the Check tab, marks its tab, and links to its line", async (page) => {
