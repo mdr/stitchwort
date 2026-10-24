@@ -33,7 +33,7 @@ theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c:
     parseWorksheet other = parseWorksheet lines :=
   rewrite blocksOver other (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxRight (gridWidth lines) (gridWidth other)),
     blocksOver lines (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxLeft (gridWidth lines) (gridWidth other)),
-    List.mapCong (column other) (column lines) (List.range (Nat.max (gridWidth lines) (gridWidth other))) same
+    List.mapCong _ _ (List.range (Nat.max (gridWidth lines) (gridWidth other))) same
 
 -- So spaces on the end of the lines, `spaces line` of them on each, change no
 -- problem: a short line reads as ending in spaces.
