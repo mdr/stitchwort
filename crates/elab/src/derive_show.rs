@@ -25,7 +25,7 @@
 
 use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, Name, Sort, Term, Value};
-use stitchwort_syntax::ast::{self, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, Bracket, Decl, Expr, Pattern};
 
 use crate::check::Ctx;
 use crate::{Elaborator, Global, Result, interfaces};
@@ -280,7 +280,12 @@ impl Elaborator {
             (0..np)
                 .map(|j| {
                     if data.auto_params.get(j) == Some(&true) {
-                        Expr::NamedArg(n(&data.params[j].0), Box::new(var(&param(j))), span)
+                        Expr::NamedArg(
+                            n(&data.params[j].0),
+                            Box::new(var(&param(j))),
+                            span,
+                            Bracket::Square,
+                        )
                     } else {
                         var(&param(j))
                     }

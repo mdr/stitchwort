@@ -12,10 +12,11 @@ use std::rc::Rc;
 
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
-use stitchwort_syntax::ast::{Expr, Name as AstName, SECTION};
+use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Arg, Ctx, Result, apply_args, check, implicit_arg, infer, insert};
+use crate::named::Slot;
 use crate::{Global, scope};
 
 /// A variable's type as written.
@@ -499,16 +500,7 @@ pub(crate) fn section_partial(
     };
     // `.f a b`: the section's field applied to explicit arguments, nothing
     // else (not a chain such as `.name.length`).
-    let mut written: Vec<&Expr> = Vec::new();
-    let mut head: &Expr = body;
-    while let Expr::App(f, a) = head {
-        if matches!(**a, Expr::NamedArg(..)) {
-            return Ok(None);
-        }
-        written.push(a);
-        head = f;
-    }
-    written.reverse();
+    let (head, written) = crate::check::spine(body);
     let recv = Expr::Var(names[0].clone());
     let Expr::Field(r, name) = head else {
         return Ok(None);
@@ -524,11 +516,26 @@ pub(crate) fn section_partial(
     let Some((depth, k)) = receiver_place(cx, &all, owner)? else {
         return Ok(None);
     };
-    if written.len() != k || all[depth + 1..].iter().any(|p| p.icit == Icit::Explicit) {
+    if all[depth + 1..].iter().any(|p| p.icit == Icit::Explicit) {
         return Ok(None);
     }
+    // The arguments in their places, the receiver's last (named-arguments.md
+    // §4.4): every explicit parameter before it must be given.
+    let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+    let Ok(slots) = crate::named::plan(cx, &sig, &written, Some(k)) else {
+        return Ok(None);
+    };
+    if !matches!(slots.last(), Some(Slot::Receiver)) {
+        return Ok(None);
+    }
+    let mut args: Vec<Arg> = Vec::new();
+    for slot in &slots[..slots.len() - 1] {
+        match slot {
+            Slot::Given(arg) => args.push(*arg),
+            _ => return Ok(None),
+        }
+    }
     let head = (Term::Def(f), g.def(f).ty_value.clone());
-    let args: Vec<Arg> = written.iter().map(|e| Arg::Explicit(e)).collect();
     let snapshot = crate::undo::Snapshot::take(cx);
     let attempt = (|| -> Result<Option<Term>> {
         let (term, ty) = apply_args(cx, head, &args)?;
@@ -719,7 +726,9 @@ pub(crate) fn prefix_form<'a>(
     for arg in args {
         match arg {
             Arg::Explicit(e) => written.push(*e),
-            _ => return Ok(None),
+            // Put in place below, once the function is known.
+            Arg::Named(..) | Arg::NamedExplicit(..) => {}
+            Arg::Piped(_) => return Ok(None),
         }
     }
     let key = call_key(recv, field);
@@ -752,18 +761,34 @@ pub(crate) fn prefix_form<'a>(
     let Some((_, k)) = receiver_place(cx, &params(g, f), owner)? else {
         return Ok(None);
     };
-    if written.len() < k {
-        return Ok(None);
-    }
     let mut full: Vec<Arg<'a>> = Vec::new();
-    for (i, e) in written.iter().enumerate() {
-        if i == k {
+    if crate::named::any(args) {
+        // Named arguments in their places, the receiver first in its
+        // (named-arguments.md §4.4); only if that's a positional call.
+        let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        let Ok(slots) = crate::named::plan(cx, &sig, args, Some(k)) else {
+            return Ok(None);
+        };
+        for slot in slots {
+            match slot {
+                Slot::Receiver => full.push(Arg::Explicit(recv)),
+                Slot::Given(arg @ Arg::Explicit(_)) => full.push(arg),
+                _ => return Ok(None),
+            }
+        }
+    } else {
+        if written.len() < k {
+            return Ok(None);
+        }
+        for (i, e) in written.iter().enumerate() {
+            if i == k {
+                full.push(Arg::Explicit(recv));
+            }
+            full.push(Arg::Explicit(e));
+        }
+        if written.len() == k {
             full.push(Arg::Explicit(recv));
         }
-        full.push(Arg::Explicit(e));
-    }
-    if written.len() == k {
-        full.push(Arg::Explicit(recv));
     }
     cx.e.note_dot(field, f);
     // A recursive call of a definition with `decreasing` (`decreasing.rs`).
@@ -800,25 +825,6 @@ fn call(
     args: &[Arg],
 ) -> Result<(Term, Value)> {
     let g = cx.g();
-    let mut written: Vec<&Expr> = Vec::new();
-    for arg in args {
-        match arg {
-            Arg::Explicit(e) => written.push(*e),
-            // `pipe.rs` applies the call to the value piped in.
-            Arg::Piped(_) => unreachable!("not passed to dot notation"),
-            Arg::Named(n, _) => {
-                return Err(Diagnostic::error(
-                    "E-ARITY",
-                    "dot notation doesn't take named implicit arguments",
-                )
-                .with_label(n.span, "given here")
-                .with_note(format!(
-                    "write the call in full: `{key} … [{} := …]`",
-                    n.text
-                )));
-            }
-        }
-    }
     // The receiver's place: the first explicit parameter whose type has
     // `owner` as a head.
     let params = params(g, f);
@@ -837,6 +843,57 @@ fn call(
             )
             .with_note(format!("call it directly, `{key} …`")));
     };
+    // Named arguments (docs/proposals/named-arguments.md §4.4): the receiver
+    // fills its parameter first, then the arguments fill theirs. If that
+    // leaves nothing out before the last one given and names no implicit
+    // parameter, it is the positional call with the arguments in their
+    // places; otherwise the call is applied as any other, with the receiver
+    // as an argument already elaborated.
+    let ordered;
+    let args = if crate::named::any(args) {
+        let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        let slots = crate::named::plan(cx, &sig, args, Some(k))?;
+        let simple = slots.iter().all(|s| {
+            matches!(
+                s,
+                Slot::Receiver | Slot::Given(Arg::Explicit(_) | Arg::Piped(_))
+            )
+        });
+        if !simple {
+            let piped = crate::check::Piped {
+                term: rterm,
+                ty: rty,
+                span: recv.span(),
+            };
+            let slots: Vec<Slot> = (slots.into_iter())
+                .map(|s| match s {
+                    Slot::Receiver => Slot::Given(Arg::Piped(&piped)),
+                    other => other,
+                })
+                .collect();
+            let head = (Term::Def(f), g.def(f).ty_value.clone());
+            return crate::named::apply_slots(cx, head, &slots);
+        }
+        ordered = (slots.into_iter())
+            .filter_map(|s| match s {
+                Slot::Given(arg) => Some(arg),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        &ordered[..]
+    } else {
+        args
+    };
+    let mut written: Vec<&Expr> = Vec::new();
+    for arg in args {
+        match arg {
+            Arg::Explicit(e) => written.push(*e),
+            // `pipe.rs` applies the call to the value piped in.
+            Arg::Piped(_) | Arg::Named(..) | Arg::NamedExplicit(..) => {
+                unreachable!("not passed to dot notation, or put in place above")
+            }
+        }
+    }
     // Explicit parameters before the receiver that no argument fills.
     let missing = k.saturating_sub(written.len());
     if missing > 0 {
@@ -1091,7 +1148,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Value>> {
     let mut explicit = 0;
     let mut head = expr;
     while let Expr::App(f, a) = head {
-        if !matches!(**a, Expr::NamedArg(..)) {
+        if !matches!(**a, Expr::NamedArg(.., Bracket::Square)) {
             explicit += 1;
         }
         head = f;

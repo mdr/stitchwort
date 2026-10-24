@@ -31,7 +31,7 @@
 
 use stitchwort_core::{Icit, Term};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{Expr, Name};
+use stitchwort_syntax::ast::{Bracket, Expr, Name};
 
 use stitchwort_core::ResourceError;
 
@@ -288,13 +288,13 @@ fn walk_at(
             if params.is_none() {
                 walk(e, head, bound, false, uses)?;
             }
-            // Named arguments are implicit ones, not among `params`.
+            // Named arguments are left out of the positions among `params`.
             let mut explicit = 0;
             for arg in args {
                 let param = match arg {
                     // Only an unknown name: a named alternative of the
                     // module's, `[ord := descending]`, is just that.
-                    Expr::NamedArg(x, value, _)
+                    Expr::NamedArg(x, value, _, Bracket::Square)
                         if matches!(&**value, Expr::Var(v)
                             if matches!(e.resolve(&v.text), Resolved::Missing))
                             && auto_param(e, head, &x.text, bound) =>
@@ -424,7 +424,7 @@ fn walk_at(
                 walk(e, body, bound, false, uses)?;
             }
         }
-        Expr::NamedArg(_, value, _) => walk(e, value, bound, false, uses)?,
+        Expr::NamedArg(_, value, _, _) => walk(e, value, bound, false, uses)?,
         Expr::Neg(x, _) => walk(e, x, bound, false, uses)?,
         Expr::Num(..)
         | Expr::Float(..)

@@ -36,7 +36,7 @@
 //! The names are the field's own (`valueEq`), `x`, `y` and the parameters'.
 
 use stitchwort_core::{DataId, Sort};
-use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
 use crate::{Elaborator, Result, derive::fields_equal, interfaces};
 
@@ -141,7 +141,7 @@ impl Elaborator {
         let this = (0..np).fold(var(&ty_name), |f, j| {
             let arg = var(&params[j]);
             let arg = if data.auto_params.get(j) == Some(&true) {
-                Expr::NamedArg(n(&params[j]), Box::new(arg), span)
+                Expr::NamedArg(n(&params[j]), Box::new(arg), span, Bracket::Square)
             } else {
                 arg
             };

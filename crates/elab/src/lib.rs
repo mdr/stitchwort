@@ -32,6 +32,7 @@ mod lift;
 mod local;
 mod logic;
 mod matching;
+mod named;
 mod module;
 mod nav;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
@@ -3781,7 +3782,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
                 pending.extend([&**a, &**b]);
             }
             Expr::Pi { dom, cod, .. } => pending.extend([&**dom, &**cod]),
-            Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _) => pending.push(b),
+            Expr::Lam(_, b, _) | Expr::Ann(b, _, _) | Expr::NamedArg(_, b, _, _) => pending.push(b),
             Expr::TypedLam(_, t, b, _) => pending.extend([&**t, &**b]),
             Expr::Tuple(a, b, _) => pending.extend([&**a, &**b]),
             Expr::List(items, _) => pending.extend(items),
