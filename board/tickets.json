@@ -6031,8 +6031,8 @@
     },
     {
       "id": 374,
-      "title": "Proof automation (docs/proposals/proof-automation.md): stages 0, 1, 2 done; stage 1b (fact-giving congruence lemmas, premise discharge, trailing args) in progress (D1168 b); then pause, simp waits for a proof that needs it",
-      "status": "doing",
+      "title": "Proof automation (docs/proposals/proof-automation.md): stages 0, 1, 1b (rewrite under binders incl. fact-giving lemmas) and 2 (ring) done; paused (D1168); simp waits for a proof that needs it",
+      "status": "done",
       "agent": "",
       "where": "-",
       "labels": [
@@ -6044,7 +6044,8 @@
       "commits": [
         "dc87398c",
         "1c359b87",
-        "cc6a2970"
+        "cc6a2970",
+        "e59d5935"
       ]
     },
     {
