@@ -15,6 +15,7 @@ pub mod code;
 pub mod effect;
 pub mod erasure;
 pub mod fusion;
+pub mod hoist;
 pub mod host;
 pub mod ir;
 pub mod lower;

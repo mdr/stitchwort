@@ -175,6 +175,7 @@ pub fn generate_program_with(
         js,
         "\n// `main()`, as `stitchwort run` runs it.\nconst MAIN = () => {main_js};"
     );
+    js.push_str(&codegen.hoisted_vars());
     js.push_str(
         &RUNNER
             .replace("@EXIT_IO@", &EXIT_IO.to_string())

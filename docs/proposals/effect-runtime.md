@@ -1294,6 +1294,144 @@ lazily). AoC's `stitchwort test --no-cache`: 15.8 s and 619 MB before,
   re-raising `Fail` handlers 14 times, the fused closed-row state handler
   31, towers of 100 handlers 78, stored resumptions 155.
 
+### 9.9 As built: stage 4f, first lane (closed signature maps)
+
+**Measured first, inside the call only.** `bench/effect-runtime/alloc.mjs`
+runs one export at 1,000,000 elements after building its input and
+collecting garbage, and reports, from `v8.GCProfiler`, the bytes the call
+allocated, the time spent collecting during it, and the most heap in use
+after a collection (what the run keeps alive). Natively,
+`crates/rt/tests/effect_alloc.rs` (an ignored test with a counting global
+allocator) reports bytes and blocks allocated and the most bytes live
+during the call. Before this lane (main at `a7c0f0f8`; Apple M4 Pro, shared,
+load 6-10; JS: Node 22.23.3, median of 5 calls after a warm-up call, two
+interleaved rounds; native: median of 3) **[checked]**:
+
+| export | JS time | JS bytes allocated per element | JS GC | JS most live (× `plain`) | native time | native bytes, blocks per element | native most live |
+|---|---|---|---|---|---|---|---|
+| `plain` | 64 ms | 169 | 38 ms | 133 MB | 81 ms | 550, 1 | 343 MB |
+| `checked` | 380-425 ms | 2,029 | 290-330 ms | 384 MB (2.9) | 448 ms | 1,219, 12 | 508 MB |
+| `failsLast` | 370-420 ms | 1,983 | 280-330 ms | 328 MB (2.5) | 422 ms | 1,168, 11 | 423 MB |
+| `counted` | 500-560 ms | 2,770 | 300-360 ms | 388 MB (2.9) | 1,260 ms | 2,928, 50 | 176 MB |
+| `countedChecked` | 640-710 ms | 5,221 | 320-380 ms | 388 MB (2.9) | 2,360 ms | 5,072, 86 | 176 MB |
+| `asked` | 480-550 ms | 2,602 | 285-355 ms | 388 MB (2.9) | 1,180 ms | 2,640, 47 | 176 MB |
+| `askedChecked` | 600-670 ms | 4,964 | 290-350 ms | 389 MB (2.9) | 2,300 ms | 4,784, 83 | 176 MB |
+| `askedIn` | 505-600 ms | 3,107 | 300-380 ms | 388 MB (2.9) | 1,190 ms | 2,640, 47 | 176 MB |
+| `emittedIn` | 755 ms | 3,026 | 480 ms | 580 MB (4.4) | 1,240 ms | 2,704, 48 | 328 MB |
+| `searchedIn` | 2,510-2,650 ms | 7,680 | 1,890-2,010 ms | 1,492 MB (11.2) | 3,900 ms | 7,456, 129 | 1,464 MB |
+
+(Natively the input list is kept alive throughout, and the machine's frame
+stack counts as live: `plain` recurses on frames, which is why its live
+memory is above the effectful shapes'.)
+
+**Where it goes, in JS** **[checked]**, from the sampling heap profiler
+(collected objects included) and heap snapshots taken mid-run (at element
+90,000 of 100,000):
+
+- **GC time is copying what survives, not the garbage.** `checked`'s GC
+  time is the same with a young generation of 16, 64 or 256 MB (295, 347,
+  286 ms, while the number of scavenges falls from 134 to 8), and the
+  scavenges copy 641 MB (313 MB surviving once, 328 MB promoted) against
+  `plain`'s 113 MB.
+- **What survives is mostly closures and their contexts made by generated
+  code.** Per element of `checked`, live mid-run: the `map` continuation
+  waiting for the rest of the list (`v8 => doneIn(Cons v7 v8)`, a closure of
+  56 bytes), four contexts of 40 bytes (V8 makes a context per curried
+  application of `List.map v1 v3 v6`, and one for the `case` block, and
+  the continuation keeps the chain alive), and one pending cell of 40
+  bytes. The run loop's own share is the cell: 40 of 256 bytes. In
+  `searchedIn`, 1,560 bytes per element are live: about 590 the runtime's
+  (four pending cells, 160; the fold's resumption, a context and two
+  closures, 184; the `translate`'s, 120; the operations they keep, 80),
+  about 280 a `SigMap` built for every element (the map object, its two
+  closures and their contexts), and the rest generated code's closures and
+  contexts.
+- **What is allocated is mostly curried partial applications.** Of
+  `checked`'s 2,029 bytes per element, about 1,600 are closures and
+  contexts made by applying a generated function to fewer arguments than
+  it takes (`doneIn(v1)`, `bindIn(v1)(c)`, `effBind(c)`, `map(v1)(v3)`,
+  about 96 bytes each); the pending cells are 80.
+
+So the pending list's cells, which chunked persistent segments would
+replace, are 10-15% of what survives, and no change to the run loop's data
+structures can give 1.5 times on GC time in JS **[inferred]** from these
+shares. Natively there's no GC: time goes to the machine's own work and to
+allocating and freeing (a sample of `askedChecked` has about 40% of its
+time in `malloc`, `free`, `Drop` and `Vec` growth), and an operation costs
+about 35 blocks (`asked`'s 47 against `checked`'s 12).
+
+**The change: a closed signature map is built once.** Wherever code calls
+a function whose row is smaller, the elaborator wraps the call in
+`translate m`, with `m` a closed `SigMap` (`sigCase sigLeft sigFromNo`).
+Generated code built `m` on every call: in `searchedIn` once per element,
+and every pending choice kept its own copy alive through the `translate`'s
+resumption. `stitchwort_rt::hoist` recognises a whole application of a
+definition whose result is a `SigMap` and that reads no variable at run
+time (its erased arguments aren't looked at); then JS builds it at its
+first use and keeps it in a module variable (`(sigmap$0 ??= …)`, with
+`var sigmap$0, …;` at the end of the module, so where the first use
+happens is where the code built it before), and the native lowering makes
+it a constant global (`Std.Effect.sigCase[map 0]`), computed when first
+used. Generated code is pure and total, so building a map once means the
+same as building it each time; maps are two closures, so keeping one alive
+costs nothing. Only maps are hoisted: a closed application in general (a
+long `List.range`) would keep its value alive for the whole run. Nothing in
+the kernel or the elaborator changed, and no hash moved
+(`hash_stability` passes unchanged); the JS snapshots of
+`effect-handlers.sw`, `effect-runtime.sw` and `effect-state.sw` changed
+where they build a map.
+
+**After** (as above, interleaved with the build before) **[checked]**:
+
+| `searchedIn` | before | after | ratio |
+|---|---|---|---|
+| JS time (warm, median of 5, two rounds) | 2,649 / 2,512 ms | 1,871 / 1,872 ms | 1.42 / 1.34 |
+| JS GC (warm) | 2,012 / 1,888 ms | 1,301 / 1,294 ms | 1.55 / 1.46 |
+| JS bytes allocated per element | 7,680 | 7,230 | 1.06 |
+| JS most live | 1,492 MB (11.2 × `plain`) | 1,172 MB (8.8 ×) | 1.27 |
+| JS, one call per process (`COLD=1`, median of 5) | 2,039 ms, GC 1,423 ms, 1,564 MB | 2,104 ms, GC 1,520 ms, 1,244 MB | 0.97, 0.94, 1.26 |
+| JS heap after the call, 4a's measure (`once.mjs`, median of 5) | 1,610 MB (8.4 × `plain`'s 191) | 1,290 MB (6.8 ×) | 1.25 |
+| native time | 3,900 ms | 3,706 ms | 1.05 |
+| native bytes, blocks per element | 7,456, 129 | 7,168, 124 | 1.04 |
+| native most live | 1,464 MB | 1,240 MB | 1.18 |
+
+The other shapes don't build a map per element (`askedChecked`'s
+`translate` is around the whole `map`, and the failing branches never run),
+so they are unchanged, and so is `plain` (its generated code is the same).
+So the memory a search keeps falls by a fifth in both backends. The time
+and GC gain in JS holds only when the call isn't the process's first: in a
+fresh process the scavenges copy the same bytes before and after (1,185 and
+1,181 MB promoted) **[checked]**, which suggests V8 had been allocating the
+per-element maps' objects directly in the old generation there
+(allocation-site pretenuring), so they cost memory but no copying
+**[inferred]**. Against §9.3's bar this lane's change reaches 1.5 times
+only on GC time in the warm measurement.
+
+**Which shapes are within 3 times `plain`'s live memory in JS:** `checked`,
+`failsLast`, `counted`, `countedChecked`, `asked`, `askedChecked` and
+`askedIn` (2.5 to 2.9 times), as before; `emittedIn` (4.4) and
+`searchedIn` (8.8) aren't.
+
+**Next** (no ticket): the measurements point at generated code, not the run
+loop. A hand-made version of the JS module in which `List.map`, `bindIn`,
+`doneIn` and `bind` take all their arguments at once and `map`'s locals are
+in its function's context (so the continuation keeps two contexts, not
+four) runs `checked` in a fresh process in 344 ms against 447, GC 262 ms
+against 337, allocating 1,278 bytes per element against 1,974 and keeping
+321 MB against 385 **[checked]**: 1.3 times on time and GC, 1.55 on
+allocation, and it would apply to every effectful shape. That is the JS
+backend calling a known definition with all its arguments in one call, a
+change to code generation in general, not to the effect runtime. Merging
+the fold's two resumption closures into one, and chunked segments, would
+each touch under a tenth of what survives.
+
+**Tests.** `closed_signature_maps_are_constants` (`crates/rt/tests/effect_runtime.rs`:
+`searchedIn` and `askedChecked` each have two map constants) and
+`closed_signature_maps_are_built_once` (`crates/cli/tests/effect_runtime.rs`:
+`searchedIn`'s JS reads its map from `sigmap$…`). The 4e generator ran
+8,000 programs (1,000 batches from seed 1): all agree on the reference
+evaluator, natively and in JS, none out of resources **[checked]**.
+
 ## Appendix A. Benchmark and prototype files
 
 In `bench/effect-runtime/`:
@@ -1310,6 +1448,14 @@ In `bench/effect-runtime/`:
   [--parameter]`.
 - `agree.mjs`: compares two modules on small inputs:
   `node bench/effect-runtime/agree.mjs OUT/map.js OUT/map-loop.js`.
+- `alloc.mjs`: time, bytes allocated, GC time and the most live heap inside
+  one call of an export (§9.9):
+  `node --expose-gc bench/effect-runtime/alloc.mjs OUT/shapes.js searchedIn
+  1000000 [RUNS]`; `COLD=1` with `RUNS` 1 measures a process's first call.
+
+Natively, `crates/rt/tests/effect_alloc.rs` measures the same exports'
+allocation: `cargo test --release -p stitchwort-rt --test effect_alloc --
+--ignored --nocapture`.
 
 ## Appendix B. Found on the way
 
