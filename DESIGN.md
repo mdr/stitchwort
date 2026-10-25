@@ -347,8 +347,8 @@ def innocent (n: Nat): {Partial} Nat := spin n + 1
 1. A recursive definition must pass the termination checker, or have `Partial` in its type.
 2. Calling a function whose type has `Partial` adds `Partial` to the caller's abilities.
 3. Pattern matches must be **exhaustive**. A missing case is a compile-time error.
-4. **Only the runtime handles `Partial`**, at program entry (`main`). `Partial` has no operations, and no handler may have it in the computation it handles, nor may it stand for a row variable. Otherwise a handler that acknowledges every step could turn an infinite computation into a supposedly total one.
-5. Tests may not use `Partial` ([§7](#7-tests)). Tests of partial programs are runs of `main` with scripted input and a tick limit, where running out is inconclusive.
+4. **Only the runtime handles `Partial`**, at program entry (`main`) and when `stitchwort test` runs a test. `Partial` has no operations, and no handler may have it in the computation it handles, nor may it stand for a row variable. Otherwise a handler that acknowledges every step could turn an infinite computation into a supposedly total one.
+5. Tests may run `Partial` code ([§7](#7-tests)): `stitchwort test` runs them, as `stitchwort run` runs a partial `main`. A test is a runtime check, not a proof, so this removes nothing from rule 4 or principle 1: no total code can observe the result.
 6. Foreign functions that might not return must declare `Partial`. Declaring one total is an `assume`, which is tracked.
 7. The type checker never evaluates `Partial` code (principle 2).
 
@@ -536,19 +536,20 @@ The core typing rules will state exactly which terms the comparison is allowed t
 
 ## 7. Tests
 
-A test is a named, closed expression of type `Bool` that must be checked, total and pure:
+A test is a named, closed `Bool` expression that must be checked and pure. It's a **runtime check**, like a unit test in other languages, not a proof: proofs are theorems ([§6](#6-proofs-universes-and-erasure)).
 
 ```
 test "tick twice" :=
   runState 0 (() => tick(); tick()) == (1, 2)
 ```
 
-Running it to `true` checks `expr = true` by computation, so a passing test is a proof of one specific fact. Tests and theorems are cached in the same way ([§11](#11-content-hashing-and-caching)).
+`stitchwort test` runs it, on the fast runtime by default and on the reference evaluator with `--reference`. Results are cached by content hash, as theorems are ([§11](#11-content-hashing-and-caching)).
 
-- **Outcomes:** pass, fail, or **inconclusive** (the resource budget ran out). A checked test can't diverge in the reference semantics, but it can take impractically long. An inconclusive result is never cached as a failure: running again with a larger budget retries it.
-- **No `Partial`** in tests. Partial algorithms are tested through their explicit-fuel versions.
+- **Outcomes:** pass or fail; or no result, when a run exceeds the runner's resource budget, which is never cached.
+- **Tests may run `Partial` code** (D1183), with nothing extra to write: a test whose expression is partial is a partial computation of a `Bool`, and `stitchwort test` steps it as `stitchwort run` steps a partial `main`, with no tick limit. A test that never finishes is a bug in the test or the code, and whoever runs it stops it.
+- **Only `stitchwort test`, and the playground's Tests tab, run tests.** The type checker, the editor's language server and the playground's checks never do, so a test that loops can't hang them (principle 2).
 - **Effectful code is tested via pure handlers**, like `runState` above.
-- **Assumptions are shown with the result.** `tick twice` goes through `runState`, whose termination relies on the handler conjecture ([§8](#8-abilities-and-handlers)). So it reports as conditional, not as an assumption-free proof:
+- **Assumptions are shown with the result.** `tick twice` goes through `runState`, whose termination relies on the handler conjecture ([§8](#8-abilities-and-handlers)). So it reports as conditional:
 
   ```
   ✓ reverse twice          passed

@@ -1,6 +1,6 @@
 -- Partial definitions (docs/proposals/partial.md): code that might not
 -- finish says `Partial` in its type, and so does everything that runs it.
--- Only `stitchwort run` and the playground run it; these are checked, and
+-- Only `stitchwort run`, `stitchwort test` and the playground run it; these are checked, and
 -- crates/driver/tests/partial.rs runs them and counts their ticks.
 
 -- Not recursive: an ordinary definition whose result is partial.

@@ -14,7 +14,7 @@ test "a proposition, decided" := wordCount "a b" < 3
 test "several at once" := wordCount "a" == 1 && wordCount "a b" == 2
 ```
 
-The condition is a `Bool`, or a statement the compiler can decide, such as `wordCount "a b" < 3`. Tests live beside the code, are checked like any declaration, and run with `stitchwort test`. They can't take parameters, perform abilities or call `Partial` code: a test is a closed, pure computation, so its result never changes unless the code does.
+The condition is a `Bool`, or a statement the compiler can decide, such as `wordCount "a b" < 3`. Tests live beside the code, are checked like any declaration, and run with `stitchwort test`. They can't take parameters or perform abilities: a test is a closed computation, so its result never changes unless the code does. A test may call `Partial` code ([chapter 7](07-recursion.md)); a test that never finishes is a bug, which you stop as you'd stop a program that hangs. Only `stitchwort test` and the playground's Tests tab run tests: checking, the editor and the playground's checks never do.
 
 That's also why test results are cached by content. Each test's result is stored under a hash of the test and everything it depends on, so `stitchwort test` reruns a test only when something it uses has changed. Formatting, comments and renaming local variables change no hash.
 
@@ -120,7 +120,7 @@ test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseTurns (inclu
 
 ## Tests and proofs
 
-A test checks one case; a theorem ([chapter 10](10-proofs.md)) covers all of them. A test is also, technically, a small proof: the checker computes the condition and finds `True`. Keep tests of edge cases beside a theorem that covers them anyway: they document the cases and fail with a clearer message.
+A test is a runtime check of one case, like a unit test in other languages; a theorem ([chapter 10](10-proofs.md)) covers all of them, and the checker checks its proof. Keep tests of edge cases beside a theorem that covers them anyway: they document the cases and fail with a clearer message.
 
 ## Two runtimes
 

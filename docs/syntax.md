@@ -39,7 +39,7 @@ theorem cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y
 -- A theorem's type must be a proposition
 theorem zeroPlus (n: Nat): 0 + n = n := rfl
 
--- A test: a `Bool` (or a decidable proposition, as `if` takes) that `stitchwort test` checks is `True`
+-- A test: a runtime check, run by `stitchwort test`, that a `Bool` (or a decidable proposition, as `if` takes) is `True`; it may call `Partial` code
 test "lengths add up" := Nat.leq (length (List.append [1] [2, 3])) 3
 
 -- Exported to JavaScript by `stitchwort build --js`
@@ -66,7 +66,7 @@ The comparison can be the last line of a block of `let`s, or an operand of `&&`:
       in: part1 2 == 4  (day1.sw:14:31)
 ```
 
-A false operand that isn't a comparison (`isSorted xs`) is named with `in:` alone. The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test never pays for it, and nothing here changes whether a test passes: the kernel found `False` first. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that is neither (`List.all p xs`, `a || b`, `not (a == b)`) reports `evaluated to False`.
+A false operand that isn't a comparison (`isSorted xs`) is named with `in:` alone. The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test never pays for it, and nothing here changes whether a test passes: the run found `False` first. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that is neither (`List.all p xs`, `a || b`, `not (a == b)`) reports `evaluated to False`.
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
@@ -925,8 +925,8 @@ def loop: Nat -> {Partial} Nat
   passed to a helper with a fixed row (`E-PARTIAL-CALLBACK`) or returned
   (`E-PARTIAL-ESCAPE`); its type parameters come first and every recursive
   call passes them on unchanged (`E-PARTIAL-NONUNIFORM`).
-- Only `stitchwort run` (on either runtime, or with `--js`) and the playground run
-  partial code. Tests can't;
+- Only `stitchwort run` (on either runtime, or with `--js`), `stitchwort test` and the playground run
+  partial code. A test may call partial code, with nothing extra to write: it's a runtime check, and `stitchwort test` runs it as `stitchwort run` runs a partial `main`, with no tick limit, so a test that never finishes is a bug for whoever ran it to stop (D1183);
   the checker never does.
 
 ## Expressions

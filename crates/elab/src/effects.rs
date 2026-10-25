@@ -588,13 +588,10 @@ fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
         "a computation that might not finish can't run here",
         label,
     )
-    .with_note(if cx.e.in_test.get() {
-        "a test must finish, so it can't run anything that might not (and a test's type can't \
-         say `Partial`); test a total function instead, such as one that takes a step limit"
-    } else {
+    .with_note(
         "code whose type doesn't say `Partial` must finish, so it can't run anything that might \
-         not; add `Partial` to the enclosing function's type (`-> {Partial} …`)"
-    })
+         not; add `Partial` to the enclosing function's type (`-> {Partial} …`)",
+    )
 }
 
 /// Moves `term : Comp from t` (or `Delay from t`) into `to`, solving an
