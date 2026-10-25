@@ -206,7 +206,13 @@ fn run_inner(
     }
     let delay = match machine.entry() {
         Ok(delay) => delay,
-        Err(e) => return (Err(e.into()), RouteCounts::default()),
+        Err(e) => {
+            let e = match (e, machine.depth_report()) {
+                (ResourceError::Depth, Some(report)) => RunError::Deep(report),
+                (e, _) => e.into(),
+            };
+            return (Err(e), RouteCounts::default());
+        }
     };
     let mut runner = Runner {
         m: machine,
@@ -218,8 +224,10 @@ fn run_inner(
         policy: *policy,
         counts: RouteCounts::default(),
         terminal,
+        deepest: None,
     };
     let result = runner.run(delay, input, output);
+    let result = result.map_err(|e| runner.explain(e));
     (result, runner.counts)
 }
 
@@ -238,8 +246,11 @@ pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result
         policy: Policy::default(),
         counts: RouteCounts::default(),
         terminal: &mut NoTerminal,
+        deepest: None,
     };
-    let finished = runner.drive(delay, &mut std::io::empty(), &mut std::io::sink())?;
+    let finished = runner
+        .drive(delay, &mut std::io::empty(), &mut std::io::sink())
+        .map_err(|e| runner.explain(e))?;
     Ok(finished.expect("no tick limit"))
 }
 
@@ -351,9 +362,55 @@ struct Runner<'p, 't> {
     counts: RouteCounts,
     /// What `IO.console` and `IO.keysMode` do.
     terminal: &'t mut dyn Terminal,
+    /// When the frame limit was hit here: what the pending frames were.
+    deepest: Option<String>,
 }
 
 impl Runner<'_, '_> {
+    /// `e`, with which functions or frames were pending if it is the
+    /// recursion limit.
+    fn explain(&self, e: RunError) -> RunError {
+        if !matches!(e, RunError::Resource(ResourceError::Depth)) {
+            return e;
+        }
+        match self.m.depth_report().or_else(|| self.deepest.clone()) {
+            Some(report) => RunError::Deep(report),
+            None => e,
+        }
+    }
+
+    /// What the pending frames are, by kind: the effect runtime's own, for a
+    /// recursion that isn't in a pure function.
+    #[cold]
+    fn note_deepest(&mut self) {
+        let (mut binds, mut maps, mut ties, mut awaits, mut handlers) = (0, 0, 0, 0, 0);
+        for frame in &self.frames {
+            match frame {
+                Frame::Bind(_) => binds += 1,
+                Frame::Map(..) => maps += 1,
+                Frame::Tie(_) => ties += 1,
+                Frame::Await { .. } => awaits += 1,
+                Frame::Handle { .. } => handlers += 1,
+            }
+        }
+        let mut parts = Vec::new();
+        for (n, what) in [
+            (
+                binds,
+                "effectful calls waiting for a result (a recursion that isn't a tail call)",
+            ),
+            (awaits, "recursive calls waiting for a result"),
+            (ties, "recursive functions"),
+            (maps, "ability translations"),
+            (handlers, "handlers"),
+        ] {
+            if n > 0 {
+                parts.push(format!("{n} {what}"));
+            }
+        }
+        self.deepest = Some(format!("the effect runtime's frames: {}", parts.join(", ")));
+    }
+
     /// Pushes `frame`, marking it if routing needs it.
     fn push(&mut self, frame: Frame) {
         if matches!(frame, Frame::Map(..) | Frame::Tie(_) | Frame::Handle { .. }) {
@@ -369,6 +426,7 @@ impl Runner<'_, '_> {
             return Err(ResourceError::Work);
         }
         if self.frames.len() > self.limits.frames {
+            self.note_deepest();
             return Err(ResourceError::Depth);
         }
         Ok(())

@@ -697,7 +697,7 @@ enum Frame {
     /// The forced function of an application of a call to `arg`.
     AppTo(Value, Icit),
     /// The unfolding of a call, to force and then keep.
-    Unfolded(Rc<Unfolding>),
+    Unfolded(Rc<Unfolding>, DefId),
 }
 
 #[cfg(any(test, feature = "reference"))]
@@ -772,7 +772,7 @@ fn force_call(
     Ok(match unfolding.get(g) {
         Some(unfolded) => Control::Force(unfolded),
         None => {
-            push(g, stack, Frame::Unfolded(unfolding))?;
+            push(g, stack, Frame::Unfolded(unfolding, id))?;
             unfold_now(g, id, spine, false)?
         }
     })
@@ -808,6 +808,9 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
             }
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
             Control::Tree(node, env, stuck) => {
+                if let Some((id, ..)) = &stuck {
+                    g.budget.enter_definition(id.0);
+                }
                 let node = Term::strip_loc_rc(&node);
                 match &*node {
                     Term::Case(ix, ..) | Term::NumCase(ix, ..) => {
@@ -875,9 +878,47 @@ fn run(g: &Globals, mut control: Control) -> Result<Value> {
 }
 
 fn push(g: &Globals, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
-    g.budget.frames(stack.len() + 1)?;
+    if let Err(e) = g.budget.frames(stack.len() + 1) {
+        if e == ResourceError::Depth {
+            note_deepest(g, stack);
+        }
+        return Err(e);
+    }
     stack.push(frame);
     Ok(())
+}
+
+/// Tells the budget which definitions the pending frames are calls of: the
+/// three with the most, for the message about recursing too deeply.
+#[cold]
+fn note_deepest(g: &Globals, stack: &[Frame]) {
+    let mut counts: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    for frame in stack {
+        match frame {
+            Frame::Unfolded(_, id) => *counts.entry(id.0).or_insert(0) += 1,
+            // A case of a definition's body waiting for its scrutinee.
+            Frame::Scrutinee {
+                stuck: Some((id, ..)),
+                ..
+            }
+            | Frame::ScrutineeReady {
+                stuck: Some((id, ..)),
+                ..
+            } => *counts.entry(id.0).or_insert(0) += 1,
+            _ => {}
+        }
+    }
+    let mut counts: Vec<(usize, usize)> = counts.into_iter().collect();
+    counts.sort_by_key(|&(id, count)| (std::cmp::Reverse(count), id));
+    counts.truncate(3);
+    // Calls that are pending as frames name themselves; otherwise the
+    // definition running when the limit was hit is the best guess.
+    if counts.is_empty()
+        && let Some(id) = g.budget.last_entered()
+    {
+        counts.push((id, stack.len()));
+    }
+    g.budget.set_deepest(counts);
 }
 
 /// The value of `term` if it takes no evaluation steps (a variable, a
@@ -1385,9 +1426,9 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
             Control::Return(result)
         }
         Frame::AppTo(arg, icit) => apply_step(value, arg, icit),
-        Frame::Unfolded(unfolding) => {
+        Frame::Unfolded(unfolding, id) => {
             if needs_forcing(g, &value) {
-                push(g, stack, Frame::Unfolded(unfolding))?;
+                push(g, stack, Frame::Unfolded(unfolding, id))?;
                 Control::Force(value)
             } else {
                 unfolding.set(g, value.clone());

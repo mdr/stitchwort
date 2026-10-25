@@ -258,6 +258,11 @@ def main () : {IO} () :=
         let stderr = text(&output.stderr);
         assert!(stderr.contains("[E-RESOURCE]"), "{stderr}");
         assert!(stderr.contains("while running this program"), "{stderr}");
+        // ...and says which function recursed.
+        assert!(
+            stderr.contains("the recursion was deepest in") && stderr.contains("count"),
+            "{stderr}"
+        );
     }
 }
 

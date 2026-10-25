@@ -450,7 +450,39 @@ impl Session {
         self.run_loop(main, input, output, &mut NoTerminal, policy, trace)
     }
 
+    /// [`Session::run_loop_inner`], with the functions that were pending named
+    /// if the run recursed too deeply.
     fn run_loop(
+        &self,
+        main: &Main,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+        terminal: &mut dyn Terminal,
+        policy: &Policy,
+        trace: &mut dyn FnMut(Event),
+    ) -> Result<Outcome, RunError> {
+        let result = self.run_loop_inner(main, input, output, terminal, policy, trace);
+        let g = &self.elab.globals;
+        match result {
+            Err(RunError::Resource(ResourceError::Depth)) => {
+                let deepest = g.budget.take_deepest();
+                if deepest.is_empty() {
+                    return result;
+                }
+                let parts: Vec<String> = deepest
+                    .iter()
+                    .map(|&(id, count)| {
+                        let name = &g.def(stitchwort_core::DefId(id)).name;
+                        format!("`{name}` ({count} frames pending)")
+                    })
+                    .collect();
+                Err(RunError::Deep(parts.join(", ")))
+            }
+            other => other,
+        }
+    }
+
+    fn run_loop_inner(
         &self,
         main: &Main,
         input: &mut impl BufRead,

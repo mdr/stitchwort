@@ -904,6 +904,21 @@ import { execFileSync as __execFileSync } from "node:child_process";
     }
   };
 
+  // A stack overflow's trace names the functions that were running, which
+  // is what the message about it says (`depthNote`).
+  Error.stackTraceLimit = 64;
+  const depthNote = (e) => {
+    const counts = new Map();
+    for (const line of String(e.stack || "").split("\n")) {
+      const m = /^\s+at (?:async )?([^\s(]+) \(/.exec(line);
+      if (m) counts.set(m[1], (counts.get(m[1]) || 0) + 1);
+    }
+    const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    return top.length === 0
+      ? ""
+      : "; the deepest calls were of " + top.map(([name, n]) => "`" + name.replace(/^\$/, "").replace(/\$d/g, ".").replace(/\$p/g, "'") + "` (" + n + " of the last 64 frames)").join(", ");
+  };
+
   let code = 0;
   let message = "";
   try {
@@ -923,7 +938,7 @@ import { execFileSync as __execFileSync } from "node:child_process";
       message = e.message;
     } else if (e instanceof RangeError || (e instanceof Error && e.name === "InternalError")) {
       code = @EXIT_RESOURCE@;
-      message = e.message;
+      message = e.message + depthNote(e);
     } else {
       throw e;
     }

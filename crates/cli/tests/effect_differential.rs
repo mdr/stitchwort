@@ -1224,7 +1224,7 @@ fn end_of(result: Result<(), RunError>) -> String {
     match result {
         Ok(()) => "ok".into(),
         Err(RunError::Failed(m)) => format!("failed: {m}"),
-        Err(RunError::Resource(_)) => "resource".into(),
+        Err(RunError::Resource(_) | RunError::Deep(_)) => "resource".into(),
         Err(e) => format!("error: {e}"),
     }
 }

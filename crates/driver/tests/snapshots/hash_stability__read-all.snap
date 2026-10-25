@@ -9,14 +9,14 @@ Main.slurp c93b185deb6cde18aa353e1e28d0e4fe192f4a4a4c588c1701d7166202557fa5
 Main.afterOne 67d728b9de6a50398fb7481ae676297945eadcd98071a3c8c735cbb9c88e0049
 Main.afterAll 17446b35bd9920b33141c1b70f97e867272fa7d54e2b3153cfff74b248d391f5
 Main.twice 72ae86b6ee2d8e002f8e7cd9090efb1a62b78778f0620a1ce841cbc256949bae
-Main.test "readAll gives every line, each followed by LF" 7dbb30dee094c86b5c6431de5a745c0a44c50e59dddfef5fe3bd22f353f779cc
-Main.test "IO.readAll is the same operation" 0f687927ea7d2c1979fd06e6f587c41a3070a54629600091b71e3ca51f396cf9
-Main.test "readAll of empty input is empty" 9c97cbaff61e965c01027ffd3e74688b90e6dfe9139c1aac7582031cd033c6c5
-Main.test "an empty line is kept" a588a72b75ef22db9e0f3116e72a45cfdab29ee9d3328089e1c62d99d81674ba
-Main.test "readAll after a readLine gives the rest" 3268533a6fae72bc22057208ab76fd63d09464b571eacd6334f1c1f247dc67d4
-Main.test "readAll after the last line is empty" d8e624c6a0e8db1ba1ab20b146e0a5e11e9645bd9ede9ed9f5a6783f1f0d33f7
-Main.test "readLine after readAll is end of input" 95669631edd4f29575767326cc9b143cdc5a3f387e25ef4c85284053db7a5dae
-Main.test "a second readAll is empty" d27154bee917f69b0ab4a006b4dcd1e5dee8330090c0ee15aca5109bbb0bb1c7
+Main.test "readAll gives every line, each followed by LF" 5a33b18da04cc6a0eeb199656b0b5e765292c70a66bde94edfe8cc8127de3061
+Main.test "IO.readAll is the same operation" e0f4451b88380437da2844c064c28321064b4129622b82fd0d2e4d60a6732312
+Main.test "readAll of empty input is empty" 502f267e32f3d66fa0214bfb0c58cab120a55a9e1756a5651cffa84e95136c00
+Main.test "an empty line is kept" 387e93fbd2f4f1f3109617602904298602d1c2b1034a7cb9f0d59db8e7a2e269
+Main.test "readAll after a readLine gives the rest" 931f5877fd840842fb7f46ca5fcbf308dab4a8b3c28c7021a4633466e914454a
+Main.test "readAll after the last line is empty" ea7b15b21caf5a71c4465d26fc0e7b9b6ef940d1f3612ab945bb5d8c32d85d8e
+Main.test "readLine after readAll is end of input" bcfdd7ccd6e0534981d29228424e567cd0bb4c0bab87d81e9ec9b10d8048fceb
+Main.test "a second readAll is empty" e6301b8c3d7785bc7d356d42d58c6dffd4c471893d28feb28f0a2c6aa6f44df1
 Main.test "lines splits on LF" f1379d0b5ee8e1f413b42ecc31adaf6687d5cf166b029558c2a3d63790806bfb
 Main.test "a trailing LF ends the last line" 45a3176e91915290fce587dab218ec1e3095b92c83f5d25c24ced4e4c3226342
 Main.test "no trailing LF is fine" e338bf351665143613f7cf5306d37ae967bdc56fe0122153b48b8305c3cc5e23
@@ -30,14 +30,14 @@ Main.test "a final CR without LF stays" 01168fb2d9dabbf45f6620279604d2f3ed813471
 Main.test "only one CR goes before an LF" 4ca6725143a7b0496f393f79871955345e0bb581c9b55f74d17ca59c2f94c4ee
 Main.test "lines method style" 8a2dda660876f19bce332b7a38c5be534930cf0bee0528ee25ede29349628e72
 Main.allLines f4a0aee43383eb32516aae30cff71d32f7b241d538cf4ed2573e7dddffaaacf8
-Main.test "readAllLines is total under simulate" c8180f492d0f741107896e930828b09066af5ed9217dbf6cb5e9222b993fbf14
-Main.test "readAllLines of empty input is empty" 935fc7a9c76ea77e00c2e69e40cd4a38e499715da436ca3618fccd16b59061ce
-Main.test "readAllLines keeps an empty line" c4b45c3ef2b1cfd04178368aba90ef07e00ac8b51b133fcccc18766dc3608d2b
+Main.test "readAllLines is total under simulate" ce12cd5aea877bbac8636eff7a8fa379bff0e59853a86a4f77b8898e0a09d6c8
+Main.test "readAllLines of empty input is empty" 46b2707a49088d7c43f77590d17d5671844702996ded687a35b3c3d2fb6bda66
+Main.test "readAllLines keeps an empty line" 4b25e3651165e9c3f3b9a9afacbe76f8758365a7bd31b73c43486fc44d27499b
 Main.inputLines 5c484763dd42ac44d24f4f41aa17d111a034c2501cb53da51c9e655c71182488
-Main.test "dot notation applies to the result of a zero-argument call" f525c8a8851d06e6970d5569eea0501032409feba51b219b0e271b4a866c7b3f
+Main.test "dot notation applies to the result of a zero-argument call" e71d4b30b7be8a734228c3d95bfddf4a102b96360e164195dec12e83e1452730
 Main.countLines cb771a7bcf02f6d36fdfa1002b8d53c3b6375a0ae2461e49d80efb5d8b62d775
 Main.lineCount 86bd7bdfc9c76e9f2d2346db696f8f530bf93de3fd4616bc095929c9a0f7e492
-Main.test "a call with no space is a single argument" fa8540b0e7a55f21e5521294388ed2e1b9ec9a866b1edc6cd658f6972d8ff137
+Main.test "a call with no space is a single argument" c8be787bfa6cfa8df146aa123fd26dc5b46a60ebc7de8bf6c06908fa006fcfab
 Main.applyTo 0b34cffb63e57d68eda6f387534567e9ff082d41979e46d42414597528e1dff3
 Main.viaApply 7304f1abe5e3799c1207376cb0ce1b81ff49dda1c524322b5d61b0a2fe710e35
-Main.test "a space keeps two arguments" b0c8dd6a10ff6c9486e47aeb324d5bfd64ce52468204f408686d6da74c95b9f7
+Main.test "a space keeps two arguments" cb14d000193cb575005de9ca2344ca2a845c140fe233dbf24de0e8e87f43a4e4

@@ -113,9 +113,9 @@ fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
                 match args[0].strip_loc() {
                     Term::Ctor(c, 0, fields) if is(Builtin::Char, *c) && fields.len() == 2 => {
                         match fields[0].strip_loc() {
-                            Term::Nat(k) => out.push(char::from_u32(
-                                u32::try_from(k.as_ref().clone()).ok()?,
-                            )?),
+                            Term::Nat(k) => {
+                                out.push(char::from_u32(u32::try_from(k.as_ref().clone()).ok()?)?)
+                            }
                             _ => return None,
                         }
                     }
@@ -161,10 +161,7 @@ fn line_diff(g: &Globals, left: &Term, right: &Term) -> Option<String> {
         ));
     }
     if differing.len() > SHOWN_LINES {
-        out.push_str(&format!(
-            "\n  … and {} more",
-            differing.len() - SHOWN_LINES
-        ));
+        out.push_str(&format!("\n  … and {} more", differing.len() - SHOWN_LINES));
     }
     Some(out)
 }
