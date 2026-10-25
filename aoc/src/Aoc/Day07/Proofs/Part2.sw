@@ -42,7 +42,7 @@ theorem countsAre (w: Nat): (ls: List (Vec Bool w)) -> (r: Nat) -> (c: Nat) ->
     Vec.getOr 1 c (countsBelow w ls) = List.length (timelinesFrom r c ls)
   | Nil, r, c => Vec.getOrReplicate 1 w c
   | Cons l rest, r, c =>
-    rewrite splitRowAt l (countsBelow w rest) c in
+    rewrite List.foldRightCons splitRow (Vec.replicate w 1) l rest, splitRowAt l (countsBelow w rest) c in
       countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
 
 -- Part 2 is right: for every manifold, the printed answer is the number of

@@ -47,10 +47,21 @@ theorem List.scanLeftNil: List.scanLeft (acc x => acc + x) 5 Nil = [5] := rfl
 
 theorem List.scanLeftSums: List.scanLeft (acc x => acc + x) 0 [1, 2, 3] = [0, 1, 3, 6] := rfl
 
--- Right fold. `List.foldRight f initial [x, y]` is `f x (f y initial)`.
-def List.foldRight (f: a -> b -> b) (initial: b): List a -> b
-  | Nil => initial
-  | Cons x xs => f x (List.foldRight f initial xs)
+-- Right fold. `List.foldRight f initial [x, y]` is `f x (f y initial)`. Runs
+-- as a loop over the reversed list, so it is stack-safe on long lists.
+def List.foldRight (f: a -> b -> b) (initial: b) (xs: List a): b := List.foldLeft (acc x => f x acc) initial (List.reverseOnto xs Nil)
+
+theorem List.foldLeftReverseOnto (f: a -> b -> b) (z: b): (xs: List a) -> (acc: List a) ->
+    List.foldLeft (r x => f x r) z (List.reverseOnto xs acc)
+      = List.foldLeft (r x => f x r) (List.foldLeft (r x => f x r) z (List.reverseOnto xs Nil)) acc
+  | Nil, acc => rfl
+  | Cons x xs, acc =>
+    Eq.trans (List.foldLeftReverseOnto f z xs (Cons x acc))
+      (Eq.sym (Eq.cong (r => List.foldLeft (r2 y => f y r2) r acc) (List.foldLeftReverseOnto f z xs (Cons x Nil))))
+
+-- The step of the right fold, which the loop form hides.
+theorem List.foldRightCons (f: a -> b -> b) (z: b) (x: a) (xs: List a): List.foldRight f z (Cons x xs) = f x (List.foldRight f z xs) :=
+  List.foldLeftReverseOnto f z xs (Cons x Nil)
 
 -- The sum of the elements, of any type with `Add` (docs/proposals/interfaces.md
 -- §7.7): `[1, 2, 3].sum` is `6`, `[3, -5, 1].sum` is `-1`.
