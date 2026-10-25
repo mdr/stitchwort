@@ -1,5 +1,5 @@
 {
-  "next": 450,
+  "next": 451,
   "tickets": [
     {
       "id": 13,
@@ -369,14 +369,14 @@
     },
     {
       "id": 228,
-      "title": "Decide the dot/pipe receiver rule (D303, parked for reflection)",
-      "status": "backlog",
+      "title": "Decide the dot/pipe receiver rule: D303 E (value goes first), D304–D309, D321 as recommended (25 Oct)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "Decide the dot-notation / pipe receiver rule (D302/D303/D304). Today dot fills the first parameter whose type matches and |> fills the last, which gives silent wrong answers (\"L68\".stripPrefix \"L\" = None, 10 |> Nat.sub 3 = 0, s |> .contains t reversed). Options and evidence: docs/proposals/dot-receiver.md (recommends receiver first) and the comparison page \"Where the Dot Goes\". Matt (21 Oct 2026): needs more reflection for now. Possible next step: rewrite Day 1-2 both ways to compare.\n\nDone when: Matt decides D303; implementation is a separate ticket.\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-25",
       "commits": []
     },
     {
@@ -2497,6 +2497,18 @@
     {
       "id": 449,
       "title": "Partial stage 3 design: tests that run partial code with a tick limit (D1180 b, partial-tests.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 450,
+      "title": "Dot/pipe rule E (D303): elaborator + std reorder, then aoc/examples/docs lanes; land together",
       "status": "doing",
       "agent": "",
       "where": "",
