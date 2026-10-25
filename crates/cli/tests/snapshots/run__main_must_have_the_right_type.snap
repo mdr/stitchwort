@@ -2,7 +2,7 @@
 source: crates/cli/tests/run.rs
 expression: "stderr(&run(&path, b\"\")).replace(path.to_str().unwrap(), \"main-type.sw\")"
 ---
-[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, or `() -> {IO, Fail} ()`
+[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {IO, Fail} ()`, or `() -> {IO, Fail, Partial} ()`
    ╭─[ main-type.sw:4:1 ]
    │
  4 │ def main () : {IO, Abort} () := abort ()

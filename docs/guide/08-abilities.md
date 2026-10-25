@@ -224,7 +224,29 @@ test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 error: expected a quantity, got 'two'
 ```
 
-`main` can also be `Partial` ([chapter 7](07-recursion.md)), but not yet both `Fail` and `Partial`.
+`main` can also be `Partial` ([chapter 7](07-recursion.md)), and it can be both `Fail` and `Partial`. This loop reads numbers until the end of its input and fails on a line that isn't one:
+
+<!-- snippet: sum-lines.sw@sumLines,main -->
+```stitchwort
+def sumLines (total: Nat): {IO, Fail, Partial} Nat :=
+  match IO.readLine() with
+    | None => total
+    | Some line =>
+      let number := line.toNatOrFail
+      IO.print "total so far ${total + number}"
+      sumLines (total + number)
+
+def main(): {IO, Fail, Partial} () := IO.print "sum ${sumLines 0}"
+```
+
+<!-- output: run sum-lines.sw < sum-lines.input -->
+```text
+total so far 1
+total so far 3
+error: expected a whole number, got 'x'
+```
+
+A handler still can't go around partial code, so `Fail.toResult` can't catch a failure from inside `sumLines`: only `main` can leave it unhandled.
 
 To test code that performs `IO`, handle it: `IO.simulate` runs a computation against a list of input lines and returns what it printed ([chapter 9](09-testing.md)).
 

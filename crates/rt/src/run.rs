@@ -18,7 +18,7 @@ use std::io::{BufRead, Write};
 use stitchwort_core::ResourceError;
 
 use crate::host::{RunError, read_all, read_line};
-use crate::ir::Program;
+use crate::ir::{MainRow, Program};
 use crate::machine::{Limits, Machine};
 use crate::value::{Delay, Fun, Value};
 
@@ -258,7 +258,7 @@ impl Runner<'_> {
                     }
                 },
                 Focus::Ret(v) => match self.frames.pop() {
-                    None => return self.finished(&v),
+                    None => return Ok(Outcome::Finished),
                     Some(Frame::Bind(k)) => Focus::Eval(self.m.call(k, vec![v])?),
                     Some(Frame::Map(..) | Frame::Tie(_)) => {
                         self.marks.pop();
@@ -278,17 +278,6 @@ impl Runner<'_> {
                     }
                 },
             };
-        }
-    }
-
-    /// `main` finished with `v`, which is `Some msg` if it failed with `msg`
-    /// (the driver wraps it in `Fail.recover`).
-    fn finished(&self, v: &Value) -> Result<Outcome, RunError> {
-        match v {
-            Value::Data(t, fields) if *t == self.m.shapes().some => Err(RunError::Failed(
-                crate::prims::text_of(&fields[0]).to_string(),
-            )),
-            _ => Ok(Outcome::Finished),
         }
     }
 
@@ -389,8 +378,10 @@ impl Runner<'_> {
         )))
     }
 
-    /// Performs operation `op` of `{IO}`, which is `Plus IO NoOp`: its
-    /// reply.
+    /// Performs operation `op`, of `{IO}` or `{Fail, IO}` (the program's
+    /// [`MainRow`]): its reply. `Fail.stop msg` stops the run with
+    /// [`RunError::Failed`]; it returns `Empty`, so there's nothing to resume
+    /// with (docs/proposals/partial-stage-2.md).
     fn perform(
         &mut self,
         op: Value,
@@ -398,9 +389,26 @@ impl Runner<'_> {
         output: &mut impl Write,
     ) -> Result<Value, RunError> {
         let s = *self.m.shapes();
-        let io = match &op {
-            Value::Data(t, fields) if *t == s.left => fields[0].clone(),
-            other => panic!("internal error: an operation {other:?} outside `IO`"),
+        let side = |v: &Value| match v {
+            Value::Data(t, fields) if *t == s.left || *t == s.right => (*t, fields[0].clone()),
+            other => panic!("internal error: an operation {other:?} outside `IO` and `Fail`"),
+        };
+        let io = match (self.m.program().main_row, side(&op)) {
+            (MainRow::Io, (t, io)) if t == s.left => io,
+            (MainRow::FailIo, (t, stop)) if t == s.left => {
+                let Value::Data(tag, fields) = &stop else {
+                    panic!("internal error: a `Fail` operation {stop:?}")
+                };
+                debug_assert_eq!(*tag, s.stop);
+                return Err(RunError::Failed(
+                    crate::prims::text_of(&fields[0]).to_string(),
+                ));
+            }
+            (MainRow::FailIo, (_, rest)) => match side(&rest) {
+                (t, io) if t == s.left => io,
+                _ => panic!("internal error: an operation {op:?} outside `IO` and `Fail`"),
+            },
+            _ => panic!("internal error: an operation {op:?} outside `IO`"),
         };
         let tag = io.tag().expect("an `IO` operation");
         Ok(if tag == s.print {

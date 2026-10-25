@@ -47,6 +47,21 @@ pub struct LambdaId(pub u32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TypeId(pub u32);
 
+/// The row a `main` is run in, which says how the runner takes apart an
+/// operation that reaches it (`stitchwort_driver`'s `main_calls`). A
+/// constructor is just its index at run time, so the shape of the row can't
+/// be read off the operation itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MainRow {
+    /// `{IO}`, which is `Plus IO NoOp`: every operation is `L` of an `IO`
+    /// operation.
+    Io,
+    /// `{Fail, IO}`, which is `Plus Fail (Plus IO NoOp)`, for a `main` that
+    /// may fail: `L (stop msg)`, or `R (L …)` of an `IO` operation
+    /// (docs/proposals/partial-stage-2.md).
+    FailIo,
+}
+
 /// A lowered program: the globals and lambdas it uses, and what it runs.
 pub struct Program {
     pub globals: Vec<Global>,
@@ -56,6 +71,8 @@ pub struct Program {
     /// What running the program computes: for a `main`, the partial
     /// computation `main ()` (a `Delay`) that the runner steps.
     pub entry: Body,
+    /// The row of the operations `main ()` leaves to the runner.
+    pub main_row: MainRow,
     /// The constructors the natives and the runner build and take apart.
     pub shapes: Shapes,
 }
@@ -107,6 +124,9 @@ pub struct Shapes {
     pub print: u32,
     pub read_line: u32,
     pub read_all: u32,
+    /// `Fail`'s `%stop msg`, if `Fail`'s library file has loaded;
+    /// `u32::MAX` if not.
+    pub stop: u32,
 }
 
 /// A body of code with its own frame.

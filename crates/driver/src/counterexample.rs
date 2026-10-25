@@ -176,7 +176,8 @@ pub fn run_fast(
     }
     let tuples: Vec<Term> = inputs.iter().map(|input| tuple(input)).collect();
     let entry = mk_pair(checker.clone(), tree(&tuples, &mk_pair));
-    let Ok(program) = stitchwort_rt::lower_main(g, limits, &entry) else {
+    let Ok(program) = stitchwort_rt::lower_main(g, limits, &entry, stitchwort_rt::MainRow::Io)
+    else {
         return false;
     };
     let pair_tag = program.shapes.pair;
