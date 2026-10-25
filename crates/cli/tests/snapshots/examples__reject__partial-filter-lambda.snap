@@ -9,5 +9,5 @@ expression: output
     │                                                                              ─────────┬─────────  
     │                                                                                       ╰─────────── `collatzSteps` is `Partial`: it might not finish
     │ 
-    │ Note: `List.filter` doesn't take partial callbacks yet: its callback has the type `Nat -> Bool`, which must finish (so far only `List.map`'s callback may be partial)
+    │ Note: `List.filter` doesn't take partial callbacks yet: its callback has the type `Nat → Bool`, which must finish (so far only `List.map`'s callback may be partial)
 ────╯

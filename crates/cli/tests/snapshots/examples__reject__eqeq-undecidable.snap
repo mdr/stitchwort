@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat -> Nat`
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat → Nat`
    ╭─[ reject/eqeq-undecidable.sw:6:19 ]
    │
  6 │ def same: Bool := inc == (x => Succ x)
    │                   ─────────┬─────────  
-   │                            ╰─────────── this needs `DecEq (Nat -> Nat)`
+   │                            ╰─────────── this needs `DecEq (Nat → Nat)`
    │ 
    │ Note: functions can't be compared: there's no `==` on them
 ───╯

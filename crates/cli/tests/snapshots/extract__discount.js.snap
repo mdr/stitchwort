@@ -757,7 +757,7 @@ function $$applyDiscount(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "price");
     const v1 = decodeFast(dec$1, ty$1, arg1, "percent");
     if ($Std$dNat$ddecLessEq(v1, 100n).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `percent ≤ 100` doesn't hold");
+      throw new StitchwortInputError("precondition `percent <= 100` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dapplyDiscount(v0, v1));
   } catch (e) {
@@ -770,7 +770,7 @@ function $$perPerson(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "total");
     const v1 = decodeFast(dec$1, ty$1, arg1, "people");
     if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `people ≠ 0` doesn't hold");
+      throw new StitchwortInputError("precondition `people != 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dperPerson(v0, v1));
   } catch (e) {

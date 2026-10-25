@@ -1147,7 +1147,7 @@ Precedence, loosest first:
 | `&&` | `∧` | | `exists` | `∃` |
 | `\|\|` | `∨` | | | |
 
-Other symbols get an error naming the replacement: `∀` (write a function type `(x: T) -> P`), `⇒` (`=>`), `λ` (`x => e`), `⇔` (`<->`), `≡` (`=`), `⊆` `∪` `∩` and the other set operators (not supported: `Set` has functions), `ℕ` (`Nat`), and so on (`crates/syntax/src/lexer.rs`, `UNSUPPORTED`). There is no user-defined notation (D1207).
+Other symbols get an error naming the replacement: `∀` (write a function type `(x: T) -> P`), `⇒` (`=>` for a lambda or match arm, `->` or `→` for implication), `λ` (`x => e`), `⇔` (`<->`), `≡` (`=`), `⊆` `∪` `∩` and the other set operators (not supported: `Set` has functions), `ℕ` (`Nat`), and so on (`crates/syntax/src/lexer.rs`, `UNSUPPORTED`). There is no user-defined notation (D1207).
 
 **Printing** (D1204, D1211). Goals and messages show `∧` `∨` `¬` `≠` `≤` `∈` `∉` `↔` and `∃ (x: T) => P`, whichever spelling the source used; `->` stays `->`. Comparison on `Nat`/`Int` under a binder may show unfolded (`Nat.leq k y = True`), as before.
 

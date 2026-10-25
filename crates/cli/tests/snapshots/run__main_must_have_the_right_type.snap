@@ -7,7 +7,7 @@ expression: "stderr(&run(&path, b\"\")).replace(path.to_str().unwrap(), \"main-t
    │
  4 │ def main () : {IO, Abort} () := abort ()
    │ ──────────────┬─────────────  
-   │               ╰─────────────── this has type `() -> {IO, Abort} ()`
+   │               ╰─────────────── this has type `() → {IO, Abort} ()`
    │ 
    │ Note: a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`
 ───╯

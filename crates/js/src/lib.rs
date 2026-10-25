@@ -248,8 +248,8 @@ pub fn exportable(g: &Globals, id: DefId) -> Result<ExportSig, Diagnostic> {
             // Describe the precondition as written in the signature.
             let names: Vec<_> = tel.params[..i].iter().map(|(n, _, _)| n.clone()).collect();
             let description = written_param_type(&def.ty, i).map_or_else(
-                || pretty::value(g, &names, ty),
-                |t| pretty::term(g, &names, t),
+                || pretty::value_ascii(g, &names, ty),
+                |t| pretty::term_ascii(g, &names, t),
             );
             checks.push(Check {
                 position: i,
@@ -4445,7 +4445,7 @@ impl<'g> Gen<'g> {
             let message = format!(
                 "proof field `{}` (`{}`) doesn't hold",
                 field.0,
-                pretty::term(self.g, &names, &field.1)
+                pretty::term_ascii(self.g, &names, &field.1)
             );
             out.push(format!(
                 "[{}, (o) => {{ {reads}return {decision}.tag === \"{yes}\"; }}]",

@@ -9,8 +9,8 @@ expression: output
    │                   ┬  
    │                   ╰── a: Type
    │                       b: Type
-   │                       t: () -> {Fail} a
-   │                       k: a -> {Fail} b
+   │                       t: () → {Fail} a
+   │                       k: a → {Fail} b
    │                       y: a
    │                       ⊢ Fail.toResult (%arg0 => k y) = Result.flatMap (Fail.toResult (() => Done y)) (x => Fail.toResult (%arg0 => k x))
 ───╯
@@ -21,9 +21,9 @@ expression: output
     │                           ┬  
     │                           ╰── a: Type
     │                               b: Type
-    │                               t: () -> {Fail} a
-    │                               k: a -> {Fail} b
-    │                               rest✝: Empty -> {Fail} a
+    │                               t: () → {Fail} a
+    │                               k: a → {Fail} b
+    │                               rest✝: Empty → {Fail} a
     │                               msg: Text
     │                               ⊢ Err msg = Err msg
 ────╯
@@ -34,7 +34,7 @@ expression: output
     │                     ┬  
     │                     ╰── a: Type
     │                         b: Type
-    │                         f: a -> {Fail} b
+    │                         f: a → {Fail} b
     │                         x: a
     │                         xs: List a
     │                         y: b

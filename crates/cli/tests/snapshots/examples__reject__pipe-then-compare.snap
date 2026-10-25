@@ -7,9 +7,9 @@ expression: output
    │
  6 │ def check (x: Nat) (expected: Nat): Bool := x |> inc == expected
    │                                                  ─┬─    ────┬───  
-   │                                                   ╰─────────────── this comparison is on `Nat -> Nat` because of this
+   │                                                   ╰─────────────── this comparison is on `Nat → Nat` because of this
    │                                                             │     
-   │                                                             ╰───── expected `Nat -> Nat`, but this has type `Nat`
+   │                                                             ╰───── expected `Nat → Nat`, but this has type `Nat`
    │ 
    │ Note: `|>` binds looser than `==`, so `x |> f == y` pipes `x` into the whole comparison `f == y`; to compare the result of the pipe, write brackets: `(x |> f) == y`
 ───╯

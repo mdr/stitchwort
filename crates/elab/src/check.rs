@@ -3980,16 +3980,16 @@ mod tests {
     fn a_binder_lambda_infers_a_function_type_of_its_mode() {
         assert_eq!(
             elaborate("[a: Type] (x: a) => x").as_deref(),
-            Ok("[a: Type] -> a -> a")
+            Ok("[a: Type] → a → a")
         );
         assert_eq!(
             elaborate("[a: Type] [auto h: a] (x: a) => h").as_deref(),
-            Ok("[a: Type] -> [auto h: a] -> a -> a")
+            Ok("[a: Type] → [auto h: a] → a → a")
         );
         // Not applied to an unknown in an annotation, either.
         assert_eq!(
             elaborate("([a: Type] (x: a) => x: [b: Type] -> b -> b)").as_deref(),
-            Ok("[b: Type] -> b -> b")
+            Ok("[b: Type] → b → b")
         );
     }
 
@@ -4003,7 +4003,7 @@ mod tests {
         };
         mismatch(
             "([a: Type] (x: a) => x: Type -> Type)",
-            "takes an implicit parameter first, but the expected type `Type -> Type` takes an \
+            "takes an implicit parameter first, but the expected type `Type → Type` takes an \
              explicit one",
         );
         mismatch(
@@ -4022,8 +4022,8 @@ mod tests {
         );
         // A plain lambda still has the implicit parameter introduced.
         assert_eq!(
-            elaborate("(x => x: [a: Type] -> a -> a)").as_deref(),
-            Ok("[a: Type] -> a -> a")
+            elaborate("(x => x: [a: Type] → a → a)").as_deref(),
+            Ok("[a: Type] → a → a")
         );
     }
 }

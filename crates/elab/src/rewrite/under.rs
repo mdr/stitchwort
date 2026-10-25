@@ -778,8 +778,8 @@ theorem inside (mulSucc: (a: Nat) -> (b: Nat) -> a * Succ b = a + a * b) (k: Nat
             let total = e.lookup_def("total").expect("defined");
             assert_eq!(
                 congruence::sketch(&e.globals, total),
-                "theorem totalCong (f1: Nat -> Nat) (f2: Nat -> Nat) (arg2: List Nat) \
-                 (ef: (x: Nat) -> f1 x = f2 x): total f1 arg2 = total f2 arg2"
+                "theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (arg2: List Nat) \
+                 (ef: (x: Nat) → f1 x = f2 x): total f1 arg2 = total f2 arg2"
             );
         });
     }

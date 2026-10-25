@@ -9,7 +9,7 @@ expression: output
     │                                             ───┬──  
     │                                                ╰──── this needs `DecEq Shifted`
     │ 
-    │ Note 1: `==` isn't derived for `Shifted`: the field `same` of `MkShifted` has type `Nat -> Nat`, which has no `DecEq` instance (when `Shifted` was declared)
+    │ Note 1: `==` isn't derived for `Shifted`: the field `same` of `MkShifted` has type `Nat → Nat`, which has no `DecEq` instance (when `Shifted` was declared)
     │ 
     │ Note 2: an instance of `DecEq` for `Shifted` can be declared in `Main`
 ────╯

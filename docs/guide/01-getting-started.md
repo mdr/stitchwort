@@ -96,7 +96,7 @@ it prints:
 Stitchwort 0.1.0. Enter an expression to evaluate it, `import Std (List)` to use a namespace's names, `:t expr` for its type, `:q` to quit.
 42: Nat
 "Ada bought 2 items: [3, 4], costing 7": Text
-Nat -> Text
+Nat → Text
 [0, 1, 2, 3]: List Nat
 ```
 

@@ -7,7 +7,7 @@ expression: output
     │
  10 │ def more (m: Meter): Meter := m.add 1
     │                               ───┬───  
-    │                                  ╰───── `Meter.add: Nat -> Meter -> Meter`
+    │                                  ╰───── `Meter.add: Nat → Meter → Meter`
     │ 
     │ Note: dot notation passes the value as the first argument; call it directly: `Meter.add n m`
 ────╯

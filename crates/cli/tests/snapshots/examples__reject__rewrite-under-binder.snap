@@ -9,7 +9,7 @@ expression: output
    │           ┬  
    │           ╰── looking for `f ?0`
    │ 
-   │ Note 1: goal: `(y: Nat) -> f y = g y`
+   │ Note 1: goal: `(y: Nat) → f y = g y`
    │ 
    │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
    │ 

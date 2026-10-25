@@ -246,7 +246,7 @@ fn a_file_on_its_own_as_you_type() {
     let hover = client.at("textDocument/hover", &uri, 4, 15);
     let text = hover["contents"]["value"].as_str().unwrap();
     assert!(
-        text.contains("```stitchwort\nNat -> Nat\n```") && text.contains("def `Main.double`"),
+        text.contains("```stitchwort\nNat → Nat\n```") && text.contains("def `Main.double`"),
         "{text}"
     );
     let refs = client.at("textDocument/references", &uri, 0, 5);
