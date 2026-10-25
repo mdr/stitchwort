@@ -42,8 +42,9 @@ def Frame.ansiLines: List Text → Text
   | [line, ..more] => "${line}\u{1b}[K\r\n${Frame.ansiLines more}"
 
 -- A frame as lines, when output isn't a terminal: the lines, then a line
--- holding just a form feed to mark the end of the frame.
-def Frame.plain (lines: List Text): List Text := List.append lines ["\u{c}"]
+-- holding just a form feed to mark the end of the frame. Colour codes are
+-- stripped (`Ansi.strip`): a pipe gets plain text.
+def Frame.plain (lines: List Text): List Text := List.append (List.map lines Ansi.strip) ["\u{c}"]
 
 -- Reading keys
 
@@ -176,7 +177,9 @@ def Terminal.toIO (prog: () → {Terminal, IO | e} a): {IO | e} a :=
   run []
 
 -- For tests: `readKey` gives the scripted keys in order, then `None`. Every
--- frame drawn is recorded, in order, with the result. The size is 80 by 24.
+-- frame drawn is recorded, in order, with the result, as a pipe would show
+-- it: colour codes stripped (`Ansi.strip`), so tests compare plain lines.
+-- The size is 80 by 24.
 -- No `IO` is involved, so a game's tests need no input text.
 def Terminal.simulate (keys: List Key) (prog: () → {Terminal | e} a): {e} Pair (List (List Text)) a :=
   let run: List Key → List (List Text) → {e} Pair (List (List Text)) a :=
@@ -186,7 +189,7 @@ def Terminal.simulate (keys: List Key) (prog: () → {Terminal | e} a): {e} Pair
         match keysLeft with
           | [] => resume None [] frames
           | [key, ..later] => resume (Some key) later frames
-      | draw lines, resume => keysLeft frames => resume () keysLeft (Cons lines frames)
+      | draw lines, resume => keysLeft frames => resume () keysLeft (Cons (List.map lines Ansi.strip) frames)
       | size (), resume => keysLeft frames => resume { columns = 80, rows = 24 } keysLeft frames
   run keys []
 
@@ -195,6 +198,8 @@ def Terminal.simulate (keys: List Key) (prog: () → {Terminal | e} a): {e} Pair
 test "Frame: ansi" := Frame.ansi ["ab", "c"] == "\u{1b}[Hab\u{1b}[K\r\nc\u{1b}[K\u{1b}[J"
 test "Frame: ansi of no lines" := Frame.ansi [] == "\u{1b}[H\u{1b}[J"
 test "Frame: plain" := Frame.plain ["ab", "c"] == ["ab", "c", "\u{c}"]
+test "Frame: plain strips colour codes" := Frame.plain [Ansi.bold "ab", "c"] == ["ab", "c", "\u{c}"]
+test "simulate: frames lose their colour codes" := Pair.fst (Terminal.simulate [] (() => Terminal.draw [Ansi.bold "ab"])) == [["ab"]]
 
 -- Reading keys, as `readKey` does, from reads given as lists.
 test "reads: the native prototype's reads, from a terminal" :=
