@@ -405,6 +405,7 @@ builtins! {
     Print = "%print": Ctor(Builtin::Io),
     ReadLine = "%readLine": Ctor(Builtin::Io),
     ReadAll = "%readAll": Ctor(Builtin::Io),
+    RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
     // runners perform `stop` themselves, as they perform `print`

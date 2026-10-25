@@ -465,6 +465,8 @@ impl Runner<'_> {
         } else if tag == s.read_all {
             output.flush().map_err(RunError::Write)?;
             Value::Text(read_all(input, &mut self.lines)?.into())
+        } else if tag == s.random_seed {
+            Value::Nat(crate::host::random_seed())
         } else {
             panic!("internal error: an unknown `IO` operation {io:?}")
         })

@@ -91,6 +91,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
         include_str!("std/PrefixSums/PrefixSums.sw"),
     ),
     ("Quot/Quot.sw", include_str!("std/Quot/Quot.sw")),
+    ("Random/Random.sw", include_str!("std/Random/Random.sw")),
     ("Result/Result.sw", include_str!("std/Result/Result.sw")),
     ("Ring/Ring.sw", include_str!("std/Ring/Ring.sw")),
     ("Ring/Sound.sw", include_str!("std/Ring/Sound.sw")),

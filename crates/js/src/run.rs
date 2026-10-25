@@ -285,6 +285,12 @@ impl Shapes {
             ctor_of(Builtin::ReadAll)?.1,
             &["readAllUnit"],
         )?;
+        ctor(
+            "randomSeed",
+            io,
+            ctor_of(Builtin::RandomSeed)?.1,
+            &["randomSeedUnit"],
+        )?;
         // `Fail`'s one operation, once its library file has loaded: a `main`
         // that may fail loads it.
         if let Some(fail) = g.registry.loaded_data(Builtin::Fail) {
@@ -519,6 +525,12 @@ import * as __wt from "node:worker_threads";
       case SHAPE.readAll:
         flush();
         return readAll();
+      case SHAPE.randomSeed: {
+        // Eight random bytes as a `Nat`, a bigint: the OS's entropy.
+        const words = new BigUint64Array(1);
+        globalThis.crypto.getRandomValues(words);
+        return words[0];
+      }
       default:
         throw new Error("internal error: an unknown `IO` operation");
     }

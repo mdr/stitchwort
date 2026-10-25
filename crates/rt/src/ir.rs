@@ -120,10 +120,11 @@ pub struct Shapes {
     pub recur: u32,
     /// `MkSigMap inject reply`.
     pub sig_map: u32,
-    /// `IO`'s `%print text`, `%readLine u`, `%readAll u`.
+    /// `IO`'s `%print text`, `%readLine u`, `%readAll u`, `%randomSeed u`.
     pub print: u32,
     pub read_line: u32,
     pub read_all: u32,
+    pub random_seed: u32,
     /// `Fail`'s `%stop msg`, if `Fail`'s library file has loaded;
     /// `u32::MAX` if not.
     pub stop: u32,

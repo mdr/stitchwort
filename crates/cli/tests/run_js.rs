@@ -95,7 +95,7 @@ fn examples_print_the_same_both_ways() {
             return None;
         }
         // These end in an unhandled `Fail` on purpose; see below.
-        if source.contains("(run: fails)") {
+        if source.contains("(run: fails)") || source.contains("(run: random)") {
             return None;
         }
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
@@ -836,4 +836,24 @@ fn std_flat_map_over_a_million_elements_is_stack_safe() {
     );
     let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
     stack_safe_everywhere_at(&source_file("flat-map.sw", &source), &names, 1_000_000);
+}
+
+/// `IO.randomSeed` gives a fresh 64-bit number each run under Node.
+#[test]
+fn the_random_seed_is_fresh_each_run() {
+    let path = source_file(
+        "seed.sw",
+        "import Std (IO, Nat)\ndef main () : {IO} () := IO.print (Nat.toText (IO.randomSeed ()))\n",
+    );
+    let seeds: Vec<u64> = (0..3)
+        .map(|_| {
+            let output = run(&path, true, b"");
+            assert!(output.status.success(), "{}", text(&output.stderr));
+            text(&output.stdout)
+                .trim()
+                .parse()
+                .expect("a 64-bit number")
+        })
+        .collect();
+    assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
 }

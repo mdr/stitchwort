@@ -738,3 +738,24 @@ fn std_dir_reads_the_library_from_disk() {
     let _ = std::fs::remove_dir_all(&std);
     let _ = std::fs::remove_dir_all(&cache);
 }
+
+/// `IO.randomSeed` gives a fresh 64-bit number each run.
+#[test]
+fn the_random_seed_is_fresh_each_run() {
+    let path = source_file(
+        "seed.sw",
+        "import Std (IO, Nat)\ndef main () : {IO} () := IO.print (Nat.toText (IO.randomSeed ()))\n",
+    );
+    let seeds: Vec<u64> = (0..3)
+        .map(|_| {
+            let output = run(&path, b"");
+            assert!(output.status.success(), "{}", stderr(&output));
+            String::from_utf8(output.stdout)
+                .unwrap()
+                .trim()
+                .parse()
+                .expect("a 64-bit number")
+        })
+        .collect();
+    assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
+}
