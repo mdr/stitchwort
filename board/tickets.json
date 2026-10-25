@@ -3004,19 +3004,21 @@
     {
       "id": 486,
       "title": "Partial handlers lane A: foldD in partial-model with traces (D1254–D1256)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "89026389"
+      ]
     },
     {
       "id": 487,
       "title": "Partial handlers lane B: kernel foldD, reference runner, elaborator (D1254)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
