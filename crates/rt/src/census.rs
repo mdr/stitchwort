@@ -249,7 +249,7 @@ pub fn fitting_islands_with(
     census: &Census,
     extra: &[String],
 ) -> Vec<(String, usize)> {
-    let blocked: std::collections::HashSet<u32> = census
+    let blocked: stitchwort_core::collections::HashSet<u32> = census
         .bodies
         .iter()
         .filter(|b| {

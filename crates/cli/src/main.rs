@@ -1184,14 +1184,11 @@ fn render_census(target: &str, census: &stitchwort_rt::census::Census, functions
         census.bodies.len(),
         census.image_bodies
     );
-    match census.sole_blocker() {
-        Some(only) => {
-            let _ = writeln!(
-                out,
-                "sole blocker (adding it alone makes the island fit): {only}"
-            );
-        }
-        None => {}
+    if let Some(only) = census.sole_blocker() {
+        let _ = writeln!(
+            out,
+            "sole blocker (adding it alone makes the island fit): {only}"
+        );
     }
     let mut ranked: Vec<_> = blockers.iter().collect();
     ranked.sort_by_key(|(key, (n, bodies))| {
