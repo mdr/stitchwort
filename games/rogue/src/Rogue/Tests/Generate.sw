@@ -102,7 +102,7 @@ test "a sword on each level above the bottom" :=
 -- A new game
 
 test "a new game starts on the first level, with the two below made" :=
-  let state := seeded defaultSeed newGame
+  let state := seeded testSeed newGame
   state.level.depth == 1 ∧ state.below.map (plan => plan.level.depth) == [2, 3] ∧ state.player == state.level.start
 
 -- Placing by hand

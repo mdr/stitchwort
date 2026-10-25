@@ -411,3 +411,63 @@ made, and a frame only overlays what stands on it.
 3. An unexplained runtime recursion limit, with no hint of where (5).
 4. Sub-namespaces can't add helpers to the program's own types (3).
 5. Small inference gaps, and long values cut off in failures (4, 6).
+
+# Stage 3: keys, frames and no fuel
+
+The shell moved onto std's `Terminal` (docs/proposals/terminal-io.md §8,
+lane 5), on handlers that run partial code
+(docs/proposals/partial-handlers.md). `play` reads one keypress per turn
+(arrows as well as `hjkl`/`wasd`), draws whole frames through
+`Terminal.draw`, and loops with no bound; `main` seeds the game from
+`IO.randomSeed`, so each run is a different dungeon. The pure core, the
+generator and every proof are untouched, and `stitchwort axioms` reports
+no axioms for `stepValid`, `stepAtMost`, `stepOnFloor`, `stepOutOfWalls`,
+`stepClear`, `seededStep` and `startingValid`.
+
+## What got simpler
+
+- **No fuel.** `maxTurns`, its comment explaining why the loop wasn't
+  `Partial`, the `| 0, state => state` case and the "ran out of turns"
+  ending are gone. `play` is the loop as one would write it: `{Terminal,
+  Random, Partial}`, with `seeded` and `Terminal.toIO` wrapped round it
+  unchanged.
+- **No reading loop of our own.** Stage 1's `fromLines`/`nextFrom`/
+  `readCommands` (with `linesPerCommand`, a second bound on blank lines)
+  were 30 lines. Now `nextCommand` is one `Terminal.readKey` and a
+  `match`; a key that isn't a command just loops (`None => play state`),
+  which needed fuel or a counter before. The `Input` ability went too:
+  `Terminal` is already the seam it stood for, and `Terminal.simulate` is
+  the test handler, so the game needs no handler of its own for input.
+- **Tests on frames, not printed text.** `Terminal.simulate` gives each
+  frame as its lines, so the first-frame test no longer strips a clear-screen
+  prefix and splits a printed text, and the winning game is the stage-1
+  route joined into one key script.
+
+## New friction
+
+1. **`IO.simulate`'s seed is 0, so the whole `main` can't replay the
+   winning route.** The route is for seed 2026. `main` is split into
+   `IO.randomSeed` and `playOn seed`; the winning test goes through
+   `IO.simulate` and `toIO` via `playOn testSeed`, and only a short quit is
+   run through `main` itself. An `IO.simulateWith { seed }` (or a seed
+   argument) would let a test drive the real `main`.
+2. **Piped frames keep their colours.** `Frame.plain` writes the lines as
+   they are, so `run` on a pipe, `run --js` and `IO.simulate` print the
+   colour codes too; tests compare `Ansi.strip`ped lines. Stripping in
+   `Frame.plain` would make piped output plain text, at the price of
+   tests that want to check colours (they can use `Terminal.simulate`).
+3. **`|>` binds looser than `∧`.** `a ∧ xs.filter p |> .length == 4` pipes
+   the whole conjunction, and the error ("expected `Bool`, but this has type
+   `List Text`") points at the filter, not the pipe. Brackets fixed it.
+4. **`Char.toText` needs `import Std (Char)`**, though `Char` itself is in
+   the prelude; the error says so, with the fix.
+5. **Two generators.** The game keeps its own LCG (`Rogue.Random`) and only
+   takes its seed from `IO.randomSeed` (cut to 31 bits). Moving to std's
+   SplitMix64 would change every seeded value the tests pin (the 232-turn
+   route, the first map) and `seededStep`'s statement, for no gain in play.
+6. **On a terminal each line ends CR CR LF.** In the pseudo-terminal check,
+   `Frame.ansi`'s CR LF arrives as `\r\r\n`: keys mode seems to leave the
+   terminal's output translation of LF on. Harmless to the eye.
+
+The tests: 99, all through `Terminal.simulate` or `IO.simulate`, 11 s from
+cold on a loaded machine.

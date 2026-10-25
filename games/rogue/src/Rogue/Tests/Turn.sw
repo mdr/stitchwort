@@ -197,9 +197,9 @@ test "nothing happens once the game is over" :=
 
 -- Keys
 
-test "vi keys" := ['h', 'j', 'k', 'l'].map commandOf == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
-test "wasd keys" := ['a', 's', 'w', 'd'].map commandOf == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
-test "other keys" := ['.', '>', 'p', 'q', 'x', ' '].map commandOf == [Some Wait, Some Descend, Some Drink, Some Quit, None, None]
+test "vi keys" := ['h', 'j', 'k', 'l'].map commandOfChar == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
+test "wasd keys" := ['a', 's', 'w', 'd'].map commandOfChar == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
+test "other keys" := ['.', '>', 'p', 'q', 'x', ' '].map commandOfChar == [Some Wait, Some Descend, Some Drink, Some Quit, None, None]
 
 -- Randomness
 

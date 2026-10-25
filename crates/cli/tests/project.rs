@@ -509,11 +509,13 @@ fn rogue_goals_keep_the_dungeon_folded() {
     let text = format!("{}{}", out(&output), err(&output));
     assert_eq!(text.matches("[GOAL]").count(), 7, "{text}");
     assert!(
-        text.contains("stairs: Rogue.isStairs state.player = False"),
+        text.contains("stairs: Rogue.isStairs state.level state.player = False"),
         "{text}"
     );
     assert!(
-        text.contains("wall: Rogue.isWall (Rogue.Position.toward state.player direction) = True"),
+        text.contains(
+            "wall: Rogue.isWall state.level (Rogue.Position.toward state.player direction) = True"
+        ),
         "{text}"
     );
     assert!(!text.contains("['#'"), "the map is unfolded:\n{text}");
@@ -526,7 +528,7 @@ import Std (Nat)
 
 theorem stairsHoles (dice: Dice) (state: State):
     (monstersTurn dice state).hitPoints ≤ maxHitPoints :=
-  match stairs: isStairs state.player with
+  match stairs: isStairs state.level state.player with
     | True => ?
     | False => ?
 
@@ -535,13 +537,13 @@ theorem wallHoles (dice: Dice) (state: State) (direction: Direction):
   match found: monsterAt (state.player.toward direction) state.monsters with
     | Some monster => ?
     | None =>
-      match wall: isWall (state.player.toward direction) with
+      match wall: isWall state.level (state.player.toward direction) with
         | True => ?
         | False => ?
 
 theorem clearHoles (dice: Dice) (state: State):
     Clear (monstersTurn dice state).player (monstersTurn dice state).monsters :=
-  match stairs: isStairs state.player with
+  match stairs: isStairs state.level state.player with
     | True => ?
     | False => ?
 ";
