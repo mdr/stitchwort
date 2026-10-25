@@ -1473,3 +1473,217 @@ fn chains_of_helpers_calling_the_next_in_both_branches_are_compared_once_per_lev
     // A difference at the bottom is still found.
     assert!(!conv(&p.g, 1, &applied(&p, a), &applied(&p, c)).unwrap());
 }
+
+// Two calls of the same definition, compared by their arguments first (D483,
+// docs/proposals/folded-calls.md §7 stage 4): the kernel checks a body with
+// calls kept glued, so `f a` against `f b` is equal at once when `a` and `b`
+// are, and is compared by unfolding otherwise.
+
+/// `{name} r s`: `r` rounds of `s + s` on `s`. Each round mentions the last
+/// one twice, so the value written out doubles with every round: comparing
+/// two separately computed copies of `{name} 40 s` part by part takes 2^40
+/// steps.
+fn define_mix(p: &mut Prelude, name: &str) -> stitchwort_core::DefId {
+    let nat = p.nat;
+    let nat_ty = p.nat_ty();
+    let mix = declare(
+        &mut p.g,
+        name,
+        arrow(nat_ty.clone(), arrow(nat_ty.clone(), nat_ty)),
+    );
+    let body = lam(
+        "r",
+        lam(
+            "s",
+            case(
+                1,
+                nat,
+                vec![
+                    (vec![], v(0)),
+                    (vec!["r'"], app(Term::Def(mix), [v(0), p.plus(v(1), v(1))])),
+                ],
+            ),
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, mix, &body).expect("mix");
+    mix
+}
+
+/// `konst x y = x`.
+fn define_konst(p: &mut Prelude) -> stitchwort_core::DefId {
+    let nat_ty = p.nat_ty();
+    let ty = arrow(nat_ty.clone(), arrow(nat_ty.clone(), nat_ty));
+    define(&mut p.g, "konst", ty, lam("x", lam("y", v(1)))).unwrap()
+}
+
+/// [`define`], within a budget far too small to compare two copies of
+/// `mix 40 s` part by part.
+fn define_small(p: &mut Prelude, name: &str, ty: Term, body: Term) -> Result<(), &'static str> {
+    let saved = p.g.budget.start(stitchwort_core::Limits {
+        work: 100_000,
+        ..stitchwort_core::Limits::default()
+    });
+    let verdict = define(&mut p.g, name, ty, body).map(|_| ());
+    p.g.budget.restore(saved);
+    verdict
+}
+
+#[test]
+fn same_call_arguments_first_accepts_equal_arguments_without_unfolding() {
+    let mut p = Prelude::new();
+    let mix = define_mix(&mut p, "mix");
+    let other = define_mix(&mut p, "mixAgain");
+    let konst = define_konst(&mut p);
+    let rounds = p.num(40);
+    let mix_of = |f, s: Term| app(Term::Def(f), [rounds.clone(), s]);
+    // `(s: Nat) -> mix 40 s = mix 40 s`.
+    let same = pi(
+        "s",
+        p.nat_ty(),
+        eq(None, mix_of(mix, v(0)), mix_of(mix, v(0))),
+    );
+    assert_eq!(
+        define_small(&mut p, "same", same, lam("s", Term::Refl)),
+        Ok(())
+    );
+    // Arguments convertible but not alike: `konst s t` is `s`.
+    let convertible = pi(
+        "s",
+        p.nat_ty(),
+        pi(
+            "t",
+            p.nat_ty(),
+            eq(
+                None,
+                mix_of(mix, app(Term::Def(konst), [v(1), v(0)])),
+                mix_of(mix, v(1)),
+            ),
+        ),
+    );
+    assert_eq!(
+        define_small(
+            &mut p,
+            "convertible",
+            convertible,
+            lam("s", lam("t", Term::Refl))
+        ),
+        Ok(())
+    );
+    // The control: the same definition under another name has to be
+    // unfolded, which the budget doesn't allow.
+    let unfolded = pi(
+        "s",
+        p.nat_ty(),
+        eq(None, mix_of(mix, v(0)), mix_of(other, v(0))),
+    );
+    assert_eq!(
+        define_small(&mut p, "unfolded", unfolded, lam("s", Term::Refl)),
+        Err("E-RESOURCE")
+    );
+}
+
+#[test]
+fn same_call_different_arguments_with_equal_results_are_still_equal() {
+    let mut p = Prelude::new();
+    let konst = define_konst(&mut p);
+    let mix = define_mix(&mut p, "mix");
+    // `(a b: Nat) -> konst 0 a = konst 0 b`: the arguments differ, the
+    // unfoldings don't.
+    let statement = pi(
+        "a",
+        p.nat_ty(),
+        pi(
+            "b",
+            p.nat_ty(),
+            eq(
+                None,
+                app(Term::Def(konst), [p.num(0), v(1)]),
+                app(Term::Def(konst), [p.num(0), v(0)]),
+            ),
+        ),
+    );
+    assert_eq!(
+        define_small(&mut p, "ignored", statement, lam("a", lam("b", Term::Refl))),
+        Ok(())
+    );
+    // `mix 2 0 = mix 1 0`: different arguments, both 0.
+    let statement = eq(
+        None,
+        app(Term::Def(mix), [p.num(2), p.num(0)]),
+        app(Term::Def(mix), [p.num(1), p.num(0)]),
+    );
+    assert_eq!(define_small(&mut p, "zeros", statement, Term::Refl), Ok(()));
+}
+
+#[test]
+fn same_call_different_results_are_still_rejected() {
+    let mut p = Prelude::new();
+    let konst = define_konst(&mut p);
+    let mix = define_mix(&mut p, "mix");
+    // `(a b: Nat) -> konst a 0 = konst b 0` is false.
+    let statement = pi(
+        "a",
+        p.nat_ty(),
+        pi(
+            "b",
+            p.nat_ty(),
+            eq(
+                None,
+                app(Term::Def(konst), [v(1), p.num(0)]),
+                app(Term::Def(konst), [v(0), p.num(0)]),
+            ),
+        ),
+    );
+    assert_eq!(
+        define_small(&mut p, "wrong", statement, lam("a", lam("b", Term::Refl))),
+        Err("E-REFL")
+    );
+    // `(s: Nat) -> mix 3 s = mix 3 (Succ s)` is false.
+    let statement = pi(
+        "s",
+        p.nat_ty(),
+        eq(
+            None,
+            app(Term::Def(mix), [p.num(3), v(0)]),
+            app(Term::Def(mix), [p.num(3), p.succ(v(0))]),
+        ),
+    );
+    assert_eq!(
+        define_small(&mut p, "wrongMix", statement, lam("s", Term::Refl)),
+        Err("E-REFL")
+    );
+}
+
+#[test]
+fn same_call_failures_do_not_repeat_work() {
+    // `next n = Succ n`, and `next^40 x` against `next^40 y`. The arguments
+    // of each pair differ, and so does each pair's unfolding, which holds
+    // the pair below again: without remembering the pairs found different,
+    // each level would compare the one below twice, 2^40 times in all.
+    // It's rejected within a small budget, and takes the same steps each
+    // time.
+    let run = || {
+        let mut p = Prelude::new();
+        let nat = p.nat;
+        let nat_to_nat = arrow(p.nat_ty(), p.nat_ty());
+        let next = define(
+            &mut p.g,
+            "next",
+            nat_to_nat,
+            lam("n", Term::ctor(nat, 1, vec![v(0)])),
+        )
+        .unwrap();
+        let tower = |x: Term| (0..40).fold(x, |t, _| app(Term::Def(next), [t]));
+        let statement = pi(
+            "x",
+            p.nat_ty(),
+            pi("y", p.nat_ty(), eq(None, tower(v(1)), tower(v(0)))),
+        );
+        let before = p.g.budget.total_work();
+        let verdict = define_small(&mut p, "towers", statement, lam("x", lam("y", Term::Refl)));
+        (verdict, p.g.budget.total_work() - before)
+    };
+    let (verdict, steps) = run();
+    assert_eq!(verdict, Err("E-REFL"));
+    assert_eq!(run().1, steps, "the steps taken changed between runs");
+}

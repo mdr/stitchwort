@@ -16,8 +16,10 @@ use crate::timings::kernel_call;
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
-/// A kernel call, timed, with gluing off (`Globals::glue`): the kernel
-/// checks as it always has (D483, docs/proposals/folded-calls.md).
+/// A kernel call, timed, entered with gluing off (`Globals::glue`): the
+/// kernel decides for itself where it glues (only checking a definition's
+/// body, to compare two calls of the same definition by their arguments
+/// first; D483, docs/proposals/folded-calls.md §7 stage 4).
 fn unglued<T>(g: &mut Globals, f: impl FnOnce(&mut Globals) -> T) -> T {
     let was = g.glue.replace(false);
     let out = kernel_call(|| f(g));
