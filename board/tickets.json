@@ -1,5 +1,5 @@
 {
-  "next": 475,
+  "next": 477,
   "tickets": [
     {
       "id": 13,
@@ -2850,6 +2850,30 @@
       "commits": [
         "b5a1db0c"
       ]
+    },
+    {
+      "id": 475,
+      "title": "Plan: effect-polymorphic List helpers (filter, folds, any/all, flatMap…) like List.map; research Unison/Koka/Effekt/Flix/OCaml 5 (D1237)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 476,
+      "title": "Investigate: native Set/Map ~5x slower than JS at 1M keys (13.5 s vs 2.6 s); profile + fix options (D1238)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
