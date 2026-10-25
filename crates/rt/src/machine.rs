@@ -1103,6 +1103,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::Ctor { dst, tag, args } => {
                     let fields: Rc<[Value]> = ops!(args).iter().map(|r| get!(*r)).collect();
+                    crate::alloc_trace::alloc(tag, &fields);
                     reg!(dst) = Value::Data(tag, Fields(fields));
                 }
                 Instr::CtorReuse {
@@ -1118,10 +1119,12 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                                 let v = get!(*r);
                                 Rc::get_mut(&mut cell.0).expect("unique")[i] = v;
                             }
+                            crate::alloc_trace::reuse(tag, &cell.0);
                             Value::Data(tag, cell)
                         }
                         _ => {
                             let fields: Rc<[Value]> = o.iter().map(|r| get!(*r)).collect();
+                            crate::alloc_trace::alloc(tag, &fields);
                             Value::Data(tag, Fields(fields))
                         }
                     };

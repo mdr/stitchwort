@@ -10,7 +10,14 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 num-bigint.workspace = true
 
+[features]
+# The bring-up allocation trace (`alloc_trace`); off in release builds.
+alloc-trace = []
+
 [dev-dependencies]
+# The tests of the trace need the feature, which this switches on for the
+# test build only.
+stitchwort-rt = { path = ".", features = ["alloc-trace"] }
 stitchwort-driver.workspace = true
 stitchwort-elab.workspace = true
 insta.workspace = true
