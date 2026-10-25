@@ -2692,7 +2692,7 @@
     },
     {
       "id": 463,
-      "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); also rename Option.exists/forall -> any/all (D1203, moved here by D1221); after rule E and the notation build; also congruence.rs premise-shape texts -> →",
+      "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); also rename Option.exists/forall -> any/all (D1203, moved here by D1221); after rule E and the notation build; also congruence.rs premise-shape texts -> →. AoC (minus Day 8) + accept/goals examples DONE a37681b3; remaining: std, Day 8, reject+soundness examples (re-record snapshots)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -2700,7 +2700,9 @@
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "a37681b3"
+      ]
     },
     {
       "id": 464,
