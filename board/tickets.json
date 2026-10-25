@@ -3138,14 +3138,16 @@
     {
       "id": 496,
       "title": "Terminal lane 2: std Terminal, Key, Key.next, Frame, Terminal.toIO/simulate, Ansi; round-trip theorem (D1259)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "b684f0e0"
+      ]
     },
     {
       "id": 497,
