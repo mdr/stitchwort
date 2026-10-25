@@ -2978,14 +2978,16 @@
     {
       "id": 484,
       "title": "Native note: fold in external review (D1250, D1251 decided): ≥3× target, counters in N1, interpreter boundary section, stack as margin, macOS in N0, alloc trace",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "646b6bc1"
+      ]
     },
     {
       "id": 485,
