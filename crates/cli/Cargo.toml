@@ -33,8 +33,6 @@ stitchwort-native = { workspace = true, optional = true }
 [features]
 # `stitchwort dev native-spike` (stage N0), and later `run --native`.
 native = ["dep:stitchwort-native"]
-
-[features]
 # `run --alloc-trace FILE`: the bring-up allocation trace of the fast
 # runtime (`stitchwort_rt::alloc_trace`). Off in release builds.
 alloc-trace = ["dep:stitchwort-rt", "stitchwort-rt/alloc-trace"]
