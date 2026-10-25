@@ -2651,14 +2651,16 @@
     {
       "id": 460,
       "title": "std stack safety leftovers: Result.traverse (redo Fail.toResultMap + reify examples) and Vec.traverseOption as loops; after rule E lands",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "9a06b447"
+      ]
     },
     {
       "id": 461,
