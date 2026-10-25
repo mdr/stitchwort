@@ -28,9 +28,9 @@ expression: output
     │                               ⊢ Err msg = Err msg
 ────╯
 [GOAL] Goal: in `toResultMap`
-    ╭─[ goals/reify-return.sw:20:21 ]
+    ╭─[ goals/reify-return.sw:22:21 ]
     │
- 20 │       | return y => ?
+ 22 │       | return y => ?
     │                     ┬  
     │                     ╰── a: Type
     │                         b: Type
@@ -38,5 +38,5 @@ expression: output
     │                         x: a
     │                         xs: List a
     │                         y: b
-    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => Effect.runPure (Call o (y => Done (k y))))) (Effect.bind (List.map xs f) (%9 => Done (Cons y %9))) = Result.map (Result.traverse xs (x => Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => Effect.runPure (Call o (y => Done (k y))))) (f x))) (tail => Cons y tail)
+    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => Effect.runPure (Call o (y => Done (k y))))) (Effect.bind (List.map xs f) (%9 => Done (Cons y %9))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (%arg0 => f z))) (tail => Cons y tail))
 ────╯

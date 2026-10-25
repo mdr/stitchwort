@@ -12,10 +12,12 @@ theorem toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
 -- A thunk written in place, in an equation: the goal there is already
 -- computed when the split starts (the equation instantiated the statement),
 -- so only the computation is replaced by `y`; the handlers stay unfolded.
+-- `traverse` is a loop: `Result.traverseCons` gives its step first.
 theorem toResultMap (f: a -> {Fail} b): (xs: List a) ->
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>
+    rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
     match reify (() => f x) with
       | return y => ?
       | Fail.stop msg, _ => rfl

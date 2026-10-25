@@ -155,13 +155,15 @@ theorem Fail.toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOp
     | Fail.stop msg, _ => rfl
 
 -- A map over a list fails with the first element's failure, or gives every
--- result. By induction on the list; in the step, a split on `f x`: if it
--- finishes, `toResultThen` and the induction hypothesis say what the rest
--- gives.
+-- result. By induction on the list; in the step, `Result.traverseCons` says
+-- what `traverse` (a loop) does with the first element, then a split on
+-- `f x`: if it finishes, `toResultThen` and the induction hypothesis say
+-- what the rest gives.
 theorem Fail.toResultMap (f: a -> {Fail} b): (xs: List a) ->
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>
+    rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
     match reify (() => f x) with
       | return y =>
         rewrite Fail.toResultThen (() => xs.map f) (ys => Cons y ys), Fail.toResultMap f xs in rfl

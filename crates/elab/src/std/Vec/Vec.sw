@@ -89,10 +89,21 @@ def Vec.ofListDec (n: Nat) (xs: List a): Decidable (List.length xs = n) -> Optio
 def Vec.ofList (n: Nat) (xs: List a): Option (Vec a n) := Vec.ofListDec n xs (Nat.decEq (List.length xs) n)
 
 -- `f` of every element, or `None` if any is `None`: parsing a vector
--- of lines into a vector of rows of a fixed width.
-def Vec.traverseOption: Vec a n -> (f: a -> Option b) -> Option (Vec b n)
-  | VNil, f => Some VNil
-  | VCons x xs, f => Option.flatMap (f x) (y => Option.map (Vec.traverseOption xs f) (ys => VCons y ys))
+-- of lines into a vector of rows of a fixed width. A loop into a list, then
+-- `Vec.ofList`, so stack-safe on long vectors; `Vec.traverseOptionVCons` is
+-- its step.
+def Vec.traverseOption (v: Vec a n) (f: a -> Option b): Option (Vec b n) :=
+  Option.flatMap (Vec.traverseOptionLoop f Nil v) (Vec.ofList n)
+
+-- The loop of `Vec.traverseOption`: `done` holds the values so far, last
+-- first. It stops at the first `None`.
+@[noReceiver]
+def Vec.traverseOptionLoop (f: a -> Option b) (done: List b): Vec a k -> Option (List b)
+  | VNil => Some (List.reverseOnto done Nil)
+  | VCons x xs =>
+    match f x with
+      | Some y => Vec.traverseOptionLoop f (Cons y done) xs
+      | None => None
 
 -- The element at a position.
 def Vec.get: Vec a n -> Fin n -> a
@@ -190,15 +201,58 @@ theorem Vec.sumByToList (v: Vec a n) (f: a -> Nat): Vec.sumBy v f = List.sumBy (
 
 theorem Vec.sumToList (v: Vec Nat n): Vec.sum v = List.sum (Vec.toList v) := Vec.foldLeftToList v 0 Nat.add
 
+-- The proof of the length doesn't matter.
+theorem Vec.fromListNProofs (n: Nat) (xs: List a) (p: List.length xs = n) (q: List.length xs = n): Vec.fromListN n xs p = Vec.fromListN n xs q :=
+  Vec.toListInjective (Vec.fromListN n xs p) (Vec.fromListN n xs q)
+    (Eq.trans (Vec.toListFromListN n xs p) (Eq.sym (Vec.toListFromListN n xs q)))
+
+theorem Vec.ofListDecSucc (y: a) (zs: List a) (k: Nat): (d: Decidable (List.length zs = k)) -> (d2: Decidable (List.length (Cons y zs) = Succ k)) ->
+    Vec.ofListDec (Succ k) (Cons y zs) d2 = Option.map (Vec.ofListDec k zs d) (ys => VCons y ys)
+  | Yes ok, Yes ok2 => Eq.cong Some (Eq.cong (VCons y) (Vec.fromListNProofs k zs (Nat.succInjective (List.length zs) k ok2) ok))
+  | Yes ok, No r => Void.exfalso (r (Eq.cong Succ ok))
+  | No r, Yes ok2 => Void.exfalso (r (Nat.succInjective (List.length zs) k ok2))
+  | No r, No r2 => rfl
+
+-- `ofList` of a list one longer: its tail's vector, with the head in front.
+theorem Vec.ofListSucc (y: a) (zs: List a) (k: Nat): Vec.ofList (Succ k) (Cons y zs) = Option.map (Vec.ofList k zs) (ys => VCons y ys) :=
+  Vec.ofListDecSucc y zs k (Nat.decEq (List.length zs) k) (Nat.decEq (List.length (Cons y zs)) (Succ k))
+
+-- The values done so far go in front of what the rest gives.
+theorem Vec.traverseOptionLoopDone (f: a -> Option b): (v: Vec a k) -> (done: List b) ->
+    Vec.traverseOptionLoop f done v = Option.map (Vec.traverseOptionLoop f Nil v) (ys => List.reverseOnto done ys)
+  | VNil, done => rfl
+  | VCons x xs, done =>
+    match e: f x with
+      | Some y =>
+        rewrite Vec.traverseOptionLoopDone f xs (Cons y done), Vec.traverseOptionLoopDone f xs (Cons y Nil),
+          Option.mapMap (ys => List.reverseOnto (Cons y Nil) ys) (ys => List.reverseOnto done ys) (Vec.traverseOptionLoop f Nil xs) in rfl
+      | None => rfl
+
+theorem Vec.traverseOptionStep (y: b) (k: Nat): (m: Option (List b)) ->
+    Option.flatMap (Option.map m (ys => List.reverseOnto (Cons y Nil) ys)) (Vec.ofList (Succ k))
+      = Option.map (Option.flatMap m (Vec.ofList k)) (ys => VCons y ys)
+  | None => rfl
+  | Some zs => Vec.ofListSucc y zs k
+
+-- The step of `traverseOption`, which the loop form hides.
+theorem Vec.traverseOptionVCons (f: a -> Option b) (x: a) (xs: Vec a k):
+    Vec.traverseOption (VCons x xs) f = Option.flatMap (f x) (y => Option.map (Vec.traverseOption xs f) (ys => VCons y ys)) :=
+  match e: f x with
+    | Some y =>
+      rewrite Vec.traverseOptionLoopDone f xs (Cons y Nil) in Vec.traverseOptionStep y k (Vec.traverseOptionLoop f Nil xs)
+    | None => rfl
+
 -- What `traverseOption` accepts is `f` of each element.
 theorem Vec.traverseOptionCons (f: a -> Option b) (x: a) (xs: Vec a n) (y: b) (ys: Vec b n): (m: Option b) -> f x = m ->
     Vec.traverseOption (VCons x xs) f = Some (VCons y ys) -> And (f x = Some y) (Vec.traverseOption xs f = Some ys)
   | None, e, h =>
     Void.exfalso (Option.noneNotSome (VCons y ys)
-      (Eq.trans (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) (Eq.sym e)) h))
+      (Eq.trans (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) (Eq.sym e))
+        (Eq.trans (Eq.sym (Vec.traverseOptionVCons f x xs)) h)))
   | Some z, e, h =>
     let parts := Vec.ofListCons z y ys (Vec.traverseOption xs f)
-      (Eq.trans (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) (Eq.sym e)) h)
+      (Eq.trans (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) (Eq.sym e))
+        (Eq.trans (Eq.sym (Vec.traverseOptionVCons f x xs)) h))
     Both (Eq.trans e (Eq.cong Some (And.left parts))) (And.right parts)
 
 theorem Vec.traverseOptionGet (f: a -> Option b): (v: Vec a n) -> (out: Vec b n) -> Vec.traverseOption v f = Some out ->
