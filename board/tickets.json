@@ -2497,14 +2497,16 @@
     {
       "id": 449,
       "title": "Partial stage 3 design: tests that run partial code with a tick limit (D1180 b, partial-tests.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "4573d4b4"
+      ]
     },
     {
       "id": 450,
