@@ -1,5 +1,5 @@
 {
-  "next": 500,
+  "next": 501,
   "tickets": [
     {
       "id": 13,
@@ -3175,6 +3175,18 @@
       "id": 499,
       "title": "Terminal lane 5: roguelike on Terminal, partial play with no fuel (after partial handlers B–D, terminal lanes 1–2)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 500,
+      "title": "Native N1: core instructions (+DropReuse, Global, Apply) via Cranelift behind run --native; counters; islands; Set benchmark vs 3× stop point (D1250)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
