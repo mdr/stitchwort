@@ -2471,14 +2471,16 @@
     {
       "id": 447,
       "title": "E-PARTIAL-CALLBACK message shows ?N placeholders and wrongly says to edit std List.map (partial-stage-2.md G3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "089c435c"
+      ]
     }
   ]
 }
