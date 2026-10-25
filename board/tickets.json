@@ -1,5 +1,5 @@
 {
-  "next": 457,
+  "next": 459,
   "tickets": [
     {
       "id": 13,
@@ -2592,6 +2592,30 @@
       "id": 456,
       "title": "std stack safety: Map.indexBy (foldRight) overflows JS stack at ~8k elements; convert to left fold, audit other foldRight builders, 100k regression test",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 457,
+      "title": "Sections: (.id == id) takes the whole bracketed expression (D1192), operator sections (== 'S')/(k +) without '-' (D1193), bare operators (&&) (D1195), drop the special _.foo note (D1194); one lane after rule E lands",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 458,
+      "title": "AoC: rewrite the 8 lambdas that are sections today (D1194b), in the rule-E AoC migration lane",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
