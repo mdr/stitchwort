@@ -5,4 +5,4 @@ import Aoc.Day01 (..)
 import Aoc.Day01.Spec (..)
 import Std (Fail)
 
-test "example, click by click" := zerosPassedSpec startingDial (Fail.orElse [] (() => parseTurns example)) == 6
+test "example, click by click" := zerosPassedSpec (Fail.orElse [] (() => parseTurns example)) startingDial == 6

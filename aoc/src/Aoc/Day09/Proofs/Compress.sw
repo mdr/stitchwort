@@ -22,7 +22,7 @@ import Std (Bool, Eq, List, Nat, Void)
 def SameSide (values: List Nat) (v: Nat) (w: Nat): Prop :=
   (c: Nat) -> List.Mem c values -> And (Nat.leq c v = Nat.leq c w) (Nat.leq v c = Nat.leq w c)
 
-def columnsOf (tiles: List Tile): List Nat := tiles.map (tile => tile.x)
+def columnsOf (tiles: List Tile): List Nat := tiles.map .x
 
 def rowsOf (tiles: List Tile): List Nat := tiles.map (tile => tile.y)
 

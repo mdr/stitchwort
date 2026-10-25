@@ -13,7 +13,7 @@ import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
--- Why `RepetitionTemplate.sumIn` is right (a): `RepetitionTemplate.sumIn r template` equals
+-- Why `RepetitionTemplate.sumIn` is right (a): `RepetitionTemplate.sumIn template r` equals
 -- `repeatedSpec r k n`, the brute-force sum below, for every range, block
 -- length and repeat count.
 --
@@ -50,7 +50,7 @@ def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
     m * Nat.sumBetween from to
   else 0
 
-theorem repeatedAt (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
+theorem repeatedAt (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
 
 -- The multiplier: writing `b` n times is `b * multiplier k n`.
 theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10 k * multiplier k n :=
@@ -174,13 +174,13 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
           (Succ p - low) low)
 
 -- (a) The arithmetic sum is the brute-force one.
-theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = repeatedSpec r k n :=
+theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = repeatedSpec r k n :=
   Eq.trans (blocksWindow r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (Nat.powSuccPos 9 k) (Nat.powTenPredLe k) (multiplier k n))
     (Eq.sym (specWindow r k n))
 
 -- Why `RepetitionTemplate.sumIn` is right (b), for any number of copies
--- n >= 2: `repeatedIds` says `RepetitionTemplate.sumIn r` of the template k by
--- n is the sum the puzzle describes, walking the ids of the range and keeping
+-- n >= 2: `repeatedIds` says `template.sumIn r`, for the template k by
+-- n, is the sum the puzzle describes, walking the ids of the range and keeping
 -- those whose digits are some k-digit block written n times (any k from 1
 -- on). Part 1 uses it at n = 2, Part 2 for every n.
 --
@@ -361,10 +361,10 @@ theorem repeatedSpecIds (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
     repeatedSpec r k n = List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) :=
   rewrite blocksAsIds r k n, repBlockCount _ n hn k hk
 
--- (b) `RepetitionTemplate.sumIn r` of the template k by n adds the ids of the
+-- (b) `template.sumIn r`, for the template k by n, adds the ids of the
 -- range whose digits are a k-digit block written n times.
 theorem repeatedIds (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    RepetitionTemplate.sumIn r { blockLength = k, copies = n } = List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) :=
+    RepetitionTemplate.sumIn { blockLength = k, copies = n } r = List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) :=
   Eq.trans (repeatedCorrect r k n) (repeatedSpecIds r k hk n hn)
 
 -- Over the block lengths, (c): an id is a block written n times for one

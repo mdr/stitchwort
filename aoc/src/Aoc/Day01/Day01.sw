@@ -24,11 +24,11 @@ def main(): {IO, Fail} () :=
 
 -- One turn per line. Spaces around a turn are allowed; anything else fails,
 -- naming the line.
-def parseTurns (lines: List Text): {Fail} (List Turn) := parseLines Turn.parse lines
+def parseTurns (lines: List Text): {Fail} (List Turn) := parseLines lines Turn.parse
 
-def solvePart1 (turns: List Turn): Nat := zerosLandedOn startingDial turns
+def solvePart1 (turns: List Turn): Nat := zerosLandedOn turns startingDial
 
-def solvePart2 (turns: List Turn): Nat := zerosPassed startingDial turns
+def solvePart2 (turns: List Turn): Nat := zerosPassed turns startingDial
 
 -- The dial: where it points, on a dial of `n` positions.
 type Dial (n: Nat) = { position: Mod n }
@@ -37,14 +37,14 @@ type Dial (n: Nat) = { position: Mod n }
 def startingDial: Dial 100 := { position = Mod.ofNat 50 }
 
 -- Part 1: the positions after each turn that are 0.
-def zerosLandedOn (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosLandedOn (turns: List Turn) (startingDial: Dial n): Nat :=
   turns
     |> .scanLeft startingDial .move
     |> .drop 1
     |> .count .isZero
 
 -- Part 2: for each turn, the clicks onto 0 from where the dial was before it.
-def zerosPassed (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
   turns
     |> .scanLeft startingDial .move
     |> .zipWith turns .zerosDuring

@@ -76,7 +76,7 @@ def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 def Grid.rolls (grid: Grid): Nat := countRolls grid.rows
 
 -- The rolls in some rows.
-def countRolls (rows: Vec (Vec Cell w) h): Nat := rows.sumBy (row => row.sumBy .count)
+def countRolls (rows: Vec (Vec Cell w) h): Nat := rows.sumBy (.sumBy .count)
 
 def Grid.round (grid: Grid): Grid := { grid | rows = roundRows grid.rows }
 

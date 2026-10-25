@@ -26,7 +26,7 @@ theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.range
   let size := List.length (Nat.digits r.to)
   calc sumOfIdsWrittenTwice r
     -- (`List.between 1 size` is `List.rangeFrom (size + 1 - 1) 1`)
-    _ = List.sumBy (List.rangeFrom size 1) (k => RepetitionTemplate.sumIn r { blockLength = k, copies = 2 })
+    _ = List.sumBy (List.rangeFrom size 1) (k => RepetitionTemplate.sumIn { blockLength = k, copies = 2 } r)
       := rewrite (omega: size + 1 - 1 = size)
     _ = List.sumBy (List.rangeFrom size 1) (k => repeatedSpec r k 2)
       := rewrite repeatedCorrect r _ 2

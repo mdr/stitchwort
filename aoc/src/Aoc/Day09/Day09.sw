@@ -36,11 +36,11 @@ type Tile = { x: Nat, y: Nat }
 
 -- One red tile per line, in the order the loop joins them. Spaces around a
 -- line or a number are allowed; anything else fails, naming the line.
-def parseTiles (lines: List Text): {Fail} (List Tile) := parseLines parseTile lines
+def parseTiles (lines: List Text): {Fail} (List Tile) := parseLines lines parseTile
 
 -- "7,1" is `{ x = 7, y = 1 }`.
 def parseTile (line: Text): {Fail} Tile :=
-  match line.split ',' |> .map (part => part.trim.toNat) with
+  match line.split ',' |> .map .trim.toNat with
     | [Some x, Some y] => { x, y }
     | _ => fail "expected a red tile like 7,1, got '${line}'"
 
@@ -99,7 +99,7 @@ def keyLines (values: List Nat): List Nat := List.append values (values.map Succ
 type Floor = { columns: List Nat, rows: List Nat, outside: PrefixSums }
 
 def Floor.of (tiles: List Tile): Floor :=
-  let columns := keyLines (tiles.map (tile => tile.x))
+  let columns := keyLines (tiles.map .x)
   let rows := keyLines (tiles.map (tile => tile.y))
   { columns, rows, outside = PrefixSums.of (Floor.outsideCells (loopLines tiles) columns rows) }
 
