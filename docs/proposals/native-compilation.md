@@ -1052,7 +1052,7 @@ Each route is judged on:
 |---|---|---|
 | N0 | Spike: Cranelift as a dependency behind a Cargo feature (off in the wasm build). JIT one hand-built function on macOS arm64 and Linux x86-64. Measure the binary growth and compile time. **Check on macOS that JIT code runs in an unsigned development build, in a signed build, and in a hardened build** (and a notarised one, if we ship that), and what entitlement or `MAP_JIT` use each needs (§2.10). | It runs, in Nix, and `nix flake check` builds both with and without the feature; the three macOS cases are recorded |
 | N1 | Translate the core instructions: `Move`/`Take`/`Drop`, `Const`, `Call`/`TailCall`/`Return`, `Switch`/`Field`/`Unpack`, `Ctor`/`CtorReuse`, `Test`/`JumpIfFalse`/`Jump`, and `Nat` fast paths with runtime calls for the slow paths. **Frame and step counters**, counted as the machine counts them, so the speed measured includes the bookkeeping native code will really have. Whole reachable islands (§4.6): an entry point whose reach has an unsupported instruction runs wholly on the machine. A debug-only allocation trace (below). Behind `run --native`. | `micro_call`, `micro_tail` and the `Set` benchmark run and agree, **with counters in**; **first real speed measurement**, stop point at 3× |
-| N2 | The big-stack thread and the full `E-RESOURCE` handling; tail calls between functions (`return_call`), with the tail-call tests below. | §6's stack-safety tests pass under `--native`, and the counter fires before the stack on every supported target |
+| N2 | Split in two (D1279). **N2a** (built, [below](#n2a-as-built-25-october-2026-d1279)): registers in machine registers, counters in registers. **N2b**: the big-stack thread and the full `E-RESOURCE` handling; tail calls between functions (`return_call`), with the tail-call tests below. | §6's stack-safety tests pass under `--native`, and the counter fires before the stack on every supported target |
 | N3 | The remaining instructions: closures, `Apply`/`Pap` (eval/apply), `Int`/`Text`/`NumSwitch`, `Captured`, `Global` constants. | Every function compiles; `machine.rs`'s differential tests pass under `--native` |
 | N4 | Effects: the effect loop calls compiled continuations; `Text.fold`; the `Delay` runner. | `effect_differential.rs` and the partial tests agree three ways |
 | N5 | Run the whole differential suite with `--native` added; fix what it finds. | All agree |
@@ -1302,6 +1302,106 @@ pass of the 3× stop point, so N2 stays waiting for the re-plan.
    it's process-wide, so `check` workloads would need measuring first.
 5. **Counters in registers.** A few loads and stores per call, so a small share.
    Size: medium.
+
+## N2a as built (25 October 2026, D1279)
+
+**[ran]** Item 1 of the ranked list above: registers in machine registers.
+In `crates/native/src/n1.rs` (its module comment has the details).
+
+**Registers.** Each bytecode register is three Cranelift variables, one
+per word of its value, so Cranelift allocates machine registers and spills
+only what it must. An empty register's words are all 0 (`Erased`): a move
+out sets them so, which costs nothing, so registers known to be empty are
+never erased in memory and never dropped (`full`, the forward analysis N1
+already had, says which registers a write, a return or an exit must drop).
+
+**The boundary with the runtime.** Values go to memory only where a Rust
+helper takes a pointer, and then as the machine would have them in its
+register vector:
+- a helper that reads values (a native operation's slow path, a test, a big
+  number's `NumSwitch`) borrows copies of the words in a spill slot;
+- a helper that takes a value (`DropReuse`'s source, `CtorReuse`'s token)
+  is given it in a spill slot, and the register is empty after;
+- a helper that writes a register (`Prim`, a big `NatPred`, `DropReuse`'s
+  token) writes an empty spill slot, and the value is then assigned to the
+  register like any other write, the old value dropped after, in the
+  machine's order;
+- under the trace, `Unpack` goes through the runtime on every register,
+  written out and read back.
+
+Each value is in exactly one place at a time, and every move, clone and
+drop is the bytecode's. `sw_inc` now takes the three words, not a pointer.
+
+**Error exits.** N1 had one unwind block that released the register slot.
+With registers in variables, each point that can stop (a step, a frame, an
+error after a call) has its own cold exit, which writes the registers that
+may hold a value there into the spill slot and releases them, highest
+first, as before.
+
+**Smaller wins that fell out:**
+- **Counters in registers.** The steps left are in Cranelift's pinned
+  register (x21 on arm64, r15 on x86-64): the trampoline loads it from the
+  context, keeps the host's value of the register, and writes the steps
+  back after. The frames pending are an argument of every body, so a
+  return needs no decrement. Counting stays exact (the `n1.rs` resource
+  tests).
+- **No field erases for a freed cell.** After a unique `Unpack` without a
+  token that takes every field, the cell is freed as `MaybeUninit` values
+  (`sw_free_emptied`), so the fields needn't be erased first (N1 erased
+  them, and its "free without a walk" still walked them). About −2 G
+  instructions on `Set`.
+- The spill slot is sized to the most registers an exit releases, not to
+  every register.
+
+Not done: an inline `Nat.compare` fast path. `compare` is called through
+`Apply` on a dictionary, so it can't be inlined without knowing the target;
+its body's fast path is already inline. What it costs now is mostly its
+prologue (callee-saved registers that only its slow paths need).
+
+**Agreement.** The `n1.rs` tests pass unchanged (outputs, event-identical
+allocation traces, the least step and frame limits). A new test,
+`every_error_exit_frees_the_live_registers`, runs a program with values
+live across direct calls, `Apply`, a constant's first computation and tail
+calls under every step limit and every frame limit up to the least that
+finishes, and checks each stops as the machine does and frees every cell.
+Breaking the exits' release on purpose fails it; the older tests didn't
+notice.
+
+**The measurement** (Apple M4 Pro, release; load average 25–57, so wall
+times are rough; cycles and instructions from `/usr/bin/time -l`, best of 3
+by cycles; inserts are `set_nat` minus the keys, as before):
+
+| Program | Runner | Wall s | Cycles (G) | Instructions (G) | vs machine (cycles) |
+|---|---|---:|---:|---:|---:|
+| `Set` inserts | machine | 9.64 | 38.1 | 171.6 | 1× |
+| | `--native`, N1 | 3.24 | 12.6 | 49.5 | 3.0× |
+| | `--native`, N2a | 2.75 | 10.6 | 41.0 | **3.6×** |
+| | hand Rust, `ir` (whole run) | 1.89 | 7.4 | 24.8 | 5.1× |
+| `micro_call` | machine | 0.92 | 3.58 | 18.9 | 1× |
+| | `--native`, N1 | 0.22 | 0.81 | 3.95 | 4.4× |
+| | `--native`, N2a | 0.17 | 0.61 | 2.88 | **5.8×** |
+| `micro_tail` | machine | 0.59 | 2.29 | 14.8 | 1× |
+| | `--native`, N1 | 0.16 | 0.58 | 2.83 | 4.0× |
+| | `--native`, N2a | 0.12 | 0.43 | 2.08 | **5.4×** |
+
+`task native:bench` (best of 3 wall seconds, load average 47–57 falling to
+28): inserts machine 10.30, `--js` 3.41, `--native` 2.61 (**3.9×**);
+`micro_call` 5.3×, `micro_tail` 4.4×. Native is now faster than `--js` on
+every program.
+
+**Where the rest goes** (macOS `sample`, 2 s of the `Set` run, samples
+mapped to bodies with `STITCHWORT_NATIVE_DUMP`'s addresses): about 43% in
+compiled code, about 41% in mimalloc, about 10% in freeing (`Value`'s drop
+glue, `sw_free_emptied`) and the rest in glue (`sw_ctor`'s copy). Of the
+compiled code's samples, `insertWith` has 60%, mostly on the loads of a
+node's counts and fields (cache misses on the tree, which the hand Rust has
+too). The instruction gap to the `ir` Rust is now 1.65× (was 2×). What's
+left of it in the code generator: wide bodies take most arguments on the
+stack (three words a value), and Cranelift copies them into its own spill
+slots on entry; values live across calls spill too. Packing a value into
+fewer words, or inline allocation and freeing (item 3), are what's next on
+that front; item 2 (reuse across `rebuild`) and item 4 (mimalloc's
+`page_full_retain`) are unchanged by this stage.
 
 ## External review (25 October 2026)
 
