@@ -4,10 +4,10 @@
 //! stage 2 machine, and not part of the crate's interface.
 
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint, Sign};
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
 use stitchwort_rt::Program;
 use stitchwort_rt::effect::EffectOp;
@@ -145,7 +145,7 @@ impl<'p> Interp<'p> {
     pub fn new(p: &'p Program) -> Self {
         Interp {
             p,
-            constants: RefCell::new(HashMap::new()),
+            constants: RefCell::new(HashMap::default()),
             depth: Cell::new(0),
         }
     }

@@ -637,8 +637,8 @@ type CallPair = (usize, String, String);
 thread_local! {
     /// How many tree comparisons are open, and the pairs of calls found
     /// equal since the outermost one started.
-    static EQUAL_CALLS: std::cell::RefCell<(usize, std::collections::HashSet<CallPair>)> =
-        std::cell::RefCell::new((0, std::collections::HashSet::new()));
+    static EQUAL_CALLS: std::cell::RefCell<(usize, crate::collections::HashSet<CallPair>)> =
+        std::cell::RefCell::new((0, crate::collections::HashSet::default()));
 }
 
 /// One open tree comparison; the record is dropped with the outermost.

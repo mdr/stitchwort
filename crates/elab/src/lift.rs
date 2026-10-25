@@ -27,10 +27,11 @@
 //!    on its own if it refers to nothing pending, or else joins the owner's
 //!    group, admitted with it (§2.2).
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::State;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Head, eval, quote_folded};
@@ -381,7 +382,7 @@ fn keys(owner: &str, drafts: &[Draft]) -> Vec<String> {
             .map_or_else(|| owner.to_string(), |l| l.key.clone())
     };
     let mut out = vec![String::new(); drafts.len()];
-    let mut matches: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut matches: HashMap<String, Vec<usize>> = HashMap::default();
     for (i, d) in drafts.iter().enumerate() {
         match &d.local {
             Some(l) => out[i] = l.key.clone(),
@@ -444,7 +445,7 @@ impl Elaborator {
         }
         drop(unrefined);
         let mut joined: Vec<(DefId, Term)> = Vec::new();
-        let mut joined_ids = HashSet::new();
+        let mut joined_ids = HashSet::default();
         let mut resolved: Vec<Option<Resolved>> = (0..drafts.len()).map(|_| None).collect();
         // Tarjan's components come after the components they call.
         for mut component in crate::module::tarjan(&calls) {
@@ -932,7 +933,7 @@ impl Elaborator {
         for (i, d) in drafts.iter().enumerate() {
             let n = d.env.len();
             let calls = |m: usize| index.get(&m).map(|&j| (spines[j].len(), used[j].clone()));
-            let mut deps: HashMap<usize, BTreeSet<usize>> = HashMap::new();
+            let mut deps: HashMap<usize, BTreeSet<usize>> = HashMap::default();
             for &l in &caps[i] {
                 let mut found = BTreeSet::new();
                 uses(
@@ -1079,7 +1080,7 @@ impl Elaborator {
     /// its alternatives are elaborated).
     pub(crate) fn lifted_type(&self, draft: &Draft) -> Result<Term> {
         self.arounds.borrow_mut().clear();
-        let (ordered, _) = self.captures(std::slice::from_ref(draft), &HashMap::new())?;
+        let (ordered, _) = self.captures(std::slice::from_ref(draft), &HashMap::default())?;
         let ty = self.parts(draft, &ordered[0], &|_| false, false);
         self.arounds.borrow_mut().clear();
         Ok(ty?.0)

@@ -9,16 +9,17 @@
 //! doesn't use the runtime's `reachable`, which skips the bodies of erased
 //! definitions: a proof is exactly where `Quot.sound` shows up.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 
+use stitchwort_core::collections::HashSet;
 use stitchwort_core::globals::Globals;
 use stitchwort_core::{DataId, DefId, QuotForm, Term};
 
 /// The names of the axioms `root` depends on, sorted.
 pub fn axioms(globals: &Globals, root: DefId) -> BTreeSet<&'static str> {
     let mut found = BTreeSet::new();
-    let mut seen_defs = HashSet::new();
-    let mut seen_datas = HashSet::new();
+    let mut seen_defs = HashSet::default();
+    let mut seen_datas = HashSet::default();
     let mut pending = vec![Node::Def(root)];
     while let Some(node) = pending.pop() {
         let mut terms: Vec<&Term> = Vec::new();

@@ -17,7 +17,7 @@
 //! Each row remembers how it was made ([`Node`]), so a contradiction can be
 //! written out as certificate steps ([`emit`]), each row once per branch.
 
-use std::collections::HashMap;
+use stitchwort_core::collections::HashMap;
 
 /// `0 <= c + Σ a[i] * x_i`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -615,7 +615,7 @@ impl Search<'_> {
                 )
             }
             Tree::Closed(id) => {
-                let mut numbers: HashMap<usize, usize> = HashMap::new();
+                let mut numbers: HashMap<usize, usize> = HashMap::default();
                 let mut steps: Vec<Step> = Vec::new();
                 let last = self.write(*id, depth, &mut numbers, &mut steps);
                 let mut cert = Cert::Close(last);

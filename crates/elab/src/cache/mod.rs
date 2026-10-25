@@ -40,10 +40,11 @@
 mod codec;
 mod dump;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::State;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::js_repr::{JsCtor, JsRepr};
@@ -197,7 +198,7 @@ impl Elaborator {
     pub(crate) fn library_key(&self, f: usize) -> Key {
         let index = self.library_index().expect("a library is installed");
         let store = self.check_cache.as_ref().expect("a cache is set");
-        let mut keys: HashMap<usize, Key> = HashMap::new();
+        let mut keys: HashMap<usize, Key> = HashMap::default();
         // Dependencies first: the edges never form a cycle (the index is
         // checked), so a work list in post-order ends.
         let mut stack = vec![(f, false)];
@@ -1060,7 +1061,7 @@ fn static_code(code: &str) -> &'static str {
     use std::sync::{Mutex, OnceLock};
     static CODES: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
     let mut codes = CODES
-        .get_or_init(|| Mutex::new(HashSet::new()))
+        .get_or_init(|| Mutex::new(HashSet::default()))
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(&c) = codes.get(code) {
@@ -1131,7 +1132,7 @@ impl Elaborator {
         };
         let unit = UnitOut {
             file_names: self.std_file_names(),
-            own_files: HashSet::from([index.files[f].id]),
+            own_files: HashSet::from_iter([index.files[f].id]),
             library: true,
         };
         self.encode(&unit, before, &names, &PreOut::default(), &[], key, salt)
@@ -1207,11 +1208,11 @@ impl Elaborator {
             return Err("an instance from before changed".to_string());
         }
 
-        let mut def_paths: HashMap<&str, usize> = HashMap::new();
+        let mut def_paths: HashMap<&str, usize> = HashMap::default();
         for def in &g.defs {
             *def_paths.entry(&def.path).or_default() += 1;
         }
-        let mut data_paths: HashMap<&str, usize> = HashMap::new();
+        let mut data_paths: HashMap<&str, usize> = HashMap::default();
         for data in &g.datas {
             *data_paths.entry(&data.path).or_default() += 1;
         }
@@ -1220,14 +1221,14 @@ impl Elaborator {
                 g,
                 base_defs: before.defs,
                 base_datas: before.datas,
-                ext_defs: HashMap::new(),
-                ext_datas: HashMap::new(),
+                ext_defs: HashMap::default(),
+                ext_datas: HashMap::default(),
                 deps: Vec::new(),
                 def_paths,
                 data_paths,
                 names: unit.file_names.clone(),
                 files: Vec::new(),
-                file_ids: HashMap::new(),
+                file_ids: HashMap::default(),
                 problem: None,
             },
             terms: TermWriter::default(),
@@ -2130,14 +2131,14 @@ impl Elaborator {
 
         // The dependencies: each path names one final declaration, with the
         // hash it had when the entry was written.
-        let mut def_paths: HashMap<&str, Option<DefId>> = HashMap::new();
+        let mut def_paths: HashMap<&str, Option<DefId>> = HashMap::default();
         for (i, def) in g.defs.iter().enumerate() {
             def_paths
                 .entry(&def.path)
                 .and_modify(|e| *e = None)
                 .or_insert(Some(DefId(i)));
         }
-        let mut data_paths: HashMap<&str, Option<DataId>> = HashMap::new();
+        let mut data_paths: HashMap<&str, Option<DataId>> = HashMap::default();
         for (i, data) in g.datas.iter().enumerate() {
             data_paths
                 .entry(&data.path)
@@ -2419,7 +2420,7 @@ impl Elaborator {
             done: bool,
         }
         let mut groups: Vec<Group> = Vec::new();
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         for (i, def) in defs.iter().enumerate() {
             if !def.group.contains(&i) {
                 return bad("a definition outside its own group");
@@ -2459,7 +2460,7 @@ impl Elaborator {
             });
         }
         let mut data_groups: Vec<usize> = Vec::new();
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         for (j, data) in datas.iter().enumerate() {
             let Some(&first) = data.group.first() else {
                 return bad("an empty data group");

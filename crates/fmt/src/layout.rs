@@ -34,6 +34,10 @@
 //! unchanged ([`Stats::verbatim_decls`]), so a gap in the rules costs one
 //! declaration's formatting rather than the file's.
 
+// The formatter doesn't depend on the core, whose maps hash the same on
+// every run (`stitchwort_core::collections`), and isn't benchmarked.
+#![allow(clippy::disallowed_types)]
+
 use std::collections::HashMap;
 use std::ops::Range;
 

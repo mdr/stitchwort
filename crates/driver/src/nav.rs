@@ -2,9 +2,9 @@
 //! for the command line and the playground; and as data ([`Index`]), for
 //! the language server.
 
-use std::collections::HashMap;
 use std::fmt::Write;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_elab::{NavIndex, NavTarget};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, Tok};
 
@@ -284,7 +284,7 @@ pub fn index_data_of(
     // A file of the index: a source file, or for the core, one of the files
     // it is made of (the second member; 0 for any other file).
     let mut files: Vec<(FileId, usize)> = Vec::new();
-    let mut file_index: HashMap<(FileId, usize), usize> = HashMap::new();
+    let mut file_index: HashMap<(FileId, usize), usize> = HashMap::default();
     let mut file_of = |span: Span, files: &mut Vec<(FileId, usize)>| {
         let key = (span.file, core_part(sources, span).map_or(0, |(i, _)| i));
         *file_index.entry(key).or_insert_with(|| {
@@ -292,7 +292,7 @@ pub fn index_data_of(
             files.len() - 1
         })
     };
-    let mut parens: HashMap<FileId, Parens> = HashMap::new();
+    let mut parens: HashMap<FileId, Parens> = HashMap::default();
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
@@ -465,7 +465,7 @@ struct Parens {
 impl Parens {
     fn of(file: FileId, text: &str) -> Parens {
         let mut spans = Vec::new();
-        let mut partner = HashMap::new();
+        let mut partner = HashMap::default();
         let mut open = Vec::new();
         let mut interpolations = Vec::new();
         let mut literals = Vec::new();

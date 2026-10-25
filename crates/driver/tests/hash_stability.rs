@@ -174,11 +174,11 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
             .load_project(&files, &name, &Target::Everything)
             .unwrap_or_else(|e| panic!("{name} doesn't load: {e:#?}"));
         let all = lines(&whole, 0, 0);
-        let all: std::collections::HashSet<&str> = all.lines().collect();
+        let all: stitchwort_core::collections::HashSet<&str> = all.lines().collect();
         // The whole project's lines, without the prelude's.
         let prelude = Session::new();
         let base = lines(&prelude, 0, 0);
-        let base: std::collections::HashSet<&str> = base.lines().collect();
+        let base: stitchwort_core::collections::HashSet<&str> = base.lines().collect();
         for namespace in &loaded.checked {
             let mut alone = Session::new();
             alone

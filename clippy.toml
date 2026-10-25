@@ -1,0 +1,4 @@
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "its hashes differ between runs, and so can allocation counts: use stitchwort_core::collections::HashMap" },
+    { path = "std::collections::HashSet", reason = "its hashes differ between runs, and so can allocation counts: use stitchwort_core::collections::HashSet" },
+]

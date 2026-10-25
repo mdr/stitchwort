@@ -20,8 +20,9 @@
 //! program's, then the library's), and looks the rest up inside it. `Std.…`
 //! always means the library.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_syntax::ast::{self, Import};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -1385,7 +1386,7 @@ impl Elaborator {
                 self.note_import(item, &key);
                 let file = self.current_file();
                 if self.scope.imports.len() <= file {
-                    self.scope.imports.resize_with(file + 1, HashMap::new);
+                    self.scope.imports.resize_with(file + 1, HashMap::default);
                 }
                 let entry = self.scope.imports[file]
                     .entry(item.text.clone())

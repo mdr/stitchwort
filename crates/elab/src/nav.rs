@@ -13,8 +13,8 @@
 //! winning.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{FileId, Span};
@@ -542,7 +542,7 @@ impl Elaborator {
         };
         let nav = nav.borrow();
         let mut symbols: Vec<NavSymbol> = Vec::new();
-        let mut by_span: HashMap<Span, usize> = HashMap::new();
+        let mut by_span: HashMap<Span, usize> = HashMap::default();
         for item in &nav.outline {
             by_span.insert(item.span, symbols.len());
             let key = item.key.clone();
@@ -570,7 +570,8 @@ impl Elaborator {
         noted_refs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
         // The symbols whose name is one a user writes (not a generated `%`
         // member's): the first such reference names the symbol.
-        let mut visible: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        let mut visible: stitchwort_core::collections::HashSet<usize> =
+            stitchwort_core::collections::HashSet::default();
         for (at, noted) in noted_refs {
             if !wanted(*at, noted.dot.as_deref()) {
                 continue;
@@ -660,7 +661,7 @@ impl Elaborator {
             });
         }
         // Each declaration's own name refers to it, for hover and definition there.
-        let mut taken: std::collections::HashSet<(FileId, u32)> =
+        let mut taken: stitchwort_core::collections::HashSet<(FileId, u32)> =
             refs.iter().map(|r| (r.span.file, r.span.start)).collect();
         for (i, item) in nav.outline.iter().enumerate() {
             if item.kind == "test" || !taken.insert((item.span.file, item.span.start)) {
@@ -1162,7 +1163,7 @@ impl Walk<'_> {
     /// Runs steps in order, with a work list (expressions nest more deeply
     /// than recursion could follow).
     fn run(&mut self, work: Vec<Work<'_>>) {
-        let mut bound: HashMap<&str, Vec<Span>> = HashMap::new();
+        let mut bound: HashMap<&str, Vec<Span>> = HashMap::default();
         let mut stack: Vec<Work> = work;
         stack.reverse();
         fn then<'a>(stack: &mut Vec<Work<'a>>, steps: Vec<Work<'a>>) {

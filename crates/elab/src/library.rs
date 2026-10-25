@@ -28,9 +28,10 @@
 //! `std/core/`, in the namespace they declare into.
 
 use std::cmp::Reverse;
-use std::collections::{BTreeSet, BinaryHeap, HashMap};
+use std::collections::{BTreeSet, BinaryHeap};
 use std::sync::{Arc, OnceLock};
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_syntax::ast::{Decl, Expr, Module};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, parse_module_within};
 
@@ -220,7 +221,7 @@ impl LibraryIndex {
         // way loading them does.
         let mut scratch = Elaborator::new();
         scratch.loading_prelude = true;
-        let mut owner: HashMap<String, usize> = HashMap::new();
+        let mut owner: HashMap<String, usize> = HashMap::default();
         for f in 0..parsed.len() {
             let names = file_names(&scratch, &parsed[f])?;
             for name in &names {
@@ -234,7 +235,7 @@ impl LibraryIndex {
             }
             parsed[f].names = names;
         }
-        let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::new();
+        let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::default();
         for (f, file) in parsed.iter().enumerate().skip(1) {
             for name in file.names.iter().filter(|n| n.kind == PendingKind::Def) {
                 let namespace = name

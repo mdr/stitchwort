@@ -18,10 +18,10 @@
 //! variables for their copies. A named scrutinee also binds its equation
 //! `h : e = s`, after the copies, passed `rfl`.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Head, quote};
 use stitchwort_core::{Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
@@ -540,7 +540,7 @@ fn generalised(
         }
         extra.push(s.term.clone());
     }
-    let mut copies = HashMap::new();
+    let mut copies = HashMap::default();
     for (i, &l) in copied.iter().enumerate() {
         let depth = base + e + i;
         let generalise = Generalise {

@@ -40,9 +40,10 @@
 //! declaration outside it, so a mistake here can't split a cycle.
 
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::BinaryHeap;
 
 use crate::kernel;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, DefId};
@@ -634,7 +635,7 @@ impl Elaborator {
         let mut decl_spans: Vec<Span> = Vec::new();
         // The position of each file's first declaration.
         let mut file_starts = Vec::new();
-        let mut test_names: HashMap<&str, Span> = HashMap::new();
+        let mut test_names: HashMap<&str, Span> = HashMap::default();
         for (file, unit) in files.iter().enumerate() {
             let decls: &'m [Decl] = &unit.module.decls;
             let base = decl_spans.len();
@@ -734,7 +735,7 @@ impl Elaborator {
         // namespaces. Imports are per file (docs/proposals/multi-file.md
         // §4.4); an import error is reported at its file's first declaration.
         let mut import_errors: Vec<(usize, Diagnostic)> = Vec::new();
-        let mut left_out = HashSet::new();
+        let mut left_out = HashSet::default();
         for qualified in [false, true] {
             if qualified {
                 self.add_file_imports(files, &file_starts, false, &mut import_errors);
@@ -796,7 +797,7 @@ impl Elaborator {
             let mut kept = Vec::new();
             let mut infos = Vec::new();
             let old = std::mem::take(&mut self.module.items);
-            let mut renumber = HashMap::new();
+            let mut renumber = HashMap::default();
             for (index, (item, info)) in items.into_iter().zip(old).enumerate() {
                 if !left_out.contains(&index) {
                     renumber.insert(index, kept.len());
@@ -1102,7 +1103,7 @@ impl Elaborator {
     /// (Adding edges into `from` never changes it, unless they close a
     /// cycle, which `instance_edges` doesn't do.)
     fn reachable(&self, from: usize) -> HashSet<usize> {
-        let mut seen = HashSet::new();
+        let mut seen = HashSet::default();
         let mut pending = vec![from];
         while let Some(i) = pending.pop() {
             if !seen.insert(i) {
@@ -1417,7 +1418,7 @@ impl Elaborator {
     /// being checked: the items along it, starting with `from` and ending
     /// with `to`.
     fn path_within(&self, from: usize, to: usize) -> Vec<usize> {
-        let mut parent: HashMap<usize, usize> = HashMap::new();
+        let mut parent: HashMap<usize, usize> = HashMap::default();
         let mut queue = std::collections::VecDeque::from([from]);
         while let Some(i) = queue.pop_front() {
             for dep in &self.module.items[i].deps {
@@ -1754,7 +1755,7 @@ impl Elaborator {
     /// waits for.
     fn why_waiting(&self, item: usize) -> String {
         let items = &self.module.items;
-        let mut parent: HashMap<usize, usize> = HashMap::new();
+        let mut parent: HashMap<usize, usize> = HashMap::default();
         let mut queue = std::collections::VecDeque::from([item]);
         let mut end = None;
         while let Some(i) = queue.pop_front() {
@@ -2168,7 +2169,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
 fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     let mut stack: Vec<Work> = work;
     stack.reverse();
-    let mut bound: HashMap<&str, usize> = HashMap::new();
+    let mut bound: HashMap<&str, usize> = HashMap::default();
     let mut out = Vec::new();
     // Pushes steps to run in the order given.
     fn then<'a>(stack: &mut Vec<Work<'a>>, steps: Vec<Work<'a>>) {
