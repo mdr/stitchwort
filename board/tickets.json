@@ -1,5 +1,5 @@
 {
-  "next": 481,
+  "next": 482,
   "tickets": [
     {
       "id": 13,
@@ -2932,6 +2932,18 @@
       "commits": [
         "071c124b"
       ]
+    },
+    {
+      "id": 481,
+      "title": "Roguelike friction bugs: fmt record-update indent (not idempotent), % (n+1) message, ∈ on records with derived DecEq, constructor ambiguity with known type, IO.simulate import",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
