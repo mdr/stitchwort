@@ -3478,7 +3478,7 @@
     {
       "id": 521,
       "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3528,7 +3528,7 @@
     {
       "id": 525,
       "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, groups unfold together D1267, hashing, E-NOT-OPAQUE) — branch, morning review",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3540,7 +3540,7 @@
     {
       "id": 526,
       "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold generation (lazy), docs — after lane 1",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3686,14 +3686,16 @@
     {
       "id": 538,
       "title": "Standalone S2: terminal host code into crates/host",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "78c67af0"
+      ]
     },
     {
       "id": 539,
