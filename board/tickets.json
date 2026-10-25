@@ -3100,14 +3100,16 @@
     {
       "id": 493,
       "title": "Proof goals print top-level constants unfolded (rogue: 30 KB goals); keep names folded",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "17b81d6d"
+      ]
     },
     {
       "id": 494,
