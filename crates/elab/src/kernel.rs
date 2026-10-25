@@ -112,3 +112,25 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
 pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
     unglued(g, |g| k::define_data_group(g, members))
 }
+
+/// [`substitute`] for the elaborator's case splits: each value is read back
+/// with its calls folded (`value::quote_folded`), so a refined context keeps
+/// what was written (`isWall p = False`, not the dungeon map `isWall`
+/// computes from) while staying convertible with the kernel's normal form.
+/// Without gluing there are no calls and this is [`substitute`].
+pub fn substitute_folded(
+    g: &Globals,
+    level: usize,
+    x: usize,
+    value: &stitchwort_core::Value,
+    values: &[stitchwort_core::Value],
+) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
+    use stitchwort_core::value::{eval, quote_folded};
+    let mut env: Vec<stitchwort_core::Value> =
+        (0..level).map(stitchwort_core::Value::var).collect();
+    env[x] = value.clone();
+    values
+        .iter()
+        .map(|v| eval(g, &env, &quote_folded(g, level, v)?))
+        .collect()
+}
