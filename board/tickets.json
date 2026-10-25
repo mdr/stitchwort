@@ -3602,14 +3602,16 @@
     {
       "id": 531,
       "title": "Playground browser tests: 3 failures (arrow in tooltip, failed-comparison example, library tooltip timeout); per-project error path prefix; 256 KiB guard docs",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "39bf3840"
+      ]
     },
     {
       "id": 532,
