@@ -1,5 +1,5 @@
 {
-  "next": 502,
+  "next": 503,
   "tickets": [
     {
       "id": 13,
@@ -3202,6 +3202,18 @@
     {
       "id": 501,
       "title": "Goals: keep zero-argument constants folded (maxHitPoints prints as 12, dungeon as a list); one spot in eval_step, measure AoC check and examples before/after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 502,
+      "title": "Daily tier broken: extract generated_code_is_stable snapshots (foldLeft → foldLeft$e after effect-polymorphic list lane 1); re-record and review",
       "status": "backlog",
       "agent": "",
       "where": "",
