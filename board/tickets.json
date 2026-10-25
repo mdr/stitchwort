@@ -2404,7 +2404,7 @@
     {
       "id": 443,
       "title": "Effect runtime stage 4 (D1162): 4a-4e done (JS and native loops, routing, Partial, playground, state loop, generated differential tests); 4f allocation in progress",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "-",
       "labels": [
@@ -2412,7 +2412,7 @@
       ],
       "body": "",
       "created": "2026-10-24",
-      "updated": "2026-10-24",
+      "updated": "2026-10-25",
       "commits": [
         "a9f697cf",
         "d1f3e288",
