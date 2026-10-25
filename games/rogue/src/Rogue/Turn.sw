@@ -44,9 +44,9 @@ def wound (target: Position) (damage: Nat) (monster: Monster): Monster :=
 
 -- The player walks onto a free cell, drinking any potion there.
 def enter (state: State) (target: Position): State :=
-  if state.potions.any (== target) then {
+  if target ∈ state.potions then {
     state |
-      player = target,
+    player = target,
     potions = state.potions.filter (≠ target),
     hitPoints = healed state.hitPoints,
     message = "You drink a potion and feel better."
