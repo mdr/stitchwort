@@ -412,10 +412,10 @@ The [aoc/](../../aoc/) project solves Advent of Code puzzles and proves the answ
 
 <!-- snippet: ../../../aoc/src/Aoc/Day01/Day01.sw@zerosPassed,Dial.zerosDuring -->
 ```stitchwort
-def zerosPassed (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
   turns
-    |> .scanLeft .move startingDial
-    |> .zipWith .zerosDuring turns
+    |> .scanLeft startingDial .move
+    |> .zipWith turns .zerosDuring
     |> .sum
 
 def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
@@ -437,7 +437,7 @@ import Std (List, Nat)
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
-def zerosPassedSpec (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosPassedSpec (turns: List Turn) (startingDial: Dial n): Nat :=
   turns |> .concatMap Turn.clicks |> zerosLandedOn startingDial
 ```
 
@@ -445,10 +445,10 @@ The theorem, in `Aoc.Day01.Proofs`, says they agree for a dial of any size, any 
 
 <!-- snippet: ../../../aoc/src/Aoc/Day01/Proofs/Part2.sw@zerosPassedCorrect,part2Puzzle -->
 ```stitchwort
-theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed startingDial turns = zerosPassedSpec startingDial turns :=
+theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed turns startingDial = zerosPassedSpec turns startingDial :=
   zerosPassedFrom startingDial turns
 
-theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec startingDial turns :=
+theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns startingDial :=
   zerosPassedCorrect startingDial turns
 ```
 
