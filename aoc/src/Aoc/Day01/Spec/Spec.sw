@@ -8,5 +8,5 @@ import Std (List, Nat)
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
-def zerosPassedSpec (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosPassedSpec (turns: List Turn) (startingDial: Dial n): Nat :=
   turns |> .concatMap Turn.clicks |> zerosLandedOn startingDial

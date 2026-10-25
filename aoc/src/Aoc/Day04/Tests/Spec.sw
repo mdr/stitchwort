@@ -5,9 +5,9 @@ import Aoc.Day04 (..)
 import Aoc.Day04.Spec (..)
 import Std (Result, Vec)
 
-def exampleGrid: Grid := Result.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid example)
+def exampleGrid: Grid := Result.getOrElse (parseGrid example) ({ height = 0, width = 0, rows = VNil }: Grid)
 
-def plusGrid: Grid := Result.getOrElse ({ height = 0, width = 0, rows = VNil }: Grid) (parseGrid [".@.", "@@@", ".@."])
+def plusGrid: Grid := Result.getOrElse (parseGrid [".@.", "@@@", ".@."]) ({ height = 0, width = 0, rows = VNil }: Grid)
 
 test "spec on the example" := part1Spec exampleGrid == 13
 test "spec cells" := ((cellsOf exampleGrid) 0 2, (cellsOf exampleGrid) 0 0, (cellsOf exampleGrid) 10 2, neighbours exampleGrid (cellsOf exampleGrid) 0 2) == (Roll, Floor, Floor, 3)

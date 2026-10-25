@@ -5,12 +5,12 @@ import Aoc.Day07 (..)
 import Aoc.Day07.Spec (..)
 import Std (Option)
 
-test "spec on the example" := Option.map (m => (part1Spec m, part2Spec m)) (parseManifoldOption example) == Some (21, 40)
+test "spec on the example" := Option.map (parseManifoldOption example) (m => (part1Spec m, part2Spec m)) == Some (21, 40)
 test "spec at the edges" :=
-  (Option.map (m => (part1Spec m, part2Spec m)) (parseManifoldOption ["S.", "^.", ".."]), Option.map (m => (part1Spec m, part2Spec m)) (parseManifoldOption [".S", ".^", ".^"]))
+  (Option.map (parseManifoldOption ["S.", "^.", ".."]) (m => (part1Spec m, part2Spec m)), Option.map (parseManifoldOption [".S", ".^", ".^"]) (m => (part1Spec m, part2Spec m)))
     == (Some (1, 2), Some (1, 2))
 test "spec timelines" :=
-  Option.map (m => (timelines m).map (t => t.map (hit => (hit.row, hit.column, hit.turn == Left)))) (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."])
+  Option.map (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."]) (m => (timelines m).map (t => t.map (hit => (hit.row, hit.column, hit.turn == Left))))
     == Some [
       [(0, 2, True), (1, 1, True)],
       [(0, 2, True), (1, 1, False), (2, 2, True)],

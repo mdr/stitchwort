@@ -39,13 +39,13 @@ def parseDatabase (lines: List Text): {Fail} Database :=
   match lines.drop ranges.length with
     | Nil => fail "expected a blank line between the ranges and the ids, got none"
     | Cons _ ids => {
-      fresh = parseLines Range.parse ranges,
-      available = parseLinesFrom (ranges.length + 2) Text.toNatOrFail ids
+      fresh = parseLines ranges Range.parse,
+      available = parseLinesFrom ids (ranges.length + 2) Text.toNatOrFail
     }
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=
-  db.available.count (id => db.fresh.any (range => range.contains id))
+  db.available.count (id => db.fresh.any (.contains id))
 
 -- Part 2: every id the fresh ranges cover.
 def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy .size
@@ -55,7 +55,7 @@ def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy .size
 def merge (ranges: List Range): List Range :=
   ranges
     |> .sort
-    |> .foldLeft absorb []
+    |> .foldLeft [] absorb
     |> .reverse
 
 -- Add a range, starting no earlier than the ones already merged, to them.

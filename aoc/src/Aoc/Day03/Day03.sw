@@ -26,7 +26,7 @@ def main(): {IO, Fail} () :=
 
 -- One bank per line. Spaces around a bank are allowed; anything else fails,
 -- naming the line.
-def parseBanks (lines: List Text): {Fail} (List Bank) := parseLines Bank.parse lines
+def parseBanks (lines: List Text): {Fail} (List Bank) := parseLines lines Bank.parse
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
 
@@ -59,11 +59,11 @@ def Bank.parse (line: Text): {Fail} Bank :=
       let bank := chars |> .map (char => need char.toDigit msg)
       if bank.length < part2Batteries then fail "expected at least ${part2Batteries} batteries, got ${bank.length}" else bank
 
--- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the first argument; all the digits if the bank has fewer).
-def Bank.best: Nat -> Bank -> Bank
-  | Zero, _ => []
-  | Succ _, [] => []
-  | Succ remaining, Cons first rest =>
+-- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the second argument; all the digits if the bank has fewer).
+def Bank.best: Bank -> Nat -> Bank
+  | _, Zero => []
+  | [], Succ _ => []
+  | Cons first rest, Succ remaining =>
     -- The leftmost largest of the next `window` digits, and what follows it. The
     -- candidate so far is `candidate`, followed by `after`.
     def pick: Nat -> Bank -> Fin 10 -> Bank -> (Fin 10, Bank)
@@ -72,4 +72,4 @@ def Bank.best: Nat -> Bank -> Bank
       | Succ window, Cons x more, candidate, after =>
         if candidate < x then pick window more x more else pick window more candidate after
     let (top, after) := pick (rest.length - remaining) rest first rest
-    Cons top (Bank.best remaining after)
+    Cons top (Bank.best after remaining)

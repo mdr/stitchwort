@@ -23,34 +23,34 @@ theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo 
 
 -- The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre (lines: List Text):
-    List.transposeFill ' ' (List.map Text.toList lines) = (List.range (gridWidth lines)).map (column lines) :=
-  rewrite List.transposeFillColumns ' ' (List.map Text.toList lines), List.mapMap (List.getOr ' ' _) Text.toList lines
+    List.transposeFill (List.map lines Text.toList) ' ' = (List.range (gridWidth lines)).map (column lines) :=
+  rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr ' ' _) Text.toList
 
 -- Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List.getOr Nil r (List.map Text.toList lines)) <= w) -> blank lines w = True
+theorem blankPast (w: Nat): (lines: List Text) -> ((r: Nat) -> List.length (List.getOr (List.map lines Text.toList) Nil r) <= w) -> blank lines w = True
   | Nil, h => rfl
-  | Cons l rest, h => rewrite List.getOrPast ' ' w (Text.toList l) (h 0) in blankPast w rest (r => h (Succ r))
+  | Cons l rest, h => rewrite List.getOrPast (Text.toList l) ' ' w (h 0) in blankPast w rest (r => h (Succ r))
 
 -- One problem's block of columns, as the program reads it, against the
 -- spec's reading of the same cells. `Cons c cs` are the problem's columns.
 theorem blockRows (lines: List Text) (c: Nat) (cs: List Nat):
     (parseProblem ((Cons c cs).map (column lines))).rowNumbers = lines.init.map (line => parseNumber ((Cons c cs).map (charAt line))) :=
-  rewrite List.transposeGrid (x line => charAt line x) c cs lines, List.initMap (line => (Cons c cs).map (charAt line)) lines in
-    List.mapMap parseNumber (line => (Cons c cs).map (charAt line)) lines.init
+  rewrite List.transposeGrid cs c lines (x line => charAt line x), List.initMap lines (line => (Cons c cs).map (charAt line)) in
+    List.mapMap lines.init parseNumber (line => (Cons c cs).map (charAt line))
 
 theorem blockColumns (lines: List Text) (cs: List Nat):
     (parseProblem (cs.map (column lines))).columnNumbers = cs.map (c => parseNumber (column lines.init c)) :=
-  rewrite List.mapMap (column => parseNumber column.init) (column lines) cs, List.initMap (line => charAt line _) lines
+  rewrite List.mapMap cs (column => parseNumber column.init) (column lines), List.initMap lines (line => charAt line _)
 
 -- The operator under column c.
 theorem columnOperator (lines: List Text) (c: Nat):
     (column lines c).last.flatMap Operator.parse = lines.last.flatMap (bottom => Operator.parse (charAt bottom c)) :=
-  rewrite List.lastMap (line => charAt line c) lines in Option.flatMapMap Operator.parse (line => charAt line c) lines.last
+  rewrite List.lastMap lines (line => charAt line c) in Option.flatMapMap lines.last Operator.parse (line => charAt line c)
 
 theorem blockOperator (lines: List Text) (cs: List Nat):
     (parseProblem (cs.map (column lines))).operator = (cs.filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c)))).head :=
-  rewrite List.findMapIsHeadFilterMap (column => column.last.flatMap Operator.parse) (cs.map (column lines)),
-    List.filterMapMap (column => column.last.flatMap Operator.parse) (column lines) cs,
+  rewrite List.findMapIsHeadFilterMap (cs.map (column lines)) (column => column.last.flatMap Operator.parse),
+    List.filterMapMap cs (column => column.last.flatMap Operator.parse) (column lines),
     columnOperator lines _
 
 -- Adding and multiplying don't mind the order.
@@ -92,18 +92,18 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
   | True, h =>
     rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
       blockColumns lines (List.rangeFrom (hi - lo) lo),
-      List.mapReverse (c => parseNumber (column lines.init c)) (List.rangeFrom (hi - lo) lo),
+      List.mapReverse (List.rangeFrom (hi - lo) lo) (c => parseNumber (column lines.init c)),
       evaluateReverse (operatorOf lines lo hi) ((List.rangeFrom (hi - lo) lo).map (c => parseNumber (column lines.init c)))
 
 -- The program's total over the blocks is the total over the problems the
 -- spec finds, for any way `answer` scores a block.
 theorem blocksTotal (lines: List Text) (answer: List (List Char) -> Nat):
-    List.sumBy answer (blocks lines)
-      = List.sumBy (lo => List.sumBy (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-        (List.range (gridWidth lines)) :=
+    List.sumBy (blocks lines) answer
+      = List.sumBy (List.range (gridWidth lines))
+        (lo => List.sumBy (List.range (gridWidth lines + 1)) (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi))) :=
   rewrite Nat.addOne (gridWidth lines), columnsAre lines in
     List.splitByRuns isBlank (column lines) (blank lines) (c => rfl) answer (gridWidth lines)
-      (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength r (List.map Text.toList lines)))
+      (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength (List.map lines Text.toList) r))
 
 theorem term1 (lines: List Text) (lo: Nat) (hi: Nat):
     Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)
@@ -121,7 +121,7 @@ theorem term2 (lines: List Text) (lo: Nat) (hi: Nat):
 -- total with the numbers read along the rows.
 theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = part1Spec lines :=
   calc solvePart1 (parseWorksheet lines)
-    _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem (blocks lines)
+    _ = _ := List.sumByMap (blocks lines) ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem
     _ = _ := blocksTotal lines blockAnswer1
     _ = part1Spec lines := rewrite term1 lines _ _
 
@@ -129,6 +129,6 @@ theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = par
 -- to left.
 theorem part2Correct (lines: List Text): solvePart2 (parseWorksheet lines) = part2Spec lines :=
   calc solvePart2 (parseWorksheet lines)
-    _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.columnNumbers) parseProblem (blocks lines)
+    _ = _ := List.sumByMap (blocks lines) ((p: Problem) => evaluate p.operator p.columnNumbers) parseProblem
     _ = _ := blocksTotal lines blockAnswer2
     _ = part2Spec lines := rewrite term2 lines _ _

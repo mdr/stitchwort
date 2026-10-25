@@ -29,14 +29,14 @@ test "a bank shorter than 12" := banksOf ["123"] == Err "line 1: expected at lea
 test "one short bank among good ones" := banksOf ["123456789012", "12345678901", "123456789012"] == Err "line 2: expected at least 12 batteries, got 11"
 test "a short bank is still a row of digits first" := banksOf ["12x"] == Err "line 1: expected a row of digits, got '12x'"
 
-test "zeros" := Bank.best 2 [0, 0, 5, 0] == [5, 0]
-test "leftmost wins" := Bank.best 1 [3, 9, 9, 1] == [9]
+test "zeros" := Bank.best [0, 0, 5, 0] 2 == [5, 0]
+test "leftmost wins" := Bank.best [3, 9, 9, 1] 1 == [9]
 -- The tie between the 7s decides it: the first 7 leaves 573 to choose from, so
 -- 77; taking the last 7 would give 73.
-test "leftmost largest wins" := Bank.best 2 [2, 7, 5, 7, 3] == [7, 7]
-test "keep everything" := Bank.best 3 [4, 5, 6] == [4, 5, 6]
-test "too short" := Bank.best 5 [1, 2] == [1, 2]
-test "pick none" := Bank.best 0 [1, 2, 3] == []
+test "leftmost largest wins" := Bank.best [2, 7, 5, 7, 3] 2 == [7, 7]
+test "keep everything" := Bank.best [4, 5, 6] 3 == [4, 5, 6]
+test "too short" := Bank.best [1, 2] 5 == [1, 2]
+test "pick none" := Bank.best [1, 2, 3] 0 == []
 
 -- The same tie, checked when the file is checked.
 theorem leftmostLargest: maxJoltage 2 [2, 7, 5, 7, 3] = 77 := rfl

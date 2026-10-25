@@ -19,11 +19,11 @@ theorem turnsDiffer (r: Nat) (c: Nat): Not (({ row = r, column = c, turn = Left 
 -- The timelines of the two sides of a split.
 theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hit)) (ys: List (List Hit))
     (dx: xs.Distinct) (dy: ys.Distinct):
-    List.Distinct (List.append (List.map (Cons h1) xs) (List.map (Cons h2) ys)) :=
-  List.distinctAppend (List.map (Cons h1) xs) (List.map (Cons h2) ys)
-    (List.distinctMap (Cons h1) (List.consInjective h1) xs dx)
-    (List.distinctMap (Cons h2) (List.consInjective h2) ys dy)
-    (List.disjointMapCons h1 h2 ne ys xs)
+    List.Distinct (List.append (List.map xs (Cons h1)) (List.map ys (Cons h2))) :=
+  List.distinctAppend (List.map xs (Cons h1)) (List.map ys (Cons h2))
+    (List.distinctMap xs dx (Cons h1) (List.consInjective h1))
+    (List.distinctMap ys dy (Cons h2) (List.consInjective h2))
+    (List.disjointMapCons ys h1 h2 ne xs)
 
 -- Every timeline from a column is different from the others.
 theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) -> List.Distinct (timelinesFrom r c rows)

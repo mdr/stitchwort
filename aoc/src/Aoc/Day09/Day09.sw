@@ -36,11 +36,11 @@ type Tile = { x: Nat, y: Nat }
 
 -- One red tile per line, in the order the loop joins them. Spaces around a
 -- line or a number are allowed; anything else fails, naming the line.
-def parseTiles (lines: List Text): {Fail} (List Tile) := parseLines parseTile lines
+def parseTiles (lines: List Text): {Fail} (List Tile) := parseLines lines parseTile
 
 -- "7,1" is `{ x = 7, y = 1 }`.
 def parseTile (line: Text): {Fail} Tile :=
-  match line.split ',' |> .map (part => part.trim.toNat) with
+  match line.split ',' |> .map .trim.toNat with
     | [Some x, Some y] => { x, y }
     | _ => fail "expected a red tile like 7,1, got '${line}'"
 
@@ -52,7 +52,7 @@ def area (corner: Tile) (opposite: Tile): Nat := (Nat.absDiff corner.x opposite.
 def pairArea (corners: (Tile, Tile)): Nat := area corners.fst corners.snd
 
 -- The largest of some areas, 0 if there are none.
-def largest (areas: List Nat): Nat := areas.foldLeft Nat.max 0
+def largest (areas: List Nat): Nat := areas.foldLeft 0 Nat.max
 
 -- Part 1: the largest rectangle with two red tiles as opposite corners.
 def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> largest
@@ -61,7 +61,7 @@ def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> larges
 
 -- The lines of the loop: from each red tile to the next, and from the last
 -- back to the first.
-def loopLines (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop 1 tiles) (List.take 1 tiles))
+def loopLines (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop tiles 1) (List.take tiles 1))
 
 -- `value` is from `one` to `other`, in either order.
 def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value <= other) || (other <= value && value <= one)
@@ -99,8 +99,8 @@ def keyLines (values: List Nat): List Nat := List.append values (values.map Succ
 type Floor = { columns: List Nat, rows: List Nat, outside: PrefixSums }
 
 def Floor.of (tiles: List Tile): Floor :=
-  let columns := keyLines (tiles.map (tile => tile.x))
-  let rows := keyLines (tiles.map (tile => tile.y))
+  let columns := keyLines (tiles.map .x)
+  let rows := keyLines (tiles.map .y)
   { columns, rows, outside = PrefixSums.of (Floor.outsideCells (loopLines tiles) columns rows) }
 
 -- The floor through the key columns and rows, row by row: 1 for each tile

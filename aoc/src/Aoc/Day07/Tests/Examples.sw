@@ -27,21 +27,21 @@ def example: List Text := """
 def row4 (a: x) (b: x) (c: x) (d: x): Vec x 4 := VCons a (VCons b (VCons c (VCons d VNil)))
 
 test "find start" := (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Some (0, 7), Some (1, 1), None)
-test "manifold" := Option.map (m => (m.width, m.start.toNat, m.rows.length)) (parseManifoldOption example) == Some (15, 7, 15)
+test "manifold" := Option.map (parseManifoldOption example) (m => (m.width, m.start.toNat, m.rows.length)) == Some (15, 7, 15)
 test "splitter row" := ((splitterRow 5 ".^.").toList, (splitterRow 2 ".^.").toList) == ([False, True, False, False, False], [False, True])
 test "fall" := (fall (row4 False True False False) (row4 True True False False)).toList == [True, False, True, False]
 test "split row" := (splitRow (row4 False True False True) (row4 2 3 4 5)).toList == [2, 6, 4, 5]
-test "example part 1" := Option.map solvePart1 (parseManifoldOption example) == Some 21
-test "example part 2" := Option.map solvePart2 (parseManifoldOption example) == Some 40
-test "splitter at the left edge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifoldOption ["S.", "^.", ".."]) == Some (1, 2)
-test "splitter at the right edge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifoldOption [".S", ".^", ".^"]) == Some (1, 2)
-test "beams merge" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."]) == Some (4, 6)
-test "nothing below S" := Option.map (m => (solvePart1 m, solvePart2 m)) (parseManifoldOption ["^^", ".S"]) == Some (0, 1)
-test "no S" := Option.map solvePart1 (parseManifoldOption ["..^.."]) == None
+test "example part 1" := Option.map (parseManifoldOption example) solvePart1 == Some 21
+test "example part 2" := Option.map (parseManifoldOption example) solvePart2 == Some 40
+test "splitter at the left edge" := Option.map (parseManifoldOption ["S.", "^.", ".."]) (m => (solvePart1 m, solvePart2 m)) == Some (1, 2)
+test "splitter at the right edge" := Option.map (parseManifoldOption [".S", ".^", ".^"]) (m => (solvePart1 m, solvePart2 m)) == Some (1, 2)
+test "beams merge" := Option.map (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."]) (m => (solvePart1 m, solvePart2 m)) == Some (4, 6)
+test "nothing below S" := Option.map (parseManifoldOption ["^^", ".S"]) (m => (solvePart1 m, solvePart2 m)) == Some (0, 1)
+test "no S" := Option.map (parseManifoldOption ["..^.."]) solvePart1 == None
 
 -- What `main` prints and how it ends, for some input lines.
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
-  IO.simulate lines (() => Result.map (u => True) (Fail.toResult main))
+  IO.simulate lines (() => Result.map (Fail.toResult main) (u => True))
 
 test "main with no S" := ran ["..^.."] == MkPair [] (Err "expected a line with an S, got none")
 test "main with a final blank line" := ran ["..S..", "..^..", ""] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
@@ -52,9 +52,9 @@ test "the first unknown character wins" := ran ["..S?", "a"] == MkPair [] (Err "
 test "a space is not empty space" := ran ["S.", ". "] == MkPair [] (Err "line 2, column 2: expected . or ^ or S, got ' '")
 test "a lower-case s" := ran ["..s.."] == MkPair [] (Err "line 1, column 3: expected . or ^ or S, got 's'")
 test "an unknown character beats a missing S" := ran ["..x.."] == MkPair [] (Err "line 1, column 3: expected . or ^ or S, got 'x'")
-test "check with no S" := Result.map (m => m.width) (checkManifold ["...."]) == Err "expected a line with an S, got none"
+test "check with no S" := Result.map (checkManifold ["...."]) (m => m.width) == Err "expected a line with an S, got none"
 test "the manifold is what the parser reads" :=
-  Result.map (m => (m.width, m.start.toNat, m.rows.length)) (checkManifold example) == Ok (15, 7, 15)
+  Result.map (checkManifold example) (m => (m.width, m.start.toNat, m.rows.length)) == Ok (15, 7, 15)
 test "one column, both branches leave" := ran ["S", "^", "."] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
 test "a short intermediate row is padded" := ran ["..S..", "..^..", ".", ".^.^."] == MkPair ["Part 1: 3", "Part 2: 4"] (Ok True)
 test "S below another S" := ran ["S", ".S", "^"] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)

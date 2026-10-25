@@ -28,12 +28,12 @@ theorem eqComm (a: Nat) (b: Nat): (a == b) = (b == a) :=
 
 -- Exactly one of the numbers below n passes q.
 theorem countOne (q: Nat -> Bool) (n: Nat) (v: Nat) (hv: q v = True) (vn: v < n) (uniq: (b: Nat) -> q b = True -> b = v):
-    List.occurrences q (List.range n) = 1 :=
-  rewrite List.occurrencesSumBy q (List.range n), <- Nat.keepIfOne _ in List.sumRangeOne q (b => 1) v hv uniq n 0 omega vn
+    List.occurrences (List.range n) q = 1 :=
+  rewrite List.occurrencesSumBy (List.range n) q, <- Nat.keepIfOne _ in List.sumRangeOne q (b => 1) v hv uniq n 0 omega vn
 
 -- Counting p, apart from v and at v.
 theorem occurrencesSplit (p: Nat -> Bool) (v: Nat): (xs: List Nat) ->
-    List.occurrences p xs = List.occurrences (b => p b && !(b == v)) xs + List.occurrences (b => p b && (b == v)) xs
+    List.occurrences xs p = List.occurrences xs (b => p b && !(b == v)) + List.occurrences xs (b => p b && (b == v))
   | Nil => rfl
   | Cons x xs =>
     let one: Bool.toNat (p x) = Bool.toNat (p x && !(x == v)) + Bool.toNat (p x && (x == v)) :=
@@ -47,7 +47,7 @@ theorem occurrencesSplit (p: Nat -> Bool) (v: Nat): (xs: List Nat) ->
 -- If v (below n) passes p, the numbers below n passing p are those other
 -- than v, and v.
 theorem countWithout (p: Nat -> Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v < n):
-    List.occurrences p (List.range n) = List.occurrences (b => p b && !(b == v)) (List.range n) + 1 :=
+    List.occurrences (List.range n) p = List.occurrences (List.range n) (b => p b && !(b == v)) + 1 :=
   rewrite occurrencesSplit p v (List.range n),
     countOne (b => p b && (b == v)) n v (rewrite hv, eqSelf v in rfl) vn
       (b h => match e: b == v with
@@ -56,20 +56,20 @@ theorem countWithout (p: Nat -> Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v 
     in rfl
 
 -- Two numbers below n that pass p, when only one does, are the same.
-theorem onlyOne (p: Nat -> Bool) (n: Nat) (one: List.occurrences p (List.range n) = 1) (x: Nat) (y: Nat)
+theorem onlyOne (p: Nat -> Bool) (n: Nat) (one: List.occurrences (List.range n) p = 1) (x: Nat) (y: Nat)
     (hx: p x = True) (xn: x < n) (hy: p y = True) (yn: y < n): y = x :=
   match e: y == x with
     | True => eqTrue y x e
     | False =>
-      let some: Nat.leq 1 (List.occurrences (b => p b && !(b == x)) (List.range n)) = True :=
-        rewrite <- List.anyOccurrences (b => p b && !(b == x)) (List.range n) in
+      let some: Nat.leq 1 (List.occurrences (List.range n) (b => p b && !(b == x))) = True :=
+        rewrite <- List.anyOccurrences (List.range n) (b => p b && !(b == x)) in
           List.anyRangeIntro (b => p b && !(b == x)) n 0 y omega yn (rewrite hy, e in rfl)
       omega [countWithout p n x hx xn]
 
 -- The count is the number of circuits -----------------------------------------
 
 -- The boxes 0 to n - 1 that are their own label.
-def ownLabels (c: Circuits) (n: Nat): Nat := List.occurrences (b => c.labelOf b == b) (List.range n)
+def ownLabels (c: Circuits) (n: Nat): Nat := List.occurrences (List.range n) (b => c.labelOf b == b)
 
 -- What the count of `circuits` says (point 1 at the top): labels are boxes,
 -- labelled with themselves, and the count is how many there are.
@@ -122,7 +122,7 @@ theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
       MkCounted
         (calc (moved c f s).count
           _ = ownLabels c n - 1 := rewrite counts in rfl
-          _ = List.occurrences (b => c.labelOf b == b && !(b == c.labelOf f)) (List.range n) :=
+          _ = List.occurrences (List.range n) (b => c.labelOf b == b && !(b == c.labelOf f)) :=
             rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite labelOwn f hf in eqSelf (c.labelOf f)) (labelBelow f hf) in omega
           _ = ownLabels (moved c f s) n :=
             rewrite after _, ownAfterMove c f s n counted hs differ _ in rfl)
@@ -181,7 +181,7 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
         | Zero => Void.exfalso (notOne (oneCircuitOfNone done))
         | Succ m =>
           let atLeastOne: Nat.leq 1 (ownLabels c (Succ m)) = True :=
-            rewrite <- List.anyOccurrences (b => c.labelOf b == b) (List.range (Succ m)) in
+            rewrite <- List.anyOccurrences (List.range (Succ m)) (b => c.labelOf b == b) in
               List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (labelBelow 0 rfl)
                 (rewrite labelOwn 0 rfl in eqSelf (c.labelOf 0))
           match e: c.count with
@@ -201,9 +201,9 @@ theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelle
 -- Walking the connections `ps` after `done`: if connection k of `ps` is the
 -- last needed, `lastJoin` stops there.
 theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) -> (k: Nat) -> (done: List (Nat, Nat)) -> (c: Circuits) ->
-    Labelled points.length done c -> Counted points.length c -> List.all (boxesBelow points.length) ps = True ->
-    OneCircuit points.length (List.append done (List.take (Succ k) ps)) -> Not (OneCircuit points.length (List.append done (List.take k ps))) ->
-    lastJoin c (List.map (connectionKey points) ps) = Some ((List.getOr (0, 0) k ps).fst, (List.getOr (0, 0) k ps).snd)
+    Labelled points.length done c -> Counted points.length c -> List.all ps (boxesBelow points.length) = True ->
+    OneCircuit points.length (List.append done (List.take ps (Succ k))) -> Not (OneCircuit points.length (List.append done (List.take ps k))) ->
+    lastJoin c (List.map ps (connectionKey points)) = Some ((List.getOr ps (0, 0) k).fst, (List.getOr ps (0, 0) k).snd)
   | Nil, Zero, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | Nil, Succ k, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | Cons (f, s) ps, k, done, c, inv, counted, ok, after, before =>
@@ -224,17 +224,17 @@ theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) -> (k: Nat) ->
               in rfl
           | Succ k =>
             -- A later connection: after this one, not yet one circuit.
-            let moreAfter: (e: (Nat, Nat)) -> List.Mem e (List.append done [(f, s)]) -> List.Mem e (List.append done (Cons (f, s) (List.take k ps))) :=
-              e m => rewrite <- List.appendAssoc done [(f, s)] (List.take k ps) in List.anyAppendLeft (y => y = e) (List.append done [(f, s)]) (List.take k ps) m
+            let moreAfter: (e: (Nat, Nat)) -> List.Mem e (List.append done [(f, s)]) -> List.Mem e (List.append done (Cons (f, s) (List.take ps k))) :=
+              e m => rewrite <- List.appendAssoc done [(f, s)] (List.take ps k) in List.anyAppendLeft (y => y = e) (List.append done [(f, s)]) (List.take ps k) m
             let notYet: Not (OneCircuit n (List.append done [(f, s)])) := one => before (oneCircuitMore n _ _ moreAfter one)
             rewrite countNotOne n (List.append done [(f, s)]) (c.join f s) inv2 counted2 notYet, Bool.andFalse (c.count > 1) in
               lastJoinFinds points ps k (List.append done [(f, s)]) (c.join f s) inv2 counted2 ok
-                (rewrite List.appendAssoc done [(f, s)] (List.take (Succ k) ps) in after)
-                (rewrite List.appendAssoc done [(f, s)] (List.take k ps) in before)
+                (rewrite List.appendAssoc done [(f, s)] (List.take ps (Succ k)) in after)
+                (rewrite List.appendAssoc done [(f, s)] (List.take ps k) in before)
 
-theorem allOrderInRange (points: List Point): List.all (boxesBelow points.length) (connectionOrder points) = True :=
-  rewrite List.allPerm (boxesBelow points.length) (connectionOrder points) (allPairs points.length)
-      (List.sortOnPerm (connectionKey points) (allPairs points.length))
+theorem allOrderInRange (points: List Point): List.all (connectionOrder points) (boxesBelow points.length) = True :=
+  rewrite List.allPerm (connectionOrder points) (allPairs points.length) (List.sortOnPerm (allPairs points.length) (connectionKey points))
+      (boxesBelow points.length)
     in allPairsBoth (i => Nat.leq (Succ i) points.length) (List.range points.length)
       (List.allRangeIntro (i => Nat.leq (Succ i) points.length) points.length 0 (i lo hi => hi))
 
@@ -271,14 +271,14 @@ theorem memPairs (a: Nat) (b: Nat) (ab: a < b): (c: Nat) -> (s: Nat) -> s <= a -
     match e: Nat.equal s a with
       | True =>
         rewrite <- Nat.equalSound s a e in
-          List.anyAppendLeft (y => y = (s, b)) (List.map (y => (s, y)) (List.rangeFrom c (Succ s))) (List.pairs (List.rangeFrom c (Succ s)))
-            (List.memMap (y => (s, y)) b (List.rangeFrom c (Succ s)) (memRange b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3))
+          List.anyAppendLeft (y => y = (s, b)) (List.map (List.rangeFrom c (Succ s)) (y => (s, y))) (List.pairs (List.rangeFrom c (Succ s)))
+            (List.memMap (List.rangeFrom c (Succ s)) b (memRange b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3) (y => (s, y)))
       | False =>
-        List.anyAppendRight (y => y = (a, b)) (List.map (y => (s, y)) (List.rangeFrom c (Succ s))) (List.pairs (List.rangeFrom c (Succ s)))
+        List.anyAppendRight (y => y = (a, b)) (List.map (List.rangeFrom c (Succ s)) (y => (s, y))) (List.pairs (List.rangeFrom c (Succ s)))
           (memPairs a b ab c (Succ s) omega h3)
 
 -- `any` finds an element of the list that passes ...
-theorem anyOfMem (p: a -> Bool) (x: a) (hx: p x = True): (xs: List a) -> List.Mem x xs -> List.any p xs = True
+theorem anyOfMem (p: a -> Bool) (x: a) (hx: p x = True): (xs: List a) -> List.Mem x xs -> List.any xs p = True
   | Nil, m => Void.exfalso m
   | Cons y ys, Inl e => rewrite e, hx in rfl
   | Cons y ys, Inr m =>
@@ -287,7 +287,7 @@ theorem anyOfMem (p: a -> Bool) (x: a) (hx: p x = True): (xs: List a) -> List.Me
       | False => anyOfMem p x hx ys m
 
 -- ... and when only x passes, `any` finding one means x is in the list.
-theorem memOfAny (p: a -> Bool) (x: a) (only: (y: a) -> p y = True -> y = x): (xs: List a) -> List.any p xs = True -> List.Mem x xs
+theorem memOfAny (p: a -> Bool) (x: a) (only: (y: a) -> p y = True -> y = x): (xs: List a) -> List.any xs p = True -> List.Mem x xs
   | Nil, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons y ys, h =>
     match g: p y with
@@ -304,8 +304,8 @@ theorem pairEq: (y: (Nat, Nat)) -> (a: Nat) -> (b: Nat) -> (y.fst == a && y.snd 
 theorem memOrder (points: List Point) (a: Nat) (b: Nat) (ab: a < b) (bn: b < points.length): List.Mem (a, b) (connectionOrder points) :=
   let p: (Nat, Nat) -> Bool := y => y.fst == a && y.snd == b
   memOfAny p (a, b) (y h => pairEq y a b h) (connectionOrder points)
-    (rewrite List.anyPerm p (connectionOrder points) (allPairs points.length)
-        (List.sortOnPerm (connectionKey points) (allPairs points.length))
+    (rewrite List.anyPerm (connectionOrder points) (allPairs points.length) (List.sortOnPerm (allPairs points.length) (connectionKey points))
+        p
       in anyOfMem p (a, b) (rewrite eqSelf a, eqSelf b in rfl) (allPairs points.length) (memPairs a b ab points.length 0 omega bn))
 
 -- All the connections put all the boxes in one circuit.
@@ -317,7 +317,7 @@ theorem allConnectionsJoinAll (points: List Point): OneCircuit points.length (co
       | Greater => Backwards (Connected (memOrder points b a (Nat.lessOfCompare b a (rewrite e at Nat.compareFlip a b)) ha))
 
 theorem countedJoinAll (n: Nat): (rest: List (Nat, Nat)) -> (done: List (Nat, Nat)) -> (c: Circuits) ->
-    List.all (boxesBelow n) rest = True -> Labelled n done c -> Counted n c -> Counted n (joinAll c rest)
+    List.all rest (boxesBelow n) = True -> Labelled n done c -> Counted n c -> Counted n (joinAll c rest)
   | Nil, done, c, ok, inv, counted => counted
   | Cons (f, s) rest, done, c, ok, inv, counted =>
     match r: boxesBelow n (f, s) with
@@ -349,7 +349,7 @@ theorem lastNeededExists (points: List Point) (two: 2 <= points.length): Exists 
   let first := Nat.firstFrom (oneAfter points) (Succ total) 0
   let atEnd: oneAfter points total = True :=
     (oneAfterTells points total some).backward
-      (rewrite List.takeAll total (connectionOrder points) omega in allConnectionsJoinAll points)
+      (rewrite List.takeAll (connectionOrder points) total omega in allConnectionsJoinAll points)
   let found: oneAfter points first = True :=
     Nat.firstFromFound (oneAfter points) (Succ total) 0 total omega omega atEnd
   let notAtStart: oneAfter points 0 = False :=
