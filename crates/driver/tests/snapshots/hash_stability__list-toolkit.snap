@@ -2,7 +2,7 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(&session, d, f)"
 ---
-Main.mapped af5a6133dc874faa6ad33b91dcd4a6b76ddc232597eeb0d9d08e20b680df02c4
+Main.mapped 6068b2c7ddd029c65aba37346b4ac341daa382e7fc47a1bb529d80adb75e38bb
 Main.filtered a2d5c4c6a5779b5eac8d43709563c586751720ba9db7b01a82c7f6300ac3c146
 Main.folded 1fb454e734b5f6eaf7109aea7de38b8b75e23fdb5fc6b9dea1a0c3be79a3e2e5
 Main.scanned 16efc157009d32e6787e85349fd3b1c10f22f35195caced6aa2966b9f575ce83
@@ -53,7 +53,7 @@ Main.test "absDiff" 44fe51f4f3ed5e3ceae77f2137d89f776e117638d9ed5c08e8ca2ee104fb
 Main.test "absDiff flipped" 708ad1d1690d22db30250b767e3e7e68df12fda8289cc4181eba826ae83c8fba
 Main.test "pow" 6bf8fe8584421891ca5d649a483cf8a698269f82376e2369e4019e45870740d8
 Main.test "pow zero" d3d17ca34d25cd8d56c31c00b0ad3b90431813b283c39fa1a436f49202f470a2
-Main.test "map" 60bffaf50d534a5a3ff17186246585c8519b9946e317666c993a4504be034bf2
+Main.test "map" 02546c53a1e55bb7e95c4abfb46b23914901c3fd120717bc4eacc4edddc1e5a1
 Main.test "filter" 876fce0dafaf68928b69a9604f340dfcdb779d8d3ee1306b78aec8cc7859fec1
 Main.test "zip" 2ad27caab25ed39760653304bffb586528728170895242181461b1df0a487455
 Main.test "partition" bc5b149089849ef81eb1406fd2f83f10aa493a34e2652c1e6c00665a85f8f0c9

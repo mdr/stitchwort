@@ -58,6 +58,11 @@ pub fn declare_def(
         .map_err(|d| crate::goals::unfinished_dependency(g, [ty], &[], d))
 }
 
+pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
+    unglued(g, |g| k::retype_def(g, id, ty))
+        .map_err(|d| crate::goals::unfinished_dependency(g, [ty], &[], d))
+}
+
 #[allow(dead_code)]
 pub fn declare_data(
     g: &mut Globals,

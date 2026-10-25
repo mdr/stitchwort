@@ -23,9 +23,13 @@
 //! made transitively from each use, at most one per definition. The variant
 //! keeps every parameter of the original, so variables keep their indices:
 //! the backends treat a row parameter of a variant as erased. Nothing here is
-//! about computations: the pass knows only that `Effects` is the one
-//! parameter type that drives specialisation, and that `Empty` is the
-//! constructor it specialises on.
+//! about computations: the pass knows only the parameter types that drive
+//! specialisation and the constructor each is specialised on: `Effects` at
+//! `Empty`, and `Divergence` at `Total` (D1216,
+//! docs/proposals/partial-stage-3.md §5.2), which a bare row's divergence
+//! index is in a pure use (`List.map [Empty] [Total] xs f`). "Row
+//! parameter" below means a parameter of either type, and "the empty row"
+//! its constructor.
 //!
 //! Generated code is pure and total (a partial computation is a value until
 //! the runner runs it), so moving a computation to where its value is used,
@@ -81,8 +85,10 @@ struct Inline {
 /// what it has worked out about each definition kept.
 pub struct Specialiser<'g> {
     g: &'g Globals,
-    /// `Effect.Effects` and its `Empty` constructor, if the core is loaded.
-    row: Option<(DataId, usize)>,
+    /// The types that drive specialisation, each with the constructor it's
+    /// specialised on: `Effect.Effects` and `Empty`, then `Effect.Divergence`
+    /// and `Total`, those the core has.
+    drivers: Vec<(DataId, usize)>,
     /// Per definition: the levels of its row parameters, among those its
     /// body takes (empty if none, or if it can't be specialised).
     rows: RefCell<HashMap<DefId, Rc<[usize]>>>,
@@ -97,13 +103,22 @@ pub struct Specialiser<'g> {
 
 impl<'g> Specialiser<'g> {
     pub fn new(g: &'g Globals) -> Self {
-        let row = g.registry.loaded_data(Builtin::Row).and_then(|d| {
-            let empty = g.data(d).ctors.iter().position(|c| &*c.name == "Empty")?;
-            Some((d, empty))
-        });
+        let driver = |b: Builtin, ctor: &str| {
+            g.registry.loaded_data(b).and_then(|d| {
+                let c = g.data(d).ctors.iter().position(|c| &*c.name == ctor)?;
+                Some((d, c))
+            })
+        };
+        let drivers = [
+            driver(Builtin::Row, "Empty"),
+            driver(Builtin::Divergence, "Total"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
         Specialiser {
             g,
-            row,
+            drivers,
             rows: RefCell::default(),
             bodies: RefCell::default(),
             inlines: RefCell::default(),
@@ -111,17 +126,28 @@ impl<'g> Specialiser<'g> {
         }
     }
 
-    /// Whether `term` is the constant empty row.
+    /// Whether `term` is the constant a row parameter is specialised on
+    /// (`Empty`, or `Total`).
     pub fn is_empty_row(&self, term: &Term) -> bool {
-        matches!((term.strip_loc(), self.row), (Term::Ctor(d, c, fields), Some((row, empty)))
-            if *d == row && *c == empty && fields.is_empty())
+        self.empty_ctor(term).is_some()
     }
 
-    fn empty_row(&self) -> Term {
-        let (d, c) = self
-            .row
-            .expect("only called once a row parameter was found");
-        Term::Ctor(d, c, Vec::new())
+    /// The constructor `term` is, if it's the constant a row parameter is
+    /// specialised on.
+    fn empty_ctor(&self, term: &Term) -> Option<usize> {
+        match term.strip_loc() {
+            Term::Ctor(d, c, fields)
+                if fields.is_empty() && self.drivers.iter().any(|x| *x == (*d, *c)) =>
+            {
+                Some(*c)
+            }
+            _ => None,
+        }
+    }
+
+    /// The constant a row parameter of type `d` is specialised on.
+    fn driver_of(&self, d: DataId) -> Option<(DataId, usize)> {
+        self.drivers.iter().copied().find(|(x, _)| *x == d)
     }
 
     /// The levels of `id`'s row parameters among the parameters its body
@@ -140,9 +166,9 @@ impl<'g> Specialiser<'g> {
         let g = self.g;
         let def = g.def(id);
         let none: Rc<[usize]> = Rc::from(Vec::new());
-        let Some((row, _)) = self.row else {
+        if self.drivers.is_empty() {
             return Ok(none);
-        };
+        }
         if def.run_body().is_none() || def.arity == 0 {
             return Ok(none);
         }
@@ -153,7 +179,7 @@ impl<'g> Specialiser<'g> {
         let tel = telescope(g, &def.ty_value, def.span)?;
         let mut rows = Vec::new();
         for (level, (_, ty, _)) in tel.params.iter().enumerate().take(def.arity) {
-            if matches!(force(g, ty.clone())?, Value::Data(d, _) if d == row) {
+            if matches!(force(g, ty.clone())?, Value::Data(d, _) if self.driver_of(d).is_some()) {
                 rows.push(level);
             }
         }
@@ -218,27 +244,36 @@ impl<'g> Specialiser<'g> {
         if nesting(tree) > MAX_NESTING {
             return Err(Fail::Unsupported);
         }
-        let empty = self.empty_row();
+        // The constant each row parameter is specialised on, by level.
+        let tel = telescope(self.g, &def.ty_value, def.span).map_err(|_| Fail::Unsupported)?;
+        let mut constants: HashMap<usize, (DataId, usize)> = HashMap::default();
+        for &level in rows {
+            let (_, ty, _) = tel.params.get(level).ok_or(Fail::Unsupported)?;
+            let Value::Data(d, _) = force(self.g, ty.clone())? else {
+                return Err(Fail::Unsupported);
+            };
+            constants.insert(level, self.driver_of(d).ok_or(Fail::Unsupported)?);
+        }
         // Variable `ix` under `depth` binders is the parameter at level
         // `arity - 1 - (ix - depth)`.
-        let is_row = |ix: usize, depth: usize| {
-            ix >= depth && ix - depth < arity && rows.contains(&(arity - 1 - (ix - depth)))
+        let row_at = |ix: usize, depth: usize| {
+            (ix >= depth && ix - depth < arity)
+                .then(|| constants.get(&(arity - 1 - (ix - depth))).copied())
+                .flatten()
         };
         let fixed = self.subst(
             tree,
             0,
             &|ix, depth| {
-                Ok(if is_row(ix, depth) {
-                    empty.clone()
-                } else {
-                    Term::Var(ix)
+                Ok(match row_at(ix, depth) {
+                    Some((d, c)) => Term::Ctor(d, c, Vec::new()),
+                    None => Term::Var(ix),
                 })
             },
             &|ix, depth| {
-                Ok(if is_row(ix, depth) {
-                    Scrutinee::Known(self.row.map_or(0, |(_, c)| c))
-                } else {
-                    Scrutinee::Var(ix)
+                Ok(match row_at(ix, depth) {
+                    Some((_, c)) => Scrutinee::Known(c),
+                    None => Scrutinee::Var(ix),
                 })
             },
         )?;
@@ -302,7 +337,6 @@ impl<'g> Specialiser<'g> {
     }
 
     fn find_inline(&self, id: DefId) -> Option<Inline> {
-        let (row, empty) = self.row?;
         let def = self.g.def(id);
         if def.group.as_ref().is_some_and(|m| m.len() > 1) {
             return None;
@@ -312,7 +346,8 @@ impl<'g> Specialiser<'g> {
         let Term::Case(ix, d, branches) = body.peel_lams(arity).strip_loc() else {
             return None;
         };
-        if *d != row || *ix >= arity {
+        let (_, empty) = self.driver_of(*d)?;
+        if *ix >= arity {
             return None;
         }
         let branch = branches.get(empty)?.body.clone()?;
@@ -487,7 +522,6 @@ impl<'g> Specialiser<'g> {
             }
         }
         let m = lets.len();
-        let empty_ctor = self.row.map_or(0, |(_, c)| c);
         // Variable `ix` under `depth` binders inside `body`: one of the
         // parameters, or a variable outside the redex, which is now under
         // the `let`s instead of the lambdas.
@@ -515,7 +549,7 @@ impl<'g> Specialiser<'g> {
                         Some(t) => Scrutinee::Var(depth + (m - 1 - t)),
                         None => match args[i].strip_loc() {
                             Term::Var(j) => Scrutinee::Var(j + depth + m),
-                            a if self.is_empty_row(a) => Scrutinee::Known(empty_ctor),
+                            a if let Some(c) = self.empty_ctor(a) => Scrutinee::Known(c),
                             _ => return Err(Fail::Unsupported),
                         },
                     },

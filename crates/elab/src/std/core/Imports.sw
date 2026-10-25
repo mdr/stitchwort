@@ -51,5 +51,11 @@ import Effect (
   lift,
   bindD,
   mapSig,
-  pfix
+  pfix,
+  Divergence,
+  CompD,
+  doneD,
+  bindDv,
+  liftD,
+  delayD
 )

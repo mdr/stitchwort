@@ -14,6 +14,13 @@
 //!   with `doneIn e` and `bindIn e`; `liftIn e` turns such a computation into
 //!   a tree to move into a row with abilities, and `lowerIn e` turns a tree in
 //!   the row `{e}` back.
+//! - A row variable a signature uses only bare gets a divergence index `d`
+//!   beside it, and `{e} b` is then `CompD d e b`: `CompIn e b` at `Total`,
+//!   a `Delay` at `MayDiverge` (docs/proposals/partial-stage-3.md, D1213,
+//!   D1214). Such a row is sequenced with `doneD`/`bindDv`; `liftD` moves a
+//!   total computation into it and `delayD` moves it into a partial row
+//!   ([`lift`]). A body that needs `e` total is checked again with it
+//!   (D1215, `Elaborator::retype_total`).
 //! - Code checked against `Comp` over a row is elaborated in *computation
 //!   mode*: effectful arguments are run first, left to right, with `bind`; an
 //!   operation call becomes a `Call` of the operation injected into the row;
@@ -66,6 +73,14 @@ pub struct Row {
     /// A row variable (a value of type `Effects`), or `None` for a closed row.
     pub tail: Option<Value>,
     pub partial: bool,
+    /// For a row whose partiality is a divergence index `d` (a value of type
+    /// `Divergence`: a variable, or an unknown): a computation in it is a
+    /// `CompD d E a`, with `E` the row above as an `Effects`, which is
+    /// `CompIn E a` once `d` is `Total` and a `Delay` once it's `MayDiverge`
+    /// (docs/proposals/partial-stage-3.md §2.3). `partial` is then `false`.
+    /// It comes from a bare `{e}` in a signature (D1214), and from the calls
+    /// of a function with one.
+    pub div: Option<Value>,
 }
 
 /// The `ability` of a label that's the private recursion signature of the
@@ -99,6 +114,7 @@ impl Row {
             labels: Vec::new(),
             tail: None,
             partial: false,
+            div: None,
         }
     }
 
@@ -107,6 +123,7 @@ impl Row {
             labels: self.labels[from..].to_vec(),
             tail: self.tail.clone(),
             partial: self.partial,
+            div: None,
         }
     }
 
@@ -114,19 +131,30 @@ impl Row {
     /// total. A computation in it can perform nothing, so it's run where it
     /// stands rather than sequenced (see [`in_place`]).
     pub fn is_empty(&self) -> bool {
-        self.labels.is_empty() && self.tail.is_none() && !self.partial
+        self.labels.is_empty() && self.tail.is_none() && !self.partial && self.div.is_none()
     }
 
     /// Whether this is a bare row variable `{e}`: no abilities, a tail, and
-    /// total. A computation in it is a `CompIn e a`, not a `Comp`.
+    /// not partial. A computation in it is a `CompIn e a` (or, with a
+    /// divergence index, a `CompD d e a`), not a `Comp`.
     pub fn is_bare(&self) -> bool {
         self.labels.is_empty() && self.tail.is_some() && !self.partial
+    }
+
+    /// The same row without its divergence index: what it is once the index
+    /// is `Total`.
+    fn without_div(&self) -> Row {
+        Row {
+            div: None,
+            ..self.clone()
+        }
     }
 
     /// The same abilities, in total mode.
     fn total(&self) -> Row {
         Row {
             partial: false,
+            div: None,
             ..self.clone()
         }
     }
@@ -230,6 +258,16 @@ pub fn res(cx: &Ctx, row: &Row) -> Result<Value> {
 /// `Comp (ops row) (res row) t`, or `Delay (ops row) (res row) t` for a
 /// partial row, or `CompIn e t` for a bare row variable `{e}`.
 pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
+    let row = &settle_div(cx, row.clone())?;
+    if let Some(d) = &row.div {
+        // `CompD d E t` (docs/proposals/partial-stage-3.md §2.1).
+        let rv = row_value(cx, &row.without_div())?;
+        let mut ty = Value::Neutral(Head::Def(def(cx, Builtin::CompD)?), Spine::new());
+        for arg in [d.clone(), rv, t] {
+            ty = apply(cx.g(), ty, arg)?;
+        }
+        return Ok(ty);
+    }
     if row.is_bare() {
         let tail = row.tail.clone().expect("a bare row has a tail");
         let comp_in = Value::Neutral(Head::Def(def(cx, Builtin::CompIn)?), Spine::new());
@@ -248,6 +286,93 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
         data(cx, Builtin::Comp)?,
         vec![ops(cx, row)?, res(cx, row)?, t],
     ))
+}
+
+// Divergence indices (docs/proposals/partial-stage-3.md)
+
+/// The name of the divergence index a signature binds beside its bare row
+/// variable `e` (D1214): one no program can write.
+pub(crate) fn divergence_name(row_variable: &str) -> String {
+    format!("%div.{row_variable}")
+}
+
+/// What a divergence index is, once forced.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DivState {
+    Total,
+    MayDiverge,
+    /// Still unknown: a metavariable.
+    Unknown,
+    /// A variable (a signature's `d`): it stays what it is.
+    Rigid,
+}
+
+fn div_state(cx: &Ctx, d: &Value) -> Result<DivState> {
+    let g = cx.g();
+    Ok(match force(g, d.clone())? {
+        Value::Ctor(dd, c, _) if g.registry.ctor(Builtin::DivTotal) == Some((dd, c)) => {
+            DivState::Total
+        }
+        Value::Ctor(dd, c, _) if g.registry.ctor(Builtin::DivMay) == Some((dd, c)) => {
+            DivState::MayDiverge
+        }
+        Value::Neutral(Head::Meta(_), _) => DivState::Unknown,
+        _ => DivState::Rigid,
+    })
+}
+
+/// The constructor `Total` or `MayDiverge`, as a value.
+pub(crate) fn div_ctor(cx: &Ctx, b: Builtin) -> Result<Value> {
+    let (d, c) = crate::check::builtin_ctor(cx, b)?;
+    Ok(Value::Ctor(d, c, Vec::new().into()))
+}
+
+/// `row`, with a divergence index that is known now taken out of it: a
+/// `Total` row is the row itself, a `MayDiverge` one is partial.
+fn settle_div(cx: &Ctx, row: Row) -> Result<Row> {
+    let Some(d) = &row.div else {
+        return Ok(row);
+    };
+    Ok(match div_state(cx, d)? {
+        DivState::Total => row.without_div(),
+        DivState::MayDiverge => Row {
+            partial: true,
+            div: None,
+            ..row
+        },
+        DivState::Unknown | DivState::Rigid => row,
+    })
+}
+
+/// Whether `row` has a divergence index that is still unknown.
+fn unknown_div(cx: &Ctx, row: &Row) -> Result<bool> {
+    match &row.div {
+        Some(d) => Ok(div_state(cx, d)? == DivState::Unknown),
+        None => Ok(false),
+    }
+}
+
+/// The row an `Effects` value stands for: the empty row, a row of
+/// abilities, or a row variable.
+fn decode_row_value(cx: &Ctx, rv: &Value) -> Result<Option<Row>> {
+    let g = cx.g();
+    let (Some(empty), Some(ops_ctor)) = (
+        g.registry.ctor(Builtin::RowEmpty),
+        g.registry.ctor(Builtin::RowOps),
+    ) else {
+        return Ok(None);
+    };
+    Ok(match force(g, rv.clone())? {
+        Value::Ctor(d, c, _) if (d, c) == empty => Some(Row::empty()),
+        Value::Ctor(d, c, fields) if (d, c) == ops_ctor => decode(cx, &fields[0])?,
+        Value::Ctor(..) => None,
+        other => Some(Row {
+            labels: Vec::new(),
+            tail: Some(other),
+            partial: false,
+            div: None,
+        }),
+    })
 }
 
 /// A row as a value of type `Effects`, in canonical form: `Empty` for the empty
@@ -322,6 +447,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                     labels,
                     tail: None,
                     partial: false,
+                    div: None,
                 }));
             }
             Value::Neutral(Head::Def(id), spine) if id == row_op && spine.len() == 1 => {
@@ -341,6 +467,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                             labels,
                             tail: Some(x),
                             partial: false,
+                            div: None,
                         }));
                     }
                 }
@@ -385,7 +512,24 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
     };
     let delay = cx.g().builtins.primitive_id(Primitive::Delay);
     let comp_in = cx.g().registry.def(Builtin::CompIn);
+    let comp_d = cx.g().registry.def(Builtin::CompD);
     Ok(match force(cx.g(), ty.clone())? {
+        // Stuck on its divergence index: a variable or an unknown.
+        Value::Neutral(Head::Def(d), spine) if Some(d) == comp_d && spine.len() == 3 => {
+            match (&spine[0], &spine[1], &spine[2]) {
+                (Elim::App(div, _), Elim::App(rv, _), Elim::App(t, _)) => decode_row_value(cx, rv)?
+                    .map(|row| {
+                        (
+                            Row {
+                                div: Some(div.clone()),
+                                ..row
+                            },
+                            t.clone(),
+                        )
+                    }),
+                _ => None,
+            }
+        }
         // Stuck: its row is a variable or an unknown (at `Empty` or `Ops` it
         // would have computed).
         Value::Neutral(Head::Def(d), spine) if Some(d) == comp_in && spine.len() == 2 => {
@@ -395,6 +539,7 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
                         labels: Vec::new(),
                         tail: Some(tail.clone()),
                         partial: false,
+                        div: None,
                     },
                     t.clone(),
                 )),
@@ -414,6 +559,7 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
                     (
                         Row {
                             partial: true,
+                            div: None,
                             ..row
                         },
                         t,
@@ -459,6 +605,7 @@ fn solve_tail(cx: &mut Ctx, open: &Row, other: &Row) -> Result<bool> {
             .collect(),
         tail: other.tail.clone(),
         partial: false,
+        div: None,
     };
     let value = row_value(cx, &rest)?;
     cx.unify(tail, &value)
@@ -519,7 +666,13 @@ fn show_request(cx: &Ctx, req: &Value) -> String {
 }
 
 fn same_shape(cx: &Ctx, a: &Row, b: &Row) -> Result<bool> {
-    Ok(a.labels.len() == b.labels.len()
+    let same_div = match (&a.div, &b.div) {
+        (None, None) => true,
+        (Some(x), Some(y)) => cx.unify(x, y)?,
+        _ => false,
+    };
+    Ok(same_div
+        && a.labels.len() == b.labels.len()
         && a.labels
             .iter()
             .zip(&b.labels)
@@ -594,10 +747,132 @@ fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
     )
 }
 
-/// Moves `term : Comp from t` (or `Delay from t`) into `to`, solving an
-/// unknown tail of `from`. A total computation moves into a partial row
-/// with `lift`; a partial one can't move into a total row.
+/// Moves `term`, a computation in `from` returning a `t`, into `to`, where
+/// either may have a divergence index (docs/proposals/partial-stage-3.md
+/// §2.3). An unknown index is settled first: from what the other side is,
+/// and `Total` when that says nothing. Then a total computation moves into
+/// a row with an index by `liftD`, and one with an index into a partial row
+/// by `delayD`. One with an index that is a variable can't move into a
+/// total row, such as a handler's: E-PARTIAL, and the definition is checked
+/// again with its row total (D1215).
 fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
+    let mut from = settle_div(cx, from)?;
+    let mut to = settle_div(cx, to.clone())?;
+    if from.div.is_none() && to.div.is_none() {
+        return lift_plain(cx, term, from, &to, t);
+    }
+    if let Some(df) = from.div.clone()
+        && div_state(cx, &df)? == DivState::Unknown
+    {
+        let target = match &to.div {
+            Some(dt) => dt.clone(),
+            None => div_ctor(cx, Builtin::DivTotal)?,
+        };
+        cx.unify(&df, &target)?;
+        from = settle_div(cx, from)?;
+    }
+    if let Some(dt) = to.div.clone()
+        && div_state(cx, &dt)? == DivState::Unknown
+    {
+        if from.partial {
+            cx.unify(&dt, &div_ctor(cx, Builtin::DivMay)?)?;
+        } else if let Some(df) = &from.div {
+            cx.unify(&dt, df)?;
+        }
+        to = settle_div(cx, to)?;
+    }
+    match (from.div.clone(), to.div.clone()) {
+        (None, None) => lift_plain(cx, term, from, &to, t),
+        (None, Some(dt)) => {
+            if from.partial {
+                return Err(partial_in_bare(cx, &term));
+            }
+            let plain = to.without_div();
+            let moved = lift_plain(cx, term, from, &plain, t)?;
+            let plain = refresh(cx, &plain)?;
+            let moved = if plain.is_empty() {
+                // `CompIn Empty t` is `t`.
+                in_place(cx, &plain, &moved, t)?.expect("the empty row")
+            } else {
+                moved
+            };
+            let rv = row_value(cx, &plain)?;
+            call(
+                cx,
+                Builtin::LiftD,
+                std::slice::from_ref(t),
+                vec![cx.quote(&dt)?, cx.quote(&rv)?, moved],
+            )
+        }
+        (Some(df), None) => {
+            if !to.partial {
+                return Err(divergent_in_total(cx));
+            }
+            let plain = from.without_div();
+            let rv = row_value(cx, &plain)?;
+            let delayed = call(
+                cx,
+                Builtin::DelayD,
+                std::slice::from_ref(t),
+                vec![cx.quote(&df)?, cx.quote(&rv)?, term],
+            )?;
+            let partial = Row {
+                partial: true,
+                ..plain
+            };
+            lift_plain(cx, delayed, partial, &to, t)
+        }
+        (Some(df), Some(dt)) => {
+            if !cx.unify(&df, &dt)? {
+                return Err(divergent_in_total(cx));
+            }
+            let (pf, pt) = (from.without_div(), to.without_div());
+            // An unknown row on one side is the other's.
+            for (open, other) in [(&pf, &pt), (&pt, &pf)] {
+                if let Some(tail) = &open.tail
+                    && open.labels.is_empty()
+                    && is_unknown(cx, tail)?
+                {
+                    let value = row_value(cx, other)?;
+                    cx.unify(tail, &value)?;
+                    break;
+                }
+            }
+            let (pf, pt) = (refresh(cx, &pf)?, refresh(cx, &pt)?);
+            if same_shape(cx, &pf, &pt)? {
+                return Ok(term);
+            }
+            Err(cx.error(
+                "E-ABILITY",
+                "this computation's abilities can't be moved here",
+                "its row may be partial, and moving it into another row isn't supported yet",
+            ))
+        }
+    }
+}
+
+/// A partial computation (`term`) where the row is a bare `{e}` whose
+/// divergence is a variable: `e` may be total.
+fn partial_in_bare(cx: &Ctx, term: &Term) -> Diagnostic {
+    partial_in_total(cx, term)
+}
+
+/// A computation in a bare row `{e}` that may be partial (its divergence is
+/// a variable), moved into a total row: a handler's, or a total function's.
+fn divergent_in_total(cx: &Ctx) -> Diagnostic {
+    cx.error(
+        "E-PARTIAL",
+        "a computation that might not finish can't run here",
+        "this runs a computation in the row `e`, which may be partial",
+    )
+    .with_note(
+        "a row variable used only as `{e}` may stand for a partial row, and partial code can't \
+         run in a total row such as a handler's",
+    )
+}
+
+/// [`lift`] for two rows without divergence indices.
+fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
     if from.partial && !to.partial {
         return Err(partial_in_total(cx, &term));
     }
@@ -809,6 +1084,16 @@ fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Re
 /// `c` then `next`, in `row`: `bind`, `bindD` in a partial row, or
 /// `bindIn e` in a bare row `{e}`. `c` returns an `a`, `next` a `b`.
 fn bind_term(cx: &Ctx, row: &Row, a: Value, b: Value, c: Term, next: Term) -> Result<Term> {
+    let row = &settle_div(cx, row.clone())?;
+    if let Some(d) = &row.div {
+        let rv = row_value(cx, &row.without_div())?;
+        return call(
+            cx,
+            Builtin::BindDv,
+            &[a, b],
+            vec![cx.quote(d)?, cx.quote(&rv)?, c, next],
+        );
+    }
     if row.is_bare() {
         let tail = row.tail.as_ref().expect("a bare row has a tail");
         return call(cx, Builtin::BindIn, &[a, b], vec![cx.quote(tail)?, c, next]);
@@ -828,16 +1113,18 @@ fn bind_term(cx: &Ctx, row: &Row, a: Value, b: Value, c: Term, next: Term) -> Re
 
 /// Re-reads a row whose tail may have been solved since it was read.
 fn refresh(cx: &Ctx, row: &Row) -> Result<Row> {
+    let row = settle_div(cx, row.clone())?;
     if row.tail.is_none() {
-        return Ok(row.clone());
+        return Ok(row);
     }
-    let ty = cx.eval(&cx.quote(&ops(cx, row)?)?)?;
+    let ty = cx.eval(&cx.quote(&ops(cx, &row)?)?)?;
     Ok(match decode(cx, &ty)? {
         Some(fresh) => Row {
             partial: row.partial,
+            div: row.div.clone(),
             ..fresh
         },
-        None => row.clone(),
+        None => row,
     })
 }
 
@@ -851,6 +1138,16 @@ fn is_unknown(cx: &Ctx, value: &Value) -> Result<bool> {
 /// Whether `row` is a bare row `{?e}` whose row is still unknown: the row
 /// rule's to decide (`unify::row_rule`), or to put aside, never a coercion's.
 fn unknown_bare(cx: &Ctx, row: &Row) -> Result<bool> {
+    if row.div.is_some() {
+        // `CompD ?d ?e T`, or `CompD ?d Empty T` once the row is known.
+        return Ok(unknown_div(cx, row)?
+            && row.labels.is_empty()
+            && !row.partial
+            && match &row.tail {
+                Some(tail) => is_unknown(cx, tail)?,
+                None => true,
+            });
+    }
     match &row.tail {
         Some(tail) if row.is_bare() => is_unknown(cx, tail),
         _ => Ok(false),
@@ -873,9 +1170,13 @@ pub fn unknown_bare_value(cx: &Ctx, ty: &Value) -> Result<Option<Value>> {
 pub fn settle_empty(cx: &Ctx, ty: &Value) -> Result<()> {
     if let Some((row, _)) = comp_parts(cx, ty)?
         && unknown_bare(cx, &row)?
-        && let Some(tail) = &row.tail
     {
-        cx.unify(tail, &crate::rows::empty_row_in(cx)?)?;
+        if let Some(d) = &row.div {
+            cx.unify(d, &div_ctor(cx, Builtin::DivTotal)?)?;
+        }
+        if let Some(tail) = &row.tail {
+            cx.unify(tail, &crate::rows::empty_row_in(cx)?)?;
+        }
     }
     Ok(())
 }
@@ -905,6 +1206,7 @@ fn extend_with(cx: &mut Ctx, row: &Row, extra: Vec<Label>, tail: Value) -> Resul
         labels: extra,
         tail: Some(tail),
         partial: false,
+        div: None,
     };
     let value = row_value(cx, &added)?;
     cx.unify(old, &value)
@@ -1076,11 +1378,34 @@ pub fn effect_type(
             Some(cx.eval(&term)?)
         }
     };
+    // A bare row variable with a divergence index beside it (D1214).
+    let div = match &row.tail {
+        Some(name) if labels.is_empty() && !partial => {
+            let x = divergence_name(&name.text);
+            match cx.lookup(&x) {
+                Some(_) => {
+                    let ty = Value::Data(data(cx, Builtin::Divergence)?, Vec::new());
+                    let term = check(
+                        cx,
+                        &Expr::Var(AstName {
+                            text: x,
+                            span: name.span,
+                        }),
+                        &ty,
+                    )?;
+                    Some(cx.eval(&term)?)
+                }
+                None => None,
+            }
+        }
+        _ => None,
+    };
     let result_value = cx.eval(&result)?;
     let row = Row {
         labels,
         tail,
         partial,
+        div,
     };
     let ty = comp_type(cx, &row, result_value)?;
     if !matches!(sort, stitchwort_core::Sort::Type(0)) {
@@ -1170,8 +1495,11 @@ pub fn is_comp_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     let comp_in = cx.g().registry.def(Builtin::CompIn);
     Ok(match force(cx.g(), ty.clone())? {
         Value::Data(d, _) => d == comp,
-        // `CompIn e a` for a row variable or an unknown row.
-        Value::Neutral(Head::Def(d), spine) => Some(d) == comp_in && spine.len() == 2,
+        // `CompIn e a` for a row variable or an unknown row, or `CompD d e a`.
+        Value::Neutral(Head::Def(d), spine) => {
+            (Some(d) == comp_in && spine.len() == 2)
+                || (Some(d) == cx.g().registry.def(Builtin::CompD) && spine.len() == 3)
+        }
         _ => false,
     })
 }
@@ -1751,6 +2079,16 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
 
 /// `Done v` (or `now v`), as a computation in `row` returning a `t`.
 fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
+    let row = &settle_div(cx, row.clone())?;
+    if let Some(d) = &row.div {
+        let rv = row_value(cx, &row.without_div())?;
+        return call(
+            cx,
+            Builtin::DoneD,
+            std::slice::from_ref(t),
+            vec![cx.quote(d)?, cx.quote(&rv)?, v],
+        );
+    }
     if row.is_bare() {
         let tail = row.tail.as_ref().expect("a bare row has a tail");
         return call(
@@ -2022,7 +2360,12 @@ fn unknown_row_value(cx: &mut Ctx, expr: &Expr, row: &Row, t: &Value) -> Result<
             Value::Ctor(d, c, _) => cx.g().registry.ctor(Builtin::RowEmpty) == Some((d, c)),
             _ => false,
         };
-        Ok((!empty).then_some(term))
+        // A partial body settles the divergence, whatever the row.
+        let partial = match &row.div {
+            Some(d) => div_state(cx, d)? == DivState::MayDiverge,
+            None => false,
+        };
+        Ok((!empty || partial).then_some(term))
     };
     Ok(crate::undo::attempt(cx, |cx| crate::undo::transaction(cx, compared))?.flatten())
 }
@@ -3217,6 +3560,7 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
         labels: vec![label.clone()],
         tail: None,
         partial: false,
+        div: None,
     };
     let field_ty = cx.g().data(op_data).ctors[i].fields[0].1.clone();
     let dom = stitchwort_core::value::eval(cx.g(), &label.args, &field_ty)?;
@@ -3436,6 +3780,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             .collect(),
         tail: out.tail.clone(),
         partial: false,
+        div: None,
     };
     let mut inner_labels = vec![handled.clone()];
     inner_labels.extend(rest.labels.iter().cloned());
@@ -3446,6 +3791,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         labels: inner_labels,
         tail: rest.tail.clone(),
         partial: false,
+        div: None,
     };
     let (body_c, t_in) = comp_infer(cx, body, &inner).map_err(|mut e| {
         if e.code == "E-PARTIAL" {

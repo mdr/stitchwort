@@ -12,10 +12,10 @@ def step (n: Nat): Nat := n + 1
 -- A callback that may fail but doesn't.
 def checked (n: Nat): {Fail} Nat := if n > 1000000000 then Fail.fail "too big" else n + 1
 
-def viaMap (xs: List Nat): Nat := List.sum (List.map step xs)
+def viaMap (xs: List Nat): Nat := List.sum (List.map xs step)
 
 def viaFail (xs: List Nat): Nat :=
-  match Fail.toResult (() => List.map checked xs) with
+  match Fail.toResult (() => List.map xs checked) with
     | Ok ys => List.sum ys
     | Err _ => 0
 
@@ -31,6 +31,6 @@ def repeat (mode: Text) (xs: List Nat): Nat -> Nat -> Nat
 def main(): {IO} () :=
   match Text.words (IO.readAll ()) with
     | [mode, n, rounds] =>
-      let xs := List.range (Option.getOrElse 0 n.toNat)
-      IO.print (Nat.toText (repeat mode xs (Option.getOrElse 1 rounds.toNat) 0))
+      let xs := List.range (Option.getOrElse n.toNat 0)
+      IO.print (Nat.toText (repeat mode xs (Option.getOrElse rounds.toNat 1) 0))
     | _ => IO.print "usage: mode n rounds"

@@ -834,6 +834,13 @@ impl Elaborator {
         let mut ty = g.def(id).ty.clone();
         while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
             let shown = pretty::term(g, &names, dom);
+            // A bare row's divergence index isn't written
+            // (docs/proposals/partial-stage-3.md §2.2).
+            if name.starts_with("%div.") {
+                names.push(name.clone());
+                ty = (**cod).clone();
+                continue;
+            }
             parts.push(match icit {
                 Icit::Explicit => format!("({name}: {shown})"),
                 _ => format!("[{name}: {shown}]"),
@@ -852,7 +859,18 @@ impl Elaborator {
     fn global_type(&self, global: Global) -> Option<String> {
         let g = &self.globals;
         match global {
-            Global::Def(id) => Some(pretty::value(g, &[], &g.def(id).ty_value)),
+            Global::Def(id) => {
+                let ty = pretty::value(g, &[], &g.def(id).ty_value);
+                // Checked with its bare row variables total (D1215,
+                // docs/proposals/partial-stage-3.md §2.2): say why.
+                Some(match self.total_rows.borrow().contains_key(&id) {
+                    true => format!(
+                        "{ty}\n-- takes only total callbacks: its body runs a callback where \
+                         partial code can't run"
+                    ),
+                    false => ty,
+                })
+            }
             Global::Data(d) => {
                 let data = g.data(d);
                 let mut ty = Term::Sort(data.sort);

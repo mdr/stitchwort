@@ -588,8 +588,18 @@ impl Elaborator {
         use stitchwort_core::registry::Builtin;
         let registry = &self.globals.registry;
         match global {
-            Global::Ctor(d, _) => registry.is_data(Builtin::Row, d),
+            Global::Ctor(d, _) => {
+                registry.is_data(Builtin::Row, d) || registry.is_data(Builtin::Divergence, d)
+            }
+            // Whether a bare row may be partial is the elaborator's to say
+            // (docs/proposals/partial-stage-3.md).
+            Global::Data(d) => registry.is_data(Builtin::Divergence, d),
             Global::Def(id) => [
+                Builtin::CompD,
+                Builtin::DoneD,
+                Builtin::BindDv,
+                Builtin::LiftD,
+                Builtin::DelayD,
                 Builtin::RowOp,
                 Builtin::RowRes,
                 Builtin::CompIn,

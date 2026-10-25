@@ -34,6 +34,9 @@ pub struct RowMeta {
     names: Vec<Name>,
     meta: Term,
     span: Span,
+    /// A divergence unknown (docs/proposals/partial-stage-3.md), defaulted
+    /// to `Total` rather than to the empty row.
+    divergence: bool,
 }
 
 /// A row comparison put aside, with the context it was made in.
@@ -71,7 +74,8 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
     let Ok(Value::Data(d, _)) = force(cx.g(), ty.clone()) else {
         return;
     };
-    if !cx.g().registry.is_data(Builtin::Row, d) {
+    let divergence = cx.g().registry.is_data(Builtin::Divergence, d);
+    if !cx.g().registry.is_data(Builtin::Row, d) && !divergence {
         return;
     }
     cx.e.row_metas.borrow_mut().push(RowMeta {
@@ -80,6 +84,7 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
         names: cx.names.clone(),
         meta: meta.clone(),
         span: cx.span,
+        divergence,
     });
 }
 
@@ -311,6 +316,13 @@ impl Elaborator {
                 force(cx.g(), value.clone())?,
                 Value::Neutral(Head::Meta(_), _)
             ) {
+                continue;
+            }
+            // An unknown divergence that nothing settled is `Total`: the
+            // callbacks were total.
+            if item.divergence {
+                let total = crate::effects::div_ctor(&cx, Builtin::DivTotal)?;
+                cx.unify(&value, &total)?;
                 continue;
             }
             let empty = empty_row_in(&cx)?;

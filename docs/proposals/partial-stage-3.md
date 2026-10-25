@@ -1,7 +1,7 @@
 # Proposal: `Partial`, stage 3: partial callbacks through the one `List.map`
 
-**Status:** design note, 25 October 2026. Not built. Waiting for Matt's
-review (decisions D1213–D1220, §9).
+**Status:** approved as D1213–D1220. Lane 3a (library and elaborator) built,
+§10 "As built"; 3b–3e to come.
 
 It follows [partial.md](partial.md) (stage 1: `Delay`, ticks, §7.3's
 callback restriction, §10.7's "partiality polymorphism") and
@@ -865,3 +865,42 @@ branch, never merged.
    - **Recommended:** lanes 3a–3e as in §7.4, after rule E lands, with 3a's
      acceptance including the 80 theorems unchanged and pure `map` within
      10%.
+
+## 10. As built (lane 3a, 25 October 2026)
+
+- **Library** (`core/Effect.sw`): `Divergence` (`Total`, `MayDiverge`),
+  `CompD`, `doneD`, `bindDv`, `liftD`, `delayD`, as §2.1. They and the type
+  are library-internal (`Elaborator::is_internal`, D1122). Their bodies are
+  checked as plain terms, not in computation mode
+  (`Elaborator::divergence_case_body`): each case is the computation it is.
+- **Signatures** (D1214): `autobind` marks the auto-bound row variables used
+  only bare; `signature_type` binds an implicit `%div.e : Divergence` right
+  after each, and `effect_type` makes `{e} a` a `CompD %div.e e a`. Local
+  definitions' signatures don't get one yet.
+- **Rows** (`effects.rs`): `Row` has `div: Option<Value>`. `comp_parts`
+  reads a stuck `CompD`; `done`, `bind_term`, `comp_type` build the `…D`
+  forms; `lift` settles an unknown index (from the other side, else
+  `Total`), then moves with `liftD`/`delayD`. A rigid index moved into a
+  total row is E-PARTIAL.
+- **Inference**: `unify::divergence_rule` solves `CompD ?d E B ≟ T`: a
+  `Delay` gives `MayDiverge` and its row; anything settled gives `Total`
+  and then the `CompIn` rule; a blocked side is put aside. Unsolved `?d`s
+  default to `Total` with the row unknowns (`rows::default_rows`).
+- **The re-check** (D1215): any body that fails with an index in its
+  signature is checked again with `total_rows_only` (`retype_total`, which
+  gives the pending definition its total type through the kernel's new
+  `retype_def`). Where the first check failed is kept in
+  `Elaborator::total_rows`: a caller's E-PARTIAL gets a label there and a
+  note, and hover a line. Only in `group`; mutual groups retype in place.
+- **Specialisation** (D1216): `specialise.rs` takes a list of driver types,
+  `Effects` at `Empty` and `Divergence` at `Total`.
+- **Printing**: `CompD d e a` prints `{e} a`, at `MayDiverge`
+  `{Partial | e} a`; `doneD Total Empty v` prints `v`.
+- `reject/partial-callback-std.sw` became `accept/partial-map-self.sw`.
+
+Measured (`bench/effect-map/map.sw`, `map 1000000 10`, best of 5, shared
+machine): before 1.059–1.083 s native, 0.565–0.596 s `--js`; after
+1.057–1.082 s native, 0.592–0.603 s `--js`. The `fail` mode (a `{Fail}`
+callback, generic code testing `d` per element) is about 2–9% slower:
+before 3.49–3.75 s native, 3.51–3.58 s `--js`; after 3.83–4.08 s and
+3.59–3.80 s.

@@ -1657,8 +1657,32 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
             Err(partial_callback(cx, head, value, dom).unwrap_or(e))
         }
         Err(e) if e.code == "E-TYPE-MISMATCH" => Err(local_signature(cx, head, e)),
+        Err(e) if e.code == "E-PARTIAL" => Err(total_rows_note(cx, head, e)),
         result => result,
     }
+}
+
+/// When the function given a partial argument was checked with its bare
+/// row variables total, because its body needs them total (D1215,
+/// docs/proposals/partial-stage-3.md §2.2): why it can't take a partial
+/// callback, where its signature alone suggests it could.
+fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
+    let Term::Def(id) = head.spine().0.strip_loc() else {
+        return e;
+    };
+    let Some(at) = cx.e.total_rows.borrow().get(id).copied() else {
+        return e;
+    };
+    let name = cx.g().def(*id).name.to_string();
+    e.with_label(
+        at,
+        format!("`{name}`'s body needs its row to be total here"),
+    )
+    .with_note(format!(
+        "`{name}` takes only total callbacks: its body runs a callback's computation where \
+         partial code can't run (inside a handler, say), so its row variable stands for total \
+         rows only"
+    ))
 }
 
 /// When the function with a wrong argument is a local definition, its whole
@@ -2126,6 +2150,11 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let g = cx.g();
     let expected = force(g, expected.clone())?;
+    if cx.e.divergence_case_body() {
+        let (term, found) = infer_unrun(cx, expr)?;
+        let (term, found) = insert(cx, term, found)?;
+        return compare(cx, term, &found, &expected);
+    }
     // A computation in a row of abilities: computation mode.
     if !matches!(expr, Expr::Hole(_) | Expr::Goal(_))
         && let Some((row, t)) = effects::comp_parts(cx, &expected)?

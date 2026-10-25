@@ -193,6 +193,8 @@ impl Elaborator {
             cong_candidates,
             result_heads,
             performs,
+            total_rows_only,
+            total_rows,
             interfaces,
             instances,
             data_owners,
@@ -279,6 +281,8 @@ impl Elaborator {
         cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         performs.get_mut().retain(|(id, ..), _| id.0 < defs);
+        total_rows_only.set(false);
+        total_rows.get_mut().retain(|id, _| id.0 < defs);
         *instances = mark.instances.clone();
         instance_steps.get_mut().clear();
         in_instance_signature.set(false);
