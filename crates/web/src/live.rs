@@ -241,7 +241,10 @@ mod tests {
         // The last stretch leaves keys mode, then prints.
         let last = &stretches[4];
         assert!(last.contains("\x1b[?1049l"), "{last:?}");
-        assert!(last.ends_with("The @ stopped at column 1, row 1.\n"), "{last:?}");
+        assert!(
+            last.ends_with("The @ stopped at column 1, row 1.\n"),
+            "{last:?}"
+        );
     }
 
     #[test]
