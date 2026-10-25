@@ -15,7 +15,7 @@ def glyphAt (state: State) (position: Position) (char: Char): Char :=
   else
     match monsterAt position state.monsters with
       | Some monster => monster.kind.glyph
-      | None => if state.potions.any (== position) then '!' else terrainOf char
+      | None => if position ∈ state.potions then '!' else terrainOf char
 
 def statusLine (state: State): Text :=
   "HP ${state.hitPoints}/${maxHitPoints}   Turn ${state.turn}   Monsters ${state.monsters.length}   (h/j/k/l or a/s/w/d move, . waits, q quits)"

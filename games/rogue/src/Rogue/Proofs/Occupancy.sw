@@ -6,7 +6,7 @@
 
 namespace Rogue.Proofs
 import Rogue (..)
-import Std (Eq, List, Option, Void, Bool)
+import Std (Decidable, Eq, List, Option, Void, Bool)
 
 -- No monster stands on `position`.
 def Clear (position: Position) (monsters: List Monster): Prop := monsterAt position monsters = None
@@ -100,7 +100,7 @@ theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player
 
 theorem enterClear (state: State) (target: Position) (free: Clear target state.monsters):
     Clear (enter state target).player (enter state target).monsters :=
-  match potion: state.potions.any (== target) with
+  match potion: Decidable.toBool (List.decMem target state.potions) with
     | True => free
     | False => free
 

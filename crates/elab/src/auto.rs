@@ -271,7 +271,10 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             .error(
                 "E-AUTO-STUCK",
                 format!("can't decide `{shown}` here"),
-                "it depends on values that aren't known until the program runs",
+                // Not "it depends on run-time values": `most + 1 ≠ 0` before
+                // `Nat.decAddSuccNotZero` holds for every `most`, but
+                // didn't compute (games/rogue/NOTES.md §2).
+                "it involves values that aren't known here, and computing it doesn't settle it",
             )
             .with_note("establish it first, with `if h: … then … else …`")),
     }
@@ -406,8 +409,8 @@ fn decidable(cx: &Ctx) -> Result<DataId> {
 /// them. In file mode, every definition, most recent first. In a project
 /// (docs/proposals/multi-file.md §4.9.5): this module's, most recent first;
 /// then each namespace it depends on, the last in canonical order first, by
-/// name within it; then the prelude's, most recent first. No other
-/// namespace's.
+/// name within it; then the loaded library files', by name; then the
+/// prelude's, most recent first. No other namespace's.
 fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     let g = cx.g();
     let candidates: Vec<DefId> = match &cx.e.module.closure {
@@ -425,6 +428,20 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
                 ids.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
                 all.extend(ids);
             }
+            // The library files' few procedures (`List.decMem`, the
+            // equality of `Map`, `Set` and `Float`: the D58 exceptions,
+            // each deciding only propositions that can't be written
+            // without its file loaded), by name: every definition
+            // outside the core that no namespace of the project made.
+            // File mode sees them as it sees everything.
+            let project: Vec<std::ops::Range<usize>> =
+                cx.e.namespace_defs.values().cloned().collect();
+            let mut library: Vec<DefId> = (cx.e.prelude_defs..cx.e.module.first_def)
+                .filter(|id| !project.iter().any(|range| range.contains(id)))
+                .map(DefId)
+                .collect();
+            library.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
+            all.extend(library);
             all.extend((0..cx.e.prelude_defs).rev().map(DefId));
             all
         }

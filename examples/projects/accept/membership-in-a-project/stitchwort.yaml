@@ -1,0 +1,4 @@
+# `x ∈ xs` is decided where a `Bool` is expected in a project too: `auto`
+# finds `List.decMem`, a library file's procedure, as in file mode
+# (games/rogue/NOTES.md §1).
+sources: [src]

@@ -3,7 +3,7 @@
 
 namespace Rogue.Proofs
 import Rogue (..)
-import Std (Eq, Nat)
+import Std (Decidable, Eq, List, Nat)
 
 theorem healedAtMost (hitPoints: Nat): healed hitPoints ≤ maxHitPoints :=
   match fits: Nat.leq (hitPoints + potionStrength) maxHitPoints with
@@ -12,7 +12,7 @@ theorem healedAtMost (hitPoints: Nat): healed hitPoints ≤ maxHitPoints :=
 
 theorem enterAtMost (state: State) (target: Position) (atMost: state.hitPoints ≤ maxHitPoints):
     (enter state target).hitPoints ≤ maxHitPoints :=
-  match potion: state.potions.any (== target) with
+  match potion: Decidable.toBool (List.decMem target state.potions) with
     | True => healedAtMost state.hitPoints
     | False => atMost
 
