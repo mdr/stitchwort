@@ -886,7 +886,9 @@ theorem List.splitGroupsOpen (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hs
     Pair.fst (List.splitGroups p (List.map f (List.rangeFrom m s))) = List.map f (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s)
   | Zero, s, e => rewrite List.runStop sep 0 s (rewrite <- Nat.addZero s in e)
   | Succ m, s, e =>
-    calc Pair.fst (List.splitStep (f s) (p (f s)) (List.splitGroups p (List.map f (List.rangeFrom m (Succ s)))))
+    calc Pair.fst (List.splitGroups p (List.map f (List.rangeFrom (Succ m) s)))
+      _ = Pair.fst (List.splitStep (f s) (p (f s)) (List.splitGroups p (List.map f (List.rangeFrom m (Succ s)))))
+        := Eq.cong Pair.fst (List.splitGroupsCons p (f s) (List.map f (List.rangeFrom m (Succ s))))
       _ = Pair.fst (List.splitStep (f s) (sep s) (List.splitGroups p (List.map f (List.rangeFrom m (Succ s))))) := rewrite hsep s
       _ = List.map f (List.rangeFrom (Nat.firstFrom sep (Succ (Succ m)) s - s) s) :=
         match h: sep s with
@@ -920,7 +922,9 @@ theorem List.splitGroupsDone (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hs
       = List.sumBy (c => Nat.keepIf (g (List.runAt f sep (s + m) (Succ c))) (!(sep (Succ c)) && sep c)) (List.rangeFrom m s)
   | Zero, s, e => rfl
   | Succ m, s, e =>
-    calc List.sumBy g (Pair.snd (List.splitStep (f s) (p (f s)) (List.splitGroups p (List.map f (List.rangeFrom m (Succ s))))))
+    calc List.sumBy g (Pair.snd (List.splitGroups p (List.map f (List.rangeFrom (Succ m) s))))
+      _ = List.sumBy g (Pair.snd (List.splitStep (f s) (p (f s)) (List.splitGroups p (List.map f (List.rangeFrom m (Succ s))))))
+        := Eq.cong (st => List.sumBy g (Pair.snd st)) (List.splitGroupsCons p (f s) (List.map f (List.rangeFrom m (Succ s))))
       _ = List.sumBy g (Pair.snd (List.splitStep (f s) (sep s) (List.splitGroups p (List.map f (List.rangeFrom m (Succ s)))))) := rewrite hsep s
       _ = Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ s))) (!(sep (Succ s)) && sep s)
           + List.sumBy (c => Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ c))) (!(sep (Succ c)) && sep c)) (List.rangeFrom m (Succ s)) :=
