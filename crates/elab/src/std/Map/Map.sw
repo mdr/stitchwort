@@ -292,6 +292,9 @@ theorem Map.eqIffToListEq (m: Map k v [ord := o]) (n: Map k v [ord := o]): Iff (
 theorem Map.toListSorted (m: Map k v [ord := o]): Map.Spec.Sorted o (Map.toList m) :=
   Map.indRaw [p := m' => Map.Spec.Sorted o (Map.toList m')] (r => Map.Raw.toListSorted r) m
 
+-- No key appears twice.
+theorem Map.keysDistinct (m: Map k v [ord := o]): List.Distinct (Map.keys m) := Map.Spec.keysDistinct o None (Map.toList m) (Map.toListSorted m)
+
 theorem Map.getToList [auto ord: Ord k] (m: Map k v) (key: k): Map.get m key = Map.Tree.lookupList key (Map.toList m) :=
   Map.indRaw [p := m' => Map.get m' key = Map.Tree.lookupList key (Map.toList m')] (r => Map.Raw.getToList key r) m
 
@@ -600,6 +603,28 @@ theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) -> (key: k) -> (xs:
 -- `counts`: how many elements compare equal to `key`.
 theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): Map.getOr (Map.counts xs) 0 key = List.count xs (x => Map.Spec.sameKey key x) :=
   Map.getOrFoldCount Map.empty key xs
+
+theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) -> (m: Map k Nat) -> (key: k) -> ((n: Nat) -> Map.get m key = Some n -> 0 < n) ->
+    (n: Nat) -> Map.get (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key = Some n -> 0 < n
+  | Nil, m, key, h, n, found => h n found
+  | Cons x rest, m, key, h, n, found =>
+    Map.countsFoldPositive rest (Map.insertWith m x 1 Nat.add) key
+      (n g =>
+        match e: Ord.compare key x with
+          | Equal =>
+            let inserted := rewrite ord.equal key x e, Map.getInsertWith m x 1 Nat.add at g
+            match c: Map.get m x with
+              | None => rewrite <- Option.someInjective _ n inserted in rfl
+              | Some old => rewrite <- Option.someInjective _ n inserted in rfl
+          | Less =>
+            h n (rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) Nat.add at g)
+          | Greater =>
+            h n (rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) Nat.add at g))
+      n found
+
+-- `counts` records no count of 0: each key it has is in the list.
+theorem Map.countsPositive [auto ord: Ord k] (xs: List k) (key: k) (n: Nat) (found: Map.get (Map.counts xs) key = Some n): 0 < n :=
+  Map.countsFoldPositive xs Map.empty key (n g => Void.exfalso (Option.noneNotSome n g)) n found
 
 -- `groupBy`: the elements whose key is `kk`, in list order, if there are any.
 theorem Map.getGroupBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->

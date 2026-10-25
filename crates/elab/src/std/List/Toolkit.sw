@@ -1165,6 +1165,14 @@ theorem List.distinctMapFilter: (xs: List a) -> (key: a -> k) -> (p: a -> Bool) 
           (List.distinctMapFilter xs key p d)
       | False => List.distinctMapFilter xs key p d
 
+-- Keeping some elements keeps them distinct.
+theorem List.distinctFilter: (xs: List a) -> (p: a -> Bool) -> List.Distinct xs -> List.Distinct (List.filter xs p)
+  | Nil, p, d => Trivial
+  | Cons x xs, p, Both notMem d =>
+    match e: p x with
+      | True => Both (m => notMem (And.left (List.memFilter xs p x m))) (List.distinctFilter xs p d)
+      | False => List.distinctFilter xs p d
+
 -- A key of a `filterMap`'s result is the key of an element it came from,
 -- when each result has the key of its element.
 theorem List.memMapFilterMap (f: a -> Option b) (ka: a -> k) (kb: b -> k) (hk: (x: a) -> (y: b) -> f x = Some y -> kb y = ka x) (z: k):
@@ -1423,6 +1431,31 @@ theorem List.anyMap: (xs: List a) -> (p: b -> Bool) -> (f: a -> b) -> List.any (
 
 theorem List.countMap (xs: List a) (p: b -> Bool) (f: a -> b): List.count (List.map xs f) p = List.count xs (x => p (f x)) :=
   List.foldLeftMap xs 0 (n x => Nat.succIf n (p x)) f
+
+theorem List.occurrencesMap: (xs: List a) -> (f: a -> b) -> (p: b -> Bool) -> List.occurrences (List.map xs f) p = List.occurrences xs (x => p (f x))
+  | Nil, f, p => rfl
+  | Cons x xs, f, p => rewrite List.occurrencesMap xs f p in rfl
+
+-- Mapping both lists of a permutation keeps it one.
+theorem List.permMap (xs: List a) (ys: List a) (h: List.Perm xs ys) (f: a -> b): List.Perm (List.map xs f) (List.map ys f) :=
+  p => rewrite List.occurrencesMap xs f p, List.occurrencesMap ys f p in h (x => p (f x))
+
+-- Counting what `(.filter keep)` kept is counting what passes both tests.
+theorem List.occurrencesFilter: (xs: List a) -> (keep: a -> Bool) -> (p: a -> Bool) ->
+    List.occurrences (List.filter xs keep) p = List.occurrences xs (x => p x && keep x)
+  | Nil, keep, p => rfl
+  | Cons x xs, keep, p =>
+    match e: keep x with
+      | True =>
+        rewrite List.occurrencesFilter xs keep p in
+          match p x with
+            | True => rfl
+            | False => rfl
+      | False =>
+        rewrite List.occurrencesFilter xs keep p in
+          match p x with
+            | True => rfl
+            | False => rfl
 
 -- The first k numbers of a longer run.
 theorem List.takeRangeFrom: (k: Nat) -> (n: Nat) -> (s: Nat) -> k <= n -> List.take (List.rangeFrom n s) k = List.rangeFrom k s

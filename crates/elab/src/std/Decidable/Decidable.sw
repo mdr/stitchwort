@@ -30,3 +30,10 @@ theorem DecEq.sound [auto decEq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x 
 -- `x == y` is false only for different values.
 theorem DecEq.soundFalse [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = False) (same: x = y): Void :=
   Bool.falseNotTrue (Eq.trans (Eq.sym h) (Decidable.toBoolOf (DecEq.decide x y) same))
+
+-- `x == x`.
+theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoolOf (DecEq.decide x x) rfl
+
+-- `x == y` is `y == x`.
+theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
+  Bool.eqOf (x == y) (y == x) (h => rewrite DecEq.sound x y h in DecEq.refl y) (h => rewrite DecEq.sound y x h in DecEq.refl x)
