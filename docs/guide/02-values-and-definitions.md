@@ -123,7 +123,7 @@ def average (total: Nat) (count: Nat): Nat :=
 
 <!-- output: check errors/divide.sw -->
 ```text
-[E-AUTO-STUCK] Error: can't decide `count != 0` here
+[E-AUTO-STUCK] Error: can't decide `count ≠ 0` here
    ╭─[ errors/divide.sw:2:29 ]
    │
  2 │   if count == 0 then 0 else total / count

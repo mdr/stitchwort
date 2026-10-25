@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-STUCK] Error: can't decide `d != 0` here
+[E-AUTO-STUCK] Error: can't decide `d ≠ 0` here
    ╭─[ reject/divide-by-unknown.sw:4:37 ]
    │
  4 │ def ratio (n: Nat) (d: Nat): Nat := n / d

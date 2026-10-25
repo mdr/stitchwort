@@ -1030,7 +1030,7 @@ function $$divide(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$3, ty$2, $Main$ddivide(v0, v1));
   } catch (e) {
@@ -1100,7 +1100,7 @@ function $$eucDiv(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$deucDiv(v0, v1));
   } catch (e) {
@@ -1113,7 +1113,7 @@ function $$eucMod(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$deucMod(v0, v1));
   } catch (e) {
@@ -1126,7 +1126,7 @@ function $$tdiv(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dtdiv(v0, v1));
   } catch (e) {
@@ -1139,7 +1139,7 @@ function $$tmod(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dtmod(v0, v1));
   } catch (e) {
@@ -1152,7 +1152,7 @@ function $$fdiv(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dfdiv(v0, v1));
   } catch (e) {
@@ -1165,7 +1165,7 @@ function $$fmod(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dfmod(v0, v1));
   } catch (e) {
@@ -1178,7 +1178,7 @@ function $$modNat(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$6, ty$5, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$7, ty$5, $Main$dmodNat(v0, v1));
   } catch (e) {
@@ -1312,7 +1312,7 @@ function $$residue(arg0, arg1) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
     if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
+      throw new StitchwortInputError("precondition `d ≠ 0` doesn't hold");
     }
     return encodeFast(enc$4, ty$3, $Main$dresidue(v0, v1));
   } catch (e) {

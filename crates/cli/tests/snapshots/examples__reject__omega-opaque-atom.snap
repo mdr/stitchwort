@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `x <= x * y`
+[E-OMEGA] Error: `omega` can't prove `x ≤ x * y`
    ╭─[ reject/omega-opaque-atom.sw:5:49 ]
    │
  5 │ theorem opaque (x: Nat) (y: Nat): x <= x * y := omega
@@ -20,5 +20,5 @@ expression: output
    │ Note 5: this statement is false; a counterexample:
    │           x = 1
    │           y = 0
-   │         `x <= x * y` is false
+   │         `x ≤ x * y` is false
 ───╯

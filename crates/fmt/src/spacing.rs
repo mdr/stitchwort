@@ -79,9 +79,13 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
             _ => Gap::Rule(*right == Minus),
         };
     }
-    // `!x`.
+    // `!x`, `¬x`.
     if *left == Bang {
         return Gap::Rule(false);
+    }
+    // `exists (x: T) => P`, `∃ x => P`: the keyword stands apart.
+    if *left == KwExists {
+        return Gap::Rule(true);
     }
     // R6: `a, b`.
     if *right == Comma {
@@ -164,5 +168,8 @@ fn spaced_operator(tok: &Tok) -> bool {
             | Le
             | Gt
             | Ge
+            | KwIn
+            | NotIn
+            | Iff
     )
 }

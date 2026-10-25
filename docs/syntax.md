@@ -10,6 +10,7 @@ Interim rule, until the full layout specification (DESIGN.md §14):
 - Every following line that's indented continues it.
 - Tabs aren't allowed. `--` starts a comment that runs to the end of the line.
 - Names are ASCII: letters, digits, `_` and `'`, starting with a letter or `_`. Other characters are fine in text, characters and comments, but `def café` is an error ("unexpected character").
+- **ASCII is the base syntax, with a fixed set of Unicode spellings of operators** (D1200): `∈` `∉` `→` `↔` `∧` `∨` `¬` `≤` `≥` `≠` `∃` for `in` `!in` `->` `<->` `&&` `||` `!` `<=` `>=` `!=` `exists`. Each is exactly the token its ASCII form is, so meaning, precedence, errors and hashes are the same either way, and the two mix freely. Any other symbol from logic or mathematics (`∀`, `⊆`, `∪`, `≡`, `λ`, `⇒` …) is an error saying what to write instead, or that it isn't supported. See [Logic notation](#logic-notation-in--and-exists).
 - **Blocks.** An expression that starts on a new line is a block: each line at that line's column is a statement, and lines indented further continue it. A statement is `let x := e` (or `let x: T := e`), binding `x` for the following lines, or an expression run for its effects. The last line is the result. A `let` may hold a proof as well as data, and later lines know its value: after `let p := n`, `p` *is* `n` to the checker, so `Nat.leAddRight p 1` proves `n <= n + 1` ([proposals/let.md](proposals/let.md)). A `match` or local definition after a `let` knows it too, and a recursive call on `let r := rest` is as small as `rest`. The value is computed once when the program runs, before the lines after it; a proof or a type isn't computed at all (as for a proof parameter). Messages may show the value where you wrote the name. A `let` performs only what its right-hand side does: binding an effectful function performs nothing until it's called. A `let` whose right-hand side performs an operation (`let k := ask()`) is opaque: its value isn't known until the program runs. A line at the block's column straight after a line ending in an operator (such as `->`) continues that line.
 - **`if` across lines.** `then` and `else` may start a line, even at the block's own column (where any other token would start a new statement), as long as they're indented at least as far as the line the `if` is on. So `if c then a` / `else if d then b` / `else e` on separate lines, all lined up, is one expression. A nested `if` takes the closest `else`. An `else` further left than its `if`'s line is an error that says so.
 
@@ -1096,15 +1097,59 @@ theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl
 
 Each has two readings, chosen by what's expected, the way `if c` chooses:
 
-- **Where a proposition is expected** (a type: a signature, `if h: …`, an `auto` argument) they're the propositions `And a b`, `Or a b` and `Not a`, and both operands must be propositions. A `Bool` operand is an error (`E-NOT-A-TYPE`) with a note: for a `Bool` `b`, the proposition is `b = True`. `if h: x < y && y < z` gives `h: x < y && y < z` in the `then` branch and `h: Not (x < y && y < z)` in the `else` branch. The library's `Decidable.and`, `Decidable.or` and `Decidable.not` decide them from decisions of each side; both sides are decided before these run, so `if h: p && q` decides `q` even when `p` is false. `And.left`, `And.right` and `Or.neither` take them apart. Two more propositions are in the library (`import Std (Iff, Exists)`), with no operator yet: `Iff p q` is a record of `forward: p -> q` and `backward: q -> p` (`h.forward x`; `Iff.refl`, `Iff.symm`, `Iff.trans`), and `Exists a p` says some `x: a` satisfies `p x` (`Exists Nat (n => n * n = 49)`), built as `Witness x proof` and taken apart with `Exists.elim` or a `match` whose result is a proposition. Taking the witness out as data is `E-PROP-ELIM` (`examples/reject/exists-witness-to-data.sw`), as for any proposition with a data field.
+- **Where a proposition is expected** (a type: a signature, `if h: …`, an `auto` argument) they're the propositions `And a b`, `Or a b` and `Not a`, and both operands must be propositions. A `Bool` operand is an error (`E-NOT-A-TYPE`) with a note: for a `Bool` `b`, the proposition is `b = True`. `if h: x < y && y < z` gives `h: x < y && y < z` in the `then` branch and `h: Not (x < y && y < z)` in the `else` branch. The library's `Decidable.and`, `Decidable.or` and `Decidable.not` decide them from decisions of each side; both sides are decided before these run, so `if h: p && q` decides `q` even when `p` is false. `And.left`, `And.right` and `Or.neither` take them apart. Two more propositions are in the library (`import Std (Iff, Exists)`), written with operators of their own ([Logic notation](#logic-notation-in--and-exists)): `p <-> q` is `Iff p q`, a record of `forward: p -> q` and `backward: q -> p` (`h.forward x`; `Iff.refl`, `Iff.symm`, `Iff.trans`), and `exists (x: a) => P` is `Exists a ((x: a) => P)`, which says some `x: a` satisfies `P` (`exists (n: Nat) => n * n = 49`), built as `Witness x proof` and taken apart with `Exists.elim` or a `match` whose result is a proposition. Taking the witness out as data is `E-PROP-ELIM` (`examples/reject/exists-witness-to-data.sw`), as for any proposition with a data field.
 - **Otherwise** (a `Bool` expected, as in a `def …: Bool`, a test or `if c`, or nothing known, as in `let`) it's a `Bool`, and **each operand is a condition, as `if` takes one**: a `Bool`, or failing that a proposition with a decision procedure, decided. So `x < y && y < z`, `flag && x < 3` and `not (x < y)` are all `Bool`s, and a `Bool` operand means what it always has. `a && b` is `if a then b else False` and `a \|\| b` is `if a then True else b`: `b` isn't evaluated when `a` decides the answer, and when `b` performs operations, they're performed only if `b` is evaluated. Operations in `a` are performed first. With nothing expected, if the `Bool` reading fails, the proposition reading is tried, with everything the first try did undone; if that fails too, the `Bool` reading's error is reported (`E-AUTO-NONE` at an operand nothing decides, as for `if`).
 - **The right side knows the left side**, as in `if a then b else False`: when `a` is a proposition (`n != 0`, `x < y`), `b` is checked knowing that `a` holds in `a && b`, and that it doesn't (`Not a`) in `a || b`, so an `auto` argument in `b` can use it. `n != 0 && len % n == 0` works (the `%` needs a proof of `n != 0`), as does `n = 0 || total / n > 2`; in a chain `a && b && c`, `c` knows both `a` and `b`. A `Bool` left side (`n == 0`, `xs.isEmpty`) says nothing about `b`, just as `if n == 0` doesn't: write `n != 0` or `n = 0` for the fact. When `b` needs no proof, `a && b` is the plain `if a then b else False` on the decision's `Bool`, so the library's lemmas about `&&` and `||` on `Bool`s apply to it; when it does, it's `if _: a then b else False` (`Decidable.elim`), as that `if` makes it.
 
-Precedence, loosest first: `->`, then `\|>`, then `\|\|`, then `&&`, then `=` `!=` `==` `<` `<=` `>` `>=`. So `a \|\| b && c` is `a \|\| (b && c)`, `x < y && y < z` needs no brackets, and `p && q -> r` is `(p && q) -> r`. `not` is a function, so `not x < y` is `(not x) < y`: write `not (x < y)`; prefix `!` binds the same way, tighter than every binary operator (`!x < y` is `(!x) < y`). The printer shows `And p q` and `Or p q` as `p && q` and `p \|\| q`. A single `&` is still an error.
+Precedence, loosest first: `->`, then `<->`, then `\|>`, then `\|\|`, then `&&`, then `=` `!=` `==` `<` `<=` `>` `>=` `in` `!in` (the full table is under [Logic notation](#logic-notation-in--and-exists)). So `a \|\| b && c` is `a \|\| (b && c)`, `x < y && y < z` needs no brackets, and `p && q -> r` is `(p && q) -> r`. `not` is a function, so `not x < y` is `(not x) < y`: write `not (x < y)`; prefix `!` binds the same way, tighter than every binary operator (`!x < y` is `(!x) < y`). The printer shows `And p q`, `Or p q` and `Not p` as `p ∧ q`, `p ∨ q` and `¬p` (D1204). A single `&` is still an error.
 
 A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposition with a decision procedure, so `test "ordered" := 1 < 2 && 2 < 3` and `test "small" := 3 < 5` work.
 
 **Anywhere a `Bool` is expected**, a proposition with a decision procedure is decided, as Lean's `decide` coercion does: `List.filter xs (n => k * n <= size)`, `List.all xs (x => x < 10)`, `def le (a b: Nat): Bool := a <= b`. The expression is elaborated as usual; only if it turns out to be a proposition (its type is `Prop`) and the expected type is the library's `Bool` is it replaced by `Decidable.toBool` of its decision, except that the standard decisions of `<=` and `<` on `Nat` and `Int` are read as the comparison itself: `a <= b` as a `Bool` is `Nat.leq a b` (`Int.leq`, `Int.less`; `a < b` on `Nat` is `Nat.leq (Succ a) b`), so it prints, computes and is generalised as that, and a `Bool` fact about it (`Bool.andLeft`, `match e: a <= b with`) is the `Nat.leq a b = True` you would write by hand. `==` and the other decisions stay `Decidable.toBool` of theirs (`Decidable.toBoolSound`, `toBoolOf`). A proposition nothing decides is `E-AUTO-NONE` at the expression, saying a `Bool` is expected (`List.filter (g => g = f) gs` on functions). Where a proposition is expected nothing changes, and conditions (`if c`, `&&`, `||`, `not`, `test`) still try the `Bool` reading first and then the proposition, as above.
+
+### Logic notation: `in`, `<->` and `exists`
+
+([proposals/logic-notation.md](proposals/logic-notation.md), D1200–D1211.) Three forms for statements about collections and logic, each with a Unicode spelling:
+
+- **`x in c`** (`x ∈ c`) is membership, a proposition: `List.Mem x xs` for a list, and `c.contains x = True` for a `Set` or for the keys of a `Map`. Where a `Bool` is expected (`if x in seen`, `List.filter (x => x in allowed)`, a test) it is decided, as any decidable proposition is: by `List.decMem` from the element type's `DecEq` for a list, and as `c.contains x` for a set or map. **`x !in c`** (`x ∉ c`) is its negation (`Not`, or `Bool.not` as a `Bool`). Anything else on the right is `E-TYPE-MISMATCH`. It sits with `=` and `<`, not associative: `x in xs && y in ys` needs no brackets, `x in xs = b` is an error. `!x in xs` is an error saying the `!` would apply to the element: write `x !in xs` or `!(x in xs)`. `in` is a reserved word.
+- **`p <-> q`** (`p ↔ q`) is `Iff p q`. Not associative (`p <-> q <-> r` is an error), looser than `&&`, `||` and `|>`, tighter than `->`: `p && q <-> r` is `(p && q) <-> r`, and `p <-> q -> r` is `(p <-> q) -> r`.
+- **`exists (x: T) => P`** (`∃ (x: T) => P`) is `Exists T ((x: T) => P)`; several parameters, `exists (x y: Nat) => …`, nest one `Exists` each. Like a lambda it takes everything to its right, and like one it may start an expression, the right side of `<->`, or the last operand of `&&` or `||`; elsewhere it needs brackets. After a `.`, `exists` is a name: `opt.exists p` and `Option.exists` are the `Option` function. There is no `forall` form: a dependent function `(x: T) -> P` says "for all".
+
+Precedence, loosest first:
+
+| Level | Operators | Grouping |
+|---|---|---|
+| 1 | `x => e`, `exists (x: T) => P` | take everything to the right |
+| 2 | `->` | right |
+| 3 | `<->` | none |
+| 4 | `\|>` | left |
+| 5 | `\|\|` | right |
+| 6 | `&&` | right |
+| 7 | `=` `!=` `==` `<` `<=` `>` `>=` `in` `!in` | none |
+| 8 | `++` | right |
+| 9 | `+` `-` | left |
+| 10 | `*` `/` `%` | left |
+| 11 | prefix `!` `-` | |
+| 12 | application, `.` | |
+
+**Unicode spellings** (D1200). Each is the same token as its ASCII form; the formatter keeps whichever was written (D1209), and a proof written either way has the same hash:
+
+| ASCII | Unicode | | ASCII | Unicode |
+|---|---|---|---|---|
+| `in` | `∈` | | `!` | `¬` |
+| `!in` | `∉` | | `<=` | `≤` |
+| `->` | `→` | | `>=` | `≥` |
+| `<->` | `↔` | | `!=` | `≠` |
+| `&&` | `∧` | | `exists` | `∃` |
+| `\|\|` | `∨` | | | |
+
+Other symbols get an error naming the replacement: `∀` (write a function type `(x: T) -> P`), `⇒` (`=>`), `λ` (`x => e`), `⇔` (`<->`), `≡` (`=`), `⊆` `∪` `∩` and the other set operators (not supported: `Set` has functions), `ℕ` (`Nat`), and so on (`crates/syntax/src/lexer.rs`, `UNSUPPORTED`). There is no user-defined notation (D1207).
+
+**Printing** (D1204, D1211). Goals and messages show `∧` `∨` `¬` `≠` `≤` `∈` `∉` `↔` and `∃ (x: T) => P`, whichever spelling the source used; `->` stays `->`. Comparison on `Nat`/`Int` under a binder may show unfolded (`Nat.leq k y = True`), as before.
+
+**In a `rewrite`.** `rewrite rule in e` uses the same `in`, so a membership test in the rule needs brackets: `rewrite h (3 in xs) in rfl`. Unbracketed, the first `in` ends the rule and the second makes the body a membership test, which is `E-PARSE`, "a membership test in a `rewrite` needs brackets" (`examples/reject/logic-in-rewrite-rule.sw`).
+
+Examples: `examples/accept/logic-notation.sw`, `examples/goals/logic-notation.sw`, `examples/reject/logic-*.sw`.
 
 ### Pipe forward `|>`
 

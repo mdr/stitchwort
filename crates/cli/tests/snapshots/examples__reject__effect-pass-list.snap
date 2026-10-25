@@ -7,5 +7,5 @@ expression: output
     │
  18 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> allDone [computation] := computation => Trivial
     │                                                                                                                       ───┬───  
-    │                                                                                                                          ╰───── expected `IsDone computation && Unit`, but this has type `Unit`
+    │                                                                                                                          ╰───── expected `IsDone computation ∧ Unit`, but this has type `Unit`
 ────╯

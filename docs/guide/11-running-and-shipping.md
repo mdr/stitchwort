@@ -102,7 +102,7 @@ for (const attempt of [() => share(100n, 0n), () => total([{ name: "tea", pence:
 ```text
 225n
 1
-true precondition `people != 0` doesn't hold
+true precondition `people ≠ 0` doesn't hold
 true items[0].pence: expected a non-negative bigint
 ```
 

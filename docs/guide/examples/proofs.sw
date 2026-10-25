@@ -1,5 +1,6 @@
 -- Chapter 10: proofs.
-import Std (Eq, Fail, Fin, List, Nat, Option, Quot, Vec)
+import Std (Eq, Exists, Fail, Fin, Iff, List, Nat, Option, Quot, Vec)
+import Std.Exists (Witness)
 
 -- begin rfl
 def double (n: Nat): Nat := n + n
@@ -115,3 +116,20 @@ theorem clampPercentAtMost (n: Nat): clampPercent n <= 100 := clampToAtMost 100 
 -- end export
 
 test "the program agrees with the specification on an example" := sumFast 100 == 5050 && sumTo 100 == 5050
+
+-- begin logic
+theorem headIn (x: Nat) (rest: List Nat): x in Cons x rest := Inl rfl
+
+theorem notInEmpty (x: Nat): x ∉ Nil := none => none
+
+theorem bothWays (p: Prop) (q: Prop): p && q <-> q ∧ p := {
+  forward = h => Both (And.right h) (And.left h),
+  backward = h => Both (And.right h) (And.left h)
+}
+
+theorem hasSquareRoot: exists (n: Nat) => n * n = 49 := Witness 7 rfl
+
+def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x !in seen)
+-- end logic
+
+test "unseen" := unseen [1, 2] [1, 2, 3] == [3]

@@ -608,13 +608,11 @@ impl<'t> Parser<'t> {
     /// the rule is a name (`rewrite at b h in t`).
     #[inline(never)]
     fn ends_rewrite_rule(&self, i: usize, start: usize) -> bool {
-        let Some(Token {
-            tok: Tok::Lower(w), ..
-        }) = self.tokens.get(i)
-        else {
-            return false;
+        let word = match self.tokens.get(i).map(|t| &t.tok) {
+            Some(Tok::KwIn) => true,
+            Some(Tok::Lower(w)) => w == "at" && self.rewrite_at && i > start,
+            _ => false,
         };
-        let word = w == "in" || (w == "at" && self.rewrite_at && i > start);
         if !word || (i > 0 && self.tokens[i - 1].tok == Tok::Dot) {
             return false;
         }
@@ -2298,9 +2296,12 @@ impl<'t> Parser<'t> {
         } else {
             None
         };
-        let body = if word(self, "in") {
-            self.bump();
-            Some(Box::new(self.expr()?))
+        let body = if self.peek() == Some(&Tok::KwIn) {
+            let first = self.bump().span;
+            let body_start = self.pos;
+            let body = self.expr()?;
+            self.rewrite_membership(&body, body_start, first)?;
+            Some(Box::new(body))
         } else {
             None
         };
@@ -2314,6 +2315,39 @@ impl<'t> Parser<'t> {
             body,
             span: start.to(end),
         })
+    }
+
+    /// A `rewrite` body that is a membership test, `x in xs`, its `in` not
+    /// in brackets: `rewrite h x in xs in t` reads as the rule `h x` and the
+    /// body `xs in t`, since a bare `in` ends a rule. Whichever was meant,
+    /// brackets say it (D1201).
+    #[inline(never)]
+    fn rewrite_membership(&self, body: &Expr, body_start: usize, first: Span) -> Result<()> {
+        let Expr::Binary(BinOp::In(op), ..) = body else {
+            return Ok(());
+        };
+        let op_index = self.tokens.partition_point(|t| t.span.start < op.start);
+        let depth = self.tokens[body_start..op_index]
+            .iter()
+            .fold(0i64, |d, t| match t.tok {
+                Tok::LBracket | Tok::LParen | Tok::LBrace => d + 1,
+                Tok::RBracket | Tok::RParen | Tok::RBrace => d - 1,
+                _ => d,
+            });
+        if depth > 0 {
+            return Ok(());
+        }
+        Err(Diagnostic::error(
+            "E-PARSE",
+            "a membership test in a `rewrite` needs brackets",
+        )
+        .with_label(first, "this `in` ends the rewrite rule")
+        .with_label(*op, "so this `in` is read as a membership test in the body")
+        .with_note(
+            "a bare `in` ends a `rewrite` rule, so membership in a rule is written in brackets, \
+             `rewrite h (x in xs) in …`; a membership test as the body is bracketed too, \
+             `rewrite h in (x in xs)`",
+        ))
     }
 
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
@@ -2357,6 +2391,9 @@ impl<'t> Parser<'t> {
         if self.lambda_ahead()? {
             return self.lambda(start);
         }
+        if self.peek() == Some(&Tok::KwExists) {
+            return self.exists_expr();
+        }
         if self.eat(&Tok::KwIf) {
             return self.if_expr(start);
         }
@@ -2371,11 +2408,67 @@ impl<'t> Parser<'t> {
         if self.at_pipe() {
             self.pipe_chain(&mut lhs)?;
         }
+        if self.peek() == Some(&Tok::Iff) {
+            self.iff(&mut lhs)?;
+        }
         if self.eat(&Tok::Arrow) {
             let rhs = self.result_type()?;
             return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
         }
         Ok(lhs)
+    }
+
+    /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&`, `||` and
+    /// `|>`, tighter than `->`, and not associative, as in Rocq. The right
+    /// side may be an `exists`. Out of line, as `logic_chain` is.
+    #[inline(never)]
+    fn iff(&mut self, operand: &mut Expr) -> Result<()> {
+        let op = self.bump().span;
+        let rhs = if self.peek() == Some(&Tok::KwExists) {
+            self.exists_expr()?
+        } else {
+            let mut rhs = self.cmp_expr()?;
+            if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
+                self.logic_chain(&mut rhs)?;
+            }
+            if self.at_pipe() {
+                self.pipe_chain(&mut rhs)?;
+            }
+            rhs
+        };
+        if self.peek() == Some(&Tok::Iff) {
+            return Err(Diagnostic::error("E-PARSE", "`<->` doesn't chain")
+                .with_label(self.here(), "a second `<->`")
+                .with_note("`p <-> q <-> r` could mean either grouping: add brackets"));
+        }
+        let lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
+        let iff = Expr::Var(Name {
+            text: "Std.Iff".into(),
+            span: op,
+        });
+        *operand = Expr::App(
+            Box::new(Expr::App(Box::new(iff), Box::new(lhs))),
+            Box::new(rhs),
+        );
+        Ok(())
+    }
+
+    /// `exists (x: T) => P`, at the `exists`: `Exists T ((x: T) => P)`
+    /// (D1203). What follows is a lambda, its type left out where it can be
+    /// inferred (`exists k => P k`); several parameters nest, so
+    /// `exists (a b: Nat) => P` is `exists (a: Nat) => exists (b: Nat) => P`.
+    #[inline(never)]
+    fn exists_expr(&mut self) -> Result<Expr> {
+        let keyword = self.bump().span;
+        if !self.lambda_ahead()? {
+            return Err(self
+                .unexpected("a parameter and `=>` after `exists`")
+                .with_note("\"there exists\" is written `exists (x: T) => P`"));
+        }
+        let start = self.here();
+        let lambda = self.lambda(start)?;
+        let outer = lambda.span();
+        Ok(exists_chain(keyword, lambda, outer))
     }
 
     /// `[ name+ :` starts an implicit binder, as does `[auto` followed by an
@@ -2553,7 +2646,12 @@ impl<'t> Parser<'t> {
                 _ => break,
             }
             self.bump();
-            let operand = self.cmp_expr()?;
+            // `p && exists (x: T) => q`: the `exists` takes the rest.
+            let operand = if self.peek() == Some(&Tok::KwExists) {
+                self.exists_expr()?
+            } else {
+                self.cmp_expr()?
+            };
             disjuncts.last_mut().expect("never empty").push(operand);
         }
         let right = |op: BinOp, items: Vec<Expr>| {
@@ -2636,7 +2734,11 @@ impl<'t> Parser<'t> {
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`, `a > b`, `a >= b`: not
     /// associative.
     fn cmp_expr(&mut self) -> Result<Expr> {
+        let lhs_start = self.pos;
         let lhs = self.append_expr()?;
+        if matches!(self.peek(), Some(Tok::KwIn | Tok::NotIn)) {
+            return self.membership(lhs, lhs_start);
+        }
         let (op, flip) = match self.peek() {
             Some(Tok::Equals) => (BinOp::Eq, false),
             Some(Tok::NotEq) => (BinOp::Ne, false),
@@ -2652,6 +2754,35 @@ impl<'t> Parser<'t> {
         self.bump();
         let rhs = self.append_expr()?;
         Ok(binary(op, flip, lhs, rhs))
+    }
+
+    /// `x in c` or `x !in c`, after `x` (which starts at token `lhs_start`):
+    /// at the level of `=`, not associative (D1201). `x !in c` is `!(x in c)`.
+    #[inline(never)]
+    fn membership(&mut self, lhs: Expr, lhs_start: usize) -> Result<Expr> {
+        let token = self.bump();
+        let (op, negated) = (token.span, token.tok == Tok::NotIn);
+        // `!x in xs` is `(!x) in xs`, since `!` binds tighter: almost
+        // certainly not what was meant.
+        if self.tokens[lhs_start].tok == Tok::Bang {
+            let bang = self.tokens[lhs_start].span;
+            return Err(Diagnostic::error(
+                "E-PARSE",
+                "`!` here applies to the element, not to the membership test",
+            )
+            .with_label(bang, "this `!` binds tighter than `in`")
+            .with_label(op, "so this tests whether the negated element is in the collection")
+            .with_note(
+                "for \"not in\", write `x !in xs`; if the element really is negated, bracket \
+                 it: `(!x) in xs`",
+            ));
+        }
+        let rhs = self.append_expr()?;
+        let member = Expr::Binary(BinOp::In(op), Box::new(lhs), Box::new(rhs));
+        if !negated {
+            return Ok(member);
+        }
+        Ok(prefix_op(true, op, member))
     }
 
     /// `++`: right-associative, binding more loosely than `+`, so
@@ -3270,6 +3401,40 @@ fn binary(op: BinOp, flip: bool, lhs: Expr, rhs: Expr) -> Expr {
     }
 }
 
+/// `Exists _ (x => body)` for each parameter of `lambda`, the lambda after
+/// `exists` at `keyword`: its layers are those whose span is `outer` (a
+/// lambda in the body has a span of its own).
+fn exists_chain(keyword: Span, lambda: Expr, outer: Span) -> Expr {
+    let wrap = |param: Expr| {
+        let exists = Expr::Var(Name {
+            text: "Std.Exists".into(),
+            span: keyword,
+        });
+        let applied = Expr::App(Box::new(exists), Box::new(Expr::Hole(keyword)));
+        Expr::App(Box::new(applied), Box::new(param))
+    };
+    let mut lambda = lambda;
+    let take = |b: &mut Box<Expr>| std::mem::replace(&mut **b, Expr::Prop(Span::NOWHERE));
+    match &mut lambda {
+        Expr::TypedLam(_, _, _, body, span) if *span == outer => {
+            let inner = exists_chain(keyword, take(body), outer);
+            **body = inner;
+            wrap(lambda)
+        }
+        Expr::Lam(names, body, span) if *span == outer => {
+            let span = *span;
+            let mut inner = exists_chain(keyword, take(body), outer);
+            let mut names = std::mem::take(names);
+            while names.len() > 1 {
+                let last = names.pop().expect("more than one");
+                inner = wrap(Expr::Lam(vec![last], Box::new(inner), span));
+            }
+            wrap(Expr::Lam(names, Box::new(inner), span))
+        }
+        _ => lambda,
+    }
+}
+
 /// `-operand`, or with `bang` `!operand`, which is `Std.Bool.not operand`.
 #[inline(never)]
 fn prefix_op(bang: bool, start: Span, operand: Expr) -> Expr {
@@ -3394,6 +3559,10 @@ fn describe(tok: &Tok) -> String {
         Tok::Gt => "`>`".into(),
         Tok::Ge => "`>=`".into(),
         Tok::Bang => "`!`".into(),
+        Tok::KwIn => "`in`".into(),
+        Tok::NotIn => "`!in`".into(),
+        Tok::Iff => "`<->`".into(),
+        Tok::KwExists => "`exists`".into(),
         Tok::KwIf => "`if`".into(),
         Tok::KwThen => "`then`".into(),
         Tok::KwElse => "`else`".into(),
@@ -5448,13 +5617,125 @@ mod tests {
     }
 
     #[test]
+    fn membership_sits_with_the_comparisons() {
+        // `x in xs && y !in ys`: no brackets needed.
+        let Expr::Binary(BinOp::And, l, r) = &expr("x in xs && y !in ys") else {
+            panic!("expected `&&`");
+        };
+        assert!(matches!(l.as_ref(), Expr::Binary(BinOp::In(_), ..)));
+        // `!in` is `!(y in ys)`.
+        let Expr::App(not, member) = r.as_ref() else {
+            panic!("expected `!(…)`");
+        };
+        assert!(matches!(not.as_ref(), Expr::Var(n) if n.text == "Std.Bool.not"));
+        assert!(matches!(member.as_ref(), Expr::Binary(BinOp::In(_), ..)));
+        // Tighter than `++` loses: `x in xs ++ ys` is `x in (xs ++ ys)`.
+        let Expr::Binary(BinOp::In(_), _, rhs) = &expr("x in xs ++ ys") else {
+            panic!("expected `in`");
+        };
+        assert!(matches!(rhs.as_ref(), Expr::Binary(BinOp::Append, ..)));
+        // Not associative.
+        assert!(parse_module_text("def t: Bool := a in b in c\n").is_err());
+        // `!x in xs` would be `(!x) in xs`: refused, with brackets allowed.
+        let error = parse_errors("def t: Bool := !x in xs\n");
+        assert!(error.contains("applies to the element"), "{error}");
+        assert!(parse_errors("def t: Bool := ¬x ∈ xs\n").contains("applies to the element"));
+        assert!(parse_module_text("def t: Bool := (!x) in xs\n").is_ok());
+        assert!(parse_module_text("def t: Bool := !(x in xs)\n").is_ok());
+    }
+
+    #[test]
+    fn iff_sits_between_arrow_and_or() {
+        let iff = |e: &Expr| -> Option<(Expr, Expr)> {
+            let Expr::App(f, q) = e else { return None };
+            let Expr::App(head, p) = f.as_ref() else {
+                return None;
+            };
+            matches!(head.as_ref(), Expr::Var(n) if n.text == "Std.Iff")
+                .then(|| (p.as_ref().clone(), q.as_ref().clone()))
+        };
+        // `p && q <-> r` is `(p && q) <-> r`.
+        let (p, _) = iff(&expr("p && q <-> r || s")).expect("an iff");
+        assert!(matches!(p, Expr::Binary(BinOp::And, ..)));
+        // `p -> q <-> r` is `p -> (q <-> r)`, and `p <-> q -> r` is
+        // `(p <-> q) -> r`.
+        let Expr::Arrow(_, rhs) = &expr("p -> q <-> r") else {
+            panic!("expected an arrow");
+        };
+        assert!(iff(rhs).is_some());
+        let Expr::Arrow(lhs, _) = &expr("p <-> q -> r") else {
+            panic!("expected an arrow");
+        };
+        assert!(iff(lhs).is_some());
+        // Not associative.
+        assert!(parse_errors("def t: Prop := p <-> q <-> r\n").contains("doesn't chain"));
+        assert!(parse_module_text("def t: Prop := (p <-> q) <-> r\n").is_ok());
+    }
+
+    #[test]
+    fn exists_takes_a_lambda() {
+        let exists = |e: &Expr| -> Option<Expr> {
+            let Expr::App(f, lam) = e else { return None };
+            let Expr::App(head, _) = f.as_ref() else {
+                return None;
+            };
+            matches!(head.as_ref(), Expr::Var(n) if n.text == "Std.Exists")
+                .then(|| lam.as_ref().clone())
+        };
+        let lam = exists(&expr("exists (n: Nat) => n * n = 49")).expect("an exists");
+        assert!(matches!(lam, Expr::TypedLam(..)));
+        // Several parameters nest, the body's own lambda doesn't.
+        let lam = exists(&expr("exists a b => f (x => x)")).expect("an exists");
+        let Expr::Lam(names, body, _) = &lam else {
+            panic!("expected a lambda");
+        };
+        assert_eq!(names.len(), 1);
+        let inner = exists(body).expect("a second exists");
+        let Expr::Lam(_, body, _) = &inner else {
+            panic!("expected a lambda");
+        };
+        assert!(matches!(body.as_ref(), Expr::App(..)));
+        // After `&&`, `||`, `<->` and `->` it takes the rest.
+        assert!(matches!(expr("p && exists k => q k"), Expr::Binary(BinOp::And, ..)));
+        assert!(parse_module_text("def t: Prop := p <-> exists k => q k\n").is_ok());
+        assert!(parse_module_text("def t: Prop := p -> ∃ (k: Nat) => q k\n").is_ok());
+        assert!(parse_errors("def t: Prop := exists 3\n").contains("after `exists`"));
+        // After a `.` it's a name: `Option.exists` keeps working.
+        assert!(parse_module_text("def t: Bool := (Some 3).exists (v => v > 2)\n").is_ok());
+        assert!(parse_module_text("def t: Bool := Option.exists (v => v > 2) (Some 3)\n").is_ok());
+    }
+
+    #[test]
+    fn membership_in_a_rewrite_needs_brackets() {
+        let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h x in xs in t\n");
+        assert!(error.contains("needs brackets"), "{error}");
+        let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h in x in xs\n");
+        assert!(error.contains("needs brackets"), "{error}");
+        // In brackets, either side is fine.
+        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h (x in xs) in t\n").is_ok());
+        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs)\n").is_ok());
+        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs) && b\n").is_ok());
+    }
+
+    fn parse_errors(text: &str) -> String {
+        match parse_module_text(text) {
+            Ok(_) => panic!("expected an error for {text:?}"),
+            Err(errors) => errors
+                .iter()
+                .map(|d| format!("{}: {:?}", d.message, d.notes))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
+    }
+
+    #[test]
     fn omega_is_a_keyword() {
         assert!(parse_module_text("def omega: Nat := 1\n").is_err());
     }
 
     #[test]
     fn rewrite_takes_rules_left_to_right_and_an_optional_body() {
-        let text = "def f (a: Nat): a = a :=\n  rewrite p, <- q x, r (in) in Nat.f _\n";
+        let text = "def f (a: Nat): a = a :=\n  rewrite p, <- q x, r (y in ys) in Nat.f _\n";
         let expr = rhs(text);
         let Expr::Rewrite { rules, body, .. } = &expr else {
             panic!("expected a rewrite");
@@ -5462,11 +5743,12 @@ mod tests {
         let shape: Vec<bool> = rules.iter().map(|r| r.reverse).collect();
         assert_eq!(shape, vec![false, true, false]);
         assert!(matches!(&rules[1].proof, Expr::App(..)));
-        // `(in)` is an ordinary argument; the bare `in` ended the rule.
+        // A bracketed membership is an ordinary argument; the bare `in`
+        // ended the rule.
         let Expr::App(_, arg) = &rules[2].proof else {
             panic!("expected an application");
         };
-        assert!(matches!(&**arg, Expr::Var(n) if n.text == "in"));
+        assert!(matches!(&**arg, Expr::Binary(BinOp::In(_), ..)));
         assert!(matches!(body.as_deref(), Some(Expr::App(..))));
         // No `in`: the body is `rfl`, left to the elaborator.
         let text = "def f (a: Nat): a = a :=\n  rewrite p x\n";
@@ -5522,9 +5804,10 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_is_a_keyword_and_in_is_not() {
+    fn rewrite_and_in_are_keywords() {
         assert!(parse_module_text("def rewrite: Nat := 1\n").is_err());
-        assert!(parse_module_text("def f (in: Nat): Nat := in\n").is_ok());
+        // `in` is reserved since it became membership (D1201).
+        assert!(parse_module_text("def f (in: Nat): Nat := in\n").is_err());
         // `<` then `-` apart is a comparison, not an arrow.
         assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite < - p in rfl\n").is_err());
     }

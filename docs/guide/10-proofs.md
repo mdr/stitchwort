@@ -177,14 +177,14 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <=
 
 <!-- output: check errors/omega.sw -->
 ```text
-[E-OMEGA] Error: `omega` can't prove `x + 1 <= 10`
+[E-OMEGA] Error: `omega` can't prove `x + 1 ≤ 10`
    ╭─[ errors/omega.sw:1:88 ]
    │
  1 │ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <= 10 := omega
    │                                                                                        ──┬──
    │                                                                                          ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │
-   │ Note 1: facts: `x <= y` (before), `y <= 10` (limit)
+   │ Note 1: facts: `x ≤ y` (before), `y ≤ 10` (limit)
    │
    │ Note 2: atoms: `x`, `y`
    │
@@ -193,9 +193,9 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <=
    │ Note 4: this statement is false; a counterexample:
    │           x = 10
    │           y = 10
-   │         `x <= y` holds
-   │         `y <= 10` holds
-   │         `x + 1 <= 10` is false
+   │         `x ≤ y` holds
+   │         `y ≤ 10` holds
+   │         `x + 1 ≤ 10` is false
 ───╯
 ```
 
@@ -314,6 +314,32 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
 ```
 
 On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
+
+## Membership, "if and only if", "there exists"
+
+Three more forms come up in statements, each with a Unicode spelling you may use instead:
+
+<!-- snippet: proofs.sw#logic -->
+```stitchwort
+theorem headIn (x: Nat) (rest: List Nat): x in Cons x rest := Inl rfl
+
+theorem notInEmpty (x: Nat): x ∉ Nil := none => none
+
+theorem bothWays (p: Prop) (q: Prop): p && q <-> q ∧ p := {
+  forward = h => Both (And.right h) (And.left h),
+  backward = h => Both (And.right h) (And.left h)
+}
+
+theorem hasSquareRoot: exists (n: Nat) => n * n = 49 := Witness 7 rfl
+
+def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x !in seen)
+```
+
+- `x in xs` (or `x ∈ xs`) says `x` is in the list `xs`; `x !in xs` (`x ∉ xs`) says it isn't. On a `Set`, or the keys of a `Map`, it works the same way. As a condition, membership is decided like `<=`: `xs.filter (x => x !in seen)` keeps what hasn't been seen.
+- `p <-> q` (`p ↔ q`) says each implies the other. A proof is a record of the two directions, `forward` and `backward`.
+- `exists (n: Nat) => P` (`∃ (n: Nat) => P`) says some `n` makes `P` true. A proof is a `Witness`: the value, and a proof that it works.
+
+The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= >= !=`. They mean exactly the same as the ASCII, and messages show the Unicode forms whichever you wrote. To say "for all", use a parameter: `(x: Nat) -> P`. [The syntax reference](../syntax.md#logic-notation-in--and-exists) has the full list and the precedence table.
 
 ## Types that mention values
 

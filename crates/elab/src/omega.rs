@@ -1550,7 +1550,7 @@ fn render(cx: &Ctx, quoter: &Quoter, t: &NTerm) -> String {
 fn render_le(cx: &Ctx, quoter: &Quoter, a: &NTerm, b: &NTerm) -> String {
     match a {
         NTerm::Succ(p) => format!("{} < {}", render(cx, quoter, p), render(cx, quoter, b)),
-        _ => format!("{} <= {}", render(cx, quoter, a), render(cx, quoter, b)),
+        _ => format!("{} ≤ {}", render(cx, quoter, a), render(cx, quoter, b)),
     }
 }
 
@@ -1579,9 +1579,9 @@ fn show_fact(cx: &Ctx, quoter: &Quoter, q: &Quoted) -> String {
             render(cx, quoter, &q.a),
             render(cx, quoter, &q.b)
         ),
-        Kind::NotLe => format!("not ({})", render_le(cx, quoter, &q.a, &q.b)),
+        Kind::NotLe => format!("¬({})", render_le(cx, quoter, &q.a, &q.b)),
         Kind::Ne => format!(
-            "{} != {}",
+            "{} ≠ {}",
             render(cx, quoter, &q.a),
             render(cx, quoter, &q.b)
         ),

@@ -9,7 +9,7 @@ expression: output
    │           ┬  
    │           ╰── the goal with this replaced by a variable doesn't type-check
    │ 
-   │ Note 1: the checker says: type mismatch (expected `x' != 0`, but this has type `d != 0`)
+   │ Note 1: the checker says: type mismatch (expected `x' ≠ 0`, but this has type `d ≠ 0`)
    │ 
    │ Note 2: something in the goal can depend on the term being replaced, such as the proof an `auto` argument carries (the `d != 0` in `x % d`)
    │ 

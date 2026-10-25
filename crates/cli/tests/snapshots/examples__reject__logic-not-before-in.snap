@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `!` here applies to the element, not to the membership test
+   ╭─[ reject/logic-not-before-in.sw:5:49 ]
+   │
+ 5 │ def unseen (seen: List Bool) (x: Bool): Bool := !x in seen
+   │                                                 ┬  ─┬  
+   │                                                 ╰────── this `!` binds tighter than `in`
+   │                                                     │  
+   │                                                     ╰── so this tests whether the negated element is in the collection
+   │ 
+   │ Note: for "not in", write `x !in xs`; if the element really is negated, bracket it: `(!x) in xs`
+───╯

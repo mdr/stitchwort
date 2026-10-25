@@ -123,6 +123,8 @@ fn term_within(g: &Globals, names: &[Name], term_: &Term, limit: usize) -> Strin
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
     Arrow,
+    /// `p ↔ q`: between `->` and `||`, not associative (D1202).
+    Iff,
     /// `p || q`, then `p && q`: looser than comparisons, grouping to the right.
     Or,
     And,
@@ -251,19 +253,42 @@ impl<'g> Printer<'g> {
                     None => self.applied(names, "Comp".into(), args.iter().map(|a| &**a)),
                 }
             }
-            // `And p q` and `Or p q` as they're written: `p && q`, `p || q`.
+            // `And p q` and `Or p q` as the operators that write them, in
+            // their Unicode spellings (D1204): `p ∧ q`, `p ∨ q`.
             Term::Data(d, args)
                 if args.len() == 2
                     && (is(self.g, Builtin::And, *d) || is(self.g, Builtin::Or, *d)) =>
             {
                 let (op, prec, left) = if is(self.g, Builtin::And, *d) {
-                    ("&&", Prec::And, Prec::Eq)
+                    ("∧", Prec::And, Prec::Eq)
                 } else {
-                    ("||", Prec::Or, Prec::And)
+                    ("∨", Prec::Or, Prec::And)
                 };
                 let lhs = self.print(names, &args[0], left);
                 let rhs = self.print(names, &args[1], prec);
                 (format!("{lhs} {op} {rhs}"), prec)
+            }
+            // `Iff p q` as `p ↔ q`: not associative.
+            Term::Data(d, args) if args.len() == 2 && is_loaded(self.g, Builtin::Iff, *d) => {
+                let lhs = self.print(names, &args[0], Prec::Or);
+                let rhs = self.print(names, &args[1], Prec::Or);
+                (format!("{lhs} ↔ {rhs}"), Prec::Iff)
+            }
+            // `Exists T (x => P)` as `∃ (x: T) => P`, when its predicate is
+            // a lambda.
+            Term::Data(d, args)
+                if args.len() == 2
+                    && is_loaded(self.g, Builtin::Exists, *d)
+                    && matches!(args[1].strip_loc(), Term::Lam(_, Icit::Explicit, _)) =>
+            {
+                let Term::Lam(x, _, body) = args[1].strip_loc() else {
+                    unreachable!("just matched")
+                };
+                let ty = self.print(names, &args[0], Prec::Arrow);
+                names.push(x.clone());
+                let body = self.print(names, body, Prec::Arrow);
+                names.pop();
+                (format!("∃ ({x}: {ty}) => {body}"), Prec::Arrow)
             }
             // A pair type, as a tuple type: `(Nat, Text)`, nesting to the right.
             Term::Data(d, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
@@ -381,12 +406,7 @@ impl<'g> Printer<'g> {
                 if !b.mentions(0)
                     && matches!(b.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
             {
-                if let Term::Eq(_, lhs, rhs) = a.strip_loc() {
-                    let lhs = self.print(names, lhs, Prec::Add);
-                    let rhs = self.print(names, rhs, Prec::Add);
-                    return (format!("{lhs} != {rhs}"), Prec::Eq);
-                }
-                self.applied(names, "Not".into(), [&**a].into_iter())
+                self.not(names, a)
             }
             Term::Pi(x, icit, a, b) => {
                 let uses = b.mentions(0);
@@ -509,7 +529,7 @@ impl<'g> Printer<'g> {
                         Some(Builtin::IntMul) => Some(("*", Prec::Mul)),
                         Some(Builtin::IntDiv) => Some(("/", Prec::Mul)),
                         Some(Builtin::IntMod) => Some(("%", Prec::Mul)),
-                        Some(Builtin::LessEq) => Some(("<=", Prec::Eq)),
+                        Some(Builtin::LessEq) => Some(("≤", Prec::Eq)),
                         Some(Builtin::LessThan) => Some(("<", Prec::Eq)),
                         _ => None,
                     };
@@ -527,11 +547,14 @@ impl<'g> Printer<'g> {
                     }
                     if self.g.registry.is_def(Builtin::Not, *id)
                         && let [prop] = &args[..]
-                        && let Term::Eq(_, a, b) = prop.strip_loc()
                     {
-                        let a = self.print(names, a, Prec::Add);
-                        let b = self.print(names, b, Prec::Add);
-                        return (format!("{a} != {b}"), Prec::Eq);
+                        return self.not(names, prop);
+                    }
+                    // `List.Mem x xs` as `x ∈ xs`.
+                    if let Some((x, xs)) = self.membership(term) {
+                        let x = self.print(names, x, Prec::Add);
+                        let xs = self.print(names, xs, Prec::Add);
+                        return (format!("{x} ∈ {xs}"), Prec::Eq);
                     }
                 }
                 if self.show_hidden.get() {
@@ -573,6 +596,36 @@ impl<'g> Printer<'g> {
                     args[hidden..].iter().map(|a| &**a),
                 )
             }
+        }
+    }
+
+    /// `Not p` as the operators that write it, in their Unicode spellings
+    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
+    fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
+        if let Term::Eq(_, a, b) = prop.strip_loc() {
+            let a = self.print(names, a, Prec::Add);
+            let b = self.print(names, b, Prec::Add);
+            return (format!("{a} ≠ {b}"), Prec::Eq);
+        }
+        if !self.show_hidden.get()
+            && let Some((x, xs)) = self.membership(prop)
+        {
+            let x = self.print(names, x, Prec::Add);
+            let xs = self.print(names, xs, Prec::Add);
+            return (format!("{x} ∉ {xs}"), Prec::Eq);
+        }
+        // `!` binds more loosely than application: `¬p x` is `¬(p x)`.
+        let p = self.print(names, prop, Prec::App);
+        (format!("¬{p}"), Prec::Neg)
+    }
+
+    /// The element and the list of `List.Mem x xs`.
+    fn membership<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+        let id = self.g.registry.loaded_def(Builtin::ListMem)?;
+        let (head, args) = explicit_spine(term.strip_loc());
+        match (head, &args[..]) {
+            (Term::Def(d), [x, xs]) if *d == id => Some((x, xs)),
+            _ => None,
         }
     }
 
@@ -767,6 +820,11 @@ fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {
 /// identity, so a user's own `List` prints as written.
 fn is(g: &Globals, b: Builtin, d: DataId) -> bool {
     g.registry.is_data(b, d)
+}
+
+/// Whether `d` is the library built-in `b`, if its file is loaded.
+fn is_loaded(g: &Globals, b: Builtin, d: DataId) -> bool {
+    g.registry.loaded_data(b) == Some(d)
 }
 
 /// `Succ (Succ Zero)` as `2`.

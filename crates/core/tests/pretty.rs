@@ -169,9 +169,9 @@ fn prints_negations_the_way_they_are_written() {
     stitchwort_core::check::define_ctors(&mut p.g, void, vec![]).expect("Void");
     registry::bind_data(&mut p.g, void);
     let not_equal = arrow(eq(None, v(0), p.num(0)), Term::Data(void, vec![]));
-    assert_eq!(show(&p, &["d"], &not_equal), "d != 0");
+    assert_eq!(show(&p, &["d"], &not_equal), "d ≠ 0");
     let not_prop = arrow(prop(), Term::Data(void, vec![]));
-    assert_eq!(show(&p, &[], &not_prop), "Not Prop");
+    assert_eq!(show(&p, &[], &not_prop), "¬Prop");
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn prints_the_prelude_operators_infix() {
     );
     assert_eq!(
         show(&p, &names, &app(Term::Def(less_eq), [v(1), v(0)])),
-        "x <= y"
+        "x ≤ y"
     );
     // Subtraction associates to the left, like addition.
     let nested = app(Term::Def(sub), [app(Term::Def(sub), [v(1), v(0)]), v(0)]);

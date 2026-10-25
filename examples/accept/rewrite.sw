@@ -77,13 +77,10 @@ theorem asArgument (a: Nat) (b: Nat) (h: a = b) (p: b + 1 = b): a + 1 = b :=
 theorem lists (xs: List Nat) (ys: List Nat) (h: xs = ys): List.length xs = List.length ys :=
   rewrite h
 
--- `in` is only special where a rule can end. Elsewhere it's an ordinary name.
-theorem namedIn (in: Nat) (a: Nat) (h: a = in): Succ a = Succ in :=
-  rewrite h
-
--- A rule that takes a variable named `in` puts it in parentheses.
-theorem argumentIn (f: Nat -> Nat) (g: Nat -> Nat) (in: Nat) (h: (x: Nat) -> f x = g x): f in = g in :=
-  rewrite h (in)
+-- A bare `in` ends a rule, so a rule that takes a membership test puts it in
+-- brackets (D1201).
+theorem argumentIn (f: Prop -> Nat) (g: Prop -> Nat) (xs: List Nat) (h: (p: Prop) -> f p = g p): f (3 in xs) = g (3 in xs) :=
+  rewrite h (3 in xs)
 
 -- A rule's left side is matched by computing: `Nat.modSelf (Succ highest)` is about
 -- `Succ highest % Succ highest`, and the goal has `(Succ highest - 0) % Succ highest`.
