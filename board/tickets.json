@@ -2882,14 +2882,16 @@
     {
       "id": 477,
       "title": "Research: native compilation of Stitchwort (C / Cranelift / LLVM / Rust / wasm / Chez vs faster interpreter); prior art Lean 4, Koka, Idris 2, Roc, OCaml 5, Unison",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "3cb3fb46"
+      ]
     },
     {
       "id": 478,
