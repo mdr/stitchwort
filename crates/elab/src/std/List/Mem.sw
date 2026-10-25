@@ -14,4 +14,4 @@ instance Void.dec: Decidable Void := No (none => none)
 
 test "List.decMem" := 2 in [1, 2, 3] && 4 !in [1, 2, 3] && 'a' !in []
 
-test "List.decMem on a variable" := List.all (x => x in [1, 2, 3]) [3, 1]
+test "List.decMem on a variable" := List.all [3, 1] (x => x in [1, 2, 3])
