@@ -2792,7 +2792,7 @@
     {
       "id": 471,
       "title": "Notation follow-ups: print -> as → in goals/hover/errors (D1222); exported JS runtime/precondition messages stay ASCII (D1223); ⇒ stays an error pointing to => or →, no λ alias (D1224); after rule E lands",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
