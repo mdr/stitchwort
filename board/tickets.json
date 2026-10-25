@@ -2691,7 +2691,7 @@
     {
       "id": 463,
       "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); also rename Option.exists/forall -> any/all (D1203, moved here by D1221); after rule E and the notation build; also congruence.rs premise-shape texts -> →",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
