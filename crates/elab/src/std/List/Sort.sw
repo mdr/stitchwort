@@ -787,6 +787,89 @@ theorem List.distinctMapPerm [auto eq: DecEq k] (xs: List a) (key: a -> k) (ys: 
     List.Distinct (List.map xs key) :=
   List.distinctOfOccurrences xs key (kk => Eq.trans (Eq.cong (n => Nat.leq n 1) (h (x => key x == kk))) (List.occurrencesKeyDistinct ys key kk d))
 
+-- Counting `p`, apart from `v` and at `v`.
+theorem List.occurrencesSplit [auto eq: DecEq a]: (xs: List a) -> (v: a) -> (p: a -> Bool) ->
+    List.occurrences xs p = List.occurrences xs (x => p x && !(x == v)) + List.occurrences xs (x => p x && (x == v))
+  | Nil, v, p => rfl
+  | Cons x xs, v, p =>
+    let one: Bool.toNat (p x) = Bool.toNat (p x && !(x == v)) + Bool.toNat (p x && (x == v)) :=
+      match p x, x == v with
+        | True, True => rfl
+        | True, False => rfl
+        | False, True => rfl
+        | False, False => rfl
+    Eq.trans (Eq.cong (t => t + List.occurrences xs p) one)
+      (Eq.trans (Eq.cong (t => (Bool.toNat (p x && !(x == v)) + Bool.toNat (p x && (x == v))) + t) (List.occurrencesSplit xs v p))
+        (Nat.addSwap (Bool.toNat (p x && !(x == v))) (Bool.toNat (p x && (x == v)))
+          (List.occurrences xs (y => p y && !(y == v))) (List.occurrences xs (y => p y && (y == v)))))
+
+-- Counting at `x` in a list without `x` finds nothing ...
+theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) -> (x: a) -> (p: a -> Bool) -> Not (List.Mem x xs) ->
+    List.occurrences xs (y => p y && (y == x)) = 0
+  | Nil, x, p, n => rfl
+  | Cons y ys, x, p, n =>
+    match e: y == x with
+      | True => Void.exfalso (n (Inl (DecEq.sound y x e)))
+      | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) in rfl
+
+-- ... and in a list with `x` once, finds `x` if it passes `p`.
+theorem List.occurrencesOnce [auto eq: DecEq a]: (xs: List a) -> (x: a) -> (p: a -> Bool) -> List.Distinct xs -> List.Mem x xs ->
+    List.occurrences xs (y => p y && (y == x)) = Bool.toNat (p x)
+  | Nil, x, p, d, m => Void.exfalso m
+  | Cons y ys, x, p, Both notMem d, Inl e =>
+    rewrite e, DecEq.refl x, Bool.andTrue (p x), List.occurrencesAbsent ys x p (rewrite e at notMem) in Nat.addZero (Bool.toNat (p x))
+  | Cons y ys, x, p, Both notMem d, Inr m =>
+    match e: y == x with
+      | True => Void.exfalso (notMem (rewrite DecEq.sound y x e in m))
+      | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m in rfl
+
+-- Two lists without repeats and with the same members are the same elements
+-- in another order.
+theorem List.permOfSameMembers [auto eq: DecEq a]: (xs: List a) -> (ys: List a) -> List.Distinct xs -> List.Distinct ys ->
+    ((x: a) -> List.Mem x xs -> List.Mem x ys) -> ((y: a) -> List.Mem y ys -> List.Mem y xs) -> List.Perm xs ys
+  | Nil, Nil, dx, dy, there, back, p => rfl
+  | Nil, Cons y ys, dx, dy, there, back, p => Void.exfalso (back y (Inl rfl))
+  | Cons x xs, ys, Both notMem dx, dy, there, back, p =>
+    let others := List.filter ys (z => !(z == x))
+    let rest: List.occurrences xs p = List.occurrences others p :=
+      List.permOfSameMembers xs others dx (List.distinctFilter ys (z => !(z == x)) dy)
+        (z m =>
+          List.memFilterIntro ys (z => !(z == x)) z (there z (Inr m))
+            (match e: z == x with
+              | True => Void.exfalso (notMem (rewrite <- DecEq.sound z x e in m))
+              | False => rfl))
+        (z m =>
+          match List.memFilter ys (z => !(z == x)) z m with
+            | Both inYs notX =>
+              match back z inYs with
+                | Inl e => Void.exfalso (Bool.falseNotTrue (rewrite e, DecEq.refl z at notX))
+                | Inr inXs => inXs)
+        p
+    rewrite List.occurrencesSplit ys x p, List.occurrencesOnce ys x p dy (there x (Inl rfl)), <- List.occurrencesFilter ys (z => !(z == x)) p, <- rest
+      in Nat.addComm (Bool.toNat (p x)) (List.occurrences xs p)
+
+-- Two lists sorted by the same order, with the same elements, are equal,
+-- when the order puts no two different elements both ways round.
+theorem List.sortedPermEq [auto eq: DecEq a] (le: a -> a -> Bool) (trans: (x: a) -> (y: a) -> (z: a) -> le x y = True -> le y z = True -> le x z = True)
+    (antisymm: (x: a) -> (y: a) -> le x y = True -> le y x = True -> x = y):
+    (xs: List a) -> (ys: List a) -> List.Sorted le xs -> List.Sorted le ys -> List.Perm xs ys -> xs = ys
+  | Nil, Nil, sx, sy, p => rfl
+  | Nil, Cons y ys, sx, sy, p => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength Nil (Cons y ys) p))
+  | Cons x xs, Nil, sx, sy, p => Void.exfalso (Nat.succNotZero (List.length xs) (List.permLength (Cons x xs) Nil p))
+  | Cons x xs, Cons y ys, Both hx sx, Both hy sy, p =>
+    let same: x = y :=
+      match List.memPerm (Cons y ys) (Cons x xs) (List.permSym (Cons x xs) (Cons y ys) p) y (Inl rfl) with
+        | Inl e => e
+        | Inr my =>
+          match List.memPerm (Cons x xs) (Cons y ys) p x (Inl rfl) with
+            | Inl e => Eq.sym e
+            | Inr mx => antisymm x y (List.sortedHeadLe le trans x y xs (Both hx sx) my) (List.sortedHeadLe le trans y x ys (Both hy sy) mx)
+    let rest: xs = ys :=
+      List.sortedPermEq le trans antisymm xs ys sx sy
+        (q => Nat.addCancelLeft (Bool.toNat (q x)) (List.occurrences xs q) (List.occurrences ys q)
+          (Eq.trans (p q) (Eq.cong (t => Bool.toNat (q t) + List.occurrences ys q) (Eq.sym same))))
+    rewrite same, rest in rfl
+
 theorem List.findKeyExample: List.find [MkPair "a" 1, MkPair "b" 2, MkPair "b" 3] (x => Pair.fst x == "b") = Some (MkPair "b" 2) := rfl
 
 -- Adding an element in front keeps every subsequence.

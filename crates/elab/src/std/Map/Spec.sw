@@ -344,6 +344,21 @@ theorem Map.Spec.lessOfLessLe (ord: Ord k) (x: k) (y: k) (z: k)
     | Equal => rewrite Eq.sym (ord.equal y z c) in e
     | Greater => Void.exfalso (h (Map.Tree.lessOfGreater ord y z c))
 
+-- Every key of an ascending list is above its lower bound ...
+theorem Map.Spec.keysAbove (ord: Ord k) (key: k): (lo: Option k) -> (xs: List (k, v)) -> Map.Spec.Ascending ord lo xs ->
+    List.Mem key (List.map xs Pair.fst) -> Map.Tree.Above ord lo key
+  | lo, Nil, asc, m => Void.exfalso m
+  | lo, Cons (kk, vv) rest, Both above arest, Inl e => rewrite <- e in above
+  | None, Cons (kk, vv) rest, Both above arest, Inr m => Trivial
+  | Some low, Cons (kk, vv) rest, Both above arest, Inr m => ord.trans low kk key above (Map.Spec.keysAbove ord key (Some kk) rest arest m)
+
+-- ... so its keys don't repeat.
+theorem Map.Spec.keysDistinct (ord: Ord k): (lo: Option k) -> (xs: List (k, v)) -> Map.Spec.Ascending ord lo xs -> List.Distinct (List.map xs Pair.fst)
+  | lo, Nil, asc => Trivial
+  | lo, Cons (kk, vv) rest, Both above arest =>
+    Both (m => Ordering.lessNotEqual (Eq.trans (Eq.sym (Map.Spec.keysAbove ord kk (Some kk) rest arest m)) (Ord.compareSelf kk)))
+      (Map.Spec.keysDistinct ord (Some kk) rest arest)
+
 theorem Map.Spec.ascendingAbove (ord: Ord k) (lo: Option k) (kk: k): (hi: Option k) -> (acc: List (k, v)) ->
     Map.Tree.Below ord kk hi -> Map.Spec.Ascending ord lo acc -> Map.Spec.Fits ord hi acc ->
     Map.Spec.Ascending ord (Some kk) acc

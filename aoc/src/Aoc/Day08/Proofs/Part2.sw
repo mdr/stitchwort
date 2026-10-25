@@ -23,35 +23,19 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Orde
 
 -- Counting --------------------------------------------------------------------
 
-theorem eqComm (a: Nat) (b: Nat): (a == b) = (b == a) :=
-  Bool.eqOf (a == b) (b == a) (h => rewrite eqTrue a b h in eqSelf b) (h => rewrite eqTrue b a h in eqSelf a)
-
 -- Exactly one of the numbers below n passes q.
 theorem countOne (q: Nat -> Bool) (n: Nat) (v: Nat) (hv: q v = True) (vn: v < n) (uniq: (b: Nat) -> q b = True -> b = v):
     List.occurrences (List.range n) q = 1 :=
   rewrite List.occurrencesSumBy (List.range n) q, <- Nat.keepIfOne _ in List.sumRangeOne q (b => 1) v hv uniq n 0 omega vn
 
--- Counting p, apart from v and at v.
-theorem occurrencesSplit (p: Nat -> Bool) (v: Nat): (xs: List Nat) ->
-    List.occurrences xs p = List.occurrences xs (b => p b && !(b == v)) + List.occurrences xs (b => p b && (b == v))
-  | Nil => rfl
-  | Cons x xs =>
-    let one: Bool.toNat (p x) = Bool.toNat (p x && !(x == v)) + Bool.toNat (p x && (x == v)) :=
-      match p x, x == v with
-        | True, True => rfl
-        | True, False => rfl
-        | False, True => rfl
-        | False, False => rfl
-    omega [occurrencesSplit p v xs]
-
 -- If v (below n) passes p, the numbers below n passing p are those other
 -- than v, and v.
 theorem countWithout (p: Nat -> Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v < n):
     List.occurrences (List.range n) p = List.occurrences (List.range n) (b => p b && !(b == v)) + 1 :=
-  rewrite occurrencesSplit p v (List.range n),
-    countOne (b => p b && (b == v)) n v (rewrite hv, eqSelf v in rfl) vn
+  rewrite List.occurrencesSplit (List.range n) v p,
+    countOne (b => p b && (b == v)) n v (rewrite hv, DecEq.refl v in rfl) vn
       (b h => match e: b == v with
-        | True => eqTrue b v e
+        | True => DecEq.sound b v e
         | False => Void.exfalso (Bool.falseNotTrue (rewrite Bool.andFalse (p b) at h)))
     in rfl
 
@@ -59,7 +43,7 @@ theorem countWithout (p: Nat -> Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v 
 theorem onlyOne (p: Nat -> Bool) (n: Nat) (one: List.occurrences (List.range n) p = 1) (x: Nat) (y: Nat)
     (hx: p x = True) (xn: x < n) (hy: p y = True) (yn: y < n): y = x :=
   match e: y == x with
-    | True => eqTrue y x e
+    | True => DecEq.sound y x e
     | False =>
       let some: Nat.leq 1 (List.occurrences (List.range n) (b => p b && !(b == x))) = True :=
         rewrite <- List.anyOccurrences (List.range n) (b => p b && !(b == x)) in
@@ -81,7 +65,7 @@ type Counted (n: Nat) (circuits: Circuits): Prop = {
 
 theorem countedAtStart (n: Nat): Counted n (Circuits.separate n) :=
   {
-    counts = rewrite labelAtStart n _, eqSelf _, List.occurrencesTrue (List.range n), List.lengthRangeFrom n 0 in rfl,
+    counts = rewrite labelAtStart n _, DecEq.refl [a := Nat] _, List.occurrencesTrue (List.range n), List.lengthRangeFrom n 0 in rfl,
     labelBelow = b h => rewrite labelAtStart n b h in h,
     labelOwn = b h => rewrite labelAtStart n b h, labelAtStart n b h in rfl
   }
@@ -92,21 +76,21 @@ theorem ownAfterMove (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (counted: Counted 
     (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b) == b) = ((c.labelOf b == b) && !(b == c.labelOf f)) :=
   match g: c.labelOf b == c.labelOf f with
     | True =>
-      let lf := eqTrue (c.labelOf b) (c.labelOf f) g
+      let lf := DecEq.sound (c.labelOf b) (c.labelOf f) g
       match h2: c.labelOf s == b with
         | True =>
           -- b would be s's label, so its own label: then f's label is s's.
-          let bs := eqTrue (c.labelOf s) b h2
+          let bs := DecEq.sound (c.labelOf s) b h2
           Void.exfalso (DecEq.soundFalse (c.labelOf f) (c.labelOf s) differ
             (Eq.trans (Eq.sym lf) (rewrite <- bs, counted.labelOwn s hs in rfl)))
         | False =>
           rewrite lf in
             match h3: b == c.labelOf f with
               | True => rewrite Bool.andFalse (c.labelOf f == b) in rfl
-              | False => rewrite eqComm (c.labelOf f) b, h3 in rfl
+              | False => rewrite DecEq.eqComm (c.labelOf f) b, h3 in rfl
     | False =>
       match h2: c.labelOf b == b with
-        | True => rewrite <- eqTrue (c.labelOf b) b h2, g in rfl
+        | True => rewrite <- DecEq.sound (c.labelOf b) b h2, g in rfl
         | False => rfl
 
 theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s: Nat) (hf: f < n) (hs: s < n)
@@ -121,7 +105,7 @@ theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
       calc (moved c f s).count
         _ = ownLabels c n - 1 := rewrite counted.counts in rfl
         _ = List.occurrences (List.range n) (b => c.labelOf b == b && !(b == c.labelOf f)) :=
-          rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite counted.labelOwn f hf in eqSelf (c.labelOf f)) (counted.labelBelow f hf)
+          rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite counted.labelOwn f hf in DecEq.refl (c.labelOf f)) (counted.labelBelow f hf)
             in omega
         _ = ownLabels (moved c f s) n :=
           rewrite after _, ownAfterMove c f s n counted hs differ _ in rfl,
@@ -151,8 +135,8 @@ theorem countOneOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled
     (some: 0 < n) (one: OneCircuit n done): c.count = 1 :=
   let r := c.labelOf 0
   let same: (b: Nat) -> b < n -> c.labelOf b = r :=
-    b h => eqTrue (c.labelOf b) r ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
-  rewrite counted.counts, same _ in countOne (b => r == b) n r (eqSelf r) (counted.labelBelow 0 some) (b h => Eq.sym (eqTrue r b h))
+    b h => DecEq.sound (c.labelOf b) r ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
+  rewrite counted.counts, same _ in countOne (b => r == b) n r (DecEq.refl r) (counted.labelBelow 0 some) (b h => Eq.sym (DecEq.sound r b h))
 
 -- With one box its own label, every box has that label, so all are joined.
 theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
@@ -161,9 +145,9 @@ theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: L
     let own := Eq.trans (Eq.sym counted.counts) one
     let same: c.labelOf b = c.labelOf a :=
       onlyOne (b => c.labelOf b == b) n own (c.labelOf a) (c.labelOf b)
-        (rewrite counted.labelOwn a ha in eqSelf (c.labelOf a)) (counted.labelBelow a ha)
-        (rewrite counted.labelOwn b hb in eqSelf (c.labelOf b)) (counted.labelBelow b hb)
-    (labelsTellOf n done c inv a b ha hb).forward (rewrite same in eqSelf (c.labelOf a))
+        (rewrite counted.labelOwn a ha in DecEq.refl (c.labelOf a)) (counted.labelBelow a ha)
+        (rewrite counted.labelOwn b hb in DecEq.refl (c.labelOf b)) (counted.labelBelow b hb)
+    (labelsTellOf n done c inv a b ha hb).forward (rewrite same in DecEq.refl (c.labelOf a))
 
 -- No boxes are always in one circuit.
 theorem oneCircuitOfNone (done: List (Nat, Nat)): OneCircuit 0 done := a b ha hb => Void.exfalso (Bool.falseNotTrue ha)
@@ -177,7 +161,7 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
       let atLeastOne: Nat.leq 1 c.count = True :=
         rewrite counted.counts, <- List.anyOccurrences (List.range (Succ m)) (b => c.labelOf b == b) in
           List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (counted.labelBelow 0 rfl)
-            (rewrite counted.labelOwn 0 rfl in eqSelf (c.labelOf 0))
+            (rewrite counted.labelOwn 0 rfl in DecEq.refl (c.labelOf 0))
       match e: c.count with
         | Zero => Void.exfalso (Bool.falseNotTrue atLeastOne)
         | Succ Zero => Void.exfalso (notOne (oneCircuitOfCount (Succ m) done c inv counted e))
@@ -187,7 +171,7 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
 theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
     (notOne: Not (OneCircuit n done)): (c.count == 1) = False :=
   match e: c.count == 1 with
-    | True => Void.exfalso (notOne (oneCircuitOfCount n done c inv counted (eqTrue c.count 1 e)))
+    | True => Void.exfalso (notOne (oneCircuitOfCount n done c inv counted (DecEq.sound c.count 1 e)))
     | False => rfl
 
 -- Part 2 ------------------------------------------------------------------------
@@ -299,8 +283,8 @@ theorem oneAfterTells (points: List Point) (j: Nat) (some: 0 < points.length):
   let inv := labelledJoinAll n (firstConnections j points) Nil (Circuits.separate n) ok (labelledAtStart n)
   let counted := countedJoinAll n (firstConnections j points) Nil (Circuits.separate n) ok (labelledAtStart n) (countedAtStart n)
   {
-    forward = h => oneCircuitOfCount n (firstConnections j points) _ inv counted (eqTrue _ 1 h),
-    backward = one => rewrite countOneOf n (firstConnections j points) _ inv counted some one in eqSelf 1
+    forward = h => oneCircuitOfCount n (firstConnections j points) _ inv counted (DecEq.sound _ 1 h),
+    backward = one => rewrite countOneOf n (firstConnections j points) _ inv counted some one in DecEq.refl 1
   }
 
 -- With two or more boxes, some connection is the last one needed: the first
@@ -317,7 +301,7 @@ theorem lastNeededExists (points: List Point) (two: 2 <= points.length): Exists 
     Nat.firstFromFound (oneAfter points) (Succ total) 0 total omega omega atEnd
   let notAtStart: oneAfter points 0 = False :=
     match e: n == 1 with
-      | True => Void.exfalso (Bool.falseNotTrue (rewrite eqTrue n 1 e at two))
+      | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound n 1 e at two))
       | False => rfl
   match g: first with
     | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym notAtStart) found))
