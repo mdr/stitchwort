@@ -1,5 +1,5 @@
 {
-  "next": 523,
+  "next": 528,
   "tickets": [
     {
       "id": 13,
@@ -3481,6 +3481,66 @@
       "id": 522,
       "title": "Opaque definitions note draft 2: fold in external review (verified D&G citations, kernel invariant, neutral spec wording, mutual groups, f.unfold size)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 523,
+      "title": "Kernel: compare same-definition calls by arguments first, fall back to unfolding (opaque plan lane 5; folded-calls stage 4)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 524,
+      "title": "Design note: goal read-back for match/rewrite without expanding stuck branches (opaque plan lane 6; D1280+)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 525,
+      "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, hashing, E-NOT-OPAQUE) — after note draft 2 (D1263/D1264 yes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 526,
+      "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold generation (lazy), docs — after lane 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 527,
+      "title": "Opaque defs lanes 3-4: 'is opaque' error notes; roguelike generates levels on the stairs — after lane 2",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
