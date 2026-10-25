@@ -4,7 +4,7 @@
 changes the compiler. The experiments were scratch programs and aren't
 committed; their code is described in [Appendix A](#appendix-a-the-experiments)
 so they can be rewritten. Decisions are at the [end](#decisions) (D1250–D1253).
-Matt has decided D1250 and D1251; D1252 and D1253 are open. An external
+Matt has decided D1250, D1251 and D1252; D1253 is open. An external
 reviewer read this note, and what changed is in
 [External review](#external-review-25-october-2026).
 
@@ -1138,7 +1138,7 @@ a later standalone build.**
 - **Recommendation: yes, Cranelift.** Keep C in mind for a later
   `stitchwort build`.
 
-**D1252. Keep the playground on the machine?**
+**D1252. Keep the playground on the machine?** **Decided (Matt): yes.**
 - Context: Cranelift can't run its code in a browser. Only a wasm backend
   (route f) would speed the playground up a lot, and that needs browser
   stack features that aren't everywhere yet. The CLI and the playground
