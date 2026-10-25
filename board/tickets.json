@@ -1,5 +1,5 @@
 {
-  "next": 520,
+  "next": 522,
   "tickets": [
     {
       "id": 13,
@@ -3444,6 +3444,30 @@
     {
       "id": 519,
       "title": "Native N2b: big-stack sizing with counter-fires-first tests, tail-call shape tests, frame sizes, trace order on error paths (after N2a)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 520,
+      "title": "Live keys lane 1: pausable runs in crates/rt (D1272 yes; per-stretch limits D1275, Ctrl-C stops D1274)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 521,
+      "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
       "status": "backlog",
       "agent": "",
       "where": "",
