@@ -751,23 +751,23 @@ const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v2.tag) {
       case "Nil": {
         return v3;
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        s2 = v2;
-        s3 = (v2)(v3)(v5);
-        s4 = v6;
+        const v5 = v2.head;
+        const v6 = v2.tail;
+        s2 = v6;
+        s3 = (v4)(v3)(v5);
+        s4 = v4;
         continue;
       }
     }
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft($Std$dAdd$dadd(v1), $Std$dAdd$dzero(v1), v2);
+const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft(v2, $Std$dAdd$dzero(v1), $Std$dAdd$dadd(v1));
 const $Main$dfromList = (v1) => {
   let s1 = v1;
   let h$ = null, l$ = null, k$ = null;

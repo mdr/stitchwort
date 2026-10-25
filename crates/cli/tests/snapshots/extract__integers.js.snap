@@ -800,13 +800,13 @@ const $Std$dInt$dtmod = (a, d) => a % d;
 const $Std$dInt$dfdiv = (a, d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
 const $Std$dInt$dfmod = (a, d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
 const $Std$dOption$dmap = (v2, v3) => {
-  switch (v3.tag) {
+  switch (v2.tag) {
     case "None": {
       return { tag: "None" };
     }
     case "Some": {
-      const v4 = v3.value;
-      return { tag: "Some", value: (v2)(v4) };
+      const v4 = v2.value;
+      return { tag: "Some", value: (v3)(v4) };
     }
   }
   throw new Error("unreachable");
@@ -816,18 +816,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -865,7 +865,7 @@ const $Main$ddescribe = (v0) => {
     return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "positive"));
   }
 };
-const $Main$dnegatives = (v0) => $Std$dList$dmap$e(((v1) => (-v1 - 1n)), v0);
+const $Main$dnegatives = (v0) => $Std$dList$dmap$e(v0, ((v1) => (-v1 - 1n)));
 const $Main$dneg = (v0) => $Std$dInt$dneg(v0);
 const $Main$dadd = (v0, v1) => $Std$dInt$dadd(v0, v1);
 const $Main$dsub = (v0, v1) => $Std$dInt$dsub(v0, v1);
@@ -889,7 +889,7 @@ const $Main$dsign = (v0) => $Std$dInt$dsign(v0);
 const $Main$dofNat = (v0) => $Std$dNat$dtoInt(v0);
 const $Main$dtoText = (v0) => $Std$dInt$dtoText(v0);
 const $Main$dparse = (v0) => $Std$dText$dtoInt(v0);
-const $Main$dofNats = (v0) => $Std$dList$dmap$e(((v1) => v1), v0);
+const $Main$dofNats = (v0) => $Std$dList$dmap$e(v0, ((v1) => v1));
 const $Main$dresidueName = (v0) => {
   if (v0 >= 0n) {
     const v1 = v0;
@@ -968,7 +968,7 @@ const $Main$doptionInt = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dnegateAll = (v0) => $Std$dList$dmap$e(((v1) => $Std$dOption$dmap($Std$dInt$dneg, v1)), v0);
+const $Main$dnegateAll = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Std$dOption$dmap(v1, $Std$dInt$dneg)));
 const $Main$dfirstNeg = (v0) => {
   let s0 = v0;
   for (;;) {

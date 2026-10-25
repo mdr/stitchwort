@@ -790,12 +790,12 @@ const $Std$dBool$ddecTrue = (v0) => {
 const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Std$dOption$dgetOrElse = (v1, v2) => {
-  switch (v2.tag) {
+  switch (v1.tag) {
     case "None": {
-      return v1;
+      return v2;
     }
     case "Some": {
-      const v3 = v2.value;
+      const v3 = v1.value;
       return v3;
     }
   }
@@ -807,18 +807,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -851,7 +851,7 @@ const $Main$dProfile$dage = (v0) => {
   const v3 = v0.age;
   return v3;
 };
-const $Main$dnickname = (v0) => $Std$dOption$dgetOrElse($Main$dProfile$dname(v0), $Main$dProfile$dnick(v0));
+const $Main$dnickname = (v0) => $Std$dOption$dgetOrElse($Main$dProfile$dnick(v0), $Main$dProfile$dname(v0));
 const $Main$dwithNick = (v0, v1) => ({ name: $Main$dProfile$dname(v0), nick: v1, age: $Main$dProfile$dage(v0) });
 const $Main$dhalve = (v0) => {
   switch (v0.tag) {
@@ -919,7 +919,7 @@ const $Main$dkeepSome = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dmarkAll = (v0) => $Std$dList$dmap$e(((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 1n), ((v2) => ({ tag: "None" })), ((v2) => ({ tag: "Some", value: v1 })))), v0);
+const $Main$dmarkAll = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 1n), ((v2) => ({ tag: "None" })), ((v2) => ({ tag: "Some", value: v1 })))));
 const $Main$dpeek = (v0) => v0;
 const $Main$ddescribe = (v0) => {
   switch (v0.tag) {

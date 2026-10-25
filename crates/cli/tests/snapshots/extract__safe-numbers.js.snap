@@ -814,18 +814,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -836,16 +836,16 @@ const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v2.tag) {
       case "Nil": {
         return v3;
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        s2 = v2;
-        s3 = (v2)(v3)(v5);
-        s4 = v6;
+        const v5 = v2.head;
+        const v6 = v2.tail;
+        s2 = v6;
+        s3 = (v4)(v3)(v5);
+        s4 = v4;
         continue;
       }
     }
@@ -864,7 +864,7 @@ const $Main$daddSafe = (v0, v1) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSaf
 const $Main$dnegateSafe = (v0) => $Std$dSafeInt$dofInt($Std$dInt$dneg($Std$dSafeInt$dvalue(v0)));
 const $Main$dtoSafe = (v0) => $Std$dSafeNat$dofNat(v0);
 const $Main$dtoSafeInt = (v0) => $Std$dSafeInt$dofInt(v0);
-const $Main$dlengths = (v0) => $Std$dList$dmap$e(((v1) => $Std$dSafeNat$dofNat($Std$dText$dlength(v1))), v0);
+const $Main$dlengths = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Std$dSafeNat$dofNat($Std$dText$dlength(v1))));
 const $Main$dCounter$dcount = (v0) => {
   const v1 = v0.count;
   const v2 = v0.delta;
@@ -893,7 +893,7 @@ const $Main$dCounter$d$gdecEq = (v0, v1) => {
   return $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeNat$dinstDecEq)(v2)(v4), ((v6) => $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeInt$dinstDecEq)(v3)(v5), ((v7) => ({ tag: "Yes" })), ((v7) => ({ tag: "No" })))), ((v6) => ({ tag: "No" })));
 };
 const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue($Main$dCounter$dcount(v0)), $Std$dInt$dtoNat($Std$dSafeInt$dvalue($Main$dCounter$ddelta(v0)))));
-const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1, $Std$dSafeNat$dvalue(v2)))), 0n, v0));
+const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, $Std$dSafeNat$dvalue(v2))))));
 const $Main$dsameCounter = (v0, v1) => $Std$dDecidable$dtoBool($Main$dCounter$d$gdecEq(v0, v1));
 const $Main$dstartCounter = { count: 41n, delta: -1n };
 const $Main$dlimits = { tag: "Cons", head: 9007199254740991n, tail: { tag: "Cons", head: -9007199254740991n, tail: { tag: "Cons", head: 0n, tail: { tag: "Nil" } } } };

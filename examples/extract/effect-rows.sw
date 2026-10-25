@@ -29,11 +29,11 @@ export def mappedSum (n: Nat): Nat := sum (List.map (List.range n) (x => x + 1))
 
 -- A map with a pure callback type, as `List.map` was before it took effects:
 -- `List.map`'s empty-row variant is the same loop.
-def pureMap (f: a -> b): List a -> List b
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (pureMap f xs)
+def pureMap: List a -> (a -> b) -> List b
+  | Nil, f => Nil
+  | Cons x xs, f => Cons (f x) (pureMap xs f)
 
-export def pureDoubled (xs: List Nat): List Nat := pureMap double xs
+export def pureDoubled (xs: List Nat): List Nat := pureMap xs double
 
 export def doubledEach (xss: List (List Nat)): List (List Nat) := List.map xss (.map double)
 

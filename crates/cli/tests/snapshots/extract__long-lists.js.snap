@@ -799,13 +799,13 @@ const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q 
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Std$dNat$dmod = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$dmul($Std$dNat$ddiv(v0, v1), v1));
 const $Std$dList$dheadOr = (v1, v2) => {
-  switch (v2.tag) {
+  switch (v1.tag) {
     case "Nil": {
-      return v1;
+      return v2;
     }
     case "Cons": {
-      const v3 = v2.head;
-      const v4 = v2.tail;
+      const v3 = v1.head;
+      const v4 = v1.tail;
       return v3;
     }
   }
@@ -916,18 +916,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -950,17 +950,17 @@ const $Std$dList$dfilter = (v1, v2) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v1 = s1, v2 = s2;
-    switch (v2.tag) {
+    switch (v1.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v3 = v2.head;
-        const v4 = v2.tail;
+        const v3 = v1.head;
+        const v4 = v1.tail;
         const v6 = v3;
-        const p1_1$ = v1;
-        const p2_2$ = v4;
-        const v8 = (v1)(v3);
+        const p1_1$ = v4;
+        const p2_2$ = v2;
+        const v8 = (v2)(v3);
         switch (v8.tag) {
           case "False": {
             s1 = p1_1$;
@@ -986,16 +986,16 @@ const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v2.tag) {
       case "Nil": {
         return v3;
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        s2 = v2;
-        s3 = (v2)(v3)(v5);
-        s4 = v6;
+        const v5 = v2.head;
+        const v6 = v2.tail;
+        s2 = v6;
+        s3 = (v4)(v3)(v5);
+        s4 = v4;
         continue;
       }
     }
@@ -1019,16 +1019,16 @@ const $Std$dList$dfilterMap = (v2, v3) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v2 = s2, v3 = s3;
-    switch (v3.tag) {
+    switch (v2.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const v7 = (v2)(v4);
-        const p1_2$ = v2;
-        const p2_3$ = v5;
+        const v4 = v2.head;
+        const v5 = v2.tail;
+        const v7 = (v3)(v4);
+        const p1_2$ = v5;
+        const p2_3$ = v3;
         switch (v7.tag) {
           case "None": {
             s2 = p1_2$;
@@ -1213,15 +1213,15 @@ const $Std$dList$dmergeRuns = (v1, v2, v3) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsortWith = (v1, v2) => $Std$dList$dmergeRuns(v1, { tag: "Nil" }, $Std$dList$dbuildRuns(v1, { tag: "Nil" }, v2));
-const $Std$dList$dsortBy = (v1, v2) => $Std$dList$dsortWith(((v3) => ((v4) => $Std$dOrdering$disLessEq((v1)(v3)(v4)))), v2);
-const $Std$dList$dsort = (v1, v2) => $Std$dList$dsortBy($Std$dOrd$dcompare(v1), v2);
-const $Main$dsum = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1, v2))), 0n, v0);
-const $Main$dcount = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1, 1n))), 0n, v0);
-const $Main$dscrambled = (v0) => $Std$dList$dmap$e(((v1) => $Std$dNat$dmod($Std$dNat$dmul(v1, 7919n), 100003n)), $Std$dList$drange(v0));
-const $Main$dmapSum = (v0) => $Main$dsum($Std$dList$dmap$e(((v1) => $Std$dNat$dadd(v1, 1n)), $Std$dList$drange(v0)));
-const $Main$dfilterCount = (v0) => $Main$dcount($Std$dList$dfilter(((v1) => (((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2, 0n))))($Std$dNat$dmod(v1, 3n))), $Std$dList$drange(v0)));
-const $Main$dfilterMapSum = (v0) => $Main$dsum($Std$dList$dfilterMap(((v1) => $Std$dBool$difThenElse((((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2, 0n))))($Std$dNat$dmod(v1, 2n)), ((v2) => ({ tag: "Some", value: $Std$dNat$ddiv(v1, 2n) })), ((v2) => ({ tag: "None" })))), $Std$dList$drange(v0)));
+const $Std$dList$dsortWith = (v1, v2) => $Std$dList$dmergeRuns(v2, { tag: "Nil" }, $Std$dList$dbuildRuns(v2, { tag: "Nil" }, v1));
+const $Std$dList$dsortBy = (v1, v2) => $Std$dList$dsortWith(v1, ((v3) => ((v4) => $Std$dOrdering$disLessEq((v2)(v3)(v4)))));
+const $Std$dList$dsort = (v1, v2) => $Std$dList$dsortBy(v2, $Std$dOrd$dcompare(v1));
+const $Main$dsum = (v0) => $Std$dList$dfoldLeft(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2))));
+const $Main$dcount = (v0) => $Std$dList$dfoldLeft(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, 1n))));
+const $Main$dscrambled = (v0) => $Std$dList$dmap$e($Std$dList$drange(v0), ((v1) => $Std$dNat$dmod($Std$dNat$dmul(v1, 7919n), 100003n)));
+const $Main$dmapSum = (v0) => $Main$dsum($Std$dList$dmap$e($Std$dList$drange(v0), ((v1) => $Std$dNat$dadd(v1, 1n))));
+const $Main$dfilterCount = (v0) => $Main$dcount($Std$dList$dfilter($Std$dList$drange(v0), ((v1) => (((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2, 0n))))($Std$dNat$dmod(v1, 3n)))));
+const $Main$dfilterMapSum = (v0) => $Main$dsum($Std$dList$dfilterMap($Std$dList$drange(v0), ((v1) => $Std$dBool$difThenElse((((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2, 0n))))($Std$dNat$dmod(v1, 2n)), ((v2) => ({ tag: "Some", value: $Std$dNat$ddiv(v1, 2n) })), ((v2) => ({ tag: "None" }))))));
 const $Main$dappendCount = (v0) => $Main$dcount($Std$dList$dappend($Std$dList$drange(v0), $Std$dList$drange(v0)));
 const $Main$dfirstPlusLast = (v0) => {
   switch (v0.tag) {
@@ -1231,7 +1231,7 @@ const $Main$dfirstPlusLast = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return $Std$dNat$dadd(v1, $Std$dList$dfoldLeft(((v3) => ((v4) => v4)), 0n, v2));
+      return $Std$dNat$dadd(v1, $Std$dList$dfoldLeft(v2, 0n, ((v3) => ((v4) => v4))));
     }
   }
   throw new Error("unreachable");
@@ -1278,10 +1278,10 @@ const $Main$dItem$d$gdecEq = (v0, v1) => {
   const v5 = v1.name;
   return $Std$dDecidable$delim($Std$dNat$ddecEq(v2, v4), ((v6) => $Std$dDecidable$delim($Std$dText$ddecEq(v3, v5), ((v7) => ({ tag: "Yes" })), ((v7) => ({ tag: "No" })))), ((v6) => ({ tag: "No" })));
 };
-const $Main$ditems = (v0) => $Std$dList$dmap$e(((v1) => ({ id: v1, name: "x" })), $Std$dList$drange(v0));
+const $Main$ditems = (v0) => $Std$dList$dmap$e($Std$dList$drange(v0), ((v1) => ({ id: v1, name: "x" })));
 const $Main$dsameNats = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3, v4))), v1, v2)))))($Std$dList$drange(v0))($Std$dList$drange(v0));
 const $Main$dsameItems = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Main$dItem$d$gdecEq(v3, v4))), v1, v2)))))($Main$ditems(v0))($Main$ditems(v0));
-const $Main$dlastDiffers = (v0) => ((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3, v4))), v1, v2)))($Std$dList$dmap$e(((v2) => $Std$dBool$difThenElse(((v3) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3, v0)))($Std$dNat$dadd(v2, 1n)), ((v3) => $Std$dNat$dadd(v0, 7n)), ((v3) => v2))), $Std$dList$drange(v0))))($Std$dList$drange(v0));
+const $Main$dlastDiffers = (v0) => ((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3, v4))), v1, v2)))($Std$dList$dmap$e($Std$dList$drange(v0), ((v2) => $Std$dBool$difThenElse(((v3) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3, v0)))($Std$dNat$dadd(v2, 1n)), ((v3) => $Std$dNat$dadd(v0, 7n)), ((v3) => v2))))))($Std$dList$drange(v0));
 const $Main$dshorter = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3, v4))), v1, v2)))))($Std$dList$drange(v0))($Std$dList$drange($Std$dNat$dadd(v0, 1n)));
 
 function $$mapSum(arg0) {

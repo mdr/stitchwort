@@ -1323,9 +1323,9 @@ const $Std$dList$dmergeRuns = (v1, v2, v3) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsortWith = (v1, v2) => $Std$dList$dmergeRuns(v1, { tag: "Nil" }, $Std$dList$dbuildRuns(v1, { tag: "Nil" }, v2));
-const $Std$dList$dsortBy = (v1, v2) => $Std$dList$dsortWith(((v3) => ((v4) => $Std$dOrdering$disLessEq((v1)(v3)(v4)))), v2);
-const $Std$dList$dsort = (v1, v2) => $Std$dList$dsortBy($Std$dOrd$dcompare(v1), v2);
+const $Std$dList$dsortWith = (v1, v2) => $Std$dList$dmergeRuns(v2, { tag: "Nil" }, $Std$dList$dbuildRuns(v2, { tag: "Nil" }, v1));
+const $Std$dList$dsortBy = (v1, v2) => $Std$dList$dsortWith(v1, ((v3) => ((v4) => $Std$dOrdering$disLessEq((v2)(v3)(v4)))));
+const $Std$dList$dsort = (v1, v2) => $Std$dList$dsortBy(v2, $Std$dOrd$dcompare(v1));
 const $Main$dSuit$d$gtag = (v0) => {
   switch (v0.tag) {
     case "Clubs": {
