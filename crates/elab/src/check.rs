@@ -1786,8 +1786,24 @@ fn helper_name(cx: &Ctx, head: &Term) -> Option<(String, bool)> {
     }
 }
 
+/// Why `helper`, a std function, refuses a partial callback, from its
+/// callback's type `param` (shown): with no row there, or a fixed one, the
+/// callback must finish. The std functions whose callbacks may be partial
+/// say so with a row variable (`a → {e} Bool`), and those take one.
+fn std_callback_note(helper: &str, param: &str) -> String {
+    let why = if param.contains('}') {
+        "whose row is fixed"
+    } else {
+        "which has no `{e}`"
+    };
+    format!(
+        "`{helper}` doesn't take partial callbacks: its callback has the type `{param}`, \
+         {why}, so it must finish"
+    )
+}
+
 /// A partial function given where the parameter's callback type must finish
-/// (`List.filter xs partialPredicate`): a plain type mismatch, so say why.
+/// (`List.sortBy xs partialComparison`): a plain type mismatch, so say why.
 fn total_callback_note(
     cx: &mut Ctx,
     head: &Term,
@@ -1817,9 +1833,8 @@ fn total_callback_note(
     let param = cx.show(dom);
     let note = if in_std {
         format!(
-            "`{helper}` doesn't take partial callbacks yet: its callback has the type \
-             `{param}`, which must finish, and `{}` is partial (so far only `List.map`'s \
-             callback may be partial)",
+            "{}, and `{}` is partial",
+            std_callback_note(&helper, &param),
             name.text
         )
     } else {
@@ -1857,10 +1872,7 @@ fn total_lambda_note(
     }
     e.notes.clear();
     e.with_note(if in_std {
-        format!(
-            "`{helper}` doesn't take partial callbacks yet: its callback has the type \
-             `{param}`, which must finish (so far only `List.map`'s callback may be partial)"
-        )
+        std_callback_note(&helper, &param)
     } else {
         format!(
             "`{helper}`'s parameter has the type `{param}`, which must finish, so its callback \
@@ -2010,10 +2022,7 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
         ),
     );
     if in_std {
-        diagnostic = diagnostic.with_note(format!(
-            "`{helper}` doesn't take partial callbacks yet: its callback has the type \
-             `{param}`, which must finish (so far only `List.map`'s callback may be partial)"
-        ));
+        diagnostic = diagnostic.with_note(std_callback_note(&helper, &param));
     } else if open {
         diagnostic = diagnostic.with_note(format!(
             "`{helper}`'s parameter has the type `{param}`: a row with abilities and a tail, \

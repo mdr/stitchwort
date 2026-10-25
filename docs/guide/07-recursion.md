@@ -233,7 +233,7 @@ def main(): {IO, Partial} () := IO.print "steps: ${stepsOfAll [3, 7, 27]}"
 steps: [7, 16, 111]
 ```
 
-A caller whose type doesn't say `Partial` gets `E-PARTIAL`, which names the callback. Not every library function takes partial callbacks yet: `List.filter`'s must finish, and giving it a partial one is a type mismatch that says so.
+A caller whose type doesn't say `Partial` gets `E-PARTIAL`, which names the callback. `List.filter`, `List.find`, `List.any`, the folds and the other list functions whose callback type has an `{e}` take partial callbacks in the same way. A callback whose type has no `{e}`, such as `List.sortBy`'s comparison, must finish, and giving it a partial one is a type mismatch that says so.
 
 `Partial` keeps the rest of the program honest: a function whose type doesn't say `Partial` is known to finish, which is what proofs about it rely on.
 

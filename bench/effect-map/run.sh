@@ -7,8 +7,9 @@
 # `RUNS` (default 3) runs of `stitchwort run` (with `--js` for Node). Each length maps
 # 10,000,000 elements in all. The `setup` line is the same run with no
 # rounds (checking, code generation and building the list), to subtract.
-# `MODES` picks the modes (default `setup sum map fail`); `SW` and `SRC`
-# override the binary and the source, to compare with another build.
+# `MODES` picks the modes (default `setup sum map fail`; also `filter`,
+# `fold` and `any`); `SW` and `SRC` override the binary and the source, to
+# compare with another build.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 sw="${SW:-$root/target/release/stitchwort}"

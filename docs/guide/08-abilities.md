@@ -139,7 +139,7 @@ def loggedStep (n: Nat): {Log} Nat :=
 test "with an ability" := collectLog (() => applyTwice loggedStep 0) == (2, ["at 0", "at 1"])
 ```
 
-With a pure callback, `e` is empty and `applyTwice` is an ordinary pure function. This is how `List.map` works: `xs.map f` takes an `f` that may perform abilities, such as reading or failing, and with a pure `f` it is the ordinary pure `map`.
+With a pure callback, `e` is empty and `applyTwice` is an ordinary pure function. This is how `List.map`, `List.filter`, the folds and the other list functions work: `xs.map f` takes an `f` that may perform abilities, such as reading or failing, and with a pure `f` it is the ordinary pure `map`. The effects run in list order, each element's once, and `any`, `all`, `find` and `takeWhile` stop calling `f` once the answer is decided.
 
 A data type can carry callbacks with abilities too. Give it a parameter of type `Effects` (from `Std.Effect`), and use it as the row of its fields:
 
