@@ -3068,14 +3068,16 @@
     {
       "id": 491,
       "title": "Native bring-up: debug allocation trace (alloc/reuse/inc/dec/free) in the machine",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "9be64d32"
+      ]
     },
     {
       "id": 492,
