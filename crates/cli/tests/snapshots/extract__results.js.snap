@@ -963,6 +963,7 @@ const $Std$dEffect$dbindDv = (v2, v3, v4, v5) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dEffect$dcallD$e = (v3, v4) => (v4)($Std$dEffect$drunPure({ tag: "Call", o: v3, rest: ((v5) => ({ tag: "Done", value: v5 })) }));
 const $Std$dText$dtoText = (v0) => v0;
 const $Std$dShow$d$gtoText = (v1) => {
   const v2 = v1.toText;
@@ -1214,7 +1215,7 @@ const $Std$dFail$dneed = (v1, v2) => {
   throw new Error("unreachable");
 };
 const $Std$dFail$densure = (v0, v1) => $Std$dBool$difThenElse(v0, ((v2) => ({ tag: "Done", value: { tag: "UnitValue" } })), ((v2) => $Std$dFail$dfail(v1)));
-const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => ({ tag: "Err", error: v3 })))), ((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)) })) })))), (v2)({ tag: "UnitValue" }));
+const $Std$dFail$dtoResult$e = (v3) => ((v4) => $Std$dEffect$dfoldComp(((v5) => ({ tag: "Ok", value: v5 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v5) => ((v6) => ({ tag: "Err", error: v5 })))), ((v5) => ((v6) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v5), ((v7) => (v6)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v5, v7))))))), (v3)({ tag: "UnitValue" })))(undefined);
 const $Std$dText$dtoNatOrFail = (v0) => $Std$dFail$dneed($Std$dText$dtoNat($Std$dText$dtrim(v0)), $Std$dText$dappend("expected a whole number, got '", $Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0), "'")));
 const $Main$dRange$dfrom = (v0) => {
   const v1 = v0.from;

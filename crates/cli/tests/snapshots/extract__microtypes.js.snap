@@ -1004,20 +1004,20 @@ const $Std$dList$dmap$e = (v4, v5) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfoldLeft = (v2, v3, v4) => {
-  let s2 = v2, s3 = v3, s4 = v4;
+const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
+  let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {
-    const v2 = s2, v3 = s3, v4 = s4;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5, v6 = s6;
+    switch (v4.tag) {
       case "Nil": {
-        return v3;
+        return v5;
       }
       case "Cons": {
-        const v5 = v2.head;
-        const v6 = v2.tail;
-        s2 = v6;
-        s3 = (v4)(v3)(v5);
-        s4 = v4;
+        const v7 = v4.head;
+        const v8 = v4.tail;
+        s4 = v8;
+        s5 = (v6)(v5)(v7);
+        s6 = v6;
         continue;
       }
     }
@@ -1303,7 +1303,7 @@ const $Std$dMap$dRaw$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dTree$dinse
 const $Std$dMap$dRaw$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsertWith(v2, ((v6) => ((v7) => v6)), v3, v4, v5);
 const $Std$dMap$dRaw$dget = (v2, v3, v4) => $Std$dMap$dTree$dget(v2, v3, $Std$dMap$dRaw$dtree(v2, v4));
 const $Std$dMap$dRaw$dtoList = (v2, v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2, v3), { tag: "Nil" });
-const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
+const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft$e(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
 const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   switch (v0.tag) {
     case "Less": {
@@ -1524,6 +1524,7 @@ const $Std$dText$dcontainsChars = (v0, v1) => {
     throw new Error("unreachable");
   }
 };
+const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Main$dUserId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
@@ -1561,6 +1562,7 @@ const $Main$dOrderId$d$gcompare = (v0, v1) => {
 };
 const $Main$dOrderId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dOrderId$d$ginstDecEq, ($Main$dOrderId$d$gcompare$c ??= ($p0) => ($p1) => $Main$dOrderId$d$gcompare($p0, $p1)));
 const $Main$dUserId$dinstShow = $Std$dShow$dfromText(((v0) => $Main$dUserId$dvalue(v0)));
+const $Main$dEmail$disValid = (v0) => $Std$dText$dcontains(v0, "@");
 const $Main$dEmail$dvalue = (v0) => {
   const v1 = v0;
   return v1;

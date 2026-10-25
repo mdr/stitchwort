@@ -425,6 +425,9 @@ impl Machine {
 }
 
 /// Where an operation went.
+// Boxing `Obs` would add an allocation per operation on the hot path; the value
+// is built and matched at once, so the size difference is never stored.
+#[allow(clippy::large_enum_variant)]
 enum Routed {
     /// Out of this step: a tick, or an operation for the host.
     Obs(Obs),

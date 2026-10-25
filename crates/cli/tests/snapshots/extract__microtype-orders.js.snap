@@ -940,20 +940,20 @@ const $Std$dShow$d$gtoText = (v1) => {
 };
 const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
 const $Std$dShow$dfromText = (v1) => ({ toText: v1, toSource: v1 });
-const $Std$dList$dfoldLeft = (v2, v3, v4) => {
-  let s2 = v2, s3 = v3, s4 = v4;
+const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
+  let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {
-    const v2 = s2, v3 = s3, v4 = s4;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5, v6 = s6;
+    switch (v4.tag) {
       case "Nil": {
-        return v3;
+        return v5;
       }
       case "Cons": {
-        const v5 = v2.head;
-        const v6 = v2.tail;
-        s2 = v6;
-        s3 = (v4)(v3)(v5);
-        s4 = v4;
+        const v7 = v4.head;
+        const v8 = v4.tail;
+        s4 = v8;
+        s5 = (v6)(v5)(v7);
+        s6 = v6;
         continue;
       }
     }
@@ -972,34 +972,34 @@ const $Std$dList$dconsSome = (v1, v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dfilterMap = (v2, v3) => {
-  let s2 = v2, s3 = v3;
+const $Std$dList$dfilterMap$e = (v4, v5) => {
+  let s4 = v4, s5 = v5;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v2 = s2, v3 = s3;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v4 = v2.head;
-        const v5 = v2.tail;
-        const v7 = (v3)(v4);
-        const p1_2$ = v5;
-        const p2_3$ = v3;
-        switch (v7.tag) {
+        const v6 = v4.head;
+        const v7 = v4.tail;
+        const v9 = (v5)(v6);
+        const p1_4$ = v7;
+        const p2_5$ = v5;
+        switch (v9.tag) {
           case "None": {
-            s2 = p1_2$;
-            s3 = p2_3$;
+            s4 = p1_4$;
+            s5 = p2_5$;
             continue;
           }
           case "Some": {
-            const v9 = v7.value;
-            const c3$ = { tag: "Cons", head: v9, tail: null };
+            const v11 = v9.value;
+            const c3$ = { tag: "Cons", head: v11, tail: null };
             if (l$ === null) { h$ = c3$; } else { l$[k$] = c3$; }
             l$ = c3$; k$ = "tail";
-            s2 = p1_2$;
-            s3 = p2_3$;
+            s4 = p1_4$;
+            s5 = p2_5$;
             continue;
           }
         }
@@ -1288,7 +1288,7 @@ const $Std$dMap$dRaw$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dTree$dinse
 const $Std$dMap$dRaw$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsertWith(v2, ((v6) => ((v7) => v6)), v3, v4, v5);
 const $Std$dMap$dRaw$dget = (v2, v3, v4) => $Std$dMap$dTree$dget(v2, v3, $Std$dMap$dRaw$dtree(v2, v4));
 const $Std$dMap$dRaw$dtoList = (v2, v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2, v3), { tag: "Nil" });
-const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
+const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft$e(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
 const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   switch (v0.tag) {
     case "Less": {
@@ -1554,7 +1554,7 @@ const $Main$dparseEmail = (v0) => $Main$dEmail$dparse(v0);
 const $Main$demailText = (v0) => $Main$dEmail$dvalue(v0);
 const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dOrderId$d$ginstOrd, v0, v1);
 const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Main$dOrderId$d$ginstOrd, v0, v1, v2);
-const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap($Std$dMap$dtoList($Main$dOrderId$d$ginstOrd, v0), ((v2) => $Std$dBool$difThenElse((((v3) => $Std$dDecidable$dtoBool($Main$dUserId$d$gdecEq(v3, v1))))($Std$dPair$dsnd(v2)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
+const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Main$dOrderId$d$ginstOrd, v0), ((v2) => $Std$dBool$difThenElse(((v3) => $Std$dDecidable$dtoBool($Main$dUserId$d$gdecEq(v3, v1)))($Std$dPair$dsnd(v2)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
 const $Main$ddescribe = (v0, v1) => $Std$dText$dappend("order ", $Std$dText$dappend($Std$dShow$dtoText($Main$dOrderId$dinstShow)(v0), $Std$dText$dappend(" belongs to ", $Std$dShow$dtoText($Main$dUserId$dinstShow)(v1))));
 
 // A map that crosses is built and read by the library's own functions.

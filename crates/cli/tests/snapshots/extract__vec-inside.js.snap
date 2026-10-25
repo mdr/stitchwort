@@ -754,27 +754,27 @@ const $Std$dAdd$d$gadd = (v1) => {
 const $Std$dAdd$dzero = (v1) => $Std$dAdd$d$gzero(v1);
 const $Std$dAdd$dadd = (v1) => $Std$dAdd$d$gadd(v1);
 const $Std$dNat$dinstAdd = { zero: 0n, add: ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)) };
-const $Std$dList$dfoldLeft = (v2, v3, v4) => {
-  let s2 = v2, s3 = v3, s4 = v4;
+const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
+  let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {
-    const v2 = s2, v3 = s3, v4 = s4;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5, v6 = s6;
+    switch (v4.tag) {
       case "Nil": {
-        return v3;
+        return v5;
       }
       case "Cons": {
-        const v5 = v2.head;
-        const v6 = v2.tail;
-        s2 = v6;
-        s3 = (v4)(v3)(v5);
-        s4 = v4;
+        const v7 = v4.head;
+        const v8 = v4.tail;
+        s4 = v8;
+        s5 = (v6)(v5)(v7);
+        s6 = v6;
         continue;
       }
     }
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft(v2, $Std$dAdd$dzero(v1), $Std$dAdd$dadd(v1));
+const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft$e(v2, $Std$dAdd$dzero(v1), $Std$dAdd$dadd(v1));
 const $Main$dfromList = (v1) => {
   let s1 = v1;
   let h$ = null, l$ = null, k$ = null;
