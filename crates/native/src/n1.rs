@@ -339,6 +339,10 @@ pub fn compile(
     flags
         .set("preserve_frame_pointers", "true")
         .map_err(|e| fail(e.to_string()))?;
+    // The steps left live in the pinned register (the module comment).
+    flags
+        .set("enable_pinned_reg", "true")
+        .map_err(|e| fail(e.to_string()))?;
     let isa = cranelift_native::builder()
         .map_err(|e| fail(format!("this machine isn't supported: {e}")))?
         .finish(settings::Flags::new(flags))
@@ -457,6 +461,20 @@ pub fn compile(
                 b.block_params(entry)[1],
                 b.block_params(entry)[2],
             );
+            // The steps left, in the pinned register for the call; the
+            // host's value of that register is kept and put back after.
+            let host = b.ins().get_pinned_reg(types::I64);
+            let steps = b
+                .ins()
+                .load(types::I64, MemFlagsData::trusted(), ctx, Context::STEPS_AT);
+            let limit = b.ins().load(
+                types::I64,
+                MemFlagsData::trusted(),
+                ctx,
+                Context::STEP_LIMIT_AT,
+            );
+            let left = b.ins().isub(limit, steps);
+            b.ins().set_pinned_reg(left);
             let mut call_args = vec![ctx];
             for i in 0..image.codes[code as usize].params {
                 for w in 0..3 {
@@ -475,6 +493,11 @@ pub fn compile(
                 b.ins()
                     .store(MemFlagsData::trusted(), r, out, (w * 8) as i32);
             }
+            let left = b.ins().get_pinned_reg(types::I64);
+            let steps = b.ins().isub(limit, left);
+            b.ins()
+                .store(MemFlagsData::trusted(), steps, ctx, Context::STEPS_AT);
+            b.ins().set_pinned_reg(host);
             b.ins().return_(&[]);
             b.seal_all_blocks();
             b.finalize(module.target_config());
@@ -1099,6 +1122,11 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(exit);
         self.b.set_cold_block(exit);
         if let Some(error) = error {
+            if error == OUT_OF_STEPS {
+                // One step over the limit, as the machine counts it.
+                let over = self.iconst(u64::MAX);
+                self.b.ins().set_pinned_reg(over);
+            }
             let error = self.iconst(error);
             self.ctx_store(Context::ERROR_AT, error);
         }
@@ -1123,12 +1151,13 @@ impl Gen<'_, '_> {
     /// A frame entered: a step, out of steps if over the limit (`live`
     /// as for [`Gen::exit_if`]).
     fn count_step(&mut self, live: &Regs) {
-        let steps = self.ctx_load(Context::STEPS_AT);
-        let steps = self.b.ins().iadd_imm_s(steps, 1);
-        self.ctx_store(Context::STEPS_AT, steps);
-        let limit = self.ctx_load(Context::STEP_LIMIT_AT);
-        let over = self.b.ins().icmp(IntCC::UnsignedGreaterThan, steps, limit);
+        // The steps left are in the pinned register: none left means this
+        // step is one over the limit.
+        let left = self.b.ins().get_pinned_reg(types::I64);
+        let over = self.b.ins().icmp_imm_u(IntCC::Equal, left, 0);
         self.exit_if(over, live, Some(OUT_OF_STEPS));
+        let left = self.b.ins().iadd_imm_s(left, -1);
+        self.b.ins().set_pinned_reg(left);
     }
 
     /// A frame about to be pushed: out of frames if as many are pending as
