@@ -1,5 +1,5 @@
 {
-  "next": 448,
+  "next": 450,
   "tickets": [
     {
       "id": 13,
@@ -2481,6 +2481,30 @@
       "commits": [
         "089c435c"
       ]
+    },
+    {
+      "id": 448,
+      "title": "Partial stage 2: main may be {IO, Fail, Partial}; runner performs Fail (D1179, partial-stage-2.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 449,
+      "title": "Partial stage 3 design: tests that run partial code with a tick limit (D1180 b, partial-tests.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
