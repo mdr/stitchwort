@@ -220,6 +220,5 @@ def Text.chunksOf (text: Text) (n: Nat): List Text := List.map (List.chunksOf (T
 
 test "Text.repeat" := Text.repeat "ab" 3 == "ababab" && Text.repeat "ab" 0 == "" && Text.repeat "" 4 == ""
 test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] && Text.chunksOf "" 2 == []
-test "List.distinct texts" := ["a", "b", "a"].distinct == ["a", "b"]
 test "Text.chunksOf zero" := Text.chunksOf "abc" 0 == ["abc"]
 test "Text.words" := "a  b\tc\n d ".words == ["a", "b", "c", "d"] && "".words == [] && "  ".words == [] && "ab".words == ["ab"]

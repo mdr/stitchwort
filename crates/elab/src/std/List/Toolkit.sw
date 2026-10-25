@@ -1246,13 +1246,18 @@ def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
     | Succ k => List.chunksOfPositive (Succ k) xs
 
 -- The elements without repeats, keeping the first occurrence of each and the
--- order. `seen` is what came before. Needs `DecEq`; quadratic.
+-- order. `seen` is what came before. Needs only `DecEq`, so it is quadratic:
+-- each element is compared with every one kept before it.
+@[noReceiver]
 def List.distinctFrom [auto eq: DecEq a] (seen: List a): List a -> List a
   | Nil => Nil
   | Cons x xs => if List.any seen (== x) then List.distinctFrom seen xs else Cons x (List.distinctFrom (Cons x seen) xs)
 
--- `xs` is the main value: `xs.distinct`. `[3, 1, 3, 2, 1].distinct` is `[3, 1, 2]`.
-def List.distinct [auto eq: DecEq a] (xs: List a): List a := List.distinctFrom Nil xs
+-- `List.distinct` for a type with `==` but no ordering: the same result,
+-- quadratic. `[3, 1, 3, 2, 1].distinctEq` is `[3, 1, 2]`. With an ordering,
+-- use `List.distinct` (std/List/Distinct.sw, with the theorems about both),
+-- O(n log n).
+def List.distinctEq [auto eq: DecEq a] (xs: List a): List a := List.distinctFrom Nil xs
 
 test "List.mapAccumLeft" := [1, 2, 3].mapAccumLeft 0 (s x => MkPair (s + x) (s * x)) == MkPair 6 [0, 2, 9]
 test "List.mapAccumLeft empty" := (Nil: List Nat).mapAccumLeft 7 (s x => MkPair (s + x) x) == MkPair 7 Nil
@@ -1263,8 +1268,10 @@ test "List.chunksOf exact" := List.chunksOf [1, 2, 3, 4] 2 == [[1, 2], [3, 4]]
 test "List.chunksOf bigger than the list" := List.chunksOf [1, 2] 5 == [[1, 2]]
 test "List.chunksOf empty" := List.chunksOf (Nil: List Nat) 3 == Nil
 test "List.chunksOf zero is one chunk" := List.chunksOf [1, 2, 3] 0 == [[1, 2, 3]] && List.chunksOf (Nil: List Nat) 0 == Nil
-test "List.distinct" := [3, 1, 3, 2, 1].distinct == [3, 1, 2]
-test "List.distinct empty" := (Nil: List Nat).distinct == Nil
+test "List.distinctEq" := [3, 1, 3, 2, 1].distinctEq == [3, 1, 2]
+test "List.distinctEq empty" := (Nil: List Nat).distinctEq == Nil
+test "List.distinctEq all repeats" := [4, 4, 4].distinctEq == [4]
+test "List.distinctEq already distinct" := [2, 5, 1].distinctEq == [2, 5, 1]
 -- Second batch (SW-235). The main value comes first, the function last.
 
 -- The element with the largest key, or `None` for an empty list. When several

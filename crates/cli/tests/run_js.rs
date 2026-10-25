@@ -559,12 +559,16 @@ def main(): {IO, Partial} () :=
 }
 
 /// Calls each of `exports` (a function from `Nat` to `Nat` of the program
-/// at `path`) on 100,000. The program's `main` prints the same, one line
-/// each, natively and with `run --js`; then the module that `build --js`
-/// makes is called from a plain Node, with its default stack, and must print
-/// that too. (`run --js` hides recursion depth in a worker with a large
-/// stack.)
+/// at `path`) on 100,000 (`stack_safe_everywhere_at`: on `n`). The program's
+/// `main` prints the same, one line each, natively and with `run --js`; then
+/// the module that `build --js` makes is called from a plain Node, with its
+/// default stack, and must print that too. (`run --js` hides recursion depth
+/// in a worker with a large stack.)
 fn stack_safe_everywhere(path: &Path, exports: &[&str]) {
+    stack_safe_everywhere_at(path, exports, 100_000);
+}
+
+fn stack_safe_everywhere_at(path: &Path, exports: &[&str], n: u64) {
     let js = same_both_ways(path, b"", true);
     assert!(js.status.success(), "{}", text(&js.stderr));
     let expected = text(&js.stdout);
@@ -584,7 +588,7 @@ fn stack_safe_everywhere(path: &Path, exports: &[&str]) {
     std::fs::write(
         &script,
         format!(
-            "import * as m from \"./{stem}.js\";\nfor (const name of [{}]) {{\n  console.log(String(m[name](100000n)));\n}}\n",
+            "import * as m from \"./{stem}.js\";\nfor (const name of [{}]) {{\n  console.log(String(m[name]({n}n)));\n}}\n",
             names.join(", ")
         ),
     )
@@ -598,15 +602,20 @@ fn stack_safe_everywhere(path: &Path, exports: &[&str]) {
 }
 
 /// The source of a program exporting `defs` (each `name (n: Nat): Nat`),
-/// whose `main` prints each one's value at 100,000.
+/// whose `main` prints each one's value at 100,000 (`exports_program_at`: at
+/// `n`).
 fn exports_program(imports: &str, helpers: &str, defs: &[(&str, &str)]) -> String {
+    exports_program_at(imports, helpers, defs, 100_000)
+}
+
+fn exports_program_at(imports: &str, helpers: &str, defs: &[(&str, &str)], n: u64) -> String {
     let mut source = format!("import Std ({imports})\n\n{helpers}\n");
     for (name, body) in defs {
         source.push_str(&format!("export def {name} (n: Nat): Nat := {body}\n\n"));
     }
     source.push_str("def main () : {IO} () :=\n");
     for (name, _) in defs {
-        source.push_str(&format!("  IO.print (Nat.toText ({name} 100000))\n"));
+        source.push_str(&format!("  IO.print (Nat.toText ({name} {n}))\n"));
     }
     source
 }
@@ -739,4 +748,22 @@ fn std_list_functions_over_long_lists_are_stack_safe() {
     );
     let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
     stack_safe_everywhere(&source_file("lists.sw", &source), &names);
+}
+
+/// `List.distinct` (SW-454) is a loop with a `Set` of what it has seen: on
+/// 1,000,000 elements, 100,000 of them different, natively, with `run --js`
+/// and from a plain Node. The fold over the result depends on its order, so
+/// the backends must agree on which occurrence each keeps.
+#[test]
+fn std_distinct_over_a_million_elements_is_stack_safe() {
+    let defs = [(
+        "distinctFold",
+        "List.foldLeft (List.distinct (List.map (List.range n) (x => (x * 7) % 100000))) 0 (acc x => (acc * 31 + x) % 1000003)",
+    )];
+    let source = exports_program_at("IO, List, Nat", "", &defs, 1_000_000);
+    stack_safe_everywhere_at(
+        &source_file("distinct.sw", &source),
+        &["distinctFold"],
+        1_000_000,
+    );
 }
