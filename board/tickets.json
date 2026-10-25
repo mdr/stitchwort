@@ -1,5 +1,5 @@
 {
-  "next": 501,
+  "next": 502,
   "tickets": [
     {
       "id": 13,
@@ -3191,6 +3191,18 @@
       "id": 500,
       "title": "Native N1: core instructions (+DropReuse, Global, Apply) via Cranelift behind run --native; counters; islands; Set benchmark vs 3× stop point (D1250)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 501,
+      "title": "Goals: keep zero-argument constants folded (maxHitPoints prints as 12, dungeon as a list); one spot in eval_step, measure AoC check and examples before/after",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
