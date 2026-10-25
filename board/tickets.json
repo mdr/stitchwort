@@ -3519,7 +3519,7 @@
     },
     {
       "id": 525,
-      "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, hashing, E-NOT-OPAQUE) — after note draft 2 (D1263/D1264 yes)",
+      "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, groups unfold together D1267, hashing, E-NOT-OPAQUE) — branch, morning review",
       "status": "backlog",
       "agent": "",
       "where": "",
