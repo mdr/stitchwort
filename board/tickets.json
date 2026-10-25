@@ -3674,14 +3674,16 @@
     {
       "id": 537,
       "title": "Standalone S1: codec for the lowered program (crates/rt/src/codec.rs)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "f6a29967"
+      ]
     },
     {
       "id": 538,
@@ -3700,7 +3702,7 @@
     {
       "id": 539,
       "title": "Standalone S3: runtime staticlib + stitchwort build (machine only) — M1: build games/rogue plays (after S1, S2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
