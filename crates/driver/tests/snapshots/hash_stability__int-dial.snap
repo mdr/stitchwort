@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Turn bb8dd920c542b2775194aa9619b126688cbaaec837a7609cb2c8fd6da87cd6c2
 data Main.Pos e3ad119aa9d626992cc607ed7493a07ebed931cae7710a24dcbf0c9ccf1f65f1
@@ -38,9 +38,9 @@ Main.start 1edc3d0d37111c6f045d1aaa4ceea2d63f3b394fb1982755a6c501e8235dc513
 Main.turn 9279a5c2eab81615a6f7d731c974870967ef4dfa93104757f2587e9abd61e426
 Main.tally 102f27593668873bae0930249f53871a5c5b930c740309224289bcb260013806
 Main.step 15ae2486e96a746d2940ed92a73babe66409c259e75a380bf702ff118ac17644
-Main.zeros 400c81a4ddd1582cd269ca641e7a826d24fda431c97b3ca13b285eb3e183938d
+Main.zeros 2e5dd265074d5e80a2bb976f7714ec502a6fadbdfa03b3da3fde56e31e693ba5
 Main.sample 7df154742cb731875f18fe63ef325bd50d77ba19da1d9f99d50112fd82786020
-Main.test "sample password is 3" 4ef5cbeb21f3b585aacf66e543b684f28a647a2f3ae2dbd2e90d9101c8f22761
+Main.test "sample password is 3" 3206293673317c2761029fa4868c36a89b873fae1b9e83b2380682f8fdfddd06
 Main.test "L68 from 50 lands on 82" 14ea67ebb9790591313a1e140afc85a617583c806697d0da0a3877da8f187cea
 Main.test "L1 from 0 lands on 99" cd2d4f7195e9bf618446e68753f2a6ca95de6c313878d9f6e7ea57e8a6fef712
 Main.test "R1 from 99 lands on 0" 0668354e1e58e8099e42d26630c8730c3e9f6ee94dc20d9843700575009bdff9

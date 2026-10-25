@@ -1,10 +1,10 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Shop.Bank cae94701a621eaba73f65bcd0bc07fc9822e6d6c9f7d773c1abed2aa6cd39111
-Shop.Bank.total 574cb1a3dc1773edcfa36ca134d53c153e60150feca3b2710ee6e1fe3d3147ca
-Shop.sameTotalHome 55f47f6166dcdaf689e86cac9dfc504b891addc8bd72e96d0488ae4009d6b832
-Checks.viaDot 9df6abd1e83894bb7a2924b698c10f676f5c21b7f13607b8740122364e03d941
-Checks.sameTotal 55f47f6166dcdaf689e86cac9dfc504b891addc8bd72e96d0488ae4009d6b832
-Checks.test "alias dot call" d421006850324d13b005b59077f56e0a23d096a44aa00389508e3bcf4c06d96a
+Shop.Bank.total 385066c6ede15cae45309d098dd41290822bf73e718ad29fbfa7216a3e715d7c
+Shop.sameTotalHome e286ddd584eab2ded030d040b4ab7086ebeb10ea96bed42e9ba14ed750dc77b3
+Checks.viaDot 669eee7eb92bf2929954afee7228173591703ebd50c78265c0b2092c6c11e339
+Checks.sameTotal e286ddd584eab2ded030d040b4ab7086ebeb10ea96bed42e9ba14ed750dc77b3
+Checks.test "alias dot call" 4dec88c04699997657e87dcfe62c0d93a2765d532c5a13b9eb7a3abe69684440

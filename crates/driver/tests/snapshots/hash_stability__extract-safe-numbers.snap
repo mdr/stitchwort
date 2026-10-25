@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Counter b225b17309e33dfb3b32ada316b6498d64a5ab374818c21f742470cd4069c02a
 Main.addSafe 974b377fb2101484147f4df8657ac2e54261fe3b3bfda42d5da8f1401dc1e644
@@ -23,7 +23,7 @@ Main.Counter.%trans 669d02e082f0c537f4b94d70ecd8cd766555ed6c5c3c680230a46dd18ce7
 Main.Counter.%instOrd c9674abf0f969c28db335e834671d6018536f0e50fad2b7b4ff5e0ec75435e5d
 Main.Counter.ext fa3d991b313314cd68cf8d37d58eaa63726232391d398702dbd46135af39bca8
 Main.bump 5d036988fbe780aa458d84dba1ec01bf9dba8a0e9c524f6224691e2130520801
-Main.sumAll 99d45b873ce429e21c09afdcd0a64883863cc61a7406eac806f1c51366286444
+Main.sumAll 6aad69a8a4ea099ecfd38ddd5107c8351c795a0a2552c34ef71b9252187a853b
 Main.sameCounter 093793ff9b94dca8f4ecd48baa54b01f0c4b1d4eefc4626d18cad615c75003bb
 Main.startCounter d9434beb685e62b4592cbbe069cb7c1988cf89722169fc989574a2ce09506017
 Main.limits c407f86bd4949b20deb367cf9bf207ed6b0ef3cb38e1868a09a96a8b4ea56535

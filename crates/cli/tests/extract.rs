@@ -4681,6 +4681,59 @@ try {
     );
 }
 
+/// The JS of the top-level function `name` in `js`, from after its name to
+/// its closing brace.
+fn js_function(js: &str, name: &str) -> String {
+    let start = js
+        .find(&format!("const {name} = "))
+        .unwrap_or_else(|| panic!("no {name} in:\n{js}"));
+    let end = start + js[start..].find("\n};\n").expect("the end of the function");
+    js[start + "const ".len() + name.len()..end].to_string()
+}
+
+/// `code` with each variable (`v3`, `s3`, and the `3` of a loop's copy of a
+/// parameter, `p1_3$`) renumbered by order of first appearance, so two
+/// functions that differ only in their numbering compare equal.
+fn renumbered(code: &str) -> String {
+    let mut names: Vec<String> = Vec::new();
+    let mut out = String::new();
+    let mut chars = code.chars().peekable();
+    let mut number = |chars: &mut std::iter::Peekable<std::str::Chars>| -> usize {
+        let mut digits = String::new();
+        while let Some(d) = chars.peek().filter(|d| d.is_ascii_digit()) {
+            digits.push(*d);
+            chars.next();
+        }
+        names.iter().position(|n| *n == digits).unwrap_or_else(|| {
+            names.push(digits);
+            names.len() - 1
+        })
+    };
+    while let Some(c) = chars.next() {
+        let starts_name =
+            !out.ends_with(|p: char| p.is_ascii_alphanumeric() || p == '$' || p == '_');
+        let digit_next = chars.peek().is_some_and(|d| d.is_ascii_digit());
+        if starts_name && (c == 'v' || c == 's') && digit_next {
+            let position = number(&mut chars);
+            let _ = write!(out, "{c}#{position}");
+        } else if starts_name && c == 'p' && digit_next {
+            // `p1_3$`: the parameter's position stays, the variable's number
+            // is renumbered.
+            out.push(c);
+            while let Some(d) = chars.next_if(|d| d.is_ascii_digit()) {
+                out.push(d);
+            }
+            if chars.next_if_eq(&'_').is_some() {
+                let position = number(&mut chars);
+                let _ = write!(out, "_#{position}");
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Design E's test case (docs/proposals/effect-polymorphism.md, §6 stages 2
 /// and 3): the JS of the effect-polymorphic `List.map` used at the empty row
 /// is the loop of a map whose callback type is pure (`pureMap` in the
@@ -4693,40 +4746,8 @@ fn map_at_the_empty_row_is_a_pure_maps_loop() {
     let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
         .expect("extraction succeeds")
         .js;
-    let function = |name: &str| -> String {
-        let start = js
-            .find(&format!("const {name} = "))
-            .unwrap_or_else(|| panic!("no {name} in:\n{js}"));
-        let end = start + js[start..].find("\n};\n").expect("the end of the function");
-        js[start + "const ".len() + name.len()..end].to_string()
-    };
-    // Each variable (`v3`, `s3`) renumbered by order of first appearance.
-    let renumbered = |code: String| -> String {
-        let mut names: Vec<String> = Vec::new();
-        let mut out = String::new();
-        let mut chars = code.chars().peekable();
-        while let Some(c) = chars.next() {
-            let starts_name = (c == 'v' || c == 's')
-                && !out.ends_with(|p: char| p.is_ascii_alphanumeric() || p == '$' || p == '_');
-            if starts_name && chars.peek().is_some_and(|d| d.is_ascii_digit()) {
-                let mut digits = String::new();
-                while let Some(d) = chars.peek().filter(|d| d.is_ascii_digit()) {
-                    digits.push(*d);
-                    chars.next();
-                }
-                let position = names.iter().position(|n| *n == digits).unwrap_or_else(|| {
-                    names.push(digits.clone());
-                    names.len() - 1
-                });
-                let _ = write!(out, "{c}#{position}");
-            } else {
-                out.push(c);
-            }
-        }
-        out
-    };
-    let pure_map = renumbered(function("$Main$dpureMap"));
-    let map = renumbered(function("$Std$dList$dmap$e"));
+    let pure_map = renumbered(&js_function(&js, "$Main$dpureMap"));
+    let map = renumbered(&js_function(&js, "$Std$dList$dmap$e"));
     assert_eq!(
         pure_map, map,
         "`map` at the empty row isn't a pure map's loop"
@@ -4738,5 +4759,53 @@ fn map_at_the_empty_row_is_a_pure_maps_loop() {
     assert_eq!(
         caller,
         "const $Main$ddoubled = (v0) => $Std$dList$dmap$e(v0, $Main$ddouble);"
+    );
+}
+
+/// The other effect-polymorphic list functions, as `List.map` above
+/// (docs/proposals/effect-polymorphic-list.md, D1239): each one's empty-row
+/// variant is the loop of a pure copy of its definition from before its
+/// callback took effects (`pureFilter`, … in the example), but for the
+/// numbers of its variables, and a pure caller passes no row. `findMap`'s
+/// body became a step function so that an effectful callback stops at the
+/// first `Some`; its loop is the same but for two copies of the arguments
+/// it no longer makes, so it is checked to be a loop that doesn't call
+/// itself or its step.
+#[test]
+fn list_functions_at_the_empty_row_are_their_pure_loops() {
+    let examples = examples();
+    let (_, _, session) = examples.get("effect-lists.sw");
+    let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds")
+        .js;
+    for (name, pure) in [
+        ("filter", "pureFilter"),
+        ("foldLeft", "pureFoldLeft"),
+        ("any", "pureAny"),
+        ("all", "pureAll"),
+        ("find", "pureFind"),
+        ("filterMap", "pureFilterMap"),
+        ("takeWhile", "pureTakeWhile"),
+    ] {
+        assert_eq!(
+            renumbered(&js_function(&js, &format!("$Main$d{pure}"))),
+            renumbered(&js_function(&js, &format!("$Std$dList$d{name}$e"))),
+            "`List.{name}` at the empty row isn't `{pure}`'s loop"
+        );
+    }
+    let find_map = js_function(&js, "$Std$dList$dfindMap$e");
+    assert!(
+        find_map.contains("for (;;)")
+            && !find_map.contains("findMap$e(")
+            && !find_map.contains("findMapStep"),
+        "`List.findMap` at the empty row isn't a loop:\n{find_map}"
+    );
+    let caller = js
+        .lines()
+        .find(|l| l.starts_with("const $Main$dfiltered = "))
+        .expect("the pure caller");
+    assert!(
+        caller.contains("$Std$dList$dfilter$e(v0, $Main$disBig)"),
+        "{caller}"
     );
 }

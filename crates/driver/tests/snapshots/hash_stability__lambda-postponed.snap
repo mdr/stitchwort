@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
 data Main.Entry ab0c9c978ab0f6332067862213947f23a2c3014bd79722429ffdd7546736f0b1
@@ -36,10 +36,10 @@ Main.people 9d2f1767bc80bbf68ac5277f44b9cc9e2c5644334a253046167f66c89643eaf6
 Main.entries f73467a0f1fd99b431a2af7e710ddf2675b5739775bd97bf52b33e1d97ee29f5
 Main.names b8e053f2968a88f41ca038b706a4eaefa0d68b620638dc97fc097f925c4b2f18
 Main.test "map with a lambda before the list" 0c013bfc1adc857ad55d6b94b4e955dbd11a44cd45c34b54b426a0c9f75ad07d
-Main.early be077c67fd3c4c60a8ccfe2e11c6906d6d5b085761f2e04484b09e323b1186cf
-Main.test "filter with a lambda before the list" 1c4815c66f81be6b8745ddfcfffd1ecd2dab9ecd5d79be99c38c0d40240c8a2d
-Main.total 969a0699173d305f5b74b6660a5b39f63ca35c8a229c62ae299993de0d8a4e59
-Main.test "a fold whose lambda comes before the start and the list" c565f4c79228918732eee727595eb26d2e47997908f01a66138e0bbf12f0499f
+Main.early d67ca11c80134a4477935454f2b67bfe306b9e8d6f0a4ddb0aff89d2279c43fb
+Main.test "filter with a lambda before the list" d4e2eede22f00495e7c2020ec003a3b519bf5ad58c891738d3e0c7e3936e27bd
+Main.total b12baaa459ba93700fa6ba0ff2f4f6f22789d7043a7b3cc3062477115c285793
+Main.test "a fold whose lambda comes before the start and the list" e66419a8dce0a96dc93dcdd89a2f4816d758e297df901a806e3d1ae5eef86298
 Main.groups 24a8ac3ef4f7e4b422aca067efbc14c74dd7bdad92c3c210e6bb3854faee7b92
 Main.nested 9cbd0da6de39e71524c024ad9dab724e83086550039d1fddecbc9bae8518a86f
 Main.test "nested lambdas" 1fee6fbd929c8b592b224a5a838b22ce585b47ea025dc6c87dcfab8c5b43a38d

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL] Error: a computation that might not finish can't run here
+    ╭─[ reject/partial-sort-by-lambda.sw:11:85 ]
+    │
+ 11 │ def sorted (numbers: List Nat): {Partial} (List Nat) := List.sortBy numbers (x y => Ord.compare (collatzSteps x) (collatzSteps y))
+    │                                                                                     ──────────────────────┬─────────────────────  
+    │                                                                                                           ╰─────────────────────── `collatzSteps` is `Partial`: it might not finish
+    │ 
+    │ Note: `List.sortBy` doesn't take partial callbacks: its callback has the type `Nat → Nat → Ordering`, which has no `{e}`, so it must finish
+────╯

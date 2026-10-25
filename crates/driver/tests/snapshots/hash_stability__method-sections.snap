@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
 Main.Person.name 0b5dea16ffbb5d95a99b29f2ba0c922a5eda2817a68a591b2eece8e4ad75bbc3
@@ -27,12 +27,12 @@ Main.greetings 31ffc5d1ce7d0fda7480e7c82bbb7eb836d1df50f3ae2119a8dad9f4eb4990e8
 Main.test "a section with an argument" bf0632ff2c40530a7ff20925f2cd54bf3775b54a94df6454adb737c87273c7b9
 Main.names2 a7d490fab264cb971075b4363dc8bb2b1c3bf9003dd9b2a85f75bbcccbb17977
 Main.test "a section before the collection" 1008c574e2442a09057ce547eb20c4b76e86057a33e2f4cc687834443f49066d
-Main.piped 5e7c487da98782a0214a803039dfdf547187364af8ba7b94d82ef46d548c458e
-Main.ages 44e3785bd0b32398a7509dc8f214866d887b7229202b17c80eb13980c292bd42
-Main.test "pipeline" 23e7a21847bf08fec76347a7a59ca6ab2ac8c485ca8a1e845390ce312c64d348
-Main.test "pipeline over a field" d9123cf830977f628d8ddf4822e73c82e8951b8d7df4b43ffcedb2d6d0e21662
-Main.multi 38f5f94b5efea2ed7f15f1b4148fb9683b131d9538b37e8fdaf48527a9adca6c
-Main.test "multi-line" e433a2cd6919fa884424f1bbb51648fc923709aef04ccf5926af2ea79b9e5cf6
+Main.piped 7d62473675a9f545506ee9289c06d22c35695e9eb2dd25ab881f5ae63ca337c3
+Main.ages fcd130b7e6feb4d2b747751826362d4956d6c8b901d68d94a54a33bcf4409d34
+Main.test "pipeline" 3629558190da8ffc1116b69914d2ab77b1345cc16c513a0a9efde69130745ab3
+Main.test "pipeline over a field" 2ddc4c6baa0c40c71c6f31238138e4c5ef18720f150aa0e9936eefd67d9a3f24
+Main.multi 6cec08fbffe3b0ff6ff570bcc5f12dabef6cdf6fb16066364d9a5305d57445d3
+Main.test "multi-line" a1b54da6fa0f8c33ca9aa7ac5d36843f1f2c42649b1e51d39f6c5cbbf2ddc8d0
 Main.fields 93e4007004ec8c6d0b9e571664bed5a4aa0688dd43f67b08c27f22599b95a37a
 Main.test "split" fe093ee65e3b3697b7195997b3ab27ed1b60b412ab765c029dcaf9bba936709e
 Main.test "split each line" c17036eedf62c2094d7891fb35d274c7643d4a75d6708078e5881432beac44da

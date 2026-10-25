@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Geometry.Area 6655290a03ebd3c29d737cad994d08b80971e2808e0aad1626727993fb5423e1
 data Shapes.Shape a9db476471c70748bf6b71a6e4997b4cbd2f21bc168c4f8bd041b21bb267d04e
@@ -24,8 +24,8 @@ Shapes.Shape.%trans 8cf5362ea73a9e71e6ee9d3f3c36edf9320f2e4b7905fc3e9438a9e404ab
 Shapes.Shape.%instOrd a31422ada74a9774ec5f4f150a06daf95749b22737eef15a6826576f3a65534d
 Shapes.Shape.instArea 28f452c9d20f2882814e3a9769e87601460d810a6c26b35d075895648f4f923f
 Shapes.Shape.instArea.%match1 a86e2dae894d7b6b4df29b4af46ee83b985fb950c60c796696cc4d0c90b75c8a
-Report.total cbc7a18ad2be4bf317e116e49e501ffb2b342932cbc555c6035ff4ecf9985a33
+Report.total 39fe7ac007f9246cc08ef1fc3a7074eaa90183acc74dc73c65604215130182d0
 Report.linear 15a429ec5967f46708d9ee5c33e023aee7a5edede305bf054b10630d51095624
-Report.test "shapes" 8606dbda5968e1c4e987ca116ad1ccd58acf4406f270da79cc5a69475e7804ff
+Report.test "shapes" e3310f3a04b140a883031625fab535f582f2b369a40152a852975b3bd1538986
 Report.test "nat" d3b6564285dc2e08d90a9090fcb4e4ca6728884f6e022133978fc90b78b77c94
 Report.test "named" ed518787c7baa802debdc144cd4f8d475e2fbf43092558787c29d2b144d02da3

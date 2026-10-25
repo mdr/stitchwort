@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
 data Main.Tree 61edcd85b0879e19b65b600799063d483e6788615fbb9b4e81adffdf0633d9e7
@@ -28,7 +28,7 @@ Main.annotated ecf56fc3b8bb50526c45bc1cdccea89a9a610ab45c53fee3d1b940714c8dade1
 Main.lifted aa2addbb4505fb87fcd6348d9e094a9476bec55a35ab322484f6a8a7bb849438
 Main.unit 1c7ad995da530130cbf7c5f35d22f382d9cc67a01b2c63e51b1b67d0a5f1f1cb
 Main.sums 35174f8bcc22835d78a1c5e756b007a34b591d66118d197402d419d53873c8f9
-Main.total fdd4ea2f93678efbcc8c5d1771bb78bdc0e0833a84df7ec84417c7cc5f69a234
+Main.total 585810851e53291c993540a5918e18762a052ad1c1edea915d8f0c424cb22307
 Main.nameOf b4d96093e14b45e21b3d858ecd5aa32c5b3758b27dbc7f2d16b6a57bd92a4b63
 Main.nestedLambda 9bf1b69d9593462539351482c508d5a6a21afdd37beee30e12fbc289b1c22d73
 Main.swapPair d29c861c1e4fa04e6769810c40a6b6fd466622c094c4de1dbb93fd633a33b21d
@@ -51,7 +51,7 @@ Main.test "annotated" 8807a01af4a0934c7ed9d39a9e09391dbe2b177391247f5ce437a788e9
 Main.test "lifted" ac378fa9c58aa73e59ee42c58b2f8f5866c423d3c4940b9735307dc1e12d40e3
 Main.test "unit" 2972e9a338b7cc93517a676d61febdfb48f423aa7b727b061a3ca1b3375b66e5
 Main.test "lambda" 4886a0ecd7895662e07e98931ddbf282bb71eb9bc4ea186ad463723865bbbffe
-Main.test "foldLeft" 2483b20470efcc5613ee771402f6fa72d2186b8729a2c86a92714bf2529c0b46
+Main.test "foldLeft" 2321718da3258fb7db367fbdeea9a62e5eddec1a8eccfe555503f6ce30d15006
 Main.test "record lambda" d57fc0dbad4ed752fe494e693f81f0e7dfd1e65f0910566af267a2ef6c00f436
 Main.test "nested lambda" e16de89af6780d240b39b1f02586ec1e1672df75ce93e50ad6df9db56f371074
 Main.test "tree" 6a65b851d61bbd32f91a9de73f139bb7466dfc88eca3938bf1a99499fcbed99f

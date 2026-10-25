@@ -1,13 +1,13 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Entry bfc4f6a733c997ea3dcc7ec9e61b3b1c38f7ac500391ae1b37fe089250e80f20
 data Main.Tagged 601c24e0886da54b2e991d0ff57b28efd9699bbc7f3cb291086061da42700707
 Main.test "lists of numbers" af7157ce5ab5adf41631bf01e6921ea9dcf8955e853fea11d4f13746f763ba2f
 Main.test "different lengths" 400a918c0d76fb0a6326e7bbf223a3a841c12f51c6977ebb6c3eff938670d9b5
 Main.test "different elements" b58a85a7a0399717a5466a1330686e65444c6357801e6bb21a9ac39f253f98bb
-Main.test "empty lists" e5fcdc88d6d1dd017424c206d63d301d612f4081f826611fd0ed564d08b09347
+Main.test "empty lists" 97028b86544884b79dea6b1f777c5893c5adfaa740a3f4d3247879157660ee7b
 Main.test "lists of lists" 241f51afb4b860b77fd1eefa5d93ea75adc24f8e5e8c3f8db153a9a8acbd88c1
 Main.test "lists of lists, different" 167611f1015fa9f0215325506565e1bc7354790baa29f82703b24072f1beaf7d
 Main.test "lists of texts" 227b6c1bfead0fc7109e2d476685c03868cd868f6cb7ef097f0db11ae4dc880a
@@ -21,7 +21,7 @@ Main.test "triples, last differs" 29d9b274a075d1aa96ef2106dd50416c38c658690b6390
 Main.test "Option Int" 9d65a7f1faa8f5f9233ffcc485a901fabaefe9d685bdb7e6f8ffd45b3ed0c978
 Main.test "Option Int, different" 35aea50cc5f592f74fc526bb3e386de2051a3fa513ee0fce94f6c6adfd51a301
 Main.test "None and Some" 0d679ed772f768451e89505a82c18ece7398a5902a4e5bd45c247870c3ac7a24
-Main.test "None" 2db2e6c61f76009133c9cdd8208b60a346fdcc7ed2c14350e066145e092c8fb8
+Main.test "None" 8f2be776e22c6c4c950cf967423c322b874563ffeac28b64de64cea5e4849b41
 Main.test "nested" 2539b4a3b35368db402efa3f4b6c9eb8accef333a1e157f5c26ce1647296f8b8
 Main.test "nested, different" da14e0f575e7b47883fc69041faa4ca003713b690b065d5c980ef50220ae4368
 Main.test "zip" 9b4a9a95a71a101fc5377c431d20c10156585405291256a53aa5623615c4e826

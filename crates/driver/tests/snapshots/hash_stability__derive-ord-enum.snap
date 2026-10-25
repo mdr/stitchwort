@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Suit 1b844bd5a200565c27b440cd488c868e35fe20ed1c2d46630dbc0f80297ca55d
 Main.Suit.%tag 2cd8a7dfe05b73cdfa1d90b66fa97e74f1ef8769bcba03bf8500b11ebd61aacd
@@ -19,6 +19,6 @@ Main.test "the other way" 74bbbe3584494e844e7c0c53bbada50256fe867a9e0338dff05be2
 Main.test "equal" ab7c51da82e0e7dcf769b5773e5dceb9a612a56c4c5ed596fd606900f8908a8b
 Main.test "sort" fc7689d416386a0e12e2d1850dd0764ee3dbd19deaf1f165609ce2c33624c664
 Main.test "max" 3a9c132cad50c9f3ad8514d039bef0647a2ef020cc61a3934b70b7f62d8ee797
-Main.test "maximum" 6b2d937e4e8a6991b3257c6b60e72ef58e5a568e6ec6802da69e4b8247e3d838
+Main.test "maximum" be27ef6cc730f8e5b4ea707606f222dbc54e81480b153b808560c451a23be397
 Main.suitSelf cfee6c225379d2dad5d77a4e66e1e05758d57de67eb13e2df4c785db5a63732b
 Main.suitFlip 065453209b27545a915406d1eafcb9edbe9259ddd640af3b0347a9e1895e7968

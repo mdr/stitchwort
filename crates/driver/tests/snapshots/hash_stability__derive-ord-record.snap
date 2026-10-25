@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Item fd9b6def53d1661265591dcc18b3659e986de06b6ba11bcc791f2308e16042be
 data Main.Dial 71fc2fb19953304f6071ca51fed04473cc2c53ad660b0fce2cf267c9bf29cc8a
@@ -28,7 +28,7 @@ Main.test "then by price" 25e93d2db9e1095d361934486e12e799e936caf89982bc0fd35d59
 Main.test "equal" 5b80550ec928ae0026316ef8f33587d58ad7dcaf390713da5b88902d3f2f2ad9
 Main.items c2baeb2651f1988a21c611ea74f6f84354ebee49ae616495011e76b67679bba4
 Main.test "sort" aab8339768c4d52eb13f5fd39fe42eb6512ddb22c3bf0bea69b99cee8978a04f
-Main.test "minimum" 33de6bc6f9608ade65934692545c83440896ed465bbee3d2fac61f9829d52741
+Main.test "minimum" 000d5e61ca7f83b2b7e2c48579c88c41fd1235b8806e4167b5e57ac07937180f
 Main.Dial.position 5ad385a3a376d9189b9a6e1b4c77c5bb56d61a2efc78dbcf9a4d0db8d986353d
 Main.Dial.inRange 6aeed7d63594b70e6b3caab66bff9672f3d4fa8a2de2e81669d8697a185da2d7
 Main.Dial.%%mk%0 f12feca6a844bc497eba2cb9efd3a395c2a416ba2992f5233a5e8abeb297c08a

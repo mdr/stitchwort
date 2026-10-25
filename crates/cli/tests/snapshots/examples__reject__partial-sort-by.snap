@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/partial-sort-by.sw:14:77 ]
+    │
+ 14 │ def sorted (numbers: List Nat): {Partial} (List Nat) := List.sortBy numbers bySteps
+    │                                                                             ───┬───  
+    │                                                                                ╰───── expected `Nat → Nat → Ordering`, but this has type `Nat → Nat → {Partial} Ordering`
+    │ 
+    │ Note: `List.sortBy` doesn't take partial callbacks: its callback has the type `Nat → Nat → Ordering`, which has no `{e}`, so it must finish, and `bySteps` is partial
+────╯

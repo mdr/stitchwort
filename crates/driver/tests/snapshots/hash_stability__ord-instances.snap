@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Version cabcbb0f1f9e099c236695aaafaa3242bae178d9c3a62f8256726e11644b85d0
 Main.Version.major d191d5f068c66d950fd723f3a1bc01d5cafed5dfa0a7aa8dc71c5f231efc53a6
@@ -33,16 +33,16 @@ Main.test "sort texts" f6a00979dc978ac7f3f1bc5760db1061434c60935bd6f859545a2645d
 Main.test "sort pairs" 2a1dc32237a39e1d6113fd9fdb1d99ab380091ff3a8543ae55bd0615174fff80
 Main.test "sort lists" 04346eb6ddeb5213fc6968df207923978d40432dede2a3e2c92f7b415be32ee2
 Main.test "sort Option" 3043d4cc826959c708885d0da41c9ab05072502a60bc9e15bd32e849678f055e
-Main.test "maximum" d10ac43631885cef55879f809cbc1ff617ca7eb3dbd52857c1dd02286fd36267
-Main.test "minimum" 8c2a1db158885ab1a9d2b2dd9ce2cf437b0d404759d1af218f28a4f1d355f8a1
-Main.test "maximum of none" c5fa89cd688af88417bbf0c91e82efc63111702717e06bdc81edd4ecacdc53bd
+Main.test "maximum" 54d709ee87e4f2d4778676b3457a27882180750cde7166ceb33c0d1e5e43ac5e
+Main.test "minimum" d2c1ba6c8766f613699e0ee08dedc3c4f456dedb6aa39eba879fe783bcf68f58
+Main.test "maximum of none" 457a786260e1ac52866e948a848c0f42e253f3a9a7460d1e4d7b6539bc3b9080
 Main.natLessThan 162b8c5d0f8ce77d1d79f606d0288605ceb8bbde4df3d5e3509c9563c6206fda
 Main.natLessEq c1c206e68e7eb76095de54a6e26f868b2053b6af5a3ab6c7937cddc9e308bef2
 Main.test "decided" 899c9acbfe6fc1d6b09870494078bc5aede798bf747d221dbf77d880816830f6
 Main.descending ead42bffdc7e2c2d347c019e4b85c032ac3db66048b0524f78f2575e8d1d9ca0
 Main.test "descending" 2eece0955d2125541363d31f06ae98e78a2d30c25163389d57538d8b4569441e
-Main.test "descending maximum" 9b5ab7c698b7fc8d47061dfae9c6b7f9a6d1b9b9fada7a28013bab2c14dee657
+Main.test "descending maximum" 0b9cdcd50c5111cb3b774798fa5f16aa96314bbf5df81efbbce9810b411aa213
 Main.v1 64abc055e7227062df85e8c6b23c5b983022e09c59ccb462e15438bd4aa1e102
 Main.v2 3c8357fcc5c7cb812251e02ec1320588ec6ef7799a00f6c454ad58af51a38eb3
 Main.test "versions" 4f3d53b059e505956bc04d51d5c928eba7d530bd59c7e31523f3219ab3ffcc77
-Main.test "newest" b2661bb30e26e8c47fefebe08a4f5e8d7de6a0e88d042d8d83cebcc1c7cd154c
+Main.test "newest" a52e2d0d33f7ca80a83a16ed31d06741c723cfe75f877b7dccb4519fb02306a7

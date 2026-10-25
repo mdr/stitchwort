@@ -801,3 +801,39 @@ fn std_traversals_over_a_million_elements_are_stack_safe() {
     let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
     stack_safe_everywhere_at(&source_file("traversals.sw", &source), &names, 1_000_000);
 }
+
+/// `List.flatMap`, with a pure callback and with a `Fail` one, and the
+/// `List.concat` under it, on 1,000,000 elements (two million in the
+/// result), natively, with `run --js` and from a plain Node
+/// (docs/proposals/effect-polymorphic-list.md §3). The results are folded
+/// with loops, so only `flatMap` itself is measured.
+#[test]
+fn std_flat_map_over_a_million_elements_is_stack_safe() {
+    let defs = [
+        (
+            "flatMapped",
+            "List.sum (List.flatMap (List.range n) (x => [x, x]))",
+        ),
+        (
+            "flatMappedSize",
+            "size (List.flatMap (List.range n) (x => [x, 1]))",
+        ),
+        (
+            "concatenated",
+            "size (List.concat (List.map (List.range n) (x => [x, x])))",
+        ),
+        (
+            "flatMappedFail",
+            "Result.getOrElse (Result.map (Fail.toResult (() => List.flatMap (List.range n) checked)) List.sum) 0",
+        ),
+    ];
+    let source = exports_program_at(
+        "Fail, IO, List, Nat, Result",
+        "def size (xs: List a): Nat := List.foldLeft xs 0 (count x => count + 1)\n\n\
+         def checked (x: Nat): {Fail} (List Nat) := if x > 1000000000 then Fail.fail \"too big\" else [x, 1]\n",
+        &defs,
+        1_000_000,
+    );
+    let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
+    stack_safe_everywhere_at(&source_file("flat-map.sw", &source), &names, 1_000_000);
+}

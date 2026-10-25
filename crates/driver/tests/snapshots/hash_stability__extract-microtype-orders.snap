@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.UserId 181206861a775feb50a87cdfc3d567babbe197399a3c7d863e2a15dc3a942c45
 data Main.OrderId 555d90a6391647e8c328eb29aa193229a046398de1b1d152bb278eb61a15ceb6
@@ -53,5 +53,5 @@ Main.parseEmail fe1f0f973c739b7dce24adb78e0a6a504924c83a2a5fcd72dbc7a1351530a7d9
 Main.emailText f3ea48d6be82484aa737b653d24fd59eb360b7d58f8b6fd2303accaf5dfe1e03
 Main.ownerOf c390bb0aea43e01d53723ca5eb66f0bf729e6b251a874418d79c8f27edd234ea
 Main.assign c2283776028ff10b6ff68da71d0c4a3a0acfb77d6358829d8ed8a66329f47eef
-Main.ordersOf 70d0ccee932fe9526b23d55607af82770d87b05b93ec428d6bb03df5eba88dc6
+Main.ordersOf cfe29142e0d8c95d439552b36d088c9cf07edcdf75bd33ade316ce4027c4ff85
 Main.describe d5c5a4d7d78c083aa03b9f5fed0d1bdc667b7f78329f9f9fd0716ce0cb4bea15

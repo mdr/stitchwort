@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
 data Main.Roster d0f5cc06fdfb361c82d1ead7f5d59b59e4b643076a9fead27fd2822ad0d4ad14
@@ -42,7 +42,7 @@ Main.merge 863feb580dc4f1ad4b3bca58a77dd31ccb739512d6262aabce65a53ad2a55ec4
 Main.same af0bbb7afb0b59c05c8d7e8e531f5610c036bd790a3320ed1627e6d2a765204e
 Main.sparse cf1dc3545dde59415f37dfab0cfde8d7ea11bf113bd19f8f8f7df190d149a51a
 Main.lists fd306d255a5292f214e9a6ffad62007ac116f2d3ff7175bcd0ab1f81fc8a1ee0
-Main.grouped e678a529337a30c6c3d1e6658a0579fd50543bd3d21af9830055812b1bb8a048
+Main.grouped 2c076ea0d1f0b11dca7b31b74172459aa66e52b254fa4e7ec0e6733544d55ce5
 Main.roster 1073b2d045b15e7f274e64f17329d9802fefd45313f317eb05e164daf9ae5edc
 Main.noScores 4f521a5869072532a1fc5889bce9914b25922156617ddd3115cb545788f3935e
 Main.orders 52395eb582a1222eb66c16f5fccd95ad37ce30380c01ef2f9c1206d0eab51d93

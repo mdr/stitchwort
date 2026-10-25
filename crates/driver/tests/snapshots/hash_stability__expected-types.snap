@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Dir 3b38553a12f60f2d6c8596186918f86bdbaeec1df436c45e500143545f2cbd98
 data Main.Rot e404aac46ac6d1ead2756f8be33cd066c52ccb89919a3a50dd8cb813cf7bf566
@@ -51,10 +51,10 @@ Main.optionThen 0f10b4b200f852d3b38f37ec99b0e102ef2b899bd54b1624becfd1e01e098971
 Main.parse f59ea0142d153b29d3612fbffe9cca147f5f077009f69c4e08d64a2d0f98b536
 Main.amountOf 097ace3b7016abfd42d0bc8f17146a2abde69ff74a92e535d9633cfa218e71e6
 Main.points a24fc1b7da7e364b4dda3500c52dee5d81f804109f152c15b429e19462ae1dc4
-Main.sumPoints 42d0d9bf3cf75ca3a49dcd901cb2aa1edc4da2ad2e8e71e1a05f36dc107caec8
+Main.sumPoints e1ffe9e615629a69377bccbdd8c54ff5849fa6339a4e85d7ebda2f6e1c793dde
 Main.test "parse" 0fcb70883341bab5069f1ac07323216331e43b35b4f36620433a21d4ecf8d8d5
 Main.test "parse nothing" f8a2b8f4c81b001921058d719cdf0a3d9487ae3950cda826a694e1e9b618526e
-Main.test "sumPoints" 8b5aba71188c0dbb91117c4d0523391d6fabe42c61df47ad4b7d97d2d7e2759c
+Main.test "sumPoints" c30c61be741164b4a64428fc0495c4bb8433543601c92190f0a279ccff176252
 Main.chooseFirst cbcd095381d5aba8c0d5d53b15093e2928c9e1b565ec7167ad5c8de7372b9958
 Main.r a7edf3892d27a718658982ceb9dbb711739efe46c6115ee7cc9772aede4bde0e
 Main.partly ba222cad78fb6d52b676385d8ed60984e1221019cc1529248e16ec57f97439ca

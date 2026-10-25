@@ -6,9 +6,23 @@ theorem List.lengthAppend: (xs: List a) → (ys: List a) → List.length (List.a
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong Succ (List.lengthAppend xs ys)
 
--- List toolkit. The callbacks are pure, except `List.map`'s, which may perform
--- abilities (docs/proposals/effect-polymorphism.md; more functions follow one
--- at a time). Every function is structurally recursive.
+-- List toolkit. Every function is structurally recursive.
+--
+-- The callbacks of `map`, `filter`, `foldLeft`, `foldRight`, `sumBy`,
+-- `count`, `any`, `all`, `find`, `filterMap`, `findMap`, `takeWhile`,
+-- `flatMap`, `partition` and `span` may perform abilities, such as `Fail`,
+-- `Log` or `Partial` (docs/proposals/effect-polymorphism.md and
+-- effect-polymorphic-list.md). Their types say so with `{e}`: in
+-- `p: a → {e} Bool`, `e` is the callback's row, and the result `{e} List a`
+-- performs the same. With a pure callback the row is empty and `{e} b` is
+-- `b`, so each is the plain function: its lemmas are about that, and the
+-- backends compile it to the same loop. The other callbacks (`zipWith`,
+-- `scanLeft`, the sorts, …) must be pure. With an effectful callback:
+-- - the effects run in list order, first element first (`foldRight`'s run
+--   last to first, as its definition reads);
+-- - the callback is called at most once per element;
+-- - `any`, `all`, `find`, `findMap`, `takeWhile` and `span` stop calling it
+--   once the answer is decided.
 
 -- `f` on each element, in order. `f` may perform abilities, such as `Fail`:
 -- `xs.map Range.read` fails at the first element that isn't a range
@@ -28,12 +42,18 @@ def List.filterStep (x: a) (rest: List a): Bool → List a
   | True => Cons x rest
   | False => rest
 
-def List.filter: List a → (p: a → Bool) → List a
+-- The elements satisfying `p`, in order. `p` may perform abilities: it runs on
+-- each element once, in list order (the `let` runs it before the rest of the
+-- list is filtered), so a `Fail` reports the first bad element.
+def List.filter: List a → (p: a → {e} Bool) → {e} List a
   | Nil, p => Nil
-  | Cons x xs, p => List.filterStep x (List.filter xs p) (p x)
+  | Cons x xs, p =>
+    let keep := p x
+    List.filterStep x (List.filter xs p) keep
 
 -- Left fold; tail-recursive. `List.foldLeft [x, y] initial f` is `f (f initial x) y`.
-def List.foldLeft: List a → (initial: b) → (f: b → a → b) → b
+-- `f` may perform abilities, which run in list order.
+def List.foldLeft: List a → (initial: b) → (f: b → a → {e} b) → {e} b
   | Nil, initial, f => initial
   | Cons x xs, initial, f => List.foldLeft xs (f initial x) f
 
@@ -49,8 +69,10 @@ theorem List.scanLeftNil: List.scanLeft Nil 5 (acc x => acc + x) = [5] := rfl
 theorem List.scanLeftSums: List.scanLeft [1, 2, 3] 0 (acc x => acc + x) = [0, 1, 3, 6] := rfl
 
 -- Right fold. `List.foldRight [x, y] initial f` is `f x (f y initial)`. Runs
--- as a loop over the reversed list, so it is stack-safe on long lists.
-def List.foldRight (xs: List a) (initial: b) (f: a → b → b): b := List.foldLeft (List.reverseOnto xs Nil) initial (acc x => f x acc)
+-- as a loop over the reversed list, so it is stack-safe on long lists. `f`
+-- may perform abilities, which run last element first, as the definition
+-- reads: `f y initial` is computed before `f x …`.
+def List.foldRight (xs: List a) (initial: b) (f: a → b → {e} b): {e} b := List.foldLeft (List.reverseOnto xs Nil) initial (acc x => f x acc)
 
 theorem List.foldLeftReverseOnto: (xs: List a) → (acc: List a) → (z: b) → (f: a → b → b) →
     List.foldLeft (List.reverseOnto xs acc) z (r x => f x r)
@@ -69,8 +91,9 @@ theorem List.foldRightCons (xs: List a) (x: a) (z: b) (f: a → b → b): List.f
 def List.sum [auto add: Add a] (xs: List a): a := List.foldLeft xs Add.zero Add.add
 
 -- The sum of `f` over the elements: `List.sumBy xs f` is `List.sum (List.map xs f)`
--- without building the intermediate list.
-def List.sumBy [auto add: Add b] (xs: List a) (f: a → b): b := List.foldLeft xs Add.zero (acc x => acc + f x)
+-- without building the intermediate list. `f` may perform abilities, which
+-- run in list order.
+def List.sumBy [auto add: Add b] (xs: List a) (f: a → {e} b): {e} b := List.foldLeft xs Add.zero (acc x => acc + f x)
 
 theorem List.sumByDoubles: List.sumBy [1, 2, 3] (x => x * 2) = 12 := rfl
 
@@ -125,11 +148,15 @@ def List.get: List a → Nat → Option a
   | Cons x xs, Zero => Some x
   | Cons x xs, Succ i => List.get xs i
 
-def List.any: List a → (p: a → Bool) → Bool
+-- Whether some element satisfies `p`. `p` may perform abilities: it runs in
+-- list order and isn't called after the first element that satisfies it.
+def List.any: List a → (p: a → {e} Bool) → {e} Bool
   | Nil, p => False
   | Cons x xs, p => if p x then True else List.any xs p
 
-def List.all: List a → (p: a → Bool) → Bool
+-- Whether every element satisfies `p`. `p` may perform abilities: it runs in
+-- list order and isn't called after the first element that fails it.
+def List.all: List a → (p: a → {e} Bool) → {e} Bool
   | Nil, p => True
   | Cons x xs, p => if p x then List.all xs p else False
 
@@ -141,11 +168,13 @@ def Nat.succIf (n: Nat): Bool → Nat
   | True => Succ n
   | False => n
 
--- How many elements satisfy `p`.
-def List.count (xs: List a) (p: a → Bool): Nat := List.foldLeft xs 0 (n x => Nat.succIf n (p x))
+-- How many elements satisfy `p`. `p` may perform abilities, which run in
+-- list order.
+def List.count (xs: List a) (p: a → {e} Bool): {e} Nat := List.foldLeft xs 0 (n x => Nat.succIf n (p x))
 
--- The first element satisfying `p`.
-def List.find: List a → (p: a → Bool) → Option a
+-- The first element satisfying `p`. `p` may perform abilities: it runs in
+-- list order and isn't called after the element found.
+def List.find: List a → (p: a → {e} Bool) → {e} Option a
   | Nil, p => None
   | Cons x xs, p => if p x then Some x else List.find xs p
 
@@ -154,8 +183,9 @@ def List.consSome: Option b → List b → List b
   | None, rest => rest
   | Some y, rest => Cons y rest
 
--- Keeps the `Some` results, in order.
-def List.filterMap: List a → (f: a → Option b) → List b
+-- Keeps the `Some` results, in order. `f` may perform abilities, which run in
+-- list order (`f x` is the first argument, so it runs before the rest).
+def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
   | Nil, f => Nil
   | Cons x xs, f => List.consSome (f x) (List.filterMap xs f)
 
@@ -226,8 +256,45 @@ def List.elem: List a → (target: a) → (decEq: (x: a) → (y: a) → Decidabl
   | Nil, target, decEq => False
   | Cons x xs, target, decEq => if Decidable.toBool (decEq target x) then True else List.elem xs target decEq
 
--- The elements that satisfy `p`, and those that don't.
-def List.partition (xs: List a) (p: a → Bool): Pair (List a) (List a) := MkPair (List.filter xs p) (List.filter xs (x => ¬(p x)))
+-- One step of `List.partition`: `x` onto the kept or the dropped side of
+-- `sides` (each reversed). A function of its own so the recursive call is
+-- written once, as for `List.filterStep`.
+@[noReceiver]
+def List.partitionStep (x: a) (sides: Pair (List a) (List a)): Bool → Pair (List a) (List a)
+  | True => MkPair (Cons x (Pair.fst sides)) (Pair.snd sides)
+  | False => MkPair (Pair.fst sides) (Cons x (Pair.snd sides))
+
+-- `List.partition`'s loop: `sides` holds what has been sorted so far, each
+-- side reversed.
+@[noReceiver]
+def List.partitionOnto (p: a → {e} Bool): List a → (sides: Pair (List a) (List a)) → {e} Pair (List a) (List a)
+  | Nil, sides => MkPair (List.reverse (Pair.fst sides)) (List.reverse (Pair.snd sides))
+  | Cons x xs, sides =>
+    let keep := p x
+    List.partitionOnto p xs (List.partitionStep x sides keep)
+
+-- The elements that satisfy `p`, and those that don't, each in order: the
+-- two `filter`s (`List.partitionFilters`) in one pass. `p` may perform
+-- abilities: it runs once per element, in list order.
+def List.partition (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) := List.partitionOnto p xs (MkPair Nil Nil)
+
+-- The loop's sides are the two `filter`s, each after what it had sorted.
+theorem List.partitionOntoFilters (p: a → Bool): (xs: List a) → (kept: List a) → (dropped: List a) →
+    List.partitionOnto p xs (MkPair kept dropped)
+      = MkPair (List.reverseOnto kept (List.filter xs p)) (List.reverseOnto dropped (List.filter xs (x => ¬(p x))))
+  | Nil, kept, dropped => rfl
+  | Cons x xs, kept, dropped =>
+    match p x with
+      | True => List.partitionOntoFilters p xs (Cons x kept) dropped
+      | False => List.partitionOntoFilters p xs kept (Cons x dropped)
+
+-- `partition` is the two `filter`s (its definition before it became one pass).
+theorem List.partitionFilters (xs: List a) (p: a → Bool): List.partition xs p = MkPair (List.filter xs p) (List.filter xs (x => ¬(p x))) :=
+  List.partitionOntoFilters p xs Nil Nil
+
+theorem List.partitionExample: List.partition [1, 5, 2, 7] (x => x > 4) = MkPair [5, 7] [1, 2] := rfl
+
+test "List.partition" := List.partition [1, 5, 2, 7] (x => x > 4) == MkPair [5, 7] [1, 2] ∧ List.partition (Nil: List Nat) (x => x > 4) == MkPair Nil Nil
 
 -- The value for the first pair whose key is equal, given a decision for equality.
 def List.lookup: List (Pair k v) → (key: k) → (decEq: (x: k) → (y: k) → Decidable (x = y)) → Option v
@@ -1306,8 +1373,10 @@ def List.minBy [auto ord: Ord b] (xs: List a) (f: a → b): Option a :=
     | Nil => None
     | Cons x ys => Some (List.foldLeft ys x (best y => List.minByStep f best y))
 
--- The longest prefix of elements satisfying `p`.
-def List.takeWhile (xs: List a) (p: a → Bool): List a :=
+-- The longest prefix of elements satisfying `p`. `p` may perform abilities:
+-- it runs in list order and isn't called after the first element that fails
+-- it.
+def List.takeWhile (xs: List a) (p: a → {e} Bool): {e} List a :=
   match xs with
     | Nil => Nil
     | Cons x ys => if p x then Cons x (List.takeWhile ys p) else Nil
@@ -1318,8 +1387,16 @@ def List.dropWhile (xs: List a) (p: a → Bool): List a :=
     | Nil => Nil
     | Cons x ys => if p x then List.dropWhile ys p else Cons x ys
 
--- `List.takeWhile` and `List.dropWhile` together.
-def List.span (xs: List a) (p: a → Bool): Pair (List a) (List a) := MkPair (List.takeWhile xs p) (List.dropWhile xs p)
+-- `List.span`'s loop: `taken` is the prefix so far, reversed.
+@[noReceiver]
+def List.spanOnto (taken: List a) (p: a → {e} Bool): List a → {e} Pair (List a) (List a)
+  | Nil => MkPair (List.reverse taken) Nil
+  | Cons x xs => if p x then List.spanOnto (Cons x taken) p xs else MkPair (List.reverse taken) (Cons x xs)
+
+-- `List.takeWhile` and `List.dropWhile` together (`List.spanTakeDrop`), in
+-- one pass. `p` may perform abilities: it runs in list order and isn't
+-- called after the first element that fails it.
+def List.span (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) := List.spanOnto Nil p xs
 
 -- The first `n` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
 def List.splitAt (xs: List a) (n: Nat): Pair (List a) (List a) := MkPair (List.take xs n) (List.drop xs n)
@@ -1351,11 +1428,23 @@ def List.withIndexFrom (i: Nat): List a → List (Pair Nat a)
 -- (Rust's `enumerate`): `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`.
 def List.withIndex (xs: List a): List (Pair Nat a) := List.withIndexFrom 0 xs
 
+-- One step of `List.findMap`: the `Some` found, or else the search of the
+-- rest, which runs only then. The rest is a function of no arguments so that
+-- an effectful `f` isn't called after the first `Some`; a function of its
+-- own (not a `match` in `findMap`) so the backends inline it and
+-- `findMap` stays a loop.
+@[noReceiver]
+def List.findMapStep: Option b → (rest: () → {e} Option b) → {e} Option b
+  | Some y, rest => Some y
+  | None, rest => rest ()
+
 -- The first `Some` that `f` gives (Lean's `findSome?`, Scala's `collectFirst`).
-def List.findMap (xs: List a) (f: a → Option b): Option b :=
+-- `f` may perform abilities: it runs in list order and isn't called after
+-- the first `Some`.
+def List.findMap (xs: List a) (f: a → {e} Option b): {e} Option b :=
   match xs with
     | Nil => None
-    | Cons x ys => Option.orElse (f x) (List.findMap ys f)
+    | Cons x ys => List.findMapStep (f x) (() => List.findMap ys f)
 
 -- `findMap` is the first of the `filterMap` results, found without building
 -- the rest.
@@ -1366,8 +1455,9 @@ theorem List.findMapIsHeadFilterMap: (xs: List a) → (f: a → Option b) → Li
       | None => List.findMapIsHeadFilterMap xs f
       | Some y => rfl
 
--- Maps, then joins: `xs.flatMap f` is `List.concat (List.map xs f)`.
-def List.flatMap (xs: List a) (f: a → List b): List b := List.concat (List.map xs f)
+-- Maps, then joins: `xs.flatMap f` is `List.concat (List.map xs f)`. `f` may
+-- perform abilities, which run in list order.
+def List.flatMap (xs: List a) (f: a → {e} List b): {e} List b := List.concat (List.map xs f)
 
 -- Every pair, the first elements in order and the second elements within
 -- each: `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.
@@ -1384,6 +1474,20 @@ theorem List.lengthTails: (xs: List a) → List.length (List.tails xs) = Succ (L
   | Cons x xs => Eq.cong Succ (List.lengthTails xs)
 
 theorem List.splitAtFst (xs: List a) (n: Nat): Pair.fst (List.splitAt xs n) = List.take xs n := rfl
+
+-- The loop's prefix is `takeWhile`'s, after what it had taken.
+theorem List.spanOntoTakeDrop (p: a → Bool): (taken: List a) → (xs: List a) →
+    List.spanOnto taken p xs = MkPair (List.reverseOnto taken (List.takeWhile xs p)) (List.dropWhile xs p)
+  | taken, Nil => rfl
+  | taken, Cons x xs =>
+    match p x with
+      | True => List.spanOntoTakeDrop p (Cons x taken) xs
+      | False => rfl
+
+-- `span` is `takeWhile` and `dropWhile` (its definition before it became one
+-- pass).
+theorem List.spanTakeDrop (xs: List a) (p: a → Bool): List.span xs p = MkPair (List.takeWhile xs p) (List.dropWhile xs p) :=
+  List.spanOntoTakeDrop p Nil xs
 
 theorem List.spanExample: List.span [1, 2, 3, 1] (x => Nat.leq x 2) = MkPair [1, 2] [3, 1] := rfl
 
