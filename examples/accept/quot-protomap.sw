@@ -46,7 +46,7 @@ def ProtoMap.size (m: ProtoMap k v [ord := o]): Nat := Quot.lift Map.Raw.size (a
 
 def ProtoMap.isEmpty (m: ProtoMap k v [ord := o]): Bool := Quot.lift Map.Raw.isEmpty (a b same => Map.Raw.isEmptyRespects a b same) m.raw
 
-def ProtoMap.foldLeft (f: b -> k -> v -> b) (z: b) (m: ProtoMap k v [ord := o]): b :=
+def ProtoMap.foldLeft (m: ProtoMap k v [ord := o]) (z: b) (f: b -> k -> v -> b): b :=
   Quot.lift (Map.Raw.foldLeft f z) (a b same => Map.Raw.foldLeftRespects f z a b same) m.raw
 
 def ProtoMap.fromList [auto ord: Ord k] (xs: List (k, v)): ProtoMap k v := ProtoMap.ofMap (Map.Raw.fromList xs)
@@ -187,7 +187,7 @@ theorem getMissing: ProtoMap.get backwards 7 = None := rfl
 theorem insertComputes: ProtoMap.toList (backwards.insert 5 "e") = [(1, "a"), (2, "b"), (3, "c"), (4, "d"), (5, "e")] := rfl
 theorem sizeComputes: ProtoMap.size (backwards.insert 5 "e") = 5 := rfl
 theorem sizeAfterReplace: ProtoMap.size changed = 4 := rfl
-theorem foldComputes: ProtoMap.foldLeft (total key value => total + key) 0 backwards = 10 := rfl
+theorem foldComputes: ProtoMap.foldLeft backwards 0 (total key value => total + key) = 10 := rfl
 theorem emptyComputes: ProtoMap.isEmpty (ProtoMap.empty: ProtoMap Nat Text) = True := rfl
 theorem functionValueComputes: (match ProtoMap.get fns1 2 with | Some f => f 5 | None => 0) = 10 := rfl
 
@@ -206,7 +206,7 @@ theorem ProtoMap.sizeToList: (m: ProtoMap k v [ord := o]) -> ProtoMap.size m = L
 
 test "size, isEmpty and foldLeft" :=
   ProtoMap.size forwards == 4 && !(ProtoMap.isEmpty forwards)
-    && ProtoMap.foldLeft (total key value => total + key) 0 forwards == 10
+    && ProtoMap.foldLeft forwards 0 (total key value => total + key) == 10
 
 -- 6. Computation limits are deliberate: data transported along a map
 -- equality is stuck in the kernel, through `Quot.sound` (§9.1) and through
@@ -218,7 +218,7 @@ def transportedByInd: Nat := J (y p => Nat) 0 (ProtoMap.sizeToList forwards)
 test "transport runs" := transported == 0 && transportedByInd == 0
 
 def describe (m: ProtoMap Nat Text): Text :=
-  ProtoMap.foldLeft (acc key value => Text.append acc value) "" m
+  ProtoMap.foldLeft m "" (acc key value => Text.append acc value)
 
 def main(): {IO} () :=
   IO.print (if forwards == backwards then "True" else "False")

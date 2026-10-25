@@ -5,18 +5,18 @@ expression: output
 [E-REFL] Error: `rfl` can't prove this
     ╭─[ reject/match-helpers-print-alike.sw:11:58 ]
     │
-  8 │ def foo (xs: List (Option Nat)): Nat := xs.foldLeft (acc o => match o with | Some x => acc + x | None => acc) 0
-    │                                                               ───────────────────────┬──────────────────────  
-    │                                                                                      ╰──────────────────────── this `match`
-  9 │ def bar (xs: List (Option Nat)): Nat := xs.foldLeft (acc o => match o with | Some x => acc + x | None => acc + 1) 0
-    │                                                               ─────────────────────────┬────────────────────────  
-    │                                                                                        ╰────────────────────────── this `match`
+  8 │ def foo (xs: List (Option Nat)): Nat := xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc)
+    │                                                                 ───────────────────────┬──────────────────────  
+    │                                                                                        ╰──────────────────────── this `match`
+  9 │ def bar (xs: List (Option Nat)): Nat := xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc + 1)
+    │                                                                 ─────────────────────────┬────────────────────────  
+    │                                                                                          ╰────────────────────────── this `match`
     │ 
  11 │ theorem same (xs: List (Option Nat)): foo xs = bar xs := rfl
     │                                                          ─┬─  
     │                                                           ╰─── `foo xs` and `bar xs` aren't equal
     │ 
-    │ Note 1: computing both sides gives `List.foldLeft (acc o => (match …) acc o) 0 xs` and `List.foldLeft (acc o => (match …) acc o) 0 xs`
+    │ Note 1: computing both sides gives `List.foldLeft xs 0 (acc o => (match …) acc o)` and `List.foldLeft xs 0 (acc o => (match …) acc o)`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 

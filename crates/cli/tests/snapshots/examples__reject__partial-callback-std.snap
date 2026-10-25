@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL-CALLBACK] Error: `countNodes` can't be passed to `List.map` here
-    ╭─[ reject/partial-callback-std.sw:10:66 ]
+    ╭─[ reject/partial-callback-std.sw:10:79 ]
     │
- 10 │ def countNodes (n: Nat): {Partial} Nat := 1 + List.sum (List.map countNodes (children n))
-    │                                                                  ─────┬────  
-    │                                                                       ╰────── `countNodes` calls `countNodes`, so as a value it makes requests that only `countNodes`'s own definition can answer
+ 10 │ def countNodes (n: Nat): {Partial} Nat := 1 + List.sum (List.map (children n) countNodes)
+    │                                                                               ─────┬────  
+    │                                                                                    ╰────── `countNodes` calls `countNodes`, so as a value it makes requests that only `countNodes`'s own definition can answer
     │ 
     │ Note 1: `List.map` can't take a partial callback yet: the row variable in its signature stands for total rows only, so changing its signature won't help
     │ 

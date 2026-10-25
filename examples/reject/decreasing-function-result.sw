@@ -6,4 +6,4 @@ import Std (List, Nat)
 def offsets (n: Nat): Nat
   decreasing n
 :=
-  List.sum (List.map (List.map (List.range n) (d => (m => if h: d < n then offsets d + m else m))) ((g: Nat -> Nat) => g 1))
+  List.sum (List.map (List.map (List.range n) (d => ((m => if h: d < n then offsets d + m else m): Nat -> Nat))) ((g: Nat -> Nat) => g 1))

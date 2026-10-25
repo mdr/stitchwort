@@ -5,9 +5,9 @@ expression: output
 [E-REFL] Error: `rfl` can't prove this
    ╭─[ reject/counterexample-out-of-scope.sw:6:72 ]
    │
- 6 │ theorem mapKeeps (f: Nat -> Nat) (xs: List Nat): List.map f xs = xs := rfl
+ 6 │ theorem mapKeeps (f: Nat -> Nat) (xs: List Nat): List.map xs f = xs := rfl
    │                                                                        ─┬─  
-   │                                                                         ╰─── `List.map f xs` and `xs` aren't equal
+   │                                                                         ╰─── `List.map xs f` and `xs` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

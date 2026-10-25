@@ -119,8 +119,10 @@ test "dot notation with a parameter left out" := (corner.scale (plus := 1)) 2 ==
 test "a named section" :=
   [corner].map (.shift (dy := 1) (dx := 2)) == [corner].map (.shift 2 1)
 test "a section of the library" := "a,b".split (separator := ',') == "a,b".split ','
-test "a pipe fills the first free parameter" := (5 |> clampTo (low := 0) (high := 3)) == 3
-test "a pipe after a named argument" := (20 |> clampTo (high := 10) (low := 0)) == 10
+def clampValue (value: Nat) (low: Nat) (high: Nat): Nat := clampTo low high value
+
+test "a pipe fills the first parameter" := (5 |> clampValue (low := 0) (high := 3)) == 3
+test "a pipe after a named argument" := (20 |> clampValue (high := 10) (low := 0)) == 10
 
 -- Proofs see the positional term.
 theorem namedIsPositional (low: Nat) (high: Nat):
