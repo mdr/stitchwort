@@ -1,5 +1,5 @@
 {
-  "next": 504,
+  "next": 505,
   "tickets": [
     {
       "id": 13,
@@ -3248,6 +3248,20 @@
       "created": "2026-10-25",
       "updated": "2026-10-25",
       "commits": []
+    },
+    {
+      "id": 504,
+      "title": "Terminal polish: Frame.plain strips ANSI; ONLCR off in keys mode",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "9962ecb2"
+      ]
     }
   ]
 }
