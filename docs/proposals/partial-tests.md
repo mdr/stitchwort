@@ -63,8 +63,10 @@ which the kernel never steps (partial.md §7.2).
   `partial-test.sw`, a test that passes; chapter 9 no longer calls a test a
   proof.
 
-Out of scope, unchanged: `Fail` and `IO` in tests; the runners' tick
-off-by-one and the native/reference tick-agreement test (appendix A §1.3).
+Out of scope, unchanged: `Fail` and `IO` in tests. The runners' tick
+off-by-one and the missing native/reference tick-agreement test, which this
+note found (appendix A §1.3), were fixed separately (`0987dba2`); tests have
+no tick limit, so neither affects them.
 
 ## Appendix A: the superseded design
 
@@ -239,17 +241,13 @@ real difference this proposal has to keep visible.
   [source].
 - The JS runner has no tick limit: "JS has no tick limit"
   (`crates/js/src/run.rs:18`) [source].
-- **The limit's boundary is off by one** against partial.md §7.4.3. Both
-  runners stop as soon as the count *reaches* the limit (`ticks >= max`), so
-  a computation that needs exactly `n` ticks is stopped under a limit of `n`
-  [source]. partial.md's convention is "fuel is the number of `Later`s that
-  may be crossed": `runFor 111 (collatzSteps 27)` finishes. The two runners
-  agree with each other, so nothing is wrong today. A user-visible limit
-  should follow partial.md (§4.4).
-- **Tick counts are tested on the reference runner only.**
-  `crates/driver/tests/partial.rs` (`ticks_and_results_agree_with_the_model`)
-  checks the reference runner's counts against `crates/partial-model`.
-  I found no test comparing the fast runtime's counts [source]. §7 adds one.
+- **The limit's boundary was off by one** against partial.md §7.4.3: both
+  runners stopped as soon as the count *reached* the limit, so a computation
+  needing exactly `n` ticks was stopped under a limit of `n`. **Fixed** on
+  `main` in `0987dba2`: a limit of `n` now allows exactly `n` ticks.
+- **Tick counts were tested on the reference runner only.** Also fixed in
+  `0987dba2`: `crates/rt/tests/tick_counts.rs` checks that the fast runtime's
+  counts agree with the reference runner's.
 
 #### 1.4 How long a million ticks takes
 

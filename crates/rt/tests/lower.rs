@@ -134,7 +134,7 @@ fn every_example_lowers() {
                         .main()
                         .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
                     let g = &session.elab.globals;
-                    let program = lower_main(g, session.elab.limits, main.term())
+                    let program = lower_main(g, session.elab.limits, main.term(), main.row)
                         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"));
                     well_formed(&program, &what);
                     mains += 1;
@@ -174,7 +174,7 @@ fn lower_project(dir: &Path) -> usize {
             .main_named(main_name, &name)
             .unwrap_or_else(|e| panic!("{name}: {main_name}: {e:?}"));
         let g = &session.elab.globals;
-        let program = lower_main(g, session.elab.limits, main.term())
+        let program = lower_main(g, session.elab.limits, main.term(), main.row)
             .unwrap_or_else(|e| panic!("{name}: lowering {main_name}: {e:?}"));
         well_formed(&program, main_name);
     }
@@ -234,7 +234,7 @@ fn ir(source: &str) -> String {
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");
         let g = &session.elab.globals;
-        let program = lower_main(g, session.elab.limits, main.term())
+        let program = lower_main(g, session.elab.limits, main.term(), main.row)
             .unwrap_or_else(|e| panic!("lowering: {e:?}"));
         well_formed(&program, "main");
         program.to_string()

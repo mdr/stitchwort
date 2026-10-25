@@ -1,5 +1,5 @@
 {
-  "next": 453,
+  "next": 454,
   "tickets": [
     {
       "id": 13,
@@ -2485,14 +2485,16 @@
     {
       "id": 448,
       "title": "Partial stage 2: main may be {IO, Fail, Partial}; runner performs Fail (D1179, partial-stage-2.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "9efa038e"
+      ]
     },
     {
       "id": 449,
@@ -2535,7 +2537,21 @@
     {
       "id": 452,
       "title": "Partial ticks: runners stop one tick early vs partial.md; no test that native and reference tick counts agree (partial-tests.md §1); after stage 2 merges",
-      "status": "backlog",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "0987dba2"
+      ]
+    },
+    {
+      "id": 453,
+      "title": "AoC Day 8 review (D1190): proofs via memPerm etc., sizes via Map.counts (Perm), Boxes.of precondition doc, named fields, Result fixtures + boundary examples; item 6 std lemmas after rule E",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],

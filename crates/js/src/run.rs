@@ -11,8 +11,10 @@
 //! long list would overflow Node's default stack.
 //!
 //! What runs is the term `stitchwort run` runs: `main ()` checked against
-//! `() -> {IO, Partial} ()`, so a total or pure `main` arrives lifted, as in
-//! the Rust runner. Unlike `build --js`, a `Delay` isn't erased to a token
+//! `() -> {IO, Partial} ()`, or `() -> {IO, Fail, Partial} ()` for a `main`
+//! that may fail, so a total or pure `main` arrives lifted, as in the Rust
+//! runner. The runner performs `Fail.stop` itself, as it performs `print`
+//! (docs/proposals/partial-stage-2.md). Unlike `build --js`, a `Delay` isn't erased to a token
 //! here (docs/proposals/partial.md §7.6): its constants build
 //! `StitchwortDelay` objects, and the runner steps them with the machine of
 //! `stitchwort_core::step`, frame for frame. JS has no tick limit and no
@@ -90,8 +92,10 @@ fn internal(message: String) -> Diagnostic {
 }
 
 /// Generates the program that runs `main`: the closed term of type
-/// `{IO, Partial} ()` that `stitchwort run` runs (`Main`'s term in the
-/// driver).
+/// `{IO, Partial} ()` or `{IO, Fail, Partial} ()` that `stitchwort run` runs
+/// (`Main`'s term in the driver). Constructors are tagged by name here, so
+/// the runner tells a `Fail` operation from an `IO` one by its tag, in
+/// either row.
 pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Program, Diagnostic> {
     generate_program_with(g, limits, main, Options::default())
 }
@@ -281,6 +285,11 @@ impl Shapes {
             ctor_of(Builtin::ReadAll)?.1,
             &["readAllUnit"],
         )?;
+        // `Fail`'s one operation, once its library file has loaded: a `main`
+        // that may fail loads it.
+        if let Some(fail) = g.registry.loaded_data(Builtin::Fail) {
+            ctor("stop", fail, 0, &["stopMessage"])?;
+        }
         let maybe = data(Builtin::Option)?;
         ctor("nothing", maybe, 0, &[])?;
         ctor("just", maybe, 1, &["someValue"])?;
@@ -332,6 +341,8 @@ import * as __wt from "node:worker_threads";
 
   // Reading or writing failed: E-IO.
   class IoError extends Error {}
+  // `main` failed with `Fail.stop msg`, and nothing handled it.
+  class FailError extends Error {}
 
   const sleeper = new Int32Array(new SharedArrayBuffer(4));
   // A non-blocking descriptor with nothing ready yet: wait a little.
@@ -482,11 +493,19 @@ import * as __wt from "node:worker_threads";
     return text;
   };
 
-  // Performs an operation of `{IO}`, which is `Plus IO NoOp`: its reply.
+  // Performs an operation of `{IO}`, which is `Plus IO NoOp`, or of
+  // `{Fail, IO}`, which is `Plus Fail (Plus IO NoOp)`: its reply.
+  // `Fail.stop msg` stops the run; it returns `Empty`, so there's nothing to
+  // resume with.
   const perform = (o) => {
-    if (o.tag !== SHAPE.left) throw new Error("internal error: an operation outside `IO`");
+    while (o.tag === SHAPE.right) o = o[SHAPE.rightOp];
+    if (o.tag !== SHAPE.left) {
+      throw new Error("internal error: an operation outside `IO` and `Fail`");
+    }
     const op = o[SHAPE.leftOp];
     switch (op.tag) {
+      case SHAPE.stop:
+        throw new FailError(op[SHAPE.stopMessage]);
       case SHAPE.print:
         print(op[SHAPE.printText]);
         return { tag: SHAPE.unit };
@@ -657,20 +676,18 @@ import * as __wt from "node:worker_threads";
   let code = 0;
   let message = "";
   try {
-    // `Some msg` if `main` failed with `msg` (the driver wraps it in `Fail.recover`).
-    const result = run(MAIN());
+    run(MAIN());
     flush();
-    if (result.tag === SHAPE.just) {
-      code = @EXIT_FAIL@;
-      message = result[SHAPE.someValue];
-    }
   } catch (e) {
     // What was printed before the error still appears. The first error is
     // the one reported.
     try {
       flush();
     } catch {}
-    if (e instanceof IoError) {
+    if (e instanceof FailError) {
+      code = @EXIT_FAIL@;
+      message = e.message;
+    } else if (e instanceof IoError) {
       code = @EXIT_IO@;
       message = e.message;
     } else if (e instanceof RangeError || (e instanceof Error && e.name === "InternalError")) {

@@ -29,7 +29,7 @@ pub mod specialise;
 mod validate;
 pub mod value;
 
-pub use ir::Program;
+pub use ir::{MainRow, Program};
 pub use lower::{lower_definitions, lower_global, lower_main};
 pub use machine::{Limits, Machine};
 pub use run::{

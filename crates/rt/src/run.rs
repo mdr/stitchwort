@@ -18,7 +18,7 @@ use std::io::{BufRead, Write};
 use stitchwort_core::ResourceError;
 
 use crate::host::{RunError, read_all, read_line};
-use crate::ir::Program;
+use crate::ir::{MainRow, Program};
 use crate::machine::{Limits, Machine};
 use crate::value::{Delay, Fun, Value};
 
@@ -34,7 +34,8 @@ pub enum Outcome {
 /// What a run may do, beyond its resource limits.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Policy {
-    /// Stop (inconclusively) once this many ticks have happened. For tests.
+    /// Stop (inconclusively) when the run needs a tick beyond this many: a
+    /// limit of `n` allows exactly `n` ticks.
     pub max_ticks: Option<u64>,
 }
 
@@ -207,7 +208,7 @@ impl Runner<'_> {
         output: &mut impl Write,
     ) -> Result<Outcome, RunError> {
         match self.drive(delay, input, output)? {
-            Some(v) => self.finished(&v),
+            Some(_) => Ok(Outcome::Finished),
             None => Ok(Outcome::OutOfTicks),
         }
     }
@@ -274,10 +275,12 @@ impl Runner<'_> {
                                 next
                             }
                             Routed::Tick(next) => {
-                                self.ticks += 1;
+                                // A limit of `n` allows exactly `n` ticks (docs/proposals/partial.md
+                                // §7.4.3): stop on needing the next one.
                                 if self.policy.max_ticks.is_some_and(|max| self.ticks >= max) {
                                     return Ok(None);
                                 }
+                                self.ticks += 1;
                                 // A new stretch.
                                 steps = 0;
                                 self.m.reset_steps();
@@ -310,17 +313,6 @@ impl Runner<'_> {
                     }
                 },
             };
-        }
-    }
-
-    /// `main` finished with `v`, which is `Some msg` if it failed with `msg`
-    /// (the driver wraps it in `Fail.recover`).
-    fn finished(&self, v: &Value) -> Result<Outcome, RunError> {
-        match v {
-            Value::Data(t, fields) if *t == self.m.shapes().some => Err(RunError::Failed(
-                crate::prims::text_of(&fields[0]).to_string(),
-            )),
-            _ => Ok(Outcome::Finished),
         }
     }
 
@@ -421,8 +413,10 @@ impl Runner<'_> {
         )))
     }
 
-    /// Performs operation `op` of `{IO}`, which is `Plus IO NoOp`: its
-    /// reply.
+    /// Performs operation `op`, of `{IO}` or `{Fail, IO}` (the program's
+    /// [`MainRow`]): its reply. `Fail.stop msg` stops the run with
+    /// [`RunError::Failed`]; it returns `Empty`, so there's nothing to resume
+    /// with (docs/proposals/partial-stage-2.md).
     fn perform(
         &mut self,
         op: Value,
@@ -430,9 +424,26 @@ impl Runner<'_> {
         output: &mut impl Write,
     ) -> Result<Value, RunError> {
         let s = *self.m.shapes();
-        let io = match &op {
-            Value::Data(t, fields) if *t == s.left => fields[0].clone(),
-            other => panic!("internal error: an operation {other:?} outside `IO`"),
+        let side = |v: &Value| match v {
+            Value::Data(t, fields) if *t == s.left || *t == s.right => (*t, fields[0].clone()),
+            other => panic!("internal error: an operation {other:?} outside `IO` and `Fail`"),
+        };
+        let io = match (self.m.program().main_row, side(&op)) {
+            (MainRow::Io, (t, io)) if t == s.left => io,
+            (MainRow::FailIo, (t, stop)) if t == s.left => {
+                let Value::Data(tag, fields) = &stop else {
+                    panic!("internal error: a `Fail` operation {stop:?}")
+                };
+                debug_assert_eq!(*tag, s.stop);
+                return Err(RunError::Failed(
+                    crate::prims::text_of(&fields[0]).to_string(),
+                ));
+            }
+            (MainRow::FailIo, (_, rest)) => match side(&rest) {
+                (t, io) if t == s.left => io,
+                _ => panic!("internal error: an operation {op:?} outside `IO` and `Fail`"),
+            },
+            _ => panic!("internal error: an operation {op:?} outside `IO`"),
         };
         let tag = io.tag().expect("an `IO` operation");
         Ok(if tag == s.print {

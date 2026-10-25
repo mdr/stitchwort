@@ -26,24 +26,28 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::step::{Machine, Obs};
 use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
+use stitchwort_rt::MainRow;
 use stitchwort_rt::host::{read_all, read_line};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
 
-/// What `main` must be. A pure `main : () -> ()` fits too, and so does
-/// `main : () -> {IO} ()`: they're passed where a function with more
-/// abilities is allowed, like any other argument.
-pub const MAIN_TYPE: &str = "() -> {IO, Partial} ()";
+/// What `main` must be. A pure `main : () -> ()` fits too, and so does any
+/// sub-row such as `main : () -> {IO} ()`: they're passed where a function
+/// with more abilities is allowed, like any other argument.
+pub const MAIN_TYPE: &str = "() -> {IO, Fail, Partial} ()";
 
 /// A program's `main`, ready to run.
 pub struct Main {
-    /// `main ()`, as a computation in the row `{IO, Partial}`.
+    /// `main ()`, as a computation in the row `{IO, Partial}`, or
+    /// `{IO, Fail, Partial}` for a `main` that may fail.
     term: Term,
     /// Where `main` is defined.
     pub span: Span,
     /// Whether `main`'s own type is `Partial`.
     pub partial: bool,
+    /// The row `term` is in: [`MainRow::FailIo`] for a `main` that may fail.
+    pub row: MainRow,
 }
 
 /// One thing a run did, in order: for tests that compare whole runs.
@@ -86,34 +90,35 @@ impl From<&Main> for Span {
 }
 
 impl Main {
-    /// `main ()`, as a computation in the row `{IO, Partial}`.
+    /// `main ()`, as a computation in the row `{IO, Partial}`, or
+    /// `{IO, Fail, Partial}` for a `main` that may fail.
     pub fn term(&self) -> &Term {
         &self.term
     }
 }
 
-/// The calls of `name` to try, in order. Both are checked against
-/// [`MAIN_TYPE`], and the lambda lets a pure or total `main` through:
-/// calling one from code in `{IO, Partial}` is allowed. The library's names
-/// are written from `Std`, which always means the library, whatever the
-/// program declares.
+/// The calls of `name` to try, in order. The lambda lets a pure or total
+/// `main` through: calling one from code in a row with more abilities is
+/// allowed. The library's names are written from `Std`, which always means
+/// the library, whatever the program declares.
 ///
-/// 1. `name ()` as it is, for a `name` with abilities among `IO` and
-///    `Partial`: the runner gets `()`.
-/// 2. `name ()` with `Fail` allowed (and not `Partial`: a handler takes a
-///    total computation), an unhandled `Fail` caught by `Std.Fail.recover`
-///    and the result lifted into `{IO, Partial}`. The runner gets `Some msg`
-///    if `name` failed with `msg` and `None` if it finished
-///    (docs/proposals/errors.md §3.5).
+/// 1. `name ()` in `{IO, Partial}`, for a `name` with abilities among `IO`
+///    and `Partial`.
+/// 2. `name ()` in `{IO, Fail, Partial}` ([`MAIN_TYPE`]), for a `name` that
+///    may also fail. No handler goes around it (a handler can't take a
+///    partial computation, docs/proposals/partial.md §7.3.8): the runner
+///    performs `Fail.stop msg` itself, as it performs `IO.print`, and stops
+///    with [`RunError::Failed`] (docs/proposals/partial-stage-2.md §3).
 ///
-/// One wrapper for the reference evaluator, `stitchwort-rt` and the JS
-/// runner: each only looks at the final value, and a `Some msg` is a failure.
+/// The first is tried first so that a `main` without `Fail` runs in the row
+/// it always has. The reference evaluator, `stitchwort-rt` and the JS runner
+/// each take an operation that reaches the bottom of the run apart in
+/// either row (`{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
+/// `Plus Fail (Plus IO NoOp)`).
 fn main_calls(name: &str) -> [String; 2] {
     [
         format!("((u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()"),
-        format!(
-            "((v => Std.Fail.recover (m => Std.Option.Some m) ((u => Std.Pair.snd (({name} (): ()), (Std.Option.None: Std.Option Text))) : () -> {{Std.IO, Std.Fail}} (Std.Option Text))) : () -> {{Std.IO, Partial}} (Std.Option Text)) ()"
-        ),
+        format!("((u => {name} ()) : () -> {{Std.IO, Std.Fail, Partial}} ()) ()"),
     ]
 }
 
@@ -126,33 +131,6 @@ enum CallError {
         span: stitchwort_syntax::Span,
         ty: String,
     },
-    /// The definition's type is runnable, but the call built to run it
-    /// didn't check (SW-435): the checking error.
-    Prepare(stitchwort_syntax::Span, Diagnostic),
-}
-
-/// A diagnostic for a runnable definition whose call didn't check: the
-/// checking error, moved onto the definition (its own labels point into the
-/// generated call, which has no source to show), with a note on when it
-/// happened.
-fn prepare_error(name: &str, span: stitchwort_syntax::Span, error: Diagnostic) -> Diagnostic {
-    let mut d = Diagnostic::error(
-        error.code,
-        format!("{} (while preparing `{name}` to run)", error.message),
-    )
-    .with_label(
-        span,
-        "this has a type that can be run, but the call that runs it didn't check",
-    );
-    for label in &error.labels {
-        d = d.with_note(label.message.clone());
-    }
-    for note in error.notes {
-        d = d.with_note(note);
-    }
-    d.with_note(
-        "the call is built by `stitchwort run` (`Std.Fail.recover (m => Std.Option.Some m) …` for a `main` with `Fail`); something it names may be shadowed by the program",
-    )
 }
 
 impl Session {
@@ -173,10 +151,9 @@ impl Session {
         match self.main_call(index, "main") {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
-            Err(CallError::Prepare(span, d)) => Err(prepare_error("main", span, d)),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
-                "`main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, or `() -> {IO, Fail} ()`",
+                "`main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {IO, Fail} ()`, or `() -> {IO, Fail, Partial} ()`",
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
@@ -187,7 +164,7 @@ impl Session {
 
     /// Elaborates a call of the definition `name` at `index` (the first of
     /// [`main_calls`] that checks) as a computation in the row
-    /// `{IO, Partial}`.
+    /// `{IO, Partial}` or `{IO, Fail, Partial}`.
     fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
         let def = &self.elab.globals.defs[index];
         let (span, ty) = (def.span, self.elab.show(&def.ty_value));
@@ -211,8 +188,10 @@ impl Session {
             .elab
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
-        let mut wrapper_error = None;
-        for (attempt, call) in main_calls(name).into_iter().enumerate() {
+        for (call, row) in main_calls(name)
+            .into_iter()
+            .zip([MainRow::Io, MainRow::FailIo])
+        {
             let expr = self
                 .parse_internal("<main>", &call)
                 .map_err(CallError::Other)?;
@@ -222,28 +201,13 @@ impl Session {
                         term,
                         span,
                         partial,
+                        row,
                     });
                 }
                 Err(d) if d.code == "E-RESOURCE" || d.code == "E-UNFINISHED" => {
                     return Err(CallError::Other(d));
                 }
-                Err(d) => {
-                    if attempt == 1 {
-                        wrapper_error = Some(d);
-                    }
-                }
-            }
-        }
-        // The type is runnable in shape when `name ()` checks in
-        // `{IO, Fail}` (what the wrapper needs, and nothing else from the
-        // library): then the wrapper's own error is the real one.
-        if let Some(error) = wrapper_error {
-            let probe = format!("((u => {name} ()) : () -> {{Std.IO, Std.Fail}} ())");
-            let expr = self
-                .parse_internal("<main>", &probe)
-                .map_err(CallError::Other)?;
-            if self.elab.infer_expr(&expr).is_ok() {
-                return Err(CallError::Prepare(span, error));
+                Err(_) => {}
             }
         }
         Err(CallError::Type { span, ty })
@@ -251,7 +215,7 @@ impl Session {
 
     /// Finds the definition a project's `run` names by its full name
     /// (`Day05.main`), and checks that it can be run: a function from `()`
-    /// to `()` with abilities among `IO` and `Partial`.
+    /// to `()` with abilities among `IO`, `Fail` and `Partial`.
     pub fn main_named(&mut self, name: &str, project: &str) -> Result<Main, Diagnostic> {
         self.elab.leave_namespace();
         let Some(id) = self.elab.lookup_def(name) else {
@@ -283,14 +247,13 @@ impl Session {
         match self.main_call(id.0, name) {
             Ok(main) => Ok(main),
             Err(CallError::Other(d)) => Err(d),
-            Err(CallError::Prepare(span, d)) => Err(prepare_error(name, span, d)),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-RUN-TYPE",
                 format!("`{name}` can't be run: it has type `{ty}`"),
             )
             .with_label(span, "defined here")
             .with_note(
-                "a function to run takes `()` and returns `()`, with abilities among IO, Partial and Fail (not Partial with Fail): `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {Partial} ()`, `() -> {IO, Fail} ()` or `() -> ()`",
+                "a function to run takes `()` and returns `()`, with abilities among IO, Fail and Partial: `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {IO, Fail} ()`, `() -> {IO, Fail, Partial} ()` or `() -> ()`",
             )),
         }
     }
@@ -412,8 +375,9 @@ impl Session {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<(), RunError> {
-        let program = stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term())
-            .map_err(RunError::Lowering)?;
+        let program =
+            stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
+                .map_err(RunError::Lowering)?;
         stitchwort_rt::run_main(
             &program,
             stitchwort_rt::Limits::from_core(self.elab.limits),
@@ -454,9 +418,6 @@ impl Session {
             Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
         };
         loop {
-            if policy.max_ticks.is_some_and(|max| ticks >= max) {
-                return Ok(Outcome::OutOfTicks);
-            }
             let mut obs = {
                 let _op = g.budget.operation(self.elab.limits);
                 machine.step(g)?
@@ -464,17 +425,13 @@ impl Session {
             // Perform operations until the step ends.
             loop {
                 match obs {
-                    // `Some msg` if `main` failed with `msg` (see `wrapped_call`).
-                    Obs::Now(v) => {
-                        let _op = g.budget.operation(self.elab.limits);
-                        return match force(g, v)? {
-                            Value::Ctor(d, 1, fields) if d == s.maybe => {
-                                Err(RunError::Failed(s.text_to_string(self, &fields[0])?))
-                            }
-                            _ => Ok(Outcome::Finished),
-                        };
-                    }
+                    Obs::Now(_) => return Ok(Outcome::Finished),
                     Obs::Later(rest) => {
+                        // A limit of `n` allows exactly `n` ticks (docs/proposals/partial.md
+                        // §7.4.3): stop on needing the next one.
+                        if policy.max_ticks.is_some_and(|max| ticks >= max) {
+                            return Ok(Outcome::OutOfTicks);
+                        }
                         ticks += 1;
                         trace(Event::Tick);
                         machine = rest;
@@ -514,7 +471,10 @@ impl Session {
         }
     }
 
-    /// Performs operation `o` of `{IO}`: its reply.
+    /// Performs operation `o`, of `{IO}` or of `{Fail, IO}` (see
+    /// [`main_calls`]): its reply. `Fail.stop msg` stops the run with
+    /// [`RunError::Failed`]; it returns `Empty`, so there's nothing to resume
+    /// with.
     fn perform(
         &self,
         s: &Shapes,
@@ -525,12 +485,24 @@ impl Session {
         trace: &mut dyn FnMut(Event),
     ) -> Result<Value, RunError> {
         let g = &self.elab.globals;
-        // `{IO}` is `Plus IO NoOp`, so every operation is `L` of an `IO`
-        // operation.
-        let Value::Ctor(_, _, fields) = force(g, o)? else {
-            unreachable!("an operation in `{{IO}}`")
+        // `{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
+        // `Plus Fail (Plus IO NoOp)`: an operation is `L` of an `IO` or `Fail`
+        // operation, or `R (L …)` of an `IO` one.
+        let mut o = force(g, o)?;
+        let op = loop {
+            let Value::Ctor(_, side, fields) = o else {
+                unreachable!("an operation in `{{IO}}` or `{{Fail, IO}}`")
+            };
+            let inner = force(g, fields[0].clone())?;
+            if side == 0 {
+                break inner;
+            }
+            o = inner;
         };
-        Ok(match force(g, fields[0].clone())? {
+        Ok(match op {
+            Value::Ctor(d, _, payload) if Some(d) == s.fail => {
+                return Err(RunError::Failed(s.text_to_string(self, &payload[0])?));
+            }
             Value::Ctor(d, c, payload) if d == s.io && c == s.print => {
                 let text = s.text_to_string(self, &payload[0])?;
                 output
@@ -556,7 +528,7 @@ impl Session {
                 trace(Event::ReadAll(rest));
                 reply
             }
-            _ => unreachable!("an `IO` operation"),
+            _ => unreachable!("an `IO` or `Fail` operation"),
         })
     }
 }
@@ -571,6 +543,9 @@ struct Shapes {
     print: usize,
     read_line: usize,
     read_all: usize,
+    /// `Fail`, once its library file has loaded: a `main` that may fail
+    /// loads it.
+    fail: Option<DataId>,
     unit: DataId,
     maybe: DataId,
     text: DataId,
@@ -589,6 +564,7 @@ impl Shapes {
             print: ctor(Builtin::Print),
             read_line: ctor(Builtin::ReadLine),
             read_all: ctor(Builtin::ReadAll),
+            fail: r.loaded_data(Builtin::Fail),
             unit: data(Builtin::UnitType),
             maybe: data(Builtin::Option),
             text: data(Builtin::Text),

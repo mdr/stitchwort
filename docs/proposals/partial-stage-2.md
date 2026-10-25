@@ -1,6 +1,6 @@
 # Proposal: `Partial`, stage 2 and after
 
-**Status:** design note, 25 October 2026. Not built, and no decisions taken.
+**Status:** stage 2 built (D1179, §6 "As built"); the rest is a design note, 25 October 2026.
 It follows [partial.md](partial.md): stage 1 is built (§9.4 there), and
 §10 there lists the someday/maybe options. This note checks where stage 1
 stands with real programs, looks at each option again, and recommends what
@@ -497,3 +497,55 @@ because it touches the effect-polymorphism core (D1110, D1121).
 4. **D-d. Keep 10.2 (promotion), 10.3 (equivalence) and 10.5 (productive
    loops) out.** Recommended: yes. `decreasing` covers promotion's real
    uses.
+
+## 6. As built (stage 2, 25 October 2026, D1179)
+
+`main` (and a project's `run` target) may be `() -> {IO, Fail, Partial} ()`
+or any part of it. All three runners and the playground perform `Fail.stop`
+themselves, as they perform `IO.print`: what was printed stays, `error: msg`
+goes to stderr (the playground shows it below the output), and the exit
+status is 1. No kernel change, and no handler around partial code.
+
+- **Driver** (`crates/driver/src/run.rs`, `main_calls`). The call is tried
+  in `{IO, Partial}` first, so a `main` without `Fail` elaborates exactly
+  as before, and then in `{IO, Fail, Partial}`. The `Std.Fail.recover`
+  wrapper is gone, for total and partial `main` alike (§3.1's one path).
+  With it went `CallError::Prepare` and its "while preparing `main` to run"
+  diagnostic (SW-435): the call names only `Std.IO` and `Std.Fail` now, so
+  nothing the program declares can break it. `Main` records which row its
+  term is in (`Main::row`, `stitchwort_rt::MainRow`).
+- **Why the row is recorded.** `{IO}` is `Plus IO NoOp` and `{Fail, IO}` is
+  `Plus Fail (Plus IO NoOp)` (abilities sort by full name). In
+  `stitchwort-rt` a constructor is only its index, so `L (print t)` and
+  `L (stop m)` look the same. `lower_main` therefore takes the row, and the
+  runner's `perform` decodes by it. The reference evaluator and the JS
+  runner tell the two apart by the constructor itself (its data type, or
+  its name as the JS tag), so they need no flag.
+- **`Fail` in the registry.** `Builtin::Fail` and `Builtin::FailStop`
+  (`%stop`) are library built-ins, bound when `std/Fail/Fail.sw` loads. The
+  runners look them up with `loaded_data`, since a `main` without `Fail`
+  needn't load the file.
+- **Messages.** `E-MAIN-TYPE` lists `() -> {IO, Fail, Partial} ()`, and so
+  does `E-RUN-TYPE`'s note. The E-PARTIAL-CALLBACK note (G5) was fixed
+  separately, before this stage.
+- **Examples.** `examples/accept/main-fail-partial.sw` (G1's loop, printing
+  a running total) and `main-fail-partial-deep.sw` (a failure under a
+  million waiting non-tail calls, or after a million tail calls). Both are
+  `(run: fails)`, so the generic every-example harnesses skip them.
+- **Tests.** `crates/cli/tests/run.rs` runs both examples with native,
+  `--js` and `--reference`, and expects identical stdout, stderr and exit
+  status: success (`sum 3`, exit 0); failure after output (the totals so
+  far, `error: expected a whole number, got 'x'`, exit 1); failure before
+  any output; and both million-deep loops (no overflow on any runner;
+  about 0.5 s native, 0.7 s `--js`, 1.6 s reference for `descend`). It also
+  checks `main-fail.sw` and `main-fail-ok.sw` unchanged on all three, that
+  `{Fail, Partial}` and `{Partial, Fail}` run, that `{IO, Fail, Partial,
+  Log}` is E-MAIN-TYPE, and that `Fail.toResult` around a partial search is
+  still E-PARTIAL. `crates/web` has a playground test for the same programs.
+- **Deviations from §3.3.**
+  - There's no `reject/` example for `{IO, Fail, Partial, Log}`: `check`
+    accepts the file (E-MAIN-TYPE comes from `run`), so it's a CLI test.
+  - The SW-435 test now expects a `main` with a shadowed `Text` to run.
+- **The workaround** (handling `Fail` around each total piece and printing
+  the error) still prints to stdout and exits 0, as §1.1 says [ran]; that's
+  the program's choice, and stage 2 makes it unnecessary.
