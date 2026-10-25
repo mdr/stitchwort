@@ -1,5 +1,5 @@
 {
-  "next": 522,
+  "next": 537,
   "tickets": [
     {
       "id": 13,
@@ -3284,14 +3284,16 @@
     {
       "id": 506,
       "title": "Roguelike papercuts: depth error names the function, full values in test failures, Nat.divLe, call-bracket hint, IO.simulate with a seed, Text join",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "a2c1d6b6"
+      ]
     },
     {
       "id": 507,
@@ -3380,14 +3382,16 @@
     {
       "id": 514,
       "title": "Playground: bundle games/rogue as a second project, piped key-script play, web test (D1270)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8ce61618"
+      ]
     },
     {
       "id": 515,
@@ -3420,14 +3424,16 @@
     {
       "id": 517,
       "title": "Explore extending roguelike proofs: whole-game replay, distinct monsters, reachability, render/input correctness, rules; PROOFS.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8cd60546"
+      ]
     },
     {
       "id": 518,
@@ -3468,6 +3474,188 @@
     {
       "id": 521,
       "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 522,
+      "title": "Opaque definitions note draft 2: fold in external review (verified D&G citations, kernel invariant, neutral spec wording, mutual groups, f.unfold size)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "a85390fe"
+      ]
+    },
+    {
+      "id": 523,
+      "title": "Kernel: compare same-definition calls by arguments first, fall back to unfolding (opaque plan lane 5; folded-calls stage 4)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 524,
+      "title": "Design note: goal read-back for match/rewrite without expanding stuck branches (opaque plan lane 6; D1280+)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 525,
+      "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, groups unfold together D1267, hashing, E-NOT-OPAQUE) — branch, morning review",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 526,
+      "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold generation (lazy), docs — after lane 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 527,
+      "title": "Opaque defs lanes 3-4: 'is opaque' error notes; roguelike generates levels on the stairs — after lane 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 528,
+      "title": "Design note: standalone native executables via Cranelift object files + linked runtime; roguelike as target (D1286; decisions D1287+)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 529,
+      "title": "Native N3: closures (after N2a/N2b; D1285 yes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 530,
+      "title": "Native N4: effects and handlers (after N3; D1285 yes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 531,
+      "title": "Playground browser tests: 3 failures (arrow in tooltip, failed-comparison example, library tooltip timeout); per-project error path prefix; 256 KiB guard docs",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 532,
+      "title": "Rogue proofs follow-up: std lemma 'roll n < n under seeded/any Random handler'; link goalReachable to generateLevel; positions stay inside 20x66 (PROOFS.md gaps 1-2; may need opaque defs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 533,
+      "title": "Literal match catch-all arm gets no 'none of these' fact (rogue PROOFS.md: can't prove other keys give None)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 534,
+      "title": "rewrite error when a hypothesis is named 'at' doesn't mention the name (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 535,
+      "title": "Pattern lambdas can't take a type annotation (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 536,
+      "title": "Terminal.simulate: expose frame accumulator so proofs can induct over loop turns (rogue PROOFS.md)",
       "status": "backlog",
       "agent": "",
       "where": "",

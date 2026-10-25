@@ -476,3 +476,34 @@ fn the_terminal_given_is_the_one_used() {
         assert_eq!((seen.first(), seen.last()), (Some(&true), Some(&false)));
     });
 }
+
+/// A live run that recurses too deeply after a pause names the function,
+/// as `run_main_on` does.
+#[test]
+fn a_too_deep_live_run_names_the_function() {
+    const RUNAWAY: &str = r#"import Std (Nat)
+
+def count: Nat → Nat
+  | 0 => 0
+  | Succ n => 1 + count n
+
+def main (): {IO} () :=
+  match IO.readLine () with
+    | None => ()
+    | Some _ => IO.print (Nat.toText (count (5 * 1000 * 1000)))
+"#;
+    with_stack(STACK, || {
+        let (session, program) = single(RUNAWAY);
+        let limits = limits(&session, None, LimitScope::EachStretch);
+        let mut run = LiveRun::new(Rc::new(program), limits, Box::new(Marking::default()))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let mut output = Vec::new();
+        assert_eq!(run.advance(&mut output).unwrap(), Advanced::Waiting);
+        run.push(b"go\n");
+        match run.advance(&mut output) {
+            Err(RunError::Deep(report)) => assert!(report.contains("count"), "{report}"),
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(run.advance(&mut output).unwrap(), Advanced::Ended);
+    });
+}

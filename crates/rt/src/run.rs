@@ -220,11 +220,21 @@ fn run_inner(
     }
     let delay = match machine.entry() {
         Ok(delay) => delay,
-        Err(e) => return (Err(e.into()), RouteCounts::default()),
+        Err(e) => return (Err(entry_error(&machine, e)), RouteCounts::default()),
     };
     let mut runner = Runner::new(machine, limits, *policy, Box::new(terminal));
     let result = runner.run(delay, &mut Blocking(input), output);
+    let result = result.map_err(|e| runner.explain(e));
     (result, runner.counts)
+}
+
+/// Computing the entry failed with `e`: the error, naming the function that
+/// recursed too deeply if that was it.
+fn entry_error(machine: &Machine<'_>, e: ResourceError) -> RunError {
+    match (e, machine.depth_report()) {
+        (ResourceError::Depth, Some(report)) => RunError::Deep(report),
+        (e, _) => e.into(),
+    }
 }
 
 /// Steps `delay`, a partial computation that performs nothing (a test that
@@ -233,11 +243,13 @@ fn run_inner(
 /// limit.
 pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result<Value, RunError> {
     let mut runner = Runner::new(machine, limits, Policy::default(), Box::new(NoTerminal));
-    let driven = runner.drive(
-        Focus::Eval(delay),
-        &mut Blocking(&mut io::empty()),
-        &mut io::sink(),
-    )?;
+    let driven = runner
+        .drive(
+            Focus::Eval(delay),
+            &mut Blocking(&mut io::empty()),
+            &mut io::sink(),
+        )
+        .map_err(|e| runner.explain(e))?;
     match driven {
         Driven::Finished(v) => Ok(v),
         Driven::OutOfTicks | Driven::Waiting => unreachable!("no tick limit, and no input"),
@@ -415,6 +427,8 @@ struct Runner<'p, 't> {
     /// bottom, its continuation, and the `Map` frames it passed. Routing
     /// is done, so going on is performing it ([`Runner::perform_and_go_on`]).
     waiting: Option<HostOp>,
+    /// When the frame limit was hit here: what the pending frames were.
+    deepest: Option<String>,
 }
 
 /// An operation for the host, routed but not performed.
@@ -452,7 +466,52 @@ impl<'p, 't> Runner<'p, 't> {
             counts: RouteCounts::default(),
             terminal,
             waiting: None,
+            deepest: None,
         }
+    }
+
+    /// `e`, with which functions or frames were pending if it is the
+    /// recursion limit.
+    fn explain(&self, e: RunError) -> RunError {
+        if !matches!(e, RunError::Resource(ResourceError::Depth)) {
+            return e;
+        }
+        match self.m.depth_report().or_else(|| self.deepest.clone()) {
+            Some(report) => RunError::Deep(report),
+            None => e,
+        }
+    }
+
+    /// What the pending frames are, by kind: the effect runtime's own, for a
+    /// recursion that isn't in a pure function.
+    #[cold]
+    fn note_deepest(&mut self) {
+        let (mut binds, mut maps, mut ties, mut awaits, mut handlers) = (0, 0, 0, 0, 0);
+        for frame in &self.frames {
+            match frame {
+                Frame::Bind(_) => binds += 1,
+                Frame::Map(..) => maps += 1,
+                Frame::Tie(_) => ties += 1,
+                Frame::Await { .. } => awaits += 1,
+                Frame::Handle { .. } => handlers += 1,
+            }
+        }
+        let mut parts = Vec::new();
+        for (n, what) in [
+            (
+                binds,
+                "effectful calls waiting for a result (a recursion that isn't a tail call)",
+            ),
+            (awaits, "recursive calls waiting for a result"),
+            (ties, "recursive functions"),
+            (maps, "ability translations"),
+            (handlers, "handlers"),
+        ] {
+            if n > 0 {
+                parts.push(format!("{n} {what}"));
+            }
+        }
+        self.deepest = Some(format!("the effect runtime's frames: {}", parts.join(", ")));
     }
 
     /// Pushes `frame`, marking it if routing needs it.
@@ -470,6 +529,7 @@ impl<'p, 't> Runner<'p, 't> {
             return Err(ResourceError::Work);
         }
         if self.frames.len() > self.limits.frames {
+            self.note_deepest();
             return Err(ResourceError::Depth);
         }
         Ok(())

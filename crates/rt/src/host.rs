@@ -14,6 +14,10 @@ use stitchwort_syntax::{Diagnostic, Span};
 pub enum RunError {
     /// Evaluating the program ran out of resources.
     Resource(ResourceError),
+    /// Evaluating the program recursed too deeply: the same as
+    /// `Resource(ResourceError::Depth)`, with which functions had the most
+    /// pending calls.
+    Deep(String),
     /// Reading standard input failed.
     Read(io::Error),
     /// Line `line` (counting from 1) of the input isn't valid UTF-8.
@@ -40,6 +44,7 @@ impl fmt::Display for RunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RunError::Resource(e) => write!(f, "ran out of resources: {e}"),
+            RunError::Deep(_) => write!(f, "ran out of resources: {}", ResourceError::Depth),
             RunError::Read(e) => write!(f, "can't read standard input: {e}"),
             RunError::InvalidUtf8 { line } => {
                 write!(f, "line {line} of standard input isn't valid UTF-8")
@@ -64,6 +69,9 @@ impl RunError {
             RunError::Resource(e) => {
                 Diagnostic::from(*e).with_label(main, "while running this program")
             }
+            RunError::Deep(report) => Diagnostic::from(ResourceError::Depth)
+                .with_label(main, "while running this program")
+                .with_note(format!("the recursion was deepest in {report}")),
             RunError::Lowering(d) => d.clone(),
             RunError::OutputLimit { .. } => Diagnostic::error("E-OUTPUT", self.to_string())
                 .with_label(main, "while running this program"),

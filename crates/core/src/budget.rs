@@ -143,6 +143,11 @@ pub struct Budget {
     frame_limit: Cell<usize>,
     limits: Cell<Option<Limits>>,
     exhausted: Cell<Option<ResourceError>>,
+    /// When the frame limit was hit: the definitions with the most frames
+    /// pending, as (definition index, frames) pairs, most first.
+    deepest: RefCell<Vec<(usize, usize)>>,
+    /// The definition whose case tree the reference evaluator last entered.
+    entered: Cell<usize>,
     /// The host's cancellation flag, if it installed one.
     cancel: RefCell<Option<Arc<AtomicBool>>>,
     /// Whether the flag is being watched: only a check the host can cancel
@@ -165,6 +170,8 @@ impl Default for Budget {
             frame_limit: Cell::new(usize::MAX),
             limits: Cell::new(None),
             exhausted: Cell::new(None),
+            deepest: RefCell::new(Vec::new()),
+            entered: Cell::new(usize::MAX),
             cancel: RefCell::new(None),
             watching: Cell::new(false),
             cancelled: Cell::new(false),
@@ -429,6 +436,30 @@ impl Budget {
     #[inline]
     pub fn stack_exhausted(&self) -> bool {
         stack_position() < self.stack_floor.get()
+    }
+
+    /// The reference evaluator is entering definition `id`'s case tree.
+    #[inline]
+    pub fn enter_definition(&self, id: usize) {
+        self.entered.set(id);
+    }
+
+    /// The definition last entered, if any.
+    pub fn last_entered(&self) -> Option<usize> {
+        Some(self.entered.get()).filter(|id| *id != usize::MAX)
+    }
+
+    /// Records which definitions the pending frames belong to, for
+    /// whoever reports the recursion limit ([`Budget::take_deepest`]).
+    pub fn set_deepest(&self, deepest: Vec<(usize, usize)>) {
+        *self.deepest.borrow_mut() = deepest;
+    }
+
+    /// The definitions with the most frames pending when the frame limit was
+    /// hit (definition index, frames), most first; empty if it wasn't or
+    /// they're not known. Clears them.
+    pub fn take_deepest(&self) -> Vec<(usize, usize)> {
+        std::mem::take(&mut self.deepest.borrow_mut())
     }
 
     /// The evaluator is about to have `frames` frames of pending work.

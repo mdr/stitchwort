@@ -9,7 +9,7 @@ use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
-use stitchwort_elab::shown::{SHOWN_NODES, cut, first_difference};
+use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference};
 use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
@@ -795,8 +795,8 @@ pub struct Part {
     pub column: usize,
 }
 
-/// The two sides of a failed comparison, printed (short ones whole, long ones
-/// cut off with `…`).
+/// The two sides of a failed comparison, printed (up to `SHOWN_SIDE` characters
+/// each, then cut off with `…`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Comparison {
     /// The operator as written: `==`, `!=`, `=`, `<`, `<=`, `>` or `>=`.
@@ -1345,7 +1345,7 @@ impl Session {
         // never a crash (quoting a very long list nests as deep as it is
         // long, which overflows the WebAssembly stack).
         let limits = Limits {
-            size: SHOWN_NODES,
+            size: SHOWN_SIDE_NODES,
             ..self.elab.limits
         };
         let show = |term: &Term| -> (String, Option<Term>) {
@@ -1355,7 +1355,10 @@ impl Session {
                 return ("…".to_string(), None);
             };
             match stitchwort_core::value::quote(g, 0, &v) {
-                Ok(t) => (cut(&stitchwort_core::pretty::term(g, &[], &t)), Some(t)),
+                Ok(t) => (
+                    cut_to(&stitchwort_core::pretty::term(g, &[], &t), SHOWN_SIDE),
+                    Some(t),
+                ),
                 Err(_) => ("… (too large to show)".to_string(), None),
             }
         };

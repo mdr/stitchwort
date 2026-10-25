@@ -127,6 +127,9 @@ struct State {
     /// Native code for some functions the entry calls
     /// (`crate::native_abi`), if the run uses it.
     native: Option<Box<dyn NativeIslands>>,
+    /// When the frame limit was hit: the codes with the most pending frames,
+    /// and how many each had ([`Machine::depth_report`]).
+    deepest: Vec<(u32, usize)>,
 }
 
 /// The program a machine runs: borrowed, or shared with whatever else holds
@@ -183,6 +186,7 @@ impl<'p> Machine<'p> {
                 scratch: Vec::new(),
                 counts: EffectCounts::default(),
                 native: None,
+                deepest: Vec::new(),
             },
             program,
         }
@@ -212,6 +216,33 @@ impl<'p> Machine<'p> {
             Ret::Host,
         );
         self.finish(pending)
+    }
+
+    /// After the run stopped for recursing too deeply: which functions had
+    /// the most pending calls, as "`List.append` (120000 calls), …". A
+    /// function value that isn't a definition is "a lambda".
+    pub fn depth_report(&self) -> Option<String> {
+        if self.st.deepest.is_empty() {
+            return None;
+        }
+        let name = |code: u32| -> String {
+            if let Some(g) = self.image.global_code.iter().position(|c| *c == Some(code)) {
+                return format!("`{}`", self.program.globals[g].name);
+            }
+            if code == self.image.entry_code {
+                return "the program's entry".to_string();
+            }
+            "an anonymous function".to_string()
+        };
+        let parts: Vec<String> = self
+            .st
+            .deepest
+            .iter()
+            // Only the ones with a real share (the entry has one frame).
+            .filter(|&&(_, count)| count * 10 >= self.st.deepest[0].1)
+            .map(|&(code, count)| format!("{} ({count} frames pending)", name(code)))
+            .collect();
+        Some(parts.join(", "))
     }
 
     /// The compiled code it runs.
@@ -299,6 +330,20 @@ impl State {
         v
     }
 
+    /// Records which functions the pending frames belong to: the three with
+    /// the most.
+    #[cold]
+    fn note_deepest(&mut self) {
+        let mut counts: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+        for frame in &self.frames {
+            *counts.entry(frame.code).or_insert(0) += 1;
+        }
+        let mut counts: Vec<(u32, usize)> = counts.into_iter().collect();
+        counts.sort_by_key(|&(code, count)| (std::cmp::Reverse(count), code));
+        counts.truncate(3);
+        self.deepest = counts;
+    }
+
     #[inline]
     fn enter_frame(&mut self) -> Result<()> {
         self.steps += 1;
@@ -306,6 +351,7 @@ impl State {
             return Err(ResourceError::Work);
         }
         if self.frames.len() >= self.limits.frames {
+            self.note_deepest();
             return Err(ResourceError::Depth);
         }
         Ok(())

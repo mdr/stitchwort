@@ -48,7 +48,9 @@ fn ended(output: Vec<u8>, result: Result<(), RunError>) -> Ran {
         String::from_utf8(output).expect("text"),
         result.map_err(|e| match e {
             RunError::Resource(ResourceError::Work) => "out of steps".to_string(),
-            RunError::Resource(ResourceError::Depth) => "out of frames".to_string(),
+            RunError::Resource(ResourceError::Depth) | RunError::Deep(_) => {
+                "out of frames".to_string()
+            }
             other => other.to_string(),
         }),
     )

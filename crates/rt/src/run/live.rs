@@ -30,7 +30,7 @@ use std::collections::VecDeque;
 use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
 
-use super::{Driven, Focus, ReadNeed, Routed, RunInput, Runner};
+use super::{Driven, Focus, ReadNeed, Routed, RunInput, Runner, entry_error};
 use crate::host::{RunError, Terminal};
 use crate::ir::Program;
 use crate::machine::{Limits, Machine};
@@ -111,7 +111,7 @@ impl LiveRun {
         terminal: Box<dyn Terminal>,
     ) -> Result<LiveRun, RunError> {
         let mut machine = Machine::shared(program, limits.machine);
-        let delay = machine.entry()?;
+        let delay = machine.entry().map_err(|e| entry_error(&machine, e))?;
         Ok(LiveRun {
             runner: Runner::new(machine, limits.machine, Policy::default(), terminal),
             input: LiveInput::default(),
@@ -207,6 +207,8 @@ impl LiveRun {
             }
             Ok(Driven::OutOfTicks) => unreachable!("a live run has no tick limit"),
             Err(error) => {
+                // Named before the frames go, as `run_main_on` names it.
+                let error = self.runner.explain(error);
                 self.end();
                 Err(match error {
                     RunError::Write(_) if full => RunError::OutputLimit {

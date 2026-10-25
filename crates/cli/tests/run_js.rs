@@ -233,6 +233,30 @@ def main () : {IO} () :=
     assert!(stderr.contains("while running this program"), "{stderr}");
 }
 
+/// Running out of stack names the function that recursed (from the engine's
+/// stack trace).
+#[test]
+fn running_out_of_stack_names_the_function() {
+    let path = source_file(
+        "deep.sw",
+        r#"
+import Std (List, Nat)
+
+def build (n: Nat): List Nat :=
+  match n with
+    | 0 => []
+    | Succ m => List.append (build m) [n]
+
+def main () : {IO} () := IO.print (Nat.toText (build 20000000).length)
+"#,
+    );
+    let js = run(&path, true, b"");
+    assert_eq!(js.status.code(), Some(2), "{}", text(&js.stderr));
+    let stderr = text(&js.stderr);
+    assert!(stderr.contains("[E-RESOURCE]"), "{stderr}");
+    assert!(stderr.contains("`Main.build`"), "{stderr}");
+}
+
 /// Without Node, `run --js` says what's missing.
 #[test]
 fn a_missing_node_is_reported() {
