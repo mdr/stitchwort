@@ -2703,14 +2703,16 @@
     {
       "id": 465,
       "title": "Partial stage 3 design: partial callbacks through the one List.map (divergence row marker, Koka div); D1182 partial-call speed folded in",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "b849e6b5"
+      ]
     }
   ]
 }
