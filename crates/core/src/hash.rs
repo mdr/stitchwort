@@ -125,6 +125,7 @@ pub fn def_hash(g: &Globals, id: DefId) -> Result<Option<ContentHash>> {
     if def.instance {
         h.tag("instance");
     }
+    h.opacity(def)?;
     h.term(&def.ty)?;
     h.term(body)?;
     let hash = h.finish();
@@ -198,6 +199,7 @@ fn group_hashes(g: &Globals, members: &[DefId]) -> Result<()> {
         if def.instance {
             h.tag("instance");
         }
+        h.opacity(def)?;
         h.term(&def.ty)?;
         h.term(body)
     };
@@ -397,6 +399,29 @@ impl<'g> Hasher<'g> {
         self.usize(data.indices.len());
         for (_, ty) in &data.indices {
             self.term(ty)?;
+        }
+        Ok(())
+    }
+
+    /// Whether definition `def` is opaque, and if so its `unfolding` list as
+    /// written (docs/proposals/opaque-definitions.md §6.6): each name as its
+    /// declaration's hash (a group-mate is never listed), in the order of
+    /// those hashes, once each. Nothing for a transparent definition, which
+    /// has no list, so the hashes of those don't change.
+    fn opacity(&mut self, def: &crate::globals::Def) -> Result<()> {
+        if !def.opaque {
+            return Ok(());
+        }
+        self.tag("opaque");
+        let mut unfolded = Vec::new();
+        for &id in def.unfolding.iter() {
+            unfolded.push(def_hash(self.g, id)?.map_or([0; 32], |h| h.0));
+        }
+        unfolded.sort_unstable();
+        unfolded.dedup();
+        self.usize(unfolded.len());
+        for hash in &unfolded {
+            self.bytes(hash);
         }
         Ok(())
     }
