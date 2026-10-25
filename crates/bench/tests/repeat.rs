@@ -13,13 +13,39 @@ fn counts_repeat_within_a_process() {
         eprintln!("skipped: run in a release build (`cargo test --release`)");
         return;
     }
-    // About 95 s: serial by nature (allocations are counted per process).
-    if !stitchwort_driver::driver::slow_tier("counts_repeat_within_a_process") {
-        return;
+    // The slow tier repeats the whole example sweep: about 190 s, serial by
+    // nature (allocations are counted per process). The fast tier repeats a
+    // few small benchmarks, which catch one-time work the same way (the
+    // first run builds whatever the later ones find done).
+    let all = stitchwort_driver::driver::slow_tier_on();
+    if !all {
+        eprintln!("repeating a few small benchmarks only: slow tier off (`dev/t slow`)");
     }
-    let examples = programs::ALL.iter().find(|b| b.name == "examples").unwrap();
-    let outcome = run(examples, 2, false).expect("the examples run");
-    if let Some(variation) = outcome.variation {
-        panic!("the examples' counts differed between two runs in one process:\n{variation}");
+    let chosen: Vec<_> = programs::ALL
+        .iter()
+        .filter(|b| {
+            if all {
+                b.name == "examples"
+            } else {
+                FAST.contains(&b.name)
+            }
+        })
+        .collect();
+    assert_eq!(
+        chosen.len(),
+        if all { 1 } else { FAST.len() },
+        "benchmark names changed"
+    );
+    for benchmark in chosen {
+        let outcome = run(benchmark, 2, false).expect("the benchmark runs");
+        if let Some(variation) = outcome.variation {
+            panic!(
+                "{}'s counts differed between two runs in one process:\n{variation}",
+                benchmark.name
+            );
+        }
     }
 }
+
+/// The benchmarks repeated outside the slow tier.
+const FAST: &[&str] = &["eval-lengths", "run-prints", "check-long-sum"];

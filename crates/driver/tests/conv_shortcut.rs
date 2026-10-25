@@ -14,7 +14,7 @@
 use std::path::Path;
 
 use stitchwort_core::value::set_shortcuts_disabled;
-use stitchwort_driver::driver::{Session, with_stack};
+use stitchwort_driver::driver::{Session, par_map, with_stack};
 
 const STACK: usize = 64 * 1024 * 1024;
 
@@ -37,7 +37,8 @@ fn examples() -> Vec<(String, String)> {
 }
 
 /// The outcome of checking `text`, prelude included, with the shortcut on or
-/// off: every diagnostic, in full.
+/// off: every diagnostic, in full. The switch is per thread, so examples can
+/// be checked side by side (`par_map`).
 fn verdict(name: &str, text: &str, shortcuts: bool) -> String {
     set_shortcuts_disabled(!shortcuts);
     let mut session = Session::for_stack(STACK);
@@ -51,15 +52,13 @@ fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
     with_stack(STACK, || {
         let examples = examples();
         assert!(examples.len() > 250, "only {} examples", examples.len());
-        let mut rejected = 0;
-        for (name, text) in &examples {
+        let verdicts = par_map(STACK, &examples, |(name, text)| {
             let with = verdict(name, text, true);
             let without = verdict(name, text, false);
             assert_eq!(with, without, "{name}: the verdict depends on the shortcut");
-            if with.starts_with("Err") {
-                rejected += 1;
-            }
-        }
+            with.starts_with("Err")
+        });
+        let rejected = verdicts.iter().filter(|rejected| **rejected).count();
         assert!(rejected > 200, "only {rejected} rejections compared");
     });
 }

@@ -1,0 +1,36 @@
+# cargo-nextest settings (the gate, `dev/t gate`/`full`, and by hand).
+# Nextest runs every test in its own process. Per-process state (statics,
+# thread-locals, allocation counters, pid-named temp dirs) is therefore never
+# shared between tests; state shared through the file system is, so a test
+# group below serialises the tests that need it.
+
+[profile.default]
+# Memory is the limit, not cores: each test thread can hold a large stack and
+# a whole elaborated library.
+test-threads = 4
+fail-fast = false
+slow-timeout = { period = "120s" }
+
+# `cargo nextest run --profile ci`: the same, plus a JUnit report with the
+# time of every test, at target/nextest/ci/junit.xml.
+[profile.ci]
+test-threads = 4
+fail-fast = false
+slow-timeout = { period = "120s" }
+
+[profile.ci.junit]
+path = "junit.xml"
+
+[test-groups]
+# crates/cli/tests/lsp.rs keeps one warm copy of the AoC project under
+# CARGO_TARGET_TMPDIR, deleted and rebuilt by whichever test gets there first
+# (a OnceLock per process under `cargo test`, but one per test here).
+lsp-aoc-copy = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "package(stitchwort-cli) & binary(lsp)"
+test-group = "lsp-aoc-copy"
+
+[[profile.ci.overrides]]
+filter = "package(stitchwort-cli) & binary(lsp)"
+test-group = "lsp-aoc-copy"
