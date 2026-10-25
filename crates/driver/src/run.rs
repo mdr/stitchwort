@@ -418,9 +418,6 @@ impl Session {
             Machine::start(g, force(g, eval(g, &[], &main.term)?)?)
         };
         loop {
-            if policy.max_ticks.is_some_and(|max| ticks >= max) {
-                return Ok(Outcome::OutOfTicks);
-            }
             let mut obs = {
                 let _op = g.budget.operation(self.elab.limits);
                 machine.step(g)?
@@ -430,6 +427,11 @@ impl Session {
                 match obs {
                     Obs::Now(_) => return Ok(Outcome::Finished),
                     Obs::Later(rest) => {
+                        // A limit of `n` allows exactly `n` ticks (docs/proposals/partial.md
+                        // §7.4.3): stop on needing the next one.
+                        if policy.max_ticks.is_some_and(|max| ticks >= max) {
+                            return Ok(Outcome::OutOfTicks);
+                        }
                         ticks += 1;
                         trace(Event::Tick);
                         machine = rest;
