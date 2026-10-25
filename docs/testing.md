@@ -48,6 +48,7 @@ When the daily tier grows past 5 minutes, cut it from nextest's own times (`targ
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
 | `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests | 4 s |
 | `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
+| `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) | 2 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
 | `aoc` | every AoC day on its real input (`aoc_answers` `dayNN`) | 6 s |

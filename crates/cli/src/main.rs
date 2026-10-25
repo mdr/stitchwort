@@ -167,6 +167,26 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Tools for working on Stitchwort itself
+    #[command(hide = true, subcommand)]
+    Dev(DevCommand),
+}
+
+#[derive(Subcommand)]
+enum DevCommand {
+    /// Stage N0 of docs/proposals/native-compilation.md: JIT-compile the
+    /// Cranelift spike, check it and print its measurements. Needs a build
+    /// with the `native` feature (`cargo build --release -p stitchwort-cli
+    /// --features native`)
+    NativeSpike {
+        /// How many calls of `sum(20)` to time for the per-call cost
+        #[arg(long, default_value_t = 1_000_000)]
+        rounds: u64,
+        /// Where compiled code goes: `system` (cranelift-jit's own memory)
+        /// or, on macOS on Apple Silicon, `map-jit` (the default there)
+        #[arg(long)]
+        memory: Option<String>,
+    },
 }
 
 /// `check --counterexamples` (docs/proposals/counterexample-search.md
@@ -341,7 +361,39 @@ fn run(cli: Cli) -> ExitCode {
             cache,
             ..
         } => build(&target, &out, source_map, project.as_deref(), &cache),
+        Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
+            native_spike(rounds, memory.as_deref())
+        }
     }
+}
+
+#[cfg(feature = "native")]
+fn native_spike(rounds: u64, memory: Option<&str>) -> ExitCode {
+    let memory = match memory.map(str::parse).transpose() {
+        Ok(memory) => memory.unwrap_or_default(),
+        Err(e) => {
+            eprintln!("error: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match stitchwort_native::checks::report(memory, rounds) {
+        Ok(report) => {
+            print!("{report}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(not(feature = "native"))]
+fn native_spike(_rounds: u64, _memory: Option<&str>) -> ExitCode {
+    eprintln!(
+        "error: this `stitchwort` was built without native code; build it with `--features native`"
+    );
+    ExitCode::FAILURE
 }
 
 /// A target is a file if it ends in `.sw` or has a `/`; otherwise it's a

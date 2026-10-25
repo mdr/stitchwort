@@ -25,6 +25,13 @@ lsp-server.workspace = true
 lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# Native code through Cranelift (docs/proposals/native-compilation.md):
+# only with the `native` feature, which is off by default.
+stitchwort-native = { workspace = true, optional = true }
+
+[features]
+# `stitchwort dev native-spike` (stage N0), and later `run --native`.
+native = ["dep:stitchwort-native"]
 
 [dev-dependencies]
 insta.workspace = true
