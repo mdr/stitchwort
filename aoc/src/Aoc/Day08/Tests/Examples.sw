@@ -33,6 +33,7 @@ test "separate circuits" := (Circuits.separate 3).sizes 3 == [1, 1, 1] && (Circu
 test "join" :=
   let joined := (Circuits.separate 4).join 0 1 |> .join 2 1
   (joined.count, joined.sizes 4, joined.labelOf 0 == joined.labelOf 2, joined.labelOf 3 == joined.labelOf 0) == (2, [3, 1], True, False)
+test "sizes come in the order of the labels" := ((Circuits.separate 3).join 0 2).sizes 3 == [1, 2]
 test "joining boxes in one circuit changes nothing" := (((Circuits.separate 3).join 0 1).join 1 0).count == 2
 test "example part 1" := example.map (solvePart1 10) == Ok 40
 test "example part 2" := example.map solvePart2 == Ok (Some 25272)

@@ -110,13 +110,10 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
 def Circuits.connect (circuits: Circuits) (connection: Connection): Circuits :=
   circuits.join connection.first connection.second
 
--- How many boxes are in each circuit, a circuit counted once, at its first
--- (lowest-numbered) box.
+-- How many boxes are in each circuit, one number per circuit, in the order
+-- of the circuits' labels: how often each label comes up among the boxes'.
 def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
-  let labels := List.range boxes |> .map circuits.labelOf
-  List.range boxes
-    |> .filter (box => !(labels.take box |> .any (label => label == circuits.labelOf box)))
-    |> .map (box => labels.count (label => label == circuits.labelOf box))
+  List.range boxes |> .map circuits.labelOf |> Map.counts |> Map.values
 
 -- Part 1: join the closest `connections` pairs (1,000 for the puzzle input,
 -- 10 for its example), then multiply the sizes of the three biggest circuits.
