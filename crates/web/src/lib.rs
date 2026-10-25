@@ -1073,6 +1073,32 @@ mod tests {
         assert!(cut.contains(r"tick\ntick\n"), "{cut}");
     }
 
+    /// A partial `main` may fail (docs/proposals/partial-stage-2.md): the
+    /// output so far, then the error, as for a total `main` with `Fail`.
+    #[test]
+    fn a_partial_main_that_may_fail_shows_its_output_then_the_error() {
+        let source = include_str!("../../../examples/accept/main-fail-partial.sw");
+        assert_eq!(
+            run(source, "1\n2\n", 1000),
+            r#"{"ok":true,"output":"total so far 1\ntotal so far 3\nsum 3\n"}"#
+        );
+        assert_eq!(
+            run(source, "1\n2\nx\n4\n", 1000),
+            r#"{"ok":false,"errors":"error: expected a whole number, got 'x'\n","output":"total so far 1\ntotal so far 3\n"}"#
+        );
+        let deep = include_str!("../../../examples/accept/main-fail-partial-deep.sw");
+        assert_eq!(
+            run(deep, "descend\n1000000\n", 1000),
+            r#"{"ok":false,"errors":"error: hit the bottom\n","output":"going 1000000 deep\n"}"#
+        );
+        // A total `main` with `Fail` shows the same.
+        let total = include_str!("../../../examples/accept/main-fail.sw");
+        assert_eq!(
+            run(total, "", 1000),
+            r#"{"ok":false,"errors":"error: expected a whole number, got 'x3'\n","output":"reading the numbers\n"}"#
+        );
+    }
+
     #[test]
     fn reports_why_main_cant_run() {
         let no_main = run("def x : Nat := 1\n", "", 1000);

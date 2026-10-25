@@ -22,8 +22,8 @@ use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
 use crate::fusion::StateFusion;
 use crate::hoist::SigMaps;
 use crate::ir::{
-    Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind,
-    PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
+    Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MainRow,
+    MatchKind, PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
 };
 use crate::natives::{FloatPrim, IntNative, Representation, TextNative};
 use crate::opt::{Types, optimize};
@@ -38,12 +38,18 @@ fn internal(message: impl Into<String>) -> Diagnostic {
 }
 
 /// Lowers the program that runs `main`: the closed term of type
-/// `{IO, Partial} ()` that `stitchwort run` runs (`Main`'s term in the
-/// driver), with every definition it uses. Uses at most `limits.stack`
-/// bytes of stack: a definition nested too deeply for that is an
-/// `E-RESOURCE` error.
-pub fn lower_main(g: &Globals, limits: Limits, main: &Term) -> Result<Program> {
-    lower_program(g, limits, main)
+/// `{IO, Partial} ()` (`row` [`MainRow::Io`]) or `{IO, Fail, Partial} ()`
+/// ([`MainRow::FailIo`]) that `stitchwort run` runs (`Main`'s term and row
+/// in the driver), with every definition it uses. Uses at most
+/// `limits.stack` bytes of stack: a definition nested too deeply for that
+/// is an `E-RESOURCE` error.
+pub fn lower_main(g: &Globals, limits: Limits, main: &Term, row: MainRow) -> Result<Program> {
+    if row == MainRow::FailIo && g.registry.loaded_data(Builtin::Fail).is_none() {
+        return Err(internal("a `main` that may fail, with `Fail` not loaded"));
+    }
+    let mut program = lower_program(g, limits, main)?;
+    program.main_row = row;
+    Ok(program)
 }
 
 /// Lowers global `id` and every definition it uses; the program's entry is
@@ -168,6 +174,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
         lambdas: cx.lambdas,
         types: cx.types,
         entry,
+        main_row: MainRow::Io,
         shapes: shapes(g)?,
     };
     optimize(&mut program, types);
@@ -238,6 +245,10 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         print: ctor(Builtin::Print, 1)?,
         read_line: ctor(Builtin::ReadLine, 1)?,
         read_all: ctor(Builtin::ReadAll, 1)?,
+        stop: match g.registry.loaded_data(Builtin::Fail) {
+            Some(d) => shape(g, d, 0, 1)?,
+            None => u32::MAX,
+        },
     })
 }
 

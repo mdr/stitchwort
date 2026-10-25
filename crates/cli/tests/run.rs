@@ -376,31 +376,192 @@ fn a_project_function_that_may_fail_runs() {
     fails_with_message(&run_in(&dir, name, b"bad\n"));
 }
 
-// SW-435: when `main`'s type is runnable but the call that runs it doesn't
-// check, `run` reports that error, not the generic type note.
+// SW-435: a `main` with `Fail` used to be wrapped in `Std.Fail.recover (m =>
+// Some m) …`, which wrote `Option Text` with `Text` as the program saw it.
+// The runner performs `Fail` itself now (docs/proposals/partial-stage-2.md),
+// and the call it builds names nothing the program can shadow.
 #[test]
-fn a_main_with_a_runnable_type_reports_why_its_call_does_not_check() {
-    // The wrapper writes `Option Text` with `Text` as the program sees it.
+fn a_main_that_may_fail_runs_whatever_the_program_declares() {
     let path = source_file(
         "shadowed-text.sw",
         "import Std (Fail)\n\ndef Text : Type := Nat\n\ndef main(): {IO, Fail} () := ()\n",
     );
+    assert_eq!(succeeds(&path, b""), "");
+}
+
+/// `main` may be `{IO, Fail, Partial}`, or any part of it, but nothing more.
+#[test]
+fn a_main_may_have_fail_with_partial_and_nothing_else() {
+    for (name, row) in [
+        ("io-fail-partial.sw", "{IO, Fail, Partial}"),
+        ("fail-partial.sw", "{Fail, Partial}"),
+        ("partial-fail.sw", "{Partial, Fail}"),
+    ] {
+        let path = source_file(
+            name,
+            &format!("import Std (Fail)\n\ndef main(): {row} () := ()\n"),
+        );
+        assert_eq!(succeeds(&path, b""), "", "{row}");
+    }
+    let path = source_file(
+        "fail-partial-log.sw",
+        "import Std (Fail)\n\n\
+         ability Log where\n  \
+         log: Text -> {Log} ()\n\n\
+         def main(): {IO, Fail, Partial, Log} () := Log.log \"hi\"\n",
+    );
     let output = run(&path, b"");
-    let message = stderr(&output);
-    assert!(!message.contains("E-MAIN-TYPE"), "{message}");
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
     assert!(
-        message.contains("(while preparing `main` to run)"),
-        "{message}"
+        stderr(&output).contains("[E-MAIN-TYPE]")
+            && stderr(&output).contains("`() -> {IO, Fail, Partial} ()`"),
+        "{}",
+        stderr(&output)
     );
 }
 
+/// Runs `stitchwort run [flag] path` with `input` piped to it, for each of
+/// the three runners: native, `--js` and `--reference`. Each run's stdout,
+/// stderr and exit status.
+fn run_three_ways(path: &Path, input: &[u8]) -> Vec<(&'static str, String, String, Option<i32>)> {
+    ["", "--js", "--reference"]
+        .into_iter()
+        .map(|flag| {
+            let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+            command.args(["run", "--no-cache"]);
+            if !flag.is_empty() {
+                command.arg(flag);
+            }
+            let mut child = spawn(
+                command
+                    .arg(path)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped()),
+            );
+            let mut stdin = child.stdin.take().unwrap();
+            let input = input.to_vec();
+            let writer = std::thread::spawn(move || {
+                let _ = stdin.write_all(&input);
+            });
+            let output = child.wait_with_output().expect("run stitchwort");
+            writer.join().unwrap();
+            (
+                flag,
+                stdout(&output).to_string(),
+                stderr(&output).to_string(),
+                output.status.code(),
+            )
+        })
+        .collect()
+}
+
+/// Every runner prints `stdout`, then `stderr` on standard error, and exits
+/// with `status`.
+fn same_three_ways(path: &Path, input: &[u8], out: &str, err: &str, status: i32) {
+    for (flag, got_out, got_err, got_status) in run_three_ways(path, input) {
+        let what = format!(
+            "{} {flag} with {:?}",
+            path.display(),
+            String::from_utf8_lossy(input)
+        );
+        assert_eq!(got_out, out, "{what}\n{got_err}");
+        assert_eq!(got_err, err, "{what}");
+        assert_eq!(got_status, Some(status), "{what}");
+    }
+}
+
+// Partial stage 2 (docs/proposals/partial-stage-2.md): `main` may be
+// `{IO, Fail, Partial}`, and the runner performs `Fail` itself, as it
+// performs `IO.print`.
+
+/// A partial read loop that fails on a bad line: what it printed stays, the
+/// message goes to standard error, and the exit status is 1, alike on every
+/// runner.
 #[test]
-fn an_unrunnable_main_lists_fail_among_the_allowed_abilities() {
-    let path = source_file(
-        "partial-fail.sw",
-        "import Std (Fail)\n\ndef main(): {IO, Partial, Fail} () := ()\n",
+fn a_partial_main_that_may_fail_runs_three_ways() {
+    let path = example("main-fail-partial.sw");
+    same_three_ways(
+        &path,
+        b"1\n2\n",
+        "total so far 1\ntotal so far 3\nsum 3\n",
+        "",
+        0,
     );
-    assert_eq!(fails(&path, b"", "E-MAIN-TYPE"), "");
+    same_three_ways(
+        &path,
+        b"1\n2\nx\n4\n",
+        "total so far 1\ntotal so far 3\n",
+        "error: expected a whole number, got 'x'\n",
+        1,
+    );
+    // Failing before printing anything.
+    same_three_ways(
+        &path,
+        b"x\n",
+        "",
+        "error: expected a whole number, got 'x'\n",
+        1,
+    );
+}
+
+/// A failure a million calls deep in partial recursion, with a million
+/// callers waiting on it, and one after a million iterations of a tail
+/// loop: neither overflows, on any runner.
+#[test]
+fn a_failure_deep_in_partial_recursion_doesnt_overflow() {
+    let path = example("main-fail-partial-deep.sw");
+    same_three_ways(
+        &path,
+        b"descend\n1000000\n",
+        "going 1000000 deep\n",
+        "error: hit the bottom\n",
+        1,
+    );
+    same_three_ways(
+        &path,
+        b"countdown\n1000000\n",
+        "going 1000000 deep\n",
+        "error: counted down to 0\n",
+        1,
+    );
+}
+
+/// The `{IO, Fail}` examples behave as before stage 2, now that the runner
+/// performs `Fail` rather than a `Fail.recover` wrapper handling it.
+#[test]
+fn a_total_main_that_may_fail_runs_three_ways() {
+    same_three_ways(
+        &example("main-fail.sw"),
+        b"",
+        "reading the numbers\n",
+        "error: expected a whole number, got 'x3'\n",
+        1,
+    );
+    same_three_ways(
+        &example("main-fail-ok.sw"),
+        b"",
+        "reading the numbers\ntotal 6\n",
+        "",
+        0,
+    );
+}
+
+/// A handler still can't take a partial computation: handling `Fail` around
+/// a partial search is refused (partial.md §7.3.8), as before.
+#[test]
+fn fail_still_cant_be_handled_around_partial_code() {
+    let path = source_file(
+        "handled-partial.sw",
+        "import Std (Fail, Result)\n\n\
+         def search (n: Nat): {Fail, Partial} Nat :=\n  \
+         if n > 1000 then Fail.fail \"gave up\" else if n * n == 1764 then n else search (n + 1)\n\n\
+         def main(): {IO, Partial} () :=\n  \
+         match Fail.toResult (() => search 0) with\n    \
+         | Ok n => IO.print \"found ${n}\"\n    \
+         | Err message => IO.print message\n",
+    );
+    assert_eq!(fails(&path, b"", "E-PARTIAL"), "");
 }
 
 #[test]
