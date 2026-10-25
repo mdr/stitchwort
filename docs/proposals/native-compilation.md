@@ -4,7 +4,9 @@
 changes the compiler. The experiments were scratch programs and aren't
 committed; their code is described in [Appendix A](#appendix-a-the-experiments)
 so they can be rewritten. Decisions are at the [end](#decisions) (D1250–D1253).
-**Stopped for Matt's review.**
+Matt has decided D1250 and D1251; D1252 and D1253 are open. An external
+reviewer read this note, and what changed is in
+[External review](#external-review-25-october-2026).
 
 Claims are marked like this:
 - **[ran]**: measured for this note on an Apple M4 Pro, with
@@ -22,6 +24,12 @@ note.
 
 ## 0. Summary
 
+**The thesis.** N1–N5 build a native executor for decisions the machine
+compiler already makes, not a new optimiser. The bytecode has fixed the
+registers, moves, drops and reuse; the native code carries them out without
+the interpreter's overhead. A new optimiser, or a new representation of
+data, is a separate project that comes after this one works.
+
 **The question.** How could Stitchwort be compiled to machine code for the
 most speed, and what would it cost?
 
@@ -37,7 +45,8 @@ overflow-checked numbers and its comparison through the instance
 dictionary. That is roughly what a straightforward compiler from today's IR
 would emit. It does the million inserts in **0.68 s**, against **8.7 s** on the
 machine and **3.2 s** under Node **[ran]**:
-- about **13× faster** than the machine;
+- about **13× faster** than the machine, an optimistic upper bound for a
+  real compiler;
 - about **10×** with inlining turned off, which stands in for a simpler code
   generator;
 - a version that also stores numbers unboxed in the nodes takes **0.12 s**,
@@ -46,9 +55,16 @@ machine and **3.2 s** under Node **[ran]**:
 On bare calls, the machine spends about 37 ns per call and return. Native
 code spends 0.6 ns, or 2.2 ns with the bookkeeping that stack safety and
 resource limits need. These are upper bounds: a real compiler adds
-overheads the hand translation skips (§3.4). But they say native code is
-worth roughly an order of magnitude here, not the 2–5× that
-[fast-runtime.md](fast-runtime.md) guessed.
+overheads the hand translation skips (§3.4). So the claim is:
+- **the target is at least 3×** over the machine (the N1 stop/go number);
+- **4–8× is plausible** on call-heavy programs;
+- **10–13× is the hand translation's optimistic upper bound** on this
+  benchmark.
+
+That is more than the 2–5× that [fast-runtime.md](fast-runtime.md) guessed.
+Being faster than Node is not a success criterion: V8 can optimise a given
+generated program very differently, so that comparison is less robust than
+the one against the machine.
 
 **How others do it** (§2):
 - Lean 4 and Koka generate C, with reference counting and reuse in place.
@@ -73,8 +89,9 @@ Two features make Stitchwort unusually easy to compile:
    - It needs no C compiler or other tool at run time.
    - It keeps reference counting and reuse exactly as the machine decides
      them.
-   - It runs on a thread with a large stack, with a cheap depth check at each
-     call so that deep recursion reports `E-RESOURCE` instead of crashing.
+   - It counts frames and steps at each call (from N1), so that deep
+     recursion reports `E-RESOURCE`. The counter defines the limit; a thread
+     with a large reserved stack (N2) is only a safety margin behind it.
 2. **The playground keeps the machine.** Cranelift can't run the code it
    makes inside a browser.
 3. **Later, separately:**
@@ -84,7 +101,9 @@ Two features make Stitchwort unusually easy to compile:
      executable.
 
 About 8–10 lanes in all, each one stage, behind a `--native` flag until it
-passes the differential tests (§6).
+passes the differential tests (§6). N1 is a stop point: if it doesn't reach
+3× with the counters in, stop and re-plan. The riskiest part of N1 is the
+boundary between native code and the machine (§4.6).
 
 **Not recommended:**
 - LLVM: a heavy build and a version to keep up with.
@@ -320,8 +339,14 @@ that, at the cost of allocating a cell per pending `bind`.
      Roc, Effekt). It's fastest, and it's where Perceus's gains come from.
      But it's the most work, and every one of these projects has rewritten
      its backend at least once.
-- **Nobody listed uses Cranelift.** That is a gap in prior art, not evidence
-  against it. Cranelift is used for Wasm and for Rust debug builds (§2.10).
+- **No mature production functional language uses Cranelift as its primary
+  backend.** None of the projects above does. Haskelujah, a Haskell compiler,
+  has a Cranelift backend with closures, thunks, tagged constructors and
+  pattern matching
+  ([docs.rs](https://docs.rs/haskelujah-backend-cranelift/latest/haskelujah_backend_cranelift/),
+  version 0.1.1, opened for this note). It is early work, so it isn't strong
+  prior art, but it means "nobody does" would be too strong. This is a gap in
+  prior art, not evidence against Cranelift. Cranelift is used for Wasm and for Rust debug builds (§2.10).
 - **Effects are the hard part elsewhere:**
   - OCaml 5 needed segmented stacks.
   - Effekt needed a custom calling convention.
@@ -356,11 +381,21 @@ that, at the cost of allocating a cell per pending `bind`.
 - **macOS arm64:**
   - `cranelift-jit` maps its code memory with an ordinary anonymous mapping,
     without `MAP_JIT`. The research agent checked this in the source.
-  - A maintainer says the kernel enforces write-xor-execute "only when
-    hardened runtime is enabled"
-    ([wasmtime#12076](https://github.com/bytecodealliance/wasmtime/issues/12076)).
-    So a plain CLI works, but a signed, hardened build would need `MAP_JIT`.
-    Stage N0 must check this.
+  - A contributor (bjorn3) says the kernel enforces write-xor-execute "only
+    when hardened runtime is enabled", and that `MAP_JIT` isn't needed
+    otherwise
+    ([wasmtime#12076](https://github.com/bytecodealliance/wasmtime/issues/12076),
+    opened for this note). The issue itself was closed as a duplicate of
+    #11989, which I didn't open, so its outcome is unknown to me.
+  - The wasmer-sdk Swift README says "the pinned Cranelift runtime maps
+    generated code without `MAP_JIT`", so an app with Hardened Runtime needs
+    the entitlement `com.apple.security.cs.allow-unsigned-executable-memory`,
+    and `allow-jit` alone doesn't cover it
+    ([README](https://github.com/wasmerio/wasmer-sdk/blob/main/swift/README.md),
+    opened for this note). It also says Cranelift is a problem on iOS, which
+    forbids runtime code generation. We don't target iOS.
+  - So a plain CLI should work, but a signed or hardened build may need an
+    entitlement or `MAP_JIT`. Stage N0 must check each case (§6).
   - Writing object files instead has an open arm64 Darwin relocation bug
     ([wasmtime#4564](https://github.com/bytecodealliance/wasmtime/issues/4564)).
     That's a reason to JIT rather than write `.o` files.
@@ -513,9 +548,11 @@ run).
 
 ### 3.3 What it shows
 
-- **Most of the machine's time is interpretation, not work.** The same
-  memory layout, the same counts and the same reuse, run as machine code,
-  are 10–13× faster. That matches the call micro-benchmark (§1.3): about
+- **Execution through the interpreter is the dominant avoidable cost on this
+  workload.** The same memory layout, the same counts and the same reuse,
+  run as machine code, are 10–13× faster. (This removes dispatch, register
+  access, call and return and frame handling together; dispatch alone is
+  only about 19% of the profile, §1.2.) That matches the call micro-benchmark (§1.3): about
   37 ns per call on the machine against 1–2 ns natively.
 - **The value layout is the next factor after that.** Typed nodes are
   another 5–6× faster than uniform ones:
@@ -543,9 +580,15 @@ The hand translation skips things a real backend must do:
    `shape`'s result is matched at once. A compiler from the bytecode would
    materialise a `Value::Tag` and switch on it. That's cheap, but not free.
 
-**Estimate for a Cranelift backend on today's representation: 4–8× faster
-than the machine on this benchmark, so 1.5–3× faster than Node**
-**[inferred]**. It's an estimate until stage N1 measures it (§6).
+**Claim for a Cranelift backend on today's representation [inferred]:**
+- **target: at least 3×** faster than the machine on this benchmark;
+- **plausible: 4–8×** on call-heavy programs;
+- **the hand translation's 10–13×** is an optimistic upper bound, not a
+  forecast.
+
+The evidence shows there is headroom for a several-fold gain. It doesn't
+separate 3×, 5× and 8× well, and 4× must not later be read as a failure.
+Speed against Node isn't a criterion. Stage N1 measures the real number (§6).
 
 ## 4. What maps onto machine code, and how
 
@@ -614,11 +657,23 @@ This is the main design question for any native backend:
   (`machine.rs:19-21, 36-41`).
 
 The design **[inferred]**:
-- **Run compiled code on its own thread with a big reserved stack.** On
-  64-bit systems a large stack is address space, not memory, until it's
-  touched. The size would be the frame limit times the largest frame, about
-  1 GiB.
-- **Count at each call, exactly as the machine does:** increment the steps
+- **The frame counter defines the limit. The reserved stack is only a
+  safety margin behind it.** Run compiled code on its own thread with a
+  large reserved stack (N2). On 64-bit systems that is address space, not
+  memory, until it's touched.
+  - **Don't size it as the frame limit times the largest Stitchwort frame.**
+    Native frame sizes depend on Cranelift, the ABI, spills and prologues,
+    and may change with a version, so that product is not a safe bound.
+  - **Pick a generous size** (about 1 GiB is a starting point, not a
+    semantic fact) **and test that the counter always fires first** on each
+    supported target: a deep non-tail recursion, with the largest frames the
+    test programs can make, must end in `E-RESOURCE` and never in a crash.
+    The size is not part of the language's meaning.
+  - If the margin turns out awkward, a stack-limit probe is the alternative
+    (below).
+- **Count at each call, exactly as the machine does** (from N1, so that the
+  stop/go speed includes it; the big stack and the full `E-RESOURCE`
+  handling follow in N2): increment the steps
   and frames, compare them with their limits, and leave on a cold path with
   `E-RESOURCE`. Measured on the bare-call benchmark, that is 2.2 ns per call
   instead of 0.6 (§1.3). It is still 17× cheaper than the machine's call.
@@ -667,6 +722,88 @@ The design **[inferred]**:
     only when a count reaches zero.
 - **Later:** Lean's *borrowed parameters* (§2.1) would remove many counts.
   That's an IR change, useful to both runners.
+
+### 4.6 The native/machine boundary (the biggest N1 risk)
+
+N1 translates only some instructions, and some functions will have
+instructions it doesn't handle. That looks like scaffolding but it is the
+hardest part of N1, because the machine isn't a recursive interpreter that
+native code can simply call. **[source]** for each fact below, in
+`crates/rt/src/machine.rs` unless noted:
+- **Frames are heap data.** `State` holds `regs: Vec<Value>` and
+  `frames: Vec<Frame>` (`:107-127`). A `Frame` is a code index, a pc, a base
+  into the shared register vector, the closure's `env`, and a `Ret`. There
+  is no Rust recursion for a Stitchwort call: `Instr::Call` pushes a
+  `Frame` and does `continue 'outer` (`:965-985`).
+- **A frame's continuation is not always a register.** `Ret` (`:61-100`) can
+  be a register of the caller, the host, a constant's cache, the rest of an
+  over-application (`Apply`), a `Text.fold` step, an effect loop (`Eff`), and
+  so on. A native callee returning into one of those needs the machine's
+  `run` loop to do the delivery.
+- **Arguments are moved.** `get!` takes a register's value with
+  `mem::take` when the operand is marked `MOVE`, otherwise clones it
+  (`:918`); `Call` and `TailCall` do this into the new frame or
+  into `scratch`.
+- **Counting is in `State`.** `enter_frame` (`:257`) bumps `steps` and checks
+  `frames.len()` against `Limits::frames`; `replace` (`:296`, the tail call) bumps
+  `steps` only.
+- **Errors drop everything.** On `Err`, `Machine::finish` clears `frames`,
+  `regs` and `scratch` (`:230-241`), which releases every owned value.
+- **The host already re-enters.** `Machine::call(f, args)` (`:223`) starts a
+  fresh `run` for a callback, and the partial-code runner in `run.rs` calls
+  it for each continuation (`run.rs:254, 297, 322, 336, 370`). Values are
+  `Rc` (`value.rs`), so the machine and all native code in one run must stay
+  on one thread.
+
+The reviewer's ten questions, answered for the design recommended below
+(a design choice, **[inferred]**):
+
+| Question | Answer |
+|---|---|
+| Can native code call interpreted code? | Not within a run. See the recommendation. |
+| Can interpreted code call native code? | Only at the start: the entry point of a run is native or it isn't. |
+| Can it bounce repeatedly? | No: a run is wholly native or wholly machine. |
+| Who owns arguments across a transition? | As `Call` does: operands marked `MOVE` are moved, others cloned, and the callee owns what it receives. At the entry, the host's `Vec<Value>` is moved in. |
+| Are machine and native frames counted identically? | With no mixing there is one counter in a run. The native one follows the machine's rules: `enter_frame` on a call, `steps` only on a tail call. |
+| Tail call across the boundary? | Cannot occur, because there is no boundary inside a run. A tail call to a function outside the subset makes the whole run machine. |
+| Drops and reuse at the boundary? | None to define. Inside native code, drops and reuse are the bytecode's (`MOVE`, `Drop`, `Unpack`, `CtorReuse`). |
+| Can an interpreted callee invoke a native callback? | No: no machine frames exist in a native run. |
+| Which stack does the interpreter run on? | The machine keeps its frames on the heap and runs on whatever thread starts it. A native run uses the big-stack thread (N2). |
+| Can native code leave on an error without leaks? | Each native frame owns its registers and drops them as it returns a `Result::Err` up the call chain (a panic is not an exit route). N1 tests this with the allocation trace (§6). |
+
+**Two ways to mix:**
+1. **Per-function mixing.** Any function may be native or machine, and
+   control crosses at any `Call`.
+   - Native to machine needs a nested `run` on the Rust stack, which defeats
+     the heap frames: machine to native to machine nests without bound, and
+     the machine's `Ret` kinds (`Apply`, `Fold`, `Eff`) have no native
+     counterparts.
+   - Machine to native needs a native entry point per function, and a way
+     for the machine's loop to resume after a native callee returns.
+   - Counting, `MOVE` ownership, errors and tail calls would each need a
+     rule at the crossing.
+2. **Whole reachable islands.** An entry point (`main`, a test, a
+   `Machine::call` target) is native only if everything it can reach is in
+   the N1 subset. Otherwise that whole invocation runs on the machine, as
+   today.
+   - There are no crossings inside a run, so none of the ten questions has
+     a hard answer.
+   - Reachability is a static walk over `Call`, `TailCall`, `Global` and
+     `Pap` edges in the bytecode. Indirect calls (`Apply`) are the catch:
+     N1 either rejects any function that applies an unknown value (the
+     subset has no closures until N3) or counts every lambda as reached.
+   - It costs coverage early: one unsupported instruction anywhere
+     reachable makes the run wholly machine. N1's benchmarks
+     (`micro_call`, `micro_tail`, `Set`) are chosen to be inside the subset.
+
+**Recommendation: whole reachable islands for N1 to N3.** It keeps the
+first backend boring and the differential tests meaningful, and it matches
+the thesis (§0). The machine stays the fallback for a whole run.
+Per-function mixing is worth designing only if N3's coverage turns out too
+low, and then as its own stage. Once the subset is complete the question
+goes away. (The effect loop and `Text.fold` are Rust code that calls back
+into compiled closures from N4; that is a native-to-runtime call, not a
+mix with machine frames, and §4.1 covers it.)
 
 ## 5. The routes
 
@@ -743,7 +880,7 @@ Each route is judged on:
     `Delay` runner and `Text.fold`.
   - Unsupported corners can call back into the runtime.
 - **Speed:** about 10× on the experiment without inlining, an upper bound.
-  Estimated 4–8× in practice (§3.4).
+  Target at least 3×, plausibly 4–8× in practice (§3.4).
 - **Effects, ticks, big numbers, reference counting:** as in §4. The code
   generator is the only new part; every runtime service is shared with the
   machine.
@@ -767,7 +904,9 @@ Each route is judged on:
     `cranelift-jit` doesn't use (§2.10).
   - Writing `.o` files instead has an open arm64 macOS bug, so JIT it is.
 - **Risk:** medium.
-  - New ground: no functional language in §2 uses Cranelift.
+  - New ground: no mature production functional language uses Cranelift as
+    its primary backend (§2.9).
+  - The native/machine boundary is the biggest implementation risk (§4.6).
   - A miscompile gives wrong output, which the differential tests are built
     to catch.
   - JIT bugs are harder to debug than generated C you can read.
@@ -907,9 +1046,9 @@ Each route is judged on:
 
 | Stage | What | Done when |
 |---|---|---|
-| N0 | Spike: Cranelift as a dependency behind a Cargo feature (off in the wasm build). JIT one hand-built function on macOS arm64 and Linux x86-64. Measure the binary growth and compile time. | It runs, in Nix, and `nix flake check` builds both with and without the feature |
-| N1 | Translate the core instructions: `Move`/`Take`/`Drop`, `Const`, `Call`/`TailCall`/`Return`, `Switch`/`Field`/`Unpack`, `Ctor`/`CtorReuse`, `Test`/`JumpIfFalse`/`Jump`, and `Nat` fast paths with runtime calls for the slow paths. A function with an unsupported instruction stays on the machine; mixing needs a defined boundary (machine to native only, at a `Call`). Behind `run --native`. | `micro_call`, `micro_tail` and the `Set` benchmark run and agree; **first real speed measurement** |
-| N2 | Frame and step counting, the big-stack thread and `E-RESOURCE`; tail calls between functions (`return_call`). | §6's stack-safety tests pass under `--native` |
+| N0 | Spike: Cranelift as a dependency behind a Cargo feature (off in the wasm build). JIT one hand-built function on macOS arm64 and Linux x86-64. Measure the binary growth and compile time. **Check on macOS that JIT code runs in an unsigned development build, in a signed build, and in a hardened build** (and a notarised one, if we ship that), and what entitlement or `MAP_JIT` use each needs (§2.10). | It runs, in Nix, and `nix flake check` builds both with and without the feature; the three macOS cases are recorded |
+| N1 | Translate the core instructions: `Move`/`Take`/`Drop`, `Const`, `Call`/`TailCall`/`Return`, `Switch`/`Field`/`Unpack`, `Ctor`/`CtorReuse`, `Test`/`JumpIfFalse`/`Jump`, and `Nat` fast paths with runtime calls for the slow paths. **Frame and step counters**, counted as the machine counts them, so the speed measured includes the bookkeeping native code will really have. Whole reachable islands (§4.6): an entry point whose reach has an unsupported instruction runs wholly on the machine. A debug-only allocation trace (below). Behind `run --native`. | `micro_call`, `micro_tail` and the `Set` benchmark run and agree, **with counters in**; **first real speed measurement**, stop point at 3× |
+| N2 | The big-stack thread and the full `E-RESOURCE` handling; tail calls between functions (`return_call`), with the tail-call tests below. | §6's stack-safety tests pass under `--native`, and the counter fires before the stack on every supported target |
 | N3 | The remaining instructions: closures, `Apply`/`Pap` (eval/apply), `Int`/`Text`/`NumSwitch`, `Captured`, `Global` constants. | Every function compiles; `machine.rs`'s differential tests pass under `--native` |
 | N4 | Effects: the effect loop calls compiled continuations; `Text.fold`; the `Delay` runner. | `effect_differential.rs` and the partial tests agree three ways |
 | N5 | Run the whole differential suite with `--native` added; fix what it finds. | All agree |
@@ -919,11 +1058,64 @@ Each route is judged on:
 | A1–A2 (any time) | Machine tuning for the playground: frame entry without register clearing, a few superinstructions. | Measured gains |
 
 Stage N1 is the checkpoint. If the `Set` benchmark is not at least 3× faster
-than the machine there, stop and re-plan before N2.
+than the machine there, with the frame and step counters in, stop and
+re-plan before N2.
+
+**N2's tail-call tests.** "Cranelift has `return_call`" doesn't prove every
+Stitchwort tail call lowers without a frame. N2 must show constant stack for
+each of these shapes, with a loop of millions of steps:
+- self tail calls (loops) and mutual tail calls between functions with the
+  same signature;
+- tail calls between functions with **different signatures** (argument
+  counts and types, so registers against stack-passed arguments);
+- a tail call **next to runtime calls** (a call to a primitive or to the
+  freeing code just before it, and drops on the way out);
+- a tail call that **crosses the native/machine boundary**: under whole
+  islands there is no such call, so the test is that such a program runs
+  wholly on the machine and agrees; if per-function mixing is ever added,
+  this becomes a real test;
+- **later closures** (N3): `TailApply` of a closure and of a partial
+  application, including over-application.
+
+**Bring-up trace (N1 to N4).** A debug-only trace of `alloc`, `reuse`,
+`inc`, `dec` and `free`, with object identities normalised (numbered by
+first appearance), emitted by both the machine and the native code and
+compared between them. The aim is to check that native code makes the same
+memory-management decisions as the bytecode, so the first differing event
+points at the bug. It is bring-up instrumentation, compiled out of release
+builds, not a permanent test invariant.
+
+## External review (25 October 2026)
+
+An external reviewer read this note. **Verdict:** sound and well evidenced
+for a backend project; approve the staged experiment with N1 as a real
+go/no-go point; Cranelift is the right choice for `run` and `test`, with C
+kept for a later standalone build. The diagnosis is convincing, most of all
+because the hand translation keeps the same representation, counting and
+reuse. The reviewer's three main warnings were: tighten the speed claim,
+don't derive the stack size from frame sizes, and treat the native/machine
+boundary as the biggest risk.
+
+**What changed:**
+- the thesis is stated up front (§0);
+- the speed claim is at least 3×, plausibly 4–8×, with 10–13× as an upper
+  bound; faster than Node is not a criterion (§0, §3.4);
+- "dominant avoidable cost" replaces "most of the time is interpretation"
+  (§3.3), and the Cranelift prior-art sentence is narrower, with
+  Haskelujah noted (§2.9);
+- frame and step counters move into N1; the big stack and the full
+  resource error stay in N2 (§6);
+- the stack size is a generous safety margin tested against the counter,
+  not computed from frame sizes (§4.3);
+- a new section on the native/machine boundary recommends whole reachable
+  islands (§4.6);
+- N2 gets tail-call tests across calling shapes, N0 gets the three macOS
+  JIT checks, and a debug allocation trace is added (§6).
 
 ## Decisions
 
-**D1250. Build a native backend at all?**
+**D1250. Build a native backend at all?** **Decided (Matt): yes, in staged
+form; N1 is a stop point.**
 - Context: the experiment says native code could run the `Set` benchmark
   about 10× faster than today's machine and several times faster than Node.
   But it's 8–10 lanes and a third runner to keep in step with the reference
@@ -932,7 +1124,9 @@ than the machine there, stop and re-plan before N2.
   `run --js`.
 - **Recommendation: yes**, staged, with N1's measurement as a stop point.
 
-**D1251. Use Cranelift, in-process, rather than generating C?**
+**D1251. Use Cranelift, in-process, rather than generating C?** **Decided
+(Matt): Cranelift in-process for `run` and `test`; generating C is kept for
+a later standalone build.**
 - Context: C (Lean's and Koka's route) gives slightly better code, but users
   would need a C compiler when they `run`, and the Rust runtime would need a
   C interface or a C twin.
@@ -1007,7 +1201,8 @@ Every source is linked where it is used (§2, §2.10).
   only from secondary sources or search excerpts. They are marked so in the
   text.
 - **Not found:** a published speedup of Lean's compiled code over its own
-  interpreter, and any functional language with a Cranelift backend.
+  interpreter, and any mature production functional language with a
+  Cranelift backend (Haskelujah has an early one, §2.9).
 
 Earlier notes this builds on:
 - [fast-runtime.md](fast-runtime.md) (the machine, D381–D388; D388 said
