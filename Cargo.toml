@@ -15,6 +15,7 @@ stitchwort-js = { path = "crates/js" }
 stitchwort-rt = { path = "crates/rt" }
 stitchwort-driver = { path = "crates/driver" }
 stitchwort-fmt = { path = "crates/fmt" }
+stitchwort-native = { path = "crates/native" }
 
 ariadne = "0.6.0"
 blake3 = "1.8.7"

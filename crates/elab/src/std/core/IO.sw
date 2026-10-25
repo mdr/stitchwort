@@ -11,6 +11,7 @@ ability IO where
   print: Text → {IO} () -- writes the text, then a line ending
   readLine: () → {IO} (Option Text) -- None only at end of input
   readAll: () → {IO} Text -- the rest of the input, all at once
+  randomSeed: () → {IO} Nat -- a fresh 64-bit number each run, from the host's entropy; 0 in `IO.simulate`
 
 -- The first line of scripted input, if there is one.
 def IO.nextLine: List Text → Option Text
@@ -25,7 +26,7 @@ def IO.restOf (ins: List Text): Text :=
 -- Runs a program against scripted input lines: each `IO.readLine` takes the
 -- next one, and gives `None` once they're used up; `IO.readAll` takes all
 -- that are left (see `IO.restOf`), after which `IO.readLine` gives `None`
--- and `IO.readAll` gives "". Records each `IO.print` payload, in order, with the
+-- and `IO.readAll` gives "". `IO.randomSeed` gives 0. Records each `IO.print` payload, in order, with the
 -- result. A payload is one entry even if it contains a line feed: a real
 -- interpreter writes each payload followed by a line ending. The payloads
 -- are collected in reverse and turned round at the end, so a long run
@@ -37,4 +38,5 @@ def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Tex
       | IO.print t, k => ins out => k() ins (Cons t out)
       | IO.readLine u, k => ins out => k (IO.nextLine ins) (List.tailOf ins) out
       | IO.readAll u, k => ins out => k (IO.restOf ins) Nil out
+      | IO.randomSeed u, k => ins out => k 0 ins out
   run input Nil

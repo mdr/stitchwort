@@ -104,6 +104,10 @@ pub enum Delay {
     /// `mapSig m d`: `m` is `MkSigMap inject reply`.
     Map(Value, Value),
     Pfix(Value, Value),
+    /// `foldD done call d`, a handler around partial code. Built, but not
+    /// yet run on this runtime (`run.rs`; lane C of
+    /// docs/proposals/partial-handlers.md).
+    Fold(Value, Value, Value),
 }
 
 impl Value {
@@ -284,6 +288,11 @@ impl Delay {
             Delay::Bind(a, b) | Delay::Map(a, b) | Delay::Pfix(a, b) => {
                 take_from(std::slice::from_mut(a), out);
                 take_from(std::slice::from_mut(b), out);
+            }
+            Delay::Fold(a, b, c) => {
+                take_from(std::slice::from_mut(a), out);
+                take_from(std::slice::from_mut(b), out);
+                take_from(std::slice::from_mut(c), out);
             }
         }
     }

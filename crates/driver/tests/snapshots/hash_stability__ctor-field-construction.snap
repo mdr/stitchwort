@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Shape a1a28ebb9f223812daaede417a547fa5270b147b0d6e79b360b5a4a4b4d761d4
 data Main.Item fd9b6def53d1661265591dcc18b3659e986de06b6ba11bcc791f2308e16042be
@@ -81,6 +81,6 @@ Main.coffee 1f9273b18286cfa509569222551b2176832ccf03d3ea0508bea83c8239451636
 Main.test "a record argument both ways" ee38ef520c50e60fd2ce59510d36748af337782a97b50ad1980f82b4c3eeb884
 Main.test "field access" ac111857e109af4caf2658925ac41373ca1e4069b22202978f3511aa52414b3b
 Main.orNone fde783c1a7a5a44edc14914f8ff3e9f84ff5496d57b6c56da667e6e3dfb21b9c
-Main.next d7e138c53c384653a94cba81b24ef96860a8361ca8a46ab512dcb9770e4a4ace
-Main.read 025602ee9795999c5a53f88a6a88ed77554ab9e8a6aa85d7da39ff6d0d612aba
-Main.test "effects run in the order written" 0e84163594ff2567fe108528a349ebb0b78b026e0e5ef129718673f6f1391e52
+Main.next f39c78142aa68135c19a8bfc259af1c8bb9afb912c552b7326a432112b22b5c9
+Main.read 3ac898b67a990f860a48b5f5ab5153d1d0f46385a4ae65826f9f4756902fb712
+Main.test "effects run in the order written" 64e7b3e0bd4f06a2f45bb7be6df1ecc8f8bc985a61738cb2bc2e73db441b4c27

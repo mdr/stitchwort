@@ -74,6 +74,10 @@ pub(crate) fn primitive_js(prim: Primitive) -> &'static str {
         Primitive::BindD => "(d) => (k) => new StitchwortDelay(D_BIND, d, k)",
         Primitive::MapSig => "(m) => (d) => new StitchwortDelay(D_MAP, m, d)",
         Primitive::Pfix => "(f) => (x) => new StitchwortDelay(D_PFIX, f, x)",
+        // Never emitted: `run --js` refuses `foldD` once it knows what
+        // `main` uses (lane C of docs/proposals/partial-handlers.md), but
+        // the code generator reads its shape before that.
+        Primitive::FoldD => "(done) => (call) => (d) => { throw new Error('foldD'); }",
         Primitive::Delay => unreachable!("`Delay` is a type, so it's erased"),
     }
 }
@@ -83,6 +87,7 @@ fn runtime_arity(prim: Primitive) -> usize {
     match prim {
         Primitive::Now | Primitive::Lift => 1,
         Primitive::BindD | Primitive::MapSig | Primitive::Pfix => 2,
+        Primitive::FoldD => 3,
         Primitive::Delay => 0,
     }
 }
@@ -129,6 +134,15 @@ pub fn generate_program_with(
         let info = codegen.try_info(id)?;
         let def = g.def(id);
         if let Some(prim) = g.builtins.primitive(id) {
+            // A handler around partial code (docs/proposals/partial-handlers.md)
+            // runs only on the reference runner so far; lane C of that note.
+            if prim == Primitive::FoldD {
+                return Err(Diagnostic::error(
+                    "E-RUNTIME",
+                    "a handler around partial code isn't supported on this runner yet",
+                )
+                .with_note("run it with `stitchwort run --reference`"));
+            }
             let runtime = info.mask.iter().filter(|erased| !**erased).count();
             if info.convention != Convention::Erased && runtime != runtime_arity(prim) {
                 return Err(internal(format!(
@@ -284,6 +298,12 @@ impl Shapes {
             io,
             ctor_of(Builtin::ReadAll)?.1,
             &["readAllUnit"],
+        )?;
+        ctor(
+            "randomSeed",
+            io,
+            ctor_of(Builtin::RandomSeed)?.1,
+            &["randomSeedUnit"],
         )?;
         // `Fail`'s one operation, once its library file has loaded: a `main`
         // that may fail loads it.
@@ -519,6 +539,12 @@ import * as __wt from "node:worker_threads";
       case SHAPE.readAll:
         flush();
         return readAll();
+      case SHAPE.randomSeed: {
+        // Eight random bytes as a `Nat`, a bigint: the OS's entropy.
+        const words = new BigUint64Array(1);
+        globalThis.crypto.getRandomValues(words);
+        return words[0];
+      }
       default:
         throw new Error("internal error: an unknown `IO` operation");
     }

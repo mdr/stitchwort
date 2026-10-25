@@ -24,7 +24,9 @@
 //! - `Tie f`: the description `f` of a `pfix`, which answers the requests
 //!   `L (Recur y)` that reach it with `pfix f y`;
 //! - `Await`: a caller waiting for a recursive call's result, with its
-//!   continuation and its own frames.
+//!   continuation and its own frames;
+//! - `Handle`: a handler, `foldD done call`, waiting below the computation
+//!   it handles (docs/proposals/partial-handlers.md §5.1).
 //!
 //! The rules (the equations of §7.4.2, which the model transcribes as its
 //! reference): entering `pfix f x` runs the body `f x` under `Tie f`, with no
@@ -34,18 +36,39 @@
 //! pending above the caller's `Tie`, and the continuation `y => Done y`)
 //! keeps no frame, so a loop runs in constant space.
 //!
+//! Handlers (`foldD done call d`, the sixth constant): stepping one pushes a
+//! `Handle` frame and steps `d` above it. `Now v` reaching it runs `done v`;
+//! a `Later` suspends the whole machine, handler included, so it passes the
+//! handler by as one tick. *Every* operation that reaches a `Handle` frame
+//! is captured, the ones the handler only forwards included (its `call`
+//! re-issues them, below it), so an operation never passes a handler: a
+//! `Tie` only answers requests with no handler above it, and an `Await`'s
+//! `upper` never holds a `Handle` frame. Capture moves the frames above the
+//! handler into the resumption `k` (a [`Value::Resumption`], given to `call`
+//! as the argument of a partly applied `foldD`, so applying it builds the
+//! value `foldD k y` and runs nothing); stepping `k y` puts the handler and
+//! the frames back on top of the stack, moving them if nothing else holds
+//! them and copying them otherwise (a handler that resumes more than once).
+//! The frames need no adjusting: an `Await`'s indices are into its own
+//! `upper`, and a `Tie` holds no position. Only the operation's own `back`,
+//! the `Map` frames it passed, indexes the stack: it's rebased onto the
+//! captured frames. This is the model's `capture` and `restore`
+//! (`crates/partial-model/src/machine.rs`).
+//!
 //! Each transition is a step of the operation's budget, and the frame stack
 //! is bounded by its frame limit. Trusted for "runs what was written", not
 //! for consistency: a bug here could run a program wrongly, but never make
 //! the checker accept something false, since nothing computed here is given
 //! back to it.
 
+use std::rc::Rc;
+
 use crate::budget::Result;
 use crate::globals::Globals;
 use crate::partial::Primitive;
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Term};
-use crate::value::{Elim, Head, Value, apply, force};
+use crate::value::{Elim, Head, Spine, Value, apply, force};
 
 /// The prelude declarations a `Delay` is built from.
 #[derive(Clone, Copy)]
@@ -58,6 +81,7 @@ struct Shapes {
     bind: DefId,
     map_sig: DefId,
     pfix: DefId,
+    fold_d: Option<DefId>,
 }
 
 impl Shapes {
@@ -77,17 +101,20 @@ impl Shapes {
             bind: prim(Primitive::BindD),
             map_sig: prim(Primitive::MapSig),
             pfix: prim(Primitive::Pfix),
+            fold_d: g.builtins.primitive_id(Primitive::FoldD),
         }
     }
 }
 
 /// What a `Call`'s rest does with the reply.
+#[derive(Clone)]
 enum Cont {
     /// `y => Done y`. Kept apart so a tail request can be recognised.
     Done,
     Fn(Value),
 }
 
+#[derive(Clone)]
 enum Frame {
     Bind(Value),
     /// A `mapSig`'s mapping: `MkSigMap inject reply`.
@@ -103,6 +130,34 @@ enum Frame {
         upper: Vec<Frame>,
         back: Vec<(usize, Value)>,
     },
+    /// A handler, `foldD done call`: `Now v` reaching it runs `done v`, a
+    /// `Later` passes it by (the whole machine suspends), and an operation
+    /// reaching it captures the frames above it as the resumption.
+    Handle {
+        done: Value,
+        call: Value,
+    },
+}
+
+/// What an operation reaching a `Handle` frame captured, the inside of a
+/// resumption `k`: the handler, the frames above it, the operation's
+/// continuation, and the `Map` frames it passed (indices into `frames`), so
+/// the reply can be translated back. Stepping `k y` puts the handler and
+/// these frames back on top of the stack, wherever it is then, and goes on
+/// with `cont` of `y` translated.
+#[derive(Clone)]
+pub struct Capture {
+    done: Value,
+    call: Value,
+    frames: Vec<Frame>,
+    cont: Cont,
+    back: Vec<(usize, Value)>,
+}
+
+impl std::fmt::Debug for Capture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<resumption of {} frames>", self.frames.len())
+    }
 }
 
 enum Focus {
@@ -178,7 +233,13 @@ impl Machine {
             g.budget.frames(self.frames.len())?;
             self.focus = match std::mem::replace(&mut self.focus, Focus::Ret(Value::Refl)) {
                 Focus::Eval(d) => {
-                    let (prim, args) = constant(g, &s, d)?;
+                    let (prim, args) = match constant(g, &s, d)? {
+                        Built::Constant(prim, args) => (prim, args),
+                        Built::Resumed(capture, reply) => {
+                            self.restore(g, capture, reply)?;
+                            continue;
+                        }
+                    };
                     match prim {
                         Primitive::Now => Focus::Ret(args[3].clone()),
                         Primitive::Lift => Focus::Comp(args[3].clone()),
@@ -196,6 +257,15 @@ impl Machine {
                         // Building `pfix f x` ran nothing; stepping it
                         // enters the body. No tick.
                         Primitive::Pfix => Focus::Enter(args[4].clone(), args[5].clone()),
+                        // Entering a handler: its frame waits below the
+                        // handled computation. No tick.
+                        Primitive::FoldD => {
+                            self.frames.push(Frame::Handle {
+                                done: args[6].clone(),
+                                call: args[7].clone(),
+                            });
+                            Focus::Eval(args[8].clone())
+                        }
                         Primitive::Delay => unreachable!("a type isn't a value"),
                     }
                 }
@@ -207,13 +277,20 @@ impl Machine {
                     Value::Ctor(d, 0, fields) if d == s.comp => Focus::Ret(fields[0].clone()),
                     Value::Ctor(d, 1, fields) if d == s.comp => {
                         let cont = cont(&s, &fields[1]);
-                        return self.route(g, fields[0].clone(), cont);
+                        match self.route(g, fields[0].clone(), cont)? {
+                            Routed::Obs(obs) => return Ok(obs),
+                            Routed::Handled(m) => {
+                                self = *m;
+                                continue;
+                            }
+                        }
                     }
                     _ => panic!("internal error: `lift` of something that isn't a computation"),
                 },
                 Focus::Ret(v) => match self.frames.pop() {
                     None => return Ok(Obs::Now(v)),
                     Some(Frame::Bind(k)) => Focus::Eval(apply(g, k, v)?),
+                    Some(Frame::Handle { done, .. }) => Focus::Eval(apply(g, done, v)?),
                     Some(Frame::Map(..) | Frame::Tie(_)) => Focus::Ret(v),
                     Some(Frame::Await { cont, upper, back }) => {
                         let v = translate_back(g, &upper, &back, v)?;
@@ -226,9 +303,10 @@ impl Machine {
     }
 
     /// Operation `op` leaves the focus: it's passed outwards through the
-    /// frames. A `Tie` answers a recursion request (one tick); one that
-    /// reaches the bottom is returned to the host, unperformed.
-    fn route(mut self, g: &Globals, mut op: Value, cont: Cont) -> Result<Obs> {
+    /// frames. A `Handle` captures it (no tick); a `Tie` answers a recursion
+    /// request (one tick); one that reaches the bottom is returned to the
+    /// host, unperformed.
+    fn route(mut self, g: &Globals, mut op: Value, cont: Cont) -> Result<Routed> {
         let s = self.shapes;
         let mut back: Vec<(usize, Value)> = Vec::new();
         let mut j = self.frames.len();
@@ -236,6 +314,10 @@ impl Machine {
             j -= 1;
             match &self.frames[j] {
                 Frame::Bind(_) | Frame::Await { .. } => {}
+                Frame::Handle { .. } => {
+                    self.capture(g, j, op, cont, back)?;
+                    return Ok(Routed::Handled(Box::new(self)));
+                }
                 Frame::Map(inject, _) => {
                     let target = apply(g, inject.clone(), op.clone())?;
                     back.push((j, std::mem::replace(&mut op, target)));
@@ -256,6 +338,10 @@ impl Machine {
                     let f = f.clone();
                     // `Later (bindD (pfix f y) (\v -> tie f (resume (cont v))))`.
                     let upper = self.frames.split_off(j);
+                    debug_assert!(
+                        !upper.iter().any(|f| matches!(f, Frame::Handle { .. })),
+                        "a recursion request passed a handler"
+                    );
                     let tail = upper.len() == 1 && matches!(cont, Cont::Done) && back.is_empty();
                     if !tail {
                         let back = back.into_iter().map(|(k, src)| (k - j, src)).collect();
@@ -265,23 +351,99 @@ impl Machine {
                     // only pass the result on, and the callee installs its
                     // own.
                     self.focus = Focus::Enter(f, request[0].clone());
-                    return Ok(Obs::Later(self));
+                    return Ok(Routed::Obs(Obs::Later(self)));
                 }
             }
         }
-        Ok(Obs::Call(
+        Ok(Routed::Obs(Obs::Call(
             op,
             Pending {
                 machine: self,
                 cont,
                 back,
             },
-        ))
+        )))
+    }
+
+    /// `op` reached the `Handle` frame at `h`: the frames above it become
+    /// the resumption `k`, and the machine goes on with `call op k`, below
+    /// the handler.
+    fn capture(
+        &mut self,
+        g: &Globals,
+        h: usize,
+        op: Value,
+        cont: Cont,
+        back: Vec<(usize, Value)>,
+    ) -> Result<()> {
+        let frames = self.frames.split_off(h + 1);
+        let Some(Frame::Handle { done, call }) = self.frames.pop() else {
+            unreachable!("a capture at a frame that isn't a `Handle`")
+        };
+        // `back` indexes the stack; the captured frames started at `h + 1`.
+        let back = back
+            .into_iter()
+            .map(|(j, src)| (j - (h + 1), src))
+            .collect();
+        let capture = Capture {
+            done,
+            call: call.clone(),
+            frames,
+            cont,
+            back,
+        };
+        let fold_d = self
+            .shapes
+            .fold_d
+            .expect("a `Handle` frame comes from `foldD`");
+        let mut spine = Spine::new();
+        spine.push(Elim::App(
+            Value::Resumption(Rc::new(capture)),
+            crate::term::Icit::Explicit,
+        ));
+        let k = Value::Neutral(Head::Def(fold_d), spine);
+        self.focus = Focus::Eval(apply(g, apply(g, call, op)?, k)?);
+        Ok(())
+    }
+
+    /// Stepping `k y`: the handler and the captured frames go back on top
+    /// of the stack, and the handled computation goes on with `y`. The
+    /// frames are moved if nothing else holds the resumption, and copied if
+    /// something does: it may be resumed again
+    /// (docs/proposals/partial-handlers.md §5.2).
+    fn restore(&mut self, g: &Globals, capture: Rc<Capture>, reply: Value) -> Result<()> {
+        let capture = Rc::try_unwrap(capture).unwrap_or_else(|shared| (*shared).clone());
+        let reply = translate_back(g, &capture.frames, &capture.back, reply)?;
+        self.frames.push(Frame::Handle {
+            done: capture.done,
+            call: capture.call,
+        });
+        self.frames.extend(capture.frames);
+        self.focus = Focus::Comp(apply_cont(g, &self.shapes, &capture.cont, reply)?);
+        Ok(())
     }
 }
 
-/// A `Delay` value: the constant it's built by, and its arguments.
-fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<(Primitive, Vec<Value>)> {
+/// Where an operation went.
+enum Routed {
+    /// Out of this step: a tick, or an operation for the host.
+    Obs(Obs),
+    /// A handler took it: the machine goes on with the handler's clause.
+    Handled(Box<Machine>),
+}
+
+/// What a `Delay` value is built by.
+enum Built {
+    /// One of the constants, with all its arguments.
+    Constant(Primitive, Vec<Value>),
+    /// A resumption applied to a reply, `k y`: `foldD` applied to just a
+    /// [`Value::Resumption`], then `y`.
+    Resumed(Rc<Capture>, Value),
+}
+
+/// A `Delay` value: the constant it's built by, and its arguments, or a
+/// resumption applied to a reply.
+fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<Built> {
     let Value::Neutral(Head::Def(id), spine) = force(g, d)? else {
         panic!("internal error: running something that isn't a `Delay`")
     };
@@ -293,8 +455,9 @@ fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<(Primitive, Vec<Value>)
         (s.pfix, Primitive::Pfix),
     ]
     .into_iter()
+    .chain(s.fold_d.map(|c| (c, Primitive::FoldD)))
     .find_map(|(c, p)| (c == id).then_some(p));
-    let args: Vec<Value> = spine
+    let mut args: Vec<Value> = spine
         .into_vec()
         .into_iter()
         .map(|e| match e {
@@ -303,7 +466,14 @@ fn constant(g: &Globals, s: &Shapes, d: Value) -> Result<(Primitive, Vec<Value>)
         })
         .collect();
     match prim {
-        Some(p) if args.len() == p.arity() => Ok((p, args)),
+        Some(p) if args.len() == p.arity() => Ok(Built::Constant(p, args)),
+        Some(Primitive::FoldD) if args.len() == 2 && matches!(&args[0], Value::Resumption(_)) => {
+            let reply = args.pop().expect("two arguments");
+            let Some(Value::Resumption(capture)) = args.pop() else {
+                unreachable!("checked above")
+            };
+            Ok(Built::Resumed(capture, reply))
+        }
         _ => panic!("internal error: running something that isn't a `Delay`"),
     }
 }

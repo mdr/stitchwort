@@ -3,7 +3,12 @@
 **Status:** draft 1, 25 October 2026, for review (D1249). Decisions D1254
 to D1257 are at the end; all four were decided as recommended. Lane A (the
 executable model) is built; its findings are marked "lane A" in §2.4, §5.1,
-§5.2 and §9. Nothing else is built.
+§5.2 and §9. Lane B is built too: `foldD` in the kernel, the reference
+runner (`crates/core/src/step.rs`, with the model's traces in
+`crates/driver/tests/partial.rs`) and the elaborator, with
+`examples/accept/partial-handlers.sw`. `stitchwort run` and `run --js`
+refuse a program that uses it ("not supported on this runner yet") until
+lane C.
 
 Tags, as in the other `Partial` notes: **[source]** read in the code,
 **[ran]** run on today's build, **[web]** checked online (links in §6),

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL] Error: a computation that might not finish can't run here
+    ╭─[ soundness/partial-handled-total.sw:16:3 ]
+    │
+ 16 │ ╭─▶   handle forever() with
+    ┆ ┆   
+ 18 │ ├─▶     | say n, k => k()
+    │ │                           
+    │ ╰─────────────────────────── `forever` is `Partial`: it might not finish
+    │     
+    │     Note: the code this handler handles is partial, so the handler is too: its result can only be used where `Partial` is allowed
+────╯

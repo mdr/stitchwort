@@ -109,3 +109,28 @@ pub fn read_all(input: &mut impl BufRead, lines: &mut usize) -> Result<String, R
         }
     }
 }
+
+/// Where a fresh random number comes from. A native build uses the
+/// operating system's entropy (see [`random_seed`]); the browser, where the
+/// standard library has none, installs `crypto.getRandomValues` with
+/// [`set_random_source`].
+static RANDOM_SOURCE: std::sync::OnceLock<fn() -> u64> = std::sync::OnceLock::new();
+
+/// Replaces the source of [`random_seed`]. Only the first call has an effect.
+pub fn set_random_source(source: fn() -> u64) {
+    let _ = RANDOM_SOURCE.set(source);
+}
+
+/// A fresh 64-bit number for `IO.randomSeed`. By default it is the output of
+/// a hasher keyed by `std`'s `RandomState`, whose keys the standard library
+/// takes from the operating system's entropy (`getrandom` on Linux,
+/// `arc4random_buf` on macOS): no new dependency.
+pub fn random_seed() -> u64 {
+    use std::hash::{BuildHasher, Hasher};
+    match RANDOM_SOURCE.get() {
+        Some(source) => source(),
+        None => std::collections::hash_map::RandomState::new()
+            .build_hasher()
+            .finish(),
+    }
+}

@@ -45,6 +45,12 @@ pub enum Value {
     /// looks inside and every copy of the call then shares. The spine has
     /// only applications.
     Call(DefId, Spine, Rc<Unfolding>),
+    /// Only while running a partial computation (`step.rs`): the rest of a
+    /// handled computation, captured where an operation reached its handler
+    /// (docs/proposals/partial-handlers.md §5.1). It only ever appears as
+    /// the argument of a partly applied `foldD`, the resumption `k` a
+    /// handler's clause gets, and never reaches the checker.
+    Resumption(Rc<crate::step::Capture>),
 }
 
 /// The unfolding of a [`Value::Call`] once computed: the value the call
@@ -363,7 +369,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
                 }
             }
         }
-        Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => {}
+        Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl | Value::Resumption(_) => {}
     }
 }
 
@@ -541,6 +547,7 @@ fn describe(value: &Value) -> &'static str {
         Value::Refl => "rfl",
         Value::Neutral(..) => "a stuck term",
         Value::Call(..) => "a call",
+        Value::Resumption(_) => "a handler's resumption",
     }
 }
 
@@ -1939,6 +1946,9 @@ fn visit(
         }
         // Read back unfolded: `force` gave the unfolding.
         Value::Call(..) => unreachable!("a forced value is never a call"),
+        Value::Resumption(_) => {
+            panic!("internal error: a handler's resumption reached the checker")
+        }
     }
     Ok(())
 }
@@ -2727,6 +2737,7 @@ fn shape_hash(g: &Globals, cache: &mut ShapeCache, value: &Value) -> Result<u64>
                                 parts.extend([Part::Boxed(t), Part::Boxed(x), Part::Boxed(y)]);
                             }
                             Value::Refl | Value::Call(..) => {}
+                            Value::Resumption(r) => Rc::as_ptr(r).hash(&mut h),
                             Value::Neutral(head, spine) => {
                                 head.hash(&mut h);
                                 parts.push(Part::Spine(spine));

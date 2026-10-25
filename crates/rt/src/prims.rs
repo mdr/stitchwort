@@ -368,6 +368,7 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
                 Primitive::Pfix => Value::Delay(Rc::new(Delay::Pfix(a(), b()))),
                 // The type: erased.
                 Primitive::Delay => Value::Erased,
+                Primitive::FoldD => Value::Delay(Rc::new(Delay::Fold(a(), b(), args[2].clone()))),
             }
         }
         PrimOp::Effect(op) => {

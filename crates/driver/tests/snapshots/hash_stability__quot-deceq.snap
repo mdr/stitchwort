@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Q d873acfdc0cd1ad25fb4f346767d93daf37beaa6c04de36d2f60e4858c48bba9
 data Main.Box b77767c8fba0674d03055ce1dbdc4de2f1e8fe895d6292444e17cb99bda90616
@@ -19,4 +19,4 @@ Main.boxF 97bd90103240c0ea7fe0604f83d987508cbe7ee3cb4ba819bc510e0ec44d510d
 Main.boxT fe0a8bcea3721e79b843261978a1b72f30294905caf8ded735bdfd774ac223a6
 Main.boxesEqual 918bb3bde45a7355e216f3407e240a9bb988f8d5f7e13a90e341c5178bbf9990
 Main.test "boxes made from different values are equal" 609ed5b668e83887e171a369bdaa894b5e8bf1fcc311aeafd58266d749aa704f
-Main.main 118e4b4e783b7f91ed2c9e595bd3f1f03f2448c320d37a061a6c069da0972abd
+Main.main 1efa9a9948e168d7a5faed3ee494bc7ad5aef6585fde144b0a7b7b4da546a112

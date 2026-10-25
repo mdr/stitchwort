@@ -27,7 +27,7 @@ use stitchwort_core::step::{Machine, Obs};
 use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
 use stitchwort_rt::MainRow;
-use stitchwort_rt::host::{read_all, read_line};
+use stitchwort_rt::host::{random_seed, read_all, read_line};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
@@ -59,6 +59,8 @@ pub enum Event {
     Read(Option<String>),
     /// `readAll`, and what it gave.
     ReadAll(String),
+    /// `randomSeed`, and what it gave.
+    RandomSeed(u64),
     /// A tick: one recursive call.
     Tick,
 }
@@ -105,8 +107,7 @@ impl Main {
 /// 1. `name ()` in `{IO, Partial}`, for a `name` with abilities among `IO`
 ///    and `Partial`.
 /// 2. `name ()` in `{IO, Fail, Partial}` ([`MAIN_TYPE`]), for a `name` that
-///    may also fail. No handler goes around it (a handler can't take a
-///    partial computation, docs/proposals/partial.md §7.3.8): the runner
+///    may also fail. No handler goes around it: the runner
 ///    performs `Fail.stop msg` itself, as it performs `IO.print`, and stops
 ///    with [`RunError::Failed`] (docs/proposals/partial-stage-2.md §3).
 ///
@@ -364,6 +365,13 @@ impl Session {
         }
     }
 
+    /// Lowers `main` for the machine of `stitchwort-rt`, as
+    /// [`Session::run_main_fast`] does before running it.
+    pub fn lower_fast(&self, main: &Main) -> Result<stitchwort_rt::Program, RunError> {
+        stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
+            .map_err(RunError::Lowering)
+    }
+
     /// Runs `main` on the machine of `stitchwort-rt` (docs/proposals/fast-runtime.md)
     /// instead of the reference evaluator: the same reading and writing, and the
     /// same errors (`RunError`), but not the same step counts, so a program may
@@ -375,9 +383,7 @@ impl Session {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<(), RunError> {
-        let program =
-            stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
-                .map_err(RunError::Lowering)?;
+        let program = self.lower_fast(main)?;
         stitchwort_rt::run_main(
             &program,
             stitchwort_rt::Limits::from_core(self.elab.limits),
@@ -528,6 +534,11 @@ impl Session {
                 trace(Event::ReadAll(rest));
                 reply
             }
+            Value::Ctor(d, c, _) if d == s.io && c == s.random_seed => {
+                let seed = random_seed();
+                trace(Event::RandomSeed(seed));
+                native::nat_value(seed.into())
+            }
             _ => unreachable!("an `IO` or `Fail` operation"),
         })
     }
@@ -543,6 +554,7 @@ struct Shapes {
     print: usize,
     read_line: usize,
     read_all: usize,
+    random_seed: usize,
     /// `Fail`, once its library file has loaded: a `main` that may fail
     /// loads it.
     fail: Option<DataId>,
@@ -564,6 +576,7 @@ impl Shapes {
             print: ctor(Builtin::Print),
             read_line: ctor(Builtin::ReadLine),
             read_all: ctor(Builtin::ReadAll),
+            random_seed: ctor(Builtin::RandomSeed),
             fail: r.loaded_data(Builtin::Fail),
             unit: data(Builtin::UnitType),
             maybe: data(Builtin::Option),
