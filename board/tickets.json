@@ -2537,14 +2537,16 @@
     {
       "id": 452,
       "title": "Partial ticks: runners stop one tick early vs partial.md; no test that native and reference tick counts agree (partial-tests.md §1); after stage 2 merges",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "0987dba2"
+      ]
     },
     {
       "id": 453,
