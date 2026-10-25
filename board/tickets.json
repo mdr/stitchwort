@@ -3404,14 +3404,16 @@
     {
       "id": 516,
       "title": "Move the hand-written native experiment (uniform/typed/ir modes) from scratchpad into bench/native/ as a standalone project outside the workspace",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "ad0240aa"
+      ]
     },
     {
       "id": 517,
