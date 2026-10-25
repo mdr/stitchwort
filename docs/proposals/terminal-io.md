@@ -356,6 +356,6 @@ Recommendation: **yes.**
 Context: skipping means `toIO` waits, in a loop, for a key it knows, and a loop that waits on the user makes `toIO` partial even round a total program. With `Unknown`, each `readKey` does one read (a bounded few from a pipe), `toIO` stays total, and programs ignore `Unknown` in the catch-all case they have anyway. Bubble Tea passes unknown sequences on in a similar way (§3.4).
 Recommendation: **yes.**
 
-**D1260. Should the host's `print`, `readLine` and `readAll` switch out of keys mode by themselves, if it's on?**
+**D1260. Should the host's `print`, `readLine` and `readAll` switch out of keys mode by themselves, if it's on?** **Decided (Claude, Matt deferred): yes.**
 Context: `toIO` can only handle `Terminal` (a handler handles one ability), so a program's own `IO.print` or `IO.readLine` in the middle of a game reaches the host while the terminal is in keys mode, and would print without line breaks on the game's screen or read with no echo. With this rule they work as in a plain program, and the next `draw` or `readKey` goes back into keys mode, keeping typed-ahead keys. The alternative is to leave them as they are and say "don't do that" (§3.4).
 Recommendation: **yes.**
