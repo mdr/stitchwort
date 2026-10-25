@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use nix::pty::{Winsize, openpty};
-use nix::sys::termios::{InputFlags, LocalFlags, Termios, tcgetattr};
+use nix::sys::termios::{InputFlags, LocalFlags, OutputFlags, Termios, tcgetattr};
 
 /// How long any one wait may take before the test gives up.
 const PATIENCE: Duration = Duration::from_secs(20);
@@ -235,7 +235,7 @@ fn is_keys_mode(t: &Termios) -> bool {
 }
 
 /// Keys mode's settings (§4.3): no line editing, echo, `IEXTEN`, `IXON` or
-/// `ICRNL`; `ISIG` kept.
+/// `ICRNL`, `ONLCR`; `ISIG` kept.
 fn assert_keys_mode_settings(t: &Termios) {
     assert!(!t.local_flags.contains(LocalFlags::ICANON));
     assert!(!t.local_flags.contains(LocalFlags::ECHO));
@@ -243,6 +243,7 @@ fn assert_keys_mode_settings(t: &Termios) {
     assert!(t.local_flags.contains(LocalFlags::ISIG), "ISIG is kept");
     assert!(!t.input_flags.contains(InputFlags::IXON));
     assert!(!t.input_flags.contains(InputFlags::ICRNL));
+    assert!(!t.output_flags.contains(OutputFlags::ONLCR));
 }
 
 fn keys_mode_then_print_then_normal_exit(js: bool) {
@@ -382,9 +383,7 @@ fn the_walking_example_reads_one_key_at_a_time(js: bool) {
     assert_eq!(frames(&s), 2);
     // Down, as a terminal sends it: one key.
     s.type_keys(b"\x1b[B");
-    // (Keys mode leaves output processing on, so the terminal shows the
-    // frame's CR LF as CR CR LF.)
-    s.wait_for_screen("#..........#\x1b[K\r\r\n#.\x1b[33m@");
+    s.wait_for_screen("#..........#\x1b[K\r\n#.\x1b[33m@");
     assert_eq!(frames(&s), 3);
     s.type_keys(b"q");
     let (code, errors) = s.wait();

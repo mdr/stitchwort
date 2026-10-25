@@ -475,7 +475,7 @@ import { execFileSync as __execFileSync } from "node:child_process";
     }
     if (inputIsTerminal && savedSettings !== null) {
       try {
-        stty(["-icanon", "-echo", "-iexten", "-ixon", "-icrnl", "min", "1", "time", "0", "susp", "undef"]);
+        stty(["-icanon", "-echo", "-iexten", "-ixon", "-icrnl", "-onlcr", "min", "1", "time", "0", "susp", "undef"]);
       } catch (e) {
         throw new IoError(`can't change the terminal: ${e.message}`);
       }

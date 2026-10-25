@@ -96,7 +96,7 @@ def firstMap: Text := """
   |                                                   ##########     |"""
 
 test "the first frame draws the first level" :=
-  let lines := (simulateGame []).fst.head |> .getOrElse [] |> .map Ansi.strip
+  let lines := (simulateGame []).fst.head |> .getOrElse []
   lines.take levelRows |> .map (row => "|${row}|") == firstMap.lines ∧
     lines.drop levelRows == ["Level 1/3   HP 12/12   Potions 0   Blows 2-4   Turn 0", keysLine, "Find the amulet, 3 levels down."]
 

@@ -451,11 +451,7 @@ no axioms for `stepValid`, `stepAtMost`, `stepOnFloor`, `stepOutOfWalls`,
    `IO.simulate` and `toIO` via `playOn testSeed`, and only a short quit is
    run through `main` itself. An `IO.simulateWith { seed }` (or a seed
    argument) would let a test drive the real `main`.
-2. **Piped frames keep their colours.** `Frame.plain` writes the lines as
-   they are, so `run` on a pipe, `run --js` and `IO.simulate` print the
-   colour codes too; tests compare `Ansi.strip`ped lines. Stripping in
-   `Frame.plain` would make piped output plain text, at the price of
-   tests that want to check colours (they can use `Terminal.simulate`).
+2. **Piped frames keep their colours.** Fixed: `Frame.plain` strips colour codes, and `Terminal.simulate` records the stripped lines (what a pipe shows); tests compare plain lines. A test that wants the colours checks the coloured `frame` function directly.
 3. **`|>` binds looser than `∧`.** `a ∧ xs.filter p |> .length == 4` pipes
    the whole conjunction, and the error ("expected `Bool`, but this has type
    `List Text`") points at the filter, not the pipe. Brackets fixed it.

@@ -20,7 +20,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use nix::sys::signal::{self, SigSet, Signal};
-use nix::sys::termios::{self, InputFlags, LocalFlags, SetArg, SpecialCharacterIndices, Termios};
+use nix::sys::termios::{
+    self, InputFlags, LocalFlags, OutputFlags, SetArg, SpecialCharacterIndices, Termios,
+};
 use stitchwort_driver::run::{ConsoleInfo, RunError, Terminal};
 
 /// Alternate screen, hidden cursor, no line wrapping.
@@ -252,6 +254,9 @@ fn keys_settings(before: &Termios) -> Termios {
         .remove(LocalFlags::ICANON | LocalFlags::ECHO | LocalFlags::IEXTEN);
     keys.input_flags
         .remove(InputFlags::IXON | InputFlags::ICRNL);
+    // Frames end their lines with CR LF themselves; the terminal must not
+    // turn that LF into CR LF again (CR CR LF).
+    keys.output_flags.remove(OutputFlags::ONLCR);
     // A read returns as soon as there's one byte.
     keys.control_chars[SpecialCharacterIndices::VMIN as usize] = 1;
     keys.control_chars[SpecialCharacterIndices::VTIME as usize] = 0;
