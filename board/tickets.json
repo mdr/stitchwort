@@ -1,5 +1,5 @@
 {
-  "next": 503,
+  "next": 504,
   "tickets": [
     {
       "id": 13,
@@ -3236,6 +3236,18 @@
       "commits": [
         "d771495e"
       ]
+    },
+    {
+      "id": 503,
+      "title": "Native: investigate the N1 miss (D1261): allocator slow paths when compiled code frees, Apply of known globals (compare), then re-measure Set vs the 3× bar; time-boxed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
