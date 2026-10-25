@@ -7,7 +7,7 @@ expression: output
    │
  9 │ def capped: Nat := clampTo (high := 10)
    │                    ──────────┬─────────  
-   │                              ╰─────────── expected `Nat`, but this has type `Nat -> Nat -> Nat`
+   │                              ╰─────────── expected `Nat`, but this has type `Nat → Nat → Nat`
    │ 
    │ Note: this expression is a function still waiting for `low` and `value`
 ───╯

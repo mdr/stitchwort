@@ -20,6 +20,23 @@ pub fn term(g: &Globals, names: &[Name], term: &Term) -> String {
     Printer::new(g).print(&mut names, term, Prec::Arrow)
 }
 
+/// Prints `term` with ASCII operators (`&&`, `!=`, `->`), for text inside
+/// exported JavaScript, where the reader writes `!=` and not `≠` (D1223).
+pub fn term_ascii(g: &Globals, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g);
+    printer.ascii.set(true);
+    printer.print(&mut names, term, Prec::Arrow)
+}
+
+/// [`term_ascii`] for a value.
+pub fn value_ascii(g: &Globals, names: &[Name], value: &Value) -> String {
+    match quote(g, names.len(), value) {
+        Ok(t) => term_ascii(g, names, &t),
+        Err(_) => "…".into(),
+    }
+}
+
 /// Prints all of `term`, or fails if part of it is nested too deeply to
 /// print: for showing a result, where `…` would hide part of it.
 pub fn term_in_full(g: &Globals, names: &[Name], term: &Term) -> Result<String> {
@@ -147,6 +164,9 @@ struct Printer<'g> {
     depth: Cell<usize>,
     /// Show the arguments the compiler fills in, `f [x] [auto p] y`.
     show_hidden: Cell<bool>,
+    /// Write the operators in ASCII (`&&`, `!=`, `->`), for text a
+    /// JavaScript developer reads (D1223).
+    ascii: Cell<bool>,
 }
 
 impl<'g> Printer<'g> {
@@ -157,7 +177,13 @@ impl<'g> Printer<'g> {
             max_depth: Cell::new(None),
             depth: Cell::new(0),
             show_hidden: Cell::new(false),
+            ascii: Cell::new(false),
         }
+    }
+
+    /// `unicode`, or `ascii` when printing for JavaScript.
+    fn sym(&self, unicode: &'static str, ascii: &'static str) -> &'static str {
+        if self.ascii.get() { ascii } else { unicode }
     }
 
     fn print(&self, names: &mut Vec<Name>, term: &Term, prec: Prec) -> String {
@@ -260,9 +286,9 @@ impl<'g> Printer<'g> {
                     && (is(self.g, Builtin::And, *d) || is(self.g, Builtin::Or, *d)) =>
             {
                 let (op, prec, left) = if is(self.g, Builtin::And, *d) {
-                    ("∧", Prec::And, Prec::Eq)
+                    (self.sym("∧", "&&"), Prec::And, Prec::Eq)
                 } else {
-                    ("∨", Prec::Or, Prec::And)
+                    (self.sym("∨", "||"), Prec::Or, Prec::And)
                 };
                 let lhs = self.print(names, &args[0], left);
                 let rhs = self.print(names, &args[1], prec);
@@ -272,7 +298,7 @@ impl<'g> Printer<'g> {
             Term::Data(d, args) if args.len() == 2 && is_loaded(self.g, Builtin::Iff, *d) => {
                 let lhs = self.print(names, &args[0], Prec::Or);
                 let rhs = self.print(names, &args[1], Prec::Or);
-                (format!("{lhs} ↔ {rhs}"), Prec::Iff)
+                (format!("{lhs} {} {rhs}", self.sym("↔", "<->")), Prec::Iff)
             }
             // `Exists T (x => P)` as `∃ (x: T) => P`, when its predicate is
             // a lambda.
@@ -288,7 +314,10 @@ impl<'g> Printer<'g> {
                 names.push(x.clone());
                 let body = self.print(names, body, Prec::Arrow);
                 names.pop();
-                (format!("∃ ({x}: {ty}) => {body}"), Prec::Arrow)
+                (
+                    format!("{} ({x}: {ty}) => {body}", self.sym("∃", "exists")),
+                    Prec::Arrow,
+                )
             }
             // A pair type, as a tuple type: `(Nat, Text)`, nesting to the right.
             Term::Data(d, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
@@ -418,13 +447,14 @@ impl<'g> Printer<'g> {
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);
                 names.pop();
+                let arrow = self.sym("→", "->");
                 if icit.is_implicit() {
                     let auto = if *icit == Icit::Auto { "auto " } else { "" };
-                    (format!("[{auto}{x}: {dom}] -> {cod}"), Prec::Arrow)
+                    (format!("[{auto}{x}: {dom}] {arrow} {cod}"), Prec::Arrow)
                 } else if uses {
-                    (format!("({x}: {dom}) -> {cod}"), Prec::Arrow)
+                    (format!("({x}: {dom}) {arrow} {cod}"), Prec::Arrow)
                 } else {
-                    (format!("{dom} -> {cod}"), Prec::Arrow)
+                    (format!("{dom} {arrow} {cod}"), Prec::Arrow)
                 }
             }
             // Nested lambdas are one run: `x y => body`. A lambda is a whole
@@ -567,7 +597,7 @@ impl<'g> Printer<'g> {
                         Some(Builtin::IntMul) => Some(("*", Prec::Mul)),
                         Some(Builtin::IntDiv) => Some(("/", Prec::Mul)),
                         Some(Builtin::IntMod) => Some(("%", Prec::Mul)),
-                        Some(Builtin::LessEq) => Some(("≤", Prec::Eq)),
+                        Some(Builtin::LessEq) => Some((self.sym("≤", "<="), Prec::Eq)),
                         Some(Builtin::LessThan) => Some(("<", Prec::Eq)),
                         _ => None,
                     };
@@ -592,7 +622,7 @@ impl<'g> Printer<'g> {
                     if let Some((x, xs)) = self.membership(term) {
                         let x = self.print(names, x, Prec::Add);
                         let xs = self.print(names, xs, Prec::Add);
-                        return (format!("{x} ∈ {xs}"), Prec::Eq);
+                        return (format!("{x} {} {xs}", self.sym("∈", "in")), Prec::Eq);
                     }
                 }
                 if self.show_hidden.get() {
@@ -643,18 +673,18 @@ impl<'g> Printer<'g> {
         if let Term::Eq(_, a, b) = prop.strip_loc() {
             let a = self.print(names, a, Prec::Add);
             let b = self.print(names, b, Prec::Add);
-            return (format!("{a} ≠ {b}"), Prec::Eq);
+            return (format!("{a} {} {b}", self.sym("≠", "!=")), Prec::Eq);
         }
         if !self.show_hidden.get()
             && let Some((x, xs)) = self.membership(prop)
         {
             let x = self.print(names, x, Prec::Add);
             let xs = self.print(names, xs, Prec::Add);
-            return (format!("{x} ∉ {xs}"), Prec::Eq);
+            return (format!("{x} {} {xs}", self.sym("∉", "!in")), Prec::Eq);
         }
         // `!` binds more loosely than application: `¬p x` is `¬(p x)`.
         let p = self.print(names, prop, Prec::App);
-        (format!("¬{p}"), Prec::Neg)
+        (format!("{}{p}", self.sym("¬", "!")), Prec::Neg)
     }
 
     /// The element and the list of `List.Mem x xs`.

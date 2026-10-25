@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def earlier (f: Nat -> Nat) (g: Nat -> Nat): Bool := if f < g then True else False
    │                                                         ┬  
-   │                                                         ╰── this is `Nat -> Nat`
+   │                                                         ╰── this is `Nat → Nat`
    │ 
-   │ Note: on other types `<` is `Ord.lessThan`, and there's no `Ord` instance for `Nat -> Nat` here
+   │ Note: on other types `<` is `Ord.lessThan`, and there's no `Ord` instance for `Nat → Nat` here
 ───╯

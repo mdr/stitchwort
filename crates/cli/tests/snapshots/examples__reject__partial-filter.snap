@@ -7,7 +7,7 @@ expression: output
     │
  13 │ def trivialOnes (numbers: List Nat): {Partial} (List Nat) := List.filter numbers isTrivial
     │                                                                                  ────┬────  
-    │                                                                                      ╰────── expected `Nat -> Bool`, but this has type `Nat -> {Partial} Bool`
+    │                                                                                      ╰────── expected `Nat → Bool`, but this has type `Nat → {Partial} Bool`
     │ 
-    │ Note: `List.filter` doesn't take partial callbacks yet: its callback has the type `Nat -> Bool`, which must finish, and `isTrivial` is partial (so far only `List.map`'s callback may be partial)
+    │ Note: `List.filter` doesn't take partial callbacks yet: its callback has the type `Nat → Bool`, which must finish, and `isTrivial` is partial (so far only `List.map`'s callback may be partial)
 ────╯

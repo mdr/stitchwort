@@ -2,10 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-INSTANCE-NONE] Error: no `Ordered` instance for `Nat -> Nat`
+[E-INSTANCE-NONE] Error: no `Ordered` instance for `Nat → Nat`
     ╭─[ reject/data-auto-none.sw:11:12 ]
     │
  11 │ def table: Map (Nat -> Nat) Nat := { entries = [] }
     │            ──────────┬─────────  
-    │                      ╰─────────── this needs `Ordered (Nat -> Nat)`
+    │                      ╰─────────── this needs `Ordered (Nat → Nat)`
 ────╯

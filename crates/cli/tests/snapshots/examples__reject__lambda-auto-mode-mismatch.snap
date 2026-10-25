@@ -7,7 +7,7 @@ expression: output
    │
  8 │ def f: [a: Type] -> [auto order: Ord a] -> a -> a := [a: Type] [b: Type] (x: a) => x
    │                                                      ───────────────┬───────────────  
-   │                                                                     ╰───────────────── this lambda takes an implicit parameter first, but the expected type `[auto order: Ord a] -> a -> a` takes an `auto` one
+   │                                                                     ╰───────────────── this lambda takes an implicit parameter first, but the expected type `[auto order: Ord a] → a → a` takes an `auto` one
    │ 
    │ Note: a lambda takes its expected type's parameters in order: `[a: …]` takes `[a: …] -> …`, `[auto h: …]` takes `[auto h: …] -> …`, and `x` or `(x: …)` takes `(x: …) -> …` (with implicit ones in front of it introduced for you)
 ───╯

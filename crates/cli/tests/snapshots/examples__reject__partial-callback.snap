@@ -9,7 +9,7 @@ expression: output
    │                                          ──┬─  
    │                                            ╰─── `loop` calls `loop`, so as a value it makes requests that only `loop`'s own definition can answer
    │ 
-   │ Note 1: `useP`'s parameter has the type `Nat -> {Partial} Nat`, whose row is fixed
+   │ Note 1: `useP`'s parameter has the type `Nat → {Partial} Nat`, whose row is fixed
    │ 
-   │ Note 2: make `useP` polymorphic in the rest of the row: give the parameter the type `Nat -> {Partial | e} Nat`, and add `| e` to `useP`'s own row too
+   │ Note 2: make `useP` polymorphic in the rest of the row: give the parameter the type `Nat → {Partial | e} Nat`, and add `| e` to `useP`'s own row too
 ───╯

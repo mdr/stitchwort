@@ -998,7 +998,10 @@ fn unicode_alias(ch: char) -> Option<Tok> {
 /// write instead (D1208).
 const UNSUPPORTED: &[(char, &str)] = &[
     ('∀', "\"for all\" is a function type: write `(x: T) -> P`"),
-    ('⇒', "write `->` for implication, or `=>` in a lambda"),
+    (
+        '⇒',
+        "write `=>` for a lambda or a match arm, or `->` (or `→`) for implication",
+    ),
     ('⟹', "write `->` for implication"),
     ('⇔', "write `<->`"),
     ('⟺', "write `<->`"),

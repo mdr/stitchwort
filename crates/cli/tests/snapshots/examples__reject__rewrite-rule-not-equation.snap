@@ -7,7 +7,7 @@ expression: output
    │
  8 │   rewrite h
    │           ┬  
-   │           ╰── this has type `(n: Nat) -> n ∈ [n]`, which isn't an equation
+   │           ╰── this has type `(n: Nat) → n ∈ [n]`, which isn't an equation
    │ 
    │ Note: a rule may leave off arguments at its end, but what it proves then must be an equation
 ───╯

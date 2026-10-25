@@ -7,7 +7,7 @@ expression: output
     │
  11 │ def again (m: Meter): Meter := m.parse
     │                                ───┬───  
-    │                                   ╰───── `Meter.parse: Text -> Meter`
+    │                                   ╰───── `Meter.parse: Text → Meter`
     │ 
     │ Note: dot notation passes the value as the first argument; call it directly: `Meter.parse t`
 ────╯

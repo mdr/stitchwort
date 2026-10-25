@@ -39,7 +39,7 @@ fn evaluates_and_prints_expressions() {
         ("[1, 2, 3].length", "3 : Nat"),
         ("Std.List.append [1] [2, 3]", "[1, 2, 3] : List Nat"),
         ("[[1], []]", "[[1], []] : List (List Nat)"),
-        ("Succ", "n => Succ n : Nat -> Nat"),
+        ("Succ", "n => Succ n : Nat → Nat"),
         ("7 / 2", "3 : Nat"),
         ("Std.Nat.div 7 2", "3 : Nat"),
     ];
@@ -60,7 +60,7 @@ fn shows_polymorphic_types_with_their_implicit_parameters() {
     let (_, ty) = session.elab.infer_expr(&expr).unwrap();
     assert_eq!(
         session.elab.show(&ty),
-        "[a: Type] -> List a -> List a -> List a"
+        "[a: Type] → List a → List a → List a"
     );
 }
 

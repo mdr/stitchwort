@@ -649,7 +649,7 @@ pub(crate) fn sketch(g: &Globals, f: DefId) -> String {
                                 .to_string(),
                             y => y.to_string(),
                         };
-                        binders.push_str(&format!("({y}: {}) -> ", print(&inner, dom)));
+                        binders.push_str(&format!("({y}: {}) → ", print(&inner, dom)));
                         args.push_str(&format!(" {y}"));
                         inner.push(y.as_str().into());
                         t = cod.strip_loc();

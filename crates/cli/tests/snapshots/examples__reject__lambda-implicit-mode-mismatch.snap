@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def f: Nat -> Nat := [a: Type] (x: a) => x
    │                      ──────────┬──────────  
-   │                                ╰──────────── this lambda takes an implicit parameter first, but the expected type `Nat -> Nat` takes an explicit one
+   │                                ╰──────────── this lambda takes an implicit parameter first, but the expected type `Nat → Nat` takes an explicit one
    │ 
    │ Note: a lambda takes its expected type's parameters in order: `[a: …]` takes `[a: …] -> …`, `[auto h: …]` takes `[auto h: …] -> …`, and `x` or `(x: …)` takes `(x: …) -> …` (with implicit ones in front of it introduced for you)
 ───╯

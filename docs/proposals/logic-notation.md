@@ -1,6 +1,6 @@
 # Notation for logic and sets: `x in xs`, `<->`, `exists`?
 
-**Status:** design note, 25 October 2026 (SW-461). **As built** (25 October 2026): D1200–D1211 as amended, with the eleven aliases `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` (no `⇒` or `λ`, which get errors naming `=>` and `x => e`); `exists` stays a name after a `.`, so `Option.exists` is unchanged (D1221); the printer shows `∧ ∨ ¬ ≠ ≤ ∈ ∉ ↔ ∃` and keeps `->`. Reference: [syntax.md](../syntax.md#logic-notation-in--and-exists).
+**Status:** design note, 25 October 2026 (SW-461). **As built** (25 October 2026): D1200–D1211 as amended, with the eleven aliases `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` (no `⇒` or `λ`, which get errors naming `=>` and `x => e`); `exists` stays a name after a `.`, so `Option.exists` is unchanged (D1221); the printer shows `∧ ∨ ¬ ≠ ≤ ∈ ∉ ↔ ∃ →` in goals, hover and messages (D1222), but ASCII inside exported JavaScript (D1223). Reference: [syntax.md](../syntax.md#logic-notation-in--and-exists).
 The decisions are D1200–D1208 (§9). The counts are in §3; the survey of other
 languages is in §4, with a link for every claim.
 
