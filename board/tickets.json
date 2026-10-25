@@ -3034,14 +3034,16 @@
     {
       "id": 488,
       "title": "Partial handlers lane C: native and JS runners for foldD, stack tests",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "3a6d92fa"
+      ]
     },
     {
       "id": 489,
