@@ -31,17 +31,20 @@ def playGame (state: State): {Terminal, Random, Partial} State :=
   Terminal.draw (frame state)
   play state
 
--- One turn per command, until the game is won, lost or given up. Keys that
--- aren't commands are skipped, and the end of the input gives up.
+-- One turn per command, until the game is won, lost or given up.
 def play (state: State): {Terminal, Random, Partial} State :=
-  if state.phase == Playing then
-    match nextCommand() with
-      | None => play state
-      | Some command =>
-        let next := step state command
-        Terminal.draw (frame next)
-        play next
-  else state
+  if state.phase == Playing then play (playTurn state) else state
+
+-- One key: a turn, and its frame, if the key is a command. Keys that aren't
+-- commands are skipped, and the end of the input gives up. It is total, so
+-- what a turn does on the terminal is proved about (Proofs/Loop.sw).
+def playTurn (state: State): {Terminal, Random} State :=
+  match nextCommand() with
+    | None => state
+    | Some command =>
+      let next := step state command
+      Terminal.draw (frame next)
+      next
 
 def ending (state: State): Text :=
   match state.phase with

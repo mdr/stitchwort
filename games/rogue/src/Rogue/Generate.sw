@@ -21,16 +21,29 @@ type Plan = { level: Level, monsters: List Monster, items: List Item }
 -- by one more corridor, so every room can be reached from every other.
 def generateLevel (depth: Nat): {Random} Plan :=
   let rooms := (List.range 6).map randomRoom
-  let room := (index: Nat) => rooms.getOr (rooms.headOr fallbackRoom) index
+  let room := (index: Nat) => roomOf rooms index
   let entranceIndex := roll 5
   let exitIndex := (entranceIndex + 1 + roll 4) % 6
-  let corridors := (roomLinks (roll 2)).flatMap (((first, second)) => corridorBetween (room first).middle (room second).middle)
-  let level := Level.build depth (room entranceIndex) (room exitIndex) rooms corridors
+  let extra := roll 2
+  let level := layOut depth rooms entranceIndex exitIndex extra
   let monsters := (List.range (2 + 2 * depth)).map (_ => randomMonster depth (room ((entranceIndex + 1 + roll 4) % 6)))
   let potions := (List.range 2).map (_ => randomItem Potion (room (roll 5)))
   let swords := if depth < deepest then [randomItem Sword (room (roll 5))] else []
   let amulets := if depth < deepest then [] else [({ loot = Amulet, position = level.goal }: Item)]
   { level, monsters, items = amulets ++ swords ++ potions }
+
+-- The level's rooms joined by its corridors, with no rolls left to make:
+-- the stairs can be reached from the start of every level it makes
+-- (Proofs/Reach.sw).
+def layOut (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat): Level :=
+  Level.build depth (roomOf rooms entranceIndex) (roomOf rooms exitIndex) rooms (corridorsOf rooms extra)
+
+-- The corridors joining the rooms `roomLinks` pairs up, middle to middle.
+def corridorsOf (rooms: List Area) (extra: Nat): List Area :=
+  (roomLinks extra).flatMap (((first, second)) => corridorBetween (roomOf rooms first).middle (roomOf rooms second).middle)
+
+-- Room number `index`.
+def roomOf (rooms: List Area) (index: Nat): Area := rooms.getOr (rooms.headOr fallbackRoom) index
 
 -- Never used: `rooms` always has six.
 def fallbackRoom: Area := { corner = { row = 1, column = 1 }, down = 0, across = 0 }
