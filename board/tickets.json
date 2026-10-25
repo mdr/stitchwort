@@ -2424,7 +2424,7 @@
     {
       "id": 444,
       "title": "JS backend: known functions called with all arguments at once (D1173); merge if faster and tests pass",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2432,8 +2432,10 @@
       ],
       "body": "",
       "created": "2026-10-24",
-      "updated": "2026-10-24",
-      "commits": []
+      "updated": "2026-10-25",
+      "commits": [
+        "c3206826"
+      ]
     },
     {
       "id": 445,
