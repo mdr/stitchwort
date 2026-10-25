@@ -3,9 +3,9 @@
 -- and items `arrive` places are on floor and off the player's cell
 -- (`placeMonstersClear`, `placeMonstersOnFloor`, `placeItemsFit`).
 --
--- Not proved: that the stairs can be reached from the start. The generator
--- joins its rooms in a chain of corridors; Tests/Generate.sw checks that
--- the goal is reachable on many seeds, by a search over the cells.
+-- That the stairs can be reached from the start is in Reach.sw
+-- (`goalReachable`); Tests/Generate.sw also checks it on many seeds, by a
+-- search over the cells.
 
 namespace Rogue.Proofs
 import Rogue (..)

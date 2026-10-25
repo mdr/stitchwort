@@ -14,3 +14,10 @@ test "main under simulate rolls the same every time" :=
 
 test "the seed is 0 under simulate" :=
   (IO.simulate [] (() => IO.randomSeed ())).snd == 0
+
+-- `IO.simulateWith` picks the seed, so a test can drive `main` on any one.
+test "simulateWith gives the seed" :=
+  (IO.simulateWith 7 [] (() => IO.randomSeed ())).snd == 7
+
+test "main under simulateWith rolls what that seed gives" :=
+  (IO.simulateWith 1 [] main).fst == ["You rolled ${(Random.between 1 1 6).fst}."]

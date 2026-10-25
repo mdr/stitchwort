@@ -1045,7 +1045,7 @@ export def area: Shape -> Nat
       `Run calls ${project ? main : "main"} (). Its IO.readLine () gets the lines below, one at a time, then None; ` +
       "IO.readAll () gets all that's left at once. " +
       `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.` +
-      (project ? " The input starts as the day's example." : "");
+      (project ? (project.manifest.days[project.day].hint ? ` ${project.manifest.days[project.day].hint}` : " The input starts as the day's example.") : "");
   }
   setRunHint();
 
@@ -1148,12 +1148,16 @@ export def area: Shape -> Nat
 
   /** The open project: the manifest, the files, and what's open; or null. */
   // (declared with the run panel, which needs it)
-  let manifestPromise = null;
-  let bundlePromise = null;
+  const manifestPromises = new Map();
+  const bundlePromises = new Map();
 
-  const PROJECT_KEYS = "stitchwort.project.aoc.";
-  const fileKey = (path) => `${PROJECT_KEYS}file.${path}`;
-  const inputKey = (main) => `${PROJECT_KEYS}input.${main}`;
+  /** The bundled projects, in the Example dropdown's order. */
+  const PROJECT_NAMES = ["aoc", "rogue"];
+  /** The project a dropdown value (`aoc:3`) is for, or null. */
+  const projectOfId = (id) => PROJECT_NAMES.find((name) => id.startsWith(`${name}:`)) ?? null;
+  const keysOf = (name) => `stitchwort.project.${name}.`;
+  const fileKey = (path, name = project.name) => `${keysOf(name)}file.${path}`;
+  const inputKey = (main) => `${keysOf(project.name)}input.${main}`;
   /** A short hash of a text, to tell which bundled text an edit was made from. */
   function shortHash(text) {
     let h = 0x811c9dc5;
@@ -1161,38 +1165,41 @@ export def area: Shape -> Nat
     return (h >>> 0).toString(16);
   }
 
-  const projectUrl = (path) => new URL(`pkg/projects/aoc/${path}${PROJECT_LOAD}`, import.meta.url);
+  const projectUrl = (path, name = project.name) => new URL(`pkg/projects/${name}/${path}${PROJECT_LOAD}`, import.meta.url);
 
-  /** The manifest, or null if this build has no project. */
-  function fetchManifest() {
-    manifestPromise ??= versionReady.then(() => fetch(projectUrl("manifest.json")))
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .catch(() => null);
-    return manifestPromise;
+  /** The named project's manifest, or null if this build doesn't have it. */
+  function fetchManifest(name) {
+    if (!manifestPromises.has(name)) {
+      manifestPromises.set(name, versionReady.then(() => fetch(projectUrl("manifest.json", name)))
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch(() => null));
+    }
+    return manifestPromises.get(name);
   }
 
   /** The project's files, with the saved edits applied. */
   function fetchProject(manifest) {
+    const name = manifest.name;
     const get = (path) =>
-      fetch(projectUrl(path)).then((r) => { if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.text(); });
+      fetch(projectUrl(path, name)).then((r) => { if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.text(); });
     // The sources, and the files `include` reads (`data`: the puzzle inputs).
-    bundlePromise ??= Promise.all([Promise.all(manifest.files.map(get)), Promise.all((manifest.data ?? []).map(get))])
+    if (!bundlePromises.has(name)) bundlePromises.set(name, Promise.all([Promise.all(manifest.files.map(get)), Promise.all((manifest.data ?? []).map(get))])
       .then(([texts, data]) => {
         const bundled = new Map(manifest.files.map((path, i) => [path, texts[i]]));
-        const state = { manifest, bundled, texts: new Map(bundled), stale: new Map(), dropped: [], day: 0, open: "",
+        const state = { name, manifest, bundled, texts: new Map(bundled), stale: new Map(), dropped: [], day: 0, open: "",
                         extras: new Set(), outlineTabs: null, errors: new Set(), namespaceOf: new Map(), carets: new Map(),
                         examples: new Map(), data };
         for (const path of manifest.files) {
           let saved = null;
-          try { saved = JSON.parse(stored(fileKey(path))); } catch {}
+          try { saved = JSON.parse(stored(fileKey(path, name))); } catch {}
           if (!saved || typeof saved.text !== "string") continue;
-          if (saved.text === bundled.get(path)) { forget(fileKey(path)); continue; }
+          if (saved.text === bundled.get(path)) { forget(fileKey(path, name)); continue; }
           state.texts.set(path, saved.text);
           // The bundled file changed since the edit: keep the edit, and ask.
           if (saved.from !== shortHash(bundled.get(path))) state.stale.set(path, saved.from);
         }
         try {
-          const prefix = `${PROJECT_KEYS}file.`;
+          const prefix = `${keysOf(name)}file.`;
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key.startsWith(prefix) && !bundled.has(key.slice(prefix.length))) state.dropped.push(key);
@@ -1200,8 +1207,8 @@ export def area: Shape -> Nat
           for (const key of state.dropped) forget(key);
         } catch {}
         return state;
-      });
-    return bundlePromise;
+      }));
+    return bundlePromises.get(name);
   }
 
   /** What a render or a run is for: the source, or the day with every file's text. */
@@ -1224,7 +1231,7 @@ export def area: Shape -> Nat
   function tabLabel(path) {
     const day = project.manifest.days[project.day];
     const dayFolder = day.open.replace(/[^/]*$/, "");
-    return path.startsWith(dayFolder) ? path.slice(dayFolder.length) : path.replace(/^src\/Aoc\//, "");
+    return path.startsWith(dayFolder) ? path.slice(dayFolder.length) : path.replace(/^src\/(Aoc|Rogue)\//, "");
   }
 
   /** The day's files before the compiler has said which they are. */
@@ -1259,7 +1266,7 @@ export def area: Shape -> Nat
     }));
     const others = project.manifest.files.filter((p) => !paths.includes(p));
     otherFiles.replaceChildren(el("option", { value: "" }, "Other files…"),
-      ...others.map((p) => el("option", { value: p }, p.replace(/^src\/Aoc\//, ""))));
+      ...others.map((p) => el("option", { value: p }, p.replace(/^src\/(Aoc|Rogue)\//, ""))));
     otherFiles.hidden = others.length === 0;
     resetFile.disabled = !isEdited(project.open);
     resetProject.disabled = !project.manifest.files.some(isEdited);
@@ -1334,7 +1341,7 @@ export def area: Shape -> Nat
       rememberCaret();
       if (!tabPaths().includes(path)) project.extras.add(path);
       project.open = path;
-      store(`${PROJECT_KEYS}open`, path);
+      store(`${keysOf(project.name)}open`, path);
     }
     showFile();
     render();
@@ -1413,8 +1420,8 @@ export def area: Shape -> Nat
     return [...views, ...warningsView(answer.warnings)];
   }
 
-  async function loadProject(index, openPath) {
-    const manifest = await fetchManifest();
+  async function loadProject(name, index, openPath) {
+    const manifest = await fetchManifest(name);
     if (!manifest) return loadExample("ex-lists");
     let state;
     try {
@@ -1433,20 +1440,21 @@ export def area: Shape -> Nat
     project.extras = new Set();
     project.outlineTabs = null;
     project.errors = new Set();
-    picker.value = `aoc:${project.day}`;
+    const id = `${name}:${project.day}`;
+    picker.value = id;
     filebar.hidden = false;
-    store("stitchwort.example", `aoc:${project.day}`);
-    showEntryLink(`aoc:${project.day}`);
-    store(`${PROJECT_KEYS}open`, project.open);
+    store("stitchwort.example", id);
+    showEntryLink(id);
+    store(`${keysOf(name)}open`, project.open);
     evalImports = [];
-    evalInput = day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`;
+    evalInput = day.evalInput ?? (day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`);
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
     inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),
       ...(day.inputs ?? []).map((choice) => el("option", { value: choice.path }, choice.title)));
     inputChoice.hidden = !(day.inputs ?? []).length;
     let input = stored(inputKey(day.main));
-    if (input === null) input = (await bundledInput(day.inputs?.[0]?.path)) ?? "";
+    if (input === null) input = (await bundledInput(day.inputs?.[0]?.path)) ?? day.defaultInput ?? "";
     runInput.value = input;
     setRunHint();
     runResult.replaceChildren();
@@ -1483,9 +1491,10 @@ export def area: Shape -> Nat
 
   /** The fragment for a dropdown value, without the `#`. */
   function hashFor(id) {
-    if (id.startsWith("aoc:")) {
-      const day = project?.manifest.days[Number(id.slice(4))];
-      return day ? `aoc/day${dayNumber(day)}` : null;
+    const name = projectOfId(id);
+    if (name) {
+      const day = project?.name === name ? project.manifest.days[Number(id.slice(name.length + 1))] : null;
+      return day ? (name === "aoc" ? `aoc/day${dayNumber(day)}` : `${name}/${slugOf(day.title)}`) : null;
     }
     const ex = document.getElementById(id);
     return ex ? `example/${slugOf(ex.dataset.title)}` : null;
@@ -1497,10 +1506,10 @@ export def area: Shape -> Nat
     const [kind, name, ...rest] = hash.split("/");
     if (rest.length) return null;
     if (kind === "example") return examples.find((ex) => slugOf(ex.dataset.title) === name)?.id ?? null;
-    if (kind === "aoc") {
-      const manifest = await fetchManifest();
-      const i = manifest?.days.findIndex((day) => `day${dayNumber(day)}` === name) ?? -1;
-      return i >= 0 ? `aoc:${i}` : null;
+    if (PROJECT_NAMES.includes(kind)) {
+      const manifest = await fetchManifest(kind);
+      const i = manifest?.days.findIndex((day) => (kind === "aoc" ? `day${dayNumber(day)}` : slugOf(day.title)) === name) ?? -1;
+      return i >= 0 ? `${kind}:${i}` : null;
     }
     return null;
   }
@@ -1529,9 +1538,9 @@ export def area: Shape -> Nat
   function addProjectGroup(manifest) {
     if (!manifest) return;
     const group = el("optgroup", { label: manifest.title });
-    manifest.days.forEach((day, i) => group.append(el("option", { value: `aoc:${i}` }, day.title)));
+    manifest.days.forEach((day, i) => group.append(el("option", { value: `${manifest.name}:${i}` }, day.title)));
     picker.append(group);
-    if (project) picker.value = `aoc:${project.day}`;
+    if (project?.name === manifest.name) picker.value = `${manifest.name}:${project.day}`;
   }
 
   otherFiles.addEventListener("change", () => {
@@ -1559,7 +1568,8 @@ export def area: Shape -> Nat
   });
 
   async function loadExample(id) {
-    if (id.startsWith("aoc:")) return loadProject(Number(id.slice(4)) || 0);
+    const named = projectOfId(id);
+    if (named) return loadProject(named, Number(id.slice(named.length + 1)) || 0);
     exitStd();
     project = null;
     filebar.hidden = true;
@@ -2896,20 +2906,22 @@ export def area: Shape -> Nat
     if (draft) { source.value = draft; refresh(); }
     if (input !== null) { runInput.value = input; store("stitchwort.input", input); }
   }
-  fetchManifest().then(addProjectGroup);
+  // In order, so the groups are in the dropdown's order.
+  PROJECT_NAMES.reduce((previous, name) => previous.then(() => fetchManifest(name)).then(addProjectGroup), Promise.resolve());
   const startHash = location.hash.slice(1);
   const startGuide = guideSlugOf(startHash);
   if (startHash && startGuide === null) {
     // A link opens as choosing that entry does, except that the saved draft
     // of a built-in example is kept if it is the one last open.
-    openFromHash(startHash).then(() => { if (picker.value === chosen && !chosen.startsWith("aoc:")) restoreDraft(); });
+    openFromHash(startHash).then(() => { if (picker.value === chosen && !projectOfId(chosen)) restoreDraft(); });
   } else {
     // The editor is set up behind the guide, which a `#guide` link opens
     // (the example's own link would take its place in the address bar).
-    const loaded = chosen.startsWith("aoc:")
-      ? loadProject(Number(chosen.slice(4)) || 0, stored(`${PROJECT_KEYS}open`))
+    const chosenProject = projectOfId(chosen);
+    const loaded = chosenProject
+      ? loadProject(chosenProject, Number(chosen.slice(chosenProject.length + 1)) || 0, stored(`${keysOf(chosenProject)}open`))
       : loadExample(chosen);
-    if (!chosen.startsWith("aoc:")) restoreDraft();
+    if (!chosenProject) restoreDraft();
     if (startGuide !== null) {
       Promise.resolve(loaded).then(() => { try { history.replaceState(null, "", `#${startHash}`); } catch {} });
       showGuide(startGuide);

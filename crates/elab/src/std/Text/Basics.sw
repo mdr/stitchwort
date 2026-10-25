@@ -100,6 +100,17 @@ def Text.join: List Text → (separator: Char) → Text
   | Nil, separator => MkText Nil
   | Cons text texts, separator => MkText (Text.joinChars separator (Text.toList text) (Text.charListsOf texts))
 
+-- The same with a `Text` separator: `Text.joinWith ["a", "b"] ", "` is `"a, b"`
+-- (written like `Text.join`, with the list first, so no dot notation).
+def Text.joinTextChars (separator: List Char) (field: List Char): List (List Char) → List Char
+  | Nil => field
+  | Cons nextField laterFields => List.append field (List.append separator (Text.joinTextChars separator nextField laterFields))
+
+@[noReceiver]
+def Text.joinWith: List Text → (separator: Text) → Text
+  | Nil, separator => MkText Nil
+  | Cons text texts, separator => MkText (Text.joinTextChars (Text.toList separator) (Text.toList text) (Text.charListsOf texts))
+
 -- Words: the runs of non-whitespace (as `Char.isSpace` defines it) between
 -- runs of whitespace, with no empty ones. `Text.wordsChars chars` is the word
 -- that `chars` starts with (so far) and the finished words after it.

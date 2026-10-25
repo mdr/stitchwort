@@ -106,3 +106,7 @@ theorem roundTrip (t: Text): Text.fromList (Text.toList t) = t := Text.fromToLis
 
 -- By computation.
 theorem helloLength: "hello".length = 5 := rfl
+
+test "joinWith" := Text.joinWith ["a", "", "b"] ", " == "a, , b"
+test "joinWith nothing" := Text.joinWith [] ", " == "" ∧ Text.joinWith ["a"] ", " == "a"
+test "joinWith a one-character text is join" := Text.joinWith ["x", "y", "z"] "-" == Text.join ["x", "y", "z"] '-'

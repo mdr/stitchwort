@@ -613,7 +613,7 @@ Effectful code is written in direct style. Arguments are evaluated left to right
 
 ### `IO`
 
-`IO` is an ability with `print: Text -> {IO} ()`, `readLine: () -> {IO} (Option Text)` and `readAll: () -> {IO} Text` (also `IO.print`, `IO.readLine`, `IO.readAll`). `IO.simulate lines prog` runs `prog` against scripted input and records what it prints.
+`IO` is an ability with `print: Text -> {IO} ()`, `readLine: () -> {IO} (Option Text)` and `readAll: () -> {IO} Text` (also `IO.print`, `IO.readLine`, `IO.readAll`). `IO.simulate lines prog` runs `prog` against scripted input and records what it prints; `IO.simulateWith seed lines prog` does the same with `IO.randomSeed` giving `seed` (0 under `IO.simulate`).
 
 - `IO.readLine()` gives the next line without its LF (and a CR just before it), `None` once nothing remains.
 - `IO.readAll()` gives everything that remains, verbatim, line endings included; `""` once nothing remains. After it, `IO.readLine()` is `None`; after some `IO.readLine`s it gives the rest. Under `IO.simulate` it gives the remaining scripted lines, each followed by LF.

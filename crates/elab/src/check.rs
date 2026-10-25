@@ -1485,7 +1485,9 @@ fn apply_args_postponing(
                     postponed.push((*value, dom, placeholder, id));
                     continue;
                 }
-                let value = check_arg(cx, &term, value, &dom)?;
+                let next_is_unit = matches!(args.get(i + 1), Some(Arg::Explicit(Expr::Unit(_))));
+                let value = check_arg(cx, &term, value, &dom)
+                    .map_err(|e| unit_call_hint(cx, &term, value, &dom, next_is_unit, e))?;
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
             }
@@ -1666,6 +1668,34 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
         }
         result => result,
     }
+}
+
+/// `play start ()` is `(play start) ()`: when the argument that doesn't fit is
+/// a name of a function from `()` and a `()` follows it, the call was meant to be
+/// the argument (`play (start ())`).
+fn unit_call_hint(
+    cx: &Ctx,
+    head: &Term,
+    value: &Expr,
+    dom: &Value,
+    next_is_unit: bool,
+    e: Diagnostic,
+) -> Diagnostic {
+    let (Expr::Var(arg), true, "E-TYPE-MISMATCH") = (value, next_is_unit, e.code) else {
+        return e;
+    };
+    if matches!(force(cx.g(), dom.clone()), Ok(Value::Pi(..))) {
+        return e;
+    }
+    let function = match head.spine().0.strip_loc() {
+        Term::Def(id) => cx.g().def(*id).name.to_string(),
+        Term::Var(ix) => cx.names[cx.level() - 1 - ix].to_string(),
+        _ => return e,
+    };
+    e.with_note(format!(
+        "did you mean `{function} ({} ())`? Without brackets, `{function} {} ()` passes `{}` itself to `{function}` and then applies the result to `()`",
+        arg.text, arg.text, arg.text
+    ))
 }
 
 /// When the function given a partial argument was checked with its

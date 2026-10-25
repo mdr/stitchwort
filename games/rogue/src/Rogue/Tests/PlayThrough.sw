@@ -71,6 +71,12 @@ test "the winning route through the console handler" :=
   let (printed, final) := IO.simulate [winningRoute] (() => playOn testSeed)
   final.phase == Won ∧ (printed.filter (line => line == "\u{c}")).length == 233
 
+-- `IO.simulateWith` gives `main` the seed the route was found on, so the real
+-- `main` plays it through to the win.
+test "main plays the winning route on seed 2026" :=
+  let (printed, _) := IO.simulateWith testSeed [winningRoute] main
+  (printed.filter (line => line == "\u{c}")).length == 233 ∧ (printed.last |> .getOrElse "").startsWith "You won"
+
 -- The first level on the test seed. The bars mark the ends of each row,
 -- which is 66 cells wide.
 def firstMap: Text := """
