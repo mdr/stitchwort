@@ -56,12 +56,12 @@ def Option.fold: Option a → (none: b) → (some: a → b) → b
   | Some x, none, some => some x
 
 -- Whether there is a value and `p` holds for it (`None` is `False`).
-def Option.exists: Option a → (p: a → Bool) → Bool
+def Option.any: Option a → (p: a → Bool) → Bool
   | None, p => False
   | Some x, p => p x
 
 -- Whether `p` holds for the value, if any (`None` is `True`).
-def Option.forall: Option a → (p: a → Bool) → Bool
+def Option.all: Option a → (p: a → Bool) → Bool
   | None, p => True
   | Some x, p => p x
 
@@ -117,7 +117,7 @@ test "Option.alignWith" := (Some 1).alignWith (Some 5) (+ 10) (+ 20) (*) == Some
 test "Option.alignWith lone" := (Some 1).alignWith (None: Option Nat) (+ 10) (+ 20) (*) == Some 11 ∧ (None: Option Nat).alignWith (Some 5) (+ 10) (+ 20) (*) == Some 25
 test "Option.alignWith none" := (None: Option Nat).alignWith (None: Option Nat) (+ 10) (+ 20) (*) == None
 test "Option.fold" := (Some 4).fold 0 (+ 1) == 5 ∧ (None: Option Nat).fold 0 (+ 1) == 0
-test "Option.exists" := (Some 3).exists (> 2) == True ∧ (Some 1).exists (> 2) == False ∧ (None: Option Nat).exists (> 2) == False
-test "Option.forall" := (Some 3).forall (> 2) == True ∧ (Some 1).forall (> 2) == False ∧ (None: Option Nat).forall (> 2) == True
+test "Option.any" := (Some 3).any (> 2) == True ∧ (Some 1).any (> 2) == False ∧ (None: Option Nat).any (> 2) == False
+test "Option.all" := (Some 3).all (> 2) == True ∧ (Some 1).all (> 2) == False ∧ (None: Option Nat).all (> 2) == True
 test "Option.filter" := (Some 3).filter (> 2) == Some 3 ∧ (Some 1).filter (> 2) == None ∧ (None: Option Nat).filter (> 2) == None
 test "Option.filter in a pipe" := (Some 3 |> .filter (> 2)) == Some 3

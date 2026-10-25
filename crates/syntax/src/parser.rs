@@ -5796,9 +5796,9 @@ mod tests {
         assert!(parse_module_text("def t: Prop := p <-> exists k => q k\n").is_ok());
         assert!(parse_module_text("def t: Prop := p -> ∃ (k: Nat) => q k\n").is_ok());
         assert!(parse_errors("def t: Prop := exists 3\n").contains("after `exists`"));
-        // After a `.` it's a name: `Option.exists` keeps working.
+        // After a `.` it's a name: `x.exists` and `Foo.exists` still parse.
         assert!(parse_module_text("def t: Bool := (Some 3).exists (v => v > 2)\n").is_ok());
-        assert!(parse_module_text("def t: Bool := Option.exists (v => v > 2) (Some 3)\n").is_ok());
+        assert!(parse_module_text("def t: Bool := Foo.exists (v => v > 2) (Some 3)\n").is_ok());
     }
 
     #[test]
