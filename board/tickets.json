@@ -1,5 +1,5 @@
 {
-  "next": 517,
+  "next": 518,
   "tickets": [
     {
       "id": 13,
@@ -3402,7 +3402,19 @@
     {
       "id": 516,
       "title": "Move the hand-written native experiment (uniform/typed/ir modes) from scratchpad into bench/native/ as a standalone project outside the workspace",
-      "status": "backlog",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 517,
+      "title": "Explore extending roguelike proofs: whole-game replay, distinct monsters, reachability, render/input correctness, rules; PROOFS.md",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
