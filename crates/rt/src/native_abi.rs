@@ -236,9 +236,12 @@ pub const OUT_OF_FRAMES: u64 = 2;
 #[repr(C)]
 pub struct Context {
     /// The machine's step counter: frames entered since the stretch began.
+    /// Read when native code starts and written when it returns; in
+    /// between, compiled code keeps the steps left in a register.
     pub steps: u64,
     pub step_limit: u64,
-    /// Frames pending, the machine's and native code's.
+    /// Frames pending when native code starts, the machine's and the island
+    /// root's; compiled code passes the count on from frame to frame.
     pub frames: u64,
     pub frame_limit: u64,
     /// [`OK`], or why the run stopped. Once set, every native frame drops
@@ -352,15 +355,17 @@ pub unsafe extern "C" fn sw_drop_words(w0: u64, w1: u64, w2: u64) {
     drop(unsafe { from_words(w0, w1, w2) });
 }
 
-/// Takes a reference to the value at `v`, as `clone` does (for the trace:
-/// native code copies the words).
+/// Takes a reference to the value held in three words, as `clone` does
+/// (for the trace: native code copies the words).
 ///
 /// # Safety
-/// `v` points at a live value.
+/// The words are a live value native code holds.
 #[allow(unsafe_code)]
-pub unsafe extern "C" fn sw_inc(v: *const Value) {
-    // SAFETY: the caller's contract.
-    std::mem::forget(unsafe { (*v).clone() });
+pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
+    // SAFETY: the caller's contract; the value read from the words isn't
+    // dropped, so only the clone's count remains.
+    let v = std::mem::ManuallyDrop::new(unsafe { from_words(w0, w1, w2) });
+    std::mem::forget(Value::clone(&v));
 }
 
 /// Drops registers `n - 1` down to 0 of a frame, as the machine releases a
@@ -398,13 +403,16 @@ pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut
     unsafe { out.write(Value::Data(tag, Fields(cell))) };
 }
 
-/// Frees a unique cell whose fields `Unpack` has all moved out (each is
-/// `Erased`), held in three words: what dropping it does, without the walk
-/// over its fields for values to free.
+/// Frees a unique cell whose fields `Unpack` has all moved out, held in
+/// three words: what dropping it does, without the walk over its fields
+/// for values to free. The fields are left as they were (native code
+/// doesn't erase them), so they're never read: the cell is freed as one of
+/// `MaybeUninit` values, which have no drop.
 ///
 /// # Safety
 /// The words are a `Value::Data` native code owns, whose cell is unique and
-/// whose fields are all `Erased`.
+/// whose every field has been moved out (and may still hold the moved
+/// value's words).
 #[allow(unsafe_code)]
 pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract.
@@ -415,6 +423,11 @@ pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
     // SAFETY: `fields` is never used or dropped again; its cell is taken.
     let cell: Rc<[Value]> = unsafe { std::ptr::read(&fields.0) };
     crate::alloc_trace::dec(&cell, true);
+    // SAFETY: `MaybeUninit<Value>` has `Value`'s layout, so this is the
+    // same allocation with the same layout; dropping it frees the cell
+    // without dropping its (moved-out) fields.
+    let cell: Rc<[MaybeUninit<Value>]> =
+        unsafe { Rc::from_raw(Rc::into_raw(cell) as *const [MaybeUninit<Value>]) };
     drop(cell);
 }
 

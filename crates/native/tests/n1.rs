@@ -351,3 +351,74 @@ def main(): {IO} () :=
         assert_eq!(trace.leaks(), Vec::<u32>::new());
     });
 }
+
+/// Values live across calls of every kind (a direct call, a function value
+/// applied, a constant computed the first time, tail calls), in registers
+/// that native code keeps in machine registers (stage N2a). For every step
+/// limit and every frame limit up to the least under which the run
+/// finishes, the run stops where the machine's does, with the same output,
+/// and frees every cell: so each error exit, wherever it is, releases
+/// exactly the registers live there.
+#[test]
+fn every_error_exit_frees_the_live_registers() {
+    let source = r#"import Std (IO, List)
+
+def big: Nat := 18446744073709551616 + 5
+
+def total: List Nat → Nat
+  | [] => 0
+  | Cons x rest => x + total rest
+
+def inc (m: Nat): Nat := m + 1
+
+def twice (f: Nat → Nat) (x: Nat): Nat := f (f x)
+
+def count: Nat → Nat → Nat
+  | Zero, acc => acc
+  | Succ n, acc => count n (acc + 1)
+
+def keep: Nat → List Nat → Nat
+  | Zero, xs => total xs
+  | Succ n, xs =>
+    let ys := [n, n + big]
+    let a := keep n ys
+    let b := twice inc a
+    a + b + total xs + total ys + count n 0
+
+def run (n: Nat): Nat := keep n [1, 2, 3]
+
+def main(): {IO} () :=
+  IO.print "${run 3}"
+"#;
+    with_stack(STACK, move || {
+        let (program, limits) = lowered(source);
+        let machine = on_machine(&program, limits);
+        assert!(machine.1.is_ok(), "{machine:?}");
+        // The least limit under which the run finishes, checking every
+        // limit below it.
+        let sweep = |limits_at: &dyn Fn(u64) -> Limits| {
+            let mut k = 0;
+            loop {
+                let limits = limits_at(k);
+                let expected = on_machine(&program, limits);
+                alloc_trace::start();
+                let (ran, notes) = native(&program, limits, false);
+                let trace = alloc_trace::finish();
+                assert!(ran_natively(&notes), "{notes:#?}");
+                assert_eq!(ran, expected, "at limit {k}");
+                assert_eq!(trace.leaks(), Vec::<u32>::new(), "leaked at limit {k}");
+                if expected.1.is_ok() {
+                    return k;
+                }
+                k += 1;
+            }
+        };
+        let least_steps = sweep(&|n| Limits { steps: n, ..limits });
+        let least_frames = sweep(&|n| Limits {
+            frames: n as usize,
+            ..limits
+        });
+        assert!(least_steps > 20, "{least_steps}");
+        assert!(least_frames > 5, "{least_frames}");
+    });
+}
