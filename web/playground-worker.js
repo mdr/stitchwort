@@ -33,16 +33,16 @@ self.onmessage = async ({ data }) => {
       return;
     }
     const answer = data.paths ? {
-      index: () => b.check_index_project(data.paths, data.texts, data.targets),
-      outline: () => b.outline_project(data.paths, data.texts),
-      check: () => b.check_project(data.paths, data.texts, data.targets),
-      checkall: () => b.check_project(data.paths, data.texts, ""),
-      test: () => b.test_project(data.paths, data.texts, data.targets, data.known ?? ""),
-      evaluate: () => b.evaluate_project(data.paths, data.texts, data.targets, data.imports ?? "", data.expr),
-      extract: () => b.extract_project(data.paths, data.texts, data.namespace),
+      index: () => b.check_index_project(data.project, data.paths, data.texts, data.targets),
+      outline: () => b.outline_project(data.project, data.paths, data.texts),
+      check: () => b.check_project(data.project, data.paths, data.texts, data.targets),
+      checkall: () => b.check_project(data.project, data.paths, data.texts, ""),
+      test: () => b.test_project(data.project, data.paths, data.texts, data.targets, data.known ?? ""),
+      evaluate: () => b.evaluate_project(data.project, data.paths, data.texts, data.targets, data.imports ?? "", data.expr),
+      extract: () => b.extract_project(data.project, data.paths, data.texts, data.namespace),
       // Formats the open file only: `source` is its text.
       format: () => b.format(data.source),
-      run: () => b.run_project_streaming(data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
+      run: () => b.run_project_streaming(data.project, data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
     }[data.action] : {
       index: () => b.check_index(data.source),
       check: () => b.check(data.source),
