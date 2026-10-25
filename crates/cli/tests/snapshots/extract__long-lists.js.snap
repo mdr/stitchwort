@@ -911,23 +911,23 @@ const $Std$dOrd$d$gcompare = (v1) => {
 };
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
 const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1)), decLessThan: ($Std$dNat$ddecLessThan$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessThan($p0, $p1)), decLessEq: ($Std$dNat$ddecLessEq$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessEq($p0, $p1)) };
-const $Std$dList$dmap$e = (v3, v4) => {
-  let s3 = v3, s4 = v4;
+const $Std$dList$dmap$e = (v4, v5) => {
+  let s4 = v4, s5 = v5;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
-    const v3 = s3, v4 = s4;
-    switch (v3.tag) {
+    const v4 = s4, v5 = s5;
+    switch (v4.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v3.head;
-        const v6 = v3.tail;
-        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
+        const v6 = v4.head;
+        const v7 = v4.tail;
+        const c1$ = { tag: "Cons", head: (v5)(v6), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v6;
-        s4 = v4;
+        s4 = v7;
+        s5 = v5;
         continue;
       }
     }

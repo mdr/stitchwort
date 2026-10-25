@@ -61,7 +61,27 @@ fn Std.Effect.bindIn(v0, v1, v2) {3 slots} =
     Empty => apply v2(v1)
     Ops => %EffectBind(v1, v2)
   }
+native Std.Effect.now = %Effect.now/1
 native Std.Effect.lift = %Effect.lift/1
+native Std.Effect.bindD = %Effect.bindD/2
+fn Std.Effect.doneD(v0, v1, v2) {3 slots} =
+  match v0: Effect.Divergence {
+    Total =>
+      match v1: Effect.Effects {
+        Empty => v2
+        Ops => Done(v2)
+      }
+    MayDiverge => %Effect.now(v2)
+  }
+fn Std.Effect.bindDv(v0, v1, v2, v3) {4 slots} =
+  match v0: Effect.Divergence {
+    Total =>
+      match v1: Effect.Effects {
+        Empty => apply v3(v2)
+        Ops => %EffectBind(v2, v3)
+      }
+    MayDiverge => %Effect.bindD(v2, v3)
+  }
 const Std.Text.instDecEq {0 slots} = Std.Text.decEq
 fn Std.Ord.%decLessThan(v0) {2 slots} =
   match v0: Ord (record) {
@@ -99,37 +119,57 @@ const Std.Text.instOrd {0 slots} =
       Equal => Yes
       Greater => No
     })
-fn Std.List.map(v0, v1, v2) {8 slots} =
-  match v1: List {
+fn Std.List.map(v0, v1, v2, v3) {9 slots} =
+  match v2: List {
     Nil =>
-      match v0: Effect.Effects {
-        Empty => Nil
-        Ops => Done(Nil)
-      }
-    Cons(head: v3, tail: v4) =>
-      let v5 = apply v2(v3)
-      let v6 = λ3[c0 = v0, c1 = v4, c2 = v2](v0) {4 slots} =>
-        let v1 = Std.List.map(c0, c1, c2)
-        let v2 = λ2[c0 = c0, c1 = v0](v0) {2 slots} =>
-          let v1 = Cons(c1, v0)
-          match c0: Effect.Effects {
-            Empty => v1
-            Ops => Done(v1)
+      match v1: Effect.Divergence {
+        Total =>
+          match v0: Effect.Effects {
+            Empty => Nil
+            Ops => Done(Nil)
           }
-        match c0: Effect.Effects {
-          Empty =>
-            let v3 = Cons(v0, v1)
-            match c0: Effect.Effects {
-              Empty => v3
-              Ops => Done(v3)
+        MayDiverge => %Effect.now(Nil)
+      }
+    Cons(head: v4, tail: v5) =>
+      let v6 = apply v3(v4)
+      let v7 = λ3[c0 = v1, c1 = v0, c2 = v5, c3 = v3](v0) {4 slots} =>
+        let v1 = Std.List.map(c1, c0, c2, c3)
+        let v2 = λ2[c0 = c0, c1 = c1, c2 = v0](v0) {2 slots} =>
+          let v1 = Cons(c2, v0)
+          match c0: Effect.Divergence {
+            Total =>
+              match c1: Effect.Effects {
+                Empty => v1
+                Ops => Done(v1)
+              }
+            MayDiverge => %Effect.now(v1)
+          }
+        match c0: Effect.Divergence {
+          Total =>
+            match c1: Effect.Effects {
+              Empty =>
+                let v3 = Cons(v0, v1)
+                match c0: Effect.Divergence {
+                  Total =>
+                    match c1: Effect.Effects {
+                      Empty => v3
+                      Ops => Done(v3)
+                    }
+                  MayDiverge => %Effect.now(v3)
+                }
+              Ops => %EffectBind(v1, v2)
             }
-          Ops => %EffectBind(v1, v2)
+          MayDiverge => %Effect.bindD(v1, v2)
         }
-      match v0: Effect.Effects {
-        Empty =>
-          let v7 = Std.List.map(v0, v4, v2)
-          Cons(v5, v7)
-        Ops => %EffectBind(v5, v6)
+      match v1: Effect.Divergence {
+        Total =>
+          match v0: Effect.Effects {
+            Empty =>
+              let v8 = Std.List.map(v0, v1, v5, v3)
+              Cons(v6, v8)
+            Ops => %EffectBind(v6, v7)
+          }
+        MayDiverge => %Effect.bindD(v6, v7)
       }
   }
 native Std.Text.length = %TextLength/1
@@ -144,10 +184,10 @@ fn Main.signed.%match1(v0) {2 slots} =
   }
 fn Main.main(v0) {2 slots} =
   let v1 = %TextSplit("12,-5,x", MkChar(44))
-  %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, v1), λ5(v0) {1 slots} =>
+  %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, Total, v1), λ5(v0) {1 slots} =>
     Done(%TextJoin(v0, MkChar(32)))), λ6(v0) {1 slots} =>
     Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
-    let v1 = {
+    Call(L(%print({
       if {
         let v1 = %TextLength("abc")
         %Nat.equal(v1, 3)
@@ -160,27 +200,30 @@ fn Main.main(v0) {2 slots} =
         }
       else
         "no"
-    }
-    Call(L(%print(v1)), done-k))
-fn Std.List.map[0](v0, v1) {7 slots} =
-  match v1: List {
+    })), done-k))
+fn Std.List.map[0](v0, v1, v2) {8 slots} =
+  match v2: List {
     Nil =>
-      match v0: Effect.Effects {
-        Empty => Nil
-        Ops => Done(Nil)
+      match v1: Effect.Divergence {
+        Total =>
+          match v0: Effect.Effects {
+            Empty => Nil
+            Ops => Done(Nil)
+          }
+        MayDiverge => %Effect.now(Nil)
       }
-    Cons(head: v2, tail: v3) =>
-      let v4 = {
-        let v4 = %IntToText({
-          let v4 = %TextToInt(v2)
-          match v4: Option {
+    Cons(head: v3, tail: v4) =>
+      let v5 = {
+        let v5 = %IntToText({
+          let v5 = %TextToInt(v3)
+          match v5: Option {
             None => int(0)
-            Some(value: v5) => %IntAdd(%IntMul(v5, int(-3)), int(7))
+            Some(value: v6) => %IntAdd(%IntMul(v6, int(-3)), int(7))
           }
         })
-        Done(v4)
+        Done(v5)
       }
-      let v5 = λ3[c0 = v0, c1 = v3, c2 = λ4(v0) {3 slots} =>
+      let v6 = λ3[c0 = v1, c1 = v0, c2 = v4, c3 = λ4(v0) {3 slots} =>
         let v1 = %IntToText({
           let v1 = %TextToInt(v0)
           match v1: Option {
@@ -189,36 +232,52 @@ fn Std.List.map[0](v0, v1) {7 slots} =
           }
         })
         Done(v1)](v0) {4 slots} =>
-        let v1 = Std.List.map(c0, c1, c2)
-        let v2 = λ2[c0 = c0, c1 = v0](v0) {2 slots} =>
-          let v1 = Cons(c1, v0)
-          match c0: Effect.Effects {
-            Empty => v1
-            Ops => Done(v1)
+        let v1 = Std.List.map(c1, c0, c2, c3)
+        let v2 = λ2[c0 = c0, c1 = c1, c2 = v0](v0) {2 slots} =>
+          let v1 = Cons(c2, v0)
+          match c0: Effect.Divergence {
+            Total =>
+              match c1: Effect.Effects {
+                Empty => v1
+                Ops => Done(v1)
+              }
+            MayDiverge => %Effect.now(v1)
           }
-        match c0: Effect.Effects {
-          Empty =>
-            let v3 = Cons(v0, v1)
-            match c0: Effect.Effects {
-              Empty => v3
-              Ops => Done(v3)
+        match c0: Effect.Divergence {
+          Total =>
+            match c1: Effect.Effects {
+              Empty =>
+                let v3 = Cons(v0, v1)
+                match c0: Effect.Divergence {
+                  Total =>
+                    match c1: Effect.Effects {
+                      Empty => v3
+                      Ops => Done(v3)
+                    }
+                  MayDiverge => %Effect.now(v3)
+                }
+              Ops => %EffectBind(v1, v2)
             }
-          Ops => %EffectBind(v1, v2)
+          MayDiverge => %Effect.bindD(v1, v2)
         }
-      match v0: Effect.Effects {
-        Empty =>
-          let v6 = Std.List.map[0](v0, v3)
-          Cons(v4, v6)
-        Ops => %EffectBind(v4, v5)
+      match v1: Effect.Divergence {
+        Total =>
+          match v0: Effect.Effects {
+            Empty =>
+              let v7 = Std.List.map[0](v0, v1, v4)
+              Cons(v5, v7)
+            Ops => %EffectBind(v5, v6)
+          }
+        MayDiverge => %Effect.bindD(v5, v6)
       }
   }
 entry {1 slots} =
   %Effect.lift({
     let v0 = %TextSplit("12,-5,x", MkChar(44))
-    %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, v0), λ5(v0) {1 slots} =>
+    %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, Total, v0), λ5(v0) {1 slots} =>
       Done(%TextJoin(v0, MkChar(32)))), λ6(v0) {1 slots} =>
       Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
-      let v1 = {
+      Call(L(%print({
         if {
           let v1 = %TextLength("abc")
           %Nat.equal(v1, 3)
@@ -231,6 +290,5 @@ entry {1 slots} =
           }
         else
           "no"
-      }
-      Call(L(%print(v1)), done-k))
+      })), done-k))
   })
