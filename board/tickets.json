@@ -2856,14 +2856,16 @@
     {
       "id": 475,
       "title": "Plan: effect-polymorphic List helpers (filter, folds, any/all, flatMap…) like List.map; research Unison/Koka/Effekt/Flix/OCaml 5 (D1237)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "07b293f3"
+      ]
     },
     {
       "id": 476,
