@@ -27,8 +27,15 @@
 //! the handler onto the captured frames and restore adds the new base back;
 //! an `Await`'s own marks and translations are relative to its `Tie`, so
 //! they mean the same at any depth.
+//!
+//! A run can also stop when it asks for input that isn't there yet, and go
+//! on when it is ([`LiveRun`], docs/proposals/playground-live-keys.md):
+//! since nothing of the program's is on the Rust stack, stopping is
+//! returning from the stepping loop with the waiting operation kept.
 
-use std::io::{BufRead, Write};
+mod live;
+
+use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
@@ -38,6 +45,8 @@ use crate::ir::{MainRow, Program};
 use crate::machine::{Limits, Machine};
 use crate::native_abi::NativeIslands;
 use crate::value::{Delay, Fun, Value};
+
+pub use live::{Advanced, LimitScope, LiveLimits, LiveRun};
 
 /// How a run ended, when nothing went wrong.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -143,15 +152,20 @@ pub fn run_main_counting(
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
-    run_inner(
-        program,
-        limits,
-        policy,
-        None,
-        input,
-        output,
-        &mut NoTerminal,
-    )
+    run_main_counting_on(program, limits, policy, input, output, &mut NoTerminal)
+}
+
+/// [`run_main_counting`] with `terminal` for `IO.console` and
+/// `IO.keysMode`, as [`run_main_on`].
+pub fn run_main_counting_on(
+    program: &Program,
+    limits: Limits,
+    policy: &Policy,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+) -> (Result<Outcome, RunError>, RouteCounts) {
+    run_inner(program, limits, policy, None, input, output, terminal)
 }
 
 /// Makes native code for a compiled program (`crate::native_abi`), or
@@ -208,18 +222,8 @@ fn run_inner(
         Ok(delay) => delay,
         Err(e) => return (Err(e.into()), RouteCounts::default()),
     };
-    let mut runner = Runner {
-        m: machine,
-        frames: Vec::new(),
-        marks: Vec::new(),
-        limits,
-        lines: 0,
-        ticks: 0,
-        policy: *policy,
-        counts: RouteCounts::default(),
-        terminal,
-    };
-    let result = runner.run(delay, input, output);
+    let mut runner = Runner::new(machine, limits, *policy, Box::new(terminal));
+    let result = runner.run(delay, &mut Blocking(input), output);
     (result, runner.counts)
 }
 
@@ -228,19 +232,75 @@ fn run_inner(
 /// steps `main`: the same stepping, budget per stretch and lack of a tick
 /// limit.
 pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result<Value, RunError> {
-    let mut runner = Runner {
-        m: machine,
-        frames: Vec::new(),
-        marks: Vec::new(),
-        limits,
-        lines: 0,
-        ticks: 0,
-        policy: Policy::default(),
-        counts: RouteCounts::default(),
-        terminal: &mut NoTerminal,
-    };
-    let finished = runner.drive(delay, &mut std::io::empty(), &mut std::io::sink())?;
-    Ok(finished.expect("no tick limit"))
+    let mut runner = Runner::new(machine, limits, Policy::default(), Box::new(NoTerminal));
+    let driven = runner.drive(
+        Focus::Eval(delay),
+        &mut Blocking(&mut io::empty()),
+        &mut io::sink(),
+    )?;
+    match driven {
+        Driven::Finished(v) => Ok(v),
+        Driven::OutOfTicks | Driven::Waiting => unreachable!("no tick limit, and no input"),
+    }
+}
+
+/// What a read of the input needs before it can be done without waiting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReadNeed {
+    /// `readBytes`: one read's bytes, or the end of the input.
+    Bytes,
+    /// `readLine`: a whole line, or the end of the input.
+    Line,
+    /// `readAll`: the end of the input.
+    All,
+}
+
+/// The input a run reads. An input that never waits ([`Blocking`]) is
+/// read whenever the program asks; one that can (a live run's) is read
+/// only once the read can be done whole, so that a read never stops
+/// part-way through having taken some of its bytes.
+trait RunInput: BufRead {
+    /// Whether a read may have to wait: if not, `ready` is never asked.
+    const PAUSES: bool;
+
+    /// Whether a read needing `need` can be done now, without waiting.
+    fn ready(&mut self, need: ReadNeed) -> bool;
+}
+
+/// An input read as it comes: a read that has to wait blocks, as standard
+/// input does. What every run but a live one reads.
+struct Blocking<'a, I: ?Sized>(&'a mut I);
+
+impl<I: BufRead + ?Sized> Read for Blocking<'_, I> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
+
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+        self.0.read_to_end(buf)
+    }
+}
+
+impl<I: BufRead + ?Sized> BufRead for Blocking<'_, I> {
+    fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        self.0.fill_buf()
+    }
+
+    fn consume(&mut self, n: usize) {
+        self.0.consume(n);
+    }
+
+    fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> io::Result<usize> {
+        self.0.read_until(byte, buf)
+    }
+}
+
+impl<I: BufRead + ?Sized> RunInput for Blocking<'_, I> {
+    const PAUSES: bool = false;
+
+    fn ready(&mut self, _need: ReadNeed) -> bool {
+        true
+    }
 }
 
 /// What a `Call`'s rest does with the reply.
@@ -350,10 +410,51 @@ struct Runner<'p, 't> {
     policy: Policy,
     counts: RouteCounts,
     /// What `IO.console` and `IO.keysMode` do.
-    terminal: &'t mut dyn Terminal,
+    terminal: Box<dyn Terminal + 't>,
+    /// A read that couldn't be done yet: the operation, as it reached the
+    /// bottom, its continuation, and the `Map` frames it passed. Routing
+    /// is done, so going on is performing it ([`Runner::perform_and_go_on`]).
+    waiting: Option<HostOp>,
 }
 
-impl Runner<'_, '_> {
+/// An operation for the host, routed but not performed.
+struct HostOp {
+    op: Value,
+    cont: Cont,
+    back: Vec<(usize, Value)>,
+}
+
+/// How [`Runner::drive`] stopped.
+enum Driven {
+    /// The computation's result.
+    Finished(Value),
+    /// The tick limit was reached.
+    OutOfTicks,
+    /// A read had to wait: the operation is in [`Runner::waiting`].
+    Waiting,
+}
+
+impl<'p, 't> Runner<'p, 't> {
+    fn new(
+        m: Machine<'p>,
+        limits: Limits,
+        policy: Policy,
+        terminal: Box<dyn Terminal + 't>,
+    ) -> Runner<'p, 't> {
+        Runner {
+            m,
+            frames: Vec::new(),
+            marks: Vec::new(),
+            limits,
+            lines: 0,
+            ticks: 0,
+            policy,
+            counts: RouteCounts::default(),
+            terminal,
+            waiting: None,
+        }
+    }
+
     /// Pushes `frame`, marking it if routing needs it.
     fn push(&mut self, frame: Frame) {
         if matches!(frame, Frame::Map(..) | Frame::Tie(_) | Frame::Handle { .. }) {
@@ -377,24 +478,25 @@ impl Runner<'_, '_> {
     fn run(
         &mut self,
         delay: Value,
-        input: &mut impl BufRead,
+        input: &mut impl RunInput,
         output: &mut impl Write,
     ) -> Result<Outcome, RunError> {
-        match self.drive(delay, input, output)? {
-            Some(_) => Ok(Outcome::Finished),
-            None => Ok(Outcome::OutOfTicks),
+        match self.drive(Focus::Eval(delay), input, output)? {
+            Driven::Finished(_) => Ok(Outcome::Finished),
+            Driven::OutOfTicks => Ok(Outcome::OutOfTicks),
+            Driven::Waiting => unreachable!("an input that waits in a run that can't"),
         }
     }
 
-    /// Steps `delay` to its result, or `None` at the tick limit.
+    /// Steps from `focus`, at the start of a stretch, to the result, the
+    /// tick limit, or a read that has to wait.
     fn drive(
         &mut self,
-        delay: Value,
-        input: &mut impl BufRead,
+        mut focus: Focus,
+        input: &mut impl RunInput,
         output: &mut impl Write,
-    ) -> Result<Option<Value>, RunError> {
+    ) -> Result<Driven, RunError> {
         let s = *self.m.shapes();
-        let mut focus = Focus::Eval(delay);
         let mut steps = 0;
         loop {
             self.step(&mut steps)?;
@@ -460,6 +562,7 @@ impl Runner<'_, '_> {
                         let op = fields[0].clone();
                         drop(fields);
                         match self.route(op, cont, input, output)? {
+                            Routed::Waiting => return Ok(Driven::Waiting),
                             Routed::Handled(next) => next,
                             Routed::Performed(next) => {
                                 // A new stretch.
@@ -470,7 +573,7 @@ impl Runner<'_, '_> {
                                 // A limit of `n` allows exactly `n` ticks (docs/proposals/partial.md
                                 // §7.4.3): stop on needing the next one.
                                 if self.policy.max_ticks.is_some_and(|max| self.ticks >= max) {
-                                    return Ok(None);
+                                    return Ok(Driven::OutOfTicks);
                                 }
                                 self.ticks += 1;
                                 // A new stretch.
@@ -485,7 +588,7 @@ impl Runner<'_, '_> {
                     }
                 },
                 Focus::Ret(v) => match self.frames.pop() {
-                    None => return Ok(Some(v)),
+                    None => return Ok(Driven::Finished(v)),
                     Some(Frame::Bind(k)) => Focus::Eval(self.m.call(k, vec![v])?),
                     Some(Frame::Handle { done, .. }) => {
                         self.marks.pop();
@@ -541,11 +644,11 @@ impl Runner<'_, '_> {
     /// bottom is performed, and the reply goes back. Only the marked frames
     /// are looked at, so the work is the number of `Map`s and `Tie`s
     /// crossed, however many other frames there are.
-    fn route(
+    fn route<I: RunInput>(
         &mut self,
         mut op: Value,
         cont: Cont,
-        input: &mut impl BufRead,
+        input: &mut I,
         output: &mut impl Write,
     ) -> Result<Routed, RunError> {
         let s = *self.m.shapes();
@@ -605,7 +708,32 @@ impl Runner<'_, '_> {
                 }
             }
         }
-        // For the host.
+        // For the host, once it can be done without waiting. Asking only
+        // looks at the operation, so a run that waits here and goes on
+        // later does exactly what one that never waited does. What a read
+        // does before reading is done before waiting, so the host sees the
+        // output and the screen as the program left them; performing the
+        // read later does it again, which changes nothing.
+        if I::PAUSES
+            && let Some(need) = self.read_need(&op)
+            && !input.ready(need)
+        {
+            self.before_read(need, output)?;
+            self.waiting = Some(HostOp { op, cont, back });
+            return Ok(Routed::Waiting);
+        }
+        self.perform_and_go_on(HostOp { op, cont, back }, input, output)
+    }
+
+    /// Performs a routed operation for the host, and goes on with the reply
+    /// translated back through the `Map` frames it passed.
+    fn perform_and_go_on(
+        &mut self,
+        routed: HostOp,
+        input: &mut impl RunInput,
+        output: &mut impl Write,
+    ) -> Result<Routed, RunError> {
+        let HostOp { op, cont, back } = routed;
         let reply = self.perform(op, input, output)?;
         self.m.reset_steps();
         let frames = std::mem::take(&mut self.frames);
@@ -614,6 +742,48 @@ impl Runner<'_, '_> {
         Ok(Routed::Performed(Focus::Comp(
             self.apply_cont(&cont, reply?)?,
         )))
+    }
+
+    /// What a read does before reading: `readLine` and `readAll` leave keys
+    /// mode (D1260), and every read flushes the output. Doing it twice is
+    /// doing it once (`Terminal::keys_mode` does nothing if it's already
+    /// so).
+    fn before_read(&mut self, need: ReadNeed, output: &mut impl Write) -> Result<(), RunError> {
+        if need != ReadNeed::Bytes {
+            self.terminal.keys_mode(false, output)?;
+        }
+        output.flush().map_err(RunError::Write)
+    }
+
+    /// What reading input `op` needs, if it's a read: the decoding of
+    /// [`Runner::perform`], looking at the operation without taking it
+    /// apart (so it takes no reference, and the allocation trace is that
+    /// of a run that doesn't ask).
+    fn read_need(&self, op: &Value) -> Option<ReadNeed> {
+        fn split(v: &Value) -> Option<(u32, &Value)> {
+            match v {
+                Value::Data(t, fields) => Some((*t, &fields[0])),
+                _ => None,
+            }
+        }
+        let s = self.m.shapes();
+        let (side, io) = split(op)?;
+        let io = match self.m.program().main_row {
+            MainRow::Io => io,
+            // `L (stop msg)` isn't a read; `R (L io)` is `io`.
+            MainRow::FailIo if side == s.left => return None,
+            MainRow::FailIo => split(io)?.1,
+        };
+        let tag = io.tag()?;
+        if tag == s.read_bytes {
+            Some(ReadNeed::Bytes)
+        } else if tag == s.read_line {
+            Some(ReadNeed::Line)
+        } else if tag == s.read_all {
+            Some(ReadNeed::All)
+        } else {
+            None
+        }
     }
 
     /// `op` reached the `Handle` frame marked at `p`: the frames above it
@@ -730,15 +900,13 @@ impl Runner<'_, '_> {
                 .map_err(RunError::Write)?;
             Value::Tag(s.unit)
         } else if tag == s.read_line {
-            self.terminal.keys_mode(false, output)?;
-            output.flush().map_err(RunError::Write)?;
+            self.before_read(ReadNeed::Line, output)?;
             match read_line(input, &mut self.lines)? {
                 Some(line) => Value::data(s.some, [Value::Text(line.into())]),
                 None => Value::Tag(s.none),
             }
         } else if tag == s.read_all {
-            self.terminal.keys_mode(false, output)?;
-            output.flush().map_err(RunError::Write)?;
+            self.before_read(ReadNeed::All, output)?;
             Value::Text(read_all(input, &mut self.lines)?.into())
         } else if tag == s.console {
             let console = self.terminal.console();
@@ -757,7 +925,7 @@ impl Runner<'_, '_> {
             self.terminal.keys_mode(on, output)?;
             Value::Tag(s.unit)
         } else if tag == s.read_bytes {
-            output.flush().map_err(RunError::Write)?;
+            self.before_read(ReadNeed::Bytes, output)?;
             match read_bytes(input, &mut self.lines)? {
                 Some(bytes) => {
                     let mut list = Value::Tag(s.nil);
@@ -781,6 +949,8 @@ impl Runner<'_, '_> {
 
 /// Where an operation went.
 enum Routed {
+    /// It's a read that has to wait: it's in [`Runner::waiting`].
+    Waiting,
     /// It was performed: go on with this.
     Performed(Focus),
     /// It was a recursion request: one tick, then this.
