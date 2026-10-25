@@ -1,5 +1,5 @@
 {
-  "next": 460,
+  "next": 461,
   "tickets": [
     {
       "id": 13,
@@ -2629,7 +2629,21 @@
     {
       "id": 459,
       "title": "std JS/native stack-safety audit: List.length/append (core) and every list walker at 100k in plain Node; prefer a backend fix (tail recursion modulo cons) over redefining core",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "0acb7f3c"
+      ]
+    },
+    {
+      "id": 460,
+      "title": "std stack safety leftovers: Result.traverse (redo Fail.toResultMap + reify examples) and Vec.traverseOption as loops; after rule E lands",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
