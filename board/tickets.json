@@ -1,5 +1,5 @@
 {
-  "next": 516,
+  "next": 517,
   "tickets": [
     {
       "id": 13,
@@ -3242,14 +3242,16 @@
     {
       "id": 503,
       "title": "Native: investigate the N1 miss (D1261): allocator slow paths when compiled code frees, Apply of known globals (compare), then re-measure Set vs the 3× bar; time-boxed",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "65b195c0"
+      ]
     },
     {
       "id": 504,
@@ -3389,6 +3391,18 @@
       "id": 515,
       "title": "Design note: live keypresses in the playground, static-site compatible (D1271); decisions from D1272",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 516,
+      "title": "Move the hand-written native experiment (uniform/typed/ir modes) from scratchpad into bench/native/ as a standalone project outside the workspace",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
