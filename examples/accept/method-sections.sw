@@ -10,7 +10,7 @@ import Std (List)
 
 type Person = { name: Text, age: Nat }
 
-def Person.greet (greeting: Text) (p: Person): Text := greeting ++ ", " ++ p.name
+def Person.greet (p: Person) (greeting: Text): Text := greeting ++ ", " ++ p.name
 
 def people: List Person := [{ name = "Ann", age = 30 }, { name = "Bo", age = 4 }]
 
@@ -24,15 +24,15 @@ def lengths: List Nat := people.map .name.length
 
 test "a chain" := lengths == [3, 2]
 
--- A method with an argument needs brackets; the receiver is `greet`'s last
--- parameter, wherever it sits.
+-- A method with an argument needs brackets; the receiver is `greet`'s first
+-- parameter, as in dot notation.
 def greetings: List Text := people.map (.greet "Hi")
 
 test "a section with an argument" := greetings == ["Hi, Ann", "Hi, Bo"]
 
--- Postponed: `List.map`'s list comes after the section, so the section is
--- checked once `people` has fixed its type.
-def names2: List Text := List.map .name people
+-- `List.map`'s list comes first, so `people` has fixed the type by the time
+-- the section is checked.
+def names2: List Text := List.map people .name
 
 test "a section before the collection" := names2 == names
 
@@ -53,8 +53,8 @@ def multi: Nat :=
 
 test "multi-line" := multi == 1
 
--- The receiver isn't the first parameter: `Text.split` takes the separator
--- first, the text last.
+-- `Text.split` takes the text, then the separator: `.split ','` is
+-- `t => Text.split t ','`.
 def fields (line: Text): List Text := line |> .split ','
 
 test "split" := fields "a,b,c" == ["a", "b", "c"]

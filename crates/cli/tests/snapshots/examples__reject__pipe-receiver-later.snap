@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[W-RECEIVER-NOT-FIRST] Warning: `Meter.scale` takes a `Meter` but not as its first parameter, so `m.scale` and `m |> Meter.scale` won't work
+   ╭─[ reject/pipe-receiver-later.sw:7:5 ]
+   │
+ 7 │ def Meter.scale (k: Nat) (m: Meter): Meter := { v = k * m.v }
+   │     ─────┬─────  
+   │          ╰─────── `m: Meter` comes after another parameter
+   │ 
+   │ Note: put the main value first (`m`), then the other arguments, then any functions; or, for a helper not meant to be called with `.` or `|>`, mark it `@[noReceiver]`
+───╯
+[E-TYPE-MISMATCH] Error: the value piped in doesn't fit the function
+   ╭─[ reject/pipe-receiver-later.sw:9:39 ]
+   │
+ 9 │ def doubled (m: Meter): Meter := m |> Meter.scale 2
+   │                                       ──────┬──────  
+   │                                             ╰──────── `|>` passes the value as the first argument, which takes `Nat`, but the value before `|>` has type `Meter`
+───╯
