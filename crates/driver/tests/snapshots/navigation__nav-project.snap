@@ -55,7 +55,7 @@ Nav.sw:22:23 Nat -> Std.Nat [data] <prelude>:107:6 : Type
 Nav.sw:22:29 List -> Std.List [data] <prelude>:160:6 : Type -> Type
 Nav.sw:22:34 Nat -> Std.Nat [data] <prelude>:107:6 : Type
 Nav.sw:22:41 xs -> local xs Nav.sw:22:14 : List Nat
-Nav.sw:22:44 map -> Std.List.map [def] Toolkit.sw:18:5 : [a: Type] -> [e: Effect.Effects] -> [b: Type] -> (a -> {e} b) -> List a -> {e} List b
+Nav.sw:22:44 map -> Std.List.map [def] Toolkit.sw:18:5 : [a: Type] -> [e: Effect.Effects] -> [b: Type] -> List a -> (a -> {e} b) -> {e} List b
 Nav.sw:22:49 n -> local n Nav.sw:22:49 : 
 Nav.sw:22:54 n -> local n Nav.sw:22:49 : Nat
 Nav.sw:22:58 n -> local n Nav.sw:22:49 : Nat
@@ -66,7 +66,7 @@ Nav.sw:24:21 Nat -> Std.Nat [data] <prelude>:107:6 : Type
 Nav.sw:24:27 List -> Std.List [data] <prelude>:160:6 : Type -> Type
 Nav.sw:24:32 Nat -> Std.Nat [data] <prelude>:107:6 : Type
 Nav.sw:24:39 xs -> local xs Nav.sw:24:12 : List Nat
-Nav.sw:24:46 map -> Std.List.map [def] Toolkit.sw:18:5 : [a: Type] -> [e: Effect.Effects] -> [b: Type] -> (a -> {e} b) -> List a -> {e} List b
+Nav.sw:24:46 map -> Std.List.map [def] Toolkit.sw:18:5 : [a: Type] -> [e: Effect.Effects] -> [b: Type] -> List a -> (a -> {e} b) -> {e} List b
 Nav.sw:24:51 n -> local n Nav.sw:24:51 : 
 Nav.sw:24:56 n -> local n Nav.sw:24:51 : Nat
 Nav.sw:26:5 width -> Nav.width [def] Nav.sw:26:5 : Lib.Range -> Nat

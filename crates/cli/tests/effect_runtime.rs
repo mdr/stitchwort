@@ -176,7 +176,7 @@ fn known_calls_pass_their_arguments_together() {
         def("$Std$dEffect$dfoldComp"),
         "const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);"
     );
-    assert!(js.contains("$Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v3, v6), "));
+    assert!(js.contains("$Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v6, v4), "));
     for curried in [
         "$Std$dList$dmap(v1)(",
         "$Std$dEffect$dbindIn(v1)(",

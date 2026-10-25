@@ -80,9 +80,12 @@ fn load(name: &str, text: &str) -> Result<(Session, Vec<(String, String)>), Stri
 #[derive(Default)]
 struct Walk {
     bound: BTreeSet<String>,
-    /// Calls: the head's name, and the spans of its arguments (`None` for
-    /// one already named).
-    calls: Vec<(String, Vec<Option<Span>>)>,
+    /// Calls: the head's name, whether a pipe passes the first explicit
+    /// argument (`x |> f a`, rule E), and the spans of its arguments
+    /// (`None` for one already named).
+    calls: Vec<(String, bool, Vec<Option<Span>>)>,
+    /// The span of the right side of the pipe being walked.
+    piped: Option<Span>,
 }
 
 impl Walk {
@@ -162,7 +165,8 @@ impl Walk {
                             other => Some(other.span()),
                         })
                         .collect();
-                    self.calls.push((name.text.clone(), spans));
+                    let piped = self.piped == Some(e.span());
+                    self.calls.push((name.text.clone(), piped, spans));
                 } else {
                     self.expr(head);
                 }
@@ -191,9 +195,13 @@ impl Walk {
             Expr::NamedArg(_, value, ..) | Expr::Neg(value, _) | Expr::Field(value, _) => {
                 self.expr(value)
             }
+            Expr::Pipe(a, b) => {
+                self.expr(a);
+                self.piped = Some(b.span());
+                self.expr(b);
+            }
             Expr::Arrow(a, b)
             | Expr::Binary(_, a, b)
-            | Expr::Pipe(a, b)
             | Expr::Seq(a, b)
             | Expr::Ann(a, b, _)
             | Expr::Tuple(a, b, _) => {
@@ -326,7 +334,7 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
     // the openings of those it contains.
     let mut inserts: Vec<(u32, i64, String)> = Vec::new();
     let mut count = 0;
-    for (head, args) in &walk.calls {
+    for (head, piped, args) in &walk.calls {
         if walk.bound.contains(head) {
             continue;
         }
@@ -338,6 +346,10 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
         };
         let params = parameters(&g.defs[id].ty);
         let mut explicit = params.iter().filter(|(icit, _)| *icit == Icit::Explicit);
+        if *piped {
+            // The pipe's value is the first explicit argument (rule E).
+            explicit.next();
+        }
         for arg in args {
             let Some(span) = arg else {
                 // Already named: the rest of the call is left alone.

@@ -23,4 +23,4 @@ test "map, pure" := squares [1, 2, 3] == [1, 4, 9]
 test "map, failing" := toResult (() => halves [4, 6, 7]) == Err "7 is odd"
 
 -- With a pure callback, `map` is the plain map, so its lemmas apply.
-theorem squaresLength (xs: List Nat): (squares xs).length = xs.length := List.lengthMap _ xs
+theorem squaresLength (xs: List Nat): (squares xs).length = xs.length := List.lengthMap xs _
