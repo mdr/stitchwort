@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `)` after the operator of a section, but found `+`
+   ╭─[ reject/section-operand-too-loose.sw:6:63 ]
+   │
+ 6 │ def f (a: Nat) (b: Nat) (xs: List Nat): List Nat := xs.map (a + b *)
+   │                                                               ┬  
+   │                                                               ╰── expected `)` after the operator of a section, but found `+`
+   │ 
+   │ Note: a section's operand must bind tighter than its operator: bracket the operand, as in `((a + b) *)`
+───╯

@@ -370,7 +370,8 @@ there's more demand.
 
 ## As built (SW-266)
 
-D505 (the `_.name` error now says to write `.name`) and D506 are built. The
+D505 (the `_.name` error said to write `.name`; D1194 later removed that
+note, see anonymous-lambdas.md) and D506 are built. The
 rule lives in `section_partial` (`crates/elab/src/dot.rs`), called from the
 lambda case of `check` (`crates/elab/src/check.rs`): for a section `.f a…`
 checked against `A -> B` with `A`'s namespace known, if the receiver's place

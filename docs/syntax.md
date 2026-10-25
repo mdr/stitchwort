@@ -979,7 +979,8 @@ Loosest-binding first:
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |
 | `{ name = e, age }`, `{ p \| age = e }` | Record literal (with an expected type) and update ([Records](#records)). After an arrow, `{` starts an ability row instead |
 | `e.name` | A field, or dot notation: `T.name e …` for `e: T`, with `e` as the first argument. No spaces around the `.`; binds tighter than application; `f().x` is `(f()).x` (`name()` with no space is a call) |
-| `.name`, `.drop 1` | Method section: `x => x.name`, `x => x.drop 1` (`Text.drop x 1`). A space before the `.` (or a bracket or line start). See [Method sections](#method-sections) |
+| `.name`, `.drop 1` | Method section: `x => x.name`, `x => x.drop 1` (`Text.drop x 1`). A space before the `.` (or a bracket or line start). At the start of an expression it takes the rest: `(.id == id)` is `x => x.id == id`. See [Method sections](#method-sections) |
+| `(== 'S')`, `(k +)`, `(&&)` | Operator section: `x => x == 'S'`, `x => k + x`; a bare operator is `a b => a && b`. Not `-`: `(- 1)` is the number. See [Operator sections](#operator-sections) |
 | `rfl` | Proof of `a = a` |
 | `J (y p => P) base proof` | Transport along an equality |
 
@@ -1190,12 +1191,35 @@ ls.map (.split ',')                 -- ls.map (l => l.split ',')
 - **Layout.** A section can't start a continuation line as an argument: in `foo xs` followed by an indented `.map f`, the `.map f` would read as another argument of `foo`, so it's a parse error ("a line can't start with a method section"), with a note pointing to `|> .map f` or `(.map f)`. A line starting `|> .map f` is fine.
 - **Checking.** A section is a lambda, so it's checked like one: its receiver's type must be known from the expected function type (`people.map .name`, `apply .length "abc"` for `apply (f: Text -> Nat)`), from a pipe's left side, or from an annotation (`(.drop 1: List Nat -> List Nat)`). In an application, a section whose parameter type isn't known yet is checked after the other arguments, so `List.map people .name` works, and so would a section placed before `people` (a plain lambda is checked in place first and waits only if that fails).
 - **The partial application.** Where the receiver is the function's only explicit parameter and the section has no arguments, the section is not a lambda but the function `T.f` itself: `.snd` is exactly `Pair.snd` and `.isZero` is `Dial.isZero`, so `xs.any .snd` and `xs.any Pair.snd` are the same term, and a proof that restates a program's expression with the qualified name (`match e: Vec.any Pair.snd next with`) still finds it. A section with arguments stays a lambda: `.sub 3` is `x => Nat.sub x 3`, `.addNat 3` is `x => Mod.addNat x 3`. Implicit arguments are inserted as for the qualified name. A section with chained fields (`.name.length`), or whose arguments don't fit until the receiver's type is fixed, is a lambda too.
-- **`_.name`.** `_` is a hole, not a parameter, so `.count _.isZero` is `E-CANNOT-INFER`, with a note to write the section `.isZero`.
+- **To the end of the expression (D1192).** A section that *starts* an expression (after `(`, `,`, `:=`, `=>`, `then`, `else`, `|>`) takes the whole expression, operators included: `(.id == id)` is `x => x.id == id`, `(.trim != "")` is `x => x.trim != ""`, `(.fst + 1)` is `x => x.fst + 1`, `(.items |> List.sum)` is `x => x.items |> List.sum`. Every binary operator counts (`+ * ++ == != < <= > >= && || in !in <->`). After a pipe, `xs |> .sum == 6` is `xs.sum == 6`. It's exactly the written-out lambda, the same term. As an argument a section still takes nothing: `f .a == b` is `(f .a) == b`. The section's argument is used once, at the start; a second section in the same expression is a separate function (`(.isZero || .isEven)` is `x => x.isZero || (.isEven)`, a type error whose note says to write the lambda). Operands run each time the function is called, as in a lambda.
+- **`_.name`.** `_` is a hole, not a parameter, so `.count _.isZero` is `E-CANNOT-INFER` with the ordinary "can't tell what the value is" message and no special help (D1194). There is no placeholder for a function's argument, `_`, `it` or `$0` (D1196).
 - **Unknown receiver.** `let g := .drop 1` or `(.length) "abcd"` is `E-CANNOT-INFER` ("can't tell what `.drop` is applied to"), with a note suggesting a pipe, passing it where a function type is known, or an annotation.
 - **No such function.** The ordinary dot-notation error: `xs |> .dorp 1` is `E-UNKNOWN-FIELD`, "`List` has no field or function `dorp`", with a "did you mean `drop`?" note.
 - **Effects.** It follows lambda rules: `IO.readAllLines() |> .map (.split ',') |> .length` works in a `{IO}` function.
 
-Examples: `examples/accept/method-sections.sw`, `examples/reject/section-unknown-receiver.sw`, `examples/reject/section-no-such-function.sw`, `examples/reject/section-on-next-line.sw`, `examples/accept/method-section-partial.sw`, `examples/reject/section-underscore.sw`. Design: [method-sections.md](proposals/method-sections.md).
+Examples: `examples/accept/method-sections.sw`, `examples/reject/section-unknown-receiver.sw`, `examples/reject/section-no-such-function.sw`, `examples/reject/section-on-next-line.sw`, `examples/accept/method-section-partial.sw`, `examples/reject/section-underscore.sw`. Design: [method-sections.md](proposals/method-sections.md), [anonymous-lambdas.md](proposals/anonymous-lambdas.md); examples for the end-of-expression form: `examples/accept/lambda-sections.sw`, `examples/reject/section-twice.sw`.
+
+### Operator sections
+
+An operator in brackets with one operand left out is a function of that operand (D1193), and an operator alone is a function of two (D1195). Haskell's sections, with `-` excluded.
+
+```
+xs.findIndex (== 'S')        -- x => x == 'S'
+xs.filter (> 3)              -- x => x > 3
+xs.map (10 +)                -- x => 10 + x
+xs.map (++ "!")              -- x => x ++ "!"
+xs.foldLeft 0 (+)            -- a b => a + b
+rows.foldLeft True (&&)      -- a b => a && b
+cs.filter (in vowels)        -- c => c in vowels
+```
+
+- **Which operators.** `+ * / % ++ = != == < <= > >= && || in !in <->` and their Unicode spellings (`∈`, `∉`, `↔`, `∧`, `∨`, `≤`, `≥`, `≠`). `|>`, `->` and `=>` are not operators in this sense: `(|> f)` would just be `f`.
+- **`-` is not a section.** `(- 1)` and `(-1)` are the number; for the function write `(.sub 1)` or `(x => x - 1)`. `(k -)` is a parse error too. The bare `(-)` is subtraction, `a b => a - b`.
+- **One operand, binding tighter.** The operand of `(op e)` or `(e op)` must bind tighter than the operator (`||` takes a whole `&&` chain), so `(+ 1 + 2)` and `(a + b *)` are errors with a note to add brackets: `(+ (1 + 2))`, `((a + b) *)`.
+- **A lambda.** A section is exactly the lambda, the same term; `a > b` is `b < a`, so `(> 3)` is `x => 3 < x`. The type of the argument comes from where the section is used, as for a lambda, so `let f := (+ 1)` needs an annotation. A bare operator is a two-parameter lambda: `foldLeft 0 (+)` works where `(a b => a + b)` does.
+- **Not a placeholder.** The missing operand is always at the edge. For a missing value in the middle write the lambda (D1196).
+
+Examples: `examples/accept/lambda-sections.sw`, `examples/reject/section-minus-is-negation.sw`, `examples/reject/section-operator-chain.sw`, `examples/reject/section-operand-too-loose.sw`. Design: [anonymous-lambdas.md](proposals/anonymous-lambdas.md).
 
 ### `match`
 

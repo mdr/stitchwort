@@ -6,7 +6,7 @@ import Std (Bool, Eq, Fin, List, Option, Vec)
 
 type Grid = { height: Nat, width: Nat, rows: Vec (Vec Bool width) height }
 
-def parseLine (line: Text): List Bool := line.toList.map (c => c == '#')
+def parseLine (line: Text): List Bool := line.toList.map (== '#')
 
 -- `None` when a line's length differs from the first's.
 def parseGrid (lines: List Text): Option Grid :=

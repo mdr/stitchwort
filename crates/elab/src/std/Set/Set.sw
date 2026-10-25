@@ -167,8 +167,8 @@ def Set.any (set: Set k [ord := o]) (p: k -> Bool): Bool := Set.foldLeft set Fal
 def Set.count (set: Set k [ord := o]) (p: k -> Bool): Nat := Set.foldLeft set 0 (n key => Nat.succIf n (p key))
 
 test "set: map merges and reorders" := Set.toList (Set.map Set.example (x => 10 - x / 2)) == [9, 10]
-test "set: any" := Set.any Set.example (x => x > 2) && Bool.not (Set.any Set.example (x => x > 3)) && Bool.not (Set.any (Set.empty: Set Nat) (x => True))
-test "set: count" := Set.count Set.example (x => x != 2) == 2
+test "set: any" := Set.any Set.example (> 2) && Bool.not (Set.any Set.example (> 3)) && Bool.not (Set.any (Set.empty: Set Nat) (x => True))
+test "set: count" := Set.count Set.example (!= 2) == 2
 
 test "set: unions" := Set.toList (Set.unions [Set.fromList [3, 1], Set.fromList [2], Set.empty]) == [1, 2, 3]
 test "set: min, max, below, above" :=
@@ -180,10 +180,10 @@ test "set: isSubset, disjoint" :=
 test "set: isSubset, edge cases" :=
   Set.isSubset Set.empty Set.example && Set.isSubset Set.example Set.example && !(Set.isSubset Set.example Set.empty)
 test "set: partition, all, foldRight" :=
-  Set.toList (Set.partition Set.example (n => n > 1)).fst == [2, 3] && Set.toList (Set.partition Set.example (n => n > 1)).snd == [1]
-    && Set.all Set.example (n => n > 0) && !(Set.all Set.example (n => n > 1)) && Set.foldRight Set.example Nil (n acc => Cons n acc) == [1, 2, 3]
+  Set.toList (Set.partition Set.example (> 1)).fst == [2, 3] && Set.toList (Set.partition Set.example (> 1)).snd == [1]
+    && Set.all Set.example (> 0) && !(Set.all Set.example (> 1)) && Set.foldRight Set.example Nil (n acc => Cons n acc) == [1, 2, 3]
 test "map: keySet, fromKeys" :=
-  Set.toList (Map.keySet (Map.fromList [(2, "b"), (1, "a")])) == [1, 2] && Map.toList (Map.fromKeys Set.example (n => n * 10)) == [(1, 10), (2, 20), (3, 30)]
+  Set.toList (Map.keySet (Map.fromList [(2, "b"), (1, "a")])) == [1, 2] && Map.toList (Map.fromKeys Set.example (* 10)) == [(1, 10), (2, 20), (3, 30)]
 test "map: removeAll, keepOnly" :=
   Map.keys (Map.removeAll (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [2, 3]
     && Map.keys (Map.keepOnly (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [1]

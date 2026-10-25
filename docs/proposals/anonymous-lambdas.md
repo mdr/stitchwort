@@ -1,7 +1,9 @@
 # Lambdas that don't name their argument: `bookings.find (.id == id)`?
 
-**Status:** design note, 25 October 2026. Nothing is implemented. The
-decisions are D1192–D1196 (§9). The counts are in §5 and the appendix.
+**Status:** design note, 25 October 2026. Built (see "As built (SW-457)"
+before the appendix); where the text below says `_.name` gets a better note,
+D1194 removed the note instead. The decisions are D1192–D1196 (§9). The
+counts are in §5 and the appendix.
 
 ## 1. The short answer
 
@@ -779,6 +781,48 @@ next AoC lane touches those days.
 5. **D1196** — No general placeholder (`_`, `#`, `it`, `$0`) for now; `_`
    is ruled out for good because of holes; if one is ever wanted, `it` in
    brackets (option d) is the candidate. [Recommend: yes]
+
+## As built (SW-457)
+
+D1192, D1193, D1194, D1195 and D1196 are built; the syntax is in
+[syntax.md, Method sections and Operator sections](../syntax.md#operator-sections).
+Parser only (`crates/syntax/src/parser/sections.rs`), no new term forms:
+every form is the lambda written out.
+
+- **D1192.** `expr_inline` and the right side of a `|>` note a leading `.name`;
+  after parsing the expression `widen` turns `(.id) == id` into
+  `x => x.id == id` by moving the section's body to the left edge and
+  wrapping the whole. The left edge is found by following the first operand
+  (by source position, since `a > b` is stored as `b < a`) through binary
+  operators, `|>`, `in`, `!in`, `<->` and field/call chains. After `|>`, the
+  pipe rewrite puts the left side where the argument was, so `xs |> .sum == 6`
+  is `xs.sum == 6`. A second section in the expression stays its own lambda;
+  the type error gets the note "a section's argument is used once".
+- **D1193.** `(op e)` and `(e op)`, for `+ * / % ++ = != == < <= > >= && ||
+  in !in <->` and their Unicode spellings (the lexer maps them to the same
+  tokens), so the logic notation is included. `-` is out in both positions:
+  `(- 1)` is the number, `(k -)` is a parse error. The operand is parsed one
+  precedence level tighter than the operator (`||` takes an `&&` chain), so
+  `(+ 1 + 2)` and `(a + b *)` are parse errors with a note to add brackets.
+- **D1195.** `(op)` is a two-parameter lambda (hidden names `%left`,
+  `%right`); `(-)` is included, as subtraction.
+- **D1194.** The hole branch of `dot::find` with its "write the section" note
+  is gone; `_.name` gets the ordinary can't-tell-the-type error
+  (`examples/reject/section-underscore.sw`).
+- **D1196.** No placeholder.
+
+Rewritten to sections (same terms, so the hash-stability test is the check):
+the `x => x == 0`-style lambdas in the std tests (`Option`, `Vec`, `Set`,
+`Result`, `Nat.iterate`, `List.Toolkit`), `(+)`, `(*)` for two-argument
+lambdas there, Day 5 (`.trim != ""`), Day 6 (`|> .fst + 1`) and Day 7
+(`(== 'S')`, `(== manifold.start)`, `(&&)`), and a few example tests. The
+lambdas in proofs, `Spec` and `Proofs` files, extract examples, the guide's
+other chapters and examples that exist to test lambdas were left as they are.
+Examples: `examples/accept/lambda-sections.sw`; reject:
+`section-minus-is-negation`, `section-operator-chain`,
+`section-operand-too-loose`, `section-twice`, `section-underscore`. The
+guide's pipe-precedence trap (`errors/pipe-precedence.sw`) now uses
+`List.filter`, since `|> .filter (…) == …` no longer has the trap.
 
 ## Appendix: how the counts were made
 

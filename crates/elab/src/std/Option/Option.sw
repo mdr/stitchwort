@@ -105,14 +105,14 @@ test "Option.isSome" := (Some 1).isSome == True && (None: Option Nat).isSome == 
 test "Option.isNone" := (Some 1).isNone == False && (None: Option Nat).isNone == True
 test "Option.orElse" := (Some 1).orElse (Some 2) == Some 1 && (None: Option Nat).orElse (Some 2) == Some 2 && (None: Option Nat).orElse None == None
 test "Option.orElse chain" := ((None: Option Nat).orElse None |> .orElse (Some 3)) == Some 3
-test "Option.merge" := (Some 1).merge (Some 2) (a b => a + b) == Some 3
-test "Option.merge lone" := (Some 1).merge None (a b => a + b) == Some 1 && (None: Option Nat).merge (Some 2) (a b => a + b) == Some 2
-test "Option.merge none" := (None: Option Nat).merge None (a b => a + b) == None
-test "Option.alignWith" := (Some 1).alignWith (Some 5) (a => a + 10) (b => b + 20) (a b => a * b) == Some 5
-test "Option.alignWith lone" := (Some 1).alignWith (None: Option Nat) (a => a + 10) (b => b + 20) (a b => a * b) == Some 11 && (None: Option Nat).alignWith (Some 5) (a => a + 10) (b => b + 20) (a b => a * b) == Some 25
-test "Option.alignWith none" := (None: Option Nat).alignWith (None: Option Nat) (a => a + 10) (b => b + 20) (a b => a * b) == None
-test "Option.fold" := (Some 4).fold 0 (v => v + 1) == 5 && (None: Option Nat).fold 0 (v => v + 1) == 0
-test "Option.exists" := (Some 3).exists (v => v > 2) == True && (Some 1).exists (v => v > 2) == False && (None: Option Nat).exists (v => v > 2) == False
-test "Option.forall" := (Some 3).forall (v => v > 2) == True && (Some 1).forall (v => v > 2) == False && (None: Option Nat).forall (v => v > 2) == True
-test "Option.filter" := (Some 3).filter (v => v > 2) == Some 3 && (Some 1).filter (v => v > 2) == None && (None: Option Nat).filter (v => v > 2) == None
-test "Option.filter in a pipe" := (Some 3 |> .filter (v => v > 2)) == Some 3
+test "Option.merge" := (Some 1).merge (Some 2) (+) == Some 3
+test "Option.merge lone" := (Some 1).merge None (+) == Some 1 && (None: Option Nat).merge (Some 2) (+) == Some 2
+test "Option.merge none" := (None: Option Nat).merge None (+) == None
+test "Option.alignWith" := (Some 1).alignWith (Some 5) (+ 10) (+ 20) (*) == Some 5
+test "Option.alignWith lone" := (Some 1).alignWith (None: Option Nat) (+ 10) (+ 20) (*) == Some 11 && (None: Option Nat).alignWith (Some 5) (+ 10) (+ 20) (*) == Some 25
+test "Option.alignWith none" := (None: Option Nat).alignWith (None: Option Nat) (+ 10) (+ 20) (*) == None
+test "Option.fold" := (Some 4).fold 0 (+ 1) == 5 && (None: Option Nat).fold 0 (+ 1) == 0
+test "Option.exists" := (Some 3).exists (> 2) == True && (Some 1).exists (> 2) == False && (None: Option Nat).exists (> 2) == False
+test "Option.forall" := (Some 3).forall (> 2) == True && (Some 1).forall (> 2) == False && (None: Option Nat).forall (> 2) == True
+test "Option.filter" := (Some 3).filter (> 2) == Some 3 && (Some 1).filter (> 2) == None && (None: Option Nat).filter (> 2) == None
+test "Option.filter in a pipe" := (Some 3 |> .filter (> 2)) == Some 3

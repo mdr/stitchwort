@@ -15,7 +15,7 @@ theorem Nat.iterateSuccLast (f: a -> a): (n: Nat) -> (x: a) -> Nat.iterate (Succ
   | Zero, x => rfl
   | Succ n, x => Nat.iterateSuccLast f n (f x)
 
-test "Nat.iterate" := Nat.iterate 3 (x => x * 2) 1 == 8 && Nat.iterate 0 (x => x * 2) 5 == 5
+test "Nat.iterate" := Nat.iterate 3 (* 2) 1 == 8 && Nat.iterate 0 (* 2) 5 == 5
 test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!!"
 
 -- Apply `step` until it changes nothing: `Nat.iterateUntilStable x step
