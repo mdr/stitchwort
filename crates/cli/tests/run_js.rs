@@ -558,75 +558,35 @@ def main(): {IO, Partial} () :=
     );
 }
 
-/// Std functions that fold a long list are stack-safe: `Map.indexBy`,
-/// `Map.groupBy`, `List.foldRight`, `Map.foldRight` and `Set.foldRight` (once
-/// `foldRight`s that recursed once per element), and the `foldLeft` builders
-/// `Map.fromListWith`, `Map.counts` and `Set.fromList`, on 100,000 elements.
-/// `run --js` hides the depth in a worker with a large stack, so the built
-/// module is also called from a plain Node, whose default stack overflowed at
-/// about 8,000 elements. Native and JS print the same.
-#[test]
-fn std_folds_over_long_lists_are_stack_safe() {
-    let path = source_file(
-        "folds.sw",
-        r#"
-import Std (IO, List, Map, Nat, Set)
-
-def input (n: Nat): List Nat := List.range n
-
-export def indexed (n: Nat): Nat := Map.size (Map.indexBy (x => x % 1000) (input n))
-
-export def indexedFirst (n: Nat): Nat := Map.getOr 0 7 (Map.map (x => x) (Map.indexBy (x => x % 1000) (input n)))
-
-export def grouped (n: Nat): Nat :=
-  List.foldLeft (acc x => acc * 3 + x) 0 (Map.getOr [] 3 (Map.groupBy (x => x % 10) (input n))) % 1000003
-
-export def summed (n: Nat): Nat := Map.size (Map.fromListWith (a b => a + b) (List.map (x => (x % 500, x)) (input n)))
-
-export def setSize (n: Nat): Nat := Set.size (Set.fromList (input n))
-
-export def counted (n: Nat): Nat := Map.getOr 0 3 (Map.counts (List.map (x => x % 7) (input n)))
-
-export def listRight (n: Nat): Nat := List.foldRight (x acc => x + acc) 0 (input n)
-
-export def mapRight (n: Nat): Nat := Map.foldRight (k v acc => v + acc) 0 (Map.indexBy (x => x) (input n))
-
-export def setRight (n: Nat): Nat := Set.foldRight (k acc => k + acc) 0 (Set.fromList (input n))
-
-def main () : {IO} () :=
-  IO.print (Nat.toText (indexed 100000))
-  IO.print (Nat.toText (indexedFirst 100000))
-  IO.print (Nat.toText (grouped 100000))
-  IO.print (Nat.toText (summed 100000))
-  IO.print (Nat.toText (setSize 100000))
-  IO.print (Nat.toText (counted 100000))
-  IO.print (Nat.toText (listRight 100000))
-  IO.print (Nat.toText (mapRight 100000))
-  IO.print (Nat.toText (setRight 100000))
-"#,
-    );
-    let js = same_both_ways(&path, b"", true);
+/// Calls each of `exports` (a function from `Nat` to `Nat` of the program
+/// at `path`) on 100,000. The program's `main` prints the same, one line
+/// each, natively and with `run --js`; then the module that `build --js`
+/// makes is called from a plain Node, with its default stack, and must print
+/// that too. (`run --js` hides recursion depth in a worker with a large
+/// stack.)
+fn stack_safe_everywhere(path: &Path, exports: &[&str]) {
+    let js = same_both_ways(path, b"", true);
     assert!(js.status.success(), "{}", text(&js.stderr));
     let expected = text(&js.stdout);
-    assert_eq!(expected.lines().count(), 9, "{expected}");
+    assert_eq!(expected.lines().count(), exports.len(), "{expected}");
 
-    let out = path.parent().unwrap().join("folds-out");
+    let stem = path.file_stem().unwrap().to_str().unwrap();
+    let out = path.parent().unwrap().join(format!("{stem}-out"));
     let built = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .args(["build", "--js", "--no-cache", "-o"])
         .arg(&out)
-        .arg(&path)
+        .arg(path)
         .output()
         .expect("run stitchwort build");
     assert!(built.status.success(), "{}", text(&built.stderr));
     let script = out.join("call.mjs");
+    let names: Vec<String> = exports.iter().map(|name| format!("{name:?}")).collect();
     std::fs::write(
         &script,
-        r#"
-import * as m from "./folds.js";
-for (const name of ["indexed", "indexedFirst", "grouped", "summed", "setSize", "counted", "listRight", "mapRight", "setRight"]) {
-  console.log(String(m[name](100000n)));
-}
-"#,
+        format!(
+            "import * as m from \"./{stem}.js\";\nfor (const name of [{}]) {{\n  console.log(String(m[name](100000n)));\n}}\n",
+            names.join(", ")
+        ),
     )
     .expect("write call.mjs");
     let node = Command::new("node")
@@ -635,4 +595,148 @@ for (const name of ["indexed", "indexedFirst", "grouped", "summed", "setSize", "
         .expect("run `node` (is it on the PATH? `nix develop` provides it)");
     assert!(node.status.success(), "{}", text(&node.stderr));
     assert_eq!(text(&node.stdout), expected);
+}
+
+/// The source of a program exporting `defs` (each `name (n: Nat): Nat`),
+/// whose `main` prints each one's value at 100,000.
+fn exports_program(imports: &str, helpers: &str, defs: &[(&str, &str)]) -> String {
+    let mut source = format!("import Std ({imports})\n\n{helpers}\n");
+    for (name, body) in defs {
+        source.push_str(&format!("export def {name} (n: Nat): Nat := {body}\n\n"));
+    }
+    source.push_str("def main () : {IO} () :=\n");
+    for (name, _) in defs {
+        source.push_str(&format!("  IO.print (Nat.toText ({name} 100000))\n"));
+    }
+    source
+}
+
+/// Std functions that fold a long list are stack-safe: `Map.indexBy`,
+/// `Map.groupBy`, `List.foldRight`, `Map.foldRight` and `Set.foldRight` (once
+/// `foldRight`s that recursed once per element), and the `foldLeft` builders
+/// `Map.fromListWith`, `Map.counts` and `Set.fromList`, on 100,000 elements.
+/// A plain Node's default stack overflowed at about 8,000 elements. Native
+/// and JS print the same.
+#[test]
+fn std_folds_over_long_lists_are_stack_safe() {
+    let defs = [
+        (
+            "indexed",
+            "Map.size (Map.indexBy (x => x % 1000) (input n))",
+        ),
+        (
+            "indexedFirst",
+            "Map.getOr 0 7 (Map.map (x => x) (Map.indexBy (x => x % 1000) (input n)))",
+        ),
+        (
+            "grouped",
+            "List.foldLeft (acc x => acc * 3 + x) 0 (Map.getOr [] 3 (Map.groupBy (x => x % 10) (input n))) % 1000003",
+        ),
+        (
+            "summed",
+            "Map.size (Map.fromListWith (a b => a + b) (List.map (x => (x % 500, x)) (input n)))",
+        ),
+        ("setSize", "Set.size (Set.fromList (input n))"),
+        (
+            "counted",
+            "Map.getOr 0 3 (Map.counts (List.map (x => x % 7) (input n)))",
+        ),
+        ("listRight", "List.foldRight (x acc => x + acc) 0 (input n)"),
+        (
+            "mapRight",
+            "Map.foldRight (k v acc => v + acc) 0 (Map.indexBy (x => x) (input n))",
+        ),
+        (
+            "setRight",
+            "Set.foldRight (k acc => k + acc) 0 (Set.fromList (input n))",
+        ),
+    ];
+    let source = exports_program(
+        "IO, List, Map, Nat, Set",
+        "def input (n: Nat): List Nat := List.range n\n",
+        &defs,
+    );
+    let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
+    stack_safe_everywhere(&source_file("folds.sw", &source), &names);
+}
+
+/// Std list functions that recursed once per element, on 100,000 elements,
+/// natively, with `run --js`, and from a plain Node, whose default stack
+/// overflowed at 2,000 to 11,000 elements. The JS backend makes loops of
+/// calls modulo addition (`List.length`'s `Succ (List.length xs)`,
+/// `List.occurrences`, `List.indexOf`) and modulo append (`List.concat`'s
+/// `List.append xs (List.concat xss)`, `List.concatMap`): with them
+/// `List.flatMap`, `List.cross`, `List.padRight`, `List.dropRight`,
+/// `List.transpose`, `Text.repeat`, `Text.padRight` and `Vec.fromList`,
+/// which use them. `List.maxLength` and `List.splitGroups` (so
+/// `List.transposeFill` and `List.splitBy`) are right folds, `Text.words` a
+/// loop over the reversed characters, `List.mapAccumLeft` a loop with an
+/// accumulator, `List.unzip` two maps, `List.span` `takeWhile` and
+/// `dropWhile`, and `Vec.ofList` checks the length, then `Vec.fromListN`.
+#[test]
+fn std_list_functions_over_long_lists_are_stack_safe() {
+    let defs = [
+        ("length", "List.length (input n)"),
+        ("indexOf", "List.indexOf n (input n)"),
+        (
+            "occurrences",
+            "List.occurrences (x => x % 3 == 0) (input n)",
+        ),
+        (
+            "concat",
+            "size (List.concat (List.map (x => [x, x]) (input n)))",
+        ),
+        ("concatMap", "size (List.concatMap (x => [x]) (input n))"),
+        ("flatMap", "List.sum (List.flatMap (input n) (x => [x, 1]))"),
+        ("cross", "size (List.cross (input n) [1, 2])"),
+        ("padRight", "size (List.padRight (n + 5) 0 (input n))"),
+        ("dropRight", "List.sum (List.dropRight (input n) 3)"),
+        ("transpose", "size (List.transpose [input n, input n])"),
+        (
+            "transposeFill",
+            "size (List.transposeFill 0 (List.map (x => [x]) (input n)))",
+        ),
+        (
+            "maxLength",
+            "List.maxLength (List.map (x => List.replicate (x % 5) x) (input n))",
+        ),
+        (
+            "splitBy",
+            "size (List.splitBy (x => x % 10 == 0) (input n))",
+        ),
+        (
+            "mapAccumLeft",
+            "List.sum (Pair.snd (List.mapAccumLeft (input n) 0 (s x => (s + x, s % 7))))",
+        ),
+        (
+            "unzip",
+            "List.sum (Pair.snd (List.unzip (List.map (x => (x, x % 3)) (input n))))",
+        ),
+        (
+            "span",
+            "size (Pair.fst (List.span (input n) (x => x < n - 2)))",
+        ),
+        (
+            "words",
+            "size (Text.words (Text.fromList (List.map (i => if i % 10 == 9 then ' ' else 'a') (input n))))",
+        ),
+        ("repeat", "Text.length (Text.repeat \"ab\" n)"),
+        (
+            "textPadRight",
+            "Text.length (Text.padRight (n + n) 'x' (Text.repeat \"a\" n))",
+        ),
+        ("vecFromList", "Vec.sum (Vec.fromList (input n))"),
+        (
+            "vecOfList",
+            "Option.getOrElse 0 (Option.map Vec.sum (Vec.ofList n (input n)))",
+        ),
+    ];
+    let source = exports_program(
+        "IO, List, Nat, Option, Pair, Text, Vec",
+        "def input (n: Nat): List Nat := List.range n\n\n\
+         def size (xs: List a): Nat := List.foldLeft (count x => count + 1) 0 xs\n",
+        &defs,
+    );
+    let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
+    stack_safe_everywhere(&source_file("lists.sw", &source), &names);
 }

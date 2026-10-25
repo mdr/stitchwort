@@ -6,10 +6,12 @@
 -- A file of its own, so that programs using only the toolkit don't check
 -- these.
 
--- The length of the longest row (0 for no rows).
-def List.maxLength: List (List a) -> Nat
-  | Nil => 0
-  | Cons row rows => Nat.max (List.length row) (List.maxLength rows)
+-- The length of the longest row (0 for no rows). A right fold, so it runs
+-- as a loop (stack-safe on many rows); `List.maxLengthCons` is its step.
+def List.maxLength (rows: List (List a)): Nat := List.foldRight (row m => Nat.max (List.length row) m) 0 rows
+
+theorem List.maxLengthCons (row: List a) (rows: List (List a)): List.maxLength (Cons row rows) = Nat.max (List.length row) (List.maxLength rows) :=
+  List.foldRightCons (r m => Nat.max (List.length r) m) 0 row rows
 
 -- The columns of rows of any lengths, as many as the longest row is long:
 -- every row is padded on the right with `fill` to that length, then
@@ -24,11 +26,12 @@ def List.transposeFill (fill: a) (rows: List (List a)): List (List a) :=
 -- No row is longer than `maxLength`: row r (Nil past the last row).
 theorem List.lengthLeMaxLength: (r: Nat) -> (rows: List (List a)) -> List.length (List.getOr Nil r rows) <= List.maxLength rows
   | r, Nil => rfl
-  | Zero, Cons x xs => Nat.leMaxLeft (List.length x) (List.maxLength xs)
+  | Zero, Cons x xs => rewrite List.maxLengthCons x xs in Nat.leMaxLeft (List.length x) (List.maxLength xs)
   | Succ r, Cons x xs =>
     calc List.length (List.getOr Nil r xs)
       _ <= List.maxLength xs := List.lengthLeMaxLength r xs
       _ <= Nat.max (List.length x) (List.maxLength xs) := Nat.leMaxRight (List.length x) (List.maxLength xs)
+      _ = List.maxLength (Cons x xs) := Eq.sym (List.maxLengthCons x xs)
 
 -- A row no longer than w, padded to w, is its first w cells read by index.
 theorem List.padRightGetOr (fill: a) (w: Nat) (row: List a) (h: List.length row <= w):
