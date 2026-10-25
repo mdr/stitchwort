@@ -1,5 +1,5 @@
 {
-  "next": 454,
+  "next": 455,
   "tickets": [
     {
       "id": 13,
@@ -2525,14 +2525,16 @@
     {
       "id": 451,
       "title": "Tests may call partial code: tests are runtime checks, no annotation, hang = bug; check/LSP/playground never run tests (D1183)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "26343462"
+      ]
     },
     {
       "id": 452,
@@ -2552,6 +2554,18 @@
       "id": 453,
       "title": "AoC Day 8 review (D1190): proofs via memPerm etc., sizes via Map.counts (Perm), Boxes.of precondition doc, named fields, Result fixtures + boundary examples; item 6 std lemmas after rule E",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 454,
+      "title": "std: fast Set-based List.distinct for ordered types + membership/Distinct theorems; resolver port moves to it (D1191; after rule E lands)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
