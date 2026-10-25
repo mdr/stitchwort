@@ -34,7 +34,8 @@ pub enum Outcome {
 /// What a run may do, beyond its resource limits.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Policy {
-    /// Stop (inconclusively) once this many ticks have happened. For tests.
+    /// Stop (inconclusively) when the run needs a tick beyond this many: a
+    /// limit of `n` allows exactly `n` ticks.
     pub max_ticks: Option<u64>,
 }
 
@@ -242,10 +243,12 @@ impl Runner<'_> {
                                 next
                             }
                             Routed::Tick(next) => {
-                                self.ticks += 1;
+                                // A limit of `n` allows exactly `n` ticks (docs/proposals/partial.md
+                                // §7.4.3): stop on needing the next one.
                                 if self.policy.max_ticks.is_some_and(|max| self.ticks >= max) {
                                     return Ok(Outcome::OutOfTicks);
                                 }
+                                self.ticks += 1;
                                 // A new stretch.
                                 steps = 0;
                                 self.m.reset_steps();
