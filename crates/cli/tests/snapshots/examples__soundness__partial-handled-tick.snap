@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: `Partial.tick` isn't an operation
+    ╭─[ soundness/partial-handled-tick.sw:13:7 ]
+    │
+ 13 │     | Partial.tick u, k => k()
+    │       ──────┬─────  
+    │             ╰─────── a handler clause needs an operation
+────╯

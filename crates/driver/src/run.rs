@@ -105,8 +105,7 @@ impl Main {
 /// 1. `name ()` in `{IO, Partial}`, for a `name` with abilities among `IO`
 ///    and `Partial`.
 /// 2. `name ()` in `{IO, Fail, Partial}` ([`MAIN_TYPE`]), for a `name` that
-///    may also fail. No handler goes around it (a handler can't take a
-///    partial computation, docs/proposals/partial.md §7.3.8): the runner
+///    may also fail. No handler goes around it: the runner
 ///    performs `Fail.stop msg` itself, as it performs `IO.print`, and stops
 ///    with [`RunError::Failed`] (docs/proposals/partial-stage-2.md §3).
 ///

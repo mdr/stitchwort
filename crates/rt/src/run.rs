@@ -247,6 +247,9 @@ impl Runner<'_> {
                         // Building `pfix f x` ran nothing; stepping it
                         // enters the body. No tick.
                         Delay::Pfix(f, x) => Focus::Enter(f.clone(), x.clone()),
+                        Delay::Fold(..) => {
+                            return Err(RunError::Lowering(crate::lower::fold_d_unsupported()));
+                        }
                     }
                 }
                 Focus::Enter(f, x) => {

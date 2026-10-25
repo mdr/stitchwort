@@ -391,6 +391,7 @@ builtins! {
     BindD = "Effect.bindD": Def,
     MapSig = "Effect.mapSig": Def,
     Pfix = "Effect.pfix": Def,
+    FoldD = "Effect.foldD": Def,
     // Partiality through a bare row (docs/proposals/partial-stage-3.md)
     Divergence = "Effect.Divergence": Data,
     DivTotal = "Total": Ctor(Builtin::Divergence),

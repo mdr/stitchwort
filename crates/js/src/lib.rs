@@ -4700,7 +4700,8 @@ fn erasable(g: &Globals) -> Result<(), Diagnostic> {
             | Primitive::Lift
             | Primitive::BindD
             | Primitive::MapSig
-            | Primitive::Pfix => true,
+            | Primitive::Pfix
+            | Primitive::FoldD => true,
         };
         if let Some(id) = g.builtins.primitive_id(prim)
             && (!builds || g.def(id).body().is_some())

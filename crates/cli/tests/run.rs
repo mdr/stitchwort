@@ -547,8 +547,10 @@ fn a_total_main_that_may_fail_runs_three_ways() {
     );
 }
 
-/// A handler still can't take a partial computation: handling `Fail` around
-/// a partial search is refused (partial.md §7.3.8), as before.
+/// `Fail.toResult` still takes only a total program: its row `{Fail | e}`
+/// is total until rows with abilities get a divergence index (lane D of
+/// docs/proposals/partial-handlers.md). A `handle` written in place can go
+/// around partial code (examples/accept/partial-handlers.sw).
 #[test]
 fn fail_still_cant_be_handled_around_partial_code() {
     let path = source_file(
