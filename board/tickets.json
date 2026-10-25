@@ -3202,14 +3202,16 @@
     {
       "id": 500,
       "title": "Native N1: core instructions (+DropReuse, Global, Apply) via Cranelift behind run --native; counters; islands; Set benchmark vs 3× stop point (D1250). Result: Set 2.7× (missed 3×), micro 3.9–4.2×; stopped for re-plan; merging main into branch",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8d970f58"
+      ]
     },
     {
       "id": 501,
@@ -3240,7 +3242,7 @@
     {
       "id": 503,
       "title": "Native: investigate the N1 miss (D1261): allocator slow paths when compiled code frees, Apply of known globals (compare), then re-measure Set vs the 3× bar; time-boxed",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
