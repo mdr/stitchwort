@@ -136,9 +136,7 @@ impl<'g> Specialiser<'g> {
     /// specialised on.
     fn empty_ctor(&self, term: &Term) -> Option<usize> {
         match term.strip_loc() {
-            Term::Ctor(d, c, fields)
-                if fields.is_empty() && self.drivers.contains(&(*d, *c)) =>
-            {
+            Term::Ctor(d, c, fields) if fields.is_empty() && self.drivers.contains(&(*d, *c)) => {
                 Some(*c)
             }
             _ => None,
