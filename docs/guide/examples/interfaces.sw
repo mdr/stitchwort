@@ -37,7 +37,7 @@ test "describe a card" := Describe.describe aceOfSpades == "14♠"
 -- end interface
 
 -- begin auto
-def describeAll [auto describer: Describe a] (items: List a): Text := Text.join ' ' (items.map Describe.describe)
+def describeAll [auto describer: Describe a] (items: List a): Text := Text.join (items.map Describe.describe) ' '
 
 test "the instance is found from the type" := describeAll [aceOfSpades, twoOfClubs] == "14♠ 2♣"
 -- end auto

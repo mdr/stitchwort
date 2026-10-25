@@ -103,29 +103,29 @@ Implicit parameters are named with square brackets, `[b := Text]`, as above. The
 
 ## Dot notation
 
-`x.f args` calls the function `f` in the namespace of `x`'s type, with `x` as its first parameter of that type, wherever that parameter is. So a function declared as `def Point.shift … (point: Point)` reads like a method:
+`x.f args` calls the function `f` in the namespace of `x`'s type, with `x` as its **first** argument. So a function declared as `def Point.shift (point: Point) …` reads like a method:
 
 <!-- snippet: functions.sw#dot -->
 ```stitchwort
 type Point = { x: Int, y: Int }
 
-def Point.shift (dx: Int) (dy: Int) (point: Point): Point := { x = point.x + dx, y = point.y + dy }
+def Point.shift (point: Point) (dx: Int) (dy: Int): Point := { x = point.x + dx, y = point.y + dy }
 
 def Point.manhattan (point: Point): Nat := point.x.natAbs + point.y.natAbs
 
 def origin: Point := { x = 0, y = 0 }
 
 test "dot notation" := (origin.shift 3 (-4)).manhattan == 7
-test "the same call, in full" := Point.manhattan (Point.shift 3 (-4) origin) == 7
+test "the same call, in full" := Point.manhattan (Point.shift origin 3 (-4)) == 7
 ```
 
-`origin.shift 3 (-4)` is `Point.shift 3 (-4) origin`. There are no classes and no methods: dot notation is only a way of writing calls. It works for the library's types too (`xs.map f` is `List.map f xs`), and needs no import: the value's type picks the namespace.
+`origin.shift 3 (-4)` is `Point.shift origin 3 (-4)`. There are no classes and no methods: dot notation is only a way of writing calls. It works for the library's types too (`xs.map f` is `List.map xs f`), and needs no import: the value's type picks the namespace. Nothing is searched for: if `f`'s first explicit parameter isn't a `Point`, `origin.f` is `E-DOT-NO-RECEIVER`, so a function meant to be called with a dot takes its main value first. A function in `Point`'s namespace that takes a `Point` but not first gets the warning `W-RECEIVER-NOT-FIRST`.
 
 A negative literal as an argument needs brackets: `f -4` is `f - 4`.
 
 ## Pipes
 
-`x |> f a` is `f a x`: the value on the left becomes the **last** argument. The library puts the main argument last for this reason (`List.map f xs`). A pipe whose right side starts with a dot is dot notation, so `|> .split ' '` calls `Text.split ' '` on the value:
+`x |> f a` is `f x a`: the value on the left becomes the **first** argument, as it does for dot notation. The library puts the main argument first for this reason (`List.map xs f`), so `x |> f a` and `x.f a` agree. A pipe whose right side starts with a dot is dot notation, so `|> .split ' '` calls `Text.split` on the value with `' '` as the separator:
 
 <!-- snippet: functions.sw#pipes -->
 ```stitchwort
@@ -168,7 +168,7 @@ The test reads as `[1, 2, 3, 4] |> (.filter (…) == [2, 4])`. Bracket the pipel
 
 ## Sections
 
-`.name args` with nothing before the dot is a short function: `.manhattan` is `p => p.manhattan`, and `.split ','` is `t => t.split ','`. As an argument, a section with arguments needs brackets:
+`.name args` with nothing before the dot is a short function: `.manhattan` is `p => p.manhattan`, and `.split ','` is `t => t.split ','`, which is `t => Text.split t ','`. As an argument, a section with arguments needs brackets:
 
 <!-- snippet: functions.sw#sections -->
 ```stitchwort
@@ -202,7 +202,7 @@ Functions can be stored in lists and records, passed and returned like any other
 
 <!-- snippet: functions.sw#higher-order -->
 ```stitchwort
-def applyAll (functions: List (Nat -> Nat)) (start: Nat): Nat := functions.foldLeft (value f => f value) start
+def applyAll (functions: List (Nat -> Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
 
 test "functions are values" := applyAll [increment, add 10, n => n * 2] 1 == 24
 ```
