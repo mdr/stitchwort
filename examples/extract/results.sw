@@ -24,14 +24,14 @@ def Range.read (t: Text): {Fail} Range :=
     | [a, b] =>
       let from := a.toNatOrFail
       let to := b.toNatOrFail
-      ensure (from <= to) "the range '${t}' ends before it starts"
+      ensure (from ≤ to) "the range '${t}' ends before it starts"
       { from, to }
     | _ => fail "expected a range like 11-22, got '${t}'"
 
 export def parseRange (t: Text): Result Range Text := Fail.toResult (() => Range.read t)
 
 -- A `Result` as an argument, too.
-export def size: Result Range Text -> Result Nat Text
+export def size: Result Range Text → Result Nat Text
   | Ok r => Ok (r.to - r.from + 1)
   | Err m => Err m
 

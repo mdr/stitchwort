@@ -17,7 +17,7 @@ def bounds (options: RangeOptions): List Nat := [options.start, options.stop, op
 def small: RangeOptions := { stop = 10 }
 
 test "left out fields are their defaults" :=
-  small.start == 0 && small.step == 1 && small.stop == 10
+  small.start == 0 ∧ small.step == 1 ∧ small.stop == 10
 test "a given field replaces its default" := bounds { stop = 10, step = 3 } == [0, 10, 3]
 test "as a named argument" := bounds (options := { start = 2, stop = 5 }) == [2, 5, 1]
 
@@ -29,7 +29,7 @@ type Style = { width: Nat := 80, indent: Nat := 2 }
 
 def plain: Style := {}
 
-test "every field left out" := plain.width == 80 && plain.indent == 2
+test "every field left out" := plain.width == 80 ∧ plain.indent == 2
 
 -- A default may use earlier fields, and a later field's type may mention
 -- a defaulted one: the default computes, so `{ cells = … }` with eight
@@ -44,7 +44,7 @@ def three: Sized := { size = 3 }
 def eightAgain: Sized := { cells = Vec.replicate 8 True }
 
 test "dependent defaults" :=
-  eight.cells.toList.length == 8 && three.cells.toList.length == 3
+  eight.cells.toList.length == 8 ∧ three.cells.toList.length == 3
 test "a later field fits the default" := eightAgain.size == 8
 
 -- A default uses the actual value of the earlier field, never an assumed
@@ -60,7 +60,7 @@ test "the default sees the given field" := (tripled 2).twice == 12
 test "an update keeps fields" := ({ tripled 2 | x = 1 }).twice == 12
 
 -- Patterns are unchanged: they name every field, or use `..`.
-def total: Twice -> Nat
+def total: Twice → Nat
   | { x, twice } => x + twice
 
 test "patterns name every field" := total (tripled 1) == 9
@@ -70,7 +70,7 @@ type Box (a: Type) = { item: a, label: Text := "box", extra: List a := [] }
 
 def boxed: Box Nat := { item = 5 }
 
-test "generic" := boxed.label == "box" && boxed.extra == []
+test "generic" := boxed.label == "box" ∧ boxed.extra == []
 
 -- Constructor fields: named construction leaves them out, positional and
 -- named-argument calls give every field.
@@ -90,7 +90,7 @@ test "without an expected type" :=
   made == Square 2 "square"
 
 -- An indexed family: implicit fields are inferred, defaults filled.
-type Tower: Nat -> Type =
+type Tower: Nat → Type =
   | Ground (name: Text := "ground"): Tower 0
   | Floor [n: Nat] (below: Tower n) (name: Text := "floor"): Tower (Succ n)
 
@@ -101,9 +101,9 @@ test "family" := towerName (Floor { below = Ground {} }) == "floor"
 -- In a computation, a given field runs once, and the default uses its
 -- result.
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
-def collect (program: () -> {Log | e} a): {e} (List Nat, a) :=
+def collect (program: () → {Log | e} a): {e} (List Nat, a) :=
   handle program() with
     | return x => ([], x)
     | say n, k =>

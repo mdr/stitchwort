@@ -47,7 +47,7 @@ def gcd (a: Nat) (b: Nat): Nat
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
 
-test "gcd" := gcd 12 18 == 6 && gcd 17 5 == 1 && gcd 0 9 == 9
+test "gcd" := gcd 12 18 == 6 ∧ gcd 17 5 == 1 ∧ gcd 0 9 == 9
 
 -- The guard style: test the decrease, and `auto` finds the proof in scope.
 def halvings (n: Nat) (count: Nat): Nat
@@ -56,7 +56,7 @@ def halvings (n: Nat) (count: Nat): Nat
   let next := n / 2
   if h: next < n then halvings next (count + 1) else count
 
-test "halvings" := halvings 100 0 == 7 && halvings 0 0 == 0
+test "halvings" := halvings 100 0 == 7 ∧ halvings 0 0 == 0
 
 -- A `match` in the body, with the recursive call in one arm.
 def sumDigits (n: Nat): Nat
@@ -70,7 +70,7 @@ test "sum of digits" := sumDigits 1234 == 10
 
 -- Arms after the colon, an implicit type, and a measure that isn't a
 -- parameter.
-def takeFirst [a: Type] (xs: List a): Nat -> List a
+def takeFirst [a: Type] (xs: List a): Nat → List a
     decreasing List.length xs
   | Zero => Nil
   | Succ k =>
@@ -78,14 +78,14 @@ def takeFirst [a: Type] (xs: List a): Nat -> List a
       | Nil => Nil
       | Cons x rest => Cons x (takeFirst rest k [decreasing := Nat.leRefl (List.length rest)])
 
-test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] && takeFirst [1, 2, 3] 5 == [1, 2, 3]
+test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] ∧ takeFirst [1, 2, 3] 5 == [1, 2, 3]
 
 -- A recursive call written with a dot.
 type Stack =
   | Empty
   | Push (x: Nat) (rest: Stack)
 
-def Stack.count: Stack -> Nat
+def Stack.count: Stack → Nat
   | Empty => 0
   | Push x rest => Succ (Stack.count rest)
 
@@ -110,7 +110,7 @@ def evens (n: Nat): List Nat
 
 test "evens" := evens 7 == [5, 3, 1]
 
-theorem evensShort (n: Nat): List.length (evens n) <= n
+theorem evensShort (n: Nat): List.length (evens n) ≤ n
     decreasing n
 :=
   rewrite evens.unfold n in

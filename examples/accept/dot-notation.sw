@@ -9,13 +9,13 @@ type Bag (a: Type): Type =
   | Empty
   | Put (x: a) (rest: Bag a)
 
-def Bag.length: Bag a -> Nat
+def Bag.length: Bag a → Nat
   | Empty => 0
   | Put _ b => 1 + b.length
 
 type Person = { name: Text, age: Nat }
 
-def Bag.map: Bag a -> (f: a -> b) -> Bag b
+def Bag.map: Bag a → (f: a → b) → Bag b
   | Empty, f => Empty
   | Put x xs, f => Put (f x) (Bag.map xs f)
 
@@ -34,7 +34,7 @@ def lengths (ts: Bag Text): Bag Nat := ts.map (t => t.length)
 
 def splitLine (line: Text): List Text := line.split ','
 
-def splitter (t: Text): Char -> List Text := t.split
+def splitter (t: Text): Char → List Text := t.split
 
 def showPrice (p: Price): Text := p.show
 
@@ -87,7 +87,7 @@ test "cycle" := Tile.label { shape = { name = "a" } } == "a"
 -- The receiver runs first, then the arguments as written: the call is
 -- `Shape.shout s suffix` (§4.8.2).
 ability Log where
-  log: Text -> {Log} ()
+  log: Text → {Log} ()
 
 def Shape.shout (s: Shape) (suffix: Text): {Log} Text :=
   log ("shout " ++ s.name)
@@ -103,7 +103,7 @@ def sfx (t: Text): {Log} Text :=
 
 def both(): {Log} Text := (pick "a").shout (sfx "!")
 
-def collect (f: () -> {Log | e} a): {e} Pair (List Text) a :=
+def collect (f: () → {Log | e} a): {e} Pair (List Text) a :=
   handle f() with
     | return x => MkPair Nil x
     | log t, k =>

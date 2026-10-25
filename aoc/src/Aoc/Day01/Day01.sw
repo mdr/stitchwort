@@ -66,12 +66,12 @@ def Turn.parseOption (line: Text): Option Turn := Fail.toOption (() => Turn.pars
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Day01.Proofs`) use it; it stays
 -- here so that they can write `turn.clicks`, a dot name must live with its type.
-def Turn.clicks: Turn -> List Turn
+def Turn.clicks: Turn → List Turn
   | Left distance => List.replicate distance (Left 1)
   | Right distance => List.replicate distance (Right 1)
 
 -- Where a turn leaves the dial: left is towards lower numbers.
-def Dial.move (dial: Dial n): Turn -> Dial n
+def Dial.move (dial: Dial n): Turn → Dial n
   | Left distance => { position = dial.position.subNat distance }
   | Right distance => { position = dial.position.addNat distance }
 
@@ -84,6 +84,6 @@ def Dial.isZero (dial: Dial n): Bool := dial.position.isZero
 -- number 0 stays put and the others swap ends (20 becomes 80 on a dial of
 -- 100). That mirrored position is not the distance to 0 going left (from 20
 -- that is 20 clicks, not 80); it is the position to count right-turns from.
-def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
+def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn → Nat
   | Right distance => (dial.position.value + distance) / Mod.size n
   | Left distance => ((Mod.size n - dial.position.value) % Mod.size n + distance) / Mod.size n

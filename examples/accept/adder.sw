@@ -24,12 +24,12 @@
 import Std (Nat)
 
 -- The text, or a default at end of input.
-def textOr (d: Text): Option Text -> Text
+def textOr (d: Text): Option Text → Text
   | None => d
   | Some t => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+def stepNumber (total: Nat) (l: Text): Option Nat → (Nat → {IO, Partial | e} Nat) → {IO, Partial | e} Nat
   | None, more =>
     IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
@@ -42,7 +42,7 @@ def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO, Partial | e} N
 -- `Partial` only because `more` may be partial. They're polymorphic in the
 -- rest of the row (`| e`) because `addLines` passes itself as `more`, and a
 -- recursive call is a request only `addLines`'s own definition can answer.
-def step (total: Nat): Option Text -> (Nat -> {IO, Partial | e} Nat) -> {IO, Partial | e} Nat
+def step (total: Nat): Option Text → (Nat → {IO, Partial | e} Nat) → {IO, Partial | e} Nat
   | None, more => total
   | Some l, more =>
     if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more

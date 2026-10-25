@@ -53,9 +53,9 @@ test "two dependent fields" :=
   (replaceBoth (B 1 (VCons 1 VNil) 0 VNil) (VCons 5 VNil) VNil).xs == VCons 5 VNil
 
 -- 5. Evidence fields: only the final state has to be valid.
-type Range = { start: Nat, stop: Nat, ok: start <= stop }
+type Range = { start: Nat, stop: Nat, ok: start ≤ stop }
 
-def widen (r: Range) (a: Nat) (b: Nat) (h: a <= b): Range :=
+def widen (r: Range) (a: Nat) (b: Nat) (h: a ≤ b): Range :=
   { r | start = a, stop = b, ok = h }
 
 type Same = { left: Nat, right: Nat, ok: left = right }

@@ -4,4 +4,4 @@ namespace Base
 type Token: Prop =
   | MkToken
 
-def needsToken: [auto t: Token] -> Nat := 1
+def needsToken: [auto t: Token] → Nat := 1

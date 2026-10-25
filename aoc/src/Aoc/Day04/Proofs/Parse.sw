@@ -24,7 +24,7 @@ theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.he
         _ = List.getOr (parseLine (List.getOr lines "" r)) Floor c
           := rewrite <- Vec.getToList (Vec.fromList lines) "" i, Vec.toListFromList lines, Fin.toNatOfNatLt lines.length r e
     | False =>
-      let past: lines.length <= r := omega
+      let past: lines.length ≤ r := omega
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines "" r past
 
 theorem gridOfCells (lines: List Text) (grid: Grid) (h: gridOf lines = Some grid) (r: Nat) (c: Nat):

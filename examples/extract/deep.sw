@@ -20,20 +20,20 @@ type Chain: Type =
 
 export def echo (c: Chain): Chain := c
 
-def countOnto (n: Nat): Chain -> Nat
+def countOnto (n: Nat): Chain → Nat
   | End => n
   | More h t => countOnto (Succ n) t
 
 export def count (c: Chain): Nat := countOnto 0 c
 
-def flipOnto (acc: Chain): Chain -> Chain
+def flipOnto (acc: Chain): Chain → Chain
   | End => acc
   | More h t => flipOnto (More h acc) t
 
 export def flip (c: Chain): Chain := flipOnto End c
 
 -- `More 0 (More 1 … (More (n - 1) End))`.
-def buildOnto (acc: Chain): Nat -> Chain
+def buildOnto (acc: Chain): Nat → Chain
   | Zero => acc
   | Succ n => buildOnto (More n acc) n
 
@@ -46,7 +46,7 @@ type Tree: Type =
 export def echoTree (t: Tree): Tree := t
 
 -- A tree `n` deep, down its left side.
-def spineOnto (t: Tree): Nat -> Tree
+def spineOnto (t: Tree): Nat → Tree
   | Zero => t
   | Succ n => spineOnto (Node t Leaf) n
 
@@ -59,7 +59,7 @@ type Seq (a: Type): Type =
 
 export def echoSeq (s: Seq Text): Seq Text := s
 
-def stepsOnto (s: Seq Text): Nat -> Seq Text
+def stepsOnto (s: Seq Text): Nat → Seq Text
   | Zero => s
   | Succ n => stepsOnto (Step "x" s) n
 

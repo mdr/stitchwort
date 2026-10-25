@@ -6,7 +6,7 @@ import Pretty (pretty)
 import Std (Text)
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 instance Pretty.instNat: Pretty Nat :=
   { pretty = n => if n == 0 then "zero" else "some" }
@@ -27,7 +27,7 @@ instance Item.instPretty: Pretty Item :=
 -- Asking for one: named, or not.
 def shout [auto p: Pretty a] (x: a): Text := Pretty.pretty x ++ "!"
 def whisper [auto Pretty a] (x: a): Text := "(" ++ Pretty.pretty x ++ ")"
-def both: [auto Pretty a] -> a -> Text := x => shout x ++ whisper x
+def both: [auto Pretty a] → a → Text := x => shout x ++ whisper x
 
 -- A named alternative: a plain `def` of the interface's type, never found
 -- by `auto`, passed by name.

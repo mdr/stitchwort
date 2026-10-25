@@ -61,12 +61,12 @@ test "split" := fields "a,b,c" == ["a", "b", "c"]
 test "split each line" := ["a,b", "c"].map (.split ',') == [["a", "b"], ["c"]]
 
 -- An annotation gives the receiver when nothing else does.
-def dropFirst: List Nat -> List Nat := .drop 1
+def dropFirst: List Nat → List Nat := .drop 1
 
 test "annotated" := dropFirst [1, 2, 3] == [2, 3]
-test "annotated inline" := (.drop 1: List Nat -> List Nat) [1, 2, 3] == [2, 3]
+test "annotated inline" := (.drop 1: List Nat → List Nat) [1, 2, 3] == [2, 3]
 
 -- A function parameter's type is known, so the section can be passed to it.
-def apply (f: Text -> Nat) (t: Text): Nat := f t
+def apply (f: Text → Nat) (t: Text): Nat := f t
 
 test "a function parameter" := apply .length "abc" == 3

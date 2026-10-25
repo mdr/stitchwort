@@ -31,7 +31,7 @@ import Std (List, Nat)
 -- `answer` is the largest of the areas: none is larger, and it is one of
 -- them, or 0 if there are none.
 def Largest (areas: List Nat) (answer: Nat): Prop :=
-  And ((other: Nat) -> List.Mem other areas -> other <= answer) (Or (List.Mem answer areas) (And (areas = Nil) (answer = 0)))
+  And ((other: Nat) → List.Mem other areas → other ≤ answer) (Or (List.Mem answer areas) (And (areas = Nil) (answer = 0)))
 
 -- Every rectangle with two red tiles as opposite corners: each red tile
 -- with each later one.
@@ -45,23 +45,23 @@ def Part1 (tiles: List Tile) (answer: Nat): Prop := Largest (List.map (rectangle
 def connections (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop tiles 1) (List.take tiles 1))
 
 -- `value` is from `one` to `other` (either may be the larger).
-def from (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value <= other) || (other <= value && value <= one)
+def from (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value ≤ other) ∨ (other ≤ value ∧ value ≤ one)
 
 -- The tile is on the straight line between two red tiles, which share a
 -- column or a row: in the rectangle between them, a line one tile wide.
-def onStraightLine (tile: Tile) (ends: (Tile, Tile)): Bool := from ends.fst.x ends.snd.x tile.x && from ends.fst.y ends.snd.y tile.y
+def onStraightLine (tile: Tile) (ends: (Tile, Tile)): Bool := from ends.fst.x ends.snd.x tile.x ∧ from ends.fst.y ends.snd.y tile.y
 
 def onLoop (tiles: List Tile) (tile: Tile): Bool := List.any (connections tiles) (onStraightLine tile)
 
 -- The straight line runs down a column right of the tile, and spans the
 -- tile's row: its upper end is at or above the row, its lower end below.
 def crossesRay (tile: Tile) (ends: (Tile, Tile)): Bool :=
-  ends.fst.x == ends.snd.x && tile.x < ends.fst.x
-    && ((ends.fst.y <= tile.y && tile.y < ends.snd.y) || (ends.snd.y <= tile.y && tile.y < ends.fst.y))
+  ends.fst.x == ends.snd.x ∧ tile.x < ends.fst.x
+    ∧ ((ends.fst.y ≤ tile.y ∧ tile.y < ends.snd.y) ∨ (ends.snd.y ≤ tile.y ∧ tile.y < ends.fst.y))
 
 def insideLoop (tiles: List Tile) (tile: Tile): Bool := List.count (connections tiles) (crossesRay tile) % 2 == 1
 
-def redOrGreen (tiles: List Tile) (tile: Tile): Bool := onLoop tiles tile || insideLoop tiles tile
+def redOrGreen (tiles: List Tile) (tile: Tile): Bool := onLoop tiles tile ∨ insideLoop tiles tile
 
 -- Every tile of the rectangle with these corners is red or green.
 def allRedOrGreen (tiles: List Tile) (corners: (Tile, Tile)): Bool :=

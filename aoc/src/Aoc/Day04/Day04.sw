@@ -29,7 +29,7 @@ type Cell =
   | Floor
 
 -- How many rolls a cell holds.
-def Cell.count: Cell -> Nat
+def Cell.count: Cell → Nat
   | Roll => 1
   | Floor => 0
 
@@ -59,7 +59,7 @@ def parseGrid (lines: List Text): Result Grid Text :=
 def findStray (lines: List Text): Option (Nat, Nat, Char) :=
   lines.withIndex.findMap (((rowIndex, line)) =>
     line.toList.withIndex.findMap (((columnIndex, ch)) =>
-      if ch == '@' || ch == '.' then None else Some (rowIndex + 1, columnIndex + 1, ch)))
+      if ch == '@' ∨ ch == '.' then None else Some (rowIndex + 1, columnIndex + 1, ch)))
 
 -- `None` if the lines are not all as long as the first.
 def gridOf (lines: List Text): Option Grid :=
@@ -90,7 +90,7 @@ def roundRows (rows: Vec (Vec Cell w) h): Vec (Vec Cell w) h := rows.around (Vec
 def peelRow (above row below: Vec Cell w): Vec Cell w :=
   let columns := Vec.zipWith3 above row below (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count)
   let windows := columns.around 0 (left here right => left + here + right)
-  Vec.zipWith row windows (roll window => if roll == Roll && 5 <= window then Roll else Floor)
+  Vec.zipWith row windows (roll window => if roll == Roll ∧ 5 ≤ window then Roll else Floor)
 
 def Grid.settle (grid: Grid): Grid := { grid | rows = settleRows grid.rows }
 

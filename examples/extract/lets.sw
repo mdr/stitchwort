@@ -20,14 +20,14 @@ export def clamp (n: Nat): Nat :=
   let m := n + 1
   if m < 3 then 0 else m
 
-def lessOf (a b: Nat) (h: a <= b): Nat := b - a
+def lessOf (a b: Nat) (h: a ≤ b): Nat := b - a
 
 export def below (a b: Nat): Nat :=
   let h := Nat.leAddRight a b
   lessOf a (a + b) h
 
 -- A `let` in a loop: a `const` in each turn.
-export def countUp: Nat -> Nat -> Nat
+export def countUp: Nat → Nat → Nat
   | Zero, acc => acc
   | Succ k, acc =>
     let next := acc + 2

@@ -36,13 +36,13 @@ export def filterMapSum (n: Nat): Nat :=
 
 export def appendCount (n: Nat): Nat := count (List.append (List.range n) (List.range n))
 
-def firstPlusLast: List Nat -> Nat
+def firstPlusLast: List Nat → Nat
   | Nil => 0
   | Cons x xs => x + List.foldLeft xs 0 (a y => y)
 
 export def sortedFirst (n: Nat): Nat := firstPlusLast (List.sort (scrambled n))
 
-def ascending (prev: Nat): List Nat -> Bool
+def ascending (prev: Nat): List Nat → Bool
   | Nil => True
   | Cons x xs => if Nat.leq prev x then ascending x xs else False
 

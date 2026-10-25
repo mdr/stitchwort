@@ -38,12 +38,12 @@ def doubled: List Nat := List.map [1, 2, 3] (x => x * 2)
 test "a lambda that needs no waiting" := doubled == [2, 4, 6]
 
 -- The same holds when the callback is effectful (SW-30): `p` fixes `q`.
-def appIO (f: a -> {IO} b) (x: a): {IO} b := f x
+def appIO (f: a → {IO} b) (x: a): {IO} b := f x
 
 def nameIO (p: Person): {IO} Text := appIO (q => q.name) p
 
 -- ... and in a pure call that follows an effectful statement.
-def appP (f: a -> b) (x: a): b := f x
+def appP (f: a → b) (x: a): b := f x
 
 def nameAfterPrint (p: Person): {IO} Text :=
   IO.print "x"

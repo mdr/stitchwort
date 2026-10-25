@@ -30,7 +30,7 @@ theorem flipCell (grid: Grid) (r: Fin grid.height) (c: Fin grid.width):
     _ = not (Vec.get (Vec.get grid.rows r) c) := Vec.getMap (Vec.get grid.rows r) c not
 
 -- A sum over a vector is the sum over its list, so the list lemmas apply.
-theorem sumByMap (f: b -> Nat) (g: a -> b) (v: Vec a n): Vec.sumBy (Vec.map v g) f = List.sumBy (List.map (Vec.toList v) g) f :=
+theorem sumByMap (f: b → Nat) (g: a → b) (v: Vec a n): Vec.sumBy (Vec.map v g) f = List.sumBy (List.map (Vec.toList v) g) f :=
   Eq.trans (Vec.sumByToList (Vec.map v g) f) (Eq.cong (.sumBy f) (Vec.toListMap v g))
 
 def lines: List Text := [".#.", "###", ".#."]
@@ -42,4 +42,4 @@ test "ragged" := Option.map (parseGrid [".#.", "#"]) Grid.count == None
 def plus: Vec (Vec Bool 3) 3 :=
   Vec.fromList [Vec.fromList [False, True, False], Vec.fromList [True, True, True], Vec.fromList [False, True, False]]
 
-test "cell" := Vec.getLt (Vec.getLt plus 1) 2 && not (Vec.getLt (Vec.getLt plus 2) 0)
+test "cell" := Vec.getLt (Vec.getLt plus 1) 2 ∧ not (Vec.getLt (Vec.getLt plus 2) 0)

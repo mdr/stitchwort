@@ -4,11 +4,11 @@
 
 import Std (Nat)
 
-def reverse: List a -> List a
+def reverse: List a → List a
   | Nil => Nil
   | Cons x xs => (reverse xs).append [x]
 
-def equalLists: List Nat -> List Nat -> Bool
+def equalLists: List Nat → List Nat → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if h: x = y then equalLists xs ys else False
   | Nil, Cons y ys => False

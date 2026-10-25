@@ -33,20 +33,20 @@ import Std (Fail, List, Nat, Result, Text)
 -- `many n` `n` times, under a lambda; `branch` once in either branch of an
 -- `if`; `mixed` once, in tail position in one branch and not in the other.
 ability Tally where
-  tick: () -> {Tally} Nat
-  stop: () -> {Tally} Nat
-  both: () -> {Tally} Nat
-  many: Nat -> {Tally} Nat
-  branch: () -> {Tally} Nat
-  mixed: () -> {Tally} Nat
+  tick: () → {Tally} Nat
+  stop: () → {Tally} Nat
+  both: () → {Tally} Nat
+  many: Nat → {Tally} Nat
+  branch: () → {Tally} Nat
+  mixed: () → {Tally} Nat
 
-def resumeAll (k: Nat -> Nat -> {e} List Nat) (s: Nat): Nat -> {e} List Nat
+def resumeAll (k: Nat → Nat → {e} List Nat) (s: Nat): Nat → {e} List Nat
   | 0 => []
   | Succ n => resumeAll k s n ++ k n (s + n)
 
 -- At the closed empty row: the clauses' results are `Done` of the state's
 -- function.
-def Tally.run (prog: () -> {Tally} List Nat): Nat -> List Nat :=
+def Tally.run (prog: () → {Tally} List Nat): Nat → List Nat :=
   handle prog() with
     | return x => s => x ++ [s]
     | Tally.tick u, k => s => k s (s + 1)
@@ -60,8 +60,8 @@ def Tally.run (prog: () -> {Tally} List Nat): Nat -> List Nat :=
 -- variant that runs, with the clauses' results the state's functions
 -- themselves; with an ability outside, it isn't a state-passing handler at
 -- the empty row, and resumes lazily.
-def Tally.runIn (init: Nat) (prog: () -> {Tally | e} List Nat): {e} List Nat :=
-  let run: Nat -> {e} List Nat :=
+def Tally.runIn (init: Nat) (prog: () → {Tally | e} List Nat): {e} List Nat :=
+  let run: Nat → {e} List Nat :=
     handle prog() with
       | return x => s => x ++ [s]
       | Tally.tick u, k => s => k s (s + 1)
@@ -96,13 +96,13 @@ export def talliedChecked (codes: List Nat): Result (List Nat) Text :=
 -- under a lambda, and resumed after the handler has returned, several
 -- times, with different answers.
 ability Offer where
-  offer: Nat -> {Offer} Nat
+  offer: Nat → {Offer} Nat
 
 type Paused =
   | Finished (total: Nat)
-  | Suspended (count: Nat) (resume: Nat -> Paused)
+  | Suspended (count: Nat) (resume: Nat → Paused)
 
-def Offer.counted (prog: () -> {Offer} Nat): Nat -> Paused :=
+def Offer.counted (prog: () → {Offer} Nat): Nat → Paused :=
   handle prog() with
     | return x => s => Finished (x * 100 + s)
     | Offer.offer v, k => s => Suspended s (answer => k (v + answer) (s + 1))
@@ -113,7 +113,7 @@ def offers (start: Nat): {Offer} Nat :=
   a * 1000 + b
 
 -- Answers 1, 2 and 1 again to every offer, to a depth of four.
-def explore: Nat -> Paused -> List Nat
+def explore: Nat → Paused → List Nat
   | 0, p => []
   | Succ depth, Finished total => [total]
   | Succ depth, Suspended count resume =>
@@ -125,17 +125,17 @@ export def stored (start: Nat): List Nat :=
 -- A state handler around a handler of another ability: the counter's
 -- operations are forwarded through the reader's handler.
 ability Counter where
-  next: () -> {Counter} Nat
+  next: () → {Counter} Nat
 
-def Counter.number (prog: () -> {Counter} a): Nat -> a :=
+def Counter.number (prog: () → {Counter} a): Nat → a :=
   handle prog() with
     | return x => s => x
     | Counter.next u, k => s => k s (s + 1)
 
 ability Env where
-  ask: () -> {Env} Nat
+  ask: () → {Env} Nat
 
-def Env.give (value: Nat) (prog: () -> {Env | e} a): {e} a :=
+def Env.give (value: Nat) (prog: () → {Env | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Env.ask u, k => k value
@@ -155,23 +155,23 @@ export def stateInState (numbers: List Nat): List Nat :=
 -- function, so the handler isn't run as a loop there: the plain handler is
 -- the fallback.
 ability Store where
-  get: () -> {Store} Nat
-  put: Nat -> {Store} ()
+  get: () → {Store} Nat
+  put: Nat → {Store} ()
 
-def Store.run (prog: () -> {Store} a): Nat -> a :=
+def Store.run (prog: () → {Store} a): Nat → a :=
   handle prog() with
     | return x => s => x
     | get u, k => s => k s s
     | put v, k => s => k () v
 
-def Store.keep (prog: () -> {Store} a): Nat -> a :=
+def Store.keep (prog: () → {Store} a): Nat → a :=
   handle prog() with
     | return x => s => x
     | get u, k => s => k s s
     | put v, k => k ()
 
-def Store.keepIn (init: Nat) (prog: () -> {Store | e} a): {e} a :=
-  let run: Nat -> {e} a :=
+def Store.keepIn (init: Nat) (prog: () → {Store | e} a): {e} a :=
+  let run: Nat → {e} a :=
     handle prog() with
       | return x => s => x
       | get u, k => s => k s s

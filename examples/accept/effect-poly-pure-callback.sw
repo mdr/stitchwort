@@ -12,9 +12,9 @@ def successors (numbers: List Nat): List Nat := List.map numbers Succ
 
 def tails (lists: List (List Nat)): List (List Nat) := List.map lists (.drop 1)
 
-def mapPure (step: Nat -> Nat) (numbers: List Nat): List Nat := List.map numbers step
+def mapPure (step: Nat → Nat) (numbers: List Nat): List Nat := List.map numbers step
 
-def mapEmptyRow (step: Nat -> {} Nat) (numbers: List Nat): List Nat := List.map numbers step
+def mapEmptyRow (step: Nat → {} Nat) (numbers: List Nat): List Nat := List.map numbers step
 
 -- In a computation that may fail, a pure callback performs nothing.
 def doubledOrFail (numbers: List Nat): {Fail} (List Nat) :=

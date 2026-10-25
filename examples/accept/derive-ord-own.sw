@@ -6,7 +6,7 @@ import Std (Eq, List, Ord, Pair)
 
 type Item = { name: Text, price: Nat }
 
-theorem Item.byPriceInjective: (x: Item) -> (y: Item) -> (x.price, x.name) = (y.price, y.name) -> x = y
+theorem Item.byPriceInjective: (x: Item) → (y: Item) → (x.price, x.name) = (y.price, y.name) → x = y
   | { name = n1, price = p1 }, { name = n2, price = p2 }, h =>
     rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h in rfl
 

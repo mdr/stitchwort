@@ -60,13 +60,13 @@ def Bank.parse (line: Text): {Fail} Bank :=
       if bank.length < part2Batteries then fail "expected at least ${part2Batteries} batteries, got ${bank.length}" else bank
 
 -- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the second argument; all the digits if the bank has fewer).
-def Bank.best: Bank -> Nat -> Bank
+def Bank.best: Bank → Nat → Bank
   | _, Zero => []
   | [], Succ _ => []
   | Cons first rest, Succ remaining =>
     -- The leftmost largest of the next `window` digits, and what follows it. The
     -- candidate so far is `candidate`, followed by `after`.
-    def pick: Nat -> Bank -> Fin 10 -> Bank -> (Fin 10, Bank)
+    def pick: Nat → Bank → Fin 10 → Bank → (Fin 10, Bank)
       | Zero, _, candidate, after => (candidate, after)
       | Succ _, [], candidate, after => (candidate, after)
       | Succ window, Cons x more, candidate, after =>

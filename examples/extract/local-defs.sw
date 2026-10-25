@@ -8,14 +8,14 @@
 -- run: parity 1001
 
 export def sumTo (n: Nat): Nat :=
-  def go: Nat -> Nat -> Nat
+  def go: Nat → Nat → Nat
     | Zero, acc => acc
     | Succ k, acc => go k (acc + Succ k)
   go n 0
 
 -- Captures `target`, which the lifted helper takes as its first parameter.
 export def countIf (target: Nat) (xs: List Nat): Nat :=
-  def go (acc: Nat): List Nat -> Nat
+  def go (acc: Nat): List Nat → Nat
     | Nil => acc
     | Cons x rest => go (if x == target then acc + 1 else acc) rest
   go 0 xs
@@ -23,10 +23,10 @@ export def countIf (target: Nat) (xs: List Nat): Nat :=
 -- A group. Its tail calls are loops, as at top level: each member's loop
 -- inlines the other.
 export def parity (n: Nat): Bool :=
-  def isEven: Nat -> Bool
+  def isEven: Nat → Bool
     | Zero => True
     | Succ k => isOdd k
-  def isOdd: Nat -> Bool
+  def isOdd: Nat → Bool
     | Zero => False
     | Succ k => isEven k
   isEven n

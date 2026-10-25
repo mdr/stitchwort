@@ -26,7 +26,7 @@ def ack (m: Nat) (n: Nat): Nat
     | Succ k, Succ j =>
       ack k (ack (Succ k) j [decreasing := Nat.LexLess.Second rfl (Nat.leRefl j)]) [decreasing := Nat.LexLess.First (Nat.leRefl k)]
 
-test "ack" := ack 2 3 == 9 && ack 3 3 == 61 && ack 0 7 == 8
+test "ack" := ack 2 3 == 9 ∧ ack 3 3 == 61 ∧ ack 0 7 == 8
 
 -- Tests and `rfl` compute through the two fuels.
 theorem ackByRfl: ack 2 3 = 9 := rfl
@@ -60,7 +60,7 @@ def gcd (a: Nat) (b: Nat): Nat
   else if bigger: b < a then gcd (a - b) b [decreasing := omega]
   else gcd a (b - a) [decreasing := omega]
 
-test "gcd" := gcd 12 18 == 6 && gcd 17 5 == 1 && gcd 0 9 == 9 && gcd 9 0 == 9
+test "gcd" := gcd 12 18 == 6 ∧ gcd 17 5 == 1 ∧ gcd 0 9 == 9 ∧ gcd 9 0 == 9
 
 -- Two counters, guard style: count the minutes down a clock, minutes first,
 -- then an hour, starting the minutes again at 59. Each `if` puts the
@@ -74,7 +74,7 @@ def minutesLeft (hours: Nat) (minutes: Nat): Nat
   else if fewerHours: earlierHour < hours then 1 + minutesLeft earlierHour 59
   else 0
 
-test "minutesLeft" := minutesLeft 2 30 == 150 && minutesLeft 0 0 == 0
+test "minutesLeft" := minutesLeft 2 30 == 150 ∧ minutesLeft 0 0 == 0
 
 def main(): {IO} () :=
   IO.print ("ack: " ++ Nat.toText (ack 2 3))

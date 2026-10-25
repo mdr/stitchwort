@@ -16,5 +16,5 @@ test "the spec on the example" := specPart2 example == 24
 test "the spec on a U" := specPart2 letterU == 32
 test "the spec on a slot" := specPart2 slot == 36
 test "red or green by the spec" :=
-  redOrGreen example (tile 7 1) && redOrGreen example (tile 9 2) && redOrGreen example (tile 3 4) && !(redOrGreen example (tile 3 2))
-    && !(redOrGreen example (tile 12 4)) && !(redOrGreen example (tile 8 6))
+  redOrGreen example (tile 7 1) ∧ redOrGreen example (tile 9 2) ∧ redOrGreen example (tile 3 4) ∧ ¬(redOrGreen example (tile 3 2))
+    ∧ ¬(redOrGreen example (tile 12 4)) ∧ ¬(redOrGreen example (tile 8 6))

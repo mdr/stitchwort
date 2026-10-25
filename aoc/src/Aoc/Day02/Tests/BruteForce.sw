@@ -12,11 +12,11 @@ import Std (Bool, List, Nat)
 
 test "written as" := (writtenAs [1, 2, 1, 2] 2 2, writtenAs [1, 2, 1, 2] 1 4, writtenAs [1, 1, 1] 1 3) == (True, False, True)
 
-def bruteSum (invalid: Nat -> Bool) (r: Range): Nat :=
+def bruteSum (invalid: Nat → Bool) (r: Range): Nat :=
   r.ids |> .filter invalid |> .sum
 
 def agrees (r: Range): Bool :=
-  sumOfIdsWrittenTwice r == bruteSum doubled r && sumOfIdsWrittenRepeatedly r == (bruteSum repeats r).toInt
+  sumOfIdsWrittenTwice r == bruteSum doubled r ∧ sumOfIdsWrittenRepeatedly r == (bruteSum repeats r).toInt
 
 -- Ranges of 40 ids starting every 13 up to 2000, and some that cross into
 -- more digits.

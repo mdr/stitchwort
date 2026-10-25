@@ -7,17 +7,17 @@ def NatText: Type := (Nat, Text)
 
 def triple: (Nat, Bool, Text) := (1, True, "x")
 
-def swap: (a, b) -> (b, a)
+def swap: (a, b) → (b, a)
   | (x, y) => (y, x)
 
-def third: (a, b, c) -> c
+def third: (a, b, c) → c
   | (_, _, z) => z
 
-def nested: ((Nat, Nat), Nat) -> Nat
+def nested: ((Nat, Nat), Nat) → Nat
   | ((a, b), c) => a + b + c
 
 -- Tuples inside other patterns.
-def firstOf: List (Nat, Nat) -> Nat
+def firstOf: List (Nat, Nat) → Nat
   | Nil => 0
   | Cons (a, _) _ => a
 

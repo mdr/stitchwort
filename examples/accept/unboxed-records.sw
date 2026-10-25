@@ -8,7 +8,7 @@ import Std (IO, List, Map, Mod, Nat, Option, Ord, Set)
 type UserId = { value: Text }
 type Count = { n: Nat }
 
-def bump: Count -> Count
+def bump: Count → Count
   | { n = k } => { n = k + 1 }
 
 def reset (c: Count): Count := { c | n = 0 }
@@ -22,21 +22,21 @@ def four: Below 5 := { value = 4, isLt = rfl }
 -- 3: polymorphic.
 type Box (a: Type) = { item: a }
 
-def applyBox (b: Box (Nat -> Nat)) (x: Nat): Nat := b.item x
+def applyBox (b: Box (Nat → Nat)) (x: Nat): Nat := b.item x
 
 -- 4: nested in data.
 type Shape =
   | Circle (r: Count)
   | Square (s: Count)
 
-def area: Shape -> Nat
+def area: Shape → Nat
   | Circle r => 3 * r.n * r.n
   | Square s => s.n * s.n
 
 -- 5: an Option inside.
 type Maybe = { inner: Option Nat }
 
-def orZero: Maybe -> Nat
+def orZero: Maybe → Nat
   | { inner = None } => 0
   | { inner = Some k } => k
 
@@ -57,7 +57,7 @@ def inv: Inventory := { stock = Map.fromList [("apple", 3), ("pear", 5)] }
 
 -- 11: a one-method interface.
 interface Describe (a: Type) =
-  { describe: a -> Text }
+  { describe: a → Text }
 
 instance Describe.instCount: Describe Count :=
   { describe = c => "count " ++ Nat.toText c.n }
@@ -66,16 +66,16 @@ def counts: List Count := [{ n = 3 }, { n = 1 }, { n = 2 }]
 
 test "projection" := (bump { n = 1 }).n == 2
 test "update" := (reset { n = 9 }).n == 0
-test "eq" := (bump { n = 1 }) == { n = 2 } && ({ n = 1 }: Count) != { n = 2 }
+test "eq" := (bump { n = 1 }) == { n = 2 } ∧ ({ n = 1 }: Count) ≠ { n = 2 }
 test "text eq" := ({ value = "a" }: UserId) == { value = "a" }
 test "ord" := Ord.compare ({ n = 1 }: Count) { n = 2 } == Less
 test "sort" := List.sort counts == [{ n = 1 }, { n = 2 }, { n = 3 }]
-test "below" := two != four && two.value == 2
+test "below" := two ≠ four ∧ two.value == 2
 test "box fn" := applyBox { item = n => n * 2 } 21 == 42
 test "box nested" := ({ item = { item = 7 } }: Box (Box Nat)).item.item == 7
 test "box list" := ({ item = [1, 2] }: Box (List Nat)).item.length == 2
-test "shape" := area (Circle ({ n = 2 })) == 12 && area (Square ({ n = 3 })) == 9
-test "maybe" := orZero { inner = None } == 0 && orZero { inner = Some 4 } == 4
+test "shape" := area (Circle ({ n = 2 })) == 12 ∧ area (Square ({ n = 3 })) == 9
+test "maybe" := orZero { inner = None } == 0 ∧ orZero { inner = Some 4 } == 4
 test "constructor as function" := (List.map [1, 2, 3] (x => ({ n = x }: Count))) == [{ n = 1 }, { n = 2 }, { n = 3 }]
 test "no field" := wrapped.n == 3
 test "two fields" := ({ a = 1, b = "x" }: Pair2) == { a = 1, b = "x" }

@@ -8,7 +8,7 @@ import Aoc.Day07 (..)
 import Std (Eq, List, Option, Result, Text)
 
 -- The accepted manifold, or a fallback for a rejection.
-def acceptedOr (fallback: Option Manifold): Result Manifold Text -> Option Manifold
+def acceptedOr (fallback: Option Manifold): Result Manifold Text → Option Manifold
   | Ok manifold => Some manifold
   | Err message => fallback
 

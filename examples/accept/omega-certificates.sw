@@ -23,26 +23,26 @@ import Std.Omega.Step (Input, NegGoal, NatNonneg, Combine, Divide)
 import Std.Omega.Cert (Close, Then, Split)
 
 -- Day 5 `absorbStacked`, the stacked arm.
-theorem stacked (id: Nat) (lastTo: Nat) (rFrom: Nat) (h1: id <= lastTo) (h2: lastTo + 1 <= rFrom): id < rFrom :=
+theorem stacked (id: Nat) (lastTo: Nat) (rFrom: Nat) (h1: id ≤ lastTo) (h2: lastTo + 1 ≤ rFrom): id < rFrom :=
   Omega.prove (MkEnv [id, lastTo, rFrom] []) [FLe (NV 0) (NV 1), FLe (NAdd (NV 1) (NLit 1)) (NV 2)] (GLt (NV 0) (NV 2))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
     rfl (Both h1 (Both h2 Trivial))
 
 -- Day 5 `absorbStacked`, True arm: hypotheses as Bool equations, through the bridge lemmas.
-theorem absorbTrue (lastFrom: Nat) (id: Nat) (lastTo: Nat) (rFrom: Nat) (i: (Nat.leq lastFrom id && Nat.leq id lastTo) = True)
+theorem absorbTrue (lastFrom: Nat) (id: Nat) (lastTo: Nat) (rFrom: Nat) (i: (Nat.leq lastFrom id ∧ Nat.leq id lastTo) = True)
     (e: Nat.leq rFrom (lastTo + 1) = False): id < rFrom :=
   Omega.prove (MkEnv [lastFrom, id, lastTo, rFrom] []) [FLe (NV 1) (NV 2), FLt (NAdd (NV 2) (NLit 1)) (NV 3)] (GLt (NV 1) (NV 3))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
     rfl (Both (Bool.andRight (Nat.leq lastFrom id) (Nat.leq id lastTo) i) (Both (Nat.leqFalse rFrom (lastTo + 1) e) Trivial))
 
 -- Day 5 `absorbStacked`, False arm.
-theorem absorbFalse (id: Nat) (lastFrom: Nat) (rFrom: Nat) (h: id < lastFrom) (ok: lastFrom <= rFrom): id < rFrom :=
+theorem absorbFalse (id: Nat) (lastFrom: Nat) (rFrom: Nat) (h: id < lastFrom) (ok: lastFrom ≤ rFrom): id < rFrom :=
   Omega.prove (MkEnv [id, lastFrom, rFrom] []) [FLt (NV 0) (NV 1), FLe (NV 1) (NV 2)] (GLt (NV 0) (NV 2))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
     rfl (Both h (Both ok Trivial))
 
 -- No hypotheses: needs `x_1 >= 0`.
-theorem leAddRight (x: Nat) (y: Nat): x <= x + y :=
+theorem leAddRight (x: Nat) (y: Nat): x ≤ x + y :=
   Omega.prove (MkEnv [x, y] []) [] (GLe (NV 0) (NAdd (NV 0) (NV 1)))
     (Then NegGoal (Then (NatNonneg 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
     rfl Trivial
@@ -78,7 +78,7 @@ theorem mulLeft1 (x: Nat): 1 * x = x :=
     (Then NegGoal (Close 0)) (Then NegGoal (Close 0)) rfl rfl Trivial
 
 -- An equation from two inequalities: each direction is refuted separately.
-theorem antisym (a: Nat) (b: Nat) (h1: a <= b) (h2: b <= a): a = b :=
+theorem antisym (a: Nat) (b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
   Omega.proveEq (MkEnv [a, b] []) [FLe (NV 0) (NV 1), FLe (NV 1) (NV 0)] (NV 0) (NV 1)
     (Then (Input 0) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
     (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
@@ -93,7 +93,7 @@ theorem disconnected (x: Nat) (y: Nat) (h: y < y): x < 0 :=
   Omega.prove (MkEnv [x, y] []) [FLt (NV 1) (NV 1)] (GLt (NV 0) (NLit 0)) (Then (Input 0) (Close 0)) rfl (Both h Trivial)
 
 -- A `Void` goal from two facts.
-theorem twoFactsVoid (x: Nat) (y: Nat) (h1: x + 1 <= y) (h2: y <= x): Void :=
+theorem twoFactsVoid (x: Nat) (y: Nat) (h1: x + 1 ≤ y) (h2: y ≤ x): Void :=
   Omega.prove (MkEnv [x, y] []) [FLe (NAdd (NV 0) (NLit 1)) (NV 1), FLe (NV 1) (NV 0)] GVoid
     (Then (Input 0) (Then (Input 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
     rfl (Both h1 (Both h2 Trivial))
@@ -107,7 +107,7 @@ theorem twoXEqOne (x: Nat) (h: 2 * x = 1): Void :=
 
 -- The integer regression: rationally satisfiable (x = y = 1/2), refuted by a split on `-y >= 0`
 -- and rounding down after each division.
-theorem splitRegression (x: Nat) (y: Nat) (h1: 1 <= 2 * x + 3 * y) (h2: 2 * x + 3 * y <= 4) (h3: 2 * y <= 3 * x + 1) (h4: 3 * x <= 2 * y + 2): Void :=
+theorem splitRegression (x: Nat) (y: Nat) (h1: 1 ≤ 2 * x + 3 * y) (h2: 2 * x + 3 * y ≤ 4) (h3: 2 * y ≤ 3 * x + 1) (h4: 3 * x ≤ 2 * y + 2): Void :=
   Omega.prove (MkEnv [x, y] [])
     [
       FLe (NLit 1) (NAdd (MulLeft 2 (NV 0)) (MulLeft 3 (NV 1))),
@@ -126,8 +126,8 @@ theorem splitRegression (x: Nat) (y: Nat) (h1: 1 <= 2 * x + 3 * y) (h2: 2 * x + 
 
 -- Ten variables in a chain, for timing: `3 * x0 - 3 * x9 - 8 >= 0` against the nine links times 3.
 theorem chain10 (x0: Nat) (x1: Nat) (x2: Nat) (x3: Nat) (x4: Nat) (x5: Nat) (x6: Nat) (x7: Nat) (x8: Nat) (x9: Nat)
-    (h0: x0 <= x1) (h1: x1 <= x2) (h2: x2 <= x3) (h3: x3 <= x4) (h4: x4 <= x5) (h5: x5 <= x6) (h6: x6 <= x7) (h7: x7 <= x8) (h8: x8 <= x9):
-    3 * x0 <= x9 + 2 * x9 + 7 :=
+    (h0: x0 ≤ x1) (h1: x1 ≤ x2) (h2: x2 ≤ x3) (h3: x3 ≤ x4) (h4: x4 ≤ x5) (h5: x5 ≤ x6) (h6: x6 ≤ x7) (h7: x7 ≤ x8) (h8: x8 ≤ x9):
+    3 * x0 ≤ x9 + 2 * x9 + 7 :=
   Omega.prove (MkEnv [x0, x1, x2, x3, x4, x5, x6, x7, x8, x9] [])
     [
       FLe (NV 0) (NV 1),

@@ -35,14 +35,14 @@ export def failsLast (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
 
 -- A reader: the clause resumes at once with a constant.
 ability Env where
-  ask: () -> {Env} Nat
+  ask: () → {Env} Nat
 
-def Env.give (value: Nat) (prog: () -> {Env} a): a :=
+def Env.give (value: Nat) (prog: () → {Env} a): a :=
   handle prog() with
     | return x => x
     | Env.ask u, k => k value
 
-def Env.giveIn (value: Nat) (prog: () -> {Env | e} a): {e} a :=
+def Env.giveIn (value: Nat) (prog: () → {Env | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Env.ask u, k => k value
@@ -57,29 +57,29 @@ export def askedChecked (numbers: List Nat): Result (List Nat) Text :=
 -- A writer that collects what is emitted: the clause uses the
 -- continuation's result, not as a tail call.
 ability Emit where
-  emit: Nat -> {Emit} ()
+  emit: Nat → {Emit} ()
 
-def Emit.collect (prog: () -> {Emit} a): List Nat :=
+def Emit.collect (prog: () → {Emit} a): List Nat :=
   handle prog() with
     | return x => []
     | Emit.emit v, k => Cons v (k ())
 
-def Emit.collectIn (prog: () -> {Emit | e} a): {e} List Nat :=
+def Emit.collectIn (prog: () → {Emit | e} a): {e} List Nat :=
   handle prog() with
     | return x => []
     | Emit.emit v, k => Cons v (k ())
 
 -- A counter, as a state-passing handler.
 ability Counter where
-  next: () -> {Counter} Nat
+  next: () → {Counter} Nat
 
-def Counter.number (prog: () -> {Counter} a): Nat -> a :=
+def Counter.number (prog: () → {Counter} a): Nat → a :=
   handle prog() with
     | return x => (s => x)
     | Counter.next u, k => (s => k s (s + 1))
 
-def Counter.numberIn (prog: () -> {Counter | e} a): {e} a :=
-  let run: Nat -> {e} a :=
+def Counter.numberIn (prog: () → {Counter | e} a): {e} a :=
+  let run: Nat → {e} a :=
     handle prog() with
       | return x => s => x
       | Counter.next u, k => s => k s (s + 1)
@@ -126,8 +126,8 @@ export def countedOpen (numbers: List Nat): List Nat :=
   Counter.numberIn (() => List.map numbers (x => x + Counter.next()))
 
 -- A writer that keeps what is emitted in its state, in reverse.
-def Emit.log (prog: () -> {Emit | e} a): {e} List Nat :=
-  let run: List Nat -> {e} List Nat :=
+def Emit.log (prog: () → {Emit | e} a): {e} List Nat :=
+  let run: List Nat → {e} List Nat :=
     handle prog() with
       | return x => acc => List.reverse acc
       | Emit.emit v, k => acc => k () (Cons v acc)
@@ -139,14 +139,14 @@ export def logged (numbers: List Nat): List Nat :=
 -- `ask` forwarded through `depth` handlers of another ability (at most 100),
 -- each with a `translate` into its row, on its way to the reader.
 ability Tick where
-  tick: () -> {Tick} ()
+  tick: () → {Tick} ()
 
-def Tick.ignore (prog: () -> {Tick | e} a): {e} a :=
+def Tick.ignore (prog: () → {Tick | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Tick.tick u, k => k ()
 
-def layered: Nat -> (() -> {Env} a) -> {Env} a
+def layered: Nat → (() → {Env} a) → {Env} a
   | 0, prog => prog()
   | Succ depth, prog => Tick.ignore (() => layered depth prog)
 

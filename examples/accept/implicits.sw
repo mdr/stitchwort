@@ -3,7 +3,7 @@
 -- `a` and `b` are bound automatically, because they're only used as types.
 import Std (Eq, List)
 
-def mapList (f: a -> b): List a -> List b
+def mapList (f: a → b): List a → List b
   | Nil => Nil
   | Cons x xs => Cons (f x) (mapList f xs)
 
@@ -20,16 +20,16 @@ type Or (p: Prop) (q: Prop): Prop =
   | Inl (left: p)
   | Inr (right: q)
 
-theorem orComm: Or p q -> Or q p
+theorem orComm: Or p q → Or q p
   | Inl h => Inr h
   | Inr h => Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
-theorem appendNil: (xs: List a) -> xs.append Nil = xs
+theorem appendNil: (xs: List a) → xs.append Nil = xs
   | Nil => rfl
   | Cons x xs => Eq.cong (ys => Cons x ys) (appendNil xs)
 
-theorem plusZeroNat: (n: Nat) -> n + 0 = n
+theorem plusZeroNat: (n: Nat) → n + 0 = n
   | Zero => rfl
   | Succ m => Eq.cong Succ (plusZeroNat m)
 
@@ -43,15 +43,15 @@ def constant (x: a) [b: Type] (y: b): a := x
 theorem succCong (m: Nat) (n: Nat) (p: m = n): Succ m = Succ n := Eq.cong [b := Nat] Succ p
 
 -- A definition without patterns still has its implicit parameters in scope.
-def identity: [a: Type] -> a -> a := x => x
+def identity: [a: Type] → a → a := x => x
 
 -- A lambda passed where a polymorphic function is expected.
-def applyToThree (f: [a: Type] -> a -> a): Nat := f 3
+def applyToThree (f: [a: Type] → a → a): Nat := f 3
 
 def three: Nat := applyToThree (x => x)
 
 -- A constructor with both fields missing, used as a function.
-def foldRight (f: a -> b -> b) (z: b): List a -> b
+def foldRight (f: a → b → b) (z: b): List a → b
   | Nil => z
   | Cons x xs => f x (foldRight f z xs)
 

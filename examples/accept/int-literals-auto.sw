@@ -23,13 +23,13 @@ def pairs: Map (Int, Int) Nat := Map.fromList [((1, -1), 1), ((-2, 0), 2)]
 
 def sorted: List Int := List.sort [3, -1, 2]
 
-test "a set at Int" := ints.toList == [1, 2, 3] && zeros.toList == [0] && single.toList == [3]
+test "a set at Int" := ints.toList == [1, 2, 3] ∧ zeros.toList == [0] ∧ single.toList == [3]
 
-test "negatives" := negatives.toList == [-5, -1, 2, 3] && sorted == [-1, 2, 3]
+test "negatives" := negatives.toList == [-5, -1, 2, 3] ∧ sorted == [-1, 2, 3]
 
-test "tuples" := cells.toList == [(3, 3)] && moves.toList == [(-1, 0), (0, -1), (0, 1), (1, 0)]
+test "tuples" := cells.toList == [(3, 3)] ∧ moves.toList == [(-1, 0), (0, -1), (0, 1), (1, 0)]
 
-test "a map at Int" := named.toList == [(-1, "a"), (2, "b")] && pairs.toList == [((-2, 0), 2), ((1, -1), 1)]
+test "a map at Int" := named.toList == [(-1, "a"), (2, "b")] ∧ pairs.toList == [((-2, 0), 2), ((1, -1), 1)]
 
 -- Without an expected type a literal is still a `Nat`.
 test "defaults" := (Set.fromList [3, 1, 2]).toList == [1, 2, 3]

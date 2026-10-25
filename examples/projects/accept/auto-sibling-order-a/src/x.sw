@@ -5,6 +5,6 @@ type Token: Prop =
 
 instance p1: Decidable Token := helper
 
-def needsToken: [auto t: Token] -> Nat := 1
+def needsToken: [auto t: Token] → Nat := 1
 
 def u: Nat := needsToken

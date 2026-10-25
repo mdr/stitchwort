@@ -17,9 +17,9 @@ import Std.Each (each, require)
 -- A template fits a range when it is a block of one or more digits written
 -- two or more times, with no more digits than the range's end has.
 def Fits (range: Range) (template: RepetitionTemplate): Prop :=
-  And (1 <= template.blockLength)
-    (And (2 <= template.copies)
-      (template.blockLength * template.copies <= List.length (Nat.digits range.to)))
+  And (1 ≤ template.blockLength)
+    (And (2 ≤ template.copies)
+      (template.blockLength * template.copies ≤ List.length (Nat.digits range.to)))
 
 -- The template of `blockLength` and `copies` if it fits in `size` digits,
 -- otherwise nothing.
@@ -38,13 +38,13 @@ theorem templatesAsGrid (range: Range):
           then [{ blockLength, copies }] else [])) :=
   let size := List.length (Nat.digits range.to)
   -- The program after it has chosen the block length (and the copies).
-  let fitting: Nat -> Nat -> {Each} RepetitionTemplate := k n =>
-    require (k * n <= size)
+  let fitting: Nat → Nat → {Each} RepetitionTemplate := k n =>
+    require (k * n ≤ size)
     { blockLength = k, copies = n }
-  let withCopies: Nat -> {Each} RepetitionTemplate := k => fitting k (each (List.between 2 size))
+  let withCopies: Nat → {Each} RepetitionTemplate := k => fitting k (each (List.between 2 size))
   -- `require` keeps the template if it fits.
-  let kept: (k: Nat) -> (n: Nat) -> Each.collect (u => fitting k n) = keptIfFits size k n :=
-    k n => Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n <= size)
+  let kept: (k: Nat) → (n: Nat) → Each.collect (u => fitting k n) = keptIfFits size k n :=
+    k n => Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n ≤ size)
   calc allTemplatesForRange range
     -- Choosing a block length: one collection per block length.
     _ = List.flatMap (List.between 1 size) (k => Each.collect (u => withCopies k))
@@ -59,23 +59,23 @@ theorem templatesAsGrid (range: Range):
 -- that don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
 theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
 
-theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
+theorem betweenTwo: (n: Nat) → List.between 2 n = List.rangeFrom (n - 1) 2
   | Zero => rfl
   | Succ n => rewrite (omega: n + 1 - 1 = n)
 
 -- One template, kept if it fits: its sum is `f` of it, or nothing.
-theorem keptSum [auto add: Add c] (f: RepetitionTemplate -> c) (size: Nat) (k: Nat) (n: Nat):
+theorem keptSum [auto add: Add c] (f: RepetitionTemplate → c) (size: Nat) (k: Nat) (n: Nat):
     List.sumBy (keptIfFits size k n) f = (if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) :=
   match Nat.leq (k * n) size with
     | True => add.zeroAdd (f { blockLength = k, copies = n })
     | False => rfl
 
-theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
+theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate → c):
     List.sumBy (allTemplatesForRange r) f
       = List.sumBy (List.rangeFrom (List.length (Nat.digits r.to)) 1) (k => List.sumBy (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)
         (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)) :=
   let size := List.length (Nat.digits r.to)
-  let cell: Nat -> Nat -> c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
+  let cell: Nat → Nat → c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
   calc List.sumBy (allTemplatesForRange r) f
     _ = List.sumBy (List.flatMap (List.between 1 size) (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n))) f
       := Eq.cong (.sumBy f) (templatesAsGrid r)
@@ -118,10 +118,10 @@ theorem templateFits (range: Range) (template: RepetitionTemplate)
 -- Two small facts about the product: a block is no longer than the block
 -- written `copies` times, and the number of copies is no more than the block
 -- length times itself.
-theorem blockLengthLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 <= copies): blockLength <= blockLength * copies :=
+theorem blockLengthLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 ≤ copies): blockLength ≤ blockLength * copies :=
   Nat.leMulPos blockLength copies atLeastOne
 
-theorem copiesLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 <= blockLength): copies <= blockLength * copies :=
+theorem copiesLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 ≤ blockLength): copies ≤ blockLength * copies :=
   omega [Nat.leMulPos copies blockLength atLeastOne]
 
 -- A template is its block length and its number of copies.
@@ -154,19 +154,19 @@ theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
 -- `copies` (two or more) times, the template of that block length and that
 -- many copies is in `allTemplatesForRange`.
 theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x range.ids)
-    (blockLength: Nat) (copies: Nat) (written: writtenAs (Nat.digits x) blockLength copies = True) (atLeastTwo: 2 <= copies):
+    (blockLength: Nat) (copies: Nat) (written: writtenAs (Nat.digits x) blockLength copies = True) (atLeastTwo: 2 ≤ copies):
     List.Mem ({ blockLength, copies }: RepetitionTemplate) (allTemplatesForRange range) :=
   -- An x in the range is at most the range's end,
-  let notAfterEnd: x <= range.to :=
+  let notAfterEnd: x ≤ range.to :=
     match List.memRangeFrom x range.size range.from inRange with
       | Both afterStart beforeEnd => rangeEnd range.from range.to x afterStart beforeEnd
   -- so it has no more digits than the end does.
-  let fewerDigits: List.length (Nat.digits x) <= List.length (Nat.digits range.to) := Nat.digitsLengthMono x range.to notAfterEnd
+  let fewerDigits: List.length (Nat.digits x) ≤ List.length (Nat.digits range.to) := Nat.digitsLengthMono x range.to notAfterEnd
   -- The blocks fill the digits,
   let filled: blockLength * copies = List.length (Nat.digits x) :=
     ring [repCount x blockLength copies atLeastTwo written]
   -- so the block has a digit (or the x would have none)
-  let blockNotEmpty: 1 <= blockLength :=
+  let blockNotEmpty: 1 ≤ blockLength :=
     match blockLength with
       | Zero => omega [Nat.digitsNonEmpty x]
       | Succ k => rfl

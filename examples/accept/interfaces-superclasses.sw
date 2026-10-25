@@ -4,17 +4,17 @@
 -- against the instance found for that parent.
 
 interface Base (a: Type) =
-  { op: a -> a }
+  { op: a → a }
 
 -- `law` mentions the superclass `base`.
 interface Child (a: Type) = {
   base: Base a,
-  law: (x: a) -> base.op (base.op x) = base.op x
+  law: (x: a) → base.op (base.op x) = base.op x
 }
 
 interface Named (a: Type) = {
   base: Base a,
-  name: a -> Text
+  name: a → Text
 }
 
 instance Base.instNat: Base Nat :=
@@ -35,7 +35,7 @@ def twice [auto c: Child a] (x: a): a := Base.op (Base.op x)
 
 -- In a helper, the superclass is filled from the parameter, the only
 -- `Base a` in scope.
-def namedBy [auto b: Base a] (name: a -> Text): Named a := { name = name }
+def namedBy [auto b: Base a] (name: a → Text): Named a := { name = name }
 
 def describe [auto n: Named a] (x: a): Text := n.name (Base.op x)
 

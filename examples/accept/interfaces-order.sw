@@ -25,14 +25,14 @@ instance Item.instBase: Base Item :=
 
 interface Child (a: Type) = {
   base: Base a,
-  law: (x: a) -> base.op (base.op x) = base.op x
+  law: (x: a) → base.op (base.op x) = base.op x
 }
 
 interface Base (a: Type) =
-  { op: a -> a }
+  { op: a → a }
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 type Item =
   | MkItem

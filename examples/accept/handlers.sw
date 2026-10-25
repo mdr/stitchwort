@@ -11,7 +11,7 @@ type Unit1: Type =
 
 type Empty: Type
 
-def fromEmpty: Empty -> a
+def fromEmpty: Empty → a
   | ()
 
 -- Signatures
@@ -21,7 +21,7 @@ type StateOp: Type =
   | Get
   | Put (n: Nat)
 
-def StateRes: StateOp -> Type
+def StateRes: StateOp → Type
   | Get => Nat
   | Put n => Unit1
 
@@ -29,14 +29,14 @@ def StateRes: StateOp -> Type
 type ChooseOp: Type =
   | Choose
 
-def ChooseRes: ChooseOp -> Type
+def ChooseRes: ChooseOp → Type
   | Choose => Bool
 
 -- `Abort`: stop. It returns `Empty`, so nothing can continue.
 type AbortOp: Type =
   | Abort
 
-def AbortRes: AbortOp -> Type
+def AbortRes: AbortOp → Type
   | Abort => Empty
 
 -- Two signatures side by side, `{l, r}`, use the prelude's `Plus` and `PlusRes`.
@@ -46,44 +46,44 @@ def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseR
 
 type FnStateOp: Type =
   | GetFn
-  | PutFn (f: Nat -> Comp ChooseOp ChooseRes Nat)
+  | PutFn (f: Nat → Comp ChooseOp ChooseRes Nat)
 
-def FnStateRes: FnStateOp -> Type
-  | GetFn => Nat -> Comp ChooseOp ChooseRes Nat
+def FnStateRes: FnStateOp → Type
+  | GetFn => Nat → Comp ChooseOp ChooseRes Nat
   | PutFn f => Unit1
 
 -- A computation type whose operations come from a type function stuck on a
 -- variable: not a row of abilities, so it's an ordinary data type here.
-def OpsOf: Bool -> Type
+def OpsOf: Bool → Type
   | True => ChooseOp
   | False => AbortOp
 
-def ResOf: (b: Bool) -> OpsOf b -> Type
+def ResOf: (b: Bool) → OpsOf b → Type
   | True, o => ChooseRes o
   | False, o => AbortRes o
 
-def eqPairs: List (Pair Nat Nat) -> List (Pair Nat Nat) -> Bool
+def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
   | Nil, Nil => True
   | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
   | _, _ => False
 
-def eqNats: List Nat -> List Nat -> Bool
+def eqNats: List Nat → List Nat → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
   | _, _ => False
 
-def fstOf: Pair a b -> a
+def fstOf: Pair a b → a
   | MkPair x y => x
 
-def sndOf: Pair a b -> b
+def sndOf: Pair a b → b
   | MkPair x y => y
 
-def isNone: Option a -> Bool
+def isNone: Option a → Bool
   | None => True
   | Some x => False
 
-def fromSome0: Option Nat -> Nat
+def fromSome0: Option Nat → Nat
   | None => 0
   | Some x => x
 
@@ -92,32 +92,32 @@ def fromSome0: Option Nat -> Nat
 -- and each behaviour is a `let` that `rfl` checks.
 theorem handlersBehave: Unit :=
   -- Handlers that remove the only ability
-  def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
+  def runState (s: Nat): Comp StateOp StateRes a → Pair a Nat
     | Done x => MkPair x s
     | Call Get rest => runState s (rest s)
     | Call (Put n) rest => runState n (rest MkUnit)
 
   -- Resumes twice: every outcome, `True` first.
-  def allResults: Comp ChooseOp ChooseRes a -> List a
+  def allResults: Comp ChooseOp ChooseRes a → List a
     | Done x => [x]
     | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
 
   -- Never resumes.
-  def toOption: Comp AbortOp AbortRes a -> Option a
+  def toOption: Comp AbortOp AbortRes a → Option a
     | Done x => Some x
     | Call Abort rest => None
 
   -- Handlers for one ability in a row of two. Operations they don't handle are
   -- forwarded, with the handler wrapped round the rest (deep handlers).
-  def runStateL [e: Type] [eres: e -> Type] [a: Type]
-      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a -> Comp e eres (Pair a Nat)
+  def runStateL [e: Type] [eres: e → Type] [a: Type]
+      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a → Comp e eres (Pair a Nat)
     | Done x => Done (MkPair x s)
     | Call (L Get) rest => runStateL s (rest s)
     | Call (L (Put n)) rest => runStateL n (rest MkUnit)
     | Call (R o) rest => Call o (y => runStateL s (rest y))
 
-  def allResultsR: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
-      Comp (Plus e ChooseOp) (PlusRes eres ChooseRes) a -> Comp e eres (List a)
+  def allResultsR: [e: Type] → [eres: e → Type] → [a: Type] →
+      Comp (Plus e ChooseOp) (PlusRes eres ChooseRes) a → Comp e eres (List a)
     | Done x => Done [x]
     | Call (R Choose) rest =>
       bind (allResultsR (rest True)) (xs =>
@@ -151,7 +151,7 @@ theorem handlersBehave: Unit :=
 
   -- A clause performing the ability it handles: its `get` goes to the *next*
   -- State handler out, so the handler's own result still has State.
-  def scaleGets: Comp StateOp StateRes a -> Comp StateOp StateRes a
+  def scaleGets: Comp StateOp StateRes a → Comp StateOp StateRes a
     | Done x => Done x
     | Call Get rest => Call Get (m => scaleGets (rest (m * 10)))
     | Call (Put n) rest => Call (Put n) (u => scaleGets (rest u))
@@ -165,13 +165,13 @@ theorem handlersBehave: Unit :=
   -- followed by `fromEmpty`.
   def abort: Comp AbortOp AbortRes a := Call Abort (v => fromEmpty v)
 
-  def safeDiv (n: Nat) (d: Nat): Comp AbortOp AbortRes Nat := if h: d != 0 then Done (n / d) else abort
+  def safeDiv (n: Nat) (d: Nat): Comp AbortOp AbortRes Nat := if h: d ≠ 0 then Done (n / d) else abort
 
   let abortStops: isNone (toOption (safeDiv 7 0)) = True := rfl
   let noAbort: fromSome0 (toOption (bind (safeDiv 7 2) (q => safeDiv 100 q))) = 33 := rfl
 
   -- The generic fold: `allResults` again, written with `foldComp`.
-  def both: (o: ChooseOp) -> (ChooseRes o -> List a) -> List a
+  def both: (o: ChooseOp) → (ChooseRes o → List a) → List a
     | Choose, k => List.append (k True) (k False)
 
   def allResultsFold (c: Comp ChooseOp ChooseRes a): List a := foldComp (x => [x]) both c
@@ -186,7 +186,7 @@ theorem handlersBehave: Unit :=
 
   -- State holding functions is fine, pure or effectful, as long as the
   -- effects don't refer back to the state's own signature.
-  def runFnState (f: Nat -> Comp ChooseOp ChooseRes Nat): Comp FnStateOp FnStateRes a -> a
+  def runFnState (f: Nat → Comp ChooseOp ChooseRes Nat): Comp FnStateOp FnStateRes a → a
     | Done x => x
     | Call GetFn rest => runFnState f (rest f)
     | Call (PutFn g) rest => runFnState g (rest MkUnit)
@@ -200,7 +200,7 @@ theorem handlersBehave: Unit :=
 
   def doneAnyway (b: Bool): Comp (OpsOf b) (ResOf b) Nat := Done 7
 
-  def valueOr0: [o: Type] -> [r: o -> Type] -> Comp o r Nat -> Nat
+  def valueOr0: [o: Type] → [r: o → Type] → Comp o r Nat → Nat
     | Done x => x
     | Call c rest => 0
 

@@ -4,14 +4,14 @@
 
 import Std (IO, Pair, Text)
 
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 def result (r: Pair (List Text) a): a := Pair.snd r
 
-def showLine: Option Text -> Text
+def showLine: Option Text → Text
   | None => "<end>"
   | Some l => "[" ++ l ++ "]"
 
@@ -112,7 +112,7 @@ def lineCount(): {IO} Nat := countLines IO.readAllLines()
 test "a call with no space is a single argument" :=
   result (IO.simulate ["a", "b", "c"] lineCount) == 3
 
-def applyTo (f: () -> {IO} Nat) (u: ()): {IO} Nat := f u
+def applyTo (f: () → {IO} Nat) (u: ()): {IO} Nat := f u
 
 def viaApply(): {IO} Nat := applyTo lineCount ()
 

@@ -13,7 +13,7 @@ test "inferred" :=
   let nameOf := (p: Person) => p.name
   let ageOf := (p: Person) => p.age
   let ada: Person := { name = "Ada", age = 36 }
-  nameOf ada == "Ada" && ageOf ada == 36
+  nameOf ada == "Ada" ∧ ageOf ada == 36
 
 -- Applied on the spot.
 test "applied" := ((p: Person) => p.name) { name = "Ada", age = 36 } == "Ada"
@@ -22,19 +22,19 @@ test "applied" := ((p: Person) => p.name) { name = "Ada", age = 36 } == "Ada"
 test "multiple" :=
   let add := (x: Nat) (y: Nat) => x + y
   let addGrouped := (x y: Nat) => x + y
-  add 2 3 == 5 && addGrouped 4 5 == 9
+  add 2 3 == 5 ∧ addGrouped 4 5 == 9
 
 -- Mixed with plain names and patterns.
-def mixed: Nat -> Nat -> Nat := x (y: Nat) => x + y
+def mixed: Nat → Nat → Nat := x (y: Nat) => x + y
 
-def mixedBack: Nat -> Nat -> Nat := (x: Nat) y => x + y
+def mixedBack: Nat → Nat → Nat := (x: Nat) y => x + y
 
-def withPair: (Nat, Nat) -> Nat -> Nat := (a, b) (c: Nat) => a + b + c
+def withPair: (Nat, Nat) → Nat → Nat := (a, b) (c: Nat) => a + b + c
 
-test "mixed" := mixed 1 2 == 3 && mixedBack 1 2 == 3 && withPair (1, 2) 3 == 6
+test "mixed" := mixed 1 2 == 3 ∧ mixedBack 1 2 == 3 ∧ withPair (1, 2) 3 == 6
 
 -- Checked against an expected type that agrees with the annotation.
-def inc: Nat -> Nat := (n: Nat) => n + 1
+def inc: Nat → Nat := (n: Nat) => n + 1
 
 -- Inside `List.map` and `|>`.
 def names (people: List Person): List Text :=

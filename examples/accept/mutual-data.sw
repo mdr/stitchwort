@@ -20,25 +20,25 @@ type Forest: Type =
 
 -- The number of nodes. `kids` is part of the `Tree` that `size` matched, so
 -- `sizeForest kids` is a smaller call, even though it's another type.
-def size: Tree -> Nat
+def size: Tree → Nat
   | Node n kids => Succ (sizeForest kids)
 
-def sizeForest: Forest -> Nat
+def sizeForest: Forest → Nat
   | FNil => 0
   | FCons t ts => size t + sizeForest ts
 
 -- Adding up the labels.
-def sumTree: Tree -> Nat
+def sumTree: Tree → Nat
   | Node n kids => n + sumForest kids
 
-def sumForest: Forest -> Nat
+def sumForest: Forest → Nat
   | FNil => 0
   | FCons t ts => sumTree t + sumForest ts
 
-def mapTree (f: Nat -> Nat): Tree -> Tree
+def mapTree (f: Nat → Nat): Tree → Tree
   | Node n kids => Node (f n) (mapForest f kids)
 
-def mapForest (f: Nat -> Nat): Forest -> Forest
+def mapForest (f: Nat → Nat): Forest → Forest
   | FNil => FNil
   | FCons t ts => FCons (mapTree f t) (mapForest f ts)
 
@@ -51,10 +51,10 @@ test "sum" := sumTree example == 10
 test "map" := sumTree (mapTree (n => n + 1) example) == 14
 
 -- Proofs by mutual induction over the two types: mapping changes no sizes.
-theorem sizeMap (f: Nat -> Nat): (t: Tree) -> size (mapTree f t) = size t
+theorem sizeMap (f: Nat → Nat): (t: Tree) → size (mapTree f t) = size t
   | Node n kids => Eq.cong Succ (sizeMapForest f kids)
 
-theorem sizeMapForest (f: Nat -> Nat): (ts: Forest) ->
+theorem sizeMapForest (f: Nat → Nat): (ts: Forest) →
     sizeForest (mapForest f ts) = sizeForest ts
   | FNil => rfl
   | FCons t ts =>
@@ -62,7 +62,7 @@ theorem sizeMapForest (f: Nat -> Nat): (ts: Forest) ->
       (Eq.cong (b => size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
-theorem sizeNotZero: (t: Tree) -> Not (size t = 0)
+theorem sizeNotZero: (t: Tree) → Not (size t = 0)
   | Node n kids, a1 => Nat.succNotZero (sizeForest kids) a1
 
 -- Even and odd numbers, as data: each is the successor of the other kind.
@@ -73,26 +73,26 @@ type Even: Type =
 type Odd: Type =
   | OSucc (pred: Even)
 
-def evenToNat: Even -> Nat
+def evenToNat: Even → Nat
   | EZero => 0
   | ESucc o => Succ (oddToNat o)
 
-def oddToNat: Odd -> Nat
+def oddToNat: Odd → Nat
   | OSucc e => Succ (evenToNat e)
 
-def isEven: Nat -> Bool
+def isEven: Nat → Bool
   | 0 => True
   | Succ n => isOdd n
 
-def isOdd: Nat -> Bool
+def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
-theorem evenIsEven: (e: Even) -> isEven (evenToNat e) = True
+theorem evenIsEven: (e: Even) → isEven (evenToNat e) = True
   | EZero => rfl
   | ESucc o => oddIsOdd o
 
-theorem oddIsOdd: (o: Odd) -> isOdd (oddToNat o) = True
+theorem oddIsOdd: (o: Odd) → isOdd (oddToNat o) = True
   | OSucc e => evenIsEven e
 
 test "three" := oddToNat (OSucc (ESucc (OSucc EZero))) == 3
@@ -107,11 +107,11 @@ type EvenP: Prop =
 type OddP: Prop =
   | OddSucc (pred: EvenP)
 
-theorem evenTrivial: EvenP -> Unit
+theorem evenTrivial: EvenP → Unit
   | EvenZero => Trivial
   | EvenSucc o => oddTrivial o
 
-theorem oddTrivial: OddP -> Unit
+theorem oddTrivial: OddP → Unit
   | OddSucc e => evenTrivial e
 
 -- The types of a group may take parameters: the same ones, in the same
@@ -123,10 +123,10 @@ type Roses (a: Type): Type =
   | NoRoses
   | MoreRoses (first: Rose a) (rest: Roses a)
 
-def flatten: Rose a -> List a
+def flatten: Rose a → List a
   | Bloom x kids => Cons x (flattenAll kids)
 
-def flattenAll: Roses a -> List a
+def flattenAll: Roses a → List a
   | NoRoses => Nil
   | MoreRoses r rs => (flatten r).append (flattenAll rs)
 
@@ -136,16 +136,16 @@ test "flatten" := (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Blo
 -- of the matched value, so it's a smaller argument.
 type Branching: Type =
   | Tip
-  | Fork (width: Nat) (child: Nat -> Layer)
+  | Fork (width: Nat) (child: Nat → Layer)
 
 type Layer: Type =
   | MkLayer (label: Nat) (below: Branching)
 
-def depth: Branching -> Nat -> Nat
+def depth: Branching → Nat → Nat
   | Tip, n => 0
   | Fork w child, n => Succ (layerDepth (child n) n)
 
-def layerDepth: Layer -> Nat -> Nat
+def layerDepth: Layer → Nat → Nat
   | MkLayer l b, n => depth b n
 
 -- Three types in one group.
@@ -161,15 +161,15 @@ type Stmts: Type =
   | Finished
   | Then (first: Stmt) (rest: Stmts)
 
-def exprCount: Expr -> Nat
+def exprCount: Expr → Nat
   | Num n => 1
   | Block b r => stmtsCount b + exprCount r + 1
 
-def stmtCount: Stmt -> Nat
+def stmtCount: Stmt → Nat
   | Assign e => exprCount e
   | Nested b => stmtsCount b
 
-def stmtsCount: Stmts -> Nat
+def stmtsCount: Stmts → Nat
   | Finished => 0
   | Then s r => stmtCount s + stmtsCount r
 

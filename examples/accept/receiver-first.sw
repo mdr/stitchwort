@@ -11,7 +11,7 @@ type Meter = { v: Nat }
 
 def Meter.scale (m: Meter) (k: Nat): Meter := { v = k * m.v }
 
-def Meter.combine (m: Meter) (other: Meter) (f: Nat -> Nat -> Nat): Meter :=
+def Meter.combine (m: Meter) (other: Meter) (f: Nat → Nat → Nat): Meter :=
   { v = f m.v other.v }
 
 def m3: Meter := { v = 3 }
@@ -25,7 +25,7 @@ test "function last" := (m3.combine m3 (a b => a * b)).v == 9
 -- A helper whose order suits its own recursion, not dot notation: the
 -- attribute says so, and there's no warning.
 @[noReceiver]
-def Meter.sumOnto (acc: Nat): List Meter -> Nat
+def Meter.sumOnto (acc: Nat): List Meter → Nat
   | Nil => acc
   | Cons m rest => Meter.sumOnto (acc + m.v) rest
 

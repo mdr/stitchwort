@@ -40,9 +40,9 @@ theorem weightStep (n: Nat):
 def chain (n: Nat): Nat
     decreasing n
 :=
-  1 + List.foldLeft (List.range n) 0 (best d => if h: d < n then (if Nat.leq 2 d && Nat.divides d n then Nat.max best (chain d) else best) else best)
+  1 + List.foldLeft (List.range n) 0 (best d => if h: d < n then (if Nat.leq 2 d ∧ Nat.divides d n then Nat.max best (chain d) else best) else best)
 
-test "chain" := chain 12 == 3 && chain 7 == 1 && chain 1 == 1
+test "chain" := chain 12 == 3 ∧ chain 7 == 1 ∧ chain 1 == 1
 
 -- Recursion in the function and in the fold's starting value, in one call.
 def grow (n: Nat): Nat
@@ -52,7 +52,7 @@ def grow (n: Nat): Nat
   then List.foldLeft (List.range n) (grow (n - 1)) (acc d => acc + (if g: d < n then grow d else 0))
   else 1
 
-test "grow" := grow 0 == 1 && grow 1 == 2 && grow 2 == 5 && grow 3 == 13
+test "grow" := grow 0 == 1 ∧ grow 1 == 2 ∧ grow 2 == 5 ∧ grow 3 == 13
 
 -- The function in a `let`, and a sum inside a sum.
 def pairs (n: Nat): Nat
@@ -61,7 +61,7 @@ def pairs (n: Nat): Nat
   let term := (d: Nat) => if h: d < n then 1 + pairs d else 0
   List.sumBy (List.range n) (k => List.sumBy (List.range k) term)
 
-test "pairs" := pairs 0 == 0 && pairs 2 == 1 && pairs 3 == 3
+test "pairs" := pairs 0 == 0 ∧ pairs 2 == 1 ∧ pairs 3 == 3
 
 -- A `match` inside the function.
 def oddParts (n: Nat): Nat
@@ -71,16 +71,16 @@ def oddParts (n: Nat): Nat
     | Zero => 0
     | Succ k => if h: Succ k < n then (if Nat.leq n (2 * Succ k) then 0 else oddParts (Succ k)) else 0)
 
-test "odd parts" := oddParts 1 == 1 && oddParts 3 == 2
+test "odd parts" := oddParts 1 == 1 ∧ oddParts 3 == 2
 
 -- A theorem can recurse inside a function too: strong induction, from the
 -- step for every number given the result for the smaller ones.
-theorem strong (p: Nat -> Prop) (step: (n: Nat) -> ((d: Nat) -> d < n -> p d) -> p n) (n: Nat): p n
+theorem strong (p: Nat → Prop) (step: (n: Nat) → ((d: Nat) → d < n → p d) → p n) (n: Nat): p n
     decreasing n
 :=
   step n (d h => strong p step d)
 
-theorem allZeroLe (n: Nat): 0 <= n := strong (k => 0 <= k) (k below => Nat.zeroLe k) n
+theorem allZeroLe (n: Nat): 0 ≤ n := strong (k => 0 ≤ k) (k below => Nat.zeroLe k) n
 
 def main(): {IO} () :=
   IO.print ("weights: " ++ Text.join (List.map (List.map (List.rangeFrom 11 2) weight) Int.toText) ' ')

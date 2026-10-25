@@ -13,11 +13,11 @@
 
 import Std (Nat)
 
-export def interleave: List Nat -> List Nat -> List Nat
+export def interleave: List Nat → List Nat → List Nat
   | Nil, ys => ys
   | Cons x xs, ys => Cons x (interleave ys xs)
 
-export def merge: List Nat -> List Nat -> List Nat
+export def merge: List Nat → List Nat → List Nat
   | Nil, ys => ys
   | Cons x xs, Nil => Cons x xs
   | Cons x xs, Cons y ys =>
@@ -25,6 +25,6 @@ export def merge: List Nat -> List Nat -> List Nat
 
 -- Each call takes one off the first argument and swaps the first two,
 -- counting the calls: a tail call with its arguments in a different order.
-export def gcdSteps: Nat -> Nat -> Nat -> Nat
+export def gcdSteps: Nat → Nat → Nat → Nat
   | Zero, b, acc => acc
   | Succ a, b, acc => gcdSteps b a (Succ acc)

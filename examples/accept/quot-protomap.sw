@@ -46,27 +46,27 @@ def ProtoMap.size (m: ProtoMap k v [ord := o]): Nat := Quot.lift Map.Raw.size (a
 
 def ProtoMap.isEmpty (m: ProtoMap k v [ord := o]): Bool := Quot.lift Map.Raw.isEmpty (a b same => Map.Raw.isEmptyRespects a b same) m.raw
 
-def ProtoMap.foldLeft (m: ProtoMap k v [ord := o]) (z: b) (f: b -> k -> v -> b): b :=
+def ProtoMap.foldLeft (m: ProtoMap k v [ord := o]) (z: b) (f: b → k → v → b): b :=
   Quot.lift (Map.Raw.foldLeft f z) (a b same => Map.Raw.foldLeftRespects f z a b same) m.raw
 
 def ProtoMap.fromList [auto ord: Ord k] (xs: List (k, v)): ProtoMap k v := ProtoMap.ofMap (Map.Raw.fromList xs)
 
 -- Two classes with the same entries are the same class.
 theorem ProtoMap.rawInjective (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
-    ProtoMap.toList { raw = p } = ProtoMap.toList { raw = q } -> p = q :=
-  let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv -> Prop :=
-    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) -> ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } -> p' = q'
-  let fromMk: (a: Map.Raw k v [ord := o]) -> motive (Quot.mk a) :=
+    ProtoMap.toList { raw = p } = ProtoMap.toList { raw = q } → p = q :=
+  let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv → Prop :=
+    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) → ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } → p' = q'
+  let fromMk: (a: Map.Raw k v [ord := o]) → motive (Quot.mk a) :=
     a q' =>
       Quot.ind
-        [p := q'' => ProtoMap.toList { raw = Quot.mk a } = ProtoMap.toList { raw = q'' } -> Quot.mk a = q'']
+        [p := q'' => ProtoMap.toList { raw = Quot.mk a } = ProtoMap.toList { raw = q'' } → Quot.mk a = q'']
         (b same => Quot.sound same)
         q'
   Quot.ind [p := motive] fromMk p q
 
 -- Maps with the same entries are equal, whatever their values' type.
-theorem ProtoMap.toListInjective: (m: ProtoMap k v [ord := o]) -> (n: ProtoMap k v [ord := o]) ->
-    ProtoMap.toList m = ProtoMap.toList n -> m = n
+theorem ProtoMap.toListInjective: (m: ProtoMap k v [ord := o]) → (n: ProtoMap k v [ord := o]) →
+    ProtoMap.toList m = ProtoMap.toList n → m = n
   | { raw = p }, { raw = q }, same => Eq.cong (r => ({ raw = r }: ProtoMap k v [ord := o])) (ProtoMap.rawInjective p q same)
 
 -- Equal maps have the same entries, and maps with the same entries are equal.
@@ -78,12 +78,12 @@ theorem ProtoMap.eqIffToListEq (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [or
 
 -- What stage 0 proved of every `Map`, for every `ProtoMap`: its entries are
 -- in increasing key order, and `get` looks a key up in them.
-theorem ProtoMap.toListSorted: (m: ProtoMap k v [ord := o]) -> Map.Spec.Sorted o (ProtoMap.toList m)
+theorem ProtoMap.toListSorted: (m: ProtoMap k v [ord := o]) → Map.Spec.Sorted o (ProtoMap.toList m)
   | { raw = q } =>
     Quot.ind [p := q' => Map.Spec.Sorted o (ProtoMap.toList { raw = q' })] (a => Map.Raw.toListSorted a) q
 
 theorem ProtoMap.getToList:
-    (m: ProtoMap k v [ord := o]) -> (key: k) -> ProtoMap.get m key = Map.Tree.lookupList key (ProtoMap.toList m)
+    (m: ProtoMap k v [ord := o]) → (key: k) → ProtoMap.get m key = Map.Tree.lookupList key (ProtoMap.toList m)
   | { raw = q }, key =>
     Quot.ind
       [p := q' => ProtoMap.get { raw = q' } key = Map.Tree.lookupList key (ProtoMap.toList { raw = q' })]
@@ -92,7 +92,7 @@ theorem ProtoMap.getToList:
 
 -- Maps that agree on every key are equal, whatever their values' type.
 theorem ProtoMap.ext (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o])
-    (h: (key: k) -> ProtoMap.get m key = ProtoMap.get n key): m = n :=
+    (h: (key: k) → ProtoMap.get m key = ProtoMap.get n key): m = n :=
   ProtoMap.toListInjective m n
     (Map.Spec.extLookup None (ProtoMap.toList m) (ProtoMap.toList n) (ProtoMap.toListSorted m) (ProtoMap.toListSorted n)
       (key => Eq.trans (Eq.sym (ProtoMap.getToList m key)) (Eq.trans (h key) (ProtoMap.getToList n key))))
@@ -129,8 +129,8 @@ theorem aChangedValueIsNot: (forwards == changed) = False := rfl
 theorem forwardsIsBackwards: forwards = backwards := ProtoMap.toListInjective forwards backwards rfl
 
 test "insertion order doesn't matter" := forwards == backwards
-test "a changed value does" := !(forwards == changed)
-test "an extra key does" := !(forwards == backwards.insert 5 "e")
+test "a changed value does" := ¬(forwards == changed)
+test "an extra key does" := ¬(forwards == backwards.insert 5 "e")
 
 -- The representatives really are different trees: their roots differ.
 def rootKey (m: Map.Raw Nat Text): Option Nat := match m.tree with
@@ -151,7 +151,7 @@ def other: Inventory := { owner = "Bo", counts = evening.counts }
 theorem inventoriesEqual: (morning == evening) = True := rfl
 theorem ownersDiffer: (morning == other) = False := rfl
 
-test "records holding maps" := morning == evening && !(morning == other)
+test "records holding maps" := morning == evening ∧ ¬(morning == other)
 
 def nested1: ProtoMap Text (ProtoMap Text Nat) :=
   ProtoMap.fromList [("shed", ProtoMap.fromList [("nails", 3), ("screws", 5)]), ("loft", ProtoMap.fromList [("boxes", 2)])]
@@ -162,22 +162,22 @@ def nested3: ProtoMap Text (ProtoMap Text Nat) := nested2.insert "shed" (ProtoMa
 theorem nestedEqual: (nested1 == nested2) = True := rfl
 theorem nestedDiffer: (nested1 == nested3) = False := rfl
 
-test "maps of maps" := nested1 == nested2 && !(nested1 == nested3)
+test "maps of maps" := nested1 == nested2 ∧ ¬(nested1 == nested3)
 
 -- 3. Extensionality is general: for function values, with no `DecEq`.
 def addOne (x: Nat): Nat := x + 1
 def double (x: Nat): Nat := x + x
 
-def fns1: ProtoMap Nat (Nat -> Nat) := (ProtoMap.empty.insert 1 addOne).insert 2 double
-def fns2: ProtoMap Nat (Nat -> Nat) := (ProtoMap.empty.insert 2 double).insert 1 addOne
+def fns1: ProtoMap Nat (Nat → Nat) := (ProtoMap.empty.insert 1 addOne).insert 2 double
+def fns2: ProtoMap Nat (Nat → Nat) := (ProtoMap.empty.insert 2 double).insert 1 addOne
 
 theorem functionMapsEqual: fns1 = fns2 := ProtoMap.toListInjective fns1 fns2 rfl
 
-theorem functionMapsExt (m: ProtoMap Nat (Nat -> Nat)) (n: ProtoMap Nat (Nat -> Nat))
-    (h: (key: Nat) -> ProtoMap.get m key = ProtoMap.get n key): m = n :=
+theorem functionMapsExt (m: ProtoMap Nat (Nat → Nat)) (n: ProtoMap Nat (Nat → Nat))
+    (h: (key: Nat) → ProtoMap.get m key = ProtoMap.get n key): m = n :=
   ProtoMap.ext m n h
 
-theorem functionMapsByEntries (m: ProtoMap Nat (Nat -> Nat)) (n: ProtoMap Nat (Nat -> Nat))
+theorem functionMapsByEntries (m: ProtoMap Nat (Nat → Nat)) (n: ProtoMap Nat (Nat → Nat))
     (h: ProtoMap.toList m = ProtoMap.toList n): m = n :=
   ProtoMap.toListInjective m n h
 
@@ -195,18 +195,18 @@ theorem functionValueComputes: (match ProtoMap.get fns1 2 with | Some f => f 5 |
 theorem compareComputes: ProtoMap.compare forwards changed = Greater := rfl
 theorem compareEqualMaps: ProtoMap.compare forwards backwards = Equal := rfl
 
-test "ordered by entries" := forwards > changed && !(forwards < backwards) && forwards <= backwards
+test "ordered by entries" := forwards > changed ∧ ¬(forwards < backwards) ∧ forwards ≤ backwards
 
 -- 7. `size`, `isEmpty` and `foldLeft` lift with stage 0's respects lemmas
 -- (above), which rest on the `sized` field; so `size` counts the entries of
 -- every map, proved for each representative with `Quot.ind`.
-theorem ProtoMap.sizeToList: (m: ProtoMap k v [ord := o]) -> ProtoMap.size m = List.length (ProtoMap.toList m)
+theorem ProtoMap.sizeToList: (m: ProtoMap k v [ord := o]) → ProtoMap.size m = List.length (ProtoMap.toList m)
   | { raw = q } =>
     Quot.ind [p := q' => ProtoMap.size { raw = q' } = List.length (ProtoMap.toList { raw = q' })] (a => Map.Raw.sizeToList a) q
 
 test "size, isEmpty and foldLeft" :=
-  ProtoMap.size forwards == 4 && !(ProtoMap.isEmpty forwards)
-    && ProtoMap.foldLeft forwards 0 (total key value => total + key) == 10
+  ProtoMap.size forwards == 4 ∧ ¬(ProtoMap.isEmpty forwards)
+    ∧ ProtoMap.foldLeft forwards 0 (total key value => total + key) == 10
 
 -- 6. Computation limits are deliberate: data transported along a map
 -- equality is stuck in the kernel, through `Quot.sound` (§9.1) and through
@@ -215,7 +215,7 @@ test "size, isEmpty and foldLeft" :=
 def transported: Nat := J (y p => Nat) 0 forwardsIsBackwards
 def transportedByInd: Nat := J (y p => Nat) 0 (ProtoMap.sizeToList forwards)
 
-test "transport runs" := transported == 0 && transportedByInd == 0
+test "transport runs" := transported == 0 ∧ transportedByInd == 0
 
 def describe (m: ProtoMap Nat Text): Text :=
   ProtoMap.foldLeft m "" (acc key value => Text.append acc value)
@@ -224,7 +224,7 @@ def main(): {IO} () :=
   IO.print (if forwards == backwards then "True" else "False")
   IO.print (if forwards == changed then "True" else "False")
   IO.print (if morning == evening then "True" else "False")
-  IO.print (if nested1 == nested2 && !(nested1 == nested3) then "True" else "False")
+  IO.print (if nested1 == nested2 ∧ ¬(nested1 == nested3) then "True" else "False")
   IO.print (describe changed)
   IO.print (Nat.toText (ProtoMap.size (changed.insert 9 "z")))
   IO.print (match ProtoMap.get fns2 2 with

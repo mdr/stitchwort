@@ -37,34 +37,34 @@ theorem inOrder (a: Nat) (b: Nat) (c: Nat) (h1: a = b) (h2: b = c): Succ a = Suc
 -- A rule's implicit arguments are unknown until an occurrence fixes them. The
 -- search is outermost first, left to right, so `f 2` is the first match here,
 -- and `?n` becomes 2: `f 1` is a different instance and is left alone.
-theorem firstInstance (f: Nat -> Nat) (g: Nat -> Nat) (h: [n: Nat] -> f n = g n): f 2 + f 1 = g 2 + f 1 :=
+theorem firstInstance (f: Nat → Nat) (g: Nat → Nat) (h: [n: Nat] → f n = g n): f 2 + f 1 = g 2 + f 1 :=
   rewrite h
 
 -- A match isn't searched inside: `f (f 1)` is replaced as a whole (with
 -- `n := f 1`), so the inner `f 1` stays.
-theorem outerFirst (f: Nat -> Nat) (g: Nat -> Nat) (h: [n: Nat] -> f n = g n): f (f 1) = g (f 1) :=
+theorem outerFirst (f: Nat → Nat) (g: Nat → Nat) (h: [n: Nat] → f n = g n): f (f 1) = g (f 1) :=
   rewrite h
 
 -- A comparison that fails part way leaves nothing behind. `f 1 2` doesn't match
 -- `f ?x ?x` (it would need `?x := 1` and `?x := 2`), and `?x` is not left
 -- as 1 for the next candidate, `f 3 3`.
-theorem rolledBack (f: Nat -> Nat -> Nat) (h: [x: Nat] -> f x x = 0): f 1 2 + f 3 3 = f 1 2 + 0 :=
+theorem rolledBack (f: Nat → Nat → Nat) (h: [x: Nat] → f x x = 0): f 1 2 + f 3 3 = f 1 2 + 0 :=
   rewrite h
 
 -- The same, where the first candidate also constrains the rule's type
 -- argument (`a`) before it fails.
-theorem rolledBackType (m: [a: Type] -> a -> a -> a) (h: [a: Type] -> [x: a] -> m x x = x) (q: Bool -> Nat -> Prop)
+theorem rolledBackType (m: [a: Type] → a → a → a) (h: [a: Type] → [x: a] → m x x = x) (q: Bool → Nat → Prop)
     (k: q (m False True) 3): q (m False True) (m 3 3) :=
   rewrite h in k
 
 -- Under a binder, an occurrence that doesn't use the bound variable is
 -- found and replaced.
-theorem underBinder (f: Nat -> Nat) (g: Nat -> Nat) (h: f 1 = g 1): (y: Nat) -> f 1 + y = g 1 + y :=
+theorem underBinder (f: Nat → Nat) (g: Nat → Nat) (h: f 1 = g 1): (y: Nat) → f 1 + y = g 1 + y :=
   rewrite h in y => rfl
 
 -- The rule can be any proof of an equation, such as a hypothesis applied to
 -- an argument or a larger term in parentheses.
-theorem applied (f: Nat -> Nat) (g: Nat -> Nat) (h: (x: Nat) -> f x = g x): f 4 + 1 = g 4 + 1 :=
+theorem applied (f: Nat → Nat) (g: Nat → Nat) (h: (x: Nat) → f x = g x): f 4 + 1 = g 4 + 1 :=
   rewrite h 4
 
 -- `rewrite` works as an argument, where the goal is the parameter's type.
@@ -79,7 +79,7 @@ theorem lists (xs: List Nat) (ys: List Nat) (h: xs = ys): List.length xs = List.
 
 -- A bare `in` ends a rule, so a rule that takes a membership test puts it in
 -- brackets (D1201).
-theorem argumentIn (f: Prop -> Nat) (g: Prop -> Nat) (xs: List Nat) (h: (p: Prop) -> f p = g p): f (3 in xs) = g (3 in xs) :=
+theorem argumentIn (f: Prop → Nat) (g: Prop → Nat) (xs: List Nat) (h: (p: Prop) → f p = g p): f (3 in xs) = g (3 in xs) :=
   rewrite h (3 in xs)
 
 -- A rule's left side is matched by computing: `Nat.modSelf (Succ highest)` is about

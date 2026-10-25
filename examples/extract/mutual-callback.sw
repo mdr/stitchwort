@@ -7,9 +7,9 @@
 -- run: twice [1, 2] 0
 -- run: twice [] 7
 
-type Callback = { call: Nat -> Nat }
+type Callback = { call: Nat → Nat }
 
-def make: List Nat -> Callback
+def make: List Nat → Callback
   | Nil => { call = x => x }
   | Cons n rest => { call = x => weigh rest x + n }
 

@@ -57,7 +57,7 @@ def isZero (x: Int): Bool := 0 == x
 
 def isZeroRight (x: Int): Bool := x == 0
 
-def notZero (x: Int): Prop := 0 != x
+def notZero (x: Int): Prop := 0 ≠ x
 
 def zeroEq (x: Int): Prop := 0 = x
 

@@ -6,19 +6,19 @@
 import Std (List, Nat)
 
 -- §1, example 1: `p` is `n`.
-theorem one (n: Nat): n <= n + 1 :=
+theorem one (n: Nat): n ≤ n + 1 :=
   let p := n
   Nat.leAddRight p 1
 
 -- A proof `let`, used twice.
-theorem twiceUsed (n: Nat): n <= Succ (Succ (Succ n)) :=
+theorem twiceUsed (n: Nat): n ≤ Succ (Succ (Succ n)) :=
   let h := Nat.leSucc n
   let h2 := Nat.leTrans n (Succ n) (Succ (Succ n)) h (Nat.leSucc (Succ n))
   let h3 := Nat.leTrans n (Succ n) (Succ (Succ n)) h (Nat.leSucc (Succ n))
   Nat.leTrans n (Succ (Succ n)) (Succ (Succ (Succ n))) h2 (Nat.leSucc (Succ (Succ n)))
 
 -- Termination sees through a `let`: `r` is exactly as small as `rest`.
-def len: List Nat -> Nat
+def len: List Nat → Nat
   | Nil => 0
   | Cons _ rest =>
     let r := rest
@@ -54,7 +54,7 @@ theorem matchAlias (xs: List Nat): xs.length + 0 = xs.length :=
 -- A local definition after a `let` knows its value too.
 def afterLet (n: Nat): Nat :=
   let k := n * 2
-  def go: Nat -> Nat
+  def go: Nat → Nat
     | Zero => k
     | Succ m => go m + 1
   go 3
@@ -64,7 +64,7 @@ test "afterLet" := afterLet 5 == 13
 theorem afterLetIs (n: Nat): afterLet n = n * 2 + 1 + 1 + 1 := rfl
 
 -- Nested `let`s under binders.
-def nested (a: Nat): Nat -> Nat :=
+def nested (a: Nat): Nat → Nat :=
   let x := a + 1
   b =>
     let y := x + b
@@ -74,7 +74,7 @@ theorem nestedIs (a b: Nat): nested a b = (a + 1 + b) + (a + 1) := rfl
 
 -- A pure `let` in an effectful block is transparent too.
 ability Ask where
-  ask: () -> {Ask} Nat
+  ask: () → {Ask} Nat
 
 def inBlock (n: Nat): {Ask} Nat :=
   let m := n + 1

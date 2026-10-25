@@ -6,12 +6,12 @@ import Std (Nat, Fin, Bool, Void)
 
 def larger (c: Fin 10) (x: Fin 10): Fin 10 := if c < x then x else c
 
-theorem largerGe (c: Fin 10) (x: Fin 10): Fin.toNat c <= Fin.toNat (larger c x) :=
+theorem largerGe (c: Fin 10) (x: Fin 10): Fin.toNat c ≤ Fin.toNat (larger c x) :=
   match e: c < x with
     | True => omega
     | False => omega
 
-theorem largerGeRight (c: Fin 10) (x: Fin 10): Fin.toNat x <= Fin.toNat (larger c x) :=
+theorem largerGeRight (c: Fin 10) (x: Fin 10): Fin.toNat x ≤ Fin.toNat (larger c x) :=
   match e: c < x with
     | True => omega
     | False => omega
@@ -26,7 +26,7 @@ theorem belowLess (c: Fin 10) (x: Fin 10) (h: below c x = True): Fin.toNat c < F
 
 def largerNat (c: Nat) (x: Nat): Nat := if c < x then x else c
 
-theorem largerNatGe (c: Nat) (x: Nat): c <= largerNat c x :=
+theorem largerNatGe (c: Nat) (x: Nat): c ≤ largerNat c x :=
   match e: c < x with
     | True => omega
     | False => omega

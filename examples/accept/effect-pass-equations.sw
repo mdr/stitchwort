@@ -9,7 +9,7 @@
 import Std (Effect, Eq, Bool, Abort)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 
@@ -23,7 +23,7 @@ theorem sameComputation [a: Type] (computation: Effect.Comp Effect.NoOp Effect.N
 
 -- Over a row with abilities: the two calls are computations, compared as
 -- they are (this was `E-ABILITY`, since each was run).
-theorem sameCall (thunk: () -> {Abort} Nat): thunk () = thunk () := rfl
+theorem sameCall (thunk: () → {Abort} Nat): thunk () = thunk () := rfl
 
 -- Branches checked against a written computation type.
 def pick (choice: Bool) (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat :=

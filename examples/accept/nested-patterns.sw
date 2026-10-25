@@ -1,27 +1,27 @@
 -- Patterns can be nested, and numbers can be used as patterns: `2` means
 -- `Succ (Succ Zero)`. Equations are tried from top to bottom.
 
-def half: Nat -> Nat
+def half: Nat → Nat
   | 0 => 0
   | 1 => 0
   | Succ (Succ n) => Succ (half n)
 
 -- `Succ n` rebuilds the value the outer `Succ` matched, which is smaller
 -- than the argument, so the second recursive call is structural too.
-def fib: Nat -> Nat
+def fib: Nat → Nat
   | 0 => 0
   | 1 => 1
   | Succ (Succ n) => fib n + fib (Succ n)
 
-def zipSum: List Nat -> List Nat -> List Nat
+def zipSum: List Nat → List Nat → List Nat
   | Cons x xs, Cons y ys => Cons (x + y) (zipSum xs ys)
   | _, _ => Nil
 
-def hasTwo: List a -> Bool
+def hasTwo: List a → Bool
   | Cons _ (Cons _ Nil) => True
   | _ => False
 
-def describe: Nat -> Nat
+def describe: Nat → Nat
   | 3 => 30
   | 7 => 70
   | n => n
@@ -38,7 +38,7 @@ test "booleans" := True == not False
 
 -- Rebuilding a known child keeps it smaller: `Succ n` here is the argument's
 -- predecessor, not the argument itself.
-def peel: Nat -> Nat
+def peel: Nat → Nat
   | 0 => 0
   | 1 => 0
   | Succ (Succ n) => peel (Succ n)

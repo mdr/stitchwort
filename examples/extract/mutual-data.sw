@@ -20,18 +20,18 @@ type Forest: Type =
   | FNil
   | FCons (first: Tree) (rest: Forest)
 
-export def size: Tree -> Nat
+export def size: Tree → Nat
   | Node n kids => Succ (sizeForest kids)
 
-export def sizeForest: Forest -> Nat
+export def sizeForest: Forest → Nat
   | FNil => 0
   | FCons t ts => size t + sizeForest ts
 
 -- One more on every label.
-export def relabel: Tree -> Tree
+export def relabel: Tree → Tree
   | Node n kids => Node (Succ n) (relabelAll kids)
 
-def relabelAll: Forest -> Forest
+def relabelAll: Forest → Forest
   | FNil => FNil
   | FCons t ts => FCons (relabel t) (relabelAll ts)
 
@@ -40,7 +40,7 @@ export def echoTree (t: Tree): Tree := t
 export def echoForest (f: Forest): Forest := f
 
 -- `n` deep, each node's only child the one below it. A loop.
-def deepOnto (t: Tree): Nat -> Tree
+def deepOnto (t: Tree): Nat → Tree
   | Zero => t
   | Succ n => deepOnto (Node n (FCons t FNil)) n
 
@@ -54,10 +54,10 @@ type Roses (a: Type): Type =
   | NoRoses
   | MoreRoses (first: Rose a) (rest: Roses a)
 
-def flattenRose: Rose a -> List a
+def flattenRose: Rose a → List a
   | Bloom x kids => Cons x (flattenRoses kids)
 
-def flattenRoses: Roses a -> List a
+def flattenRoses: Roses a → List a
   | NoRoses => Nil
   | MoreRoses r rs => List.append (flattenRose r) (flattenRoses rs)
 

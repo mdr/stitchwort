@@ -12,11 +12,11 @@ def bob: Person := { age = 25, name = "Bob" }
 
 def birthday (p: Person): Person := { p | age = p.age + 1 }
 
-def describe: Person -> Text
+def describe: Person → Text
   | { name, age } => name ++ " is " ++ Nat.toText age
 
 -- `..` ignores the other fields.
-def nameOf: Person -> Text
+def nameOf: Person → Text
   | { name, .. } => name
 
 -- A field is read with `.`, which binds tighter than application.
@@ -29,7 +29,7 @@ type Team = { lead: Person, size: Nat }
 
 def leadName (t: Team): Text := t.lead.name
 
-def firstLead: List Team -> Text
+def firstLead: List Team → Text
   | Nil => "nobody"
   | Cons ({ lead = { name, .. }, .. }) rest => name
 
@@ -49,16 +49,16 @@ def grown: Sized Nat := { push 1 empty | items = [1, 2], size = 2, ok = rfl }
 theorem sizeIsLength (s: Sized a): s.items.length = s.size := s.ok
 
 -- A record of proofs.
-type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = { above: lo <= n, below: n <= hi }
+type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = { above: lo ≤ n, below: n ≤ hi }
 
 theorem fiveBetween: Between 1 10 5 := { above = rfl, below = rfl }
 
-theorem belowOf (b: Between 1 10 5): 5 <= 10 := b.below
+theorem belowOf (b: Between 1 10 5): 5 ≤ 10 := b.below
 
 -- An update that changes nothing isn't `rfl` until stage 2 (eta), but it's
 -- provable by matching. (After `->`, `{` starts a row of abilities, so a
 -- record there is in parentheses.)
-theorem sameAge: (p: Person) -> ({ p | age = p.age } = p)
+theorem sameAge: (p: Person) → ({ p | age = p.age } = p)
   | { name, age } => rfl
 
 -- A field called `tag` is an ordinary field.

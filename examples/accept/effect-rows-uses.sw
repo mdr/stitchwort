@@ -7,10 +7,10 @@
 import Std (List, Fail)
 
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
 -- Runs a computation that logs, collecting what it said.
-def Log.collect (program: () -> {Log} a): Pair a (List Nat) :=
+def Log.collect (program: () → {Log} a): Pair a (List Nat) :=
   handle program() with
     | return result => MkPair result []
     | Log.say n, k =>
@@ -42,20 +42,20 @@ def sayAndDouble (n: Nat): {Log} Nat :=
   say n
   n + n
 
-def ResultOf [r: Type] (f: Nat -> r): Type := r
+def ResultOf [r: Type] (f: Nat → r): Type := r
 
-def Answer: Bool -> Type
+def Answer: Bool → Type
   | True => ResultOf sayAndDouble
   | False => Nat
 
 type Tagged (flag: Bool): Type =
   | Tag (n: Nat)
 
-def answerOf: (flag: Bool) -> Nat -> Answer flag
+def answerOf: (flag: Bool) → Nat → Answer flag
   | True, n => sayAndDouble n
   | False, n => n
 
-def Tagged.number [flag: Bool]: Tagged flag -> Nat
+def Tagged.number [flag: Bool]: Tagged flag → Nat
   | Tag n => n
 
 def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagged.number

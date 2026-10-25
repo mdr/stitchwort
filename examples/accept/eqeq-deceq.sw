@@ -10,10 +10,10 @@ type Tree (a: Type) =
   | Node (left: Tree a) (value: a) (right: Tree a)
 
 test "trees" := Node Leaf "x" Leaf == Node Leaf "x" Leaf
-test "trees differ" := Node Leaf [1] Leaf != Node Leaf [2] Leaf
+test "trees differ" := Node Leaf [1] Leaf ≠ Node Leaf [2] Leaf
 
 -- Generic code asks for `DecEq` like any interface, and `==` uses it.
-def count [auto decEq: DecEq a] (x: a): List a -> Nat
+def count [auto decEq: DecEq a] (x: a): List a → Nat
   | Nil => 0
   | Cons y ys => (if x == y then 1 else 0) + count x ys
 
@@ -31,29 +31,29 @@ def anyColour (x: Colour) (y: Colour): Decidable (x = y) := match x, y with
   | Red, Green => No (e => Bool.falseNotTrue (Eq.cong isGreen e))
   | Green, Red => No (e => Bool.falseNotTrue (Eq.cong isRed e))
 
-def isGreen: Colour -> Bool
+def isGreen: Colour → Bool
   | Green => True
   | Red => False
 
-def isRed: Colour -> Bool
+def isRed: Colour → Bool
   | Red => True
   | Green => False
 
 instance Colour.instDecEq: DecEq Colour := { decide = anyColour }
 
-test "own instance" := Red != Green && [Red] == [Red]
+test "own instance" := Red ≠ Green ∧ [Red] == [Red]
 
 -- Vectors, by the library's instance.
 def three: Vec Nat 2 := VCons 1 (VCons 2 VNil)
 
 test "vectors" := three == VCons 1 (VCons 2 VNil)
-test "vectors differ" := three != VCons 1 (VCons 3 VNil)
+test "vectors differ" := three ≠ VCons 1 (VCons 3 VNil)
 
 -- An `auto` proof of an equation uses a hypothesis first (D162): functions
 -- have no `DecEq`, but `h` proves it.
-def needsSame (f: Nat -> Nat) (g: Nat -> Nat) [auto ok: f = g]: Nat := f 1
+def needsSame (f: Nat → Nat) (g: Nat → Nat) [auto ok: f = g]: Nat := f 1
 
-def withProof (f: Nat -> Nat) (g: Nat -> Nat) (h: f = g): Nat := needsSame f g
+def withProof (f: Nat → Nat) (g: Nat → Nat) (h: f = g): Nat := needsSame f g
 
 test "hypothesis" := withProof (x => x + 1) (x => x + 1) rfl == 2
 

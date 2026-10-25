@@ -35,7 +35,7 @@ def emptyDatabase: Database := { fresh = [], available = [] }
 -- Ranges, one per line; a blank line; then ids, one per line. Spaces around a
 -- line are allowed. Anything else fails, naming the line.
 def parseDatabase (lines: List Text): {Fail} Database :=
-  let ranges := lines.takeWhile (.trim != "")
+  let ranges := lines.takeWhile (.trim ≠ "")
   match lines.drop ranges.length with
     | Nil => fail "expected a blank line between the ranges and the ids, got none"
     | Cons _ ids => {
@@ -63,6 +63,6 @@ def absorb (merged: List Range) (range: Range): List Range :=
   match merged with
     | Nil => [range]
     | Cons last earlier =>
-      if range.from <= last.to + 1
+      if range.from ≤ last.to + 1
       then Cons ({ from = last.from, to = Nat.max last.to range.to }) earlier
       else Cons range merged

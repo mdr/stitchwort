@@ -56,7 +56,7 @@ def parseProblem (columns: List (List Char)): Problem :=
     columnNumbers = columns.map (column => parseNumber column.init)
   }
 
-def Operator.parse: Char -> Option Operator
+def Operator.parse: Char → Option Operator
   | '+' => Some Add
   | '*' => Some Multiply
   | _ => None
@@ -64,7 +64,7 @@ def Operator.parse: Char -> Option Operator
 -- The number written with these digits; spaces (and anything else) are skipped.
 def parseNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap .digitValue)
 
-def Operator.apply: Operator -> List Nat -> Nat
+def Operator.apply: Operator → List Nat → Nat
   | Add, numbers => numbers.sum
   | Multiply, numbers => numbers.product
 
@@ -111,9 +111,9 @@ def isDigit (ch: Char): Bool := ch.digitValue.isSome
 def isOperator (ch: Char): Bool := (Operator.parse ch).isSome
 
 -- The first character of the row that is neither a space nor allowed.
-def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char -> Bool): Option Text :=
+def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char → Bool): Option Text :=
   row.toList.withIndex.findMap (((index, ch)) =>
-    if ch == ' ' || allowed ch then None
+    if ch == ' ' ∨ allowed ch then None
     else Some "line ${lineNumber}, column ${index + 1}: expected ${expected} or a space, got '${ch}'")
 
 -- The first block of columns without exactly one operator, named by the

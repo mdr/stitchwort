@@ -11,12 +11,12 @@
 import Std (IO, Nat, Pair)
 
 -- The text, or a default at end of input.
-def textOr (d: Text): Option Text -> Text
+def textOr (d: Text): Option Text → Text
   | None => d
   | Some t => t
 
 -- Reports a line that should be a number, and goes on with the new total.
-def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO} Nat) -> {IO} Nat
+def stepNumber (total: Nat) (l: Text): Option Nat → (Nat → {IO} Nat) → {IO} Nat
   | None, more =>
     IO.print ("\"" ++ l ++ "\" isn't a number; skipped")
     more total
@@ -26,7 +26,7 @@ def stepNumber (total: Nat) (l: Text): Option Nat -> (Nat -> {IO} Nat) -> {IO} N
 
 -- What to do with a line, given the total so far. An empty line, or the end
 -- of input, stops.
-def step (total: Nat): Option Text -> (Nat -> {IO} Nat) -> {IO} Nat
+def step (total: Nat): Option Text → (Nat → {IO} Nat) → {IO} Nat
   | None, more => total
   | Some l, more =>
     if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
@@ -34,7 +34,7 @@ def step (total: Nat): Option Text -> (Nat -> {IO} Nat) -> {IO} Nat
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of
 -- operations.
-def addLines: Nat -> Nat -> {IO} Nat
+def addLines: Nat → Nat → {IO} Nat
   | 0, total => total
   | Succ n, total => step total (IO.readLine()) (t => addLines n t)
 
@@ -47,7 +47,7 @@ def main(): {IO} () :=
 
 -- Testing `main` with scripted input
 
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False

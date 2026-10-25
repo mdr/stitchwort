@@ -18,13 +18,13 @@ type Point = { x: Nat, y: Nat }
 
 -- The AoC case (docs/aoc-2025.md, section 9, item 4): a record literal in a
 -- lambda passed to `optionThen`. The result `Option Rot` fixes `b`.
-def optionThen: Option a -> (a -> Option b) -> Option b
+def optionThen: Option a → (a → Option b) → Option b
   | None, f => None
   | Some x, f => f x
 
 def parse (n: Nat) (m: Option Nat): Option Rot := optionThen m (x => Some ({ dir = TL, amount = n + x }))
 
-def amountOf: Option Rot -> Nat
+def amountOf: Option Rot → Nat
   | None => 0
   | Some r => r.amount
 
@@ -46,7 +46,7 @@ def r (i: Int): Int := chooseFirst 5 i
 
 -- A partial application: the remaining function type `a -> a` is compared
 -- with `Int -> Int`.
-def partly: Int -> Int := chooseFirst 5
+def partly: Int → Int := chooseFirst 5
 
 -- A named implicit argument.
 def second [a: Type] [b: Type] (x: a) (y: b): b := y
@@ -66,54 +66,54 @@ test "plusOne" := plusOne 1 == 6
 
 -- Where comparing first doesn't fit, the application is retried the old way.
 ability Choose where
-  choose: () -> {Choose} Bool
+  choose: () → {Choose} Bool
 
 ability State (s: Type) where
-  get: () -> {State s} s
-  put: s -> {State s} ()
+  get: () → {State s} s
+  put: s → {State s} ()
 
 type Box (a: Type): Type =
   | MkBox (x: a)
 
-def unbox: [a: Type] -> Box a -> a
+def unbox: [a: Type] → Box a → a
   | MkBox x => x
 
 def chooser(): {Choose} Nat := if choose() then 1 else 0
 
-def box: Box (() -> {Choose} Nat) := MkBox chooser
+def box: Box (() → {Choose} Nat) := MkBox chooser
 
 -- Comparing first makes `a` the wider function type, and then `box` doesn't
 -- fit. The retry takes `a` from `box`, then widens the function to the bigger
 -- row.
-def wider: () -> {Choose, State Nat} Nat := unbox box
+def wider: () → {Choose, State Nat} Nat := unbox box
 
 def p(): {State Nat, Choose} Nat :=
   let b := choose()
   if b then put 1 else ()
   get()
 
-def pureBox: Box (() -> {State Nat, Choose} Nat) := MkBox p
+def pureBox: Box (() → {State Nat, Choose} Nat) := MkBox p
 
 -- The same with a row in a different order.
-def reordered: () -> {Choose, State Nat} Nat := unbox pureBox
+def reordered: () → {Choose, State Nat} Nat := unbox pureBox
 
 -- A row-order difference in an argument position.
-def q: () -> {Choose, State Nat} Nat := same p
+def q: () → {Choose, State Nat} Nat := same p
 
-def runIt (f: () -> {Choose, State Nat} Nat): Nat := 0
+def runIt (f: () → {Choose, State Nat} Nat): Nat := 0
 
 def ran: Nat := runIt p
 
 test "runIt" := ran == 0
 
 -- A total lambda where a partial function is expected.
-def asPartial: Nat -> {Partial} Nat := same (n => n)
+def asPartial: Nat → {Partial} Nat := same (n => n)
 
 -- A comparison that fails part-way (the domain is solved before the rows
 -- differ), followed by a coercion.
 def poly [a: Type] (x: a): {Choose} Nat := chooser()
 
-def widened: Nat -> {Choose, State Nat} Nat := poly
+def widened: Nat → {Choose, State Nat} Nat := poly
 
 -- A dependent result type is skipped by the comparison, and still accepted.
 def idE (t: Type) (x: t): t := x

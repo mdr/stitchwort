@@ -48,5 +48,5 @@ theorem bigAdd: (Mod.ofNat 999999: Mod 1000000) + Mod.ofNat 2 = Mod.ofNat 1 := r
 -- Conversions with `Fin`, the type of positions in a `Vec`.
 theorem finRound: ((Fin.ofNat 3: Fin 5).toMod).value = 3 := rfl
 test "toFin" := Fin.toNat (Mod.toFin (Mod.ofNat 7: Mod 5)) == 2
-test "== and <" := (Mod.ofNat 3: Mod 5) < Mod.ofNat 4 && (Mod.ofNat 8: Mod 5) == Mod.ofNat 3
+test "== and <" := (Mod.ofNat 3: Mod 5) < Mod.ofNat 4 ∧ (Mod.ofNat 8: Mod 5) == Mod.ofNat 3
 test "show" := "${(Mod.ofNat 207: Mod 100)}" == "7"

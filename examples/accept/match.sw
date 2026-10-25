@@ -50,7 +50,7 @@ def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
   | Zero => Yes rfl
   | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
 
-def keep (p: Prop): p -> Bool
+def keep (p: Prop): p → Bool
   | _ => True
 
 def usesH (xs: List Nat): Bool := match h: xs.length with
@@ -122,21 +122,21 @@ test "tuple" := swapIfZero (0, 4) == (4, 0)
 test "tuple other" := swapIfZero (2, 4) == (2, 4)
 
 -- Effectful scrutinees and branches.
-def fstOf: Pair a b -> a
+def fstOf: Pair a b → a
   | MkPair x y => x
 
-def sndOf: Pair a b -> b
+def sndOf: Pair a b → b
   | MkPair x y => y
 
-def eqNats: List Nat -> List Nat -> Bool
+def eqNats: List Nat → List Nat → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
   | _, _ => False
 
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
-def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
+def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
     | return x => MkPair Nil x
     | say n, k =>

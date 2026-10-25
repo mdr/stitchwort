@@ -36,12 +36,12 @@ def inLet (n: Nat): Nat :=
 
 -- With a proof binder.
 def safeDiv (n: Nat) (d: Nat): Nat :=
-  if h: d != 0 then n / d
+  if h: d ≠ 0 then n / d
   else 0
 
 -- In handler clauses.
 ability Say where
-  say: Nat -> {Say} ()
+  say: Nat → {Say} ()
 
 def withHandler (n: Nat): Nat :=
   handle say n with

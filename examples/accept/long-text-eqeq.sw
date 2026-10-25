@@ -1,7 +1,7 @@
 -- `==` on long texts: comparing two 100,000-character texts used to run out of resources while checking (the operands were computed at check time); now the test runs at run time.
 -- differential: skip (100,000 characters is deeper than the recursive reference evaluator can go)
 
-def long: Nat -> Text
+def long: Nat → Text
   | Zero => ""
   | Succ n => "a" ++ long n
 

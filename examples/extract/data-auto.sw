@@ -8,7 +8,7 @@
 import Std (List, Nat)
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 instance Ordered.instNat: Ordered Nat :=
   { compare = Nat.compare }
@@ -19,14 +19,14 @@ type Tree (k: Type) [auto ord: Ordered k] =
   | Leaf
   | Node (left: Tree k) (key: k) (right: Tree k)
 
-def Tree.insert [auto ord: Ordered k]: Tree k -> k -> Tree k
+def Tree.insert [auto ord: Ordered k]: Tree k → k → Tree k
   | Leaf, x => Node Leaf x Leaf
   | Node l y r, x => match Ordered.compare x y with
     | Less => Node (Tree.insert l x) y r
     | Equal => Node l y r
     | Greater => Node l y (Tree.insert r x)
 
-def Tree.toList: Tree k [ord := o] -> List k
+def Tree.toList: Tree k [ord := o] → List k
   | Leaf => []
   | Node l y r => List.append (Tree.toList l) (Cons y (Tree.toList r))
 

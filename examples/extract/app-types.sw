@@ -28,18 +28,18 @@ type Shape =
   | @[js.name "polygon"] Polygon (points: List Point) (@[js.name "fillColour", js.optional] fill: Option Text)
   | @[js.name "dot"] Dot
 
-export def area: Shape -> Nat
+export def area: Shape → Nat
   | Circle r _ => r * r
   | Polygon ps _ => ps.length
   | Dot => 0
 
-export def recolour: Shape -> Shape
+export def recolour: Shape → Shape
   | Circle r None => Circle r (Some "black")
   | Circle r (Some _) => Circle r None
   | Polygon ps _ => Polygon ps (Some "grey")
   | Dot => Dot
 
-export def tag: Shape -> Option Text
+export def tag: Shape → Option Text
   | Circle _ f => f
   | Polygon _ f => f
   | Dot => None

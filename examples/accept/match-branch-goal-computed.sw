@@ -6,7 +6,7 @@
 -- computed form (docs/syntax.md, "Nothing else changes").
 import Std (Nat, Eq)
 
-def twice: Nat -> Nat
+def twice: Nat → Nat
   | Zero => 0
   | Succ n => Succ (Succ (twice n))
 

@@ -6,10 +6,10 @@
 -- once too.
 
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
 -- What a computation says, in order, and its result.
-def collect (program: () -> {Log | e} a): {e} (List Nat, a) :=
+def collect (program: () → {Log | e} a): {e} (List Nat, a) :=
   handle program() with
     | return x => ([], x)
     | say n, k =>
@@ -22,7 +22,7 @@ def given (n: Nat): {Log} Nat :=
   n
 
 -- A curried function with a stage: says 100 + x when given `x`.
-def staged (x: Nat): {Log} ((y: Nat) -> (z: Nat) -> Nat) :=
+def staged (x: Nat): {Log} ((y: Nat) → (z: Nat) → Nat) :=
   say (100 + x)
   (y z => x * 100 + y * 10 + z)
 
@@ -63,7 +63,7 @@ test "a stage after a skip runs at each call" :=
   collect stageInside == ([3, 101, 102], 153 + 263)
 
 -- With no computation among the arguments, the call is a plain value.
-def stagedLater: (x: Nat) -> {Log} ((y: Nat) -> Nat) := staged (z := 4)
+def stagedLater: (x: Nat) → {Log} ((y: Nat) → Nat) := staged (z := 4)
 
 def usesStagedLater(): {Log} Nat :=
   let k := stagedLater 2
@@ -72,11 +72,11 @@ def usesStagedLater(): {Log} Nat :=
 test "a stage after a skip, as a value" := collect usesStagedLater == ([102], 274)
 
 -- A stage after a given argument, inside the function, and two stages.
-def stagedLate (x: Nat) (y: Nat): {Log} ((z: Nat) -> Nat) :=
+def stagedLate (x: Nat) (y: Nat): {Log} ((z: Nat) → Nat) :=
   say (100 * x + y)
   (z => x * 100 + y * 10 + z)
 
-def twoStages (x: Nat): {Log} ((y: Nat) -> {Log} ((z: Nat) -> Nat)) :=
+def twoStages (x: Nat): {Log} ((y: Nat) → {Log} ((z: Nat) → Nat)) :=
   say x
   (y =>
     say y
@@ -98,7 +98,7 @@ test "stages inside, in parameter order" :=
 def Adder (n: Nat): Type :=
   match n with
     | Zero => Nat
-    | Succ _ => (plus: Nat) -> Nat
+    | Succ _ => (plus: Nat) → Nat
 
 def adder (n: Nat): Adder n :=
   match n with

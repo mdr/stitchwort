@@ -10,11 +10,11 @@
 import Std (Effect, List, Eq)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 
-def stuckComp: List Nat -> Effect.Comp Effect.NoOp Effect.NoRes Nat
+def stuckComp: List Nat → Effect.Comp Effect.NoOp Effect.NoRes Nat
   | Nil => 0
   | Cons x xs => 1
 
@@ -31,20 +31,20 @@ def finishedOf (thunk: Thunk): Prop := thunk.finished
 type Box =
   | MkBox (content: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 
-def boxDone: Box -> Prop
+def boxDone: Box → Prop
   | MkBox content => IsDone content
 
 type Labelled =
   | MkLabelled (label: Nat) (inner: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 
-def labelledDone: Labelled -> Prop
+def labelledDone: Labelled → Prop
   | MkLabelled label inner => IsDone inner
 
-def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Prop
+def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | Nil => Unit
   | Cons first rest => And (IsDone first) (allDone rest)
 
-def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) -> Prop
+def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | (label, inner) => IsDone inner
 
 def passOn (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat := computation
@@ -99,14 +99,14 @@ theorem runIdentity (n: Nat): Effect.runPure (identityComp (Done n)) = n := rfl
 -- `bind` at the empty row, with its arguments passed: the law is stated and
 -- proved by cases on the computation.
 theorem runPureBindHere [a b: Type]:
-    (computation: Effect.Comp Effect.NoOp Effect.NoRes a) -> (next: a -> Effect.Comp Effect.NoOp Effect.NoRes b) ->
+    (computation: Effect.Comp Effect.NoOp Effect.NoRes a) → (next: a → Effect.Comp Effect.NoOp Effect.NoRes b) →
     Effect.runPure (Effect.bind computation next) = Effect.runPure (next (Effect.runPure computation))
   | Done x, next => rfl
   | Call () rest, next
 
 -- `map` with a pure function, run as a computation, is `map`: the proof uses the library's
 -- `runPureBind` on the stuck `map f xs` (probe 3 of the note).
-theorem runMapIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.map xs f) = List.map xs f
+theorem runMapIsMap (f: Nat → Nat): (xs: List Nat) → Effect.runPure (List.map xs f) = List.map xs f
   | Nil => rfl
   | Cons x xs =>
     Eq.trans
@@ -115,7 +115,7 @@ theorem runMapIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.map 
 
 -- Dot notation on a call whose declared result is the nickname: the
 -- nickname's namespace is tried first, and the computation is passed, not run.
-def stuckThunk: List Nat -> Thunk
+def stuckThunk: List Nat → Thunk
   | Nil => 0
   | Cons x xs => 1
 

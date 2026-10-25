@@ -65,7 +65,7 @@ export def owners (orders: List Order): List UserId := orders.map (o => o.owner)
 
 export def helperOf (o: Order): Option UserId := o.helper
 
-export def creator: Event -> Option UserId
+export def creator: Event → Option UserId
   | Created u => Some u
   | Deleted => None
 

@@ -22,7 +22,7 @@ test "minimum" := List.minimum items == Some cheapJam
 
 -- The introduction's `Dial`: a value parameter, and a proof field, which is
 -- left out. Dials are ordered by `position`.
-type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }
+type Dial (highest: Nat) = { position: Nat, inRange: position ≤ highest }
 
 def dial3: Dial 10 := { position = 3, inRange = rfl }
 def dial7: Dial 10 := { position = 7, inRange = rfl }

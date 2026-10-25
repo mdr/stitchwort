@@ -26,11 +26,11 @@ type Option (a: Type): Type =
 def librarySome: Std.Option Nat := Std.Option.Some 1
 
 -- The program's own `Option` and `Yes`.
-def lookup: Nat -> Option Nat
+def lookup: Nat → Option Nat
   | 0 => Absent
   | n => Present n
 
-def decide: Nat -> Answer
+def decide: Nat → Answer
   | 0 => No
   | n => Yes
 
@@ -44,7 +44,7 @@ type Shape: Type =
   | Square (side: Nat)
   | Rect (width: Nat) (height: Nat)
 
-def Shape.area: Shape -> Nat
+def Shape.area: Shape → Nat
   | Square s => s * s
   | Shape.Rect w h => w * h
 
@@ -60,7 +60,7 @@ type List: Type =
   | Empty
   | More (rest: List)
 
-def List.size: List -> Nat
+def List.size: List → Nat
   | Empty => 0
   | More rest => 1 + List.size rest
 

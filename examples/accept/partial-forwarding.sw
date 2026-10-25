@@ -9,7 +9,7 @@
 import Std (Fail, IO, Nat, Option, Result, Text)
 
 ability Env where
-  ask: () -> {Env} Nat
+  ask: () → {Env} Nat
 
 -- Prints `n`, then asks for a step; fails on numbers too big to count.
 def shown (n: Nat): {IO, Fail, Env} Nat :=
@@ -17,13 +17,13 @@ def shown (n: Nat): {IO, Fail, Env} Nat :=
   if n > 100000000 then Fail.fail "too big" else Env.ask()
 
 -- A partial function with a smaller row than its callers'.
-def collatz: Nat -> {Partial} Nat
+def collatz: Nat → {Partial} Nat
   | 1 => 0
   | n => 1 + collatz (if n % 2 == 0 then n / 2 else 3 * n + 1)
 
 -- Each level: `Fail.toResult` forwards `IO` and `Env`, the `Env` handler
 -- (whose result is partial) forwards `IO`, and `collatz` has a smaller row.
-def down: Nat -> {IO, Partial} Nat
+def down: Nat → {IO, Partial} Nat
   | 0 => 0
   | n =>
     let step :=

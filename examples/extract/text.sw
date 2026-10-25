@@ -146,7 +146,7 @@ export def contains (needle: Text) (t: Text): Bool := Text.contains t needle
 -- User code over the characters.
 export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
 
-def countIn (c: Char): List Char -> Nat
+def countIn (c: Char): List Char → Nat
   | Nil => 0
   | Cons d ds => if c == d then Succ (countIn c ds) else countIn c ds
 
@@ -156,19 +156,19 @@ export def countChar (c: Char) (t: Text): Nat := countIn c (Text.toList t)
 type Person: Type =
   | MkPerson (name: Text) (initial: Char) (tags: List Text)
 
-export def greet: Person -> Text
+export def greet: Person → Text
   | MkPerson name initial tags => "Hello, " ++ name ++ " (" ++ Text.fromList (Cons initial Nil) ++ ")"
 
-def initialsOf: List Person -> List Char
+def initialsOf: List Person → List Char
   | Nil => Nil
   | Cons (MkPerson n i t) ps => Cons i (initialsOf ps)
 
 export def initials (ps: List Person): List Char := initialsOf ps
 
-export def rename (n: Text): Person -> Person
+export def rename (n: Text): Person → Person
   | MkPerson m i t => MkPerson n i (Cons m t)
 
-export def orEmpty: Option Text -> Text
+export def orEmpty: Option Text → Text
   | None => ""
   | Some t => t
 
@@ -178,7 +178,7 @@ export def firstOf (p: Pair Char Text): Char := Pair.fst p
 type Located: Type =
   | At (path: Text) (x: Char) (inside: List Char)
 
-export def located: Located -> Located
+export def located: Located → Located
   | At p c cs => At (p ++ "/") c (Cons c cs)
 
 -- The prelude's text operations are native JavaScript, and a `Text` is a
@@ -190,7 +190,7 @@ export def less (a: Text) (b: Text): Bool := Text.less a b
 
 export def codes (t: Text): List Nat := Text.fold t Nil (c ns => Cons (Char.toNat c) ns)
 
-def mapList (f: a -> b): List a -> List b
+def mapList (f: a → b): List a → List b
   | Nil => Nil
   | Cons x xs => Cons (f x) (mapList f xs)
 
@@ -200,18 +200,18 @@ export def texts (ls: List (List Char)): List Text := mapList MkText ls
 
 export def prefixAll (ts: List Text): List Text := mapList (Text.append "pre") ts
 
-def firstOfList: List Text -> Text
+def firstOfList: List Text → Text
   | Nil => "none"
   | Cons f fs => f
 
 export def firstField (c: Char) (t: Text): Text := firstOfList (Text.split t c)
 
-def leadingChar: Text -> Option Char
+def leadingChar: Text → Option Char
   | MkText Nil => None
   | MkText (Cons c cs) => Some c
 
 export def trimmedHead (t: Text): Option Char := leadingChar (Text.trim t)
 
 -- The characters aren't used, so they aren't made into a list.
-export def isText: Text -> Bool
+export def isText: Text → Bool
   | MkText _ => True

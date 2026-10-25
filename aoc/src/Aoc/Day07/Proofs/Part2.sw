@@ -27,7 +27,7 @@ def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight ls
 -- One row up: a column's count from the counts below, against the
 -- timelines from that column.
 theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (below: Vec Nat w)
-    (ih: (c: Nat) -> Vec.getOr below 1 c = List.length (timelinesFrom (r + 1) c rest)):
+    (ih: (c: Nat) → Vec.getOr below 1 c = List.length (timelinesFrom (r + 1) c rest)):
     (if splitterAt l c then Vec.getOr (VCons 1 below) 1 c + Vec.getOr below 1 (Succ c) else Vec.getOr below 1 c)
       = List.length (timelinesFrom r c (Cons l rest)) :=
   match e: splitterAt l c with
@@ -38,7 +38,7 @@ theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (b
     | False => ih c
 
 -- Every column's count is the number of timelines from it.
-theorem countsAre (w: Nat): (ls: List (Vec Bool w)) -> (r: Nat) -> (c: Nat) ->
+theorem countsAre (w: Nat): (ls: List (Vec Bool w)) → (r: Nat) → (c: Nat) →
     Vec.getOr (countsBelow w ls) 1 c = List.length (timelinesFrom r c ls)
   | Nil, r, c => Vec.getOrReplicate 1 w c
   | Cons l rest, r, c =>

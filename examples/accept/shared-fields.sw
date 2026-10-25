@@ -25,7 +25,7 @@ test "full" := Shape.id s == "a"
 
 -- `text` is only `Circle`'s: no `s.text`; match instead (see
 -- examples/reject/shared-field-not-in-every-ctor.sw).
-def textOf: Shape -> Text
+def textOf: Shape → Text
   | Circle { text, .. } => text
   | _ => ""
 
@@ -50,7 +50,7 @@ test "dependent, other order" := (B "q" 0 VNil).tag == "q"
 theorem idCircle: (Circle 1 "a" 0 "t").id = "a" := rfl
 
 -- ...and by cases, against a hand-written function.
-def idOf: Shape -> Text
+def idOf: Shape → Text
   | Dot { id, .. } => id
   | Circle { id, .. } => id
 
@@ -68,7 +68,7 @@ type Evidence (q: Prop): Prop =
 def ev (e: Evidence (1 = 1)): 1 = 1 := e.witness
 
 -- An indexed family gets accessors by the same rule.
-type Fam: Nat -> Type =
+type Fam: Nat → Type =
   | FA (tag: Text): Fam 0
   | FB [n: Nat] (tag: Text) (xs: Fam n): Fam (Succ n)
 
@@ -87,7 +87,7 @@ type V =
   | VA (id: Nat)
   | VB (id: Text)
 
-def V.id: V -> Text
+def V.id: V → Text
   | VA _ => "a"
   | VB t => t
 

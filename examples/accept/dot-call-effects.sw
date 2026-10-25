@@ -23,7 +23,7 @@ def chainInPair (w: Text): {Abort} (Pair Nat Nat) := (1, w.toNat.orAbort)
 test "as an argument" := IO.simulate [] (() => asArgument { v = 4 }) == (["hi"], 5)
 test "after a call" := IO.simulate [] (() => afterCall 4) == (["hi"], 4)
 test "in a sum" := IO.simulate [] (() => inSum 4) == (["hi"], 5)
-test "a chain" := toOption (() => chain "41") == Some 41 && toOption (() => chain "x") == None
+test "a chain" := toOption (() => chain "41") == Some 41 ∧ toOption (() => chain "x") == None
 test "a chain in a sum" := toOption (() => chainInSum "41") == Some 42
 test "a chain in a pair" := toOption (() => chainInPair "2") == Some (1, 2)
 
@@ -32,13 +32,13 @@ test "a chain in a pair" := toOption (() => chainInPair "2") == Some (1, 2)
 -- `let` and in a sum.
 def spaced: Text := " 4 "
 
-test "a literal's dot call, last" := Fail.toResult (() => " 4".toNatOrFail) == Ok 4 && Fail.toResult (() => "x".toNatOrFail) == Err "expected a whole number, got 'x'"
+test "a literal's dot call, last" := Fail.toResult (() => " 4".toNatOrFail) == Ok 4 ∧ Fail.toResult (() => "x".toNatOrFail) == Err "expected a whole number, got 'x'"
 test "as the full-name call" := Fail.toResult (() => " 4".toNatOrFail) == Fail.toResult (() => Text.toNatOrFail " 4")
-test "a literal's chain, with Abort" := toOption (() => "4".toNat.orAbort) == Some 4 && toOption (() => "x".toNat.orAbort) == None
-test "a chain after a pure call" := Fail.toResult (() => spaced.trim.toNatOrFail) == Ok 4 && Fail.toResult (() => " 4 ".trim.toNatOrFail) == Ok 4
+test "a literal's chain, with Abort" := toOption (() => "4".toNat.orAbort) == Some 4 ∧ toOption (() => "x".toNat.orAbort) == None
+test "a chain after a pure call" := Fail.toResult (() => spaced.trim.toNatOrFail) == Ok 4 ∧ Fail.toResult (() => " 4 ".trim.toNatOrFail) == Ok 4
 test "an appended receiver" := Fail.toResult (() => (spaced ++ "2").toNatOrFail) == Err "expected a whole number, got ' 4 2'"
 test "in a let" := Fail.toResult (() =>
   let n := " 4".toNatOrFail
   n + n) == Ok 8
 test "a literal's chain in a sum" := toOption (() => 1 + "41".toNat.orAbort) == Some 42
-test "pure dot calls are values" := " 4".trim == "4" && "4".toNat == Some 4 && 'a'.toText == "a"
+test "pure dot calls are values" := " 4".trim == "4" ∧ "4".toNat == Some 4 ∧ 'a'.toText == "a"

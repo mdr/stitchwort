@@ -55,7 +55,7 @@ theorem gotMissing: [5, 6, 7].get 3 = None := rfl
 
 test "any" := [1, 2, 3].any (x => Nat.equal x 2)
 test "all" := [1, 2, 3].all (x => Nat.leq x 3)
-test "not all" := !([1, 2, 3].all (x => Nat.leq x 2))
+test "not all" := ¬([1, 2, 3].all (x => Nat.leq x 2))
 test "count" := [1, 2, 3, 4].count (x => Nat.leq 3 x) == 2
 
 theorem found: [1, 2, 3].find (x => Nat.leq 2 x) = Some 2 := rfl
@@ -81,7 +81,7 @@ theorem lasted: [1, 2, 3].last = Some 3 := rfl
 theorem lastedEmpty: ([]: List Nat).last = None := rfl
 
 test "elem" := List.elem [1, 2, 3] 2 Nat.decEq
-test "not elem" := !(List.elem [1, 2, 3] 5 Nat.decEq)
+test "not elem" := ¬(List.elem [1, 2, 3] 5 Nat.decEq)
 
 theorem partitioned: [1, 2, 3, 4].partition (x => Nat.leq x 2) = MkPair [1, 2] [3, 4] := rfl
 

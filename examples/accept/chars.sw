@@ -2,11 +2,11 @@
 
 import Std (Char)
 
-def isSome: Option a -> Bool
+def isSome: Option a → Bool
   | None => False
   | Some x => True
 
-def codeOr: Option Char -> Nat
+def codeOr: Option Char → Nat
   | None => 999
   | Some c => Char.toNat c
 

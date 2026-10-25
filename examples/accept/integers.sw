@@ -79,7 +79,7 @@ theorem en12r: Int.mod (Int.NegSucc 0) (Int.OfNat 2) = Int.OfNat 1 := rfl
 
 -- Division needs a proof that the divisor isn't zero; with a local one,
 -- the zero case is handled.
-def safeDiv (a: Int) (d: Int): Int := if h: d != Int.OfNat 0 then Int.div a d else Int.OfNat 0
+def safeDiv (a: Int) (d: Int): Int := if h: d ≠ Int.OfNat 0 then Int.div a d else Int.OfNat 0
 
 theorem safeDivZero: safeDiv (Int.OfNat 7) (Int.OfNat 0) = Int.OfNat 0 := rfl
 

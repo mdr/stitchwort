@@ -10,7 +10,7 @@ import Aoc.Day06.Spec (..)
 import Std (Eq, List, Nat, Text)
 
 -- From column s on, past every line's end, every column is blank.
-theorem blankFrom (lines: List Text): (m: Nat) -> (s: Nat) -> gridWidth lines <= s ->
+theorem blankFrom (lines: List Text): (m: Nat) → (s: Nat) → gridWidth lines ≤ s →
     List.all ((List.rangeFrom m s).map (column lines)) isBlank = True
   | Zero, s, h => rfl
   | Succ m, s, h =>
@@ -18,7 +18,7 @@ theorem blankFrom (lines: List Text): (m: Nat) -> (s: Nat) -> gridWidth lines <=
       blankFrom lines m (Succ s) (omega)
 
 -- The blocks, read over any number of columns from the widest line's length on.
-theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines <= n):
+theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines ≤ n):
     blocks lines = List.splitBy ((List.range n).map (column lines)) isBlank :=
   calc blocks lines
     _ = List.splitBy ((List.range (gridWidth lines)).map (column lines)) isBlank := rewrite columnsAre lines
@@ -29,7 +29,7 @@ theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines <= n):
 
 -- Two worksheets with the same cells, column by column, parse to the same
 -- problems, whatever their lines' lengths.
-theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c: Nat) -> column other c = column lines c):
+theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c: Nat) → column other c = column lines c):
     parseWorksheet other = parseWorksheet lines :=
   rewrite blocksOver other (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxRight (gridWidth lines) (gridWidth other)),
     blocksOver lines (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxLeft (gridWidth lines) (gridWidth other)),
@@ -37,7 +37,7 @@ theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c:
 
 -- So spaces on the end of the lines, `spaces line` of them on each, change no
 -- problem: a short line reads as ending in spaces.
-theorem parseWorksheetPadded (lines: List Text) (spaces: Text -> Nat):
+theorem parseWorksheetPadded (lines: List Text) (spaces: Text → Nat):
     parseWorksheet (lines.map (line => line ++ Text.fromList (List.replicate (spaces line) ' '))) = parseWorksheet lines :=
   parseWorksheetSameCells lines _ (c =>
     rewrite List.mapMap lines (line => charAt line c) (line => line ++ Text.fromList (List.replicate (spaces line) ' ')),
