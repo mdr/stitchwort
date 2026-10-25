@@ -30,6 +30,10 @@ pub enum RunError {
     /// The program couldn't be lowered for the machine (`E-RESOURCE` for
     /// nesting too deep, or an internal error). Only the machine reports it.
     Lowering(Diagnostic),
+    /// The program printed more than `max` bytes, its output limit: in the
+    /// whole run, or since it last waited for input (a live run's
+    /// [`crate::run::LimitScope`]).
+    OutputLimit { max: usize },
     /// `main` failed with this message, and nothing handled it
     /// (`Fail`, docs/proposals/errors.md §3.5). The runner reports it as
     /// `error: <msg>` and exits with 1; it is not a runtime error.
@@ -48,6 +52,9 @@ impl fmt::Display for RunError {
             RunError::Write(e) => write!(f, "can't write standard output: {e}"),
             RunError::Terminal(e) => write!(f, "can't change the terminal's settings: {e}"),
             RunError::Lowering(d) => write!(f, "{}", d.message),
+            RunError::OutputLimit { max } => {
+                write!(f, "the program printed more than {max} bytes, its limit")
+            }
             RunError::Failed(msg) => write!(f, "{msg}"),
         }
     }
@@ -66,6 +73,8 @@ impl RunError {
                 .with_label(main, "while running this program")
                 .with_note(format!("the recursion was deepest in {report}")),
             RunError::Lowering(d) => d.clone(),
+            RunError::OutputLimit { .. } => Diagnostic::error("E-OUTPUT", self.to_string())
+                .with_label(main, "while running this program"),
             RunError::Failed(msg) => Diagnostic::error("E-FAIL", msg.clone()),
             _ => Diagnostic::error("E-IO", self.to_string()),
         }
@@ -124,6 +133,16 @@ pub trait Terminal {
     /// writes. `output` is the program's own, so the setup lands in order
     /// with what the program printed.
     fn keys_mode(&mut self, on: bool, output: &mut dyn Write) -> Result<(), RunError>;
+}
+
+impl<T: Terminal + ?Sized> Terminal for &mut T {
+    fn console(&mut self) -> ConsoleInfo {
+        (**self).console()
+    }
+
+    fn keys_mode(&mut self, on: bool, output: &mut dyn Write) -> Result<(), RunError> {
+        (**self).keys_mode(on, output)
+    }
 }
 
 /// A host without a terminal: `IO.console` says neither side is one, with

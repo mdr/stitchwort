@@ -132,10 +132,28 @@ struct State {
     deepest: Vec<(u32, usize)>,
 }
 
+/// The program a machine runs: borrowed, or shared with whatever else holds
+/// it (a live run that outlives its caller's borrow, [`crate::run::LiveRun`]).
+enum Held<'p> {
+    Borrowed(&'p Program),
+    Shared(Rc<Program>),
+}
+
+impl std::ops::Deref for Held<'_> {
+    type Target = Program;
+
+    fn deref(&self) -> &Program {
+        match self {
+            Held::Borrowed(program) => program,
+            Held::Shared(program) => program,
+        }
+    }
+}
+
 /// A program, compiled, with its state between runs (the constants
 /// computed so far).
 pub struct Machine<'p> {
-    program: &'p Program,
+    program: Held<'p>,
     image: Image,
     st: State,
 }
@@ -147,9 +165,18 @@ type Pending = Option<(Value, Ret)>;
 
 impl<'p> Machine<'p> {
     pub fn new(program: &'p Program, limits: Limits) -> Machine<'p> {
+        Machine::holding(Held::Borrowed(program), limits)
+    }
+
+    /// [`Machine::new`] for a program it shares, so it borrows nothing.
+    pub fn shared(program: Rc<Program>, limits: Limits) -> Machine<'static> {
+        Machine::holding(Held::Shared(program), limits)
+    }
+
+    fn holding(program: Held<'p>, limits: Limits) -> Machine<'p> {
+        // Built before `program` moves in.
         Machine {
-            program,
-            image: compile(program),
+            image: compile(&program),
             st: State {
                 regs: Vec::new(),
                 frames: Vec::new(),
@@ -161,6 +188,7 @@ impl<'p> Machine<'p> {
                 native: None,
                 deepest: Vec::new(),
             },
+            program,
         }
     }
 
@@ -179,7 +207,7 @@ impl<'p> Machine<'p> {
     /// since a computation may be a `Bind` node.
     pub fn step_comp(&mut self, c: Value) -> Result<Value> {
         let pending = self.st.eff_run(
-            self.program,
+            &self.program,
             &self.image,
             c,
             Value::Erased,
@@ -233,8 +261,8 @@ impl<'p> Machine<'p> {
     }
 
     /// The program it runs.
-    pub fn program(&self) -> &'p Program {
-        self.program
+    pub fn program(&self) -> &Program {
+        &self.program
     }
 
     /// Starts a new stretch of steps (after an operation or a tick).
@@ -262,20 +290,22 @@ impl<'p> Machine<'p> {
                     .push(&self.image, code, Vec::new(), None, Ret::ConstHost(g.0));
                 self.finish(pushed.map(|()| None))
             }
-            _ => Ok(self.st.function_value(self.program, g.0)),
+            _ => Ok(self.st.function_value(&self.program, g.0)),
         }
     }
 
     /// `f` applied to `args`.
     pub fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value> {
-        let pending = self.st.apply(self.program, &self.image, f, args, Ret::Host);
+        let pending = self
+            .st
+            .apply(&self.program, &self.image, f, args, Ret::Host);
         self.finish(pending)
     }
 
     /// Runs until the host gets a value; on an error, the pending frames
     /// are dropped.
     fn finish(&mut self, pending: Result<Pending>) -> Result<Value> {
-        let result = pending.and_then(|p| run(self.program, &self.image, &mut self.st, p));
+        let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
         if result.is_err() {
             self.st.frames.clear();
             self.st.regs.clear();
