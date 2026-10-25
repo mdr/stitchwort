@@ -3174,14 +3174,16 @@
     {
       "id": 498,
       "title": "Terminal lane 3: Node raw mode for run --js (after lane 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "9de20904"
+      ]
     },
     {
       "id": 499,
