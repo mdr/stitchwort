@@ -2832,14 +2832,16 @@
     {
       "id": 474,
       "title": "Fix 5 tests left failing on main by 25 Oct merges (effect_runtime known calls, extract dictionary.js, rt lower natives, goal examples, navigation project refs)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "b5a1db0c"
+      ]
     }
   ]
 }
