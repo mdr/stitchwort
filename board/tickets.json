@@ -2952,14 +2952,16 @@
     {
       "id": 482,
       "title": "Design: handlers may wrap Partial code, result marked Partial (D1249); unblocks Terminal as a library ability (D1246) and partial game loops in tests",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "cefc37e6"
+      ]
     },
     {
       "id": 483,
