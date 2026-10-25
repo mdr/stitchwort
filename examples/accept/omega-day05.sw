@@ -46,11 +46,11 @@ theorem absorbStacked (r: Range): (merged: List Range) -> LoAtMost r.from merged
               | False => omega [b id h])
           (Both b rest)
 
-theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft (m r => Nat.max m r.to) z
+theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft z (m r => Nat.max m r.to)
   | z, Nil => Nat.leRefl z
   | z, Cons r rs => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
 
-theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft (m r => Nat.max m r.to) z
+theorem coveredTop: (z: Nat) -> (rs: List Range) -> (id: Nat) -> covered rs id = True -> id <= rs.foldLeft z (m r => Nat.max m r.to)
   | z, Nil, id, h => Void.exfalso (Bool.falseNotTrue h)
   | z, Cons r rs, id, h =>
     match e: r.contains id with

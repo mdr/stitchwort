@@ -15,7 +15,7 @@ def move (p: Point): Move -> Point
   | East => { p | x = p.x + 1 }
   | West => { p | x = p.x - 1 }
 
-def walk (p: Point) (ms: List Move): Point := ms.foldLeft move p
+def walk (p: Point) (ms: List Move): Point := ms.foldLeft p move
 
 -- Manhattan distance from the origin: `Int.natAbs` drops the sign.
 def distance (p: Point): Nat := Int.natAbs p.x + Int.natAbs p.y

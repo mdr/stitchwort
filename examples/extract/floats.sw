@@ -41,4 +41,4 @@ export def firstOf: List Float -> Option Float
   | Nil => None
   | Cons x xs => Some x
 
-export def magnitudes (xs: List Float): List Float := List.map Float.abs xs
+export def magnitudes (xs: List Float): List Float := List.map xs Float.abs

@@ -7,11 +7,11 @@ theorem mapped: [1, 2, 3].map (x => x + 1) = [2, 3, 4] := rfl
 
 theorem filtered: [1, 2, 3, 4].filter (x => Nat.leq x 2) = [1, 2] := rfl
 
-theorem folded: [1, 2, 3].foldLeft (acc x => acc * 10 + x) 0 = 123 := rfl
+theorem folded: [1, 2, 3].foldLeft 0 (acc x => acc * 10 + x) = 123 := rfl
 
-theorem scanned: [1, 2, 3].scanLeft (acc x => acc + x) 0 = [0, 1, 3, 6] := rfl
+theorem scanned: [1, 2, 3].scanLeft 0 (acc x => acc + x) = [0, 1, 3, 6] := rfl
 
-theorem foldedRight: [1, 2, 3].foldRight (x acc => acc * 10 + x) 0 = 321 := rfl
+theorem foldedRight: [1, 2, 3].foldRight 0 (x acc => acc * 10 + x) = 321 := rfl
 
 theorem summed: [1, 2, 3, 4].sum = 10 := rfl
 
@@ -29,17 +29,17 @@ theorem minimumEmpty: List.minimum ([]: List Nat) = None := rfl
 
 theorem zipped: [1, 2, 3].zip [4, 5] = [MkPair 1 4, MkPair 2 5] := rfl
 
-theorem zippedWith: [1, 2, 3].zipWith (x y => x + y) [10, 20, 30] = [11, 22, 33] := rfl
+theorem zippedWith: [1, 2, 3].zipWith [10, 20, 30] (x y => x + y) = [11, 22, 33] := rfl
 
-theorem zippedWith3: [1, 2, 3].zipWith3 (x y z => x + y + z) [10, 20, 30] [100, 200, 300] = [111, 222, 333] := rfl
+theorem zippedWith3: [1, 2, 3].zipWith3 [10, 20, 30] [100, 200, 300] (x y z => x + y + z) = [111, 222, 333] := rfl
 
-theorem zippedWith3ShortFirst: ([]: List Nat).zipWith3 (x y z => x + y + z) [10, 20] [100, 200] = [] := rfl
+theorem zippedWith3ShortFirst: ([]: List Nat).zipWith3 [10, 20] [100, 200] (x y z => x + y + z) = [] := rfl
 
-theorem zippedWith3ShortMiddle: [1, 2].zipWith3 (x y z => x + y + z) [10] [100, 200] = [111] := rfl
+theorem zippedWith3ShortMiddle: [1, 2].zipWith3 [10] [100, 200] (x y z => x + y + z) = [111] := rfl
 
-theorem zippedWith3ShortLast: [1, 2].zipWith3 (x y z => x + y + z) [10, 20] [100] = [111] := rfl
+theorem zippedWith3ShortLast: [1, 2].zipWith3 [10, 20] [100] (x y z => x + y + z) = [111] := rfl
 
-theorem zippedWith3Empty: ([]: List Nat).zipWith3 (x y z => x + y + z) ([]: List Nat) ([]: List Nat) = [] := rfl
+theorem zippedWith3Empty: ([]: List Nat).zipWith3 ([]: List Nat) ([]: List Nat) (x y z => x + y + z) = [] := rfl
 
 theorem taken: [1, 2, 3].take 2 = [1, 2] := rfl
 
@@ -80,14 +80,14 @@ theorem lasted: [1, 2, 3].last = Some 3 := rfl
 
 theorem lastedEmpty: ([]: List Nat).last = None := rfl
 
-test "elem" := List.elem Nat.decEq 2 [1, 2, 3]
-test "not elem" := !(List.elem Nat.decEq 5 [1, 2, 3])
+test "elem" := List.elem [1, 2, 3] 2 Nat.decEq
+test "not elem" := !(List.elem [1, 2, 3] 5 Nat.decEq)
 
 theorem partitioned: [1, 2, 3, 4].partition (x => Nat.leq x 2) = MkPair [1, 2] [3, 4] := rfl
 
-theorem looked: List.lookup Nat.decEq 2 [MkPair 1 10, MkPair 2 20] = Some 20 := rfl
+theorem looked: List.lookup [MkPair 1 10, MkPair 2 20] 2 Nat.decEq = Some 20 := rfl
 
-theorem lookedMissing: List.lookup Nat.decEq 3 [MkPair 1 10, MkPair 2 20] = None := rfl
+theorem lookedMissing: List.lookup [MkPair 1 10, MkPair 2 20] 3 Nat.decEq = None := rfl
 
 test "min" := Nat.min 3 5 == 3
 test "max" := Nat.max 3 5 == 5

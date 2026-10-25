@@ -12,16 +12,16 @@ theorem sortsEmpty: List.sort ([]: List Nat) = [] := rfl
 theorem sortsDot: [2, 1].sort = [1, 2] := rfl
 
 -- Descending, by flipping the test.
-theorem sortsDescending: List.sortWith (x y => Nat.leq y x) [1, 3, 2] = [3, 2, 1] := rfl
+theorem sortsDescending: List.sortWith [1, 3, 2] (x y => Nat.leq y x) = [3, 2, 1] := rfl
 
 -- By a key. The sort is stable: pairs with equal keys keep their order.
 def byKey (p: Pair Nat Text) (q: Pair Nat Text): Ordering := Nat.compare p.fst q.fst
 
 test "sorts by key, stably" :=
-  List.map Pair.snd (List.sortBy byKey [(2, "b"), (1, "x"), (2, "a"), (0, "z"), (1, "y")])
+  List.map (List.sortBy [(2, "b"), (1, "x"), (2, "a"), (0, "z"), (1, "y")] byKey) Pair.snd
     == ["z", "x", "y", "b", "a"]
 
-test "sorts texts" := List.sortBy Text.compare ["pear", "apple", "fig"] == ["apple", "fig", "pear"]
+test "sorts texts" := List.sortBy ["pear", "apple", "fig"] Text.compare == ["apple", "fig", "pear"]
 
 test "sorts many numbers" :=
   ((List.range 300).map (i => (i * 7919 + 13) % 1009)).sort
@@ -40,4 +40,4 @@ theorem keepsThrees (xs: List Nat): (xs.sort).occurrences (Nat.equal 3) = xs.occ
 theorem keepsLength (xs: List Nat): (xs.sort).length = xs.length := (xs.sort).permLength xs (xs.sortPerm)
 
 -- `List.sortBy` is sorted given a total comparison; `Nat.compare` on keys is.
-theorem byKeySorted (ps: List (Pair Nat Text)): List.Sorted (p q => Ordering.isLessEq (byKey p q)) (ps.sortBy byKey) := ps.sortBySorted byKey (p q => Nat.compareTotal p.fst q.fst)
+theorem byKeySorted (ps: List (Pair Nat Text)): List.Sorted (p q => Ordering.isLessEq (byKey p q)) (ps.sortBy byKey) := List.sortBySorted byKey (p q => Nat.compareTotal p.fst q.fst) ps

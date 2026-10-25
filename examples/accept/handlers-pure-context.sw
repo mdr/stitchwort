@@ -10,7 +10,7 @@ def half (n: Nat): {Abort} Nat := if n % 2 == 0 then n / 2 else Abort.abort()
 def halfOrFail (n: Nat): {Fail} Nat := if n % 2 == 0 then n / 2 else Fail.fail "odd"
 
 def halveTwice (first: () -> {Abort} Nat): Option Nat :=
-  Option.flatMap (x => Abort.toOption (() => half x)) (Abort.toOption first)
+  Option.flatMap (Abort.toOption first) (x => Abort.toOption (() => half x))
 
 test "nested handlers, both succeed" := halveTwice (() => half 8) == Some 2
 
@@ -51,7 +51,7 @@ test "a handler matched on" := halvedCount [2, 4] == 2
 -- The reviewer's probe for the case stage 3 excluded handlers for.
 theorem thenLaw (first: () -> {Abort} a) (rest: a -> {Abort} b):
     Abort.toOption (() => rest (first ())) =
-      Option.flatMap (x => Abort.toOption (() => rest x)) (Abort.toOption first) :=
+      Option.flatMap (Abort.toOption first) (x => Abort.toOption (() => rest x)) :=
   match reify first with
     | return x => rfl
     | Abort.stop (), _ => rfl

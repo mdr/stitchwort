@@ -25,7 +25,7 @@ test "length" := "hello".length == 5
 test "empty" := "".isEmpty
 test "not empty" := not (" ".isEmpty)
 test "escapes" := "\n\t\\\"\'".length == 5
-test "fold" := "ab".fold (c n => Char.toNat c + n) 0 == 195
+test "fold" := "ab".fold 0 (c n => Char.toNat c + n) == 195
 
 def unconsCode: Option (Pair Char Text) -> Nat
   | None => 0
@@ -96,11 +96,11 @@ test "split empty" := eqTexts ("".split ',') [""]
 test "split separator only" := eqTexts (",".split ',') ["", ""]
 test "split at the ends" := eqTexts (",a,".split ',') ["", "a", ""]
 test "split without separator" := eqTexts ("abc".split ',') ["abc"]
-test "join" := Text.join '-' ["a", "", "b"] == "a--b"
-test "join nothing" := Text.join '-' [] == ""
+test "join" := Text.join ["a", "", "b"] '-' == "a--b"
+test "join nothing" := Text.join [] '-' == ""
 
 -- Proved for every text, in the prelude.
-theorem joinSplit: Text.join ',' ("a,,b".split ',') = "a,,b" := Text.joinSplit ',' "a,,b"
+theorem joinSplit: Text.join ("a,,b".split ',') ',' = "a,,b" := Text.joinSplit "a,,b" ','
 
 theorem roundTrip (t: Text): Text.fromList (Text.toList t) = t := Text.fromToList t
 

@@ -76,7 +76,7 @@ test "box nested" := ({ item = { item = 7 } }: Box (Box Nat)).item.item == 7
 test "box list" := ({ item = [1, 2] }: Box (List Nat)).item.length == 2
 test "shape" := area (Circle ({ n = 2 })) == 12 && area (Square ({ n = 3 })) == 9
 test "maybe" := orZero { inner = None } == 0 && orZero { inner = Some 4 } == 4
-test "constructor as function" := (List.map (x => ({ n = x }: Count)) [1, 2, 3]) == [{ n = 1 }, { n = 2 }, { n = 3 }]
+test "constructor as function" := (List.map [1, 2, 3] (x => ({ n = x }: Count))) == [{ n = 1 }, { n = 2 }, { n = 3 }]
 test "no field" := wrapped.n == 3
 test "two fields" := ({ a = 1, b = "x" }: Pair2) == { a = 1, b = "x" }
 test "map of records" := (Map.fromList [(1, ({ n = 5 }: Count))]).get 1 == Some ({ n = 5 })
@@ -91,7 +91,7 @@ def main(): {IO} () :=
   IO.print "${(bump { n = 1 }) == { n = 2 }}"
   IO.print "${Ord.compare ({ n = 1 }: Count) { n = 2 }}"
   IO.print "${List.sort counts}"
-  IO.print "${List.map bump counts}"
+  IO.print "${List.map counts bump}"
   IO.print "-- proofs"
   IO.print "${two}"
   IO.print "${two == four} ${two.value}"

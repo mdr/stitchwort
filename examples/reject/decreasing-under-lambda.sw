@@ -7,4 +7,4 @@ import Std (List, Nat)
 def weight (n: Nat): Nat
   decreasing n
 :=
-  1 + List.sum (List.map (d => weight d) (List.range n))
+  1 + List.sum (List.map (List.range n) (d => weight d))

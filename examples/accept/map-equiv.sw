@@ -50,7 +50,7 @@ theorem functionsExt (m: Map Nat (Nat -> Nat)) (n: Map Nat (Nat -> Nat)) (h: (ke
 -- `filter` keeps the entries for which the test holds, in key order.
 theorem filterInOrder (m: Map Nat Nat):
     (m.filter (key value => value > 2)).toList = m.toList.filter (e => e.snd > 2) :=
-  Map.toListFilterList (key value => value > 2) m
+  Map.toListFilterList m (key value => value > 2)
 
 -- Closed maps: `toList` computes, so `rfl` proves them equal, and `==`
 -- computes too.

@@ -110,4 +110,4 @@ def collect (f: () -> {Log | e} a): {e} Pair (List Text) a :=
       let r := k()
       MkPair (Cons t (Pair.fst r)) (Pair.snd r)
 
-test "order" := Text.join (',') (Pair.fst (collect both)) == "pick a,sfx !,shout a"
+test "order" := Text.join (Pair.fst (collect both)) (',') == "pick a,sfx !,shout a"

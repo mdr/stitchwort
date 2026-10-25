@@ -36,20 +36,20 @@ type Person = { name: Text, age: Nat }
 type Roster = { title: Text, people: Map Text Person }
 
 -- A map in, a number out.
-export def total (scores: Map Text Nat): Nat := Map.foldLeft (acc _ n => acc + n) 0 scores
+export def total (scores: Map Text Nat): Nat := Map.foldLeft scores 0 (acc _ n => acc + n)
 
 -- A map in and out.
-export def bump (scores: Map Text Nat) (who: Text): Map Text Nat := Map.insertWith Nat.add who 1 scores
+export def bump (scores: Map Text Nat) (who: Text): Map Text Nat := Map.insertWith scores who 1 Nat.add
 
 export def keysOf (scores: Map Text Nat): List Text := Map.keys scores
 
-export def lookup (scores: Map Text Nat) (who: Text): Option Nat := Map.get who scores
+export def lookup (scores: Map Text Nat) (who: Text): Option Nat := Map.get scores who
 
 -- Records as values: `{ readonly [k: string]: Person }`.
-export def ages (people: Map Text Person): Map Text Nat := Map.map (p => p.age) people
+export def ages (people: Map Text Person): Map Text Nat := Map.map people (p => p.age)
 
 -- A map of maps.
-export def nested (groups: Map Text (Map Text Nat)): Map Text Nat := Map.map total groups
+export def nested (groups: Map Text (Map Text Nat)): Map Text Nat := Map.map groups total
 
 export def merge (a: Map Text Nat) (b: Map Text Nat): Map Text Nat := Map.union a b
 
@@ -64,7 +64,7 @@ export def lists (m: Map Text (List Nat)): Map Text (List Nat) := m
 
 -- Words by first letter.
 export def grouped (words: List Text): Map Text (List Text) :=
-  List.foldLeft (m w => if Text.isEmpty w then m else Map.insertWith List.append (Text.take 1 w) [w] m) Map.empty words
+  List.foldLeft words Map.empty (m w => if Text.isEmpty w then m else Map.insertWith m (Text.take w 1) [w] List.append)
 
 -- A record with a map in a field.
 export def roster (r: Roster): Roster := r

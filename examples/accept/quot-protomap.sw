@@ -32,10 +32,10 @@ def ProtoMap.empty [auto ord: Ord k]: ProtoMap k v := ProtoMap.ofMap Map.Raw.emp
 
 def ProtoMap.toList (m: ProtoMap k v [ord := o]): List (k, v) := Quot.lift Map.Raw.toList (a b same => same) m.raw
 
-def ProtoMap.get [auto ord: Ord k] (key: k) (m: ProtoMap k v): Option v :=
+def ProtoMap.get [auto ord: Ord k] (m: ProtoMap k v) (key: k): Option v :=
   Quot.lift (Map.Raw.get key) (a b same => Map.Raw.getRespects key a b same) m.raw
 
-def ProtoMap.insert [auto ord: Ord k] (key: k) (value: v) (m: ProtoMap k v): ProtoMap k v :=
+def ProtoMap.insert [auto ord: Ord k] (m: ProtoMap k v) (key: k) (value: v): ProtoMap k v :=
   { raw = Quot.lift
     (r => (Quot.mk (Map.Raw.insert key value r): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.insertRespects key value a b same))
@@ -82,20 +82,20 @@ theorem ProtoMap.toListSorted: (m: ProtoMap k v [ord := o]) -> Map.Spec.Sorted o
   | { raw = q } =>
     Quot.ind [p := q' => Map.Spec.Sorted o (ProtoMap.toList { raw = q' })] (a => Map.Raw.toListSorted a) q
 
-theorem ProtoMap.getToList (key: k):
-    (m: ProtoMap k v [ord := o]) -> ProtoMap.get key m = Map.Tree.lookupList key (ProtoMap.toList m)
-  | { raw = q } =>
+theorem ProtoMap.getToList:
+    (m: ProtoMap k v [ord := o]) -> (key: k) -> ProtoMap.get m key = Map.Tree.lookupList key (ProtoMap.toList m)
+  | { raw = q }, key =>
     Quot.ind
-      [p := q' => ProtoMap.get key { raw = q' } = Map.Tree.lookupList key (ProtoMap.toList { raw = q' })]
+      [p := q' => ProtoMap.get { raw = q' } key = Map.Tree.lookupList key (ProtoMap.toList { raw = q' })]
       (a => Map.Raw.getToList key a)
       q
 
 -- Maps that agree on every key are equal, whatever their values' type.
 theorem ProtoMap.ext (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o])
-    (h: (key: k) -> ProtoMap.get key m = ProtoMap.get key n): m = n :=
+    (h: (key: k) -> ProtoMap.get m key = ProtoMap.get n key): m = n :=
   ProtoMap.toListInjective m n
     (Map.Spec.extLookup None (ProtoMap.toList m) (ProtoMap.toList n) (ProtoMap.toListSorted m) (ProtoMap.toListSorted n)
-      (key => Eq.trans (Eq.sym (ProtoMap.getToList key m)) (Eq.trans (h key) (ProtoMap.getToList key n))))
+      (key => Eq.trans (Eq.sym (ProtoMap.getToList m key)) (Eq.trans (h key) (ProtoMap.getToList n key))))
 
 -- `==`: compare the entry lists. The branch is chosen by the list
 -- comparison; `Quot.sound` is only inside the `Yes` proof.
@@ -174,7 +174,7 @@ def fns2: ProtoMap Nat (Nat -> Nat) := (ProtoMap.empty.insert 2 double).insert 1
 theorem functionMapsEqual: fns1 = fns2 := ProtoMap.toListInjective fns1 fns2 rfl
 
 theorem functionMapsExt (m: ProtoMap Nat (Nat -> Nat)) (n: ProtoMap Nat (Nat -> Nat))
-    (h: (key: Nat) -> ProtoMap.get key m = ProtoMap.get key n): m = n :=
+    (h: (key: Nat) -> ProtoMap.get m key = ProtoMap.get n key): m = n :=
   ProtoMap.ext m n h
 
 theorem functionMapsByEntries (m: ProtoMap Nat (Nat -> Nat)) (n: ProtoMap Nat (Nat -> Nat))
@@ -182,14 +182,14 @@ theorem functionMapsByEntries (m: ProtoMap Nat (Nat -> Nat)) (n: ProtoMap Nat (N
   ProtoMap.toListInjective m n h
 
 -- 4. Ordinary computation survives: lifted operations reduce in the kernel.
-theorem getComputes: ProtoMap.get 2 backwards = Some "b" := rfl
-theorem getMissing: ProtoMap.get 7 backwards = None := rfl
+theorem getComputes: ProtoMap.get backwards 2 = Some "b" := rfl
+theorem getMissing: ProtoMap.get backwards 7 = None := rfl
 theorem insertComputes: ProtoMap.toList (backwards.insert 5 "e") = [(1, "a"), (2, "b"), (3, "c"), (4, "d"), (5, "e")] := rfl
 theorem sizeComputes: ProtoMap.size (backwards.insert 5 "e") = 5 := rfl
 theorem sizeAfterReplace: ProtoMap.size changed = 4 := rfl
 theorem foldComputes: ProtoMap.foldLeft (total key value => total + key) 0 backwards = 10 := rfl
 theorem emptyComputes: ProtoMap.isEmpty (ProtoMap.empty: ProtoMap Nat Text) = True := rfl
-theorem functionValueComputes: (match ProtoMap.get 2 fns1 with | Some f => f 5 | None => 0) = 10 := rfl
+theorem functionValueComputes: (match ProtoMap.get fns1 2 with | Some f => f 5 | None => 0) = 10 := rfl
 
 -- `Ord`: by entry lists.
 theorem compareComputes: ProtoMap.compare forwards changed = Greater := rfl
@@ -227,7 +227,7 @@ def main(): {IO} () :=
   IO.print (if nested1 == nested2 && !(nested1 == nested3) then "True" else "False")
   IO.print (describe changed)
   IO.print (Nat.toText (ProtoMap.size (changed.insert 9 "z")))
-  IO.print (match ProtoMap.get 2 fns2 with
+  IO.print (match ProtoMap.get fns2 2 with
     | Some f => Nat.toText (f 21)
     | None => "none"
   )

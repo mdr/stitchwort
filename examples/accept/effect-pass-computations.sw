@@ -106,11 +106,11 @@ theorem runPureBindHere [a b: Type]:
 
 -- `map` with a pure function, run as a computation, is `map`: the proof uses the library's
 -- `runPureBind` on the stuck `map f xs` (probe 3 of the note).
-theorem runMapIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.map f xs) = List.map f xs
+theorem runMapIsMap (f: Nat -> Nat): (xs: List Nat) -> Effect.runPure (List.map xs f) = List.map xs f
   | Nil => rfl
   | Cons x xs =>
     Eq.trans
-      (Effect.runPureBind (List.map f xs) (rest => Done (Cons (f x) rest)))
+      (Effect.runPureBind (List.map xs f) (rest => Done (Cons (f x) rest)))
       (Eq.cong (Cons (f x)) (runMapIsMap f xs))
 
 -- Dot notation on a call whose declared result is the nickname: the

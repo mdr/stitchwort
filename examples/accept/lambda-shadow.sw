@@ -6,10 +6,10 @@
 import List (map)
 import Std (List)
 
-def shadowed: (Nat -> Nat) -> List Nat -> List Nat := map xs => List.map map xs
+def shadowed: (Nat -> Nat) -> List Nat -> List Nat := map xs => List.map xs map
 
-def renamed: (Nat -> Nat) -> List Nat -> List Nat := f xs => List.map f xs
+def renamed: (Nat -> Nat) -> List Nat -> List Nat := f xs => List.map xs f
 
-def bracketed (xs: List Nat): List Nat := map (x => x + 1) xs
+def bracketed (xs: List Nat): List Nat := map xs (x => x + 1)
 
 test "the lambdas mean what they say" := shadowed (x => x + 1) [1, 2] == bracketed [1, 2] && renamed (x => x + 1) [1, 2] == [2, 3]

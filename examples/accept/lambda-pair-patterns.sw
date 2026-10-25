@@ -7,10 +7,10 @@ import Std (List)
 
 type Point = { x: Nat, y: Nat }
 
-def weighted (xs: List (Nat, Nat)): Nat := xs.foldLeft (acc (k, v) => acc + k * v) 0
+def weighted (xs: List (Nat, Nat)): Nat := xs.foldLeft 0 (acc (k, v) => acc + k * v)
 
 -- The same lambda written in a different definition.
-def weightedAgain (xs: List (Nat, Nat)): Nat := xs.foldLeft (acc (k, v) => acc + k * v) 0
+def weightedAgain (xs: List (Nat, Nat)): Nat := xs.foldLeft 0 (acc (k, v) => acc + k * v)
 
 theorem sameLambda (xs: List (Nat, Nat)): weighted xs = weightedAgain xs := rfl
 
@@ -22,9 +22,9 @@ theorem stepOnPair (acc: Nat) (p: (Nat, Nat)):
 theorem weightedNil: weighted [] = 0 := rfl
 
 -- Nested tuples and records.
-def nested (xs: List ((Nat, Nat), Nat)): Nat := xs.foldLeft (acc ((a, b), c) => acc + a + b + c) 0
+def nested (xs: List ((Nat, Nat), Nat)): Nat := xs.foldLeft 0 (acc ((a, b), c) => acc + a + b + c)
 
-def pointSum (ps: List Point): Nat := ps.foldLeft (acc { x, y } => acc + x + y) 0
+def pointSum (ps: List Point): Nat := ps.foldLeft 0 (acc { x, y } => acc + x + y)
 
 theorem nestedStep (acc: Nat) (t: ((Nat, Nat), Nat)):
     ((s ((a, b), c) => s + a + b + c): Nat -> ((Nat, Nat), Nat) -> Nat) acc t

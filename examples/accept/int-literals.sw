@@ -44,7 +44,7 @@ def intDiff: Int :=
 
 theorem intDiffNeg: intDiff = -2 := rfl
 
-def doubled: List Nat := List.map (x => x + 1) [1, 2]
+def doubled: List Nat := List.map [1, 2] (x => x + 1)
 
 -- A leaf without literals decides, wherever it is in the group.
 def addOne (x: Int): Int := x + 1

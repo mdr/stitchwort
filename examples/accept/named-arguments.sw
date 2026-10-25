@@ -107,7 +107,7 @@ type Point = { x: Nat, y: Nat }
 def Point.scale (point: Point) (by: Nat) (plus: Nat): Point :=
   { x = point.x * by + plus, y = point.y * by + plus }
 
-def Point.shift (dx: Nat) (dy: Nat) (point: Point): Point :=
+def Point.shift (point: Point) (dx: Nat) (dy: Nat): Point :=
   { x = point.x + dx, y = point.y + dy }
 
 def corner: Point := { x = 1, y = 5 }

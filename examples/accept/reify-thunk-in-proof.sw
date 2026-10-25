@@ -5,11 +5,11 @@
 import Std (Fail, Result, List)
 
 theorem succThen (g: Nat -> {Fail} Nat) (n: Nat):
-    Fail.toResult (() => Succ (g n)) = Result.flatMap (x => Fail.toResult (() => Succ x)) (Fail.toResult (() => g n)) :=
+    Fail.toResult (() => Succ (g n)) = Result.flatMap (Fail.toResult (() => g n)) (x => Fail.toResult (() => Succ x)) :=
   Fail.toResultThen (() => g n) (x => Succ x)
 
 theorem mapThen (f: Nat -> {Fail} Nat) (xs: List Nat) (k: List Nat -> {Fail} Nat):
-    Fail.toResult (() => k (xs.map f)) = Result.flatMap (ys => Fail.toResult (() => k ys)) (Fail.toResult (() => xs.map f)) :=
+    Fail.toResult (() => k (xs.map f)) = Result.flatMap (Fail.toResult (() => xs.map f)) (ys => Fail.toResult (() => k ys)) :=
   Fail.toResultThen (() => xs.map f) k
 
 theorem mapToOption (f: Nat -> {Fail} Nat) (xs: List Nat):
@@ -18,8 +18,8 @@ theorem mapToOption (f: Nat -> {Fail} Nat) (xs: List Nat):
 
 -- The same law by `rewrite`, in a longer goal.
 theorem lengthThen (f: Nat -> {Fail} Nat) (xs: List Nat):
-    Result.map List.length (Fail.toResult (() => Cons 0 (xs.map f))) =
-      Result.map List.length (Result.flatMap (ys => Ok (Cons 0 ys)) (Fail.toResult (() => xs.map f))) :=
+    Result.map (Fail.toResult (() => Cons 0 (xs.map f))) List.length =
+      Result.map (Result.flatMap (Fail.toResult (() => xs.map f)) (ys => Ok (Cons 0 ys))) List.length :=
   rewrite Fail.toResultThen (() => xs.map f) (ys => Cons 0 ys) in rfl
 
 -- A thunk whose type mentions its `()` still splits it: the goal becomes
@@ -34,5 +34,5 @@ def thunkSplits: (u: ()) -> unitOnly u := () => 3
 -- law's `t` there. That row turns out empty, so neither move leaves a
 -- trace and the two thunks are one term (SW-424).
 theorem twiceThen (t: () -> {Fail} Nat):
-    Fail.toResult (() => Succ (Succ (t ()))) = Result.flatMap (x => Ok (Succ x)) (Fail.toResult (() => Succ (t ()))) :=
+    Fail.toResult (() => Succ (Succ (t ()))) = Result.flatMap (Fail.toResult (() => Succ (t ()))) (x => Ok (Succ x)) :=
   rewrite Fail.toResultThen (() => Succ (t ())) (x => Succ x) in rfl

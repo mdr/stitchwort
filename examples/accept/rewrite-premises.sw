@@ -1,5 +1,5 @@
 -- A rule's premises, and the facts a congruence lemma gives inside a
--- function. Inside `List.sumBy f (List.range n)` the lemma `rewrite` uses is
+-- function. Inside `List.sumBy (List.range n) f` the lemma `rewrite` uses is
 -- `List.foldLeftCongRange` (`sumBy` computes to a `foldLeft`), which gives
 -- `0 <= x` and `x < 0 + n` about the function's `x`; `…CongMem` lemmas give
 -- `List.Mem x xs`. A premise the rule leaves unknown is proved by a
@@ -13,29 +13,29 @@ theorem swapped (a: Nat) (b: Nat): a + b = b + a :=
   rewrite Nat.addComm
 
 -- `Nat.addSubCancel x n` needs `x <= n`: `omega` proves it from `x < 0 + n`.
-theorem cancelled (n: Nat): List.sumBy (x => x + (n - x)) (List.range n) = List.sumBy (x => n) (List.range n) :=
+theorem cancelled (n: Nat): List.sumBy (List.range n) (x => x + (n - x)) = List.sumBy (List.range n) (x => n) :=
   rewrite Nat.addSubCancel
 
 -- An `auto` argument (`Nat.modSmall`'s `d != 0`) is found once the match has
 -- worked out `d`.
-theorem small (n: Nat): List.sumBy (x => x % Succ n) (List.range n) = List.sumBy (x => x) (List.range n) :=
+theorem small (n: Nat): List.sumBy (List.range n) (x => x % Succ n) = List.sumBy (List.range n) (x => x) :=
   rewrite Nat.modSmall
 
 -- The premise is the fact itself: `List.mapCongMem` gives `List.Mem x xs`.
-theorem fixed (xs: List Nat) (f: Nat -> Nat) (h: (x: Nat) -> List.Mem x xs -> f x = x): List.map (x => f x) xs = List.map (x => x) xs :=
+theorem fixed (xs: List Nat) (f: Nat -> Nat) (h: (x: Nat) -> List.Mem x xs -> f x = x): List.map xs (x => f x) = List.map xs (x => x) :=
   rewrite h
 
 -- A `_` in an argument given explicitly is filled the same way: here by the
 -- fact `List.Mem x xs`.
 theorem bounded (n: Nat) (xs: List Nat) (h: (x: Nat) -> List.Mem x xs -> x <= n):
-    List.map (x => x + (n - x)) xs = List.map (x => n) xs :=
+    List.map xs (x => x + (n - x)) = List.map xs (x => n) :=
   rewrite Nat.addSubCancel _ _ (h _ _)
 
 -- Inside a function where a premise isn't found, the rule isn't used, and a
 -- later rule can do it: the first rule does the run, the second the list.
 theorem both (n: Nat) (xs: List Nat) (h: (x: Nat) -> List.Mem x xs -> x <= n):
-    (List.map (x => x + (n - x)) (List.range n), List.map (x => x + (n - x)) xs)
-      = (List.map (x => n) (List.range n), List.map (x => n) xs) :=
+    (List.map (List.range n) (x => x + (n - x)), List.map xs (x => x + (n - x)))
+      = (List.map (List.range n) (x => n), List.map xs (x => n)) :=
   rewrite Nat.addSubCancel, Nat.addSubCancel _ _ (h _ _)
 
 -- A program's own function, with a congruence lemma that gives facts:

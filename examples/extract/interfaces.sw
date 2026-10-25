@@ -17,7 +17,7 @@ instance Pretty.instNat: Pretty Nat :=
   { pretty = n => if n == 0 then "zero" else "some" }
 
 instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
-  { pretty = xs => "[" ++ Text.join ',' (xs.map Pretty.pretty) ++ "]" }
+  { pretty = xs => "[" ++ Text.join (xs.map Pretty.pretty) ',' ++ "]" }
 
 -- With a law, which is erased.
 interface Ordered (a: Type) = {

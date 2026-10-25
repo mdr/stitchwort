@@ -27,22 +27,22 @@ def weight (n: Nat): Int
   1 - (List.rangeFrom (n - 2) 2 |> .attach |> .sumBy (d =>
     if Nat.divides d.value n then weight d.value [decreasing := belowOfRun d.value n d.isIn] else 0))
 
-test "weights" := List.map weight (List.rangeFrom 11 2) == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
+test "weights" := List.map (List.rangeFrom 11 2) weight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
 theorem weightTwelve: weight 12 = 0 := rfl
 
 -- The equation the compiler proves, on an open `n`: the congruence lemma
 -- `List.sumByCong` works on the attached list as on any other.
 theorem weightStep (n: Nat):
-    weight n = 1 - List.sumBy (d => if Nat.divides d.value n then weight d.value else 0) (List.attach (List.rangeFrom (n - 2) 2)) :=
+    weight n = 1 - List.sumBy (List.attach (List.rangeFrom (n - 2) 2)) (d => if Nat.divides d.value n then weight d.value else 0) :=
   weight.unfold n
 
 -- Once the call is made, the proofs can go: a sum over the attached list
 -- that only looks at the values is the sum over the list.
 theorem weightPlain (n: Nat):
-    weight n = 1 - List.sumBy (d => if Nat.divides d n then weight d else 0) (List.rangeFrom (n - 2) 2) :=
+    weight n = 1 - List.sumBy (List.rangeFrom (n - 2) 2) (d => if Nat.divides d n then weight d else 0) :=
   Eq.trans (weight.unfold n)
-    (Eq.cong (Int.sub 1) (List.sumByAttach (d => if Nat.divides d n then weight d else 0) (List.rangeFrom (n - 2) 2)))
+    (Eq.cong (Int.sub 1) (List.sumByAttach (List.rangeFrom (n - 2) 2) (d => if Nat.divides d n then weight d else 0)))
 
 -- A record pattern in the lambda: the number of chains n, d1, d2, …, each a
 -- divisor of the one before and smaller than it. `isIn` is named in the
@@ -53,16 +53,16 @@ def chains (n: Nat): Nat
   1 + (List.range n |> .attach |> .sumBy (({ value = d, isIn }) =>
     if Nat.leq 1 d && Nat.divides d n then chains d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0))
 
-test "chains" := List.map chains [1, 2, 3, 4, 5, 6] == [1, 2, 2, 4, 2, 6]
+test "chains" := List.map [1, 2, 3, 4, 5, 6] chains == [1, 2, 2, 4, 2, 6]
 
 -- The membership facts on their own.
 theorem fourInRange: List.Mem 4 (List.between 2 6) := Inr (Inr (Inl rfl))
 
 theorem betweenBounds (x: Nat) (h: List.Mem x (List.between 2 6)): And (2 <= x) (x <= 6) := List.memBetween h
 
-test "sum" := List.sumBy (e => e.value) (List.attach [1, 2, 3]) == 6
+test "sum" := List.sumBy (List.attach [1, 2, 3]) (e => e.value) == 6
 
 def main(): {IO} () :=
-  IO.print ("weights: " ++ Text.join ' ' (List.map Int.toText (List.map weight (List.rangeFrom 11 2))))
-  IO.print ("chains: " ++ Text.join ' ' (List.map Nat.toText (List.map chains [1, 2, 3, 4, 5, 6])))
-  IO.print ("sum: " ++ Nat.toText (List.sumBy (e => e.value) (List.attach [1, 2, 3])))
+  IO.print ("weights: " ++ Text.join (List.map (List.map (List.rangeFrom 11 2) weight) Int.toText) ' ')
+  IO.print ("chains: " ++ Text.join (List.map (List.map [1, 2, 3, 4, 5, 6] chains) Nat.toText) ' ')
+  IO.print ("sum: " ++ Nat.toText (List.sumBy (List.attach [1, 2, 3]) (e => e.value)))

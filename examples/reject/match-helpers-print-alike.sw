@@ -5,7 +5,7 @@
 
 import Std (List, Option)
 
-def foo (xs: List (Option Nat)): Nat := xs.foldLeft (acc o => match o with | Some x => acc + x | None => acc) 0
-def bar (xs: List (Option Nat)): Nat := xs.foldLeft (acc o => match o with | Some x => acc + x | None => acc + 1) 0
+def foo (xs: List (Option Nat)): Nat := xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc)
+def bar (xs: List (Option Nat)): Nat := xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc + 1)
 
 theorem same (xs: List (Option Nat)): foo xs = bar xs := rfl
