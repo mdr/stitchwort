@@ -87,9 +87,10 @@ fn the_budget_is_for_one_rewrite_not_for_the_declaration() {
 #[test]
 fn rewrite_is_a_keyword() {
     assert_eq!(codes(None, "def rewrite: Nat := 1\n"), vec!["E-PARSE"]);
-    // `in` is not.
+    // So is `in`, since membership (`x in xs`, SW-461); `at` is not.
+    assert_eq!(codes(None, "def f (in: Nat): Nat := in\n"), vec!["E-PARSE"]);
     assert_eq!(
-        codes(None, "def f (in: Nat): Nat := in\n"),
+        codes(None, "def f (at: Nat): Nat := at\n"),
         Vec::<&str>::new()
     );
 }

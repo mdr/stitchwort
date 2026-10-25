@@ -139,3 +139,8 @@ theorem Bool.uniqueEq (x: Bool) (y: Bool) (p: x = y) (q: x = y): p = q :=
     (J (r e => p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) r)
       (Bool.fromCanon x y p) (Bool.canonConst (Bool.decEq x y) p q))
     (J (z e => z = q) rfl (Bool.fromCanon x y q))
+
+-- `Void` is decided: it is false. Membership in a list written out computes
+-- to `y = x || … || Void`, decided one disjunct at a time, and this is the
+-- last. In the core, so `auto` never depends on what is loaded (D58).
+instance Void.dec: Decidable Void := No (none => none)
