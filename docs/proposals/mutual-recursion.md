@@ -1724,7 +1724,11 @@ clause calls back into the handler through a helper is a `≤`-only loop
   - *Thunk*: no runtime parameters, and either a case tree or **a member of
     a recursive group**: `const f = () => …;`, referenced as `f()`.
   - *Function*: runtime parameters: `const f = (v0) => …;`, referenced as
-    `f`, applied as `f(a)`.
+    `f`, applied as `f(a)`. *As built (D1173,
+    [effect-runtime.md §9.10](effect-runtime.md)): a function with two or
+    more runtime parameters takes them in one call, `const f = (v0, v1) =>
+    …;`, applied as `f(a, b)`; a partial application or a use as a value is
+    a closure that takes the rest one at a time.*
 
   The rule that every group member is a thunk or a function (never a value)
   is what stops a member whose parameters are all erased (types or proofs)
