@@ -14,6 +14,7 @@ stitchwort-elab = { path = "crates/elab" }
 stitchwort-js = { path = "crates/js" }
 stitchwort-rt = { path = "crates/rt" }
 stitchwort-driver = { path = "crates/driver" }
+stitchwort-host = { path = "crates/host" }
 stitchwort-fmt = { path = "crates/fmt" }
 stitchwort-native = { path = "crates/native" }
 

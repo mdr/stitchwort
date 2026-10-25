@@ -46,14 +46,7 @@ impl Default for Session {
 /// Runs `f` on a new thread with `stack` bytes of stack, for a session whose
 /// limits are [`Limits::for_stack`] of the same size.
 pub fn with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> T {
-    std::thread::scope(|scope| {
-        std::thread::Builder::new()
-            .stack_size(stack)
-            .spawn_scoped(scope, f)
-            .expect("can't start a thread")
-            .join()
-            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-    })
+    stitchwort_host::with_stack(stack, f)
 }
 
 /// How many worker threads the tests' per-file loops use: the machine's

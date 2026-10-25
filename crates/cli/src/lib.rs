@@ -4,6 +4,6 @@
 pub mod completion;
 pub mod lsp;
 #[cfg(unix)]
-pub mod terminal;
+pub mod node_wait;
 
 pub use stitchwort_driver::{counterexample, driver, nav, project, render, run};
