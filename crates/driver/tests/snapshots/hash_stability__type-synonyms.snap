@@ -1,15 +1,15 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.Grid 078e911a03c8683791619a0233c560d648d4c55a01f568f5890fdb85d52d194a
-Main.Grid.rolls 683a52f1286826e93650beeb6b91dd698667c88a60c00e9b6a254ccd8bd206a3
+Main.Grid.rolls 1790ba3683a63fb67f688e588c3de2e94951128cabb76ce098290b36cf074ba2
 Main.Matrix a4a75824e8cc95864f9df3a6c843b81ee13cd5c7aa86b7c3c6c14e7f7d2c705d
 Main.Matrix.rows b68bccff84b6f89b4519a7209a8213eb55c1895c86bdca22fa893e20e2c0850a
 Main.Point ceebb4332bc50b1022d5ac924e2c444ff483be983aa8f796365026ba68a468d8
 Main.origin ee870bd647a9318768025750109f7868e40a4143468da2d4dc61b1ae771fa3cf
 Main.sample cbb109ae64943590f1f3070c5266fe082fbcd3176e11343999dce6cb5e2cefd1
 Main.same b1d41312f8390037a623594839019eb594b40915d7eac5da00b6f83dc3222c3d
-Main.test "dot notation through a synonym" da25d7a85bc44d54cfb5ef4597c1431bbb000e4e7d40ed74407c0552105d2d87
+Main.test "dot notation through a synonym" beb93b901bac8d303cea628880cdfb7ccccb127a0bb54f008b5422e85512f109
 Main.test "synonym with a parameter" ff2c06186221f409788b9d83118b97a8f72684aa648a45ff2846ef13d96b43cd
 Main.test "tuple synonym" ec90ac13fce869e46556cef4d826fd04f3dd7fe839975bb3084f5e3011d3ddd0

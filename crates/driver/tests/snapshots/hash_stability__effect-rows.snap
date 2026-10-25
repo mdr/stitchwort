@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Log 81059c4c5dcce55d38b91d239bd3d30e0cf21e8686fe7ecd2e6d51d19ebdfe22
 data Main.Point f4a725f1b4a5bfa507ae7ee4e8e6a6348b154287ef127f901e3b890b2e786870
@@ -34,8 +34,8 @@ Main.Point.%instOrd 2d4c478183d7cfaa95902a881be90814d5553cc0a20c024835df5cf3c0d7
 Main.Point.ext 78cd091d3df11177a3f9526af12946ea48df21a909c36713adcb37b630856376
 Main.onDiagonal 74489875ddceecb447535e8362f2dc72a876432e3fcdef4661a640be680f9fde
 Main.test "a callback returning records" 29e524d5f1cb87d12910becf99c9e1774c2259b993fe052917778cd3f800b50b
-Main.unannotated ae299c8183c3274f36d212bef6ae2484b7c0d01dd0f17f3002c42b8b95983de2
-Main.test "a callback whose result type is found later" 441ff7795d8c0db178d7d415354ed8bdfbee5034f1ccd79596acabaf9041be2a
+Main.unannotated 10cb91a21561cd4fdbc8005a44b6be9a42ce7e5cbac560ae079189c11d6e1acb
+Main.test "a callback whose result type is found later" adc1641e0dc04fc6dd5bf81d073adc821911c3bccc2b802e49a631b0a2882f55
 Main.unconstrained 4f3e550a03510fd9e08fc1d33a6d8417e78134fafd7bc72259f074e198b3a7d3
 Main.sayAndDouble ceee317d523afc6de1beccc010d073acc557162edc0b17fbd86952c6915383b9
 Main.ResultOf d662d75d331f3f0d0c29450b7b39626edacba5776bd045e138c8465cd7ad73e1

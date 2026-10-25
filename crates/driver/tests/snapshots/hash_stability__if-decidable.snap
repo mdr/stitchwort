@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.smaller 7cbec5ed7ff0282276891f5d32cd84e766a8dc8e72b6f12df56bebbb7e02dc00
 Main.test "smaller, first" 85de80652bcce98580bcedaacc5e814836d5f09af617b55637970102edd35c57
@@ -22,8 +22,8 @@ Main.test "sameList, same" a9e66a7ffcbe2a0b57082746eddd6e1c5d599ba97dcf5fffbe997
 Main.test "sameList, different" 3784300d150283e65b27f16593807a636a0f55435edd7a570311b90d4a700573
 Main.pick 59023fa451397e65d6346034a206eef17de022e11b3952d89a207730e0cd5801
 Main.test "pick" ca67aa63e3f0b6ab34de2226cd516d06a536bc3f9f75ecbbb29f6cd0975d964a
-Main.largest 0060003a44e07d731b1a2f35f2bdd4d73efcfcc05e4370039b4f66e434811c02
-Main.test "largest" 32a6ea405b0f873fc3b21c16c6f59bac564b4bb9633b7c1d288552ae8c9304af
+Main.largest 1338e8b5da61a9a9f3602b9eef68e9ea0c1d57f65bcbb4cd5ff887eafc6f3255
+Main.test "largest" a470568001ebd6d11d82a073e31c494b228ac568ca4dd6d5113e925a28122bac
 Main.describe 03735290df6792c8bba6ad72cc4a5ffa092ad4b42d5d1d7c78bc70c3901b976c
 Main.test "describe, big" 24e38f49cf8f868195d15fb2f729eae42c04b85d0341f586b81f3a590f08b20a
 Main.test "describe, small" fca5828cb999f3c1dac802794f75633cc188c4cfb9b1ff588aa21c518b51b127

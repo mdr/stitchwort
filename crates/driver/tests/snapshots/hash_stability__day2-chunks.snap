@@ -1,14 +1,14 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.repeatsWith a8a629d8fd4ffaa89aa220c5bd6abb81e8f47e8ca164d0c3c4946ba0f3260da3
-Main.repeatsAny f46930e2d6b62cfdd78e023001f57b91be9aa32c04e795788e1c02f781ddde31
+Main.repeatsAny 78da8acf02298e125bc2bea828d109109c5bd64916258178ec8a011619442a30
 Main.test "1212 repeats a block of two" 20fe29fe49845dad598fd2d2f80fc02c38745923f7ff3b46a663ec10780d85a4
 Main.test "1212 is not a block of three" 7ebac6b669395caf352ebe24fad7d1c9e6615577af534033c5df3dcb7adab597
 Main.test "block length zero never repeats" 373069217ade7b91abff6f3cbe578ba8bb60fa0202c7ad6fe65f91db61c5f622
 Main.test "111 repeats a block of one" c80e04c6f8b2fa94489a6e36377d7ed00247805ab95b719d26180ee050731d31
 Main.test "12341234 repeats a block of four" 2e9122518932fe873487b530f978774088ed501d7cb0908dcf02556a1f4d06c7
-Main.test "123123123 is found" 22c8d479008fe32fb187f3d28866281115cfe49f3e39322f159c033e3b47fd21
-Main.test "1213 repeats nothing" ec09b2b4b7ed5546dc63533ffffd4b7eebd9e5eb4bb0f38345584d145d44146c
+Main.test "123123123 is found" 46187f32cd739503a85b546c321cc79dae6ad63570f04e5c0a902d368e83ded7
+Main.test "1213 repeats nothing" 6b37bde864c533f53e37cdb429e38ad05f301265c732a0ac8876079791762bf3
 Main.test "a repeat is its block, repeated" 50a410cfdaf5fd1cb1ab47ef8a3ded3ba252b4e4435ec05badc5d892d686ca45
