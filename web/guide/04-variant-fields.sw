@@ -7,7 +7,7 @@ type Shape =
 def wheel (id: Text): Shape := Circle { radius = 3, id }
 
 -- Match by name too; `..` ignores the other fields.
-def Shape.size: Shape -> Nat
+def Shape.size: Shape → Nat
   | Circle { radius, .. } => radius
   | Rect { width, height, .. } => width * height
 

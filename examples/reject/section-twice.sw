@@ -5,4 +5,4 @@
 -- where a `Bool` is wanted. To use the argument twice, write the lambda:
 -- `x => x.isEmpty || x.startsWith "a"`.
 
-def f (xs: List Text): List Text := xs.filter (.isEmpty || .startsWith "a")
+def f (xs: List Text): List Text := xs.filter (.isEmpty ∨ .startsWith "a")

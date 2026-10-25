@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat → Nat`
-   ╭─[ reject/and-undecidable.sw:4:59 ]
+   ╭─[ reject/and-undecidable.sw:4:57 ]
    │
- 4 │ def f (g: Nat -> Nat) (h: Nat -> Nat) (x: Nat): Nat := if x < 3 && g = h then 1 else 0
-   │                                                           ───────┬──────  
-   │                                                                  ╰──────── this needs `DecEq (Nat → Nat)`
+ 4 │ def f (g: Nat → Nat) (h: Nat → Nat) (x: Nat): Nat := if x < 3 ∧ g = h then 1 else 0
+   │                                                         ──────┬──────  
+   │                                                               ╰──────── this needs `DecEq (Nat → Nat)`
    │ 
    │ Note: functions can't be compared: there's no `==` on them
 ───╯

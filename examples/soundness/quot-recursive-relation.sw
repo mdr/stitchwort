@@ -3,4 +3,4 @@
 -- at every argument of a quotient, its relation included, where `T` occurs
 -- as a function's input. Pairs with `Node` in accept/quot-forms.sw.
 type T: Type =
-  | Node (kids: Quot Nat (x y => (t: T) -> Unit))
+  | Node (kids: Quot Nat (x y => (t: T) → Unit))

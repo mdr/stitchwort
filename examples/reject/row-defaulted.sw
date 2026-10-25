@@ -7,7 +7,7 @@
 -- row was set to empty.
 import Std (List)
 
-def Answer: Bool -> Type
+def Answer: Bool → Type
   | True => Text
   | False => Nat
 
@@ -18,7 +18,7 @@ def answer [flag: Bool] (tagged: Tagged flag): Answer flag := match flag with
   | True => "t"
   | False => 0
 
-def countAll [flag: Bool] (f: Tagged flag -> {e} Nat) (xs: List (Tagged flag)): {e} Nat := match xs with
+def countAll [flag: Bool] (f: Tagged flag → {e} Nat) (xs: List (Tagged flag)): {e} Nat := match xs with
   | Nil => 0
   | Cons x rest =>
     let n := f x

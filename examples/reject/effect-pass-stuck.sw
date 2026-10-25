@@ -7,12 +7,12 @@
 import Std (Effect, List)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 
-def stuckComp: List Nat -> Effect.Comp Effect.NoOp Effect.NoRes Nat
+def stuckComp: List Nat → Effect.Comp Effect.NoOp Effect.NoRes Nat
   | Nil => 0
   | Cons x xs => 1
 
-theorem stuckIsDone: (xs: List Nat) -> IsDone (stuckComp xs) := xs => Trivial
+theorem stuckIsDone: (xs: List Nat) → IsDone (stuckComp xs) := xs => Trivial

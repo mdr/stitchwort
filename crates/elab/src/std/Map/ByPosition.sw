@@ -3,7 +3,7 @@
 -- `omega`.
 
 -- No position below `s` is numbered from `s`.
-theorem Map.lookupLastBelow (k: Nat): (s: Nat) -> (xs: List a) -> k < s -> Map.lookupLast k (List.withIndexFrom s xs) = None
+theorem Map.lookupLastBelow (k: Nat): (s: Nat) → (xs: List a) → k < s → Map.lookupLast k (List.withIndexFrom s xs) = None
   | s, Nil, h => rfl
   | s, Cons x xs, h =>
     rewrite Map.lookupLastBelow k (Succ s) xs (omega) in
@@ -13,7 +13,7 @@ theorem Map.lookupLastBelow (k: Nat): (s: Nat) -> (xs: List a) -> k < s -> Map.l
         | Greater => rfl
 
 -- Position s + i of the elements numbered from s is element i.
-theorem Map.lookupLastWithIndex (d: a): (s: Nat) -> (i: Nat) -> (xs: List a) ->
+theorem Map.lookupLastWithIndex (d: a): (s: Nat) → (i: Nat) → (xs: List a) →
     Option.getOrElse (Map.lookupLast (s + i) (List.withIndexFrom s xs)) d = List.getOr xs d i
   | s, i, Nil => rfl
   | s, Zero, Cons x xs =>

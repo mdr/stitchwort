@@ -44,7 +44,7 @@ def firstConnections (k: Nat) (points: List Point): List (Nat, Nat) := (connecti
 
 -- `Joined connections a b`: box a and box b are in the same circuit, linked
 -- by a chain of the connections.
-type Joined (connections: List (Nat, Nat)): Nat -> Nat -> Prop =
+type Joined (connections: List (Nat, Nat)): Nat → Nat → Prop =
   | Itself (box: Nat): Joined connections box box
   | Connected [a b: Nat] (connection: List.Mem (a, b) connections): Joined connections a b
   | Backwards [a b: Nat] (joined: Joined connections a b): Joined connections b a
@@ -54,15 +54,15 @@ type Joined (connections: List (Nat, Nat)): Nat -> Nat -> Prop =
 -- are in the same circuit. (`Joined` is a proposition, so the sizes below,
 -- which count boxes, are written with such a test; any two tests that tell
 -- give the same sizes.)
-def Tells (n: Nat) (connections: List (Nat, Nat)) (sameCircuit: Nat -> Nat -> Bool): Prop :=
-  (a: Nat) -> (b: Nat) -> a < n -> b < n -> Iff (sameCircuit a b = True) (Joined connections a b)
+def Tells (n: Nat) (connections: List (Nat, Nat)) (sameCircuit: Nat → Nat → Bool): Prop :=
+  (a: Nat) → (b: Nat) → a < n → b < n → Iff (sameCircuit a b = True) (Joined connections a b)
 
 -- The size of each circuit of the boxes 0 to n - 1: a circuit is counted
 -- once, at its first box (no lower box is in it), and its size is the
 -- number of boxes in it.
-def circuitSizes (n: Nat) (sameCircuit: Nat -> Nat -> Bool): List Nat :=
+def circuitSizes (n: Nat) (sameCircuit: Nat → Nat → Bool): List Nat :=
   List.range n
-    |> .filter (box => !(List.range box |> .any (other => sameCircuit other box)))
+    |> .filter (box => ¬(List.range box |> .any (other => sameCircuit other box)))
     |> .map (box => List.range n |> .count (other => sameCircuit other box))
 
 -- The three largest sizes (or all, if there are fewer), multiplied.
@@ -70,7 +70,7 @@ def threeLargestProduct (sizes: List Nat): Nat := sizes.sortBy (a b => Nat.compa
 
 -- All the boxes 0 to n - 1 are in one circuit.
 def OneCircuit (n: Nat) (connections: List (Nat, Nat)): Prop :=
-  (a: Nat) -> (b: Nat) -> a < n -> b < n -> Joined connections a b
+  (a: Nat) → (b: Nat) → a < n → b < n → Joined connections a b
 
 -- Connection number k (counting from 0) is the last one needed: after it
 -- all the boxes are in one circuit, and before it they weren't.

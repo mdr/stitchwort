@@ -11,9 +11,9 @@ expression: output
    │ │                                              
    │ ╰────────────────────────────────────────────── this type crosses the JS boundary
    │ 
- 8 │     export def size: Node -> Nat
-   │     ──────────────┬─────────────  
-   │                   ╰─────────────── `size` is exported, and reaches it
+ 8 │     export def size: Node → Nat
+   │     ─────────────┬─────────────  
+   │                  ╰─────────────── `size` is exported, and reaches it
    │     
    │     Note: assigning `__proto__` sets an object's prototype instead of making a property; give the field another key with `@[js.name "…"]` before its name
 ───╯

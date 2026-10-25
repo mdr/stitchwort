@@ -5,7 +5,7 @@ expression: output
 [E-INTERFACE-CYCLE] Error: an interface can't be its own superclass: `Ping` contains `Pong`, which contains `Ping`
    ╭─[ reject/interface-cycle.sw:9:5 ]
    │
- 9 │   { pong: Pong a, ping: a -> Text }
+ 9 │   { pong: Pong a, ping: a → Text }
    │     ──┬─  
    │       ╰─── an interface can't be its own superclass: `Ping` contains `Pong`, which contains `Ping`
    │ 
@@ -14,7 +14,7 @@ expression: output
 [E-INTERFACE-CYCLE] Error: an interface can't be its own superclass: `Pong` contains `Ping`, which contains `Pong`
     ╭─[ reject/interface-cycle.sw:12:5 ]
     │
- 12 │   { ping: Ping a, pong: a -> Text }
+ 12 │   { ping: Ping a, pong: a → Text }
     │     ──┬─  
     │       ╰─── an interface can't be its own superclass: `Pong` contains `Ping`, which contains `Pong`
     │ 

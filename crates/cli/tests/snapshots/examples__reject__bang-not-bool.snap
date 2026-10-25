@@ -5,7 +5,7 @@ expression: output
 [E-TYPE-MISMATCH] Error: type mismatch
    ╭─[ reject/bang-not-bool.sw:3:28 ]
    │
- 3 │ def bad (n: Nat): Bool := !n
+ 3 │ def bad (n: Nat): Bool := ¬n
    │                            ┬  
    │                            ╰── expected `Bool`, but this has type `Nat`
 ───╯

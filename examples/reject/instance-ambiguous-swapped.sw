@@ -4,7 +4,7 @@
 -- doesn't depend on the order they were bound in.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 def both [auto second: Pretty a] [auto first: Pretty a] (x: a): Text :=
   Pretty.pretty x

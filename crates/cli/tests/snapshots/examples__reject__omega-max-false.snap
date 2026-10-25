@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-OMEGA] Error: `omega` can't prove `Nat.max a b ≤ a`
-   ╭─[ reject/omega-max-false.sw:5:54 ]
+   ╭─[ reject/omega-max-false.sw:5:53 ]
    │
- 5 │ theorem maxLe (a: Nat) (b: Nat): Nat.max a b <= a := omega
-   │                                                      ──┬──  
-   │                                                        ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 5 │ theorem maxLe (a: Nat) (b: Nat): Nat.max a b ≤ a := omega
+   │                                                     ──┬──  
+   │                                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: none in scope
    │ 

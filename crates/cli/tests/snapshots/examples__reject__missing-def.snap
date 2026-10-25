@@ -5,7 +5,7 @@ expression: output
 [E-PARSE] Error: expected a declaration: `def`, `theorem`, `type`, `ability`, `interface`, `instance` or `test`
    ╭─[ reject/missing-def.sw:3:1 ]
    │
- 3 │ double: Nat -> Nat
+ 3 │ double: Nat → Nat
    │ ───┬──  
    │    ╰──── a declaration starts with a keyword
    │ 

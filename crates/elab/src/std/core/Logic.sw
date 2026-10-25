@@ -12,7 +12,7 @@ type Void: Prop
 type Unit: Prop =
   | Trivial
 
-def Not (p: Prop): Prop := p -> Void
+def Not (p: Prop): Prop := p → Void
 
 -- Both propositions hold. `And.left` and `And.right` are its fields.
 type And (p: Prop) (q: Prop): Prop =
@@ -23,16 +23,16 @@ type Or (p: Prop) (q: Prop): Prop =
   | Inl (left: p)
   | Inr (right: q)
 
-theorem Or.neither: [p q: Prop] -> Not p -> Not q -> Not (Or p q)
+theorem Or.neither: [p q: Prop] → Not p → Not q → Not (Or p q)
   | r, s, Inl a => r a
   | r, s, Inr b => s b
 
 -- From a proof of `Void`, anything follows. `()` means "there's no value to
 -- match here", so no right-hand side is needed.
-def Void.absurd: Void -> a
+def Void.absurd: Void → a
   | ()
 
 -- The same for proofs. (Without universe polymorphism, `Void.absurd`'s `a` can
 -- only be a type of data.)
-def Void.exfalso: [p: Prop] -> Void -> p
+def Void.exfalso: [p: Prop] → Void → p
   | ()

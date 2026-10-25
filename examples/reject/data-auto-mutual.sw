@@ -3,7 +3,7 @@
 -- must be `auto` (docs/proposals/interfaces.md §7.5).
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 type Tree (k: Type) [auto ord: Ordered k] =
   | Node (label: k) (kids: Forest k)

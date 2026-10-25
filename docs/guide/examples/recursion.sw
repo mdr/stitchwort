@@ -2,19 +2,19 @@
 import Std (List, Nat, Text)
 
 -- begin structural
-def length: List a -> Nat
+def length: List a → Nat
   | [] => 0
   | Cons _ rest => 1 + length rest
 
-def factorial: Nat -> Nat
+def factorial: Nat → Nat
   | 0 => 1
   | Succ n => Succ n * factorial n
 
-test "structural" := length [1, 2, 3] == 3 && factorial 5 == 120
+test "structural" := length [1, 2, 3] == 3 ∧ factorial 5 == 120
 -- end structural
 
 -- begin accumulator
-def reverseOnto (done: List a): List a -> List a
+def reverseOnto (done: List a): List a → List a
   | [] => done
   | Cons x rest => reverseOnto (Cons x done) rest
 
@@ -37,7 +37,7 @@ test "decreasing" := digits 2025 == [2, 0, 2, 5]
 def gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=
-  if nonzero: b != 0 then
+  if nonzero: b ≠ 0 then
     if smaller: a % b < b then gcd b (a % b) else a
   else a
 
@@ -57,15 +57,15 @@ test "ackermann" := ackermann 2 3 == 9
 -- end lexicographic
 
 -- begin mutual
-def isEven: Nat -> Bool
+def isEven: Nat → Bool
   | 0 => True
   | Succ n => isOdd n
 
-def isOdd: Nat -> Bool
+def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
-test "mutual recursion" := isEven 10 && isOdd 7
+test "mutual recursion" := isEven 10 ∧ isOdd 7
 -- end mutual
 
 -- begin trees
@@ -80,7 +80,7 @@ def Tree.insert (tree: Tree) (value: Nat): Tree :=
       if value < here then Node (left.insert value) here right
       else Node left here (right.insert value)
 
-def Tree.toList: Tree -> List Nat
+def Tree.toList: Tree → List Nat
   | Leaf => []
   | Node left value right => left.toList ++ [value] ++ right.toList
 

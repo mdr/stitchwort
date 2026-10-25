@@ -7,7 +7,7 @@
 import Std (Effect, Bool)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 

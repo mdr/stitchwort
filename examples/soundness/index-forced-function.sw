@@ -5,14 +5,14 @@
 -- would prove `Void` (D143). Pairs with `leTrans` in
 -- accept/indexed-families.sw, structural recursion on a proof
 -- (docs/proposals/indexed-families.md §6.7, test 12).
-def IdP: Prop := (p: Prop) -> p -> p
+def IdP: Prop := (p: Prop) → p → p
 
-type Bad: IdP -> Prop =
+type Bad: IdP → Prop =
   | B (f: IdP): Bad f
 
 def idP: IdP := p h => h
 
 def bad: Bad idP := B idP
 
-theorem noBad [x: IdP]: Bad x -> Void
+theorem noBad [x: IdP]: Bad x → Void
   | B f => noBad [x := idP] (f (Bad idP) bad)

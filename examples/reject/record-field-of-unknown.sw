@@ -6,6 +6,6 @@
 type Person = { name: Text, age: Nat }
 
 -- `a` is whatever the function takes, so it isn't known inside it.
-def describe (f: a -> Text): Text := "a function"
+def describe (f: a → Text): Text := "a function"
 
 def described: Text := describe (p => p.name)

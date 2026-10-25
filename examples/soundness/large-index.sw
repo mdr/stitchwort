@@ -4,6 +4,6 @@
 -- field `b: Type` of `TList`. Pairs with `Ty: Type -> Type 1` in
 -- accept/indexed-families.sw (docs/proposals/indexed-families.md §6.6,
 -- test 21).
-type Ty: Type -> Type =
+type Ty: Type → Type =
   | TNat: Ty Nat
   | TList (t: Ty b): Ty (List b)

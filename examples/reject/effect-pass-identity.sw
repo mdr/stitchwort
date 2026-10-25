@@ -7,10 +7,10 @@
 import Std (Effect, List)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 
 def identityComp (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat := computation
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> IsDone (identityComp computation) := computation => Trivial
+theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → IsDone (identityComp computation) := computation => Trivial

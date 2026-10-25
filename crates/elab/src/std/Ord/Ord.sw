@@ -2,7 +2,7 @@
 -- core (docs/proposals/prelude-slim.md stage 3); no instance needs them.
 
 -- A comparison that's its own opposite is `Equal`.
-theorem Ordering.flipSelf: (c: Ordering) -> c = Ordering.flip c -> c = Equal
+theorem Ordering.flipSelf: (c: Ordering) → c = Ordering.flip c → c = Equal
   | Less, h => Void.exfalso (Ordering.lessNotGreater h)
   | Equal, h => rfl
   | Greater, h => Void.exfalso (Ordering.greaterNotLess h)
@@ -10,8 +10,8 @@ theorem Ordering.flipSelf: (c: Ordering) -> c = Ordering.flip c -> c = Equal
 -- Orders `a` by a key, given that the key tells values apart. The relations
 -- are the key's own, applied to the keys, so `x < y` is `key x < key y`
 -- and reduces the way the key's does (D414).
-def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a -> b)
-    (inj: (x: a) -> (y: a) -> key x = key y -> x = y): Ord a := {
+def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b)
+    (inj: (x: a) → (y: a) → key x = key y → x = y): Ord a := {
       compare = x y => Ord.compare (key x) (key y),
       lessThan = x y => ord.lessThan (key x) (key y),
       lessEq = x y => ord.lessEq (key x) (key y),

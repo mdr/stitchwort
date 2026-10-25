@@ -6,4 +6,4 @@ import Std (List, Nat)
 def stored (n: Nat): Nat
   decreasing n
 :=
-  List.sum (List.map [d => if h: d < n then stored d else 0] ((g: Nat -> Nat) => g (n - 1)))
+  List.sum (List.map [d => if h: d < n then stored d else 0] ((g: Nat → Nat) => g (n - 1)))

@@ -7,14 +7,14 @@
 import Std (Effect, List)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 
 type Labelled =
   | MkLabelled (label: Nat) (inner: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 
-def labelledDone: Labelled -> Prop
+def labelledDone: Labelled → Prop
   | MkLabelled label inner => IsDone inner
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> labelledDone (MkLabelled { label = 1, inner = computation }) := computation => Trivial
+theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → labelledDone (MkLabelled { label = 1, inner = computation }) := computation => Trivial

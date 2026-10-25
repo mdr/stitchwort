@@ -9,6 +9,6 @@ type Dir: Type =
 
 type Rot = { dir: Dir, amount: Nat }
 
-def f: Rot -> Nat
+def f: Rot → Nat
   | { dir = R, amount } => amount
   | { dir = L, amount } => 0

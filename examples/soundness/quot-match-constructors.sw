@@ -5,6 +5,6 @@
 def AllTrue (x: Bool) (y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
-def rep: Q -> Bool
+def rep: Q → Bool
   | False => False
   | True  => True

@@ -2,11 +2,11 @@
 import Std (List, Nat, Option, Text)
 
 -- begin lambdas
-def increment: Nat -> Nat := n => n + 1
+def increment: Nat → Nat := n => n + 1
 
-def add: Nat -> Nat -> Nat := a b => a + b
+def add: Nat → Nat → Nat := a b => a + b
 
-def addTen: Nat -> Nat := add 10
+def addTen: Nat → Nat := add 10
 
 test "lambdas" := [1, 2, 3].map (n => n * n) == [1, 4, 9]
 test "partial application" := addTen 5 == 15
@@ -14,9 +14,9 @@ test "a constructor is a function" := [1, 2].map Some == [Some 1, Some 2]
 -- end lambdas
 
 -- begin generics
-def twice (f: a -> a) (x: a): a := f (f x)
+def twice (f: a → a) (x: a): a := f (f x)
 
-def firstOr (fallback: a): List a -> a
+def firstOr (fallback: a): List a → a
   | [] => fallback
   | Cons x _ => x
 
@@ -32,12 +32,12 @@ test "or given by name" := pairUp [b := Text] 1 "one" == (1, "one")
 -- end implicit
 
 -- begin implicit-lambda
-def pairUpLambda: [a: Type] -> [b: Type] -> a -> b -> (a, b) :=
+def pairUpLambda: [a: Type] → [b: Type] → a → b → (a, b) :=
   [a: Type] [b: Type] (x: a) (y: b) => (x, y)
 
 test "a lambda with implicit parameters" :=
   let flip := [a: Type] [b: Type] (x: a) (y: b) => (y, x)
-  flip 1 "one" == ("one", 1) && pairUpLambda 1 "one" == (1, "one")
+  flip 1 "one" == ("one", 1) ∧ pairUpLambda 1 "one" == (1, "one")
 -- end implicit-lambda
 
 -- begin named
@@ -66,7 +66,7 @@ test "the same call, in full" := Point.manhattan (Point.shift origin 3 (-4)) == 
 def wordLengths (line: Text): List Nat :=
   line
     |> .split ' '
-    |> .filter (word => word != "")
+    |> .filter (word => word ≠ "")
     |> .map (.length)
 
 test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
@@ -85,7 +85,7 @@ test "a bare operator" := [1, 2, 3].foldLeft 0 (+) == 6
 
 -- begin local
 def sumOfSquares (n: Nat): Nat :=
-  def go: Nat -> Nat -> Nat
+  def go: Nat → Nat → Nat
     | 0, total => total
     | Succ k, total => go k (total + Succ k * Succ k)
   go n 0
@@ -95,7 +95,7 @@ test "named from outside" := sumOfSquares.go 2 0 == 5
 -- end local
 
 -- begin higher-order
-def applyAll (functions: List (Nat -> Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
+def applyAll (functions: List (Nat → Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
 
 test "functions are values" := applyAll [increment, add 10, n => n * 2] 1 == 24
 -- end higher-order

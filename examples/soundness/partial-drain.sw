@@ -12,9 +12,9 @@ type Empty: Type
 
 def forever(): {Partial} Empty := forever()
 
-def drain (prog: () -> {Partial} Empty): Empty := prog()
+def drain (prog: () → {Partial} Empty): Empty := prog()
 
 theorem contradiction: Void := emptyVoid (drain forever)
 
-def emptyVoid: Empty -> Void
+def emptyVoid: Empty → Void
   | ()

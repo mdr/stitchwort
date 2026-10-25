@@ -5,7 +5,7 @@ def describe (n: Nat): Text :=
   "${n} is ${kind}, half is ${half}"
 
 -- `match` takes values apart. Every case must be covered.
-def countdown: Nat -> List Nat
+def countdown: Nat → List Nat
   | 0 => []
   | Succ n => Cons (n + 1) (countdown n)
 

@@ -36,9 +36,9 @@ def describe (n: Nat): Text :=
 <!-- snippet: values.sw#if-chain -->
 ```stitchwort
 def grade (score: Nat): Text :=
-  if score >= 90 then "A"
-  else if score >= 75 then "B"
-  else if score >= 50 then "C"
+  if score ≥ 90 then "A"
+  else if score ≥ 75 then "B"
+  else if score ≥ 50 then "C"
   else "D"
 ```
 
@@ -81,7 +81,7 @@ def initial (name: Text): Char :=
     | Some (first, _) => first
     | None => '?'
 
-test "initial" := initial "Ada" == 'A' && initial "" == '?'
+test "initial" := initial "Ada" == 'A' ∧ initial "" == '?'
 ```
 
 `Some` and `None` are the two cases of `Option`, Stitchwort's way of saying a value may be missing ([chapter 3](03-data.md)). There is no `null`.
@@ -94,7 +94,7 @@ test "initial" := initial "Ada" == 'A' && initial "" == '?'
 ```stitchwort
 test "no overflow" := 2 * 1000000000000 * 1000000000000 == 2000000000000000000000000
 test "subtraction stops at zero" := 3 - 5 == 0
-test "division rounds down" := 7 / 2 == 3 && 7 % 2 == 1
+test "division rounds down" := 7 / 2 == 3 ∧ 7 % 2 == 1
 ```
 
 `Int` is the integers, also unbounded. A literal is a `Nat` unless something says otherwise: the expected type, an `Int` operand, or a minus sign. There is no implicit conversion between the two:
@@ -105,7 +105,7 @@ def balance: Int := 3 - 5
 
 test "Int subtraction" := balance == -2
 test "a negative literal is an Int" := -5 + 2 == -3
-test "converting" := balance.toNat == 0 && (7: Nat).toInt == 7
+test "converting" := balance.toNat == 0 ∧ (7: Nat).toInt == 7
 test "absolute value" := Int.natAbs balance == 2
 ```
 
@@ -139,7 +139,7 @@ def average (total: Nat) (count: Nat): Nat :=
 <!-- snippet: values.sw#division-proof -->
 ```stitchwort
 def averageOf (total: Nat) (count: Nat): Nat :=
-  if count != 0 then total / count else 0
+  if count ≠ 0 then total / count else 0
 
 def meanOf (total: Nat) (count: Nat): Nat :=
   if count = 0 then 0 else total / count

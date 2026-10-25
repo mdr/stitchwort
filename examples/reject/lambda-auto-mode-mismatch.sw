@@ -5,4 +5,4 @@
 
 import Std (Ord)
 
-def f: [a: Type] -> [auto order: Ord a] -> a -> a := [a: Type] [b: Type] (x: a) => x
+def f: [a: Type] → [auto order: Ord a] → a → a := [a: Type] [b: Type] (x: a) => x

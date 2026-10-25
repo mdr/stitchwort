@@ -10,15 +10,15 @@ A recursive call on a part of an argument, such as the tail of a list or the `n`
 
 <!-- snippet: recursion.sw#structural -->
 ```stitchwort
-def length: List a -> Nat
+def length: List a → Nat
   | [] => 0
   | Cons _ rest => 1 + length rest
 
-def factorial: Nat -> Nat
+def factorial: Nat → Nat
   | 0 => 1
   | Succ n => Succ n * factorial n
 
-test "structural" := length [1, 2, 3] == 3 && factorial 5 == 120
+test "structural" := length [1, 2, 3] == 3 ∧ factorial 5 == 120
 ```
 
 `Succ n` is the pattern for a number that is one more than `n`, so it matches any `Nat` but 0. (`Zero` and `Succ` are `Nat`'s two constructors; number literals stand for them.)
@@ -27,7 +27,7 @@ Extra parameters can change freely, as long as one argument shrinks. An accumula
 
 <!-- snippet: recursion.sw#accumulator -->
 ```stitchwort
-def reverseOnto (done: List a): List a -> List a
+def reverseOnto (done: List a): List a → List a
   | [] => done
   | Cons x rest => reverseOnto (Cons x done) rest
 
@@ -49,7 +49,7 @@ def Tree.insert (tree: Tree) (value: Nat): Tree :=
       if value < here then Node (left.insert value) here right
       else Node left here (right.insert value)
 
-def Tree.toList: Tree -> List Nat
+def Tree.toList: Tree → List Nat
   | Leaf => []
   | Node left value right => left.toList ++ [value] ++ right.toList
 
@@ -65,17 +65,17 @@ Halving a number isn't recursion on a part of it, so the compiler can't see that
 <!-- snippet: errors/termination.sw -->
 ```stitchwort
 def halvings (n: Nat): Nat :=
-  if n <= 1 then 0 else 1 + halvings (n / 2)
+  if n ≤ 1 then 0 else 1 + halvings (n / 2)
 ```
 
 <!-- output: check errors/termination.sw -->
 ```text
 [E-TERMINATION] Error: can't show that `halvings` terminates
-   ╭─[ errors/termination.sw:2:29 ]
+   ╭─[ errors/termination.sw:2:28 ]
    │
- 2 │   if n <= 1 then 0 else 1 + halvings (n / 2)
-   │                             ───────┬───────
-   │                                    ╰───────── this recursive call might not terminate: no argument is known to be smaller
+ 2 │   if n ≤ 1 then 0 else 1 + halvings (n / 2)
+   │                            ───────┬───────
+   │                                   ╰───────── this recursive call might not terminate: no argument is known to be smaller
    │
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │
@@ -90,17 +90,17 @@ def halvings (n: Nat): Nat :=
 def halvings (n: Nat): Nat
     decreasing n
 :=
-  if n <= 1 then 0 else 1 + halvings (n / 2)
+  if n ≤ 1 then 0 else 1 + halvings (n / 2)
 ```
 
 <!-- output: check errors/decreasing.sw -->
 ```text
 [E-DECREASING] Error: can't show `n / 2 < n` here, which `decreasing n` needs for this call
-   ╭─[ errors/decreasing.sw:4:29 ]
+   ╭─[ errors/decreasing.sw:4:28 ]
    │
- 4 │   if n <= 1 then 0 else 1 + halvings (n / 2)
-   │                             ───────┬───────
-   │                                    ╰───────── this recursive call
+ 4 │   if n ≤ 1 then 0 else 1 + halvings (n / 2)
+   │                            ───────┬───────
+   │                                   ╰───────── this recursive call
    │
    │ Note: give a proof with `[decreasing := …]`, or test it with `if h: n / 2 < n then … else …`
 ───╯
@@ -128,7 +128,7 @@ Here `rest < n` always holds when `n >= 10`, so the `else` branch never runs; th
 def gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=
-  if nonzero: b != 0 then
+  if nonzero: b ≠ 0 then
     if smaller: a % b < b then gcd b (a % b) else a
   else a
 
@@ -158,15 +158,15 @@ Definitions can call each other, in any order in the file. Their termination is 
 
 <!-- snippet: recursion.sw#mutual -->
 ```stitchwort
-def isEven: Nat -> Bool
+def isEven: Nat → Bool
   | 0 => True
   | Succ n => isOdd n
 
-def isOdd: Nat -> Bool
+def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
-test "mutual recursion" := isEven 10 && isOdd 7
+test "mutual recursion" := isEven 10 ∧ isOdd 7
 ```
 
 ## `Partial`: functions that may not finish
@@ -178,7 +178,7 @@ Some functions have no known reason to finish, such as the Collatz sequence. Mar
 -- Chapter 7: a function that may not finish says so with `Partial`.
 import Std (IO, Nat)
 
-def collatzSteps: Nat -> {Partial} Nat
+def collatzSteps: Nat → {Partial} Nat
   | 0 => 0
   | 1 => 0
   | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
@@ -195,7 +195,7 @@ Only `stitchwort run`, `stitchwort test` and the playground run partial code; th
 
 <!-- snippet: partial-test.sw -->
 ```stitchwort
-def collatzSteps: Nat -> {Partial} Nat
+def collatzSteps: Nat → {Partial} Nat
   | 0 => 0
   | 1 => 0
   | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
@@ -218,7 +218,7 @@ Library functions that take a callback can be given a partial one. `List.map` is
 -- Chapter 7: `List.map` with a partial callback is partial too.
 import Std (IO, List, Nat)
 
-def collatzSteps: Nat -> {Partial} Nat
+def collatzSteps: Nat → {Partial} Nat
   | 0 => 0
   | 1 => 0
   | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)

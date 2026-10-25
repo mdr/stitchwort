@@ -3,7 +3,7 @@
 -- value isn't known until a handler runs, so it's opaque, and a type can't
 -- use it (docs/proposals/let.md §4.3, "Effects").
 ability Ask where
-  ask: () -> {Ask} Nat
+  ask: () → {Ask} Nat
 
 def opaque(): {Ask} Nat :=
   let k := ask()

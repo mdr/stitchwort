@@ -12,10 +12,10 @@ type LaterOp: Type =
 type Unit1: Type =
   | MkUnit
 
-def LaterRes: LaterOp -> Type
+def LaterRes: LaterOp → Type
   | Later => Unit1
 
-def drain: Comp LaterOp LaterRes Prop -> Prop
+def drain: Comp LaterOp LaterRes Prop → Prop
   | Done x          => x
   | Call Later rest => drain (rest MkUnit)
 

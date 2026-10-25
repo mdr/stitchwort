@@ -11,5 +11,5 @@ type EvenP: Prop =
 type OddP: Prop =
   | OddSucc (pred: EvenP)
 
-def oddDepth: OddP -> Nat
+def oddDepth: OddP → Nat
   | OddSucc e => 1

@@ -5,9 +5,9 @@ expression: output
 [E-TERMINATION] Error: can't show that `loop` terminates
     ╭─[ soundness/fake-child.sw:15:20 ]
     │
- 15 │   | Call o rest => loop ((b => Call o rest: Bool -> Comp ChooseOp ChooseRes Nat) True)
-    │                    ─────────────────────────────────┬────────────────────────────────  
-    │                                                     ╰────────────────────────────────── this recursive call might not terminate: no argument is known to be smaller
+ 15 │   | Call o rest => loop ((b => Call o rest: Bool → Comp ChooseOp ChooseRes Nat) True)
+    │                    ────────────────────────────────┬────────────────────────────────  
+    │                                                    ╰────────────────────────────────── this recursive call might not terminate: no argument is known to be smaller
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 

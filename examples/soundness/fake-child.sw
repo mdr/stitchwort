@@ -7,9 +7,9 @@ import Std.Effect (Comp)
 type ChooseOp: Type =
   | Choose
 
-def ChooseRes: ChooseOp -> Type
+def ChooseRes: ChooseOp → Type
   | Choose => Bool
 
-def loop: Comp ChooseOp ChooseRes Nat -> Prop
+def loop: Comp ChooseOp ChooseRes Nat → Prop
   | Done x      => Unit
-  | Call o rest => loop ((b => Call o rest: Bool -> Comp ChooseOp ChooseRes Nat) True)
+  | Call o rest => loop ((b => Call o rest: Bool → Comp ChooseOp ChooseRes Nat) True)

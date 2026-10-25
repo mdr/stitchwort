@@ -30,7 +30,7 @@ def PrefixSums.runningSums (row: List Nat): List Nat := List.scanLeft row 0 Nat.
 
 -- The table's rows from the running sums of each row: `above` is the row of
 -- the table for the rows before.
-def PrefixSums.table (above: List Nat): List (List Nat) -> List (List Nat)
+def PrefixSums.table (above: List Nat): List (List Nat) → List (List Nat)
   | Nil => [above]
   | Cons sums rest => Cons above (PrefixSums.table (List.zipWith above sums Nat.add) rest)
 
@@ -48,9 +48,9 @@ def PrefixSums.example: List (List Nat) := [[1, 2, 3], [4, 5], [7, 8, 9]]
 
 test "PrefixSums.block" :=
   (PrefixSums.of PrefixSums.example).block 0 3 0 3 == 39
-    && (PrefixSums.of PrefixSums.example).block 1 3 1 3 == 22
-    && (PrefixSums.of PrefixSums.example).block 1 2 2 3 == 0
-    && (PrefixSums.of PrefixSums.example).block 2 2 0 3 == 0
+    ∧ (PrefixSums.of PrefixSums.example).block 1 3 1 3 == 22
+    ∧ (PrefixSums.of PrefixSums.example).block 1 2 2 3 == 0
+    ∧ (PrefixSums.of PrefixSums.example).block 2 2 0 3 == 0
 test "PrefixSums.blockSpec" := PrefixSums.blockSpec PrefixSums.example 1 3 1 3 == 22
 test "PrefixSums.table" := PrefixSums.table [0, 0] [[0, 1], [0, 2]] == [[0, 0], [0, 1], [0, 3]]
 test "PrefixSums of no rows" := (PrefixSums.of Nil).block 0 0 0 0 == 0

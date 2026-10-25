@@ -3,6 +3,6 @@
 -- that would let a proof decide data. Its proof fields can be
 -- (`belowOf` in examples/accept/records.sw).
 
-type Witness: Prop = { n: Nat, small: n <= 3 }
+type Witness: Prop = { n: Nat, small: n ≤ 3 }
 
 def witnessed (w: Witness): Nat := w.n

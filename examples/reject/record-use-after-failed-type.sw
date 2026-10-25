@@ -14,5 +14,5 @@ def get (r: Rot): Nat := r.amount
 
 def bump (r: Rot): Rot := { r | amount = 1 }
 
-def g: Rot -> Nat
+def g: Rot → Nat
   | { amount, .. } => amount

@@ -11,17 +11,17 @@ theorem zeroPlus (n: Nat): 0 + n = n := rfl
 -- end rfl
 
 -- begin induction
-theorem plusZero: (n: Nat) -> n + 0 = n
+theorem plusZero: (n: Nat) → n + 0 = n
   | Zero => rfl
   | Succ k => Eq.cong Succ (plusZero k)
 -- end induction
 
 -- begin lists
-def mapList (f: a -> b): List a -> List b
+def mapList (f: a → b): List a → List b
   | [] => []
   | Cons x rest => Cons (f x) (mapList f rest)
 
-theorem lengthMapList (f: a -> b): (xs: List a) -> (mapList f xs).length = xs.length
+theorem lengthMapList (f: a → b): (xs: List a) → (mapList f xs).length = xs.length
   | [] => rfl
   | Cons x rest => Eq.cong Succ (lengthMapList f rest)
 -- end lists
@@ -32,15 +32,15 @@ theorem swapWithZero (a: Nat) (b: Nat): a + b + 0 = b + a :=
 -- end rewrite
 
 -- begin calc
-theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b <= c) (small: c < 10): a < 10 :=
+theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 :=
   calc a
     _ = b := ab
-    _ <= c := bc
+    _ ≤ c := bc
     _ < 10 := small
 -- end calc
 
 -- begin omega
-theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y <= 10): x + 1 <= 10 := omega
+theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 
 theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 -- end omega
@@ -55,20 +55,20 @@ theorem pairCount (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p
 
 -- begin spec
 -- The specification: the plain recursive sum.
-def sumTo: Nat -> Nat
+def sumTo: Nat → Nat
   | 0 => 0
   | Succ k => Succ k + sumTo k
 
 -- The program: a loop with an accumulator.
 def sumFast (n: Nat): Nat :=
-  def loop: Nat -> Nat -> Nat
+  def loop: Nat → Nat → Nat
     | 0, total => total
     | Succ k, total => loop k (total + Succ k)
   loop n 0
 
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
-theorem loopIsSum: (n: Nat) -> (total: Nat) -> sumFast.loop n total = total + sumTo n
+theorem loopIsSum: (n: Nat) → (total: Nat) → sumFast.loop n total = total + sumTo n
   | Zero, total => Eq.sym (Nat.addZero total)
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 
@@ -76,9 +76,9 @@ theorem sumFastIsSum (n: Nat): sumFast n = sumTo n := loopIsSum n 0
 -- end spec
 
 -- begin match-equation
-def clampTo (limit: Nat) (n: Nat): Nat := if n <= limit then n else limit
+def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
 
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
   match fits: Nat.leq n limit with
     | True => fits
     | False => Nat.leRefl limit
@@ -99,7 +99,7 @@ theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := rfl
 -- end dependent
 
 -- begin reify
-theorem orElseIsGetOrElse (fallback: a) (t: () -> {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
+theorem orElseIsGetOrElse (fallback: a) (t: () → {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
   match reify t with
     | return x => rfl
     | Fail.stop message, _ => rfl
@@ -112,24 +112,24 @@ theorem doubleIsTimesTwo: double = (n => 2 * n) := Quot.funext Nat (n => Nat) do
 -- begin export
 export def clampPercent (n: Nat): Nat := clampTo 100 n
 
-theorem clampPercentAtMost (n: Nat): clampPercent n <= 100 := clampToAtMost 100 n
+theorem clampPercentAtMost (n: Nat): clampPercent n ≤ 100 := clampToAtMost 100 n
 -- end export
 
-test "the program agrees with the specification on an example" := sumFast 100 == 5050 && sumTo 100 == 5050
+test "the program agrees with the specification on an example" := sumFast 100 == 5050 ∧ sumTo 100 == 5050
 
 -- begin logic
-theorem headIn (x: Nat) (rest: List Nat): x in Cons x rest := Inl rfl
+theorem headIn (x: Nat) (rest: List Nat): x ∈ Cons x rest := Inl rfl
 
 theorem notInEmpty (x: Nat): x ∉ Nil := none => none
 
-theorem bothWays (p: Prop) (q: Prop): p && q <-> q ∧ p := {
+theorem bothWays (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
   forward = h => Both (And.right h) (And.left h),
   backward = h => Both (And.right h) (And.left h)
 }
 
-theorem hasSquareRoot: exists (n: Nat) => n * n = 49 := Witness 7 rfl
+theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
 
-def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x !in seen)
+def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 -- end logic
 
 test "unseen" := unseen [1, 2] [1, 2, 3] == [3]

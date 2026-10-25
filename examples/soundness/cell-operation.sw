@@ -7,4 +7,4 @@ type Unit1: Type =
   | MkUnit
 
 type CellOp: Type =
-  | Write (f: Unit1 -> Comp CellOp (o => Unit1) Unit1)
+  | Write (f: Unit1 → Comp CellOp (o => Unit1) Unit1)

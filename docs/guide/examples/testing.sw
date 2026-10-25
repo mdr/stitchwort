@@ -7,7 +7,7 @@ def wordCount (line: Text): Nat := line.words.length
 test "counts words" := wordCount "the quick brown fox" == 4
 test "an empty line has none" := wordCount "" == 0
 test "a proposition, decided" := wordCount "a b" < 3
-test "several at once" := wordCount "a" == 1 && wordCount "a b" == 2
+test "several at once" := wordCount "a" == 1 ∧ wordCount "a b" == 2
 -- end basics
 
 -- begin block

@@ -6,7 +6,7 @@
 -- examples/accept/interfaces-superclasses.sw.
 
 interface Ping (a: Type) =
-  { pong: Pong a, ping: a -> Text }
+  { pong: Pong a, ping: a → Text }
 
 interface Pong (a: Type) =
-  { ping: Ping a, pong: a -> Text }
+  { ping: Ping a, pong: a → Text }

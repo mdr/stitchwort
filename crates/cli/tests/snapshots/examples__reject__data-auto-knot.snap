@@ -5,9 +5,9 @@ expression: output
 [E-ABILITY] Error: an operation's argument can't perform `Cell` itself
     ╭─[ reject/data-auto-knot.sw:18:10 ]
     │
- 18 │   write: Map Nat (() -> {Cell} ()) -> {Cell} ()
-    │          ────────────┬───────────  
-    │                      ╰───────────── an operation's argument can't perform `Cell` itself
+ 18 │   write: Map Nat (() → {Cell} ()) → {Cell} ()
+    │          ───────────┬───────────  
+    │                     ╰───────────── an operation's argument can't perform `Cell` itself
     │ 
     │ Note: storing or returning a computation that uses the same ability could loop forever (Landin's knot)
 ────╯

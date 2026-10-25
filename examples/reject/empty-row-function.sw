@@ -5,5 +5,5 @@
 import Std.Effect (Comp, NoOp, NoRes)
 
 def next (n: Nat): Comp NoOp NoRes Nat := n + 1
-def apply (k: Nat -> Nat) (n: Nat): Nat := k n
+def apply (k: Nat → Nat) (n: Nat): Nat := k n
 def bad: Nat := apply next 1

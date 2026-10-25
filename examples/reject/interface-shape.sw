@@ -3,4 +3,4 @@
 -- §5.1, D174): interfaces relating two types aren't supported.
 
 interface Convert (a: Type) (b: Type) =
-  { convert: a -> b }
+  { convert: a → b }

@@ -10,26 +10,26 @@ import Std (List)
 -- function can't be. Before SW-437 the callback's computations were silently
 -- kept as data: `say` never ran.
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
 def sayAndDouble (n: Nat): {Log} Nat :=
   say n
   n + n
 
-def ResultOf [r: Type] (f: Nat -> r): Type := r
+def ResultOf [r: Type] (f: Nat → r): Type := r
 
-def Answer: Bool -> Type
+def Answer: Bool → Type
   | True => ResultOf sayAndDouble
   | False => Nat
 
 type Tagged (flag: Bool): Type =
   | Tag (n: Nat)
 
-def answerOf: (flag: Bool) -> Nat -> Answer flag
+def answerOf: (flag: Bool) → Nat → Answer flag
   | True, n => sayAndDouble n
   | False, n => n
 
-def Tagged.number [flag: Bool]: Tagged flag -> Nat
+def Tagged.number [flag: Bool]: Tagged flag → Nat
   | Tag n => n
 
 def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagged.number

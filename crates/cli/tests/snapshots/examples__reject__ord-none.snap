@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INSTANCE-NONE] Error: no `Ord` instance for `Nat → Nat`
-   ╭─[ reject/ord-none.sw:8:60 ]
+   ╭─[ reject/ord-none.sw:8:58 ]
    │
- 8 │ def byResult (fs: List (Nat -> Nat)): List (Nat -> Nat) := List.sort fs
-   │                                                            ──────┬─────  
-   │                                                                  ╰─────── this needs `Ord (Nat → Nat)`
+ 8 │ def byResult (fs: List (Nat → Nat)): List (Nat → Nat) := List.sort fs
+   │                                                          ──────┬─────  
+   │                                                                ╰─────── this needs `Ord (Nat → Nat)`
    │ 
    │ Note: functions can't be ordered
 ───╯

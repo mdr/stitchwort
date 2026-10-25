@@ -176,11 +176,11 @@ def scores: List Nat := [7, 3, 9, 3, 5]
 
 test "map and filter" := (scores.filter (n => n > 4)).map (n => n * 10) == [70, 90, 50]
 test "folds" := scores.foldLeft 0 (total n => total + n) == scores.sum
-test "searching" := scores.find (n => n > 7) == Some 9 && scores.findIndex (n => n == 9) == Some 2
+test "searching" := scores.find (n => n > 7) == Some 9 ∧ scores.findIndex (n => n == 9) == Some 2
 test "sorting and dedup" := scores.sort.dedup == [3, 5, 7, 9]
-test "slicing" := scores.take 2 == [7, 3] && scores.drop 3 == [3, 5]
+test "slicing" := scores.take 2 == [7, 3] ∧ scores.drop 3 == [3, 5]
 test "zipping" := List.zipWith [1, 2, 3] [4, 5, 6] (a b => a * b) == [4, 10, 18]
-test "ranges" := List.range 4 == [0, 1, 2, 3] && List.between 2 5 == [2, 3, 4, 5]
+test "ranges" := List.range 4 == [0, 1, 2, 3] ∧ List.between 2 5 == [2, 3, 4, 5]
 test "with an index" := ["a", "b"].withIndex == [(0, "a"), (1, "b")]
 test "maximum of an empty list" := ([]: List Nat).maximum == None
 ```
@@ -220,10 +220,10 @@ test "traverse stops at the first Err" := Result.traverse ["1", "x", "y"] parseA
 <!-- snippet: library.sw#text -->
 ```stitchwort
 test "split and join" := Text.join ("a,b,c".split ',') '-' == "a-b-c"
-test "words and lines" := "two  words".words == ["two", "words"] && "a\nb\n".lines == ["a", "b"]
-test "numbers" := "42".toNat == Some 42 && "-7".toInt == Some (-7)
-test "toNat does not trim" := " 42 ".toNat == None && " 42 ".trim.toNat == Some 42
-test "trim and slices" := "  tea ".trim == "tea" && "teapot".take 3 == "tea"
+test "words and lines" := "two  words".words == ["two", "words"] ∧ "a\nb\n".lines == ["a", "b"]
+test "numbers" := "42".toNat == Some 42 ∧ "-7".toInt == Some (-7)
+test "toNat does not trim" := " 42 ".toNat == None ∧ " 42 ".trim.toNat == Some 42
+test "trim and slices" := "  tea ".trim == "tea" ∧ "teapot".take 3 == "tea"
 test "prefixes" := "L68".stripPrefix "L" == Some "68"
 test "length counts characters" := "héllo".length == 5
 ```
@@ -250,8 +250,8 @@ test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList 
 ```stitchwort
 def seen: Set Nat := Set.fromList [3, 1, 3, 2]
 
-test "duplicates go" := seen.size == 3 && seen.toList == [1, 2, 3]
-test "membership" := seen.contains 2 && !(seen.contains 5)
+test "duplicates go" := seen.size == 3 ∧ seen.toList == [1, 2, 3]
+test "membership" := seen.contains 2 ∧ ¬(seen.contains 5)
 test "set algebra" := Set.union seen (Set.fromList [9]) == Set.fromList [1, 2, 3, 9]
 ```
 

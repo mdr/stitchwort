@@ -6,7 +6,7 @@
 -- `sideBySide` in examples/accept/interfaces-by-name.sw.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 def both [auto first: Pretty a] [auto second: Pretty a] (x: a): Text :=
   Pretty.pretty x

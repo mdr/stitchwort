@@ -4,5 +4,5 @@
 
 type Person = { name: Text, age: Nat }
 
-def nameOf: Person -> Text
+def nameOf: Person → Text
   | { name } => name

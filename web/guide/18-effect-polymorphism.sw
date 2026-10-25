@@ -3,7 +3,7 @@
 import Std (Fail, List)
 import Std.Fail (fail, toResult)
 
-def applyTwice (f: a -> {e} a) (x: a): {e} a := f (f x)
+def applyTwice (f: a → {e} a) (x: a): {e} a := f (f x)
 
 -- With a pure callback this is a pure function.
 test "pure" := applyTwice (n => n + 3) 1 == 7

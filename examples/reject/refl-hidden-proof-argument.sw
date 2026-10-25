@@ -5,5 +5,5 @@
 
 import Std (Int)
 
-theorem differentProofs (x: Int) (t: Nat) (h1: Succ t != 0) (h2: Succ t != 0):
+theorem differentProofs (x: Int) (t: Nat) (h1: Succ t ≠ 0) (h2: Succ t ≠ 0):
     Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h2] := rfl

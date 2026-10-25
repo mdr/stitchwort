@@ -6,6 +6,6 @@
 -- what it waited for.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 def shown [auto p: Pretty (List a)] (x: a): Text := Pretty.pretty []

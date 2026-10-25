@@ -5,4 +5,4 @@
 
 import Std (List)
 
-def byResult (fs: List (Nat -> Nat)): List (Nat -> Nat) := List.sort fs
+def byResult (fs: List (Nat → Nat)): List (Nat → Nat) := List.sort fs

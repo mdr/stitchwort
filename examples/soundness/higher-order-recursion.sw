@@ -6,11 +6,11 @@ import Std.Effect (Comp)
 type ChooseOp: Type =
   | Choose
 
-def ChooseRes: ChooseOp -> Type
+def ChooseRes: ChooseOp → Type
   | Choose => Bool
 
-def applyTo (f: Comp ChooseOp ChooseRes Nat -> Prop) (c: Comp ChooseOp ChooseRes Nat): Prop := f c
+def applyTo (f: Comp ChooseOp ChooseRes Nat → Prop) (c: Comp ChooseOp ChooseRes Nat): Prop := f c
 
-def viaHelper: Comp ChooseOp ChooseRes Nat -> Prop
+def viaHelper: Comp ChooseOp ChooseRes Nat → Prop
   | Done x           => Unit
   | Call Choose rest => applyTo viaHelper (rest True)

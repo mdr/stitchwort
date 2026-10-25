@@ -1,9 +1,9 @@
 -- A lowercase name in a type is a type variable: this works for any `a`.
-def twice (f: a -> a) (x: a): a := f (f x)
+def twice (f: a → a) (x: a): a := f (f x)
 
 -- Implicit arguments are filled in by the compiler. Here `a` is found from
 -- the list you pass; you never write it.
-def firstOr (fallback: a): List a -> a
+def firstOr (fallback: a): List a → a
   | [] => fallback
   | Cons x _ => x
 

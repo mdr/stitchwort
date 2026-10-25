@@ -86,7 +86,7 @@ pub enum Tok {
     Iff,
     /// `exists` (or `∃`), followed by a lambda: `exists (x: T) => P` is
     /// `Exists T ((x: T) => P)` (D1203). Right after a `.` it's an ordinary
-    /// name, so `opt.exists p` still calls `Option.exists`.
+    /// name: `x.exists` is a field or method called `exists`.
     KwExists,
     KwIf,
     KwThen,
@@ -363,7 +363,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                     "ring" => Tok::KwRing,
                     "decreasing" => Tok::KwDecreasing,
                     "in" => Tok::KwIn,
-                    // After a `.`, a field or a dot call: `opt.exists p`.
+                    // After a `.`, a field or a dot call: `x.exists p`.
                     "exists" if !(start > 0 && bytes[start - 1] == b'.') => Tok::KwExists,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,

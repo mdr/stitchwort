@@ -173,7 +173,7 @@ pub(crate) fn validate_contextual(
     for (m, &(position, first, second)) in positions.iter().enumerate() {
         let wrong = || {
             format!(
-                "its premise {} isn't `(x…) -> facts… -> f1 x… = f2 x…` for the two copies of \
+                "its premise {} isn't `(x…) → facts… → f1 x… = f2 x…` for the two copies of \
                  a function",
                 m + 1
             )
@@ -448,7 +448,7 @@ pub(crate) fn validate_cong(
         let depth = level + xs.len();
         let wrong = || {
             format!(
-                "its premise {} isn't `(x…) -> f1 x… = f2 x…` for the two copies of a \
+                "its premise {} isn't `(x…) → f1 x… = f2 x…` for the two copies of a \
                  parameter",
                 m + 1
             )

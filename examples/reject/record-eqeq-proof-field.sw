@@ -6,7 +6,7 @@
 -- field that's an equation in a type with `DecEq` is fine: `Short`, in
 -- examples/accept/eqeq-proof-fields.sw.
 
-type Ascending: List Nat -> Prop =
+type Ascending: List Nat → Prop =
   | Empty: Ascending []
   | One (x: Nat): Ascending [x]
 

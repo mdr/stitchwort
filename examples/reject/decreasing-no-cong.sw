@@ -4,7 +4,7 @@
 -- the message says which lemma, and its shape.
 import Std (List, Nat)
 
-def total (f: Nat -> Nat): List Nat -> Nat
+def total (f: Nat → Nat): List Nat → Nat
   | Nil       => 0
   | Cons x xs => f x + total f xs
 

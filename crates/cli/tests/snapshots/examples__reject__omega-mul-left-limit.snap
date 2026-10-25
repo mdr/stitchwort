@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-OMEGA] Error: `omega` doesn't take `2000 * …`: the number is too large
-   ╭─[ reject/omega-mul-left-limit.sw:5:56 ]
+   ╭─[ reject/omega-mul-left-limit.sw:5:54 ]
    │
- 5 │ theorem big2 (x: Nat) (h: 2000 * x <= 4000): x <= 2 := omega
-   │                                                        ──┬──  
-   │                                                          ╰──── the goal or a fact multiplies by 2000 on the left
+ 5 │ theorem big2 (x: Nat) (h: 2000 * x ≤ 4000): x ≤ 2 := omega
+   │                                                      ──┬──  
+   │                                                        ╰──── the goal or a fact multiplies by 2000 on the left
    │ 
    │ Note 1: `k * x` computes to `x + (x + … + 0)` with `k` copies, which is slow to check for large `k`; `omega` takes `k` up to 1000
    │ 

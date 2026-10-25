@@ -6,7 +6,7 @@
 namespace Aoc.Day04.Proofs
 import Aoc.Day04 (..)
 import Aoc.Day04.Spec (..)
-import Std (And, Bool, Decidable, Eq, List, Nat, Vec, Void)
+import Std (And, Bool, DecEq, Eq, List, Nat, Vec, Void)
 
 -- Rows of any size as cells by position, as `cellsOf` reads a grid's.
 def rowsCells (rows: Vec (Vec Cell w) h): Cells :=
@@ -188,12 +188,10 @@ theorem andKeep: (a: Bool) → (b: Bool) → (x: Bool) → Bool.toNat ((a ∧ b)
 
 theorem nearSelf (r: Nat): (Nat.absDiff r r ≤ 1) = True := rewrite Nat.absDiffSelf r
 
-theorem eqTrue (m: Nat) (n: Nat) (h: (m == n) = True): m = n := Decidable.toBoolSound (Nat.decEq m n) h
-
 -- The position itself is at most 1 from itself.
 theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x ∧ c == y) = True): near r x = True ∧ near c y = True :=
-  Both (rewrite eqTrue r x (Bool.andLeft (r == x) (c == y) h) in nearSelf x)
-    (rewrite eqTrue c y (Bool.andRight (r == x) (c == y) h) in nearSelf y)
+  Both (rewrite DecEq.sound r x (Bool.andLeft (r == x) (c == y) h) in nearSelf x)
+    (rewrite DecEq.sound c y (Bool.andRight (r == x) (c == y) h) in nearSelf y)
 
 -- A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum (grid: Grid) (p: Nat → Nat → Bool):

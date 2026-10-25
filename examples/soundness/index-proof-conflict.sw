@@ -9,8 +9,8 @@ type P: Prop =
   | A
   | B
 
-type SameP (x: P): P -> Prop =
+type SameP (x: P): P → Prop =
   | R: SameP x x
 
-theorem noAB: SameP A B -> Void
+theorem noAB: SameP A B → Void
   | ()

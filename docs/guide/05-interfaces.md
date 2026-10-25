@@ -25,7 +25,7 @@ type Card = { rank: Nat, suit: Suit }
 def aceOfSpades: Card := { rank = 14, suit = Spades }
 def twoOfClubs: Card := { rank = 2, suit = Clubs }
 
-test "equality" := aceOfSpades == aceOfSpades && aceOfSpades != twoOfClubs
+test "equality" := aceOfSpades == aceOfSpades ∧ aceOfSpades ≠ twoOfClubs
 test "order: fields left to right" := twoOfClubs < aceOfSpades
 test "constructors in declared order" := List.sort [Spades, Clubs, Hearts] == [Clubs, Hearts, Spades]
 test "text" := "${twoOfClubs}" == "{ rank = 2, suit = Clubs }"
@@ -35,7 +35,7 @@ A type gets none of these when one of its fields can't have it. A function can't
 
 <!-- snippet: errors/no-instance.sw -->
 ```stitchwort
-type Rule = { name: Text, applies: Nat -> Bool }
+type Rule = { name: Text, applies: Nat → Bool }
 
 def sameRule (a: Rule) (b: Rule): Bool := a == b
 ```
@@ -62,7 +62,7 @@ An interface is a record type with one type parameter, whose fields are its oper
 <!-- snippet: interfaces.sw#interface -->
 ```stitchwort
 interface Describe (a: Type) =
-  { describe: a -> Text }
+  { describe: a → Text }
 
 instance Suit.instDescribe: Describe Suit :=
   { describe = suit => match suit with
@@ -147,10 +147,10 @@ An interface can include **laws**: fields whose types are statements, which ever
 ```stitchwort
 interface Add (a: Type) = {
   zero: a,
-  add: a -> a -> a,
-  zeroAdd: (x: a) -> add zero x = x,
-  assoc: (x: a) -> (y: a) -> (z: a) -> add (add x y) z = add x (add y z),
-  comm: (x: a) -> (y: a) -> add x y = add y x
+  add: a → a → a,
+  zeroAdd: (x: a) → add zero x = x,
+  assoc: (x: a) → (y: a) → (z: a) → add (add x y) z = add x (add y z),
+  comm: (x: a) → (y: a) → add x y = add y x
 }
 ```
 

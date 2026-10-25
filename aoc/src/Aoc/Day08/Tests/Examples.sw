@@ -20,7 +20,7 @@ test "parse rejects a blank line" := pointsOf ["1,2,3", ""] == Err "line 2: expe
 test "parse allows spaces" := pointsOf [" 1, 2 ,3 "] == Ok [box 1 2 3]
 test "the example loads" := example.isOk
 test "example has 20 boxes" := example.map (boxes => boxes.points.length) == Ok 20
-test "squared distance" := (box 0 0 0).squaredDistance (box 1 2 2) == 9 && (box 5 5 5).squaredDistance (box 2 9 5) == 25
+test "squared distance" := (box 0 0 0).squaredDistance (box 1 2 2) == 9 ∧ (box 5 5 5).squaredDistance (box 2 9 5) == 25
 def connection (distance: Nat) (first: Nat) (second: Nat): Connection := { distance, first, second }
 
 test "closest first" := closestFirst [box 0 0 0, box 10 0 0, box 1 0 0] == [connection 1 0 2, connection 81 1 2, connection 100 0 1]
@@ -29,7 +29,7 @@ test "equal distances come in box order" :=
     == [connection 1 0 1, connection 1 1 2, connection 1 2 3, connection 4 0 2, connection 4 1 3, connection 9 0 3]
 test "the closest pair in the example" := example.map (boxes => boxes.pairs.take 1) == Ok [connection 100427 0 19]
 test "all pairs are there" := example.map (boxes => boxes.pairs.length) == Ok 190
-test "separate circuits" := (Circuits.separate 3).sizes 3 == [1, 1, 1] && (Circuits.separate 3).count == 3
+test "separate circuits" := (Circuits.separate 3).sizes 3 == [1, 1, 1] ∧ (Circuits.separate 3).count == 3
 test "join" :=
   let joined := (Circuits.separate 4).join 0 1 |> .join 2 1
   (joined.count, joined.sizes 4, joined.labelOf 0 == joined.labelOf 2, joined.labelOf 3 == joined.labelOf 0) == (2, [3, 1], True, False)

@@ -55,7 +55,7 @@ theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCo
   rewrite Map.getOrCounts label (List.map (List.range n) c.labelOf), Map.Spec.sameKeyDecide label _ in rfl
 
 -- Each entry of the histogram is a label and its count.
-theorem entryCount (c: Circuits) (n: Nat): (e: (Nat, Nat)) -> List.Mem e (Map.toList (labelCounts c n)) -> e.snd = labelCount c n e.fst
+theorem entryCount (c: Circuits) (n: Nat): (e: (Nat, Nat)) → List.Mem e (Map.toList (labelCounts c n)) → e.snd = labelCount c n e.fst
   | (label, v), m =>
     Eq.trans (Eq.sym (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m))) (getOrLabelCounts c n label)
 
@@ -97,10 +97,10 @@ theorem valuesAreCounts (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (
 -- The spec's first boxes -----------------------------------------------------
 
 -- No lower box has b's label: the spec counts b's circuit at b.
-def firstBox (c: Circuits) (b: Nat): Bool := !(List.range b |> .any (other => c.labelOf other == c.labelOf b))
+def firstBox (c: Circuits) (b: Nat): Bool := ¬(List.range b |> .any (other => c.labelOf other == c.labelOf b))
 
 -- The labels of the first boxes don't repeat ...
-theorem firstsDistinct (c: Circuits): (k: Nat) -> (s: Nat) -> List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf)
+theorem firstsDistinct (c: Circuits): (k: Nat) → (s: Nat) → List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf)
   | Zero, s => Trivial
   | Succ k, s =>
     match e: firstBox c s with
@@ -120,7 +120,7 @@ theorem firstsDistinct (c: Circuits): (k: Nat) -> (s: Nat) -> List.Distinct (Lis
       | False => firstsDistinct c k (Succ s)
 
 -- ... and they are all the labels: each box's label is a first box's.
-theorem firstOf (c: Circuits) (n: Nat): (fuel: Nat) -> (b: Nat) -> b < fuel -> b < n ->
+theorem firstOf (c: Circuits) (n: Nat): (fuel: Nat) → (b: Nat) → b < fuel → b < n →
     List.Mem (c.labelOf b) (List.map (List.filter (List.range n) (firstBox c)) c.labelOf)
   | Zero, b, h, hb => Void.exfalso (Bool.falseNotTrue h)
   | Succ fuel, b, h, hb =>

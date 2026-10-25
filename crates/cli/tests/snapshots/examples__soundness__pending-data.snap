@@ -9,7 +9,7 @@ expression: output
     │      ┬  
     │      ╰── `D` is defined here
     │ 
- 12 │ def impossible: D -> Void
+ 12 │ def impossible: D → Void
     │     ─────┬────  
     │          ╰────── `impossible` is defined here
     │ 

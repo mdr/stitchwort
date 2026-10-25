@@ -16,14 +16,14 @@
 type Empty: Type
 
 -- From a value of `Empty`, anything follows.
-def Empty.absurd: Empty -> a
+def Empty.absurd: Empty → a
   | ()
 
 -- The one operation. It returns `Empty`, so no handler can resume the
 -- computation: there's no value to resume it with. Code calls
 -- `Abort.abort()`, which has any result type; handlers match on `stop`.
 ability Abort where
-  stop: () -> {Abort} Empty
+  stop: () → {Abort} Empty
 
 -- Gives up, whatever result was expected.
 def Abort.abort(): {Abort} a := Empty.absurd Abort.stop()
@@ -41,23 +41,23 @@ def Option.orAbort (option: Option a): {Abort} a := Abort.need option
 def Abort.ensure (ok: Bool): {Abort} () := if ok then () else Abort.abort()
 
 -- `Some` of the result, or `None` if the computation gave up.
-def Abort.toOption (prog: () -> {Abort | e} a): {e} Option a :=
+def Abort.toOption (prog: () → {Abort | e} a): {e} Option a :=
   handle prog() with
     | return x => Some x
     | Abort.stop u, k => None
 
 -- The result, or `fallback` if the computation gave up.
-def Abort.orElse (fallback: a) (prog: () -> {Abort | e} a): {e} a :=
+def Abort.orElse (fallback: a) (prog: () → {Abort | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Abort.stop u, k => fallback
 
 -- `need` and `toOption` undo each other.
-theorem Abort.toOptionNeed: (o: Option a) -> Abort.toOption (() => Abort.need o) = o
+theorem Abort.toOptionNeed: (o: Option a) → Abort.toOption (() => Abort.need o) = o
   | None => rfl
   | Some x => rfl
 
-theorem Abort.orElseNeed (d: a): (o: Option a) -> Abort.orElse d (() => Abort.need o) = Option.getOrElse o d
+theorem Abort.orElseNeed (d: a): (o: Option a) → Abort.orElse d (() => Abort.need o) = Option.getOrElse o d
   | None => rfl
   | Some x => rfl
 
@@ -68,7 +68,7 @@ theorem Abort.toOptionEnsureTrue: Abort.toOption (() => Abort.ensure True) = Som
 -- Running `t`, then `k` on its result: gives up if either does. A law about
 -- any computation, by a split on what `t` does first (`match reify`,
 -- docs/proposals/proof-reification.md).
-theorem Abort.toOptionThen (t: () -> {Abort} a) (k: a -> {Abort} b):
+theorem Abort.toOptionThen (t: () → {Abort} a) (k: a → {Abort} b):
     Abort.toOption (() => k (t ())) = Option.flatMap (Abort.toOption t) (x => Abort.toOption (() => k x)) :=
   match reify t with
     | return x => rfl

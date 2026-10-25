@@ -6,6 +6,6 @@ type Shape =
   | Dot (ref: Nat) (start: Nat)
   | Circle (ref: Nat) (start: Nat) (text: Text)
 
-def describe: Shape -> Text
+def describe: Shape → Text
   | Dot { .. }               => "dot"
   | Circle { start = 0, .. } => "at zero"

@@ -6,9 +6,9 @@
 import Std (Effect, Fail)
 import Std.Effect.Comp (Done, Call)
 
-def viewOf [op: Type] [res: op -> Type] [a: Type] (t: () -> Effect.Comp op res a): Effect.Comp op res a := t ()
+def viewOf [op: Type] [res: op → Type] [a: Type] (t: () → Effect.Comp op res a): Effect.Comp op res a := t ()
 
-def finishedNow [op: Type] [res: op -> Type] [a: Type] (t: () -> Effect.Comp op res a): Bool :=
+def finishedNow [op: Type] [res: op → Type] [a: Type] (t: () → Effect.Comp op res a): Bool :=
   match viewOf t with
     | Done x => True
     | Call o k => False

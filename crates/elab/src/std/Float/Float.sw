@@ -28,8 +28,8 @@
 -- +infinity, the NaN, or a negative double up to -infinity. (Every other
 -- pattern below 2^64 is a NaN with another sign or payload.)
 def Float.isValid (n: Nat): Bool :=
-  (Nat.leq n 9218868437227405312 || Nat.equal n 9221120237041090560)
-    || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)
+  (Nat.leq n 9218868437227405312 ∨ Nat.equal n 9221120237041090560)
+    ∨ (Nat.leq 9223372036854775808 n ∧ Nat.leq n 18442240474082181120)
 
 type Float = { bits: Nat, valid: Float.isValid bits = True }
 
@@ -37,7 +37,7 @@ type Float = { bits: Nat, valid: Float.isValid bits = True }
 -- `Eq.refl True` whatever `p` is, so every way of building a `Float` with
 -- known bits (a literal, a primitive's result, a definition, a native) gives
 -- the same record (docs/proposals/float.md §3.4, D731).
-def Bool.canonicalTrue: (b: Bool) -> b = True -> b = True
+def Bool.canonicalTrue: (b: Bool) → b = True → b = True
   | True, _ => rfl
   | False, p => p
 
@@ -54,8 +54,8 @@ def Float.isNaN (x: Float): Bool := Nat.equal x.bits 9221120237041090560
 -- Bit extensionality: two `Float`s with the same bits are equal, whatever
 -- their `valid` proofs (proofs of a `Bool` equation are unique).
 theorem Float.mkExt (a: Nat) (b: Nat) (p: Float.isValid a = True) (e: a = b):
-    (q: Float.isValid b = True) -> ({ bits = a, valid = p }: Float) = { bits = b, valid = q } :=
-  J (b' e' => (q': Float.isValid b' = True) -> ({ bits = a, valid = p }: Float) = { bits = b', valid = q' })
+    (q: Float.isValid b = True) → ({ bits = a, valid = p }: Float) = { bits = b, valid = q } :=
+  J (b' e' => (q': Float.isValid b' = True) → ({ bits = a, valid = p }: Float) = { bits = b', valid = q' })
     (q' => J (r e'' => ({ bits = a, valid = p }: Float) = { bits = a, valid = r }) rfl
       (Bool.uniqueEq (Float.isValid a) True p q'))
     e
@@ -70,7 +70,7 @@ theorem Float.bitsNe (x: Float) (y: Float) (h: Not (x.bits = y.bits)): Not (x = 
 -- `==`: the same double. For two known doubles this is `Yes (Float.bitsExt
 -- x y rfl)` or `No (Float.bitsNe x y (Nat.equalFalse m n rfl))`, which is
 -- what the native gives.
-def Float.decEqFrom (x: Float) (y: Float): Decidable (x.bits = y.bits) -> Decidable (x = y)
+def Float.decEqFrom (x: Float) (y: Float): Decidable (x.bits = y.bits) → Decidable (x = y)
   | Yes h => Yes (Float.bitsExt x y h)
   | No h => No (Float.bitsNe x y h)
 
@@ -79,10 +79,10 @@ def Float.decEq (x: Float) (y: Float): Decidable (x = y) := Float.decEqFrom x y 
 instance Float.instDecEq: DecEq Float := { decide = Float.decEq }
 
 -- JavaScript's `===`: the NaN is not equal to itself, and `0.0` equals `-0.0`.
-def Float.isZero (x: Float): Bool := Nat.equal x.bits 0 || Nat.equal x.bits 9223372036854775808
+def Float.isZero (x: Float): Bool := Nat.equal x.bits 0 ∨ Nat.equal x.bits 9223372036854775808
 
 def Float.ieeeEq (x: Float) (y: Float): Bool :=
-  !(Float.isNaN x) && (Nat.equal x.bits y.bits || (Float.isZero x && Float.isZero y))
+  ¬(Float.isNaN x) ∧ (Nat.equal x.bits y.bits ∨ (Float.isZero x ∧ Float.isZero y))
 
 -- The sign bit flipped, and cleared.
 def Float.flipSignBits (n: Nat): Nat :=
@@ -91,22 +91,22 @@ def Float.flipSignBits (n: Nat): Nat :=
 def Float.clearSignBits (n: Nat): Nat :=
   if Nat.leq 9223372036854775808 n then n - 9223372036854775808 else n
 
-theorem Float.validLow (m: Nat) (h: m <= 9218868437227405312): Float.isValid m = True :=
-  Eq.cong (b => (b || Nat.equal m 9221120237041090560)
-    || (Nat.leq 9223372036854775808 m && Nat.leq m 18442240474082181120)) h
+theorem Float.validLow (m: Nat) (h: m ≤ 9218868437227405312): Float.isValid m = True :=
+  Eq.cong (b => (b ∨ Nat.equal m 9221120237041090560)
+    ∨ (Nat.leq 9223372036854775808 m ∧ Nat.leq m 18442240474082181120)) h
 
-theorem Float.validHigh (m: Nat) (h1: 9223372036854775808 <= m) (h2: m <= 18442240474082181120):
+theorem Float.validHigh (m: Nat) (h1: 9223372036854775808 ≤ m) (h2: m ≤ 18442240474082181120):
     Float.isValid m = True :=
   Eq.trans
-    (Eq.cong (c => (Nat.leq m 9218868437227405312 || Nat.equal m 9221120237041090560) || c)
+    (Eq.cong (c => (Nat.leq m 9218868437227405312 ∨ Nat.equal m 9221120237041090560) ∨ c)
       (Bool.andIntro (Nat.leq 9223372036854775808 m) (Nat.leq m 18442240474082181120) h1 h2))
-    (Bool.orTrue (Nat.leq m 9218868437227405312 || Nat.equal m 9221120237041090560))
+    (Bool.orTrue (Nat.leq m 9218868437227405312 ∨ Nat.equal m 9221120237041090560))
 
 -- A valid pattern with the sign bit set is at most -infinity.
-theorem Float.highBound (n: Nat) (v: Float.isValid n = True) (hk: 9223372036854775808 <= n):
-    n <= 18442240474082181120 :=
-  let v2: ((Nat.leq n 9218868437227405312 || Nat.equal n 9221120237041090560)
-    || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)) = True := v
+theorem Float.highBound (n: Nat) (v: Float.isValid n = True) (hk: 9223372036854775808 ≤ n):
+    n ≤ 18442240474082181120 :=
+  let v2: ((Nat.leq n 9218868437227405312 ∨ Nat.equal n 9221120237041090560)
+    ∨ (Nat.leq 9223372036854775808 n ∧ Nat.leq n 18442240474082181120)) = True := v
   let a: Nat.leq n 9218868437227405312 = False := omega
   let e: Nat.equal n 9221120237041090560 = False :=
     Bool.falseOfNotTrue (Nat.equal n 9221120237041090560) (h => omega)
@@ -115,14 +115,14 @@ theorem Float.highBound (n: Nat) (v: Float.isValid n = True) (hk: 92233720368547
 -- A valid pattern other than the NaN, with the sign bit clear, is at most
 -- +infinity.
 theorem Float.lowBound (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221120237041090560 = False)
-    (hk: Nat.leq 9223372036854775808 n = False): n <= 9218868437227405312 :=
-  let v2: ((Nat.leq n 9218868437227405312 || Nat.equal n 9221120237041090560)
-    || (Nat.leq 9223372036854775808 n && Nat.leq n 18442240474082181120)) = True := v
+    (hk: Nat.leq 9223372036854775808 n = False): n ≤ 9218868437227405312 :=
+  let v2: ((Nat.leq n 9218868437227405312 ∨ Nat.equal n 9221120237041090560)
+    ∨ (Nat.leq 9223372036854775808 n ∧ Nat.leq n 18442240474082181120)) = True := v
   match a: Nat.leq n 9218868437227405312 with
     | True => rfl
     | False => Void.exfalso (Bool.falseNotTrue (rewrite e, hk at v2))
 
-theorem Float.flipHigh (m: Nat) (h: 9223372036854775808 <= m):
+theorem Float.flipHigh (m: Nat) (h: 9223372036854775808 ≤ m):
     Float.flipSignBits m = m - 9223372036854775808 :=
   Eq.cong (b => if b then m - 9223372036854775808 else m + 9223372036854775808) h
 
@@ -133,8 +133,8 @@ theorem Float.flipLow (m: Nat) (h: Nat.leq 9223372036854775808 m = False):
 -- Flipping the sign of a valid pattern other than the NaN gives a valid
 -- pattern, and not the NaN; flipping it twice gives it back.
 theorem Float.flipValidFrom (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221120237041090560 = False):
-    (b: Bool) -> Nat.leq 9223372036854775808 n = b
-      -> Float.isValid (if b then n - 9223372036854775808 else n + 9223372036854775808) = True
+    (b: Bool) → Nat.leq 9223372036854775808 n = b
+      → Float.isValid (if b then n - 9223372036854775808 else n + 9223372036854775808) = True
   | True, hk => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
   | False, hk => Float.validHigh (n + 9223372036854775808) omega (omega [Float.lowBound n v e hk])
 
@@ -143,8 +143,8 @@ theorem Float.flipValid (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 922
   Float.flipValidFrom n v e (Nat.leq 9223372036854775808 n) rfl
 
 theorem Float.flipNotNaNFrom (n: Nat) (v: Float.isValid n = True):
-    (b: Bool) -> Nat.leq 9223372036854775808 n = b
-      -> Nat.equal (if b then n - 9223372036854775808 else n + 9223372036854775808) 9221120237041090560 = False
+    (b: Bool) → Nat.leq 9223372036854775808 n = b
+      → Nat.equal (if b then n - 9223372036854775808 else n + 9223372036854775808) 9221120237041090560 = False
   | True, hk =>
     Bool.falseOfNotTrue (Nat.equal (n - 9223372036854775808) 9221120237041090560)
       (h => omega [Float.highBound n v hk])
@@ -156,8 +156,8 @@ theorem Float.flipNotNaN (n: Nat) (v: Float.isValid n = True):
   Float.flipNotNaNFrom n v (Nat.leq 9223372036854775808 n) rfl
 
 theorem Float.flipFlipFrom (n: Nat) (v: Float.isValid n = True):
-    (b: Bool) -> Nat.leq 9223372036854775808 n = b
-      -> Float.flipSignBits (if b then n - 9223372036854775808 else n + 9223372036854775808) = n
+    (b: Bool) → Nat.leq 9223372036854775808 n = b
+      → Float.flipSignBits (if b then n - 9223372036854775808 else n + 9223372036854775808) = n
   | True, hk => rewrite Float.flipLow (n - 9223372036854775808) (omega [Float.highBound n v hk]) in omega
   | False, hk => rewrite Float.flipHigh (n + 9223372036854775808) omega in omega
 
@@ -167,8 +167,8 @@ theorem Float.flipFlip (n: Nat) (v: Float.isValid n = True): Float.flipSignBits 
 -- Clearing the sign of a valid pattern gives a valid pattern (the NaN's
 -- sign is clear already).
 theorem Float.clearValidFrom (n: Nat) (v: Float.isValid n = True):
-    (b: Bool) -> Nat.leq 9223372036854775808 n = b
-      -> Float.isValid (if b then n - 9223372036854775808 else n) = True
+    (b: Bool) → Nat.leq 9223372036854775808 n = b
+      → Float.isValid (if b then n - 9223372036854775808 else n) = True
   | True, hk => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
   | False, hk => v
 
@@ -177,7 +177,7 @@ theorem Float.clearValid (n: Nat) (v: Float.isValid n = True): Float.isValid (Fl
 
 -- `-x`: the sign flipped, and the NaN for the NaN (flipping its sign bit
 -- would give a pattern `isValid` refuses).
-def Float.negFrom (x: Float): (b: Bool) -> Float.isNaN x = b -> Float
+def Float.negFrom (x: Float): (b: Bool) → Float.isNaN x = b → Float
   | True, _ => Float.nan
   | False, e => Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)
 
@@ -187,14 +187,14 @@ def Float.neg (x: Float): Float := Float.negFrom x (Float.isNaN x) rfl
 def Float.abs (x: Float): Float := Float.make (Float.clearSignBits x.bits) (Float.clearValid x.bits x.valid)
 
 theorem Float.negNegSecond (x: Float) (e: Float.isNaN x = False):
-    (c: Bool) -> (e2: Float.isNaN (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) = c)
-      -> Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) c e2 = x
+    (c: Bool) → (e2: Float.isNaN (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) = c)
+      → Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) c e2 = x
   | True, e2 => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Float.flipNotNaN x.bits x.valid)) e2))
   | False, e2 =>
     Float.bitsExt (Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) False e2) x
       (Float.flipFlip x.bits x.valid)
 
-theorem Float.negNegFrom (x: Float): (b: Bool) -> (e: Float.isNaN x = b) -> Float.neg (Float.negFrom x b e) = x
+theorem Float.negNegFrom (x: Float): (b: Bool) → (e: Float.isNaN x = b) → Float.neg (Float.negFrom x b e) = x
   | True, e => Float.bitsExt Float.nan x (Eq.sym (Nat.equalSound x.bits 9221120237041090560 e))
   | False, e =>
     Float.negNegSecond x e
@@ -205,44 +205,44 @@ theorem Float.negNeg (x: Float): Float.neg (Float.neg x) = x := Float.negNegFrom
 -- The rounding operations: primitives, with no definition. The kernel
 -- computes them on known doubles (rounding to nearest, ties to even, the NaN
 -- canonical), and the runtime and JS use the machine's.
-def Float.add: Float -> Float -> Float
+def Float.add: Float → Float → Float
 
-def Float.sub: Float -> Float -> Float
+def Float.sub: Float → Float → Float
 
-def Float.mul: Float -> Float -> Float
+def Float.mul: Float → Float → Float
 
-def Float.div: Float -> Float -> Float
+def Float.div: Float → Float → Float
 
 -- JS's `%`: the remainder of truncating division, with the sign of the
 -- dividend (`-5.5 % 2.0` is `-1.5`). Exact, like `floor`.
-def Float.rem: Float -> Float -> Float
+def Float.rem: Float → Float → Float
 
 -- JS's `Math.floor`, `Math.ceil`, `Math.trunc` and `Math.round`: a whole
 -- double (NaN, the infinities and the zeros as they are). `round` takes a
 -- half up, towards +infinity (`round (-2.5)` is `-2.0`), and keeps the sign
 -- of a zero result (`round (-0.4)` is `-0.0`).
-def Float.floor: Float -> Float
+def Float.floor: Float → Float
 
-def Float.ceil: Float -> Float
+def Float.ceil: Float → Float
 
-def Float.trunc: Float -> Float
+def Float.trunc: Float → Float
 
-def Float.round: Float -> Float
+def Float.round: Float → Float
 
 -- The double nearest the integer, ties to even, or an infinity beyond the
 -- largest (JS's `Number(n)` of a `bigint`).
-def Float.ofInt: Int -> Float
+def Float.ofInt: Int → Float
 
-def Float.ofNat: Nat -> Float
+def Float.ofNat: Nat → Float
 
 -- JS's `String(x)`: `0.30000000000000004`, `1e+21`, `NaN`, `-Infinity`, and
 -- `0` for both zeros. The checker doesn't compute it (each runtime supplies
 -- it; docs/proposals/float.md §2.6), so a test about its result runs only at
 -- run time.
-def Float.toText: Float -> Text
+def Float.toText: Float → Text
 
 -- Neither infinite nor the NaN.
-def Float.isFinite (x: Float): Bool := !(Nat.leq 9218868437227405312 (Float.clearSignBits x.bits))
+def Float.isFinite (x: Float): Bool := ¬(Nat.leq 9218868437227405312 (Float.clearSignBits x.bits))
 
 -- IEEE 754's `totalOrder` as an `Int`: -infinity < ... < -0.0 < 0.0 < ...
 -- < +infinity < the NaN. A pattern with the sign bit set is `-(m + 1)` for
@@ -253,8 +253,8 @@ def Float.keyOf (n: Nat) (negative: Bool): Int :=
 def Float.orderKey (x: Float): Int := Float.keyOf x.bits (Nat.leq 9223372036854775808 x.bits)
 
 theorem Float.keyOfInjective (a: Nat) (b: Nat):
-    (p: Bool) -> Nat.leq 9223372036854775808 a = p -> (q: Bool) -> Nat.leq 9223372036854775808 b = q
-      -> Float.keyOf a p = Float.keyOf b q -> a = b
+    (p: Bool) → Nat.leq 9223372036854775808 a = p → (q: Bool) → Nat.leq 9223372036854775808 b = q
+      → Float.keyOf a p = Float.keyOf b q → a = b
   | True, hp, True, hq, e =>
     omega [Int.negSuccInjective (a - 9223372036854775808) (b - 9223372036854775808) e]
   | True, hp, False, hq, e => Void.exfalso (Int.negSuccNotOfNat (a - 9223372036854775808) b e)
@@ -279,21 +279,21 @@ instance Float.instOrd: Ord Float :=
 -- JavaScript's `<` and `<=`: false when either is the NaN, and `0.0` and
 -- `-0.0` are equal. Port `a > b` as `Float.ieeeLt b a` (docs/syntax.md).
 def Float.ieeeLt (x: Float) (y: Float): Bool :=
-  !(Float.isNaN x) && !(Float.isNaN y) && !(Float.isZero x && Float.isZero y)
-    && Int.less (Float.orderKey x) (Float.orderKey y)
+  ¬(Float.isNaN x) ∧ ¬(Float.isNaN y) ∧ ¬(Float.isZero x ∧ Float.isZero y)
+    ∧ Int.less (Float.orderKey x) (Float.orderKey y)
 
 def Float.ieeeLe (x: Float) (y: Float): Bool :=
-  !(Float.isNaN x) && !(Float.isNaN y)
-    && ((Float.isZero x && Float.isZero y) || Int.leq (Float.orderKey x) (Float.orderKey y))
+  ¬(Float.isNaN x) ∧ ¬(Float.isNaN y)
+    ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
 
-theorem Float.keyLessLeq: (i: Int) -> (j: Int) -> Int.less i j = True -> Int.leq i j = True
+theorem Float.keyLessLeq: (i: Int) → (j: Int) → Int.less i j = True → Int.leq i j = True
   | OfNat m, OfNat n, h => omega
   | OfNat m, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
   | NegSucc m, OfNat n, h => rfl
   | NegSucc m, NegSucc n, h => omega
 
-theorem Float.ltLeBools: (a: Bool) -> (b: Bool) -> (c: Bool) -> (i: Int) -> (j: Int)
-    -> (a && b && !c && Int.less i j) = True -> (a && b && (c || Int.leq i j)) = True
+theorem Float.ltLeBools: (a: Bool) → (b: Bool) → (c: Bool) → (i: Int) → (j: Int)
+    → (a ∧ b ∧ ¬c ∧ Int.less i j) = True → (a ∧ b ∧ (c ∨ Int.leq i j)) = True
   | True, True, False, i, j, h => Float.keyLessLeq i j h
   | True, True, True, i, j, h => rfl
   | True, False, c, i, j, h => Void.exfalso (Bool.falseNotTrue h)
@@ -301,7 +301,7 @@ theorem Float.ltLeBools: (a: Bool) -> (b: Bool) -> (c: Bool) -> (i: Int) -> (j: 
 
 -- JS's `a < b` implies `a <= b`.
 theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True :=
-  Float.ltLeBools (!(Float.isNaN x)) (!(Float.isNaN y)) (Float.isZero x && Float.isZero y)
+  Float.ltLeBools (¬(Float.isNaN x)) (¬(Float.isNaN y)) (Float.isZero x ∧ Float.isZero y)
     (Float.orderKey x) (Float.orderKey y) h
 
 -- `m / divisor`, if `divisor` (positive) divides `m`.
@@ -353,7 +353,7 @@ def SafeNat.toFloat (n: SafeNat): Float := Float.ofNat n.value
 -- `toText` with `.0` after a whole number, so that it reads back as a
 -- `Float` (`3.0`, `1e+21`, `0.5`).
 def Float.pointed (text: Text): Text :=
-  if Text.contains text "." || Text.contains text "e" then text else Text.append text ".0"
+  if Text.contains text "." ∨ Text.contains text "e" then text else Text.append text ".0"
 
 -- Source for the double that reads back as the same double: `1.5`, `3.0`,
 -- `-0.0`, `Float.nan`, `Float.infinity`, `-Float.infinity`. The last four

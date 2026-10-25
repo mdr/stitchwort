@@ -5,6 +5,6 @@ type Code: Type =
   | Small
   | Join (a: Code) (b: Decode a)
 
-def Decode: Code -> Type
+def Decode: Code → Type
   | Small    => Nat
   | Join a b => Code

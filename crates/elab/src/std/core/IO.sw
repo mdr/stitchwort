@@ -8,12 +8,12 @@
 -- The console. Only a host interpreter performs these for real; in Stitchwort
 -- code, `IO.simulate` interprets them as data.
 ability IO where
-  print: Text -> {IO} () -- writes the text, then a line ending
-  readLine: () -> {IO} (Option Text) -- None only at end of input
-  readAll: () -> {IO} Text -- the rest of the input, all at once
+  print: Text → {IO} () -- writes the text, then a line ending
+  readLine: () → {IO} (Option Text) -- None only at end of input
+  readAll: () → {IO} Text -- the rest of the input, all at once
 
 -- The first line of scripted input, if there is one.
-def IO.nextLine: List Text -> Option Text
+def IO.nextLine: List Text → Option Text
   | Nil => None
   | Cons line lines => Some line
 
@@ -30,8 +30,8 @@ def IO.restOf (ins: List Text): Text :=
 -- interpreter writes each payload followed by a line ending. The payloads
 -- are collected in reverse and turned round at the end, so a long run
 -- doesn't build a deep chain of pending pairs.
-def IO.simulate (input: List Text) (prog: () -> {IO | e} a): {e} Pair (List Text) a :=
-  let run: List Text -> List Text -> {e} Pair (List Text) a :=
+def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
+  let run: List Text → List Text → {e} Pair (List Text) a :=
     handle prog() with
       | return x => ins out => MkPair (List.reverseOnto out Nil) x
       | IO.print t, k => ins out => k() ins (Cons t out)

@@ -6,7 +6,7 @@
 
 import Std (List)
 
-def IsShort (xs: List Nat): Prop := List.length xs <= 2
+def IsShort (xs: List Nat): Prop := List.length xs ≤ 2
 
 type Short = { items: List Nat, short: IsShort items }
 

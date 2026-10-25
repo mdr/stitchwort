@@ -17,12 +17,12 @@ def Mod.size (n: Nat): Nat := Succ (n - 1)
 
 -- The same proof as `auto` finds for `Succ k != 0`, so that `x % Mod.size n`
 -- here and an `x % Succ k` written elsewhere are the same term.
-theorem Mod.sizeNeZero (n: Nat): Mod.size n != 0 := Nat.equalFalse (Mod.size n) 0 rfl
+theorem Mod.sizeNeZero (n: Nat): Mod.size n ≠ 0 := Nat.equalFalse (Mod.size n) 0 rfl
 
 -- Two numbers with the same value are equal: their proofs are too.
 theorem Mod.mkExt (n: Nat) (a: Nat) (b: Nat) (p: a < Mod.size n) (e: a = b):
-    (q: b < Mod.size n) -> ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
-  J (b' e' => (q': b' < Mod.size n) -> ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
+    (q: b < Mod.size n) → ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
+  J (b' e' => (q': b' < Mod.size n) → ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
     (q' => J (r e'' => ({ value = a, isLt = p }: Mod n) = { value = a, isLt = r }) rfl
       (Bool.uniqueEq (Nat.leq (Succ a) (Mod.size n)) True p q'))
     e
@@ -178,7 +178,7 @@ instance Mod.instDecEq [n: Nat]: DecEq (Mod n) :=
 instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) Mod.ext
 
 -- Conversions with `Fin`, the type of positions in a `Vec`.
-theorem Mod.ltSize: (n: Nat) -> (x: Nat) -> x < n -> x < Mod.size n
+theorem Mod.ltSize: (n: Nat) → (x: Nat) → x < n → x < Mod.size n
   | Zero, x, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, x, h => h
 
@@ -186,19 +186,19 @@ theorem Mod.ltSize: (n: Nat) -> (x: Nat) -> x < n -> x < Mod.size n
 def Fin.toMod (i: Fin n): Mod n := { value = Fin.toNat i, isLt = Mod.ltSize n (Fin.toNat i) (Fin.toNatLt i) }
 
 -- A number modulo n as a position, when there is one (`n` isn't 0).
-def Mod.toFin [auto ok: n != 0] (i: Mod n): Fin n :=
+def Mod.toFin [auto ok: n ≠ 0] (i: Mod n): Fin n :=
   Fin.ofNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
 
-theorem Mod.ltOfNeZero: (n: Nat) -> (x: Nat) -> n != 0 -> x < Mod.size n -> x < n
+theorem Mod.ltOfNeZero: (n: Nat) → (x: Nat) → n ≠ 0 → x < Mod.size n → x < n
   | Zero, x, ok, h => Void.exfalso (ok rfl)
   | Succ n, x, ok, h => h
 
 theorem Mod.valueToMod (i: Fin n): (Fin.toMod i).value = Fin.toNat i := rfl
 
-theorem Mod.toNatToFin [n: Nat] [auto ok: n != 0] (i: Mod n): Fin.toNat (Mod.toFin i) = i.value :=
+theorem Mod.toNatToFin [n: Nat] [auto ok: n ≠ 0] (i: Mod n): Fin.toNat (Mod.toFin i) = i.value :=
   Fin.toNatOfNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
 
-theorem Mod.toModToFin [n: Nat] [auto ok: n != 0] (i: Mod n): Fin.toMod (Mod.toFin i) = i :=
+theorem Mod.toModToFin [n: Nat] [auto ok: n ≠ 0] (i: Mod n): Fin.toMod (Mod.toFin i) = i :=
   Mod.ext (Fin.toMod (Mod.toFin i)) i (Mod.toNatToFin i)
 
 -- Laws for `addNat`, `subNat` and `neg`: moving by 0, moving twice, moving
@@ -219,7 +219,7 @@ theorem Int.addAddNeg (x: Int) (y: Int): Int.add (Int.add x y) (Int.neg y) = x :
     (Eq.trans (Eq.cong (Int.add x) (Int.addNeg y)) (Int.addZero x))
 
 -- Adding a multiple of `d`, a negative one too, keeps the remainder.
-theorem Int.modNatAddMulInt (x: Int) (d: Nat) [auto ok: d != 0]: (q: Int) ->
+theorem Int.modNatAddMulInt (x: Int) (d: Nat) [auto ok: d ≠ 0]: (q: Int) →
     Int.modNat (Int.add x (Int.mul (Nat.toInt d) q)) d [ok := ok] = Int.modNat x d [ok := ok]
   | OfNat k =>
     Eq.trans (Eq.cong (t => Int.modNat (Int.add x (OfNat t)) d [ok := ok]) (Nat.mulComm d k))
@@ -230,13 +230,13 @@ theorem Int.modNatAddMulInt (x: Int) (d: Nat) [auto ok: d != 0]: (q: Int) ->
         (Eq.trans (Eq.cong (t => Int.add (Int.add x (Int.neg (OfNat (d * Succ k)))) (OfNat t)) (Nat.mulComm (Succ k) d))
           (Int.addNegAdd x (OfNat (d * Succ k)))))
 
-theorem Int.modNatSubMulInt (x: Int) (d: Nat) [auto ok: d != 0] (q: Int):
+theorem Int.modNatSubMulInt (x: Int) (d: Nat) [auto ok: d ≠ 0] (q: Int):
     Int.modNat (Int.add x (Int.neg (Int.mul (Nat.toInt d) q))) d [ok := ok] = Int.modNat x d [ok := ok] :=
   Eq.trans (Eq.sym (Int.modNatAddMulInt (Int.add x (Int.neg (Int.mul (Nat.toInt d) q))) d [ok := ok] q))
     (Eq.cong (t => Int.modNat t d [ok := ok]) (Int.addNegAdd x (Int.mul (Nat.toInt d) q)))
 
 -- The division law with the remainder as `Int.modNat`.
-theorem Int.divAddModNat (x: Int) (d: Nat) [auto ok: d != 0]:
+theorem Int.divAddModNat (x: Int) (d: Nat) [auto ok: d ≠ 0]:
     Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) (Nat.toInt (Int.modNat x d [ok := ok])) = x :=
   Eq.trans
     (Eq.cong (t => Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) t)
@@ -248,7 +248,7 @@ theorem Int.addSwapOf (m: Int) (r: Int) (x: Int) (y: Int) (h: Int.add m r = x): 
   Eq.trans (Int.addComm (Int.add r y) m)
     (Eq.trans (Eq.sym (Int.addAssoc m r y)) (Eq.cong (t => Int.add t y) h))
 
-theorem Int.modNatModAdd (x: Int) (y: Int) (d: Nat) [auto ok: d != 0]:
+theorem Int.modNatModAdd (x: Int) (y: Int) (d: Nat) [auto ok: d ≠ 0]:
     Int.modNat (Int.add (Nat.toInt (Int.modNat x d [ok := ok])) y) d [ok := ok] = Int.modNat (Int.add x y) d [ok := ok] :=
   Eq.trans
     (Eq.sym (Int.modNatAddMulInt (Int.add (Nat.toInt (Int.modNat x d [ok := ok])) y) d [ok := ok]
@@ -260,7 +260,7 @@ theorem Int.modNatModAdd (x: Int) (y: Int) (d: Nat) [auto ok: d != 0]:
 theorem Int.negAddOf (m: Int) (r: Int) (x: Int) (h: Int.add m r = x): Int.add (Int.neg r) (Int.neg m) = Int.neg x :=
   Eq.trans (Int.addComm (Int.neg r) (Int.neg m)) (Eq.trans (Eq.sym (Int.negAdd m r)) (Eq.cong Int.neg h))
 
-theorem Int.modNatModNeg (x: Int) (d: Nat) [auto ok: d != 0]:
+theorem Int.modNatModNeg (x: Int) (d: Nat) [auto ok: d ≠ 0]:
     Int.modNat (Int.neg (Nat.toInt (Int.modNat x d [ok := ok]))) d [ok := ok] = Int.modNat (Int.neg x) d [ok := ok] :=
   Eq.trans
     (Eq.sym (Int.modNatSubMulInt (Int.neg (Nat.toInt (Int.modNat x d [ok := ok]))) d [ok := ok]
@@ -291,7 +291,7 @@ theorem Mod.ofIntNeg [n: Nat] (x: Int): (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n)
         (Eq.trans (Int.modNatModNeg x (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.neg x))))))
 
 -- `Mod.neg` is `-` on the `Int`, wrapped.
-theorem Mod.subModEq (m: Nat) (ok: Succ m != 0): (v: Nat) -> v < Succ m ->
+theorem Mod.subModEq (m: Nat) (ok: Succ m ≠ 0): (v: Nat) → v < Succ m →
     (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m) [ok := ok]
   | Zero, h => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
   | Succ w, h =>
@@ -367,17 +367,17 @@ test "mod: * wraps" := ((Mod.ofNat 30: Mod 100) * Mod.ofNat 7).value == 10
 test "mod: sub wraps" := (Mod.sub (Mod.ofNat 5: Mod 100) (Mod.ofNat 7)).value == 98
 test "mod: neg" := (Mod.neg (Mod.ofNat 30: Mod 100)).value == 70
 test "mod: neg 0 is 0" := (Mod.neg (Mod.ofNat 0: Mod 100)).value == 0
-test "mod: Mod 0 has only 0" := (Mod.ofNat 5: Mod 0).value == 0 && ((Mod.ofNat 3: Mod 0) + Mod.ofNat 4).value == 0
+test "mod: Mod 0 has only 0" := (Mod.ofNat 5: Mod 0).value == 0 ∧ ((Mod.ofNat 3: Mod 0) + Mod.ofNat 4).value == 0
 test "mod: Mod 1 has only 0" := ((Mod.ofNat 1: Mod 1) * Mod.ofNat 1).value == 0
 test "mod: == by value" := (Mod.ofNat 150: Mod 100) == Mod.ofNat 50
-test "mod: != different" := (Mod.ofNat 50: Mod 100) != Mod.ofNat 51
-test "mod: < by value" := (Mod.ofNat 3: Mod 100) < Mod.ofNat 4 && (Mod.ofNat 4: Mod 100) <= Mod.ofNat 4
+test "mod: != different" := (Mod.ofNat 50: Mod 100) ≠ Mod.ofNat 51
+test "mod: < by value" := (Mod.ofNat 3: Mod 100) < Mod.ofNat 4 ∧ (Mod.ofNat 4: Mod 100) ≤ Mod.ofNat 4
 test "mod: show" := "${(Mod.ofNat 150: Mod 100)}" == "50"
 test "mod: toInt" := Mod.toInt (Mod.ofNat 150: Mod 100) == 50
 test "mod: Fin.toMod" := (Fin.toMod (Fin.ofNat 4: Fin 5)).value == 4
 test "mod: Mod.toFin" := Fin.toNat (Mod.toFin (Mod.ofNat 4: Mod 5)) == 4
 test "mod: subNat wraps" := ((Mod.ofNat 50: Mod 100).subNat 68).value == 82
-test "mod: addNat wraps" := ((Mod.ofNat 99: Mod 100).addNat 1).value == 0 && ((Mod.ofNat 99: Mod 100).addNat 1).isZero
+test "mod: addNat wraps" := ((Mod.ofNat 99: Mod 100).addNat 1).value == 0 ∧ ((Mod.ofNat 99: Mod 100).addNat 1).isZero
 test "mod: isZero" := (Mod.ofNat 5: Mod 100).isZero == False
 test "mod: addNat twice" := ((Mod.ofNat 90: Mod 100).addNat 7).addNat 8 == (Mod.ofNat 90: Mod 100).addNat 15
 test "mod: subNat then addNat" := (((Mod.ofNat 3: Mod 100).subNat 250).addNat 250).value == 3
