@@ -716,7 +716,11 @@ pub(crate) fn receiver_not_first(cx: &Ctx, f: DefId, span: Span) -> Result<Optio
     // in the library, the scope key elsewhere (`Meter.scale`, not
     // `Main.Meter.scale`).
     let def = g.def(f);
-    let path = if def.path.starts_with("Std.") { def.path.to_string() } else { def.name.to_string() };
+    let path = if def.path.starts_with("Std.") {
+        def.path.to_string()
+    } else {
+        def.name.to_string()
+    };
     let Some((owner_key, name)) = path.rsplit_once('.') else {
         return Ok(None);
     };

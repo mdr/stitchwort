@@ -1759,9 +1759,17 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
 /// `x |> f` or `x.f`, where `x`'s type isn't what `f` takes first.
 pub(crate) fn piped_mismatch(cx: &Ctx, piped: &Piped, dom: &Value) -> Diagnostic {
     let (message, how, before) = if piped.dot {
-        ("the value before `.` doesn't fit the function", "dot notation", "`.`")
+        (
+            "the value before `.` doesn't fit the function",
+            "dot notation",
+            "`.`",
+        )
     } else {
-        ("the value piped in doesn't fit the function", "`|>`", "`|>`")
+        (
+            "the value piped in doesn't fit the function",
+            "`|>`",
+            "`|>`",
+        )
     };
     Diagnostic::error("E-TYPE-MISMATCH", message).with_label(
         piped.span,

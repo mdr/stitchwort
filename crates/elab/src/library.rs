@@ -979,7 +979,8 @@ impl Elaborator {
         // one with a function whose main value isn't first: the library
         // keeps the convention it asks of programs (D306).
         let ok = !diagnostics.iter().any(|d| {
-            matches!(d.severity, Severity::Error | Severity::Goal) || d.code == "W-RECEIVER-NOT-FIRST"
+            matches!(d.severity, Severity::Error | Severity::Goal)
+                || d.code == "W-RECEIVER-NOT-FIRST"
         });
         if let (Some(before), Some((unit, key))) = (before, &cached) {
             self.cache_after(f, before, ok, unit, key);

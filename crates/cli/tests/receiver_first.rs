@@ -32,7 +32,10 @@ fn a_receiver_after_another_parameter_warns() {
         "`Meter.scale` takes a `Meter` but not as its first parameter, so `m.scale` and \
          `m |> Meter.scale` won't work"
     );
-    assert!(w.notes[0].starts_with("put the main value first (`m`)"), "{w:?}");
+    assert!(
+        w.notes[0].starts_with("put the main value first (`m`)"),
+        "{w:?}"
+    );
     assert!(w.notes[0].contains("`@[noReceiver]`"), "{w:?}");
 }
 
@@ -54,9 +57,7 @@ fn no_parameter_of_the_type_does_not_warn() {
 #[test]
 fn a_type_only_inside_another_does_not_count() {
     // `Option Meter`'s head is `Option`: `m.orZero` couldn't use it anyway.
-    assert!(
-        warnings("def Meter.orZero (k: Nat) (m: Option Meter): Nat := k\n").is_empty()
-    );
+    assert!(warnings("def Meter.orZero (k: Nat) (m: Option Meter): Nat := k\n").is_empty());
 }
 
 #[test]
