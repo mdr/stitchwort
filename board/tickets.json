@@ -1,5 +1,5 @@
 {
-  "next": 477,
+  "next": 478,
   "tickets": [
     {
       "id": 13,
@@ -2871,6 +2871,18 @@
       "id": 476,
       "title": "Investigate: native Set/Map ~3x slower than JS per tree level (interpreter call overhead, n log n both). Findings + 3 fix options in scratchpad/setperf; Matt 25 Oct: live with it for now",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 477,
+      "title": "Research: native compilation of Stitchwort (C / Cranelift / LLVM / Rust / wasm / Chez vs faster interpreter); prior art Lean 4, Koka, Idris 2, Roc, OCaml 5, Unison",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
