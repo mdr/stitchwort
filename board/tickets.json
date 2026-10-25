@@ -1,5 +1,5 @@
 {
-  "next": 482,
+  "next": 484,
   "tickets": [
     {
       "id": 13,
@@ -2948,6 +2948,30 @@
       "commits": [
         "beb7c78d"
       ]
+    },
+    {
+      "id": 482,
+      "title": "Design: handlers may wrap Partial code, result marked Partial (D1249); unblocks Terminal as a library ability (D1246) and partial game loops in tests",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 483,
+      "title": "Revise terminal-io.md: Terminal as a library ability with Terminal.toIO over basic IO ops (raw mode, read bytes, write, size) (D1246); after the partial-handlers note",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
