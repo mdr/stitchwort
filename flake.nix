@@ -55,6 +55,7 @@
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the prelude
               ./web/index.html # the playground's examples are checked
               ./web/guide # so are the guide's (crates/web)
+              ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/guide.rs)
               ./web/tests/effect-shapes.sw # the effect-shape tests run it (crates/web)
               ./bench # benchmark counts are checked against the baseline
             ];
@@ -85,6 +86,8 @@
               inherit cargoArtifacts;
               INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
               STITCHWORT_SLOW = "1"; # the full gate also runs the slow tier of tests (`dev/t slow`)
+              # Run every test binary, so one failure doesn't hide the others.
+              cargoTestExtraArgs = "--no-fail-fast";
               # Differential tests run extracted JS; generated declarations are type-checked.
               nativeCheckInputs = [
                 pkgs.nodejs_22
