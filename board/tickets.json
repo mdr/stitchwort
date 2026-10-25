@@ -1,5 +1,5 @@
 {
-  "next": 478,
+  "next": 479,
   "tickets": [
     {
       "id": 13,
@@ -2882,6 +2882,18 @@
     {
       "id": 477,
       "title": "Research: native compilation of Stitchwort (C / Cranelift / LLVM / Rust / wasm / Chez vs faster interpreter); prior art Lean 4, Koka, Idris 2, Roc, OCaml 5, Unison",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 478,
+      "title": "Effect-polymorphic list lane 1: filter, folds, sumBy, count, any/all, find, filterMap, findMap, takeWhile, flatMap, partition, span; effect order + early stop (D1239–D1241); flatMap native stack fix; generated partial-callback notes",
       "status": "doing",
       "agent": "",
       "where": "",
