@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: `decreasing` needs `totalCong` to show that `total` gives the same result for two functions that agree on every argument
     │ 
-    │ Note 2: write it with `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) -> f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …` (as `List.sumByCong` does); or give `weight` a fuel argument for now
+    │ Note 2: write it with `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) → f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …` (as `List.sumByCong` does); or give `weight` a fuel argument for now
 ────╯

@@ -676,7 +676,7 @@ pub(super) fn missing_lemma(
     error = error.with_note(format!(
         "to rewrite inside a function passed to `{function}`, `rewrite` needs `{lemma}`: \
          `{function}`'s parameters in order, each function parameter twice (`f1`, `f2`), \
-         then `(x…) -> f1 x… = f2 x…` for each, proving `{function} … f1 … = {function} … \
+         then `(x…) → f1 x… = f2 x…` for each, proving `{function} … f1 … = {function} … \
          f2 …` (as `List.sumByCong` does)"
     ));
     error = error.with_note(format!("such as `{sketch}`"));

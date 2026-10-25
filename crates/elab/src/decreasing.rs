@@ -2400,7 +2400,7 @@ fn no_cong_lemma(span: Option<Span>, name: &str, f: &str, lemma: &str) -> Diagno
     ))
     .with_note(format!(
         "write it with `{f}`'s parameters in order, each function parameter twice (`f1`, \
-         `f2`), then `(x…) -> f1 x… = f2 x…` for each, proving `{f} … f1 … = {f} … f2 …` \
+         `f2`), then `(x…) → f1 x… = f2 x…` for each, proving `{f} … f1 … = {f} … f2 …` \
          (as `List.sumByCong` does); or give `{name}` a fuel argument for now"
     ));
     labelled(d, span, "this function calls it")
@@ -2416,7 +2416,7 @@ fn bad_cong_lemma(span: Option<Span>, name: &str, f: &str, lemma: &str, why: &st
     .with_note(format!(
         "`{name}` is called inside a function passed to `{f}`, so `decreasing` needs it: \
          `{f}`'s parameters in order, each function parameter twice (`f1`, `f2`), then \
-         `(x…) -> f1 x… = f2 x…` for each, proving `{f} … f1 … = {f} … f2 …`"
+         `(x…) → f1 x… = f2 x…` for each, proving `{f} … f1 … = {f} … f2 …`"
     ));
     labelled(d, span, "this function calls it")
 }
