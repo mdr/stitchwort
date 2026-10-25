@@ -6,10 +6,12 @@
 #[cfg(unix)]
 pub mod terminal;
 
-/// The stack a natively compiled program runs on: address space reserved,
+/// The stack a natively compiled program runs on (64-bit targets only: it
+/// does not fit a 32-bit usize, as in the WebAssembly build): address space reserved,
 /// not memory until it's touched. Native frames are on it, and it's only a
 /// safety margin behind the frame limit, which defines how deep a program
 /// may go (native-compilation.md §4.3).
+#[cfg(target_pointer_width = "64")]
 pub const NATIVE_STACK: usize = 4 * 1024 * 1024 * 1024;
 
 /// Runs `f` on a new thread with `stack` bytes of stack, for a session whose

@@ -347,6 +347,45 @@ pub fn extract_project(paths: Vec<String>, texts: Vec<String>, namespace: &str) 
     }
 }
 
+/// The project's session with the namespace of `name` loaded, and `name`'s
+/// `main`; or the answer for a project that doesn't load.
+fn load_main(
+    paths: &[String],
+    texts: &[String],
+    name: &str,
+) -> Result<(Session, stitchwort_driver::run::Main), String> {
+    let mut session = new_session(paths, texts, false);
+    let analysis: Analysis = analyse(&mut session, PROJECT, pairs(paths, texts));
+    if !analysis.diagnostics.is_empty() {
+        return Err(failed(&session, analysis.diagnostics));
+    }
+    let Some(namespace) = namespace_of(&analysis, name).map(str::to_string) else {
+        let d = run_unknown_namespace(PROJECT, name, &analysis);
+        return Err(failed(&session, vec![d]));
+    };
+    if let Err(diagnostics) =
+        session.load_analysis(PROJECT, analysis, &Target::Namespaces(vec![namespace]))
+    {
+        return Err(failed(&session, diagnostics));
+    }
+    match session.main_named(name, PROJECT) {
+        Ok(main) => Ok((session, main)),
+        Err(error) => Err(failure(&rendered(&session, &[error]))),
+    }
+}
+
+/// [`super::live::start_live`] for a project: a live run of the function
+/// with the full name `name`.
+#[wasm_bindgen]
+pub fn start_live_project(
+    paths: Vec<String>,
+    texts: Vec<String>,
+    name: &str,
+) -> Result<super::live::LiveSession, String> {
+    let (session, main) = load_main(&paths, &texts, name)?;
+    super::live::live_from(session, main)
+}
+
 /// [`super::run_streaming`] for a project: runs the function with the full
 /// name `name` (as `stitchwort run NAME` does), after loading its namespace.
 #[wasm_bindgen]
@@ -358,23 +397,9 @@ pub fn run_project_streaming(
     max_output: usize,
     sink: &OutputSink,
 ) -> String {
-    let mut session = new_session(&paths, &texts, false);
-    let analysis: Analysis = analyse(&mut session, PROJECT, pairs(&paths, &texts));
-    if !analysis.diagnostics.is_empty() {
-        return failed(&session, analysis.diagnostics);
-    }
-    let Some(namespace) = namespace_of(&analysis, name).map(str::to_string) else {
-        let d = run_unknown_namespace(PROJECT, name, &analysis);
-        return failed(&session, vec![d]);
-    };
-    if let Err(diagnostics) =
-        session.load_analysis(PROJECT, analysis, &Target::Namespaces(vec![namespace]))
-    {
-        return failed(&session, diagnostics);
-    }
-    let main = match session.main_named(name, PROJECT) {
-        Ok(main) => main,
-        Err(error) => return failure(&rendered(&session, &[error])),
+    let (session, main) = match load_main(&paths, &texts, name) {
+        Ok(loaded) => loaded,
+        Err(failure) => return failure,
     };
     let ran = run_by_line_of(
         session,

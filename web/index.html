@@ -1025,6 +1025,8 @@ export def area: Shape -> Nat
   runInput.setAttribute("aria-label", "Input lines for the program");
   const runAgain = el("button", { className: "primary", type: "button" }, "Run");
   const stopButton = el("button", { type: "button", disabled: true }, "Stop");
+  const liveButton = el("button", { id: "run-live", type: "button",
+                                    title: "Run main with keys going to the program as they are pressed" }, "Run in terminal");
   const runResult = el("div", { className: "run-result" });
   const runChecked = el("div");
   const runStale = el("p", { className: "hint", hidden: true }, "The source has changed since this run.");
@@ -1057,7 +1059,7 @@ export def area: Shape -> Nat
     runHint,
     inputChoice,
     runInput,
-    el("div", { className: "runrow" }, runAgain, stopButton),
+    el("div", { className: "runrow" }, runAgain, stopButton, liveButton),
     runChecked,
     runStale,
     runResult,
@@ -1066,7 +1068,7 @@ export def area: Shape -> Nat
   async function runMain() {
     selectView("run");
     const src = stateKey();
-    runButton.disabled = runAgain.disabled = true;
+    runButton.disabled = runAgain.disabled = liveButton.disabled = true;
     stopButton.disabled = false;
     // The output shows as it's printed: the worker sends each line, and the
     // lines that arrive between frames are added together.
@@ -1095,7 +1097,7 @@ export def area: Shape -> Nat
     if (fallBack(result)) result = await runner.call(request, RUN_SECONDS, onOutput);
     const took = performance.now() - started;
     ended = true;
-    runButton.disabled = runAgain.disabled = false;
+    runButton.disabled = runAgain.disabled = liveButton.disabled = false;
     stopButton.disabled = true;
     ranSource = src;
     runStale.hidden = true;
@@ -1123,7 +1125,155 @@ export def area: Shape -> Nat
 
   runButton.addEventListener("click", runMain);
   runAgain.addEventListener("click", runMain);
-  stopButton.addEventListener("click", () => runner.cancel());
+  stopButton.addEventListener("click", () => { runner.cancel(); liveRun?.stop(); });
+
+  // ---- Run in terminal (docs/proposals/playground-live-keys.md) -----------
+  // A minimal hook: the output in a plain <pre> (a frame replaces the last),
+  // and the keys pressed in it sent to the program as they are. The worker
+  // keeps the run paused between keys, so it is free to take the next one.
+
+  /** The bytes a terminal sends for a key event (terminal-io.md §3.2), or null if the page keeps it. */
+  function keyBytes(e) {
+    if (e.metaKey || e.altKey) return null;
+    const escapes = { ArrowUp: "[A", ArrowDown: "[B", ArrowRight: "[C", ArrowLeft: "[D", Home: "[H", End: "[F",
+                      Delete: "[3~", PageUp: "[5~", PageDown: "[6~" };
+    if (e.key in escapes) return [27, ...new TextEncoder().encode(escapes[e.key])];
+    const single = { Enter: 13, Tab: 9, Backspace: 127, Escape: 27 };
+    if (e.key in single) return [single[e.key]];
+    if (e.ctrlKey) return /^[a-z]$/i.test(e.key) ? [e.key.toLowerCase().charCodeAt(0) - 96] : null;
+    if ([...e.key].length === 1) return [...new TextEncoder().encode(e.key)];
+    return null;
+  }
+
+  /** What the <pre> shows after `text`: a frame (cursor home) or a change of screen starts afresh; other codes are dropped. */
+  function applyTerminalText(shown, text) {
+    for (const part of text.split(/(\x1b\[[0-9;?]*[A-Za-z~])/)) {
+      const code = /^\x1b\[([0-9;?]*)([A-Za-z~])$/.exec(part);
+      if (!code) shown += part.replace(/\r/g, "");
+      else if ((code[2] === "H" && code[1] === "") || /^\?1049[hl]$/.test(code[1] + code[2])) shown = "";
+    }
+    return shown;
+  }
+
+  /** The live run's worker: one request at a time, with the time limit counted over each stretch. */
+  class LiveRun {
+    constructor(onOutput) {
+      this.onOutput = onOutput;
+      this.nextId = 0;
+      this.pending = null;
+      this.worker = new Worker(new URL(`playground-worker.js${LOAD}`, import.meta.url), { type: "module" });
+      this.worker.onmessage = ({ data }) => {
+        if (data.id !== this.pending?.id) return;
+        if ("output" in data) this.onOutput(data.output);
+        else this.settle(data.out ?? { state: "crashed", error: data.error });
+      };
+      this.worker.onerror = (e) => {
+        e.preventDefault();
+        this.settle({ state: "crashed", error: e.message || "the worker failed" });
+      };
+    }
+
+    /** Sends a request; resolves to the worker's { state, ... }. The timer runs from here until the reply. */
+    async request(message) {
+      const module = await wasm;
+      return new Promise((resolve) => {
+        const id = ++this.nextId;
+        const timer = setTimeout(() => this.settle({ state: "timedOut" }), RUN_SECONDS * 1000);
+        this.pending = { id, resolve, timer };
+        this.worker.postMessage({ ...message, id, module });
+      });
+    }
+
+    settle(out) {
+      if (!this.pending) return;
+      const { resolve, timer } = this.pending;
+      clearTimeout(timer);
+      this.pending = null;
+      // A run that isn't waiting or over normally has its worker discarded.
+      if (out.state !== "waiting") this.end();
+      resolve(out);
+    }
+
+    end() {
+      this.worker?.terminate();
+      this.worker = null;
+    }
+
+    /** Stops the run: a busy or idle worker is terminated, and the page hears "stopped". */
+    stop() {
+      // A busy worker has a request to answer; an idle one has the page told.
+      if (this.pending) this.settle({ state: "stopped" });
+      else this.onIdleStop?.();
+      this.end();
+    }
+  }
+
+  let liveRun = null;
+
+  async function runLive() {
+    selectView("run");
+    liveRun?.stop();
+    runButton.disabled = runAgain.disabled = liveButton.disabled = true;
+    stopButton.disabled = false;
+    let shown = "";
+    const screen = el("pre", { id: "live-screen", className: "program-output", tabIndex: 0 });
+    screen.setAttribute("aria-label", "The program's terminal: keys typed here go to the program");
+    const note = el("p", { className: "hint" }, "Keys go to the program. Ctrl-C stops it.");
+    const status = el("p", { className: "summary" });
+    runResult.replaceChildren(el("h2", {}, "Terminal"), screen, note, status);
+    const set = (state, text) => { screen.dataset.state = state; status.textContent = text; };
+    const run = liveRun = new LiveRun((text) => {
+      shown = applyTerminalText(shown, text);
+      screen.textContent = shown;
+    });
+    // Keys wait for the one before to be taken: the worker is busy while it
+    // computes, and answers when the program waits again.
+    let inFlight = true;
+    let queued = [];
+    const flush = () => {
+      inFlight = true;
+      set("running", "Running…");
+      const keys = queued;
+      queued = [];
+      run.request({ action: "live-keys", keys }).then(handle);
+    };
+    const onKey = (e) => {
+      const bytes = keyBytes(e);
+      if (!bytes) return;
+      e.preventDefault();
+      queued.push(bytes);
+      if (!inFlight) flush();
+    };
+    const handle = (out) => {
+      if (liveRun !== run) return;
+      screen.dataset.stretches = String((Number(screen.dataset.stretches) || 0) + 1);
+      if (out.state === "waiting") {
+        set("waiting", "Waiting for a key.");
+        if (queued.length) flush(); else inFlight = false;
+        return;
+      }
+      screen.removeEventListener("keydown", onKey);
+      runButton.disabled = runAgain.disabled = liveButton.disabled = false;
+      stopButton.disabled = true;
+      if (out.state === "failed") {
+        set("failed", "The run failed.");
+        runResult.append(...errorsView(out.errors));
+      } else if (out.state === "timedOut") {
+        set("timedOut", `Stopped after ${RUN_SECONDS} s without waiting for a key, the longest a stretch may take.`);
+      } else if (out.state === "crashed") {
+        set("crashed", trouble({ error: out.error }));
+      } else {
+        set(out.state, { finished: "Finished.", interrupted: "Stopped by Ctrl-C.", stopped: "Stopped." }[out.state] ?? out.state);
+      }
+      if (liveRun === run) liveRun = null;
+    };
+    run.onIdleStop = () => handle({ state: "stopped" });
+    screen.addEventListener("keydown", onKey);
+    screen.focus();
+    set("running", "Running…");
+    run.request({ ...requestFor("run", { name: project?.manifest.days[project.day].main }), action: "live-start" }).then(handle);
+  }
+  liveButton.addEventListener("click", runLive);
   runInput.addEventListener("input", () => {
     if (project) store(inputKey(project.manifest.days[project.day].main), runInput.value);
     else store("stitchwort.input", runInput.value);
