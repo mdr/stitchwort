@@ -682,6 +682,9 @@ impl Regs {
         }
         changed
     }
+    fn len(&self) -> usize {
+        self.0.iter().map(|w| w.count_ones() as usize).sum()
+    }
     /// The registers in it, highest first (the order the machine releases
     /// a frame's registers in).
     fn descending(&self, n: u32) -> Vec<Reg> {
@@ -1287,7 +1290,16 @@ impl Gen<'_, '_> {
             })
             .max()
             .unwrap_or(0);
-        let spills = (code.regs as usize).max(max_prim + 1).max(2);
+        // Room for: the registers an error exit releases (at most those
+        // that may hold a value at some instruction), a helper's operands
+        // and result, and, under the trace, every register (`Unpack`).
+        let released = self.full.iter().map(Regs::len).max().unwrap_or(0);
+        let traced = if self.options.trace_refcounts {
+            code.regs as usize
+        } else {
+            0
+        };
+        let spills = released.max(traced).max(max_prim + 1).max(2);
         self.spill = self.b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
             (spills * VALUE_SIZE) as u32,
