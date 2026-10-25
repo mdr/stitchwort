@@ -1,5 +1,5 @@
 {
-  "next": 537,
+  "next": 544,
   "tickets": [
     {
       "id": 13,
@@ -3438,14 +3438,16 @@
     {
       "id": 518,
       "title": "Native N2a: bytecode registers as Cranelift SSA variables, spill only at runtime calls; skip erasing empty registers (D1279)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "ffb4a61d"
+      ]
     },
     {
       "id": 519,
@@ -3560,19 +3562,21 @@
     {
       "id": 528,
       "title": "Design note: standalone native executables via Cranelift object files + linked runtime; roguelike as target (D1286; decisions D1287+)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "e1ef3325"
+      ]
     },
     {
       "id": 529,
       "title": "Native N3: closures (after N2a/N2b; D1285 yes)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3656,6 +3660,90 @@
     {
       "id": 536,
       "title": "Terminal.simulate: expose frame accumulator so proofs can induct over loop turns (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 537,
+      "title": "Standalone S1: codec for the lowered program (crates/rt/src/codec.rs)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 538,
+      "title": "Standalone S2: terminal host code into crates/host",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 539,
+      "title": "Standalone S3: runtime staticlib + stitchwort build (machine only) — M1: build games/rogue plays (after S1, S2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 540,
+      "title": "Standalone S4: code generator free of host addresses (Tables)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 541,
+      "title": "Standalone S5: object output, build --native (after S4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 542,
+      "title": "Standalone S6: pure prims via sw_prim (after S4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 543,
+      "title": "Standalone S7: roguelike fully native — M2 (after N4, S5)",
       "status": "backlog",
       "agent": "",
       "where": "",
