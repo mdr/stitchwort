@@ -1,5 +1,5 @@
 {
-  "next": 451,
+  "next": 453,
   "tickets": [
     {
       "id": 13,
@@ -2512,6 +2512,30 @@
       "id": 450,
       "title": "Dot/pipe rule E (D303): elaborator + std reorder, then aoc/examples/docs lanes; land together",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 451,
+      "title": "Tests may call partial code: tests are runtime checks, no annotation, hang = bug; check/LSP/playground never run tests (D1183)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 452,
+      "title": "Partial ticks: runners stop one tick early vs partial.md; no test that native and reference tick counts agree (partial-tests.md §1); after stage 2 merges",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
