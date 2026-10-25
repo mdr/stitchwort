@@ -11,6 +11,7 @@
 //! The erasure decisions and native bindings are shared with the JS backend
 //! ([`erasure`], [`natives`]; D389).
 
+pub mod census;
 pub mod code;
 pub mod effect;
 pub mod erasure;

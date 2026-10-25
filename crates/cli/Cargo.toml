@@ -14,6 +14,7 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
+stitchwort-rt.workspace = true
 stitchwort-driver.workspace = true
 stitchwort-fmt.workspace = true
 clap.workspace = true

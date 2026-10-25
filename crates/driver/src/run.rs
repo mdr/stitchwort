@@ -364,6 +364,13 @@ impl Session {
         }
     }
 
+    /// Lowers `main` for the machine of `stitchwort-rt`, as
+    /// [`Session::run_main_fast`] does before running it.
+    pub fn lower_fast(&self, main: &Main) -> Result<stitchwort_rt::Program, RunError> {
+        stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
+            .map_err(RunError::Lowering)
+    }
+
     /// Runs `main` on the machine of `stitchwort-rt` (docs/proposals/fast-runtime.md)
     /// instead of the reference evaluator: the same reading and writing, and the
     /// same errors (`RunError`), but not the same step counts, so a program may
@@ -375,9 +382,7 @@ impl Session {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<(), RunError> {
-        let program =
-            stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
-                .map_err(RunError::Lowering)?;
+        let program = self.lower_fast(main)?;
         stitchwort_rt::run_main(
             &program,
             stitchwort_rt::Limits::from_core(self.elab.limits),

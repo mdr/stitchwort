@@ -856,6 +856,7 @@ dependencies = [
  "stitchwort-elab",
  "stitchwort-fmt",
  "stitchwort-js",
+ "stitchwort-rt",
  "stitchwort-syntax",
 ]
 

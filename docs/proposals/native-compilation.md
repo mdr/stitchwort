@@ -1190,6 +1190,121 @@ All were in the session's scratch directory, `native-exp/`, built with rustc
   (`set_nat_1000000.sw`, `keys_nat_1000000.sw`, `micro_call.sw`,
   `micro_tail.sw`) with `/usr/bin/time -p`.
 
+## Appendix: N1 coverage census (25 October 2026)
+
+**[ran]** How much real code fits the N1 subset under the "whole reachable
+islands" rule (§4.6). Made with `stitchwort dev opcode-census TARGET`
+(hidden; `--functions` also lists every body), which lowers and compiles a
+`main` exactly as `run` does and walks the bytecode. Code:
+`crates/rt/src/census.rs`; the subset is one function there, `n1_blocker`.
+The benchmarks are `bench/native/{set_nat,micro_call,micro_tail}.sw`
+(small sizes; the real measurements scale them up). Debug build of `main`
+at `acd2fae3` plus the census.
+
+**The subset used.** The N1 row's list: `Move`, `Take`, `Drop`, `Const`,
+`Call`, `TailCall`, `Return`, `Switch`, `Field`, `Unpack`, `Ctor`,
+`CtorReuse`, `Test`, `JumpIfFalse`, `Jump`, and `Prim` of the `Nat`
+operations. **One reading:** I took "`Nat` fast paths" to include `NatCase`,
+`NatPred` and `NumSwitch`, the instructions a `Nat` pattern match lowers to.
+`micro_call` and `micro_tail` cannot fit without them (Appendix A's
+`down`/`spin` match on `Nat`). If N1 doesn't mean that, delete the three
+lines from `n1_blocker` and rerun.
+
+**Indirect calls.** `Apply`/`TailApply` have no static target. The census
+uses a cheap closure-creation analysis rather than marking the island
+"unknown": wherever a function value is made (`Closure`, `Pap`, `Global` of a
+function), the target body counts as reached. A function value can only come
+from such a site (or from a native, which is a blocker anyway), so every body
+an `Apply` could call is in the island; it over-approximates (a value made
+and never applied still counts). `Apply` itself is outside the N1 subset, so
+an island with one is blocked either way; the analysis only makes the report
+say what else is in the way.
+
+**What "the entry" is.** A `main`'s entry body is glue: it builds the
+`Delay` the runner steps (`Prim:Delay(Lift)`) and its `print` converts a
+number (`Prim:Text(NatToText)`). So **no `main`'s whole entry island can
+fit N1**, however pure the program, and the table reports the islands of the
+functions the entry calls ("callee islands") and how many bodies have a
+fitting island of their own.
+
+### Benchmarks
+
+| Program | Entry island | Callee islands that fit | Blockers |
+|---|---|---|---|
+| `micro_call.sw` | no (glue only) | **1 of 1** (`outer`, 2 bodies) | none in the loop; entry: `Delay(Lift)`, `Text(NatToText)` |
+| `micro_tail.sw` | no (glue only) | **1 of 1** (`spin`) | none in the loop |
+| `set_nat.sw` | no | 2 of 3: `foldLeft` (13 bodies) is blocked | `Global` 6 (in 3 bodies: the `Ord Nat` dictionary constants and the fold), `DropReuse` 2 (in `doubleL`/`doubleR`), `Apply` 2 (the insert's `compare` through the dictionary) |
+
+So `micro_call` and `micro_tail` fit, and `Set` does **not**: it needs
+`DropReuse`, `Global` and `Apply`, and the last two come from the `Ord`
+dictionary (`insertWith` calls `compare` through it). Adding those three
+makes 15 of its 16 reachable bodies fit; the 16th is the entry glue. A
+specialisation pass that resolved the dictionary at lowering time would
+remove `Apply` and `Global` from `Set` without N1 growing, but that is a
+guess, not measured. This changes N1's plan: the stop-or-go `Set` number
+cannot be measured on the subset in the stages table.
+
+### Real programs
+
+All ten entries are blocked. "Fit" counts bodies whose own island fits, out
+of the bodies reachable from the entry (the machine inlines, so these counts
+are small); "callee islands" is the entry's direct callees that fit.
+
+| Program | Reachable bodies | Bodies with a fitting island | Callee islands fitting | Top blockers (bodies containing it) |
+|---|---:|---:|---:|---|
+| `Aoc.Day01.main` | 54 | 17 | 0 of 4 | Closure 14, `Text` prims 8, Captured 8, Global 8 |
+| `Aoc.Day02.main` | 59 | 13 | 0 of 2 | Closure 20, Captured 17, `Effect` tail prims 12, `Text` prims 7 |
+| `Aoc.Day03.main` | 54 | 16 | 0 of 4 | Closure 15, Captured 12, `Effect` tail prims 10, `Text` prims 9 |
+| `Aoc.Day04.main` | 52 | 14 | 0 of 5 | Closure 11, `Text` prims 8, Apply 8, Captured 7 |
+| `Aoc.Day05.main` | 65 | 19 | 0 of 4 | Closure 21, Captured 17, `Effect` tail prims 16, `Text` prims 14 |
+| `Aoc.Day06.main` | 68 | 36 | 0 of 5 | Closure 12, `Text` prims 10, Captured 10, Apply 8 |
+| `Aoc.Day07.main` | 69 | 21 | 0 of 5 | Closure 14, Captured 13, Apply 10, `Text` prims 9 |
+| `Aoc.Day08.main` | 95 | 35 | 0 of 4 | Closure 17, Captured 12, Global 12, Apply 12 |
+| `Aoc.Day09.main` | 103 | 43 | 0 of 4 | Closure 18, Captured 15, Apply 14, Global 13 |
+| `Rogue.main` | 109 | 37 | 1 of 11 | Closure 26, Captured 26, Global 24, TailApply 14 |
+
+Over the ten (bodies containing each blocker family, summed):
+
+| Blocker | Bodies | Planned stage |
+|---|---:|---|
+| `Closure` | 168 | N3 (closures) |
+| `Captured` | 137 | N3 |
+| `Prim:Text` (`TextAppend`, `NatToText`, `TextTrim`, `TextUncons`, `TextToNat`, ...) | 97 | runtime calls |
+| `Global` (a function or constant as a value) | 91 | N3 |
+| `Apply` | 91 | N3 |
+| `TailPrim:Effect` | 85 | N4 (effect loop) |
+| `TailApply` | 75 | N3 |
+| `Pap` | 53 | N3 |
+| `Prim:Delay` | 44 | needed by the entry glue of every `main` |
+| `Prim:Effect` | 39 | N4 |
+| `Unreachable` | 12 | trivial to add |
+| `Prim:Int` | 6 | runtime calls |
+| `DropReuse` | 5 | small: a variant of `Unpack` |
+
+### Reading it
+
+- **N1 as listed covers no real program.** Every AoC `main` and the
+  roguelike is blocked, mostly by closures, `Apply` and function values
+  (the `Std.Effect` plumbing and `List` higher-order functions), then by
+  `Text` primitives. Only 13–43 bodies per program have a pure fitting island,
+  and those are leaf helpers of 1 to a few bodies.
+- **Adding blockers one at a time barely helps.** The tool's `+family` lines
+  (greedy; per program) show whole entries fitting only after nearly every
+  family is in (10 to 12 additions). The big jumps come from the closure
+  family together (`Closure`, `Captured`, `Apply`, `TailApply`, `Pap`,
+  `Global`), then `Prim:Text`.
+- **Highest value to add to N1, in order:** `DropReuse` (needed by `Set`;
+  trivial next to `Unpack`), then `Global`, `Apply`, `TailApply` (needed
+  by `Set` through the dictionary, and the first closure instructions in
+  most real programs); `Unreachable` and `Prim:Int`/`Prim:Text` as runtime
+  calls (cheap, so the measurement covers more programs).
+- **Caveat.** The AoC `main`s are effect programs run through the effect
+  runtime, so their `Effect` and `Delay` blockers are architectural (N4,
+  and the runner), not a gap in the instruction list; the number to watch
+  for them is the fitting-bodies column. The dev tool measures static
+  presence, not time: it says nothing on how much of the run time is in the
+  fitting bodies.
+
 ## Sources
 
 Every source is linked where it is used (§2, §2.10).

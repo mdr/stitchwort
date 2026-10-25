@@ -38,6 +38,26 @@ fn new_session(navigation: bool) -> Session {
 }
 
 #[derive(Subcommand)]
+enum DevCommand {
+    /// Which machine instructions a program's reachable code uses, and
+    /// whether it fits native compilation's N1 subset
+    /// (docs/proposals/native-compilation.md, Appendix: N1 coverage census)
+    OpcodeCensus {
+        /// A file, or the full name of a function in the project
+        target: String,
+        /// Also list every reachable body with its instructions
+        #[arg(long)]
+        functions: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+}
+
+#[derive(Subcommand)]
 enum Command {
     /// Type-check source files, or namespaces of the project (all of them
     /// if none are named)
@@ -119,6 +139,9 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Developer tools for measuring the implementation (not a stable interface)
+    #[command(hide = true, subcommand)]
+    Dev(DevCommand),
     /// Format source files in place: indentation, spacing, blank lines and brackets, in the house style. Prints the files it changed
     Fmt {
         /// Files (`.sw`) or folders to format; `-` reads standard input and
@@ -317,6 +340,12 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => axioms(&target, name.as_deref(), project.as_deref(), &cache),
+        Command::Dev(DevCommand::OpcodeCensus {
+            target,
+            functions,
+            project,
+            cache,
+        }) => opcode_census(&target, functions, project.as_deref(), &cache),
         Command::Fmt {
             files,
             check,
@@ -902,27 +931,26 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
     exit(passed == results.len())
 }
 
-/// `run`: a file's `main`, or a function of the project by its full name.
-fn run_target(
+/// Loads `target` (a file, or the full name of a function in the project)
+/// and finds its `main`: where `run` and the dev commands start.
+fn load_main(
     target: &str,
-    js: bool,
-    reference: bool,
     project: Option<&Path>,
     cache: &CacheArgs,
-) -> ExitCode {
+) -> Result<(Session, Main), ExitCode> {
     let mut session = new_session(false);
     let main = if is_file_target(target) {
         use_cache(&mut session, cache, Path::new("."));
         let mut reported = Vec::new();
         if !load_file_into(&mut session, Path::new(target), Some("run"), &mut reported) {
-            return ExitCode::FAILURE;
+            return Err(ExitCode::FAILURE);
         }
         // What's finished can run; `main` can't if it isn't (`Session::main`).
         report_goals(goals_open(&reported));
         session.main()
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
-            return ExitCode::FAILURE;
+            return Err(ExitCode::FAILURE);
         };
         use_cache(&mut session, cache, &project.dir);
         session.include_from(std::rc::Rc::new(DiskFiles {
@@ -932,18 +960,18 @@ fn run_target(
             Ok(sources) => sources,
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
-                return ExitCode::FAILURE;
+                return Err(ExitCode::FAILURE);
             }
         };
         let analysis = analyse(&mut session, &project.name, sources);
         if !analysis.diagnostics.is_empty() {
             report(&session.sources, &analysis.diagnostics);
-            return ExitCode::FAILURE;
+            return Err(ExitCode::FAILURE);
         }
         let Some(namespace) = namespace_of(&analysis, target).map(str::to_string) else {
             let d = run_unknown_namespace(&project.name, target, &analysis);
             report(&session.sources, &[d]);
-            return ExitCode::FAILURE;
+            return Err(ExitCode::FAILURE);
         };
         match session.load_analysis(
             &project.name,
@@ -957,7 +985,7 @@ fn run_target(
             }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
-                return ExitCode::FAILURE;
+                return Err(ExitCode::FAILURE);
             }
         }
         session.main_named(target, &project.name)
@@ -966,14 +994,179 @@ fn run_target(
         Ok(main) => main,
         Err(diagnostic) => {
             report(&session.sources, &[diagnostic]);
-            return ExitCode::FAILURE;
+            return Err(ExitCode::FAILURE);
         }
+    };
+    Ok((session, main))
+}
+
+/// `run`: a file's `main`, or a function of the project by its full name.
+fn run_target(
+    target: &str,
+    js: bool,
+    reference: bool,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
+    let (mut session, main) = match load_main(target, project, cache) {
+        Ok(loaded) => loaded,
+        Err(code) => return code,
     };
     if js {
         run_main_js(&mut session, main)
     } else {
         run_main(&mut session, &main, reference)
     }
+}
+
+/// `dev opcode-census`: lowers and compiles `target`'s `main` as `run` does
+/// and reports which instructions its reachable code uses and whether that
+/// code fits the N1 subset of native compilation.
+fn opcode_census(
+    target: &str,
+    functions: bool,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
+    let (session, main) = match load_main(target, project, cache) {
+        Ok(loaded) => loaded,
+        Err(code) => return code,
+    };
+    let program = match session.lower_fast(&main) {
+        Ok(program) => program,
+        Err(err) => {
+            eprintln!("error: can't lower `{target}`: {err:?}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let image = stitchwort_rt::code::compile(&program);
+    let census = stitchwort_rt::census::census_image(&program, &image);
+    print!("{}", render_census(target, &census, functions));
+    let fitting = stitchwort_rt::census::fitting_islands(&image, &census);
+    println!(
+        "bodies whose own island fits: {} of {} reachable",
+        fitting.len(),
+        census.bodies.len()
+    );
+    for (name, size) in fitting.iter().take(5) {
+        println!("  {name}: island of {size}");
+    }
+    println!("adding to N1, greedily (family: bodies whose island fits, then; entry fits):");
+    for (family, n, entry_fits) in stitchwort_rt::census::greedy_additions(&image, &census) {
+        println!(
+            "  +{family}: {n}{}",
+            if entry_fits { " entry-fits" } else { "" }
+        );
+    }
+    let callees = stitchwort_rt::census::callee_censuses(&program, &image);
+    let fitting = callees.iter().filter(|c| c.fits_n1()).count();
+    let verdict = if fitting == callees.len() {
+        "FITS"
+    } else {
+        "BLOCKED"
+    };
+    println!(
+        "callee islands: {verdict} {target} fit={fitting} of={}",
+        callees.len()
+    );
+    for callee in &callees {
+        let name = &callee.bodies[0].name;
+        let status = if callee.fits_n1() { "fits" } else { "BLOCKED" };
+        let blockers: Vec<String> = callee
+            .blockers()
+            .into_iter()
+            .map(|(key, (n, bodies))| format!("{key}={n}/{bodies}"))
+            .collect();
+        println!(
+            "  [{status}] {name}: reachable={} {}",
+            callee.bodies.len(),
+            blockers.join(" ")
+        );
+    }
+    ExitCode::SUCCESS
+}
+
+/// The census as text. The first line is machine-readable:
+/// `island: FITS|BLOCKED`, then the counts.
+fn render_census(target: &str, census: &stitchwort_rt::census::Census, functions: bool) -> String {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let blockers = census.blockers();
+    let verdict = if census.fits_n1() { "FITS" } else { "BLOCKED" };
+    let blocked_bodies = census
+        .bodies
+        .iter()
+        .filter(|b| !b.blockers.is_empty())
+        .count();
+    let _ = writeln!(
+        out,
+        "island: {verdict} {target} reachable_bodies={} blocked_bodies={blocked_bodies} image_bodies={}",
+        census.bodies.len(),
+        census.image_bodies
+    );
+    match census.sole_blocker() {
+        Some(only) => {
+            let _ = writeln!(
+                out,
+                "sole blocker (adding it alone makes the island fit): {only}"
+            );
+        }
+        None => {}
+    }
+    let mut ranked: Vec<_> = blockers.iter().collect();
+    ranked.sort_by_key(|(key, (n, bodies))| {
+        (
+            std::cmp::Reverse(*bodies),
+            std::cmp::Reverse(*n),
+            (*key).clone(),
+        )
+    });
+    if !ranked.is_empty() {
+        let _ = writeln!(out, "blockers (instruction: occurrences, bodies):");
+        for (key, (n, bodies)) in ranked {
+            let _ = writeln!(out, "  {key}: {n}, {bodies}");
+        }
+    }
+    let mut families: Vec<_> = census.family_blockers().into_iter().collect();
+    families.sort_by_key(|(key, (n, bodies))| {
+        (
+            std::cmp::Reverse(*bodies),
+            std::cmp::Reverse(*n),
+            key.clone(),
+        )
+    });
+    if !families.is_empty() {
+        let _ = writeln!(out, "blocker families (family: occurrences, bodies):");
+        for (key, (n, bodies)) in families {
+            let _ = writeln!(out, "  {key}: {n}, {bodies}");
+        }
+    }
+    let _ = writeln!(out, "instructions reached (kind: occurrences, bodies):");
+    let mut totals: Vec<_> = census.instr_totals().into_iter().collect();
+    totals.sort_by_key(|(name, (n, _))| (std::cmp::Reverse(*n), *name));
+    for (name, (n, bodies)) in totals {
+        let _ = writeln!(out, "  {name}: {n}, {bodies}");
+    }
+    if functions {
+        let _ = writeln!(out, "bodies:");
+        for body in &census.bodies {
+            let status = if body.blockers.is_empty() {
+                "ok"
+            } else {
+                "BLOCKED"
+            };
+            let used: Vec<String> = body
+                .instrs
+                .iter()
+                .map(|(k, n)| format!("{k}={n}"))
+                .collect();
+            let _ = writeln!(out, "  [{status}] {}: {}", body.name, used.join(" "));
+            for (key, n) in &body.blockers {
+                let _ = writeln!(out, "      blocked by {key} x{n}");
+            }
+        }
+    }
+    out
 }
 
 /// `axioms`: loads the file or project, finds the definition and prints
