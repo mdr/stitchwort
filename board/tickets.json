@@ -2896,14 +2896,16 @@
     {
       "id": 478,
       "title": "Effect-polymorphic list lane 1: filter, folds, sumBy, count, any/all, find, filterMap, findMap, takeWhile, flatMap, partition, span; effect order + early stop (D1239–D1241); flatMap native stack fix; generated partial-callback notes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "cd8863d9"
+      ]
     },
     {
       "id": 479,
