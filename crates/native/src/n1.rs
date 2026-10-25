@@ -63,7 +63,7 @@ use cranelift_codegen::ir::{
 };
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::settings::{self, Configurable};
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Switch};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Switch, Variable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use stitchwort_core::ResourceError;
@@ -72,9 +72,8 @@ use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
-    self as abi, CTOR_TAG_AT, Context, NativeIslands, NativeRun, OUT_OF_FRAMES, OUT_OF_STEPS,
-    OWNING_TAGS, PAYLOAD_AT, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT,
-    TAG_TAG, VALUE_SIZE, WEAK_AT,
+    self as abi, Context, NativeIslands, NativeRun, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS,
+    RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT, TAG_TAG, VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::value::Value;
 
@@ -397,16 +396,14 @@ pub fn compile(
                 caches: &mut caches,
                 pointer,
                 options,
-                regs: StackSlot::from_u32(0),
+                vars: Vec::new(),
+                spill: StackSlot::from_u32(0),
                 temps: StackSlot::from_u32(0),
                 pointers: StackSlot::from_u32(0),
                 fun: StackSlot::from_u32(0),
                 full: maybe_full(&image.codes[code as usize]),
                 blocks: BTreeMap::new(),
                 top: Block::from_u32(0),
-                unwind: Block::from_u32(0),
-                out_of_steps: Block::from_u32(0),
-                out_of_frames: Block::from_u32(0),
                 trap: Block::from_u32(0),
                 ctx: IrValue::from_u32(0),
             };
@@ -414,9 +411,27 @@ pub fn compile(
             generator.b.seal_all_blocks();
             generator.b.finalize(frontend_config);
         }
+        let dump = std::env::var("SW_NATIVE_DUMP").is_ok();
+        if dump {
+            context.set_disasm(true);
+            eprintln!(
+                "==== {} (body{code})\n{}",
+                body_name(program, image, code),
+                context.func.display()
+            );
+        }
         module
             .define_function(functions[&code], &mut context)
             .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
+        if dump && let Some(c) = context.compiled_code() {
+            eprintln!("---- vcode\n{}", c.vcode.as_deref().unwrap_or("?"));
+            let hex: Vec<String> = c
+                .code_buffer()
+                .iter()
+                .map(|b| format!("0x{b:02x}"))
+                .collect();
+            eprintln!("---- bytes\n.byte {}", hex.join(","));
+        }
         module.clear_context(&mut context);
     }
 
@@ -481,6 +496,9 @@ pub fn compile(
             && matches!(program.globals[g].kind, GlobalKind::Function { .. })
         {
             table[g] = module.get_finalized_function(*id);
+            if std::env::var("SW_NATIVE_DUMP").is_ok() {
+                eprintln!("@@ {:p} {}", table[g], program.globals[g].name);
+            }
         }
     }
     let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
@@ -587,7 +605,7 @@ impl Helpers {
         };
         Ok(Helpers {
             drop_words: declare("sw_drop_words", &[I64, I64, I64], &[])?,
-            inc: declare("sw_inc", &[p], &[])?,
+            inc: declare("sw_inc", &[I64, I64, I64], &[])?,
             release: declare("sw_release", &[p, I64], &[])?,
             ctor: declare("sw_ctor", &[I32, p, I64, p], &[])?,
             ctor_reuse: declare("sw_ctor_reuse", &[I32, p, I64, p, p], &[])?,
@@ -809,8 +827,13 @@ struct Gen<'a, 'm> {
     caches: &'m mut Vec<Box<abi::ApplyCache>>,
     pointer: ir::Type,
     options: Options,
-    /// The frame's registers, whole values.
-    regs: StackSlot,
+    /// Each register's three words, as Cranelift variables, so that they
+    /// live in machine registers (stage N2a). An empty register's words are
+    /// all 0 (`Erased`).
+    vars: Vec<[Variable; 3]>,
+    /// Room for registers written out: for a helper that takes values by
+    /// pointer, or to release them on an error exit.
+    spill: StackSlot,
     /// Room for a constructor's fields and a helper's result.
     temps: StackSlot,
     /// Room for a native operation's argument pointers.
@@ -823,17 +846,13 @@ struct Gen<'a, 'm> {
     /// Where the body starts, given its arguments: a self tail call jumps
     /// here.
     top: Block,
-    /// Drops every register and returns: after an error.
-    unwind: Block,
-    out_of_steps: Block,
-    out_of_frames: Block,
     /// A switch on a tag outside its table: an internal error.
     trap: Block,
     ctx: IrValue,
 }
 
-const fn reg_at(r: Reg) -> i32 {
-    (r as usize * VALUE_SIZE) as i32
+const fn spill_at(i: usize) -> i32 {
+    (i * VALUE_SIZE) as i32
 }
 
 fn flags() -> MemFlagsData {
@@ -868,20 +887,34 @@ impl Gen<'_, '_> {
         self.b.ins().iconst(self.pointer, n as i64)
     }
 
-    fn reg_address(&mut self, r: Reg) -> IrValue {
-        self.b.ins().stack_addr(self.pointer, self.regs, reg_at(r))
+    /// The address of spill slot `i`.
+    fn spill_address(&mut self, i: usize) -> IrValue {
+        self.b
+            .ins()
+            .stack_addr(self.pointer, self.spill, spill_at(i))
+    }
+
+    /// Writes `v` to spill slot `i`, for a helper that takes it by pointer;
+    /// its address.
+    fn spill_value(&mut self, i: usize, v: Val) -> IrValue {
+        let at = self.spill_address(i);
+        self.store(Loc::Mem(at, 0), v);
+        at
+    }
+
+    /// An `Erased` spill slot `i`, for a helper to write a value to (as it
+    /// would a register, dropping what's there); its address.
+    fn spill_erased(&mut self, i: usize) -> IrValue {
+        let at = self.spill_address(i);
+        self.erase(Loc::Mem(at, 0));
+        at
     }
 
     fn load(&mut self, loc: Loc) -> Val {
         let mut w = [IrValue::from_u32(0); 3];
         for (i, word) in w.iter_mut().enumerate() {
             *word = match loc {
-                Loc::Reg(r) => self.b.ins().stack_load(
-                    self.pointer,
-                    types::I64,
-                    self.regs,
-                    reg_at(r) + 8 * i as i32,
-                ),
+                Loc::Reg(r) => self.b.use_var(self.vars[r as usize][i]),
                 Loc::Mem(base, at) => {
                     self.b
                         .ins()
@@ -895,14 +928,7 @@ impl Gen<'_, '_> {
     fn store(&mut self, loc: Loc, v: Val) {
         for (i, word) in v.0.iter().enumerate() {
             match loc {
-                Loc::Reg(r) => {
-                    self.b.ins().stack_store(
-                        self.pointer,
-                        *word,
-                        self.regs,
-                        reg_at(r) + 8 * i as i32,
-                    );
-                }
+                Loc::Reg(r) => self.b.def_var(self.vars[r as usize][i], *word),
                 Loc::Mem(base, at) => {
                     self.b.ins().store(flags(), *word, base, at + 8 * i as i32);
                 }
@@ -910,16 +936,17 @@ impl Gen<'_, '_> {
         }
     }
 
-    /// Makes a register `Erased` (its tag byte 0).
+    /// Makes a register `Erased`: in memory its tag byte 0; in variables
+    /// all three words 0, so the old words are dead and the register is
+    /// known empty.
     fn erase(&mut self, loc: Loc) {
-        let zero = self.b.ins().iconst(types::I8, 0);
         match loc {
-            Loc::Reg(r) => {
-                self.b
-                    .ins()
-                    .stack_store(self.pointer, zero, self.regs, reg_at(r));
+            Loc::Reg(_) => {
+                let zero = self.iconst(0);
+                self.store(loc, Val([zero; 3]));
             }
             Loc::Mem(base, at) => {
+                let zero = self.b.ins().iconst(types::I8, 0);
                 self.b.ins().store(flags(), zero, base, at);
             }
         }
@@ -932,6 +959,12 @@ impl Gen<'_, '_> {
     fn is_tag(&mut self, v: Val, tag: u8) -> IrValue {
         let t = self.tag(v);
         self.b.ins().icmp_imm_u(IntCC::Equal, t, i64::from(tag))
+    }
+
+    /// A `Tag`'s or a constructor's tag (bytes 4-7).
+    fn ctor_tag(&mut self, v: Val) -> IrValue {
+        let t = self.b.ins().ushr_imm_u(v.0[0], 32);
+        self.b.ins().ireduce(types::I32, t)
     }
 
     /// 1 if the value holds a reference.
@@ -978,11 +1011,7 @@ impl Gen<'_, '_> {
         let trace = self.options.trace_refcounts;
         self.when(owns, false, |g| {
             if trace {
-                let at = match loc {
-                    Loc::Reg(r) => g.reg_address(r),
-                    Loc::Mem(base, at) => g.b.ins().iadd_imm_s(base, i64::from(at)),
-                };
-                g.call_helper(g.helpers.inc, &[at]);
+                g.call_helper(g.helpers.inc, &v.0);
             } else {
                 let strong = g.b.ins().load(types::I64, flags(), v.0[1], STRONG_AT);
                 let strong = g.b.ins().iadd_imm_s(strong, 1);
@@ -1058,37 +1087,67 @@ impl Gen<'_, '_> {
         self.b.ins().store(flags(), v, self.ctx, at);
     }
 
-    /// A frame entered: a step, out of steps if over the limit.
-    fn count_step(&mut self) {
+    /// If `cond`, leaves the frame on an error: sets the context's error
+    /// to `error` (unless a callee already did), drops the registers in
+    /// `live` (the registers that may hold a value at this point: registers
+    /// live in variables, so each exit releases its own), and returns.
+    /// Otherwise continues.
+    fn exit_if(&mut self, cond: IrValue, live: &Regs, error: Option<u64>) {
+        let exit = self.b.create_block();
+        let fine = self.b.create_block();
+        self.b.ins().brif(cond, exit, &[], fine, &[]);
+        self.b.switch_to_block(exit);
+        self.b.set_cold_block(exit);
+        if let Some(error) = error {
+            let error = self.iconst(error);
+            self.ctx_store(Context::ERROR_AT, error);
+        }
+        // Written out lowest first, so that `sw_release` (which drops the
+        // last first) drops them highest first, as the machine releases a
+        // frame.
+        let regs = live.descending(self.code.regs);
+        for (i, r) in regs.iter().rev().enumerate() {
+            let v = self.load(Loc::Reg(*r));
+            self.spill_value(i, v);
+        }
+        if !regs.is_empty() {
+            let at = self.spill_address(0);
+            let count = self.iconst(regs.len() as u64);
+            self.call_helper(self.helpers.release, &[at, count]);
+        }
+        let zero = self.iconst(0);
+        self.b.ins().return_(&[zero, zero, zero]);
+        self.b.switch_to_block(fine);
+    }
+
+    /// A frame entered: a step, out of steps if over the limit (`live`
+    /// as for [`Gen::exit_if`]).
+    fn count_step(&mut self, live: &Regs) {
         let steps = self.ctx_load(Context::STEPS_AT);
         let steps = self.b.ins().iadd_imm_s(steps, 1);
         self.ctx_store(Context::STEPS_AT, steps);
         let limit = self.ctx_load(Context::STEP_LIMIT_AT);
         let over = self.b.ins().icmp(IntCC::UnsignedGreaterThan, steps, limit);
-        let fine = self.b.create_block();
-        self.b.ins().brif(over, self.out_of_steps, &[], fine, &[]);
-        self.b.switch_to_block(fine);
+        self.exit_if(over, live, Some(OUT_OF_STEPS));
     }
 
     /// A frame about to be pushed: out of frames if as many are pending as
     /// the limit allows (or at the stack's safety margin).
-    fn push_frame(&mut self) {
+    fn push_frame(&mut self, live: &Regs) {
         let frames = self.ctx_load(Context::FRAMES_AT);
         let limit = self.ctx_load(Context::FRAME_LIMIT_AT);
         let over = self
             .b
             .ins()
             .icmp(IntCC::UnsignedGreaterThanOrEqual, frames, limit);
-        let fine = self.b.create_block();
-        self.b.ins().brif(over, self.out_of_frames, &[], fine, &[]);
-        self.b.switch_to_block(fine);
         if self.options.stack_size.is_some() {
             let sp = self.b.ins().get_stack_pointer(self.pointer);
             let floor = self.ctx_load(Context::STACK_LIMIT_AT);
             let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
-            let fine = self.b.create_block();
-            self.b.ins().brif(low, self.out_of_frames, &[], fine, &[]);
-            self.b.switch_to_block(fine);
+            let either = self.b.ins().bor(over, low);
+            self.exit_if(either, live, Some(OUT_OF_FRAMES));
+        } else {
+            self.exit_if(over, live, Some(OUT_OF_FRAMES));
         }
         let frames = self.b.ins().iadd_imm_s(frames, 1);
         self.ctx_store(Context::FRAMES_AT, frames);
@@ -1096,14 +1155,23 @@ impl Gen<'_, '_> {
 
     /// After a call returned: the frame is no longer pending, and an error
     /// in the callee unwinds this frame too.
-    fn after_call(&mut self) {
+    fn after_call(&mut self, live: &Regs) {
         let error = self.ctx_load(Context::ERROR_AT);
-        let fine = self.b.create_block();
-        self.b.ins().brif(error, self.unwind, &[], fine, &[]);
-        self.b.switch_to_block(fine);
+        self.exit_if(error, live, None);
         let frames = self.ctx_load(Context::FRAMES_AT);
         let frames = self.b.ins().iadd_imm_s(frames, -1);
         self.ctx_store(Context::FRAMES_AT, frames);
+    }
+
+    /// `regs` without the registers `o` moves out (marked `MOVE`).
+    fn without_moved(&self, regs: &Regs, o: &[Reg]) -> Regs {
+        let mut left = regs.clone();
+        for r in o {
+            if r & MOVE != 0 {
+                left.remove(r & !MOVE);
+            }
+        }
+        left
     }
 
     fn words(args: &[Val]) -> impl Iterator<Item = IrValue> + '_ {
@@ -1142,9 +1210,12 @@ impl Gen<'_, '_> {
     }
 
     /// The array of pointers to registers `regs`, for a helper.
+    /// The registers are written to the first spill slots (borrowed: the
+    /// helper only reads them).
     fn pointer_array(&mut self, regs: &[Reg]) -> IrValue {
         for (i, r) in regs.iter().enumerate() {
-            let at = self.reg_address(*r);
+            let v = self.load(Loc::Reg(*r));
+            let at = self.spill_value(i, v);
             self.b
                 .ins()
                 .stack_store(self.pointer, at, self.pointers, (i * 8) as i32);
@@ -1180,11 +1251,15 @@ impl Gen<'_, '_> {
             })
             .max()
             .unwrap_or(0);
-        self.regs = self.b.create_sized_stack_slot(StackSlotData::new(
+        let spills = (code.regs as usize).max(max_prim + 1).max(2);
+        self.spill = self.b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
-            (code.regs.max(1) as usize * VALUE_SIZE) as u32,
+            (spills * VALUE_SIZE) as u32,
             3,
         ));
+        self.vars = (0..code.regs)
+            .map(|_| std::array::from_fn(|_| self.b.declare_var(types::I64)))
+            .collect();
         self.temps = self.b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
             ((max_ops + 1) * VALUE_SIZE) as u32,
@@ -1224,9 +1299,6 @@ impl Gen<'_, '_> {
         for _ in 0..code.params * 3 {
             self.b.append_block_param(self.top, types::I64);
         }
-        self.unwind = self.b.create_block();
-        self.out_of_steps = self.b.create_block();
-        self.out_of_frames = self.b.create_block();
 
         self.b.switch_to_block(entry);
         self.ctx = self.b.block_params(entry)[0];
@@ -1246,25 +1318,6 @@ impl Gen<'_, '_> {
         let first = self.blocks[&0];
         self.b.ins().jump(first, &[]);
 
-        // The error exits.
-        for (block, code) in [
-            (self.out_of_steps, OUT_OF_STEPS),
-            (self.out_of_frames, OUT_OF_FRAMES),
-        ] {
-            self.b.switch_to_block(block);
-            self.b.set_cold_block(block);
-            let code = self.iconst(code);
-            self.ctx_store(Context::ERROR_AT, code);
-            let unwind = self.unwind;
-            self.b.ins().jump(unwind, &[]);
-        }
-        self.b.switch_to_block(self.unwind);
-        self.b.set_cold_block(self.unwind);
-        let regs = self.reg_address(0);
-        let count = self.iconst(u64::from(self.code.regs));
-        self.call_helper(self.helpers.release, &[regs, count]);
-        let zero = self.iconst(0);
-        self.b.ins().return_(&[zero, zero, zero]);
         self.trap = self.b.create_block();
         self.b.switch_to_block(self.trap);
         self.b.set_cold_block(self.trap);
@@ -1328,27 +1381,24 @@ impl Gen<'_, '_> {
             }
             Instr::Global { dst, g } => self.global(pc, dst, g),
             Instr::Call { dst, g, args } => {
-                self.count_step();
-                self.push_frame();
+                let live = self.full[pc].clone();
+                self.count_step(&live);
+                self.push_frame(&live);
                 let values = self.operands(args);
+                let live = self.without_moved(&live, ops(code, args));
                 let callee = self.image.global_code[g as usize].expect("a function has code");
                 let f = self.func_ref(self.functions[&callee]);
                 let mut call_args = vec![self.ctx];
                 call_args.extend(Self::words(&values));
                 let call = self.b.ins().call(f, &call_args);
                 let r = self.b.inst_results(call).to_vec();
-                self.after_call();
+                self.after_call(&live);
                 self.assign(pc, dst, Val([r[0], r[1], r[2]]));
             }
             Instr::TailCall { g, args } => {
-                self.count_step();
+                self.count_step(&self.full[pc].clone());
                 let values = self.operands(args);
-                let mut left = self.full[pc].clone();
-                for r in ops(code, args) {
-                    if r & MOVE != 0 {
-                        left.remove(r & !MOVE);
-                    }
-                }
+                let left = self.without_moved(&self.full[pc], ops(code, args));
                 self.release(&left);
                 let callee = self.image.global_code[g as usize].expect("a function has code");
                 let words: Vec<IrValue> = Self::words(&values).collect();
@@ -1375,15 +1425,17 @@ impl Gen<'_, '_> {
 
                 self.b.switch_to_block(compiled);
                 self.drop_value(fv);
-                self.count_step();
-                self.push_frame();
+                let live = self.without_moved(&self.full[pc], &[f]);
+                self.count_step(&live);
+                self.push_frame(&live);
                 let values = self.operands(args);
+                let live = self.without_moved(&live, ops(code, args));
                 let sig = self.signature(args.len);
                 let mut call_args = vec![self.ctx];
                 call_args.extend(Self::words(&values));
                 let call = self.b.ins().call_indirect(sig, target, &call_args);
                 let r = self.b.inst_results(call).to_vec();
-                self.after_call();
+                self.after_call(&live);
                 self.assign(pc, dst, Val([r[0], r[1], r[2]]));
                 self.b.ins().jump(after, &[]);
 
@@ -1396,22 +1448,15 @@ impl Gen<'_, '_> {
             }
             Instr::TailApply { f, args } => {
                 let (fv, target) = self.apply_target(f, args.len);
-                let mut left = self.full[pc].clone();
-                if f & MOVE != 0 {
-                    left.remove(f & !MOVE);
-                }
-                for r in ops(code, args) {
-                    if r & MOVE != 0 {
-                        left.remove(r & !MOVE);
-                    }
-                }
+                let taken = self.without_moved(&self.full[pc], &[f]);
+                let left = self.without_moved(&taken, ops(code, args));
                 let compiled = self.b.create_block();
                 let native = self.b.create_block();
                 self.b.ins().brif(target, compiled, &[], native, &[]);
 
                 self.b.switch_to_block(compiled);
                 self.drop_value(fv);
-                self.count_step();
+                self.count_step(&taken);
                 let values = self.operands(args);
                 self.release(&left);
                 let sig = self.signature(args.len);
@@ -1448,12 +1493,8 @@ impl Gen<'_, '_> {
                 return false;
             }
             Instr::JumpIfFalse { cond, target } => {
-                let t = self.b.ins().stack_load(
-                    self.pointer,
-                    types::I32,
-                    self.regs,
-                    reg_at(cond) + CTOR_TAG_AT,
-                );
+                let v = self.load(Loc::Reg(cond));
+                let t = self.ctor_tag(v);
                 let is_true = self.b.ins().icmp_imm_u(IntCC::Equal, t, i64::from(s.true_));
                 let next = self.block_of(pc as u32 + 1);
                 let target = self.block_of(target);
@@ -1466,12 +1507,8 @@ impl Gen<'_, '_> {
                 return false;
             }
             Instr::Switch { src, table } => {
-                let t = self.b.ins().stack_load(
-                    self.pointer,
-                    types::I32,
-                    self.regs,
-                    reg_at(src) + CTOR_TAG_AT,
-                );
+                let v = self.load(Loc::Reg(src));
+                let t = self.ctor_tag(v);
                 let mut switch = Switch::new();
                 for (tag, target) in code.tables[table as usize].iter().enumerate() {
                     switch.set_entry(tag as u128, self.block_of(*target));
@@ -1481,12 +1518,7 @@ impl Gen<'_, '_> {
                 return false;
             }
             Instr::Field { dst, src, i } => {
-                let cell = self.b.ins().stack_load(
-                    self.pointer,
-                    types::I64,
-                    self.regs,
-                    reg_at(src) + PAYLOAD_AT,
-                );
+                let cell = self.load(Loc::Reg(src)).0[1];
                 let v = self.clone_from(Loc::Mem(
                     cell,
                     RC_VALUE_AT + (i as usize * VALUE_SIZE) as i32,
@@ -1495,8 +1527,16 @@ impl Gen<'_, '_> {
             }
             Instr::Unpack { src, fields, token } => self.unpack(pc, src, fields, token),
             Instr::DropReuse { src, token } => {
-                let (src, token) = (self.reg_address(src), self.reg_address(token));
-                self.call_helper(self.helpers.drop_reuse, &[src, token]);
+                // The helper takes the value from its slot and writes the
+                // token to an empty one; the token register is then assigned
+                // as the machine's `*token = v` assigns it.
+                let v = self.load(Loc::Reg(src));
+                self.erase(Loc::Reg(src));
+                let from = self.spill_value(0, v);
+                let to = self.spill_erased(1);
+                self.call_helper(self.helpers.drop_reuse, &[from, to]);
+                let t = self.load(Loc::Mem(to, 0));
+                self.assign(pc, token, t);
             }
             Instr::Ctor { dst, tag, args } => {
                 let values = self.operands(args);
@@ -1533,8 +1573,11 @@ impl Gen<'_, '_> {
                 self.b.ins().jump(after, &[]);
                 self.b.switch_to_block(big);
                 self.b.set_cold_block(big);
-                let (src, dst) = (self.reg_address(src), self.reg_address(dst));
-                self.call_helper(self.helpers.nat_pred, &[src, dst]);
+                let from = self.spill_value(0, v);
+                let to = self.spill_erased(1);
+                self.call_helper(self.helpers.nat_pred, &[from, to]);
+                let n = self.load(Loc::Mem(to, 0));
+                self.assign(pc, dst, n);
                 self.b.ins().jump(after, &[]);
                 self.b.switch_to_block(after);
             }
@@ -1555,7 +1598,7 @@ impl Gen<'_, '_> {
                 self.b.switch_to_block(big);
                 self.b.set_cold_block(big);
                 let table = self.address(t as *const _ as usize);
-                let src = self.reg_address(src);
+                let src = self.spill_value(0, v);
                 let r = self.call_helper(self.helpers.num_switch, &[table, src]);
                 let mut switch = Switch::new();
                 let mut targets: Vec<u32> = t.big.iter().map(|(_, t)| *t).collect();
@@ -1615,13 +1658,14 @@ impl Gen<'_, '_> {
         // The first use: computed as the machine computes it, in a frame.
         self.b.switch_to_block(compute);
         self.b.set_cold_block(compute);
-        self.count_step();
-        self.push_frame();
+        let live = self.full[pc].clone();
+        self.count_step(&live);
+        self.push_frame(&live);
         let code = self.image.global_code[g as usize].expect("a constant has code");
         let f = self.func_ref(self.functions[&code]);
         let call = self.b.ins().call(f, &[self.ctx]);
         let r = self.b.inst_results(call).to_vec();
-        self.after_call();
+        self.after_call(&live);
         let v = Val([r[0], r[1], r[2]]);
         let out = self.temp_address(0);
         self.store(Loc::Mem(out, 0), v);
@@ -1740,8 +1784,10 @@ impl Gen<'_, '_> {
         let op = self.op_address(op);
         let array = self.pointer_array(&o);
         let n = self.iconst(o.len() as u64);
-        let dst = self.reg_address(dst);
-        self.call_helper(self.helpers.prim, &[shapes, op, array, n, dst]);
+        let out = self.spill_erased(o.len());
+        self.call_helper(self.helpers.prim, &[shapes, op, array, n, out]);
+        let v = self.load(Loc::Mem(out, 0));
+        self.assign(pc, dst, v);
         self.b.ins().jump(after, &[]);
         self.b.switch_to_block(after);
     }
@@ -1799,12 +1845,23 @@ impl Gen<'_, '_> {
             .map(|p| (p[0], p[1]))
             .collect();
         if self.options.trace_refcounts {
-            let regs = self.reg_address(0);
+            // The helper works on the frame's registers as the machine
+            // does, so they're all written out and read back.
+            for r in 0..self.code.regs {
+                let v = self.load(Loc::Reg(r));
+                self.spill_value(r as usize, v);
+            }
+            let regs = self.spill_address(0);
             let src = self.i32const(src);
             let at = self.address(ops(self.code, fields).as_ptr() as usize);
             let n = self.iconst(pairs.len() as u64);
             let token = self.i32const(token);
             self.call_helper(self.helpers.unpack, &[regs, src, at, n, token]);
+            for r in 0..self.code.regs {
+                let at = self.spill_address(r as usize);
+                let v = self.load(Loc::Mem(at, 0));
+                self.store(Loc::Reg(r), v);
+            }
             return;
         }
         let v = self.load(Loc::Reg(src));
@@ -1819,16 +1876,22 @@ impl Gen<'_, '_> {
 
         // Unique: the fields are moved out.
         self.b.switch_to_block(mine);
+        let taken = pairs.iter().map(|p| p.0).collect::<BTreeSet<u32>>().len();
+        // A cell that's freed without a walk over its fields needn't have
+        // the fields it gave up erased; they're erased below only if it's
+        // walked (each field taken once, so no field is read twice).
+        let later = token == NO_REG && taken == pairs.len();
         for &(i, d) in &pairs {
             let f = self.load(Loc::Mem(cell, field_at(i)));
-            self.erase(Loc::Mem(cell, field_at(i)));
+            if !later {
+                self.erase(Loc::Mem(cell, field_at(i)));
+            }
             self.assign(pc, d, f);
         }
         if token == NO_REG {
             // The emptied cell (and whatever fields the arm doesn't use)
             // freed; with every field taken, there's nothing in it to walk.
             let n = v.0[2];
-            let taken = pairs.iter().map(|p| p.0).collect::<BTreeSet<u32>>().len();
             let all = self.b.ins().icmp_imm_u(IntCC::Equal, n, taken as i64);
             let emptied = self.b.create_block();
             let partial = self.b.create_block();
@@ -1838,6 +1901,11 @@ impl Gen<'_, '_> {
             self.call_helper(self.helpers.free_emptied, &v.0);
             self.b.ins().jump(freed, &[]);
             self.b.switch_to_block(partial);
+            if later {
+                for &(i, _) in &pairs {
+                    self.erase(Loc::Mem(cell, field_at(i)));
+                }
+            }
             self.call_helper(self.helpers.drop_words, &v.0);
             self.b.ins().jump(freed, &[]);
             self.b.switch_to_block(freed);
@@ -1908,7 +1976,9 @@ impl Gen<'_, '_> {
         let out = self.temp_address(values.len() * VALUE_SIZE);
         let tag = self.i32const(tag);
         let count = self.iconst(u64::from(n));
-        let token = self.reg_address(token);
+        let t = self.load(Loc::Reg(token));
+        self.erase(Loc::Reg(token));
+        let token = self.spill_value(0, t);
         self.call_helper(self.helpers.ctor_reuse, &[tag, fields, count, token, out]);
         let v = self.load(Loc::Mem(out, 0));
         self.assign(pc, dst, v);
