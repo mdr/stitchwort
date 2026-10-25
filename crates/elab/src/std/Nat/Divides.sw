@@ -56,3 +56,13 @@ def Nat.divisors (n: Nat): List Nat := List.filter (List.rangeFrom n 1) (divisor
 
 test "Nat.divisors" := Nat.divisors 12 == [1, 2, 3, 4, 6, 12] ∧ Nat.divisors 1 == [1] ∧ Nat.divisors 13 == [1, 13]
 test "Nat.divisors of zero" := Nat.divisors 0 == Nil
+
+-- Dividing by 2 or more makes a positive number smaller. (`Nat.divLe n k` is
+-- the plain `n / k ≤ n`, in Arith.sw.)
+theorem Nat.divLtSucc (m: Nat) (k: Nat) [auto ok: k ≠ 0] (h: 1 < k): Succ m / k < Succ m :=
+  Nat.divLeOfLtMul (Succ m) m k (omega [Nat.leMulRight 2 k (Succ m) h, Nat.mulComm k (Succ m)])
+
+theorem Nat.divLt (n: Nat) (k: Nat) [auto ok: k ≠ 0] (h0: 0 < n) (h1: 1 < k): n / k < n :=
+  match n with
+    | Zero => Void.exfalso (Bool.falseNotTrue h0)
+    | Succ m => Nat.divLtSucc m k h1

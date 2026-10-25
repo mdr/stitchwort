@@ -85,7 +85,7 @@ fn the_reference_evaluator_gives_the_same_results() {
 /// What a failure says about the part of the test that is false (D601):
 /// through `let`s and `&&`, with where the first difference of two lists or
 /// texts is.
-const PARTS: &str = r#"import Std (List, Option)
+const PARTS: &str = r##"import Std (List, Option, Text)
 
 def part1 (n: Nat): Nat := n + 1
 def nums (n: Nat): List Nat := [1, 2, n]
@@ -116,7 +116,9 @@ test "long list, late difference" := List.range 1000 == List.append (List.range 
 test "long and" := List.range 1000 == List.range 1000 && List.range 300 == List.range 299
 test "unequal, so no difference" := nums 3 != nums 3
 test "and, a bracketed operand" := part1 1 == 2 && (nums 3).length == 2
-"#;
+test "text lines" := "one\ntwo\nthree" == "one\n2\nthree\nfour"
+test "a long frame, shown whole" := Text.join (List.replicate 30 (Text.join (List.replicate 30 "#.") ' ')) '\n' == Text.join (List.append (List.replicate 29 (Text.join (List.replicate 30 "#.") ' ')) ["end"]) '\n'
+"##;
 
 #[test]
 fn a_failed_test_names_the_false_part_and_where_values_differ() {

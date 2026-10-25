@@ -1002,7 +1002,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
                 println!("      left:  {}", c.left);
                 println!("      right: {}", c.right);
                 if let Some(difference) = &c.difference {
-                    println!("      {difference}");
+                    println!("      {}", difference.replace('\n', "\n      "));
                 }
             }
             if let Some(p) = &detail.part {

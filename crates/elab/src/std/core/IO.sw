@@ -69,7 +69,7 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 -- `IO.randomSeed` gives 0. The payloads are collected in reverse and turned
 -- round at the end, so a long run doesn't build a deep chain of pending
 -- pairs.
-def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
+def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text → List Text → {e} Pair (List Text) a :=
     handle prog() with
       | return x => ins out => MkPair (List.reverseOnto out Nil) x
@@ -80,5 +80,8 @@ def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Tex
       | IO.keysMode on, k => ins out => k() ins out
       | IO.readBytes u, k => ins out => k (IO.bytesOf ins) Nil out
       | IO.write t, k => ins out => k() ins (Cons t out)
-      | IO.randomSeed u, k => ins out => k 0 ins out
+      | IO.randomSeed u, k => ins out => k seed ins out
   run input Nil
+
+-- `IO.simulateWith 0`: `IO.randomSeed` gives 0.
+def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a := IO.simulateWith 0 input prog

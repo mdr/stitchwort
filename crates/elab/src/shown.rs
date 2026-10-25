@@ -7,6 +7,21 @@ use stitchwort_core::{Globals, Term};
 /// The most characters of a value shown.
 pub const SHOWN: usize = 200;
 
+/// The most characters of a failing test's side shown (a whole screenful of a
+/// text, or a few hundred numbers), where `SHOWN` is for the short mentions in
+/// other messages.
+pub const SHOWN_SIDE: usize = 4000;
+
+/// The most nodes quoted to show one side of a failing test: a text of a
+/// screenful is a few thousand characters, each several nodes.
+pub const SHOWN_SIDE_NODES: u64 = 40_000;
+
+/// The most differing lines of two texts listed.
+pub const SHOWN_LINES: usize = 6;
+
+/// The most characters of one line shown in that list.
+pub const SHOWN_LINE: usize = 120;
+
 /// The most characters of an item shown where two lists first differ.
 pub const SHOWN_ITEM: usize = 40;
 
@@ -16,10 +31,15 @@ pub const SHOWN_NODES: u64 = 8000;
 /// `text`, cut off with `…` if it is longer than [`SHOWN`] characters (at
 /// the last `, ` before, so a list of numbers isn't cut in one).
 pub fn cut(text: &str) -> String {
-    if text.chars().count() <= SHOWN {
+    cut_to(text, SHOWN)
+}
+
+/// [`cut`] at `limit` characters.
+pub fn cut_to(text: &str, limit: usize) -> String {
+    if text.chars().count() <= limit {
         return text.to_string();
     }
-    let mut cut: String = text.chars().take(SHOWN).collect();
+    let mut cut: String = text.chars().take(limit).collect();
     // Back to the end of a whole element, if there is one.
     if let Some(at) = cut.rfind(", ") {
         cut.truncate(at + 1);
@@ -71,8 +91,94 @@ fn items(g: &Globals, term: &Term) -> Option<(&'static str, Vec<String>)> {
     }
 }
 
+/// The characters of a text.
+fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
+    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let Term::Ctor(d, 0, args) = term.strip_loc() else {
+        return None;
+    };
+    if !(is(Builtin::Text, *d) && args.len() == 1) {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut rest = args[0].strip_loc();
+    loop {
+        match rest {
+            Term::Chars(chars) => {
+                out.extend(chars.as_slice().iter().copied());
+                return Some(out);
+            }
+            Term::Ctor(d, 0, _) if is(Builtin::List, *d) => return Some(out),
+            Term::Ctor(d, 1, args) if is(Builtin::List, *d) => {
+                match args[0].strip_loc() {
+                    Term::Ctor(c, 0, fields) if is(Builtin::Char, *c) && fields.len() == 2 => {
+                        match fields[0].strip_loc() {
+                            Term::Nat(k) => out.push(char::from_u32(
+                                u32::try_from(k.as_ref().clone()).ok()?,
+                            )?),
+                            _ => return None,
+                        }
+                    }
+                    _ => return None,
+                }
+                rest = args[1].strip_loc();
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// A line diff of two texts of more than one line: which lines differ, up to
+/// [`SHOWN_LINES`] of them, each cut to [`SHOWN_LINE`] characters.
+fn line_diff(g: &Globals, left: &Term, right: &Term) -> Option<String> {
+    let a: String = text_chars(g, left)?.into_iter().collect();
+    let b: String = text_chars(g, right)?.into_iter().collect();
+    if !a.contains('\n') && !b.contains('\n') {
+        return None;
+    }
+    let a: Vec<&str> = a.split('\n').collect();
+    let b: Vec<&str> = b.split('\n').collect();
+    let lines = a.len().max(b.len());
+    let differing: Vec<usize> = (0..lines).filter(|&i| a.get(i) != b.get(i)).collect();
+    let line = |lines: &[&str], i: usize| -> String {
+        match lines.get(i) {
+            Some(l) => format!("{:?}", cut_to(l, SHOWN_LINE)),
+            None => "(no line)".to_string(),
+        }
+    };
+    let mut out = format!(
+        "{} of {lines} lines differ (left has {}, right has {}):",
+        differing.len(),
+        a.len(),
+        b.len()
+    );
+    for &i in differing.iter().take(SHOWN_LINES) {
+        out.push_str(&format!(
+            "\n  line {}\n    left:  {}\n    right: {}",
+            i + 1,
+            line(&a, i),
+            line(&b, i)
+        ));
+    }
+    if differing.len() > SHOWN_LINES {
+        out.push_str(&format!(
+            "\n  … and {} more",
+            differing.len() - SHOWN_LINES
+        ));
+    }
+    Some(out)
+}
+
 /// Where two lists, or two texts, first differ, in words.
 pub fn first_difference(g: &Globals, left: &Term, right: &Term) -> Option<String> {
+    let first = first_item_difference(g, left, right);
+    match (first, line_diff(g, left, right)) {
+        (Some(first), Some(lines)) => Some(format!("{first}\n{lines}")),
+        (first, lines) => first.or(lines),
+    }
+}
+
+fn first_item_difference(g: &Globals, left: &Term, right: &Term) -> Option<String> {
     let (noun, a) = items(g, left)?;
     let (other, b) = items(g, right)?;
     if noun != other {
