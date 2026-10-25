@@ -3222,14 +3222,16 @@
     {
       "id": 502,
       "title": "Daily tier broken: extract generated_code_is_stable snapshots (foldLeft → foldLeft$e after effect-polymorphic list lane 1); re-record and review",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "d771495e"
+      ]
     }
   ]
 }
