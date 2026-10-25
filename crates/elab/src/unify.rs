@@ -164,6 +164,9 @@ fn row_rule(
 ) -> Result<Option<bool>> {
     use stitchwort_core::partial::Primitive;
     use stitchwort_core::registry::Builtin;
+    if let Some(answer) = divergence_rule(g, level, a, b, work)? {
+        return Ok(Some(answer));
+    }
     let Some(comp_in) = g.registry.def(Builtin::CompIn) else {
         return Ok(None);
     };
@@ -270,6 +273,147 @@ fn row_rule(
         return Ok(Some(true));
     }
     Ok(Some(blocked(a, b)))
+}
+
+/// The rule for `CompD ?d E B ≟ T`, a computation type in a bare row whose
+/// divergence is still unknown (docs/proposals/partial-stage-3.md §2.3,
+/// D1213). `CompD Total E B` is `CompIn E B`, and `CompD MayDiverge E B` is
+/// `Delay (rowOp E) (rowRes E) B`. So:
+///
+/// - a `Delay` (a partial callback or result): `?d := MayDiverge`, and `E`
+///   is the `Delay`'s row, read as the `Comp` rule reads one;
+/// - a type apart from `Delay` (a `Comp`, a `CompIn`, a data type, a
+///   function type, …): `?d := Total`, then the comparison again, where the
+///   row rule for `CompIn` settles `E`;
+/// - a definition stuck on something unknown: blocked, as for `CompIn`.
+///
+/// `None` when it doesn't apply: neither side is such a `CompD`, or the
+/// other side is an unknown or another `CompD`.
+fn divergence_rule(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    work: &mut Vec<Task>,
+) -> Result<Option<bool>> {
+    use stitchwort_core::partial::Primitive;
+    use stitchwort_core::registry::Builtin;
+    let Some(comp_d) = g.registry.def(Builtin::CompD) else {
+        return Ok(None);
+    };
+    let is_comp_d = |v: &Value| matches!(v, Value::Neutral(Head::Def(d), _) if *d == comp_d);
+    // `CompD ?d E B`: its divergence, row and result.
+    let unknown = |v: &Value| -> Result<Option<(Value, Value, Value)>> {
+        let Value::Neutral(Head::Def(d), spine) = v else {
+            return Ok(None);
+        };
+        if *d != comp_d || spine.len() != 3 {
+            return Ok(None);
+        }
+        let (Elim::App(div, _), Elim::App(row, _), Elim::App(result, _)) =
+            (&spine[0], &spine[1], &spine[2])
+        else {
+            return Ok(None);
+        };
+        Ok(match force(g, div.clone())? {
+            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(m) => {
+                Some((div.clone(), row.clone(), result.clone()))
+            }
+            _ => None,
+        })
+    };
+    let (div, row, result, other) = match (unknown(a)?, unknown(b)?) {
+        (Some((d, r, t)), None) => (d, r, t, b),
+        (None, Some((d, r, t))) => (d, r, t, a),
+        _ => return Ok(None),
+    };
+    if matches!(other, Value::Neutral(Head::Meta(_), _)) || is_comp_d(other) {
+        return Ok(None);
+    }
+    let (Some((dd, total)), Some((_, may)), Some(plus), Some(no_op), Some(row_op), Some(empty)) = (
+        g.registry.ctor(Builtin::DivTotal),
+        g.registry.ctor(Builtin::DivMay),
+        g.registry.data(Builtin::Plus),
+        g.registry.data(Builtin::NoOp),
+        g.registry.def(Builtin::RowOp),
+        crate::rows::empty_row(g),
+    ) else {
+        return Ok(None);
+    };
+    let blocked = || -> bool {
+        POSTPONED.with(|p| match p.borrow_mut().as_mut() {
+            Some(list) => {
+                list.push(RowConstraint {
+                    level,
+                    a: a.clone(),
+                    b: b.clone(),
+                });
+                true
+            }
+            None => false,
+        })
+    };
+    let delay = g.builtins.primitive_id(Primitive::Delay);
+    if let Value::Neutral(Head::Def(d), spine) = other
+        && Some(*d) == delay
+    {
+        let (Some(Elim::App(op, _)), Some(Elim::App(res, _)), Some(Elim::App(t, _))) =
+            (spine.first(), spine.get(1), spine.get(2))
+        else {
+            return Ok(Some(false));
+        };
+        // The partial computation's row, as an `Effects`.
+        let row_value = match force(g, op.clone())? {
+            Value::Data(p, _) if p == plus => {
+                match crate::rows::ops_row(g, op.clone(), res.clone()) {
+                    Ok(value) => value,
+                    Err(crate::rows::RowFault::Resource(e)) => return Err(e),
+                    Err(_) => return Ok(Some(false)),
+                }
+            }
+            Value::Data(n, _) if n == no_op => empty,
+            Value::Neutral(Head::Def(id), tail) if id == row_op && tail.len() == 1 => {
+                match &tail[0] {
+                    Elim::App(x, _) => x.clone(),
+                    _ => return Ok(Some(false)),
+                }
+            }
+            _ => return Ok(Some(blocked())),
+        };
+        // Pushed last-first: the divergence, then the row, then the result.
+        work.push(Task::Values(level, result, t.clone()));
+        work.push(Task::Values(level, row, row_value));
+        work.push(Task::Values(
+            level,
+            div,
+            Value::Ctor(dd, may, Vec::new().into()),
+        ));
+        return Ok(Some(true));
+    }
+    let settled = rigid_head(g, other).is_some()
+        || matches!(other, Value::Neutral(Head::Def(d), _)
+            if Some(*d) == g.registry.def(Builtin::CompIn));
+    if !settled {
+        return Ok(match other {
+            Value::Neutral(Head::Def(_), _)
+            | Value::Neutral(Head::Quot(stitchwort_core::QuotForm::Lift), _) => Some(blocked()),
+            _ => None,
+        });
+    }
+    // Total: then compared again, as `CompIn E B`.
+    let Some(comp_in) = g.registry.def(Builtin::CompIn) else {
+        return Ok(None);
+    };
+    let comp_in = Value::Neutral(Head::Def(comp_in), Default::default());
+    let comp_in = stitchwort_core::value::apply(g, comp_in, row)?;
+    let comp_in = stitchwort_core::value::apply(g, comp_in, result)?;
+    work.push(Task::Values(level, comp_in, other.clone()));
+    work.push(Task::Values(
+        level,
+        div,
+        Value::Ctor(dd, total, Vec::new().into()),
+    ));
+    Ok(Some(true))
 }
 
 /// Unification still to do.

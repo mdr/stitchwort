@@ -1459,6 +1459,37 @@ pub fn declare_def(
     Ok(DefId(g.defs.len() - 1))
 }
 
+/// Gives pending definition `id` the type `ty` instead of the one it was
+/// declared with, checking it as [`declare_def`] does. The elaborator does
+/// this when a body needs its signature read another way (a bare row
+/// variable total, docs/proposals/partial-stage-3.md §2.2) before anything
+/// has been admitted against the old type; the body is then checked
+/// against this one, as always.
+pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
+    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    let span = g.defs[id.0].span;
+    let mut cx = Ctx::new(g, span);
+    if g.defs[id.0].state != State::Pending {
+        return Err(malformed(
+            &cx,
+            "only a pending definition can be given another type",
+        ));
+    }
+    if !case_only_in_tree(ty, false) {
+        return Err(malformed(
+            &cx,
+            "`case` may only appear at the top of a definition",
+        ));
+    }
+    admissible(&cx, [ty], None)?;
+    let (ty, _) = check_type(&mut cx, ty)?;
+    let ty_value = eval(g, &[], &ty)?;
+    let def = &mut g.defs[id.0];
+    def.ty = ty;
+    def.ty_value = ty_value;
+    Ok(())
+}
+
 /// Marks pending definition `id` as an instance
 /// (docs/proposals/interfaces.md §9.3): part of its hash, and nothing else.
 pub fn mark_instance(g: &mut Globals, id: DefId) {

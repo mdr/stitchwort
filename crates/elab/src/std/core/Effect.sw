@@ -251,3 +251,42 @@ def Effect.mapSig: [op1: Type] -> [res1: op1 -> Type] -> [op2: Type] -> [res2: o
 def Effect.pfix: [op: Type] -> [res: op -> Type] -> [req: Type] -> [ans: req -> Type] ->
   ((x: req) -> Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) ->
   (x: req) -> Delay op res (ans x)
+
+-- Partiality through a bare row (docs/proposals/partial-stage-3.md, D1213).
+
+-- Whether a computation in a bare row `{e}` may not finish. A signature whose
+-- row variable `e` appears only bare takes one of these beside `e` (D1214),
+-- so a function like `List.map` takes partial callbacks: at `MayDiverge`
+-- its computations are `Delay`s. Like `Effects`, only the library may name
+-- it, its constructors and the definitions below (D1122).
+type Effect.Divergence: Type =
+  | Total
+  | MayDiverge
+
+-- `{e} a` once `e` may be partial: today's `CompIn e a` when total, and the
+-- partial computation `{Partial | e} a` when not.
+def Effect.CompD: Divergence -> Effects -> Type -> Type
+  | Total, row, a => CompIn row a
+  | MayDiverge, row, a => Delay (rowOp row) (rowRes row) a
+
+-- `doneIn`, where `e` may be partial.
+def Effect.doneD [a: Type]: (d: Divergence) -> (row: Effects) -> a -> CompD d row a
+  | Total, row, value => doneIn row value
+  | MayDiverge, row, value => now value
+
+-- `bindIn`, where `e` may be partial.
+def Effect.bindDv [a b: Type]: (d: Divergence) -> (row: Effects) ->
+    CompD d row a -> (a -> CompD d row b) -> CompD d row b
+  | Total, row, c, next => bindIn row c next
+  | MayDiverge, row, c, next => bindD c next
+
+-- A total computation in `{e}`, moved to where `e` may be partial.
+def Effect.liftD [a: Type]: (d: Divergence) -> (row: Effects) -> CompIn row a -> CompD d row a
+  | Total, row, c => c
+  | MayDiverge, row, c => lift (liftIn row c)
+
+-- A computation in `{e}`, moved into the partial row `{Partial | e}`.
+def Effect.delayD [a: Type]: (d: Divergence) -> (row: Effects) ->
+    CompD d row a -> Delay (rowOp row) (rowRes row) a
+  | Total, row, c => lift (liftIn row c)
+  | MayDiverge, row, c => c

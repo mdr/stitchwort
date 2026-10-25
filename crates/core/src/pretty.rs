@@ -479,6 +479,44 @@ impl<'g> Printer<'g> {
                     {
                         return self.go(names, value);
                     }
+                    // A computation in a bare row that may be partial
+                    // (docs/proposals/partial-stage-3.md): `CompD d e a` is
+                    // `{e} a`, as written; at `Total` it's `CompIn e a`, and
+                    // at `MayDiverge` `{Partial | e} a`. `doneD Total e v`
+                    // is `doneIn e v`.
+                    if (self.g.registry.is_def(Builtin::CompD, *id)
+                        || self.g.registry.is_def(Builtin::DoneD, *id))
+                        && let [div, row, result] = &args[..]
+                    {
+                        let ctor = match div.strip_loc() {
+                            Term::Ctor(d, c, fields) if fields.is_empty() => Some((*d, *c)),
+                            _ => None,
+                        };
+                        let empty = matches!(row.strip_loc(), Term::Ctor(d, c, fields)
+                            if fields.is_empty()
+                                && self.g.registry.ctor(Builtin::RowEmpty) == Some((*d, *c)));
+                        let total =
+                            ctor.is_some() && ctor == self.g.registry.ctor(Builtin::DivTotal);
+                        let may = ctor.is_some() && ctor == self.g.registry.ctor(Builtin::DivMay);
+                        if self.g.registry.is_def(Builtin::DoneD, *id) {
+                            if total && empty {
+                                return self.go(names, result);
+                            }
+                        } else {
+                            if total && empty {
+                                return self.go(names, result);
+                            }
+                            let shown = self.print(names, result, Prec::App);
+                            if may && empty {
+                                return (format!("{{Partial}} {shown}"), Prec::App);
+                            }
+                            let row = self.print(names, row, Prec::App);
+                            if may {
+                                return (format!("{{Partial | {row}}} {shown}"), Prec::App);
+                            }
+                            return (format!("{{{row}}} {shown}"), Prec::App);
+                        }
+                    }
                     // A computation in a row variable's row: `{e} a`.
                     if self.g.registry.is_def(Builtin::CompIn, *id)
                         && let [row, result] = &args[..]

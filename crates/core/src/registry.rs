@@ -391,6 +391,15 @@ builtins! {
     BindD = "Effect.bindD": Def,
     MapSig = "Effect.mapSig": Def,
     Pfix = "Effect.pfix": Def,
+    // Partiality through a bare row (docs/proposals/partial-stage-3.md)
+    Divergence = "Effect.Divergence": Data,
+    DivTotal = "Total": Ctor(Builtin::Divergence),
+    DivMay = "MayDiverge": Ctor(Builtin::Divergence),
+    CompD = "Effect.CompD": Def,
+    DoneD = "Effect.doneD": Def,
+    BindDv = "Effect.bindDv": Def,
+    LiftD = "Effect.liftD": Def,
+    DelayD = "Effect.delayD": Def,
     // Input and output
     Io = "IO": Data,
     Print = "%print": Ctor(Builtin::Io),

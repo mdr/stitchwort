@@ -470,6 +470,12 @@ pub struct Elaborator {
     /// worked out: asked for every call in every expression checked, and
     /// fixed once the definition is, like `result_heads`.
     pub(crate) performs: RefCell<HashMap<effects::PerformsKey, bool>>,
+    /// While set, a signature's bare row variables get no divergence index:
+    /// they stand for total rows only, as before stage 3 (D1215's re-check).
+    pub(crate) total_rows_only: std::cell::Cell<bool>,
+    /// The definitions checked again with their bare row variables total
+    /// (D1215), with where the first check failed.
+    pub total_rows: RefCell<HashMap<DefId, Span>>,
     /// The interfaces declared so far (docs/proposals/interfaces.md §5.1).
     interfaces: HashMap<DataId, interfaces::InterfaceInfo>,
     /// The global instances, by interface and head (§5.6).
@@ -718,6 +724,24 @@ impl Elaborator {
         std::sync::LazyLock::force(&module::REWRITE_MARKER);
         std::sync::LazyLock::force(&module::MEMBERSHIP);
         e
+    }
+
+    /// Whether the body being checked is one of the library's definitions
+    /// by cases on a divergence index (`Effect.doneD`, `bindDv`, `liftD`,
+    /// `delayD`; docs/proposals/partial-stage-3.md §2.1). Each case is
+    /// written as the computation it is, in the row the case gives (a
+    /// `Delay` over `rowOp row`, or a `CompIn row`), so it's checked as a
+    /// plain term, not in computation mode, which would take it for the
+    /// result of one.
+    pub(crate) fn divergence_case_body(&self) -> bool {
+        self.loading_prelude
+            && self.owner.borrow().first().is_some_and(|key| {
+                let name = key.strip_prefix("Std.").unwrap_or(key);
+                matches!(
+                    name,
+                    "Effect.doneD" | "Effect.bindDv" | "Effect.liftD" | "Effect.delayD"
+                )
+            })
     }
 
     /// Elaborates a closed expression, and infers its type with the kernel.
@@ -1101,6 +1125,7 @@ impl Elaborator {
                             labels: Vec::new(),
                             tail: None,
                             partial: true,
+                            div: None,
                         };
                         let bool_ty = Value::Data(bool_data, Vec::new());
                         let ty = effects::comp_type(&cx, &row, bool_ty)?;
@@ -2188,7 +2213,33 @@ impl Elaborator {
             self.module.phase = Phase::Body;
             self.clear_metas();
             self.branch_errors.take();
-            match self.lifted_body(*id, def_name, equations) {
+            let mut checked = self.lifted_body(*id, def_name, equations);
+            // A body that moves a computation in its bare row `{e}` into a
+            // handler's row needs `e` total: checked again with it
+            // (docs/proposals/partial-stage-3.md §2.2, D1215). So is any
+            // other body that fails while its bare rows may be partial, so
+            // that nothing that checked before stage 3 stops checking, and
+            // what doesn't check fails as it did.
+            if let Err(d) = &checked
+                && !undo::fatal(d)
+            {
+                let at = d.labels.first().map(|l| l.span);
+                match self.retype_total(signature, *id) {
+                    Ok(true) => {
+                        self.clear_metas();
+                        self.branch_errors.take();
+                        checked = self.lifted_body(*id, def_name, equations);
+                        if checked.is_ok()
+                            && let Some(at) = at
+                        {
+                            self.total_rows.borrow_mut().insert(*id, at);
+                        }
+                    }
+                    Ok(false) => {}
+                    Err(e) => checked = Err(e),
+                }
+            }
+            match checked {
                 Ok((body, joined)) => {
                     bodies.push((*id, body));
                     helpers.extend(joined);
@@ -2257,7 +2308,75 @@ impl Elaborator {
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
         self.module.phase = Phase::Signature;
+        let ty = self.signature_type(ty, *instance, *span, &key)?;
+        self.check_redundant(&ty, def_name.span)?;
+        let id = kernel::declare_def(
+            &mut self.globals,
+            &scope::display(&key).into(),
+            &ty,
+            *theorem,
+            *export,
+            *span,
+        )?;
+        if let Some(item) = self.module.item {
+            self.module.def_items.insert(id, item);
+        }
+        // A dictionary keeps its name in what uses it (stage 1, item 13).
+        if self.is_dictionary_type(&self.globals.def(id).ty.clone())? {
+            kernel::mark_folded(&mut self.globals, id);
+        }
+        if *instance {
+            self.register_instance(id, def_name)?;
+        }
+        // D307: a function in a type's namespace takes that type's value
+        // first, unless it opts out (D309). Theorems follow their functions'
+        // order (D308) without the warning.
+        let plain = !*theorem && !*instance && !*export && !*synonym;
+        if plain && !no_receiver && !self.helper_keys.contains(&key) {
+            let cx = Ctx::new(self, *span);
+            if let Some(warning) = dot::receiver_not_first(&cx, id, def_name.span)? {
+                self.warnings.push(warning);
+            }
+        }
+        Ok(id)
+    }
 
+    /// Checks pending definition `id`'s signature again with its bare row
+    /// variables total, and gives it that type: its body needs them total,
+    /// as it moves a computation in `{e}` into a handler's row
+    /// (docs/proposals/partial-stage-3.md §2.2, D1215). `false` if the
+    /// signature has no bare row variable, so nothing changes.
+    fn retype_total(&mut self, signature: &Decl, id: DefId) -> Result<bool> {
+        let Decl::Signature {
+            name: def_name,
+            ty,
+            instance,
+            span,
+            ..
+        } = signature
+        else {
+            unreachable!()
+        };
+        let key = self.declaration_key(def_name)?;
+        let auto = autobind::auto_bound(self, ty)?;
+        if auto.bare_rows.is_empty() || self.total_rows_only.get() {
+            return Ok(false);
+        }
+        self.clear_metas();
+        self.module.phase = Phase::Signature;
+        let warnings = self.warnings.len();
+        self.total_rows_only.set(true);
+        let retyped = self.signature_type(ty, *instance, *span, &key);
+        self.total_rows_only.set(false);
+        self.warnings.truncate(warnings);
+        kernel::retype_def(&mut self.globals, id, &retyped?)?;
+        self.module.phase = Phase::Body;
+        Ok(true)
+    }
+
+    /// A definition's signature `ty`, elaborated and finished, with its
+    /// implicitly bound variables in front.
+    fn signature_type(&mut self, ty: &Expr, instance: bool, span: Span, key: &str) -> Result<Term> {
         let auto = autobind::auto_bound(self, ty)?;
         // A name that would have been a type variable, but is the name of
         // something in this module.
@@ -2287,27 +2406,41 @@ impl Elaborator {
             notes.push(note);
         }
         let with_notes = |d: Diagnostic| notes.iter().fold(d, |d, n| d.with_note(n.clone()));
-        *self.owner.borrow_mut() = vec![key.clone()];
+        *self.owner.borrow_mut() = vec![key.to_string()];
         self.local_keys.borrow_mut().clear();
+        // A row variable used only bare, `{e}`, gets a divergence index
+        // beside it, so it may stand for a partial row
+        // (docs/proposals/partial-stage-3.md §2.2, D1214).
+        let divergence = match self.globals.registry.data(Builtin::Divergence) {
+            Some(d) if !self.total_rows_only.get() => Some(d),
+            _ => None,
+        };
         let ty = (|| {
-            let mut cx = Ctx::new(self, *span);
-            let mut domains = Vec::new();
+            let mut cx = Ctx::new(self, span);
+            let mut binders: Vec<(Name, Term)> = Vec::new();
             for n in &auto.names {
                 // The type of an implicitly bound variable is worked out from
                 // how it's used (usually `Type`).
                 cx.span = n.span;
                 let dom = cx.fresh_meta();
                 let value = cx.eval(&dom)?;
-                domains.push(dom);
+                binders.push((name(n), dom));
                 cx.bind(&n.text, value);
+                if let Some(d) = divergence
+                    && auto.bare_rows.contains(&n.text)
+                {
+                    let x = effects::divergence_name(&n.text);
+                    binders.push((x.as_str().into(), Term::Data(d, Vec::new())));
+                    cx.bind(&x, Value::Data(d, Vec::new()));
+                }
             }
-            cx.span = *span;
-            cx.e.in_instance_signature.set(*instance);
+            cx.span = span;
+            cx.e.in_instance_signature.set(instance);
             let checked = check_type(&mut cx, ty);
             cx.e.in_instance_signature.set(false);
             let (mut term, _) = checked?;
-            for (n, dom) in auto.names.iter().zip(domains).rev() {
-                term = Term::Pi(name(n), Icit::Implicit, Rc::new(dom), Rc::new(term));
+            for (x, dom) in binders.into_iter().rev() {
+                term = Term::Pi(x, Icit::Implicit, Rc::new(dom), Rc::new(term));
             }
             Ok(term)
         })();
@@ -2315,44 +2448,11 @@ impl Elaborator {
         let ty = ty.map_err(|d| with_notes(autobind::explain(&auto, d)))?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
-        self.lift(&key, false).map_err(with_notes)?;
+        self.lift(key, false).map_err(with_notes)?;
         // (The unfinished term is dropped here, not kept alive while the
         // kernel checks the finished one.)
-        let ty = {
-            let unfinished = ty;
-            self.finish(&unfinished, 0).map_err(with_notes)?
-        };
-        self.check_redundant(&ty, def_name.span)?;
-        let id = kernel::declare_def(
-            &mut self.globals,
-            &scope::display(&key).into(),
-            &ty,
-            *theorem,
-            *export,
-            *span,
-        )
-        .map_err(with_notes)?;
-        if let Some(item) = self.module.item {
-            self.module.def_items.insert(id, item);
-        }
-        // A dictionary keeps its name in what uses it (stage 1, item 13).
-        if self.is_dictionary_type(&self.globals.def(id).ty.clone())? {
-            kernel::mark_folded(&mut self.globals, id);
-        }
-        if *instance {
-            self.register_instance(id, def_name)?;
-        }
-        // D307: a function in a type's namespace takes that type's value
-        // first, unless it opts out (D309). Theorems follow their functions'
-        // order (D308) without the warning.
-        let plain = !*theorem && !*instance && !*export && !*synonym;
-        if plain && !no_receiver && !self.helper_keys.contains(&key) {
-            let cx = Ctx::new(self, *span);
-            if let Some(warning) = dot::receiver_not_first(&cx, id, def_name.span)? {
-                self.warnings.push(warning);
-            }
-        }
-        Ok(id)
+        let unfinished = ty;
+        self.finish(&unfinished, 0).map_err(with_notes)
     }
 
     /// After a definition is admitted: registering natives (in the prelude)
