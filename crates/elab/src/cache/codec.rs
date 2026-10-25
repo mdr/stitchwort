@@ -7,11 +7,11 @@
 //! recurses, however deeply a term nests. A sub-term shared through an `Rc`
 //! is written once and read back shared.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
 use stitchwort_core::chars::Chars;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 use stitchwort_syntax::Span;
@@ -499,7 +499,8 @@ fn each_child<'t>(t: &'t Term, f: &mut dyn FnMut(&'t Term)) {
 /// Every declaration a term refers to, without recursing: what replay
 /// waits for before it submits the term.
 pub fn references(t: &Term, defs: &mut dyn FnMut(DefId), datas: &mut dyn FnMut(DataId)) {
-    let mut seen: std::collections::HashSet<*const Term> = std::collections::HashSet::new();
+    let mut seen: stitchwort_core::collections::HashSet<*const Term> =
+        stitchwort_core::collections::HashSet::default();
     let mut stack = vec![t];
     while let Some(t) = stack.pop() {
         if !seen.insert(std::ptr::from_ref(t)) {

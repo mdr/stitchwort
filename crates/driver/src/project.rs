@@ -217,7 +217,7 @@ impl Session {
         &self,
         project: &str,
         analysis: &Analysis,
-    ) -> std::collections::HashMap<String, stitchwort_elab::cache::Key> {
+    ) -> stitchwort_core::collections::HashMap<String, stitchwort_elab::cache::Key> {
         let config_name = format!("{project}/{CONFIG}");
         let config = self
             .sources
@@ -269,7 +269,7 @@ pub struct NamespaceSources<'a> {
 pub fn namespace_keys(
     config: Option<&str>,
     namespaces: &[NamespaceSources],
-) -> std::collections::HashMap<String, stitchwort_elab::cache::Key> {
+) -> stitchwort_core::collections::HashMap<String, stitchwort_elab::cache::Key> {
     let mut common = blake3::Hasher::new();
     let part = |h: &mut blake3::Hasher, bytes: &[u8]| {
         h.update(&(bytes.len() as u64).to_le_bytes());

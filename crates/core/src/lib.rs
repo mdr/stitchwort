@@ -7,6 +7,7 @@
 pub mod budget;
 pub mod chars;
 pub mod check;
+pub mod collections;
 pub mod erase;
 pub mod float;
 pub mod globals;

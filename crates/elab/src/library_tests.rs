@@ -1,8 +1,9 @@
 //! Tests of the library index and loader, and the report of what the core
 //! must keep (docs/proposals/std-library.md §5, §7).
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::{Builtin, Kind};
 use stitchwort_syntax::ast::{Decl, Module};
 
@@ -40,7 +41,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
     }
     let file = &index.files[f];
     let groups = grouped(&file.module.decls);
-    let mut owner_unit: HashMap<String, usize> = HashMap::new();
+    let mut owner_unit: HashMap<String, usize> = HashMap::default();
     let mut out: Vec<Unit> = Vec::new();
     for (i, (decl, _)) in groups.iter().enumerate() {
         let alone = IndexedFile {
@@ -82,7 +83,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
         });
     }
     // Dot notation: any function with that last component.
-    let mut by_short: HashMap<&str, Vec<usize>> = HashMap::new();
+    let mut by_short: HashMap<&str, Vec<usize>> = HashMap::default();
     for (key, &i) in &owner_unit {
         by_short.entry(scope::short(key)).or_default().push(i);
     }

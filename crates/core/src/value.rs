@@ -6,7 +6,7 @@
 //! has all its parameters *and* its case tree can take a step. This keeps
 //! comparison from unfolding recursive definitions forever. See `docs/core.md`.
 
-use std::collections::HashMap;
+use crate::collections::{HashMap, QuickHasher};
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -2620,7 +2620,7 @@ enum Part<'v> {
 /// hashed once, not once per level.
 #[derive(Default)]
 struct ShapeCache {
-    hashes: HashMap<(usize, usize), u64, std::hash::BuildHasherDefault<QuickHasher>>,
+    hashes: HashMap<(usize, usize), u64>,
     /// The allocations hashed, kept alive while their addresses are keys,
     /// so no other can be allocated at one.
     owners: Vec<Owner>,
@@ -2634,44 +2634,6 @@ enum Owner {
     Spine(Spine),
     Closure(Closure),
     Term(Rc<Term>),
-}
-
-/// A fast, non-cryptographic hasher (the multiply-and-rotate step of the
-/// Rust compiler's `FxHasher`), for [`shape_hash`] and its cache. Its
-/// hashes only file pairs to compare: a collision costs a comparison, never
-/// a wrong answer.
-#[derive(Default)]
-struct QuickHasher(u64);
-
-impl QuickHasher {
-    fn add(&mut self, word: u64) {
-        self.0 = (self.0.rotate_left(5) ^ word).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
-    }
-}
-
-impl std::hash::Hasher for QuickHasher {
-    fn write(&mut self, bytes: &[u8]) {
-        for chunk in bytes.chunks(8) {
-            let mut word = [0u8; 8];
-            word[..chunk.len()].copy_from_slice(chunk);
-            self.add(u64::from_le_bytes(word));
-        }
-    }
-    fn write_u8(&mut self, n: u8) {
-        self.add(n.into());
-    }
-    fn write_u32(&mut self, n: u32) {
-        self.add(n.into());
-    }
-    fn write_u64(&mut self, n: u64) {
-        self.add(n);
-    }
-    fn write_usize(&mut self, n: usize) {
-        self.add(n as u64);
-    }
-    fn finish(&self) -> u64 {
-        self.0
-    }
 }
 
 impl Part<'_> {

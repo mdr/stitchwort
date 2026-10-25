@@ -31,10 +31,10 @@
 //! Each body's slots are renamed apart first, so that copies can't clash,
 //! and packed again at the end.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
 
 use crate::ir::{
@@ -88,7 +88,7 @@ pub fn optimize(p: &mut Program, types: Types) {
         yes: p.shapes.yes,
         no: p.shapes.no,
         lambdas: std::mem::take(&mut p.lambdas),
-        specialised: HashMap::new(),
+        specialised: HashMap::default(),
         ctor_arity: p
             .types
             .iter()
@@ -96,7 +96,7 @@ pub fn optimize(p: &mut Program, types: Types) {
             .collect(),
         globals: std::mem::take(&mut p.globals),
         busy: None,
-        copies: HashMap::new(),
+        copies: HashMap::default(),
     };
     // Globals first (in dependency order, so that a callee is simplified
     // before it's inlined), then lambdas, then the entry; each may make
@@ -235,14 +235,14 @@ impl Cx {
         let mut s = Simp {
             cx: self,
             next,
-            env: HashMap::new(),
+            env: HashMap::default(),
             fuel: FUEL,
             depth: 0,
             global,
         };
         let expr = s.simp(expr);
         let mut packer = Packer {
-            map: HashMap::new(),
+            map: HashMap::default(),
             depth: params,
             max: params,
         };
@@ -500,7 +500,7 @@ struct Renamer<'a> {
 impl<'a> Renamer<'a> {
     fn new(next: &'a mut Slot, captures: Option<&'a [Expr]>) -> Self {
         Renamer {
-            map: HashMap::new(),
+            map: HashMap::default(),
             next,
             captures,
         }
@@ -893,7 +893,8 @@ impl Simp<'_> {
                     self.fuel -= 1;
                     return self.map_leaves(value, &mut |s, leaf| {
                         let n = s.fresh();
-                        let copy = s.copy(&body, HashMap::from([(slot, Expr::Local(n))]), None);
+                        let copy =
+                            s.copy(&body, HashMap::from_iter([(slot, Expr::Local(n))]), None);
                         let value = leaf;
                         s.let_(n, value, copy)
                     });
@@ -1015,8 +1016,8 @@ impl Simp<'_> {
         {
             self.fuel -= 1;
             return self.map_leaves(c, &mut |s, leaf| {
-                let t = s.copy(&t, HashMap::new(), None);
-                let e = s.copy(&e, HashMap::new(), None);
+                let t = s.copy(&t, HashMap::default(), None);
+                let e = s.copy(&e, HashMap::default(), None);
                 s.if_(leaf, t, e)
             });
         }
@@ -1242,7 +1243,7 @@ impl Simp<'_> {
                 let id = GlobalId(u32::try_from(self.cx.globals.len()).expect("fits"));
                 let positions: Vec<usize> = known.iter().map(|(k, _)| *k).collect();
                 let redirected = redirect(&body.expr, g, &positions, id);
-                let mut map = HashMap::new();
+                let mut map = HashMap::default();
                 let mut kept = 0;
                 for p in 0..params {
                     match known.iter().find(|(k, _)| *k == p as usize) {
@@ -1296,7 +1297,7 @@ impl Simp<'_> {
         captures: &[Expr],
     ) -> Expr {
         let mut lets = Vec::new();
-        let mut map = HashMap::new();
+        let mut map = HashMap::default();
         for (p, a) in args.into_iter().enumerate() {
             let p = u32::try_from(p).expect("params fit");
             if trivial(&a) {

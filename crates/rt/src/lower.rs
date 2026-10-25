@@ -7,10 +7,10 @@
 //! definition's body, so each level checks there's stack left first.
 
 use std::cell::OnceCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use num_bigint::BigInt;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
@@ -324,17 +324,17 @@ impl<'g> Lowerer<'g> {
             to_bool: g.registry.def(Builtin::ToBool),
             effect: EffectNatives::new(g),
             fusion: EffectNatives::new(g).and_then(|_| StateFusion::new(g)),
-            global_of: HashMap::new(),
+            global_of: HashMap::default(),
             spec: Specialiser::new(g),
-            empty_of: HashMap::new(),
+            empty_of: HashMap::default(),
             lambdas: Vec::new(),
             types: Vec::new(),
-            type_of: HashMap::new(),
+            type_of: HashMap::default(),
             env: Vec::new(),
             frames: Vec::new(),
             sig_maps: SigMaps::new(g),
             hoisted: Vec::new(),
-            hoisted_of: HashMap::new(),
+            hoisted_of: HashMap::default(),
             hoisted_base: 0,
             hoisting: false,
         })

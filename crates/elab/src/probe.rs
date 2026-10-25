@@ -19,13 +19,13 @@ const DEPTH: usize = 32;
 
 /// The spans of the expressions of `expr` worth noting terms for: the
 /// comparisons, and the operands of `&&`, reached through `let`s and `&&`.
-pub(crate) fn wanted(expr: &Expr) -> std::collections::HashSet<Span> {
-    let mut found = std::collections::HashSet::new();
+pub(crate) fn wanted(expr: &Expr) -> stitchwort_core::collections::HashSet<Span> {
+    let mut found = stitchwort_core::collections::HashSet::default();
     walk(expr, &mut found, 0);
     found
 }
 
-fn walk(expr: &Expr, found: &mut std::collections::HashSet<Span>, depth: usize) {
+fn walk(expr: &Expr, found: &mut stitchwort_core::collections::HashSet<Span>, depth: usize) {
     if depth > DEPTH {
         return;
     }

@@ -9,7 +9,7 @@
 //! its hash updated here. The natives' meaning is fixed here; each backend
 //! has its own code for them (the JS backend's strings, the runtime's Rust).
 
-use std::collections::HashMap;
+use stitchwort_core::collections::HashMap;
 
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::native;
@@ -613,7 +613,7 @@ impl Representation {
                 .filter_map(|b| Some((b.id?, b.native)))
                 .collect()
         } else {
-            HashMap::new()
+            HashMap::default()
         };
         // The natives assume the native representation, so they're used
         // only with it, and it only for the `Int` it was written for.
@@ -626,10 +626,10 @@ impl Representation {
                 .filter_map(|b| Some((b.id?, b.native)))
                 .collect()
         } else {
-            HashMap::new()
+            HashMap::default()
         };
         let float = float_data(g);
-        let mut float_natives = HashMap::new();
+        let mut float_natives = HashMap::default();
         if float.is_some() {
             use stitchwort_core::float::{FloatNative, FloatOp};
             for id in (0..g.defs.len()).map(DefId) {

@@ -3,8 +3,9 @@
 //! [`Elaborator::elaborate_namespace`] takes, and the pre-pass that finds
 //! which namespaces a namespace uses.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
+use stitchwort_core::collections::HashSet;
 use stitchwort_syntax::ast::{Decl, Module};
 use stitchwort_syntax::{Diagnostic, FileId, Span};
 
@@ -236,7 +237,7 @@ impl Elaborator {
     /// target.
     pub fn namespace_edges(&self, ns: &NamespaceSyntax) -> Vec<Edge> {
         // What each file of the namespace declares and imports.
-        let mut declared: HashSet<&str> = HashSet::new();
+        let mut declared: HashSet<&str> = HashSet::default();
         // Qualified declarations: the first component of the written name,
         // and the file.
         let mut qualified: Vec<(&str, usize)> = Vec::new();
@@ -272,7 +273,7 @@ impl Elaborator {
         // whose files didn't parse is blind: its names are unknown.
         let none: Vec<HashSet<String>> = Vec::new();
         let own_root = format!("{}.", ns.name);
-        let mut wildcard: Vec<HashSet<String>> = vec![HashSet::new(); ns.files.len()];
+        let mut wildcard: Vec<HashSet<String>> = vec![HashSet::default(); ns.files.len()];
         let mut blind = vec![false; ns.files.len()];
         for (f, unit) in ns.files.iter().enumerate() {
             let path_levels = PrePass {

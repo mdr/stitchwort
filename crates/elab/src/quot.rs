@@ -23,9 +23,9 @@
 //! the equation it's expected to prove. Nothing here is trusted: the kernel
 //! checks every form (checks C1–C6).
 
-use std::collections::HashSet;
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashSet;
 use stitchwort_core::term::QuotForm;
 use stitchwort_core::value::Head;
 use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Sort, Term, Value, pretty};

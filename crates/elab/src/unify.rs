@@ -2,10 +2,10 @@
 //! back into terms). Follows András Kovács' elaboration-zoo.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use stitchwort_core::budget::{ResourceError, Result};
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::native;
 use stitchwort_core::value::{
     Closure, Elim, Head, Relation, apply_icit, call_args, eval, expand_step, force, force_solved,
@@ -679,7 +679,7 @@ fn settle<T>(r: std::result::Result<T, Fail>) -> Result<Option<T>> {
 /// "pattern"). The solution is `x1 … xn => rhs`, with the spine's variables
 /// renamed to the lambda's parameters.
 fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Result<bool> {
-    let mut renaming = HashMap::new();
+    let mut renaming = HashMap::default();
     let mut repeated = Vec::new();
     let mut icits = Vec::new();
     // An `auto` argument's unknown proof, inside a lambda that's been

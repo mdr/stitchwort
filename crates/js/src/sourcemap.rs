@@ -8,9 +8,9 @@
 //! reports the definition's line. Code with no source (the runtime, codecs)
 //! is left unmapped.
 
-use std::collections::HashMap;
 use std::fmt::Write;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_syntax::{FileId, SourceFile, SourceMap, Span};
 
 /// One mapped position of the generated module.
@@ -120,10 +120,10 @@ pub fn to_json(
     source_path: &dyn Fn(&SourceFile) -> (String, bool),
 ) -> String {
     let mut files: Vec<FileId> = Vec::new();
-    let mut file_index: HashMap<FileId, i64> = HashMap::new();
+    let mut file_index: HashMap<FileId, i64> = HashMap::default();
     let mut names: Vec<&str> = Vec::new();
-    let mut name_index: HashMap<&str, i64> = HashMap::new();
-    let mut line_starts: HashMap<FileId, Vec<usize>> = HashMap::new();
+    let mut name_index: HashMap<&str, i64> = HashMap::default();
+    let mut line_starts: HashMap<FileId, Vec<usize>> = HashMap::default();
 
     let mut out = String::new();
     let (mut gen_line, mut gen_col) = (0u32, 0i64);

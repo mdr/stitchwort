@@ -20,10 +20,10 @@
 //! A field whose type mentions one that fails any rule fails too. Why a
 //! field isn't shared is kept for the message when `a.f` is used (§5.3).
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{conv, eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
@@ -137,7 +137,7 @@ impl Elaborator {
         }
         // Decided in dependency order, ties by the first constructor's: the
         // shared fields so far are rigid variables after the parameters.
-        let mut level_of: HashMap<usize, usize> = HashMap::new();
+        let mut level_of: HashMap<usize, usize> = HashMap::default();
         loop {
             let next = (0..candidates.len())
                 .find(|&k| status[k].is_none() && deps[k].iter().all(|&i| status[i].is_some()));
@@ -225,7 +225,7 @@ impl Elaborator {
     /// each field's accessor, by name.
     pub(crate) fn accessors(&mut self, d: DataId, hidden: &str) -> Result<HashMap<Name, DefId>> {
         let shared = self.shared_fields(d)?.shared;
-        let mut made: HashMap<Name, DefId> = HashMap::new();
+        let mut made: HashMap<Name, DefId> = HashMap::default();
         for (field, positions) in shared {
             let g = &self.globals;
             let data = g.data(d);

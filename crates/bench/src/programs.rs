@@ -305,8 +305,16 @@ fn rendered(session: &Session, diagnostics: &[Diagnostic]) -> String {
         .collect()
 }
 
+/// `session`, its counterexample searches stopping at their count of inputs
+/// and never at their time limit, which would make the counts depend on
+/// the machine's speed.
+fn untimed(mut session: Session) -> Session {
+    session.elab.untimed_counterexamples = true;
+    session
+}
+
 fn loaded(program: &str) -> Result<Session, String> {
-    let mut session = Session::for_stack(STACK);
+    let mut session = untimed(Session::for_stack(STACK));
     match session.load("bench.sw", program) {
         Ok(_) => Ok(session),
         Err(ds) => Err(rendered(&session, &ds)),
@@ -335,7 +343,7 @@ fn eval(
 
 /// Checks `program`, which must check.
 fn check(program: String) -> Result<Prepared, String> {
-    let mut session = Session::for_stack(STACK);
+    let mut session = untimed(Session::for_stack(STACK));
     Ok(Prepared::new(move || {
         let before = work(&session);
         match session.load("bench.sw", &program) {
@@ -470,7 +478,7 @@ fn examples() -> Result<Prepared, String> {
             let mut total = Work::default();
             for (name, text) in &accepted {
                 let start = parts.start();
-                let mut session = Session::for_stack(16 * 1024 * 1024);
+                let mut session = untimed(Session::for_stack(16 * 1024 * 1024));
                 if let Err(ds) = session.load(name, text) {
                     return Err(format!("{name}:\n{}", rendered(&session, &ds)));
                 }
@@ -486,7 +494,7 @@ fn examples() -> Result<Prepared, String> {
             }
             for (name, text) in &rejected {
                 let start = parts.start();
-                let mut session = Session::new();
+                let mut session = untimed(Session::new());
                 if let Err(ds) = session.load(name, text) {
                     std::hint::black_box(rendered(&session, &ds));
                 }
@@ -507,7 +515,7 @@ fn extract_js() -> Result<Prepared, String> {
     let sessions = files
         .iter()
         .map(|(name, text)| {
-            let mut session = Session::for_stack(STACK);
+            let mut session = untimed(Session::for_stack(STACK));
             match session.load(name, text) {
                 Ok(_) => Ok(session),
                 Err(ds) => Err(format!("{name}:\n{}", rendered(&session, &ds))),

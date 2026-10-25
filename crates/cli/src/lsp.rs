@@ -14,7 +14,7 @@
 //! Files and threads live here; the engine (`live`) has neither (D498).
 
 use std::cell::Cell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,6 +31,7 @@ use lsp_types::{
     NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind, Url,
     WorkspaceSymbolResponse, notification, request,
 };
+use stitchwort_core::collections::HashMap;
 use stitchwort_driver::check_cache::CheckCache;
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
@@ -1067,9 +1068,9 @@ impl Checker {
             nav,
             cancel,
             work: BTreeMap::new(),
-            versions: HashMap::new(),
+            versions: HashMap::default(),
             last: None,
-            published: HashMap::new(),
+            published: HashMap::default(),
         }
     }
 

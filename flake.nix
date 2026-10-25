@@ -49,6 +49,7 @@
             root = ./.;
             fileset = lib.fileset.unions [
               (craneLib.fileset.commonCargoSources ./.)
+              ./clippy.toml # disallows the standard library's hash maps
               ./examples # example programs are the main test suite
               ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/std_library.rs)
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)

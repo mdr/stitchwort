@@ -1,10 +1,10 @@
 //! Runs source files through the compiler pipeline.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};

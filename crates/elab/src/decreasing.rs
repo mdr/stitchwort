@@ -34,9 +34,9 @@
 //! `lex_go`, `lex_irrel`, `lex_unfold_parts`).
 
 use std::cell::Cell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Elim, Head, eval, force, same_term};
@@ -1018,8 +1018,8 @@ impl Elaborator {
             let mut st = Gen {
                 name: def_name.text.clone(),
                 helpers,
-                respects: HashMap::new(),
-                congs: HashMap::new(),
+                respects: HashMap::default(),
+                congs: HashMap::default(),
                 made: Vec::new(),
             };
             let respects = self.generated(&plan, |e| e.respects(&mut st, step, plan.header))?;

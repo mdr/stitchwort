@@ -26,7 +26,7 @@
 //! [`crate::native`], [`crate::partial`] and [`crate::chars`] (types, and
 //! content hashes), which this doesn't weaken.
 
-use std::collections::HashMap;
+use crate::collections::HashMap;
 
 use stitchwort_syntax::Diagnostic;
 

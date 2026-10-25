@@ -28,8 +28,8 @@ use super::{
 /// The functions and type constants generated so far.
 #[derive(Default)]
 pub(crate) struct Fast {
-    names: std::collections::HashMap<String, String>,
-    types: std::collections::HashMap<String, String>,
+    names: stitchwort_core::collections::HashMap<String, String>,
+    types: stitchwort_core::collections::HashMap<String, String>,
     consts: String,
     functions: String,
     count: usize,

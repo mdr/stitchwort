@@ -1383,7 +1383,7 @@ impl Elaborator {
         // skipped later): `undo.rs` restores the list by its length, so
         // removing one made before a transaction that's then undone would
         // lose it.
-        let mut tried = std::collections::HashSet::new();
+        let mut tried = stitchwort_core::collections::HashSet::default();
         loop {
             // The next obligation of this tree not tried yet.
             let ob = self
