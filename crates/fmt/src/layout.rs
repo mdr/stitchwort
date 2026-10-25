@@ -102,6 +102,10 @@ struct Conv {
     close: usize,
     /// The commas between elements, and a trailing comma.
     seps: Vec<usize>,
+    /// A record update's `|` (`{ state | a = 1, b = 2 }`), if the bracket
+    /// has one: a field after it that starts a line is an element's line
+    /// like the others, not a continuation of `state |`.
+    bar: Option<usize>,
 }
 
 /// Which part of a declaration a child of a column-0 line is in: the header
@@ -294,6 +298,7 @@ impl<'a> Layout<'a> {
         struct Open {
             at: usize,
             seps: Vec<usize>,
+            bar: Option<usize>,
             blocked: bool,
         }
         let (tokens, trivia) = (self.tokens(), &self.lexed.trivia);
@@ -305,6 +310,7 @@ impl<'a> Layout<'a> {
                 Tok::LParen | Tok::LBracket | Tok::LBrace => stack.push(Open {
                     at: k,
                     seps: Vec::new(),
+                    bar: None,
                     blocked: false,
                 }),
                 Tok::Comma => {
@@ -322,6 +328,15 @@ impl<'a> Layout<'a> {
                         top.blocked = true;
                     }
                 }
+                Tok::Pipe => {
+                    if let Some(top) = stack.last_mut()
+                        && tokens[top.at].tok == Tok::LBrace
+                        && top.seps.is_empty()
+                        && top.bar.is_none()
+                    {
+                        top.bar = Some(k);
+                    }
+                }
                 Tok::RParen | Tok::RBracket | Tok::RBrace => {
                     let Some(top) = stack.pop() else { continue };
                     let spans_lines = (top.at + 1..=k).any(|j| tokens[j].line_start);
@@ -336,6 +351,7 @@ impl<'a> Layout<'a> {
                             open: top.at,
                             close: k,
                             seps: top.seps,
+                            bar: top.bar,
                         });
                     }
                 }
@@ -386,6 +402,11 @@ impl<'a> Layout<'a> {
             opens[at(conv.open)] = Some(id);
             closes[at(conv.close)] = Some(id);
             elem_first[at(conv.open + 1)] = true;
+            if let Some(bar) = conv.bar
+                && tokens[bar + 1].line_start
+            {
+                elem_first[at(bar + 1)] = true;
+            }
             for &s in &conv.seps {
                 dropped[at(s)] = true;
                 if s + 1 == conv.close {

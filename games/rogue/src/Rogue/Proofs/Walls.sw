@@ -4,7 +4,7 @@
 
 namespace Rogue.Proofs
 import Rogue (..)
-import Std (Eq)
+import Std (Decidable, Eq, List)
 
 theorem monstersTurnPlayer (dice: Dice) (state: State): (monstersTurn dice state).player = state.player :=
   match stairs: isStairs state.player with
@@ -12,7 +12,7 @@ theorem monstersTurnPlayer (dice: Dice) (state: State): (monstersTurn dice state
     | False => rfl
 
 theorem enterPlayer (state: State) (target: Position): (enter state target).player = target :=
-  match potion: state.potions.any (== target) with
+  match potion: Decidable.toBool (List.decMem target state.potions) with
     | True => rfl
     | False => rfl
 

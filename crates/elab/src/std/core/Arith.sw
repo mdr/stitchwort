@@ -16,6 +16,13 @@ theorem Nat.addSucc: (n: Nat) → (m: Nat) → n + Succ m = Succ (n + m)
   | Zero, m => rfl
   | Succ n, m => Eq.cong Succ (Nat.addSucc n m)
 
+-- `m + Succ n` is never 0. `+` recurses on its first argument, so with `m`
+-- unknown `most + 1` doesn't compute to a `Succ` the way `1 + most` does, and
+-- its equation with 0 can't be decided by computing: this decides it, so
+-- `auto` proves `most + 1 ≠ 0` (`x % (most + 1)`) as it does `Succ most ≠ 0`.
+instance Nat.decAddSuccNotZero (m: Nat) (n: Nat): Decidable (Not (m + Succ n = 0)) :=
+  Yes (h => Nat.equalFalse (Succ (m + n)) 0 rfl (Eq.trans (Eq.sym (Nat.addSucc m n)) h))
+
 theorem Nat.addComm: (m: Nat) → (n: Nat) → m + n = n + m
   | Zero, n => Eq.sym (Nat.addZero n)
   | Succ m, n => Eq.trans (Eq.cong Succ (Nat.addComm m n)) (Eq.sym (Nat.addSucc n m))

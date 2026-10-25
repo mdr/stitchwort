@@ -20,7 +20,9 @@ def numbers (line: Text): List Nat := (line.split ',').filterMap Text.toNat
    │                                                                  ─────┬────
    │                                                                       ╰────── not in scope
    │
-   │ Note: `Text.toNat` needs `import Std (Text)`, or write it in full: `Std.Text.toNat`
+   │ Note 1: `Text.toNat` needs `import Std (Text)`, or write it in full: `Std.Text.toNat`
+   │
+   │ Note 2: the prelude's `Text` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ───╯
 ```
 

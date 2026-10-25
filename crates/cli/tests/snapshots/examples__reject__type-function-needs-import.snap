@@ -3,20 +3,33 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `List.concat`
-   ╭─[ reject/type-function-needs-import.sw:7:20 ]
+   ╭─[ reject/type-function-needs-import.sw:8:20 ]
    │
- 7 │ def a: List Nat := List.concat [[1], [2]]
+ 8 │ def a: List Nat := List.concat [[1], [2]]
    │                    ─────┬─────  
    │                         ╰─────── not in scope
    │ 
-   │ Note: `List.concat` needs `import Std (List)`, or write it in full: `Std.List.concat`
+   │ Note 1: `List.concat` needs `import Std (List)`, or write it in full: `Std.List.concat`
+   │ 
+   │ Note 2: the prelude's `List` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ───╯
 [E-UNKNOWN-NAME] Error: no function `lenght` in `List`
-   ╭─[ reject/type-function-needs-import.sw:8:15 ]
+   ╭─[ reject/type-function-needs-import.sw:9:15 ]
    │
- 8 │ def b: Nat := List.lenght [1, 2, 3]
+ 9 │ def b: Nat := List.lenght [1, 2, 3]
    │               ─────┬─────  
    │                    ╰─────── `List` has no `lenght`
    │ 
    │ Note: did you mean `length`?
 ───╯
+[E-UNKNOWN-NAME] Error: unknown name `IO.simulate`
+    ╭─[ reject/type-function-needs-import.sw:10:16 ]
+    │
+ 10 │ def c: Nat := (IO.simulate [] (() => IO.print "hi")).fst.length
+    │                ─────┬─────  
+    │                     ╰─────── not in scope
+    │ 
+    │ Note 1: `IO.simulate` needs `import Std (IO)`, or write it in full: `Std.IO.simulate`
+    │ 
+    │ Note 2: the prelude's `IO` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
+────╯

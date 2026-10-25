@@ -1220,6 +1220,12 @@ impl Elaborator {
                     "`{}` needs `import Std ({first})`, or write it in full: `{full}`",
                     name.text
                 ))
+                // Why `IO.print` works without the import and `IO.simulate`
+                // doesn't (D260, docs/proposals/prelude-slim.md §3).
+                .with_note(format!(
+                    "the prelude's `{first}` comes with its own constructors, fields and \
+                     operations; the functions and theorems in its namespace need the import"
+                ))
             } else {
                 d.with_note(format!(
                     "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `{full}`"
