@@ -12,6 +12,7 @@
 //! ([`erasure`], [`natives`]; D389).
 
 pub mod alloc_trace;
+pub mod census;
 pub mod code;
 pub mod effect;
 pub mod erasure;

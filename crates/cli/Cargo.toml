@@ -14,8 +14,8 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
+stitchwort-rt.workspace = true
 stitchwort-driver.workspace = true
-stitchwort-rt = { workspace = true, optional = true }
 stitchwort-fmt.workspace = true
 clap.workspace = true
 rustyline.workspace = true
@@ -35,7 +35,7 @@ stitchwort-native = { workspace = true, optional = true }
 native = ["dep:stitchwort-native"]
 # `run --alloc-trace FILE`: the bring-up allocation trace of the fast
 # runtime (`stitchwort_rt::alloc_trace`). Off in release builds.
-alloc-trace = ["dep:stitchwort-rt", "stitchwort-rt/alloc-trace"]
+alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
 insta.workspace = true
