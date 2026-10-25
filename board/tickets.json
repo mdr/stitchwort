@@ -228,7 +228,7 @@
     {
       "id": 145,
       "title": "Faster library iteration: load Std files from disk without rebuilding the CLI",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -237,7 +237,9 @@
       "body": "Every edit to a library file (crates/elab/src/std/**/*.sw, embedded with include_str! at crates/elab/src/library.rs:43-) costs a ~9 s CLI rebuild; and a project can't add to `List.`/`Nat.` namespaces (unverified in this review), so lanes (days 5 and 6) draft lemmas under a scratch namespace (PList, PT) and move them later.\n\nFirst step: decide between (a) a `--std PATH` flag or env var that reads the library files from a directory instead of the embedded copies (keeping the build fingerprint and test cache correct, see crates/driver/build.rs), and (b) letting a project extend the library namespaces.\n\nDone when: editing a library file and running `stitchwort check` on a project that uses it takes under 1 s without `cargo build`, and the test cache is not poisoned by the override.\n",
       "created": "2026-10-19",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "300550fc"
+      ]
     },
     {
       "id": 150,
@@ -2750,14 +2752,16 @@
     {
       "id": 468,
       "title": "Partial stage 3c: diagnostics (D1218), examples, docs for partial callbacks through List.map",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8ce2c8b4"
+      ]
     },
     {
       "id": 469,
