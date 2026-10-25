@@ -1663,6 +1663,17 @@ fn failed(
     for s in skipped {
         d = d.with_note(format!("unsupported structure: {s}"));
     }
+    // A division by a variable or literal shows as its fuel function, which
+    // omega treats as an unknown number: std has the facts about it.
+    if quoter
+        .atoms
+        .iter()
+        .any(|atom| cx.show(&atom.value).starts_with("Nat.divFuel"))
+    {
+        d = d.with_note(
+            "a division is an unknown number to `omega`; hint its facts: `omega [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`",
+        );
+    }
     d
 }
 

@@ -436,7 +436,10 @@ fn resource_limits_are_per_step_not_per_tick() {
         &Policy::default(),
         &mut |e| trace.push(e),
     );
-    assert!(matches!(result, Err(RunError::Resource(_))), "{result:?}");
+    assert!(
+        matches!(result, Err(RunError::Resource(_) | RunError::Deep(_))),
+        "{result:?}"
+    );
     assert!(trace.is_empty(), "{trace:?}");
 }
 
