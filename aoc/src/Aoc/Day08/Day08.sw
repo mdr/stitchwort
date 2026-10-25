@@ -80,7 +80,8 @@ type Circuits = { labels: Map Nat Nat, count: Nat }
 def Circuits.separate (boxes: Nat): Circuits :=
   { labels = Map.fromList (List.range boxes |> .map (box => (box, box))), count = boxes }
 
--- Every box has a label, so the box number is never the label returned.
+-- A box's label. Every box of `Circuits.separate` and its joins has a label
+-- stored, so the fallback (the box's own number) is never used for them.
 def Circuits.labelOf (circuits: Circuits) (box: Nat): Nat := circuits.labels |> Map.getOr box box
 
 -- Joins the circuits of two boxes: every box in the first box's circuit
