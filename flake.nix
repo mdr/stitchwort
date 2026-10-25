@@ -195,7 +195,12 @@
           builds = buildsFor pkgs;
         in
         {
-          inherit (builds) stitchwort clippy fmt debug-builtins;
+          inherit (builds)
+            stitchwort
+            clippy
+            fmt
+            debug-builtins
+            ;
 
           # The kanban board's tests (board/): Node's standard library only.
           board =
