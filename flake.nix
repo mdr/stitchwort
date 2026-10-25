@@ -84,6 +84,18 @@
             strictDeps = true;
           };
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+          # `stitchwort build` links executables against the runtime library
+          # (crates/standalone), which it looks for in `../lib/stitchwort/`
+          # from its own binary (docs/proposals/standalone-executables.md
+          # §2.2). Crane installs a static library in `lib/`, if at all.
+          installRuntime = ''
+            mkdir -p $out/lib/stitchwort
+            if [ -e $out/lib/libstitchwort_standalone.a ]; then
+              mv $out/lib/libstitchwort_standalone.a $out/lib/stitchwort/
+            else
+              cp ''${CARGO_TARGET_DIR:-target}/release/libstitchwort_standalone.a $out/lib/stitchwort/
+            fi
+          '';
           nextestArgs = commonArgs // {
             inherit cargoArtifacts;
             INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
@@ -127,6 +139,7 @@
             // {
               inherit cargoArtifacts;
               doCheck = false;
+              postInstall = installRuntime;
               meta.mainProgram = "stitchwort";
             }
           );
@@ -138,8 +151,9 @@
             // {
               inherit cargoArtifacts;
               pname = "stitchwort-native";
-              cargoExtraArgs = "--locked -p stitchwort-cli --features native";
+              cargoExtraArgs = "--locked -p stitchwort-cli -p stitchwort-standalone --features stitchwort-cli/native";
               doCheck = false;
+              postInstall = installRuntime;
               meta.mainProgram = "stitchwort";
             }
           );

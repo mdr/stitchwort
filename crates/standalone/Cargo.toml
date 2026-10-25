@@ -1,0 +1,25 @@
+[package]
+name = "stitchwort-standalone"
+description = "The runtime a standalone executable links: C `main`, the machine and the host (docs/proposals/standalone-executables.md)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+# The static library is what `stitchwort build` links with the generated
+# `program.o`. The rlib is for this crate's own tests, and lets the CLI's
+# tests depend on the crate, which builds the static library for them.
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+stitchwort-rt.workspace = true
+stitchwort-syntax.workspace = true
+stitchwort-host.workspace = true
+mimalloc.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+# Ignoring `SIGPIPE`, as Rust's own start-up does before a Rust `main`.
+nix.workspace = true
+
+[lints]
+workspace = true
