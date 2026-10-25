@@ -97,6 +97,12 @@ fn run_tests_where(
             Outcome::Failed => false,
             Outcome::OutOfResources(_) => continue,
         };
+        // A test that runs partial code (D1183) is a `Delay`, which
+        // `stitchwort test` steps as `run` steps a partial `main`; `global`
+        // only evaluates it to that `Delay`.
+        if session.elab.is_partial(decl.def).unwrap_or(false) {
+            continue;
+        }
         let Some(g) = program.globals.iter().position(|g| g.def == decl.def) else {
             panic!("{what}: test {:?} wasn't lowered", decl.name);
         };
