@@ -1,5 +1,5 @@
 {
-  "next": 462,
+  "next": 471,
   "tickets": [
     {
       "id": 13,
@@ -2342,7 +2342,7 @@
     {
       "id": 439,
       "title": "Perf: nested pure List.map in a pure context checks in exponential time (depth 16 0.67 s, 18 1.59 s; error path 6.7 s) since pure_first tries plain then fallback per level (SW-408 review #3)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "Re-measured 25 Oct on main: still exponential. Pure: depth 16 0.68 s, 18 1.6 s, 20 5.3 s; error path (effectful callback in pure fn, E-ABILITY): 14 1.9 s, 16 6.4 s, 18 25-31 s, 20 ~100 s. Repro scripts: scratchpad/t439/run.sh. Realistic pipelines (<=8 deep) unaffected.",
       "labels": [
@@ -2350,8 +2350,10 @@
       ],
       "body": "",
       "created": "2026-10-24",
-      "updated": "2026-10-24",
-      "commits": []
+      "updated": "2026-10-25",
+      "commits": [
+        "99ea2fd7"
+      ]
     },
     {
       "id": 440,
@@ -2655,6 +2657,116 @@
     {
       "id": 461,
       "title": "Consider notation for logic and sets: Unicode (∈ ∀ ∃ ∧ ∨ ¬ → ↔ ≤ ≠) and/or ASCII approximations (e.g. x in xs, /\\, \\/, <->) for membership, quantifiers and logical connectives in props/proofs; syntax.md says names are ASCII today. Trigger: D1199 discussion (Mem x xs reads as x ∈ xs; Lean/Agda/Rocq use ∈)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 462,
+      "title": "Logic notation build (SW-461): x in c / x !in c (D1201), p <-> q (D1202), exists (x: T) => P + Option.exists/forall -> any/all (D1203), ASCII base + exact Unicode token aliases ∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃ (D1200), formatter keeps spelling (D1209), goals/errors print Unicode (D1204, D1211), other Unicode -> error naming ASCII (D1208); after rule E",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 463,
+      "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); also rename Option.exists/forall -> any/all (D1203, moved here by D1221); after rule E and the notation build",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 464,
+      "title": "Private port: migrate the event resolver to rule E, then the Unicode/logic-notation house style; switch to std Map.indexBy (now stack-safe) and the D1191 distinct; private lane, work folder only; after rule E + notation build land",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 465,
+      "title": "Partial stage 3 design: partial callbacks through the one List.map (divergence row marker, Koka div); D1182 partial-call speed folded in",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "b849e6b5"
+      ]
+    },
+    {
+      "id": 466,
+      "title": "Partial stage 3a: divergence marker (CompD Total/MayDiverge), bare {e} may be partial, re-check total when needed, specialisation fixes Total; gate: 80 List.map theorems unchanged, pure map within 10% (D1213–D1216, D1220; after rule E)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 467,
+      "title": "Partial stage 3b: runners execute partial callbacks inside map (native, JS, reference), stack-safe, ticks as specified",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 468,
+      "title": "Partial stage 3c: diagnostics (D1218), examples, docs for partial callbacks through List.map",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 469,
+      "title": "Partial stage 3d: runner fast paths + cheaper request node for partial calls; keep only with >=1.5x and identical tick traces (D1219)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 470,
+      "title": "Partial stage 3e: direct loop for tail self-calls in partial functions; >=1.5x, identical ticks (D1219)",
       "status": "backlog",
       "agent": "",
       "where": "",

@@ -674,7 +674,9 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 /// abilities made the row one, D1124), it's undone and `None` is returned:
 /// the caller runs the expression in the empty row as before, which says
 /// which ability isn't allowed. If that fails too, the plain way's error is
-/// the one reported: it's the error the plain function would give.
+/// the one reported: it's the error the plain function would give. A plain
+/// way that fails because a part of the expression performs an ability
+/// (`E-ABILITY`) is that error at once, without running.
 fn pure_first(
     cx: &mut Ctx,
     expr: &Expr,
@@ -720,6 +722,16 @@ fn pure_first(
             Ok(PureFirst::Run(None))
         }
         Err(e) if crate::undo::fatal(&e) => Err(e),
+        // A part of it that runs performs an ability a pure context can't
+        // (found running a nested call, or a callback that turned out to
+        // perform, SW-437): running the whole in the empty row runs that
+        // part too, so it can only fail the same way. It isn't tried: doing
+        // so at every level of nested calls re-elaborated everything below
+        // each one (SW-439), and the error names the call that performs.
+        Err(e) if e.code == "E-ABILITY" => {
+            snapshot.restore(cx);
+            Err(e)
+        }
         Err(e) => {
             snapshot.restore(cx);
             Ok(PureFirst::Run(Some(e)))

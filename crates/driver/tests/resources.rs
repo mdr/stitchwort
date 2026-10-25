@@ -423,3 +423,53 @@ fn freeing_deep_terms_runs_without_using_the_stack() {
     }
     drop(term);
 }
+
+/// Checking nested calls of `List.map` in a pure function takes work that
+/// grows with the depth of the nesting, not exponentially in it (SW-439):
+/// with pure callbacks, and with an effectful one, which is refused. The
+/// work is the elaborator's (`Budget::total_visits`); doubling with each
+/// level, depth 30 would take a billion times depth 0's.
+#[test]
+fn nested_maps_check_in_work_polynomial_in_their_depth() {
+    let visits = |callback: &str, depth: usize| {
+        let mut nested = "xs".to_string();
+        for _ in 0..depth {
+            nested = format!("List.map {callback} ({nested})");
+        }
+        let source = format!(
+            "import Std (List, Fail)\n\
+             def pure (n: Nat): Nat := n + 1\n\
+             def fails (n: Nat): {{Fail}} Nat := if n == 0 then Fail.fail \"zero\" else n\n\
+             def g (xs: List Nat): Nat := List.length ({nested})\n"
+        );
+        let mut session = Session::new();
+        let before = session.elab.globals.budget.total_visits();
+        let result = codes(session.load("nested.sw", &source));
+        let expected: &[&str] = match (callback, depth) {
+            ("fails", 1..) => &["E-ABILITY"],
+            _ => &[],
+        };
+        assert_eq!(result, expected, "{callback} at depth {depth}");
+        session.elab.globals.budget.total_visits() - before
+    };
+    for callback in ["pure", "fails"] {
+        let base = visits(callback, 0);
+        let d10 = visits(callback, 10) - base;
+        let d20 = visits(callback, 20) - base;
+        // Asked before depth 30, which work that doubles with each level
+        // wouldn't finish in hours: it makes depth 20 a thousand times
+        // depth 10, where cubic work makes it 8 times.
+        assert!(
+            d20 < 10 * d10,
+            "{callback}: {d10}, {d20} visits at depths 10, 20"
+        );
+        let d30 = visits(callback, 30) - base;
+        eprintln!("nested maps of {callback}: {d10}, {d20}, {d30} visits at depths 10, 20, 30");
+        // Linear work adds as much from depth 20 to 30 as from 10 to 20,
+        // quadratic 5/3 as much, cubic 2.7 times as much.
+        assert!(
+            d30 - d20 < 3 * (d20 - d10),
+            "{callback}: {d10}, {d20}, {d30} visits at depths 10, 20, 30"
+        );
+    }
+}

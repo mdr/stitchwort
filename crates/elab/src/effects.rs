@@ -1298,37 +1298,69 @@ fn param_types<'a>(
 /// piped in only in the first case. All `false` when the head's type can't
 /// be found without elaborating it.
 fn passed_args(cx: &Ctx, head: &Expr, args: &[&Expr], extra: usize) -> Result<Vec<bool>> {
-    let none = vec![false; args.len() + extra];
+    let Some(types) = call_param_types(cx, head, args, extra)? else {
+        return Ok(vec![false; args.len() + extra]);
+    };
+    let mut out = Vec::with_capacity(types.len());
+    for (i, ty) in types.iter().enumerate() {
+        out.push(match (ty, args.get(i)) {
+            (None, _) => false,
+            (Some(ty), _) if is_comp_type(cx, ty)? => true,
+            (Some(ty), Some(arg)) => !may_perform_at(cx, arg_value(arg), Some(ty))?,
+            (Some(_), None) => false,
+        });
+    }
+    Ok(out)
+}
+
+/// For the call `head args…` with `extra` more values piped in after them:
+/// the type of the parameter each argument, then each value piped in, goes
+/// to, if known. `None` when the head's type can't be found without
+/// elaborating it.
+fn call_param_types(
+    cx: &Ctx,
+    head: &Expr,
+    args: &[&Expr],
+    extra: usize,
+) -> Result<Option<Vec<Option<Value>>>> {
     let (slots, taken) = match head {
         Expr::Var(name) => match head_type(cx, name) {
             HeadType::Typed(ty) => (pi_slots(cx, ty)?, None),
             HeadType::Def(id) => (pi_slots(cx, cx.g().def(id).ty_value.clone())?, None),
             HeadType::Ctor(d, c) => (ctor_slots(cx, d, c, None)?, None),
-            HeadType::Op | HeadType::Other => return Ok(none),
+            HeadType::Op | HeadType::Other => return Ok(None),
         },
         Expr::Field(recv, field) => match crate::dot::target_place(cx, recv, field)? {
             Some((f, place)) => (pi_slots(cx, cx.g().def(f).ty_value.clone())?, place),
-            None => return Ok(none),
+            None => return Ok(None),
         },
-        _ => return Ok(none),
+        _ => return Ok(None),
     };
-    let types = param_types(&slots, args, extra, taken);
-    let mut out = Vec::with_capacity(types.len());
-    for (i, ty) in types.into_iter().enumerate() {
-        out.push(match (ty, args.get(i)) {
-            (None, _) => false,
-            (Some(ty), _) if is_comp_type(cx, ty)? => true,
-            (Some(ty), Some(arg)) => {
-                let value = match arg {
-                    Expr::NamedArg(_, value, ..) => &**value,
-                    other => other,
-                };
-                !may_perform_at(cx, value, Some(ty))?
-            }
-            (Some(_), None) => false,
-        });
+    Ok(Some(
+        param_types(&slots, args, extra, taken)
+            .into_iter()
+            .map(|ty| ty.cloned())
+            .collect(),
+    ))
+}
+
+/// An argument as written, without its name.
+fn arg_value<'a>(arg: &'a Expr) -> &'a Expr {
+    match arg {
+        Expr::NamedArg(_, value, ..) => value,
+        other => other,
     }
-    Ok(out)
+}
+
+/// Whether what `expr` performs can depend on the type it's checked
+/// against: a literal whose parts may go to places of computation type
+/// ([`passed_parts`]). For anything else, [`may_perform_at`] gives the
+/// same answer whatever is expected.
+fn performs_by_expected(expr: &Expr) -> bool {
+    matches!(
+        expr,
+        Expr::List(..) | Expr::Tuple(..) | Expr::Record { .. } | Expr::CtorFields { .. }
+    )
 }
 
 /// Whether the receiver of `recv.field` goes to a parameter of computation
@@ -1551,18 +1583,42 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
         head = f;
     }
     // An argument performs unless it goes to a parameter of computation
-    // type: then it's passed as it is.
-    let mut passed: Option<Vec<bool>> = None;
-    for (i, arg) in args.iter().enumerate() {
-        if !may_perform(cx, arg)? {
-            continue;
-        }
-        if passed.is_none() {
+    // type: then it's passed as it is ([`passed_args`]). Each argument is
+    // looked at once: asking again, against its parameter's type, makes the
+    // work double with each call nested in an argument (SW-439). Only a
+    // literal's answer depends on that type, so only a literal is asked
+    // against it, and anything else that performs isn't passed unless its
+    // parameter's type is a computation type.
+    let mut types: Option<Option<Vec<Option<Value>>>> = None;
+    let mut param_type = |written: usize| -> Result<Option<Value>> {
+        if types.is_none() {
             let in_order: Vec<&Expr> = args.iter().rev().copied().collect();
-            passed = Some(passed_args(cx, head, &in_order, 0)?);
+            types = Some(call_param_types(cx, head, &in_order, 0)?);
         }
+        Ok(types
+            .as_ref()
+            .and_then(|t| t.as_ref())
+            .and_then(|t| t.get(written).cloned().flatten()))
+    };
+    for (i, arg) in args.iter().enumerate() {
         let written = args.len() - 1 - i;
-        if !passed.as_ref().is_some_and(|p| p[written]) {
+        let value = arg_value(arg);
+        let performs = if performs_by_expected(value) {
+            let ty = param_type(written)?;
+            if let Some(ty) = &ty
+                && is_comp_type(cx, ty)?
+            {
+                continue;
+            }
+            may_perform_at(cx, value, ty.as_ref())?
+        } else {
+            may_perform(cx, value)?
+                && !match param_type(written)? {
+                    Some(ty) => is_comp_type(cx, &ty)?,
+                    None => false,
+                }
+        };
+        if performs {
             return Ok(true);
         }
     }
