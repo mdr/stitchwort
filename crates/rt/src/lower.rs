@@ -267,6 +267,7 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         print: ctor(Builtin::Print, 1)?,
         read_line: ctor(Builtin::ReadLine, 1)?,
         read_all: ctor(Builtin::ReadAll, 1)?,
+        random_seed: ctor(Builtin::RandomSeed, 1)?,
         stop: match g.registry.loaded_data(Builtin::Fail) {
             Some(d) => shape(g, d, 0, 1)?,
             None => u32::MAX,

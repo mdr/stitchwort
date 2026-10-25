@@ -99,7 +99,7 @@ fn examples_print_the_same_both_ways() {
             return false;
         }
         // These end in an unhandled `Fail` on purpose; see below.
-        if source.contains("(run: fails)") {
+        if source.contains("(run: fails)") || source.contains("(run: random)") {
             return false;
         }
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
@@ -344,5 +344,28 @@ fn an_unhandled_failure_is_reported_alike() {
         assert_eq!(text(&fast.stdout), stdout, "{}", path.display());
         assert_eq!(text(&fast.stderr), stderr, "{}", path.display());
         assert_eq!(fast.status.code(), Some(code), "{}", path.display());
+    }
+}
+
+/// `IO.randomSeed` gives a fresh 64-bit number each run, in the reference
+/// evaluator and on the machine.
+#[test]
+fn the_random_seed_is_fresh_each_run() {
+    let path = source_file(
+        "seed.sw",
+        "import Std (IO, Nat)\ndef main () : {IO} () := IO.print (Nat.toText (IO.randomSeed ()))\n",
+    );
+    for reference in [false, true] {
+        let seeds: Vec<u64> = (0..3)
+            .map(|_| {
+                let output = run(&path, reference, b"");
+                assert!(output.status.success(), "{}", text(&output.stderr));
+                text(&output.stdout)
+                    .trim()
+                    .parse()
+                    .expect("a 64-bit number")
+            })
+            .collect();
+        assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
     }
 }

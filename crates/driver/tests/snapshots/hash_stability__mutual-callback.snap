@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Callback 55c3661484b6f84a0e28833cf7dc01c594eefc5ed0e646d6b7e4444dc875a460
 Main.Callback.call b942df374619f5d30dd0d7c549e5e0ada6b8264738b51e1a501e5b10909ca58d
@@ -8,7 +8,7 @@ Main.Callback.ext 08ac7ec25c09a06bc209f316704d078a376391997f128178812c35e7d46b0d
 Main.make ee0a2239181bbb79c3120791d85de75eba7d6c150b9b44760b92d157b6b9069f
 Main.weigh f116eb2c16bc5ef017d8188b502625655a763c314d40938a0fb58aa035b8f2c1
 Main.twice d9fdbe1ab7692daf518f7d98d70e4461e1889cfd501a61aad10f7c4752d9f5fb
-Main.main a61fc6160c2879d952366c9002d1d28b41db1d9dc7996eea709c9039a25f43d7
+Main.main 08117965cf510c316a1450a6e566713abd42745a0e6da4f4415ac87dd224a60b
 Main.test "weigh adds the list" 67171b0a2ea958d5b3c1ee73303bb21c8e0b40c0067cc2f0290f90fd37d437b6
 Main.test "twice" f22964e90380997fa37f51a52504994392d68ac0ba27c9b8575d1cd70d292060
 Main.test "empty list" ed7485223f4c19b4762e1b05965b633b5602b2fa38d7bce82b39beb71445e58b
