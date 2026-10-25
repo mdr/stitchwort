@@ -176,6 +176,25 @@ fn a_partial_main_that_fails() {
     needs(&source, "x\n", 0, failure(&source, "x\n"));
 }
 
+const MAP_COLLATZ: &str = r#"
+import Std (IO, List, Nat)
+
+def collatzSteps (n: Nat): {Partial} Nat :=
+  if n <= 1 then 0
+  else if n % 2 == 0 then 1 + collatzSteps (n / 2)
+  else 1 + collatzSteps (3 * n + 1)
+
+def main(): {IO, Partial} () :=
+  IO.print "${List.map [3, 7, 27] collatzSteps}"
+"#;
+
+#[test]
+fn a_partial_map_adds_no_ticks_of_its_own() {
+    // `collatzSteps` takes 7, 16 and 111 steps for 3, 7 and 27: the map
+    // itself makes no recursive call (docs/proposals/partial-stage-3.md §4).
+    needs(MAP_COLLATZ, "", 7 + 16 + 111, Ended::Finished);
+}
+
 #[test]
 fn a_partial_main_that_fails_deep_in_recursion() {
     // Each loop makes 5 recursive calls to the bottom, where it fails.

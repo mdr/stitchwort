@@ -1656,8 +1656,14 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
         Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
             Err(partial_callback(cx, head, value, dom).unwrap_or(e))
         }
-        Err(e) if e.code == "E-TYPE-MISMATCH" => Err(local_signature(cx, head, e)),
-        Err(e) if e.code == "E-PARTIAL" => Err(total_rows_note(cx, head, e)),
+        Err(e) if e.code == "E-TYPE-MISMATCH" => {
+            let e = local_signature(cx, head, e);
+            Err(total_callback_note(cx, head, value, dom, e))
+        }
+        Err(e) if e.code == "E-PARTIAL" => {
+            let e = total_rows_note(cx, head, e);
+            Err(total_lambda_note(cx, head, value, dom, e))
+        }
         result => result,
     }
 }
@@ -1718,6 +1724,149 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
         }
     }
     e
+}
+
+/// Whether the function type `dom` ends in a result that must finish: not a
+/// computation at all, or one in a total row with no divergence index (a
+/// bare `{e}` has one, and may be partial).
+fn expects_total_result(cx: &mut Ctx, dom: &Value) -> bool {
+    let g = cx.g();
+    let mark = cx.mark();
+    let result = (|| -> Result<bool> {
+        let mut ty = force(g, dom.clone())?;
+        if !matches!(ty, Value::Pi(..)) {
+            return Ok(false);
+        }
+        while let Value::Pi(x, _, d, c) = ty {
+            let v = Value::var(cx.level());
+            cx.bind_hidden(x, (*d).clone());
+            ty = force(g, c.apply(g, v)?)?;
+        }
+        Ok(match crate::effects::comp_parts(cx, &ty)? {
+            Some((row, _)) => !row.partial && row.div.is_none(),
+            None => true,
+        })
+    })();
+    cx.reset(mark);
+    result.unwrap_or(false)
+}
+
+/// Whether `ty` is a function type whose result is a partial computation.
+fn gives_partial_result(cx: &mut Ctx, ty: &Value) -> bool {
+    let g = cx.g();
+    let mark = cx.mark();
+    let result = (|| -> Result<bool> {
+        let mut ty = force(g, ty.clone())?;
+        if !matches!(ty, Value::Pi(..)) {
+            return Ok(false);
+        }
+        while let Value::Pi(x, _, d, c) = ty {
+            let v = Value::var(cx.level());
+            cx.bind_hidden(x, (*d).clone());
+            ty = force(g, c.apply(g, v)?)?;
+        }
+        Ok(matches!(
+            crate::effects::comp_parts(cx, &ty)?,
+            Some((row, _)) if row.partial
+        ))
+    })();
+    cx.reset(mark);
+    result.unwrap_or(false)
+}
+
+/// The helper a callback is passed to, as the user wrote it, and whether it
+/// is in std.
+fn helper_name(cx: &Ctx, head: &Term) -> Option<(String, bool)> {
+    match head.spine().0 {
+        Term::Def(id) => {
+            let def = cx.g().def(*id);
+            Some((def.name.to_string(), def.path.starts_with("Std.")))
+        }
+        _ => None,
+    }
+}
+
+/// A partial function given where the parameter's callback type must finish
+/// (`List.filter xs partialPredicate`): a plain type mismatch, so say why.
+fn total_callback_note(
+    cx: &mut Ctx,
+    head: &Term,
+    arg: &Expr,
+    dom: &Value,
+    e: Diagnostic,
+) -> Diagnostic {
+    let Expr::Var(name) = arg else {
+        return e;
+    };
+    let Some((helper, in_std)) = helper_name(cx, head) else {
+        return e;
+    };
+    if !expects_total_result(cx, dom) {
+        return e;
+    }
+    let mark = cx.mark();
+    let found = infer(cx, arg).map(|(_, ty)| ty);
+    let partial = match &found {
+        Ok(ty) => gives_partial_result(cx, ty),
+        Err(_) => false,
+    };
+    cx.reset(mark);
+    if !partial {
+        return e;
+    }
+    let param = cx.show(dom);
+    let note = if in_std {
+        format!(
+            "`{helper}` doesn't take partial callbacks yet: its callback has the type \
+             `{param}`, which must finish, and `{}` is partial (so far only `List.map`'s \
+             callback may be partial)",
+            name.text
+        )
+    } else {
+        format!(
+            "`{helper}`'s parameter has the type `{param}`, which must finish, and `{}` is \
+             partial",
+            name.text
+        )
+    };
+    e.with_note(note)
+}
+
+/// A callback written as a lambda, given where the callback type must
+/// finish, and whose body is partial: the enclosing function's type isn't
+/// the one to change.
+fn total_lambda_note(
+    cx: &mut Ctx,
+    head: &Term,
+    arg: &Expr,
+    dom: &Value,
+    mut e: Diagnostic,
+) -> Diagnostic {
+    if !matches!(arg, Expr::Lam(..) | Expr::TypedLam(..)) {
+        return e;
+    }
+    let Some((helper, in_std)) = helper_name(cx, head) else {
+        return e;
+    };
+    if !expects_total_result(cx, dom) {
+        return e;
+    }
+    let param = cx.show(dom);
+    if param.contains('?') {
+        return e;
+    }
+    e.notes.clear();
+    e.with_note(if in_std {
+        format!(
+            "`{helper}` doesn't take partial callbacks yet: its callback has the type \
+             `{param}`, which must finish (so far only `List.map`'s callback may be partial)"
+        )
+    } else {
+        format!(
+            "`{helper}`'s parameter has the type `{param}`, which must finish, so its callback \
+             can't run anything partial"
+        )
+    })
 }
 
 /// Whether `ty` is a function type whose parameter's type isn't known yet:
@@ -1860,16 +2009,22 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
             shown(&members[0]),
         ),
     );
-    if open {
-        diagnostic = diagnostic
-            .with_note(format!(
-                "`{helper}` can't take a partial callback yet: the row variable in its \
-                 signature stands for total rows only, so changing its signature won't help"
-            ))
-            .with_note(format!(
-                "instead, write a recursive helper marked `Partial`, like `mapP` in \
-                 examples/accept/partial.sw, and pass {what} to that"
-            ));
+    if in_std {
+        diagnostic = diagnostic.with_note(format!(
+            "`{helper}` doesn't take partial callbacks yet: its callback has the type \
+             `{param}`, which must finish (so far only `List.map`'s callback may be partial)"
+        ));
+    } else if open {
+        diagnostic = diagnostic.with_note(format!(
+            "`{helper}`'s parameter has the type `{param}`: a row with abilities and a tail, \
+             `{{… | e}}`, is total, because a handler can't run partial code, so changing \
+             `{helper}`'s signature won't help"
+        ));
+    } else if !param.contains('}') {
+        diagnostic = diagnostic.with_note(format!(
+            "`{helper}`'s parameter has the type `{param}`, which must finish: give it a \
+             `{{Partial | e}}` result and add `| e` to `{helper}`'s own row too"
+        ));
     } else {
         // The parameter's type with a row variable added to its last row.
         let suggested = match param.rfind('}') {

@@ -211,6 +211,30 @@ test "27 takes 111 steps" := collatzSteps 27 == 111
 
 Tests are runtime checks ([chapter 9](09-testing.md)), so `stitchwort test` runs this one as `stitchwort run` runs a partial `main`. If a test like this never finished, that would be a bug in the test or the code, and you'd stop it as you'd stop a program that hangs.
 
+Library functions that take a callback can be given a partial one. `List.map` is partial exactly when its callback is, so the caller says `Partial` and nothing else changes; there's no separate partial `map` to write:
+
+<!-- snippet: partial-map.sw -->
+```stitchwort
+-- Chapter 7: `List.map` with a partial callback is partial too.
+import Std (IO, List, Nat)
+
+def collatzSteps: Nat -> {Partial} Nat
+  | 0 => 0
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+def stepsOfAll (numbers: List Nat): {Partial} (List Nat) := List.map numbers collatzSteps
+
+def main(): {IO, Partial} () := IO.print "steps: ${stepsOfAll [3, 7, 27]}"
+```
+
+<!-- output: run partial-map.sw -->
+```text
+steps: [7, 16, 111]
+```
+
+A caller whose type doesn't say `Partial` gets `E-PARTIAL`, which names the callback. Not every library function takes partial callbacks yet: `List.filter`'s must finish, and giving it a partial one is a type mismatch that says so.
+
 `Partial` keeps the rest of the program honest: a function whose type doesn't say `Partial` is known to finish, which is what proofs about it rely on.
 
 More: [syntax.md, `decreasing`](../syntax.md#decreasing), [`Partial`](../syntax.md#partial), and the design notes [well-founded-recursion.md](../proposals/well-founded-recursion.md), [mutual-recursion.md](../proposals/mutual-recursion.md) and [partial.md](../proposals/partial.md).

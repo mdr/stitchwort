@@ -380,7 +380,7 @@ fn decode_row_value(cx: &Ctx, rv: &Value) -> Result<Option<Row>> {
 /// row)` only for a row with at least one ability. So the elaborator never
 /// makes `Ops NoOp NoRes` (docs/proposals/effect-polymorphism.md §5.C.2).
 fn row_value(cx: &Ctx, row: &Row) -> Result<Value> {
-    debug_assert!(!row.partial, "a row variable never stands for `Partial`");
+    debug_assert!(!row.partial, "a row with abilities and a tail is total");
     if row.labels.is_empty() {
         return Ok(match &row.tail {
             Some(tail) => tail.clone(),
@@ -729,8 +729,30 @@ pub(crate) fn escape(cx: &Ctx) -> Diagnostic {
 
 /// Running a partial computation (`term`) in total code.
 fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
-    let label = match term.spine().0 {
-        Term::Def(id) => format!(
+    let (head, args) = term.spine();
+    // A function that is partial only because a callback it was given is
+    // (`List.map xs collatzSteps`): name the callback.
+    let delay = cx.g().builtins.primitive_id(Primitive::Delay);
+    let partial_callback = args.iter().find_map(|arg| match arg.strip_loc() {
+        Term::Def(id)
+            if delay.is_some_and(|delay| {
+                cx.g()
+                    .def(*id)
+                    .ty
+                    .subterms()
+                    .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
+            }) =>
+        {
+            Some(cx.g().def(*id).name.to_string())
+        }
+        _ => None,
+    });
+    let label = match (head, partial_callback) {
+        (Term::Def(id), Some(callback)) => format!(
+            "`{}` is partial here because its callback `{callback}` is",
+            cx.g().def(*id).name
+        ),
+        (Term::Def(id), None) => format!(
             "`{}` is `Partial`: it might not finish",
             cx.g().def(*id).name
         ),
@@ -743,7 +765,8 @@ fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
     )
     .with_note(
         "code whose type doesn't say `Partial` must finish, so it can't run anything that might \
-         not; add `Partial` to the enclosing function's type (`-> {Partial} …`)",
+         not; if this is a function's body, add `Partial` to its type (`-> {Partial} …`); if it \
+         is a callback, the function taking it must allow a partial callback",
     )
 }
 
@@ -4050,9 +4073,10 @@ pub fn partial_mismatch(
                         "this might not finish: its type says `Partial`",
                     )
                     .with_note(
-                        "a function whose type doesn't say `Partial` must finish; a row variable \
-                     like `e` never stands for `Partial`, so a function taking `{… | e}` can't \
-                     be given a partial one",
+                        "a function whose type doesn't say `Partial` must finish; a row with \
+                     abilities, `{… | e}`, is total because a handler can't run partial code, \
+                     so a function taking it can't be given a partial one (a bare `{e}` may \
+                     stand for a partial row)",
                     )
                     .with_note(
                         "to accept partial functions, write `Partial` in the row: `{Partial | e}`",

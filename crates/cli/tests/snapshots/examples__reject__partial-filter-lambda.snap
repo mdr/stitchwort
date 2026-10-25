@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL] Error: a computation that might not finish can't run here
+    ╭─[ reject/partial-filter-lambda.sw:10:78 ]
+    │
+ 10 │ def f (numbers: List Nat): {Partial} (List Nat) := List.filter numbers (n => collatzSteps n == 0)
+    │                                                                              ─────────┬─────────  
+    │                                                                                       ╰─────────── `collatzSteps` is `Partial`: it might not finish
+    │ 
+    │ Note: `List.filter` doesn't take partial callbacks yet: its callback has the type `Nat -> Bool`, which must finish (so far only `List.map`'s callback may be partial)
+────╯

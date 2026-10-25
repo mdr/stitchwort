@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL-CALLBACK] Error: `total` can't be passed to `applyAll` here
+   ╭─[ reject/partial-map-fixed-row.sw:9:57 ]
+   │
+ 9 │ def total (n: Nat): {Partial} Nat := List.sum (applyAll total [n])
+   │                                                         ──┬──  
+   │                                                           ╰──── `total` calls `total`, so as a value it makes requests that only `total`'s own definition can answer
+   │ 
+   │ Note 1: `applyAll`'s parameter has the type `Nat -> {Partial} Nat`, whose row is fixed
+   │ 
+   │ Note 2: make `applyAll` polymorphic in the rest of the row: give the parameter the type `Nat -> {Partial | e} Nat`, and add `| e` to `applyAll`'s own row too
+───╯

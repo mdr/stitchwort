@@ -917,8 +917,11 @@ def loop: Nat -> {Partial} Nat
   `E-PARTIAL`. Mentioning one is fine: `u => collatzSteps 3` is a total
   value, and partial functions can be passed around and stored.
 - A total function fits where a partial one is expected; not the other way
-  round. A row variable never stands for `Partial`, so a handler can't run
-  a partial computation (`E-PARTIAL`), though its clauses may.
+  round. A row with abilities and a tail, `{A | e}`, is total, so a handler
+  can't run a partial computation (`E-PARTIAL`), though its clauses may.
+  A row variable used only bare, `{e}`, may stand for a partial row, so
+  `List.map xs f` takes a partial `f` and is then partial itself. Other
+  std functions (`List.filter`, say) take only callbacks that finish, for now.
 - Definitions that call each other must be all partial or all total
   (`E-PARTIAL-MIXED`). A partial one is partial once it has the parameters
   its arms or parameters name: `def mk (n: Nat): Nat -> {Partial} Nat :=

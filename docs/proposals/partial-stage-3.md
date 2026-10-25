@@ -898,6 +898,34 @@ branch, never merged.
   `{Partial | e} a`; `doneD Total Empty v` prints `v`.
 - `reject/partial-callback-std.sw` became `accept/partial-map-self.sw`.
 
+### Lane 3c: messages, examples, docs (25 October 2026)
+
+- **E-PARTIAL-CALLBACK** no longer points at `mapP`. For a std helper it
+  says the helper "doesn't take partial callbacks yet" and that so far only
+  `List.map`'s may be partial. For a helper whose row has abilities and a
+  tail it says why (a handler can't run partial code). A fixed row keeps
+  its "make it polymorphic in the rest of the row" note.
+- **E-PARTIAL** (`partial_in_total`): when the partial thing is a call whose
+  argument is a partial definition, the label is "`List.map` is partial
+  here because its callback `collatzSteps` is". The note no longer says
+  "add `Partial` to the enclosing function's type" alone: it adds "if it is
+  a callback, the function taking it must allow a partial callback". A
+  lambda given to a callback parameter that must finish gets a note about
+  that parameter instead (`total_lambda_note`).
+- **Function-type E-PARTIAL** (`partial_mismatch`): "a row variable like
+  `e` never stands for `Partial`" is now about rows with abilities, and
+  says a bare `{e}` may be partial.
+- **E-TYPE-MISMATCH** for a named partial function given to a pure-callback
+  parameter (`List.filter xs isTrivial`) gets a note
+  (`total_callback_note`).
+- **Examples**: `accept/partial-map-main.sw` (`main: {IO, Partial}`, nested
+  `map`, tests); `reject/partial-map-total-caller.sw`,
+  `reject/partial-filter.sw`, `reject/partial-filter-lambda.sw`,
+  `reject/partial-map-fixed-row.sw`; the guide's `partial-map.sw`.
+- **Ticks** (`crates/rt/tests/tick_counts.rs`,
+  `a_partial_map_adds_no_ticks_of_its_own`): `map collatzSteps [3, 7, 27]`
+  needs exactly 134 ticks on both runners, as the sum of the three calls.
+
 Measured (`bench/effect-map/map.sw`, `map 1000000 10`, best of 5, shared
 machine): before 1.059–1.083 s native, 0.565–0.596 s `--js`; after
 1.057–1.082 s native, 0.592–0.603 s `--js`. The `fail` mode (a `{Fail}`
