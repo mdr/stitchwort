@@ -2512,7 +2512,7 @@
     },
     {
       "id": 450,
-      "title": "Dot/pipe rule E (D303): elaborator + std reorder, then aoc/examples/docs lanes; land together",
+      "title": "Dot/pipe rule E (D303): elaborator + std, aoc/examples/docs lanes, land together; @[noReceiver] (D1197), W-RECEIVER-NOT-FIRST warning (D1198), Props stay predicate-first (D1199)",
       "status": "doing",
       "agent": "",
       "where": "",
