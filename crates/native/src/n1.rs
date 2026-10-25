@@ -410,6 +410,7 @@ pub fn compile(
                 top: Block::from_u32(0),
                 trap: Block::from_u32(0),
                 ctx: IrValue::from_u32(0),
+                frames: IrValue::from_u32(0),
             };
             generator.body();
             generator.b.seal_all_blocks();
@@ -475,7 +476,10 @@ pub fn compile(
             );
             let left = b.ins().isub(limit, steps);
             b.ins().set_pinned_reg(left);
-            let mut call_args = vec![ctx];
+            let frames = b
+                .ins()
+                .load(types::I64, MemFlagsData::trusted(), ctx, Context::FRAMES_AT);
+            let mut call_args = vec![ctx, frames];
             for i in 0..image.codes[code as usize].params {
                 for w in 0..3 {
                     call_args.push(b.ins().load(
@@ -554,11 +558,13 @@ fn trampoline(pointer: *const u8) -> Trampoline {
     unsafe { std::mem::transmute::<*const u8, Trampoline>(pointer) }
 }
 
-/// A body's signature: the context and three words per argument, returning
-/// three words, in the `tail` convention.
+/// A body's signature: the context, the frames pending with its own (the
+/// module comment), and three words per argument, returning three words, in
+/// the `tail` convention.
 fn body_signature(pointer: ir::Type, params: u32) -> ir::Signature {
     let mut signature = ir::Signature::new(CallConv::Tail);
     signature.params.push(AbiParam::new(pointer));
+    signature.params.push(AbiParam::new(types::I64));
     for _ in 0..params * 3 {
         signature.params.push(AbiParam::new(types::I64));
     }
@@ -872,6 +878,9 @@ struct Gen<'a, 'm> {
     /// A switch on a tag outside its table: an internal error.
     trap: Block,
     ctx: IrValue,
+    /// The frames pending, this one's included: an argument, so the count
+    /// lives in a register and a return needs no decrement.
+    frames: IrValue,
 }
 
 const fn spill_at(i: usize) -> i32 {
@@ -1161,9 +1170,10 @@ impl Gen<'_, '_> {
     }
 
     /// A frame about to be pushed: out of frames if as many are pending as
-    /// the limit allows (or at the stack's safety margin).
-    fn push_frame(&mut self, live: &Regs) {
-        let frames = self.ctx_load(Context::FRAMES_AT);
+    /// the limit allows (or at the stack's safety margin). The frames
+    /// pending with the new one, which the callee is given.
+    fn push_frame(&mut self, live: &Regs) -> IrValue {
+        let frames = self.frames;
         let limit = self.ctx_load(Context::FRAME_LIMIT_AT);
         let over = self
             .b
@@ -1178,18 +1188,15 @@ impl Gen<'_, '_> {
         } else {
             self.exit_if(over, live, Some(OUT_OF_FRAMES));
         }
-        let frames = self.b.ins().iadd_imm_s(frames, 1);
-        self.ctx_store(Context::FRAMES_AT, frames);
+        self.b.ins().iadd_imm_s(frames, 1)
     }
 
-    /// After a call returned: the frame is no longer pending, and an error
-    /// in the callee unwinds this frame too.
+    /// After a call returned: an error in the callee unwinds this frame
+    /// too. (The callee's frame is no longer pending: the count is this
+    /// frame's again, which it never changed.)
     fn after_call(&mut self, live: &Regs) {
         let error = self.ctx_load(Context::ERROR_AT);
         self.exit_if(error, live, None);
-        let frames = self.ctx_load(Context::FRAMES_AT);
-        let frames = self.b.ins().iadd_imm_s(frames, -1);
-        self.ctx_store(Context::FRAMES_AT, frames);
     }
 
     /// `regs` without the registers `o` moves out (marked `MOVE`).
@@ -1331,7 +1338,8 @@ impl Gen<'_, '_> {
 
         self.b.switch_to_block(entry);
         self.ctx = self.b.block_params(entry)[0];
-        let args: Vec<IrValue> = self.b.block_params(entry)[1..].to_vec();
+        self.frames = self.b.block_params(entry)[1];
+        let args: Vec<IrValue> = self.b.block_params(entry)[2..].to_vec();
         let args: Vec<ir::BlockArg> = args.into_iter().map(Into::into).collect();
         self.b.ins().jump(self.top, &args);
 
@@ -1412,12 +1420,12 @@ impl Gen<'_, '_> {
             Instr::Call { dst, g, args } => {
                 let live = self.full[pc].clone();
                 self.count_step(&live);
-                self.push_frame(&live);
+                let frames = self.push_frame(&live);
                 let values = self.operands(args);
                 let live = self.without_moved(&live, ops(code, args));
                 let callee = self.image.global_code[g as usize].expect("a function has code");
                 let f = self.func_ref(self.functions[&callee]);
-                let mut call_args = vec![self.ctx];
+                let mut call_args = vec![self.ctx, frames];
                 call_args.extend(Self::words(&values));
                 let call = self.b.ins().call(f, &call_args);
                 let r = self.b.inst_results(call).to_vec();
@@ -1436,7 +1444,7 @@ impl Gen<'_, '_> {
                     self.b.ins().jump(self.top, &args);
                 } else {
                     let f = self.func_ref(self.functions[&callee]);
-                    let mut call_args = vec![self.ctx];
+                    let mut call_args = vec![self.ctx, self.frames];
                     call_args.extend(words);
                     self.b.ins().return_call(f, &call_args);
                 }
@@ -1456,11 +1464,11 @@ impl Gen<'_, '_> {
                 self.drop_value(fv);
                 let live = self.without_moved(&self.full[pc], &[f]);
                 self.count_step(&live);
-                self.push_frame(&live);
+                let frames = self.push_frame(&live);
                 let values = self.operands(args);
                 let live = self.without_moved(&live, ops(code, args));
                 let sig = self.signature(args.len);
-                let mut call_args = vec![self.ctx];
+                let mut call_args = vec![self.ctx, frames];
                 call_args.extend(Self::words(&values));
                 let call = self.b.ins().call_indirect(sig, target, &call_args);
                 let r = self.b.inst_results(call).to_vec();
@@ -1489,7 +1497,7 @@ impl Gen<'_, '_> {
                 let values = self.operands(args);
                 self.release(&left);
                 let sig = self.signature(args.len);
-                let mut call_args = vec![self.ctx];
+                let mut call_args = vec![self.ctx, self.frames];
                 call_args.extend(Self::words(&values));
                 self.b.ins().return_call_indirect(sig, target, &call_args);
 
@@ -1689,10 +1697,10 @@ impl Gen<'_, '_> {
         self.b.set_cold_block(compute);
         let live = self.full[pc].clone();
         self.count_step(&live);
-        self.push_frame(&live);
+        let frames = self.push_frame(&live);
         let code = self.image.global_code[g as usize].expect("a constant has code");
         let f = self.func_ref(self.functions[&code]);
-        let call = self.b.ins().call(f, &[self.ctx]);
+        let call = self.b.ins().call(f, &[self.ctx, frames]);
         let r = self.b.inst_results(call).to_vec();
         self.after_call(&live);
         let v = Val([r[0], r[1], r[2]]);
