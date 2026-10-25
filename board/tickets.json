@@ -2869,8 +2869,8 @@
     },
     {
       "id": 476,
-      "title": "Investigate: native Set/Map ~5x slower than JS at 1M keys (13.5 s vs 2.6 s); profile + fix options (D1238)",
-      "status": "doing",
+      "title": "Investigate: native Set/Map ~3x slower than JS per tree level (interpreter call overhead, n log n both). Findings + 3 fix options in scratchpad/setperf; Matt 25 Oct: live with it for now",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
