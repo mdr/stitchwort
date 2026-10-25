@@ -1256,6 +1256,68 @@ fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The logic notation in both spellings (D1200-D1203).
+const LOGIC_PROGRAM: &str = "import Std (Exists, Iff)
+theorem a (x: Nat) (xs: List Nat) (h: x in xs): x ∈ xs := h
+theorem b (p: Prop): p <-> p := { forward = h => h, backward = h => h }
+theorem c: exists (n: Nat) => n = 1 := Std.Exists.Witness 1 rfl
+theorem d (x: Nat): x ∉ Nil := none => none
+";
+
+/// Each operator hovers as what it stands for, and `in` and `∈` are the same
+/// thing to find references: both refer to `List.Mem`.
+#[test]
+fn logic_operators_hover_and_find_references_as_their_definitions() {
+    let dir = temp_dir("logic-notation");
+    let file = dir.join("logic.sw");
+    std::fs::write(&file, LOGIC_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, LOGIC_PROGRAM);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = LOGIC_PROGRAM.lines().collect();
+    // LSP columns count UTF-16 units.
+    let col = |line: usize, needle: &str| {
+        let byte = lines[line].find(needle).unwrap();
+        lines[line][..byte].encode_utf16().count() as u32
+    };
+    let mut hover = |line: usize, at: u32| {
+        let found = client.at("textDocument/hover", &uri, line as u32, at);
+        found["contents"]["value"].as_str().unwrap_or("").to_string()
+    };
+    let ascii_in = col(1, " in ") + 1;
+    let unicode_in = col(1, "∈");
+    for (line, at, name) in [
+        (1, ascii_in, "Std.List.Mem"),
+        (1, unicode_in, "Std.List.Mem"),
+        (2, col(2, "<->"), "Std.Iff"),
+        (3, col(3, "exists"), "Std.Exists"),
+        (4, col(4, "∉"), "Std."),
+    ] {
+        let text = hover(line, at);
+        assert!(text.contains(name), "line {line}, column {at}: {text}");
+    }
+    let references = client.at("textDocument/references", &uri, 1, ascii_in);
+    let starts: Vec<(u64, u64)> = references
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["uri"] == uri)
+        .map(|r| {
+            let start = &r["range"]["start"];
+            (start["line"].as_u64().unwrap(), start["character"].as_u64().unwrap())
+        })
+        .collect();
+    for at in [ascii_in - 1, unicode_in] {
+        assert!(
+            starts.iter().any(|&(l, c)| l == 1 && (c == u64::from(at) || c == u64::from(at) + 1)),
+            "{at}: {starts:?}"
+        );
+    }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// Two declarations that need formatting, with a comment between them.
 const UNFORMATTED: &str = "def a(x : Nat) : Nat := x\n-- between\ndef b(y : Nat) : Nat := y\n";
 

@@ -950,6 +950,8 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 Value::Sort(Sort::pi(s1, s2)),
             ))
         }
+        // `x in c`: a proposition, by the type of `c`.
+        Expr::Binary(BinOp::In(op), a, b) => crate::membership::infer_member(cx, *op, a, b),
         // Arithmetic and comparisons: typed a group at a time.
         Expr::Binary(..) => crate::numbers::group(cx, expr, None),
         Expr::If {
@@ -2209,6 +2211,9 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Float(..) | Expr::Neg(..), _) if crate::numbers::decimal(expr).is_some() => {
             let (text, negative) = crate::numbers::decimal(expr).expect("just checked");
             crate::numbers::check_decimal(cx, text, negative, &expected)
+        }
+        (Expr::Binary(BinOp::In(op), a, b), _) => {
+            crate::membership::check_member(cx, *op, a, b, &expected)
         }
         (Expr::Binary(op, ..), _) if crate::numbers::is_arith(*op) => {
             Ok(crate::numbers::group(cx, expr, Some(&expected))?.0)

@@ -47,7 +47,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, DefId};
-use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
 use crate::project::SourceUnit;
@@ -2137,6 +2137,16 @@ pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
         span: Span::NOWHERE,
     });
 
+/// What `x in c` refers to, written nowhere: the proposition on lists and
+/// its decision, and `contains` (on sets and maps) as a dot call.
+pub(crate) static MEMBERSHIP: std::sync::LazyLock<[ast::Name; 2]> =
+    std::sync::LazyLock::new(|| {
+        [crate::membership::LIST_MEM, crate::membership::LIST_DEC_MEM].map(|text| ast::Name {
+            text: text.to_string(),
+            span: Span::NOWHERE,
+        })
+    });
+
 /// The variables a pattern binds.
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
@@ -2252,6 +2262,11 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Hole(_)
             | Expr::Goal(_)
             | Expr::Unit(_) => {}
+            Expr::Binary(BinOp::In(_), a, b) => {
+                out.extend(MEMBERSHIP.iter().map(Ref::Name));
+                out.push(Ref::Dot(&MEMBERSHIP[0], "contains".to_string()));
+                then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
+            }
             Expr::App(a, b)
             | Expr::Arrow(a, b)
             | Expr::Binary(_, a, b)

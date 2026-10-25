@@ -2,16 +2,16 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REWRITE-PREMISE] Error: `rewrite` can't prove the rule's premise `x <= n`
+[E-REWRITE-PREMISE] Error: `rewrite` can't prove the rule's premise `x ≤ n`
    ╭─[ reject/rewrite-premise-unproved.sw:8:11 ]
    │
  8 │   rewrite Nat.addSubCancel
    │           ────────┬───────  
-   │                   ╰───────── this rule matched, but nothing proves its premise `x <= n`
+   │                   ╰───────── this rule matched, but nothing proves its premise `x ≤ n`
    │ 
    │ Note 1: a premise left as `_`, or left off the end, is proved by a hypothesis in scope of exactly its type, or else by `omega`; neither did
    │ 
-   │ Note 2: the facts the congruence lemma gives inside this function: `m: List.Mem x xs`
+   │ Note 2: the facts the congruence lemma gives inside this function: `m: x ∈ xs`
    │ 
    │ Note 3: give the proof in the rule instead, in that argument's place
    │ 

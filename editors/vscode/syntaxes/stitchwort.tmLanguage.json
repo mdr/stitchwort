@@ -38,6 +38,11 @@
           "match": "\\b(type|theorem|def|export|test|interface|instance|if|then|else|ability|where|handle|with|match|return|let|import|namespace|calc|rewrite|omega|ring|decreasing)(?![A-Za-z0-9_'])"
         },
         {
+          "comment": "`in` (or `∈`, an operator below) and `exists` (or `∃`); `exists` after a `.` is a call, `opt.exists p`",
+          "name": "keyword.control.stitchwort",
+          "match": "(?<![.A-Za-z0-9_'!])(in|exists)(?![A-Za-z0-9_'])|∃"
+        },
+        {
           "name": "support.type.stitchwort",
           "match": "\\b(Type|Prop)(?![A-Za-z0-9_'])"
         }
@@ -116,7 +121,7 @@
       "patterns": [
         {
           "name": "keyword.operator.stitchwort",
-          "match": ":=|=>|->|\\|>|\\|\\||&&|==|!=|<=|\\+\\+|\\.\\.|[=<+\\-*/%|:]"
+          "match": ":=|=>|<->|->|\\|>|\\|\\||&&|==|!=|!in(?![A-Za-z0-9_'])|<=|\\+\\+|\\.\\.|[=<+\\-*/%|:]|[∈∉→↔∧∨¬≤≥≠]"
         },
         { "name": "punctuation.separator.stitchwort", "match": "[,.]" }
       ]

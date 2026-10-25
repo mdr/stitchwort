@@ -110,6 +110,56 @@ fn examples() {
     }
 }
 
+/// The declarations `text` adds to a fresh session with every library file
+/// loaded, with their hashes, by [`lines`].
+fn own_lines(text: &str) -> String {
+    let mut session = Session::eager();
+    let (d, f) = (
+        session.elab.globals.datas.len(),
+        session.elab.globals.defs.len(),
+    );
+    if let Err(errors) = session.load("logic.sw", text) {
+        panic!("doesn't load: {errors:#?}");
+    }
+    lines(&session, d, f)
+}
+
+/// The logic notation's two spellings (D1200): each Unicode symbol is the
+/// token its ASCII form is, so the declarations, and their hashes, are the
+/// same. And each notation is sugar (D1201-D1203): a proposition written
+/// with it is the term its long form writes.
+#[test]
+fn logic_notation_spellings_hash_the_same() {
+    let ascii = "import Std (Exists, Iff, Set)
+theorem a (x: Nat) (xs: List Nat) (h: x in xs): x in xs && x !in Nil := Both h (none => none)
+theorem b (p: Prop) (q: Prop) (h: p -> q): (p <-> q) || !p || exists (n: Nat) => n <= 1 && n >= 0 && n != 2 := Inr (Inr (Std.Exists.Witness 0 (Both (omega) (Both (omega) (omega)))))
+theorem c (s: Set Nat) (x: Nat) (h: x in s): x in s := h
+def d (seen: List Nat) (x: Nat): Bool := if x in seen then x !in [1, 2] else 3 in seen || x in Set.fromList seen
+";
+    let unicode = "import Std (Exists, Iff, Set)
+theorem a (x: Nat) (xs: List Nat) (h: x ∈ xs): x ∈ xs ∧ x ∉ Nil := Both h (none => none)
+theorem b (p: Prop) (q: Prop) (h: p → q): (p ↔ q) ∨ ¬p ∨ ∃ (n: Nat) => n ≤ 1 ∧ n ≥ 0 ∧ n ≠ 2 := Inr (Inr (Std.Exists.Witness 0 (Both (omega) (Both (omega) (omega)))))
+theorem c (s: Set Nat) (x: Nat) (h: x ∈ s): x ∈ s := h
+def d (seen: List Nat) (x: Nat): Bool := if x ∈ seen then x ∉ [1, 2] else 3 ∈ seen ∨ x ∈ Set.fromList seen
+";
+    let ascii_lines = own_lines(ascii);
+    assert_eq!(ascii_lines.lines().count(), 4, "{ascii_lines}");
+    assert_eq!(ascii_lines, own_lines(unicode));
+    // The propositions in their long forms (`d`, a program, is left out:
+    // its conditions are decided by another route when written in full).
+    let long = "import Std (Exists, Iff, List, Set)
+theorem a (x: Nat) (xs: List Nat) (h: List.Mem x xs): And (List.Mem x xs) (Not (List.Mem x Nil)) := Both h (none => none)
+theorem b (p: Prop) (q: Prop) (h: p -> q): Or (Iff p q) (Or (Not p) (Exists Nat ((n: Nat) => And (n <= 1) (And (0 <= n) (Not (n = 2)))))) := Inr (Inr (Std.Exists.Witness 0 (Both (omega) (Both (omega) (omega)))))
+theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True := h
+";
+    let without_d: String = ascii_lines
+        .lines()
+        .filter(|l| !l.starts_with("Main.d "))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    assert_eq!(without_d, own_lines(long));
+}
+
 /// The accepted example projects: their declarations' hashes, as for the
 /// files.
 #[test]

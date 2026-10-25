@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shown`
+   ╭─[ goals/logic-notation.sw:7:64 ]
+   │
+ 7 │     (x in xs <-> p) && (exists (n: Nat) => n <= x || n = y) := ?
+   │                                                                ┬  
+   │                                                                ╰── x: Nat
+   │                                                                    y: Nat
+   │                                                                    xs: List Nat
+   │                                                                    p: Prop
+   │                                                                    ne: x ≠ y
+   │                                                                    out: y ∉ xs
+   │                                                                    np: ¬p
+   │                                                                    ⊢ (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => Nat.leq n x = True ∨ n = y)
+───╯

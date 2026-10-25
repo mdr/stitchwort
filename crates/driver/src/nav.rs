@@ -678,11 +678,17 @@ pub fn index_of(session: &Session) -> NavIndex {
     index_of_files(session, &|_| true)
 }
 
+/// The operators whose span is a reference to the declaration they stand
+/// for, in both spellings.
+const LOGIC_OPERATORS: &[&str] = &["∈", "∉", "<->", "↔", "∃"];
+
 /// [`index_of`], with only the references in the files `wanted` says.
 fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavIndex {
     let sources = &session.sources;
     // Derived code is elaborated with the spans of the declaration it comes
-    // from: only what's written as a name is a reference.
+    // from: only what's written as a name is a reference, or an operator
+    // that stands for a declaration (`x ∈ xs` for `List.Mem`, `p <-> q` for
+    // `Iff`, D1201-D1203).
     let written = |span: Span, last: Option<&str>| {
         wanted(span.file)
             && sources
@@ -691,10 +697,11 @@ fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavInde
                 .get(span.range())
                 .is_some_and(|t| {
                     let t = last.map_or(t, |l| t.strip_suffix(l).map_or(t, |_| l));
-                    !t.is_empty()
-                        && t.chars().all(|c| {
-                            c.is_alphanumeric() || matches!(c, '_' | '\'' | '.' | '!' | '?')
-                        })
+                    LOGIC_OPERATORS.contains(&t)
+                        || (!t.is_empty()
+                            && t.chars().all(|c| {
+                                c.is_alphanumeric() || matches!(c, '_' | '\'' | '.' | '!' | '?')
+                            }))
                 })
     };
     session.elab.navigation_index(&written)

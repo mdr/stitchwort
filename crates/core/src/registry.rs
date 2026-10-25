@@ -113,6 +113,9 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FinOfNatLt,
     Builtin::Fail,
     Builtin::FailStop,
+    Builtin::Iff,
+    Builtin::Exists,
+    Builtin::ListMem,
 ];
 
 macro_rules! builtins {
@@ -162,6 +165,11 @@ builtins! {
     // `p && q`, `p || q` on propositions
     And = "And": Data,
     Or = "Or": Data,
+    // Printed as the notation that writes them, `p ↔ q`, `∃ (x: T) => P`
+    // and `x ∈ xs` (D1204): library declarations
+    Iff = "Iff": Data,
+    Exists = "Exists": Data,
+    ListMem = "List.Mem": Def,
     Cong = "Eq.cong": Def,
     // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
     EqSym = "Eq.sym": Def,

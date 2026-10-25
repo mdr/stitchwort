@@ -9,7 +9,7 @@ expression: output
    │                                                          ──┬──  
    │                                                            ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
-   │ Note 1: facts: `x <= y` (h)
+   │ Note 1: facts: `x ≤ y` (h)
    │ 
    │ Note 2: atoms: `x`, `y`
    │ 
@@ -18,6 +18,6 @@ expression: output
    │ Note 4: this statement is false; a counterexample:
    │           x = 0
    │           y = 0
-   │         `x <= y` holds
+   │         `x ≤ y` holds
    │         `x < y` is false
 ───╯

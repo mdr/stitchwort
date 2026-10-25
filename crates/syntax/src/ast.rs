@@ -645,6 +645,10 @@ pub enum BinOp {
     /// `/`, `%`: need a proof that the divisor isn't zero.
     Div,
     Mod,
+    /// `x in c` (or `x ∈ c`): membership in a list, a set or a map's keys
+    /// (D1201), with the operator's span. `x !in c` is parsed as
+    /// `!(x in c)`.
+    In(Span),
 }
 
 impl BinOp {
@@ -663,6 +667,7 @@ impl BinOp {
             BinOp::Mul => "*",
             BinOp::Div => "/",
             BinOp::Mod => "%",
+            BinOp::In(_) => "in",
         }
     }
 }
