@@ -2342,7 +2342,7 @@
     {
       "id": 439,
       "title": "Perf: nested pure List.map in a pure context checks in exponential time (depth 16 0.67 s, 18 1.59 s; error path 6.7 s) since pure_first tries plain then fallback per level (SW-408 review #3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "Re-measured 25 Oct on main: still exponential. Pure: depth 16 0.68 s, 18 1.6 s, 20 5.3 s; error path (effectful callback in pure fn, E-ABILITY): 14 1.9 s, 16 6.4 s, 18 25-31 s, 20 ~100 s. Repro scripts: scratchpad/t439/run.sh. Realistic pipelines (<=8 deep) unaffected.",
       "labels": [
@@ -2351,7 +2351,9 @@
       "body": "",
       "created": "2026-10-24",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "99ea2fd7"
+      ]
     },
     {
       "id": 440,
