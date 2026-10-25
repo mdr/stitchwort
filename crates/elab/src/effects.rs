@@ -1345,7 +1345,7 @@ fn call_param_types(
 }
 
 /// An argument as written, without its name.
-fn arg_value<'a>(arg: &'a Expr) -> &'a Expr {
+fn arg_value(arg: &Expr) -> &Expr {
     match arg {
         Expr::NamedArg(_, value, ..) => value,
         other => other,
