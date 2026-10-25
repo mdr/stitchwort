@@ -1,5 +1,5 @@
 {
-  "next": 532,
+  "next": 537,
   "tickets": [
     {
       "id": 13,
@@ -3424,14 +3424,16 @@
     {
       "id": 517,
       "title": "Explore extending roguelike proofs: whole-game replay, distinct monsters, reachability, render/input correctness, rules; PROOFS.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8cd60546"
+      ]
     },
     {
       "id": 518,
@@ -3595,6 +3597,66 @@
       "id": 531,
       "title": "Playground browser tests: 3 failures (arrow in tooltip, failed-comparison example, library tooltip timeout); per-project error path prefix; 256 KiB guard docs",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 532,
+      "title": "Rogue proofs follow-up: std lemma 'roll n < n under seeded/any Random handler'; link goalReachable to generateLevel; positions stay inside 20x66 (PROOFS.md gaps 1-2; may need opaque defs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 533,
+      "title": "Literal match catch-all arm gets no 'none of these' fact (rogue PROOFS.md: can't prove other keys give None)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 534,
+      "title": "rewrite error when a hypothesis is named 'at' doesn't mention the name (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 535,
+      "title": "Pattern lambdas can't take a type annotation (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 536,
+      "title": "Terminal.simulate: expose frame accumulator so proofs can induct over loop turns (rogue PROOFS.md)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
