@@ -1,5 +1,5 @@
 {
-  "next": 464,
+  "next": 465,
   "tickets": [
     {
       "id": 13,
@@ -2679,6 +2679,18 @@
     {
       "id": 463,
       "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); after the logic-notation build",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 464,
+      "title": "Private port: migrate the event resolver to rule E, then the Unicode/logic-notation house style; switch to std Map.indexBy (now stack-safe) and the D1191 distinct; private lane, work folder only; after rule E + notation build land",
       "status": "backlog",
       "agent": "",
       "where": "",
