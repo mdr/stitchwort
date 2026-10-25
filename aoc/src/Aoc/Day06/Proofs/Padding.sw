@@ -11,21 +11,21 @@ import Std (Eq, List, Nat, Text)
 
 -- From column s on, past every line's end, every column is blank.
 theorem blankFrom (lines: List Text): (m: Nat) -> (s: Nat) -> gridWidth lines <= s ->
-    List.all isBlank ((List.rangeFrom m s).map (column lines)) = True
+    List.all ((List.rangeFrom m s).map (column lines)) isBlank = True
   | Zero, s, h => rfl
   | Succ m, s, h =>
-    rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength r (lines.map Text.toList)) h) in
+    rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength (lines.map Text.toList) r) h) in
       blankFrom lines m (Succ s) (omega)
 
 -- The blocks, read over any number of columns from the widest line's length on.
 theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines <= n):
-    blocks lines = List.splitBy isBlank ((List.range n).map (column lines)) :=
+    blocks lines = List.splitBy ((List.range n).map (column lines)) isBlank :=
   calc blocks lines
-    _ = List.splitBy isBlank ((List.range (gridWidth lines)).map (column lines)) := rewrite columnsAre lines
-    _ = List.splitBy isBlank ((List.rangeFrom (gridWidth lines + (n - gridWidth lines)) 0).map (column lines))
-      := rewrite List.rangeFromAppend (gridWidth lines) (n - gridWidth lines) 0, List.mapAppend (column lines) (List.range (gridWidth lines)) (List.rangeFrom (n - gridWidth lines) (gridWidth lines)) in
-        Eq.sym (List.splitByAppendSeparators isBlank _ _ (blankFrom lines (n - gridWidth lines) (gridWidth lines) (Nat.leRefl (gridWidth lines))))
-    _ = List.splitBy isBlank ((List.range n).map (column lines)) := rewrite Nat.addSubCancel (gridWidth lines) n h
+    _ = List.splitBy ((List.range (gridWidth lines)).map (column lines)) isBlank := rewrite columnsAre lines
+    _ = List.splitBy ((List.rangeFrom (gridWidth lines + (n - gridWidth lines)) 0).map (column lines)) isBlank
+      := rewrite List.rangeFromAppend (gridWidth lines) (n - gridWidth lines) 0, List.mapAppend (List.range (gridWidth lines)) (List.rangeFrom (n - gridWidth lines) (gridWidth lines)) (column lines) in
+        Eq.sym (List.splitByAppendSeparators _ isBlank _ (blankFrom lines (n - gridWidth lines) (gridWidth lines) (Nat.leRefl (gridWidth lines))))
+    _ = List.splitBy ((List.range n).map (column lines)) isBlank := rewrite Nat.addSubCancel (gridWidth lines) n h
 
 -- Two worksheets with the same cells, column by column, parse to the same
 -- problems, whatever their lines' lengths.
@@ -40,5 +40,5 @@ theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c:
 theorem parseWorksheetPadded (lines: List Text) (spaces: Text -> Nat):
     parseWorksheet (lines.map (line => line ++ Text.fromList (List.replicate (spaces line) ' '))) = parseWorksheet lines :=
   parseWorksheetSameCells lines _ (c =>
-    rewrite List.mapMap (line => charAt line c) (line => line ++ Text.fromList (List.replicate (spaces line) ' ')) lines,
-      List.getOrAppendReplicate ' ' (spaces _) c _)
+    rewrite List.mapMap lines (line => charAt line c) (line => line ++ Text.fromList (List.replicate (spaces line) ' ')),
+      List.getOrAppendReplicate _ ' ' (spaces _) c)

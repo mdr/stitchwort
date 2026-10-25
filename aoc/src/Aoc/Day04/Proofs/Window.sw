@@ -55,16 +55,16 @@ theorem keepRemove: (a: Cell) -> (n: Nat) -> keep a (n + a.count) = (if a == Rol
 
 -- The rolls in column j (counted from 1) of three rows.
 def tri (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat): Nat :=
-  (Vec.getOr Floor j (VCons Floor a)).count + (Vec.getOr Floor j (VCons Floor x)).count + (Vec.getOr Floor j (VCons Floor b)).count
+  (Vec.getOr (VCons Floor a) Floor j).count + (Vec.getOr (VCons Floor x) Floor j).count + (Vec.getOr (VCons Floor b) Floor j).count
 
 -- The column sums `peelRow` adds up, counted from 1.
 theorem colsAt (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w): (j: Nat) ->
-    Vec.getOr 0 j (VCons 0 (Vec.zipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) a x b)) = tri a x b j
+    Vec.getOr (VCons 0 (Vec.zipWith3 a x b (p q s => Cell.count p + Cell.count q + Cell.count s))) 0 j = tri a x b j
   | Zero => rfl
   | Succ i => Vec.getOrZipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) Floor Floor Floor 0 rfl a x b i
 
 -- Row v is row r (counted from 1) of `cells`, cell by cell, border included.
-def RowIs (cells: Cells) (r: Nat) (v: Vec Cell w): Prop := (j: Nat) -> Vec.getOr Floor j (VCons Floor v) = bord cells r j
+def RowIs (cells: Cells) (r: Nat) (v: Vec Cell w): Prop := (j: Nat) -> Vec.getOr (VCons Floor v) Floor j = bord cells r j
 
 theorem triCol (cells: Cells) (r: Nat) (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w)
     (ha: RowIs cells r a) (hx: RowIs cells (Succ r) x) (hb: RowIs cells (Succ (Succ r)) b) (j: Nat):
@@ -74,25 +74,25 @@ theorem triCol (cells: Cells) (r: Nat) (a: Vec Cell w) (x: Vec Cell w) (b: Vec C
 -- One cell of a peeled row, given the rows above, at and below it.
 theorem peelRowCells (cells: Cells) (r: Nat) (c: Nat) (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w)
     (ha: RowIs cells r a) (hx: RowIs cells (Succ r) x) (hb: RowIs cells (Succ (Succ r)) b):
-    Vec.getOr Floor c (peelRow a x b) = keep (cells r c) (window cells r c) :=
-  let cols := Vec.zipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) a x b
+    Vec.getOr (peelRow a x b) Floor c = keep (cells r c) (window cells r c) :=
+  let cols := Vec.zipWith3 a x b (p q s => Cell.count p + Cell.count q + Cell.count s)
   let add3 := (l: Nat) => (m: Nat) => (n: Nat) => l + m + n
   match e: Nat.leq (Succ c) w with
     | True =>
-      calc Vec.getOr Floor c (peelRow a x b)
-        _ = keep (Vec.getOr Floor c x) (Vec.getOr 0 c (VCons 0 cols) + Vec.getOr 0 (Succ c) (VCons 0 cols) + Vec.getOr 0 (Succ (Succ c)) (VCons 0 cols))
-          := Eq.trans (Vec.getOrZipWith keep Floor 0 Floor rfl x (Vec.around 0 add3 cols) c) (rewrite Vec.getOrAround 0 0 add3 cols c e)
-        _ = keep (Vec.getOr Floor (Succ c) (VCons Floor x)) (tri a x b c + tri a x b (Succ c) + tri a x b (Succ (Succ c)))
+      calc Vec.getOr (peelRow a x b) Floor c
+        _ = keep (Vec.getOr x Floor c) (Vec.getOr (VCons 0 cols) 0 c + Vec.getOr (VCons 0 cols) 0 (Succ c) + Vec.getOr (VCons 0 cols) 0 (Succ (Succ c)))
+          := Eq.trans (Vec.getOrZipWith keep Floor 0 Floor rfl x (Vec.around cols 0 add3) c) (rewrite Vec.getOrAround cols 0 0 c e add3)
+        _ = keep (Vec.getOr (VCons Floor x) Floor (Succ c)) (tri a x b c + tri a x b (Succ c) + tri a x b (Succ (Succ c)))
           := rewrite colsAt a x b c, colsAt a x b (Succ c), colsAt a x b (Succ (Succ c))
         _ = keep (cells r c) (window cells r c)
           := rewrite triCol cells r a x b ha hx hb c, triCol cells r a x b ha hx hb (Succ c), triCol cells r a x b ha hx hb (Succ (Succ c)), hx (Succ c)
     | False =>
       -- Past the last column both sides are floor.
-      rewrite Vec.getOrPast Floor (peelRow a x b) c omega, <- hx (Succ c), Vec.getOrPast Floor x c omega
+      rewrite Vec.getOrPast (peelRow a x b) Floor c omega, <- hx (Succ c), Vec.getOrPast x Floor c omega
 
 -- Row r (counted from 1) of a grid's rows, with a row of floor above the
 -- first and past the last.
-def rowB (rows: Vec (Vec Cell w) h) (r: Nat): Vec Cell w := Vec.getOr (Vec.replicate w Floor) r (VCons (Vec.replicate w Floor) rows)
+def rowB (rows: Vec (Vec Cell w) h) (r: Nat): Vec Cell w := Vec.getOr (VCons (Vec.replicate w Floor) rows) (Vec.replicate w Floor) r
 
 theorem rowBIs (rows: Vec (Vec Cell w) h): (r: Nat) -> RowIs (rowsCells rows) r (rowB rows r)
   | Zero, Zero => rfl
@@ -102,10 +102,10 @@ theorem rowBIs (rows: Vec (Vec Cell w) h): (r: Nat) -> RowIs (rowsCells rows) r 
 
 -- Past the last row or column, everything is floor.
 theorem rowsCellsBelow (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat) (hr: h <= r): rowsCells rows r c = Floor :=
-  rewrite Vec.getOrPast (Vec.replicate w Floor) rows r hr in Vec.getOrReplicate Floor w c
+  rewrite Vec.getOrPast rows (Vec.replicate w Floor) r hr in Vec.getOrReplicate Floor w c
 
 theorem rowsCellsRight (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat) (hc: w <= c): rowsCells rows r c = Floor :=
-  Vec.getOrPast Floor (Vec.getOr (Vec.replicate w Floor) r rows) c hc
+  Vec.getOrPast (Vec.getOr rows (Vec.replicate w Floor) r) Floor c hc
 
 -- One cell after a round: what `keep` leaves of it.
 theorem cellRound (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat):
@@ -114,8 +114,8 @@ theorem cellRound (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat):
   match e: Nat.leq (Succ r) h with
     | True =>
       calc rowsCells (roundRows rows) r c
-        _ = Vec.getOr Floor c (peelRow (rowB rows r) (rowB rows (Succ r)) (rowB rows (Succ (Succ r))))
-          := rewrite Vec.getOrAround gap gap peelRow rows r e
+        _ = Vec.getOr (peelRow (rowB rows r) (rowB rows (Succ r)) (rowB rows (Succ (Succ r)))) Floor c
+          := rewrite Vec.getOrAround rows gap gap r e peelRow
         _ = keep (rowsCells rows r c) (window (rowsCells rows) r c)
           := peelRowCells (rowsCells rows) r c (rowB rows r) (rowB rows (Succ r)) (rowB rows (Succ (Succ r)))
             (rowBIs rows r) (rowBIs rows (Succ r)) (rowBIs rows (Succ (Succ r)))
@@ -143,22 +143,22 @@ def shift (g: Nat -> Nat): Nat -> Nat
   | Succ x => g x
 
 theorem pickBelow (g: Nat -> Nat) (n: Nat) (hz: (x: Nat) -> n <= x -> g x = 0): (r: Nat) ->
-    List.sumBy (x => Nat.keepIf (g x) (Nat.equal r (Succ x))) (List.range n) = shift g r
+    List.sumBy (List.range n) (x => Nat.keepIf (g x) (Nat.equal r (Succ x))) = shift g r
   | Zero => List.sumRangeNone (x => Nat.equal 0 (Succ x)) g n 0 (b h1 h2 => rfl)
   | Succ r => List.sumRangePick g n r (hz r)
 
 -- A sum over 0, 1, …, n - 1 of the terms at most 1 from r: the three around
 -- it, counted from 1. `g` is 0 past the end.
 theorem nearSum (g: Nat -> Nat) (n: Nat) (hz: (x: Nat) -> n <= x -> g x = 0) (r: Nat):
-    List.sumBy (x => Nat.keepIf (g x) (near r x)) (List.range n) = shift g r + shift g (Succ r) + shift g (Succ (Succ r)) :=
+    List.sumBy (List.range n) (x => Nat.keepIf (g x) (near r x)) = shift g r + shift g (Succ r) + shift g (Succ (Succ r)) :=
   let below := (x: Nat) => Nat.keepIf (g x) (Nat.equal r (Succ x))
   let same := (x: Nat) => Nat.keepIf (g x) (Nat.equal r x)
   let above := (x: Nat) => Nat.keepIf (g x) (Nat.equal (Succ r) x)
-  calc List.sumBy (x => Nat.keepIf (g x) (near r x)) (List.range n)
-    _ = List.sumBy (x => below x + same x + above x) (List.range n)
+  calc List.sumBy (List.range n) (x => Nat.keepIf (g x) (near r x))
+    _ = List.sumBy (List.range n) (x => below x + same x + above x)
       := rewrite nearSplit _ r _
-    _ = List.sumBy below (List.range n) + List.sumBy same (List.range n) + List.sumBy above (List.range n)
-      := rewrite List.sumByAdd (x => below x + same x) above (List.range n), List.sumByAdd below same (List.range n)
+    _ = List.sumBy (List.range n) below + List.sumBy (List.range n) same + List.sumBy (List.range n) above
+      := rewrite List.sumByAdd (List.range n) (x => below x + same x) above, List.sumByAdd (List.range n) below same
     _ = shift g r + g r + g (Succ r)
       := rewrite pickBelow g n hz r, List.sumRangePick g n r (hz r), List.sumRangePick g n (Succ r) (hz (Succ r))
 
@@ -197,17 +197,17 @@ theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x && c == y) = Tr
 
 -- A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum (grid: Grid) (p: Nat -> Nat -> Bool):
-    countPositions grid p = List.sumBy (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width)) (List.range grid.height) :=
+    countPositions grid p = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (p x y))) :=
   rewrite List.countSumBy _ _
 
 -- The sum over the grid's positions that picks out (r, c) itself.
 theorem selfSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid.height <= r -> cells r c = Floor)
     (right: (r: Nat) -> (c: Nat) -> grid.width <= c -> cells r c = Floor) (r: Nat) (c: Nat):
-    List.sumBy (x => List.sumBy (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (List.range grid.width)) (List.range grid.height) = (cells r c).count :=
-  calc List.sumBy (x => List.sumBy (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
-    _ = List.sumBy (x => Nat.keepIf (List.sumBy (y => Nat.keepIf ((cells x y).count) (Nat.equal c y)) (List.range grid.width)) (Nat.equal r x)) (List.range grid.height)
+    List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat ((r == x && c == y) && cells x y == Roll))) = (cells r c).count :=
+  calc List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat ((r == x && c == y) && cells x y == Roll)))
+    _ = List.sumBy (List.range grid.height) (x => Nat.keepIf (List.sumBy (List.range grid.width) (y => Nat.keepIf ((cells x y).count) (Nat.equal c y))) (Nat.equal r x))
       := rewrite Nat.eqIsEqual r _, Nat.eqIsEqual c _, andKeep _ _ _, isRollCount _, <- Nat.keepIfSumBy _ _ _
-    _ = List.sumBy (x => Nat.keepIf ((cells x c).count) (Nat.equal r x)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => Nat.keepIf ((cells x c).count) (Nat.equal r x))
       := rewrite List.sumRangePick (y => (cells _ y).count) grid.width c (h => Eq.cong Cell.count (right _ c h))
     _ = (cells r c).count := List.sumRangePick (x => (cells x c).count) grid.height r (h => Eq.cong Cell.count (below r c h))
 
@@ -234,12 +234,12 @@ theorem rowSumBelow (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> 
 -- The 3 by 3 block as a sum over all the grid's positions at most 1 away.
 theorem nineSum (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: Nat) -> grid.height <= r -> cells r c = Floor)
     (right: (r: Nat) -> (c: Nat) -> grid.width <= c -> cells r c = Floor) (r: Nat) (c: Nat):
-    List.sumBy (x => List.sumBy (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
+    List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (near r x && near c y && cells x y == Roll)))
       = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=
-  calc List.sumBy (x => List.sumBy (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
-    _ = List.sumBy (x => Nat.keepIf (List.sumBy (y => Nat.keepIf ((cells x y).count) (near c y)) (List.range grid.width)) (near r x)) (List.range grid.height)
+  calc List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (near r x && near c y && cells x y == Roll)))
+    _ = List.sumBy (List.range grid.height) (x => Nat.keepIf (List.sumBy (List.range grid.width) (y => Nat.keepIf ((cells x y).count) (near c y))) (near r x))
       := rewrite toNatAnd _ _, toNatAnd _ _, isRollCount _, <- Nat.keepIfSumBy _ _ _
-    _ = List.sumBy (x => Nat.keepIf (rowSum cells (Succ x) c) (near r x)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => Nat.keepIf (rowSum cells (Succ x) c) (near r x))
       := rewrite nearSum (y => (cells _ y).count) grid.width (y h => Eq.cong Cell.count (right _ y h)) c,
         bordRowShift cells _ c, bordRowShift cells _ (Succ c), bordRowShift cells _ (Succ (Succ c))
     _ = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c
@@ -259,12 +259,12 @@ theorem windowIsNeighbours (grid: Grid) (cells: Cells) (below: (r: Nat) -> (c: N
   let self := (x: Nat) => (y: Nat) => Bool.toNat ((r == x && c == y) && cells x y == Roll)
   calc window cells r c
     _ = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c := windowRows cells r c
-    _ = List.sumBy (x => List.sumBy (y => Bool.toNat (near r x && near c y && cells x y == Roll)) (List.range grid.width)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (near r x && near c y && cells x y == Roll)))
       := Eq.sym (nineSum grid cells below right r c)
-    _ = List.sumBy (x => List.sumBy (y => adj x y) (List.range grid.width) + List.sumBy (y => self x y) (List.range grid.width)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => adj x y) + List.sumBy (List.range grid.width) (y => self x y))
       := rewrite splitSelf _ _ _ _ (selfNear r c _ _), List.sumByAdd [c := Nat] _ _ _
-    _ = List.sumBy (x => List.sumBy (y => adj x y) (List.range grid.width)) (List.range grid.height)
-        + List.sumBy (x => List.sumBy (y => self x y) (List.range grid.width)) (List.range grid.height)
-      := List.sumByAdd (x => List.sumBy (y => adj x y) (List.range grid.width)) (x => List.sumBy (y => self x y) (List.range grid.width)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => adj x y))
+        + List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => self x y))
+      := List.sumByAdd (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => adj x y)) (x => List.sumBy (List.range grid.width) (y => self x y))
     _ = neighbours grid cells r c + (cells r c).count
       := rewrite selfSum grid cells below right r c, countPositionsSum grid (x y => adjacent r c x y && cells x y == Roll)

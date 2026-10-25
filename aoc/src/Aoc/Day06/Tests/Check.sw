@@ -7,7 +7,7 @@ import Std (Fail, IO, List, Nat, Pair, Result, Text)
 
 -- The totals of an accepted worksheet, or the reason it was rejected.
 def checked (lines: List Text): Result (Nat, Nat) Text :=
-  Result.map (problems => (solvePart1 problems, solvePart2 problems)) (checkWorksheet lines)
+  Result.map (checkWorksheet lines) (problems => (solvePart1 problems, solvePart2 problems))
 
 test "a stray character in a number" := checked ["1x2", "3 4", "+"] == Err "line 1, column 2: expected a digit or a space, got 'x'"
 test "a stray character in a later number row" := checked ["12", "3-", "+"] == Err "line 2, column 2: expected a digit or a space, got '-'"
@@ -33,7 +33,7 @@ test "the worksheet is what the parser reads" := checkWorksheet example == Ok (p
 
 -- What `main` prints and how it ends.
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
-  IO.simulate lines (() => Result.map (u => True) (Fail.toResult main))
+  IO.simulate lines (() => Result.map (Fail.toResult main) (u => True))
 
 test "main on a malformed worksheet" := ran ["1x2", "+"] == MkPair [] (Err "line 1, column 2: expected a digit or a space, got 'x'")
 test "main on a worksheet" := ran ["12", "3", "+"] == MkPair ["Part 1: 15", "Part 2: 15"] (Ok True)

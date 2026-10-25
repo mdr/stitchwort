@@ -38,11 +38,11 @@ def Largest (areas: List Nat) (answer: Nat): Prop :=
 def rectangles (tiles: List Tile): List (Tile, Tile) := List.pairs tiles
 
 -- Part 1's answer is the largest area of these rectangles.
-def Part1 (tiles: List Tile) (answer: Nat): Prop := Largest (List.map (corners => area corners.fst corners.snd) (rectangles tiles)) answer
+def Part1 (tiles: List Tile) (answer: Nat): Prop := Largest (List.map (rectangles tiles) (corners => area corners.fst corners.snd)) answer
 
 -- Each red tile with the next, and the last with the first: the straight
 -- lines of the loop run between them.
-def connections (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop 1 tiles) (List.take 1 tiles))
+def connections (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop tiles 1) (List.take tiles 1))
 
 -- `value` is from `one` to `other` (either may be the larger).
 def from (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value <= other) || (other <= value && value <= one)
@@ -51,7 +51,7 @@ def from (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value <=
 -- column or a row: in the rectangle between them, a line one tile wide.
 def onStraightLine (tile: Tile) (ends: (Tile, Tile)): Bool := from ends.fst.x ends.snd.x tile.x && from ends.fst.y ends.snd.y tile.y
 
-def onLoop (tiles: List Tile) (tile: Tile): Bool := List.any (onStraightLine tile) (connections tiles)
+def onLoop (tiles: List Tile) (tile: Tile): Bool := List.any (connections tiles) (onStraightLine tile)
 
 -- The straight line runs down a column right of the tile, and spans the
 -- tile's row: its upper end is at or above the row, its lower end below.
@@ -59,17 +59,17 @@ def crossesRay (tile: Tile) (ends: (Tile, Tile)): Bool :=
   ends.fst.x == ends.snd.x && tile.x < ends.fst.x
     && ((ends.fst.y <= tile.y && tile.y < ends.snd.y) || (ends.snd.y <= tile.y && tile.y < ends.fst.y))
 
-def insideLoop (tiles: List Tile) (tile: Tile): Bool := List.count (crossesRay tile) (connections tiles) % 2 == 1
+def insideLoop (tiles: List Tile) (tile: Tile): Bool := List.count (connections tiles) (crossesRay tile) % 2 == 1
 
 def redOrGreen (tiles: List Tile) (tile: Tile): Bool := onLoop tiles tile || insideLoop tiles tile
 
 -- Every tile of the rectangle with these corners is red or green.
 def allRedOrGreen (tiles: List Tile) (corners: (Tile, Tile)): Bool :=
   List.all
-    (y => List.all (x => redOrGreen tiles { x, y }) (List.between (Nat.min corners.fst.x corners.snd.x) (Nat.max corners.fst.x corners.snd.x)))
     (List.between (Nat.min corners.fst.y corners.snd.y) (Nat.max corners.fst.y corners.snd.y))
+    (y => List.all (List.between (Nat.min corners.fst.x corners.snd.x) (Nat.max corners.fst.x corners.snd.x)) (x => redOrGreen tiles { x, y }))
 
 -- Part 2's answer is the largest area of the rectangles that are all red
 -- and green.
 def Part2 (tiles: List Tile) (answer: Nat): Prop :=
-  Largest (List.map (corners => area corners.fst corners.snd) (List.filter (allRedOrGreen tiles) (rectangles tiles))) answer
+  Largest (List.map (List.filter (rectangles tiles) (allRedOrGreen tiles)) (corners => area corners.fst corners.snd)) answer

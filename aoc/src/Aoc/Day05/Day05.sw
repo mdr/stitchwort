@@ -55,7 +55,7 @@ def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy .size
 def merge (ranges: List Range): List Range :=
   ranges
     |> .sort
-    |> .foldLeft absorb []
+    |> .foldLeft [] absorb
     |> .reverse
 
 -- Add a range, starting no earlier than the ones already merged, to them.

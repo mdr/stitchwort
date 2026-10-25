@@ -110,7 +110,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 -- 10 for its example), then multiply the sizes of the three biggest circuits.
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
-    |> .foldLeft Circuits.connect (Circuits.separate boxes.points.length)
+    |> .foldLeft (Circuits.separate boxes.points.length) Circuits.connect
   joined.sizes boxes.points.length |> .sortBy (first second => Nat.compare second first) |> .take 3 |> .product
 
 -- Part 2: the product of the x coordinates of the two boxes whose joining

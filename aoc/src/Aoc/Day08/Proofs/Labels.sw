@@ -23,7 +23,7 @@ import Std (And, Bool, DecEq, Eq, List, Map, Nat, Option, Ord, Ordering, Pair, V
 
 -- Joining the connections in order, from the circuits given: `solvePart1`'s fold.
 def joinAll (circuits: Circuits) (connections: List (Nat, Nat)): Circuits :=
-  connections.foldLeft (c pair => c.join pair.fst pair.snd) circuits
+  connections.foldLeft circuits (c pair => c.join pair.fst pair.snd)
 
 -- Both boxes of the pair are among the boxes 0 to n - 1.
 def boxesBelow (n: Nat) (pair: (Nat, Nat)): Bool := Nat.leq (Succ pair.fst) n && Nat.leq (Succ pair.snd) n
@@ -75,7 +75,7 @@ theorem eqFalse (a: Nat) (b: Nat) (h: (a == b) = False) (e: a = b): Void := Bool
 -- connections `done` (the four facts at the top).
 type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop =
   | MkLabelled
-    (stored: (b: Nat) -> b < n -> Map.get b circuits.labels = Some (circuits.labelOf b))
+    (stored: (b: Nat) -> b < n -> Map.get circuits.labels b = Some (circuits.labelOf b))
     (inRange: (a: Nat) -> (b: Nat) -> List.Mem (a, b) done -> And (a < n) (b < n))
     (agree: (a: Nat) -> (b: Nat) -> List.Mem (a, b) done -> circuits.labelOf a = circuits.labelOf b)
     (labelJoined: (b: Nat) -> b < n -> Joined done b (circuits.labelOf b))
@@ -84,7 +84,7 @@ type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop =
 
 -- The map built from (s, s), (s + 1, s + 1), ..., has nothing for a box below s ...
 theorem lookupBelow (b: Nat): (c: Nat) -> (s: Nat) -> b < s ->
-    Map.lookupLast b (List.map (box => (box, box)) (List.rangeFrom c s)) = None
+    Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = None
   | Zero, s, h => rfl
   | Succ c, s, h =>
     rewrite lookupBelow b c (Succ s) omega in
@@ -95,7 +95,7 @@ theorem lookupBelow (b: Nat): (c: Nat) -> (s: Nat) -> b < s ->
 
 -- ... and each box from s on is its own label.
 theorem lookupRange (b: Nat): (c: Nat) -> (s: Nat) -> s <= b -> b < s + c ->
-    Map.lookupLast b (List.map (box => (box, box)) (List.rangeFrom c s)) = Some b
+    Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = Some b
   | Zero, s, h1, h2 => omega
   | Succ c, s, h1, h2 =>
     match e: Nat.equal s b with
@@ -104,8 +104,8 @@ theorem lookupRange (b: Nat): (c: Nat) -> (s: Nat) -> s <= b -> b < s + c ->
       | False =>
         rewrite lookupRange b c (Succ s) omega omega in rfl
 
-theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get b (Circuits.separate n).labels = Some b :=
-  rewrite Map.getFromList b (List.map (box => (box, box)) (List.range n)) in lookupRange b n 0 omega h
+theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get (Circuits.separate n).labels b = Some b :=
+  rewrite Map.getFromList b (List.map (List.range n) (box => (box, box))) in lookupRange b n 0 omega h
 
 theorem labelAtStart (n: Nat) (b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b := rewrite storedAtStart n b h in rfl
 
@@ -133,11 +133,11 @@ theorem joinDiffers (c: Circuits) (f: Nat) (s: Nat) (differ: (c.labelOf f == c.l
   rewrite differ in rfl
 
 -- The new labels: the old ones, relabelled.
-theorem movedStored (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) -> b < n -> Map.get b c.labels = Some (c.labelOf b))
-    (b: Nat) (h: b < n): Map.get b (moved c f s).labels = Some (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) :=
-  rewrite Map.getMap (relabel (c.labelOf f) (c.labelOf s)) b c.labels, stored b h in rfl
+theorem movedStored (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) -> b < n -> Map.get c.labels b = Some (c.labelOf b))
+    (b: Nat) (h: b < n): Map.get (moved c f s).labels b = Some (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) :=
+  rewrite Map.getMap c.labels b (relabel (c.labelOf f) (c.labelOf s)), stored b h in rfl
 
-theorem movedLabel (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) -> b < n -> Map.get b c.labels = Some (c.labelOf b))
+theorem movedLabel (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) -> b < n -> Map.get c.labels b = Some (c.labelOf b))
     (b: Nat) (h: b < n): (moved c f s).labelOf b = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b) :=
   rewrite movedStored c f s n stored b h in rfl
 
@@ -193,7 +193,7 @@ theorem labelledJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
 
 -- Joining a list of connections keeps them.
 theorem labelledJoinAll (n: Nat): (rest: List (Nat, Nat)) -> (done: List (Nat, Nat)) -> (c: Circuits) ->
-    List.all (boxesBelow n) rest = True -> Labelled n done c ->
+    List.all rest (boxesBelow n) = True -> Labelled n done c ->
     Labelled n (List.append done rest) (joinAll c rest)
   | Nil, done, c, ok, inv => rewrite List.appendNil done in inv
   | Cons (f, s) rest, done, c, ok, inv =>
@@ -218,6 +218,6 @@ theorem labelsTellOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labell
 
 -- After joining any connections between the boxes 0 to n - 1, in order, two
 -- of the boxes have the same label exactly when the connections join them.
-theorem labelsTell (n: Nat) (connections: List (Nat, Nat)) (ok: List.all (boxesBelow n) connections = True):
+theorem labelsTell (n: Nat) (connections: List (Nat, Nat)) (ok: List.all connections (boxesBelow n) = True):
     Tells n connections (a b => (joinAll (Circuits.separate n) connections).labelOf a == (joinAll (Circuits.separate n) connections).labelOf b) :=
   labelsTellOf n connections (joinAll (Circuits.separate n) connections) (labelledJoinAll n connections Nil (Circuits.separate n) ok (labelledAtStart n))

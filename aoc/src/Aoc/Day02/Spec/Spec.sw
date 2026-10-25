@@ -7,7 +7,7 @@ import Aoc.Common (Range)
 import Std (List, Nat)
 
 -- The digits are some block of k digits written n times.
-def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (List.take k ds)) == ds
+def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (List.take ds k)) == ds
 
 -- Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=

@@ -52,7 +52,7 @@ def area (corner: Tile) (opposite: Tile): Nat := (Nat.absDiff corner.x opposite.
 def pairArea (corners: (Tile, Tile)): Nat := area corners.fst corners.snd
 
 -- The largest of some areas, 0 if there are none.
-def largest (areas: List Nat): Nat := areas.foldLeft Nat.max 0
+def largest (areas: List Nat): Nat := areas.foldLeft 0 Nat.max
 
 -- Part 1: the largest rectangle with two red tiles as opposite corners.
 def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> largest
@@ -61,7 +61,7 @@ def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> larges
 
 -- The lines of the loop: from each red tile to the next, and from the last
 -- back to the first.
-def loopLines (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop 1 tiles) (List.take 1 tiles))
+def loopLines (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop tiles 1) (List.take tiles 1))
 
 -- `value` is from `one` to `other`, in either order.
 def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value <= other) || (other <= value && value <= one)

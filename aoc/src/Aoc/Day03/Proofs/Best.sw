@@ -25,23 +25,23 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 -- does at least as well.
 
 -- Digits as numbers are digits.
-theorem finDigits: (ds: List Battery) -> Nat.Digits (List.map Fin.toNat ds)
+theorem finDigits: (ds: List Battery) -> Nat.Digits (List.map ds Fin.toNat)
   | Nil => Trivial
   | Cons d ds => Both (Fin.toNatLt d) (finDigits ds)
 
 theorem mapLength (s: List Battery) (r: List Battery) (hl: s.length = r.length):
-    List.length (List.map Fin.toNat s) = List.length (List.map Fin.toNat r) :=
-  rewrite List.lengthMap Fin.toNat s, List.lengthMap Fin.toNat r in hl
+    List.length (List.map s Fin.toNat) = List.length (List.map r Fin.toNat) :=
+  rewrite List.lengthMap s Fin.toNat, List.lengthMap r Fin.toNat in hl
 
 -- Equal-length numbers: a smaller first digit gives a smaller number.
 theorem joltageOfHeadLess (y: Battery) (t: Battery) (s: List Battery) (r: List Battery) (hl: s.length = r.length)
     (h: y.toNat < t.toNat): joltageOf (Cons y s) <= joltageOf (Cons t r) :=
-  Nat.fromDigitsHeadLess y.toNat t.toNat (List.map Fin.toNat s) (List.map Fin.toNat r) (mapLength s r hl) (finDigits s) h
+  Nat.fromDigitsHeadLess y.toNat t.toNat (List.map s Fin.toNat) (List.map r Fin.toNat) (mapLength s r hl) (finDigits s) h
 
 -- Equal-length numbers with the same first digit: the rest decides.
 theorem joltageOfConsLe (c: Battery) (s: List Battery) (r: List Battery) (hl: s.length = r.length)
     (h: joltageOf s <= joltageOf r): joltageOf (Cons c s) <= joltageOf (Cons c r) :=
-  Nat.fromDigitsConsLe c.toNat (List.map Fin.toNat s) (List.map Fin.toNat r) (mapLength s r hl) h
+  Nat.fromDigitsConsLe c.toNat (List.map s Fin.toNat) (List.map r Fin.toNat) (mapLength s r hl) h
 
 -- What `pick` returns.
 theorem pickGe: (w: Nat) -> (xs: Bank) -> (c: Battery) -> (after: Bank) -> c.toNat <= Fin.toNat (Pair.fst (Bank.best.pick w xs c after))
