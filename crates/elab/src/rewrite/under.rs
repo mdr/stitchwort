@@ -704,9 +704,9 @@ mod tests {
             .stack_size(256 << 20)
             .spawn(move || {
                 let mut sources = SourceMap::new();
-                let file = sources.add("<prelude>", crate::PRELUDE);
-                let core =
-                    stitchwort_syntax::parse_module(file, crate::PRELUDE).expect("the core parses");
+                let file = sources.add("<prelude>", crate::prelude());
+                let core = stitchwort_syntax::parse_module(file, crate::prelude())
+                    .expect("the core parses");
                 let mut e = Elaborator::new();
                 e.loading_prelude = true;
                 let diagnostics = e.elaborate_module(&core);

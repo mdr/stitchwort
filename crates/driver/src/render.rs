@@ -49,13 +49,14 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
     let cache = ariadne::sources(
         sources
             .iter()
-            .map(|(_, file)| (file.name.clone(), file.text.clone()))
+            .map(|(_, file)| (shown_name(&file.name, &file.text), file.text.clone()))
             .chain({
                 let mut start = 0;
-                stitchwort_elab::CORE_LAYOUT.iter().map(move |(path, len)| {
-                    let text = stitchwort_elab::PRELUDE[start..start + len].to_owned();
+                let std = stitchwort_elab::std_text();
+                std.core_layout.iter().map(move |(path, len)| {
+                    let text = std.prelude[start..start + len].to_owned();
                     start += len;
-                    (format!("std/{path}"), text)
+                    (std.shown_path(path), text)
                 })
             }),
     );
@@ -140,18 +141,33 @@ fn indent_continuations(out: &str, message: &str) -> String {
 /// core, the name of the file of the core it is in, and the range within it.
 fn place(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, std::ops::Range<usize>) {
     let file = sources.get(span.file);
+    let std = stitchwort_elab::std_text();
     // The core is a prefix of the prelude file: tests append to it.
     if file.name == "<prelude>"
-        && file.text.starts_with(stitchwort_elab::PRELUDE)
-        && (span.end as usize) <= stitchwort_elab::PRELUDE.len()
+        && file.text.starts_with(std.prelude)
+        && (span.end as usize) <= std.prelude.len()
     {
         let (path, start, _) = stitchwort_elab::core_file_at(span.start as usize);
         return (
-            format!("std/{path}"),
+            std.shown_path(path),
             (span.start as usize - start)..(span.end as usize - start),
         );
     }
-    (file.name.clone(), span.range())
+    (shown_name(&file.name, &file.text), span.range())
+}
+
+/// The name a source file is shown by: a library file's (`std/List/Sort.sw`
+/// in the session) is its path on disk when the library is read from a
+/// directory (`STITCHWORT_STD_DIR`), so an editor can jump to it.
+fn shown_name(name: &str, text: &str) -> String {
+    let std = stitchwort_elab::std_text();
+    if std.dir.is_some()
+        && let Some(path) = name.strip_prefix("std/")
+        && std.library.iter().any(|(p, t)| *p == path && *t == text)
+    {
+        return std.shown_path(path);
+    }
+    name.to_string()
 }
 
 #[cfg(test)]

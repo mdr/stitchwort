@@ -2,12 +2,13 @@
 //! (file, line, labels), not as a debug dump of byte offsets.
 
 use stitchwort_driver::driver::Session;
-use stitchwort_elab::PRELUDE;
+use stitchwort_elab::prelude;
 
 #[test]
 fn a_duplicate_prelude_declaration_names_both_places() {
     let prelude = format!(
-        "{PRELUDE}\ndef Nat.digitsOnto (fuel : Nat) (n : Nat) (acc : List Char) : List Char := acc\n"
+        "{}\ndef Nat.digitsOnto (fuel : Nat) (n : Nat) (acc : List Char) : List Char := acc\n",
+        prelude()
     );
     let Err(report) = Session::try_with_prelude(&prelude) else {
         panic!("a duplicate declaration should not check");

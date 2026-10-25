@@ -9,7 +9,7 @@
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::{Builtin, Kind, check_complete};
 use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
-use stitchwort_elab::PRELUDE;
+use stitchwort_elab::prelude;
 use stitchwort_syntax::SourceMap;
 
 /// Stack for loading the whole library: this test also runs in the gate's
@@ -60,7 +60,7 @@ fn prelude_binds_every_builtin() {
 #[test]
 fn a_prelude_without_a_builtin_is_refused_before_user_code() {
     // The prelude loads, but doesn't declare `IO.simulate`.
-    let prelude = PRELUDE.replace("IO.simulate", "IO.simulateRenamed");
+    let prelude = prelude().replace("IO.simulate", "IO.simulateRenamed");
     let mut session = Session {
         sources: SourceMap::new(),
         elab: stitchwort_elab::Elaborator::new(),

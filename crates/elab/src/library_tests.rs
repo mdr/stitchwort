@@ -11,7 +11,7 @@ use crate::library::{IndexedFile, LibraryIndex, file_names};
 use crate::module::{Ref, decl_refs, result_head};
 use crate::project::grouped;
 use crate::scope::{self, Resolved};
-use crate::{Elaborator, Global, PRELUDE};
+use crate::{Elaborator, Global, prelude};
 
 /// One declaration of the core (a signature with its equations, a data
 /// type, an ability), for the closure report.
@@ -200,7 +200,7 @@ fn core_closure(index: &LibraryIndex, units: &[Unit]) -> BTreeSet<usize> {
 fn closure_report() {
     let text = match std::env::var("PRELUDE_REPORT") {
         Ok(path) => std::fs::read_to_string(path).expect("the prelude to report on"),
-        Err(_) => PRELUDE.to_string(),
+        Err(_) => prelude().to_string(),
     };
     let index = LibraryIndex::build(&text, &[], 8 << 20).expect("index");
     let units = units(&index, 0);

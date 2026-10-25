@@ -7,7 +7,7 @@ use stitchwort_core::native::{self, Native};
 use stitchwort_core::value::{apply, conv, eval, force, quote};
 use stitchwort_core::{BigUint, DefId, Globals, Term, Value};
 use stitchwort_driver::driver::Session;
-use stitchwort_elab::{Elaborator, PRELUDE};
+use stitchwort_elab::{Elaborator, prelude};
 use stitchwort_syntax::{SourceMap, parse_module};
 
 fn def(g: &Globals, name: &str) -> DefId {
@@ -245,7 +245,7 @@ fn as_prelude(source: &str) -> Vec<&'static str> {
 
 #[test]
 fn the_real_prelude_registers_every_native() {
-    assert_eq!(as_prelude(PRELUDE), Vec::<&str>::new());
+    assert_eq!(as_prelude(prelude()), Vec::<&str>::new());
     let session = Session::new();
     let g = &session.elab.globals;
     for op in Native::ALL {

@@ -26,7 +26,7 @@ use std::time::{Duration, SystemTime};
 
 use stitchwort_elab::cache::{Key, Store};
 
-use crate::driver::FINGERPRINT;
+use crate::driver::build_fingerprint;
 
 /// How long entries of other builds are kept.
 pub(crate) const GRACE: Duration = Duration::from_secs(24 * 60 * 60);
@@ -48,14 +48,19 @@ impl CheckCache {
         let salt = salt(&dir);
         CheckCache {
             dir,
-            compiler: format!("stitchwort-{}-{FINGERPRINT}", env!("CARGO_PKG_VERSION")),
+            compiler: format!(
+                "stitchwort-{}-{}",
+                env!("CARGO_PKG_VERSION"),
+                build_fingerprint()
+            ),
             salt,
             written: Cell::new(false),
         }
     }
 
     fn file(&self, unit: &str, key: &Key) -> PathBuf {
-        self.dir.join(format!("{FINGERPRINT}-{unit}-{}", hex(key)))
+        self.dir
+            .join(format!("{}-{unit}-{}", build_fingerprint(), hex(key)))
     }
 
     /// Deletes this unit's other entries for this build, and on the first
@@ -66,7 +71,7 @@ impl CheckCache {
         let Ok(entries) = std::fs::read_dir(&self.dir) else {
             return;
         };
-        let own = format!("{FINGERPRINT}-{unit}-");
+        let own = format!("{}-{unit}-", build_fingerprint());
         let now = SystemTime::now();
         for entry in entries.flatten() {
             let path = entry.path();
@@ -78,7 +83,7 @@ impl CheckCache {
             }
             let stale = name.starts_with(&own)
                 || (first
-                    && !name.starts_with(&format!("{FINGERPRINT}-"))
+                    && !name.starts_with(&format!("{}-", build_fingerprint()))
                     && entry
                         .metadata()
                         .and_then(|m| m.modified())

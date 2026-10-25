@@ -48,6 +48,26 @@ For `dev/t examples` and `dev/t hashes`, `dev/t AREA FILTER` sets `EXAMPLES=FILT
 
 Random tests use fixed seeds, so every run tests the same cases and a failure can always be reproduced.
 
+## Editing the standard library
+
+The standard library (`crates/elab/src/std/**`) is embedded in the binary, so normally an edit to it needs a rebuild before `stitchwort` or a test binary sees it. To skip the rebuild, point the compiler at the source tree:
+
+```sh
+export STITCHWORT_STD_DIR=$PWD/crates/elab/src/std   # or: stitchwort --std-dir crates/elab/src/std run …
+target/release/stitchwort run prog.sw              # sees the edited std; no cargo build
+target/release/deps/std_library-<hash> loads       # an already built test binary, filtered
+```
+
+- Run binaries that are already built (`target/release/stitchwort`, `target/release/deps/<test>-<hash>`). `cargo run` and `cargo test` still rebuild the elaborator, because the embedded copy changed.
+- The directory is read once, when a process first uses the library. Library files are every `.sw` file outside `core/`, so a new one is picked up; the core's files are read in the order the build lists (`core_files!` in `crates/elab/src/lib.rs`), so a new core file needs a rebuild.
+- The caches stay correct: the check cache's keys hash each library file's text as read, and with the variable set the test-result cache's build fingerprint also hashes the library's text (`build_fingerprint` in `crates/driver/src/driver.rs`).
+- An error in a library file names its path on disk (`…/crates/elab/src/std/Nat/Iterate.sw:12:3`), so an editor can jump to it.
+- The language server reads the library when it starts: restart it after editing std.
+- The hash snapshots (`hash_stability`) and `std_library` print which copy they use (`std from …` or `embedded std`). Snapshots taken with the variable set are of the edited library; rebuild and rerun without it before committing.
+- Release builds, the WebAssembly playground and `nix build` use the embedded copy unless the variable or flag is set; WebAssembly never reads it.
+
+Lanes working on std: set `STITCHWORT_STD_DIR` in the shell for the session, build `stitchwort` once, and iterate with the built binary.
+
 ## Running
 
 ```sh

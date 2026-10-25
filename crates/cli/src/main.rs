@@ -20,6 +20,12 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 struct Cli {
     #[command(subcommand)]
     command: Command,
+    /// Read the standard library from this directory (laid out as
+    /// `crates/elab/src/std`) instead of the copy built in, so edits to it
+    /// take effect without a rebuild. The environment variable
+    /// `STITCHWORT_STD_DIR` does the same; this wins
+    #[arg(long, global = true, value_name = "DIR")]
+    std_dir: Option<PathBuf>,
 }
 
 /// A session for the compiler thread.
@@ -253,6 +259,12 @@ fn exit_quietly_on_broken_pipe() {
 fn main() -> ExitCode {
     exit_quietly_on_broken_pipe();
     let cli = Cli::parse();
+    if let Some(dir) = &cli.std_dir
+        && let Err(e) = stitchwort_elab::use_std_dir(dir)
+    {
+        eprintln!("error: {e}");
+        return ExitCode::FAILURE;
+    }
     stitchwort_cli::driver::with_stack(STACK, move || {
         stitchwort_elab::timings::start();
         let code = run(cli);
@@ -282,7 +294,7 @@ fn run(cli: Cli) -> ExitCode {
                 ExitCode::SUCCESS
             }
             None => {
-                eprintln!("error: there's no embedded library file `{path}`");
+                eprintln!("error: there's no standard library file `{path}`");
                 ExitCode::FAILURE
             }
         },

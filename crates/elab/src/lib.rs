@@ -59,9 +59,11 @@ mod scope;
 mod shared;
 pub mod shown;
 pub mod timings;
-pub use library::{LIBRARY_FILES, LibraryIndex};
+pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
+pub mod std_dir;
 pub use rewind::Mark;
 pub use scope::edit_distance;
+pub use std_dir::{STD_DIR_VAR, StdText, std_text, use_std_dir};
 mod undo;
 mod unify;
 
@@ -85,19 +87,40 @@ use stitchwort_syntax::{Diagnostic, Span, ast};
 use check::{Ctx, check, check_type, infer};
 use module::Phase;
 
-/// Defines [`PRELUDE`], the core: the files of `std/core/`, in this order,
-/// joined as they are (checked as one module, so declarations are as they
-/// would be in one file), and [`CORE_LAYOUT`], each file's path and length,
-/// which is how a position in the core is traced to its file. The text is in
-/// the program once: a length is computed without keeping the text.
+/// Defines [`EMBEDDED_PRELUDE`], the core as the build embeds it: the files
+/// of `std/core/`, in this order, joined as they are (checked as one module,
+/// so declarations are as they would be in one file); [`EMBEDDED_CORE_LAYOUT`],
+/// each file's path and length, which is how a position in the core is traced
+/// to its file; and [`CORE_FILES`], their names in order. The text is in the
+/// program once: a length is computed without keeping the text. What a
+/// process uses is [`prelude`] and [`core_layout`], which may be read from a
+/// directory instead ([`std_dir`]).
 macro_rules! core_files {
     ($($name:literal),* $(,)?) => {
-        pub const PRELUDE: &str = concat!($(include_str!(concat!("std/core/", $name, ".sw"))),*);
-        pub const CORE_LAYOUT: &[(&str, usize)] = &[$((
+        pub const EMBEDDED_PRELUDE: &str = concat!($(include_str!(concat!("std/core/", $name, ".sw"))),*);
+        pub const EMBEDDED_CORE_LAYOUT: &[(&str, usize)] = &[$((
             concat!("core/", $name, ".sw"),
             include_str!(concat!("std/core/", $name, ".sw")).len(),
         )),*];
+        pub const CORE_FILES: &[&str] = &[$($name),*];
     };
+}
+
+/// The core's text this process uses: the files of `std/core/`, joined
+/// (embedded, or read from `STITCHWORT_STD_DIR`; see [`std_dir`]).
+pub fn prelude() -> &'static str {
+    std_text().prelude
+}
+
+/// Each core file's path under `std/` and length, in order, for [`prelude`].
+pub fn core_layout() -> &'static [(&'static str, usize)] {
+    std_text().core_layout
+}
+
+/// The library files this process uses, `(path under std/, text)`, sorted
+/// by path.
+pub fn library_files() -> &'static [(&'static str, &'static str)] {
+    std_text().library
 }
 
 // Dependency order: each file uses only what the files before it declare.
@@ -129,13 +152,14 @@ core_files!(
     "AddMul",
 );
 
-/// The core's file that holds `offset` of [`PRELUDE`]: its path (under
-/// `std/`), where it starts in [`PRELUDE`], and its index in
-/// [`CORE_LAYOUT`].
+/// The core's file that holds `offset` of [`prelude`]: its path (under
+/// `std/`), where it starts in [`prelude`], and its index in
+/// [`core_layout`].
 pub fn core_file_at(offset: usize) -> (&'static str, usize, usize) {
     let mut start = 0;
-    for (i, (path, len)) in CORE_LAYOUT.iter().enumerate() {
-        if offset < start + len || i + 1 == CORE_LAYOUT.len() {
+    let layout = core_layout();
+    for (i, (path, len)) in layout.iter().enumerate() {
+        if offset < start + len || i + 1 == layout.len() {
             return (path, start, i);
         }
         start += len;

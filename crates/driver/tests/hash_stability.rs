@@ -56,6 +56,8 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
 /// leaves this unchanged (docs/proposals/std-library.md §4.8).
 #[test]
 fn prelude() {
+    // The snapshot is of the library this run reads (`STITCHWORT_STD_DIR`).
+    eprintln!("hash_stability: {}", stitchwort_elab::std_text().mode());
     let session = Session::eager();
     let text = lines(&session, 0, 0);
     let mut sorted: Vec<&str> = text.lines().collect();

@@ -4269,10 +4269,10 @@ fn only_text_keyed_maps_cross_as_objects() {
 /// The prelude with `from` replaced by `to`, which must occur.
 fn changed_prelude(from: &str, to: &str) -> String {
     assert!(
-        stitchwort_elab::PRELUDE.contains(from),
+        stitchwort_elab::prelude().contains(from),
         "the prelude doesn't contain `{from}`"
     );
-    stitchwort_elab::PRELUDE.replacen(from, to, 1)
+    stitchwort_elab::prelude().replacen(from, to, 1)
 }
 
 /// A type with a built-in boundary form (`Bool` is `boolean`, `Option T` is
