@@ -1,5 +1,5 @@
 {
-  "next": 490,
+  "next": 494,
   "tickets": [
     {
       "id": 13,
@@ -2966,7 +2966,7 @@
     {
       "id": 483,
       "title": "Revise terminal-io.md: Terminal as a library ability with Terminal.toIO over basic IO ops (raw mode, read bytes, write, size) (D1246); after the partial-handlers note. Decided: D1247 whole-frame draw for now (finer control later if needed), D1248 Ctrl-C stops the program",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3043,6 +3043,54 @@
       "id": 489,
       "title": "Partial handlers lane D: divergence index on {A | e} rows; std handlers take partial code (D1255)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 490,
+      "title": "Terminal note draft 2: Terminal as a std library ability over basic IO host ops (D1246 revised, D1247, D1248, D1254–D1256); random seed renumbered D1258",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 491,
+      "title": "Native bring-up: debug allocation trace (alloc/reuse/inc/dec/free) in the machine",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 492,
+      "title": "Native: N1 coverage census (opcode use, whole-island fit) over benchmarks, AoC, rogue",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 493,
+      "title": "Proof goals print top-level constants unfolded (rogue: 30 KB goals); keep names folded",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
