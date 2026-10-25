@@ -190,6 +190,13 @@ tasks:
     cmds:
       - cargo run --release -p stitchwort-bench -- --update
 
+  native:handwritten:
+    desc: 'Hand-written native experiment (bench/native/handwritten): release build, every mode at 1,000,000 keys'
+    cmds:
+      - cargo build --release --manifest-path bench/native/handwritten/Cargo.toml --bins
+      - for m in uniform ir typed; do echo "== $m"; bench/native/handwritten/target/release/setexp $m 1000000; done
+      - for m in uniform typed; do echo "== noinline $m"; bench/native/handwritten/target/release/noinline $m 1000000; done
+
   native:bench:
     desc: 'Native code (stage N1): the three bench/native programs at full size on the machine, --js and --native, best of 3 (a few minutes)'
     summary: |
