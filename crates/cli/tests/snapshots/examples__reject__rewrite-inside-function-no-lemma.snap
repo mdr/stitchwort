@@ -9,7 +9,7 @@ expression: output
     │           ──────┬──────  
     │                 ╰──────── looking for `?3 + 0`, which is in the goal only inside a function passed to `total`, where it uses the function's variable
     │ 
-    │ Note 1: to rewrite inside a function passed to `total`, `rewrite` needs `totalCong`: `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) -> f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …` (as `List.sumByCong` does)
+    │ Note 1: to rewrite inside a function passed to `total`, `rewrite` needs `totalCong`: `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) → f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …` (as `List.sumByCong` does)
     │ 
     │ Note 2: such as `theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (arg2: List Nat) (ef: (x: Nat) → f1 x = f2 x): total f1 arg2 = total f2 arg2`
 ────╯

@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: its premise `ef` comes before the end of `total`'s parameters; the premises go after all of them
     │ 
-    │ Note 2: `weight` is called inside a function passed to `total`, so `decreasing` needs it: `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) -> f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …`
+    │ Note 2: `weight` is called inside a function passed to `total`, so `decreasing` needs it: `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) → f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …`
 ────╯
