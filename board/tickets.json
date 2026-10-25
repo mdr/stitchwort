@@ -1,5 +1,5 @@
 {
-  "next": 528,
+  "next": 531,
   "tickets": [
     {
       "id": 13,
@@ -3542,6 +3542,42 @@
     {
       "id": 527,
       "title": "Opaque defs lanes 3-4: 'is opaque' error notes; roguelike generates levels on the stairs — after lane 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 528,
+      "title": "Design note: standalone native executables via Cranelift object files + linked runtime; roguelike as target (D1286; decisions D1287+)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 529,
+      "title": "Native N3: closures (after N2a/N2b; D1285 yes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 530,
+      "title": "Native N4: effects and handlers (after N3; D1285 yes)",
       "status": "backlog",
       "agent": "",
       "where": "",
