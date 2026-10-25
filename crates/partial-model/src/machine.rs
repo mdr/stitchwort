@@ -11,11 +11,22 @@
 //! `step` never performs an operation: a `Call` that no `Tie` frame answers is
 //! returned to the caller as [`Obs::Call`], with a [`Pending`] state that the
 //! caller resumes with the reply. The machine has no access to a host.
+//!
+//! Handlers (`foldD`, `docs/proposals/partial-handlers.md` §5.1): stepping
+//! `foldD done call d` pushes a `Handle` frame and steps `d` above it. `Now v`
+//! reaching it runs `done v`; a `Later` suspends the whole machine, handler
+//! included, so it passes the handler by as one tick. *Every* operation that
+//! reaches a `Handle` frame is captured (the handler's `call` forwards what it
+//! doesn't handle), so operations never pass one: a `Tie` below a handler
+//! only sees a request after the handler has re-issued it, and an `Await`'s
+//! `upper` never contains a `Handle` frame. Capture moves the frames above the
+//! handler into the resumption; restoring moves them back, or copies them if
+//! the resumption may be called again (multi-shot).
 
 use std::cell::Cell;
 use std::rc::Rc;
 
-use crate::delay::{Comp, Cont, Delay, Kont, Node, SigMap};
+use crate::delay::{Comp, Cont, Delay, Handler, Kont, Node, SigMap};
 use crate::val::Val;
 
 #[derive(Clone)]
@@ -30,11 +41,33 @@ enum Frame {
     /// returns `v`, translate `v` back through `upper`'s `Map` frames, put
     /// `upper` back (it starts with the caller's `Tie`), and continue with
     /// `cont v`. Operations from the callee pass through it unchanged.
+    ///
+    /// Its `back` indexes `upper`, not the stack, so the frame means the same
+    /// wherever it sits: a `Handle` frame can capture it and put it back at
+    /// another depth (partial-handlers.md §5.1).
     Await {
         cont: Cont,
         upper: Vec<Frame>,
         back: Vec<(usize, Val)>,
     },
+    /// A `foldD done call`: `Now v` reaching it runs `done v`, a `Later`
+    /// passes it by (the whole machine suspends), and an operation reaching it
+    /// captures the frames above it as the resumption.
+    Handle { done: Kont, call: Handler },
+}
+
+/// What an operation reaching a `Handle` frame captured: the frames above the
+/// handler, the operation's continuation, and the `Map` frames it passed
+/// (indices into `frames`), so the reply can be translated back. Applying
+/// the resumption to `y` puts the handler and these frames back on top of the
+/// stack, wherever it is then, and continues with `cont` on `y` translated.
+#[derive(Clone)]
+pub(crate) struct Capture {
+    done: Kont,
+    call: Handler,
+    frames: Vec<Frame>,
+    cont: Cont,
+    back: Vec<(usize, Val)>,
 }
 
 #[derive(Clone)]
@@ -61,6 +94,9 @@ pub struct Work {
     /// The deepest the frame stack got: frames live on the heap, so this is
     /// memory, not host stack.
     pub peak_frames: usize,
+    /// How many times a resumption's captured frames were copied, because
+    /// the resumption could still be called again (multi-shot handlers).
+    pub copies: u64,
 }
 
 impl Work {
@@ -70,6 +106,7 @@ impl Work {
             limit: u64::MAX,
             cancel: None,
             peak_frames: 0,
+            copies: 0,
         }
     }
 
@@ -96,6 +133,14 @@ pub enum Obs {
     Later(Delay),
     /// An operation for the host. Nothing has been performed.
     Call(Val, Pending),
+}
+
+/// Where an operation went.
+enum Routed {
+    /// Out of this `step`: a tick, or an operation for the host.
+    Obs(Obs),
+    /// A handler took it; the machine continues with the handler's clause.
+    Handled(Machine),
 }
 
 /// The rest of a segment, waiting for an operation's reply.
@@ -181,6 +226,16 @@ impl Machine {
             work.peak_frames = work.peak_frames.max(self.frames.len());
             match std::mem::replace(&mut self.focus, Focus::Hole) {
                 Focus::Hole => unreachable!("the machine ran with no focus"),
+                Focus::Eval(d) if matches!(&*d.0, Node::Restore(..)) => {
+                    let Node::Restore(capture, reply) = &*d.0 else {
+                        unreachable!()
+                    };
+                    let (capture, reply) = (capture.clone(), reply.clone());
+                    // Drop the node first, so the capture is unshared if
+                    // nothing else (the resumption itself) holds it.
+                    drop(d);
+                    self.restore(capture, reply, work);
+                }
                 Focus::Eval(d) => match take(d) {
                     Taken::Machine(m) => {
                         // Resuming at the top level (the runner) is O(1).
@@ -212,15 +267,29 @@ impl Machine {
                             self.frames.push(Frame::Tie(f.clone()));
                             self.focus = Focus::Eval(inner.clone());
                         }
+                        // Entering a handler: its frame waits below the
+                        // handled computation. No tick.
+                        Node::FoldD(done, call, inner) => {
+                            self.frames.push(Frame::Handle {
+                                done: done.clone(),
+                                call: call.clone(),
+                            });
+                            self.focus = Focus::Eval(inner.clone());
+                        }
                         Node::Resume(_) => panic!("a reference-stepper state given to the machine"),
                         Node::Suspended(_) => unreachable!("handled by take"),
+                        Node::Restore(..) => unreachable!("handled above"),
                     },
                 },
                 Focus::Comp(Comp::Done(v)) => self.focus = Focus::Ret(v),
-                Focus::Comp(Comp::Call(op, cont)) => return Ok(self.route(op, cont)),
+                Focus::Comp(Comp::Call(op, cont)) => match self.route(op, cont) {
+                    Routed::Obs(obs) => return Ok(obs),
+                    Routed::Handled(m) => self = m,
+                },
                 Focus::Ret(v) => match self.frames.pop() {
                     None => return Ok(Obs::Now(v)),
                     Some(Frame::Bind(k)) => self.focus = Focus::Eval(k(v)),
+                    Some(Frame::Handle { done, .. }) => self.focus = Focus::Eval(done(v)),
                     Some(Frame::Map(_)) | Some(Frame::Tie(_)) => self.focus = Focus::Ret(v),
                     Some(Frame::Await { cont, upper, back }) => {
                         let v = translate_back(&upper, &back, v);
@@ -233,15 +302,17 @@ impl Machine {
     }
 
     /// An operation leaves the focus: pass it outwards through the frames.
-    /// Either a `Tie` answers it as a recursion request (one tick), or it
-    /// reaches the bottom and is returned to the host, unperformed.
-    fn route(self, mut op: Val, cont: Cont) -> Obs {
+    /// Either a `Handle` captures it (no tick), a `Tie` answers it as a
+    /// recursion request (one tick), or it reaches the bottom and is returned
+    /// to the host, unperformed.
+    fn route(self, mut op: Val, cont: Cont) -> Routed {
         let mut back: Vec<(usize, Val)> = Vec::new();
         let mut j = self.frames.len();
         while j > 0 {
             j -= 1;
             match &self.frames[j] {
                 Frame::Bind(_) | Frame::Await { .. } => {}
+                Frame::Handle { .. } => return Routed::Handled(self.capture(j, op, cont, back)),
                 Frame::Map(m) => {
                     let target = (m.op)(&op);
                     back.push((j, std::mem::replace(&mut op, target)));
@@ -250,26 +321,77 @@ impl Machine {
                     Val::R(o) => op = (*o).clone(),
                     Val::L(y) => {
                         let f = f.clone();
-                        return self.request(j, f, (*y).clone(), cont, back);
+                        return Routed::Obs(self.request(j, f, (*y).clone(), cont, back));
                     }
                     other => panic!("an operation outside `Plus` reached a tie: {other:?}"),
                 },
             }
         }
-        Obs::Call(
+        Routed::Obs(Obs::Call(
             op,
             Pending {
                 machine: self,
                 cont,
                 back,
             },
-        )
+        ))
+    }
+
+    /// `op` reached the `Handle` frame at `h`: take the frames above it as the
+    /// resumption `k` and continue with `call op k`, below the handler.
+    ///
+    /// The frames taken may include `Tie` and `Await` frames (the handled
+    /// program was inside a recursive call). They need no adjusting: an
+    /// `Await`'s indices are into its own `upper`, and a `Tie` holds no
+    /// position. Only `back`, the `Map` frames `op` passed, indexes the
+    /// stack, so it's rebased onto the captured slice.
+    fn capture(mut self, h: usize, op: Val, cont: Cont, back: Vec<(usize, Val)>) -> Machine {
+        let frames = self.frames.split_off(h + 1);
+        let Some(Frame::Handle { done, call }) = self.frames.pop() else {
+            unreachable!("capture at a frame that isn't a Handle")
+        };
+        let back = back
+            .into_iter()
+            .map(|(j, src)| (j - (h + 1), src))
+            .collect();
+        let capture = Rc::new(Capture {
+            done,
+            call: call.clone(),
+            frames,
+            cont,
+            back,
+        });
+        let k: Kont = Rc::new(move |y| Delay::restore(capture.clone(), y));
+        self.focus = Focus::Eval(call(op, k));
+        self
+    }
+
+    /// `k y`: put the handler and the captured frames back on top of the
+    /// stack and continue the handled program with `y`. If the resumption
+    /// may still be called again, the frames are copied (§5.2); otherwise
+    /// they're moved.
+    fn restore(&mut self, capture: Rc<Capture>, reply: Val, work: &mut Work) {
+        let capture = Rc::try_unwrap(capture).unwrap_or_else(|shared| {
+            work.copies += 1;
+            (*shared).clone()
+        });
+        let reply = translate_back(&capture.frames, &capture.back, reply);
+        self.frames.push(Frame::Handle {
+            done: capture.done,
+            call: capture.call,
+        });
+        self.frames.extend(capture.frames);
+        self.focus = Focus::Comp(capture.cont.apply(reply));
     }
 
     /// `Recur y` reached the `Tie` at `i`:
     /// `Later (bindD (pfix f y) (\v -> tie f (resume (cont v))))`.
     fn request(mut self, i: usize, f: Kont, y: Val, cont: Cont, back: Vec<(usize, Val)>) -> Obs {
         let upper = self.frames.split_off(i);
+        debug_assert!(
+            !upper.iter().any(|f| matches!(f, Frame::Handle { .. })),
+            "a request passed a handler"
+        );
         let tail = upper.len() == 1 && cont.is_done() && back.is_empty();
         if !tail {
             let back = back.into_iter().map(|(j, src)| (j - i, src)).collect();

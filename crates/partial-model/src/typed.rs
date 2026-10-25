@@ -68,7 +68,7 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use crate::delay::{Comp, Delay, SigMap};
+use crate::delay::{Comp, Delay, Handler, Kont, SigMap};
 use crate::runner::{FOREIGN, PRINT, READ_LINE};
 use crate::val::Val;
 
@@ -294,4 +294,56 @@ pub fn read_line<S: HasHost>() -> D<S, Option<String>> {
 /// `step` itself.
 pub fn foreign<S: HasHost>(name: &str, arg: u64) -> D<S, u64> {
     host_op(Val::tag(FOREIGN, Val::pair(Val::text(name), Val::Nat(arg))))
+}
+
+// --- Handlers around partial code (partial-handlers.md) ---------------------
+
+/// An operation already injected into the row `S` (the caller vouches for
+/// the injection, as for [`map_sig`]: the model doesn't type operations).
+pub fn perform<S: Sig, A: Repr>(op: Val) -> D<S, A> {
+    D::from_raw(Delay::lift(Comp::op(op)))
+}
+
+/// A resumption `k`: the rest of the handled program, still under the
+/// handler. Its argument is the operation's reply.
+pub type Resume<S, B> = Rc<dyn Fn(Val) -> D<S, B>>;
+
+/// `foldD done call d`. The result is a `D` again: a handler around partial
+/// code is partial.
+pub fn fold_d<S1: Sig, S2: Sig, A: Repr, B: Repr>(
+    done: impl Fn(A) -> D<S2, B> + 'static,
+    call: impl Fn(Val, Resume<S2, B>) -> D<S2, B> + 'static,
+    d: D<S1, A>,
+) -> D<S2, B> {
+    let done: Kont = Rc::new(move |v| done(A::from_val(v)).raw);
+    let call: Handler = Rc::new(move |o, k: Kont| {
+        let k: Resume<S2, B> = Rc::new(move |y| D::from_raw(k(y)));
+        call(o, k).raw
+    });
+    D::from_raw(Delay::fold_d(done, call, d.raw))
+}
+
+/// Forward an operation the handler doesn't handle: perform it outside, and
+/// resume with its reply. `bindD (lift (Call o Done)) k`.
+pub fn forward<E: Sig, B: Repr>(o: Val, k: Resume<E, B>) -> D<E, B> {
+    D::from_raw(Delay::bind(Delay::lift(Comp::op(o)), move |y| k(y).raw))
+}
+
+/// `handle d with …` for an ability `A` in `{A | e}`, as the elaborator builds
+/// it: `A`'s operations (left) go to `clause`, and the rest are forwarded
+/// (`handlePlus`).
+pub fn handle<A: Sig, E: Sig, X: Repr, B: Repr>(
+    done: impl Fn(X) -> D<E, B> + 'static,
+    clause: impl Fn(Val, Resume<E, B>) -> D<E, B> + 'static,
+    d: D<Plus<A, E>, X>,
+) -> D<E, B> {
+    fold_d(
+        done,
+        move |o, k| match o {
+            Val::L(a) => clause((*a).clone(), k),
+            Val::R(o) => forward((*o).clone(), k),
+            other => panic!("an operation outside `Plus` reached a handler: {other:?}"),
+        },
+        d,
+    )
 }

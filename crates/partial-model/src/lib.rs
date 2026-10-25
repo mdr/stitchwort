@@ -7,7 +7,12 @@
 //! suspended states, operation traces, stack behaviour, and where host
 //! operations run.
 //!
-//! - [`delay`]: `Comp`, `Delay` and the five kernel constants.
+//! It also models the handler fold `foldD` of
+//! `docs/proposals/partial-handlers.md` (§2.3 and §5): its equations in
+//! [`reference`], and in [`machine`] a `Handle` frame, capture at an
+//! operation, and copying when a resumption may be used again.
+//!
+//! - [`delay`]: `Comp`, `Delay`, the five kernel constants and `foldD`.
 //! - [`reference`]: the stepping equations, transcribed literally (the spec).
 //! - [`machine`]: a stack-safe abstract machine implementing them.
 //! - [`runner`]: the runner (performs operations, counts ticks, enforces

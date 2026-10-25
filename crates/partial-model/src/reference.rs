@@ -20,10 +20,20 @@
 //! tieSeg f (Call (R o) r)          = Call o (\x -> tieSeg f (r x))
 //! tieSeg f (Call (L (Recur y)) r)  = Done (Later (bindD (pfix f y) (\v -> tie f (resume (r v)))))
 //! ```
+//!
+//! And the handler fold of `docs/proposals/partial-handlers.md` §2.3:
+//!
+//! ```text
+//! step (foldD done call d) = foldSeg done call (step d)
+//!
+//! foldSeg done call (Done (Now v))    = step (done v)
+//! foldSeg done call (Done (Later d')) = Done (Later (foldD done call d'))
+//! foldSeg done call (Call o r)        = step (call o (\y -> foldD done call (resume (r y))))
+//! ```
 
 use std::rc::Rc;
 
-use crate::delay::{Comp, Delay, Kont, Node, SigMap};
+use crate::delay::{Comp, Delay, Handler, Kont, Node, SigMap};
 use crate::val::Val;
 
 /// A segment: `Comp op res (Next a (Delay op res a))`.
@@ -60,9 +70,12 @@ pub fn step(rules: Rules, d: &Delay) -> Seg {
                 Seg::Later(Delay::tie(f.clone(), body))
             }
         },
+        Node::FoldD(done, call, d) => fold_seg(rules, done.clone(), call.clone(), step(rules, d)),
         Node::Tie(f, d) => tie_seg(f.clone(), step(rules, d)),
         Node::Resume(s) => s.clone(),
-        Node::Suspended(_) => panic!("a machine state given to the reference stepper"),
+        Node::Suspended(_) | Node::Restore(..) => {
+            panic!("a machine state given to the reference stepper")
+        }
     }
 }
 
@@ -108,5 +121,20 @@ fn tie_seg(f: Kont, s: Seg) -> Seg {
             Seg::Later(Delay::bind(Delay::pfix(f, (*y).clone()), rest))
         }
         Seg::Call(o, _) => panic!("a description made an operation outside `Plus`: {o:?}"),
+    }
+}
+
+/// `foldSeg done call s`. The handler adds no tick: a `Later` passes through
+/// as exactly one `Later`, still under the handler.
+fn fold_seg(rules: Rules, done: Kont, call: Handler, s: Seg) -> Seg {
+    match s {
+        Seg::Now(v) => step(rules, &done(v)),
+        Seg::Later(d) => Seg::Later(Delay::fold_d(done, call, d)),
+        Seg::Call(o, r) => {
+            let (done2, call2) = (done.clone(), call.clone());
+            let k: Kont =
+                Rc::new(move |y| Delay::fold_d(done2.clone(), call2.clone(), Delay::resume(r(y))));
+            step(rules, &call(o, k))
+        }
     }
 }

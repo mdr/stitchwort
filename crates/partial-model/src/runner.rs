@@ -133,6 +133,8 @@ pub struct Report {
     pub steps: u64,
     pub work: u64,
     pub peak_frames: usize,
+    /// Copies of a resumption's captured frames (multi-shot handlers).
+    pub copies: u64,
     pub trace: Vec<Event>,
 }
 
@@ -144,6 +146,7 @@ pub fn run(d: Delay, host: &mut dyn Perform, policy: &Policy) -> Report {
         steps: 0,
         work: 0,
         peak_frames: 0,
+        copies: 0,
         trace: Vec::new(),
     };
     let mut output = 0usize;
@@ -154,6 +157,7 @@ pub fn run(d: Delay, host: &mut dyn Perform, policy: &Policy) -> Report {
             limit: policy.max_work_per_step,
             cancel: policy.cancel.clone(),
             peak_frames: 0,
+            copies: 0,
         };
         r.steps += 1;
         let mut obs = machine::step(d, &mut work);
@@ -186,11 +190,13 @@ pub fn run(d: Delay, host: &mut dyn Perform, policy: &Policy) -> Report {
                 }
                 Ok(Obs::Now(v)) => {
                     r.work += work.used;
+                    r.copies += work.copies;
                     r.peak_frames = r.peak_frames.max(work.peak_frames);
                     break 'outer Outcome::Finished(v);
                 }
                 Ok(Obs::Later(rest)) => {
                     r.work += work.used;
+                    r.copies += work.copies;
                     r.peak_frames = r.peak_frames.max(work.peak_frames);
                     if policy.max_ticks.is_some_and(|max| r.ticks >= max) {
                         break 'outer Outcome::OutOfTicks;
@@ -217,6 +223,7 @@ pub fn run_reference(rules: Rules, d: Delay, host: &mut dyn Perform, max_ticks: 
         steps: 0,
         work: 0,
         peak_frames: 0,
+        copies: 0,
         trace: Vec::new(),
     };
     let mut d = d;
