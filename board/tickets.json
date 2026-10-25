@@ -1,5 +1,5 @@
 {
-  "next": 486,
+  "next": 490,
   "tickets": [
     {
       "id": 13,
@@ -2991,6 +2991,54 @@
       "id": 485,
       "title": "Native N0: Cranelift spike behind a feature; counters, tail calls, deep recursion, compile time, binary size, macOS signing/hardened JIT (D1250, D1251)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 486,
+      "title": "Partial handlers lane A: foldD in partial-model with traces (D1254–D1256)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 487,
+      "title": "Partial handlers lane B: kernel foldD, reference runner, elaborator (D1254)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 488,
+      "title": "Partial handlers lane C: native and JS runners for foldD, stack tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 489,
+      "title": "Partial handlers lane D: divergence index on {A | e} rows; std handlers take partial code (D1255)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
