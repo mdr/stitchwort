@@ -724,7 +724,7 @@ define(info$Main$dNatPair, [
   ["MkNatPair", [["left", NAT], ["right", NAT]]],
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dNat$dpred = (v0) => {
   if (v0 === 0n) {
     return 0n;
@@ -753,7 +753,7 @@ const $Main$dswap = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dzipSum = (v0) => (v1) => {
+const $Main$dzipSum = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -772,7 +772,7 @@ const $Main$dzipSum = (v0) => (v1) => {
           case "Cons": {
             const v4 = v1.head;
             const v5 = v1.tail;
-            const c1$ = { tag: "Cons", head: $Std$dNat$dadd(v2)(v4), tail: null };
+            const c1$ = { tag: "Cons", head: $Std$dNat$dadd(v2, v4), tail: null };
             if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
             l$ = c1$; k$ = "tail";
             s0 = v3;
@@ -831,7 +831,7 @@ function $$zipSum(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$4, ty$3, arg0, "arg0");
     const v1 = decodeFast(dec$4, ty$3, arg1, "ys");
-    return encodeFast(enc$5, ty$3, $Main$dzipSum(v0)(v1));
+    return encodeFast(enc$5, ty$3, $Main$dzipSum(v0, v1));
   } catch (e) {
     throw outOfResources("zipSum", e);
   }

@@ -720,7 +720,7 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Main$disOdd = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -759,7 +759,7 @@ const $Main$disEven = (v0) => {
     }
   }
 };
-const $Main$dmapList = (v2) => (v3) => {
+const $Main$dmapList = (v2, v3) => {
   let s2 = v2, s3 = v3;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -782,8 +782,8 @@ const $Main$dmapList = (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dparities = (v0) => $Main$dmapList($Main$disEven)(v0);
-const $Main$doddShift = (v0) => (v1) => {
+const $Main$dparities = (v0) => $Main$dmapList($Main$disEven, v0);
+const $Main$doddShift = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -804,7 +804,7 @@ const $Main$doddShift = (v0) => (v1) => {
     }
   }
 };
-const $Main$devenShift = (v0) => (v1) => {
+const $Main$devenShift = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -825,10 +825,10 @@ const $Main$devenShift = (v0) => (v1) => {
     }
   }
 };
-const $Main$dshifted = (v0) => (v1) => $Main$devenShift(v0)(v1);
+const $Main$dshifted = (v0, v1) => $Main$devenShift(v0, v1);
 const $Main$dten = $Main$disEven(10n);
 const $Main$dtenIsEven = (v0) => $Main$dten;
-const $Main$dinner = (v0) => (v1) => {
+const $Main$dinner = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -852,7 +852,7 @@ const $Main$dinner = (v0) => (v1) => {
       case "Cons": {
         const v2 = v0.head;
         const v3 = v0.tail;
-        return $Std$dNat$dadd(v2)($Main$dinner(v3)(v1));
+        return $Std$dNat$dadd(v2, $Main$dinner(v3, v1));
       }
     }
     throw new Error("unreachable");
@@ -879,7 +879,7 @@ const $Main$dtotal = (v0) => {
           case "Cons": {
             const v5 = v3.head;
             const v6 = v3.tail;
-            return $Std$dNat$dadd(v5)($Main$dinner(v6)(v4));
+            return $Std$dNat$dadd(v5, $Main$dinner(v6, v4));
           }
         }
         throw new Error("unreachable");
@@ -920,7 +920,7 @@ function $$shifted(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "n");
     const v1 = decodeFast(dec$1, ty$1, arg1, "x");
-    return encodeFast(enc$5, ty$1, $Main$dshifted(v0)(v1));
+    return encodeFast(enc$5, ty$1, $Main$dshifted(v0, v1));
   } catch (e) {
     throw outOfResources("shifted", e);
   }

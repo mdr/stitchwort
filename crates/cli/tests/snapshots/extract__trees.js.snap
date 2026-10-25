@@ -725,7 +725,7 @@ define(info$Main$dTree, [
   ["Node", [["left", data(info$Main$dTree)], ["right", data(info$Main$dTree)]]],
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Main$dleaves = (v0) => {
   switch (v0.tag) {
     case "Leaf": {
@@ -734,7 +734,7 @@ const $Main$dleaves = (v0) => {
     case "Node": {
       const v1 = v0.left;
       const v2 = v0.right;
-      return $Std$dNat$dadd($Main$dleaves(v1))($Main$dleaves(v2));
+      return $Std$dNat$dadd($Main$dleaves(v1), $Main$dleaves(v2));
     }
   }
   throw new Error("unreachable");

@@ -157,6 +157,35 @@ fn closed_signature_maps_are_built_once() {
     );
 }
 
+/// A known definition called with all its runtime arguments is one call,
+/// `f(a, b)`, not one call per argument (D1173): `List.map`, `bindIn` and
+/// `doneIn` take theirs together, and so do the effect runtime's `bind` and
+/// `foldComp`.
+#[test]
+fn known_calls_pass_their_arguments_together() {
+    let js = module();
+    let def = |name: &str| {
+        js.lines()
+            .find(|l| l.starts_with(&format!("const {name} = ")))
+            .unwrap_or_else(|| panic!("{name} is generated"))
+            .to_string()
+    };
+    assert!(def("$Std$dList$dmap").ends_with(" = (v1, v3, v4) => {"));
+    assert!(def("$Std$dEffect$dbindIn").ends_with(" = (v2, v3, v4) => {"));
+    assert_eq!(
+        def("$Std$dEffect$dfoldComp"),
+        "const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);"
+    );
+    assert!(js.contains("$Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v3, v6), "));
+    for curried in [
+        "$Std$dList$dmap(v1)(",
+        "$Std$dEffect$dbindIn(v1)(",
+        "$Std$dEffect$dbind(v3)(",
+    ] {
+        assert!(!js.contains(curried), "{curried}");
+    }
+}
+
 /// The runtime's work grows linearly: run-loop steps, pushes and pops of
 /// pending continuations, and resumptions per element are the same at
 /// 1,000, 10,000 and 100,000 elements (so nothing rebuilds a pending list or

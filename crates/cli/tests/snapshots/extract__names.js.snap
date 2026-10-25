@@ -741,8 +741,8 @@ define(info$Main$dError, [
   ["Oops", [["tag", TEXT, false, "$tag"]]],
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dText$dappend = (a) => (b) => a + b;
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dText$dappend = (a, b) => a + b;
 const $Main$dtwiddle = (v0) => {
   switch (v0.tag) {
     case "Plain": {
@@ -770,7 +770,7 @@ const $Main$dlabelled = (v0) => {
     case "MkLabelled": {
       const v1 = v0.$tag;
       const v2 = v0.count;
-      return { tag: "MkLabelled", $tag: $Std$dText$dappend(v1)("!"), count: (v2 + 1n) };
+      return { tag: "MkLabelled", $tag: $Std$dText$dappend(v1, "!"), count: (v2 + 1n) };
     }
   }
   throw new Error("unreachable");
@@ -804,20 +804,20 @@ const $Main$dtagged = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$denter = (v0) => (v1) => v0;
+const $Main$denter = (v0, v1) => v0;
 const $Main$ddecode = (v0) => (v0 + 1n);
-const $Main$dSet = (v0) => $Std$dNat$dadd(v0)(v0);
+const $Main$dSet = (v0) => $Std$dNat$dadd(v0, v0);
 const $Main$dBigInt = (v0) => v0;
 const $Main$dRangeError = (v0) => {
   switch (v0.tag) {
     case "Oops": {
       const v1 = v0.$tag;
-      return { tag: "Oops", $tag: $Std$dText$dappend(v1)(v1) };
+      return { tag: "Oops", $tag: $Std$dText$dappend(v1, v1) };
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dargs = (v0) => (v1) => (v2) => $Std$dNat$dadd($Std$dNat$dadd(v0)(v1))(v2);
+const $Main$dargs = (v0, v1, v2) => $Std$dNat$dadd($Std$dNat$dadd(v0, v1), v2);
 
 function $$twiddle(arg0) {
   try {
@@ -868,7 +868,7 @@ function $$enter(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$10, ty$4, arg0, "v1");
     const v1 = decodeFast(dec$10, ty$4, arg1, "v0");
-    return encodeFast(enc$6, ty$4, $Main$denter(v0)(v1));
+    return encodeFast(enc$6, ty$4, $Main$denter(v0, v1));
   } catch (e) {
     throw outOfResources("enter", e);
   }
@@ -915,7 +915,7 @@ function $$args(arg0, arg1, arg2) {
     const v0 = decodeFast(dec$10, ty$4, arg0, "a");
     const v1 = decodeFast(dec$10, ty$4, arg1, "e");
     const v2 = decodeFast(dec$10, ty$4, arg2, "c");
-    return encodeFast(enc$6, ty$4, $Main$dargs(v0)(v1)(v2));
+    return encodeFast(enc$6, ty$4, $Main$dargs(v0, v1, v2));
   } catch (e) {
     throw outOfResources("args", e);
   }

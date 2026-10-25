@@ -736,10 +736,10 @@ define(info$Main$dRoster, [
 ], true, [
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dsub = (m) => (n) => (m >= n ? m - n : 0n);
-const $Std$dNat$dmul = (m) => (n) => m * n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
+const $Std$dNat$dmul = (m, n) => m * n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -750,8 +750,8 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $Std$dList$dappend = (v1) => (v2) => {
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -805,7 +805,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dDecidable$dnot = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -817,9 +817,9 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
-const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
-const $Std$dList$dheadOr = (v1) => (v2) => {
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
+const $Std$dList$dheadOr = (v1, v2) => {
   switch (v2.tag) {
     case "Nil": {
       return v1;
@@ -845,7 +845,7 @@ const $Std$dList$dtailOf = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$ddecCons = (v1) => (v2) => (v3) => (v4) => (v5) => (v6) => {
+const $Std$dList$ddecCons = (v1, v2, v3, v4, v5, v6) => {
   switch (v5.tag) {
     case "Yes": {
       switch (v6.tag) {
@@ -864,7 +864,7 @@ const $Std$dList$ddecCons = (v1) => (v2) => (v3) => (v4) => (v5) => (v6) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$ddecEq = (v1) => (v2) => (v3) => {
+const $Std$dList$ddecEq = (v1, v2, v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
   for (;;) {
     const v1 = s1, v2 = s2, v3 = s3;
@@ -920,7 +920,7 @@ const $Std$dList$ddecEq = (v1) => (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dPair$ddecMk = (v2) => (v3) => (v4) => (v5) => (v6) => (v7) => {
+const $Std$dPair$ddecMk = (v2, v3, v4, v5, v6, v7) => {
   switch (v6.tag) {
     case "Yes": {
       switch (v7.tag) {
@@ -939,7 +939,7 @@ const $Std$dPair$ddecMk = (v2) => (v3) => (v4) => (v5) => (v6) => (v7) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dPair$ddecEq = (v2) => (v3) => (v4) => (v5) => {
+const $Std$dPair$ddecEq = (v2, v3, v4, v5) => {
   switch (v4.tag) {
     case "MkPair": {
       const v6 = v4.fst;
@@ -948,7 +948,7 @@ const $Std$dPair$ddecEq = (v2) => (v3) => (v4) => (v5) => {
         case "MkPair": {
           const v8 = v5.fst;
           const v9 = v5.snd;
-          return $Std$dPair$ddecMk(v6)(v8)(v7)(v9)((v2)(v6)(v8))((v3)(v7)(v9));
+          return $Std$dPair$ddecMk(v6, v8, v7, v9, (v2)(v6)(v8), (v3)(v7)(v9));
         }
       }
       throw new Error("unreachable");
@@ -970,7 +970,7 @@ const $Std$dOrdering$dindex = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dOrdering$ddecEq = (v0) => (v1) => {
+const $Std$dOrdering$ddecEq = (v0, v1) => {
   switch (v0.tag) {
     case "Less": {
       switch (v1.tag) {
@@ -1017,8 +1017,8 @@ const $Std$dOrdering$ddecEq = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dText$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
-const $Std$dText$dcompare = (a) => (b) => {
+const $Std$dText$ddecEq = (a, b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dText$dcompare = (a, b) => {
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
     if (a.charCodeAt(i) !== b.charCodeAt(i)) {
@@ -1031,8 +1031,8 @@ const $Std$dDecEq$d$gdecide = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dNat$dinstDecEq = $Std$dNat$ddecEq;
-const $Std$dText$dinstDecEq = $Std$dText$ddecEq;
+const $Std$dNat$dinstDecEq = ($Std$dNat$ddecEq$c ??= ($p0) => ($p1) => $Std$dNat$ddecEq($p0, $p1));
+const $Std$dText$dinstDecEq = ($Std$dText$ddecEq$c ??= ($p0) => ($p1) => $Std$dText$ddecEq($p0, $p1));
 const $Std$dOrd$d$geq = (v1) => {
   const v2 = v1.eq;
   const v3 = v1.compare;
@@ -1048,9 +1048,9 @@ const $Std$dOrd$d$gcompare = (v1) => {
   return v3;
 };
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
-const $Std$dOrd$dfromCompare = (v1) => (v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7))({ tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7))({ tag: "Greater" })))) });
-const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq)($Std$dText$dcompare);
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })))) });
+const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1073,7 +1073,7 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
+const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -1110,11 +1110,11 @@ const $Std$dMap$dTree$dsize = (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dbin = (v2) => (v3) => (v4) => (v5) => ({ tag: "Bin", size: ($Std$dNat$dadd($Std$dMap$dTree$dsize(v2))($Std$dMap$dTree$dsize(v5)) + 1n), left: v2, key: v3, value: v4, right: v5 });
-const $Std$dMap$dTree$dsingleL = (v2) => (v3) => (v4) => (v5) => {
+const $Std$dMap$dTree$dbin = (v2, v3, v4, v5) => ({ tag: "Bin", size: ($Std$dNat$dadd($Std$dMap$dTree$dsize(v2), $Std$dMap$dTree$dsize(v5)) + 1n), left: v2, key: v3, value: v4, right: v5 });
+const $Std$dMap$dTree$dsingleL = (v2, v3, v4, v5) => {
   switch (v5.tag) {
     case "Tip": {
-      return $Std$dMap$dTree$dbin(v2)(v3)(v4)({ tag: "Tip" });
+      return $Std$dMap$dTree$dbin(v2, v3, v4, { tag: "Tip" });
     }
     case "Bin": {
       const v6 = v5.size;
@@ -1122,15 +1122,15 @@ const $Std$dMap$dTree$dsingleL = (v2) => (v3) => (v4) => (v5) => {
       const v8 = v5.key;
       const v9 = v5.value;
       const v10 = v5.right;
-      return $Std$dMap$dTree$dbin($Std$dMap$dTree$dbin(v2)(v3)(v4)(v7))(v8)(v9)(v10);
+      return $Std$dMap$dTree$dbin($Std$dMap$dTree$dbin(v2, v3, v4, v7), v8, v9, v10);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$ddoubleL = (v2) => (v3) => (v4) => (v5) => {
+const $Std$dMap$dTree$ddoubleL = (v2, v3, v4, v5) => {
   switch (v5.tag) {
     case "Tip": {
-      return $Std$dMap$dTree$dbin(v2)(v3)(v4)(v5);
+      return $Std$dMap$dTree$dbin(v2, v3, v4, v5);
     }
     case "Bin": {
       const v6 = v5.size;
@@ -1140,7 +1140,7 @@ const $Std$dMap$dTree$ddoubleL = (v2) => (v3) => (v4) => (v5) => {
       const v10 = v5.right;
       switch (v7.tag) {
         case "Tip": {
-          return $Std$dMap$dTree$dbin(v2)(v3)(v4)(v5);
+          return $Std$dMap$dTree$dbin(v2, v3, v4, v5);
         }
         case "Bin": {
           const v11 = v7.size;
@@ -1148,7 +1148,7 @@ const $Std$dMap$dTree$ddoubleL = (v2) => (v3) => (v4) => (v5) => {
           const v13 = v7.key;
           const v14 = v7.value;
           const v15 = v7.right;
-          return $Std$dMap$dTree$dbin($Std$dMap$dTree$dbin(v2)(v3)(v4)(v12))(v13)(v14)($Std$dMap$dTree$dbin(v15)(v8)(v9)(v10));
+          return $Std$dMap$dTree$dbin($Std$dMap$dTree$dbin(v2, v3, v4, v12), v13, v14, $Std$dMap$dTree$dbin(v15, v8, v9, v10));
         }
       }
       throw new Error("unreachable");
@@ -1156,10 +1156,10 @@ const $Std$dMap$dTree$ddoubleL = (v2) => (v3) => (v4) => (v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dsingleR = (v2) => (v3) => (v4) => (v5) => {
+const $Std$dMap$dTree$dsingleR = (v2, v3, v4, v5) => {
   switch (v5.tag) {
     case "Tip": {
-      return $Std$dMap$dTree$dbin({ tag: "Tip" })(v2)(v3)(v4);
+      return $Std$dMap$dTree$dbin({ tag: "Tip" }, v2, v3, v4);
     }
     case "Bin": {
       const v6 = v5.size;
@@ -1167,15 +1167,15 @@ const $Std$dMap$dTree$dsingleR = (v2) => (v3) => (v4) => (v5) => {
       const v8 = v5.key;
       const v9 = v5.value;
       const v10 = v5.right;
-      return $Std$dMap$dTree$dbin(v7)(v8)(v9)($Std$dMap$dTree$dbin(v10)(v2)(v3)(v4));
+      return $Std$dMap$dTree$dbin(v7, v8, v9, $Std$dMap$dTree$dbin(v10, v2, v3, v4));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$ddoubleR = (v2) => (v3) => (v4) => (v5) => {
+const $Std$dMap$dTree$ddoubleR = (v2, v3, v4, v5) => {
   switch (v5.tag) {
     case "Tip": {
-      return $Std$dMap$dTree$dbin(v5)(v2)(v3)(v4);
+      return $Std$dMap$dTree$dbin(v5, v2, v3, v4);
     }
     case "Bin": {
       const v6 = v5.size;
@@ -1185,7 +1185,7 @@ const $Std$dMap$dTree$ddoubleR = (v2) => (v3) => (v4) => (v5) => {
       const v10 = v5.right;
       switch (v10.tag) {
         case "Tip": {
-          return $Std$dMap$dTree$dbin(v5)(v2)(v3)(v4);
+          return $Std$dMap$dTree$dbin(v5, v2, v3, v4);
         }
         case "Bin": {
           const v11 = v10.size;
@@ -1193,7 +1193,7 @@ const $Std$dMap$dTree$ddoubleR = (v2) => (v3) => (v4) => (v5) => {
           const v13 = v10.key;
           const v14 = v10.value;
           const v15 = v10.right;
-          return $Std$dMap$dTree$dbin($Std$dMap$dTree$dbin(v7)(v8)(v9)(v12))(v13)(v14)($Std$dMap$dTree$dbin(v15)(v2)(v3)(v4));
+          return $Std$dMap$dTree$dbin($Std$dMap$dTree$dbin(v7, v8, v9, v12), v13, v14, $Std$dMap$dTree$dbin(v15, v2, v3, v4));
         }
       }
       throw new Error("unreachable");
@@ -1201,22 +1201,22 @@ const $Std$dMap$dTree$ddoubleR = (v2) => (v3) => (v4) => (v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$drebuild = (v2) => (v3) => (v4) => (v5) => (v6) => {
+const $Std$dMap$dTree$drebuild = (v2, v3, v4, v5, v6) => {
   switch (v2.tag) {
     case "Keep": {
-      return $Std$dMap$dTree$dbin(v3)(v4)(v5)(v6);
+      return $Std$dMap$dTree$dbin(v3, v4, v5, v6);
     }
     case "SingleL": {
-      return $Std$dMap$dTree$dsingleL(v3)(v4)(v5)(v6);
+      return $Std$dMap$dTree$dsingleL(v3, v4, v5, v6);
     }
     case "DoubleL": {
-      return $Std$dMap$dTree$ddoubleL(v3)(v4)(v5)(v6);
+      return $Std$dMap$dTree$ddoubleL(v3, v4, v5, v6);
     }
     case "SingleR": {
-      return $Std$dMap$dTree$dsingleR(v4)(v5)(v6)(v3);
+      return $Std$dMap$dTree$dsingleR(v4, v5, v6, v3);
     }
     case "DoubleR": {
-      return $Std$dMap$dTree$ddoubleR(v4)(v5)(v6)(v3);
+      return $Std$dMap$dTree$ddoubleR(v4, v5, v6, v3);
     }
   }
   throw new Error("unreachable");
@@ -1232,7 +1232,7 @@ const $Std$dMap$dTree$dshapeL = (v2) => {
       const v5 = v2.key;
       const v6 = v2.value;
       const v7 = v2.right;
-      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v4) + 1n))($Std$dNat$dmul($Std$dMap$dTree$dsize(v7))(2n)))(((v8) => ({ tag: "SingleL" })))(((v8) => ({ tag: "DoubleL" })));
+      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v4) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v7), 2n)), ((v8) => ({ tag: "SingleL" })), ((v8) => ({ tag: "DoubleL" })));
     }
   }
   throw new Error("unreachable");
@@ -1248,28 +1248,28 @@ const $Std$dMap$dTree$dshapeR = (v2) => {
       const v5 = v2.key;
       const v6 = v2.value;
       const v7 = v2.right;
-      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v7) + 1n))($Std$dNat$dmul($Std$dMap$dTree$dsize(v4))(2n)))(((v8) => ({ tag: "SingleR" })))(((v8) => ({ tag: "DoubleR" })));
+      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v7) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v4), 2n)), ((v8) => ({ tag: "SingleR" })), ((v8) => ({ tag: "DoubleR" })));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dshape = (v2) => (v3) => $Std$dBool$difThenElse($Std$dNat$dleq($Std$dNat$dadd($Std$dMap$dTree$dsize(v2))($Std$dMap$dTree$dsize(v3)))(1n))(((v4) => ({ tag: "Keep" })))(((v4) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v2))(3n) + 1n))($Std$dMap$dTree$dsize(v3)))(((v5) => $Std$dMap$dTree$dshapeL(v3)))(((v5) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v3))(3n) + 1n))($Std$dMap$dTree$dsize(v2)))(((v6) => $Std$dMap$dTree$dshapeR(v2)))(((v6) => ({ tag: "Keep" })))))));
-const $Std$dMap$dTree$dbalance = (v2) => (v3) => (v4) => (v5) => $Std$dMap$dTree$drebuild($Std$dMap$dTree$dshape(v2)(v5))(v2)(v3)(v4)(v5);
-const $Std$dMap$dTree$dinsertWith$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => (v6) => (v7) => (v8) => (v9) => (v10) => (v11) => {
+const $Std$dMap$dTree$dshape = (v2, v3) => $Std$dBool$difThenElse($Std$dNat$dleq($Std$dNat$dadd($Std$dMap$dTree$dsize(v2), $Std$dMap$dTree$dsize(v3)), 1n), ((v4) => ({ tag: "Keep" })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v2), 3n) + 1n), $Std$dMap$dTree$dsize(v3)), ((v5) => $Std$dMap$dTree$dshapeL(v3)), ((v5) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v3), 3n) + 1n), $Std$dMap$dTree$dsize(v2)), ((v6) => $Std$dMap$dTree$dshapeR(v2)), ((v6) => ({ tag: "Keep" })))))));
+const $Std$dMap$dTree$dbalance = (v2, v3, v4, v5) => $Std$dMap$dTree$drebuild($Std$dMap$dTree$dshape(v2, v5), v2, v3, v4, v5);
+const $Std$dMap$dTree$dinsertWith$d$gmatch1 = (v2, v3, v4, v5, v6, v7, v8, v9, v10, v11) => {
   switch (v11.tag) {
     case "Less": {
-      return $Std$dMap$dTree$dbalance($Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)(v7))(v8)(v9)(v10);
+      return $Std$dMap$dTree$dbalance($Std$dMap$dTree$dinsertWith(v2, v3, v4, v5, v7), v8, v9, v10);
     }
     case "Equal": {
       return { tag: "Bin", size: v6, left: v7, key: v8, value: (v3)(v5)(v9), right: v10 };
     }
     case "Greater": {
-      return $Std$dMap$dTree$dbalance(v7)(v8)(v9)($Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)(v10));
+      return $Std$dMap$dTree$dbalance(v7, v8, v9, $Std$dMap$dTree$dinsertWith(v2, v3, v4, v5, v10));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => {
+const $Std$dMap$dTree$dinsertWith = (v2, v3, v4, v5, v6) => {
   switch (v6.tag) {
     case "Tip": {
       return { tag: "Bin", size: 1n, left: { tag: "Tip" }, key: v4, value: v5, right: { tag: "Tip" } };
@@ -1280,26 +1280,26 @@ const $Std$dMap$dTree$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => {
       const v9 = v6.key;
       const v10 = v6.value;
       const v11 = v6.right;
-      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2)(v3)(v4)(v5)(v7)(v8)(v9)(v10)(v11)($Std$dOrd$dcompare(v2)(v4)(v9));
+      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$dcompare(v2)(v4)(v9));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dget$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => (v6) => (v7) => {
+const $Std$dMap$dTree$dget$d$gmatch1 = (v2, v3, v4, v5, v6, v7) => {
   switch (v7.tag) {
     case "Less": {
-      return $Std$dMap$dTree$dget(v2)(v3)(v4);
+      return $Std$dMap$dTree$dget(v2, v3, v4);
     }
     case "Equal": {
       return { tag: "Some", value: v5 };
     }
     case "Greater": {
-      return $Std$dMap$dTree$dget(v2)(v3)(v6);
+      return $Std$dMap$dTree$dget(v2, v3, v6);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dget = (v2) => (v3) => (v4) => {
+const $Std$dMap$dTree$dget = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -1342,7 +1342,7 @@ const $Std$dMap$dTree$dget = (v2) => (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dTree$dtoListOnto = (v2) => (v3) => {
+const $Std$dMap$dTree$dtoListOnto = (v2, v3) => {
   let s2 = v2, s3 = v3;
   for (;;) {
     const v2 = s2, v3 = s3;
@@ -1357,14 +1357,14 @@ const $Std$dMap$dTree$dtoListOnto = (v2) => (v3) => {
         const v7 = v2.value;
         const v8 = v2.right;
         s2 = v5;
-        s3 = { tag: "Cons", head: { tag: "MkPair", fst: v6, snd: v7 }, tail: $Std$dMap$dTree$dtoListOnto(v8)(v3) };
+        s3 = { tag: "Cons", head: { tag: "MkPair", fst: v6, snd: v7 }, tail: $Std$dMap$dTree$dtoListOnto(v8, v3) };
         continue;
       }
     }
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dTree$dfoldLeft = (v3) => (v4) => (v5) => {
+const $Std$dMap$dTree$dfoldLeft = (v3, v4, v5) => {
   let s3 = v3, s4 = v4, s5 = v5;
   for (;;) {
     const v3 = s3, v4 = s4, v5 = s5;
@@ -1379,7 +1379,7 @@ const $Std$dMap$dTree$dfoldLeft = (v3) => (v4) => (v5) => {
         const v9 = v5.value;
         const v10 = v5.right;
         s3 = v3;
-        s4 = (v3)($Std$dMap$dTree$dfoldLeft(v3)(v4)(v7))(v8)(v9);
+        s4 = (v3)($Std$dMap$dTree$dfoldLeft(v3, v4, v7))(v8)(v9);
         s5 = v10;
         continue;
       }
@@ -1387,7 +1387,7 @@ const $Std$dMap$dTree$dfoldLeft = (v3) => (v4) => (v5) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dTree$dmap = (v3) => (v4) => {
+const $Std$dMap$dTree$dmap = (v3, v4) => {
   switch (v4.tag) {
     case "Tip": {
       return { tag: "Tip" };
@@ -1398,24 +1398,24 @@ const $Std$dMap$dTree$dmap = (v3) => (v4) => {
       const v7 = v4.key;
       const v8 = v4.value;
       const v9 = v4.right;
-      return { tag: "Bin", size: v5, left: $Std$dMap$dTree$dmap(v3)(v6), key: v7, value: (v3)(v8), right: $Std$dMap$dTree$dmap(v3)(v9) };
+      return { tag: "Bin", size: v5, left: $Std$dMap$dTree$dmap(v3, v6), key: v7, value: (v3)(v8), right: $Std$dMap$dTree$dmap(v3, v9) };
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dRaw$dtree = (v2) => (v3) => {
+const $Std$dMap$dRaw$dtree = (v2, v3) => {
   const v4 = v3;
   return v4;
 };
 const $Std$dMap$dRaw$dempty = (v2) => ({ tag: "Tip" });
-const $Std$dMap$dRaw$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => $Std$dMap$dTree$dinsertWith(v2)(v3)(v4)(v5)($Std$dMap$dRaw$dtree(v2)(v6));
-const $Std$dMap$dRaw$dinsert = (v2) => (v3) => (v4) => (v5) => $Std$dMap$dRaw$dinsertWith(v2)(((v6) => ((v7) => v6)))(v3)(v4)(v5);
-const $Std$dMap$dRaw$dget = (v2) => (v3) => (v4) => $Std$dMap$dTree$dget(v2)(v3)($Std$dMap$dRaw$dtree(v2)(v4));
-const $Std$dMap$dRaw$dsize = (v2) => (v3) => $Std$dMap$dTree$dsize($Std$dMap$dRaw$dtree(v2)(v3));
-const $Std$dMap$dRaw$dtoList = (v2) => (v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2)(v3))({ tag: "Nil" });
-const $Std$dMap$dRaw$dfromList = (v2) => (v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2)($Std$dPair$dfst(v5))($Std$dPair$dsnd(v5))(v4))))($Std$dMap$dRaw$dempty(v2))(v3);
-const $Std$dMap$dRaw$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dTree$dfoldLeft(v4)(v5)($Std$dMap$dRaw$dtree(v3)(v6));
-const $Std$dMap$dRaw$dmap = (v3) => (v4) => (v5) => $Std$dMap$dTree$dmap(v4)($Std$dMap$dRaw$dtree(v3)(v5));
+const $Std$dMap$dRaw$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dTree$dinsertWith(v2, v3, v4, v5, $Std$dMap$dRaw$dtree(v2, v6));
+const $Std$dMap$dRaw$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsertWith(v2, ((v6) => ((v7) => v6)), v3, v4, v5);
+const $Std$dMap$dRaw$dget = (v2, v3, v4) => $Std$dMap$dTree$dget(v2, v3, $Std$dMap$dRaw$dtree(v2, v4));
+const $Std$dMap$dRaw$dsize = (v2, v3) => $Std$dMap$dTree$dsize($Std$dMap$dRaw$dtree(v2, v3));
+const $Std$dMap$dRaw$dtoList = (v2, v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2, v3), { tag: "Nil" });
+const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))), $Std$dMap$dRaw$dempty(v2), v3);
+const $Std$dMap$dRaw$dfoldLeft = (v3, v4, v5, v6) => $Std$dMap$dTree$dfoldLeft(v4, v5, $Std$dMap$dRaw$dtree(v3, v6));
+const $Std$dMap$dRaw$dmap = (v3, v4, v5) => $Std$dMap$dTree$dmap(v4, $Std$dMap$dRaw$dtree(v3, v5));
 const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   switch (v0.tag) {
     case "Less": {
@@ -1430,8 +1430,8 @@ const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dSpec$disLess = (v1) => (v2) => (v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$dcompare(v1)(v2)(v3));
-const $Std$dMap$dSpec$dconsEntry = (v2) => (v3) => (v4) => {
+const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$dcompare(v1)(v2)(v3));
+const $Std$dMap$dSpec$dconsEntry = (v2, v3, v4) => {
   switch (v4.tag) {
     case "None": {
       return v3;
@@ -1443,7 +1443,7 @@ const $Std$dMap$dSpec$dconsEntry = (v2) => (v3) => (v4) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dSpec$dmapMaybe = (v3) => (v4) => {
+const $Std$dMap$dSpec$dmapMaybe = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1488,26 +1488,26 @@ const $Std$dMap$dSpec$dmapMaybe = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dSpec$dmerge = (v4) => (v5) => (v6) => (v7) => (v8) => (v9) => {
+const $Std$dMap$dSpec$dmerge = (v4, v5, v6, v7, v8, v9) => {
   let s4 = v4, s5 = v5, s6 = v6, s7 = v7, s8 = v8, s9 = v9;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v4 = s4, v5 = s5, v6 = s6, v7 = s7, v8 = s8, v9 = s9;
     switch (v8.tag) {
       case "Nil": {
-        { const r$ = $Std$dMap$dSpec$dmapMaybe(v7)(v9); if (l$ === null) return r$; l$[k$] = r$; return h$; }
+        { const r$ = $Std$dMap$dSpec$dmapMaybe(v7, v9); if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
         const v10 = v8.head;
         const v11 = v8.tail;
         switch (v9.tag) {
           case "Nil": {
-            { const r$ = $Std$dMap$dSpec$dmapMaybe(v6)({ tag: "Cons", head: v10, tail: v11 }); if (l$ === null) return r$; l$[k$] = r$; return h$; }
+            { const r$ = $Std$dMap$dSpec$dmapMaybe(v6, { tag: "Cons", head: v10, tail: v11 }); if (l$ === null) return r$; l$[k$] = r$; return h$; }
           }
           case "Cons": {
             const v12 = v9.head;
             const v13 = v9.tail;
-            if ($Std$dMap$dSpec$disLess(v4)($Std$dPair$dfst(v10))($Std$dPair$dfst(v12)).tag === "True") {
+            if ($Std$dMap$dSpec$disLess(v4, $Std$dPair$dfst(v10), $Std$dPair$dfst(v12)).tag === "True") {
               const v17 = $Std$dPair$dfst(v10);
               const p1_4$ = v4;
               const p2_5$ = v5;
@@ -1542,7 +1542,7 @@ const $Std$dMap$dSpec$dmerge = (v4) => (v5) => (v6) => (v7) => (v8) => (v9) => {
               }
               throw new Error("unreachable");
             } else {
-              if ($Std$dMap$dSpec$disLess(v4)($Std$dPair$dfst(v12))($Std$dPair$dfst(v10)).tag === "True") {
+              if ($Std$dMap$dSpec$disLess(v4, $Std$dPair$dfst(v12), $Std$dPair$dfst(v10)).tag === "True") {
                 const v18 = $Std$dPair$dfst(v12);
                 const p8_4$ = v4;
                 const p9_5$ = v5;
@@ -1640,7 +1640,7 @@ const $Std$dMap$dSpec$dheadKey = (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$djoinBuilt$d$gmatch1 = (v2) => (v3) => (v4) => {
+const $Std$dMap$dTree$djoinBuilt$d$gmatch1 = (v2, v3, v4) => {
   switch (v4.tag) {
     case "Nil": {
       return v3;
@@ -1653,7 +1653,7 @@ const $Std$dMap$dTree$djoinBuilt$d$gmatch1 = (v2) => (v3) => (v4) => {
           const v7 = v5.fst;
           const v8 = v5.snd;
           const v9 = (v2)(v6);
-          return { tag: "MkPair", fst: $Std$dMap$dTree$dbin($Std$dPair$dfst(v3))(v7)(v8)($Std$dPair$dfst(v9)), snd: $Std$dPair$dsnd(v9) };
+          return { tag: "MkPair", fst: $Std$dMap$dTree$dbin($Std$dPair$dfst(v3), v7, v8, $Std$dPair$dfst(v9)), snd: $Std$dPair$dsnd(v9) };
         }
       }
       throw new Error("unreachable");
@@ -1661,8 +1661,8 @@ const $Std$dMap$dTree$djoinBuilt$d$gmatch1 = (v2) => (v3) => (v4) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$djoinBuilt = (v2) => (v3) => $Std$dMap$dTree$djoinBuilt$d$gmatch1(v2)(v3)($Std$dPair$dsnd(v3));
-const $Std$dMap$dTree$dbuildFuel = (v2) => (v3) => (v4) => {
+const $Std$dMap$dTree$djoinBuilt = (v2, v3) => $Std$dMap$dTree$djoinBuilt$d$gmatch1(v2, v3, $Std$dPair$dsnd(v3));
+const $Std$dMap$dTree$dbuildFuel = (v2, v3, v4) => {
   if (v2 === 0n) {
     return { tag: "MkPair", fst: { tag: "Tip" }, snd: v4 };
   } else {
@@ -1671,11 +1671,11 @@ const $Std$dMap$dTree$dbuildFuel = (v2) => (v3) => (v4) => {
       return { tag: "MkPair", fst: { tag: "Tip" }, snd: v4 };
     } else {
       const v6 = v3 - 1n;
-      return $Std$dMap$dTree$djoinBuilt(((v7) => $Std$dMap$dTree$dbuildFuel(v5)($Std$dNat$dsub(v6)($Std$dNat$ddiv(v6)(2n)))(v7)))($Std$dMap$dTree$dbuildFuel(v5)($Std$dNat$ddiv(v6)(2n))(v4));
+      return $Std$dMap$dTree$djoinBuilt(((v7) => $Std$dMap$dTree$dbuildFuel(v5, $Std$dNat$dsub(v6, $Std$dNat$ddiv(v6, 2n)), v7)), $Std$dMap$dTree$dbuildFuel(v5, $Std$dNat$ddiv(v6, 2n), v4));
     }
   }
 };
-const $Std$dMap$dSpec$dcountOnto = (v2) => (v3) => {
+const $Std$dMap$dSpec$dcountOnto = (v2, v3) => {
   let s2 = v2, s3 = v3;
   for (;;) {
     const v2 = s2, v3 = s3;
@@ -1694,9 +1694,9 @@ const $Std$dMap$dSpec$dcountOnto = (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dSpec$dcountEntries = (v2) => $Std$dMap$dSpec$dcountOnto(0n)(v2);
-const $Std$dMap$dRaw$dfromSorted = (v2) => (v3) => $Std$dPair$dfst($Std$dMap$dTree$dbuildFuel($Std$dMap$dSpec$dcountEntries(v3))($Std$dMap$dSpec$dcountEntries(v3))(v3));
-const $Std$dMap$dSpec$disAscending = (v2) => (v3) => (v4) => {
+const $Std$dMap$dSpec$dcountEntries = (v2) => $Std$dMap$dSpec$dcountOnto(0n, v2);
+const $Std$dMap$dRaw$dfromSorted = (v2, v3) => $Std$dPair$dfst($Std$dMap$dTree$dbuildFuel($Std$dMap$dSpec$dcountEntries(v3), $Std$dMap$dSpec$dcountEntries(v3), v3));
+const $Std$dMap$dSpec$disAscending = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -1727,7 +1727,7 @@ const $Std$dMap$dSpec$disAscending = (v2) => (v3) => (v4) => {
               case "MkPair": {
                 const v8 = v5.fst;
                 const v9 = v5.snd;
-                if ($Std$dMap$dSpec$disLess(v2)(v7)(v8).tag === "True") {
+                if ($Std$dMap$dSpec$disLess(v2, v7, v8).tag === "True") {
                   s2 = v2;
                   s3 = { tag: "Some", value: v8 };
                   s4 = v6;
@@ -1746,39 +1746,39 @@ const $Std$dMap$dSpec$disAscending = (v2) => (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dMap$dRaw$dfromListChecked = (v2) => (v3) => (v4) => {
+const $Std$dMap$dRaw$dfromListChecked = (v2, v3, v4) => {
   switch (v4.tag) {
     case "False": {
-      return $Std$dMap$dRaw$dfromList(v2)(v3);
+      return $Std$dMap$dRaw$dfromList(v2, v3);
     }
     case "True": {
-      return $Std$dMap$dRaw$dfromSorted(v2)(v3);
+      return $Std$dMap$dRaw$dfromSorted(v2, v3);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dRaw$dfromListFast = (v2) => (v3) => $Std$dMap$dRaw$dfromListChecked(v2)(v3)($Std$dMap$dSpec$disAscending(v2)({ tag: "None" })(v3));
-const $Std$dMap$dRaw$dmerge = (v4) => (v5) => (v6) => (v7) => (v8) => (v9) => $Std$dMap$dRaw$dfromSorted(v4)($Std$dMap$dSpec$dmerge(v4)(v5)(v6)(v7)($Std$dMap$dRaw$dtoList(v4)(v8))($Std$dMap$dRaw$dtoList(v4)(v9)));
-const $Std$dMap$dRaw$disSmall = (v2) => (v4) => (v5) => $Std$dNat$dleq($Std$dNat$dmul($Std$dMap$dRaw$dsize(v2)(v4))(8n))($Std$dMap$dRaw$dsize(v2)(v5));
-const $Std$dMap$dRaw$dunionWith = (v2) => (v3) => (v4) => (v5) => $Std$dBool$difThenElse($Std$dMap$dRaw$disSmall(v2)(v4)(v5))(((v6) => $Std$dMap$dRaw$dfoldLeft(v2)(((v7) => ((v8) => ((v9) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v8)(v9)(v7)))))(v5)(v4)))(((v6) => $Std$dMap$dRaw$dmerge(v2)(((v7) => ((v8) => ((v9) => ({ tag: "Some", value: (v3)(v8)(v9) })))))(((v7) => ((v8) => ({ tag: "Some", value: v8 }))))(((v7) => ((v8) => ({ tag: "Some", value: v8 }))))(v4)(v5)));
-const $Std$dMap$dRaw$dunion = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dunionWith(v2)(((v5) => ((v6) => v5)))(v3)(v4);
-const $Std$dMap$draw = (v2) => (v3) => {
+const $Std$dMap$dRaw$dfromListFast = (v2, v3) => $Std$dMap$dRaw$dfromListChecked(v2, v3, $Std$dMap$dSpec$disAscending(v2, { tag: "None" }, v3));
+const $Std$dMap$dRaw$dmerge = (v4, v5, v6, v7, v8, v9) => $Std$dMap$dRaw$dfromSorted(v4, $Std$dMap$dSpec$dmerge(v4, v5, v6, v7, $Std$dMap$dRaw$dtoList(v4, v8), $Std$dMap$dRaw$dtoList(v4, v9)));
+const $Std$dMap$dRaw$disSmall = (v2, v4, v5) => $Std$dNat$dleq($Std$dNat$dmul($Std$dMap$dRaw$dsize(v2, v4), 8n), $Std$dMap$dRaw$dsize(v2, v5));
+const $Std$dMap$dRaw$dunionWith = (v2, v3, v4, v5) => $Std$dBool$difThenElse($Std$dMap$dRaw$disSmall(v2, v4, v5), ((v6) => $Std$dMap$dRaw$dfoldLeft(v2, ((v7) => ((v8) => ((v9) => $Std$dMap$dRaw$dinsertWith(v2, v3, v8, v9, v7)))), v5, v4)), ((v6) => $Std$dMap$dRaw$dmerge(v2, ((v7) => ((v8) => ((v9) => ({ tag: "Some", value: (v3)(v8)(v9) })))), ((v7) => ((v8) => ({ tag: "Some", value: v8 }))), ((v7) => ((v8) => ({ tag: "Some", value: v8 }))), v4, v5)));
+const $Std$dMap$dRaw$dunion = (v2, v3, v4) => $Std$dMap$dRaw$dunionWith(v2, ((v5) => ((v6) => v5)), v3, v4);
+const $Std$dMap$draw = (v2, v3) => {
   const v4 = v3;
   return v4;
 };
-const $Std$dMap$dofRaw = (v2) => (v3) => v3;
-const $Std$dMap$dempty = (v2) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dempty(v2));
-const $Std$dMap$dfromList = (v2) => (v3) => $Std$dMap$dofRaw(v2)($Std$dMap$dRaw$dfromListFast(v2)(v3));
-const $Std$dMap$dtoList = (v2) => (v3) => $Std$dMap$dRaw$dtoList(v2)($Std$dMap$draw(v2)(v3));
-const $Std$dMap$dget = (v2) => (v3) => (v4) => $Std$dMap$dRaw$dget(v2)(v3)($Std$dMap$draw(v2)(v4));
-const $Std$dMap$dkeys = (v2) => (v3) => $Std$dList$dmap$e($Std$dPair$dfst)($Std$dMap$dtoList(v2)(v3));
-const $Std$dMap$dfoldLeft = (v3) => (v4) => (v5) => (v6) => $Std$dMap$dRaw$dfoldLeft(v3)(v4)(v5)($Std$dMap$draw(v3)(v6));
-const $Std$dMap$dinsertWith = (v2) => (v3) => (v4) => (v5) => (v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2)(v3)(v4)(v5)(v7)))($Std$dMap$draw(v2)(v6));
-const $Std$dMap$dmap = (v3) => (v4) => (v5) => (((v6) => $Std$dMap$dRaw$dmap(v3)(v4)(v6)))($Std$dMap$draw(v3)(v5));
-const $Std$dMap$dliftBinaryRaw = (v4) => (v5) => (v7) => (v8) => (v5)(v7)(v8);
-const $Std$dMap$dliftBinary = (v4) => (v5) => (v7) => (v8) => (((v9) => $Std$dMap$dliftBinaryRaw(v4)(v5)(v9)($Std$dMap$draw(v4)(v8))))($Std$dMap$draw(v4)(v7));
-const $Std$dMap$dunion = (v2) => (v3) => (v4) => $Std$dMap$dliftBinary(v2)($Std$dMap$dRaw$dunion(v2))(v3)(v4);
-const $Std$dMap$ddecEq$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => {
+const $Std$dMap$dofRaw = (v2, v3) => v3;
+const $Std$dMap$dempty = (v2) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dempty(v2));
+const $Std$dMap$dfromList = (v2, v3) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dfromListFast(v2, v3));
+const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v3, $Std$dMap$draw(v2, v4));
+const $Std$dMap$dkeys = (v2, v3) => $Std$dList$dmap$e($Std$dPair$dfst, $Std$dMap$dtoList(v2, v3));
+const $Std$dMap$dfoldLeft = (v3, v4, v5, v6) => $Std$dMap$dRaw$dfoldLeft(v3, v4, v5, $Std$dMap$draw(v3, v6));
+const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2, v3, v4, v5, v7)))($Std$dMap$draw(v2, v6));
+const $Std$dMap$dmap = (v3, v4, v5) => (((v6) => $Std$dMap$dRaw$dmap(v3, v4, v6)))($Std$dMap$draw(v3, v5));
+const $Std$dMap$dliftBinaryRaw = (v4, v5, v7, v8) => (v5)(v7)(v8);
+const $Std$dMap$dliftBinary = (v4, v5, v7, v8) => (((v9) => $Std$dMap$dliftBinaryRaw(v4, v5, v9, $Std$dMap$draw(v4, v8))))($Std$dMap$draw(v4, v7));
+const $Std$dMap$dunion = (v2, v3, v4) => $Std$dMap$dliftBinary(v2, (($p3) => ($p4) => $Std$dMap$dRaw$dunion(v2, $p3, $p4)), v3, v4);
+const $Std$dMap$ddecEq$d$gmatch1 = (v2, v3, v4, v5) => {
   switch (v5.tag) {
     case "Yes": {
       return { tag: "Yes" };
@@ -1789,8 +1789,8 @@ const $Std$dMap$ddecEq$d$gmatch1 = (v2) => (v3) => (v4) => (v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$ddecEq = (v2) => (v3) => (v4) => (v5) => $Std$dMap$ddecEq$d$gmatch1(v2)(v4)(v5)($Std$dList$ddecEq($Std$dPair$ddecEq($Std$dDecEq$d$gdecide($Std$dOrd$d$geq(v2)))($Std$dDecEq$d$gdecide(v3)))($Std$dMap$dtoList(v2)(v4))($Std$dMap$dtoList(v2)(v5)));
-const $Std$dText$dtake = (n) => (t) => {
+const $Std$dMap$ddecEq = (v2, v3, v4, v5) => $Std$dMap$ddecEq$d$gmatch1(v2, v4, v5, $Std$dList$ddecEq((($s2, $s3) => (($p4) => ($p5) => $Std$dPair$ddecEq($s2, $s3, $p4, $p5)))($Std$dDecEq$d$gdecide($Std$dOrd$d$geq(v2)), $Std$dDecEq$d$gdecide(v3)), $Std$dMap$dtoList(v2, v4), $Std$dMap$dtoList(v2, v5)));
+const $Std$dText$dtake = (n, t) => {
   if (n >= BigInt(t.length)) return t;
   const count = Number(n);
   let i = 0;
@@ -1805,17 +1805,17 @@ const $Main$dPerson$dage = (v0) => {
   const v2 = v0.age;
   return v2;
 };
-const $Main$dtotal = (v0) => $Std$dMap$dfoldLeft($Std$dText$dinstOrd)(((v1) => ((v2) => ((v3) => $Std$dNat$dadd(v1)(v3)))))(0n)(v0);
-const $Main$dbump = (v0) => (v1) => $Std$dMap$dinsertWith($Std$dText$dinstOrd)($Std$dNat$dadd)(v1)(1n)(v0);
-const $Main$dkeysOf = (v0) => $Std$dMap$dkeys($Std$dText$dinstOrd)(v0);
-const $Main$dlookup = (v0) => (v1) => $Std$dMap$dget($Std$dText$dinstOrd)(v1)(v0);
-const $Main$dages = (v0) => $Std$dMap$dmap($Std$dText$dinstOrd)(((v1) => $Main$dPerson$dage(v1)))(v0);
-const $Main$dnested = (v0) => $Std$dMap$dmap($Std$dText$dinstOrd)($Main$dtotal)(v0);
-const $Main$dmerge = (v0) => (v1) => $Std$dMap$dunion($Std$dText$dinstOrd)(v0)(v1);
-const $Main$dsame = (v0) => (v1) => $Std$dDecidable$dtoBool($Std$dMap$ddecEq($Std$dText$dinstOrd)($Std$dNat$dinstDecEq)(v0)(v1));
+const $Main$dtotal = (v0) => $Std$dMap$dfoldLeft($Std$dText$dinstOrd, ((v1) => ((v2) => ((v3) => $Std$dNat$dadd(v1, v3)))), 0n, v0);
+const $Main$dbump = (v0, v1) => $Std$dMap$dinsertWith($Std$dText$dinstOrd, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)), v1, 1n, v0);
+const $Main$dkeysOf = (v0) => $Std$dMap$dkeys($Std$dText$dinstOrd, v0);
+const $Main$dlookup = (v0, v1) => $Std$dMap$dget($Std$dText$dinstOrd, v1, v0);
+const $Main$dages = (v0) => $Std$dMap$dmap($Std$dText$dinstOrd, ((v1) => $Main$dPerson$dage(v1)), v0);
+const $Main$dnested = (v0) => $Std$dMap$dmap($Std$dText$dinstOrd, $Main$dtotal, v0);
+const $Main$dmerge = (v0, v1) => $Std$dMap$dunion($Std$dText$dinstOrd, v0, v1);
+const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dMap$ddecEq($Std$dText$dinstOrd, $Std$dNat$dinstDecEq, v0, v1));
 const $Main$dsparse = (v0) => v0;
 const $Main$dlists = (v0) => v0;
-const $Main$dgrouped = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dBool$difThenElse($Std$dText$disEmpty(v2))(((v3) => v1))(((v3) => $Std$dMap$dinsertWith($Std$dText$dinstOrd)($Std$dList$dappend)($Std$dText$dtake(1n)(v2))({ tag: "Cons", head: v2, tail: { tag: "Nil" } })(v1))))))($Std$dMap$dempty($Std$dText$dinstOrd))(v0);
+const $Main$dgrouped = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dBool$difThenElse($Std$dText$disEmpty(v2), ((v3) => v1), ((v3) => $Std$dMap$dinsertWith($Std$dText$dinstOrd, ($Std$dList$dappend$c ??= ($p1) => ($p2) => $Std$dList$dappend($p1, $p2)), $Std$dText$dtake(1n, v2), { tag: "Cons", head: v2, tail: { tag: "Nil" } }, v1))))), $Std$dMap$dempty($Std$dText$dinstOrd), v0);
 const $Main$droster = (v0) => v0;
 const $Main$dnoScores = $Std$dMap$dempty($Std$dText$dinstOrd);
 const $Main$dorders = (v0) => v0;
@@ -1823,8 +1823,8 @@ const $Main$dorders = (v0) => v0;
 // A map that crosses is built and read by the library's own functions.
 const MAP_SHAPE = {
   pair: "MkPair", fst: "fst", snd: "snd",
-  fromList: $Std$dMap$dfromList($Std$dText$dinstOrd),
-  toList: $Std$dMap$dtoList($Std$dText$dinstOrd),
+  fromList: (($s2) => (($p3) => $Std$dMap$dfromList($s2, $p3)))($Std$dText$dinstOrd),
+  toList: (($s2) => (($p3) => $Std$dMap$dtoList($s2, $p3)))($Std$dText$dinstOrd),
 };
 
 function $$total(arg0) {
@@ -1840,7 +1840,7 @@ function $$bump(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "scores");
     const v1 = decodeFast(dec$3, ty$3, arg1, "who");
-    return encodeFast(enc$4, ty$1, $Main$dbump(v0)(v1));
+    return encodeFast(enc$4, ty$1, $Main$dbump(v0, v1));
   } catch (e) {
     throw outOfResources("bump", e);
   }
@@ -1859,7 +1859,7 @@ function $$lookup(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "scores");
     const v1 = decodeFast(dec$3, ty$3, arg1, "who");
-    return encodeFast(enc$6, ty$5, $Main$dlookup(v0)(v1));
+    return encodeFast(enc$6, ty$5, $Main$dlookup(v0, v1));
   } catch (e) {
     throw outOfResources("lookup", e);
   }
@@ -1887,7 +1887,7 @@ function $$merge(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$4, ty$1, $Main$dmerge(v0)(v1));
+    return encodeFast(enc$4, ty$1, $Main$dmerge(v0, v1));
   } catch (e) {
     throw outOfResources("merge", e);
   }
@@ -1897,7 +1897,7 @@ function $$same(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$10, ty$9, $Main$dsame(v0)(v1));
+    return encodeFast(enc$10, ty$9, $Main$dsame(v0, v1));
   } catch (e) {
     throw outOfResources("same", e);
   }
@@ -2294,5 +2294,9 @@ function enc$20(v) {
   const o = { title: TEXT.enc(v.title), people: enc$21(v.people) };
   depth--; return o;
 }
+
+// Definitions used as values, taking their arguments one at a time, each
+// made at its first use.
+var $Std$dNat$ddecEq$c, $Std$dText$ddecEq$c, $Std$dText$dcompare$c, $Std$dNat$dadd$c, $Std$dList$dappend$c;
 
 export { $$total as total, $$bump as bump, $$keysOf as keysOf, $$lookup as lookup, $$ages as ages, $$nested as nested, $$merge as merge, $$same as same, $$sparse as sparse, $$lists as lists, $$grouped as grouped, $$roster as roster, $$noScores as noScores, $$orders as orders };

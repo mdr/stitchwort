@@ -735,7 +735,7 @@ define(info$Std$dPair, [
 // apart: `bind`, `foldComp`, `translate` and `runPure` are these functions.
 const EFF_BIND = "$Bind";
 // `bind c k`: a node, so building a long chain calls nothing.
-const effBind = (c) => (k) => ({ tag: EFF_BIND, c, k });
+const effBind = (c, k) => ({ tag: EFF_BIND, c, k });
 // The continuations pending when `effRun` last stopped at an operation.
 let effPending = null;
 // Runs `c` with the continuations `pending` (null, or `{ k, next }`, never
@@ -783,12 +783,10 @@ const effFoldLazy = (done, call, c, pending) => {
   const resume = (z) => effFoldLazy(done, call, rest(z), after);
   return call(c.o)((y) => ({ tag: EFF_BIND, c: { tag: "Done", value: y }, k: resume }));
 };
-const effFoldCompLazy = (done) => (call) => (c) => effFoldLazy(done, call, c, null);
+const effFoldCompLazy = (done, call, c) => effFoldLazy(done, call, c, null);
 // A fold whose carrier is `CompIn e t`: a computation unless the row is empty.
-const effFoldCompIn = (row) =>
-  row.tag === "Empty"
-    ? (done) => (call) => (c) => effFold(done, call, c, null)
-    : effFoldCompLazy;
+const effFoldCompIn = (row, done, call, c) =>
+  row.tag === "Empty" ? effFold(done, call, c, null) : effFoldLazy(done, call, c, null);
 // A state-passing handler at the empty row (stage 4d, A′;
 // stitchwort_rt::fusion): its operation clauses were rewritten to take
 // `jump` and the state, and to end with `jump v s′` where they resumed with
@@ -816,7 +814,7 @@ const effStateLoop = (comp, done, call, c, pending, s) => {
   }
 };
 const effStateFn = (comp, f) => (comp ? { tag: "Done", value: f } : f);
-const effFoldState = (comp) => (done) => (call) => (c) =>
+const effFoldState = (comp, done, call, c) =>
   effStateFn(comp, (s) => effStateLoop(comp, done, call, c, null, s));
 // `translate m c` with `pending` after `c`: each operation renamed by `m`,
 // its reply mapped back.
@@ -831,8 +829,8 @@ const effTranslate = (m, c, pending) => {
   };
 };
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -843,7 +841,7 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dappend = (v1) => (v2) => {
+const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -866,7 +864,7 @@ const $Std$dList$dappend = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dNat$dequal = (m) => (n) => ({ tag: m === n ? "True" : "False" });
+const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
@@ -877,10 +875,10 @@ const $Std$dChar$dtoNat = (v0) => {
   throw new Error("unreachable");
 };
 const $Std$dText$dtoList = charsOfText;
-const $Std$dText$dappend = (a) => (b) => a + b;
-const $Std$dEffect$dfoldComp = (done) => (call) => (c) => effFold(done, call, c, null);
+const $Std$dText$dappend = (a, b) => a + b;
+const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);
 const $Std$dEffect$dbind = effBind;
-const $Std$dEffect$dsigInject = (v4) => (v5) => {
+const $Std$dEffect$dsigInject = (v4, v5) => {
   switch (v4.tag) {
     case "MkSigMap": {
       const v6 = v4.inject;
@@ -890,7 +888,7 @@ const $Std$dEffect$dsigInject = (v4) => (v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dsigReply = (v4) => (v5) => (v6) => {
+const $Std$dEffect$dsigReply = (v4, v5, v6) => {
   switch (v4.tag) {
     case "MkSigMap": {
       const v7 = v4.inject;
@@ -901,7 +899,7 @@ const $Std$dEffect$dsigReply = (v4) => (v5) => (v6) => {
   throw new Error("unreachable");
 };
 const $Std$dEffect$dsigId = { tag: "MkSigMap", inject: ((v2) => v2), reply: ((v2) => ((v3) => v3)) };
-const $Std$dEffect$dhandlePlus = (v5) => (v6) => (v7) => (v8) => {
+const $Std$dEffect$dhandlePlus = (v5, v6, v7, v8) => {
   switch (v7.tag) {
     case "L": {
       const v9 = v7.o;
@@ -915,7 +913,7 @@ const $Std$dEffect$dhandlePlus = (v5) => (v6) => (v7) => (v8) => {
   throw new Error("unreachable");
 };
 const $Std$dEffect$drunPure = effRunPure;
-const $Std$dEffect$ddoneIn = (v1) => (v2) => {
+const $Std$dEffect$ddoneIn = (v1, v2) => {
   switch (v1.tag) {
     case "Empty": {
       return v2;
@@ -926,13 +924,13 @@ const $Std$dEffect$ddoneIn = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dbindIn = (v2) => (v3) => (v4) => {
+const $Std$dEffect$dbindIn = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Empty": {
       return (v4)(v3);
     }
     case "Ops": {
-      return $Std$dEffect$dbind(v3)(v4);
+      return $Std$dEffect$dbind(v3, v4);
     }
   }
   throw new Error("unreachable");
@@ -944,21 +942,21 @@ const $Std$dShow$d$gtoText = (v1) => {
   return v2;
 };
 const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
-const $Std$dShow$descapeChar = (v0) => (v1) => (v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(92n))(((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })))(((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))($Std$dChar$dtoNat(v0)))(((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })))(((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(10n))(((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })))(((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(9n))(((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })))(((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(13n))(((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })))(((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
-const $Std$dShow$descapeBefore = (v0) => (v1) => (v2) => (v3) => {
+const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
+const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
   switch (v3.tag) {
     case "Nil": {
-      return $Std$dShow$descapeChar(v0)(v1)(v2);
+      return $Std$dShow$descapeChar(v0, v1, v2);
     }
     case "Cons": {
       const v4 = v3.head;
       const v5 = v3.tail;
-      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(36n))(((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v4))(123n))(((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })))(((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))(((v6) => $Std$dShow$descapeChar(v0)(v1)(v2)));
+      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 36n), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v4), 123n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))), ((v6) => $Std$dShow$descapeChar(v0, v1, v2)));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dShow$descapeChars = (v0) => (v1) => {
+const $Std$dShow$descapeChars = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -981,7 +979,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
             const v9 = v5;
             const p3_0$ = p1_0$;
             const p4_1$ = p2_1$;
-            if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(92n).tag === "True") {
+            if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 92n).tag === "True") {
               const c5$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: null };
               const c6$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c5$ };
               if (l$ === null) { h$ = c6$; } else { l$[k$] = c6$; }
@@ -990,7 +988,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
               s1 = p4_1$;
               continue;
             } else {
-              if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))($Std$dChar$dtoNat(v8)).tag === "True") {
+              if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), $Std$dChar$dtoNat(v8)).tag === "True") {
                 const c7$ = { tag: "Cons", head: v9, tail: null };
                 const c8$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c7$ };
                 if (l$ === null) { h$ = c8$; } else { l$[k$] = c8$; }
@@ -999,7 +997,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                 s1 = p4_1$;
                 continue;
               } else {
-                if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(10n).tag === "True") {
+                if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 10n).tag === "True") {
                   const c9$ = { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: null };
                   const c10$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c9$ };
                   if (l$ === null) { h$ = c10$; } else { l$[k$] = c10$; }
@@ -1008,7 +1006,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                   s1 = p4_1$;
                   continue;
                 } else {
-                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(9n).tag === "True") {
+                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 9n).tag === "True") {
                     const c11$ = { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: null };
                     const c12$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c11$ };
                     if (l$ === null) { h$ = c12$; } else { l$[k$] = c12$; }
@@ -1017,7 +1015,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                     s1 = p4_1$;
                     continue;
                   } else {
-                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(13n).tag === "True") {
+                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 13n).tag === "True") {
                       const c13$ = { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: null };
                       const c14$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c13$ };
                       if (l$ === null) { h$ = c14$; } else { l$[k$] = c14$; }
@@ -1041,8 +1039,8 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
           case "Cons": {
             const v8 = v7.head;
             const v9 = v7.tail;
-            if ($Std$dNat$dequal($Std$dChar$dtoNat(v5))(36n).tag === "True") {
-              if ($Std$dNat$dequal($Std$dChar$dtoNat(v8))(123n).tag === "True") {
+            if ($Std$dNat$dequal($Std$dChar$dtoNat(v5), 36n).tag === "True") {
+              if ($Std$dNat$dequal($Std$dChar$dtoNat(v8), 123n).tag === "True") {
                 const c16$ = { tag: "Cons", head: v5, tail: null };
                 const c17$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c16$ };
                 if (l$ === null) { h$ = c17$; } else { l$[k$] = c17$; }
@@ -1063,7 +1061,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
               const v12 = v5;
               const p19_0$ = p1_0$;
               const p20_1$ = p2_1$;
-              if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(92n).tag === "True") {
+              if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 92n).tag === "True") {
                 const c21$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: null };
                 const c22$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c21$ };
                 if (l$ === null) { h$ = c22$; } else { l$[k$] = c22$; }
@@ -1072,7 +1070,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                 s1 = p20_1$;
                 continue;
               } else {
-                if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))($Std$dChar$dtoNat(v11)).tag === "True") {
+                if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), $Std$dChar$dtoNat(v11)).tag === "True") {
                   const c23$ = { tag: "Cons", head: v12, tail: null };
                   const c24$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c23$ };
                   if (l$ === null) { h$ = c24$; } else { l$[k$] = c24$; }
@@ -1081,7 +1079,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                   s1 = p20_1$;
                   continue;
                 } else {
-                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(10n).tag === "True") {
+                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 10n).tag === "True") {
                     const c25$ = { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: null };
                     const c26$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c25$ };
                     if (l$ === null) { h$ = c26$; } else { l$[k$] = c26$; }
@@ -1090,7 +1088,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                     s1 = p20_1$;
                     continue;
                   } else {
-                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(9n).tag === "True") {
+                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 9n).tag === "True") {
                       const c27$ = { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: null };
                       const c28$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c27$ };
                       if (l$ === null) { h$ = c28$; } else { l$[k$] = c28$; }
@@ -1099,7 +1097,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                       s1 = p20_1$;
                       continue;
                     } else {
-                      if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(13n).tag === "True") {
+                      if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 13n).tag === "True") {
                         const c29$ = { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: null };
                         const c30$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c29$ };
                         if (l$ === null) { h$ = c30$; } else { l$[k$] = c30$; }
@@ -1128,27 +1126,27 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dShow$dquoteText = (v0) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: $Std$dList$dappend($Std$dShow$descapeChars({ tag: "MkChar", code: 34n })($Std$dText$dtoList(v0)))({ tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: { tag: "Nil" } }) });
+const $Std$dShow$dquoteText = (v0) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: $Std$dList$dappend($Std$dShow$descapeChars({ tag: "MkChar", code: 34n }, $Std$dText$dtoList(v0)), { tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: { tag: "Nil" } }) });
 const $Std$dText$dinstShow = { toText: $Std$dText$dtoText, toSource: $Std$dShow$dquoteText };
 const $Std$dEmpty$dabsurd = (v1) => {
   switch (v1.tag) {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap = (v1) => (v3) => (v4) => {
+const $Std$dList$dmap = (v1, v3, v4) => {
   switch (v4.tag) {
     case "Nil": {
-      return $Std$dEffect$ddoneIn(v1)({ tag: "Nil" });
+      return $Std$dEffect$ddoneIn(v1, { tag: "Nil" });
     }
     case "Cons": {
       const v5 = v4.head;
       const v6 = v4.tail;
-      return $Std$dEffect$dbindIn(v1)((v3)(v5))(((v7) => $Std$dEffect$dbindIn(v1)($Std$dList$dmap(v1)(v3)(v6))(((v8) => $Std$dEffect$ddoneIn(v1)({ tag: "Cons", head: v7, tail: v8 })))));
+      return $Std$dEffect$dbindIn(v1, (v3)(v5), ((v7) => $Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v3, v6), ((v8) => $Std$dEffect$ddoneIn(v1, { tag: "Cons", head: v7, tail: v8 })))));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1171,7 +1169,7 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
+const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -1191,7 +1189,7 @@ const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$drangeFrom = (v0) => (v1) => {
+const $Std$dList$drangeFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1209,7 +1207,7 @@ const $Std$dList$drangeFrom = (v0) => (v1) => {
     }
   }
 };
-const $Std$dList$drange = (v0) => $Std$dList$drangeFrom(v0)(0n);
+const $Std$dList$drange = (v0) => $Std$dList$drangeFrom(v0, 0n);
 const $Std$dText$dtoNat = (t) => {
   if (t === "") return { tag: "None" };
   for (let i = 0; i < t.length; i++) {
@@ -1218,7 +1216,7 @@ const $Std$dText$dtoNat = (t) => {
   }
   return { tag: "Some", value: BigInt(t) };
 };
-const $Std$dFail$d$gelim = (v1) => (v2) => (v3) => {
+const $Std$dFail$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%stop": {
       const v4 = v2.x;
@@ -1227,8 +1225,8 @@ const $Std$dFail$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dFail$dfail = (v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: v1 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) })));
-const $Std$dFail$dneed = (v1) => (v2) => {
+const $Std$dFail$dfail = (v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: v1 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) })));
+const $Std$dFail$dneed = (v1, v2) => {
   switch (v1.tag) {
     case "None": {
       return $Std$dFail$dfail(v2);
@@ -1240,12 +1238,12 @@ const $Std$dFail$dneed = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })))($Std$dEffect$dhandlePlus($Std$dFail$d$gelim(((v3) => ((v4) => ({ tag: "Err", error: v3 })))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }));
-const $Main$ddouble = (v0) => $Std$dNat$dadd(v0)(v0);
-const $Main$dsum = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1)(v2))))(0n)(v0);
-const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble)(v0);
-const $Main$dmappedSum = (v0) => $Main$dsum($Std$dList$dmap$e(((v1) => $Std$dNat$dadd(v1)(1n)))($Std$dList$drange(v0)));
-const $Main$dpureMap = (v2) => (v3) => {
+const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => ({ tag: "Err", error: v3 })))), ((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)) })) })))), (v2)({ tag: "UnitValue" }));
+const $Main$ddouble = (v0) => $Std$dNat$dadd(v0, v0);
+const $Main$dsum = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dNat$dadd(v1, v2))), 0n, v0);
+const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble, v0);
+const $Main$dmappedSum = (v0) => $Main$dsum($Std$dList$dmap$e(((v1) => $Std$dNat$dadd(v1, 1n)), $Std$dList$drange(v0)));
+const $Main$dpureMap = (v2, v3) => {
   let s2 = v2, s3 = v3;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -1268,13 +1266,13 @@ const $Main$dpureMap = (v2) => (v3) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dpureDoubled = (v0) => $Main$dpureMap($Main$ddouble)(v0);
-const $Main$ddoubledEach = (v0) => $Std$dList$dmap$e($Std$dList$dmap$e($Main$ddouble))(v0);
-const $Main$dtwice$e = (v2) => (v3) => (v2)((v2)(v3));
-const $Main$dtwiceDoubled = (v0) => $Main$dtwice$e($Main$ddouble)(v0);
-const $Main$dparse = (v0) => $Std$dFail$dneed($Std$dText$dtoNat(v0))($Std$dText$dappend("not a number: ")($Std$dShow$dtoText($Std$dText$dinstShow)(v0)));
-const $Main$dparsed = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" })($Main$dparse)(v0)));
-const $Main$dCount$d$gelim = (v1) => (v2) => (v3) => {
+const $Main$dpureDoubled = (v0) => $Main$dpureMap($Main$ddouble, v0);
+const $Main$ddoubledEach = (v0) => $Std$dList$dmap$e((($s3) => (($p4) => $Std$dList$dmap$e($s3, $p4)))($Main$ddouble), v0);
+const $Main$dtwice$e = (v2, v3) => (v2)((v2)(v3));
+const $Main$dtwiceDoubled = (v0) => $Main$dtwice$e($Main$ddouble, v0);
+const $Main$dparse = (v0) => $Std$dFail$dneed($Std$dText$dtoNat(v0), $Std$dText$dappend("not a number: ", $Std$dShow$dtoText($Std$dText$dinstShow)(v0)));
+const $Main$dparsed = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, $Main$dparse, v0)));
+const $Main$dCount$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%count": {
       const v4 = v2.x;
@@ -1283,9 +1281,9 @@ const $Main$dCount$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dcountAll$e = (v2) => effFoldState(false)(((v3) => ((v4) => ({ tag: "MkPair", fst: v3, snd: v4 }))))($Std$dEffect$dhandlePlus($Main$dCount$d$gelim(((v3) => ((v4) => ((v5) => ((v6) => (v5)({ tag: "UnitValue" })($Std$dNat$dadd(v6)(1n))))))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }))(0n);
-const $Main$dtally = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%count", x: { tag: "UnitValue" } } }, rest: ((v1) => ({ tag: "Done", value: v1 })) })(((v1) => ({ tag: "Done", value: v0 })));
-const $Main$dcounted = (v0) => $Main$dcountAll$e(((v1) => $Std$dList$dmap({ tag: "Ops" })($Main$dtally)(v0)));
+const $Main$dcountAll$e = (v2) => effFoldState(false, ((v3) => ((v4) => ({ tag: "MkPair", fst: v3, snd: v4 }))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dCount$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => ((v5) => ((v6) => (v5)({ tag: "UnitValue" })($Std$dNat$dadd(v6, 1n))))))), ((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)) })) })))), (v2)({ tag: "UnitValue" }))(0n);
+const $Main$dtally = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%count", x: { tag: "UnitValue" } } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ({ tag: "Done", value: v0 })));
+const $Main$dcounted = (v0) => $Main$dcountAll$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, $Main$dtally, v0)));
 
 function $$doubled(arg0) {
   try {

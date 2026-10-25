@@ -2,17 +2,17 @@
 source: crates/cli/tests/extract.rs
 expression: loops
 ---
-const $Main$dpairsIn = (v0) => (v1) => {
+const $Main$dpairsIn = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
     const v2 = v0;
     const v3 = v1;
-    if ($Std$dNat$ddecLessEq(v2)(1n).tag === "Yes") {
+    if ($Std$dNat$ddecLessEq(v2, 1n).tag === "Yes") {
       return v3;
     } else {
-      const v6 = $Std$dNat$dsub(v2)(2n);
-      const v7 = $Std$dNat$dadd(v3)(1n);
+      const v6 = $Std$dNat$dsub(v2, 2n);
+      const v7 = $Std$dNat$dadd(v3, 1n);
       s0 = v6;
       s1 = v7;
       continue;
@@ -25,10 +25,10 @@ const $Main$dcountdownFrom = (v0) => {
   for (;;) {
     const v0 = s0;
     const v1 = v0;
-    if ($Std$dNat$ddecEq(v1)(0n).tag === "Yes") {
+    if ($Std$dNat$ddecEq(v1, 0n).tag === "Yes") {
       { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
     } else {
-      const v4 = $Std$dNat$dsub(v1)(1n);
+      const v4 = $Std$dNat$dsub(v1, 1n);
       const c1$ = { tag: "Cons", head: v1, tail: null };
       if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
       l$ = c1$; k$ = "tail";

@@ -1432,6 +1432,109 @@ each touch under a tenth of what survives.
 8,000 programs (1,000 batches from seed 1): all agree on the reference
 evaluator, natively and in JS, none out of resources **[checked]**.
 
+### 9.10 As built: known calls with all their arguments at once (D1173)
+
+§9.9's "Next" taken: the JS backend calls a known definition with all its
+arguments in one call. This changes JS code generation in general, not the
+effect runtime. Nothing changed in the kernel, the elaborator or the native
+runtime, and no hash moved.
+
+**The calling convention** (`crates/js/src/lib.rs`, `DefInfo::uncurried`):
+
+- A definition with two or more runtime parameters (erased ones don't
+  count) is one JS function of all of them, `const f = (v0, v1) => …;`.
+  Its empty-row variant gets the same convention, and so does its tail-call
+  loop (the loop copies the parameters into slots as before). A definition
+  with one runtime parameter is unchanged, because the two forms are the
+  same.
+- A call with at least the definition's arity of arguments (up to its
+  arity, erased ones left out) is one call, `f(a, b)`. Any arguments after
+  that are applied to the result one at a time, `f(a, b)(c)`.
+- With fewer arguments, a partial application or a use as a value, the
+  result is a closure that takes the remaining parameters one at a time, as
+  every function value does. The erased ones are taken too, as D922
+  requires: `(($p2) => f(v0, $p2))`. Supplied arguments that aren't a
+  variable or a literal are computed once, outside the closure (`$s{i}`),
+  as D922 already did. The most common value use is a definition with
+  nothing supplied but its type arguments, such as an interface's `decEq` or
+  `compare` stored in a dictionary, or `noReply` in `sigFromNo`. That
+  closure is the same everywhere, so it's made at its first use and kept in
+  a module variable, `(f$c ??= ($p0) => ($p1) => f($p0, $p1))`, declared
+  with `var` at the end of the module, as the closed signature maps are.
+- Natives are written curried, `(m) => (n) => m + n`, and are emitted
+  uncurried (`(m, n) => m + n`) by stripping their leading arrows. A native
+  whose JS doesn't start with enough arrows would stay curried, but there
+  are none. The effect runtime's functions take their arguments together:
+  `effBind(c, k)`, `foldComp` as `(done, call, c) => effFold(…)`,
+  `translate` as `(m, c) => effTranslate(…)`, the lazy fold
+  `effFoldCompLazy(done, call, c)`, the row-testing fold
+  `effFoldCompIn(row, done, call, c)` (the row is passed first), and 4d's
+  fused fold `effFoldState(comp, done, call, c)(s…)`. `effJump` stays
+  curried, because the rewritten clauses receive it as a value.
+- Function values (lambdas, variables, record fields) are applied one
+  argument at a time, as before. Local lambdas aren't uncurried: a `let`
+  bound lambda is a value, and lifted `match`es are top-level definitions,
+  which are uncurried.
+- **Exports are unchanged.** The wrappers already took JS arguments
+  together (`function $$weigh(arg0, arg1)`). Now they call the compiled
+  definition the same way, `$Main$dweigh(v0, v1)`. The `.d.ts` snapshots
+  are byte-for-byte unchanged.
+
+**Measured** (Apple M4 Pro, shared, load average 4 to 6; Node 22.23.3;
+before is main at `5bf2a973`; `alloc.mjs` at 1,000,000 elements, median of
+5 calls after a warm-up call; the table gives the median of three
+interleaved rounds) **[checked]**:
+
+| export | time before → after | GC before → after | bytes allocated per element | most live |
+|---|---|---|---|---|
+| `plain` | 65 → 65 ms | 38 → 39 ms | 169 → 168 | 133 → 133 MB |
+| `pureMapIn` | 62 → 65 ms | 37 → 41 ms | 169 → 168 | 133 → 133 MB |
+| `checked` | 386 → 299 ms | 290 → 240 ms | 2,028 → 793 | 384 → 350 MB |
+| `failsLast` | 366 → 248 ms | 277 → 203 ms | 1,983 → 729 | 328 → 296 MB |
+| `counted` | 522 → 400 ms | 328 → 240 ms | 2,770 → 1,691 | 388 → 356 MB |
+| `countedChecked` | 614 → 500 ms | 300 → 257 ms | 5,220 → 2,930 | 388 → 357 MB |
+| `asked` | 467 → 415 ms | 278 → 250 ms | 2,602 → 1,617 | 388 → 356 MB |
+| `askedChecked` | 600 → 496 ms | 294 → 248 ms | 4,965 → 2,811 | 388 → 357 MB |
+| `askedIn` | 494 → 411 ms | 287 → 242 ms | 3,107 → 1,706 | 388 → 356 MB |
+| `emittedIn` | 744 → 467 ms | 467 → 295 ms | 3,026 → 1,634 | 580 → 548 MB |
+| `searchedIn` | 1,839 → 1,550 ms | 1,269 → 1,110 ms | 7,257 → 4,430 | 1,172 → 1,140 MB |
+
+`plain` and `pureMapIn` compile to the same code, which differs only by
+`List.map$e(f, v0)` for `List.map$e(f)(v0)`. Their differences are within
+the rounds' spread (`pureMapIn` before: 62, 61 and 76 ms). In a fresh
+process (`COLD=1`, five processes each, interleaved), `checked` took 435 →
+339 ms, with GC 323 → 267 ms. That is 1.28 times on time, against the
+hand-made module's 1.3 in §9.9. Allocation went from 2,028 to 795 bytes per
+element, or 2.55 times, against the hand-made module's 1.55: this change
+uncurries every definition, including `ifThenElse`, `Decidable.elim`, the
+`Nat` natives and the signature helpers, not only the four in that
+experiment. It doesn't move `map`'s locals into its function's context, the
+second half of the experiment.
+
+Pure code: the AoC days under `run --js` (the whole process including
+elaboration, with the cache warm; median of 5, two interleaved rounds; every
+day prints its known answers) **[checked]**: day 4 807-873 → 765-780 ms,
+day 8 3,101-3,116 → 2,304-2,369 ms, day 9 1,276-1,302 → 974-993 ms. The
+other days run in about 500 ms, nearly all of it elaboration, and are
+within 15 ms of before.
+
+**Tests.** `known_calls_pass_their_arguments_together`
+(`crates/cli/tests/effect_runtime.rs`) checks that `List.map`, `bindIn` and
+`foldComp` take their arguments together and that no curried call of them
+is left. `uncurried_definitions_work_every_way_they_are_used`
+(`crates/cli/tests/run_js.rs`, checked against the reference evaluator)
+covers full, partial and over-application, erased parameters left
+unsupplied, a native and a definition passed as values, a tail-recursive
+loop and mutual recursion. In `crates/js`, `uncurries_natives` and
+`simple_arguments` are unit tests. The JS snapshots changed only in calling
+convention. The 4e generator ran 8,000 programs (1,000 batches from seed 1),
+and all of them agree on the reference evaluator, natively and in JS, with
+none out of resources **[checked]**.
+
+**Not done:** moving a case branch's locals into the function's context
+(§9.9's other half). It would need `var`-style hoisting outside loops,
+because a loop's turns must keep their own `const`s.
+
 ## Appendix A. Benchmark and prototype files
 
 In `bench/effect-runtime/`:

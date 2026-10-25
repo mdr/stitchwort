@@ -42,7 +42,7 @@ pub(crate) enum EffectNative {
 
 impl EffectNative {
     /// How many runtime parameters the definition has, which the JS below
-    /// takes, one at a time.
+    /// takes, all in one call (D1173).
     fn runtime_arity(self) -> usize {
         match self {
             EffectNative::Bind | EffectNative::Translate => 2,
@@ -55,8 +55,8 @@ impl EffectNative {
     pub(crate) fn js(self) -> &'static str {
         match self {
             EffectNative::Bind => "effBind",
-            EffectNative::FoldComp => "(done) => (call) => (c) => effFold(done, call, c, null)",
-            EffectNative::Translate => "(m) => (c) => effTranslate(m, c, null)",
+            EffectNative::FoldComp => "(done, call, c) => effFold(done, call, c, null)",
+            EffectNative::Translate => "(m, c) => effTranslate(m, c, null)",
             EffectNative::RunPure => "effRunPure",
         }
     }
@@ -255,7 +255,7 @@ const RUNTIME: &str = r#"
 // apart: `bind`, `foldComp`, `translate` and `runPure` are these functions.
 @COUNTERS@const EFF_BIND = "$Bind";
 // `bind c k`: a node, so building a long chain calls nothing.
-const effBind = (c) => (k) => (@BIND_NODE@{ tag: EFF_BIND, c, k });
+const effBind = (c, k) => (@BIND_NODE@{ tag: EFF_BIND, c, k });
 // The continuations pending when `effRun` last stopped at an operation.
 let effPending = null;
 // Runs `c` with the continuations `pending` (null, or `{ k, next }`, never
@@ -303,12 +303,10 @@ const effFoldLazy = (done, call, c, pending) => {
   const resume = (z) => effFoldLazy(done, call, rest(z), after);
   return call(c@OP@)((y) => (@RESUME@{ tag: EFF_BIND, c: { tag: @DONE_TAG@, @VALUE_KEY@: y }, k: resume }));
 };
-const effFoldCompLazy = (done) => (call) => (c) => effFoldLazy(done, call, c, null);
+const effFoldCompLazy = (done, call, c) => effFoldLazy(done, call, c, null);
 // A fold whose carrier is `CompIn e t`: a computation unless the row is empty.
-const effFoldCompIn = (row) =>
-  row.tag === @EMPTY_TAG@
-    ? (done) => (call) => (c) => effFold(done, call, c, null)
-    : effFoldCompLazy;
+const effFoldCompIn = (row, done, call, c) =>
+  row.tag === @EMPTY_TAG@ ? effFold(done, call, c, null) : effFoldLazy(done, call, c, null);
 // A state-passing handler at the empty row (stage 4d, A′;
 // stitchwort_rt::fusion): its operation clauses were rewritten to take
 // `jump` and the state, and to end with `jump v s′` where they resumed with
@@ -336,7 +334,7 @@ const effStateLoop = (comp, done, call, c, pending, s) => {
   }
 };
 const effStateFn = (comp, f) => (comp ? { tag: @DONE_TAG@, @VALUE_KEY@: f } : f);
-const effFoldState = (comp) => (done) => (call) => (c) =>
+const effFoldState = (comp, done, call, c) =>
   effStateFn(comp, (s) => effStateLoop(comp, done, call, c, null, s));
 // `translate m c` with `pending` after `c`: each operation renamed by `m`,
 // its reply mapped back.

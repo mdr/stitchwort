@@ -764,7 +764,7 @@ define(info$Main$dCap, [
 ], true, [
 ], false, true);
 
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -775,7 +775,7 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dBool$ddecTrue = (v0) => {
   switch (v0.tag) {
     case "False": {
@@ -787,9 +787,9 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
-const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
-const $Std$dOption$dgetOrElse = (v1) => (v2) => {
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
+const $Std$dOption$dgetOrElse = (v1, v2) => {
   switch (v2.tag) {
     case "None": {
       return v1;
@@ -802,7 +802,7 @@ const $Std$dOption$dgetOrElse = (v1) => (v2) => {
   throw new Error("unreachable");
 };
 const $Std$dNat$dtoText = (n) => n.toString();
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -851,8 +851,8 @@ const $Main$dProfile$dage = (v0) => {
   const v3 = v0.age;
   return v3;
 };
-const $Main$dnickname = (v0) => $Std$dOption$dgetOrElse($Main$dProfile$dname(v0))($Main$dProfile$dnick(v0));
-const $Main$dwithNick = (v0) => (v1) => ({ name: $Main$dProfile$dname(v0), nick: v1, age: $Main$dProfile$dage(v0) });
+const $Main$dnickname = (v0) => $Std$dOption$dgetOrElse($Main$dProfile$dname(v0), $Main$dProfile$dnick(v0));
+const $Main$dwithNick = (v0, v1) => ({ name: $Main$dProfile$dname(v0), nick: v1, age: $Main$dProfile$dage(v0) });
 const $Main$dhalve = (v0) => {
   switch (v0.tag) {
     case "None": {
@@ -860,7 +860,7 @@ const $Main$dhalve = (v0) => {
     }
     case "Some": {
       const v1 = v0.value;
-      return { tag: "Some", value: $Std$dNat$ddiv(v1)(2n) };
+      return { tag: "Some", value: $Std$dNat$ddiv(v1, 2n) };
     }
   }
   throw new Error("unreachable");
@@ -919,7 +919,7 @@ const $Main$dkeepSome = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dmarkAll = (v0) => $Std$dList$dmap$e(((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v1)(1n))(((v2) => ({ tag: "None" })))(((v2) => ({ tag: "Some", value: v1 })))))(v0);
+const $Main$dmarkAll = (v0) => $Std$dList$dmap$e(((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 1n), ((v2) => ({ tag: "None" })), ((v2) => ({ tag: "Some", value: v1 })))), v0);
 const $Main$dpeek = (v0) => v0;
 const $Main$ddescribe = (v0) => {
   switch (v0.tag) {
@@ -980,7 +980,7 @@ function $$withNick(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "p");
     const v1 = decodeFast(dec$3, ty$3, arg1, "n");
-    return encodeFast(enc$4, ty$1, $Main$dwithNick(v0)(v1));
+    return encodeFast(enc$4, ty$1, $Main$dwithNick(v0, v1));
   } catch (e) {
     throw outOfResources("withNick", e);
   }
