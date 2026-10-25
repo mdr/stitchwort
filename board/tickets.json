@@ -1,5 +1,5 @@
 {
-  "next": 514,
+  "next": 516,
   "tickets": [
     {
       "id": 13,
@@ -3365,6 +3365,30 @@
       "id": 513,
       "title": "Parameter untupling (Scala 3): a two-parameter lambda where a function on pairs is expected splits each pair, so .map ((row, chars) => …) works; https://docs.scala-lang.org/scala3/reference/other-new-features/parameter-untupling.html (NOTES stage 1 #10)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 514,
+      "title": "Playground: bundle games/rogue as a second project, piped key-script play, web test (D1270)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 515,
+      "title": "Design note: live keypresses in the playground, static-site compatible (D1271); decisions from D1272",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
