@@ -261,6 +261,21 @@ tasks:
     cmds:
       - '{{.SW}} run --js Aoc.Day{{.DAY}}.main < {{.AOC_INPUTS | default "inputs"}}/day{{.DAY}}.txt'
 
+  rogue:run:
+    desc: 'Play the roguelike (games/rogue/): type h/j/k/l and Enter to move, q to quit'
+    deps: [build]
+    dir: games/rogue
+    cmds:
+      - '{{.SW}} run {{.CLI_ARGS}} Rogue.main'
+    interactive: true
+
+  rogue:test:
+    desc: "Check the roguelike's proofs and run its tests"
+    deps: [build]
+    dir: games/rogue
+    cmds:
+      - '{{.SW}} test {{.CLI_ARGS}}'
+
   # ------------------------------------------------- playground and board
 
   web:build:
