@@ -2706,7 +2706,7 @@
     },
     {
       "id": 464,
-      "title": "Private port: migrate the event resolver to rule E, then the Unicode/logic-notation house style; switch to std Map.indexBy (now stack-safe) and the D1191 distinct; private lane, work folder only; after rule E + notation build land",
+      "title": "Private port: migrate the event resolver to rule E, then the Unicode/logic-notation house style; switch to std Map.indexBy (now stack-safe) and the D1191 distinct; private lane, work folder only; after rule E + notation build land. Rule E + std indexBy/distinct + sections DONE 25 Oct (57/57, .d.ts identical, 2224->2115 lines); remaining: Unicode style + Option.any/all rename after the std migration",
       "status": "doing",
       "agent": "",
       "where": "",
