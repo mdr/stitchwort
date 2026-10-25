@@ -669,3 +669,72 @@ fn a_program_that_loads_no_native_library_files_runs() {
     );
     assert_eq!(succeeds(&path, b""), "n: 3\n");
 }
+
+/// Copies the directory `from` into `to`, recursively.
+fn copy_tree(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).expect("create the copy");
+    for entry in std::fs::read_dir(from).expect("read the directory") {
+        let path = entry.expect("an entry").path();
+        let target = to.join(path.file_name().unwrap());
+        if path.is_dir() {
+            copy_tree(&path, &target);
+        } else {
+            std::fs::copy(&path, &target).expect("copy a file");
+        }
+    }
+}
+
+/// SW-145: with `STITCHWORT_STD_DIR` set, `stitchwort run` reads the
+/// standard library from that directory as it is now: an edit to a library
+/// function's body is seen with no rebuild, also through the check cache
+/// (its keys have the text read), and an error in a library file names the
+/// file on disk.
+#[test]
+fn std_dir_reads_the_library_from_disk() {
+    let std = std::env::temp_dir().join(format!("stitchwort-std-dir-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&std);
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
+        &std,
+    );
+    let iterate = std.join("Nat/Iterate.sw");
+    let original = std::fs::read_to_string(&iterate).unwrap();
+    let with_probe = |body: &str| {
+        let text = format!("{original}\ndef Nat.stdDirProbe (n: Nat): Nat := {body}\n");
+        std::fs::write(&iterate, text).unwrap();
+    };
+    let program = source_file(
+        "std-dir.sw",
+        "import Std (IO, Nat)\n\ndef main(): {IO} () :=\n  IO.print (Nat.toText (Nat.stdDirProbe 41))\n",
+    );
+    let cache = std.with_extension("cache");
+    let run_with_std = || {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["run", "--cache-dir"])
+            .arg(&cache)
+            .arg(&program)
+            .env("STITCHWORT_STD_DIR", &std)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort")
+    };
+    with_probe("n + 1");
+    let output = run_with_std();
+    assert_eq!(stdout(&output), "42\n", "{}", stderr(&output));
+    // The same cache directory: the edited file's entry is a miss.
+    with_probe("n + 2");
+    let output = run_with_std();
+    assert_eq!(stdout(&output), "43\n", "{}", stderr(&output));
+    with_probe("n + True");
+    let output = run_with_std();
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let shown = iterate.display().to_string();
+    assert!(
+        stderr(&output).contains(&shown),
+        "the error names {shown}:\n{}",
+        stderr(&output)
+    );
+    let _ = std::fs::remove_dir_all(&std);
+    let _ = std::fs::remove_dir_all(&cache);
+}

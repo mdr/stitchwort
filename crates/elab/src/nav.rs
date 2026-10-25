@@ -225,12 +225,12 @@ pub enum NavTarget {
 pub fn std_source(path: &str, stack: usize) -> Option<String> {
     let index = crate::LibraryIndex::standard(stack).ok()?;
     if path.starts_with("core/") {
-        let start: usize = crate::CORE_LAYOUT
+        let start: usize = crate::core_layout()
             .iter()
             .take_while(|(p, _)| *p != path)
             .map(|(_, len)| len)
             .sum();
-        let (_, len) = crate::CORE_LAYOUT.iter().find(|(p, _)| *p == path)?;
+        let (_, len) = crate::core_layout().iter().find(|(p, _)| *p == path)?;
         return index
             .files
             .first()?

@@ -12,7 +12,7 @@ use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, slow_tier, slow_tier_on};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
-use stitchwort_elab::{LIBRARY_FILES, LibraryIndex, PRELUDE};
+use stitchwort_elab::{EMBEDDED_LIBRARY_FILES, LibraryIndex, library_files, prelude};
 use stitchwort_syntax::Diagnostic;
 
 /// Examples run with this much stack, as from the command line.
@@ -51,44 +51,65 @@ fn files_on_disk() -> Vec<String> {
     out
 }
 
-/// The core's files (`std/core/`), `PRELUDE`, are not library files.
+/// The core's files (`std/core/`), `prelude()`, are not library files.
 fn is_core(path: &str) -> bool {
     path.starts_with("core/")
 }
 
-/// Every `.sw` file under `std/core/` is in `CORE_LAYOUT`, and each file's
-/// text, read back by path, is what the layout says: they join to `PRELUDE`.
+/// Which copy of the library this run uses (`STITCHWORT_STD_DIR`), said
+/// once in the test output.
+fn say_mode() {
+    static SAID: std::sync::Once = std::sync::Once::new();
+    SAID.call_once(|| eprintln!("std_library: {}", stitchwort_elab::std_text().mode()));
+}
+
+/// Every `.sw` file under `std/core/` is in `EMBEDDED_CORE_LAYOUT`, and each
+/// file's text, read back by path, is what the layout this run uses says:
+/// they join to `prelude()`.
 #[test]
 fn the_core_layout_lists_every_core_file() {
+    say_mode();
     let on_disk: Vec<String> = files_on_disk().into_iter().filter(|p| is_core(p)).collect();
-    let mut listed: Vec<String> = stitchwort_elab::CORE_LAYOUT
+    let mut listed: Vec<String> = stitchwort_elab::EMBEDDED_CORE_LAYOUT
         .iter()
         .map(|(p, _)| p.to_string())
         .collect();
     listed.sort();
     assert_eq!(listed, on_disk);
     let mut joined = String::new();
-    for (path, len) in stitchwort_elab::CORE_LAYOUT {
+    for (path, len) in stitchwort_elab::core_layout() {
         let text = stitchwort_driver::nav::std_source(path, STACK).expect("a core file");
         assert_eq!(text.len(), *len, "{path}");
         joined.push_str(&text);
     }
-    assert_eq!(joined, PRELUDE);
+    assert_eq!(joined, prelude());
 }
 
+/// The embedded table lists every library file in the checkout, in order,
+/// with its text. The text is compared only when this run uses the embedded
+/// copy: with `STITCHWORT_STD_DIR` set, the files on disk may be ahead of the
+/// build, which is the point.
 #[test]
 fn the_table_lists_every_library_file_in_order() {
-    let listed: Vec<String> = LIBRARY_FILES.iter().map(|(p, _)| p.to_string()).collect();
+    say_mode();
+    let listed: Vec<String> = EMBEDDED_LIBRARY_FILES
+        .iter()
+        .map(|(p, _)| p.to_string())
+        .collect();
     assert_eq!(
         listed,
         files_on_disk()
             .into_iter()
             .filter(|p| !is_core(p))
             .collect::<Vec<_>>(),
-        "LIBRARY_FILES in crates/elab/src/library.rs"
+        "EMBEDDED_LIBRARY_FILES in crates/elab/src/library.rs"
     );
+    if stitchwort_elab::std_text().dir.is_some() {
+        eprintln!("the embedded files' text isn't compared: std is read from disk");
+        return;
+    }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std");
-    for (path, text) in LIBRARY_FILES {
+    for (path, text) in EMBEDDED_LIBRARY_FILES {
         assert_eq!(&std::fs::read_to_string(root.join(path)).unwrap(), text);
     }
 }
@@ -96,6 +117,7 @@ fn the_table_lists_every_library_file_in_order() {
 // ----------------------------------------------------------------- the index
 
 fn standard_index() -> std::sync::Arc<LibraryIndex> {
+    say_mode();
     LibraryIndex::standard(STACK).expect("the standard library's index")
 }
 
@@ -140,7 +162,7 @@ fn the_index_holds_exactly_the_names_an_eager_load_makes() {
 
 #[test]
 fn a_name_declared_twice_is_refused() {
-    let build = |files: &[(&str, &str)]| LibraryIndex::build(PRELUDE, files, STACK).err();
+    let build = |files: &[(&str, &str)]| LibraryIndex::build(prelude(), files, STACK).err();
     // Library against library.
     let error = build(&[
         ("A.sw", "def Nat.libTwice (n: Nat): Nat := n + n\n"),
@@ -984,7 +1006,7 @@ fn render_all(session: &Session, errors: &[Diagnostic]) -> String {
 fn index_cost() {
     for _ in 0..3 {
         let started = std::time::Instant::now();
-        let index = LibraryIndex::build(PRELUDE, LIBRARY_FILES, STACK).unwrap();
+        let index = LibraryIndex::build(prelude(), library_files(), STACK).unwrap();
         let names: usize = index.files.iter().map(|f| f.names.len()).sum();
         eprintln!("index build: {:?} ({names} names)", started.elapsed());
     }

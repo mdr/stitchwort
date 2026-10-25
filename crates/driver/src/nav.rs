@@ -426,7 +426,7 @@ pub fn index_data_of(
             } else {
                 let std = match name.strip_prefix("std/") {
                     Some(std) => std,
-                    None => stitchwort_elab::CORE_LAYOUT
+                    None => stitchwort_elab::core_layout()
                         .get(*part)
                         .map_or("core", |(p, _)| p),
                 };
@@ -665,7 +665,7 @@ fn range(lines: &mut Lines, sources: &SourceMap, span: Span, last: Option<&str>)
 /// shows it as the files it is made of.
 fn core_part(sources: &SourceMap, span: Span) -> Option<(usize, usize)> {
     let file = sources.get(span.file);
-    if file.name != "<prelude>" || file.text.len() != stitchwort_elab::PRELUDE.len() {
+    if file.name != "<prelude>" || file.text.len() != stitchwort_elab::prelude().len() {
         return None;
     }
     let (_, start, part) = stitchwort_elab::core_file_at(span.start as usize);

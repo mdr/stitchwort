@@ -1,7 +1,7 @@
 //! The standard library's files, its name index, and loading it on demand
 //! (docs/proposals/std-library.md).
 //!
-//! The always-loaded **core** is the files of `std/core/`, joined (`PRELUDE`). Everything else is a
+//! The always-loaded **core** is the files of `std/core/`, joined (`prelude()`). Everything else is a
 //! **library file** under `std/`, checked only when a program uses
 //! something in it. Lazy loading is an implementation detail (§4.0): a
 //! program resolves and elaborates exactly as if every file were loaded.
@@ -38,11 +38,12 @@ use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, parse_mod
 use crate::module::{ModuleState, Ref, decl_refs, declared_names, expr_refs};
 use crate::project::{SourceUnit, grouped};
 use crate::scope::{self, Resolved};
-use crate::{Elaborator, Global, PRELUDE};
+use crate::{Elaborator, Global};
 
-/// The library files, `(path under std/, text)`, sorted by path. A test
-/// checks this lists every `.sw` file under `std/`.
-pub const LIBRARY_FILES: &[(&str, &str)] = &[
+/// The library files as the build embeds them, `(path under std/, text)`,
+/// sorted by path. A test checks this lists every `.sw` file under `std/`.
+/// What a process uses is [`crate::library_files`].
+pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Abort/Abort.sw", include_str!("std/Abort/Abort.sw")),
     ("Bool/Bool.sw", include_str!("std/Bool/Bool.sw")),
     (
@@ -188,7 +189,9 @@ impl LibraryIndex {
     /// for. `stack` bounds the parser's recursion.
     pub fn standard(stack: usize) -> Result<Arc<LibraryIndex>, String> {
         STANDARD
-            .get_or_init(|| LibraryIndex::build(PRELUDE, LIBRARY_FILES, stack).map(Arc::new))
+            .get_or_init(|| {
+                LibraryIndex::build(crate::prelude(), crate::library_files(), stack).map(Arc::new)
+            })
             .clone()
     }
 

@@ -10,7 +10,7 @@ use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::shown::{SHOWN_NODES, cut, first_difference};
-use stitchwort_elab::{Elaborator, LibraryIndex, PRELUDE};
+use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_recovering,
@@ -144,7 +144,7 @@ impl Session {
     pub fn eager_for_stack(stack: usize) -> Self {
         // The library loads now, so under these limits, not the defaults.
         Self::start(
-            PRELUDE,
+            prelude(),
             Library::Standard,
             true,
             false,
@@ -155,7 +155,7 @@ impl Session {
     }
 
     pub fn new() -> Self {
-        Session::with_prelude(PRELUDE)
+        Session::with_prelude(prelude())
     }
 
     /// A session recording what code navigation needs (the index of
@@ -163,7 +163,7 @@ impl Session {
     /// session was made would miss the names in the core (`std/core/`).
     pub fn navigable() -> Self {
         Self::start(
-            PRELUDE,
+            prelude(),
             Library::Standard,
             false,
             false,
@@ -201,7 +201,7 @@ impl Session {
     #[doc(hidden)]
     pub fn eager() -> Self {
         Self::start(
-            PRELUDE,
+            prelude(),
             Library::Standard,
             true,
             false,
@@ -216,7 +216,7 @@ impl Session {
     #[doc(hidden)]
     pub fn core_alone() -> Self {
         Self::start(
-            PRELUDE,
+            prelude(),
             Library::None,
             false,
             false,
@@ -237,7 +237,7 @@ impl Session {
         library_tests: bool,
     ) -> Result<Self, String> {
         Self::start(
-            PRELUDE,
+            prelude(),
             Library::Files(files),
             eager,
             library_tests,
@@ -252,7 +252,7 @@ impl Session {
     #[doc(hidden)]
     pub fn with_library_tests() -> Self {
         Self::start(
-            PRELUDE,
+            prelude(),
             Library::Standard,
             true,
             true,
@@ -286,7 +286,9 @@ impl Session {
         let stack = session.elab.limits.stack;
         let index = match library {
             Library::Standard | Library::None => LibraryIndex::standard(stack),
-            Library::Files(files) => LibraryIndex::build(PRELUDE, files, stack).map(Arc::new),
+            Library::Files(files) => {
+                LibraryIndex::build(stitchwort_elab::prelude(), files, stack).map(Arc::new)
+            }
         }
         .map_err(|e| format!("internal error: the standard library: {e}"))?;
         let report = |sources: &SourceMap, what: &str, diagnostics: &[Diagnostic]| {
@@ -787,6 +789,33 @@ const COMPILER: &str = concat!("stitchwort-", env!("CARGO_PKG_VERSION"));
 /// same version number.
 pub const FINGERPRINT: &str = env!("STITCHWORT_FINGERPRINT");
 
+/// The fingerprint the caches key on: [`FINGERPRINT`], or, when the standard
+/// library is read from a directory (`STITCHWORT_STD_DIR`), a hash of it and
+/// the library's text as read. [`FINGERPRINT`] covers the embedded copy, not
+/// the one on disk, which can change without a rebuild.
+pub fn build_fingerprint() -> &'static str {
+    static FROM_DISK: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    let std = stitchwort_elab::std_text();
+    if std.dir.is_none() {
+        return FINGERPRINT;
+    }
+    FROM_DISK.get_or_init(|| {
+        let mut h = blake3::Hasher::new();
+        let mut part = |bytes: &[u8]| {
+            h.update(&(bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        };
+        part(FINGERPRINT.as_bytes());
+        part(std.prelude.as_bytes());
+        for (path, text) in std.library {
+            part(path.as_bytes());
+            part(text.as_bytes());
+        }
+        // As long as `FINGERPRINT`, so file names keep their shape.
+        h.finalize().to_hex()[..FINGERPRINT.len()].to_string()
+    })
+}
+
 /// [`FINGERPRINT`] without the toolchain and target: the same in a native
 /// and a WebAssembly build of the same sources, so a test can tell whether
 /// the playground's bundle is up to date (`stitchwort_web::source_fingerprint`).
@@ -849,7 +878,7 @@ impl Cache {
     /// The key of the result of the test with `hash`, when run with `modes`:
     /// the file name in a directory cache.
     pub fn key(hash: &ContentHash, modes: &str) -> String {
-        format!("{COMPILER}-{FINGERPRINT}-{modes}-{}", hash.hex())
+        format!("{COMPILER}-{}-{modes}-{}", build_fingerprint(), hash.hex())
     }
 
     /// Where the result of test `unit` ([`Cache::unit`]) with `hash` is
@@ -864,7 +893,7 @@ impl Cache {
 
     /// The start of the file names of this build's results with `modes`.
     fn build(modes: &str) -> String {
-        format!("{COMPILER}-{FINGERPRINT}-{modes}")
+        format!("{COMPILER}-{}-{modes}", build_fingerprint())
     }
 
     /// After writing `keep`, the result of test `unit`: deletes the test's
@@ -879,7 +908,7 @@ impl Cache {
             return;
         };
         let own = format!("{}-{unit}-", Self::build(modes));
-        let this_build = format!("{COMPILER}-{FINGERPRINT}-");
+        let this_build = format!("{COMPILER}-{}-", build_fingerprint());
         let now = std::time::SystemTime::now();
         for entry in entries.flatten() {
             let path = entry.path();

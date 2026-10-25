@@ -12,7 +12,7 @@ use stitchwort_core::partial::{self, Primitive};
 use stitchwort_core::value::{conv, eval};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Sort, Term};
 use stitchwort_driver::driver::Session;
-use stitchwort_elab::{Elaborator, PRELUDE};
+use stitchwort_elab::{Elaborator, prelude};
 use stitchwort_syntax::{SourceMap, Span};
 
 fn span() -> Span {
@@ -204,8 +204,8 @@ fn a_constant_with_another_type_is_refused() {
         ),
     ];
     for (original, changed) in cases {
-        assert!(PRELUDE.contains(original), "{original}");
-        let prelude = PRELUDE.replacen(original, changed, 1);
+        assert!(prelude().contains(original), "{original}");
+        let prelude = prelude().replacen(original, changed, 1);
         let mut session = Session {
             sources: SourceMap::new(),
             elab: Elaborator::new(),
