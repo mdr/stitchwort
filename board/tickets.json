@@ -2690,7 +2690,7 @@
     },
     {
       "id": 463,
-      "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); also rename Option.exists/forall -> any/all (D1203, moved here by D1221); after rule E and the notation build",
+      "title": "Migrate std/aoc/examples to Unicode house style everywhere, programs included (D1205, D1210); also rename Option.exists/forall -> any/all (D1203, moved here by D1221); after rule E and the notation build; also congruence.rs premise-shape texts -> →",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -2794,14 +2794,16 @@
     {
       "id": 471,
       "title": "Notation follow-ups: print -> as → in goals/hover/errors (D1222); exported JS runtime/precondition messages stay ASCII (D1223); ⇒ stays an error pointing to => or →, no λ alias (D1224); after rule E lands",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "63b1b34f"
+      ]
     },
     {
       "id": 472,
