@@ -1,5 +1,5 @@
 {
-  "next": 522,
+  "next": 523,
   "tickets": [
     {
       "id": 13,
@@ -3469,6 +3469,18 @@
       "id": 521,
       "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 522,
+      "title": "Opaque definitions note draft 2: fold in external review (verified D&G citations, kernel invariant, neutral spec wording, mutual groups, f.unfold size)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
