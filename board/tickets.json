@@ -1,5 +1,5 @@
 {
-  "next": 459,
+  "next": 460,
   "tickets": [
     {
       "id": 13,
@@ -2591,14 +2591,16 @@
     {
       "id": 456,
       "title": "std stack safety: Map.indexBy (foldRight) overflows JS stack at ~8k elements; convert to left fold, audit other foldRight builders, 100k regression test",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "52b8db4b"
+      ]
     },
     {
       "id": 457,
@@ -2616,6 +2618,18 @@
       "id": 458,
       "title": "AoC: rewrite the 8 lambdas that are sections today (D1194b), in the rule-E AoC migration lane",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 459,
+      "title": "std JS/native stack-safety audit: List.length/append (core) and every list walker at 100k in plain Node; prefer a backend fix (tail recursion modulo cons) over redefining core",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
