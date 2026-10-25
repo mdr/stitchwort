@@ -3116,14 +3116,16 @@
     {
       "id": 494,
       "title": "Roguelike stage 2: generated dungeons (Random), levels, items/inventory, chasing monsters; proofs kept",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "fe0d4962"
+      ]
     },
     {
       "id": 495,
