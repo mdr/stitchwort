@@ -4,4 +4,4 @@
 -- theorem's (still wrong) proof gets no note (acceptance test 2).
 theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl
 
-theorem subAddBelow (a: Nat) (b: Nat) (h: b <= a): (a - b) + b = a := rfl
+theorem subAddBelow (a: Nat) (b: Nat) (h: b ≤ a): (a - b) + b = a := rfl

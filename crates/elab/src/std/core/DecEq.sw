@@ -9,7 +9,7 @@
 -- program gets one derived, when it can (`T.%instDecEq`).
 
 interface DecEq (a: Type) =
-  { decide: (x: a) -> (y: a) -> Decidable (x = y) }
+  { decide: (x: a) → (y: a) → Decidable (x = y) }
 
 instance Nat.instDecEq: DecEq Nat := { decide = Nat.decEq }
 
@@ -39,11 +39,11 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
 -- Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
 -- `x = y` into the one the decision gives, ignoring which proof it was
 -- given, and every proof can be recovered from its canonical one.
-def DecEq.canon: [x y: a] -> Decidable (x = y) -> x = y -> x = y
+def DecEq.canon: [x y: a] → Decidable (x = y) → x = y → x = y
   | Yes e, p => e
   | No r, p => Void.exfalso (r p)
 
-theorem DecEq.canonConst: [x y: a] -> (d: Decidable (x = y)) -> (p: x = y) -> (q: x = y) ->
+theorem DecEq.canonConst: [x y: a] → (d: Decidable (x = y)) → (p: x = y) → (q: x = y) →
     DecEq.canon d p = DecEq.canon d q
   | Yes e, p, q => rfl
   | No r, p, q => Void.exfalso (r p)

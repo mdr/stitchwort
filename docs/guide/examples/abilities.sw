@@ -5,7 +5,7 @@ import Std.Fail (fail, need, ensure, toResult)
 
 -- begin declare
 ability Log where
-  say: Text -> {Log} ()
+  say: Text → {Log} ()
 
 def checkout (items: Nat): {Log} Nat :=
   say "checking out ${items} items"
@@ -15,8 +15,8 @@ def checkout (items: Nat): {Log} Nat :=
 -- end declare
 
 -- begin handle
-def collectLog (prog: () -> {Log | e} a): {e} (a, List Text) :=
-  let run: List Text -> {e} (a, List Text) :=
+def collectLog (prog: () → {Log | e} a): {e} (a, List Text) :=
+  let run: List Text → {e} (a, List Text) :=
     handle prog() with
       | return result => said => (result, said)
       | say message, resume => said => resume () (said ++ [message])
@@ -26,7 +26,7 @@ test "collected" := collectLog (() => checkout 3) == (15, ["checking out 3 items
 -- end handle
 
 -- begin ignore
-def quietly (prog: () -> {Log | e} a): {e} a :=
+def quietly (prog: () → {Log | e} a): {e} a :=
   handle prog() with
     | return result => result
     | say _, resume => resume ()
@@ -35,7 +35,7 @@ test "ignored" := quietly (() => checkout 2) == 10
 -- end ignore
 
 -- begin print
-def printLog (prog: () -> {Log, IO | e} a): {IO | e} a :=
+def printLog (prog: () → {Log, IO | e} a): {IO | e} a :=
   handle prog() with
     | return result => result
     | say message, resume =>
@@ -49,12 +49,12 @@ def main(): {IO} () :=
 
 -- begin state
 ability Counter where
-  next: () -> {Counter} Nat
+  next: () → {Counter} Nat
 
 def label (names: List Text): {Counter} (List Text) := names.map (name => "${next()}. ${name}")
 
-def counting (start: Nat) (prog: () -> {Counter | e} a): {e} a :=
-  let run: Nat -> {e} a :=
+def counting (start: Nat) (prog: () → {Counter | e} a): {e} a :=
+  let run: Nat → {e} a :=
     handle prog() with
       | return result => _ => result
       | next (), resume => count => resume count (count + 1)
@@ -64,7 +64,7 @@ test "numbered" := counting 1 (() => label ["tea", "milk"]) == ["1. tea", "2. mi
 -- end state
 
 -- begin polymorphic
-def applyTwice (f: a -> {e} a) (x: a): {e} a := f (f x)
+def applyTwice (f: a → {e} a) (x: a): {e} a := f (f x)
 
 test "pure" := applyTwice (n => n + 1) 0 == 2
 def loggedStep (n: Nat): {Log} Nat :=
@@ -79,7 +79,7 @@ type Turn = { left: Bool, distance: Nat }
 
 def Turn.parse (text: Text): {Fail} Turn :=
   let (direction, rest) := need text.uncons "expected a turn, got nothing"
-  ensure (direction == 'L' || direction == 'R') "expected L or R, got '${text}'"
+  ensure (direction == 'L' ∨ direction == 'R') "expected L or R, got '${text}'"
   { left = direction == 'L', distance = rest.toNatOrFail }
 
 def parseTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.parse
@@ -94,7 +94,7 @@ def halfOf (n: Nat): {Abort} Nat :=
   Abort.ensure (n % 2 == 0)
   n / 2
 
-test "abort" := Abort.toOption (() => halfOf 6) == Some 3 && Abort.toOption (() => halfOf 7) == None
+test "abort" := Abort.toOption (() => halfOf 6) == Some 3 ∧ Abort.toOption (() => halfOf 7) == None
 -- end abort
 
 -- begin each
@@ -110,11 +110,11 @@ test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 
 -- begin effects-parameter
 type Hooks (e: Effects) = {
-  before: Nat -> {e} (),
-  after: Nat -> {e} ()
+  before: Nat → {e} (),
+  after: Nat → {e} ()
 }
 
-def withHooks (hooks: Hooks e) (step: Nat -> Nat) (n: Nat): {e} Nat :=
+def withHooks (hooks: Hooks e) (step: Nat → Nat) (n: Nat): {e} Nat :=
   hooks.before n
   let result := step n
   hooks.after result

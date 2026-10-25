@@ -7,7 +7,7 @@
 -- examples/accept/interfaces-heads.sw.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 type Grid = List (List Nat)
 

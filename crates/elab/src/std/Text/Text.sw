@@ -18,63 +18,63 @@ theorem Text.padRightLongEnough: Text.padRight "ab" 1 '.' = "ab" := rfl
 
 def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 
-def Text.joinPair (separator: Char): Pair (List Char) (List (List Char)) -> List Char
+def Text.joinPair (separator: Char): Pair (List Char) (List (List Char)) → List Char
   | MkPair field fields => Text.joinChars separator field fields
 
-theorem Text.joinCons (s: Char) (c: Char) (f: List Char): (fs: List (List Char)) ->
+theorem Text.joinCons (s: Char) (c: Char) (f: List Char): (fs: List (List Char)) →
     Text.joinChars s (Cons c f) fs = Cons c (Text.joinChars s f fs)
   | Nil => rfl
   | Cons g gs => rfl
 
 theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
-    (p: Pair (List Char) (List (List Char))) -> Text.joinPair s p = cs ->
-    (d: Decidable (c = s)) -> Text.joinPair s (Text.splitCons s c (Decidable.toBool d) p) = Cons c cs
+    (p: Pair (List Char) (List (List Char))) → Text.joinPair s p = cs →
+    (d: Decidable (c = s)) → Text.joinPair s (Text.splitCons s c (Decidable.toBool d) p) = Cons c cs
   | MkPair f fs, h, Yes e =>
     Eq.trans (Eq.cong (Cons s) h) (Eq.cong (x => Cons x cs) (Eq.sym e))
   | MkPair f fs, h, No r =>
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
-theorem Text.joinSplitChars (s: Char): (cs: List Char) -> Text.joinPair s (Text.splitChars s cs) = cs
+theorem Text.joinSplitChars (s: Char): (cs: List Char) → Text.joinPair s (Text.splitChars s cs) = cs
   | Nil => rfl
   | Cons c cs =>
     Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
 
-theorem Text.charListsOfTexts: (fs: List (List Char)) -> Text.charListsOf (Text.textsOf fs) = fs
+theorem Text.charListsOfTexts: (fs: List (List Char)) → Text.charListsOf (Text.textsOf fs) = fs
   | Nil => rfl
   | Cons f fs => Eq.cong (Cons f) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplitTexts (s: Char): (p: Pair (List Char) (List (List Char))) ->
+theorem Text.joinSplitTexts (s: Char): (p: Pair (List Char) (List (List Char))) →
     Text.join (Text.splitTexts p) s = MkText (Text.joinPair s p)
   | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplit: (t: Text) -> (s: Char) -> Text.join (Text.split t s) s = t
+theorem Text.joinSplit: (t: Text) → (s: Char) → Text.join (Text.split t s) s = t
   | MkText cs, s =>
     Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
 
 -- Lines
 
-def Char.isLineFeedCode: Nat -> Bool
+def Char.isLineFeedCode: Nat → Bool
   | 10 => True
   | _ => False
 
-def Char.isCarriageReturnCode: Nat -> Bool
+def Char.isCarriageReturnCode: Nat → Bool
   | 13 => True
   | _ => False
 
 -- A line that ended with a line feed, from its characters newest first,
 -- without a carriage return just before the line feed.
-def Text.endLine: List Char -> Text
+def Text.endLine: List Char → Text
   | Nil => MkText Nil
   | Cons char chars => MkText (List.reverseOnto (if Char.isCarriageReturnCode (Char.toNat char) then chars else Cons char chars) Nil)
 
 -- The last line, if the text doesn't end with a line feed: kept whole.
-def Text.lastLine: List Char -> List Text -> List Text
+def Text.lastLine: List Char → List Text → List Text
   | Nil, acc => acc
   | Cons c cs, acc => Cons (MkText (List.reverseOnto (Cons c cs) Nil)) acc
 
 -- `line` is the current line's characters, newest first, and `acc` the
 -- finished lines, newest first.
-def Text.linesFrom (line: List Char) (acc: List Text): List Char -> List Text
+def Text.linesFrom (line: List Char) (acc: List Text): List Char → List Text
   | Nil => List.reverseOnto (Text.lastLine line acc) Nil
   | Cons char chars =>
     if Char.isLineFeedCode (Char.toNat char) then Text.linesFrom Nil (Cons (Text.endLine line) acc) chars
@@ -106,12 +106,12 @@ def Text.drop (text: Text) (n: Nat): Text := Text.fromList (List.drop (Text.toLi
 def Text.sameChar (a: Char) (b: Char): Bool := Nat.equal (Char.toNat a) (Char.toNat b)
 
 -- The rest of the characters after the prefix `p`, if they start with it.
-def Text.stripPrefixChars: List Char -> List Char -> Option (List Char)
+def Text.stripPrefixChars: List Char → List Char → Option (List Char)
   | Nil, ys => Some ys
   | Cons p ps, Nil => None
   | Cons p ps, Cons y ys => if Text.sameChar p y then Text.stripPrefixChars ps ys else None
 
-def Text.startsWithChars: List Char -> List Char -> Bool
+def Text.startsWithChars: List Char → List Char → Bool
   | Nil, ys => True
   | Cons p ps, Nil => False
   | Cons p ps, Cons y ys => if Text.sameChar p y then Text.startsWithChars ps ys else False
@@ -132,7 +132,7 @@ def Text.startsWith (text: Text) (prefix: Text): Bool :=
 def Text.endsWith (text: Text) (suffix: Text): Bool :=
   Text.startsWithChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList text))
 
-def Text.containsChars (needle: List Char): List Char -> Bool
+def Text.containsChars (needle: List Char): List Char → Bool
   | Nil => Text.startsWithChars needle Nil
   | Cons char chars => if Text.startsWithChars needle (Cons char chars) then True else Text.containsChars needle chars
 
@@ -143,7 +143,7 @@ def Text.contains (text: Text) (needle: Text): Bool := Text.containsChars (Text.
 -- pieces, newest first, and `skip` how many more characters of a separator
 -- just found are still to be passed over. `n` is the separator's length
 -- less one.
-def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): List Char -> Nat -> List Text
+def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): List Char → Nat → List Text
   | Nil, skip => List.reverseOnto (Cons (MkText (List.reverseOnto cur Nil)) acc) Nil
   | Cons char chars, Succ skip => Text.splitOnLoop sep n cur acc chars skip
   | Cons char chars, Zero =>
@@ -154,7 +154,7 @@ def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text)
       chars
       (if hit then n else Zero)
 
-def Text.splitOnChars: List Char -> List Char -> List Text
+def Text.splitOnChars: List Char → List Char → List Text
   | Nil, chars => Cons (MkText chars) Nil
   | Cons first rest, chars => Text.splitOnLoop (Cons first rest) (List.length rest) Nil Nil chars Zero
 
@@ -169,7 +169,7 @@ def Text.splitOn (text: Text) (sep: Text): List Text := Text.splitOnChars (Text.
 
 theorem Text.sameCharRefl (c: Char): Text.sameChar c c = True := Nat.equalRefl (Char.toNat c)
 
-theorem Text.stripPrefixCharsAppend (t: List Char): (p: List Char) ->
+theorem Text.stripPrefixCharsAppend (t: List Char): (p: List Char) →
     Text.stripPrefixChars p (List.append p t) = Some t
   | Nil => rfl
   | Cons c ps =>
@@ -180,7 +180,7 @@ theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix (Text.appen
   Eq.trans (Eq.cong (.map Text.fromList) (Text.stripPrefixCharsAppend (Text.toList t) (Text.toList p)))
     (Eq.cong Some (Text.fromToList t))
 
-theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) ->
+theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) →
     Text.startsWithChars p (List.append p t) = True
   | Nil => rfl
   | Cons c ps =>
@@ -190,7 +190,7 @@ theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) ->
 theorem Text.startsWithAppend (p: Text) (t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)
 
-theorem Text.takeDropChars: (n: Nat) -> (cs: List Char) -> List.append (List.take cs n) (List.drop cs n) = cs
+theorem Text.takeDropChars: (n: Nat) → (cs: List Char) → List.append (List.take cs n) (List.drop cs n) = cs
   | Zero, cs => rfl
   | Succ n, Nil => rfl
   | Succ n, Cons c cs => Eq.cong (Cons c) (Text.takeDropChars n cs)
@@ -198,13 +198,13 @@ theorem Text.takeDropChars: (n: Nat) -> (cs: List Char) -> List.append (List.tak
 theorem Text.takeAppendDrop (t: Text) (n: Nat): Text.append (Text.take t n) (Text.drop t n) = t :=
   Text.ext (Text.append (Text.take t n) (Text.drop t n)) t (Text.takeDropChars n (Text.toList t))
 
-test "take and drop" := Text.take "héllo" 2 == "hé" && Text.drop "héllo" 2 == "llo"
-test "take and drop past the end" := Text.take "ab" 9 == "ab" && Text.drop "ab" 9 == ""
-test "stripPrefix" := Text.stripPrefix "L68" "L" == Some "68" && Text.stripPrefix "R68" "L" == None
-test "stripSuffix" := Text.stripSuffix "L68" "68" == Some "L" && Text.stripSuffix "L68" "x" == None
-test "startsWith and endsWith" := Text.startsWith "abc" "ab" && Text.endsWith "abc" "bc" && !(Text.startsWith "abc" "abcd")
-test "contains" := Text.contains "abcd" "bc" && !(Text.contains "abcd" "ca") && Text.contains "" ""
-test "splitOn" := Text.splitOn "a, b" ", " == ["a", "b"] && Text.splitOn "" "x" == [""]
+test "take and drop" := Text.take "héllo" 2 == "hé" ∧ Text.drop "héllo" 2 == "llo"
+test "take and drop past the end" := Text.take "ab" 9 == "ab" ∧ Text.drop "ab" 9 == ""
+test "stripPrefix" := Text.stripPrefix "L68" "L" == Some "68" ∧ Text.stripPrefix "R68" "L" == None
+test "stripSuffix" := Text.stripSuffix "L68" "68" == Some "L" ∧ Text.stripSuffix "L68" "x" == None
+test "startsWith and endsWith" := Text.startsWith "abc" "ab" ∧ Text.endsWith "abc" "bc" ∧ ¬(Text.startsWith "abc" "abcd")
+test "contains" := Text.contains "abcd" "bc" ∧ ¬(Text.contains "abcd" "ca") ∧ Text.contains "" ""
+test "splitOn" := Text.splitOn "a, b" ", " == ["a", "b"] ∧ Text.splitOn "" "x" == [""]
 test "splitOn empty separator" := Text.splitOn "abc" "" == ["abc"]
 test "splitOn overlapping" := Text.splitOn "aaa" "aa" == ["", "a"]
 
@@ -218,7 +218,7 @@ def Text.repeat (text: Text) (n: Nat): Text := Text.fromList (List.concat (List.
 -- text as one chunk (none for an empty text).
 def Text.chunksOf (text: Text) (n: Nat): List Text := List.map (List.chunksOf (Text.toList text) n) Text.fromList
 
-test "Text.repeat" := Text.repeat "ab" 3 == "ababab" && Text.repeat "ab" 0 == "" && Text.repeat "" 4 == ""
-test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] && Text.chunksOf "" 2 == []
+test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "" ∧ Text.repeat "" 4 == ""
+test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] ∧ Text.chunksOf "" 2 == []
 test "Text.chunksOf zero" := Text.chunksOf "abc" 0 == ["abc"]
-test "Text.words" := "a  b\tc\n d ".words == ["a", "b", "c", "d"] && "".words == [] && "  ".words == [] && "ab".words == ["ab"]
+test "Text.words" := "a  b\tc\n d ".words == ["a", "b", "c", "d"] ∧ "".words == [] ∧ "  ".words == [] ∧ "ab".words == ["ab"]

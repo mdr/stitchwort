@@ -11,7 +11,7 @@ expression: output
    │ │                                    
    │ ╰──────────────────────────────────── first defined here
    │ 
- 8 │     def Shape.id: Shape -> Text
+ 8 │     def Shape.id: Shape → Text
    │         ────┬───  
    │             ╰───── `Shape.id` is already defined
    │     

@@ -5,9 +5,9 @@ expression: output
 [E-EXPORT] Error: `pick` can't be exported
    ╭─[ reject/export-unchecked-precondition.sw:4:1 ]
    │
- 4 │ export def pick (f: Nat -> Nat): [auto same: f = f] -> Nat := 0
-   │ ─────────────────────────────┬────────────────────────────  
-   │                              ╰────────────────────────────── its precondition `f = f` can't be checked at runtime
+ 4 │ export def pick (f: Nat → Nat): [auto same: f = f] → Nat := 0
+   │ ────────────────────────────┬───────────────────────────  
+   │                             ╰───────────────────────────── its precondition `f = f` can't be checked at runtime
    │ 
    │ Note: an exported function's proof arguments need a decision procedure (an `instance` returning `Decidable …`)
 ───╯

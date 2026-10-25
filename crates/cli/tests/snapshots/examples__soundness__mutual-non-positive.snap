@@ -5,9 +5,9 @@ expression: output
 [E-POSITIVITY] Error: `Bad2` is used in a negative position
    ╭─[ soundness/mutual-non-positive.sw:8:16 ]
    │
- 8 │   | MkBad1 (f: Bad2 -> Void)
-   │                ──────┬─────  
-   │                      ╰─────── field `f` takes a `Bad2` as input
+ 8 │   | MkBad1 (f: Bad2 → Void)
+   │                ─────┬─────  
+   │                     ╰─────── field `f` takes a `Bad2` as input
    │ 
    │ Note: `Bad1` and `Bad2` are defined together, so their constructors can't contain functions that take any of them as input; that would make it possible to prove anything
 ───╯

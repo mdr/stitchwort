@@ -3,12 +3,12 @@
 -- `Decidable` would run.
 import Std (Fail)
 
-def Finishes (t: () -> {Fail} a): Prop :=
+def Finishes (t: () → {Fail} a): Prop :=
   match reify t with
     | return x => Unit
     | Fail.stop msg, _ => Void
 
-instance decFinishes (t: () -> {Fail} a): Decidable (Finishes t) :=
+instance decFinishes (t: () → {Fail} a): Decidable (Finishes t) :=
   match reify t with
     | return x => Yes Trivial
     | Fail.stop msg, _ => No (v => v)

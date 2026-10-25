@@ -6,9 +6,9 @@
 def AllTrue (x: Bool) (y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
-type AtP: (Q, Nat) -> Type =
+type AtP: (Q, Nat) → Type =
   | AtF: AtP (Quot.mk False, 0)
   | AtT: AtP (Quot.mk True, 0)
 
-def only: AtP (Quot.mk False, 0) -> Nat
+def only: AtP (Quot.mk False, 0) → Nat
   | AtF => 0

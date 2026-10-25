@@ -6,9 +6,9 @@ def Q: Type := Quot Bool AllTrue
 
 type QN = { q: Q, n: Nat }
 
-type AtR: QN -> Type =
+type AtR: QN → Type =
   | AtF: AtR { q = Quot.mk False, n = 0 }
   | AtT: AtR { q = Quot.mk True, n = 0 }
 
-def only: AtR { q = Quot.mk False, n = 0 } -> Nat
+def only: AtR { q = Quot.mk False, n = 0 } → Nat
   | AtF => 0

@@ -39,14 +39,14 @@ theorem joinedIsJoinAll (k: Nat) (points: List Point):
 
 -- Every connection is between two of the boxes ------------------------------
 
-theorem allAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.all xs p = True -> List.all ys p = True -> List.all (List.append xs ys) p = True
+theorem allAppend (p: a → Bool): (xs: List a) → (ys: List a) → List.all xs p = True → List.all ys p = True → List.all (List.append xs ys) p = True
   | Nil, ys, hx, hy => hy
   | Cons x xs, ys, hx, hy =>
     match e: p x with
       | True => allAppend p xs ys hx hy
       | False => hx
 
-theorem allTake (p: a -> Bool): (k: Nat) -> (xs: List a) -> List.all xs p = True -> List.all (List.take xs k) p = True
+theorem allTake (p: a → Bool): (k: Nat) → (xs: List a) → List.all xs p = True → List.all (List.take xs k) p = True
   | Zero, xs, h => rfl
   | Succ k, Nil, h => rfl
   | Succ k, Cons x xs, h =>
@@ -55,15 +55,15 @@ theorem allTake (p: a -> Bool): (k: Nat) -> (xs: List a) -> List.all xs p = True
       | False => h
 
 -- If every element passes q, so do both ends of every pair.
-theorem allPairsBoth (q: Nat -> Bool): (xs: List Nat) -> List.all xs q = True -> List.all (List.pairs xs) (pair => q pair.fst && q pair.snd) = True
+theorem allPairsBoth (q: Nat → Bool): (xs: List Nat) → List.all xs q = True → List.all (List.pairs xs) (pair => q pair.fst ∧ q pair.snd) = True
   | Nil, h => rfl
   | Cons x xs, h =>
     match e: q x with
       | True => allAppend _ (List.map xs (y => (x, y))) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
       | False => Void.exfalso (Bool.falseNotTrue h)
 
-theorem allMapPairWith (q: Nat -> Bool) (x: Nat) (hx: q x = True): (xs: List Nat) -> List.all xs q = True ->
-    List.all (List.map xs (y => (x, y))) (pair => q pair.fst && q pair.snd) = True
+theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True): (xs: List Nat) → List.all xs q = True →
+    List.all (List.map xs (y => (x, y))) (pair => q pair.fst ∧ q pair.snd) = True
   | Nil, h => rfl
   | Cons y ys, h =>
     match e: q y with
@@ -82,13 +82,13 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnect
 -- The program's sizes are the spec's ----------------------------------------
 
 -- Two tests that agree on the boxes give the same sizes.
-theorem circuitSizesCongRange (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
-    (agree: (a: Nat) -> (b: Nat) -> a < n -> b < n -> same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
-  let below: (x: Nat) -> List.Mem x (List.range n) -> x < n := x m => And.right (List.memRangeFrom x n 0 m)
+theorem circuitSizesCongRange (n: Nat) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
+    (agree: (a: Nat) → (b: Nat) → a < n → b < n → same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
+  let below: (x: Nat) → List.Mem x (List.range n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
   rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range n) _ _ _)))
 
 -- Two tests that tell agree.
-theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
+theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (t1: Tells n connections same1) (t2: Tells n connections same2) (a: Nat) (b: Nat) (ha: a < n) (hb: b < n): same1 a b = same2 a b :=
   Bool.eqOf (same1 a b) (same2 a b)
     (s => (t2 a b ha hb).backward ((t1 a b ha hb).forward s))
@@ -97,7 +97,7 @@ theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat -> Nat 
 -- Part 1 is right: for every list of boxes and every k, the program's
 -- answer is the product of the three largest circuits after the first k
 -- connections, whatever test is used to tell the circuits.
-theorem part1Correct (k: Nat) (points: List Point) (sameCircuit: Nat -> Nat -> Bool)
+theorem part1Correct (k: Nat) (points: List Point) (sameCircuit: Nat → Nat → Bool)
     (tells: Tells points.length (firstConnections k points) sameCircuit):
     solvePart1 k (Boxes.of points) = threeLargestProduct (circuitSizes points.length sameCircuit) :=
   let n := points.length

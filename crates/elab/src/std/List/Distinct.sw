@@ -10,7 +10,7 @@
 -- One step of `List.distinct`: `seen` is the set of elements kept so far, and
 -- `acc` those elements, last first. A loop, so it is stack-safe on long lists.
 @[noReceiver]
-def List.distinctLoop [auto ord: Ord a] (seen: Set a) (acc: List a): List a -> List a
+def List.distinctLoop [auto ord: Ord a] (seen: Set a) (acc: List a): List a → List a
   | Nil => List.reverseOnto acc Nil
   | Cons x xs => if Set.contains seen x then List.distinctLoop seen acc xs else List.distinctLoop (Set.insert seen x) (Cons x acc) xs
 
@@ -28,12 +28,12 @@ theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any (Cons y
     | True => rfl
     | False => Void.exfalso (DecEq.soundFalse y y e rfl)
 
-theorem List.anyTailFalse (p: a -> Bool) (y: a) (s: List a) (h: List.any (Cons y s) p = False): List.any s p = False :=
+theorem List.anyTailFalse (p: a → Bool) (y: a) (s: List a) (h: List.any (Cons y s) p = False): List.any s p = False :=
   match e: p y with
     | True => Void.exfalso (Bool.trueNotFalse h)
     | False => h
 
-theorem List.memDistinctFromElim [auto eq: DecEq a] (x: a): (seen: List a) -> (xs: List a) -> x in List.distinctFrom seen xs -> x in xs
+theorem List.memDistinctFromElim [auto eq: DecEq a] (x: a): (seen: List a) → (xs: List a) → x ∈ List.distinctFrom seen xs → x ∈ xs
   | seen, Nil, m => m
   | seen, Cons y ys, m =>
     match c: List.any seen (== y) with
@@ -43,8 +43,8 @@ theorem List.memDistinctFromElim [auto eq: DecEq a] (x: a): (seen: List a) -> (x
           | Inl q => Inl q
           | Inr later => Inr (List.memDistinctFromElim x (Cons y seen) ys later)
 
-theorem List.memDistinctFromIntro [auto eq: DecEq a] (x: a): (seen: List a) -> (xs: List a) -> x in xs ->
-    List.any seen (== x) = True || x in List.distinctFrom seen xs
+theorem List.memDistinctFromIntro [auto eq: DecEq a] (x: a): (seen: List a) → (xs: List a) → x ∈ xs →
+    List.any seen (== x) = True ∨ x ∈ List.distinctFrom seen xs
   | seen, Nil, m => Void.exfalso m
   | seen, Cons y ys, m =>
     match c: List.any seen (== y) with
@@ -63,7 +63,7 @@ theorem List.memDistinctFromIntro [auto eq: DecEq a] (x: a): (seen: List a) -> (
                   | True => Inr (Inl (DecEq.sound y x d))
                   | False => Inl hit
 
-theorem List.distinctFromFresh [auto eq: DecEq a] (z: a): (seen: List a) -> (xs: List a) -> z in List.distinctFrom seen xs -> List.any seen (== z) = False
+theorem List.distinctFromFresh [auto eq: DecEq a] (z: a): (seen: List a) → (xs: List a) → z ∈ List.distinctFrom seen xs → List.any seen (== z) = False
   | seen, Nil, m => Void.exfalso m
   | seen, Cons y ys, m =>
     match c: List.any seen (== y) with
@@ -73,7 +73,7 @@ theorem List.distinctFromFresh [auto eq: DecEq a] (z: a): (seen: List a) -> (xs:
           | Inl q => rewrite <- q in c
           | Inr later => List.anyTailFalse (== z) y seen (List.distinctFromFresh z (Cons y seen) ys later)
 
-theorem List.distinctFromNoRepeats [auto eq: DecEq a]: (seen: List a) -> (xs: List a) -> List.Distinct (List.distinctFrom seen xs)
+theorem List.distinctFromNoRepeats [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct (List.distinctFrom seen xs)
   | seen, Nil => Trivial
   | seen, Cons y ys =>
     match c: List.any seen (== y) with
@@ -83,7 +83,7 @@ theorem List.distinctFromNoRepeats [auto eq: DecEq a]: (seen: List a) -> (xs: Li
           (List.distinctFromNoRepeats (Cons y seen) ys)
 
 -- `distinctEq` keeps exactly the list's elements ...
-theorem List.memDistinctEq [auto eq: DecEq a] (x: a) (xs: List a): x in List.distinctEq xs <-> x in xs := {
+theorem List.memDistinctEq [auto eq: DecEq a] (x: a) (xs: List a): x ∈ List.distinctEq xs ↔ x ∈ xs := {
   forward = m => List.memDistinctFromElim x Nil xs m,
   backward = m =>
     match List.memDistinctFromIntro x Nil xs m with
@@ -97,14 +97,14 @@ theorem List.distinctEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct 
 -- The loop is `distinctFrom` when the set has the same elements as the list
 -- `distinctFrom` keeps.
 
-theorem List.distinctSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: (z: a) -> Set.contains seen z = List.any seenList (== z))
+theorem List.distinctSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: (z: a) → Set.contains seen z = List.any seenList (== z))
     (x: a) (z: a): Set.contains (Set.insert seen x) z = List.any (Cons x seenList) (== z) :=
   match e: x == z with
     | True => rewrite DecEq.sound x z e in Set.containsInsert z seen
     | False => rewrite Set.containsInsertOther seen x z (eq => DecEq.soundFalse x z e (Eq.sym eq)) in same z
 
-theorem List.distinctLoopFrom [auto ord: Ord a]: (seen: Set a) -> (seenList: List a) -> ((z: a) -> Set.contains seen z = List.any seenList (== z)) ->
-    (acc: List a) -> (xs: List a) -> List.distinctLoop seen acc xs = List.reverseOnto acc (List.distinctFrom seenList xs)
+theorem List.distinctLoopFrom [auto ord: Ord a]: (seen: Set a) → (seenList: List a) → ((z: a) → Set.contains seen z = List.any seenList (== z)) →
+    (acc: List a) → (xs: List a) → List.distinctLoop seen acc xs = List.reverseOnto acc (List.distinctFrom seenList xs)
   | seen, seenList, same, acc, Nil => rfl
   | seen, seenList, same, acc, Cons x xs =>
     match c: Set.contains seen x with
@@ -123,7 +123,7 @@ theorem List.distinctIsDistinctEq [auto ord: Ord a] (xs: List a): List.distinct 
   List.distinctLoopFrom Set.empty Nil (z => rfl) Nil xs
 
 -- So it keeps exactly the list's elements ...
-theorem List.memDistinct [auto ord: Ord a] (x: a) (xs: List a): x in List.distinct xs <-> x in xs :=
+theorem List.memDistinct [auto ord: Ord a] (x: a) (xs: List a): x ∈ List.distinct xs ↔ x ∈ xs :=
   rewrite List.distinctIsDistinctEq xs in List.memDistinctEq [eq := ord.eq] x xs
 
 -- ... each once.

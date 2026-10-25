@@ -13,17 +13,17 @@ type Ordering: Type =
 def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
 
 -- The first comparison, unless it's `Equal`.
-def Ordering.andThen: Ordering -> Ordering -> Ordering
+def Ordering.andThen: Ordering → Ordering → Ordering
   | Less, second => Less
   | Equal, second => second
   | Greater, second => Greater
 
-def Ordering.index: Ordering -> Nat
+def Ordering.index: Ordering → Nat
   | Less => 0
   | Equal => 1
   | Greater => 2
 
-def Ordering.decEq: (a: Ordering) -> (b: Ordering) -> Decidable (a = b)
+def Ordering.decEq: (a: Ordering) → (b: Ordering) → Decidable (a = b)
   | Less, Less => Yes rfl
   | Less, Equal => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
   | Less, Greater => No (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))

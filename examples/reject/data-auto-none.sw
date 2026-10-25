@@ -3,9 +3,9 @@
 -- parameter, and there's none.
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 type Map (k: Type) (v: Type) [auto ord: Ordered k] =
   { entries: List (k, v) }
 
-def table: Map (Nat -> Nat) Nat := { entries = [] }
+def table: Map (Nat → Nat) Nat := { entries = [] }

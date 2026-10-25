@@ -17,4 +17,4 @@ def kilobyte: SafeNat := 1024
 test "a safe literal" := kilobyte.value == 1024
 
 -- A proof the caller can't give statically becomes a runtime check.
-export def percentOf (percent: Nat) (total: Nat): [auto ok: percent <= 100] -> Nat := total * percent / 100
+export def percentOf (percent: Nat) (total: Nat): [auto ok: percent ≤ 100] → Nat := total * percent / 100

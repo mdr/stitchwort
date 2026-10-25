@@ -18,11 +18,11 @@ theorem Ordering.thenFlip [c d c2 d2: Ordering] (hc: c2 = Ordering.flip c) (hd: 
   rewrite hc, hd in Eq.sym (Ordering.flipAndThen c d)
 
 -- `Less` is transitive for a field compared by `cmp`, then the rest.
-theorem Ordering.thenTransBy (cmp: a -> a -> Ordering) (x: a) (y: a) (z: a) [r1 r2 r3: Ordering]
+theorem Ordering.thenTransBy (cmp: a → a → Ordering) (x: a) (y: a) (z: a) [r1 r2 r3: Ordering]
     (h1: Ordering.andThen (cmp x y) r1 = Less) (h2: Ordering.andThen (cmp y z) r2 = Less)
-    (t: cmp x y = Less -> cmp y z = Less -> cmp x z = Less)
-    (exy: cmp x y = Equal -> x = y) (eyz: cmp y z = Equal -> y = z)
-    (tr: r1 = Less -> r2 = Less -> r3 = Less):
+    (t: cmp x y = Less → cmp y z = Less → cmp x z = Less)
+    (exy: cmp x y = Equal → x = y) (eyz: cmp y z = Equal → y = z)
+    (tr: r1 = Less → r2 = Less → r3 = Less):
     Ordering.andThen (cmp x z) r3 = Less :=
   Ordering.andThenTrans (cmp x y) (cmp y z) (cmp x z) r1 r2 r3 t
     (e => Eq.cong (w => cmp w z) (exy e))
@@ -32,16 +32,16 @@ theorem Ordering.thenTransBy (cmp: a -> a -> Ordering) (x: a) (y: a) (z: a) [r1 
 -- The same for a field compared by its `Ord` instance.
 theorem Ord.thenTrans [auto ord: Ord a] (x: a) (y: a) (z: a) [r1 r2 r3: Ordering]
     (h1: Ordering.andThen (Ord.compare x y) r1 = Less) (h2: Ordering.andThen (Ord.compare y z) r2 = Less)
-    (tr: r1 = Less -> r2 = Less -> r3 = Less):
+    (tr: r1 = Less → r2 = Less → r3 = Less):
     Ordering.andThen (Ord.compare x z) r3 = Less :=
   Ordering.thenTransBy Ord.compare x y z h1 h2 (ord.trans x y z) (ord.equal x y) (ord.equal y z) tr
 
 -- Whether both comparisons are `Equal`.
-def Ordering.bothEqual: Ordering -> Ordering -> Bool
+def Ordering.bothEqual: Ordering → Ordering → Bool
   | Equal, Equal => True
   | _, _ => False
 
-theorem Ordering.notBothEqual: (c: Ordering) -> (d: Ordering) -> Ordering.bothEqual c d = False -> c = Equal -> d = Equal -> Void
+theorem Ordering.notBothEqual: (c: Ordering) → (d: Ordering) → Ordering.bothEqual c d = False → c = Equal → d = Equal → Void
   | Equal, Equal, t, e1, e2 => Bool.trueNotFalse t
   | Equal, Less, t, e1, e2 => Ordering.lessNotEqual e2
   | Equal, Greater, t, e1, e2 => Ordering.greaterNotEqual e2
@@ -50,11 +50,11 @@ theorem Ordering.notBothEqual: (c: Ordering) -> (d: Ordering) -> Ordering.bothEq
 
 -- As `Ordering.andThenTrans`, where the rest need only be transitive when
 -- both first comparisons are `Equal`.
-theorem Ordering.andThenTransWhen: (c1: Ordering) -> (c2: Ordering) -> (c3: Ordering) ->
-    (r1: Ordering) -> (r2: Ordering) -> (r3: Ordering) ->
-    (c1 = Less -> c2 = Less -> c3 = Less) -> (c1 = Equal -> c3 = c2) -> (c2 = Equal -> c3 = c1) ->
-    (c1 = Equal -> c2 = Equal -> r1 = Less -> r2 = Less -> r3 = Less) ->
-    Ordering.andThen c1 r1 = Less -> Ordering.andThen c2 r2 = Less -> Ordering.andThen c3 r3 = Less
+theorem Ordering.andThenTransWhen: (c1: Ordering) → (c2: Ordering) → (c3: Ordering) →
+    (r1: Ordering) → (r2: Ordering) → (r3: Ordering) →
+    (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
+    (c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less) →
+    Ordering.andThen c1 r1 = Less → Ordering.andThen c2 r2 = Less → Ordering.andThen c3 r3 = Less
   | Less, Less, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite t rfl rfl in rfl
   | Less, Equal, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e2 rfl in rfl
   | Less, Greater, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
@@ -69,7 +69,7 @@ theorem Ordering.andThenTransWhen: (c1: Ordering) -> (c2: Ordering) -> (c3: Orde
 -- numbers, the comparisons compute without them.)
 theorem Ordering.byTagTrans (i: Nat) (j: Nat) (k: Nat) (r1: Ordering) (r2: Ordering) (r3: Ordering)
     (h1: Ordering.andThen (Nat.compare i j) r1 = Less) (h2: Ordering.andThen (Nat.compare j k) r2 = Less)
-    (tr: Nat.compare i j = Equal -> Nat.compare j k = Equal -> r1 = Less -> r2 = Less -> r3 = Less):
+    (tr: Nat.compare i j = Equal → Nat.compare j k = Equal → r1 = Less → r2 = Less → r3 = Less):
     Ordering.andThen (Nat.compare i k) r3 = Less :=
   Ordering.andThenTransWhen (Nat.compare i j) (Nat.compare j k) (Nat.compare i k) r1 r2 r3
     (Nat.compareTrans i j k)

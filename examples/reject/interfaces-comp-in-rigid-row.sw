@@ -16,6 +16,6 @@ instance Label.instNat: Label Nat :=
 instance Label.instComp: Label (Effect.Comp op res a) :=
   { label = "comp" }
 
-def describeResult [a b: Type] [auto d: Label b] (f: a -> b): Text := Label.label [a := b]
+def describeResult [a b: Type] [auto d: Label b] (f: a → b): Text := Label.label [a := b]
 
-def abstractOne (f: () -> {e} Nat): Text := describeResult f
+def abstractOne (f: () → {e} Nat): Text := describeResult f

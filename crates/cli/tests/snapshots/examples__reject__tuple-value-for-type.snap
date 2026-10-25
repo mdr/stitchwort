@@ -5,7 +5,7 @@ expression: output
 [E-NOT-A-TYPE] Error: expected a type
    ╭─[ reject/tuple-value-for-type.sw:3:9 ]
    │
- 3 │ def f: (1, 2) -> Nat
+ 3 │ def f: (1, 2) → Nat
    │         ┬  
    │         ╰── this has type `Nat`, so it isn't a type
 ───╯

@@ -16,7 +16,7 @@
 -- computation: there's no value to resume it with. Code calls
 -- `Fail.fail msg`, which has any result type; handlers match on `stop`.
 ability Fail where
-  stop: Text -> {Fail} Empty
+  stop: Text → {Fail} Empty
 
 -- Fails with `msg`, whatever result was expected.
 def Fail.fail (msg: Text): {Fail} a := Empty.absurd (Fail.stop msg)
@@ -34,7 +34,7 @@ def Option.orFail (option: Option a) (msg: Text): {Fail} a := Fail.need option m
 def Fail.ensure (ok: Bool) (msg: Text): {Fail} () := if ok then () else Fail.fail msg
 
 -- The value in a `Result`, or fail with its error: `Fail.toResult` undone.
-def Result.orFail: Result a Text -> {Fail} a
+def Result.orFail: Result a Text → {Fail} a
   | Ok x => x
   | Err m => Fail.fail m
 
@@ -42,25 +42,25 @@ def Result.orFail: Result a Text -> {Fail} a
 -- works: what was printed before the failure stays printed.
 
 -- `Ok` of the result, or `Err` of the message if the computation failed.
-def Fail.toResult (prog: () -> {Fail | e} a): {e} Result a Text :=
+def Fail.toResult (prog: () → {Fail | e} a): {e} Result a Text :=
   handle prog() with
     | return x => Ok x
     | Fail.stop msg, k => Err msg
 
 -- `Some` of the result, or `None` if the computation failed.
-def Fail.toOption (prog: () -> {Fail | e} a): {e} Option a :=
+def Fail.toOption (prog: () → {Fail | e} a): {e} Option a :=
   handle prog() with
     | return x => Some x
     | Fail.stop msg, k => None
 
 -- The result, or `fallback` if the computation failed.
-def Fail.orElse (fallback: a) (prog: () -> {Fail | e} a): {e} a :=
+def Fail.orElse (fallback: a) (prog: () → {Fail | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Fail.stop msg, k => fallback
 
 -- The result, or `handler` of the message if the computation failed.
-def Fail.recover (handler: Text -> {e} a) (prog: () -> {Fail | e} a): {e} a :=
+def Fail.recover (handler: Text → {e} a) (prog: () → {Fail | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Fail.stop msg, k => handler msg
@@ -68,7 +68,7 @@ def Fail.recover (handler: Text -> {e} a) (prog: () -> {Fail | e} a): {e} a :=
 -- The same computation, with `label: ` in front of its failure's message:
 -- `Fail.context "line 3" (() => parseLine l)`. The `fail` in the clause
 -- isn't caught by this handler: it goes to the next one out.
-def Fail.context (label: Text) (prog: () -> {Fail | e} a): {Fail | e} a :=
+def Fail.context (label: Text) (prog: () → {Fail | e} a): {Fail | e} a :=
   handle prog() with
     | return x => x
     | Fail.stop msg, k => Fail.fail "${label}: ${msg}"
@@ -76,13 +76,13 @@ def Fail.context (label: Text) (prog: () -> {Fail | e} a): {Fail | e} a :=
 -- `Abort` and `Fail`, each as the other.
 
 -- A computation that gave up fails with `msg`.
-def Abort.orFail (msg: Text) (prog: () -> {Abort | e} a): {Fail | e} a :=
+def Abort.orFail (msg: Text) (prog: () → {Abort | e} a): {Fail | e} a :=
   handle prog() with
     | return x => x
     | Abort.stop u, k => Fail.fail msg
 
 -- A computation that failed gives up; its message is dropped.
-def Fail.toAbort (prog: () -> {Fail | e} a): {Abort | e} a :=
+def Fail.toAbort (prog: () → {Fail | e} a): {Abort | e} a :=
   handle prog() with
     | return x => x
     | Fail.stop msg, k => Abort.abort()
@@ -104,30 +104,30 @@ theorem Fail.toResultPure (v: a): Fail.toResult (() => v) = Ok v := rfl
 theorem Fail.toResultFail (msg: Text): Fail.toResult (() => (Fail.fail msg: a)) = Err msg := rfl
 
 -- `need` and `toResult` give `Option.toResult`.
-theorem Fail.toResultNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
+theorem Fail.toResultNeed (msg: Text): (o: Option a) → Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
 
-theorem Fail.toResultEnsure (msg: Text): (ok: Bool) -> Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg)
+theorem Fail.toResultEnsure (msg: Text): (ok: Bool) → Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg)
   | True => rfl
   | False => rfl
 
 -- `orFail` and `toResult` undo each other.
-theorem Fail.toResultOrFail: (r: Result a Text) -> Fail.toResult (() => Result.orFail r) = r
+theorem Fail.toResultOrFail: (r: Result a Text) → Fail.toResult (() => Result.orFail r) = r
   | Ok x => rfl
   | Err m => rfl
 
 -- Reading an `Option` and going on: the form a proof about a parser uses.
-theorem Fail.toResultNeedThen (k: a -> {Fail} b) (msg: Text): (o: Option a) ->
+theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text): (o: Option a) →
     Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x))
   | None => rfl
   | Some x => rfl
 
-theorem Fail.toOptionNeed (msg: Text): (o: Option a) -> Fail.toOption (() => Fail.need o msg) = o
+theorem Fail.toOptionNeed (msg: Text): (o: Option a) → Fail.toOption (() => Fail.need o msg) = o
   | None => rfl
   | Some x => rfl
 
-theorem Abort.orFailNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg
+theorem Abort.orFailNeed (msg: Text): (o: Option a) → Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
 
@@ -136,20 +136,20 @@ theorem Abort.orFailNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Abor
 -- clause it has finished or failed, and the handlers compute.
 
 -- Running `t`, then `k` on its result: fails as `t` does, or as `k` does.
-theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+theorem Fail.toResultThen (t: () → {Fail} a) (k: a → {Fail} b):
     Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
 
-theorem Fail.toOptionThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+theorem Fail.toOptionThen (t: () → {Fail} a) (k: a → {Fail} b):
     Fail.toOption (() => k (t ())) = Option.flatMap (Fail.toOption t) (x => Fail.toOption (() => k x)) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
 
 -- `toOption` is `toResult` with the message dropped.
-theorem Fail.toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOption (Fail.toResult t) :=
+theorem Fail.toOptionToResult (t: () → {Fail} a): Fail.toOption t = Result.toOption (Fail.toResult t) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
@@ -159,7 +159,7 @@ theorem Fail.toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOp
 -- what `traverse` (a loop) does with the first element, then a split on
 -- `f x`: if it finishes, `toResultThen` and the induction hypothesis say
 -- what the rest gives.
-theorem Fail.toResultMap (f: a -> {Fail} b): (xs: List a) ->
+theorem Fail.toResultMap (f: a → {Fail} b): (xs: List a) →
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>

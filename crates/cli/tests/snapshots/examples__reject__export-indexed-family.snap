@@ -5,7 +5,7 @@ expression: output
 [E-EXPORT] Error: `head` can't be exported
    ╭─[ reject/export-indexed-family.sw:8:1 ]
    │
- 8 │ export def head: Vec Nat (Succ n) -> Nat
-   │ ────────────────────┬───────────────────  
-   │                     ╰───────────────────── parameter `arg1`: `Vec` is an indexed family, which can't cross the JS boundary yet: decoding would have to check its indices
+ 8 │ export def head: Vec Nat (Succ n) → Nat
+   │ ───────────────────┬───────────────────  
+   │                    ╰───────────────────── parameter `arg1`: `Vec` is an indexed family, which can't cross the JS boundary yet: decoding would have to check its indices
 ───╯

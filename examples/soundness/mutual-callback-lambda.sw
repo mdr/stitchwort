@@ -7,9 +7,9 @@
 -- (`weigh []` loops.)
 -- Neighbour: accept/mutual-callback.sw, whose callback calls `weigh` on
 -- `rest`, which was matched out of `make`'s parameter.
-type Callback = { call: List Nat -> Nat }
+type Callback = { call: List Nat → Nat }
 
-def make: List Nat -> Callback
+def make: List Nat → Callback
   | Nil => { call = ys => weigh ys }
   | Cons _ rest => { call = ys => weigh rest }
 

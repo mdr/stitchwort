@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARTIAL] Error: a computation that might not finish can't run here
-    ╭─[ soundness/partial-drain.sw:15:51 ]
+    ╭─[ soundness/partial-drain.sw:15:50 ]
     │
- 15 │ def drain (prog: () -> {Partial} Empty): Empty := prog()
-    │                                                   ───┬──  
-    │                                                      ╰──── this is `Partial`: it might not finish
+ 15 │ def drain (prog: () → {Partial} Empty): Empty := prog()
+    │                                                  ───┬──  
+    │                                                     ╰──── this is `Partial`: it might not finish
     │ 
     │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; if this is a function's body, add `Partial` to its type (`-> {Partial} …`); if it is a callback, the function taking it must allow a partial callback
 ────╯

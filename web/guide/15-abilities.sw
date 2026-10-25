@@ -2,7 +2,7 @@
 -- its type between braces. Code using them is written in the ordinary
 -- direct style.
 ability Log where
-  say: Text -> {Log} ()
+  say: Text → {Log} ()
 
 def checkout (items: Nat): {Log} Nat :=
   say "checking out ${items} items"
@@ -10,8 +10,8 @@ def checkout (items: Nat): {Log} Nat :=
 
 -- A handler decides what the operations mean. Here, they collect the
 -- messages in a list instead of printing them.
-def collectLog (prog: () -> {Log | e} a): {e} (a, List Text) :=
-  let run: List Text -> {e} (a, List Text) :=
+def collectLog (prog: () → {Log | e} a): {e} (a, List Text) :=
+  let run: List Text → {e} (a, List Text) :=
     handle prog() with
       | return x => acc => (x, acc)
       | say msg, k => acc => k () (acc ++ [msg])

@@ -20,9 +20,9 @@ def describe (n: Nat): Text :=
 
 -- begin if-chain
 def grade (score: Nat): Text :=
-  if score >= 90 then "A"
-  else if score >= 75 then "B"
-  else if score >= 50 then "C"
+  if score ≥ 90 then "A"
+  else if score ≥ 75 then "B"
+  else if score ≥ 50 then "C"
   else "D"
 -- end if-chain
 
@@ -47,7 +47,7 @@ test "its lines" := example.lines == ["L68", "L30", "  R48"]
 -- begin nat
 test "no overflow" := 2 * 1000000000000 * 1000000000000 == 2000000000000000000000000
 test "subtraction stops at zero" := 3 - 5 == 0
-test "division rounds down" := 7 / 2 == 3 && 7 % 2 == 1
+test "division rounds down" := 7 / 2 == 3 ∧ 7 % 2 == 1
 -- end nat
 
 -- begin int
@@ -55,13 +55,13 @@ def balance: Int := 3 - 5
 
 test "Int subtraction" := balance == -2
 test "a negative literal is an Int" := -5 + 2 == -3
-test "converting" := balance.toNat == 0 && (7: Nat).toInt == 7
+test "converting" := balance.toNat == 0 ∧ (7: Nat).toInt == 7
 test "absolute value" := Int.natAbs balance == 2
 -- end int
 
 -- begin division-proof
 def averageOf (total: Nat) (count: Nat): Nat :=
-  if count != 0 then total / count else 0
+  if count ≠ 0 then total / count else 0
 
 def meanOf (total: Nat) (count: Nat): Nat :=
   if count = 0 then 0 else total / count
@@ -73,7 +73,7 @@ def initial (name: Text): Char :=
     | Some (first, _) => first
     | None => '?'
 
-test "initial" := initial "Ada" == 'A' && initial "" == '?'
+test "initial" := initial "Ada" == 'A' ∧ initial "" == '?'
 -- end chars
 
 -- begin float

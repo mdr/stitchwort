@@ -6,10 +6,10 @@
 -- `Child.instNat` in examples/accept/interfaces-superclasses.sw.
 
 interface Base (a: Type) =
-  { op: a -> a }
+  { op: a → a }
 
 interface Child (a: Type) =
-  { base: Base a, name: a -> Text }
+  { base: Base a, name: a → Text }
 
 instance Base.instBool: Base Bool :=
   { op = b => b }

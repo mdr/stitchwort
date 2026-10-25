@@ -11,7 +11,7 @@ def wordCount (line: Text): Nat := line.words.length
 test "counts words" := wordCount "the quick brown fox" == 4
 test "an empty line has none" := wordCount "" == 0
 test "a proposition, decided" := wordCount "a b" < 3
-test "several at once" := wordCount "a" == 1 && wordCount "a b" == 2
+test "several at once" := wordCount "a" == 1 ∧ wordCount "a b" == 2
 ```
 
 The condition is a `Bool`, or a statement the compiler can decide, such as `wordCount "a b" < 3`. Tests live beside the code, are checked like any declaration, and run with `stitchwort test`. They can't take parameters or perform abilities: a test is a closed computation, so its result never changes unless the code does. A test may call `Partial` code ([chapter 7](07-recursion.md)); a test that never finishes is a bug, which you stop as you'd stop a program that hangs. Only `stitchwort test` and the playground's Tests tab run tests: checking, the editor and the playground's checks never do.
@@ -39,12 +39,12 @@ import Std (List, Nat, Text)
 
 def parse (line: Text): List Nat := (line.split ',').filterMap Text.toNat
 
-def isSorted: List Nat -> Bool
-  | Cons a (Cons b rest) => a <= b && isSorted (Cons b rest)
+def isSorted: List Nat → Bool
+  | Cons a (Cons b rest) => a ≤ b ∧ isSorted (Cons b rest)
   | _ => True
 
 test "parses the example" := parse "1,2,4" == [1, 2, 3]
-test "both parts" := parse "7" == [7] && List.length (parse "1,x") == 2
+test "both parts" := parse "7" == [7] ∧ List.length (parse "1,x") == 2
 test "sorted" := isSorted (parse "3,1,2")
 test "all small" := List.all (parse "1,2,3") (n => n < 3)
 ```
@@ -58,7 +58,7 @@ test "all small" := List.all (parse "1,2,3") (n => n < 3)
   ✗ both parts          ran  (`==` is False)
       left:  1
       right: 2
-      in: List.length (parse "1,x") == 2  (failing/tests.sw:11:42)
+      in: List.length (parse "1,x") == 2  (failing/tests.sw:11:41)
   ✗ sorted              ran  (evaluated to False)
   ✗ all small           ran  (evaluated to False)
 4 test(s): 0 passed, 4 failed (0 from the cache)

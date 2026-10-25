@@ -4,7 +4,7 @@
 -- Annotating the list, `([]: List Nat)`, settles it.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 instance Pretty.instNat: Pretty Nat :=
   { pretty = n => "n" }

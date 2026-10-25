@@ -4,9 +4,9 @@
 -- returns a callback that calls `weigh (Cons n rest) x`, which calls `make`
 -- on the same list again. Nothing gets smaller. (`weigh [1] 0` loops.)
 -- Neighbour: accept/mutual-callback.sw, which passes `rest`.
-type Callback = { call: Nat -> Nat }
+type Callback = { call: Nat → Nat }
 
-def make: List Nat -> Callback
+def make: List Nat → Callback
   | Nil => { call = x => x }
   | Cons n rest => { call = x => weigh (Cons n rest) x }
 

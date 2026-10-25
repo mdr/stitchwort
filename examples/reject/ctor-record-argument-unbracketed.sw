@@ -6,5 +6,5 @@ type Person = { name: Text, age: Nat }
 
 type Entry = | MkEntry (rank: Nat) (person: Person)
 
-def nameOf: Entry -> Text
+def nameOf: Entry → Text
   | MkEntry r { name, .. } => name

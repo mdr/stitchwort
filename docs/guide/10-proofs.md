@@ -56,7 +56,7 @@ A theorem is erased when the program runs: it costs nothing. In a project, `stit
 
 <!-- snippet: proofs.sw#induction -->
 ```stitchwort
-theorem plusZero: (n: Nat) -> n + 0 = n
+theorem plusZero: (n: Nat) → n + 0 = n
   | Zero => rfl
   | Succ k => Eq.cong Succ (plusZero k)
 ```
@@ -69,7 +69,7 @@ The skill is in reading what each case needs. Using the induction hypothesis dir
 ```stitchwort
 import Std (Eq)
 
-theorem plusZero: (n: Nat) -> n + 0 = n
+theorem plusZero: (n: Nat) → n + 0 = n
   | Zero => rfl
   | Succ k => plusZero k
 ```
@@ -93,7 +93,7 @@ You don't have to know what a case needs before writing it. Put `?` where a proo
 ```stitchwort
 import Std (Eq)
 
-theorem plusZero: (n: Nat) -> n + 0 = n
+theorem plusZero: (n: Nat) → n + 0 = n
   | Zero => rfl
   | Succ k => ?
 ```
@@ -121,11 +121,11 @@ The same pattern works for any recursive type. A proof about lists has a `[]` ca
 
 <!-- snippet: proofs.sw#lists -->
 ```stitchwort
-def mapList (f: a -> b): List a -> List b
+def mapList (f: a → b): List a → List b
   | [] => []
   | Cons x rest => Cons (f x) (mapList f rest)
 
-theorem lengthMapList (f: a -> b): (xs: List a) -> (mapList f xs).length = xs.length
+theorem lengthMapList (f: a → b): (xs: List a) → (mapList f xs).length = xs.length
   | [] => rfl
   | Cons x rest => Eq.cong Succ (lengthMapList f rest)
 ```
@@ -148,10 +148,10 @@ theorem swapWithZero (a: Nat) (b: Nat): a + b + 0 = b + a :=
 
 <!-- snippet: proofs.sw#calc -->
 ```stitchwort
-theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b <= c) (small: c < 10): a < 10 :=
+theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 :=
   calc a
     _ = b := ab
-    _ <= c := bc
+    _ ≤ c := bc
     _ < 10 := small
 ```
 
@@ -163,7 +163,7 @@ For statements in linear arithmetic over `Nat` (`+`, `-`, comparisons, multiplic
 
 <!-- snippet: proofs.sw#omega -->
 ```stitchwort
-theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y <= 10): x + 1 <= 10 := omega
+theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 
 theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 ```
@@ -172,17 +172,17 @@ theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 
 <!-- snippet: errors/omega.sw -->
 ```stitchwort
-theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <= 10 := omega
+theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 ```
 
 <!-- output: check errors/omega.sw -->
 ```text
 [E-OMEGA] Error: `omega` can't prove `x + 1 ≤ 10`
-   ╭─[ errors/omega.sw:1:88 ]
+   ╭─[ errors/omega.sw:1:85 ]
    │
- 1 │ theorem roomForOne (x: Nat) (y: Nat) (before: x <= y) (limit: y <= 10): x + 1 <= 10 := omega
-   │                                                                                        ──┬──
-   │                                                                                          ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 1 │ theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
+   │                                                                                     ──┬──
+   │                                                                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │
    │ Note 1: facts: `x ≤ y` (before), `y ≤ 10` (limit)
    │
@@ -270,9 +270,9 @@ To use a condition in a proof, `match` on it. `match fits: e with` splits on the
 
 <!-- snippet: proofs.sw#match-equation -->
 ```stitchwort
-def clampTo (limit: Nat) (n: Nat): Nat := if n <= limit then n else limit
+def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
 
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
   match fits: Nat.leq n limit with
     | True => fits
     | False => Nat.leRefl limit
@@ -282,7 +282,7 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
 
 <!-- snippet: errors/split-goals.sw@clampToAtMost -->
 ```stitchwort
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n <= limit :=
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
   match fits: Nat.leq n limit with
     | True => ?
     | False => ?
@@ -321,18 +321,18 @@ Three more forms come up in statements, each with a Unicode spelling you may use
 
 <!-- snippet: proofs.sw#logic -->
 ```stitchwort
-theorem headIn (x: Nat) (rest: List Nat): x in Cons x rest := Inl rfl
+theorem headIn (x: Nat) (rest: List Nat): x ∈ Cons x rest := Inl rfl
 
 theorem notInEmpty (x: Nat): x ∉ Nil := none => none
 
-theorem bothWays (p: Prop) (q: Prop): p && q <-> q ∧ p := {
+theorem bothWays (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
   forward = h => Both (And.right h) (And.left h),
   backward = h => Both (And.right h) (And.left h)
 }
 
-theorem hasSquareRoot: exists (n: Nat) => n * n = 49 := Witness 7 rfl
+theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
 
-def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x !in seen)
+def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 ```
 
 - `x in xs` (or `x ∈ xs`) says `x` is in the list `xs`; `x !in xs` (`x ∉ xs`) says it isn't. On a `Set`, or the keys of a `Map`, it works the same way. As a condition, membership is decided like `<=`: `xs.filter (x => x !in seen)` keeps what hasn't been seen.
@@ -361,20 +361,20 @@ The useful theorems say that a program meets a **specification**: a definition t
 <!-- snippet: proofs.sw#spec -->
 ```stitchwort
 -- The specification: the plain recursive sum.
-def sumTo: Nat -> Nat
+def sumTo: Nat → Nat
   | 0 => 0
   | Succ k => Succ k + sumTo k
 
 -- The program: a loop with an accumulator.
 def sumFast (n: Nat): Nat :=
-  def loop: Nat -> Nat -> Nat
+  def loop: Nat → Nat → Nat
     | 0, total => total
     | Succ k, total => loop k (total + Succ k)
   loop n 0
 
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
-theorem loopIsSum: (n: Nat) -> (total: Nat) -> sumFast.loop n total = total + sumTo n
+theorem loopIsSum: (n: Nat) → (total: Nat) → sumFast.loop n total = total + sumTo n
   | Zero, total => Eq.sym (Nat.addZero total)
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 
@@ -394,7 +394,7 @@ The same applies to exported functions ([chapter 11](11-running-and-shipping.md)
 ```stitchwort
 export def clampPercent (n: Nat): Nat := clampTo 100 n
 
-theorem clampPercentAtMost (n: Nat): clampPercent n <= 100 := clampToAtMost 100 n
+theorem clampPercentAtMost (n: Nat): clampPercent n ≤ 100 := clampToAtMost 100 n
 ```
 
 ## Proofs about effectful code
@@ -403,7 +403,7 @@ A handler applied to a computation of a known shape computes, so many facts abou
 
 <!-- snippet: proofs.sw#reify -->
 ```stitchwort
-theorem orElseIsGetOrElse (fallback: a) (t: () -> {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
+theorem orElseIsGetOrElse (fallback: a) (t: () → {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
   match reify t with
     | return x => rfl
     | Fail.stop message, _ => rfl
@@ -444,7 +444,7 @@ def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
     |> .zipWith turns .zerosDuring
     |> .sum
 
-def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
+def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn → Nat
   | Right distance => (dial.position.value + distance) / Mod.size n
   | Left distance => ((Mod.size n - dial.position.value) % Mod.size n + distance) / Mod.size n
 ```

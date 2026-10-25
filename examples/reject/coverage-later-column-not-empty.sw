@@ -3,5 +3,5 @@
 
 import Std (Fin)
 
-def pick: (n: Nat) -> (i: Fin n) -> Nat
+def pick: (n: Nat) → (i: Fin n) → Nat
   | Zero, i => 0

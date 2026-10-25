@@ -17,22 +17,22 @@ type Nat: Type =
 
 -- `a + b` means `Nat.add a b`. It recurses on its first argument, so
 -- `Succ m + n` computes to `Succ (m + n)`.
-def Nat.add: Nat -> Nat -> Nat
+def Nat.add: Nat → Nat → Nat
   | Zero, n => n
   | Succ m, n => Succ (Nat.add m n)
 
 -- `a - b`, stopping at zero: `3 - 5 = 0`.
-def Nat.sub: Nat -> Nat -> Nat
+def Nat.sub: Nat → Nat → Nat
   | m, Zero => m
   | Zero, Succ n => Zero
   | Succ m, Succ n => Nat.sub m n
 
 -- `a * b`
-def Nat.mul: Nat -> Nat -> Nat
+def Nat.mul: Nat → Nat → Nat
   | Zero, n => 0
   | Succ m, n => n + Nat.mul m n
 
-def Nat.pred: Nat -> Nat
+def Nat.pred: Nat → Nat
   | Zero => Zero
   | Succ n => n
 
@@ -42,18 +42,18 @@ type Bool: Type =
   | False
   | True
 
-def Bool.not: Bool -> Bool
+def Bool.not: Bool → Bool
   | False => True
   | True => False
 
 -- `if c then a else b`. The branches take a (unused) proof of `Unit` so that
 -- only the chosen one is evaluated.
-def Bool.ifThenElse: [a: Type] -> Bool -> (Unit -> a) -> (Unit -> a) -> a
+def Bool.ifThenElse: [a: Type] → Bool → (Unit → a) → (Unit → a) → a
   | True, thenBranch, elseBranch => thenBranch Trivial
   | False, thenBranch, elseBranch => elseBranch Trivial
 
 -- `m <= n` and `m < n` are propositions, defined by computation.
-def Nat.leq: Nat -> Nat -> Bool
+def Nat.leq: Nat → Nat → Bool
   | Zero, n => True
   | Succ m, Zero => False
   | Succ m, Succ n => Nat.leq m n
@@ -69,11 +69,11 @@ type List (a: Type): Type =
   | Cons (head: a) (tail: List a)
 
 -- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
-def List.length: List a -> Nat
+def List.length: List a → Nat
   | Nil => 0
   | Cons x xs => Succ (List.length xs)
 
-def List.append: List a -> List a -> List a
+def List.append: List a → List a → List a
   | Nil, ys => ys
   | Cons x xs, ys => Cons x (List.append xs ys)
 
@@ -88,6 +88,6 @@ type Pair (a: Type) (b: Type): Type =
   | MkPair (fst: a) (snd: b)
 
 -- `List.reverseOnto xs acc` is `xs` reversed, followed by `acc`.
-def List.reverseOnto: List a -> List a -> List a
+def List.reverseOnto: List a → List a → List a
   | Nil, acc => acc
   | Cons x xs, acc => List.reverseOnto xs (Cons x acc)

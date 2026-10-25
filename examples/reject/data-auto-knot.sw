@@ -6,7 +6,7 @@
 import Std (Nat)
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 instance Ordered.instNat: Ordered Nat :=
   { compare = Nat.compare }
@@ -15,4 +15,4 @@ type Map (k: Type) (v: Type) [auto ord: Ordered k] =
   { entries: List (k, v) }
 
 ability Cell where
-  write: Map Nat (() -> {Cell} ()) -> {Cell} ()
+  write: Map Nat (() → {Cell} ()) → {Cell} ()

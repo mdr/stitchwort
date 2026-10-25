@@ -10,5 +10,5 @@ def boom: Empty := spin 0
 
 theorem anything: Void := absurdEmpty boom
 
-def absurdEmpty: Empty -> Void
+def absurdEmpty: Empty → Void
   | ()

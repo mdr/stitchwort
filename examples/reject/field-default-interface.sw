@@ -3,6 +3,6 @@
 -- method (docs/proposals/named-arguments.md, "As built (stage 2)").
 
 interface Describe (a: Type) = {
-  describe: a -> Text,
+  describe: a → Text,
   name: Text := "thing"
 }

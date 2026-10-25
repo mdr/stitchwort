@@ -5,18 +5,18 @@
 
 import Std (Bool, Void)
 
-def reach (flag: Nat -> Bool): Nat -> Nat -> Nat -> Bool
+def reach (flag: Nat → Bool): Nat → Nat → Nat → Bool
   | Zero,   c, d => c == d
   | Succ k, c, d =>
     if flag c then
       (match c with
          | Zero   => False
          | Succ b => reach flag k b d)
-        || reach flag k (c + 1) d
+        ∨ reach flag k (c + 1) d
     else reach flag k c d
 
-theorem skip (flag: Nat -> Bool) (k: Nat) (c: Nat) (d: Nat) (b: Bool) (hc: (b && reach flag (Succ k) c d) = True):
-    Bool.not (flag c) = True -> reach flag k c d = True :=
+theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (b: Bool) (hc: (b ∧ reach flag (Succ k) c d) = True):
+    Bool.not (flag c) = True → reach flag k c d = True :=
   match e: flag c with
     | True  => n => Void.exfalso (Bool.falseNotTrue n)
     | False => n => Bool.andRight b (reach flag (Succ k) c d) hc

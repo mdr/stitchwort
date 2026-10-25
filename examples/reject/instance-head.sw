@@ -6,7 +6,7 @@
 -- examples/accept/interfaces.sw.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 instance Pretty.instNats: Pretty (List Nat) :=
   { pretty = ns => "numbers" }

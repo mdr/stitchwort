@@ -25,8 +25,8 @@ type Map (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord :
 def Map.ofRaw (rawMap: Map.Raw k v [ord := o]): Map k v [ord := o] := { raw = Quot.mk rawMap }
 
 -- To prove something of every map, prove it of the map of every raw map.
-theorem Map.indRaw [p: Map k v [ord := o] -> Prop] (h: (r: Map.Raw k v [ord := o]) -> p (Map.ofRaw r)):
-    (m: Map k v [ord := o]) -> p m
+theorem Map.indRaw [p: Map k v [ord := o] → Prop] (h: (r: Map.Raw k v [ord := o]) → p (Map.ofRaw r)):
+    (m: Map k v [ord := o]) → p m
   | { raw = q } => Quot.ind [p := q' => p { raw = q' }] h q
 
 -- Building
@@ -67,14 +67,14 @@ def Map.keys (m: Map k v [ord := o]): List k := List.map (Map.toList m) Pair.fst
 def Map.values (m: Map k v [ord := o]): List v := List.map (Map.toList m) Pair.snd
 
 -- Left fold over the entries in key order: `f (f initial k1 v1) k2 v2`.
-def Map.foldLeft (m: Map k v [ord := o]) (initial: b) (f: b -> k -> v -> b): b :=
+def Map.foldLeft (m: Map k v [ord := o]) (initial: b) (f: b → k → v → b): b :=
   Quot.lift (Map.Raw.foldLeft f initial) (a b same => Map.Raw.foldLeftRespects f initial a b same) m.raw
 
 -- Changing
 
 -- `value` at `key`; if `key` has a value already, `f value old` (so
 -- `Map.insertWith counts key 1 Nat.add` counts).
-def Map.insertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v -> v -> v): Map k v := {
+def Map.insertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v → v → v): Map k v := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.insertWith f key value rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.insertWithRespects f key value a b same))
@@ -99,7 +99,7 @@ def Map.remove [auto ord: Ord k] (m: Map k v) (key: k): Map k v := {
 
 -- The value at `key` changed by `f`, which sees `None` when there's none
 -- and removes the entry by returning `None`.
-def Map.alter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v -> Option v): Map k v := {
+def Map.alter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v → Option v): Map k v := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.alter f key rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.alterRespects f key a b same))
@@ -107,7 +107,7 @@ def Map.alter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v -> Option v):
 }
 
 -- The value at `key` changed by `f`, if there is one.
-def Map.adjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v -> v): Map k v := {
+def Map.adjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v → v): Map k v := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.adjust f key rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.adjustRespects f key a b same))
@@ -115,7 +115,7 @@ def Map.adjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v -> v): Map k v := {
 }
 
 -- Every value changed by `f`; the keys stay.
-def Map.map (m: Map k v [ord := o]) (f: v -> w): Map k w [ord := o] := {
+def Map.map (m: Map k v [ord := o]) (f: v → w): Map k w [ord := o] := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.map f rawMap): Quot (Map.Raw k w [ord := o]) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.mapRespects f a b same))
@@ -123,7 +123,7 @@ def Map.map (m: Map k v [ord := o]) (f: v -> w): Map k w [ord := o] := {
 }
 
 -- The entries for which `p` holds.
-def Map.filter [auto ord: Ord k] (m: Map k v) (p: k -> v -> Bool): Map k v := {
+def Map.filter [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): Map k v := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.filter p rawMap): Quot (Map.Raw k v) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.filterRespects p a b same))
@@ -131,9 +131,9 @@ def Map.filter [auto ord: Ord k] (m: Map k v) (p: k -> v -> Bool): Map k v := {
 }
 
 -- `Map.liftBinary` with its first argument a raw map.
-def Map.liftBinaryRaw [auto ord: Ord k] (op: Map.Raw k v [ord := ord] -> Map.Raw k w [ord := ord] -> Map.Raw k x [ord := ord])
-    (respects: (a: Map.Raw k v) -> (a2: Map.Raw k v) -> (b: Map.Raw k w) -> (b2: Map.Raw k w) ->
-      Map.Raw.Equiv a a2 -> Map.Raw.Equiv b b2 -> Map.Raw.Equiv (op a b) (op a2 b2))
+def Map.liftBinaryRaw [auto ord: Ord k] (op: Map.Raw k v [ord := ord] → Map.Raw k w [ord := ord] → Map.Raw k x [ord := ord])
+    (respects: (a: Map.Raw k v) → (a2: Map.Raw k v) → (b: Map.Raw k w) → (b2: Map.Raw k w) →
+      Map.Raw.Equiv a a2 → Map.Raw.Equiv b b2 → Map.Raw.Equiv (op a b) (op a2 b2))
     (a: Map.Raw k v) (q: Quot (Map.Raw k w) Map.Raw.Equiv): Quot (Map.Raw k x) Map.Raw.Equiv :=
   Quot.lift
     (b => (Quot.mk (op a b): Quot (Map.Raw k x) Map.Raw.Equiv))
@@ -143,9 +143,9 @@ def Map.liftBinaryRaw [auto ord: Ord k] (op: Map.Raw k v [ord := ord] -> Map.Raw
 -- A raw operation on two maps that gives equivalent results for equivalent
 -- arguments, as an operation on maps.
 @[noReceiver]
-def Map.liftBinary [auto ord: Ord k] (op: Map.Raw k v [ord := ord] -> Map.Raw k w [ord := ord] -> Map.Raw k x [ord := ord])
-    (respects: (a: Map.Raw k v) -> (a2: Map.Raw k v) -> (b: Map.Raw k w) -> (b2: Map.Raw k w) ->
-      Map.Raw.Equiv a a2 -> Map.Raw.Equiv b b2 -> Map.Raw.Equiv (op a b) (op a2 b2))
+def Map.liftBinary [auto ord: Ord k] (op: Map.Raw k v [ord := ord] → Map.Raw k w [ord := ord] → Map.Raw k x [ord := ord])
+    (respects: (a: Map.Raw k v) → (a2: Map.Raw k v) → (b: Map.Raw k w) → (b2: Map.Raw k w) →
+      Map.Raw.Equiv a a2 → Map.Raw.Equiv b b2 → Map.Raw.Equiv (op a b) (op a2 b2))
     (a: Map k v) (b: Map k w): Map k x := {
   raw = Quot.lift
     (rawMap => Map.liftBinaryRaw op respects rawMap b.raw)
@@ -166,19 +166,19 @@ def Map.union [auto ord: Ord k] (a: Map k v) (b: Map k v): Map k v := Map.liftBi
 
 -- A map of the pairs; where a key comes again, `f new old` combines its
 -- values, in list order (`Map.fromListWith xs Nat.add` sums them).
-def Map.fromListWith [auto ord: Ord k] (xs: List (k, v)) (f: v -> v -> v): Map k v :=
+def Map.fromListWith [auto ord: Ord k] (xs: List (k, v)) (f: v → v → v): Map k v :=
   List.foldLeft xs Map.empty (m entry => Map.insertWith m entry.fst entry.snd f)
 
 -- The elements under their keys, each list in list order:
 -- `Map.groupBy [1, 2, 3] (n => n % 2)` is `Map.fromList [(0, [2]), (1, [1, 3])]`.
-def Map.groupBy [auto ord: Ord k] (xs: List a) (key: a -> k): Map k (List a) :=
+def Map.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (List a) :=
   List.foldRight xs Map.empty (x m => Map.insertWith m (key x) [x] List.append)
 
 -- Each element under its key; where elements share a key, the FIRST one is
 -- kept: `Map.indexBy ["ab", "c", "de"] Text.length` is
 -- `Map.fromList [(1, "c"), (2, "ab")]`. A left fold (a loop), where the older
 -- value wins.
-def Map.indexBy [auto ord: Ord k] (xs: List a) (key: a -> k): Map k a :=
+def Map.indexBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k a :=
   List.foldLeft xs Map.empty (index element => Map.insertWith index (key element) element (newer older => older))
 
 -- How many times each element occurs.
@@ -187,7 +187,7 @@ def Map.counts [auto ord: Ord k] (xs: List k): Map k Nat := List.foldLeft xs Map
 -- More looking up
 
 -- The first entry, in key order, for which `p` holds.
-def Map.find (m: Map k v [ord := o]) (p: k -> v -> Bool): Option (k, v) := List.find (Map.toList m) (e => p e.fst e.snd)
+def Map.find (m: Map k v [ord := o]) (p: k → v → Bool): Option (k, v) := List.find (Map.toList m) (e => p e.fst e.snd)
 
 -- The entry with the smallest key, O(log n).
 def Map.min (m: Map k v [ord := o]): Option (k, v) := Quot.lift Map.Raw.min (a b same => Map.Raw.minRespects a b same) m.raw
@@ -207,11 +207,11 @@ def Map.above [auto ord: Ord k] (m: Map k v) (key: k): Option (k, v) :=
 
 -- Both maps' entries; where both have a key, `f` of the first map's value
 -- and the second's.
-def Map.unionWith [auto ord: Ord k] (a: Map k v) (b: Map k v) (f: v -> v -> v): Map k v :=
+def Map.unionWith [auto ord: Ord k] (a: Map k v) (b: Map k v) (f: v → v → v): Map k v :=
   Map.liftBinary (Map.Raw.unionWith f) (Map.Raw.unionWithRespects f) a b
 
 -- The keys of both maps, with `f` of their values.
-def Map.intersectWith [auto ord: Ord k] (a: Map k v) (b: Map k w) (f: v -> w -> x): Map k x :=
+def Map.intersectWith [auto ord: Ord k] (a: Map k v) (b: Map k w) (f: v → w → x): Map k x :=
   Map.liftBinary (Map.Raw.intersectWith f) (Map.Raw.intersectWithRespects f) a b
 
 -- The entries of `a` whose keys aren't in `b`.
@@ -220,7 +220,7 @@ def Map.difference [auto ord: Ord k] (a: Map k v) (b: Map k w): Map k v := Map.l
 -- More transforming
 
 -- Every value changed by `f`, which also sees its key; the keys stay.
-def Map.mapWithKey (m: Map k v [ord := o]) (f: k -> v -> w): Map k w [ord := o] := {
+def Map.mapWithKey (m: Map k v [ord := o]) (f: k → v → w): Map k w [ord := o] := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.mapWithKey f rawMap): Quot (Map.Raw k w [ord := o]) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.mapWithKeyRespects f a b same))
@@ -228,7 +228,7 @@ def Map.mapWithKey (m: Map k v [ord := o]) (f: k -> v -> w): Map k w [ord := o] 
 }
 
 -- The values `f` keeps, changed; `f` sees each key and value. O(n).
-def Map.filterMap [auto ord: Ord k] (m: Map k v) (f: k -> v -> Option w): Map k w := {
+def Map.filterMap [auto ord: Ord k] (m: Map k v) (f: k → v → Option w): Map k w := {
   raw = Quot.lift
     (rawMap => (Quot.mk (Map.Raw.mapMaybe f rawMap): Quot (Map.Raw k w) Map.Raw.Equiv))
     (a b same => Quot.sound (Map.Raw.mapMaybeRespects f a b same))
@@ -236,49 +236,49 @@ def Map.filterMap [auto ord: Ord k] (m: Map k v) (f: k -> v -> Option w): Map k 
 }
 
 -- The entries for which `p` holds, and those for which it doesn't.
-def Map.partition [auto ord: Ord k] (m: Map k v) (p: k -> v -> Bool): (Map k v, Map k v) :=
-  (Map.filter m p, Map.filter m (key value => !(p key value)))
+def Map.partition [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): (Map k v, Map k v) :=
+  (Map.filter m p, Map.filter m (key value => ¬(p key value)))
 
 -- Every key changed by `f`, into a map ordered by `j`'s ordering; where two
 -- keys go to one, the later (larger) key's value wins.
-def Map.mapKeys [auto ord: Ord j] (m: Map k v [ord := o]) (f: k -> j): Map j v :=
+def Map.mapKeys [auto ord: Ord j] (m: Map k v [ord := o]) (f: k → j): Map j v :=
   Map.fromList (List.map (Map.toList m) (e => (f e.fst, e.snd)))
 
 -- More reading
 
 -- Right fold over the entries in key order: `f k1 v1 (f k2 v2 initial)`.
-def Map.foldRight (m: Map k v [ord := o]) (initial: b) (f: k -> v -> b -> b): b := List.foldRight (Map.toList m) initial (e acc => f e.fst e.snd acc)
+def Map.foldRight (m: Map k v [ord := o]) (initial: b) (f: k → v → b → b): b := List.foldRight (Map.toList m) initial (e acc => f e.fst e.snd acc)
 
 -- Whether some entry satisfies `p`.
-def Map.any (m: Map k v [ord := o]) (p: k -> v -> Bool): Bool := List.any (Map.toList m) (e => p e.fst e.snd)
+def Map.any (m: Map k v [ord := o]) (p: k → v → Bool): Bool := List.any (Map.toList m) (e => p e.fst e.snd)
 
 -- Whether every entry satisfies `p`.
-def Map.all (m: Map k v [ord := o]) (p: k -> v -> Bool): Bool := List.all (Map.toList m) (e => p e.fst e.snd)
+def Map.all (m: Map k v [ord := o]) (p: k → v → Bool): Bool := List.all (Map.toList m) (e => p e.fst e.snd)
 
 -- The number of entries satisfying `p`.
-def Map.count (m: Map k v [ord := o]) (p: k -> v -> Bool): Nat := List.count (Map.toList m) (e => p e.fst e.snd)
+def Map.count (m: Map k v [ord := o]) (p: k → v → Bool): Nat := List.count (Map.toList m) (e => p e.fst e.snd)
 
 -- The entries with `lo <= key < hi`.
 def Map.range [auto ord: Ord k] (m: Map k v) (lo: k) (hi: k): Map k v :=
-  Map.filter m (key value => !(Map.Spec.isLess key lo) && Map.Spec.isLess key hi)
+  Map.filter m (key value => ¬(Map.Spec.isLess key lo) ∧ Map.Spec.isLess key hi)
 
 -- Equality: the same entries
 
 -- Two classes with the same entries are the same class.
 theorem Map.rawInjective (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
-    Map.toList { raw = p } = Map.toList { raw = q } -> p = q :=
-  let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv -> Prop :=
-    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) -> Map.toList { raw = p' } = Map.toList { raw = q' } -> p' = q'
-  let fromMk: (a: Map.Raw k v [ord := o]) -> motive (Quot.mk a) :=
+    Map.toList { raw = p } = Map.toList { raw = q } → p = q :=
+  let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv → Prop :=
+    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) → Map.toList { raw = p' } = Map.toList { raw = q' } → p' = q'
+  let fromMk: (a: Map.Raw k v [ord := o]) → motive (Quot.mk a) :=
     a q' =>
       Quot.ind
-        [p := q'' => Map.toList { raw = Quot.mk a } = Map.toList { raw = q'' } -> Quot.mk a = q'']
+        [p := q'' => Map.toList { raw = Quot.mk a } = Map.toList { raw = q'' } → Quot.mk a = q'']
         (b same => Quot.sound same)
         q'
   Quot.ind [p := motive] fromMk p q
 
 -- Maps with the same entries are equal, whatever their values' type.
-theorem Map.toListInjective: (m: Map k v [ord := o]) -> (n: Map k v [ord := o]) -> Map.toList m = Map.toList n -> m = n
+theorem Map.toListInjective: (m: Map k v [ord := o]) → (n: Map k v [ord := o]) → Map.toList m = Map.toList n → m = n
   | { raw = p }, { raw = q }, same => Eq.cong (r => ({ raw = r }: Map k v [ord := o])) (Map.rawInjective p q same)
 
 -- Equal maps have the same entries, and maps with the same entries are equal.
@@ -305,7 +305,7 @@ theorem Map.memToList [auto ord: Ord k] (m: Map k v) (key: k) (value: v): Iff (L
 }
 
 -- Maps that agree on every key are equal, whatever their values' type.
-theorem Map.ext (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: (key: k) -> Map.get m key = Map.get n key): m = n :=
+theorem Map.ext (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: (key: k) → Map.get m key = Map.get n key): m = n :=
   Map.toListInjective m n
     (Map.Spec.extLookup None (Map.toList m) (Map.toList n) (Map.toListSorted m) (Map.toListSorted n)
       (key => Eq.trans (Eq.sym (Map.getToList m key)) (Eq.trans (h key) (Map.getToList n key))))
@@ -356,7 +356,7 @@ theorem Map.toListSingleton [auto ord: Ord k] (key: k) (value: v): Map.toList (M
 theorem Map.toListFromList [auto ord: Ord k] (xs: List (k, v)): Map.toList (Map.fromList xs: Map k v) = Map.Spec.fromList xs :=
   Map.Raw.toListFromListFast xs
 
-theorem Map.toListInsertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v -> v -> v):
+theorem Map.toListInsertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v → v → v):
     Map.toList (Map.insertWith m key value f) = Map.Spec.insertWith f key value (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.insertWith m' key value f) = Map.Spec.insertWith f key value (Map.toList m')]
     (r => Map.Raw.toListInsertWith f key value r) m
@@ -369,22 +369,22 @@ theorem Map.toListInsert [auto ord: Ord k] (m: Map k v) (key: k) (value: v):
 theorem Map.toListRemove [auto ord: Ord k] (m: Map k v) (key: k): Map.toList (Map.remove m key) = Map.Spec.remove key (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.remove m' key) = Map.Spec.remove key (Map.toList m')] (r => Map.Raw.toListRemove key r) m
 
-theorem Map.toListAlter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v -> Option v):
+theorem Map.toListAlter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v → Option v):
     Map.toList (Map.alter m key f) = Map.Spec.alter f key (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.alter m' key f) = Map.Spec.alter f key (Map.toList m')] (r => Map.Raw.toListAlter f key r) m
 
-theorem Map.toListAdjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v -> v):
+theorem Map.toListAdjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v → v):
     Map.toList (Map.adjust m key f) = Map.Spec.adjust f key (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.adjust m' key f) = Map.Spec.adjust f key (Map.toList m')] (r => Map.Raw.toListAdjust f key r) m
 
-theorem Map.toListMap (f: v -> w) (m: Map k v [ord := o]): Map.toList (Map.map m f) = Map.Spec.mapValues f (Map.toList m) :=
+theorem Map.toListMap (f: v → w) (m: Map k v [ord := o]): Map.toList (Map.map m f) = Map.Spec.mapValues f (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.map m' f) = Map.Spec.mapValues f (Map.toList m')] (r => Map.Raw.toListMap f r) m
 
-theorem Map.toListFilter [auto ord: Ord k] (m: Map k v) (p: k -> v -> Bool): Map.toList (Map.filter m p) = Map.Spec.filter p (Map.toList m) :=
+theorem Map.toListFilter [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): Map.toList (Map.filter m p) = Map.Spec.filter p (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.filter m' p) = Map.Spec.filter p (Map.toList m')] (r => Map.Raw.toListFilter p r) m
 
 -- `filter` keeps the entries for which the test holds, in key order.
-theorem Map.toListFilterList [auto ord: Ord k] (m: Map k v) (p: k -> v -> Bool):
+theorem Map.toListFilterList [auto ord: Ord k] (m: Map k v) (p: k → v → Bool):
     Map.toList (Map.filter m p) = List.filter (Map.toList m) (e => p e.fst e.snd) :=
   Map.indRaw [p := m' => Map.toList (Map.filter m' p) = List.filter (Map.toList m') (e => p e.fst e.snd)]
     (r => Map.Raw.toListFilterList r p) m
@@ -397,7 +397,7 @@ theorem Map.toListUnion [auto ord: Ord k] (a: Map k v) (b: Map k v):
         (rb => Map.Raw.toListUnion ra rb) b)
     a
 
-theorem Map.foldLeftToList (f: b -> k -> v -> b) (z: b) (m: Map k v [ord := o]):
+theorem Map.foldLeftToList (f: b → k → v → b) (z: b) (m: Map k v [ord := o]):
     Map.foldLeft m z f = Map.Spec.foldLeft f z (Map.toList m) :=
   Map.indRaw [p := m' => Map.foldLeft m' z f = Map.Spec.foldLeft f z (Map.toList m')] (r => Map.Raw.foldLeftToList f z r) m
 
@@ -425,7 +425,7 @@ theorem Map.sizeRemove [auto ord: Ord k] (m: Map k v) (key: k):
         (Map.Spec.lengthRemovePresent key found None (Map.toList m) (Map.toListSorted m) (Eq.trans (Eq.sym (Map.getToList m key)) c))
     | None => Eq.cong List.length (Map.Spec.removeAbsent key (Map.toList m) (Eq.trans (Eq.sym (Map.getToList m key)) c))
 
-theorem Map.toListMapWithKey (f: k -> v -> w) (m: Map k v [ord := o]): Map.toList (Map.mapWithKey m f) = Map.Spec.mapWithKey f (Map.toList m) :=
+theorem Map.toListMapWithKey (f: k → v → w) (m: Map k v [ord := o]): Map.toList (Map.mapWithKey m f) = Map.Spec.mapWithKey f (Map.toList m) :=
   Map.indRaw [p := m' => Map.toList (Map.mapWithKey m' f) = Map.Spec.mapWithKey f (Map.toList m')] (r => Map.Raw.toListMapWithKey f r) m
 
 theorem Map.minToList (m: Map k v [ord := o]): Map.min m = List.head (Map.toList m) :=
@@ -454,18 +454,18 @@ theorem Map.getInsertOther [auto ord: Ord k] (key: k) (value: v) (other: k) (ne:
   Map.indRaw [p := m' => (m' |> Map.insert key value |> Map.get other) = Map.get m' other]
     (r => Map.Raw.getInsertOther key value other ne r) m
 
-theorem Map.getInsertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v -> v -> v):
+theorem Map.getInsertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v → v → v):
     Map.get (Map.insertWith m key value f) key = Some (Map.Tree.combine f value (Map.get m key)) :=
   Map.indRaw [p := m' => Map.get (Map.insertWith m' key value f) key = Some (Map.Tree.combine f value (Map.get m' key))]
     (r => Map.Raw.getInsertWith f key value r) m
 
-theorem Map.getMap [auto ord: Ord k] (m: Map k v) (key: k) (f: v -> w): Map.get (Map.map m f) key = Option.map (Map.get m key) f :=
+theorem Map.getMap [auto ord: Ord k] (m: Map k v) (key: k) (f: v → w): Map.get (Map.map m f) key = Option.map (Map.get m key) f :=
   Map.indRaw [p := m' => Map.get (Map.map m' f) key = Option.map (Map.get m' key) f] (r => Map.Raw.getMap r key f) m
 
 theorem Map.getFromList [auto ord: Ord k] (key: k) (xs: List (k, v)): Map.get (Map.fromList xs) key = Map.lookupLast key xs :=
   Map.Raw.getFromListFast key xs
 
-theorem Map.getInsertWithOther [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (ne: Not (other = key)) (f: v -> v -> v):
+theorem Map.getInsertWithOther [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (ne: Not (other = key)) (f: v → v → v):
     Map.get (Map.insertWith m key value f) other = Map.get m other :=
   Map.indRaw [p := m' => Map.get (Map.insertWith m' key value f) other = Map.get m' other] (r => Map.Raw.getInsertWithOther f key value other ne r) m
 
@@ -476,22 +476,22 @@ theorem Map.getRemoveOther [auto ord: Ord k] (m: Map k v) (key: k) (other: k) (n
     Map.get (Map.remove m key) other = Map.get m other :=
   Map.indRaw [p := m' => Map.get (Map.remove m' key) other = Map.get m' other] (r => Map.Raw.getRemoveOther key other ne r) m
 
-theorem Map.getAlter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v -> Option v): Map.get (Map.alter m key f) key = f (Map.get m key) :=
+theorem Map.getAlter [auto ord: Ord k] (m: Map k v) (key: k) (f: Option v → Option v): Map.get (Map.alter m key f) key = f (Map.get m key) :=
   Map.indRaw [p := m' => Map.get (Map.alter m' key f) key = f (Map.get m' key)] (r => Map.Raw.getAlter f key r) m
 
-theorem Map.getAlterOther [auto ord: Ord k] (m: Map k v) (key: k) (other: k) (ne: Not (other = key)) (f: Option v -> Option v):
+theorem Map.getAlterOther [auto ord: Ord k] (m: Map k v) (key: k) (other: k) (ne: Not (other = key)) (f: Option v → Option v):
     Map.get (Map.alter m key f) other = Map.get m other :=
   Map.indRaw [p := m' => Map.get (Map.alter m' key f) other = Map.get m' other] (r => Map.Raw.getAlterOther f key other ne r) m
 
-theorem Map.getAdjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v -> v): Map.get (Map.adjust m key f) key = Option.map (Map.get m key) f :=
+theorem Map.getAdjust [auto ord: Ord k] (m: Map k v) (key: k) (f: v → v): Map.get (Map.adjust m key f) key = Option.map (Map.get m key) f :=
   Map.indRaw [p := m' => Map.get (Map.adjust m' key f) key = Option.map (Map.get m' key) f] (r => Map.Raw.getAdjust r key f) m
 
-theorem Map.getAdjustOther [auto ord: Ord k] (m: Map k v) (key: k) (other: k) (ne: Not (other = key)) (f: v -> v):
+theorem Map.getAdjustOther [auto ord: Ord k] (m: Map k v) (key: k) (other: k) (ne: Not (other = key)) (f: v → v):
     Map.get (Map.adjust m key f) other = Map.get m other :=
   Map.indRaw [p := m' => Map.get (Map.adjust m' key f) other = Map.get m' other] (r => Map.Raw.getAdjustOther f key other ne r) m
 
 -- `filter` keeps the value at `key` if `p` holds of it.
-theorem Map.getFilter [auto ord: Ord k] (m: Map k v) (key: k) (p: k -> v -> Bool):
+theorem Map.getFilter [auto ord: Ord k] (m: Map k v) (key: k) (p: k → v → Bool):
     Map.get (Map.filter m p) key = Option.filter (Map.get m key) (p key) :=
   Eq.trans (Map.getToList (Map.filter m p) key)
     (Eq.trans (Eq.cong (Map.Tree.lookupList key) (Map.toListFilterList m p))
@@ -501,10 +501,10 @@ theorem Map.getFilter [auto ord: Ord k] (m: Map k v) (key: k) (p: k -> v -> Bool
 -- What a fold over sorted entries leaves at `key`, for a step that changes
 -- only the key it's given (`atKey`, `elsewhere`), such as inserting each
 -- entry in turn. A sorted list has at most one entry at `key`.
-theorem Map.getFold [auto ord: Ord k] (step: Map k w -> k -> v -> Map k w) (h: v -> Option w -> Option w) (key: k)
-    (atKey: (m: Map k w) -> (value: v) -> Map.get (step m key value) key = h value (Map.get m key))
-    (elsewhere: (m: Map k w) -> (kk: k) -> (value: v) -> Not (key = kk) -> Map.get (step m kk value) key = Map.get m key):
-    (lo: Option k) -> (xs: List (k, v)) -> (m: Map k w) -> Map.Spec.Ascending ord lo xs ->
+theorem Map.getFold [auto ord: Ord k] (step: Map k w → k → v → Map k w) (h: v → Option w → Option w) (key: k)
+    (atKey: (m: Map k w) → (value: v) → Map.get (step m key value) key = h value (Map.get m key))
+    (elsewhere: (m: Map k w) → (kk: k) → (value: v) → Not (key = kk) → Map.get (step m kk value) key = Map.get m key):
+    (lo: Option k) → (xs: List (k, v)) → (m: Map k w) → Map.Spec.Ascending ord lo xs →
     Map.get (Map.Spec.foldLeft step m xs) key = Map.Spec.atKey h (Map.Tree.lookupList key xs) (Map.get m key)
   | lo, Nil, m, asc => rfl
   | lo, Cons (kk, vv) rest, m, Both a arest =>
@@ -522,7 +522,7 @@ theorem Map.getFold [auto ord: Ord k] (step: Map k w -> k -> v -> Map k w) (h: v
           (elsewhere m kk vv (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z))))
 
 -- `unionWith`: the values there are, with `f` where both maps have one.
-theorem Map.getUnionWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v) (f: v -> v -> v):
+theorem Map.getUnionWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v) (f: v → v → v):
     Map.get (Map.unionWith a b f) key = Option.merge (Map.get a key) (Map.get b key) f :=
   Map.indRaw [p := a' => Map.get (Map.unionWith a' b f) key = Option.merge (Map.get a' key) (Map.get b key) f]
     (ra =>
@@ -531,14 +531,14 @@ theorem Map.getUnionWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v) (f
     a
 
 -- Merging that keeps the first value is `orElse`.
-theorem Map.Spec.mergeFirst: (a: Option v) -> (b: Option v) -> Option.merge a b (x y => x) = Option.orElse a b
+theorem Map.Spec.mergeFirst: (a: Option v) → (b: Option v) → Option.merge a b (x y => x) = Option.orElse a b
   | Some x, Some y => rfl
   | Some x, None => rfl
   | None, Some y => rfl
   | None, None => rfl
 
 -- Inserting into a raw map, then taking its class, is inserting into the class.
-theorem Map.ofRawFoldInsert [auto ord: Ord k]: (xs: List (k, v)) -> (r: Map.Raw k v) ->
+theorem Map.ofRawFoldInsert [auto ord: Ord k]: (xs: List (k, v)) → (r: Map.Raw k v) →
     Map.ofRaw (Map.Spec.foldLeft (acc key value => Map.Raw.insert key value acc) r xs)
       = Map.Spec.foldLeft (acc key value => Map.insert acc key value) (Map.ofRaw r) xs
   | Nil, r => rfl
@@ -559,15 +559,15 @@ theorem Map.getUnion [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v):
 
 -- What `Map.fromListWith xs f` keeps at `key`: each value with the key in turn,
 -- combined by `f new old` with what was found before.
-def Map.lookupWithOnto [auto ord: Ord k] (f: v -> v -> v) (key: k): Option v -> List (k, v) -> Option v
+def Map.lookupWithOnto [auto ord: Ord k] (f: v → v → v) (key: k): Option v → List (k, v) → Option v
   | found, Nil => found
   | found, Cons (kk, vv) rest => match Ord.compare key kk with
     | Equal => Map.lookupWithOnto f key (Some (Map.Tree.combine f vv found)) rest
     | _ => Map.lookupWithOnto f key found rest
 
-def Map.lookupWith [auto ord: Ord k] (f: v -> v -> v) (key: k) (xs: List (k, v)): Option v := Map.lookupWithOnto f key None xs
+def Map.lookupWith [auto ord: Ord k] (f: v → v → v) (key: k) (xs: List (k, v)): Option v := Map.lookupWithOnto f key None xs
 
-theorem Map.getFoldInsertWith [auto ord: Ord k]: (m: Map k v) -> (key: k) -> (xs: List (k, v)) -> (f: v -> v -> v) ->
+theorem Map.getFoldInsertWith [auto ord: Ord k]: (m: Map k v) → (key: k) → (xs: List (k, v)) → (f: v → v → v) →
     Map.get (List.foldLeft xs m (acc entry => Map.insertWith acc entry.fst entry.snd f)) key = Map.lookupWithOnto f key (Map.get m key) xs
   | m, key, Nil, f => rfl
   | m, key, Cons (kk, vv) rest, f =>
@@ -577,7 +577,7 @@ theorem Map.getFoldInsertWith [auto ord: Ord k]: (m: Map k v) -> (key: k) -> (xs
       | Equal => rewrite ord.equal key kk e, Map.getInsertWith m kk vv f in rfl
       | Greater => rewrite Map.getInsertWithOther m kk vv key (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) f in rfl
 
-theorem Map.getFromListWith [auto ord: Ord k] (xs: List (k, v)) (key: k) (f: v -> v -> v):
+theorem Map.getFromListWith [auto ord: Ord k] (xs: List (k, v)) (key: k) (f: v → v → v):
     Map.get (Map.fromListWith xs f) key = Map.lookupWith f key xs :=
   Map.getFoldInsertWith Map.empty key xs f
 
@@ -592,7 +592,7 @@ theorem Map.getOrCountStep [auto ord: Ord k] (m: Map k Nat) (key: k) (x: k):
     | Less => rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) Nat.add in rfl
     | Greater => rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) Nat.add in rfl
 
-theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) -> (key: k) -> (xs: List k) ->
+theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) → (key: k) → (xs: List k) →
     Map.getOr (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) 0 key
       = List.foldLeft xs (Map.getOr m 0 key) (n x => Nat.succIf n (Map.Spec.sameKey key x))
   | m, key, Nil => rfl
@@ -604,8 +604,8 @@ theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) -> (key: k) -> (xs:
 theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): Map.getOr (Map.counts xs) 0 key = List.count xs (x => Map.Spec.sameKey key x) :=
   Map.getOrFoldCount Map.empty key xs
 
-theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) -> (m: Map k Nat) -> (key: k) -> ((n: Nat) -> Map.get m key = Some n -> 0 < n) ->
-    (n: Nat) -> Map.get (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key = Some n -> 0 < n
+theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) → (m: Map k Nat) → (key: k) → ((n: Nat) → Map.get m key = Some n → 0 < n) →
+    (n: Nat) → Map.get (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key = Some n → 0 < n
   | Nil, m, key, h, n, found => h n found
   | Cons x rest, m, key, h, n, found =>
     Map.countsFoldPositive rest (Map.insertWith m x 1 Nat.add) key
@@ -627,7 +627,7 @@ theorem Map.countsPositive [auto ord: Ord k] (xs: List k) (key: k) (n: Nat) (fou
   Map.countsFoldPositive xs Map.empty key (n g => Void.exfalso (Option.noneNotSome n g)) n found
 
 -- `groupBy`: the elements whose key is `kk`, in list order, if there are any.
-theorem Map.getGroupBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
+theorem Map.getGroupBy [auto ord: Ord k] (key: a → k) (kk: k): (xs: List a) →
     Map.get (Map.groupBy xs key) kk = Map.Spec.nonEmpty (List.filter xs (x => Map.Spec.sameKey kk (key x)))
   | Nil => rfl
   | Cons x rest =>
@@ -647,13 +647,13 @@ theorem Map.getGroupBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
           (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) List.append in
         Map.getGroupBy key kk rest
 
-theorem Map.orElseNone: (o: Option a) -> Option.orElse o None = o
+theorem Map.orElseNone: (o: Option a) → Option.orElse o None = o
   | None => rfl
   | Some x => rfl
 
 -- `indexBy` from a starting map: what the map has, else the first element
 -- whose key is `kk`.
-theorem Map.getIndexByFrom [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) -> (m: Map k a) ->
+theorem Map.getIndexByFrom [auto ord: Ord k] (key: a → k) (kk: k): (xs: List a) → (m: Map k a) →
     Map.get (List.foldLeft xs m (index element => Map.insertWith index (key element) element (newer older => older))) kk
       = Option.orElse (Map.get m kk) (List.find xs (x => Map.Spec.sameKey kk (key x)))
   | Nil, m => Eq.sym (Map.orElseNone (Map.get m kk))
@@ -678,34 +678,34 @@ theorem Map.getIndexByFrom [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a)
               (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (newer older => older)))
 
 -- `indexBy`: the first element whose key is `kk`.
-theorem Map.getIndexBy [auto ord: Ord k] (key: a -> k) (kk: k) (xs: List a):
+theorem Map.getIndexBy [auto ord: Ord k] (key: a → k) (kk: k) (xs: List a):
     Map.get (Map.indexBy xs key) kk = List.find xs (x => Map.Spec.sameKey kk (key x)) :=
   Map.getIndexByFrom key kk xs Map.empty
 
 -- The same with `==`, as a program finding by key writes it.
-theorem Map.getIndexByEq [auto ord: Ord k] (xs: List a) (kk: k) (key: a -> k):
+theorem Map.getIndexByEq [auto ord: Ord k] (xs: List a) (kk: k) (key: a → k):
     Map.get (Map.indexBy xs key) kk = List.find xs (x => key x == kk) :=
   Eq.trans (Map.getIndexBy key kk xs) (List.findCong xs (x => Map.Spec.sameKey kk (key x)) (x => key x == kk) (x => Map.Spec.sameKeyDecide kk (key x)))
 
 -- What `indexBy` has under `kk` has key `kk`.
-theorem Map.indexByKey [auto ord: Ord k] (xs: List a) (kk: k) (key: a -> k) (y: a) (h: Map.get (Map.indexBy xs key) kk = Some y): key y = kk :=
+theorem Map.indexByKey [auto ord: Ord k] (xs: List a) (kk: k) (key: a → k) (y: a) (h: Map.get (Map.indexBy xs key) kk = Some y): key y = kk :=
   match List.findSome xs (x => Map.Spec.sameKey kk (key x)) y (Eq.trans (Eq.sym (Map.getIndexBy key kk xs)) h) with
     | Both py m => Eq.sym (Map.Spec.sameKeySound kk (key y) py)
 
 -- For text keys, `==` is `Text`'s own.
-theorem Map.getIndexByText (xs: List a) (kk: Text) (key: a -> Text): Map.get (Map.indexBy xs key) kk = List.find xs (x => key x == kk) :=
+theorem Map.getIndexByText (xs: List a) (kk: Text) (key: a → Text): Map.get (Map.indexBy xs key) kk = List.find xs (x => key x == kk) :=
   Map.getIndexByEq xs kk key
 
-theorem Map.getMapWithKey [auto ord: Ord k] (m: Map k v) (key: k) (f: k -> v -> w):
+theorem Map.getMapWithKey [auto ord: Ord k] (m: Map k v) (key: k) (f: k → v → w):
     Map.get (Map.mapWithKey m f) key = Option.map (Map.get m key) (f key) :=
   Map.indRaw [p := m' => Map.get (Map.mapWithKey m' f) key = Option.map (Map.get m' key) (f key)] (r => Map.Raw.getMapWithKey r key f) m
 
 -- `filterMap`: `f` of the value at `key`, if there is one.
-theorem Map.getFilterMap [auto ord: Ord k] (m: Map k v) (key: k) (f: k -> v -> Option w):
+theorem Map.getFilterMap [auto ord: Ord k] (m: Map k v) (key: k) (f: k → v → Option w):
     Map.get (Map.filterMap m f) key = Option.flatMap (Map.get m key) (f key) :=
   Map.indRaw [p := m' => Map.get (Map.filterMap m' f) key = Option.flatMap (Map.get m' key) (f key)] (r => Map.Raw.getMapMaybe r key f) m
 
-theorem Map.getIntersectWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k w) (f: v -> w -> x):
+theorem Map.getIntersectWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k w) (f: v → w → x):
     Map.get (Map.intersectWith a b f) key = Option.flatMap (Map.get a key) (value => Option.map (Map.get b key) (f value)) :=
   Map.indRaw [p := a' => Map.get (Map.intersectWith a' b f) key = Option.flatMap (Map.get a' key) (value => Option.map (Map.get b key) (f value))]
     (ra =>
@@ -716,19 +716,19 @@ theorem Map.getIntersectWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k w
     a
 
 theorem Map.getDifference [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k w):
-    Map.get (Map.difference a b) key = Option.filter (Map.get a key) (value => !(Map.contains b key)) :=
-  Map.indRaw [p := a' => Map.get (Map.difference a' b) key = Option.filter (Map.get a' key) (value => !(Map.contains b key))]
+    Map.get (Map.difference a b) key = Option.filter (Map.get a key) (value => ¬(Map.contains b key)) :=
+  Map.indRaw [p := a' => Map.get (Map.difference a' b) key = Option.filter (Map.get a' key) (value => ¬(Map.contains b key))]
     (ra =>
       Map.indRaw
-        [p := b' => Map.get (Map.difference (Map.ofRaw ra) b') key = Option.filter (Map.get (Map.ofRaw ra) key) (value => !(Map.contains b' key))]
+        [p := b' => Map.get (Map.difference (Map.ofRaw ra) b') key = Option.filter (Map.get (Map.ofRaw ra) key) (value => ¬(Map.contains b' key))]
         (rb => Map.Raw.getDifference ra key rb) b)
     a
 
 -- `range`: the value at `key` if `lo <= key < hi`.
 theorem Map.getRange [auto ord: Ord k] (m: Map k v) (lo: k) (hi: k) (key: k):
-    Map.get (Map.range m lo hi) key = (if !(Map.Spec.isLess key lo) && Map.Spec.isLess key hi then Map.get m key else None) :=
-  rewrite Map.getFilter m key (key2 value => !(Map.Spec.isLess key2 lo) && Map.Spec.isLess key2 hi) in
-  match c: !(Map.Spec.isLess key lo) && Map.Spec.isLess key hi with
+    Map.get (Map.range m lo hi) key = (if ¬(Map.Spec.isLess key lo) ∧ Map.Spec.isLess key hi then Map.get m key else None) :=
+  rewrite Map.getFilter m key (key2 value => ¬(Map.Spec.isLess key2 lo) ∧ Map.Spec.isLess key2 hi) in
+  match c: ¬(Map.Spec.isLess key lo) ∧ Map.Spec.isLess key hi with
     | True =>
       match d: Map.get m key with
         | None => rfl
@@ -739,7 +739,7 @@ theorem Map.getRange [auto ord: Ord k] (m: Map k v) (lo: k) (hi: k) (key: k):
         | Some value => rfl
 
 -- `mapKeys`: the last entry, in key order, whose new key is `key`.
-theorem Map.getMapKeys [auto ord: Ord j] (f: k -> j) (key: j) (m: Map k v [ord := o]):
+theorem Map.getMapKeys [auto ord: Ord j] (f: k → j) (key: j) (m: Map k v [ord := o]):
     Map.get (Map.mapKeys m f) key = Map.lookupLast key (List.map (Map.toList m) (e => (f e.fst, e.snd))) :=
   Map.getFromList key (List.map (Map.toList m) (e => (f e.fst, e.snd)))
 
@@ -795,9 +795,9 @@ theorem Map.removeInsert [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
 
 -- `Map.induction` on the map whose entries are `xs`: take the first entry
 -- off, and the rest is the smaller map it was inserted into.
-theorem Map.inductionToList [auto ord: Ord k] [p: Map k v -> Prop] (base: p Map.empty)
-    (step: (key: k) -> (value: v) -> (m: Map k v) -> p m -> Map.get m key = None -> p (Map.insert m key value)):
-    (xs: List (k, v)) -> (m: Map k v) -> Map.toList m = xs -> p m
+theorem Map.inductionToList [auto ord: Ord k] [p: Map k v → Prop] (base: p Map.empty)
+    (step: (key: k) → (value: v) → (m: Map k v) → p m → Map.get m key = None → p (Map.insert m key value)):
+    (xs: List (k, v)) → (m: Map k v) → Map.toList m = xs → p m
   | Nil, m, h => rewrite Map.toListInjective m Map.empty h in base
   | Cons (kk, vv) rest, m, h =>
     let found: Map.get m kk = Some vv :=
@@ -814,39 +814,39 @@ theorem Map.inductionToList [auto ord: Ord k] [p: Map k v -> Prop] (base: p Map.
 
 -- To prove something of every map, prove it of the empty map, and of a map
 -- with a new key inserted, given it of the map before.
-theorem Map.induction [auto ord: Ord k] [p: Map k v -> Prop] (base: p Map.empty)
-    (step: (key: k) -> (value: v) -> (m: Map k v) -> p m -> Map.get m key = None -> p (Map.insert m key value)) (m: Map k v): p m :=
+theorem Map.induction [auto ord: Ord k] [p: Map k v → Prop] (base: p Map.empty)
+    (step: (key: k) → (value: v) → (m: Map k v) → p m → Map.get m key = None → p (Map.insert m key value)) (m: Map k v): p m :=
   Map.inductionToList [p := p] base step (Map.toList m) m rfl
 
 def Map.example: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b")]
 
 test "map: toList is in key order" := Map.toList Map.example == [(1, "a"), (2, "b"), (3, "c")]
-test "map: get" := Map.get Map.example 2 == Some "b" && Map.get Map.example 4 == None
+test "map: get" := Map.get Map.example 2 == Some "b" ∧ Map.get Map.example 4 == None
 test "map: getOr" := Map.getOr Map.example "?" 4 == "?"
-test "map: contains" := Map.contains Map.example 1 && !(Map.contains Map.example 0)
+test "map: contains" := Map.contains Map.example 1 ∧ ¬(Map.contains Map.example 0)
 test "map: insert replaces" := Map.toList (Map.insert Map.example 2 "B") == [(1, "a"), (2, "B"), (3, "c")]
 test "map: insertWith counts" :=
   Map.toList (List.foldLeft ['b', 'a', 'b'] Map.empty (m c => Map.insertWith m c 1 Nat.add)) == [('a', 1), ('b', 2)]
-test "map: remove" := Map.toList (Map.remove Map.example 2) == [(1, "a"), (3, "c")] && Map.size (Map.remove Map.example 9) == 3
+test "map: remove" := Map.toList (Map.remove Map.example 2) == [(1, "a"), (3, "c")] ∧ Map.size (Map.remove Map.example 9) == 3
 test "map: alter" := Map.toList (Map.alter (Map.alter Map.example 4 (old => Some "d")) 1 (old => None)) == [(2, "b"), (3, "c"), (4, "d")]
 test "map: adjust" := Map.get (Map.adjust Map.example 3 (t => Text.append t "!")) 3 == Some "c!"
-test "map: size" := Map.size Map.example == 3 && Map.isEmpty (Map.empty: Map Nat Nat)
+test "map: size" := Map.size Map.example == 3 ∧ Map.isEmpty (Map.empty: Map Nat Nat)
 test "map: size after insert and remove" :=
-  Map.size (Map.insert Map.example 2 "B") == 3 && Map.size (Map.insert Map.example 4 "d") == 4
-    && Map.size (Map.remove Map.example 2) == 2 && Map.size (Map.remove Map.example 4) == 3
-    && Map.size (Map.remove (Map.empty: Map Nat Nat) 1) == 0
+  Map.size (Map.insert Map.example 2 "B") == 3 ∧ Map.size (Map.insert Map.example 4 "d") == 4
+    ∧ Map.size (Map.remove Map.example 2) == 2 ∧ Map.size (Map.remove Map.example 4) == 3
+    ∧ Map.size (Map.remove (Map.empty: Map Nat Nat) 1) == 0
 test "map: toList holds what get finds" := List.all (Map.toList Map.example) (e => Map.get Map.example e.fst == Some e.snd)
-test "map: keys and values" := Map.keys Map.example == [1, 2, 3] && Map.values Map.example == ["a", "b", "c"]
+test "map: keys and values" := Map.keys Map.example == [1, 2, 3] ∧ Map.values Map.example == ["a", "b", "c"]
 test "map: fromList, later wins" := Map.toList (Map.fromList [(1, 1), (1, 2)]) == [(1, 2)]
 test "map: foldLeft" := Map.foldLeft Map.example 0 (acc key t => acc + key) == 6
 test "map: map" := Map.values (Map.map Map.example Text.length) == [1, 1, 1]
-test "map: get after map" := Map.get (Map.map Map.example Text.length) 2 == Some 1 && Map.get (Map.map Map.example Text.length) 4 == None
+test "map: get after map" := Map.get (Map.map Map.example Text.length) 2 == Some 1 ∧ Map.get (Map.map Map.example Text.length) 4 == None
 test "map: filter" := Map.keys (Map.filter Map.example (key t => Nat.leq 2 key)) == [2, 3]
 test "map: union" := Map.toList (Map.union (Map.singleton 1 "x") Map.example) == [(1, "x"), (2, "b"), (3, "c")]
 test "map: show" := "${Map.example}" == "Map.fromList [(1, \"a\"), (2, \"b\"), (3, \"c\")]"
 test "map: equal in any order" :=
-  Map.example == Map.fromList [(1, "a"), (2, "b"), (3, "c")] && Map.example != Map.insert Map.example 2 "B"
-test "map: ordered by entries" := Map.insert Map.example 2 "B" < Map.example && Map.example <= Map.fromList [(2, "b"), (1, "a"), (3, "c")]
+  Map.example == Map.fromList [(1, "a"), (2, "b"), (3, "c")] ∧ Map.example ≠ Map.insert Map.example 2 "B"
+test "map: ordered by entries" := Map.insert Map.example 2 "B" < Map.example ∧ Map.example ≤ Map.fromList [(2, "b"), (1, "a"), (3, "c")]
 
 def Map.example2: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b"), (7, "g"), (5, "e")]
 
@@ -856,55 +856,55 @@ test "map: groupBy keeps list order" := Map.toList (Map.groupBy [1, 2, 3, 4, 5, 
 test "map: indexBy keeps the first" := Map.toList (Map.indexBy ["ab", "c", "de", "f"] Text.length) == [(1, "c"), (2, "ab")]
 test "map: indexBy empty" := Map.toList (Map.indexBy Nil Text.length) == Nil
 test "map: counts" := Map.toList (Map.counts ['b', 'a', 'b']) == [('a', 1), ('b', 2)]
-test "map: find" := Map.find Map.example2 (key t => key > 2) == Some (3, "c") && Map.find Map.example2 (key t => key > 7) == None
+test "map: find" := Map.find Map.example2 (key t => key > 2) == Some (3, "c") ∧ Map.find Map.example2 (key t => key > 7) == None
 test "map: min and max" :=
-  Map.min Map.example2 == Some (1, "a") && Map.max Map.example2 == Some (7, "g") && Map.min (Map.empty: Map Nat Nat) == None
+  Map.min Map.example2 == Some (1, "a") ∧ Map.max Map.example2 == Some (7, "g") ∧ Map.min (Map.empty: Map Nat Nat) == None
 test "map: below" :=
-  Map.below Map.example2 5 == Some (3, "c") && Map.below Map.example2 6 == Some (5, "e") && Map.below Map.example2 1 == None
-    && Map.below Map.example2 100 == Some (7, "g")
+  Map.below Map.example2 5 == Some (3, "c") ∧ Map.below Map.example2 6 == Some (5, "e") ∧ Map.below Map.example2 1 == None
+    ∧ Map.below Map.example2 100 == Some (7, "g")
 test "map: above" :=
-  Map.above Map.example2 5 == Some (7, "g") && Map.above Map.example2 0 == Some (1, "a") && Map.above Map.example2 7 == None
-    && Map.above Map.example2 4 == Some (5, "e")
+  Map.above Map.example2 5 == Some (7, "g") ∧ Map.above Map.example2 0 == Some (1, "a") ∧ Map.above Map.example2 7 == None
+    ∧ Map.above Map.example2 4 == Some (5, "e")
 test "map: unionWith" := Map.toList (Map.unionWith (Map.fromList [(1, 10), (2, 20)]) (Map.fromList [(2, 1), (3, 1)]) Nat.add) == [(1, 10), (2, 21), (3, 1)]
 test "map: intersectWith" := Map.toList (Map.intersectWith Map.example2 (Map.fromList [(2, 20), (4, 40), (5, 50)]) (t n => n)) == [(2, 20), (5, 50)]
 test "map: difference" := Map.keys (Map.difference Map.example2 (Map.fromList [(2, ()), (5, ())])) == [1, 3, 7]
 test "map: combining with an empty map" :=
   Map.toList (Map.union Map.empty Map.example2) == Map.toList Map.example2
-    && Map.toList (Map.union Map.example2 Map.empty) == Map.toList Map.example2
-    && Map.isEmpty (Map.intersectWith Map.example2 (Map.empty: Map Nat Text) (t u => t))
-    && Map.isEmpty (Map.intersectWith (Map.empty: Map Nat Text) Map.example2 (t u => t))
-    && Map.toList (Map.difference Map.example2 (Map.empty: Map Nat Text)) == Map.toList Map.example2
-    && Map.isEmpty (Map.difference (Map.empty: Map Nat Text) Map.example2)
+    ∧ Map.toList (Map.union Map.example2 Map.empty) == Map.toList Map.example2
+    ∧ Map.isEmpty (Map.intersectWith Map.example2 (Map.empty: Map Nat Text) (t u => t))
+    ∧ Map.isEmpty (Map.intersectWith (Map.empty: Map Nat Text) Map.example2 (t u => t))
+    ∧ Map.toList (Map.difference Map.example2 (Map.empty: Map Nat Text)) == Map.toList Map.example2
+    ∧ Map.isEmpty (Map.difference (Map.empty: Map Nat Text) Map.example2)
 test "map: combining disjoint maps" :=
   Map.toList (Map.union Map.example (Map.fromList [(0, "z"), (9, "y")])) == [(0, "z"), (1, "a"), (2, "b"), (3, "c"), (9, "y")]
-    && Map.isEmpty (Map.intersectWith Map.example (Map.fromList [(0, "z"), (9, "y")]) (t u => t))
-    && Map.toList (Map.difference Map.example (Map.fromList [(0, "z"), (9, "y")])) == Map.toList Map.example
+    ∧ Map.isEmpty (Map.intersectWith Map.example (Map.fromList [(0, "z"), (9, "y")]) (t u => t))
+    ∧ Map.toList (Map.difference Map.example (Map.fromList [(0, "z"), (9, "y")])) == Map.toList Map.example
 test "map: combining a map with itself" :=
   Map.toList (Map.unionWith Map.example Map.example Text.append) == [(1, "aa"), (2, "bb"), (3, "cc")]
-    && Map.toList (Map.intersectWith Map.example Map.example Text.append) == [(1, "aa"), (2, "bb"), (3, "cc")]
-    && Map.isEmpty (Map.difference Map.example Map.example)
+    ∧ Map.toList (Map.intersectWith Map.example Map.example Text.append) == [(1, "aa"), (2, "bb"), (3, "cc")]
+    ∧ Map.isEmpty (Map.difference Map.example Map.example)
 test "map: union keeps the first map's value where keys overlap" :=
   Map.toList (Map.union (Map.fromList [(2, "x"), (4, "y")]) Map.example) == [(1, "a"), (2, "x"), (3, "c"), (4, "y")]
-    && Map.toList (Map.union Map.example (Map.fromList [(2, "x"), (4, "y")])) == [(1, "a"), (2, "b"), (3, "c"), (4, "y")]
+    ∧ Map.toList (Map.union Map.example (Map.fromList [(2, "x"), (4, "y")])) == [(1, "a"), (2, "b"), (3, "c"), (4, "y")]
 test "map: unionWith passes the first map's value first" :=
   Map.toList (Map.unionWith (Map.fromList [(1, 10), (2, 20)]) (Map.fromList [(2, 1), (3, 1)]) Nat.sub) == [(1, 10), (2, 19), (3, 1)]
-    && Map.toList (Map.unionWith (Map.fromList [(2, "x")]) Map.example2 Text.append) == [(1, "a"), (2, "xb"), (3, "c"), (5, "e"), (7, "g")]
-    && Map.toList (Map.unionWith Map.example2 (Map.fromList [(2, "x")]) Text.append) == [(1, "a"), (2, "bx"), (3, "c"), (5, "e"), (7, "g")]
+    ∧ Map.toList (Map.unionWith (Map.fromList [(2, "x")]) Map.example2 Text.append) == [(1, "a"), (2, "xb"), (3, "c"), (5, "e"), (7, "g")]
+    ∧ Map.toList (Map.unionWith Map.example2 (Map.fromList [(2, "x")]) Text.append) == [(1, "a"), (2, "bx"), (3, "c"), (5, "e"), (7, "g")]
 test "map: intersectWith passes the first map's value first" :=
   Map.toList (Map.intersectWith (Map.fromList [(1, 10), (2, 20)]) (Map.fromList [(2, 1), (3, 1)]) Nat.sub) == [(2, 19)]
 test "map: mapWithKey" :=
   Map.toList (Map.mapWithKey Map.example2 (key t => Text.append t (Nat.toText key))) == [(1, "a1"), (2, "b2"), (3, "c3"), (5, "e5"), (7, "g7")]
 test "map: filterMap" := Map.toList (Map.filterMap Map.example2 (key t => if key > 2 then Some key else None)) == [(3, 3), (5, 5), (7, 7)]
 test "map: partition" :=
-  Map.keys (Map.partition Map.example2 (key t => key > 2)).fst == [3, 5, 7] && Map.keys (Map.partition Map.example2 (key t => key > 2)).snd == [1, 2]
+  Map.keys (Map.partition Map.example2 (key t => key > 2)).fst == [3, 5, 7] ∧ Map.keys (Map.partition Map.example2 (key t => key > 2)).snd == [1, 2]
 test "map: mapKeys, later wins" := Map.toList (Map.mapKeys Map.example2 (key => key / 2)) == [(0, "a"), (1, "c"), (2, "e"), (3, "g")]
 test "map: foldRight" := Map.foldRight Map.example2 "" (key t acc => Text.append t acc) == "abceg"
 test "map: any, all, count" :=
-  Map.any Map.example2 (key t => key == 5) && !(Map.all Map.example2 (key t => key < 7)) && Map.count Map.example2 (key t => key > 2) == 3
-test "map: range" := Map.keys (Map.range Map.example2 2 6) == [2, 3, 5] && Map.keys (Map.range Map.example2 6 2) == Nil
+  Map.any Map.example2 (key t => key == 5) ∧ ¬(Map.all Map.example2 (key t => key < 7)) ∧ Map.count Map.example2 (key t => key > 2) == 3
+test "map: range" := Map.keys (Map.range Map.example2 2 6) == [2, 3, 5] ∧ Map.keys (Map.range Map.example2 6 2) == Nil
 
 -- Each element of a list by its position, counting from 0, for lookup in
 -- O(log n): `Map.byPosition ["a", "b"]` maps 0 to "a" and 1 to "b".
 def Map.byPosition (xs: List a): Map Nat a := Map.fromList (List.withIndex xs)
 
-test "map: byPosition" := Map.toList (Map.byPosition ["a", "b"]) == [(0, "a"), (1, "b")] && Map.get (Map.byPosition ["a", "b"]) 2 == None
+test "map: byPosition" := Map.toList (Map.byPosition ["a", "b"]) == [(0, "a"), (1, "b")] ∧ Map.get (Map.byPosition ["a", "b"]) 2 == None

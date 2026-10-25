@@ -5,6 +5,6 @@ type Shape =
   | Dot (ref: Nat) (id: Text)
   | Circle (ref: Nat) (id: Text) (text: Text)
 
-def idOf: Shape -> Text
+def idOf: Shape → Text
   | Circle { id, text } => id
   | Dot { id, .. }      => id

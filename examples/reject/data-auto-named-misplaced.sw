@@ -6,7 +6,7 @@
 import Std (Nat)
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 instance Ordered.instNat: Ordered Nat :=
   { compare = Nat.compare }

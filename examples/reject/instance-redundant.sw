@@ -5,9 +5,9 @@
 -- examples/accept/interfaces-superclasses.sw.
 
 interface Base (a: Type) =
-  { op: a -> a }
+  { op: a → a }
 
 interface Child (a: Type) =
-  { base: Base a, name: a -> Text }
+  { base: Base a, name: a → Text }
 
 def twice [auto b: Base a] [auto c: Child a] (x: a): a := Base.op (Base.op x)

@@ -5,6 +5,6 @@
 
 import Std (Int)
 
-theorem differentProofs (x: Int) (h1: OfNat 7 != OfNat 0) (h2: OfNat 7 != OfNat 0)
+theorem differentProofs (x: Int) (h1: OfNat 7 ≠ OfNat 0) (h2: OfNat 7 ≠ OfNat 0)
     (p: Int.mod x 7 [ok := h2] = Int.mod x 7 [ok := h2]):
     Int.mod x 7 [ok := h1] = Int.mod x 7 [ok := h1] := p

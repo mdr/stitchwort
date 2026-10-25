@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/lambda-annotation-mismatch.sw:5:26 ]
+   ╭─[ reject/lambda-annotation-mismatch.sw:5:25 ]
    │
- 5 │ def f: Nat -> Nat := (b: Bool) => 1
-   │                          ──┬─  
-   │                            ╰─── this parameter is annotated `Bool`, but the function is expected to take `Nat`
+ 5 │ def f: Nat → Nat := (b: Bool) => 1
+   │                         ──┬─  
+   │                           ╰─── this parameter is annotated `Bool`, but the function is expected to take `Nat`
 ───╯

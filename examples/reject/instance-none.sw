@@ -4,7 +4,7 @@
 -- by name.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 type Item =
   | MkItem

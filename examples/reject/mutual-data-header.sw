@@ -2,7 +2,7 @@
 -- A data type's parameters can only use what's finished before it, and types
 -- defined together are finished together.
 type Tree: Type =
-  | Node (kids: (t: Tree) -> Forest t)
+  | Node (kids: (t: Tree) → Forest t)
 
 type Forest (t: Tree): Type =
   | FNil

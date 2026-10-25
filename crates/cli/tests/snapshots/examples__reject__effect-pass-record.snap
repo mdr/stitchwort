@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-    ╭─[ reject/effect-pass-record.sw:18:132 ]
+    ╭─[ reject/effect-pass-record.sw:18:131 ]
     │
- 18 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) -> holderDone { inner = computation } := computation => Trivial
-    │                                                                                                                                    ───┬───  
-    │                                                                                                                                       ╰───── expected `IsDone computation`, but this has type `Unit`
+ 18 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → holderDone { inner = computation } := computation => Trivial
+    │                                                                                                                                   ───┬───  
+    │                                                                                                                                      ╰───── expected `IsDone computation`, but this has type `Unit`
 ────╯

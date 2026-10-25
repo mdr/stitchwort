@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-OMEGA] Error: `omega` can't prove `Void`
-   ╭─[ reject/omega-rational-model.sw:6:72 ]
+   ╭─[ reject/omega-rational-model.sw:6:70 ]
    │
- 6 │     (h3: 2 * y + z <= 3 * x + 1) (h4: 3 * x <= 2 * y + z + 2): Void := omega
-   │                                                                        ──┬──  
-   │                                                                          ╰──── a rational model of the relaxation satisfies the facts
+ 6 │     (h3: 2 * y + z ≤ 3 * x + 1) (h4: 3 * x ≤ 2 * y + z + 2): Void := omega
+   │                                                                      ──┬──  
+   │                                                                        ╰──── a rational model of the relaxation satisfies the facts
    │ 
    │ Note 1: facts: `5 * z < 2 * x + 3 * y` (h1), `2 * x + 3 * y ≤ 4 + 5 * z` (h2), `2 * y + z ≤ 3 * x + 1` (h3), `3 * x ≤ 2 * y + z + 2` (h4)
    │ 

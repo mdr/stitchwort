@@ -7,13 +7,13 @@
 -- examples/accept/interfaces-by-name.sw.
 
 interface Root (a: Type) =
-  { name: a -> Text }
+  { name: a → Text }
 
 interface Left (a: Type) =
-  { root: Root a, left: a -> Text }
+  { root: Root a, left: a → Text }
 
 interface Right (a: Type) =
-  { root: Root a, right: a -> Text }
+  { root: Root a, right: a → Text }
 
 interface Both (a: Type) =
   { left: Left a, right: Right a }

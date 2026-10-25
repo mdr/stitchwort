@@ -4,13 +4,13 @@
 
 import Std (Nat)
 
-def reach: List Nat -> Nat -> Nat -> Nat -> Bool
+def reach: List Nat → Nat → Nat → Nat → Bool
   | ls,             c, Zero,   d => c == d
   | Nil,            c, Succ k, d => False
   | Cons line rest, c, Succ k, d =>
-    def left: Nat -> Bool
+    def left: Nat → Bool
       | Zero   => False
       | Succ b => reach rest b k d
-    if Nat.leq line c then left c || reach rest (c + 1) k d else reach rest c k d
+    if Nat.leq line c then left c ∨ reach rest (c + 1) k d else reach rest c k d
 
 theorem leftZero (rest: List Nat) (k: Nat) (d: Nat): reach.left d k rest Zero = False := rfl

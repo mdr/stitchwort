@@ -7,7 +7,7 @@ import Std.Fail (fail, toResult)
 
 type Checker (e: Effects) = {
   name: Text,
-  check: Nat -> {e} Nat
+  check: Nat → {e} Nat
 }
 
 def Checker.run (c: Checker e) (xs: List Nat): {e} (List Nat) := xs.map c.check

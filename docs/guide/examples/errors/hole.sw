@@ -1,5 +1,5 @@
 import Std (Eq)
 
-theorem plusZero: (n: Nat) -> n + 0 = n
+theorem plusZero: (n: Nat) → n + 0 = n
   | Zero => rfl
   | Succ k => ?

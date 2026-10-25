@@ -10,4 +10,4 @@ def use (n: Nat) (xs: Vec Nat n): Nat := n
 
 def three: Vec Nat 3 := Vec.replicate 3 0
 
-def used: (n: Nat) -> Nat := use (xs := three)
+def used: (n: Nat) → Nat := use (xs := three)

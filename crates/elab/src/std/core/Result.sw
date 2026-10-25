@@ -11,16 +11,16 @@ type Result (a: Type) (e: Type): Type =
   | Err (error: e)
 
 -- The value, or `fallback` if there isn't one.
-def Result.getOrElse: Result a e -> (fallback: a) -> a
+def Result.getOrElse: Result a e → (fallback: a) → a
   | Ok x, fallback => x
   | Err m, fallback => fallback
 
 -- The error, or `fallback` if there isn't one.
-def Result.errorOrElse: Result a e -> (fallback: e) -> e
+def Result.errorOrElse: Result a e → (fallback: e) → e
   | Ok x, fallback => fallback
   | Err m, fallback => m
 
-def Result.IsOk: Result a e -> Prop
+def Result.IsOk: Result a e → Prop
   | Ok x => Unit
   | Err m => Void
 
@@ -30,18 +30,18 @@ theorem Result.okNotErr (x: a) (m: e): Not (Ok x = Err m)
 theorem Result.errNotOk (m: e) (x: a): Not (Err m = Ok x)
   | p => Result.okNotErr x m (Eq.sym p)
 
-def Result.decOk (x: a) (y: a): Decidable (x = y) -> Decidable ((Ok x: Result a e) = Ok y)
+def Result.decOk (x: a) (y: a): Decidable (x = y) → Decidable ((Ok x: Result a e) = Ok y)
   | Yes p => Yes (Eq.cong Ok p)
   | No r => No (p => r (Eq.cong (.getOrElse x) p))
 
-def Result.decErr (m: e) (n: e): Decidable (m = n) -> Decidable ((Err m: Result a e) = Err n)
+def Result.decErr (m: e) (n: e): Decidable (m = n) → Decidable ((Err m: Result a e) = Err n)
   | Yes p => Yes (Eq.cong Err p)
   | No r => No (p => r (Eq.cong (.errorOrElse m) p))
 
 -- Equality of results, from equality of the values and of the errors.
 @[noReceiver]
-def Result.decEq (da: (x: a) -> (y: a) -> Decidable (x = y)) (de: (m: e) -> (n: e) -> Decidable (m = n)):
-    (r: Result a e) -> (s: Result a e) -> Decidable (r = s)
+def Result.decEq (da: (x: a) → (y: a) → Decidable (x = y)) (de: (m: e) → (n: e) → Decidable (m = n)):
+    (r: Result a e) → (s: Result a e) → Decidable (r = s)
   | Ok x, Ok y => Result.decOk x y (da x y)
   | Ok x, Err n => No (Result.okNotErr x n)
   | Err m, Ok y => No (Result.errNotOk m y)

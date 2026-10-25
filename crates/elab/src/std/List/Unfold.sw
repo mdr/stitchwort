@@ -6,8 +6,8 @@
 -- ends the list, and `Some (MkPair v next)` puts `v` first and goes on from
 -- `next`. It ends because `measure` gets smaller at every `Some`, which
 -- `shrinks` proves for every step `step` can take.
-def List.unfold (seed: s) (step: s -> Option (Pair a s)) (measure: s -> Nat)
-      (shrinks: (x: s) -> (y: s) -> (v: a) -> step x = Some (MkPair v y) -> measure y < measure x): List a
+def List.unfold (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat)
+      (shrinks: (x: s) → (y: s) → (v: a) → step x = Some (MkPair v y) → measure y < measure x): List a
     decreasing measure seed
 :=
   match e: step seed with

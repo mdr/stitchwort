@@ -6,19 +6,19 @@
 
 -- `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
 -- commutes.
-theorem Bool.orFalse: (b: Bool) -> (b || False) = b
+theorem Bool.orFalse: (b: Bool) → (b ∨ False) = b
   | True => rfl
   | False => rfl
 
-theorem Bool.orTrue: (b: Bool) -> (b || True) = True
+theorem Bool.orTrue: (b: Bool) → (b ∨ True) = True
   | True => rfl
   | False => rfl
 
-theorem Bool.orAssoc: (a: Bool) -> (b: Bool) -> (c: Bool) -> ((a || b) || c) = (a || (b || c))
+theorem Bool.orAssoc: (a: Bool) → (b: Bool) → (c: Bool) → ((a ∨ b) ∨ c) = (a ∨ (b ∨ c))
   | True, b, c => rfl
   | False, b, c => rfl
 
-theorem Bool.orComm: (a: Bool) -> (b: Bool) -> (a || b) = (b || a)
+theorem Bool.orComm: (a: Bool) → (b: Bool) → (a ∨ b) = (b ∨ a)
   | True, True => rfl
   | True, False => rfl
   | False, True => rfl
@@ -26,27 +26,27 @@ theorem Bool.orComm: (a: Bool) -> (b: Bool) -> (a || b) = (b || a)
 
 -- `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
 -- are equal when each implies the other.
-theorem Bool.andIntro: (a: Bool) -> (b: Bool) -> a = True -> b = True -> (a && b) = True
+theorem Bool.andIntro: (a: Bool) → (b: Bool) → a = True → b = True → (a ∧ b) = True
   | True, b, ha, hb => hb
   | False, b, ha, hb => Void.exfalso (Bool.falseNotTrue ha)
 
-theorem Bool.andLeft: (a: Bool) -> (b: Bool) -> (a && b) = True -> a = True
+theorem Bool.andLeft: (a: Bool) → (b: Bool) → (a ∧ b) = True → a = True
   | True, b, h => rfl
   | False, b, h => Void.exfalso (Bool.falseNotTrue h)
 
-theorem Bool.andRight: (a: Bool) -> (b: Bool) -> (a && b) = True -> b = True
+theorem Bool.andRight: (a: Bool) → (b: Bool) → (a ∧ b) = True → b = True
   | True, b, h => h
   | False, b, h => Void.exfalso (Bool.falseNotTrue h)
 
-theorem Bool.impIntro: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (!a || b) = True
+theorem Bool.impIntro: (a: Bool) → (b: Bool) → (a = True → b = True) → (¬a ∨ b) = True
   | True, b, h => h rfl
   | False, b, h => rfl
 
-theorem Bool.impElim: (a: Bool) -> (b: Bool) -> (!a || b) = True -> a = True -> b = True
+theorem Bool.impElim: (a: Bool) → (b: Bool) → (¬a ∨ b) = True → a = True → b = True
   | True, b, h, ha => h
   | False, b, h, ha => Void.exfalso (Bool.falseNotTrue ha)
 
-theorem Bool.eqOf: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (b = True -> a = True) -> a = b
+theorem Bool.eqOf: (a: Bool) → (b: Bool) → (a = True → b = True) → (b = True → a = True) → a = b
   | True, True, f, g => rfl
   | True, False, f, g => Void.exfalso (Bool.falseNotTrue (f rfl))
   | False, True, f, g => Void.exfalso (Bool.falseNotTrue (g rfl))
@@ -54,20 +54,20 @@ theorem Bool.eqOf: (a: Bool) -> (b: Bool) -> (a = True -> b = True) -> (b = True
 
 -- A `Bool` that isn't `True` is `False`: `Not (a <= b)` is `Not (Nat.leq a b = True)`,
 -- and `Nat.leqFalse` takes it from there.
-theorem Bool.falseOfNotTrue: (x: Bool) -> Not (x = True) -> x = False
+theorem Bool.falseOfNotTrue: (x: Bool) → Not (x = True) → x = False
   | True, h => Void.exfalso (h rfl)
   | False, h => rfl
 
 theorem Bool.falseOfNotTrueExample: Nat.leq 3 2 = False := Bool.falseOfNotTrue (Nat.leq 3 2) Bool.falseNotTrue
 
-theorem Bool.orElim (a: Bool) (b: Bool) (goal: Prop) (h: (a || b) = True) (left: a = True -> goal) (right: b = True -> goal): goal :=
+theorem Bool.orElim (a: Bool) (b: Bool) (goal: Prop) (h: (a ∨ b) = True) (left: a = True → goal) (right: b = True → goal): goal :=
   match e: a with
     | True => left rfl
     | False => right h
 
-theorem Bool.orLeft (a: Bool) (b: Bool) (h: a = True): (a || b) = True := rewrite h in rfl
+theorem Bool.orLeft (a: Bool) (b: Bool) (h: a = True): (a ∨ b) = True := rewrite h in rfl
 
-theorem Bool.orRight (a: Bool) (b: Bool) (h: b = True): (a || b) = True :=
+theorem Bool.orRight (a: Bool) (b: Bool) (h: b = True): (a ∨ b) = True :=
   match e: a with
     | True => rfl
     | False => h

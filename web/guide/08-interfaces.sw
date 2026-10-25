@@ -1,7 +1,7 @@
 -- An interface says what operations a type must support; an instance
 -- provides them. The compiler finds the instance from the type.
 interface Describe (a: Type) =
-  { describe: a -> Text }
+  { describe: a → Text }
 
 type Order = { id: Nat, total: Nat }
 

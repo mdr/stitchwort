@@ -6,11 +6,11 @@ A lambda is written `x => body`, and one with several parameters `a b => body`. 
 
 <!-- snippet: functions.sw#lambdas -->
 ```stitchwort
-def increment: Nat -> Nat := n => n + 1
+def increment: Nat → Nat := n => n + 1
 
-def add: Nat -> Nat -> Nat := a b => a + b
+def add: Nat → Nat → Nat := a b => a + b
 
-def addTen: Nat -> Nat := add 10
+def addTen: Nat → Nat := add 10
 
 test "lambdas" := [1, 2, 3].map (n => n * n) == [1, 4, 9]
 test "partial application" := addTen 5 == 15
@@ -51,9 +51,9 @@ A lowercase name in a signature that isn't declared anywhere, like `a` here, is 
 
 <!-- snippet: functions.sw#generics -->
 ```stitchwort
-def twice (f: a -> a) (x: a): a := f (f x)
+def twice (f: a → a) (x: a): a := f (f x)
 
-def firstOr (fallback: a): List a -> a
+def firstOr (fallback: a): List a → a
   | [] => fallback
   | Cons x _ => x
 
@@ -77,12 +77,12 @@ A lambda can take implicit parameters too, written the same way, so that its bod
 
 <!-- snippet: functions.sw#implicit-lambda -->
 ```stitchwort
-def pairUpLambda: [a: Type] -> [b: Type] -> a -> b -> (a, b) :=
+def pairUpLambda: [a: Type] → [b: Type] → a → b → (a, b) :=
   [a: Type] [b: Type] (x: a) (y: b) => (x, y)
 
 test "a lambda with implicit parameters" :=
   let flip := [a: Type] [b: Type] (x: a) (y: b) => (y, x)
-  flip 1 "one" == ("one", 1) && pairUpLambda 1 "one" == (1, "one")
+  flip 1 "one" == ("one", 1) ∧ pairUpLambda 1 "one" == (1, "one")
 ```
 
 ## Named arguments
@@ -132,7 +132,7 @@ A negative literal as an argument needs brackets: `f -4` is `f - 4`.
 def wordLengths (line: Text): List Nat :=
   line
     |> .split ' '
-    |> .filter (word => word != "")
+    |> .filter (word => word ≠ "")
     |> .map (.length)
 
 test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
@@ -191,7 +191,7 @@ A `def` can stand in a block, wherever a `let` can. It sees the variables above 
 <!-- snippet: functions.sw#local -->
 ```stitchwort
 def sumOfSquares (n: Nat): Nat :=
-  def go: Nat -> Nat -> Nat
+  def go: Nat → Nat → Nat
     | 0, total => total
     | Succ k, total => go k (total + Succ k * Succ k)
   go n 0
@@ -208,7 +208,7 @@ Functions can be stored in lists and records, passed and returned like any other
 
 <!-- snippet: functions.sw#higher-order -->
 ```stitchwort
-def applyAll (functions: List (Nat -> Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
+def applyAll (functions: List (Nat → Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
 
 test "functions are values" := applyAll [increment, add 10, n => n * 2] 1 == 24
 ```

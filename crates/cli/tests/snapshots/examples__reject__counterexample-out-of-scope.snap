@@ -3,20 +3,20 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/counterexample-out-of-scope.sw:6:72 ]
+   ╭─[ reject/counterexample-out-of-scope.sw:6:71 ]
    │
- 6 │ theorem mapKeeps (f: Nat -> Nat) (xs: List Nat): List.map xs f = xs := rfl
-   │                                                                        ─┬─  
-   │                                                                         ╰─── `List.map xs f` and `xs` aren't equal
+ 6 │ theorem mapKeeps (f: Nat → Nat) (xs: List Nat): List.map xs f = xs := rfl
+   │                                                                       ─┬─  
+   │                                                                        ╰─── `List.map xs f` and `xs` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/counterexample-out-of-scope.sw:8:60 ]
+   ╭─[ reject/counterexample-out-of-scope.sw:8:58 ]
    │
- 8 │ theorem bounded (n: Nat) (h: (k: Nat) -> k <= n): n = 1 := rfl
-   │                                                            ─┬─  
-   │                                                             ╰─── `n` and `1` aren't equal
+ 8 │ theorem bounded (n: Nat) (h: (k: Nat) → k ≤ n): n = 1 := rfl
+   │                                                          ─┬─  
+   │                                                           ╰─── `n` and `1` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

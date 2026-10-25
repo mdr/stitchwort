@@ -13,7 +13,7 @@ type Card = { rank: Nat, suit: Suit }
 def aceOfSpades: Card := { rank = 14, suit = Spades }
 def twoOfClubs: Card := { rank = 2, suit = Clubs }
 
-test "equality" := aceOfSpades == aceOfSpades && aceOfSpades != twoOfClubs
+test "equality" := aceOfSpades == aceOfSpades ∧ aceOfSpades ≠ twoOfClubs
 test "order: fields left to right" := twoOfClubs < aceOfSpades
 test "constructors in declared order" := List.sort [Spades, Clubs, Hearts] == [Clubs, Hearts, Spades]
 test "text" := "${twoOfClubs}" == "{ rank = 2, suit = Clubs }"
@@ -21,7 +21,7 @@ test "text" := "${twoOfClubs}" == "{ rank = 2, suit = Clubs }"
 
 -- begin interface
 interface Describe (a: Type) =
-  { describe: a -> Text }
+  { describe: a → Text }
 
 instance Suit.instDescribe: Describe Suit :=
   { describe = suit => match suit with

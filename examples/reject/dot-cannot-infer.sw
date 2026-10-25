@@ -8,7 +8,7 @@ type Bag (a: Type): Type =
   | Empty
   | Put (x: a) (rest: Bag a)
 
-def Bag.map: Bag a -> (f: a -> b) -> Bag b
+def Bag.map: Bag a → (f: a → b) → Bag b
   | Empty, f => Empty
   | Put x xs, f => Put (f x) (Bag.map xs f)
 

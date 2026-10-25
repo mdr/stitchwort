@@ -34,7 +34,7 @@ An ability lists its operations. Each takes one argument (use `()` for none) and
 <!-- snippet: abilities.sw#declare -->
 ```stitchwort
 ability Log where
-  say: Text -> {Log} ()
+  say: Text → {Log} ()
 
 def checkout (items: Nat): {Log} Nat :=
   say "checking out ${items} items"
@@ -53,8 +53,8 @@ This handler collects the messages in a list. Each clause returns a function tha
 
 <!-- snippet: abilities.sw#handle -->
 ```stitchwort
-def collectLog (prog: () -> {Log | e} a): {e} (a, List Text) :=
-  let run: List Text -> {e} (a, List Text) :=
+def collectLog (prog: () → {Log | e} a): {e} (a, List Text) :=
+  let run: List Text → {e} (a, List Text) :=
     handle prog() with
       | return result => said => (result, said)
       | say message, resume => said => resume () (said ++ [message])
@@ -73,7 +73,7 @@ A handler that ignores the operation just resumes:
 
 <!-- snippet: abilities.sw#ignore -->
 ```stitchwort
-def quietly (prog: () -> {Log | e} a): {e} a :=
+def quietly (prog: () → {Log | e} a): {e} a :=
   handle prog() with
     | return result => result
     | say _, resume => resume ()
@@ -85,7 +85,7 @@ And one that prints performs `IO` in its clause, so its own type says `{IO | e}`
 
 <!-- snippet: abilities.sw#print -->
 ```stitchwort
-def printLog (prog: () -> {Log, IO | e} a): {IO | e} a :=
+def printLog (prog: () → {Log, IO | e} a): {IO | e} a :=
   handle prog() with
     | return result => result
     | say message, resume =>
@@ -109,12 +109,12 @@ An operation's result can be anything the handler chooses. Here `next()` asks th
 <!-- snippet: abilities.sw#state -->
 ```stitchwort
 ability Counter where
-  next: () -> {Counter} Nat
+  next: () → {Counter} Nat
 
 def label (names: List Text): {Counter} (List Text) := names.map (name => "${next()}. ${name}")
 
-def counting (start: Nat) (prog: () -> {Counter | e} a): {e} a :=
-  let run: Nat -> {e} a :=
+def counting (start: Nat) (prog: () → {Counter | e} a): {e} a :=
+  let run: Nat → {e} a :=
     handle prog() with
       | return result => _ => result
       | next (), resume => count => resume count (count + 1)
@@ -129,7 +129,7 @@ A function that takes a callback can be polymorphic in the callback's abilities.
 
 <!-- snippet: abilities.sw#polymorphic -->
 ```stitchwort
-def applyTwice (f: a -> {e} a) (x: a): {e} a := f (f x)
+def applyTwice (f: a → {e} a) (x: a): {e} a := f (f x)
 
 test "pure" := applyTwice (n => n + 1) 0 == 2
 def loggedStep (n: Nat): {Log} Nat :=
@@ -146,11 +146,11 @@ A data type can carry callbacks with abilities too. Give it a parameter of type 
 <!-- snippet: abilities.sw#effects-parameter -->
 ```stitchwort
 type Hooks (e: Effects) = {
-  before: Nat -> {e} (),
-  after: Nat -> {e} ()
+  before: Nat → {e} (),
+  after: Nat → {e} ()
 }
 
-def withHooks (hooks: Hooks e) (step: Nat -> Nat) (n: Nat): {e} Nat :=
+def withHooks (hooks: Hooks e) (step: Nat → Nat) (n: Nat): {e} Nat :=
   hooks.before n
   let result := step n
   hooks.after result
@@ -174,7 +174,7 @@ type Turn = { left: Bool, distance: Nat }
 
 def Turn.parse (text: Text): {Fail} Turn :=
   let (direction, rest) := need text.uncons "expected a turn, got nothing"
-  ensure (direction == 'L' || direction == 'R') "expected L or R, got '${text}'"
+  ensure (direction == 'L' ∨ direction == 'R') "expected L or R, got '${text}'"
   { left = direction == 'L', distance = rest.toNatOrFail }
 
 def parseTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.parse
@@ -194,7 +194,7 @@ def halfOf (n: Nat): {Abort} Nat :=
   Abort.ensure (n % 2 == 0)
   n / 2
 
-test "abort" := Abort.toOption (() => halfOf 6) == Some 3 && Abort.toOption (() => halfOf 7) == None
+test "abort" := Abort.toOption (() => halfOf 6) == Some 3 ∧ Abort.toOption (() => halfOf 7) == None
 ```
 
 ## Searching: `Each`

@@ -3,10 +3,10 @@ import Std (List, Eq)
 -- `calc` writes a proof as a chain of steps. Each line says how it relates
 -- to the one before and gives a reason; a step that follows by computing
 -- needs no reason.
-theorem chain (a: Nat) (b: Nat) (h1: a = b) (h2: b <= 3): a < 5 :=
+theorem chain (a: Nat) (b: Nat) (h1: a = b) (h2: b ≤ 3): a < 5 :=
   calc a
     _ = b := h1
-    _ <= 3 := h2
+    _ ≤ 3 := h2
     _ < 5
 
 -- `rewrite` replaces the left side of an equation by its right side in

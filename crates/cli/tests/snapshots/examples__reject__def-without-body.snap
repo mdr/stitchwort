@@ -5,7 +5,7 @@ expression: output
 [E-MISSING-DEFINITION] Error: `later` has no body
    ╭─[ reject/def-without-body.sw:4:5 ]
    │
- 4 │ def later: Nat -> Nat
+ 4 │ def later: Nat → Nat
    │     ──┬──  
    │       ╰──── `later` has no body
    │ 

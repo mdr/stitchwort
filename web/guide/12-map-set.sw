@@ -18,7 +18,7 @@ test "insertWith" := (["x", "x"].foldLeft Map.empty tally).get "x" == Some 2
 def visited: Set (Nat, Nat) := Set.fromList [(0, 0), (0, 1), (1, 1), (0, 1)]
 
 test "no duplicates" := visited.size == 3
-test "membership" := visited.contains (1, 1) && !visited.contains (1, 0)
+test "membership" := visited.contains (1, 1) ∧ ¬visited.contains (1, 0)
 
 -- Two maps with the same entries are equal, however they were made.
 test "equal maps" := Map.fromList [("a", 1), ("b", 2)] == Map.fromList [("b", 2), ("a", 1)]

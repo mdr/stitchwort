@@ -4,6 +4,6 @@
 
 type Person = { name: Text, age: Nat }
 
-def firstName: List Person -> Text
+def firstName: List Person → Text
   | Nil                    => "nobody"
   | Cons { name, .. } rest => name

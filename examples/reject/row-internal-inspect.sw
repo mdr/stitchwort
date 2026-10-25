@@ -4,4 +4,4 @@
 -- the standard library.
 import Std (Effect)
 
-def operationsOf [e: Effect.Effects] (f: Nat -> {e} Nat): Type := Effect.rowOp e
+def operationsOf [e: Effect.Effects] (f: Nat → {e} Nat): Type := Effect.rowOp e

@@ -6,7 +6,7 @@
 -- examples/accept/interfaces.sw.
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 instance Pretty.instList [auto p: Pretty (List a)]: Pretty (List a) :=
   { pretty = xs => Pretty.pretty xs }

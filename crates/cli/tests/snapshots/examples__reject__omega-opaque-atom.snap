@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-OMEGA] Error: `omega` can't prove `x ≤ x * y`
-   ╭─[ reject/omega-opaque-atom.sw:5:49 ]
+   ╭─[ reject/omega-opaque-atom.sw:5:48 ]
    │
- 5 │ theorem opaque (x: Nat) (y: Nat): x <= x * y := omega
-   │                                                 ──┬──  
-   │                                                   ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 5 │ theorem opaque (x: Nat) (y: Nat): x ≤ x * y := omega
+   │                                                ──┬──  
+   │                                                  ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: none in scope
    │ 

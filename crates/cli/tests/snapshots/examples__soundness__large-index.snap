@@ -5,7 +5,7 @@ expression: output
 [E-UNIVERSE] Error: this index is too large for `Ty`: its type is in `Type 1`, but `Ty` is in `Type`
    ╭─[ soundness/large-index.sw:7:10 ]
    │
- 7 │ type Ty: Type -> Type =
+ 7 │ type Ty: Type → Type =
    │          ──┬─  
    │            ╰─── this index is too large for `Ty`: its type is in `Type 1`, but `Ty` is in `Type`
    │ 

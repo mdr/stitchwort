@@ -4,10 +4,10 @@
 -- forever (docs/proposals/mutual-recursion.md §6.8, example 11). Merging the
 -- two calls' graphs into one would wrongly accept it.
 -- Neighbour: `isEven`/`isOdd` in accept/mutual.sw.
-def f: Nat -> Nat -> Nat
+def f: Nat → Nat → Nat
   | Zero,   y => y
   | Succ x, y => g x (Succ y)
 
-def g (x: Nat): Nat -> Nat
+def g (x: Nat): Nat → Nat
   | Zero   => x
   | Succ y => f (Succ (Succ x)) y

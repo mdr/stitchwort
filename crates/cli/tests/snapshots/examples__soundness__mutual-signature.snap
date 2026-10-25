@@ -9,7 +9,7 @@ expression: output
    │                 ┬  
    │                 ╰── `g` is used here, in `f`'s type
    │ 
- 9 │ def g: Nat -> Nat
+ 9 │ def g: Nat → Nat
    │     ┬  
    │     ╰── `g` is defined here
    │ 

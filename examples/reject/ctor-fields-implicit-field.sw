@@ -2,7 +2,7 @@
 -- Braces name explicit fields only; an implicit field is matched
 -- positionally, `VCons [n := k] …`.
 
-type Vec (a: Type): Nat -> Type =
+type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
   | VCons [n: Nat] (head: a) (tail: Vec a n): Vec a (Succ n)
 

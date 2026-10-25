@@ -5,10 +5,10 @@
 -- there, so leaving it out is an error, saying what to write.
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 type Map (k: Type) (v: Type) [auto ord: Ordered k] =
   { entries: List (k, v) }

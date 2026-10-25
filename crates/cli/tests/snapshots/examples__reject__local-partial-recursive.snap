@@ -5,7 +5,7 @@ expression: output
 [E-LOCAL-DEFINITION] Error: `go` is recursive and partial, which a local definition can't be yet
    ╭─[ reject/local-partial-recursive.sw:4:7 ]
    │
- 4 │   def go: Nat -> {Partial} Nat
+ 4 │   def go: Nat → {Partial} Nat
    │       ─┬  
    │        ╰── here
    │ 

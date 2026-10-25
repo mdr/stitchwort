@@ -4,6 +4,6 @@
 -- `Nat`, not as the `FSucc _` two levels down (D1079).
 import Std (Fin)
 
-def name: (n: Nat) -> Fin (Succ (Succ n)) -> Text
+def name: (n: Nat) → Fin (Succ (Succ n)) → Text
   | _, 0 => "zero"
   | _, 1 => "one"

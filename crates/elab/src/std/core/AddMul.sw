@@ -8,20 +8,20 @@
 -- §6.3, §5.13).
 interface Add (a: Type) = {
   zero: a,
-  add: a -> a -> a,
-  zeroAdd: (x: a) -> add zero x = x,
-  assoc: (x: a) -> (y: a) -> (z: a) -> add (add x y) z = add x (add y z),
-  comm: (x: a) -> (y: a) -> add x y = add y x
+  add: a → a → a,
+  zeroAdd: (x: a) → add zero x = x,
+  assoc: (x: a) → (y: a) → (z: a) → add (add x y) z = add x (add y z),
+  comm: (x: a) → (y: a) → add x y = add y x
 }
 
 -- Things you can multiply, starting from one (a monoid; not commutative):
 -- what `*` means.
 interface Mul (a: Type) = {
   one: a,
-  mul: a -> a -> a,
-  oneMul: (x: a) -> mul one x = x,
-  mulOne: (x: a) -> mul x one = x,
-  assoc: (x: a) -> (y: a) -> (z: a) -> mul (mul x y) z = mul x (mul y z)
+  mul: a → a → a,
+  oneMul: (x: a) → mul one x = x,
+  mulOne: (x: a) → mul x one = x,
+  assoc: (x: a) → (y: a) → (z: a) → mul (mul x y) z = mul x (mul y z)
 }
 
 -- The bootstrap phase ends here (D187): from now on `+`, `*`, `<` and `<=`

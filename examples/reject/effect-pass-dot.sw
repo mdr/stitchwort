@@ -7,7 +7,7 @@
 import Std (Effect, List)
 import Std.Effect.Comp (Done, Call)
 
-def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a -> Prop
+def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Done value => Unit
   | Call () rest
 
@@ -15,4 +15,4 @@ def Thunk: Type := Effect.Comp Effect.NoOp Effect.NoRes Nat
 
 def Thunk.finished (computation: Thunk): Prop := IsDone computation
 
-theorem anyIsDone: (computation: Thunk) -> computation.finished := computation => Trivial
+theorem anyIsDone: (computation: Thunk) → computation.finished := computation => Trivial

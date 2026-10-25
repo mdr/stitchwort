@@ -19,11 +19,11 @@ expression: output
    │           right: 0
 ───╯
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/counterexample-sub-add.sw:7:71 ]
+   ╭─[ reject/counterexample-sub-add.sw:7:70 ]
    │
- 7 │ theorem subAddBelow (a: Nat) (b: Nat) (h: b <= a): (a - b) + b = a := rfl
-   │                                                                       ─┬─  
-   │                                                                        ╰─── `a - b + b` and `a` aren't equal
+ 7 │ theorem subAddBelow (a: Nat) (b: Nat) (h: b ≤ a): (a - b) + b = a := rfl
+   │                                                                      ─┬─  
+   │                                                                       ╰─── `a - b + b` and `a` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

@@ -8,5 +8,5 @@ type Person = { name: Text, age: Nat }
 
 type Wrap = | W (person: Person) (name: Text)
 
-def nameOf: Wrap -> Text
+def nameOf: Wrap → Text
   | W ({ name, .. }) => name

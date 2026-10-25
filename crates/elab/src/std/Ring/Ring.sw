@@ -31,12 +31,12 @@ type Ring.Env: Type =
   | MkEnv (nats: List Nat) (ints: List Int)
 
 -- The `i`th entry, or 0 past the end.
-def Ring.natAt: List Nat -> Nat -> Nat
+def Ring.natAt: List Nat → Nat → Nat
   | Nil, i => 0
   | Cons x xs, Zero => x
   | Cons x xs, Succ i => Ring.natAt xs i
 
-def Ring.intAt: List Int -> Nat -> Int
+def Ring.intAt: List Int → Nat → Int
   | Nil, i => OfNat 0
   | Cons x xs, Zero => x
   | Cons x xs, Succ i => Ring.intAt xs i
@@ -52,7 +52,7 @@ type Ring.NExpr: Type =
   | NSucc (a: Ring.NExpr)
 
 @[noReceiver]
-def Ring.NExpr.eval (env: Ring.Env): Ring.NExpr -> Nat
+def Ring.NExpr.eval (env: Ring.Env): Ring.NExpr → Nat
   | NAtom i => Ring.natAt (Ring.Env.nats env) i
   | NNum n => n
   | NAdd a b => Ring.NExpr.eval env a + Ring.NExpr.eval env b
@@ -73,7 +73,7 @@ type Ring.ZExpr: Type =
   | ZNegSucc (e: Ring.NExpr)
 
 @[noReceiver]
-def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr -> Int
+def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr → Int
   | ZAtom i => Ring.intAt (Ring.Env.ints env) i
   | ZNum c => c
   | ZAdd a b => Int.add (Ring.ZExpr.eval env a) (Ring.ZExpr.eval env b)
@@ -85,47 +85,47 @@ def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr -> Int
 
 -- Hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with
 -- `l = r`, as `Both h1 (Both h2 Trivial)`.
-def Ring.NExpr.allHold (env: Ring.Env): List (Pair Ring.NExpr Ring.NExpr) -> Prop
+def Ring.NExpr.allHold (env: Ring.Env): List (Pair Ring.NExpr Ring.NExpr) → Prop
   | Nil => Unit
   | Cons (MkPair l r) hs => And (Ring.NExpr.eval env l = Ring.NExpr.eval env r) (Ring.NExpr.allHold env hs)
 
-def Ring.ZExpr.allHold (env: Ring.Env): List (Pair Ring.ZExpr Ring.ZExpr) -> Prop
+def Ring.ZExpr.allHold (env: Ring.Env): List (Pair Ring.ZExpr Ring.ZExpr) → Prop
   | Nil => Unit
   | Cons (MkPair l r) hs => And (Ring.ZExpr.eval env l = Ring.ZExpr.eval env r) (Ring.ZExpr.allHold env hs)
 
 -- The hypotheses' left sides added up (`lefts`), and their right sides.
-def Ring.NExpr.lefts: List (Pair Ring.NExpr Ring.NExpr) -> Ring.NExpr
+def Ring.NExpr.lefts: List (Pair Ring.NExpr Ring.NExpr) → Ring.NExpr
   | Nil => NNum 0
   | Cons (MkPair l r) hs => NAdd l (Ring.NExpr.lefts hs)
 
-def Ring.NExpr.rights: List (Pair Ring.NExpr Ring.NExpr) -> Ring.NExpr
+def Ring.NExpr.rights: List (Pair Ring.NExpr Ring.NExpr) → Ring.NExpr
   | Nil => NNum 0
   | Cons (MkPair l r) hs => NAdd r (Ring.NExpr.rights hs)
 
-def Ring.ZExpr.lefts: List (Pair Ring.ZExpr Ring.ZExpr) -> Ring.ZExpr
+def Ring.ZExpr.lefts: List (Pair Ring.ZExpr Ring.ZExpr) → Ring.ZExpr
   | Nil => ZNum (OfNat 0)
   | Cons (MkPair l r) hs => ZAdd l (Ring.ZExpr.lefts hs)
 
-def Ring.ZExpr.rights: List (Pair Ring.ZExpr Ring.ZExpr) -> Ring.ZExpr
+def Ring.ZExpr.rights: List (Pair Ring.ZExpr Ring.ZExpr) → Ring.ZExpr
   | Nil => ZNum (OfNat 0)
   | Cons (MkPair l r) hs => ZAdd r (Ring.ZExpr.rights hs)
 
 -- Variables
 
 -- `Nat` atom `i` is variable `2 * i`, `Int` atom `j` is variable `2 * j + 1`.
-def Ring.twice: Nat -> Nat
+def Ring.twice: Nat → Nat
   | Zero => Zero
   | Succ i => Succ (Succ (Ring.twice i))
 
-def Ring.natTail: List Nat -> List Nat
+def Ring.natTail: List Nat → List Nat
   | Nil => Nil
   | Cons x xs => xs
 
-def Ring.intTail: List Int -> List Int
+def Ring.intTail: List Int → List Int
   | Nil => Nil
   | Cons x xs => xs
 
-def Ring.lookup: List Nat -> List Int -> Nat -> Int
+def Ring.lookup: List Nat → List Int → Nat → Int
   | ns, is, Zero => OfNat (Ring.natAt ns 0)
   | ns, is, Succ Zero => Ring.intAt is 0
   | ns, is, Succ (Succ v) => Ring.lookup (Ring.natTail ns) (Ring.intTail is) v
@@ -138,44 +138,44 @@ def Ring.var (env: Ring.Env) (v: Nat): Int := Ring.lookup (Ring.Env.nats env) (R
 type Ring.Mono: Type =
   | MkMono (c: Int) (vs: List Nat)
 
-def Ring.prod (env: Ring.Env): List Nat -> Int
+def Ring.prod (env: Ring.Env): List Nat → Int
   | Nil => OfNat 1
   | Cons v vs => Int.mul (Ring.var env v) (Ring.prod env vs)
 
 @[noReceiver]
-def Ring.Mono.eval (env: Ring.Env): Ring.Mono -> Int
+def Ring.Mono.eval (env: Ring.Env): Ring.Mono → Int
   | MkMono c vs => Int.mul c (Ring.prod env vs)
 
-def Ring.Poly.eval (env: Ring.Env): List Ring.Mono -> Int
+def Ring.Poly.eval (env: Ring.Env): List Ring.Mono → Int
   | Nil => OfNat 0
   | Cons m p => Int.add (Ring.Mono.eval env m) (Ring.Poly.eval env p)
 
 -- The order of monomials: by their variable lists, lexicographically.
-def Ring.cmp: List Nat -> List Nat -> Ordering
+def Ring.cmp: List Nat → List Nat → Ordering
   | Nil, Nil => Equal
   | Nil, Cons w ws => Less
   | Cons v vs, Nil => Greater
   | Cons v vs, Cons w ws => if Nat.equal v w then Ring.cmp vs ws else (if Nat.leq v w then Less else Greater)
 
 -- A variable into a sorted list of variables.
-def Ring.insertVar (v: Nat): List Nat -> List Nat
+def Ring.insertVar (v: Nat): List Nat → List Nat
   | Nil => Cons v Nil
   | Cons w ws => if Nat.leq v w then Cons v (Cons w ws) else Cons w (Ring.insertVar v ws)
 
 -- The variables of a product of two monomials.
-def Ring.mulVars: List Nat -> List Nat -> List Nat
+def Ring.mulVars: List Nat → List Nat → List Nat
   | Nil, ws => ws
   | Cons v vs, ws => Ring.insertVar v (Ring.mulVars vs ws)
 
 -- `c * vs` in front of `p`, unless `c` is 0.
-def Ring.cons: Int -> List Nat -> List Ring.Mono -> List Ring.Mono
+def Ring.cons: Int → List Nat → List Ring.Mono → List Ring.Mono
   | OfNat Zero, vs, p => p
   | OfNat (Succ n), vs, p => Cons (MkMono (OfNat (Succ n)) vs) p
   | NegSucc n, vs, p => Cons (MkMono (NegSucc n) vs) p
 
 -- `c * vs + p`, in normal form when `p` is: before the first monomial
 -- that comes after it, or added to the one alike (dropped if that makes 0).
-def Ring.insert (c: Int) (vs: List Nat): List Ring.Mono -> List Ring.Mono
+def Ring.insert (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
   | Nil => Ring.cons c vs Nil
   | Cons (MkMono d ws) p =>
     match Ring.cmp vs ws with
@@ -183,16 +183,16 @@ def Ring.insert (c: Int) (vs: List Nat): List Ring.Mono -> List Ring.Mono
       | Equal => Ring.cons (Int.add c d) ws p
       | Greater => Cons (MkMono d ws) (Ring.insert c vs p)
 
-def Ring.add: List Ring.Mono -> List Ring.Mono -> List Ring.Mono
+def Ring.add: List Ring.Mono → List Ring.Mono → List Ring.Mono
   | Nil, q => q
   | Cons (MkMono c vs) p, q => Ring.insert c vs (Ring.add p q)
 
 -- `(c * vs) * q`
-def Ring.scale (c: Int) (vs: List Nat): List Ring.Mono -> List Ring.Mono
+def Ring.scale (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
   | Nil => Nil
   | Cons (MkMono d ws) q => Ring.insert (Int.mul c d) (Ring.mulVars vs ws) (Ring.scale c vs q)
 
-def Ring.mul: List Ring.Mono -> List Ring.Mono -> List Ring.Mono
+def Ring.mul: List Ring.Mono → List Ring.Mono → List Ring.Mono
   | Nil, q => Nil
   | Cons (MkMono c vs) p, q => Ring.add (Ring.scale c vs q) (Ring.mul p q)
 
@@ -203,14 +203,14 @@ def Ring.const (c: Int): List Ring.Mono := Ring.cons c Nil Nil
 def Ring.single (v: Nat): List Ring.Mono := Cons (MkMono (OfNat 1) (Cons v Nil)) Nil
 
 -- The normal forms of the two kinds of side.
-def Ring.NExpr.poly: Ring.NExpr -> List Ring.Mono
+def Ring.NExpr.poly: Ring.NExpr → List Ring.Mono
   | NAtom i => Ring.single (Ring.twice i)
   | NNum n => Ring.const (OfNat n)
   | NAdd a b => Ring.add (Ring.NExpr.poly a) (Ring.NExpr.poly b)
   | NMul a b => Ring.mul (Ring.NExpr.poly a) (Ring.NExpr.poly b)
   | NSucc a => Ring.add (Ring.NExpr.poly a) (Ring.const (OfNat 1))
 
-def Ring.ZExpr.poly: Ring.ZExpr -> List Ring.Mono
+def Ring.ZExpr.poly: Ring.ZExpr → List Ring.Mono
   | ZAtom i => Ring.single (Succ (Ring.twice i))
   | ZNum c => Ring.const c
   | ZAdd a b => Ring.add (Ring.ZExpr.poly a) (Ring.ZExpr.poly b)
@@ -252,7 +252,7 @@ theorem Ring.polySquaresExample:
 
 test "poly: different polynomials have different values somewhere" :=
   Ring.Poly.eval (MkEnv [3] []) (Ring.NExpr.poly (NMul (NAtom 0) (NNum 2)))
-    != Ring.Poly.eval (MkEnv [3] []) (Ring.NExpr.poly (NAdd (NAtom 0) (NNum 2)))
+    ≠ Ring.Poly.eval (MkEnv [3] []) (Ring.NExpr.poly (NAdd (NAtom 0) (NNum 2)))
 
 test "poly: a normal form means the side" :=
   Ring.Poly.eval (MkEnv [3, 4] [-5]) (Ring.ZExpr.poly (ZMul (ZSub (ZOfNat (NAtom 0)) (ZAtom 0)) (ZNegSucc (NAtom 1)))) == -40
@@ -260,7 +260,7 @@ test "poly: a normal form means the side" :=
 test "mulVars keeps the variables sorted" := Ring.mulVars [3, 1, 2] [0, 2] == [0, 1, 2, 2, 3]
 
 test "cmp: lexicographic, shorter first" :=
-  Ring.cmp [] [0] == Less && Ring.cmp [0, 1] [0, 2] == Less && Ring.cmp [1] [0, 5] == Greater && Ring.cmp [2, 2] [2, 2] == Equal
+  Ring.cmp [] [0] == Less ∧ Ring.cmp [0, 1] [0, 2] == Less ∧ Ring.cmp [1] [0, 5] == Greater ∧ Ring.cmp [2, 2] [2, 2] == Equal
 
 test "lookup: Nat atoms at even variables, Int atoms at odd, 0 past the end" :=
-  Ring.lookup [5, 6] [-1, -2] 2 == 6 && Ring.lookup [5, 6] [-1, -2] 3 == -2 && Ring.lookup [5] [] 7 == 0 && Ring.lookup [5] [] 4 == 0
+  Ring.lookup [5, 6] [-1, -2] 2 == 6 ∧ Ring.lookup [5, 6] [-1, -2] 3 == -2 ∧ Ring.lookup [5] [] 7 == 0 ∧ Ring.lookup [5] [] 4 == 0

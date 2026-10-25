@@ -3,6 +3,6 @@
 import Std.Effect (Effects)
 import Std.Effect.Effects (Empty, Ops)
 
-def isPure: Effects -> Bool
+def isPure: Effects → Bool
   | Empty => True
   | Ops op res => False
