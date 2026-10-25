@@ -15,7 +15,7 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_cli::driver::{Cache, Outcome, Session, par_map};
+use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::render;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
@@ -46,6 +46,18 @@ fn wanted(name: &str) -> bool {
     std::env::var("EXAMPLES").map_or(true, |filter| filter.is_empty() || name.contains(&filter))
 }
 
+/// A sweep's share of the examples or projects of one folder: all of them
+/// when `EXAMPLES` picks some by name, otherwise this tier's sample
+/// (`tier_sample`: every one in the daily and full tiers, every fourth in
+/// the merge and lane tiers).
+fn share<T>(items: Vec<T>) -> Vec<T> {
+    if std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty()) {
+        items
+    } else {
+        tier_sample(items, 1)
+    }
+}
+
 fn examples(dir: &str) -> Vec<Example> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
@@ -58,7 +70,7 @@ fn examples(dir: &str) -> Vec<Example> {
         .collect();
     paths.sort();
 
-    paths
+    share(paths)
         .into_iter()
         .map(|path| Example {
             name: format!("{dir}/{}", path.file_name().unwrap().to_string_lossy()),
@@ -272,7 +284,7 @@ fn projects(dir: &str) -> Vec<(String, PathBuf)> {
         })
         .collect();
     found.sort();
-    found
+    share(found)
 }
 
 fn load_project(name: &str, path: &Path, session: &mut Session) -> Result<(), Vec<Diagnostic>> {

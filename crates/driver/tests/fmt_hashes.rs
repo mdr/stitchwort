@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, par_map};
+use stitchwort_driver::driver::{Session, par_map, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
 
 #[path = "../../fmt/tests/support/repo_files.rs"]
@@ -246,6 +246,11 @@ fn formatting_changes_no_declaration_hash() {
         .filter(|p| p.contains(&only))
         .collect();
     let projects: Vec<String> = projects.into_iter().filter(|p| p.contains(&only)).collect();
+    // A corpus sweep: a fixed sample below the full tier, and the count of
+    // files compared expected in proportion.
+    let all = standalone.len();
+    let standalone = tier_sample(standalone, 4);
+    let projects = tier_sample(projects, 4);
 
     let mut failures = Vec::new();
     let (mut compared, mut not_loadable, mut refused) = (0, 0, 0);
@@ -284,6 +289,9 @@ fn formatting_changes_no_declaration_hash() {
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     if only.is_empty() {
-        assert!(compared > 100, "only {compared} files compared");
+        assert!(
+            compared > 100 * standalone.len() / all,
+            "only {compared} files compared"
+        );
     }
 }

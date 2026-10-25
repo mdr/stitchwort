@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, slow_tier, slow_tier_on};
+use stitchwort_driver::driver::{
+    Cache, Outcome, Session, full_tier, par_map, par_map_with, tier_sample,
+};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::{EMBEDDED_LIBRARY_FILES, LibraryIndex, library_files, prelude};
@@ -843,19 +845,24 @@ fn name(source: &Source) -> &str {
 /// declaration the program made and every library declaration that
 /// was loaded (§4.0).
 ///
-/// Slow tier: outside it, only every eighth source is compared (a fixed
-/// sample), and the AoC project is skipped.
+/// A corpus sweep: every eighth source in the daily tier (a fixed sample),
+/// all of them in the full tier ([`tier_sample`]); the AoC project only in
+/// the full tier.
 fn assert_lazy_is_eager(sources: Vec<Source>) {
-    let sources: Vec<Source> = if slow_tier_on() {
-        sources
-    } else {
-        sources.into_iter().step_by(8).collect()
+    let sources = tier_sample(sources, 8);
+    // Each worker keeps one eager session (loading the whole library takes a
+    // second or two) and rewinds it before each source: the rewind tests
+    // check that this is exactly a fresh eager session.
+    let eager_worker = || {
+        let eager = Session::eager_for_stack(STACK);
+        let mark = eager.mark();
+        (eager, mark)
     };
-    let loaded = par_map(STACK, &sources, |source| {
+    let loaded = par_map_with(STACK, &sources, eager_worker, |(eager, mark), source| {
         let mut lazy = Session::for_stack(STACK);
-        let mut eager = Session::eager_for_stack(STACK);
+        eager.rewind(mark);
         let a = run(&mut lazy, source);
-        let b = run(&mut eager, source);
+        let b = run(eager, source);
         let n = name(source);
         assert_eq!(
             a.accepted, b.accepted,
@@ -908,7 +915,7 @@ fn lazy_loading_changes_nothing_for_the_example_projects() {
 
 #[test]
 fn lazy_loading_changes_nothing_for_the_aoc_project() {
-    if !slow_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
+    if !full_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
         return;
     }
     assert_lazy_is_eager(aoc());

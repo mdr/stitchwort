@@ -2,30 +2,66 @@
 
 Stitchwort's guarantees are only as good as the compiler's correctness, so the tests have several layers. Each layer catches mistakes the others can't.
 
-## Running a subset
+## Tiers
 
-`dev/t` runs just the tests for the area you changed, instead of the full gate. Use these lanes while working; run the full gate (`dev/t gate`) once before merging.
+Tests are only useful while they aren't friction, so they run in four tiers, each with a time budget. The budgets assume the release test binaries are built (`task build:tests`) and are for this 14-core Mac. Run them through [Task](https://taskfile.dev) (`Taskfile.yml`; `task --list` shows the menu), inside `nix develop`.
 
-| Area | Runs |
-|---|---|
-| `dev/t syntax` | `stitchwort-syntax`: layout fuzzing and unit tests |
-| `dev/t core` | `stitchwort-core`: all integration tests |
-| `dev/t elab` | `stitchwort-elab`: unit tests |
-| `dev/t driver` | `stitchwort-driver`: all integration tests |
-| `dev/t js` | `stitchwort-js`, plus the CLI `extract` and `run_js` tests |
-| `dev/t cli` | `stitchwort-cli`: all integration tests |
-| `dev/t examples` | `stitchwort-cli --test examples` (every example, with snapshots; FILTER keeps only files or project folders whose names contain it, e.g. `synonym`) |
-| `dev/t hashes` | `stitchwort-driver --test hash_stability` (FILTER keeps only examples whose names contain it) |
-| `dev/t bench` | `stitchwort-bench`: the benchmark baseline check |
-| `dev/t web` | `stitchwort-web`: unit tests only (browser tests are `dev/t browser`) |
-| `dev/t browser` | Build and run the playground tests in headless Chrome |
-| `dev/t lint` | `cargo fmt --check` and clippy |
-| `dev/t all` | Every test in the workspace |
-| `dev/t gate` | `nix flake check`, the fast gate (slow tier off; see [Fast and full](#fast-and-full)), including `debug-builtins`: `stitchwort-driver --test builtins` in the debug profile, to catch debug-only panics |
-| `dev/t full` | The fast gate, then `nix build .#stitchwort-slow`: the same tests with the slow tier on. For checkpoints |
-| `dev/t nextest` | The whole suite plus the slow tier, run locally by cargo-nextest (no nix); takes a test-name filter |
+| Tier | Command | Budget | When | What |
+|---|---|---|---|---|
+| lane | `task test:lane AREA=…` | under 10 s | while working, in a subagent lane | a handful of fast tests for one area (the map below) |
+| merge | `task test:merge` | under 60 s | after every merge | rustfmt, then a broad smoke test: every lane area, a quarter of the accepted, rejected and soundness examples, every AoC day's answers, every example's hash snapshots |
+| daily | `task test:daily` | under 5 minutes | a daily checkpoint; `nix flake check` runs the same | rustfmt, clippy, every test with each corpus sweep on a fixed sample, the doctests, `builtins` in the debug profile, the board's tests |
+| full | `task test:full` | tens of minutes | only when Matt asks | every test, every sweep over the whole corpus, the full-only tests |
 
-For `dev/t examples` and `dev/t hashes`, `dev/t AREA FILTER` sets `EXAMPLES=FILTER`, so only example files or project folders whose names contain `FILTER` run, for example `dev/t examples synonym`. For the other areas, `FILTER` is passed as the test-name filter after `--`. `dev/t snap AREA` sets `INSTA_UPDATE=always` and then prints the changed snapshots for review; unfiltered snapshots are left alone. Outside `nix develop` the script runs commands through `nix develop -c`; inside the dev shell it calls `cargo` directly.
+`task test:one -- FILTER` runs the tests matching a nextest filter (a name substring, or `-E 'binary(lsp)'`), at the daily sample. `task test:gate` is `nix flake check` (the daily tier in the Nix sandbox, plus a build from clean), and `task test:full:nix` builds `.#stitchwort-full` (the full tier in the sandbox; only when Matt asks).
+
+### How a tier is chosen
+
+Two things make a tier, and the tasks set both:
+
+- **Which tests run** is a [nextest profile](https://nexte.st/docs/configuration/) of the tier's name in `.config/nextest.toml`, through its `default-filter` (a [filterset](https://nexte.st/docs/filtersets/)): `merge`, `daily`, `full`, and `lane-AREA` for each lane area. A filter on the command line is intersected with it (`task test:merge -- -E 'package(stitchwort-core)'`).
+- **How much of a corpus a sweep covers** is the environment variable `STITCHWORT_TIER` (`lane`, `merge`, `daily` or `full`; unset means `daily`), read by `stitchwort_driver::driver::tier()`. A corpus sweep (a test that checks every example, std file or AoC day) takes `tier_sample(items, daily_stride)`: a fixed sample, every `daily_stride`-th item in sorted order in the daily tier, every `4 × daily_stride`-th in merge and lane, and all of them in full. A test or part of one that only the full tier runs asks `full_tier(name)`, which prints what was skipped.
+
+Both are needed: a profile can only include or leave out a whole test, and the sweeps are single tests whose cost is the size of the corpus. The profiles keep the lists of what runs in one file that nextest checks; the environment variable keeps each sweep's sample next to the code that knows what is in its corpus. A sweep's assertion about how much it covered (say, "more than 1,000 arguments named") scales with the sample, and is exactly the old one in the full tier.
+
+What only the full tier runs: the AoC project in the std_library, rewind and check-cache comparisons, `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), the whole corpus in each sampled sweep (below), and half the AoC days in `rt` `aoc_agrees`.
+
+| Sweep | Daily share | Merge and lane share |
+|---|---|---|
+| `std_library` `lazy_loading_changes_nothing_*`, `driver` `check_cache` and `rewind` examples | every 8th file (and every 4th project) | every 32nd |
+| `differential` `the_evaluators_agree_on_the_prelude_and_every_example`, `conv_shortcut`, `fmt_hashes` | every 4th | every 16th |
+| `extract` `run_lines_*`, `random_inputs_*`; `rt` `machine` `aoc_agrees` (days) | every 2nd | every 8th |
+| `cli` `examples` (every folder), `cli` `check_cache` projects | all (projects: every 4th) | every 4th (projects: every 16th); all of those matching `EXAMPLES` when it's set |
+
+When the daily tier grows past 5 minutes, cut it from nextest's own times (`target/nextest/daily/junit.xml`, or the `SLOW` lines): give the slowest sweep a larger stride, or move a test to full only, rather than re-running to see.
+
+### Lane areas
+
+`task test:lane AREA=…` runs the nextest profile `lane-AREA`. Each is a handful of fast tests, chosen so the whole run (with nix and nextest starting) stays under 10 s; the times are from 25 Oct 2026.
+
+| AREA | Runs | Time |
+|---|---|---|
+| `syntax` | `stitchwort-syntax`: lexer, parser, layout, fuzzing | 6 s |
+| `core` | `stitchwort-core` unit tests and the `kernel`, `hash` and `admission` tests | 5 s |
+| `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones | 4 s |
+| `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
+| `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
+| `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests | 4 s |
+| `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
+| `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
+| `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
+| `aoc` | every AoC day on its real input (`aoc_answers` `dayNN`) | 6 s |
+| `cli` | `cli` `session`, and `run` but for its five slowest | 4 s |
+| `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it | 6 s |
+| `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
+| `bench` | the `stitchwort-bench` unit tests and the quick `check_work` tests | 6 s |
+| `web` | the quick `stitchwort-web` unit tests (not the playground, guide or AoC sweeps) | 3 s |
+
+A lane that needs more than its area runs `task test:one -- NAME` for the tests it changed. The browser and VS Code tests are separate: `task test:browser`, `task test:vscode`.
+
+### Snapshots and generated text
+
+`task snap:examples NAME=…` and `task snap:hashes NAME=…` update the error-message and hash snapshots (every example when `NAME` is unset), then list the changed `.snap` files for review; `task snap:one -- FILTER` does the same for any tests. `task guide:update` regenerates the language guide's quoted blocks.
 
 | Layer | Where | What it catches |
 |---|---|---|
@@ -70,14 +106,16 @@ Lanes working on std: set `STITCHWORT_STD_DIR` in the shell for the session, bui
 
 ## Running
 
+The tiers are above; `task --list` has the rest. By hand, or for what has no task:
+
 ```sh
-cargo test                                     # everything (needs `node`; the dev shell has it)
+cargo nextest run --release --profile merge    # a tier without Task (set STITCHWORT_TIER to match)
 cargo insta review                             # after changing an error message
 cargo llvm-cov --workspace --summary-only      # coverage per file
 cargo mutants --package stitchwort-core --test-workspace=true --jobs 6   # slow: minutes to an hour
-cargo run --release -p stitchwort-bench        # benchmarks against the baseline: about a minute
-nix flake check                                # the fast gate: build, tests, clippy, rustfmt, as CI would
-./web/test.sh                                  # the playground in headless Chrome: about 35 s
+task bench                                     # benchmarks against the baseline: about a minute
+task test:gate                                 # nix flake check: the daily tier, as CI would
+task test:browser                              # the playground in headless Chrome: about 35 s
 ```
 
 ## Browser tests
@@ -112,7 +150,7 @@ cargo run --release -p stitchwort-bench -- --update      # record this run as th
 
 The baseline is `bench/baseline.toml`: one table per benchmark, so a change reads well in a diff. Update it deliberately: after an improvement (the comparison says so, and the baseline should keep it), or after a regression that's worth its cost, saying why in the commit. Record times on a quiet machine. The example suite and JS generation read `examples/`, so the baseline records a fingerprint of those files, and when they change the counts aren't compared (a note says so) until the baseline is updated.
 
-`nix flake check` runs the counts part (`crates/bench/tests/baseline.rs`, about 10 s): one run of each benchmark, failing if a count grew past the threshold. Being deterministic, it can't fail by chance. It's skipped in debug builds (`cargo test`), where the benchmarks are slow and allocation counts may differ from the release build's.
+The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run of each benchmark, failing if a count grew past the threshold. Being deterministic, it can't fail by chance. The `examples` benchmark checks the whole example corpus on one thread (allocations are counted per process), over a minute and most of the test's time, so only the full tier compares its counts; the daily tier compares the rest, in about 30 s. It's skipped in debug builds (`cargo test`), where the benchmarks are slow and allocation counts may differ from the release build's.
 
 ## Writing tests
 
@@ -122,9 +160,11 @@ The baseline is `bench/baseline.toml`: one table per benchmark, so a change read
 - **For a new export shape or codec, add an extraction example.** The random differential test then exercises it automatically.
 - **Before trusting a new test, break the code it tests and watch it fail.** `cargo mutants` does this systematically.
 
-## How long the slow binaries take
+## Where the time went
 
-Wall time of each slow test binary alone, `cargo test --release` with `STITCHWORT_SLOW=1` (24 Oct 2026, 8-core Mac with other lanes running cargo: load average 10 to 30, so read these as upper bounds). "After" is the same binary after its serial per-example loops moved onto the `par_map` thread pool.
+25 Oct 2026, when the tiers came in (times under load, from the gate's nextest log, so relative): the slowest sweeps each built an eager session (the whole library, about 1.7 s) for every example, twice in `named_arguments`. A worker now builds one and rewinds it to a mark before each example (`par_map_with`; the `rewind` tests check that a rewound session is a fresh one): `named_arguments` `named_calls_keep_every_hash` went from 796 s to 3 s for the whole corpus, `hash_stability` `examples` from 532 s to 3 s, and `int` `metavariables_under_int_operations` from 175 s to 7 s. The `extract` tests each checked all 48 extraction examples to use one or two; they now check only the ones they use (about 10 s to under 1 s each, 54 tests). `rt` `lower` and `machine`'s example sweeps and `cli` `run_reference`'s examples moved from serial loops onto `par_map`.
+
+Earlier, 24 Oct 2026: wall time of each slow test binary alone, `cargo test --release` with the old slow tier on (8-core Mac with other lanes running cargo: load average 10 to 30, so read these as upper bounds). "After" is the same binary after its serial per-example loops moved onto the `par_map` thread pool.
 
 | Binary | Before | After | Where the time goes |
 |---|---|---|---|
@@ -140,18 +180,18 @@ Wall time of each slow test binary alone, `cargo test --release` with `STITCHWOR
 
 A binary's tests already share the machine through libtest's test threads and `par_map`, so what is left is CPU work. Under `cargo test` the remaining cost of a whole-suite run was that cargo runs binaries one after another, so each binary's tail (its slowest test) left cores idle: the gate took about 31 minutes (`checkPhase`, 111 binaries, on a loaded 14-core machine; the test binaries summed to 29.5 minutes). The gate now runs under [cargo-nextest](https://nexte.st), which starts the next binary's tests as cores free up and runs every test in its own process.
 
-## Fast and full
+## The flake
 
-- `nix flake check` (`dev/t gate`) runs the **fast tier**, `STITCHWORT_SLOW` unset: the `stitchwort` check (`cargo nextest run --no-fail-fast`, then `cargo test --doc` for the doctests), `clippy`, `fmt`, `debug-builtins` and `board`.
-- `nix build .#stitchwort-slow` is the same nextest run with `STITCHWORT_SLOW=1`. It is not in `checks`, so `nix flake check` doesn't run it. `dev/t full` runs the fast gate and then this. Use it at checkpoints, not on every merge.
-- The slow tier's content is unchanged: `std_library`'s `lazy_loading_changes_nothing_*` compare every example (a fast run compares every eighth and skips the AoC project), and bench `repeat` repeats the whole example sweep (about 190 s) where a fast run repeats three small benchmarks (`eval-lengths`, `run-prints`, `check-long-sum`; about 3 s).
+- `nix flake check` (`task test:gate`) is the **daily tier**: the `stitchwort` check (`cargo nextest run --no-fail-fast --profile daily` with `STITCHWORT_TIER=daily`, then `cargo test --doc` for the doctests), `clippy`, `fmt`, `debug-builtins` and `board`.
+- `nix build .#stitchwort-full` (`task test:full:nix`) is the same with the `full` profile and `STITCHWORT_TIER=full`. It is a package, not in `checks`, so it is built only on request: only when Matt asks.
+- Bench `repeat` repeats the whole example sweep in the full tier (about 190 s); the other tiers repeat three small benchmarks (`eval-lengths`, `run-prints`, `check-long-sum`; about 3 s).
 
 ### Under nextest
 
-- Settings are in `.config/nextest.toml`: at most 4 tests at once (memory is the limit), no fail-fast. Run `dev/t nextest`, or `cargo nextest run --release -p stitchwort-cli --test lsp` by hand.
+- Settings are in `.config/nextest.toml`: the tier profiles, no fail-fast, 8 tests at once in daily (memory is the limit), 6 in full, one per core in merge and the lanes (mostly sub-second tests).
 - Every test is its own process, so statics, thread-locals and `OnceLock`s are never shared between tests, and pid-named temp directories are unique per test. State shared through the file system is not: `crates/cli/tests/lsp.rs` rebuilds one AoC copy under `CARGO_TARGET_TMPDIR` in each test, so those tests are in the `lsp-aoc-copy` test group (`max-threads = 1`). A new test that shares files between tests needs a group too.
 - Tests that rely on one process holding a lock (`SPAWN` in `crates/cli/tests/run.rs` and `aoc_answers.rs`, which guards the fork/exec race on pipe descriptors) still work: the race is within a process.
 - Nextest does not run doctests. `stitchwort-partial-model` has three (`src/typed.rs`, two `compile_fail`), so the check runs `cargo test --doc --workspace` after nextest.
-- Per-test times: `cargo nextest run --release --profile ci` writes a JUnit report with the time of every test to `target/nextest/ci/junit.xml`, and nextest flags tests over 120 s as SLOW while running. Under plain `cargo test`, the `finished in` line per binary is what there is.
+- Per-test times: the `daily` and `full` profiles write a JUnit report with the time of every test to `target/nextest/daily/junit.xml` (or `full/`), and nextest flags tests over 60 s (120 s in full) as SLOW while running. Under plain `cargo test`, the `finished in` line per binary is what there is.
 - `conv_shortcut` now checks its examples on the `par_map` pool (the shortcut switch is thread-local): 107 s down to 17 s alone.
 

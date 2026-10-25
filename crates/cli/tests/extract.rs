@@ -16,7 +16,7 @@ use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use stitchwort_cli::driver::Session;
+use stitchwort_cli::driver::{Session, tier_sample};
 use stitchwort_cli::render::render;
 use stitchwort_core::hash::data_hash;
 use stitchwort_core::registry::Builtin;
@@ -37,7 +37,7 @@ const RANDOM_CASES_PER_EXPORT: usize = 100;
 
 #[test]
 fn run_lines_agree_with_the_reference_evaluator() {
-    for (name, text, mut session) in examples() {
+    for (name, text, mut session) in examples().sampled(2) {
         let mut cases = Vec::new();
         for line in text.lines().filter_map(|l| l.strip_prefix(RUN)) {
             let source = line.trim();
@@ -64,7 +64,7 @@ fn run_lines_agree_with_the_reference_evaluator() {
 #[test]
 fn random_inputs_agree_with_the_reference_evaluator() {
     let mut rng = Rng(0x0dd5_eed5_ca1e_d0c5);
-    for (name, _, session) in examples() {
+    for (name, _, session) in examples().sampled(2) {
         let g = &session.elab.globals;
         let mut cases = Vec::new();
         for id in (0..g.defs.len()).map(DefId).filter(|id| g.def(*id).export) {
@@ -167,8 +167,8 @@ struct Case {
     expected: String,
 }
 
-/// Each extraction example, checked.
-fn examples() -> Vec<(String, String, Session)> {
+/// The extraction examples, by file name.
+fn examples() -> Examples {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/extract");
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .expect("examples/extract exists")
@@ -177,22 +177,62 @@ fn examples() -> Vec<(String, String, Session)> {
         .collect();
     files.sort();
     assert!(!files.is_empty(), "no extraction examples found");
-    files
-        .into_iter()
-        .map(|path| {
-            let name = path.file_name().unwrap().to_string_lossy().to_string();
-            let text = std::fs::read_to_string(&path).expect("readable example");
-            let mut session = Session::new();
-            if let Err(diagnostics) = session.load(&name, &text) {
-                let rendered: String = diagnostics
-                    .iter()
-                    .map(|d| render(&session.sources, d, false))
-                    .collect();
-                panic!("{name} doesn't check:\n{rendered}");
-            }
-            (name, text, session)
-        })
-        .collect()
+    Examples(
+        files
+            .into_iter()
+            .map(|path| (path, std::cell::OnceCell::new()))
+            .collect(),
+    )
+}
+
+/// The extraction examples, each checked the first time it is asked for: a
+/// test that uses one example doesn't pay for checking all of them.
+struct Examples(Vec<(PathBuf, std::cell::OnceCell<(String, String, Session)>)>);
+
+/// Checks the example at `path`, panicking with its diagnostics if it
+/// doesn't check.
+fn check_example(path: &Path) -> (String, String, Session) {
+    let name = path.file_name().unwrap().to_string_lossy().to_string();
+    let text = std::fs::read_to_string(path).expect("readable example");
+    let mut session = Session::new();
+    if let Err(diagnostics) = session.load(&name, &text) {
+        let rendered: String = diagnostics
+            .iter()
+            .map(|d| render(&session.sources, d, false))
+            .collect();
+        panic!("{name} doesn't check:\n{rendered}");
+    }
+    (name, text, session)
+}
+
+impl Examples {
+    /// A corpus sweep's share of the examples in this tier (`tier_sample`).
+    fn sampled(self, daily_stride: usize) -> Examples {
+        Examples(tier_sample(self.0, daily_stride))
+    }
+
+    /// The example called `name` (its file name), checked.
+    fn get(&self, name: &str) -> &(String, String, Session) {
+        let (path, cell) = self
+            .0
+            .iter()
+            .find(|(path, _)| path.file_name().is_some_and(|n| n == name))
+            .unwrap_or_else(|| panic!("{name}"));
+        cell.get_or_init(|| check_example(path))
+    }
+}
+
+/// Every example, each checked as the iteration reaches it.
+impl IntoIterator for Examples {
+    type Item = (String, String, Session);
+    type IntoIter = Box<dyn Iterator<Item = Self::Item>>;
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(
+            self.0
+                .into_iter()
+                .map(|(path, cell)| cell.into_inner().unwrap_or_else(|| check_example(&path))),
+        )
+    }
 }
 
 /// Text as a list, every text operation compiled from its definition.
@@ -1985,12 +2025,8 @@ fn run_script_on(name: &str, modules: &[(&str, String)], script: &str) {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-fn example<'a>(examples: &'a [(String, String, Session)], name: &str) -> &'a Session {
-    &examples
-        .iter()
-        .find(|(n, _, _)| n == name)
-        .unwrap_or_else(|| panic!("{name}"))
-        .2
+fn example<'a>(examples: &'a Examples, name: &str) -> &'a Session {
+    &examples.get(name).2
 }
 
 /// The text-and-IO proposal's boundary cases: a `Text` decodes only from a
@@ -4544,10 +4580,7 @@ fn source_maps_point_generated_definitions_at_their_source() {
     use stitchwort_js::sourcemap::{decode_mappings, to_json};
 
     let examples = examples();
-    let (_, text, session) = examples
-        .iter()
-        .find(|(n, _, _)| n == "trees.sw")
-        .expect("trees.sw");
+    let (_, text, session) = examples.get("trees.sw");
     let generate = || {
         stitchwort_js::generate(&session.elab.globals, session.elab.limits)
             .expect("extraction succeeds")
@@ -4655,10 +4688,8 @@ try {
 /// its variables, and a pure caller passes no row.
 #[test]
 fn map_at_the_empty_row_is_a_pure_maps_loop() {
-    let (_, _, session) = examples()
-        .into_iter()
-        .find(|(name, _, _)| name == "effect-rows.sw")
-        .expect("examples/extract/effect-rows.sw");
+    let examples = examples();
+    let (_, _, session) = examples.get("effect-rows.sw");
     let js = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
         .expect("extraction succeeds")
         .js;

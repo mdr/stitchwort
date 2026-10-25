@@ -24,7 +24,8 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId, Icit, Term};
-use stitchwort_driver::driver::{Session, par_map};
+use stitchwort_driver::driver::{Session, par_map_with};
+use stitchwort_driver::rewind::Mark;
 use stitchwort_syntax::ast::{Clause, Decl, Expr, Pattern};
 use stitchwort_syntax::{SourceMap, Span, parse_module};
 
@@ -57,21 +58,35 @@ fn hashes(session: &Session, first: (usize, usize)) -> Vec<(String, String)> {
 /// errors.
 fn load(name: &str, text: &str) -> Result<(Session, Vec<(String, String)>), String> {
     let mut session = Session::eager_for_stack(STACK);
+    let found = load_in(&mut session, name, text)?;
+    Ok((session, found))
+}
+
+/// Loads `text` in `session`: the hashes of the declarations it adds, or
+/// the errors.
+fn load_in(session: &mut Session, name: &str, text: &str) -> Result<Vec<(String, String)>, String> {
     let first = (
         session.elab.globals.datas.len(),
         session.elab.globals.defs.len(),
     );
     match session.load(name, text) {
-        Ok(_) => {
-            let found = hashes(&session, first);
-            Ok((session, found))
-        }
+        Ok(_) => Ok(hashes(session, first)),
         Err(errors) => Err(errors
             .iter()
             .map(|e| format!("{}: {}", e.code, e.message))
             .collect::<Vec<_>>()
             .join("\n")),
     }
+}
+
+/// A worker's eager session (the whole library loaded, a second or two),
+/// marked: rewound to the mark before each load, it is a fresh eager
+/// session without loading the library again (the rewind tests check that
+/// rewinding gives exactly what a fresh session does).
+fn eager_worker() -> (Session, Mark) {
+    let session = Session::eager_for_stack(STACK);
+    let mark = session.mark();
+    (session, mark)
 }
 
 /// The names a file binds anywhere (parameters, lambdas, `let`s, pattern
@@ -407,10 +422,11 @@ fn named_calls_keep_every_hash() {
         .filter(|p| p.file_name().unwrap().to_string_lossy().contains(&filter))
         .collect();
     files.sort();
-    let results = par_map(STACK, &files, |path| {
+    let results = par_map_with(STACK, &files, eager_worker, |(session, mark), path| {
         let name = path.display().to_string();
         let text = std::fs::read_to_string(path).unwrap();
-        let Ok((session, before)) = load(&name, &text) else {
+        session.rewind(mark);
+        let Ok(before) = load_in(session, &name, &text) else {
             return (0, 0, Vec::new());
         };
         let mut sources = SourceMap::new();
@@ -420,16 +436,17 @@ fn named_calls_keep_every_hash() {
         };
         let mut walk = Walk::default();
         module.decls.iter().for_each(|d| walk.decl(d));
-        let (rewritten, count) = named(&session, &text, &walk);
+        let (rewritten, count) = named(session, &text, &walk);
         if count == 0 {
             return (1, 0, Vec::new());
         }
         let mut failures = Vec::new();
-        match load(&name, &rewritten) {
+        session.rewind(mark);
+        match load_in(session, &name, &rewritten) {
             Err(errors) => failures.push(format!(
                 "{name}: doesn't load with named arguments:\n{errors}\n--- rewritten:\n{rewritten}"
             )),
-            Ok((_, after)) if after != before => {
+            Ok(after) if after != before => {
                 for ((n1, h1), (n2, h2)) in before.iter().zip(&after) {
                     if n1 != n2 || h1 != h2 {
                         failures.push(format!("{name}: {n1} {h1} became {n2} {h2}"));

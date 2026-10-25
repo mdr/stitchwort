@@ -1,0 +1,286 @@
+# The menu of what can be run in this repository, and when: `task --list`.
+# Run inside `nix develop` (it provides `task`, cargo, nextest, node and the
+# rest), e.g. `nix develop -c task test:merge`.
+#
+# Test tiers (docs/testing.md, "Tiers"): `lane` under 10 s, `merge` under
+# 60 s, `daily` under 5 minutes (what `nix flake check` runs), `full` only
+# when Matt asks. Which tests each tier runs is a nextest profile of the same
+# name in .config/nextest.toml; STITCHWORT_TIER tells the corpus sweeps how
+# much of the corpus to cover.
+version: '3'
+
+vars:
+  # The release CLI the AoC and `.sw` tasks run.
+  SW: '{{.ROOT_DIR}}/target/release/stitchwort'
+
+tasks:
+  default:
+    desc: List the tasks
+    silent: true
+    cmds:
+      - task --list
+
+  # ------------------------------------------------------------- building
+
+  build:
+    desc: Build the release CLI (target/release/stitchwort)
+    cmds:
+      - cargo build --release -p stitchwort-cli
+
+  build:tests:
+    desc: Build every release test binary, so the test tiers start at once
+    cmds:
+      - cargo nextest run --release --workspace --no-run
+
+  # ---------------------------------------------------------------- tests
+
+  test:lane:
+    desc: 'Lane tier, under 10 s: a handful of fast tests for one AREA (task test:lane AREA=syntax)'
+    summary: |
+      The lane tier: what a subagent runs while working, under 10 s.
+
+      AREA is one of: syntax, core, elab, effects, std, rt, js, lsp, fmt,
+      aoc, cli, hashes, bench, web, examples. For `examples` and `hashes`,
+      NAME keeps only the example files or project folders whose names
+      contain it (task test:lane AREA=examples NAME=synonym).
+
+      Each area is the nextest profile `lane-AREA` in .config/nextest.toml,
+      which says which tests it runs; the table is also in docs/testing.md.
+      Extra nextest arguments go after `--`.
+    requires:
+      vars: [AREA]
+    env:
+      STITCHWORT_TIER: lane
+      EXAMPLES: '{{.NAME}}'
+    cmds:
+      - cargo nextest run --release --workspace --profile lane-{{.AREA}} {{.CLI_ARGS}}
+
+  test:one:
+    desc: 'Tests whose names match a filter, at the daily sample (task test:one -- named_calls)'
+    summary: |
+      Runs the tests matching the nextest arguments after `--`: a name
+      substring (`task test:one -- named_calls`) or a filterset
+      (`task test:one -- -E 'binary(lsp)'`). Corpus sweeps take the daily
+      sample; set STITCHWORT_TIER=lane for the smallest, full for all.
+    cmds:
+      - cargo nextest run --release --workspace {{.CLI_ARGS}}
+
+  test:merge:
+    desc: Merge tier, under 60 s; run after every merge
+    summary: |
+      A broad smoke test: rustfmt, the parser and kernel, a sample of the
+      accepted and rejected examples, every AoC day's answers, the hash
+      snapshots of every example, and more (the `merge` profile in
+      .config/nextest.toml). Clippy is in the daily tier.
+    env:
+      STITCHWORT_TIER: merge
+    cmds:
+      - cargo fmt --check
+      - cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}
+
+  test:daily:
+    desc: Daily tier, under 5 minutes; also what `nix flake check` runs
+    summary: |
+      Everything but the full tier's exhaustive runs, with corpus sweeps on a
+      fixed sample: rustfmt, clippy, the `daily` nextest profile, the
+      doctests, and `builtins` in the debug profile. `task test:gate` runs
+      the same in the Nix sandbox.
+    env:
+      STITCHWORT_TIER: daily
+    cmds:
+      - cargo fmt --check
+      - cargo clippy --release --all-targets -- --deny warnings
+      - cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
+      - cargo test --release --doc --workspace
+      - cargo test -p stitchwort-driver --test builtins
+      - task: board:test
+
+  test:full:
+    desc: 'Full tier: every test, every corpus sweep in full. Only when Matt asks'
+    summary: |
+      Every test, with every corpus sweep over the whole corpus and the
+      full-only tests on (the `full` nextest profile, STITCHWORT_TIER=full).
+      Takes tens of minutes and much of the machine. Only when Matt asks.
+      `task test:full:nix` is the same in the Nix sandbox.
+    env:
+      STITCHWORT_TIER: full
+    cmds:
+      - cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}
+      - cargo test --release --doc --workspace
+
+  test:gate:
+    desc: 'nix flake check: the daily tier in the Nix sandbox, with clippy, rustfmt, debug-builtins and the board'
+    summary: |
+      Bounded so it doesn't starve other work: GATE_CORES (default 6) cores,
+      GATE_JOBS (default 2) jobs.
+    cmds:
+      - nix flake check --option cores {{.GATE_CORES | default 6}} --option max-jobs {{.GATE_JOBS | default 2}}
+
+  test:full:nix:
+    desc: 'nix build .#stitchwort-full: the full tier in the Nix sandbox. Only when Matt asks'
+    cmds:
+      - nix build .#stitchwort-full --no-link --option cores {{.GATE_CORES | default 6}} --option max-jobs {{.GATE_JOBS | default 2}}
+
+  test:affected:
+    desc: "Whole-area test suites for the areas the change since BASE touches (dev/t affected; minutes)"
+    cmds:
+      - dev/t affected {{.CLI_ARGS}}
+
+  test:browser:
+    desc: Build the playground, then test it in headless Chrome (web/test.sh; about 35 s)
+    cmds:
+      - ./web/test.sh {{.CLI_ARGS}}
+
+  test:vscode:
+    desc: The VS Code extension's client tests, against a fake server
+    cmds:
+      - '[[ -d editors/vscode/node_modules ]] || npm ci --prefix editors/vscode'
+      - node --test "editors/vscode/test/*.test.js"
+
+  board:test:
+    desc: The board's tests (node --test)
+    dir: board
+    cmds:
+      - node --test board.test.js
+
+  # ------------------------------------------- snapshots and generated text
+
+  snap:examples:
+    desc: 'Update the examples'' error-message snapshots (NAME=part of a file name; all if unset), then list them'
+    env:
+      STITCHWORT_TIER: full
+      INSTA_UPDATE: always
+      EXAMPLES: '{{.NAME}}'
+    cmds:
+      - cargo nextest run --release -p stitchwort-cli --test examples --no-fail-fast
+      - git status --short -- '*.snap'
+
+  snap:hashes:
+    desc: 'Update the hash-stability snapshots (NAME=part of a file name; all if unset), then list them'
+    env:
+      STITCHWORT_TIER: full
+      INSTA_UPDATE: always
+      EXAMPLES: '{{.NAME}}'
+    cmds:
+      - cargo nextest run --release -p stitchwort-driver --test hash_stability --no-fail-fast
+      - git status --short -- '*.snap'
+
+  snap:one:
+    desc: 'Update the snapshots of the tests matching the arguments after `--`, then list them'
+    env:
+      INSTA_UPDATE: always
+    cmds:
+      - cargo nextest run --release --workspace --no-fail-fast {{.CLI_ARGS}}
+      - git status --short -- '*.snap'
+
+  guide:update:
+    desc: Regenerate the language guide's quoted examples and compiler output (docs/guide)
+    env:
+      STITCHWORT_GUIDE_UPDATE: '1'
+    cmds:
+      - cargo nextest run --release -p stitchwort-cli --test guide
+
+  bench:
+    desc: 'Benchmarks against bench/baseline.toml: counts and time (about a minute; args after --, e.g. -- --no-time)'
+    cmds:
+      - cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}
+
+  bench:update:
+    desc: Record this run as the benchmark baseline (bench/baseline.toml); on a quiet machine
+    cmds:
+      - cargo run --release -p stitchwort-bench -- --update
+
+  # ------------------------------------------------- formatting and lints
+
+  fmt:
+    desc: Format the Rust sources (cargo fmt)
+    cmds:
+      - cargo fmt
+
+  fmt:sw:
+    desc: 'Format .sw files in place (stitchwort fmt; files after --, the project in the current folder if none)'
+    deps: [build]
+    cmds:
+      - '{{.SW}} fmt {{.CLI_ARGS}}'
+
+  lint:
+    desc: rustfmt --check and clippy, as the gate runs them
+    cmds:
+      - cargo fmt --check
+      - cargo clippy --release --all-targets -- --deny warnings
+
+  # ------------------------------------------------------ Stitchwort files
+
+  sw:
+    desc: 'Run the release CLI with the arguments after -- (task sw -- check examples/extract/append.sw)'
+    deps: [build]
+    cmds:
+      - '{{.SW}} {{.CLI_ARGS}}'
+
+  sw:check:
+    desc: 'Check a .sw file or project namespace (task sw:check -- FILE)'
+    deps: [build]
+    cmds:
+      - '{{.SW}} check {{.CLI_ARGS}}'
+
+  sw:test:
+    desc: "Run a .sw file's tests (task sw:test -- FILE)"
+    deps: [build]
+    cmds:
+      - '{{.SW}} test {{.CLI_ARGS}}'
+
+  sw:run:
+    desc: "Run a .sw file's main on the fast runtime (task sw:run -- FILE; --js or --reference before FILE)"
+    deps: [build]
+    interactive: true
+    cmds:
+      - '{{.SW}} run {{.CLI_ARGS}}'
+
+  # ------------------------------------------------------- Advent of Code
+
+  aoc:check:
+    desc: 'Check the AoC project (aoc/), or the namespaces after -- (task aoc:check -- Aoc.Day05)'
+    deps: [build]
+    dir: aoc
+    cmds:
+      - '{{.SW}} check {{.CLI_ARGS}}'
+
+  aoc:test:
+    desc: "Run the AoC project's tests (results cached in aoc/.stitchwort/)"
+    deps: [build]
+    dir: aoc
+    cmds:
+      - '{{.SW}} test {{.CLI_ARGS}}'
+
+  aoc:run:
+    desc: 'Run one AoC day on its puzzle input (task aoc:run DAY=05), compiled to JS'
+    requires:
+      vars: [DAY]
+    deps: [build]
+    dir: aoc
+    cmds:
+      - '{{.SW}} run --js Aoc.Day{{.DAY}}.main < {{.AOC_INPUTS | default "inputs"}}/day{{.DAY}}.txt'
+
+  # ------------------------------------------------- playground and board
+
+  web:build:
+    desc: Build the playground's WebAssembly bundle into web/pkg/
+    cmds:
+      - ./web/build.sh
+
+  web:serve:
+    desc: 'Build the playground, then serve web/ at http://127.0.0.1:8000 (PORT=…; -- --no-build to skip the build)'
+    interactive: true
+    cmds:
+      - ./web/serve.sh {{.CLI_ARGS}}
+
+  board:serve:
+    desc: 'Serve the task board at http://127.0.0.1:8020 (PORT=… for another port)'
+    interactive: true
+    cmds:
+      - ./board/serve.sh
+
+  vscode:install:
+    desc: Package the VS Code extension and install it into VS Code
+    cmds:
+      - ./editors/vscode/install.sh

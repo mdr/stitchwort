@@ -1,25 +1,144 @@
-# cargo-nextest settings (the gate, `dev/t gate`/`full`, and by hand).
+# cargo-nextest settings: the test tiers (docs/testing.md, "Tiers").
+#
+# Each tier is a profile here, which says which tests run (its
+# `default-filter`), and the environment variable STITCHWORT_TIER, which says
+# how much of a corpus each sweep covers (`stitchwort_driver::driver::
+# tier_sample`) and whether full-only tests run (`full_tier`). The tasks in
+# Taskfile.yml set both; by hand:
+#
+#   STITCHWORT_TIER=merge cargo nextest run --release --workspace --profile merge
+#
+#   lane-AREA  under 10 s: a handful of fast tests for one area, while working
+#   merge      under 60 s: a broad smoke test, after every merge
+#   daily      under 5 minutes: every test, sweeps on a fixed sample; what
+#              `nix flake check` runs
+#   full       every test, every sweep over the whole corpus; only when Matt
+#              asks
+#
+# A filter given on the command line is intersected with the profile's
+# (`task test:merge -- -E 'package(stitchwort-core)'`); `--ignore-default-filter`
+# drops it.
+#
 # Nextest runs every test in its own process. Per-process state (statics,
 # thread-locals, allocation counters, pid-named temp dirs) is therefore never
 # shared between tests; state shared through the file system is, so a test
 # group below serialises the tests that need it.
 
 [profile.default]
-# Memory is the limit, not cores: each test thread can hold a large stack and
-# a whole elaborated library.
-test-threads = 4
+# The lanes (and `task test:one`): mostly tests of under a second, where
+# starting a process per test is much of the cost, so one per core.
+test-threads = "num-cpus"
 fail-fast = false
-slow-timeout = { period = "120s" }
+slow-timeout = { period = "60s" }
 
-# `cargo nextest run --profile ci`: the same, plus a JUnit report with the
-# time of every test, at target/nextest/ci/junit.xml.
-[profile.ci]
-test-threads = 4
+[profile.daily]
+# Memory, more than cores, is the limit: each test may run a pool of up to 8
+# threads (`par_map`), each with a large stack and a session.
+test-threads = 8
 fail-fast = false
-slow-timeout = { period = "120s" }
+slow-timeout = { period = "60s" }
+default-filter = "all()"
 
-[profile.ci.junit]
+# Every test's time, for cutting the tier when it grows past its budget:
+# target/nextest/daily/junit.xml.
+[profile.daily.junit]
 path = "junit.xml"
+
+[profile.full]
+test-threads = 6
+fail-fast = false
+slow-timeout = { period = "120s" }
+default-filter = "all()"
+
+[profile.full.junit]
+path = "junit.xml"
+
+# The merge tier: the lane areas together, plus every accepted, rejected and
+# soundness example on the merge sample (a quarter) and every AoC day's
+# answers.
+[profile.merge]
+test-threads = "num-cpus"
+fail-fast = false
+slow-timeout = { period = "30s" }
+default-filter = """
+package(stitchwort-syntax)
+| package(stitchwort-core)
+| (package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/))
+| binary(ability_errors) | binary(empty_row_kernel)
+| (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
+| (package(stitchwort-cli) & binary(effect_runtime) & test(/^(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/))
+| (binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/))
+| (package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | (binary(machine) & test(=library_tests_agree))))
+| package(stitchwort-js)
+| (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))
+| (binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/))
+| (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
+| (package(stitchwort-cli) & binary(fmt))
+| (binary(aoc_answers) & test(/^day/))
+| (package(stitchwort-cli) & (binary(session) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/))))
+| (binary(hash_stability) & test(/^(examples|projects|prelude)$/))
+| (package(stitchwort-cli) & binary(examples))
+| (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
+"""
+
+# ------------------------------------------------------------- lane areas
+#
+# `task test:lane AREA=…`: one area's handful of fast tests, under 10 s with
+# the release test binaries built. Keep each to tests that take about a
+# second; the merge tier above is the union of them, plus the examples and
+# AoC answers.
+
+[profile.lane-syntax]
+default-filter = "package(stitchwort-syntax)"
+
+[profile.lane-core]
+default-filter = "package(stitchwort-core) & (kind(lib) | binary(kernel) | binary(hash) | binary(admission))"
+
+[profile.lane-elab]
+default-filter = "package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/)"
+
+[profile.lane-effects]
+default-filter = """
+binary(ability_errors) | binary(empty_row_kernel)
+| (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
+| (package(stitchwort-cli) & binary(effect_runtime) & test(/^(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/))
+"""
+
+[profile.lane-std]
+default-filter = "binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/)"
+
+[profile.lane-rt]
+default-filter = "package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | (binary(machine) & test(=library_tests_agree)) | (binary(effect_runtime) & test(/^(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/)))"
+
+[profile.lane-js]
+default-filter = "package(stitchwort-js) | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))"
+
+[profile.lane-lsp]
+default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)"
+
+[profile.lane-fmt]
+default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (package(stitchwort-cli) & binary(fmt))"
+
+[profile.lane-aoc]
+default-filter = "binary(aoc_answers) & test(/^day/)"
+
+[profile.lane-cli]
+default-filter = "package(stitchwort-cli) & (binary(session) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)))"
+
+# With NAME (EXAMPLES): only the examples whose names contain it.
+[profile.lane-hashes]
+default-filter = "binary(hash_stability) & test(/^(examples|projects|prelude)$/)"
+
+# With NAME (EXAMPLES): only the examples whose names contain it; without,
+# the lane sample (a quarter of each folder).
+[profile.lane-examples]
+default-filter = "package(stitchwort-cli) & binary(examples)"
+
+[profile.lane-bench]
+default-filter = "package(stitchwort-bench) & (kind(lib) | (binary(check_work) & !test(=checking_does_not_compute_unneeded_values)))"
+
+[profile.lane-web]
+default-filter = "package(stitchwort-web) & !test(/(effectful_maps_run_at_a_million_elements|the_guide_examples_check|every_aoc_day_checks_passes_its_tests_and_runs_on_its_example|the_playground_examples_check_and_pass_their_tests|evaluates_with_full_names_and_extracts_a_namespace|a_partial_main_that_may_fail_shows_its_output_then_the_error|a_second_source_replaces_the_remembered_one)$/)"
 
 [test-groups]
 # crates/cli/tests/lsp.rs keeps one warm copy of the AoC project under
@@ -27,10 +146,7 @@ path = "junit.xml"
 # (a OnceLock per process under `cargo test`, but one per test here).
 lsp-aoc-copy = { max-threads = 1 }
 
+# Overrides in the default profile apply to every profile.
 [[profile.default.overrides]]
-filter = "package(stitchwort-cli) & binary(lsp)"
-test-group = "lsp-aoc-copy"
-
-[[profile.ci.overrides]]
 filter = "package(stitchwort-cli) & binary(lsp)"
 test-group = "lsp-aoc-copy"

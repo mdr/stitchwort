@@ -84,9 +84,11 @@
             inherit cargoArtifacts;
             INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
             doInstallCargoArtifacts = false; # nothing builds on these
-            # Run every test, so one failure doesn't hide the others
-            # (also set in `.config/nextest.toml`).
-            cargoNextestExtraArgs = "--no-fail-fast";
+            # The daily tier (docs/testing.md, "Tiers"): the `daily` profile
+            # of `.config/nextest.toml`, and STITCHWORT_TIER for the corpus
+            # sweeps. Every test runs, so one failure doesn't hide the others.
+            cargoNextestExtraArgs = "--no-fail-fast --profile daily";
+            STITCHWORT_TIER = "daily";
             # Nextest doesn't run doctests, and stitchwort-partial-model has
             # three (src/typed.rs, two of them `compile_fail`), so run those
             # here: about a second.
@@ -101,15 +103,16 @@
         {
           # The tests, run by cargo-nextest (every test in its own process, test
           # binaries side by side; `.config/nextest.toml`), then the doctests.
-          # `stitchwort` is the fast tier (what `nix flake check` runs);
-          # `stitchwort-slow` also turns on the slow tier (`nix build
-          # .#stitchwort-slow`, or `dev/t full`).
+          # `stitchwort` is the daily tier (what `nix flake check` runs);
+          # `stitchwort-full` is the full tier, built only on request (`task
+          # test:full:nix`).
           stitchwort = craneLib.cargoNextest (nextestArgs // { pname = "stitchwort"; });
-          stitchwort-slow = craneLib.cargoNextest (
+          stitchwort-full = craneLib.cargoNextest (
             nextestArgs
             // {
-              pname = "stitchwort-slow";
-              STITCHWORT_SLOW = "1"; # exhaustive and differential tests (`dev/t slow`)
+              pname = "stitchwort-full";
+              cargoNextestExtraArgs = "--no-fail-fast --profile full";
+              STITCHWORT_TIER = "full"; # every corpus sweep over the whole corpus
             }
           );
           # The CLI binary alone, without running the test suite: what `nix run`
@@ -184,11 +187,11 @@
     in
     {
       packages = forAllSystems (pkgs: rec {
-        inherit (buildsFor pkgs) stitchwort-bin stitchwort-slow playground;
+        inherit (buildsFor pkgs) stitchwort-bin stitchwort-full playground;
         default = stitchwort-bin;
       });
 
-      # `nix flake check`: build + tests, clippy, rustfmt
+      # `nix flake check`: the daily tier (build + tests, clippy, rustfmt)
       checks = forAllSystems (
         pkgs:
         let
@@ -229,7 +232,8 @@
             pkgs.cargo-watch
             pkgs.cargo-llvm-cov # test coverage
             pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
-            pkgs.cargo-nextest # `dev/t full`: the whole suite with test binaries run in parallel
+            pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
+            pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
 
             # Browser playground: Rust -> WASM
             pkgs.wasm-bindgen-cli

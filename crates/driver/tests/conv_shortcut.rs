@@ -14,7 +14,7 @@
 use std::path::Path;
 
 use stitchwort_core::value::set_shortcuts_disabled;
-use stitchwort_driver::driver::{Session, par_map, with_stack};
+use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
 
 const STACK: usize = 64 * 1024 * 1024;
 
@@ -52,6 +52,10 @@ fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
     with_stack(STACK, || {
         let examples = examples();
         assert!(examples.len() > 250, "only {} examples", examples.len());
+        // A corpus sweep: a fixed sample below the full tier, and the count of
+        // rejections expected in proportion.
+        let all = examples.len();
+        let examples = tier_sample(examples, 4);
         let verdicts = par_map(STACK, &examples, |(name, text)| {
             let with = verdict(name, text, true);
             let without = verdict(name, text, false);
@@ -59,6 +63,9 @@ fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
             with.starts_with("Err")
         });
         let rejected = verdicts.iter().filter(|rejected| **rejected).count();
-        assert!(rejected > 200, "only {rejected} rejections compared");
+        assert!(
+            rejected > 200 * examples.len() / all,
+            "only {rejected} rejections compared"
+        );
     });
 }

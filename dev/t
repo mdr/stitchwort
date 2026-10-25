@@ -5,72 +5,23 @@ export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-3}"
 
 usage() {
   cat <<'EOF'
-Usage: dev/t AREA [FILTER]
-       dev/t snap AREA [FILTER]
-       dev/t affected [--dry-run] [BASE]
+Usage: dev/t affected [--dry-run] [BASE]
        dev/t help
 
-Run just the tests for one area instead of the full gate.
+Everything else that used to be here is a task: `task --list` (Taskfile.yml).
+This script is what `task test:affected` runs.
 
-Areas:
-  syntax     stitchwort-syntax (fuzz layout and unit tests)
-  core       stitchwort-core (all integration tests)
-  elab       stitchwort-elab (unit tests)
-  driver     stitchwort-driver (all integration tests)
-  js         stitchwort-js plus the CLI extract and run_js tests
-  rt         stitchwort-rt (lowering to the runtime IR, over every example)
-  cli        stitchwort-cli (all integration tests)
-  aoc        every AoC day on its real input (crates/cli/tests/aoc_answers.rs)
-  examples   stitchwort-cli --test examples
-  hashes     stitchwort-driver --test hash_stability
-  std        the standard library: index, loader, eager-vs-lazy, library tests
-  bench      stitchwort-bench
-  web        stitchwort-web (unit tests; browser tests are `dev/t browser`)
-  browser    web/build.sh then web/test.sh
-  vscode     node --test on the VS Code extension's client config, against a fake server
-  lint       cargo fmt --check and clippy
-  all        cargo test --release --workspace
-  nextest    the whole suite plus the slow tier (STITCHWORT_SLOW=1), run
-             locally by cargo-nextest (no nix; takes a test-name filter).
-             Doctests aren't run by nextest. Heavy: up to 4 tests at once.
-  slow       just the slow tier (see below), with STITCHWORT_SLOW=1
-  gate       nix flake check: the fast tier (STITCHWORT_SLOW unset). Runs
-             the `stitchwort` check (cargo-nextest, then the doctests),
-             clippy, fmt, debug-builtins and board. Bounded so it doesn't
-             starve other lanes: `--option cores 6 --option max-jobs 2`
-             (override with GATE_CORES / GATE_JOBS); CARGO_BUILD_JOBS doesn't
-             reach nix builds.
-  full       the checkpoint: `gate`, then `nix build .#stitchwort-slow`
-             (the same nextest run with the slow tier on). Both tiers.
-
-Slow tier (exhaustive or differential tests over ~20 s), off unless
-STITCHWORT_SLOW=1; only `dev/t slow`, `dev/t nextest` and `dev/t full`
-(the `stitchwort-slow` build) turn it on:
-  - bench `repeat` (~190 s): repeats the whole example sweep; a normal run
-    repeats three small benchmarks.
-  - std_library `lazy_loading_changes_nothing_*`: compare every example; a
-    normal run compares every eighth, and skips the AoC project.
-
-The per-file test loops (examples, hashes, std) run on a thread pool: the
-machine's parallelism capped at 8, or STITCHWORT_TEST_THREADS=N.
-
-`dev/t affected [BASE]` runs only the areas the change touches, never more.
-The change is `git diff BASE...HEAD` (BASE defaults to main; on main itself
-pass the last gated commit, e.g. HEAD~1) plus uncommitted and untracked
-files. Prose (docs, *.md) triggers nothing; Rust triggers lint; a crate
-triggers its own area and the few areas that really exercise it, not the
-whole suite (the table is the comment above `affected_map` in this script).
-Areas run in as few cargo invocations as possible, stopping at the first
-failure. `--dry-run` prints each chosen area with the path that triggered
-it, and runs nothing. A regression caught later by the full gate is fine;
-wasted CPU minutes are not, so the table errs towards fewer areas.
-
-FILTER selects what to run. For `examples` and `hashes` it is passed as
-EXAMPLES, so only example files or project folders whose names contain it
-run; for other areas it is passed as the test-name filter after `--`.
-
-`dev/t snap AREA` is the same, but with INSTA_UPDATE=always. It prints the
-changed snapshot files afterwards so they can be reviewed.
+`dev/t affected [BASE]` runs the test suites of the areas the change
+touches, never more. The change is `git diff BASE...HEAD` (BASE defaults to
+main; on main itself pass the last gated commit, e.g. HEAD~1) plus
+uncommitted and untracked files. Prose (docs, *.md) triggers nothing; Rust
+triggers lint; a crate triggers its own area and the few areas that really
+exercise it, not the whole suite (the table is the comment above
+`affected_map` in this script). An area here is a whole crate's or test
+binary's suite, so this can take minutes; the lane tier (`task test:lane
+AREA=…`) is the quick check. Areas run in as few cargo invocations as
+possible, stopping at the first failure. `--dry-run` prints each chosen
+area with the path that triggered it, and runs nothing.
 
 Commands run under `nix develop -c` unless already inside the dev shell.
 CARGO_BUILD_JOBS is respected; it defaults to 3.
@@ -82,6 +33,14 @@ run_cargo() {
     cargo "$@"
   else
     nix develop -c cargo "$@"
+  fi
+}
+
+run_task() {
+  if [[ -n "${IN_NIX_SHELL:-}" ]]; then
+    task "$@"
+  else
+    nix develop -c task "$@"
   fi
 }
 
@@ -347,14 +306,13 @@ affected() {
   for a in $tail_areas; do echo "  [$a]"; done
   if [[ "$dry" -eq 1 ]]; then exit 0; fi
 
-  if [[ "$snap" -eq 1 ]]; then export INSTA_UPDATE=always; fi
   for a in $checks; do
     echo ">> $a"
     case "$a" in
       board) (cd board && node --test board.test.js) ;;
       shell) bash -n dev/t ;;
       nixparse) nix-instantiate --parse flake.nix >/dev/null ;;
-      lint) "$0" lint ;;
+      lint) run_task lint ;;
     esac
   done
   for step in "${cmds[@]}"; do
@@ -364,166 +322,21 @@ affected() {
   done
   for a in $tail_areas; do
     echo ">> $a"
-    "$0" "$a"
+    run_task "test:$a"
   done
   exit 0
 }
 
-snap=0
-if [[ "${1:-}" == "snap" ]]; then
-  snap=1
-  shift
-fi
-
-if [[ $# -eq 0 ]]; then
-  usage >&2
-  exit 2
-fi
-
-area="$1"
-shift
-
-if [[ "$area" == "affected" ]]; then
-  affected "$@"
-fi
-
-if [[ $# -gt 1 ]]; then
-  usage >&2
-  exit 2
-fi
-filter="${1:-}"
-
-if [[ "$area" == "help" ]]; then
-  usage
-  exit 0
-fi
-
-if [[ "$snap" -eq 1 ]]; then
-  export INSTA_UPDATE=always
-fi
-
-args=()
-examples_filter=0
-case "$area" in
-  syntax)
-    args=(-p stitchwort-syntax)
+case "${1:-}" in
+  affected)
+    shift
+    affected "$@"
     ;;
-  core)
-    args=(-p stitchwort-core)
-    ;;
-  elab)
-    args=(-p stitchwort-elab)
-    ;;
-  driver)
-    args=(-p stitchwort-driver)
-    ;;
-  js)
-    # Two runs: `--test` would also narrow stitchwort-js to those targets
-    # and skip its own unit tests.
-    if [[ -n "$filter" ]]; then run_cargo test --release -p stitchwort-js -- "$filter"
-    else run_cargo test --release -p stitchwort-js; fi
-    args=(-p stitchwort-cli --test extract --test run_js)
-    ;;
-  rt)
-    args=(-p stitchwort-rt)
-    ;;
-  cli)
-    args=(-p stitchwort-cli)
-    ;;
-  aoc)
-    args=(-p stitchwort-cli --test aoc_answers)
-    ;;
-  examples)
-    args=(-p stitchwort-cli --test examples)
-    examples_filter=1
-    ;;
-  hashes)
-    args=(-p stitchwort-driver --test hash_stability)
-    examples_filter=1
-    ;;
-  std)
-    args=(-p stitchwort-driver --test std_library)
-    ;;
-  bench)
-    args=(-p stitchwort-bench)
-    ;;
-  web)
-    echo "note: browser tests are not run here; use \`dev/t browser\`" >&2
-    args=(-p stitchwort-web)
-    ;;
-  browser)
-    nix develop -c ./web/build.sh
-    nix develop -c ./web/test.sh
-    exit 0
-    ;;
-  vscode)
-    # The client's one npm dependency (vscode-languageclient, exact version in
-    # package-lock.json) is installed on first use.
-    if [[ -n "${IN_NIX_SHELL:-}" ]]; then
-      [[ -d editors/vscode/node_modules ]] || npm ci --prefix editors/vscode
-      node --test "editors/vscode/test/*.test.js"
-    else
-      nix develop -c bash -c '[[ -d editors/vscode/node_modules ]] || npm ci --prefix editors/vscode; node --test "editors/vscode/test/*.test.js"'
-    fi
-    exit 0
-    ;;
-  lint)
-    nix develop -c cargo fmt --check
-    nix develop -c cargo clippy --release --all-targets -- --deny warnings
-    exit 0
-    ;;
-  all)
-    args=(--workspace)
-    ;;
-  gate)
-    echo "the fast gate: nix flake check, STITCHWORT_SLOW unset (nix builds use at most ${GATE_CORES:-6} cores, ${GATE_JOBS:-2} jobs)"
-    nix flake check --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
-    exit 0
-    ;;
-  full)
-    # Both tiers: the gate, then the same nextest run with the slow tier on.
-    echo "the full checkpoint: the fast gate, then .#stitchwort-slow"
-    nix flake check --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
-    nix build .#stitchwort-slow --no-link --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
-    exit 0
-    ;;
-  nextest)
-    # Every test binary at once (nextest runs binaries in parallel, each test
-    # in its own process; .config/nextest.toml caps the threads), with the
-    # slow tier on. For a per-test time report: `--profile ci` (JUnit).
-    export STITCHWORT_SLOW=1
-    # A shell entered before nextest joined the flake has no nextest.
-    if command -v cargo-nextest > /dev/null; then
-      cargo nextest run --release --workspace --no-fail-fast ${filter:+"$filter"}
-    else
-      nix develop -c cargo nextest run --release --workspace --no-fail-fast ${filter:+"$filter"}
-    fi
-    exit 0
-    ;;
-  slow)
-    # The slow tier: exhaustive and differential tests that the normal runs
-    # skip and `dev/t full` runs (the `stitchwort-slow` build in flake.nix).
-    export STITCHWORT_SLOW=1
-    run_cargo test --release -p stitchwort-driver --test std_library ${filter:+-- "$filter"}
-    args=(-p stitchwort-bench --test repeat)
-    filter=""
+  help | -h | --help)
+    usage
     ;;
   *)
     usage >&2
     exit 2
     ;;
 esac
-
-if [[ -n "$filter" ]]; then
-  if [[ "$examples_filter" -eq 1 ]]; then
-    export EXAMPLES="$filter"
-  else
-    args+=(-- "$filter")
-  fi
-fi
-
-run_cargo test --release "${args[@]}"
-
-if [[ "$snap" -eq 1 ]]; then
-  git status --short | grep snap || true
-fi

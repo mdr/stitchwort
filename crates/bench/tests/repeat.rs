@@ -13,14 +13,11 @@ fn counts_repeat_within_a_process() {
         eprintln!("skipped: run in a release build (`cargo test --release`)");
         return;
     }
-    // The slow tier repeats the whole example sweep: about 190 s, serial by
-    // nature (allocations are counted per process). The fast tier repeats a
-    // few small benchmarks, which catch one-time work the same way (the
+    // The full tier repeats the whole example sweep: about 190 s, serial by
+    // nature (allocations are counted per process). The other tiers repeat
+    // a few small benchmarks, which catch one-time work the same way (the
     // first run builds whatever the later ones find done).
-    let all = stitchwort_driver::driver::slow_tier_on();
-    if !all {
-        eprintln!("repeating a few small benchmarks only: slow tier off (`dev/t slow`)");
-    }
+    let all = stitchwort_driver::driver::full_tier("repeating the whole example sweep");
     let chosen: Vec<_> = programs::ALL
         .iter()
         .filter(|b| {

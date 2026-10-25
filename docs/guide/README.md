@@ -28,7 +28,7 @@ The guide explains how things work and why, shows the idioms, and shows what the
 Every piece of Stitchwort code in this guide is quoted from a file in [examples/](examples/), and every compiler message and program output is what the compiler printed for it. The test `crates/cli/tests/guide.rs` checks that each example file type-checks and passes its tests (the files in `examples/errors/` must fail to check, and those in `examples/failing/` have failing tests), and that each quoted block still matches its file and the compiler's output. After changing an example or the compiler, regenerate the quoted blocks with
 
 ```sh
-STITCHWORT_GUIDE_UPDATE=1 cargo test --release -p stitchwort-cli --test guide
+task guide:update    # STITCHWORT_GUIDE_UPDATE=1 cargo nextest run --release -p stitchwort-cli --test guide
 ```
 
 and review the diff. In the Markdown source, a comment before each block says where it comes from: `<!-- snippet: values.sw#blocks -->` is the part of `examples/values.sw` between `-- begin blocks` and `-- end blocks`, `<!-- snippet: FILE@name -->` is the declaration `name`, and `<!-- output: check errors/divide.sw -->` is what `stitchwort check errors/divide.sw` prints, run in `examples/`.
