@@ -2963,7 +2963,7 @@
     },
     {
       "id": 483,
-      "title": "Revise terminal-io.md: Terminal as a library ability with Terminal.toIO over basic IO ops (raw mode, read bytes, write, size) (D1246); after the partial-handlers note",
+      "title": "Revise terminal-io.md: Terminal as a library ability with Terminal.toIO over basic IO ops (raw mode, read bytes, write, size) (D1246); after the partial-handlers note. Decided: D1247 whole-frame draw for now (finer control later if needed), D1248 Ctrl-C stops the program",
       "status": "backlog",
       "agent": "",
       "where": "",
