@@ -1,5 +1,5 @@
 {
-  "next": 453,
+  "next": 454,
   "tickets": [
     {
       "id": 13,
@@ -2537,6 +2537,18 @@
     {
       "id": 452,
       "title": "Partial ticks: runners stop one tick early vs partial.md; no test that native and reference tick counts agree (partial-tests.md §1); after stage 2 merges",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 453,
+      "title": "AoC Day 8 review (D1190): proofs via memPerm etc., sizes via Map.counts (Perm), Boxes.of precondition doc, named fields, Result fixtures + boundary examples; item 6 std lemmas after rule E",
       "status": "doing",
       "agent": "",
       "where": "",
