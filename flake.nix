@@ -50,6 +50,7 @@
             fileset = lib.fileset.unions [
               (craneLib.fileset.commonCargoSources ./.)
               ./clippy.toml # disallows the standard library's hash maps
+              ./.config/nextest.toml # test threads and test groups
               ./examples # example programs are the main test suite
               ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/std_library.rs)
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
@@ -79,22 +80,36 @@
             strictDeps = true;
           };
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+          nextestArgs = commonArgs // {
+            inherit cargoArtifacts;
+            INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
+            doInstallCargoArtifacts = false; # nothing builds on these
+            # Run every test, so one failure doesn't hide the others
+            # (also set in `.config/nextest.toml`).
+            cargoNextestExtraArgs = "--no-fail-fast";
+            # Nextest doesn't run doctests, and stitchwort-partial-model has
+            # three (src/typed.rs, two of them `compile_fail`), so run those
+            # here: about a second.
+            postCheck = "cargoWithProfile test --doc --workspace --no-fail-fast";
+            # Differential tests run extracted JS; generated declarations are type-checked.
+            nativeBuildInputs = [
+              pkgs.nodejs_22
+              pkgs.typescript
+            ];
+          };
         in
         {
-          stitchwort = craneLib.buildPackage (
-            commonArgs
+          # The tests, run by cargo-nextest (every test in its own process, test
+          # binaries side by side; `.config/nextest.toml`), then the doctests.
+          # `stitchwort` is the fast tier (what `nix flake check` runs);
+          # `stitchwort-slow` also turns on the slow tier (`nix build
+          # .#stitchwort-slow`, or `dev/t full`).
+          stitchwort = craneLib.cargoNextest (nextestArgs // { pname = "stitchwort"; });
+          stitchwort-slow = craneLib.cargoNextest (
+            nextestArgs
             // {
-              inherit cargoArtifacts;
-              INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
-              STITCHWORT_SLOW = "1"; # the full gate also runs the slow tier of tests (`dev/t slow`)
-              # Run every test binary, so one failure doesn't hide the others.
-              cargoTestExtraArgs = "--no-fail-fast";
-              # Differential tests run extracted JS; generated declarations are type-checked.
-              nativeCheckInputs = [
-                pkgs.nodejs_22
-                pkgs.typescript
-              ];
-              meta.mainProgram = "stitchwort";
+              pname = "stitchwort-slow";
+              STITCHWORT_SLOW = "1"; # exhaustive and differential tests (`dev/t slow`)
             }
           );
           # The CLI binary alone, without running the test suite: what `nix run`
@@ -169,7 +184,7 @@
     in
     {
       packages = forAllSystems (pkgs: rec {
-        inherit (buildsFor pkgs) stitchwort stitchwort-bin playground;
+        inherit (buildsFor pkgs) stitchwort-bin stitchwort-slow playground;
         default = stitchwort-bin;
       });
 
@@ -180,7 +195,12 @@
           builds = buildsFor pkgs;
         in
         {
-          inherit (builds) stitchwort clippy fmt debug-builtins;
+          inherit (builds)
+            stitchwort
+            clippy
+            fmt
+            debug-builtins
+            ;
 
           # The kanban board's tests (board/): Node's standard library only.
           board =

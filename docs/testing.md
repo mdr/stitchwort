@@ -21,7 +21,9 @@ Stitchwort's guarantees are only as good as the compiler's correctness, so the t
 | `dev/t browser` | Build and run the playground tests in headless Chrome |
 | `dev/t lint` | `cargo fmt --check` and clippy |
 | `dev/t all` | Every test in the workspace |
-| `dev/t gate` | `nix flake check`, the full gate (6-7 minutes), including `debug-builtins`: `stitchwort-driver --test builtins` in the debug profile, to catch debug-only panics |
+| `dev/t gate` | `nix flake check`, the fast gate (slow tier off; see [Fast and full](#fast-and-full)), including `debug-builtins`: `stitchwort-driver --test builtins` in the debug profile, to catch debug-only panics |
+| `dev/t full` | The fast gate, then `nix build .#stitchwort-slow`: the same tests with the slow tier on. For checkpoints |
+| `dev/t nextest` | The whole suite plus the slow tier, run locally by cargo-nextest (no nix); takes a test-name filter |
 
 For `dev/t examples` and `dev/t hashes`, `dev/t AREA FILTER` sets `EXAMPLES=FILTER`, so only example files or project folders whose names contain `FILTER` run, for example `dev/t examples synonym`. For the other areas, `FILTER` is passed as the test-name filter after `--`. `dev/t snap AREA` sets `INSTA_UPDATE=always` and then prints the changed snapshots for review; unfiltered snapshots are left alone. Outside `nix develop` the script runs commands through `nix develop -c`; inside the dev shell it calls `cargo` directly.
 
@@ -54,7 +56,7 @@ cargo insta review                             # after changing an error message
 cargo llvm-cov --workspace --summary-only      # coverage per file
 cargo mutants --package stitchwort-core --test-workspace=true --jobs 6   # slow: minutes to an hour
 cargo run --release -p stitchwort-bench        # benchmarks against the baseline: about a minute
-nix flake check                                # build, tests, clippy, rustfmt, as CI would
+nix flake check                                # the fast gate: build, tests, clippy, rustfmt, as CI would
 ./web/test.sh                                  # the playground in headless Chrome: about 35 s
 ```
 
@@ -116,4 +118,20 @@ Wall time of each slow test binary alone, `cargo test --release` with `STITCHWOR
 | `driver --test erasure` | 42 s | 8 s | one test with a serial loop over every example, now `par_map` |
 | `cli --test examples` | 13 s | (unchanged) | |
 
-A binary's tests already share the machine through libtest's test threads and `par_map`, so what is left is CPU work. The remaining cost of a whole-suite run is that cargo runs binaries one after another, so each binary's tail (its slowest test) leaves cores idle. `dev/t full` runs the suite under [cargo-nextest](https://nexte.st), which starts the next binary's tests as cores free up and runs every test in its own process. It runs the slow tier but not doctests (nextest does not run them); `nix flake check` is unchanged and is still the gate.
+A binary's tests already share the machine through libtest's test threads and `par_map`, so what is left is CPU work. Under `cargo test` the remaining cost of a whole-suite run was that cargo runs binaries one after another, so each binary's tail (its slowest test) left cores idle: the gate took about 31 minutes (`checkPhase`, 111 binaries, on a loaded 14-core machine; the test binaries summed to 29.5 minutes). The gate now runs under [cargo-nextest](https://nexte.st), which starts the next binary's tests as cores free up and runs every test in its own process.
+
+## Fast and full
+
+- `nix flake check` (`dev/t gate`) runs the **fast tier**, `STITCHWORT_SLOW` unset: the `stitchwort` check (`cargo nextest run --no-fail-fast`, then `cargo test --doc` for the doctests), `clippy`, `fmt`, `debug-builtins` and `board`.
+- `nix build .#stitchwort-slow` is the same nextest run with `STITCHWORT_SLOW=1`. It is not in `checks`, so `nix flake check` doesn't run it. `dev/t full` runs the fast gate and then this. Use it at checkpoints, not on every merge.
+- The slow tier's content is unchanged: `std_library`'s `lazy_loading_changes_nothing_*` compare every example (a fast run compares every eighth and skips the AoC project), and bench `repeat` repeats the whole example sweep (about 190 s) where a fast run repeats three small benchmarks (`eval-lengths`, `run-prints`, `check-long-sum`; about 3 s).
+
+### Under nextest
+
+- Settings are in `.config/nextest.toml`: at most 4 tests at once (memory is the limit), no fail-fast. Run `dev/t nextest`, or `cargo nextest run --release -p stitchwort-cli --test lsp` by hand.
+- Every test is its own process, so statics, thread-locals and `OnceLock`s are never shared between tests, and pid-named temp directories are unique per test. State shared through the file system is not: `crates/cli/tests/lsp.rs` rebuilds one AoC copy under `CARGO_TARGET_TMPDIR` in each test, so those tests are in the `lsp-aoc-copy` test group (`max-threads = 1`). A new test that shares files between tests needs a group too.
+- Tests that rely on one process holding a lock (`SPAWN` in `crates/cli/tests/run.rs` and `aoc_answers.rs`, which guards the fork/exec race on pipe descriptors) still work: the race is within a process.
+- Nextest does not run doctests. `stitchwort-partial-model` has three (`src/typed.rs`, two `compile_fail`), so the check runs `cargo test --doc --workspace` after nextest.
+- Per-test times: `cargo nextest run --release --profile ci` writes a JUnit report with the time of every test to `target/nextest/ci/junit.xml`, and nextest flags tests over 120 s as SLOW while running. Under plain `cargo test`, the `finished in` line per binary is what there is.
+- `conv_shortcut` now checks its examples on the `par_map` pool (the shortcut switch is thread-local): 107 s down to 17 s alone.
+

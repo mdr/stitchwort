@@ -30,19 +30,24 @@ Areas:
   vscode     node --test on the VS Code extension's client config, against a fake server
   lint       cargo fmt --check and clippy
   all        cargo test --release --workspace
-  full       the whole suite plus the slow tier (STITCHWORT_SLOW=1), by
-             cargo-nextest: test binaries run side by side instead of one
-             after another. Doctests aren't run by nextest. Heavy: uses
-             every core, so run it when nothing else needs the machine.
+  nextest    the whole suite plus the slow tier (STITCHWORT_SLOW=1), run
+             locally by cargo-nextest (no nix; takes a test-name filter).
+             Doctests aren't run by nextest. Heavy: up to 4 tests at once.
   slow       just the slow tier (see below), with STITCHWORT_SLOW=1
-  gate       nix flake check (the full gate, 6-7 minutes). Bounded so it
-             doesn't starve other lanes: `--option cores 6 --option max-jobs 2`
+  gate       nix flake check: the fast tier (STITCHWORT_SLOW unset). Runs
+             the `stitchwort` check (cargo-nextest, then the doctests),
+             clippy, fmt, debug-builtins and board. Bounded so it doesn't
+             starve other lanes: `--option cores 6 --option max-jobs 2`
              (override with GATE_CORES / GATE_JOBS); CARGO_BUILD_JOBS doesn't
              reach nix builds.
+  full       the checkpoint: `gate`, then `nix build .#stitchwort-slow`
+             (the same nextest run with the slow tier on). Both tiers.
 
 Slow tier (exhaustive or differential tests over ~20 s), off unless
-STITCHWORT_SLOW=1; only `dev/t slow` and the full gate turn it on:
-  - bench `repeat` (~95 s): returns with "skipped ...: slow tier".
+STITCHWORT_SLOW=1; only `dev/t slow`, `dev/t nextest` and `dev/t full`
+(the `stitchwort-slow` build) turn it on:
+  - bench `repeat` (~190 s): repeats the whole example sweep; a normal run
+    repeats three small benchmarks.
   - std_library `lazy_loading_changes_nothing_*`: compare every example; a
     normal run compares every eighth, and skips the AoC project.
 
@@ -471,13 +476,21 @@ case "$area" in
     args=(--workspace)
     ;;
   gate)
-    echo "the full gate, 6-7 minutes (nix builds use at most ${GATE_CORES:-6} cores, ${GATE_JOBS:-2} jobs)"
+    echo "the fast gate: nix flake check, STITCHWORT_SLOW unset (nix builds use at most ${GATE_CORES:-6} cores, ${GATE_JOBS:-2} jobs)"
     nix flake check --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
     exit 0
     ;;
   full)
+    # Both tiers: the gate, then the same nextest run with the slow tier on.
+    echo "the full checkpoint: the fast gate, then .#stitchwort-slow"
+    nix flake check --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
+    nix build .#stitchwort-slow --no-link --option cores "${GATE_CORES:-6}" --option max-jobs "${GATE_JOBS:-2}"
+    exit 0
+    ;;
+  nextest)
     # Every test binary at once (nextest runs binaries in parallel, each test
-    # in its own process), with the slow tier on, for the daily checkpoint.
+    # in its own process; .config/nextest.toml caps the threads), with the
+    # slow tier on. For a per-test time report: `--profile ci` (JUnit).
     export STITCHWORT_SLOW=1
     # A shell entered before nextest joined the flake has no nextest.
     if command -v cargo-nextest > /dev/null; then
@@ -489,7 +502,7 @@ case "$area" in
     ;;
   slow)
     # The slow tier: exhaustive and differential tests that the normal runs
-    # skip and the full gate runs (STITCHWORT_SLOW is set in flake.nix).
+    # skip and `dev/t full` runs (the `stitchwort-slow` build in flake.nix).
     export STITCHWORT_SLOW=1
     run_cargo test --release -p stitchwort-driver --test std_library ${filter:+-- "$filter"}
     args=(-p stitchwort-bench --test repeat)
