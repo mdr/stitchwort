@@ -505,3 +505,183 @@ fn adder_reads_until_the_end() {
         );
     }
 }
+
+// Handlers around partial code (docs/proposals/partial-handlers.md, lane B):
+// a `handle` around a partial computation is `foldD`. The programs are lane
+// A's (`crates/partial-model/tests/programs/handlers.rs`), whose traces the
+// model checks against hand-written ones (`tests/table.rs`, section 9).
+// Here the runner must give the same traces, ticks included.
+
+/// Lane A's handled programs, in Stitchwort.
+const HANDLER_DEFINITIONS: &str = include_str!("partial_handlers.sw");
+
+fn handler_program(body: &str) -> String {
+    format!("{HANDLER_DEFINITIONS}\ndef main (): {{IO, Partial}} () :=\n  {body}\n")
+}
+
+#[test]
+fn handled_traces_agree_with_the_model() {
+    use programs::handlers::*;
+    use stitchwort_partial_model::typed::{D, Empty, Host, Plus, bind, map_sig};
+
+    let inputs = ["n", "e", "s", "w", "q"];
+    let stop_then_spin = bind(stop::<Plus<Fail, Empty>>(0, "no"), |_| {
+        spin_in::<Plus<Fail, Empty>>().call(0)
+    });
+    let swapped: D<Plus<Fail, Plus<Counter, Host>>, u64> =
+        map_sig(swap_first_two(), climb().call(0));
+    let tally = |i: u64| i + i * (i + 1) / 2;
+    // Each `main` prints its program's result. Then the model's program,
+    // its result, what `main` prints, and the ticks the model's own tests
+    // expect (`table.rs`, section 9).
+    let cases: Vec<(&str, stitchwort_partial_model::delay::Delay, Val, &str, u64)> = vec![
+        (
+            "IO.print (showResult (toResult (() => countdown 5)))",
+            to_result(countdown_fail().call(5)).raw,
+            err("three"),
+            "Err three",
+            2,
+        ),
+        (
+            "IO.print (showResult (toResult (() => countdown 2)))",
+            to_result(countdown_fail().call(2)).raw,
+            ok(Val::Nat(0)),
+            "Ok 0",
+            2,
+        ),
+        (
+            "IO.print (showResult (toResult stopThenSpin))",
+            to_result(stop_then_spin).raw,
+            err("no"),
+            "Err no",
+            0,
+        ),
+        (
+            "IO.print (Nat.toText (fromLines [\"n\", \"e\", \"s\", \"w\", \"q\"] (() => play 0)))",
+            from_lines(&inputs, play().call(0)).raw,
+            Val::Nat(5),
+            "5",
+            5,
+        ),
+        (
+            "IO.print (showList (collectIn (() => search 2)))",
+            collect_in(search().call(2)).raw,
+            list(&[3, 1, 2, 0].map(Val::Nat)),
+            "3,1,2,0",
+            6,
+        ),
+        (
+            "IO.print (Nat.toText (walk 2))",
+            walk().call(2).raw,
+            Val::Nat(7),
+            "7",
+            5,
+        ),
+        (
+            "IO.print (Nat.toText (walk 12))",
+            walk().call(12).raw,
+            Val::Nat((1..=12).map(tally).sum()),
+            "442",
+            12 * 13 / 2 + 12,
+        ),
+        (
+            "IO.print (showResult (toResult (() => (runCounter 0 (() => climb 0)).fst)))",
+            to_result(run_counter(0, climb().call(0))).raw,
+            err("three"),
+            "Err three",
+            2,
+        ),
+        (
+            "let (result, count) := runCounter 0 (() => toResult (() => climb 0))\n  \
+             IO.print (showResult result ++ \" \" ++ Nat.toText count)",
+            run_counter(0, to_result(swapped)).raw,
+            Val::pair(err("three"), Val::Nat(3)),
+            "Err three 3",
+            2,
+        ),
+        (
+            "IO.print (Nat.toText (answered ()))",
+            ask_by_counting_down().raw,
+            Val::Nat(401),
+            "401",
+            4,
+        ),
+    ];
+    for (body, model, result, printed, expected_ticks) in cases {
+        let (model_events, model_outcome) = model_trace(model, &[], None);
+        assert_eq!(model_outcome, runner::Outcome::Finished(result), "{body}");
+        let mut session = load(&handler_program(body));
+        let (events, outcome) = run_traced(&mut session, &[], None);
+        assert_eq!(outcome, Outcome::Finished, "{body}");
+        let mut expected = model_events;
+        expected.push(Event::Print(printed.to_string()));
+        assert_eq!(events, expected, "{body}: the runner and the model differ");
+        assert_eq!(ticks(&events) as u64, expected_ticks, "{body}: ticks");
+        println!("{printed}: {expected_ticks} ticks, {} events", events.len());
+    }
+}
+
+/// A handler that resumes twice runs the first branch to its end first: if
+/// it never ends, the second never runs (D1256), as in the model.
+#[test]
+fn a_looping_first_branch_starves_the_second_like_the_model() {
+    use programs::handlers::*;
+    let (model_events, model_outcome) = model_trace(collect_in(left_loops()).raw, &[], Some(1000));
+    assert_eq!(model_outcome, runner::Outcome::OutOfTicks);
+    let mut session = load(&handler_program(
+        "IO.print (showList (collectIn leftLoops))",
+    ));
+    let (events, outcome) = run_traced(&mut session, &[], Some(1000));
+    assert_eq!(outcome, Outcome::OutOfTicks);
+    assert_eq!(events, model_events);
+    assert_eq!(events[0], Event::Print("left".into()));
+    assert_eq!(ticks(&events), 1000);
+}
+
+/// A loop under a state handler runs in constant frames (§5.3): the frames
+/// pending at each tick are the same for 10 turns as for 2,000.
+#[test]
+fn a_loop_under_a_handler_runs_in_constant_frames() {
+    let frames_at_ticks = |turns: usize| {
+        let lines: Vec<String> = (0..turns).map(|i| format!("\"{i}\"")).collect();
+        let mut session = load(&handler_program(&format!(
+            "IO.print (Nat.toText (fromLines [{}] (() => play 0)))",
+            lines.join(", ")
+        )));
+        let main = main_value(&mut session);
+        let g = &session.elab.globals;
+        let unit = stitchwort_core::Value::Ctor(
+            g.registry
+                .data(stitchwort_core::registry::Builtin::UnitType)
+                .unwrap(),
+            0,
+            Vec::new().into(),
+        );
+        let mut machine = Machine::start(g, main);
+        let mut frames = std::collections::BTreeSet::new();
+        let mut ticks = 0;
+        loop {
+            let mut obs = machine.step(g).unwrap();
+            loop {
+                match obs {
+                    Obs::Now(_) => return (frames, ticks),
+                    Obs::Later(rest) => {
+                        frames.insert(rest.frames());
+                        ticks += 1;
+                        machine = rest;
+                        break;
+                    }
+                    // `print`, the only operation that reaches the runner.
+                    Obs::Call(_, pending) => obs = pending.reply(g, unit.clone()).unwrap(),
+                }
+            }
+        }
+    };
+    let (small, large) = (frames_at_ticks(10), frames_at_ticks(2000));
+    assert_eq!((small.1, large.1), (10, 2000));
+    assert_eq!(
+        small.0, large.0,
+        "frames at each tick: 10 turns, then 2,000"
+    );
+    assert_eq!(small.0.len(), 1, "{:?}", small.0);
+}

@@ -252,6 +252,15 @@ def Effect.pfix: [op: Type] → [res: op → Type] → [req: Type] → [ans: req
   ((x: req) → Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) →
   (x: req) → Delay op res (ans x)
 
+-- The handler fold for a partial computation (docs/proposals/partial-handlers.md):
+-- `foldComp` with every result a `Delay`, so a handler around partial code is
+-- partial. `done` gets the result, `call` each operation and the rest of
+-- the computation, still handled.
+def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] → [a b: Type] →
+  (done: a → Delay op2 res2 b) →
+  (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b) →
+  Delay op1 res1 a → Delay op2 res2 b
+
 -- Partiality through a bare row (docs/proposals/partial-stage-3.md, D1213).
 
 -- Whether a computation in a bare row `{e}` may not finish. A signature whose

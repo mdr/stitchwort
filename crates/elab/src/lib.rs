@@ -3903,7 +3903,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     return Err(e);
                 }
             };
-            let goal_term = cx.quote(goal)?;
+            let goal_term = cx.quote_folded(goal)?;
             if !data.indices.is_empty() {
                 let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
                 return Ok(Term::Loc(*span, Rc::new(term)));
@@ -3921,13 +3921,18 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // context (as the kernel does).
                 let value = Value::Ctor(*d, c, fields.clone().into());
                 let level = cx.level();
-                let mut env = kernel::substitute(g, level, *x, &value, &cx.env)?;
+                let mut env = kernel::substitute_folded(g, level, *x, &value, &cx.env)?;
                 env[*x] = value.clone();
-                let refined = kernel::substitute(g, level, *x, &value, &cx.types)?;
-                let branch_goal =
-                    kernel::substitute(g, level, *x, &value, &[eval(g, &cx.env, &goal_term)?])?
-                        .pop()
-                        .expect("one value in, one out");
+                let refined = kernel::substitute_folded(g, level, *x, &value, &cx.types)?;
+                let branch_goal = kernel::substitute_folded(
+                    g,
+                    level,
+                    *x,
+                    &value,
+                    &[eval(g, &cx.env, &goal_term)?],
+                )?
+                .pop()
+                .expect("one value in, one out");
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
                 let mut field_env = params.clone();
@@ -3998,7 +4003,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     return Err(e);
                 }
             }
-            let goal_term = cx.quote(goal)?;
+            let goal_term = cx.quote_folded(goal)?;
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (key, subtree) in arms {
@@ -4007,13 +4012,18 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // kernel does).
                 let value = Value::Nat(Rc::new(key.clone()));
                 let level = cx.level();
-                let mut env = kernel::substitute(g, level, *x, &value, &cx.env)?;
+                let mut env = kernel::substitute_folded(g, level, *x, &value, &cx.env)?;
                 env[*x] = value.clone();
-                let refined = kernel::substitute(g, level, *x, &value, &cx.types)?;
-                let arm_goal =
-                    kernel::substitute(g, level, *x, &value, &[eval(g, &cx.env, &goal_term)?])?
-                        .pop()
-                        .expect("one value in, one out");
+                let refined = kernel::substitute_folded(g, level, *x, &value, &cx.types)?;
+                let arm_goal = kernel::substitute_folded(
+                    g,
+                    level,
+                    *x,
+                    &value,
+                    &[eval(g, &cx.env, &goal_term)?],
+                )?
+                .pop()
+                .expect("one value in, one out");
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
                 let result = check_tree(cx, subtree, &arm_goal);

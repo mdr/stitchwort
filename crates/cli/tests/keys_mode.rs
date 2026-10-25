@@ -358,3 +358,39 @@ fn ctrl_c_stops_the_program_and_restores_the_terminal() {
     s.wait_for_screen(LEAVE_SCREEN);
     assert!(!s.screen().contains("not reached"));
 }
+
+/// `examples/accept/terminal-walk.sw` through `Terminal.toIO` on a real
+/// terminal: each key arrives on its own, with no Enter, an arrow's escape
+/// sequence is one key, and each key draws one frame on the alternate
+/// screen.
+#[test]
+fn the_walking_example_reads_one_key_at_a_time() {
+    let Some(mut s) = Session::start(
+        "terminal-walk.sw",
+        include_str!("../../../examples/accept/terminal-walk.sw"),
+        false,
+    ) else {
+        return;
+    };
+    let frames = |s: &Session| s.screen().matches("\x1b[H").count();
+    s.wait_for_keys_mode(true);
+    s.wait_for_screen("#\x1b[33m@");
+    assert_eq!(frames(&s), 1);
+    s.type_keys(b"l");
+    s.wait_for_screen("#.\x1b[33m@");
+    assert_eq!(frames(&s), 2);
+    // Down, as a terminal sends it: one key.
+    s.type_keys(b"\x1b[B");
+    // (Keys mode leaves output processing on, so the terminal shows the
+    // frame's CR LF as CR CR LF.)
+    s.wait_for_screen("#..........#\x1b[K\r\r\n#.\x1b[33m@");
+    assert_eq!(frames(&s), 3);
+    s.type_keys(b"q");
+    let (code, errors) = s.wait();
+    assert_eq!(code, 0, "{errors}");
+    s.assert_restored();
+    s.wait_for_screen("The @ stopped at column 1, row 1.");
+    let screen = s.screen();
+    // The last line comes after leaving the alternate screen.
+    assert!(screen.rfind(LEAVE_SCREEN).unwrap() < screen.find("The @ stopped").unwrap());
+}

@@ -1009,35 +1009,39 @@ const $Std$dEffect$dhandlePlus = (v5, v6, v7, v8) => {
   throw new Error("unreachable");
 };
 const $Std$dEffect$drunPure = effRunPure;
-const $Std$dIO$d$gelim = (v1, v2, v3, v4, v5, v6, v7, v8, v9) => {
-  switch (v8.tag) {
+const $Std$dIO$d$gelim = (v1, v2, v3, v4, v5, v6, v7, v8, v9, v10) => {
+  switch (v9.tag) {
     case "%print": {
-      const v10 = v8.x;
-      return (v1)(v10)(v9);
+      const v11 = v9.x;
+      return (v1)(v11)(v10);
     }
     case "%readLine": {
-      const v10 = v8.x;
-      return (v2)(v10)(v9);
+      const v11 = v9.x;
+      return (v2)(v11)(v10);
     }
     case "%readAll": {
-      const v10 = v8.x;
-      return (v3)(v10)(v9);
+      const v11 = v9.x;
+      return (v3)(v11)(v10);
     }
     case "%console": {
-      const v10 = v8.x;
-      return (v4)(v10)(v9);
+      const v11 = v9.x;
+      return (v4)(v11)(v10);
     }
     case "%keysMode": {
-      const v10 = v8.x;
-      return (v5)(v10)(v9);
+      const v11 = v9.x;
+      return (v5)(v11)(v10);
     }
     case "%readBytes": {
-      const v10 = v8.x;
-      return (v6)(v10)(v9);
+      const v11 = v9.x;
+      return (v6)(v11)(v10);
     }
     case "%write": {
-      const v10 = v8.x;
-      return (v7)(v10)(v9);
+      const v11 = v9.x;
+      return (v7)(v11)(v10);
+    }
+    case "%randomSeed": {
+      const v11 = v9.x;
+      return (v8)(v11)(v10);
     }
   }
   throw new Error("unreachable");
@@ -1071,7 +1075,7 @@ const $Std$dIO$dbytesOf = (v0) => {
   throw new Error("unreachable");
 };
 const $Std$dIO$dnoConsole = { inputIsTerminal: { tag: "False" }, outputIsTerminal: { tag: "False" }, columns: 0n, rows: 0n };
-const $Std$dIO$dsimulate$e = (v2, v3) => $Std$dEffect$dfoldComp(((v4) => ((v5) => ((v6) => ({ tag: "MkPair", fst: $Std$dList$dreverseOnto(v6, { tag: "Nil" }), snd: v4 })))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2, $s3, $s4, $s5, $s6, $s7) => (($p8) => ($p9) => $Std$dIO$d$gelim($s1, $s2, $s3, $s4, $s5, $s6, $s7, $p8, $p9)))(((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)({ tag: "Cons", head: v4, tail: v7 }))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dnextLine(v6))($Std$dList$dtailOf(v6))(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$drestOf(v6))({ tag: "Nil" })(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dnoConsole)(v6)(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dbytesOf(v6))({ tag: "Nil" })(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)({ tag: "Cons", head: v4, tail: v7 })))))), ((v4) => ((v5) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), rest: ((v6) => ({ tag: "Done", value: (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6)) })) })))), (v3)({ tag: "UnitValue" }))(v2)({ tag: "Nil" });
+const $Std$dIO$dsimulate$e = (v2, v3) => $Std$dEffect$dfoldComp(((v4) => ((v5) => ((v6) => ({ tag: "MkPair", fst: $Std$dList$dreverseOnto(v6, { tag: "Nil" }), snd: v4 })))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2, $s3, $s4, $s5, $s6, $s7, $s8) => (($p9) => ($p10) => $Std$dIO$d$gelim($s1, $s2, $s3, $s4, $s5, $s6, $s7, $s8, $p9, $p10)))(((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)({ tag: "Cons", head: v4, tail: v7 }))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dnextLine(v6))($Std$dList$dtailOf(v6))(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$drestOf(v6))({ tag: "Nil" })(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dnoConsole)(v6)(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dbytesOf(v6))({ tag: "Nil" })(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)({ tag: "Cons", head: v4, tail: v7 }))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)(0n)(v6)(v7)))))), ((v4) => ((v5) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), rest: ((v6) => ({ tag: "Done", value: (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6)) })) })))), (v3)({ tag: "UnitValue" }))(v2)({ tag: "Nil" });
 const $Std$dText$dlength = (t) => {
   let n = 0;
   for (let i = 0; i < t.length; i++, n++) {

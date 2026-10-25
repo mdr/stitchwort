@@ -60,6 +60,7 @@
               ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/guide.rs)
               ./web/tests/effect-shapes.sw # the effect-shape tests run it (crates/web)
               ./bench # benchmark counts are checked against the baseline
+              ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/project.rs)
             ];
           };
           # What the playground bundles of the AoC project: its sources and
@@ -126,11 +127,25 @@
               meta.mainProgram = "stitchwort";
             }
           );
+          # The CLI with native code (Cranelift, docs/proposals/native-
+          # compilation.md): `nix build .#stitchwort-native-bin`. The
+          # default binary leaves it out.
+          stitchwort-native-bin = craneLib.buildPackage (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              pname = "stitchwort-native";
+              cargoExtraArgs = "--locked -p stitchwort-cli --features native";
+              doCheck = false;
+              meta.mainProgram = "stitchwort";
+            }
+          );
           clippy = craneLib.cargoClippy (
             commonArgs
             // {
               inherit cargoArtifacts;
-              cargoClippyExtraArgs = "--all-targets -- --deny warnings";
+              # With the CLI's `native` feature, so its code is linted too.
+              cargoClippyExtraArgs = "--all-targets --features stitchwort-cli/native -- --deny warnings";
             }
           );
           fmt = craneLib.cargoFmt { inherit src; };
@@ -187,7 +202,12 @@
     in
     {
       packages = forAllSystems (pkgs: rec {
-        inherit (buildsFor pkgs) stitchwort-bin stitchwort-full playground;
+        inherit (buildsFor pkgs)
+          stitchwort-bin
+          stitchwort-native-bin
+          stitchwort-full
+          playground
+          ;
         default = stitchwort-bin;
       });
 

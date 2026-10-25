@@ -12,6 +12,7 @@ use std::rc::Rc;
 use num_bigint::BigInt;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
+use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, Sort, Term};
@@ -37,6 +38,19 @@ fn internal(message: impl Into<String>) -> Diagnostic {
     Diagnostic::error("E-RUNTIME", format!("internal error: {}", message.into()))
 }
 
+/// A handler around partial code (`foldD`, docs/proposals/partial-handlers.md)
+/// runs only on the reference runner so far: this runtime gets it in lane C
+/// of that note. A `main` that uses it is refused when it's lowered; a test
+/// that runs it stops with this error, and runs on the reference evaluator
+/// instead.
+pub fn fold_d_unsupported() -> Diagnostic {
+    Diagnostic::error(
+        "E-RUNTIME",
+        "a handler around partial code isn't supported on this runner yet",
+    )
+    .with_note("run it with `stitchwort run --reference`")
+}
+
 /// Lowers the program that runs `main`: the closed term of type
 /// `{IO, Partial} ()` (`row` [`MainRow::Io`]) or `{IO, Fail, Partial} ()`
 /// ([`MainRow::FailIo`]) that `stitchwort run` runs (`Main`'s term and row
@@ -48,6 +62,14 @@ pub fn lower_main(g: &Globals, limits: Limits, main: &Term, row: MainRow) -> Res
         return Err(internal("a `main` that may fail, with `Fail` not loaded"));
     }
     let mut program = lower_program(g, limits, main)?;
+    if program.globals.iter().any(|global| {
+        matches!(
+            global.kind,
+            GlobalKind::Native(PrimOp::Delay(Primitive::FoldD))
+        )
+    }) {
+        return Err(fold_d_unsupported());
+    }
     program.main_row = row;
     Ok(program)
 }
@@ -250,6 +272,7 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         read_bytes: ctor(Builtin::ReadBytes, 1)?,
         write: ctor(Builtin::IoWrite, 1)?,
         console_record: nth(Builtin::Console, 0, 4)?,
+        random_seed: ctor(Builtin::RandomSeed, 1)?,
         stop: match g.registry.loaded_data(Builtin::Fail) {
             Some(d) => shape(g, d, 0, 1)?,
             None => u32::MAX,

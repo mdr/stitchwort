@@ -70,6 +70,7 @@ package(stitchwort-syntax)
 | (binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/))
 | (package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | (binary(machine) & test(=library_tests_agree))))
 | package(stitchwort-js)
+| package(stitchwort-native)
 | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))
 | (binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/))
 | (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
@@ -112,6 +113,9 @@ default-filter = "package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | bi
 
 [profile.lane-js]
 default-filter = "package(stitchwort-js) | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))"
+
+[profile.lane-native]
+default-filter = "package(stitchwort-native)"
 
 [profile.lane-lsp]
 default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)"

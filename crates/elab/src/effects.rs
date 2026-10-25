@@ -3809,26 +3809,33 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     };
     let mut inner_labels = vec![handled.clone()];
     inner_labels.extend(rest.labels.iter().cloned());
-    // The handled computation is total even in a partial context: a
-    // handler is a fold over a `Comp`, and there's nothing to fold in a
-    // `Delay` (docs/proposals/partial.md §7.3.8).
-    let inner = Row {
+    // The handled computation is total if it can be: then the handler is a
+    // fold over a `Comp` (`foldComp`). If it's partial, the handler is
+    // `foldD`, the fold over a `Delay`, whose result is a `Delay` too: the
+    // output row must be partial (docs/proposals/partial-handlers.md §2.1).
+    let mut inner = Row {
         labels: inner_labels,
         tail: rest.tail.clone(),
         partial: false,
         div: None,
     };
-    let (body_c, t_in) = comp_infer(cx, body, &inner).map_err(|mut e| {
-        if e.code == "E-PARTIAL" {
-            e.notes.clear();
-            e.with_note(
-                "the computation a handler handles can't be `Partial`: a handler folds over \
-                 every way a computation can go, which needs it to finish",
-            )
-        } else {
-            e
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let (body_c, t_in) = match comp_infer(cx, body, &inner) {
+        Ok(found) => found,
+        Err(e) if e.code == "E-PARTIAL" && out.partial => {
+            snapshot.restore(cx);
+            inner.partial = true;
+            comp_infer(cx, body, &inner)?
         }
-    })?;
+        Err(mut e) if e.code == "E-PARTIAL" => {
+            e.notes.clear();
+            return Err(e.with_note(
+                "the code this handler handles is partial, so the handler is too: its result \
+                 can only be used where `Partial` is allowed",
+            ));
+        }
+        Err(e) => return Err(e),
+    };
     let r = comp_type(cx, out, t.clone())?;
 
     // return x -> …
@@ -4017,6 +4024,22 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         ],
         vec![elim_term, forward],
     )?;
+    if inner.partial {
+        // `foldD done step body`: the carrier `r` is `Delay (ops out)
+        // (res out) t`, so `foldD`'s `b` is `t`.
+        let mut fold = Term::Def(primitive(cx, Primitive::FoldD)?);
+        for v in [
+            ops(cx, &inner)?,
+            res(cx, &inner)?,
+            ops(cx, out)?,
+            res(cx, out)?,
+            t_in,
+            t.clone(),
+        ] {
+            fold = Term::app_icit(fold, cx.quote(&v)?, Icit::Implicit);
+        }
+        return Ok(Term::app(Term::app(Term::app(fold, done_fn), step), body_c));
+    }
     call(
         cx,
         Builtin::FoldComp,

@@ -277,6 +277,9 @@ impl Runner<'_, '_> {
                         // Building `pfix f x` ran nothing; stepping it
                         // enters the body. No tick.
                         Delay::Pfix(f, x) => Focus::Enter(f.clone(), x.clone()),
+                        Delay::Fold(..) => {
+                            return Err(RunError::Lowering(crate::lower::fold_d_unsupported()));
+                        }
                     }
                 }
                 Focus::Enter(f, x) => {
@@ -531,6 +534,8 @@ impl Runner<'_, '_> {
         } else if tag == s.write {
             write_text(output, crate::prims::text_of(&field()))?;
             Value::Tag(s.unit)
+        } else if tag == s.random_seed {
+            Value::Nat(crate::host::random_seed())
         } else {
             panic!("internal error: an unknown `IO` operation {io:?}")
         })

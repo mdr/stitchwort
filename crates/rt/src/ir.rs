@@ -121,7 +121,7 @@ pub struct Shapes {
     /// `MkSigMap inject reply`.
     pub sig_map: u32,
     /// `IO`'s `%print text`, `%readLine u`, `%readAll u`, `%console u`,
-    /// `%keysMode on`, `%readBytes u`, `%write text`.
+    /// `%keysMode on`, `%readBytes u`, `%write text`, `%randomSeed u`.
     pub print: u32,
     pub read_line: u32,
     pub read_all: u32,
@@ -129,6 +129,7 @@ pub struct Shapes {
     pub keys_mode: u32,
     pub read_bytes: u32,
     pub write: u32,
+    pub random_seed: u32,
     /// `Console`'s one constructor, `IO.console`'s reply: four fields.
     pub console_record: u32,
     /// `Fail`'s `%stop msg`, if `Fail`'s library file has loaded;
@@ -346,6 +347,7 @@ impl PrimOp {
             PrimOp::Delay(prim) => match prim {
                 Primitive::Now | Primitive::Lift => 1,
                 Primitive::BindD | Primitive::MapSig | Primitive::Pfix => 2,
+                Primitive::FoldD => 3,
                 Primitive::Delay => 0,
             },
             PrimOp::Float(op) => op.arity(),

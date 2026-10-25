@@ -172,7 +172,10 @@ fn examples_agree() {
         let what = path.display().to_string();
         let (mut session, text) = load_file(path);
         let tests = run_tests(&session, &everything(&session, &what), &what, false);
-        if text.contains("def main()") || text.contains("def main ()") {
+        // A `(run: random)` example prints a different number each run.
+        if (text.contains("def main()") || text.contains("def main ()"))
+            && !text.contains("(run: random)")
+        {
             let main = session
                 .main()
                 .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));

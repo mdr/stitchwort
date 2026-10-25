@@ -17,8 +17,8 @@ type Console = {
 }
 
 -- The console. Only a host interpreter performs these for real; in Stitchwort
--- code, `IO.simulate` interprets them as data. The last four are what a
--- terminal handler is built on (docs/proposals/terminal-io.md §4). The host's
+-- code, `IO.simulate` interprets them as data. `console`, `keysMode`,
+-- `readBytes` and `write` are what a terminal handler is built on (docs/proposals/terminal-io.md §4). The host's
 -- `print`, `readLine` and `readAll` leave keys mode first, if it's on.
 ability IO where
   print: Text → {IO} () -- writes the text, then a line ending
@@ -28,6 +28,7 @@ ability IO where
   keysMode: Bool → {IO} () -- enter (True) or leave (False) keys mode
   readBytes: () → {IO} (Option (List Nat)) -- the bytes of one read; None at end of input
   write: Text → {IO} () -- the text with no line ending, then flush
+  randomSeed: () → {IO} Nat -- a fresh 64-bit number each run, from the host's entropy; 0 in `IO.simulate`
 
 -- The first line of scripted input, if there is one.
 def IO.nextLine: List Text → Option Text
@@ -64,9 +65,10 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 -- each `IO.print` and `IO.write` payload, in order, with the result. A
 -- payload is one entry even if it contains a line feed: a real interpreter
 -- writes each `print` payload followed by a line ending. `IO.console` says
--- there's no terminal (`IO.noConsole`), and `IO.keysMode` does nothing. The
--- payloads are collected in reverse and turned round at the end, so a long
--- run doesn't build a deep chain of pending pairs.
+-- there's no terminal (`IO.noConsole`), `IO.keysMode` does nothing, and
+-- `IO.randomSeed` gives 0. The payloads are collected in reverse and turned
+-- round at the end, so a long run doesn't build a deep chain of pending
+-- pairs.
 def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text → List Text → {e} Pair (List Text) a :=
     handle prog() with
@@ -78,4 +80,5 @@ def IO.simulate (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Tex
       | IO.keysMode on, k => ins out => k() ins out
       | IO.readBytes u, k => ins out => k (IO.bytesOf ins) Nil out
       | IO.write t, k => ins out => k() ins (Cons t out)
+      | IO.randomSeed u, k => ins out => k 0 ins out
   run input Nil

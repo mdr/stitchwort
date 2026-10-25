@@ -1,5 +1,5 @@
 {
-  "next": 495,
+  "next": 502,
   "tickets": [
     {
       "id": 13,
@@ -2992,14 +2992,16 @@
     {
       "id": 485,
       "title": "Native N0: Cranelift spike behind a feature; counters, tail calls, deep recursion, compile time, binary size, macOS signing/hardened JIT (D1250, D1251)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "03379318"
+      ]
     },
     {
       "id": 486,
@@ -3018,19 +3020,21 @@
     {
       "id": 487,
       "title": "Partial handlers lane B: kernel foldD, reference runner, elaborator (D1254)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8109ab89"
+      ]
     },
     {
       "id": 488,
       "title": "Partial handlers lane C: native and JS runners for foldD, stack tests",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3042,7 +3046,7 @@
     {
       "id": 489,
       "title": "Partial handlers lane D: divergence index on {A | e} rows; std handlers take partial code (D1255)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3082,31 +3086,123 @@
     {
       "id": 492,
       "title": "Native: N1 coverage census (opcode use, whole-island fit) over benchmarks, AoC, rogue",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "dd7963bf"
+      ]
     },
     {
       "id": 493,
       "title": "Proof goals print top-level constants unfolded (rogue: 30 KB goals); keep names folded",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "17b81d6d"
+      ]
     },
     {
       "id": 494,
       "title": "Roguelike stage 2: generated dungeons (Random), levels, items/inventory, chasing monsters; proofs kept",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 495,
+      "title": "Terminal lane 1: host IO ops (console, keysMode, readBytes, write) in all runners; native raw mode, restore guard (D1260)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 496,
+      "title": "Terminal lane 2: std Terminal, Key, Key.next, Frame, Terminal.toIO/simulate, Ansi; round-trip theorem (D1259)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "b684f0e0"
+      ]
+    },
+    {
+      "id": 497,
+      "title": "Terminal lane 4: IO.randomSeed in all runners, pure std generator (D1258)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "6ca77b2c"
+      ]
+    },
+    {
+      "id": 498,
+      "title": "Terminal lane 3: Node raw mode for run --js (after lane 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 499,
+      "title": "Terminal lane 5: roguelike on Terminal, partial play with no fuel (after partial handlers B–D, terminal lanes 1–2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 500,
+      "title": "Native N1: core instructions (+DropReuse, Global, Apply) via Cranelift behind run --native; counters; islands; Set benchmark vs 3× stop point (D1250)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 501,
+      "title": "Goals: keep zero-argument constants folded (maxHitPoints prints as 12, dungeon as a list); one spot in eval_step, measure AoC check and examples before/after",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],

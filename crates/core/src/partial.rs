@@ -11,7 +11,16 @@
 //! pfix   : [op] [res] [A : Type] [B : A -> Type] ->
 //!          ((x : A) -> Delay (Plus (Rec A) op) (PlusRes (RecRes B) res) (B x)) ->
 //!          (x : A) -> Delay op res (B x)
+//! foldD  : [op1] [res1] [op2] [res2] [a b : Type] ->
+//!          (a -> Delay op2 res2 b) ->
+//!          ((o : op1) -> (res1 o -> Delay op2 res2 b) -> Delay op2 res2 b) ->
+//!          Delay op1 res1 a -> Delay op2 res2 b
 //! ```
+//!
+//! `foldD` is the handler fold for a partial computation
+//! (docs/proposals/partial-handlers.md §2.3): `foldComp`'s type with every
+//! carrier replaced by `Delay op2 res2 b`. Its result is a `Delay`, so it
+//! gives total code no way into one either.
 //!
 //! They're definitions without bodies, declared in the prelude like any
 //! other signature, and admitted here once their types are checked to be
@@ -23,7 +32,8 @@
 //!
 //! Why that's consistent (§7.8): any model of the rest of the theory
 //! extends by reading every `Delay op res a` as a one-element set, and the
-//! constants as the only functions into it. None of their types extracts an
+//! constants as the only functions into it (`foldD` too: its type ends in a
+//! `Delay`, so it's the constant function to the one element). None of their types extracts an
 //! `a` from a `Delay … a`. Only the runtime gives `Delay` a meaning
 //! (`step.rs`), and nothing it computes is ever given back to the checker.
 //!
@@ -47,16 +57,18 @@ pub enum Primitive {
     BindD,
     MapSig,
     Pfix,
+    FoldD,
 }
 
 impl Primitive {
-    pub const ALL: [Primitive; 6] = [
+    pub const ALL: [Primitive; 7] = [
         Primitive::Delay,
         Primitive::Now,
         Primitive::Lift,
         Primitive::BindD,
         Primitive::MapSig,
         Primitive::Pfix,
+        Primitive::FoldD,
     ];
 
     /// Its name in the prelude.
@@ -68,6 +80,7 @@ impl Primitive {
             Primitive::BindD => "Effect.bindD",
             Primitive::MapSig => "Effect.mapSig",
             Primitive::Pfix => "Effect.pfix",
+            Primitive::FoldD => "Effect.foldD",
         }
     }
 
@@ -83,6 +96,7 @@ impl Primitive {
             Primitive::Now | Primitive::Lift => 4,
             Primitive::BindD | Primitive::Pfix => 6,
             Primitive::MapSig => 7,
+            Primitive::FoldD => 9,
         }
     }
 }
@@ -305,6 +319,58 @@ fn expected(p: &Prelude, prim: Primitive) -> Option<Shape> {
                             arrow(
                                 description,
                                 pi(Icit::Explicit, "x", l(2), delay(l(0), l(1), b_of(5))?),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        }
+        // [op1] [res1] [op2] [res2] [a b] ->
+        //   (a -> Delay op2 res2 b) ->
+        //   ((o : op1) -> (res1 o -> Delay op2 res2 b) -> Delay op2 res2 b) ->
+        //   Delay op1 res1 a -> Delay op2 res2 b
+        Primitive::FoldD => {
+            // `res1 o`. In `call`'s type, `done` is at level 6, so its own
+            // `o` is at level 7.
+            let reply = app(l(1), vec![(l(7), Icit::Explicit)]);
+            let call = pi(
+                Icit::Explicit,
+                "o",
+                l(0),
+                arrow(
+                    arrow(reply, delay(l(2), l(3), l(5))?),
+                    delay(l(2), l(3), l(5))?,
+                ),
+            );
+            implicit(
+                "op1",
+                ty(),
+                implicit(
+                    "res1",
+                    res_type(0),
+                    implicit(
+                        "op2",
+                        ty(),
+                        implicit(
+                            "res2",
+                            res_type(2),
+                            implicit(
+                                "a",
+                                ty(),
+                                implicit(
+                                    "b",
+                                    ty(),
+                                    arrow(
+                                        arrow(l(4), delay(l(2), l(3), l(5))?),
+                                        arrow(
+                                            call,
+                                            arrow(
+                                                delay(l(0), l(1), l(4))?,
+                                                delay(l(2), l(3), l(5))?,
+                                            ),
+                                        ),
+                                    ),
+                                ),
                             ),
                         ),
                     ),

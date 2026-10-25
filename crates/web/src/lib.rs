@@ -465,6 +465,28 @@ fn run_in(
     run_main_in(session, &main, input, max_output, max_past_end, print)
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    /// The browser's (or worker's) `crypto.getRandomValues`.
+    #[wasm_bindgen(js_namespace = crypto, js_name = getRandomValues)]
+    fn get_random_values(buffer: &mut [u8]);
+}
+
+/// `IO.randomSeed` takes its 64 bits from `crypto.getRandomValues`: the
+/// standard library has no entropy source on this target.
+#[cfg(target_arch = "wasm32")]
+fn use_browser_entropy() {
+    stitchwort_rt::host::set_random_source(|| {
+        let mut bytes = [0u8; 8];
+        get_random_values(&mut bytes);
+        u64::from_le_bytes(bytes)
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn use_browser_entropy() {}
+
 /// [`run_in`] for a `main` that's already found.
 fn run_main_in(
     session: Session,
@@ -474,6 +496,7 @@ fn run_main_in(
     max_past_end: usize,
     print: &mut dyn FnMut(&[u8]),
 ) -> Ran {
+    use_browser_entropy();
     let mut output = Capped {
         print,
         written: 0,
@@ -1007,6 +1030,16 @@ mod tests {
             printed(&run(ops, "first\nab", 1000)),
             r"terminals: no no\nsize: 0x0\ndrawn, no line ending\nfirst\n97,98\nnone\nnone\n"
         );
+    }
+
+    /// `IO.randomSeed` works in the playground's runner (here with the
+    /// native entropy source; in the browser it is `crypto.getRandomValues`).
+    #[test]
+    fn runs_main_with_a_random_seed() {
+        let program = "import Std (IO, Nat)\ndef main () : {IO} () := IO.print (Nat.toText (IO.randomSeed ()))\n";
+        let out = run(program, "", 1000);
+        assert!(out.starts_with(r#"{"ok":true,"output":""#), "{out}");
+        assert_ne!(out, run(program, "", 1000));
     }
 
     #[test]

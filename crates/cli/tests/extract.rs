@@ -187,6 +187,7 @@ fn examples() -> Examples {
 
 /// The extraction examples, each checked the first time it is asked for: a
 /// test that uses one example doesn't pay for checking all of them.
+#[allow(clippy::type_complexity)]
 struct Examples(Vec<(PathBuf, std::cell::OnceCell<(String, String, Session)>)>);
 
 /// Checks the example at `path`, panicking with its diagnostics if it

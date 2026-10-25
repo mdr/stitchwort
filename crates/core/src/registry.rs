@@ -391,6 +391,7 @@ builtins! {
     BindD = "Effect.bindD": Def,
     MapSig = "Effect.mapSig": Def,
     Pfix = "Effect.pfix": Def,
+    FoldD = "Effect.foldD": Def,
     // Partiality through a bare row (docs/proposals/partial-stage-3.md)
     Divergence = "Effect.Divergence": Data,
     DivTotal = "Total": Ctor(Builtin::Divergence),
@@ -412,6 +413,7 @@ builtins! {
     ReadBytes = "%readBytes": Ctor(Builtin::Io),
     IoWrite = "%write": Ctor(Builtin::Io),
     Console = "Console": Data,
+    RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
     // runners perform `stop` themselves, as they perform `print`

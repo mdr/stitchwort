@@ -14,8 +14,8 @@ stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
+stitchwort-rt.workspace = true
 stitchwort-driver.workspace = true
-stitchwort-rt = { workspace = true, optional = true }
 stitchwort-fmt.workspace = true
 clap.workspace = true
 rustyline.workspace = true
@@ -26,6 +26,9 @@ lsp-server.workspace = true
 lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# Native code through Cranelift (docs/proposals/native-compilation.md):
+# only with the `native` feature, which is off by default.
+stitchwort-native = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 # Keys mode on a terminal (docs/proposals/terminal-io.md §4.6).
@@ -33,9 +36,11 @@ nix.workspace = true
 rustix.workspace = true
 
 [features]
+# `stitchwort dev native-spike` (stage N0), and later `run --native`.
+native = ["dep:stitchwort-native"]
 # `run --alloc-trace FILE`: the bring-up allocation trace of the fast
 # runtime (`stitchwort_rt::alloc_trace`). Off in release builds.
-alloc-trace = ["dep:stitchwort-rt", "stitchwort-rt/alloc-trace"]
+alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
 insta.workspace = true

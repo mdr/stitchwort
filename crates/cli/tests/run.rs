@@ -547,8 +547,10 @@ fn a_total_main_that_may_fail_runs_three_ways() {
     );
 }
 
-/// A handler still can't take a partial computation: handling `Fail` around
-/// a partial search is refused (partial.md §7.3.8), as before.
+/// `Fail.toResult` still takes only a total program: its row `{Fail | e}`
+/// is total until rows with abilities get a divergence index (lane D of
+/// docs/proposals/partial-handlers.md). A `handle` written in place can go
+/// around partial code (examples/accept/partial-handlers.sw).
 #[test]
 fn fail_still_cant_be_handled_around_partial_code() {
     let path = source_file(
@@ -737,4 +739,25 @@ fn std_dir_reads_the_library_from_disk() {
     );
     let _ = std::fs::remove_dir_all(&std);
     let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// `IO.randomSeed` gives a fresh 64-bit number each run.
+#[test]
+fn the_random_seed_is_fresh_each_run() {
+    let path = source_file(
+        "seed.sw",
+        "import Std (IO, Nat)\ndef main () : {IO} () := IO.print (Nat.toText (IO.randomSeed ()))\n",
+    );
+    let seeds: Vec<u64> = (0..3)
+        .map(|_| {
+            let output = run(&path, b"");
+            assert!(output.status.success(), "{}", stderr(&output));
+            String::from_utf8(output.stdout)
+                .unwrap()
+                .trim()
+                .parse()
+                .expect("a 64-bit number")
+        })
+        .collect();
+    assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
 }

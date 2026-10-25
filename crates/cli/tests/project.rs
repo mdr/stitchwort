@@ -492,3 +492,69 @@ fn test_warns_when_a_target_matches_no_tests() {
         err(&output)
     );
 }
+
+/// The roguelike's proofs (games/rogue/), with seven holes in `match`
+/// branches on `isStairs` and `isWall` added: the goals show the calls as
+/// the proofs wrote them, `isStairs state.player = False`, not the dungeon
+/// map those read (games/rogue/NOTES.md item 14). The goals were about
+/// 20 KB of output before the fix, and are about 4 KB with it.
+#[test]
+fn rogue_goals_keep_the_dungeon_folded() {
+    let rogue = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../games/rogue");
+    let dir = project("rogue-goals", &[]);
+    copy_tree(&rogue.join("src"), &dir.join("src"));
+    std::fs::copy(rogue.join("stitchwort.yaml"), dir.join("stitchwort.yaml")).unwrap();
+    std::fs::write(dir.join("src/Rogue/Proofs/Holes.sw"), ROGUE_HOLES).unwrap();
+    let output = stitchwort(&dir, &["check", "Rogue.Proofs"]);
+    let text = format!("{}{}", out(&output), err(&output));
+    assert_eq!(text.matches("[GOAL]").count(), 7, "{text}");
+    assert!(
+        text.contains("stairs: Rogue.isStairs state.player = False"),
+        "{text}"
+    );
+    assert!(
+        text.contains("wall: Rogue.isWall (Rogue.Position.toward state.player direction) = True"),
+        "{text}"
+    );
+    assert!(!text.contains("['#'"), "the map is unfolded:\n{text}");
+    assert!(text.len() < 6_000, "{} bytes of goals:\n{text}", text.len());
+}
+
+const ROGUE_HOLES: &str = "namespace Rogue.Proofs
+import Rogue (..)
+import Std (Nat)
+
+theorem stairsHoles (dice: Dice) (state: State):
+    (monstersTurn dice state).hitPoints ≤ maxHitPoints :=
+  match stairs: isStairs state.player with
+    | True => ?
+    | False => ?
+
+theorem wallHoles (dice: Dice) (state: State) (direction: Direction):
+    (playerMoves dice state direction).hitPoints ≤ maxHitPoints :=
+  match found: monsterAt (state.player.toward direction) state.monsters with
+    | Some monster => ?
+    | None =>
+      match wall: isWall (state.player.toward direction) with
+        | True => ?
+        | False => ?
+
+theorem clearHoles (dice: Dice) (state: State):
+    Clear (monstersTurn dice state).player (monstersTurn dice state).monsters :=
+  match stairs: isStairs state.player with
+    | True => ?
+    | False => ?
+";
+
+fn copy_tree(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_tree(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}

@@ -23,4 +23,4 @@ Main.test "a variable lifted" 37164876b9bc23300bb398dd970b01f5170a51292306437ce0
 Main.test "a variable lifted, given a lambda" a76c898040891317c37ae74502506cdcc607c2a71352282ad5287c7f22e56d98
 Main.test "a data representative" c6fe0f826e7f49d6439b626ecefc747c007dc00fa380a980943d19cdf758107e
 Main.test "a lift applied further" 20dbc6ad26b878731b0051e9f5b01cc066e888599a2880d4e8a9e4a6ce6c5a9b
-Main.main 85d6f0805c15215ec9a4c4e0609233f2e3def97c2b4b6e556b59e9f1464bb069
+Main.main eb8fc4d0dfe75f3c8de99ce3d5bb34c45bae39fd26ffa29f8354d48f35e19b85
