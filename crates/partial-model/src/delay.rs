@@ -1,7 +1,9 @@
 //! `Comp` segments and `Delay` values, as the runtime represents them.
 //!
 //! The kernel constants of the proposal (§7.2) are [`Delay::now`],
-//! [`Delay::lift`], [`Delay::bind`], [`Delay::map_sig`] and [`Delay::pfix`].
+//! [`Delay::lift`], [`Delay::bind`], [`Delay::map_sig`] and [`Delay::pfix`],
+//! and the handler fold of `docs/proposals/partial-handlers.md` (§2.3) is
+//! [`Delay::fold_d`].
 //! Each just *records* its arguments: building a `Delay` never runs user code.
 //! In particular `pfix f x` stores `f` and `x` without applying `f`; the
 //! description's body runs only when the value is stepped (proposal §7.4,
@@ -9,16 +11,22 @@
 //!
 //! The other node kinds are internal runtime states that user code can't
 //! build: `Tie` and `Resume` belong to the reference stepper
-//! ([`crate::reference`]), `Suspended` to the machine ([`crate::machine`]).
+//! ([`crate::reference`]), `Suspended` and `Restore` to the machine
+//! ([`crate::machine`]).
 
 use std::rc::Rc;
 
-use crate::machine::Machine;
+use crate::machine::{Capture, Machine};
 use crate::reference::Seg;
 use crate::val::Val;
 
 /// A continuation of `bindD`, and a description given to `pfix`.
 pub type Kont = Rc<dyn Fn(Val) -> Delay>;
+
+/// The `call` argument of `foldD`: a handler's clauses, given an operation and
+/// its resumption `k`. `k` is the rest of the handled program under the same
+/// handler (a deep handler), and may be called any number of times.
+pub type Handler = Rc<dyn Fn(Val, Kont) -> Delay>;
 
 /// The continuation of a `Call` node in a `Comp` tree.
 #[derive(Clone)]
@@ -92,12 +100,18 @@ pub(crate) enum Node {
     MapSig(SigMap, Delay),
     /// `pfix f x`: suspended. `f` hasn't been applied to `x`.
     Pfix(Kont, Val),
+    /// `foldD done call d`: the handler fold for a partial computation.
+    FoldD(Kont, Handler, Delay),
     /// Reference stepper only: `tie f d` answers `d`'s recursion requests.
     Tie(Kont, Delay),
     /// Reference stepper only: a segment turned back into a `Delay`.
     Resume(Seg),
     /// Machine only: the rest of a computation after a `Later`.
     Suspended(Box<Machine>),
+    /// Machine only: a resumption `k` applied to a reply. The captured frames
+    /// are shared with `k`, and copied only if something else (`k` itself,
+    /// which may be called again) still holds them when this is stepped.
+    Restore(Rc<Capture>, Val),
 }
 
 impl Delay {
@@ -142,6 +156,12 @@ impl Delay {
         Delay::lift(Comp::op(o))
     }
 
+    /// `foldD done call d`: handle `d`'s operations with `call` and its result
+    /// with `done`. Only records its arguments; nothing runs until stepped.
+    pub fn fold_d(done: Kont, call: Handler, d: Delay) -> Delay {
+        Delay(Rc::new(Node::FoldD(done, call, d)))
+    }
+
     pub(crate) fn tie(f: Kont, d: Delay) -> Delay {
         Delay(Rc::new(Node::Tie(f, d)))
     }
@@ -152,6 +172,10 @@ impl Delay {
 
     pub(crate) fn suspended(m: Machine) -> Delay {
         Delay(Rc::new(Node::Suspended(Box::new(m))))
+    }
+
+    pub(crate) fn restore(c: Rc<Capture>, y: Val) -> Delay {
+        Delay(Rc::new(Node::Restore(c, y)))
     }
 
     /// Whether this is a still-unentered `pfix` application.
@@ -176,12 +200,17 @@ impl Drop for Node {
 
 fn take_children(n: &mut Node, out: &mut Vec<Delay>) {
     match n {
-        Node::Bind(d, _) | Node::MapSig(_, d) | Node::Tie(_, d) => {
+        Node::Bind(d, _) | Node::MapSig(_, d) | Node::Tie(_, d) | Node::FoldD(_, _, d) => {
             if Rc::strong_count(&d.0) == 1 {
                 let leaf = Delay(Rc::new(Node::Now(Val::Unit)));
                 out.push(std::mem::replace(d, leaf));
             }
         }
-        Node::Now(_) | Node::Lift(_) | Node::Pfix(..) | Node::Resume(_) | Node::Suspended(_) => {}
+        Node::Now(_)
+        | Node::Lift(_)
+        | Node::Pfix(..)
+        | Node::Resume(_)
+        | Node::Suspended(_)
+        | Node::Restore(..) => {}
     }
 }

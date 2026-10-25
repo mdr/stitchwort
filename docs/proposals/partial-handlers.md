@@ -1,7 +1,9 @@
 # Proposal: handlers around partial code
 
-**Status:** draft 1, 25 October 2026, for review (D1249). Nothing here is
-built. Decisions D1254 to D1257 are at the end.
+**Status:** draft 1, 25 October 2026, for review (D1249). Decisions D1254
+to D1257 are at the end; all four were decided as recommended. Lane A (the
+executable model) is built; its findings are marked "lane A" in §2.4, §5.1,
+§5.2 and §9. Nothing else is built.
 
 Tags, as in the other `Partial` notes: **[source]** read in the code,
 **[ran]** run on today's build, **[web]** checked online (links in §6),
@@ -242,17 +244,26 @@ call in `fn handle`) **[source]**, and that's unchanged.
 - **A handler adds no ticks.** The middle equation passes a `Later` through
   as exactly one `Later`, as `mapSig` and `tie` do (partial.md §7.4.2).
 - **Each recursive call is still exactly one tick.** A partial function's
-  requests are answered by its own `tie`, inside the handled `Delay`; the
-  handler is outside it and never sees a request (they're in the private
-  `Rec` row, which can't reach a handler: E-PARTIAL-ESCAPE).
+  requests are answered by its own `tie`, inside the handled `Delay`; a
+  handler around a call of it is outside that `tie` and never sees its
+  requests (they're in the private `Rec` row, which can't reach a handler
+  outside the definition: E-PARTIAL-ESCAPE). *Correction from lane A:* a
+  handler *inside* a partial function's body, whose handled code calls that
+  same function, does see the request, because the request is an operation
+  of the handled row (`{A | Rec, e}`). Its `call` forwards it like any
+  operation it doesn't handle (`handlePlus`), and the function's `tie`
+  answers it with the same one tick. The model's `walk` (a handler in
+  `walk`'s body around `tally n + walk (n - 1)`) checks this **[ran]**.
 - **Handled operations are free**, as all operations are (§7.4.3).
 - **Clauses tick for their own recursion**, as any partial code does.
   A clause that calls `k` twice runs the rest of the program twice, and
   both runs' ticks count.
 
 So `seeded 0 (() => play 0)` over five input lines takes exactly as many
-ticks as `play` makes recursive calls (five), with or without the handler
-**[inferred]** from the equations; lane A's model checks it (§8).
+ticks as `play` makes recursive calls (five), with or without the handler.
+Lane A's model ran it: a `fromLines`-style state handler around a `play`
+over five commands takes 5 ticks, as the same loop reading the host does
+**[ran]** (`crates/partial-model/tests/table.rs`, section 9).
 
 ### 2.5 `return` clauses
 
@@ -475,12 +486,56 @@ to the `Handle` frame, as they pass them on the way to the runner today.
 **[source]**, so lane B must check that capturing and restoring a slice of
 frames keeps them right; the model (lane A) is where that's settled first.
 
+**Settled by lane A [ran]: they do, with one index to rebase.** In the model
+(`crates/partial-model/src/machine.rs`, `capture` and `restore`):
+- An `Await`'s `back` indexes its own `upper`, not the stack, and a `Tie`
+  holds no position. So both mean the same at any depth, and a captured
+  slice can go back on top of a different stack unchanged.
+- The one stack-relative thing is the *operation in flight*: the list of
+  `Map` frames it passed on its way out (`back` in `route`, so its reply
+  can be translated back). At capture it's rebased onto the captured slice
+  (index minus the handler's position plus one), and on restore the reply is
+  translated through the captured slice before the frames go back. Planting
+  a bug in that rebase fails the handler-in-a-body test, the nested-handler
+  test and the generated programs.
+- **Every** operation that reaches a `Handle` frame is captured, including
+  ones the handler only forwards and recursion requests (§2.4). So an
+  operation never passes a `Handle` frame, a `Tie` only answers requests
+  with no handler above it, and an `Await`'s `upper` never holds a `Handle`
+  frame (a debug assertion in the model's `request`). A forwarded operation
+  is re-issued from the clause, below the handler, with the resumption in a
+  `Bind` frame.
+
+Lane B's `step.rs` has the model's frames exactly (`Await { cont, upper,
+back }`, `back` relative to the `Tie`, and the same `route`) **[source]**,
+so the model's `capture`/`restore` carry over as they are. Lane C's
+`crates/rt/src/run.rs` also keeps `marks`, the *stack* positions of the
+`Map` and `Tie` frames, so routing skips `Bind` and `Await` frames
+**[source]**: there a `Handle` frame must be marked too (routing has to
+stop at it), capture must split off the marks above the handler and rebase
+them onto the captured slice, and restore must add the new base back.
+(`Await`'s own `marks` are already relative to its `Tie`.)
+
 ### 5.2 Multi-shot: copying the captured frames
 
 The reference and native steppers keep frames in a `Vec<Frame>`, which is
 changed in place **[source]**. A `k` called once can move its frames back;
 one called twice must copy them, which costs time in proportion to how
-deep the handled program is at that operation **[inferred]**. The effect
+deep the handled program is at that operation **[inferred]**.
+
+*Refined by lane A [ran].* Whether `k` will be called again isn't known when
+it's called, so the model decides when the resumption is *stepped*: the
+captured frames are shared (reference-counted) between `k` and each `k y`,
+and stepping `k y` moves them if nothing else holds them and copies them
+otherwise. So it's every call but the last that copies, not the second:
+`collectIn` around a search with three forks copies three times (each
+`k True` runs while the clause still holds `k` for `k False`), and the
+one-shot handlers (state, `fromLines`, `Fail.toResult`) never copy. Also,
+"moving" isn't free: capture and restore move the frames between the
+operation and the handler (pointers, not a deep copy), so a handled
+operation costs time in proportion to that depth even when one-shot. A
+loop under a handler keeps that depth constant (§5.3); deep non-tail
+recursion inside the handled code pays it per operation. The effect
 runtime for total code doesn't have this cost: its continuations are a
 persistent linked list, "so a `Resume` can be resumed any number of times,
 and later" (`crates/rt/src/effect.rs`, module comment) **[source]**. Copying
@@ -492,7 +547,9 @@ is simple and only multi-shot pays for it; a persistent frame list for
 Frames stay on the heap, so nothing nests in Rust or JS **[inferred]**:
 - a loop inside a handler (`seeded 0 (() => play 0)`) makes its recursive
   calls under its own `Tie`, above the `Handle` frame; tail calls keep no
-  frame, as today, so the loop runs in constant space;
+  frame, as today, so the loop runs in constant space (the model: peak 4
+  frames for both 10 and 10,000 turns of `play` under `fromLines`
+  **[ran]**);
 - an operation captures the few frames between it and the handler, and a
   clause that resumes in tail position (`resume (current + 1) (current + 1)`
   under a state function) leaves nothing below;
@@ -724,12 +781,16 @@ the terminal note's revision.
 
 ## 9. What I couldn't verify
 
-- **Ticks and traces** of §2.4 and lane A's list are from the equations,
-  not run: there's no `foldD` to run yet.
-- **Stack safety and multi-shot cost** (§5.2, §5.3) are inferred from the
-  machines' structure.
-- **That `Await` frames survive capture and restore** (§5.1) is an open
-  question for lane A.
+- **Ticks and traces** of §2.4 and lane A's list: run in the model since
+  lane A (`crates/partial-model`, `tests/table.rs` section 9), on both the
+  machine and the equations, with complete traces. Not yet on the three
+  real runners (lanes B and C).
+- **Stack safety and multi-shot cost** (§5.2, §5.3) in the real runners are
+  inferred from the machines' structure; the model's machine shows constant
+  frames for a loop under a handler and counts copies.
+- **That `Await` frames survive capture and restore** (§5.1): settled in
+  the model (yes, with the in-flight operation's `Map` indices rebased);
+  lane B checks its own `step.rs`.
 - **That `?d` inference works for rows with abilities** as it does for
   bare rows (§4.2) is inferred from stage 3's build.
 - **Koka's `div`** is not stated anywhere I found to be unhandleable; that

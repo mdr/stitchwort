@@ -4,6 +4,8 @@
 // Closures such as `|x| recur(x)` mirror the source's `\x -> f x` on purpose.
 #![allow(dead_code, clippy::redundant_closure)]
 
+pub mod handlers;
+
 use std::cell::Cell;
 use std::rc::Rc;
 
