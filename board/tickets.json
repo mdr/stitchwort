@@ -3464,14 +3464,16 @@
     {
       "id": 520,
       "title": "Live keys lane 1: pausable runs in crates/rt (D1272 yes; per-stretch limits D1275, Ctrl-C stops D1274)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "19528a29"
+      ]
     },
     {
       "id": 521,
