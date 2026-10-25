@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Suit 1b844bd5a200565c27b440cd488c868e35fe20ed1c2d46630dbc0f80297ca55d
 Main.Suit.%tag 2cd8a7dfe05b73cdfa1d90b66fa97e74f1ef8769bcba03bf8500b11ebd61aacd
@@ -12,12 +12,12 @@ Main.Suit.%instShow 710fc1d5d06ed40fc9856d3fad8e62892e16fef0daa385d16ff01f97effd
 Main.Suit.%compare 43db745769aa6edb9692e66bf7e50c34420d552cbebfeb18c4ff41b43dc817e0
 Main.Suit.%equal 9614036e1352e95048138ac13089fc55d484c9e2af747061a7a0aaf8ca6e4885
 Main.Suit.%flip 5325b031dc3b9e22924ac40249018b527a5d3617ce9f106bd0c0f5f8485061a1
-Main.Suit.%trans d304bc2bc068d3a1d0ea97332335d57fe4e18ff024db7db4e43c093adb8ac5a4
-Main.Suit.%instOrd d250cf5f6b7f4100f32deb2009657af780e40765a89b908d481d01dde926e4db
+Main.Suit.%trans c39c5c06a7dea7157b217f3e056e9b20da648c67fd66e482deb2f6d3eebd5253
+Main.Suit.%instOrd 842bfe5a11f6a9395f520b4a9e59f1561776c444b713bfacd30322b2ad32dd18
 Main.test "Nat" 5b06f25db036440dcbdd964f94e022a48cab02f962ab3f5817d148654df92af4
 Main.test "Int" eb913b51026d777a4658f36577bc2ce5bd6e61bc20460ca33e1f5f221ed80613
-Main.test "Text" 120ca3ef5de483b270dd4171a5fbe4d5607b661b9b2b07e0cf5986cd3e351356
-Main.test "a derived Ord" 87df0e0bdb6edc25c8ffa945e1ada6e6acff6f6d3d74ea3953b74a2a0131801a
+Main.test "Text" c56e10300a114ebcd6ab2841c19a1cfbc4fa4baef640a0a5bbb2b62fd3fc4130
+Main.test "a derived Ord" af29627019f036b1da66023f0cfdb922af1b49aedddfc5fdeb8a3d9d1e36ab7f
 Main.test "not" 76504e34731e8361d5b4d08417441e3aac0d8198b64a206349c2809b7a99d02c
 Main.test "precedence" 9cde2b115c3af929e3c8d4fbd827ac436b5ab6475d16defeb3c61c98629cf783
 Main.test "a decision" 1176a088ea09b8002e878de34ada9d26f80c46b89c54d1e0ae6ac6aa174dc07c

@@ -11,6 +11,7 @@ def step (state: State) (command: Command): {Random} State :=
   resolve dice state command
 
 -- A turn with its rolls made. Once the game is over, nothing changes.
+-- Drinking with no potions, or `>` away from the stairs, takes no time.
 def resolve (dice: Dice) (state: State) (command: Command): State :=
   match state.phase with
     | Playing =>
@@ -18,6 +19,12 @@ def resolve (dice: Dice) (state: State) (command: Command): State :=
         | Quit => { state | phase = GaveUp, message = "You give up." }
         | Wait => monstersTurn dice { state | message = "You wait." }
         | Move direction => monstersTurn dice (playerMoves dice state direction)
+        | Drink =>
+          if state.potions == 0 then { state | message = "You have no potions." }
+          else monstersTurn dice (drink state)
+        | Descend =>
+          if isStairs state.level state.player then descend state
+          else { state | message = "There are no stairs here." }
     | _ => state
 
 -- The player steps one cell, or attacks the monster standing there.
@@ -25,11 +32,11 @@ def playerMoves (dice: Dice) (state: State) (direction: Direction): State :=
   let target := state.player.toward direction
   match monsterAt target state.monsters with
     | Some monster => attack dice state monster
-    | None => if isWall target then { state | message = "A wall blocks your way." } else enter state target
+    | None => if isWall state.level target then { state | message = "A wall blocks your way." } else enter state target
 
 -- The player's blow.
 def attack (dice: Dice) (state: State) (monster: Monster): State :=
-  let damage := 2 + dice.upTo 0 (playerStrength - 2)
+  let damage := 2 + dice.upTo 0 (state.strength - 2)
   let survivors := state.monsters
     |> .map (wound monster.position damage)
     |> .filter (other => other.hitPoints > 0)
@@ -42,30 +49,47 @@ def attack (dice: Dice) (state: State) (monster: Monster): State :=
 def wound (target: Position) (damage: Nat) (monster: Monster): Monster :=
   if monster.position == target then { monster | hitPoints = monster.hitPoints - damage } else monster
 
--- The player walks onto a free cell, drinking any potion there.
+-- The player walks onto a free cell, picking up anything lying there.
 def enter (state: State) (target: Position): State :=
-  if target ∈ state.potions then {
-    state |
-    player = target,
-    potions = state.potions.filter (≠ target),
-    hitPoints = healed state.hitPoints,
-    message = "You drink a potion and feel better."
-  }
-  else { state | player = target, message = "" }
+  let moved := { state | player = target, message = "" }
+  match itemAt target state.items with
+    | Some item => pickUp { moved | items = state.items.filter (other => other.position ≠ target) } item.loot
+    | None => moved
+
+def pickUp (state: State) (loot: Loot): State :=
+  match loot with
+    | Potion => { state | potions = state.potions + 1, message = "You pick up a potion." }
+    | Sword =>
+      let strength := state.strength + swordBonus
+      { state | strength, message = "You wield a sharper sword: your blows now do up to ${strength}." }
+    | Amulet => { state | phase = Won, message = "You take the amulet. You win!" }
+
+def drink (state: State): State :=
+  { state | potions = state.potions - 1, hitPoints = healed state.hitPoints, message = "You drink a potion and feel better." }
 
 def healed (hitPoints: Nat): Nat :=
   if hitPoints + potionStrength ≤ maxHitPoints then hitPoints + potionStrength else maxHitPoints
 
--- After the player: escape by the stairs, or the monsters' turn.
+-- Down the stairs to the next level, made when the game started (see
+-- `newGame` for why).
+def descend (state: State): State :=
+  match state.below with
+    | Cons plan deeper =>
+      let arrived := arrive { state | below = deeper } plan
+      { arrived | turn = state.turn + 1, message = "You go down the stairs to level ${plan.level.depth}." }
+    | [] => { state | message = "These stairs lead nowhere." }
+
+-- After the player, the monsters' turn, unless the game is over.
 def monstersTurn (dice: Dice) (state: State): State :=
-  if isStairs state.player then { state | phase = Escaped, turn = state.turn + 1, message = "You find the stairs down and escape!" }
-  else
-    let outcome := actAll dice state.player 0 { moved = [], damage = 0, events = [] } state.monsters
-    let hitPoints := state.hitPoints - outcome.damage
-    let events := Text.join (Cons state.message outcome.events |> .filter (≠ "")) ' '
-    let message := if hitPoints == 0 then "${events} You die..." else events
-    let phase := if hitPoints == 0 then Died else Playing
-    { state | monsters = outcome.moved, hitPoints, turn = state.turn + 1, message, phase }
+  match state.phase with
+    | Playing =>
+      let outcome := actAll dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters
+      let hitPoints := state.hitPoints - outcome.damage
+      let events := Text.join (Cons state.message outcome.events |> .filter (≠ "")) ' '
+      let message := if hitPoints == 0 then "${events} You die..." else events
+      let phase := if hitPoints == 0 then Died else Playing
+      { state | monsters = outcome.moved, hitPoints, turn = state.turn + 1, message, phase }
+    | _ => { state | turn = state.turn + 1 }
 
 -- The monsters' turn so far: those that have acted, the damage they have
 -- done, and what happened.
@@ -78,19 +102,19 @@ def Outcome.add (outcome: Outcome) (monster: Monster) (damage: Nat) (events: Lis
 
 -- Each monster in turn attacks the player if it's next to them, and
 -- otherwise moves. `index` numbers the monsters, to give each its own rolls.
-def actAll (dice: Dice) (player: Position) (index: Nat) (outcome: Outcome): List Monster → Outcome
+def actAll (dice: Dice) (level: Level) (player: Position) (index: Nat) (outcome: Outcome): List Monster → Outcome
   | [] => outcome
   | Cons monster waiting =>
     if monster.position.isNextTo player then
       let damage := 1 + dice.upTo (3 * index + 1) (monster.kind.strength - 1)
       let event := "The ${monster.kind.name} hits you for ${damage}."
-      actAll dice player (index + 1) (outcome.add monster damage [event]) waiting
+      actAll dice level player (index + 1) (outcome.add monster damage [event]) waiting
     else
-      let destination := pickFree (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position
-      actAll dice player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting
+      let destination := pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position
+      actAll dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting
 
 -- Where a monster would like to go, best first. One that can see the player
--- closes in, now and then stumbling; one that can't wanders, or stays put.
+-- gives chase, now and then stumbling; one that can't wanders, or stays put.
 def monsterChoices (dice: Dice) (index: Nat) (player: Position) (monster: Monster): List Position :=
   let wanders := monster.position.distance player > sightRange ∨ dice.chance (3 * index + 2) 5
   if wanders then
@@ -117,9 +141,9 @@ def Position.closerTo (position: Position) (target: Position): List Position :=
   else horizontal ++ vertical
 
 -- The first cell that isn't a wall, the player, or another monster's.
-def pickFree (choices: List Position) (player: Position) (others: List Monster): Option Position :=
+def pickFree (level: Level) (choices: List Position) (player: Position) (others: List Monster): Option Position :=
   match choices with
     | [] => None
     | Cons choice rest =>
-      if isWall choice ∨ choice == player ∨ (monsterAt choice others).isSome then pickFree rest player others
+      if isWall level choice ∨ choice == player ∨ (monsterAt choice others).isSome then pickFree level rest player others
       else Some choice

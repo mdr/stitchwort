@@ -1012,6 +1012,26 @@ mod tests {
         &result[start..result.len() - 2]
     }
 
+    /// The four terminal operations (docs/proposals/terminal-io.md §4.5):
+    /// no terminal, keys mode changes nothing, and `readBytes` gives the
+    /// input box's remaining text in one read. The same output as `stitchwort
+    /// run` and `run --reference` give it piped
+    /// (crates/cli/tests/run_reference.rs).
+    #[test]
+    fn runs_the_terminal_operations_in_the_form_for_pipes() {
+        let ops = include_str!("../../../examples/accept/terminal-ops.sw");
+        assert_eq!(
+            printed(&run(ops, "first\nhé\nx\n", 1000)),
+            r"terminals: no no\nsize: 0x0\ndrawn, no line ending\nfirst\n104,195,169,10,120,10\nnone\nnone\n"
+        );
+        // A last line without a line ending: `readBytes` takes it all, and
+        // the next is `None`, not a read past the end.
+        assert_eq!(
+            printed(&run(ops, "first\nab", 1000)),
+            r"terminals: no no\nsize: 0x0\ndrawn, no line ending\nfirst\n97,98\nnone\nnone\n"
+        );
+    }
+
     /// `IO.randomSeed` works in the playground's runner (here with the
     /// native entropy source; in the browser it is `crypto.getRandomValues`).
     #[test]

@@ -11,7 +11,7 @@ use std::rc::Rc;
 use stitchwort_core::ResourceError;
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_native::n1::{Options, factory};
-use stitchwort_rt::host::RunError;
+use stitchwort_rt::host::{NoTerminal, RunError};
 use stitchwort_rt::{Limits, Program, alloc_trace, lower_main, run_main, run_main_native};
 
 const STACK: usize = 512 * 1024 * 1024;
@@ -69,7 +69,14 @@ fn native(program: &Program, limits: Limits, trace_refcounts: bool) -> (Ran, Vec
     };
     let mut make = factory(options, notes.clone());
     let mut output = Vec::new();
-    let result = run_main_native(program, limits, &mut make, &mut "".as_bytes(), &mut output);
+    let result = run_main_native(
+        program,
+        limits,
+        &mut make,
+        &mut "".as_bytes(),
+        &mut output,
+        &mut NoTerminal,
+    );
     let notes = notes.borrow().clone();
     (ended(output, result), notes)
 }

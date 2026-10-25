@@ -203,3 +203,78 @@ fn a_partial_main_that_fails_deep_in_recursion() {
         needs(&source, input, 5, failure(&source, input));
     }
 }
+
+// Handlers around partial code (docs/proposals/partial-handlers.md, lane C):
+// lane A's programs, as lane B's trace test runs them on the reference
+// runner (`handled_traces_agree_with_the_model` in
+// `crates/driver/tests/partial.rs`), with the ticks the model's own tests
+// expect. The machine must need the same ticks, and print the same, at
+// every limit.
+
+/// Lane A's handled programs, in Stitchwort.
+const HANDLER_DEFINITIONS: &str = include_str!("../../driver/tests/partial_handlers.sw");
+
+fn handler_program(body: &str) -> String {
+    format!("{HANDLER_DEFINITIONS}\ndef main (): {{IO, Partial}} () :=\n  {body}\n")
+}
+
+#[test]
+fn handled_programs_need_the_models_ticks() {
+    let cases: [(&str, u64); 10] = [
+        ("IO.print (showResult (toResult (() => countdown 5)))", 2),
+        ("IO.print (showResult (toResult (() => countdown 2)))", 2),
+        ("IO.print (showResult (toResult stopThenSpin))", 0),
+        (
+            "IO.print (Nat.toText (fromLines [\"n\", \"e\", \"s\", \"w\", \"q\"] (() => play 0)))",
+            5,
+        ),
+        ("IO.print (showList (collectIn (() => search 2)))", 6),
+        ("IO.print (Nat.toText (walk 2))", 5),
+        ("IO.print (Nat.toText (walk 12))", 12 * 13 / 2 + 12),
+        (
+            "IO.print (showResult (toResult (() => (runCounter 0 (() => climb 0)).fst)))",
+            2,
+        ),
+        (
+            "let (result, count) := runCounter 0 (() => toResult (() => climb 0))\n  \
+             IO.print (showResult result ++ \" \" ++ Nat.toText count)",
+            2,
+        ),
+        ("IO.print (Nat.toText (answered ()))", 4),
+    ];
+    for (body, ticks) in cases {
+        needs(&handler_program(body), "", ticks, Ended::Finished);
+    }
+}
+
+/// A handler that resumes twice runs the first branch to its end first: if
+/// it never ends, the second never runs (D1256). Both runners stop at the
+/// limit, having printed the same.
+#[test]
+fn a_looping_first_branch_starves_the_second() {
+    let source = handler_program("IO.print (showList (collectIn leftLoops))");
+    with_stack(STACK, move || {
+        let mut session = session(&source);
+        for limit in [0, 1, 1000] {
+            let (ref_ended, ref_output, ref_ticks) = reference(&mut session, "", limit);
+            let (fast_ended, fast_output) = fast(&mut session, "", limit);
+            assert_eq!(ref_ended, Ended::OutOfTicks, "limit {limit}");
+            assert_eq!(fast_ended, ref_ended, "limit {limit}");
+            assert_eq!(ref_ticks as u64, limit, "limit {limit}");
+            assert_eq!(fast_output, ref_output, "limit {limit}");
+            assert_eq!(fast_output, "left\n", "limit {limit}");
+        }
+    });
+}
+
+#[test]
+fn the_partial_handlers_example_needs_the_same_ticks() {
+    // `caught 5` and `caught 2` take 2 ticks each, `dropped` none, and the
+    // seeded die rolls five times before its six.
+    needs(
+        &accept("partial-handlers.sw"),
+        "",
+        2 + 2 + 5,
+        Ended::Finished,
+    );
+}

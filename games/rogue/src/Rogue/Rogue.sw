@@ -1,54 +1,51 @@
--- A small roguelike: find the stairs (>) before the goblins and orcs find
--- you. Type h/j/k/l (or a/s/w/d) and Enter to move, . to wait, q to quit;
--- walking into a monster attacks it.
+-- A small roguelike: go down three levels and take the amulet, past
+-- goblins, orcs and trolls. Press h/j/k/l, a/s/w/d or the arrow keys to
+-- move, > to go down stairs, p to drink a potion, . to wait, q to quit;
+-- walking into a monster attacks it, and walking onto an item picks it up.
 --
 --   $ cd games/rogue && stitchwort run Rogue.main
 --
--- The game is a pure core (Model.sw, Dungeon.sw, Turn.sw, Render.sw) and a
--- thin shell (this file): `play` reads a command, runs a turn, and draws the
--- frame. Randomness and input are abilities (Random.sw, Input.sw), handled
--- here by a seeded generator and by standard input. Invariants of a turn
--- are proved in `Rogue.Proofs`, and the tests are in `Rogue.Tests`.
+-- The game is a pure core (Model.sw, Level.sw, Turn.sw, Render.sw), a
+-- level generator (Generate.sw), and a thin shell (this file and Input.sw):
+-- `play` reads a key, runs a turn, and draws the frame, until the game is
+-- over. Keys and frames go through std's `Terminal`, run on the console by
+-- `Terminal.toIO`; randomness is an ability of the game's own (Random.sw),
+-- handled by a generator seeded from `IO.randomSeed`. Invariants of a turn
+-- and of the generator are proved in `Rogue.Proofs`, and the tests are in
+-- `Rogue.Tests`.
 
 namespace Rogue
-import Std (List, Text)
+import Std (IO, List, Terminal, Text)
 
-def main(): {IO} () :=
-  let final := fromLines (() => seeded defaultSeed (() => playGame initialState))
-  IO.print (ending final)
+-- A different game each run: the host's random seed, cut to the
+-- generator's 31 bits.
+def main(): {IO, Partial} () :=
+  let seed := IO.randomSeed() % 2147483648
+  IO.print (ending (playOn seed))
 
--- There is no clock or other source of entropy to seed from, so every game
--- starts from the same seed.
-def defaultSeed: Nat := 2026
+-- A whole game on the console from a seed, until it's won, lost or given
+-- up. The terminal is back to normal when this returns.
+def playOn (seed: Nat): {IO, Partial} State := Terminal.toIO (() => seeded seed (() => playGame (newGame())))
 
--- The most turns a game lasts. The loop is bounded, not `Partial`, so that
--- the handlers above (and `IO.simulate` in the tests) can wrap it.
-def maxTurns: Nat := 100000
+def playGame (state: State): {Terminal, Random, Partial} State :=
+  Terminal.draw (frame state)
+  play state
 
-def playGame (state: State): {IO, Input, Random} State :=
-  draw state
-  play maxTurns state
-
-def play: Nat → State → {IO, Input, Random} State
-  | 0, state => state
-  | Succ remaining, state =>
-    if state.phase == Playing then
-      let command := nextCommand()
-      let next := step state command
-      draw next
-      play remaining next
-    else state
-
--- The ANSI escapes that clear the screen and move to its top-left corner.
-def clearScreen: Text := "\u{1b}[2J\u{1b}[H"
-
--- One frame, printed at once. `IO.print` ends it with a line ending, so the
--- cursor waits below the message.
-def draw (state: State): {IO} () := IO.print (clearScreen ++ Text.join (render state) '\n')
+-- One turn per command, until the game is won, lost or given up. Keys that
+-- aren't commands are skipped, and the end of the input gives up.
+def play (state: State): {Terminal, Random, Partial} State :=
+  if state.phase == Playing then
+    match nextCommand() with
+      | None => play state
+      | Some command =>
+        let next := step state command
+        Terminal.draw (frame next)
+        play next
+  else state
 
 def ending (state: State): Text :=
   match state.phase with
-    | Escaped => "You escaped on turn ${state.turn} with ${state.hitPoints} hit points."
-    | Died => "You died on turn ${state.turn}."
-    | GaveUp => "You gave up on turn ${state.turn}."
-    | Playing => "The game ran out of turns."
+    | Won => "You won on turn ${state.turn} with ${state.hitPoints} hit points."
+    | Died => "You died on level ${state.level.depth}, on turn ${state.turn}."
+    | GaveUp => "You gave up on level ${state.level.depth}, on turn ${state.turn}."
+    | Playing => "The game stopped while still playing."

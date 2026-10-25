@@ -1150,6 +1150,8 @@ dependencies = [
  "lsp-server",
  "lsp-types",
  "mimalloc",
+ "nix",
+ "rustix",
  "rustyline",
  "serde",
  "serde_json",

@@ -14,13 +14,16 @@
 //!   with `doneIn e` and `bindIn e`; `liftIn e` turns such a computation into
 //!   a tree to move into a row with abilities, and `lowerIn e` turns a tree in
 //!   the row `{e}` back.
-//! - A row variable a signature uses only bare gets a divergence index `d`
-//!   beside it, and `{e} b` is then `CompD d e b`: `CompIn e b` at `Total`,
-//!   a `Delay` at `MayDiverge` (docs/proposals/partial-stage-3.md, D1213,
-//!   D1214). Such a row is sequenced with `doneD`/`bindDv`; `liftD` moves a
-//!   total computation into it and `delayD` moves it into a partial row
-//!   ([`lift`]). A body that needs `e` total is checked again with it
-//!   (D1215, `Elaborator::retype_total`).
+//! - A row variable a signature uses only as a row's tail gets a divergence
+//!   index `d` beside it, and `{e} b` is then `CompD d e b`: `CompIn e b` at
+//!   `Total`, a `Delay` at `MayDiverge` (docs/proposals/partial-stage-3.md,
+//!   D1213, D1214). So is `{A | e} b`, as `CompD d (Ops …) b`, which is the
+//!   row's `Comp` at `Total` (docs/proposals/partial-handlers.md §4, D1255).
+//!   Such a row is sequenced with `doneD`/`bindDv`; `liftD` moves a total
+//!   computation into it, `delayD` moves it into a partial row and
+//!   `translateD` into another row with the same index ([`lift`]); a handler
+//!   whose output row has one is `foldCompD`. A body that needs `e` total is
+//!   checked again with it (D1215, `Elaborator::retype_total`).
 //! - Code checked against `Comp` over a row is elaborated in *computation
 //!   mode*: effectful arguments are run first, left to right, with `bind`; an
 //!   operation call becomes a `Call` of the operation injected into the row;
@@ -290,8 +293,8 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
 
 // Divergence indices (docs/proposals/partial-stage-3.md)
 
-/// The name of the divergence index a signature binds beside its bare row
-/// variable `e` (D1214): one no program can write.
+/// The name of the divergence index a signature binds beside its row
+/// variable `e` (D1214, D1255): one no program can write.
 pub(crate) fn divergence_name(row_variable: &str) -> String {
     format!("%div.{row_variable}")
 }
@@ -727,6 +730,19 @@ pub(crate) fn escape(cx: &Ctx) -> Diagnostic {
     )
 }
 
+/// Whether definition `id`'s signature binds a divergence index: its rows
+/// may be partial, when what it's given is (D1214, D1255).
+fn has_divergence_index(cx: &Ctx, id: DefId) -> bool {
+    let mut ty = &cx.g().def(id).ty;
+    while let Term::Pi(x, _, _, body) = ty.strip_loc() {
+        if x.starts_with("%div.") {
+            return true;
+        }
+        ty = body;
+    }
+    false
+}
+
 /// Running a partial computation (`term`) in total code.
 fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
     let (head, args) = term.spine();
@@ -752,6 +768,13 @@ fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
             "`{}` is partial here because its callback `{callback}` is",
             cx.g().def(*id).name
         ),
+        // A function whose rows may be partial (D1214, D1255), such as a
+        // handler given a partial program: partial because of what it was
+        // given.
+        (Term::Def(id), None) if has_divergence_index(cx, *id) => format!(
+            "`{}` is partial here because a function it's given is",
+            cx.g().def(*id).name
+        ),
         (Term::Def(id), None) => format!(
             "`{}` is `Partial`: it might not finish",
             cx.g().def(*id).name
@@ -775,9 +798,10 @@ fn partial_in_total(cx: &Ctx, term: &Term) -> Diagnostic {
 /// §2.3). An unknown index is settled first: from what the other side is,
 /// and `Total` when that says nothing. Then a total computation moves into
 /// a row with an index by `liftD`, and one with an index into a partial row
-/// by `delayD`. One with an index that is a variable can't move into a
-/// total row, such as a handler's: E-PARTIAL, and the definition is checked
-/// again with its row total (D1215).
+/// by `delayD`, and one with an index into another row with the same index
+/// by `translateD`. One with an index that is a variable can't move into a
+/// total row: E-PARTIAL, and the definition is checked again with its row
+/// total (D1215).
 fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
     let mut from = settle_div(cx, from)?;
     let mut to = settle_div(cx, to.clone())?;
@@ -863,15 +887,22 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
                     break;
                 }
             }
-            let (pf, pt) = (refresh(cx, &pf)?, refresh(cx, &pt)?);
+            let (pf, pt) = align(cx, &pf, &pt)?;
             if same_shape(cx, &pf, &pt)? {
                 return Ok(term);
             }
-            Err(cx.error(
-                "E-ABILITY",
-                "this computation's abilities can't be moved here",
-                "its row may be partial, and moving it into another row isn't supported yet",
-            ))
+            // Two rows that may be partial, by the same index: `translateD`,
+            // which is `translate` once the index is `Total` and `mapSig`
+            // once it's `MayDiverge` (docs/proposals/partial-handlers.md
+            // §4.2, D1255).
+            let m = mapping(cx, &pf, &pt)?;
+            let (rf, rt) = (row_value(cx, &pf)?, row_value(cx, &pt)?);
+            call(
+                cx,
+                Builtin::TranslateD,
+                std::slice::from_ref(t),
+                vec![cx.quote(&df)?, cx.quote(&rf)?, cx.quote(&rt)?, m, term],
+            )
         }
     }
 }
@@ -882,8 +913,8 @@ fn partial_in_bare(cx: &Ctx, term: &Term) -> Diagnostic {
     partial_in_total(cx, term)
 }
 
-/// A computation in a bare row `{e}` that may be partial (its divergence is
-/// a variable), moved into a total row: a handler's, or a total function's.
+/// A computation in a row `{e}` or `{A | e}` that may be partial (its
+/// divergence is a variable), moved into a total row.
 fn divergent_in_total(cx: &Ctx) -> Diagnostic {
     cx.error(
         "E-PARTIAL",
@@ -891,20 +922,17 @@ fn divergent_in_total(cx: &Ctx) -> Diagnostic {
         "this runs a computation in the row `e`, which may be partial",
     )
     .with_note(
-        "a row variable used only as `{e}` may stand for a partial row, and partial code can't \
-         run in a total row such as a handler's",
+        "a row variable such as `e` in `{e}` or `{A | e}` may stand for a partial row, and \
+         partial code can't run in a total row",
     )
 }
 
-/// [`lift`] for two rows without divergence indices.
-fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
-    if from.partial && !to.partial {
-        return Err(partial_in_total(cx, &term));
-    }
-    // A computation in a bare row `{f}` is a `CompIn f t`: what it is
-    // depends on what `f` turns out to be (see below).
-    let was_bare = from.is_bare();
-    let mut from = refresh(cx, &from)?;
+/// Makes the rows `from` and `to` agree for moving a computation from one
+/// into the other: unknown tails solved, abilities the context doesn't list
+/// yet added to its unknown tail, and the arguments of the abilities in
+/// common unified. Refuses an ability `to` can't have.
+fn align(cx: &mut Ctx, from: &Row, to: &Row) -> Result<(Row, Row)> {
+    let mut from = refresh(cx, from)?;
     let mut to = refresh(cx, to)?;
     let missing_in = |a: &Row, b: &Row| -> Vec<Label> {
         b.labels
@@ -968,8 +996,19 @@ fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Resul
             None => return Err(not_allowed(cx, label)),
         }
     }
-    let from = refresh(cx, &from)?;
-    let to = &refresh(cx, &to)?;
+    Ok((refresh(cx, &from)?, refresh(cx, &to)?))
+}
+
+/// [`lift`] for two rows without divergence indices.
+fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term> {
+    if from.partial && !to.partial {
+        return Err(partial_in_total(cx, &term));
+    }
+    // A computation in a bare row `{f}` is a `CompIn f t`: what it is
+    // depends on what `f` turns out to be (see below).
+    let was_bare = from.is_bare();
+    let (from, to) = align(cx, &from, to)?;
+    let to = &to;
     let mut term = term;
     if was_bare {
         if from.labels.is_empty() && from.tail.is_none() {
@@ -1403,9 +1442,10 @@ pub fn effect_type(
             Some(cx.eval(&term)?)
         }
     };
-    // A bare row variable with a divergence index beside it (D1214).
+    // A row variable with a divergence index beside it, bare (D1214) or
+    // with abilities (D1255).
     let div = match &row.tail {
-        Some(name) if labels.is_empty() && !partial => {
+        Some(name) if !partial => {
             let x = divergence_name(&name.text);
             match cx.lookup(&x) {
                 Some(_) => {
@@ -3557,6 +3597,19 @@ fn make_call(
         )),
         Rc::new(cx.quote(&comp)?),
     );
+    let row = &settle_div(cx, row.clone())?;
+    if let Some(d) = &row.div {
+        // A row with abilities that may be partial (D1255): `liftD`, which
+        // is the call itself once the index is `Total`.
+        let rv = row_value(cx, &row.without_div())?;
+        let lifted = call(
+            cx,
+            Builtin::LiftD,
+            std::slice::from_ref(&result_ty),
+            vec![cx.quote(d)?, cx.quote(&rv)?, op_call],
+        )?;
+        return Ok((lifted, result_ty));
+    }
     if row.partial {
         let lifted = call(
             cx,
@@ -3813,11 +3866,14 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     // fold over a `Comp` (`foldComp`). If it's partial, the handler is
     // `foldD`, the fold over a `Delay`, whose result is a `Delay` too: the
     // output row must be partial (docs/proposals/partial-handlers.md §2.1).
+    // An output row with a divergence index gives the handled row the same
+    // index: the handler is `foldCompD`, which is `foldComp` once the index
+    // is `Total` and `foldD` once it's `MayDiverge` (§4.2, D1255).
     let mut inner = Row {
         labels: inner_labels,
         tail: rest.tail.clone(),
         partial: false,
-        div: None,
+        div: out.div.clone(),
     };
     let snapshot = crate::undo::Snapshot::take(cx);
     let (body_c, t_in) = match comp_infer(cx, body, &inner) {
@@ -3952,7 +4008,23 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Icit::Explicit,
             Rc::new(Term::app(Term::Var(1), reply.clone())),
         );
-        let call_term = if out.partial {
+        let call_term = if let Some(d) = &out.div {
+            // `callD d out (sigInject m o) (y => k (…))`: the operation
+            // performed in a row that may be partial, then the handler goes
+            // on.
+            let quoted =
+                |v: &Value, depth: usize| stitchwort_core::value::quote(cx.g(), level + depth, v);
+            let out_row = row_value(cx, &out.without_div())?;
+            let mut call_d = Term::app_icit(
+                Term::Def(def(cx, Builtin::CallD)?),
+                quoted(t, 2)?,
+                Icit::Implicit,
+            );
+            for v in [d, &out_row] {
+                call_d = Term::app(call_d, quoted(v, 2)?);
+            }
+            Term::app(Term::app(call_d, inject), rest_fn)
+        } else if out.partial {
             // `bindD (lift (Call (sigInject m o) Done)) (\y -> k (…))`: the
             // carrier is a `Delay`, so the operation is performed, and then
             // the handler goes on.
@@ -4024,6 +4096,18 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         ],
         vec![elim_term, forward],
     )?;
+    // An index the body settled makes the fold the one it computes to.
+    let inner = settle_div(cx, inner)?;
+    if let Some(d) = &inner.div {
+        // `foldCompD d out done step body`.
+        let out_row = row_value(cx, &out.without_div())?;
+        return call(
+            cx,
+            Builtin::FoldCompD,
+            &[ops(cx, &inner)?, res(cx, &inner)?, t_in, t.clone()],
+            vec![cx.quote(d)?, cx.quote(&out_row)?, done_fn, step, body_c],
+        );
+    }
     if inner.partial {
         // `foldD done step body`: the carrier `r` is `Delay (ops out)
         // (res out) t`, so `foldD`'s `b` is `t`.
@@ -4096,10 +4180,9 @@ pub fn partial_mismatch(
                         "this might not finish: its type says `Partial`",
                     )
                     .with_note(
-                        "a function whose type doesn't say `Partial` must finish; a row with \
-                     abilities, `{… | e}`, is total because a handler can't run partial code, \
-                     so a function taking it can't be given a partial one (a bare `{e}` may \
-                     stand for a partial row)",
+                        "a function whose type doesn't say `Partial` must finish; a row variable \
+                     in a signature, `{e}` or `{… | e}`, may stand for a partial row, but not \
+                     where the body needs it total or it's an argument of a data type",
                     )
                     .with_note(
                         "to accept partial functions, write `Partial` in the row: `{Partial | e}`",

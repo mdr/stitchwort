@@ -821,6 +821,20 @@ const effTranslate = (m, c, pending) => {
 };
 
 const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
+const $Std$dNat$dmul = (m, n) => m * n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
+  switch (v1.tag) {
+    case "False": {
+      return (v3)(undefined);
+    }
+    case "True": {
+      return (v2)(undefined);
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlength = (v1) => {
   let s1 = v1;
   let a$ = 0n;
@@ -905,6 +919,18 @@ const $Std$dDecidable$dtoBool = (v1) => {
   throw new Error("unreachable");
 };
 const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dChar$dtoNat = (v0) => {
+  switch (v0.tag) {
+    case "MkChar": {
+      const v1 = v0.code;
+      return v1;
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
+const $Std$dNat$dmod = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$dmul($Std$dNat$ddiv(v0, v1), v1));
 const $Std$dList$dtailOf = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -983,19 +1009,40 @@ const $Std$dEffect$dhandlePlus = (v5, v6, v7, v8) => {
   throw new Error("unreachable");
 };
 const $Std$dEffect$drunPure = effRunPure;
-const $Std$dIO$d$gelim = (v1, v2, v3, v4, v5) => {
-  switch (v4.tag) {
+const $Std$dEffect$dcallD$e = (v3, v4) => (v4)($Std$dEffect$drunPure({ tag: "Call", o: v3, rest: ((v5) => ({ tag: "Done", value: v5 })) }));
+const $Std$dIO$d$gelim = (v1, v2, v3, v4, v5, v6, v7, v8, v9, v10) => {
+  switch (v9.tag) {
     case "%print": {
-      const v6 = v4.x;
-      return (v1)(v6)(v5);
+      const v11 = v9.x;
+      return (v1)(v11)(v10);
     }
     case "%readLine": {
-      const v6 = v4.x;
-      return (v2)(v6)(v5);
+      const v11 = v9.x;
+      return (v2)(v11)(v10);
     }
     case "%readAll": {
-      const v6 = v4.x;
-      return (v3)(v6)(v5);
+      const v11 = v9.x;
+      return (v3)(v11)(v10);
+    }
+    case "%console": {
+      const v11 = v9.x;
+      return (v4)(v11)(v10);
+    }
+    case "%keysMode": {
+      const v11 = v9.x;
+      return (v5)(v11)(v10);
+    }
+    case "%readBytes": {
+      const v11 = v9.x;
+      return (v6)(v11)(v10);
+    }
+    case "%write": {
+      const v11 = v9.x;
+      return (v7)(v11)(v10);
+    }
+    case "%randomSeed": {
+      const v11 = v9.x;
+      return (v8)(v11)(v10);
     }
   }
   throw new Error("unreachable");
@@ -1014,7 +1061,22 @@ const $Std$dIO$dnextLine = (v0) => {
   throw new Error("unreachable");
 };
 const $Std$dIO$drestOf = (v0) => textOfChars($Std$dList$dconcatMap(v0, ((v1) => $Std$dList$dappend($Std$dText$dtoList(v1), { tag: "Cons", head: { tag: "MkChar", code: 10n }, tail: { tag: "Nil" } }))));
-const $Std$dIO$dsimulate$e = (v2, v3) => $Std$dEffect$dfoldComp(((v4) => ((v5) => ((v6) => ({ tag: "MkPair", fst: $Std$dList$dreverseOnto(v6, { tag: "Nil" }), snd: v4 })))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2, $s3) => (($p4) => ($p5) => $Std$dIO$d$gelim($s1, $s2, $s3, $p4, $p5)))(((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)({ tag: "Cons", head: v4, tail: v7 }))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dnextLine(v6))($Std$dList$dtailOf(v6))(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$drestOf(v6))({ tag: "Nil" })(v7)))))), ((v4) => ((v5) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), rest: ((v6) => ({ tag: "Done", value: (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6)) })) })))), (v3)({ tag: "UnitValue" }))(v2)({ tag: "Nil" });
+const $Std$dChar$dutf8 = (v0) => ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 127n), ((v2) => ({ tag: "Cons", head: v1, tail: { tag: "Nil" } })), ((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 2047n), ((v3) => ({ tag: "Cons", head: $Std$dNat$dadd(192n, $Std$dNat$ddiv(v1, 64n)), tail: { tag: "Cons", head: $Std$dNat$dadd(128n, $Std$dNat$dmod(v1, 64n)), tail: { tag: "Nil" } } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 65535n), ((v4) => ({ tag: "Cons", head: $Std$dNat$dadd(224n, $Std$dNat$ddiv(v1, 4096n)), tail: { tag: "Cons", head: $Std$dNat$dadd(128n, $Std$dNat$dmod($Std$dNat$ddiv(v1, 64n), 64n)), tail: { tag: "Cons", head: $Std$dNat$dadd(128n, $Std$dNat$dmod(v1, 64n)), tail: { tag: "Nil" } } } })), ((v4) => ({ tag: "Cons", head: $Std$dNat$dadd(240n, $Std$dNat$ddiv(v1, 262144n)), tail: { tag: "Cons", head: $Std$dNat$dadd(128n, $Std$dNat$dmod($Std$dNat$ddiv(v1, 4096n), 64n)), tail: { tag: "Cons", head: $Std$dNat$dadd(128n, $Std$dNat$dmod($Std$dNat$ddiv(v1, 64n), 64n)), tail: { tag: "Cons", head: $Std$dNat$dadd(128n, $Std$dNat$dmod(v1, 64n)), tail: { tag: "Nil" } } } } }))))))))($Std$dChar$dtoNat(v0));
+const $Std$dIO$dbytesOf = (v0) => {
+  switch (v0.tag) {
+    case "Nil": {
+      return { tag: "None" };
+    }
+    case "Cons": {
+      const v1 = v0.head;
+      const v2 = v0.tail;
+      return { tag: "Some", value: $Std$dList$dconcatMap($Std$dText$dtoList($Std$dIO$drestOf(v0)), $Std$dChar$dutf8) };
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dIO$dnoConsole = { inputIsTerminal: { tag: "False" }, outputIsTerminal: { tag: "False" }, columns: 0n, rows: 0n };
+const $Std$dIO$dsimulate$e = (v3, v4) => (((v5) => $Std$dEffect$dfoldComp(((v6) => ((v7) => ((v8) => ({ tag: "MkPair", fst: $Std$dList$dreverseOnto(v8, { tag: "Nil" }), snd: v6 })))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2, $s3, $s4, $s5, $s6, $s7, $s8) => (($p9) => ($p10) => $Std$dIO$d$gelim($s1, $s2, $s3, $s4, $s5, $s6, $s7, $s8, $p9, $p10)))(((v6) => ((v7) => ((v8) => ((v9) => (v7)({ tag: "UnitValue" })(v8)({ tag: "Cons", head: v6, tail: v9 }))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)($Std$dIO$dnextLine(v8))($Std$dList$dtailOf(v8))(v9))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)($Std$dIO$drestOf(v8))({ tag: "Nil" })(v9))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)($Std$dIO$dnoConsole)(v8)(v9))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)({ tag: "UnitValue" })(v8)(v9))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)($Std$dIO$dbytesOf(v8))({ tag: "Nil" })(v9))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)({ tag: "UnitValue" })(v8)({ tag: "Cons", head: v6, tail: v9 }))))), ((v6) => ((v7) => ((v8) => ((v9) => (v7)(0n)(v8)(v9)))))), ((v6) => ((v7) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v6), ((v8) => (v7)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v6, v8))))))), (v4)({ tag: "UnitValue" })))(undefined))(v3)({ tag: "Nil" });
 const $Std$dText$dlength = (t) => {
   let n = 0;
   for (let i = 0; i < t.length; i++, n++) {

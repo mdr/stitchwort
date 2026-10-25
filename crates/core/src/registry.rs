@@ -401,11 +401,22 @@ builtins! {
     BindDv = "Effect.bindDv": Def,
     LiftD = "Effect.liftD": Def,
     DelayD = "Effect.delayD": Def,
+    // Partiality through a row with abilities (docs/proposals/partial-handlers.md)
+    FoldCompD = "Effect.foldCompD": Def,
+    TranslateD = "Effect.translateD": Def,
+    CallD = "Effect.callD": Def,
     // Input and output
     Io = "IO": Data,
     Print = "%print": Ctor(Builtin::Io),
     ReadLine = "%readLine": Ctor(Builtin::Io),
     ReadAll = "%readAll": Ctor(Builtin::Io),
+    // Terminal control (docs/proposals/terminal-io.md §4.2): what a runner
+    // performs, and `IO.console`'s reply, a record the runners build
+    IoConsole = "%console": Ctor(Builtin::Io),
+    KeysMode = "%keysMode": Ctor(Builtin::Io),
+    ReadBytes = "%readBytes": Ctor(Builtin::Io),
+    IoWrite = "%write": Ctor(Builtin::Io),
+    Console = "Console": Data,
     RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the

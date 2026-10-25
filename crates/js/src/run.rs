@@ -69,15 +69,12 @@ pub(crate) const DONE_K: &str = "DONE_K";
 /// (its type arguments are erased; [`generate_program`] checks).
 pub(crate) fn primitive_js(prim: Primitive) -> &'static str {
     match prim {
-        Primitive::Now => "(v) => new StitchwortDelay(D_NOW, v, undefined)",
-        Primitive::Lift => "(c) => new StitchwortDelay(D_LIFT, c, undefined)",
-        Primitive::BindD => "(d) => (k) => new StitchwortDelay(D_BIND, d, k)",
-        Primitive::MapSig => "(m) => (d) => new StitchwortDelay(D_MAP, m, d)",
-        Primitive::Pfix => "(f) => (x) => new StitchwortDelay(D_PFIX, f, x)",
-        // Never emitted: `run --js` refuses `foldD` once it knows what
-        // `main` uses (lane C of docs/proposals/partial-handlers.md), but
-        // the code generator reads its shape before that.
-        Primitive::FoldD => "(done) => (call) => (d) => { throw new Error('foldD'); }",
+        Primitive::Now => "(v) => new StitchwortDelay(D_NOW, v, undefined, undefined)",
+        Primitive::Lift => "(c) => new StitchwortDelay(D_LIFT, c, undefined, undefined)",
+        Primitive::BindD => "(d) => (k) => new StitchwortDelay(D_BIND, d, k, undefined)",
+        Primitive::MapSig => "(m) => (d) => new StitchwortDelay(D_MAP, m, d, undefined)",
+        Primitive::Pfix => "(f) => (x) => new StitchwortDelay(D_PFIX, f, x, undefined)",
+        Primitive::FoldD => "(done) => (call) => (d) => new StitchwortDelay(D_FOLD, done, call, d)",
         Primitive::Delay => unreachable!("`Delay` is a type, so it's erased"),
     }
 }
@@ -109,7 +106,9 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
 /// also counts the operations it routes, the frames routing looks at, and
 /// the frames below the focus at each operation (`operations`, `visited`
 /// and `below`, beside the effect runtime's counts; as
-/// `stitchwort_rt::RouteCounts`), and prints them to standard error at the
+/// `stitchwort_rt::RouteCounts`), the ticks (`ticks`) and the operations a
+/// handler around partial code captured (`captured`), and prints them to
+/// standard error at the
 /// end as a line `stitchwort-route-counts {"operations":…,…}`, for tests.
 pub fn generate_program_with(
     g: &Globals,
@@ -134,15 +133,6 @@ pub fn generate_program_with(
         let info = codegen.try_info(id)?;
         let def = g.def(id);
         if let Some(prim) = g.builtins.primitive(id) {
-            // A handler around partial code (docs/proposals/partial-handlers.md)
-            // runs only on the reference runner so far; lane C of that note.
-            if prim == Primitive::FoldD {
-                return Err(Diagnostic::error(
-                    "E-RUNTIME",
-                    "a handler around partial code isn't supported on this runner yet",
-                )
-                .with_note("run it with `stitchwort run --reference`"));
-            }
             let runtime = info.mask.iter().filter(|erased| !**erased).count();
             if info.convention != Convention::Erased && runtime != runtime_arity(prim) {
                 return Err(internal(format!(
@@ -216,9 +206,25 @@ pub fn generate_program_with(
                 },
             )
             .replace(
+                "@COUNT_TICK@",
+                if counters {
+                    "effCount.ticks++;\n              "
+                } else {
+                    ""
+                },
+            )
+            .replace(
+                "@COUNT_CAPTURE@",
+                if counters {
+                    "effCount.captured++;\n              "
+                } else {
+                    ""
+                },
+            )
+            .replace(
                 "@REPORT_COUNTS@",
                 if counters {
-                    "__fs.writeSync(2, `stitchwort-route-counts ${JSON.stringify({ operations: effCount.operations, visited: effCount.visited, below: effCount.below })}\\n`);\n  "
+                    "__fs.writeSync(2, `stitchwort-route-counts ${JSON.stringify({ operations: effCount.operations, visited: effCount.visited, below: effCount.below, ticks: effCount.ticks, captured: effCount.captured })}\\n`);\n  "
                 } else {
                     ""
                 },
@@ -300,6 +306,31 @@ impl Shapes {
             &["readAllUnit"],
         )?;
         ctor(
+            "console",
+            io,
+            ctor_of(Builtin::IoConsole)?.1,
+            &["consoleUnit"],
+        )?;
+        ctor(
+            "keysMode",
+            io,
+            ctor_of(Builtin::KeysMode)?.1,
+            &["keysModeOn"],
+        )?;
+        ctor(
+            "readBytes",
+            io,
+            ctor_of(Builtin::ReadBytes)?.1,
+            &["readBytesUnit"],
+        )?;
+        ctor("write", io, ctor_of(Builtin::IoWrite)?.1, &["writeText"])?;
+        let bool_ = data(Builtin::Bool)?;
+        ctor("false_", bool_, ctor_of(Builtin::False)?.1, &[])?;
+        ctor("true_", bool_, ctor_of(Builtin::True)?.1, &[])?;
+        let list = data(Builtin::List)?;
+        ctor("nil", list, ctor_of(Builtin::Nil)?.1, &[])?;
+        ctor("cons", list, ctor_of(Builtin::Cons)?.1, &["head", "tail"])?;
+        ctor(
             "randomSeed",
             io,
             ctor_of(Builtin::RandomSeed)?.1,
@@ -314,6 +345,25 @@ impl Shapes {
         ctor("nothing", maybe, 0, &[])?;
         ctor("just", maybe, 1, &["someValue"])?;
         ctor("unit", data(Builtin::UnitType)?, 0, &[])?;
+        // `Console`, a record: no tag, its fields' keys.
+        let console = data(Builtin::Console)?;
+        let fields = &g.data(console).ctors[0].fields;
+        let names = [
+            "consoleInput",
+            "consoleOutput",
+            "consoleColumns",
+            "consoleRows",
+        ];
+        if fields.len() != names.len() {
+            return Err(internal(format!(
+                "`Console` has {} fields, not {}",
+                fields.len(),
+                names.len()
+            )));
+        }
+        for (i, name) in names.into_iter().enumerate() {
+            lines.push((name, js_string_literal(&field_key_at(g, console, 0, i))));
+        }
         Ok(Shapes { lines })
     }
 
@@ -329,17 +379,22 @@ impl Shapes {
     }
 }
 
-/// `Delay` values: one of its five constants applied to its runtime
-/// arguments. Building one runs nothing.
+/// `Delay` values: one of its six constants applied to its runtime
+/// arguments, or a handler's resumption applied to a reply. Building one
+/// runs nothing.
 const DELAY_RUNTIME: &str = r#"
 // A partial computation (docs/proposals/partial.md §7.4): `now v`, `lift c`,
-// `bindD d k`, `mapSig m d` or `pfix f x`. Only the runner looks inside.
-const D_NOW = 0, D_LIFT = 1, D_BIND = 2, D_MAP = 3, D_PFIX = 4;
+// `bindD d k`, `mapSig m d`, `pfix f x` or `foldD done call d`
+// (docs/proposals/partial-handlers.md), or `k y` for a resumption `k` of a
+// `foldD` (`a` what it captured, `b` the reply). Only the runner looks
+// inside.
+const D_NOW = 0, D_LIFT = 1, D_BIND = 2, D_MAP = 3, D_PFIX = 4, D_FOLD = 5, D_RESUMED = 6;
 class StitchwortDelay {
-  constructor(kind, a, b) {
+  constructor(kind, a, b, c) {
     this.kind = kind;
     this.a = a;
     this.b = b;
+    this.c = c;
   }
 }
 
@@ -355,9 +410,16 @@ const RUNNER: &str = r#"
 // `run.mjs` starts with a large stack.
 import * as __fs from "node:fs";
 import * as __wt from "node:worker_threads";
+import * as __tty from "node:tty";
+import { execFileSync as __execFileSync } from "node:child_process";
 
 {
   const errorFile = __wt.workerData.errorFile;
+  // Shared with the launcher (`run.mjs`), which puts the terminal back
+  // however the run ends: [keys mode on, screen set up, columns, rows].
+  const terminalState = __wt.workerData.terminalState;
+  // `stty -g` as it was before the run, if standard input is a terminal.
+  const savedSettings = __wt.workerData.savedSettings;
 
   // Reading or writing failed: E-IO.
   class IoError extends Error {}
@@ -392,7 +454,50 @@ import * as __wt from "node:worker_threads";
     pendingLength = 0;
     writeAll(bytes);
   };
+  // Keys mode (docs/proposals/terminal-io.md §4.3, §4.7) through `stty` on
+  // standard input. The launcher restores whatever is still on at the end.
+  const ENTER_SCREEN = Buffer.from("\x1b[?1049h\x1b[?25l\x1b[?7l");
+  const LEAVE_SCREEN = Buffer.from("\x1b[?7h\x1b[?25h\x1b[?1049l");
+  const KEYS_ON = 0, SCREEN_ON = 1, COLUMNS = 2, ROWS = 3;
+  const inputIsTerminal = __tty.isatty(0);
+  const outputIsTerminal = __tty.isatty(1);
+  const stty = (args) => {
+    __execFileSync("stty", args, { stdio: ["inherit", "ignore", "ignore"] });
+  };
+  const enterKeys = () => {
+    if (terminalState[KEYS_ON] === 1) return;
+    flush();
+    // Recorded before it's done, so a failure part-way is still undone.
+    terminalState[KEYS_ON] = 1;
+    if (outputIsTerminal) {
+      terminalState[SCREEN_ON] = 1;
+      writeAll(ENTER_SCREEN);
+    }
+    if (inputIsTerminal && savedSettings !== null) {
+      try {
+        stty(["-icanon", "-echo", "-iexten", "-ixon", "-icrnl", "min", "1", "time", "0", "susp", "undef"]);
+      } catch (e) {
+        throw new IoError(`can't change the terminal: ${e.message}`);
+      }
+    }
+  };
+  const leaveKeys = () => {
+    if (terminalState[KEYS_ON] === 0) return;
+    flush();
+    terminalState[KEYS_ON] = 0;
+    if (terminalState[SCREEN_ON] === 1) {
+      terminalState[SCREEN_ON] = 0;
+      writeAll(LEAVE_SCREEN);
+    }
+    if (inputIsTerminal && savedSettings !== null) {
+      // GNU stty can report failure after restoring: ignored.
+      try {
+        stty([savedSettings]);
+      } catch {}
+    }
+  };
   const print = (text) => {
+    leaveKeys();
     pending.push(text, "\n");
     pendingLength += text.length + 1;
     if (pendingLength >= 1 << 16) flush();
@@ -512,6 +617,25 @@ import * as __wt from "node:worker_threads";
     lines += count + (text.length > 0 && !text.endsWith("\n") ? 1 : 0);
     return text;
   };
+  // The bytes of one read, for `readBytes`: what's buffered, or one read if
+  // nothing is; null at the end.
+  const readBytes = () => {
+    let bytes = input.subarray(position);
+    if (bytes.length === 0) bytes = readChunk();
+    input = Buffer.alloc(0);
+    position = scanned = 0;
+    if (bytes === null) return null;
+    for (let i = bytes.indexOf(10); i >= 0; i = bytes.indexOf(10, i + 1)) lines++;
+    return bytes;
+  };
+  // A list of the bytes, as `Nat`s.
+  const byteList = (bytes) => {
+    let list = { tag: SHAPE.nil };
+    for (let i = bytes.length - 1; i >= 0; i--) {
+      list = { tag: SHAPE.cons, [SHAPE.head]: BigInt(bytes[i]), [SHAPE.tail]: list };
+    }
+    return list;
+  };
 
   // Performs an operation of `{IO}`, which is `Plus IO NoOp`, or of
   // `{Fail, IO}`, which is `Plus Fail (Plus IO NoOp)`: its reply.
@@ -530,6 +654,7 @@ import * as __wt from "node:worker_threads";
         print(op[SHAPE.printText]);
         return { tag: SHAPE.unit };
       case SHAPE.readLine: {
+        leaveKeys();
         flush();
         const line = readLine();
         return line === null
@@ -537,8 +662,33 @@ import * as __wt from "node:worker_threads";
           : { tag: SHAPE.just, [SHAPE.someValue]: line };
       }
       case SHAPE.readAll:
+        leaveKeys();
         flush();
         return readAll();
+      // Terminal control (docs/proposals/terminal-io.md §4.2, §4.7). The
+      // size is kept by the launcher, which owns `process.stdout`.
+      case SHAPE.console:
+        return {
+          [SHAPE.consoleInput]: { tag: inputIsTerminal ? SHAPE.true_ : SHAPE.false_ },
+          [SHAPE.consoleOutput]: { tag: outputIsTerminal ? SHAPE.true_ : SHAPE.false_ },
+          [SHAPE.consoleColumns]: BigInt(outputIsTerminal ? terminalState[COLUMNS] : 0),
+          [SHAPE.consoleRows]: BigInt(outputIsTerminal ? terminalState[ROWS] : 0),
+        };
+      case SHAPE.keysMode:
+        if (op[SHAPE.keysModeOn].tag === SHAPE.true_) enterKeys();
+        else leaveKeys();
+        return { tag: SHAPE.unit };
+      case SHAPE.readBytes: {
+        flush();
+        const bytes = readBytes();
+        return bytes === null
+          ? { tag: SHAPE.nothing }
+          : { tag: SHAPE.just, [SHAPE.someValue]: byteList(bytes) };
+      }
+      case SHAPE.write:
+        pending.push(op[SHAPE.writeText]);
+        flush();
+        return { tag: SHAPE.unit };
       case SHAPE.randomSeed: {
         // Eight random bytes as a `Nat`, a bigint: the OS's entropy.
         const words = new BigUint64Array(1);
@@ -553,8 +703,19 @@ import * as __wt from "node:worker_threads";
   // The machine of `stitchwort_core::step`: the focus, and a stack of
   // frames on the heap. Each `Recur` that reaches a `Tie` is a tick; with
   // no tick limit, the runner just goes on.
+  //
+  // A handler around partial code (`foldD done call d`,
+  // docs/proposals/partial-handlers.md §5.1) is an `F_HANDLE` frame below
+  // `d`. `Now v` reaching it runs `done v`; a tick passes it by; every
+  // operation reaching it is captured: the frames above it, their marks
+  // (relative to the first of them), the operation's continuation and the
+  // `Map` frames it passed become the resumption `k`, and `call op k` runs
+  // below it. Stepping `k y` pushes the handler and the frames back. Frames
+  // are never changed once made (an `F_AWAIT`'s `upper` is pushed back, not
+  // emptied), so a captured slice can be pushed back any number of times:
+  // a handler that resumes more than once copies nothing but the pointers.
   const EVAL = 0, ENTER = 1, COMP = 2, RET = 3;
-  const F_BIND = 0, F_MAP = 1, F_TIE = 2, F_AWAIT = 3;
+  const F_BIND = 0, F_MAP = 1, F_TIE = 2, F_AWAIT = 3, F_HANDLE = 4;
   // Translates a reply back through the `Map` frames an operation passed
   // (`back`, innermost first, so they're undone outermost first).
   const translateBack = (frames, back, v) => {
@@ -604,6 +765,27 @@ import * as __wt from "node:worker_threads";
               b = a.b;
               a = a.a;
               break;
+            case D_FOLD:
+              // Entering a handler: its frame waits below the handled
+              // computation. No tick.
+              marks.push(frames.length);
+              frames.push({ k: F_HANDLE, done: a.a, call: a.b });
+              a = a.c;
+              break;
+            case D_RESUMED: {
+              // `k y`: the handler and the captured frames go back on top.
+              const captured = a.a;
+              const v = translateBack(captured.frames, captured.back, a.b);
+              marks.push(frames.length);
+              frames.push({ k: F_HANDLE, done: captured.done, call: captured.call });
+              const base = frames.length;
+              for (const f of captured.frames) frames.push(f);
+              for (const k of captured.marks) marks.push(k + base);
+              mode = COMP;
+              a = captured.cont(v);
+              pending = captured.after;
+              break;
+            }
             default:
               throw new Error("internal error: running something that isn't a `Delay`");
           }
@@ -631,7 +813,25 @@ import * as __wt from "node:worker_threads";
           @COUNT_OPERATION@for (let p = marks.length - 1; p >= 0; p--) {
             const j = marks[p];
             const frame = frames[j];
-            @COUNT_VISIT@if (frame.k === F_MAP) {
+            @COUNT_VISIT@if (frame.k === F_HANDLE) {
+              // Captured: the frames above the handler become `k`.
+              @COUNT_CAPTURE@const base = j + 1;
+              const captured = {
+                done: frame.done,
+                call: frame.call,
+                frames: frames.splice(base),
+                marks: marks.splice(p + 1).map((k) => k - base),
+                cont,
+                after,
+                back: back.map(([k, s]) => [k - base, s]),
+              };
+              frames.pop();
+              marks.pop();
+              mode = EVAL;
+              a = frame.call(op)((y) => new StitchwortDelay(D_RESUMED, captured, y, undefined));
+              entered = true;
+              break;
+            } else if (frame.k === F_MAP) {
               const target = frame.inject(op);
               back.push([j, op]);
               op = target;
@@ -641,7 +841,7 @@ import * as __wt from "node:worker_threads";
                 continue;
               }
               // A recursion request: one tick.
-              const request = op[SHAPE.leftOp][SHAPE.recurArg];
+              @COUNT_TICK@const request = op[SHAPE.leftOp][SHAPE.recurArg];
               const upper = frames.splice(j);
               const upperMarks = marks.splice(p);
               const tail =
@@ -681,6 +881,11 @@ import * as __wt from "node:worker_threads";
             case F_MAP:
             case F_TIE:
               marks.pop();
+              break;
+            case F_HANDLE:
+              marks.pop();
+              mode = EVAL;
+              a = frame.done(a);
               break;
             case F_AWAIT: {
               const v = translateBack(frame.upper, frame.back, a);
@@ -735,16 +940,62 @@ import * as __wt from "node:worker_threads";
 /// limited by the operating system's.
 const LAUNCHER: &str = r#"// Generated by stitchwort: runs program.mjs (`stitchwort run --js`).
 import { Worker } from "node:worker_threads";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, writeSync } from "node:fs";
+import { isatty } from "node:tty";
+import { spawnSync } from "node:child_process";
 
 const errorFile = process.argv[2];
+
+// The terminal (docs/proposals/terminal-io.md §4.7, §5). Keys mode is the
+// worker's, through `stty`; this thread owns the size, and puts the terminal
+// back however the run ends. [keys mode on, screen set up, columns, rows].
+const terminalState = new Int32Array(new SharedArrayBuffer(16));
+let savedSettings = null;
+if (isatty(0)) {
+  const saved = spawnSync("stty", ["-g"], { stdio: ["inherit", "pipe", "ignore"], encoding: "utf8" });
+  if (saved.status === 0 && saved.stdout.trim() !== "") savedSettings = saved.stdout.trim();
+}
+if (isatty(1)) {
+  const updateSize = () => {
+    terminalState[2] = process.stdout.columns || 0;
+    terminalState[3] = process.stdout.rows || 0;
+  };
+  updateSize();
+  process.stdout.on("resize", updateSize);
+}
+// Leaves keys mode if it's still on.
+const restoreTerminal = () => {
+  if (terminalState[0] === 0) return;
+  terminalState[0] = 0;
+  if (terminalState[1] === 1) {
+    terminalState[1] = 0;
+    try {
+      writeSync(1, "\x1b[?7h\x1b[?25h\x1b[?1049l");
+    } catch {}
+  }
+  if (savedSettings !== null) {
+    // GNU stty can report failure after restoring: ignored.
+    spawnSync("stty", [savedSettings], { stdio: ["inherit", "ignore", "ignore"] });
+  }
+};
+// `process.exit` would hang while the worker is blocked reading standard
+// input, so a signal puts the terminal back, then takes its default action.
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(signal, () => {
+    restoreTerminal();
+    process.removeAllListeners(signal);
+    process.kill(process.pid, signal);
+  });
+}
+
 const worker = new Worker(new URL("./program.mjs", import.meta.url), {
-  workerData: { errorFile },
+  workerData: { errorFile, terminalState, savedSettings },
   resourceLimits: { stackSizeMb: @STACK_MB@ },
 });
 let failed = false;
 worker.on("error", (e) => {
   failed = true;
+  restoreTerminal();
   // Running out of stack while the module loads, or out of memory.
   if (e && (e.name === "RangeError" || e.code === "ERR_WORKER_OUT_OF_MEMORY")) {
     writeFileSync(errorFile, e.message);
@@ -755,6 +1006,7 @@ worker.on("error", (e) => {
   }
 });
 worker.on("exit", (code) => {
+  restoreTerminal();
   if (!failed) process.exitCode = code;
 });
 "#;

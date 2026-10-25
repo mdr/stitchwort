@@ -97,6 +97,11 @@ pub enum Fun {
     /// What `jump v s` returns: never applied, only recognised by the loop
     /// it returns to.
     Jumped(Value, Value),
+    /// A handler's `k` around partial code (`foldD`,
+    /// docs/proposals/partial-handlers.md §5.1): `k y` is the `Delay`
+    /// [`Delay::Resumed`], which the runner steps by putting the captured
+    /// frames back (`run.rs`).
+    DelayK(Rc<crate::run::Capture>),
 }
 
 /// A partial computation: one of `Delay`'s constants with its runtime
@@ -109,10 +114,13 @@ pub enum Delay {
     /// `mapSig m d`: `m` is `MkSigMap inject reply`.
     Map(Value, Value),
     Pfix(Value, Value),
-    /// `foldD done call d`, a handler around partial code. Built, but not
-    /// yet run on this runtime (`run.rs`; lane C of
-    /// docs/proposals/partial-handlers.md).
+    /// `foldD done call d`, a handler around partial code
+    /// (docs/proposals/partial-handlers.md).
     Fold(Value, Value, Value),
+    /// `k y`, for a resumption `k` of a handler around partial code
+    /// ([`Fun::DelayK`]): stepping it puts the handler and the captured
+    /// frames back on the runner's stack and continues with `y`.
+    Resumed(Rc<crate::run::Capture>, Value),
 }
 
 impl Value {
@@ -277,6 +285,11 @@ impl Fun {
                     resume.take_children(out);
                 }
             }
+            Fun::DelayK(capture) => {
+                if let Some(capture) = Rc::get_mut(capture) {
+                    capture.take_children(out);
+                }
+            }
             Fun::Closure { captures, .. } => take_from(captures, out),
             Fun::Pap { head, args } => {
                 take_from(std::slice::from_mut(head), out);
@@ -298,6 +311,12 @@ impl Delay {
                 take_from(std::slice::from_mut(a), out);
                 take_from(std::slice::from_mut(b), out);
                 take_from(std::slice::from_mut(c), out);
+            }
+            Delay::Resumed(capture, y) => {
+                if let Some(capture) = Rc::get_mut(capture) {
+                    capture.take_children(out);
+                }
+                take_from(std::slice::from_mut(y), out);
             }
         }
     }

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.double c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
 Main.doubled fe5a2b41d27d863da8fc1e89ff8f337713004c5eb66804a84a791029b8b48bbb
@@ -14,4 +14,4 @@ Main.test "map with a constructor" 0ab16541268580d27717dabbae01a1b0962bb634d8769
 Main.test "map with a partial application" 3af7b2457301d507b7821ee4c1f6c3843f266d763d4f5b46aea57293a1000a2c
 Main.test "map with a pure parameter" f59cfa18b09593c9710b076b2b069809ac42ab761365b376c827417acf82dfc6
 Main.test "map with an empty-row parameter" 86ea86da1dbac13c39f931b30720bc2544b21295cd956bf07569871125778797
-Main.test "map with a pure callback in a failing computation" e540ce81e5f416f4b83e28627050e0d87a12223c271f5a8641ec981e756eb21e
+Main.test "map with a pure callback in a failing computation" 498807f7f1fe871668ccbd7446b48f911a560c20752728ad27fc8ac4efb3ca56

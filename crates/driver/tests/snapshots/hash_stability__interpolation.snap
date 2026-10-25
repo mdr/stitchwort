@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Box aaa0084446f3d7f00926cedff6aec85980bfa1a9cd0cbd2598304a44b7a74d5b
 Main.Box.value bf15d890a4e5ee1635fbd66c699896423c9b8ea620fef5bee7269a7a17ed0d13
@@ -9,11 +9,11 @@ Main.Box.%decEq edd4c700010cf2f68d7cbafc2dfdb7c4b63bb81640d0e7daf8dbe7f133e81209
 Main.Box.%instDecEq c331b048849bc9de24441370c49c915e810a48fb2857da97a2de3eeb88adde6a
 Main.Box.%show fbf25c2d3bf38f303146e1c8d8f71b76712918acef34dba2e06eee43a322a4d4
 Main.Box.%instShow c2dd2524c3d1f90b0c7e283aaacff0d426d6b4889d28c225400d38e1cb00b8aa
-Main.Box.%compare cc45f22fe95ce17c23bdf2a81f76452c7fca4ae8ec37b3fbecf05169b8451493
-Main.Box.%equal d011ebef044aad5b6be928089f60592e1d2f666a1a129f87ed3a50aba5cebacc
-Main.Box.%flip 0d7aa2f17501eb7b1152c4ab8b5f0c2841c578f87b702335d48cd53f65e008e3
-Main.Box.%trans d343fcdd9acb5f0d51c3a1813f62b9b7b0d635a15e6993e56cf0c4fb6fc475a8
-Main.Box.%instOrd c52f96ff27ffda2c4074843c4540ce4e8f2c06571ef963a411a5113240fbb9a9
+Main.Box.%compare 60e945056360aede3d0b16bf77ae5210be96fd15ccb3fa386a942a61fb932422
+Main.Box.%equal 00fa413292866f340ec9611ade5f53a4285bc6756aa0c0bf8f0533707e5d5ffe
+Main.Box.%flip c2bc54fbe375a4a9551c13fcc26d276eab56457db55963bb8d0e0fb01e713dd6
+Main.Box.%trans f9774d1d4c0e196881c450b5d8836e481499843b5649d2fdbdb1ab6963f609ba
+Main.Box.%instOrd ec01e09730dd3a7a57b97ca7aea54a58f5570898e827964ed10359c4953bec46
 Main.Box.ext 9894d880d1f0fa1c2a373f9d469202751a39f8a8408e40738140346210bef127
 Main.world 3081b913bd0944142d3a353992a8e6a7825651c9d01a6b51ddf223d8dc6a6d75
 Main.test "nat" 0b4e6f394c06642bea2fc48248eb303869d084efdb83d2c53405bc07c58a6621

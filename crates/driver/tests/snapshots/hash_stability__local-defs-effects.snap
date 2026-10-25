@@ -1,12 +1,12 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.State 85de017bfba669387e7abba0d3cf8705427dca441fe960de4dbe25ac908798f9
 Main.State.%res e656ad79e9430a89134f61c74d940c0013003761fda8fc60d68a3b494763403b
 Main.State.%elim 12f7de7fe5a958b9fdc0a05565f960ba56ce73688b3e865cd356e7ae14ba9583
-Main.runState c13d574b77a4eee02b888c36ada28c8ba524970dc29cd5a491d84cd0aaaccbc7
+Main.runState 3b145bea023bd92f319003167df8ea932806139bf6f1fdc1db441c863470f0f2
 Main.tally 227e30f3f354c5887b0700c462ddcb0214fa4c39399436179a9b4017a902a05e
 Main.tally.add 1fb65c94f424d1e8e721f0c504de0512c8eff281c5d39551f2ea404a9ef00949
 Main.fstOf 85c65787a85e4f47f6e28ad116d1a5fc7b6cf38cbfb7d2b61d75d24a72ae854c
-Main.test "tally" 6a13f23822f6d7a70467f3ed0a6ae1065f33e0fa5db261c948e7086e6eac9ced
+Main.test "tally" b5d6147c9473843ee21bd0d566ce1a36676cb7f223e6e722ebb46a4cc73aa270

@@ -68,7 +68,7 @@ package(stitchwort-syntax)
 | (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
 | (package(stitchwort-cli) & binary(effect_runtime) & test(/^(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/))
 | (binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/))
-| (package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | (binary(machine) & test(=library_tests_agree))))
+| (package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | (binary(partial_handlers) & test(/^(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(machine) & test(=library_tests_agree))))
 | package(stitchwort-js)
 | package(stitchwort-native)
 | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))
@@ -76,7 +76,7 @@ package(stitchwort-syntax)
 | (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
 | (package(stitchwort-cli) & binary(fmt))
 | (binary(aoc_answers) & test(/^day/))
-| (package(stitchwort-cli) & (binary(session) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/))))
+| (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/))))
 | (binary(hash_stability) & test(/^(examples|projects|prelude)$/))
 | (package(stitchwort-cli) & binary(examples))
 | (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
@@ -109,7 +109,7 @@ binary(ability_errors) | binary(empty_row_kernel)
 default-filter = "binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/)"
 
 [profile.lane-rt]
-default-filter = "package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | (binary(machine) & test(=library_tests_agree)) | (binary(effect_runtime) & test(/^(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/)))"
+default-filter = "package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | (binary(partial_handlers) & test(/^(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(machine) & test(=library_tests_agree)) | (binary(effect_runtime) & test(/^(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/)))"
 
 [profile.lane-js]
 default-filter = "package(stitchwort-js) | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))"
@@ -127,7 +127,7 @@ default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (p
 default-filter = "binary(aoc_answers) & test(/^day/)"
 
 [profile.lane-cli]
-default-filter = "package(stitchwort-cli) & (binary(session) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)))"
+default-filter = "package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)))"
 
 # With NAME (EXAMPLES): only the examples whose names contain it.
 [profile.lane-hashes]

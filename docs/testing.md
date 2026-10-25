@@ -46,13 +46,13 @@ When the daily tier grows past 5 minutes, cut it from nextest's own times (`targ
 | `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones | 4 s |
 | `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
-| `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests | 4 s |
+| `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests, two quick `partial_handlers` tests | 4 s |
 | `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
 | `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) and stage N1 against the machine (`tests/n1.rs`: outputs, allocation traces, resource points) | 3 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
 | `aoc` | every AoC day on its real input (`aoc_answers` `dayNN`) | 6 s |
-| `cli` | `cli` `session`, and `run` but for its five slowest | 4 s |
+| `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), and `run` but for its five slowest | 4 s |
 | `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it | 6 s |
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
 | `bench` | the `stitchwort-bench` unit tests and the quick `check_work` tests | 6 s |

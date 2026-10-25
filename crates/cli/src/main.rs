@@ -323,6 +323,18 @@ fn main() -> ExitCode {
         eprintln!("error: {e}");
         return ExitCode::FAILURE;
     }
+    // A program run natively may switch the terminal to keys mode: the
+    // signals that would end it are caught first, before any thread starts,
+    // so that the terminal is put back (docs/proposals/terminal-io.md §5).
+    #[cfg(unix)]
+    if matches!(cli.command, Command::Run { js: false, .. }) {
+        stitchwort_cli::terminal::catch_signals();
+    }
+    // Under Node the terminal is Node's to put back: wait for it.
+    #[cfg(unix)]
+    if matches!(cli.command, Command::Run { js: true, .. }) {
+        stitchwort_cli::terminal::wait_for_node();
+    }
     // `run --native` runs native code on this thread, whose stack is then
     // the safety margin behind the frame limit (native-compilation.md §4.3).
     let stack = match &cli.command {
@@ -1492,13 +1504,29 @@ enum Runner {
 fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
+    #[cfg(unix)]
+    let (mut terminal, restore) = (
+        stitchwort_cli::terminal::UnixTerminal,
+        stitchwort_cli::terminal::Restore,
+    );
+    #[cfg(not(unix))]
+    let (mut terminal, restore) = (stitchwort_cli::run::NoTerminal, ());
     let result = match runner {
-        Runner::Reference => session.run_main(main, &mut input, &mut output),
-        Runner::Machine => session.run_main_fast(main, &mut input, &mut output),
-        Runner::Native { verbose, trace } => {
-            run_main_native(session, main, verbose, trace, &mut input, &mut output)
-        }
+        Runner::Reference => session.run_main_on(main, &mut input, &mut output, &mut terminal),
+        Runner::Machine => session.run_main_fast_on(main, &mut input, &mut output, &mut terminal),
+        Runner::Native { verbose, trace } => run_main_native(
+            session,
+            main,
+            verbose,
+            trace,
+            &mut input,
+            &mut output,
+            &mut terminal,
+        ),
     };
+    // Out of keys mode before an error is shown, so it's on the normal
+    // screen.
+    drop(restore);
     match result {
         Ok(()) => ExitCode::SUCCESS,
         // `main` failed and nothing handled it (D1048): not a runtime error.
@@ -1524,6 +1552,7 @@ fn run_main_native(
     trace: bool,
     input: &mut impl std::io::BufRead,
     output: &mut impl std::io::Write,
+    terminal: &mut dyn stitchwort_cli::run::Terminal,
 ) -> Result<(), stitchwort_cli::run::RunError> {
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -1540,6 +1569,7 @@ fn run_main_native(
         &mut factory,
         input,
         output,
+        terminal,
     );
     if verbose {
         for note in notes.borrow().iter() {
@@ -1557,6 +1587,7 @@ fn run_main_native(
     _trace: bool,
     _input: &mut impl std::io::BufRead,
     _output: &mut impl std::io::Write,
+    _terminal: &mut dyn stitchwort_cli::run::Terminal,
 ) -> Result<(), stitchwort_cli::run::RunError> {
     unreachable!("`run --native` is refused without the `native` feature")
 }
@@ -1586,8 +1617,12 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
     let status = match std::process::Command::new("node")
         .arg(&launcher)
         .arg(&error_file)
-        .status()
-    {
+        .spawn()
+        .and_then(|mut node| {
+            #[cfg(unix)]
+            stitchwort_cli::terminal::set_node(node.id());
+            node.wait()
+        }) {
         Ok(status) => status,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             eprintln!(
@@ -1631,6 +1666,14 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
         }
         // Node has reported what went wrong.
         Some(_) => ExitCode::from(2),
+        // Ended by a signal (Ctrl-C, after putting the terminal back): the
+        // status a shell expects, as for a native run.
+        #[cfg(unix)]
+        None if std::os::unix::process::ExitStatusExt::signal(&status).is_some() => {
+            ExitCode::from(128u8.wrapping_add(
+                std::os::unix::process::ExitStatusExt::signal(&status).unwrap_or(0) as u8,
+            ))
+        }
         None => {
             eprintln!("error: `node` was stopped by a signal ({status})");
             ExitCode::from(2)

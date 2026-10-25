@@ -38,5 +38,5 @@ expression: output
     │                         x: a
     │                         xs: List a
     │                         y: b
-    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => Effect.runPure (Call o (y => Done (k y))))) (Effect.bind (List.map xs f) (%9 => Done (Cons y %9))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (%arg0 => f z))) (tail => Cons y tail))
+    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (%9 => Done (Cons y %9))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (%arg0 => f z))) (tail => Cons y tail))
 ────╯

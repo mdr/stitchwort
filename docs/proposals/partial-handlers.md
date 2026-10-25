@@ -6,9 +6,10 @@ executable model) is built; its findings are marked "lane A" in §2.4, §5.1,
 §5.2 and §9. Lane B is built too: `foldD` in the kernel, the reference
 runner (`crates/core/src/step.rs`, with the model's traces in
 `crates/driver/tests/partial.rs`) and the elaborator, with
-`examples/accept/partial-handlers.sw`. `stitchwort run` and `run --js`
-refuse a program that uses it ("not supported on this runner yet") until
-lane C.
+`examples/accept/partial-handlers.sw`. Lane C is built: the native
+machine (`crates/rt/src/run.rs`) and `run --js` (`crates/js/src/run.rs`) run
+`foldD` too, with the same ticks; its results are marked "lane C" in §5.2,
+§5.3 and §9.
 
 Tags, as in the other `Partial` notes: **[source]** read in the code,
 **[ran]** run on today's build, **[web]** checked online (links in §6),
@@ -27,6 +28,7 @@ Tags, as in the other `Partial` notes: **[source]** read in the code,
 8. Build plan
 9. What I couldn't verify
 10. Decisions for Matt
+11. As built: lane D
 
 ## 0. Summary
 
@@ -547,6 +549,14 @@ and later" (`crates/rt/src/effect.rs`, module comment) **[source]**. Copying
 is simple and only multi-shot pays for it; a persistent frame list for
 `Delay` is a later optimisation if a program needs it.
 
+*Lane C [ran].* The native machine does as the model does, and counts its
+copies: `collectIn` around `search 2` copies 3 times; `fromLines`, a state
+handler over a million operations, `Fail.toResult`, `walk 12` and `answered`
+copy none (`crates/rt/tests/partial_handlers.rs`). The JS runner never
+copies: its frames are never changed once made (an `Await`'s `upper` is
+pushed back, not emptied), so a captured slice can be pushed back any number
+of times.
+
 ### 5.3 Stack safety
 
 Frames stay on the heap, so nothing nests in Rust or JS **[inferred]**:
@@ -563,6 +573,21 @@ Frames stay on the heap, so nothing nests in Rust or JS **[inferred]**:
 
 Lane C's acceptance tests: a million handled operations and a million ticks
 under a state handler, natively and with `--js`, as stage 3 measured `map`.
+
+*Lane C [ran].* Both pass on both runners, under `runCounter` (a state
+handler): a million `incr`s, a thousand per tick (`rounds 1000`), and a
+million ticks with an `incr` each (`countUp 1000000`). User CPU time of
+`stitchwort run` on 25 October 2026, checking included (about 0.3 s), on a
+heavily loaded machine (load average about 100, so wall times weren't
+meaningful): a million handled operations 2.2 s natively and 1.0 s with
+`--js`; a million ticks under the handler 1.9 s and 1.2 s. The same million
+ticks with no handler take 0.4 s and 0.3 s. So a handled operation costs
+about 2 µs natively and 0.7 µs in JS. The tests print their times
+(`a_million_handled_operations`, `a_million_ticks_under_a_state_handler` in
+`crates/rt/tests/partial_handlers.rs`; `run_js_…` in
+`crates/cli/tests/partial_handlers.rs`). The allocation trace finds no cell
+leaked by capture, restore, copy or a dropped resumption, on lane A's
+programs (`capture_and_restore_leak_nothing`).
 
 ### 5.4 `IO.simulate` around a partial `main`, and tests
 
@@ -788,11 +813,13 @@ the terminal note's revision.
 
 - **Ticks and traces** of §2.4 and lane A's list: run in the model since
   lane A (`crates/partial-model`, `tests/table.rs` section 9), on both the
-  machine and the equations, with complete traces. Not yet on the three
-  real runners (lanes B and C).
-- **Stack safety and multi-shot cost** (§5.2, §5.3) in the real runners are
-  inferred from the machines' structure; the model's machine shows constant
-  frames for a loop under a handler and counts copies.
+  machine and the equations, with complete traces. Lane B checks the
+  reference runner's traces against the model's; lane C checks that the
+  native machine needs the same ticks and prints the same at every tick
+  limit (`crates/rt/tests/tick_counts.rs`), and that `run --js` prints the
+  same with the same ticks (`crates/cli/tests/partial_handlers.rs`).
+- **Stack safety and multi-shot cost** (§5.2, §5.3): run by lane C on the
+  native and JS runners, at a million operations and a million ticks.
 - **That `Await` frames survive capture and restore** (§5.1): settled in
   the model (yes, with the in-flight operation's `Map` indices rebased);
   lane B checks its own `step.rs`.
@@ -831,3 +858,46 @@ scripted game ends when its input runs out, so a test of it ends; a test
 that loops is a bug, as D1183 says. A limit would need total code that can
 observe a partial program (partial.md §10.1), a much bigger change.
 Recommendation: **yes** (no limit).
+
+## 11. As built: lane D (25 October 2026)
+
+- **Signatures** (D1255): `autobind` marks a row variable used only as the
+  tail of rows that don't say `Partial` (`{e}` or `{A | e}`), and
+  `signature_type` binds its `%div.e` as for bare rows. `effect_type` gives
+  any such row the index, so `{A | e} a` is `CompD d (Ops …) a`, which is
+  the row's `Comp` at `Total` by computation.
+- **Library** (`core/Effect.sw`, library-internal): `foldCompD` (§4.2),
+  `translateD` (`lowerIn to (translate m (liftIn from c))` at `Total`, so
+  it also moves a bare `{e}` into `{A | e}`; `mapSig` at `MayDiverge`) and
+  `callD`, a forwarded operation (`bindIn row (lowerIn row (Call o Done)) k`
+  at `Total`, `bindD (lift (Call o Done)) k` at `MayDiverge`).
+- **Elaborator** (`effects.rs`): `handle` gives the handled row the output
+  row's index and folds with `foldCompD`, forwarding with `callD` (or, once
+  the body has settled the index, `foldComp`/`foldD` directly); `lift`
+  moves between two rows with the same index by `translateD`; an operation
+  called in such a row is wrapped in `liftD`. `lift_plain`'s row solving is
+  now `align`, shared with that case.
+- **D1215** carries over unchanged: `examples/reject/partial-row-total-body.sw`
+  (a callback stored in a data type's field) is checked again with `e`
+  total, and a caller's E-PARTIAL points at the line.
+- **Specialisation** (D1216): nothing new. A handler's variant is made where
+  every row parameter is `Empty`/`Total`, as `List.map`'s; there
+  `foldCompD`'s `Total` branch is inlined, so state-handler fusion and the
+  other fast paths see `foldComp` as before
+  (`crates/rt/tests/effect_runtime.rs` passes unchanged). At a non-empty row
+  the generic code tests the index once per handler.
+- **Runners**: `foldD` is now reachable from total programs' generic code
+  (`foldCompD`'s `MayDiverge` branch), so the native runner no longer
+  refuses a `main` for it before running, and `run --js` emits its stub
+  (which throws) instead of refusing. A program that actually steps a
+  `foldD` still stops with the same error until lane C.
+- **Messages**: the notes saying a handler can't run partial code are gone
+  (E-PARTIAL-CALLBACK's, `partial_mismatch`'s, `divergent_in_total`'s); a
+  call that is partial because of what it was given is labelled
+  "`Fail.toResult` is partial here because a function it's given is";
+  `CompD d (Ops …) a` prints as `{A | e} a`.
+- **Gate**: the 27 theorem lines of §3.5 and every example check with no
+  source edits; `reject/partial-row-variable.sw` became
+  `accept/partial-row-variable.sw` (`IO.simulate`, `Fail.toResult` and
+  `Each.collectIn` around partial code, as tests; the same handlers around
+  total code, proved by `rfl`).

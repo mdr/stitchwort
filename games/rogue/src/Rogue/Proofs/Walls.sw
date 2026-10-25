@@ -1,43 +1,54 @@
 -- The player is never inside a wall after a turn (`stepOutOfWalls`): the
--- player only moves onto a cell that `isWall` has just said isn't one, and
--- nothing else in a turn moves them.
+-- player only moves onto a cell that `isWall` has just said isn't one, or
+-- down the stairs to the start of a new level, which is floor on every
+-- level (Level.sw); and nothing else in a turn moves them.
 
 namespace Rogue.Proofs
 import Rogue (..)
-import Std (Decidable, Eq, List)
+import Std (Eq)
 
-theorem monstersTurnPlayer (dice: Dice) (state: State): (monstersTurn dice state).player = state.player :=
-  match stairs: isStairs state.player with
-    | True => rfl
-    | False => rfl
-
-theorem enterPlayer (state: State) (target: Position): (enter state target).player = target :=
-  match potion: Decidable.toBool (List.decMem target state.potions) with
-    | True => rfl
-    | False => rfl
-
-theorem playerMovesOutOfWalls (dice: Dice) (state: State) (direction: Direction) (inside: isWall state.player = False):
-    isWall (playerMoves dice state direction).player = False :=
+theorem playerMovesOutOfWalls (dice: Dice) (state: State) (direction: Direction) (inside: isWall state.level state.player = False):
+    isWall (playerMoves dice state direction).level (playerMoves dice state direction).player = False :=
   match found: monsterAt (state.player.toward direction) state.monsters with
     | Some monster => inside
     | None =>
-      match wall: isWall (state.player.toward direction) with
+      match wall: isWall state.level (state.player.toward direction) with
         | True => inside
-        | False => Eq.trans (Eq.cong isWall (enterPlayer state (state.player.toward direction))) wall
+        | False =>
+          let target := state.player.toward direction
+          rewrite enterLevel state target, enterPlayer state target in wall
 
-theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside: isWall state.player = False):
-    isWall (resolve dice state command).player = False :=
+theorem monstersTurnOutOfWalls (dice: Dice) (state: State) (inside: isWall state.level state.player = False):
+    isWall (monstersTurn dice state).level (monstersTurn dice state).player = False :=
+  rewrite monstersTurnLevel dice state, monstersTurnPlayer dice state in inside
+
+theorem descendOutOfWalls (state: State) (inside: isWall state.level state.player = False):
+    isWall (descend state).level (descend state).player = False :=
+  match below: state.below with
+    | Cons plan deeper => startOnFloor plan.level
+    | [] => inside
+
+theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside: isWall state.level state.player = False):
+    isWall (resolve dice state command).level (resolve dice state command).player = False :=
   match phase: state.phase with
     | Playing =>
       match command with
         | Quit => inside
-        | Wait => Eq.trans (Eq.cong isWall (monstersTurnPlayer dice { state | message = "You wait." })) inside
-        | Move direction => Eq.trans (Eq.cong isWall (monstersTurnPlayer dice (playerMoves dice state direction))) (playerMovesOutOfWalls dice state direction inside)
-    | Escaped => inside
+        | Wait => monstersTurnOutOfWalls dice { state | message = "You wait." } inside
+        | Move direction => monstersTurnOutOfWalls dice (playerMoves dice state direction) (playerMovesOutOfWalls dice state direction inside)
+        | Drink =>
+          match none: state.potions == 0 with
+            | True => inside
+            | False => monstersTurnOutOfWalls dice (drink state) inside
+        | Descend =>
+          match stairs: isStairs state.level state.player with
+            | True => descendOutOfWalls state inside
+            | False => inside
+    | Won => inside
     | Died => inside
     | GaveUp => inside
 
 -- The player is never inside a wall after a turn, whatever the seed.
-theorem stepOutOfWalls (seed: Nat) (state: State) (command: Command) (inside: isWall state.player = False):
-    isWall (seeded seed (() => step state command)).player = False :=
+theorem stepOutOfWalls (seed: Nat) (state: State) (command: Command) (inside: isWall state.level state.player = False):
+    isWall (seeded seed (() => step state command)).level (seeded seed (() => step state command)).player = False :=
   resolveOutOfWalls { seed = lcg seed / 65536 } state command inside

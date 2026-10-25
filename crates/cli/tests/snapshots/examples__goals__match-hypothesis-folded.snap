@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `stepped`
+    ╭─[ goals/match-hypothesis-folded.sw:12:16 ]
+    │
+ 12 │     | False => ?
+    │                ┬  
+    │                ╰── row: Nat
+    │                    column: Nat
+    │                    wall: isWall row column = False
+    │                    ⊢ row = row
+────╯

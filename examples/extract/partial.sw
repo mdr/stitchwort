@@ -7,7 +7,9 @@
 -- run: answer 3
 -- run: answer 0
 -- run: kept 5
+-- run: handled 4
 
+import Std (Empty, Fail)
 import Std.Effect (Delay)
 
 def collatzSteps: Nat → {Partial} Nat
@@ -24,3 +26,12 @@ def firstOf: Pair Nat (Nat → {Partial} Nat) → Nat
 export def answer (n: Nat): Nat := discard collatzSteps + discard (m => collatzSteps (m + n)) + n
 
 export def kept (n: Nat): Nat := firstOf (MkPair n collatzSteps)
+
+-- A handler around partial code is partial too (`foldD`,
+-- docs/proposals/partial-handlers.md): mentioned, it's the same token.
+def orZero (n: Nat): {Partial} Nat :=
+  handle (if n == 0 then Empty.absurd (Fail.stop "zero") else collatzSteps n) with
+    | return steps => steps
+    | Fail.stop message, k => 0
+
+export def handled (n: Nat): Nat := discard orZero + n

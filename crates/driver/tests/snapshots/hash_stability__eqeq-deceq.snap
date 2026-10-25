@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Tree c7cb8ef825cc225766e67fa359b5d6d1addc090f399cbaf9ba27ba0843b47a7d
 data Main.Colour adc04fd54e41d487337148738713ab70e1a6a15699add7447ef7c9ed7c6a0b3f
@@ -18,8 +18,8 @@ Main.Tree.%compare 866389d36a675468799fdeec8de077af9c1d7014ef5543d950f6e27b89de8
 Main.Tree.%equal 4d75db2522902d3eaee03b290c784fcca5abae47686107fced6b802c4304b016
 Main.Tree.%flip ce7c1ff1d5f3101cfc8ffbf13816b653612c0106f85d6a6d76af09a3b5d25ad9
 Main.Tree.%unfold afd1483e56db9c94eeddc8624749f991e086217193565d56e14fa851705148c9
-Main.Tree.%trans f3ec389201cd4bf013120b050d36aa5804123b5b320f691aa7290200252023c7
-Main.Tree.%instOrd ba90ffe6ea11b915d440ef718e6cb689627371397b7a5063b644006ebcf69c46
+Main.Tree.%trans 8d91a2813ec5b8efed4b343b476cf009a6f73175dbce8e98e064699fa1a8e263
+Main.Tree.%instOrd 2f7e09b468cffc137c18e7ac3966b9185098a39f4563e8266ec435c1dc71a8cf
 Main.Colour.%show 40cf1c5e9a8bde759fa945799c6638489af0490dcf92108f4dd5ba40e73d84fd
 Main.Colour.%instShow 4cd9c8d650f38d5b48ee12ed2481efeb3c32491b49dd0446165048f678378c83
 Main.isGreen 3815a626667847e9086cc80ed8d856ac1405653ded6b1321b5cb5a2697500769

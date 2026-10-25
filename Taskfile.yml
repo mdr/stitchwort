@@ -276,7 +276,7 @@ tasks:
       - '{{.SW}} run --js Aoc.Day{{.DAY}}.main < {{.AOC_INPUTS | default "inputs"}}/day{{.DAY}}.txt'
 
   rogue:run:
-    desc: 'Play the roguelike (games/rogue/): type h/j/k/l and Enter to move, q to quit'
+    desc: 'Play the roguelike (games/rogue/) in the terminal: arrows or h/j/k/l move, q quits'
     deps: [build]
     dir: games/rogue
     cmds:

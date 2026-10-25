@@ -540,6 +540,16 @@ impl<'g> Printer<'g> {
                             if may && empty {
                                 return (format!("{{Partial}} {shown}"), Prec::App);
                             }
+                            // A row with abilities, `Ops op res`
+                            // (docs/proposals/partial-handlers.md §4):
+                            // `{A | e} a`, or `{A, Partial | e} a`.
+                            if let Term::Ctor(d, c, fields) = row.strip_loc()
+                                && self.g.registry.ctor(Builtin::RowOps) == Some((*d, *c))
+                                && let [op, _] = &fields[..]
+                                && let Some(row) = self.row_with(names, op, may)
+                            {
+                                return (format!("{row} {shown}"), Prec::App);
+                            }
                             let row = self.print(names, row, Prec::App);
                             if may {
                                 return (format!("{{Partial | {row}}} {shown}"), Prec::App);

@@ -4,7 +4,7 @@
 //! they read input and report errors exactly alike.
 
 use std::fmt;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 
 use stitchwort_core::ResourceError;
 use stitchwort_syntax::{Diagnostic, Span};
@@ -21,6 +21,8 @@ pub enum RunError {
     InvalidUtf8 { line: usize },
     /// Writing or flushing standard output failed.
     Write(io::Error),
+    /// Changing the terminal's settings for keys mode failed.
+    Terminal(io::Error),
     /// The program couldn't be lowered for the machine (`E-RESOURCE` for
     /// nesting too deep, or an internal error). Only the machine reports it.
     Lowering(Diagnostic),
@@ -39,6 +41,7 @@ impl fmt::Display for RunError {
                 write!(f, "line {line} of standard input isn't valid UTF-8")
             }
             RunError::Write(e) => write!(f, "can't write standard output: {e}"),
+            RunError::Terminal(e) => write!(f, "can't change the terminal's settings: {e}"),
             RunError::Lowering(d) => write!(f, "{}", d.message),
             RunError::Failed(msg) => write!(f, "{msg}"),
         }
@@ -88,6 +91,71 @@ pub fn read_line(input: &mut impl BufRead, lines: &mut usize) -> Result<Option<S
     String::from_utf8(bytes)
         .map(Some)
         .map_err(|_| RunError::InvalidUtf8 { line: *lines })
+}
+
+/// What `IO.console` reports (docs/proposals/terminal-io.md §4.2).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ConsoleInfo {
+    pub input_is_terminal: bool,
+    pub output_is_terminal: bool,
+    /// The terminal's size; 0 by 0 when it isn't known.
+    pub columns: u64,
+    pub rows: u64,
+}
+
+/// The terminal side of the host: what `IO.console` and `IO.keysMode` do
+/// (docs/proposals/terminal-io.md §4.6). `crates/rt` is also built for
+/// WebAssembly, so the terminal implementation lives in `crates/cli`; here
+/// there's only [`NoTerminal`].
+pub trait Terminal {
+    /// What `IO.console` gives.
+    fn console(&mut self) -> ConsoleInfo;
+
+    /// Enters (`on`) or leaves keys mode; nothing if it's already so. Any
+    /// screen setup is written to `output`, which this flushes when it
+    /// writes. `output` is the program's own, so the setup lands in order
+    /// with what the program printed.
+    fn keys_mode(&mut self, on: bool, output: &mut dyn Write) -> Result<(), RunError>;
+}
+
+/// A host without a terminal: `IO.console` says neither side is one, with
+/// the size unknown, and keys mode changes nothing. The playground, the
+/// tests, and every runner off Unix.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoTerminal;
+
+impl Terminal for NoTerminal {
+    fn console(&mut self) -> ConsoleInfo {
+        ConsoleInfo::default()
+    }
+
+    fn keys_mode(&mut self, _on: bool, _output: &mut dyn Write) -> Result<(), RunError> {
+        Ok(())
+    }
+}
+
+/// The bytes of one read, for `IO.readBytes`: what `input` has buffered, or
+/// one read if nothing is; `None` at the end. `lines` counts the line
+/// endings taken, so that a later `readLine`'s errors name the right line.
+pub fn read_bytes(
+    input: &mut impl BufRead,
+    lines: &mut usize,
+) -> Result<Option<Vec<u8>>, RunError> {
+    let bytes = input.fill_buf().map_err(RunError::Read)?.to_vec();
+    input.consume(bytes.len());
+    if bytes.is_empty() {
+        return Ok(None);
+    }
+    *lines += bytes.iter().filter(|&&b| b == b'\n').count();
+    Ok(Some(bytes))
+}
+
+/// `IO.write`: the text, with no line ending, then a flush.
+pub fn write_text(output: &mut impl Write, text: &str) -> Result<(), RunError> {
+    output
+        .write_all(text.as_bytes())
+        .and_then(|()| output.flush())
+        .map_err(RunError::Write)
 }
 
 /// Everything that remains of the input. `lines` counts the lines read so
