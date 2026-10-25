@@ -892,7 +892,7 @@ fn push(g: &Globals, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
 /// three with the most, for the message about recursing too deeply.
 #[cold]
 fn note_deepest(g: &Globals, stack: &[Frame]) {
-    let mut counts: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut counts: crate::collections::HashMap<usize, usize> = Default::default();
     for frame in stack {
         match frame {
             Frame::Unfolded(_, id) => *counts.entry(id.0).or_insert(0) += 1,

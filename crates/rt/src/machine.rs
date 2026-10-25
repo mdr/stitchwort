@@ -334,7 +334,7 @@ impl State {
     /// the most.
     #[cold]
     fn note_deepest(&mut self) {
-        let mut counts: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+        let mut counts: stitchwort_core::collections::HashMap<u32, usize> = Default::default();
         for frame in &self.frames {
             *counts.entry(frame.code).or_insert(0) += 1;
         }
