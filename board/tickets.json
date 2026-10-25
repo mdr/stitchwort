@@ -3148,14 +3148,16 @@
     {
       "id": 497,
       "title": "Terminal lane 4: IO.randomSeed in all runners, pure std generator (D1258)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "6ca77b2c"
+      ]
     },
     {
       "id": 498,
