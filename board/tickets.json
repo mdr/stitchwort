@@ -1,5 +1,5 @@
 {
-  "next": 446,
+  "next": 447,
   "tickets": [
     {
       "id": 13,
@@ -2453,6 +2453,18 @@
         "a7d52a6c",
         "87d3ed1b"
       ]
+    },
+    {
+      "id": 446,
+      "title": "Partial stage 2: design note (beyond stage 1; partial.md §10 options)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
