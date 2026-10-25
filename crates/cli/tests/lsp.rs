@@ -1283,7 +1283,10 @@ fn logic_operators_hover_and_find_references_as_their_definitions() {
     };
     let mut hover = |line: usize, at: u32| {
         let found = client.at("textDocument/hover", &uri, line as u32, at);
-        found["contents"]["value"].as_str().unwrap_or("").to_string()
+        found["contents"]["value"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
     };
     let ascii_in = col(1, " in ") + 1;
     let unicode_in = col(1, "∈");
@@ -1305,12 +1308,17 @@ fn logic_operators_hover_and_find_references_as_their_definitions() {
         .filter(|r| r["uri"] == uri)
         .map(|r| {
             let start = &r["range"]["start"];
-            (start["line"].as_u64().unwrap(), start["character"].as_u64().unwrap())
+            (
+                start["line"].as_u64().unwrap(),
+                start["character"].as_u64().unwrap(),
+            )
         })
         .collect();
     for at in [ascii_in - 1, unicode_in] {
         assert!(
-            starts.iter().any(|&(l, c)| l == 1 && (c == u64::from(at) || c == u64::from(at) + 1)),
+            starts
+                .iter()
+                .any(|&(l, c)| l == 1 && (c == u64::from(at) || c == u64::from(at) + 1)),
             "{at}: {starts:?}"
         );
     }
