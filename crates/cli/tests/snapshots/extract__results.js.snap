@@ -730,6 +730,9 @@ define(info$Std$dResult, [
   ["Err", [["error", param(1)]]],
 ]);
 
+// A partial computation, which nothing here can run.
+const delayed = Symbol("Delay");
+
 
 // The effect runtime (docs/proposals/effect-runtime.md §9). A computation is
 // `Done`, `Call` or a `Bind` node, which only this runtime builds and takes
@@ -938,6 +941,28 @@ const $Std$dEffect$dbindIn = (v2, v3, v4) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dEffect$ddoneD = (v1, v2, v3) => {
+  switch (v1.tag) {
+    case "Total": {
+      return $Std$dEffect$ddoneIn(v2, v3);
+    }
+    case "MayDiverge": {
+      return delayed;
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dEffect$dbindDv = (v2, v3, v4, v5) => {
+  switch (v2.tag) {
+    case "Total": {
+      return $Std$dEffect$dbindIn(v3, v4, v5);
+    }
+    case "MayDiverge": {
+      return delayed;
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dText$dtoText = (v0) => v0;
 const $Std$dShow$d$gtoText = (v1) => {
   const v2 = v1.toText;
@@ -1136,15 +1161,15 @@ const $Std$dEmpty$dabsurd = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap = (v1, v3, v4) => {
-  switch (v3.tag) {
+const $Std$dList$dmap = (v1, v2, v4, v5) => {
+  switch (v4.tag) {
     case "Nil": {
-      return $Std$dEffect$ddoneIn(v1, { tag: "Nil" });
+      return $Std$dEffect$ddoneD(v2, v1, { tag: "Nil" });
     }
     case "Cons": {
-      const v5 = v3.head;
-      const v6 = v3.tail;
-      return $Std$dEffect$dbindIn(v1, (v4)(v5), ((v7) => $Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v6, v4), ((v8) => $Std$dEffect$ddoneIn(v1, { tag: "Cons", head: v7, tail: v8 })))));
+      const v6 = v4.head;
+      const v7 = v4.tail;
+      return $Std$dEffect$dbindDv(v2, v1, (v5)(v6), ((v8) => $Std$dEffect$dbindDv(v2, v1, $Std$dList$dmap(v1, v2, v7, v5), ((v9) => $Std$dEffect$ddoneD(v2, v1, { tag: "Cons", head: v8, tail: v9 })))));
     }
   }
   throw new Error("unreachable");
@@ -1249,7 +1274,7 @@ const $Main$dsize = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsizes = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, v0, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, $Main$dRange$dread(v2), ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3), $Main$dRange$dfrom(v3)), 1n))))))));
+const $Main$dsizes = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, { tag: "Total" }, v0, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, $Main$dRange$dread(v2), ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3), $Main$dRange$dfrom(v3)), 1n))))))));
 
 function $$parseRange(arg0) {
   try {
