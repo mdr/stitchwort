@@ -130,7 +130,7 @@ def divide (n: Nat): Text :=
   let (quotient, remainder) := (n / 7, n % 7)
   "${n} = 7 * ${quotient} + ${remainder}"
 
-def total (pairs: List (Text, Nat)): Nat := pairs.foldLeft (sum (_, n) => sum + n) 0
+def total (pairs: List (Text, Nat)): Nat := pairs.foldLeft 0 (sum (_, n) => sum + n)
 
 test "let pattern" := divide 23 == "23 = 7 * 3 + 2"
 test "lambda pattern" := total [("a", 1), ("b", 2)] == 3

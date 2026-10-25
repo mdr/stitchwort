@@ -1,7 +1,18 @@
 # Where does `x` go in `x.f a`? (D302)
 
-**Status:** design note, 21 October 2026. No code has changed yet. The
-decisions are D303–D321 (§8). Measurements are in the appendix.
+**Status:** design note, 21 October 2026. The decisions are D303–D321 (§8).
+Measurements are in the appendix.
+
+**As built (rule E, D303–D309):** the elaborator, std, examples, aoc and
+the docs follow §5–7. The value before `.f` or `|>` is the first explicit
+argument; `E-DOT-NO-RECEIVER` covers a function whose first explicit
+parameter isn't the receiver's type; `E-DOT-PARTIAL` is gone (`t.split` is
+`Text.split t`); `W-RECEIVER-NOT-FIRST` warns at the definition (an error in
+a library file), and `@[noReceiver]` opts a helper out. A method section
+follows the dot rule, and with no arguments over a function whose only
+explicit parameter is the receiver it is `T.f` itself. The user-facing
+description is in `docs/syntax.md` ("`e.name`", "Pipe forward", "Method
+sections") and `docs/guide/` chapters 4 and 6.
 
 ## 1. The problem in one screen
 

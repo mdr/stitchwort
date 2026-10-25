@@ -142,7 +142,7 @@ theorem swapWithZero (a: Nat) (b: Nat): a + b + 0 = b + a :=
   rewrite Nat.addZero (a + b), Nat.addComm a b
 ```
 
-`Nat.addZero (a + b)` turns `a + b + 0` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.addZero _` proves `List.map (x => x + 0) xs = List.map (x => x) xs` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `omega`; inside `List.sumBy f (List.range n)` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
+`Nat.addZero (a + b)` turns `a + b + 0` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.addZero _` proves `List.map xs (x => x + 0) = List.map xs (x => x)` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `omega`; inside `List.sumBy f (List.range n)` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
 
 `calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
 
@@ -258,7 +258,7 @@ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
 <!-- snippet: proofs.sw#decide -->
 ```stitchwort
 def firstOr (fallback: Nat) (xs: List Nat): Nat :=
-  if nonempty: 0 < xs.length then List.headOr fallback xs else fallback
+  if nonempty: 0 < xs.length then List.headOr xs fallback else fallback
 
 def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
   if inRange: i < 3 then Some (v.getLt i) else None

@@ -52,14 +52,14 @@ test "leaving some out" := [1, 50, 200].map (clamp (low := 5) (high := 100)) == 
 -- begin dot
 type Point = { x: Int, y: Int }
 
-def Point.shift (dx: Int) (dy: Int) (point: Point): Point := { x = point.x + dx, y = point.y + dy }
+def Point.shift (point: Point) (dx: Int) (dy: Int): Point := { x = point.x + dx, y = point.y + dy }
 
 def Point.manhattan (point: Point): Nat := point.x.natAbs + point.y.natAbs
 
 def origin: Point := { x = 0, y = 0 }
 
 test "dot notation" := (origin.shift 3 (-4)).manhattan == 7
-test "the same call, in full" := Point.manhattan (Point.shift 3 (-4) origin) == 7
+test "the same call, in full" := Point.manhattan (Point.shift origin 3 (-4)) == 7
 -- end dot
 
 -- begin pipes
@@ -91,7 +91,7 @@ test "named from outside" := sumOfSquares.go 2 0 == 5
 -- end local
 
 -- begin higher-order
-def applyAll (functions: List (Nat -> Nat)) (start: Nat): Nat := functions.foldLeft (value f => f value) start
+def applyAll (functions: List (Nat -> Nat)) (start: Nat): Nat := functions.foldLeft start (value f => f value)
 
 test "functions are values" := applyAll [increment, add 10, n => n * 2] 1 == 24
 -- end higher-order

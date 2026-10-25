@@ -17,4 +17,4 @@ def Order.price (order: Order): Option Nat := (catalogue.get order.product).map 
 
 -- Orders of the same product, added up, in the product's name order.
 def combine (orders: List Order): Map Text Nat :=
-  orders.foldLeft (totals order => Map.insertWith (a b => a + b) order.product order.quantity totals) Map.empty
+  orders.foldLeft Map.empty (totals order => Map.insertWith totals order.product order.quantity (a b => a + b))
