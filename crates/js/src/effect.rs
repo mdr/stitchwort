@@ -244,8 +244,9 @@ const COUNTERS: &str = r#"// Counts of the runtime's work, for tests (`Options::
 const effCount = (globalThis.__stitchwortEffectCounts ??= {
   steps: 0, pushes: 0, pops: 0, routes: 0, resumes: 0, binds: 0, jumps: 0,
   // The `run --js` runner's: operations routed, frames routing looked at,
-  // and frames below the focus at each operation, summed.
-  operations: 0, visited: 0, below: 0,
+  // and frames below the focus at each operation, summed; ticks; and
+  // operations a handler around partial code captured.
+  operations: 0, visited: 0, below: 0, ticks: 0, captured: 0,
 });
 "#;
 

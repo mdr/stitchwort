@@ -8,3 +8,4 @@ export declare class StitchwortInputError extends Error {}
 export declare class StitchwortResourceError extends Error {}
 export declare function answer(n: bigint): bigint;
 export declare function kept(n: bigint): bigint;
+export declare function handled(n: bigint): bigint;

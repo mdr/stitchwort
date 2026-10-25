@@ -120,6 +120,7 @@ fn examples_print_the_same_both_ways() {
             "cat.sw",
             "collatz.sw",
             "partial.sw",
+            "partial-handlers.sw",
         ] {
             assert!(ran.iter().any(|r| r == name), "{name} wasn't run: {ran:?}");
         }

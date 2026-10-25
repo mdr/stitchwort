@@ -69,15 +69,12 @@ pub(crate) const DONE_K: &str = "DONE_K";
 /// (its type arguments are erased; [`generate_program`] checks).
 pub(crate) fn primitive_js(prim: Primitive) -> &'static str {
     match prim {
-        Primitive::Now => "(v) => new StitchwortDelay(D_NOW, v, undefined)",
-        Primitive::Lift => "(c) => new StitchwortDelay(D_LIFT, c, undefined)",
-        Primitive::BindD => "(d) => (k) => new StitchwortDelay(D_BIND, d, k)",
-        Primitive::MapSig => "(m) => (d) => new StitchwortDelay(D_MAP, m, d)",
-        Primitive::Pfix => "(f) => (x) => new StitchwortDelay(D_PFIX, f, x)",
-        // Never emitted: `run --js` refuses `foldD` once it knows what
-        // `main` uses (lane C of docs/proposals/partial-handlers.md), but
-        // the code generator reads its shape before that.
-        Primitive::FoldD => "(done) => (call) => (d) => { throw new Error('foldD'); }",
+        Primitive::Now => "(v) => new StitchwortDelay(D_NOW, v, undefined, undefined)",
+        Primitive::Lift => "(c) => new StitchwortDelay(D_LIFT, c, undefined, undefined)",
+        Primitive::BindD => "(d) => (k) => new StitchwortDelay(D_BIND, d, k, undefined)",
+        Primitive::MapSig => "(m) => (d) => new StitchwortDelay(D_MAP, m, d, undefined)",
+        Primitive::Pfix => "(f) => (x) => new StitchwortDelay(D_PFIX, f, x, undefined)",
+        Primitive::FoldD => "(done) => (call) => (d) => new StitchwortDelay(D_FOLD, done, call, d)",
         Primitive::Delay => unreachable!("`Delay` is a type, so it's erased"),
     }
 }
@@ -109,7 +106,9 @@ pub fn generate_program(g: &Globals, limits: Limits, main: &Term) -> Result<Prog
 /// also counts the operations it routes, the frames routing looks at, and
 /// the frames below the focus at each operation (`operations`, `visited`
 /// and `below`, beside the effect runtime's counts; as
-/// `stitchwort_rt::RouteCounts`), and prints them to standard error at the
+/// `stitchwort_rt::RouteCounts`), the ticks (`ticks`) and the operations a
+/// handler around partial code captured (`captured`), and prints them to
+/// standard error at the
 /// end as a line `stitchwort-route-counts {"operations":…,…}`, for tests.
 pub fn generate_program_with(
     g: &Globals,
@@ -134,15 +133,6 @@ pub fn generate_program_with(
         let info = codegen.try_info(id)?;
         let def = g.def(id);
         if let Some(prim) = g.builtins.primitive(id) {
-            // A handler around partial code (docs/proposals/partial-handlers.md)
-            // runs only on the reference runner so far; lane C of that note.
-            if prim == Primitive::FoldD {
-                return Err(Diagnostic::error(
-                    "E-RUNTIME",
-                    "a handler around partial code isn't supported on this runner yet",
-                )
-                .with_note("run it with `stitchwort run --reference`"));
-            }
             let runtime = info.mask.iter().filter(|erased| !**erased).count();
             if info.convention != Convention::Erased && runtime != runtime_arity(prim) {
                 return Err(internal(format!(
@@ -216,9 +206,25 @@ pub fn generate_program_with(
                 },
             )
             .replace(
+                "@COUNT_TICK@",
+                if counters {
+                    "effCount.ticks++;\n              "
+                } else {
+                    ""
+                },
+            )
+            .replace(
+                "@COUNT_CAPTURE@",
+                if counters {
+                    "effCount.captured++;\n              "
+                } else {
+                    ""
+                },
+            )
+            .replace(
                 "@REPORT_COUNTS@",
                 if counters {
-                    "__fs.writeSync(2, `stitchwort-route-counts ${JSON.stringify({ operations: effCount.operations, visited: effCount.visited, below: effCount.below })}\\n`);\n  "
+                    "__fs.writeSync(2, `stitchwort-route-counts ${JSON.stringify({ operations: effCount.operations, visited: effCount.visited, below: effCount.below, ticks: effCount.ticks, captured: effCount.captured })}\\n`);\n  "
                 } else {
                     ""
                 },
@@ -323,17 +329,22 @@ impl Shapes {
     }
 }
 
-/// `Delay` values: one of its five constants applied to its runtime
-/// arguments. Building one runs nothing.
+/// `Delay` values: one of its six constants applied to its runtime
+/// arguments, or a handler's resumption applied to a reply. Building one
+/// runs nothing.
 const DELAY_RUNTIME: &str = r#"
 // A partial computation (docs/proposals/partial.md §7.4): `now v`, `lift c`,
-// `bindD d k`, `mapSig m d` or `pfix f x`. Only the runner looks inside.
-const D_NOW = 0, D_LIFT = 1, D_BIND = 2, D_MAP = 3, D_PFIX = 4;
+// `bindD d k`, `mapSig m d`, `pfix f x` or `foldD done call d`
+// (docs/proposals/partial-handlers.md), or `k y` for a resumption `k` of a
+// `foldD` (`a` what it captured, `b` the reply). Only the runner looks
+// inside.
+const D_NOW = 0, D_LIFT = 1, D_BIND = 2, D_MAP = 3, D_PFIX = 4, D_FOLD = 5, D_RESUMED = 6;
 class StitchwortDelay {
-  constructor(kind, a, b) {
+  constructor(kind, a, b, c) {
     this.kind = kind;
     this.a = a;
     this.b = b;
+    this.c = c;
   }
 }
 
@@ -541,8 +552,19 @@ import * as __wt from "node:worker_threads";
   // The machine of `stitchwort_core::step`: the focus, and a stack of
   // frames on the heap. Each `Recur` that reaches a `Tie` is a tick; with
   // no tick limit, the runner just goes on.
+  //
+  // A handler around partial code (`foldD done call d`,
+  // docs/proposals/partial-handlers.md §5.1) is an `F_HANDLE` frame below
+  // `d`. `Now v` reaching it runs `done v`; a tick passes it by; every
+  // operation reaching it is captured: the frames above it, their marks
+  // (relative to the first of them), the operation's continuation and the
+  // `Map` frames it passed become the resumption `k`, and `call op k` runs
+  // below it. Stepping `k y` pushes the handler and the frames back. Frames
+  // are never changed once made (an `F_AWAIT`'s `upper` is pushed back, not
+  // emptied), so a captured slice can be pushed back any number of times:
+  // a handler that resumes more than once copies nothing but the pointers.
   const EVAL = 0, ENTER = 1, COMP = 2, RET = 3;
-  const F_BIND = 0, F_MAP = 1, F_TIE = 2, F_AWAIT = 3;
+  const F_BIND = 0, F_MAP = 1, F_TIE = 2, F_AWAIT = 3, F_HANDLE = 4;
   // Translates a reply back through the `Map` frames an operation passed
   // (`back`, innermost first, so they're undone outermost first).
   const translateBack = (frames, back, v) => {
@@ -592,6 +614,27 @@ import * as __wt from "node:worker_threads";
               b = a.b;
               a = a.a;
               break;
+            case D_FOLD:
+              // Entering a handler: its frame waits below the handled
+              // computation. No tick.
+              marks.push(frames.length);
+              frames.push({ k: F_HANDLE, done: a.a, call: a.b });
+              a = a.c;
+              break;
+            case D_RESUMED: {
+              // `k y`: the handler and the captured frames go back on top.
+              const captured = a.a;
+              const v = translateBack(captured.frames, captured.back, a.b);
+              marks.push(frames.length);
+              frames.push({ k: F_HANDLE, done: captured.done, call: captured.call });
+              const base = frames.length;
+              for (const f of captured.frames) frames.push(f);
+              for (const k of captured.marks) marks.push(k + base);
+              mode = COMP;
+              a = captured.cont(v);
+              pending = captured.after;
+              break;
+            }
             default:
               throw new Error("internal error: running something that isn't a `Delay`");
           }
@@ -619,7 +662,25 @@ import * as __wt from "node:worker_threads";
           @COUNT_OPERATION@for (let p = marks.length - 1; p >= 0; p--) {
             const j = marks[p];
             const frame = frames[j];
-            @COUNT_VISIT@if (frame.k === F_MAP) {
+            @COUNT_VISIT@if (frame.k === F_HANDLE) {
+              // Captured: the frames above the handler become `k`.
+              @COUNT_CAPTURE@const base = j + 1;
+              const captured = {
+                done: frame.done,
+                call: frame.call,
+                frames: frames.splice(base),
+                marks: marks.splice(p + 1).map((k) => k - base),
+                cont,
+                after,
+                back: back.map(([k, s]) => [k - base, s]),
+              };
+              frames.pop();
+              marks.pop();
+              mode = EVAL;
+              a = frame.call(op)((y) => new StitchwortDelay(D_RESUMED, captured, y, undefined));
+              entered = true;
+              break;
+            } else if (frame.k === F_MAP) {
               const target = frame.inject(op);
               back.push([j, op]);
               op = target;
@@ -629,7 +690,7 @@ import * as __wt from "node:worker_threads";
                 continue;
               }
               // A recursion request: one tick.
-              const request = op[SHAPE.leftOp][SHAPE.recurArg];
+              @COUNT_TICK@const request = op[SHAPE.leftOp][SHAPE.recurArg];
               const upper = frames.splice(j);
               const upperMarks = marks.splice(p);
               const tail =
@@ -669,6 +730,11 @@ import * as __wt from "node:worker_threads";
             case F_MAP:
             case F_TIE:
               marks.pop();
+              break;
+            case F_HANDLE:
+              marks.pop();
+              mode = EVAL;
+              a = frame.done(a);
               break;
             case F_AWAIT: {
               const v = translateBack(frame.upper, frame.back, a);

@@ -46,7 +46,7 @@ When the daily tier grows past 5 minutes, cut it from nextest's own times (`targ
 | `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones | 4 s |
 | `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
-| `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests | 4 s |
+| `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests, two quick `partial_handlers` tests | 4 s |
 | `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
 | `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) | 2 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |

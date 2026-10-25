@@ -452,6 +452,13 @@ impl State {
                 Ok(Some((Value::Fun(Rc::new(Fun::Jumped(v, s))), ret)))
             }
             Fun::Jumped(..) => panic!("internal error: a jump applied"),
+            // A resumption of a handler around partial code: `k y` is a
+            // `Delay`, and runs nothing (the runner steps it).
+            Fun::DelayK(capture) => {
+                let y = args.into_iter().next().expect("one argument");
+                let resumed = crate::value::Delay::Resumed(capture.clone(), y);
+                Ok(Some((Value::Delay(Rc::new(resumed)), ret)))
+            }
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
     }
@@ -834,7 +841,7 @@ fn arity(program: &Program, head: &Value) -> usize {
     match &**fun {
         Fun::Global(g) => program.globals[*g as usize].kind.params() as usize,
         Fun::Closure { lambda, .. } => program.lambdas[*lambda as usize].params as usize,
-        Fun::DoneK | Fun::Resume(..) | Fun::StateRun(_) | Fun::StateK(_) => 1,
+        Fun::DoneK | Fun::Resume(..) | Fun::StateRun(_) | Fun::StateK(_) | Fun::DelayK(_) => 1,
         Fun::JumpK => 2,
         Fun::Jumped(..) => panic!("internal error: a jump applied"),
         Fun::Pap { .. } => unreachable!("a partial application's head"),

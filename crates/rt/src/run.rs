@@ -12,8 +12,24 @@
 //! reaches the bottom and feeds the reply back. Each stretch between two
 //! operations or ticks has its own step budget, as for the reference
 //! runner.
+//!
+//! Handlers around partial code (`foldD done call d`,
+//! docs/proposals/partial-handlers.md §5.1) are the reference runner's
+//! (`stitchwort_core::step`), on these frames: stepping one pushes a
+//! `Handle` frame and steps `d` above it; `Now v` reaching it runs `done v`;
+//! a tick passes it by. Every operation that reaches it is captured, the
+//! ones the handler only forwards included: the frames above it, with their
+//! marks, become the resumption `k` ([`Fun::DelayK`]), and `call op k` runs
+//! below it. Stepping `k y` ([`Delay::Resumed`]) puts the handler and the
+//! frames back on top of the stack, moving them if nothing else holds `k`,
+//! and copying them otherwise (a handler that resumes more than once,
+//! §5.2). The marks are stack positions, so capture rebases the ones above
+//! the handler onto the captured frames and restore adds the new base back;
+//! an `Await`'s own marks and translations are relative to its `Tie`, so
+//! they mean the same at any depth.
 
 use std::io::{BufRead, Write};
+use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
@@ -84,6 +100,13 @@ pub struct RouteCounts {
     /// The frames below the focus at each operation, summed: what scanning
     /// them all, as routing did before stage 4c, would have looked at.
     pub below: u64,
+    /// Operations a handler around partial code captured (`foldD`).
+    pub captured: u64,
+    /// Resumptions whose frames were copied rather than moved, because the
+    /// resumption could still be called again
+    /// (docs/proposals/partial-handlers.md §5.2): only a handler that
+    /// resumes more than once copies.
+    pub copies: u64,
 }
 
 /// Runs `program` as [`run_main_with`] does, and says how much work routing
@@ -134,13 +157,15 @@ pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result
 }
 
 /// What a `Call`'s rest does with the reply.
-enum Cont {
+#[derive(Clone)]
+pub(crate) enum Cont {
     /// `y => Done y`. Kept apart so a tail request can be recognised.
     Done,
     Fn(Value),
 }
 
-enum Frame {
+#[derive(Clone)]
+pub(crate) enum Frame {
     Bind(Value),
     /// A `mapSig`'s mapping: `inject`, `reply`.
     Map(Value, Value),
@@ -154,6 +179,64 @@ enum Frame {
         marks: Vec<usize>,
         back: Vec<(usize, Value)>,
     },
+    /// A handler around partial code, `foldD done call`: `Now v` reaching
+    /// it runs `done v`, a tick passes it by, and an operation reaching it
+    /// captures the frames above it as the resumption.
+    Handle {
+        done: Value,
+        call: Value,
+    },
+}
+
+/// What an operation reaching a `Handle` frame captured, the inside of a
+/// resumption `k` ([`Fun::DelayK`]): the handler, the frames above it and
+/// their marks (relative to the first of them), the operation's
+/// continuation, and the `Map` frames it passed (indices into `frames`), so
+/// the reply can be translated back.
+#[derive(Clone)]
+pub struct Capture {
+    done: Value,
+    call: Value,
+    frames: Vec<Frame>,
+    marks: Vec<usize>,
+    cont: Cont,
+    back: Vec<(usize, Value)>,
+}
+
+impl std::fmt::Debug for Capture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<resumption of {} frames>", self.frames.len())
+    }
+}
+
+impl Capture {
+    /// Moves the values it holds into `out`, so that dropping it frees
+    /// nothing more than itself (`value.rs`: freeing never recurses).
+    pub(crate) fn take_children(&mut self, out: &mut Vec<Value>) {
+        out.push(std::mem::take(&mut self.done));
+        out.push(std::mem::take(&mut self.call));
+        if let Cont::Fn(rest) = &mut self.cont {
+            out.push(std::mem::take(rest));
+        }
+        out.extend(self.back.drain(..).map(|(_, src)| src));
+        let mut frames = std::mem::take(&mut self.frames);
+        while let Some(frame) = frames.pop() {
+            match frame {
+                Frame::Bind(v) | Frame::Tie(v) => out.push(v),
+                Frame::Map(inject, reply) => out.extend([inject, reply]),
+                Frame::Handle { done, call } => out.extend([done, call]),
+                Frame::Await {
+                    cont, upper, back, ..
+                } => {
+                    if let Cont::Fn(rest) = cont {
+                        out.push(rest);
+                    }
+                    out.extend(back.into_iter().map(|(_, src)| src));
+                    frames.extend(upper);
+                }
+            }
+        }
+    }
 }
 
 enum Focus {
@@ -166,7 +249,8 @@ enum Focus {
 struct Runner<'p> {
     m: Machine<'p>,
     frames: Vec<Frame>,
-    /// Where the `Map` and `Tie` frames are in `frames`, bottom first: the
+    /// Where the `Map`, `Tie` and `Handle` frames are in `frames`, bottom
+    /// first: the
     /// only frames an operation has business with, so routing walks these
     /// and never the `Bind` and `Await` frames between them
     /// (docs/proposals/effect-runtime.md §9.1.6). A deep non-tail recursion
@@ -183,7 +267,7 @@ struct Runner<'p> {
 impl Runner<'_> {
     /// Pushes `frame`, marking it if routing needs it.
     fn push(&mut self, frame: Frame) {
-        if matches!(frame, Frame::Map(..) | Frame::Tie(_)) {
+        if matches!(frame, Frame::Map(..) | Frame::Tie(_) | Frame::Handle { .. }) {
             self.marks.push(self.frames.len());
         }
         self.frames.push(frame);
@@ -230,6 +314,14 @@ impl Runner<'_> {
                     let Value::Delay(d) = d else {
                         panic!("internal error: running {d:?}, which isn't a `Delay`")
                     };
+                    if let Delay::Resumed(capture, reply) = &*d {
+                        let (capture, reply) = (capture.clone(), reply.clone());
+                        // Dropped first, so the capture is unshared if
+                        // nothing else (the resumption itself) holds it.
+                        drop(d);
+                        focus = self.restore(capture, reply)?;
+                        continue;
+                    }
                     match &*d {
                         Delay::Now(v) => Focus::Ret(v.clone()),
                         Delay::Lift(c) => Focus::Comp(c.clone()),
@@ -247,9 +339,16 @@ impl Runner<'_> {
                         // Building `pfix f x` ran nothing; stepping it
                         // enters the body. No tick.
                         Delay::Pfix(f, x) => Focus::Enter(f.clone(), x.clone()),
-                        Delay::Fold(..) => {
-                            return Err(RunError::Lowering(crate::lower::fold_d_unsupported()));
+                        // Entering a handler: its frame waits below the
+                        // handled computation. No tick.
+                        Delay::Fold(done, call, d) => {
+                            self.push(Frame::Handle {
+                                done: done.clone(),
+                                call: call.clone(),
+                            });
+                            Focus::Eval(d.clone())
                         }
+                        Delay::Resumed(..) => unreachable!("handled above"),
                     }
                 }
                 Focus::Enter(f, x) => {
@@ -272,6 +371,7 @@ impl Runner<'_> {
                         let op = fields[0].clone();
                         drop(fields);
                         match self.route(op, cont, input, output)? {
+                            Routed::Handled(next) => next,
                             Routed::Performed(next) => {
                                 // A new stretch.
                                 steps = 0;
@@ -298,6 +398,10 @@ impl Runner<'_> {
                 Focus::Ret(v) => match self.frames.pop() {
                     None => return Ok(Some(v)),
                     Some(Frame::Bind(k)) => Focus::Eval(self.m.call(k, vec![v])?),
+                    Some(Frame::Handle { done, .. }) => {
+                        self.marks.pop();
+                        Focus::Eval(self.m.call(done, vec![v])?)
+                    }
                     Some(Frame::Map(..) | Frame::Tie(_)) => {
                         self.marks.pop();
                         Focus::Ret(v)
@@ -366,7 +470,10 @@ impl Runner<'_> {
             self.counts.visited += 1;
             match &self.frames[j] {
                 Frame::Bind(_) | Frame::Await { .. } => {
-                    unreachable!("a mark on a frame that isn't a `Map` or a `Tie`")
+                    unreachable!("a mark on a frame that isn't a `Map`, a `Tie` or a `Handle`")
+                }
+                Frame::Handle { .. } => {
+                    return Ok(Routed::Handled(self.capture(p, op, cont, back)?));
                 }
                 Frame::Map(inject, _) => {
                     let inject = inject.clone();
@@ -390,6 +497,10 @@ impl Runner<'_> {
                     let f = f.clone();
                     let upper = self.frames.split_off(j);
                     let marks = self.marks.split_off(p);
+                    debug_assert!(
+                        !upper.iter().any(|f| matches!(f, Frame::Handle { .. })),
+                        "a recursion request passed a handler"
+                    );
                     let tail = upper.len() == 1 && matches!(cont, Cont::Done) && back.is_empty();
                     if !tail {
                         let marks = marks.into_iter().map(|k| k - j).collect();
@@ -414,6 +525,73 @@ impl Runner<'_> {
         Ok(Routed::Performed(Focus::Comp(
             self.apply_cont(&cont, reply?)?,
         )))
+    }
+
+    /// `op` reached the `Handle` frame marked at `p`: the frames above it
+    /// become the resumption `k`, and the stepping goes on with `call op k`,
+    /// below the handler.
+    ///
+    /// The frames need no adjusting: an `Await`'s marks and translations are
+    /// relative to its own `Tie`, and a `Tie` holds no position. What indexes
+    /// the stack is rebased onto the captured frames: their marks, and
+    /// `back`, the `Map` frames `op` passed.
+    fn capture(
+        &mut self,
+        p: usize,
+        op: Value,
+        cont: Cont,
+        back: Vec<(usize, Value)>,
+    ) -> Result<Focus, RunError> {
+        self.counts.captured += 1;
+        let base = self.marks[p] + 1;
+        let frames = self.frames.split_off(base);
+        let marks = self
+            .marks
+            .split_off(p + 1)
+            .into_iter()
+            .map(|j| j - base)
+            .collect();
+        self.marks.pop();
+        let Some(Frame::Handle { done, call }) = self.frames.pop() else {
+            unreachable!("a capture at a frame that isn't a `Handle`")
+        };
+        let back = back.into_iter().map(|(j, src)| (j - base, src)).collect();
+        let capture = Capture {
+            done,
+            call: call.clone(),
+            frames,
+            marks,
+            cont,
+            back,
+        };
+        let k = Value::Fun(Rc::new(Fun::DelayK(Rc::new(capture))));
+        Ok(Focus::Eval(self.m.call(call, vec![op, k])?))
+    }
+
+    /// Stepping `k y`: the handler and the captured frames go back on top
+    /// of the stack, and the handled computation goes on with `y`. The
+    /// frames are moved if nothing else holds the resumption, and copied if
+    /// something does: it may be resumed again
+    /// (docs/proposals/partial-handlers.md §5.2).
+    fn restore(&mut self, capture: Rc<Capture>, reply: Value) -> Result<Focus, RunError> {
+        let capture = Rc::try_unwrap(capture).unwrap_or_else(|shared| {
+            self.counts.copies += 1;
+            (*shared).clone()
+        });
+        let Capture {
+            done,
+            call,
+            frames,
+            marks,
+            cont,
+            back,
+        } = capture;
+        let reply = self.translate_back(&frames, &back, reply)?;
+        self.push(Frame::Handle { done, call });
+        let base = self.frames.len();
+        self.frames.extend(frames);
+        self.marks.extend(marks.into_iter().map(|j| j + base));
+        Ok(Focus::Comp(self.apply_cont(&cont, reply)?))
     }
 
     /// Performs operation `op`, of `{IO}` or `{Fail, IO}` (the program's
@@ -480,4 +658,6 @@ enum Routed {
     Performed(Focus),
     /// It was a recursion request: one tick, then this.
     Tick(Focus),
+    /// A handler around partial code took it: its clause, then this.
+    Handled(Focus),
 }
