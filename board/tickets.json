@@ -2920,14 +2920,16 @@
     {
       "id": 480,
       "title": "Design: terminal control layer (single keypress/raw mode, Key type, print without newline, cursor/clear, restore on exit, playground mapping, seed/time) (D1245)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "071c124b"
+      ]
     }
   ]
 }
