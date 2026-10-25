@@ -14,7 +14,7 @@ def turn (line: Text): {Abort} Turn :=
     | [dir, weightText, colour] =>
       let (letter, digits) := need dir.uncons
       ensure (letter == 'L' || letter == 'R')
-      ensure (colours.any (k => k == colour))
+      ensure (colours.any (== colour))
       { left = letter == 'L', steps = need digits.toNat, weight = weightText.toNat.orAbort, colour }
     | _ => abort()
 

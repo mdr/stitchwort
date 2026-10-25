@@ -340,8 +340,8 @@ theorem Vec.getOrExample: Vec.getOr Vec.example 0 2 = 3 := rfl
 test "head and tail" := Vec.head Vec.example == 1 && Vec.head (Vec.tail Vec.example) == 2
 test "length" := Vec.length Vec.example == 3
 test "replicate" := Vec.toList (Vec.replicate 3 'x') == ['x', 'x', 'x']
-test "map" := Vec.toList (Vec.map Vec.example (x => x * 10)) == [10, 20, 30]
-test "zipWith" := Vec.toList (Vec.zipWith Vec.example Vec.example (x y => x + y)) == [2, 4, 6]
+test "map" := Vec.toList (Vec.map Vec.example (* 10)) == [10, 20, 30]
+test "zipWith" := Vec.toList (Vec.zipWith Vec.example Vec.example (+)) == [2, 4, 6]
 test "zipWith3" := Vec.toList (Vec.zipWith3 Vec.example Vec.example Vec.example (x y z => x * y + z)) == [2, 6, 12]
 test "sum and sumBy" := Vec.sum Vec.example == 6 && Vec.sumBy Vec.example (x => x * x) == 14
 test "fromList" := Vec.toList (Vec.fromList [4, 5]) == [4, 5] && Vec.length (Vec.fromList [4, 5]) == 2
@@ -349,15 +349,15 @@ test "ofList" := Option.map (Vec.ofList 2 [4, 5]) Vec.toList == Some [4, 5]
 test "ofList refuses another length" := Option.map (Vec.ofList 3 [4, 5]) Vec.toList == None
 test "traverseOption" := Option.map (Vec.traverseOption Vec.example (x => if x < 5 then Some (x + 1) else None)) Vec.toList == Some [2, 3, 4]
 test "traverseOption fails" := Option.map (Vec.traverseOption Vec.example (x => if x < 3 then Some x else None)) Vec.toList == None
-test "any" := Vec.any Vec.example (x => x == 2) && !(Vec.any Vec.example (x => x == 4))
+test "any" := Vec.any Vec.example (== 2) && !(Vec.any Vec.example (== 4))
 test "get" := Vec.get Vec.example (FSucc FZero) == 2 && Vec.getLt Vec.example 0 == 1
-test "count" := Vec.count Vec.example (x => x > 1) == 2 && Vec.count Vec.example (x => x > 3) == 0
-test "count none" := Vec.count (VNil: Vec Nat 0) (x => x > 1) == 0
-test "count all" := Vec.count Vec.example (x => x > 0) == 3
+test "count" := Vec.count Vec.example (> 1) == 2 && Vec.count Vec.example (> 3) == 0
+test "count none" := Vec.count (VNil: Vec Nat 0) (> 1) == 0
+test "count all" := Vec.count Vec.example (> 0) == 3
 test "getOr" := Vec.getOr Vec.example 0 1 == 2 && Vec.getOr Vec.example 0 3 == 0
 test "getOr of map, zipWith and replicate" :=
-  Vec.getOr (Vec.map Vec.example (x => x * 10)) 0 1 == 20
-    && Vec.getOr (Vec.zipWith Vec.example Vec.example (x y => x + y)) 0 2 == 6
+  Vec.getOr (Vec.map Vec.example (* 10)) 0 1 == 20
+    && Vec.getOr (Vec.zipWith Vec.example Vec.example (+)) 0 2 == 6
     && Vec.getOr (Vec.replicate 3 'x') 'x' 5 == 'x'
 test "tabulate" := Vec.toList (Vec.tabulate 4 (i => Fin.toNat i * 10)) == [0, 10, 20, 30]
 test "tabulate none" := Vec.toList (Vec.tabulate 0 Fin.toNat) == []

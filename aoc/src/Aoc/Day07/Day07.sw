@@ -72,7 +72,7 @@ def parseManifold (lines: List Text): {Abort} Manifold :=
 
 -- Row and column of the first S, reading top to bottom, left to right.
 def findStart (lines: List Text): Option (Nat, Nat) :=
-  lines.withIndex.findMap (((rowIndex, line)) => (line.toList.findIndex (char => char == 'S')).map (columnIndex => (rowIndex, columnIndex)))
+  lines.withIndex.findMap (((rowIndex, line)) => (line.toList.findIndex (== 'S')).map (columnIndex => (rowIndex, columnIndex)))
 
 -- The widest line's length.
 def gridWidth (lines: List Text): Nat := lines.foldLeft 0 widen
@@ -93,7 +93,7 @@ def isSplitter (ch: Char): Bool := ch == '^'
 -- Part 1: carry the beams down, a flag per column, adding up the splitters
 -- each row's beams reach.
 def solvePart1 (manifold: Manifold): Nat :=
-  splitsBelow (Vec.tabulate manifold.width (column => column == manifold.start)) manifold.rows
+  splitsBelow (Vec.tabulate manifold.width (== manifold.start)) manifold.rows
 
 -- `beams` are the beams falling into the first of `rows`.
 def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
@@ -101,12 +101,12 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
   | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith row beams (splitter beam => splitter && beam)).count (hit => hit)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith row beams (&&)).count (hit => hit)
 
 -- The beams falling out of a row: a beam passes a column with no splitter,
 -- and a splitter with a beam on it sends one down each side.
 def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
-  let hit := Vec.zipWith row beams (splitter beam => splitter && beam)
+  let hit := Vec.zipWith row beams (&&)
   Vec.zipWith3 (Vec.zipWith row beams (splitter beam => beam && not splitter))
     (hit.shiftRight False) (hit.shiftLeft False) (pass left right => pass || (left || right))
 

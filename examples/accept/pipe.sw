@@ -29,7 +29,7 @@ def sortedDoubled: List Nat :=
   let xs := [3, 1, 2]
   xs
     |> List.sort
-    |> List.map (x => x * 2)
+    |> List.map (* 2)
 
 test "total" := total == 55
 test "sorted and doubled" := sortedDoubled == [2, 4, 6]
@@ -42,7 +42,7 @@ test "left associative" := ([3, 1, 2] |> List.sort |> List.sum) == 6
 test "brackets" := ([1, 2, 3] |> List.sum) == 6
 
 -- Dot notation on the left of a pipe.
-test "dot on the left" := ([1, 2, 3] |> List.map (x => x + 1)).length == 3
+test "dot on the left" := ([1, 2, 3] |> List.map (+ 1)).length == 3
 
 -- A lambda on the right; its body takes the rest of the pipeline.
 def lam: Nat := 5 |> y => y + 1
@@ -59,7 +59,7 @@ def applyTo (h: Nat -> Nat): Nat := 3 |> h
 def literal: Nat := 5 |> Nat.sub 1
 
 test "constructor" := ctor == Some 3
-test "local function" := applyTo (x => x + 1) == 4
+test "local function" := applyTo (+ 1) == 4
 test "literal" := literal == 4
 
 -- Named implicit arguments work on the right as in any call.

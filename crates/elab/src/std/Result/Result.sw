@@ -41,8 +41,8 @@ theorem Result.toOptionToResult (err: e): (o: Option a) -> Result.toOption (Opti
   | None => rfl
   | Some x => rfl
 
-test "Result.map" := Result.map (Ok 2: Result Nat Text) (n => n + 1) == Ok 3
-test "Result.map, an error" := Result.map (Err "no": Result Nat Text) (n => n + 1) == Err "no"
+test "Result.map" := Result.map (Ok 2: Result Nat Text) (+ 1) == Ok 3
+test "Result.map, an error" := Result.map (Err "no": Result Nat Text) (+ 1) == Err "no"
 test "Result.mapError" := Result.mapError (Err "no": Result Nat Text) (m => Text.append m "!") == Err "no!"
 test "Result.flatMap" := Result.flatMap (Ok 0: Result Nat Text) (n => if n > 0 then Ok n else Err "zero") == Err "zero"
 test "Result.traverse" := Result.traverse [1, 2, 3] (n => if n > 0 then Ok n else Err "zero") == (Ok [1, 2, 3]: Result (List Nat) Text)

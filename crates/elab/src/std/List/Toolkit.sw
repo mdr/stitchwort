@@ -574,7 +574,7 @@ theorem List.splitByAppendSeparators (xs: List a) (p: a -> Bool) (ys: List a) (h
   Eq.cong List.finishGroups (List.splitGroupsAppendSeparators ys p h xs)
 
 test "List.splitBy with separators on the end" :=
-  [1, 0, 2].splitBy (x => x == 0) == [[1], [2]] && [1, 0, 2, 0, 0].splitBy (x => x == 0) == [[1], [2]] && [0, 0].splitBy (x => x == 0) == Nil
+  [1, 0, 2].splitBy (== 0) == [[1], [2]] && [1, 0, 2, 0, 0].splitBy (== 0) == [[1], [2]] && [0, 0].splitBy (== 0) == Nil
 
 -- Sums from a starting total, and one element at a time, for any `Add`:
 -- the laws `zeroAdd`, `assoc` and `comm` (docs/proposals/interfaces.md §7.7).
@@ -1249,7 +1249,7 @@ def List.chunksOf (xs: List a) (n: Nat): List (List a) :=
 -- order. `seen` is what came before. Needs `DecEq`; quadratic.
 def List.distinctFrom [auto eq: DecEq a] (seen: List a): List a -> List a
   | Nil => Nil
-  | Cons x xs => if List.any seen (y => y == x) then List.distinctFrom seen xs else Cons x (List.distinctFrom (Cons x seen) xs)
+  | Cons x xs => if List.any seen (== x) then List.distinctFrom seen xs else Cons x (List.distinctFrom (Cons x seen) xs)
 
 -- `xs` is the main value: `xs.distinct`. `[3, 1, 3, 2, 1].distinct` is `[3, 1, 2]`.
 def List.distinct [auto eq: DecEq a] (xs: List a): List a := List.distinctFrom Nil xs

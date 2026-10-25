@@ -122,7 +122,7 @@ def blockError (lines: List Text): Option Text :=
   (lines.map .toList).transposeFill ' ' |> .withIndex |> .splitBy (indexed => isBlank indexed.snd)
     |> .findMap (block =>
       let operators := block.count (indexed => (indexed.snd.last.flatMap Operator.parse).isSome)
-      let start := block.headOr (0, []) |> (indexed => indexed.fst + 1)
+      let start := block.headOr (0, []) |> .fst + 1
       if operators == 1 then None
       else if operators == 0 then Some "the problem starting at column ${start} has no operator"
       else Some "the problem starting at column ${start} has ${operators} operators, expected one")

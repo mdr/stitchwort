@@ -77,6 +77,10 @@ def distances (points: List Point): List Nat := points.map .manhattan
 
 test "a section is a function" := distances [origin, { x = 1, y = -2 }] == [0, 3]
 test "with arguments" := ["a,b", "c"].map (.split ',') == [["a", "b"], ["c"]]
+test "a section runs to the end of the expression" := ["ab", "", "c"].filter (.length > 1) == ["ab"]
+test "an operator section" := [1, 5, 2, 8].filter (> 3) == [5, 8]
+test "the argument on the right" := [1, 2].map (10 +) == [11, 12]
+test "a bare operator" := [1, 2, 3].foldLeft 0 (+) == 6
 -- end sections
 
 -- begin local

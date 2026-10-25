@@ -146,25 +146,23 @@ A line may start with `|>` to continue the expression on the line above.
 ```stitchwort
 import Std (List)
 
-test "evens" := [1, 2, 3, 4] |> .filter (n => n % 2 == 0) == [2, 4]
+test "evens" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) == [2, 4]
 ```
 
 <!-- output: check errors/pipe-precedence.sw -->
 ```text
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ errors/pipe-precedence.sw:3:33 ]
+   ╭─[ errors/pipe-precedence.sw:3:46 ]
    │
- 3 │ test "evens" := [1, 2, 3, 4] |> .filter (n => n % 2 == 0) == [2, 4]
-   │                                 ────────────┬───────────     ───┬──
-   │                                             ╰──────────────────────── this is a function, but the expected type is `List Nat`
-   │                                                                 │
-   │                                                                 ╰──── this comparison is on `List Nat` because of this
+ 3 │ test "evens" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) == [2, 4]
+   │                                              ───────┬───────
+   │                                                     ╰───────── this is a function, but the expected type is `List ?0`
    │
    │ Note: `|>` binds looser than `==`, so `x |> f == y` pipes `x` into the whole comparison `f == y`; to compare the result of the pipe, write brackets: `(x |> f) == y`
 ───╯
 ```
 
-The test reads as `[1, 2, 3, 4] |> (.filter (…) == [2, 4])`. Bracket the pipeline, `([1, 2, 3, 4] |> .filter (…)) == [2, 4]`, or use dot notation, `[1, 2, 3, 4].filter (…) == [2, 4]`.
+The test reads as `[1, 2, 3, 4] |> (List.filter (…) == [2, 4])`. Bracket the pipeline, `([1, 2, 3, 4] |> List.filter (…)) == [2, 4]`, or use dot notation, `[1, 2, 3, 4].filter (…) == [2, 4]`. A pipe into a [section](#sections) is the exception: `[1, 2, 3, 4] |> .filter (…) == [2, 4]` means `[1, 2, 3, 4].filter (…) == [2, 4]`, since a section takes the rest of its expression.
 
 ## Sections
 
@@ -176,7 +174,15 @@ def distances (points: List Point): List Nat := points.map .manhattan
 
 test "a section is a function" := distances [origin, { x = 1, y = -2 }] == [0, 3]
 test "with arguments" := ["a,b", "c"].map (.split ',') == [["a", "b"], ["c"]]
+test "a section runs to the end of the expression" := ["ab", "", "c"].filter (.length > 1) == ["ab"]
+test "an operator section" := [1, 5, 2, 8].filter (> 3) == [5, 8]
+test "the argument on the right" := [1, 2].map (10 +) == [11, 12]
+test "a bare operator" := [1, 2, 3].foldLeft 0 (+) == 6
 ```
+
+A section that starts an expression takes the whole expression: `(.length > 1)` is `s => s.length > 1`, and `people.find (.id == id)` is `people.find (p => p.id == id)`. After a pipe, `xs |> .sum == 6` is `xs.sum == 6`. A section's argument is used once, at the start; to use it twice, write the lambda.
+
+An operator with one operand left out is a function of that operand: `(== 'S')` is `c => c == 'S'`, `(> 3)` is `n => n > 3`, and `(10 +)` is `n => 10 + n`. This works for `+ * / % ++ = != == < <= > >= && || in !in <->`, not for `-`: `(- 1)` is the number negative one, so write `(.sub 1)` or `(n => n - 1)`. With no operand at all, an operator is a function of two arguments: `(+)` is `a b => a + b`, and `(&&)` is `a b => a && b`. There is no placeholder for an argument in the middle of an expression: write the lambda.
 
 ## Local definitions
 

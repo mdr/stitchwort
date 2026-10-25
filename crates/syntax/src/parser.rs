@@ -20,6 +20,7 @@ use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
+mod sections;
 use declarations::{Param, misplaced_attributes};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -2401,6 +2402,7 @@ impl<'t> Parser<'t> {
         if implicit || self.is_pi_binder() {
             return self.pi_expr(start, implicit);
         }
+        let section = self.peek() == Some(&Tok::Dot);
         let mut lhs = self.cmp_expr()?;
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
             self.logic_chain(&mut lhs)?;
@@ -2414,6 +2416,9 @@ impl<'t> Parser<'t> {
         if self.eat(&Tok::Arrow) {
             let rhs = self.result_type()?;
             return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
+        }
+        if section {
+            sections::widen(&mut lhs);
         }
         Ok(lhs)
     }
@@ -2707,9 +2712,13 @@ impl<'t> Parser<'t> {
                 let start = self.here();
                 self.lambda(start)?
             } else {
+                let section = self.peek() == Some(&Tok::Dot);
                 let mut rhs = self.cmp_expr()?;
                 if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
                     self.logic_chain(&mut rhs)?;
+                }
+                if section {
+                    sections::widen(&mut rhs);
                 }
                 rhs
             };
@@ -3341,6 +3350,7 @@ impl<'t> Parser<'t> {
                     Bracket::Round,
                 ))
             }
+            Some(Tok::LParen) if self.operator_section_ahead() => self.operator_section(),
             Some(Tok::LParen) => {
                 self.bump();
                 let inner = self.expr()?;
@@ -3456,23 +3466,14 @@ fn prefix_op(bang: bool, start: Span, operand: Expr) -> Expr {
 /// `lhs`: `xs |> .drop 1` is `xs.drop 1`, with no function in between.
 #[inline(never)]
 fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
-    if rhs.section_name().is_none() {
+    let Expr::Lam(names, body, _) = &mut rhs else {
+        return Expr::Pipe(Box::new(lhs), Box::new(rhs));
+    };
+    if names.len() != 1 || names[0].text != SECTION || !sections::leads_with_section(body) {
         return Expr::Pipe(Box::new(lhs), Box::new(rhs));
     }
-    let Expr::Lam(_, body, _) = &mut rhs else {
-        unreachable!("a section is a lambda");
-    };
     let mut body = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
-    let mut slot: &mut Expr = &mut body;
-    while !matches!(slot, Expr::Field(r, _) if matches!(&**r, Expr::Var(v) if v.text == SECTION)) {
-        match slot {
-            Expr::App(f, _) | Expr::Field(f, _) => slot = f,
-            _ => unreachable!("a section's body is a call on its parameter"),
-        }
-    }
-    if let Expr::Field(r, _) = slot {
-        **r = lhs;
-    }
+    sections::fill_receiver(&mut body, lhs);
     body
 }
 
@@ -5279,6 +5280,95 @@ mod tests {
             "{}",
             err.message
         );
+    }
+
+    #[test]
+    fn a_section_at_the_start_of_an_expression_takes_the_whole_expression() {
+        let cases = [
+            ("(.id == id)", "(\\%section (EqEq %section.id id))"),
+            ("(.a + 1 * 2)", "(\\%section (Add %section.a (Mul 1 2)))"),
+            (
+                "(.drop 1 == xs)",
+                "(\\%section (EqEq (%section.drop 1) xs))",
+            ),
+            (
+                "(.items |> List.sum)",
+                "(\\%section (|> %section.items List.sum))",
+            ),
+            ("(.a <-> b)", "(\\%section ((Std.Iff %section.a) b))"),
+            // A section alone, or as an argument, is as it was.
+            ("(.id)", "(\\%section %section.id)"),
+            ("f .a == b", "(EqEq (f (\\%section %section.a)) b)"),
+            // Only the first section is the function's argument.
+            (
+                "(.a && .b)",
+                "(\\%section (And %section.a (\\%section %section.b)))",
+            ),
+            // After `|>` the section is the call it stands for.
+            ("xs |> .sum == 6", "(EqEq xs.sum 6)"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(section_shape(text), want, "{text}");
+        }
+        assert_eq!(
+            section_shape("xs |> .drop 1 |> .sum"),
+            section_shape("(xs.drop 1).sum")
+        );
+        let membership = section_shape("(.a !in xs)");
+        assert!(
+            membership.starts_with("(\\%section (Std.Bool.not (In("),
+            "{membership}"
+        );
+    }
+
+    #[test]
+    fn an_operator_section_is_a_lambda_with_the_operand_missing() {
+        let cases = [
+            ("(== s)", "(\\%section (EqEq %section s))"),
+            ("(!= s)", "(\\%section (Ne %section s))"),
+            ("(> 3)", "(\\%section (Lt 3 %section))"),
+            ("(<= 3)", "(\\%section (Le %section 3))"),
+            ("(+ 1)", "(\\%section (Add %section 1))"),
+            ("(* 2 )", "(\\%section (Mul %section 2))"),
+            ("(++ ys)", "(\\%section (Append %section ys))"),
+            ("(|| a && b)", "(\\%section (Or %section (And a b)))"),
+            ("(&& a == b)", "(\\%section (And %section (EqEq a b)))"),
+            ("(<-> q)", "(\\%section ((Std.Iff %section) q))"),
+            ("(k +)", "(\\%section (Add k %section))"),
+            ("(k ++)", "(\\%section (Append k %section))"),
+            ("(n * 2 ==)", "(\\%section (EqEq (Mul n 2) %section))"),
+            ("(a * b +)", "(\\%section (Add (Mul a b) %section))"),
+            ("(p &&)", "(\\%section (And p %section))"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(section_shape(text), want, "{text}");
+        }
+        assert!(section_shape("(in xs)").starts_with("(\\%section (In("));
+        assert!(section_shape("(!in xs)").starts_with("(\\%section (Std.Bool.not (In("));
+        assert!(section_shape("(k in)").starts_with("(\\%section (In("));
+    }
+
+    #[test]
+    fn a_bare_operator_is_a_function_of_two_arguments() {
+        let cases = [
+            ("(&&)", "(\\%left %right (And %left %right))"),
+            ("(+)", "(\\%left %right (Add %left %right))"),
+            ("(-)", "(\\%left %right (Sub %left %right))"),
+            ("(==)", "(\\%left %right (EqEq %left %right))"),
+            ("(>)", "(\\%left %right (Lt %right %left))"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(section_shape(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn minus_is_not_an_operator_section() {
+        assert!(matches!(expression("(- 1)").unwrap(), Expr::Neg(..)));
+        assert!(matches!(expression("(-1)").unwrap(), Expr::Neg(..)));
+        for bad in ["(k -)", "(+ 1 + 2)", "(a + b *)", "(k + 1 +)", "(== == 1)"] {
+            assert!(expression(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

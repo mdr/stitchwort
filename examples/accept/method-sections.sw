@@ -37,7 +37,7 @@ def names2: List Text := List.map people .name
 test "a section before the collection" := names2 == names
 
 -- Pipelines.
-def piped: Nat := [1, 2, 3, 4] |> .drop 1 |> .map (x => x * 2) |> .sum
+def piped: Nat := [1, 2, 3, 4] |> .drop 1 |> .map (* 2) |> .sum
 
 def ages: Nat := people |> .map .age |> .sum
 
@@ -48,7 +48,7 @@ test "pipeline over a field" := ages == 34
 def multi: Nat :=
   people
     |> .map .age
-    |> .filter (a => a == 4)
+    |> .filter (== 4)
     |> .length
 
 test "multi-line" := multi == 1

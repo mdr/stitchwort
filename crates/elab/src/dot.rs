@@ -339,22 +339,6 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
             Step::Unknown if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
                 return Err(section_unknown_name(cx, field));
             }
-            Step::Unknown if matches!(recv, Expr::Hole(_)) => {
-                return Err(cx
-                    .error(
-                        "E-CANNOT-INFER",
-                        format!(
-                            "can't tell what the value is, so can't look up `.{}`",
-                            field.text
-                        ),
-                        "`_` is a hole for the compiler to fill in, not a parameter",
-                    )
-                    .with_note(format!(
-                        "to pass the function `x => x.{f}`, write the method section `.{f}`, \
-                         as in `xs.map .{f}`",
-                        f = field.text
-                    )));
-            }
             Step::Unknown => {
                 return Err(cx
                     .error(

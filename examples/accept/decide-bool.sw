@@ -7,13 +7,13 @@ def small (k: Nat) (size: Nat) (xs: List Nat): List Nat :=
 
 theorem smallExample: small 2 10 [1, 5, 6, 2] = [1, 5, 2] := rfl
 
-def allSmall (xs: List Nat): Bool := xs.all (x => x < 10)
+def allSmall (xs: List Nat): Bool := xs.all (< 10)
 
 theorem allSmallYes: allSmall [1, 2, 9] = True := rfl
 theorem allSmallNo: allSmall [1, 20] = False := rfl
 
 -- An `Int` comparison, and an equation.
-def negatives (xs: List Int): List Int := xs.filter (x => x < 0)
+def negatives (xs: List Int): List Int := xs.filter (< 0)
 
 theorem negativesExample: negatives [3, -1, 0, -7] = [-1, -7] := rfl
 

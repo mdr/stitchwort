@@ -9,7 +9,7 @@ use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName};
+use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
@@ -2297,17 +2297,24 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
         (Expr::Lam(names, _, span), _) => {
             let shadowed = lambda_shadow(cx, names, *span)?;
-            Err(shadow_note(
-                cx.error(
-                    "E-TYPE-MISMATCH",
-                    "type mismatch",
-                    format!(
-                        "this is a function, but the expected type is `{}`",
-                        cx.show(&expected)
-                    ),
+            let error = cx.error(
+                "E-TYPE-MISMATCH",
+                "type mismatch",
+                format!(
+                    "this is a function, but the expected type is `{}`",
+                    cx.show(&expected)
                 ),
-                shadowed.as_ref(),
-            ))
+            );
+            let error = if names.len() == 1 && names[0].text == SECTION {
+                // A section inside the body of another section.
+                error.with_note(
+                    "a section's argument is used once, at the start of the expression: to \
+                     use it twice, write the lambda, as in `x => x.f || x.g`",
+                )
+            } else {
+                error
+            };
+            Err(shadow_note(error, shadowed.as_ref()))
         }
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>

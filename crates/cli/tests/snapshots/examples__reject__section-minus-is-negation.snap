@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/section-minus-is-negation.sw:6:51 ]
+   │
+ 6 │ def decrement (xs: List Int): List Int := xs.map (- 1)
+   │                                                   ─┬─  
+   │                                                    ╰─── expected `Int -> {?1 xs} ?2 xs`, but this has type `Int`
+   │ 
+   │ Note: a numeral can only be the prelude's `Nat` or `Int`
+───╯

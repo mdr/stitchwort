@@ -15,7 +15,7 @@ def turn (line: Text): {Fail} Turn :=
     | [dir, weightText, colour] =>
       let (letter, digits) := need dir.uncons "expected a direction, got nothing"
       ensure (letter == 'L' || letter == 'R') "expected L or R, got '${dir}'"
-      ensure (colours.any (k => k == colour)) "expected a colour, got '${colour}'"
+      ensure (colours.any (== colour)) "expected a colour, got '${colour}'"
       { left = letter == 'L', steps = digits.toNatOrFail, weight = weightText.toNatOrFail, colour }
     | _ => fail "expected a turn like L68 3 red, got '${line}'"
 
