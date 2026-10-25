@@ -757,20 +757,20 @@ const $Std$dList$dappend = (v1, v2) => {
 };
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dNat$dcompare = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dequal(v0, v1), ((v2) => ({ tag: "Equal" })), ((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, v1), ((v3) => ({ tag: "Less" })), ((v3) => ({ tag: "Greater" })))));
-const $Std$dList$dfoldLeft = (v2, v3, v4) => {
-  let s2 = v2, s3 = v3, s4 = v4;
+const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
+  let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {
-    const v2 = s2, v3 = s3, v4 = s4;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5, v6 = s6;
+    switch (v4.tag) {
       case "Nil": {
-        return v3;
+        return v5;
       }
       case "Cons": {
-        const v5 = v2.head;
-        const v6 = v2.tail;
-        s2 = v6;
-        s3 = (v4)(v3)(v5);
-        s4 = v4;
+        const v7 = v4.head;
+        const v8 = v4.tail;
+        s4 = v8;
+        s5 = (v6)(v5)(v7);
+        s6 = v6;
         continue;
       }
     }
@@ -860,8 +860,8 @@ const $Main$dTree$dtoList = (v1, v2) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsorted = (v0) => $Main$dTree$dtoList($Main$dOrdered$dinstNat, $Std$dList$dfoldLeft(v0, { tag: "Leaf" }, ((v1) => ((v2) => $Main$dTree$dinsert($Main$dOrdered$dinstNat, v1, v2)))));
-const $Main$dsortedDown = (v0) => $Main$dTree$dtoList($Main$ddescending, $Std$dList$dfoldLeft(v0, { tag: "Leaf" }, ((v1) => ((v2) => $Main$dTree$dinsert($Main$ddescending, v1, v2)))));
+const $Main$dsorted = (v0) => $Main$dTree$dtoList($Main$dOrdered$dinstNat, $Std$dList$dfoldLeft$e(v0, { tag: "Leaf" }, ((v1) => ((v2) => $Main$dTree$dinsert($Main$dOrdered$dinstNat, v1, v2)))));
+const $Main$dsortedDown = (v0) => $Main$dTree$dtoList($Main$ddescending, $Std$dList$dfoldLeft$e(v0, { tag: "Leaf" }, ((v1) => ((v2) => $Main$dTree$dinsert($Main$ddescending, v1, v2)))));
 
 function $$sorted(arg0) {
   try {

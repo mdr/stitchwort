@@ -886,20 +886,20 @@ const $Std$dOrd$d$gcompare = (v1) => {
 const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
 const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })))) });
 const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
-const $Std$dList$dfoldLeft = (v2, v3, v4) => {
-  let s2 = v2, s3 = v3, s4 = v4;
+const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
+  let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {
-    const v2 = s2, v3 = s3, v4 = s4;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5, v6 = s6;
+    switch (v4.tag) {
       case "Nil": {
-        return v3;
+        return v5;
       }
       case "Cons": {
-        const v5 = v2.head;
-        const v6 = v2.tail;
-        s2 = v6;
-        s3 = (v4)(v3)(v5);
-        s4 = v4;
+        const v7 = v4.head;
+        const v8 = v4.tail;
+        s4 = v8;
+        s5 = (v6)(v5)(v7);
+        s6 = v6;
         continue;
       }
     }
@@ -1127,7 +1127,7 @@ const $Std$dMap$dRaw$dempty = (v2) => ({ tag: "Tip" });
 const $Std$dMap$dRaw$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dTree$dinsertWith(v2, v3, v4, v5, $Std$dMap$dRaw$dtree(v2, v6));
 const $Std$dMap$dRaw$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsertWith(v2, ((v6) => ((v7) => v6)), v3, v4, v5);
 const $Std$dMap$dRaw$dtoList = (v2, v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2, v3), { tag: "Nil" });
-const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
+const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft$e(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
 const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   switch (v0.tag) {
     case "Less": {

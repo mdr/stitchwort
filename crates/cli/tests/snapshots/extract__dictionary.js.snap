@@ -1073,20 +1073,20 @@ const $Std$dList$dmap$e = (v4, v5) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfoldLeft = (v2, v3, v4) => {
-  let s2 = v2, s3 = v3, s4 = v4;
+const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
+  let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {
-    const v2 = s2, v3 = s3, v4 = s4;
-    switch (v2.tag) {
+    const v4 = s4, v5 = s5, v6 = s6;
+    switch (v4.tag) {
       case "Nil": {
-        return v3;
+        return v5;
       }
       case "Cons": {
-        const v5 = v2.head;
-        const v6 = v2.tail;
-        s2 = v6;
-        s3 = (v4)(v3)(v5);
-        s4 = v4;
+        const v7 = v4.head;
+        const v8 = v4.tail;
+        s4 = v8;
+        s5 = (v6)(v5)(v7);
+        s6 = v6;
         continue;
       }
     }
@@ -1413,7 +1413,7 @@ const $Std$dMap$dRaw$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsertWith(v2
 const $Std$dMap$dRaw$dget = (v2, v3, v4) => $Std$dMap$dTree$dget(v2, v3, $Std$dMap$dRaw$dtree(v2, v4));
 const $Std$dMap$dRaw$dsize = (v2, v3) => $Std$dMap$dTree$dsize($Std$dMap$dRaw$dtree(v2, v3));
 const $Std$dMap$dRaw$dtoList = (v2, v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2, v3), { tag: "Nil" });
-const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
+const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft$e(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
 const $Std$dMap$dRaw$dfoldLeft = (v3, v4, v5, v6) => $Std$dMap$dTree$dfoldLeft(v4, v5, $Std$dMap$dRaw$dtree(v3, v6));
 const $Std$dMap$dRaw$dmap = (v3, v4, v5) => $Std$dMap$dTree$dmap(v4, $Std$dMap$dRaw$dtree(v3, v5));
 const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
@@ -1815,7 +1815,7 @@ const $Main$dmerge = (v0, v1) => $Std$dMap$dunion($Std$dText$dinstOrd, v0, v1);
 const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dMap$ddecEq($Std$dText$dinstOrd, $Std$dNat$dinstDecEq, v0, v1));
 const $Main$dsparse = (v0) => v0;
 const $Main$dlists = (v0) => v0;
-const $Main$dgrouped = (v0) => $Std$dList$dfoldLeft(v0, $Std$dMap$dempty($Std$dText$dinstOrd), ((v1) => ((v2) => $Std$dBool$difThenElse($Std$dText$disEmpty(v2), ((v3) => v1), ((v3) => $Std$dMap$dinsertWith($Std$dText$dinstOrd, v1, $Std$dText$dtake(v2, 1n), { tag: "Cons", head: v2, tail: { tag: "Nil" } }, ($Std$dList$dappend$c ??= ($p1) => ($p2) => $Std$dList$dappend($p1, $p2))))))));
+const $Main$dgrouped = (v0) => $Std$dList$dfoldLeft$e(v0, $Std$dMap$dempty($Std$dText$dinstOrd), ((v1) => ((v2) => $Std$dBool$difThenElse($Std$dText$disEmpty(v2), ((v3) => v1), ((v3) => $Std$dMap$dinsertWith($Std$dText$dinstOrd, v1, $Std$dText$dtake(v2, 1n), { tag: "Cons", head: v2, tail: { tag: "Nil" } }, ($Std$dList$dappend$c ??= ($p1) => ($p2) => $Std$dList$dappend($p1, $p2))))))));
 const $Main$droster = (v0) => v0;
 const $Main$dnoScores = $Std$dMap$dempty($Std$dText$dinstOrd);
 const $Main$dorders = (v0) => v0;
