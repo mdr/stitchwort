@@ -3270,14 +3270,16 @@
     {
       "id": 505,
       "title": "Design note: opaque definitions (D1262): literature review, language comparison, root cause of rogue stage-2 E-RESOURCE, design; decisions from D1263",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "1e1b12a3"
+      ]
     },
     {
       "id": 506,
