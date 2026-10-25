@@ -3,7 +3,7 @@
 -- not finish either, so its result's type says `Partial` too. The handler
 -- sees each operation and the rest of the program, as it does around total
 -- code; the program's recursive calls pass straight through it.
-import Std (Empty, Fail)
+import Std (Empty, Fail, Nat)
 
 -- Fails at 3, on its way down.
 def countdown (n: Nat): {Fail, Partial} Nat :=
@@ -56,3 +56,15 @@ test "stopping drops the loop" := dropped() == Err "no"
 test "a seeded loop" := seeded 1 (() => rollsUntilSix 0) == 6
 test "the same seed, the same rolls" :=
   seeded 7 (() => rollsUntilSix 0) == seeded 7 (() => rollsUntilSix 0)
+
+def showResult: Result Nat Text → Text
+  | Ok n => "Ok " ++ Nat.toText n
+  | Err msg => "Err " ++ msg
+
+-- Runs on all three runners (`run`, `run --reference`, `run --js`), which
+-- print the same.
+def main(): {IO, Partial} () :=
+  IO.print (showResult (caught 5))
+  IO.print (showResult (caught 2))
+  IO.print (showResult (dropped()))
+  IO.print ("rolls until a six: " ++ Nat.toText (seeded 1 (() => rollsUntilSix 0)))
