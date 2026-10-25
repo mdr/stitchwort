@@ -20,6 +20,8 @@ def commandOf (key: Char): Option Command :=
     | 'l' => Some (Move East)
     | 'd' => Some (Move East)
     | '.' => Some Wait
+    | '>' => Some Descend
+    | 'p' => Some Drink
     | 'q' => Some Quit
     | _ => None
 

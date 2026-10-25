@@ -29,5 +29,8 @@ type Dice = { seed: Nat }
 def Dice.upTo (dice: Dice) (index: Nat) (most: Nat): Nat :=
   (lcg (lcg (dice.seed + index * 7919)) / 65536) % (most + 1)
 
+-- A number from 0 up to `most`, drawn from the generator.
+def roll (most: Nat): {Random} Nat := next() % Succ most
+
 -- Roll number `index`: 1 in `chances`.
 def Dice.chance (dice: Dice) (index: Nat) (chances: Nat): Bool := dice.upTo index (chances - 1) == 0

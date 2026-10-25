@@ -1,20 +1,22 @@
--- A small roguelike: find the stairs (>) before the goblins and orcs find
--- you. Type h/j/k/l (or a/s/w/d) and Enter to move, . to wait, q to quit;
--- walking into a monster attacks it.
+-- A small roguelike: go down three levels and take the amulet, past
+-- goblins, orcs and trolls. Type h/j/k/l (or a/s/w/d) and Enter to move,
+-- > to go down stairs, p to drink a potion, . to wait, q to quit; walking
+-- into a monster attacks it, and walking onto an item picks it up.
 --
 --   $ cd games/rogue && stitchwort run Rogue.main
 --
--- The game is a pure core (Model.sw, Dungeon.sw, Turn.sw, Render.sw) and a
--- thin shell (this file): `play` reads a command, runs a turn, and draws the
--- frame. Randomness and input are abilities (Random.sw, Input.sw), handled
--- here by a seeded generator and by standard input. Invariants of a turn
--- are proved in `Rogue.Proofs`, and the tests are in `Rogue.Tests`.
+-- The game is a pure core (Model.sw, Level.sw, Turn.sw, Render.sw), a
+-- level generator (Generate.sw), and a thin shell (this file): `play` reads
+-- a command, runs a turn, and draws the frame. Randomness and input are
+-- abilities (Random.sw, Input.sw), handled here by a seeded generator and by
+-- standard input. Invariants of a turn and of the generator are proved in
+-- `Rogue.Proofs`, and the tests are in `Rogue.Tests`.
 
 namespace Rogue
 import Std (List, Text)
 
 def main(): {IO} () :=
-  let final := fromLines (() => seeded defaultSeed (() => playGame initialState))
+  let final := fromLines (() => seeded defaultSeed (() => playGame (newGame())))
   IO.print (ending final)
 
 -- There is no clock or other source of entropy to seed from, so every game
@@ -48,7 +50,7 @@ def draw (state: State): {IO} () := IO.print (clearScreen ++ Text.join (render s
 
 def ending (state: State): Text :=
   match state.phase with
-    | Escaped => "You escaped on turn ${state.turn} with ${state.hitPoints} hit points."
-    | Died => "You died on turn ${state.turn}."
-    | GaveUp => "You gave up on turn ${state.turn}."
+    | Won => "You won on turn ${state.turn} with ${state.hitPoints} hit points."
+    | Died => "You died on level ${state.level.depth}, on turn ${state.turn}."
+    | GaveUp => "You gave up on level ${state.level.depth}, on turn ${state.turn}."
     | Playing => "The game ran out of turns."
