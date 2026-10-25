@@ -3392,14 +3392,16 @@
     {
       "id": 515,
       "title": "Design note: live keypresses in the playground, static-site compatible (D1271); decisions from D1272",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "1885c478"
+      ]
     },
     {
       "id": 516,
