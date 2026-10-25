@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Pair2 dedd164efe725ea448bc43bc8c0480021e600990357c74714bcc480082c291cb
 Main.Pair2.a d4eedecb2be3fe248217a1b608ab27c6ca64206fb07e21712a2a7c53c6378546
@@ -18,12 +18,12 @@ Main.Pair2.%trans 9b923615c3d6d5638be11a4d27197f7dc65f08e260b03884ae7b980260a3fc
 Main.Pair2.%instOrd 613b574a1cce62d435e2bf212925ffaf31e06ec2345261e7c27250b4bb6d09b9
 Main.Pair2.ext 11412a376a6f2b684ec20a1d3498e025f68b275a2b9613a86f9209cc64c9d442
 Main.orNone fde783c1a7a5a44edc14914f8ff3e9f84ff5496d57b6c56da667e6e3dfb21b9c
-Main.next d7e138c53c384653a94cba81b24ef96860a8361ca8a46ab512dcb9770e4a4ace
-Main.backwards 80a9bd53c2a4a299519351a69bc59939108de9c54584a019f709eee1dffa7bcc
-Main.base 309936812cf6451492d6b23ba1f454749022d162abbc76dd2cb89dfcad166843
-Main.updated 4e8d4c3159c3571f0e3c272d87658bd4ab472063f59087023558ffbfea5fca3d
+Main.next dcec4e02d8c167f29d5b39b9206033ad8be6f172facaa021b873ebf2660c7a7f
+Main.backwards 2ea278949473e6a35e81b93835c83e11948b4e5a5c034b8428218266b174f238
+Main.base eca6721aa25ffffe34237251c9169391d78feb814f71b1a87dac66820ccc402f
+Main.updated a294a8bbfd7e3ee2c820551a210a145c73a7346aa2d3cd58cbdb9eb1bd626909
 Main.eqTexts f926daa42662eb4de0647fa2344c668afb1ce4238a782c5f3fea6d3323828145
-Main.test "fields run in the order written" ef8201786be47379331d8630c4e46b656d59d9d5b22ac2f2c2e001ee0ea78abb
-Main.test "and are put where they belong" 968da18ce596e31b63f6f138720e28d3b7bba545b35874949c4ff73aa6460ca7
-Main.test "an update's base runs once" c11463f3a703a5f1e7160851d17c09caf5496c40671c62d56d74018ed2ee9907
-Main.test "an update keeps the base's other fields" 3896f898be7cde6c2ce29503f94014fa4c397c3a970c5319c25d0b991bcf1708
+Main.test "fields run in the order written" fd0201fe10e2267fd05a476a16d5f0d1fe486d6b8a435347abceeb86a3ec0884
+Main.test "and are put where they belong" 8015c9f6186ecf5a0c14a7e010d60d823bac21fea25b7c1a1791540ef6935aff
+Main.test "an update's base runs once" 79e7bfd3085e1fe1437bcd1929f58bf9c417a231f1f8f5471255dd4f443970fa
+Main.test "an update keeps the base's other fields" efda0fe0fe3506852501a404629ceec4f3c3490460f969131d258d2febc458cf

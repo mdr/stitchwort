@@ -27,7 +27,8 @@ use stitchwort_core::step::{Machine, Obs};
 use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
 use stitchwort_rt::MainRow;
-use stitchwort_rt::host::{read_all, read_line};
+pub use stitchwort_rt::host::{ConsoleInfo, NoTerminal, Terminal};
+use stitchwort_rt::host::{read_all, read_bytes, read_line, write_text};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
@@ -59,6 +60,14 @@ pub enum Event {
     Read(Option<String>),
     /// `readAll`, and what it gave.
     ReadAll(String),
+    /// `console`, and what it gave.
+    Console(ConsoleInfo),
+    /// `keysMode on`.
+    KeysMode(bool),
+    /// `readBytes`, and what it gave.
+    ReadBytes(Option<Vec<u8>>),
+    /// `write` of this payload.
+    Write(String),
     /// A tick: one recursive call.
     Tick,
 }
@@ -315,9 +324,11 @@ impl Session {
                 main,
                 &mut text.as_bytes(),
                 &mut io::sink(),
+                &mut NoTerminal,
                 &policy,
+                // As `IO.simulate` records them: `print` and `write` payloads.
                 &mut |e| {
-                    if let Event::Print(p) = e {
+                    if let Event::Print(p) | Event::Write(p) = e {
                         printed.push(p);
                     }
                 },
@@ -352,7 +363,28 @@ impl Session {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<(), RunError> {
-        let result = self.run_loop(main, input, output, &Policy::default(), &mut |_| {});
+        self.run_main_on(main, input, output, &mut NoTerminal)
+    }
+
+    /// [`Session::run_main`] with `terminal` for `IO.console` and
+    /// `IO.keysMode` (docs/proposals/terminal-io.md §4.6). Keys mode is left
+    /// on if the run ends without leaving it: putting the terminal back is
+    /// the caller's job.
+    pub fn run_main_on(
+        &self,
+        main: &Main,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+        terminal: &mut dyn Terminal,
+    ) -> Result<(), RunError> {
+        let result = self.run_loop(
+            main,
+            input,
+            output,
+            terminal,
+            &Policy::default(),
+            &mut |_| {},
+        );
         match result {
             Ok(_) => output.flush().map_err(RunError::Write),
             Err(e) => {
@@ -375,14 +407,27 @@ impl Session {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<(), RunError> {
+        self.run_main_fast_on(main, input, output, &mut NoTerminal)
+    }
+
+    /// [`Session::run_main_fast`] with `terminal`, as
+    /// [`Session::run_main_on`].
+    pub fn run_main_fast_on(
+        &self,
+        main: &Main,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+        terminal: &mut dyn Terminal,
+    ) -> Result<(), RunError> {
         let program =
             stitchwort_rt::lower_main(&self.elab.globals, self.elab.limits, main.term(), main.row)
                 .map_err(RunError::Lowering)?;
-        stitchwort_rt::run_main(
+        stitchwort_rt::run_main_on(
             &program,
             stitchwort_rt::Limits::from_core(self.elab.limits),
             input,
             output,
+            terminal,
         )
     }
 
@@ -396,7 +441,7 @@ impl Session {
         policy: &Policy,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Outcome, RunError> {
-        self.run_loop(main, input, output, policy, trace)
+        self.run_loop(main, input, output, &mut NoTerminal, policy, trace)
     }
 
     fn run_loop(
@@ -404,6 +449,7 @@ impl Session {
         main: &Main,
         input: &mut impl BufRead,
         output: &mut impl Write,
+        terminal: &mut dyn Terminal,
         policy: &Policy,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Outcome, RunError> {
@@ -440,7 +486,7 @@ impl Session {
                     Obs::Call(o, pending) => {
                         let reply = {
                             let _op = g.budget.operation(self.elab.limits);
-                            self.perform(&s, o, input, output, &mut lines, trace)?
+                            self.perform(&s, o, input, output, terminal, &mut lines, trace)?
                         };
                         let _op = g.budget.operation(self.elab.limits);
                         obs = pending.reply(g, reply)?;
@@ -475,12 +521,14 @@ impl Session {
     /// [`main_calls`]): its reply. `Fail.stop msg` stops the run with
     /// [`RunError::Failed`]; it returns `Empty`, so there's nothing to resume
     /// with.
+    #[allow(clippy::too_many_arguments)]
     fn perform(
         &self,
         s: &Shapes,
         o: Value,
         input: &mut impl BufRead,
         output: &mut impl Write,
+        terminal: &mut dyn Terminal,
         lines: &mut usize,
         trace: &mut dyn FnMut(Event),
     ) -> Result<Value, RunError> {
@@ -505,6 +553,9 @@ impl Session {
             }
             Value::Ctor(d, c, payload) if d == s.io && c == s.print => {
                 let text = s.text_to_string(self, &payload[0])?;
+                // `print`, `readLine` and `readAll` leave keys mode first
+                // (D1260).
+                terminal.keys_mode(false, output)?;
                 output
                     .write_all(text.as_bytes())
                     .and_then(|()| output.write_all(b"\n"))
@@ -513,6 +564,7 @@ impl Session {
                 s.unit()
             }
             Value::Ctor(d, c, _) if d == s.io && c == s.read_line => {
+                terminal.keys_mode(false, output)?;
                 output.flush().map_err(RunError::Write)?;
                 let line = read_line(input, lines)?;
                 trace(Event::Read(line.clone()));
@@ -522,11 +574,57 @@ impl Session {
                 }
             }
             Value::Ctor(d, c, _) if d == s.io && c == s.read_all => {
+                terminal.keys_mode(false, output)?;
                 output.flush().map_err(RunError::Write)?;
                 let rest = read_all(input, lines)?;
                 let reply = s.text(&rest);
                 trace(Event::ReadAll(rest));
                 reply
+            }
+            Value::Ctor(d, c, _) if d == s.io && c == s.console => {
+                let console = terminal.console();
+                trace(Event::Console(console));
+                let nat = |n: u64| native::nat_value(n.into());
+                Value::Ctor(
+                    s.console_record,
+                    0,
+                    [
+                        s.bool(console.input_is_terminal),
+                        s.bool(console.output_is_terminal),
+                        nat(console.columns),
+                        nat(console.rows),
+                    ]
+                    .into(),
+                )
+            }
+            Value::Ctor(d, c, payload) if d == s.io && c == s.keys_mode => {
+                let on =
+                    matches!(force(g, payload[0].clone())?, Value::Ctor(_, c, _) if c == s.true_);
+                terminal.keys_mode(on, output)?;
+                trace(Event::KeysMode(on));
+                s.unit()
+            }
+            Value::Ctor(d, c, _) if d == s.io && c == s.read_bytes => {
+                output.flush().map_err(RunError::Write)?;
+                let bytes = read_bytes(input, lines)?;
+                trace(Event::ReadBytes(bytes.clone()));
+                match bytes {
+                    Some(bytes) => {
+                        let mut list = Value::Ctor(s.list, 0, Vec::new().into());
+                        for &b in bytes.iter().rev() {
+                            let b = native::nat_value(u64::from(b).into());
+                            list = Value::Ctor(s.list, 1, [b, list].into());
+                        }
+                        s.just(list)
+                    }
+                    None => s.nothing(),
+                }
+            }
+            Value::Ctor(d, c, payload) if d == s.io && c == s.write => {
+                let text = s.text_to_string(self, &payload[0])?;
+                write_text(output, &text)?;
+                trace(Event::Write(text));
+                s.unit()
             }
             _ => unreachable!("an `IO` or `Fail` operation"),
         })
@@ -543,6 +641,16 @@ struct Shapes {
     print: usize,
     read_line: usize,
     read_all: usize,
+    console: usize,
+    keys_mode: usize,
+    read_bytes: usize,
+    write: usize,
+    /// `Console`, `IO.console`'s reply: one constructor.
+    console_record: DataId,
+    /// `Bool`, and `True`'s index.
+    bool_: DataId,
+    true_: usize,
+    false_: usize,
     /// `Fail`, once its library file has loaded: a `main` that may fail
     /// loads it.
     fail: Option<DataId>,
@@ -564,6 +672,14 @@ impl Shapes {
             print: ctor(Builtin::Print),
             read_line: ctor(Builtin::ReadLine),
             read_all: ctor(Builtin::ReadAll),
+            console: ctor(Builtin::IoConsole),
+            keys_mode: ctor(Builtin::KeysMode),
+            read_bytes: ctor(Builtin::ReadBytes),
+            write: ctor(Builtin::IoWrite),
+            console_record: data(Builtin::Console),
+            bool_: data(Builtin::Bool),
+            true_: ctor(Builtin::True),
+            false_: ctor(Builtin::False),
             fail: r.loaded_data(Builtin::Fail),
             unit: data(Builtin::UnitType),
             maybe: data(Builtin::Option),
@@ -575,6 +691,11 @@ impl Shapes {
 
     fn unit(&self) -> Value {
         Value::Ctor(self.unit, 0, Vec::new().into())
+    }
+
+    fn bool(&self, b: bool) -> Value {
+        let c = if b { self.true_ } else { self.false_ };
+        Value::Ctor(self.bool_, c, Vec::new().into())
     }
 
     // `Option` is `None | Some a`, and `List` is `Nil | Cons a (List a)`.

@@ -27,6 +27,11 @@ lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+# Keys mode on a terminal (docs/proposals/terminal-io.md §4.6).
+nix.workspace = true
+rustix.workspace = true
+
 [features]
 # `run --alloc-trace FILE`: the bring-up allocation trace of the fast
 # runtime (`stitchwort_rt::alloc_trace`). Off in release builds.
@@ -34,6 +39,11 @@ alloc-trace = ["dep:stitchwort-rt", "stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
 insta.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+# `run` in a pseudo-terminal (`tests/keys_mode.rs`): `openpty` is in `term`.
+nix = { workspace = true, features = ["term", "signal"] }
+rustix = { workspace = true, features = ["process"] }
 
 [lints]
 workspace = true

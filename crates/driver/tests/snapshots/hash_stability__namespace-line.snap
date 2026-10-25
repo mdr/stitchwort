@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Demo.Point 58b3b1281c7cf03dbcf3424a2cd09df87e1ee6df44ccaa70494eea17d8835f90
 data Demo.Shape 8b8ba7686b67d1ed20b9a14db3852f42ebef6c2b2a85708c0ba7cfd7aba9ac94
@@ -40,7 +40,7 @@ Demo.double2 c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
 Demo.quadruple 33b52e6f962fee15b870fbba181b2e58d87c5f7b7d04406ef9eedcb003aa8cae
 Demo.decToken 8e5cfd9657632c226c7d11124031d1b857de49c160b6c7b5f6b2e77b0e0464f1
 Demo.needsToken 0e3473034494de9877f8109cc3014f4e41e0d4d27a43c327d4c39131975950ca
-Demo.main b34038e2b0807f932283224f0970c93bfeaa92a909d09dcfbc2e89b563f4ea98
+Demo.main 961461ae9a2a54130e5955ce457772fca37f0325b703684579b4800a4451fe28
 Demo.test "area" ffdd1699f3e18bdfb3707bfd442e94660335c04c1a948b18bc2f42f916747af8
 Demo.test "own namespace" 8bf2dc76c666a9fbc0b789e9377c401efbee4ae240a3ed2dd57f897162feafb0
 Demo.test "import" c01d582b04b7915d4d1e2a53ea16d4d7ca1c40af53f56756545f88586db23c1f

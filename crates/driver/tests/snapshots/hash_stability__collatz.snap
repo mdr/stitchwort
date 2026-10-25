@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.collatzSteps.Request 4fe15f52869bfb17ce2345ba4073756e1dff1d59304b73dfea0d4059b6408474
 Main.next 0d91da101d0882b78f0bd6d7a015fc122953612890ea8075f0164ed68ddf892f
@@ -11,4 +11,4 @@ Main.collatzSteps.Response 468a21beecaa3363dd3817bd0fcfbf5ab17032d4d29190b44685a
 Main.collatzSteps.recur 2f65fe1a55d3a01347f0cbd5b117a31135bce69598acb4eaee7c122b4df07230
 Main.collatzSteps.description dfbd3732aa898a7a98ccda97642b8bd5f5e20b99b990feb0c2c95ea99687a439
 Main.collatzSteps.body c7030efeb872bc2af22dbe6d57028d2283468572a3d126fcef24bdd931127cdb
-Main.main 1a80a8f6f9a725ef869c426ae617c8022dc7efb0410ef463b752009e476c324f
+Main.main c9d5fb544937ccd41bd40cd4fae960bd3787a39f159c8f9945812bf5c5946d05

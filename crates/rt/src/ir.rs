@@ -120,10 +120,17 @@ pub struct Shapes {
     pub recur: u32,
     /// `MkSigMap inject reply`.
     pub sig_map: u32,
-    /// `IO`'s `%print text`, `%readLine u`, `%readAll u`.
+    /// `IO`'s `%print text`, `%readLine u`, `%readAll u`, `%console u`,
+    /// `%keysMode on`, `%readBytes u`, `%write text`.
     pub print: u32,
     pub read_line: u32,
     pub read_all: u32,
+    pub console: u32,
+    pub keys_mode: u32,
+    pub read_bytes: u32,
+    pub write: u32,
+    /// `Console`'s one constructor, `IO.console`'s reply: four fields.
+    pub console_record: u32,
     /// `Fail`'s `%stop msg`, if `Fail`'s library file has loaded;
     /// `u32::MAX` if not.
     pub stop: u32,

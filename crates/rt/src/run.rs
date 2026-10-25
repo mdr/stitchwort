@@ -17,7 +17,7 @@ use std::io::{BufRead, Write};
 
 use stitchwort_core::ResourceError;
 
-use crate::host::{RunError, read_all, read_line};
+use crate::host::{NoTerminal, RunError, Terminal, read_all, read_bytes, read_line, write_text};
 use crate::ir::{MainRow, Program};
 use crate::machine::{Limits, Machine};
 use crate::value::{Delay, Fun, Value};
@@ -50,7 +50,22 @@ pub fn run_main(
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> Result<(), RunError> {
-    match run_main_with(program, limits, &Policy::default(), input, output) {
+    run_main_on(program, limits, input, output, &mut NoTerminal)
+}
+
+/// [`run_main`] with `terminal` for `IO.console` and `IO.keysMode`
+/// (docs/proposals/terminal-io.md §4.6): what `stitchwort run` passes on a
+/// Unix terminal. Keys mode is left on if the run ends without leaving it;
+/// putting the terminal back is the caller's job.
+pub fn run_main_on(
+    program: &Program,
+    limits: Limits,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+) -> Result<(), RunError> {
+    let result = run_inner(program, limits, &Policy::default(), input, output, terminal).0;
+    match result {
         Ok(_) => output.flush().map_err(RunError::Write),
         Err(e) => {
             let _ = output.flush();
@@ -95,6 +110,17 @@ pub fn run_main_counting(
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
+    run_inner(program, limits, policy, input, output, &mut NoTerminal)
+}
+
+fn run_inner(
+    program: &Program,
+    limits: Limits,
+    policy: &Policy,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+) -> (Result<Outcome, RunError>, RouteCounts) {
     let mut machine = Machine::new(program, limits);
     let delay = match machine.entry() {
         Ok(delay) => delay,
@@ -109,6 +135,7 @@ pub fn run_main_counting(
         ticks: 0,
         policy: *policy,
         counts: RouteCounts::default(),
+        terminal,
     };
     let result = runner.run(delay, input, output);
     (result, runner.counts)
@@ -128,6 +155,7 @@ pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result
         ticks: 0,
         policy: Policy::default(),
         counts: RouteCounts::default(),
+        terminal: &mut NoTerminal,
     };
     let finished = runner.drive(delay, &mut std::io::empty(), &mut std::io::sink())?;
     Ok(finished.expect("no tick limit"))
@@ -163,7 +191,7 @@ enum Focus {
     Ret(Value),
 }
 
-struct Runner<'p> {
+struct Runner<'p, 't> {
     m: Machine<'p>,
     frames: Vec<Frame>,
     /// Where the `Map` and `Tie` frames are in `frames`, bottom first: the
@@ -178,9 +206,11 @@ struct Runner<'p> {
     ticks: u64,
     policy: Policy,
     counts: RouteCounts,
+    /// What `IO.console` and `IO.keysMode` do.
+    terminal: &'t mut dyn Terminal,
 }
 
-impl Runner<'_> {
+impl Runner<'_, '_> {
     /// Pushes `frame`, marking it if routing needs it.
     fn push(&mut self, frame: Frame) {
         if matches!(frame, Frame::Map(..) | Frame::Tie(_)) {
@@ -446,25 +476,61 @@ impl Runner<'_> {
             _ => panic!("internal error: an operation {op:?} outside `IO`"),
         };
         let tag = io.tag().expect("an `IO` operation");
+        let field = || match &io {
+            Value::Data(_, fields) => fields[0].clone(),
+            _ => unreachable!("an `IO` operation has a field"),
+        };
         Ok(if tag == s.print {
-            let Value::Data(_, fields) = &io else {
-                unreachable!("`print` has a field")
-            };
-            let text = crate::prims::text_of(&fields[0]);
+            // `print`, `readLine` and `readAll` leave keys mode first (D1260).
+            self.terminal.keys_mode(false, output)?;
+            let text = crate::prims::text_of(&field()).clone();
             output
                 .write_all(text.as_bytes())
                 .and_then(|()| output.write_all(b"\n"))
                 .map_err(RunError::Write)?;
             Value::Tag(s.unit)
         } else if tag == s.read_line {
+            self.terminal.keys_mode(false, output)?;
             output.flush().map_err(RunError::Write)?;
             match read_line(input, &mut self.lines)? {
                 Some(line) => Value::data(s.some, [Value::Text(line.into())]),
                 None => Value::Tag(s.none),
             }
         } else if tag == s.read_all {
+            self.terminal.keys_mode(false, output)?;
             output.flush().map_err(RunError::Write)?;
             Value::Text(read_all(input, &mut self.lines)?.into())
+        } else if tag == s.console {
+            let console = self.terminal.console();
+            let flag = |b: bool| Value::Tag(if b { s.true_ } else { s.false_ });
+            Value::data(
+                s.console_record,
+                [
+                    flag(console.input_is_terminal),
+                    flag(console.output_is_terminal),
+                    Value::Nat(console.columns),
+                    Value::Nat(console.rows),
+                ],
+            )
+        } else if tag == s.keys_mode {
+            let on = matches!(field(), Value::Tag(t) if t == s.true_);
+            self.terminal.keys_mode(on, output)?;
+            Value::Tag(s.unit)
+        } else if tag == s.read_bytes {
+            output.flush().map_err(RunError::Write)?;
+            match read_bytes(input, &mut self.lines)? {
+                Some(bytes) => {
+                    let mut list = Value::Tag(s.nil);
+                    for &b in bytes.iter().rev() {
+                        list = Value::data(s.cons, [Value::Nat(b.into()), list]);
+                    }
+                    Value::data(s.some, [list])
+                }
+                None => Value::Tag(s.none),
+            }
+        } else if tag == s.write {
+            write_text(output, crate::prims::text_of(&field()))?;
+            Value::Tag(s.unit)
         } else {
             panic!("internal error: an unknown `IO` operation {io:?}")
         })

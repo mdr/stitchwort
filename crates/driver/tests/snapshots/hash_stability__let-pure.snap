@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Ask 6f29d6b7221485e8134fc7fa34a866b53fe7ee32a9f623283af3dd1bf7456723
 Main.two e2ed0fdde29757ee419e292bda71388c3338edfe4ca3ed652dddc34229ad3fe1
@@ -22,4 +22,4 @@ Main.test "handled" 3276d54c3a86ba1e2cf90b1ccaeb5a4e3766235b88d95ba7ad3408e8b6b3
 Main.Grid 078e911a03c8683791619a0233c560d648d4c55a01f568f5890fdb85d52d194a
 Main.Grid.parse 5923efc44b837171066190f2c3ae7e8fbdd1225f3fc6334212bf4f85eec49390
 Main.Grid.rolls 09358ba35c6f12272f41c97e4f2b5090dc1621937cedbfac88110996874a72cf
-Main.countRolls 91993ba47617c99c49dfdb2a2b43b6ffaa30ef12120094df12ec40046b3520b9
+Main.countRolls e5aca65aa0289d6eb4d20d30a017e80dce497c2ccdff4b61da8247a46ca3fdf1

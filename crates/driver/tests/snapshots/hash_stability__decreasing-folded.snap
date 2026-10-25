@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.gcd 53ff873fb42144bca593deb85b7a1ac3bd109b92172715bd49a4be9434b7d0f5
 Main.gcd.%step 9df9ebd74695faa8f894e30c01a8e4d3acac5380fe6f2bae07585d9ff918a688
@@ -16,4 +16,4 @@ Main.halvings.%irrel 4001986e4ab4b3de5d0e0e73d808c187d4b30190afd85624921c034895d
 Main.halvings.unfold 5dac8ca44a29669ade1b36a652cb3294374efc206e629cb5db58a5e7aba5668a
 Main.test "gcd as text" 88e237ded2db4f3e62a00ed809f3f8c2a651ca9c26b4be8405a5954bd894585b
 Main.test "halvings" 23155357eff17d44345e185d71236fa03b34c0b779af674e290661fe4f77adb0
-Main.main 5e69ef79490acdcebff1e5e129a7637a4fd840841b1c3cf65bed52b685461faf
+Main.main 540a6dd2940168fb1340adab3919f6bc38dee1fe1a4fa6087667f4574594efd3

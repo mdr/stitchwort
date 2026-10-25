@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.AllTrue b4fc11c3a582db1f71ab6a5b3a1e0489e6bedcb97084f8a26c00e29058cfabec
 Main.Q 0976fcfd00ffd8b07380eeb8b18de4e342789f753162bd45f126894a859a3949
@@ -11,4 +11,4 @@ Main.nInlineIsZero 01b0a6aa38dc94df722ceefcb85426f18097012832d184a006939ff34bea0
 Main.nIsZero 1ec55482a90638be3f0ef191b569fdb215fd0c8f91e9d33214363be091ad5f91
 Main.test "transport along a proof-valued lift" 5d48b21b4b185508a5d75260da959315437ce87a0eca80b2e09bef0f6461098b
 Main.test "and along one written inline" 915b8bc0edb5f5b16eab01fc930bddd21f38fe53d09845f5e691406db4664d21
-Main.main bc70b1df166f9ad61b871bc43c824041f38c27050d8fbcf24722cdc34ba44ed0
+Main.main ab79370d92226b28341ab7f563940a476f06eea936a3cb8507e54bc2b2d41db1

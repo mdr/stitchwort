@@ -1,0 +1,24 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.showBytes 187ed6edfb03c1f3d9616305f8aaee6130084867854885b12d519a712dec1a43
+Main.textOr fde783c1a7a5a44edc14914f8ff3e9f84ff5496d57b6c56da667e6e3dfb21b9c
+Main.yesNo 4b6c4fd6b2949e9aa2be975c5be96e725d21002e8479a8ebe5a0bf9f2ee447f7
+Main.main b8a3b94b9ecda6cbcf512b2c3f70ff637d890e9ae049bf380e8a2932d5494dc6
+Main.transcript 012e8379cdfb6cd0771c6a22d784bc476627523fe66fdb4877d8cf1c98436c27
+Main.test "what main does under IO.simulate" ec28ef85a9d217b0e94601d4c305016e3b62d18f1c776de538f20a807146d7eb
+Main.test "with no input, readBytes gives None" ddf3aab8efe8dbb9198aeafd031cca12913032edaf1e695862ac2e4218ee6dbb
+Main.console 5dff3ec4cbcc10e6c1202c3a9c70585cb73a5eb76b37f16567127409249ba2fb
+Main.test "console: no terminals, size unknown" c8997c8b73d8892421b424b301b14d0aa59ee53af946d7193c6f05b9e4e8c6da
+Main.keysThenRead aad91f50d98a35468f84216b47d36d520e4e282c0140194e3cd2c84d692cddf4
+Main.test "keysMode does nothing" 960025fc961a238a0dc0f3c3633b6a5c840882d1cebd1f7d2904c8818ecc320a
+Main.bytesThenLine 98b1edb18253836165e8077fbf5536589f45cdca1aa39b35ddec170ad796bc95
+Main.test "readBytes takes the rest of the input, each line ending in LF" a9655cc00ff1e72c0dd64627605b66c8962831d9d4cb58430033c5ff2b463511
+Main.lineThenBytes edaa4d71e1fc7c885ed657945a23a859b8abdb6c00e4428f34fbecac7e69c16b
+Main.test "readBytes after readLine takes what's left" 224075ef22a63420aebd7df5820b19e1d279b164fe92fb12f03248f903ab3085
+Main.test "readBytes at the end is None" 29170ca75eb74877adb4f60e7680eb8330d9c9aebe1d96fce248d20b0f37c9a7
+Main.writes 3da90f788f0b50fdfe18d09c1fb5810b8a9150e548d563f24ebe09dec55b4d4b
+Main.test "write records one payload each, in order with print" 77ca47123fe9be884b1034a528c357ec657f71cb99ae451e645a6ea8274cb393
+Main.test "UTF-8 of one to four bytes" beaed09960ba349b8ceb3b6502a05cf7cc61212e4fc0632fe003053df3177a4e
+Main.test "UTF-8 at the edges of each length" ff749b923f131c929581407792e093a856d414a83280f10e845b0742667edb49

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.example 4284ae2fabf6f18161a36fcfb59120f38a29aea66e92346a49c4418d4b763096
 Main.test "the example has ten lines" b1fcd9161fc8e3b77d3321b42ddec7b83c6ab4fe3f931704d5e43e747b4a3a8d
@@ -12,4 +12,4 @@ Main.test "the closing line sets the indentation" 468b9919b858847853db7f7bfc661a
 Main.test "quotes, escapes and interpolation" b27ce7237788f19453b0e8dac8c812f506e383eed70b7fb5acaceba6722dcb03
 Main.twice d452918239744a3ad73a6f35162af672660975fb74523d6ead895d3f947ac918
 Main.test "interpolation over lines" ad5518f6fb0ffdbcba9503f6c6a7bb59f4a12c168df84b59364094730d33cd12
-Main.main 157b52b4d6b47b0f585c90d7a2a8134e9150fe06e410295869ef021c34a0cdc6
+Main.main 036121fcdbdbf8157d705bd04cd5eb3271bd183212f7120b22301bb5c5033ee9
