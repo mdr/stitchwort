@@ -2213,14 +2213,17 @@ impl Elaborator {
             self.module.phase = Phase::Body;
             self.clear_metas();
             self.branch_errors.take();
+            crate::unify::take_rigid_divergence();
             let mut checked = self.lifted_body(*id, def_name, equations);
             // A body that moves a computation in its bare row `{e}` into a
             // handler's row needs `e` total: checked again with it
-            // (docs/proposals/partial-stage-3.md §2.2, D1215). So is any
-            // other body that fails while its bare rows may be partial, so
-            // that nothing that checked before stage 3 stops checking, and
-            // what doesn't check fails as it did.
-            if let Err(d) = &checked
+            // (docs/proposals/partial-stage-3.md §2.2, D1215). So is one
+            // that fails after comparing such a computation with something
+            // it couldn't be compared with while `e` may be partial. Only
+            // those: any other failure would fail the same way again, so
+            // isn't checked twice (SW-439).
+            if crate::unify::take_rigid_divergence()
+                && let Err(d) = &checked
                 && !undo::fatal(d)
             {
                 let at = d.labels.first().map(|l| l.span);
@@ -2308,7 +2311,7 @@ impl Elaborator {
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
         self.module.phase = Phase::Signature;
-        let ty = self.signature_type(ty, *instance, *span, &key)?;
+        let (ty, notes) = self.signature_type(ty, *instance, *span, &key)?;
         self.check_redundant(&ty, def_name.span)?;
         let id = kernel::declare_def(
             &mut self.globals,
@@ -2317,7 +2320,8 @@ impl Elaborator {
             *theorem,
             *export,
             *span,
-        )?;
+        )
+        .map_err(|d| notes.iter().fold(d, |d, n| d.with_note(n.clone())))?;
         if let Some(item) = self.module.item {
             self.module.def_items.insert(id, item);
         }
@@ -2366,7 +2370,9 @@ impl Elaborator {
         self.module.phase = Phase::Signature;
         let warnings = self.warnings.len();
         self.total_rows_only.set(true);
-        let retyped = self.signature_type(ty, *instance, *span, &key);
+        let retyped = self
+            .signature_type(ty, *instance, *span, &key)
+            .map(|(t, _)| t);
         self.total_rows_only.set(false);
         self.warnings.truncate(warnings);
         kernel::retype_def(&mut self.globals, id, &retyped?)?;
@@ -2375,8 +2381,15 @@ impl Elaborator {
     }
 
     /// A definition's signature `ty`, elaborated and finished, with its
-    /// implicitly bound variables in front.
-    fn signature_type(&mut self, ty: &Expr, instance: bool, span: Span, key: &str) -> Result<Term> {
+    /// implicitly bound variables in front, and the notes the kernel's
+    /// errors about it should carry.
+    fn signature_type(
+        &mut self,
+        ty: &Expr,
+        instance: bool,
+        span: Span,
+        key: &str,
+    ) -> Result<(Term, Vec<String>)> {
         let auto = autobind::auto_bound(self, ty)?;
         // A name that would have been a type variable, but is the name of
         // something in this module.
@@ -2452,7 +2465,8 @@ impl Elaborator {
         // (The unfinished term is dropped here, not kept alive while the
         // kernel checks the finished one.)
         let unfinished = ty;
-        self.finish(&unfinished, 0).map_err(with_notes)
+        let ty = self.finish(&unfinished, 0).map_err(with_notes)?;
+        Ok((ty, notes))
     }
 
     /// After a definition is admitted: registering natives (in the prelude)

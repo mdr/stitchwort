@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::eval;
-use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
 
 use crate::decreasing::{Binder, map_vars, spine, split_pis};
 use crate::matching::same;
@@ -317,31 +317,40 @@ pub(crate) enum Lookup {
     Found(Rc<CongDesc>),
 }
 
+/// The implicit parameter types fixed in a congruence lemma's call, each
+/// with its constant: `Effects` at the empty row, and a bare row's hidden
+/// divergence index (docs/proposals/partial-stage-3.md §2.2) at `Total`.
+fn fixed_params(g: &Globals) -> Vec<(DataId, (DataId, usize))> {
+    [
+        (Builtin::Row, Builtin::RowEmpty),
+        (Builtin::Divergence, Builtin::DivTotal),
+    ]
+    .into_iter()
+    .filter_map(|(data, ctor)| Some((g.registry.data(data)?, g.registry.ctor(ctor)?)))
+    .collect()
+}
+
 /// `F`'s telescope and result with its effect-row parameters (implicit, of
-/// type `Effects`) replaced by the empty row and left out, and where they
-/// were.
+/// type `Effects`) replaced by the empty row and its divergence indices by
+/// `Total` ([`fixed_params`]) and left out, and where they were.
 fn at_empty_row(
     g: &Globals,
     tel: Vec<Binder>,
     res: Term,
 ) -> Result<(Vec<Binder>, Term, Vec<usize>)> {
-    let (Some(row_data), Some((empty_data, empty_ctor))) = (
-        g.registry.data(Builtin::Row),
-        g.registry.ctor(Builtin::RowEmpty),
-    ) else {
-        return Ok((tel, res, Vec::new()));
+    let fixed = fixed_params(g);
+    let constant = |b: &Binder| match b.ty.strip_loc() {
+        Term::Data(d, args) if b.icit.is_implicit() && args.is_empty() => fixed
+            .iter()
+            .find(|(x, _)| x == d)
+            .map(|&(_, (cd, c))| Term::Ctor(cd, c, Vec::new())),
+        _ => None,
     };
-    let rows: Vec<usize> = (tel.iter().enumerate())
-        .filter(|(_, b)| {
-            b.icit.is_implicit()
-                && matches!(b.ty.strip_loc(), Term::Data(d, args) if *d == row_data && args.is_empty())
-        })
-        .map(|(i, _)| i)
-        .collect();
+    let constants: Vec<Option<Term>> = tel.iter().map(constant).collect();
+    let rows: Vec<usize> = (0..tel.len()).filter(|&i| constants[i].is_some()).collect();
     if rows.is_empty() {
         return Ok((tel, res, rows));
     }
-    let empty = Term::Ctor(empty_data, empty_ctor, Vec::new());
     // A term written under the first `j` of the old binders, moved under the
     // binders kept among them.
     let moved = |t: &Term, j: usize| -> Result<Term> {
@@ -352,8 +361,8 @@ fn at_empty_row(
                 return Ok(Term::Var(ix));
             }
             let level = j - 1 - (ix - d);
-            if rows.contains(&level) {
-                return Ok(empty.clone());
+            if let Some(c) = &constants[level] {
+                return Ok(c.clone());
             }
             Ok(Term::Var(new_depth - 1 - kept_before(level) + d))
         })
@@ -373,19 +382,19 @@ fn at_empty_row(
     Ok((kept, res, rows))
 }
 
-/// `args` without those at `rows`, each of which must be the empty row;
-/// `None` if one isn't.
+/// `args` without those at `rows`, each of which must be the empty row (or,
+/// for a divergence index, `Total`); `None` if one isn't.
 pub(crate) fn without_rows<T: Clone + std::borrow::Borrow<Term>>(
     g: &Globals,
     args: &[(T, Icit)],
     rows: &[usize],
 ) -> Option<Vec<(T, Icit)>> {
-    let empty = g.registry.ctor(Builtin::RowEmpty);
+    let fixed = fixed_params(g);
     let mut kept = Vec::new();
     for (i, (a, icit)) in args.iter().enumerate() {
         if rows.contains(&i) {
             let is_empty = matches!(a.borrow().strip_loc(), Term::Ctor(d, c, fields)
-                if fields.is_empty() && empty == Some((*d, *c)));
+                if fields.is_empty() && fixed.iter().any(|(_, k)| *k == (*d, *c)));
             if !is_empty {
                 return None;
             }

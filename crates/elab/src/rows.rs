@@ -355,7 +355,9 @@ enum SettledFirst {
 /// if `T` becomes a `Comp` over abilities, D1124 makes the callback
 /// effectful, and going on would pass the computation as data (SW-437). So
 /// while `T` is stuck on an unknown it waits, and once it's such a `Comp` it's
-/// an error. Each side is given as put aside and as computed again.
+/// an error. Each side is given as put aside and as computed again. The
+/// same goes for `CompD ?d ?e B` (a bare row that may be partial,
+/// docs/proposals/partial-stage-3.md §2.2) once `?d` is `Total`.
 fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<SettledFirst> {
     let g = cx.g();
     let (Some(comp_in), Some(comp), Some(plus), Some(empty)) = (
@@ -366,14 +368,26 @@ fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<S
     ) else {
         return Ok(SettledFirst::No);
     };
+    let comp_d = g.registry.def(Builtin::CompD);
+    let total = g.registry.ctor(Builtin::DivTotal);
     for ((side, _), (_, other)) in [(a, b), (b, a)] {
         let Value::Neutral(Head::Def(d), spine) = side else {
             continue;
         };
-        if *d != comp_in || spine.len() != 2 {
+        let row = if *d == comp_in && spine.len() == 2 {
+            spine.first()
+        } else if Some(*d) == comp_d && spine.len() == 3 {
+            let Some(stitchwort_core::value::Elim::App(div, _)) = spine.first() else {
+                continue;
+            };
+            if !matches!(force(g, div.clone())?, Value::Ctor(d, c, _) if Some((d, c)) == total) {
+                continue;
+            }
+            spine.get(1)
+        } else {
             continue;
-        }
-        let Some(stitchwort_core::value::Elim::App(row, _)) = spine.first() else {
+        };
+        let Some(stitchwort_core::value::Elim::App(row, _)) = row else {
             continue;
         };
         if !matches!(force(g, row.clone())?, Value::Ctor(d, c, _) if (d, c) == empty) {

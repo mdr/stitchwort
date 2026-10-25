@@ -806,6 +806,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         }
         (Some(df), None) => {
             if !to.partial {
+                crate::unify::note_rigid_divergence();
                 return Err(divergent_in_total(cx));
             }
             let plain = from.without_div();
@@ -824,6 +825,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
         }
         (Some(df), Some(dt)) => {
             if !cx.unify(&df, &dt)? {
+                crate::unify::note_rigid_divergence();
                 return Err(divergent_in_total(cx));
             }
             let (pf, pt) = (from.without_div(), to.without_div());

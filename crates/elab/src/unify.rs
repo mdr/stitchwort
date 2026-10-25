@@ -51,6 +51,23 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
 thread_local! {
     /// While [`unify_postponing`] runs: the row constraints it put aside.
     static POSTPONED: RefCell<Option<Vec<RowConstraint>>> = const { RefCell::new(None) };
+    /// Set when a computation whose divergence is a signature's variable
+    /// (`{e} a` for a bare `e`) met something it couldn't be compared with
+    /// as it stands: a body that then fails may check with `e` total
+    /// (docs/proposals/partial-stage-3.md §2.2, D1215).
+    static RIGID_DIVERGENCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Notes that a computation with a variable divergence couldn't be compared
+/// or moved as it stands ([`RIGID_DIVERGENCE`]).
+pub(crate) fn note_rigid_divergence() {
+    RIGID_DIVERGENCE.with(|r| r.set(true));
+}
+
+/// Whether [`note_rigid_divergence`] was called since the last call of
+/// this, which clears it.
+pub(crate) fn take_rigid_divergence() -> bool {
+    RIGID_DIVERGENCE.with(|r| r.replace(false))
 }
 
 /// A comparison `CompIn ?e B ≟ T` whose `T` is blocked: a definition stuck on
@@ -325,6 +342,13 @@ fn divergence_rule(
     let (div, row, result, other) = match (unknown(a)?, unknown(b)?) {
         (Some((d, r, t)), None) => (d, r, t, b),
         (None, Some((d, r, t))) => (d, r, t, a),
+        (None, None) => {
+            // A stuck `CompD`: its divergence is a variable.
+            if is_comp_d(a) != is_comp_d(b) {
+                note_rigid_divergence();
+            }
+            return Ok(None);
+        }
         _ => return Ok(None),
     };
     if matches!(other, Value::Neutral(Head::Meta(_), _)) || is_comp_d(other) {
@@ -1537,11 +1561,12 @@ fn zonk_changed(
     })
 }
 
-/// `v`, for `term` = `doneIn Empty v`: a pure callback of an effect-polymorphic
-/// function, checked while its row was still unknown, once the row is the
-/// empty one. The same term up to computation (`doneIn Empty v` is `v`), as
-/// the plain function's callback is written, so what's shown, hashed and
-/// followed by `decreasing` is the plain term.
+/// `v`, for `term` = `doneIn Empty v` or `doneD Total Empty v`: a pure
+/// callback of an effect-polymorphic function, checked while its row (and
+/// divergence, docs/proposals/partial-stage-3.md §2.2) was still unknown,
+/// once the row is the empty one. The same term up to computation (`doneIn
+/// Empty v` is `v`), as the plain function's callback is written, so what's
+/// shown, hashed and followed by `decreasing` is the plain term.
 fn empty_row_done(g: &Globals, term: &Term) -> Option<Term> {
     use stitchwort_core::Icit;
     use stitchwort_core::registry::Builtin;
@@ -1551,19 +1576,21 @@ fn empty_row_done(g: &Globals, term: &Term) -> Option<Term> {
     let Term::App(head, row, Icit::Explicit) = f.strip_loc() else {
         return None;
     };
-    let Term::App(done_in, _, Icit::Implicit) = head.strip_loc() else {
-        return None;
+    let is_ctor = |t: &Term, b: Builtin| {
+        matches!(t.strip_loc(), Term::Ctor(data, ctor, fields)
+            if fields.is_empty() && g.registry.ctor(b) == Some((*data, *ctor)))
     };
-    let Term::Def(d) = done_in.strip_loc() else {
+    if !is_ctor(row, Builtin::RowEmpty) {
         return None;
+    }
+    let is_def = |t: &Term, b: Builtin| {
+        matches!(t.strip_loc(), Term::App(d, _, Icit::Implicit)
+            if matches!(d.strip_loc(), Term::Def(d) if g.registry.is_def(b, *d)))
     };
-    let Term::Ctor(data, ctor, fields) = row.strip_loc() else {
-        return None;
-    };
-    (g.registry.is_def(Builtin::DoneIn, *d)
-        && fields.is_empty()
-        && g.registry.ctor(Builtin::RowEmpty) == Some((*data, *ctor)))
-    .then(|| value.as_ref().clone())
+    let done = is_def(head, Builtin::DoneIn)
+        || matches!(head.strip_loc(), Term::App(h, div, Icit::Explicit)
+            if is_def(h, Builtin::DoneD) && is_ctor(div, Builtin::DivTotal));
+    done.then(|| value.as_ref().clone())
 }
 
 #[cfg(test)]
