@@ -1,5 +1,5 @@
 {
-  "next": 507,
+  "next": 512,
   "tickets": [
     {
       "id": 13,
@@ -3281,6 +3281,66 @@
       "id": 506,
       "title": "Roguelike papercuts: depth error names the function, full values in test failures, Nat.divLe, call-bracket hint, IO.simulate with a seed, Text join",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 507,
+      "title": "Or-patterns ('k' | 'w' => …) — backlog, from the roguelike's key handling (NOTES stage 1 #9)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 508,
+      "title": "Consider how tightly |> should bind relative to ∧/∨/==: rogue had 'a ∧ xs.filter p |> .length == 4' pipe the whole conjunction, error pointed at the filter (NOTES stage 3 #3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 509,
+      "title": "Inference gaps from the roguelike: record literal needs a type when one record type fits; let-bound lambda E-CANNOT-INFER; '_' for an inline record in a proof (NOTES stage 1 #15, stage 2 #4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 510,
+      "title": "Think about how constructors are namespaced (nested inside their union type? resolve by expected type?); rogue renamed Quit to GaveUp because of D2 ambiguity (NOTES stage 1 #8). Discuss with Matt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 511,
+      "title": "Ponder dot-callable helpers on types a program doesn't own (extension methods): List.pickFree, Rogue.Tests adding Area.fits (NOTES stage 1 #3, stage 2 #3). Discuss with Matt",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
