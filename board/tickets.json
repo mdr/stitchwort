@@ -3048,14 +3048,16 @@
     {
       "id": 489,
       "title": "Partial handlers lane D: divergence index on {A | e} rows; std handlers take partial code (D1255)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "2404ada2"
+      ]
     },
     {
       "id": 490,
