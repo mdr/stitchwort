@@ -372,7 +372,7 @@ had a body.
 
 ## Tests and content hashes
 
-`test "name" = expr` checks `expr` against `Bool` and adds it to the kernel as an unnamed definition. `stitchwort test` evaluates each test; `True` passes.
+`test "name" := expr` checks `expr` against `Bool` and adds it to the kernel as an unnamed definition. If that fails with `E-PARTIAL`, the test runs partial code (D1183): `expr` is checked again against `Effect.Delay Effect.NoOp Effect.NoRes Bool`, the type of a partial computation of a `Bool` that performs nothing. `stitchwort test` evaluates each test, stepping a partial one as `stitchwort run` steps a partial `main` (with no tick limit); `True` passes. The checker never runs a test.
 
 Every checked declaration has a content hash (`crates/core/src/hash.rs`, BLAKE3). A definition's hash covers whether it's a theorem, its type and its body, after elaboration (so implicit arguments are included). Inside it:
 

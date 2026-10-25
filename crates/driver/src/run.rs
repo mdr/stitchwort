@@ -493,6 +493,27 @@ impl Session {
         }
     }
 
+    /// Steps `term`, a partial computation that performs nothing (a test
+    /// that runs partial code, D1183), to its result, as [`Session::run_main`]
+    /// steps `main`: each stretch between two ticks is one operation, with
+    /// its own resource limits, and there's no tick limit.
+    pub(crate) fn run_partial(&self, term: &Term) -> Result<Value, ResourceError> {
+        let g = &self.elab.globals;
+        let _erasing = g.erasure.running();
+        let mut machine = {
+            let _op = g.budget.operation(self.elab.limits);
+            Machine::start(g, force(g, eval(g, &[], term)?)?)
+        };
+        loop {
+            let _op = g.budget.operation(self.elab.limits);
+            match machine.step(g)? {
+                Obs::Now(v) => return force(g, v),
+                Obs::Later(rest) => machine = rest,
+                Obs::Call(..) => unreachable!("a test performs nothing"),
+            }
+        }
+    }
+
     /// Performs operation `o` of `{IO}`: its reply.
     fn perform(
         &self,

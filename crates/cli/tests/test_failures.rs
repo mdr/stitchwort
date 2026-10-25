@@ -139,3 +139,57 @@ fn a_cached_failure_still_names_the_false_part() {
     assert_eq!(lines(&first), lines(&second));
     assert!(!lines(&second).is_empty());
 }
+
+/// Tests that run partial code (D1183): stepped as a partial `main` is, on
+/// either runner, with plain pass or fail results, cached like any test.
+const PARTIAL: &str = r#"def collatzSteps: Nat -> {Partial} Nat
+  | 0 => 0
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+def check27(): {Partial} Bool := collatzSteps 27 == 111
+
+test "27 takes 111 steps" := collatzSteps 27 == 111
+test "through a partial helper" := check27 ()
+test "a block" :=
+  let steps := collatzSteps 6
+  steps == 8 && collatzSteps 1 == 0
+test "a wrong claim fails" := collatzSteps 27 == 110
+test "a total test beside them" := 1 + 1 == 2
+"#;
+
+#[test]
+fn partial_tests_pass_or_fail_on_both_runners_and_are_cached() {
+    let dir = folder_with("partial", PARTIAL);
+    let fast = run(&dir, &[]);
+    let reference = run(&dir, &["--reference"]);
+    let expected = "  ✓ 27 takes 111 steps        ran
+  ✓ through a partial helper  ran
+  ✓ a block                   ran
+  ✗ a wrong claim fails       ran  (evaluated to False)
+  ✓ a total test beside them  ran
+5 test(s): 4 passed, 1 failed (0 from the cache)
+";
+    assert_eq!(fast, expected);
+    assert_eq!(reference, expected);
+    let again = run(&dir, &[]);
+    assert!(again.contains("(5 from the cache)"), "{again}");
+}
+
+/// Checking never runs a test, so a test that loops forever (a bug, D1183)
+/// can't hang `stitchwort check`.
+#[test]
+fn checking_never_runs_a_looping_test() {
+    let dir = folder_with(
+        "looping",
+        "def spin (n: Nat): {Partial} Nat := spin (n + 1)\n\ntest \"loops\" := spin 0 == 0\n",
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .arg("check")
+        .arg("t.sw")
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    assert!(output.status.success(), "{output:?}");
+}

@@ -934,11 +934,24 @@ impl TestMachine {
         &self,
         machine: &mut stitchwort_rt::Machine,
         def: stitchwort_core::DefId,
+        partial: Option<stitchwort_rt::Limits>,
     ) -> Option<Outcome> {
         let global = self.program.globals.iter().position(|g| g.def == def)?;
         let global = stitchwort_rt::ir::GlobalId(u32::try_from(global).ok()?);
         machine.reset_steps();
-        match machine.global(global) {
+        let value = match partial {
+            // A test that runs partial code (D1183) is a `Delay`, stepped
+            // as `stitchwort run` steps a partial `main`, on a machine of
+            // its own.
+            Some(limits) => {
+                let mut own = stitchwort_rt::Machine::new(&self.program, limits);
+                own.global(global)
+                    .map_err(stitchwort_rt::host::RunError::from)
+                    .and_then(|delay| stitchwort_rt::run_partial(own, limits, delay))
+            }
+            None => machine.global(global).map_err(Into::into),
+        };
+        match value {
             Ok(stitchwort_rt::value::Value::Tag(tag)) => {
                 Some(if tag == self.program.shapes.true_ {
                     Outcome::Passed
@@ -1077,14 +1090,25 @@ impl Session {
                         detail: self.failure(test, outcome),
                     };
                 }
+                // A test that runs partial code is a `Delay` (D1183).
+                let partial = self.elab.is_partial(test.def).unwrap_or(false);
                 let on_machine = match (&lowered, &mut machine) {
-                    (Some(lowered), Some(machine)) => lowered.run(machine, test.def),
+                    (Some(lowered), Some(machine)) => lowered.run(
+                        machine,
+                        test.def,
+                        partial.then(|| stitchwort_rt::Limits::from_core(self.elab.limits)),
+                    ),
                     _ => None,
                 };
                 let outcome = on_machine.unwrap_or_else(|| {
-                    // Proofs and types aren't computed (`erase.rs`).
-                    let _erasing = g.erasure.running();
-                    match eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v)) {
+                    let value = if partial {
+                        self.run_partial(&Term::Def(test.def))
+                    } else {
+                        // Proofs and types aren't computed (`erase.rs`).
+                        let _erasing = g.erasure.running();
+                        eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v))
+                    };
+                    match value {
                         // `Bool` is `False | True`: constructor 1 is `True`.
                         Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
                         Ok(_) => Outcome::Failed,

@@ -113,6 +113,25 @@ pub fn run_main_counting(
     (result, runner.counts)
 }
 
+/// Steps `delay`, a partial computation that performs nothing (a test that
+/// runs partial code, D1183), to its result on `machine`, as [`run_main`]
+/// steps `main`: the same stepping, budget per stretch and lack of a tick
+/// limit.
+pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result<Value, RunError> {
+    let mut runner = Runner {
+        m: machine,
+        frames: Vec::new(),
+        marks: Vec::new(),
+        limits,
+        lines: 0,
+        ticks: 0,
+        policy: Policy::default(),
+        counts: RouteCounts::default(),
+    };
+    let finished = runner.drive(delay, &mut std::io::empty(), &mut std::io::sink())?;
+    Ok(finished.expect("no tick limit"))
+}
+
 /// What a `Call`'s rest does with the reply.
 enum Cont {
     /// `y => Done y`. Kept apart so a tail request can be recognised.
@@ -187,6 +206,19 @@ impl Runner<'_> {
         input: &mut impl BufRead,
         output: &mut impl Write,
     ) -> Result<Outcome, RunError> {
+        match self.drive(delay, input, output)? {
+            Some(v) => self.finished(&v),
+            None => Ok(Outcome::OutOfTicks),
+        }
+    }
+
+    /// Steps `delay` to its result, or `None` at the tick limit.
+    fn drive(
+        &mut self,
+        delay: Value,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+    ) -> Result<Option<Value>, RunError> {
         let s = *self.m.shapes();
         let mut focus = Focus::Eval(delay);
         let mut steps = 0;
@@ -244,7 +276,7 @@ impl Runner<'_> {
                             Routed::Tick(next) => {
                                 self.ticks += 1;
                                 if self.policy.max_ticks.is_some_and(|max| self.ticks >= max) {
-                                    return Ok(Outcome::OutOfTicks);
+                                    return Ok(None);
                                 }
                                 // A new stretch.
                                 steps = 0;
@@ -258,7 +290,7 @@ impl Runner<'_> {
                     }
                 },
                 Focus::Ret(v) => match self.frames.pop() {
-                    None => return self.finished(&v),
+                    None => return Ok(Some(v)),
                     Some(Frame::Bind(k)) => Focus::Eval(self.m.call(k, vec![v])?),
                     Some(Frame::Map(..) | Frame::Tie(_)) => {
                         self.marks.pop();
