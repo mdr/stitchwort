@@ -1,28 +1,24 @@
-//! Pipe forward (docs/syntax.md): `x |> f a b` is `f a b x`, elaborated
-//! with `x` first, so its type can tell the call what the other arguments
-//! are: in `people |> List.map (p => p.name)`, `p` is a `Person`.
+//! Pipe forward (docs/syntax.md): `x |> f a b` is `f x a b`, the value going
+//! first, as with dot notation (D304): `x.f a`, `x |> .f a`, `x |> T.f a`
+//! and `T.f x a` all put `x` in the same place.
 //!
-//! As dot notation does with its receiver (`dot.rs`), `x` is inferred, then
-//! the parameter it fills is found by walking `f`'s type, with variables
-//! standing for the written arguments, and compared with `x`'s type before
-//! those arguments are checked. The walk is speculative: if it can't be
-//! made (`f`'s type isn't known, or the parameter's type depends on a
-//! written argument's value), what it did is undone and the call is
-//! elaborated left to right, comparing `x` with its parameter when reached.
+//! `x` is elaborated first, so its type can tell the call what the other
+//! arguments are: in `people |> List.map (p => p.name)`, `p` is a `Person`.
+//! Since `x` is the first explicit argument, that's ordinary application
+//! order.
 //!
 //! Only a pure pipe comes here; `effects.rs` runs `x` first when something
 //! performs operations, and comes back here if the call itself doesn't.
 
 use std::rc::Rc;
 
-use stitchwort_core::value::{Closure, force, quote};
+use stitchwort_core::value::Closure;
 use stitchwort_core::{Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{BinOp, Expr};
 
 use crate::check::{
-    Arg, Ctx, Piped, Result, Supply, apply_args, apply_args_with, check, implicit_arg, infer,
-    infer_app, infer_head, insert, known_head, piped_mismatch,
+    Arg, Ctx, Piped, Result, apply_args, check, infer, infer_app, infer_head, insert, known_head,
 };
 
 /// `x |> f == y` is `x |> (f == y)`, since `|>` binds looser than the
@@ -46,13 +42,33 @@ pub(crate) fn compared_pipe_note(error: Diagnostic, f: &Expr) -> Diagnostic {
     ))
 }
 
+/// `value |> f` as the call it stands for, `f value …`: `value` goes before
+/// the arguments written after `f`'s head. For a lambda (or anything else
+/// that isn't a call), `f value`.
+pub(crate) fn as_call(value: Expr, f: &Expr) -> Expr {
+    if matches!(f, Expr::Lam(..) | Expr::TypedLam(..)) {
+        return Expr::App(Box::new(f.clone()), Box::new(value));
+    }
+    let mut args: Vec<&Expr> = Vec::new();
+    let mut head = f;
+    while let Expr::App(g, a) = head {
+        args.push(a);
+        head = g;
+    }
+    let mut call = Expr::App(Box::new(head.clone()), Box::new(value));
+    for arg in args.into_iter().rev() {
+        call = Expr::App(Box::new(call), Box::new(arg.clone()));
+    }
+    call
+}
+
 /// `value |> f`.
 pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, Value)> {
     let (head, mut args) = crate::check::spine(f);
     // A number literal takes its type from where it's used: `5 |> f` is
     // `f 5`, whatever number type `f` takes.
     if crate::numbers::any_literal(value) && !matches!(f, Expr::Lam(..) | Expr::TypedLam(..)) {
-        args.push(Arg::Explicit(value));
+        args.insert(0, Arg::Explicit(value));
         return infer_app(cx, head, &args);
     }
     // A computation piped into a parameter of computation type is passed,
@@ -67,6 +83,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         term,
         ty,
         span: f.span(),
+        dot: false,
     };
     if let Expr::Lam(..) | Expr::TypedLam(..) = f {
         return lambda(cx, f, piped);
@@ -81,37 +98,18 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
                 cx.e.note_name(name);
             }
         }
-        // Named arguments: the value piped in is the last positional
-        // argument, filling the first explicit parameter not otherwise given
+        // The value piped in is the first positional argument: with named
+        // arguments, it fills the first explicit parameter they don't
         // (docs/proposals/named-arguments.md §4.4).
-        if crate::named::any(&args) {
-            let mut all = args.clone();
-            all.push(Arg::Piped(&piped));
-            let sig = crate::named::signature(cx, &known.1)?;
-            if crate::named::split(cx, &sig, &all)?.is_some() {
-                return apply_args(cx, known, &all);
-            }
-            let slots = crate::named::plan(cx, &sig, &all, None)?;
-            return match crate::named::positional(&slots) {
-                Some(ordered) if matches!(ordered.last(), Some(Arg::Piped(_))) => {
-                    receiver_first(cx, known, &ordered[..ordered.len() - 1], &piped)
-                }
-                Some(ordered) => apply_args(cx, known, &ordered),
-                None => crate::named::apply_slots(cx, known, &slots),
-            };
-        }
-        return receiver_first(cx, known, &args, &piped);
+        args.insert(0, Arg::Piped(&piped));
+        return apply_args(cx, known, &args);
     }
     let call = match head {
-        // `x |> r.g a`: `r.g a` as dot notation makes it, then `x`.
-        Expr::Field(recv, field) => {
-            let call = crate::dot::infer_dot(cx, recv, field, &args)?;
-            args.clear();
-            call
-        }
+        // `x |> r.g a`: `r.g` as dot notation makes it, then `x`, then `a`.
+        Expr::Field(recv, field) => crate::dot::infer_dot(cx, recv, field, &[])?,
         _ => infer_head(cx, head)?,
     };
-    args.push(Arg::Piped(&piped));
+    args.insert(0, Arg::Piped(&piped));
     apply_args(cx, call, &args)
 }
 
@@ -138,91 +136,4 @@ fn lambda(cx: &mut Ctx, f: &Expr, piped: Piped) -> Result<(Term, Value)> {
     // Annotated for the kernel, which doesn't infer a lambda's type.
     let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote(&pi)?));
     Ok((Term::app(ann, piped.term), ty))
-}
-
-/// `x |> f args`, where `f` is a variable or a definition: `x` is compared
-/// with its parameter before `args` are checked, if that can be found.
-fn receiver_first(
-    cx: &mut Ctx,
-    head: (Term, Value),
-    args: &[Arg],
-    piped: &Piped,
-) -> Result<(Term, Value)> {
-    let mut all = args.to_vec();
-    all.push(Arg::Piped(piped));
-    let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((dom, mut supply)) = parameter(cx, &head.1, args)? else {
-        snapshot.restore(cx);
-        return apply_args(cx, head, &all);
-    };
-    if !cx.unify(&piped.ty, &dom)? {
-        return Err(piped_mismatch(cx, piped, &dom));
-    }
-    apply_args_with(cx, head, &all, &mut supply)
-}
-
-/// The type of the explicit parameter after those `args` fill, in a
-/// function of type `ty`, with metavariables for the implicit arguments
-/// before it (as `apply_args_with` takes them, in order). `None` if the
-/// type isn't known that far, or depends on the arguments' values, or an
-/// auto parameter's proposition might.
-fn parameter(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Value, Supply)>> {
-    let g = cx.g();
-    let base = cx.level();
-    let mut ty = ty.clone();
-    let mut supply = Supply::new();
-    let mut written = 0;
-    for arg in args {
-        let stop = |x: &Name, icit: Icit| match arg {
-            Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
-            _ => icit == Icit::Explicit,
-        };
-        let Some((icit, _, cod)) = implicits(cx, &mut ty, &mut supply, written, stop)? else {
-            return Ok(None);
-        };
-        if icit == Icit::Auto {
-            return Ok(None);
-        }
-        // A variable standing for the argument, outside the context.
-        ty = cod.apply(g, Value::var(base + written))?;
-        written += 1;
-    }
-    let stop = |_: &Name, icit: Icit| icit == Icit::Explicit;
-    let Some((_, dom, _)) = implicits(cx, &mut ty, &mut supply, written, stop)? else {
-        return Ok(None);
-    };
-    let quoted = quote(g, base + written, &dom)?;
-    if (0..written).any(|i| quoted.mentions(i)) {
-        return Ok(None);
-    }
-    Ok(Some((dom, supply)))
-}
-
-/// Gives the implicit parameters at the front of `ty` metavariables, added
-/// to `supply`, until `stop` says to stop at one: its kind, type and
-/// codomain. `None` at anything else, or at an auto parameter after
-/// `written` arguments (its proposition could mention them).
-fn implicits(
-    cx: &mut Ctx,
-    ty: &mut Value,
-    supply: &mut Supply,
-    written: usize,
-    stop: impl Fn(&Name, Icit) -> bool,
-) -> Result<Option<(Icit, Value, Closure)>> {
-    let g = cx.g();
-    loop {
-        match force(g, ty.clone())? {
-            Value::Pi(x, icit, dom, cod) if stop(&x, icit) => {
-                return Ok(Some((icit, (*dom).clone(), cod)));
-            }
-            Value::Pi(_, Icit::Auto, _, _) if written > 0 => return Ok(None),
-            Value::Pi(_, icit, dom, cod) if icit.is_implicit() => {
-                let meta = implicit_arg(cx, icit, &dom);
-                let value = cx.eval(&meta)?;
-                supply.push_back(meta);
-                *ty = cod.apply(g, value)?;
-            }
-            _ => return Ok(None),
-        }
-    }
 }

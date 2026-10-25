@@ -740,7 +740,7 @@ impl<'t> Parser<'t> {
         let diagnostic = error(self.here(), format!("expected {expected}, but {found}"));
         if found_arrow {
             return diagnostic.with_note(
-                "to pass a lambda as an argument, put it in brackets: `List.map (x => …) xs`",
+                "to pass a lambda as an argument, put it in brackets: `List.map xs (x => …)`",
             );
         }
         diagnostic

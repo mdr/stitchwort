@@ -2221,7 +2221,7 @@ impl Elaborator {
             ty,
             theorem,
             export,
-            synonym: _,
+            synonym,
             instance,
             decreasing: _,
             attrs: _,
@@ -2230,7 +2230,7 @@ impl Elaborator {
         else {
             unreachable!()
         };
-        self.definition_attributes(signature)?;
+        let no_receiver = self.definition_attributes(signature)?;
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
         self.module.phase = Phase::Signature;
@@ -2318,6 +2318,16 @@ impl Elaborator {
         }
         if *instance {
             self.register_instance(id, def_name)?;
+        }
+        // D307: a function in a type's namespace takes that type's value
+        // first, unless it opts out (D309). Theorems follow their functions'
+        // order (D308) without the warning.
+        let plain = !*theorem && !*instance && !*export && !*synonym;
+        if plain && !no_receiver && !self.helper_keys.contains(&key) {
+            let cx = Ctx::new(self, *span);
+            if let Some(warning) = dot::receiver_not_first(&cx, id, def_name.span)? {
+                self.warnings.push(warning);
+            }
         }
         Ok(id)
     }

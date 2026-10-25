@@ -78,7 +78,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "c7fb4f69c407e2f9d1871c072e520121830c61cee8f6a799cee60b20962f2504",
+        "45fe3f9a3c7b326078612083bc8f5eaaf41db5ef6b24628f5ea8c32e4fba541b",
     ),
     (
         Builtin::TextCompare,
@@ -93,7 +93,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextFold,
         TextNative::TextFold,
-        "0ab7473b8324d4ea62a176128301c5330ed1cc45f5ec9cd842342e0770ce707d",
+        "77694b50ab45fa909aa27f9cd6f8f9cf34d4047d38e2795f873963058f31dcd8",
     ),
     (
         Builtin::TextTrim,
@@ -103,27 +103,27 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextTake,
         TextNative::TextTake,
-        "1d86440fa363114666e9c513aa214f7fb9667bb834429ea1202fd97f7d956504",
+        "8e0c767509cf080610e5ee09a9adb58a495aa51c7c523b24816ec820cd6c6c5f",
     ),
     (
         Builtin::TextDrop,
         TextNative::TextDrop,
-        "cda015c4a7a40c0a868ae930f36b99e3ff3ed3e2d3ca94cbce7bd4bec294cf6c",
+        "c8270e372e015913632a3d7dcd1c2d58fe8976a771df1b9f4e7fdeb65804ff3b",
     ),
     (
         Builtin::TextContains,
         TextNative::TextContains,
-        "6eeae8406449c2723031abcb23ab5c24470eba5c64d927b6a54685296914102d",
+        "707c59552f24471e93dc9d7534715a1e8cc783e3b435bab15264525cc9d2506d",
     ),
     (
         Builtin::TextSplit,
         TextNative::TextSplit,
-        "32813a7f4a37ba5e82e699bfe6763cce7639880f45beaae1f9525305ff996099",
+        "355446dddec71c21b09c8281136cbf7648cb3cdb4db9df31de51653438a81127",
     ),
     (
         Builtin::TextJoin,
         TextNative::TextJoin,
-        "fbf17affece916ba221e97a7b061f3fb99d5d4c801cc9fc8b607b9549cb3e974",
+        "4df47c8c59ae01257971b9a5579540a13c11820e5d9cf2e4f5bec2593c597da1",
     ),
     (
         Builtin::NatToText,
@@ -133,7 +133,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextToNat,
         TextNative::TextToNat,
-        "40b834208c0b6345e3b81e200440e69bfc6969c2018de11d932c3c11d18587ed",
+        "1d1e755952df72b7a810de03191f63919a7f0ba30e607cd26db7968a48846b73",
     ),
 ];
 
@@ -480,7 +480,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::TextToInt,
         IntNative::TextToInt,
-        "57c98cd6c3cbc6820ef468b322008a44bbc462168c937464a6feec872de35e7c",
+        "153e329374c7dbb2292ae8e68aabc8affc9aa52bcc23ea59a208c1bfb1fab7d5",
     ),
 ];
 

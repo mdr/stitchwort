@@ -1242,7 +1242,7 @@ fn ctor_slots(cx: &Ctx, d: DataId, c: usize, params: Option<&[Value]>) -> Result
 
 /// The type of the parameter each of `args` goes to (as written: named
 /// ones by name, the others in order), then each of `extra` more
-/// positional values (piped in), where known. Explicit parameter `taken` (a
+/// positional values (piped in, so placed before `args`), where known. Explicit parameter `taken` (a
 /// dot call's receiver) is filled already.
 fn param_types<'a>(
     slots: &'a [ParamSlot],
@@ -1279,6 +1279,8 @@ fn param_types<'a>(
         next += 1;
         ty
     };
+    // The values piped in are the first positional arguments (D304).
+    let piped: Vec<Option<&Value>> = (0..extra).map(|_| positional()).collect();
     let mut out = Vec::with_capacity(args.len() + extra);
     for arg in args {
         out.push(match arg {
@@ -1287,13 +1289,11 @@ fn param_types<'a>(
             _ => positional(),
         });
     }
-    for _ in 0..extra {
-        out.push(positional());
-    }
+    out.extend(piped);
     out
 }
 
-/// For the call `head args…` with `extra` more values piped in after them:
+/// For the call `head args…` with `extra` more values piped in before them:
 /// whether each argument, then each value piped in, is passed rather than
 /// run where it's written. An argument is passed if its parameter's type
 /// is a computation type, or if, checked against that type, it performs
@@ -2793,9 +2793,9 @@ fn pipe_call(
         _ => {
             let pipe = Expr::Pipe(Box::new(value.clone()), Box::new(f.clone()));
             if may_perform(cx, &pipe)? {
-                // The call performs operations: `f … value`, with `value`
+                // The call performs operations: `f value …`, with `value`
                 // already run.
-                let call = Expr::App(Box::new(f.clone()), Box::new(value));
+                let call = crate::pipe::as_call(value, f);
                 comp_call(cx, &call, row, None)?
             } else {
                 let (term, ty) = infer(cx, &pipe)?;

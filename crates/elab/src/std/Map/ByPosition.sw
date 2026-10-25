@@ -14,12 +14,12 @@ theorem Map.lookupLastBelow (k: Nat): (s: Nat) -> (xs: List a) -> k < s -> Map.l
 
 -- Position s + i of the elements numbered from s is element i.
 theorem Map.lookupLastWithIndex (d: a): (s: Nat) -> (i: Nat) -> (xs: List a) ->
-    Option.getOrElse d (Map.lookupLast (s + i) (List.withIndexFrom s xs)) = List.getOr d i xs
+    Option.getOrElse (Map.lookupLast (s + i) (List.withIndexFrom s xs)) d = List.getOr xs d i
   | s, i, Nil => rfl
   | s, Zero, Cons x xs =>
     rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s in rfl
   | s, Succ i, Cons x xs =>
-    let ih: Option.getOrElse d (Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs)) = List.getOr d i xs :=
+    let ih: Option.getOrElse (Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs)) d = List.getOr xs d i :=
       Map.lookupLastWithIndex d (Succ s) i xs
     rewrite Nat.addSucc s i in
       match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with
@@ -32,5 +32,5 @@ theorem Map.lookupLastWithIndex (d: a): (s: Nat) -> (i: Nat) -> (xs: List a) ->
 
 -- Looking up a position in `Map.byPosition xs` is `List.getOr` on `xs`,
 -- inside the list and past its end.
-theorem Map.getOrByPosition (d: a) (i: Nat) (xs: List a): Map.getOr d i (Map.byPosition xs) = List.getOr d i xs :=
+theorem Map.getOrByPosition (d: a) (i: Nat) (xs: List a): Map.getOr (Map.byPosition xs) d i = List.getOr xs d i :=
   rewrite Map.getFromList i (List.withIndex xs) in Map.lookupLastWithIndex d 0 i xs

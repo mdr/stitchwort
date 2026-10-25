@@ -975,10 +975,12 @@ impl Elaborator {
         lib.stack.pop();
         lib.state[f] = LoadState::Loaded;
         lib.order.push(f);
-        // A library file with an open goal (`?`) doesn't check either.
-        let ok = !diagnostics
-            .iter()
-            .any(|d| matches!(d.severity, Severity::Error | Severity::Goal));
+        // A library file with an open goal (`?`) doesn't check either, nor
+        // one with a function whose main value isn't first: the library
+        // keeps the convention it asks of programs (D306).
+        let ok = !diagnostics.iter().any(|d| {
+            matches!(d.severity, Severity::Error | Severity::Goal) || d.code == "W-RECEIVER-NOT-FIRST"
+        });
         if let (Some(before), Some((unit, key))) = (before, &cached) {
             self.cache_after(f, before, ok, unit, key);
         }

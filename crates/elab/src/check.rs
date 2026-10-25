@@ -614,13 +614,16 @@ pub(crate) fn spine(expr: &Expr) -> (&Expr, Vec<Arg<'_>>) {
     (head, args)
 }
 
-/// The left side of `x |> f`, elaborated, as `f`'s last argument.
+/// The left side of `x |> f`, elaborated, as `f`'s first argument.
 pub(crate) struct Piped {
     pub term: Term,
     pub ty: Value,
     /// The right side's span: errors about the value not fitting point at
     /// the function it's piped into.
     pub span: Span,
+    /// A dot call's receiver (`x.f`), not a value before `|>`: only the
+    /// error message differs.
+    pub dot: bool,
 }
 
 pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
@@ -1735,16 +1738,18 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
     }
 }
 
-/// `x |> f`, where `x`'s type isn't what `f` takes.
+/// `x |> f` or `x.f`, where `x`'s type isn't what `f` takes first.
 pub(crate) fn piped_mismatch(cx: &Ctx, piped: &Piped, dom: &Value) -> Diagnostic {
-    Diagnostic::error(
-        "E-TYPE-MISMATCH",
-        "the value piped in doesn't fit the function",
-    )
-    .with_label(
+    let (message, how, before) = if piped.dot {
+        ("the value before `.` doesn't fit the function", "dot notation", "`.`")
+    } else {
+        ("the value piped in doesn't fit the function", "`|>`", "`|>`")
+    };
+    Diagnostic::error("E-TYPE-MISMATCH", message).with_label(
         piped.span,
         format!(
-            "this takes `{}` as its last argument, but the value before `|>` has type `{}`",
+            "{how} passes the value as the first argument, which takes `{}`, but the value \
+             before {before} has type `{}`",
             cx.show(dom),
             cx.show(&piped.ty)
         ),

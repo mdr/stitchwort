@@ -467,11 +467,10 @@ pub(crate) fn reached(
     extra: usize,
 ) -> Option<usize> {
     let sig = signature(cx, ty).ok()?;
-    let mut written: Vec<Arg> = args.iter().map(|a| crate::check::arg_of(a)).collect();
-    // The value piped in: a positional argument (any expression stands for it).
-    for _ in 0..extra {
-        written.push(Arg::Explicit(call));
-    }
+    // The value piped in: the first positional argument (any expression
+    // stands for it).
+    let mut written: Vec<Arg> = (0..extra).map(|_| Arg::Explicit(call)).collect();
+    written.extend(args.iter().map(|a| crate::check::arg_of(a)));
     let slots = plan(cx, &sig, &written, None).ok()?;
     let mut count = 0;
     for slot in &slots {
@@ -634,6 +633,7 @@ fn apply_shifted(cx: &mut Ctx, head: Typed, args: &[Arg], base: usize) -> Result
                 term: p.term.shift(g, depth, 0)?,
                 ty: p.ty.clone(),
                 span: p.span,
+                dot: p.dot,
             });
         }
     }

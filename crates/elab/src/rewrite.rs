@@ -470,6 +470,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
             term: proof,
             ty: ty.clone(),
             span: rule.proof.span(),
+            dot: false,
         };
         lemma(cx, Builtin::EqSym, &[piped])?
     };

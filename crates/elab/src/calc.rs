@@ -360,6 +360,7 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
             term,
             ty: ty.clone(),
             span: step.span,
+            dot: false,
         });
     };
     let mut args: Vec<Piped> = Vec::new();

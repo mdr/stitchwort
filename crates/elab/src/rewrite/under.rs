@@ -72,6 +72,7 @@ impl Site {
                         Rc::new(rhs.clone()),
                     ),
                     span: rule.proof.span(),
+                    dot: false,
                 };
                 lemma(cx, Builtin::EqSym, &[piped])?
             }

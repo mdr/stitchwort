@@ -30,6 +30,8 @@ pub(crate) enum Target {
     Field,
     /// A record type.
     Record,
+    /// A plain definition (not a theorem, instance, synonym or export).
+    Definition,
 }
 
 impl Target {
@@ -39,9 +41,15 @@ impl Target {
             Target::Ctor => "a constructor",
             Target::Field => "a field",
             Target::Record => "a record",
+            Target::Definition => "a definition",
         }
     }
 }
+
+/// `@[noReceiver]`: the definition, in a type's namespace, isn't meant to
+/// be called with `.` or `|>`, so `W-RECEIVER-NOT-FIRST` doesn't apply to
+/// it (D309): a helper, or a `Prop` whose order reads better as it is.
+pub(crate) const NO_RECEIVER: &str = "noReceiver";
 
 /// One attribute the compiler knows.
 pub(crate) struct Spec {
@@ -59,6 +67,14 @@ pub(crate) struct Spec {
 /// `js.optional` take one string. Bare names (`@[inline]`) are reserved for language-level
 /// attributes; `js.` is the JavaScript backend's.
 pub(crate) const REGISTRY: &[Spec] = &[
+    Spec {
+        name: NO_RECEIVER,
+        targets: &[Target::Definition],
+        argument: "",
+        doc: "a definition in a type's namespace that isn't called with `.` or `|>` (a helper, \
+              or a `Prop`), so it may take the type's value after another parameter without \
+              the warning `W-RECEIVER-NOT-FIRST`",
+    },
     Spec {
         name: "js.tag",
         targets: &[Target::DataType],
@@ -259,9 +275,10 @@ type FieldSites<'a> = Vec<Vec<(Span, &'a [Attribute])>>;
 
 impl Elaborator {
     /// A definition (or theorem, instance, synonym, export) with attributes:
-    /// none applies to one yet (`js.name` on an export is stage 3 of
-    /// docs/proposals/attributes.md), so each is refused, or unknown.
-    pub(crate) fn definition_attributes(&self, signature: &Decl) -> Result<()> {
+    /// only `noReceiver` applies, to a plain definition (`js.name` on an
+    /// export is stage 3 of docs/proposals/attributes.md); any other is
+    /// refused, or unknown. Whether the definition has `noReceiver`.
+    pub(crate) fn definition_attributes(&self, signature: &Decl) -> Result<bool> {
         let Decl::Signature {
             attrs,
             theorem,
@@ -271,23 +288,23 @@ impl Elaborator {
             ..
         } = signature
         else {
-            return Ok(());
+            return Ok(false);
         };
         if attrs.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
-        let what = if *synonym {
-            "a type synonym"
+        let place = if *synonym {
+            Place::Other("a type synonym")
         } else if *instance {
-            "an instance"
+            Place::Other("an instance")
         } else if *export {
-            "an exported definition"
+            Place::Other("an exported definition")
         } else if *theorem {
-            "a theorem"
+            Place::Other("a theorem")
         } else {
-            "a definition"
+            Place::Target(Target::Definition)
         };
-        check(attrs, Place::Other(what)).map(|_| ())
+        Ok(check(attrs, place)?.get(NO_RECEIVER).is_some())
     }
 
     /// After data type `d` is admitted: checks the attributes on it, its

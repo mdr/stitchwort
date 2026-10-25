@@ -575,38 +575,42 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             }
         }
         // The first `n` characters (scalar values), or the whole text.
+        // `Text.take text n`.
         TextTake => {
-            let t = text_of(args[1]);
-            match char_boundary(t, args[0]) {
+            let t = text_of(args[0]);
+            match char_boundary(t, args[1]) {
                 Some(end) => Value::Text(t[..end].into()),
-                None => args[1].clone(),
+                None => args[0].clone(),
             }
         }
         // The text after its first `n` characters, or the empty text.
         TextDrop => {
-            let t = text_of(args[1]);
-            match char_boundary(t, args[0]) {
-                Some(0) => args[1].clone(),
+            let t = text_of(args[0]);
+            match char_boundary(t, args[1]) {
+                Some(0) => args[0].clone(),
                 Some(start) => Value::Text(t[start..].into()),
                 None => Value::Text("".into()),
             }
         }
-        // UTF-8 is self-synchronising: a match of a needle's bytes starts
-        // and ends between characters, so byte search finds exactly the
-        // character matches. The empty needle occurs in every text.
-        TextContains => boolean(s, text_of(args[1]).contains(&**text_of(args[0]))),
+        // `Text.contains text needle`. UTF-8 is self-synchronising: a match
+        // of a needle's bytes starts and ends between characters, so byte
+        // search finds exactly the character matches. The empty needle
+        // occurs in every text.
+        TextContains => boolean(s, text_of(args[0]).contains(&**text_of(args[1]))),
+        // `Text.split text separator`.
         TextSplit => {
-            let sep = char_of(args[0]);
-            let parts = text_of(args[1])
+            let sep = char_of(args[1]);
+            let parts = text_of(args[0])
                 .split(sep)
                 .map(|p| Value::Text(p.into()))
                 .collect();
             list(s, parts)
         }
+        // `Text.join texts separator`.
         TextJoin => {
-            let sep = char_of(args[0]);
+            let sep = char_of(args[1]);
             let mut out = String::new();
-            for (i, part) in items(s, args[1]).enumerate() {
+            for (i, part) in items(s, args[0]).enumerate() {
                 if i > 0 {
                     out.push(sep);
                 }

@@ -46,6 +46,7 @@ type Omega.NTerm: Type =
   | MulLeft (k: Nat) (t: Omega.NTerm)
   | MulRight (t: Omega.NTerm) (k: Nat)
 
+@[noReceiver]
 def Omega.NTerm.eval (env: Omega.Env): Omega.NTerm -> Nat
   | NV i => Omega.natAt i (Omega.Env.nats env)
   | NLit n => n
@@ -75,6 +76,7 @@ type Omega.Fact: Type =
   | FMin (t: Omega.NTerm) (a: Omega.NTerm) (b: Omega.NTerm)
   | FNe (a: Omega.NTerm) (b: Omega.NTerm)
 
+@[noReceiver]
 def Omega.Fact.holds (env: Omega.Env): Omega.Fact -> Prop
   | FLe a b => Omega.NTerm.eval env a <= Omega.NTerm.eval env b
   | FLt a b => Omega.NTerm.eval env a < Omega.NTerm.eval env b
@@ -98,6 +100,7 @@ type Omega.Goal: Type =
   | GLt (a: Omega.NTerm) (b: Omega.NTerm)
   | GVoid
 
+@[noReceiver]
 def Omega.Goal.holds (env: Omega.Env): Omega.Goal -> Prop
   | GLe a b => Omega.NTerm.eval env a <= Omega.NTerm.eval env b
   | GLt a b => Omega.NTerm.eval env a < Omega.NTerm.eval env b
@@ -119,12 +122,15 @@ def Omega.toInts: List Nat -> List Int
   | Nil => Nil
   | Cons x xs => Cons (OfNat x) (Omega.toInts xs)
 
+@[noReceiver]
 def Omega.Row.value (nv: List Int) (iv: List Int): Omega.Row -> Int
   | MkRow c ns is => c + (Omega.dot ns nv + Omega.dot is iv)
 
+@[noReceiver]
 def Omega.Row.eval (env: Omega.Env) (r: Omega.Row): Int :=
   Omega.Row.value (Omega.toInts (Omega.Env.nats env)) (Omega.Env.ints env) r
 
+@[noReceiver]
 def Omega.Row.Holds (env: Omega.Env) (r: Omega.Row): Prop := 0 <= Omega.Row.eval env r
 
 -- Adding keeps the longer list: nothing is dropped.
@@ -145,6 +151,7 @@ def Omega.unit: Nat -> List Int
 def Omega.Row.add: Omega.Row -> Omega.Row -> Omega.Row
   | MkRow c ns is, MkRow d ms js => MkRow (c + d) (Omega.addC ns ms) (Omega.addC is js)
 
+@[noReceiver]
 def Omega.Row.scale (k: Int): Omega.Row -> Omega.Row
   | MkRow c ns is => MkRow (k * c) (Omega.scaleC k ns) (Omega.scaleC k is)
 
@@ -288,11 +295,13 @@ def Omega.divC (d: Nat): List Int -> List Int
   | Nil => Nil
   | Cons a as => Cons (a / OfNat (Succ d)) (Omega.divC d as)
 
+@[noReceiver]
 def Omega.Row.divisible: Nat -> Omega.Row -> Bool
   | Zero, r => False
   | Succ d, MkRow c ns is => Omega.allDiv d ns && Omega.allDiv d is
 
 -- `/` by a positive number rounds down.
+@[noReceiver]
 def Omega.Row.divide: Nat -> Omega.Row -> Omega.Row
   | Zero, r => r
   | Succ d, MkRow c ns is => MkRow (c / OfNat (Succ d)) (Omega.divC d ns) (Omega.divC d is)
@@ -307,6 +316,7 @@ def Omega.Row.splitOther (l: Omega.Row): Omega.Row := Omega.Row.sub (MkRow (NegS
 -- Whether a step's references are good. Only `Divide`'s check matters for
 -- soundness (a missing row reads as the zero row, which is true); the others
 -- make a malformed certificate fail instead of meaning something else.
+@[noReceiver]
 def Omega.Step.valid (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Step -> Bool
   | Input i => Omega.hasRow facts i
   | NegGoal => Option.isSome neg
@@ -314,6 +324,7 @@ def Omega.Step.valid (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List 
   | Combine ts => Omega.allRefs ctx ts
   | Divide r d => Omega.hasRow ctx r && Omega.Row.divisible d (Omega.getRow ctx r)
 
+@[noReceiver]
 def Omega.Step.row (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): Omega.Step -> Omega.Row
   | Input i => Omega.getRow facts i
   | NegGoal => Omega.optRow neg
