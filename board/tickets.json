@@ -1,5 +1,5 @@
 {
-  "next": 506,
+  "next": 507,
   "tickets": [
     {
       "id": 13,
@@ -3268,6 +3268,18 @@
     {
       "id": 505,
       "title": "Design note: opaque definitions (D1262): literature review, language comparison, root cause of rogue stage-2 E-RESOURCE, design; decisions from D1263",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 506,
+      "title": "Roguelike papercuts: depth error names the function, full values in test failures, Nat.divLe, call-bracket hint, IO.simulate with a seed, Text join",
       "status": "doing",
       "agent": "",
       "where": "",
