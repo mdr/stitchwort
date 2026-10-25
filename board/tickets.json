@@ -3482,14 +3482,16 @@
     {
       "id": 522,
       "title": "Opaque definitions note draft 2: fold in external review (verified D&G citations, kernel invariant, neutral spec wording, mutual groups, f.unfold size)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "a85390fe"
+      ]
     },
     {
       "id": 523,
