@@ -15,12 +15,14 @@
 //! contains it.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Session, par_map};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
+
+#[path = "../../fmt/tests/support/repo_files.rs"]
+mod repo_files;
 
 const STACK: usize = 16 * 1024 * 1024;
 
@@ -198,17 +200,9 @@ fn project_failures(dir: &Path, name: &str) -> Vec<String> {
 #[test]
 fn formatting_changes_no_declaration_hash() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let listing = Command::new("git")
-        .args(["ls-files", "*.sw", "*stitchwort.yaml"])
-        .current_dir(&root)
-        .output()
-        .expect("git ls-files runs");
-    assert!(listing.status.success(), "git ls-files failed");
-    let all: Vec<String> = String::from_utf8(listing.stdout)
-        .unwrap()
-        .lines()
+    let all: Vec<String> = repo_files::repo_files(&root, &[".sw", "stitchwort.yaml"])
+        .into_iter()
         .filter(|p| !EXCLUDED.iter().any(|e| p.starts_with(e)))
-        .map(str::to_string)
         .collect();
 
     // Project roots: the folders of the tracked `stitchwort.yaml`s.
