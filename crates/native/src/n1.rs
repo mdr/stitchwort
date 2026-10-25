@@ -30,7 +30,9 @@
 //! exactly as the machine works on its register vector. All are `Erased` on
 //! entry (the machine's `resize`). Calls are direct calls; a self tail call
 //! is a jump back to the top, any other tail call a `return_call`; `Apply`
-//! looks its target up through the runtime.
+//! looks its target up through the runtime, and each `Apply` keeps the last
+//! one it found (`native_abi::ApplyCache`): applying the same function value
+//! again calls the same code without asking.
 //!
 //! **Counting** (D1253). A call counts a step and checks the frame limit
 //! before it, then a frame is pending until it returns; a tail call counts
@@ -117,6 +119,9 @@ pub struct Islands {
     /// Boxed so each keeps its address while the vector grows.
     #[allow(clippy::vec_box)]
     _ops: Vec<Box<PrimOp>>,
+    /// Each `Apply`'s cache of its target, at the address its code reads.
+    #[allow(clippy::vec_box)]
+    _caches: Vec<Box<abi::ApplyCache>>,
     stack_size: Option<usize>,
     /// What happened at the crossing, for `--verbose`.
     notes: Rc<RefCell<Vec<String>>>,
@@ -369,6 +374,7 @@ pub fn compile(
     }
     let helpers = Helpers::declare(&mut module, pointer, call_conv).map_err(fail)?;
     let mut ops: Vec<Box<PrimOp>> = Vec::new();
+    let mut caches: Vec<Box<abi::ApplyCache>> = Vec::new();
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     for &code in &plan.bodies {
@@ -388,6 +394,7 @@ pub fn compile(
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
                 ops: &mut ops,
+                caches: &mut caches,
                 pointer,
                 options,
                 regs: StackSlot::from_u32(0),
@@ -489,6 +496,7 @@ pub fn compile(
         roots,
         table,
         _ops: ops,
+        _caches: caches,
         stack_size: options.stack_size,
         notes,
         bodies: plan.bodies.len(),
@@ -538,8 +546,9 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_num_switch", abi::sw_num_switch as *const u8),
         ("sw_global", abi::sw_global as *const u8),
         ("sw_global_set", abi::sw_global_set as *const u8),
-        ("sw_apply_target", abi::sw_apply_target as *const u8),
         ("sw_apply_native", abi::sw_apply_native as *const u8),
+        ("sw_apply_cached", abi::sw_apply_cached as *const u8),
+        ("sw_free_emptied", abi::sw_free_emptied as *const u8),
     ]
 }
 
@@ -559,8 +568,9 @@ struct Helpers {
     num_switch: FuncId,
     global: FuncId,
     global_set: FuncId,
-    apply_target: FuncId,
     apply_native: FuncId,
+    apply_cached: FuncId,
+    free_emptied: FuncId,
 }
 
 impl Helpers {
@@ -590,8 +600,9 @@ impl Helpers {
             num_switch: declare("sw_num_switch", &[p, p], &[I64])?,
             global: declare("sw_global", &[p, I32, p], &[I64])?,
             global_set: declare("sw_global_set", &[p, I32, p], &[])?,
-            apply_target: declare("sw_apply_target", &[p, p, I64], &[I64])?,
             apply_native: declare("sw_apply_native", &[p, p, p, I64, p], &[])?,
+            apply_cached: declare("sw_apply_cached", &[p, p, I64, p], &[I64])?,
+            free_emptied: declare("sw_free_emptied", &[I64, I64, I64], &[])?,
         })
     }
 }
@@ -794,6 +805,8 @@ struct Gen<'a, 'm> {
     signatures: BTreeMap<u32, SigRef>,
     #[allow(clippy::vec_box)] // addresses stay put (`Islands::_ops`)
     ops: &'m mut Vec<Box<PrimOp>>,
+    #[allow(clippy::vec_box)] // addresses stay put (`Islands::_caches`)
+    caches: &'m mut Vec<Box<abi::ApplyCache>>,
     pointer: ir::Type,
     options: Options,
     /// The frame's registers, whole values.
@@ -1625,9 +1638,36 @@ impl Gen<'_, '_> {
         let v = self.operand(f);
         let at = self.b.ins().stack_addr(self.pointer, self.fun, 0);
         self.store(Loc::Mem(at, 0), v);
+        // This site's cache (`abi::ApplyCache`): the same function value as
+        // last time calls the same code, with no runtime call.
+        let cache = Box::new(abi::ApplyCache::new());
+        let cache_at = self.address(&*cache as *const abi::ApplyCache as usize);
+        self.caches.push(cache);
+        let key = self
+            .b
+            .ins()
+            .load(types::I64, flags(), cache_at, abi::ApplyCache::KEY_AT);
+        let is_fun = self.is_tag(v, abi::TAG_FUN);
+        let same = self.b.ins().icmp(IntCC::Equal, key, v.0[1]);
+        let hit = self.b.ins().band(is_fun, same);
+        let cached = self.b.create_block();
+        let miss = self.b.create_block();
+        let after = self.b.create_block();
+        self.b.append_block_param(after, self.pointer);
+        self.b.ins().brif(hit, cached, &[], miss, &[]);
+        self.b.switch_to_block(cached);
+        let code = self
+            .b
+            .ins()
+            .load(self.pointer, flags(), cache_at, abi::ApplyCache::CODE_AT);
+        self.b.ins().jump(after, &[code.into()]);
+        self.b.switch_to_block(miss);
+        self.b.set_cold_block(miss);
         let n = self.iconst(u64::from(n));
-        let target = self.call_helper(self.helpers.apply_target, &[self.ctx, at, n])[0];
-        (v, target)
+        let target = self.call_helper(self.helpers.apply_cached, &[self.ctx, at, n, cache_at])[0];
+        self.b.ins().jump(after, &[target.into()]);
+        self.b.switch_to_block(after);
+        (v, self.b.block_params(after)[0])
     }
 
     /// The native in the `fun` slot applied to `values` (moved).
@@ -1786,8 +1826,21 @@ impl Gen<'_, '_> {
         }
         if token == NO_REG {
             // The emptied cell (and whatever fields the arm doesn't use)
-            // freed.
+            // freed; with every field taken, there's nothing in it to walk.
+            let n = v.0[2];
+            let taken = pairs.iter().map(|p| p.0).collect::<BTreeSet<u32>>().len();
+            let all = self.b.ins().icmp_imm_u(IntCC::Equal, n, taken as i64);
+            let emptied = self.b.create_block();
+            let partial = self.b.create_block();
+            let freed = self.b.create_block();
+            self.b.ins().brif(all, emptied, &[], partial, &[]);
+            self.b.switch_to_block(emptied);
+            self.call_helper(self.helpers.free_emptied, &v.0);
+            self.b.ins().jump(freed, &[]);
+            self.b.switch_to_block(partial);
             self.call_helper(self.helpers.drop_words, &v.0);
+            self.b.ins().jump(freed, &[]);
+            self.b.switch_to_block(freed);
         } else {
             let n = v.0[2];
             let partial = self

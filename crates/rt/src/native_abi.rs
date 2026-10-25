@@ -383,13 +383,39 @@ pub unsafe extern "C" fn sw_release(regs: *mut Value, n: u64) {
 /// `fields` points at `n` values native code owns; `out` at space for one.
 #[allow(unsafe_code)]
 pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut Value) {
-    // SAFETY: the caller's contract; the values are moved out, and the
+    // SAFETY: the caller's contract; the values are moved out (copied
+    // bitwise into the new cell, which is then the only owner), and the
     // caller doesn't use them again.
-    let cell: Rc<[Value]> = (0..n as usize)
-        .map(|i| unsafe { fields.add(i).read() })
-        .collect();
+    let n = n as usize;
+    let mut cell = Rc::<[Value]>::new_uninit_slice(n);
+    let to = Rc::get_mut(&mut cell)
+        .expect("a new cell is unique")
+        .as_mut_ptr()
+        .cast::<Value>();
+    unsafe { std::ptr::copy_nonoverlapping(fields, to, n) };
+    let cell = unsafe { cell.assume_init() };
     crate::alloc_trace::alloc(tag, &cell);
     unsafe { out.write(Value::Data(tag, Fields(cell))) };
+}
+
+/// Frees a unique cell whose fields `Unpack` has all moved out (each is
+/// `Erased`), held in three words: what dropping it does, without the walk
+/// over its fields for values to free.
+///
+/// # Safety
+/// The words are a `Value::Data` native code owns, whose cell is unique and
+/// whose fields are all `Erased`.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
+    // SAFETY: the caller's contract.
+    let Value::Data(_, fields) = (unsafe { from_words(w0, w1, w2) }) else {
+        unreachable!("an emptied cell is a constructor's")
+    };
+    let fields = std::mem::ManuallyDrop::new(fields);
+    // SAFETY: `fields` is never used or dropped again; its cell is taken.
+    let cell: Rc<[Value]> = unsafe { std::ptr::read(&fields.0) };
+    crate::alloc_trace::dec(&cell, true);
+    drop(cell);
 }
 
 /// `CtorReuse`, with the `n` field values at `fields` (moved): the cell
@@ -655,6 +681,61 @@ pub unsafe extern "C" fn sw_apply_target(context: *mut Context, f: *const Value,
     }
     eprintln!("internal error: native code applied {f:?} to {n} arguments, outside its island");
     std::process::abort();
+}
+
+/// One `Apply`'s cache of its last target (the native crate's module
+/// comment): the function value last applied there, which it keeps alive
+/// so that its address can't be reused for another, and that address and
+/// its compiled code. Compiled code compares a function value's address
+/// with `key` and, if they're the same, calls `code` without asking the
+/// runtime. `repr(C)`: compiled code reads `key` and `code` at
+/// [`ApplyCache::KEY_AT`] and [`ApplyCache::CODE_AT`].
+#[repr(C)]
+pub struct ApplyCache {
+    pub key: u64,
+    pub code: u64,
+    pub keep: Value,
+}
+
+impl ApplyCache {
+    pub const KEY_AT: i32 = std::mem::offset_of!(ApplyCache, key) as i32;
+    pub const CODE_AT: i32 = std::mem::offset_of!(ApplyCache, code) as i32;
+
+    pub fn new() -> ApplyCache {
+        ApplyCache {
+            key: 0,
+            code: 0,
+            keep: Value::Erased,
+        }
+    }
+}
+
+impl Default for ApplyCache {
+    fn default() -> ApplyCache {
+        ApplyCache::new()
+    }
+}
+
+/// [`sw_apply_target`], keeping a compiled target in `cache`.
+///
+/// # Safety
+/// As [`sw_apply_target`]; `cache` points at a live cache.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_apply_cached(
+    context: *mut Context,
+    f: *const Value,
+    n: u64,
+    cache: *mut ApplyCache,
+) -> u64 {
+    // SAFETY: the caller's contract.
+    let code = unsafe { sw_apply_target(context, f, n) };
+    if code != 0 {
+        let (f, cache) = unsafe { (&*f, &mut *cache) };
+        cache.keep = f.clone();
+        cache.key = words(f)[1];
+        cache.code = code;
+    }
+    code
 }
 
 /// `Apply` of the native operation at `f` (taken) to the `n` values at
