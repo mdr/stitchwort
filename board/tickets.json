@@ -3132,14 +3132,16 @@
     {
       "id": 495,
       "title": "Terminal lane 1: host IO ops (console, keysMode, readBytes, write) in all runners; native raw mode, restore guard (D1260)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "4d8ff22f"
+      ]
     },
     {
       "id": 496,
