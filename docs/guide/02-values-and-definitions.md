@@ -128,7 +128,7 @@ def average (total: Nat) (count: Nat): Nat :=
    │
  2 │   if count == 0 then 0 else total / count
    │                             ──────┬──────
-   │                                   ╰──────── it depends on values that aren't known until the program runs
+   │                                   ╰──────── it involves values that aren't known here, and computing it doesn't settle it
    │
    │ Note: establish it first, with `if h: … then … else …`
 ───╯
