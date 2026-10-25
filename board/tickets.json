@@ -1,5 +1,5 @@
 {
-  "next": 502,
+  "next": 503,
   "tickets": [
     {
       "id": 13,
@@ -3034,14 +3034,16 @@
     {
       "id": 488,
       "title": "Partial handlers lane C: native and JS runners for foldD, stack tests",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "3a6d92fa"
+      ]
     },
     {
       "id": 489,
@@ -3114,14 +3116,16 @@
     {
       "id": 494,
       "title": "Roguelike stage 2: generated dungeons (Random), levels, items/inventory, chasing monsters; proofs kept",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "fe0d4962"
+      ]
     },
     {
       "id": 495,
@@ -3202,6 +3206,18 @@
     {
       "id": 501,
       "title": "Goals: keep zero-argument constants folded (maxHitPoints prints as 12, dungeon as a list); one spot in eval_step, measure AoC check and examples before/after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 502,
+      "title": "Daily tier broken: extract generated_code_is_stable snapshots (foldLeft → foldLeft$e after effect-polymorphic list lane 1); re-record and review",
       "status": "backlog",
       "agent": "",
       "where": "",

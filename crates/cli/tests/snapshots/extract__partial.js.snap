@@ -737,6 +737,7 @@ const $Main$dfirstOf = (v0) => {
 };
 const $Main$danswer = (v0) => $Std$dNat$dadd($Std$dNat$dadd($Main$ddiscard(((_) => delayed)), $Main$ddiscard(((v1) => delayed))), v0);
 const $Main$dkept = (v0) => $Main$dfirstOf({ tag: "MkPair", fst: v0, snd: ((_) => delayed) });
+const $Main$dhandled = (v0) => $Std$dNat$dadd($Main$ddiscard(((_) => delayed)), v0);
 
 function $$answer(arg0) {
   try {
@@ -756,6 +757,15 @@ function $$kept(arg0) {
   }
 }
 
+function $$handled(arg0) {
+  try {
+    const v0 = decodeFast(dec$1, ty$1, arg0, "n");
+    return encodeFast(enc$2, ty$1, $Main$dhandled(v0));
+  } catch (e) {
+    throw outOfResources("handled", e);
+  }
+}
+
 // The fast path's codecs, one decoder and one encoder for each type that
 // crosses (see `decodeFast`).
 const ty$1 = NAT;
@@ -766,4 +776,4 @@ function enc$2(v) {
   return NAT.enc(v);
 }
 
-export { $$answer as answer, $$kept as kept };
+export { $$answer as answer, $$kept as kept, $$handled as handled };

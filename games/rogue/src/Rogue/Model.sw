@@ -1,8 +1,9 @@
--- The game's model: positions, monsters, commands and the state of a game.
+-- The game's model: positions, monsters, items, commands and the state of a
+-- game.
 
 namespace Rogue
 
--- A cell of the dungeon, counted from the top-left corner.
+-- A cell of a level, counted from the top-left corner.
 type Position = { row: Nat, column: Nat }
 
 type Direction =
@@ -11,8 +12,8 @@ type Direction =
   | West
   | East
 
--- The neighbouring cell in a direction. Rows and columns stop at 0, but the
--- dungeon has a wall all round, so nothing ever walks off its top or left.
+-- The neighbouring cell in a direction. Rows and columns stop at 0, but
+-- every level has rock all round, so nothing ever walks off its top or left.
 def Position.toward (position: Position) (direction: Direction): Position :=
   match direction with
     | North => { position | row = position.row - 1 }
@@ -31,42 +32,69 @@ def Position.isNextTo (position: Position) (other: Position): Bool := position.d
 type Kind =
   | Goblin
   | Orc
+  | Troll
 
 def Kind.glyph: Kind → Char
   | Goblin => 'g'
   | Orc => 'o'
+  | Troll => 'T'
 
 def Kind.name: Kind → Text
   | Goblin => "goblin"
   | Orc => "orc"
+  | Troll => "troll"
 
 def Kind.startingHitPoints: Kind → Nat
   | Goblin => 3
   | Orc => 7
+  | Troll => 12
 
 -- The most damage one blow does; a blow does 1 up to this.
 def Kind.strength: Kind → Nat
   | Goblin => 2
   | Orc => 3
+  | Troll => 4
 
 type Monster = { kind: Kind, position: Position, hitPoints: Nat }
+
+-- What lies on the floor: a potion (carried, and drunk with `p`), a sword
+-- (wielded at once, so blows hit harder), or the amulet at the bottom of the
+-- dungeon, which wins the game.
+type Loot =
+  | Potion
+  | Sword
+  | Amulet
+
+def Loot.glyph: Loot → Char
+  | Potion => '!'
+  | Sword => ')'
+  | Amulet => '"'
+
+type Item = { loot: Loot, position: Position }
 
 type Command =
   | Move (direction: Direction)
   | Wait
+  | Descend
+  | Drink
   | Quit
 
 type Phase =
   | Playing
-  | Escaped
+  | Won
   | Died
   | GaveUp
 
+-- `below` are the levels further down, made when the game starts.
 type State = {
+  level: Level,
+  below: List Plan,
   player: Position,
   hitPoints: Nat,
+  potions: Nat,
+  strength: Nat,
   monsters: List Monster,
-  potions: List Position,
+  items: List Item,
   turn: Nat,
   message: Text,
   phase: Phase
@@ -74,8 +102,12 @@ type State = {
 
 def maxHitPoints: Nat := 12
 
--- The most damage the player's blow does; a blow does 2 up to this.
-def playerStrength: Nat := 4
+-- The player's strength before finding a sword: the most damage a blow
+-- does. A blow does 2 up to the player's strength.
+def startingStrength: Nat := 4
+
+-- How much each sword adds to the player's strength.
+def swordBonus: Nat := 2
 
 -- How much a potion heals.
 def potionStrength: Nat := 5
@@ -87,3 +119,6 @@ def sightRange: Nat := 7
 def monsterAt (position: Position): List Monster → Option Monster
   | [] => None
   | Cons monster others => if monster.position == position then Some monster else monsterAt position others
+
+-- The first item lying on a cell, if any.
+def itemAt (position: Position) (items: List Item): Option Item := items.find (item => item.position == position)

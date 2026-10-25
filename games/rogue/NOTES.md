@@ -266,3 +266,148 @@ project from cold, proofs included: 1.2 s; checking and running all 47 tests fro
 9. No or-patterns (9); the triple-bracket tuple lambda (10).
 10. Proof-driven design: one random draw per turn, and refactoring so a proof
     can name an intermediate value (13, 15). `IO.simulate`'s missing import (7).
+
+# Stage 2: generated levels, items, chasing
+
+Generated levels (six rooms in a 3 by 2 grid of sections, joined by a snake
+of corridors and sometimes one more), three levels down to an amulet,
+potions carried and drunk with `p`, swords, trolls, and a fourth invariant
+(no monster in a wall). Compiler built from `main` at 4eb90fe0, 25 October
+2026. New friction, most costly first.
+
+## 1. A handler run inside the pure turn sank every proof about the turn
+
+`>` first made the next level on the spot, inside `resolve`, by running the
+generator under a handler of its own, so that the turn still drew one number:
+
+```stitchwort
+def descend (dice: Dice) (state: State): State :=
+  let arrived := arrive state (seeded dice.seed (() => generateLevel depth))
+  …
+```
+
+Every theorem about `resolve` then failed, including those whose proof
+never reaches the `Descend` branch:
+
+```text
+[E-RESOURCE] Error: ran out of resources: a value was too large to show
+ 28 │ ╭─▶ theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside: …
+    │ ╰──── while checking this
+    │     Note: this isn't a type error or a failed test: there's no answer within the limits
+```
+
+and the first attempt at the `Descend` case itself ran for over two minutes
+before I stopped it. With the generator call replaced by `state`, the same
+proofs checked at once, so the generator is the cause; which part of the
+checker runs it (the `match` looking for occurrences in the goal, or the
+counterexample search) I didn't establish. All levels are now made when the
+game starts, at the edge (`newGame`), and kept in `State.below`: a sound
+design, but the checker chose it, not me. A way to mark a definition opaque
+to the checker (Lean's `@[irreducible]`) would have let the first design
+stand.
+
+## 2. `n / 2 ≤ n` is out of `omega`'s reach, and std has no lemma for it
+
+```text
+[E-OMEGA] Error: `omega` can't prove `Nat.divFuel n n 2 ≤ n`
+  Note 2: atoms: `Nat.divFuel n n 2`, `n`
+```
+
+Division shows up unfolded to its fuel function. The proof is
+`omega [Nat.divMulLe n 2 (twoIsZero => omega)]`: findable, but `Nat.divLe`
+(`n / d ≤ n`) belongs in std, and `omega` could know division by a literal.
+
+## 3. A sub-namespace can't add helpers to its parent's types
+
+```text
+[E-FOREIGN-NAMESPACE] Error: `Area` belongs to namespace Rogue, and Rogue.Tests can't add to it
+ 44 │ def Area.fits (area: Area): Bool :=
+```
+
+Stage 1's item 3 was about std's types; this is the program's own type, from
+its own tests. So it's `fitsOnScreen area`, not `area.fits`.
+
+## 4. Small inference gaps
+
+- `let player := { row = 1, column = 10 }` needs `: Position`, though only
+  one record type in scope has those fields.
+- `let awayFromEntrance := () => room (…roll 4…)` is `E-CANNOT-INFER` ("add
+  a type annotation"); I inlined it.
+- `playGame newGame()` is `(playGame newGame)()`, reported as "this isn't a
+  function … its type is `Rogue.State`"; it needs `playGame (newGame())`.
+- `List.lookup` takes the equality decision as an argument
+  (`marks.lookup column decEq`), so I used `find` on the pairs.
+
+## 5. An unexplained "recursed more deeply than allowed"
+
+To find the scripted winning route I wrote a throwaway bot (a search from
+the target each turn, run inside `seeded`). On level 2 it stopped with
+
+```text
+[E-RESOURCE] Error: ran out of resources: it recursed more deeply than allowed
+ 54 │ def main(): {IO} () :=
+    │     ╰─── while running this program
+```
+
+The search's step was
+`frontier.flatMap neighbours |> .dedup |> .filter (…)`, then a `foldLeft`
+to record the new cells; rewriting it as one `foldLeft` over the
+neighbours made it run, with the same result as before on level 1. `dedup`
+alone isn't it (`(List.range 5000).dedup` is fine in a test), so I don't know
+what recursed; perhaps something about running under a handler. The error
+doesn't say which function was deep. (In the same bot, `Map.getOr` takes the
+fallback before the key, so `distances.getOr key 100000` type-checked and
+returned the key: a `Nat`-for-`Nat` slip that named arguments would catch.)
+
+## 6. Long values are cut off in test failures
+
+A failing `==` shows `left: "############       ####…`, so a test can't show
+a whole frame, and a test has no way to print. I looked at frames from a
+throwaway `main` instead.
+
+## What went well
+
+- **Invariants as `List.All`.** "No monster in a wall" is
+  `List.All (monster => isWall level monster.position = False) monsters`, and
+  std's `List.allAppend`, with `Both` and `Trivial` as patterns, kept its
+  proofs (the monsters' turn, a blow, placing a new level's monsters) short.
+  Each went through at the first or second try, as did the stage-1 proofs
+  with the level threaded through.
+- **Properties true of every value.** The start is the middle of the level's
+  `entrance` room, and `isFloor` checks the entrance first, so
+  `startOnFloor (level: Level)` holds for *every* level, generated or not,
+  in three lines. `arrive` re-checks the generator's placements with
+  `pickFree`, so its theorems hold whatever the generator planned. No proof
+  looks inside the generator.
+- **`seeded` in tests.** `seeded seed (() => generateLevel depth)` is the
+  generator's output for a seed, in a pure test, so checking 40 seeds at
+  every depth for reachability is a few lines.
+
+## Not proved
+
+That the goal can be reached from the start. Floor is a union of rectangles,
+and a proof would need paths and connectivity over them. Tested instead: a
+depth-first search over the cells on 40 seeds at every depth, and every
+floor cell reachable on 10 seeds. Also unproved, as in stage 1: no two
+monsters share a cell (tested on every generated level and in a chase).
+
+## Tests and speed
+
+94 tests: the stage-1 unit tests moved to a hand-made two-room level;
+chasing (closing in, the longer gap first, round rock, down a corridor, not
+out of sight, a pack without sharing cells); items (potions carried and
+drunk, swords, the amulet); the stairs; the generator over 40 seeds by 3
+depths; placement by hand; and a 232-turn winning game through all three
+levels via `IO.simulate`, with its first frame compared. All 94 from cold,
+proofs included: 6.9 s on a heavily loaded machine (load average over 100).
+A 36-turn game runs in 0.25 s; each level's rock is drawn once, when it's
+made, and a frame only overlays what stands on it.
+
+## Ranked: stage 2
+
+1. A handler inside the pure turn made the checker unfold the generator in
+   every proof about a turn (1).
+2. `omega` and std don't know `n / 2 ≤ n` (2).
+3. An unexplained runtime recursion limit, with no hint of where (5).
+4. Sub-namespaces can't add helpers to the program's own types (3).
+5. Small inference gaps, and long values cut off in failures (4, 6).
