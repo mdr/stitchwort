@@ -2723,7 +2723,7 @@
     {
       "id": 466,
       "title": "Partial stage 3a: divergence marker (CompD Total/MayDiverge), bare {e} may be partial, re-check total when needed, specialisation fixes Total; gate: 80 List.map theorems unchanged, pure map within 10% (D1213–D1216, D1220; after rule E)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -2731,7 +2731,8 @@
       "created": "2026-10-25",
       "updated": "2026-10-25",
       "commits": [
-        "5959da74"
+        "5959da74",
+        "a018bc0c"
       ]
     },
     {
