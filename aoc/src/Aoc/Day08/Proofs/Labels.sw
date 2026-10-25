@@ -69,8 +69,6 @@ theorem eqTrue (a: Nat) (b: Nat) (h: (a == b) = True): a = b := DecEq.sound a b 
 
 theorem eqSelf (a: Nat): (a == a) = True := rewrite Nat.eqIsEqual a a in Nat.equalRefl a
 
-theorem eqFalse (a: Nat) (b: Nat) (h: (a == b) = False) (e: a = b): Void := Bool.falseNotTrue (Eq.sym (rewrite e, eqSelf b at h))
-
 -- What the labels of `circuits` say about the boxes 0 to n - 1 after the
 -- connections `done` (the four facts at the top).
 type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop =
@@ -144,7 +142,7 @@ theorem movedLabel (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) ->
 -- s's label stays, f's moves to it.
 theorem relabelTo (from: Nat) (to: Nat) (differ: (from == to) = False): relabel from to to = to :=
   match g: to == from with
-    | True => Void.exfalso (eqFalse from to differ (Eq.sym (eqTrue to from g)))
+    | True => Void.exfalso (DecEq.soundFalse from to differ (Eq.sym (eqTrue to from g)))
     | False => rfl
 
 theorem relabelFrom (from: Nat) (to: Nat): relabel from to from = to := rewrite eqSelf from in rfl

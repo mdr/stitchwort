@@ -98,7 +98,7 @@ theorem ownAfterMove (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (counted: Counted 
             | True =>
               -- b would be s's label, so its own label: then f's label is s's.
               let bs := eqTrue (c.labelOf s) b h2
-              Void.exfalso (eqFalse (c.labelOf f) (c.labelOf s) differ
+              Void.exfalso (DecEq.soundFalse (c.labelOf f) (c.labelOf s) differ
                 (Eq.trans (Eq.sym lf) (rewrite <- bs, labelOwn s hs in rfl)))
             | False =>
               rewrite lf in
@@ -256,13 +256,6 @@ theorem part2NoBoxesToJoin: (points: List Point) -> points.length <= 1 -> solveP
 
 -- Some connection is the last needed -----------------------------------------
 
-theorem memRange (x: Nat): (c: Nat) -> (s: Nat) -> s <= x -> x < s + c -> List.Mem x (List.rangeFrom c s)
-  | Zero, s, h1, h2 => omega
-  | Succ c, s, h1, h2 =>
-    match e: Nat.equal s x with
-      | True => Inl (Nat.equalSound s x e)
-      | False => Inr (memRange x c (Succ s) omega omega)
-
 -- Every pair a < b of the numbers from s on is a pair of them.
 theorem memPairs (a: Nat) (b: Nat) (ab: a < b): (c: Nat) -> (s: Nat) -> s <= a -> b < s + c -> List.Mem (a, b) (List.pairs (List.rangeFrom c s))
   | Zero, s, h1, h2 => omega
@@ -272,41 +265,16 @@ theorem memPairs (a: Nat) (b: Nat) (ab: a < b): (c: Nat) -> (s: Nat) -> s <= a -
       | True =>
         rewrite <- Nat.equalSound s a e in
           List.anyAppendLeft (y => y = (s, b)) (List.map (y => (s, y)) (List.rangeFrom c (Succ s))) (List.pairs (List.rangeFrom c (Succ s)))
-            (List.memMap (y => (s, y)) b (List.rangeFrom c (Succ s)) (memRange b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3))
+            (List.memMap (y => (s, y)) b (List.rangeFrom c (Succ s)) (List.memRangeFromIntro b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3))
       | False =>
         List.anyAppendRight (y => y = (a, b)) (List.map (y => (s, y)) (List.rangeFrom c (Succ s))) (List.pairs (List.rangeFrom c (Succ s)))
           (memPairs a b ab c (Succ s) omega h3)
 
--- `any` finds an element of the list that passes ...
-theorem anyOfMem (p: a -> Bool) (x: a) (hx: p x = True): (xs: List a) -> List.Mem x xs -> List.any p xs = True
-  | Nil, m => Void.exfalso m
-  | Cons y ys, Inl e => rewrite e, hx in rfl
-  | Cons y ys, Inr m =>
-    match g: p y with
-      | True => rfl
-      | False => anyOfMem p x hx ys m
-
--- ... and when only x passes, `any` finding one means x is in the list.
-theorem memOfAny (p: a -> Bool) (x: a) (only: (y: a) -> p y = True -> y = x): (xs: List a) -> List.any p xs = True -> List.Mem x xs
-  | Nil, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons y ys, h =>
-    match g: p y with
-      | True => Inl (only y g)
-      | False => Inr (memOfAny p x only ys h)
-
-theorem pairEq: (y: (Nat, Nat)) -> (a: Nat) -> (b: Nat) -> (y.fst == a && y.snd == b) = True -> y = (a, b)
-  | (c, d), a, b, h =>
-    match e: c == a with
-      | True => rewrite eqTrue c a e, eqTrue d b h in rfl
-      | False => Void.exfalso (Bool.falseNotTrue h)
-
 -- Every pair of boxes is one of the connections.
 theorem memOrder (points: List Point) (a: Nat) (b: Nat) (ab: a < b) (bn: b < points.length): List.Mem (a, b) (connectionOrder points) :=
-  let p: (Nat, Nat) -> Bool := y => y.fst == a && y.snd == b
-  memOfAny p (a, b) (y h => pairEq y a b h) (connectionOrder points)
-    (rewrite List.anyPerm p (connectionOrder points) (allPairs points.length)
-        (List.sortOnPerm (connectionKey points) (allPairs points.length))
-      in anyOfMem p (a, b) (rewrite eqSelf a, eqSelf b in rfl) (allPairs points.length) (memPairs a b ab points.length 0 omega bn))
+  List.memPerm (allPairs points.length) (connectionOrder points)
+    (List.permSym _ _ (List.sortOnPerm (connectionKey points) (allPairs points.length)))
+    (a, b) (memPairs a b ab points.length 0 omega bn)
 
 -- All the connections put all the boxes in one circuit.
 theorem allConnectionsJoinAll (points: List Point): OneCircuit points.length (connectionOrder points) :=
