@@ -546,6 +546,10 @@ The Rust times are measured around the insert loop. The allocator is
 mimalloc in each case. With the system allocator, uniform was 0.59 s (one
 run).
 
+**Correction (D1261):** "uniform" reuses a node's cell at every level, which
+today's IR doesn't do. A variant doing the IR's allocations takes 1.8–2.0 s
+(see "The miss investigated", under N1 as built).
+
 ### 3.3 What it shows
 
 - **Execution through the interpreter is the dominant avoidable cost on this
@@ -1176,6 +1180,129 @@ What that does and doesn't show:
   resolve `Apply` of a known global at compile time; keep the counters in
   registers.
 
+### The miss investigated (D1261, 25 October 2026)
+
+**[ran]** A short investigation of why `Set` missed 3×. The machine was
+shared throughout (load averages 5–80), so the evidence below leans on
+counts that don't depend on load: instructions retired and cycles from
+`/usr/bin/time -l`, mimalloc's own statistics (`MIMALLOC_SHOW_STATS=1`),
+and the allocation trace.
+
+**1. The allocator does the same work on both runners; the thread
+hypothesis is refuted.**
+- Both runners run everything (compiling, constants, cells, freeing) on
+  the one worker thread `driver::with_stack` starts; only its stack size
+  differs. Running the machine on the 4 GiB stack changed nothing
+  (177.7 G instructions, 40.0 G cycles either way).
+- mimalloc's statistics are identical for the two runners: 8.2 M pages
+  "abandoned" and 8.2 M "reclaimed on free" in one run. That isn't
+  cross-thread traffic. It is mimalloc 3.3.2 on a single thread: when a
+  small page fills up beyond `page_full_retain` (2), it is abandoned, and
+  the next free into it reclaims it.
+- `mach_absolute_time` comes from the same path: each abandonment calls
+  `_mi_arenas_collect` (`_mi_page_abandon` → `mi_arenas_try_purge` →
+  `clock_gettime`), so it's 8.2 M clock reads per run, on both runners.
+- `MIMALLOC_PAGE_FULL_RETAIN=-1` (never abandon) removes the same 5.6 G
+  instructions from both runners and about 7% of the cycles (machine −1.4 G,
+  native −1.0 G).
+- The hand-written Rust (below), doing the IR's allocations, also shows
+  8.2 M abandonments.
+- What remains is that sampling puts about 1.0 s of the native run in the
+  allocator, against about 0.7 s for the same calls in the hand-written
+  Rust. **[speculative]** Native code's frames touch more memory (every
+  register is a 24-byte slot in memory), so the allocator's data is colder.
+  Not measured further.
+
+**2. §3.2's "uniform" Rust didn't do the same work as the IR.** The
+allocation trace for 20,000 keys has, per insert, about 14 cells made,
+14 freed, 28 increments and 43 decrements, and only 0.5 reuses (`reuse` is
+29,372 events, 20,000 of them in the keys). The cause is in the IR, so
+it's the same on both runners:
+- `insertWith` takes a node apart with `Unpack` without a reuse token,
+  since the rebuilt node is made in another function (`rebuild`'s `Keep`
+  arm is `Map.Tree.bin`, a fresh `Ctor`). So each level frees its node on
+  the way down and allocates a new one on the way up.
+- `shape` is passed clones of both subtrees: two increments and two
+  decrements per level.
+
+The hand translation reused the node's cell at every level and borrowed
+for `shape`. A variant that does what the IR does (`ir` in Appendix A:
+free on the way down, a fresh node in `rebuild`, clones for `shape`) takes
+**1.8–2.0 s**, against 0.68–0.73 s for "uniform", in the same conditions.
+So of §3.2's 10–13×, about 2.6× was reuse that today's IR doesn't do.
+
+**3. Where the native time goes now.** Sampled, with native addresses
+mapped to bodies: about 57% in compiled code (`shape` 38% of that,
+`insertWith` 24%, `Nat.compare` 23%, `rebuild` 15%), about 34% in mimalloc,
+and about 9% in runtime glue. Native code retires about 49.5 G instructions
+for the inserts, the `ir` Rust about 24.9 G (the whole run). The extra is
+the code shape:
+- registers are a stack slot of three-word values, so each instruction
+  loads and stores words;
+- every frame erases its registers on entry and releases them on return;
+- each call counts steps and frames through the context.
+
+For example, `Nat.compare` is 70-odd instructions for two loads and two
+comparisons.
+
+**What changed** (agreement unchanged: the `n1.rs` tests pass, traces
+identical; a new check runs the trace with inline counting, as `run
+--native` does, and asserts the same cells are made and every one freed):
+- **`Apply` caches its target.** Each `Apply` site has an `ApplyCache` (the
+  last function value applied there, kept alive so that its address can't
+  be reused, and its code). A function value at the same address calls the
+  cached code with no runtime call. In `insertWith` the dictionary is a
+  parameter, so it isn't known at compile time; the cache does the job.
+  (`sw_apply_cached`, replacing `sw_apply_target` in compiled code.)
+- **An emptied cell is freed directly.** After a unique `Unpack` without a
+  token that took every field, the cell is deallocated (`sw_free_emptied`)
+  without `Value`'s drop glue walking five `Erased` fields.
+- **`sw_ctor`** copies the fields into an uninitialised slice instead of
+  collecting an iterator.
+
+Together: −6% instructions and −5% cycles on the native inserts.
+
+**The measurement**, best of 3, interleaved old and new binaries, load
+average 24–36:
+
+| Inserts (1,000,000 keys) | Wall s | Cycles (G) | Instructions (G) | vs machine (cycles) |
+|---|---:|---:|---:|---:|
+| machine | 9.86 | 38.9 | 171.6 | 1× |
+| `--native`, N1 as merged | 3.44 | 13.5 | 52.7 | 2.88× |
+| `--native`, now | 3.28 | 12.9 | 49.5 | **3.02×** |
+| hand Rust, `ir` (same work as the IR) | 1.94 | — | — | ~5× |
+| hand Rust, "uniform" (§3.2, with reuse) | 0.73 | — | — | ~13× |
+
+`task native:bench` (best of 3; load 15 falling to 7): machine 9.87 s,
+`--js` 3.41 s, `--native` 3.33 s on the inserts, **3.0×**. Earlier the
+same day, under a load average of 81, it gave 2.9×. `micro_call` 3.9×,
+`micro_tail` 3.3×.
+
+**Verdict: on the line, not clearly over it.** `Set` is at 3.0× in cycles
+and in a quiet-ish wall-clock run, and 2.9× under load. That's not a clear
+pass of the 3× stop point, so N2 stays waiting for the re-plan.
+
+**What it would take**, ranked by expected gain against size:
+1. **Registers as SSA values, not a memory slot** (Cranelift variables for
+   the words of non-escaping registers; no erase of registers already
+   empty; no reload after a store). This is the 2× instruction gap to the
+   `ir` Rust, so it could reach about 4–5×. Size: large, the core of an
+   N2-style code generator.
+2. **Reuse across the `insertWith` → `rebuild` call, and borrowing for
+   `shape`** (an IR change: inline `rebuild`/`balance` so `CtorReuse`
+   applies, or pass the token; let `shape` read sizes without clones).
+   Worth about 2.6× on the hand code, and it speeds the machine too, so its
+   effect on the ratio is uncertain; it's the bigger absolute win. Size:
+   medium to large, in the machine's compiler, not the native backend.
+3. **Allocation and freeing inline** (call the allocator with a known
+   layout and write the header in compiled code; free emptied cells
+   inline). The runtime glue is about 9% now; perhaps 5–10%. Size: medium.
+4. **mimalloc's `page_full_retain = -1`** for the CLI: about −7% of cycles
+   on both runners, which nudges the ratio to about 3.1×. Size: small, but
+   it's process-wide, so `check` workloads would need measuring first.
+5. **Counters in registers.** A few loads and stores per call, so a small share.
+   Size: medium.
+
 ## External review (25 October 2026)
 
 An external reviewer read this note. **Verdict:** sound and well evidenced
@@ -1271,6 +1398,10 @@ All were in the session's scratch directory, `native-exp/`, built with rustc
     prints the size.
   - Built as a Cargo project with mimalloc (as the CLI uses); a second
     binary has every helper `#[inline(never)]`.
+  - **`ir`** (added for D1261): the uniform insert doing what today's IR
+    does. A node's cell is freed when it's taken apart on the way down,
+    `shape` gets clones of both subtrees, and `rebuild`'s `Keep` makes a
+    fresh node. Run as `setexp ir 1000000`.
 - **`micro.rs`**: `down`/`outer`/`spin` as in `micro_call.sw` and
   `micro_tail.sw`, on `u64` with `checked_add`, using `black_box` so that
   LLVM can't compute the answers in closed form.

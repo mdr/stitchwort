@@ -119,6 +119,15 @@ fn same_trace(source: &str) {
             (ran, alloc_trace::finish())
         };
         let (machine_ran, machine) = trace(false);
+        // Counting inline, as `run --native` does, the trace sees only the
+        // cells made and freed: the same cells, and every one freed.
+        alloc_trace::start();
+        let (inline_ran, notes) = native(&program, limits, false);
+        let inline = alloc_trace::finish();
+        assert!(ran_natively(&notes), "nothing ran natively: {notes:#?}");
+        assert_eq!(inline_ran, machine_ran);
+        assert_eq!(inline.count("alloc"), machine.count("alloc"));
+        assert_eq!(inline.leaks(), Vec::<u32>::new(), "inline counting leaked");
         let (native_ran, native) = trace(true);
         assert_eq!(native_ran, machine_ran);
         assert!(machine.count("alloc") > 0, "the program allocates nothing");
