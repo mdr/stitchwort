@@ -1,5 +1,5 @@
 {
-  "next": 544,
+  "next": 545,
   "tickets": [
     {
       "id": 13,
@@ -3452,7 +3452,7 @@
     {
       "id": 519,
       "title": "Native N2b: big-stack sizing with counter-fires-first tests, tail-call shape tests, frame sizes, trace order on error paths (after N2a)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3503,7 +3503,7 @@
     },
     {
       "id": 523,
-      "title": "Kernel: compare same-definition calls by arguments first, fall back to unfolding (opaque plan lane 5; folded-calls stage 4)",
+      "title": "Kernel: compare same-definition calls by arguments first (glued in kernel, CallMemo) [built e73cbd47, awaiting review]",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3752,6 +3752,18 @@
     {
       "id": 543,
       "title": "Standalone S7: roguelike fully native — M2 (after N4, S5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 544,
+      "title": "bench/baseline.toml: check-closed-print/-dot/-eqeq/-list-eqeq flagged ~+28% steps on main (found by kernel args-first lane); find cause or re-record",
       "status": "backlog",
       "agent": "",
       "where": "",
