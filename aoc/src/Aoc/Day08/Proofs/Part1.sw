@@ -7,9 +7,10 @@
 --      pairs by their keys (`List.sortOnMap`).
 --   2. So the program joins exactly the first k connections, and by the
 --      label theorem (Labels.sw) its labels tell which boxes are joined.
---   3. The program's sizes are `circuitSizes` with "same label" as the test
---      (`sizesAreCircuitSizes`), and any two tests that tell give the same
---      sizes (`circuitSizesCongRange`).
+--   3. The program's sizes are `circuitSizes` with "same label" as the test,
+--      in another order (`sizesPerm`, Sizes.sw), which the three largest
+--      don't depend on (`threeLargestPerm`); and any two tests that tell
+--      give the same sizes (`circuitSizesCongRange`).
 
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
@@ -80,11 +81,6 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnect
 
 -- The program's sizes are the spec's ----------------------------------------
 
--- Counted with "same label" as the test, the spec's sizes are the program's.
-theorem sizesAreCircuitSizes (c: Circuits) (n: Nat): c.sizes n = circuitSizes n (a b => c.labelOf a == c.labelOf b) :=
-  rewrite List.takeMap (List.range n) _ c.labelOf, List.takeRangeFrom _ n 0, List.anyMap _ (label => label == c.labelOf _) c.labelOf,
-    List.countMap (List.range n) (label => label == c.labelOf _) c.labelOf
-
 -- Two tests that agree on the boxes give the same sizes.
 theorem circuitSizesCongRange (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
     (agree: (a: Nat) -> (b: Nat) -> a < n -> b < n -> same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
@@ -108,7 +104,8 @@ theorem part1Correct (k: Nat) (points: List Point) (sameCircuit: Nat -> Nat -> B
   let joined := joinAll (Circuits.separate n) (firstConnections k points)
   calc solvePart1 k (Boxes.of points)
     _ = threeLargestProduct (joined.sizes n) := rewrite <- joinedIsJoinAll k points in rfl
-    _ = threeLargestProduct (circuitSizes n (a b => joined.labelOf a == joined.labelOf b)) := rewrite sizesAreCircuitSizes joined n in rfl
+    _ = threeLargestProduct (circuitSizes n (a b => joined.labelOf a == joined.labelOf b)) :=
+      threeLargestPerm (joined.sizes n) (circuitSizes n (a b => joined.labelOf a == joined.labelOf b)) (sizesPerm joined n)
     _ = threeLargestProduct (circuitSizes n sameCircuit) :=
       rewrite circuitSizesCongRange n (a b => joined.labelOf a == joined.labelOf b) sameCircuit
         (tellersAgree n (firstConnections k points) _ sameCircuit (labelsTell n (firstConnections k points) (connectionsInRange k points)) tells)

@@ -46,7 +46,7 @@ fn machine(program: &Program, limits: Limits, input: &[u8]) -> Run {
 
 fn lowered(session: &Session, main: &Main, what: &str) -> Program {
     let g = &session.elab.globals;
-    lower_main(g, session.elab.limits, main.term())
+    lower_main(g, session.elab.limits, main.term(), main.row)
         .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"))
 }
 

@@ -262,8 +262,6 @@ pub struct Elaborator {
     pub globals: Globals,
     pub tests: Vec<TestDecl>,
     sides_capture: RefCell<SidesCapture>,
-    /// While the body of a `test` is elaborated (tests can't be `Partial`).
-    in_test: std::cell::Cell<bool>,
     /// Every declaration, by its full name (`scope.rs`).
     scope: scope::Scope,
     /// The current module's key prefix: `Day05.` in namespace `Day05`, empty
@@ -1081,31 +1079,54 @@ impl Elaborator {
             text: label.to_string(),
             span,
         };
-        self.in_test.set(true);
-        let body = self.with_local_retries(&label, &shown, |e| {
-            *e.sides_capture.borrow_mut() = SidesCapture {
-                wanted: probe::wanted(expr),
-                ..SidesCapture::default()
-            };
-            let term = {
-                // A condition, as `if` takes: a `Bool`, or a decided proposition.
-                let mut cx = Ctx::new(e, span);
-                logic::bool_operand(&mut cx, expr, "test")?
-            };
-            // Nothing refers to the test, so its helpers are admitted first.
-            e.lift(&label, false)?;
-            let body = e.finish(&term, 0)?;
-            // The probe is only for showing a failure: what can't be
-            // finished is left out.
-            let probe = probe::build(e, &e.sides_capture.borrow(), expr);
-            Ok((body, probe))
-        });
-        self.in_test.set(false);
-        let body = body?;
-        let (body, probe) = body;
+        // A test is checked as a `Bool` first. One that runs partial code
+        // (D1183) is checked again as a partial computation of a `Bool`, a
+        // `Delay`: a runtime check, which only `stitchwort test` runs,
+        // stepping it as `stitchwort run` steps a partial `main`.
+        let mut partial = false;
+        let (body, probe, ty) = loop {
+            self.local_helpers.clear();
+            self.preadmitted.borrow_mut().clear();
+            let result = self.with_local_retries(&label, &shown, |e| {
+                *e.sides_capture.borrow_mut() = SidesCapture {
+                    wanted: probe::wanted(expr),
+                    ..SidesCapture::default()
+                };
+                let (term, ty) = {
+                    let mut cx = Ctx::new(e, span);
+                    if partial {
+                        let row = effects::Row {
+                            labels: Vec::new(),
+                            tail: None,
+                            partial: true,
+                        };
+                        let bool_ty = Value::Data(bool_data, Vec::new());
+                        let ty = effects::comp_type(&cx, &row, bool_ty)?;
+                        let term = check::check(&mut cx, expr, &ty)?;
+                        (term, cx.quote(&ty)?)
+                    } else {
+                        // A condition, as `if` takes: a `Bool`, or a decided
+                        // proposition.
+                        let term = logic::bool_operand(&mut cx, expr, "test")?;
+                        (term, Term::Data(bool_data, Vec::new()))
+                    }
+                };
+                // Nothing refers to the test, so its helpers are admitted first.
+                e.lift(&label, false)?;
+                let body = e.finish(&term, 0)?;
+                // The probe is only for showing a failure: what can't be
+                // finished is left out. A partial test has none: its parts
+                // can't be computed apart from the run.
+                let probe = (!partial).then(|| probe::build(e, &e.sides_capture.borrow(), expr));
+                Ok((body, probe, ty))
+            });
+            match result {
+                Err(d) if !partial && d.code == "E-PARTIAL" => partial = true,
+                result => break result?,
+            }
+        };
         *self.sides_capture.borrow_mut() = SidesCapture::default();
         self.local_helpers.clear();
-        let ty = Term::Data(bool_data, Vec::new());
         let id = kernel::declare_def(&mut self.globals, &label, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
         self.tests.push(TestDecl {
@@ -1114,7 +1135,7 @@ impl Elaborator {
             namespace: self.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
-            probe: Some(probe),
+            probe,
         });
         Ok(())
     }

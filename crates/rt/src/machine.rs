@@ -185,6 +185,11 @@ impl<'p> Machine<'p> {
         &self.program.shapes
     }
 
+    /// The program it runs.
+    pub fn program(&self) -> &'p Program {
+        self.program
+    }
+
     /// Starts a new stretch of steps (after an operation or a tick).
     pub fn reset_steps(&mut self) {
         self.st.steps = 0;

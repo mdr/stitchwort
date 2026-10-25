@@ -191,9 +191,9 @@ def main(): {IO, Partial} () := IO.print "27 takes ${collatzSteps 27} steps"
 27 takes 111 steps
 ```
 
-Only `stitchwort run` (and the playground) run partial code. Tests and the type checker never do, so a test can't call `collatzSteps`:
+Only `stitchwort run`, `stitchwort test` and the playground run partial code; the type checker never does. A test can call `collatzSteps` like any other function, with nothing extra to write:
 
-<!-- snippet: errors/partial-call.sw -->
+<!-- snippet: partial-test.sw -->
 ```stitchwort
 def collatzSteps: Nat -> {Partial} Nat
   | 0 => 0
@@ -203,20 +203,13 @@ def collatzSteps: Nat -> {Partial} Nat
 test "27 takes 111 steps" := collatzSteps 27 == 111
 ```
 
-<!-- output: check errors/partial-call.sw -->
+<!-- output: test partial-test.sw -->
 ```text
-[E-PARTIAL] Error: a computation that might not finish can't run here
-   ╭─[ errors/partial-call.sw:6:30 ]
-   │
- 6 │ test "27 takes 111 steps" := collatzSteps 27 == 111
-   │                              ───────────┬──────────
-   │                                         ╰──────────── `collatzSteps` is `Partial`: it might not finish
-   │
-   │ Note: a test must finish, so it can't run anything that might not (and a test's type can't say `Partial`); test a total function instead, such as one that takes a step limit
-───╯
+  ✓ 27 takes 111 steps  ran
+1 test(s): 1 passed, 0 failed (0 from the cache)
 ```
 
-A test can't be `Partial`, so the note suggests testing a total function. To test such code, give it a limit: a version with an extra "fuel" parameter that counts down is total and testable.
+Tests are runtime checks ([chapter 9](09-testing.md)), so `stitchwort test` runs this one as `stitchwort run` runs a partial `main`. If a test like this never finished, that would be a bug in the test or the code, and you'd stop it as you'd stop a program that hangs.
 
 `Partial` keeps the rest of the program honest: a function whose type doesn't say `Partial` is known to finish, which is what proofs about it rely on.
 

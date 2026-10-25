@@ -73,7 +73,7 @@ fn run(args: &[String]) -> ExitCode {
     };
     let checked = start.elapsed();
     let g = &session.elab.globals;
-    let program = match stitchwort_rt::lower_main(g, session.elab.limits, main.term()) {
+    let program = match stitchwort_rt::lower_main(g, session.elab.limits, main.term(), main.row) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("{e:?}");

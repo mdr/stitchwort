@@ -3,7 +3,10 @@
 -- the input reruns exactly these tests.
 namespace Aoc.Day08.Tests
 import Aoc.Day08 (..)
-import Std (Fail)
+import Std (Fail, Result, Text)
 
-test "real input, part 1" := solvePart1 1000 (Fail.orElse (Boxes.of []) (() => parseBoxes (include "../../../../inputs/day08.txt").lines)) == 42315
-test "real input, part 2" := solvePart2 (Fail.orElse (Boxes.of []) (() => parseBoxes (include "../../../../inputs/day08.txt").lines)) == Some 8079278220
+def input: Result Boxes Text := Fail.toResult (() => parseBoxes (include "../../../../inputs/day08.txt").lines)
+
+test "real input loads" := input.isOk
+test "real input, part 1" := input.map (solvePart1 1000) == Ok 42315
+test "real input, part 2" := input.map solvePart2 == Ok (Some 8079278220)

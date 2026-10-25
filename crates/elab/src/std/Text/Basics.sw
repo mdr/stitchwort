@@ -111,9 +111,13 @@ def Text.wordsStep (char: Char): Bool -> Pair (List Char) (List (List Char)) -> 
   | True, MkPair word words => MkPair Nil (Text.wordsClose word words)
   | False, MkPair word words => MkPair (Cons char word) words
 
-def Text.wordsChars: List Char -> Pair (List Char) (List (List Char))
-  | Nil => MkPair Nil Nil
-  | Cons char chars => Text.wordsStep char (Char.isSpace char) (Text.wordsChars chars)
+-- Reads `reversed`, the characters last first, onto `st`: a loop, so it is
+-- stack-safe on long texts.
+def Text.wordsFrom (st: Pair (List Char) (List (List Char))): List Char -> Pair (List Char) (List (List Char))
+  | Nil => st
+  | Cons char reversed => Text.wordsFrom (Text.wordsStep char (Char.isSpace char) st) reversed
+
+def Text.wordsChars (chars: List Char): Pair (List Char) (List (List Char)) := Text.wordsFrom (MkPair Nil Nil) (List.reverseOnto chars Nil)
 
 def Text.wordsFinish: Pair (List Char) (List (List Char)) -> List Text
   | MkPair word words => Text.textsOf (Text.wordsClose word words)

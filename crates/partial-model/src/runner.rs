@@ -92,7 +92,7 @@ impl Perform for Script {
 /// Runner policies. None of them is part of the semantics.
 #[derive(Clone)]
 pub struct Policy {
-    /// Stop after this many ticks (an inconclusive test, not a failure).
+    /// Stop when a run needs a tick beyond this many: `n` allows exactly `n` (an inconclusive test, not a failure).
     pub max_ticks: Option<u64>,
     /// Machine transitions allowed within one step (`E-RESOURCE`).
     pub max_work_per_step: u64,
@@ -149,11 +149,6 @@ pub fn run(d: Delay, host: &mut dyn Perform, policy: &Policy) -> Report {
     let mut output = 0usize;
     let mut d = d;
     r.outcome = 'outer: loop {
-        if let Some(max) = policy.max_ticks
-            && r.ticks >= max
-        {
-            break Outcome::OutOfTicks;
-        }
         let mut work = Work {
             used: 0,
             limit: policy.max_work_per_step,
@@ -197,6 +192,9 @@ pub fn run(d: Delay, host: &mut dyn Perform, policy: &Policy) -> Report {
                 Ok(Obs::Later(rest)) => {
                     r.work += work.used;
                     r.peak_frames = r.peak_frames.max(work.peak_frames);
+                    if policy.max_ticks.is_some_and(|max| r.ticks >= max) {
+                        break 'outer Outcome::OutOfTicks;
+                    }
                     r.ticks += 1;
                     r.trace.push(Event::Tick);
                     if r.work > policy.max_total_work {
@@ -223,15 +221,15 @@ pub fn run_reference(rules: Rules, d: Delay, host: &mut dyn Perform, max_ticks: 
     };
     let mut d = d;
     r.outcome = 'outer: loop {
-        if r.ticks >= max_ticks {
-            break Outcome::OutOfTicks;
-        }
         r.steps += 1;
         let mut seg = reference::step(rules, &d);
         loop {
             match seg {
                 Seg::Now(v) => break 'outer Outcome::Finished(v),
                 Seg::Later(rest) => {
+                    if r.ticks >= max_ticks {
+                        break 'outer Outcome::OutOfTicks;
+                    }
                     r.ticks += 1;
                     r.trace.push(Event::Tick);
                     d = rest;

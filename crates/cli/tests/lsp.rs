@@ -290,6 +290,28 @@ fn a_file_on_its_own_as_you_type() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The server never runs a test, so a test that loops forever (a bug,
+/// D1183) can't hang it: the file checks, and the server still answers.
+#[test]
+fn a_looping_test_never_runs() {
+    let dir = temp_dir("looping");
+    let file = dir.join("loop.sw");
+    let text =
+        "def spin (n: Nat): {Partial} Nat := spin (n + 1)\n\ntest \"loops\" := spin 0 == 0\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let hover = client.at("textDocument/hover", &uri, 2, 17);
+    assert!(
+        hover["contents"]["value"].as_str().unwrap().contains("Nat"),
+        "{hover}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A false theorem's error carries the counterexample the search found, as
 /// `Note:` lines of the diagnostic's message (D1158).
 #[test]

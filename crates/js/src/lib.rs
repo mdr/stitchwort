@@ -1969,6 +1969,12 @@ struct Gen<'g> {
     if_then_else: Option<DefId>,
     /// `Decidable.elim`, which `if h: p then a else b` becomes.
     elim_dec: Option<DefId>,
+    /// `Nat.add`, whose calls in tail position a loop can add up as it goes
+    /// ([`SelfCall::add`]), with the `bigint` representation of `Nat`.
+    nat_add: Option<DefId>,
+    /// `List.append`, whose calls in tail position a loop that builds cells
+    /// can copy its first argument for ([`SelfCall::cons`]).
+    list_append: Option<DefId>,
     /// The effect runtime, which replaces the library functions that take a
     /// computation apart (docs/proposals/effect-runtime.md §9), if the
     /// core is loaded.
@@ -2094,6 +2100,13 @@ struct SelfCall {
     cons: bool,
     /// Whether any was.
     cons_used: Cell<bool>,
+    /// Whether a call in tail position under `Succ` or `Nat.add` is a turn
+    /// of the loop too (tail recursion modulo addition): the loop keeps the
+    /// sum of what it was to be added to, `a$`, and adds it to the result.
+    /// `List.length`'s `Succ (List.length xs)`.
+    add: bool,
+    /// Whether any was.
+    add_used: Cell<bool>,
     /// Whether to inline a helper that a call to the definition is an
     /// argument of, in tail position.
     inline: bool,
@@ -2106,13 +2119,15 @@ struct SelfCall {
 }
 
 impl SelfCall {
-    fn new(id: DefId, variant: bool, cons: bool, inline: bool) -> Self {
+    fn new(id: DefId, variant: bool, cons: bool, add: bool, inline: bool) -> Self {
         SelfCall {
             id,
             variant,
             used: Cell::new(false),
             cons,
             cons_used: Cell::new(false),
+            add,
+            add_used: Cell::new(false),
             inline,
             inlining: Cell::new(0),
             fresh: Cell::new(0),
@@ -2150,6 +2165,8 @@ impl<'g> Gen<'g> {
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
             elim_dec: g.registry.def(Builtin::ElimDec),
+            nat_add: nat.and(g.registry.def(Builtin::Add)),
+            list_append: g.registry.def(Builtin::Append),
             effect: effect::Effect::new(g, options.effect_counters),
             run_delay: false,
             holes: RefCell::new(Vec::new()),
@@ -2528,19 +2545,34 @@ impl<'g> Gen<'g> {
         // inlined helpers. If that can't be compiled (a helper uses the
         // result some other way), less, and last, only direct tail calls.
         // Inlining without cons comes last: `List.decEq`'s step has no
-        // constructor to build, only the call's result to return.
-        for (cons, inline) in [(true, true), (true, false), (false, false), (false, true)] {
-            let call = SelfCall::new(id, variant, cons, inline);
+        // constructor to build, only the call's result to return. Calls
+        // modulo addition come after those modulo constructors: a result
+        // that's a number is never a cell.
+        for (cons, add, inline) in [
+            (true, false, true),
+            (true, false, false),
+            (false, true, true),
+            (false, true, false),
+            (false, false, false),
+            (false, false, true),
+        ] {
+            if add && self.nat_add.is_none() {
+                continue;
+            }
+            let call = SelfCall::new(id, variant, cons, add, inline);
             self.holes.borrow_mut().clear();
             self.fn_holes.borrow_mut().clear();
             self.hole_misused.set(false);
             let block = self.tree(tree, env, 2, Some(&call))?;
-            let ok = call.used.get() && !self.hole_misused.get() && (!cons || call.cons_used.get());
+            let ok = call.used.get()
+                && !self.hole_misused.get()
+                && (!cons || call.cons_used.get())
+                && (!add || call.add_used.get());
             self.holes.borrow_mut().clear();
             self.fn_holes.borrow_mut().clear();
             self.hole_misused.set(false);
             if ok {
-                return Ok(Some(Self::loop_block(env, &block, cons)));
+                return Ok(Some(Self::loop_block(env, &block, cons, add)));
             }
         }
         Ok(None)
@@ -2604,8 +2636,9 @@ impl<'g> Gen<'g> {
     /// The loop of [`Gen::self_tail_loop`], around the case tree's `block`.
     /// With `cons`, the result is built by a chain of cells (a constructor's
     /// object) that the loop links as it makes them: `h$` is the first, `l$`
-    /// the last, and `k$` the name of its field that the rest goes in.
-    fn loop_block(env: &[bool], block: &str, cons: bool) -> String {
+    /// the last, and `k$` the name of its field that the rest goes in. With
+    /// `add`, `a$` is what the result is to be added to.
+    fn loop_block(env: &[bool], block: &str, cons: bool, add: bool) -> String {
         let slots: Vec<usize> = (0..env.len()).filter(|level| !env[*level]).collect();
         let copy = |from: fn(usize) -> String, to: fn(usize) -> String| {
             slots
@@ -2616,6 +2649,8 @@ impl<'g> Gen<'g> {
         };
         let chain = if cons {
             "  let h$ = null, l$ = null, k$ = null;\n"
+        } else if add {
+            "  let a$ = 0n;\n"
         } else {
             ""
         };
@@ -2882,6 +2917,16 @@ impl<'g> Gen<'g> {
             out.push_str(&Self::next_turn(&pad, &passed));
             return Ok(out);
         }
+        if call.add
+            && let Some(out) = self.tail_add(term, env, &pad, call)?
+        {
+            return Ok(out);
+        }
+        if call.cons
+            && let Some(out) = self.tail_append(term, env, &pad, call)?
+        {
+            return Ok(out);
+        }
         let (head, args) = term.spine();
         let Term::Def(id) = head else {
             return self.leaf_return(term, env, &pad, call);
@@ -2938,6 +2983,179 @@ impl<'g> Gen<'g> {
         self.leaf_return(term, env, &pad, call)
     }
 
+    /// If `term` is a call to the definition itself (or a variable that
+    /// stands for one) under `Succ`s and `Nat.add`s, with the other operands
+    /// not mentioning it: the next turn, after adding those operands to
+    /// `a$` (tail recursion modulo addition, [`SelfCall::add`]). Addition
+    /// is associative and commutative, so `x + f(..)` is `f(..)` with `x`
+    /// added to the sum, wherever the call is among the operands.
+    fn tail_add(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        pad: &str,
+        call: &SelfCall,
+    ) -> Fallible<Option<String>> {
+        // The other operands, and the call.
+        let mut addends: Vec<&Term> = Vec::new();
+        let mut ones = 0u64;
+        let mut inner = term.strip_loc();
+        loop {
+            if let Term::Ctor(d, 1, succ) = inner
+                && Some(*d) == self.nat
+            {
+                ones += 1;
+                inner = succ[0].strip_loc();
+                continue;
+            }
+            let (head, args) = inner.spine();
+            if let Term::Def(id) = head
+                && Some(*id) == self.nat_add
+                && let [left, right] = args.as_slice()
+            {
+                let in_left = self.self_call_under_add(left, env, call);
+                let in_right = self.self_call_under_add(right, env, call);
+                if in_left == in_right {
+                    return Ok(None);
+                }
+                let (operand, rest) = if in_left {
+                    (right, left)
+                } else {
+                    (left, right)
+                };
+                addends.push(operand);
+                inner = rest.strip_loc();
+                continue;
+            }
+            break;
+        }
+        if addends.is_empty() && ones == 0 {
+            return Ok(None);
+        }
+        let Some(passed) = self.hole_passed(inner, env, call)? else {
+            return Ok(None);
+        };
+        let mut out = String::new();
+        for addend in addends {
+            let _ = writeln!(out, "{pad}a$ += {};", self.expr(addend, env)?);
+        }
+        if ones > 0 {
+            let _ = writeln!(out, "{pad}a$ += {ones}n;");
+        }
+        call.add_used.set(true);
+        call.used.set(true);
+        out.push_str(&Self::next_turn(pad, &passed));
+        Ok(Some(out))
+    }
+
+    /// Whether `term` is a call to the definition itself, or a variable
+    /// that stands for one, under `Succ`s and `Nat.add`s ([`Gen::tail_add`]).
+    /// (Nothing is generated.)
+    fn self_call_under_add(&self, term: &Term, env: &[bool], call: &SelfCall) -> bool {
+        let term = term.strip_loc();
+        if let Term::Ctor(d, 1, succ) = term
+            && Some(*d) == self.nat
+        {
+            return self.self_call_under_add(&succ[0], env, call);
+        }
+        if let Term::Var(ix) = term {
+            return self.hole_at(env.len() - 1 - ix).is_some();
+        }
+        let (head, args) = term.spine();
+        match head {
+            Term::Def(id) if self.is_self(call, *id, &args) => true,
+            Term::Def(id) if Some(*id) == self.nat_add && args.len() == 2 => {
+                self.self_call_under_add(args[0], env, call)
+                    != self.self_call_under_add(args[1], env, call)
+            }
+            _ => false,
+        }
+    }
+
+    /// If `term` is `List.append xs rest`, where `rest` is a call to the
+    /// definition itself (or a variable that stands for one): copies of
+    /// `xs`'s cells linked onto the chain, then the next turn, whose result
+    /// goes after them (tail recursion modulo append: `List.concat`'s
+    /// `List.append xs (List.concat xss)`). `List.append` copies its first
+    /// argument and shares its second, as this does.
+    fn tail_append(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        pad: &str,
+        call: &SelfCall,
+    ) -> Fallible<Option<String>> {
+        let (head, args) = term.spine();
+        let Term::Def(id) = head else {
+            return Ok(None);
+        };
+        if Some(*id) != self.list_append || args.len() != self.g.def(*id).arity || args.len() < 2 {
+            return Ok(None);
+        }
+        let (front, rest) = (args[args.len() - 2], args[args.len() - 1]);
+        let Some(list) = self.g.registry.data(Builtin::List) else {
+            return Ok(None);
+        };
+        let Some(cons) = self
+            .g
+            .data(list)
+            .ctors
+            .iter()
+            .position(|c| &*c.name == "Cons")
+        else {
+            return Ok(None);
+        };
+        if self.hole_passed_shape(rest, env, call).is_none() {
+            return Ok(None);
+        }
+        // `xs` is computed first, as the call's first argument was.
+        let front = self.expr(front, env)?;
+        let passed = self
+            .hole_passed(rest, env, call)?
+            .expect("`hole_passed_shape` found a call");
+        let tag = js_string_literal(&self.g.data(list).ctors[cons].name);
+        let head_key = field_key_at(self.g, list, cons, 0);
+        let tail_key = field_key_at(self.g, list, cons, 1);
+        let n = call.fresh();
+        let mut out = String::new();
+        let _ = writeln!(
+            out,
+            "{pad}for (let p{n}$ = {front}; p{n}$.tag === {tag}; p{n}$ = p{n}${}) {{",
+            member(&tail_key)
+        );
+        let _ = writeln!(
+            out,
+            "{pad}  const c{n}$ = {{ tag: {tag}, {}: p{n}${}, {}: null }};",
+            ts_key(&head_key),
+            member(&head_key),
+            ts_key(&tail_key)
+        );
+        let _ = writeln!(
+            out,
+            "{pad}  if (l$ === null) {{ h$ = c{n}$; }} else {{ l$[k$] = c{n}$; }}"
+        );
+        let _ = writeln!(
+            out,
+            "{pad}  l$ = c{n}$; k$ = {};",
+            js_string_literal(&tail_key)
+        );
+        let _ = writeln!(out, "{pad}}}");
+        call.cons_used.set(true);
+        call.used.set(true);
+        out.push_str(&Self::next_turn(pad, &passed));
+        Ok(Some(out))
+    }
+
+    /// Whether `term` is a call to the definition itself, or a variable
+    /// that stands for one. (Nothing is generated.)
+    fn hole_passed_shape(&self, term: &Term, env: &[bool], call: &SelfCall) -> Option<()> {
+        if let Term::Var(ix) = term.strip_loc() {
+            return self.hole_at(env.len() - 1 - ix).map(|_| ());
+        }
+        let (head, args) = term.spine();
+        matches!(head, Term::Def(id) if self.is_self(call, *id, &args)).then_some(())
+    }
+
     /// `term`, a leaf of a loop that isn't another turn, is its result. If
     /// the loop is building a chain of cells, it's the rest of the chain.
     fn leaf_return(
@@ -2952,6 +3170,10 @@ impl<'g> Gen<'g> {
             format!(
                 "{pad}{{ const r$ = {value}; if (l$ === null) return r$; l$[k$] = r$; return h$; }}\n"
             )
+        } else if call.add && value == "0n" {
+            format!("{pad}return a$;\n")
+        } else if call.add {
+            format!("{pad}return a$ + {value};\n")
         } else {
             format!("{pad}return {value};\n")
         })

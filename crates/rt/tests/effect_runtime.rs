@@ -16,7 +16,7 @@ use stitchwort_rt::effect::EffectCounts;
 use stitchwort_rt::ir::{Global, GlobalKind};
 use stitchwort_rt::value::Value;
 use stitchwort_rt::{
-    Limits, Machine, Outcome, Policy, Program, RouteCounts, lower_global, lower_main,
+    Limits, Machine, MainRow, Outcome, Policy, Program, RouteCounts, lower_global, lower_main,
     run_main_counting,
 };
 use stitchwort_syntax::parse_expression;
@@ -523,7 +523,7 @@ fn run_lines_agree_with_the_reference_evaluator() {
                     .ctor(stitchwort_core::registry::Builtin::MkPair)
                     .expect("pairs");
                 let entry = Term::Ctor(pair, 0, vec![Rc::new(term), Rc::new(expected)]);
-                let program = lower_main(g, session.elab.limits, &entry)
+                let program = lower_main(g, session.elab.limits, &entry, MainRow::Io)
                     .unwrap_or_else(|e| panic!("lowering `{source}`: {e:?}"));
                 let mut m = Machine::new(&program, Limits::from_core(session.elab.limits));
                 let got = m.entry().unwrap_or_else(|e| panic!("`{source}`: {e}"));
@@ -558,8 +558,13 @@ fn partial_forwarding() -> Program {
         .load(name, &text)
         .unwrap_or_else(|e| panic!("{name} doesn't check: {e:?}"));
     let main = session.main().expect("a `main`");
-    lower_main(&session.elab.globals, session.elab.limits, main.term())
-        .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"))
+    lower_main(
+        &session.elab.globals,
+        session.elab.limits,
+        main.term(),
+        main.row,
+    )
+    .unwrap_or_else(|e| panic!("lowering {name}: {e:?}"))
 }
 
 /// What `partial-forwarding.sw` prints last for `depth`: each level adds 1
@@ -704,8 +709,8 @@ fn io_operations_cross_translations_on_their_way_to_the_runner() {
         let map_sig = def_named(&session, "Effect.mapSig");
         let sig_swap = def_named(&session, "Effect.sigSwap");
         let wrap = |d: Term| Term::app(Term::app(implicit(map_sig, 5), implicit(sig_swap, 4)), d);
-        let plain = lower_main(g, limits, main.term()).expect("lowering main");
-        let wrapped = lower_main(g, limits, &wrap(wrap(main.term().clone())))
+        let plain = lower_main(g, limits, main.term(), main.row).expect("lowering main");
+        let wrapped = lower_main(g, limits, &wrap(wrap(main.term().clone())), main.row)
             .expect("lowering the wrapped main");
         let run = |program: &Program, input: &str| {
             let mut output = Vec::new();

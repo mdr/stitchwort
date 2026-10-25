@@ -48,10 +48,21 @@ theorem List.scanLeftNil: List.scanLeft Nil 5 (acc x => acc + x) = [5] := rfl
 
 theorem List.scanLeftSums: List.scanLeft [1, 2, 3] 0 (acc x => acc + x) = [0, 1, 3, 6] := rfl
 
--- Right fold. `List.foldRight [x, y] initial f` is `f x (f y initial)`.
-def List.foldRight: List a -> (initial: b) -> (f: a -> b -> b) -> b
-  | Nil, initial, f => initial
-  | Cons x xs, initial, f => f x (List.foldRight xs initial f)
+-- Right fold. `List.foldRight [x, y] initial f` is `f x (f y initial)`. Runs
+-- as a loop over the reversed list, so it is stack-safe on long lists.
+def List.foldRight (xs: List a) (initial: b) (f: a -> b -> b): b := List.foldLeft (List.reverseOnto xs Nil) initial (acc x => f x acc)
+
+theorem List.foldLeftReverseOnto: (xs: List a) -> (acc: List a) -> (z: b) -> (f: a -> b -> b) ->
+    List.foldLeft (List.reverseOnto xs acc) z (r x => f x r)
+      = List.foldLeft acc (List.foldLeft (List.reverseOnto xs Nil) z (r x => f x r)) (r x => f x r)
+  | Nil, acc, z, f => rfl
+  | Cons x xs, acc, z, f =>
+    Eq.trans (List.foldLeftReverseOnto xs (Cons x acc) z f)
+      (Eq.sym (Eq.cong (r => List.foldLeft acc r (r2 y => f y r2)) (List.foldLeftReverseOnto xs (Cons x Nil) z f)))
+
+-- The step of the right fold, which the loop form hides.
+theorem List.foldRightCons (xs: List a) (x: a) (z: b) (f: a -> b -> b): List.foldRight (Cons x xs) z f = f x (List.foldRight xs z f) :=
+  List.foldLeftReverseOnto xs (Cons x Nil) z f
 
 -- The sum of the elements, of any type with `Add` (docs/proposals/interfaces.md
 -- §7.7): `[1, 2, 3].sum` is `6`, `[3, -5, 1].sum` is `-1`.
@@ -415,10 +426,10 @@ theorem List.transposeTwice (k: Nat): (rows: List (List a)) -> List.AllLength (S
 def List.splitBy (xs: List a) (p: a -> Bool): List (List a) := List.finishGroups (List.splitGroups xs p)
 
 -- Reads the list from the right: the group still open at the front, and the
--- groups finished after it.
-def List.splitGroups: List a -> (p: a -> Bool) -> Pair (List a) (List (List a))
-  | Nil, p => MkPair Nil Nil
-  | Cons x xs, p => List.splitStep x (p x) (List.splitGroups xs p)
+-- groups finished after it. A right fold, so it runs as a loop over the
+-- reversed list (stack-safe on long lists); `List.splitGroupsCons` is its step.
+def List.splitGroups (xs: List a) (p: a -> Bool): Pair (List a) (List (List a)) :=
+  List.foldRight xs (MkPair Nil Nil) (x st => List.splitStep x (p x) st)
 
 -- Adds the element `x` in front: a separator (`True`) closes the open group,
 -- anything else joins it.
@@ -428,6 +439,11 @@ def List.splitStep (x: a): Bool -> Pair (List a) (List (List a)) -> Pair (List a
 
 def List.finishGroups: Pair (List a) (List (List a)) -> List (List a)
   | MkPair cur done => List.closeGroup cur done
+
+-- The step of `List.splitGroups`, which the loop form hides.
+theorem List.splitGroupsCons (xs: List a) (x: a) (p: a -> Bool):
+    List.splitGroups (Cons x xs) p = List.splitStep x (p x) (List.splitGroups xs p) :=
+  List.foldRightCons xs x (MkPair Nil Nil) (y st => List.splitStep y (p y) st)
 
 -- Adds a group to the finished ones, unless it is empty.
 def List.closeGroup: List a -> List (List a) -> List (List a)
@@ -451,9 +467,10 @@ theorem List.splitGroupsTotal: (xs: List a) -> (p: a -> Bool) ->
     List.splitTotal (List.splitGroups xs p) + List.occurrences xs p = List.length xs
   | Nil, p => rfl
   | Cons x xs, p =>
-    Eq.trans (Eq.sym (Nat.addAssoc (List.splitTotal (List.splitStep x (p x) (List.splitGroups xs p))) (Bool.toNat (p x)) (List.occurrences xs p)))
-      (Eq.trans (Eq.cong (t => t + List.occurrences xs p) (List.splitStepTotal x (p x) (List.splitGroups xs p)))
-        (Eq.cong Succ (List.splitGroupsTotal xs p)))
+    rewrite List.splitGroupsCons xs x p in
+      Eq.trans (Eq.sym (Nat.addAssoc (List.splitTotal (List.splitStep x (p x) (List.splitGroups xs p))) (Bool.toNat (p x)) (List.occurrences xs p)))
+        (Eq.trans (Eq.cong (t => t + List.occurrences xs p) (List.splitStepTotal x (p x) (List.splitGroups xs p)))
+          (Eq.cong Succ (List.splitGroupsTotal xs p)))
 
 theorem List.finishGroupsSum: (st: Pair (List a) (List (List a))) ->
     List.sumBy (List.finishGroups st) List.length = List.splitTotal st
@@ -497,7 +514,8 @@ theorem List.splitStepOk (p: a -> Bool) (x: a): (b: Bool) -> p x = b -> (st: Pai
 
 theorem List.splitGroupsOk: (xs: List a) -> (p: a -> Bool) -> List.SplitOk p (List.splitGroups xs p)
   | Nil, p => Both rfl Trivial
-  | Cons x xs, p => List.splitStepOk p x (p x) rfl (List.splitGroups xs p) (List.splitGroupsOk xs p)
+  | Cons x xs, p =>
+    rewrite List.splitGroupsCons xs x p in List.splitStepOk p x (p x) rfl (List.splitGroups xs p) (List.splitGroupsOk xs p)
 
 theorem List.finishGroupsOk (p: a -> Bool): (st: Pair (List a) (List (List a))) -> List.SplitOk p st -> List.Groups p (List.finishGroups st)
   | MkPair cur done, Both hc hd => List.closeGroupGroups p cur done hc hd
@@ -525,7 +543,8 @@ theorem List.splitStepKeeps (p: a -> Bool) (x: a) (xs: List a): (b: Bool) -> p x
 
 theorem List.splitGroupsKeeps: (xs: List a) -> (p: a -> Bool) -> List.SplitKeeps p xs (List.splitGroups xs p)
   | Nil, p => rfl
-  | Cons x xs, p => List.splitStepKeeps p x xs (p x) rfl (List.splitGroups xs p) (List.splitGroupsKeeps xs p)
+  | Cons x xs, p =>
+    rewrite List.splitGroupsCons xs x p in List.splitStepKeeps p x xs (p x) rfl (List.splitGroups xs p) (List.splitGroupsKeeps xs p)
 
 theorem List.finishGroupsConcat: (st: Pair (List a) (List (List a))) ->
     List.concat (List.finishGroups st) = List.append (Pair.fst st) (List.concat (Pair.snd st))
@@ -541,13 +560,13 @@ theorem List.splitGroupsSeparators: (ys: List a) -> (p: a -> Bool) -> List.all y
   | Nil, p, h => rfl
   | Cons y ys, p, h =>
     match e: p y with
-      | True => rewrite List.splitGroupsSeparators ys p h
+      | True => rewrite List.splitGroupsCons ys y p, e, List.splitGroupsSeparators ys p h
       | False => Void.exfalso (Bool.falseNotTrue h)
 
 theorem List.splitGroupsAppendSeparators (ys: List a) (p: a -> Bool) (h: List.all ys p = True): (xs: List a) ->
     List.splitGroups (List.append xs ys) p = List.splitGroups xs p
   | Nil => List.splitGroupsSeparators ys p h
-  | Cons x xs => rewrite List.splitGroupsAppendSeparators ys p h xs
+  | Cons x xs => rewrite List.splitGroupsCons (List.append xs ys) x p, List.splitGroupsCons xs x p, List.splitGroupsAppendSeparators ys p h xs
 
 -- Separators on the end change no group: `[1, 0, 0]` splits as `[1]` does.
 theorem List.splitByAppendSeparators (xs: List a) (p: a -> Bool) (ys: List a) (h: List.all ys p = True):
@@ -1182,27 +1201,18 @@ theorem List.distinctMapFilterExample: List.Distinct (List.map (List.filter [1, 
 -- `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
 -- The function takes the state and an element and gives the next state and
 -- the mapped element; the result is the final state and the mapped list.
+-- A loop: `done` holds the mapped elements so far, newest first.
 @[noReceiver]
-def List.mapAccumLeftGo (f: s -> a -> Pair s b) (initial: s): List a -> Pair s (List b)
-  | Nil => MkPair initial Nil
-  | Cons x xs => List.mapAccumLeftStep f xs (f initial x)
+def List.mapAccumLeftGo (f: s -> a -> Pair s b) (state: s) (done: List b): List a -> Pair s (List b)
+  | Nil => MkPair state (List.reverseOnto done Nil)
+  | Cons x xs =>
+    let next := f state x
+    List.mapAccumLeftGo f (Pair.fst next) (Cons (Pair.snd next) done) xs
 
-@[noReceiver]
-def List.mapAccumLeftStep (f: s -> a -> Pair s b) (xs: List a): Pair s b -> Pair s (List b)
-  | MkPair state y => List.mapAccumLeftCons y (List.mapAccumLeftGo f state xs)
-
-def List.mapAccumLeftCons (y: b): Pair s (List b) -> Pair s (List b)
-  | MkPair state ys => MkPair state (Cons y ys)
-
-def List.mapAccumLeft (xs: List a) (initial: s) (f: s -> a -> Pair s b): Pair s (List b) := List.mapAccumLeftGo f initial xs
+def List.mapAccumLeft (xs: List a) (initial: s) (f: s -> a -> Pair s b): Pair s (List b) := List.mapAccumLeftGo f initial Nil xs
 
 -- Splits a list of pairs into the list of firsts and the list of seconds.
-def List.unzipCons (x: a) (y: b): Pair (List a) (List b) -> Pair (List a) (List b)
-  | MkPair xs ys => MkPair (Cons x xs) (Cons y ys)
-
-def List.unzip: List (Pair a b) -> Pair (List a) (List b)
-  | Nil => MkPair Nil Nil
-  | Cons (MkPair x y) ps => List.unzipCons x y (List.unzip ps)
+def List.unzip (ps: List (Pair a b)): Pair (List a) (List b) := MkPair (List.map ps Pair.fst) (List.map ps Pair.snd)
 
 -- Dropping elements never makes a list longer.
 theorem List.lengthDropLe: (xs: List a) -> (n: Nat) -> List.length (List.drop xs n) <= List.length xs
@@ -1293,14 +1303,8 @@ def List.dropWhile (xs: List a) (p: a -> Bool): List a :=
     | Nil => Nil
     | Cons x ys => if p x then List.dropWhile ys p else Cons x ys
 
-def List.spanCons (x: a): Pair (List a) (List a) -> Pair (List a) (List a)
-  | MkPair front back => MkPair (Cons x front) back
-
--- `List.takeWhile` and `List.dropWhile` together, in one pass.
-def List.span (xs: List a) (p: a -> Bool): Pair (List a) (List a) :=
-  match xs with
-    | Nil => MkPair Nil Nil
-    | Cons x ys => if p x then List.spanCons x (List.span ys p) else MkPair Nil (Cons x ys)
+-- `List.takeWhile` and `List.dropWhile` together.
+def List.span (xs: List a) (p: a -> Bool): Pair (List a) (List a) := MkPair (List.takeWhile xs p) (List.dropWhile xs p)
 
 -- The first `n` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
 def List.splitAt (xs: List a) (n: Nat): Pair (List a) (List a) := MkPair (List.take xs n) (List.drop xs n)

@@ -896,7 +896,9 @@ theorem List.splitGroupsOpen (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hs
     Pair.fst (List.splitGroups (List.map (List.rangeFrom m s) f) p) = List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f
   | Zero, s, e => rewrite List.runStop sep 0 s (rewrite <- Nat.addZero s in e)
   | Succ m, s, e =>
-    calc Pair.fst (List.splitStep (f s) (p (f s)) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))
+    calc Pair.fst (List.splitGroups (List.map (List.rangeFrom (Succ m) s) f) p)
+      _ = Pair.fst (List.splitStep (f s) (p (f s)) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))
+        := Eq.cong Pair.fst (List.splitGroupsCons (List.map (List.rangeFrom m (Succ s)) f) (f s) p)
       _ = Pair.fst (List.splitStep (f s) (sep s) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p)) := rewrite hsep s
       _ = List.map (List.rangeFrom (Nat.firstFrom sep (Succ (Succ m)) s - s) s) f :=
         match h: sep s with
@@ -930,7 +932,9 @@ theorem List.splitGroupsDone (p: a -> Bool) (f: Nat -> a) (sep: Nat -> Bool) (hs
       = List.sumBy (List.rangeFrom m s) (c => Nat.keepIf (g (List.runAt f sep (s + m) (Succ c))) (!(sep (Succ c)) && sep c))
   | Zero, s, e => rfl
   | Succ m, s, e =>
-    calc List.sumBy (Pair.snd (List.splitStep (f s) (p (f s)) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))) g
+    calc List.sumBy (Pair.snd (List.splitGroups (List.map (List.rangeFrom (Succ m) s) f) p)) g
+      _ = List.sumBy (Pair.snd (List.splitStep (f s) (p (f s)) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))) g
+        := Eq.cong (st => List.sumBy (Pair.snd st) g) (List.splitGroupsCons (List.map (List.rangeFrom m (Succ s)) f) (f s) p)
       _ = List.sumBy (Pair.snd (List.splitStep (f s) (sep s) (List.splitGroups (List.map (List.rangeFrom m (Succ s)) f) p))) g := rewrite hsep s
       _ = Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ s))) (!(sep (Succ s)) && sep s)
           + List.sumBy (List.rangeFrom m (Succ s)) (c => Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ c))) (!(sep (Succ c)) && sep c)) :=

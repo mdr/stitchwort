@@ -111,6 +111,8 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FZero,
     Builtin::FSucc,
     Builtin::FinOfNatLt,
+    Builtin::Fail,
+    Builtin::FailStop,
 ];
 
 macro_rules! builtins {
@@ -387,6 +389,11 @@ builtins! {
     ReadLine = "%readLine": Ctor(Builtin::Io),
     ReadAll = "%readAll": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
+    // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
+    // runners perform `stop` themselves, as they perform `print`
+    // (docs/proposals/partial-stage-2.md)
+    Fail = "Fail": Data,
+    FailStop = "%stop": Ctor(Builtin::Fail),
 }
 
 /// The built-in data types with a JavaScript boundary form of their own

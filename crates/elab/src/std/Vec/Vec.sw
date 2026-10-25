@@ -79,11 +79,14 @@ def Vec.fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
 
 def Vec.fromList (xs: List a): Vec a (List.length xs) := Vec.fromListN (List.length xs) xs rfl
 
--- The list as a vector of length n, or `None` if its length isn't n.
-def Vec.ofList: (n: Nat) -> List a -> Option (Vec a n)
-  | Zero, Nil => Some VNil
-  | Succ k, Cons x xs => Option.map (Vec.ofList k xs) (rest => VCons x rest)
-  | _, _ => None
+-- The list as a vector of length n, given whether its length is n.
+def Vec.ofListDec (n: Nat) (xs: List a): Decidable (List.length xs = n) -> Option (Vec a n)
+  | Yes ok => Some (Vec.fromListN n xs ok)
+  | No r => None
+
+-- The list as a vector of length n, or `None` if its length isn't n. Two
+-- loops, `List.length` then `Vec.fromListN`, so stack-safe on long lists.
+def Vec.ofList (n: Nat) (xs: List a): Option (Vec a n) := Vec.ofListDec n xs (Nat.decEq (List.length xs) n)
 
 -- `f` of every element, or `None` if any is `None`: parsing a vector
 -- of lines into a vector of rows of a fixed width.
@@ -152,14 +155,13 @@ theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k): (m: Option (Vec a k)) ->
     let e := Eq.cong (.getOrElse (VCons x w)) h
     Both (Eq.cong Vec.head e) (Eq.cong Some (Eq.cong Vec.tail e))
 
+theorem Vec.ofListDecToList (n: Nat) (xs: List a) (v: Vec a n): (d: Decidable (List.length xs = n)) -> Vec.ofListDec n xs d = Some v -> Vec.toList v = xs
+  | Yes ok, h => Eq.trans (Eq.cong Vec.toList (Eq.sym (Eq.cong (.getOrElse (Vec.fromListN n xs ok)) h))) (Vec.toListFromListN n xs ok)
+  | No r, h => Void.exfalso (Option.noneNotSome v h)
+
 -- What `ofList` accepts is the list it was given.
-theorem Vec.ofListToList: (n: Nat) -> (xs: List a) -> (v: Vec a n) -> Vec.ofList n xs = Some v -> Vec.toList v = xs
-  | Zero, Nil, VNil, h => rfl
-  | Succ k, Cons x xs, VCons y ys, h =>
-    match Vec.ofListCons x y ys (Vec.ofList k xs) h with
-      | Both xy rest => Eq.trans (Eq.cong (z => Cons z (Vec.toList ys)) (Eq.sym xy)) (Eq.cong (Cons x) (Vec.ofListToList k xs ys rest))
-  | Zero, Cons x xs, v, h => Void.exfalso (Option.noneNotSome v h)
-  | Succ k, Nil, v, h => Void.exfalso (Option.noneNotSome v h)
+theorem Vec.ofListToList (n: Nat) (xs: List a) (v: Vec a n) (h: Vec.ofList n xs = Some v): Vec.toList v = xs :=
+  Vec.ofListDecToList n xs v (Nat.decEq (List.length xs) n) h
 
 theorem Vec.toListReplicate (x: a): (n: Nat) -> Vec.toList (Vec.replicate n x) = List.replicate n x
   | Zero => rfl

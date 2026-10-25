@@ -39,7 +39,7 @@ theorem cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y
 -- A theorem's type must be a proposition
 theorem zeroPlus (n: Nat): 0 + n = n := rfl
 
--- A test: a `Bool` (or a decidable proposition, as `if` takes) that `stitchwort test` checks is `True`
+-- A test: a runtime check, run by `stitchwort test`, that a `Bool` (or a decidable proposition, as `if` takes) is `True`; it may call `Partial` code
 test "lengths add up" := Nat.leq (length (List.append [1] [2, 3])) 3
 
 -- Exported to JavaScript by `stitchwort build --js`
@@ -66,7 +66,7 @@ The comparison can be the last line of a block of `let`s, or an operand of `&&`:
       in: part1 2 == 4  (day1.sw:14:31)
 ```
 
-A false operand that isn't a comparison (`isSorted xs`) is named with `in:` alone. The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test never pays for it, and nothing here changes whether a test passes: the kernel found `False` first. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that is neither (`List.all p xs`, `a || b`, `not (a == b)`) reports `evaluated to False`.
+A false operand that isn't a comparison (`isSorted xs`) is named with `in:` alone. The sides are evaluated again only when the test fails (also when the failure comes from the cache, which keeps just the outcome), so a passing test never pays for it, and nothing here changes whether a test passes: the run found `False` first. A value is cut off with `…` after about 200 characters, and one too large to quote is shown as `… (too large to show)`. A test that is neither (`List.all p xs`, `a || b`, `not (a == b)`) reports `evaluated to False`.
 
 Definitions may be named in either case: `length`, or `Not` for a function returning a type.
 
@@ -665,7 +665,7 @@ def parse (t: Text): Result Int Text := toResult (() => turn t)
 - `Text.toNatOrFail` and `Text.toIntOrFail` trim the text, read it, and otherwise fail with `expected a whole number, got 't'`, quoting the text as given. Messages start in lowercase, say what was expected and then what was found, and quote the found text in single quotes, which shows stray spaces.
 - On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult o err`. A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
 - The operation is `Fail.stop: Text -> {Fail} Empty`, for handlers of your own; `fail msg` is `Empty.absurd (stop msg)`.
-- **`main` may leave `Fail` unhandled:** `def main(): {IO, Fail} () := …` (or `{Fail} ()`) runs under `stitchwort run`, `run --reference`, `run --js` and in the playground. If it fails, what it printed before stays, `error: <message>` goes to standard error (the playground shows it below the output), and the exit status is 1. Runtime errors (`E-IO`, `E-RESOURCE`) exit with 2. `main` can't be both `Fail` and `Partial` yet (`examples/accept/main-fail.sw`).
+- **`main` may leave `Fail` unhandled:** `def main(): {IO, Fail} () := …` (or `{Fail} ()`, or `{IO, Fail, Partial} ()`) runs under `stitchwort run`, `run --reference`, `run --js` and in the playground. The runner performs `Fail.stop` itself, as it performs `IO.print`: what was printed before stays, `error: <message>` goes to standard error (the playground shows it below the output), and the exit status is 1. Runtime errors (`E-IO`, `E-RESOURCE`) exit with 2. A handler still can't go around partial code, so only `main` can leave a partial computation's `Fail` unhandled (`examples/accept/main-fail.sw`, `main-fail-partial.sw`).
 - Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult o msg`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`. About any computation, each by `match reify` ([Proofs about effectful code](#proofs-about-effectful-code)): `Fail.toResultThen t k` (`toResult (() => k (t ())) = Result.flatMap (toResult t) (x => toResult (() => k x))`), `Fail.toOptionThen` (the same with `toOption` and `Option.flatMap`), `Fail.toOptionToResult t` (`toOption t = (toResult t).toOption`), `Abort.toOptionThen`, and `Fail.toResultMap f xs` (`toResult (() => xs.map f) = Result.traverse xs (x => toResult (() => f x))`).
 
 ### `Each`
@@ -926,8 +926,8 @@ def loop: Nat -> {Partial} Nat
   passed to a helper with a fixed row (`E-PARTIAL-CALLBACK`) or returned
   (`E-PARTIAL-ESCAPE`); its type parameters come first and every recursive
   call passes them on unchanged (`E-PARTIAL-NONUNIFORM`).
-- Only `stitchwort run` (on either runtime, or with `--js`) and the playground run
-  partial code. Tests can't;
+- Only `stitchwort run` (on either runtime, or with `--js`), `stitchwort test` and the playground run
+  partial code. A test may call partial code, with nothing extra to write: it's a runtime check, and `stitchwort test` runs it as `stitchwort run` runs a partial `main`, with no tick limit, so a test that never finishes is a bug for whoever ran it to stop (D1183);
   the checker never does.
 
 ## Expressions
