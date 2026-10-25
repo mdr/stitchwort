@@ -2992,14 +2992,16 @@
     {
       "id": 485,
       "title": "Native N0: Cranelift spike behind a feature; counters, tail calls, deep recursion, compile time, binary size, macOS signing/hardened JIT (D1250, D1251)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "03379318"
+      ]
     },
     {
       "id": 486,
@@ -3082,14 +3084,16 @@
     {
       "id": 492,
       "title": "Native: N1 coverage census (opcode use, whole-island fit) over benchmarks, AoC, rogue",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "dd7963bf"
+      ]
     },
     {
       "id": 493,
