@@ -434,7 +434,7 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
     let visits = |callback: &str, depth: usize| {
         let mut nested = "xs".to_string();
         for _ in 0..depth {
-            nested = format!("List.map {callback} ({nested})");
+            nested = format!("List.map ({nested}) {callback}");
         }
         let source = format!(
             "import Std (List, Fail)\n\
