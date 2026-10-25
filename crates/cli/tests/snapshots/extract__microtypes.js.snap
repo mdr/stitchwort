@@ -778,17 +778,24 @@ const $Std$dBool$difThenElse = (v1, v2, v3) => {
 };
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlength = (v1) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return 0n;
+  let s1 = v1;
+  let a$ = 0n;
+  for (;;) {
+    const v1 = s1;
+    switch (v1.tag) {
+      case "Nil": {
+        return a$;
+      }
+      case "Cons": {
+        const v2 = v1.head;
+        const v3 = v1.tail;
+        a$ += 1n;
+        s1 = v3;
+        continue;
+      }
     }
-    case "Cons": {
-      const v2 = v1.head;
-      const v3 = v1.tail;
-      return ($Std$dList$dlength(v3) + 1n);
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {

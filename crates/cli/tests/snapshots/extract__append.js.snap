@@ -746,17 +746,24 @@ const $Std$dList$dappend = (v1, v2) => {
 };
 const $Main$dappendNats = (v0, v1) => $Std$dList$dappend(v0, v1);
 const $Main$dtotal = (v0) => {
-  switch (v0.tag) {
-    case "Nil": {
-      return 0n;
+  let s0 = v0;
+  let a$ = 0n;
+  for (;;) {
+    const v0 = s0;
+    switch (v0.tag) {
+      case "Nil": {
+        return a$;
+      }
+      case "Cons": {
+        const v1 = v0.head;
+        const v2 = v0.tail;
+        a$ += v1;
+        s0 = v2;
+        continue;
+      }
     }
-    case "Cons": {
-      const v1 = v0.head;
-      const v2 = v0.tail;
-      return $Std$dNat$dadd(v1, $Main$dtotal(v2));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 
 function $$appendNats(arg0, arg1) {

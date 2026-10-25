@@ -830,6 +830,7 @@ const $Main$dten = $Main$disEven(10n);
 const $Main$dtenIsEven = (v0) => $Main$dten;
 const $Main$dinner = (v0, v1) => {
   let s0 = v0, s1 = v1;
+  let a$ = 0n;
   for (;;) {
     const v0 = s0, v1 = s1;
     switch (v0.tag) {
@@ -837,7 +838,7 @@ const $Main$dinner = (v0, v1) => {
         const v2 = v1;
         switch (v2.tag) {
           case "Nil": {
-            return 0n;
+            return a$;
           }
           case "Cons": {
             const v3 = v2.head;
@@ -852,7 +853,10 @@ const $Main$dinner = (v0, v1) => {
       case "Cons": {
         const v2 = v0.head;
         const v3 = v0.tail;
-        return $Std$dNat$dadd(v2, $Main$dinner(v3, v1));
+        a$ += v2;
+        s0 = v3;
+        s1 = v1;
+        continue;
       }
     }
     throw new Error("unreachable");

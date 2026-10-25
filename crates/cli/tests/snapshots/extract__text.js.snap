@@ -976,17 +976,21 @@ const $Main$dcontains = (v0, v1) => $Std$dText$dcontains(v1, v0);
 const $Main$dreverse = (v0) => $Std$dText$dfromList($Std$dList$dreverseOnto($Std$dText$dtoList(v0), { tag: "Nil" }));
 const $Main$dcountIn = (v0, v1) => {
   let s0 = v0, s1 = v1;
+  let a$ = 0n;
   for (;;) {
     const v0 = s0, v1 = s1;
     switch (v1.tag) {
       case "Nil": {
-        return 0n;
+        return a$;
       }
       case "Cons": {
         const v2 = v1.head;
         const v3 = v1.tail;
         if ($Std$dDecidable$dtoBool($Std$dChar$ddecEq(v0, v2)).tag === "True") {
-          return ($Main$dcountIn(v0, v3) + 1n);
+          a$ += 1n;
+          s0 = v0;
+          s1 = v3;
+          continue;
         } else {
           s0 = v0;
           s1 = v3;
