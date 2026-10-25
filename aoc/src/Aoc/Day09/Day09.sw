@@ -64,26 +64,26 @@ def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> larges
 def loopLines (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop tiles 1) (List.take tiles 1))
 
 -- `value` is from `one` to `other`, in either order.
-def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value <= other) || (other <= value && value <= one)
+def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value ≤ other) ∨ (other ≤ value ∧ value ≤ one)
 
 -- `value` is from `one` to `other`, `other` left out, in either order.
-def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one <= value && value < other) || (other <= value && value < one)
+def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value < other) ∨ (other ≤ value ∧ value < one)
 
 -- The tile is on the line (a red tile at either end, or a green tile).
 def isOnLine (tile: Tile) (line: (Tile, Tile)): Bool :=
-  isBetween line.fst.x line.snd.x tile.x && isBetween line.fst.y line.snd.y tile.y
+  isBetween line.fst.x line.snd.x tile.x ∧ isBetween line.fst.y line.snd.y tile.y
 
 -- The line runs down a column right of the tile, across the tile's row:
 -- from a row at or above it to a row below it, either way round. A tile
 -- that isn't on the loop is inside it when an odd number of lines do that
 -- (going right from it, a ray crosses the loop an odd number of times).
 def crossesRightOf (tile: Tile) (line: (Tile, Tile)): Bool :=
-  line.fst.x == line.snd.x && tile.x < line.fst.x && isBetweenHalfOpen line.fst.y line.snd.y tile.y
+  line.fst.x == line.snd.x ∧ tile.x < line.fst.x ∧ isBetweenHalfOpen line.fst.y line.snd.y tile.y
 
 -- The tile is red or green, if `lines` are the lines of the loop that touch
 -- its row (the others are no nearer to it than its row is).
 def isRedOrGreen (lines: List (Tile, Tile)) (tile: Tile): Bool :=
-  lines.any (isOnLine tile) || lines.count (crossesRightOf tile) % 2 == 1
+  lines.any (isOnLine tile) ∨ lines.count (crossesRightOf tile) % 2 == 1
 
 -- The line touches row y.
 def touchesRow (y: Nat) (line: (Tile, Tile)): Bool := isBetween line.fst.y line.snd.y y

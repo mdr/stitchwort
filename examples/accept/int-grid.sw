@@ -9,7 +9,7 @@ type Point = { x: Int, y: Int }
 
 def origin: Point := { x = 0, y = 0 }
 
-def move (p: Point): Move -> Point
+def move (p: Point): Move → Point
   | North => { p | y = p.y + 1 }
   | South => { p | y = p.y - 1 }
   | East => { p | x = p.x + 1 }
@@ -45,6 +45,6 @@ test "(-1, -1) is the far corner" := (cell { x = -1, y = -1 }).row == 4
 
 -- The same remainder as an `Int`, for the Euclidean `%`: never negative,
 -- and below the size of the board.
-theorem colNonneg (x: Int): 0 <= x % 10 := Int.modNonneg x 10
+theorem colNonneg (x: Int): 0 ≤ x % 10 := Int.modNonneg x 10
 
 theorem colSmall (x: Int): x % 10 < 10 := Int.modLtAbs x 10

@@ -4,21 +4,21 @@
 
 import Std (Nat)
 
-def fstOf: Pair a b -> a
+def fstOf: Pair a b → a
   | MkPair x y => x
 
-def sndOf: Pair a b -> b
+def sndOf: Pair a b → b
   | MkPair x y => y
 
-def eqNats: List Nat -> List Nat -> Bool
+def eqNats: List Nat → List Nat → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
   | _, _ => False
 
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
-def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
+def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
   handle prog() with
     | return x => MkPair Nil x
     | say n, k =>

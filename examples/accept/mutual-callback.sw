@@ -8,9 +8,9 @@
 -- soundness/mutual-callback-lambda.sw.
 import Std (IO, Nat)
 
-type Callback = { call: Nat -> Nat }
+type Callback = { call: Nat → Nat }
 
-def make: List Nat -> Callback
+def make: List Nat → Callback
   | Nil => { call = x => x }
   | Cons n rest => { call = x => weigh rest x + n }
 

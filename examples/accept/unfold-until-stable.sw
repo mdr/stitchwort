@@ -14,7 +14,7 @@
 import Std (Eq, IO, List, Nat, Option, Pair, Text, Void)
 
 -- A countdown: `None` at zero, else the number, going on from one less.
-def countdown: Nat -> Option (Pair Nat Nat)
+def countdown: Nat → Option (Pair Nat Nat)
   | Zero => None
   | Succ k => Some (MkPair (Succ k) k)
 
@@ -35,13 +35,13 @@ test "unfold, nothing to do" := countdownFrom 0 == []
 -- A tank that loses one unit at a time, until it is empty.
 def drain (water: Nat): Nat := water - 1
 
-theorem drainShrinks: (water: Nat) -> Not (drain water = water) -> drain water < water
+theorem drainShrinks: (water: Nat) → Not (drain water = water) → drain water < water
   | Zero, empty => Void.exfalso (empty rfl)
   | Succ left, empty => Nat.leRefl (Succ left)
 
 def settle (water: Nat): Nat := Nat.iterateUntilStable water drain (w => w) drainShrinks
 
-test "until stable" := settle 7 == 0 && settle 0 == 0
+test "until stable" := settle 7 == 0 ∧ settle 0 == 0
 
 -- What it returns is a fixed point, for every starting value.
 theorem settleIsStable (water: Nat): drain (settle water) = settle water :=

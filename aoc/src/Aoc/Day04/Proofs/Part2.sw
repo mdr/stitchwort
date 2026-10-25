@@ -33,7 +33,7 @@ theorem settleDone (rows: Vec (Vec Cell w) h) (done: Nat.leq (Succ (countRolls (
   rfl
 
 -- The loop ends where `fuel` rounds do, for any `fuel` of at least the rolls.
-theorem settleRounds (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height) (fuel: Nat) (enough: countRolls rows <= fuel):
+theorem settleRounds (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height) (fuel: Nat) (enough: countRolls rows ≤ fuel):
       Same (rowsCells (settleRows rows)) (rounds grid fuel (rowsCells rows))
     decreasing countRolls rows
 :=
@@ -46,7 +46,7 @@ theorem settleRounds (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height) 
   match e: Nat.leq (Succ (countRolls next)) (countRolls rows) with
     | True =>
       let more: fuel = Succ (fuel - 1) := omega
-      let stillEnough: countRolls next <= fuel - 1 := omega
+      let stillEnough: countRolls next ≤ fuel - 1 := omega
       rewrite settleMore rows e, more in
         r c =>
           Eq.trans (settleRounds grid next (fuel - 1) stillEnough [decreasing := e] r c)

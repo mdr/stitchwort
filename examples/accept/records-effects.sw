@@ -6,7 +6,7 @@ import Std (IO, Pair)
 
 type Pair2 = { a: Text, b: Text }
 
-def orNone: Option Text -> Text
+def orNone: Option Text → Text
   | None => "none"
   | Some t => t
 
@@ -22,7 +22,7 @@ def base(): {IO} Pair2 :=
 
 def updated(): {IO} Pair2 := { base() | a = next() }
 
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False

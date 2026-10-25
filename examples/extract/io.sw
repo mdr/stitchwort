@@ -13,17 +13,17 @@
 import Std (IO, List, Nat, Pair, Text)
 
 -- Echoes each line until the input runs out, reading at most `n` lines.
-def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
+def echoLine: Option Text → (() → {IO} ()) → {IO} ()
   | None, more => ()
   | Some l, more =>
     IO.print l
     more()
 
-def echo: Nat -> {IO} ()
+def echo: Nat → {IO} ()
   | 0 => ()
   | Succ n => echoLine (IO.readLine()) (u => echo n)
 
-def linesOf: List Nat -> List Text
+def linesOf: List Nat → List Text
   | Nil => Nil
   | Cons n ns => Cons (Nat.toText n) (linesOf ns)
 
@@ -31,17 +31,17 @@ def linesOf: List Nat -> List Text
 export def linesEchoed (ns: List Nat) (bound: Nat): Nat := List.length (Pair.fst (IO.simulate (linesOf ns) (u => echo bound)))
 
 -- Numbers each line ("1: 7", "2: 42", …).
-def numberLine (i: Nat): Option Text -> (() -> {IO} ()) -> {IO} ()
+def numberLine (i: Nat): Option Text → (() → {IO} ()) → {IO} ()
   | None, more => ()
   | Some l, more =>
     IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
-def numberFrom (i: Nat): Nat -> {IO} ()
+def numberFrom (i: Nat): Nat → {IO} ()
   | 0 => ()
   | Succ n => numberLine i (IO.readLine()) (u => numberFrom (i + 1) n)
 
-def totalLength: List Text -> Nat
+def totalLength: List Text → Nat
   | Nil => 0
   | Cons t ts => Text.length t + totalLength ts
 
@@ -49,7 +49,7 @@ def totalLength: List Text -> Nat
 export def numberedLength (ns: List Nat): Nat :=
   totalLength (Pair.fst (IO.simulate (linesOf ns) (u => numberFrom 1 (List.length ns))))
 
-def countdown: Nat -> {IO} ()
+def countdown: Nat → {IO} ()
   | 0 => IO.print "liftoff"
   | Succ n =>
     IO.print (Nat.toText (Succ n))
@@ -58,7 +58,7 @@ def countdown: Nat -> {IO} ()
 -- How many lines a countdown from `n` prints: `n + 1`.
 export def countdownLines (n: Nat): Nat := List.length (Pair.fst (IO.simulate [] (u => countdown n)))
 
-def printLines: Nat -> {IO} ()
+def printLines: Nat → {IO} ()
   | 0 => ()
   | Succ n =>
     IO.print "a\nb"

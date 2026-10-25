@@ -3,11 +3,11 @@
 
 import Std (Option)
 
-def sum3: (Option Nat, Option Nat, Option Nat) -> Nat
+def sum3: (Option Nat, Option Nat, Option Nat) → Nat
   | (Some x, Some y, Some z) => x + y + z
   | _ => 0
 
-def sum2: (Option Nat, Option Nat) -> Nat
+def sum2: (Option Nat, Option Nat) → Nat
   | (Some x, Some y) => x + y
   | (None, Some y) => y
   | _ => 0

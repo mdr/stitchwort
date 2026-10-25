@@ -54,13 +54,13 @@ def total (entries: List (Text, Nat)): Nat := entries.foldLeft 0 (acc (k, v) => 
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
-def nameOf: Person -> Text := { name, .. } => name
+def nameOf: Person → Text := { name, .. } => name
 
 def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := xs.map (((a, b), c) => a * b + c)
 
 -- A proof: `let (a, b) = p` on a variable refines `p` to `(a, b)`, so the
 -- goal computes.
-def swapPair: (a, b) -> (b, a)
+def swapPair: (a, b) → (b, a)
   | (x, y) => (y, x)
 
 theorem swapTwice (p: (Nat, Nat)): swapPair (swapPair p) = p :=
@@ -80,7 +80,7 @@ def sumTree (t: Tree): Nat :=
   let Node x kids := t
   x + sumForest kids
 
-def sumForest: Forest -> Nat
+def sumForest: Forest → Nat
   | FNil => 0
   | FCons t ts => sumTree t + sumForest ts
 
@@ -90,7 +90,7 @@ def sumTreeLifted (t: Tree): Nat :=
   let Node x kids := t
   x * one + sumForestLifted kids
 
-def sumForestLifted: Forest -> Nat
+def sumForestLifted: Forest → Nat
   | FNil => 0
   | FCons t ts => sumTreeLifted t + sumForestLifted ts
 
@@ -108,7 +108,7 @@ def swapLines(): {IO} Nat :=
   IO.print "done"
   n + m
 
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False

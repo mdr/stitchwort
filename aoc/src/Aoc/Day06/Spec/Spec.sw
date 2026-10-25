@@ -46,7 +46,7 @@ def blank (lines: List Text) (c: Nat): Bool := (column lines c).all Char.isSpace
 
 -- Columns lo .. hi - 1 hold one problem.
 def isProblem (lines: List Text) (lo: Nat) (hi: Nat): Bool :=
-  (lo == 0 || blank lines (lo - 1)) && (lo < hi && ((List.rangeFrom (hi - lo) lo).all (c => not (blank lines c)) && blank lines hi))
+  (lo == 0 ∨ blank lines (lo - 1)) ∧ (lo < hi ∧ ((List.rangeFrom (hi - lo) lo).all (c => not (blank lines c)) ∧ blank lines hi))
 
 -- The lines with numbers in them: all but the last.
 def numberLines (lines: List Text): List Text := lines.init
@@ -64,7 +64,7 @@ def columnNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
   (List.rangeFrom (hi - lo) lo).reverse.map (c => parseNumber ((numberLines lines).map (line => charAt line c)))
 
 -- The answers of all the problems, added up.
-def grandTotal (lines: List Text) (answer: Nat -> Nat -> Nat): Nat :=
+def grandTotal (lines: List Text) (answer: Nat → Nat → Nat): Nat :=
   List.range (gridWidth lines) |> .sumBy (lo =>
     List.range (gridWidth lines + 1) |> .sumBy (hi => if isProblem lines lo hi then answer lo hi else 0))
 

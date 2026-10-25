@@ -27,11 +27,11 @@ export def rename (n: Text) (p: Person): Person := { p | name = n }
 
 def older (p: Person) (q: Person): Person := if Nat.leq q.age p.age then p else q
 
-export def oldest: List Person -> Option Person
+export def oldest: List Person → Option Person
   | Nil => None
   | Cons p ps => Some (oldestFrom p ps)
 
-def oldestFrom (p: Person): List Person -> Person
+def oldestFrom (p: Person): List Person → Person
   | Nil => p
   | Cons q qs => oldestFrom (older p q) qs
 
@@ -50,7 +50,7 @@ export def unbox (b: Box (List Nat)): Box Nat := { value = List.length b.value }
 -- A proof field that depends on an earlier field, with a decision procedure.
 def IsSorted (xs: List Nat): Prop := isSorted xs = True
 
-def isSorted: List Nat -> Bool
+def isSorted: List Nat → Bool
   | Nil => True
   | Cons x Nil => True
   | Cons x (Cons y rest) => if Nat.leq x y then isSorted (Cons y rest) else False
@@ -63,7 +63,7 @@ type SortedList = { items: List Nat, ok: IsSorted items }
 export def sorted (xs: List Nat): Option SortedList := if h: IsSorted xs then Some ({ items = xs, ok = h }) else None
 
 -- In: `ok` is checked.
-export def smallest: SortedList -> Option Nat
+export def smallest: SortedList → Option Nat
   | { items = Nil, .. } => None
   | { items = Cons x xs, .. } => Some x
 

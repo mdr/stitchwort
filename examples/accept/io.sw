@@ -4,7 +4,7 @@
 
 import Std (IO, List, Nat, Pair)
 
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False
@@ -14,11 +14,11 @@ def printed (r: Pair (List Text) a): List Text := Pair.fst r
 
 def result (r: Pair (List Text) a): a := Pair.snd r
 
-def isSomeText (t: Text): Option Text -> Bool
+def isSomeText (t: Text): Option Text → Bool
   | None => False
   | Some u => t == u
 
-def isNone: Option a -> Bool
+def isNone: Option a → Bool
   | None => True
   | Some x => False
 
@@ -58,7 +58,7 @@ def readThree(): {IO} (List (Option Text)) :=
   let c := IO.readLine()
   [a, b, c]
 
-def maybesAre: List (Option Text) -> Bool
+def maybesAre: List (Option Text) → Bool
   | Cons a (Cons b (Cons c Nil)) =>
     if isSomeText "x" a then (if isNone b then isNone c else False) else False
   | _ => False
@@ -73,13 +73,13 @@ test "unread input is ignored" :=
 
 -- Echoes each line until the input runs out, reading at most `n` lines. The
 -- bound keeps the recursion structural.
-def echoLine: Option Text -> (() -> {IO} ()) -> {IO} ()
+def echoLine: Option Text → (() → {IO} ()) → {IO} ()
   | None, more => ()
   | Some l, more =>
     IO.print l
     more()
 
-def echo: Nat -> {IO} ()
+def echo: Nat → {IO} ()
   | 0 => ()
   | Succ n => echoLine (IO.readLine()) (u => echo n)
 
@@ -93,13 +93,13 @@ test "echo with no input prints nothing" :=
   eqTexts (printed (IO.simulate [] (u => echo 10))) []
 
 -- Numbers each line, and returns how many there were.
-def numberLine (i: Nat): Option Text -> (() -> {IO} Nat) -> {IO} Nat
+def numberLine (i: Nat): Option Text → (() → {IO} Nat) → {IO} Nat
   | None, more => i - 1
   | Some l, more =>
     IO.print (Nat.toText i ++ ": " ++ l)
     more()
 
-def numberFrom (i: Nat): Nat -> {IO} Nat
+def numberFrom (i: Nat): Nat → {IO} Nat
   | 0 => i - 1
   | Succ n => numberLine i (IO.readLine()) (u => numberFrom (i + 1) n)
 
@@ -111,7 +111,7 @@ test "numbering lines" :=
 test "numbering lines: the count" := result numbered == 3
 
 -- A prompt, then a read, then a reply.
-def textOr (d: Text): Option Text -> Text
+def textOr (d: Text): Option Text → Text
   | None => d
   | Some t => t
 
@@ -130,25 +130,25 @@ test "prompt and reply at end of input" :=
 
 type Empty: Type
 
-def fromEmpty: Empty -> a
+def fromEmpty: Empty → a
   | ()
 
 ability State (s: Type) where
-  get: () -> {State s} s
-  put: s -> {State s} ()
+  get: () → {State s} s
+  put: s → {State s} ()
 
 ability Abort where
-  abort: () -> {Abort} Empty
+  abort: () → {Abort} Empty
 
-def runState (init: s) (prog: () -> {State s | e} a): {e} Pair a s :=
-  let run: s -> {e} Pair a s :=
+def runState (init: s) (prog: () → {State s | e} a): {e} Pair a s :=
+  let run: s → {e} Pair a s :=
     handle prog() with
       | return x => st => MkPair x st
       | get u, k => st => k st st
       | put st2, k => st => k() st2
   run init
 
-def toOption (prog: () -> {Abort | e} a): {e} Option a :=
+def toOption (prog: () → {Abort | e} a): {e} Option a :=
   handle prog() with
     | return x => Some x
     | abort u, k => None
@@ -170,12 +170,12 @@ def countSI(): {State Nat, IO} () :=
   IO.print (Nat.toText get())
 
 -- `IO.simulate` outside, `runState` inside.
-def stateInside (prog: () -> {State Nat, IO} ()): Pair (List Text) Nat :=
+def stateInside (prog: () → {State Nat, IO} ()): Pair (List Text) Nat :=
   let r := IO.simulate ["x", "y"] (u => runState 10 prog)
   MkPair (printed r) (Pair.snd (result r))
 
 -- `runState` outside, `IO.simulate` inside.
-def stateOutside (prog: () -> {State Nat, IO} ()): Pair (List Text) Nat :=
+def stateOutside (prog: () → {State Nat, IO} ()): Pair (List Text) Nat :=
   let r := runState 10 (u => IO.simulate ["x", "y"] prog)
   MkPair (printed (Pair.fst r)) (Pair.snd r)
 
@@ -227,7 +227,7 @@ test "a program with only State" :=
 
 -- A long run
 
-def printMany: Nat -> {IO} ()
+def printMany: Nat → {IO} ()
   | 0 => ()
   | Succ n =>
     IO.print "x"

@@ -30,10 +30,10 @@ theorem two: (2: Fin 5) = FSucc (FSucc FZero) := rfl
 theorem digitsNat: List.map digits Fin.toNat = [2, 7, 5, 7, 3] := rfl
 
 -- Beside a `Fin` in a comparison, a numeral is one too.
-theorem compared: (nine == 9 && zero < 3) = True := rfl
+theorem compared: (nine == 9 ∧ zero < 3) = True := rfl
 
 -- A pattern: a number pattern on a `Fin` is `FZero` or `FSucc`.
-def name: Fin 3 -> Text
+def name: Fin 3 → Text
   | 0 => "zero"
   | 1 => "one"
   | 2 => "two"
@@ -42,7 +42,7 @@ theorem nameOne: name 1 = "one" := rfl
 
 -- Where the bound isn't a number, a number pattern is still `FZero` or
 -- `FSucc`, and mixes with them.
-def isFirst: Fin (Succ n) -> Bool
+def isFirst: Fin (Succ n) → Bool
   | 0 => True
   | FSucc _ => False
 

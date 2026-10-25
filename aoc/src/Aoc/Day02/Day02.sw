@@ -59,7 +59,7 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect
   let maxDigits := (Nat.digits range.to).length
   let blockLength := each (List.between 1 maxDigits)
   let copies := each (List.between 2 maxDigits)
-  require (blockLength * copies <= maxDigits)
+  require (blockLength * copies ≤ maxDigits)
   { blockLength, copies })
 
 -- Part 1: the ids in the range written exactly twice: add up, over the block
@@ -97,7 +97,7 @@ def copiesWeight (copies: Nat): Int
 def RepetitionTemplate.sumIn (template: RepetitionTemplate) (range: Range): Nat :=
   -- Every such id is a block times the multiplier.
   let multiplier := template.multiplier
-  if multiplier != 0 then
+  if multiplier ≠ 0 then
     -- The blocks whose id lies in the range: the block times the multiplier is
     -- at least range.from (round up) and at most range.to (round down). When
     -- no block fits, firstBlock > lastBlock and `Nat.sumBetween` gives 0.

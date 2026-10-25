@@ -11,7 +11,7 @@ instance HasZero.instNat: HasZero Nat :=
   { zero = 0 }
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 type W (n: Nat) =
   | MkW
@@ -72,7 +72,7 @@ test "merged first" := mergedFirst == "local"
 -- matching equates with an unknown (`box`'s own `?ord`) isn't a solution:
 -- `Pretty (Box Nat ?ord)` waits for `?ord`'s own obligation, then applies.
 interface Ordered (a: Type) =
-  { less: a -> a -> Bool }
+  { less: a → a → Bool }
 
 instance Ordered.instNat: Ordered Nat :=
   { less = m n => Nat.leq (m + 1) n }

@@ -74,7 +74,7 @@ type V =
   | P (a: Text) (b: Text)
   | Q (b: Text) (c: Nat) (a: Text)
 
-def orNone: Option Text -> Text
+def orNone: Option Text → Text
   | None => "none"
   | Some t => t
 

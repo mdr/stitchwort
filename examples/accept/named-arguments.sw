@@ -33,7 +33,7 @@ test "a function of the missing parameters" :=
 test "leaving out the first" := (clampTo (high := 10)) 0 20 == 10
 
 -- Its parameters keep their names.
-def atMostTen: (low: Nat) -> (value: Nat) -> Nat := clampTo (high := 10)
+def atMostTen: (low: Nat) → (value: Nat) → Nat := clampTo (high := 10)
 test "names after a skip" := atMostTen (value := 50) (low := 0) == 10
 test "names of a call with a skip" := (clampTo (high := 10)) (value := 4) (low := 5) == 5
 
@@ -44,11 +44,11 @@ def zeros [n: Nat]: Vec Nat n := Vec.replicate n 0
 test "a later argument uses the missing one" := (total (xs := zeros)) 2 == 4
 
 -- Where the names come from (§4.3).
-def Picker: Type := [count: Nat] -> (x: Nat) -> Nat
+def Picker: Type := [count: Nat] → (x: Nat) → Nat
 def usePicker (h: Picker): Nat := h (x := 1) [count := 3]
 
 def annotated: Nat :=
-  let g: (start: Nat) -> (stop: Nat) -> Nat := between
+  let g: (start: Nat) → (stop: Nat) → Nat := between
   g (stop := 9) (start := 3)
 test "an annotation names the parameters" := annotated == 6
 
@@ -62,7 +62,7 @@ def partially: Nat :=
   g (value := 50) (high := 10)
 test "a partial application keeps the rest of the names" := partially == 10
 
-def annotatedValue: Nat := (between: (from: Nat) -> (to: Nat) -> Nat) (to := 9) (from := 3)
+def annotatedValue: Nat := (between: (from: Nat) → (to: Nat) → Nat) (to := 9) (from := 3)
 test "an annotated expression" := annotatedValue == 6
 
 -- A result type computed from a parameter: its names are those of what it
@@ -71,7 +71,7 @@ test "an annotated expression" := annotatedValue == 6
 def Scaler (n: Nat): Type :=
   match n with
     | Zero => Nat
-    | Succ _ => (by: Nat) -> (plus: Nat) -> Nat
+    | Succ _ => (by: Nat) → (plus: Nat) → Nat
 
 def scaler (n: Nat): Scaler n :=
   match n with

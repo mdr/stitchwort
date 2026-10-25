@@ -19,7 +19,7 @@ test "after 27" := next 27 == 82
 
 test "after 82" := next 82 == 41
 
-def collatzSteps: Nat -> {Partial} Nat
+def collatzSteps: Nat → {Partial} Nat
   | 1 => 0
   | n => 1 + collatzSteps (next n)
 

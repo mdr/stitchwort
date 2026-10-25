@@ -17,13 +17,13 @@ def wrap (x: Int): Pos := { at = Int.modNat x 100, ok = Int.modNatLt x 100 }
 
 def start: Pos := wrap 50
 
-def turn (p: Pos): Turn -> Pos
+def turn (p: Pos): Turn → Pos
   | Left n => wrap (Nat.toInt p.at - Nat.toInt n)
   | Right n => wrap (Nat.toInt p.at + Nat.toInt n)
 
 -- Turn through the whole list, counting each time the dial lands on 0. The
 -- accumulator is the position and the count so far.
-def step: (Pos, Nat) -> Turn -> (Pos, Nat)
+def step: (Pos, Nat) → Turn → (Pos, Nat)
   | (p, count), t => tally (turn p t) count
 
 def tally (q: Pos) (count: Nat): (Pos, Nat) := (q, if q.at == 0 then count + 1 else count)

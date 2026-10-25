@@ -32,12 +32,12 @@ theorem largestValue: largest.value = 9007199254740991 := rfl
 theorem zeroValue: zero.value = 0 := rfl
 
 -- Beside a `SafeNat` in a comparison, a numeral is one too.
-theorem compared: (limits.bytes == 10 && limits.offset < 0) = True := rfl
+theorem compared: (limits.bytes == 10 ∧ limits.offset < 0) = True := rfl
 
 -- Numbers that aren't expected as a `SafeNat` are as before.
 theorem stillNat: 2 + 3 = 5 := rfl
 
-test "fields" := limits.bytes.value == 10 && limits.offset.value == -3
+test "fields" := limits.bytes.value == 10 ∧ limits.offset.value == -3
 test "argument" := double 21 == 42
 test "list" := sizes.map (x => x.value) == [1, 2, 3]
-test "bounds" := smallest.value == -9007199254740991 && largest.value == 9007199254740991
+test "bounds" := smallest.value == -9007199254740991 ∧ largest.value == 9007199254740991

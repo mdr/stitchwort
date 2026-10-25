@@ -8,26 +8,26 @@ import Std (List)
 -- run: firstOr 7 [3, 4]
 -- run: sumPairs [1, 2, 3]
 -- run: sumPairs []
-type Vec (a: Type): Nat -> Type =
+type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
   | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
-def fromList: (xs: List a) -> Vec a (List.length xs)
+def fromList: (xs: List a) → Vec a (List.length xs)
   | Nil => VNil
   | Cons x xs => VCons x (fromList xs)
 
-def head: Vec a (Succ n) -> a
+def head: Vec a (Succ n) → a
   | VCons x _ => x
 
-def zipWith (f: a -> b -> c): Vec a n -> Vec b n -> Vec c n
+def zipWith (f: a → b → c): Vec a n → Vec b n → Vec c n
   | VNil, VNil => VNil
   | VCons x xs, VCons y ys => VCons (f x y) (zipWith f xs ys)
 
-def toList: Vec a n -> List a
+def toList: Vec a n → List a
   | VNil => Nil
   | VCons x xs => Cons x (toList xs)
 
-export def firstOr (default: Nat): List Nat -> Nat
+export def firstOr (default: Nat): List Nat → Nat
   | Nil => default
   | Cons x xs => head (fromList (Cons x xs))
 

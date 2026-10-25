@@ -24,12 +24,12 @@ type Shape =
   | @[js.name "CIRCLE"] Circle (radius: Nat) (@[js.name "center_x"] centerX: Nat)
   | @[js.name "POLYGON"] Polygon (sides: Nat) (label: Text)
 
-export def area: Shape -> Nat
+export def area: Shape → Nat
   | Dot => 0
   | Circle r x => r * r + x
   | Polygon n _ => n
 
-export def grow: Shape -> Shape
+export def grow: Shape → Shape
   | Dot => Dot
   | Circle r x => Circle (r + 1) x
   | Polygon n l => Polygon (n + 1) (l ++ "!")
@@ -58,7 +58,7 @@ type Message =
   | Note (@[js.name "note_id"] id: Nat) (body: Text)
   | Picture (@[js.name "picture_id"] id: Nat) (url: Text)
 
-export def flip: Message -> Message
+export def flip: Message → Message
   | Note i b => Picture i b
   | Picture i u => Note i u
 

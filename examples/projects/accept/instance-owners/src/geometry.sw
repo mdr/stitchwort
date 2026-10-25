@@ -3,7 +3,7 @@
 namespace Geometry
 
 interface Area (a: Type) =
-  { area: a -> Nat }
+  { area: a → Nat }
 
 instance Area.instNat: Area Nat :=
   { area = n => n * n }

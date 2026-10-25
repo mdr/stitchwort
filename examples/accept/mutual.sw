@@ -7,11 +7,11 @@
 def main: Nat := total [[1, 2], [3]] + countdown 4
 
 -- Each calls the other on a smaller number.
-def isEven: Nat -> Bool
+def isEven: Nat → Bool
   | 0 => True
   | Succ n => isOdd n
 
-def isOdd: Nat -> Bool
+def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
@@ -19,48 +19,48 @@ def isOdd: Nat -> Bool
 -- smaller: no single call decreases in both, but every way round does.
 def countdown (n: Nat): Nat := step n
 
-def step: Nat -> Nat
+def step: Nat → Nat
   | 0 => 0
   | Succ n => countdown n
 
 -- The shape of `size`/`sizeForest` on a tree and a forest, on a list of
 -- lists: `total` makes the outer list smaller, `inner` the inner one, and
 -- `inner` passes the outer list on unchanged.
-def total: List (List Nat) -> Nat
+def total: List (List Nat) → Nat
   | Nil => 0
   | Cons xs xss => inner xs xss
 
-def inner: List Nat -> List (List Nat) -> Nat
+def inner: List Nat → List (List Nat) → Nat
   | Nil, xss => total xss
   | Cons x xs, xss => x + inner xs xss
 
 -- Proofs by mutual induction, about `isEven` and `isOdd`, which are finished
 -- before these are checked, so their types compute.
-theorem evenNotOdd: (n: Nat) -> isEven n = not (isOdd n)
+theorem evenNotOdd: (n: Nat) → isEven n = not (isOdd n)
   | 0 => rfl
   | Succ n => oddNotEven n
 
-theorem oddNotEven: (n: Nat) -> isOdd n = not (isEven n)
+theorem oddNotEven: (n: Nat) → isOdd n = not (isEven n)
   | 0 => rfl
   | Succ n => evenNotOdd n
 
 -- Effectful functions that call each other: after translation, each call is
 -- inside a continuation.
 ability Counter where
-  bump: () -> {Counter} ()
+  bump: () → {Counter} ()
 
-def ping: Nat -> {Counter} ()
+def ping: Nat → {Counter} ()
   | 0 => ()
   | Succ n =>
     bump()
     pong n
 
-def pong: Nat -> {Counter} ()
+def pong: Nat → {Counter} ()
   | 0 => ()
   | Succ n => ping n
 
-def countBumps (prog: () -> {Counter} ()): Nat :=
-  let run: Nat -> Nat :=
+def countBumps (prog: () → {Counter} ()): Nat :=
+  let run: Nat → Nat :=
     handle prog() with
       | return x => n => n
       | bump u, k => n => k() (Succ n)
@@ -68,13 +68,13 @@ def countBumps (prog: () -> {Counter} ()): Nat :=
 
 -- A callback passed to a helper as a lambda that calls a member with all
 -- its arguments: `x => stepBy k x` relates `k` to `walk`'s parameter.
-def walk: Nat -> Nat
+def walk: Nat → Nat
   | 0 => 0
   | Succ k => applyTo (x => stepBy k x) 1
 
 def stepBy (k: Nat) (x: Nat): Nat := x + walk k
 
-def applyTo (f: Nat -> Nat) (x: Nat): Nat := f x
+def applyTo (f: Nat → Nat) (x: Nat): Nat := f x
 
 -- Names stay local: the pattern variable `step` and the lambda's `isOdd` are
 -- not the definitions of those names, so they make no dependency on them.

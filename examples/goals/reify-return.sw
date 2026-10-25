@@ -3,7 +3,7 @@
 -- the handlers unfolded. In an operation's clause the goal is short.
 import Std (Fail, Result)
 
-theorem toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+theorem toResultThen (t: () → {Fail} a) (k: a → {Fail} b):
     Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
     | return y => ?
@@ -13,7 +13,7 @@ theorem toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
 -- computed when the split starts (the equation instantiated the statement),
 -- so only the computation is replaced by `y`; the handlers stay unfolded.
 -- `traverse` is a loop: `Result.traverseCons` gives its step first.
-theorem toResultMap (f: a -> {Fail} b): (xs: List a) ->
+theorem toResultMap (f: a → {Fail} b): (xs: List a) →
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>

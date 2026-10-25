@@ -65,7 +65,7 @@ type Shape =
   | Circle (radius: Nat) (label: Text := "circle")
   | Dot
 
-export def label: Shape -> Text
+export def label: Shape → Text
   | Circle _ l => l
   | Dot => "dot"
 

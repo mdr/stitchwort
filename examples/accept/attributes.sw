@@ -6,7 +6,7 @@ type Shape =
   | @[js.name "CIRCLE"] Circle (radius: Nat) (@[js.name "center_x"] centerX: Nat)
   | @[js.name "DOT"] Dot
 
-def radius: Shape -> Nat
+def radius: Shape → Nat
   | Circle r _ => r
   | Dot => 0
 
@@ -23,6 +23,6 @@ type Node =
   | Leaf
   | Branch (tag: Nat) (__proto__: Nat) (next: Node)
 
-def size: Node -> Nat
+def size: Node → Nat
   | Leaf => 0
   | Branch _ _ next => 1 + size next

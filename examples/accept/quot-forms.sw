@@ -32,7 +32,7 @@ def QType: Type 1 := Quot Type (a b => a = b)
 
 -- Matching on a quotient index that's a variable solves it
 -- (soundness/quot-index-decompose.sw).
-type At: Q -> Type =
+type At: Q → Type =
   | AtF: At (Quot.mk False)
   | AtT: At (Quot.mk True)
 
@@ -43,7 +43,7 @@ def which (q: Q) (a: At q): Bool :=
 
 -- Likewise inside a pair (soundness/quot-index-in-pair.sw, -in-list.sw,
 -- -in-record.sw).
-type AtP: (Q, Nat) -> Type =
+type AtP: (Q, Nat) → Type =
   | PF: AtP (Quot.mk False, 0)
   | PT: AtP (Quot.mk True, 1)
 
@@ -59,4 +59,4 @@ type T: Type =
 -- Arguments after a form's own apply its result: here `Quot.ind`'s, a
 -- proof of a function type, applied to `r`.
 theorem allEqual (q: Q) (r: Q): q = r :=
-  Quot.ind [p := q => (r: Q) -> q = r] (x r => Quot.ind [p := r => Quot.mk x = r] (y => Quot.sound Trivial) r) q r
+  Quot.ind [p := q => (r: Q) → q = r] (x r => Quot.ind [p := r => Quot.mk x = r] (y => Quot.sound Trivial) r) q r

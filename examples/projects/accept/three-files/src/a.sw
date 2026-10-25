@@ -5,6 +5,6 @@ type Shape: Type =
   | Square (side: Nat)
   | Rect (width: Nat) (height: Nat)
 
-def isEven: Nat -> Bool
+def isEven: Nat → Bool
   | Zero => True
   | Succ n => isOdd n

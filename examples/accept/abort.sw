@@ -13,13 +13,13 @@ def turn (line: Text): {Abort} Turn :=
   match line.split ' ' with
     | [dir, weightText, colour] =>
       let (letter, digits) := need dir.uncons
-      ensure (letter == 'L' || letter == 'R')
+      ensure (letter == 'L' ∨ letter == 'R')
       ensure (colours.any (== colour))
       { left = letter == 'L', steps = need digits.toNat, weight = weightText.toNat.orAbort, colour }
     | _ => abort()
 
 -- Every line, or give up if any line is bad.
-def turns: List Text -> {Abort} (List Turn)
+def turns: List Text → {Abort} (List Turn)
   | [] => []
   | [l, ..ls] => Cons (turn l) (turns ls)
 
@@ -60,8 +60,8 @@ test "too few fields" := parseTurn "R6 3" == None
 test "empty line" := parseTurn "" == None
 test "all lines" := toOption (() => turns ["L1 1 red", "R2 2 blue"]) == Some [{ left = True, steps = 1, weight = 1, colour = "red" }, { left = False, steps = 2, weight = 2, colour = "blue" }]
 test "one bad line" := toOption (() => turns ["L1 1 red", "R2"]) == None
-test "default" := signed "L5 1 red" == -5 && signed "?" == 0
-test "a number or zero" := intOrZero "-12" == -12 && intOrZero "x" == 0
+test "default" := signed "L5 1 red" == -5 ∧ signed "?" == 0
+test "a number or zero" := intOrZero "-12" == -12 ∧ intOrZero "x" == 0
 test "with IO" := IO.simulate ["L2 3 red", "R1 1 blue"] (() => toOption (() => total ["L2 3 red", "R1 1 blue"])) == (["red", "blue"], Some 7)
 test "with IO, then a bad line" := IO.simulate [] (() => toOption (() => total ["L2 3 red", "nope", "R1 1 blue"])) == (["red"], None)
 

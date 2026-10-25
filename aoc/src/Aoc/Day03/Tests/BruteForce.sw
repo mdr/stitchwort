@@ -9,7 +9,7 @@ import Aoc.Day03 (..)
 import Std (List, Nat)
 
 -- Every way to pick k batteries of the bank, in order.
-def choices: Nat -> Bank -> List Bank
+def choices: Nat → Bank → List Bank
   | Zero, _ => [[]]
   | Succ _, [] => []
   | Succ k, Cons d rest => (choices k rest).map (Cons d) ++ choices (Succ k) rest

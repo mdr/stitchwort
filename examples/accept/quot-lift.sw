@@ -24,16 +24,16 @@ theorem observeIsItsBody (q: QE): observe q = Quot.lift toNat toNatRespects q :=
 -- rebuilding steps as named definitions (A8; `Quot.funext` itself is for the
 -- library, stage 1.4): `rebuild a b (Quot.mk f)` is `f`, by the lift rule
 -- and eta.
-def Pointwise (a: Type) (b: a -> Type) (f: (x: a) -> b x) (g: (x: a) -> b x): Prop :=
-  (x: a) -> f x = g x
+def Pointwise (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x): Prop :=
+  (x: a) → f x = g x
 
-def FunQ (a: Type) (b: a -> Type): Type := Quot ((x: a) -> b x) (Pointwise a b)
+def FunQ (a: Type) (b: a → Type): Type := Quot ((x: a) → b x) (Pointwise a b)
 
-def evalAt (a: Type) (b: a -> Type) (q: FunQ a b) (x: a): b x :=
+def evalAt (a: Type) (b: a → Type) (q: FunQ a b) (x: a): b x :=
   Quot.lift [b := b x] (f => f x) (f g same => same x) q
 
-def rebuild (a: Type) (b: a -> Type) (q: FunQ a b): (x: a) -> b x := x => evalAt a b q x
+def rebuild (a: Type) (b: a → Type) (q: FunQ a b): (x: a) → b x := x => evalAt a b q x
 
-theorem funext (a: Type) (b: a -> Type) (f: (x: a) -> b x) (g: (x: a) -> b x)
-    (h: (x: a) -> f x = g x): f = g :=
+theorem funext (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
+    (h: (x: a) → f x = g x): f = g :=
   Eq.cong (rebuild a b) (Quot.sound [x := f] [y := g] h)

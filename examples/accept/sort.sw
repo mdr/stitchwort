@@ -31,7 +31,7 @@ test "sorts many numbers" :=
 
 -- In a sorted list, the first element is at most the second.
 theorem firstLeSecond (x: Nat) (y: Nat) (rest: List Nat):
-    List.Sorted Nat.leq (Cons x (Cons y rest)) -> x <= y
+    List.Sorted Nat.leq (Cons x (Cons y rest)) → x ≤ y
   | Both h s => h
 
 -- Sorting keeps every element, so it keeps the number of 3s, and the length.

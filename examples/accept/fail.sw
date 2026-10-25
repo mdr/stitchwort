@@ -14,7 +14,7 @@ def turn (line: Text): {Fail} Turn :=
   match line.split ' ' with
     | [dir, weightText, colour] =>
       let (letter, digits) := need dir.uncons "expected a direction, got nothing"
-      ensure (letter == 'L' || letter == 'R') "expected L or R, got '${dir}'"
+      ensure (letter == 'L' ∨ letter == 'R') "expected L or R, got '${dir}'"
       ensure (colours.any (== colour)) "expected a colour, got '${colour}'"
       { left = letter == 'L', steps = digits.toNatOrFail, weight = weightText.toNatOrFail, colour }
     | _ => fail "expected a turn like L68 3 red, got '${line}'"
@@ -61,8 +61,8 @@ test "too few fields" := parseTurn "R6 3" == Err "expected a turn like L68 3 red
 test "empty direction" := parseTurn " 3 red" == Err "expected a direction, got nothing"
 test "all lines" := toResult (() => turns ["L1 1 red", "R2 2 blue"]) == Ok [{ left = True, steps = 1, weight = 1, colour = "red" }, { left = False, steps = 2, weight = 2, colour = "blue" }]
 test "one bad line" := toResult (() => turns ["L1 1 red", "R2"]) == Err "line 2: expected a turn like L68 3 red, got 'R2'"
-test "default" := signed "L5 1 red" == -5 && signed "?" == 0
-test "a number or minus one" := intOrMinusOne "12" == 12 && intOrMinusOne "x" == -1
+test "default" := signed "L5 1 red" == -5 ∧ signed "?" == 0
+test "a number or minus one" := intOrMinusOne "12" == 12 ∧ intOrMinusOne "x" == -1
 test "with IO" := IO.simulate [] (() => toResult (() => total ["L2 3 red", "R1 1 blue"])) == (["red", "blue"], Ok 7)
 test "with IO, then a bad line" := IO.simulate [] (() => toResult (() => total ["L2 3 red", "nope", "R1 1 blue"])) == (["red"], Err "expected a turn like L68 3 red, got 'nope'")
 test "Abort to Fail" := toResult (() => Abort.orFail "no digits" (() => Abort.need "x".toNat)) == (Err "no digits": Result Nat Text)

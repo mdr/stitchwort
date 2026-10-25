@@ -10,7 +10,7 @@ type Shape =
 
 type Item = { name: Text, price: Nat }
 
-type Vec (a: Type): Nat -> Type =
+type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
   | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
@@ -21,7 +21,7 @@ type Box (a: Type) = | MkBox (inner: a) (label: Text)
 -- Fields come in any order; a bare field is punned (`id` is `id = id`).
 def circle (id: Text): Shape := Circle { text = "t", id, ref = 1 }
 
-def idOf: Shape -> Text
+def idOf: Shape → Text
   | Dot { id, .. } => id
   | Circle { id, .. } => id
 
@@ -53,13 +53,13 @@ def coffee: Option Item := Some { value = { name = "coffee", price = 4 } }
 
 test "a record argument both ways" :=
   (tea == Some ({ name = "tea", price = 3 }))
-    && (coffee == Some { value = { name = "coffee", price = 4 } })
+    ∧ (coffee == Some { value = { name = "coffee", price = 4 } })
 
 -- A field access on the result.
 test "field access" := (Circle { ref = 1, id = "a", text = "t" }).id == "a"
 
 -- Field expressions run in the order written.
-def orNone: Option Text -> Text
+def orNone: Option Text → Text
   | None => "none"
   | Some t => t
 

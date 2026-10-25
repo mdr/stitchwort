@@ -4,4 +4,4 @@ import Std (Bool)
 
 test "annotated nil" := (Nil: List Nat) == Nil
 test "annotated brackets" := ([]: List Text) == []
-test "unannotated, from the other side" := !([] == [1])
+test "unannotated, from the other side" := ¬([] == [1])

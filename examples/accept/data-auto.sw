@@ -7,7 +7,7 @@ import Ordered (compare)
 import Std (Nat, Text)
 
 interface Ordered (k: Type) =
-  { compare: k -> k -> Ordering }
+  { compare: k → k → Ordering }
 
 instance Ordered.instNat: Ordered Nat :=
   { compare = Nat.compare }
@@ -26,7 +26,7 @@ type Map (k: Type) (v: Type) [auto ord: Ordered k] =
 -- Inside a generic function, `Map k v` is the map with its own `ord`.
 def Map.empty [auto ord: Ordered k]: Map k v := { entries = [] }
 
-def Map.insertList [auto ord: Ordered k] (key: k) (value: v): List (k, v) -> List (k, v)
+def Map.insertList [auto ord: Ordered k] (key: k) (value: v): List (k, v) → List (k, v)
   | [] => [(key, value)]
   | Cons (k2, v2) rest => match compare key k2 with
     | Less => Cons (key, value) (Cons (k2, v2) rest)
@@ -78,7 +78,7 @@ test "a local ordering" := (withLocal [other := descending]).keys == [2, 1]
 -- (Found again, `Ordered Nat` would be `Ordered.instNat`, and `down`'s keys
 -- `3, 2` would be out of order.)
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 instance Map.instPretty: Pretty (Map k v [ord := o]) :=
   { pretty = m => match m.entries with
@@ -93,16 +93,16 @@ test "for any ordering" := Pretty.pretty words == "in order"
 -- `==` is derived as for any record: the ordering is a parameter, not a
 -- field.
 test "equal maps" := words == (Map.empty |> .insert "c" 3 |> .insert "a" 1 |> .insert "b" 2)
-test "different maps" := words != Map.empty
+test "different maps" := words ≠ Map.empty
 
 -- A map is data when its keys and values are, whatever its ordering: one
 -- with a named alternative ordering is a `State`.
 ability State (s: Type) where
-  get: () -> {State s} s
-  put: s -> {State s} ()
+  get: () → {State s} s
+  put: s → {State s} ()
 
-def runState (init: s) (prog: () -> {State s | e} a): {e} (a, s) :=
-  let run: s -> {e} (a, s) :=
+def runState (init: s) (prog: () → {State s | e} a): {e} (a, s) :=
+  let run: s → {e} (a, s) :=
     handle prog() with
       | return x => st => (x, st)
       | get u, k => st => k st st
@@ -125,10 +125,10 @@ test "a map as state" := recorded.keys == [7, 4]
 -- Values that are pure functions are allowed in state too (abilities.md:
 -- only a computation using the ability itself is refused, Landin's knot;
 -- see examples/reject/data-auto-knot.sw).
-def functions: {State (Map Nat (Nat -> Nat))} () :=
+def functions: {State (Map Nat (Nat → Nat))} () :=
   put (get().insert 1 (n => n + 1))
 
-def stored: Map Nat (Nat -> Nat) :=
+def stored: Map Nat (Nat → Nat) :=
   match runState Map.empty (u => functions) with
     | (_, m) => m
 

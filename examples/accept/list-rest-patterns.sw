@@ -1,7 +1,7 @@
 -- Rest patterns: `[a, b, ..rest]` is `Cons a (Cons b rest)`. `..` comes last
 -- and is followed by any pattern (`rest`, `_`, even `[]`); `[..p]` is just `p`.
 
-def describe: List Nat -> Text
+def describe: List Nat → Text
   | [] => "empty"
   | [x] => "one"
   | [x, y, ..rest] => "two or more"
@@ -18,20 +18,20 @@ def sumTwo (xs: List Nat): Nat :=
 test "sumTwoLong" := sumTwo [1, 2, 3, 4] == 3
 test "sumTwoShort" := sumTwo [1] == 0
 
-def tailOf: List Nat -> List Nat
+def tailOf: List Nat → List Nat
   | [] => []
   | [_, ..rest] => rest
 
 test "tailOf" := tailOf [1, 2, 3] == [2, 3]
 
 -- `[..rest]` alone is `rest`.
-def same: List Nat -> List Nat
+def same: List Nat → List Nat
   | [..xs] => xs
 
 test "same" := same [4, 5] == [4, 5]
 
 -- Nested in a tuple.
-def pairHeads: (List Nat, List Nat) -> Nat
+def pairHeads: (List Nat, List Nat) → Nat
   | ([a, ..as], [b, ..bs]) => a + b
   | _ => 0
 

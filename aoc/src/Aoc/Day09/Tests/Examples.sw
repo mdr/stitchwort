@@ -19,7 +19,7 @@ test "parse rejects too few and too many" :=
 test "parse rejects a blank line" := tilesOf ["7,1", ""] == Err "line 2: expected a red tile like 7,1, got ''"
 test "example has 8 tiles" := example.length == 8
 
-test "area counts both corners" := area (tile 2 5) (tile 9 7) == 24 && area (tile 9 7) (tile 2 5) == 24 && area (tile 7 3) (tile 7 3) == 1
+test "area counts both corners" := area (tile 2 5) (tile 9 7) == 24 ∧ area (tile 9 7) (tile 2 5) == 24 ∧ area (tile 7 3) (tile 7 3) == 1
 test "area in a line" := area (tile 7 3) (tile 2 3) == 6
 
 test "example part 1" := solvePart1 example == 50
@@ -52,11 +52,11 @@ test "slot one tile wide" := (solvePart1 slot, solvePart2 slot) == (36, 36)
 test "example reversed" := (solvePart1 example.reverse, solvePart2 example.reverse) == (50, 24)
 
 test "loop lines" := loopLines [tile 1 1, tile 6 1, tile 6 4] == [(tile 1 1, tile 6 1), (tile 6 1, tile 6 4), (tile 6 4, tile 1 1)]
-test "is between" := isBetween 3 7 5 && isBetween 7 3 5 && isBetween 3 3 3 && !(isBetween 3 7 8) && !(isBetween 7 3 2)
-test "is on line" := isOnLine (tile 4 1) (tile 1 1, tile 6 1) && isOnLine (tile 6 1) (tile 1 1, tile 6 1) && !(isOnLine (tile 4 2) (tile 1 1, tile 6 1))
+test "is between" := isBetween 3 7 5 ∧ isBetween 7 3 5 ∧ isBetween 3 3 3 ∧ ¬(isBetween 3 7 8) ∧ ¬(isBetween 7 3 2)
+test "is on line" := isOnLine (tile 4 1) (tile 1 1, tile 6 1) ∧ isOnLine (tile 6 1) (tile 1 1, tile 6 1) ∧ ¬(isOnLine (tile 4 2) (tile 1 1, tile 6 1))
 test "crosses right of" :=
-  crossesRightOf (tile 2 2) (tile 6 1, tile 6 4) && crossesRightOf (tile 2 1) (tile 6 4, tile 6 1) && !(crossesRightOf (tile 2 4) (tile 6 1, tile 6 4))
-    && !(crossesRightOf (tile 6 2) (tile 6 1, tile 6 4)) && !(crossesRightOf (tile 2 1) (tile 1 1, tile 6 1))
+  crossesRightOf (tile 2 2) (tile 6 1, tile 6 4) ∧ crossesRightOf (tile 2 1) (tile 6 4, tile 6 1) ∧ ¬(crossesRightOf (tile 2 4) (tile 6 1, tile 6 4))
+    ∧ ¬(crossesRightOf (tile 6 2) (tile 6 1, tile 6 4)) ∧ ¬(crossesRightOf (tile 2 1) (tile 1 1, tile 6 1))
 
 -- The example's floor, row by row, # for red or green: as the puzzle draws it.
 def drawn (lines: List (Tile, Tile)) (width: Nat) (height: Nat): List Text :=
@@ -75,19 +75,19 @@ test "red or green" :=
     ".............."
   ]
 
-test "touches row" := touchesRow 2 (tile 6 1, tile 6 4) && touchesRow 4 (tile 6 1, tile 6 4) && !(touchesRow 5 (tile 6 1, tile 6 4))
+test "touches row" := touchesRow 2 (tile 6 1, tile 6 4) ∧ touchesRow 4 (tile 6 1, tile 6 4) ∧ ¬(touchesRow 5 (tile 6 1, tile 6 4))
 test "key lines" := keyLines [7, 11, 11, 9, 2] == [2, 3, 7, 8, 9, 10, 11, 12]
 test "floor" :=
   let floor := Floor.of example
   (floor.columns, floor.rows) == ([2, 3, 7, 8, 9, 10, 11, 12], [1, 2, 3, 4, 5, 6, 7, 8])
 test "floor outside" :=
   Floor.outsideRow (loopLines example) [2, 3, 7, 8, 9, 10, 11, 12] 1 == [1, 1, 0, 0, 0, 0, 0, 1]
-    && Floor.outsideRow (loopLines example) [2, 3, 7, 8, 9, 10, 11, 12] 4 == [0, 0, 0, 0, 0, 0, 0, 1]
+    ∧ Floor.outsideRow (loopLines example) [2, 3, 7, 8, 9, 10, 11, 12] 4 == [0, 0, 0, 0, 0, 0, 0, 1]
 test "corner" :=
   let floor := Floor.of example
-  (floor.corner (tile 9 5)).column == 4 && (floor.corner (tile 9 5)).row == 4
+  (floor.corner (tile 9 5)).column == 4 ∧ (floor.corner (tile 9 5)).row == 4
 test "all red or green" :=
   let floor := Floor.of example
   let corner := floor.corner
-  floor.allRedOrGreen (corner (tile 9 5), corner (tile 2 3)) && !(floor.allRedOrGreen (corner (tile 11 1), corner (tile 2 5)))
-    && floor.allRedOrGreen (corner (tile 7 3), corner (tile 11 1))
+  floor.allRedOrGreen (corner (tile 9 5), corner (tile 2 3)) ∧ ¬(floor.allRedOrGreen (corner (tile 11 1), corner (tile 2 5)))
+    ∧ floor.allRedOrGreen (corner (tile 7 3), corner (tile 11 1))

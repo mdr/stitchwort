@@ -8,4 +8,4 @@ import Std (List, Nat)
 
 -- `on` is k of the bank's batteries, turned on in the bank's order.
 def TurnsOn (k: Nat) (bank: Bank) (on: List Battery): Prop :=
-  on.Subsequence bank && on.length = k
+  on.Subsequence bank ∧ on.length = k

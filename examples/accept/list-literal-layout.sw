@@ -48,11 +48,11 @@ type Pet = { name: Text, age: Nat, }
 
 def bob: Pet := { name = "Bob", age = 3, }
 
-def first: List Nat -> Nat
+def first: List Nat → Nat
   | [x, y,] => x + y
   | _ => 0
 
-def firstName: Pet -> Text
+def firstName: Pet → Text
   | { name, age, } => name
 
 def closer: List Nat :=

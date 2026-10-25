@@ -8,10 +8,10 @@
 import Std (List, Eq, Vec, Text, Fail)
 
 ability Log where
-  say: Nat -> {Log} ()
+  say: Nat → {Log} ()
 
 -- Runs a computation that logs, collecting what it said.
-def Log.collect (program: () -> {Log} a): Pair a (List Nat) :=
+def Log.collect (program: () → {Log} a): Pair a (List Nat) :=
   handle program() with
     | return result => MkPair result []
     | Log.say n, k =>
@@ -20,19 +20,19 @@ def Log.collect (program: () -> {Log} a): Pair a (List Nat) :=
 
 -- The pure use of `List.map` is the plain map: probe 5's theorems, about a
 -- map written here with a pure callback, hold by the same proofs.
-def pureMap [a b: Type] (f: a -> b): List a -> List b
+def pureMap [a b: Type] (f: a → b): List a → List b
   | Nil => Nil
   | Cons x xs => Cons (f x) (pureMap f xs)
 
-theorem mapIsPureMap [a b: Type] (f: a -> b): (xs: List a) -> List.map xs f = pureMap f xs
+theorem mapIsPureMap [a b: Type] (f: a → b): (xs: List a) → List.map xs f = pureMap f xs
   | Nil => rfl
   | Cons x xs => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
 
-theorem lengthMap [a b: Type] (f: a -> b): (xs: List a) -> List.length (List.map xs f) = List.length xs
+theorem lengthMap [a b: Type] (f: a → b): (xs: List a) → List.length (List.map xs f) = List.length xs
   | Nil => rfl
   | Cons x xs => Eq.cong Succ (lengthMap f xs)
 
-theorem mapCons [a b: Type] (f: a -> b) (x: a) (xs: List a):
+theorem mapCons [a b: Type] (f: a → b) (x: a) (xs: List a):
     List.map (Cons x xs) f = Cons (f x) (List.map xs f) := rfl
 
 -- A data type: `Nat`.
@@ -46,7 +46,7 @@ def singletons [a: Type] (xs: List a): List (List a) := List.map xs (x => [x])
 test "a callback returning a list" := singletons [1, 2] == [[1], [2]]
 
 -- A function type.
-def adders (numbers: List Nat): List (Nat -> Nat) := List.map numbers (n => (m => n + m))
+def adders (numbers: List Nat): List (Nat → Nat) := List.map numbers (n => (m => n + m))
 
 test "a callback returning functions" := List.map (adders [1, 2]) (add => add 1) == [2, 3]
 
@@ -77,9 +77,9 @@ def sayAndDouble (n: Nat): {Log} Nat :=
 -- row waits for it, and `map` becomes effectful in `Log`.
 -- (`{Log} Nat` can't be written as a value of type `Type`: it's the result
 -- type of `sayAndDouble`, below.)
-def ResultOf [r: Type] (f: Nat -> r): Type := r
+def ResultOf [r: Type] (f: Nat → r): Type := r
 
-def Answer: Bool -> Type
+def Answer: Bool → Type
   | True => ResultOf sayAndDouble
   | False => Nat
 
@@ -87,11 +87,11 @@ def Answer: Bool -> Type
 type Tagged (flag: Bool): Type =
   | Tag (n: Nat)
 
-def answerOf: (flag: Bool) -> Nat -> Answer flag
+def answerOf: (flag: Bool) → Nat → Answer flag
   | True, n => sayAndDouble n
   | False, n => n
 
-def Tagged.number [flag: Bool]: Tagged flag -> Nat
+def Tagged.number [flag: Bool]: Tagged flag → Nat
   | Tag n => n
 
 def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagged.number
@@ -136,31 +136,31 @@ def sayAll (numbers: List Nat): {Log} (List Nat) := List.map numbers sayAndDoubl
 test "an effectful callback" := Log.collect (() => sayAll [1, 2]) == MkPair [2, 4] [1, 2]
 
 -- A dependent result type.
-def applyIn (f: a -> {e} b) (x: a): {e} b := f x
+def applyIn (f: a → {e} b) (x: a): {e} b := f x
 
 def threeZeros: Vec Nat 3 := applyIn (n => Vec.replicate 3 n) 0
 
 test "a dependent result type" := Vec.toList threeZeros == [0, 0, 0]
 
 -- A type family stuck on a variable: nothing decides it, so it's pure.
-def Cell: Bool -> Type
+def Cell: Bool → Type
   | True => Nat
   | False => Text
 
-def cellOf: (flag: Bool) -> Cell flag
+def cellOf: (flag: Bool) → Cell flag
   | True => 1
   | False => "one"
 
 def cells (flags: List Bool): List Nat := List.map flags (flag => if flag then 1 else 0)
 
-def applyDep [p: a -> Type] (f: (x: a) -> {e} p x) (x: a): {e} p x := f x
+def applyDep [p: a → Type] (f: (x: a) → {e} p x) (x: a): {e} p x := f x
 
 def cellAt (flag: Bool): Cell flag := applyDep cellOf flag
 
 test "a type family stuck on a variable" := cellAt True == 1
 
 -- A callback that is itself effect-polymorphic: the rows are the same.
-def mapTwice (f: Nat -> {e} Nat) (numbers: List Nat): {e} (List Nat) :=
+def mapTwice (f: Nat → {e} Nat) (numbers: List Nat): {e} (List Nat) :=
   List.map (List.map numbers f) f
 
 test "a row-polymorphic callback, pure" := mapTwice (n => n + 1) [1] == [3]

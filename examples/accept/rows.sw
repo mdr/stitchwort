@@ -12,18 +12,18 @@ type Unit1: Type =
 
 type Empty: Type
 
-def fstOf: Pair a b -> a
+def fstOf: Pair a b → a
   | MkPair x y => x
 
-def sndOf: Pair a b -> b
+def sndOf: Pair a b → b
   | MkPair x y => y
 
-def eqNats: List Nat -> List Nat -> Bool
+def eqNats: List Nat → List Nat → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqNats xs ys else False
   | _, _ => False
 
-def eqPairs: List (Pair Nat Nat) -> List (Pair Nat Nat) -> Bool
+def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
   | Nil, Nil => True
   | Cons (MkPair a b) xs, Cons (MkPair c d) ys =>
     if a == c then (if b == d then eqPairs xs ys else False) else False
@@ -35,44 +35,44 @@ type StateOp: Type =
   | Get
   | Put (n: Nat)
 
-def StateRes: StateOp -> Type
+def StateRes: StateOp → Type
   | Get => Nat
   | Put n => Unit1
 
 type ChooseOp: Type =
   | Choose
 
-def ChooseRes: ChooseOp -> Type
+def ChooseRes: ChooseOp → Type
   | Choose => Bool
 
 type TickOp: Type =
   | Tick
 
-def TickRes: TickOp -> Type
+def TickRes: TickOp → Type
   | Tick => Unit1
 
 type AbortOp: Type =
   | Abort
 
-def AbortRes: AbortOp -> Type
+def AbortRes: AbortOp → Type
   | Abort => Empty
 
 -- Answers for the traces: `get` gives 7 (recorded as 1), `put n` is recorded
 -- as 100 + n, `choose` gives `True` (recorded as 2), and `tick` is recorded
 -- as 3.
-def answerState: (o: StateOp) -> Pair Nat (StateRes o)
+def answerState: (o: StateOp) → Pair Nat (StateRes o)
   | Get => MkPair 1 7
   | Put n => MkPair (100 + n) MkUnit
 
-def answerChoose: (o: ChooseOp) -> Pair Nat (ChooseRes o)
+def answerChoose: (o: ChooseOp) → Pair Nat (ChooseRes o)
   | Choose => MkPair 2 True
 
-def answerTick: (o: TickOp) -> Pair Nat (TickRes o)
+def answerTick: (o: TickOp) → Pair Nat (TickRes o)
   | Tick => MkPair 3 MkUnit
 
-def answerPlus [l r: Type] [lres: l -> Type] [rres: r -> Type]
-    (al: (o: l) -> Pair Nat (lres o)) (ar: (o: r) -> Pair Nat (rres o)):
-    (o: Plus l r) -> Pair Nat (PlusRes lres rres o)
+def answerPlus [l r: Type] [lres: l → Type] [rres: r → Type]
+    (al: (o: l) → Pair Nat (lres o)) (ar: (o: r) → Pair Nat (rres o)):
+    (o: Plus l r) → Pair Nat (PlusRes lres rres o)
   | L o => al o
   | R o => ar o
 
@@ -100,15 +100,15 @@ def SCA: Type := Plus StateOp (Plus ChooseOp AbortOp)
 
 def SCARes (o: SCA): Type := PlusRes StateRes (PlusRes ChooseRes AbortRes) o
 
-def intoSCA: Plus StateOp ChooseOp -> SCA
+def intoSCA: Plus StateOp ChooseOp → SCA
   | L o => L o
   | R o => R (L o)
 
-def replySCA: (o: Plus StateOp ChooseOp) -> SCARes (intoSCA o) -> PlusRes StateRes ChooseRes o
+def replySCA: (o: Plus StateOp ChooseOp) → SCARes (intoSCA o) → PlusRes StateRes ChooseRes o
   | L o, x => x
   | R o, x => x
 
-def fromSomeNil: Option (List a) -> List a
+def fromSomeNil: Option (List a) → List a
   | None => Nil
   | Some xs => xs
 
@@ -121,8 +121,8 @@ theorem rowsBehave: Unit :=
   -- Runs a computation with fixed answers, recording a number for each
   -- operation and then 1000 + the result. `answer` gives both the number to
   -- record and the response.
-  def trace [op: Type] [res: op -> Type]
-      (answer: (o: op) -> Pair Nat (res o)): Comp op res Nat -> List Nat
+  def trace [op: Type] [res: op → Type]
+      (answer: (o: op) → Pair Nat (res o)): Comp op res Nat → List Nat
     | Done x => [1000 + x]
     | Call o rest => Cons (fstOf (answer o)) (trace answer (rest (sndOf (answer o))))
 
@@ -157,16 +157,16 @@ theorem rowsBehave: Unit :=
   -- Handlers over an abstract rest of the row
 
   -- `State` on the left of any row `e`.
-  def runStateL [e: Type] [eres: e -> Type] [a: Type]
-      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a -> Comp e eres (Pair a Nat)
+  def runStateL [e: Type] [eres: e → Type] [a: Type]
+      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a → Comp e eres (Pair a Nat)
     | Done x => Done (MkPair x s)
     | Call (L Get) rest => runStateL s (rest s)
     | Call (L (Put n)) rest => runStateL n (rest MkUnit)
     | Call (R o) rest => Call o (y => runStateL s (rest y))
 
   -- `Choose` on the left of any row `e`: every outcome, `True` first.
-  def allResultsL: [e: Type] -> [eres: e -> Type] -> [a: Type] ->
-      Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a -> Comp e eres (List a)
+  def allResultsL: [e: Type] → [eres: e → Type] → [a: Type] →
+      Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a → Comp e eres (List a)
     | Done x => Done [x]
     | Call (L Choose) rest =>
       bind (allResultsL (rest True)) (xs =>
@@ -174,16 +174,16 @@ theorem rowsBehave: Unit :=
     | Call (R o) rest => Call o (y => allResultsL (rest y))
 
   -- Removing the last ability.
-  def allResults: Comp ChooseOp ChooseRes a -> List a
+  def allResults: Comp ChooseOp ChooseRes a → List a
     | Done x => [x]
     | Call Choose rest => List.append (allResults (rest True)) (allResults (rest False))
 
-  def runState (s: Nat): Comp StateOp StateRes a -> Pair a Nat
+  def runState (s: Nat): Comp StateOp StateRes a → Pair a Nat
     | Done x => MkPair x s
     | Call Get rest => runState s (rest s)
     | Call (Put n) rest => runState n (rest MkUnit)
 
-  def toOption: Comp AbortOp AbortRes a -> Option a
+  def toOption: Comp AbortOp AbortRes a → Option a
     | Done x => Some x
     | Call Abort rest => None
 

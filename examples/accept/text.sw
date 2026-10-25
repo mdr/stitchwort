@@ -27,7 +27,7 @@ test "not empty" := not (" ".isEmpty)
 test "escapes" := "\n\t\\\"\'".length == 5
 test "fold" := "ab".fold 0 (c n => Char.toNat c + n) == 195
 
-def unconsCode: Option (Pair Char Text) -> Nat
+def unconsCode: Option (Pair Char Text) → Nat
   | None => 0
   | Some (MkPair char chars) => Char.toNat char
 
@@ -45,11 +45,11 @@ test "no-break space stays" := "\u{A0}x".trim == "\u{A0}x"
 test "ideographic space stays" := "\u{3000}".trim == "\u{3000}"
 
 -- Numbers.
-def someIs (n: Nat): Option Nat -> Bool
+def someIs (n: Nat): Option Nat → Bool
   | None => False
   | Some m => n == m
 
-def isNone: Option a -> Bool
+def isNone: Option a → Bool
   | None => True
   | Some x => False
 
@@ -72,11 +72,11 @@ test "ASCII digits only" := isNone ("\u{663}".toNat)
 -- The law `Text.toNat (Nat.toText n) = Some n`, for every n up to 100 and
 -- some larger ones. (Not much further: the evaluator recurses once per
 -- number, and isn't stack-safe yet.)
-def roundTrips: Nat -> Bool
+def roundTrips: Nat → Bool
   | Zero => someIs 0 ((Nat.toText 0).toNat)
   | Succ n => if someIs (Succ n) ((Nat.toText (Succ n)).toNat) then roundTrips n else False
 
-def allRoundTrip: List Nat -> Bool
+def allRoundTrip: List Nat → Bool
   | Nil => True
   | Cons n ns => if someIs n ((Nat.toText n).toNat) then allRoundTrip ns else False
 
@@ -85,7 +85,7 @@ test "natToText round trip, larger" :=
   allRoundTrip [999, 1000, 1001, 9999, 10000, 65535, 1114111, 4294967296, 18446744073709551616]
 
 -- Splitting keeps empty fields.
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False

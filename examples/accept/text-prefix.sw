@@ -4,13 +4,13 @@
 
 import Std (Int, List, Option, Text)
 
-def eqTexts: List Text -> List Text -> Bool
+def eqTexts: List Text → List Text → Bool
   | Nil, Nil => True
   | Cons x xs, Cons y ys => if x == y then eqTexts xs ys else False
   | _, _ => False
 
 -- A dial turn like "L68" or "R5": negative for left, positive for right.
-def turnRight: Option Text -> Option Int
+def turnRight: Option Text → Option Int
   | Some n => n.toInt
   | None => None
 
@@ -33,11 +33,11 @@ test "stripPrefix longer" := ("ab" |> Text.stripPrefix "abc") == None
 test "stripSuffix" := ("file.txt" |> Text.stripSuffix ".txt") == Some "file"
 test "stripSuffix no match" := ("file.txt" |> Text.stripSuffix ".md") == None
 test "startsWith" := "L68" |> Text.startsWith "L"
-test "startsWith no" := !("R68" |> Text.startsWith "L")
+test "startsWith no" := ¬("R68" |> Text.startsWith "L")
 test "endsWith" := "L68" |> Text.endsWith "68"
-test "endsWith no" := !("L68" |> Text.endsWith "7")
+test "endsWith no" := ¬("L68" |> Text.endsWith "7")
 test "contains" := "hello world" |> Text.contains "o w"
-test "contains no" := !("hello" |> Text.contains "xyz")
+test "contains no" := ¬("hello" |> Text.contains "xyz")
 test "splitOn" := eqTexts ("a, b, c" |> Text.splitOn ", ") ["a", "b", "c"]
 test "splitOn adjacent" := eqTexts ("a--b" |> Text.splitOn "-") ["a", "", "b"]
 test "splitOn ends" := eqTexts ("-a-" |> Text.splitOn "-") ["", "a", ""]

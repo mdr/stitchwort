@@ -45,7 +45,7 @@ test "toInt of the largest" := (Float.toInt 1.7976931348623157e308).isSome = Tru
 test "toSafeInt" := Float.toSafeInt 3.0 = SafeInt.ofInt 3
 test "toSafeNat of a negative" := Float.toSafeNat (-3.0) = None
 test "SafeNat.toFloat" := (SafeNat.ofNat 5 |> Option.map SafeNat.toFloat) = Some 5.0
-test "isFinite" := Float.isFinite 1e308 && !(Float.isFinite Float.infinity) && !(Float.isFinite Float.nan)
+test "isFinite" := Float.isFinite 1e308 ∧ ¬(Float.isFinite Float.infinity) ∧ ¬(Float.isFinite Float.nan)
 
 -- `<` and `<=` are the total order: `-0.0 < 0.0`, the NaN above everything.
 theorem zeros: -0.0 < 0.0 := rfl

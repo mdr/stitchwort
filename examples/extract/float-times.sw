@@ -24,12 +24,12 @@ import Std (Float, List, Option)
 
 -- The times in `[start, end)`: `start <= t && t < end` in the TS.
 export def inWindow (start: Float) (end: Float) (times: List Float): List Float :=
-  List.filter times (t => Float.ieeeLe start t && Float.ieeeLt t end)
+  List.filter times (t => Float.ieeeLe start t ∧ Float.ieeeLt t end)
 
 export def shiftAll (by: Float) (times: List Float): List Float := List.map times (t => t + by)
 
 -- Each time minus the one before it.
-export def gaps: List Float -> List Float
+export def gaps: List Float → List Float
   | Cons a (Cons b rest) => Cons (b - a) (gaps (Cons b rest))
   | _ => Nil
 
@@ -37,7 +37,7 @@ export def gaps: List Float -> List Float
 export def snap (grid: Float) (t: Float): Float := Float.round (t / grid) * grid
 
 -- `times.reduce((best, t) => (t > best ? t : best))`, `undefined` for none.
-export def latest: List Float -> Option Float
+export def latest: List Float → Option Float
   | Nil => None
   | Cons t ts => Some (List.foldLeft ts t (best t => if Float.ieeeLt best t then t else best))
 

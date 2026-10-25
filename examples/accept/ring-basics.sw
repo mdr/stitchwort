@@ -42,7 +42,7 @@ theorem pairsStep (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + 
 theorem eitherWay (a: Nat) (b: Nat) (c: Nat) (h: a + b = c): c + c = a + b + c := ring [h]
 
 -- `(ring: a = b)` states the equation, here as a rewrite rule.
-theorem asRule (x: Nat) (y: Nat) (f: Nat -> Nat): f (x * y) = f (y * x) := rewrite (ring: x * y = y * x)
+theorem asRule (x: Nat) (y: Nat) (f: Nat → Nat): f (x * y) = f (y * x) := rewrite (ring: x * y = y * x)
 
 -- And as a calc step.
 theorem viaCalc (x: Nat): x + x = 2 * x :=

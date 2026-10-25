@@ -5,7 +5,7 @@
 import Std (Vec)
 
 interface Size (a: Type) =
-  { size: a -> Nat }
+  { size: a → Nat }
 
 instance Size.instNat: Size Nat :=
   { size = n => n }

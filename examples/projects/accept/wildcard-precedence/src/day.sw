@@ -6,7 +6,7 @@ import Other (count)
 
 def size(): Nat := 100
 
-def pick: Option -> Nat
+def pick: Option → Nat
   | Nope => 0
   | Yep n => n
 

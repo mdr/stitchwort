@@ -8,7 +8,7 @@ import Aoc.Day06 (..)
 import Std (Eq, List, Result, Text)
 
 -- The accepted problems, or a fallback for a rejection.
-def acceptedOr (fallback: List Problem): Result (List Problem) Text -> List Problem
+def acceptedOr (fallback: List Problem): Result (List Problem) Text → List Problem
   | Ok problems => problems
   | Err message => fallback
 

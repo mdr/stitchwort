@@ -20,7 +20,7 @@ theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (Lis
       := rewrite Vec.sumByGetOr _ Floor Cell.count
 
 -- What a round takes from one cell: 1 when it holds an accessible roll.
-theorem taken: (a: Cell) -> (n: Nat) -> Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll && n < 4)
+theorem taken: (a: Cell) → (n: Nat) → Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4)
   | Floor, n => rfl
   | Roll, n =>
     rewrite keepRemove Roll n in
@@ -32,11 +32,11 @@ theorem taken: (a: Cell) -> (n: Nat) -> Cell.count a - Cell.count (keep a (n + C
 -- with fewer than four rolls around them.
 theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
   let cells := cellsOf grid
-  let below := (r: Nat) => (c: Nat) => (h: grid.height <= r) => rowsCellsBelow grid.rows r c h
-  let right := (r: Nat) => (c: Nat) => (h: grid.width <= c) => rowsCellsRight grid.rows r c h
+  let below := (r: Nat) => (c: Nat) => (h: grid.height ≤ r) => rowsCellsBelow grid.rows r c h
+  let right := (r: Nat) => (c: Nat) => (h: grid.width ≤ c) => rowsCellsRight grid.rows r c h
   let a := (r: Nat) => (c: Nat) => (cells r c).count
   let k := (r: Nat) => (c: Nat) => (keep (cells r c) (window cells r c)).count
-  let sum2 := (f: Nat -> Nat -> Nat) => List.sumBy (List.range grid.height) (r => List.sumBy (List.range grid.width) (c => f r c))
+  let sum2 := (f: Nat → Nat → Nat) => List.sumBy (List.range grid.height) (r => List.sumBy (List.range grid.width) (c => f r c))
   calc solvePart1 grid
     _ = sum2 a - sum2 (r c => (rowsCells (roundRows grid.rows) r c).count)
       := rewrite rollsCells grid.rows, rollsCells (roundRows grid.rows)

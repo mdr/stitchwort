@@ -6,12 +6,12 @@
 import Std (List)
 
 -- An operation whose result type depends on its argument.
-def Payload: Nat -> Type
+def Payload: Nat → Type
   | 0 => Nat
   | _ => Text
 
 ability Fetch where
-  fetch: (n: Nat) -> {Fetch} Payload n
+  fetch: (n: Nat) → {Fetch} Payload n
 
 def width (xs: List Nat): Nat := List.length xs
 
@@ -22,7 +22,7 @@ def fetchNat(): {Fetch} Nat := fetch (width [])
 -- A decision procedure that only applies to particular values: it decides
 -- `SameFun f f`, so with the two sides as separate variables it doesn't fit,
 -- and the search is made again with their values.
-type Fun = | MkFun (apply: Nat -> Nat)
+type Fun = | MkFun (apply: Nat → Nat)
 
 def SameFun (f: Fun) (g: Fun): Prop := f = g
 
@@ -34,4 +34,4 @@ def same: Bool := if SameFun (adder 1) (adder 1) then True else False
 
 def sameIf: Nat := if SameFun (adder 2) (adder 2) then 1 else 0
 
-test "found with the values" := same && sameIf == 1
+test "found with the values" := same ∧ sameIf == 1

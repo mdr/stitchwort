@@ -27,8 +27,8 @@ def floorCells (tiles: List Tile): List (List Nat) :=
 
 theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
   Bool.orElim _ _ _ h
-    (l => Bool.orLeft (one <= value && value <= other) (other <= value && value <= one) (omega))
-    (r => Bool.orRight (one <= value && value <= other) (other <= value && value <= one) (omega))
+    (l => Bool.orLeft (one ≤ value ∧ value ≤ other) (other ≤ value ∧ value ≤ one) (omega))
+    (r => Bool.orRight (one ≤ value ∧ value ≤ other) (other ≤ value ∧ value ≤ one) (omega))
 
 theorem onLineTouches (tile: Tile) (line: (Tile, Tile)) (h: isOnLine tile line = True): touchesRow tile.y line = True :=
   Bool.andRight (isBetween line.fst.x line.snd.x tile.x) (isBetween line.fst.y line.snd.y tile.y) h
@@ -58,7 +58,7 @@ theorem cellAt (tiles: List Tile) (r: Nat) (c: Nat) (hr: r < List.length (Floor.
     in rfl
 
 -- A cell is 0 exactly when its tile is red or green.
-theorem outsideFlagZero: (b: Bool) -> outsideFlag b = 0 -> b = True
+theorem outsideFlagZero: (b: Bool) → outsideFlag b = 0 → b = True
   | True, h => rfl
   | False, h => Void.exfalso (Nat.succNotZero 0 h)
 
@@ -94,14 +94,14 @@ theorem allRedOrGreenKeys (tiles: List Tile) (first: Corner) (second: Corner) (i
   match inside with
     | Both (Both c1 c2) (Both r1 r2) =>
       let rowsLength: List.length cells = List.length floor.rows := List.lengthMap floor.rows _
-      let widthLe: List.length floor.columns <= List.maxLength cells :=
+      let widthLe: List.length floor.columns ≤ List.maxLength cells :=
         rewrite <- lengthCellRow tiles 0 (omega) in List.lengthLeMaxLength cells 0
       let blockIs: PrefixSums.block floor.outside top bottom left right = PrefixSums.blockSpec cells top bottom left right :=
         PrefixSums.blockSum cells top bottom left right (omega) (omega) (omega) (omega)
       let lastRow := Nat.max first.row second.row
       let lastColumn := Nat.max first.column second.column
       -- The sum of a row of the block.
-      let rowSum: Nat -> Nat := r => List.sumBy (List.between left lastColumn) (c => PrefixSums.cell cells r c)
+      let rowSum: Nat → Nat := r => List.sumBy (List.between left lastColumn) (c => PrefixSums.cell cells r c)
       Bool.eqOf (Floor.allRedOrGreen floor (first, second)) (allKeys tiles first second)
         (h =>
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in DecEq.sound _ 0 h

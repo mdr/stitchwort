@@ -17,14 +17,14 @@ def minusTwo: SafeInt := { value = -2, fits = rfl }
 def five: SafeInt := { value = 5, fits = rfl }
 
 test "equal values" := three == { value = 3, fits = rfl }
-test "different values" := three != four
+test "different values" := three ≠ four
 test "int equal" := minusTwo == { value = -2, fits = rfl }
-test "int different" := minusTwo != five
+test "int different" := minusTwo ≠ five
 
 test "record equality" :=
   counter 3 (-2) == Some ({ name = "c", count = three, delta = minusTwo })
 test "record inequality" :=
-  counter 4 (-2) != Some ({ name = "c", count = three, delta = minusTwo })
+  counter 4 (-2) ≠ Some ({ name = "c", count = three, delta = minusTwo })
 test "out of range is none" := counter 9007199254740992 0 == None
 
 test "ordered" := Ord.compare three four == Less

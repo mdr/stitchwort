@@ -20,7 +20,7 @@
 import Std (List, Nat, Option, Text)
 
 -- A call in a branch of `if h:` (a `Decidable.elim`).
-def countFrom (acc: Nat): Nat -> Nat
+def countFrom (acc: Nat): Nat → Nat
   | 0 => acc
   | Succ n => if h: n = 7000000000 then acc else countFrom (acc + 1) n
 
@@ -28,7 +28,7 @@ export def countDown (n: Nat): Nat := countFrom 0 n
 
 -- A call in a `match` in an arm: the `match` is lifted into
 -- `firstAbove.%match1`, which calls `firstAbove`.
-def firstAbove (limit: Nat): List Nat -> Option Nat
+def firstAbove (limit: Nat): List Nat → Option Nat
   | Nil => None
   | Cons x xs => match Nat.leq x limit with
     | True => firstAbove limit xs
@@ -37,7 +37,7 @@ def firstAbove (limit: Nat): List Nat -> Option Nat
 export def firstOver (limit: Nat) (xs: List Nat): Option Nat := firstAbove limit xs
 
 -- A lookup by `Ord.compare`, as the library's maps do on their lists.
-def lookupIn (key: Nat): List (Nat, Text) -> Option Text
+def lookupIn (key: Nat): List (Nat, Text) → Option Text
   | Nil => None
   | Cons (k, v) rest => match Ord.compare key k with
     | Equal => Some v
@@ -55,32 +55,32 @@ export def steps (n: Nat): Nat := stepsFrom 0 n
 
 -- Each turn makes a closure in the inlined `match`, which must keep that
 -- turn's `k`.
-def adders (acc: List (Nat -> Nat)) (n: Nat): List (Nat -> Nat) :=
+def adders (acc: List (Nat → Nat)) (n: Nat): List (Nat → Nat) :=
   if n == 7000000000 then acc else match n with
     | Zero => acc
     | Succ k => adders (Cons (x => x + k) acc) k
 
-def applyAll: List (Nat -> Nat) -> List Nat
+def applyAll: List (Nat → Nat) → List Nat
   | Nil => Nil
   | Cons f fs => Cons (f 100) (applyAll fs)
 
 export def closures (n: Nat): List Nat := applyAll (adders Nil n)
 
 -- Two members of a group: each loop inlines the other.
-export def isEven: Nat -> Bool
+export def isEven: Nat → Bool
   | 0 => True
   | Succ n => isOdd n
 
-export def isOdd: Nat -> Bool
+export def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
 -- Members with an accumulator and a second parameter.
-def evenRounds (acc: Nat): Nat -> Nat
+def evenRounds (acc: Nat): Nat → Nat
   | 0 => acc
   | Succ n => oddRounds (acc + 2) n
 
-def oddRounds (acc: Nat): Nat -> Nat
+def oddRounds (acc: Nat): Nat → Nat
   | 0 => acc
   | Succ n => evenRounds (acc + 1) n
 

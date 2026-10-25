@@ -3,7 +3,7 @@
 -- (docs/proposals/interfaces.md §5.5, §5.7, §5.8 (c)).
 
 interface Pretty (a: Type) =
-  { pretty: a -> Text }
+  { pretty: a → Text }
 
 instance Pretty.instNat: Pretty Nat :=
   { pretty = n => "global" }
@@ -19,13 +19,13 @@ def sideBySide [auto first: Pretty a] [auto second: Pretty a] (x: a): Text :=
 
 -- A diamond: two routes to a `Root a` inside a `Both a`. A use names one.
 interface Root (a: Type) =
-  { name: a -> Text }
+  { name: a → Text }
 
 interface Left (a: Type) =
-  { root: Root a, left: a -> Text }
+  { root: Root a, left: a → Text }
 
 interface Right (a: Type) =
-  { root: Root a, right: a -> Text }
+  { root: Root a, right: a → Text }
 
 interface Both (a: Type) =
   { left: Left a, right: Right a }

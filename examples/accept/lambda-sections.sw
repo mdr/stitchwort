@@ -57,15 +57,15 @@ test "text prepended" := ["a", "b"].map ("<" ++) == ["<a", "<b"]
 test "a factor on the left" := [1, 2, 3].map (2 *) == [2, 4, 6]
 
 -- The logic notation works too.
-test "membership section" := ['a', 'b', 'c'].filter (in ['a', 'c']) == ['a', 'c']
+test "membership section" := ['a', 'b', 'c'].filter (∈ ['a', 'c']) == ['a', 'c']
 
-test "non-membership section" := ['a', 'b', 'c'].filter (!in ['a', 'c']) == ['b']
+test "non-membership section" := ['a', 'b', 'c'].filter (∉ ['a', 'c']) == ['b']
 
-test "a conjunction section" := [True, False].map (&& False) == [False, False]
+test "a conjunction section" := [True, False].map (∧ False) == [False, False]
 
-test "a disjunction section" := [True, False].map (|| False) == [True, False]
+test "a disjunction section" := [True, False].map (∨ False) == [True, False]
 
-theorem equivalenceSection (p: Prop): ((<-> p): Prop -> Prop) = (q => q <-> p) := rfl
+theorem equivalenceSection (p: Prop): ((↔ p): Prop → Prop) = (q => q ↔ p) := rfl
 
 -- A negative number is still a number.
 test "minus is negation" := [1, 2, 3].map (x => x + (-1)) == [0, 1, 2]
@@ -73,6 +73,6 @@ test "minus is negation" := [1, 2, 3].map (x => x + (-1)) == [0, 1, 2]
 -- A bare operator is a function of two arguments.
 test "a bare operator" := [1, 2, 3].foldLeft 0 (+) == 6
 
-test "a bare conjunction" := [True, True].foldLeft True (&&) == True
+test "a bare conjunction" := [True, True].foldLeft True (∧) == True
 
-test "a bare subtraction" := ((-): Nat -> Nat -> Nat) 7 2 == 5
+test "a bare subtraction" := ((-): Nat → Nat → Nat) 7 2 == 5

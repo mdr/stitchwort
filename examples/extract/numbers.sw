@@ -10,13 +10,13 @@
 
 import Std (Bool, List, Nat, Void)
 
-def total: List Nat -> Nat
+def total: List Nat → Nat
   | Nil => 0
   | Cons x xs => x + total xs
 
-export def average (xs: List Nat): Nat := if h: List.length xs != 0 then total xs / List.length xs else 0
+export def average (xs: List Nat): Nat := if h: List.length xs ≠ 0 then total xs / List.length xs else 0
 
-def get: (xs: List a) -> (i: Nat) -> [auto ok: i < List.length xs] -> a
+def get: (xs: List a) → (i: Nat) → [auto ok: i < List.length xs] → a
   | Cons x xs, Zero => x
   | Cons x xs, Succ i => get xs i
   | Nil, i => Void.absurd (Bool.falseNotTrue ok)

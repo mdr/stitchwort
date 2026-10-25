@@ -7,12 +7,12 @@
 import Std (IO, Fail, Text)
 
 -- Not a tail call: a million levels wait for the failure at the bottom.
-def descend: Nat -> {Fail, Partial} Nat
+def descend: Nat → {Fail, Partial} Nat
   | 0 => Fail.fail "hit the bottom"
   | Succ below => 1 + descend below
 
 -- A tail call: the failure comes after `depth` iterations.
-def countdown: Nat -> {Fail, Partial} ()
+def countdown: Nat → {Fail, Partial} ()
   | 0 => Fail.fail "counted down to 0"
   | Succ below => countdown below
 

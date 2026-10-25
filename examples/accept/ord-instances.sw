@@ -36,7 +36,7 @@ test "maximum of none" := ([]: List Int).maximum == None
 
 -- The relations are fields: for `Nat` they're `<` and `<=` themselves.
 theorem natLessThan: Ord.lessThan 2 3 = (2 < 3) := rfl
-theorem natLessEq: Ord.lessEq 3 3 = (3 <= 3) := rfl
+theorem natLessEq: Ord.lessEq 3 3 = (3 ≤ 3) := rfl
 
 -- Decided from the same dictionary.
 test "decided" := Decidable.toBool (Ord.decLessThan "a" "b")
@@ -57,7 +57,7 @@ type Version = { major: Nat, minor: Nat }
 
 def Version.key (v: Version): (Nat, Nat) := (v.major, v.minor)
 
-theorem Version.keyInjective: (v: Version) -> (w: Version) -> Version.key v = Version.key w -> v = w
+theorem Version.keyInjective: (v: Version) → (w: Version) → Version.key v = Version.key w → v = w
   | { major = a, minor = b }, { major = c, minor = d }, h =>
     Eq.trans (Eq.cong (t => ({ major = t, minor = b }: Version)) (Eq.cong Pair.fst h))
       (Eq.cong (t => ({ major = c, minor = t }: Version)) (Eq.cong Pair.snd h))

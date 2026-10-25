@@ -12,7 +12,7 @@ type Shape: Type =
   | Rect (width: Nat) (height: Nat)
 
 -- A function on the type, used both ways.
-def Shape.area: Shape -> Nat
+def Shape.area: Shape → Nat
   | Square s => s * s
   | Rect w h => w * h
 
@@ -29,13 +29,13 @@ type Token: Prop =
 
 instance decToken: Decidable Token := Yes MkToken
 
-def needsToken: [auto t: Token] -> Nat := 1
+def needsToken: [auto t: Token] → Nat := 1
 
 def main(): {IO} () := IO.print "demo"
 
-test "area" := (Rect 2 3).area == 6 && Shape.area (Square 2) == 4
-test "own namespace" := Geometry.double 2 == 4 && quadruple 1 == 4
+test "area" := (Rect 2 3).area == 6 ∧ Shape.area (Square 2) == 4
+test "own namespace" := Geometry.double 2 == 4 ∧ quadruple 1 == 4
 test "import" := length [1, 2, 3] == 3
 test "record" := ({ x = 1, y = 2 }: Point).x == 1
 test "auto" := needsToken == 1
-test "derived equality" := Rect 1 2 == Rect 1 2 && ({ x = 1, y = 2 }: Point) == { x = 1, y = 2 }
+test "derived equality" := Rect 1 2 == Rect 1 2 ∧ ({ x = 1, y = 2 }: Point) == { x = 1, y = 2 }

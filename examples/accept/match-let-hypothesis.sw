@@ -6,7 +6,7 @@ import Std (Nat)
 
 def half (n: Nat): Option Nat := match n with | Zero => None | Succ k => Some k
 
-def Small (n: Nat): Option Nat -> Prop
+def Small (n: Nat): Option Nat → Prop
   | None => Unit
   | Some k => And (k < n) Unit
 

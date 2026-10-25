@@ -2,11 +2,11 @@
 -- is the library's `List`, by identity.
 type Chain = | Nil | Cons (n: Nat) (rest: Chain)
 
-def chainLength: Chain -> Nat
+def chainLength: Chain → Nat
   | Nil => 0
   | Cons _ rest => 1 + chainLength rest
 
-def firstOfList: List Nat -> Nat
+def firstOfList: List Nat → Nat
   | [x, y] => x
   | _ => 0
 

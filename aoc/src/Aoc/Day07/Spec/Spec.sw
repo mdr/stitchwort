@@ -44,7 +44,7 @@ type Hit = { row: Nat, column: Nat, turn: Turn }
 -- Every timeline of a particle falling into row r in column c, where `rows`
 -- are the rows from row r down: each is the list of the splitters it
 -- reaches, in order.
-def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) -> List (List Hit)
+def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) → List (List Hit)
   | Nil => [Nil]
   | Cons row rest =>
     if splitterAt row c then
@@ -59,7 +59,7 @@ def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) -> List (List Hit)
 def timelines (manifold: Manifold): List (List Hit) := timelinesFrom 0 manifold.start.toNat manifold.rows
 
 -- Some timeline reaches the splitter in row r, column c.
-def reached (ts: List (List Hit)) (r: Nat) (c: Nat): Bool := ts.any (t => t.any (hit => hit.row == r && hit.column == c))
+def reached (ts: List (List Hit)) (r: Nat) (c: Nat): Bool := ts.any (t => t.any (hit => hit.row == r ∧ hit.column == c))
 
 -- Part 1: the splitters that some timeline reaches.
 def part1Spec (manifold: Manifold): Nat :=

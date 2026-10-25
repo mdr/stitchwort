@@ -68,7 +68,7 @@ test "own instance inside" := "${[({ x = 1, y = 2 }: Point)]}" == "[(1, 2)]"
 -- A dictionary is found through any generic function.
 def shout [auto s: Show a] (x: a): Text := "${x}!"
 
-test "generic" := shout 7 == "7!" && shout "hi" == "hi!"
+test "generic" := shout 7 == "7!" ∧ shout "hi" == "hi!"
 
 -- Vectors and `Fin`.
 test "vec" := "${VCons 1 (VCons 2 VNil)}" == "[1, 2]"

@@ -7,21 +7,21 @@ import Aoc.Common (..)
 import Std (Bool, Eq, List, Nat, Ordering, Void)
 
 -- Which ids from `from` to `to` lie in the run `List.rangeFrom (to + 1 - from) from`.
-theorem rangeEnd (from: Nat) (to: Nat) (x: Nat) (h1: from <= x) (h2: x < from + (to + 1 - from)): x <= to :=
+theorem rangeEnd (from: Nat) (to: Nat) (x: Nat) (h1: from ≤ x) (h2: x < from + (to + 1 - from)): x ≤ to :=
   omega
 
-theorem rangeIn (from: Nat) (to: Nat) (y: Nat) (h1: from <= y) (h2: y <= to): y < from + (to + 1 - from) :=
+theorem rangeIn (from: Nat) (to: Nat) (y: Nat) (h1: from ≤ y) (h2: y ≤ to): y < from + (to + 1 - from) :=
   omega
 
 -- Counting the ids that ranges hold, for example to show that disjoint ranges
 -- add up (day 5 uses these in `Aoc.Day05.solvePart2Correct`).
 
-theorem containsLo (r: Range) (id: Nat) (h: r.contains id = True): r.from <= id := Nat.betweenLo r.from r.to id h
+theorem containsLo (r: Range) (id: Nat) (h: r.contains id = True): r.from ≤ id := Nat.betweenLo r.from r.to id h
 
-theorem containsHi (r: Range) (id: Nat) (h: r.contains id = True): id <= r.to := Nat.betweenHi r.from r.to id h
+theorem containsHi (r: Range) (id: Nat) (h: r.contains id = True): id ≤ r.to := Nat.betweenHi r.from r.to id h
 
 -- How many of the `c` ids from `s` the range holds.
-theorem countFrom (r: Range): (c: Nat) -> (s: Nat) -> r.to < s + c ->
+theorem countFrom (r: Range): (c: Nat) → (s: Nat) → r.to < s + c →
     List.occurrences (List.rangeFrom c s) (id => r.contains id) = Succ r.to - Nat.max r.from s
   | Zero, s, h =>
     omega
@@ -64,7 +64,7 @@ theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): 
     _ = r.size := omega
 
 -- The derived order on ranges (by start, then end) puts the smaller start first.
-theorem compareFrom: (a: Range) -> (b: Range) -> Ordering.isLessEq (Ord.compare a b) = True -> a.from <= b.from
+theorem compareFrom: (a: Range) → (b: Range) → Ordering.isLessEq (Ord.compare a b) = True → a.from ≤ b.from
   | { from = f1, to = t1 }, { from = f2, to = t2 }, h =>
     match e: Nat.compare f1 f2 with
       | Less => Nat.leOfCompare f1 f2 (g => Ordering.lessNotGreater (Eq.trans (Eq.sym e) g))

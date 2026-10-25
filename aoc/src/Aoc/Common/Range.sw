@@ -13,13 +13,13 @@ type Range = { from: Nat, to: Nat }
 def Range.parse (text: Text): {Fail} Range :=
   match (text.split '-').map .trim.toNat with
     | [Some from, Some to] =>
-      ensure (from <= to) "the range '${text}' ends before it starts"
+      ensure (from ≤ to) "the range '${text}' ends before it starts"
       { from, to }
     | _ => fail "expected a range like 11-22, got '${text}'"
 
 def Range.parseOption (text: Text): Option Range := Fail.toOption (() => Range.parse text)
 
-def Range.contains (range: Range) (id: Nat): Bool := range.from <= id && id <= range.to
+def Range.contains (range: Range) (id: Nat): Bool := range.from ≤ id ∧ id ≤ range.to
 
 def Range.size (range: Range): Nat := range.to + 1 - range.from
 

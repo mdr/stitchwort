@@ -24,7 +24,7 @@ def answer: Nat := Quot.lift seven (a b h => rfl) (Quot.mk Nat: QTy)
 
 def answerLambda: Nat := Quot.lift (a => 7) (a b h => rfl) (Quot.mk Nat: QTy)
 
-def liftWith (g: Type 0 -> Nat) (q: QTy): Nat := Quot.lift g (a b h => J (b' h' => g a = g b') rfl h) q
+def liftWith (g: Type 0 → Nat) (q: QTy): Nat := Quot.lift g (a b h => J (b' h' => g a = g b') rfl h) q
 
 def answerVariable: Nat := liftWith seven (Quot.mk Nat)
 

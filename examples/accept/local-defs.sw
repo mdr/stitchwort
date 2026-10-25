@@ -7,7 +7,7 @@
 -- A recursive helper with an accumulator, next to a plain `let`.
 def sumTo (n: Nat): Nat :=
   let start := 0
-  def go: Nat -> Nat -> Nat
+  def go: Nat → Nat → Nat
     | Zero, acc => acc
     | Succ k, acc => go k (acc + Succ k)
   go n start
@@ -25,10 +25,10 @@ def outer (offset: Nat): Nat :=
 test "outer" := outer 4 == 7
 
 def evenOdd (n: Nat): Bool :=
-  def isEven: Nat -> Bool
+  def isEven: Nat → Bool
     | Zero => True
     | Succ k => isOdd k
-  def isOdd: Nat -> Bool
+  def isOdd: Nat → Bool
     | Zero => False
     | Succ k => isEven k
   isEven n
@@ -38,7 +38,7 @@ test "evenOdd" := evenOdd 10
 -- A lemma about a local helper, and the body uses it. The helper doesn't
 -- call its owner, so it is final in time for the lemma's type to compute.
 def sumTo2 (n: Nat): Nat :=
-  def go: Nat -> Nat -> Nat
+  def go: Nat → Nat → Nat
     | Zero, acc => acc
     | Succ k, acc => go k (acc + Succ k)
   theorem goZero (a: Nat): go 0 a = a := rfl
@@ -49,8 +49,8 @@ test "sumTo2" := sumTo2 4 == 10
 
 -- Implicit capture: the element type stays an implicit parameter of
 -- `count.go`, so recursion on a smaller list is accepted as at top level.
-def count [a: Type] (xs: List a) (p: a -> Bool): Nat :=
-  def go: List a -> Nat
+def count [a: Type] (xs: List a) (p: a → Bool): Nat :=
+  def go: List a → Nat
     | Nil => 0
     | Cons x rest => if p x then Succ (go rest) else go rest
   go xs
@@ -78,7 +78,7 @@ test "auto" := useAuto 2 == 3
 
 -- Recursion between a local definition and its owner.
 def ping (n: Nat): Nat :=
-  def pong: Nat -> Nat
+  def pong: Nat → Nat
     | Zero => 0
     | Succ k => ping k
   match n with
@@ -105,7 +105,7 @@ def usesNested: Nat := nested.double.twice 4
 test "usesNested" := usesNested == 8
 
 -- In an arm, capturing a pattern variable.
-def addAll: List Nat -> Nat -> Nat
+def addAll: List Nat → Nat → Nat
   | Nil, n => n
   | Cons x rest, n =>
     def plusX (m: Nat): Nat := m + x
@@ -125,7 +125,7 @@ test "inMatch" := inMatch 3 5 == 11
 
 -- A `match` inside a local definition.
 def withMatch (xs: List Nat): Nat :=
-  def go: List Nat -> Nat
+  def go: List Nat → Nat
     | Nil => 0
     | Cons x rest => 2 * (match x with
       | Zero => 1
@@ -155,20 +155,20 @@ test "local in test" :=
 def classify (x: Nat): Nat :=
   def double (y: Nat): Nat := y + y
   def small: Nat := 3
-  if double 2 == 4 && (double x < small && not (double x == 0) || x == 10) then 1 else 0
+  if double 2 == 4 ∧ (double x < small ∧ not (double x == 0) ∨ x == 10) then 1 else 0
 
-test "classify" := classify 1 == 1 && classify 0 == 0 && classify 2 == 0 && classify 10 == 1
+test "classify" := classify 1 == 1 ∧ classify 0 == 0 ∧ classify 2 == 0 ∧ classify 10 == 1
 
 test "local in test with &&" :=
   def double (y: Nat): Nat := y + y
-  double 2 == 4 && not (double 1 == 3)
+  double 2 == 4 ∧ not (double 1 == 3)
 
 -- A `count`-style accumulator: termination is checked on the lifted helper.
 -- (The long run, as a JS loop, is in examples/extract/local-defs.sw: the
 -- differential test evaluates every example test with the recursive
 -- reference evaluator too.)
 def loop (n: Nat): Nat :=
-  def count: Nat -> Nat -> Nat
+  def count: Nat → Nat → Nat
     | Zero, acc => acc
     | Succ k, acc => count k (Succ acc)
   count n 0

@@ -28,16 +28,16 @@ import Std (Each, Fail, List, Nat, Result, Text)
 
 -- `pick n` resumes `n` times, with 0 to n - 1: none, once, twice or many.
 ability Pick where
-  pick: Nat -> {Pick} Nat
+  pick: Nat → {Pick} Nat
 
-def resumeEach (k: Nat -> {e} List Nat): Nat -> {e} List Nat
+def resumeEach (k: Nat → {e} List Nat): Nat → {e} List Nat
   | 0 => []
   | Succ n =>
     let before := resumeEach k n
     let after := k n
     List.append before after
 
-def Pick.all (prog: () -> {Pick | e} Nat): {e} List Nat :=
+def Pick.all (prog: () → {Pick | e} Nat): {e} List Nat :=
   handle prog() with
     | return x => [x]
     | Pick.pick count, k => resumeEach k count
@@ -66,13 +66,13 @@ export def choicesChecked (numbers: List Nat): Result (List (List Nat)) Text :=
 -- handler's row outside is closed and empty, so its fold's result is a
 -- computation and the runtime resumes lazily.
 ability Offer where
-  offer: Nat -> {Offer} Nat
+  offer: Nat → {Offer} Nat
 
 type Paused =
   | Finished (total: Nat)
-  | Suspended (offered: Nat) (resume: Nat -> Paused)
+  | Suspended (offered: Nat) (resume: Nat → Paused)
 
-def Offer.pause (prog: () -> {Offer} Nat): Paused :=
+def Offer.pause (prog: () → {Offer} Nat): Paused :=
   handle prog() with
     | return x => Finished x
     | Offer.offer v, k => Suspended v (answer => k answer)
@@ -87,7 +87,7 @@ def threeOffers (start: Nat): {Offer} Nat :=
 
 -- Answers every offer with the offered number plus `step`, for at most
 -- `fuel` offers.
-def settle: Nat -> Nat -> Paused -> Nat
+def settle: Nat → Nat → Paused → Nat
   | 0, step, p => 0
   | Succ fuel, step, Finished total => total
   | Succ fuel, step, Suspended v resume => settle fuel step (resume (v + step))
@@ -117,23 +117,23 @@ export def replayed (start: Nat) (answers: List Nat): List Nat :=
 -- ability and forwarding the others: every operation of the innermost
 -- program is forwarded outwards through all of them.
 ability Env where
-  ask: () -> {Env} Nat
+  ask: () → {Env} Nat
 
-def Env.give (value: Nat) (prog: () -> {Env} a): a :=
+def Env.give (value: Nat) (prog: () → {Env} a): a :=
   handle prog() with
     | return x => x
     | Env.ask u, k => k value
 
 ability Tick where
-  tick: () -> {Tick} ()
+  tick: () → {Tick} ()
 
 -- Counts nothing, but each `tick` it handles resumes once.
-def Tick.ignore (prog: () -> {Tick | e} a): {e} a :=
+def Tick.ignore (prog: () → {Tick | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Tick.tick u, k => k ()
 
-def layered: Nat -> (() -> {Env, Tick} a) -> {Env, Tick} a
+def layered: Nat → (() → {Env, Tick} a) → {Env, Tick} a
   | 0, prog => prog()
   | Succ depth, prog => Tick.ignore (() => layered depth prog)
 
@@ -146,7 +146,7 @@ export def nested (depth: Nat) (numbers: List Nat): List Nat :=
 -- A computation moved between rows `depth` times (at most 100), so each of
 -- its operations is renamed by every `translate` on the way out and its
 -- reply mapped back by each.
-def widened: Nat -> (() -> {Env} a) -> {Env, Fail} a
+def widened: Nat → (() → {Env} a) → {Env, Fail} a
   | 0, prog => prog()
   | Succ depth, prog =>
     match Fail.toResult (() => widened depth prog) with
@@ -159,9 +159,9 @@ export def translated (depth: Nat) (numbers: List Nat): Result (List Nat) Text :
 -- A state handler outside a `Fail` handler: the counter's operations are
 -- forwarded through `Fail.toResult`, which may stop the run part way.
 ability Counter where
-  next: () -> {Counter} Nat
+  next: () → {Counter} Nat
 
-def Counter.number (prog: () -> {Counter} a): Nat -> a :=
+def Counter.number (prog: () → {Counter} a): Nat → a :=
   handle prog() with
     | return x => (s => x)
     | Counter.next u, k => (s => k s (s + 1))

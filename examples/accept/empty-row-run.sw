@@ -23,7 +23,7 @@ def two: Nat := next 1
 theorem twoIsTwo: two = 2 := rfl
 
 -- A function over any row, used at the empty row.
-def twice (k: () -> {e} Nat): {e} Nat := k () + k ()
+def twice (k: () → {e} Nat): {e} Nat := k () + k ()
 def eight: Nat := twice (() => 4)
 theorem eightIsEight: eight = 8 := rfl
 
@@ -33,5 +33,5 @@ def lifted: Comp NoOp NoRes Nat := g
 -- A row written `{}` is no row: `{} Nat` is `Nat`, so this is a
 -- `Nat -> Nat` (unlike `next`).
 def nextPlain (n: Nat): {} Nat := n + 1
-def apply (k: Nat -> Nat) (n: Nat): Nat := k n
+def apply (k: Nat → Nat) (n: Nat): Nat := k n
 theorem applyNextPlain: apply nextPlain 1 = 2 := rfl

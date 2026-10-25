@@ -9,7 +9,7 @@ theorem squareOfSum (a: Nat) (b: Nat): (a + b) * (a + b) = a * (a + b) + b * (a 
 
 theorem timesTwo (n: Nat): n * 2 = n + n := Eq.trans (Nat.mulSucc n 1) (Eq.cong (t => n + t) (Nat.mulOne n))
 
-theorem leftSmaller (a: Nat) (b: Nat) (c: Nat) (h: a <= b): a <= b + c := Nat.leTrans a b (b + c) h (Nat.leAddRight b c)
+theorem leftSmaller (a: Nat) (b: Nat) (c: Nat) (h: a ≤ b): a ≤ b + c := Nat.leTrans a b (b + c) h (Nat.leAddRight b c)
 
 theorem pred (n: Nat): (n + 5) - 5 = n := Nat.addSub n 5
 

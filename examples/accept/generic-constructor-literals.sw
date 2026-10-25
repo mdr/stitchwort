@@ -14,7 +14,7 @@ type IntMark = Mark Int Nat
 def direct: Mark Int Nat := Point 1 "p" 10
 def aliased: IntMark := Span 2 "s" 10 1000
 def listed: List IntMark := [Point 1 "p" 10, Span 2 "s" 10 1000]
-def partial: Nat -> IntMark := Span 2 "s" 10
+def partial: Nat → IntMark := Span 2 "s" 10
 def optional: Option IntMark := Some (Span 2 "s" 10 1000)
 def negative: IntMark := Point 1 "p" (-5)
 
@@ -31,7 +31,7 @@ def inList (m: IntMark): List IntMark := [Point 1 "p" 10, m]
 def inCall (m: IntMark): List IntMark := pair (Point 1 "p" 10) m
 def inIf (m: IntMark) (b: Bool): IntMark := if b then Point 1 "p" 10 else m
 def inCompare (m: IntMark): Bool := Point 1 "p" 10 == m
-def inCompareBoth (m: IntMark): Bool := Point 1 "p" 10 == m && m == Point 2 "q" 3
+def inCompareBoth (m: IntMark): Bool := Point 1 "p" 10 == m ∧ m == Point 2 "q" 3
 
 def compareCall (n: Nat): IntMark := Point n "p" 10
 def inCompareCall: Bool := Point 1 "p" 10 == compareCall 1

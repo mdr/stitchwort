@@ -26,7 +26,7 @@ theorem headsDistinct (h1: Hit) (h2: Hit) (ne: Not (h1 = h2)) (xs: List (List Hi
     (List.disjointMapCons ys h1 h2 ne xs)
 
 -- Every timeline from a column is different from the others.
-theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) -> List.Distinct (timelinesFrom r c rows)
+theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) → List.Distinct (timelinesFrom r c rows)
   | Nil => Both (m => m) Trivial
   | Cons row rest =>
     match e: splitterAt row c with
@@ -49,5 +49,5 @@ theorem timelinesDistinct (manifold: Manifold): List.Distinct (timelines manifol
 -- timelines, and that list has no repeats, so it is the number of different
 -- timelines.
 theorem part2Distinct (manifold: Manifold):
-    solvePart2 manifold = List.length (timelines manifold) && List.Distinct (timelines manifold) :=
+    solvePart2 manifold = List.length (timelines manifold) ∧ List.Distinct (timelines manifold) :=
   Both (part2Correct manifold) (timelinesDistinct manifold)

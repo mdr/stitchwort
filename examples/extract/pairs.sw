@@ -10,19 +10,19 @@ import Std (Nat)
 type NatPair: Type =
   | MkNatPair (left: Nat) (right: Nat)
 
-export def first: NatPair -> Nat
+export def first: NatPair → Nat
   | MkNatPair a b => a
 
-export def swap: NatPair -> NatPair
+export def swap: NatPair → NatPair
   | MkNatPair a b => MkNatPair b a
 
 -- Two columns of constructor patterns.
-export def zipSum: List Nat -> List Nat -> List Nat
+export def zipSum: List Nat → List Nat → List Nat
   | Nil, ys => Nil
   | Cons x xs, Nil => Nil
   | Cons x xs, Cons y ys => Cons (x + y) (zipSum xs ys)
 
 -- Applies the prelude's `Nat.pred` to each element.
-export def predecessors: List Nat -> List Nat
+export def predecessors: List Nat → List Nat
   | Nil => Nil
   | Cons n ns => Cons (Nat.pred n) (predecessors ns)

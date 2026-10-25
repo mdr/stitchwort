@@ -34,20 +34,20 @@ export def nickname (p: Profile): Text := Option.getOrElse p.nick p.name
 export def withNick (p: Profile) (n: Option Text): Profile := { p | nick = n }
 
 -- An argument and a result: `bigint | undefined`.
-export def halve: Option Nat -> Option Nat
+export def halve: Option Nat → Option Nat
   | None => None
   | Some n => Some (Nat.div n 2)
 
 -- Nested: the outer is `T | undefined`, the inner the tagged `Option<bigint>`.
 export def wrap (x: Option Nat): Option (Option Nat) := Some x
 
-export def unwrap: Option (Option Nat) -> Option Nat
+export def unwrap: Option (Option Nat) → Option Nat
   | None => None
   | Some None => Some 0
   | Some (Some n) => Some n
 
 -- In a list: `(bigint | undefined)[]`.
-export def keepSome: List (Option Nat) -> List Nat
+export def keepSome: List (Option Nat) → List Nat
   | Nil => Nil
   | Cons None r => keepSome r
   | Cons (Some n) r => Cons n (keepSome r)
@@ -63,15 +63,15 @@ export def peek (p: Peek): Peek := p
 type Both: Type =
   | MkBoth (left: Option Nat) (right: Text)
 
-export def swapSides: Both -> Both
+export def swapSides: Both → Both
   | MkBoth l r => MkBoth (Some (Text.length r)) (describe l)
 
-def describe: Option Nat -> Text
+def describe: Option Nat → Text
   | None => "none"
   | Some n => Nat.toText n
 
 -- A proof field about an `Option` field: checked after it's decoded.
-def isSomeNat: Option Nat -> Bool
+def isSomeNat: Option Nat → Bool
   | None => False
   | Some _ => True
 

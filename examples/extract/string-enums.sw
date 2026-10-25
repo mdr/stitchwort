@@ -50,25 +50,25 @@ type Message =
   | @[js.name "ping"] Ping (label: Label) (@[js.optional] urgency: Option Priority)
   | @[js.name "pong"] Pong
 
-export def toggle: Label -> Label
+export def toggle: Label → Label
   | Important => SlideText
   | SlideText => Important
 
 export def tickets: List Ticket :=
   [{ label = Important, priority = Some High, tags = [SlideText] }]
 
-def priorityText: Option Priority -> Text
+def priorityText: Option Priority → Text
   | None => "no priority"
   | Some Low => "low"
   | Some High => "high"
 
 export def describe (t: Ticket): Text := priorityText t.priority
 
-export def shout: Message -> Message
+export def shout: Message → Message
   | Ping l u => Ping (toggle l) u
   | Pong => Pong
 
-export def rank: Priority -> Nat
+export def rank: Priority → Nat
   | Low => 1
   | High => 2
 

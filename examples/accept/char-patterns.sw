@@ -11,7 +11,7 @@ def turnOf (c: Char) (n: Nat): Option Turn :=
     | 'R' => Some (Right n)
     | _ => None
 
-def isVowel: Char -> Bool
+def isVowel: Char → Bool
   | 'a' => True
   | 'e' => True
   | 'i' => True
@@ -20,19 +20,19 @@ def isVowel: Char -> Bool
   | _ => False
 
 -- Nested in list and tuple patterns.
-def startsWithHash: List Char -> Bool
+def startsWithHash: List Char → Bool
   | ['#', _] => True
   | _ => False
 
-def charPair: Pair Char Nat -> Nat
+def charPair: Pair Char Nat → Nat
   | ('a', n) => n + 1
   | ('b', n) => n
   | (_, n) => 0
 
 test "L" := turnOf 'L' 3 == Some (Left 3)
 test "other" := turnOf 'x' 3 == None
-test "vowel" := isVowel 'e' && not (isVowel 'z')
-test "hash" := startsWithHash ['#', 'x'] && not (startsWithHash ['x', 'y'])
+test "vowel" := isVowel 'e' ∧ not (isVowel 'z')
+test "hash" := startsWithHash ['#', 'x'] ∧ not (startsWithHash ['x', 'y'])
 test "tuple" := charPair ('a', 4) == 5
 
 theorem turnR: turnOf 'R' 2 = Some (Right 2) := rfl

@@ -21,13 +21,13 @@ instance Label.instNat: Label Nat :=
 instance Label.instComp: Label (Effect.Comp op res a) :=
   { label = "comp" }
 
-def labelOf [a b: Type] [auto d: Label b] (f: a -> b): Text := Label.label [a := b]
+def labelOf [a b: Type] [auto d: Label b] (f: a → b): Text := Label.label [a := b]
 
 -- Nothing else is stuck: a concrete result type.
 def pureOne: Text := labelOf ((n: Nat) => n)
 
 -- A concrete row with an ability: the goal is `Label (Comp ... Nat)`.
-def failing (f: () -> {Fail} Nat): Text := labelOf f
+def failing (f: () → {Fail} Nat): Text := labelOf f
 
 -- A row unknown nothing decides: put aside, then the empty row, so `Label Nat`.
 def unknownRow: Text := labelOf (() => 3)

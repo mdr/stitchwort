@@ -55,7 +55,7 @@ test "lambda chain" := lamChain == 12
 -- number literal on the left just takes its type from the function. It goes
 -- first: `5 |> Nat.sub 1` is `Nat.sub 5 1`.
 def ctor: Option Nat := 3 |> Some
-def applyTo (h: Nat -> Nat): Nat := 3 |> h
+def applyTo (h: Nat → Nat): Nat := 3 |> h
 def literal: Nat := 5 |> Nat.sub 1
 
 test "constructor" := ctor == Some 3
@@ -75,12 +75,12 @@ def classify (n: Nat): Nat :=
     | _ => n
   |> k => k + 10
 
-def inArm: Nat -> Nat
+def inArm: Nat → Nat
   | 0 => [1, 2] |> List.sum
   | n => n
 
-test "match piped" := classify 0 == 11 && classify 5 == 15
-test "pipe in an arm" := inArm 0 == 3 && inArm 4 == 4
+test "match piped" := classify 0 == 11 ∧ classify 5 == 15
+test "pipe in an arm" := inArm 0 == 3 ∧ inArm 4 == 4
 
 -- Effects: the left side runs first, then the right side's arguments, then
 -- the call. `say "left" 1 |> addSay (say "right" 2)` is `addSay 1 2`.
