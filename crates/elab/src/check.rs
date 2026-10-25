@@ -1759,9 +1759,12 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
     if !matches!(force(cx.g(), dom.clone()), Ok(Value::Pi(..))) {
         return None;
     }
-    let helper = match head.spine().0 {
-        Term::Def(id) => cx.g().def(*id).name.to_string(),
-        Term::Var(ix) => cx.names[cx.level() - 1 - ix].to_string(),
+    let (helper, in_std) = match head.spine().0 {
+        Term::Def(id) => {
+            let def = cx.g().def(*id);
+            (def.name.to_string(), def.path.starts_with("Std."))
+        }
+        Term::Var(ix) => (cx.names[cx.level() - 1 - ix].to_string(), false),
         _ => return None,
     };
     let members = cx.e.recursion.as_ref()?.names.clone();
@@ -1771,33 +1774,49 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
         _ => "this".to_string(),
     };
     let param = cx.show(dom);
-    // The parameter's type with a row variable added to its last row.
-    let suggested = match param.rfind('}') {
-        Some(i) if !param[..i].contains('|') => format!("{} | e{}", &param[..i], &param[i..]),
-        _ => param.clone(),
-    };
-    Some(
-        Diagnostic::error(
-            "E-PARTIAL-CALLBACK",
-            format!("{what} can't be passed to `{helper}` here"),
-        )
-        .with_label(
-            arg.span(),
-            format!(
-                "{what} calls {}, so as a value it makes requests that only {}'s own \
-                 definition can answer",
-                members.iter().map(shown).collect::<Vec<_>>().join(", "),
-                shown(&members[0]),
-            ),
-        )
-        .with_note(format!(
-            "`{helper}`'s parameter has the type `{param}`, whose row is fixed"
-        ))
-        .with_note(format!(
-            "make `{helper}` polymorphic in the rest of the row: give the parameter the type \
-             `{suggested}`, and add `| e` to `{helper}`'s own row too"
-        )),
+    // A row that is already open (`| e`), or whose type isn't solved yet
+    // (`?N`), is not one a signature edit can fix: the row variable stands
+    // for total rows only.
+    let open = in_std || param.contains('?') || param.contains('|');
+    let mut diagnostic = Diagnostic::error(
+        "E-PARTIAL-CALLBACK",
+        format!("{what} can't be passed to `{helper}` here"),
     )
+    .with_label(
+        arg.span(),
+        format!(
+            "{what} calls {}, so as a value it makes requests that only {}'s own \
+             definition can answer",
+            members.iter().map(shown).collect::<Vec<_>>().join(", "),
+            shown(&members[0]),
+        ),
+    );
+    if open {
+        diagnostic = diagnostic
+            .with_note(format!(
+                "`{helper}` can't take a partial callback yet: the row variable in its \
+                 signature stands for total rows only, so changing its signature won't help"
+            ))
+            .with_note(format!(
+                "instead, write a recursive helper marked `Partial`, like `mapP` in \
+                 examples/accept/partial.sw, and pass {what} to that"
+            ));
+    } else {
+        // The parameter's type with a row variable added to its last row.
+        let suggested = match param.rfind('}') {
+            Some(i) => format!("{} | e{}", &param[..i], &param[i..]),
+            None => param.clone(),
+        };
+        diagnostic = diagnostic
+            .with_note(format!(
+                "`{helper}`'s parameter has the type `{param}`, whose row is fixed"
+            ))
+            .with_note(format!(
+                "make `{helper}` polymorphic in the rest of the row: give the parameter the type \
+                 `{suggested}`, and add `| e` to `{helper}`'s own row too"
+            ));
+    }
+    Some(diagnostic)
 }
 
 /// Applies `term` to a fresh metavariable for each leading implicit or auto
