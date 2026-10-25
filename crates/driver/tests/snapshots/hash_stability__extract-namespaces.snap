@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Geometry.Shape 546591db4b7bbad478ee730f4bd375843835a8945de3d9cbef322a27190730b1
 Main.Geometry.Shape.%tag f0d4eb9c0eb58d24217e5ba34a8a7bd2c93541d860107da68054a4f62ce2f606
@@ -12,11 +12,11 @@ Main.Geometry.Shape.%decEq eb3212d6175ac2346256d8a4b2e24bc22a8f9e539c99e6555ce90
 Main.Geometry.Shape.%instDecEq 1265d764e2e01e826a788d03860eb5b8983db276895d303b67a07dfa5a1960d0
 Main.Geometry.Shape.%show cabf642a276ffd564d33fd29a1ac5d25db60795c5549bb9b755d8c7fe503a6d7
 Main.Geometry.Shape.%instShow 22e6d0280f56242fdeec682442cd095c989f9a6db08374455191e9cf170e1ac1
-Main.Geometry.Shape.%compare c6471d66fafdcb6d4d22addae2bad2893ad200de250f6ec346642682f1d23718
-Main.Geometry.Shape.%equal 207dc5ff4aac1234eb1ad1a38c0ebd9d870997c0bc6614a4771616b9fc0ecfae
-Main.Geometry.Shape.%flip 939410ff0d1d6e85a24ec6eec684ee72ef121c46e8f6df186d9ce8ed4da8b696
-Main.Geometry.Shape.%unfold 0cff7f5cfbce5d97cb55458372d0324782606077fd7a8d108dd156ede28bc284
-Main.Geometry.Shape.%trans 8279874edc50e8ef593fb4ad9924d19cb5031b21044cb4fbee627d2a0bba1d28
-Main.Geometry.Shape.%instOrd 267c9188cd86d3463260280da403ed835cd1048fa4070a969f672160527e702f
+Main.Geometry.Shape.%compare e187f8b807c31df802ab9785969157bbd3086c3183c0065b27cd8fa0148a2312
+Main.Geometry.Shape.%equal 2ca2e9cc44f41d2f7e79619cc1844e8cf0c06cb9cbf2c7e865999ab4eff99e30
+Main.Geometry.Shape.%flip 417760ec0180bc97fa87080a6535615f6d9a56bc1b63dcd92a19c43c631fa312
+Main.Geometry.Shape.%unfold c96fdef1bd4bfaa130975330e5c733b77f02d96491d9d6a4f86e454fb3754b72
+Main.Geometry.Shape.%trans b23ab1afcccd070a45ecc435e5115842bd5ac5ae8104fa5eede922eef580d354
+Main.Geometry.Shape.%instOrd 7975accfed8a08ecbb58ff21423734434a5a1c8d62c968ceb83c109832921b78
 Main.Geometry.Shape.area 4f3aae3c5eabcbfce5c54234931b335ac95b41f6fa83078aac4db68c67aac9ef
 Main.grow b35b6bfb7897b7d62c0faddce8fd8ef28f35bb9117c4e01bf14148cc412b9bda

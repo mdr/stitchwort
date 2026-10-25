@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Item fd9b6def53d1661265591dcc18b3659e986de06b6ba11bcc791f2308e16042be
 Main.Item.name 3a5aada7afc785c61c2cb830929df8a5d368f5b10186da1dacb4034cc2523c0a
@@ -13,8 +13,8 @@ Main.Item.%show fffc81fd827429080524c76f1ebfffbdaa7935f87077fc3dbd31f210ece6f524
 Main.Item.%instShow ef3932f22991a3bf7a14812de5400728751a4b112c0ef67df3d0caf267d28217
 Main.Item.ext 08a519c892e78d6da923156db4786e5034568d888745a1459f942a98548d76c8
 Main.Item.byPriceInjective c3217b49fee28b3b883cf2e44baa293100f084efcfe3422b78e6baf4d6c173ef
-Main.Item.instOrd 6a990c7dd2e513cf899dae42d53734c196b0ed9262480ef1542d97143843b5ab
+Main.Item.instOrd 90388f722b0a51dd5baf9ac02a2d8fd90dba5b24cbd11ea16ec15ed85879fbb2
 Main.tea e66939e1910745c2e9fa26d46bc3f5754971842eb222cf30118a6eedef86cd00
 Main.jam a5395bd8023bcf151c4749435fab4ac02930655f51a0cf296db81f38d81ff4ef
-Main.test "by price" 106c46fa325542852b7ea52e5c0928a2115d06a47ee04009c7084f18246f4ecf
-Main.test "sort by price" 357ada45a14df40f3d59d686752da3fc218860c29fa1cebd56d22ec81cf1504b
+Main.test "by price" 18cd8485086fbfe27f65a8128412e629c9223c9b058c60af51876441247a818a
+Main.test "sort by price" 35ebf191def0d7f6cda1f42d8572ac278227eacce6328ff487fb304399f896b6

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.test "e-acute is one scalar" 86cc70ec06dd3c0cecc7614ff9383c0fb9de32d225fe0d967b6203050848254b
 Main.test "e and a combining accent: two" 20c8dcb098da0f75fe5f81b6da22287e7275ff4e0b57a05ec6961c224e11fa61
@@ -63,6 +63,6 @@ Main.test "split at the ends" 4bd7dd73a3b4b7de5115eb92afef0a869a569f0754fed8e147
 Main.test "split without separator" d232131a54157d6027a719f76d49fd81a557946497c803d6cb37c034ee2ad906
 Main.test "join" a637c8fc7a56e8494ca90f68810ddaa16995f7214758a9b9fd29828988735803
 Main.test "join nothing" 4b2e44854bfffebca21c3bcff1b7cd057a04bcce95e63846ed45c897013309e2
-Main.joinSplit dec97bc940866c4423c7a1d160d9136113dc724ec4f1b26a00232a9140636236
+Main.joinSplit 3418a87ad1eef2a7d40aaf1f74bce6fac6f349914f9548d640761d0267de5ddc
 Main.roundTrip d54e8fe3470633ca0a996e73d21ad35b8540f073d4215dda4323d07e412973bd
 Main.helloLength d681c778d4268f2eee1a9db80ae919bd66423fc6aa995b14d47515e9cd3529b9
