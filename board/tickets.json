@@ -271,7 +271,7 @@
     },
     {
       "id": 170,
-      "title": "Implicit and auto lambda parameters: [a: Type] (x: a) => x (D91)",
+      "title": "Implicit and auto lambda parameters: [a: Type] (x: a) => x (D91; corner cases D1175–D1177 confirmed 25 Oct)",
       "status": "done",
       "agent": "",
       "where": "Built 25 Oct (321c5159); lane's semantic choices queued for Matt as D1175-D1177",
@@ -281,7 +281,7 @@
       ],
       "body": "D91 (Matt, 20 Oct 2026), after the backslash switch (SW-90, done): lambdas can bind implicit and auto parameters: `[a: Type] => (x: a) => x`, `[auto h: P] => e`. Today the parser refuses it: crates/syntax/src/parser.rs:1985 gives E-PARSE \"implicit lambda parameters aren't supported yet\" (repro 21 Oct: `def idf: [a: Type] -> a -> a := [a: Type] => (x: a) => x`).\n\nThe elaborator needs binder modes `Explicit | Implicit | Auto` (not an implicit flag): checking `[a: Type] => e` consumes a compatible implicit Pi rather than auto-introducing one; inferring builds an implicit Pi; `[auto h: P] => e` builds/consumes an auto Pi; distinct from today's silent introduction when `x => x` checks against `[a: Type] -> a -> a`. See docs/proposals/lambda-syntax.md (draft 3).\n\nDone when: the repro checks, with examples/accept for implicit and auto lambdas and examples/reject for a mode mismatch; the parser message is removed.\n\n24 Oct 2026 (board review): the parser message is now at crates/syntax/src/parser.rs:2476 (was :1985), with the note \"write the lambda without [...]; the implicit parameter is introduced for you\"; the repro still fails the same way.",
       "created": "2026-10-20",
-      "updated": "2026-10-24",
+      "updated": "2026-10-25",
       "commits": [
         "321c5159"
       ]
