@@ -1,5 +1,5 @@
 {
-  "next": 494,
+  "next": 495,
   "tickets": [
     {
       "id": 13,
@@ -3090,6 +3090,18 @@
     {
       "id": 493,
       "title": "Proof goals print top-level constants unfolded (rogue: 30 KB goals); keep names folded",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 494,
+      "title": "Roguelike stage 2: generated dungeons (Random), levels, items/inventory, chasing monsters; proofs kept",
       "status": "doing",
       "agent": "",
       "where": "",
