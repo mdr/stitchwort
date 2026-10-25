@@ -1,5 +1,5 @@
 {
-  "next": 479,
+  "next": 481,
   "tickets": [
     {
       "id": 13,
@@ -2894,6 +2894,30 @@
     {
       "id": 478,
       "title": "Effect-polymorphic list lane 1: filter, folds, sumBy, count, any/all, find, filterMap, findMap, takeWhile, flatMap, partition, span; effect order + early stop (D1239–D1241); flatMap native stack fix; generated partial-callback notes",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 479,
+      "title": "Terminal roguelike in Stitchwort (games/rogue): pure core + proofs, Random ability, scripted play-through tests, friction NOTES.md (D1244)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 480,
+      "title": "Design: terminal control layer (single keypress/raw mode, Key type, print without newline, cursor/clear, restore on exit, playground mapping, seed/time) (D1245)",
       "status": "doing",
       "agent": "",
       "where": "",
