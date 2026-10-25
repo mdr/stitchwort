@@ -2585,14 +2585,16 @@
     {
       "id": 455,
       "title": "std: move Day 8's general lemmas (distinct same-members => Perm, map keys distinct, Map.counts nonzero, occurrencesMap/permMap/occurrencesFilter/distinctFilter, sortedDescUnique) into std (D1190 item 6; after rule E)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8d58f5cb"
+      ]
     },
     {
       "id": 456,
