@@ -502,6 +502,9 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
             term
         }
         Value::Call(..) => unreachable!("the reference evaluator never glues"),
+        Value::Resumption(_) => {
+            panic!("internal error: a handler's resumption reached the checker")
+        }
     })
 }
 

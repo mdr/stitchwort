@@ -339,6 +339,7 @@ impl PrimOp {
             PrimOp::Delay(prim) => match prim {
                 Primitive::Now | Primitive::Lift => 1,
                 Primitive::BindD | Primitive::MapSig | Primitive::Pfix => 2,
+                Primitive::FoldD => 3,
                 Primitive::Delay => 0,
             },
             PrimOp::Float(op) => op.arity(),

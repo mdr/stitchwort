@@ -1004,6 +1004,7 @@ fn rename(
         }
         // Handled above: the call, or else `force` gave its unfolding.
         Value::Call(..) => unreachable!("a forced value is never a call"),
+        Value::Resumption(_) => unreachable!("a handler's resumption never reaches the checker"),
     })
 }
 
