@@ -263,7 +263,8 @@ fn row_rule(
                 _ => blocked(a, b),
             }));
         }
-        // A partial computation: a row variable never stands for `Partial`.
+        // A partial computation: the tail of a row with abilities is total
+        // (a bare `{e}` is a `CompD`, handled by `divergence_rule`).
         Value::Neutral(Head::Def(d), _)
             if g.builtins.primitive_id(Primitive::Delay) == Some(*d) =>
         {

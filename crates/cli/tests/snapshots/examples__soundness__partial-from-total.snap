@@ -9,5 +9,5 @@ expression: output
     │                               ─────────┬────────  
     │                                        ╰────────── `collatzSteps` is `Partial`: it might not finish
     │ 
-    │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; add `Partial` to the enclosing function's type (`-> {Partial} …`)
+    │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; if this is a function's body, add `Partial` to its type (`-> {Partial} …`); if it is a callback, the function taking it must allow a partial callback
 ────╯
