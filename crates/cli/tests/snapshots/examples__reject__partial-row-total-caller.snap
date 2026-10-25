@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL] Error: a computation that might not finish can't run here
+    ╭─[ reject/partial-row-total-caller.sw:12:41 ]
+    │
+ 12 │ def caught (n: Nat): Result Nat Text := Fail.toResult (() => countdown n)
+    │                                         ────────────────┬───────────────  
+    │                                                         ╰───────────────── `Fail.toResult` is partial here because a function it's given is
+    │ 
+    │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; if this is a function's body, add `Partial` to its type (`-> {Partial} …`); if it is a callback, the function taking it must allow a partial callback
+────╯

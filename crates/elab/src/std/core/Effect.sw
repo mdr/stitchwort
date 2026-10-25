@@ -299,3 +299,29 @@ def Effect.delayD [a: Type]: (d: Divergence) → (row: Effects) →
     CompD d row a → Delay (rowOp row) (rowRes row) a
   | Total, row, c => lift (liftIn row c)
   | MayDiverge, row, c => c
+
+-- Partiality through a row with abilities, `{A | e}` (docs/proposals/partial-handlers.md
+-- §4.2, D1255): `e`'s divergence index is the whole row's.
+
+-- The handler fold, where the handled code may be partial: today's
+-- `foldComp` when total, so proofs about handlers compute as before, and
+-- `foldD` when not, whose result is partial too.
+def Effect.foldCompD [op1: Type] [res1: op1 → Type] [a b: Type]: (d: Divergence) → (out: Effects) →
+    (a → CompD d out b) → ((o: op1) → (res1 o → CompD d out b) → CompD d out b) →
+    CompD d (Ops op1 res1) a → CompD d out b
+  | Total, out, done, call, c => foldComp done call c
+  | MayDiverge, out, done, call, c => Effect.foldD done call c
+
+-- Moves a computation along a mapping between two rows that may be partial:
+-- `translate` when total, `mapSig` when not.
+def Effect.translateD [a: Type]: (d: Divergence) → (from to: Effects) →
+    SigMap (rowOp from) (rowRes from) (rowOp to) (rowRes to) → CompD d from a → CompD d to a
+  | Total, from, to, m, c => lowerIn to (translate m (liftIn from c))
+  | MayDiverge, from, to, m, c => mapSig m c
+
+-- Performs operation `o` of a row that may be partial, then goes on with
+-- `k`: what a handler does with an operation it doesn't handle.
+def Effect.callD [b: Type]: (d: Divergence) → (row: Effects) → (o: rowOp row) →
+    (rowRes row o → CompD d row b) → CompD d row b
+  | Total, row, o, k => bindIn row (lowerIn row (Call o ((y: rowRes row o) => Done y))) k
+  | MayDiverge, row, o, k => bindD (lift (Call o ((y: rowRes row o) => Done y))) k

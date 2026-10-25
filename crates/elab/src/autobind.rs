@@ -48,10 +48,12 @@ pub struct AutoBound {
     pub shadowing: Vec<Name>,
     /// The uses of bound names as a value argument of a type.
     values: Vec<Name>,
-    /// The bound names used only as a bare row, `{e}`: row variables that
-    /// may stand for a partial row (docs/proposals/partial-stage-3.md §2.2,
-    /// D1214).
-    pub bare_rows: Vec<String>,
+    /// The bound names used only as the tail of a row, bare `{e}` or with
+    /// abilities `{A | e}`, never in a row that says `Partial`: row
+    /// variables that get a divergence index, so they may stand for a
+    /// partial row (docs/proposals/partial-stage-3.md §2.2, D1214;
+    /// docs/proposals/partial-handlers.md §4, D1255).
+    pub indexed_rows: Vec<String>,
 }
 
 /// `d`, a failure elaborating the signature, with a note if it's a type
@@ -107,12 +109,12 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
             found.push(name.clone());
         }
     }
-    let bare_rows = names
+    let indexed_rows = names
         .iter()
         .filter(|n| {
             uses.iter()
                 .filter(|u| u.name.text == n.text)
-                .all(|u| u.bare_row)
+                .all(|u| u.row_tail)
         })
         .map(|n| n.text.clone())
         .collect();
@@ -125,7 +127,7 @@ pub fn auto_bound_in(e: &Elaborator, ty: &Expr, mut bound: Vec<String>) -> Resul
         names,
         shadowing,
         values,
-        bare_rows,
+        indexed_rows,
     })
 }
 
@@ -135,8 +137,9 @@ struct Use {
     position: Position,
     /// The name is declared by the module being elaborated.
     module: bool,
-    /// The use is the tail of a row with no abilities, `{e}`.
-    bare_row: bool,
+    /// The use is the tail of a row that doesn't say `Partial`: `{e}` or
+    /// `{A | e}`.
+    row_tail: bool,
 }
 
 /// Where a name is used.
@@ -294,7 +297,7 @@ fn walk_at(
                     name: name.clone(),
                     position,
                     module,
-                    bare_row: false,
+                    row_tail: false,
                 });
             }
         }
@@ -476,9 +479,13 @@ fn walk_at(
             if let Some(tail) = &row.tail {
                 let before = uses.len();
                 walk(e, &Expr::Var(tail.clone()), bound, true, uses)?;
-                if row.abilities.is_empty() {
+                let partial = row
+                    .abilities
+                    .iter()
+                    .any(|a| matches!(a, Expr::Var(n) if n.text == "Partial"));
+                if !partial {
                     for u in &mut uses[before..] {
-                        u.bare_row = true;
+                        u.row_tail = true;
                     }
                 }
             }

@@ -401,6 +401,10 @@ builtins! {
     BindDv = "Effect.bindDv": Def,
     LiftD = "Effect.liftD": Def,
     DelayD = "Effect.delayD": Def,
+    // Partiality through a row with abilities (docs/proposals/partial-handlers.md)
+    FoldCompD = "Effect.foldCompD": Def,
+    TranslateD = "Effect.translateD": Def,
+    CallD = "Effect.callD": Def,
     // Input and output
     Io = "IO": Data,
     Print = "%print": Ctor(Builtin::Io),
