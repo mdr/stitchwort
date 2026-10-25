@@ -2607,7 +2607,7 @@
     {
       "id": 457,
       "title": "Sections: (.id == id) takes the whole bracketed expression (D1192), operator sections (== 'S')/(k +) without '-' (D1193), bare operators (&&) (D1195), drop the special _.foo note (D1194); one lane after rule E lands",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -2721,7 +2721,7 @@
     {
       "id": 466,
       "title": "Partial stage 3a: divergence marker (CompD Total/MayDiverge), bare {e} may be partial, re-check total when needed, specialisation fixes Total; gate: 80 List.map theorems unchanged, pure map within 10% (D1213–D1216, D1220; after rule E)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
