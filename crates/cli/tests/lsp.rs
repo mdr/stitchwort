@@ -1152,7 +1152,7 @@ fn outline_ranges_keep_the_closing_parenthesis() {
 
 /// A call whose lambda argument is postponed (SW-300): the generic `acc + f x`
 /// can't be checked until `xs` fixes the element type.
-const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft (acc x => acc + f x) Add.zero xs\n";
+const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft xs Add.zero (acc x => acc + f x)\n";
 
 #[test]
 fn a_call_with_a_postponed_lambda_navigates_to_the_function() {

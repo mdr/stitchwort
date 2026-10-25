@@ -544,7 +544,7 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         toolkit
     );
     assert_eq!(
-        std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft (a b => a + b) 0\n"),
+        std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft 0 (a b => a + b)\n"),
         toolkit
     );
     // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends, and
@@ -601,7 +601,7 @@ fn int_only_programs_dont_load_the_list_toolkit() {
     assert!(!loaded.contains(&"Int/Sums.sw".to_string()), "{loaded:?}");
     // A program using the lemmas loads the file.
     let sums = std_loaded_by(
-        "import Std (Int, List)\ntheorem t (xs: List Nat): (List.sumBy (n => n) xs).toInt = List.sumBy (n => n.toInt) xs :=\n  Int.toIntSumBy (n => n) xs\n",
+        "import Std (Int, List)\ntheorem t (xs: List Nat): (List.sumBy xs (n => n)).toInt = List.sumBy xs (n => n.toInt) :=\n  Int.toIntSumBy (n => n) xs\n",
     );
     assert!(sums.contains(&"Int/Sums.sw".to_string()), "{sums:?}");
 }

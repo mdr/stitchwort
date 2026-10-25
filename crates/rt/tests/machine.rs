@@ -313,20 +313,20 @@ def showNat (n: Nat): Text := Nat.toText n
 def showInt (n: Int): Text := Int.toText n
 
 def natPair (a: Nat) (b: Nat): Text :=
-  Text.join ' ' [showNat (a + b), showNat (a - b), showNat (a * b),
-    if a <= b then "le" else "gt", if a == b then "eq" else "ne", if a < b then "lt" else "ge"]
+  Text.join [showNat (a + b), showNat (a - b), showNat (a * b),
+    if a <= b then "le" else "gt", if a == b then "eq" else "ne", if a < b then "lt" else "ge"] ' '
 
 def natOne (a: Nat): Text :=
-  Text.join ' ' [showNat (a / 3), showNat (a % 3), showNat (a / 9223372036854775808),
+  Text.join [showNat (a / 3), showNat (a % 3), showNat (a / 9223372036854775808),
     showNat (a % 9223372036854775807), showNat (a / 18446744073709551617),
-    showNat (Nat.toInt a |> Int.toNat), matchNat a]
+    showNat (Nat.toInt a |> Int.toNat), matchNat a] ' '
 
 def intPair (a: Int) (b: Int): Text :=
-  Text.join ' ' [showInt (a + b), showInt (a - b), showInt (a * b),
-    if a <= b then "le" else "gt", if a < b then "lt" else "ge", if a == b then "eq" else "ne"]
+  Text.join [showInt (a + b), showInt (a - b), showInt (a * b),
+    if a <= b then "le" else "gt", if a < b then "lt" else "ge", if a == b then "eq" else "ne"] ' '
 
 def intOne (a: Int): Text :=
-  Text.join ' ' [showInt (-a), showNat (Int.natAbs a), showInt (Int.abs a), showNat (Int.toNat a),
+  Text.join [showInt (-a), showNat (Int.natAbs a), showInt (Int.abs a), showNat (Int.toNat a),
     showInt (Int.sign a), showInt (a / 7), showInt (a % 7), showInt (a / -7), showInt (a % -7),
     showInt (Int.tdiv a 7), showInt (Int.tmod a (-7)), showInt (Int.fdiv a (-7)),
     showInt (Int.fmod a 7), showInt (a / 18446744073709551617), showInt (a % -9223372036854775809),
@@ -336,7 +336,7 @@ def intOne (a: Int): Text :=
       | None => "none",
     match a with
       | OfNat n => "ofNat " ++ showNat n
-      | NegSucc n => "negSucc " ++ showNat n]
+      | NegSucc n => "negSucc " ++ showNat n] ' '
 
 def matchNat: Nat -> Text
   | 0 => "zero"
@@ -349,9 +349,9 @@ def printAll: List Text -> {IO} ()
     printAll rest
 
 def main(): {IO} () :=
-  printAll (nats.map (a => Text.join ',' (nats.map (b => natPair a b))))
+  printAll (nats.map (a => Text.join (nats.map (b => natPair a b)) ','))
   printAll (nats.map natOne)
-  printAll (ints.map (a => Text.join ',' (ints.map (b => intPair a b))))
+  printAll (ints.map (a => Text.join (ints.map (b => intPair a b)) ','))
   printAll (ints.map intOne)
   IO.print (match Text.toInt "-9223372036854775809" with
     | Some n => showInt (n + 1)
@@ -466,8 +466,8 @@ def printAll: List Text -> {IO} ()
     printAll rest
 
 def main(): {IO} () :=
-  printAll (texts.map (t => Text.join ' ' (counts.map (n => show (Text.take n t) ++ show (Text.drop n t)))))
-  printAll (texts.map (t => Text.join ' ' (needles.map (needle => bool (Text.contains needle t)))))
+  printAll (texts.map (t => Text.join (counts.map (n => show (Text.take t n) ++ show (Text.drop t n))) ' '))
+  printAll (texts.map (t => Text.join (needles.map (needle => bool (Text.contains t needle))) ' '))
 "#,
         b"",
     );
@@ -493,11 +493,11 @@ import Std (Nat, Text, IO)
 
 def main(): {IO} () :=
   let input := IO.readAll()
-  let rest := Text.drop 500000 input
-  IO.print (Nat.toText (Text.length (Text.take 250000 rest)))
+  let rest := Text.drop input 500000
+  IO.print (Nat.toText (Text.length (Text.take rest 250000)))
   IO.print (Nat.toText (Text.length rest))
-  IO.print (if Text.contains "\u{1F600}b" input then "found" else "missing")
-  IO.print (if Text.contains "ba" input then "found" else "missing")
+  IO.print (if Text.contains input "\u{1F600}b" then "found" else "missing")
+  IO.print (if Text.contains input "ba" then "found" else "missing")
 "#,
         Limits {
             steps: 10_000,
@@ -519,7 +519,7 @@ fn reuse_leaves_shared_values_alone() {
         r#"
 import Std (Nat, Text, List)
 
-def show (xs: List Nat): Text := Text.join ',' (xs.map Nat.toText)
+def show (xs: List Nat): Text := Text.join (xs.map Nat.toText) ','
 
 def kept: List Nat := [5, 3, 9, 1]
 
@@ -530,7 +530,7 @@ def main(): {IO} () :=
   IO.print (show xs)
   let evens := xs.filter (x => x % 2 == 0)
   IO.print (show evens ++ " " ++ show xs)
-  let sorted := List.sortBy Nat.compare kept
+  let sorted := List.sortBy kept Nat.compare
   IO.print (show sorted ++ " " ++ show kept)
   let f := (n: Nat) => show (xs.map (x => x + n))
   IO.print (f 1 ++ " " ++ f 2 ++ " " ++ show xs)
@@ -592,7 +592,7 @@ fn map_reuses_its_cells() {
             .load(
                 "test.sw",
                 "import Std (Nat, Text, List)\n\
-                 def main(): {IO} () := IO.print (Text.join ',' ((List.range 3).map Nat.toText))\n",
+                 def main(): {IO} () := IO.print (Text.join ((List.range 3).map Nat.toText) ',')\n",
             )
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");
@@ -633,8 +633,8 @@ def main(): {IO} () :=
   IO.print (Nat.toText (twice (add3 1 1) 0))
   IO.print (Nat.toText (pick True 7 8 + pick False 7 8))
   IO.print (Nat.toText ((compose add12 (twice add12)) 0))
-  IO.print (Text.join ',' ([1, 2, 3].map (x => Nat.toText (add3 x x x))))
-  IO.print (Text.fold (c acc => Text.fromList [c] ++ acc) "!" "abc")
+  IO.print (Text.join ([1, 2, 3].map (x => Nat.toText (add3 x x x))) ',')
+  IO.print (Text.fold "abc" "!" (c acc => Text.fromList [c] ++ acc))
 "#,
         b"",
     );

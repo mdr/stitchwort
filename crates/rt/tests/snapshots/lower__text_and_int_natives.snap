@@ -1,6 +1,6 @@
 ---
 source: crates/rt/tests/lower.rs
-expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef signed (t: Text): Int :=\n  match Text.toInt t with\n    | Some n => n * -3 + 7\n    | None => 0\n\ndef main(): {IO} () :=\n  let parts := Text.split ',' \"12,-5,x\"\n  IO.print (Text.join ' ' (parts.map (t => Int.toText (signed t))))\n  IO.print (if Text.length \"abc\" == 3 && \"a\" < \"b\" then \"yes\" else \"no\")\n\"#)"
+expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef signed (t: Text): Int :=\n  match Text.toInt t with\n    | Some n => n * -3 + 7\n    | None => 0\n\ndef main(): {IO} () :=\n  let parts := Text.split \"12,-5,x\" ','\n  IO.print (Text.join (parts.map (t => Int.toText (signed t))) ' ')\n  IO.print (if Text.length \"abc\" == 3 && \"a\" < \"b\" then \"yes\" else \"no\")\n\"#)"
 ---
 fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
   if v0 then
@@ -100,15 +100,15 @@ const Std.Text.instOrd {0 slots} =
       Greater => No
     })
 fn Std.List.map(v0, v1, v2) {8 slots} =
-  match v2: List {
+  match v1: List {
     Nil =>
       match v0: Effect.Effects {
         Empty => Nil
         Ops => Done(Nil)
       }
     Cons(head: v3, tail: v4) =>
-      let v5 = apply v1(v3)
-      let v6 = λ3[c0 = v0, c1 = v1, c2 = v4](v0) {4 slots} =>
+      let v5 = apply v2(v3)
+      let v6 = λ3[c0 = v0, c1 = v4, c2 = v2](v0) {4 slots} =>
         let v1 = Std.List.map(c0, c1, c2)
         let v2 = λ2[c0 = c0, c1 = v0](v0) {2 slots} =>
           let v1 = Cons(c1, v0)
@@ -127,7 +127,7 @@ fn Std.List.map(v0, v1, v2) {8 slots} =
         }
       match v0: Effect.Effects {
         Empty =>
-          let v7 = Std.List.map(v0, v1, v4)
+          let v7 = Std.List.map(v0, v4, v2)
           Cons(v5, v7)
         Ops => %EffectBind(v5, v6)
       }
@@ -143,9 +143,9 @@ fn Main.signed.%match1(v0) {2 slots} =
     Some(value: v1) => %IntAdd(%IntMul(v1, int(-3)), int(7))
   }
 fn Main.main(v0) {2 slots} =
-  let v1 = %TextSplit(MkChar(44), "12,-5,x")
+  let v1 = %TextSplit("12,-5,x", MkChar(44))
   %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, v1), λ5(v0) {1 slots} =>
-    Done(%TextJoin(MkChar(32), v0))), λ6(v0) {1 slots} =>
+    Done(%TextJoin(v0, MkChar(32)))), λ6(v0) {1 slots} =>
     Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
     let v1 = {
       if {
@@ -180,7 +180,7 @@ fn Std.List.map[0](v0, v1) {7 slots} =
         })
         Done(v4)
       }
-      let v5 = λ3[c0 = v0, c1 = λ4(v0) {3 slots} =>
+      let v5 = λ3[c0 = v0, c1 = v3, c2 = λ4(v0) {3 slots} =>
         let v1 = %IntToText({
           let v1 = %TextToInt(v0)
           match v1: Option {
@@ -188,7 +188,7 @@ fn Std.List.map[0](v0, v1) {7 slots} =
             Some(value: v2) => %IntAdd(%IntMul(v2, int(-3)), int(7))
           }
         })
-        Done(v1), c2 = v3](v0) {4 slots} =>
+        Done(v1)](v0) {4 slots} =>
         let v1 = Std.List.map(c0, c1, c2)
         let v2 = λ2[c0 = c0, c1 = v0](v0) {2 slots} =>
           let v1 = Cons(c1, v0)
@@ -214,9 +214,9 @@ fn Std.List.map[0](v0, v1) {7 slots} =
   }
 entry {1 slots} =
   %Effect.lift({
-    let v0 = %TextSplit(MkChar(44), "12,-5,x")
+    let v0 = %TextSplit("12,-5,x", MkChar(44))
     %EffectBind(%EffectBind(%EffectBind(Std.List.map[0](Ops, v0), λ5(v0) {1 slots} =>
-      Done(%TextJoin(MkChar(32), v0))), λ6(v0) {1 slots} =>
+      Done(%TextJoin(v0, MkChar(32)))), λ6(v0) {1 slots} =>
       Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
       let v1 = {
         if {

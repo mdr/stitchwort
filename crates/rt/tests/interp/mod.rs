@@ -670,11 +670,12 @@ impl<'p> Interp<'p> {
                             }
                         }
                     }
+                    // `Text.fold text initial f`.
                     TextFold => {
-                        let t = text(&args[2])?;
+                        let t = text(&args[0])?;
                         let mut acc = args[1].clone();
                         for c in t.chars().rev() {
-                            acc = self.apply(args[0].clone(), vec![char_value(c), acc])?;
+                            acc = self.apply(args[2].clone(), vec![char_value(c), acc])?;
                         }
                         acc
                     }
@@ -684,8 +685,8 @@ impl<'p> Interp<'p> {
                         V::Text(text(&args[0])?.trim_matches(space).into())
                     }
                     TextTake | TextDrop => {
-                        let n = usize::try_from(&nat(&args[0])?).unwrap_or(usize::MAX);
-                        let whole = text(&args[1])?;
+                        let n = usize::try_from(&nat(&args[1])?).unwrap_or(usize::MAX);
+                        let whole = text(&args[0])?;
                         let (taken, dropped): (String, String) = {
                             let mut it = whole.chars();
                             let taken = it.by_ref().take(n).collect();
@@ -693,16 +694,16 @@ impl<'p> Interp<'p> {
                         };
                         V::Text(if t == TextTake { taken } else { dropped }.into())
                     }
-                    TextContains => boolean(text(&args[1])?.contains(&*text(&args[0])?)),
+                    TextContains => boolean(text(&args[0])?.contains(&*text(&args[1])?)),
                     TextSplit => {
-                        let s = chr(&args[0])?;
-                        let t = text(&args[1])?;
+                        let s = chr(&args[1])?;
+                        let t = text(&args[0])?;
                         list(t.split(s).map(|p| V::Text(p.into())).collect())
                     }
                     TextJoin => {
-                        let s = chr(&args[0])?.to_string();
+                        let s = chr(&args[1])?.to_string();
                         let mut parts = Vec::new();
-                        let mut l = args[1].clone();
+                        let mut l = args[0].clone();
                         while let V::Ctor(1, cell) = l {
                             parts.push(text(&cell[0])?.to_string());
                             l = cell[1].clone();

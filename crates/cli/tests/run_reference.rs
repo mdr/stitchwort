@@ -293,7 +293,7 @@ def main () : {IO} () :=
   IO.print (Nat.toText (app3 (pick Nat)))
   IO.print (Nat.toText (app3 (withProof 4 rfl)))
   IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 rfl))
-  IO.print (Nat.toText (List.sum (List.map (f => f 2 rfl) [proofOnly, proofOnly])))
+  IO.print (Nat.toText (List.sum (List.map [proofOnly, proofOnly] (f => f 2 rfl))))
   IO.print (Nat.toText (app2 (tag2 (1 + 1) (2 + 1))))
 "#,
     );

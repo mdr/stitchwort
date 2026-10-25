@@ -172,7 +172,7 @@ def main(): {IO} () :=
     yes (minusZero == zero), yes (genericLess minusZero zero), yes (Float.ieeeLt minusZero zero),
     yes (genericLess Float.infinity (ofBits 9221120237041090560)),
     yes (Float.ieeeLe (ofBits 9221120237041090560) Float.infinity),
-    ids (List.sortOn (s => s.time) stamps), ids (List.sortBy byTime stamps),
+    ids (List.sortOn stamps (s => s.time)), ids (List.sortBy stamps byTime),
     "${ofBits 4591870180066957722 + 0.2}", "${minusZero}", "${1.0 / zero}", "${zero / zero}",
     "${ofBits 4921056587992461136}", Float.toSource (ofBits 4613937818241073152),
     Float.toSource (Float.ofNat 1000000000000000000000), "${[1.5, -0.0, 3.0]}",

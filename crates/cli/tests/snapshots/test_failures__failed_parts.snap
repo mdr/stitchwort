@@ -27,7 +27,7 @@ expression: "run(&dir, &[\"--no-cache\"])"
       right: 1
       in: a < 1  (t.sw:18:13)
   ✗ and, not a comparison       ran  (evaluated to False)
-      in: List.all (n => n < 2) [1, 2]  (t.sw:19:49)
+      in: List.all [1, 2] (n => n < 2)  (t.sw:19:49)
   ✗ list                        ran  (`==` is False)
       left:  [1, 2, 4]
       right: [1, 2, 3]

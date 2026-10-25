@@ -23,7 +23,7 @@ fn shadow_warnings(session: &Session) -> Vec<&Diagnostic> {
 fn a_first_parameter_that_hides_an_imported_function_warns() {
     let (session, result) = load(
         "import Std (List)\nimport List (map)\n\n\
-         def f : (Nat -> Nat) -> List Nat -> List Nat := map xs => List.map map xs\n",
+         def f : (Nat -> Nat) -> List Nat -> List Nat := map xs => List.map xs map\n",
     );
     result.unwrap();
     let [w] = &shadow_warnings(&session)[..] else {
@@ -91,7 +91,7 @@ fn no_warning_otherwise() {
         // A local variable that isn't a function.
         "def g (n: Nat) : Nat -> Nat -> Nat := n y => n + y\n",
         // A bracketed argument lambda, as the note advises.
-        "import List (map)\n\ndef f : List Nat -> List Nat := xs => map (x => x + 1) xs\n",
+        "import List (map)\n\ndef f : List Nat -> List Nat := xs => map xs (x => x + 1)\n",
     ] {
         let (session, result) = load(source);
         result.unwrap_or_else(|e| panic!("{source}: {e:#?}"));

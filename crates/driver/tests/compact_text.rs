@@ -142,7 +142,7 @@ def swapFirst : Text -> List Char
   | MkText (Cons a (Cons b rest)) => Cons b (Cons a rest)
   | t => Text.toList t
 
-def countChars (t : Text) : Nat := Text.fold (c n => Succ n) 0 t
+def countChars (t : Text) : Nat := Text.fold t 0 (c n => Succ n)
 
 def copy : List Char -> List Char
   | Nil => Nil
@@ -182,8 +182,8 @@ fn one_text(session: &mut Session, t: &str) {
         format!("Text.isEmpty {t}"),
         format!("Text.uncons {t}"),
         format!("Text.trim {t}"),
-        format!("Text.split ',' {t}"),
-        format!("Text.join ',' (Text.split ',' {t})"),
+        format!("Text.split {t} ','"),
+        format!("Text.join (Text.split {t} ',') ','"),
         format!("Text.toNat {t}"),
         format!("Text.fromList (Text.toList {t})"),
         format!("Text.decEq {t} {t}"),
@@ -204,7 +204,7 @@ fn two_texts(session: &mut Session, a: &str, b: &str) {
         format!("Text.compare {la} {lb}"),
         format!("Text.less {la} {lb}"),
         format!("{la} ++ {lb}"),
-        format!("Text.join ',' [{la}, {lb}]"),
+        format!("Text.join [{la}, {lb}] ','"),
     ] {
         same_both_ways(session, &expr);
     }
@@ -445,10 +445,10 @@ fn medium_texts() {
             answer(&session, &t_compact, &t_compact),
             answer(&session, &t_compact, &other)
         );
-        let split = call(&session, "Text.split", &[&comma, &t_compact]);
-        let split_copy = call(&session, "Text.split", &[&comma, &t_copy]);
-        let joined = call(&session, "Text.join", &[&comma, &split]);
-        let joined_copy = call(&session, "Text.join", &[&comma, &split_copy]);
+        let split = call(&session, "Text.split", &[&t_compact, &comma]);
+        let split_copy = call(&session, "Text.split", &[&t_copy, &comma]);
+        let joined = call(&session, "Text.join", &[&split, &comma]);
+        let joined_copy = call(&session, "Text.join", &[&split_copy, &comma]);
         assert_eq!(normal(&session, &joined), normal(&session, &joined_copy));
         assert_eq!(normal(&session, &joined), normal(&session, &t_copy));
     }
@@ -505,7 +505,7 @@ fn laws_hold_on_long_texts() {
         &mut session,
         &format!(
             "import Std (Text)\n\n\
-             def splitJoin (t : Text) : Bool := Text.join ',' (Text.split ',' t) == t\n\n\
+             def splitJoin (t : Text) : Bool := Text.join (Text.split t ',') ',' == t\n\n\
              def lengthsAdd (a : Text) (b : Text) : Bool := Text.length (a ++ b) == Text.length a + Text.length b\n\n\
              def differ (a : Text) (b : Text) : Bool := not (a == b)\n\n\
              test \"split then join\" := splitJoin {t}\n\

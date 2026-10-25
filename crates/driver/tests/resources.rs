@@ -142,7 +142,7 @@ def counted (prog : () -> {Count | e} a) : {e} Pair Nat a :=
 
 test "half"     := half 9 == 4
 test "safeDiv"  := safeDiv 7 0 == 0
-test "text"     := Text.join '-' (Text.split ',' "a,,b") == "a--b"
+test "text"     := Text.join (Text.split "a,,b" ',') '-' == "a--b"
 test "trim"     := Text.trim "  x " == "x"
 test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 "#;

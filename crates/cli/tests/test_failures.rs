@@ -18,7 +18,7 @@ test "greater" := 1 > part1 5
 test "proposition" := part1 1 = 3
 test "long value" := List.range 1000 == []
 test "huge value" := List.range 100000 == []
-test "not a comparison" := List.all (n => n < 3) [1, 2, 3]
+test "not a comparison" := List.all [1, 2, 3] (n => n < 3)
 "#;
 
 fn folder(name: &str) -> PathBuf {
@@ -103,7 +103,7 @@ test "and, a proposition" := part1 1 == 2 && 7 < 3
 test "and let" :=
   let a := part1 1
   a == 2 && a < 1
-test "and, not a comparison" := part1 1 == 2 && List.all (n => n < 2) [1, 2]
+test "and, not a comparison" := part1 1 == 2 && List.all [1, 2] (n => n < 2)
 test "list" := nums 4 == [1, 2, 3]
 test "list shorter" := nums 3 == [1, 2]
 test "list longer" := [1] == nums 3

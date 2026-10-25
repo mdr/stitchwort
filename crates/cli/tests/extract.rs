@@ -3235,9 +3235,9 @@ def countdownNamed (n: Nat): List Nat
     | Zero => Nil
     | Succ k => Cons n (countdownNamed k [decreasing := omega])
 
-export def countdownLength (n: Nat): Nat := List.foldLeft (count d => count + 1) 0 (countdownNamed n)
+export def countdownLength (n: Nat): Nat := List.foldLeft (countdownNamed n) 0 (count d => count + 1)
 
-export def digitCount (n: Nat): Nat := List.foldLeft (count d => count + 1) 0 (Nat.digits n)
+export def digitCount (n: Nat): Nat := List.foldLeft (Nat.digits n) 0 (count d => count + 1)
 "#;
     let mut session = Session::new();
     if let Err(diagnostics) = session.load("decreasing.sw", source) {
@@ -3447,9 +3447,9 @@ fn an_inlined_text_comparison_calls_the_native() {
     let source = "import Std (Eq, List, Option, Text)\n\n\
         type Item = { id: Text, n: Nat }\n\n\
         export def countWith (xs: List Item) (target: Text): Nat :=\n  \
-        List.length (List.filter (r => r.id == target) xs)\n\n\
+        List.length (List.filter xs (r => r.id == target))\n\n\
         export def findWith (xs: List Item) (target: Text): Nat :=\n  \
-        Option.getOrElse 0 (Option.map (r => r.n) (List.find (r => r.id == target) xs))\n";
+        Option.getOrElse (Option.map (List.find xs (r => r.id == target)) (r => r.n)) 0\n";
     let mut session = Session::new();
     if let Err(errors) = session.load("compare.sw", source) {
         panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
@@ -3506,7 +3506,7 @@ fn a_text_comparison_in_a_match_scrutinee_calls_the_native() {
         | Some (A r _ _) => r\n    \
         | Some (B r _ _ _) => r + 100\n\n\
         export def direct (id: Text) (xs: List Thing): Nat :=\n  \
-        match List.find (t => thingId t == id) xs with\n    \
+        match List.find xs (t => thingId t == id) with\n    \
         | None => 0\n    \
         | Some _ => 1\n";
     let mut session = Session::new();

@@ -193,9 +193,9 @@ def total : List Nat -> Nat
   | Cons x xs => x + total xs
 
 def main () : {IO} () :=
-  let xs := List.map (i => (i * 7919) % 500000) (List.range 500000)
+  let xs := List.map (List.range 500000) (i => (i * 7919) % 500000)
   IO.print (Nat.toText (total xs))
-  IO.print (Nat.toText (total (List.take 3 (List.sort xs))))
+  IO.print (Nat.toText (total (List.take (List.sort xs) 3)))
 "#,
     );
     let js = run(&path, true, b"");
@@ -368,8 +368,8 @@ def main () : {IO} () :=
   IO.print (Nat.toText (apply3 add3))
   IO.print (Nat.toText (applyT withType))
   IO.print (Nat.toText (twice (withType 3 Nat) 4))
-  IO.print (Nat.toText (List.sum (List.zipWith Nat.add [1, 2] [30, 40])))
-  IO.print (Nat.toText (List.sum (List.map (add3 1 2) [4, 5])))
+  IO.print (Nat.toText (List.sum (List.zipWith [1, 2] [30, 40] Nat.add)))
+  IO.print (Nat.toText (List.sum (List.map [4, 5] (add3 1 2))))
   IO.print (Nat.toText (sumTo 0 100000))
   IO.print (Nat.toText (isEven 0 7))
 "#,
@@ -421,7 +421,7 @@ def main () : {IO} () :=
   IO.print (Nat.toText (app3 (pick Nat)))
   IO.print (Nat.toText (app3 (withProof 4 rfl)))
   IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 rfl))
-  IO.print (Nat.toText (List.sum (List.map (f => f 2 rfl) [proofOnly, proofOnly])))
+  IO.print (Nat.toText (List.sum (List.map [proofOnly, proofOnly] (f => f 2 rfl))))
   IO.print (Nat.toText (app2 (tag2 (1 + 1) (2 + 1))))
 "#,
     );
@@ -484,7 +484,7 @@ def echo (x: Nat): {{IO, Fail}} Nat :=
   if x < 100000000 then x else Fail.fail "too big"
 
 def main(): {{IO}} () :=
-  match Fail.toResult (() => List.map echo (List.range {count})) with
+  match Fail.toResult (() => List.map (List.range {count}) echo) with
     | Ok xs => IO.print "total ${{List.sum xs}}"
     | Err message => IO.print message
 "#

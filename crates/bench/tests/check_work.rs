@@ -93,7 +93,7 @@ const CONSTANT: &[(&str, &str)] = &[
     ("not", "def b : Bool := not (cost <= 5)"),
     (
         "a comparison as a Bool",
-        "def b : Bool := List.any (n => n < cost) [1, 2]",
+        "def b : Bool := List.any [1, 2] (n => n < cost)",
     ),
     ("test", "test \"length\" := cost == 200000"),
 ];
@@ -198,7 +198,7 @@ fn growth(what: &str, program: impl Fn(usize) -> String) -> [(u64, usize); 2] {
 #[test]
 fn stuck_conditions_keep_filter_and_count_linear() {
     let theorem = |f: &str, n: usize| {
-        let side = format!("List.{f} (n => k * n <= size) (List.rangeFrom {n} 2)");
+        let side = format!("List.{f} (List.rangeFrom {n} 2) (n => k * n <= size)");
         format!(
             "import Std (List)\ntheorem t (k : Nat) (size : Nat) : {side} = {side} := Std.Eq.trans rfl rfl\n"
         )

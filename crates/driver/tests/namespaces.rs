@@ -261,7 +261,7 @@ fn error_of(source: &str) -> Vec<stitchwort_syntax::Diagnostic> {
 fn a_wildcard_import_brings_a_namespaces_names() {
     let session = load(
         "import List (..)\n\n\
-         def go(xs: List Nat): Nat := sum (map (x => x + 1) (filter (x => not (x == 0)) (reverse xs)))\n\n\
+         def go(xs: List Nat): Nat := sum (map (filter (reverse xs) (x => not (x == 0))) (x => x + 1))\n\n\
          def nil(): List Nat := Nil\n\n\
          test \"go\" := go (Cons 1 (Cons 2 Nil)) == 5\n",
     );
@@ -353,7 +353,7 @@ fn wildcards_still_work_for_eval_after_a_single_file() {
         )
         .unwrap();
     let expr = session
-        .parse_expression("<eval>", "map double [1, 2]")
+        .parse_expression("<eval>", "map [1, 2] double")
         .unwrap();
     session.elab.infer_expr(&expr).unwrap();
 }
