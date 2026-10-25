@@ -1,5 +1,5 @@
 {
-  "next": 518,
+  "next": 520,
   "tickets": [
     {
       "id": 13,
@@ -3415,6 +3415,30 @@
       "id": 517,
       "title": "Explore extending roguelike proofs: whole-game replay, distinct monsters, reachability, render/input correctness, rules; PROOFS.md",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 518,
+      "title": "Native N2a: bytecode registers as Cranelift SSA variables, spill only at runtime calls; skip erasing empty registers (D1279)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 519,
+      "title": "Native N2b: big-stack sizing with counter-fires-first tests, tail-call shape tests, frame sizes, trace order on error paths (after N2a)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
