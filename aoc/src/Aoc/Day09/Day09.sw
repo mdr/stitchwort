@@ -100,7 +100,7 @@ type Floor = { columns: List Nat, rows: List Nat, outside: PrefixSums }
 
 def Floor.of (tiles: List Tile): Floor :=
   let columns := keyLines (tiles.map .x)
-  let rows := keyLines (tiles.map (tile => tile.y))
+  let rows := keyLines (tiles.map .y)
   { columns, rows, outside = PrefixSums.of (Floor.outsideCells (loopLines tiles) columns rows) }
 
 -- The floor through the key columns and rows, row by row: 1 for each tile

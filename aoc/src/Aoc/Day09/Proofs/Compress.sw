@@ -24,7 +24,7 @@ def SameSide (values: List Nat) (v: Nat) (w: Nat): Prop :=
 
 def columnsOf (tiles: List Tile): List Nat := tiles.map .x
 
-def rowsOf (tiles: List Tile): List Nat := tiles.map (tile => tile.y)
+def rowsOf (tiles: List Tile): List Nat := tiles.map .y
 
 -- 1. Only comparisons with the red tiles matter ------------------------------
 
