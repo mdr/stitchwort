@@ -1,5 +1,5 @@
 {
-  "next": 531,
+  "next": 532,
   "tickets": [
     {
       "id": 13,
@@ -3382,14 +3382,16 @@
     {
       "id": 514,
       "title": "Playground: bundle games/rogue as a second project, piped key-script play, web test (D1270)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "8ce61618"
+      ]
     },
     {
       "id": 515,
@@ -3520,7 +3522,7 @@
     {
       "id": 525,
       "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, groups unfold together D1267, hashing, E-NOT-OPAQUE) — branch, morning review",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3581,6 +3583,18 @@
       "id": 530,
       "title": "Native N4: effects and handlers (after N3; D1285 yes)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 531,
+      "title": "Playground browser tests: 3 failures (arrow in tooltip, failed-comparison example, library tooltip timeout); per-project error path prefix; 256 KiB guard docs",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
