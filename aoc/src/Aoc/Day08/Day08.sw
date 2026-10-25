@@ -33,6 +33,12 @@ type Point = { x: Nat, y: Nat, z: Nat }
 
 -- The boxes, and every pair of them closest first (`closestFirst`), sorted
 -- once for both parts.
+--
+-- Build it with `Boxes.of` (or `parseBoxes`): the solvers, and the theorems
+-- about them in Proofs/, assume `pairs` is `closestFirst points`. A `Boxes`
+-- written out by hand with other pairs gets answers that mean nothing: with
+-- no pairs, part 2 of two boxes is `None`; a pair naming a box past the end
+-- reads that box as `origin`.
 type Boxes = { points: List Point, pairs: List Connection }
 
 def parseBoxes (lines: List Text): {Fail} Boxes := Boxes.of (parsePoints lines)
@@ -74,6 +80,11 @@ def Connection.between (first: (Nat, Point)) (second: (Nat, Point)): Connection 
 
 -- Which circuit each box is in, and how many circuits there are. The label
 -- of a circuit is the number of one of its boxes.
+--
+-- `count` is the number of different labels only for circuits built by
+-- `Circuits.separate` and `join`s of boxes below its number of boxes
+-- (Proofs/Part2.sw's `Counted`); nothing checks that of `labels` and
+-- `count` written out by hand.
 type Circuits = { labels: Map Nat Nat, count: Nat }
 
 -- Every box in a circuit of its own.
@@ -109,6 +120,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 
 -- Part 1: join the closest `connections` pairs (1,000 for the puzzle input,
 -- 10 for its example), then multiply the sizes of the three biggest circuits.
+-- For `boxes` built by `Boxes.of` (see `Boxes`).
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
     |> .foldLeft Circuits.connect (Circuits.separate boxes.points.length)
@@ -116,7 +128,8 @@ def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
 
 -- Part 2: the product of the x coordinates of the two boxes whose joining
 -- leaves one circuit. `None` if there are no such boxes: the points start in
--- one circuit (one point, or none).
+-- one circuit (one point, or none). For `boxes` built by `Boxes.of` (see
+-- `Boxes`).
 def solvePart2 (boxes: Boxes): Option Nat :=
   (lastJoin (Circuits.separate boxes.points.length) boxes.pairs).map (((first, second)) =>
     (boxes.points.getOr origin first).x * (boxes.points.getOr origin second).x)
