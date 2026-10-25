@@ -3,7 +3,7 @@
 **Status:** research and design note, 25 October 2026 (SW-477). Nothing here
 changes the compiler. The experiments were scratch programs and aren't
 committed; their code is described in [Appendix A](#appendix-a-the-experiments)
-so they can be rewritten. Decisions are at the [end](#decisions) (D1244–D1247).
+so they can be rewritten. Decisions are at the [end](#decisions) (D1250–D1253).
 **Stopped for Matt's review.**
 
 Claims are marked like this:
@@ -923,7 +923,7 @@ than the machine there, stop and re-plan before N2.
 
 ## Decisions
 
-**D1244. Build a native backend at all?**
+**D1250. Build a native backend at all?**
 - Context: the experiment says native code could run the `Set` benchmark
   about 10× faster than today's machine and several times faster than Node.
   But it's 8–10 lanes and a third runner to keep in step with the reference
@@ -932,7 +932,7 @@ than the machine there, stop and re-plan before N2.
   `run --js`.
 - **Recommendation: yes**, staged, with N1's measurement as a stop point.
 
-**D1245. Use Cranelift, in-process, rather than generating C?**
+**D1251. Use Cranelift, in-process, rather than generating C?**
 - Context: C (Lean's and Koka's route) gives slightly better code, but users
   would need a C compiler when they `run`, and the Rust runtime would need a
   C interface or a C twin.
@@ -944,7 +944,7 @@ than the machine there, stop and re-plan before N2.
 - **Recommendation: yes, Cranelift.** Keep C in mind for a later
   `stitchwort build`.
 
-**D1246. Keep the playground on the machine?**
+**D1252. Keep the playground on the machine?**
 - Context: Cranelift can't run its code in a browser. Only a wasm backend
   (route f) would speed the playground up a lot, and that needs browser
   stack features that aren't everywhere yet. The CLI and the playground
@@ -953,7 +953,7 @@ than the machine there, stop and re-plan before N2.
 - **Recommendation: yes.** Speed the machine up modestly (route a) for the
   playground; revisit wasm when stack switching ships.
 
-**D1247. Native code must hit resource limits at exactly the machine's
+**D1253. Native code must hit resource limits at exactly the machine's
 points?**
 - Context: counting frames and steps on every call, as the machine does,
   costs about 1.6 ns per call on a bare-call benchmark (about 3.5× a bare
