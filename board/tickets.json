@@ -1,5 +1,5 @@
 {
-  "next": 461,
+  "next": 462,
   "tickets": [
     {
       "id": 13,
@@ -2643,6 +2643,18 @@
     {
       "id": 460,
       "title": "std stack safety leftovers: Result.traverse (redo Fail.toResultMap + reify examples) and Vec.traverseOption as loops; after rule E lands",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 461,
+      "title": "Consider notation for logic and sets: Unicode (∈ ∀ ∃ ∧ ∨ ¬ → ↔ ≤ ≠) and/or ASCII approximations (e.g. x in xs, /\\, \\/, <->) for membership, quantifiers and logical connectives in props/proofs; syntax.md says names are ASCII today. Trigger: D1199 discussion (Mem x xs reads as x ∈ xs; Lean/Agda/Rocq use ∈)",
       "status": "backlog",
       "agent": "",
       "where": "",
