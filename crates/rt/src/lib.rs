@@ -22,6 +22,7 @@ pub mod host;
 pub mod ir;
 pub mod lower;
 pub mod machine;
+pub mod native_abi;
 pub mod natives;
 pub mod opt;
 pub mod pretty;
@@ -35,5 +36,6 @@ pub use ir::{MainRow, Program};
 pub use lower::{lower_definitions, lower_global, lower_main};
 pub use machine::{Limits, Machine};
 pub use run::{
-    Outcome, Policy, RouteCounts, run_main, run_main_counting, run_main_with, run_partial,
+    NativeFactory, Outcome, Policy, RouteCounts, run_main, run_main_counting, run_main_native,
+    run_main_with, run_partial,
 };

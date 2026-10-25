@@ -1,11 +1,13 @@
 [package]
 name = "stitchwort-native"
-description = "Native code through Cranelift (docs/proposals/native-compilation.md); stage N0 is a spike"
+description = "Native code through Cranelift (docs/proposals/native-compilation.md): the N0 spike and stage N1"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+stitchwort-core.workspace = true
+stitchwort-rt.workspace = true
 # Pinned to one release, the newest at least two weeks old when added
 # (0.136.2, 2 October 2026); the five crates are released in lockstep.
 cranelift-codegen = "=0.136.2"
@@ -17,6 +19,12 @@ cranelift-native = "=0.136.2"
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 # `MAP_JIT` and `pthread_jit_write_protect_np` (src/map_jit.rs).
 libc = "0.2.190"
+
+[dev-dependencies]
+# The N1 tests check and lower programs from source, and compare allocation
+# traces.
+stitchwort-driver.workspace = true
+stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
 
 [lints]
 workspace = true

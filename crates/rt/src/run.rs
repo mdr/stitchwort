@@ -20,6 +20,7 @@ use stitchwort_core::ResourceError;
 use crate::host::{RunError, read_all, read_line};
 use crate::ir::{MainRow, Program};
 use crate::machine::{Limits, Machine};
+use crate::native_abi::NativeIslands;
 use crate::value::{Delay, Fun, Value};
 
 /// How a run ended, when nothing went wrong.
@@ -95,7 +96,56 @@ pub fn run_main_counting(
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
+    run_main_hooked(program, limits, policy, None, input, output)
+}
+
+/// Makes native code for a compiled program (`crate::native_abi`), or
+/// `None` to run it all on the machine.
+pub type NativeFactory<'a> =
+    &'a mut dyn FnMut(&Program, &crate::code::Image) -> Option<Box<dyn NativeIslands>>;
+
+/// Runs `program` as [`run_main`] does, with the native code `native` makes
+/// for it running the island roots the entry calls (stage N1 of
+/// docs/proposals/native-compilation.md). Flushes `output`.
+pub fn run_main_native(
+    program: &Program,
+    limits: Limits,
+    native: NativeFactory<'_>,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+) -> Result<(), RunError> {
+    let result = run_main_hooked(
+        program,
+        limits,
+        &Policy::default(),
+        Some(native),
+        input,
+        output,
+    )
+    .0;
+    match result {
+        Ok(_) => output.flush().map_err(RunError::Write),
+        Err(e) => {
+            let _ = output.flush();
+            Err(e)
+        }
+    }
+}
+
+fn run_main_hooked(
+    program: &Program,
+    limits: Limits,
+    policy: &Policy,
+    native: Option<NativeFactory<'_>>,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+) -> (Result<Outcome, RunError>, RouteCounts) {
     let mut machine = Machine::new(program, limits);
+    if let Some(native) = native
+        && let Some(islands) = native(program, machine.image())
+    {
+        machine.set_native(islands);
+    }
     let delay = match machine.entry() {
         Ok(delay) => delay,
         Err(e) => return (Err(e.into()), RouteCounts::default()),

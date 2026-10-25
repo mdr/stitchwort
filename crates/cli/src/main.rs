@@ -127,6 +127,15 @@ enum Command {
         /// much slower and recurses less deeply) instead of the fast runtime
         #[arg(long, conflicts_with = "js")]
         reference: bool,
+        /// Run the functions `main` calls as native code, where they and
+        /// everything they reach compile (stage N1; experimental). Needs a
+        /// build with the `native` feature
+        #[arg(long, conflicts_with_all = ["js", "reference"])]
+        native: bool,
+        /// With --native, say on standard error what ran natively, and why
+        /// anything didn't
+        #[arg(long, requires = "native")]
+        verbose: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -275,6 +284,12 @@ struct CacheArgs {
 /// have room before they run into their resource limits.
 const STACK: usize = 64 * 1024 * 1024;
 
+/// The stack `run --native` runs on: address space reserved, not memory
+/// until it's touched. Native frames are on it, and it's only a safety margin
+/// behind the frame limit, which defines how deep a program may go
+/// (native-compilation.md §4.3; stage N2 sizes and tests it).
+const NATIVE_STACK: usize = 4 * 1024 * 1024 * 1024;
+
 /// Checking builds and frees terms and values by the million; with the
 /// system allocator (on macOS at least) allocating and freeing was about a
 /// quarter of a `check`. mimalloc makes `check` of the AoC project retire
@@ -308,7 +323,13 @@ fn main() -> ExitCode {
         eprintln!("error: {e}");
         return ExitCode::FAILURE;
     }
-    stitchwort_cli::driver::with_stack(STACK, move || {
+    // `run --native` runs native code on this thread, whose stack is then
+    // the safety margin behind the frame limit (native-compilation.md §4.3).
+    let stack = match &cli.command {
+        Command::Run { native: true, .. } => NATIVE_STACK,
+        _ => STACK,
+    };
+    stitchwort_cli::driver::with_stack(stack, move || {
         stitchwort_elab::timings::start();
         let code = run(cli);
         stitchwort_elab::timings::report();
@@ -351,6 +372,8 @@ fn run(cli: Cli) -> ExitCode {
             target,
             js,
             reference,
+            native,
+            verbose,
             project,
             alloc_trace,
             cache,
@@ -358,6 +381,7 @@ fn run(cli: Cli) -> ExitCode {
             &target,
             js,
             reference,
+            native.then_some(verbose),
             alloc_trace.as_deref(),
             project.as_deref(),
             &cache,
@@ -1065,6 +1089,7 @@ fn run_target(
     target: &str,
     js: bool,
     reference: bool,
+    native: Option<bool>,
     alloc_trace: Option<&Path>,
     project: Option<&Path>,
     cache: &CacheArgs,
@@ -1076,6 +1101,21 @@ fn run_target(
         );
         return ExitCode::FAILURE;
     }
+    #[cfg(not(feature = "native"))]
+    if native.is_some() {
+        eprintln!(
+            "error: this `stitchwort` was built without native code; build it with `--features native`"
+        );
+        return ExitCode::FAILURE;
+    }
+    let runner = match native {
+        Some(verbose) => Runner::Native {
+            verbose,
+            trace: alloc_trace.is_some(),
+        },
+        None if reference => Runner::Reference,
+        None => Runner::Machine,
+    };
     let (mut session, main) = match load_main(target, project, cache) {
         Ok(loaded) => loaded,
         Err(code) => return code,
@@ -1085,8 +1125,12 @@ fn run_target(
     } else {
         #[cfg(feature = "alloc-trace")]
         if let Some(path) = alloc_trace {
+            // Native code's layout probe makes values: kept out of the trace.
+            if native.is_some() {
+                let _ = stitchwort_rt::native_abi::probe_layout();
+            }
             stitchwort_rt::alloc_trace::start();
-            let code = run_main(&mut session, &main, reference);
+            let code = run_main(&mut session, &main, runner);
             let trace = stitchwort_rt::alloc_trace::finish();
             if let Err(err) = std::fs::write(path, trace.render()) {
                 eprintln!("error: can't write {}: {err}", path.display());
@@ -1095,7 +1139,7 @@ fn run_target(
             return code;
         }
         let _ = alloc_trace;
-        run_main(&mut session, &main, reference)
+        run_main(&mut session, &main, runner)
     }
 }
 
@@ -1430,13 +1474,30 @@ fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
     }
 }
 
-fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
+/// Which runner `run` uses for `main`.
+#[derive(Clone, Copy)]
+enum Runner {
+    /// The machine of `stitchwort-rt`.
+    Machine,
+    /// The reference evaluator.
+    Reference,
+    /// The machine, with the functions `main` calls as native code where
+    /// they compile; `verbose` says what happened on standard error, and
+    /// `trace` counts references through the runtime for the allocation
+    /// trace.
+    #[cfg_attr(not(feature = "native"), allow(dead_code))]
+    Native { verbose: bool, trace: bool },
+}
+
+fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
-    let result = if reference {
-        session.run_main(main, &mut input, &mut output)
-    } else {
-        session.run_main_fast(main, &mut input, &mut output)
+    let result = match runner {
+        Runner::Reference => session.run_main(main, &mut input, &mut output),
+        Runner::Machine => session.run_main_fast(main, &mut input, &mut output),
+        Runner::Native { verbose, trace } => {
+            run_main_native(session, main, verbose, trace, &mut input, &mut output)
+        }
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -1450,6 +1511,54 @@ fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+/// `run --native`: `main` on the machine, with the functions it calls
+/// running as native code where their islands compile (stage N1 of
+/// docs/proposals/native-compilation.md).
+#[cfg(feature = "native")]
+fn run_main_native(
+    session: &Session,
+    main: &Main,
+    verbose: bool,
+    trace: bool,
+    input: &mut impl std::io::BufRead,
+    output: &mut impl std::io::Write,
+) -> Result<(), stitchwort_cli::run::RunError> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    let program = session.lower_fast(main)?;
+    let notes = Rc::new(RefCell::new(Vec::new()));
+    let options = stitchwort_native::n1::Options {
+        trace_refcounts: trace,
+        stack_size: Some(NATIVE_STACK),
+    };
+    let mut factory = stitchwort_native::n1::factory(options, notes.clone());
+    let result = stitchwort_rt::run_main_native(
+        &program,
+        stitchwort_rt::Limits::from_core(session.elab.limits),
+        &mut factory,
+        input,
+        output,
+    );
+    if verbose {
+        for note in notes.borrow().iter() {
+            eprintln!("{note}");
+        }
+    }
+    result
+}
+
+#[cfg(not(feature = "native"))]
+fn run_main_native(
+    _session: &Session,
+    _main: &Main,
+    _verbose: bool,
+    _trace: bool,
+    _input: &mut impl std::io::BufRead,
+    _output: &mut impl std::io::Write,
+) -> Result<(), stitchwort_cli::run::RunError> {
+    unreachable!("`run --native` is refused without the `native` feature")
 }
 
 /// `run --js`: writes `main` and a runner as JavaScript to a temporary

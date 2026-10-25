@@ -27,6 +27,7 @@ use stitchwort_core::{Limits as CoreLimits, ResourceError};
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::effect::{EffectCounts, EffectOp, Handler, Resume, StateRun};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
+use crate::native_abi::{NativeIslands, NativeRun};
 use crate::natives::TextNative;
 use crate::prims;
 use crate::value::{Fields, Fun, Value};
@@ -123,6 +124,9 @@ struct State {
     scratch: Vec<Value>,
     /// The effect runtime's work so far.
     counts: EffectCounts,
+    /// Native code for some functions the entry calls
+    /// (`crate::native_abi`), if the run uses it.
+    native: Option<Box<dyn NativeIslands>>,
 }
 
 /// A program, compiled, with its state between runs (the constants
@@ -151,6 +155,7 @@ impl<'p> Machine<'p> {
                 limits,
                 scratch: Vec::new(),
                 counts: EffectCounts::default(),
+                native: None,
             },
         }
     }
@@ -179,6 +184,17 @@ impl<'p> Machine<'p> {
             Ret::Host,
         );
         self.finish(pending)
+    }
+
+    /// The compiled code it runs.
+    pub fn image(&self) -> &Image {
+        &self.image
+    }
+
+    /// Runs the calls the entry body makes of `native`'s island roots as
+    /// native code (`crate::native_abi`).
+    pub fn set_native(&mut self, native: Box<dyn NativeIslands>) {
+        self.st.native = Some(native);
     }
 
     pub fn shapes(&self) -> &Shapes {
@@ -965,6 +981,37 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 Instr::Call { dst, g, args } => {
                     save!();
                     st.enter_frame()?;
+                    // The crossing into native code (`crate::native_abi`):
+                    // only from the entry body, for an island root.
+                    if st.native.as_ref().is_some_and(|n| n.is_root(g))
+                        && st.frames.last().expect("a frame").code == image.entry_code
+                    {
+                        let native = st.native.take().expect("native code");
+                        let accepted = {
+                            let refs: Vec<&Value> = ops!(args)
+                                .iter()
+                                .map(|r| &st.regs[base + (r & !MOVE) as usize])
+                                .collect();
+                            native.accepts(g, &refs)
+                        };
+                        if accepted {
+                            let values = args!(args);
+                            let mut run = NativeRun {
+                                program,
+                                globals: &mut st.globals,
+                                steps: st.steps,
+                                // The root's frame, counted above.
+                                frames: st.frames.len() as u64 + 1,
+                                limits: st.limits,
+                            };
+                            let result = native.call(g, values, &mut run);
+                            st.steps = run.steps;
+                            st.native = Some(native);
+                            reg!(dst) = result?;
+                            continue;
+                        }
+                        st.native = Some(native);
+                    }
                     let callee = image.global_code[g as usize].expect("a function has code");
                     let new_base = st.regs.len();
                     for r in ops!(args) {

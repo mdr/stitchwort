@@ -21,10 +21,10 @@
 //! could call is in the island (the over-approximation also counts bodies
 //! whose value is never applied). Function values that come from outside
 //! (host callbacks, the effect runtime's natives) pass through `Prim`
-//! instructions, which are blockers anyway. `Apply` itself is not in the N1
-//! subset, so any island with one is blocked; the creation edges make the
-//! census say what *else* blocks such an island, which is what matters for
-//! deciding what to add next.
+//! instructions, which are blockers anyway, or as the island's arguments,
+//! which the native compiler checks at the crossing. `Apply` is in the N1
+//! subset; the creation edges are also how the compiler knows every
+//! function an island's `Apply` can meet.
 
 use std::collections::BTreeMap;
 
@@ -69,12 +69,19 @@ pub fn instr_name(instr: &Instr) -> &'static str {
     }
 }
 
-/// The N1 subset, from the N1 row of the stages table: `Move`, `Take`,
-/// `Drop`, `Const`, `Call`, `TailCall`, `Return`, `Switch`, `Field`,
-/// `Unpack`, `Ctor`, `CtorReuse`, `Test`, `JumpIfFalse`, `Jump`, and `Prim`
-/// of the `Nat` operations (`Test` of a `Nat` comparison), plus the `Nat`
-/// match instructions `NatCase`, `NatPred` and `NumSwitch` (read from "`Nat`
-/// fast paths"; remove them here to see the effect). Nothing else.
+/// The N1 subset: the instructions stage N1's native code compiles
+/// (`stitchwort-native`), so the census and the compiler agree. From the N1
+/// row of the stages table: `Move`, `Take`, `Drop`, `Const`, `Call`,
+/// `TailCall`, `Return`, `Switch`, `Field`, `Unpack`, `Ctor`, `CtorReuse`,
+/// `Test`, `JumpIfFalse`, `Jump`, and `Prim` of the `Nat` operations (`Test`
+/// of a `Nat` comparison); the `Nat` match instructions `NatCase`, `NatPred`
+/// and `NumSwitch` (read from "`Nat` fast paths"); and, so that the `Set`
+/// benchmark fits (Matt's scope call from this census), `DropReuse`,
+/// `Global` and `Apply`/`TailApply`. Nothing else.
+///
+/// The compiler also checks things about an island as a whole that no one
+/// instruction shows (that an `Apply` can only meet a compiled global
+/// function taking as many arguments): see `stitchwort_native::n1`.
 ///
 /// Returns `None` if `instr` is in the subset, otherwise the blocker's key:
 /// the instruction's name, with the operation for a `Prim`, `TailPrim` or
@@ -100,7 +107,14 @@ pub fn n1_blocker(instr: &Instr) -> Option<String> {
         | Instr::Ctor { .. }
         | Instr::CtorReuse { .. }
         | Instr::JumpIfFalse { .. }
-        | Instr::Jump { .. } => None,
+        | Instr::Jump { .. }
+        // For `Set`: its rebalancing reuses cells it drops, and it compares
+        // keys through the `Ord Nat` dictionary, a constant of function
+        // values.
+        | Instr::DropReuse { .. }
+        | Instr::Global { .. }
+        | Instr::Apply { .. }
+        | Instr::TailApply { .. } => None,
         Instr::Prim { op, .. } | Instr::Test { op, .. } if matches!(op, PrimOp::Nat(_)) => None,
         Instr::Prim { op, .. } | Instr::Test { op, .. } | Instr::TailPrim { op, .. } => {
             Some(format!("{}:{op:?}", instr_name(instr)))
@@ -330,7 +344,7 @@ fn edge(image: &Image, instr: &Instr) -> Option<u32> {
 }
 
 /// The bodies reachable from `root`, `root` included.
-fn island(image: &Image, root: u32) -> Vec<u32> {
+pub fn island(image: &Image, root: u32) -> Vec<u32> {
     let mut seen = vec![false; image.codes.len()];
     let mut order = Vec::new();
     let mut stack = vec![root];
@@ -414,7 +428,7 @@ mod tests {
     use crate::code::Ops;
 
     #[test]
-    fn subset_accepts_calls_and_blocks_apply() {
+    fn subset_accepts_calls_and_apply_and_blocks_closures() {
         let ok = Instr::Call {
             dst: 0,
             g: 0,
@@ -426,7 +440,13 @@ mod tests {
             f: 0,
             args: Ops { start: 0, len: 0 },
         };
-        assert_eq!(n1_blocker(&apply).as_deref(), Some("Apply"));
+        assert_eq!(n1_blocker(&apply), None);
+        let closure = Instr::Closure {
+            dst: 0,
+            lambda: 0,
+            args: Ops { start: 0, len: 0 },
+        };
+        assert_eq!(n1_blocker(&closure).as_deref(), Some("Closure"));
         assert_eq!(
             n1_blocker(&Instr::Unreachable).as_deref(),
             Some("Unreachable")

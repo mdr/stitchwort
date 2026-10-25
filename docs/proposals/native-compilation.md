@@ -1085,6 +1085,97 @@ memory-management decisions as the bytecode, so the first differing event
 points at the bug. It is bring-up instrumentation, compiled out of release
 builds, not a permanent test invariant.
 
+## N1 as built (25 October 2026)
+
+**[ran]** Stage N1 is in `crates/native/src/n1.rs`, with the runtime side in
+`crates/rt/src/native_abi.rs`, behind `stitchwort run --native` (CLI feature
+`native`; `--verbose` says what ran natively and why not).
+
+**What it compiles.** The N1 list plus `NatCase`/`NatPred`/`NumSwitch` (the
+census's reading), `DropReuse`, `Global` and `Apply`/`TailApply`
+(`census::n1_blocker` matches). Each bytecode body becomes one Cranelift
+function in the `tail` calling convention taking and returning values as
+three machine words each, in the machine's own `Value` layout (`#[repr(u8)]`,
+checked at startup by `native_abi::probe_layout`). Inline: reference counts
+(but through the runtime when tracing), the `Nat` `Add`/`Sub`/`Mul`/`Leq`/`==`
+fast paths, `NatCase`/`NatPred`/`NumSwitch` on small numbers, `Switch`, and
+the unique-cell paths of `Unpack`/`CtorReuse`. Everything else (big numbers,
+other primitives, constructing cells, freeing) is an `extern "C"` call into
+`native_abi`. Self tail calls jump; other tail calls are `return_call`.
+
+**The crossing.** Admission (`plan`) takes the distinct `Call` targets of
+`main`'s entry body as roots; each root's whole reachable island
+(`census::island`) must fit, and every `Apply` in it must see only compiled
+functions or applicable natives of the arity it applies. If any root fails,
+the **whole run** stays on the machine, with a note. Otherwise the machine
+runs the glue and, at a `Call` from the entry body to a root, hands the
+arguments to native code (`State::native`, `NativeIslands::call`) if none of
+them holds a function value made outside (which native code couldn't call);
+the call then runs to its result natively. Steps and frames are counted
+exactly as the machine counts them (D1253): native code carries the
+machine's counters in a `Context`, checks them at each step and frame, and on
+running out releases what its frames hold and returns an error code that the
+machine turns into the same `E-RESOURCE`. Constants (`Global`) share the
+machine's cache, so each is computed once whichever runner gets there first.
+The run's thread gets a 4 GiB stack, and native code also checks the stack
+pointer against a limit 16 MiB short of it at each frame, a margin until N2
+sizes it.
+
+**Agreement** (`crates/native/tests/n1.rs`, about 2 s): the three benchmarks
+at small sizes and two small programs (big numbers past `u64::MAX`; mutual
+tail recursion, constants and reuse) print what the machine prints; the
+allocation traces of `set_nat` and the second program are identical event for
+event (69,455 events for `set_nat`) and free every cell; the least frame
+limit and the least step limit under which a 3,000-deep recursion finishes
+are the same on both runners, one less is the same `E-RESOURCE` on both, and
+running out mid-recursion frees everything. `stitchwort run --native
+--alloc-trace` writes a byte-identical trace to the machine's for `set_nat`.
+
+**The measurement** (`task native:bench`; best of 3 wall seconds; Apple
+silicon, release build; machine heavily loaded, load average 29–38 during
+the run, so absolute numbers are noisy):
+
+| Program | Machine | `--js` | `--native` | Native vs machine |
+|---|---|---|---|---|
+| `set_nat` (1,000,000 keys) | 10.13 | 3.49 | 3.85 | 2.6× |
+| keys only | 0.56 | 0.58 | 0.37 | 1.5× |
+| **`Set` inserts** (the difference) | 9.57 | 2.91 | 3.48 | **2.7×** |
+| `micro_call` (20,000,000 calls) | 1.06 | 0.50 | 0.27 | 3.9× |
+| `micro_tail` (20,000,000 iterations) | 0.82 | 0.60 | 0.20 | 4.2× |
+
+**Verdict: below the 3× stop point on `Set`** (2.7× on the inserts, 2.6× on
+the whole run), and slower than Node on it. By the plan, N2 waits for
+re-planning.
+
+**Why, from a profile** (macOS `sample`, 2 s of the native `Set` run, one
+sample, CPU contended so the shares are approximate): of the worker
+thread's samples about 41% are in the compiled code; about 32% in the
+allocator (`mi_free`, `mi_malloc`, page-queue searches, abandoned-page
+reclaim) and `mach_absolute_time` (which mimalloc calls when it collects);
+about 18% in freeing (`drop_glue` of `Value`, `value::free`, `Fields::drop`,
+`Rc::drop_slow`); `sw_apply_target` about 5% (the `compare` function value
+looked up at every `Apply`), `sw_ctor` 3%.
+
+What that does and doesn't show:
+- **Dispatch is gone as the main cost.** In the machine's profile the run
+  loop was about two thirds of the samples; here the compiled code is under
+  half.
+- **The layout alone doesn't explain the rest.** §3.2's "uniform" Rust used
+  this same layout (`Value`, `Rc<[Value]>`, mimalloc, reuse) and did the
+  inserts in 0.7–0.9 s, against 3.5 s here.
+- **The allocator costs more per cell than on the machine.** The traces
+  prove both runners allocate and free exactly the same cells. Yet the
+  machine's profile had about 7% of about 10 s in allocation (about 0.7 s),
+  and this one about 32% of 3.5 s (about 1.1 s), mostly in mimalloc's slow
+  paths: page-queue searches, abandoned-page reclaim and cross-thread
+  collection. **[speculative]** Something about how native code frees (the
+  order, or the thread its cells were made on) is pushing mimalloc off its
+  fast path. Not investigated, by the stop rule.
+- **[inferred]** Other candidates, none tried: make and free cells inline in
+  compiled code rather than through `sw_ctor` and `Value`'s drop glue;
+  resolve `Apply` of a known global at compile time; keep the counters in
+  registers.
+
 ## External review (25 October 2026)
 
 An external reviewer read this note. **Verdict:** sound and well evidenced
