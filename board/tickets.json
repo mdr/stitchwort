@@ -1,5 +1,5 @@
 {
-  "next": 447,
+  "next": 448,
   "tickets": [
     {
       "id": 13,
@@ -2457,6 +2457,20 @@
     {
       "id": 446,
       "title": "Partial stage 2: design note (beyond stage 1; partial.md §10 options)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": [
+        "45f78a98"
+      ]
+    },
+    {
+      "id": 447,
+      "title": "E-PARTIAL-CALLBACK message shows ?N placeholders and wrongly says to edit std List.map (partial-stage-2.md G3)",
       "status": "doing",
       "agent": "",
       "where": "",
