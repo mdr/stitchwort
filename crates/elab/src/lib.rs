@@ -763,7 +763,13 @@ impl Elaborator {
                 let name = key.strip_prefix("Std.").unwrap_or(key);
                 matches!(
                     name,
-                    "Effect.doneD" | "Effect.bindDv" | "Effect.liftD" | "Effect.delayD"
+                    "Effect.doneD"
+                        | "Effect.bindDv"
+                        | "Effect.liftD"
+                        | "Effect.delayD"
+                        | "Effect.foldCompD"
+                        | "Effect.translateD"
+                        | "Effect.callD"
                 )
             })
     }
@@ -2369,11 +2375,12 @@ impl Elaborator {
         Ok(id)
     }
 
-    /// Checks pending definition `id`'s signature again with its bare row
+    /// Checks pending definition `id`'s signature again with its row
     /// variables total, and gives it that type: its body needs them total,
-    /// as it moves a computation in `{e}` into a handler's row
-    /// (docs/proposals/partial-stage-3.md §2.2, D1215). `false` if the
-    /// signature has no bare row variable, so nothing changes.
+    /// as it moves a computation in `{e}` into a total row, such as a pure
+    /// helper's (docs/proposals/partial-stage-3.md §2.2, D1215). `false` if
+    /// the signature has no row variable with a divergence index, so nothing
+    /// changes.
     fn retype_total(&mut self, signature: &Decl, id: DefId) -> Result<bool> {
         let Decl::Signature {
             name: def_name,
@@ -2387,7 +2394,7 @@ impl Elaborator {
         };
         let key = self.declaration_key(def_name)?;
         let auto = autobind::auto_bound(self, ty)?;
-        if auto.bare_rows.is_empty() || self.total_rows_only.get() {
+        if auto.indexed_rows.is_empty() || self.total_rows_only.get() {
             return Ok(false);
         }
         self.clear_metas();
@@ -2445,9 +2452,10 @@ impl Elaborator {
         let with_notes = |d: Diagnostic| notes.iter().fold(d, |d, n| d.with_note(n.clone()));
         *self.owner.borrow_mut() = vec![key.to_string()];
         self.local_keys.borrow_mut().clear();
-        // A row variable used only bare, `{e}`, gets a divergence index
-        // beside it, so it may stand for a partial row
-        // (docs/proposals/partial-stage-3.md §2.2, D1214).
+        // A row variable used only as a row's tail, `{e}` or `{A | e}`, gets
+        // a divergence index beside it, so it may stand for a partial row
+        // (docs/proposals/partial-stage-3.md §2.2, D1214;
+        // docs/proposals/partial-handlers.md §4, D1255).
         let divergence = match self.globals.registry.data(Builtin::Divergence) {
             Some(d) if !self.total_rows_only.get() => Some(d),
             _ => None,
@@ -2464,7 +2472,7 @@ impl Elaborator {
                 binders.push((name(n), dom));
                 cx.bind(&n.text, value);
                 if let Some(d) = divergence
-                    && auto.bare_rows.contains(&n.text)
+                    && auto.indexed_rows.contains(&n.text)
                 {
                     let x = effects::divergence_name(&n.text);
                     binders.push((x.as_str().into(), Term::Data(d, Vec::new())));

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
 data Main.Log 81059c4c5dcce55d38b91d239bd3d30e0cf21e8686fe7ecd2e6d51d19ebdfe22
@@ -74,7 +74,7 @@ Main.sndOf c7c06b0a8fc5fb55cacd480749508131373027c42d13e609d318d174c41e935e
 Main.eqNats 91941f960dc593f2c4219ea62beabb737108fb5cfd935dc8881597a86f97c673
 Main.Log.%res cd9405aff43826f6a47ba4669552d4e581361aeec684d9b8abd9a03987e73c2b
 Main.Log.%elim 9e20dcca5b622e5ea77389704e530731095bf23ef895583c540a0e0c17e780dc
-Main.collect 2c4408895432a08b6f954928f96c0514e18d15effa280b5468e9a31795fab6fc
+Main.collect 6f329a1c8f40cf4a23a0c8889285796645a1b3fdb0733f0fa23963c53d3a6b27
 Main.loud 7dd27788f4b162c924f030c1ffb935447bef5efcca1d842a7736617193e10d9c
 Main.twoScrutinees c92435a43343550648b4bc30884ee052ee3d347e050083c486ed4b03d4eb7232
 Main.twoScrutinees.%match1 3c6a2cd5fe4901a82ef97018a5bfd8790b0908089abc25af23cd4327be27b0e7
@@ -83,7 +83,7 @@ Main.inBranches.%match1 8182f79c3689d91bd2181abe25afb111d8df97bc83f50260f4699841
 Main.tailEff 43c34f8f544b46e8dc85e5ce090b41dccc956838e7d55789f62dfca73900f18e
 Main.named d78dd4ef97a5b955b55e763b0fe9abc75dd793e6b5fee019f9f189acacf726e2
 Main.named.%match1 d3085ddd5c0044a9c3de2d69d2077529f5eb9541ca5a3dfdd6381ca7e68819d3
-Main.test "scrutinees once, in order" a88bdcb96a28c9235585a35d81612efe4566f97ffc7aa21d9c12b074fd5e116d
-Main.test "branches" 81bdc5501ac20569f8d02d0958289f1239b68920d6fbab9b73382afdcfadf0cb
-Main.test "tail" d19d43a7a37792798cbb5052bc910b33f899549b25b3bdd1d32916acbc443676
-Main.test "named" b4a63cafbfdde25246e7e0ed4d0b8bac8db53f3c1b56c4e6c390d2c19f816798
+Main.test "scrutinees once, in order" c819c3e0ffc57a4cf9b4c9d9e7ddb83d59f14c37ff33c9fd7724681b95f5ac1b
+Main.test "branches" 3dae2717c8fc594516648e582e4db51e60b1fd31183403a04880216b4d58c405
+Main.test "tail" f1e2d9db857ea3b7554ed204ad0f14987094659442fe05a4d82fe734024c7c42
+Main.test "named" 27cb2d8d72a962c1dbe26c55d5800c72813f2ba56fe4226988e98ca4149f1919

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Pair2 dedd164efe725ea448bc43bc8c0480021e600990357c74714bcc480082c291cb
 Main.Pair2.a d4eedecb2be3fe248217a1b608ab27c6ca64206fb07e21712a2a7c53c6378546
@@ -23,7 +23,7 @@ Main.backwards 80a9bd53c2a4a299519351a69bc59939108de9c54584a019f709eee1dffa7bcc
 Main.base 309936812cf6451492d6b23ba1f454749022d162abbc76dd2cb89dfcad166843
 Main.updated 4e8d4c3159c3571f0e3c272d87658bd4ab472063f59087023558ffbfea5fca3d
 Main.eqTexts f926daa42662eb4de0647fa2344c668afb1ce4238a782c5f3fea6d3323828145
-Main.test "fields run in the order written" ef8201786be47379331d8630c4e46b656d59d9d5b22ac2f2c2e001ee0ea78abb
-Main.test "and are put where they belong" 968da18ce596e31b63f6f138720e28d3b7bba545b35874949c4ff73aa6460ca7
-Main.test "an update's base runs once" c11463f3a703a5f1e7160851d17c09caf5496c40671c62d56d74018ed2ee9907
-Main.test "an update keeps the base's other fields" 3896f898be7cde6c2ce29503f94014fa4c397c3a970c5319c25d0b991bcf1708
+Main.test "fields run in the order written" aa51675cc4ff2f6bb22e961a6b7f0074bf8224ed6452c874c78c537a0896d84b
+Main.test "and are put where they belong" 7f230ee736923178c7d045492aaddc71e61376b652e94daca63c8f59fd0e237f
+Main.test "an update's base runs once" 7335e438422998eb6af8ad9ef7625cecf4d17afc9968e261155ea5915e39a8d3
+Main.test "an update keeps the base's other fields" 581904b83e3e05236c3fc2b6d587a138d04fd732592ab655a43906cc353d7e7f

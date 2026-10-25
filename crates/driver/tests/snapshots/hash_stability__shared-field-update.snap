@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Shape 75976b752e25a6dea5f7015e6872f35e121f8cbe714dd6e6502d7bec4888d17a
 data Main.Labelled 9c3ba1b733708e36bdf9fba2028ad468896c1038d76e54cad4d422463818ce3a
@@ -112,5 +112,5 @@ Main.next d7e138c53c384653a94cba81b24ef96860a8361ca8a46ab512dcb9770e4a4ace
 Main.base 5c636512dc2805876230900447a5c8b1ecaf5815f31a6abaab846413ef714800
 Main.updated b4d1d50b42d3d7fb1e075478ab0eea2c30bad7b3b0eabec0108dec3a5d28b489
 Main.updated.%match1 98cb27136e934fa2d7236da48f26b5d6b759e2c87d087df07c3efbf76e48e519
-Main.test "order" fa3faba8de638adbd3e4619397a292f625b91bb045d0dcebbed11080f6213ce7
-Main.test "base once" b814e8a5c8518ae3f8644902bc2312b93250e16025a4e2e6a9021f48bd0e5bc0
+Main.test "order" c987cc914f1019a928d07c7e2ecfe83151794ed936f41eb3b2a71a534a730025
+Main.test "base once" 3a5cd745ed610a1235c6d1e13ca853960cd2ac157c1d1e2854a2a0ca36b06c0b

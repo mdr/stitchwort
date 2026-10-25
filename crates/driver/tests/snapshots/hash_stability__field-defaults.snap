@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.RangeOptions 23bdc0715b765ebf1bac46cd83512803cb098370a18b4370d259b64aa2214575
 data Main.Style 32baedbd95216967cc61a28b8a1bab2b4e3f770346ae2899fcc90123159582d7
@@ -132,7 +132,7 @@ Main.towerName e955cc01eecb216f3940ab25322fb20e7d41190bc722f45f2d728d5490dc3ac1
 Main.test "family" 6fc98a2fc5c816c78b495f3d5df1507f7a3fca2b3e81b6f824a9d9fb3487a10c
 Main.Log.%res cd9405aff43826f6a47ba4669552d4e581361aeec684d9b8abd9a03987e73c2b
 Main.Log.%elim 9e20dcca5b622e5ea77389704e530731095bf23ef895583c540a0e0c17e780dc
-Main.collect 2c4408895432a08b6f954928f96c0514e18d15effa280b5468e9a31795fab6fc
+Main.collect 6f329a1c8f40cf4a23a0c8889285796645a1b3fdb0733f0fa23963c53d3a6b27
 Main.given 7dd27788f4b162c924f030c1ffb935447bef5efcca1d842a7736617193e10d9c
 Main.logged aad8aec82b075cbe8074c898b93f08184f60e58a9ebb1271f05da7c6f8e42132
-Main.test "a given field runs once" 4f0b4fa9cb7dc29d6b08eac498d5f38750ca2b3aea26b7223123c0605adca518
+Main.test "a given field runs once" 7716bed055de3b7ca2c2093b44090e7c9229219cd9967aeeeba822ce1fddf495

@@ -547,12 +547,13 @@ fn a_total_main_that_may_fail_runs_three_ways() {
     );
 }
 
-/// `Fail.toResult` still takes only a total program: its row `{Fail | e}`
-/// is total until rows with abilities get a divergence index (lane D of
-/// docs/proposals/partial-handlers.md). A `handle` written in place can go
-/// around partial code (examples/accept/partial-handlers.sw).
+/// `Fail.toResult` takes a partial program, and is then partial itself: its
+/// row `{Fail | e}` has a divergence index (lane D of
+/// docs/proposals/partial-handlers.md, D1255). The native and JS runners
+/// run a handler around partial code from lane C of that note; until then,
+/// the reference runner.
 #[test]
-fn fail_still_cant_be_handled_around_partial_code() {
+fn fail_can_be_handled_around_partial_code() {
     let path = source_file(
         "handled-partial.sw",
         "import Std (Fail, Result)\n\n\
@@ -563,7 +564,34 @@ fn fail_still_cant_be_handled_around_partial_code() {
          | Ok n => IO.print \"found ${n}\"\n    \
          | Err message => IO.print message\n",
     );
-    assert_eq!(fails(&path, b"", "E-PARTIAL"), "");
+    let reference = run_three_ways(&path, b"")
+        .into_iter()
+        .find(|(flag, ..)| *flag == "--reference")
+        .expect("the reference runner");
+    assert_eq!(
+        (reference.1.as_str(), reference.3),
+        ("found 42\n", Some(0)),
+        "{}",
+        reference.2
+    );
+}
+
+/// The same handler around total code is total: `main` needn't say
+/// `Partial`, and every runner runs it.
+#[test]
+fn fail_handled_around_total_code_runs_everywhere() {
+    let path = source_file(
+        "handled-total.sw",
+        "import Std (Fail, Result)\n\n\
+         def step (n: Nat): {IO, Fail} Nat :=\n  \
+         IO.print \"step ${n}\"\n  \
+         if n > 2 then Fail.fail \"too big\" else n + 1\n\n\
+         def main(): {IO} () :=\n  \
+         match Fail.toResult (() => step 3) with\n    \
+         | Ok n => IO.print \"ok ${n}\"\n    \
+         | Err message => IO.print \"error: ${message}\"\n",
+    );
+    same_three_ways(&path, b"", "step 3\nerror: too big\n", "", 0);
 }
 
 #[test]

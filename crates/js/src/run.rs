@@ -74,10 +74,12 @@ pub(crate) fn primitive_js(prim: Primitive) -> &'static str {
         Primitive::BindD => "(d) => (k) => new StitchwortDelay(D_BIND, d, k)",
         Primitive::MapSig => "(m) => (d) => new StitchwortDelay(D_MAP, m, d)",
         Primitive::Pfix => "(f) => (x) => new StitchwortDelay(D_PFIX, f, x)",
-        // Never emitted: `run --js` refuses `foldD` once it knows what
-        // `main` uses (lane C of docs/proposals/partial-handlers.md), but
-        // the code generator reads its shape before that.
-        Primitive::FoldD => "(done) => (call) => (d) => { throw new Error('foldD'); }",
+        // Not run yet (lane C of docs/proposals/partial-handlers.md): a
+        // handler whose rows may be partial (`Fail.toResult`, D1255) reaches
+        // it only when what it's given is partial.
+        Primitive::FoldD => {
+            "(done) => (call) => (d) => { throw new Error(\"a handler around partial code isn't supported on this runner yet: run it with `stitchwort run --reference`\"); }"
+        }
         Primitive::Delay => unreachable!("`Delay` is a type, so it's erased"),
     }
 }
@@ -134,15 +136,6 @@ pub fn generate_program_with(
         let info = codegen.try_info(id)?;
         let def = g.def(id);
         if let Some(prim) = g.builtins.primitive(id) {
-            // A handler around partial code (docs/proposals/partial-handlers.md)
-            // runs only on the reference runner so far; lane C of that note.
-            if prim == Primitive::FoldD {
-                return Err(Diagnostic::error(
-                    "E-RUNTIME",
-                    "a handler around partial code isn't supported on this runner yet",
-                )
-                .with_note("run it with `stitchwort run --reference`"));
-            }
             let runtime = info.mask.iter().filter(|erased| !**erased).count();
             if info.convention != Convention::Erased && runtime != runtime_arity(prim) {
                 return Err(internal(format!(

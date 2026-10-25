@@ -12,7 +12,6 @@ use std::rc::Rc;
 use num_bigint::BigInt;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
-use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Limits, QuotForm, Sort, Term};
@@ -40,9 +39,10 @@ fn internal(message: impl Into<String>) -> Diagnostic {
 
 /// A handler around partial code (`foldD`, docs/proposals/partial-handlers.md)
 /// runs only on the reference runner so far: this runtime gets it in lane C
-/// of that note. A `main` that uses it is refused when it's lowered; a test
-/// that runs it stops with this error, and runs on the reference evaluator
-/// instead.
+/// of that note. A program that steps one stops with this error (a test then
+/// runs on the reference evaluator instead). One that only could is run: a
+/// handler whose rows may be partial (`Fail.toResult`, D1255) reaches
+/// `foldD` only when what it's given is partial.
 pub fn fold_d_unsupported() -> Diagnostic {
     Diagnostic::error(
         "E-RUNTIME",
@@ -62,14 +62,6 @@ pub fn lower_main(g: &Globals, limits: Limits, main: &Term, row: MainRow) -> Res
         return Err(internal("a `main` that may fail, with `Fail` not loaded"));
     }
     let mut program = lower_program(g, limits, main)?;
-    if program.globals.iter().any(|global| {
-        matches!(
-            global.kind,
-            GlobalKind::Native(PrimOp::Delay(Primitive::FoldD))
-        )
-    }) {
-        return Err(fold_d_unsupported());
-    }
     program.main_row = row;
     Ok(program)
 }

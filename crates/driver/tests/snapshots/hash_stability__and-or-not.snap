@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Log 81059c4c5dcce55d38b91d239bd3d30e0cf21e8686fe7ecd2e6d51d19ebdfe22
 Main.between 2445d640406a31457dc746294f082d3cbb7fd3266e11b94f9b6cf6d76c38257a
@@ -44,7 +44,7 @@ Main.swapOr c1350b75a47a30dac943ceac0deb4e75e1200f21694259bc0cacba3e2e0eafa7
 Main.literal bb6f983a65e0ab568ec995696d46acf08500ad02fff17ea25bb4316c7b45751c
 Main.Log.%res cd9405aff43826f6a47ba4669552d4e581361aeec684d9b8abd9a03987e73c2b
 Main.Log.%elim 9e20dcca5b622e5ea77389704e530731095bf23ef895583c540a0e0c17e780dc
-Main.collect 2c4408895432a08b6f954928f96c0514e18d15effa280b5468e9a31795fab6fc
+Main.collect 6f329a1c8f40cf4a23a0c8889285796645a1b3fdb0733f0fa23963c53d3a6b27
 Main.noisy e7a02964cceb9375ffb39b3e22c555193e9348060ad613fa73f19f9fd3fb203f
 Main.andSkips 0bf6216594d1c9a4dc3dd8dcb54335f713b392eacb88ddcb724cd295f5892e9b
 Main.andRuns 304274ab64c00d483157af863ba950014587b5f4094b16303f0efedc9225d7e9
@@ -54,13 +54,13 @@ Main.pureLeft a9b292b0faba3e2506cfb6dde2abb3ac00e3676e63fe8acc5930053c7b9c5a00
 Main.notEff 3ee1c4de25c295ed23a722b87823743c1df4d84832267f625c4223603c318186
 Main.inIf d9602c45ff830446e6cb6fb58699998d92fc52654c32963b3ae7f11de8db27bd
 Main.guarded c649c9db5b3030d66184cb1c65f57da8d351823e2d51c2b1fa239883d5637eff
-Main.test "and skips the right" c89498bc067da9369c92e797812a0f7fe5306b5811d08cca9a8f346977122a8e
-Main.test "and runs the right" 7adbbd7441ae486491470fc67be776e46941f2014360a7de69bc2eaf553861b6
-Main.test "or skips the right" 6ac73426112b2ef1fbaa2f57c5905e1a16879444e3b3c26b23743fb4402308e6
-Main.test "or runs the right" b6013a9a2e066d0e430c2e87fa7e5bdb0803b5a4afefe44b4f83a9eb0b98140b
-Main.test "pure left false" 44c378fd38f1c8c71e7e57aa4aeb166839fde7ddeddb5247084b89a3aa03c1e4
-Main.test "pure left true" 79a9ab6c50a0d4baae1faeb65ab3c8ada7001e0987adf81e9c109ca4c1188e3e
-Main.test "not keeps the effect" 341b0922f3ca62a3bbe8b47620a5a5c76319ab17ae22ed8288a31f7cb942e3f3
-Main.test "in if" 4119da16db07819568e4cd0983f2a3659b26bdf2e6fca30e00166a415c1d8029
-Main.test "guarded, zero" ef72f7304a83bc2545d0904c14f30671ab5dbee934a3fcab85c1042bebf73f75
-Main.test "guarded, five" 9a592f9bc7c26c169496c6eac8a505521ff3f4660e6625fd832080685f9071e4
+Main.test "and skips the right" 366b67ca4c94fc0eca79737ff0d9da2dbad4e252f74193734a9670c613751454
+Main.test "and runs the right" 54135a90075804f98c7dca94967321def861d4e89ef5f68f9379ead46070539a
+Main.test "or skips the right" 771bbd062660fc75578f51a7e720e9bc61e66050dda279d2acb136513895f42d
+Main.test "or runs the right" 2562e576fe76c3a014d63f775aaee9401d0fc4696dfb1c0b992f1b03bd41aea9
+Main.test "pure left false" fcf0efed75d85e941c3baf5f544fb5b026d6ac86088e73ec748337375c54b854
+Main.test "pure left true" 84031034a1f277255769b6cd415d6f58116810d8e1d433b7ba1792de64f3621c
+Main.test "not keeps the effect" 741eff4df210669757a379d15c810e488ef6d30412a6dc318c301c4dadc5d8f8
+Main.test "in if" b802c7ffee2c1297e02d28e199b98bff0f29740624ec5f39528872bafa605477
+Main.test "guarded, zero" acec201bd380e9db388cca66b0b1b1412f9c02a5cade9fba6cdabca590d9abd4
+Main.test "guarded, five" cc3336c46936b41d2d52146a44c0c7991d34615c56c284eb5fbd81479fcf8b0a

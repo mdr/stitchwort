@@ -27,6 +27,7 @@ Tags, as in the other `Partial` notes: **[source]** read in the code,
 8. Build plan
 9. What I couldn't verify
 10. Decisions for Matt
+11. As built: lane D
 
 ## 0. Summary
 
@@ -831,3 +832,46 @@ scripted game ends when its input runs out, so a test of it ends; a test
 that loops is a bug, as D1183 says. A limit would need total code that can
 observe a partial program (partial.md §10.1), a much bigger change.
 Recommendation: **yes** (no limit).
+
+## 11. As built: lane D (25 October 2026)
+
+- **Signatures** (D1255): `autobind` marks a row variable used only as the
+  tail of rows that don't say `Partial` (`{e}` or `{A | e}`), and
+  `signature_type` binds its `%div.e` as for bare rows. `effect_type` gives
+  any such row the index, so `{A | e} a` is `CompD d (Ops …) a`, which is
+  the row's `Comp` at `Total` by computation.
+- **Library** (`core/Effect.sw`, library-internal): `foldCompD` (§4.2),
+  `translateD` (`lowerIn to (translate m (liftIn from c))` at `Total`, so
+  it also moves a bare `{e}` into `{A | e}`; `mapSig` at `MayDiverge`) and
+  `callD`, a forwarded operation (`bindIn row (lowerIn row (Call o Done)) k`
+  at `Total`, `bindD (lift (Call o Done)) k` at `MayDiverge`).
+- **Elaborator** (`effects.rs`): `handle` gives the handled row the output
+  row's index and folds with `foldCompD`, forwarding with `callD` (or, once
+  the body has settled the index, `foldComp`/`foldD` directly); `lift`
+  moves between two rows with the same index by `translateD`; an operation
+  called in such a row is wrapped in `liftD`. `lift_plain`'s row solving is
+  now `align`, shared with that case.
+- **D1215** carries over unchanged: `examples/reject/partial-row-total-body.sw`
+  (a callback stored in a data type's field) is checked again with `e`
+  total, and a caller's E-PARTIAL points at the line.
+- **Specialisation** (D1216): nothing new. A handler's variant is made where
+  every row parameter is `Empty`/`Total`, as `List.map`'s; there
+  `foldCompD`'s `Total` branch is inlined, so state-handler fusion and the
+  other fast paths see `foldComp` as before
+  (`crates/rt/tests/effect_runtime.rs` passes unchanged). At a non-empty row
+  the generic code tests the index once per handler.
+- **Runners**: `foldD` is now reachable from total programs' generic code
+  (`foldCompD`'s `MayDiverge` branch), so the native runner no longer
+  refuses a `main` for it before running, and `run --js` emits its stub
+  (which throws) instead of refusing. A program that actually steps a
+  `foldD` still stops with the same error until lane C.
+- **Messages**: the notes saying a handler can't run partial code are gone
+  (E-PARTIAL-CALLBACK's, `partial_mismatch`'s, `divergent_in_total`'s); a
+  call that is partial because of what it was given is labelled
+  "`Fail.toResult` is partial here because a function it's given is";
+  `CompD d (Ops …) a` prints as `{A | e} a`.
+- **Gate**: the 27 theorem lines of §3.5 and every example check with no
+  source edits; `reject/partial-row-variable.sw` became
+  `accept/partial-row-variable.sw` (`IO.simulate`, `Fail.toResult` and
+  `Each.collectIn` around partial code, as tests; the same handlers around
+  total code, proved by `rfl`).

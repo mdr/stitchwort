@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARTIAL] Error: a computation that might not finish can't run here
+    ╭─[ reject/partial-row-total-body.sw:21:50 ]
+    │
+ 15 │ def viaJob (f: () → {Fail | e} Nat): {e} Nat := runJob (MkJob f)
+    │                                                               ┬  
+    │                                                               ╰── `viaJob`'s body needs its row to be total here
+    │ 
+ 21 │ def partialJob(): {Partial} Nat := viaJob (() => spin 0)
+    │                                                  ───┬──  
+    │                                                     ╰──── `spin` is `Partial`: it might not finish
+    │ 
+    │ Note 1: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; if this is a function's body, add `Partial` to its type (`-> {Partial} …`); if it is a callback, the function taking it must allow a partial callback
+    │ 
+    │ Note 2: `viaJob` takes only total callbacks: its body puts a callback where only total code can go (a field of a data type, say), so its row variable stands for total rows only
+────╯

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Shape a1a28ebb9f223812daaede417a547fa5270b147b0d6e79b360b5a4a4b4d761d4
 data Main.Item fd9b6def53d1661265591dcc18b3659e986de06b6ba11bcc791f2308e16042be
@@ -83,4 +83,4 @@ Main.test "field access" ac111857e109af4caf2658925ac41373ca1e4069b22202978f3511a
 Main.orNone fde783c1a7a5a44edc14914f8ff3e9f84ff5496d57b6c56da667e6e3dfb21b9c
 Main.next d7e138c53c384653a94cba81b24ef96860a8361ca8a46ab512dcb9770e4a4ace
 Main.read 025602ee9795999c5a53f88a6a88ed77554ab9e8a6aa85d7da39ff6d0d612aba
-Main.test "effects run in the order written" 0e84163594ff2567fe108528a349ebb0b78b026e0e5ef129718673f6f1391e52
+Main.test "effects run in the order written" 8766d5c053f435814744797a00047b5724437c23ec57a9a12631b8f2d41f870b

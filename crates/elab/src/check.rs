@@ -1668,7 +1668,7 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
     }
 }
 
-/// When the function given a partial argument was checked with its bare
+/// When the function given a partial argument was checked with its
 /// row variables total, because its body needs them total (D1215,
 /// docs/proposals/partial-stage-3.md §2.2): why it can't take a partial
 /// callback, where its signature alone suggests it could.
@@ -1685,9 +1685,8 @@ fn total_rows_note(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
         format!("`{name}`'s body needs its row to be total here"),
     )
     .with_note(format!(
-        "`{name}` takes only total callbacks: its body runs a callback's computation where \
-         partial code can't run (inside a handler, say), so its row variable stands for total \
-         rows only"
+        "`{name}` takes only total callbacks: its body puts a callback where only total code \
+         can go (a field of a data type, say), so its row variable stands for total rows only"
     ))
 }
 
@@ -2025,9 +2024,9 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
         diagnostic = diagnostic.with_note(std_callback_note(&helper, &param));
     } else if open {
         diagnostic = diagnostic.with_note(format!(
-            "`{helper}`'s parameter has the type `{param}`: a row with abilities and a tail, \
-             `{{… | e}}`, is total, because a handler can't run partial code, so changing \
-             `{helper}`'s signature won't help"
+            "`{helper}`'s parameter has the type `{param}`, whose row variable stands only for \
+             total rows here: `{helper}`'s body needs it total, or it's an argument of a data \
+             type, so changing `{helper}`'s signature won't help"
         ));
     } else if !param.contains('}') {
         diagnostic = diagnostic.with_note(format!(
