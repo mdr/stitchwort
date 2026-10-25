@@ -1,5 +1,5 @@
 {
-  "next": 471,
+  "next": 472,
   "tickets": [
     {
       "id": 13,
@@ -2769,6 +2769,18 @@
     {
       "id": 470,
       "title": "Partial stage 3e: direct loop for tail self-calls in partial functions; >=1.5x, identical ticks (D1219)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 471,
+      "title": "Notation follow-ups: print -> as → in goals/hover/errors (D1222); exported JS runtime/precondition messages stay ASCII (D1223); ⇒ stays an error pointing to => or →, no λ alias (D1224); after rule E lands",
       "status": "backlog",
       "agent": "",
       "where": "",
