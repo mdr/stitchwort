@@ -76,7 +76,7 @@ package(stitchwort-syntax)
 | (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
 | (package(stitchwort-cli) & binary(fmt))
 | (binary(aoc_answers) & test(/^day/))
-| (package(stitchwort-cli) & (binary(session) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/))))
+| (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/))))
 | (binary(hash_stability) & test(/^(examples|projects|prelude)$/))
 | (package(stitchwort-cli) & binary(examples))
 | (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
@@ -127,7 +127,7 @@ default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (p
 default-filter = "binary(aoc_answers) & test(/^day/)"
 
 [profile.lane-cli]
-default-filter = "package(stitchwort-cli) & (binary(session) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)))"
+default-filter = "package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)))"
 
 # With NAME (EXAMPLES): only the examples whose names contain it.
 [profile.lane-hashes]

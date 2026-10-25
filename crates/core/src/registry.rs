@@ -410,6 +410,13 @@ builtins! {
     Print = "%print": Ctor(Builtin::Io),
     ReadLine = "%readLine": Ctor(Builtin::Io),
     ReadAll = "%readAll": Ctor(Builtin::Io),
+    // Terminal control (docs/proposals/terminal-io.md §4.2): what a runner
+    // performs, and `IO.console`'s reply, a record the runners build
+    IoConsole = "%console": Ctor(Builtin::Io),
+    KeysMode = "%keysMode": Ctor(Builtin::Io),
+    ReadBytes = "%readBytes": Ctor(Builtin::Io),
+    IoWrite = "%write": Ctor(Builtin::Io),
+    Console = "Console": Data,
     RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the

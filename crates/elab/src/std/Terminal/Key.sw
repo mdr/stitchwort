@@ -225,7 +225,7 @@ def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
 -- letter, which no terminal sends, gives the bytes of `Unknown`: 255, which
 -- is never part of UTF-8.
 def Key.bytes: Key → List Nat
-  | Printable char => Key.utf8 char
+  | Printable char => Char.utf8 char
   | Enter => [13]
   | Tab => [9]
   | Backspace => [127]
@@ -243,16 +243,6 @@ def Key.bytes: Key → List Nat
     let code := Char.toNat letter
     if 97 ≤ code && code ≤ 122 then [code - 96] else [255]
   | Unknown => [255]
-
--- A character's UTF-8 bytes.
--- SWITCH-OVER (terminal-io.md §8, lane 1): `Char.utf8` in `std/core`
--- replaces this when it lands.
-def Key.utf8 (char: Char): List Nat :=
-  let code := Char.toNat char
-  if code < 128 then [code]
-  else if code < 2048 then [192 + code / 64, 128 + code % 64]
-  else if code < 65536 then [224 + code / 4096, 128 + code / 64 % 64, 128 + code % 64]
-  else [240 + code / 262144, 128 + code / 4096 % 64, 128 + code / 64 % 64, 128 + code % 64]
 
 -- Every key in `bytes`, in order, as many as are complete. For tests and
 -- for reading a whole input at once.

@@ -308,6 +308,13 @@ fn main() -> ExitCode {
         eprintln!("error: {e}");
         return ExitCode::FAILURE;
     }
+    // A program run natively may switch the terminal to keys mode: the
+    // signals that would end it are caught first, before any thread starts,
+    // so that the terminal is put back (docs/proposals/terminal-io.md §5).
+    #[cfg(unix)]
+    if matches!(cli.command, Command::Run { js: false, .. }) {
+        stitchwort_cli::terminal::catch_signals();
+    }
     stitchwort_cli::driver::with_stack(STACK, move || {
         stitchwort_elab::timings::start();
         let code = run(cli);
@@ -1433,11 +1440,21 @@ fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
 fn run_main(session: &mut Session, main: &Main, reference: bool) -> ExitCode {
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
+    #[cfg(unix)]
+    let (mut terminal, restore) = (
+        stitchwort_cli::terminal::UnixTerminal,
+        stitchwort_cli::terminal::Restore,
+    );
+    #[cfg(not(unix))]
+    let (mut terminal, restore) = (stitchwort_cli::run::NoTerminal, ());
     let result = if reference {
-        session.run_main(main, &mut input, &mut output)
+        session.run_main_on(main, &mut input, &mut output, &mut terminal)
     } else {
-        session.run_main_fast(main, &mut input, &mut output)
+        session.run_main_fast_on(main, &mut input, &mut output, &mut terminal)
     };
+    // Out of keys mode before an error is shown, so it's on the normal
+    // screen.
+    drop(restore);
     match result {
         Ok(()) => ExitCode::SUCCESS,
         // `main` failed and nothing handled it (D1048): not a runtime error.

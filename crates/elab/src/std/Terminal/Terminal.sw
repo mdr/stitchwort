@@ -64,7 +64,7 @@ def Terminal.moreReads: Nat := 16
 -- `Escape`, and any other cut-off key `Unknown`.
 --
 -- Generic in how bytes are read, so tests can give the reads as a list
--- (`Terminal.keysOfReads`), and `Terminal.toHost` reads from the host.
+-- (`Terminal.keysOfReads`), and `Terminal.toIO` reads from the host.
 def Terminal.nextKey (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s) (pending: List Nat) (source: s): {e} Terminal.Read s :=
   match pending with
     | [] => Terminal.afterRead inputIsTerminal read Terminal.moreReads [] (read source)
@@ -132,14 +132,14 @@ def Terminal.readFromList: List (List Nat) → Pair (Option (List Nat)) (List (L
 
 -- The size `console` gives, with 80 columns or 24 rows where it doesn't
 -- know (0).
-def Terminal.sizeOf (console: HostIO.Console): Terminal.Size :=
+def Terminal.sizeOf (console: Console): Terminal.Size :=
   { columns = if console.columns == 0 then 80 else console.columns, rows = if console.rows == 0 then 24 else console.rows }
 
 -- Draws a frame: on a terminal as one text, `Frame.ansi` of the lines that
 -- fit on the screen (lines wider than it are cut off by the terminal, since
 -- keys mode turns wrapping off); otherwise as plain lines, `Frame.plain`.
-def Terminal.drawFrame (console: HostIO.Console) (lines: List Text): {HostIO, IO} () :=
-  if console.outputIsTerminal then HostIO.write (Frame.ansi (List.take lines (Terminal.sizeOf console).rows))
+def Terminal.drawFrame (console: Console) (lines: List Text): {IO} () :=
+  if console.outputIsTerminal then IO.write (Frame.ansi (List.take lines (Terminal.sizeOf console).rows))
   else Terminal.printLines (Frame.plain lines)
 
 def Terminal.printLines: List Text → {IO} ()
@@ -148,39 +148,32 @@ def Terminal.printLines: List Text → {IO} ()
     IO.print line
     Terminal.printLines more
 
--- `Terminal` on the host. Keys mode goes on at the first `readKey` or
--- `draw` (a program that only asks the size never changes the terminal), and
--- off when the program returns. Each `readKey` reads at most
--- `1 + Terminal.moreReads` times, so this handler is total: around a total
--- program it's total, and around a partial one partial (D1259). The
--- program's own `IO.print` and `IO.readLine` pass through to the host,
--- which leaves keys mode for them (D1260).
-def Terminal.toHost (prog: () → {Terminal, IO | e} a): {HostIO, IO | e} a :=
-  let inputIsTerminal := (HostIO.console ()).inputIsTerminal
-  let run: List Nat → {HostIO, IO | e} a :=
+-- `Terminal` on the console: keys from standard input, frames to standard
+-- output, through the host's `IO.console`, `IO.keysMode`, `IO.readBytes`
+-- and `IO.write`. Keys mode goes on at the first `readKey` or `draw` (a
+-- program that only asks the size never changes the terminal), and off when
+-- the program returns. Each `readKey` reads at most `1 + Terminal.moreReads`
+-- times, so this handler is total: around a total program it's total, and
+-- around a partial one partial (D1259). The program's own `IO.print` and
+-- `IO.readLine` pass through to the host, which leaves keys mode for them
+-- (D1260).
+def Terminal.toIO (prog: () → {Terminal, IO | e} a): {IO | e} a :=
+  let inputIsTerminal := (IO.console ()).inputIsTerminal
+  let run: List Nat → {IO | e} a :=
     handle prog() with
       | return result => pending =>
-        HostIO.keysMode False
+        IO.keysMode False
         result
       | readKey (), resume => pending =>
-        HostIO.keysMode True
-        let next := Terminal.nextKey inputIsTerminal (u => MkPair (HostIO.readBytes ()) u) pending ()
+        IO.keysMode True
+        let next := Terminal.nextKey inputIsTerminal (u => MkPair (IO.readBytes ()) u) pending ()
         resume next.key next.pending
       | draw lines, resume => pending =>
-        HostIO.keysMode True
-        Terminal.drawFrame (HostIO.console ()) lines
+        IO.keysMode True
+        Terminal.drawFrame (IO.console ()) lines
         resume () pending
-      | size (), resume => pending => resume (Terminal.sizeOf (HostIO.console ())) pending
+      | size (), resume => pending => resume (Terminal.sizeOf (IO.console ())) pending
   run []
-
--- SWITCH-OVER: the one place the stand-in `HostIO` (HostIO.sw) meets real
--- `IO`. When lane 1's `IO.console`, `IO.keysMode`, `IO.readBytes` and
--- `IO.write` land, this becomes `Terminal.toHost` with `IO.` for `HostIO.`
--- (HostIO.sw says the rest).
---
--- `Terminal` on the console: keys from standard input, frames to standard
--- output.
-def Terminal.toIO (prog: () → {Terminal, IO | e} a): {IO | e} a := HostIO.toIO (() => Terminal.toHost prog)
 
 -- For tests: `readKey` gives the scripted keys in order, then `None`. Every
 -- frame drawn is recorded, in order, with the result. The size is 80 by 24.
@@ -263,16 +256,49 @@ test "toIO: the size, unknown on a pipe" :=
   let size := Pair.snd (IO.simulate [] (() => Terminal.toIO (() => Terminal.size ())))
   size.columns == 80 && size.rows == 24
 
--- `toHost` on a scripted terminal.
-def Terminal.testTerminal: HostIO.Console := { inputIsTerminal = True, outputIsTerminal = True, columns = 20, rows = 2 }
+-- `toIO` on a scripted terminal.
 
-test "toHost: on a terminal, keys mode on at the first draw and off at the end; frames as ANSI text cut to the screen" :=
-  IO.simulate [] (() => HostIO.scripted Terminal.testTerminal [[106], [27], [113]] (() => Terminal.toHost (() => Terminal.echoKeys 10 []))) ==
-    MkPair [] (MkPair ["keys on", Frame.ansi ["0 keys"], Frame.ansi ["1 keys"], Frame.ansi ["2 keys"], "keys off"] [Printable 'j', Escape])
-test "toHost: a tall frame is cut to the screen's rows" :=
-  let run := IO.simulate [] (() => HostIO.scripted Terminal.testTerminal [] (() => Terminal.toHost (() => Terminal.draw ["1", "2", "3"])))
-  Pair.fst run == [] && Pair.fst (Pair.snd run) == ["keys on", Frame.ansi ["1", "2"], "keys off"]
-test "toHost: asking only the size leaves the terminal alone" :=
-  let run := IO.simulate [] (() => HostIO.scripted Terminal.testTerminal [] (() => Terminal.toHost (() => Terminal.size ())))
-  let size := Pair.snd (Pair.snd run)
-  Pair.fst run == [] && Pair.fst (Pair.snd run) == [] && size.columns == 20 && size.rows == 2
+-- For tests: `IO` as a host whose console is `console` and whose reads are
+-- `reads`, in order (then `None`). Records every `write` and `print`, and
+-- every time keys mode goes on or off (as "keys on" and "keys off"), in
+-- order. Like the real host, `keysMode` does nothing when the mode is
+-- already as asked, and `print` leaves keys mode first (D1260). There are no
+-- lines to read: `readLine` gives `None`, `readAll` "", `randomSeed` 0.
+def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
+  let run: List (List Nat) → Bool → List Text → {e} Pair (List Text) a :=
+    handle prog() with
+      | return result => readsLeft keysOn written => MkPair (List.reverse written) result
+      | IO.print text, resume => readsLeft keysOn written =>
+        resume () readsLeft False (Cons text (if keysOn then Cons "keys off" written else written))
+      | IO.readLine u, resume => readsLeft keysOn written => resume None readsLeft keysOn written
+      | IO.readAll u, resume => readsLeft keysOn written => resume "" readsLeft keysOn written
+      | IO.console u, resume => readsLeft keysOn written => resume console readsLeft keysOn written
+      | IO.keysMode on, resume => readsLeft keysOn written =>
+        if on == keysOn then resume () readsLeft keysOn written
+        else resume () readsLeft on (Cons (if on then "keys on" else "keys off") written)
+      | IO.readBytes u, resume => readsLeft keysOn written =>
+        match readsLeft with
+          | [] => resume None [] keysOn written
+          | [bytes, ..later] => resume (Some bytes) later keysOn written
+      | IO.write text, resume => readsLeft keysOn written => resume () readsLeft keysOn (Cons text written)
+      | IO.randomSeed u, resume => readsLeft keysOn written => resume 0 readsLeft keysOn written
+  run reads False []
+
+def Terminal.testTerminal: Console := { inputIsTerminal = True, outputIsTerminal = True, columns = 20, rows = 2 }
+
+test "toIO: on a terminal, keys mode on at the first draw and off at the end; frames as ANSI text cut to the screen" :=
+  Terminal.scriptedHost Terminal.testTerminal [[106], [27], [113]] (() => Terminal.toIO (() => Terminal.echoKeys 10 [])) ==
+    MkPair ["keys on", Frame.ansi ["0 keys"], Frame.ansi ["1 keys"], Frame.ansi ["2 keys"], "keys off"] [Printable 'j', Escape]
+test "toIO: a tall frame is cut to the screen's rows" :=
+  let run := Terminal.scriptedHost Terminal.testTerminal [] (() => Terminal.toIO (() => Terminal.draw ["1", "2", "3"]))
+  Pair.fst run == ["keys on", Frame.ansi ["1", "2"], "keys off"]
+test "toIO: asking only the size leaves the terminal alone" :=
+  let run := Terminal.scriptedHost Terminal.testTerminal [] (() => Terminal.toIO (() => Terminal.size ()))
+  let size := Pair.snd run
+  Pair.fst run == [] && size.columns == 20 && size.rows == 2
+test "toIO: a print between frames leaves keys mode, and the next draw enters it again" :=
+  let run := Terminal.scriptedHost Terminal.testTerminal [] (() => Terminal.toIO (() =>
+    Terminal.draw ["a"]
+    IO.print "note"
+    Terminal.draw ["b"]))
+  Pair.fst run == ["keys on", Frame.ansi ["a"], "keys off", "note", "keys on", Frame.ansi ["b"], "keys off"]

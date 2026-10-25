@@ -306,6 +306,31 @@ impl Shapes {
             &["readAllUnit"],
         )?;
         ctor(
+            "console",
+            io,
+            ctor_of(Builtin::IoConsole)?.1,
+            &["consoleUnit"],
+        )?;
+        ctor(
+            "keysMode",
+            io,
+            ctor_of(Builtin::KeysMode)?.1,
+            &["keysModeOn"],
+        )?;
+        ctor(
+            "readBytes",
+            io,
+            ctor_of(Builtin::ReadBytes)?.1,
+            &["readBytesUnit"],
+        )?;
+        ctor("write", io, ctor_of(Builtin::IoWrite)?.1, &["writeText"])?;
+        let bool_ = data(Builtin::Bool)?;
+        ctor("false_", bool_, ctor_of(Builtin::False)?.1, &[])?;
+        ctor("true_", bool_, ctor_of(Builtin::True)?.1, &[])?;
+        let list = data(Builtin::List)?;
+        ctor("nil", list, ctor_of(Builtin::Nil)?.1, &[])?;
+        ctor("cons", list, ctor_of(Builtin::Cons)?.1, &["head", "tail"])?;
+        ctor(
             "randomSeed",
             io,
             ctor_of(Builtin::RandomSeed)?.1,
@@ -320,6 +345,25 @@ impl Shapes {
         ctor("nothing", maybe, 0, &[])?;
         ctor("just", maybe, 1, &["someValue"])?;
         ctor("unit", data(Builtin::UnitType)?, 0, &[])?;
+        // `Console`, a record: no tag, its fields' keys.
+        let console = data(Builtin::Console)?;
+        let fields = &g.data(console).ctors[0].fields;
+        let names = [
+            "consoleInput",
+            "consoleOutput",
+            "consoleColumns",
+            "consoleRows",
+        ];
+        if fields.len() != names.len() {
+            return Err(internal(format!(
+                "`Console` has {} fields, not {}",
+                fields.len(),
+                names.len()
+            )));
+        }
+        for (i, name) in names.into_iter().enumerate() {
+            lines.push((name, js_string_literal(&field_key_at(g, console, 0, i))));
+        }
         Ok(Shapes { lines })
     }
 
@@ -523,6 +567,25 @@ import * as __wt from "node:worker_threads";
     lines += count + (text.length > 0 && !text.endsWith("\n") ? 1 : 0);
     return text;
   };
+  // The bytes of one read, for `readBytes`: what's buffered, or one read if
+  // nothing is; null at the end.
+  const readBytes = () => {
+    let bytes = input.subarray(position);
+    if (bytes.length === 0) bytes = readChunk();
+    input = Buffer.alloc(0);
+    position = scanned = 0;
+    if (bytes === null) return null;
+    for (let i = bytes.indexOf(10); i >= 0; i = bytes.indexOf(10, i + 1)) lines++;
+    return bytes;
+  };
+  // A list of the bytes, as `Nat`s.
+  const byteList = (bytes) => {
+    let list = { tag: SHAPE.nil };
+    for (let i = bytes.length - 1; i >= 0; i--) {
+      list = { tag: SHAPE.cons, [SHAPE.head]: BigInt(bytes[i]), [SHAPE.tail]: list };
+    }
+    return list;
+  };
 
   // Performs an operation of `{IO}`, which is `Plus IO NoOp`, or of
   // `{Fail, IO}`, which is `Plus Fail (Plus IO NoOp)`: its reply.
@@ -550,6 +613,31 @@ import * as __wt from "node:worker_threads";
       case SHAPE.readAll:
         flush();
         return readAll();
+      // Terminal control (docs/proposals/terminal-io.md §4.2), in the form
+      // for pipes for now: `console` says neither side is a terminal, so a
+      // program reads and draws as it would through pipes, and keys mode
+      // changes nothing, so `print`, `readLine` and `readAll` have no mode to
+      // leave. Raw mode through `stty` comes later (§4.7).
+      case SHAPE.console:
+        return {
+          [SHAPE.consoleInput]: { tag: SHAPE.false_ },
+          [SHAPE.consoleOutput]: { tag: SHAPE.false_ },
+          [SHAPE.consoleColumns]: 0n,
+          [SHAPE.consoleRows]: 0n,
+        };
+      case SHAPE.keysMode:
+        return { tag: SHAPE.unit };
+      case SHAPE.readBytes: {
+        flush();
+        const bytes = readBytes();
+        return bytes === null
+          ? { tag: SHAPE.nothing }
+          : { tag: SHAPE.just, [SHAPE.someValue]: byteList(bytes) };
+      }
+      case SHAPE.write:
+        pending.push(op[SHAPE.writeText]);
+        flush();
+        return { tag: SHAPE.unit };
       case SHAPE.randomSeed: {
         // Eight random bytes as a `Nat`, a bigint: the OS's entropy.
         const words = new BigUint64Array(1);

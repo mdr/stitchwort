@@ -2,6 +2,6 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.main d845f8f33c1ebab5d96b5d93567272adc08cdcec3458e5e6eff674ce75ccd5b0
-Main.test "main under simulate rolls the same every time" f3ac96d320d812d93f35b8a107c31cd5a2335cd1eb3724b2761c459094384c0d
-Main.test "the seed is 0 under simulate" b01b1a1bed1eecaa23839130bfa30ff3e671fea43178f4611420134835354af8
+Main.main 19772ecba9fbbc1b8ec2aa20569af7dab34da77a741b2ba500e6d82b4cdb1463
+Main.test "main under simulate rolls the same every time" 09f23ad0b9cb5c12f881803e5808522c15d9719a1a46d6fc7f79a032c16597bb
+Main.test "the seed is 0 under simulate" 6f8c7b10622f5f5d95286aaaf0a600e658318dcebbd95e7abd567056b78692e6

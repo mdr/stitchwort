@@ -119,6 +119,27 @@ fn examples_print_the_same_both_ways() {
     assert!(ran >= 5, "only {ran} examples have a main");
 }
 
+/// What `examples/accept/terminal-ops.sw` prints, piped, with
+/// [`TERMINAL_OPS_INPUT`]: no terminals, `write` with no line ending, and
+/// `readBytes` giving the rest of the input in one read. The playground's
+/// test (crates/web) expects the same.
+const TERMINAL_OPS_OUTPUT: &str = "terminals: no no\nsize: 0x0\ndrawn, no line ending\nfirst\n\
+                                   104,195,169,10,120,10\nnone\nnone\n";
+const TERMINAL_OPS_INPUT: &[u8] = "first\nhé\nx\n".as_bytes();
+
+/// The four terminal operations (docs/proposals/terminal-io.md §4.2), used
+/// directly, piped: both ways print the same.
+#[test]
+fn the_terminal_operations_print_the_same_both_ways() {
+    let fast = same_both_ways(
+        &examples().join("terminal-ops.sw"),
+        TERMINAL_OPS_INPUT,
+        true,
+    );
+    assert!(fast.status.success(), "{}", text(&fast.stderr));
+    assert_eq!(text(&fast.stdout), TERMINAL_OPS_OUTPUT);
+}
+
 /// A project function, by its full name, runs both ways too: AoC day 4 on
 /// its example input.
 #[test]

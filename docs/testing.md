@@ -52,7 +52,7 @@ When the daily tier grows past 5 minutes, cut it from nextest's own times (`targ
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
 | `aoc` | every AoC day on its real input (`aoc_answers` `dayNN`) | 6 s |
-| `cli` | `cli` `session`, and `run` but for its five slowest | 4 s |
+| `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), and `run` but for its five slowest | 4 s |
 | `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it | 6 s |
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
 | `bench` | the `stitchwort-bench` unit tests and the quick `check_work` tests | 6 s |

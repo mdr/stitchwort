@@ -98,7 +98,6 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Set/Set.sw", include_str!("std/Set/Set.sw")),
     ("Set/Spec.sw", include_str!("std/Set/Spec.sw")),
     ("Terminal/Ansi.sw", include_str!("std/Terminal/Ansi.sw")),
-    ("Terminal/HostIO.sw", include_str!("std/Terminal/HostIO.sw")),
     ("Terminal/Key.sw", include_str!("std/Terminal/Key.sw")),
     (
         "Terminal/Terminal.sw",

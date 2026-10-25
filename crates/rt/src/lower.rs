@@ -245,6 +245,11 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         print: ctor(Builtin::Print, 1)?,
         read_line: ctor(Builtin::ReadLine, 1)?,
         read_all: ctor(Builtin::ReadAll, 1)?,
+        console: ctor(Builtin::IoConsole, 1)?,
+        keys_mode: ctor(Builtin::KeysMode, 1)?,
+        read_bytes: ctor(Builtin::ReadBytes, 1)?,
+        write: ctor(Builtin::IoWrite, 1)?,
+        console_record: nth(Builtin::Console, 0, 4)?,
         random_seed: ctor(Builtin::RandomSeed, 1)?,
         stop: match g.registry.loaded_data(Builtin::Fail) {
             Some(d) => shape(g, d, 0, 1)?,
