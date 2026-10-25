@@ -2440,7 +2440,7 @@
     {
       "id": 445,
       "title": "Gate: bench allocation counts nondeterministic (repeat.rs counts_repeat_within_a_process); suspected time-capped counterexample search",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2448,8 +2448,11 @@
       ],
       "body": "",
       "created": "2026-10-24",
-      "updated": "2026-10-24",
-      "commits": []
+      "updated": "2026-10-25",
+      "commits": [
+        "a7d52a6c",
+        "87d3ed1b"
+      ]
     }
   ]
 }
