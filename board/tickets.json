@@ -2908,14 +2908,16 @@
     {
       "id": 479,
       "title": "Terminal roguelike in Stitchwort (games/rogue): pure core + proofs, Random ability, scripted play-through tests, friction NOTES.md (D1244)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "c2179e1d"
+      ]
     },
     {
       "id": 480,
