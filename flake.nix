@@ -63,12 +63,15 @@
               ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/project.rs)
             ];
           };
-          # What the playground bundles of the AoC project: its sources and
-          # example and puzzle inputs, listed explicitly.
+          # What the playground bundles of the AoC project (its sources and
+          # example and puzzle inputs) and of the roguelike (its sources),
+          # listed explicitly.
           aocBundle = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [
               ./aoc/stitchwort.yaml
+              ./games/rogue/stitchwort.yaml
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./games/rogue/src)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./aoc/src)
               (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/examples)
               (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/inputs)

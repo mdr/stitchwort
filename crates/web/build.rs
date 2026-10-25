@@ -13,10 +13,11 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// much more slowly. Measured in Node 22 (V8) once every recursive pass was
 /// guarded: with a guard of up to 512 KiB, every deep case stopped cleanly;
 /// from 640 KiB, elaborating a long sum (`1 + 1 + …`) overflowed V8's stack.
-/// 128 KiB leaves a margin of 4 for engines with smaller stacks, but allows
+/// 256 KiB (128 KiB until games/rogue, whose 11-field `State` record needs
+/// more, was bundled) leaves a margin of 2 for engines with smaller stacks, but allows
 /// little: nesting about 25 deep, list literals of about 200 elements. Check
 /// with web/stress.html; set `STITCHWORT_GUARD` (bytes) to experiment.
-const WASM_GUARD: usize = 128 * 1024;
+const WASM_GUARD: usize = 256 * 1024;
 /// Native builds of this crate only run as tests, on 2 MiB test threads.
 const NATIVE_STACK: usize = 2 * 1024 * 1024;
 

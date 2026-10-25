@@ -522,7 +522,7 @@ test("the compiler's files are asked for by content hash (pkg/version.json)", as
   await page.pick("aoc:0");
   await page.untilStatus(dayStatus(1), 60000);
   const manifest = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search).filter((a) => a.startsWith("manifest.json"))`);
-  assert.deepEqual(manifest, [`manifest.json?v=${version.projects}`]);
+  assert.deepEqual(manifest, Array(2).fill(`manifest.json?v=${version.projects}`), "one manifest per bundled project");
 });
 
 test("every example checks, and passes its tests but the failing one", async (page) => {
@@ -1577,6 +1577,47 @@ test("Evaluate takes full names in a project", async (page) => {
   await submit("solvePart1 Aoc.Day02.Tests.exampleRanges");
   await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value through an import");
 }, { ms: 120000 });
+
+// The roguelike (games/rogue), bundled as a second project ---------------------
+
+test("the roguelike is a second project: it checks with its proofs, plays on keys typed in the input box, and tests", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].length === 2 &&
+    [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "both groups");
+  assert.deepEqual(groups[1], ["Roguelike", ["rogue:0=Play"]]);
+  // The bundle is the sources alone.
+  const manifest = await page.ev(`fetch("pkg/projects/rogue/manifest.json").then((r) => r.json())`);
+  assert.ok(manifest.files.length > 15 && manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
+  assert.equal(await page.ev(`fetch("pkg/projects/rogue/stitchwort.yaml").then((r) => r.status)`), 404);
+  await page.pick("rogue:0");
+  await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel") || document.getElementById("status").textContent === "Checked by the kernel"`, 120000, "the roguelike to check");
+  assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
+  assert.ok((await fileTabs(page)).includes("Rogue.sw") && (await fileTabs(page)).includes("Proofs/Step.sw"));
+  assert.equal(await page.ev(`location.hash`), "#rogue/play");
+  assert.equal(await page.ev(`document.getElementById("run").title`), "Run Rogue.main (Ctrl+Enter)");
+  // The hint says how to play, and the input starts as a key script.
+  await page.tab("run");
+  assert.match(await page.ev(`[...document.querySelectorAll(".hint")].map((e) => e.textContent).join(" ")`), /q quits/);
+  assert.equal(await page.until(`document.getElementById("run-input").value`, 10000, "the key script"), "lllj.q");
+  // Play: keys, then q. Each turn prints a frame, and the end is the quit line.
+  await page.ev(`(() => { const i = document.getElementById("run-input"); i.value = "lllj.q"; i.dispatchEvent(new Event("input")); })()`);
+  await page.run(60000);
+  const printed = await page.printed();
+  const frames = printed.split("\n");
+  assert.match(frames.slice(0, 12).join("\n"), /#[.#]+/, "the first frame draws walls and floor");
+  assert.ok(frames.some((line) => line.includes("@")), "the player is drawn");
+  assert.match(frames.at(-2) ?? "", /^You gave up on level 1, on turn \d+\.$/);
+  // The end of the input quits too.
+  await page.ev(`(() => { const i = document.getElementById("run-input"); i.value = "l"; i.dispatchEvent(new Event("input")); })()`);
+  await page.run(60000);
+  assert.match(await page.printed(), /You gave up on level 1, on turn \d+\.\n$/);
+  // The tests run in the playground.
+  await page.tab("tests");
+  const summary = await page.until(`(() => { const o = document.getElementById("output");
+    return o.querySelector("ul.tests") && o.querySelector(".summary")?.textContent; })()`, 120000, "the tests");
+  assert.doesNotMatch(summary, /[1-9]\d* failed/);
+}, { ms: 400000 });
 
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {
   await page.open();

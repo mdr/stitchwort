@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Copies the AoC project into the playground's bundle (docs/proposals/
-# playground-projects.md §5):
+# Copies the AoC project and the roguelike into the playground's bundle
+# (docs/proposals/playground-projects.md §5):
 #   web/bundle-projects.sh REPO_ROOT OUT_DIR
-# writes OUT_DIR/projects/aoc/{manifest.json,src/**/*.sw,examples/*.txt}.
+# writes OUT_DIR/projects/aoc/{manifest.json,src/**/*.sw,examples/*.txt,...}
+# and OUT_DIR/projects/rogue/{manifest.json,src/**/*.sw}.
 # Only aoc/src/**/*.sw, aoc/examples/*.txt and aoc/inputs/*.txt are copied, by
 # those patterns, never the whole aoc/ folder (D119: the puzzle inputs are
-# bundled too). The script stops if a path falls outside those folders.
+# bundled too). The roguelike (games/rogue) gets only its src/**/*.sw. The
+# script stops if a path falls outside those folders.
 set -euo pipefail
 export LC_ALL=C
 root="$(cd "$1" && pwd)"
@@ -89,3 +91,48 @@ done
   printf '\n  ]\n}\n'
 } >"$dest/manifest.json"
 echo "bundled the AoC project into $dest"
+
+# ---- The roguelike (games/rogue): its sources only. --------------------------
+rogue_dest="$(dirname "$dest")/rogue"
+if [ "$(cat "$root/games/rogue/stitchwort.yaml")" != "sources: [src]" ]; then
+  echo "bundle-projects: games/rogue/stitchwort.yaml must be exactly 'sources: [src]'" >&2
+  exit 1
+fi
+cd "$root/games/rogue"
+rogue_files=$(find src -type f -name '*.sw' | sort)
+for path in $rogue_files; do
+  case "$path" in
+    /* | *..*)
+      echo "bundle-projects: refusing to bundle '$path'" >&2
+      exit 1
+      ;;
+    src/*) ;;
+    *)
+      echo "bundle-projects: '$path' is outside src/" >&2
+      exit 1
+      ;;
+  esac
+done
+rm -rf "$rogue_dest"
+mkdir -p "$rogue_dest"
+for path in $rogue_files; do
+  mkdir -p "$rogue_dest/$(dirname "$path")"
+  cp "$path" "$rogue_dest/$path"
+done
+# One entry, "Play": Rogue.main, with its tests and proofs. The run input
+# starts as a short key script.
+{
+  printf '{\n  "name": "rogue",\n  "title": "Roguelike",\n  "files": ['
+  sep=""
+  for path in $rogue_files; do
+    printf '%s\n    "%s"' "$sep" "$path"
+    sep=","
+  done
+  printf '\n  ],\n  "data": [],\n  "days": [\n'
+  printf '    { "title": "Play", "open": "src/Rogue/Rogue.sw", "namespaces": ["Rogue", "Rogue.Tests", "Rogue.Proofs"], "main": "Rogue.main", "inputs": [],\n'
+  printf '      "defaultInput": "lllj.q",\n'
+  printf '      "evalInput": "Rogue.ending",\n'
+  printf '      "hint": "Type keys into the input box, then Run: h/j/k/l, a/s/w/d or the arrow keys move, > goes down stairs, p drinks a potion, . waits, q quits; walking into a monster attacks it. Other keys are skipped, and the end of the input quits. Every turn prints a frame." }\n'
+  printf '  ]\n}\n'
+} >"$rogue_dest/manifest.json"
+echo "bundled the roguelike into $rogue_dest"
