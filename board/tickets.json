@@ -1,5 +1,5 @@
 {
-  "next": 465,
+  "next": 466,
   "tickets": [
     {
       "id": 13,
@@ -2342,7 +2342,7 @@
     {
       "id": 439,
       "title": "Perf: nested pure List.map in a pure context checks in exponential time (depth 16 0.67 s, 18 1.59 s; error path 6.7 s) since pure_first tries plain then fallback per level (SW-408 review #3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "Re-measured 25 Oct on main: still exponential. Pure: depth 16 0.68 s, 18 1.6 s, 20 5.3 s; error path (effectful callback in pure fn, E-ABILITY): 14 1.9 s, 16 6.4 s, 18 25-31 s, 20 ~100 s. Repro scripts: scratchpad/t439/run.sh. Realistic pipelines (<=8 deep) unaffected.",
       "labels": [
@@ -2350,7 +2350,7 @@
       ],
       "body": "",
       "created": "2026-10-24",
-      "updated": "2026-10-24",
+      "updated": "2026-10-25",
       "commits": []
     },
     {
@@ -2692,6 +2692,18 @@
       "id": 464,
       "title": "Private port: migrate the event resolver to rule E, then the Unicode/logic-notation house style; switch to std Map.indexBy (now stack-safe) and the D1191 distinct; private lane, work folder only; after rule E + notation build land",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 465,
+      "title": "Partial stage 3 design: partial callbacks through the one List.map (divergence row marker, Koka div); D1182 partial-call speed folded in",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
