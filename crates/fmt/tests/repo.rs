@@ -3,9 +3,11 @@
 //! a syntax error (docs/proposals/formatter.md §4.2).
 
 use std::path::Path;
-use std::process::Command;
-
 use stitchwort_fmt::{Error, Stats, format_with_stats};
+
+mod support {
+    pub mod repo_files;
+}
 
 /// Folders whose layout may be what's tested (D1019).
 const EXCLUDED: [&str; 3] = [
@@ -17,17 +19,9 @@ const EXCLUDED: [&str; 3] = [
 #[test]
 fn every_repo_file_formats_idempotently_or_is_refused() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let listing = Command::new("git")
-        .args(["ls-files", "*.sw"])
-        .current_dir(&root)
-        .output()
-        .expect("git ls-files runs");
-    assert!(listing.status.success(), "git ls-files failed");
-    let files: Vec<String> = String::from_utf8(listing.stdout)
-        .expect("file names are UTF-8")
-        .lines()
+    let files: Vec<String> = support::repo_files::repo_files(&root, &[".sw"])
+        .into_iter()
         .filter(|path| !EXCLUDED.iter().any(|folder| path.starts_with(folder)))
-        .map(str::to_string)
         .collect();
     assert!(files.len() > 100, "found only {} files", files.len());
 

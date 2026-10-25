@@ -69,6 +69,16 @@ mod under;
 /// hundred; this is what an expensive candidate runs out of.
 const SEARCH_BUDGET: u64 = 1_000_000;
 
+/// The budget for one `rewrite`: a test's setting applies to its program,
+/// not to the library's own rewrites, which always get the default (the
+/// library checks the same whatever program needed it).
+fn search_budget(cx: &Ctx) -> u64 {
+    match cx.e.loading_prelude {
+        true => SEARCH_BUDGET,
+        false => cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET),
+    }
+}
+
 /// Where the rules of a `rewrite` look: the goal, or the type of the term
 /// after `at`.
 #[derive(Clone, Copy)]
@@ -150,7 +160,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     let place = Place::Target(name.map(|n| n.text.as_str()));
     let (fact, ty) = infer(cx, target)?;
     let (fact, ty) = insert(cx, fact, ty)?;
-    let budget = cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET);
+    let budget = search_budget(cx);
     let mut remaining = budget;
     let mut stats = Stats::default();
     let mut ty = match cx.e.interfaces.is_empty() {
@@ -235,7 +245,7 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
     if target.is_some() {
         return Ok(rewrite_at(cx, expr, Some(expected))?.0);
     }
-    let budget = cx.e.rewrite_budget.unwrap_or(SEARCH_BUDGET);
+    let budget = search_budget(cx);
     let mut remaining = budget;
     let mut stats = Stats::default();
     let mut written = cx.written_goal.take();
