@@ -1379,8 +1379,11 @@ points?** **Decided (Matt): yes.**
 
 ## Appendix A: the experiments
 
-All were in the session's scratch directory, `native-exp/`, built with rustc
-1.99 at `-O`/`opt-level=3`.
+The `set.rs` programs and the `ir` mode now live in
+`bench/native/handwritten/` (a standalone cargo project; see its README and
+`task native:handwritten`), built with rustc 1.99 at `opt-level=3`. There,
+`set.rs` is `src/main.rs` and the no-inlining binary is `src/bin/noinline.rs`.
+`micro.rs` and `micro2.rs` were not moved.
 
 - **`set.rs`** (about 380 lines): the three versions of §3.1.
   - `uniform` uses an enum like the machine's `Value` (`Nat(u64)`,

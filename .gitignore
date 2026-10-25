@@ -7,3 +7,4 @@ node_modules/
 mutants.out*
 /web/pkg
 /.claude/worktrees
+/bench/native/handwritten/target
