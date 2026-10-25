@@ -2793,14 +2793,16 @@
     {
       "id": 472,
       "title": "Speed up the full gate: nextest (4 threads), fast/slow split (STITCHWORT_SLOW only at checkpoints), conv_shortcut par_map, small repeat bench; profile in scratchpad gate-profile.md (D1225)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "a3277e4e"
+      ]
     }
   ]
 }
