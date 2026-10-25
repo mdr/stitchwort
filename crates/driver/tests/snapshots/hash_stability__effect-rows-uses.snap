@@ -8,9 +8,9 @@ data Main.Hit 2b70588d94ca129ba06b20753993eeb5533682cea82a55f4391dae17f5a0868d
 Main.Log.%res cd9405aff43826f6a47ba4669552d4e581361aeec684d9b8abd9a03987e73c2b
 Main.Log.%elim 9e20dcca5b622e5ea77389704e530731095bf23ef895583c540a0e0c17e780dc
 Main.Log.collect 75965e17c23aafe2a43dc7a3292e76f793b3454db16d3f142f756b73ae873634
-Main.test "a pure use compared with ==" 7e61b2711247706fb3c5d4f9bf6007f8801ec69165ee660ed37939e2d44b6d64
+Main.test "a pure use compared with ==" 4a7696e84b5f9a767a4da76985b6c46cb43d401332c90d51e8326100981879a9
 Main.useFirst a9bbf85b3c83fb88c3eb8f682b2a8de4f4261d2661896f4065485447d39265c2
-Main.test "a pure use on a computed receiver" 38ff8952a67552996b4c08160b3dc00bdb9e663032ff7481d4a0470388de0e9d
+Main.test "a pure use on a computed receiver" 50723032e89e97172595ce10c43c8ea9bc7fcc81fcff79abcbce75d5f431f357
 Main.halve 295e00a84a6c3f7b1e0fa7d04c97904de553ccda9688aa50df363a1168c034e0
 Main.test "an effectful use, failing" 583cbb205d5940517079399af36831a95e43fc7ba2fafb5b984821af29a7332c
 Main.test "an effectful use, succeeding" 704bc3c553c69d8a8c424b23a459a0e75c98d920e4ff3095ecbc537e88781e6c

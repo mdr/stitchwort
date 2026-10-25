@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def decrement (xs: List Int): List Int := xs.map (- 1)
    │                                                   ─┬─  
-   │                                                    ╰─── expected `Int -> {?1 xs} ?2 xs`, but this has type `Int`
+   │                                                    ╰─── expected `Int -> {?1 xs} ?3 xs`, but this has type `Int`
    │ 
    │ Note: a numeral can only be the prelude's `Nat` or `Int`
 ───╯

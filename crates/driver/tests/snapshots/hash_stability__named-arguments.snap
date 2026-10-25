@@ -79,7 +79,7 @@ Main.Point.shift 5161a243aca8532bd199f8bd54834b921ad9568d7520a7d9c4d493f4f2c2ab4
 Main.corner aae46c80c2ee02b9471dad0e4b738e2b7e49922207862d47a2f65ac709fc7080
 Main.test "dot notation by name" c261cc52d933e3200394262a11d0d85d58095f056bbfa7501f51db692d0ec12c
 Main.test "dot notation with a parameter left out" c261cc52d933e3200394262a11d0d85d58095f056bbfa7501f51db692d0ec12c
-Main.test "a named section" a1a3cdca40f7c728e31bb37579de3c68cebb6d6d261f2e45aa19c6017ca189fe
+Main.test "a named section" 2b656da2604071ebd778779d4833bd17ec7cbe65cd6938a26c43cd78d02983a6
 Main.test "a section of the library" 165c8c74a7da0fa414fabcc618f5bc0a1803a6013832dc3810fee06ee0c7416c
 Main.clampValue f9c27419dd7decb3b2ce87fa722cf5a0a8015b2fec251b820cb2a3bc5bd569e5
 Main.test "a pipe fills the first parameter" 997db10f3e5d8b9285db7f3552d6003df38dab3bd340764c121d99a1c60e9f26

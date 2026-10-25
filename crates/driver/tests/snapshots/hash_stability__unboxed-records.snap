@@ -157,7 +157,7 @@ Main.test "box nested" b9438791d0082c5169f5e2dd03ee14459f9b9171c0d80eaf691a138ef
 Main.test "box list" 0022c782eb7c1e7186216b3b3a37acb047ea500ec5993246bd1a65bbedbd7c68
 Main.test "shape" 224cf5c888a729aba55543ca791ddcf74c116718f38a0153d6ce67a0459ccf6d
 Main.test "maybe" 740e368b3a74e9fb3924b0dae54ebae13367b30fb01d7b5f16fc49c6a8a9e933
-Main.test "constructor as function" 661eb77a5702db09459c8edc8efcf37c8d2062d4a7a436d9f3d3f7dbe63df1c7
+Main.test "constructor as function" c43431c3202d5de55aaf255c89c95727e779d24c67d2efa97a74b069aa116f6c
 Main.test "no field" dd616f23b99f2d0d09664a1eaca3ab8123994a975ffc4ed81873e090dbe21671
 Main.test "two fields" bd8fc030a84458cdbb607ac4452e9e6d6fefbf649a90ce2332e11a928d5aaae9
 Main.test "map of records" b3c8182d8589c1b1eadf042e41396bf984c52aef73042026be59ae1724ad7f0e

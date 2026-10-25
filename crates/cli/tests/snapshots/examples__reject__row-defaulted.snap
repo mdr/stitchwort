@@ -9,7 +9,7 @@ expression: output
     │                  ───────┬────┬──  
     │                         ╰───────── the row of this call was set to the empty row
     │                              │    
-    │                              ╰──── expected `Nat`, but this has type `Answer ?1`
+    │                              ╰──── expected `Nat`, but this has type `Answer ?2`
     │ 
     │ Note: nothing said which abilities this call may perform, so its row defaulted to the empty row (pure); give the callback's type, or annotate the result, if it was meant to perform something
 ────╯
