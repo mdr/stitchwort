@@ -767,3 +767,37 @@ fn std_distinct_over_a_million_elements_is_stack_safe() {
         1_000_000,
     );
 }
+
+/// `Result.traverse` and `Vec.traverseOption` (SW-460) are loops that stop at
+/// the first failure: on 1,000,000 elements, all succeeding and failing at
+/// the last, natively, with `run --js` and from a plain Node, whose default
+/// stack overflowed on the recursive forms.
+#[test]
+fn std_traversals_over_a_million_elements_are_stack_safe() {
+    let defs = [
+        (
+            "traverseOk",
+            "Result.getOrElse (Result.map (Result.traverse (List.range n) (x => if x < n then Ok (x % 7) else Err \"big\")) List.sum) 0",
+        ),
+        (
+            "traverseErr",
+            "Text.length (Result.errorOrElse (Result.traverse (List.range n) (x => if x + 1 < n then Ok x else Err (Nat.toText x))) \"none\")",
+        ),
+        (
+            "traverseOption",
+            "Option.getOrElse (Option.map (Vec.traverseOption (Vec.fromList (List.range n)) (x => if x < n then Some (x % 7) else None)) Vec.sum) 0",
+        ),
+        (
+            "traverseOptionNone",
+            "Option.getOrElse (Option.map (Vec.traverseOption (Vec.fromList (List.range n)) (x => if x + 1 < n then Some x else None)) Vec.sum) 7",
+        ),
+    ];
+    let source = exports_program_at(
+        "IO, List, Nat, Option, Result, Text, Vec",
+        "",
+        &defs,
+        1_000_000,
+    );
+    let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
+    stack_safe_everywhere_at(&source_file("traversals.sw", &source), &names, 1_000_000);
+}

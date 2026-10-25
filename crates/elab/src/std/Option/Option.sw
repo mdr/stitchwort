@@ -9,6 +9,11 @@ def Option.map: Option a -> (f: a -> b) -> Option b
   | None, f => None
   | Some x, f => Some (f x)
 
+-- Two maps are one map of the composite.
+theorem Option.mapMap (f: a -> b) (g: b -> c): (x: Option a) -> Option.map (Option.map x f) g = Option.map x (y => g (f y))
+  | None => rfl
+  | Some y => rfl
+
 -- `Some` is injective: equal `Some`s hold equal values.
 theorem Option.someInjective (x: a) (y: a) (h: Some x = Some y): x = y := Eq.cong (.getOrElse x) h
 
