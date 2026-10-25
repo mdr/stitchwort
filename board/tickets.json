@@ -1,5 +1,5 @@
 {
-  "next": 484,
+  "next": 486,
   "tickets": [
     {
       "id": 13,
@@ -2967,6 +2967,30 @@
       "id": 483,
       "title": "Revise terminal-io.md: Terminal as a library ability with Terminal.toIO over basic IO ops (raw mode, read bytes, write, size) (D1246); after the partial-handlers note. Decided: D1247 whole-frame draw for now (finer control later if needed), D1248 Ctrl-C stops the program",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 484,
+      "title": "Native note: fold in external review (D1250, D1251 decided): ≥3× target, counters in N1, interpreter boundary section, stack as margin, macOS in N0, alloc trace",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 485,
+      "title": "Native N0: Cranelift spike behind a feature; counters, tail calls, deep recursion, compile time, binary size, macOS signing/hardened JIT (D1250, D1251)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
