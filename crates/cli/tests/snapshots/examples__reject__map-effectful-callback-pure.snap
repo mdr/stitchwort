@@ -12,11 +12,11 @@ expression: output
    │ Note: add `Fail` to the function's type (`-> {Fail …} …`), or handle it
 ───╯
 [E-ABILITY] Error: this may perform `Fail`, which isn't allowed here
-    ╭─[ reject/map-effectful-callback-pure.sw:13:38 ]
+    ╭─[ reject/map-effectful-callback-pure.sw:13:51 ]
     │
  13 │ def count (texts: List Text): Nat := List.length (texts.map Text.toNatOrFail)
-    │                                      ───────────────────┬───────────────────  
-    │                                                         ╰───────────────────── `Fail` isn't in the abilities of the enclosing function or handler
+    │                                                   ─────────────┬────────────  
+    │                                                                ╰────────────── `Fail` isn't in the abilities of the enclosing function or handler
     │ 
     │ Note: add `Fail` to the function's type (`-> {Fail …} …`), or handle it
 ────╯
