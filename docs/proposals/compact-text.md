@@ -213,7 +213,7 @@ This proposal reuses that pattern for text wherever it can, and, as the review p
 
 **Generated JavaScript stops at a few thousand characters.** JS engines don't eliminate tail calls, and `length`, `append`, `textSplit`, `textJoin`, `==`, `textCompare` and `textFold` aren't tail-recursive. Measured in Node 22 with its default stack (text-and-io.md, step 3), the longest text each handled was about: `textLength` 8,000, `textSplit` 5,500 to 6,100, `textJoin` 6,800, `==` 6,100, `textToNat` 3,000. Past that the export throws `StitchwortResourceError`. A function's tail calls to itself already compile to loops, so `textTrim`, `natToText` and a user's accumulator loops are unlimited.
 
-**The checking evaluator copes with length but not literals.** Since the evaluator became an abstract machine, a release build splits a 100,000-character text and takes the length of a 200,000-character one. But long *literals* stop at about 1,800 characters in a 2 MiB thread (about 75,000 in the CLI), because recursive passes walk the literal's term, which is nested once per character (TODO.md). The playground's WebAssembly build has a 128 KiB guard and handles list literals of about 200 elements; I haven't measured text literals there, but they have the same shape, so a similar limit is likely (**not verified**).
+**The checking evaluator copes with length but not literals.** Since the evaluator became an abstract machine, a release build splits a 100,000-character text and takes the length of a 200,000-character one. But long *literals* stop at about 1,800 characters in a 2 MiB thread (about 75,000 in the CLI), because recursive passes walk the literal's term, which is nested once per character (TODO.md). The playground's WebAssembly build has a 256 KiB guard (128 KiB when the figure of about 200 list-literal elements was measured); I haven't measured text literals there, but they have the same shape, so a similar limit is likely (**not verified**).
 
 **Text is heavy.** Each character is a cons cell and a `MkChar` cell, each holding two values. From `bench/baseline.toml` (counts are deterministic):
 
@@ -676,7 +676,7 @@ The review's answers to draft 1's open questions:
 
 ## What I couldn't verify
 
-- The **text literal limit in the playground** (WebAssembly, 128 KiB guard) wasn't measured; it's inferred from the measured limit for list literals.
+- The **text literal limit in the playground** (WebAssembly, 256 KiB guard) wasn't measured; it's inferred from the measured limit for list literals.
 - **V8's thresholds** for when `+` makes a `ConsString` and `slice` a `SlicedString`, rather than copying: V8's documentation says very short results are copied, but gives no current number.
 - **How Rocq's VM and native compilers reduce `PrimString`** operations: the reference manual says the reduction machines have dedicated rules for primitives in general.
 - **Lean's compiled string operations** are described from the reference manual ("overridden with an efficient implementation in runtime code"). I didn't read the runtime's C source.

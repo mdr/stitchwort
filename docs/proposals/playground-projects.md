@@ -705,7 +705,7 @@ the note:
   Aoc.Day02.exampleRanges`; other days get `Aoc.DayNN.example`.
 - **Rust test stack.** The AoC proofs need more stack than a 2 MiB test
   thread gives, so the `crates/web` project tests run on a 256 MiB thread with
-  limits to match; in WebAssembly the real 128 KiB guard is enough, as
+  limits to match; in WebAssembly the real guard (256 KiB now; 128 KiB when measured) is enough, as
   measured in §7.
 - **Not done**, as the note says: public hosting and content-hash caching
   (D118), adding, renaming or deleting files, and short names in Evaluate

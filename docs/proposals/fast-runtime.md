@@ -98,7 +98,7 @@ several Rust calls, so deep recursion (a non-tail recursion over a 500,000-eleme
 a very large Rust stack. Natively that's possible (a thread with a 4 GB stack, as the
 prototype did, or the [`stacker`](https://crates.io/crates/stacker) crate), but **in the
 playground it isn't**: in WebAssembly in the browser, the stitchwort code may use only a small
-stack (the checker's guard is 128 KiB, and V8 crashed from about 640 KiB;
+stack (the checker's guard is 256 KiB, and V8 crashed from about 640 KiB;
 [stack-safe-evaluation.md](stack-safe-evaluation.md#progress)). Making closures stack-safe
 means continuation-passing or trampolines, which gives up most of their simplicity.
 
