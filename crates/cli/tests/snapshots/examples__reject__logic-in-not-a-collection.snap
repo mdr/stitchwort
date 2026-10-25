@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `in` needs a list, a set or a map on its right
+   ╭─[ reject/logic-in-not-a-collection.sw:4:46 ]
+   │
+ 4 │ def inNumber (x: Nat) (n: Nat): Bool := x in n
+   │                                              ┬  
+   │                                              ╰── this is a `Nat`
+   │ 
+   │ Note: `x in xs` is `List.Mem x xs` on a list, and `s.contains x = True` on a set or a map (its keys)
+───╯

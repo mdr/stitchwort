@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `Nat.max a b <= a`
+[E-OMEGA] Error: `omega` can't prove `Nat.max a b ≤ a`
    ╭─[ reject/omega-max-false.sw:5:54 ]
    │
  5 │ theorem maxLe (a: Nat) (b: Nat): Nat.max a b <= a := omega
@@ -18,5 +18,5 @@ expression: output
    │ Note 4: this statement is false; a counterexample:
    │           a = 0
    │           b = 1
-   │         `Nat.max a b <= a` is false
+   │         `Nat.max a b ≤ a` is false
 ───╯

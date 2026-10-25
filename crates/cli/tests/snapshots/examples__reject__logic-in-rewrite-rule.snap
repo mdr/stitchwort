@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a membership test in a `rewrite` needs brackets
+   ╭─[ reject/logic-in-rewrite-rule.sw:6:15 ]
+   │
+ 6 │   rewrite h 3 in xs in rfl
+   │               ─┬    ─┬  
+   │                ╰──────── this `in` ends the rewrite rule
+   │                      │  
+   │                      ╰── so this `in` is read as a membership test in the body
+   │ 
+   │ Note: a bare `in` ends a `rewrite` rule, so membership in a rule is written in brackets, `rewrite h (x in xs) in …`; a membership test as the body is bracketed too, `rewrite h in (x in xs)`
+───╯

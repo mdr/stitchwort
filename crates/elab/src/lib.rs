@@ -35,6 +35,7 @@ mod lift;
 mod local;
 mod logic;
 mod matching;
+mod membership;
 mod module;
 mod named;
 mod nav;
@@ -715,6 +716,7 @@ impl Elaborator {
         std::sync::LazyLock::force(&omega::LIBRARY_NAMES);
         std::sync::LazyLock::force(&ring::LIBRARY_NAMES);
         std::sync::LazyLock::force(&module::REWRITE_MARKER);
+        std::sync::LazyLock::force(&module::MEMBERSHIP);
         e
     }
 

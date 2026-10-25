@@ -15,7 +15,7 @@ expression: output
    │           a = 0
    │           b = 0
    │           c = 0
-   │         `a <= b` holds
-   │         `b <= c` holds
+   │         `a ≤ b` holds
+   │         `b ≤ c` holds
    │         `a < c` is false
 ───╯

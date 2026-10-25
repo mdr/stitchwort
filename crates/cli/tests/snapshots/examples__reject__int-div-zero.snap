@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-FALSE] Error: `0 != 0` is false
+[E-AUTO-FALSE] Error: `0 ≠ 0` is false
    ╭─[ reject/int-div-zero.sw:6:18 ]
    │
  6 │ def oops: Int := Int.div (Int.OfNat 7) (Int.OfNat 0)

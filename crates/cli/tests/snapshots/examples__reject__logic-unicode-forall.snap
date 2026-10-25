@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: unexpected character `∀`
+   ╭─[ reject/logic-unicode-forall.sw:4:17 ]
+   │
+ 4 │ theorem leRefl: ∀ x, x <= x := ?
+   │                 ┬  
+   │                 ╰── unexpected character `∀`
+   │ 
+   │ Note: `∀` isn't supported: "for all" is a function type: write `(x: T) -> P`
+───╯

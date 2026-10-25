@@ -75,8 +75,19 @@ pub enum Tok {
     /// `>`, `>=`: written the other way round (`a > b` is `b < a`).
     Gt,
     Ge,
-    /// `!`, prefix "not".
+    /// `!`, prefix "not". Also written `¬`.
     Bang,
+    /// `in` (or `∈`): membership, `x in xs` (D1201). Also ends a `rewrite`
+    /// rule or target: `rewrite h in body`.
+    KwIn,
+    /// `!in` (or `∉`): `x !in xs` is `!(x in xs)` (D1201).
+    NotIn,
+    /// `<->` (or `↔`): `p <-> q` is `Iff p q` (D1202).
+    Iff,
+    /// `exists` (or `∃`), followed by a lambda: `exists (x: T) => P` is
+    /// `Exists T ((x: T) => P)` (D1203). Right after a `.` it's an ordinary
+    /// name, so `opt.exists p` still calls `Option.exists`.
+    KwExists,
     KwIf,
     KwThen,
     KwElse,
@@ -351,6 +362,9 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                     "omega" => Tok::KwOmega,
                     "ring" => Tok::KwRing,
                     "decreasing" => Tok::KwDecreasing,
+                    "in" => Tok::KwIn,
+                    // After a `.`, a field or a dot call: `opt.exists p`.
+                    "exists" if !(start > 0 && bytes[start - 1] == b'.') => Tok::KwExists,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,
                     _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),
@@ -484,12 +498,13 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
         } else if !c.is_ascii() {
             let ch = text[start..].chars().next().expect("non-empty");
             let end = start + ch.len_utf8();
-            return Err(error(
-                file,
-                start,
-                end,
-                format!("unexpected character `{ch}`"),
-            ));
+            match unicode_alias(ch) {
+                Some(tok) => {
+                    i = end;
+                    tok
+                }
+                None => return Err(unicode_error(file, start, end, ch)),
+            }
         } else {
             i += 1;
             if c == b'{'
@@ -588,6 +603,19 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                 b'!' if bytes.get(i) == Some(&b'=') => {
                     i += 1;
                     Tok::NotEq
+                }
+                // `!in`, but not `!inside` (`!` and a name).
+                b'!' if text[i..].starts_with("in")
+                    && !bytes
+                        .get(i + 2)
+                        .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'') =>
+                {
+                    i += 2;
+                    Tok::NotIn
+                }
+                b'<' if text[i..].starts_with("->") => {
+                    i += 2;
+                    Tok::Iff
                 }
                 b'<' if bytes.get(i) == Some(&b'=') => {
                     i += 1;
@@ -931,6 +959,100 @@ fn escape(file: FileId, text: &str, i: usize) -> Result<(char, usize), Diagnosti
     Ok((ch, j + 1 - i))
 }
 
+/// The Unicode spellings of operators (D1200), with the ASCII each stands
+/// for. Each lexes to exactly the token its ASCII form does, so its meaning,
+/// precedence and errors are the same.
+pub const UNICODE_ALIASES: &[(char, &str)] = &[
+    ('∈', "in"),
+    ('∉', "!in"),
+    ('→', "->"),
+    ('↔', "<->"),
+    ('∧', "&&"),
+    ('∨', "||"),
+    ('¬', "!"),
+    ('≤', "<="),
+    ('≥', ">="),
+    ('≠', "!="),
+    ('∃', "exists"),
+];
+
+/// The token a Unicode alias stands for.
+fn unicode_alias(ch: char) -> Option<Tok> {
+    Some(match ch {
+        '∈' => Tok::KwIn,
+        '∉' => Tok::NotIn,
+        '→' => Tok::Arrow,
+        '↔' => Tok::Iff,
+        '∧' => Tok::AndAnd,
+        '∨' => Tok::OrOr,
+        '¬' => Tok::Bang,
+        '≤' => Tok::Le,
+        '≥' => Tok::Ge,
+        '≠' => Tok::NotEq,
+        '∃' => Tok::KwExists,
+        _ => return None,
+    })
+}
+
+/// Symbols from logic and mathematics that aren't aliases, with what to
+/// write instead (D1208).
+const UNSUPPORTED: &[(char, &str)] = &[
+    ('∀', "\"for all\" is a function type: write `(x: T) -> P`"),
+    ('⇒', "write `->` for implication, or `=>` in a lambda"),
+    ('⟹', "write `->` for implication"),
+    ('⇔', "write `<->`"),
+    ('⟺', "write `<->`"),
+    ('←', "write `<-`, as in `rewrite <- h`"),
+    ('λ', "a lambda is written `x => body`"),
+    ('≡', "write `=`"),
+    ('≢', "write `!=`"),
+    ('≔', "write `:=`"),
+    ('⊆', "there are no set operators: write it with a function, such as `List.All`"),
+    ('⊂', "there are no set operators: write it with a function"),
+    ('⊇', "there are no set operators: write it with a function, such as `List.All`"),
+    ('⊃', "there are no set operators: write it with a function"),
+    ('∪', "there are no set operators: write `Set.union`"),
+    ('∩', "there are no set operators: write `Set.intersect`"),
+    ('∖', "there are no set operators: write `Set.difference`"),
+    ('∅', "write `Set.empty` or `[]`"),
+    ('⊥', "write `Void`"),
+    ('⊤', "write `Unit`"),
+    ('ℕ', "write `Nat`"),
+    ('ℤ', "write `Int`"),
+    ('×', "write `*` for multiplication, or `(A, B)` for a pair type"),
+    ('·', "write `*`"),
+    ('÷', "write `/`"),
+    ('∘', "there's no composition operator: write a lambda"),
+];
+
+/// The error for a character the lexer doesn't know. For a symbol from
+/// logic or mathematics it says what to write instead, or that it isn't
+/// supported (D1208).
+fn unicode_error(file: FileId, start: usize, end: usize, ch: char) -> Diagnostic {
+    let d = error(file, start, end, format!("unexpected character `{ch}`"));
+    if let Some((_, hint)) = UNSUPPORTED.iter().find(|(c, _)| *c == ch) {
+        return d.with_note(format!("`{ch}` isn't supported: {hint}"));
+    }
+    // The blocks of arrows and mathematical operators.
+    if matches!(ch as u32, 0x2190..=0x22FF | 0x27C0..=0x27FF | 0x2900..=0x2AFF) {
+        return d.with_note(format!(
+            "`{ch}` isn't supported. Operators are written in ASCII; these Unicode spellings \
+             may be used instead: {}",
+            alias_list()
+        ));
+    }
+    d
+}
+
+/// The Unicode spellings and the ASCII each stands for, for messages.
+fn alias_list() -> String {
+    UNICODE_ALIASES
+        .iter()
+        .map(|(c, ascii)| format!("`{c}` for `{ascii}`"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn error(file: FileId, start: usize, end: usize, message: impl Into<String>) -> Diagnostic {
     let message = message.into();
     Diagnostic::error("E-PARSE", message.clone())
@@ -1100,7 +1222,8 @@ mod tests {
     #[test]
     fn rejects_tabs_and_unknown_characters() {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
-        assert_eq!(tokens("a ∧ b"), Err("E-PARSE"));
+        assert_eq!(tokens("a ∀ b"), Err("E-PARSE"));
+        assert_eq!(tokens("a ⊆ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ; b"), Err("E-PARSE"));
     }
 
@@ -1142,6 +1265,67 @@ mod tests {
                 Tok::Lower("b".into()),
             ])
         );
+    }
+
+    #[test]
+    fn logic_operators_and_their_unicode_aliases() {
+        let ascii = tokens("x in xs y !in ys p <-> q exists a -> b && c || !d <= e >= f != g");
+        let unicode = tokens("x ∈ xs y ∉ ys p ↔ q ∃ a → b ∧ c ∨ ¬d ≤ e ≥ f ≠ g");
+        assert_eq!(ascii, unicode);
+        let toks = ascii.unwrap();
+        for tok in [Tok::KwIn, Tok::NotIn, Tok::Iff, Tok::KwExists] {
+            assert!(toks.contains(&tok), "{tok:?}");
+        }
+        // Every alias is a token, and the table says what it stands for.
+        for (alias, ascii) in UNICODE_ALIASES {
+            assert_eq!(tokens(&alias.to_string()), tokens(ascii), "{alias}");
+        }
+    }
+
+    #[test]
+    fn not_in_and_iff_are_longest_matches() {
+        let lower = |s: &str| Tok::Lower(s.into());
+        // `!inside` is `!` and a name; `!in(` is `!in`.
+        assert_eq!(tokens("!inside"), Ok(vec![Tok::Bang, lower("inside")]));
+        assert_eq!(tokens("!in_"), Ok(vec![Tok::Bang, lower("in_")]));
+        assert_eq!(tokens("x!in(y)").unwrap()[1], Tok::NotIn);
+        // `<-` alone is still `<` and `-` (as in `rewrite <- h`).
+        assert_eq!(tokens("<- h"), Ok(vec![Tok::Lt, Tok::Minus, lower("h")]));
+        assert_eq!(tokens("p<->q").unwrap()[1], Tok::Iff);
+        // `inside` is a name; `in` is a keyword.
+        assert_eq!(tokens("inside in"), Ok(vec![lower("inside"), Tok::KwIn]));
+    }
+
+    #[test]
+    fn exists_after_a_dot_is_a_name() {
+        let lower = |s: &str| Tok::Lower(s.into());
+        assert_eq!(
+            tokens("o.exists Option.exists exists"),
+            Ok(vec![
+                lower("o"),
+                Tok::Dot,
+                lower("exists"),
+                lower("Option.exists"),
+                Tok::KwExists
+            ])
+        );
+    }
+
+    #[test]
+    fn other_logic_symbols_say_what_to_write() {
+        let note = |text: &str| {
+            let mut sources = SourceMap::new();
+            let file = sources.add("test.sw", text);
+            let d = lex(file, text).expect_err("an error");
+            d.notes.join(" ")
+        };
+        assert!(note("∀").contains("(x: T) -> P"));
+        assert!(note("⊆").contains("set operators"));
+        assert!(note("≡").contains("write `=`"));
+        // A symbol the table doesn't name lists the aliases.
+        assert!(note("⊗").contains("`∈` for `in`"));
+        // Other characters say nothing more.
+        assert_eq!(note("é"), "");
     }
 
     #[test]
