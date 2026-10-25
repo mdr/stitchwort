@@ -2515,7 +2515,7 @@
     {
       "id": 450,
       "title": "Dot/pipe rule E (D303): elaborator + std, aoc/examples/docs lanes, land together; @[noReceiver] (D1197), W-RECEIVER-NOT-FIRST warning (D1198), Props stay predicate-first (D1199)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -2619,7 +2619,7 @@
     {
       "id": 458,
       "title": "AoC: rewrite the 8 lambdas that are sections today (D1194b), in the rule-E AoC migration lane",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
