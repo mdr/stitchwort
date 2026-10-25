@@ -352,7 +352,7 @@ Decided: **D1246** (revised: `Terminal` a library ability in std, `toIO` and `si
 Context: a roguelike needs a different game each run, and today's always starts from seed 2026; `main` takes no arguments, so a seed can't be passed in. `IO.simulate` would give 0. Lean seeds its generator the same way. Time waits for real-time games (§6).
 Recommendation: **yes.**
 
-**D1259. Should `readKey` give an `Unknown` key for byte sequences it doesn't recognise, instead of skipping them?**
+**D1259. Should `readKey` give an `Unknown` key for byte sequences it doesn't recognise, instead of skipping them?** **Decided (Matt): yes.**
 Context: skipping means `toIO` waits, in a loop, for a key it knows, and a loop that waits on the user makes `toIO` partial even round a total program. With `Unknown`, each `readKey` does one read (a bounded few from a pipe), `toIO` stays total, and programs ignore `Unknown` in the catch-all case they have anyway. Bubble Tea passes unknown sequences on in a similar way (§3.4).
 Recommendation: **yes.**
 
