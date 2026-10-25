@@ -144,7 +144,7 @@ test "half"     := half 9 == 4
 test "safeDiv"  := safeDiv 7 0 == 0
 test "text"     := Text.join '-' (Text.split ',' "a,,b") == "a--b"
 test "trim"     := Text.trim "  x " == "x"
-test "count"    := Pair.fst (Std.Effect.runPure (counted (u => ticks 3))) == 3
+test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 "#;
 
 /// With every work limit from 1 up to enough for everything: loading either

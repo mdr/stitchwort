@@ -103,15 +103,16 @@ fn importing_twice_is_a_warning() {
 }
 
 /// A type brings its constructors with it, through an import as through
-/// the default set.
+/// the default set. (`Comp`'s constructors are proof-only (D1145), so they
+/// are used in a theorem.)
 #[test]
 fn constructors_come_with_an_imported_type() {
-    passes(&load(
+    load(
         "import Std (List)\n\
          import Std.Effect (Comp)\n\n\
-         def one : Comp Std.Builtin.UnitType (o => Std.Builtin.UnitType) Nat := Done 1\n\n\
-         test \"done\" := List.length [one, Call () (u => one)] == 2\n",
-    ));
+         theorem two (one : Comp Std.Builtin.UnitType (o => Std.Builtin.UnitType) Nat) :\n    \
+         List.length [Done 1, Call () (u => one)] = 2 := rfl\n",
+    );
 }
 
 /// The extension check is on what the qualifier means, not its spelling:
