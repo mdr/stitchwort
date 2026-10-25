@@ -1,5 +1,5 @@
 {
-  "next": 472,
+  "next": 473,
   "tickets": [
     {
       "id": 13,
@@ -2782,6 +2782,18 @@
       "id": 471,
       "title": "Notation follow-ups: print -> as → in goals/hover/errors (D1222); exported JS runtime/precondition messages stay ASCII (D1223); ⇒ stays an error pointing to => or →, no λ alias (D1224); after rule E lands",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 472,
+      "title": "Speed up the full gate: nextest (4 threads), fast/slow split (STITCHWORT_SLOW only at checkpoints), conv_shortcut par_map, small repeat bench; profile in scratchpad gate-profile.md (D1225)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
