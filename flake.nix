@@ -60,6 +60,7 @@
               ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/guide.rs)
               ./web/tests/effect-shapes.sw # the effect-shape tests run it (crates/web)
               ./bench # benchmark counts are checked against the baseline
+              ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/project.rs)
             ];
           };
           # What the playground bundles of the AoC project: its sources and
