@@ -1159,6 +1159,7 @@ dependencies = [
  "stitchwort-driver",
  "stitchwort-elab",
  "stitchwort-fmt",
+ "stitchwort-host",
  "stitchwort-js",
  "stitchwort-native",
  "stitchwort-rt",
@@ -1190,6 +1191,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-elab",
  "stitchwort-fmt",
+ "stitchwort-host",
  "stitchwort-js",
  "stitchwort-partial-model",
  "stitchwort-rt",
@@ -1211,6 +1213,15 @@ name = "stitchwort-fmt"
 version = "0.1.0"
 dependencies = [
  "stitchwort-syntax",
+]
+
+[[package]]
+name = "stitchwort-host"
+version = "0.1.0"
+dependencies = [
+ "nix",
+ "rustix",
+ "stitchwort-rt",
 ]
 
 [[package]]

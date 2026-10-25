@@ -11,6 +11,7 @@ stitchwort-core.workspace = true
 stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
 stitchwort-rt.workspace = true
+stitchwort-host.workspace = true
 ariadne.workspace = true
 blake3.workspace = true
 serde.workspace = true

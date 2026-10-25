@@ -284,12 +284,6 @@ struct CacheArgs {
 /// have room before they run into their resource limits.
 const STACK: usize = 64 * 1024 * 1024;
 
-/// The stack `run --native` runs on: address space reserved, not memory
-/// until it's touched. Native frames are on it, and it's only a safety margin
-/// behind the frame limit, which defines how deep a program may go
-/// (native-compilation.md §4.3; stage N2 sizes and tests it).
-const NATIVE_STACK: usize = 4 * 1024 * 1024 * 1024;
-
 /// Checking builds and frees terms and values by the million; with the
 /// system allocator (on macOS at least) allocating and freeing was about a
 /// quarter of a `check`. mimalloc makes `check` of the AoC project retire
@@ -328,20 +322,20 @@ fn main() -> ExitCode {
     // so that the terminal is put back (docs/proposals/terminal-io.md §5).
     #[cfg(unix)]
     if matches!(cli.command, Command::Run { js: false, .. }) {
-        stitchwort_cli::terminal::catch_signals();
+        stitchwort_host::terminal::catch_signals();
     }
     // Under Node the terminal is Node's to put back: wait for it.
     #[cfg(unix)]
     if matches!(cli.command, Command::Run { js: true, .. }) {
-        stitchwort_cli::terminal::wait_for_node();
+        stitchwort_cli::node_wait::wait_for_node();
     }
     // `run --native` runs native code on this thread, whose stack is then
     // the safety margin behind the frame limit (native-compilation.md §4.3).
     let stack = match &cli.command {
-        Command::Run { native: true, .. } => NATIVE_STACK,
+        Command::Run { native: true, .. } => stitchwort_host::NATIVE_STACK,
         _ => STACK,
     };
-    stitchwort_cli::driver::with_stack(stack, move || {
+    stitchwort_host::with_stack(stack, move || {
         stitchwort_elab::timings::start();
         let code = run(cli);
         stitchwort_elab::timings::report();
@@ -1506,8 +1500,8 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
     #[cfg(unix)]
     let (mut terminal, restore) = (
-        stitchwort_cli::terminal::UnixTerminal,
-        stitchwort_cli::terminal::Restore,
+        stitchwort_host::terminal::UnixTerminal,
+        stitchwort_host::terminal::Restore,
     );
     #[cfg(not(unix))]
     let (mut terminal, restore) = (stitchwort_cli::run::NoTerminal, ());
@@ -1560,7 +1554,7 @@ fn run_main_native(
     let notes = Rc::new(RefCell::new(Vec::new()));
     let options = stitchwort_native::n1::Options {
         trace_refcounts: trace,
-        stack_size: Some(NATIVE_STACK),
+        stack_size: Some(stitchwort_host::NATIVE_STACK),
     };
     let mut factory = stitchwort_native::n1::factory(options, notes.clone());
     let result = stitchwort_rt::run_main_native(
@@ -1620,7 +1614,7 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
         .spawn()
         .and_then(|mut node| {
             #[cfg(unix)]
-            stitchwort_cli::terminal::set_node(node.id());
+            stitchwort_cli::node_wait::set_node(node.id());
             node.wait()
         }) {
         Ok(status) => status,

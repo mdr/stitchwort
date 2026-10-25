@@ -16,6 +16,7 @@ stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
 stitchwort-rt.workspace = true
 stitchwort-driver.workspace = true
+stitchwort-host.workspace = true
 stitchwort-fmt.workspace = true
 clap.workspace = true
 rustyline.workspace = true
@@ -31,9 +32,8 @@ serde_json.workspace = true
 stitchwort-native = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
-# Keys mode on a terminal (docs/proposals/terminal-io.md §4.6).
+# `run --js` waiting for Node (docs/proposals/terminal-io.md §4.7).
 nix.workspace = true
-rustix.workspace = true
 
 [features]
 # `stitchwort dev native-spike` (stage N0), and later `run --native`.
