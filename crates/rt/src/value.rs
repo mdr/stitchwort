@@ -17,7 +17,12 @@ use std::rc::Rc;
 use num_bigint::{BigInt, BigUint};
 
 /// A runtime value.
+///
+/// `repr(u8)` fixes the layout native code reads (the tag in the first byte,
+/// each variant's fields in order after it; `crate::native_abi`). It's the
+/// same three words as without it, now written down.
 #[derive(Clone, Debug, Default)]
+#[repr(u8)]
 pub enum Value {
     /// What stands for an erased value (a proof or a type).
     #[default]

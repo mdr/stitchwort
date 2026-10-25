@@ -1232,6 +1232,9 @@ dependencies = [
  "cranelift-module",
  "cranelift-native",
  "libc",
+ "stitchwort-core",
+ "stitchwort-driver",
+ "stitchwort-rt",
 ]
 
 [[package]]
