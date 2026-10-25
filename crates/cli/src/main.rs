@@ -98,6 +98,13 @@ enum Command {
         /// one above it
         #[arg(long)]
         project: Option<PathBuf>,
+        /// Write the fast runtime's allocation trace (`alloc`, `reuse`,
+        /// `inc`, `dec`, `free` of constructor cells, identities numbered
+        /// by first appearance) to FILE. Only in a build with the
+        /// `alloc-trace` feature; for comparing native code with the
+        /// machine
+        #[arg(long, hide = true, value_name = "FILE", conflicts_with_all = ["js", "reference"])]
+        alloc_trace: Option<PathBuf>,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -309,8 +316,16 @@ fn run(cli: Cli) -> ExitCode {
             js,
             reference,
             project,
+            alloc_trace,
             cache,
-        } => run_target(&target, js, reference, project.as_deref(), &cache),
+        } => run_target(
+            &target,
+            js,
+            reference,
+            alloc_trace.as_deref(),
+            project.as_deref(),
+            &cache,
+        ),
         Command::Axioms {
             target,
             name,
@@ -907,9 +922,17 @@ fn run_target(
     target: &str,
     js: bool,
     reference: bool,
+    alloc_trace: Option<&Path>,
     project: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
+    #[cfg(not(feature = "alloc-trace"))]
+    if alloc_trace.is_some() {
+        eprintln!(
+            "error: this build has no allocation trace (build with `--features alloc-trace`)"
+        );
+        return ExitCode::FAILURE;
+    }
     let mut session = new_session(false);
     let main = if is_file_target(target) {
         use_cache(&mut session, cache, Path::new("."));
@@ -972,6 +995,18 @@ fn run_target(
     if js {
         run_main_js(&mut session, main)
     } else {
+        #[cfg(feature = "alloc-trace")]
+        if let Some(path) = alloc_trace {
+            stitchwort_rt::alloc_trace::start();
+            let code = run_main(&mut session, &main, reference);
+            let trace = stitchwort_rt::alloc_trace::finish();
+            if let Err(err) = std::fs::write(path, trace.render()) {
+                eprintln!("error: can't write {}: {err}", path.display());
+                return ExitCode::FAILURE;
+            }
+            return code;
+        }
+        let _ = alloc_trace;
         run_main(&mut session, &main, reference)
     }
 }

@@ -45,8 +45,16 @@ pub enum Value {
 }
 
 /// A constructor's runtime fields.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Fields(pub Rc<[Value]>);
+
+impl Clone for Fields {
+    #[inline(always)]
+    fn clone(&self) -> Fields {
+        crate::alloc_trace::inc(&self.0);
+        Fields(Rc::clone(&self.0))
+    }
+}
 
 impl std::ops::Deref for Fields {
     type Target = [Value];
@@ -105,7 +113,9 @@ impl Value {
         if N == 0 {
             Value::Tag(tag)
         } else {
-            Value::Data(tag, Fields(Rc::from(fields)))
+            let fields: Rc<[Value]> = Rc::from(fields);
+            crate::alloc_trace::alloc(tag, &fields);
+            Value::Data(tag, Fields(fields))
         }
     }
 
@@ -114,7 +124,9 @@ impl Value {
         if fields.is_empty() {
             Value::Tag(tag)
         } else {
-            Value::Data(tag, Fields(fields.into()))
+            let fields: Rc<[Value]> = fields.into();
+            crate::alloc_trace::alloc(tag, &fields);
+            Value::Data(tag, Fields(fields))
         }
     }
 
@@ -279,6 +291,8 @@ impl Delay {
 
 impl Drop for Fields {
     fn drop(&mut self) {
+        let last = Rc::strong_count(&self.0) == 1 && Rc::weak_count(&self.0) == 0;
+        crate::alloc_trace::dec(&self.0, last);
         if let Some(slice) = Rc::get_mut(&mut self.0) {
             let mut pending = Vec::new();
             take_from(slice, &mut pending);
