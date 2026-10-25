@@ -762,7 +762,14 @@ rejected; `next^40 x = next^40 y` rejected within the budget, with the same
 steps twice. Each was checked to fail with the part it tests switched off.
 `examples/accept/kernel-same-call-arguments.sw` is the roguelike's shape in
 miniature (a level made from an unknown seed, reached two ways): 12 s
-before, 0.15 s after.
+before, 0.15 s after. Two existing tests changed: a kernel refusal in
+`quot.rs` (R5) now shows the written type, `AllTrue x y`, where it showed
+what it computes to, `Unit` (as stage 3 did for the elaborator's messages);
+and the three programs `check_work` listed as still computing `cost`
+(`if cost < 5`, `V cost`, `rfl : cost = cost`) no longer do, so they joined
+the ones whose checking mustn't grow with it. `check` prints exactly the
+same, with the same exit code, on all 846 files of `examples/accept`,
+`reject` and `soundness`.
 
 *Measured* (release, `--no-cache`, against `main` at `eb1476ca` built in
 the same directory, two runs each; the machine's load average was 20 to
@@ -774,7 +781,7 @@ the same directory, two runs each; the machine's load average was 20 to
 | `aoc/` `check`, time | 5.0 s | 4.9–5.1 s |
 | `games/rogue` `test`, instructions | 126.38–126.40 G | 126.59–126.65 G (+0.2%) |
 | `games/rogue` `test`, time | 7.3–7.4 s | 7.4 s |
-| scratch rogue copy with stage 2's `descend` and its lemma, `check` | stopped after 90 s | 4 s (the lemma: 3.4 ms in the kernel) |
+| scratch rogue copy with stage 2's `descend` and its lemma, `check` | stopped after 90 s | 3.3 s (the lemma: about 3 ms in the kernel) |
 | peak memory (both projects) | 289 MB, 145 MB | the same |
 
 `task bench` (counts, against the same `main`): `check-closed-rfl`,
