@@ -4,7 +4,7 @@
 changes the compiler. The experiments were scratch programs and aren't
 committed; their code is described in [Appendix A](#appendix-a-the-experiments)
 so they can be rewritten. Decisions are at the [end](#decisions) (D1250–D1253).
-Matt has decided D1250, D1251 and D1252; D1253 is open. An external
+Matt has decided D1250–D1253. An external
 reviewer read this note, and what changed is in
 [External review](#external-review-25-october-2026).
 
@@ -1148,7 +1148,7 @@ a later standalone build.**
   playground; revisit wasm when stack switching ships.
 
 **D1253. Native code must hit resource limits at exactly the machine's
-points?**
+points?** **Decided (Matt): yes.**
 - Context: counting frames and steps on every call, as the machine does,
   costs about 1.6 ns per call on a bare-call benchmark (about 3.5× a bare
   native call, still 17× cheaper than the machine's).
