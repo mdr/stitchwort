@@ -862,7 +862,7 @@ pub(crate) fn prefix_form<'a>(
         }
     } else {
         full.push(Arg::Explicit(recv));
-        full.extend(written.iter().map(|e| Arg::Explicit(*e)));
+        full.extend(written.iter().map(|e| Arg::Explicit(e)));
     }
     cx.e.note_dot(field, f);
     // A recursive call of a definition with `decreasing` (`decreasing.rs`).
