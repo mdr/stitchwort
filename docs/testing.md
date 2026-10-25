@@ -118,6 +118,16 @@ task test:gate                                 # nix flake check: the daily tier
 task test:browser                              # the playground in headless Chrome: about 35 s
 ```
 
+## The allocation trace
+
+A bring-up tool for native compilation (`docs/proposals/native-compilation.md`, "Bring-up trace"): the machine can record every `alloc`, `reuse`, `inc`, `dec` and `free` of a constructor cell, so the machine's memory decisions can be read, and later compared with native code's, event by event.
+
+- **Build.** It is the cargo feature `alloc-trace` of `stitchwort-rt` (`stitchwort-cli` forwards it). Release `stitchwort` is built without it: the hooks are empty `#[inline(always)]` functions, so the machine compiles to the same code. A feature rather than `cfg(debug_assertions)` because the tests run in release mode. The `stitchwort-rt` tests switch it on for themselves (a dev-dependency on itself).
+- **Use.** `cargo run --release -p stitchwort-cli --features alloc-trace -- run prog.sw --alloc-trace prog.trace` (a hidden flag; it runs on the fast runtime only). In a test, `stitchwort_rt::alloc_trace::start()` before the run and `finish()` after give a `Trace` with `render()`, `leaks()` and `count("reuse")`. See `crates/rt/tests/alloc_trace.rs`.
+- **Format.** One event per line: `alloc #3 tag=1 arity=2`, `reuse #3 tag=1 arity=2` (a unique cell refilled in place), `inc #3`, `dec #3`, and `free #3` straight after the last `dec`. Identities are numbered by first appearance, and an address freed and reused is a new identity, so two runs give the same text.
+- **Not traced** yet: closures, partial applications, delays, texts and big numbers. Only constructor cells (`Fields`).
+- **Checks.** Every `alloc` must have a `free` by the end of a run, including one that ends in an escaped `Fail`.
+
 ## Browser tests
 
 `web/test.sh` builds the playground into `web/pkg/`, then runs `web/tests/browser.mjs` with Node: it serves `web/` itself (on a port the system picks), starts headless Chrome with a temporary profile, drives the page over the DevTools protocol, and stops Chrome at the end. Each test has a fresh tab with empty storage.
