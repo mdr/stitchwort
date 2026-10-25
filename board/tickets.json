@@ -3054,14 +3054,16 @@
     {
       "id": 490,
       "title": "Terminal note draft 2: Terminal as a std library ability over basic IO host ops (D1246 revised, D1247, D1248, D1254–D1256); random seed renumbered D1258",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "21aa0a59"
+      ]
     },
     {
       "id": 491,
