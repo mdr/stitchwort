@@ -2571,14 +2571,16 @@
     {
       "id": 454,
       "title": "std: fast Set-based List.distinct for ordered types + membership/Distinct theorems; resolver port moves to it (D1191; after rule E lands)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "f0819921"
+      ]
     },
     {
       "id": 455,
