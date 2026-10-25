@@ -557,3 +557,82 @@ def main(): {IO, Partial} () :=
         text(&js.stdout)
     );
 }
+
+/// Std functions that fold a long list are stack-safe: `Map.indexBy`,
+/// `Map.groupBy`, `List.foldRight`, `Map.foldRight` and `Set.foldRight` (once
+/// `foldRight`s that recursed once per element), and the `foldLeft` builders
+/// `Map.fromListWith`, `Map.counts` and `Set.fromList`, on 100,000 elements.
+/// `run --js` hides the depth in a worker with a large stack, so the built
+/// module is also called from a plain Node, whose default stack overflowed at
+/// about 8,000 elements. Native and JS print the same.
+#[test]
+fn std_folds_over_long_lists_are_stack_safe() {
+    let path = source_file(
+        "folds.sw",
+        r#"
+import Std (IO, List, Map, Nat, Set)
+
+def input (n: Nat): List Nat := List.range n
+
+export def indexed (n: Nat): Nat := Map.size (Map.indexBy (x => x % 1000) (input n))
+
+export def indexedFirst (n: Nat): Nat := Map.getOr 0 7 (Map.map (x => x) (Map.indexBy (x => x % 1000) (input n)))
+
+export def grouped (n: Nat): Nat :=
+  List.foldLeft (acc x => acc * 3 + x) 0 (Map.getOr [] 3 (Map.groupBy (x => x % 10) (input n))) % 1000003
+
+export def summed (n: Nat): Nat := Map.size (Map.fromListWith (a b => a + b) (List.map (x => (x % 500, x)) (input n)))
+
+export def setSize (n: Nat): Nat := Set.size (Set.fromList (input n))
+
+export def counted (n: Nat): Nat := Map.getOr 0 3 (Map.counts (List.map (x => x % 7) (input n)))
+
+export def listRight (n: Nat): Nat := List.foldRight (x acc => x + acc) 0 (input n)
+
+export def mapRight (n: Nat): Nat := Map.foldRight (k v acc => v + acc) 0 (Map.indexBy (x => x) (input n))
+
+export def setRight (n: Nat): Nat := Set.foldRight (k acc => k + acc) 0 (Set.fromList (input n))
+
+def main () : {IO} () :=
+  IO.print (Nat.toText (indexed 100000))
+  IO.print (Nat.toText (indexedFirst 100000))
+  IO.print (Nat.toText (grouped 100000))
+  IO.print (Nat.toText (summed 100000))
+  IO.print (Nat.toText (setSize 100000))
+  IO.print (Nat.toText (counted 100000))
+  IO.print (Nat.toText (listRight 100000))
+  IO.print (Nat.toText (mapRight 100000))
+  IO.print (Nat.toText (setRight 100000))
+"#,
+    );
+    let js = same_both_ways(&path, b"", true);
+    assert!(js.status.success(), "{}", text(&js.stderr));
+    let expected = text(&js.stdout);
+    assert_eq!(expected.lines().count(), 9, "{expected}");
+
+    let out = path.parent().unwrap().join("folds-out");
+    let built = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["build", "--js", "--no-cache", "-o"])
+        .arg(&out)
+        .arg(&path)
+        .output()
+        .expect("run stitchwort build");
+    assert!(built.status.success(), "{}", text(&built.stderr));
+    let script = out.join("call.mjs");
+    std::fs::write(
+        &script,
+        r#"
+import * as m from "./folds.js";
+for (const name of ["indexed", "indexedFirst", "grouped", "summed", "setSize", "counted", "listRight", "mapRight", "setRight"]) {
+  console.log(String(m[name](100000n)));
+}
+"#,
+    )
+    .expect("write call.mjs");
+    let node = Command::new("node")
+        .arg(&script)
+        .output()
+        .expect("run `node` (is it on the PATH? `nix develop` provides it)");
+    assert!(node.status.success(), "{}", text(&node.stderr));
+    assert_eq!(text(&node.stdout), expected);
+}

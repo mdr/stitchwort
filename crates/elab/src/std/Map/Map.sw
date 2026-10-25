@@ -175,10 +175,10 @@ def Map.groupBy [auto ord: Ord k] (key: a -> k) (xs: List a): Map k (List a) :=
 
 -- Each element under its key; where elements share a key, the FIRST one is
 -- kept: `Map.indexBy Text.length ["ab", "c", "de"]` is
--- `Map.fromList [(1, "c"), (2, "ab")]`. `foldRight` meets the last element
--- first, so the newer value, from the earlier element, wins.
+-- `Map.fromList [(1, "c"), (2, "ab")]`. A left fold (a loop), where the older
+-- value wins.
 def Map.indexBy [auto ord: Ord k] (key: a -> k) (xs: List a): Map k a :=
-  List.foldRight (element index => Map.insertWith (newer older => newer) (key element) element index) Map.empty xs
+  List.foldLeft (index element => Map.insertWith (newer older => older) (key element) element index) Map.empty xs
 
 -- How many times each element occurs.
 def Map.counts [auto ord: Ord k] (xs: List k): Map k Nat := List.foldLeft (m x => Map.insertWith Nat.add x 1 m) Map.empty xs
@@ -605,6 +605,7 @@ theorem Map.getGroupBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
     Map.get kk (Map.groupBy key xs) = Map.Spec.nonEmpty (List.filter (x => Map.Spec.sameKey kk (key x)) xs)
   | Nil => rfl
   | Cons x rest =>
+    rewrite List.foldRightCons (x m => Map.insertWith List.append (key x) [x] m) Map.empty x rest in
     match e: Ord.compare kk (key x) with
       | Equal =>
         rewrite ord.equal kk (key x) e, Map.getInsertWith List.append (key x) [x] (Map.groupBy key rest), Map.getGroupBy key (key x) rest in
@@ -620,23 +621,40 @@ theorem Map.getGroupBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
           (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (Map.groupBy key rest) in
         Map.getGroupBy key kk rest
 
--- `indexBy`: the first element whose key is `kk`.
-theorem Map.getIndexBy [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) ->
-    Map.get kk (Map.indexBy key xs) = List.find (x => Map.Spec.sameKey kk (key x)) xs
-  | Nil => rfl
-  | Cons x rest =>
+theorem Map.orElseNone: (o: Option a) -> Option.orElse o None = o
+  | None => rfl
+  | Some x => rfl
+
+-- `indexBy` from a starting map: what the map has, else the first element
+-- whose key is `kk`.
+theorem Map.getIndexByFrom [auto ord: Ord k] (key: a -> k) (kk: k): (xs: List a) -> (m: Map k a) ->
+    Map.get kk (List.foldLeft (index element => Map.insertWith (newer older => older) (key element) element index) m xs)
+      = Option.orElse (Map.get kk m) (List.find (x => Map.Spec.sameKey kk (key x)) xs)
+  | Nil, m => Eq.sym (Map.orElseNone (Map.get kk m))
+  | Cons x rest, m =>
     match e: Ord.compare kk (key x) with
       | Equal =>
-        rewrite ord.equal kk (key x) e, Map.getInsertWith (newer older => newer) (key x) x (Map.indexBy key rest) in
-        Eq.cong Some (Map.Tree.combineFirst x (Map.get (key x) (Map.indexBy key rest)))
+        rewrite ord.equal kk (key x) e in
+        Eq.trans (Map.getIndexByFrom key (key x) rest (Map.insertWith (newer older => older) (key x) x m))
+          (Eq.trans (Eq.cong (o => Option.orElse o (List.find (y => Map.Spec.sameKey (key x) (key y)) rest)) (Map.getInsertWith (newer older => older) (key x) x m))
+            (match c: Map.get (key x) m with
+              | None => rfl
+              | Some o => rfl))
       | Less =>
-        rewrite Map.getInsertWithOther (newer older => newer) (key x) x kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) (Map.indexBy key rest) in
-        Map.getIndexBy key kk rest
+        Eq.trans (Map.getIndexByFrom key kk rest (Map.insertWith (newer older => older) (key x) x m))
+          (Eq.cong (o => Option.orElse o (List.find (y => Map.Spec.sameKey kk (key y)) rest))
+            (Map.getInsertWithOther (newer older => older) (key x) x kk
+              (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) m))
       | Greater =>
-        rewrite Map.getInsertWithOther (newer older => newer) (key x) x kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (Map.indexBy key rest) in
-        Map.getIndexBy key kk rest
+        Eq.trans (Map.getIndexByFrom key kk rest (Map.insertWith (newer older => older) (key x) x m))
+          (Eq.cong (o => Option.orElse o (List.find (y => Map.Spec.sameKey kk (key y)) rest))
+            (Map.getInsertWithOther (newer older => older) (key x) x kk
+              (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) m))
+
+-- `indexBy`: the first element whose key is `kk`.
+theorem Map.getIndexBy [auto ord: Ord k] (key: a -> k) (kk: k) (xs: List a):
+    Map.get kk (Map.indexBy key xs) = List.find (x => Map.Spec.sameKey kk (key x)) xs :=
+  Map.getIndexByFrom key kk xs Map.empty
 
 -- The same with `==`, as a program finding by key writes it.
 theorem Map.getIndexByEq [auto ord: Ord k] (key: a -> k) (kk: k) (xs: List a):
