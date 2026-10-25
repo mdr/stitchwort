@@ -668,7 +668,7 @@ const CROSSING: &str = "import Std (Fail, IO, Nat, Option, Result, Text)
 def echo: Nat -> {IO, Partial} Nat
   | 0 => 0
   | n =>
-    let line := Option.getOrElse \"none\" (IO.readLine())
+    let line := Option.getOrElse (IO.readLine()) \"none\"
     let shown := Fail.toResult (() =>
       IO.print \"${n}: ${line}\"
       if line == \"stop\" then Fail.fail \"stopped\" else Text.length line)

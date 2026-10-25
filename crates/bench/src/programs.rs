@@ -38,7 +38,7 @@ pub const ALL: &[Benchmark] = &[
             let program = format!("{TEXT}\ndef big : Text := \"{}\"\n", "abcd,".repeat(2000));
             eval(
                 program,
-                "Text.length (Text.join ',' (Text.split ',' big))",
+                "Text.length (Text.join (Text.split big ',') ',')",
                 "10000",
             )
         },

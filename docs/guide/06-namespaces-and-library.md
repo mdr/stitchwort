@@ -68,7 +68,7 @@ def Order.price (order: Order): Option Nat := (catalogue.get order.product).map 
 
 -- Orders of the same product, added up, in the product's name order.
 def combine (orders: List Order): Map Text Nat :=
-  orders.foldLeft (totals order => Map.insertWith (a b => a + b) order.product order.quantity totals) Map.empty
+  orders.foldLeft Map.empty (totals order => Map.insertWith totals order.product order.quantity (a b => a + b))
 ```
 
 The second adds a function to read an order from a line of text. It sees `Order` without an import, because it is in the same namespace, but it has its own imports:
@@ -164,7 +164,7 @@ The rules, in brief (the full set is in [projects.md](../projects.md)):
 
 The library's source is in `crates/elab/src/std/`, and `stitchwort std-source List/Toolkit.sw` prints a file; in the editor, go to definition opens it. A few conventions run through it:
 
-- The main argument comes last, so pipes read well: `List.map f xs`, `Text.split ',' line`, `Map.get key map`. Dot notation finds the main argument wherever it is.
+- The main argument comes first, then the other arguments, then any function arguments: `List.map xs f`, `Text.split line ','`, `Map.get map key`, `xs.foldLeft 0 (total n => total + n)`. Dot notation and pipes put the value there (`xs.map f`, `xs |> .map f`), and a function ending in a lambda suits a lambda that spans lines. A function with two arguments of the same type is named so that the dot reads as a sentence: `t.startsWith p`, `a.sub b`, `xs.append ys`.
 - Functions are total. Where an answer may not exist, the result is an `Option` (`List.maximum`, `Text.toNat`, `Map.get`), or the function takes a default (`getOrElse`, `List.headOr`).
 - Most functions come with theorems about them, named after what they say (`List.lengthMap`, `Nat.addComm`), for use in proofs.
 
@@ -175,11 +175,11 @@ The library's source is in `crates/elab/src/std/`, and `stitchwort std-source Li
 def scores: List Nat := [7, 3, 9, 3, 5]
 
 test "map and filter" := (scores.filter (n => n > 4)).map (n => n * 10) == [70, 90, 50]
-test "folds" := scores.foldLeft (total n => total + n) 0 == scores.sum
+test "folds" := scores.foldLeft 0 (total n => total + n) == scores.sum
 test "searching" := scores.find (n => n > 7) == Some 9 && scores.findIndex (n => n == 9) == Some 2
 test "sorting and dedup" := scores.sort.dedup == [3, 5, 7, 9]
 test "slicing" := scores.take 2 == [7, 3] && scores.drop 3 == [3, 5]
-test "zipping" := List.zipWith (a b => a * b) [1, 2, 3] [4, 5, 6] == [4, 10, 18]
+test "zipping" := List.zipWith [1, 2, 3] [4, 5, 6] (a b => a * b) == [4, 10, 18]
 test "ranges" := List.range 4 == [0, 1, 2, 3] && List.between 2 5 == [2, 3, 4, 5]
 test "with an index" := ["a", "b"].withIndex == [(0, "a"), (1, "b")]
 test "maximum of an empty list" := ([]: List Nat).maximum == None
@@ -210,7 +210,7 @@ def parseAge (text: Text): Result Nat Text :=
 test "ok" := parseAge "36" == Ok 36
 test "err" := parseAge "old" == Err "not a number: 'old'"
 test "map over Ok" := (parseAge "36").map (age => age * 2) == Ok 72
-test "traverse stops at the first Err" := Result.traverse parseAge ["1", "x", "y"] == Err "not a number: 'x'"
+test "traverse stops at the first Err" := Result.traverse ["1", "x", "y"] parseAge == Err "not a number: 'x'"
 ```
 
 ### Text
@@ -219,12 +219,12 @@ test "traverse stops at the first Err" := Result.traverse parseAge ["1", "x", "y
 
 <!-- snippet: library.sw#text -->
 ```stitchwort
-test "split and join" := Text.join '-' ("a,b,c".split ',') == "a-b-c"
+test "split and join" := Text.join ("a,b,c".split ',') '-' == "a-b-c"
 test "words and lines" := "two  words".words == ["two", "words"] && "a\nb\n".lines == ["a", "b"]
 test "numbers" := "42".toNat == Some 42 && "-7".toInt == Some (-7)
 test "toNat does not trim" := " 42 ".toNat == None && " 42 ".trim.toNat == Some 42
 test "trim and slices" := "  tea ".trim == "tea" && "teapot".take 3 == "tea"
-test "prefixes" := Text.stripPrefix "L" "L68" == Some "68"
+test "prefixes" := "L68".stripPrefix "L" == Some "68"
 test "length counts characters" := "héllo".length == 5
 ```
 
@@ -237,12 +237,12 @@ Note that `Text.toNat` and `Text.toInt` don't trim spaces, while `Text.toNatOrFa
 <!-- snippet: library.sw#map -->
 ```stitchwort
 def wordCounts (words: List Text): Map Text Nat :=
-  words.foldLeft (counts word => Map.insertWith (a b => a + b) word 1 counts) Map.empty
+  words.foldLeft Map.empty (counts word => Map.insertWith counts word 1 (a b => a + b))
 
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (Map.groupBy (word => word.length) ["tea", "milk", "pot"]).get 3 == Some ["tea", "pot"]
+test "group by" := (Map.groupBy ["tea", "milk", "pot"] (word => word.length)).get 3 == Some ["tea", "pot"]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 ```
 
@@ -265,7 +265,7 @@ def row: Vec Nat 3 := VCons 4 (VCons 5 (VCons 6 VNil))
 
 test "a Vec knows its length" := row.toList == [4, 5, 6]
 test "head needs no Option" := row.head == 4
-test "zipWith needs equal lengths" := (Vec.zipWith (a b => a + b) row row).toList == [8, 10, 12]
+test "zipWith needs equal lengths" := (Vec.zipWith row row (a b => a + b)).toList == [8, 10, 12]
 ```
 
 [Chapter 10](10-proofs.md) has more on types that mention values. The library also has `Fin n` (positions below `n`), `Mod n` (wrap-around arithmetic), `Float`, `Each` (search, [chapter 8](08-abilities.md)) and `PrefixSums`.

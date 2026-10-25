@@ -13,7 +13,7 @@ import Aoc.Day02 (..)
 import Aoc.Day02.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
--- Why `RepetitionTemplate.sumIn` is right (a): `RepetitionTemplate.sumIn r template` equals
+-- Why `RepetitionTemplate.sumIn` is right (a): `RepetitionTemplate.sumIn template r` equals
 -- `repeatedSpec r k n`, the brute-force sum below, for every range, block
 -- length and repeat count.
 --
@@ -50,18 +50,18 @@ def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
     m * Nat.sumBetween from to
   else 0
 
-theorem repeatedAt (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
+theorem repeatedAt (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = blocksAt r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (multiplier k n) := rfl
 
 -- The multiplier: writing `b` n times is `b * multiplier k n`.
 theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10 k * multiplier k n :=
   calc multiplier k (Succ n)
-    _ = Nat.pow 10 (k * 0) + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1)
-      := List.sumByCons (i => Nat.pow 10 (k * i)) 0 (List.rangeFrom n 1)
-    _ = 1 + List.sumBy (i => Nat.pow 10 (k * i)) (List.rangeFrom n 1) := rewrite (ring: k * 0 = 0)
-    _ = 1 + List.sumBy (i => Nat.pow 10 (k * Succ i)) (List.range n) := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
-    _ = 1 + List.sumBy (i => Nat.pow 10 k * Nat.pow 10 (k * i)) (List.range n)
+    _ = Nat.pow 10 (k * 0) + List.sumBy (List.rangeFrom n 1) (i => Nat.pow 10 (k * i))
+      := List.sumByCons (List.rangeFrom n 1) 0 (i => Nat.pow 10 (k * i))
+    _ = 1 + List.sumBy (List.rangeFrom n 1) (i => Nat.pow 10 (k * i)) := rewrite (ring: k * 0 = 0)
+    _ = 1 + List.sumBy (List.range n) (i => Nat.pow 10 (k * Succ i)) := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
+    _ = 1 + List.sumBy (List.range n) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
       := rewrite Nat.mulSucc k _, Nat.powAdd 10 k _
-    _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (Nat.pow 10 k) (i => Nat.pow 10 (k * i)) (List.range n)
+    _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (List.range n) (Nat.pow 10 k) (i => Nat.pow 10 (k * i))
 
 theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
   | Zero => ring
@@ -69,7 +69,7 @@ theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * mult
 
 -- The ids `b * d` for `b` from `s` to `s + c - 1` that lie in `from..to`, added up.
 def windowSum (from: Nat) (to: Nat) (d: Nat) (c: Nat) (s: Nat): Nat :=
-  List.sum (List.filter (x => from <= x && x <= to) (List.map (b => b * d) (List.rangeFrom c s)))
+  List.sum (List.filter (List.map (List.rangeFrom c s) (b => b * d)) (x => from <= x && x <= to))
 
 theorem specWindow (r: Range) (k: Nat) (n: Nat):
     repeatedSpec r k n = windowSum r.from r.to (multiplier k n) (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)) :=
@@ -90,7 +90,7 @@ theorem windowBelow (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat
     windowSum from to d (Succ c) s = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi)) :=
   calc windowSum from to d (Succ c) s
     _ = windowSum from to d c (Succ s)
-      := Eq.cong List.sum (List.filterSkip (x => from <= x && x <= to) (s * d) (List.map (b => b * d) (List.rangeFrom c (Succ s))) (Nat.betweenBelow from to (s * d) no))
+      := Eq.cong List.sum (List.filterSkip (List.map (List.rangeFrom c (Succ s)) (b => b * d)) (x => from <= x && x <= to) (s * d) (Nat.betweenBelow from to (s * d) no))
     _ = d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := ih
     _ = d * Nat.span bLo (Nat.min (Succ s + c) (Succ bHi)) := rewrite (omega: Nat.max (Succ s) bLo = bLo)
     _ = d * Nat.span bLo (Nat.min (s + Succ c) (Succ bHi)) := rewrite (ring: s + Succ c = Succ s + c)
@@ -102,8 +102,8 @@ theorem windowIn (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (
     windowSum from to d (Succ c) s = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi)) :=
   calc windowSum from to d (Succ c) s
     _ = s * d + windowSum from to d c (Succ s)
-      := Eq.trans (Eq.cong List.sum (List.filterKeep (x => from <= x && x <= to) (s * d) (List.map (b => b * d) (List.rangeFrom c (Succ s))) yes))
-        (List.sumCons (s * d) (List.filter (x => from <= x && x <= to) (List.map (b => b * d) (List.rangeFrom c (Succ s)))))
+      := Eq.trans (Eq.cong List.sum (List.filterKeep (List.map (List.rangeFrom c (Succ s)) (b => b * d)) (x => from <= x && x <= to) (s * d) yes))
+        (List.sumCons (s * d) (List.filter (List.map (List.rangeFrom c (Succ s)) (b => b * d)) (x => from <= x && x <= to)))
     _ = s * d + d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := rewrite ih
     _ = s * d + d * Nat.span (Succ s) (Nat.min (Succ s + c) (Succ bHi))
       := rewrite (omega: Nat.max (Succ s) bLo = Succ s)
@@ -118,7 +118,7 @@ theorem windowAbove (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat
     windowSum from to d (Succ c) s = d * Nat.span (Nat.max s bLo) (Nat.min (s + Succ c) (Succ bHi)) :=
   calc windowSum from to d (Succ c) s
     _ = windowSum from to d c (Succ s)
-      := Eq.cong List.sum (List.filterSkip (x => from <= x && x <= to) (s * d) (List.map (b => b * d) (List.rangeFrom c (Succ s))) (Nat.betweenAbove from to (s * d) low no))
+      := Eq.cong List.sum (List.filterSkip (List.map (List.rangeFrom c (Succ s)) (b => b * d)) (x => from <= x && x <= to) (s * d) (Nat.betweenAbove from to (s * d) low no))
     _ = d * Nat.span (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi)) := ih
     _ = d * 0
       := rewrite Nat.spanEmpty (Nat.max (Succ s) bLo) (Nat.min (Succ s + c) (Succ bHi))
@@ -174,13 +174,13 @@ theorem blocksWindow (r: Range) (low: Nat): (p: Nat) -> 0 < p -> low <= p -> (m:
           (Succ p - low) low)
 
 -- (a) The arithmetic sum is the brute-force one.
-theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn r { blockLength = k, copies = n } = repeatedSpec r k n :=
+theorem repeatedCorrect (r: Range) (k: Nat) (n: Nat): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = repeatedSpec r k n :=
   Eq.trans (blocksWindow r (Nat.pow 10 (k - 1)) (Nat.pow 10 k) (Nat.powSuccPos 9 k) (Nat.powTenPredLe k) (multiplier k n))
     (Eq.sym (specWindow r k n))
 
 -- Why `RepetitionTemplate.sumIn` is right (b), for any number of copies
--- n >= 2: `repeatedIds` says `RepetitionTemplate.sumIn r` of the template k by
--- n is the sum the puzzle describes, walking the ids of the range and keeping
+-- n >= 2: `repeatedIds` says `template.sumIn r`, for the template k by
+-- n, is the sum the puzzle describes, walking the ids of the range and keeping
 -- those whose digits are some k-digit block written n times (any k from 1
 -- on). Part 1 uses it at n = 2, Part 2 for every n.
 --
@@ -201,39 +201,39 @@ theorem fromDigitsRep (p: List Nat): (n: Nat) -> Nat.fromDigits (List.concat (Li
       _ = writeTimes p.length (Nat.fromDigits p) n * Nat.pow 10 p.length + Nat.fromDigits p := rewrite fromDigitsRep p n
 
 theorem repAppend (x: Nat) (k: Nat) (n: Nat) (hq: writtenAs (Nat.digits x) k n = True):
-    List.concat (List.replicate n (List.take k (Nat.digits x))) = Nat.digits x :=
-  DecEq.sound (List.concat (List.replicate n (List.take k (Nat.digits x)))) (Nat.digits x) hq
+    List.concat (List.replicate n (List.take (Nat.digits x) k)) = Nat.digits x :=
+  DecEq.sound (List.concat (List.replicate n (List.take (Nat.digits x) k))) (Nat.digits x) hq
 
 -- Two or more copies of a k-digit block fill the digits: there are n * k.
 theorem repCount (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True): n * k = List.length (Nat.digits x) :=
   -- The digits are n copies of their first k digits, so there are n times as many.
-  let counted: n * List.length (List.take k (Nat.digits x)) = List.length (Nat.digits x) :=
-    Eq.trans (Eq.sym (List.lengthConcatReplicate (List.take k (Nat.digits x)) n)) (Eq.cong List.length (repAppend x k n hq))
+  let counted: n * List.length (List.take (Nat.digits x) k) = List.length (Nat.digits x) :=
+    Eq.trans (Eq.sym (List.lengthConcatReplicate (List.take (Nat.digits x) k) n)) (Eq.cong List.length (repAppend x k n hq))
   match room: Nat.leq k (List.length (Nat.digits x)) with
     -- There are k digits to take, so that is how many the first block has.
-    | True => rewrite List.lengthTake k (Nat.digits x) room at counted
+    | True => rewrite List.lengthTake (Nat.digits x) k room at counted
     -- Taking more digits than there are takes all of them: then n times as
     -- many digits as there are would be as many as there are, which two or
     -- more copies can't be.
     | False =>
       let sameCount: n * List.length (Nat.digits x) = List.length (Nat.digits x) :=
-        rewrite List.takeAll k (Nat.digits x) omega at counted
+        rewrite List.takeAll (Nat.digits x) k omega at counted
       omega [Nat.leMulRight 2 n (List.length (Nat.digits x)) hn, Nat.digitsNonEmpty x]
 
 -- So the block is no longer than the digits, and is k digits long.
 theorem blockAtMost (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True): k <= List.length (Nat.digits x) :=
   omega [Nat.leMulPos k n omega, repCount x k n hn hq]
 
-theorem repBlockLength (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True): List.length (List.take k (Nat.digits x)) = k :=
-  List.lengthTake k (Nat.digits x) (blockAtMost x k n hn hq)
+theorem repBlockLength (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True): List.length (List.take (Nat.digits x) k) = k :=
+  List.lengthTake (Nat.digits x) k (blockAtMost x k n hn hq)
 
 -- x is its first k digits written n times.
 theorem repValue (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True):
-    writeTimes k (Nat.fromDigits (List.take k (Nat.digits x))) n = x :=
-  calc writeTimes k (Nat.fromDigits (List.take k (Nat.digits x))) n
-    _ = writeTimes (List.length (List.take k (Nat.digits x))) (Nat.fromDigits (List.take k (Nat.digits x))) n
-      := Eq.cong (t => writeTimes t (Nat.fromDigits (List.take k (Nat.digits x))) n) (Eq.sym (repBlockLength x k n hn hq))
-    _ = Nat.fromDigits (List.concat (List.replicate n (List.take k (Nat.digits x)))) := Eq.sym (fromDigitsRep (List.take k (Nat.digits x)) n)
+    writeTimes k (Nat.fromDigits (List.take (Nat.digits x) k)) n = x :=
+  calc writeTimes k (Nat.fromDigits (List.take (Nat.digits x) k)) n
+    _ = writeTimes (List.length (List.take (Nat.digits x) k)) (Nat.fromDigits (List.take (Nat.digits x) k)) n
+      := Eq.cong (t => writeTimes t (Nat.fromDigits (List.take (Nat.digits x) k)) n) (Eq.sym (repBlockLength x k n hn hq))
+    _ = Nat.fromDigits (List.concat (List.replicate n (List.take (Nat.digits x) k))) := Eq.sym (fromDigitsRep (List.take (Nat.digits x) k) n)
     _ = Nat.fromDigits (Nat.digits x) := Eq.cong Nat.fromDigits (repAppend x k n hq)
     _ = x := Nat.fromDigitsDigits x
 
@@ -245,17 +245,17 @@ theorem posOfCount (n: Nat) (hn: 2 <= n): (x: Nat) -> (k: Nat) -> 1 <= k -> n * 
 -- The block x starts with has k digits: it is below 10^k, and (no leading
 -- 0) at least 10^(k-1).
 theorem repBelow (x: Nat) (k: Nat) (n: Nat) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True):
-    Nat.fromDigits (List.take k (Nat.digits x)) < Nat.pow 10 k :=
-  calc Nat.fromDigits (List.take k (Nat.digits x))
-    _ < Nat.pow 10 (List.length (List.take k (Nat.digits x)))
-      := Nat.fromDigitsBound (List.take k (Nat.digits x)) (Nat.digitsTake k (Nat.digits x) (Nat.digitsDigits x))
+    Nat.fromDigits (List.take (Nat.digits x) k) < Nat.pow 10 k :=
+  calc Nat.fromDigits (List.take (Nat.digits x) k)
+    _ < Nat.pow 10 (List.length (List.take (Nat.digits x) k))
+      := Nat.fromDigitsBound (List.take (Nat.digits x) k) (Nat.digitsTake k (Nat.digits x) (Nat.digitsDigits x))
     _ = Nat.pow 10 k := rewrite repBlockLength x k n hn hq
 
 theorem repAbove (x: Nat) (k: Nat) (n: Nat) (hk: 1 <= k) (hn: 2 <= n) (hq: writtenAs (Nat.digits x) k n = True):
-    Nat.pow 10 (k - 1) <= Nat.fromDigits (List.take k (Nat.digits x)) :=
-  J (t q => Nat.pow 10 (t - 1) <= Nat.fromDigits (List.take k (Nat.digits x)))
-    (Nat.fromDigitsHeadBound (List.take k (Nat.digits x))
-      (omega [List.headTake 0 k (Nat.digits x) hk, Nat.digitsHead x (posOfCount n hn x k hk (repCount x k n hn hq))]))
+    Nat.pow 10 (k - 1) <= Nat.fromDigits (List.take (Nat.digits x) k) :=
+  J (t q => Nat.pow 10 (t - 1) <= Nat.fromDigits (List.take (Nat.digits x) k))
+    (Nat.fromDigitsHeadBound (List.take (Nat.digits x) k)
+      (omega [List.headTake (Nat.digits x) 0 k hk, Nat.digitsHead x (posOfCount n hn x k hk (repCount x k n hn hq))]))
     (repBlockLength x k n hn hq)
 
 -- The other way: a block of k digits (no leading 0) written n >= 1 times
@@ -274,7 +274,7 @@ theorem digitsRep (b: Nat) (hb: 1 <= b): (n: Nat) ->
       _ = List.concat (List.replicate (Succ (Succ n)) (Nat.digits b)) := Eq.sym (List.concatReplicateSnoc (Nat.digits b) (Succ n))
 
 theorem writtenRepOf (p: List Nat) (k: Nat) (hk: p.length = k) (n: Nat): writtenAs (List.concat (List.replicate (Succ n) p)) k (Succ n) = True :=
-  Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate (Succ n) (List.take k (List.concat (List.replicate (Succ n) p))))) (List.concat (List.replicate (Succ n) p)))
+  Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate (Succ n) (List.take (List.concat (List.replicate (Succ n) p)) k))) (List.concat (List.replicate (Succ n) p)))
     (rewrite <- hk, List.takeAppend p (List.concat (List.replicate n p)))
 
 theorem repDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j <= b) (h2: b < Nat.pow 10 (Succ j)): (n: Nat) -> 1 <= n ->
@@ -303,15 +303,15 @@ theorem repInjective (k: Nat) (b: Nat) (v: Nat): (n: Nat) -> 1 <= n -> writeTime
 -- that make `x` add up to `x` when x's digits are a k-digit block written n
 -- times, and to 0 otherwise.
 theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 <= n): (k: Nat) -> 1 <= k ->
-    List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+    List.sumBy (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => Nat.keepIf x (writeTimes k b n == x))
       = Nat.keepIf x (writtenAs (Nat.digits x) k n)
   | Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ j, h =>
     match hq: writtenAs (Nat.digits x) (Succ j) n with
       | True =>
-        List.sumRangeOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Succ j) (Nat.digits x)))
-          (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) n) x) (repValue x (Succ j) n hn hq))
-          (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Succ j) (Nat.digits x))) n omega
+        List.sumRangeOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Nat.digits x) (Succ j)))
+          (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Nat.digits x) (Succ j))) n) x) (repValue x (Succ j) n hn hq))
+          (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Nat.digits x) (Succ j))) n omega
             (Eq.trans (DecEq.sound (writeTimes (Succ j) b n) x hb) (Eq.sym (repValue x (Succ j) n hn hq))))
           (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (repAbove x (Succ j) n rfl hn hq)
@@ -328,7 +328,7 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 <= n): (k: Nat) -> 1 <= k ->
 
 -- The ids from from to to that equal `y`, added up.
 theorem sumIdsEq (from: Nat) (to: Nat) (y: Nat):
-    List.sumBy (x => Nat.keepIf x (y == x)) (List.rangeFrom (to + 1 - from) from) = Nat.keepIf y (from <= y && y <= to) :=
+    List.sumBy (List.rangeFrom (to + 1 - from) from) (x => Nat.keepIf x (y == x)) = Nat.keepIf y (from <= y && y <= to) :=
   match t: Nat.leq from y, t2: Nat.leq y to with
     | True, True => List.sumRangeEq y (to + 1 - from) from t (rangeIn from to y t t2)
     | True, False =>
@@ -341,30 +341,30 @@ theorem sumIdsEq (from: Nat) (to: Nat) (y: Nat):
 -- One block length, as a sum over the ids of the range.
 theorem blocksAsIds (r: Range) (k: Nat) (n: Nat):
     repeatedSpec r k n
-      = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-        (List.rangeFrom (r.to + 1 - r.from) r.from) :=
+      = List.sumBy (List.rangeFrom (r.to + 1 - r.from) r.from)
+        (x => List.sumBy (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => Nat.keepIf x (writeTimes k b n == x))) :=
   calc repeatedSpec r k n
     -- filtering the block ids by the range is summing "the id if it is in the range"
-    _ = List.sumBy (y => Nat.keepIf y (r.from <= y && y <= r.to)) (List.map (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-      := List.sumFilter (x => r.from <= x && x <= r.to) (List.map (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))))
-    _ = List.sumBy (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
-      := List.sumByMap (y => Nat.keepIf y (r.from <= y && y <= r.to)) (b => writeTimes k b n) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+    _ = List.sumBy (List.map (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => writeTimes k b n)) (y => Nat.keepIf y (r.from <= y && y <= r.to))
+      := List.sumFilter (List.map (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => writeTimes k b n)) (x => r.from <= x && x <= r.to)
+    _ = List.sumBy (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => Nat.keepIf (writeTimes k b n) (r.from <= writeTimes k b n && writeTimes k b n <= r.to))
+      := List.sumByMap (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (y => Nat.keepIf y (r.from <= y && y <= r.to)) (b => writeTimes k b n)
     -- and, for each block, "the id if it is in the range" is the sum over the range ids that equal it
-    _ = List.sumBy (b => List.sumBy (x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+    _ = List.sumBy (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => List.sumBy (List.rangeFrom (r.to + 1 - r.from) r.from) (x => Nat.keepIf x (writeTimes k b n == x)))
       := rewrite <- sumIdsEq r.from r.to _
-    _ = List.sumBy (x => List.sumBy (b => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))) (List.rangeFrom (r.to + 1 - r.from) r.from)
-      := List.sumBySwap (b x => Nat.keepIf x (writeTimes k b n == x)) (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1)))
+    _ = List.sumBy (List.rangeFrom (r.to + 1 - r.from) r.from) (x => List.sumBy (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => Nat.keepIf x (writeTimes k b n == x)))
+      := List.sumBySwap (List.rangeFrom (r.to + 1 - r.from) r.from) (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b x => Nat.keepIf x (writeTimes k b n == x))
 
 -- The brute-force sum over blocks is the sum over the ids of the range whose
 -- digits are a k-digit block written n times.
 theorem repeatedSpecIds (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    repeatedSpec r k n = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids :=
+    repeatedSpec r k n = List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) :=
   rewrite blocksAsIds r k n, repBlockCount _ n hn k hk
 
--- (b) `RepetitionTemplate.sumIn r` of the template k by n adds the ids of the
+-- (b) `template.sumIn r`, for the template k by n, adds the ids of the
 -- range whose digits are a k-digit block written n times.
 theorem repeatedIds (r: Range) (k: Nat) (hk: 1 <= k) (n: Nat) (hn: 2 <= n):
-    RepetitionTemplate.sumIn r { blockLength = k, copies = n } = List.sumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids :=
+    RepetitionTemplate.sumIn { blockLength = k, copies = n } r = List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) :=
   Eq.trans (repeatedCorrect r k n) (repeatedSpecIds r k hk n hn)
 
 -- Over the block lengths, (c): an id is a block written n times for one
@@ -379,10 +379,10 @@ def copies (x: Nat) (n: Nat): Bool :=
 -- For one id and repeat count, over all block lengths up to `size`: x if
 -- some block written n times makes x, else 0.
 theorem collapse (x: Nat) (n: Nat) (hn: 2 <= n) (size: Nat) (hLS: List.length (Nat.digits x) <= size):
-    List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1) = Nat.keepIf x (copies x n) :=
+    List.sumBy (List.rangeFrom size 1) (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) = Nat.keepIf x (copies x n) :=
   match hc: copies x n with
     | True =>
-      List.anyRangeElim (k => writtenAs (Nat.digits x) k n) (List.sumBy (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) (List.rangeFrom size 1) = x) (List.length (Nat.digits x)) 1 hc
+      List.anyRangeElim (k => writtenAs (Nat.digits x) k n) (List.sumBy (List.rangeFrom size 1) (k => Nat.keepIf x (writtenAs (Nat.digits x) k n)) = x) (List.length (Nat.digits x)) 1 hc
         (k0 h1 h2 hk0 => List.sumRangeOne (k => writtenAs (Nat.digits x) k n) (k => x) k0 hk0
           (k hk => Nat.mulCancelLeft n omega k k0 (Eq.trans (repCount x k n hn hk) (Eq.sym (repCount x k0 n hn hk0))))
           size 1 h1 omega)

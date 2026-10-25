@@ -10,9 +10,9 @@ test "lookup" := (wordCounts ["b", "a", "b"]).get "b" == Some 2
 test "a missing key" := (wordCounts ["a"]).getOr 0 "z" == 0
 
 -- Update with `insertWith`, which says how to combine with an old value.
-def tally (m: Map Text Nat) (word: Text): Map Text Nat := m.insertWith Nat.add word 1
+def tally (m: Map Text Nat) (word: Text): Map Text Nat := m.insertWith word 1 Nat.add
 
-test "insertWith" := (["x", "x"].foldLeft tally Map.empty).get "x" == Some 2
+test "insertWith" := (["x", "x"].foldLeft Map.empty tally).get "x" == Some 2
 
 -- A set of positions a walk visits, ordered by row, then column.
 def visited: Set (Nat, Nat) := Set.fromList [(0, 0), (0, 1), (1, 1), (0, 1)]

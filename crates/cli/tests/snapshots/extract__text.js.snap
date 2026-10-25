@@ -901,7 +901,7 @@ const $Std$dText$duncons = (t) => {
   const c = { tag: "MkChar", code: BigInt(code) };
   return { tag: "Some", value: { tag: "MkPair", fst: c, snd: t.slice(code > 0xffff ? 2 : 1) } };
 };
-const $Std$dText$dfold = (f, z, t) => {
+const $Std$dText$dfold = (t, z, f) => {
   let acc = z;
   for (let i = t.length - 1; i >= 0; i--) {
     const code = scalarEndingAt(t, i);
@@ -926,14 +926,14 @@ const $Std$dText$dtoNat = (t) => {
   }
   return { tag: "Some", value: BigInt(t) };
 };
-const $Std$dText$dsplit = (s, t) => listOf(t.split(encodeChar(s)));
-const $Std$dText$djoin = (s, ts) => {
+const $Std$dText$dsplit = (t, s) => listOf(t.split(encodeChar(s)));
+const $Std$dText$djoin = (ts, s) => {
   const parts = [];
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
   return parts.join(encodeChar(s));
 };
 const $Std$dText$dless = (v0, v1) => $Std$dOrdering$disLess($Std$dText$dcompare(v0, v1));
-const $Std$dText$dtake = (n, t) => {
+const $Std$dText$dtake = (t, n) => {
   if (n >= BigInt(t.length)) return t;
   const count = Number(n);
   let i = 0;
@@ -943,7 +943,7 @@ const $Std$dText$dtake = (n, t) => {
   }
   return t.slice(0, i);
 };
-const $Std$dText$ddrop = (n, t) => {
+const $Std$dText$ddrop = (t, n) => {
   if (n >= BigInt(t.length)) return "";
   const count = Number(n);
   let i = 0;
@@ -953,7 +953,7 @@ const $Std$dText$ddrop = (n, t) => {
   }
   return t.slice(i);
 };
-const $Std$dText$dcontains = (needle, t) => ({ tag: t.includes(needle) ? "True" : "False" });
+const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Main$dlen = (v0) => $Std$dText$dlength(v0);
 const $Main$dchars = (v0) => $Std$dText$dtoList(v0);
 const $Main$dfromChars = (v0) => $Std$dText$dfromList(v0);
@@ -964,29 +964,33 @@ const $Main$dcharOf = (v0) => $Std$dChar$dfromNat(v0);
 const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));
 const $Main$dorder = (v0, v1) => $Std$dText$dcompare(v0, v1);
 const $Main$djoin = (v0, v1) => $Std$dText$dappend(v0, v1);
-const $Main$dsplit = (v0, v1) => $Std$dText$dsplit(v0, v1);
-const $Main$djoinOn = (v0, v1) => $Std$dText$djoin(v0, v1);
+const $Main$dsplit = (v0, v1) => $Std$dText$dsplit(v1, v0);
+const $Main$djoinOn = (v0, v1) => $Std$dText$djoin(v1, v0);
 const $Main$dtrim = (v0) => $Std$dText$dtrim(v0);
 const $Main$dtoNat = (v0) => $Std$dText$dtoNat(v0);
 const $Main$dfromNat = (v0) => $Std$dNat$dtoText(v0);
 const $Main$duncons = (v0) => $Std$dText$duncons(v0);
-const $Main$dtake = (v0, v1) => $Std$dText$dtake(v0, v1);
-const $Main$ddrop = (v0, v1) => $Std$dText$ddrop(v0, v1);
-const $Main$dcontains = (v0, v1) => $Std$dText$dcontains(v0, v1);
+const $Main$dtake = (v0, v1) => $Std$dText$dtake(v1, v0);
+const $Main$ddrop = (v0, v1) => $Std$dText$ddrop(v1, v0);
+const $Main$dcontains = (v0, v1) => $Std$dText$dcontains(v1, v0);
 const $Main$dreverse = (v0) => $Std$dText$dfromList($Std$dList$dreverseOnto($Std$dText$dtoList(v0), { tag: "Nil" }));
 const $Main$dcountIn = (v0, v1) => {
   let s0 = v0, s1 = v1;
+  let a$ = 0n;
   for (;;) {
     const v0 = s0, v1 = s1;
     switch (v1.tag) {
       case "Nil": {
-        return 0n;
+        return a$;
       }
       case "Cons": {
         const v2 = v1.head;
         const v3 = v1.tail;
         if ($Std$dDecidable$dtoBool($Std$dChar$ddecEq(v0, v2)).tag === "True") {
-          return ($Main$dcountIn(v0, v3) + 1n);
+          a$ += 1n;
+          s0 = v0;
+          s1 = v3;
+          continue;
         } else {
           s0 = v0;
           s1 = v3;
@@ -1077,7 +1081,7 @@ const $Main$dlocated = (v0) => {
 };
 const $Main$dempty = (v0) => $Std$dText$disEmpty(v0);
 const $Main$dless = (v0, v1) => $Std$dText$dless(v0, v1);
-const $Main$dcodes = (v0) => $Std$dText$dfold(((v1) => ((v2) => ({ tag: "Cons", head: $Std$dChar$dtoNat(v1), tail: v2 }))), { tag: "Nil" }, v0);
+const $Main$dcodes = (v0) => $Std$dText$dfold(v0, { tag: "Nil" }, ((v1) => ((v2) => ({ tag: "Cons", head: $Std$dChar$dtoNat(v1), tail: v2 }))));
 const $Main$dmapList = (v2, v3) => {
   let s2 = v2, s3 = v3;
   let h$ = null, l$ = null, k$ = null;
@@ -1117,7 +1121,7 @@ const $Main$dfirstOfList = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dfirstField = (v0, v1) => $Main$dfirstOfList($Std$dText$dsplit(v0, v1));
+const $Main$dfirstField = (v0, v1) => $Main$dfirstOfList($Std$dText$dsplit(v1, v0));
 const $Main$dleadingChar = (v0) => {
   const v1 = charsOfText(v0);
   switch (v1.tag) {

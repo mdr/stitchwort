@@ -13,22 +13,22 @@ import Std (Eq, Fin, List, Nat, Option, Vec, Void)
 
 -- `splitRow` column by column.
 theorem splitRowAt (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
-    Vec.getOr 1 c (splitRow row below)
-      = (if splitterAt row c then Vec.getOr 1 c (VCons 1 below) + Vec.getOr 1 (Succ c) below else Vec.getOr 1 c below) :=
+    Vec.getOr (splitRow row below) 1 c
+      = (if splitterAt row c then Vec.getOr (VCons 1 below) 1 c + Vec.getOr below 1 (Succ c) else Vec.getOr below 1 c) :=
   let sides := below.around 1 (l _ r => l + r)
   rewrite Vec.getOrZipWith3 (s here sides => if s then sides else here) False 1 2 1 rfl row below sides c in
     match e: splitterAt row c with
       | False => rfl
-      | True => Vec.getOrAround 2 1 (l _ r => l + r) below c (setInside row c e)
+      | True => Vec.getOrAround below 2 1 c (setInside row c e) (l _ r => l + r)
 
 -- The counts below the rows `ls`, as `timelineCounts` works them out.
-def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight splitRow (Vec.replicate w 1) ls
+def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight ls (Vec.replicate w 1) splitRow
 
 -- One row up: a column's count from the counts below, against the
 -- timelines from that column.
 theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (below: Vec Nat w)
-    (ih: (c: Nat) -> Vec.getOr 1 c below = List.length (timelinesFrom (r + 1) c rest)):
-    (if splitterAt l c then Vec.getOr 1 c (VCons 1 below) + Vec.getOr 1 (Succ c) below else Vec.getOr 1 c below)
+    (ih: (c: Nat) -> Vec.getOr below 1 c = List.length (timelinesFrom (r + 1) c rest)):
+    (if splitterAt l c then Vec.getOr (VCons 1 below) 1 c + Vec.getOr below 1 (Succ c) else Vec.getOr below 1 c)
       = List.length (timelinesFrom r c (Cons l rest)) :=
   match e: splitterAt l c with
     | True =>
@@ -39,14 +39,14 @@ theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (b
 
 -- Every column's count is the number of timelines from it.
 theorem countsAre (w: Nat): (ls: List (Vec Bool w)) -> (r: Nat) -> (c: Nat) ->
-    Vec.getOr 1 c (countsBelow w ls) = List.length (timelinesFrom r c ls)
+    Vec.getOr (countsBelow w ls) 1 c = List.length (timelinesFrom r c ls)
   | Nil, r, c => Vec.getOrReplicate 1 w c
   | Cons l rest, r, c =>
-    rewrite List.foldRightCons splitRow (Vec.replicate w 1) l rest, splitRowAt l (countsBelow w rest) c in
+    rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c in
       countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
 
 -- Part 2 is right: for every manifold, the printed answer is the number of
 -- timelines of the particle from S.
 theorem part2Correct (manifold: Manifold): solvePart2 manifold = part2Spec manifold :=
-  rewrite <- Vec.getOrGet 1 (timelineCounts manifold) manifold.start in
+  rewrite <- Vec.getOrGet (timelineCounts manifold) 1 manifold.start in
     countsAre manifold.width manifold.rows 0 manifold.start.toNat

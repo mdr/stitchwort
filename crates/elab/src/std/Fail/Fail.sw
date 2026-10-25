@@ -104,7 +104,7 @@ theorem Fail.toResultPure (v: a): Fail.toResult (() => v) = Ok v := rfl
 theorem Fail.toResultFail (msg: Text): Fail.toResult (() => (Fail.fail msg: a)) = Err msg := rfl
 
 -- `need` and `toResult` give `Option.toResult`.
-theorem Fail.toResultNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Fail.need o msg) = Option.toResult msg o
+theorem Fail.toResultNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
 
@@ -119,7 +119,7 @@ theorem Fail.toResultOrFail: (r: Result a Text) -> Fail.toResult (() => Result.o
 
 -- Reading an `Option` and going on: the form a proof about a parser uses.
 theorem Fail.toResultNeedThen (k: a -> {Fail} b) (msg: Text): (o: Option a) ->
-    Fail.toResult (() => k (Fail.need o msg)) = Option.fold (Err msg) (x => Fail.toResult (() => k x)) o
+    Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x))
   | None => rfl
   | Some x => rfl
 
@@ -127,7 +127,7 @@ theorem Fail.toOptionNeed (msg: Text): (o: Option a) -> Fail.toOption (() => Fai
   | None => rfl
   | Some x => rfl
 
-theorem Abort.orFailNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult msg o
+theorem Abort.orFailNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
 
@@ -137,13 +137,13 @@ theorem Abort.orFailNeed (msg: Text): (o: Option a) -> Fail.toResult (() => Abor
 
 -- Running `t`, then `k` on its result: fails as `t` does, or as `k` does.
 theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
-    Fail.toResult (() => k (t ())) = Result.flatMap (x => Fail.toResult (() => k x)) (Fail.toResult t) :=
+    Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
 
 theorem Fail.toOptionThen (t: () -> {Fail} a) (k: a -> {Fail} b):
-    Fail.toOption (() => k (t ())) = Option.flatMap (x => Fail.toOption (() => k x)) (Fail.toOption t) :=
+    Fail.toOption (() => k (t ())) = Option.flatMap (Fail.toOption t) (x => Fail.toOption (() => k x)) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
@@ -159,7 +159,7 @@ theorem Fail.toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOp
 -- finishes, `toResultThen` and the induction hypothesis say what the rest
 -- gives.
 theorem Fail.toResultMap (f: a -> {Fail} b): (xs: List a) ->
-    Fail.toResult (() => xs.map f) = Result.traverse (x => Fail.toResult (() => f x)) xs
+    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>
     match reify (() => f x) with
@@ -170,7 +170,7 @@ theorem Fail.toResultMap (f: a -> {Fail} b): (xs: List a) ->
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3
 test "Fail: need None" := Fail.toResult (() => Fail.need (None: Option Nat) "none") == Err "none"
 test "Fail: orFail" := Fail.toResult (() => Option.orFail (None: Option Nat) "none") == Err "none"
-test "Fail: ensure" := Result.errorOrElse "" (Fail.toResult (() => Fail.ensure (1 > 2) "not bigger")) == "not bigger"
+test "Fail: ensure" := Result.errorOrElse (Fail.toResult (() => Fail.ensure (1 > 2) "not bigger")) "" == "not bigger"
 test "Fail: toOption" := Fail.toOption (() => (Fail.fail "x": Nat)) == None
 test "Fail: orElse" := Fail.orElse 0 (() => Fail.need (None: Option Nat) "none") == 0
 test "Fail: recover" := Fail.recover (m => Text.length m) (() => Fail.fail "four") == 4
@@ -181,8 +181,8 @@ test "Fail: context, no failure" := Fail.toResult (() => Fail.context "line 3" (
 test "Fail: Result.orFail" := Fail.toResult (() => Result.orFail (Err "e": Result Nat Text)) == Err "e"
 test "Fail: Abort.orFail" := Fail.toResult (() => Abort.orFail "gave up" (() => Abort.need (None: Option Nat))) == Err "gave up"
 test "Fail: toAbort" := Abort.toOption (() => Fail.toAbort (() => (Fail.fail "x": Nat))) == None
-test "Fail: map" := Fail.toResult (() => List.map Text.toNatOrFail ["1", " 2 ", "3"]) == Ok [1, 2, 3]
+test "Fail: map" := Fail.toResult (() => List.map ["1", " 2 ", "3"] Text.toNatOrFail) == Ok [1, 2, 3]
 test "Fail: map fails at the first bad element" :=
-  Fail.toResult (() => List.map Text.toNatOrFail ["1", "x", "-3"]) == Err "expected a whole number, got 'x'"
+  Fail.toResult (() => List.map ["1", "x", "-3"] Text.toNatOrFail) == Err "expected a whole number, got 'x'"
 test "Fail: toNatOrFail" := Fail.toResult (() => Text.toNatOrFail " 1x") == Err "expected a whole number, got ' 1x'"
 test "Fail: toIntOrFail" := Fail.toResult (() => Text.toIntOrFail " -12 ") == Ok (-12)

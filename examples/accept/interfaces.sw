@@ -16,7 +16,7 @@ instance Pretty.instBool: Pretty Bool :=
 
 -- An instance may ask for instances of its head's variables.
 instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
-  { pretty = xs => "[" ++ Text.join ',' (xs.map Pretty.pretty) ++ "]" }
+  { pretty = xs => "[" ++ Text.join (xs.map Pretty.pretty) ',' ++ "]" }
 
 type Item =
   | MkItem

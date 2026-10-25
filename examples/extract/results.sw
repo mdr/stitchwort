@@ -20,7 +20,7 @@ type Range = { from: Nat, to: Nat }
 
 -- "11-22" is `{ from = 11, to = 22 }`; spaces around either number are allowed.
 def Range.read (t: Text): {Fail} Range :=
-  match Text.split '-' t with
+  match Text.split t '-' with
     | [a, b] =>
       let from := a.toNatOrFail
       let to := b.toNatOrFail

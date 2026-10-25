@@ -44,7 +44,7 @@ def Pick.all (prog: () -> {Pick | e} Nat): {e} List Nat :=
 
 -- At most four picks, each of at most three, so at most 81 results.
 def picks (counts: List Nat): {Pick} Nat :=
-  List.sum (List.map (count => Pick.pick (Nat.min count 3) * 10) (List.take 4 counts))
+  List.sum (List.map (List.take counts 4) (count => Pick.pick (Nat.min count 3) * 10))
 
 -- At the empty row.
 export def resumed (counts: List Nat): List Nat :=
@@ -56,10 +56,10 @@ export def resumedChecked (counts: List Nat): Result (List Nat) Text :=
 
 -- `Each`: every element forks into two, so ten elements give 1,024 lists.
 export def choices (numbers: List Nat): List (List Nat) :=
-  Each.collect (() => List.map (x => Each.each [x, x + 10]) (List.take 10 numbers))
+  Each.collect (() => List.map (List.take numbers 10) (x => Each.each [x, x + 10]))
 
 export def choicesChecked (numbers: List Nat): Result (List (List Nat)) Text :=
-  Fail.toResult (() => Each.collectIn (() => List.map (x => Each.each [x, x + 10]) (List.take 10 numbers)))
+  Fail.toResult (() => Each.collectIn (() => List.map (List.take numbers 10) (x => Each.each [x, x + 10])))
 
 -- A generator: each `offer` suspends the program, and the handler's result
 -- holds the resumption, which is called after the handler has returned. The
@@ -108,7 +108,7 @@ export def branches (start: Nat): List Nat :=
 def replayFrom (p: Paused) (answers: List Nat): List Nat :=
   match p with
     | Finished total => [total]
-    | Suspended v resume => List.map (answer => settle 5 answer (resume answer)) (List.take 5 answers)
+    | Suspended v resume => List.map (List.take answers 5) (answer => settle 5 answer (resume answer))
 
 export def replayed (start: Nat) (answers: List Nat): List Nat :=
   replayFrom (Offer.pause (() => threeOffers start)) answers
@@ -139,9 +139,9 @@ def layered: Nat -> (() -> {Env, Tick} a) -> {Env, Tick} a
 
 -- Each element asks the outermost handler and ticks to the innermost.
 export def nested (depth: Nat) (numbers: List Nat): List Nat :=
-  Env.give 7 (() => Tick.ignore (() => layered (Nat.min depth 100) (() => List.map (x =>
+  Env.give 7 (() => Tick.ignore (() => layered (Nat.min depth 100) (() => List.map numbers (x =>
     Tick.tick()
-    x + Env.ask()) numbers)))
+    x + Env.ask()))))
 
 -- A computation moved between rows `depth` times (at most 100), so each of
 -- its operations is renamed by every `translate` on the way out and its
@@ -154,7 +154,7 @@ def widened: Nat -> (() -> {Env} a) -> {Env, Fail} a
       | Err message => Fail.fail message
 
 export def translated (depth: Nat) (numbers: List Nat): Result (List Nat) Text :=
-  Env.give 3 (() => Fail.toResult (() => widened (Nat.min depth 100) (() => List.map (x => x * Env.ask()) numbers)))
+  Env.give 3 (() => Fail.toResult (() => widened (Nat.min depth 100) (() => List.map numbers (x => x * Env.ask()))))
 
 -- A state handler outside a `Fail` handler: the counter's operations are
 -- forwarded through `Fail.toResult`, which may stop the run part way.
@@ -167,6 +167,6 @@ def Counter.number (prog: () -> {Counter} a): Nat -> a :=
     | Counter.next u, k => (s => k s (s + 1))
 
 export def stateThroughFail (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
-  Counter.number (() => Fail.toResult (() => List.map (x =>
+  Counter.number (() => Fail.toResult (() => List.map numbers (x =>
     let n := Counter.next()
-    if n < limit then x + n else Fail.fail "limit") numbers)) 0
+    if n < limit then x + n else Fail.fail "limit"))) 0

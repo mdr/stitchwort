@@ -47,11 +47,11 @@ def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst point
 
 -- One box per line. Spaces around a line or a number are allowed; anything else
 -- fails, naming the line.
-def parsePoints (lines: List Text): {Fail} (List Point) := parseLines parsePoint lines
+def parsePoints (lines: List Text): {Fail} (List Point) := parseLines lines parsePoint
 
 -- "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
 def parsePoint (line: Text): {Fail} Point :=
-  match line.split ',' |> .map (part => part.trim.toNat) with
+  match line.split ',' |> .map .trim.toNat with
     | [Some x, Some y, Some z] => { x, y, z }
     | _ => fail "expected a box like 162,817,812, got '${line}'"
 
@@ -120,7 +120,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 -- For `boxes` built by `Boxes.of` (see `Boxes`).
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
-    |> .foldLeft Circuits.connect (Circuits.separate boxes.points.length)
+    |> .foldLeft (Circuits.separate boxes.points.length) Circuits.connect
   joined.sizes boxes.points.length |> .sortBy (first second => Nat.compare second first) |> .take 3 |> .product
 
 -- Part 2: the product of the x coordinates of the two boxes whose joining

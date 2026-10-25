@@ -20,7 +20,7 @@ def List.attachFrom (whole: List a): (rest: List a) -> ((x: a) -> List.Mem x res
 -- later optimisation).
 def List.attach (xs: List a): List (List.Member a xs) := List.attachFrom xs xs (x h => h)
 
-theorem List.attachExample: List.map (e => e.value) (List.attach [3, 1, 2]) = [3, 1, 2] := rfl
+theorem List.attachExample: List.map (List.attach [3, 1, 2]) (e => e.value) = [3, 1, 2] := rfl
 
 -- The lemmas are proved for `attachFrom` first, with `whole`, `rest` and
 -- `sub` general, and then for `attach`: the tail of `attach (Cons x xs)` is
@@ -28,22 +28,22 @@ theorem List.attachExample: List.map (e => e.value) (List.attach [3, 1, 2]) = [3
 
 -- Dropping the proofs gives back the list.
 theorem List.attachFromValues (whole: List a): (rest: List a) -> (sub: (x: a) -> List.Mem x rest -> List.Mem x whole) ->
-    List.map (e => e.value) (List.attachFrom whole rest sub) = rest
+    List.map (List.attachFrom whole rest sub) (e => e.value) = rest
   | Nil, sub => rfl
   | Cons x xs, sub => Eq.cong (Cons x) (List.attachFromValues whole xs (y h => sub y (Inr h)))
 
-theorem List.attachValues (xs: List a): List.map (e => e.value) (List.attach xs) = xs := List.attachFromValues xs xs (x h => h)
+theorem List.attachValues (xs: List a): List.map (List.attach xs) (e => e.value) = xs := List.attachFromValues xs xs (x h => h)
 
 -- A sum over the attached list that only looks at the values is the sum over
 -- the list.
-theorem List.sumByAttachFrom [auto add: Add b] (f: a -> b) (whole: List a) (rest: List a) (sub: (x: a) -> List.Mem x rest -> List.Mem x whole):
-    List.sumBy (e => f e.value) (List.attachFrom whole rest sub) = List.sumBy f rest :=
-  Eq.trans (Eq.sym (List.sumByMap f (e => e.value) (List.attachFrom whole rest sub)))
-    (Eq.cong (List.sumBy f) (List.attachFromValues whole rest sub))
+theorem List.sumByAttachFrom [auto add: Add b] (whole: List a) (rest: List a) (f: a -> b) (sub: (x: a) -> List.Mem x rest -> List.Mem x whole):
+    List.sumBy (List.attachFrom whole rest sub) (e => f e.value) = List.sumBy rest f :=
+  Eq.trans (Eq.sym (List.sumByMap (List.attachFrom whole rest sub) f (e => e.value)))
+    (Eq.cong (.sumBy f) (List.attachFromValues whole rest sub))
 
-theorem List.sumByAttach [auto add: Add b] (f: a -> b) (xs: List a): List.sumBy (e => f e.value) (List.attach xs) = List.sumBy f xs :=
-  List.sumByAttachFrom f xs xs (x h => h)
+theorem List.sumByAttach [auto add: Add b] (xs: List a) (f: a -> b): List.sumBy (List.attach xs) (e => f e.value) = List.sumBy xs f :=
+  List.sumByAttachFrom xs xs f (x h => h)
 
 -- The same for `map`.
-theorem List.mapAttach (f: a -> b) (xs: List a): List.map (e => f e.value) (List.attach xs) = List.map f xs :=
-  Eq.trans (Eq.sym (List.mapMap f (e => e.value) (List.attach xs))) (Eq.cong (List.map f) (List.attachValues xs))
+theorem List.mapAttach (xs: List a) (f: a -> b): List.map (List.attach xs) (e => f e.value) = List.map xs f :=
+  Eq.trans (Eq.sym (List.mapMap (List.attach xs) f (e => e.value))) (Eq.cong (.map f) (List.attachValues xs))

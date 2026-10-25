@@ -5,6 +5,7 @@
 
 -- Lexicographic comparison of lists, by a comparison of their elements:
 -- the first difference decides, and a list comes before its extensions.
+@[noReceiver]
 def List.compareLex (cmp: a -> a -> Ordering): List a -> List a -> Ordering
   | Nil, Nil => Equal
   | Nil, Cons y ys => Less
@@ -47,6 +48,7 @@ theorem List.compareLexTrans (cmp: a -> a -> Ordering) (equal: (x: a) -> (y: a) 
       (p q => List.compareLexTrans cmp equal trans xs ys zs p q) h1 h2
 
 -- Pairs, by their first parts, then their second.
+@[noReceiver]
 def Pair.compareWith (ca: a -> a -> Ordering) (cb: b -> b -> Ordering): Pair a b -> Pair a b -> Ordering
   | MkPair x1 y1, MkPair x2 y2 => Ordering.andThen (ca x1 x2) (cb y1 y2)
 
@@ -77,6 +79,7 @@ theorem Pair.compareWithTrans (ca: a -> a -> Ordering) (cb: b -> b -> Ordering)
       (tb y1 y2 y3) h1 h2
 
 -- Optional values: `None` first.
+@[noReceiver]
 def Option.compareWith (cmp: a -> a -> Ordering): Option a -> Option a -> Ordering
   | None, None => Equal
   | None, Some y => Less

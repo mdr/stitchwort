@@ -24,29 +24,29 @@ fn Std.Add.add(v0) {2 slots} =
   }
 const Std.Nat.instAdd {0 slots} = %mk(0, Std.Nat.add)
 fn Std.List.map[empty](v0, v1) {4 slots} =
-  match v1: List {
+  match v0: List {
     Nil => Nil
-    Cons(head: v2, tail: v3) => Cons(apply v0(v2), Std.List.map[empty](v0, v3))
+    Cons(head: v2, tail: v3) => Cons(apply v1(v2), Std.List.map[empty](v3, v1))
   }
 fn Std.List.foldLeft(v0, v1, v2) {5 slots} =
-  match v2: List {
+  match v0: List {
     Nil => v1
-    Cons(head: v3, tail: v4) => Std.List.foldLeft(v0, apply v0(v1, v3), v4)
+    Cons(head: v3, tail: v4) => Std.List.foldLeft(v4, apply v2(v1, v3), v2)
   }
 fn Std.List.sum(v0, v1) {3 slots} =
-  Std.List.foldLeft({
-    match v0: Add (record) {
-      %mk(add: v2) => v2
-    }
-  }, {
+  Std.List.foldLeft(v1, {
     match v0: Add (record) {
       %mk(zero: v2) => v2
     }
-  }, v1)
+  }, {
+    match v0: Add (record) {
+      %mk(add: v2) => v2
+    }
+  })
 fn Main.step(v0) {1 slots} = %Nat.add(v0, 1)
 fn Main.main(v0) {1 slots} =
   %EffectBind(%EffectBind(%EffectBind(Done(Std.List.map[empty][0](Cons(1, Cons(2, Cons(3, Nil))))), λ0(v0) {1 slots} =>
-    Done(Std.List.foldLeft[1](0, v0))), λ1(v0) {1 slots} =>
+    Done(Std.List.foldLeft[1](v0, 0))), λ1(v0) {1 slots} =>
     Done(%NatToText(v0))), λ2(v0) {1 slots} =>
     Call(L(%print(v0)), done-k))
 fn Std.List.map[empty][0](v0) {3 slots} =
@@ -55,12 +55,12 @@ fn Std.List.map[empty][0](v0) {3 slots} =
     Cons(head: v1, tail: v2) => Cons(%Nat.add(v1, 1), Std.List.map[empty][0](v2))
   }
 fn Std.List.foldLeft[1](v0, v1) {4 slots} =
-  match v1: List {
-    Nil => v0
-    Cons(head: v2, tail: v3) => Std.List.foldLeft[1](%Nat.add(v0, v2), v3)
+  match v0: List {
+    Nil => v1
+    Cons(head: v2, tail: v3) => Std.List.foldLeft[1](v3, %Nat.add(v1, v2))
   }
 entry {0 slots} =
   %Effect.lift(%EffectBind(%EffectBind(%EffectBind(Done(Std.List.map[empty][0](Cons(1, Cons(2, Cons(3, Nil))))), λ0(v0) {1 slots} =>
-    Done(Std.List.foldLeft[1](0, v0))), λ1(v0) {1 slots} =>
+    Done(Std.List.foldLeft[1](v0, 0))), λ1(v0) {1 slots} =>
     Done(%NatToText(v0))), λ2(v0) {1 slots} =>
     Call(L(%print(v0)), done-k)))

@@ -8,7 +8,7 @@ def trio: Vec Nat 3 := VCons 1 (VCons 2 (VCons 3 VNil))
 def first (v: Vec Nat 3): Nat := Vec.head v
 
 -- Zipping needs equal lengths, and the type says so.
-def sums (a: Vec Nat 3) (b: Vec Nat 3): Vec Nat 3 := Vec.zipWith (x y => x + y) a b
+def sums (a: Vec Nat 3) (b: Vec Nat 3): Vec Nat 3 := Vec.zipWith a b (x y => x + y)
 
 test "head" := first trio == 1
 test "sum" := Vec.sum (sums trio trio) == 12

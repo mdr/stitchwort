@@ -20,7 +20,7 @@ def IO.nextLine: List Text -> Option Text
 -- All of the scripted input, as `IO.readAll` gives it: each line followed by a
 -- line feed, as a real interpreter would read it.
 def IO.restOf (ins: List Text): Text :=
-  MkText (List.concatMap (line => List.append (Text.toList line) ['\n']) ins)
+  MkText (List.concatMap ins (line => List.append (Text.toList line) ['\n']))
 
 -- Runs a program against scripted input lines: each `IO.readLine` takes the
 -- next one, and gives `None` once they're used up; `IO.readAll` takes all

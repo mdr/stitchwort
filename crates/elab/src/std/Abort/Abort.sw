@@ -57,7 +57,7 @@ theorem Abort.toOptionNeed: (o: Option a) -> Abort.toOption (() => Abort.need o)
   | None => rfl
   | Some x => rfl
 
-theorem Abort.orElseNeed (d: a): (o: Option a) -> Abort.orElse d (() => Abort.need o) = Option.getOrElse d o
+theorem Abort.orElseNeed (d: a): (o: Option a) -> Abort.orElse d (() => Abort.need o) = Option.getOrElse o d
   | None => rfl
   | Some x => rfl
 
@@ -69,7 +69,7 @@ theorem Abort.toOptionEnsureTrue: Abort.toOption (() => Abort.ensure True) = Som
 -- any computation, by a split on what `t` does first (`match reify`,
 -- docs/proposals/proof-reification.md).
 theorem Abort.toOptionThen (t: () -> {Abort} a) (k: a -> {Abort} b):
-    Abort.toOption (() => k (t ())) = Option.flatMap (x => Abort.toOption (() => k x)) (Abort.toOption t) :=
+    Abort.toOption (() => k (t ())) = Option.flatMap (Abort.toOption t) (x => Abort.toOption (() => k x)) :=
   match reify t with
     | return x => rfl
     | Abort.stop (), _ => rfl

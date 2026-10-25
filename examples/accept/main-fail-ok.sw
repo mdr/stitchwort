@@ -3,5 +3,5 @@ import Std (IO, Fail, List, Text)
 
 def main(): {IO, Fail} () :=
   IO.print "reading the numbers"
-  let total := List.sum (List.map Text.toNatOrFail ["1", " 2 ", "3"])
+  let total := List.sum (List.map ["1", " 2 ", "3"] Text.toNatOrFail)
   IO.print "total ${total}"

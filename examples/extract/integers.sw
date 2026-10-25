@@ -25,7 +25,7 @@ export def describe: Int -> Text
   | (-1) => "minus one"
   | x => if Int.less x 0 then "negative" else "positive"
 
-export def negatives (ns: List Nat): List Int := List.map NegSucc ns
+export def negatives (ns: List Nat): List Int := List.map ns NegSucc
 
 -- Every natively implemented operation, one export each.
 export def neg (x: Int): Int := -x
@@ -121,7 +121,7 @@ export def parse (t: Text): Option Int := Text.toInt t
 
 -- User code through the representation: constructors as values, patterns on
 -- native results, and an `Int` pattern of each shape.
-export def ofNats (ns: List Nat): List Int := List.map OfNat ns
+export def ofNats (ns: List Nat): List Int := List.map ns OfNat
 
 export def residue (a: Int) (d: Int): [auto ok: d != 0] -> Text := residueName (a % d)
 
@@ -151,7 +151,7 @@ export def optionInt: Option Int -> Int
   | None => 0
   | Some x => x * 2
 
-export def negateAll (xs: List (Option Int)): List (Option Int) := List.map (m => Option.map Int.neg m) xs
+export def negateAll (xs: List (Option Int)): List (Option Int) := List.map xs (m => Option.map m Int.neg)
 
 export def firstNeg: List Int -> Option Int
   | Nil => None

@@ -614,13 +614,16 @@ pub(crate) fn spine(expr: &Expr) -> (&Expr, Vec<Arg<'_>>) {
     (head, args)
 }
 
-/// The left side of `x |> f`, elaborated, as `f`'s last argument.
+/// The left side of `x |> f`, elaborated, as `f`'s first argument.
 pub(crate) struct Piped {
     pub term: Term,
     pub ty: Value,
     /// The right side's span: errors about the value not fitting point at
     /// the function it's piped into.
     pub span: Span,
+    /// A dot call's receiver (`x.f`), not a value before `|>`: only the
+    /// error message differs.
+    pub dot: bool,
 }
 
 pub fn infer(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
@@ -1276,7 +1279,7 @@ pub(crate) fn apply_args_with(
     let mut relevant = false;
     for arg in args {
         if let Arg::Explicit(value) = arg
-            && defers_literal(cx, value)?
+            && (defers_literal(cx, value)? || numbers_in_list(value))
         {
             relevant = true;
         }
@@ -1291,8 +1294,9 @@ pub(crate) fn apply_args_with(
     if !relevant {
         return run(cx, head, supply);
     }
-    // A constructor with number literals among the arguments: as written
-    // first, and only if that fails with it checked last (`defers_literal`).
+    // A constructor or list with number literals among the arguments: as
+    // written first, and only if that fails with it checked last
+    // (`defers_literal`, `numbers_in_list`).
     let saved = supply.clone();
     let (result, left) = retrying(cx, |cx| {
         let mut left = saved.clone();
@@ -1453,18 +1457,22 @@ fn apply_args_postponing(
                 // `pair (Point 1 "p" 10) m`, where `m: Mark Int Nat`: the
                 // constructor's number would be defaulted to a `Nat` before
                 // `m` said what the parameter is, so it's checked last, as a
-                // lambda whose parameter type isn't known is.
+                // lambda whose parameter type isn't known is. So is a list
+                // of numbers whose element type isn't known: in
+                // `List.map [1, 2] (x => x): List Int` the list comes first
+                // (D303), and only the lambda ties its elements to `Int`.
                 let later = args[i + 1..]
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
                 if later
                     && cx.e.late_literals.get() > 0
-                    && matches!(
+                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
+                    && ((matches!(
                         force(cx.g(), dom.clone())?,
                         Value::Neutral(Head::Meta(_), _)
-                    )
-                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
-                    && defers_literal(cx, value)?
+                    ) && defers_literal(cx, value)?)
+                        || (numbers_in_list(value)
+                            && crate::interfaces::unsolved_in(cx, &dom)?.is_some()))
                 {
                     let meta = cx.fresh_meta();
                     let placeholder = cx.eval(&meta)?;
@@ -1559,6 +1567,19 @@ fn else_first(cx: &Ctx, then: &Expr, otherwise: &Expr, unknown: bool) -> Result<
         && cx.e.late_literals.get() > 0
         && defers_literal(cx, then)?
         && !defers_literal(cx, otherwise)?)
+}
+
+/// Whether `expr` is a number literal or a list of numbers: what it is
+/// depends on where it's used.
+pub(crate) fn literal_value(expr: &Expr) -> bool {
+    crate::numbers::any_literal(expr) || numbers_in_list(expr)
+}
+
+/// Whether `expr` is a list literal with a number literal in it: checked
+/// against a list type whose element type isn't known yet, the number would
+/// settle it as `Nat` before the arguments after it could say otherwise.
+fn numbers_in_list(expr: &Expr) -> bool {
+    matches!(expr, Expr::List(..)) && crate::numbers::has_number(expr)
 }
 
 /// Whether `expr` is a constructor of a parameterised type applied to
@@ -1749,16 +1770,26 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
     }
 }
 
-/// `x |> f`, where `x`'s type isn't what `f` takes.
+/// `x |> f` or `x.f`, where `x`'s type isn't what `f` takes first.
 pub(crate) fn piped_mismatch(cx: &Ctx, piped: &Piped, dom: &Value) -> Diagnostic {
-    Diagnostic::error(
-        "E-TYPE-MISMATCH",
-        "the value piped in doesn't fit the function",
-    )
-    .with_label(
+    let (message, how, before) = if piped.dot {
+        (
+            "the value before `.` doesn't fit the function",
+            "dot notation",
+            "`.`",
+        )
+    } else {
+        (
+            "the value piped in doesn't fit the function",
+            "`|>`",
+            "`|>`",
+        )
+    };
+    Diagnostic::error("E-TYPE-MISMATCH", message).with_label(
         piped.span,
         format!(
-            "this takes `{}` as its last argument, but the value before `|>` has type `{}`",
+            "{how} passes the value as the first argument, which takes `{}`, but the value \
+             before {before} has type `{}`",
             cx.show(dom),
             cx.show(&piped.ty)
         ),
@@ -2639,6 +2670,16 @@ fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
 }
 
 fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    // `[1, 2] |> List.map (x => x)` is the call `List.map [1, 2] (x => x)`
+    // (D304), and checked as one, so a literal on the left takes its type
+    // from the expected type and the other arguments as it would there.
+    if let Expr::Pipe(value, f) = expr
+        && literal_value(value)
+        && !matches!(&**f, Expr::Lam(..) | Expr::TypedLam(..))
+    {
+        let call = crate::pipe::as_call((**value).clone(), f);
+        return fallback(cx, &call, expected).map_err(|e| crate::pipe::compared_pipe_note(e, f));
+    }
     if cx.e.no_propagation.get() == 0
         && let Some(found) = propagate(cx, expr, expected)?
     {

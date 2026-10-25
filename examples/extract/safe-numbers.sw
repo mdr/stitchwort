@@ -36,13 +36,13 @@ export def toSafe (n: Nat): Option SafeNat := SafeNat.ofNat n
 export def toSafeInt (n: Int): Option SafeInt := SafeInt.ofInt n
 
 -- Lengths, as numbers a caller can use as array indices.
-export def lengths (xs: List Text): List (Option SafeNat) := List.map (x => SafeNat.ofNat (Text.length x)) xs
+export def lengths (xs: List Text): List (Option SafeNat) := List.map xs (x => SafeNat.ofNat (Text.length x))
 
 type Counter = { count: SafeNat, delta: SafeInt }
 
 export def bump (c: Counter): Option SafeNat := SafeNat.ofNat (c.count.value + Int.toNat c.delta.value)
 
-export def sumAll (xs: List SafeNat): Option SafeNat := SafeNat.ofNat (List.foldLeft (acc x => acc + x.value) 0 xs)
+export def sumAll (xs: List SafeNat): Option SafeNat := SafeNat.ofNat (List.foldLeft xs 0 (acc x => acc + x.value))
 
 -- Records with `SafeNat` and `SafeInt` fields derive `==` (SW-344): equal by value.
 export def sameCounter (a: Counter) (b: Counter): Bool := a == b

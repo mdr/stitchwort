@@ -78,11 +78,11 @@ fn an_import_in_one_file_isnt_visible_in_a_sibling() {
     let (session, errors) = errors(&[
         (
             "a.sw",
-            "namespace N\n\nimport List (map)\n\ndef f(): List Nat := map (x => x) [1]\n",
+            "namespace N\n\nimport List (map)\n\ndef f(): List Nat := map [1] (x => x)\n",
         ),
         (
             "b.sw",
-            "namespace N\n\ndef g(): List Nat := map (x => x) [1]\n",
+            "namespace N\n\ndef g(): List Nat := map [1] (x => x)\n",
         ),
     ]);
     assert_eq!(errors.len(), 1, "{errors:#?}");
@@ -215,7 +215,7 @@ fn imports_still_work_for_eval_after_a_single_file() {
         )
         .unwrap();
     let expr = session
-        .parse_expression("<eval>", "map double [1, 2]")
+        .parse_expression("<eval>", "map [1, 2] double")
         .unwrap();
     session.elab.infer_expr(&expr).unwrap();
 }

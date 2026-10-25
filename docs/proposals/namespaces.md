@@ -897,15 +897,14 @@ first component isn't a namespace that contains `f`):
      namespace". Lean uses a `Function` namespace for functions [L4]; that
      could be added later.
 3. **Find the receiver's place.** In `T.f`'s signature, it's the **first
-   explicit parameter whose declared type has head `T`**, read through the
-   same view, starting from the signature as written. If there's no such
-   parameter, the error is `E-DOT-NO-RECEIVER`, and **lookup stops**: it
-   doesn't go on to unfold `T` and try another namespace. Finding `T.f` is
-   the decision; a wrong `T.f` is an error to fix, not a reason to look
-   elsewhere. (Lean also unfolds parameter types when finding the receiver
-   [L5]; this rule reads them through the view instead, which is the same
-   thing for parameters written with the type's own name and a
-   simplification otherwise.)
+   explicit parameter** (rule E, D303: [dot-receiver.md](dot-receiver.md)).
+   No later parameter is searched for. If that parameter's declared type,
+   read through the same view, doesn't have head `T`, the error is
+   `E-DOT-NO-RECEIVER`, and **lookup stops**: it doesn't go on to unfold `T`
+   and try another namespace. Finding `T.f` is the decision; a wrong `T.f`
+   is an error to fix, not a reason to look elsewhere. (Before rule E the
+   receiver was the first explicit parameter whose type had head `T`,
+   wherever it stood, as in Lean [L5].)
 
 **The type-head view** is a deterministic function of the receiver's
 *elaborated type term*, not of whatever `Value` evaluation happened to
@@ -934,25 +933,22 @@ Two definitionally equal types may offer different lookups: with
 `Price = Nat`, `p : Price` tries `Price.show` and then `Nat.show`, while
 `n : Nat` tries only `Nat.show`. That's intended, and it depends only on
 the types as written.
-4. **Build the call.** `e.f a₁ … aₙ` is `T.f` with `e` in the receiver's
-   place and `a₁ … aₙ` filling the other explicit parameters in order.
-   Implicit and `auto` arguments are inserted as usual.
-   - With fewer arguments, the result is a function of the missing ones:
-     `t.split` is `s => Text.split s t`, with `t` evaluated once. This is
-     allowed only when no missing parameter is one the receiver's parameter
-     type depends on (§4.8.2).
+4. **Build the call.** `e.f a₁ … aₙ` is `T.f e a₁ … aₙ`: `e` is the first
+   explicit argument and `a₁ … aₙ` fill the following explicit parameters
+   in order. Implicit and `auto` arguments are inserted as usual.
+   - With fewer arguments, the result is the partial application:
+     `t.split` is `Text.split t`, with `t` evaluated once.
 
-This keeps the library's natural argument orders. `Text.split : Char -> Text
--> List Text` stays as it is (so `map (Text.split ',') lines` works), and
-`line.split ','` works too, because the receiver is found by type, not by
-position.
+So the library puts its main value first (`Text.split (text) (separator)`),
+and `line.split ','` is `Text.split line ','`; the receiver is found by
+position, not by type.
 
 ```
 -- with t : Text, xs : List Nat, p : Person, n : Nat
 t.length              -- Text.length t
 xs.length             -- List.length xs
-line.split ','        -- Text.split ',' line
-xs.map (x => x * 2)  -- List.map (x => x * 2) xs
+line.split ','        -- Text.split line ','
+xs.map (x => x * 2)  -- List.map xs (x => x * 2)
 n.toText              -- Nat.toText n
 p.name                -- the field (Person.name p)
 p.name.length         -- Text.length (Person.name p)

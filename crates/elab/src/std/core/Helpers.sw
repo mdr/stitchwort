@@ -3,9 +3,9 @@
 -- `Ord` laws and the `Show` machinery below need them, so they stay with the
 -- core (docs/proposals/prelude-slim.md §2.1).
 
-def List.concatMap (f: a -> List b): List a -> List b
-  | Nil => Nil
-  | Cons x xs => List.append (f x) (List.concatMap f xs)
+def List.concatMap: List a -> (f: a -> List b) -> List b
+  | Nil, f => Nil
+  | Cons x xs, f => List.append (f x) (List.concatMap xs f)
 
 -- Lemmas the rest of the prelude uses. (Sorting and the lemmas around it are
 -- the library file std/List/Sort.sw; these stay because the core, or a

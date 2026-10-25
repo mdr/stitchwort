@@ -81,7 +81,7 @@ def bothDivide (a: Nat) (b: Nat) (c: Nat): Bool := a != 0 && b != 0 && c % a + c
 test "bothDivide" := bothDivide 2 3 6 && not (bothDivide 0 3 6) && not (bothDivide 4 3 6)
 
 -- `not` is an ordinary function on `Bool` as well.
-def flipped: List Bool := List.map not [True, False]
+def flipped: List Bool := List.map [True, False] not
 
 test "not as a function" := flipped == [False, True]
 

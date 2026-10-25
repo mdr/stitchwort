@@ -50,7 +50,7 @@ def unit (u: ()): Nat :=
 -- Lambdas: a pattern parameter, one among others, and a record.
 def sums (ps: List (Nat, Nat)): List Nat := ps.map ((a, b) => a + b)
 
-def total (entries: List (Text, Nat)): Nat := entries.foldLeft (acc (k, v) => acc + v) 0
+def total (entries: List (Text, Nat)): Nat := entries.foldLeft 0 (acc (k, v) => acc + v)
 
 -- A record pattern needs its type known where the lambda is checked, as
 -- `p.name` does: here, from the signature.
@@ -102,8 +102,8 @@ def readTwo(): {IO} (Option Text, Option Text) :=
 
 def swapLines(): {IO} Nat :=
   let (a, b) := readTwo()
-  IO.print (Option.getOrElse "" b)
-  IO.print (Option.getOrElse "" a)
+  IO.print (Option.getOrElse b "")
+  IO.print (Option.getOrElse a "")
   let (n, m) := (1, 2)
   IO.print "done"
   n + m

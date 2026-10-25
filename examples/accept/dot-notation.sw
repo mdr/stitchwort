@@ -1,6 +1,7 @@
--- Dot notation by type (docs/proposals/namespaces.md §4.8): `e.f` is `T.f`
--- with `e` in the place of `T.f`'s first parameter of type `T`, where `T` is
--- `e`'s type. A record's field is the case where `T.f` is its projection.
+-- Dot notation by type (docs/proposals/namespaces.md §4.8, D303): `e.f a b`
+-- is `T.f e a b`, where `T` is `e`'s type: the value goes first, so `T.f`'s
+-- first explicit parameter must be a `T`. A record's field is the case where
+-- `T.f` is its projection.
 
 import Std (Pair, Text)
 
@@ -14,9 +15,9 @@ def Bag.length: Bag a -> Nat
 
 type Person = { name: Text, age: Nat }
 
-def Bag.map (f: a -> b): Bag a -> Bag b
-  | Empty => Empty
-  | Put x xs => Put (f x) (Bag.map f xs)
+def Bag.map: Bag a -> (f: a -> b) -> Bag b
+  | Empty, f => Empty
+  | Put x xs, f => Put (f x) (Bag.map xs f)
 
 def Price: Type := Nat
 
@@ -24,7 +25,8 @@ def Price.show (p: Price): Text := "$" ++ p.toText
 
 type Sized (n: Nat) = { value: Nat }
 
-def Sized.read (n: Nat) (s: Sized n): Nat := s.value
+-- `n` is implicit: an explicit `n` would come before `s`, which depends on it.
+def Sized.read [n: Nat] (s: Sized n): Nat := s.value
 
 def names (people: Bag Person): Bag Text := people.map (p => p.name)
 
@@ -38,13 +40,13 @@ def showPrice (p: Price): Text := p.show
 
 def showNat (n: Nat): Text := n.toText
 
-def readIt (s: Sized 3): Nat := s.read 3
+def readIt (s: Sized 3): Nat := s.read
 
 def nameLength (p: Person): Nat := p.name.length
 
 def symm (x: Nat) (y: Nat) (p: x = y): y = x := p.sym
 
-def projected (ps: Bag Person): Bag Text := Bag.map Person.name ps
+def projected (ps: Bag Person): Bag Text := Bag.map ps Person.name
 
 def letp (n: Nat): Text :=
   let q: Price := n
@@ -82,12 +84,12 @@ def Shape.describe (s: Shape): Text := s.label
 
 test "cycle" := Tile.label { shape = { name = "a" } } == "a"
 
--- The receiver runs first, then the arguments as written, though the call
--- is `Shape.shout suffix s` (§4.8.2).
+-- The receiver runs first, then the arguments as written: the call is
+-- `Shape.shout s suffix` (§4.8.2).
 ability Log where
   log: Text -> {Log} ()
 
-def Shape.shout (suffix: Text) (s: Shape): {Log} Text :=
+def Shape.shout (s: Shape) (suffix: Text): {Log} Text :=
   log ("shout " ++ s.name)
   s.name ++ suffix
 
@@ -108,4 +110,4 @@ def collect (f: () -> {Log | e} a): {e} Pair (List Text) a :=
       let r := k()
       MkPair (Cons t (Pair.fst r)) (Pair.snd r)
 
-test "order" := Text.join (',') (Pair.fst (collect both)) == "pick a,sfx !,shout a"
+test "order" := Text.join (Pair.fst (collect both)) (',') == "pick a,sfx !,shout a"

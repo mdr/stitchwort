@@ -11,7 +11,7 @@ def descending: Ord Nat :=
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
 
-def total (m: Map Nat Nat): Nat := m.foldLeft (acc key value => acc + value) 0
+def total (m: Map Nat Nat): Nat := m.foldLeft 0 (acc key value => acc + value)
 
 def down: Map Nat Nat [ord := descending] := Map.fromList [(1, 10), (2, 20)]
 

@@ -125,9 +125,9 @@ export def order (a: Text) (b: Text): Ordering := Text.compare a b
 
 export def join (a: Text) (b: Text): Text := a ++ b
 
-export def split (c: Char) (t: Text): List Text := Text.split c t
+export def split (c: Char) (t: Text): List Text := Text.split t c
 
-export def joinOn (c: Char) (ts: List Text): Text := Text.join c ts
+export def joinOn (c: Char) (ts: List Text): Text := Text.join ts c
 
 export def trim (t: Text): Text := Text.trim t
 
@@ -137,11 +137,11 @@ export def fromNat (n: Nat): Text := Nat.toText n
 
 export def uncons (t: Text): Option (Pair Char Text) := Text.uncons t
 
-export def take (n: Nat) (t: Text): Text := Text.take n t
+export def take (n: Nat) (t: Text): Text := Text.take t n
 
-export def drop (n: Nat) (t: Text): Text := Text.drop n t
+export def drop (n: Nat) (t: Text): Text := Text.drop t n
 
-export def contains (needle: Text) (t: Text): Bool := Text.contains needle t
+export def contains (needle: Text) (t: Text): Bool := Text.contains t needle
 
 -- User code over the characters.
 export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
@@ -188,7 +188,7 @@ export def empty (t: Text): Bool := Text.isEmpty t
 
 export def less (a: Text) (b: Text): Bool := Text.less a b
 
-export def codes (t: Text): List Nat := Text.fold (c ns => Cons (Char.toNat c) ns) Nil t
+export def codes (t: Text): List Nat := Text.fold t Nil (c ns => Cons (Char.toNat c) ns)
 
 def mapList (f: a -> b): List a -> List b
   | Nil => Nil
@@ -204,7 +204,7 @@ def firstOfList: List Text -> Text
   | Nil => "none"
   | Cons f fs => f
 
-export def firstField (c: Char) (t: Text): Text := firstOfList (Text.split c t)
+export def firstField (c: Char) (t: Text): Text := firstOfList (Text.split t c)
 
 def leadingChar: Text -> Option Char
   | MkText Nil => None

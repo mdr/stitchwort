@@ -7,7 +7,7 @@ import Std (Eq, Map, Nat, Option, Ord, Set)
 
 -- Counting with `insertWith`: each word's count, in alphabetical order.
 def wordCounts (words: List Text): Map Text Nat :=
-  words.foldLeft ((counts: Map Text Nat) word => counts.insertWith Nat.add word 1) Map.empty
+  words.foldLeft Map.empty ((counts: Map Text Nat) word => counts.insertWith word 1 Nat.add)
 
 test "counting" := (wordCounts ["b", "a", "b", "c", "b"]).toList == [("a", 1), ("b", 3), ("c", 1)]
 
@@ -26,7 +26,7 @@ def visited (moves: Text): Set (Nat, Nat) :=
   def move (acc: ((Nat, Nat), Set (Nat, Nat))) (m: Char): ((Nat, Nat), Set (Nat, Nat)) :=
     let (pos, seen) := acc
     (step pos m, seen.insert (step pos m))
-  (moves.toList.foldLeft move ((0, 0), Set.singleton (0, 0))).snd
+  (moves.toList.foldLeft ((0, 0), Set.singleton (0, 0)) move).snd
 
 test "a walk" := (visited "RRDLLU").size == 6 && (visited "RLRL").size == 2
 test "visited in order" := (visited "RDL").toList == [(0, 0), (0, 1), (1, 0), (1, 1)]
@@ -35,12 +35,12 @@ test "equal sets" := visited "RDLU" == visited "DRUL" && visited "R" != visited 
 
 -- Removing and altering.
 test "remove" := (wordCounts ["a", "b"] |> Map.remove "a").keys == ["b"]
-test "alter" := (wordCounts ["a"] |> Map.alter (n => Some (Option.getOrElse 0 n + 5)) "a").get "a" == Some 6
+test "alter" := (wordCounts ["a"] |> Map.alter "a" (n => Some (Option.getOrElse n 0 + 5))).get "a" == Some 6
 test "show" := "${wordCounts ["x", "x"]}" == "Map.fromList [(\"x\", 2)]" && "${Set.fromList [2, 1]}" == "Set.fromList [1, 2]"
 
 -- What `get` says after `insert`, from the library's theorems, for any map.
 theorem afterTwo (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Some "a" :=
-  Eq.trans (Map.getInsertOther 2 "b" 1 (Nat.equalFalse 1 2 rfl) (Map.insert 1 "a" m)) (Map.getInsert 1 "a" m)
+  Eq.trans (Map.getInsertOther 2 "b" 1 (Nat.equalFalse 1 2 rfl) (Map.insert m 1 "a")) (Map.getInsert 1 "a" m)
 
 -- The ordering is part of the type (§7.5).
 
@@ -99,12 +99,12 @@ def stored: Map Nat (Nat -> Nat) :=
   match runState Map.empty (u => functions) with
     | (_, m) => m
 
-test "functions as state" := stored.keys == [1] && Option.map (f => f 2) (stored.get 1) == Some 3
+test "functions as state" := stored.keys == [1] && Option.map (stored.get 1) (f => f 2) == Some 3
 
 -- Later additions: counts, groupBy, unionWith, ordered lookups, keySet and Set.isSubset.
 test "counts" := (Map.counts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "groupBy" := (Map.groupBy (n => n % 2) [1, 2, 3, 4, 5]).toList == [(0, [2, 4]), (1, [1, 3, 5])]
-test "unionWith" := (Map.unionWith Nat.add (wordCounts ["a", "b"]) (wordCounts ["b", "c"])).toList == [("a", 1), ("b", 2), ("c", 1)]
+test "groupBy" := (Map.groupBy [1, 2, 3, 4, 5] (n => n % 2)).toList == [(0, [2, 4]), (1, [1, 3, 5])]
+test "unionWith" := (Map.unionWith (wordCounts ["a", "b"]) (wordCounts ["b", "c"]) Nat.add).toList == [("a", 1), ("b", 2), ("c", 1)]
 test "min and below" := (wordCounts ["b", "a", "c"]).min == Some ("a", 1) && (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
 test "keySet" := (wordCounts ["b", "a"]).keySet == Set.fromList ["a", "b"]
 test "isSubset" := Set.isSubset (visited "R") (visited "RD") && not (Set.isSubset (visited "RD") (visited "R"))

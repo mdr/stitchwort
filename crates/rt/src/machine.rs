@@ -370,8 +370,9 @@ impl State {
         match &**fun {
             Fun::Global(g) => match &program.globals[*g as usize].kind {
                 GlobalKind::Native(PrimOp::Text(TextNative::TextFold)) => {
+                    // `Text.fold text initial f`.
                     let mut args = args.into_iter();
-                    let (f, z, t) = (
+                    let (t, z, f) = (
                         args.next().expect("3"),
                         args.next().expect("3"),
                         args.next().expect("3"),
@@ -1020,8 +1021,9 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     let o = ops!(args);
                     if op == PrimOp::Text(TextNative::TextFold) {
                         save!();
-                        let (f, z) = (reg!(o[0]).clone(), reg!(o[1]).clone());
-                        let t = reg!(o[2]).clone();
+                        // `Text.fold text initial f`.
+                        let t = reg!(o[0]).clone();
+                        let (z, f) = (reg!(o[1]).clone(), reg!(o[2]).clone());
                         let to = u32::try_from(base + dst as usize).expect("fits");
                         pending = st.fold_start(program, image, f, z, &t, Ret::Reg(to))?;
                         continue 'outer;

@@ -12,14 +12,14 @@ type Set (k: Type) [auto ord: Ord k] = { items: Map k () [ord := ord] }
 def Set.empty [auto ord: Ord k]: Set k := { items = Map.empty }
 
 -- With `key` (the same set if it's there already).
-def Set.insert [auto ord: Ord k] (key: k) (set: Set k): Set k := { items = Map.insert key () set.items }
+def Set.insert [auto ord: Ord k] (set: Set k) (key: k): Set k := { items = Map.insert set.items key () }
 
-def Set.singleton [auto ord: Ord k] (key: k): Set k := Set.insert key Set.empty
+def Set.singleton [auto ord: Ord k] (key: k): Set k := Set.insert Set.empty key
 
-def Set.contains [auto ord: Ord k] (key: k) (set: Set k): Bool := Map.contains key set.items
+def Set.contains [auto ord: Ord k] (set: Set k) (key: k): Bool := Map.contains set.items key
 
 -- Without `key` (the same set if it isn't there).
-def Set.remove [auto ord: Ord k] (key: k) (set: Set k): Set k := { items = Map.remove key set.items }
+def Set.remove [auto ord: Ord k] (set: Set k) (key: k): Set k := { items = Map.remove set.items key }
 
 -- The number of keys, O(1).
 def Set.size (set: Set k [ord := o]): Nat := Map.size set.items
@@ -29,67 +29,67 @@ def Set.isEmpty (set: Set k [ord := o]): Bool := Map.isEmpty set.items
 -- The keys, in order.
 def Set.toList (set: Set k [ord := o]): List k := Map.keys set.items
 
-def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft (set key => Set.insert key set) Set.empty xs
+def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft xs Set.empty (set key => Set.insert set key)
 
 -- Left fold over the keys in order.
-def Set.foldLeft (f: b -> k -> b) (initial: b) (set: Set k [ord := o]): b := Map.foldLeft (acc key unit => f acc key) initial set.items
+def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b -> k -> b): b := Map.foldLeft set.items initial (acc key unit => f acc key)
 
 -- The keys for which `p` holds.
-def Set.filter [auto ord: Ord k] (p: k -> Bool) (set: Set k): Set k := { items = Map.filter (key unit => p key) set.items }
+def Set.filter [auto ord: Ord k] (set: Set k) (p: k -> Bool): Set k := { items = Map.filter set.items (key unit => p key) }
 
 -- The keys of both. O(n + m), or O(n log m) when `a` is much smaller
 -- (likewise `intersect` and `difference`; see `Map.union`).
 def Set.union [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.union a.items b.items }
 
 -- The keys of `a` that are also in `b`.
-def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.intersectWith (here there => ()) a.items b.items }
+def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.intersectWith a.items b.items (here there => ()) }
 
 -- The keys of `a` that aren't in `b`.
 def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.difference a.items b.items }
 
 -- The keys of every set in the list.
-def Set.unions [auto ord: Ord k] (ss: List (Set k)): Set k := List.foldLeft Set.union Set.empty ss
+def Set.unions [auto ord: Ord k] (ss: List (Set k)): Set k := List.foldLeft ss Set.empty Set.union
 
 -- The smallest key, O(log n).
-def Set.min (set: Set k [ord := o]): Option k := Option.map Pair.fst (Map.min set.items)
+def Set.min (set: Set k [ord := o]): Option k := Option.map (Map.min set.items) Pair.fst
 
 -- The largest key, O(log n).
-def Set.max (set: Set k [ord := o]): Option k := Option.map Pair.fst (Map.max set.items)
+def Set.max (set: Set k [ord := o]): Option k := Option.map (Map.max set.items) Pair.fst
 
 -- The largest key below `key` (strictly), O(log n).
-def Set.below [auto ord: Ord k] (key: k) (set: Set k): Option k := Option.map Pair.fst (Map.below key set.items)
+def Set.below [auto ord: Ord k] (set: Set k) (key: k): Option k := Option.map (Map.below set.items key) Pair.fst
 
 -- The smallest key above `key` (strictly), O(log n).
-def Set.above [auto ord: Ord k] (key: k) (set: Set k): Option k := Option.map Pair.fst (Map.above key set.items)
+def Set.above [auto ord: Ord k] (set: Set k) (key: k): Option k := Option.map (Map.above set.items key) Pair.fst
 
 -- Whether every key satisfies `p`.
-def Set.all (set: Set k [ord := o]) (p: k -> Bool): Bool := Set.foldLeft (acc key => acc && p key) True set
+def Set.all (set: Set k [ord := o]) (p: k -> Bool): Bool := Set.foldLeft set True (acc key => acc && p key)
 
 -- Whether every key of `a` is in `b`.
-def Set.isSubset [auto ord: Ord k] (a: Set k) (b: Set k): Bool := Set.all a (key => Set.contains key b)
+def Set.isSubset [auto ord: Ord k] (a: Set k) (b: Set k): Bool := Set.all a (key => Set.contains b key)
 
 -- Whether no key is in both.
-def Set.disjoint [auto ord: Ord k] (a: Set k) (b: Set k): Bool := !(Set.any a (key => Set.contains key b))
+def Set.disjoint [auto ord: Ord k] (a: Set k) (b: Set k): Bool := !(Set.any a (key => Set.contains b key))
 
 -- The keys for which `p` holds, and those for which it doesn't.
-def Set.partition [auto ord: Ord k] (p: k -> Bool) (set: Set k): (Set k, Set k) := (Set.filter p set, Set.filter (key => !(p key)) set)
+def Set.partition [auto ord: Ord k] (set: Set k) (p: k -> Bool): (Set k, Set k) := (Set.filter set p, Set.filter set (key => !(p key)))
 
 -- Right fold over the keys in order: `f k1 (f k2 initial)`.
-def Set.foldRight (f: k -> b -> b) (initial: b) (set: Set k [ord := o]): b := Map.foldRight (key unit acc => f key acc) initial set.items
+def Set.foldRight (set: Set k [ord := o]) (initial: b) (f: k -> b -> b): b := Map.foldRight set.items initial (key unit acc => f key acc)
 
 -- Maps and sets
 
 -- A map's keys, O(n).
-def Map.keySet (m: Map k v [ord := o]): Set k [ord := o] := { items = Map.map (value => ()) m }
+def Map.keySet (m: Map k v [ord := o]): Set k [ord := o] := { items = Map.map m (value => ()) }
 
 -- The map from each key of `keys` to `f key`, O(n).
-def Map.fromKeys [auto ord: Ord k] (keys: Set k) (f: k -> v): Map k v := Map.mapWithKey (key unit => f key) keys.items
+def Map.fromKeys [auto ord: Ord k] (keys: Set k) (f: k -> v): Map k v := Map.mapWithKey keys.items (key unit => f key)
 
 -- The entries whose keys aren't in `ks`.
-def Map.removeAll [auto ord: Ord k] (ks: Set k) (m: Map k v): Map k v := Map.filter (key value => !(Set.contains key ks)) m
+def Map.removeAll [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := Map.filter m (key value => !(Set.contains ks key))
 
 -- The entries whose keys are in `ks`.
-def Map.keepOnly [auto ord: Ord k] (ks: Set k) (m: Map k v): Map k v := Map.filter (key value => Set.contains key ks) m
+def Map.keepOnly [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := Map.filter m (key value => Set.contains ks key)
 
 theorem Set.containsInsert [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
   rewrite Map.getInsert key () s.items in rfl
@@ -101,12 +101,12 @@ theorem Set.unitEq: (u: ()) -> (w: ()) -> u = w
   | (), () => rfl
 
 -- Entries whose values are all `()` are fixed by their keys.
-theorem Set.unitEntries: (xs: List (k, ())) -> (ys: List (k, ())) -> List.map Pair.fst xs = List.map Pair.fst ys -> xs = ys
+theorem Set.unitEntries: (xs: List (k, ())) -> (ys: List (k, ())) -> List.map xs Pair.fst = List.map ys Pair.fst -> xs = ys
   | Nil, Nil, h => rfl
-  | Nil, Cons (b, w) ys2, h => Void.exfalso (List.nilNotCons b (List.map Pair.fst ys2) h)
-  | Cons (a, u) xs2, Nil, h => Void.exfalso (List.consNotNil a (List.map Pair.fst xs2) h)
+  | Nil, Cons (b, w) ys2, h => Void.exfalso (List.nilNotCons b (List.map ys2 Pair.fst) h)
+  | Cons (a, u) xs2, Nil, h => Void.exfalso (List.consNotNil a (List.map xs2 Pair.fst) h)
   | Cons (a, u) xs2, Cons (b, w) ys2, h =>
-    rewrite Eq.cong (List.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
+    rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
 
 -- Sets with the same keys in order are equal.
 theorem Set.toListInjective: (s: Set k [ord := o]) -> (t: Set k [ord := o]) -> Set.toList s = Set.toList t -> s = t
@@ -138,10 +138,10 @@ def Set.example: Set Nat := Set.fromList [3, 1, 2, 3]
 
 test "set: toList is in order, without repeats" := Set.toList Set.example == [1, 2, 3]
 test "set: size" := Set.size Set.example == 3 && Set.isEmpty (Set.empty: Set Nat)
-test "set: contains" := Set.contains 2 Set.example && !(Set.contains 4 Set.example)
-test "set: insert" := Set.toList (Set.insert 0 Set.example) == [0, 1, 2, 3] && Set.size (Set.insert 1 Set.example) == 3
-test "set: remove" := Set.toList (Set.remove 2 Set.example) == [1, 3] && Set.size (Set.remove 7 Set.example) == 3
-test "set: foldLeft" := Set.foldLeft (acc x => acc * 10 + x) 0 Set.example == 123
+test "set: contains" := Set.contains Set.example 2 && !(Set.contains Set.example 4)
+test "set: insert" := Set.toList (Set.insert Set.example 0) == [0, 1, 2, 3] && Set.size (Set.insert Set.example 1) == 3
+test "set: remove" := Set.toList (Set.remove Set.example 2) == [1, 3] && Set.size (Set.remove Set.example 7) == 3
+test "set: foldLeft" := Set.foldLeft Set.example 0 (acc x => acc * 10 + x) == 123
 test "set: union, intersect, difference" :=
   Set.toList (Set.union Set.example (Set.fromList [5, 0])) == [0, 1, 2, 3, 5]
     && Set.toList (Set.intersect Set.example (Set.fromList [2, 3, 4])) == [2, 3]
@@ -158,13 +158,13 @@ test "set: show" := "${Set.fromList ["b", "a"]}" == "Set.fromList [\"a\", \"b\"]
 
 -- The set of `f` applied to each key; keys that map to the same value merge,
 -- and the result is ordered by the new ordering.
-def Set.map [auto ord: Ord j] (set: Set k [ord := o]) (f: k -> j): Set j := Set.foldLeft (acc key => Set.insert (f key) acc) Set.empty set
+def Set.map [auto ord: Ord j] (set: Set k [ord := o]) (f: k -> j): Set j := Set.foldLeft set Set.empty (acc key => Set.insert acc (f key))
 
 -- Whether some key satisfies `p`.
-def Set.any (set: Set k [ord := o]) (p: k -> Bool): Bool := Set.foldLeft (acc key => acc || p key) False set
+def Set.any (set: Set k [ord := o]) (p: k -> Bool): Bool := Set.foldLeft set False (acc key => acc || p key)
 
 -- The number of keys satisfying `p`.
-def Set.count (set: Set k [ord := o]) (p: k -> Bool): Nat := Set.foldLeft (n key => Nat.succIf n (p key)) 0 set
+def Set.count (set: Set k [ord := o]) (p: k -> Bool): Nat := Set.foldLeft set 0 (n key => Nat.succIf n (p key))
 
 test "set: map merges and reorders" := Set.toList (Set.map Set.example (x => 10 - x / 2)) == [9, 10]
 test "set: any" := Set.any Set.example (x => x > 2) && Bool.not (Set.any Set.example (x => x > 3)) && Bool.not (Set.any (Set.empty: Set Nat) (x => True))
@@ -173,17 +173,17 @@ test "set: count" := Set.count Set.example (x => x != 2) == 2
 test "set: unions" := Set.toList (Set.unions [Set.fromList [3, 1], Set.fromList [2], Set.empty]) == [1, 2, 3]
 test "set: min, max, below, above" :=
   Set.min Set.example == Some 1 && Set.max Set.example == Some 3 && Set.min (Set.empty: Set Nat) == None
-    && Set.below 3 Set.example == Some 2 && Set.below 1 Set.example == None && Set.above 1 Set.example == Some 2 && Set.above 3 Set.example == None
+    && Set.below Set.example 3 == Some 2 && Set.below Set.example 1 == None && Set.above Set.example 1 == Some 2 && Set.above Set.example 3 == None
 test "set: isSubset, disjoint" :=
   Set.isSubset (Set.fromList [1, 2]) Set.example && !(Set.isSubset (Set.fromList [1, 4]) Set.example)
     && Set.disjoint Set.example (Set.fromList [4]) && !(Set.disjoint Set.example (Set.fromList [2]))
 test "set: isSubset, edge cases" :=
   Set.isSubset Set.empty Set.example && Set.isSubset Set.example Set.example && !(Set.isSubset Set.example Set.empty)
 test "set: partition, all, foldRight" :=
-  Set.toList (Set.partition (n => n > 1) Set.example).fst == [2, 3] && Set.toList (Set.partition (n => n > 1) Set.example).snd == [1]
-    && Set.all Set.example (n => n > 0) && !(Set.all Set.example (n => n > 1)) && Set.foldRight (n acc => Cons n acc) Nil Set.example == [1, 2, 3]
+  Set.toList (Set.partition Set.example (n => n > 1)).fst == [2, 3] && Set.toList (Set.partition Set.example (n => n > 1)).snd == [1]
+    && Set.all Set.example (n => n > 0) && !(Set.all Set.example (n => n > 1)) && Set.foldRight Set.example Nil (n acc => Cons n acc) == [1, 2, 3]
 test "map: keySet, fromKeys" :=
   Set.toList (Map.keySet (Map.fromList [(2, "b"), (1, "a")])) == [1, 2] && Map.toList (Map.fromKeys Set.example (n => n * 10)) == [(1, 10), (2, 20), (3, 30)]
 test "map: removeAll, keepOnly" :=
-  Map.keys (Map.removeAll (Set.fromList [1, 9]) (Map.fromKeys Set.example (n => n))) == [2, 3]
-    && Map.keys (Map.keepOnly (Set.fromList [1, 9]) (Map.fromKeys Set.example (n => n))) == [1]
+  Map.keys (Map.removeAll (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [2, 3]
+    && Map.keys (Map.keepOnly (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [1]

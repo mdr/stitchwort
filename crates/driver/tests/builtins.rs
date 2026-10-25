@@ -8,13 +8,21 @@
 
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::{Builtin, Kind, check_complete};
-use stitchwort_driver::driver::{Cache, Outcome, Session};
+use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_elab::PRELUDE;
 use stitchwort_syntax::SourceMap;
 
+/// Stack for loading the whole library: this test also runs in the gate's
+/// debug build, whose frames are several times larger than release's.
+const STACK: usize = 16 * 1024 * 1024;
+
 #[test]
 fn the_prelude_binds_every_builtin_to_a_final_declaration() {
-    let session = Session::eager();
+    with_stack(STACK, prelude_binds_every_builtin);
+}
+
+fn prelude_binds_every_builtin() {
+    let session = Session::eager_for_stack(STACK);
     let g = &session.elab.globals;
     let r = &g.registry;
     assert_eq!(r.missing(), Vec::<Builtin>::new());

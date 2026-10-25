@@ -8,10 +8,6 @@ instance List.decMem [auto eq: DecEq a] (x: a): (xs: List a) -> Decidable (List.
   | Nil => No (none => none)
   | Cons y ys => Decidable.or (eq.decide y x) (List.decMem x ys)
 
--- Membership in a list written out computes to `y = x || … || Void`, which
--- is decided one disjunct at a time: this is the last.
-instance Void.dec: Decidable Void := No (none => none)
-
 test "List.decMem" := 2 in [1, 2, 3] && 4 !in [1, 2, 3] && 'a' !in []
 
-test "List.decMem on a variable" := List.all (x => x in [1, 2, 3]) [3, 1]
+test "List.decMem on a variable" := List.all [3, 1] (x => x in [1, 2, 3])

@@ -24,49 +24,49 @@ def pureMap [a b: Type] (f: a -> b): List a -> List b
   | Nil => Nil
   | Cons x xs => Cons (f x) (pureMap f xs)
 
-theorem mapIsPureMap [a b: Type] (f: a -> b): (xs: List a) -> List.map f xs = pureMap f xs
+theorem mapIsPureMap [a b: Type] (f: a -> b): (xs: List a) -> List.map xs f = pureMap f xs
   | Nil => rfl
   | Cons x xs => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
 
-theorem lengthMap [a b: Type] (f: a -> b): (xs: List a) -> List.length (List.map f xs) = List.length xs
+theorem lengthMap [a b: Type] (f: a -> b): (xs: List a) -> List.length (List.map xs f) = List.length xs
   | Nil => rfl
   | Cons x xs => Eq.cong Succ (lengthMap f xs)
 
 theorem mapCons [a b: Type] (f: a -> b) (x: a) (xs: List a):
-    List.map f (Cons x xs) = Cons (f x) (List.map f xs) := rfl
+    List.map (Cons x xs) f = Cons (f x) (List.map xs f) := rfl
 
 -- A data type: `Nat`.
-def lengths (words: List Text): List Nat := List.map Text.length words
+def lengths (words: List Text): List Nat := List.map words Text.length
 
 test "a callback returning a number" := lengths ["ab", "", "xyz"] == [2, 0, 3]
 
 -- A type with a parameter: `List a`.
-def singletons [a: Type] (xs: List a): List (List a) := List.map (x => [x]) xs
+def singletons [a: Type] (xs: List a): List (List a) := List.map xs (x => [x])
 
 test "a callback returning a list" := singletons [1, 2] == [[1], [2]]
 
 -- A function type.
-def adders (numbers: List Nat): List (Nat -> Nat) := List.map (n => (m => n + m)) numbers
+def adders (numbers: List Nat): List (Nat -> Nat) := List.map numbers (n => (m => n + m))
 
-test "a callback returning functions" := List.map (add => add 1) (adders [1, 2]) == [2, 3]
+test "a callback returning functions" := List.map (adders [1, 2]) (add => add 1) == [2, 3]
 
 -- A record.
 type Point: Type = { x: Nat, y: Nat }
 
-def onDiagonal (numbers: List Nat): List Point := List.map (n => { x = n, y = n }) numbers
+def onDiagonal (numbers: List Nat): List Point := List.map numbers (n => { x = n, y = n })
 
-test "a callback returning records" := List.map (p => p.x + p.y) (onDiagonal [1, 2]) == [2, 4]
+test "a callback returning records" := List.map (onDiagonal [1, 2]) (p => p.x + p.y) == [2, 4]
 
 -- A result type not known yet where the callback is checked: settled later,
 -- or defaulted.
 def unannotated (numbers: List Nat): Nat :=
-  let doubled := List.map (n => n + n) numbers
+  let doubled := List.map numbers (n => n + n)
   List.sum doubled
 
 test "a callback whose result type is found later" := unannotated [1, 2] == 6
 
 def unconstrained: Nat :=
-  let unused := List.map (x => x + 1)
+  let unused := List.map [] (x => x + 1)
   0
 
 def sayAndDouble (n: Nat): {Log} Nat :=
@@ -98,23 +98,23 @@ def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagg
 
 -- `answer`'s type is `Tagged ?flag -> Answer ?flag` when the callback is
 -- checked; `?flag` is solved by the list, after it.
-def logged (numbers: List (Tagged True)): {Log} (List Nat) := List.map answer numbers
+def logged (numbers: List (Tagged True)): {Log} (List Nat) := List.map numbers answer
 
 test "a callback whose type becomes a computation later" :=
   Log.collect (() => logged [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
 
-def notLogged (numbers: List (Tagged False)): List Nat := List.map answer numbers
+def notLogged (numbers: List (Tagged False)): List Nat := List.map numbers answer
 
 test "a callback whose type computes to a plain type later" := notLogged [Tag 3, Tag 4] == [3, 4]
 
 -- The same callbacks eta-expanded: the body's type goes through the same
 -- rule, so the row waits for `?flag` as it does for `answer` itself.
-def loggedLambda (numbers: List (Tagged True)): {Log} (List Nat) := List.map (tagged => answer tagged) numbers
+def loggedLambda (numbers: List (Tagged True)): {Log} (List Nat) := List.map numbers (tagged => answer tagged)
 
 test "an eta-expanded callback whose type becomes a computation later" :=
   Log.collect (() => loggedLambda [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
 
-def notLoggedLambda (numbers: List (Tagged False)): List Nat := List.map (tagged => answer tagged) numbers
+def notLoggedLambda (numbers: List (Tagged False)): List Nat := List.map numbers (tagged => answer tagged)
 
 test "an eta-expanded callback whose type computes to a plain type later" :=
   notLoggedLambda [Tag 3, Tag 4] == [3, 4]
@@ -131,7 +131,7 @@ test "a pure handler for an effectful program" :=
   Log.collect (() => (recovered 0, recovered 7)) == MkPair (4, 7) [0, 7]
 
 -- An effectful callback: the row is its row.
-def sayAll (numbers: List Nat): {Log} (List Nat) := List.map sayAndDouble numbers
+def sayAll (numbers: List Nat): {Log} (List Nat) := List.map numbers sayAndDouble
 
 test "an effectful callback" := Log.collect (() => sayAll [1, 2]) == MkPair [2, 4] [1, 2]
 
@@ -151,7 +151,7 @@ def cellOf: (flag: Bool) -> Cell flag
   | True => 1
   | False => "one"
 
-def cells (flags: List Bool): List Nat := List.map (flag => if flag then 1 else 0) flags
+def cells (flags: List Bool): List Nat := List.map flags (flag => if flag then 1 else 0)
 
 def applyDep [p: a -> Type] (f: (x: a) -> {e} p x) (x: a): {e} p x := f x
 
@@ -161,7 +161,7 @@ test "a type family stuck on a variable" := cellAt True == 1
 
 -- A callback that is itself effect-polymorphic: the rows are the same.
 def mapTwice (f: Nat -> {e} Nat) (numbers: List Nat): {e} (List Nat) :=
-  List.map f (List.map f numbers)
+  List.map (List.map numbers f) f
 
 test "a row-polymorphic callback, pure" := mapTwice (n => n + 1) [1] == [3]
 

@@ -33,7 +33,7 @@ def Map.insertList [auto ord: Ordered k] (key: k) (value: v): List (k, v) -> Lis
     | Equal => Cons (key, value) rest
     | Greater => Cons (k2, v2) (Map.insertList key value rest)
 
-def Map.insert [auto ord: Ordered k] (key: k) (value: v) (m: Map k v): Map k v :=
+def Map.insert [auto ord: Ordered k] (m: Map k v) (key: k) (value: v): Map k v :=
   { entries = Map.insertList key value m.entries }
 
 -- Any ordering, written as a variable (bound automatically).
@@ -53,7 +53,7 @@ test "given by name" := down.keys == [3, 2, 1]
 -- A synonym may have an `auto` parameter too.
 type Set (k: Type) [auto ord: Ordered k] = Map k () [ord := ord]
 
-def Set.add [auto ord: Ordered k] (key: k) (s: Set k): Set k := Map.insert key () s
+def Set.add [auto ord: Ordered k] (s: Set k) (key: k): Set k := Map.insert s key ()
 
 def small: Set Nat := Map.empty |> Set.add 2 |> Set.add 1 |> Set.add 2
 

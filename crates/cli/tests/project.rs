@@ -158,7 +158,7 @@ fn run_a_partial_function() {
 fn run_the_wrong_type() {
     let message = fails(&standard("run_wrong"), &["run", "Day.bad"], "E-RUN-TYPE");
     assert!(message.contains("`Day.bad` can't be run"), "{message}");
-    assert!(message.contains("IO, Partial and Fail"), "{message}");
+    assert!(message.contains("IO, Fail and Partial"), "{message}");
 }
 
 #[test]

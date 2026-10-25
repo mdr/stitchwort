@@ -19,8 +19,8 @@ def Text.foldChars (f: Char -> b -> b) (initial: b): List Char -> b
   | Nil => initial
   | Cons char chars => f char (Text.foldChars f initial chars)
 
--- `Text.fold f initial "abc"` is `f 'a' (f 'b' (f 'c' initial))`.
-def Text.fold (f: Char -> b -> b) (initial: b) (text: Text): b := Text.foldChars f initial (Text.toList text)
+-- `Text.fold "abc" initial f` is `f 'a' (f 'b' (f 'c' initial))`.
+def Text.fold (text: Text) (initial: b) (f: Char -> b -> b): b := Text.foldChars f initial (Text.toList text)
 
 -- Whitespace, for `Text.trim`: exactly space, tab, line feed, vertical tab,
 -- form feed and carriage return. Not Unicode's `White_Space`.
@@ -46,7 +46,7 @@ def Char.digitValue (char: Char): Option Nat := if Nat.leq 48 (Char.toNat char) 
 
 def Text.readDigits (acc: Nat): List Char -> Option Nat
   | Nil => Some acc
-  | Cons char chars => Option.flatMap (digit => Text.readDigits (acc * 10 + digit) chars) (Char.digitValue char)
+  | Cons char chars => Option.flatMap (Char.digitValue char) (digit => Text.readDigits (acc * 10 + digit) chars)
 
 -- A non-empty sequence of ASCII digits, and nothing else: no sign,
 -- whitespace or separators. Leading zeros are allowed, so
@@ -62,8 +62,8 @@ def Text.toInt: Text -> Option Int
   | MkText Nil => None
   | MkText (Cons char chars) =>
     if Nat.equal (Char.toNat char) 45
-    then Option.map (n => Int.neg (OfNat n)) (Text.toNat (MkText chars))
-    else Option.map OfNat (Text.toNat (MkText (Cons char chars)))
+    then Option.map (Text.toNat (MkText chars)) (n => Int.neg (OfNat n))
+    else Option.map (Text.toNat (MkText (Cons char chars))) OfNat
 
 -- Splitting and joining
 
@@ -93,12 +93,12 @@ def Text.splitTexts: Pair (List Char) (List (List Char)) -> List Text
 
 -- The fields between separators, keeping empty ones: splitting "a,,b" on
 -- ',' gives ["a", "", "b"], and splitting "" gives [""].
-def Text.split (separator: Char) (text: Text): List Text := Text.splitTexts (Text.splitChars separator (Text.toList text))
+def Text.split (text: Text) (separator: Char): List Text := Text.splitTexts (Text.splitChars separator (Text.toList text))
 
--- The texts with `separator` between them. `Text.join separator (Text.split separator text) = text`.
-def Text.join (separator: Char): List Text -> Text
-  | Nil => MkText Nil
-  | Cons text texts => MkText (Text.joinChars separator (Text.toList text) (Text.charListsOf texts))
+-- The texts with `separator` between them. `Text.join (Text.split text separator) separator = text`.
+def Text.join: List Text -> (separator: Char) -> Text
+  | Nil, separator => MkText Nil
+  | Cons text texts, separator => MkText (Text.joinChars separator (Text.toList text) (Text.charListsOf texts))
 
 -- Words: the runs of non-whitespace (as `Char.isSpace` defines it) between
 -- runs of whitespace, with no empty ones. `Text.wordsChars chars` is the word

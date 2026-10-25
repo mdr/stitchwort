@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[W-RECEIVER-NOT-FIRST] Warning: `Meter.scale` takes a `Meter` but not as its first parameter, so `m.scale` and `m |> Meter.scale` won't work
+   ╭─[ reject/dot-receiver-later.sw:8:5 ]
+   │
+ 8 │ def Meter.scale (k: Nat) (m: Meter): Meter := { v = k * m.v }
+   │     ─────┬─────  
+   │          ╰─────── `m: Meter` comes after another parameter
+   │ 
+   │ Note: put the main value first (`m`), then the other arguments, then any functions; or, for a helper not meant to be called with `.` or `|>`, mark it `@[noReceiver]`
+───╯
+[E-DOT-NO-RECEIVER] Error: `Meter.scale` doesn't take a `Meter` first, so `m.scale` can't put `m` there
+    ╭─[ reject/dot-receiver-later.sw:10:34 ]
+    │
+ 10 │ def doubled (m: Meter): Meter := m.scale 2
+    │                                  ────┬────  
+    │                                      ╰────── `Meter.scale: Nat -> Meter -> Meter`
+    │ 
+    │ Note: dot notation passes the value as the first argument; call it directly: `Meter.scale k m`
+────╯

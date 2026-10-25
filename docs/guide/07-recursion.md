@@ -42,17 +42,18 @@ type Tree =
   | Leaf
   | Node (left: Tree) (value: Nat) (right: Tree)
 
-def Tree.insert (value: Nat): Tree -> Tree
-  | Leaf => Node Leaf value Leaf
-  | Node left here right =>
-    if value < here then Node (left.insert value) here right
-    else Node left here (right.insert value)
+def Tree.insert (tree: Tree) (value: Nat): Tree :=
+  match tree with
+    | Leaf => Node Leaf value Leaf
+    | Node left here right =>
+      if value < here then Node (left.insert value) here right
+      else Node left here (right.insert value)
 
 def Tree.toList: Tree -> List Nat
   | Leaf => []
   | Node left value right => left.toList ++ [value] ++ right.toList
 
-def treeSort (values: List Nat): List Nat := (values.foldLeft (tree value => tree.insert value) Leaf).toList
+def treeSort (values: List Nat): List Nat := (values.foldLeft Leaf (tree value => tree.insert value)).toList
 
 test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
 ```

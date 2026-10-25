@@ -29,10 +29,10 @@ def amountOf: Option Rot -> Nat
   | Some r => r.amount
 
 -- The record literal's type comes from the result `List Point`.
-def points (xs: List Nat): List Point := List.map (x => { x = x, y = 0 }) xs
+def points (xs: List Nat): List Point := List.map xs (x => { x = x, y = 0 })
 
 -- Likewise for the accumulator of a fold.
-def sumPoints (rs: List Nat): Point := List.foldRight (p acc => { x = p + acc.x, y = acc.y }) { x = 0, y = 0 } rs
+def sumPoints (rs: List Nat): Point := List.foldRight rs { x = 0, y = 0 } (p acc => { x = p + acc.x, y = acc.y })
 
 test "parse" := amountOf (parse 1 (Some 2)) == 3
 test "parse nothing" := amountOf (parse 1 None) == 0

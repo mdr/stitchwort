@@ -7,13 +7,13 @@ import Std (Abort, Fail, Option, Result, Text, Void)
 -- The laws std proves this way, restated and proved again here.
 
 theorem toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
-    Fail.toResult (() => k (t ())) = Result.flatMap (x => Fail.toResult (() => k x)) (Fail.toResult t) :=
+    Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
 
 theorem toOptionThen (t: () -> {Fail} a) (k: a -> {Fail} b):
-    Fail.toOption (() => k (t ())) = Option.flatMap (x => Fail.toOption (() => k x)) (Fail.toOption t) :=
+    Fail.toOption (() => k (t ())) = Option.flatMap (Fail.toOption t) (x => Fail.toOption (() => k x)) :=
   match reify t with
     | return x => rfl
     | Fail.stop msg, _ => rfl
@@ -24,14 +24,14 @@ theorem toOptionToResult (t: () -> {Fail} a): Fail.toOption t = Result.toOption 
     | Fail.stop msg, _ => rfl
 
 theorem abortThen (t: () -> {Abort} a) (k: a -> {Abort} b):
-    Abort.toOption (() => k (t ())) = Option.flatMap (x => Abort.toOption (() => k x)) (Abort.toOption t) :=
+    Abort.toOption (() => k (t ())) = Option.flatMap (Abort.toOption t) (x => Abort.toOption (() => k x)) :=
   match reify t with
     | return x => rfl
     | Abort.stop (), _ => rfl
 
 -- A thunk written in place: the split is on `f x` itself.
 theorem toResultMap (f: a -> {Fail} b): (xs: List a) ->
-    Fail.toResult (() => xs.map f) = Result.traverse (x => Fail.toResult (() => f x)) xs
+    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>
     let rest := toResultMap f xs
@@ -44,7 +44,7 @@ theorem toResultMap (f: a -> {Fail} b): (xs: List a) ->
 
 -- Std's own, used.
 theorem parsed (xs: List Text):
-    Fail.toResult (() => xs.map Text.toNatOrFail) = Result.traverse (x => Fail.toResult (() => Text.toNatOrFail x)) xs :=
+    Fail.toResult (() => xs.map Text.toNatOrFail) = Result.traverse xs (x => Fail.toResult (() => Text.toNatOrFail x)) :=
   Fail.toResultMap Text.toNatOrFail xs
 
 -- A user's own ability, with two operations that resume: a one-step split

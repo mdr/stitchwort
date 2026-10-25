@@ -822,17 +822,24 @@ const effTranslate = (m, c, pending) => {
 
 const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dList$dlength = (v1) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return 0n;
+  let s1 = v1;
+  let a$ = 0n;
+  for (;;) {
+    const v1 = s1;
+    switch (v1.tag) {
+      case "Nil": {
+        return a$;
+      }
+      case "Cons": {
+        const v2 = v1.head;
+        const v3 = v1.tail;
+        a$ += 1n;
+        s1 = v3;
+        continue;
+      }
     }
-    case "Cons": {
-      const v2 = v1.head;
-      const v3 = v1.tail;
-      return ($Std$dList$dlength(v3) + 1n);
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;
@@ -912,17 +919,29 @@ const $Std$dList$dtailOf = (v1) => {
   throw new Error("unreachable");
 };
 const $Std$dList$dconcatMap = (v2, v3) => {
-  switch (v3.tag) {
-    case "Nil": {
-      return { tag: "Nil" };
+  let s2 = v2, s3 = v3;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v2 = s2, v3 = s3;
+    switch (v2.tag) {
+      case "Nil": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "Cons": {
+        const v4 = v2.head;
+        const v5 = v2.tail;
+        for (let p1$ = (v3)(v4); p1$.tag === "Cons"; p1$ = p1$.tail) {
+          const c1$ = { tag: "Cons", head: p1$.head, tail: null };
+          if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+          l$ = c1$; k$ = "tail";
+        }
+        s2 = v5;
+        s3 = v3;
+        continue;
+      }
     }
-    case "Cons": {
-      const v4 = v3.head;
-      const v5 = v3.tail;
-      return $Std$dList$dappend((v2)(v4), $Std$dList$dconcatMap(v2, v5));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dappend = (a, b) => a + b;
@@ -994,7 +1013,7 @@ const $Std$dIO$dnextLine = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dIO$drestOf = (v0) => textOfChars($Std$dList$dconcatMap(((v1) => $Std$dList$dappend($Std$dText$dtoList(v1), { tag: "Cons", head: { tag: "MkChar", code: 10n }, tail: { tag: "Nil" } })), v0));
+const $Std$dIO$drestOf = (v0) => textOfChars($Std$dList$dconcatMap(v0, ((v1) => $Std$dList$dappend($Std$dText$dtoList(v1), { tag: "Cons", head: { tag: "MkChar", code: 10n }, tail: { tag: "Nil" } }))));
 const $Std$dIO$dsimulate$e = (v2, v3) => $Std$dEffect$dfoldComp(((v4) => ((v5) => ((v6) => ({ tag: "MkPair", fst: $Std$dList$dreverseOnto(v6, { tag: "Nil" }), snd: v4 })))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2, $s3) => (($p4) => ($p5) => $Std$dIO$d$gelim($s1, $s2, $s3, $p4, $p5)))(((v4) => ((v5) => ((v6) => ((v7) => (v5)({ tag: "UnitValue" })(v6)({ tag: "Cons", head: v4, tail: v7 }))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$dnextLine(v6))($Std$dList$dtailOf(v6))(v7))))), ((v4) => ((v5) => ((v6) => ((v7) => (v5)($Std$dIO$drestOf(v6))({ tag: "Nil" })(v7)))))), ((v4) => ((v5) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), rest: ((v6) => ({ tag: "Done", value: (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6)) })) })))), (v3)({ tag: "UnitValue" }))(v2)({ tag: "Nil" });
 const $Std$dText$dlength = (t) => {
   let n = 0;
@@ -1068,17 +1087,24 @@ const $Main$dnumberFrom = (v0, v1) => {
   }
 };
 const $Main$dtotalLength = (v0) => {
-  switch (v0.tag) {
-    case "Nil": {
-      return 0n;
+  let s0 = v0;
+  let a$ = 0n;
+  for (;;) {
+    const v0 = s0;
+    switch (v0.tag) {
+      case "Nil": {
+        return a$;
+      }
+      case "Cons": {
+        const v1 = v0.head;
+        const v2 = v0.tail;
+        a$ += $Std$dText$dlength(v1);
+        s0 = v2;
+        continue;
+      }
     }
-    case "Cons": {
-      const v1 = v0.head;
-      const v2 = v0.tail;
-      return $Std$dNat$dadd($Std$dText$dlength(v1), $Main$dtotalLength(v2));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dnumberedLength = (v0) => $Main$dtotalLength($Std$dPair$dfst($Std$dIO$dsimulate$e($Main$dlinesOf(v0), ((v1) => $Main$dnumberFrom(1n, $Std$dList$dlength(v0))))));
 const $Main$dcountdown = (v0) => {

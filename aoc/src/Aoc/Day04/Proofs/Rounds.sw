@@ -80,10 +80,10 @@ theorem roundCount (grid: Grid) (s: Cells): rollCount grid (removeAccessible gri
   let term: (x: Nat) -> (y: Nat) -> gone x y + acc x y = Bool.toNat (s x y == Roll) :=
     x y => roundTerm (accessible grid s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft (s x y == Roll) (neighbours grid s x y < 4) h))
   calc rollCount grid (removeAccessible grid s) + accCount grid s
-    _ = List.sumBy (x => List.sumBy (y => gone x y) (List.range grid.width)) (List.range grid.height)
-        + List.sumBy (x => List.sumBy (y => acc x y) (List.range grid.width)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => gone x y))
+        + List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => acc x y))
       := rewrite countPositionsSum grid (r c => removeAccessible grid s r c == Roll), countPositionsSum grid (r c => accessible grid s r c)
-    _ = List.sumBy (x => List.sumBy (y => Bool.toNat (s x y == Roll)) (List.range grid.width)) (List.range grid.height)
+    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (s x y == Roll)))
       := rewrite <- List.sumByAdd [c := Nat] _ _ _, <- List.sumByAdd [c := Nat] _ _ _, term _ _
     _ = rollCount grid s := Eq.sym (countPositionsSum grid (r c => s r c == Roll))
 
@@ -94,7 +94,7 @@ theorem toNatZero: (b: Bool) -> Bool.toNat b = 0 -> b = False
 -- A count over positions that is 0 holds nowhere on the grid.
 theorem countNone (grid: Grid) (p: Nat -> Nat -> Bool) (h: countPositions grid p = 0) (r: Nat) (c: Nat) (hr: r < grid.height) (hc: c < grid.width): p r c = False :=
   let sums := Eq.trans (Eq.sym (countPositionsSum grid p)) h
-  let row := List.sumRangeZero (x => List.sumBy (y => Bool.toNat (p x y)) (List.range grid.width)) grid.height 0 sums r omega hr
+  let row := List.sumRangeZero (x => List.sumBy (List.range grid.width) (y => Bool.toNat (p x y))) grid.height 0 sums r omega hr
   toNatZero (p r c) (List.sumRangeZero (y => Bool.toNat (p r y)) grid.width 0 row c omega hc)
 
 -- Off the grid or not a roll: nothing to check.

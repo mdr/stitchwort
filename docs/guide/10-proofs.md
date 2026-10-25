@@ -142,7 +142,7 @@ theorem swapWithZero (a: Nat) (b: Nat): a + b + 0 = b + a :=
   rewrite Nat.addZero (a + b), Nat.addComm a b
 ```
 
-`Nat.addZero (a + b)` turns `a + b + 0` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.addZero _` proves `List.map (x => x + 0) xs = List.map (x => x) xs` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `omega`; inside `List.sumBy f (List.range n)` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
+`Nat.addZero (a + b)` turns `a + b + 0` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.addZero _` proves `List.map xs (x => x + 0) = List.map xs (x => x)` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `omega`; inside `List.sumBy f (List.range n)` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
 
 `calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
 
@@ -258,7 +258,7 @@ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
 <!-- snippet: proofs.sw#decide -->
 ```stitchwort
 def firstOr (fallback: Nat) (xs: List Nat): Nat :=
-  if nonempty: 0 < xs.length then List.headOr fallback xs else fallback
+  if nonempty: 0 < xs.length then List.headOr xs fallback else fallback
 
 def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
   if inRange: i < 3 then Some (v.getLt i) else None
@@ -438,10 +438,10 @@ The [aoc/](../../aoc/) project solves Advent of Code puzzles and proves the answ
 
 <!-- snippet: ../../../aoc/src/Aoc/Day01/Day01.sw@zerosPassed,Dial.zerosDuring -->
 ```stitchwort
-def zerosPassed (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
   turns
-    |> .scanLeft .move startingDial
-    |> .zipWith .zerosDuring turns
+    |> .scanLeft startingDial .move
+    |> .zipWith turns .zerosDuring
     |> .sum
 
 def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn -> Nat
@@ -463,7 +463,7 @@ import Std (List, Nat)
 
 -- The specification of part 2: turn the dial one click at a time, and count
 -- the positions after each click that are 0.
-def zerosPassedSpec (startingDial: Dial n) (turns: List Turn): Nat :=
+def zerosPassedSpec (turns: List Turn) (startingDial: Dial n): Nat :=
   turns |> .concatMap Turn.clicks |> zerosLandedOn startingDial
 ```
 
@@ -471,10 +471,10 @@ The theorem, in `Aoc.Day01.Proofs`, says they agree for a dial of any size, any 
 
 <!-- snippet: ../../../aoc/src/Aoc/Day01/Proofs/Part2.sw@zerosPassedCorrect,part2Puzzle -->
 ```stitchwort
-theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed startingDial turns = zerosPassedSpec startingDial turns :=
+theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed turns startingDial = zerosPassedSpec turns startingDial :=
   zerosPassedFrom startingDial turns
 
-theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec startingDial turns :=
+theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns startingDial :=
   zerosPassedCorrect startingDial turns
 ```
 

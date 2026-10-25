@@ -75,7 +75,7 @@ def findStart (lines: List Text): Option (Nat, Nat) :=
   lines.withIndex.findMap (((rowIndex, line)) => (line.toList.findIndex (char => char == 'S')).map (columnIndex => (rowIndex, columnIndex)))
 
 -- The widest line's length.
-def gridWidth (lines: List Text): Nat := lines.foldLeft widen 0
+def gridWidth (lines: List Text): Nat := lines.foldLeft 0 widen
 
 def widen (width: Nat) (line: Text): Nat := Nat.max width line.length
 
@@ -101,14 +101,14 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) -> Nat
   | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith (splitter beam => splitter && beam) row beams).count (hit => hit)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith row beams (splitter beam => splitter && beam)).count (hit => hit)
 
 -- The beams falling out of a row: a beam passes a column with no splitter,
 -- and a splitter with a beam on it sends one down each side.
 def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
-  let hit := Vec.zipWith (splitter beam => splitter && beam) row beams
-  Vec.zipWith3 (pass left right => pass || (left || right))
-    (Vec.zipWith (splitter beam => beam && not splitter) row beams) (hit.shiftRight False) (hit.shiftLeft False)
+  let hit := Vec.zipWith row beams (splitter beam => splitter && beam)
+  Vec.zipWith3 (Vec.zipWith row beams (splitter beam => beam && not splitter))
+    (hit.shiftRight False) (hit.shiftLeft False) (pass left right => pass || (left || right))
 
 -- Part 2: the timelines of a particle starting at S.
 def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).get manifold.start
@@ -116,7 +116,7 @@ def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).get manifo
 -- For each column, the timelines of a particle falling into it from the row
 -- of S.
 def timelineCounts (manifold: Manifold): Vec Nat manifold.width :=
-  manifold.rows.foldRight splitRow (Vec.replicate manifold.width 1)
+  manifold.rows.foldRight (Vec.replicate manifold.width 1) splitRow
 
 -- A row's timeline counts, given the counts of the row below it: a column
 -- with no splitter has the count of the column below, and a splitter the
@@ -125,4 +125,4 @@ def splitRow (row: Vec Bool w) (below: Vec Nat w): Vec Nat w :=
   -- The pad 1: past either edge a particle has left the manifold, and that
   -- is one completed timeline.
   let sides := below.around 1 (left _ right => left + right)
-  Vec.zipWith3 (splitter here sides => if splitter then sides else here) row below sides
+  Vec.zipWith3 row below sides (splitter here sides => if splitter then sides else here)

@@ -7,5 +7,5 @@ expression: output
    │
  7 │ def f: Nat := "abc" |> List.sum
    │                        ────┬───  
-   │                            ╰───── this takes `List ?0` as its last argument, but the value before `|>` has type `Text`
+   │                            ╰───── `|>` passes the value as the first argument, which takes `List ?0`, but the value before `|>` has type `Text`
 ───╯

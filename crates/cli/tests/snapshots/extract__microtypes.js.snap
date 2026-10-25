@@ -778,17 +778,24 @@ const $Std$dBool$difThenElse = (v1, v2, v3) => {
 };
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlength = (v1) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return 0n;
+  let s1 = v1;
+  let a$ = 0n;
+  for (;;) {
+    const v1 = s1;
+    switch (v1.tag) {
+      case "Nil": {
+        return a$;
+      }
+      case "Cons": {
+        const v2 = v1.head;
+        const v3 = v1.tail;
+        a$ += 1n;
+        s1 = v3;
+        continue;
+      }
     }
-    case "Cons": {
-      const v2 = v1.head;
-      const v3 = v1.tail;
-      return ($Std$dList$dlength(v3) + 1n);
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {
@@ -979,18 +986,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -1001,16 +1008,16 @@ const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v2.tag) {
       case "Nil": {
         return v3;
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        s2 = v2;
-        s3 = (v2)(v3)(v5);
-        s4 = v6;
+        const v5 = v2.head;
+        const v6 = v2.tail;
+        s2 = v6;
+        s3 = (v4)(v3)(v5);
+        s4 = v4;
         continue;
       }
     }
@@ -1296,7 +1303,7 @@ const $Std$dMap$dRaw$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dTree$dinse
 const $Std$dMap$dRaw$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsertWith(v2, ((v6) => ((v7) => v6)), v3, v4, v5);
 const $Std$dMap$dRaw$dget = (v2, v3, v4) => $Std$dMap$dTree$dget(v2, v3, $Std$dMap$dRaw$dtree(v2, v4));
 const $Std$dMap$dRaw$dtoList = (v2, v3) => $Std$dMap$dTree$dtoListOnto($Std$dMap$dRaw$dtree(v2, v3), { tag: "Nil" });
-const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))), $Std$dMap$dRaw$dempty(v2), v3);
+const $Std$dMap$dRaw$dfromList = (v2, v3) => $Std$dList$dfoldLeft(v3, $Std$dMap$dRaw$dempty(v2), ((v4) => ((v5) => $Std$dMap$dRaw$dinsert(v2, $Std$dPair$dfst(v5), $Std$dPair$dsnd(v5), v4))));
 const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   switch (v0.tag) {
     case "Less": {
@@ -1457,9 +1464,9 @@ const $Std$dMap$draw = (v2, v3) => {
 const $Std$dMap$dofRaw = (v2, v3) => v3;
 const $Std$dMap$dfromList = (v2, v3) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dfromListFast(v2, v3));
 const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(v2, v3));
-const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v3, $Std$dMap$draw(v2, v4));
-const $Std$dMap$dkeys = (v2, v3) => $Std$dList$dmap$e($Std$dPair$dfst, $Std$dMap$dtoList(v2, v3));
-const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2, v3, v4, v5, v7)))($Std$dMap$draw(v2, v6));
+const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v4, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dkeys = (v2, v3) => $Std$dList$dmap$e($Std$dMap$dtoList(v2, v3), $Std$dPair$dfst);
+const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2, v6, v4, v5, v7)))($Std$dMap$draw(v2, v3));
 const $Std$dText$dsameChar = (v0, v1) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1));
 const $Std$dText$dstartsWithChars = (v0, v1) => {
   let s0 = v0, s1 = v1;
@@ -1597,7 +1604,7 @@ const $Main$dOrder$dhelper = (v0) => {
 const $Main$dwrap = (v0) => v0;
 const $Main$dunwrap = (v0) => $Main$dUserId$dvalue(v0);
 const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Main$dUserId$d$gdecEq(v0, v1));
-const $Main$downers = (v0) => $Std$dList$dmap$e(((v1) => $Main$dOrder$downer(v1)), v0);
+const $Main$downers = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Main$dOrder$downer(v1)));
 const $Main$dhelperOf = (v0) => $Main$dOrder$dhelper(v0);
 const $Main$dcreator = (v0) => {
   switch (v0.tag) {
@@ -1611,8 +1618,8 @@ const $Main$dcreator = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dOrderId$d$ginstOrd, v1, v0);
-const $Main$dvisits = (v0, v1) => $Std$dMap$dinsertWith($Main$dUserId$d$ginstOrd, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)), v1, 1n, v0);
+const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dOrderId$d$ginstOrd, v0, v1);
+const $Main$dvisits = (v0, v1) => $Std$dMap$dinsertWith($Main$dUserId$d$ginstOrd, v0, v1, 1n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)));
 const $Main$ddomain = (v0) => $Main$dEmail$dvalue(v0);
 const $Main$dmailbox = (v0) => $Std$dMap$dkeys($Main$dEmail$d$ginstOrd, v0);
 const $Main$dbump = (v0) => $Std$dNat$dadd($Main$dCount$dvalue(v0), 1n);

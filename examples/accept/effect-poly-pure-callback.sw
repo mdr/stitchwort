@@ -6,19 +6,19 @@ import Std (List, Fail)
 
 def double (n: Nat): Nat := n + n
 
-def doubled (numbers: List Nat): List Nat := List.map double numbers
+def doubled (numbers: List Nat): List Nat := List.map numbers double
 
-def successors (numbers: List Nat): List Nat := List.map Succ numbers
+def successors (numbers: List Nat): List Nat := List.map numbers Succ
 
-def tails (lists: List (List Nat)): List (List Nat) := List.map (List.drop 1) lists
+def tails (lists: List (List Nat)): List (List Nat) := List.map lists (.drop 1)
 
-def mapPure (step: Nat -> Nat) (numbers: List Nat): List Nat := List.map step numbers
+def mapPure (step: Nat -> Nat) (numbers: List Nat): List Nat := List.map numbers step
 
-def mapEmptyRow (step: Nat -> {} Nat) (numbers: List Nat): List Nat := List.map step numbers
+def mapEmptyRow (step: Nat -> {} Nat) (numbers: List Nat): List Nat := List.map numbers step
 
 -- In a computation that may fail, a pure callback performs nothing.
 def doubledOrFail (numbers: List Nat): {Fail} (List Nat) :=
-  let doubledNumbers := List.map double numbers
+  let doubledNumbers := List.map numbers double
   if doubledNumbers == [] then Fail.fail "no numbers" else doubledNumbers
 
 test "map with a named function" := doubled [1, 2, 3] == [2, 4, 6]

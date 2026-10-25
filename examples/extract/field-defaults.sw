@@ -73,7 +73,7 @@ export def label: Shape -> Text
 -- too, `JobInput`.
 type Job = { name: Text, options: RangeOptions }
 
-export def steps (jobs: List Job): List Nat := List.map (job => job.options.step) jobs
+export def steps (jobs: List Job): List Nat := List.map jobs (job => job.options.step)
 
 -- A generic record: `BoxInput<T>`, and a type argument is an input too,
 -- `BoxInput<RangeOptionsInput>`.

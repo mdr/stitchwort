@@ -12,12 +12,12 @@ import Aoc.Day04.Spec (..)
 import Std (Bool, Eq, List, Nat, Vec)
 
 -- The rolls of all the rows, cell by cell.
-theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w)) (List.range h) :=
+theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (List.range h) (r => List.sumBy (List.range w) (c => (rowsCells rows r c).count)) :=
   let gap := Vec.replicate w Floor
   calc countRolls rows
-    _ = List.sumBy (r => Vec.sumBy Cell.count (Vec.getOr gap r rows)) (List.range h) := Vec.sumByGetOr (row => Vec.sumBy Cell.count row) gap rows
-    _ = List.sumBy (r => List.sumBy (c => (rowsCells rows r c).count) (List.range w)) (List.range h)
-      := rewrite Vec.sumByGetOr Cell.count Floor _
+    _ = List.sumBy (List.range h) (r => Vec.sumBy (Vec.getOr rows gap r) Cell.count) := Vec.sumByGetOr rows gap (row => Vec.sumBy row Cell.count)
+    _ = List.sumBy (List.range h) (r => List.sumBy (List.range w) (c => (rowsCells rows r c).count))
+      := rewrite Vec.sumByGetOr _ Floor Cell.count
 
 -- What a round takes from one cell: 1 when it holds an accessible roll.
 theorem taken: (a: Cell) -> (n: Nat) -> Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll && n < 4)
@@ -36,17 +36,17 @@ theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
   let right := (r: Nat) => (c: Nat) => (h: grid.width <= c) => rowsCellsRight grid.rows r c h
   let a := (r: Nat) => (c: Nat) => (cells r c).count
   let k := (r: Nat) => (c: Nat) => (keep (cells r c) (window cells r c)).count
-  let sum2 := (f: Nat -> Nat -> Nat) => List.sumBy (r => List.sumBy (c => f r c) (List.range grid.width)) (List.range grid.height)
+  let sum2 := (f: Nat -> Nat -> Nat) => List.sumBy (List.range grid.height) (r => List.sumBy (List.range grid.width) (c => f r c))
   calc solvePart1 grid
     _ = sum2 a - sum2 (r c => (rowsCells (roundRows grid.rows) r c).count)
       := rewrite rollsCells grid.rows, rollsCells (roundRows grid.rows)
     _ = sum2 a - sum2 k
       := rewrite cellRound grid.rows _ _
     _ = sum2 (r c => a r c - k r c)
-      := rewrite List.sumBySub (r => List.sumBy (c => a r c) (List.range grid.width)) (r => List.sumBy (c => k r c) (List.range grid.width))
-        (r => List.sumByLe (c => a r c) (c => k r c) (c => keepLe (cells r c) (window cells r c)) (List.range grid.width))
-        (List.range grid.height),
-        List.sumBySub (c => a _ c) (c => k _ c) (c => keepLe (cells _ c) (window cells _ c)) _
+      := rewrite List.sumBySub (List.range grid.height) (r => List.sumBy (List.range grid.width) (c => a r c))
+        (r => List.sumBy (List.range grid.width) (c => k r c))
+        (r => List.sumByLe (List.range grid.width) (c => a r c) (c => k r c) (c => keepLe (cells r c) (window cells r c))),
+        List.sumBySub _ (c => a _ c) (c => k _ c) (c => keepLe (cells _ c) (window cells _ c))
     _ = sum2 (r c => Bool.toNat (accessible grid cells r c))
       := rewrite windowIsNeighbours grid cells below right _ _, taken _ _
     _ = part1Spec grid := Eq.sym (countPositionsSum grid (r c => accessible grid cells r c))

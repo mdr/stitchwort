@@ -1,8 +1,9 @@
--- Pipe forward `|>`. `x |> f a b` is `f a b x`: the value on the left becomes
--- the LAST argument, which is why the library puts the main argument last
--- (`List.map f xs`). `|>` is the loosest operator except `->`, and groups to
--- the left, so a pipeline reads top to bottom. The left side is checked, and
--- run, before the arguments on the right.
+-- Pipe forward `|>`. `x |> f a b` is `f x a b`: the value on the left becomes
+-- the FIRST argument, as with dot notation (`x.f a b`), which is why the
+-- library puts the main argument first (`List.map xs f`). `|>` is the loosest
+-- operator except `->`, and groups to the left, so a pipeline reads top to
+-- bottom. The left side is checked, and run, before the arguments on the
+-- right.
 
 import Std (IO, List, Nat, Pair)
 
@@ -11,7 +12,7 @@ type Person = { name: Text, age: Nat }
 def people: List Person := [{ name = "Ann", age = 30 }, { name = "Bob", age = 25 }]
 
 -- The left side is checked first, so its type is known when the lambda is
--- checked: `p: Person`. `List.map (p => p.name) people` can't do that.
+-- checked: `p: Person`, as in `List.map people (p => p.name)`.
 def names: List Text := people |> List.map (p => p.name)
 
 test "inference through a pipe" := names == ["Ann", "Bob"]
@@ -51,14 +52,15 @@ test "lambda" := lam == 6
 test "lambda chain" := lamChain == 12
 
 -- A constructor is a function, a local function variable is a head too, and a
--- number literal on the left just takes its type from the function.
+-- number literal on the left just takes its type from the function. It goes
+-- first: `5 |> Nat.sub 1` is `Nat.sub 5 1`.
 def ctor: Option Nat := 3 |> Some
 def applyTo (h: Nat -> Nat): Nat := 3 |> h
-def literal: Nat := 5 |> Nat.add 1
+def literal: Nat := 5 |> Nat.sub 1
 
 test "constructor" := ctor == Some 3
 test "local function" := applyTo (x => x + 1) == 4
-test "literal" := literal == 6
+test "literal" := literal == 4
 
 -- Named implicit arguments work on the right as in any call.
 def named: List Nat := [1, 2] |> List.map [b := Nat] (x => x)
@@ -81,7 +83,7 @@ test "match piped" := classify 0 == 11 && classify 5 == 15
 test "pipe in an arm" := inArm 0 == 3 && inArm 4 == 4
 
 -- Effects: the left side runs first, then the right side's arguments, then
--- the call.
+-- the call. `say "left" 1 |> addSay (say "right" 2)` is `addSay 1 2`.
 def say (text: Text) (n: Nat): {IO} Nat :=
   IO.print text
   n

@@ -65,25 +65,25 @@ theorem betweenTwo: (n: Nat) -> List.between 2 n = List.rangeFrom (n - 1) 2
 
 -- One template, kept if it fits: its sum is `f` of it, or nothing.
 theorem keptSum [auto add: Add c] (f: RepetitionTemplate -> c) (size: Nat) (k: Nat) (n: Nat):
-    List.sumBy f (keptIfFits size k n) = (if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) :=
+    List.sumBy (keptIfFits size k n) f = (if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) :=
   match Nat.leq (k * n) size with
     | True => add.zeroAdd (f { blockLength = k, copies = n })
     | False => rfl
 
 theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate -> c):
-    List.sumBy f (allTemplatesForRange r)
-      = List.sumBy (k => List.sumBy (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)
-        (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)) (List.rangeFrom (List.length (Nat.digits r.to)) 1) :=
+    List.sumBy (allTemplatesForRange r) f
+      = List.sumBy (List.rangeFrom (List.length (Nat.digits r.to)) 1) (k => List.sumBy (List.rangeFrom (List.length (Nat.digits r.to) - 1) 2)
+        (n => if Nat.leq (k * n) (List.length (Nat.digits r.to)) then f { blockLength = k, copies = n } else Add.zero)) :=
   let size := List.length (Nat.digits r.to)
   let cell: Nat -> Nat -> c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
-  calc List.sumBy f (allTemplatesForRange r)
-    _ = List.sumBy f (List.flatMap (List.between 1 size) (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n)))
-      := Eq.cong (List.sumBy f) (templatesAsGrid r)
-    _ = List.sumBy (k => List.sumBy f (List.flatMap (List.between 2 size) (n => keptIfFits size k n))) (List.between 1 size)
-      := List.sumByFlatMap f (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n)) (List.between 1 size)
-    _ = List.sumBy (k => List.sumBy (cell k) (List.between 2 size)) (List.between 1 size)
-      := rewrite List.sumByFlatMap f _ (List.between 2 size), keptSum f size _ _
-    _ = List.sumBy (k => List.sumBy (cell k) (List.rangeFrom (size - 1) 2)) (List.rangeFrom size 1)
+  calc List.sumBy (allTemplatesForRange r) f
+    _ = List.sumBy (List.flatMap (List.between 1 size) (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n))) f
+      := Eq.cong (.sumBy f) (templatesAsGrid r)
+    _ = List.sumBy (List.between 1 size) (k => List.sumBy (List.flatMap (List.between 2 size) (n => keptIfFits size k n)) f)
+      := List.sumByFlatMap (List.between 1 size) f (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n))
+    _ = List.sumBy (List.between 1 size) (k => List.sumBy (List.between 2 size) (cell k))
+      := rewrite List.sumByFlatMap (List.between 2 size) f _, keptSum f size _ _
+    _ = List.sumBy (List.rangeFrom size 1) (k => List.sumBy (List.rangeFrom (size - 1) 2) (cell k))
       := rewrite betweenOne size, betweenTwo size
 
 -- Membership (1): a listed template fits.

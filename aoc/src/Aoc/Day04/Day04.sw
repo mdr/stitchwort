@@ -52,7 +52,7 @@ def solvePart2 (grid: Grid): Nat := grid.rolls - grid.settle.rolls
 def parseGrid (lines: List Text): Result Grid Text :=
   match findStray lines with
     | Some (row, column, ch) => Err "line ${row}, column ${column}: expected '@' or '.', got '${ch}'"
-    | None => Option.toResult "expected lines that are all the same length, got a line of a different length" (gridOf lines)
+    | None => Option.toResult (gridOf lines) "expected lines that are all the same length, got a line of a different length"
 
 -- The line and column (both from 1) of the first character that is neither
 -- @ nor ., and the character.
@@ -76,7 +76,7 @@ def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
 def Grid.rolls (grid: Grid): Nat := countRolls grid.rows
 
 -- The rolls in some rows.
-def countRolls (rows: Vec (Vec Cell w) h): Nat := rows.sumBy (row => row.sumBy .count)
+def countRolls (rows: Vec (Vec Cell w) h): Nat := rows.sumBy (.sumBy .count)
 
 def Grid.round (grid: Grid): Grid := { grid | rows = roundRows grid.rows }
 
@@ -88,9 +88,9 @@ def roundRows (rows: Vec (Vec Cell w) h): Vec (Vec Cell w) h := rows.around (Vec
 -- add the three rows column by column, then each column's sum to its
 -- neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: Vec Cell w): Vec Cell w :=
-  let columns := Vec.zipWith3 (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count) above row below
+  let columns := Vec.zipWith3 above row below (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count)
   let windows := columns.around 0 (left here right => left + here + right)
-  Vec.zipWith (roll window => if roll == Roll && 5 <= window then Roll else Floor) row windows
+  Vec.zipWith row windows (roll window => if roll == Roll && 5 <= window then Roll else Floor)
 
 def Grid.settle (grid: Grid): Grid := { grid | rows = settleRows grid.rows }
 

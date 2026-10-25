@@ -4954,7 +4954,7 @@ fn text_native_js(op: TextNative) -> &'static str {
         // first. (The definition is strict and pure, so only the result can
         // differ, and it doesn't.) `f` itself may still recurse.
         TextNative::TextFold => {
-            r#"(f) => (z) => (t) => {
+            r#"(t) => (z) => (f) => {
   let acc = z;
   for (let i = t.length - 1; i >= 0; i--) {
     const code = scalarEndingAt(t, i);
@@ -4982,7 +4982,7 @@ fn text_native_js(op: TextNative) -> &'static str {
         // `length` takes it all without counting, and any other count is a
         // safe integer.
         TextNative::TextTake => {
-            r#"(n) => (t) => {
+            r#"(t) => (n) => {
   if (n >= BigInt(t.length)) return t;
   const count = Number(n);
   let i = 0;
@@ -4995,7 +4995,7 @@ fn text_native_js(op: TextNative) -> &'static str {
         }
         // The text after its first `n` scalar values, or "".
         TextNative::TextDrop => {
-            r#"(n) => (t) => {
+            r#"(t) => (n) => {
   if (n >= BigInt(t.length)) return "";
   const count = Number(n);
   let i = 0;
@@ -5010,14 +5010,14 @@ fn text_native_js(op: TextNative) -> &'static str {
         // with a whole scalar value (never a low surrogate) and ends with
         // one, so it is a match of scalar values. "" occurs in every text.
         TextNative::TextContains => {
-            r#"(needle) => (t) => ({ tag: t.includes(needle) ? "True" : "False" })"#
+            r#"(t) => (needle) => ({ tag: t.includes(needle) ? "True" : "False" })"#
         }
         // The separator is a whole scalar value, and in a well-formed string
         // a match can't start inside a pair. Empty fields are kept, and ""
         // splits into [""], as the definition says.
-        TextNative::TextSplit => "(s) => (t) => listOf(t.split(encodeChar(s)))",
+        TextNative::TextSplit => "(t) => (s) => listOf(t.split(encodeChar(s)))",
         TextNative::TextJoin => {
-            r#"(s) => (ts) => {
+            r#"(ts) => (s) => {
   const parts = [];
   for (let l = ts; l.tag === "Cons"; l = l.tail) parts.push(l.head);
   return parts.join(encodeChar(s));

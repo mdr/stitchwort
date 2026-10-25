@@ -5,7 +5,7 @@ import Std (Option, SafeNat)
 type Profile = { name: Text, nickname: Option Text }
 
 -- An `Option` is `T | undefined` in JS; in a record it is an optional field.
-export def displayName (p: Profile): Text := Option.getOrElse p.name p.nickname
+export def displayName (p: Profile): Text := Option.getOrElse p.nickname p.name
 
 -- A `Nat` is a `bigint`. `SafeNat` is a whole number that fits a JS
 -- `number`, and `ofNat` says `None` when it doesn't.

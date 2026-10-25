@@ -51,6 +51,7 @@ type Ring.NExpr: Type =
   | NMul (a: Ring.NExpr) (b: Ring.NExpr)
   | NSucc (a: Ring.NExpr)
 
+@[noReceiver]
 def Ring.NExpr.eval (env: Ring.Env): Ring.NExpr -> Nat
   | NAtom i => Ring.natAt (Ring.Env.nats env) i
   | NNum n => n
@@ -71,6 +72,7 @@ type Ring.ZExpr: Type =
   | ZOfNat (e: Ring.NExpr)
   | ZNegSucc (e: Ring.NExpr)
 
+@[noReceiver]
 def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr -> Int
   | ZAtom i => Ring.intAt (Ring.Env.ints env) i
   | ZNum c => c
@@ -140,6 +142,7 @@ def Ring.prod (env: Ring.Env): List Nat -> Int
   | Nil => OfNat 1
   | Cons v vs => Int.mul (Ring.var env v) (Ring.prod env vs)
 
+@[noReceiver]
 def Ring.Mono.eval (env: Ring.Env): Ring.Mono -> Int
   | MkMono c vs => Int.mul c (Ring.prod env vs)
 

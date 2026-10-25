@@ -66,28 +66,28 @@ test "fin: show" := "${(Fin.ofNat 2: Fin 5)}" == "2"
 def Fin.ofNatCheck (n: Nat) (i: Nat): Option (Fin n) := if h: i < n then Some (Fin.ofNatLt n i h) else None
 
 theorem Fin.ofNatCheckDec (n: Nat) (i: Nat): (d: Decidable (i < n)) -> i < n ->
-    Option.map Fin.toNat (Decidable.elim d (h => Some (Fin.ofNatLt n i h)) (h => None)) = Some i
+    Option.map (Decidable.elim d (h => Some (Fin.ofNatLt n i h)) (h => None)) Fin.toNat = Some i
   | Yes h, lt => Eq.cong Some (Fin.toNatOfNatLt n i h)
   | No r, lt => Void.exfalso (r lt)
 
-theorem Fin.ofNatCheckLt (n: Nat) (i: Nat) (h: i < n): Option.map Fin.toNat (Fin.ofNatCheck n i) = Some i :=
+theorem Fin.ofNatCheckLt (n: Nat) (i: Nat) (h: i < n): Option.map (Fin.ofNatCheck n i) Fin.toNat = Some i :=
   Fin.ofNatCheckDec n i (Bool.decTrue (Nat.leq (Succ i) n)) h
 
-test "ofNatCheck" := (Option.map Fin.toNat (Fin.ofNatCheck 5 4), Option.map Fin.toNat (Fin.ofNatCheck 5 5)) == (Some 4, None)
+test "ofNatCheck" := (Option.map (Fin.ofNatCheck 5 4) Fin.toNat, Option.map (Fin.ofNatCheck 5 5) Fin.toNat) == (Some 4, None)
 
 -- The decimal digit a character shows: `Char.toDigit '7'` is 7, as a
 -- `Fin 10`, and a character that isn't a digit gives `None`.
-def Char.toDigit (char: Char): Option (Fin 10) := Option.flatMap (Fin.ofNatCheck 10) (Char.digitValue char)
+def Char.toDigit (char: Char): Option (Fin 10) := Option.flatMap (Char.digitValue char) (Fin.ofNatCheck 10)
 
-theorem Char.toDigitOf: (m: Option Nat) -> Option.IsDigit m -> Option.map Fin.toNat (Option.flatMap (Fin.ofNatCheck 10) m) = m
+theorem Char.toDigitOf: (m: Option Nat) -> Option.IsDigit m -> Option.map (Option.flatMap m (Fin.ofNatCheck 10)) Fin.toNat = m
   | None, h => rfl
   | Some d, h => Fin.ofNatCheckLt 10 d h
 
 -- `Char.toDigit` is `Char.digitValue`, with the digit's bound in its type.
-theorem Char.toDigitValue (c: Char): Option.map Fin.toNat (Char.toDigit c) = Char.digitValue c :=
+theorem Char.toDigitValue (c: Char): Option.map (Char.toDigit c) Fin.toNat = Char.digitValue c :=
   Char.toDigitOf (Char.digitValue c) (Char.digitValueDigit c)
 
-test "char to digit" := List.map (c => Option.map Fin.toNat (Char.toDigit c)) (Text.toList "0a9") == [Some 0, None, Some 9]
+test "char to digit" := List.map (Text.toList "0a9") (c => Option.map (Char.toDigit c) Fin.toNat) == [Some 0, None, Some 9]
 
 -- Quantifying over the positions below n ------------------------------------
 
@@ -130,14 +130,14 @@ theorem Fin.anyCong (p1: Fin n -> Bool) (p2: Fin n -> Bool) (ep: (i: Fin n) -> p
 
 -- `Fin.any` on the numbers of the positions is `List.any` on a run of
 -- numbers: positions below n counted from s.
-theorem Fin.anyRangeFrom (q: Nat -> Bool): (n: Nat) -> (s: Nat) -> Fin.any n (i => q (Fin.toNat i + s)) = List.any q (List.rangeFrom n s)
+theorem Fin.anyRangeFrom (q: Nat -> Bool): (n: Nat) -> (s: Nat) -> Fin.any n (i => q (Fin.toNat i + s)) = List.any (List.rangeFrom n s) q
   | Zero, s => rfl
   | Succ n, s =>
     rewrite Fin.anyCong (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i => Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
       Fin.anyRangeFrom q n (Succ s) in rfl
 
 -- ... so from 0: `Fin.any n` is `List.any` along `List.range n`.
-theorem Fin.anyRange (q: Nat -> Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any q (List.range n) :=
+theorem Fin.anyRange (q: Nat -> Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range n) q :=
   Eq.trans (Fin.anyCong (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i => Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
     (Fin.anyRangeFrom q n 0)
 
@@ -157,4 +157,4 @@ theorem Fin.anyIntroExample: Fin.any 4 (i => i == (Fin.ofNat 2: Fin 4)) = True :
 test "fin any: some position passes" := Fin.any 5 (i => Fin.toNat i == 4)
 test "fin any: none passes" := !(Fin.any 5 (i => Fin.toNat i == 5))
 test "fin any: no positions" := !(Fin.any 0 (i => True))
-test "fin any: as List.any" := Fin.any 6 (i => Fin.toNat i * Fin.toNat i == 16) == List.any (x => x * x == 16) (List.range 6)
+test "fin any: as List.any" := Fin.any 6 (i => Fin.toNat i * Fin.toNat i == 16) == List.any (List.range 6) (x => x * x == 16)

@@ -85,7 +85,7 @@ A function that works for any type with an instance takes an `[auto …]` parame
 
 <!-- snippet: interfaces.sw#auto -->
 ```stitchwort
-def describeAll [auto describer: Describe a] (items: List a): Text := Text.join ' ' (items.map Describe.describe)
+def describeAll [auto describer: Describe a] (items: List a): Text := Text.join (items.map Describe.describe) ' '
 
 test "the instance is found from the type" := describeAll [aceOfSpades, twoOfClubs] == "14♠ 2♣"
 ```

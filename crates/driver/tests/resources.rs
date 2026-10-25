@@ -142,7 +142,7 @@ def counted (prog : () -> {Count | e} a) : {e} Pair Nat a :=
 
 test "half"     := half 9 == 4
 test "safeDiv"  := safeDiv 7 0 == 0
-test "text"     := Text.join '-' (Text.split ',' "a,,b") == "a--b"
+test "text"     := Text.join (Text.split "a,,b" ',') '-' == "a--b"
 test "trim"     := Text.trim "  x " == "x"
 test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 "#;
@@ -434,7 +434,7 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
     let visits = |callback: &str, depth: usize| {
         let mut nested = "xs".to_string();
         for _ in 0..depth {
-            nested = format!("List.map {callback} ({nested})");
+            nested = format!("List.map ({nested}) {callback}");
         }
         let source = format!(
             "import Std (List, Fail)\n\

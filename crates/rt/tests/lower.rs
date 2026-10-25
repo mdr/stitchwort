@@ -294,8 +294,8 @@ def signed (t: Text): Int :=
     | None => 0
 
 def main(): {IO} () :=
-  let parts := Text.split ',' "12,-5,x"
-  IO.print (Text.join ' ' (parts.map (t => Int.toText (signed t))))
+  let parts := Text.split "12,-5,x" ','
+  IO.print (Text.join (parts.map (t => Int.toText (signed t))) ' ')
   IO.print (if Text.length "abc" == 3 && "a" < "b" then "yes" else "no")
 "#));
 }
@@ -337,7 +337,7 @@ def scale (a: Nat) (b: Nat) (xs: List Nat): List Nat := xs.map (x => a * x + b)
 
 def main(): {IO} () :=
   let k := 3
-  IO.print (Nat.toText ((scale k 1 [1, 2]).foldLeft (acc x => acc + x + k) 0))
+  IO.print (Nat.toText ((scale k 1 [1, 2]).foldLeft 0 (acc x => acc + x + k)))
 "#));
 }
 
@@ -418,7 +418,7 @@ import Std (List, Nat)
 
 def step (n: Nat): Nat := n + 1
 
-def main(): {IO} () := IO.print (Nat.toText (List.sum (List.map step [1, 2, 3])))
+def main(): {IO} () := IO.print (Nat.toText (List.sum (List.map [1, 2, 3] step)))
 "#);
     assert!(!ir.contains("Empty"), "a row in the IR:\n{ir}");
     assert!(

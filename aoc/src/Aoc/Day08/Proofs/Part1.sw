@@ -21,32 +21,32 @@ import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 
 -- The program's pairs, closest first, are the spec's connections in order,
 -- each with its key: sorting the keys is sorting the pairs by their keys.
-theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionKey points) (connectionOrder points) :=
+theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
   calc closestFirst points
-    _ = List.sort (List.map (connectionKey points) (allPairs points.length)) :=
-      rewrite List.withIndexRange origin points, List.pairsMap (i => (i, List.getOr origin i points)) (List.range points.length),
-        List.mapMap _ _ (List.pairs (List.range points.length))
+    _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
+      rewrite List.withIndexRange points origin, List.pairsMap (List.range points.length) (i => (i, List.getOr points origin i)),
+        List.mapMap (List.pairs (List.range points.length)) _ _
         in rfl
-    _ = List.map (connectionKey points) (connectionOrder points) := Eq.sym (List.sortOnMap (connectionKey points) (allPairs points.length))
+    _ = List.map (connectionOrder points) (connectionKey points) := Eq.sym (List.sortOnMap (allPairs points.length) (connectionKey points))
 
 -- The program's fold joins the first k connections.
 theorem joinedIsJoinAll (k: Nat) (points: List Point):
-    List.foldLeft Circuits.connect (Circuits.separate points.length) (List.take k (closestFirst points))
+    List.foldLeft (List.take (closestFirst points) k) (Circuits.separate points.length) Circuits.connect
       = joinAll (Circuits.separate points.length) (firstConnections k points) :=
-  rewrite closestFirstIsOrder points, List.takeMap (connectionKey points) k (connectionOrder points),
-    List.foldLeftMap Circuits.connect (connectionKey points) (Circuits.separate points.length) (List.take k (connectionOrder points))
+  rewrite closestFirstIsOrder points, List.takeMap (connectionOrder points) k (connectionKey points),
+    List.foldLeftMap (List.take (connectionOrder points) k) (Circuits.separate points.length) Circuits.connect (connectionKey points)
     in rfl
 
 -- Every connection is between two of the boxes ------------------------------
 
-theorem allAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.all p xs = True -> List.all p ys = True -> List.all p (List.append xs ys) = True
+theorem allAppend (p: a -> Bool): (xs: List a) -> (ys: List a) -> List.all xs p = True -> List.all ys p = True -> List.all (List.append xs ys) p = True
   | Nil, ys, hx, hy => hy
   | Cons x xs, ys, hx, hy =>
     match e: p x with
       | True => allAppend p xs ys hx hy
       | False => hx
 
-theorem allTake (p: a -> Bool): (k: Nat) -> (xs: List a) -> List.all p xs = True -> List.all p (List.take k xs) = True
+theorem allTake (p: a -> Bool): (k: Nat) -> (xs: List a) -> List.all xs p = True -> List.all (List.take xs k) p = True
   | Zero, xs, h => rfl
   | Succ k, Nil, h => rfl
   | Succ k, Cons x xs, h =>
@@ -55,28 +55,28 @@ theorem allTake (p: a -> Bool): (k: Nat) -> (xs: List a) -> List.all p xs = True
       | False => h
 
 -- If every element passes q, so do both ends of every pair.
-theorem allPairsBoth (q: Nat -> Bool): (xs: List Nat) -> List.all q xs = True -> List.all (pair => q pair.fst && q pair.snd) (List.pairs xs) = True
+theorem allPairsBoth (q: Nat -> Bool): (xs: List Nat) -> List.all xs q = True -> List.all (List.pairs xs) (pair => q pair.fst && q pair.snd) = True
   | Nil, h => rfl
   | Cons x xs, h =>
     match e: q x with
-      | True => allAppend _ (List.map (y => (x, y)) xs) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
+      | True => allAppend _ (List.map xs (y => (x, y))) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
       | False => Void.exfalso (Bool.falseNotTrue h)
 
-theorem allMapPairWith (q: Nat -> Bool) (x: Nat) (hx: q x = True): (xs: List Nat) -> List.all q xs = True ->
-    List.all (pair => q pair.fst && q pair.snd) (List.map (y => (x, y)) xs) = True
+theorem allMapPairWith (q: Nat -> Bool) (x: Nat) (hx: q x = True): (xs: List Nat) -> List.all xs q = True ->
+    List.all (List.map xs (y => (x, y))) (pair => q pair.fst && q pair.snd) = True
   | Nil, h => rfl
   | Cons y ys, h =>
     match e: q y with
       | True => rewrite hx in allMapPairWith q x hx ys h
       | False => Void.exfalso (Bool.falseNotTrue h)
 
-theorem connectionsInRange (k: Nat) (points: List Point): List.all (boxesBelow points.length) (firstConnections k points) = True :=
+theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
   let n := points.length
-  let below: List.all (i => Nat.leq (Succ i) n) (List.range n) = True :=
+  let below: List.all (List.range n) (i => Nat.leq (Succ i) n) = True :=
     List.allRangeIntro (i => Nat.leq (Succ i) n) n 0 (i lo hi => hi)
   allTake (boxesBelow n) k (connectionOrder points)
-    (rewrite List.allPerm (boxesBelow n) (connectionOrder points) (allPairs n)
-      (List.sortOnPerm (connectionKey points) (allPairs n))
+    (rewrite List.allPerm (connectionOrder points) (allPairs n) (List.sortOnPerm (allPairs n) (connectionKey points))
+      (boxesBelow n)
       in allPairsBoth (i => Nat.leq (Succ i) n) (List.range n) below)
 
 -- The program's sizes are the spec's ----------------------------------------
@@ -85,7 +85,7 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (boxesBelow p
 theorem circuitSizesCongRange (n: Nat) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)
     (agree: (a: Nat) -> (b: Nat) -> a < n -> b < n -> same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
   let below: (x: Nat) -> List.Mem x (List.range n) -> x < n := x m => And.right (List.memRangeFrom x n 0 m)
-  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter _ _ (List.range n) _)))
+  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range n) _ _ _)))
 
 -- Two tests that tell agree.
 theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat -> Nat -> Bool) (same2: Nat -> Nat -> Bool)

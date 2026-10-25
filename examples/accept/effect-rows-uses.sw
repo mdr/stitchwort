@@ -61,7 +61,7 @@ def Tagged.number [flag: Bool]: Tagged flag -> Nat
 def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagged.number
 
 def loggedLet (numbers: List (Tagged True)): {Log} (List Nat) :=
-  let mapped := List.map answer numbers
+  let mapped := List.map numbers answer
   mapped
 
 test "a let-bound effectful use" :=
@@ -69,7 +69,7 @@ test "a let-bound effectful use" :=
 
 -- Used before it's returned.
 def loggedLetUsed (numbers: List (Tagged True)): {Log} (List Nat) :=
-  let mapped := List.map answer numbers
+  let mapped := List.map numbers answer
   say (List.length mapped)
   mapped
 
@@ -77,7 +77,7 @@ test "a let-bound effectful use, used first" :=
   Log.collect (() => loggedLetUsed [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4, 2]
 
 def notLoggedLet (numbers: List (Tagged False)): List Nat :=
-  let mapped := List.map answer numbers
+  let mapped := List.map numbers answer
   mapped
 
 test "a let-bound pure use" := notLoggedLet [Tag 3, Tag 4] == [3, 4]

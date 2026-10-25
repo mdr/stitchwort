@@ -68,13 +68,13 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect
 -- and `RepetitionTemplate.sumIn` gives 0.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
   List.between 1 (Nat.digits range.to).length
-    |> .sumBy (blockLength => RepetitionTemplate.sumIn range { blockLength, copies = 2 })
+    |> .sumBy (blockLength => RepetitionTemplate.sumIn { blockLength, copies = 2 } range)
 
 -- Part 2: the ids in the range written two or more times, each counted once.
 -- 111111 has templates 1×6, 2×3 and 3×2 (block length × copies); the weights cancel the repeats.
 def sumOfIdsWrittenRepeatedly (range: Range): Int :=
   (allTemplatesForRange range).sumBy (template =>
-    let idsTotal := RepetitionTemplate.sumIn range template
+    let idsTotal := RepetitionTemplate.sumIn template range
     let weight := copiesWeight template.copies
     weight * idsTotal.toInt)
 
@@ -94,7 +94,7 @@ def copiesWeight (copies: Nat): Int
 
 -- The sum of the ids in the range whose digits are a block of the template's
 -- length written the template's number of copies.
-def RepetitionTemplate.sumIn (range: Range) (template: RepetitionTemplate): Nat :=
+def RepetitionTemplate.sumIn (template: RepetitionTemplate) (range: Range): Nat :=
   -- Every such id is a block times the multiplier.
   let multiplier := template.multiplier
   if multiplier != 0 then

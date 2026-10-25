@@ -763,17 +763,24 @@ const $Std$dList$dappend = (v1, v2) => {
   }
 };
 const $Main$dsizeForest = (v0) => {
-  switch (v0.tag) {
-    case "FNil": {
-      return 0n;
+  let s0 = v0;
+  let a$ = 0n;
+  for (;;) {
+    const v0 = s0;
+    switch (v0.tag) {
+      case "FNil": {
+        return a$;
+      }
+      case "FCons": {
+        const v1 = v0.first;
+        const v2 = v0.rest;
+        a$ += $Main$dsize(v1);
+        s0 = v2;
+        continue;
+      }
     }
-    case "FCons": {
-      const v1 = v0.first;
-      const v2 = v0.rest;
-      return $Std$dNat$dadd($Main$dsize(v1), $Main$dsizeForest(v2));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dsize = (v0) => {
   switch (v0.tag) {
@@ -835,17 +842,28 @@ const $Main$ddeepOnto = (v0, v1) => {
 };
 const $Main$ddeep = (v0) => $Main$ddeepOnto({ tag: "Node", label: 0n, kids: { tag: "FNil" } }, v0);
 const $Main$dflattenRoses = (v1) => {
-  switch (v1.tag) {
-    case "NoRoses": {
-      return { tag: "Nil" };
+  let s1 = v1;
+  let h$ = null, l$ = null, k$ = null;
+  for (;;) {
+    const v1 = s1;
+    switch (v1.tag) {
+      case "NoRoses": {
+        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
+      }
+      case "MoreRoses": {
+        const v2 = v1.first;
+        const v3 = v1.rest;
+        for (let p1$ = $Main$dflattenRose(v2); p1$.tag === "Cons"; p1$ = p1$.tail) {
+          const c1$ = { tag: "Cons", head: p1$.head, tail: null };
+          if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
+          l$ = c1$; k$ = "tail";
+        }
+        s1 = v3;
+        continue;
+      }
     }
-    case "MoreRoses": {
-      const v2 = v1.first;
-      const v3 = v1.rest;
-      return $Std$dList$dappend($Main$dflattenRose(v2), $Main$dflattenRoses(v3));
-    }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
 const $Main$dflattenRose = (v1) => {
   switch (v1.tag) {

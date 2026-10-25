@@ -36,7 +36,7 @@ type OrderId = { value: Text }
 instance UserId.instShow: Show UserId := Show.fromText (u => u.value)
 
 -- A proof field is checked on the way in, as for any record.
-def Email.isValid (t: Text): Bool := Text.contains "@" t
+def Email.isValid (t: Text): Bool := Text.contains t "@"
 
 @[js.unboxed]
 type Email = { value: Text, valid: Email.isValid value = True }
@@ -70,9 +70,9 @@ export def creator: Event -> Option UserId
   | Deleted => None
 
 -- Keys in the derived order, which is `Text`'s.
-export def ownerOf (orders: Map OrderId UserId) (o: OrderId): Option UserId := Map.get o orders
+export def ownerOf (orders: Map OrderId UserId) (o: OrderId): Option UserId := Map.get orders o
 
-export def visits (m: Map UserId Nat) (u: UserId): Map UserId Nat := Map.insertWith Nat.add u 1 m
+export def visits (m: Map UserId Nat) (u: UserId): Map UserId Nat := Map.insertWith m u 1 Nat.add
 
 export def domain (e: Email): Text := e.value
 

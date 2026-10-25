@@ -69,7 +69,7 @@ def Operator.apply: Operator -> List Nat -> Nat
   | Multiply, numbers => numbers.product
 
 -- A problem without an operator has no answer; count it as 0.
-def evaluate (operator: Option Operator) (numbers: List Nat): Nat := operator.fold 0 (op => op.apply numbers)
+def evaluate (operator: Option Operator) (numbers: List Nat): Nat := operator.fold 0 (.apply numbers)
 
 -- Part 1: the answers of the problems read by rows.
 def solvePart1 (problems: List Problem): Nat := problems.sumBy (problem => evaluate problem.operator problem.rowNumbers)
@@ -102,8 +102,8 @@ def worksheetError (lines: List Text): Option Text :=
   else if (lines.last.map .trim) == Some "" then
     Some "line ${lines.length}: expected the operator row, got a blank line"
   else
-    (lines.init.withIndex.findMap (((index, row)) => characterError (index + 1) "a digit" isDigit row))
-      |> .orElse (lines.last.flatMap (row => characterError lines.length "+ or *" isOperator row))
+    (lines.init.withIndex.findMap (((index, row)) => characterError row (index + 1) "a digit" isDigit))
+      |> .orElse (lines.last.flatMap (row => characterError row lines.length "+ or *" isOperator))
       |> .orElse (blockError lines)
 
 def isDigit (ch: Char): Bool := ch.digitValue.isSome
@@ -111,7 +111,7 @@ def isDigit (ch: Char): Bool := ch.digitValue.isSome
 def isOperator (ch: Char): Bool := (Operator.parse ch).isSome
 
 -- The first character of the row that is neither a space nor allowed.
-def characterError (lineNumber: Nat) (expected: Text) (allowed: Char -> Bool) (row: Text): Option Text :=
+def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char -> Bool): Option Text :=
   row.toList.withIndex.findMap (((index, ch)) =>
     if ch == ' ' || allowed ch then None
     else Some "line ${lineNumber}, column ${index + 1}: expected ${expected} or a space, got '${ch}'")

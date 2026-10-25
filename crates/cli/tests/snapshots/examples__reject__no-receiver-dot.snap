@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DOT-NO-RECEIVER] Error: `Meter.add` doesn't take a `Meter` first, so `m.add` can't put `m` there
+    ╭─[ reject/no-receiver-dot.sw:10:31 ]
+    │
+ 10 │ def more (m: Meter): Meter := m.add 1
+    │                               ───┬───  
+    │                                  ╰───── `Meter.add: Nat -> Meter -> Meter`
+    │ 
+    │ Note: dot notation passes the value as the first argument; call it directly: `Meter.add n m`
+────╯

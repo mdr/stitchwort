@@ -10,4 +10,4 @@ def isSorted: List Nat -> Bool
 test "parses the example" := parse "1,2,4" == [1, 2, 3]
 test "both parts" := parse "7" == [7] && List.length (parse "1,x") == 2
 test "sorted" := isSorted (parse "3,1,2")
-test "all small" := List.all (n => n < 3) (parse "1,2,3")
+test "all small" := List.all (parse "1,2,3") (n => n < 3)

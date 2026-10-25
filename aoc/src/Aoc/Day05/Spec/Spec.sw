@@ -11,5 +11,5 @@ import Std (List, Nat)
 -- Part 2 as the puzzle says it, by brute force: the ids, up to the largest
 -- end of a range, that some fresh range holds.
 def countFresh (db: Database): Nat :=
-  let top := db.fresh.foldLeft (m r => Nat.max m r.to) 0
+  let top := db.fresh.foldLeft 0 (m r => Nat.max m r.to)
   List.range (top + 1) |> .count (id => db.fresh.any (r => r.contains id))

@@ -805,7 +805,7 @@ def resumeList (k: Nat -> {e} List Nat): Nat -> {e} List Nat
     let after := k n
     before ++ after
 
-def digest (xs: List Nat): Nat := List.foldLeft (acc x => (acc * 31 + x) % 1000003) 7 xs
+def digest (xs: List Nat): Nat := List.foldLeft xs 7 (acc x => (acc * 31 + x) % 1000003)
 
 def failToNat (prog: () -> {Fail | e} Nat): {e} Nat :=
   match Fail.toResult prog with
@@ -854,7 +854,7 @@ impl Printer<'_> {
             Kind::StoredState => format!("explore {} ({name} ({lam}) {})", hd.explore, hd.init),
             Kind::FailOrElse => format!("Fail.orElse {} ({lam})", hd.c),
             Kind::FailToNat => format!("failToNat ({lam})"),
-            Kind::FailToOption => format!("Option.getOrElse {} (Fail.toOption ({lam}))", hd.c),
+            Kind::FailToOption => format!("Option.getOrElse (Fail.toOption ({lam})) {}", hd.c),
             Kind::FailContext => format!("Fail.context \"c{h}\" ({lam})"),
         }
     }
@@ -880,7 +880,7 @@ impl Printer<'_> {
             }
             Atom::Map(n, a) => {
                 let a = self.atom_text(a);
-                format!("digest (List.map (y => {a}) (List.range {n}))")
+                format!("digest (List.map (List.range {n}) (y => {a}))")
             }
             Atom::Tower {
                 handler,
@@ -1772,7 +1772,7 @@ const CROSSING: &str = r#"import Std (Fail, IO, Nat, Option, Result, Text)
 def echo: Nat -> {IO, Partial} Nat
   | 0 => 0
   | n =>
-    let line := Option.getOrElse "none" (IO.readLine())
+    let line := Option.getOrElse (IO.readLine()) "none"
     let shown := Fail.toResult (() =>
       IO.print "${n}: ${line}"
       if line == "stop" then Fail.fail "stopped" else Text.length line)

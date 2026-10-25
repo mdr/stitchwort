@@ -20,25 +20,25 @@
 -- run: lastDiffers 0
 import Std (Bool, List, Nat, Option, Text)
 
-def sum (xs: List Nat): Nat := List.foldLeft (a x => a + x) 0 xs
+def sum (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + x)
 
-def count (xs: List Nat): Nat := List.foldLeft (a x => a + 1) 0 xs
+def count (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + 1)
 
 -- Scrambled numbers below 100003.
-def scrambled (n: Nat): List Nat := List.map (i => (i * 7919) % 100003) (List.range n)
+def scrambled (n: Nat): List Nat := List.map (List.range n) (i => (i * 7919) % 100003)
 
-export def mapSum (n: Nat): Nat := sum (List.map (x => x + 1) (List.range n))
+export def mapSum (n: Nat): Nat := sum (List.map (List.range n) (x => x + 1))
 
-export def filterCount (n: Nat): Nat := count (List.filter (x => x % 3 == 0) (List.range n))
+export def filterCount (n: Nat): Nat := count (List.filter (List.range n) (x => x % 3 == 0))
 
 export def filterMapSum (n: Nat): Nat :=
-  sum (List.filterMap (x => if x % 2 == 0 then Some (x / 2) else None) (List.range n))
+  sum (List.filterMap (List.range n) (x => if x % 2 == 0 then Some (x / 2) else None))
 
 export def appendCount (n: Nat): Nat := count (List.append (List.range n) (List.range n))
 
 def firstPlusLast: List Nat -> Nat
   | Nil => 0
-  | Cons x xs => x + List.foldLeft (a y => y) 0 xs
+  | Cons x xs => x + List.foldLeft xs 0 (a y => y)
 
 export def sortedFirst (n: Nat): Nat := firstPlusLast (List.sort (scrambled n))
 

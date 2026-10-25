@@ -103,6 +103,7 @@ def Show.items (f: a -> Text): List a -> Text
 def Show.list (f: a -> Text) (xs: List a): Text :=
   Text.append "[" (Text.append (Show.items f xs) "]")
 
+@[noReceiver]
 def Option.showWith (f: a -> Text): Option a -> Text
   | None => "None"
   | Some x => Text.append "Some " (Show.arg (f x))
@@ -125,6 +126,7 @@ instance List.instShow [auto show: Show a]: Show (List a) :=
 instance Option.instShow [auto show: Show a]: Show (Option a) :=
   Show.fromText (Option.showWith (x => Show.toSource x))
 
+@[noReceiver]
 def Result.showWith (f: a -> Text) (g: e -> Text): Result a e -> Text
   | Ok x => Text.append "Ok " (Show.arg (f x))
   | Err m => Text.append "Err " (Show.arg (g m))
@@ -132,6 +134,7 @@ def Result.showWith (f: a -> Text) (g: e -> Text): Result a e -> Text
 instance Result.instShow [auto showA: Show a] [auto showE: Show e]: Show (Result a e) :=
   Show.fromText (Result.showWith (x => Show.toSource x) (m => Show.toSource m))
 
+@[noReceiver]
 def Pair.showWith (f: a -> Text) (g: b -> Text): Pair a b -> Text
   | MkPair x y => Text.append "(" (Text.append (f x) (Text.append ", " (Text.append (g y) ")")))
 

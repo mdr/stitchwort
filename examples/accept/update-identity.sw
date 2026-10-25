@@ -102,9 +102,9 @@ theorem radiusKept (r: Nat) (i: Nat) (s: Nat) (x: Nat) (q: Nat):
 
 -- Identical inline matches are equal as well.
 def sumOptions (xs: List (Option Nat)): Nat :=
-  xs.foldLeft (acc o => match o with | Some x => acc + x | None => acc) 0
+  xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc)
 
 def sumOptionsAgain (xs: List (Option Nat)): Nat :=
-  xs.foldLeft (acc o => match o with | Some x => acc + x | None => acc) 0
+  xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc)
 
 theorem inlineMatches (xs: List (Option Nat)): sumOptions xs = sumOptionsAgain xs := rfl

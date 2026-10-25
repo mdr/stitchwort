@@ -94,7 +94,7 @@ fn imports_typed_in_accumulate() {
     let mut session = Session::new();
     // Without an import, `List.` isn't a prefix yet.
     assert_eq!(
-        eval(&mut session, "List.map (n => n + 1) [1, 2]"),
+        eval(&mut session, "List.map [1, 2] (n => n + 1)"),
         Err("E-UNKNOWN-NAME")
     );
     assert!(
@@ -103,7 +103,7 @@ fn imports_typed_in_accumulate() {
             .is_empty()
     );
     assert_eq!(
-        eval(&mut session, "List.map (n => n + 1) [1, 2]").as_deref(),
+        eval(&mut session, "List.map [1, 2] (n => n + 1)").as_deref(),
         Ok("[2, 3] : List Nat")
     );
     // A second import keeps the first.

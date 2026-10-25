@@ -606,9 +606,9 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                 }
                 // `!in`, but not `!inside` (`!` and a name).
                 b'!' if text[i..].starts_with("in")
-                    && !bytes
-                        .get(i + 2)
-                        .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\'') =>
+                    && !bytes.get(i + 2).is_some_and(|b| {
+                        b.is_ascii_alphanumeric() || *b == b'_' || *b == b'\''
+                    }) =>
                 {
                     i += 2;
                     Tok::NotIn
@@ -1007,9 +1007,15 @@ const UNSUPPORTED: &[(char, &str)] = &[
     ('≡', "write `=`"),
     ('≢', "write `!=`"),
     ('≔', "write `:=`"),
-    ('⊆', "there are no set operators: write it with a function, such as `List.All`"),
+    (
+        '⊆',
+        "there are no set operators: write it with a function, such as `List.All`",
+    ),
     ('⊂', "there are no set operators: write it with a function"),
-    ('⊇', "there are no set operators: write it with a function, such as `List.All`"),
+    (
+        '⊇',
+        "there are no set operators: write it with a function, such as `List.All`",
+    ),
     ('⊃', "there are no set operators: write it with a function"),
     ('∪', "there are no set operators: write `Set.union`"),
     ('∩', "there are no set operators: write `Set.intersect`"),
@@ -1019,7 +1025,10 @@ const UNSUPPORTED: &[(char, &str)] = &[
     ('⊤', "write `Unit`"),
     ('ℕ', "write `Nat`"),
     ('ℤ', "write `Int`"),
-    ('×', "write `*` for multiplication, or `(A, B)` for a pair type"),
+    (
+        '×',
+        "write `*` for multiplication, or `(A, B)` for a pair type",
+    ),
     ('·', "write `*`"),
     ('÷', "write `/`"),
     ('∘', "there's no composition operator: write a lambda"),

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DECREASING] Error: `stored` is called inside a function stored in data, which `decreasing` can't handle
-   ╭─[ reject/decreasing-lambda-in-data.sw:9:53 ]
+   ╭─[ reject/decreasing-lambda-in-data.sw:9:22 ]
    │
- 9 │   List.sum (List.map ((g: Nat -> Nat) => g (n - 1)) [d => if h: d < n then stored d else 0])
-   │                                                     ───────────────────┬───────────────────  
-   │                                                                        ╰───────────────────── the recursive call is in here
+ 9 │   List.sum (List.map [d => if h: d < n then stored d else 0] ((g: Nat -> Nat) => g (n - 1)))
+   │                      ───────────────────┬───────────────────  
+   │                                         ╰───────────────────── the recursive call is in here
    │ 
    │ Note 1: equal data would need equal functions, which is function extensionality
    │ 

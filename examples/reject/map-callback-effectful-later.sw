@@ -35,12 +35,12 @@ def Tagged.number [flag: Bool]: Tagged flag -> Nat
 def answer [flag: Bool] (tagged: Tagged flag): Answer flag := answerOf flag tagged.number
 
 -- The flag is known from the list, an argument after the callback.
-def countA (numbers: List (Tagged True)): Nat := List.length (List.map answer numbers)
+def countA (numbers: List (Tagged True)): Nat := List.length (List.map numbers answer)
 
 def pick [flag: Bool] (xs: List (Tagged flag)) (ys: List (Tagged flag)): Nat := 0
 
 -- The flag is known only from a later expression of the declaration.
 def countLater (numbers: List (Tagged True)): Nat :=
   let tagged := [Tag 3, Tag 4]
-  let n := List.length (List.map answer tagged)
+  let n := List.length (List.map tagged answer)
   n + pick tagged numbers

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ATTRIBUTE] Error: `noReceiver` can't be used on a theorem
+   ╭─[ reject/no-receiver-on-theorem.sw:7:3 ]
+   │
+ 7 │ @[noReceiver]
+   │   ─────┬────  
+   │        ╰────── on a theorem
+   │ 
+   │ Note: `noReceiver` applies to a definition: a definition in a type's namespace that isn't called with `.` or `|>` (a helper, or a `Prop`), so it may take the type's value after another parameter without the warning `W-RECEIVER-NOT-FIRST`
+───╯

@@ -37,7 +37,7 @@ def twice [auto add: Add a] (x: a): a := x + x
 def square [auto mul: Mul a] (x: a): a := x * x
 
 def sumSquares [auto add: Add a] [auto mul: Mul a] (xs: List a): a :=
-  xs.foldLeft (acc x => acc + x * x) Add.zero
+  xs.foldLeft Add.zero (acc x => acc + x * x)
 
 test "twice" := (twice p).y == 4 && twice 21 == 42 && twice (-4: Int) == -8
 test "square" := square 7 == 49 && square (-3: Int) == 9

@@ -2,21 +2,21 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-ABILITY] Error: a callback here returns `{Log} Nat`, which performs abilities where none are allowed
-    ╭─[ reject/map-callback-effectful-later.sw:38:72 ]
+[E-ABILITY] Error: this may perform `Log`, which isn't allowed here
+    ╭─[ reject/map-callback-effectful-later.sw:38:63 ]
     │
- 38 │ def countA (numbers: List (Tagged True)): Nat := List.length (List.map answer numbers)
-    │                                                                        ───┬──  
-    │                                                                           ╰──── this call's row was settled as the empty row (pure) before the callback's type was known
+ 38 │ def countA (numbers: List (Tagged True)): Nat := List.length (List.map numbers answer)
+    │                                                               ───────────┬───────────  
+    │                                                                          ╰───────────── `Log` isn't in the abilities of the enclosing function or handler
     │ 
-    │ Note: a callback that performs abilities makes the call perform them too (D1124), which isn't allowed where a pure value is expected; handle the abilities, or make the callback's type known earlier
+    │ Note: add `Log` to the function's type (`-> {Log …} …`), or handle it
 ────╯
 [E-ABILITY] Error: a callback here returns `{Log} Nat`, which performs abilities where none are allowed
-    ╭─[ reject/map-callback-effectful-later.sw:45:34 ]
+    ╭─[ reject/map-callback-effectful-later.sw:45:41 ]
     │
- 45 │   let n := List.length (List.map answer tagged)
-    │                                  ───┬──  
-    │                                     ╰──── this call's row was settled as the empty row (pure) before the callback's type was known
+ 45 │   let n := List.length (List.map tagged answer)
+    │                                         ───┬──  
+    │                                            ╰──── this call's row was settled as the empty row (pure) before the callback's type was known
     │ 
     │ Note: a callback that performs abilities makes the call perform them too (D1124), which isn't allowed where a pure value is expected; handle the abilities, or make the callback's type known earlier
 ────╯

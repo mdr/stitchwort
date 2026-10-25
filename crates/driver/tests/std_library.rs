@@ -544,7 +544,7 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         toolkit
     );
     assert_eq!(
-        std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft (a b => a + b) 0\n"),
+        std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft 0 (a b => a + b)\n"),
         toolkit
     );
     // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends, and
@@ -601,7 +601,7 @@ fn int_only_programs_dont_load_the_list_toolkit() {
     assert!(!loaded.contains(&"Int/Sums.sw".to_string()), "{loaded:?}");
     // A program using the lemmas loads the file.
     let sums = std_loaded_by(
-        "import Std (Int, List)\ntheorem t (xs: List Nat): (List.sumBy (n => n) xs).toInt = List.sumBy (n => n.toInt) xs :=\n  Int.toIntSumBy (n => n) xs\n",
+        "import Std (Int, List)\ntheorem t (xs: List Nat): (List.sumBy xs (n => n)).toInt = List.sumBy xs (n => n.toInt) :=\n  Int.toIntSumBy (n => n) xs\n",
     );
     assert!(sums.contains(&"Int/Sums.sw".to_string()), "{sums:?}");
 }
@@ -646,7 +646,8 @@ fn no_library_file_declares_a_decision_procedure() {
     // what else is loaded. It is a definition of its own because the kernel
     // binds a native to it. The same holds for `Map`'s and `Set`'s equality
     // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
-    // needs their file loaded.
+    // needs their file loaded. So does `List.decMem` (D1201), which decides
+    // `List.Mem`, declared in std/List/Toolkit.sw.
     assert_eq!(
         session.elab.library_decision_procedures(),
         [
@@ -655,7 +656,8 @@ fn no_library_file_declares_a_decision_procedure() {
             "Std.Set.decEq",
             "Std.Set.decEq.%match1",
             "Std.Float.decEqFrom",
-            "Std.Float.decEq"
+            "Std.Float.decEq",
+            "Std.List.decMem"
         ],
         "every `Decidable` procedure stays in the core (D58), so `auto` never \
          depends on what is loaded"

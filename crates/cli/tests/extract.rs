@@ -2125,9 +2125,10 @@ console.log("ok");
 /// stack space proportional to a text's length, so they handle a million
 /// characters through the whole export path: decoding, the operation, the
 /// conversions, and encoding many short results, one long one, or a long
-/// `List Char`. A function's tail calls to itself are loops, so they handle
-/// any length too. Other recursion uses a JS stack frame per character (or
-/// element, or level of nesting); running out of stack is a
+/// `List Char`. A function's tail calls to itself are loops, even under
+/// `Succ` or addition, so they handle any length too. Other recursion uses a
+/// JS stack frame per character (or element, or level of nesting); running
+/// out of stack is a
 /// `StitchwortResourceError`, after which the module still works.
 #[test]
 fn long_inputs_are_loops_or_resource_errors() {
@@ -2186,13 +2187,15 @@ assert.deepEqual(text.texts([cs]), ["a\u{1F600}".repeat(N / 2)]);
 assert.deepEqual(text.trimmedHead(" ".repeat(N) + long), "a");
 assert.equal(text.isText(long), true);
 
-// User code that recurses once per character still runs out of stack.
+// A self-call under `Succ` is a loop with an accumulator, so `countIn`
+// handles a million characters; a tree's two recursive calls still use a
+// stack frame per level and run out of stack.
+assert.equal(text.countChar("a", long), BigInt(N));
 const exhausted = (f, name) =>
   assert.throws(f, (e) =>
     e instanceof text.StitchwortResourceError || e instanceof trees.StitchwortResourceError
       ? new RegExp(`^${name}: ran out of resources`).test(e.message) && e.cause instanceof RangeError
       : false);
-exhausted(() => text.countChar("a", long), "countChar");
 let deep = { $tag: "Leaf" };
 for (let i = 0; i < 1000000; i++) deep = { $tag: "Node", left: deep, right: { $tag: "Leaf" } };
 exhausted(() => trees.leaves(deep), "leaves");
@@ -3099,9 +3102,8 @@ fn safe_numbers_are_bound_to_the_library() {
 /// Definitions that call each other (docs/proposals/mutual-recursion.md
 /// §8.6). Tail calls between two members are loops (SW-40): each member's
 /// loop inlines the other, so `isEven` on a large number runs in constant
-/// stack. A call that isn't in tail position (`inner`'s, in `x + inner xs
-/// xss`) still uses a stack frame per step and runs out: a resource error,
-/// never a wrong answer, after which the module still works.
+/// stack. `inner`'s self-call under addition (`x + inner xs xss`) is a loop
+/// with an accumulator too, so `total` of a million elements finishes.
 #[test]
 fn mutual_tail_calls_are_loops() {
     let examples = examples();
@@ -3113,13 +3115,7 @@ assert.equal(mutual.isEven(1000n), true);
 assert.equal(mutual.isEven(10000000n), true);
 assert.equal(mutual.isOdd(10000001n), true);
 assert.equal(mutual.shifted(1000001n, 5n), 6n);
-assert.throws(
-  () => mutual.total([Array(1000000).fill(1n)]),
-  (e) =>
-    e instanceof mutual.StitchwortResourceError &&
-    /^total: ran out of resources/.test(e.message) &&
-    e.cause instanceof RangeError,
-);
+assert.equal(mutual.total([Array(1000000).fill(1n)]), 1000000n);
 assert.equal(mutual.isOdd(7n), true);
 assert.equal(mutual.total([[1n, 2n], [], [3n]]), 6n);
 console.log("ok");
@@ -3235,9 +3231,9 @@ def countdownNamed (n: Nat): List Nat
     | Zero => Nil
     | Succ k => Cons n (countdownNamed k [decreasing := omega])
 
-export def countdownLength (n: Nat): Nat := List.foldLeft (count d => count + 1) 0 (countdownNamed n)
+export def countdownLength (n: Nat): Nat := List.foldLeft (countdownNamed n) 0 (count d => count + 1)
 
-export def digitCount (n: Nat): Nat := List.foldLeft (count d => count + 1) 0 (Nat.digits n)
+export def digitCount (n: Nat): Nat := List.foldLeft (Nat.digits n) 0 (count d => count + 1)
 "#;
     let mut session = Session::new();
     if let Err(diagnostics) = session.load("decreasing.sw", source) {
@@ -3447,9 +3443,9 @@ fn an_inlined_text_comparison_calls_the_native() {
     let source = "import Std (Eq, List, Option, Text)\n\n\
         type Item = { id: Text, n: Nat }\n\n\
         export def countWith (xs: List Item) (target: Text): Nat :=\n  \
-        List.length (List.filter (r => r.id == target) xs)\n\n\
+        List.length (List.filter xs (r => r.id == target))\n\n\
         export def findWith (xs: List Item) (target: Text): Nat :=\n  \
-        Option.getOrElse 0 (Option.map (r => r.n) (List.find (r => r.id == target) xs))\n";
+        Option.getOrElse (Option.map (List.find xs (r => r.id == target)) (r => r.n)) 0\n";
     let mut session = Session::new();
     if let Err(errors) = session.load("compare.sw", source) {
         panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
@@ -3506,7 +3502,7 @@ fn a_text_comparison_in_a_match_scrutinee_calls_the_native() {
         | Some (A r _ _) => r\n    \
         | Some (B r _ _ _) => r + 100\n\n\
         export def direct (id: Text) (xs: List Thing): Nat :=\n  \
-        match List.find (t => thingId t == id) xs with\n    \
+        match List.find xs (t => thingId t == id) with\n    \
         | None => 0\n    \
         | Some _ => 1\n";
     let mut session = Session::new();
@@ -4710,6 +4706,6 @@ fn map_at_the_empty_row_is_a_pure_maps_loop() {
         .expect("the pure caller");
     assert_eq!(
         caller,
-        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble, v0);"
+        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e(v0, $Main$ddouble);"
     );
 }

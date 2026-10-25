@@ -763,18 +763,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -851,7 +851,7 @@ const $Main$dJob$doptions = (v0) => {
   const v2 = v0.options;
   return v2;
 };
-const $Main$dsteps = (v0) => $Std$dList$dmap$e(((v1) => $Main$dRangeOptions$dstep($Main$dJob$doptions(v1))), v0);
+const $Main$dsteps = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Main$dRangeOptions$dstep($Main$dJob$doptions(v1))));
 const $Main$dBox$dlabel = (v1) => {
   const v2 = v1.item;
   const v3 = v1.label;

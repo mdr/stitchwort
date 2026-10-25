@@ -353,7 +353,7 @@ def SafeNat.toFloat (n: SafeNat): Float := Float.ofNat n.value
 -- `toText` with `.0` after a whole number, so that it reads back as a
 -- `Float` (`3.0`, `1e+21`, `0.5`).
 def Float.pointed (text: Text): Text :=
-  if Text.contains "." text || Text.contains "e" text then text else Text.append text ".0"
+  if Text.contains text "." || Text.contains text "e" then text else Text.append text ".0"
 
 -- Source for the double that reads back as the same double: `1.5`, `3.0`,
 -- `-0.0`, `Float.nan`, `Float.infinity`, `-Float.infinity`. The last four

@@ -1,6 +1,7 @@
-//! Dot notation by type (docs/proposals/namespaces.md §4.8): `e.f` is `T.f`
-//! with `e` in the place of `T.f`'s first explicit parameter of type `T`,
-//! where `T` is found from `e`'s type. A record's field is the special case
+//! Dot notation by type (docs/proposals/namespaces.md §4.8): `e.f a` is
+//! `T.f e a`, with `e` as `T.f`'s first explicit argument (D303, "the value
+//! goes first"), where `T` is found from `e`'s type. If that parameter isn't
+//! a `T`, it's an error (D306), not a search for a later one. A record's field is the special case
 //! where `T.f` is its generated projection.
 //!
 //! The namespace comes from the **type-head view** of `e`'s type *as
@@ -15,7 +16,7 @@ use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
 use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::check::{Arg, Ctx, Result, apply_args, check, implicit_arg, infer, insert};
+use crate::check::{Arg, Ctx, Result, apply_args, implicit_arg, infer, insert};
 use crate::named::Slot;
 use crate::{Global, scope};
 
@@ -489,12 +490,12 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
     }
 }
 
-/// A method section `.f a…` checked against `dom -> cod` whose receiver
-/// lands in `T.f`'s last explicit parameter: the partial application
-/// `T.f a…` itself, not the lambda `x => T.f a… x` (docs/proposals/
+/// A method section `.f` checked against `dom -> cod`, where `T.f` takes one
+/// explicit parameter (so the receiver, which goes first, is also last): the
+/// function `T.f` itself, not the lambda `x => T.f x` (docs/proposals/
 /// method-sections.md §5, D506), so `xs.any .snd` and `xs.any Pair.snd` are
 /// the same term and a proof restating one with the other still matches.
-/// `None` where the section stays a lambda: the receiver isn't last, the
+/// `None` where the section stays a lambda: it has arguments, the
 /// section has chained fields, its argument's type isn't known yet, or the
 /// partial application doesn't fit the expected type.
 pub(crate) fn section_partial(
@@ -692,22 +693,94 @@ fn params(g: &Globals, f: DefId) -> Vec<Param> {
     out
 }
 
-/// The receiver's place among `params`: the first explicit parameter whose
-/// type has `owner` as a head, as its depth and its index among the
-/// explicit parameters.
+/// The receiver's place among `params`: the first explicit parameter, as its
+/// depth and its index among the explicit parameters (always 0), if its type
+/// has `owner` as a head (D303, D306). Nothing searches for a later one.
 fn receiver_place(cx: &Ctx, params: &[Param], owner: TyHead) -> Result<Option<(usize, usize)>> {
-    let g = cx.g();
+    let Some(depth) = params.iter().position(|p| p.icit == Icit::Explicit) else {
+        return Ok(None);
+    };
     let level = cx.level();
-    let mut explicit: usize = 0;
+    let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
+    let fits = heads(cx.g(), Ty::Term(params[depth].ty.clone(), env))?.contains(&owner);
+    Ok(fits.then_some((depth, 0)))
+}
+
+/// `W-RECEIVER-NOT-FIRST` (D307): the definition `f`, in the namespace of a
+/// type `T`, takes an explicit `T`, but not as its first explicit
+/// parameter, so neither `x.f` nor `x |> T.f` can pass it one. `None` if
+/// it's not in a type's namespace, takes no `T`, or takes one first.
+pub(crate) fn receiver_not_first(cx: &Ctx, f: DefId, span: Span) -> Result<Option<Diagnostic>> {
+    let g = cx.g();
+    // The key the namespace lookup uses, as `namespace` gives it: the path
+    // in the library, the scope key elsewhere (`Meter.scale`, not
+    // `Main.Meter.scale`).
+    let def = g.def(f);
+    let path = if def.path.starts_with("Std.") {
+        def.path.to_string()
+    } else {
+        def.name.to_string()
+    };
+    let Some((owner_key, name)) = path.rsplit_once('.') else {
+        return Ok(None);
+    };
+    // A generated definition (`IO.%elim`) isn't written by anyone.
+    if name.starts_with('%') {
+        return Ok(None);
+    }
+    let params = params(g, f);
+    let level = cx.level();
+    let mut first = true;
     for (depth, p) in params.iter().enumerate() {
         if p.icit != Icit::Explicit {
             continue;
         }
         let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
-        if heads(g, Ty::Term(p.ty.clone(), env))?.contains(&owner) {
-            return Ok(Some((depth, explicit)));
+        let found = heads(g, Ty::Term(p.ty.clone(), env))?
+            .into_iter()
+            .any(|h| scope::display(&namespace(cx, h)) == scope::display(owner_key));
+        if found && first {
+            return Ok(None);
         }
-        explicit += 1;
+        if found {
+            let ns = scope::display(owner_key)
+                .rsplit('.')
+                .next()
+                .unwrap_or(owner_key)
+                .to_string();
+            let shown = scope::display(&path).to_string();
+            let var = ns
+                .chars()
+                .next()
+                .map(|c| c.to_lowercase().to_string())
+                .unwrap_or_default();
+            return Ok(Some(
+                Diagnostic::warning(
+                    "W-RECEIVER-NOT-FIRST",
+                    format!(
+                        "`{shown}` takes a `{ns}` but not as its first parameter, so \
+                         `{var}.{name}` and `{var} |> {shown}` won't work"
+                    ),
+                )
+                .with_label(
+                    span,
+                    match &*p.name {
+                        "_" | "" => format!("its `{ns}` comes after another parameter"),
+                        name => format!("`{name}: {ns}` comes after another parameter"),
+                    },
+                )
+                .with_note(format!(
+                    "put the main value first{}, then the other arguments, then any \
+                     functions; or, for a helper not meant to be called with `.` or `|>`, \
+                     mark it `@[noReceiver]`",
+                    match &*p.name {
+                        "_" | "" => String::new(),
+                        name => format!(" (`{name}`)"),
+                    }
+                )),
+            ));
+        }
+        first = false;
     }
     Ok(None)
 }
@@ -716,14 +789,14 @@ fn receiver_place(cx: &Ctx, params: &[Param], owner: TyHead) -> Result<Option<(u
 type PrefixForm<'a> = ((Term, Value), Vec<Arg<'a>>);
 
 /// `recv.field args` checked against an expected type (SW-129): the call as
-/// the prefix form `T.field a… recv …`, so it's elaborated exactly as that
+/// the prefix form `T.field recv a…`, so it's elaborated exactly as that
 /// is, with the result compared with the expected type before `recv` is
 /// checked in its parameter's place. Dot notation needs `recv`'s type only
 /// for the head that names the namespace, so `recv` is inferred once here to
 /// find it, and that is undone. `None` where the prefix form can't stand for
-/// the call: a local definition's helper, named or piped arguments, or
-/// parameters left out before the receiver (the call becomes a function);
-/// `call` handles those.
+/// the call: a local definition's helper, named or piped arguments, or a
+/// function whose first explicit parameter isn't the receiver's (an error
+/// `call` reports).
 pub(crate) fn prefix_form<'a>(
     cx: &mut Ctx,
     recv: &'a Expr,
@@ -769,15 +842,15 @@ pub(crate) fn prefix_form<'a>(
         }
     };
     let g = cx.g();
-    let Some((_, k)) = receiver_place(cx, &params(g, f), owner)? else {
+    if receiver_place(cx, &params(g, f), owner)?.is_none() {
         return Ok(None);
-    };
+    }
     let mut full: Vec<Arg<'a>> = Vec::new();
     if crate::named::any(args) {
         // Named arguments in their places, the receiver first in its
         // (named-arguments.md §4.4); only if that's a positional call.
         let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
-        let Ok(slots) = crate::named::plan(cx, &sig, args, Some(k)) else {
+        let Ok(slots) = crate::named::plan(cx, &sig, args, Some(0)) else {
             return Ok(None);
         };
         for slot in slots {
@@ -788,18 +861,8 @@ pub(crate) fn prefix_form<'a>(
             }
         }
     } else {
-        if written.len() < k {
-            return Ok(None);
-        }
-        for (i, e) in written.iter().enumerate() {
-            if i == k {
-                full.push(Arg::Explicit(recv));
-            }
-            full.push(Arg::Explicit(e));
-        }
-        if written.len() == k {
-            full.push(Arg::Explicit(recv));
-        }
+        full.push(Arg::Explicit(recv));
+        full.extend(written.iter().map(|e| Arg::Explicit(e)));
     }
     cx.e.note_dot(field, f);
     // A recursive call of a definition with `decreasing` (`decreasing.rs`).
@@ -809,20 +872,8 @@ pub(crate) fn prefix_form<'a>(
     Ok(Some(((Term::Def(f), g.def(f).ty_value.clone()), full)))
 }
 
-/// One argument of the call being built.
-enum Piece {
-    /// An implicit argument, made at this level.
-    Implicit(Term, Icit, usize),
-    Receiver,
-    /// A written argument (its index), checked once the receiver has been.
-    Written(usize),
-    /// A parameter left out, bound at this level by the function the call
-    /// becomes.
-    Missing(usize),
-}
-
-/// `T.f` applied with the receiver in its place, the written arguments in
-/// the other explicit parameters' places in order (§4.8 step 4).
+/// `T.f` applied with the receiver as its first explicit argument, and the
+/// written arguments after it (D303).
 #[allow(clippy::too_many_arguments)]
 fn call(
     cx: &mut Ctx,
@@ -836,34 +887,20 @@ fn call(
     args: &[Arg],
 ) -> Result<(Term, Value)> {
     let g = cx.g();
-    // The receiver's place: the first explicit parameter whose type has
-    // `owner` as a head.
     let params = params(g, f);
-    let receiver = receiver_place(cx, &params, owner)?;
-    let Some((recv_depth, k)) = receiver else {
-        let shown_ty = cx.show(&g.def(f).ty_value);
-        return Err(cx
-            .error(
-                "E-DOT-NO-RECEIVER",
-                format!(
-                    "`{key}` has no parameter of type `{}` to put {} in",
-                    scope::display(&namespace(cx, owner)),
-                    shown(recv)
-                ),
-                format!("`{key}: {shown_ty}`"),
-            )
-            .with_note(format!("call it directly, `{key} …`")));
-    };
+    if receiver_place(cx, &params, owner)?.is_none() {
+        return Err(no_receiver(cx, recv, field, owner, f, key, &params));
+    }
     // Named arguments (docs/proposals/named-arguments.md §4.4): the receiver
-    // fills its parameter first, then the arguments fill theirs. If that
-    // leaves nothing out before the last one given and names no implicit
-    // parameter, it is the positional call with the arguments in their
-    // places; otherwise the call is applied as any other, with the receiver
-    // as an argument already elaborated.
+    // fills the first explicit parameter, then the arguments fill theirs. If
+    // that leaves nothing out before the last one given and names no
+    // implicit parameter, it is the positional call with the arguments in
+    // their places; otherwise the call is applied as any other, with the
+    // receiver as an argument already elaborated.
     let ordered;
     let args = if crate::named::any(args) {
         let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
-        let slots = crate::named::plan(cx, &sig, args, Some(k))?;
+        let slots = crate::named::plan(cx, &sig, args, Some(0))?;
         let simple = slots.iter().all(|s| {
             matches!(
                 s,
@@ -875,6 +912,7 @@ fn call(
                 term: rterm,
                 ty: rty,
                 span: recv.span(),
+                dot: true,
             };
             let slots: Vec<Slot> = (slots.into_iter())
                 .map(|s| match s {
@@ -895,194 +933,104 @@ fn call(
     } else {
         args
     };
-    let mut written: Vec<&Expr> = Vec::new();
-    for arg in args {
-        match arg {
-            Arg::Explicit(e) => written.push(*e),
-            // `pipe.rs` applies the call to the value piped in.
-            Arg::Piped(_) | Arg::Named(..) | Arg::NamedExplicit(..) => {
-                unreachable!("not passed to dot notation, or put in place above")
-            }
-        }
-    }
-    // Explicit parameters before the receiver that no argument fills.
-    let missing = k.saturating_sub(written.len());
-    if missing > 0 {
-        let mut explicit = 0;
-        for (depth, p) in params[..recv_depth].iter().enumerate() {
-            if p.icit != Icit::Explicit {
-                continue;
-            }
-            if explicit >= written.len() && params[recv_depth].ty.mentions(recv_depth - 1 - depth) {
-                let shown_ty = cx.show(&g.def(f).ty_value);
-                return Err(cx
-                    .error(
-                        "E-DOT-PARTIAL",
-                        format!(
-                            "`.{}` leaves out `{}`, which the type of {} depends on",
-                            field.text,
-                            p.name,
-                            shown(recv)
-                        ),
-                        format!("`{key}: {shown_ty}`"),
-                    )
-                    .with_note(format!(
-                        "give `{}` after `.{}`, or write the call in full, `{key} …`: the function \
-                         `.{}` would make can't take `{}` as an argument, since {} has one \
-                         particular type",
-                        p.name,
-                        field.text,
-                        field.text,
-                        p.name,
-                        shown(recv)
-                    )));
-            }
-            explicit += 1;
-        }
-    }
-
-    let base = cx.mark();
-    let base_level = cx.level();
-    // With parameters left out, the call becomes a function of them, and
-    // the receiver is bound first so it's evaluated once:
-    // `(r => x => T.f x r) e`.
-    let recv_level = cx.level();
-    // Otherwise the receiver's value is computed only if the result type
-    // needs it (docs/proposals/checker-evaluation.md).
-    let recv_value = if missing > 0 {
-        cx.bind_hidden("%recv".into(), rty.clone());
-        Some(Value::var(recv_level))
-    } else {
-        None
-    };
-    let mut pieces: Vec<Piece> = Vec::new();
-    let mut placeholders: Vec<(Value, Value)> = Vec::new();
-    let mut missing_doms: Vec<(stitchwort_core::Name, Value, usize)> = Vec::new();
+    // The implicit arguments before the receiver, then the receiver,
+    // compared with its parameter before the written arguments are checked.
+    let mut term = Term::Def(f);
     let mut ty = g.def(f).ty_value.clone();
-    let mut seen = 0;
     loop {
-        let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? else {
+        let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? else {
             unreachable!("the receiver's parameter is in the signature");
         };
         if icit.is_implicit() {
             let meta = implicit_arg(cx, icit, &dom);
             let value = cx.eval(&meta)?;
-            pieces.push(Piece::Implicit(meta, icit, cx.level()));
+            term = Term::app_icit(term, meta, icit);
             ty = cod.apply(g, value)?;
             continue;
         }
-        if seen == k {
-            if !cx.unify(&rty, &dom)? {
-                let span = recv.span();
-                return Err(Diagnostic::error(
-                    "E-TYPE-MISMATCH",
-                    format!("{} doesn't fit `{key}`'s parameter", shown(recv)),
-                )
-                .with_label(
-                    span,
-                    format!(
-                        "`{key}` expects `{}` here, but this has type `{}`",
-                        cx.show(&dom),
-                        cx.show(&rty)
-                    ),
-                ));
-            }
-            pieces.push(Piece::Receiver);
-            ty = match &recv_value {
-                Some(var) => cod.apply(g, var.clone())?,
-                None => cod.apply_lazy(g, || eval(g, &cx.env, &rterm))?,
-            };
-            break;
-        }
-        seen += 1;
-        if pieces
-            .iter()
-            .filter(|p| matches!(p, Piece::Written(_)))
-            .count()
-            < written.len()
-        {
-            let i = placeholders.len();
-            let meta = cx.fresh_meta();
-            let value = cx.eval(&meta)?;
-            placeholders.push(((*dom).clone(), value.clone()));
-            pieces.push(Piece::Written(i));
-            ty = cod.apply(g, value)?;
-        } else {
-            let at = cx.level();
-            cx.bind_hidden(x.clone(), (*dom).clone());
-            missing_doms.push((x.clone(), (*dom).clone(), at));
-            pieces.push(Piece::Missing(at));
-            ty = cod.apply(g, Value::var(at))?;
-        }
-    }
-    // The written arguments, in parameter order, now that the receiver has
-    // fixed what it can.
-    let mut checked = Vec::new();
-    for (arg, (dom, placeholder)) in written.iter().zip(&placeholders) {
-        let term = check(cx, arg, dom)?;
-        let value = cx.eval(&term)?;
-        if !cx.unify(&value, placeholder)? {
+        if !cx.unify(&rty, &dom)? {
+            let span = recv.span();
             return Err(Diagnostic::error(
                 "E-TYPE-MISMATCH",
-                format!(
-                    "this argument doesn't agree with the type of {}",
-                    shown(recv)
-                ),
+                format!("{} doesn't fit `{key}`'s parameter", shown(recv)),
             )
             .with_label(
-                arg.span(),
+                span,
                 format!(
-                    "{}'s type needs `{}` here, but this is `{}`",
-                    shown(recv),
-                    cx.show(placeholder),
-                    cx.show(&value)
+                    "`{key}` expects `{}` here, but this has type `{}`",
+                    cx.show(&dom),
+                    cx.show(&rty)
                 ),
             ));
         }
-        checked.push(term);
+        // The receiver's value is computed only if the result type needs it
+        // (docs/proposals/checker-evaluation.md).
+        ty = cod.apply_lazy(g, || eval(g, &cx.env, &rterm))?;
+        term = Term::app(term, rterm);
+        break;
     }
-    let here = cx.level();
-    let mut term = Term::Def(f);
-    for piece in pieces {
-        term = match piece {
-            Piece::Implicit(t, icit, at) => Term::app_icit(term, t.shift(g, here - at, 0)?, icit),
-            Piece::Receiver if missing > 0 => Term::app(term, Term::Var(here - 1 - recv_level)),
-            Piece::Receiver => Term::app(term, rterm.clone()),
-            Piece::Written(i) => Term::app(term, checked[i].clone()),
-            Piece::Missing(at) => Term::app(term, Term::Var(here - 1 - at)),
-        };
+    apply_args(cx, (term, ty), args)
+}
+
+/// `E-DOT-NO-RECEIVER`: `T.f`'s first explicit parameter isn't a `T`, so
+/// dot notation has nowhere to put the receiver (D306). Nothing searches
+/// for a later parameter.
+fn no_receiver(
+    cx: &Ctx,
+    recv: &Expr,
+    field: &AstName,
+    owner: TyHead,
+    f: DefId,
+    key: &str,
+    params: &[Param],
+) -> Diagnostic {
+    let g = cx.g();
+    let ns = scope::display(&namespace(cx, owner)).to_string();
+    let shown_ty = cx.show(&g.def(f).ty_value);
+    let (call, value) = match recv {
+        // `%N` names a value `|>` bound (bind.rs), not one the user wrote.
+        Expr::Var(n) if n.text != SECTION && !n.text.starts_with('%') => (
+            format!("`{}.{}`", n.text, field.text),
+            Some(n.text.to_string()),
+        ),
+        _ => (format!("`.{}`", field.text), None),
+    };
+    let there = match &value {
+        Some(v) => format!("`{v}` there"),
+        None => "the value there".to_string(),
+    };
+    // The call written in full, with the value in the first parameter of
+    // the receiver's type, if there is one.
+    let mut placed = false;
+    let mut names: Vec<String> = Vec::new();
+    let level = cx.level();
+    for (depth, p) in params.iter().enumerate() {
+        if p.icit != Icit::Explicit {
+            continue;
+        }
+        let env: Vec<Value> = (0..depth).map(|k| Value::var(level + k)).collect();
+        let fits = !placed
+            && value.is_some()
+            && heads(g, Ty::Term(p.ty.clone(), env)).is_ok_and(|h| h.contains(&owner));
+        if fits {
+            placed = true;
+            names.push(value.clone().expect("checked above"));
+        } else {
+            names.push(p.name.to_string());
+        }
     }
-    if missing == 0 {
-        let rest = &args[placeholders.len()..];
-        return apply_args(cx, (term, ty), rest);
-    }
-    // `(r => x… => call) e`, annotated for the kernel.
-    let mut fun_ty = cx.quote(&ty)?;
-    for (x, dom, at) in missing_doms.iter().rev() {
-        let dom = stitchwort_core::value::quote(g, *at, dom)?;
-        fun_ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(dom), Rc::new(fun_ty));
-        term = Term::Lam(x.clone(), Icit::Explicit, Rc::new(term));
-    }
-    cx.reset(base);
-    debug_assert_eq!(cx.level(), base_level);
-    let rty_term = cx.quote(&rty)?;
-    let lam = Term::Lam("%recv".into(), Icit::Explicit, Rc::new(term));
-    let lam_ty = Term::Pi(
-        "%recv".into(),
-        Icit::Explicit,
-        Rc::new(rty_term),
-        Rc::new(fun_ty.clone()),
-    );
-    let mut env = cx.env.clone();
-    env.push(if fun_ty.mentions(0) {
-        cx.eval(&rterm)?
+    let direct = if names.is_empty() {
+        format!("`{key}`")
     } else {
-        stitchwort_core::value::unused()
-    });
-    let result_ty = eval(g, &env, &fun_ty)?;
-    Ok((
-        Term::app(Term::Ann(Rc::new(lam), Rc::new(lam_ty)), rterm),
-        result_ty,
+        format!("`{key} {}`", names.join(" "))
+    };
+    cx.error(
+        "E-DOT-NO-RECEIVER",
+        format!("`{key}` doesn't take a `{ns}` first, so {call} can't put {there}"),
+        format!("`{key}: {shown_ty}`"),
+    )
+    .with_note(format!(
+        "dot notation passes the value as the first argument; call it directly: {direct}"
     ))
 }
 

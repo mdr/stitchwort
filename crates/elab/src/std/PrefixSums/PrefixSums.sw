@@ -11,31 +11,31 @@
 type PrefixSums = { sums: Map Nat (Map Nat Nat) }
 
 -- The cells of rows of numbers, row r and column c; 0 outside them.
-def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := List.getOr 0 c (List.getOr Nil r rows)
+def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := List.getOr (List.getOr rows Nil r) 0 c
 
 -- The sum of the block of rows `top` up to, not including, `bottom`, and
 -- columns `left` up to, not including, `right`, cell by cell: what
 -- `PrefixSums.block` computes in four lookups.
 def PrefixSums.blockSpec (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
-  List.sumBy (r => List.sumBy (c => PrefixSums.cell rows r c) (List.rangeFrom (right - left) left)) (List.rangeFrom (bottom - top) top)
+  List.sumBy (List.rangeFrom (bottom - top) top) (r => List.sumBy (List.rangeFrom (right - left) left) (c => PrefixSums.cell rows r c))
 
 -- Reads the grid.
 def PrefixSums.of (rows: List (List Nat)): PrefixSums :=
   let width := List.maxLength rows
-  let table := PrefixSums.table (List.replicate (Succ width) 0) (List.map (row => PrefixSums.runningSums (List.padRight width 0 row)) rows)
-  { sums = Map.byPosition (List.map Map.byPosition table) }
+  let table := PrefixSums.table (List.replicate (Succ width) 0) (List.map rows (row => PrefixSums.runningSums (List.padRight row width 0)))
+  { sums = Map.byPosition (List.map table Map.byPosition) }
 
 -- The running sums of a row, from 0: `[2, 3]` gives `[0, 2, 5]`.
-def PrefixSums.runningSums (row: List Nat): List Nat := List.scanLeft Nat.add 0 row
+def PrefixSums.runningSums (row: List Nat): List Nat := List.scanLeft row 0 Nat.add
 
 -- The table's rows from the running sums of each row: `above` is the row of
 -- the table for the rows before.
 def PrefixSums.table (above: List Nat): List (List Nat) -> List (List Nat)
   | Nil => [above]
-  | Cons sums rest => Cons above (PrefixSums.table (List.zipWith Nat.add above sums) rest)
+  | Cons sums rest => Cons above (PrefixSums.table (List.zipWith above sums Nat.add) rest)
 
 -- Entry (r, c) of the table.
-def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := Map.getOr 0 c (Map.getOr Map.empty r prefix.sums)
+def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := Map.getOr (Map.getOr prefix.sums Map.empty r) 0 c
 
 -- The sum of the cells of rows `top` up to, not including, `bottom`, and
 -- columns `left` up to, not including, `right`. Inside the grid (`bottom` at

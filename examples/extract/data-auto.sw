@@ -19,19 +19,19 @@ type Tree (k: Type) [auto ord: Ordered k] =
   | Leaf
   | Node (left: Tree k) (key: k) (right: Tree k)
 
-def Tree.insert [auto ord: Ordered k] (x: k): Tree k -> Tree k
-  | Leaf => Node Leaf x Leaf
-  | Node l y r => match Ordered.compare x y with
-    | Less => Node (Tree.insert x l) y r
+def Tree.insert [auto ord: Ordered k]: Tree k -> k -> Tree k
+  | Leaf, x => Node Leaf x Leaf
+  | Node l y r, x => match Ordered.compare x y with
+    | Less => Node (Tree.insert l x) y r
     | Equal => Node l y r
-    | Greater => Node l y (Tree.insert x r)
+    | Greater => Node l y (Tree.insert r x)
 
 def Tree.toList: Tree k [ord := o] -> List k
   | Leaf => []
   | Node l y r => List.append (Tree.toList l) (Cons y (Tree.toList r))
 
 export def sorted (xs: List Nat): List Nat :=
-  (xs.foldLeft (t x => Tree.insert x t) (Leaf: Tree Nat)).toList
+  (xs.foldLeft (Leaf: Tree Nat) (t x => Tree.insert t x)).toList
 
 export def sortedDown (xs: List Nat): List Nat :=
-  (xs.foldLeft (t x => Tree.insert x t) (Leaf: Tree Nat [ord := descending])).toList
+  (xs.foldLeft (Leaf: Tree Nat [ord := descending]) (t x => Tree.insert t x)).toList

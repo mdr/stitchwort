@@ -7,7 +7,7 @@ namespace Report
 import Shapes (Shape)
 import Geometry (Area)
 
-def total (shapes: List Shape): Nat := shapes.foldLeft (n s => n + Area.area s) 0
+def total (shapes: List Shape): Nat := shapes.foldLeft 0 (n s => n + Area.area s)
 
 def linear: Area Nat := { area = n => n }
 

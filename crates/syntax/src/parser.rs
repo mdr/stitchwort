@@ -738,7 +738,7 @@ impl<'t> Parser<'t> {
         let diagnostic = error(self.here(), format!("expected {expected}, but {found}"));
         if found_arrow {
             return diagnostic.with_note(
-                "to pass a lambda as an argument, put it in brackets: `List.map (x => …) xs`",
+                "to pass a lambda as an argument, put it in brackets: `List.map xs (x => …)`",
             );
         }
         diagnostic
@@ -2771,7 +2771,10 @@ impl<'t> Parser<'t> {
                 "`!` here applies to the element, not to the membership test",
             )
             .with_label(bang, "this `!` binds tighter than `in`")
-            .with_label(op, "so this tests whether the negated element is in the collection")
+            .with_label(
+                op,
+                "so this tests whether the negated element is in the collection",
+            )
             .with_note(
                 "for \"not in\", write `x !in xs`; if the element really is negated, bracket \
                  it: `(!x) in xs`",
@@ -5696,7 +5699,10 @@ mod tests {
         };
         assert!(matches!(body.as_ref(), Expr::App(..)));
         // After `&&`, `||`, `<->` and `->` it takes the rest.
-        assert!(matches!(expr("p && exists k => q k"), Expr::Binary(BinOp::And, ..)));
+        assert!(matches!(
+            expr("p && exists k => q k"),
+            Expr::Binary(BinOp::And, ..)
+        ));
         assert!(parse_module_text("def t: Prop := p <-> exists k => q k\n").is_ok());
         assert!(parse_module_text("def t: Prop := p -> ∃ (k: Nat) => q k\n").is_ok());
         assert!(parse_errors("def t: Prop := exists 3\n").contains("after `exists`"));
@@ -5712,9 +5718,13 @@ mod tests {
         let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h in x in xs\n");
         assert!(error.contains("needs brackets"), "{error}");
         // In brackets, either side is fine.
-        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h (x in xs) in t\n").is_ok());
+        assert!(
+            parse_module_text("def f (a: Nat): a = a :=\n  rewrite h (x in xs) in t\n").is_ok()
+        );
         assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs)\n").is_ok());
-        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs) && b\n").is_ok());
+        assert!(
+            parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs) && b\n").is_ok()
+        );
     }
 
     fn parse_errors(text: &str) -> String {
