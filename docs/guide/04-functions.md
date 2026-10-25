@@ -73,6 +73,18 @@ test "or given by name" := pairUp [b := Text] 1 "one" == (1, "one")
 
 The same applies to values that types depend on, such as the length `n` in `Vec a n` ([chapter 10](10-proofs.md)): a lowercase name used as a type's argument is bound for you.
 
+A lambda can take implicit parameters too, written the same way, so that its body can name them. Without them, `x => x` still checks against `[a: Type] -> a -> a`: the compiler introduces the implicit parameter for it, unnamed. `[auto h: P] => …` takes an `auto` parameter ([chapter 5](05-interfaces.md)) likewise.
+
+<!-- snippet: functions.sw#implicit-lambda -->
+```stitchwort
+def pairUpLambda: [a: Type] -> [b: Type] -> a -> b -> (a, b) :=
+  [a: Type] [b: Type] (x: a) (y: b) => (x, y)
+
+test "a lambda with implicit parameters" :=
+  let flip := [a: Type] [b: Type] (x: a) (y: b) => (y, x)
+  flip 1 "one" == ("one", 1) && pairUpLambda 1 "one" == (1, "one")
+```
+
 ## Named arguments
 
 Any parameter can be passed by name, `(name := value)`, in any order. A call that names arguments is the same call as the positional one. Leaving explicit parameters out makes a function of the ones left:

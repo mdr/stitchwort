@@ -720,10 +720,10 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dsub = (m) => (n) => (m >= n ? m - n : 0n);
-const $Std$dNat$dmul = (m) => (n) => m * n;
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
+const $Std$dNat$dmul = (m, n) => m * n;
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {
     case "MkPair": {
@@ -744,7 +744,7 @@ const $Std$dPair$dsnd = (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -766,12 +766,12 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
-const $Main$dtwice = (v0) => ((v1) => $Std$dNat$dadd(v1)(v1))($Std$dNat$dadd(v0)(1n));
-const $Main$dclamp = (v0) => ((v1) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v1)(2n))(((v2) => 0n))(((v2) => v1)))($Std$dNat$dadd(v0)(1n));
-const $Main$dlessOf = (v0) => (v1) => $Std$dNat$dsub(v1)(v0);
-const $Main$dbelow = (v0) => (v1) => $Main$dlessOf(v0)($Std$dNat$dadd(v0)(v1));
-const $Main$dcountUp = (v0) => (v1) => {
+const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, v1));
+const $Main$dtwice = (v0) => ((v1) => $Std$dNat$dadd(v1, v1))($Std$dNat$dadd(v0, 1n));
+const $Main$dclamp = (v0) => ((v1) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v1, 2n), ((v2) => 0n), ((v2) => v1)))($Std$dNat$dadd(v0, 1n));
+const $Main$dlessOf = (v0, v1) => $Std$dNat$dsub(v1, v0);
+const $Main$dbelow = (v0, v1) => $Main$dlessOf(v0, $Std$dNat$dadd(v0, v1));
+const $Main$dcountUp = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -779,14 +779,14 @@ const $Main$dcountUp = (v0) => (v1) => {
       return v1;
     } else {
       const v2 = v0 - 1n;
-      const v3 = $Std$dNat$dadd(v1)(2n);
+      const v3 = $Std$dNat$dadd(v1, 2n);
       s0 = v2;
       s1 = v3;
       continue;
     }
   }
 };
-const $Main$dswapSum = (v0) => (v1) => ((v2) => ((v3) => ((v4) => $Std$dNat$dadd($Std$dNat$dmul(v4)(10n))(v3))($Std$dPair$dsnd(v2)))($Std$dPair$dfst(v2)))({ tag: "MkPair", fst: v0, snd: $Std$dNat$dadd(v1)(1n) });
+const $Main$dswapSum = (v0, v1) => ((v2) => ((v3) => ((v4) => $Std$dNat$dadd($Std$dNat$dmul(v4, 10n), v3))($Std$dPair$dsnd(v2)))($Std$dPair$dfst(v2)))({ tag: "MkPair", fst: v0, snd: $Std$dNat$dadd(v1, 1n) });
 
 function $$twice(arg0) {
   try {
@@ -810,7 +810,7 @@ function $$below(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$2, ty$1, $Main$dbelow(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dbelow(v0, v1));
   } catch (e) {
     throw outOfResources("below", e);
   }
@@ -820,7 +820,7 @@ function $$countUp(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
     const v1 = decodeFast(dec$1, ty$1, arg1, "acc");
-    return encodeFast(enc$2, ty$1, $Main$dcountUp(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dcountUp(v0, v1));
   } catch (e) {
     throw outOfResources("countUp", e);
   }
@@ -830,7 +830,7 @@ function $$swapSum(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "x");
     const v1 = decodeFast(dec$1, ty$1, arg1, "y");
-    return encodeFast(enc$2, ty$1, $Main$dswapSum(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dswapSum(v0, v1));
   } catch (e) {
     throw outOfResources("swapSum", e);
   }

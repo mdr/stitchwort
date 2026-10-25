@@ -743,7 +743,7 @@ define(info$Std$dOption, [
   ["Some", [["value", param(0)]]],
 ]);
 
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -754,7 +754,7 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -777,7 +777,7 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfilterStep = (v1) => (v2) => (v3) => {
+const $Std$dList$dfilterStep = (v1, v2, v3) => {
   switch (v3.tag) {
     case "False": {
       return v2;
@@ -788,7 +788,7 @@ const $Std$dList$dfilterStep = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dfilter = (v1) => (v2) => {
+const $Std$dList$dfilter = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -825,7 +825,7 @@ const $Std$dList$dfilter = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
+const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
@@ -845,17 +845,17 @@ const $Std$dList$dfoldLeft = (v2) => (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dFloat$dadd = (a) => (b) => a + b;
-const $Std$dFloat$dsub = (a) => (b) => a - b;
-const $Std$dFloat$dmul = (a) => (b) => a * b;
-const $Std$dFloat$ddiv = (a) => (b) => a / b;
+const $Std$dFloat$dadd = (a, b) => a + b;
+const $Std$dFloat$dsub = (a, b) => a - b;
+const $Std$dFloat$dmul = (a, b) => a * b;
+const $Std$dFloat$ddiv = (a, b) => a / b;
 const $Std$dFloat$dround = (a) => Math.round(a);
 const $Std$dFloat$dofInt = (n) => Number(n);
-const $Std$dFloat$dieeeLt = (a) => (b) => ({ tag: a < b ? "True" : "False" });
-const $Std$dFloat$dieeeLe = (a) => (b) => ({ tag: a <= b ? "True" : "False" });
+const $Std$dFloat$dieeeLt = (a, b) => ({ tag: a < b ? "True" : "False" });
+const $Std$dFloat$dieeeLe = (a, b) => ({ tag: a <= b ? "True" : "False" });
 const $Std$dFloat$dtoInt = (a) => (Number.isInteger(a) ? { tag: "Some", value: BigInt(a) } : { tag: "None" });
-const $Main$dinWindow = (v0) => (v1) => (v2) => $Std$dList$dfilter(((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLe(v0)(v3))(((v4) => $Std$dFloat$dieeeLt(v3)(v1)))(((v4) => ({ tag: "False" })))))(v2);
-const $Main$dshiftAll = (v0) => (v1) => $Std$dList$dmap$e(((v2) => $Std$dFloat$dadd(v2)(v0)))(v1);
+const $Main$dinWindow = (v0, v1, v2) => $Std$dList$dfilter(((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLe(v0, v3), ((v4) => $Std$dFloat$dieeeLt(v3, v1)), ((v4) => ({ tag: "False" })))), v2);
+const $Main$dshiftAll = (v0, v1) => $Std$dList$dmap$e(((v2) => $Std$dFloat$dadd(v2, v0)), v1);
 const $Main$dgaps = (v0) => {
   let s0 = v0;
   let h$ = null, l$ = null, k$ = null;
@@ -875,7 +875,7 @@ const $Main$dgaps = (v0) => {
           case "Cons": {
             const v3 = v2.head;
             const v4 = v2.tail;
-            const c1$ = { tag: "Cons", head: $Std$dFloat$dsub(v3)(v1), tail: null };
+            const c1$ = { tag: "Cons", head: $Std$dFloat$dsub(v3, v1), tail: null };
             if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
             l$ = c1$; k$ = "tail";
             s0 = { tag: "Cons", head: v3, tail: v4 };
@@ -888,7 +888,7 @@ const $Main$dgaps = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dsnap = (v0) => (v1) => $Std$dFloat$dmul($Std$dFloat$dround($Std$dFloat$ddiv(v1)(v0)))(v0);
+const $Main$dsnap = (v0, v1) => $Std$dFloat$dmul($Std$dFloat$dround($Std$dFloat$ddiv(v1, v0)), v0);
 const $Main$dlatest = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -897,22 +897,22 @@ const $Main$dlatest = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Some", value: $Std$dList$dfoldLeft(((v3) => ((v4) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v3)(v4))(((v5) => v4))(((v5) => v3)))))(v1)(v2) };
+      return { tag: "Some", value: $Std$dList$dfoldLeft(((v3) => ((v4) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v3, v4), ((v5) => v4), ((v5) => v3)))), v1, v2) };
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dtotal = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dFloat$dadd(v1)(v2))))(0.0)(v0);
+const $Main$dtotal = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dFloat$dadd(v1, v2))), 0.0, v0);
 const $Main$dwholeMs = (v0) => $Std$dFloat$dtoInt(v0);
 const $Main$dfromCount = (v0) => $Std$dFloat$dofInt(v0);
-const $Main$dclamped = (v0) => (v1) => (v2) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v2)(v0))(((v3) => v0))(((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v1)(v2))(((v4) => v1))(((v4) => v2))));
+const $Main$dclamped = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v2, v0), ((v3) => v0), ((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v1, v2), ((v4) => v1), ((v4) => v2))));
 
 function $$inWindow(arg0, arg1, arg2) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "start");
     const v1 = decodeFast(dec$1, ty$1, arg1, "end");
     const v2 = decodeFast(dec$2, ty$2, arg2, "times");
-    return encodeFast(enc$3, ty$2, $Main$dinWindow(v0)(v1)(v2));
+    return encodeFast(enc$3, ty$2, $Main$dinWindow(v0, v1, v2));
   } catch (e) {
     throw outOfResources("inWindow", e);
   }
@@ -922,7 +922,7 @@ function $$shiftAll(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "by");
     const v1 = decodeFast(dec$2, ty$2, arg1, "times");
-    return encodeFast(enc$3, ty$2, $Main$dshiftAll(v0)(v1));
+    return encodeFast(enc$3, ty$2, $Main$dshiftAll(v0, v1));
   } catch (e) {
     throw outOfResources("shiftAll", e);
   }
@@ -941,7 +941,7 @@ function $$snap(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "grid");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$4, ty$1, $Main$dsnap(v0)(v1));
+    return encodeFast(enc$4, ty$1, $Main$dsnap(v0, v1));
   } catch (e) {
     throw outOfResources("snap", e);
   }
@@ -988,7 +988,7 @@ function $$clamped(arg0, arg1, arg2) {
     const v0 = decodeFast(dec$1, ty$1, arg0, "low");
     const v1 = decodeFast(dec$1, ty$1, arg1, "high");
     const v2 = decodeFast(dec$1, ty$1, arg2, "t");
-    return encodeFast(enc$4, ty$1, $Main$dclamped(v0)(v1)(v2));
+    return encodeFast(enc$4, ty$1, $Main$dclamped(v0, v1, v2));
   } catch (e) {
     throw outOfResources("clamped", e);
   }

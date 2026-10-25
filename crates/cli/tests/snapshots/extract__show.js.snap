@@ -720,7 +720,7 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -744,7 +744,7 @@ const $Std$dList$dlength = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dappend = (v1) => (v2) => {
+const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -767,7 +767,7 @@ const $Std$dList$dappend = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dNat$dequal = (m) => (n) => ({ tag: m === n ? "True" : "False" });
+const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -779,7 +779,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
@@ -790,7 +790,7 @@ const $Std$dChar$dtoNat = (v0) => {
   throw new Error("unreachable");
 };
 const $Std$dText$dtoList = charsOfText;
-const $Std$dText$dappend = (a) => (b) => a + b;
+const $Std$dText$dappend = (a, b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dText$dtoText = (v0) => v0;
 const $Std$dShow$d$gtoText = (v1) => {
@@ -806,21 +806,21 @@ const $Std$dShow$d$gtoSource = (v1) => {
 const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
 const $Std$dShow$dtoSource = (v1) => $Std$dShow$d$gtoSource(v1);
 const $Std$dShow$dfromText = (v1) => ({ toText: v1, toSource: v1 });
-const $Std$dShow$descapeChar = (v0) => (v1) => (v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(92n))(((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })))(((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))($Std$dChar$dtoNat(v0)))(((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })))(((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(10n))(((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })))(((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(9n))(((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })))(((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(13n))(((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })))(((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
-const $Std$dShow$descapeBefore = (v0) => (v1) => (v2) => (v3) => {
+const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
+const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
   switch (v3.tag) {
     case "Nil": {
-      return $Std$dShow$descapeChar(v0)(v1)(v2);
+      return $Std$dShow$descapeChar(v0, v1, v2);
     }
     case "Cons": {
       const v4 = v3.head;
       const v5 = v3.tail;
-      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1))(36n))(((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v4))(123n))(((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })))(((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))(((v6) => $Std$dShow$descapeChar(v0)(v1)(v2)));
+      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 36n), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v4), 123n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))), ((v6) => $Std$dShow$descapeChar(v0, v1, v2)));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dShow$descapeChars = (v0) => (v1) => {
+const $Std$dShow$descapeChars = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -843,7 +843,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
             const v9 = v5;
             const p3_0$ = p1_0$;
             const p4_1$ = p2_1$;
-            if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(92n).tag === "True") {
+            if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 92n).tag === "True") {
               const c5$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: null };
               const c6$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c5$ };
               if (l$ === null) { h$ = c6$; } else { l$[k$] = c6$; }
@@ -852,7 +852,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
               s1 = p4_1$;
               continue;
             } else {
-              if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))($Std$dChar$dtoNat(v8)).tag === "True") {
+              if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), $Std$dChar$dtoNat(v8)).tag === "True") {
                 const c7$ = { tag: "Cons", head: v9, tail: null };
                 const c8$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c7$ };
                 if (l$ === null) { h$ = c8$; } else { l$[k$] = c8$; }
@@ -861,7 +861,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                 s1 = p4_1$;
                 continue;
               } else {
-                if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(10n).tag === "True") {
+                if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 10n).tag === "True") {
                   const c9$ = { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: null };
                   const c10$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c9$ };
                   if (l$ === null) { h$ = c10$; } else { l$[k$] = c10$; }
@@ -870,7 +870,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                   s1 = p4_1$;
                   continue;
                 } else {
-                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(9n).tag === "True") {
+                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 9n).tag === "True") {
                     const c11$ = { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: null };
                     const c12$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c11$ };
                     if (l$ === null) { h$ = c12$; } else { l$[k$] = c12$; }
@@ -879,7 +879,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                     s1 = p4_1$;
                     continue;
                   } else {
-                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v9))(13n).tag === "True") {
+                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v9), 13n).tag === "True") {
                       const c13$ = { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: null };
                       const c14$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c13$ };
                       if (l$ === null) { h$ = c14$; } else { l$[k$] = c14$; }
@@ -903,8 +903,8 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
           case "Cons": {
             const v8 = v7.head;
             const v9 = v7.tail;
-            if ($Std$dNat$dequal($Std$dChar$dtoNat(v5))(36n).tag === "True") {
-              if ($Std$dNat$dequal($Std$dChar$dtoNat(v8))(123n).tag === "True") {
+            if ($Std$dNat$dequal($Std$dChar$dtoNat(v5), 36n).tag === "True") {
+              if ($Std$dNat$dequal($Std$dChar$dtoNat(v8), 123n).tag === "True") {
                 const c16$ = { tag: "Cons", head: v5, tail: null };
                 const c17$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c16$ };
                 if (l$ === null) { h$ = c17$; } else { l$[k$] = c17$; }
@@ -925,7 +925,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
               const v12 = v5;
               const p19_0$ = p1_0$;
               const p20_1$ = p2_1$;
-              if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(92n).tag === "True") {
+              if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 92n).tag === "True") {
                 const c21$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: null };
                 const c22$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c21$ };
                 if (l$ === null) { h$ = c22$; } else { l$[k$] = c22$; }
@@ -934,7 +934,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                 s1 = p20_1$;
                 continue;
               } else {
-                if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))($Std$dChar$dtoNat(v11)).tag === "True") {
+                if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), $Std$dChar$dtoNat(v11)).tag === "True") {
                   const c23$ = { tag: "Cons", head: v12, tail: null };
                   const c24$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c23$ };
                   if (l$ === null) { h$ = c24$; } else { l$[k$] = c24$; }
@@ -943,7 +943,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                   s1 = p20_1$;
                   continue;
                 } else {
-                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(10n).tag === "True") {
+                  if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 10n).tag === "True") {
                     const c25$ = { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: null };
                     const c26$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c25$ };
                     if (l$ === null) { h$ = c26$; } else { l$[k$] = c26$; }
@@ -952,7 +952,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                     s1 = p20_1$;
                     continue;
                   } else {
-                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(9n).tag === "True") {
+                    if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 9n).tag === "True") {
                       const c27$ = { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: null };
                       const c28$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c27$ };
                       if (l$ === null) { h$ = c28$; } else { l$[k$] = c28$; }
@@ -961,7 +961,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
                       s1 = p20_1$;
                       continue;
                     } else {
-                      if ($Std$dNat$dequal($Std$dChar$dtoNat(v12))(13n).tag === "True") {
+                      if ($Std$dNat$dequal($Std$dChar$dtoNat(v12), 13n).tag === "True") {
                         const c29$ = { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: null };
                         const c30$ = { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: c29$ };
                         if (l$ === null) { h$ = c30$; } else { l$[k$] = c30$; }
@@ -990,7 +990,7 @@ const $Std$dShow$descapeChars = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dShow$dquoteText = (v0) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: $Std$dList$dappend($Std$dShow$descapeChars({ tag: "MkChar", code: 34n })($Std$dText$dtoList(v0)))({ tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: { tag: "Nil" } }) });
+const $Std$dShow$dquoteText = (v0) => textOfChars({ tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: $Std$dList$dappend($Std$dShow$descapeChars({ tag: "MkChar", code: 34n }, $Std$dText$dtoList(v0)), { tag: "Cons", head: { tag: "MkChar", code: 34n }, tail: { tag: "Nil" } }) });
 const $Std$dShow$dhasSpace = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -1002,7 +1002,7 @@ const $Std$dShow$dhasSpace = (v0) => {
       case "Cons": {
         const v1 = v0.head;
         const v2 = v0.tail;
-        if ($Std$dNat$dequal($Std$dChar$dtoNat(v1))(32n).tag === "True") {
+        if ($Std$dNat$dequal($Std$dChar$dtoNat(v1), 32n).tag === "True") {
           return { tag: "True" };
         } else {
           s0 = v2;
@@ -1013,8 +1013,8 @@ const $Std$dShow$dhasSpace = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dShow$dstartsBracketed = (v0) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(91n))(((v1) => ({ tag: "True" })))(((v1) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(40n))(((v2) => ({ tag: "True" })))(((v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0))(34n))(((v3) => ({ tag: "True" })))(((v3) => $Std$dNat$dequal($Std$dChar$dtoNat(v0))(39n)))))));
-const $Std$dShow$dargOf = (v0) => (v1) => {
+const $Std$dShow$dstartsBracketed = (v0) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0), 91n), ((v1) => ({ tag: "True" })), ((v1) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0), 40n), ((v2) => ({ tag: "True" })), ((v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v0), 34n), ((v3) => ({ tag: "True" })), ((v3) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), 39n)))))));
+const $Std$dShow$dargOf = (v0, v1) => {
   switch (v1.tag) {
     case "Nil": {
       return v0;
@@ -1022,13 +1022,13 @@ const $Std$dShow$dargOf = (v0) => (v1) => {
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
-      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2))(45n))(((v4) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2))(123n))(((v5) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v5) => $Std$dBool$difThenElse($Std$dShow$dstartsBracketed(v2))(((v6) => v0))(((v6) => $Std$dBool$difThenElse($Std$dShow$dhasSpace(v3))(((v7) => $Std$dText$dappend("(")($Std$dText$dappend(v0)(")"))))(((v7) => v0))))))));
+      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2), 45n), ((v4) => $Std$dText$dappend("(", $Std$dText$dappend(v0, ")"))), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v2), 123n), ((v5) => $Std$dText$dappend("(", $Std$dText$dappend(v0, ")"))), ((v5) => $Std$dBool$difThenElse($Std$dShow$dstartsBracketed(v2), ((v6) => v0), ((v6) => $Std$dBool$difThenElse($Std$dShow$dhasSpace(v3), ((v7) => $Std$dText$dappend("(", $Std$dText$dappend(v0, ")"))), ((v7) => v0))))))));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dShow$darg = (v0) => $Std$dShow$dargOf(v0)($Std$dText$dtoList(v0));
-const $Std$dShow$ditemsAfter = (v1) => (v2) => {
+const $Std$dShow$darg = (v0) => $Std$dShow$dargOf(v0, $Std$dText$dtoList(v0));
+const $Std$dShow$ditemsAfter = (v1, v2) => {
   switch (v2.tag) {
     case "Nil": {
       return "";
@@ -1036,12 +1036,12 @@ const $Std$dShow$ditemsAfter = (v1) => (v2) => {
     case "Cons": {
       const v3 = v2.head;
       const v4 = v2.tail;
-      return $Std$dText$dappend(", ")($Std$dText$dappend((v1)(v3))($Std$dShow$ditemsAfter(v1)(v4)));
+      return $Std$dText$dappend(", ", $Std$dText$dappend((v1)(v3), $Std$dShow$ditemsAfter(v1, v4)));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dShow$ditems = (v1) => (v2) => {
+const $Std$dShow$ditems = (v1, v2) => {
   switch (v2.tag) {
     case "Nil": {
       return "";
@@ -1049,25 +1049,25 @@ const $Std$dShow$ditems = (v1) => (v2) => {
     case "Cons": {
       const v3 = v2.head;
       const v4 = v2.tail;
-      return $Std$dText$dappend((v1)(v3))($Std$dShow$ditemsAfter(v1)(v4));
+      return $Std$dText$dappend((v1)(v3), $Std$dShow$ditemsAfter(v1, v4));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dShow$dlist = (v1) => (v2) => $Std$dText$dappend("[")($Std$dText$dappend($Std$dShow$ditems(v1)(v2))("]"));
+const $Std$dShow$dlist = (v1, v2) => $Std$dText$dappend("[", $Std$dText$dappend($Std$dShow$ditems(v1, v2), "]"));
 const $Std$dNat$dinstShow = $Std$dShow$dfromText($Std$dNat$dtoText);
 const $Std$dText$dinstShow = { toText: $Std$dText$dtoText, toSource: $Std$dShow$dquoteText };
-const $Std$dList$dinstShow = (v1) => $Std$dShow$dfromText(((v2) => $Std$dShow$dlist(((v3) => $Std$dShow$dtoSource(v1)(v3)))(v2)));
+const $Std$dList$dinstShow = (v1) => $Std$dShow$dfromText(((v2) => $Std$dShow$dlist(((v3) => $Std$dShow$dtoSource(v1)(v3)), v2)));
 const $Main$dShape$d$gshow = (v0) => {
   switch (v0.tag) {
     case "Circle": {
       const v1 = v0.radius;
-      return $Std$dText$dappend("Circle")($Std$dText$dappend(" ")($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1))));
+      return $Std$dText$dappend("Circle", $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1))));
     }
     case "Rect": {
       const v1 = v0.w;
       const v2 = v0.h;
-      return $Std$dText$dappend("Rect")($Std$dText$dappend(" ")($Std$dText$dappend($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1)))($Std$dText$dappend(" ")($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2))))));
+      return $Std$dText$dappend("Rect", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2))))));
     }
     case "Dot": {
       return "Dot";
@@ -1079,12 +1079,12 @@ const $Main$dShape$d$ginstShow = { toText: $Main$dShape$d$gshow, toSource: $Main
 const $Main$dItem$d$gshow = (v0) => {
   const v1 = v0.name;
   const v2 = v0.price;
-  return $Std$dText$dappend("{ name = ")($Std$dText$dappend($Std$dShow$dtoSource($Std$dText$dinstShow)(v1))($Std$dText$dappend(", price = ")($Std$dText$dappend($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2))(" }"))));
+  return $Std$dText$dappend("{ name = ", $Std$dText$dappend($Std$dShow$dtoSource($Std$dText$dinstShow)(v1), $Std$dText$dappend(", price = ", $Std$dText$dappend($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2), " }"))));
 };
 const $Main$dItem$d$ginstShow = { toText: $Main$dItem$d$gshow, toSource: $Main$dItem$d$gshow };
-const $Main$ddescribe = (v0) => ((v1) => $Std$dText$dappend($Std$dShow$dtoText($Main$dItem$d$ginstShow)(v1))($Std$dText$dappend(" costs ")($Std$dShow$dtoText($Std$dNat$dinstShow)(v0))))({ name: "tea", price: v0 });
-const $Main$dnames = (v0) => $Std$dText$dappend($Std$dShow$dtoText($Std$dList$dinstShow($Std$dText$dinstShow))(v0))($Std$dText$dappend(" / ")($Std$dShow$dtoText($Std$dNat$dinstShow)($Std$dList$dlength(v0))));
-const $Main$dshapes = (v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0)(0n)))(((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Dot" }, tail: { tag: "Nil" } })))(((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Circle", radius: v0 }, tail: { tag: "Cons", head: { tag: "Rect", w: v0, h: v0 }, tail: { tag: "Nil" } } })));
+const $Main$ddescribe = (v0) => ((v1) => $Std$dText$dappend($Std$dShow$dtoText($Main$dItem$d$ginstShow)(v1), $Std$dText$dappend(" costs ", $Std$dShow$dtoText($Std$dNat$dinstShow)(v0))))({ name: "tea", price: v0 });
+const $Main$dnames = (v0) => $Std$dText$dappend($Std$dShow$dtoText($Std$dList$dinstShow($Std$dText$dinstShow))(v0), $Std$dText$dappend(" / ", $Std$dShow$dtoText($Std$dNat$dinstShow)($Std$dList$dlength(v0))));
+const $Main$dshapes = (v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Dot" }, tail: { tag: "Nil" } })), ((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Circle", radius: v0 }, tail: { tag: "Cons", head: { tag: "Rect", w: v0, h: v0 }, tail: { tag: "Nil" } } })));
 
 function $$describe(arg0) {
   try {

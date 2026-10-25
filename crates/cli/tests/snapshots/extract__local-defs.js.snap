@@ -720,8 +720,8 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -743,8 +743,8 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
-const $Main$dsumTo$dgo = (v0) => (v1) => {
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Main$dsumTo$dgo = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -753,13 +753,13 @@ const $Main$dsumTo$dgo = (v0) => (v1) => {
     } else {
       const v2 = v0 - 1n;
       s0 = v2;
-      s1 = $Std$dNat$dadd(v1)((v2 + 1n));
+      s1 = $Std$dNat$dadd(v1, (v2 + 1n));
       continue;
     }
   }
 };
-const $Main$dsumTo = (v0) => $Main$dsumTo$dgo(v0)(0n);
-const $Main$dcountIf$dgo = (v0) => (v1) => (v2) => {
+const $Main$dsumTo = (v0) => $Main$dsumTo$dgo(v0, 0n);
+const $Main$dcountIf$dgo = (v0, v1, v2) => {
   let s0 = v0, s1 = v1, s2 = v2;
   for (;;) {
     const v0 = s0, v1 = s1, v2 = s2;
@@ -771,7 +771,7 @@ const $Main$dcountIf$dgo = (v0) => (v1) => (v2) => {
         const v3 = v2.head;
         const v4 = v2.tail;
         s0 = v0;
-        s1 = $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3)(v0)))(((v5) => $Std$dNat$dadd(v1)(1n)))(((v5) => v1));
+        s1 = $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3, v0)), ((v5) => $Std$dNat$dadd(v1, 1n)), ((v5) => v1));
         s2 = v4;
         continue;
       }
@@ -779,7 +779,7 @@ const $Main$dcountIf$dgo = (v0) => (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dcountIf = (v0) => (v1) => $Main$dcountIf$dgo(v0)(0n)(v1);
+const $Main$dcountIf = (v0, v1) => $Main$dcountIf$dgo(v0, 0n, v1);
 const $Main$dparity$disOdd = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -833,7 +833,7 @@ function $$countIf(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "target");
     const v1 = decodeFast(dec$3, ty$2, arg1, "xs");
-    return encodeFast(enc$2, ty$1, $Main$dcountIf(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dcountIf(v0, v1));
   } catch (e) {
     throw outOfResources("countIf", e);
   }

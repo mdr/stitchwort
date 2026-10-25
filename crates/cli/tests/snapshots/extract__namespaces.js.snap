@@ -725,18 +725,18 @@ define(info$Main$dGeometry$dShape, [
   ["Rect", [["width", NAT], ["height", NAT]]],
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dmul = (m) => (n) => m * n;
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dmul = (m, n) => m * n;
 const $Main$dGeometry$dShape$darea = (v0) => {
   switch (v0.tag) {
     case "Square": {
       const v1 = v0.side;
-      return $Std$dNat$dmul(v1)(v1);
+      return $Std$dNat$dmul(v1, v1);
     }
     case "Rect": {
       const v1 = v0.width;
       const v2 = v0.height;
-      return $Std$dNat$dmul(v1)(v2);
+      return $Std$dNat$dmul(v1, v2);
     }
   }
   throw new Error("unreachable");
@@ -745,12 +745,12 @@ const $Main$dgrow = (v0) => {
   switch (v0.tag) {
     case "Square": {
       const v1 = v0.side;
-      return { tag: "Square", side: $Std$dNat$dadd(v1)(1n) };
+      return { tag: "Square", side: $Std$dNat$dadd(v1, 1n) };
     }
     case "Rect": {
       const v1 = v0.width;
       const v2 = v0.height;
-      return { tag: "Rect", width: $Std$dNat$dadd(v1)(1n), height: $Std$dNat$dadd(v2)(1n) };
+      return { tag: "Rect", width: $Std$dNat$dadd(v1, 1n), height: $Std$dNat$dadd(v2, 1n) };
     }
   }
   throw new Error("unreachable");

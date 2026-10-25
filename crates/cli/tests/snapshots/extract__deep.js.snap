@@ -736,7 +736,7 @@ define(info$Main$dSeq, [
 ]);
 
 const $Main$decho = (v0) => v0;
-const $Main$dcountOnto = (v0) => (v1) => {
+const $Main$dcountOnto = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -755,8 +755,8 @@ const $Main$dcountOnto = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dcount = (v0) => $Main$dcountOnto(0n)(v0);
-const $Main$dflipOnto = (v0) => (v1) => {
+const $Main$dcount = (v0) => $Main$dcountOnto(0n, v0);
+const $Main$dflipOnto = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -775,8 +775,8 @@ const $Main$dflipOnto = (v0) => (v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dflip = (v0) => $Main$dflipOnto({ tag: "End" })(v0);
-const $Main$dbuildOnto = (v0) => (v1) => {
+const $Main$dflip = (v0) => $Main$dflipOnto({ tag: "End" }, v0);
+const $Main$dbuildOnto = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -790,9 +790,9 @@ const $Main$dbuildOnto = (v0) => (v1) => {
     }
   }
 };
-const $Main$dbuild = (v0) => $Main$dbuildOnto({ tag: "End" })(v0);
+const $Main$dbuild = (v0) => $Main$dbuildOnto({ tag: "End" }, v0);
 const $Main$dechoTree = (v0) => v0;
-const $Main$dspineOnto = (v0) => (v1) => {
+const $Main$dspineOnto = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -806,9 +806,9 @@ const $Main$dspineOnto = (v0) => (v1) => {
     }
   }
 };
-const $Main$dspine = (v0) => $Main$dspineOnto({ tag: "Leaf" })(v0);
+const $Main$dspine = (v0) => $Main$dspineOnto({ tag: "Leaf" }, v0);
 const $Main$dechoSeq = (v0) => v0;
-const $Main$dstepsOnto = (v0) => (v1) => {
+const $Main$dstepsOnto = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -822,7 +822,7 @@ const $Main$dstepsOnto = (v0) => (v1) => {
     }
   }
 };
-const $Main$dsteps = (v0) => $Main$dstepsOnto({ tag: "Stop" })(v0);
+const $Main$dsteps = (v0) => $Main$dstepsOnto({ tag: "Stop" }, v0);
 
 function $$echo(arg0) {
   try {

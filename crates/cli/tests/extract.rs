@@ -4357,12 +4357,12 @@ fn a_changed_int_operation_loses_only_its_native() {
         .expect("extraction succeeds")
         .js;
     assert!(
-        !js.contains("const $Std$dInt$dadd = (a) => (b) => a + b;"),
+        !js.contains("const $Std$dInt$dadd = (a, b) => a + b;"),
         "Int.add is still native"
     );
     assert!(js.contains("const $Std$dInt$dadd = "), "Int.add is defined");
-    assert!(!js.contains("const $Std$dInt$dsub = (a) => (b) => a - b;"));
-    assert!(js.contains("const $Std$dInt$dmul = (a) => (b) => a * b;"));
+    assert!(!js.contains("const $Std$dInt$dsub = (a, b) => a - b;"));
+    assert!(js.contains("const $Std$dInt$dmul = (a, b) => a * b;"));
     assert!(js.contains("const INT = leaf("), "the representation is on");
 
     let script = r#"
@@ -4710,6 +4710,6 @@ fn map_at_the_empty_row_is_a_pure_maps_loop() {
         .expect("the pure caller");
     assert_eq!(
         caller,
-        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble)(v0);"
+        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble, v0);"
     );
 }

@@ -723,10 +723,10 @@ const encodeFast = (fast, t, v) => {
 const $Std$dVoid$dabsurd = () => {
   throw new Error("unreachable");
 };
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dNat$dsub = (m) => (n) => (m >= n ? m - n : 0n);
-const $Std$dNat$dmul = (m) => (n) => m * n;
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
+const $Std$dNat$dmul = (m, n) => m * n;
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlength = (v1) => {
   switch (v1.tag) {
     case "Nil": {
@@ -740,7 +740,7 @@ const $Std$dList$dlength = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -762,7 +762,7 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dDecidable$dnot = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -774,10 +774,10 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecLessThan = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n))(v1));
-const $Std$dNat$ddivFuel = (fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
-const $Std$dNat$ddiv = (v0) => (v1) => $Std$dNat$ddivFuel(v0)(v0)(v1);
-const $Std$dNat$dmod = (v0) => (v1) => $Std$dNat$dsub(v0)($Std$dNat$dmul($Std$dNat$ddiv(v0)(v1))(v1));
+const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n), v1));
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
+const $Std$dNat$dmod = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$dmul($Std$dNat$ddiv(v0, v1), v1));
 const $Main$dtotal = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -786,13 +786,13 @@ const $Main$dtotal = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return $Std$dNat$dadd(v1)($Main$dtotal(v2));
+      return $Std$dNat$dadd(v1, $Main$dtotal(v2));
     }
   }
   throw new Error("unreachable");
 };
-const $Main$daverage = (v0) => $Std$dDecidable$delim((((v1) => $Std$dDecidable$dnot($Std$dNat$ddecEq(v1)(0n))))($Std$dList$dlength(v0)))(((v1) => $Std$dNat$ddiv($Main$dtotal(v0))($Std$dList$dlength(v0))))(((v1) => 0n));
-const $Main$dget = (v1) => (v2) => {
+const $Main$daverage = (v0) => $Std$dDecidable$delim((((v1) => $Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n))))($Std$dList$dlength(v0)), ((v1) => $Std$dNat$ddiv($Main$dtotal(v0), $Std$dList$dlength(v0))), ((v1) => 0n));
+const $Main$dget = (v1, v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
     const v1 = s1, v2 = s2;
@@ -816,8 +816,8 @@ const $Main$dget = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dthird = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessThan(2n)(v1)))($Std$dList$dlength(v0)))(((v1) => $Main$dget(v0)(2n)))(((v1) => 0n));
-const $Main$disEven = (v0) => $Std$dNat$dleq($Std$dNat$dmod(v0)(2n))(0n);
+const $Main$dthird = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessThan(2n, v1)))($Std$dList$dlength(v0)), ((v1) => $Main$dget(v0, 2n)), ((v1) => 0n));
+const $Main$disEven = (v0) => $Std$dNat$dleq($Std$dNat$dmod(v0, 2n), 0n);
 
 function $$average(arg0) {
   try {

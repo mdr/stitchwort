@@ -731,7 +731,7 @@ define(info$Std$dResult, [
 // apart: `bind`, `foldComp`, `translate` and `runPure` are these functions.
 const EFF_BIND = "$Bind";
 // `bind c k`: a node, so building a long chain calls nothing.
-const effBind = (c) => (k) => ({ tag: EFF_BIND, c, k });
+const effBind = (c, k) => ({ tag: EFF_BIND, c, k });
 // The continuations pending when `effRun` last stopped at an operation.
 let effPending = null;
 // Runs `c` with the continuations `pending` (null, or `{ k, next }`, never
@@ -779,12 +779,10 @@ const effFoldLazy = (done, call, c, pending) => {
   const resume = (z) => effFoldLazy(done, call, rest(z), after);
   return call(c.o)((y) => ({ tag: EFF_BIND, c: { tag: "Done", value: y }, k: resume }));
 };
-const effFoldCompLazy = (done) => (call) => (c) => effFoldLazy(done, call, c, null);
+const effFoldCompLazy = (done, call, c) => effFoldLazy(done, call, c, null);
 // A fold whose carrier is `CompIn e t`: a computation unless the row is empty.
-const effFoldCompIn = (row) =>
-  row.tag === "Empty"
-    ? (done) => (call) => (c) => effFold(done, call, c, null)
-    : effFoldCompLazy;
+const effFoldCompIn = (row, done, call, c) =>
+  row.tag === "Empty" ? effFold(done, call, c, null) : effFoldLazy(done, call, c, null);
 // A state-passing handler at the empty row (stage 4d, A′;
 // stitchwort_rt::fusion): its operation clauses were rewritten to take
 // `jump` and the state, and to end with `jump v s′` where they resumed with
@@ -812,7 +810,7 @@ const effStateLoop = (comp, done, call, c, pending, s) => {
   }
 };
 const effStateFn = (comp, f) => (comp ? { tag: "Done", value: f } : f);
-const effFoldState = (comp) => (done) => (call) => (c) =>
+const effFoldState = (comp, done, call, c) =>
   effStateFn(comp, (s) => effStateLoop(comp, done, call, c, null, s));
 // `translate m c` with `pending` after `c`: each operation renamed by `m`,
 // its reply mapped back.
@@ -827,8 +825,8 @@ const effTranslate = (m, c, pending) => {
   };
 };
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -839,8 +837,8 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $Std$dList$dappend = (v1) => (v2) => {
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -863,7 +861,7 @@ const $Std$dList$dappend = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dreverseOnto = (v1) => (v2) => {
+const $Std$dList$dreverseOnto = (v1, v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
     const v1 = s1, v2 = s2;
@@ -882,7 +880,7 @@ const $Std$dList$dreverseOnto = (v1) => (v2) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -904,11 +902,11 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecLessEq = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0)(v1));
-const $Std$dNat$ddecLessThan = (v0) => (v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n))(v1));
-const $Std$dEffect$dfoldComp = (done) => (call) => (c) => effFold(done, call, c, null);
+const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, v1));
+const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq((v0 + 1n), v1));
+const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);
 const $Std$dEffect$dbind = effBind;
-const $Std$dEffect$dsigInject = (v4) => (v5) => {
+const $Std$dEffect$dsigInject = (v4, v5) => {
   switch (v4.tag) {
     case "MkSigMap": {
       const v6 = v4.inject;
@@ -918,7 +916,7 @@ const $Std$dEffect$dsigInject = (v4) => (v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dsigReply = (v4) => (v5) => (v6) => {
+const $Std$dEffect$dsigReply = (v4, v5, v6) => {
   switch (v4.tag) {
     case "MkSigMap": {
       const v7 = v4.inject;
@@ -928,9 +926,9 @@ const $Std$dEffect$dsigReply = (v4) => (v5) => (v6) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dtranslate = (m) => (c) => effTranslate(m, c, null);
+const $Std$dEffect$dtranslate = (m, c) => effTranslate(m, c, null);
 const $Std$dEffect$dsigId = { tag: "MkSigMap", inject: ((v2) => v2), reply: ((v2) => ((v3) => v3)) };
-const $Std$dEffect$dsigCompose = (v6) => (v7) => {
+const $Std$dEffect$dsigCompose = (v6, v7) => {
   switch (v6.tag) {
     case "MkSigMap": {
       const v8 = v6.inject;
@@ -949,45 +947,45 @@ const $Std$dEffect$dsigCompose = (v6) => (v7) => {
 };
 const $Std$dEffect$dsigLeft = { tag: "MkSigMap", inject: ((v4) => ({ tag: "L", o: v4 })), reply: ((v4) => ((v5) => v5)) };
 const $Std$dEffect$dsigRight = { tag: "MkSigMap", inject: ((v4) => ({ tag: "R", o: v4 })), reply: ((v4) => ((v5) => v5)) };
-const $Std$dEffect$dcaseInject = (v6) => (v7) => (v8) => {
+const $Std$dEffect$dcaseInject = (v6, v7, v8) => {
   switch (v8.tag) {
     case "L": {
       const v9 = v8.o;
-      return $Std$dEffect$dsigInject(v6)(v9);
+      return $Std$dEffect$dsigInject(v6, v9);
     }
     case "R": {
       const v9 = v8.o;
-      return $Std$dEffect$dsigInject(v7)(v9);
+      return $Std$dEffect$dsigInject(v7, v9);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dcaseReply = (v6) => (v7) => (v8) => (v9) => {
+const $Std$dEffect$dcaseReply = (v6, v7, v8, v9) => {
   switch (v8.tag) {
     case "L": {
       const v10 = v8.o;
-      return $Std$dEffect$dsigReply(v6)(v10)(v9);
+      return $Std$dEffect$dsigReply(v6, v10, v9);
     }
     case "R": {
       const v10 = v8.o;
-      return $Std$dEffect$dsigReply(v7)(v10)(v9);
+      return $Std$dEffect$dsigReply(v7, v10, v9);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dsigCase = (v6) => (v7) => ({ tag: "MkSigMap", inject: $Std$dEffect$dcaseInject(v6)(v7), reply: $Std$dEffect$dcaseReply(v6)(v7) });
+const $Std$dEffect$dsigCase = (v6, v7) => ({ tag: "MkSigMap", inject: (($p8) => $Std$dEffect$dcaseInject(v6, v7, $p8)), reply: (($p8) => ($p9) => $Std$dEffect$dcaseReply(v6, v7, $p8, $p9)) });
 const $Std$dEffect$dnoInject = (v1) => {
   switch (v1.tag) {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dnoReply = (v2) => (v3) => {
+const $Std$dEffect$dnoReply = (v2, v3) => {
   switch (v2.tag) {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dsigFromNo = { tag: "MkSigMap", inject: $Std$dEffect$dnoInject, reply: $Std$dEffect$dnoReply };
-const $Std$dEffect$dhandlePlus = (v5) => (v6) => (v7) => (v8) => {
+const $Std$dEffect$dsigFromNo = { tag: "MkSigMap", inject: $Std$dEffect$dnoInject, reply: ($Std$dEffect$dnoReply$c ??= ($p2) => ($p3) => $Std$dEffect$dnoReply($p2, $p3)) };
+const $Std$dEffect$dhandlePlus = (v5, v6, v7, v8) => {
   switch (v7.tag) {
     case "L": {
       const v9 = v7.o;
@@ -1001,7 +999,7 @@ const $Std$dEffect$dhandlePlus = (v5) => (v6) => (v7) => (v8) => {
   throw new Error("unreachable");
 };
 const $Std$dEffect$drunPure = effRunPure;
-const $Std$dEffect$ddoneIn = (v1) => (v2) => {
+const $Std$dEffect$ddoneIn = (v1, v2) => {
   switch (v1.tag) {
     case "Empty": {
       return v2;
@@ -1012,18 +1010,18 @@ const $Std$dEffect$ddoneIn = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dbindIn = (v2) => (v3) => (v4) => {
+const $Std$dEffect$dbindIn = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Empty": {
       return (v4)(v3);
     }
     case "Ops": {
-      return $Std$dEffect$dbind(v3)(v4);
+      return $Std$dEffect$dbind(v3, v4);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dliftIn = (v1) => (v2) => {
+const $Std$dEffect$dliftIn = (v1, v2) => {
   switch (v1.tag) {
     case "Empty": {
       return { tag: "Done", value: v2 };
@@ -1034,7 +1032,7 @@ const $Std$dEffect$dliftIn = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dlowerIn = (v1) => (v2) => {
+const $Std$dEffect$dlowerIn = (v1, v2) => {
   switch (v1.tag) {
     case "Empty": {
       return $Std$dEffect$drunPure(v2);
@@ -1045,38 +1043,38 @@ const $Std$dEffect$dlowerIn = (v1) => (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dEffect$dwidenIn = (v3) => (v4) => (v5) => {
+const $Std$dEffect$dwidenIn = (v3, v4, v5) => {
   switch (v3.tag) {
     case "Empty": {
       return v5;
     }
     case "Ops": {
-      return $Std$dEffect$dtranslate(v4)(v5);
+      return $Std$dEffect$dtranslate(v4, v5);
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dmin = (v0) => (v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0)(v1))(((v2) => v0))(((v2) => v1));
+const $Std$dNat$dmin = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, v1), ((v2) => v0), ((v2) => v1));
 const $Std$dEmpty$dabsurd = (v1) => {
   switch (v1.tag) {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap = (v1) => (v3) => (v4) => {
+const $Std$dList$dmap = (v1, v3, v4) => {
   switch (v4.tag) {
     case "Nil": {
-      return $Std$dEffect$ddoneIn(v1)({ tag: "Nil" });
+      return $Std$dEffect$ddoneIn(v1, { tag: "Nil" });
     }
     case "Cons": {
       const v5 = v4.head;
       const v6 = v4.tail;
-      return $Std$dEffect$dbindIn(v1)((v3)(v5))(((v7) => $Std$dEffect$dbindIn(v1)($Std$dList$dmap(v1)(v3)(v6))(((v8) => $Std$dEffect$ddoneIn(v1)({ tag: "Cons", head: v7, tail: v8 })))));
+      return $Std$dEffect$dbindIn(v1, (v3)(v5), ((v7) => $Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v3, v6), ((v8) => $Std$dEffect$ddoneIn(v1, { tag: "Cons", head: v7, tail: v8 })))));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dreverse = (v1) => $Std$dList$dreverseOnto(v1)({ tag: "Nil" });
-const $Std$dEach$d$gelim = (v1) => (v2) => (v3) => (v4) => {
+const $Std$dList$dreverse = (v1) => $Std$dList$dreverseOnto(v1, { tag: "Nil" });
+const $Std$dEach$d$gelim = (v1, v2, v3, v4) => {
   switch (v3.tag) {
     case "%fork": {
       const v5 = v3.x;
@@ -1092,20 +1090,20 @@ const $Std$dEach$d$gelim = (v1) => (v2) => (v3) => (v4) => {
 const $Std$dEach$deach = (v1) => {
   switch (v1.tag) {
     case "Nil": {
-      return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: { tag: "UnitValue" } } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) })));
+      return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: { tag: "UnitValue" } } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) })));
     }
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
-      return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%fork", x: { tag: "UnitValue" } } }, rest: ((v4) => ({ tag: "Done", value: v4 })) })(((v4) => $Std$dBool$difThenElse(v4)(((v5) => ({ tag: "Done", value: v2 })))(((v5) => $Std$dEach$deach(v3)))));
+      return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%fork", x: { tag: "UnitValue" } } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => $Std$dBool$difThenElse(v4, ((v5) => ({ tag: "Done", value: v2 })), ((v5) => $Std$dEach$deach(v3)))));
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dEach$dboth = (v1) => $Std$dList$dappend((v1)({ tag: "True" }))((v1)({ tag: "False" }));
-const $Std$dEach$dcollect = (v1) => $Std$dEffect$drunPure(effFoldCompLazy(((v2) => ({ tag: "Done", value: { tag: "Cons", head: v2, tail: { tag: "Nil" } } })))($Std$dEffect$dhandlePlus($Std$dEach$d$gelim(((v2) => ((v3) => ({ tag: "Done", value: $Std$dEach$dboth(((v4) => $Std$dEffect$drunPure((v3)(v4)))) }))))(((v2) => ((v3) => ({ tag: "Done", value: { tag: "Nil" } })))))(((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo)(v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo)(v2)(v4))) })))))((v1)({ tag: "UnitValue" })));
-const $Std$dEach$dcollectIn = (v0) => (v2) => effFoldCompIn(v0)(((v3) => $Std$dEffect$ddoneIn(v0)({ tag: "Cons", head: v3, tail: { tag: "Nil" } })))($Std$dEffect$dhandlePlus($Std$dEach$d$gelim(((v3) => ((v4) => $Std$dEffect$dbindIn(v0)((v4)({ tag: "True" }))(((v5) => $Std$dEffect$dbindIn(v0)((v4)({ tag: "False" }))(((v6) => $Std$dEffect$ddoneIn(v0)($Std$dList$dappend(v5)(v6)))))))))(((v3) => ((v4) => $Std$dEffect$ddoneIn(v0)({ tag: "Nil" })))))(((v3) => ((v4) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => $Std$dEffect$dliftIn(v0)((v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)))) })))))((v2)({ tag: "UnitValue" }));
-const $Std$dFail$d$gelim = (v1) => (v2) => (v3) => {
+const $Std$dEach$dboth = (v1) => $Std$dList$dappend((v1)({ tag: "True" }), (v1)({ tag: "False" }));
+const $Std$dEach$dcollect = (v1) => $Std$dEffect$drunPure(effFoldCompLazy(((v2) => ({ tag: "Done", value: { tag: "Cons", head: v2, tail: { tag: "Nil" } } })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2) => (($p3) => ($p4) => $Std$dEach$d$gelim($s1, $s2, $p3, $p4)))(((v2) => ((v3) => ({ tag: "Done", value: $Std$dEach$dboth(((v4) => $Std$dEffect$drunPure((v3)(v4)))) }))), ((v2) => ((v3) => ({ tag: "Done", value: { tag: "Nil" } })))), ((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo, v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo, v2, v4))) })))), (v1)({ tag: "UnitValue" })));
+const $Std$dEach$dcollectIn = (v0, v2) => effFoldCompIn(v0, ((v3) => $Std$dEffect$ddoneIn(v0, { tag: "Cons", head: v3, tail: { tag: "Nil" } })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1, $s2) => (($p3) => ($p4) => $Std$dEach$d$gelim($s1, $s2, $p3, $p4)))(((v3) => ((v4) => $Std$dEffect$dbindIn(v0, (v4)({ tag: "True" }), ((v5) => $Std$dEffect$dbindIn(v0, (v4)({ tag: "False" }), ((v6) => $Std$dEffect$ddoneIn(v0, $Std$dList$dappend(v5, v6)))))))), ((v3) => ((v4) => $Std$dEffect$ddoneIn(v0, { tag: "Nil" })))), ((v3) => ((v4) => $Std$dEffect$dlowerIn(v0, { tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => $Std$dEffect$dliftIn(v0, (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)))) })))), (v2)({ tag: "UnitValue" }));
+const $Std$dFail$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%stop": {
       const v4 = v2.x;
@@ -1114,12 +1112,12 @@ const $Std$dFail$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dFail$dfail = (v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: v1 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) })(((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) })));
-const $Std$dFail$dtoResult = (v0) => (v2) => effFoldCompIn(v0)(((v3) => $Std$dEffect$ddoneIn(v0)({ tag: "Ok", value: v3 })))($Std$dEffect$dhandlePlus($Std$dFail$d$gelim(((v3) => ((v4) => $Std$dEffect$ddoneIn(v0)({ tag: "Err", error: v3 })))))(((v3) => ((v4) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => $Std$dEffect$dliftIn(v0)((v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)))) })))))((v2)({ tag: "UnitValue" }));
-const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })))($Std$dEffect$dhandlePlus($Std$dFail$d$gelim(((v3) => ((v4) => ({ tag: "Err", error: v3 })))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }));
-const $Main$dchecked = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v2)(99999999n))(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v2)(1n))))(((v3) => $Std$dFail$dfail("too big")))))(v0)));
-const $Main$dfailsLast = (v0) => (v1) => $Std$dFail$dtoResult$e(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessThan($Std$dNat$dadd(v3)(1n))(v0))(((v4) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v3)(1n))))(((v4) => $Std$dFail$dfail("last")))))(v1)));
-const $Main$dEnv$d$gelim = (v1) => (v2) => (v3) => {
+const $Std$dFail$dfail = (v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: v1 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) })));
+const $Std$dFail$dtoResult = (v0, v2) => effFoldCompIn(v0, ((v3) => $Std$dEffect$ddoneIn(v0, { tag: "Ok", value: v3 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => $Std$dEffect$ddoneIn(v0, { tag: "Err", error: v3 })))), ((v3) => ((v4) => $Std$dEffect$dlowerIn(v0, { tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => $Std$dEffect$dliftIn(v0, (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)))) })))), (v2)({ tag: "UnitValue" }));
+const $Std$dFail$dtoResult$e = (v2) => $Std$dEffect$dfoldComp(((v3) => ({ tag: "Ok", value: v3 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => ({ tag: "Err", error: v3 })))), ((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)) })) })))), (v2)({ tag: "UnitValue" }));
+const $Main$dchecked = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v2, 99999999n), ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v2, 1n))), ((v3) => $Std$dFail$dfail("too big")))), v0)));
+const $Main$dfailsLast = (v0, v1) => $Std$dFail$dtoResult$e(((v2) => $Std$dList$dmap({ tag: "Ops" }, ((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessThan($Std$dNat$dadd(v3, 1n), v0), ((v4) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v3, 1n))), ((v4) => $Std$dFail$dfail("last")))), v1)));
+const $Main$dEnv$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%ask": {
       const v4 = v2.x;
@@ -1128,11 +1126,11 @@ const $Main$dEnv$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dEnv$dgive = (v1) => (v2) => $Std$dEffect$drunPure(effFoldCompLazy(((v3) => ({ tag: "Done", value: v3 })))($Std$dEffect$dhandlePlus($Main$dEnv$d$gelim(((v3) => ((v4) => (v4)(v1)))))(((v3) => ((v4) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo)(v3), rest: ((v5) => (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo)(v3)(v5))) })))))((v2)({ tag: "UnitValue" })));
-const $Main$dEnv$dgiveIn = (v0) => (v2) => (v3) => effFoldCompIn(v0)(((v4) => $Std$dEffect$ddoneIn(v0)(v4)))($Std$dEffect$dhandlePlus($Main$dEnv$d$gelim(((v4) => ((v5) => (v5)(v2)))))(((v4) => ((v5) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v4), rest: ((v6) => $Std$dEffect$dliftIn(v0)((v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v4)(v6)))) })))))((v3)({ tag: "UnitValue" }));
-const $Main$dasked = (v0) => $Main$dEnv$dgive(7n)(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v2)(v3))))))(v0)));
-const $Main$daskedChecked = (v0) => $Main$dEnv$dgive(7n)(((v1) => $Std$dFail$dtoResult({ tag: "Ops" })(((v2) => $Std$dEffect$dtranslate((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigCompose($Std$dEffect$dsigRight)($Std$dEffect$dsigRight)))))($Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3)(99999999n))(((v4) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })(((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v3)(v5))))))(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("big"))))))(v0))))));
-const $Main$dEmit$d$gelim = (v1) => (v2) => (v3) => {
+const $Main$dEnv$dgive = (v1, v2) => $Std$dEffect$drunPure(effFoldCompLazy(((v3) => ({ tag: "Done", value: v3 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dEnv$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => (v4)(v1)))), ((v3) => ((v4) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo, v3), rest: ((v5) => (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo, v3, v5))) })))), (v2)({ tag: "UnitValue" })));
+const $Main$dEnv$dgiveIn = (v0, v2, v3) => effFoldCompIn(v0, ((v4) => $Std$dEffect$ddoneIn(v0, v4)), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dEnv$d$gelim($s1, $p2, $p3)))(((v4) => ((v5) => (v5)(v2)))), ((v4) => ((v5) => $Std$dEffect$dlowerIn(v0, { tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), rest: ((v6) => $Std$dEffect$dliftIn(v0, (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6)))) })))), (v3)({ tag: "UnitValue" }));
+const $Main$dasked = (v0) => $Main$dEnv$dgive(7n, ((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }, ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v2, v3))))), v0)));
+const $Main$daskedChecked = (v0) => $Main$dEnv$dgive(7n, ((v1) => $Std$dFail$dtoResult({ tag: "Ops" }, ((v2) => $Std$dEffect$dtranslate((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigCase($Std$dEffect$dsigLeft, $Std$dEffect$dsigCompose($Std$dEffect$dsigRight, $Std$dEffect$dsigRight)))), $Std$dList$dmap({ tag: "Ops" }, ((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3, 99999999n), ((v4) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) }, ((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v3, v5))))), ((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Std$dFail$dfail("big"))))), v0))))));
+const $Main$dEmit$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%emit": {
       const v4 = v2.x;
@@ -1141,9 +1139,9 @@ const $Main$dEmit$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dEmit$dcollect = (v1) => $Std$dEffect$drunPure(effFoldCompLazy(((v2) => ({ tag: "Done", value: { tag: "Nil" } })))($Std$dEffect$dhandlePlus($Main$dEmit$d$gelim(((v2) => ((v3) => ((v4) => ({ tag: "Done", value: { tag: "Cons", head: v2, tail: v4 } }))($Std$dEffect$drunPure((v3)({ tag: "UnitValue" })))))))(((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo)(v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo)(v2)(v4))) })))))((v1)({ tag: "UnitValue" })));
-const $Main$dEmit$dcollectIn = (v0) => (v2) => effFoldCompIn(v0)(((v3) => $Std$dEffect$ddoneIn(v0)({ tag: "Nil" })))($Std$dEffect$dhandlePlus($Main$dEmit$d$gelim(((v3) => ((v4) => $Std$dEffect$dbindIn(v0)((v4)({ tag: "UnitValue" }))(((v5) => $Std$dEffect$ddoneIn(v0)({ tag: "Cons", head: v3, tail: v5 })))))))(((v3) => ((v4) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => $Std$dEffect$dliftIn(v0)((v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)))) })))))((v2)({ tag: "UnitValue" }));
-const $Main$dCounter$d$gelim = (v1) => (v2) => (v3) => {
+const $Main$dEmit$dcollect = (v1) => $Std$dEffect$drunPure(effFoldCompLazy(((v2) => ({ tag: "Done", value: { tag: "Nil" } })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dEmit$d$gelim($s1, $p2, $p3)))(((v2) => ((v3) => ((v4) => ({ tag: "Done", value: { tag: "Cons", head: v2, tail: v4 } }))($Std$dEffect$drunPure((v3)({ tag: "UnitValue" })))))), ((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo, v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo, v2, v4))) })))), (v1)({ tag: "UnitValue" })));
+const $Main$dEmit$dcollectIn = (v0, v2) => effFoldCompIn(v0, ((v3) => $Std$dEffect$ddoneIn(v0, { tag: "Nil" })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dEmit$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => $Std$dEffect$dbindIn(v0, (v4)({ tag: "UnitValue" }), ((v5) => $Std$dEffect$ddoneIn(v0, { tag: "Cons", head: v3, tail: v5 })))))), ((v3) => ((v4) => $Std$dEffect$dlowerIn(v0, { tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => $Std$dEffect$dliftIn(v0, (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)))) })))), (v2)({ tag: "UnitValue" }));
+const $Main$dCounter$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%next": {
       const v4 = v2.x;
@@ -1152,21 +1150,21 @@ const $Main$dCounter$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dCounter$dnumber = (v1) => $Std$dEffect$drunPure(effFoldState(true)(((v2) => ((v3) => v2)))($Std$dEffect$dhandlePlus($Main$dCounter$d$gelim(((v2) => ((v3) => ((v4) => ((v5) => (v4)(v5)($Std$dNat$dadd(v5)(1n))))))))(((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo)(v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo)(v2)(v4))) })))))((v1)({ tag: "UnitValue" })));
-const $Main$dCounter$dnumberIn = (v0) => (v2) => $Std$dEffect$dbindIn(v0)(effFoldCompIn(v0)(((v3) => $Std$dEffect$ddoneIn(v0)(((v4) => $Std$dEffect$ddoneIn(v0)(v3)))))($Std$dEffect$dhandlePlus($Main$dCounter$d$gelim(((v3) => ((v4) => $Std$dEffect$ddoneIn(v0)(((v5) => $Std$dEffect$dbindIn(v0)((v4)(v5))(((v6) => (v6)($Std$dNat$dadd(v5)(1n))))))))))(((v3) => ((v4) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => $Std$dEffect$dliftIn(v0)((v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)))) })))))((v2)({ tag: "UnitValue" })))(((v3) => (v3)(0n)));
-const $Main$dCounter$dnumberIn$e = (v2) => effFoldState(false)(((v3) => ((v4) => v3)))($Std$dEffect$dhandlePlus($Main$dCounter$d$gelim(((v3) => ((v4) => ((v5) => ((v6) => (v5)(v6)($Std$dNat$dadd(v6)(1n))))))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }))(0n);
-const $Main$daskedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dEnv$dgiveIn({ tag: "Ops" })(7n)(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3)(99999999n))(((v4) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })(((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v3)(v5))))))(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("big"))))))(v0)))));
-const $Main$demittedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dEmit$dcollectIn({ tag: "Ops" })(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3)(99999999n))(((v4) => ({ tag: "Call", o: { tag: "L", o: { tag: "%emit", x: v3 } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })))(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("big"))))))(v0)))));
-const $Main$dsearchedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dEach$dcollectIn({ tag: "Ops" })(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3)(99999999n))(((v4) => $Std$dEffect$dwidenIn({ tag: "Ops" })((sigmap$2 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigFromNo)))($Std$dEach$deach({ tag: "Cons", head: v3, tail: { tag: "Nil" } }))))(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("big"))))))(v0)))));
-const $Main$dcountedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dCounter$dnumberIn({ tag: "Ops" })(((v2) => $Std$dList$dmap({ tag: "Ops" })(((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3)(99999999n))(((v4) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })(((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v3)(v5))))))(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("big"))))))(v0)))));
-const $Main$demitted = (v0) => $Main$dEmit$dcollect(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%emit", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })))(v0)));
-const $Main$dsearched = (v0) => $Std$dEach$dcollect(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => $Std$dEach$deach({ tag: "Cons", head: v2, tail: { tag: "Nil" } })))(v0)));
-const $Main$dcounted = (v0) => $Main$dCounter$dnumber(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v2)(v3))))))(v0)))(0n);
-const $Main$dcountedChecked = (v0) => (v1) => $Main$dCounter$dnumber(((v2) => $Std$dFail$dtoResult({ tag: "Ops" })(((v3) => $Std$dEffect$dtranslate((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigCase($Std$dEffect$dsigLeft)($Std$dEffect$dsigCompose($Std$dEffect$dsigRight)($Std$dEffect$dsigRight)))))($Std$dList$dmap({ tag: "Ops" })(((v4) => $Std$dDecidable$delim($Std$dNat$ddecLessThan(v4)(v0))(((v5) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v6) => ({ tag: "Done", value: v6 })) })(((v6) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v4)(v6))))))(((v5) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Std$dFail$dfail("limit"))))))(v1))))))(0n);
-const $Main$dcountedOpen = (v0) => $Main$dCounter$dnumberIn$e(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })(((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v2)(v3))))))(v0)));
-const $Main$dEmit$dlog$e = (v2) => effFoldState(false)(((v3) => ((v4) => $Std$dList$dreverse(v4))))($Std$dEffect$dhandlePlus($Main$dEmit$d$gelim(((v3) => ((v4) => ((v5) => ((v6) => (v5)({ tag: "UnitValue" })({ tag: "Cons", head: v3, tail: v6 })))))))(((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)) })) })))))((v2)({ tag: "UnitValue" }))({ tag: "Nil" });
-const $Main$dlogged = (v0) => $Main$dEmit$dlog$e(((v1) => $Std$dList$dmap({ tag: "Ops" })(((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%emit", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })))(v0)));
-const $Main$dTick$d$gelim = (v1) => (v2) => (v3) => {
+const $Main$dCounter$dnumber = (v1) => $Std$dEffect$drunPure(effFoldState(true, ((v2) => ((v3) => v2)), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dCounter$d$gelim($s1, $p2, $p3)))(((v2) => ((v3) => ((v4) => ((v5) => (v4)(v5)($Std$dNat$dadd(v5, 1n))))))), ((v2) => ((v3) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo, v2), rest: ((v4) => (v3)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo, v2, v4))) })))), (v1)({ tag: "UnitValue" })));
+const $Main$dCounter$dnumberIn = (v0, v2) => $Std$dEffect$dbindIn(v0, effFoldCompIn(v0, ((v3) => $Std$dEffect$ddoneIn(v0, ((v4) => $Std$dEffect$ddoneIn(v0, v3)))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dCounter$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => $Std$dEffect$ddoneIn(v0, ((v5) => $Std$dEffect$dbindIn(v0, (v4)(v5), ((v6) => (v6)($Std$dNat$dadd(v5, 1n))))))))), ((v3) => ((v4) => $Std$dEffect$dlowerIn(v0, { tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => $Std$dEffect$dliftIn(v0, (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)))) })))), (v2)({ tag: "UnitValue" })), ((v3) => (v3)(0n)));
+const $Main$dCounter$dnumberIn$e = (v2) => effFoldState(false, ((v3) => ((v4) => v3)), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dCounter$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => ((v5) => ((v6) => (v5)(v6)($Std$dNat$dadd(v6, 1n))))))), ((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)) })) })))), (v2)({ tag: "UnitValue" }))(0n);
+const $Main$daskedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dEnv$dgiveIn({ tag: "Ops" }, 7n, ((v2) => $Std$dList$dmap({ tag: "Ops" }, ((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3, 99999999n), ((v4) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) }, ((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v3, v5))))), ((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Std$dFail$dfail("big"))))), v0)))));
+const $Main$demittedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dEmit$dcollectIn({ tag: "Ops" }, ((v2) => $Std$dList$dmap({ tag: "Ops" }, ((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3, 99999999n), ((v4) => ({ tag: "Call", o: { tag: "L", o: { tag: "%emit", x: v3 } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })), ((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Std$dFail$dfail("big"))))), v0)))));
+const $Main$dsearchedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dEach$dcollectIn({ tag: "Ops" }, ((v2) => $Std$dList$dmap({ tag: "Ops" }, ((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3, 99999999n), ((v4) => $Std$dEffect$dwidenIn({ tag: "Ops" }, (sigmap$2 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft, $Std$dEffect$dsigFromNo)), $Std$dEach$deach({ tag: "Cons", head: v3, tail: { tag: "Nil" } }))), ((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Std$dFail$dfail("big"))))), v0)))));
+const $Main$dcountedIn = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dCounter$dnumberIn({ tag: "Ops" }, ((v2) => $Std$dList$dmap({ tag: "Ops" }, ((v3) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v3, 99999999n), ((v4) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) }, ((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v3, v5))))), ((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Std$dFail$dfail("big"))))), v0)))));
+const $Main$demitted = (v0) => $Main$dEmit$dcollect(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%emit", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })), v0)));
+const $Main$dsearched = (v0) => $Std$dEach$dcollect(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => $Std$dEach$deach({ tag: "Cons", head: v2, tail: { tag: "Nil" } })), v0)));
+const $Main$dcounted = (v0) => $Main$dCounter$dnumber(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }, ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v2, v3))))), v0)))(0n);
+const $Main$dcountedChecked = (v0, v1) => $Main$dCounter$dnumber(((v2) => $Std$dFail$dtoResult({ tag: "Ops" }, ((v3) => $Std$dEffect$dtranslate((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigCase($Std$dEffect$dsigLeft, $Std$dEffect$dsigCompose($Std$dEffect$dsigRight, $Std$dEffect$dsigRight)))), $Std$dList$dmap({ tag: "Ops" }, ((v4) => $Std$dDecidable$delim($Std$dNat$ddecLessThan(v4, v0), ((v5) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v6) => ({ tag: "Done", value: v6 })) }, ((v6) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v4, v6))))), ((v5) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Std$dFail$dfail("limit"))))), v1))))))(0n);
+const $Main$dcountedOpen = (v0) => $Main$dCounter$dnumberIn$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%next", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }, ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v2, v3))))), v0)));
+const $Main$dEmit$dlog$e = (v2) => effFoldState(false, ((v3) => ((v4) => $Std$dList$dreverse(v4))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dEmit$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => ((v5) => ((v6) => (v5)({ tag: "UnitValue" })({ tag: "Cons", head: v3, tail: v6 })))))), ((v3) => ((v4) => $Std$dEffect$drunPure({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => ({ tag: "Done", value: (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)) })) })))), (v2)({ tag: "UnitValue" }))({ tag: "Nil" });
+const $Main$dlogged = (v0) => $Main$dEmit$dlog$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => ({ tag: "Call", o: { tag: "L", o: { tag: "%emit", x: v2 } }, rest: ((v3) => ({ tag: "Done", value: v3 })) })), v0)));
+const $Main$dTick$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%tick": {
       const v4 = v2.x;
@@ -1175,16 +1173,16 @@ const $Main$dTick$d$gelim = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dTick$dignore = (v0) => (v2) => effFoldCompIn(v0)(((v3) => $Std$dEffect$ddoneIn(v0)(v3)))($Std$dEffect$dhandlePlus($Main$dTick$d$gelim(((v3) => ((v4) => (v4)({ tag: "UnitValue" })))))(((v3) => ((v4) => $Std$dEffect$dlowerIn(v0)({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId)(v3), rest: ((v5) => $Std$dEffect$dliftIn(v0)((v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId)(v3)(v5)))) })))))((v2)({ tag: "UnitValue" }));
-const $Main$dlayered = (v1) => (v2) => {
+const $Main$dTick$dignore = (v0, v2) => effFoldCompIn(v0, ((v3) => $Std$dEffect$ddoneIn(v0, v3)), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dTick$d$gelim($s1, $p2, $p3)))(((v3) => ((v4) => (v4)({ tag: "UnitValue" })))), ((v3) => ((v4) => $Std$dEffect$dlowerIn(v0, { tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigId, v3), rest: ((v5) => $Std$dEffect$dliftIn(v0, (v4)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v3, v5)))) })))), (v2)({ tag: "UnitValue" }));
+const $Main$dlayered = (v1, v2) => {
   if (v1 === 0n) {
     return (v2)({ tag: "UnitValue" });
   } else {
     const v3 = v1 - 1n;
-    return $Main$dTick$dignore({ tag: "Ops" })(((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft)($Std$dEffect$dsigRight))($Std$dEffect$dsigFromNo)))($Main$dlayered(v3)(v2))));
+    return $Main$dTick$dignore({ tag: "Ops" }, ((v4) => $Std$dEffect$dtranslate((sigmap$1 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigCompose($Std$dEffect$dsigLeft, $Std$dEffect$dsigRight), $Std$dEffect$dsigFromNo)), $Main$dlayered(v3, v2))));
   }
 };
-const $Main$dforwarded = (v0) => (v1) => $Main$dEnv$dgive(7n)(((v2) => $Main$dlayered($Std$dNat$dmin(v0)(100n))(((v3) => $Std$dList$dmap({ tag: "Ops" })(((v4) => $Std$dEffect$dbindIn({ tag: "Ops" })({ tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) })(((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" })($Std$dNat$dadd(v4)(v5))))))(v1)))));
+const $Main$dforwarded = (v0, v1) => $Main$dEnv$dgive(7n, ((v2) => $Main$dlayered($Std$dNat$dmin(v0, 100n), ((v3) => $Std$dList$dmap({ tag: "Ops" }, ((v4) => $Std$dEffect$dbindIn({ tag: "Ops" }, { tag: "Call", o: { tag: "L", o: { tag: "%ask", x: { tag: "UnitValue" } } }, rest: ((v5) => ({ tag: "Done", value: v5 })) }, ((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v4, v5))))), v1)))));
 
 function $$checked(arg0) {
   try {
@@ -1199,7 +1197,7 @@ function $$failsLast(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$4, ty$3, arg0, "limit");
     const v1 = decodeFast(dec$1, ty$1, arg1, "numbers");
-    return encodeFast(enc$2, ty$2, $Main$dfailsLast(v0)(v1));
+    return encodeFast(enc$2, ty$2, $Main$dfailsLast(v0, v1));
   } catch (e) {
     throw outOfResources("failsLast", e);
   }
@@ -1290,7 +1288,7 @@ function $$countedChecked(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$4, ty$3, arg0, "limit");
     const v1 = decodeFast(dec$1, ty$1, arg1, "numbers");
-    return encodeFast(enc$2, ty$2, $Main$dcountedChecked(v0)(v1));
+    return encodeFast(enc$2, ty$2, $Main$dcountedChecked(v0, v1));
   } catch (e) {
     throw outOfResources("countedChecked", e);
   }
@@ -1318,7 +1316,7 @@ function $$forwarded(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$4, ty$3, arg0, "depth");
     const v1 = decodeFast(dec$1, ty$1, arg1, "numbers");
-    return encodeFast(enc$3, ty$1, $Main$dforwarded(v0)(v1));
+    return encodeFast(enc$3, ty$1, $Main$dforwarded(v0, v1));
   } catch (e) {
     throw outOfResources("forwarded", e);
   }
@@ -1403,5 +1401,9 @@ function enc$5(v) {
 
 // Closed signature maps, each built at its first use.
 var sigmap$0, sigmap$1, sigmap$2;
+
+// Definitions used as values, taking their arguments one at a time, each
+// made at its first use.
+var $Std$dEffect$dnoReply$c;
 
 export { $$checked as checked, $$failsLast as failsLast, $$asked as asked, $$askedChecked as askedChecked, $$askedIn as askedIn, $$emittedIn as emittedIn, $$searchedIn as searchedIn, $$countedIn as countedIn, $$emitted as emitted, $$searched as searched, $$counted as counted, $$countedChecked as countedChecked, $$countedOpen as countedOpen, $$logged as logged, $$forwarded as forwarded };

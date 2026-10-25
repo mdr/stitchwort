@@ -386,6 +386,13 @@ It isn't needed by the migration (no code writes it today), so it stays a **foll
 after the backslash is removed**. Until then, a run starting with `[a: Type]` and ending in
 `=>` is a parse error saying implicit lambda parameters aren't supported yet.
 
+**Implemented** (SW-170, 25 October 2026) as in the table, with these choices the table
+left open: `[auto P]` without a name is accepted, as in headers; a lambda written as a
+definition's whole right-hand side takes the signature's implicit parameters after the last
+pattern itself (otherwise the signature would already have put them in scope by name); and
+an implicit lambda that is inferred isn't applied to unknowns where it's written, only where
+it's called. See `docs/syntax.md`.
+
 ## 5. Parsing it (D98)
 
 ### 5.1 The rule

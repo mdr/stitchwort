@@ -2012,6 +2012,9 @@ struct Gen<'g> {
     /// Whether a map's own code is being generated (a map inside it is
     /// built with it, not separately).
     hoisting: Cell<bool>,
+    /// The curried forms of uncurried definitions used as values, by name
+    /// (`f$c`, built at its first use and kept in a module variable).
+    curried: RefCell<Vec<String>>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -2022,6 +2025,12 @@ struct DefInfo {
     mask: Vec<bool>,
     /// How it's compiled and called, decided once and used at every site.
     convention: Convention,
+    /// For a [`Convention::Function`] with two or more runtime parameters:
+    /// its JS takes them all in one call, `f(a, b)`, rather than one at a
+    /// time (D1173). A call with all of them is one call; a partial
+    /// application, or a use as a value, is a closure that takes the rest
+    /// one at a time, as every function value does.
+    uncurried: bool,
     /// For a definition whose result is a `Delay` (a partial function, or one
     /// of `Delay`'s constants): which of its parameters are erased. It's
     /// never generated: a call to it with all its arguments is the token
@@ -2154,6 +2163,7 @@ impl<'g> Gen<'g> {
             sig_maps: SigMaps::new(g),
             hoisted: RefCell::new(Vec::new()),
             hoisting: Cell::new(false),
+            curried: RefCell::new(Vec::new()),
         })
     }
 
@@ -2219,6 +2229,7 @@ impl<'g> Gen<'g> {
             };
             DefInfo {
                 result_erased: info.result_erased,
+                uncurried: runtime_params(&mask) >= 2,
                 mask,
                 convention,
                 delay: None,
@@ -2309,10 +2320,21 @@ impl<'g> Gen<'g> {
                 Convention::Value
             }
         };
+        // A native takes all its arguments at once if its JS can be written
+        // so (every native's can, but a check is cheaper than a wrong call).
+        let runtime = runtime_params(&mask);
+        let uncurried = convention == Convention::Function
+            && delay.is_none()
+            && runtime >= 2
+            && (self.effect_native(id).is_some()
+                || self
+                    .native_rhs(id)
+                    .is_none_or(|js| uncurry_arrows(&js, runtime).is_some()));
         Ok(cell.get_or_init(|| DefInfo {
             result_erased,
             mask,
             convention,
+            uncurried,
             delay,
         }))
     }
@@ -2361,56 +2383,55 @@ impl<'g> Gen<'g> {
                 .expect("a variant is used only if it can be made");
             return self.def_body(id, true, &body, mask, convention);
         }
+        // The effect runtime's functions take all their arguments at once
+        // already.
         if let Some(op) = self.effect_native(id) {
             return Ok(format!("const {} = {};\n", def_name(&def.path), op.js()));
         }
-        if self.run_delay
-            && let Some(prim) = self.g.builtins.primitive(id)
-        {
-            return Ok(format!(
-                "const {} = {};\n",
-                def_name(&def.path),
-                run::primitive_js(prim)
-            ));
-        }
-        if let Some(op) = self.float_natives.get(&id) {
-            return Ok(format!(
-                "const {} = {};\n",
-                def_name(&def.path),
-                float_native_js(*op, self.int.is_some(), self.text.is_some())
-            ));
+        if let Some(js) = self.native_rhs(id) {
+            let info = self.info(id);
+            let js = if info.uncurried {
+                uncurry_arrows(&js, runtime_params(&info.mask))
+                    .expect("`try_info` checked that it uncurries")
+            } else {
+                js
+            };
+            return Ok(format!("const {} = {js};\n", def_name(&def.path)));
         }
         let Some(body) = def.run_body() else {
             unreachable!("`generate_with` refuses a definition without a body");
         };
         let body = body.clone();
-        if let Some(op) = self.text_natives.get(&id) {
-            return Ok(format!(
-                "const {} = {};\n",
-                def_name(&def.path),
-                text_native_js(*op)
-            ));
-        }
-        if let Some(op) = self.int_natives.get(&id) {
-            return Ok(format!(
-                "const {} = {};\n",
-                def_name(&def.path),
-                int_native_js(*op)
-            ));
-        }
-        if let Some(op) = self.kernel_native(id) {
-            return Ok(format!(
-                "const {} = {};\n",
-                def_name(&def.path),
-                native_js(op)
-            ));
-        }
         // Its calls of row eliminators with `Empty` inlined, if it has any.
         let simplified = self.spec.generic_body(id).ok().flatten();
         let tree = simplified
             .as_deref()
             .unwrap_or_else(|| body.peel_lams(def.arity));
         self.def_body(id, false, tree, mask, convention)
+    }
+
+    /// The JS of `id` if it's native (other than the effect runtime's), as
+    /// a function taking its runtime arguments one at a time.
+    fn native_rhs(&self, id: DefId) -> Option<String> {
+        if self.run_delay
+            && let Some(prim) = self.g.builtins.primitive(id)
+        {
+            return Some(run::primitive_js(prim).into());
+        }
+        if let Some(op) = self.float_natives.get(&id) {
+            return Some(float_native_js(
+                *op,
+                self.int.is_some(),
+                self.text.is_some(),
+            ));
+        }
+        if let Some(op) = self.text_natives.get(&id) {
+            return Some(text_native_js(*op).into());
+        }
+        if let Some(op) = self.int_natives.get(&id) {
+            return Some(int_native_js(*op).into());
+        }
+        self.kernel_native(id).map(|op| native_js(op).into())
     }
 
     /// `const f = …;` for `id`, or its empty-row variant, with case tree
@@ -2425,12 +2446,23 @@ impl<'g> Gen<'g> {
     ) -> Fallible<String> {
         let name = self.js_name(id, variant);
         let mut env = mask.to_vec();
-        let mut params = String::new();
-        for (level, erased) in mask.iter().enumerate() {
-            if !erased {
-                let _ = write!(params, "({}) => ", var(level));
-            }
+        let uncurried = if variant {
+            self.empty_info(id)
+        } else {
+            self.info(id)
         }
+        .uncurried;
+        let runtime: Vec<String> = (0..mask.len())
+            .filter(|level| !mask[*level])
+            .map(var)
+            .collect();
+        let params = if runtime.is_empty() {
+            String::new()
+        } else if uncurried {
+            format!("({}) => ", runtime.join(", "))
+        } else {
+            runtime.iter().map(|v| format!("({v}) => ")).collect()
+        };
         let tree = tree.strip_loc();
         let rhs = if matches!(tree, Term::Case(..) | Term::NumCase(..)) {
             if !params.is_empty()
@@ -3535,15 +3567,26 @@ impl<'g> Gen<'g> {
     /// signature maps, if there are any: `var`s, so that a use earlier in
     /// the module (any use, since the definitions come first) is fine.
     pub(crate) fn hoisted_vars(&self) -> String {
+        let mut out = String::new();
         let n = self.hoisted.borrow().len();
-        if n == 0 {
-            return String::new();
+        if n > 0 {
+            let names: Vec<String> = (0..n).map(|i| format!("sigmap${i}")).collect();
+            let _ = write!(
+                out,
+                "\n// Closed signature maps, each built at its first use.\nvar {};\n",
+                names.join(", ")
+            );
         }
-        let names: Vec<String> = (0..n).map(|i| format!("sigmap${i}")).collect();
-        format!(
-            "\n// Closed signature maps, each built at its first use.\nvar {};\n",
-            names.join(", ")
-        )
+        let curried = self.curried.borrow();
+        if !curried.is_empty() {
+            let _ = write!(
+                out,
+                "\n// Definitions used as values, taking their arguments one at a time, each\n\
+                 // made at its first use.\nvar {};\n",
+                curried.join(", ")
+            );
+        }
+        out
     }
 
     /// [`Gen::def_ref`], without building a closed map once.
@@ -3567,11 +3610,16 @@ impl<'g> Gen<'g> {
             && effect.is_fold(id)
             && let Some(fused) = effect.fuse(self.g, args)?
         {
-            let mut out = format!("effFoldState({})", fused.comp);
-            for arg in [&fused.done, &fused.call]
-                .into_iter()
-                .chain(args[6..].iter().copied())
-            {
+            // `fuse` needs the computation, the seventh argument; any after
+            // it are the result's (the state).
+            let mut out = format!(
+                "effFoldState({}, {}, {}, {})",
+                fused.comp,
+                self.expr(&fused.done, env)?,
+                self.expr(&fused.call, env)?,
+                self.expr(args[6], env)?
+            );
+            for arg in &args[7..] {
                 let _ = write!(out, "({})", self.expr(arg, env)?);
             }
             return Ok(out);
@@ -3589,6 +3637,8 @@ impl<'g> Gen<'g> {
             Convention::Thunk => format!("{}()", self.js_name(id, variant)),
             Convention::Value | Convention::Function => self.js_name(id, variant),
         };
+        // Values the callee is passed before the call's own arguments.
+        let mut prefix = Vec::new();
         // A `handle`'s fold: lazy resumption where its carrier (the fourth
         // argument, erased) is a computation (docs/proposals/effect-runtime.md
         // §9.2). The same parameters, so the call is built the same way.
@@ -3601,12 +3651,17 @@ impl<'g> Gen<'g> {
                 effect::Carrier::Row(row) => {
                     let row = self.expr(row, env)?;
                     if row != "undefined" {
-                        out = format!("effFoldCompIn({row})");
+                        out = "effFoldCompIn".into();
+                        prefix.push(row);
                     }
                 }
                 effect::Carrier::Value => {}
             }
         }
+        if info.uncurried {
+            return self.uncurried_call(out, prefix, mask, args, env);
+        }
+        debug_assert!(prefix.is_empty(), "only an uncurried fold is passed a row");
         // Used as a value with an erased parameter still unsupplied: the
         // receiver knows only the type, so it passes the type and proof
         // arguments too. A closure over all the remaining parameters takes
@@ -3617,11 +3672,9 @@ impl<'g> Gen<'g> {
         for (i, arg) in args.iter().enumerate() {
             if !mask.get(i).copied().unwrap_or(false) {
                 let value = self.expr(arg, env)?;
-                let simple = value.strip_suffix('n').unwrap_or(&value);
-                let simple = simple.strip_prefix('v').unwrap_or(simple);
-                if closure && !simple.chars().all(|c| c.is_ascii_digit()) {
+                if closure && !is_simple(&value) {
                     let _ = write!(out, "($s{i})");
-                    bound.push((i, value));
+                    bound.push((format!("$s{i}"), value));
                 } else {
                     let _ = write!(out, "({value})");
                 }
@@ -3640,13 +3693,90 @@ impl<'g> Gen<'g> {
                     format!("(($p{i}) => {out})")
                 };
             }
-            if !bound.is_empty() {
-                let names: Vec<String> = bound.iter().map(|(i, _)| format!("$s{i}")).collect();
-                let values: Vec<String> = bound.into_iter().map(|(_, v)| v).collect();
-                out = format!("(({}) => {out})({})", names.join(", "), values.join(", "));
-            }
+            out = bind_supplied(out, bound);
         }
         Ok(out)
+    }
+
+    /// A use of `head`, a definition whose JS takes all its runtime
+    /// arguments in one call (D1173), with `prefix` passed first, and then
+    /// `args`, whose erasure `mask` gives up to its arity:
+    ///
+    /// - with all of them, one call, `f(a, b)`, and any beyond its arity
+    ///   applied to the result one at a time, `f(a, b)(c)`;
+    /// - with fewer, a closure that takes the rest one at a time, as any
+    ///   function value does, the erased ones too if any remains (D922):
+    ///   `(($p1) => f(a, $p1))`. The supplied arguments are computed once,
+    ///   outside it (`$s{i}`). With none supplied but erased ones, the
+    ///   closure is the same everywhere: it's made once, at its first use,
+    ///   and kept in a module variable (`f$c`).
+    fn uncurried_call(
+        &self,
+        head: String,
+        prefix: Vec<String>,
+        mask: &[bool],
+        args: &[&Term],
+        env: &mut Vec<bool>,
+    ) -> Fallible<String> {
+        if args.len() >= mask.len() {
+            let mut values = prefix;
+            for (arg, erased) in args.iter().zip(mask) {
+                if !erased {
+                    values.push(self.expr(arg, env)?);
+                }
+            }
+            let mut out = format!("{head}({})", values.join(", "));
+            for arg in &args[mask.len()..] {
+                let _ = write!(out, "({})", self.expr(arg, env)?);
+            }
+            return Ok(out);
+        }
+        let mut bound = Vec::new();
+        let mut values = Vec::new();
+        for (j, value) in prefix.into_iter().enumerate() {
+            if is_simple(&value) {
+                values.push(value);
+            } else {
+                values.push(format!("$r{j}"));
+                bound.push((format!("$r{j}"), value));
+            }
+        }
+        let closed = values.is_empty() && mask[..args.len()].iter().all(|erased| *erased);
+        for (i, (arg, erased)) in args.iter().zip(mask).enumerate() {
+            if !erased {
+                let value = self.expr(arg, env)?;
+                if is_simple(&value) {
+                    values.push(value);
+                } else {
+                    values.push(format!("$s{i}"));
+                    bound.push((format!("$s{i}"), value));
+                }
+            }
+        }
+        for (i, erased) in mask.iter().enumerate().skip(args.len()) {
+            if !erased {
+                values.push(format!("$p{i}"));
+            }
+        }
+        let mut out = format!("{head}({})", values.join(", "));
+        for (i, erased) in mask.iter().enumerate().skip(args.len()).rev() {
+            out = if *erased {
+                format!("(_) => {out}")
+            } else {
+                format!("($p{i}) => {out}")
+            };
+        }
+        // The common use as a value: a polymorphic function with its type
+        // arguments, `List.map {A} {B}`, passed on.
+        if closed && mask[args.len()..].iter().all(|erased| !erased) {
+            let name = format!("{head}$c");
+            let mut curried = self.curried.borrow_mut();
+            if !curried.contains(&name) {
+                curried.push(name.clone());
+            }
+            return Ok(format!("({name} ??= {out})"));
+        }
+        Ok(bind_supplied(format!("({out})"), bound))
     }
 
     /// `function $$f(…)`, exported as `f`: decode the inputs, run the
@@ -3662,9 +3792,14 @@ impl<'g> Gen<'g> {
             params.join(", ")
         );
         let mut call = def_name(&self.g.def(sig.id).path);
-        if self.info(sig.id).convention == Convention::Thunk {
+        let info = self.info(sig.id);
+        if info.convention == Convention::Thunk {
             call.push_str("()");
         }
+        // An uncurried definition takes the parameters up to its arity in
+        // one call (D1173); any after them are its result's.
+        let mut together = Vec::new();
+        let mut apart = String::new();
         for ((x, b), position) in sig.params.iter().zip(&sig.param_positions) {
             let _ = writeln!(
                 out,
@@ -3674,8 +3809,16 @@ impl<'g> Gen<'g> {
                 self.type_const(b),
                 arg(*position)
             );
-            let _ = write!(call, "({})", var(*position));
+            if info.uncurried && *position < info.mask.len() {
+                together.push(var(*position));
+            } else {
+                let _ = write!(apart, "({})", var(*position));
+            }
         }
+        if info.uncurried {
+            let _ = write!(call, "({})", together.join(", "));
+        }
+        call.push_str(&apart);
         let yes = self.decision_yes_tag();
         for check in &sig.checks {
             // Parameters before the check: proofs are erased, data is decoded.
@@ -4688,6 +4831,53 @@ fn var(level: usize) -> String {
     format!("v{level}")
 }
 
+/// How many of a definition's parameters, by erasure `mask`, are passed at
+/// run time.
+fn runtime_params(mask: &[bool]) -> usize {
+    mask.iter().filter(|erased| !**erased).count()
+}
+
+/// Whether the JS of an argument is a variable or a number literal, which
+/// costs nothing to compute again, so a closure can mention it rather than
+/// a copy computed outside.
+fn is_simple(value: &str) -> bool {
+    let value = value.strip_suffix('n').unwrap_or(value);
+    let value = value.strip_prefix('v').unwrap_or(value);
+    !value.is_empty() && value.chars().all(|c| c.is_ascii_digit())
+}
+
+/// `out`, a closure, with the names `bound` bound to their values, which
+/// are computed once, before it's made: `(($s0) => out)(value)`.
+fn bind_supplied<N: std::fmt::Display>(out: String, bound: Vec<(N, String)>) -> String {
+    if bound.is_empty() {
+        return out;
+    }
+    let (names, values): (Vec<String>, Vec<String>) = bound
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value))
+        .unzip();
+    format!("(({}) => {out})({})", names.join(", "), values.join(", "))
+}
+
+/// A native's JS that takes `k` arguments one at a time, `(a) => (b) =>
+/// body`, as one function of all of them, `(a, b) => body` (D1173), if it
+/// starts with `k` such parameters.
+fn uncurry_arrows(js: &str, k: usize) -> Option<String> {
+    let mut rest = js;
+    let mut params = Vec::new();
+    for _ in 0..k {
+        let inner = rest.strip_prefix('(')?;
+        let close = inner.find(')')?;
+        let param = &inner[..close];
+        if !is_js_identifier(param) {
+            return None;
+        }
+        rest = inner[close + 1..].strip_prefix(" => ")?;
+        params.push(param);
+    }
+    Some(format!("({}) => {rest}", params.join(", ")))
+}
+
 /// Where a loop keeps parameter `level`'s value for its next turn.
 fn slot(level: usize) -> String {
     format!("s{level}")
@@ -5230,7 +5420,11 @@ fn refs(codegen: &Gen, id: DefId, wanted: &HashSet<DefId>) -> Vec<DefId> {
 mod tests {
     use stitchwort_core::collections::HashMap;
 
-    use super::{RUNTIME, def_name, encode, info_name, is_js_identifier, mentions, wrapper_name};
+    use super::{
+        IntNative, RUNTIME, TextNative, def_name, encode, info_name, int_native_js,
+        is_js_identifier, is_simple, mentions, native, native_js, text_native_js, uncurry_arrows,
+        wrapper_name,
+    };
 
     /// Every name of up to four characters from the characters names can
     /// contain (docs/proposals/namespaces.md §7.3): those the lexer accepts
@@ -5314,6 +5508,43 @@ mod tests {
         }
         for bad in ["", "1x", "x'", "x-y", "x y", "é"] {
             assert!(!is_js_identifier(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn uncurries_natives() {
+        assert_eq!(
+            uncurry_arrows("(m) => (n) => m + n", 2).as_deref(),
+            Some("(m, n) => m + n")
+        );
+        assert_eq!(
+            uncurry_arrows("(f) => (z) => (t) => {\n  return z;\n}", 3).as_deref(),
+            Some("(f, z, t) => {\n  return z;\n}")
+        );
+        // Fewer arrows than parameters, or not an arrow at all.
+        assert_eq!(uncurry_arrows("(a) => -a", 2), None);
+        assert_eq!(uncurry_arrows("charsOfText", 2), None);
+        assert_eq!(uncurry_arrows("(a) => (a < 0n ? -a : a)", 2), None);
+        // Every native with two or more runtime parameters uncurries.
+        for js in [
+            native_js(native::Native::Add),
+            native_js(native::Native::DivFuel),
+            int_native_js(IntNative::IntDiv),
+            text_native_js(TextNative::TextFold),
+            text_native_js(TextNative::TextJoin),
+        ] {
+            let arrows = js.matches(") => (").count() + 1;
+            assert!(uncurry_arrows(js, arrows).is_some(), "{js}");
+        }
+    }
+
+    #[test]
+    fn simple_arguments() {
+        for simple in ["v0", "v12", "3n", "0"] {
+            assert!(is_simple(simple), "{simple}");
+        }
+        for not in ["", "v", "f(v0)", "undefined", "{ tag: \"Nil\" }"] {
+            assert!(!is_simple(not), "{not}");
         }
     }
 }

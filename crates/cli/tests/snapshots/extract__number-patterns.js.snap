@@ -720,7 +720,7 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
+const $Std$dNat$dadd = (m, n) => m + n;
 const $Main$dstatusText = (v0) => {
   switch (v0) {
     case 200n: {
@@ -759,7 +759,7 @@ const $Main$dstatusText = (v0) => {
   }
   return "Unknown";
 };
-const $Main$dg = (v0) => (v1) => {
+const $Main$dg = (v0, v1) => {
   switch (v0) {
     case 404n: {
       switch (v1.tag) {
@@ -809,7 +809,7 @@ const $Main$disHuge = (v0) => {
   }
   return { tag: "False" };
 };
-const $Main$dcountDown = (v0) => (v1) => {
+const $Main$dcountDown = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
@@ -825,7 +825,7 @@ const $Main$dcountDown = (v0) => (v1) => {
         }
       }
       s0 = v2;
-      s1 = $Std$dNat$dadd(v1)(1n);
+      s1 = $Std$dNat$dadd(v1, 1n);
       continue;
     }
   }
@@ -844,7 +844,7 @@ function $$g(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
     const v1 = decodeFast(dec$3, ty$3, arg1, "arg1");
-    return encodeFast(enc$4, ty$1, $Main$dg(v0)(v1));
+    return encodeFast(enc$4, ty$1, $Main$dg(v0, v1));
   } catch (e) {
     throw outOfResources("g", e);
   }
@@ -872,7 +872,7 @@ function $$countDown(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "arg0");
     const v1 = decodeFast(dec$1, ty$1, arg1, "m");
-    return encodeFast(enc$4, ty$1, $Main$dcountDown(v0)(v1));
+    return encodeFast(enc$4, ty$1, $Main$dcountDown(v0, v1));
   } catch (e) {
     throw outOfResources("countDown", e);
   }

@@ -744,7 +744,7 @@ define(info$Std$dOption, [
   ["Some", [["value", param(0)]]],
 ]);
 
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -755,8 +755,8 @@ const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$dleq = (m) => (n) => ({ tag: m <= n ? "True" : "False" });
-const $Std$dNat$dequal = (m) => (n) => ({ tag: m === n ? "True" : "False" });
+const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
+const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dtoBool = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -768,7 +768,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
+const $Std$dDecidable$delim = (v2, v3, v4) => {
   switch (v2.tag) {
     case "Yes": {
       return (v3)(undefined);
@@ -779,7 +779,7 @@ const $Std$dDecidable$delim = (v2) => (v3) => (v4) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dBool$ddecEq = (v0) => (v1) => {
+const $Std$dBool$ddecEq = (v0, v1) => {
   switch (v0.tag) {
     case "False": {
       switch (v1.tag) {
@@ -806,7 +806,7 @@ const $Std$dBool$ddecEq = (v0) => (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -829,24 +829,24 @@ const $Std$dList$dmap$e = (v3) => (v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dFloat$disValid = (v0) => $Std$dBool$difThenElse($Std$dBool$difThenElse($Std$dNat$dleq(v0)(9218868437227405312n))(((v1) => ({ tag: "True" })))(((v1) => $Std$dNat$dequal(v0)(9221120237041090560n))))(((v1) => ({ tag: "True" })))(((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(9223372036854775808n)(v0))(((v2) => $Std$dNat$dleq(v0)(18442240474082181120n)))(((v2) => ({ tag: "False" })))));
+const $Std$dFloat$disValid = (v0) => $Std$dBool$difThenElse($Std$dBool$difThenElse($Std$dNat$dleq(v0, 9218868437227405312n), ((v1) => ({ tag: "True" })), ((v1) => $Std$dNat$dequal(v0, 9221120237041090560n))), ((v1) => ({ tag: "True" })), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(9223372036854775808n, v0), ((v2) => $Std$dNat$dleq(v0, 18442240474082181120n)), ((v2) => ({ tag: "False" })))));
 const $Std$dFloat$dbits = (v0) => {
   const v1 = toCanonicalBits(v0);
   return v1;
 };
 const $Std$dFloat$dmake = (v0) => fromCanonicalBits(v0);
 const $Std$dFloat$dinfinity = $Std$dFloat$dmake(9218868437227405312n);
-const $Std$dFloat$ddecEq = (a) => (b) => ({ tag: Object.is(a, b) ? "Yes" : "No" });
-const $Std$dFloat$dieeeEq = (a) => (b) => ({ tag: a === b ? "True" : "False" });
+const $Std$dFloat$ddecEq = (a, b) => ({ tag: Object.is(a, b) ? "Yes" : "No" });
+const $Std$dFloat$dieeeEq = (a, b) => ({ tag: a === b ? "True" : "False" });
 const $Std$dFloat$dabs = (a) => Math.abs(a);
-const $Std$dFloat$dadd = (a) => (b) => a + b;
+const $Std$dFloat$dadd = (a, b) => a + b;
 const $Main$didentity = (v0) => v0;
 const $Main$dmakeInfinity = (v0) => $Std$dFloat$dinfinity;
-const $Main$dshift = (v0) => (v1) => $Std$dFloat$dadd(v0)(v1);
-const $Main$dsameDouble = (v0) => (v1) => $Std$dDecidable$dtoBool($Std$dFloat$ddecEq(v0)(v1));
-const $Main$dtripleEquals = (v0) => (v1) => $Std$dFloat$dieeeEq(v0)(v1);
+const $Main$dshift = (v0, v1) => $Std$dFloat$dadd(v0, v1);
+const $Main$dsameDouble = (v0, v1) => $Std$dDecidable$dtoBool($Std$dFloat$ddecEq(v0, v1));
+const $Main$dtripleEquals = (v0, v1) => $Std$dFloat$dieeeEq(v0, v1);
 const $Main$dbits = (v0) => $Std$dFloat$dbits(v0);
-const $Main$dfromBits = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1)({ tag: "True" })))($Std$dFloat$disValid(v0)))(((v1) => ({ tag: "Some", value: fromCanonicalBits(v0) })))(((v1) => ({ tag: "None" })));
+const $Main$dfromBits = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1, { tag: "True" })))($Std$dFloat$disValid(v0)), ((v1) => ({ tag: "Some", value: fromCanonicalBits(v0) })), ((v1) => ({ tag: "None" })));
 const $Main$dfirstOf = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -860,7 +860,7 @@ const $Main$dfirstOf = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dmagnitudes = (v0) => $Std$dList$dmap$e($Std$dFloat$dabs)(v0);
+const $Main$dmagnitudes = (v0) => $Std$dList$dmap$e($Std$dFloat$dabs, v0);
 
 function $$identity(arg0) {
   try {
@@ -884,7 +884,7 @@ function $$shift(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "t");
     const v1 = decodeFast(dec$1, ty$1, arg1, "by");
-    return encodeFast(enc$2, ty$1, $Main$dshift(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dshift(v0, v1));
   } catch (e) {
     throw outOfResources("shift", e);
   }
@@ -894,7 +894,7 @@ function $$sameDouble(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "x");
     const v1 = decodeFast(dec$1, ty$1, arg1, "y");
-    return encodeFast(enc$4, ty$3, $Main$dsameDouble(v0)(v1));
+    return encodeFast(enc$4, ty$3, $Main$dsameDouble(v0, v1));
   } catch (e) {
     throw outOfResources("sameDouble", e);
   }
@@ -904,7 +904,7 @@ function $$tripleEquals(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "x");
     const v1 = decodeFast(dec$1, ty$1, arg1, "y");
-    return encodeFast(enc$4, ty$3, $Main$dtripleEquals(v0)(v1));
+    return encodeFast(enc$4, ty$3, $Main$dtripleEquals(v0, v1));
   } catch (e) {
     throw outOfResources("tripleEquals", e);
   }

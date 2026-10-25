@@ -740,8 +740,8 @@ define(info$Main$dEntry, [
 ], true, [
 ]);
 
-const $Std$dNat$dadd = (m) => (n) => m + n;
-const $Std$dBool$difThenElse = (v1) => (v2) => (v3) => {
+const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
       return (v3)(undefined);
@@ -763,7 +763,7 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m) => (n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dDecidable$dnot = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -775,31 +775,31 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dText$dappend = (a) => (b) => a + b;
+const $Std$dText$dappend = (a, b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dInt$dneg = (a) => -a;
-const $Std$dInt$dadd = (a) => (b) => a + b;
-const $Std$dInt$dsub = (a) => (b) => a - b;
-const $Std$dInt$dmul = (a) => (b) => a * b;
+const $Std$dInt$dadd = (a, b) => a + b;
+const $Std$dInt$dsub = (a, b) => a - b;
+const $Std$dInt$dmul = (a, b) => a * b;
 const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
-const $Std$dInt$ddecEq = (a) => (b) => ({ tag: a === b ? "Yes" : "No" });
-const $Std$dInt$dleq = (a) => (b) => ({ tag: a <= b ? "True" : "False" });
-const $Std$dInt$dless = (a) => (b) => ({ tag: a < b ? "True" : "False" });
-const $Std$dInt$dcompare = (a) => (b) => ({ tag: a < b ? "Less" : a === b ? "Equal" : "Greater" });
+const $Std$dInt$ddecEq = (a, b) => ({ tag: a === b ? "Yes" : "No" });
+const $Std$dInt$dleq = (a, b) => ({ tag: a <= b ? "True" : "False" });
+const $Std$dInt$dless = (a, b) => ({ tag: a < b ? "True" : "False" });
+const $Std$dInt$dcompare = (a, b) => ({ tag: a < b ? "Less" : a === b ? "Equal" : "Greater" });
 const $Std$dInt$dtoText = (a) => a.toString();
-const $Std$dInt$ddiv = (a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
-const $Std$dInt$dmod = (a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
+const $Std$dInt$ddiv = (a, d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
+const $Std$dInt$dmod = (a, d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
 const $Std$dNat$dtoInt = (n) => n;
 const $Std$dInt$dabs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNatChecked = (a) => (a < 0n ? { tag: "None" } : { tag: "Some", value: a });
 const $Std$dInt$dsign = (a) => (a > 0n ? 1n : a < 0n ? -1n : 0n);
-const $Std$dInt$dmodNat = (a) => (d) => { const r = a % d; return r < 0n ? r + d : r; };
-const $Std$dInt$dtdiv = (a) => (d) => a / d;
-const $Std$dInt$dtmod = (a) => (d) => a % d;
-const $Std$dInt$dfdiv = (a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
-const $Std$dInt$dfmod = (a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
-const $Std$dOption$dmap = (v2) => (v3) => {
+const $Std$dInt$dmodNat = (a, d) => { const r = a % d; return r < 0n ? r + d : r; };
+const $Std$dInt$dtdiv = (a, d) => a / d;
+const $Std$dInt$dtmod = (a, d) => a % d;
+const $Std$dInt$dfdiv = (a, d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
+const $Std$dInt$dfmod = (a, d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
+const $Std$dOption$dmap = (v2, v3) => {
   switch (v3.tag) {
     case "None": {
       return { tag: "None" };
@@ -811,7 +811,7 @@ const $Std$dOption$dmap = (v2) => (v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dmap$e = (v3) => (v4) => {
+const $Std$dList$dmap$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
@@ -844,8 +844,8 @@ const $Std$dText$dtoInt = (t) => {
   const n = BigInt(s);
   return { tag: "Some", value: s === t ? n : -n };
 };
-const $Main$ddial = (v0) => $Std$dInt$dmod(v0)(100n);
-const $Main$ddivide = (v0) => (v1) => ({ tag: "Cons", head: $Std$dInt$ddiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dmod(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dtdiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dtmod(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dfdiv(v0)(v1), tail: { tag: "Cons", head: $Std$dInt$dfmod(v0)(v1), tail: { tag: "Nil" } } } } } } });
+const $Main$ddial = (v0) => $Std$dInt$dmod(v0, 100n);
+const $Main$ddivide = (v0, v1) => ({ tag: "Cons", head: $Std$dInt$ddiv(v0, v1), tail: { tag: "Cons", head: $Std$dInt$dmod(v0, v1), tail: { tag: "Cons", head: $Std$dInt$dtdiv(v0, v1), tail: { tag: "Cons", head: $Std$dInt$dtmod(v0, v1), tail: { tag: "Cons", head: $Std$dInt$dfdiv(v0, v1), tail: { tag: "Cons", head: $Std$dInt$dfmod(v0, v1), tail: { tag: "Nil" } } } } } } });
 const $Main$ddescribe = (v0) => {
   if (v0 >= 0n) {
     const v1 = v0;
@@ -854,7 +854,7 @@ const $Main$ddescribe = (v0) => {
         return "zero";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0)(0n))(((v2) => "negative"))(((v2) => "positive"));
+    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "positive"));
   } else {
     const v1 = -v0 - 1n;
     switch (v1) {
@@ -862,25 +862,25 @@ const $Main$ddescribe = (v0) => {
         return "minus one";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0)(0n))(((v2) => "negative"))(((v2) => "positive"));
+    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "positive"));
   }
 };
-const $Main$dnegatives = (v0) => $Std$dList$dmap$e(((v1) => (-v1 - 1n)))(v0);
+const $Main$dnegatives = (v0) => $Std$dList$dmap$e(((v1) => (-v1 - 1n)), v0);
 const $Main$dneg = (v0) => $Std$dInt$dneg(v0);
-const $Main$dadd = (v0) => (v1) => $Std$dInt$dadd(v0)(v1);
-const $Main$dsub = (v0) => (v1) => $Std$dInt$dsub(v0)(v1);
-const $Main$dmul = (v0) => (v1) => $Std$dInt$dmul(v0)(v1);
-const $Main$deucDiv = (v0) => (v1) => $Std$dInt$ddiv(v0)(v1);
-const $Main$deucMod = (v0) => (v1) => $Std$dInt$dmod(v0)(v1);
-const $Main$dtdiv = (v0) => (v1) => $Std$dInt$dtdiv(v0)(v1);
-const $Main$dtmod = (v0) => (v1) => $Std$dInt$dtmod(v0)(v1);
-const $Main$dfdiv = (v0) => (v1) => $Std$dInt$dfdiv(v0)(v1);
-const $Main$dfmod = (v0) => (v1) => $Std$dInt$dfmod(v0)(v1);
-const $Main$dmodNat = (v0) => (v1) => $Std$dInt$dmodNat(v0)(v1);
-const $Main$ddecEq = (v0) => (v1) => $Std$dDecidable$dtoBool($Std$dInt$ddecEq(v0)(v1));
-const $Main$dleq = (v0) => (v1) => $Std$dInt$dleq(v0)(v1);
-const $Main$dless = (v0) => (v1) => $Std$dInt$dless(v0)(v1);
-const $Main$dcompare = (v0) => (v1) => $Std$dInt$dcompare(v0)(v1);
+const $Main$dadd = (v0, v1) => $Std$dInt$dadd(v0, v1);
+const $Main$dsub = (v0, v1) => $Std$dInt$dsub(v0, v1);
+const $Main$dmul = (v0, v1) => $Std$dInt$dmul(v0, v1);
+const $Main$deucDiv = (v0, v1) => $Std$dInt$ddiv(v0, v1);
+const $Main$deucMod = (v0, v1) => $Std$dInt$dmod(v0, v1);
+const $Main$dtdiv = (v0, v1) => $Std$dInt$dtdiv(v0, v1);
+const $Main$dtmod = (v0, v1) => $Std$dInt$dtmod(v0, v1);
+const $Main$dfdiv = (v0, v1) => $Std$dInt$dfdiv(v0, v1);
+const $Main$dfmod = (v0, v1) => $Std$dInt$dfmod(v0, v1);
+const $Main$dmodNat = (v0, v1) => $Std$dInt$dmodNat(v0, v1);
+const $Main$ddecEq = (v0, v1) => $Std$dDecidable$dtoBool($Std$dInt$ddecEq(v0, v1));
+const $Main$dleq = (v0, v1) => $Std$dInt$dleq(v0, v1);
+const $Main$dless = (v0, v1) => $Std$dInt$dless(v0, v1);
+const $Main$dcompare = (v0, v1) => $Std$dInt$dcompare(v0, v1);
 const $Main$dnatAbs = (v0) => $Std$dInt$dnatAbs(v0);
 const $Main$dabs = (v0) => $Std$dInt$dabs(v0);
 const $Main$dtoNat = (v0) => $Std$dInt$dtoNat(v0);
@@ -889,7 +889,7 @@ const $Main$dsign = (v0) => $Std$dInt$dsign(v0);
 const $Main$dofNat = (v0) => $Std$dNat$dtoInt(v0);
 const $Main$dtoText = (v0) => $Std$dInt$dtoText(v0);
 const $Main$dparse = (v0) => $Std$dText$dtoInt(v0);
-const $Main$dofNats = (v0) => $Std$dList$dmap$e(((v1) => v1))(v0);
+const $Main$dofNats = (v0) => $Std$dList$dmap$e(((v1) => v1), v0);
 const $Main$dresidueName = (v0) => {
   if (v0 >= 0n) {
     const v1 = v0;
@@ -901,7 +901,7 @@ const $Main$dresidueName = (v0) => {
         return "one";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0)(0n))(((v2) => "negative"))(((v2) => "other"));
+    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "other"));
   } else {
     const v1 = -v0 - 1n;
     switch (v1) {
@@ -909,10 +909,10 @@ const $Main$dresidueName = (v0) => {
         return "minus one";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0)(0n))(((v2) => "negative"))(((v2) => "other"));
+    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "other"));
   }
 };
-const $Main$dresidue = (v0) => (v1) => $Main$dresidueName($Std$dInt$dmod(v0)(v1));
+const $Main$dresidue = (v0, v1) => $Main$dresidueName($Std$dInt$dmod(v0, v1));
 const $Main$dclassify = (v0) => {
   if (v0 >= 0n) {
     const v1 = v0;
@@ -930,7 +930,7 @@ const $Main$dclassify = (v0) => {
         return "10^30";
       }
     }
-    return $Std$dText$dappend("positive or zero, k = ")($Std$dNat$dtoText(v1));
+    return $Std$dText$dappend("positive or zero, k = ", $Std$dNat$dtoText(v1));
   } else {
     const v1 = -v0 - 1n;
     switch (v1) {
@@ -944,7 +944,7 @@ const $Main$dclassify = (v0) => {
         return "-10^30";
       }
     }
-    return $Std$dText$dappend("negative, k = ")($Std$dNat$dtoText(v1));
+    return $Std$dText$dappend("negative, k = ", $Std$dNat$dtoText(v1));
   }
 };
 const $Main$dfields = (v0) => {
@@ -953,7 +953,7 @@ const $Main$dfields = (v0) => {
     return v1;
   } else {
     const v1 = -v0 - 1n;
-    return $Std$dNat$dadd(v1)(100n);
+    return $Std$dNat$dadd(v1, 100n);
   }
 };
 const $Main$doptionInt = (v0) => {
@@ -963,12 +963,12 @@ const $Main$doptionInt = (v0) => {
     }
     case "Some": {
       const v1 = v0.value;
-      return $Std$dInt$dmul(v1)(2n);
+      return $Std$dInt$dmul(v1, 2n);
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dnegateAll = (v0) => $Std$dList$dmap$e(((v1) => $Std$dOption$dmap($Std$dInt$dneg)(v1)))(v0);
+const $Main$dnegateAll = (v0) => $Std$dList$dmap$e(((v1) => $Std$dOption$dmap($Std$dInt$dneg, v1)), v0);
 const $Main$dfirstNeg = (v0) => {
   let s0 = v0;
   for (;;) {
@@ -980,7 +980,7 @@ const $Main$dfirstNeg = (v0) => {
       case "Cons": {
         const v1 = v0.head;
         const v2 = v0.tail;
-        if ($Std$dInt$dless(v1)(0n).tag === "True") {
+        if ($Std$dInt$dless(v1, 0n).tag === "True") {
           return { tag: "Some", value: v1 };
         } else {
           s0 = v2;
@@ -1001,7 +1001,7 @@ const $Main$dEntry$ddelta = (v0) => {
   const v2 = v0.delta;
   return v2;
 };
-const $Main$dapply = (v0) => ({ count: $Main$dEntry$dcount(v0), delta: $Std$dInt$dadd($Main$dEntry$ddelta(v0))($Main$dEntry$dcount(v0)) });
+const $Main$dapply = (v0) => ({ count: $Main$dEntry$dcount(v0), delta: $Std$dInt$dadd($Main$dEntry$ddelta(v0), $Main$dEntry$dcount(v0)) });
 const $Main$dentries = (v0) => {
   switch (v0.tag) {
     case "Nil": {
@@ -1010,7 +1010,7 @@ const $Main$dentries = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return $Std$dInt$dadd($Main$dEntry$ddelta(v1))($Main$dentries(v2));
+      return $Std$dInt$dadd($Main$dEntry$ddelta(v1), $Main$dentries(v2));
     }
   }
   throw new Error("unreachable");
@@ -1029,10 +1029,10 @@ function $$divide(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$3, ty$2, $Main$ddivide(v0)(v1));
+    return encodeFast(enc$3, ty$2, $Main$ddivide(v0, v1));
   } catch (e) {
     throw outOfResources("divide", e);
   }
@@ -1069,7 +1069,7 @@ function $$add(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$2, ty$1, $Main$dadd(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dadd(v0, v1));
   } catch (e) {
     throw outOfResources("add", e);
   }
@@ -1079,7 +1079,7 @@ function $$sub(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$2, ty$1, $Main$dsub(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dsub(v0, v1));
   } catch (e) {
     throw outOfResources("sub", e);
   }
@@ -1089,7 +1089,7 @@ function $$mul(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$2, ty$1, $Main$dmul(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dmul(v0, v1));
   } catch (e) {
     throw outOfResources("mul", e);
   }
@@ -1099,10 +1099,10 @@ function $$eucDiv(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$2, ty$1, $Main$deucDiv(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$deucDiv(v0, v1));
   } catch (e) {
     throw outOfResources("eucDiv", e);
   }
@@ -1112,10 +1112,10 @@ function $$eucMod(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$2, ty$1, $Main$deucMod(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$deucMod(v0, v1));
   } catch (e) {
     throw outOfResources("eucMod", e);
   }
@@ -1125,10 +1125,10 @@ function $$tdiv(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$2, ty$1, $Main$dtdiv(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dtdiv(v0, v1));
   } catch (e) {
     throw outOfResources("tdiv", e);
   }
@@ -1138,10 +1138,10 @@ function $$tmod(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$2, ty$1, $Main$dtmod(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dtmod(v0, v1));
   } catch (e) {
     throw outOfResources("tmod", e);
   }
@@ -1151,10 +1151,10 @@ function $$fdiv(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$2, ty$1, $Main$dfdiv(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dfdiv(v0, v1));
   } catch (e) {
     throw outOfResources("fdiv", e);
   }
@@ -1164,10 +1164,10 @@ function $$fmod(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$2, ty$1, $Main$dfmod(v0)(v1));
+    return encodeFast(enc$2, ty$1, $Main$dfmod(v0, v1));
   } catch (e) {
     throw outOfResources("fmod", e);
   }
@@ -1177,10 +1177,10 @@ function $$modNat(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$6, ty$5, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$7, ty$5, $Main$dmodNat(v0)(v1));
+    return encodeFast(enc$7, ty$5, $Main$dmodNat(v0, v1));
   } catch (e) {
     throw outOfResources("modNat", e);
   }
@@ -1190,7 +1190,7 @@ function $$decEq(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$8, ty$6, $Main$ddecEq(v0)(v1));
+    return encodeFast(enc$8, ty$6, $Main$ddecEq(v0, v1));
   } catch (e) {
     throw outOfResources("decEq", e);
   }
@@ -1200,7 +1200,7 @@ function $$leq(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$8, ty$6, $Main$dleq(v0)(v1));
+    return encodeFast(enc$8, ty$6, $Main$dleq(v0, v1));
   } catch (e) {
     throw outOfResources("leq", e);
   }
@@ -1210,7 +1210,7 @@ function $$less(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$8, ty$6, $Main$dless(v0)(v1));
+    return encodeFast(enc$8, ty$6, $Main$dless(v0, v1));
   } catch (e) {
     throw outOfResources("less", e);
   }
@@ -1220,7 +1220,7 @@ function $$compare(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$9, ty$7, $Main$dcompare(v0)(v1));
+    return encodeFast(enc$9, ty$7, $Main$dcompare(v0, v1));
   } catch (e) {
     throw outOfResources("compare", e);
   }
@@ -1311,10 +1311,10 @@ function $$residue(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1)(0n)).tag !== "Yes") {
+    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
       throw new StitchwortInputError("precondition `d != 0` doesn't hold");
     }
-    return encodeFast(enc$4, ty$3, $Main$dresidue(v0)(v1));
+    return encodeFast(enc$4, ty$3, $Main$dresidue(v0, v1));
   } catch (e) {
     throw outOfResources("residue", e);
   }

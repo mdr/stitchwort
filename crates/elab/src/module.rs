@@ -514,7 +514,7 @@ impl Elaborator {
                     return false;
                 };
                 let mut rhs = rhs;
-                while let Expr::Lam(_, body, _) | Expr::TypedLam(_, _, body, _) = rhs {
+                while let Expr::Lam(_, body, _) | Expr::TypedLam(_, _, _, body, _) = rhs {
                     rhs = &**body;
                 }
                 matches!(rhs, Expr::Goal(_))
@@ -2267,7 +2267,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
-            Expr::TypedLam(name, ty, body, _) => {
+            Expr::TypedLam(name, _, ty, body, _) => {
                 let (bind, unbind) = binds(std::slice::from_ref(name));
                 let mut steps = vec![Work::Expr(ty)];
                 steps.extend(bind);
