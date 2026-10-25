@@ -1,0 +1,1017 @@
+# Native compilation: how Stitchwort could run as machine code
+
+**Status:** research and design note, 25 October 2026 (SW-477). Nothing here
+changes the compiler. The experiments were scratch programs and aren't
+committed; their code is described in [Appendix A](#appendix-a-the-experiments)
+so they can be rewritten. Decisions are at the [end](#decisions) (D1244–D1247).
+**Stopped for Matt's review.**
+
+Claims are marked like this:
+- **[ran]**: measured for this note on an Apple M4 Pro, with
+  `target/release/stitchwort` built from `main` on 25 October (the build the
+  profile below used), Node 22.23.3, rustc 1.99 and clang 21, on a shared
+  machine (load average 2–10, other lanes running). Times are the best or
+  median of 2–3 runs.
+- **[source]**: read in the code at `04790cb9`.
+- **[inferred]**: my reasoning, not tested.
+- **[unverified]**: a claim about another project I couldn't confirm in a
+  source I opened.
+
+Claims about other languages link to the source that was opened for this
+note.
+
+## 0. Summary
+
+**The question.** How could Stitchwort be compiled to machine code for the
+most speed, and what would it cost?
+
+**Where we stand.** `stitchwort run` uses the bytecode machine of
+`crates/rt` ([fast-runtime.md](fast-runtime.md)). On the `Set` benchmark
+(a million inserts into a weight-balanced tree), it is about 2.7× slower than
+`run --js` **[ran]**. Today's profile puts the cost in the machine itself
+(dispatch, frames, registers, reference counts), not in the tree.
+
+**The experiment** (§3). I translated the benchmark's hot path by hand into
+Rust, keeping the machine's value layout, its reuse in place, its
+overflow-checked numbers and its comparison through the instance
+dictionary. That is roughly what a straightforward compiler from today's IR
+would emit. It does the million inserts in **0.68 s**, against **8.7 s** on the
+machine and **3.2 s** under Node **[ran]**:
+- about **13× faster** than the machine;
+- about **10×** with inlining turned off, which stands in for a simpler code
+  generator;
+- a version that also stores numbers unboxed in the nodes takes **0.12 s**,
+  about 70× faster.
+
+On bare calls, the machine spends about 37 ns per call and return. Native
+code spends 0.6 ns, or 2.2 ns with the bookkeeping that stack safety and
+resource limits need. These are upper bounds: a real compiler adds
+overheads the hand translation skips (§3.4). But they say native code is
+worth roughly an order of magnitude here, not the 2–5× that
+[fast-runtime.md](fast-runtime.md) guessed.
+
+**How others do it** (§2):
+- Lean 4 and Koka generate C, with reference counting and reuse in place.
+- Idris 2 and Unison went through Chez Scheme. Unison's Chez runtime appears
+  to have been shelved since **[secondary source]**.
+- Roc and Effekt use LLVM. Roc is rewriting its compiler partly because of
+  LLVM upgrades and Rust compile times.
+- Agda and Rocq go through Haskell or OCaml.
+
+Two features make Stitchwort unusually easy to compile:
+- effects already keep their continuations on the heap, as data (D1162), so
+  no backend needs to capture a stack;
+- partial code is data (`Delay`) stepped by a runner loop, so tick counts
+  live in Rust and don't depend on the backend.
+
+**Recommendation** (§5):
+1. **Compile to machine code with Cranelift, in-process, in the CLI**
+   (`stitchwort run`), from the same optimised IR and bytecode the machine
+   runs:
+   - The compiled code calls the same Rust runtime: values, primitives,
+     big numbers, freeing, the effect loop and the `Delay` runner.
+   - It needs no C compiler or other tool at run time.
+   - It keeps reference counting and reuse exactly as the machine decides
+     them.
+   - It runs on a thread with a large stack, with a cheap depth check at each
+     call so that deep recursion reports `E-RESOURCE` instead of crashing.
+2. **The playground keeps the machine.** Cranelift can't run the code it
+   makes inside a browser.
+3. **Later, separately:**
+   - storing numbers unboxed in data (a change of representation, worth
+     about 5× more on this benchmark, and it helps the machine too);
+   - possibly a C route, for a `stitchwort build` that writes a standalone
+     executable.
+
+About 8–10 lanes in all, each one stage, behind a `--native` flag until it
+passes the differential tests (§6).
+
+**Not recommended:**
+- LLVM: a heavy build and a version to keep up with.
+- Generating Rust: rustc is far too slow to run on every `run`.
+- Chez Scheme: it would lose reference counting and reuse, and it's an outside
+  tool.
+- Wasm as the main route: deep recursion and tail calls in browsers are not
+  ready enough, and the gain over the machine in the browser is unmeasured.
+
+## 1. Where the time goes today
+
+### 1.1 The three runners
+
+| Runner | What it is | Used by |
+|---|---|---|
+| Reference evaluator (`crates/core`) | The type checker's own evaluator; trusted, slow | `run --reference`, the oracle in differential tests, `eval`, the Tests tab |
+| The machine (`crates/rt`) | Erased IR (`ir.rs`), simplified (`opt.rs`, `specialise.rs`, `fusion.rs`), compiled to register bytecode with moves and reuse tokens (`code.rs`), run by `machine.rs` with its frames on the heap | `stitchwort run`, `stitchwort test`, the playground's Run tab |
+| JS backend (`crates/js`) | JavaScript from the checked terms (not from the rt IR), run by Node in a worker with a large stack | `run --js`, `extract` |
+
+**[source]**: `crates/rt/src/lib.rs`, `crates/js/src/run.rs:1-30` (worker
+thread "with a large stack, since generated code recurses on the JS stack").
+
+### 1.2 The profile (25 October)
+
+These come from the profile in the setperf scratch directory, made with
+`stitchwort` built with a counting patch (`rt_prof.patch`) and macOS
+`sample`. I re-ran the timings **[ran]**:
+
+| Program (1,000,000 keys) | machine | `--js` |
+|---|---:|---:|
+| keys only (build and sum the list) | 0.35 s | 0.37 s |
+| `Set.fromList` | 9.0–9.8 s | 3.5–3.8 s |
+| so the inserts alone take about | **8.7 s** | **3.2 s** |
+
+Per insert, the machine runs about 81 frames and 1,480 bytecode instructions
+(`prof_set_nat_1M.txt`: 81,044,971 frames, 1,478,475,084 instructions for a
+million inserts). `Std.Map.Tree.shape` alone is 776 million instructions,
+about 40 per call. That works out at about 6 ns per bytecode instruction and
+about 107 ns per frame.
+
+Of the samples:
+- 63% are in the machine's `run` loop itself;
+- 11% are dropping values;
+- 4% are growing the register vector at frame entry;
+- 7% are allocation (`Rc::from_iter_exact` and mimalloc);
+- most of the rest is primitives (`nat_add`, `nat_mul`).
+
+The session's own analysis put about 19% of the time in the jump table
+(instruction dispatch). It put the rest in frame push and pop, clearing
+registers, and reference counting.
+
+### 1.3 The call micro-benchmarks **[ran]**
+
+`micro_call.sw` makes 20 million non-tail calls, 20 deep. `micro_tail.sw`
+runs 20 million iterations of a tail-recursive loop. Checking takes about
+0.09 s of each run.
+
+| | machine | `--js` (incl. Node start) | Rust, plain | Rust, with frame and step counting |
+|---|---:|---:|---:|---:|
+| 20M non-tail calls | 0.83–0.94 s | 0.27–0.36 s | 0.012 s | 0.043 s |
+| 20M tail iterations | 0.57–0.68 s | 0.27–0.33 s | 0.005 s | — |
+
+So a call and return costs:
+- about **37 ns** on the machine;
+- under 10 ns under V8 (the run is mostly Node's start-up);
+- **0.6 ns** as native code, or **2.2 ns** with the bookkeeping a safe
+  backend needs (§4.3).
+
+Calls are where an interpreter loses most, and this language makes a great
+many small calls.
+
+## 2. How comparable languages get native code
+
+Every claim here links to a source I opened. The research was done by
+reading papers, documentation and release notes; numbers are the authors'.
+
+### 2.1 Lean 4: C, reference counting, reset/reuse
+
+- **What it does:**
+  - It compiles to C, then uses a bundled Clang (`leanc`, "a version of
+    Clang") ([Ullrich & de Moura 2019, "Counting Immutable
+    Beans"](https://arxiv.org/pdf/1908.05647);
+    [Lean build tools](https://lean-lang.org/doc/reference/4.24.0/Build-Tools-and-Distribution/)).
+    Toolchains are self-contained, so users don't install a C compiler.
+  - Its IR, λRC, has explicit `inc`/`dec`, `reset`/`reuse` and inferred
+    *borrowed* parameters (a parameter the callee doesn't own, so passing it
+    costs no count).
+  - "Recursive tail calls are implemented using gotos". Lean doesn't
+    eliminate tail calls to a *different* function
+    ([FP in Lean](https://lean-lang.org/functional_programming_in_lean/Programming___-Proving___-and-Performance/Tail-Recursion/)).
+  - Big numbers used GMP in 2019. Whether they still do is **[unverified]**.
+- **What it won:** on `const_fold`, "Lean is 5x as fast as OCaml". On the
+  red-black map benchmark it beats everything except OCaml (same paper).
+- **What it cost:** a whole new compiler. In v4.22 (August 2025), "the old
+  compiler has been replaced by the new compiler"
+  ([release notes](https://lean-lang.org/doc/reference/latest/releases/v4.22.0/)).
+  Its new IR, LCNF, was "complete" only in v4.30 (May 2026)
+  ([release notes](https://lean-lang.org/doc/reference/latest/releases/v4.30.0/)).
+  There, porting reset/reuse "prevents exponential code generation", and
+  binaries shrank by about 15%.
+- **Not found:** a published speedup of Lean's compiled code over its own
+  interpreter.
+
+### 2.2 Koka: C, Perceus, evidence passing
+
+- **What it does:** Koka compiles to C11 "with no GC or runtime system". Its
+  reference counting, Perceus, frees memory as soon as it's dead and reuses
+  cells in place
+  ([Perceus tech report](https://www.microsoft.com/en-us/research/uploads/prod/2020/11/perceus-tr-v1.pdf)).
+  Stitchwort's machine already does a version of this (fast-runtime.md,
+  stage 4).
+- **What Perceus won:**
+  - On the red-black tree benchmark, Koka is "within 10%" of C++'s
+    `std::map`.
+  - Koka without the reference-counting optimisations is "more than 2×
+    slower".
+  - Java used about 10× the memory.
+- **Effect handlers** are compiled by *evidence passing*: the current
+  handlers travel as a hidden argument.
+  - Handlers that resume once, at the end ("tail-resumptive"), become plain
+    calls, which "speeds up the counter benchmarks by 10×"
+    ([Xie & Leijen 2021](https://www.microsoft.com/en-us/research/uploads/prod/2021/03/multip-tr-v4.pdf)).
+  - Handlers that don't resume that way are about 5× slower than OCaml 5.
+- **Wasm:** Koka reaches wasm through Emscripten on the C backend
+  ([Koka README](https://github.com/koka-lang/koka)).
+- **In-place updates:** FP² ("fully in-place" functions) are guaranteed to
+  run without allocating
+  ([paper](https://www.microsoft.com/en-us/research/uploads/prod/2023/05/fbip.pdf)).
+
+### 2.3 Idris 2: Chez Scheme by default; RefC experimental
+
+- **Backends:** "By default, Idris compiles to executables via Chez Scheme".
+  Racket, Gambit, JavaScript and RefC are the alternatives
+  ([backends](https://idris2.readthedocs.io/en/latest/backends/index.html)).
+- **Chez needs installing:** "to run Idris programs you will need to install
+  Chez Scheme". The output is a shell script plus compiled Scheme, and a
+  standalone binary needs a separate tool
+  ([Chez backend](https://idris2.readthedocs.io/en/latest/backends/chez.html)).
+- **RefC** (C with reference counting) is labelled experimental. It is
+  slower than the Scheme backends because its counting "hasn't been
+  optimized yet"
+  ([RefC](https://idris2.readthedocs.io/en/latest/backends/refc.html)).
+- **No published numbers** compare the backends.
+
+### 2.4 Agda and Rocq: through another functional language
+
+- **Agda's MAlonzo** translates to Haskell and calls GHC
+  ([Agda compilers](https://agda.readthedocs.io/en/latest/tools/compilers.html)).
+  - Its unsafe coercions have hit a GHC optimiser bug
+    ([GHC #17206](https://gitlab.haskell.org/ghc/ghc/issues/17206)).
+  - GHC's optimisation flags add 30–40% to compile time for MAlonzo output
+    ([2026 paper](https://arxiv.org/pdf/2603.24199)).
+- **Rocq** extracts to OCaml with `Obj.magic` where the code isn't ML-typable
+  ([extraction](https://rocq-prover.org/doc/v9.3/refman/addendum/extraction.html)).
+  Its `native_compute` (convert to OCaml, compile, run) is "typically two to
+  five times faster than vm_compute" (its bytecode machine). It has
+  "considerably more overhead", so it's recommended only for runs of 5–10 s
+  or more
+  ([Rocq manual](https://rocq-prover.org/doc/V9.0.0/refman/proofs/writing-proofs/equality.html)).
+- **The lesson for us:** going through another typed language means fighting
+  its type system with coercions. Its compile time is paid on every run.
+
+### 2.5 Roc: LLVM, plus a fast "dev" backend
+
+- **Backends:** the Rust-era compiler had three: LLVM "for fastest possible
+  execution speed", a dev backend that wrote object files directly "for fast
+  builds", and a wasm backend
+  ([repository mirror](https://git.joshthomas.dev/language-servers/roc/src/branch/main/crates/compiler/gen_dev)).
+- **The rewrite:** Roc is being rewritten in Zig. Richard Feldman wrote that
+  "the LLVM upgrade process has been very time-consuming" and that Rust's
+  compile times are slow. The new plan includes an interpreter to skip code
+  generation in development
+  ([Feldman's gist](https://gist.github.com/rtfeldman/77fb430ee57b42f5f2ca973a3992532f)).
+- **Memory:** Roc uses Perceus-style reference counting with in-place
+  mutation **[secondary source]**.
+
+### 2.6 Unison: Chez Scheme from an interpreter
+
+- **The 2022 result:** in 2022 Unison announced code compiled through Chez
+  that ran "470x faster" than its Haskell interpreter. That was on one
+  arithmetic loop, without abilities (effects) or continuations yet
+  ([announcement](https://unison-lang.org/blog/jit-announce/)).
+- **Today:**
+  - The current docs describe `compile` producing a file that the
+    interpreter runs
+    ([docs](https://www.unison-lang.org/docs/ucm-commands/compile/)).
+  - A comment attributed to the Unison team says the Chez work was "put …
+    on ice" **[secondary source, not opened]**.
+- **Lesson:** a speedup on a toy loop doesn't survive contact with effects
+  and the rest of the language unless the runtime is designed for them.
+
+### 2.7 Effekt: LLVM with reference counting and one-shot continuations
+
+- **The ICFP 2025 backend:** it emits LLVM with "garbage-free reference
+  counting". Capturing and resuming a continuation takes constant time when
+  it is resumed once
+  ([Müller et al. 2025](https://se.cs.uni-tuebingen.de/publications/muhcu2025multiple.pdf)).
+- **Speed:** its geometric mean is 2.2× faster than OCaml 5.1.1 and 10.2×
+  faster than Koka 3.1.2 on its effect benchmarks.
+- **Cost:** its custom calling convention and stack management are things
+  "LLVM is not able to optimize" (its Fibonacci benchmark is slow).
+- **History:** the LLVM backend replaced an MLton one that was faster
+  ([Effekt evolution](https://effekt-lang.org/evolution)).
+
+### 2.8 OCaml 5: effects in a native compiler
+
+From the PLDI 2021 paper "Retrofitting effect handlers onto OCaml"
+([Sivaramakrishnan et al.](https://arxiv.org/abs/2104.00250)):
+- **Continuations are one-shot**: resuming one twice raises
+  `Invalid_argument`.
+- **Fibers live on the C heap.** Each handled computation runs on its own
+  small stack (a *fiber*), allocated with `malloc`.
+  - A fiber starts at 16 words and is copied to an area twice the size when
+    it overflows.
+  - A cache of freed stacks keeps this cheap.
+  - Function prologues check for stack overflow.
+- **Cost to programs that don't use effects:** under 1% on average (8 of 54
+  programs above 10%), and code is 19% larger.
+- **Effects versus alternatives:** a generator written with effects is
+  2.76× slower than hand-written CPS, and a monadic one is 8.69× slower.
+
+The lesson is that a native compiler needed a new stack discipline to get
+cheap one-shot continuations. Stitchwort's heap continuations (§4.1) avoid
+that, at the cost of allocating a cell per pending `bind`.
+
+### 2.9 What this says
+
+- **Two working patterns** (my reading, from the sources above):
+  1. Reuse a mature runtime: Chez (Idris, the old Unison plan), GHC (Agda) or
+     OCaml (Rocq). You get bignums, tail calls and deep stacks for free, and
+     you lose control of memory: no reference counting, no reuse.
+  2. Generate C or LLVM with your own reference-counted runtime (Lean, Koka,
+     Roc, Effekt). It's fastest, and it's where Perceus's gains come from.
+     But it's the most work, and every one of these projects has rewritten
+     its backend at least once.
+- **Nobody listed uses Cranelift.** That is a gap in prior art, not evidence
+  against it. Cranelift is used for Wasm and for Rust debug builds (§2.10).
+- **Effects are the hard part elsewhere:**
+  - OCaml 5 needed segmented stacks.
+  - Effekt needed a custom calling convention.
+  - Koka needed evidence passing.
+
+  Stitchwort mostly sidesteps this, because its continuations are already
+  heap data (§4.1).
+
+### 2.10 Code generators from Rust
+
+**Cranelift**
+- **What it is:** the code generator of Wasmtime and of Rust's alternative
+  debug backend.
+- **Version and licence:** `cranelift-codegen` 0.137.0 (20 October 2026),
+  Apache-2.0 with the LLVM exception
+  ([crates.io](https://crates.io/api/v1/crates/cranelift-codegen)).
+- **Targets:** x86-64, aarch64, s390x and riscv64. It doesn't emit wasm
+  ([Pulley docs](https://docs.wasmtime.dev/examples-pulley.html)).
+- **Code quality:** its README cites a third-party measurement of its code
+  at "~2% slower than V8 (TurboFan), ~14% slower than WAVM (LLVM)". It
+  compiles about an order of magnitude faster than LLVM
+  ([README](https://github.com/bytecodealliance/wasmtime/blob/main/cranelift/README.md)).
+- **Rust's Cranelift backend:** it speeds up whole debug builds by about
+  10–15% on average
+  ([Rust project goal, 2026](https://goals.rust-lang.org/2026/improve-cg_clif-performance.html)).
+  That is a measure of compile time, diluted by the rest of rustc.
+- **Tail calls:** a `tail` calling convention was added in 2023. Wasmtime
+  waited for it to be as fast as the default before using it
+  ([Bytecode Alliance, 2023](https://bytecodealliance.org/articles/wasmtime-and-cranelift-in-2023)).
+  Wasmtime has had wasm tail calls on by default since version 22
+  ([wasm features](https://webassembly.org/features.json)).
+- **macOS arm64:**
+  - `cranelift-jit` maps its code memory with an ordinary anonymous mapping,
+    without `MAP_JIT`. The research agent checked this in the source.
+  - A maintainer says the kernel enforces write-xor-execute "only when
+    hardened runtime is enabled"
+    ([wasmtime#12076](https://github.com/bytecodealliance/wasmtime/issues/12076)).
+    So a plain CLI works, but a signed, hardened build would need `MAP_JIT`.
+    Stage N0 must check this.
+  - Writing object files instead has an open arm64 Darwin relocation bug
+    ([wasmtime#4564](https://github.com/bytecodealliance/wasmtime/issues/4564)).
+    That's a reason to JIT rather than write `.o` files.
+- **In wasm:** the research agent built `cranelift-codegen` 0.137 for
+  `wasm32-unknown-unknown` and ran it under Node. It compiled a
+  tail-convention function to aarch64 machine code in about 16 ms, from a
+  4.2 MB `.wasm` (unstripped) **[ran by the research agent]**. So it *runs*
+  in a browser, but a page can't execute the machine code it produces.
+- **Inlining:** whether it inlines, and how much, is **[unverified]**. The
+  experiment's no-inlining row stands in for "less inlining than LLVM".
+
+**LLVM from Rust**
+- **Bindings:** `inkwell` supports LLVM 12–23 by Cargo feature and needs an
+  installed LLVM ([inkwell](https://github.com/TheDan64/inkwell)).
+  `llvm-sys` 231 needs `llvm-config`
+  ([docs.rs](https://docs.rs/crate/llvm-sys/latest)).
+- **Tail calls:** a `musttail` call "must be tail call optimized", and
+  `tailcc` guarantees tail calls
+  ([LangRef](https://llvm.org/docs/LangRef.html)).
+- **Not found:** link time and binary size numbers **[unverified]**.
+
+**C**
+- **Guaranteed tail calls:**
+  - clang has `musttail`, and GCC 15 added a `musttail` attribute
+    ([GCC 15 changes](https://gcc.gnu.org/gcc-15/changes.html)).
+  - Lean only turns direct self tail calls into loops (§2.1).
+  - A code search for `musttail` in Koka found nothing; its C backend turns
+    self-calls into loops ([koka](https://github.com/koka-lang/koka)).
+- **Fast compilers:** tcc compiles about 9× faster than old GCC at `-O0`
+  ([tcc](https://bellard.org/tcc/)), but makes slower code, and Bellard no
+  longer works on it.
+- **C to wasm:** clang compiles C to wasm without Emscripten
+  ([Surma](https://surma.dev/things/c-to-webassembly/)). `musttail` there
+  needs `-mtail-call` (tested by the research agent with clang 21).
+
+**Wasm**
+- **What browsers support** (from [webassembly.org/features.json](https://webassembly.org/features.json)):
+
+  | Feature | Chrome | Firefox | Safari | Wasmtime |
+  |---|---|---|---|---|
+  | Tail calls | 112 | 121 | 18.2 | 22 |
+  | Exceptions (exnref) | 137 | 131 | 18.4 | 47 |
+  | Stack switching | flag only | – | – | – |
+
+- **Stack switching** (which would give deep recursion and continuations
+  in wasm) is at phase 3
+  ([proposals](https://github.com/WebAssembly/proposals)) and
+  work-in-progress in Wasmtime
+  ([Wasmtime proposals](https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/docs/stability-wasm-proposals.md)).
+- **Wasm_of_ocaml** still defaults to a CPS transform for effects because
+  stable browsers lack it
+  ([OCaml, April 2026](https://ocaml.org/backstage/2026-04-16-wasm-of-ocaml-what-changed-since-6-1)).
+- **Wasmtime's size:** the default build is 19 MB; 2.1 MB without its
+  compiler ([Wasmtime minimal](https://docs.wasmtime.dev/examples-minimal.html)).
+- **Speed:** wasm ran 45–55% slower than native in browsers in 2019
+  ([Jangda et al.](https://www.usenix.org/conference/atc19/presentation/jangda)).
+  Newer measurements of about 1.3× slower were seen only in search excerpts
+  **[unverified]**.
+
+**Chez Scheme**
+- **Licence and packaging:** Apache-2.0, runs on AArch64 macOS
+  ([ChezScheme](https://github.com/cisco/ChezScheme)). nixpkgs has `chez`
+  10.4.1 (checked with `nix search` by the research agent).
+- **Continuations:** `call/1cc` makes one-shot continuations on segmented
+  stacks ([Chez user guide](https://scheme.com/csug8/control.html)).
+- **Speed:** Racket on Chez runs at "about the same" speed as old Racket,
+  with much cheaper continuations
+  ([Racket blog](https://blog.racket-lang.org/2020/02/racket-on-chez-status.html)).
+- **Not verified:** Chez against C speed, and its bignums and tail calls
+  (which the Scheme standard requires).
+
+**Interpreter techniques** (for route (a))
+- **Threaded dispatch:** a C protobuf parser with `musttail`-threaded
+  dispatch reached "more than double" the previous state of the art. Its
+  author warns that "'tail calls == 2x speedup' is the wrong message"
+  ([Haberman](https://blog.reverberate.org/2021/04/21/musttail-efficient-interpreters.html)).
+- **CPython 3.14's tail-calling interpreter:** about 1–5% faster, once a
+  compiler regression is accounted for
+  ([Elhage](https://blog.nelhage.com/post/cpython-tail-call/)).
+- **Rust's `become`** (guaranteed tail calls, which an interpreter needs for
+  this) is unstable
+  ([rust#112788](https://github.com/rust-lang/rust/issues/112788)), with
+  stabilisation "hopefully in 2027"
+  ([Trifecta](https://trifectatech.org/blog/tail-calls-project-goal/)).
+- **Keeter's Rust interpreter** using it (on nightly):
+  - natively, 1.5–2× faster than a `match` loop;
+  - compiled to wasm, **1.2–4.6× slower** than the `match` loop
+  ([Keeter, 2026](https://www.mattkeeter.com/blog/2026-04-05-tailcall/)).
+
+  So threaded dispatch would help the CLI and hurt the playground.
+- **Superinstructions:** up to 3.17× over threaded code in Forth-style
+  interpreters ([Ertl & Gregg 2003](https://www.eecg.utoronto.ca/~steffan/carg/readings/optimizing-indirect-branch-prediction.pdf)).
+- **Register machines:** Lua 5's register machine was more than twice as fast
+  as Lua 4's stack machine on a loop ([Lua 5](https://www.lua.org/doc/jucs05.pdf)).
+- **Wasm3,** a fast tail-calling interpreter, is 4–15× slower than compiled
+  C ([wasm3](https://github.com/wasm3/wasm3/blob/main/docs/Interpreter.md)).
+
+  That is a fair guess at how close any interpreter, including ours, can
+  get to native code.
+
+## 3. The experiment: the `Set` insert by hand
+
+### 3.1 What was translated
+
+These are the functions that take 98% of the profile:
+- `Std.Map.Tree.insertWith.%match1[0]` (the insert, specialised);
+- `shape`;
+- `rebuild`;
+- `singleL`/`singleR`/`doubleL`/`doubleR`;
+- `Nat.compare`.
+
+They were translated from the IR listing (`set_nat.ir`) into Rust, in three
+versions (Appendix A):
+
+1. **uniform**: what a compiler from today's IR would emit.
+   - Every value is the machine's three-word `Value`: a small `Nat` inline,
+     a constructor as a tag plus `Rc<[Value]>`.
+   - `Nat` arithmetic is overflow-checked, with a big-number escape.
+   - The comparison is an indirect call through the instance dictionary that
+     returns an `Ordering` value, as the IR's `apply` does.
+   - A node that is uniquely owned is taken apart and refilled in place, as
+     `Unpack`/`CtorReuse` do.
+   - Recursion is on the Rust stack, with no frame or step counting.
+2. **uniform, no inlining**: the same code with every helper marked
+   `#[inline(never)]`. This stands in for a code generator that inlines
+   less than LLVM. How much Cranelift inlines is **[unverified]** (§2.10).
+3. **typed**: a node is a struct with `u64` size and key and the unit value
+   erased. This is what a compiler that also chose representations by type
+   would emit.
+
+The machine and Node run the real program, `set_nat_1000000.sw`:
+`Set.size (Set.fromList keys)` over the keys `(i * 7919) % 1000000`.
+
+### 3.2 Results **[ran]**
+
+The inserts only, for a million keys. Each answer is 1,000,000.
+
+| Runner | Inserts | vs machine | vs Node |
+|---|---:|---:|---:|
+| machine (`stitchwort run`) | 8.7 s | 1× | 0.37× |
+| Node (`run --js`) | 3.2 s | 2.7× | 1× |
+| Rust, uniform, no inlining | 0.79–0.87 s | ~10× | ~3.8× |
+| Rust, uniform | 0.67–0.72 s | ~13× | ~4.7× |
+| Rust, typed | 0.12 s | ~70× | ~27× |
+
+The machine and Node times are whole runs minus the keys-only run (§1.2).
+The Rust times are measured around the insert loop. The allocator is
+mimalloc in each case. With the system allocator, uniform was 0.59 s (one
+run).
+
+### 3.3 What it shows
+
+- **Most of the machine's time is interpretation, not work.** The same
+  memory layout, the same counts and the same reuse, run as machine code,
+  are 10–13× faster. That matches the call micro-benchmark (§1.3): about
+  37 ns per call on the machine against 1–2 ns natively.
+- **The value layout is the next factor after that.** Typed nodes are
+  another 5–6× faster than uniform ones:
+  - a node is 48 bytes instead of 136;
+  - a size or key read is a load, not a tag check and a copy;
+  - there's no `Ordering` value.
+
+  That is a separate project from native code. It would help the machine too
+  (less memory traffic), though its main gain needs a compiler.
+- **Inlining matters less than expected** (0.68 s against 0.83 s). The IR's
+  simplifier (`opt.rs`) already inlines small functions, so a code
+  generator that doesn't inline loses little.
+
+### 3.4 Why the real gain would be smaller **[inferred]**
+
+The hand translation skips things a real backend must do:
+
+1. **Frame and step counting** (§4.3): each call counts against the frame
+   and step limits. On the bare-call benchmark that took a call from 0.6 ns
+   to 2.2 ns. On the `Set` code, which does real work per call, it should be
+   a much smaller share.
+2. **Code quality:** Cranelift's code is somewhat slower than LLVM's, which
+   compiled the experiment (§2.10).
+3. **Generality:** the hand translation knows `Shape` is a tag and that
+   `shape`'s result is matched at once. A compiler from the bytecode would
+   materialise a `Value::Tag` and switch on it. That's cheap, but not free.
+
+**Estimate for a Cranelift backend on today's representation: 4–8× faster
+than the machine on this benchmark, so 1.5–3× faster than Node**
+**[inferred]**. It's an estimate until stage N1 measures it (§6).
+
+## 4. What maps onto machine code, and how
+
+### 4.1 Effects and handlers
+
+**[source]**: `crates/rt/src/effect.rs:1-33`, effect-runtime.md §9 (D1162).
+
+- **What the machine does:** it runs effects with four natives that replace
+  the library's `bind`, `foldComp`, `translate` and `runPure`.
+  - `bind` on a finished computation calls the continuation. Otherwise it
+    builds a `Bind` node and calls nothing.
+  - One loop runs a computation for a handler. It keeps the pending
+    continuations on a persistent linked list in the heap.
+  - **Capturing a continuation is keeping a pointer** to that list. Resuming
+    is applying closures.
+- **Native code needs:**
+  - **No stack capture:** no fibers, no segmented stacks, no `setjmp`, no
+    CPS. OCaml 5 and Effekt had to build machinery for exactly this (§2.7,
+    §2.8).
+  - **Closures and indirect calls.** Every backend has those.
+  - **The effect loop** stays Rust code in the runtime and calls compiled
+    closures.
+  - **The specialisations** (`fusion.rs`'s state loops, `specialise.rs`'s
+    empty-row variants) happen in the IR, before any backend, so a native
+    backend gets them for free.
+
+One thing changes **[inferred]**:
+- On the machine, the loop runs on the machine's frames (`Ret::Eff`), so
+  nothing nests in Rust.
+- In native code, a continuation the loop calls runs on the native stack.
+  Its own calls nest there like any other calls, and that is bounded by
+  §4.3's limit.
+- `bind (Done x) k` calling `k` directly is "an explicit invariant of this
+  backend" on the machine (effect.rs). Natively it costs native stack, as
+  non-tail recursion does. It needs the same depth check, and a test that a
+  long effectful `List.map` still runs.
+
+### 4.2 Partial code and ticks
+
+**[source]**: `crates/rt/src/run.rs:1-40, 216-250`; partial.md §7.4.
+
+- A partial `main` is a `Delay` value. Only the runner (`run.rs`) looks
+  inside it, and **each recursive partial call is exactly one tick**, by the
+  runner's equations.
+- A native backend builds the same `Delay` data by calling the same runtime
+  constructors, and the same Rust runner steps it.
+- So **tick counts are identical by construction**, provided the compiled
+  code builds the same `Delay` values. The existing tick-limit tests
+  (`run_main_with`, `max_ticks`) check that.
+
+### 4.3 Stack safety and resource limits
+
+This is the main design question for any native backend:
+- The machine keeps frames on the heap, so a million-deep recursion is fine
+  and running out of frames is a clean `E-RESOURCE`.
+- Native code wants the machine stack, because that's where its speed
+  comes from (§1.3).
+
+**[source]** for each of the following:
+- The JS backend already runs generated code on the native (V8) stack, in
+  a worker with a large stack (`crates/js/src/run.rs:9-11, 707-717`).
+- The CLI already runs the compiler on a 64 MiB thread
+  (`crates/cli/src/main.rs:233`), using `driver::with_stack`.
+- The machine counts each frame entered as a step against `Limits::steps`,
+  and the frames pending against `Limits::frames` (2,000,000)
+  (`machine.rs:19-21, 36-41`).
+
+The design **[inferred]**:
+- **Run compiled code on its own thread with a big reserved stack.** On
+  64-bit systems a large stack is address space, not memory, until it's
+  touched. The size would be the frame limit times the largest frame, about
+  1 GiB.
+- **Count at each call, exactly as the machine does:** increment the steps
+  and frames, compare them with their limits, and leave on a cold path with
+  `E-RESOURCE`. Measured on the bare-call benchmark, that is 2.2 ns per call
+  instead of 0.6 (§1.3). It is still 17× cheaper than the machine's call.
+- **If the counts are the same ones**, native code runs out at *exactly*
+  the same points as the machine. That is better than today's machine
+  against the reference evaluator, which run out at different points
+  (fast-runtime.md, stage 3).
+- **A cheaper alternative**, if the counting shows up in profiles: compare
+  the stack pointer with a limit, as Go and Rust's stack probes do. Running
+  out then happens at a point that depends on frame sizes, which is still
+  reported the same way.
+- **Tail calls must not grow the stack.**
+  - Self tail calls become loops in any backend.
+  - Calls to *another* function in tail position need a real tail call.
+    Lean doesn't have them (§2.1); Cranelift does (§2.10); C has them only
+    with clang's `musttail` (§2.10).
+  - Stitchwort needs them: the machine guarantees "a 3,000,000-step tail
+    loop within 100 frames" (fast-runtime.md, stage 2), and mutually
+    recursive state machines depend on it.
+
+### 4.4 Big numbers, text, pattern matching
+
+- **`Nat` and `Int`:**
+  - The fast path is a 64-bit operation plus an overflow check, emitted
+    inline. That's what the experiment did.
+  - The slow path calls `prims.rs`, which already defines exactly what the
+    reference evaluator computes (fast-runtime.md, stage 2).
+  - Rust keeps `num-bigint`; nothing new.
+- **`Text`** and the text natives: calls into the runtime.
+- **Pattern matching:** the bytecode's `Switch` is a jump table on the tag.
+  It maps directly onto a jump table in machine code. `NumSwitch`, `Test`
+  and `NatCase` become compares and branches.
+
+### 4.5 Reference counting and reuse
+
+- **The decisions are made before code generation.** `code.rs` decides
+  where a value moves, where it's dropped, and which emptied cell a new
+  constructor reuses. It writes those decisions into the bytecode
+  (`MOVE`, `Drop`, `Unpack`, `CtorReuse`, `DropReuse`) **[source]**.
+- **A backend translating that bytecode inherits them unchanged.** So
+  memory behaviour, including the in-place reuse that made the merge sort
+  2.8× faster, stays the same.
+- **What machine code adds:**
+  - It inlines the increment and the "is this the last reference?" test.
+  - It calls the runtime's freeing code (the work list that never recurses)
+    only when a count reaches zero.
+- **Later:** Lean's *borrowed parameters* (§2.1) would remove many counts.
+  That's an IR change, useful to both runners.
+
+## 5. The routes
+
+Each route is judged on:
+- speed;
+- effects, stack safety and tail calls;
+- what users need installed;
+- the playground;
+- risk and size.
+
+"Lanes" are stage-sized tasks as the board uses them.
+
+### (a) A faster interpreter (the baseline)
+
+- **What:** keep the machine and make it cheaper per instruction.
+  - Smaller frames and no register clearing on entry: the profile's
+    `Vec::resize` and teardown.
+  - Superinstructions for the frequent pairs (`Switch→Unpack`,
+    `CtorReuse→Return`, `Field` of a size).
+  - A 16-byte `Value`.
+  - Threaded dispatch with tail calls between handlers, if Rust's
+    `become` is usable (§2.10).
+- **Speed:**
+  - Dispatch is about 19% of the time, so removing it entirely gains at most
+    1.25×.
+  - Frames and registers are a larger share, but no interpreter gets near
+    1–2 ns per call.
+  - My estimate is **1.3–2×** **[inferred]**. Published results for
+    tail-call threading are in §2.10: 1.5–2× natively for one Rust
+    interpreter, but it needs nightly Rust.
+- **Everything else:** unchanged (it's the machine).
+- **Playground:** it gains from the frame, register and superinstruction
+  work. This is the only route that speeds the playground up without new
+  browser features.
+  - Threaded dispatch is the exception: one Rust interpreter ran 1.2–4.6×
+    *slower* in wasm with it (§2.10).
+  - So that part would be native-only, behind a Cargo feature.
+- **Risk:** low. **Size:** 2–3 lanes.
+- **Verdict:** worth doing for the playground and `test`, but it can't reach
+  Node, let alone native code.
+
+### (b) Generate C, call a C compiler
+
+- **What:** IR or bytecode to C text, compiled by `cc` against a runtime.
+- **Speed:** best-in-class code (LLVM or GCC). On the experiment, the
+  uniform row, about 13× **[ran, as an upper bound]**.
+- **Effects, ticks, big numbers:** as in §4. Effects need closures only.
+- **Tail calls:** C doesn't guarantee them.
+  - clang's `musttail` does, and so does GCC 15 (§2.10).
+  - Otherwise you need a trampoline, which slows every tail call.
+  - Koka and Lean live with self-tail-calls-only plus their own tricks.
+- **Runtime:** the Rust runtime would need a C interface. The 3-word `Value`
+  would need a `#[repr(C)]` layout, or a second runtime written in C, as
+  Lean and Koka have.
+- **Tools:**
+  - **Needs a C compiler on the user's machine at run time.** Nix provides
+    one; plain users may not have one.
+  - Compile latency is clang's: a second or more for a large program at
+    `-O2` **[inferred]**. That's fine for `build`, and noticeable for `run`
+    (results could be cached by content hash).
+- **Playground:** none directly. The same C could be compiled to wasm with
+  clang ahead of time, but not in the browser.
+- **Risk:** medium. Two runtimes, or a C ABI over Rust's; two compilers'
+  quirks. **Size:** 8–12 lanes.
+- **Verdict:** the best route to a standalone executable
+  (`stitchwort build`) later. For `run`, it is worse than (c).
+
+### (c) Cranelift, in-process (recommended)
+
+- **What:** translate each function's bytecode (or IR) into Cranelift IR
+  in the CLI, compile it to machine code in memory, and call it.
+  - The compiled code calls the same Rust runtime through function
+    pointers: `prims.rs`, `value.rs`'s freeing, the effect loop, the
+    `Delay` runner and `Text.fold`.
+  - Unsupported corners can call back into the runtime.
+- **Speed:** about 10× on the experiment without inlining, an upper bound.
+  Estimated 4–8× in practice (§3.4).
+- **Effects, ticks, big numbers, reference counting:** as in §4. The code
+  generator is the only new part; every runtime service is shared with the
+  machine.
+- **Tail calls:** Cranelift has a `tail` calling convention and
+  `return_call` (§2.10).
+- **Tools:**
+  - **Nothing at run time**: Cranelift is a Rust library, Apache-2.0 with the
+    LLVM exception (§2.10).
+  - The CLI grows by some megabytes. Cranelift built to wasm was 4.2 MB
+    unstripped (§2.10). The native size is for stage N0 to measure.
+  - Nix: ordinary crates; nothing to install.
+- **Compile latency:** Cranelift was built to be fast (§2.10). A program
+  plus the part of std it reaches is hundreds of small functions
+  **[inferred]**.
+- **Playground:** unchanged. Cranelift is left out of the wasm build by a
+  Cargo feature. The playground keeps the machine; even if Cranelift ran in
+  wasm, the browser can't execute the machine code it makes.
+- **macOS:**
+  - `cranelift-jit` works on Apple Silicon for an ordinary CLI.
+  - A hardened-runtime (signed) build would need `MAP_JIT` memory, which
+    `cranelift-jit` doesn't use (§2.10).
+  - Writing `.o` files instead has an open arm64 macOS bug, so JIT it is.
+- **Risk:** medium.
+  - New ground: no functional language in §2 uses Cranelift.
+  - A miscompile gives wrong output, which the differential tests are built
+    to catch.
+  - JIT bugs are harder to debug than generated C you can read.
+- **Size:** 8–10 lanes (§6).
+- **Verdict:** recommended for `run` and `test` in the CLI.
+
+### (d) LLVM
+
+- **What:** like (c), through LLVM's C API (`inkwell`/`llvm-sys`).
+- **Speed:** the best code. About the experiment's 13×, plus better
+  inlining.
+- **Tail calls:** `musttail` and `tailcc` (§2.10).
+- **Tools:**
+  - Links a large C++ library of one major version.
+  - A heavy Nix build, and a new LLVM version to follow every six months.
+    That is the cost Roc cites for leaving (§2.5).
+- **Playground:** none.
+- **Risk:** medium-high. **Size:** like (c), plus build plumbing.
+- **Verdict:** not now. If (c) works, the gap between Cranelift and LLVM is
+  the only thing LLVM adds, and the IR's simplifier already does the
+  inlining that matters most.
+
+### (e) Generate Rust
+
+- **What:** IR to Rust source that uses `stitchwort-rt`'s types, compiled
+  with rustc.
+- **Speed:** like (b).
+- **Tools:**
+  - **Needs rustc and cargo on the user's machine.**
+  - rustc is slow on large generated code: seconds to minutes per program
+    **[inferred]**, Roc's complaint (§2.5).
+  - Compile times would dwarf the run times this note is about.
+- **Playground:** none.
+- **Verdict:** no, except as a development aid: hand-written Rust, as in
+  this note's experiment, is a good way to bound a gain.
+
+### (f) Emit wasm, run it in a wasm engine
+
+- **What:** IR to a wasm module, linked with the runtime compiled to wasm.
+  - In the CLI it would run under an embedded engine (`wasmtime`).
+  - In the browser it would run under the browser's own engine.
+- **Speed:** native-ish code after the engine compiles it, minus wasm's
+  overhead (§2.10). In the browser it would beat the machine-in-wasm by
+  roughly what (c) beats the machine by natively **[inferred]**.
+- **Stack safety:** the hard part.
+  - Browsers give wasm a small stack (deep-recursion notes in
+    stack-safe-evaluation.md).
+  - Without stack switching (§2.10), deep non-tail recursion needs heap
+    frames again. That gives back much of the gain.
+- **Tail calls:** the tail-call proposal (§2.10).
+- **Tools:** in the CLI, wasmtime is a large dependency: 19 MB in its
+  default build (§2.10). That is more than Cranelift alone, which wasmtime
+  itself uses to compile.
+- **Playground:** **the only route that speeds it up a lot**. That is
+  attractive for the static-site goal, but it's a second backend with its own
+  runtime linking.
+- **Risk:** high. **Size:** 10+ lanes.
+- **Verdict:** not now. Revisit if the playground's speed becomes the
+  bottleneck and stack switching ships widely. (c)'s translation from
+  bytecode could be reused for it.
+
+### (g) Through an existing backend: Chez Scheme
+
+- **What:** IR to Scheme text, run by `scheme`. Idris 2's default; Unison's
+  2022 plan (§2.3, §2.6).
+- **Speed:** Chez is a good native compiler (§2.10). I have no measurement
+  on our code: `scheme` isn't on this machine's path.
+- **What you get:**
+  - Big numbers, proper tail calls and deep recursion come for free.
+  - Effects need closures only (§4.1). Ticks are data a Scheme runner would
+    step: a second runner to keep identical, as `--js` has.
+- **What you lose:**
+  - Reference counting and reuse: Chez has a tracing collector. The
+    in-place updates of fast-runtime.md's stage 4, and Perceus-style gains
+    generally, don't carry over.
+  - Every runtime service (big numbers, text natives, the effect loop, the
+    `Delay` runner) is written again in Scheme.
+- **Tools:** users need Chez installed (§2.10).
+- **Playground:** none.
+- **Risk:** medium. Idris shows it works, and Unison's apparent retreat shows
+  the cost of a second runtime. **Size:** 6–8 lanes, like the JS backend.
+- **Verdict:** no. It duplicates the runtime and gives up the memory model
+  the machine was built around.
+
+### 5.1 The routes side by side
+
+| Route | Gain over the machine (`Set`) | Tools at run time | Playground | Keeps the Rust runtime | Size |
+|---|---|---|---|---|---|
+| (a) faster interpreter | 1.3–2× [inferred] | none | yes | yes | 2–3 lanes |
+| (b) C | ≤13× [ran, upper bound] | a C compiler | no | via a C ABI | 8–12 |
+| **(c) Cranelift** | ≤10×, est. 4–8× | **none** | no (keeps the machine) | **yes, directly** | **8–10** |
+| (d) LLVM | ≤13× | none (but a heavy build) | no | yes | 10+ |
+| (e) Rust | ≤13× | rustc, cargo | no | yes | 6–8 |
+| (f) wasm | less than (c) natively | wasmtime (CLI) | **yes** | in wasm | 10+ |
+| (g) Chez | unmeasured | `scheme` | no | no: rewritten | 6–8 |
+| representation (unboxed fields) | another ~5× on top | — | helps the machine | yes | 4–6, after (c) |
+
+## 6. Recommendation and staged plan
+
+**Recommendation.**
+- Route (c): a Cranelift backend in `crates/rt`, compiling the machine's
+  bytecode to machine code in-process, for the CLI's `run` and `test`.
+- The playground keeps the machine.
+- A little of route (a) where it is cheap and helps the playground.
+- The representation project after (c) works.
+
+**Why bytecode, not IR, as the input** **[inferred]**:
+- `code.rs` has already decided registers, moves, drops and reuse.
+- Translating instruction by instruction means the native code makes
+  exactly the machine's memory and counting decisions. That makes
+  differences far easier to find.
+- It also means stage N1 can be a narrow, checkable translation rather than
+  a new compiler.
+- Later, a direct IR-to-Cranelift path can come for better code, if
+  profiles say so.
+
+**What must stay identical** (the acceptance bar for every stage):
+1. **Output and how a run ends**, against the reference evaluator and the
+   machine:
+   - the differential tests `crates/rt/tests/machine.rs`,
+     `crates/cli/tests/run_reference.rs`, `run_js.rs`,
+     `effect_differential.rs` (random effectful programs) and
+     `crates/driver/tests/differential.rs`;
+   - each run with a third runner added.
+2. **Tick counts for partial code:** the same `Delay` values stepped by the
+   same runner (§4.2); the tick-limit tests.
+3. **Stack safety:**
+   - a million-deep non-tail recursion runs;
+   - a deeper one is `E-RESOURCE`, after the same output;
+   - a 3,000,000-step tail loop runs in constant stack, including mutual
+     tail calls;
+   - a long effectful `List.map` runs.
+4. **Resource limits:** with §4.3's counting, `E-RESOURCE` at the same
+   points as the machine. That's a stronger check than stage 3 had.
+
+**Stages** (one lane each unless noted):
+
+| Stage | What | Done when |
+|---|---|---|
+| N0 | Spike: Cranelift as a dependency behind a Cargo feature (off in the wasm build). JIT one hand-built function on macOS arm64 and Linux x86-64. Measure the binary growth and compile time. | It runs, in Nix, and `nix flake check` builds both with and without the feature |
+| N1 | Translate the core instructions: `Move`/`Take`/`Drop`, `Const`, `Call`/`TailCall`/`Return`, `Switch`/`Field`/`Unpack`, `Ctor`/`CtorReuse`, `Test`/`JumpIfFalse`/`Jump`, and `Nat` fast paths with runtime calls for the slow paths. A function with an unsupported instruction stays on the machine; mixing needs a defined boundary (machine to native only, at a `Call`). Behind `run --native`. | `micro_call`, `micro_tail` and the `Set` benchmark run and agree; **first real speed measurement** |
+| N2 | Frame and step counting, the big-stack thread and `E-RESOURCE`; tail calls between functions (`return_call`). | §6's stack-safety tests pass under `--native` |
+| N3 | The remaining instructions: closures, `Apply`/`Pap` (eval/apply), `Int`/`Text`/`NumSwitch`, `Captured`, `Global` constants. | Every function compiles; `machine.rs`'s differential tests pass under `--native` |
+| N4 | Effects: the effect loop calls compiled continuations; `Text.fold`; the `Delay` runner. | `effect_differential.rs` and the partial tests agree three ways |
+| N5 | Run the whole differential suite with `--native` added; fix what it finds. | All agree |
+| N6 | Make `--native` the default for `run` and `test` in the CLI (the machine stays as `--machine`, the playground's runner and the fallback); a benchmark in `bench/`. | Decision at the time, like D386 |
+| N7–N8 | Tuning from profiles: keep counters in registers, avoid materialising `Ordering`-like tags, inline more runtime fast paths. | Measured gains |
+| R1–R4 (later) | Representation: unboxed `Nat`/`Int` fields and smaller nodes, by type, in the IR. Helps both runners. | Its own design note first |
+| A1–A2 (any time) | Machine tuning for the playground: frame entry without register clearing, a few superinstructions. | Measured gains |
+
+Stage N1 is the checkpoint. If the `Set` benchmark is not at least 3× faster
+than the machine there, stop and re-plan before N2.
+
+## Decisions
+
+**D1244. Build a native backend at all?**
+- Context: the experiment says native code could run the `Set` benchmark
+  about 10× faster than today's machine and several times faster than Node.
+  But it's 8–10 lanes and a third runner to keep in step with the reference
+  evaluator.
+- The alternative: stay with the machine (plus route (a), 1.3–2×) and
+  `run --js`.
+- **Recommendation: yes**, staged, with N1's measurement as a stop point.
+
+**D1245. Use Cranelift, in-process, rather than generating C?**
+- Context: C (Lean's and Koka's route) gives slightly better code, but users
+  would need a C compiler when they `run`, and the Rust runtime would need a
+  C interface or a C twin.
+- Cranelift needs nothing installed and calls the existing Rust runtime
+  directly, but no comparable language has used it yet.
+- This departs from D388's "Chez text or C first". Since then, the machine
+  has gained its own runtime (reuse, effects, `Delay`). Chez would rewrite
+  that runtime and C would need a C twin of it; Cranelift reuses it.
+- **Recommendation: yes, Cranelift.** Keep C in mind for a later
+  `stitchwort build`.
+
+**D1246. Keep the playground on the machine?**
+- Context: Cranelift can't run its code in a browser. Only a wasm backend
+  (route f) would speed the playground up a lot, and that needs browser
+  stack features that aren't everywhere yet. The CLI and the playground
+  would then run programs on different runners.
+- Both are differentially tested against the reference evaluator.
+- **Recommendation: yes.** Speed the machine up modestly (route a) for the
+  playground; revisit wasm when stack switching ships.
+
+**D1247. Native code must hit resource limits at exactly the machine's
+points?**
+- Context: counting frames and steps on every call, as the machine does,
+  costs about 1.6 ns per call on a bare-call benchmark (about 3.5× a bare
+  native call, still 17× cheaper than the machine's).
+- A stack-pointer check is cheaper, but a deep program would run out at a
+  different depth than on the machine. It would still be reported the same
+  way, as the machine already differs from the reference evaluator.
+- **Recommendation: yes, count exactly** at first. It makes the
+  differential tests stronger. Revisit in tuning (N7) only if profiles show
+  the counting matters.
+
+## Appendix A: the experiments
+
+All were in the session's scratch directory, `native-exp/`, built with rustc
+1.99 at `-O`/`opt-level=3`.
+
+- **`set.rs`** (about 380 lines): the three versions of §3.1.
+  - `uniform` uses an enum like the machine's `Value` (`Nat(u64)`,
+    `Tag(u32)`, `Data(u32, Rc<[Value]>)`, `Fun(fn ptr)`), with `Bin`'s fields
+    `[size, left, key, value, right]`.
+  - `unpack` moves the fields out when `Rc::get_mut` succeeds and keeps the
+    cell for `bin_reuse`, as `Unpack`/`CtorReuse` do.
+  - `shape`, `rebuild`, `single_l/r`, `double_l/r` follow `set_nat.ir`
+    line by line.
+  - `insert` compares through `Value::Fun(nat_compare)`, which returns
+    `Tag(LESS/EQUAL/GREATER)`.
+  - `typed` is the same algorithm over
+    `struct Node { size: u64, left, key: u64, right }`.
+  - The program builds the keys `(i * 7919) % n`, times the insert loop and
+    prints the size.
+  - Built as a Cargo project with mimalloc (as the CLI uses); a second
+    binary has every helper `#[inline(never)]`.
+- **`micro.rs`**: `down`/`outer`/`spin` as in `micro_call.sw` and
+  `micro_tail.sw`, on `u64` with `checked_add`, using `black_box` so that
+  LLVM can't compute the answers in closed form.
+- **`micro2.rs`**: `down` again, plus `down_checked`, which counts steps
+  and frames in a context struct against limits at every call, with a cold
+  error path.
+- The machine and Node timings use the `setperf` programs
+  (`set_nat_1000000.sw`, `keys_nat_1000000.sw`, `micro_call.sw`,
+  `micro_tail.sw`) with `/usr/bin/time -p`.
+
+## Sources
+
+Every source is linked where it is used (§2, §2.10).
+- **Who checked them:** two research subagents opened the sources for this
+  note.
+- **Their own runs:** building Cranelift for wasm32 and clang's
+  `musttail` for wasm are marked as theirs.
+- **Weakest claims:** "Unison put Chez on ice" and Roc's Perceus details come
+  only from secondary sources or search excerpts. They are marked so in the
+  text.
+- **Not found:** a published speedup of Lean's compiled code over its own
+  interpreter, and any functional language with a Cranelift backend.
+
+Earlier notes this builds on:
+- [fast-runtime.md](fast-runtime.md) (the machine, D381–D388; D388 said
+  "not now" to native code, and to revisit "from the same IR");
+- [effect-runtime.md](effect-runtime.md) (heap continuations, D1162);
+- [partial.md](partial.md) (`Delay` and ticks);
+- [stack-safe-evaluation.md](stack-safe-evaluation.md).
