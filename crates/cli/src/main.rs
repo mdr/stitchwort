@@ -315,6 +315,11 @@ fn main() -> ExitCode {
     if matches!(cli.command, Command::Run { js: false, .. }) {
         stitchwort_cli::terminal::catch_signals();
     }
+    // Under Node the terminal is Node's to put back: wait for it.
+    #[cfg(unix)]
+    if matches!(cli.command, Command::Run { js: true, .. }) {
+        stitchwort_cli::terminal::wait_for_node();
+    }
     stitchwort_cli::driver::with_stack(STACK, move || {
         stitchwort_elab::timings::start();
         let code = run(cli);
@@ -1494,8 +1499,12 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
     let status = match std::process::Command::new("node")
         .arg(&launcher)
         .arg(&error_file)
-        .status()
-    {
+        .spawn()
+        .and_then(|mut node| {
+            #[cfg(unix)]
+            stitchwort_cli::terminal::set_node(node.id());
+            node.wait()
+        }) {
         Ok(status) => status,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             eprintln!(
@@ -1539,6 +1548,14 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
         }
         // Node has reported what went wrong.
         Some(_) => ExitCode::from(2),
+        // Ended by a signal (Ctrl-C, after putting the terminal back): the
+        // status a shell expects, as for a native run.
+        #[cfg(unix)]
+        None if std::os::unix::process::ExitStatusExt::signal(&status).is_some() => {
+            ExitCode::from(128u8.wrapping_add(
+                std::os::unix::process::ExitStatusExt::signal(&status).unwrap_or(0) as u8,
+            ))
+        }
         None => {
             eprintln!("error: `node` was stopped by a signal ({status})");
             ExitCode::from(2)

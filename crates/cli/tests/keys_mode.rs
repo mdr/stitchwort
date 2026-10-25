@@ -36,7 +36,7 @@ const LEAVE_SCREEN: &str = "\x1b[?7h\x1b[?25h\x1b[?1049l";
 /// waits to be killed. `trap : INT` keeps the shell alive through Ctrl-C;
 /// the command still gets `SIGINT` with its default action, since a trap's
 /// handler isn't inherited.
-const SHELL: &str = r#"trap : INT; "$0" run --no-cache "$1"; echo "exit $?" >&2; exec sleep 60"#;
+const SHELL: &str = r#"trap : INT; "$0" run --no-cache $2 "$1"; echo "exit $?" >&2; exec sleep 60"#;
 
 /// Collects what `from` produces, as it arrives.
 fn collect(mut from: impl Read + Send + 'static) -> Arc<Mutex<Vec<u8>>> {
@@ -55,7 +55,7 @@ fn collect(mut from: impl Read + Send + 'static) -> Arc<Mutex<Vec<u8>>> {
 }
 
 /// A pseudo-terminal of 100 by 30, and `stitchwort run` on a program inside
-/// it.
+/// it. With `js`, the program runs under Node (`run --js`).
 struct Session {
     /// The terminal's end, kept open to read its settings.
     terminal: OwnedFd,
@@ -91,8 +91,8 @@ impl Session {
     /// Starts the program. With `piped_output`, standard output is a pipe
     /// instead of the terminal. `None`, with a note, where there are no
     /// pseudo-terminals to be had (a build sandbox).
-    fn start(name: &str, source: &str, piped_output: bool) -> Option<Session> {
-        let path = source_file(name, source);
+    fn start(name: &str, source: &str, piped_output: bool, js: bool) -> Option<Session> {
+        let path = source_file(&format!("{}{name}", if js { "js-" } else { "" }), source);
         let size = Winsize {
             ws_row: 30,
             ws_col: 100,
@@ -119,6 +119,7 @@ impl Session {
         command
             .args(["-c", SHELL, env!("CARGO_BIN_EXE_stitchwort")])
             .arg(&path)
+            .arg(if js { "--js" } else { "" })
             .stdin(pty.slave.try_clone().expect("dup"))
             .stdout(stdout)
             .stderr(Stdio::piped());
@@ -244,8 +245,7 @@ fn assert_keys_mode_settings(t: &Termios) {
     assert!(!t.input_flags.contains(InputFlags::ICRNL));
 }
 
-#[test]
-fn keys_mode_then_print_then_normal_exit() {
+fn keys_mode_then_print_then_normal_exit(js: bool) {
     let Some(mut s) = Session::start(
         "normal.sw",
         "import Std (IO, Console, Nat)\n\n\
@@ -260,6 +260,7 @@ fn keys_mode_then_print_then_normal_exit() {
            IO.print \"line ${if line == Some \"typed\" then \"ok\" else \"?\"}\"\n  \
            IO.keysMode True\n",
         false,
+        js,
     ) else {
         return;
     };
@@ -288,8 +289,7 @@ fn keys_mode_then_print_then_normal_exit() {
     assert!(enters[1] > screen.find("line ok").unwrap());
 }
 
-#[test]
-fn an_unhandled_fail_restores_the_terminal() {
+fn an_unhandled_fail_restores_the_terminal(js: bool) {
     let Some(mut s) = Session::start(
         "fail.sw",
         "import Std (IO, Fail)\n\n\
@@ -298,6 +298,7 @@ fn an_unhandled_fail_restores_the_terminal() {
            let _ := IO.readBytes()\n  \
            Fail.fail \"boom\"\n",
         false,
+        js,
     ) else {
         return;
     };
@@ -312,8 +313,7 @@ fn an_unhandled_fail_restores_the_terminal() {
 
 /// `IO.write` (which, unlike `print`, doesn't leave keys mode) to a pipe
 /// with no reader, while standard input is in keys mode.
-#[test]
-fn an_io_error_restores_the_terminal() {
+fn an_io_error_restores_the_terminal(js: bool) {
     let Some(mut s) = Session::start(
         "eio.sw",
         "import Std (IO)\n\n\
@@ -322,6 +322,7 @@ fn an_io_error_restores_the_terminal() {
            let _ := IO.readBytes()\n  \
            IO.write \"no one reads this\"\n",
         true,
+        js,
     ) else {
         return;
     };
@@ -334,8 +335,7 @@ fn an_io_error_restores_the_terminal() {
     s.assert_restored();
 }
 
-#[test]
-fn ctrl_c_stops_the_program_and_restores_the_terminal() {
+fn ctrl_c_stops_the_program_and_restores_the_terminal(js: bool) {
     let Some(mut s) = Session::start(
         "interrupt.sw",
         "import Std (IO)\n\n\
@@ -344,6 +344,7 @@ fn ctrl_c_stops_the_program_and_restores_the_terminal() {
            let _ := IO.readBytes()\n  \
            IO.print \"not reached\"\n",
         false,
+        js,
     ) else {
         return;
     };
@@ -363,12 +364,12 @@ fn ctrl_c_stops_the_program_and_restores_the_terminal() {
 /// terminal: each key arrives on its own, with no Enter, an arrow's escape
 /// sequence is one key, and each key draws one frame on the alternate
 /// screen.
-#[test]
-fn the_walking_example_reads_one_key_at_a_time() {
+fn the_walking_example_reads_one_key_at_a_time(js: bool) {
     let Some(mut s) = Session::start(
         "terminal-walk.sw",
         include_str!("../../../examples/accept/terminal-walk.sw"),
         false,
+        js,
     ) else {
         return;
     };
@@ -393,4 +394,54 @@ fn the_walking_example_reads_one_key_at_a_time() {
     let screen = s.screen();
     // The last line comes after leaving the alternate screen.
     assert!(screen.rfind(LEAVE_SCREEN).unwrap() < screen.find("The @ stopped").unwrap());
+}
+
+#[test]
+fn keys_mode_then_print_then_normal_exit_native() {
+    keys_mode_then_print_then_normal_exit(false);
+}
+
+#[test]
+fn keys_mode_then_print_then_normal_exit_js() {
+    keys_mode_then_print_then_normal_exit(true);
+}
+
+#[test]
+fn an_unhandled_fail_restores_the_terminal_native() {
+    an_unhandled_fail_restores_the_terminal(false);
+}
+
+#[test]
+fn an_unhandled_fail_restores_the_terminal_js() {
+    an_unhandled_fail_restores_the_terminal(true);
+}
+
+#[test]
+fn an_io_error_restores_the_terminal_native() {
+    an_io_error_restores_the_terminal(false);
+}
+
+#[test]
+fn an_io_error_restores_the_terminal_js() {
+    an_io_error_restores_the_terminal(true);
+}
+
+#[test]
+fn ctrl_c_stops_the_program_and_restores_the_terminal_native() {
+    ctrl_c_stops_the_program_and_restores_the_terminal(false);
+}
+
+#[test]
+fn ctrl_c_stops_the_program_and_restores_the_terminal_js() {
+    ctrl_c_stops_the_program_and_restores_the_terminal(true);
+}
+
+#[test]
+fn the_walking_example_reads_one_key_at_a_time_native() {
+    the_walking_example_reads_one_key_at_a_time(false);
+}
+
+#[test]
+fn the_walking_example_reads_one_key_at_a_time_js() {
+    the_walking_example_reads_one_key_at_a_time(true);
 }
