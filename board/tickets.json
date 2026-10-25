@@ -3188,14 +3188,16 @@
     {
       "id": 499,
       "title": "Terminal lane 5: roguelike on Terminal, partial play with no fuel (after partial handlers B–D, terminal lanes 1–2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "fa69b783"
+      ]
     },
     {
       "id": 500,
