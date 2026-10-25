@@ -1,5 +1,5 @@
 {
-  "next": 473,
+  "next": 474,
   "tickets": [
     {
       "id": 13,
@@ -2808,6 +2808,18 @@
       "commits": [
         "a3277e4e"
       ]
+    },
+    {
+      "id": 473,
+      "title": "Test tiers (Matt, 25 Oct): lane <10 s (dev/t quick AREA), merge <60 s (dev/t merge), daily <5 min (dev/t daily = nix flake check), full only when Matt asks (dev/t full); corpus sweeps sampled by tier",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
