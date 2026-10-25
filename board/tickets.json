@@ -2607,14 +2607,16 @@
     {
       "id": 457,
       "title": "Sections: (.id == id) takes the whole bracketed expression (D1192), operator sections (== 'S')/(k +) without '-' (D1193), bare operators (&&) (D1195), drop the special _.foo note (D1194); one lane after rule E lands",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "48555eae"
+      ]
     },
     {
       "id": 458,
