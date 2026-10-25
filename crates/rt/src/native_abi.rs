@@ -236,9 +236,12 @@ pub const OUT_OF_FRAMES: u64 = 2;
 #[repr(C)]
 pub struct Context {
     /// The machine's step counter: frames entered since the stretch began.
+    /// Read when native code starts and written when it returns; in
+    /// between, compiled code keeps the steps left in a register.
     pub steps: u64,
     pub step_limit: u64,
-    /// Frames pending, the machine's and native code's.
+    /// Frames pending when native code starts, the machine's and the island
+    /// root's; compiled code passes the count on from frame to frame.
     pub frames: u64,
     pub frame_limit: u64,
     /// [`OK`], or why the run stopped. Once set, every native frame drops

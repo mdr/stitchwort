@@ -1,6 +1,7 @@
-//! Stage N1 of docs/proposals/native-compilation.md: the machine's bytecode
-//! (`stitchwort_rt::code`) translated instruction by instruction to machine
-//! code with Cranelift, for whole reachable islands, behind `run --native`.
+//! Stages N1 and N2a of docs/proposals/native-compilation.md: the machine's
+//! bytecode (`stitchwort_rt::code`) translated instruction by instruction to
+//! machine code with Cranelift, for whole reachable islands, behind `run
+//! --native`.
 //!
 //! **The thesis.** This is an executor for the machine compiler's
 //! decisions, not an optimiser: each instruction does what the machine's
@@ -24,25 +25,58 @@
 //! runs on the machine instead.
 //!
 //! **Frames.** A compiled body is one function in Cranelift's `tail` calling
-//! convention: the context, then each argument as its value's three words;
-//! it returns its result's three words. Its registers are a stack slot of
-//! whole values, so the runtime's helpers can work on them by pointer
-//! exactly as the machine works on its register vector. All are `Erased` on
-//! entry (the machine's `resize`). Calls are direct calls; a self tail call
-//! is a jump back to the top, any other tail call a `return_call`; `Apply`
-//! looks its target up through the runtime, and each `Apply` keeps the last
-//! one it found (`native_abi::ApplyCache`): applying the same function value
-//! again calls the same code without asking.
+//! convention: the context, the frames pending (its own included), then
+//! each argument as its value's three words; it returns its result's three
+//! words. Calls are direct calls; a self tail call is a jump back to the
+//! top, any other tail call a `return_call`; `Apply` looks its target up
+//! through the runtime, and each `Apply` keeps the last one it found
+//! (`native_abi::ApplyCache`): applying the same function value again calls
+//! the same code without asking.
+//!
+//! **Registers** (stage N2a). Each bytecode register is three Cranelift
+//! variables, one per word of its value, so Cranelift keeps them in machine
+//! registers and spills only what it must. An empty register's words are
+//! all 0 (`Erased`): the ones past the arguments start so (the machine's
+//! `resize`), and a move out sets them so, which is free, so a register
+//! known to be empty is never erased in memory and never dropped (`full`,
+//! the registers that may hold a value at each instruction, says which a
+//! write, a return or an exit must drop). Values are written to memory only
+//! where the runtime needs a pointer, and always as the machine would have
+//! them in its register vector:
+//! - a helper that reads values (a native operation, a test, a big
+//!   number's switch) is given copies of the words in a spill slot, which
+//!   it borrows;
+//! - a helper that takes a value (`DropReuse`'s source, `CtorReuse`'s
+//!   token) is given it in a spill slot, and the register is empty after;
+//! - a helper that writes a register writes an empty spill slot, and the
+//!   value is then assigned to the register as any other write (the old
+//!   value dropped after, as the machine's assignment drops it);
+//! - under the trace, `Unpack` goes through the runtime on all the
+//!   registers, written out and read back.
+//!
+//! Ownership never changes hands at this boundary: each value is in exactly
+//! one place (a variable, or a spill slot a helper is given), and every
+//! move, clone and drop is the bytecode's.
 //!
 //! **Counting** (D1253). A call counts a step and checks the frame limit
 //! before it, then a frame is pending until it returns; a tail call counts
 //! a step; a constant computed for the first time is a call. These are the
 //! machine's `enter_frame` and `replace`, so a run runs out at the same
-//! points. Out of either, the context's error is set, and each native frame
-//! drops its registers and returns; callers check the error after every
-//! call. The stack-pointer check behind the frame limit is only a safety
-//! margin (§4.3): with a stack big enough for the frame limit it never
-//! fires, and stage N2 sizes and tests that.
+//! points. Both counters are in registers: the steps left in Cranelift's
+//! pinned register (set by the trampoline from the context, and written
+//! back to it after; the host's value of the register is kept and put
+//! back), and the frames pending as each body's argument, so a return needs
+//! no decrement. Out of either, the context's error is set, and the frame
+//! leaves through that point's own exit, which drops the registers that may
+//! hold a value there and returns; callers check the error after every
+//! call, and leave the same way. The stack-pointer check behind the frame
+//! limit is only a safety margin (§4.3): with a stack big enough for the
+//! frame limit it never fires, and stage N2b sizes and tests that.
+//!
+//! **Looking at the code.** With `STITCHWORT_NATIVE_DUMP` set, compiling
+//! writes to stderr each body's Cranelift IR, its machine code as Cranelift
+//! prints it and as an assembler's `.byte` line, and each global function's
+//! address (to place a profiler's samples).
 //!
 //! **Reference counts.** Clones and drops are inline (an increment, or a
 //! decrement unless the count is 1, when the runtime frees the value), as
@@ -326,6 +360,7 @@ pub fn compile(
 ) -> Result<Islands, Vec<String>> {
     abi::probe_layout().map_err(|e| vec![format!("native: {e}")])?;
     let plan = plan(program, image)?;
+    let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
     let start = Instant::now();
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let mut flags = settings::builder();
@@ -416,7 +451,6 @@ pub fn compile(
             generator.b.seal_all_blocks();
             generator.b.finalize(frontend_config);
         }
-        let dump = std::env::var("SW_NATIVE_DUMP").is_ok();
         if dump {
             context.set_disasm(true);
             eprintln!(
@@ -430,12 +464,14 @@ pub fn compile(
             .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
         if dump && let Some(c) = context.compiled_code() {
             eprintln!("---- vcode\n{}", c.vcode.as_deref().unwrap_or("?"));
-            let hex: Vec<String> = c
+            // As an assembler's `.byte` line, so that a disassembler can
+            // read the machine code (assemble it, then disassemble that).
+            let bytes: Vec<String> = c
                 .code_buffer()
                 .iter()
                 .map(|b| format!("0x{b:02x}"))
                 .collect();
-            eprintln!("---- bytes\n.byte {}", hex.join(","));
+            eprintln!("---- bytes\n.byte {}", bytes.join(","));
         }
         module.clear_context(&mut context);
     }
@@ -523,7 +559,7 @@ pub fn compile(
             && matches!(program.globals[g].kind, GlobalKind::Function { .. })
         {
             table[g] = module.get_finalized_function(*id);
-            if std::env::var("SW_NATIVE_DUMP").is_ok() {
+            if dump {
                 eprintln!("@@ {:p} {}", table[g], program.globals[g].name);
             }
         }
