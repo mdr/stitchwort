@@ -6,8 +6,11 @@
 
 import Std (List, Nat)
 
-def intsDot: List Int := [1, 2].reverse
-def intsPrefix: List Int := List.reverse [1, 2]
+def intsDot: List Int := [1, 2].map (x => x)
+def intsPrefix: List Int := List.map [1, 2] (x => x)
+
+def reversedDot: List Int := [1, 2].reverse
+def reversedPrefix: List Int := List.reverse [1, 2]
 
 def notsDot: List Bool := [True, False].map not
 def notsPrefix: List Bool := List.map [True, False] not
@@ -24,5 +27,5 @@ def elemPrefix: Bool := List.elem [1, 2] 2 Nat.decEq
 def lookupDot: Option Text := [MkPair 1 "a", MkPair 2 "b"].lookup 2 Nat.decEq
 def lookupPrefix: Option Text := List.lookup [MkPair 1 "a", MkPair 2 "b"] 2 Nat.decEq
 
-test "the literal's type comes from the expected type" := intsDot == [2, 1]
+test "the literal's type comes from the expected type" := intsDot == [1, 2] && reversedDot == [2, 1]
 test "the others agree" := sortedDot == [1, 2, 3] && elemDot
