@@ -1,0 +1,22 @@
+[package]
+name = "stitchwort-native"
+description = "Native code through Cranelift (docs/proposals/native-compilation.md); stage N0 is a spike"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Pinned to one release, the newest at least two weeks old when added
+# (0.136.2, 2 October 2026); the five crates are released in lockstep.
+cranelift-codegen = "=0.136.2"
+cranelift-frontend = "=0.136.2"
+cranelift-jit = "=0.136.2"
+cranelift-module = "=0.136.2"
+cranelift-native = "=0.136.2"
+
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+# `MAP_JIT` and `pthread_jit_write_protect_np` (src/map_jit.rs).
+libc = "0.2.190"
+
+[lints]
+workspace = true
