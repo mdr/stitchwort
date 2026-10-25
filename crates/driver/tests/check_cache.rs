@@ -15,7 +15,7 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_driver::driver::{Session, par_map, slow_tier, slow_tier_on};
+use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::cache::{Stats, canonical_dump};
@@ -238,7 +238,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// slow tier, every eighth (a fixed sample).
+/// full tier, a fixed sample ([`tier_sample`]: every eighth in daily).
 fn examples() -> Vec<Source> {
     let mut sources = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
@@ -247,11 +247,7 @@ fn examples() -> Vec<Source> {
     sources.extend(example_projects("accept"));
     sources.extend(example_projects("reject"));
     assert!(!sources.is_empty());
-    if slow_tier_on() {
-        sources
-    } else {
-        sources.into_iter().step_by(8).collect()
-    }
+    tier_sample(sources, 8)
 }
 
 /// With navigation recorded, which covers more of what an entry holds; the
@@ -266,7 +262,7 @@ fn the_cache_changes_nothing_for_the_examples() {
 
 #[test]
 fn the_cache_changes_nothing_for_the_aoc_project() {
-    if !slow_tier("the_cache_changes_nothing_for_the_aoc_project") {
+    if !full_tier("the_cache_changes_nothing_for_the_aoc_project") {
         return;
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
@@ -701,7 +697,7 @@ fn different_targets_share_one_cache() {
 /// load them), from a cache the whole project wrote.
 #[test]
 fn aocs_namespaces_load_on_their_own_from_the_whole_projects_cache() {
-    if !slow_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
+    if !full_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
         return;
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");

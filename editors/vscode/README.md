@@ -63,13 +63,13 @@ changing the extension.
 
 ## Tests
 
-    dev/t vscode        # or: node --test "editors/vscode/test/*.test.js"
+    task test:vscode    # or: node --test "editors/vscode/test/*.test.js"
 
 `client.js` (how the server is started, which documents it serves) doesn't
 import `vscode`, so it is tested directly. `test/fake-server.js` is a tiny LSP
 server over stdio with canned answers to the standard methods (full-text sync,
 publishDiagnostics, definition, hover, references, documentSymbol); the tests
-start it the way the client starts the real one. `dev/t vscode` runs
+start it the way the client starts the real one. `task test:vscode` runs
 `npm ci` first if `node_modules` is missing.
 
 The VS Code glue in `extension.js` isn't covered by tests (the Goals panel's

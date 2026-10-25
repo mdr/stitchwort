@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use stitchwort_core::DefId;
-use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
+use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_rt::{Program, lower_definitions, lower_main};
 
@@ -106,47 +106,44 @@ fn is_main(name: &str) -> bool {
 /// definition.
 #[test]
 fn every_example_lowers() {
-    with_stack(STACK, || {
-        let mut mains = 0;
-        let mut files = 0;
-        let mut tests = 0;
-        for folder in ["examples/accept", "examples/extract"] {
-            for path in sw_files(&root().join(folder)) {
-                let what = path.display().to_string();
-                let text = std::fs::read_to_string(&path).expect("read example");
-                let name = path.file_name().unwrap().to_string_lossy().to_string();
-                let mut session = Session::for_stack(STACK);
-                session.include_in_folder(
-                    Rc::new(DiskFiles {
-                        root: path.parent().unwrap().to_path_buf(),
-                    }),
-                    &name,
-                );
-                session
-                    .load(&name, &text)
-                    .unwrap_or_else(|e| panic!("{what} doesn't check: {e:?}"));
-                files += 1;
-                tests += lower_everything(&session, &what);
-                // A runnable `main`, as `run_js.rs` finds them (some
-                // examples have a `main` that's a value).
-                if text.contains("def main()") || text.contains("def main ()") {
-                    let main = session
-                        .main()
-                        .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
-                    let g = &session.elab.globals;
-                    let program = lower_main(g, session.elab.limits, main.term(), main.row)
-                        .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"));
-                    well_formed(&program, &what);
-                    mains += 1;
-                }
-            }
-        }
-        eprintln!(
-            "lowered {mains} mains and everything in {files} files; ran {tests} tests on the IR"
+    let mut paths = sw_files(&root().join("examples/accept"));
+    paths.extend(sw_files(&root().join("examples/extract")));
+    // Each file on the thread pool: (whether it has a `main`, its tests run).
+    let per_file = par_map(STACK, &paths, |path| {
+        let what = path.display().to_string();
+        let text = std::fs::read_to_string(path).expect("read example");
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let mut session = Session::for_stack(STACK);
+        session.include_in_folder(
+            Rc::new(DiskFiles {
+                root: path.parent().unwrap().to_path_buf(),
+            }),
+            &name,
         );
-        assert!(files > 100, "{files}");
-        assert!(mains >= 9, "{mains}");
+        session
+            .load(&name, &text)
+            .unwrap_or_else(|e| panic!("{what} doesn't check: {e:?}"));
+        let tests = lower_everything(&session, &what);
+        // A runnable `main`, as `run_js.rs` finds them (some
+        // examples have a `main` that's a value).
+        if text.contains("def main()") || text.contains("def main ()") {
+            let main = session
+                .main()
+                .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
+            let g = &session.elab.globals;
+            let program = lower_main(g, session.elab.limits, main.term(), main.row)
+                .unwrap_or_else(|e| panic!("{what}: lowering main: {e:?}"));
+            well_formed(&program, &what);
+            return (1, tests);
+        }
+        (0, tests)
     });
+    let files = per_file.len();
+    let mains: usize = per_file.iter().map(|(m, _)| m).sum();
+    let tests: usize = per_file.iter().map(|(_, t)| t).sum();
+    eprintln!("lowered {mains} mains and everything in {files} files; ran {tests} tests on the IR");
+    assert!(files > 100, "{files}");
+    assert!(mains >= 9, "{mains}");
 }
 
 /// Loads the project in `dir`, then lowers every `main` it has (each as

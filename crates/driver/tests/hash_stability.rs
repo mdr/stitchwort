@@ -12,8 +12,9 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, par_map};
+use stitchwort_driver::driver::{Session, par_map, par_map_with};
 use stitchwort_driver::project::{DiskFiles, Target};
+use stitchwort_driver::rewind::Mark;
 
 /// Stack for the worker threads that load examples.
 const STACK: usize = 16 * 1024 * 1024;
@@ -29,6 +30,17 @@ fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
 /// means every example, otherwise only those whose name contains it.
 fn wanted(name: &str) -> bool {
     std::env::var("EXAMPLES").map_or(true, |filter| filter.is_empty() || name.contains(&filter))
+}
+
+/// A worker's eager session (every library file loaded, which takes a
+/// second or two), marked so that each example can be checked in it and
+/// then rewound: as a fresh eager session, without loading the library
+/// again for every example. The rewind tests check that rewinding gives
+/// exactly what a fresh session does.
+fn eager_worker() -> (Session, Mark) {
+    let session = Session::eager_for_stack(STACK);
+    let mark = session.mark();
+    (session, mark)
 }
 
 /// Whether `EXAMPLES` is filtering the examples.
@@ -84,27 +96,32 @@ fn examples() {
         found.sort();
         files.extend(found.into_iter().map(|p| (dir, p)));
     }
-    let checked = par_map(STACK, &files, |(dir, path)| {
-        let text = std::fs::read_to_string(path).unwrap();
-        // Every library file loaded first, so the lines are the file's own.
-        let mut session = Session::eager_for_stack(STACK);
-        let (d, f) = (
-            session.elab.globals.datas.len(),
-            session.elab.globals.defs.len(),
-        );
-        if session.load(&path.display().to_string(), &text).is_err() {
-            eprintln!("skipped {}", path.display());
-            return 0;
-        }
-        let stem = path.file_stem().unwrap().to_string_lossy();
-        let name = if *dir == "accept" {
-            stem.to_string()
-        } else {
-            format!("extract-{stem}")
-        };
-        insta::assert_snapshot!(name, lines(&session, d, f));
-        1
-    })
+    let checked = par_map_with(
+        STACK,
+        &files,
+        eager_worker,
+        |(session, mark), (dir, path)| {
+            let text = std::fs::read_to_string(path).unwrap();
+            // Every library file loaded first, so the lines are the file's own.
+            session.rewind(mark);
+            let (d, f) = (
+                session.elab.globals.datas.len(),
+                session.elab.globals.defs.len(),
+            );
+            if session.load(&path.display().to_string(), &text).is_err() {
+                eprintln!("skipped {}", path.display());
+                return 0;
+            }
+            let stem = path.file_stem().unwrap().to_string_lossy();
+            let name = if *dir == "accept" {
+                stem.to_string()
+            } else {
+                format!("extract-{stem}")
+            };
+            insta::assert_snapshot!(name, lines(session, d, f));
+            1
+        },
+    )
     .into_iter()
     .sum::<usize>();
     if !filtering() {
@@ -177,9 +194,9 @@ fn projects() {
     if !filtering() {
         assert!(!dirs.is_empty());
     }
-    par_map(STACK, &dirs, |dir| {
+    par_map_with(STACK, &dirs, eager_worker, |(session, mark), dir| {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        let mut session = Session::eager_for_stack(STACK);
+        session.rewind(mark);
         let (d, f) = (
             session.elab.globals.datas.len(),
             session.elab.globals.defs.len(),
@@ -188,7 +205,7 @@ fn projects() {
         if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
             panic!("{name} doesn't load: {errors:#?}");
         }
-        insta::assert_snapshot!(format!("project-{name}"), lines(&session, d, f));
+        insta::assert_snapshot!(format!("project-{name}"), lines(session, d, f));
     });
 }
 

@@ -8,7 +8,7 @@ and any model working on the repo can read it. The kanban board in `board/` is t
 
 | Model | Used for |
 |---|---|
-| **Claude Opus** | Design notes, analysis, anything touching the kernel or soundness, proofs, tricky bugs, writing specs for other models, and reviewing every diff before it's merged. Also orchestrates: hands out tasks, merges, runs the gate. |
+| **Claude Opus** | Design notes, analysis, anything touching the kernel or soundness, proofs, tricky bugs, writing specs for other models, and reviewing every diff before it's merged. Also orchestrates: hands out tasks, merges, runs the test tiers. |
 | **Claude Sonnet** | Implementation that needs judgement: changes across several files, the checker and elaborator, anywhere a misreading would spread. |
 | **DeepSeek V4.1 Flash** (via OpenCode Go) | Mechanical coding from a precise spec: renames, sweeps, boilerplate, new tests, small features with a clear shape. |
 | **GLM-5.3-Flash** (via OpenCode Go) | Fallback when DeepSeek is unavailable. |
@@ -37,26 +37,34 @@ implementation start, usually in stages.
    Flash (OpenCode Go) from a spec by Claude; reviewed by Claude", check the
    commit author, then fetch and merge into `main`.
 5. Regenerate snapshots and the benchmark baseline, stage them, and run the
-   gate (below). For playground changes also run `web/build.sh` and
-   `web/test.sh`.
+   merge tier (below). For playground changes also run `task test:browser`.
 6. Update the ticket: move it to done and record the commits (`board/board commit N HASH`, `board/board move N done`).
 
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
 
-## The gate
+## The test tiers
 
-Nothing is committed to `main` unless `nix flake check` passes: formatting,
-clippy, all tests, the examples and their snapshots, hash stability and the
-benchmark baseline, and `debug-builtins` (the `stitchwort-driver` `builtins` test binary, which loads the prelude, built and run in the debug profile so overflow checks and `debug_assert!`s are exercised; every other check is release). New files must be `git add`ed first, since the flake only
-sees tracked files. Long runs (the gate, browser tests, builds) go in the
+Tests run in tiers with time budgets ([testing.md](testing.md#tiers)), so
+that most of the time the tests being run are fast ones:
+
+- **lane**, under 10 s: a lane runs `task test:lane AREA=…` for the area it
+  changed, and `task test:one -- NAME` for the tests it touched, while it
+  works.
+- **merge**, under 60 s: `task test:merge` on `main` after every merge.
+- **daily**, under 5 minutes: `task test:daily`, or `nix flake check`
+  (`task test:gate`), at a daily checkpoint: formatting, clippy, every test
+  with the corpus sweeps on a sample, the examples and their snapshots, hash
+  stability and the benchmark baseline, and `debug-builtins` (the
+  `stitchwort-driver` `builtins` test binary, which loads the prelude, built
+  and run in the debug profile so overflow checks and `debug_assert!`s are
+  exercised; every other check is release).
+- **full**: `task test:full`, every test over the whole corpus, only when
+  Matt asks.
+
+New files must be `git add`ed first, since the flake only sees tracked
+files. Long runs (the daily tier, browser tests, builds) go in the
 background.
-
-The gate takes 6-7 minutes (two cold compiles in the Nix sandbox, then
-every test). So lanes run fast, targeted checks while they work (the tests
-of the crates they changed, `dev/t AREA`) and the full gate once, at the
-end, before merging. On `main`, when several merges land close together,
-one gate covers them all.
 
 Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
 test `crates/cli/tests/fmt_repo.rs` fails, naming the files, if any tracked

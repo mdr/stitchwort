@@ -383,10 +383,16 @@ fn open_terms_agree_in_both_modes() {
     });
 }
 
-/// Loads `source` after the prelude, with natives on or off: the error
-/// codes.
-fn load(source: &str, natives: bool) -> Vec<&'static str> {
-    let mut session = Session::eager();
+/// Checks `source` in `session` rewound to `mark` (an eager session, rewound:
+/// as a fresh one, without loading the library again), with the native
+/// implementations on or off: the error codes.
+fn load(
+    session: &mut Session,
+    mark: &stitchwort_driver::rewind::Mark,
+    source: &str,
+    natives: bool,
+) -> Vec<&'static str> {
+    session.rewind(mark);
     session.elab.globals.builtins.disable_natives = !natives;
     match session.load("int.sw", source) {
         Ok(_) => Vec::new(),
@@ -412,8 +418,11 @@ def tag5 : Tag 5 := MkTag
 #[test]
 fn metavariables_under_int_operations() {
     with_stack(STACK, || {
+        let mut session = Session::eager();
+        let mark = session.mark();
         for natives in [true, false] {
-            let case = |body: &str| load(&format!("{CHECK4}\n{body}\n"), natives);
+            let mut case =
+                |body: &str| load(&mut session, &mark, &format!("{CHECK4}\n{body}\n"), natives);
             // Solved first: by the argument written before.
             assert_eq!(case("def t : Unit := check4 5 rfl"), Vec::<&str>::new());
             // Never solved: `rfl` fails rather than solving `_` by inverting `subNatNat`.

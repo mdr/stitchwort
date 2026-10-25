@@ -28,15 +28,17 @@ stitchwort fmt                  # format the project's sources in place (--check
 
 nix build .#playground          # the browser playground: open result/index.html via a web server
                                 #   (it needs result/playground-worker.js and result/pkg/ beside it)
-./web/build.sh                  # or build it into web/pkg/ during development
-./web/serve.sh                  # build, then serve web/ at http://127.0.0.1:8000:
+task web:build                  # or build it into web/pkg/ during development
+task web:serve                  # build, then serve web/ at http://127.0.0.1:8000:
                                 #   index.html (playground), stress.html (deep and large programs
                                 #   in WebAssembly; stress.html#run runs them all on load)
-./web/test.sh                   # build, then test the playground in headless Chrome (needs Chrome)
+task test:browser               # build, then test the playground in headless Chrome (needs Chrome)
 
-cargo test                      # example programs, snapshots, JS differential tests
-nix flake check                 # build, tests, clippy, rustfmt
-cargo run --release -p stitchwort-bench   # benchmarks, compared with bench/baseline.toml
+task --list                     # the menu: building, tests, snapshots, benchmarks, playground, board, AoC
+task test:lane AREA=syntax      # tests in tiers (docs/testing.md): lane < 10 s, merge < 60 s,
+task test:merge                 #   daily < 5 minutes (what `nix flake check` runs), full
+task test:daily
+task bench                      # benchmarks, compared with bench/baseline.toml
 ```
 
 `stitchwort run` exit codes: 0 means success; 1 means the program didn't check (a compile error, or a file or usage error); 2 means it checked but failed while running (a runtime error, or it ran out of resources).

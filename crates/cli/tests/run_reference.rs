@@ -8,6 +8,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use stitchwort_cli::driver::par_map;
+
+/// Stack for the threads that run the examples (they only wait on child
+/// processes).
+const STACK: usize = 8 * 1024 * 1024;
+
 /// Writes `source` to a temporary file called `name`.
 fn source_file(name: &str, source: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("stitchwort-run-ref-test-{}", std::process::id()));
@@ -85,18 +91,19 @@ fn examples_print_the_same_both_ways() {
         .filter(|p| p.extension().is_some_and(|e| e == "sw"))
         .collect();
     entries.sort();
-    let mut ran = 0;
-    for path in entries {
-        let source = std::fs::read_to_string(&path).expect("read example");
+    // Each example (three inputs, two runs each) is a few child processes:
+    // they run on the thread pool.
+    let ran = par_map(STACK, &entries, |path| {
+        let source = std::fs::read_to_string(path).expect("read example");
         if !(source.contains("def main()") || source.contains("def main ()")) {
-            continue;
+            return false;
         }
         // These end in an unhandled `Fail` on purpose; see below.
         if source.contains("(run: fails)") {
-            continue;
+            return false;
         }
         for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
-            let fast = same_both_ways(&path, input, true);
+            let fast = same_both_ways(path, input, true);
             assert!(
                 fast.status.success(),
                 "{}: {}",
@@ -104,8 +111,11 @@ fn examples_print_the_same_both_ways() {
                 text(&fast.stderr)
             );
         }
-        ran += 1;
-    }
+        true
+    })
+    .into_iter()
+    .filter(|ran| *ran)
+    .count();
     assert!(ran >= 5, "only {ran} examples have a main");
 }
 

@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-use stitchwort_cli::driver::{par_map, slow_tier, slow_tier_on};
+use stitchwort_cli::driver::{full_tier, par_map, tier_sample};
 
 /// A new, empty directory.
 fn temp_dir(name: &str) -> PathBuf {
@@ -113,11 +113,7 @@ fn example_projects() -> Vec<PathBuf> {
         dirs.extend(found);
     }
     assert!(!dirs.is_empty());
-    if slow_tier_on() {
-        dirs
-    } else {
-        dirs.into_iter().step_by(4).collect()
-    }
+    tier_sample(dirs, 4)
 }
 
 #[test]
@@ -141,7 +137,7 @@ fn the_index_is_the_same_from_the_cache_for_the_example_projects() {
 /// namespace on each save (`editors/vscode/extension.js`).
 #[test]
 fn the_index_is_the_same_from_the_cache_for_aoc() {
-    if !slow_tier("the_index_is_the_same_from_the_cache_for_aoc") {
+    if !full_tier("the_index_is_the_same_from_the_cache_for_aoc") {
         return;
     }
     let aoc = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");

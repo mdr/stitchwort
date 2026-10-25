@@ -21,7 +21,7 @@ use std::sync::atomic::Ordering;
 
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, par_map, slow_tier, slow_tier_on};
+use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
 use stitchwort_driver::nav::index_json;
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -250,8 +250,9 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// slow tier, every eighth file and every fourth project (a fixed sample),
-/// and every one with open goals (`goals/`, few; their tables are new).
+/// full tier, a fixed sample ([`tier_sample`]: in the daily tier every
+/// eighth file and every fourth project), and every one with open goals
+/// (`goals/`, few; their tables are new).
 fn examples() -> Vec<Source> {
     let mut files = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
@@ -262,13 +263,8 @@ fn examples() -> Vec<Source> {
     let mut goals = example_files("goals");
     goals.extend(example_projects("goals"));
     assert!(!files.is_empty() && !projects.is_empty() && !goals.is_empty());
-    if slow_tier_on() {
-        files.extend(projects);
-        files.extend(goals);
-        return files;
-    }
-    let mut sources: Vec<Source> = files.into_iter().step_by(8).collect();
-    sources.extend(projects.into_iter().step_by(4));
+    let mut sources = tier_sample(files, 8);
+    sources.extend(tier_sample(projects, 4));
     sources.extend(goals);
     sources
 }
@@ -286,7 +282,7 @@ fn aoc() -> Source {
 
 #[test]
 fn rewinding_changes_nothing_for_the_aoc_project() {
-    if !slow_tier("rewinding_changes_nothing_for_the_aoc_project") {
+    if !full_tier("rewinding_changes_nothing_for_the_aoc_project") {
         return;
     }
     let source = aoc();
@@ -328,7 +324,7 @@ fn mark_and_rewind_cost(source: &Source) {
 /// promptly it stopped is printed (`--nocapture`).
 #[test]
 fn a_check_cancelled_part_way_rewinds() {
-    if !slow_tier("a_check_cancelled_part_way_rewinds") {
+    if !full_tier("a_check_cancelled_part_way_rewinds") {
         return;
     }
     let source = aoc();

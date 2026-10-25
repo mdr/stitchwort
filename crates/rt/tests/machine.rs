@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use stitchwort_core::DefId;
-use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
+use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::run::Main;
 use stitchwort_elab::TestDecl;
@@ -165,29 +165,30 @@ fn load_file(path: &Path) -> (Session, String) {
 /// of every example has the same outcome.
 #[test]
 fn examples_agree() {
-    with_stack(STACK, || {
-        let (mut mains, mut tests) = (0, 0);
-        for folder in ["examples/accept", "examples/extract"] {
-            for path in sw_files(&root().join(folder)) {
-                let what = path.display().to_string();
-                let (mut session, text) = load_file(&path);
-                tests += run_tests(&session, &everything(&session, &what), &what, false);
-                if text.contains("def main()") || text.contains("def main ()") {
-                    let main = session
-                        .main()
-                        .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
-                    let program = lowered(&session, &main, &what);
-                    for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
-                        same_both_ways(&session, &main, &program, input, &what);
-                    }
-                    mains += 1;
-                }
+    let mut paths = sw_files(&root().join("examples/accept"));
+    paths.extend(sw_files(&root().join("examples/extract")));
+    // Each file on the thread pool: (whether it has a `main`, its tests run).
+    let per_file = par_map(STACK, &paths, |path| {
+        let what = path.display().to_string();
+        let (mut session, text) = load_file(path);
+        let tests = run_tests(&session, &everything(&session, &what), &what, false);
+        if text.contains("def main()") || text.contains("def main ()") {
+            let main = session
+                .main()
+                .unwrap_or_else(|e| panic!("{what}: main: {e:?}"));
+            let program = lowered(&session, &main, &what);
+            for input in [&b""[..], b"Ada\n3\n4\n\n", b"one\ntwo\r\nthree"] {
+                same_both_ways(&session, &main, &program, input, &what);
             }
+            return (1, tests);
         }
-        eprintln!("{mains} mains and {tests} tests agree");
-        assert!(mains >= 9, "{mains}");
-        assert!(tests >= 500, "{tests}");
+        (0, tests)
     });
+    let mains: usize = per_file.iter().map(|(m, _)| m).sum();
+    let tests: usize = per_file.iter().map(|(_, t)| t).sum();
+    eprintln!("{mains} mains and {tests} tests agree");
+    assert!(mains >= 9, "{mains}");
+    assert!(tests >= 500, "{tests}");
 }
 
 /// The library's own tests (many of them of the text and integer natives)
@@ -239,7 +240,8 @@ fn aoc_agrees() {
             !t.name.starts_with("real input")
         });
         eprintln!("{ran} AoC tests agree");
-        for (day, part1, part2) in AOC_ANSWERS {
+        // A corpus sweep: every other day below the full tier.
+        for (day, part1, part2) in tier_sample(AOC_ANSWERS.iter().collect(), 2) {
             let name = format!("Aoc.Day{day}.main");
             let main = session
                 .main_named(&name, "aoc")

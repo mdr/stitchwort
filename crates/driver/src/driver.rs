@@ -74,6 +74,20 @@ pub fn test_threads() -> usize {
 /// item is re-raised, so failures are reported deterministically.
 #[doc(hidden)]
 pub fn par_map<T: Sync, R: Send>(stack: usize, items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+    par_map_with(stack, items, || (), |(), item| f(item))
+}
+
+/// [`par_map`], where each worker thread first makes its own state with
+/// `init` (once, however many items it takes), and `f` gets it with each
+/// item: for a sweep that would otherwise build the same expensive thing,
+/// such as an eager session, for every item.
+#[doc(hidden)]
+pub fn par_map_with<S, T: Sync, R: Send>(
+    stack: usize,
+    items: &[T],
+    init: impl Fn() -> S + Sync,
+    f: impl Fn(&mut S, &T) -> R + Sync,
+) -> Vec<R> {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
     let next = AtomicUsize::new(0);
@@ -85,10 +99,17 @@ pub fn par_map<T: Sync, R: Send>(stack: usize, items: &[T], f: impl Fn(&T) -> R 
             std::thread::Builder::new()
                 .stack_size(stack)
                 .spawn_scoped(scope, || {
+                    let mut state = None;
                     loop {
                         let i = next.fetch_add(1, Ordering::Relaxed);
                         let Some(item) = items.get(i) else { break };
-                        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(item)));
+                        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            f(state.get_or_insert_with(&init), item)
+                        }));
+                        if r.is_err() {
+                            // A panic may leave the state half-updated.
+                            state = None;
+                        }
                         results.lock().unwrap_or_else(|e| e.into_inner())[i] = Some(r);
                     }
                 })
@@ -106,22 +127,58 @@ pub fn par_map<T: Sync, R: Send>(stack: usize, items: &[T], f: impl Fn(&T) -> R 
         .collect()
 }
 
-/// Whether the slow tier of tests is on: the exhaustive and differential
-/// ones that take over ~20 s. `dev/t slow` and the full gate set
-/// `STITCHWORT_SLOW=1`.
+/// The test tier being run (docs/testing.md, "Tiers"): `STITCHWORT_TIER`
+/// is `lane`, `merge`, `daily` or `full`, and unset means `daily`. Which
+/// tests run at all is chosen by the nextest profile of the same name
+/// (`.config/nextest.toml`); the tier decides how much of a corpus a sweep
+/// covers ([`tier_sample`]) and whether a full-only part of a test runs
+/// ([`full_tier`]).
 #[doc(hidden)]
-pub fn slow_tier_on() -> bool {
-    std::env::var("STITCHWORT_SLOW").is_ok_and(|v| !v.is_empty() && v != "0")
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Tier {
+    Lane,
+    Merge,
+    Daily,
+    Full,
 }
 
-/// [`slow_tier_on`], for a test that does nothing otherwise: it says so.
+/// The tier from `STITCHWORT_TIER`; panics on an unknown name, so a typo
+/// doesn't quietly run the wrong amount.
 #[doc(hidden)]
-pub fn slow_tier(test: &str) -> bool {
-    let on = slow_tier_on();
+pub fn tier() -> Tier {
+    match std::env::var("STITCHWORT_TIER").as_deref() {
+        Err(_) | Ok("" | "daily") => Tier::Daily,
+        Ok("lane") => Tier::Lane,
+        Ok("merge") => Tier::Merge,
+        Ok("full") => Tier::Full,
+        Ok(other) => panic!("STITCHWORT_TIER={other}: expected lane, merge, daily or full"),
+    }
+}
+
+/// Whether the full tier is on, for a test or part of one that runs only
+/// there; when it is off, says what was skipped.
+#[doc(hidden)]
+pub fn full_tier(test: &str) -> bool {
+    let on = tier() == Tier::Full;
     if !on {
-        eprintln!("skipped {test}: slow tier (run `dev/t slow`, or the full gate)");
+        eprintln!("skipped {test}: full tier only (`task test:full`)");
     }
     on
+}
+
+/// A corpus sweep's share of `items` in this tier, a fixed sample (every
+/// n-th item, from the first, in the order given): every item in the full
+/// tier, every `daily_stride`-th in `daily`, and every
+/// `4 * daily_stride`-th in `merge` and `lane`. A stride of 1 means the
+/// whole corpus in `daily`.
+#[doc(hidden)]
+pub fn tier_sample<T>(items: Vec<T>, daily_stride: usize) -> Vec<T> {
+    let stride = match tier() {
+        Tier::Full => 1,
+        Tier::Daily => daily_stride.max(1),
+        Tier::Merge | Tier::Lane => 4 * daily_stride.max(1),
+    };
+    items.into_iter().step_by(stride).collect()
 }
 
 impl Session {
