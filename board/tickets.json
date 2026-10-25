@@ -1,5 +1,5 @@
 {
-  "next": 466,
+  "next": 471,
   "tickets": [
     {
       "id": 13,
@@ -2715,6 +2715,66 @@
       "commits": [
         "b849e6b5"
       ]
+    },
+    {
+      "id": 466,
+      "title": "Partial stage 3a: divergence marker (CompD Total/MayDiverge), bare {e} may be partial, re-check total when needed, specialisation fixes Total; gate: 80 List.map theorems unchanged, pure map within 10% (D1213–D1216, D1220; after rule E)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 467,
+      "title": "Partial stage 3b: runners execute partial callbacks inside map (native, JS, reference), stack-safe, ticks as specified",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 468,
+      "title": "Partial stage 3c: diagnostics (D1218), examples, docs for partial callbacks through List.map",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 469,
+      "title": "Partial stage 3d: runner fast paths + cheaper request node for partial calls; keep only with >=1.5x and identical tick traces (D1219)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 470,
+      "title": "Partial stage 3e: direct loop for tail self-calls in partial functions; >=1.5x, identical ticks (D1219)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
     }
   ]
 }
