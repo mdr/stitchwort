@@ -7,4 +7,4 @@ import Std (List, Nat)
 
 def children (n: Nat): List Nat := if n > 3 then [] else [n + 1, n + 2]
 
-def countNodes (n: Nat): {Partial} Nat := 1 + List.sum (List.map countNodes (children n))
+def countNodes (n: Nat): {Partial} Nat := 1 + List.sum (List.map (children n) countNodes)

@@ -24,9 +24,9 @@ import Std (Float, List, Option)
 
 -- The times in `[start, end)`: `start <= t && t < end` in the TS.
 export def inWindow (start: Float) (end: Float) (times: List Float): List Float :=
-  List.filter (t => Float.ieeeLe start t && Float.ieeeLt t end) times
+  List.filter times (t => Float.ieeeLe start t && Float.ieeeLt t end)
 
-export def shiftAll (by: Float) (times: List Float): List Float := List.map (t => t + by) times
+export def shiftAll (by: Float) (times: List Float): List Float := List.map times (t => t + by)
 
 -- Each time minus the one before it.
 export def gaps: List Float -> List Float
@@ -39,10 +39,10 @@ export def snap (grid: Float) (t: Float): Float := Float.round (t / grid) * grid
 -- `times.reduce((best, t) => (t > best ? t : best))`, `undefined` for none.
 export def latest: List Float -> Option Float
   | Nil => None
-  | Cons t ts => Some (List.foldLeft (best t => if Float.ieeeLt best t then t else best) t ts)
+  | Cons t ts => Some (List.foldLeft ts t (best t => if Float.ieeeLt best t then t else best))
 
 -- `times.reduce((sum, t) => sum + t, 0)`.
-export def total (times: List Float): Float := List.foldLeft (sum t => sum + t) 0.0 times
+export def total (times: List Float): Float := List.foldLeft times 0.0 (sum t => sum + t)
 
 -- `Number.isInteger(t) ? BigInt(t) : undefined`.
 export def wholeMs (t: Float): Option Int := Float.toInt t

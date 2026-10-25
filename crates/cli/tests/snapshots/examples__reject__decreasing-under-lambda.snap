@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-DECREASING] Error: can't show `d < n` here, which `decreasing n` needs for this call
-    ╭─[ reject/decreasing-under-lambda.sw:10:32 ]
+    ╭─[ reject/decreasing-under-lambda.sw:10:47 ]
     │
- 10 │   1 + List.sum (List.map (d => weight d) (List.range n))
-    │                                ────┬───  
-    │                                    ╰───── this recursive call
+ 10 │   1 + List.sum (List.map (List.range n) (d => weight d))
+    │                                               ────┬───  
+    │                                                   ╰───── this recursive call
     │ 
     │ Note: give a proof with `[decreasing := …]`, or test it with `if h: d < n then … else …`
 ────╯

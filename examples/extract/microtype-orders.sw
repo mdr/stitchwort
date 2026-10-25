@@ -25,7 +25,7 @@ instance UserId.instShow: Show UserId := Show.fromText (u => u.value)
 
 instance OrderId.instShow: Show OrderId := Show.fromText (o => o.value)
 
-def Email.isValid (t: Text): Bool := Text.contains "@" t
+def Email.isValid (t: Text): Bool := Text.contains t "@"
 
 -- The proof field makes an invalid `Email` impossible to write, and is checked
 -- on the way in from JavaScript.
@@ -53,10 +53,10 @@ export def emailText (e: Email): Text := e.value
 
 -- The map's keys are `OrderId`s in their derived order, which is `Text`'s: in
 -- JavaScript, `{ [orderId: string]: string }`.
-export def ownerOf (owners: Map OrderId UserId) (o: OrderId): Option UserId := Map.get o owners
+export def ownerOf (owners: Map OrderId UserId) (o: OrderId): Option UserId := Map.get owners o
 
 export def assign (owners: Map OrderId UserId) (o: OrderId) (u: UserId): Map OrderId UserId :=
-  Map.insert o u owners
+  Map.insert owners o u
 
 export def ordersOf (owners: Map OrderId UserId) (u: UserId): List OrderId :=
   (Map.toList owners).filterMap (entry => if entry.snd == u then Some entry.fst else None)

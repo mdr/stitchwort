@@ -4,5 +4,5 @@
 -- proves the premise; the error names it and the facts there were.
 import Std (Eq, List, Nat)
 
-theorem bad (n: Nat) (xs: List Nat): List.map (x => x + (n - x)) xs = List.map (x => n) xs :=
+theorem bad (n: Nat) (xs: List Nat): List.map xs (x => x + (n - x)) = List.map xs (x => n) :=
   rewrite Nat.addSubCancel

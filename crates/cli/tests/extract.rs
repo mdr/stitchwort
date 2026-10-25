@@ -4710,6 +4710,6 @@ fn map_at_the_empty_row_is_a_pure_maps_loop() {
         .expect("the pure caller");
     assert_eq!(
         caller,
-        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e($Main$ddouble, v0);"
+        "const $Main$ddoubled = (v0) => $Std$dList$dmap$e(v0, $Main$ddouble);"
     );
 }

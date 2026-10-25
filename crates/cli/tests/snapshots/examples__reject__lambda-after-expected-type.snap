@@ -5,7 +5,7 @@ expression: output
 [E-REWRITE-NOTHING] Error: `rewrite` found no `x + 0` in the goal
     ╭─[ reject/lambda-after-expected-type.sw:12:37 ]
     │
- 12 │   List.mapCong _ _ xs (x => rewrite addZeroRight x in rfl)
+ 12 │   List.mapCong xs _ _ (x => rewrite addZeroRight x in rfl)
     │                                     ───────┬──────  
     │                                            ╰──────── looking for `x + 0`
     │ 
@@ -17,7 +17,7 @@ expression: output
     │ 
     │ Note 4: this statement is false; a counterexample:
     │           xs = [0]
-    │         `List.map (x => x + 1) xs = List.map (x => x) xs` is false:
+    │         `List.map xs (x => x + 1) = List.map xs (x => x)` is false:
     │           left:  [1]
     │           right: [0]
     │           first difference at index 0: 1 vs 0

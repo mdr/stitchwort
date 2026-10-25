@@ -75,13 +75,13 @@ def Tally.runIn (init: Nat) (prog: () -> {Tally | e} List Nat): {e} List Nat :=
 -- Performs one operation for each code, at most eight, and lists what
 -- each gave.
 def drive (codes: List Nat): {Tally} List Nat :=
-  List.map (code =>
+  List.map (List.take codes 8) (code =>
     if code == 0 then Tally.tick()
     else if code == 1 then Tally.stop()
     else if code == 2 then Tally.both()
     else if code == 3 then Tally.many 3
     else if code == 4 then Tally.branch()
-    else Tally.mixed()) (List.take 8 codes)
+    else Tally.mixed())
 
 export def tallied (codes: List Nat): List Nat :=
   Tally.run (() => drive codes) 0
@@ -141,13 +141,13 @@ def Env.give (value: Nat) (prog: () -> {Env | e} a): {e} a :=
     | Env.ask u, k => k value
 
 export def nestedState (numbers: List Nat): List Nat :=
-  Counter.number (() => Env.give 5 (() => List.map (x => x * 10 + Counter.next() + Env.ask()) numbers)) 3
+  Counter.number (() => Env.give 5 (() => List.map numbers (x => x * 10 + Counter.next() + Env.ask()))) 3
 
 -- Two state handlers, one inside the other: the inner one is written for
 -- an open row and used with `Counter` outside, so only the outer one is at
 -- the empty row.
 export def stateInState (numbers: List Nat): List Nat :=
-  Counter.number (() => Tally.runIn 100 (() => List.map (x => x * 10 + Counter.next() + Tally.tick()) numbers)) 0
+  Counter.number (() => Tally.runIn 100 (() => List.map numbers (x => x * 10 + Counter.next() + Tally.tick()))) 0
 
 -- A store whose `put` doesn't take the state's function apart: `k ()` is
 -- already a function of the state (`s => k () s`, as the backends read it).
@@ -179,9 +179,9 @@ def Store.keepIn (init: Nat) (prog: () -> {Store | e} a): {e} a :=
   run init
 
 def accumulate (numbers: List Nat): {Store} List Nat :=
-  List.map (x =>
+  List.map numbers (x =>
     put (get() + x)
-    get()) numbers
+    get())
 
 export def stores (numbers: List Nat): List Nat :=
   Store.run (() => accumulate numbers) 1

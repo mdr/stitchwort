@@ -8,5 +8,5 @@ import Std (Eq, List, Nat)
 
 theorem addZeroRight (n: Nat): n + 0 = n := omega
 
-theorem wrongCong (xs: List Nat): List.map (x => x + 1) xs = List.map (x => x) xs :=
-  List.mapCong _ _ xs (x => rewrite addZeroRight x in rfl)
+theorem wrongCong (xs: List Nat): List.map xs (x => x + 1) = List.map xs (x => x) :=
+  List.mapCong xs _ _ (x => rewrite addZeroRight x in rfl)

@@ -11,7 +11,7 @@ instance Size.instNat: Size Nat :=
   { size = n => n }
 
 instance Size.instList [auto s: Size a]: Size (List a) :=
-  { size = xs => xs.foldLeft (n x => n + Size.size x) 0 }
+  { size = xs => xs.foldLeft 0 (n x => n + Size.size x) }
 
 instance Size.instPair [auto sa: Size a] [auto sb: Size b]: Size (a, b) :=
   { size = p => match p with

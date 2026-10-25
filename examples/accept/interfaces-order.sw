@@ -15,7 +15,7 @@ instance Child.instItem: Child Item :=
   { law = x => rfl }
 
 instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
-  { pretty = xs => "[" ++ Text.join ',' (xs.map Pretty.pretty) ++ "]" }
+  { pretty = xs => "[" ++ Text.join (xs.map Pretty.pretty) ',' ++ "]" }
 
 instance Item.instPretty: Pretty Item :=
   { pretty = i => "item" }

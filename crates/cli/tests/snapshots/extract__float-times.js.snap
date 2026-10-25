@@ -759,18 +759,18 @@ const $Std$dList$dmap$e = (v3, v4) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v3.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        const c1$ = { tag: "Cons", head: (v3)(v5), tail: null };
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        const c1$ = { tag: "Cons", head: (v4)(v5), tail: null };
         if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
         l$ = c1$; k$ = "tail";
-        s3 = v3;
-        s4 = v6;
+        s3 = v6;
+        s4 = v4;
         continue;
       }
     }
@@ -793,17 +793,17 @@ const $Std$dList$dfilter = (v1, v2) => {
   let h$ = null, l$ = null, k$ = null;
   for (;;) {
     const v1 = s1, v2 = s2;
-    switch (v2.tag) {
+    switch (v1.tag) {
       case "Nil": {
         { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
       }
       case "Cons": {
-        const v3 = v2.head;
-        const v4 = v2.tail;
+        const v3 = v1.head;
+        const v4 = v1.tail;
         const v6 = v3;
-        const p1_1$ = v1;
-        const p2_2$ = v4;
-        const v8 = (v1)(v3);
+        const p1_1$ = v4;
+        const p2_2$ = v2;
+        const v8 = (v2)(v3);
         switch (v8.tag) {
           case "False": {
             s1 = p1_1$;
@@ -829,16 +829,16 @@ const $Std$dList$dfoldLeft = (v2, v3, v4) => {
   let s2 = v2, s3 = v3, s4 = v4;
   for (;;) {
     const v2 = s2, v3 = s3, v4 = s4;
-    switch (v4.tag) {
+    switch (v2.tag) {
       case "Nil": {
         return v3;
       }
       case "Cons": {
-        const v5 = v4.head;
-        const v6 = v4.tail;
-        s2 = v2;
-        s3 = (v2)(v3)(v5);
-        s4 = v6;
+        const v5 = v2.head;
+        const v6 = v2.tail;
+        s2 = v6;
+        s3 = (v4)(v3)(v5);
+        s4 = v4;
         continue;
       }
     }
@@ -854,8 +854,8 @@ const $Std$dFloat$dofInt = (n) => Number(n);
 const $Std$dFloat$dieeeLt = (a, b) => ({ tag: a < b ? "True" : "False" });
 const $Std$dFloat$dieeeLe = (a, b) => ({ tag: a <= b ? "True" : "False" });
 const $Std$dFloat$dtoInt = (a) => (Number.isInteger(a) ? { tag: "Some", value: BigInt(a) } : { tag: "None" });
-const $Main$dinWindow = (v0, v1, v2) => $Std$dList$dfilter(((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLe(v0, v3), ((v4) => $Std$dFloat$dieeeLt(v3, v1)), ((v4) => ({ tag: "False" })))), v2);
-const $Main$dshiftAll = (v0, v1) => $Std$dList$dmap$e(((v2) => $Std$dFloat$dadd(v2, v0)), v1);
+const $Main$dinWindow = (v0, v1, v2) => $Std$dList$dfilter(v2, ((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLe(v0, v3), ((v4) => $Std$dFloat$dieeeLt(v3, v1)), ((v4) => ({ tag: "False" })))));
+const $Main$dshiftAll = (v0, v1) => $Std$dList$dmap$e(v1, ((v2) => $Std$dFloat$dadd(v2, v0)));
 const $Main$dgaps = (v0) => {
   let s0 = v0;
   let h$ = null, l$ = null, k$ = null;
@@ -897,12 +897,12 @@ const $Main$dlatest = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Some", value: $Std$dList$dfoldLeft(((v3) => ((v4) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v3, v4), ((v5) => v4), ((v5) => v3)))), v1, v2) };
+      return { tag: "Some", value: $Std$dList$dfoldLeft(v2, v1, ((v3) => ((v4) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v3, v4), ((v5) => v4), ((v5) => v3))))) };
     }
   }
   throw new Error("unreachable");
 };
-const $Main$dtotal = (v0) => $Std$dList$dfoldLeft(((v1) => ((v2) => $Std$dFloat$dadd(v1, v2))), 0.0, v0);
+const $Main$dtotal = (v0) => $Std$dList$dfoldLeft(v0, 0.0, ((v1) => ((v2) => $Std$dFloat$dadd(v1, v2))));
 const $Main$dwholeMs = (v0) => $Std$dFloat$dtoInt(v0);
 const $Main$dfromCount = (v0) => $Std$dFloat$dofInt(v0);
 const $Main$dclamped = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v2, v0), ((v3) => v0), ((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v1, v2), ((v4) => v1), ((v4) => v2))));

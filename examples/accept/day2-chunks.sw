@@ -8,7 +8,7 @@ def repeatsWith (text: Text) (k: Nat): Bool :=
   k != 0 && text.length % k == 0 && (text.chunksOf k |> .distinct |> .length) == 1
 
 -- Some shorter block length makes the ID a repeat (the whole ID doesn't count).
-def repeatsAny (text: Text): Bool := List.any (k => repeatsWith text k) (List.range text.length)
+def repeatsAny (text: Text): Bool := List.any (List.range text.length) (k => repeatsWith text k)
 
 test "1212 repeats a block of two" := repeatsWith "1212" 2
 test "1212 is not a block of three" := !(repeatsWith "1212" 3)

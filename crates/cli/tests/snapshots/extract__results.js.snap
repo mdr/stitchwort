@@ -1137,14 +1137,14 @@ const $Std$dEmpty$dabsurd = (v1) => {
   throw new Error("unreachable");
 };
 const $Std$dList$dmap = (v1, v3, v4) => {
-  switch (v4.tag) {
+  switch (v3.tag) {
     case "Nil": {
       return $Std$dEffect$ddoneIn(v1, { tag: "Nil" });
     }
     case "Cons": {
-      const v5 = v4.head;
-      const v6 = v4.tail;
-      return $Std$dEffect$dbindIn(v1, (v3)(v5), ((v7) => $Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v3, v6), ((v8) => $Std$dEffect$ddoneIn(v1, { tag: "Cons", head: v7, tail: v8 })))));
+      const v5 = v3.head;
+      const v6 = v3.tail;
+      return $Std$dEffect$dbindIn(v1, (v4)(v5), ((v7) => $Std$dEffect$dbindIn(v1, $Std$dList$dmap(v1, v6, v4), ((v8) => $Std$dEffect$ddoneIn(v1, { tag: "Cons", head: v7, tail: v8 })))));
     }
   }
   throw new Error("unreachable");
@@ -1165,7 +1165,7 @@ const $Std$dText$dtoNat = (t) => {
   }
   return { tag: "Some", value: BigInt(t) };
 };
-const $Std$dText$dsplit = (s, t) => listOf(t.split(encodeChar(s)));
+const $Std$dText$dsplit = (t, s) => listOf(t.split(encodeChar(s)));
 const $Std$dFail$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%stop": {
@@ -1234,7 +1234,7 @@ const $Main$dRange$dread$d$gmatch1 = (v0, v1) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dRange$dread = (v0) => $Main$dRange$dread$d$gmatch1(v0, $Std$dText$dsplit({ tag: "MkChar", code: 45n }, v0));
+const $Main$dRange$dread = (v0) => $Main$dRange$dread$d$gmatch1(v0, $Std$dText$dsplit(v0, { tag: "MkChar", code: 45n }));
 const $Main$dparseRange = (v0) => $Std$dFail$dtoResult$e(((v1) => $Main$dRange$dread(v0)));
 const $Main$dsize = (v0) => {
   switch (v0.tag) {
@@ -1249,7 +1249,7 @@ const $Main$dsize = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dsizes = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, $Main$dRange$dread(v2), ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3), $Main$dRange$dfrom(v3)), 1n))))), v0)));
+const $Main$dsizes = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, v0, ((v2) => $Std$dEffect$dbindIn({ tag: "Ops" }, $Main$dRange$dread(v2), ((v3) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd($Std$dNat$dsub($Main$dRange$dto(v3), $Main$dRange$dfrom(v3)), 1n))))))));
 
 function $$parseRange(arg0) {
   try {

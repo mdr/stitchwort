@@ -27,7 +27,7 @@ theorem seven: Fin.toNat (7: Fin 10) = 7 := rfl
 
 theorem two: (2: Fin 5) = FSucc (FSucc FZero) := rfl
 
-theorem digitsNat: List.map Fin.toNat digits = [2, 7, 5, 7, 3] := rfl
+theorem digitsNat: List.map digits Fin.toNat = [2, 7, 5, 7, 3] := rfl
 
 -- Beside a `Fin` in a comparison, a numeral is one too.
 theorem compared: (nine == 9 && zero < 3) = True := rfl

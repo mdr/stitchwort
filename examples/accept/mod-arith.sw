@@ -8,14 +8,14 @@ def turns: List Int := [-68, -30, 48, -5, 60, -55, -1, -99, 14, -82]
 
 def zeros (turns: List Int): Nat :=
   turns
-    |> .scanLeft (p t => p + Mod.ofInt t) (Mod.ofNat 50: Mod 100)
+    |> .scanLeft (Mod.ofNat 50: Mod 100) (p t => p + Mod.ofInt t)
     |> .drop 1
     |> .count (p => p == Mod.ofNat 0)
 
 test "the dial" := zeros turns == 3
 
 test "positions" :=
-  (turns.scanLeft (p t => p + Mod.ofInt t) (Mod.ofNat 50: Mod 100)).map (p => p.value)
+  (turns.scanLeft (Mod.ofNat 50: Mod 100) (p t => p + Mod.ofInt t)).map (p => p.value)
     == [50, 82, 52, 0, 95, 55, 0, 99, 0, 14, 32]
 
 def main(): {IO} () := IO.print "zeros: ${zeros turns}"

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INSTANCE-NONE] Error: no `DecEq` instance for `Nat -> Nat`
-   ╭─[ reject/bool-undecidable.sw:8:21 ]
+   ╭─[ reject/bool-undecidable.sw:8:24 ]
    │
- 8 │   List.filter (g => g = f) gs
-   │                     ──┬──  
-   │                       ╰──── this needs `DecEq (Nat -> Nat)`
+ 8 │   List.filter gs (g => g = f)
+   │                        ──┬──  
+   │                          ╰──── this needs `DecEq (Nat -> Nat)`
    │ 
    │ Note: functions can't be compared: there's no `==` on them
 ───╯

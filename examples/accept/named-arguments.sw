@@ -107,7 +107,7 @@ type Point = { x: Nat, y: Nat }
 def Point.scale (point: Point) (by: Nat) (plus: Nat): Point :=
   { x = point.x * by + plus, y = point.y * by + plus }
 
-def Point.shift (dx: Nat) (dy: Nat) (point: Point): Point :=
+def Point.shift (point: Point) (dx: Nat) (dy: Nat): Point :=
   { x = point.x + dx, y = point.y + dy }
 
 def corner: Point := { x = 1, y = 5 }
@@ -119,8 +119,10 @@ test "dot notation with a parameter left out" := (corner.scale (plus := 1)) 2 ==
 test "a named section" :=
   [corner].map (.shift (dy := 1) (dx := 2)) == [corner].map (.shift 2 1)
 test "a section of the library" := "a,b".split (separator := ',') == "a,b".split ','
-test "a pipe fills the first free parameter" := (5 |> clampTo (low := 0) (high := 3)) == 3
-test "a pipe after a named argument" := (20 |> clampTo (high := 10) (low := 0)) == 10
+def clampValue (value: Nat) (low: Nat) (high: Nat): Nat := clampTo low high value
+
+test "a pipe fills the first parameter" := (5 |> clampValue (low := 0) (high := 3)) == 3
+test "a pipe after a named argument" := (20 |> clampValue (high := 10) (low := 0)) == 10
 
 -- Proofs see the positional term.
 theorem namedIsPositional (low: Nat) (high: Nat):

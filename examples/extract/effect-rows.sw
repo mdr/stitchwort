@@ -20,22 +20,22 @@ import Std (List, Nat, Fail, Result, Text)
 
 def double (n: Nat): Nat := n + n
 
-def sum (xs: List Nat): Nat := List.foldLeft (a x => a + x) 0 xs
+def sum (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + x)
 
 -- Pure uses of `List.map`: directly, and partially applied as a callback.
-export def doubled (xs: List Nat): List Nat := List.map double xs
+export def doubled (xs: List Nat): List Nat := List.map xs double
 
-export def mappedSum (n: Nat): Nat := sum (List.map (x => x + 1) (List.range n))
+export def mappedSum (n: Nat): Nat := sum (List.map (List.range n) (x => x + 1))
 
 -- A map with a pure callback type, as `List.map` was before it took effects:
 -- `List.map`'s empty-row variant is the same loop.
-def pureMap (f: a -> b): List a -> List b
-  | Nil => Nil
-  | Cons x xs => Cons (f x) (pureMap f xs)
+def pureMap: List a -> (a -> b) -> List b
+  | Nil, f => Nil
+  | Cons x xs, f => Cons (f x) (pureMap xs f)
 
-export def pureDoubled (xs: List Nat): List Nat := pureMap double xs
+export def pureDoubled (xs: List Nat): List Nat := pureMap xs double
 
-export def doubledEach (xss: List (List Nat)): List (List Nat) := List.map (List.map double) xss
+export def doubledEach (xss: List (List Nat)): List (List Nat) := List.map xss (.map double)
 
 -- A program's own effect-polymorphic function, used purely.
 def twice (f: a -> {e} a) (x: a): {e} a := f (f x)
@@ -47,7 +47,7 @@ export def twiceDoubled (n: Nat): Nat := twice double n
 def parse (text: Text): {Fail} Nat := Fail.need text.toNat "not a number: ${text}"
 
 export def parsed (texts: List Text): Result (List Nat) Text :=
-  Fail.toResult (() => List.map parse texts)
+  Fail.toResult (() => List.map texts parse)
 
 -- A handler with an open row, used at the empty row.
 ability Count where
@@ -64,4 +64,4 @@ def tally (x: Nat): {Count} Nat :=
   count ()
   x
 
-export def counted (xs: List Nat): Pair (List Nat) Nat := countAll (() => List.map tally xs)
+export def counted (xs: List Nat): Pair (List Nat) Nat := countAll (() => List.map xs tally)

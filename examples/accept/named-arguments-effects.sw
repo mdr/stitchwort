@@ -119,9 +119,9 @@ test "a skip in a pure function runs the arguments once" :=
   collect skippingPure == ([3, 1], 123 + 143)
 
 -- The value piped in runs first, then the arguments as written.
-def piped(): {Log} Nat := given 7 |> plain (b := given 2) (a := given 1)
+def piped(): {Log} Nat := given 7 |> plain (c := given 2) (b := given 1)
 
-test "the piped value runs first" := collect piped == ([7, 2, 1], 127)
+test "the piped value runs first" := collect piped == ([7, 2, 1], 712)
 
 -- Dot notation: the receiver runs first.
 type Counter = { count: Nat }

@@ -1,6 +1,6 @@
 -- `Text.take`, `drop`, `startsWith`, `stripPrefix`, `splitOn` and friends,
--- through pipes and dot notation. Dot notation puts the receiver in the first
--- `Text` parameter, so for `stripPrefix` and the like use a pipe.
+-- through pipes and dot notation. The receiver (or piped value) is the first
+-- explicit argument, so `line |> Text.stripPrefix "L"` is `line.stripPrefix "L"`.
 
 import Std (Int, List, Option, Text)
 
@@ -14,7 +14,7 @@ def turnRight: Option Text -> Option Int
   | Some n => n.toInt
   | None => None
 
-def turnLeft (rest: Option Text): Option Int := Option.map Int.neg (turnRight rest)
+def turnLeft (rest: Option Text): Option Int := Option.map (turnRight rest) Int.neg
 
 def turn (line: Text): Option Int :=
   if line |> Text.startsWith "L" then turnLeft (line |> Text.stripPrefix "L")

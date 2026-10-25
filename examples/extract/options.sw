@@ -29,7 +29,7 @@ import Std (Bool, List, Nat, Option, SafeNat, Text)
 -- Optional properties: `nick?: string`, `age?: bigint`.
 type Profile = { name: Text, nick: Option Text, age: Option Nat }
 
-export def nickname (p: Profile): Text := Option.getOrElse p.name p.nick
+export def nickname (p: Profile): Text := Option.getOrElse p.nick p.name
 
 export def withNick (p: Profile) (n: Option Text): Profile := { p | nick = n }
 
@@ -52,7 +52,7 @@ export def keepSome: List (Option Nat) -> List Nat
   | Cons None r => keepSome r
   | Cons (Some n) r => Cons n (keepSome r)
 
-export def markAll (xs: List Nat): List (Option Nat) := List.map (x => if Nat.leq x 1 then None else Some x) xs
+export def markAll (xs: List Nat): List (Option Nat) := List.map xs (x => if Nat.leq x 1 then None else Some x)
 
 -- Optional properties of a record with a list, and a list of options.
 type Peek = { items: List (Option Nat), extra: Option (List (Option Nat)) }

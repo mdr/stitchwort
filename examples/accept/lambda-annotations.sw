@@ -38,7 +38,7 @@ def inc: Nat -> Nat := (n: Nat) => n + 1
 
 -- Inside `List.map` and `|>`.
 def names (people: List Person): List Text :=
-  List.map ((p: Person) => p.name) people
+  List.map people ((p: Person) => p.name)
 
 def ages (people: List Person): List Nat :=
   people |> List.map ((p: Person) => p.age)
