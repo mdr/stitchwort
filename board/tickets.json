@@ -3284,14 +3284,16 @@
     {
       "id": 506,
       "title": "Roguelike papercuts: depth error names the function, full values in test failures, Nat.divLe, call-bracket hint, IO.simulate with a seed, Text join",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "a2c1d6b6"
+      ]
     },
     {
       "id": 507,
