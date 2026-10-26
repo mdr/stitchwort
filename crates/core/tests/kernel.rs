@@ -1687,3 +1687,177 @@ fn same_call_failures_do_not_repeat_work() {
     assert_eq!(verdict, Err("E-REFL"));
     assert_eq!(run().1, steps, "the steps taken changed between runs");
 }
+
+// The kernel's read-backs keep glued calls (D1293, `check.rs`, "Read-backs
+// that keep calls"): a case's goal and the values refined on entering a
+// branch are read back with `f a` written as the call, not its unfolding.
+
+/// `big s = mix rounds s`: a call that doesn't step at once (its body isn't
+/// a `case`), so a read-back keeps it, whose unfolding is `mix rounds s`
+/// written out, 2^rounds nodes.
+fn define_big(p: &mut Prelude, rounds: usize) -> stitchwort_core::DefId {
+    let mix = define_mix(p, &format!("mix{rounds}"));
+    let nat_ty = p.nat_ty();
+    let body = lam("s", app(Term::Def(mix), [p.num(rounds), v(0)]));
+    define(
+        &mut p.g,
+        &format!("big{rounds}"),
+        arrow(nat_ty.clone(), nat_ty),
+        body,
+    )
+    .unwrap()
+}
+
+/// `case n { Zero => zero; Succ _ => succ }`, on variable `n`.
+fn on_nat(p: &Prelude, n: usize, zero: Term, succ: Term) -> Term {
+    case(n, p.nat, vec![(vec![], zero), (vec!["m"], succ)])
+}
+
+/// Two definitions, each within `budget` steps: `(n s: Nat) -> big s =
+/// big s` by a case on `n` (the goal read back by `check_case`), and `(s:
+/// Nat) -> (h: big s = big s) -> (n: Nat) -> Nat` by a case on `n` (`h`'s
+/// type read back by `substitute`). Their verdicts, and the steps taken.
+fn kept_call_cases(rounds: usize, budget: u64) -> (Vec<Result<(), &'static str>>, u64) {
+    let mut p = Prelude::new();
+    let big = define_big(&mut p, rounds);
+    let big_of = |t: Term| app(Term::Def(big), [t]);
+    let before = p.g.budget.total_work();
+    let mut verdicts = Vec::new();
+    let mut run = |p: &mut Prelude, name: &str, ty: Term, body: Term| {
+        let saved = p.g.budget.start(stitchwort_core::Limits {
+            work: budget,
+            ..stitchwort_core::Limits::default()
+        });
+        verdicts.push(define(&mut p.g, name, ty, body).map(|_| ()));
+        p.g.budget.restore(saved);
+    };
+    let goal = pi(
+        "n",
+        p.nat_ty(),
+        pi("s", p.nat_ty(), eq(None, big_of(v(0)), big_of(v(0)))),
+    );
+    let body = lam("n", lam("s", on_nat(&p, 1, Term::Refl, Term::Refl)));
+    run(&mut p, "inGoal", goal, body);
+    let context = pi(
+        "s",
+        p.nat_ty(),
+        pi(
+            "h",
+            eq(None, big_of(v(0)), big_of(v(0))),
+            pi("n", p.nat_ty(), p.nat_ty()),
+        ),
+    );
+    let body = lam("s", lam("h", lam("n", on_nat(&p, 0, p.num(0), v(1)))));
+    run(&mut p, "inContext", context, body);
+    (verdicts, p.g.budget.total_work() - before)
+}
+
+#[test]
+fn kernel_read_backs_keep_calls() {
+    // Written out, `big 40 s` is 2^40 nodes; kept, both cases check within
+    // 100,000 steps.
+    let (verdicts, _) = kept_call_cases(40, 100_000);
+    assert_eq!(verdicts, vec![Ok(()), Ok(())]);
+    // A timing-free measure: the steps don't grow with the unfolding.
+    // Written out, `big 16 s` would be 2^8 times `big 8 s`; kept, the steps
+    // grow by a few per round (548 and 836 when written).
+    let (verdicts, steps_8) = kept_call_cases(8, u64::MAX);
+    assert_eq!(verdicts, vec![Ok(()), Ok(())]);
+    let (_, steps_16) = kept_call_cases(16, u64::MAX);
+    assert!(
+        steps_16 < 2 * steps_8,
+        "a read-back unfolded `big`: {steps_8} steps, then {steps_16}"
+    );
+    // The control: `mix 40 s` steps at once (by its case on 40), so it's
+    // read back unfolded, which the budget doesn't allow.
+    let mut p = Prelude::new();
+    let mix = define_mix(&mut p, "mix");
+    let mix_of = |t: Term| app(Term::Def(mix), [p.num(40), t]);
+    let goal = pi(
+        "n",
+        p.nat_ty(),
+        pi("s", p.nat_ty(), eq(None, mix_of(v(0)), mix_of(v(0)))),
+    );
+    let body = lam("n", lam("s", on_nat(&p, 1, Term::Refl, Term::Refl)));
+    assert_eq!(
+        define_small(&mut p, "control", goal, body),
+        Err("E-RESOURCE")
+    );
+}
+
+#[test]
+fn kept_calls_with_different_arguments_are_still_compared_by_unfolding() {
+    let mut p = Prelude::new();
+    let konst = define_konst(&mut p);
+    let konst_of = |a: Term, b: Term| app(Term::Def(konst), [a, b]);
+    // `(n a b: Nat) -> konst 0 a = konst 0 b`, by a case on `n`: the goal
+    // keeps both calls, whose arguments differ and unfoldings don't.
+    let goal = pi(
+        "n",
+        p.nat_ty(),
+        pi(
+            "a",
+            p.nat_ty(),
+            pi(
+                "b",
+                p.nat_ty(),
+                eq(None, konst_of(p.num(0), v(1)), konst_of(p.num(0), v(0))),
+            ),
+        ),
+    );
+    let body = lam(
+        "n",
+        lam("a", lam("b", on_nat(&p, 2, Term::Refl, Term::Refl))),
+    );
+    assert_eq!(define_small(&mut p, "ignored", goal, body), Ok(()));
+    // `(n: Nat) -> konst 0 n = konst 0 (Succ n)`, by a case on `n`: the
+    // matched variable is substituted into the kept calls' arguments.
+    let goal = pi(
+        "n",
+        p.nat_ty(),
+        eq(
+            None,
+            konst_of(p.num(0), v(0)),
+            konst_of(p.num(0), p.succ(v(0))),
+        ),
+    );
+    let body = lam("n", on_nat(&p, 0, Term::Refl, Term::Refl));
+    assert_eq!(define_small(&mut p, "substituted", goal, body), Ok(()));
+}
+
+#[test]
+fn kept_calls_still_refuse_false_goals() {
+    let mut p = Prelude::new();
+    let konst = define_konst(&mut p);
+    let konst_of = |a: Term, b: Term| app(Term::Def(konst), [a, b]);
+    // `(n a b: Nat) -> konst a 0 = konst b 0`, by a case on `n`, is false.
+    let goal = pi(
+        "n",
+        p.nat_ty(),
+        pi(
+            "a",
+            p.nat_ty(),
+            pi(
+                "b",
+                p.nat_ty(),
+                eq(None, konst_of(v(1), p.num(0)), konst_of(v(0), p.num(0))),
+            ),
+        ),
+    );
+    let body = lam(
+        "n",
+        lam("a", lam("b", on_nat(&p, 2, Term::Refl, Term::Refl))),
+    );
+    assert_eq!(define_small(&mut p, "wrong", goal, body), Err("E-REFL"));
+    // `(n: Nat) -> big n = big (Succ n)`, by a case on `n`, is false in
+    // both branches once `n` is substituted into the kept calls.
+    let big = define_big(&mut p, 3);
+    let big_of = |t: Term| app(Term::Def(big), [t]);
+    let goal = pi(
+        "n",
+        p.nat_ty(),
+        eq(None, big_of(v(0)), big_of(p.succ(v(0)))),
+    );
+    let body = lam("n", on_nat(&p, 0, Term::Refl, Term::Refl));
+    assert_eq!(define_small(&mut p, "wrongBig", goal, body), Err("E-REFL"));
+}
