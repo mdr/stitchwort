@@ -83,6 +83,11 @@ package(stitchwort-syntax)
 | (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
 """
 
+# Every test's time, for cutting the tier when it grows past its budget:
+# target/nextest/merge/junit.xml.
+[profile.merge.junit]
+path = "junit.xml"
+
 # ------------------------------------------------------------- lane areas
 #
 # `task test:lane AREA=…`: one area's handful of fast tests, under 10 s with
