@@ -687,16 +687,32 @@ impl<'a> Layout<'a> {
             parent.push(stack.last().copied());
             stack.push(i);
         }
-        let part = |i: usize| -> Part {
+        // The header runs from the declaration's keyword (not its
+        // attributes) to the `:=` or `=` or the first arm.
+        let in_header = |i: usize| -> bool {
             let line = &lines[i];
-            let under_top = parent[i].is_some_and(|p| tcol[p] == 0);
-            // The header runs from the declaration's keyword (not its
-            // attributes) to the `:=` or `=` or the first arm.
-            let in_header = header.is_some_and(|(start, h)| {
+            header.is_some_and(|(start, h)| {
                 (line.first() >= start && line.first() < h)
                     || (line.first() == h && tokens[h].tok != Tok::Pipe && line.src_col > 0)
-            });
-            if under_top && in_header {
+            })
+        };
+        // A header line further right than a header line above it belongs
+        // to the declaration like that line does, unless it sits inside a
+        // bracket the line above opened.
+        for i in 0..lines.len() {
+            if let Some(p) = parent[i]
+                && lines[i].closer_of.is_none()
+                && tcol[p] != 0
+                && in_header(i)
+                && in_header(p)
+                && !self.ends_with_opener(&lines[p])
+            {
+                parent[i] = parent[p];
+            }
+        }
+        let part = |i: usize| -> Part {
+            let under_top = parent[i].is_some_and(|p| tcol[p] == 0);
+            if under_top && in_header(i) {
                 Part::Header
             } else {
                 Part::Main
@@ -713,7 +729,9 @@ impl<'a> Layout<'a> {
             if line.closer_of.is_some() {
                 continue;
             }
-            let key = (p, part(i), tcol[i]);
+            // Header continuation lines all take the same offset.
+            let column = if part(i) == Part::Header { 0 } else { tcol[i] };
+            let key = (p, part(i), column);
             if let Some(&g) = index.get(&key) {
                 group_of[i] = Some(g);
                 continue;
@@ -753,17 +771,33 @@ impl<'a> Layout<'a> {
             }
         }
         let mut indents = vec![0usize; lines.len()];
+        // The indentation that body lines of line `j` count from: a header
+        // continuation line counts from the declaration's own line, as a
+        // one-line header does.
+        let body_base = |indents: &[usize], j: usize| match parent[j] {
+            Some(p) if part(j) == Part::Header => indents[p],
+            _ => indents[j],
+        };
         for (i, line) in lines.iter().enumerate() {
             if let Some(open) = line.closer_of {
                 // D1012: the closer lines up with the line the bracket
                 // opened on.
-                indents[i] = indents[open];
+                indents[i] = if part(i) == Part::Main {
+                    body_base(&indents, open)
+                } else {
+                    indents[open]
+                };
                 continue;
             }
             let (Some(p), Some(g)) = (parent[i], group_of[i]) else {
                 continue;
             };
-            indents[i] = indents[p] + groups[g].1;
+            let base = if part(i) == Part::Main {
+                body_base(&indents, p)
+            } else {
+                indents[p]
+            };
+            indents[i] = base + groups[g].1;
         }
         indents
     }
