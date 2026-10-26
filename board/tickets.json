@@ -3992,14 +3992,16 @@
     {
       "id": 560,
       "title": "Native-only NO1: Text.fold as a runtime body, leaf helpers in apply stubs, nested-run counter (native-only.md §6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "4803a53c"
+      ]
     },
     {
       "id": 561,
@@ -4028,14 +4030,16 @@
     {
       "id": 563,
       "title": "Roguelike: generator back to free {Random} style (Matt, 26 Oct: readability over the draw-then-plan split)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "8831a118"
+      ]
     },
     {
       "id": 564,
