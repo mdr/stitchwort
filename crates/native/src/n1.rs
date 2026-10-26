@@ -396,6 +396,83 @@ pub fn compile(
         builder.memory_provider(Box::new(provider));
     }
     let mut module = JITModule::new(builder);
+    let mut ops: Vec<Box<PrimOp>> = Vec::new();
+    let mut caches: Vec<Box<abi::ApplyCache>> = Vec::new();
+    let Emitted {
+        functions,
+        trampolines,
+    } = emit(
+        &mut module,
+        program,
+        image,
+        &plan,
+        options,
+        dump,
+        &mut ops,
+        &mut caches,
+    )?;
+    module
+        .finalize_definitions()
+        .map_err(|e| fail(e.to_string()))?;
+
+    let mut table = vec![std::ptr::null::<u8>(); program.globals.len()].into_boxed_slice();
+    for (g, code) in image.global_code.iter().enumerate() {
+        if let Some(code) = code
+            && let Some(id) = functions.get(code)
+            && matches!(program.globals[g].kind, GlobalKind::Function { .. })
+        {
+            table[g] = module.get_finalized_function(*id);
+            if dump {
+                eprintln!("@@ {:p} {}", table[g], program.globals[g].name);
+            }
+        }
+    }
+    let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
+    for (g, id) in trampolines {
+        roots[g as usize] = Some(Root {
+            trampoline: trampoline(module.get_finalized_function(id)),
+            checks_arguments: plan.applying.contains(&g),
+            name: program.globals[g as usize].name.to_string(),
+        });
+    }
+    Ok(Islands {
+        _module: module,
+        roots,
+        table,
+        _ops: ops,
+        _caches: caches,
+        tables: abi::TableStore::new(program, image, 0),
+        stack_size: options.stack_size,
+        notes,
+        bodies: plan.bodies.len(),
+        compile_time: start.elapsed(),
+    })
+}
+
+/// What [`emit`] declared in the module.
+struct Emitted {
+    /// Each body's function.
+    functions: BTreeMap<u32, FuncId>,
+    /// `(global, trampoline)` of each root.
+    trampolines: Vec<(u32, FuncId)>,
+}
+
+/// Generates the code of `plan`'s bodies, and a trampoline for each root,
+/// into `module`: the code generator, apart from where the code goes (stage
+/// S4 of docs/proposals/standalone-executables.md), so the JIT and an object
+/// file get the same code.
+#[allow(clippy::too_many_arguments)]
+fn emit(
+    module: &mut dyn Module,
+    program: &Program,
+    image: &Image,
+    plan: &Plan,
+    options: Options,
+    dump: bool,
+    #[allow(clippy::vec_box)] ops: &mut Vec<Box<PrimOp>>,
+    #[allow(clippy::vec_box)] caches: &mut Vec<Box<abi::ApplyCache>>,
+) -> Result<Emitted, Vec<String>> {
+    let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let frontend_config = module.target_config();
     let pointer = frontend_config.pointer_type();
     let call_conv = module.isa().default_call_conv();
@@ -413,9 +490,7 @@ pub fn compile(
             .map_err(|e| fail(e.to_string()))?;
         functions.insert(code, id);
     }
-    let helpers = Helpers::declare(&mut module, pointer, call_conv).map_err(fail)?;
-    let mut ops: Vec<Box<PrimOp>> = Vec::new();
-    let mut caches: Vec<Box<abi::ApplyCache>> = Vec::new();
+    let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     for &code in &plan.bodies {
@@ -425,7 +500,7 @@ pub fn compile(
             let b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             let mut generator = Gen {
                 b,
-                module: &mut module,
+                module: &mut *module,
                 program,
                 image,
                 code_index: code,
@@ -434,8 +509,8 @@ pub fn compile(
                 helpers: &helpers,
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
-                ops: &mut ops,
-                caches: &mut caches,
+                ops,
+                caches: &mut *caches,
                 pointer,
                 options,
                 vars: Vec::new(),
@@ -551,41 +626,9 @@ pub fn compile(
         module.clear_context(&mut context);
         trampolines.push((g, id));
     }
-    module
-        .finalize_definitions()
-        .map_err(|e| fail(e.to_string()))?;
-
-    let mut table = vec![std::ptr::null::<u8>(); program.globals.len()].into_boxed_slice();
-    for (g, code) in image.global_code.iter().enumerate() {
-        if let Some(code) = code
-            && let Some(id) = functions.get(code)
-            && matches!(program.globals[g].kind, GlobalKind::Function { .. })
-        {
-            table[g] = module.get_finalized_function(*id);
-            if dump {
-                eprintln!("@@ {:p} {}", table[g], program.globals[g].name);
-            }
-        }
-    }
-    let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
-    for (g, id) in trampolines {
-        roots[g as usize] = Some(Root {
-            trampoline: trampoline(module.get_finalized_function(id)),
-            checks_arguments: plan.applying.contains(&g),
-            name: program.globals[g as usize].name.to_string(),
-        });
-    }
-    Ok(Islands {
-        _module: module,
-        roots,
-        table,
-        _ops: ops,
-        _caches: caches,
-        tables: abi::TableStore::new(program, image, 0),
-        stack_size: options.stack_size,
-        notes,
-        bodies: plan.bodies.len(),
-        compile_time: start.elapsed(),
+    Ok(Emitted {
+        functions,
+        trampolines,
     })
 }
 
@@ -661,7 +704,11 @@ struct Helpers {
 }
 
 impl Helpers {
-    fn declare(module: &mut JITModule, pointer: ir::Type, cc: CallConv) -> Result<Helpers, String> {
+    fn declare(
+        module: &mut dyn Module,
+        pointer: ir::Type,
+        cc: CallConv,
+    ) -> Result<Helpers, String> {
         use types::{I32, I64};
         let p = pointer;
         let mut declare = |name: &str, params: &[ir::Type], returns: &[ir::Type]| {
@@ -884,7 +931,7 @@ enum Loc {
 
 struct Gen<'a, 'm> {
     b: FunctionBuilder<'a>,
-    module: &'m mut JITModule,
+    module: &'m mut dyn Module,
     program: &'m Program,
     image: &'m Image,
     code_index: u32,
