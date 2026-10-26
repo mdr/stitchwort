@@ -37,7 +37,7 @@ When a test's condition is a comparison (`==`, `!=`, `<`, `<=`, `>`, `>=` or `=`
 -- Tests that fail on purpose, to show what `stitchwort test` says.
 import Std (List, Nat, Text)
 
-def parse (line: Text): List Nat := (line.split ',').filterMap Text.toNat
+def parse (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
 
 def isSorted: List Nat → Bool
   | Cons a (Cons b rest) => a ≤ b ∧ isSorted (Cons b rest)

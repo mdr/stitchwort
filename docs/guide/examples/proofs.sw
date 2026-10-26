@@ -96,7 +96,7 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
 
 -- begin decide
 def firstOr (fallback: Nat) (xs: List Nat): Nat :=
-  if nonempty: 0 < xs.length then List.headOr xs fallback else fallback
+  if nonempty: 0 < xs.length then xs.headOr fallback else fallback
 
 def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
   if inRange: i < 3 then Some (v.getLt i) else None
