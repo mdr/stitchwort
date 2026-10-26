@@ -3578,25 +3578,27 @@
     {
       "id": 529,
       "title": "Native N3: closures (after N2a/N2b; D1285 yes)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-26",
+      "commits": [
+        "2176b3c6"
+      ]
+    },
+    {
+      "id": 530,
+      "title": "Native N4: effects and handlers (after N3; D1285 yes)",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
-      "commits": []
-    },
-    {
-      "id": 530,
-      "title": "Native N4: effects and handlers (after N3; D1285 yes)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [],
-      "body": "",
-      "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
