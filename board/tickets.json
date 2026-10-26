@@ -4817,7 +4817,7 @@
     {
       "id": 624,
       "title": "Private app port: D1359/D1360 — WellFormed gains 'every recording duration is finite and >= 0' (Float.isFinite); annotation fact restated literally (0 <= start <= end of last recording, or 0 with no recordings), proved for well-formed inputs (clamp form may stay as an internal lemma); drop the negative-duration fallback; tests + differential updated. After the methods sweep (private work only)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
