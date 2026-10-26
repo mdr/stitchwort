@@ -914,6 +914,99 @@ and §3–§4:
   `run`; the pseudo-terminal test passes); `nm` shows none of those modules;
   the size and the time per key are recorded against S5's table.
 
+**NO6 as built** (26 October 2026). All three done-when checks hold, in
+`crates/cli/tests/build.rs`'s `the_roguelike_built_native_plays_as_it_does_under_run`:
+the seeded roguelike's `--native` binary plays (the piped game equals
+`run`'s, and the pseudo-terminal test, now shared with the machine-only
+test, passes on it), and `nm -C` finds no symbol of `stitchwort_rt::machine`,
+`code` or `codec` in it. The machine-only binary's test checks the
+opposite (the machine's symbols are there), so the check can see them.
+What was built:
+- **The tables and literals** are `stitchwort_rt::linked` (D1300): `build
+  --native` writes `linked::encode`'s bytes into the object as `sw_tables`,
+  in place of the encoded program. They hold the limits, `main`'s row, the
+  shapes, each global's kind and body number (with its name, for a global
+  with a body: the depth note's), each lambda's parameters, the entry's
+  body number, the operations and number tables in `Numbering`'s order, and
+  the constant pool. For the roguelike they are 12,050 bytes, where the
+  encoded program was 35,688.
+- **The runtime builds `Tables` from them** (`linked::decode`, then
+  `TableStore::from_parts`), with no `Program`, image or codec. What the
+  runtime around native code needs to know of the program is an `Outline`
+  (shapes, `main`'s row, the globals' kinds, the lambdas' parameters, the
+  bodies' names), which `NativeExecutor` now holds in place of the program
+  and image. `run --native` makes its `Outline` from the program and image
+  (`Outline::of`), so both paths run the same executor. The `Executor`
+  trait's `program()` became `shapes()` and `main_row()`.
+- **What the machine and native code share left `machine.rs`**: the
+  limits, `NumTable`, `arity` (over an `Arities` trait both `Program` and
+  `Outline` implement), `deepest` and the depth note are in `shared.rs`;
+  the effect runtime's leaves (`handler_for`, `state_step`, `done_k` and
+  the rest) are at the end of `effect.rs`. The small ones are `#[inline]`:
+  without it, the machine-only roguelike ran 4% more instructions, since
+  they were no longer in the machine's codegen unit.
+- **The codec stays out (D1300 holds).** The bytes share only the codec's
+  LEB128 integers, strings, operation tags and shapes, which moved to
+  `wire.rs` (about 7 KB of code); the pool is written as its values' nodes
+  in post-order and read with a stack, so a long `Chars` literal's list
+  needs no recursion.
+- **The manifest is version 6**: `run`, `data` and `data_len` replace the
+  image's hash (there is no image to check). `run` is the address of the
+  library's `sw_run_native` or `sw_run_machine`, written by the compiler as
+  a relocation; `data` is the tables or the encoded program. The runtime
+  checks instead that the tables were written by the same build of the
+  runtime (the codec's build hash) and that their counts of globals and
+  lambdas are the code's; tests in `crates/standalone/src/aot/tests.rs`.
+
+Differences from the text above (§5):
+- **The split is by entry point, not by crate or feature.** §5 has
+  `run.rs` and the effect types move to a crate or feature without
+  `machine.rs`. A feature doesn't work in this workspace: cargo builds the
+  runtime library in the same build as the CLI, which needs the machine,
+  and unifies features, so the library would get the machine anyway. A
+  crate split would move about ten modules (values, IR types, natives, the
+  runner, the effect runtime) for the same result. Instead C `main` refers
+  to neither way of running: it calls the one the object's manifest names,
+  and the linker's dead-stripping (`-dead_strip`, `--gc-sections`, already
+  on) drops the other. The `nm` test is the guard §5 asked for. It works
+  both ways: a machine-only binary now links no native code's runtime
+  either (1,154,480 to 1,086,704 bytes stripped).
+- **`nm` shows the machine's types in a few names.** LLVM merges identical
+  instantiations of generic code under one of their names, so a closure of
+  `Runner<NativeExecutor>` can be listed as `Runner<Machine>`'s, and a
+  `RawVec` method under `code::Slots`; none of these is the machine's own
+  code. The test counts the symbols the modules define (functions and their
+  types' methods), not generics merely given one of their types.
+- **More left than §5 estimated**: 233 KB stripped (2,080,640 to 1,847,456
+  bytes), not 164 KB. Besides the machine (51 KB of symbols by `nm`
+  spacing), the bytecode compiler (31 KB), the codec (15 KB), the program's
+  validator (3 KB) and the encoded program less the tables (24 KB), the
+  runner's instantiation for the machine went (`run`'s symbols, 51 to
+  27 KB), with the standard library code only that path used.
+- **`run --native` still reserves the full 64 GiB** on the CLI thread (NO5's
+  note): NO6 doesn't change when the frame bound is known there.
+
+**Measured** (the seeded roguelike, a 500-key piped game of 396,274
+bytes of output, identical for both binaries and `run`; release build,
+Apple M4 Pro, load 10–25; best of 3; `/usr/bin/time -l`). "Before" is
+main at NO5, measured the same day with the same keys; S5's table (after
+N4) used other keys, so its times aren't comparable, only its sizes.
+
+| Binary | Wall | Cycles | Instructions | Size (stripped) | Build |
+|---|---|---|---|---|---|
+| `--native`, NO6 | 0.10 s | 0.40 G | 2.29 G | 2,196,880 (1,847,456) | 1.29 s |
+| `--native`, before | 0.11 s | 0.43 G | 2.29 G | 2,469,984 (2,080,640) | 1.45 s |
+| machine only, NO6 | 0.28 s | 1.09 G | 5.56 G | 1,447,152 (1,086,704) | 0.43 s |
+| machine only, before | 0.27 s | 1.07 G | 5.58 G | 1,531,152 (1,154,480) | 0.46 s |
+| S5: `--native` | 0.12 s | 0.50 G | 2.81 G | 2,468,320 (2,080,080) | 1.09 s |
+| S5: machine only | 0.34 s | 1.36 G | 6.90 G | 1,497,800 (1,121,024) | 0.90 s |
+
+A key costs 0.20 ms natively against 0.56 ms on the machine (wall; 0.81 M
+against 2.18 M cycles). The native binary runs about the same instructions
+(2.291 G against 2.295 G, best of 3): start-up no longer decodes the
+program and compiles its image, but the game itself runs the same code. It
+is 11% smaller.
+
 **NO7. Linux and the record.**
 - **What:** run NO5's and NO6's tests on Linux x86-64 (§3's open question),
   and update this note and standalone-executables.md (D1287 superseded).

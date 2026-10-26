@@ -21,6 +21,7 @@ pub mod fusion;
 pub mod hoist;
 pub mod host;
 pub mod ir;
+pub mod linked;
 pub mod lower;
 pub mod machine;
 pub mod native_abi;
@@ -30,16 +31,19 @@ pub mod opt;
 pub mod pretty;
 mod prims;
 pub mod run;
+pub mod shared;
 pub mod specialise;
 mod validate;
 pub mod value;
+mod wire;
 
 pub use codec::{CodecError, decode, encode};
 pub use ir::{MainRow, Program};
 pub use lower::{lower_definitions, lower_global, lower_main};
-pub use machine::{Limits, Machine};
+pub use machine::Machine;
 pub use run::{
     Advanced, Executor, LimitScope, LiveLimits, LiveRun, Outcome, Policy, RouteCounts, run_main,
-    run_main_counting, run_main_counting_on, run_main_native, run_main_on, run_main_with,
-    run_partial,
+    run_main_counting, run_main_counting_on, run_main_linked, run_main_native, run_main_on,
+    run_main_with, run_partial,
 };
+pub use shared::Limits;

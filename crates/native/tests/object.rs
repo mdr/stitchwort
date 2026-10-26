@@ -26,7 +26,10 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
             trace_refcounts: false,
         };
         let frames = stitchwort_rt::Limits::from_core(Default::default()).frames as u64;
-        let compiled = compile_object(&program, &image, options, frames).expect("compiles");
+        let limits = stitchwort_rt::Limits::from_core(Default::default());
+        let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
+        let compiled =
+            compile_object(&program, &image, &tables, options, frames).expect("compiles");
         // Every body `main` reaches, its entry included (stage NO4 of
         // native-only.md), on the stack sized for them (stage NO5).
         assert_eq!(
@@ -66,6 +69,8 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
             "sw_ctor",
             "sw_bind",
             "sw_eff_step",
+            // And the way the library runs it (stage NO6 of native-only.md).
+            "sw_run_native",
         ] {
             assert!(symbol(helper).is_undefined(), "{helper}");
         }

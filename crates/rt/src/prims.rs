@@ -629,7 +629,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
 }
 
 /// A `Nat` against a number switch's small and big arms: the target.
-pub fn num_switch(table: &crate::code::NumTable, v: &Value) -> u32 {
+pub fn num_switch(table: &crate::shared::NumTable, v: &Value) -> u32 {
     match v {
         Value::Nat(n) => table
             .small

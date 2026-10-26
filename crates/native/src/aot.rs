@@ -8,17 +8,19 @@
 //! of native-only.md). The
 //! code holds no host address (stage S4): what it needs of the runtime's
 //! memory it reaches through `Context::tables`, which the runtime builds
-//! from the image it rebuilds, and the helpers (`sw_ctor` and the rest,
-//! with the effect runtime's leaves) are left for the linker to resolve
-//! against the runtime library, which has the machine.
+//! from the tables and literals in the object (stage NO6 of
+//! native-only.md: `stitchwort_rt::linked`), and the helpers (`sw_ctor` and
+//! the rest, with the effect runtime's leaves) are left for the linker to
+//! resolve against the runtime library.
 //!
 //! The object describes the code to the runtime in data
 //! (`stitchwort_rt::native_aot`):
 //! - `sw_functions`: for each global, its code as a function value's (its
 //!   adapter, `value{g}`), or null: `Context::functions`;
 //! - `sw_lambdas`: for each lambda, its body, or null: `Context::lambdas`;
-//! - `sw_native_manifest`, the one the runtime looks up: the image's hash,
-//!   the cache count, the frames' bound, the stack sized for them (stage NO5
+//! - `sw_tables`: the tables and literals, which the caller encodes;
+//! - `sw_native_manifest`, the one the runtime looks up: the library's
+//!   `sw_run_native`, which runs it, a pointer to `sw_tables`, the cache count, the frames' bound, the stack sized for them (stage NO5
 //!   of native-only.md) and flags, the counts of the two tables and pointers
 //!   to them, and the trampolines into the entry, the apply stubs and the
 //!   effect runtime's loop (exported as `sw_cross_enter` and the others).
@@ -31,14 +33,14 @@ use cranelift_module::{DataDescription, DataId, Linkage, Module, default_libcall
 use cranelift_object::{ObjectBuilder, ObjectModule, object};
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
-use stitchwort_rt::native_aot::{FLAG_RESUMES, Manifest, image_hash};
+use stitchwort_rt::native_aot::{FLAG_RESUMES, Manifest, RUN_NATIVE};
 
 use crate::n1::{self, Audit, Emitted, Options};
 
 /// A program's bodies, compiled into an object.
 pub struct ObjectCode {
-    /// The object: the code and its manifest. The caller adds the program
-    /// (`sw_program`) and writes it.
+    /// The object: the code, the tables and the manifest. The caller marks
+    /// it for the platform and writes it.
     pub object: object::write::Object<'static>,
     /// How many bodies were compiled (every one `main` reaches, its entry
     /// included), and in what time.
@@ -66,13 +68,14 @@ impl ObjectCode {
 }
 
 /// Compiles the bodies `program`'s entry reaches (`image` is its compiled
-/// image, which the runtime will rebuild) into an object for this machine,
+/// image; `tables`, its tables and literals, `stitchwort_rt::linked::encode`) into an object for this machine,
 /// with a stack sized for `frame_limit` frames, or says why it can't (stage
 /// NO5 of native-only.md: there's no machine to fall back to): the
 /// message, then any notes.
 pub fn compile_object(
     program: &Program,
     image: &Image,
+    tables: &[u8],
     options: Options,
     frame_limit: u64,
 ) -> Result<ObjectCode, Vec<String>> {
@@ -148,13 +151,29 @@ pub fn compile_object(
             .map(|(code, &l)| (l as usize, functions[code])),
     )?;
 
+    // The tables and literals (stage NO6 of native-only.md), in place of the
+    // encoded program.
+    let tables_id = module
+        .declare_data("sw_tables", Linkage::Local, false, false)
+        .map_err(|e| fail(e.to_string()))?;
+    let mut tables_data = DataDescription::new();
+    tables_data.define(tables.to_vec().into_boxed_slice());
+    tables_data.set_align(8);
+    module
+        .define_data(tables_id, &tables_data)
+        .map_err(|e| fail(e.to_string()))?;
+    // The library's way of running this executable: its address is all the
+    // manifest needs, so any signature does.
+    let run_native = module
+        .declare_function(RUN_NATIVE, Linkage::Import, &module.make_signature())
+        .map_err(|e| fail(e.to_string()))?;
+
     let manifest_id = module
         .declare_data("sw_native_manifest", Linkage::Export, false, false)
         .map_err(|e| fail(e.to_string()))?;
     let mut manifest = DataDescription::new();
     manifest.define(
         Manifest::bytes(
-            image_hash(image),
             n_caches as u64,
             max_frame as u64,
             stack_size as u64,
@@ -169,11 +188,13 @@ pub fn compile_object(
             } else {
                 0
             },
+            tables.len() as u64,
         )
         .into_boxed_slice(),
     );
     manifest.set_align(8);
     for (at, data) in [
+        (Manifest::DATA_AT, Some(tables_id)),
         (Manifest::FUNCTIONS_AT, functions_table),
         (Manifest::LAMBDAS_AT, lambdas_table),
     ] {
@@ -183,6 +204,7 @@ pub fn compile_object(
         }
     }
     for (at, function) in [
+        (Manifest::RUN_AT, Some(run_native)),
         (Manifest::ENTER_AT, Some(trampolines.enter)),
         (Manifest::APPLY1_AT, Some(trampolines.apply[0])),
         (Manifest::APPLY2_AT, Some(trampolines.apply[1])),

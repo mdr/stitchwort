@@ -59,10 +59,11 @@ use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
-use crate::code::{Image, Instr, NO_REG, NumTable};
+use crate::code::{Image, Instr, NO_REG};
 use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
-use crate::ir::{GlobalKind, PrimOp, Program, Shapes};
-use crate::machine::Limits;
+use crate::ir::{MainRow, PrimOp, Program, Shapes};
+use crate::linked::{Kind, Outline};
+use crate::shared::{Limits, NumTable};
 use crate::value::{Fields, Fun, Value};
 
 // ------------------------------------------------------------ the layout
@@ -412,8 +413,9 @@ impl Context {
 /// `repr(C)`: compiled code reads `pool` and `caches` at
 /// [`Tables::POOL_AT`] and [`Tables::CACHES_AT`]; the helpers read the rest.
 ///
-/// The numbering is [`Numbering`]'s, a function of the image alone, so a
-/// runtime that rebuilds the image can rebuild the tables.
+/// The numbering is [`Numbering`]'s, a function of the image alone. An
+/// executable built with `--native` carries the tables in that order
+/// (`crate::linked`, stage NO6 of docs/proposals/native-only.md).
 #[repr(C)]
 pub struct Tables {
     /// The image's constant pool: constant `k` at `pool + 24·k`.
@@ -438,8 +440,8 @@ impl Tables {
 
 /// How compiled code numbers an image's operations and number tables: in
 /// the order the image's bodies, then their instructions, first use them.
-/// Deterministic, so the compiler and a runtime that rebuilt the image from
-/// the same program agree.
+/// Deterministic: the compiler numbers by it, and writes an executable's
+/// tables in its order (`crate::linked::encode`).
 pub struct Numbering {
     /// Each distinct operation of a `Prim` or `Test`, in order of first use.
     pub ops: Vec<PrimOp>,
@@ -487,8 +489,10 @@ impl Numbering {
 }
 
 /// The memory a [`Tables`] points into that it owns (the number tables'
-/// addresses, the operations, the caches); the pool and the shapes are the
-/// image's and the program's, which must outlive it.
+/// addresses, the operations, the caches); the pool, the number tables and
+/// the shapes are the image's and the program's (`run --native`) or the
+/// executable's tables (`crate::linked::LinkedTables`), which must outlive
+/// it.
 pub struct TableStore {
     tables: *mut Tables,
     num_tables: *mut [*const NumTable],
@@ -501,21 +505,43 @@ impl TableStore {
     /// `n_caches` `Apply` sites.
     pub fn new(program: &Program, image: &Image, n_caches: usize) -> TableStore {
         let numbering = Numbering::of(image);
-        let num_tables: Box<[*const NumTable]> = image
-            .codes
-            .iter()
-            .flat_map(|code| code.num_tables.iter().map(|t| t as *const NumTable))
+        let store = TableStore::from_parts(
+            &program.shapes,
+            &image.pool,
+            image.codes.iter().flat_map(|code| &code.num_tables),
+            numbering.ops.into_boxed_slice(),
+            n_caches,
+        );
+        // SAFETY: `num_tables` was made from a boxed slice just above.
+        #[allow(unsafe_code)]
+        let len = unsafe { (&(*store.num_tables)).len() };
+        debug_assert_eq!(len, numbering.num_tables as usize);
+        store
+    }
+
+    /// The tables for compiled code whose constant pool is `pool`, whose
+    /// number tables are `num_tables` and operations `ops` (both in
+    /// [`Numbering`]'s order), with `n_caches` `Apply` sites. `shapes`,
+    /// `pool` and `num_tables` must outlive the store, and not move.
+    pub fn from_parts<'t>(
+        shapes: &Shapes,
+        pool: &[Value],
+        num_tables: impl IntoIterator<Item = &'t NumTable>,
+        ops: Box<[PrimOp]>,
+        n_caches: usize,
+    ) -> TableStore {
+        let num_tables: Box<[*const NumTable]> = num_tables
+            .into_iter()
+            .map(|t| t as *const NumTable)
             .collect();
-        debug_assert_eq!(num_tables.len(), numbering.num_tables as usize);
-        let ops: Box<[PrimOp]> = numbering.ops.into_boxed_slice();
         let caches: Box<[ApplyCache]> = (0..n_caches).map(|_| ApplyCache::new()).collect();
         // Raw from here on: compiled code reads and writes through them.
         let num_tables = Box::into_raw(num_tables);
         let ops = Box::into_raw(ops);
         let caches = Box::into_raw(caches);
         let tables = Box::into_raw(Box::new(Tables {
-            pool: image.pool.as_ptr(),
-            shapes: &program.shapes,
+            pool: pool.as_ptr(),
+            shapes,
             num_tables: num_tables.cast::<*const NumTable>(),
             ops: ops.cast::<PrimOp>(),
             caches: caches.cast::<ApplyCache>(),
@@ -553,7 +579,7 @@ impl Drop for TableStore {
 /// from the runtime into it ([`Crossing`]): the run's constants cache and
 /// effect counts, its counters, and what frames gave up on an error exit.
 pub struct NativeRun<'a> {
-    pub program: &'a Program,
+    pub outline: &'a Outline,
     /// Each global's value, once known: a constant's, or a function value
     /// (stage NO4 of docs/proposals/native-only.md: the run's own, where it
     /// was the machine's). Native code reads and fills it, so a constant is
@@ -866,15 +892,13 @@ impl Crossing {
 /// nothing nests; the machine runs nothing.
 ///
 /// It holds what the machine held between calls: the constants computed
-/// so far, the effect counts, and the steps of the stretch.
-pub struct NativeExecutor<'p> {
-    program: &'p Program,
-    /// The compiled code; dropped before the image its tables point into.
+/// so far, the effect counts, and the steps of the stretch. What it knows
+/// of the program is its [`Outline`] (stage NO6): an executable built with
+/// `--native` has no program or image.
+pub struct NativeExecutor {
+    outline: Outline,
+    /// The compiled code, owning (or outliving) what its tables point into.
     code: Box<dyn NativeIslands>,
-    /// The image the code was compiled for: its constants and number
-    /// tables are what the code's tables point at, and its bodies' numbers
-    /// name the functions in the depth note.
-    image: Image,
     globals: Vec<Option<Value>>,
     counts: EffectCounts,
     steps: u64,
@@ -889,24 +913,55 @@ pub struct NativeExecutor<'p> {
     deepest: Vec<(u32, usize)>,
 }
 
-impl<'p> NativeExecutor<'p> {
+/// Code compiled for an image, with the image its tables point into (its
+/// constants and number tables): `run --native`'s. The code is dropped
+/// first.
+struct WithImage {
+    code: Box<dyn NativeIslands>,
+    _image: Image,
+}
+
+impl NativeIslands for WithImage {
+    fn crossing(&self) -> &Crossing {
+        self.code.crossing()
+    }
+}
+
+impl NativeExecutor {
     /// The executor for `program`, its compiled `image` and the `code`
     /// compiled for that image, run on a stack of `stack_size` bytes (the
     /// caller's thread has at least that many above where it calls from):
     /// [`native_stack`] for `limits`, so that the frame counter fires first
     /// and the stack-pointer check behind it never does.
     pub fn new(
-        program: &'p Program,
+        program: &Program,
         image: Image,
         code: Box<dyn NativeIslands>,
         limits: Limits,
         stack_size: usize,
-    ) -> NativeExecutor<'p> {
-        NativeExecutor {
-            globals: vec![None; program.globals.len()],
-            program,
+    ) -> NativeExecutor {
+        let outline = Outline::of(program, &image);
+        let code = Box::new(WithImage {
             code,
-            image,
+            _image: image,
+        });
+        NativeExecutor::from_outline(outline, code, limits, stack_size)
+    }
+
+    /// The executor for the program `outline` describes, and its `code`,
+    /// which owns what its tables point into: as [`NativeExecutor::new`],
+    /// for an executable built with `--native` (stage NO6 of
+    /// docs/proposals/native-only.md).
+    pub fn from_outline(
+        outline: Outline,
+        code: Box<dyn NativeIslands>,
+        limits: Limits,
+        stack_size: usize,
+    ) -> NativeExecutor {
+        NativeExecutor {
+            globals: vec![None; outline.globals.len()],
+            outline,
+            code,
             counts: EffectCounts::default(),
             steps: 0,
             limits,
@@ -949,7 +1004,7 @@ impl<'p> NativeExecutor<'p> {
     ) -> Result<Value, ResourceError> {
         let stack_floor = self.stack_floor();
         let mut run = NativeRun {
-            program: self.program,
+            outline: &self.outline,
             globals: &mut self.globals,
             counts: &mut self.counts,
             steps: self.steps,
@@ -968,7 +1023,7 @@ impl<'p> NativeExecutor<'p> {
             // Out of frames (or, were the bound wrong, at the stack check
             // behind them): the frames that left, by body, as the machine
             // counts its own.
-            self.deepest = crate::machine::deepest(run.bodies.iter().copied());
+            self.deepest = crate::shared::deepest(run.bodies.iter().copied());
         }
         if out.is_err() {
             run.release_failed();
@@ -989,7 +1044,7 @@ impl<'p> NativeExecutor<'p> {
     }
 }
 
-impl crate::run::Executor for NativeExecutor<'_> {
+impl crate::run::Executor for NativeExecutor {
     #[allow(unsafe_code)]
     fn entry(&mut self) -> Result<Value, ResourceError> {
         // Counted as the machine's `push` of the entry's frame counts it.
@@ -1022,12 +1077,16 @@ impl crate::run::Executor for NativeExecutor<'_> {
         self.steps = 0;
     }
 
-    fn program(&self) -> &Program {
-        self.program
+    fn shapes(&self) -> &Shapes {
+        &self.outline.shapes
+    }
+
+    fn main_row(&self) -> MainRow {
+        self.outline.main_row
     }
 
     fn depth_report(&self) -> Option<String> {
-        crate::machine::depth_report(self.program, &self.image, &self.deepest)
+        self.outline.depth_report(&self.deepest)
     }
 }
 
@@ -1035,9 +1094,9 @@ impl crate::run::Executor for NativeExecutor<'_> {
 //
 // The runtime functions compiled code calls. Each takes raw pointers, which
 // compiled code makes only from: its own registers and temporaries (stack
-// slots of whole values, initialised), the machine's image (constants,
-// operand lists, tables), which outlives every run, and the context it was
-// given. Each does exactly what the machine's instruction does, in the same
+// slots of whole values, initialised), the tables (constants, number
+// tables: the image's, or an executable's), which outlive every run, and the
+// context it was given. Each does exactly what the machine's instruction does, in the same
 // order, so the allocation trace is the same.
 
 /// Reads a value from the three words native code holds it in.
@@ -1423,7 +1482,7 @@ pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Valu
     // SAFETY: the context's run outlives the native call.
     let run = unsafe { &mut *(*context).run };
     if run.globals[g as usize].is_none()
-        && let GlobalKind::Constant { .. } = run.program.globals[g as usize].kind
+        && let Kind::Constant = run.outline.globals[g as usize].kind
     {
         return 0;
     }
@@ -1467,8 +1526,8 @@ fn function_value(run: &mut NativeRun<'_>, g: u32) -> Value {
     if let Some(v) = &run.globals[g as usize] {
         return v.clone();
     }
-    let v = match &run.program.globals[g as usize].kind {
-        GlobalKind::Native(op) if op.arity() == 0 => Value::Erased,
+    let v = match &run.outline.globals[g as usize].kind {
+        Kind::Native(op) if op.arity() == 0 => Value::Erased,
         _ => Value::Fun(Rc::new(Fun::Global(g))),
     };
     run.globals[g as usize] = Some(v.clone());
@@ -1531,7 +1590,7 @@ pub unsafe extern "C" fn sw_apply_cached(
     // global and every lambda.
     let (program, functions, lambdas) = unsafe {
         (
-            (*(*context).run).program,
+            (*(*context).run).outline,
             (*context).functions,
             (*context).lambdas,
         )
@@ -1541,14 +1600,14 @@ pub unsafe extern "C" fn sw_apply_cached(
     };
     let (key, code) = match &**fun {
         Fun::Global(g) => match program.globals[*g as usize].kind {
-            GlobalKind::Function { params, .. } if u64::from(params) == n => {
+            Kind::Function { params } if u64::from(params) == n => {
                 (fun_key(FUN_GLOBAL, *g), unsafe {
                     *functions.add(*g as usize)
                 })
             }
             _ => return 0,
         },
-        Fun::Closure { lambda, .. } if u64::from(program.lambdas[*lambda as usize].params) == n => {
+        Fun::Closure { lambda, .. } if u64::from(program.lambda_params[*lambda as usize]) == n => {
             (fun_key(FUN_CLOSURE, *lambda), unsafe {
                 *lambdas.add(*lambda as usize)
             })
@@ -1663,7 +1722,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
             (*context).lambdas,
         )
     };
-    let program = run.program;
+    let program = run.outline;
     let f = unsafe { f.read() };
     // A partial application given exactly the rest of its arguments, whose
     // head is a compiled global function or a closure: the common case of
@@ -1677,10 +1736,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
         let total = held.len() + n as usize;
         let target = match &**h {
             Fun::Global(g)
-                if matches!(
-                    program.globals[*g as usize].kind,
-                    GlobalKind::Function { .. }
-                ) =>
+                if matches!(program.globals[*g as usize].kind, Kind::Function { .. }) =>
             {
                 // SAFETY: the table has an entry for every global.
                 Some((unsafe { *functions.add(*g as usize) }, false))
@@ -1693,7 +1749,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
         };
         if let Some((code, closure)) = target
             && !code.is_null()
-            && total == crate::machine::arity(program, head)
+            && total == crate::shared::arity(program, head)
             && total <= unsafe { (*plan).cap } as usize
         {
             // A closure head's reference becomes the callee's `env`, as below.
@@ -1746,7 +1802,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
             Fun::Pap { head, args } => (head, args),
             _ => (&f, &[]),
         };
-        let arity = crate::machine::arity(program, head);
+        let arity = crate::shared::arity(program, head);
         let total = held.len() + args.len();
         let mut all = if held.is_empty() {
             std::mem::take(&mut args)
@@ -1774,7 +1830,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
         let mut bound = None;
         match &**h {
             Fun::Global(g) => match program.globals[*g as usize].kind {
-                GlobalKind::Native(op) if applicable_native(op) => {
+                Kind::Native(op) if applicable_native(op) => {
                     let v = {
                         let refs: Vec<&Value> = all.iter().collect();
                         crate::prims::eval(&program.shapes, op, &refs)
@@ -1782,7 +1838,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
                     drop(std::mem::take(&mut all));
                     value = Some(v);
                 }
-                GlobalKind::Native(PrimOp::Text(crate::natives::TextNative::TextFold)) => {
+                Kind::Native(PrimOp::Text(crate::natives::TextNative::TextFold)) => {
                     // The compiled `Text.fold` (stage NO1 of
                     // native-only.md), called with no frame of its own, as
                     // the machine's `enter` runs it.
@@ -1794,14 +1850,14 @@ pub unsafe extern "C" fn sw_apply_prepare(
                 // value here (or `k x` goes round again); a fold,
                 // `translate` or `runPure` is the runtime's `rt_loop` on
                 // the handler and computation made here ([`LOOP_CODE`]).
-                GlobalKind::Native(PrimOp::Effect(op)) => {
+                Kind::Native(PrimOp::Effect(op)) => {
                     let mut taken = std::mem::take(&mut all).into_iter();
                     let mut arg = || taken.next().expect("an effect native's arguments");
                     let s = &program.shapes;
                     match op {
                         EffectOp::Bind => match (arg(), arg()) {
                             (Value::Data(tag, fields), k) if tag == s.done => {
-                                bound = Some((k, crate::machine::field(fields, 0)));
+                                bound = Some((k, crate::effect::field(fields, 0)));
                             }
                             (c, k) => {
                                 run.counts.binds += 1;
@@ -1809,19 +1865,19 @@ pub unsafe extern "C" fn sw_apply_prepare(
                             }
                         },
                         EffectOp::FoldState | EffectOp::FoldStateComp => {
-                            value = Some(crate::machine::state_handler(s, op, arg));
+                            value = Some(crate::effect::state_handler(s, op, arg));
                         }
                         // The code has the runtime's bodies: anything that
                         // uses an effect native does (`Context::resumes`).
                         _ => {
-                            let (handler, c) = crate::machine::handler_for(s, op, arg);
+                            let (handler, c) = crate::effect::handler_for(s, op, arg);
                             code = LOOP_CODE as *const u8;
                             env = Rc::into_raw(handler) as u64;
                             all = vec![c];
                         }
                     }
                 }
-                GlobalKind::Function { .. } => {
+                Kind::Function { .. } => {
                     // SAFETY: the table has an entry for every global.
                     code = unsafe { *functions.add(*g as usize) };
                 }
@@ -1838,20 +1894,20 @@ pub unsafe extern "C" fn sw_apply_prepare(
             // The effect runtime's leaves: a value now, as `enter` makes it.
             Fun::DoneK => {
                 let y = all.pop().expect("one argument");
-                value = Some(crate::machine::done_k(&program.shapes, y));
+                value = Some(crate::effect::done_k(&program.shapes, y));
             }
             Fun::StateK(resume) => {
                 let y = all.pop().expect("one argument");
-                value = Some(crate::machine::state_k(&program.shapes, resume, y));
+                value = Some(crate::effect::state_k(&program.shapes, resume, y));
             }
             Fun::JumpK => {
                 let s = all.pop().expect("two arguments");
                 let v = all.pop().expect("two arguments");
-                value = Some(crate::machine::jump_k(v, s));
+                value = Some(crate::effect::jump_k(v, s));
             }
             Fun::DelayK(capture) => {
                 let y = all.pop().expect("one argument");
-                value = Some(crate::machine::delay_k(capture, y));
+                value = Some(crate::effect::delay_k(capture, y));
             }
             // A lazy resumption suspends (a value now); an eager one, and a
             // state-passing handler's function of the state, are the
@@ -1860,7 +1916,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
             Fun::Resume(resume, true) => {
                 let y = all.pop().expect("one argument");
                 let counts = &mut run.counts;
-                value = Some(crate::machine::resume_lazily(
+                value = Some(crate::effect::resume_lazily(
                     &program.shapes,
                     counts,
                     resume,
@@ -1999,7 +2055,7 @@ pub unsafe extern "C" fn sw_unary(
 ) {
     // SAFETY: the caller's contract.
     unsafe {
-        let shapes = &(*(*context).run).program.shapes;
+        let shapes = &(*(*context).run).outline.shapes;
         let src = &*src;
         let v = match op {
             UNARY_INT_OF_NAT => crate::prims::int_to_nat(src),
@@ -2037,10 +2093,10 @@ pub unsafe extern "C" fn sw_bind(
 ) -> u64 {
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
-    let s = run.program.shapes;
+    let s = run.outline.shapes;
     match unsafe { c.read() } {
         Value::Data(tag, fields) if tag == s.done => {
-            unsafe { out.write(crate::machine::field(fields, 0)) };
+            unsafe { out.write(crate::effect::field(fields, 0)) };
             1
         }
         c => {
@@ -2071,9 +2127,9 @@ pub unsafe extern "C" fn sw_eff_state(
 ) {
     let op = EffectOp::ALL[op as usize];
     // SAFETY: the caller's contract.
-    let shapes = unsafe { &(*(*context).run).program.shapes };
+    let shapes = unsafe { &(*(*context).run).outline.shapes };
     let mut i = 0;
-    let v = crate::machine::state_handler(shapes, op, || {
+    let v = crate::effect::state_handler(shapes, op, || {
         // SAFETY: the caller's contract: the op's values, each read once.
         let v = unsafe { args.add(i).read() };
         i += 1;
@@ -2104,7 +2160,7 @@ pub unsafe extern "C" fn sw_text_last(
     // SAFETY: the caller's contract.
     let (shapes, text) = unsafe {
         (
-            &(*(*context).run).program.shapes,
+            &(*(*context).run).outline.shapes,
             crate::prims::text_of(&*t),
         )
     };
@@ -2205,9 +2261,9 @@ pub unsafe extern "C" fn sw_eff_begin(
 ) -> u64 {
     let op = EffectOp::ALL[op as usize];
     // SAFETY: the caller's contract.
-    let shapes = unsafe { &(*(*context).run).program.shapes };
+    let shapes = unsafe { &(*(*context).run).outline.shapes };
     let mut i = 0;
-    let (handler, comp) = crate::machine::handler_for(shapes, op, || {
+    let (handler, comp) = crate::effect::handler_for(shapes, op, || {
         // SAFETY: the caller's contract: the op's values, each read once.
         let v = unsafe { args.add(i).read() };
         i += 1;
@@ -2247,7 +2303,7 @@ pub unsafe extern "C" fn sw_eff_step(
 ) -> u64 {
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
-    let s = &run.program.shapes;
+    let s = &run.outline.shapes;
     let counts = &mut run.counts;
     counts.steps += 1;
     let write = |i: usize, v: Value| {
@@ -2260,7 +2316,7 @@ pub unsafe extern "C" fn sw_eff_step(
     };
     if tag == s.bind_node {
         counts.pushes += 1;
-        let (inner, k) = crate::machine::pair(fields);
+        let (inner, k) = crate::effect::pair(fields);
         // SAFETY: the caller's contract: `pending` is taken and replaced.
         unsafe {
             let rest = pending.read();
@@ -2274,8 +2330,8 @@ pub unsafe extern "C" fn sw_eff_step(
     if tag == s.done {
         if let Value::Data(_, cell) = list {
             counts.pops += 1;
-            let (k, next) = crate::machine::pair(cell);
-            let x = crate::machine::field(fields, 0);
+            let (k, next) = crate::effect::pair(cell);
+            let x = crate::effect::field(fields, 0);
             // SAFETY: as above.
             unsafe { pending.write(next) };
             write(0, k);
@@ -2290,18 +2346,18 @@ pub unsafe extern "C" fn sw_eff_step(
             Handler::Fold { done, .. } => {
                 let done = done.clone();
                 write(0, done);
-                write(1, crate::machine::field(fields, 0));
+                write(1, crate::effect::field(fields, 0));
                 STEP_DONE
             }
             // `done v s`, the state still the loop's.
             Handler::State { done, .. } => {
                 let done = done.clone();
                 write(0, done);
-                write(1, crate::machine::field(fields, 0));
+                write(1, crate::effect::field(fields, 0));
                 STEP_STATE_DONE
             }
             Handler::RunPure => {
-                write(0, crate::machine::field(fields, 0));
+                write(0, crate::effect::field(fields, 0));
                 STEP_RETURN
             }
             Handler::Translate { .. } | Handler::Step => {
@@ -2323,7 +2379,7 @@ pub unsafe extern "C" fn sw_eff_step(
         write(0, Value::Data(s.call, fields));
         return STEP_RETURN;
     }
-    let (o, rest) = crate::machine::pair(fields);
+    let (o, rest) = crate::effect::pair(fields);
     let resume = |handler, op| {
         Rc::new(Resume {
             handler,
@@ -2410,13 +2466,13 @@ pub unsafe extern "C" fn sw_state_step(
     // SAFETY: the caller's contract.
     let (run, v, resume) = unsafe { (&mut *(*context).run, v.read(), resume_taken(resume)) };
     let counts = &mut run.counts;
-    match crate::machine::state_step(counts, v, resume) {
-        crate::machine::StateStep::Value(v) => {
+    match crate::effect::state_step(counts, v, resume) {
+        crate::effect::StateStep::Value(v) => {
             // SAFETY: the caller's contract.
             unsafe { out.write(v) };
             0
         }
-        crate::machine::StateStep::Jump {
+        crate::effect::StateStep::Jump {
             handler: h,
             rest,
             pending: p,

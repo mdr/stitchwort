@@ -3,34 +3,42 @@
 //! with the `program.o` it writes, as the static library
 //! `libstitchwort_standalone.a`.
 //!
-//! The object provides the program, encoded by [`stitchwort_rt::encode`],
-//! as two symbols: `sw_program`, its bytes, and `sw_program_len`, how many
-//! there are. This library provides C `main`, which runs that program as
-//! `stitchwort run` would run it, without the front end: no parser, checker
-//! or source.
+//! The object defines `sw_native_manifest` (`stitchwort_rt::native_aot`),
+//! which names one of this library's two ways of running the executable,
+//! and gives it its data. This library provides C `main`, which calls that
+//! way, and runs the program as `stitchwort run` would run it, without the
+//! front end: no parser, checker or source.
 //!
 //! - It catches the signals that would end the run (`catch_signals`) before
 //!   any thread starts, so that Ctrl-C puts the terminal back.
-//! - It decodes the program and runs it as `run --native` does
-//!   ([`stitchwort_rt::run_main_native`]): natively, every body `main`
-//!   reaches, as `stitchwort build --native` compiled them (stage S5:
-//!   [`aot`], from the object's `sw_native_manifest`; stage NO4 of
-//!   native-only.md: the entry too), on a thread with the stack the build
-//!   sized for them (stage NO5); or, built without `--native`, on the
-//!   machine. It runs with the Unix terminal, standard input locked and a
-//!   `BufWriter` on standard output.
-//! - It reports errors as `stitchwort run` does, without the excerpt of
-//!   `main`'s source, which the binary doesn't have (§2.4), and exits with
-//!   `run`'s statuses: 0, 1 for an unhandled `Fail`, 2 for a runtime error.
+//! - Built with `--native`, the way is [`sw_run_native`]: it reads the
+//!   tables and literals (`stitchwort_rt::linked`) and runs the program as
+//!   `run --native` does ([`stitchwort_rt::run_main_linked`]): every body
+//!   `main` reaches as native code, as `stitchwort build --native` compiled
+//!   them (stage S5: [`aot`]; stage NO4 of native-only.md: the entry too),
+//!   on a thread with the stack the build sized for them (stage NO5), with
+//!   no program, image, codec or machine (stage NO6).
+//! - Built without, the way is [`sw_run_machine`]: it decodes the program
+//!   (`stitchwort_rt::decode`) and runs it on the machine.
+//!
+//! `main` refers to neither way itself, so the linker keeps only the one
+//! the object names: an executable built with `--native` has no machine in
+//! it. Either way it runs with the Unix terminal, standard input locked and
+//! a `BufWriter` on standard output, and reports errors as `stitchwort run`
+//! does, without the excerpt of `main`'s source, which the binary doesn't
+//! have (§2.4), with `run`'s exit statuses: 0, 1 for an unhandled `Fail`, 2
+//! for a runtime error.
 
 use std::io::{self, BufWriter, Write};
 
 use stitchwort_rt::host::RunError;
 use stitchwort_rt::native_aot::Manifest;
+#[cfg(not(test))]
+use stitchwort_rt::native_aot::RunExecutable;
 
 pub mod aot;
 
-/// The executable's allocator, as `stitchwort`'s: the machine allocates and
+/// The executable's allocator, as `stitchwort`'s: the runtime allocates and
 /// frees cells by the million.
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -47,18 +55,13 @@ pub const EXIT_PANIC: i32 = 101;
 /// `stitchwort run`'s.
 pub const MACHINE_STACK: usize = 64 * 1024 * 1024;
 
-/// Runs the encoded program `bytes` as `stitchwort run` runs a program, and
-/// reports how it ended on standard error. Returns the exit status.
-/// `manifest` describes the native code linked in, if any
-/// (`sw_native_manifest`): the program then runs on a thread with the stack
-/// the build sized for it, and if that can't be reserved, says so and exits
-/// with [`EXIT_ERROR`] before running anything.
-pub fn run_encoded(bytes: &'static [u8], manifest: Option<&'static Manifest>) -> i32 {
-    let native = manifest.filter(|manifest| !manifest.enter.is_null());
-    let stack = native.map_or(MACHINE_STACK, |manifest| manifest.stack_size as usize);
-    let ran = std::panic::catch_unwind(|| {
-        stitchwort_host::try_with_stack(stack, move || run_on_this_thread(bytes, manifest))
-    });
+/// Runs `run` on a thread with a stack of `stack` bytes. Returns its exit
+/// status, or, if the stack can't be reserved, says so and returns
+/// [`EXIT_ERROR`] before running anything.
+fn on_stack(stack: usize, run: impl FnOnce() -> i32 + Send) -> i32 {
+    let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        stitchwort_host::try_with_stack(stack, run)
+    }));
     match ran {
         Ok(Ok(status)) => status,
         Ok(Err(e)) => {
@@ -71,31 +74,73 @@ pub fn run_encoded(bytes: &'static [u8], manifest: Option<&'static Manifest>) ->
     }
 }
 
-fn run_on_this_thread(bytes: &[u8], manifest: Option<&'static Manifest>) -> i32 {
-    let (program, limits) = match stitchwort_rt::decode(bytes) {
-        Ok(decoded) => decoded,
-        Err(e) => {
-            eprintln!("error: this executable's program can't be read: {}", e.0);
-            return EXIT_ERROR;
-        }
-    };
-    // The native code linked in, if any, checked against the image the
-    // runtime rebuilt, before the program runs at all: a mismatch ends the
-    // process with nothing done.
-    let image = stitchwort_rt::code::compile(&program);
-    let native = match manifest {
-        // SAFETY: `manifest` is `sw_native_manifest`, as the compiler wrote
-        // it, with its tables and code linked into this executable.
-        #[allow(unsafe_code)]
-        Some(manifest) => match unsafe { aot::AotIslands::new(manifest, &program, &image) } {
-            Ok(islands) => islands.map(|islands| (islands, manifest.stack_size as usize)),
+/// Runs the encoded program `bytes` on the machine as `stitchwort run`
+/// runs a program, and reports how it ended on standard error. Returns the
+/// exit status.
+pub fn run_encoded(bytes: &'static [u8]) -> i32 {
+    on_stack(MACHINE_STACK, move || {
+        let (program, limits) = match stitchwort_rt::decode(bytes) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                eprintln!("error: this executable's program can't be read: {}", e.0);
+                return EXIT_ERROR;
+            }
+        };
+        with_terminal(|input, output, terminal| {
+            stitchwort_rt::run_main_on(&program, limits, input, output, terminal)
+        })
+    })
+}
+
+/// Runs the native code `manifest` describes, with its tables and literals,
+/// as `stitchwort run --native` runs a program, on a thread with the stack
+/// the build sized, and reports how it ended. Returns the exit status. If
+/// the code can't run here, says so and returns [`EXIT_ERROR`] with nothing
+/// run.
+///
+/// # Safety
+/// `manifest` is `sw_native_manifest`, as the compiler wrote it, with its
+/// data and code linked into this executable.
+#[allow(unsafe_code)]
+pub unsafe fn run_native(manifest: &'static Manifest) -> i32 {
+    let stack = manifest.stack_size as usize;
+    on_stack(stack, move || {
+        // SAFETY: the caller's contract. A mismatch ends the process with
+        // nothing done.
+        let aot::Linked {
+            islands,
+            outline,
+            limits,
+        } = match unsafe { aot::AotIslands::read(manifest) } {
+            Ok(linked) => linked,
             Err(aot::Mismatch(why)) => {
                 eprintln!("internal error: this executable can't run: {why}");
                 return EXIT_ERROR;
             }
-        },
-        None => None,
-    };
+        };
+        with_terminal(|input, output, terminal| {
+            stitchwort_rt::run_main_linked(
+                outline,
+                Box::new(islands),
+                limits,
+                stack,
+                input,
+                output,
+                terminal,
+            )
+        })
+    })
+}
+
+/// Runs `run` with standard input, a buffered standard output and the
+/// terminal, then reports how it ended. Returns the exit status.
+fn with_terminal(
+    run: impl FnOnce(
+        &mut io::StdinLock<'static>,
+        &mut BufWriter<io::StdoutLock<'static>>,
+        &mut dyn stitchwort_rt::host::Terminal,
+    ) -> Result<(), RunError>,
+) -> i32 {
     let mut input = io::stdin().lock();
     let mut output = BufWriter::new(io::stdout().lock());
     #[cfg(unix)]
@@ -105,21 +150,7 @@ fn run_on_this_thread(bytes: &[u8], manifest: Option<&'static Manifest>) -> i32 
     );
     #[cfg(not(unix))]
     let (mut terminal, restore) = (stitchwort_rt::host::NoTerminal, ());
-    let result = match native {
-        Some((islands, stack_size)) => stitchwort_rt::run_main_native(
-            &program,
-            image,
-            Box::new(islands),
-            limits,
-            stack_size,
-            &mut input,
-            &mut output,
-            &mut terminal,
-        ),
-        None => {
-            stitchwort_rt::run_main_on(&program, limits, &mut input, &mut output, &mut terminal)
-        }
-    };
+    let result = run(&mut input, &mut output, &mut terminal);
     // Out of keys mode before an error is shown, so it's on the normal
     // screen.
     drop(restore);
@@ -150,15 +181,35 @@ pub fn report(error: &RunError) -> (i32, String) {
     (EXIT_ERROR, text)
 }
 
-// The program, from the `program.o` that `stitchwort build` writes.
+/// The way an executable built without `--native` runs: its encoded
+/// program on the machine ([`run_encoded`]). Named by the object's
+/// manifest (`native_aot::RUN_MACHINE`).
+///
+/// # Safety
+/// `manifest` is `sw_native_manifest`, whose data is the encoded program.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_run_machine(manifest: &'static Manifest) -> i32 {
+    // SAFETY: the caller's contract.
+    run_encoded(unsafe { manifest.data() })
+}
+
+/// The way an executable built with `--native` runs ([`run_native`]).
+/// Named by the object's manifest (`native_aot::RUN_NATIVE`).
+///
+/// # Safety
+/// As [`run_native`].
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_run_native(manifest: &'static Manifest) -> i32 {
+    // SAFETY: the caller's contract.
+    unsafe { run_native(manifest) }
+}
+
+// The manifest, from the `program.o` that `stitchwort build` writes.
 #[cfg(not(test))]
 #[allow(unsafe_code)]
 unsafe extern "C" {
-    /// The encoded program's first byte.
-    static sw_program: u8;
-    /// How many bytes it has.
-    static sw_program_len: usize;
-    /// The native code linked in (none, without `--native`).
     static sw_native_manifest: Manifest;
 }
 
@@ -184,13 +235,22 @@ pub extern "C" fn main(
     }
     #[cfg(unix)]
     stitchwort_host::terminal::catch_signals();
-    // SAFETY: `program.o` defines `sw_program` as `sw_program_len` bytes of
-    // read-only data, which live as long as the process; nothing writes them.
-    let bytes = unsafe { std::slice::from_raw_parts(&raw const sw_program, sw_program_len) };
     // SAFETY: `program.o` defines `sw_native_manifest` as a manifest
     // (`stitchwort_rt::native_aot`), read-only for the process's life.
     let manifest = unsafe { &sw_native_manifest };
-    run_encoded(bytes, Some(manifest))
+    if let Err(aot::Mismatch(why)) = aot::check_version(manifest) {
+        eprintln!("internal error: this executable can't run: {why}");
+        return EXIT_ERROR;
+    }
+    if manifest.run.is_null() {
+        eprintln!("internal error: this executable can't run: its manifest names no way to run it");
+        return EXIT_ERROR;
+    }
+    // SAFETY: the compiler wrote `run` as the address of `sw_run_native` or
+    // `sw_run_machine`, which have this type.
+    let run = unsafe { std::mem::transmute::<*const u8, RunExecutable>(manifest.run) };
+    // SAFETY: `manifest` is the one `run` was written into, with its data.
+    unsafe { run(manifest) }
 }
 
 #[cfg(test)]
@@ -219,6 +279,6 @@ mod tests {
 
     #[test]
     fn bytes_that_arent_a_program_are_an_error() {
-        assert_eq!(run_encoded(b"not a program", None), EXIT_ERROR);
+        assert_eq!(run_encoded(b"not a program"), EXIT_ERROR);
     }
 }

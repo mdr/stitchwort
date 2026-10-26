@@ -420,7 +420,8 @@ fn seeded_rogue(dir: &Path) -> PathBuf {
 
 /// Milestone M1: the roguelike, built from its folder, plays as `stitchwort
 /// run Rogue.main` does on the same keys; and in a terminal, `q` quits it
-/// with the terminal put back.
+/// with the terminal put back. Built without `--native`, it has the machine
+/// (and the check below would find it), and no native code's runtime.
 #[test]
 fn the_roguelike_plays_as_it_does_under_run() {
     if !have_cc() {
@@ -437,7 +438,20 @@ fn the_roguelike_plays_as_it_does_under_run() {
     assert_eq!(text(&built.stderr), "");
     assert!(!built.stdout.is_empty());
     assert_eq!(text(&built.stdout), text(&ran.stdout));
+    if let Some(symbols) = rust_symbols(&exe) {
+        assert!(
+            !of_modules(&symbols, &["machine", "code", "codec"]).is_empty(),
+            "no machine found: the check of `--native` executables can't see it"
+        );
+        assert!(of_modules(&symbols, &["linked"]).is_empty());
+    }
+    plays_in_a_terminal(&exe);
+}
 
+/// In a terminal, the roguelike `exe` starts in keys mode, moves, and `q`
+/// quits it with the terminal put back and its ending on the normal
+/// screen. Nothing where there's no pseudo-terminal.
+fn plays_in_a_terminal(exe: &Path) {
     #[cfg(unix)]
     {
         let Some(mut s) = pty::Session::start(&[exe.as_os_str()], false) else {
@@ -458,6 +472,51 @@ fn the_roguelike_plays_as_it_does_under_run() {
         // The ending is printed on the normal screen.
         assert!(left < screen.len() - pty::LEAVE_SCREEN.len(), "{screen:?}");
     }
+    #[cfg(not(unix))]
+    let _ = exe;
+}
+
+/// The Rust symbols `exe` defines, demangled by `nm -C`: `None`, having
+/// said the check is skipped, if there's no `nm`.
+fn rust_symbols(exe: &Path) -> Option<Vec<String>> {
+    let Ok(listed) = Command::new("nm").arg("-C").arg(exe).output() else {
+        eprintln!("skipped the symbol check: no nm");
+        return None;
+    };
+    assert!(listed.status.success(), "{}", text(&listed.stderr));
+    let symbols: Vec<String> = text(&listed.stdout)
+        .lines()
+        .filter_map(|line| line.splitn(3, ' ').nth(2))
+        .map(str::to_string)
+        .collect();
+    // Demangled: the runtime's own functions are there by their paths.
+    assert!(
+        symbols
+            .iter()
+            .any(|name| name.starts_with("stitchwort_rt::")),
+        "nm -C demangled nothing"
+    );
+    Some(symbols)
+}
+
+/// Those of `symbols` defined in `stitchwort_rt`'s `modules`: functions
+/// of the module (`stitchwort_rt::machine::…`) and methods of its types
+/// (`<stitchwort_rt::machine::Machine …>::…`). Not a generic of another
+/// module's, such as the standard library's, merely given one of the
+/// module's types: the compiler merges identical instantiations under one
+/// of their names, which may be the machine's (`Runner<Machine>`'s
+/// closure for `Runner<NativeExecutor>`'s), with none of the machine's own
+/// code.
+fn of_modules<'s>(symbols: &'s [String], modules: &[&str]) -> Vec<&'s String> {
+    symbols
+        .iter()
+        .filter(|name| {
+            let name = name.strip_prefix('<').unwrap_or(name);
+            modules
+                .iter()
+                .any(|module| name.starts_with(&format!("stitchwort_rt::{module}::")))
+        })
+        .collect()
 }
 
 /// In a terminal: `q` ends the walking example, and Ctrl-C a program waiting
@@ -778,8 +837,9 @@ fn native_code_out_of_frames_reports_as_run_does() {
     }
 }
 
-/// Milestone M2: the roguelike built with `--native` runs every body but
-/// its entry natively (stage N4), and plays as under `run`.
+/// Milestone M2: the roguelike built with `--native` runs every body
+/// natively (its entry too since stage NO4), and plays as under `run`, piped
+/// and in a terminal, with no machine inside (stage NO6).
 #[cfg(feature = "native")]
 #[test]
 fn the_roguelike_built_native_plays_as_it_does_under_run() {
@@ -822,6 +882,15 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
     assert_eq!(text(&built.stderr), "");
     assert!(!built.stdout.is_empty());
     assert_eq!(text(&built.stdout), text(&ran.stdout));
+    // No machine inside (stage NO6 of docs/proposals/native-only.md): none
+    // of the machine, the bytecode compiler or the codec is linked, and
+    // the tables and literals are read instead.
+    if let Some(symbols) = rust_symbols(&exe) {
+        let machine = of_modules(&symbols, &["machine", "code", "codec"]);
+        assert!(machine.is_empty(), "{machine:#?}");
+        assert!(!of_modules(&symbols, &["linked"]).is_empty());
+    }
+    plays_in_a_terminal(&exe);
 }
 
 /// A guard (stage NO3 of docs/proposals/native-only.md, kept where NO5

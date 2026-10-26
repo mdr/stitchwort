@@ -7,23 +7,31 @@
 //! The run is `run --native`'s (the note's §3.3): the runner drives the
 //! native code, entry and all, through the same executor and crossing
 //! (`native_abi::NativeExecutor`, `Crossing`; stage NO4 of
-//! native-only.md), with no part on the machine. The runtime builds
-//! the tables the code reads (`TableStore`) from the image it rebuilt,
-//! after checking that it is the image the code was compiled for.
+//! native-only.md). Since stage NO6 there is no program, image or machine
+//! here: the runtime builds the tables the code reads (`TableStore`) from
+//! the tables and literals the object carries (`stitchwort_rt::linked`).
 
-use stitchwort_rt::code::Image;
-use stitchwort_rt::ir::Program;
+use stitchwort_rt::Limits;
+use stitchwort_rt::linked::{self, LinkedTables, Outline};
 use stitchwort_rt::native_abi::{
     self as abi, ApplyTrampoline, CrossingCode, EnterTrampoline, NativeIslands, StepTrampoline,
 };
-use stitchwort_rt::native_aot::{
-    FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash,
-};
+use stitchwort_rt::native_aot::{FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest};
 
-/// The linked native code of one program.
+/// The linked native code of one program, and the tables it reads.
 pub struct AotIslands {
-    /// The code's tables and the crossing, shared with `run --native`.
+    /// The code's tables and the crossing, shared with `run --native`;
+    /// dropped before the tables it points into.
     crossing: abi::Crossing,
+    _tables: LinkedTables,
+}
+
+/// What [`AotIslands::read`] reads from the object: the code, what the
+/// runtime needs to know of the program, and the limits it runs under.
+pub struct Linked {
+    pub islands: AotIslands,
+    pub outline: Outline,
+    pub limits: Limits,
 }
 
 /// Why linked native code can't run the program.
@@ -44,51 +52,51 @@ unsafe fn table<T>(pointer: *const T, len: u64) -> &'static [T] {
     }
 }
 
+/// Whether `manifest` is one this runtime reads: the magic and version.
+pub fn check_version(manifest: &Manifest) -> Result<(), Mismatch> {
+    if manifest.magic != MANIFEST_MAGIC || manifest.version != MANIFEST_VERSION {
+        return Err(Mismatch(format!(
+            "its native code's manifest is version {} ({:#x}), where this runtime reads \
+             version {MANIFEST_VERSION}",
+            manifest.version, manifest.magic
+        )));
+    }
+    Ok(())
+}
+
 impl AotIslands {
-    /// The code `manifest` describes, for `program` and its rebuilt
-    /// `image`: `Ok(None)` if the executable has no native code (built
-    /// without `--native`), and an error if the code can't run: compiled for
-    /// another image (its numbering would be wrong), or for a layout of
-    /// values this runtime doesn't have (`abi::probe_layout`). The stack it
-    /// runs on is the manifest's `stack_size`, which the caller reserved.
+    /// The code `manifest` describes, with its tables and literals read,
+    /// or an error if the code can't run: a manifest of another version,
+    /// no code, tables that can't be read (written by another build, say:
+    /// the code's numbering is that build's) or that don't match the code,
+    /// or a layout of values this runtime doesn't have
+    /// (`abi::probe_layout`). The stack it runs on is the manifest's
+    /// `stack_size`, which the caller reserved.
     ///
     /// # Safety
-    /// `manifest` is a manifest as the compiler writes it, whose tables
-    /// and code live as long as the process: `sw_native_manifest`.
+    /// `manifest` is a manifest as the compiler writes it, whose tables,
+    /// data and code live as long as the process: `sw_native_manifest`.
     #[allow(unsafe_code)]
-    pub unsafe fn new(
-        manifest: &'static Manifest,
-        program: &Program,
-        image: &Image,
-    ) -> Result<Option<AotIslands>, Mismatch> {
-        if manifest.magic != MANIFEST_MAGIC || manifest.version != MANIFEST_VERSION {
-            return Err(Mismatch(format!(
-                "its native code's manifest is version {} ({:#x}), where this runtime reads \
-                 version {MANIFEST_VERSION}",
-                manifest.version, manifest.magic
-            )));
-        }
+    pub unsafe fn read(manifest: &'static Manifest) -> Result<Linked, Mismatch> {
+        check_version(manifest)?;
         if manifest.enter.is_null() {
-            return Ok(None);
+            return Err(Mismatch("it has no native code".to_string()));
         }
-        let hash = image_hash(image);
-        if manifest.image_hash != hash {
+        // SAFETY: the caller's contract.
+        let bytes = unsafe { manifest.data() };
+        let linked::Linked {
+            outline,
+            tables,
+            limits,
+        } = linked::decode(bytes)
+            .map_err(|e| Mismatch(format!("its tables can't be read: {}", e.0)))?;
+        let n_globals = outline.globals.len() as u64;
+        let n_lambdas = outline.lambda_params.len() as u64;
+        if manifest.n_globals != n_globals || manifest.n_lambdas != n_lambdas {
             return Err(Mismatch(format!(
-                "its native code was compiled for another program image (hash {:#018x}, where \
-                 the program's is {hash:#018x})",
-                manifest.image_hash
-            )));
-        }
-        if manifest.n_globals != program.globals.len() as u64
-            || manifest.n_lambdas != image.lambda_code.len() as u64
-        {
-            return Err(Mismatch(format!(
-                "its native code was compiled for {} globals and {} lambdas, where the program \
-                 has {} and {}",
-                manifest.n_globals,
-                manifest.n_lambdas,
-                program.globals.len(),
-                image.lambda_code.len()
+                "its native code was compiled for {} globals and {} lambdas, where its tables \
+                 have {n_globals} and {n_lambdas}",
+                manifest.n_globals, manifest.n_lambdas,
             )));
         }
         // The same check `build --native` made (stage NO5 of
@@ -120,7 +128,16 @@ impl AotIslands {
                     .then(|| std::mem::transmute::<*const u8, StepTrampoline>(manifest.step)),
             )
         };
-        Ok(Some(AotIslands {
+        // The tables point into `tables`' boxes, which don't move when the
+        // islands do, and are dropped after the crossing.
+        let store = abi::TableStore::from_parts(
+            &tables.shapes,
+            &tables.pool,
+            &tables.num_tables,
+            tables.ops.clone(),
+            manifest.n_caches as usize,
+        );
+        let islands = AotIslands {
             crossing: abi::Crossing::new(
                 CrossingCode {
                     functions: functions.into(),
@@ -131,16 +148,22 @@ impl AotIslands {
                     max_frame: manifest.max_frame as usize,
                     resumes: manifest.flags & FLAG_RESUMES != 0,
                 },
-                abi::TableStore::new(program, image, manifest.n_caches as usize),
+                store,
             ),
-        }))
+            _tables: tables,
+        };
+        Ok(Linked {
+            islands,
+            outline,
+            limits,
+        })
     }
 }
 
 impl NativeIslands for AotIslands {
     fn crossing(&self) -> &abi::Crossing {
         // The tables and trampolines the manifest describes, linked into
-        // this executable, for this image (checked in `new`).
+        // this executable, with the tables read from it.
         &self.crossing
     }
 }

@@ -33,8 +33,9 @@ use std::rc::Rc;
 use super::{Driven, Focus, ReadNeed, Routed, RunInput, Runner, entry_error};
 use crate::host::{RunError, Terminal};
 use crate::ir::Program;
-use crate::machine::{Limits, Machine};
+use crate::machine::Machine;
 use crate::run::{Policy, RouteCounts};
+use crate::shared::Limits;
 use crate::value::Value;
 
 /// What a live run's limits are counted over.
