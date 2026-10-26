@@ -1719,12 +1719,12 @@ fn call_param_types(
     let (slots, taken) = match head {
         Expr::Var(name) => match head_type(cx, name) {
             HeadType::Typed(ty) => (pi_slots(cx, ty)?, None),
-            HeadType::Def(id) => (pi_slots(cx, cx.g().def(id).ty_value.clone())?, None),
+            HeadType::Def(id) => (pi_slots(cx, crate::kernel::def_ty(cx.g(), id)?)?, None),
             HeadType::Ctor(d, c) => (ctor_slots(cx, d, c, None)?, None),
             HeadType::Op | HeadType::Other => return Ok(None),
         },
         Expr::Field(recv, field) => match crate::dot::target_place(cx, recv, field)? {
-            Some((f, place)) => (pi_slots(cx, cx.g().def(f).ty_value.clone())?, place),
+            Some((f, place)) => (pi_slots(cx, crate::kernel::def_ty(cx.g(), f)?)?, place),
             None => return Ok(None),
         },
         _ => return Ok(None),
@@ -1762,7 +1762,7 @@ pub(crate) fn receiver_passed(cx: &Ctx, recv: &Expr, field: &AstName) -> Result<
     let Some((f, Some(k))) = crate::dot::target_place(cx, recv, field)? else {
         return Ok(false);
     };
-    let slots = pi_slots(cx, cx.g().def(f).ty_value.clone())?;
+    let slots = pi_slots(cx, crate::kernel::def_ty(cx.g(), f)?)?;
     match slots.iter().filter(|s| s.explicit).nth(k) {
         Some(slot) => is_comp_type(cx, &slot.ty),
         None => Ok(false),
@@ -2037,7 +2037,7 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
             HeadType::Typed(ty) if named => performs_after(cx, ty.clone(), reached(&ty))?,
             HeadType::Typed(ty) => performs_after(cx, ty, explicit)?,
             HeadType::Def(id) if named => {
-                let ty = cx.g().def(id).ty_value.clone();
+                let ty = crate::kernel::def_ty(cx.g(), id)?;
                 performs_after(cx, ty.clone(), reached(&ty))?
             }
             HeadType::Def(id) => def_performs_after(cx, id, explicit)?,
@@ -2109,7 +2109,7 @@ fn def_performs_after(cx: &Ctx, id: DefId, explicit: usize) -> Result<bool> {
     if let Some(&known) = cx.e.performs.borrow().get(&key) {
         return Ok(known);
     }
-    let found = performs_after(cx, g.def(id).ty_value.clone(), explicit)?;
+    let found = performs_after(cx, crate::kernel::def_ty(g, id)?, explicit)?;
     if g.def(id).state() == stitchwort_core::globals::State::Final {
         cx.e.performs.borrow_mut().insert(key, found);
     }
@@ -2468,7 +2468,7 @@ fn comp_value(cx: &Ctx, expr: &Expr, comp_only: bool) -> Result<bool> {
     let ty = match head_type(cx, name) {
         HeadType::Ctor(d, _) => return Ok(Ok(d) == data(cx, Builtin::Comp)),
         HeadType::Typed(ty) => ty,
-        HeadType::Def(id) => cx.g().def(id).ty_value.clone(),
+        HeadType::Def(id) => crate::kernel::def_ty(cx.g(), id)?,
         HeadType::Op | HeadType::Other => return Ok(false),
     };
     let g = cx.g();

@@ -217,7 +217,7 @@ fn destructure(
 fn project(cx: &Ctx, def: DefId, params: &[Value], level: usize) -> Result<(Term, Value)> {
     let g = cx.g();
     let mut term = Term::Def(def);
-    let mut ty = g.def(def).ty_value.clone();
+    let mut ty = crate::kernel::def_ty(g, def)?;
     let args = params
         .iter()
         .map(|p| Ok((cx.quote(p)?, p.clone(), Icit::Implicit)))

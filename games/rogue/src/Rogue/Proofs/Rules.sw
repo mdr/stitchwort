@@ -78,10 +78,8 @@ theorem monstersTurnHarmless (dice: Dice) (state: State) (none: List.All (monste
     (monstersTurn dice state).hitPoints = state.hitPoints :=
   omega [monstersTurnHurt dice state, monstersTurnNoHeal dice state, threatNone state.player state.monsters none]
 
-theorem descendHitPoints (state: State): (descend state).hitPoints = state.hitPoints :=
-  match below: state.below with
-    | Cons plan deeper => rfl
-    | [] => rfl
+theorem descendHitPoints (dice: Dice) (state: State): (descend dice state).hitPoints = state.hitPoints :=
+  rfl
 
 theorem playerMovesHitPoints (dice: Dice) (state: State) (direction: Direction): (playerMoves dice state direction).hitPoints = state.hitPoints :=
   match found: monsterAt (state.player.toward direction) state.monsters with
@@ -103,7 +101,7 @@ theorem resolveNoHeal (dice: Dice) (state: State) (command: Command) (notDrink: 
         | Drink => Void.exfalso (notDrink rfl)
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => omega [descendHitPoints state]
+            | True => omega [descendHitPoints dice state]
             | False => omega
     | Won => omega
     | Died => omega

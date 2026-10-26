@@ -63,6 +63,25 @@ pub struct Def {
     /// only when things are computed, never what's equal, so it isn't hashed;
     /// and while a program runs (erasure in effect) it unfolds at once.
     pub fold: bool,
+    /// Opaque to the checker (docs/proposals/opaque-definitions.md §6.4):
+    /// outside the declarations whose transparency set holds it
+    /// ([`Globals::transparent`]), it has a type and no body, so a call of
+    /// it is neutral, like a variable applied to arguments. Running a
+    /// program still uses the body. Set on a pending definition
+    /// ([`crate::check::mark_opaque`]); hashed when set.
+    pub opaque: bool,
+    /// The opaque definitions its body may unfold, as written (its
+    /// `unfolding` clause): set on a pending definition
+    /// ([`crate::check::set_unfolding`]), checked by `define_group` (a
+    /// definition with any must itself be opaque, and each must be final,
+    /// opaque and outside its group), and hashed in a canonical order.
+    pub unfolding: Rc<[DefId]>,
+    /// Its transparency set: the closure of [`Def::unfolding`], in which
+    /// each opaque definition brings its own set and its opaque
+    /// group-mates (D1267), sorted. Computed by `define_group` before the
+    /// body is checked under it, and never changed after. Determined by the
+    /// hashed list and the declarations it names, so not hashed itself.
+    pub(crate) transparent: Rc<[DefId]>,
     /// Its case tree has a `Quot.lift` leaf, so applied to all its
     /// parameters it may stay folded on a quotient that isn't a `Quot.mk`
     /// (`value::is_folded`, docs/proposals/map-equality.md §7.2). Set with
@@ -355,6 +374,55 @@ pub struct Globals {
     /// at, and is computed again if the count has moved since: it may have
     /// used a solution that's gone.
     pub meta_epoch: Cell<u64>,
+    /// The opaque definitions whose bodies may be used now, sorted: the
+    /// transparency set of the declaration being checked
+    /// (docs/proposals/opaque-definitions.md §6.4). Any other opaque
+    /// definition is neutral while checking ([`crate::value::hidden`]). The
+    /// kernel sets it for each check it makes ([`Transparency::set`]), and puts
+    /// back what was there. Shared, so a guard can hold it while `Globals` is
+    /// borrowed mutably.
+    pub transparent: Transparency,
+}
+
+/// The current transparency set ([`Globals::transparent`]).
+#[derive(Clone, Default)]
+pub struct Transparency(Rc<RefCell<Rc<[DefId]>>>);
+
+impl Transparency {
+    /// Makes `set` (sorted) the transparency set until the guard returned is
+    /// dropped, when the set there was comes back.
+    #[must_use]
+    pub fn set(&self, set: Rc<[DefId]>) -> TransparencyGuard {
+        let was = self.0.replace(set);
+        TransparencyGuard {
+            cell: self.clone(),
+            was: Some(was),
+        }
+    }
+
+    /// Whether the set is empty now: every opaque definition is hidden.
+    pub fn is_empty(&self) -> bool {
+        self.0.borrow().is_empty()
+    }
+
+    /// Whether `id` is in the set now.
+    pub fn contains(&self, id: DefId) -> bool {
+        self.0.borrow().binary_search(&id).is_ok()
+    }
+}
+
+/// Puts back the transparency set there was ([`Transparency::set`]).
+pub struct TransparencyGuard {
+    cell: Transparency,
+    was: Option<Rc<[DefId]>>,
+}
+
+impl Drop for TransparencyGuard {
+    fn drop(&mut self) {
+        if let Some(was) = self.was.take() {
+            *self.cell.0.borrow_mut() = was;
+        }
+    }
 }
 
 /// A call the printer shows by a local name (see
@@ -496,6 +564,7 @@ impl Globals {
             module,
             glue,
             meta_epoch: _,
+            transparent,
         } = self;
         assert!(
             mark.defs <= defs.len() && mark.datas <= datas.len(),
@@ -518,6 +587,7 @@ impl Globals {
         erasure.forget_from(mark.defs);
         *module = mark.module.clone();
         glue.set(mark.glue);
+        *transparent.0.borrow_mut() = Rc::default();
         // Bumps the epoch, so no kept unfolding is trusted.
         self.clear_metas();
     }

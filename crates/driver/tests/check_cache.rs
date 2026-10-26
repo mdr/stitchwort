@@ -260,6 +260,18 @@ fn the_cache_changes_nothing_for_the_examples() {
     });
 }
 
+/// Opaque definitions and their `unfolding` lists are replayed through the
+/// kernel (docs/proposals/opaque-definitions.md), whatever the sample.
+#[test]
+fn the_cache_replays_opaque_definitions() {
+    let project = Source::Project(
+        "opaque-across-namespaces".into(),
+        examples_dir().join("projects/accept/opaque-across-namespaces"),
+    );
+    assert_cache_changes_nothing(&project, false);
+    assert_cache_changes_nothing(&project, true);
+}
+
 #[test]
 fn the_cache_changes_nothing_for_the_aoc_project() {
     if !full_tier("the_cache_changes_nothing_for_the_aoc_project") {

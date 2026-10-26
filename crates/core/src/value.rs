@@ -500,7 +500,7 @@ pub fn force_solved(g: &Globals, value: Value) -> Result<Value> {
 /// calls (docs/proposals/folded-calls.md, stage 3).
 pub fn matches_at_once(g: &Globals, id: DefId, spine: &Spine) -> Result<bool> {
     let def = g.def(id);
-    let Some(body) = &def.body else {
+    let Some(body) = body_seen(g, id) else {
         return Ok(false);
     };
     let tree = Term::peel_lams_rc(body, def.arity);
@@ -941,7 +941,7 @@ fn quick(g: &Globals, term: &Rc<Term>, env: &Env) -> Option<Value> {
         )),
         Term::Def(id) => {
             let def = g.def(*id);
-            match &def.body {
+            match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && !folds(g, *id) => None,
                 _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
             }
@@ -958,7 +958,7 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
         Term::Var(ix) => Control::Return(env[env.len() - 1 - ix].clone()),
         Term::Def(id) => {
             let def = g.def(*id);
-            match &def.body {
+            match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
                 Some(body) if def.arity == 0 && !folds(g, *id) => {
                     Control::Eval(body.clone(), Values::from([]))
@@ -1561,6 +1561,9 @@ fn glues(g: &Globals, id: DefId) -> bool {
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
 #[inline(always)]
 fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
+    if g.def(id).opaque && hidden(g, id) {
+        return Ok(Control::Return(Value::Neutral(Head::Def(id), spine)));
+    }
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
@@ -1614,6 +1617,24 @@ fn folds(g: &Globals, id: DefId) -> bool {
     (def.fold || def.theorem) && !g.erasure.program_running()
 }
 
+/// Whether definition `id` is opaque and its body can't be used now
+/// (docs/proposals/opaque-definitions.md §6.4): no program is running, and
+/// it isn't in the current transparency set ([`Globals::transparent`]). Then
+/// a call of it is neutral, like a variable applied to arguments: it never
+/// unfolds (not even by a native implementation), and no shortcut of
+/// conversion or matching looks at its body ([`body_seen`]).
+pub fn hidden(g: &Globals, id: DefId) -> bool {
+    g.def(id).opaque && !g.erasure.program_running() && !g.transparent.contains(id)
+}
+
+/// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
+/// path that unfolds a definition, or looks at its case tree, reads.
+#[inline(always)]
+pub fn body_seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
+    let def = g.def(id);
+    def.body.as_ref().filter(|_| !def.opaque || !hidden(g, id))
+}
+
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
 /// its case tree runs in this machine, and `next` gets the result
 /// ([`Frame::Unfolding`]).
@@ -1653,7 +1674,7 @@ pub fn is_folded(g: &Globals, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
         if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
-            && g.def(*id).body.is_some())
+            && body_seen(g, *id).is_some())
 }
 
 /// Whether definition `id`, applied to all its parameters, stays folded when
@@ -2371,7 +2392,7 @@ pub fn opens_by_tree(g: &Globals, value: &Value) -> bool {
         return false;
     };
     let def = g.def(*id);
-    def.body.is_some()
+    body_seen(g, *id).is_some()
         && !def.recursive
         && !def.lift_leaf
         && !folds(g, *id)

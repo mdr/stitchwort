@@ -104,7 +104,7 @@ function that might not return.
 ## Program changes
 
 Both keep the behaviour identical; all 99 tests pass unchanged, including
-the pinned first map and the 232-turn winning game.
+the pinned first map and the winning game (232 turns before levels were made on the stairs, 228 after).
 
 - `play` was split into `play` (the loop) and `playTurn` (one key), so
   that one turn of the real loop is a total function (Rogue.sw).
@@ -118,13 +118,13 @@ the pinned first map and the 232-turn winning game.
 |---|---|
 | The whole loop `play` as one statement | **Not possible today, by design.** `play` is partial, and a partial program under a handler has nothing to prove about it (docs/proposals/partial-handlers.md §3.5). Two turns of `playTurn` do compute by `rfl` for any two keys; *n* turns would need induction over the handler, and `Terminal.simulate` hides its frame accumulator, so the state after one turn isn't `Terminal.simulate` of the rest. |
 | No key but the documented ones is a command | **Not proved.** A character pattern like `'k'` is a number pattern, and the catch-all arm of such a match learns nothing about the character (docs/syntax.md), so there's no way to show "anything else gives `None`" short of a case per character. |
-| `goalReachable` for `generateLevel` itself | **Not attempted.** It needs the generator's output under `seeded`, which unfolds the whole generator (the stage-2 friction in NOTES.md), plus "a roll is below its bound" under the handler. |
+| `goalReachable` for `generateLevel` itself | **Tried again with `opaque`, still E-RESOURCE.** `generateLevel` is opaque now, so turns no longer unfold it. Stating `Reachable` of `(seeded seed (() => generateLevel depth)).level` and proving it `unfolding generateLevel` with `goalReachable depth _ _ _ _ (Nat.modLt _ _) (Nat.modLt _ _)` ran out of resources ("a value was too large to show"): the holes (rooms, entrance, exit, extra) are solved against the generator body run under the handler, with its terrain. Not pursued further; the next step is probably to split a pure `planFrom` (rooms and rolls in, plan out) off `generateLevel`, so that the link is a statement about rolls. |
 | Player and monsters inside the 20 by 66 terrain | **Not attempted.** It's an extra invariant (floor stays inside the level), true because `randomRoom` keeps rooms inside their section; the same generator obstacle as above. With it, `renderPlayer` would need no hypotheses. |
 | Winnability: a winning sequence of commands exists from the start | **Out of reach, and not true as stated.** Monsters roll their blows, so with unlucky seeds a game can be lost whatever the player does; "winnable" has to fix the seeds, and then it's a fact about one game. For a fixed seed it's the winning-route test, which is a unit test, not a proof. A real fairness theorem ("winnable with probability at least p") needs probability, which the language doesn't have. |
 
 ## What would be needed for the rest, ranked
 
-1. **Opaque or sealed definitions** (in progress in a parallel lane). The
+1. **Opaque definitions** (done for the generator, see above; `Level.build`'s terrain is still unmarked). The
    first try of `goalReachable`, stated about `layOut` directly, ran out of
    resources (`E-RESOURCE`, "a value was too large to show"): checking it
    unfolded `Level.build`, whose terrain is a drawing of 20 by 66 cells.
