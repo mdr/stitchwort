@@ -1,5 +1,5 @@
 {
-  "next": 551,
+  "next": 552,
   "tickets": [
     {
       "id": 13,
@@ -3856,6 +3856,20 @@
     {
       "id": 550,
       "title": "Profile the effect runtime: ~20-29k machine instructions per handled operation (bump/ask), linear in count; find why before making handlers native (N4 finding)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": [
+        "6ee5766f"
+      ]
+    },
+    {
+      "id": 551,
+      "title": "Effect runtime option A: cut allocations in apply (arg Vecs, partial-application copies), continuation pops and closure envs; re-measure (effect-runtime.md §9.11; after N4 merges)",
       "status": "backlog",
       "agent": "",
       "where": "",
