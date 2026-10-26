@@ -1,5 +1,5 @@
 {
-  "next": 629,
+  "next": 632,
   "tickets": [
     {
       "id": 13,
@@ -4267,7 +4267,7 @@
     {
       "id": 581,
       "title": "Generated lemmas for updating a field shared by every variant (({ a | f = s }).g = a.g isn't rfl, stuck on the generated match); variant-fields.md lists them as 'possibly asked for later' — this is the ask (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4506,7 +4506,7 @@
     {
       "id": 599,
       "title": "Std Toolkit.sw can't write membership as ∈ (the loader reports List/Mem.sw and List/Toolkit.sw need each other), so it spells List.Mem x xs while other files use ∈ (found 26 Oct, D1323 lane)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4632,7 +4632,7 @@
     {
       "id": 609,
       "title": "Std gaps (private app port, 26 Oct): filterMap congruence that only needs to hold on the list's members, and 'filterMap returning every member gives the list back'; a fold-over-zipWith lemma (for get/getOr-based start-time proofs)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4709,7 +4709,7 @@
     {
       "id": 615,
       "title": "Private app port: once signature defaults (D1340) land, give makeRecording/makeBubble/… default values (None, [], 0.0, …) so tests pass only the data pertinent to each scenario (private work only)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4866,6 +4866,42 @@
       "id": 628,
       "title": "Naming (D1367, to consider): the always-true proposition is called Unit (type Unit: Prop = | Trivial, core/Logic.sw:12), which misleads Scala/Kotlin readers; the data unit type has no name, only () (Builtin.UnitType, core/Effect.sw:94). True is taken by Bool's constructor. Proposal: prop → Truth (proof Trivial), data () named Unit; alternatives Top / ⊤. ~113 uses in std+examples",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 629,
+      "title": "Named-argument punning: (recordings := recordings) written out 7× in the port's tests; record literals have { recordings }. Consider (recordings) or similar — but (n) alone is E-DEFAULT-POSITIONAL today. Design question (found by the factory-defaults lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 630,
+      "title": "fmt: a def with a multi-line header (parameter defaults) gets its body re-indented 6 columns with the closing } at column 4; hand-written column-0 body is rewritten (found by the factory-defaults lane, 26 Oct)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 631,
+      "title": "Daily tier (tonight, quiet machine): small_programs_load_only_the_library_files_they_can_use fails on main (toolkit-only program also loads Decidable/Logic/Text Basics); plus text_natives_are_bound_to_the_prelude and stale extract__results.js.snap",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
