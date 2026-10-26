@@ -4596,7 +4596,7 @@
     {
       "id": 606,
       "title": "Syntax: a record literal as a constructor's (or function's) first argument needs brackets — TextCard ({ … }) rather than TextCard { … } (found in the private app port, 26 Oct; split out of SW-578)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
