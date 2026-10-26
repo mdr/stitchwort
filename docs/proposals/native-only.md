@@ -3,7 +3,7 @@
 **Status:** design note, 26 October 2026, after Matt's D1294. Nothing here
 changes the compiler; the measurements used scratch scripts only. The
 native track has no review stops (native-to-standalone), so the decisions
-([at the end](#decisions), D1295–D1302) are **decided by Claude,
+([at the end](#decisions), D1296–D1303) are **decided by Claude,
 provisional**: work can go ahead on them, and each says what evidence would
 overturn it.
 
@@ -349,7 +349,7 @@ nests.
 apart the value `main` returns, which is the meaning of `IO` at the top
 level (partial.md §7.4), and calls compiled code for every function the
 stepping needs. That is the same job OCaml's runtime does for a scheduler, or
-the Haskell RTS for `IO`. D1297 asks whether this counts as "no
+the Haskell RTS for `IO`. D1298 asks whether this counts as "no
 interpreter"; the recommendation is that it does.
 
 ## 3. Stack depth: fail cleanly instead of falling back
@@ -375,7 +375,7 @@ The literature's numbers for C [paper]: the checks cost OCaml 5 "less than
 more" (Sivaramakrishnan et al. §6.1). Stock OCaml, like option B, "relies on
 the guard page at the end of the stack region to detect stack overflow" (§2).
 
-**Recommendation (D1298): A, with the build doing the arithmetic.**
+**Recommendation (D1299): A, with the build doing the arithmetic.**
 - `stitchwort build` knows the frame limit it embeds and the widest frame
   bound of everything it compiled, now including the runtime bodies. One
   counted level is a body plus at most one runtime frame (§1.4). With no
@@ -416,7 +416,7 @@ binary can know, a start-up error) with a plain message:
 | Manifest or image-hash mismatch at start-up | Unchanged: exit 2, nothing run. The image hash becomes a hash of the object's tables (§5) |
 
 `--verbose` keeps reporting what was compiled. The "ran on the machine"
-notes stop existing. There is no `--allow-machine` flag (D1301).
+notes stop existing. There is no `--allow-machine` flag (D1302).
 
 ## 5. What leaves the binary, and the size
 
@@ -543,7 +543,7 @@ show that work left the machine.
   with measurements.
 
 **How `run --native` relates.** It goes native-only too, at NO5, in the
-same change as `build` (D1300). It uses the same `plan`, runtime bodies and
+same change as `build` (D1301). It uses the same `plan`, runtime bodies and
 executor, with the JIT in place of the object, so it tests exactly what
 `build` ships. The machine stays in the compiler as `stitchwort run`:
 - the reference that the agreement tests compare with;
@@ -558,7 +558,7 @@ with no user.
 All are **decided by Claude, provisional** (the native track has no review
 stops). Each is one thing, with what would overturn it.
 
-**D1295. Where does the native effect runtime live?** **In runtime bodies:
+**D1296. Where does the native effect runtime live?** **In runtime bodies:
 Cranelift IR emitted by the compiler, in the `tail` calling convention.
 Rust keeps only leaf helpers that never call program code.**
 - **Why:**
@@ -571,7 +571,7 @@ Rust keeps only leaf helpers that never call program code.**
   - the IR builders for the runtime pass about 3,000 lines while a Rust
     version with measured stack use would be under half that.
 
-**D1296. Which representation?** **The machine's, exactly: `Bind` nodes,
+**D1297. Which representation?** **The machine's, exactly: `Bind` nodes,
 the persistent pending list, `Resume`, `StateRun`. Not fibers, segmented
 stacks, CPS or evidence passing.**
 - **Why:**
@@ -585,7 +585,7 @@ stacks, CPS or evidence passing.**
   dispatch, dominating. Then change the representation in both runners
   together (§1.5), starting with §9.11 B.
 
-**D1297. What counts as "no interpreter"?** **No bytecode, no image and no
+**D1298. What counts as "no interpreter"?** **No bytecode, no image and no
 `Machine` in the binary: every body of the program is machine code. The
 Rust `IO` runner, which steps the `Delay` value `main` returns and calls
 compiled code for every function, stays.**
@@ -596,7 +596,7 @@ compiled code for every function, stays.**
   profile of a partial-heavy program shows the runner's own stepping as most
   of its time.
 
-**D1298. How does a deep recursion fail?** **At the frame counter, as on
+**D1299. How does a deep recursion fail?** **At the frame counter, as on
 the machine, on a stack the build sizes so that the counter always fires
 first. The stack-pointer check stays as a backstop with the same clean
 error. The build fails if the bound passes 64 GiB; the binary fails at
@@ -607,7 +607,7 @@ start-up if it can't reserve its stack.**
   a guard page with a clean report, over a smaller stack and a lower default
   frame limit, which is a `Limits` change for Matt.
 
-**D1299. What replaces the lowered program in the binary?** **Tables and a
+**D1300. What replaces the lowered program in the binary?** **Tables and a
 literal table written into the object by `build`; the constant pool is
 built from the literals at start-up. No codec, no bytecode compiler.**
 - **Why:** native code needs only these. Everything else the binary
@@ -616,7 +616,7 @@ built from the literals at start-up. No codec, no bytecode compiler.**
   Then keep the codec for the constant pool alone, still with no program and
   no bytecode compiler.
 
-**D1300. What becomes of `run --native`?** **Native only, from NO5, the
+**D1301. What becomes of `run --native`?** **Native only, from NO5, the
 same as `build`. `run` (the machine) stays as the reference and the
 development fallback.**
 - **Why:** it then tests what `build` ships, and there is one native
@@ -625,13 +625,13 @@ development fallback.**
   tests or AoC need for more than one stage. Then that is a bug to fix, not
   a mode to keep.
 
-**D1301. An escape hatch?** **None: no `--allow-machine` or similar flag on
+**D1302. An escape hatch?** **None: no `--allow-machine` or similar flag on
 `build` or `run --native`.**
 - **Why:** D1294. And `stitchwort run` already is the way to run a program
   on the machine.
 - **Overturn if:** Matt asks for one.
 
-**D1302. When does fallback end?** **At NO5, for `build` and
+**D1303. When does fallback end?** **At NO5, for `build` and
 `run --native` together, not earlier.**
 - **Why:** until NO4 the roguelike needs the machine for its effects, so
   refusing earlier would break the M2 milestone's test for several stages
