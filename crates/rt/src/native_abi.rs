@@ -1189,6 +1189,64 @@ pub unsafe extern "C" fn sw_apply_prepare(
         unsafe { (&*(*context).run, (*context).functions, (*context).lambdas) };
     let program = run.program;
     let f = unsafe { f.read() };
+    // A partial application given exactly the rest of its arguments, whose
+    // head is a compiled global function or a closure: the common case of
+    // `List.map xs (add offset)`. Built in the plan directly, with no
+    // vectors: the new arguments moved up (they may lie in the plan), the
+    // held ones cloned in front, the function value dropped last, as below.
+    if let Value::Fun(fun) = &f
+        && let Fun::Pap { head, args: held } = &**fun
+        && let Value::Fun(h) = head
+    {
+        let total = held.len() + n as usize;
+        let target = match &**h {
+            Fun::Global(g)
+                if matches!(
+                    program.globals[*g as usize].kind,
+                    GlobalKind::Function { .. }
+                ) =>
+            {
+                // SAFETY: the table has an entry for every global.
+                Some((unsafe { *functions.add(*g as usize) }, false))
+            }
+            Fun::Closure { lambda, .. } => {
+                // SAFETY: the table has an entry for every lambda.
+                Some((unsafe { *lambdas.add(*lambda as usize) }, true))
+            }
+            _ => None,
+        };
+        if let Some((code, closure)) = target
+            && !code.is_null()
+            && total == crate::machine::arity(program, head)
+            && total <= unsafe { (*plan).cap } as usize
+        {
+            // A closure head's reference becomes the callee's `env`, as below.
+            let env = if closure {
+                let held_ref = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
+                words(&held_ref)[1]
+            } else {
+                0
+            };
+            // SAFETY: the caller's contract: `args` holds `n` values to
+            // move, `plan` room for `cap >= total` values after its header.
+            unsafe {
+                let to = plan
+                    .cast::<u8>()
+                    .add(ApplyPlan::ARGS_AT as usize)
+                    .cast::<Value>();
+                std::ptr::copy(args, to.add(held.len()), n as usize);
+                for (i, v) in held.iter().enumerate() {
+                    to.add(i).write(v.clone());
+                }
+                (*plan).code = code as u64;
+                (*plan).env = env;
+                (*plan).arity = total as u64;
+                (*plan).rest = 0;
+            }
+            drop(f);
+            return;
+        }
+    }
     let args: Vec<Value> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
         .collect();

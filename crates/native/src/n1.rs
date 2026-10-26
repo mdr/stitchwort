@@ -2789,41 +2789,53 @@ impl Gen<'_, '_> {
 
     fn prim(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {
         let o = ops(self.code, args).to_vec();
-        let fast =
-            matches!(op, PrimOp::Nat(Native::Add | Native::Sub | Native::Mul)) && o.len() == 2;
+        let division = matches!(op, PrimOp::Nat(Native::DivFuel)) && o.len() == 3;
+        let fast = division
+            || matches!(op, PrimOp::Nat(Native::Add | Native::Sub | Native::Mul)) && o.len() == 2;
         let slow = self.b.create_block();
         let after = self.b.create_block();
         if fast {
-            let a = self.load(Loc::Reg(o[0]));
-            let b = self.load(Loc::Reg(o[1]));
-            let na = self.is_tag(a, TAG_NAT);
-            let nb = self.is_tag(b, TAG_NAT);
-            let both = self.b.ins().band(na, nb);
+            let loaded: Vec<Val> = o.iter().map(|r| self.load(Loc::Reg(*r))).collect();
+            let mut both = self.is_tag(loaded[0], TAG_NAT);
+            for v in &loaded[1..] {
+                let n = self.is_tag(*v, TAG_NAT);
+                both = self.b.ins().band(both, n);
+            }
             let small = self.b.create_block();
             self.b.ins().brif(both, small, &[], slow, &[]);
             self.b.switch_to_block(small);
-            let (x, y) = (a.0[1], b.0[1]);
-            let result = match op {
-                PrimOp::Nat(Native::Sub) => {
-                    let diff = self.b.ins().isub(x, y);
-                    let under = self.b.ins().icmp(IntCC::UnsignedLessThan, x, y);
-                    let zero = self.iconst(0);
-                    Some(self.b.ins().select(under, zero, diff))
-                }
-                _ => None,
-            };
-            let z = match result {
-                Some(z) => z,
-                None => {
-                    let (z, over) = if op == PrimOp::Nat(Native::Add) {
-                        self.b.ins().uadd_overflow(x, y)
-                    } else {
-                        self.b.ins().umul_overflow(x, y)
-                    };
-                    let fits = self.b.create_block();
-                    self.b.ins().brif(over, slow, &[], fits, &[]);
-                    self.b.switch_to_block(fits);
-                    z
+            let z = if division {
+                // `divFuel fuel n d`, as `prims::div_fuel` computes it on
+                // words: `fuel` if `d` is 0, else the smaller of `fuel` and
+                // `n / d`. (The unused division by 0 would trap, so the
+                // divisor is made 1 then.)
+                let (fuel, n, d) = (loaded[0].0[1], loaded[1].0[1], loaded[2].0[1]);
+                let zero = self.b.ins().icmp_imm_u(IntCC::Equal, d, 0);
+                let one = self.iconst(1);
+                let safe = self.b.ins().select(zero, one, d);
+                let quotient = self.b.ins().udiv(n, safe);
+                let least = self.b.ins().umin(fuel, quotient);
+                self.b.ins().select(zero, fuel, least)
+            } else {
+                let (x, y) = (loaded[0].0[1], loaded[1].0[1]);
+                match op {
+                    PrimOp::Nat(Native::Sub) => {
+                        let diff = self.b.ins().isub(x, y);
+                        let under = self.b.ins().icmp(IntCC::UnsignedLessThan, x, y);
+                        let zero = self.iconst(0);
+                        self.b.ins().select(under, zero, diff)
+                    }
+                    _ => {
+                        let (z, over) = if op == PrimOp::Nat(Native::Add) {
+                            self.b.ins().uadd_overflow(x, y)
+                        } else {
+                            self.b.ins().umul_overflow(x, y)
+                        };
+                        let fits = self.b.create_block();
+                        self.b.ins().brif(over, slow, &[], fits, &[]);
+                        self.b.switch_to_block(fits);
+                        z
+                    }
                 }
             };
             let v = self.nat(z);

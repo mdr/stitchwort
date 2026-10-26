@@ -944,3 +944,37 @@ library crate as `aot/swrt/`.
    - The linked binary was `adhoc,linker-signed`.
    - After `strip -o` it was still `Signature=adhoc`, and it ran.
    - With the signature removed, it exited 137.
+
+## S6 as built (26 October 2026)
+
+**[ran]** Nothing was left to admit. N3 had admitted every `Prim` and `Test`
+except the effect operations and `Text.fold`, the `Int` instructions and
+`Text.chars`. `stitchwort dev opcode-census` on `Rogue.main`, `Aoc.Day01` to
+`Aoc.Day09` (project `aoc/`) and `bench/native/*.sw` lists no blocker but
+`Prim:Effect` and `TailPrim:Effect` (the only `TailPrim`s the lowering emits
+are effect ones), so the census is unchanged: rogue 170 of 244 bodies
+(standard library 43 of 54), AoC days 1 to 9: 45/56, 41/59, 43/56, 49/52,
+47/67, 65/68, 60/68, 84/97, 92/105. `Text.fold` occurs in none of them (it
+stays out, as the plan says). What S6 added is the test
+(`crates/native/tests/s6.rs`: `Nat` division and remainder with words, big
+numbers and the divisor 0 of `Nat.divFuel`; `Int` of every sign and size;
+`Float` with `NaN` and infinities; `Text` with empty and multi-byte text;
+`Delay` constructors; each agrees with the machine, event for event in the
+allocation trace; division under every step and frame limit), and the two
+cheap wins of N3's profile:
+
+- **`Nat.divFuel` inline** (`/` and `%` compile to it): when the fuel, the
+  dividend and the divisor are words, `fuel` if the divisor is 0, else
+  `min(fuel, n / d)` in a `udiv`; anything else goes to `sw_prim`.
+- **A partial application given exactly the rest of its arguments**, headed
+  by a compiled global function or a closure, is set up by
+  `sw_apply_prepare` straight into the plan (no `Vec`s: the new arguments
+  moved up, the held ones cloned in front, the function value dropped last),
+  with the machine's order of clones and drops.
+
+**Measured** (Apple M4 Pro, release, best of 3 by cycles, 1,000,000 elements
+/ keys, `run --native`; load average well below N3's): `closures` 1.48 G
+cycles, 5.13 G instructions on main, 1.27 G and 3.82 G after (-14% cycles,
+-26% instructions); `Set` inserts 11.26 G cycles, 45.19 G instructions on
+main, 11.22 G and 44.85 G after (the `Set` keys use `%` only in their
+generation).
