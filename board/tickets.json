@@ -4008,8 +4008,8 @@
     },
     {
       "id": 561,
-      "title": "Native-only NO6-NO7 (NO5 merged ee8524bc; NO6 running): binary without the machine; Linux (native-only.md §6)",
-      "status": "doing",
+      "title": "Native-only NO7 (NO6 merged 9d109d27): Linux (native-only.md §6)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4020,7 +4020,9 @@
         "a5821e7c",
         "f78114ed",
         "ecffde0e",
-        "ee8524bc"
+        "ee8524bc",
+        "9d109d27",
+        "abf390d6"
       ]
     },
     {
@@ -4410,14 +4412,17 @@
     {
       "id": 592,
       "title": "Proof word 'cases' (was split) stage 1: renaming per D1325; D1324 10 ms accepted; D1326 no code action (agentic proofs)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "ce32dc72",
+        "08437fd8"
+      ]
     },
     {
       "id": 593,
