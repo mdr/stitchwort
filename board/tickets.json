@@ -5213,7 +5213,7 @@
     {
       "id": 657,
       "title": "Native executables: macOS links only libSystem (no /nix/store libiconv) — D1381",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
