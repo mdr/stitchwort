@@ -409,7 +409,15 @@ fn named(session: &Session, text: &str, tokens: &[Token], walk: &Walk) -> (Strin
             continue;
         };
         let params = parameters(&g.defs[id].ty);
-        let mut explicit = params.iter().filter(|(icit, _)| *icit == Icit::Explicit);
+        // Positional arguments skip the parameters with defaults.
+        let defaults = g.defs[id].param_defaults.as_deref();
+        let defaulted =
+            |k: usize| defaults.is_some_and(|d| d.params.get(k).is_some_and(Option::is_some));
+        let mut explicit = params
+            .iter()
+            .enumerate()
+            .filter(|(k, (icit, _))| *icit == Icit::Explicit && !defaulted(*k))
+            .map(|(_, param)| param);
         if *piped {
             // The pipe's value is the first explicit argument (rule E).
             explicit.next();
@@ -708,4 +716,37 @@ def unused (n: Nat): Twice := { x = n * 3, twice = 1 }
     assert!(!has_let("variable"));
     assert!(!has_let("literal"));
     assert!(!has_let("unused"));
+}
+
+/// A lambda whose type is known only from the type expected of the call is
+/// checked after that comparison when every argument is named, as when
+/// none is.
+#[test]
+fn a_call_named_throughout_checks_its_lambdas_against_the_expected_type() {
+    let text = r#"
+import Std (List)
+
+type Item = { id: Nat, size: Nat }
+
+def ids (items: List Item): List Nat :=
+  List.zipWith items (List.scanLeft items 0 (offset item => offset + item.size)) (item offset => item)
+    |> List.map (f := item => item.id)
+
+theorem positional (items: List Item): ids items = List.map items (item => item.id) :=
+  List.mapZipWithScanLeft (item => item.id) (item => item.id) (item offset => item) (item offset => rfl)
+    items 0 (offset item => offset + item.size)
+
+theorem named (items: List Item): ids items = List.map items (item => item.id) :=
+  List.mapZipWithScanLeft (h := item => item.id) (k := item => item.id) (g := item offset => item)
+    (same := item offset => rfl) (xs := items) (z := 0) (f := offset item => offset + item.size)
+"#;
+    let (_, hashes) = load("named-late.sw", text).unwrap_or_else(|e| panic!("{e}"));
+    let hash = |name: &str| {
+        &hashes
+            .iter()
+            .find(|(n, _)| n.ends_with(name))
+            .expect(name)
+            .1
+    };
+    assert_eq!(hash("positional"), hash("named"));
 }
