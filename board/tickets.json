@@ -1,5 +1,5 @@
 {
-  "next": 653,
+  "next": 654,
   "tickets": [
     {
       "id": 13,
@@ -5154,6 +5154,18 @@
       "id": 652,
       "title": "Float model tests: check whether Berkeley TestFloat / UCBTest cases (Lean uses them) can be used to test Float.Model against the hardware (licence, format) — before float laws stages 3–4",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 653,
+      "title": "Rogue: prove goal reachability for the real {Random} generateLevel without reshaping it (Matt, 26 Oct) — exploration lane: any-handler statement / Random program logic / seeded; stop with a note if the language needs a change",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
