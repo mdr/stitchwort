@@ -16,8 +16,13 @@ use stitchwort_core::{DefId, Globals, Icit};
 use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
-// Debug builds use much more stack per frame (io.sw's 5,000 prints overflow 64 MiB).
-const STACK: usize = if cfg!(debug_assertions) { 512 } else { 64 } * 1024 * 1024;
+// The deepest example is io.sw's 5,000 prints through `IO.simulate`, which the
+// reference evaluates recursively, a few frames per print. Since partial
+// handlers lane D (2404ada2) a handler folds with `foldCompD` and forwards with
+// `callD`/`translateD`, one more layer of definitions per operation: in a
+// release build it needs between 80 and 96 MiB (it needed 56 to 64 before), so
+// 128 MiB. Debug builds use much more stack per frame.
+const STACK: usize = if cfg!(debug_assertions) { 512 } else { 128 } * 1024 * 1024;
 
 /// The normal form of `value`, as printed by the reference.
 fn normal(g: &Globals, level: usize, value: &Value) -> String {
@@ -44,6 +49,26 @@ fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
     icits
 }
 
+/// Definitions whose normal form on fresh variables is exponentially large,
+/// so neither evaluator's result can be quoted. std `Random`'s xor halves its
+/// arguments 64 times, and on a variable `a` the term for `a / 2` is
+/// `Nat.divFuel a a 2`, which mentions `a` twice: each bit multiplies the
+/// normal form's size by 4 (`Random.xorBits k a b` printed: 7,363 characters
+/// at k = 2, 30 million at 8, 485 million at 10), and `Random.xor64` is
+/// k = 64. Everything that calls it on an unknown number is as big: `main` in
+/// random-seed.sw rolls with the seed `IO.randomSeed` gives, a variable in its
+/// normal form. An entry is a name, or `example: name` for one example's
+/// definition. Their closed uses (the module's and the example's tests) are
+/// still compared.
+const NORMAL_FORM_TOO_BIG: &[&str] = &[
+    "Random.xor64",
+    "Random.next",
+    "Random.below",
+    "Random.between",
+    "Random.chance",
+    "accept/random-seed.sw: main",
+];
+
 /// Compares the two evaluators on everything `g` defines: each definition
 /// applied to fresh variables (open terms, stuck case trees, partial
 /// application), and each definition's type.
@@ -57,8 +82,13 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
         }
         let icits = param_icits(g, id);
         // Applied to every prefix of its parameters, so partial
-        // applications are covered too.
-        for n in 0..=icits.len() {
+        // applications are covered too; none for a definition whose normal
+        // form on variables is too big to build (its type is still compared).
+        let too_big = NORMAL_FORM_TOO_BIG
+            .iter()
+            .any(|entry| *entry == &*def.name || *entry == format!("{what}: {}", def.name));
+        let prefixes = if too_big { 0..0 } else { 0..icits.len() + 1 };
+        for n in prefixes {
             let mut fast = value::eval(g, &[], &Term::Def(id)).expect("no limits");
             let mut slow = reference::eval(g, &[], &Term::Def(id)).expect("no limits");
             for (level, icit) in icits.iter().take(n).enumerate() {
