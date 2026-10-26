@@ -6,7 +6,7 @@
 
 namespace Rogue.Proofs
 import Rogue (..)
-import Std (DecEq, Exists, Key, List, Option, Void)
+import Std (Decidable, Exists, Key, List, Option, Void)
 import Std.Key (Up, Down, Left, Right, Printable)
 import Std.Key.Decoded (Got)
 
@@ -49,23 +49,39 @@ theorem documentedKeys:
     ] :=
   rfl
 
--- No other printable key is a command: a key's command is the one
--- `keyCommands` lists beside it.
-theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar char = Some command): List.Mem (char, command) keyCommands :=
-  let matches: (Char, Command) → Bool := (entry: (Char, Command)) => entry.fst == char
-  match looked: keyCommands.find matches with
-    | Some (key, listed) =>
-      match List.findSome keyCommands matches (key, listed) looked with
-        | Both same member =>
-          let sameKey: key = char := DecEq.sound key char same
-          let sameCommand: listed = command := Option.someInjective listed command found
-          rewrite <- sameKey, <- sameCommand in member
-    | None => Void.exfalso (Option.noneNotSome command found)
+-- The printable keys that are commands, as the keys line names them.
+def commandKeys: List Char := ['h', 'j', 'k', 'l', 'a', 's', 'w', 'd', '.', '>', 'p', 'q']
 
--- And no other key at all: a key that is a command is an arrow, or a
--- printable key listed with that command.
+-- A key in `commandKeys`, decided: in each arm below the key is a literal,
+-- so the decision computes to `Yes`. (Not an `auto` argument: `auto`
+-- searches at most 8 deep, and `'w'` is the 7th key.)
+theorem listedKey (char: Char) (yes: Decidable.IsYes (List.decMem char commandKeys)): char ∈ commandKeys :=
+  Decidable.fromYes (List.decMem char commandKeys) yes
+
+-- No other printable key is a command: a printable key that is a command
+-- is one of h/j/k/l, a/s/w/d, `.`, `>`, `p` and `q`. By the same match as
+-- `commandOfChar`'s: in the `_` arm the key is none of those, so
+-- `commandOfChar` takes its `_` arm too.
+theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar char = Some command): char ∈ commandKeys :=
+  match char with
+    | 'k' => listedKey char Trivial
+    | 'w' => listedKey char Trivial
+    | 'j' => listedKey char Trivial
+    | 's' => listedKey char Trivial
+    | 'h' => listedKey char Trivial
+    | 'a' => listedKey char Trivial
+    | 'l' => listedKey char Trivial
+    | 'd' => listedKey char Trivial
+    | '.' => listedKey char Trivial
+    | '>' => listedKey char Trivial
+    | 'p' => listedKey char Trivial
+    | 'q' => listedKey char Trivial
+    | _ => Void.exfalso (Option.noneNotSome command found)
+
+-- And no other key at all: a key that is a command is an arrow, or one of
+-- those printable keys.
 theorem onlyCommandKeys (key: Key) (command: Command) (found: commandOf key = Some command):
-    Or (exists (direction: Direction) => key = arrow direction) (exists (char: Char) => And (key = Printable char) (List.Mem (char, command) keyCommands)) :=
+    Or (exists (direction: Direction) => key = arrow direction) (exists (char: Char) => And (key = Printable char) (char ∈ commandKeys)) :=
   match key with
     | Up => Inl (Witness North rfl)
     | Down => Inl (Witness South rfl)

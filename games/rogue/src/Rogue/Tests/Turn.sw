@@ -199,7 +199,6 @@ test "nothing happens once the game is over" :=
 test "vi keys" := ['h', 'j', 'k', 'l'].map commandOfChar == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
 test "wasd keys" := ['a', 's', 'w', 'd'].map commandOfChar == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
 test "other keys" := ['.', '>', 'p', 'q', 'x', ' '].map commandOfChar == [Some Wait, Some Descend, Some Drink, Some Quit, None, None]
-test "each key is listed once" := keyCommands.map (.fst) |> .dedup |> .length == keyCommands.length
 
 -- Randomness
 

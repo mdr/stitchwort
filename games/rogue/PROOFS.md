@@ -116,8 +116,8 @@ every state a real game reaches.
 | `arrowDecodes` | the bytes a terminal sends for each arrow key are read back as that arrow, whatever comes after (from std's `Key.nextBytes`) |
 | `arrowMoves` | each arrow is the move in its direction |
 | `documentedKeys` | h/j/k/l, a/s/w/d, `.`, `>`, `p` and `q` do what the keys line on screen says |
-| `onlyListedKeys` | **no other printable key is a command**: a key's command is the one `keyCommands` lists beside it |
-| `onlyCommandKeys` | and no other key at all: a key that is a command is an arrow, or a printable key listed with that command |
+| `onlyListedKeys` | **no other printable key is a command**: a printable key that is a command is one of h/j/k/l, a/s/w/d, `.`, `>`, `p` and `q` (`commandKeys`) |
+| `onlyCommandKeys` | and no other key at all: a key that is a command is an arrow, or one of those printable keys |
 | `arrowWalks` | end to end in the real turn: pressing an arrow, when the cell that way is floor with no monster on it, moves the player there |
 
 `commandOf` being total needs no theorem: the checker rejects any
@@ -155,16 +155,17 @@ the pinned first map and the winning game (232 turns before levels were made on 
   than `Cons number (draws rest)`: see "language gaps" below for why.
 - `layOut` and `drawCount` are opaque (only `goalReachable` and
   `planFramed` unfold `layOut`; nothing unfolds `drawCount`).
-- `commandOfChar` looks the key up in a table, `keyCommands`, instead of
-  matching on characters (Input.sw). A test checks that no key is listed
-  twice, as the lookup takes the first.
+- None for the keys any more: `commandOfChar` is a plain `match` on
+  characters (Input.sw). For a while it looked the key up in a table
+  (`keyCommands`), because the catch-all arm of a character match couldn't
+  be reasoned about; the language was fixed instead (see "Tried").
 
 ## Tried, and how far it got
 
 | Candidate | Result |
 |---|---|
 | The whole loop `play` as one statement | **Not possible today, by design.** `play` is partial, and a partial program under a handler has nothing to prove about it (docs/proposals/partial-handlers.md §3.5). Two turns of `playTurn` do compute by `rfl` for any two keys; *n* turns would need induction over the handler, and `Terminal.simulate` hides its frame accumulator, so the state after one turn isn't `Terminal.simulate` of the rest. |
-| No key but the documented ones is a command | **Proved, with a table** (`onlyListedKeys`, `onlyCommandKeys`). Written as a `match` on characters it can't be: a character pattern like `'k'` is a number pattern, compiled to a number case (`NumCase`) whose catch-all arm learns nothing about the character (docs/syntax.md), and a number case on an unknown number never steps, so even knowing `code ≠ 107` for every listed code doesn't reach the arm. Looking the key up in a list instead makes it an ordinary `find`, and std's `List.findSome` does the rest. |
+| No key but the documented ones is a command | **Proved, on the plain `match`** (`onlyListedKeys`, `onlyCommandKeys`). At first it couldn't be: a character pattern like `'k'` is a number pattern, compiled to a number case (`NumCase`) whose catch-all arm learned nothing about the character, and a number case on an unknown number never steps, so even knowing `code ≠ 107` for every listed code didn't reach the arm. The game looked keys up in a table instead (`keyCommands`, with std's `List.findSome`). Then the language was fixed (SW-533, docs/proposals/literal-match-facts.md): a catch-all arm now knows the value is none of the literals above it, so a proof's match on the same twelve characters has `commandOfChar` take its `_` arm in the proof's `_` arm, and the table went. Membership in `commandKeys` is decided with `Decidable.fromYes`, not `auto`, whose search stops 8 deep (the 7th key, `'w'`, is past what it finds). |
 | `goalReachable` for `generateLevel` itself | **Proved** (`generatedReachable`), after three failures. (1) Unfolding the old `generateLevel` and passing `goalReachable` with holes: E-RESOURCE, the holes solved against the generator body run under the handler. (2) After splitting off `planFrom`, `planReachable` with `layOut` still transparent: E-RESOURCE, comparing `(planFrom depth numbers).level` with `layOut …` drew the terrain of a level with unknown rooms; fixed by making `layOut` opaque. (3) Then `generatedReachable` ran past 5 minutes: with an unknown depth, `drawCount depth` partly computes (`27 + 4 * (2 + 2 * depth) + …` still has some `Succ`s on the outside), so the handler starts drawing numbers symbolically; fixed by making `drawCount` opaque. Now all the proofs check in about 4 s of CPU. |
 | Player and monsters inside the 20 by 66 terrain | **Proved** (`drawnPlayer`, `drawnMonster`, Bounds.sw), by the same route: every planned level is framed (`planFramed`, by `omega` on each room's rolls and a case per section), so every generated one is (`generatedHolds`), and a turn keeps the level or goes down to a generated one. |
 | Winnability: a winning sequence of commands exists from the start | **Out of reach, and not true as stated.** Monsters roll their blows, so with unlucky seeds a game can be lost whatever the player does; "winnable" has to fix the seeds, and then it's a fact about one game. For a fixed seed it's the winning-route test, which is a unit test, not a proof. A real fairness theorem ("winnable with probability at least p") needs probability, which the language doesn't have. |
@@ -202,10 +203,10 @@ the pinned first map and the winning game (232 turns before levels were made on 
    didn't say which definition was being unfolded. Naming the definition
    being unfolded at the time in the `E-RESOURCE` message would have
    saved a good part of the search.
-4. **Negative information in literal-pattern matches**: in the catch-all
-   arm of a match on `'k'`, `'w'`, …, knowing the character is none of
-   them. The table works around it here, at the cost of a program change;
-   a program that wants its `match` will still need a case per character.
+4. ~~**Negative information in literal-pattern matches**~~ **Closed**
+   (SW-533): the catch-all arm of a match on `'k'`, `'w'`, … now knows the
+   character is none of them, and the game's `match` is back. A proof still
+   needs an arm per character, as the program has.
 5. **Small things met on the way** (each cost a few minutes):
    - `unfolding` after a signature that spans lines must be indented
      *less* than the type's continuation lines (as in docs/syntax.md);
