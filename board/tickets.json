@@ -1,5 +1,5 @@
 {
-  "next": 545,
+  "next": 551,
   "tickets": [
     {
       "id": 13,
@@ -3477,15 +3477,17 @@
     },
     {
       "id": 521,
-      "title": "Live keys lanes 2-4: lane 2 merged (7ce810f9), lane 3 pane merged (20be392c); lane 4 rogue live doing",
-      "status": "doing",
+      "title": "Live keys lanes 2-4: live run (7ce810f9), terminal pane (20be392c), rogue plays live (bc69bd55)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "bc69bd55"
+      ]
     },
     {
       "id": 522,
@@ -3551,7 +3553,7 @@
     },
     {
       "id": 527,
-      "title": "Opaque defs lanes 3-4: lane 4 rogue on the stairs built (1cdab95d, branch, review); lane 3 messages doing (branch)",
+      "title": "Opaque defs lanes 3-4: lane 4 rogue on stairs (1cdab95d) + lane 3 messages (6f4741f5) built on branches, awaiting review",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3617,7 +3619,7 @@
     },
     {
       "id": 532,
-      "title": "Rogue proofs follow-up: std lemma 'roll n < n under seeded/any Random handler'; link goalReachable to generateLevel; positions stay inside 20x66 (PROOFS.md gaps 1-2; may need opaque defs)",
+      "title": "Rogue proofs follow-up: generatedReachable, generatedFramed, replaySound, onlyCommandKeys etc. [built 2b7f7a55 on opaque branch, awaiting review]",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3734,14 +3736,16 @@
     {
       "id": 541,
       "title": "Standalone S5: object output, build --native (after S4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "fe009e14"
+      ]
     },
     {
       "id": 542,
@@ -3779,6 +3783,82 @@
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 545,
+      "title": "Flaky merge-tier failure under load: stitchwort-cli::examples rejected_examples_fail_for_the_expected_reason (seen 3+ times overnight, passes on rerun)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": [
+        "07ee29fc"
+      ]
+    },
+    {
+      "id": 546,
+      "title": "Panic: match on Vec a (succ n) with only VCons arm -> fin_missing 'library built-in FSucc before its file loads' (registry.rs:512)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": [
+        "96eb85a8"
+      ]
+    },
+    {
+      "id": 547,
+      "title": "Audit registry.ctor(Builtin::X) for unloaded library built-ins: done, no further instances (static audit)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 548,
+      "title": "Std Effect.bindAssoc relies on an axiom; a proved monad law under handlers would remove rogue's draw-then-plan restructuring (rogue PROOFS.md gap 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 549,
+      "title": "Merge tier over 60 s budget at times (73-86 s under load): n2b tail_calls_of_every_shape_run_in_constant_stack (~10 s) and others; trim or move to daily",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 550,
+      "title": "Profile the effect runtime: ~20-29k machine instructions per handled operation (bump/ask), linear in count; find why before making handlers native (N4 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
       "commits": []
     }
   ]

@@ -132,6 +132,22 @@ fn handler_traces_are_the_same() {
     same_trace(HANDLERS);
 }
 
+/// A program whose only function value applied is a `bind`'s continuation
+/// (no `Apply` of one argument anywhere): the inline `bind` needs the
+/// one-argument slow path all the same (found by `build --native`).
+#[test]
+fn a_bind_is_the_only_application() {
+    let source = "import Std (IO, Nat)\n\n\
+                  def countdown: Nat -> {IO} ()\n  \
+                    | 0 => IO.print \"go\"\n  \
+                    | Succ n =>\n    \
+                      IO.print (Nat.toText (Succ n))\n    \
+                      countdown n\n\n\
+                  def main(): {IO} () := countdown 2\n";
+    assert_eq!(agrees(source), "2\n1\ngo\n");
+    same_trace(source);
+}
+
 /// Small enough to sweep every limit: a state handler, a caught failure, a
 /// resumption used twice and the seeded handler around partial code, so
 /// that running out of steps or frames happens at every point inside each

@@ -36,13 +36,12 @@
 use cranelift_codegen::CompiledCode;
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::unwind::UnwindInst;
-
-/// What the host (the driver, the machine, the CLI) may have used above
-/// the crossing into native code.
-pub const HOST_ROOM: usize = 8 * 1024 * 1024;
-/// What a runtime helper may use at the bottom of the stack (freeing a
-/// value, a big number's arithmetic, a native operation).
-pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
+// The rule for the stack check is the crossing's, in the runtime, which a
+// standalone executable's linked code shares (standalone-executables.md
+// S5).
+pub use stitchwort_rt::native_abi::{
+    HELPER_ROOM, HOST_ROOM, NEST_ROOM, counter_fires_first, floor_depth, level_bound,
+};
 
 /// The page size Cranelift probes frames by (its default,
 /// `probestack_size_log2` 12).
@@ -126,45 +125,4 @@ fn fallback_bound(func: &Function) -> usize {
         .map(|s| (s.size as usize).next_multiple_of(16))
         .sum();
     16 + 512 + slots + func.dfg.num_values() * 16 + 16
-}
-
-/// What nesting through the machine may add to each counted frame on the
-/// native stack (stage N4): a helper that runs the machine (`sw_fold`,
-/// `sw_apply_prepare`, `sw_perform`, `sw_effect`), the machine's `nested`
-/// and `run`, its way back (`State::cross`, `Islands::call`) and a
-/// trampoline. Measured on the release build (aarch64, 26 October 2026),
-/// as the stack address at each nested run: a recursion through
-/// `Text.fold` used 4,208 bytes per level, two counted frames each (2,104
-/// per frame, native frames of at most 792 bytes included); a handler whose
-/// clause resumes in a non-tail position (`k 1 + 1`) nests twice per
-/// counted frame, 3,904 bytes per frame (native frames of at most 1,384
-/// bytes included). Handlers in other positions don't nest: the depth stays
-/// in the machine's frames. 4 KiB is more than either whole measurement,
-/// native frames included, so with the widest body's bound added
-/// (`level_bound`) the margin is that bound (5,480 bytes allowed against
-/// 3,904 used in the second case). Larger would keep the roguelike's
-/// 2,000,000 frames (bodies up to 2,760 bytes) off the 16 GiB stack
-/// (`stitchwort_host::NATIVE_STACK`).
-pub const NEST_ROOM: usize = 4 * 1024;
-
-/// A bound on the stack one counted frame uses: a body (`max_frame`) and
-/// the nesting through the machine that can come with it (`NEST_ROOM`).
-pub fn level_bound(max_frame: usize) -> usize {
-    max_frame + NEST_ROOM
-}
-
-/// How far below the crossing the stack-pointer check puts its floor, for
-/// a stack of `stack_size` bytes and bodies of at most `max_frame`: the
-/// whole stack less the host's and helpers' room and one more frame (the
-/// check runs before a call pushes its frame). `None` if the stack is too
-/// small for that.
-pub fn floor_depth(stack_size: usize, max_frame: usize) -> Option<usize> {
-    stack_size.checked_sub(HOST_ROOM + HELPER_ROOM + max_frame)
-}
-
-/// Whether the frame counter always fires before the stack-pointer check:
-/// `frame_limit` frames of at most `max_frame` fit above the floor.
-pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize) -> bool {
-    floor_depth(stack_size, max_frame)
-        .is_some_and(|depth| frame_limit.saturating_mul(max_frame as u64) <= depth as u64)
 }

@@ -626,6 +626,251 @@ pub trait NativeIslands {
     ) -> Result<NativeOut, ResourceError>;
 }
 
+// ------------------------------------------------------------ the crossing
+
+/// A crossing's trampoline, one per number of arguments: `(context, code,
+/// arguments, closure, result)`, in the host's C calling convention. It
+/// calls `code` (a function value's entry: a lambda's body, or a global
+/// function's adapter) with the arguments moved in and the closure's
+/// address word (0 for none) last, and writes the result.
+pub type Trampoline = extern "C" fn(*mut Context, *const u8, *mut Value, u64, *mut Value);
+
+/// What the host (the driver, the machine, the CLI) may have used above
+/// the crossing into native code.
+pub const HOST_ROOM: usize = 8 * 1024 * 1024;
+/// What a runtime helper may use at the bottom of the stack (freeing a
+/// value, a big number's arithmetic, a native operation).
+pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
+
+/// What nesting through the machine may add to each counted frame on the
+/// native stack (stage N4): a helper that runs the machine (`sw_fold`,
+/// `sw_apply_prepare`, `sw_perform`, `sw_effect`), the machine's `nested`
+/// and `run`, its way back (`State::cross`, [`Crossing::call`]) and a
+/// trampoline. Measured on the release build (aarch64, 26 October 2026),
+/// as the stack address at each nested run: a recursion through
+/// `Text.fold` used 4,208 bytes per level, two counted frames each (2,104
+/// per frame, native frames of at most 792 bytes included); a handler whose
+/// clause resumes in a non-tail position (`k 1 + 1`) nests twice per
+/// counted frame, 3,904 bytes per frame (native frames of at most 1,384
+/// bytes included). Handlers in other positions don't nest: the depth stays
+/// in the machine's frames. 4 KiB is more than either whole measurement,
+/// native frames included, so with the widest body's bound added
+/// ([`level_bound`]) the margin is that bound (5,480 bytes allowed against
+/// 3,904 used in the second case). Larger would keep the roguelike's
+/// 2,000,000 frames (bodies up to 2,760 bytes) off the 16 GiB stack
+/// (`stitchwort_host::NATIVE_STACK`).
+pub const NEST_ROOM: usize = 4 * 1024;
+
+/// A bound on the stack one counted frame uses: a body (`max_frame`) and
+/// the nesting through the machine that can come with it ([`NEST_ROOM`]).
+pub fn level_bound(max_frame: usize) -> usize {
+    max_frame + NEST_ROOM
+}
+
+/// How far below the crossing the stack-pointer check puts its floor, for
+/// a stack of `stack_size` bytes and bodies of at most `max_frame`: the
+/// whole stack less the host's and helpers' room and one more frame (the
+/// check runs before a call pushes its frame). `None` if the stack is too
+/// small for that.
+pub fn floor_depth(stack_size: usize, max_frame: usize) -> Option<usize> {
+    stack_size.checked_sub(HOST_ROOM + HELPER_ROOM + max_frame)
+}
+
+/// Whether the frame counter always fires before the stack-pointer check:
+/// `frame_limit` frames of at most `max_frame` fit above the floor.
+pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize) -> bool {
+    floor_depth(stack_size, max_frame)
+        .is_some_and(|depth| frame_limit.saturating_mul(max_frame as u64) <= depth as u64)
+}
+
+/// Compiled bodies, wherever their code is (JIT-compiled memory, or linked
+/// into a standalone executable): the tables the code is given in the
+/// [`Context`], and the crossing itself (the module comment). Shared by
+/// `run --native`'s JIT and a standalone executable's linked code, so the
+/// two can't drift.
+pub struct Crossing {
+    /// For each global: its code as a function value's, or null
+    /// ([`Context::functions`]).
+    functions: Box<[*const u8]>,
+    /// For each lambda: its code, or null ([`Context::lambdas`]).
+    lambdas: Box<[*const u8]>,
+    /// For each body (by code index): its entry as a function value's (a
+    /// lambda's body, or a global function's adapter), or null: what the
+    /// machine calls instead of pushing a frame for it.
+    entries: Box<[*const u8]>,
+    /// The trampolines, by number of arguments.
+    trampolines: Box<[Option<Trampoline>]>,
+    /// What the code refers to by number ([`Context::tables`]).
+    tables: TableStore,
+    /// The stack the code runs on, if known: native code then stops with
+    /// `E-RESOURCE` rather than run off its end (a safety margin, never the
+    /// limit).
+    pub stack_size: Option<usize>,
+    /// A bound on the stack one counted frame uses: the widest body, and
+    /// nesting through the machine if the code can nest ([`level_bound`]).
+    pub level: usize,
+    /// The lowest stack address native code may call from, fixed at the
+    /// first crossing (whose stack is the host's, near the top): nested
+    /// crossings are deeper, and mustn't move it.
+    stack_floor: std::cell::Cell<Option<u64>>,
+}
+
+/// Where a [`Crossing`]'s code is and what it's like: its tables, its
+/// trampolines as `(number of arguments, trampoline)`, a bound on its
+/// frames (`max_frame` bytes), and whether they may nest inside runs of
+/// the machine (`nests`).
+pub struct CrossingCode<'a> {
+    pub functions: Box<[*const u8]>,
+    pub lambdas: Box<[*const u8]>,
+    pub trampolines: &'a [(u32, Trampoline)],
+    pub max_frame: usize,
+    pub nests: bool,
+}
+
+impl Crossing {
+    /// The crossing for `code`, compiled for `image`, with `tables`, on a
+    /// stack of `stack_size` bytes if known.
+    pub fn new(
+        image: &Image,
+        code: CrossingCode<'_>,
+        tables: TableStore,
+        stack_size: Option<usize>,
+    ) -> Crossing {
+        let CrossingCode {
+            functions,
+            lambdas,
+            trampolines,
+            max_frame,
+            nests,
+        } = code;
+        let mut entries = vec![std::ptr::null::<u8>(); image.codes.len()].into_boxed_slice();
+        for (g, entry) in functions.iter().enumerate() {
+            if !entry.is_null()
+                && let Some(Some(code)) = image.global_code.get(g)
+            {
+                entries[*code as usize] = *entry;
+            }
+        }
+        for (l, entry) in lambdas.iter().enumerate() {
+            if !entry.is_null()
+                && let Some(code) = image.lambda_code.get(l)
+            {
+                entries[*code as usize] = *entry;
+            }
+        }
+        let arities = trampolines.iter().map(|&(n, _)| n as usize + 1).max();
+        let mut by_arity = vec![None; arities.unwrap_or(0)].into_boxed_slice();
+        for &(n, trampoline) in trampolines {
+            by_arity[n as usize] = Some(trampoline);
+        }
+        Crossing {
+            functions,
+            lambdas,
+            entries,
+            trampolines: by_arity,
+            tables,
+            stack_size,
+            level: if nests {
+                level_bound(max_frame)
+            } else {
+                max_frame
+            },
+            stack_floor: std::cell::Cell::new(None),
+        }
+    }
+
+    /// [`NativeIslands::compiled`].
+    pub fn compiled(&self, code: u32) -> bool {
+        self.entries
+            .get(code as usize)
+            .is_some_and(|entry| !entry.is_null())
+    }
+
+    /// [`NativeIslands::fits`], without the note: whether the frame counter
+    /// fires before the stack check could.
+    pub fn fits(&self, frame_limit: u64) -> bool {
+        self.stack_size
+            .is_none_or(|size| counter_fires_first(frame_limit, size, self.level))
+    }
+
+    /// [`NativeIslands::call`]: runs body `code` on `args` (and the closure
+    /// `env`), as the machine hands it over (the module comment): the
+    /// counters go in and the steps come back in `run`, the arguments are
+    /// moved in and the result moved out.
+    ///
+    /// # Safety
+    /// The tables and trampolines are those of finished code for this
+    /// image, which stays mapped; `code` is [`Crossing::compiled`].
+    #[allow(unsafe_code)]
+    pub unsafe fn call(
+        &self,
+        code: u32,
+        env: Option<Rc<Fun>>,
+        args: Vec<Value>,
+        run: &mut NativeRun<'_>,
+    ) -> Result<NativeOut, ResourceError> {
+        let entry = self.entries[code as usize];
+        let trampoline =
+            self.trampolines[args.len()].expect("a trampoline for this many arguments");
+        let stack_limit = match self.stack_floor.get() {
+            Some(floor) => floor,
+            None => {
+                let here = {
+                    let marker = 0u8;
+                    std::hint::black_box(&marker) as *const u8 as u64
+                };
+                let floor = match self.stack_size {
+                    Some(size) => match floor_depth(size, self.level) {
+                        Some(depth) => here.saturating_sub(depth as u64),
+                        None => u64::MAX,
+                    },
+                    None => 0,
+                };
+                self.stack_floor.set(Some(floor));
+                floor
+            }
+        };
+        let mut context = Context {
+            steps: run.steps,
+            step_limit: run.limits.steps,
+            frames: run.frames,
+            frame_limit: run.limits.frames as u64,
+            error: OK,
+            stack_limit,
+            functions: self.functions.as_ptr(),
+            lambdas: self.lambdas.as_ptr(),
+            run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
+            tables: self.tables.tables(),
+        };
+        let env = env.map_or(0, into_word);
+        let mut args = std::mem::ManuallyDrop::new(args);
+        let mut out = MaybeUninit::<Value>::uninit();
+        trampoline(
+            &mut context,
+            entry,
+            args.as_mut_ptr(),
+            env,
+            out.as_mut_ptr(),
+        );
+        // SAFETY: native code took the arguments and the closure (moved, as
+        // a frame takes them), so the vector gives back only its buffer; it
+        // wrote a whole value to `out` (`Erased` after an error or a tail
+        // request), which is now ours. `context.run` isn't used after the
+        // call.
+        let result = unsafe {
+            args.set_len(0);
+            std::mem::ManuallyDrop::drop(&mut args);
+            out.assume_init()
+        };
+        run.steps = context.steps;
+        match context.error {
+            OK => Ok(NativeOut::Value(result)),
+            TAIL_REQUEST => Ok(NativeOut::Tail(run.request.take().expect("a tail request"))),
+            _ => context.result().map(|()| NativeOut::Value(result)),
+        }
+    }
+}
+
 // ------------------------------------------------------------ the helpers
 //
 // The runtime functions compiled code calls. Each takes raw pointers, which
@@ -682,8 +927,8 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// its frames (each frame's closure and pending arguments, outermost first)
 /// and then its registers (one vector for every frame: outermost frame first,
 /// each from its lowest register up), then a tail call's fetched arguments.
-/// Frames leave innermost first, so [`NativeIslands::release_unwound_frames`]
-/// and [`NativeIslands::release_unwound`] drop what is kept here last first.
+/// Frames leave innermost first, so the machine (`State::release_failed`)
+/// drops what is kept here last first.
 /// `mode`: 0, a frame's registers (a segment); 1, a tail call's arguments;
 /// 2, a frame's closure (a group, even of no values: every leaving frame
 /// pushes one); 3, more for the last group (pending arguments of the frame

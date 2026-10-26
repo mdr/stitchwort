@@ -1807,18 +1807,23 @@ apart the effect runtime's values and handler records for each operation,
 which N4 deliberately leaves to the machine; it is the place to look before
 making handlers native.
 
-**What S5–S7 need from N4.** Native code now calls back into the machine
+**S5 ported (after S5 merged).** Native code calls back into the machine
 (`machine::nested`, `machine::perform`) for effects, `Text.fold` and
-uncompiled function values, so a standalone executable links the machine
-as a runtime library, not just the value layout and the helpers (as D1287
-already has it). S7's "both entry callees are native islands" becomes
-"every body but the entry is compiled": there are no islands any more. And
-`sw_bind`, `sw_effect`, `sw_fold`, `sw_tail_effect` and `sw_perform` are new
-helper symbols for the relocatable code to reach through the tables. The
-crossing is now per call, not per island root (`NativeIslands::call(code,
-env, args, run)`), with one trampoline per arity. Compiling the whole
-reachable program takes 0.7 s for the rogue, which ahead-of-time
-compilation removes from the run.
+uncompiled function values; the standalone runtime library already links
+the machine (D1287), and the linker resolves the new helpers (`sw_bind`,
+`sw_effect`, `sw_fold`, `sw_tail_effect`, `sw_perform`) by name like the
+others. The crossing is per call, not per island root, so S5's shared
+`native_abi::Crossing` now holds N4's: `compiled`, `fits` and `call(code,
+env, args, run)`, the per-body entries (worked out from `functions` and
+`lambdas` and the image), the trampolines by number of arguments, and the
+stack floor fixed at the first crossing; `NEST_ROOM` and `level_bound`
+moved there with the other stack rules. The object exports the trampolines
+as `sw_cross_<n>` and lists them in `sw_trampolines`; the manifest
+(version 2) has `nests` and `n_trampolines` in place of the roots. Porting
+it found a bug the JIT had too: a program whose only one-argument
+application is an inline `bind`'s continuation had no `apply1` stub
+(`n4.rs` `a_bind_is_the_only_application`). The standalone rogue's numbers
+are in standalone-executables.md, S5.
 
 ## External review (25 October 2026)
 

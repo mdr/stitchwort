@@ -79,8 +79,18 @@ fn examples(dir: &str) -> Vec<Example> {
         .collect()
 }
 
+/// `session`, its counterexample searches stopping at their count of inputs
+/// and never at their 200 ms time limit. Snapshots include a failing proof's
+/// counterexample note, and a timed search under machine load finds nothing
+/// in time, so the rendering differed (the flaky
+/// `rejected_examples_fail_for_the_expected_reason`, 26 Oct 2026).
+fn untimed(mut session: Session) -> Session {
+    session.elab.untimed_counterexamples = true;
+    session
+}
+
 fn check(example: &Example) -> (SourceMap, Result<(), Vec<Diagnostic>>) {
-    let mut session = Session::new();
+    let mut session = untimed(Session::new());
     let result = session.load(&example.name, &example.text).map(|_| ());
     (session.sources, result)
 }
@@ -120,7 +130,7 @@ fn accepted_examples_check() {
 /// The failures (if any) of one accepted example, rendered.
 fn accepted_example(example: &Example) -> Vec<String> {
     let mut failures = Vec::new();
-    let mut session = Session::for_stack(STACK);
+    let mut session = untimed(Session::for_stack(STACK));
     if let Err(diagnostics) = session.load(&example.name, &example.text) {
         failures.push(format!(
             "{}:\n{}",
@@ -213,7 +223,7 @@ fn goal_examples_report_their_goals() {
         assert!(!all.is_empty());
     }
     par_map(STACK, &all, |example| {
-        let mut session = Session::for_stack(STACK);
+        let mut session = untimed(Session::for_stack(STACK));
         let loaded = session.load(&example.name, &example.text).map(|_| ());
         let output = assert_goals(
             &example.name,
@@ -232,7 +242,7 @@ fn goal_projects_report_their_goals() {
         assert!(!all.is_empty());
     }
     par_map(STACK, &all, |(name, path)| {
-        let mut session = Session::for_stack(STACK);
+        let mut session = untimed(Session::for_stack(STACK));
         let loaded = load_project(name, path, &mut session);
         let output = assert_goals(
             &format!("projects/goals/{name}"),
@@ -304,7 +314,7 @@ fn accepted_projects_check() {
     }
     let failures: Vec<String> = par_map(STACK, &all, |(name, path)| {
         let mut failures = Vec::new();
-        let mut session = Session::for_stack(STACK);
+        let mut session = untimed(Session::for_stack(STACK));
         if let Err(diagnostics) = load_project(name, path, &mut session) {
             failures.push(format!(
                 "{name}:\n{}",
@@ -362,7 +372,7 @@ fn rejected_projects_fail_for_the_expected_reason() {
                 "projects/reject/{name} must declare the error it expects, e.g. `# expect-error: E-NAMESPACE-CYCLE`"
             );
         };
-        let mut session = Session::for_stack(STACK);
+        let mut session = untimed(Session::for_stack(STACK));
         match load_project(name, path, &mut session) {
             Ok(()) => panic!("projects/reject/{name} should be rejected but checks"),
             Err(diagnostics) => {

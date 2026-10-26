@@ -3,3 +3,10 @@
 # than WebAssembly's default 1 MB.
 [target.wasm32-unknown-unknown]
 rustflags = ["-C", "link-args=-z stack-size=16777216"]
+
+# Tests snapshot and assert on rendered diagnostics, which include a failing
+# proof's counterexample note; the search's 200 ms wall-time backstop makes the
+# note vanish under machine load. Searches stop at their count of inputs
+# instead (`Elaborator::new` reads this; the CLI test binaries inherit it).
+[env]
+STITCHWORT_UNTIMED_COUNTEREXAMPLES = "1"

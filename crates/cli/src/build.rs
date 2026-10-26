@@ -8,6 +8,12 @@
 //! library, `libstitchwort_standalone.a` (`crates/standalone`, which has C
 //! `main`, the machine and the host), using the system's C compiler as the
 //! linker. The executable needs neither `stitchwort` nor the source.
+//!
+//! With `--native` (stage S5), the bodies `main` reaches are compiled too
+//! (every one but the entry, since stage N4), as `run --native` would
+//! compile them (`stitchwort_native::aot`), into the same object: the code,
+//! and `sw_native_manifest`, which tells the runtime library where it is.
+//! An object without native code has a manifest with none.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -60,13 +66,24 @@ const DEAD_STRIP: &str = if cfg!(target_os = "macos") {
 /// `build TARGET [-o OUT]`: `TARGET` is a file, a project folder (whose one
 /// namespace with a `main` is built), or the full name of a function in the
 /// project. `OUT` is, by default, the file's or folder's name, or the
-/// function's namespace's, in the current folder.
+/// function's namespace's, in the current folder. `native`: with
+/// `--native`, `Some(verbose)`: the bodies `main` reaches are compiled
+/// into the object where they compile, and with `verbose` it says on standard
+/// error what was compiled, and why anything wasn't.
 pub fn build_executable(
     target: &str,
     out: Option<&Path>,
     project: Option<&Path>,
+    native: Option<bool>,
     cache: &CacheArgs,
 ) -> ExitCode {
+    #[cfg(not(feature = "native"))]
+    if native.is_some() {
+        eprintln!(
+            "error: this `stitchwort` was built without native code; build it with `--features native`"
+        );
+        return ExitCode::FAILURE;
+    }
     let (entry, project, default_name) = if Path::new(target).is_dir() {
         if project.is_some() {
             eprintln!(
@@ -115,7 +132,11 @@ pub fn build_executable(
     let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
     discard(session);
     let bytes = stitchwort_rt::encode(&program, &limits);
-    match link(&program_object(&bytes), &out) {
+    let object = match native {
+        Some(verbose) => native_object(&program, &bytes, verbose),
+        None => program_object(&bytes),
+    };
+    match link(&object, &out) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
             eprint!("{message}");
@@ -196,8 +217,46 @@ fn namespace_name(function: &str) -> String {
         .map_or("main".to_string(), str::to_ascii_lowercase)
 }
 
-/// The object file holding the encoded program: `sw_program`, its bytes, and
-/// `sw_program_len`, how many, as read-only data, for this machine.
+/// `build --native`: the object of [`finish_object`], with the native code
+/// of the bodies `main` reaches, where they compile
+/// (`stitchwort_native::aot`), or with none if none does (D1287: the
+/// machine runs the rest). With `verbose`, says what was compiled and why
+/// anything wasn't.
+#[cfg(feature = "native")]
+fn native_object(program: &stitchwort_rt::Program, bytes: &[u8], verbose: bool) -> Vec<u8> {
+    let image = stitchwort_rt::code::compile(program);
+    let options = stitchwort_native::n1::Options {
+        trace_refcounts: false,
+        stack_size: Some(stitchwort_host::NATIVE_STACK),
+    };
+    match stitchwort_native::aot::compile_object(program, &image, options) {
+        Ok(code) => {
+            if verbose {
+                for line in code.report() {
+                    eprintln!("{line}");
+                }
+            }
+            finish_object(code.object, bytes)
+        }
+        Err(why) => {
+            if verbose {
+                for line in why {
+                    eprintln!("{line}");
+                }
+            }
+            program_object(bytes)
+        }
+    }
+}
+
+#[cfg(not(feature = "native"))]
+fn native_object(_program: &stitchwort_rt::Program, _bytes: &[u8], _verbose: bool) -> Vec<u8> {
+    unreachable!("`build --native` is refused without the `native` feature")
+}
+
+/// The object file holding the encoded program, and no native code: see
+/// [`finish_object`]; its `sw_native_manifest` lists no code
+/// (`stitchwort_rt::native_aot`).
 pub fn program_object(bytes: &[u8]) -> Vec<u8> {
     let format = if cfg!(target_os = "macos") {
         BinaryFormat::MachO
@@ -210,7 +269,18 @@ pub fn program_object(bytes: &[u8]) -> Vec<u8> {
         Architecture::X86_64
     };
     let mut object = Object::new(format, architecture, Endianness::Little);
-    if format == BinaryFormat::MachO {
+    let section = object.section_id(StandardSection::ReadOnlyData);
+    let manifest = stitchwort_rt::native_aot::Manifest::empty_bytes();
+    add_data(&mut object, section, "sw_native_manifest", &manifest, 8);
+    finish_object(object, bytes)
+}
+
+/// Adds the encoded program to `object` (one with no native code, or the
+/// native code generator's, with the code and its manifest): `sw_program`,
+/// its bytes, and `sw_program_len`, how many, as read-only data; marks it
+/// as this platform's linker expects; and writes it.
+pub fn finish_object(mut object: Object<'_>, bytes: &[u8]) -> Vec<u8> {
+    if object.format() == BinaryFormat::MachO {
         // Without it, ld64 warns that the object has no platform and assumes
         // one. The version is the oldest macOS that runs on Apple silicon.
         let mut version = object::write::MachOBuildVersion::default();
@@ -224,22 +294,32 @@ pub fn program_object(bytes: &[u8]) -> Vec<u8> {
     }
     let section = object.section_id(StandardSection::ReadOnlyData);
     let length = (bytes.len() as u64).to_le_bytes();
-    for (name, data, align) in [("sw_program", bytes, 1), ("sw_program_len", &length[..], 8)] {
-        let symbol = object.add_symbol(Symbol {
-            name: name.as_bytes().to_vec(),
-            value: 0,
-            size: 0,
-            kind: SymbolKind::Data,
-            scope: SymbolScope::Linkage,
-            weak: false,
-            section: SymbolSection::Undefined,
-            flags: SymbolFlags::None,
-        });
-        object.add_symbol_data(symbol, section, data, align);
-    }
+    add_data(&mut object, section, "sw_program", bytes, 1);
+    add_data(&mut object, section, "sw_program_len", &length, 8);
     object
         .write()
-        .expect("an object of two data symbols can be written")
+        .expect("an object of data and compiled code can be written")
+}
+
+/// Defines the global data symbol `name` as `data`, in `section`.
+fn add_data(
+    object: &mut Object<'_>,
+    section: object::write::SectionId,
+    name: &str,
+    data: &[u8],
+    align: u64,
+) {
+    let symbol = object.add_symbol(Symbol {
+        name: name.as_bytes().to_vec(),
+        value: 0,
+        size: 0,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Linkage,
+        weak: false,
+        section: SymbolSection::Undefined,
+        flags: SymbolFlags::None,
+    });
+    object.add_symbol_data(symbol, section, data, align);
 }
 
 /// Links `object` with the runtime library into the executable `out`, with
@@ -411,7 +491,7 @@ mod tests {
         let bytes = program_object(b"hello");
         let file = object::File::parse(&*bytes).expect("parses");
         let prefix = if cfg!(target_os = "macos") { "_" } else { "" };
-        for name in ["sw_program", "sw_program_len"] {
+        for name in ["sw_program", "sw_program_len", "sw_native_manifest"] {
             let symbol = file
                 .symbols()
                 .find(|s| s.name() == Ok(&format!("{prefix}{name}")))

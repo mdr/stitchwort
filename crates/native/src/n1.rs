@@ -115,9 +115,8 @@
 //! [`Options::trace_refcounts`], every count goes through the runtime
 //! instead, so the allocation trace sees each one.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -138,10 +137,10 @@ use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
-    self as abi, ApplyPlan, Context, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands, NativeOut,
-    NativeRun, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT,
-    TAG_DATA, TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, TAIL_REQUEST, Tables, VALUE_SIZE,
-    WEAK_AT,
+    self as abi, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands,
+    NativeOut, NativeRun, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT,
+    STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, TAIL_REQUEST, Tables,
+    Trampoline, VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::natives::{IntNative, TextNative};
 use stitchwort_rt::value::{Fun, Value};
@@ -160,40 +159,15 @@ pub struct Options {
     pub stack_size: Option<usize>,
 }
 
-/// A crossing's trampoline, one per number of arguments: `(context, code,
-/// arguments, closure, result)`. It calls `code` (a function value's entry:
-/// a lambda's body, or a global function's adapter) with the arguments
-/// moved in and the closure's address word (0 for none) last, and writes
-/// the result.
-type Trampoline = extern "C" fn(*mut Context, *const u8, *mut Value, u64, *mut Value);
-
 /// A program's bodies, compiled.
 pub struct Islands {
     /// Owns the code memory (never unmapped, so the pointers stay valid).
     _module: JITModule,
-    /// For each body (by code index): its entry as a function value's (a
-    /// lambda's body, or a global function's adapter), or null: what the
-    /// machine calls instead of pushing a frame for it.
-    entries: Box<[*const u8]>,
-    /// The crossing's trampolines, by number of arguments.
-    trampolines: BTreeMap<u32, Trampoline>,
-    /// For each global: its compiled code as a function value's, or null
-    /// (`Context::functions`).
-    functions: Box<[*const u8]>,
-    /// For each lambda: its compiled code, or null (`Context::lambdas`).
-    lambdas: Box<[*const u8]>,
-    /// What the code refers to by number (`Context::tables`).
-    tables: abi::TableStore,
-    stack_size: Option<usize>,
-    /// The lowest stack address native code may call from, fixed at the
-    /// first crossing (whose stack is the host's, near the top): nested
-    /// crossings are deeper, and mustn't move it.
-    stack_floor: Cell<Option<u64>>,
+    /// The code's tables and the crossing, shared with a standalone
+    /// executable's linked code.
+    crossing: abi::Crossing,
     /// A bound on the stack the widest body uses (`frames`).
     pub max_frame: usize,
-    /// Whether native frames may nest inside runs of the machine
-    /// (`Plan::nests`).
-    nests: bool,
     /// What happened at the crossing, for `--verbose`.
     notes: Rc<RefCell<Vec<String>>>,
     /// How many bodies were compiled, of how many `main` reaches (its entry
@@ -203,38 +177,21 @@ pub struct Islands {
     pub compile_time: std::time::Duration,
 }
 
-impl Islands {
-    /// A bound on the stack one counted frame uses: the widest body, and
-    /// nesting through the machine if the program can nest
-    /// (`frames::level_bound`).
-    fn level(&self) -> usize {
-        if self.nests {
-            frames::level_bound(self.max_frame)
-        } else {
-            self.max_frame
-        }
-    }
-}
-
 impl NativeIslands for Islands {
     fn compiled(&self, code: u32) -> bool {
-        self.entries
-            .get(code as usize)
-            .is_some_and(|entry| !entry.is_null())
+        self.crossing.compiled(code)
     }
 
     fn fits(&self, frame_limit: u64) -> bool {
         // The frame counter must fire before the stack check could (the
         // `frames` module): otherwise the run stays on the machine.
-        let Some(size) = self.stack_size else {
-            return true;
-        };
-        let level = self.level();
-        if frames::counter_fires_first(frame_limit, size, level) {
+        if self.crossing.fits(frame_limit) {
             return true;
         }
         let note = format!(
-            "native: everything ran on the machine: {frame_limit} frames of up to {level} bytes may not fit the {size}-byte stack"
+            "native: everything ran on the machine: {frame_limit} frames of up to {} bytes may not fit the {}-byte stack",
+            self.crossing.level,
+            self.crossing.stack_size.unwrap_or_default()
         );
         let mut notes = self.notes.borrow_mut();
         if !notes.contains(&note) {
@@ -251,64 +208,10 @@ impl NativeIslands for Islands {
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
     ) -> Result<NativeOut, ResourceError> {
-        let entry = self.entries[code as usize];
-        let trampoline = self.trampolines[&(args.len() as u32)];
-        let stack_limit = match self.stack_floor.get() {
-            Some(floor) => floor,
-            None => {
-                let here = {
-                    let marker = 0u8;
-                    std::hint::black_box(&marker) as *const u8 as u64
-                };
-                let floor = match self.stack_size {
-                    Some(size) => match frames::floor_depth(size, self.level()) {
-                        Some(depth) => here.saturating_sub(depth as u64),
-                        None => u64::MAX,
-                    },
-                    None => 0,
-                };
-                self.stack_floor.set(Some(floor));
-                floor
-            }
-        };
-        let mut context = Context {
-            steps: run.steps,
-            step_limit: run.limits.steps,
-            frames: run.frames,
-            frame_limit: run.limits.frames as u64,
-            error: abi::OK,
-            stack_limit,
-            functions: self.functions.as_ptr(),
-            lambdas: self.lambdas.as_ptr(),
-            run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
-            tables: self.tables.tables(),
-        };
-        let env = env.map_or(0, abi::into_word);
-        let mut args = ManuallyDrop::new(args);
-        let mut out = MaybeUninit::<Value>::uninit();
-        trampoline(
-            &mut context,
-            entry,
-            args.as_mut_ptr(),
-            env,
-            out.as_mut_ptr(),
-        );
-        // SAFETY: native code took the arguments and the closure (moved, as
-        // a frame takes them), so the vector gives back only its buffer; it
-        // wrote a whole value to `out` (`Erased` after an error or a tail
-        // request), which is now ours. `context.run` isn't used after the
-        // call.
-        let result = unsafe {
-            args.set_len(0);
-            ManuallyDrop::drop(&mut args);
-            out.assume_init()
-        };
-        run.steps = context.steps;
-        match context.error {
-            abi::OK => Ok(NativeOut::Value(result)),
-            TAIL_REQUEST => Ok(NativeOut::Tail(run.request.take().expect("a tail request"))),
-            _ => context.result().map(|()| NativeOut::Value(result)),
-        }
+        // SAFETY: the trampolines and the tables are this module's, whose
+        // code is never unmapped (`_module`); the machine calls only
+        // compiled bodies.
+        unsafe { self.crossing.call(code, env, args, run) }
     }
 }
 
@@ -316,20 +219,20 @@ impl NativeIslands for Islands {
 
 /// What runs natively: every body reachable from the entry that compiles,
 /// and whose direct callees do.
-struct Plan {
-    bodies: BTreeSet<u32>,
+pub(crate) struct Plan {
+    pub(crate) bodies: BTreeSet<u32>,
     /// How many bodies `main` reaches, its entry included.
-    reachable: usize,
+    pub(crate) reachable: usize,
     /// Whether anything `main` reaches has the machine run something for
     /// native code ([`runs_on_the_machine`]), so native frames may nest
     /// inside runs of the machine.
-    nests: bool,
+    pub(crate) nests: bool,
     /// Why any body doesn't.
-    notes: Vec<String>,
+    pub(crate) notes: Vec<String>,
 }
 
 /// The names of the image's bodies, for notes.
-fn body_name(program: &Program, image: &Image, code: u32) -> String {
+pub(crate) fn body_name(program: &Program, image: &Image, code: u32) -> String {
     if let Some(g) = image.global_code.iter().position(|c| *c == Some(code)) {
         return program.globals[g].name.to_string();
     }
@@ -363,7 +266,7 @@ fn direct_callees(program: &Program, image: &Image, code: u32) -> Vec<u32> {
 }
 
 /// Which bodies run natively (the module comment), or why none does.
-fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
+pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
     let mut notes = Vec::new();
     let mut bodies = BTreeSet::new();
     let reach = island(image, image.entry_code);
@@ -481,6 +384,27 @@ pub fn listing(program: &Program, image: &Image, options: Options) -> Result<Str
     Ok(audit.listing.unwrap_or_default())
 }
 
+/// The code generator for this machine. `pic`: position-independent code,
+/// for an object file (without it, outside symbols are absolute addresses
+/// in the code, which macOS can't relocate: standalone-executables.md
+/// §1.2); the JIT places its code itself.
+pub(crate) fn host_isa(pic: bool) -> Result<cranelift_codegen::isa::OwnedTargetIsa, String> {
+    let mut flags = settings::builder();
+    let set = |flags: &mut settings::Builder, name: &str, value: &str| {
+        flags.set(name, value).map_err(|e| e.to_string())
+    };
+    set(&mut flags, "opt_level", "speed")?;
+    set(&mut flags, "is_pic", if pic { "true" } else { "false" })?;
+    // Cranelift's `return_call` needs frame pointers on x86-64 (stage N0).
+    set(&mut flags, "preserve_frame_pointers", "true")?;
+    // The steps left live in the pinned register (the module comment).
+    set(&mut flags, "enable_pinned_reg", "true")?;
+    cranelift_native::builder()
+        .map_err(|e| format!("this machine isn't supported: {e}"))?
+        .finish(settings::Flags::new(flags))
+        .map_err(|e| e.to_string())
+}
+
 fn compile_audited(
     program: &Program,
     image: &Image,
@@ -494,25 +418,7 @@ fn compile_audited(
     let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
     let start = Instant::now();
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
-    let mut flags = settings::builder();
-    flags
-        .set("opt_level", "speed")
-        .map_err(|e| fail(e.to_string()))?;
-    flags
-        .set("is_pic", "false")
-        .map_err(|e| fail(e.to_string()))?;
-    // Cranelift's `return_call` needs frame pointers on x86-64 (stage N0).
-    flags
-        .set("preserve_frame_pointers", "true")
-        .map_err(|e| fail(e.to_string()))?;
-    // The steps left live in the pinned register (the module comment).
-    flags
-        .set("enable_pinned_reg", "true")
-        .map_err(|e| fail(e.to_string()))?;
-    let isa = cranelift_native::builder()
-        .map_err(|e| fail(format!("this machine isn't supported: {e}")))?
-        .finish(settings::Flags::new(flags))
-        .map_err(|e| fail(e.to_string()))?;
+    let isa = host_isa(false).map_err(fail)?;
     let mut builder = JITBuilder::with_isa(isa, default_libcall_names());
     for (name, address) in helper_addresses() {
         builder.symbol(name, address);
@@ -531,17 +437,24 @@ fn compile_audited(
         trampolines,
         n_caches,
         max_frame,
-    } = emit(&mut module, program, image, &plan, options, dump, audit)?;
+    } = emit(
+        &mut module,
+        program,
+        image,
+        &plan,
+        options,
+        dump,
+        audit,
+        false,
+    )?;
     module
         .finalize_definitions()
         .map_err(|e| fail(e.to_string()))?;
 
-    let mut entries = vec![std::ptr::null::<u8>(); image.codes.len()].into_boxed_slice();
     let mut table = vec![std::ptr::null::<u8>(); program.globals.len()].into_boxed_slice();
     for (g, global) in program.globals.iter().enumerate() {
-        if let Some((id, code)) = adapters.get(&(g as u32)) {
+        if let Some((id, _)) = adapters.get(&(g as u32)) {
             table[g] = module.get_finalized_function(*id);
-            entries[*code as usize] = table[g];
             if dump {
                 eprintln!("@@ {:p} {}", table[g], global.name);
             }
@@ -550,26 +463,30 @@ fn compile_audited(
     let mut lambdas = vec![std::ptr::null::<u8>(); image.lambda_code.len()].into_boxed_slice();
     for (&code, &l) in &lambda_of {
         lambdas[l as usize] = module.get_finalized_function(functions[&code]);
-        entries[code as usize] = lambdas[l as usize];
         if dump {
             eprintln!("@@ {:p} lambda #{l}", lambdas[l as usize]);
         }
     }
-    let trampolines = trampolines
+    let trampolines: Vec<(u32, Trampoline)> = trampolines
         .into_iter()
         .map(|(arity, id)| (arity, trampoline(module.get_finalized_function(id))))
         .collect();
+    let crossing = abi::Crossing::new(
+        image,
+        CrossingCode {
+            functions: table,
+            lambdas,
+            trampolines: &trampolines,
+            max_frame,
+            nests: plan.nests,
+        },
+        abi::TableStore::new(program, image, n_caches),
+        options.stack_size,
+    );
     Ok(Islands {
         _module: module,
-        entries,
-        trampolines,
-        functions: table,
-        lambdas,
-        tables: abi::TableStore::new(program, image, n_caches),
-        stack_size: options.stack_size,
-        stack_floor: Cell::new(None),
+        crossing,
         max_frame,
-        nests: plan.nests,
         notes,
         bodies: plan.bodies.len(),
         reachable: plan.reachable,
@@ -578,21 +495,21 @@ fn compile_audited(
 }
 
 /// What [`emit`] declared in the module.
-struct Emitted {
+pub(crate) struct Emitted {
     /// Each body's function.
-    functions: BTreeMap<u32, FuncId>,
+    pub(crate) functions: BTreeMap<u32, FuncId>,
     /// Each compiled global function's adapter (its entry as a function
     /// value), and its body.
-    adapters: BTreeMap<u32, (FuncId, u32)>,
+    pub(crate) adapters: BTreeMap<u32, (FuncId, u32)>,
     /// Which bodies are lambdas', and whose.
-    lambda_of: BTreeMap<u32, u32>,
+    pub(crate) lambda_of: BTreeMap<u32, u32>,
     /// `(number of arguments, trampoline)` of each crossing's trampoline.
-    trampolines: Vec<(u32, FuncId)>,
+    pub(crate) trampolines: Vec<(u32, FuncId)>,
     /// How many `Apply` sites the code has, each with a cache in the
     /// tables (`abi::Tables::caches`).
-    n_caches: usize,
+    pub(crate) n_caches: usize,
     /// A bound on the stack one level of recursion uses (`frames`).
-    max_frame: usize,
+    pub(crate) max_frame: usize,
 }
 
 /// The check that generated code holds no host address (stage S4 of
@@ -605,7 +522,7 @@ struct Emitted {
 /// (`Gen::address` is gone); this catches one coming back. [`listing`]
 /// also keeps each function's IR, for the test that it's the same text
 /// wherever the program is in memory.
-struct Audit {
+pub(crate) struct Audit {
     /// Sorted, disjoint enough to search: `[start, end)` of each host
     /// object. Empty in release builds.
     host: Vec<(u64, u64)>,
@@ -613,7 +530,7 @@ struct Audit {
 }
 
 impl Audit {
-    fn new(program: &Program, image: &Image, listing: bool) -> Audit {
+    pub(crate) fn new(program: &Program, image: &Image, listing: bool) -> Audit {
         let mut host = Vec::new();
         if cfg!(debug_assertions) || listing {
             fn span<T>(host: &mut Vec<(u64, u64)>, items: &[T]) {
@@ -688,12 +605,15 @@ impl Audit {
 }
 
 /// Generates the code of `plan`'s bodies, the adapters and `Apply` stubs,
-/// and a trampoline for each root, into `module`: the code generator, apart
-/// from where the code goes (stage S4 of
+/// and a trampoline for each number of arguments, into `module`: the code
+/// generator, apart from where the code goes (stage S4 of
 /// docs/proposals/standalone-executables.md), so the JIT and an object file
 /// get the same code. The code holds no host address: what it needs of the
 /// host's memory it reaches through `Context::tables`, by number.
-fn emit(
+/// `export_trampolines`: the trampolines are exported as
+/// `sw_cross_<number of arguments>` (for an object file) rather than local.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn emit(
     module: &mut dyn Module,
     program: &Program,
     image: &Image,
@@ -701,6 +621,7 @@ fn emit(
     options: Options,
     dump: bool,
     audit: &mut Audit,
+    export_trampolines: bool,
 ) -> Result<Emitted, Vec<String>> {
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let frontend_config = module.target_config();
@@ -764,17 +685,29 @@ fn emit(
     let mut apply_any: BTreeMap<u32, FuncId> = BTreeMap::new();
     for &code in &plan.bodies {
         for instr in &image.codes[code as usize].instrs {
-            if let Instr::Apply { args, .. } | Instr::TailApply { args, .. } = instr
-                && !apply_any.contains_key(&args.len)
-            {
+            let n = match instr {
+                Instr::Apply { args, .. } | Instr::TailApply { args, .. } => args.len,
+                // An inline `bind c k` applies `k` to one value (`Gen::bind`).
+                Instr::Prim {
+                    op: PrimOp::Effect(EffectOp::Bind),
+                    args,
+                    ..
+                }
+                | Instr::TailPrim {
+                    op: PrimOp::Effect(EffectOp::Bind),
+                    args,
+                } if args.len == 2 => 1,
+                _ => continue,
+            };
+            if let std::collections::btree_map::Entry::Vacant(slot) = apply_any.entry(n) {
                 let id = module
                     .declare_function(
-                        &format!("apply{}", args.len),
+                        &format!("apply{n}"),
                         Linkage::Local,
-                        &apply_signature(pointer, args.len),
+                        &apply_signature(pointer, n),
                     )
                     .map_err(|e| fail(e.to_string()))?;
-                apply_any.insert(args.len, id);
+                slot.insert(id);
             }
         }
     }
@@ -929,8 +862,13 @@ fn emit(
         for _ in 0..5 {
             signature.params.push(AbiParam::new(pointer));
         }
+        let (name, linkage) = if export_trampolines {
+            (format!("sw_cross_{arity}"), Linkage::Export)
+        } else {
+            (format!("cross{arity}"), Linkage::Local)
+        };
         let id = module
-            .declare_function(&format!("cross{arity}"), Linkage::Local, &signature)
+            .declare_function(&name, linkage, &signature)
             .map_err(|e| fail(e.to_string()))?;
         context.func.signature = signature;
         context.func.name = ir::UserFuncName::user(1, arity);

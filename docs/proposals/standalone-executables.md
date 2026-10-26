@@ -814,6 +814,99 @@ M1.**
 - **Done when:** these pass on macOS arm64, and on Linux x86-64 if a Linux
   machine is available to the lane (otherwise note it as unverified).
   Record `micro_call` at 1,000,000: binary against `run --native`.
+- **As built (26 October 2026):**
+  - **One object.** With `--native`, `stitchwort_native::aot::compile_object`
+    runs `n1::plan` and `n1::emit` into an `ObjectModule` (`is_pic`,
+    `preserve_frame_pointers`, no unwind information; `n1::host_isa` makes
+    the JIT's ISA and this one), and returns the `object::write::Object`.
+    The CLI adds `sw_program` and `sw_program_len` to it
+    (`build::finish_object`, which also sets the Mach-O platform), so the
+    code and the program are one `program.o`. `emit` takes an
+    `export_roots` flag: the trampolines are then `sw_root_<global>`,
+    exported; the bodies, adapters and `apply{n}` stubs stay local.
+  - **The data** (`stitchwort_rt::native_aot`), all read-only with
+    relocations, so in `__DATA_CONST` on macOS:
+    - `sw_functions`: a pointer per global, its adapter (`value{g}`) or 0;
+    - `sw_lambdas`: a pointer per lambda, its body or 0 (absent with no
+      lambdas);
+    - `sw_roots`: per root, `(global, checks_arguments, trampoline)`, three
+      words;
+    - `sw_native_manifest` (exported): `magic` ("swnative"), `version`,
+      `image_hash`, `n_caches`, `max_frame` (N2b's bound on a frame, for
+      the stack check), `n_globals`, `n_lambdas`, `n_roots`, then pointers
+      to the three tables: eleven words.
+
+    An object without native code (plain `build`, or `--native` where
+    nothing fits) has a manifest with no roots, so the library always finds
+    the symbol and needs no weak linking.
+  - **The image hash** is FNV-1a over the image's `Debug` text (the codec's
+    tests compare images by it; it holds no address). `AotIslands::new`
+    checks the magic, version, hash, global and lambda counts and each
+    root's global, before any native code runs. On a mismatch the
+    standalone `main` prints `internal error: this executable can't run:
+    …` and exits with 2, from inside the factory, which `run_main_native`
+    calls before the entry is computed, so nothing has run.
+  - **The crossing** is `native_abi::Crossing`, which both `n1::Islands`
+    and `AotIslands` own: the code's tables (`functions`, `lambdas`,
+    `callable`, the `TableStore`), the admission check (`admits`: function
+    values in the arguments, and N2b's rule that the frame counter fires
+    before the stack check), `call`, and N2b's release of what frames gave
+    up on an error. N2b's `floor_depth`, `counter_fires_first`,
+    `HOST_ROOM` and `HELPER_ROOM` moved there from `crates/native/src/
+    frames.rs` (which re-exports them), so the runtime library needs no
+    Cranelift; `Trampoline` moved too.
+  - **`--verbose`** prints the plan's notes, then a line like
+    ``native: compiled `Main.outer` as native code (2 bodies, in 2.2 ms)``,
+    or why the whole run stays on the machine. The binary itself prints no
+    notes.
+  - **Tests:** `crates/cli/tests/build.rs` (the four benchmarks, each equal
+    to `run --native` and `run` and signed; `--verbose`; `Fail`; native out
+    of frames; the roguelike), `crates/native/tests/object.rs` (the symbols,
+    and no absolute relocation in the text), `crates/standalone/src/aot/
+    tests.rs` (a mismatched image, foreign manifest, no roots). The test
+    tiers now build the CLI with `--features stitchwort-cli/native`
+    (Taskfile `TEST_FEATURES`, and the flake's nextest checks).
+  - **Numbers** (Apple M4 Pro, load 33–60, so rough; the note's sizes;
+    best of 3):
+
+    | Program | Binary (wall / CPU) | `run --native` (wall / CPU) | Machine-only binary (CPU) | Binary size (stripped) |
+    |---|---|---|---|---|
+    | `micro_call` 1,000,000 | 0.089 s / 0.074 s | 0.206 s / 0.154 s | 0.832 s | 1,438,080 (1,071,248) |
+    | `micro_tail` 20,000,000 | 0.042 s / 0.031 s | 0.138 s / 0.110 s | 0.517 s | 1,438,016 (1,071,232) |
+    | `set_nat` 1,000,000 | 3.72 s / 2.58 s | 3.70 s / 4.36 s | 10.72 s | 1,523,448 (1,154,208) |
+    | `closures` 1,000,000 | 1.17 s / 0.25 s | 2.38 s / 0.47 s | 0.51 s | 1,473,312 (1,104,608) |
+
+    `run --native` includes checking and compiling (closures: 103 ms of
+    Cranelift). A `build --native` took 0.23 s (`micro_*`) to 1.1 s
+    (`set_nat`, `closures`, which load more of the library). The roguelike's
+    binary is 1,470,272 bytes with `--native`, 8 bytes more than without:
+    its one root, `Std.Terminal.toIO`, is blocked only by the effect
+    operations (`Bind`, `TailPrim:Effect(Bind)`, `Translate`, `FoldIn`,
+    `RunPure`), so nothing compiles until N4.
+  - **Linux x86-64: unverified** (no Linux machine in the lane).
+  - **After N4 (26 October 2026).** S5 was ported to N4's crossing
+    (native-compilation.md, "N4 as built"): every body `main` reaches but
+    the entry is compiled into the object, the machine linked in runs what
+    native code hands it (effects, `Text.fold`, function values without
+    code), and the manifest (version 2) lists trampolines by number of
+    arguments (`sw_cross_<n>`, `sw_trampolines`) and whether frames nest,
+    in place of the roots. `AotIslands` implements `compiled`, `fits` and
+    `call` over the shared `Crossing`. `--verbose` says ``native: compiled
+    241 of the 242 bodies `main` reaches (frames of at most 2760 bytes, in
+    254.6 ms)`` for the roguelike, whose test now checks that (every body
+    but the entry) and that its piped output equals `run`'s.
+
+    The seeded roguelike (release build, Apple M4 Pro, load 11–22; a
+    500-key piped game, 468,660 bytes of output, identical for both
+    binaries and `run`; best of 3):
+
+    | Binary | Wall | Cycles | Instructions | Size (stripped) | Build |
+    |---|---|---|---|---|---|
+    | `--native` | 0.12 s | 0.50 G | 2.81 G | 2,468,320 (2,080,080) | 1.09 s |
+    | machine only | 0.34 s | 1.36 G | 6.90 G | 1,497,800 (1,121,024) | 0.90 s |
+
+    2.7× fewer cycles (0.24 ms a key against 0.68 ms), for about 0.95 MB
+    more code.
 
 **S6. Every pure primitive through the runtime.**
 - **What:** `census::n1_blocker` admits `Prim`/`Test` of `Text`, `Int`,
@@ -833,8 +926,9 @@ kept as each lands, not tested at the end. N3's closure instructions must use
 
 **S7. The roguelike fully native. Milestone M2.**
 - **What:**
-  - `build --native games/rogue`, where `--verbose` must report that both
-    entry callees are native islands;
+  - `build --native games/rogue`, where `--verbose` must report that every
+    body but the entry is compiled (since N4 there are no islands; S5's
+    roguelike test checks this already);
   - fix what's left;
   - measure the binary size, build time, and time per turn for a scripted
     500-key game against the machine-only binary;

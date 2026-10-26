@@ -24,6 +24,7 @@ pub mod ir;
 pub mod lower;
 pub mod machine;
 pub mod native_abi;
+pub mod native_aot;
 pub mod natives;
 pub mod opt;
 pub mod pretty;
