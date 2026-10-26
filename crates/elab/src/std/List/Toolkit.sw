@@ -303,7 +303,9 @@ def List.lookup: List (Pair k v) → (key: k) → (decEq: (x: k) → (y: k) → 
 
 -- `List.padRight xs n x` is `xs` followed by enough copies of `x` to make it
 -- n long (it is `xs` itself when that is already n long or longer).
-def List.padRight (xs: List a) (n: Nat) (x: a): List a := xs.append (List.replicate (n - xs.length) x)
+-- `List.length xs`, not `xs.length`: the library loader can't tell that from
+-- `Text.length`, and would load `Text/Basics.sw` with this file.
+def List.padRight (xs: List a) (n: Nat) (x: a): List a := xs.append (List.replicate (n - List.length xs) x)
 
 theorem List.lengthReplicate (x: a): (n: Nat) → List.length (List.replicate n x) = n
   | Zero => rfl
