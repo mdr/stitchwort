@@ -1,5 +1,5 @@
 {
-  "next": 644,
+  "next": 645,
   "tickets": [
     {
       "id": 13,
@@ -5045,7 +5045,19 @@
     {
       "id": 643,
       "title": "Private app port: use the new std/generated lemmas (field-update lemmas, Abort inversion, filterMap members, scan/zipWith get lemmas) in place of local workarounds and hand walks; no statement changes",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 644,
+      "title": "Std gap: a fold over zip that uses only each pair's first element equals the fold over the first list (trigger: the private port's layoutStartFold stays a hand induction, 26 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
