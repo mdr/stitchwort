@@ -413,6 +413,74 @@
   }
   .run-result { display: flex; flex-direction: column; gap: 10px; }
   pre.program-output { border-left: 3px solid var(--leaf); padding-left: 10px; }
+  /* The terminal pane: 80 columns by 24 rows, the font shrinking with the window so 80 columns fit.
+     The 16 colours are chosen for contrast on the pane's own background in each theme. */
+  :root {
+    --t-bg: #fbfaf4; --t-fg: #1d2a21;
+    --t0: #1d2a21; --t1: #a8302a; --t2: #26683a; --t3: #7a5300; --t4: #2a55a3; --t5: #8a3a8f; --t6: #17666e; --t7: #5a655d;
+    --t8: #4a574d; --t9: #c0392b; --t10: #1d7a3a; --t11: #8f6200; --t12: #1f5fc0; --t13: #a23ba8; --t14: #12767f; --t15: #2a3a2f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --t-bg: #0b100d; --t-fg: #e3ece4;
+      --t0: #8a9a8e; --t1: #ef8f86; --t2: #82c795; --t3: #e3b55e; --t4: #8fb4f2; --t5: #d6a3e8; --t6: #7cc4c9; --t7: #e3ece4;
+      --t8: #a3b3a7; --t9: #ff9f95; --t10: #9fe0b0; --t11: #f2cc7e; --t12: #aac6ff; --t13: #e6bcf5; --t14: #98dde2; --t15: #ffffff;
+    }
+  }
+  :root[data-theme="dark"] {
+    --t-bg: #0b100d; --t-fg: #e3ece4;
+    --t0: #8a9a8e; --t1: #ef8f86; --t2: #82c795; --t3: #e3b55e; --t4: #8fb4f2; --t5: #d6a3e8; --t6: #7cc4c9; --t7: #e3ece4;
+    --t8: #a3b3a7; --t9: #ff9f95; --t10: #9fe0b0; --t11: #f2cc7e; --t12: #aac6ff; --t13: #e6bcf5; --t14: #98dde2; --t15: #ffffff;
+  }
+  pre#live-screen {
+    box-sizing: border-box;
+    background: var(--t-bg);
+    color: var(--t-fg);
+    font-size: min(14px, calc((100vw - 90px) / 50));
+    line-height: 1.25;
+    height: calc(24 * 1.25em + 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+  pre#live-screen:focus { outline: 2px solid var(--leaf); outline-offset: 2px; }
+  #live-screen .bd { font-weight: 700; }
+  #live-screen .cur { outline: 1px solid var(--t-fg); outline-offset: -1px; }
+  #live-screen .f0 { --fg: var(--t0); color: var(--t0); }
+  #live-screen .b0 { --bg: var(--t0); background: var(--t0); }
+  #live-screen .f1 { --fg: var(--t1); color: var(--t1); }
+  #live-screen .b1 { --bg: var(--t1); background: var(--t1); }
+  #live-screen .f2 { --fg: var(--t2); color: var(--t2); }
+  #live-screen .b2 { --bg: var(--t2); background: var(--t2); }
+  #live-screen .f3 { --fg: var(--t3); color: var(--t3); }
+  #live-screen .b3 { --bg: var(--t3); background: var(--t3); }
+  #live-screen .f4 { --fg: var(--t4); color: var(--t4); }
+  #live-screen .b4 { --bg: var(--t4); background: var(--t4); }
+  #live-screen .f5 { --fg: var(--t5); color: var(--t5); }
+  #live-screen .b5 { --bg: var(--t5); background: var(--t5); }
+  #live-screen .f6 { --fg: var(--t6); color: var(--t6); }
+  #live-screen .b6 { --bg: var(--t6); background: var(--t6); }
+  #live-screen .f7 { --fg: var(--t7); color: var(--t7); }
+  #live-screen .b7 { --bg: var(--t7); background: var(--t7); }
+  #live-screen .f8 { --fg: var(--t8); color: var(--t8); }
+  #live-screen .b8 { --bg: var(--t8); background: var(--t8); }
+  #live-screen .f9 { --fg: var(--t9); color: var(--t9); }
+  #live-screen .b9 { --bg: var(--t9); background: var(--t9); }
+  #live-screen .f10 { --fg: var(--t10); color: var(--t10); }
+  #live-screen .b10 { --bg: var(--t10); background: var(--t10); }
+  #live-screen .f11 { --fg: var(--t11); color: var(--t11); }
+  #live-screen .b11 { --bg: var(--t11); background: var(--t11); }
+  #live-screen .f12 { --fg: var(--t12); color: var(--t12); }
+  #live-screen .b12 { --bg: var(--t12); background: var(--t12); }
+  #live-screen .f13 { --fg: var(--t13); color: var(--t13); }
+  #live-screen .b13 { --bg: var(--t13); background: var(--t13); }
+  #live-screen .f14 { --fg: var(--t14); color: var(--t14); }
+  #live-screen .b14 { --bg: var(--t14); background: var(--t14); }
+  #live-screen .f15 { --fg: var(--t15); color: var(--t15); }
+  #live-screen .b15 { --bg: var(--t15); background: var(--t15); }
+  #live-screen .rv { color: var(--bg, var(--t-bg)); background: var(--fg, var(--t-fg)); }
   .evalrow input { flex: 1; min-width: 0; font-family: var(--mono); font-variation-settings: "MONO" 1; }
   .result {
     font-family: var(--mono);
@@ -1043,6 +1111,13 @@ export def area: Shape -> Nat
   function setRunHint() {
     const main = project ? project.manifest.days[project.day].main : "main";
     runButton.title = `Run ${main} (Ctrl+Enter)`;
+    // A live day has no input box: its keys come from the terminal pane.
+    const live = !!project?.manifest.days[project.day].live;
+    runInput.hidden = live;
+    if (live) {
+      runHint.textContent = project.manifest.days[project.day].hint ?? `Run opens a terminal and calls ${main} () in it.`;
+      return;
+    }
     runHint.textContent =
       `Run calls ${project ? main : "main"} (). Its IO.readLine () gets the lines below, one at a time, then None; ` +
       "IO.readAll () gets all that's left at once. " +
@@ -1066,6 +1141,8 @@ export def area: Shape -> Nat
   ];
 
   async function runMain() {
+    // A project day that says `"live": true` in its manifest runs in the terminal.
+    if (project?.manifest.days[project.day].live) return runLive();
     selectView("run");
     const src = stateKey();
     runButton.disabled = runAgain.disabled = liveButton.disabled = true;
@@ -1128,9 +1205,9 @@ export def area: Shape -> Nat
   stopButton.addEventListener("click", () => { runner.cancel(); liveRun?.stop(); });
 
   // ---- Run in terminal (docs/proposals/playground-live-keys.md) -----------
-  // A minimal hook: the output in a plain <pre> (a frame replaces the last),
-  // and the keys pressed in it sent to the program as they are. The worker
-  // keeps the run paused between keys, so it is free to take the next one.
+  // The pane is an 80 x 24 grid (TerminalGrid) fed the program's output, and
+  // the keys pressed in it go to the program as they are. The worker keeps
+  // the run paused between keys, so it is free to take the next one.
 
   /** The bytes a terminal sends for a key event (terminal-io.md §3.2), or null if the page keeps it. */
   function keyBytes(e) {
@@ -1145,14 +1222,202 @@ export def area: Shape -> Nat
     return null;
   }
 
-  /** What the <pre> shows after `text`: a frame (cursor home) or a change of screen starts afresh; other codes are dropped. */
-  function applyTerminalText(shown, text) {
-    for (const part of text.split(/(\x1b\[[0-9;?]*[A-Za-z~])/)) {
-      const code = /^\x1b\[([0-9;?]*)([A-Za-z~])$/.exec(part);
-      if (!code) shown += part.replace(/\r/g, "");
-      else if ((code[2] === "H" && code[1] === "") || /^\?1049[hl]$/.test(code[1] + code[2])) shown = "";
+  /**
+   * A terminal screen: a grid of cells (a character and a style) with a
+   * cursor, and a small interpreter for the escape codes std writes
+   * (Terminal.sw, Ansi.sw): CR, LF, BS, Tab; CSI H f A B C D G K J m, and the
+   * modes ?1049 (alternate screen), ?25 (cursor) and ?7 (wrap). Everything
+   * else is ignored. The normal screen keeps its lines, and a scrollback of
+   * those that scrolled off, while the alternate screen is in use.
+   */
+  class TerminalGrid {
+    constructor(rows = 24, cols = 80) {
+      this.rows = rows;
+      this.cols = cols;
+      this.normal = this.newScreen();
+      this.screen = this.normal;
+      this.scrollback = [];
+      this.keysMode = false;
+      this.cursorVisible = true;
+      this.wrap = true;
+      this.pendingWrap = false;
+      this.attr = { fg: null, bg: null, bold: false, reverse: false };
+      this.style = "";
+      this.state = "ground";
+      this.params = "";
     }
-    return shown;
+
+    newScreen() { return { cells: Array.from({ length: this.rows }, () => this.blankRow()), row: 0, col: 0 }; }
+    blankRow() { return Array.from({ length: this.cols }, () => [" ", ""]); }
+
+    write(text) {
+      for (const ch of text) this.feed(ch);
+    }
+
+    feed(ch) {
+      const code = ch.codePointAt(0);
+      if (this.state === "esc") {
+        this.state = ch === "[" ? "csi" : ch === "\x1b" ? "esc" : "ground";
+        this.params = "";
+        return;
+      }
+      if (this.state === "csi") {
+        if (code >= 0x40 && code <= 0x7e) { this.state = "ground"; this.csi(this.params, ch); }
+        else if (code >= 0x20 && code <= 0x3f) this.params += ch;
+        else if (ch === "\x1b") this.state = "esc";
+        return;
+      }
+      if (ch === "\x1b") { this.state = "esc"; return; }
+      const s = this.screen;
+      if (ch === "\n") { this.lineFeed(); s.col = 0; this.pendingWrap = false; }
+      else if (ch === "\r") { s.col = 0; this.pendingWrap = false; }
+      else if (ch === "\b") { if (s.col > 0) s.col--; this.pendingWrap = false; }
+      else if (ch === "\t") { s.col = Math.min(this.cols - 1, (Math.floor(s.col / 8) + 1) * 8); this.pendingWrap = false; }
+      else if (code >= 32 && code !== 127) this.put(ch);
+    }
+
+    put(ch) {
+      const s = this.screen;
+      if (this.pendingWrap) { this.lineFeed(); s.col = 0; this.pendingWrap = false; }
+      s.cells[s.row][s.col] = [ch, this.style];
+      if (s.col < this.cols - 1) s.col++;
+      else if (this.wrap) this.pendingWrap = true;
+    }
+
+    lineFeed() {
+      const s = this.screen;
+      if (s.row < this.rows - 1) { s.row++; return; }
+      const gone = s.cells.shift();
+      s.cells.push(this.blankRow());
+      if (s === this.normal) {
+        this.scrollback.push(gone);
+        if (this.scrollback.length > 300) this.scrollback.shift();
+      }
+    }
+
+    csi(params, final) {
+      const s = this.screen;
+      const numbers = params.replace(/^[?>]/, "").split(";").map((n) => (n === "" ? null : Number(n)));
+      const first = (fallback) => numbers[0] || fallback;
+      this.pendingWrap = false;
+      const clamp = (n, max) => Math.max(0, Math.min(max, n));
+      switch (final) {
+        case "H": case "f":
+          s.row = clamp(first(1) - 1, this.rows - 1);
+          s.col = clamp((numbers[1] || 1) - 1, this.cols - 1);
+          break;
+        case "A": s.row = clamp(s.row - first(1), this.rows - 1); break;
+        case "B": s.row = clamp(s.row + first(1), this.rows - 1); break;
+        case "C": s.col = clamp(s.col + first(1), this.cols - 1); break;
+        case "D": s.col = clamp(s.col - first(1), this.cols - 1); break;
+        case "G": s.col = clamp(first(1) - 1, this.cols - 1); break;
+        case "K": {
+          const mode = numbers[0] ?? 0;
+          const from = mode === 0 ? s.col : 0;
+          const to = mode === 1 ? s.col : this.cols - 1;
+          for (let c = from; c <= to; c++) s.cells[s.row][c] = [" ", ""];
+          break;
+        }
+        case "J": {
+          const mode = numbers[0] ?? 0;
+          if (mode === 3) { this.scrollback = []; break; }
+          const rowsFrom = mode === 0 ? s.row + 1 : 0;
+          const rowsTo = mode === 1 ? s.row - 1 : this.rows - 1;
+          for (let r = rowsFrom; r <= rowsTo; r++) s.cells[r] = this.blankRow();
+          if (mode === 0) for (let c = s.col; c < this.cols; c++) s.cells[s.row][c] = [" ", ""];
+          if (mode === 1) for (let c = 0; c <= s.col; c++) s.cells[s.row][c] = [" ", ""];
+          break;
+        }
+        case "m": this.sgr(numbers.map((n) => n ?? 0)); break;
+        case "h": case "l": if (params.startsWith("?")) for (const n of numbers) this.mode(n, final === "h"); break;
+        default: break;
+      }
+    }
+
+    mode(number, on) {
+      if (number === 25) this.cursorVisible = on;
+      else if (number === 7) this.wrap = on;
+      else if (number === 1049 && on !== this.keysMode) {
+        // The alternate screen starts blank each time; the normal one is kept as it was.
+        this.keysMode = on;
+        this.screen = on ? this.newScreen() : this.normal;
+        this.pendingWrap = false;
+      }
+    }
+
+    sgr(codes) {
+      if (codes.length === 0) codes = [0];
+      const a = this.attr;
+      for (let i = 0; i < codes.length; i++) {
+        const n = codes[i];
+        if (n === 0) Object.assign(a, { fg: null, bg: null, bold: false, reverse: false });
+        else if (n === 1) a.bold = true;
+        else if (n === 22) a.bold = false;
+        else if (n === 7) a.reverse = true;
+        else if (n === 27) a.reverse = false;
+        else if (n >= 30 && n <= 37) a.fg = n - 30;
+        else if (n === 39) a.fg = null;
+        else if (n >= 40 && n <= 47) a.bg = n - 40;
+        else if (n === 49) a.bg = null;
+        else if (n >= 90 && n <= 97) a.fg = n - 90 + 8;
+        else if (n >= 100 && n <= 107) a.bg = n - 100 + 8;
+        else if (n === 38 || n === 48) {
+          // 38;5;N (256 colours, only the first 16 are shown) or 38;2;R;G;B (skipped).
+          const kind = codes[i + 1];
+          const value = kind === 5 ? codes[i + 2] : null;
+          i += kind === 5 ? 2 : kind === 2 ? 4 : 0;
+          if (value !== null && value < 16) a[n === 38 ? "fg" : "bg"] = value;
+        }
+      }
+      this.style = [a.fg !== null ? `f${a.fg}` : "", a.bg !== null ? `b${a.bg}` : "", a.bold ? "bd" : "", a.reverse ? "rv" : ""]
+        .filter(Boolean).join(" ");
+    }
+
+    /** The visible rows: the scrollback (on the normal screen), then the screen. */
+    visibleRows() {
+      return this.keysMode ? this.screen.cells : [...this.scrollback, ...this.screen.cells];
+    }
+
+    /** The text of the visible rows, without trailing spaces or empty rows at the end. */
+    text() {
+      const lines = this.visibleRows().map((row) => row.map(([ch]) => ch).join("").replace(/ +$/, ""));
+      while (lines.length && lines[lines.length - 1] === "") lines.pop();
+      return lines.join("\n");
+    }
+
+    /** DOM for the visible rows: a span per row, holding a span per run of one style (data-col is its first column). */
+    render(showCursor) {
+      const out = document.createDocumentFragment();
+      const rows = this.visibleRows();
+      const offset = rows.length - this.rows;
+      rows.forEach((cells, r) => {
+        const rowEl = document.createElement("span");
+        rowEl.className = "trow";
+        const cursorHere = showCursor && this.cursorVisible && r === offset + this.screen.row;
+        let end = cells.length;
+        while (end > 0 && cells[end - 1][0] === " " && cells[end - 1][1] === "") end--;
+        if (cursorHere) end = Math.max(end, this.screen.col + 1);
+        let runStart = 0;
+        const flush = (to, style) => {
+          if (to <= runStart) return;
+          const span = document.createElement("span");
+          span.textContent = cells.slice(runStart, to).map(([ch]) => ch).join("");
+          if (style) span.className = style;
+          span.dataset.col = String(runStart);
+          rowEl.append(span);
+          runStart = to;
+        };
+        let style = null;
+        for (let c = 0; c < end; c++) {
+          const here = cells[c][1] + (cursorHere && c === this.screen.col ? " cur" : "");
+          if (style !== null && here !== style) flush(c, style);
+          style = here;
+        }
+        flush(end, style);
+        out.append(rowEl, "\n");
+      });
+      return out;
+    }
   }
 
   /** The live run's worker: one request at a time, with the time limit counted over each stretch. */
@@ -1215,44 +1480,98 @@ export def area: Shape -> Nat
     liveRun?.stop();
     runButton.disabled = runAgain.disabled = liveButton.disabled = true;
     stopButton.disabled = false;
-    let shown = "";
+    const grid = new TerminalGrid(24, 80);
     const screen = el("pre", { id: "live-screen", className: "program-output", tabIndex: 0 });
     screen.setAttribute("aria-label", "The program's terminal: keys typed here go to the program");
-    const note = el("p", { className: "hint" }, "Keys go to the program. Ctrl-C stops it.");
+    const note = el("p", { className: "hint" },
+      "Keys go to the program. Ctrl-C stops it, Ctrl-D ends its input, and Esc then Tab leaves the terminal.");
     const status = el("p", { className: "summary" });
     runResult.replaceChildren(el("h2", {}, "Terminal"), screen, note, status);
     const set = (state, text) => { screen.dataset.state = state; status.textContent = text; };
-    const run = liveRun = new LiveRun((text) => {
-      shown = applyTerminalText(shown, text);
-      screen.textContent = shown;
-    });
+    const draw = () => {
+      const atBottom = screen.scrollTop + screen.clientHeight >= screen.scrollHeight - 4;
+      const drawStart = performance.now();
+      screen.replaceChildren(grid.render(true));
+      screen.dataset.drawMs = String(performance.now() - drawStart);
+      screen.dataset.text = grid.text();
+      screen.dataset.keys = grid.keysMode ? "keys" : "line";
+      if (atBottom) screen.scrollTop = screen.scrollHeight;
+    };
+    const run = liveRun = new LiveRun((text) => { grid.write(text); draw(); });
+    draw();
     // Keys wait for the one before to be taken: the worker is busy while it
     // computes, and answers when the program waits again.
+    let sentAt = performance.now();
     let inFlight = true;
     let queued = [];
+    let closing = false;
+    let closed = false;
     const flush = () => {
       inFlight = true;
       set("running", "Running…");
       const keys = queued;
+      sentAt = performance.now();
       queued = [];
-      run.request({ action: "live-keys", keys }).then(handle);
+      const close = closing;
+      closing = false;
+      if (close) closed = true;
+      run.request({ action: "live-keys", keys, close }).then(handle);
     };
+    const send = (bytes) => { queued.push(bytes); if (!inFlight) flush(); };
+    const sendClose = () => { closing = true; if (!inFlight) flush(); };
+    // Outside keys mode the program is reading lines, and the terminal does
+    // what a tty's line mode does: echo, Backspace edits, Enter sends the line.
+    let line = "";
+    const echo = (text) => { grid.write(text); draw(); };
+    const encode = (text) => [...new TextEncoder().encode(text)];
+    let escaped = false;
     const onKey = (e) => {
+      if (closed) return;
+      // Esc then Tab (or Shift-Tab) is the way out (WCAG: No Keyboard Trap).
+      if (escaped && e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) { escaped = false; return; }
+      escaped = e.key === "Escape";
+      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        if (grid.keysMode || line === "") sendClose();
+        else { send(encode(line)); line = ""; }
+        return;
+      }
+      if (!grid.keysMode) {
+        if (e.metaKey || e.altKey) return;
+        if (e.key === "Enter") { e.preventDefault(); echo("\n"); send(encode(line + "\n")); line = ""; return; }
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          if (line) { const chars = [...line]; chars.pop(); line = chars.join(""); echo("\b \b"); }
+          return;
+        }
+        if (e.ctrlKey && e.key.toLowerCase() === "u") {
+          e.preventDefault();
+          echo("\b \b".repeat([...line].length));
+          line = "";
+          return;
+        }
+        if (!e.ctrlKey && [...e.key].length === 1) { e.preventDefault(); line += e.key; echo(e.key); return; }
+        // Other keys do nothing in line mode, and Tab moves on (Ctrl-C and the like still go through).
+        if (!e.ctrlKey) return;
+      }
       const bytes = keyBytes(e);
       if (!bytes) return;
       e.preventDefault();
-      queued.push(bytes);
-      if (!inFlight) flush();
+      send(bytes);
     };
+    const onBlur = () => { escaped = false; };
     const handle = (out) => {
       if (liveRun !== run) return;
+      draw();
+      screen.dataset.frameMs = String(performance.now() - sentAt);
       screen.dataset.stretches = String((Number(screen.dataset.stretches) || 0) + 1);
       if (out.state === "waiting") {
         set("waiting", "Waiting for a key.");
-        if (queued.length) flush(); else inFlight = false;
+        if (queued.length || closing) flush(); else inFlight = false;
         return;
       }
       screen.removeEventListener("keydown", onKey);
+      screen.removeEventListener("blur", onBlur);
       runButton.disabled = runAgain.disabled = liveButton.disabled = false;
       stopButton.disabled = true;
       if (out.state === "failed") {
@@ -1269,6 +1588,7 @@ export def area: Shape -> Nat
     };
     run.onIdleStop = () => handle({ state: "stopped" });
     screen.addEventListener("keydown", onKey);
+    screen.addEventListener("blur", onBlur);
     screen.focus();
     set("running", "Running…");
     run.request({ ...requestFor("run", { name: project?.manifest.days[project.day].main }), action: "live-start" }).then(handle);

@@ -1052,7 +1052,7 @@ Each route is judged on:
 |---|---|---|
 | N0 | Spike: Cranelift as a dependency behind a Cargo feature (off in the wasm build). JIT one hand-built function on macOS arm64 and Linux x86-64. Measure the binary growth and compile time. **Check on macOS that JIT code runs in an unsigned development build, in a signed build, and in a hardened build** (and a notarised one, if we ship that), and what entitlement or `MAP_JIT` use each needs (§2.10). | It runs, in Nix, and `nix flake check` builds both with and without the feature; the three macOS cases are recorded |
 | N1 | Translate the core instructions: `Move`/`Take`/`Drop`, `Const`, `Call`/`TailCall`/`Return`, `Switch`/`Field`/`Unpack`, `Ctor`/`CtorReuse`, `Test`/`JumpIfFalse`/`Jump`, and `Nat` fast paths with runtime calls for the slow paths. **Frame and step counters**, counted as the machine counts them, so the speed measured includes the bookkeeping native code will really have. Whole reachable islands (§4.6): an entry point whose reach has an unsupported instruction runs wholly on the machine. A debug-only allocation trace (below). Behind `run --native`. | `micro_call`, `micro_tail` and the `Set` benchmark run and agree, **with counters in**; **first real speed measurement**, stop point at 3× |
-| N2 | Split in two (D1279). **N2a** (built, [below](#n2a-as-built-25-october-2026-d1279)): registers in machine registers, counters in registers. **N2b**: the big-stack thread and the full `E-RESOURCE` handling; tail calls between functions (`return_call`), with the tail-call tests below. | §6's stack-safety tests pass under `--native`, and the counter fires before the stack on every supported target |
+| N2 | Split in two (D1279). **N2a** (built, [below](#n2a-as-built-25-october-2026-d1279)): registers in machine registers, counters in registers. **N2b** (built, [below](#n2b-as-built-26-october-2026)): the big-stack thread and the full `E-RESOURCE` handling; tail calls between functions (`return_call`), with the tail-call tests below. | §6's stack-safety tests pass under `--native`, and the counter fires before the stack on every supported target |
 | N3 | The remaining instructions: closures, `Apply`/`Pap` (eval/apply), `Int`/`Text`/`NumSwitch`, `Captured`, `Global` constants. Built, [below](#n3-as-built-26-october-2026-d1285). | Every function compiles; `machine.rs`'s differential tests pass under `--native` |
 | N4 | Effects: the effect loop calls compiled continuations; `Text.fold`; the `Delay` runner. | `effect_differential.rs` and the partial tests agree three ways |
 | N5 | Run the whole differential suite with `--native` added; fix what it finds. | All agree |
@@ -1567,6 +1567,93 @@ merging its arguments (5%).
    applying a partial application to exactly the rest of its arguments
    without building a merged `Vec` (a fast path beside the closure one).
 
+## N2b as built (26 October 2026)
+
+**[ran]** The safety work left after N2a. In `crates/native/src/frames.rs`,
+`n1.rs` and `crates/native/tests/{n2b,frames}.rs`.
+
+**Stack sizing.** The stack-pointer check behind the frame limit used a
+fixed 16 MiB margin. Now:
+- **Each body's frame size** is read from what Cranelift emitted (0.136
+  doesn't report it). On aarch64 the machine buffer's unwind
+  pseudo-instructions (`PushFrameRegs`, `DefineNewFrame`, `StackAlloc`) sum
+  to the frame (a body measured by hand: 304 bytes, the sum 304). On x86-64
+  there is no `StackAlloc`, but the prologue is always `push %rbp; mov
+  %rsp,%rbp; sub $N,%rsp`, so `N` is read from the code bytes. A frame of a
+  page or more (probed first), or a prologue of another shape, takes a
+  safe IR bound (stack slots and two spill slots a value; far above the real
+  size). Every bound adds the widest signature's arguments as if all were
+  on the stack (a tail call to a wider callee grows the frame by that), and
+  16 for alignment. The measured bounds against the real use of a
+  non-tail recursion (the least frame size that finishes, found by
+  bisection while building this): 408 against 304 bytes a frame for one
+  argument, 1392 against 1169 for six, 2720 against 2352 for twelve.
+- **The rule.** A run is on the machine unless `frame limit × widest bound`
+  fits the stack less `HOST_ROOM` (8 MiB, what the host used above the
+  crossing) and `HELPER_ROOM` (8 MiB, what a runtime helper uses at the
+  bottom) and one more frame (the check runs before a call pushes its
+  frame). Then the frame counter always fires before the stack-pointer
+  check, so the check is a backstop that never decides a run. The rule is
+  `Islands::accepts`, which now gets the frame limit; a call it refuses runs
+  on the machine and says so in the notes ("`f` ran on the machine: N frames
+  of up to B bytes may not fit the S-byte stack"). `NATIVE_STACK` is now
+  16 GiB (address space, not memory): the default limit of 2,000,000 frames
+  fits levels of up to about 8,000 bytes. With N3 a level is a body (or an
+  adapter, which tail-calls it) plus an apply stub that stays on the stack
+  while it calls (the `Set` benchmark: about 1,260 + 1,100 bytes, which did
+  not fit the 4 GiB it had); wider ones run on the machine at the default
+  limit, or natively under a smaller `frames`.
+- **Test** (`n2b.rs`, `recursion_to_the_frame_limit_stops_at_the_counter`):
+  a non-tail recursion with 1, 6 and 12 arguments live across the call,
+  limited to exactly the frames it needs, on exactly the stack the rule
+  asks for, has the machine's output; one frame fewer is the machine's
+  `E-RESOURCE`. A second test checks that a stack too small keeps the run on
+  the machine. (A call with 17 arguments didn't reach native code
+  in this test: its island is not admitted, for a reason not looked into.)
+
+**Tail calls** (`n2b.rs`): `direct`, `through a function value` (a
+`TailApply` of a global in each iteration, picked by the iteration's parity),
+`mutual recursion`, `next to runtime helpers` (big-number arithmetic and
+cell allocation each iteration), `wide argument lists` (13 arguments), `to a
+wider callee than the caller's` (16 arguments, from a 2-argument caller),
+and `from a frame with live registers to free`. Each runs 10,000,000
+iterations on a 64 MiB thread (a leak of 8 bytes an iteration would end
+it), and agrees with the machine at 200,000 on output; at 300 iterations
+the traces are event-identical and the least step and frame limits equal.
+Not covered: a loop that tail-calls itself through a function value (a total
+function cannot, and `{Partial}` functions are not yet in the native
+subset).
+
+**Error exits and the trace.** The comparison found a real difference: N2a
+released a leaving frame's registers highest first, as the machine releases
+a *returning* frame, but a failed machine run drops everything with
+`regs.clear()` (outermost frame first, each lowest register first, then a
+tail call's fetched arguments). On an error, frames now hand their values
+to the runtime (`sw_unwind`), which keeps them in segments, and the
+machine, once it has cleared its own registers, has `release_unwound` drop
+the segments last first. A tail call that runs out of steps fetches its
+arguments first in the machine (moved or cloned), so the exit does too.
+With closures (N3), a lambda's frame also holds its closure, and an
+over-application's rest sits in the callee frame's `Ret`: the machine clears
+its *frames* before its registers, so each leaving native frame pushes a group
+(its closure, or nothing) that the machine has dropped, last frame first,
+right after `frames.clear()` (`release_unwound_frames`), and the apply stub's
+rest joins the callee's group. The stub's own early exit (out of steps or
+frames before the call) drops as `push` returning its error does: the rest,
+the closure, then the arguments, each lowest first (`sw_release_up`).
+`closure_error_exits_make_the_machines_allocation_trace` sweeps a program of
+closures applied exactly, partially, over-applied and tail-applied.
+`error_exits_make_the_machines_allocation_trace` sweeps the traces at every
+step and every frame limit up to the least that finishes, for N2a's program
+and for the tail-call shapes that hold values; it failed before this.
+
+**x86-64.** Rosetta runs here (`/usr/bin/arch -x86_64`), but the toolchain
+has no x86-64 Darwin standard library, so the native tests were not run on
+x86-64. What was checked: `tests/frames.rs` compiles bodies for both
+architectures (Cranelift's x86 and arm64 backends are in the test build) and
+checks that the prologue is read on each and the bound covers the stack
+slots.
+
 ## N4 as built (26 October 2026, D1285)
 
 **[ran]** Effects and handlers, in `crates/native/src/n1.rs`,
@@ -1616,6 +1703,33 @@ effect runtime; the two runners call each other.
   nested run (`frame_base`), and native code writes its step count to the
   context before every helper that runs the machine and reads it back
   after, so both runners count every step and frame by the machine's rules.
+- *Error exits across the nesting* (with N2b's order). After a failed run
+  the machine drops every frame's closure and pending return, outermost
+  first, then every register, outermost first. With nesting, the stack
+  alternates machine segments and native ones, so nothing is dropped where
+  it fails: each crossing's frames hand theirs to the runtime
+  (`sw_unwind`, as N2b built it), a failed nested run keeps its own frames
+  and registers rather than truncating them, and both go into one log on
+  the machine (`State::unwound`), innermost first. `release_failed` then
+  drops the machine's own frames, the logged frames last-in first, the
+  machine's registers, the logged registers likewise, and the tail
+  arguments. N2b's every-limit trace sweeps and N4's handler sweep agree
+  event for event.
+- *The stack bound* (N2b's rule that the frame counter must fire before
+  the stack check). Nesting puts runtime and machine frames between native
+  ones, which N2b's bound didn't allow for. Measured (`frames::NEST_ROOM`):
+  a recursion through `Text.fold` uses 2,104 bytes per counted frame, and a
+  handler resuming in a non-tail position 3,904 (two nestings per frame),
+  native frames included; handlers in other positions don't nest at all.
+  So a program that can nest (it reaches an effect native, `Text.fold`, or
+  a function value of one) allows 4 KiB more per frame (more than either measurement, native frames
+  included; 6 KiB would keep the rogue's 2,000,000 frames off the 16 GiB
+  stack, raising the stack to 32 GiB is the alternative); one that can't
+  keeps N2b's bound. The check is now made once, when the machine is given
+  native code (`NativeIslands::fits`), since every call can cross.
+- *No host addresses* (S4). The new helpers are linked by name like the
+  others, and the effect natives are passed as their place in
+  `EffectOp::ALL`.
 
 `run --native --verbose` reports, for the rogue, "running 241 of the 242
 bodies `main` reaches natively (compiled in 693 ms)", and for each AoC day

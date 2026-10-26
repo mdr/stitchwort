@@ -195,13 +195,13 @@ fn every_error_exit_in_a_handler_frees_everything() {
     });
 }
 
-/// Effect loops 250,000 long under a frame limit of 100, on a 16 MiB
+/// Effect loops 250,000 long under a frame limit of 100, on a 64 MiB
 /// native stack: a state-passing handler's jumps, a fold whose clause
 /// resumes in a tail position, and the same with an open row (a lazy
 /// resumption, which native code reaches by a tail apply: a tail request).
 #[test]
 fn effect_loops_run_in_constant_stack() {
-    const SMALL: usize = 16 * 1024 * 1024;
+    const SMALL: usize = 64 * 1024 * 1024;
     let source = r#"import Std (IO, Nat)
 
 ability Counter where

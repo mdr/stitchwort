@@ -3452,13 +3452,13 @@
     {
       "id": 519,
       "title": "Native N2b: big-stack sizing with counter-fires-first tests, tail-call shape tests, frame sizes, trace order on error paths (after N2a)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3477,14 +3477,14 @@
     },
     {
       "id": 521,
-      "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
+      "title": "Live keys lanes 2-4: lane 2 merged (7ce810f9), lane 3 pane merged (20be392c); lane 4 rogue live doing",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3516,13 +3516,13 @@
     {
       "id": 524,
       "title": "Design note: goal read-back for match/rewrite without expanding stuck branches (opaque plan lane 6; D1280+)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3539,26 +3539,26 @@
     },
     {
       "id": 526,
-      "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold generation (lazy), docs — after lane 1",
+      "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold (small f.%body shape) [built 19ce28e4 on lane 1, awaiting review]",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
       "id": 527,
-      "title": "Opaque defs lanes 3-4: 'is opaque' error notes; roguelike generates levels on the stairs — after lane 2",
-      "status": "backlog",
+      "title": "Opaque defs lanes 3-4: lane 4 rogue on the stairs built (1cdab95d, branch, review); lane 3 messages doing (branch)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3618,13 +3618,13 @@
     {
       "id": 532,
       "title": "Rogue proofs follow-up: std lemma 'roll n < n under seeded/any Random handler'; link goalReachable to generateLevel; positions stay inside 20x66 (PROOFS.md gaps 1-2; may need opaque defs)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3720,6 +3720,20 @@
     {
       "id": 540,
       "title": "Standalone S4: code generator free of host addresses (Tables)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-26",
+      "commits": [
+        "804ccdd2"
+      ]
+    },
+    {
+      "id": 541,
+      "title": "Standalone S5: object output, build --native (after S4)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3730,28 +3744,18 @@
       "commits": []
     },
     {
-      "id": 541,
-      "title": "Standalone S5: object output, build --native (after S4)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [],
-      "body": "",
-      "created": "2026-10-25",
-      "updated": "2026-10-25",
-      "commits": []
-    },
-    {
       "id": 542,
       "title": "Standalone S6: pure prims via sw_prim (after S4)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
-      "commits": []
+      "updated": "2026-10-26",
+      "commits": [
+        "a74db984"
+      ]
     },
     {
       "id": 543,

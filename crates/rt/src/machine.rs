@@ -141,6 +141,9 @@ pub(crate) struct State {
     /// else they hold), so does the native call, and the allocation traces
     /// are the same.
     deferred: Option<Box<Deferred>>,
+    /// What frames above the machine's own gave up in a failed run, until
+    /// it's dropped ([`State::release_failed`]).
+    unwound: Unwound,
     /// When the frame limit was hit: the codes with the most pending frames,
     /// and how many each had ([`Machine::depth_report`]).
     deepest: Vec<(u32, usize)>,
@@ -207,6 +210,7 @@ impl<'p> Machine<'p> {
                 native_codes: Box::default(),
                 frame_base: 0,
                 deferred: None,
+                unwound: Unwound::default(),
                 deepest: Vec::new(),
             },
             program,
@@ -272,8 +276,12 @@ impl<'p> Machine<'p> {
     }
 
     /// Runs the bodies `native` has code for as native code, wherever the
-    /// machine would push a frame for one (`crate::native_abi`).
+    /// machine would push a frame for one (`crate::native_abi`), unless the
+    /// native stack might not hold the frame limit (`NativeIslands::fits`).
     pub fn set_native(&mut self, native: Box<dyn NativeIslands>) {
+        if !native.fits(self.st.limits.frames as u64) {
+            return;
+        }
         self.st.native_codes = (0..self.image.codes.len() as u32)
             .map(|code| native.compiled(code))
             .collect();
@@ -331,15 +339,58 @@ impl<'p> Machine<'p> {
     fn finish(&mut self, pending: Result<Pending>) -> Result<Value> {
         let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
         if result.is_err() {
-            self.st.frames.clear();
-            self.st.regs.clear();
-            self.st.scratch.clear();
+            self.st.release_failed();
         }
         result
     }
 }
 
+/// What the frames above the machine's own gave up when a run failed:
+/// native frames' (`native_abi::sw_unwind`) and nested runs' (`nested`),
+/// innermost first, for [`State::release_failed`] to drop in the order the
+/// machine drops its own frames and registers.
+#[derive(Default)]
+struct Unwound {
+    /// Each frame's closure and pending return, a group per native frame or
+    /// nested run.
+    frames: Vec<UnwoundFrames>,
+    /// Registers, a vector per native frame or nested run, lowest first.
+    regs: Vec<Vec<Value>>,
+    /// A tail call's fetched arguments (the machine's `scratch`).
+    tail: Vec<Value>,
+}
+
+enum UnwoundFrames {
+    /// A native frame's closure and pending arguments.
+    Native(Vec<Value>),
+    /// A nested run's frames, outermost first.
+    Machine(Vec<Frame>),
+}
+
 impl State {
+    /// After a failed run: drops everything pending as the machine alone
+    /// would, outermost first: every frame's closure and pending return
+    /// (its own frames, then those above them that native code and nested
+    /// runs gave up), then every register likewise, then a tail call's
+    /// fetched arguments.
+    fn release_failed(&mut self) {
+        let Unwound { frames, regs, tail } = std::mem::take(&mut self.unwound);
+        self.frames.clear();
+        for group in frames.into_iter().rev() {
+            match group {
+                UnwoundFrames::Native(values) => drop(values),
+                UnwoundFrames::Machine(frames) => drop(frames),
+            }
+        }
+        self.regs.clear();
+        for segment in regs.into_iter().rev() {
+            drop(segment);
+        }
+        self.scratch.clear();
+        drop(tail);
+        self.deferred = None;
+    }
+
     /// A function value for global `g` (a function or a native), or a
     /// native without runtime arguments (`Delay`, a type): erased.
     fn function_value(&mut self, program: &Program, g: u32) -> Value {
@@ -689,9 +740,26 @@ impl State {
             frames,
             limits: self.limits,
             request: None,
+            unwound: Vec::new(),
+            tail: Vec::new(),
+            held: Vec::new(),
         };
         let out = native.call(code, env, args, &mut run);
         self.steps = run.steps;
+        if out.is_err() {
+            // Innermost first, as the frames left.
+            let NativeRun {
+                unwound,
+                tail,
+                held,
+                ..
+            } = run;
+            self.unwound
+                .frames
+                .extend(held.into_iter().map(UnwoundFrames::Native));
+            self.unwound.regs.extend(unwound);
+            self.unwound.tail.extend(tail);
+        }
         out
     }
 
@@ -1072,7 +1140,8 @@ pub(crate) enum Work {
 /// (native code's and the machine's), and the steps so far `steps`
 /// (updated). The machine's frames are on the heap, so the run nests in
 /// Rust only by this call; whatever it calls that has native code runs
-/// natively again. On an error, the frames it pushed are dropped.
+/// natively again. On an error, the frames and registers it pushed are kept
+/// for `State::release_failed`, to drop in the machine's order.
 pub(crate) fn nested(
     crossing: &mut NativeRun<'_>,
     frames: u64,
@@ -1101,9 +1170,19 @@ pub(crate) fn nested(
     };
     let result = begun.and_then(|pending| run(program, image, st, pending));
     if result.is_err() {
-        st.frames.truncate(frames_at);
-        st.regs.truncate(regs_at);
-        st.scratch.clear();
+        // Not dropped yet: kept for `release_failed`, after what native
+        // frames and runs above this one gave up, so the machine's order
+        // holds across the nesting.
+        let frames = st.frames.split_off(frames_at);
+        if !frames.is_empty() {
+            st.unwound.frames.push(UnwoundFrames::Machine(frames));
+        }
+        let regs = st.regs.split_off(regs_at);
+        if !regs.is_empty() {
+            st.unwound.regs.push(regs);
+        }
+        let scratch = std::mem::take(&mut st.scratch);
+        st.unwound.tail.extend(scratch);
         st.deferred = None;
     }
     st.frame_base = saved;
