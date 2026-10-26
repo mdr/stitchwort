@@ -154,6 +154,41 @@ theorem Fail.toOptionToResult (t: () → {Fail} a): Fail.toOption t = Result.toO
     | return x => rfl
     | Fail.stop msg, _ => rfl
 
+-- Reading a block that gave `Ok v`, one step at a time, as
+-- `Abort.needEqSome` and the lemmas after it do for `Abort.toOption`: each
+-- passes `use` what the block's first step gave and `toResult` of the rest.
+
+-- A block starting with `need x msg` (or `x.orFail msg`) gave `Ok v`: `x` held a value.
+theorem Fail.needEqOk [goal: Prop] [x: Option a] [msg: Text] [k: a → {Fail} b] [v: b]
+    (h: Fail.toResult (() => k (Fail.need x msg)) = Ok v)
+    (use: (u: a) → x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal :=
+  match e: x with
+    | None => Void.exfalso (Result.errNotOk msg v h)
+    | Some u => use u rfl h
+
+-- A block starting with `ensure ok msg` gave `Ok v`: `ok` held.
+theorem Fail.ensureEqOk [goal: Prop] [ok: Bool] [msg: Text] [k: () → {Fail} b] [v: b]
+    (h: Fail.toResult (() => k (Fail.ensure ok msg)) = Ok v)
+    (use: ok = True → Fail.toResult (() => k ()) = Ok v → goal): goal :=
+  match e: ok with
+    | False => Void.exfalso (Result.errNotOk msg v h)
+    | True => use rfl h
+
+-- A block starting with `r.orFail` gave `Ok v`: `r` was `Ok`.
+theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: b]
+    (h: Fail.toResult (() => k (Result.orFail r)) = Ok v)
+    (use: (u: a) → r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
+  match e: r with
+    | Err m => Void.exfalso (Result.errNotOk m v h)
+    | Ok u => use u rfl h
+
+-- A block starting with any computation `t` gave `Ok v`: so did `t`. `t` is
+-- given, as a thunk.
+theorem Fail.thenEqOk [goal: Prop] (t: () → {Fail} a) [k: a → {Fail} b] [v: b]
+    (h: Fail.toResult (() => k (t ())) = Ok v)
+    (use: (u: a) → Fail.toResult t = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
+  Result.flatMapEqOk (Fail.toResult t) (x => Fail.toResult (() => k x)) v (rewrite Fail.toResultThen t k at h) use
+
 -- A map over a list fails with the first element's failure, or gives every
 -- result. By induction on the list; in the step, `Result.traverseCons` says
 -- what `traverse` (a loop) does with the first element, then a split on

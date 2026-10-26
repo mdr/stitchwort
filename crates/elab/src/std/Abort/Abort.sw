@@ -74,6 +74,42 @@ theorem Abort.toOptionThen (t: () → {Abort} a) (k: a → {Abort} b):
     | return x => rfl
     | Abort.stop (), _ => rfl
 
+-- Reading a block that gave `Some v`, one step at a time. From
+-- `h: toOption (block) = Some v`, where the block starts with a step, each
+-- lemma passes `use` what that step gave and `toOption` of the rest. The
+-- rest is found from `h`'s type, so a chain of `.orAbort`s is a chain of
+-- these, each continuing from the last one's `rest`:
+--
+--   Abort.needEqSome h (onHand foundStock rest =>
+--     Abort.needEqSome rest (label foundLabel rest =>
+--       Abort.ensureEqSome rest (enough rest => …)))
+--
+-- The last step of a block has no rest: `rewrite Abort.toOptionNeed at rest`
+-- turns `toOption (() => need x) = Some v` into `x = Some v`.
+
+-- A block starting with `need x` (or `x.orAbort`) gave `Some v`: `x` held a value.
+theorem Abort.needEqSome [goal: Prop] [x: Option a] [k: a → {Abort} b] [v: b]
+    (h: Abort.toOption (() => k (Abort.need x)) = Some v)
+    (use: (u: a) → x = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
+  match e: x with
+    | None => Void.exfalso (Option.noneNotSome v h)
+    | Some u => use u rfl h
+
+-- A block starting with `ensure ok` gave `Some v`: `ok` held.
+theorem Abort.ensureEqSome [goal: Prop] [ok: Bool] [k: () → {Abort} b] [v: b]
+    (h: Abort.toOption (() => k (Abort.ensure ok)) = Some v)
+    (use: ok = True → Abort.toOption (() => k ()) = Some v → goal): goal :=
+  match e: ok with
+    | False => Void.exfalso (Option.noneNotSome v h)
+    | True => use rfl h
+
+-- A block starting with any computation `t` gave `Some v`: so did `t`. `t`
+-- is given, as a thunk: `Abort.thenEqSome (() => binFor item) h (bin found rest => …)`.
+theorem Abort.thenEqSome [goal: Prop] (t: () → {Abort} a) [k: a → {Abort} b] [v: b]
+    (h: Abort.toOption (() => k (t ())) = Some v)
+    (use: (u: a) → Abort.toOption t = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
+  Option.flatMapEqSome (Abort.toOption t) (x => Abort.toOption (() => k x)) v (rewrite Abort.toOptionThen t k at h) use
+
 test "need Some" := Abort.toOption (() => Abort.need (Some 3)) == Some 3
 test "need None" := Abort.toOption (() => Abort.need (None: Option Nat)) == None
 test "orElse" := Abort.orElse 0 (() => Abort.need (None: Option Nat)) == 0
