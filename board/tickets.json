@@ -4541,8 +4541,8 @@
     },
     {
       "id": 602,
-      "title": "Investigate the corpus sweeps' memory: machine::examples_agree 21 GB, lower::every_example_lowers 20 GB, differential 8.6 GB in the 26 Oct daily run; only under the memory guard, with Matt's go-ahead",
-      "status": "backlog",
+      "title": "Investigate the corpus sweeps' memory: machine::examples_agree 21 GB, lower::every_example_lowers 20 GB, differential 8.6 GB in the 26 Oct daily run — D1327 approved for TONIGHT (26 Oct) when Matt's machine is free; under the memory guard, one at a time; then the paused daily-tier fix",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
