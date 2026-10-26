@@ -4527,14 +4527,17 @@
     {
       "id": 601,
       "title": "Test memory guard: per-tier RSS cap on every test task (kill + report), corpus sweeps in a max-threads=1 test group, par_map pool cap (after 26 Oct OOM: daily run ~50 GB)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "6159455d",
+        "67fe15fc"
+      ]
     },
     {
       "id": 602,
