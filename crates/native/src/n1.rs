@@ -106,8 +106,9 @@ use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
-    self as abi, Context, NativeIslands, NativeRun, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS,
-    RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT, TAG_TAG, VALUE_SIZE, WEAK_AT,
+    self as abi, Context, NativeIslands, NativeRun, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS,
+    OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT, TAG_TAG,
+    VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::value::Value;
 
@@ -148,10 +149,6 @@ pub struct Islands {
     roots: Vec<Option<Root>>,
     /// For each global: its compiled code, or null (`Context::functions`).
     table: Box<[*const u8]>,
-    /// Operations the code passes to the runtime by address.
-    /// Boxed so each keeps its address while the vector grows.
-    #[allow(clippy::vec_box)]
-    _ops: Vec<Box<PrimOp>>,
     /// Each `Apply`'s cache of its target, at the address its code reads.
     #[allow(clippy::vec_box)]
     _caches: Vec<Box<abi::ApplyCache>>,
@@ -396,7 +393,6 @@ pub fn compile(
         builder.memory_provider(Box::new(provider));
     }
     let mut module = JITModule::new(builder);
-    let mut ops: Vec<Box<PrimOp>> = Vec::new();
     let mut caches: Vec<Box<abi::ApplyCache>> = Vec::new();
     let Emitted {
         functions,
@@ -408,7 +404,6 @@ pub fn compile(
         &plan,
         options,
         dump,
-        &mut ops,
         &mut caches,
     )?;
     module
@@ -439,7 +434,6 @@ pub fn compile(
         _module: module,
         roots,
         table,
-        _ops: ops,
         _caches: caches,
         tables: abi::TableStore::new(program, image, 0),
         stack_size: options.stack_size,
@@ -469,7 +463,6 @@ fn emit(
     plan: &Plan,
     options: Options,
     dump: bool,
-    #[allow(clippy::vec_box)] ops: &mut Vec<Box<PrimOp>>,
     #[allow(clippy::vec_box)] caches: &mut Vec<Box<abi::ApplyCache>>,
 ) -> Result<Emitted, Vec<String>> {
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
@@ -491,6 +484,7 @@ fn emit(
         functions.insert(code, id);
     }
     let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
+    let numbering = Numbering::of(image);
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     for &code in &plan.bodies {
@@ -507,9 +501,9 @@ fn emit(
                 code: &image.codes[code as usize],
                 functions: &functions,
                 helpers: &helpers,
+                numbering: &numbering,
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
-                ops,
                 caches: &mut *caches,
                 pointer,
                 options,
@@ -728,8 +722,8 @@ impl Helpers {
             unpack: declare("sw_unpack", &[p, I32, p, I64, I32], &[])?,
             empty_cell: declare("sw_empty_cell", &[I64, I64], &[])?,
             drop_reuse: declare("sw_drop_reuse", &[p, p], &[])?,
-            prim: declare("sw_prim", &[p, p, p, I64, p], &[])?,
-            test: declare("sw_test", &[p, p, p, I64], &[I64])?,
+            prim: declare("sw_prim", &[p, I32, p, I64, p], &[])?,
+            test: declare("sw_test", &[p, I32, p, I64], &[I64])?,
             nat_pred: declare("sw_nat_pred", &[p, p], &[])?,
             num_switch: declare("sw_num_switch", &[p, p], &[I64])?,
             global: declare("sw_global", &[p, I32, p], &[I64])?,
@@ -938,10 +932,9 @@ struct Gen<'a, 'm> {
     code: &'m Code,
     functions: &'m BTreeMap<u32, FuncId>,
     helpers: &'m Helpers,
+    numbering: &'m Numbering,
     refs: BTreeMap<FuncId, FuncRef>,
     signatures: BTreeMap<u32, SigRef>,
-    #[allow(clippy::vec_box)] // addresses stay put (`Islands::_ops`)
-    ops: &'m mut Vec<Box<PrimOp>>,
     #[allow(clippy::vec_box)] // addresses stay put (`Islands::_caches`)
     caches: &'m mut Vec<Box<abi::ApplyCache>>,
     pointer: ir::Type,
@@ -1326,13 +1319,6 @@ impl Gen<'_, '_> {
             .import_signature(body_signature(self.pointer, params));
         self.signatures.insert(params, s);
         s
-    }
-
-    fn op_address(&mut self, op: PrimOp) -> IrValue {
-        let boxed = Box::new(op);
-        let at = &*boxed as *const PrimOp as usize;
-        self.ops.push(boxed);
-        self.address(at)
     }
 
     /// The array of pointers to registers `regs`, for a helper.
@@ -1916,12 +1902,11 @@ impl Gen<'_, '_> {
             self.b.ins().jump(slow, &[]);
         }
         self.b.switch_to_block(slow);
-        let shapes = self.address(&self.program.shapes as *const _ as usize);
-        let op = self.op_address(op);
+        let op = self.i32const(self.numbering.op(op));
         let array = self.pointer_array(&o);
         let n = self.iconst(o.len() as u64);
         let out = self.spill_erased(o.len());
-        self.call_helper(self.helpers.prim, &[shapes, op, array, n, out]);
+        self.call_helper(self.helpers.prim, &[self.ctx, op, array, n, out]);
         let v = self.load(Loc::Mem(out, 0));
         self.assign(pc, dst, v);
         self.b.ins().jump(after, &[]);
@@ -1954,11 +1939,10 @@ impl Gen<'_, '_> {
             self.b.ins().jump(slow, &[]);
         }
         self.b.switch_to_block(slow);
-        let shapes = self.address(&self.program.shapes as *const _ as usize);
-        let op = self.op_address(op);
+        let op = self.i32const(self.numbering.op(op));
         let array = self.pointer_array(o);
         let n = self.iconst(o.len() as u64);
-        let r = self.call_helper(self.helpers.test, &[shapes, op, array, n])[0];
+        let r = self.call_helper(self.helpers.test, &[self.ctx, op, array, n])[0];
         let holds = self.b.ins().icmp_imm_u(IntCC::NotEqual, r, 0);
         self.b.ins().jump(after, &[holds.into()]);
         self.b.switch_to_block(after);

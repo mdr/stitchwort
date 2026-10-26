@@ -707,22 +707,38 @@ pub unsafe extern "C" fn sw_drop_reuse(src: *mut Value, token: *mut Value) {
 /// written to register `dst` as the machine's `Prim` writes it.
 ///
 /// # Safety
-/// `shapes` and `op` point at the program's shapes and an operation;
-/// `args` at `n` pointers to live values; `dst` at a register.
+/// `context` is the running context and `op` an operation's number in its
+/// tables; `args` points at `n` pointers to live values, `dst` at a
+/// register.
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_prim(
-    shapes: *const Shapes,
-    op: *const PrimOp,
+    context: *const Context,
+    op: u32,
     args: *const *const Value,
     n: u64,
     dst: *mut Value,
 ) {
     // SAFETY: the caller's contract.
     unsafe {
+        let (shapes, op) = shapes_and_op(context, op);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
-        let v = crate::prims::eval(&*shapes, *op, &refs);
+        let v = crate::prims::eval(shapes, op, &refs);
         *dst = v;
+    }
+}
+
+/// The program's shapes and operation `op`, from the context's tables.
+///
+/// # Safety
+/// As [`sw_prim`].
+#[allow(unsafe_code)]
+unsafe fn shapes_and_op<'a>(context: *const Context, op: u32) -> (&'a Shapes, PrimOp) {
+    // SAFETY: the caller's contract: the tables outlive the native call,
+    // and `op` is within them.
+    unsafe {
+        let tables = &*(*context).tables;
+        (&*tables.shapes, *tables.ops.add(op as usize))
     }
 }
 
@@ -734,16 +750,16 @@ pub unsafe extern "C" fn sw_prim(
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_test(
-    shapes: *const Shapes,
-    op: *const PrimOp,
+    context: *const Context,
+    op: u32,
     args: *const *const Value,
     n: u64,
 ) -> u64 {
     // SAFETY: the caller's contract.
     unsafe {
-        let s = &*shapes;
+        let (s, op) = shapes_and_op(context, op);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
-        match crate::prims::eval(s, *op, &refs).tag() {
+        match crate::prims::eval(s, op, &refs).tag() {
             Some(t) if t == s.true_ => 1,
             Some(t) if t == s.false_ => 0,
             other => panic!("internal error: a test made {other:?}"),
