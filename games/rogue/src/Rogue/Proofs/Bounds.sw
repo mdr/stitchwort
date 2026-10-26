@@ -198,7 +198,7 @@ theorem resolveFramed (dice: Dice) (state: State) (command: Command) (framed: Fr
     | GaveUp => framed
 
 theorem stepFramed (seed: Nat) (state: State) (command: Command) (framed: Framed state.level):
-    Framed (seeded seed (() => step state command)).level :=
+    Framed (Random.withSeed seed (() => step state command)).level :=
   resolveFramed { seed = lcg seed / 65536 } state command framed
 
 -- A state of a real game: valid, on a framed level.
@@ -212,12 +212,12 @@ theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingS
 theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
   | [], state, sound => sound
   | Cons (seed, command) rest, state, sound =>
-    replaySound rest (seeded seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
+    replaySound rest (Random.withSeed seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
 
 -- In a sound state, `render` draws `@` at the player's row and column,
 -- with nothing assumed about where that is.
 theorem drawnPlayer (state: State) (sound: Sound state):
-    ((render state).getOr "" state.player.row).toList.getOr ' ' state.player.column = '@' :=
+    render state |> .getOr "" state.player.row |> .toList |> .getOr ' ' state.player.column = '@' :=
   let onScreen := sound.framed.floor state.player sound.valid.outOfWalls
   let tall: state.player.row < state.level.terrain.length := rewrite sound.framed.rows in onScreen.low
   let wide: state.player.column < (state.level.terrain.getOr [] state.player.row).length :=
@@ -226,7 +226,7 @@ theorem drawnPlayer (state: State) (sound: Sound state):
 
 -- And each monster's letter at its row and column.
 theorem drawnMonster (state: State) (sound: Sound state) (monster: Monster) (listed: List.Mem monster state.monsters):
-    ((render state).getOr "" monster.position.row).toList.getOr ' ' monster.position.column = monster.kind.glyph :=
+    render state |> .getOr "" monster.position.row |> .toList |> .getOr ' ' monster.position.column = monster.kind.glyph :=
   let onFloor := List.allMem ((other: Monster) => isWall state.level other.position = False) monster state.monsters sound.valid.onFloor listed
   let onScreen := sound.framed.floor monster.position onFloor
   let tall: monster.position.row < state.level.terrain.length := rewrite sound.framed.rows in onScreen.low

@@ -203,7 +203,7 @@ test "other keys" := ['.', '>', 'p', 'q', 'x', ' '].map commandOfChar == [Some W
 -- Randomness
 
 test "the generator is the C example's" := lcg 1 == 1103527590
-test "seeded answers from the generator" := seeded 1 (() => [next(), next()]) == [lcg 1 / 65536, lcg (lcg 1) / 65536]
-test "roll stays in range" := seeded 3 (() => List.range 50 |> .map (_ => roll 4)) |> .all (number => number ≤ 4)
-test "the same seed gives the same game" := seeded 7 (() => step facingGoblin Wait) == seeded 7 (() => step facingGoblin Wait)
-test "a step is resolve with the seeded dice" := seeded 7 (() => step facingGoblin (Move East)) == resolve { seed = lcg 7 / 65536 } facingGoblin (Move East)
+test "seeded answers from the generator" := Random.withSeed 1 (() => [next(), next()]) == [lcg 1 / 65536, lcg (lcg 1) / 65536]
+test "roll stays in range" := Random.withSeed 3 (() => List.range 50 |> .map (_ => roll 4)) |> .all (number => number ≤ 4)
+test "the same seed gives the same game" := Random.withSeed 7 (() => step facingGoblin Wait) == Random.withSeed 7 (() => step facingGoblin Wait)
+test "a step is resolve with the seeded dice" := Random.withSeed 7 (() => step facingGoblin (Move East)) == resolve { seed = lcg 7 / 65536 } facingGoblin (Move East)

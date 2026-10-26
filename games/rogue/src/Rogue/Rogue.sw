@@ -25,7 +25,7 @@ def main(): {IO, Partial} () :=
 
 -- A whole game on the console from a seed, until it's won, lost or given
 -- up. The terminal is back to normal when this returns.
-def playOn (seed: Nat): {IO, Partial} State := Terminal.toIO (() => seeded seed (() => playGame (newGame())))
+def playOn (seed: Nat): {IO, Partial} State := Terminal.toIO (() => Random.withSeed seed (() => playGame (newGame())))
 
 def playGame (state: State): {Terminal, Random, Partial} State :=
   Terminal.draw (frame state)

@@ -8,7 +8,8 @@ import Rogue (..)
 import Std (Eq)
 
 theorem playerMovesOutOfWalls (dice: Dice) (state: State) (direction: Direction) (inside: isWall state.level state.player = False):
-    isWall (playerMoves dice state direction).level (playerMoves dice state direction).player = False :=
+    let after := playerMoves dice state direction
+    isWall after.level after.player = False :=
   match found: monsterAt (state.player.toward direction) state.monsters with
     | Some monster => inside
     | None =>
@@ -19,15 +20,18 @@ theorem playerMovesOutOfWalls (dice: Dice) (state: State) (direction: Direction)
           rewrite enterLevel state target, enterPlayer state target in wall
 
 theorem monstersTurnOutOfWalls (dice: Dice) (state: State) (inside: isWall state.level state.player = False):
-    isWall (monstersTurn dice state).level (monstersTurn dice state).player = False :=
+    let after := monstersTurn dice state
+    isWall after.level after.player = False :=
   rewrite monstersTurnLevel dice state, monstersTurnPlayer dice state in inside
 
 theorem descendOutOfWalls (dice: Dice) (state: State) (inside: isWall state.level state.player = False):
-    isWall (descend dice state).level (descend dice state).player = False :=
-  startOnFloor (seeded dice.seed (() => generateLevel (state.level.depth + 1))).level
+    let after := descend dice state
+    isWall after.level after.player = False :=
+  startOnFloor (Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))).level
 
 theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside: isWall state.level state.player = False):
-    isWall (resolve dice state command).level (resolve dice state command).player = False :=
+    let after := resolve dice state command
+    isWall after.level after.player = False :=
   match phase: state.phase with
     | Playing =>
       match command with
@@ -48,5 +52,6 @@ theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside
 
 -- The player is never inside a wall after a turn, whatever the seed.
 theorem stepOutOfWalls (seed: Nat) (state: State) (command: Command) (inside: isWall state.level state.player = False):
-    isWall (seeded seed (() => step state command)).level (seeded seed (() => step state command)).player = False :=
+    let after := Random.withSeed seed (() => step state command)
+    isWall after.level after.player = False :=
   resolveOutOfWalls { seed = lcg seed / 65536 } state command inside

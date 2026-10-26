@@ -90,7 +90,8 @@ theorem actAllClear (dice: Dice) (level: Level) (player: Position):
           | None => actAllClear dice level player (index + 1) (outcome.add { monster | position = monster.position } 0 []) waiting (clearSnoc player { monster | position = monster.position } away outcome.moved moved) rest
 
 theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
-    Clear (monstersTurn dice state).player (monstersTurn dice state).monsters :=
+    let after := monstersTurn dice state
+    Clear after.player after.monsters :=
   match phase: state.phase with
     | Playing => actAllClear dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters rfl clear
     | Won => clear
@@ -98,7 +99,8 @@ theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player
     | GaveUp => clear
 
 theorem playerMovesClear (dice: Dice) (state: State) (direction: Direction) (clear: Clear state.player state.monsters):
-    Clear (playerMoves dice state direction).player (playerMoves dice state direction).monsters :=
+    let after := playerMoves dice state direction
+    Clear after.player after.monsters :=
   match found: monsterAt (state.player.toward direction) state.monsters with
     | Some monster =>
       let damage := 2 + dice.upTo 0 (state.strength - 2)
@@ -113,12 +115,14 @@ theorem playerMovesClear (dice: Dice) (state: State) (direction: Direction) (cle
           rewrite enterPlayer state target, enterMonsters state target in found
 
 theorem descendClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
-    Clear (descend dice state).player (descend dice state).monsters :=
-  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+    let after := descend dice state
+    Clear after.player after.monsters :=
+  let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   placeMonstersClear plan.level plan.level.start [] plan.monsters rfl
 
 theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clear state.player state.monsters):
-    Clear (resolve dice state command).player (resolve dice state command).monsters :=
+    let after := resolve dice state command
+    Clear after.player after.monsters :=
   match phase: state.phase with
     | Playing =>
       match command with
@@ -139,5 +143,6 @@ theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clea
 
 -- No monster stands on the player's cell after a turn, whatever the seed.
 theorem stepClear (seed: Nat) (state: State) (command: Command) (clear: Clear state.player state.monsters):
-    Clear (seeded seed (() => step state command)).player (seeded seed (() => step state command)).monsters :=
+    let after := Random.withSeed seed (() => step state command)
+    Clear after.player after.monsters :=
   resolveClear { seed = lcg seed / 65536 } state command clear

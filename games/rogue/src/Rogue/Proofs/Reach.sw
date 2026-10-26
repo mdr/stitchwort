@@ -190,6 +190,9 @@ theorem reachWithin (level: Level) (area: Area) (open: Open level area) (origin:
     (from: area.contains origin = True) (to: area.contains target = True): Reachable level origin target :=
   Witness (across origin target ++ down origin target) (walkWithin level area open origin target from to)
 
+-- The goal can be walked to from the start.
+def GoalReachable (level: Level): Prop := Reachable level level.start level.goal
+
 -- Both ends of a corridor the level has can be reached from each other.
 type Joined (level: Level) (origin: Position) (target: Position): Prop = { there: Reachable level origin target, back: Reachable level target origin }
 
@@ -255,7 +258,7 @@ theorem hubJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.co
 -- into one attacks it, so they block nothing for good.
 theorem goalReachable (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
     (entranceSmall: entranceIndex < 6) (exitSmall: exitIndex < 6):
-    Reachable (layOut depth rooms entranceIndex exitIndex extra) (layOut depth rooms entranceIndex exitIndex extra).start (layOut depth rooms entranceIndex exitIndex extra).goal
+    GoalReachable (layOut depth rooms entranceIndex exitIndex extra)
     unfolding layOut
 :=
   let level := layOut depth rooms entranceIndex exitIndex extra

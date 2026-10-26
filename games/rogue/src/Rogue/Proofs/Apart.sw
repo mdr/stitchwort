@@ -141,7 +141,7 @@ theorem placeMonstersApart (level: Level) (start: Position):
       | None => placeMonstersApart level start placed rest apart
 
 theorem descendApart (dice: Dice) (state: State) (apart: Apart state.monsters): Apart (descend dice state).monsters :=
-  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   placeMonstersApart plan.level plan.level.start [] plan.monsters Trivial
 
 theorem resolveApart (dice: Dice) (state: State) (command: Command) (apart: Apart state.monsters): Apart (resolve dice state command).monsters :=
@@ -165,7 +165,7 @@ theorem resolveApart (dice: Dice) (state: State) (command: Command) (apart: Apar
 
 -- No two monsters share a cell after a turn, whatever the seed.
 theorem stepApart (seed: Nat) (state: State) (command: Command) (apart: Apart state.monsters):
-    Apart (seeded seed (() => step state command)).monsters :=
+    Apart (Random.withSeed seed (() => step state command)).monsters :=
   resolveApart { seed = lcg seed / 65536 } state command apart
 
 -- With the monsters apart, the monster found on each monster's cell is

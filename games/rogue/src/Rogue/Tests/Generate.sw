@@ -10,7 +10,7 @@ import Std (List, Set)
 -- The seeds the generator is tried on.
 def seeds: List Nat := List.range 40
 
-def planned (seed: Nat) (depth: Nat): Plan := seeded seed (() => generateLevel depth)
+def planned (seed: Nat) (depth: Nat): Plan := Random.withSeed seed (() => generateLevel depth)
 
 -- Every plan the tests look at: each seed at each depth.
 def plans: List Plan := seeds.flatMap (seed => List.between 1 deepest |> .map (depth => planned seed depth))
@@ -102,7 +102,7 @@ test "a sword on each level above the bottom" :=
 -- A new game
 
 test "a new game starts on the first level" :=
-  let state := seeded testSeed newGame
+  let state := Random.withSeed testSeed newGame
   state.level.depth == 1 ∧ state.player == state.level.start
 
 -- Placing by hand
