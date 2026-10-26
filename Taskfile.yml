@@ -37,9 +37,15 @@ tasks:
   # ------------------------------------------------------------- building
 
   build:
-    desc: Build the release CLI (target/release/stitchwort)
+    desc: Build the release CLI with native code, and its runtime library, in target/release
+    summary: |
+      Builds `stitchwort` (with `--features stitchwort-cli/native`, so
+      `stitchwort build X --native` works) and `libstitchwort_standalone.a`,
+      which `build --native` links against and looks for beside the
+      executable. With CARGO_BUILD_TARGET set (Linux in the devShell) both
+      are in target/<triple>/release.
     cmds:
-      - cargo build --release -p stitchwort-cli
+      - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.TEST_FEATURES}}
 
   build:tests:
     desc: Build every release test binary, so the test tiers start at once
@@ -101,7 +107,10 @@ tasks:
       the same in the Nix sandbox.
     env:
       STITCHWORT_TIER: daily
+      # The float tests fail, not skip, when web/pkg is missing or stale.
+      STITCHWORT_REQUIRE_WASM: '1'
     cmds:
+      - task: web:pkg
       - cargo fmt --check
       - cargo clippy --release --all-targets -- --deny warnings
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}'
@@ -315,6 +324,19 @@ tasks:
 
   web:build:
     desc: Build the playground's WebAssembly bundle into web/pkg/
+    cmds:
+      - ./web/build.sh
+
+  web:pkg:
+    desc: Build web/pkg/ unless it is already built from the current sources
+    internal: true
+    sources:
+      - Cargo.lock
+      - crates/*/src/**/*
+      - crates/**/Cargo.toml
+      - web/build.sh
+    generates:
+      - web/pkg/stitchwort_web_bg.wasm
     cmds:
       - ./web/build.sh
 

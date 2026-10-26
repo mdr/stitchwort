@@ -266,9 +266,10 @@ fn wasm_script() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/tests/float-wasm.mjs")
 }
 
-/// Whether `web/pkg` holds a bundle built from these sources: absent, or
-/// built from other sources (a stale bundle from before a change), the
-/// WebAssembly kernel's path is left out, saying why and how to rebuild.
+/// Whether `web/pkg` holds a bundle built from these sources. If it's absent,
+/// or built from other sources (a stale bundle from before a change), the
+/// WebAssembly kernel's path is left out, saying why and how to rebuild; with
+/// STITCHWORT_REQUIRE_WASM=1 the test fails instead of skipping.
 fn wasm_bundle_current() -> bool {
     let why = if !web_pkg().join("stitchwort_web_bg.wasm").exists() {
         "isn't built".to_string()
@@ -287,12 +288,16 @@ fn wasm_bundle_current() -> bool {
             "was built from other sources (its fingerprint is {theirs:?}, these sources' {ours:?})"
         )
     };
-    eprintln!(
-        "web/pkg {why}: the WebAssembly kernel's path is left out. Rebuild it with \
-         `cargo build -p stitchwort-web --target wasm32-unknown-unknown --release` and \
-         `wasm-bindgen --target web --no-typescript --out-dir web/pkg \
-         target/wasm32-unknown-unknown/release/stitchwort_web.wasm` (or web/build.sh)"
-    );
+    let rebuild = "Rebuild it with web/build.sh (or `cargo build -p stitchwort-web \
+         --target wasm32-unknown-unknown --release` and `wasm-bindgen --target web \
+         --no-typescript --out-dir web/pkg \
+         target/wasm32-unknown-unknown/release/stitchwort_web.wasm`)";
+    if std::env::var_os("STITCHWORT_REQUIRE_WASM").is_some_and(|value| value == "1") {
+        panic!(
+            "web/pkg {why}, and STITCHWORT_REQUIRE_WASM=1 requires the WebAssembly kernel. {rebuild}"
+        );
+    }
+    eprintln!("web/pkg {why}: the WebAssembly kernel's path is left out. {rebuild}");
     false
 }
 
