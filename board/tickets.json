@@ -1,5 +1,5 @@
 {
-  "next": 557,
+  "next": 560,
   "tickets": [
     {
       "id": 13,
@@ -3939,6 +3939,42 @@
       "id": 556,
       "title": "Goal read-back cap (D1280, docs/proposals/goal-readback.md option d): rewrite/match see the unfolded goal except calls whose unfolding exceeds 100k nodes — deferred by Matt 26 Oct",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 557,
+      "title": "Opaque definitions (D1292 approved): merge the 5-branch chain with main, re-test, merge",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 558,
+      "title": "Kernel same-call shortcut (D1293 approved): merge main, extend to check_case/substitute read-backs, merge",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 559,
+      "title": "Fully native binaries (D1294: no interpreter in the binary, build fails instead of falling back): design note docs/proposals/native-only.md (native effect runtime, entry glue, stack-depth check, build errors)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
