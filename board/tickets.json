@@ -1,5 +1,5 @@
 {
-  "next": 670,
+  "next": 671,
   "tickets": [
     {
       "id": 13,
@@ -4545,11 +4545,11 @@
     {
       "id": 602,
       "title": "Investigate the corpus sweeps' memory: machine::examples_agree 21 GB, lower::every_example_lowers 20 GB, differential 8.6 GB in the 26 Oct daily run — D1327 approved for TONIGHT (26 Oct) when Matt's machine is free; under the memory guard, one at a time; then the paused daily-tier fix",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "D1327. 26 Oct evening: daily killed by memguard at 16 GB (8 threads) and at 24 GB (4 threads, differential sweep). Lane measuring each sweep alone, cutting peaks below ~6 GB.",
+      "body": "Merged 26 Oct: every sweep under 2.5 GB at 8 threads. Causes: kernel-same-call-arguments example's exponential quote in sort_of; nav index printing unfolded float-theory types (770 MB). D1393/D1394 accepted (hover shows types as written; 4 normal-form comparisons skipped in that example).",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5362,6 +5362,18 @@
       "where": "",
       "labels": [],
       "body": "Dropped 26 Oct: Matt considers Quot.sound innocuous (same axiom Lean's std relies on); no need to make the port axiom-free.",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 670,
+      "title": "named_arguments::named_calls_keep_every_hash fails: rewriting examples/accept/abort-inversion.sw with named arguments doesn't parse ('expected }, but found )') (sweep memory lane, 26 Oct)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
