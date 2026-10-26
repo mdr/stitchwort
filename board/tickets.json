@@ -3874,7 +3874,7 @@
     {
       "id": 551,
       "title": "Effect runtime option A: cut allocations in apply (arg Vecs, partial-application copies), continuation pops and closure envs; re-measure (effect-runtime.md §9.11; after N4 merges)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
