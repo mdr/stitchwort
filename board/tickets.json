@@ -1,5 +1,5 @@
 {
-  "next": 548,
+  "next": 550,
   "tickets": [
     {
       "id": 13,
@@ -3619,7 +3619,7 @@
     },
     {
       "id": 532,
-      "title": "Rogue proofs follow-up: std lemma 'roll n < n under seeded/any Random handler'; link goalReachable to generateLevel; positions stay inside 20x66 (PROOFS.md gaps 1-2; may need opaque defs)",
+      "title": "Rogue proofs follow-up: generatedReachable, generatedFramed, replaySound, onlyCommandKeys etc. [built 2b7f7a55 on opaque branch, awaiting review]",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3817,6 +3817,30 @@
       "id": 547,
       "title": "Audit registry.ctor(Builtin::X) for unloaded library built-ins: done, no further instances (static audit)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 548,
+      "title": "Std Effect.bindAssoc relies on an axiom; a proved monad law under handlers would remove rogue's draw-then-plan restructuring (rogue PROOFS.md gap 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 549,
+      "title": "Merge tier over 60 s budget at times (73-86 s under load): n2b tail_calls_of_every_shape_run_in_constant_stack (~10 s) and others; trim or move to daily",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
