@@ -144,7 +144,7 @@ fn ends_operand(tok: &Tok) -> bool {
             | Prop
             | KwOmega
             | KwRing
-            | KwSplit
+            | KwCases
     )
 }
 

@@ -1,4 +1,4 @@
-//! `split` and `split in t` (docs/syntax.md, "split"; docs/proposals/simp.md
+//! `cases` and `cases in t` (docs/syntax.md, "cases"; docs/proposals/simp.md
 //! §5): a proof by case splitting on what the goal, and the hypotheses that
 //! say "this is a constructor", are stuck on.
 //!
@@ -17,10 +17,10 @@
 //! 3. **taking an equation apart**: a hypothesis `C a = C b` adds `a = b`
 //!    (by `J` along it with a projection), and the node starts again;
 //! 4. **a hypothesis** of exactly the goal's type;
-//! 5. **`t`**, for `split in t`, elaborated in the case;
+//! 5. **`t`**, for `cases in t`, elaborated in the case;
 //! 6. **`omega`**, only where nothing is left to split (D1319).
 //!
-//! If none closes it, `split` finds an *atom* (§5.2): following what the
+//! If none closes it, `cases` finds an *atom* (§5.2): following what the
 //! goal is stuck on inwards (a definition's case tree, run on its arguments,
 //! stops at a `case` on a stuck value; that value may itself be a stuck call,
 //! and so on), the innermost value whose type is *splittable* (data with two
@@ -34,13 +34,13 @@
 //! The split is the generated `match` that `match e: atom with` writes
 //! (`matching::generalised_named`, lifted as `owner.%matchN`), one
 //! alternative per constructor, the equation bound as `%splitN`, and each
-//! alternative's body is this `split` again: so the proof is ordinary
+//! alternative's body is this `cases` again: so the proof is ordinary
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!
-//! A case nothing closes, with nothing left to split, is `E-SPLIT`, showing
+//! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
 //! copy of each, as generalising copies them). More than [`CASES`] cases is
-//! `E-SPLIT-BUDGET`.
+//! `E-CASES-BUDGET`.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -57,19 +57,19 @@ use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def};
 
-/// The most cases one `split` makes (§5.8): the largest tree the motivating
+/// The most cases one `cases` makes (§5.8): the largest tree the motivating
 /// proofs need has 12.
 pub(crate) const CASES: usize = 64;
 
 /// The prefix of the names the split equations are bound to: not one a
 /// program can write.
-const EQUATION: &str = "%split";
+const EQUATION: &str = "%case";
 
-/// One `split`, while its cases are checked.
+/// One `cases`, while its cases are checked.
 pub(crate) struct Run {
-    /// `t`, for `split in t`.
+    /// `t`, for `cases in t`.
     body: Option<Box<Expr>>,
-    /// The `split` as written: the alternatives' bodies are `split`s with
+    /// The `cases` as written: the alternatives' bodies are `cases`s with
     /// this span, which continue this one.
     span: Span,
     /// Cases made so far.
@@ -118,20 +118,20 @@ impl Closed {
     }
 }
 
-/// `split` where nothing says what it should prove.
+/// `cases` where nothing says what it should prove.
 pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
-    Diagnostic::error("E-SPLIT", "`split` needs to know what it proves")
+    Diagnostic::error("E-CASES", "`cases` needs to know what it proves")
         .with_label(expr.span(), "the expected type isn't known here")
-        .with_note("give it a type: `(split: P)`")
+        .with_note("give it a type: `(cases: P)`")
 }
 
-/// `split` against the goal `expected`.
-pub(crate) fn check_split(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
-    let Expr::Split { body, span } = expr else {
-        unreachable!("only called on `split`")
+/// `cases` against the goal `expected`.
+pub(crate) fn check_cases(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    let Expr::Cases { body, span } = expr else {
+        unreachable!("only called on `cases`")
     };
-    // An alternative of a split this `split` made: go on splitting.
-    if let Some(run) = cx.split.clone()
+    // An alternative of a split this `cases` made: go on splitting.
+    if let Some(run) = cx.cases.clone()
         && run.span == *span
     {
         return node(cx, &run, expected);
@@ -147,17 +147,17 @@ pub(crate) fn check_split(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
         facts: Cell::new(0),
         splittable: RefCell::new(HashMap::default()),
     });
-    let saved = cx.split.replace(run.clone());
+    let saved = cx.cases.replace(run.clone());
     let errors = cx.e.branch_errors.borrow().len();
     let result = node(cx, &run, expected);
-    cx.split = saved;
+    cx.cases = saved;
     let error = match result {
         Ok(term) => return Ok(term),
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(e) => e,
     };
     // The other cases that failed were kept for the definition to report
-    // after this one (`check_tree`): one error says it for the `split`.
+    // after this one (`check_tree`): one error says it for the `cases`.
     let others = cx.e.branch_errors.borrow().len() - errors;
     cx.e.branch_errors.borrow_mut().truncate(errors);
     if run.over.get() {
@@ -186,10 +186,10 @@ pub(crate) fn check_split(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
 fn budget_error(run: &Run) -> Diagnostic {
     let atoms = run.atoms.borrow();
     let mut d = Diagnostic::error(
-        "E-SPLIT-BUDGET",
-        format!("`split` made more than {CASES} cases without closing them all"),
+        "E-CASES-BUDGET",
+        format!("`cases` made more than {CASES} cases without closing them all"),
     )
-    .with_label(run.span, "this `split`")
+    .with_label(run.span, "this `cases`")
     .with_note(format!(
         "it split on {}: {}",
         atoms.len(),
@@ -203,7 +203,7 @@ fn budget_error(run: &Run) -> Diagnostic {
         d = d.with_note(format!("the first case still open: {open}"));
     }
     d.with_note(
-        "prove a fact that decides some of the cases at once and give it as `split in t`, \
+        "prove a fact that decides some of the cases at once and give it as `cases in t`, \
          or split by hand with `match`",
     )
 }
@@ -211,7 +211,7 @@ fn budget_error(run: &Run) -> Diagnostic {
 /// One case: close it, or split it.
 fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     if run.over.get() {
-        return Err(Diagnostic::error("E-SPLIT-BUDGET", "over budget"));
+        return Err(Diagnostic::error("E-CASES-BUDGET", "over budget"));
     }
     if let Some(term) = by_computation(cx, goal)? {
         run.closed.borrow_mut().computation += 1;
@@ -292,7 +292,7 @@ fn is_equation(cx: &Ctx, level: usize) -> bool {
     cx.names[level].starts_with(EQUATION)
 }
 
-/// `E-SPLIT` for a case nothing closed, with nothing left to split.
+/// `E-CASES` for a case nothing closed, with nothing left to split.
 fn open_case(
     cx: &Ctx,
     run: &Run,
@@ -308,7 +308,7 @@ fn open_case(
     };
     if let Some(e) = failed_body {
         let note = if case.is_empty() {
-            "`split` found nothing to split on, and this is what the term after `in` gave"
+            "`cases` found nothing to split on, and this is what the term after `in` gave"
                 .to_string()
         } else {
             format!("in the case {case}, this is what the term after `in` gave")
@@ -317,13 +317,13 @@ fn open_case(
     }
     let mut d = if case.is_empty() {
         Diagnostic::error(
-            "E-SPLIT",
-            "`split` found nothing to split on, and nothing closes the goal",
+            "E-CASES",
+            "`cases` found nothing to split on, and nothing closes the goal",
         )
-        .with_label(run.span, "this `split`")
+        .with_label(run.span, "this `cases`")
     } else {
-        Diagnostic::error("E-SPLIT", format!("`split` can't close the case {case}"))
-            .with_label(run.span, "this `split`")
+        Diagnostic::error("E-CASES", format!("`cases` can't close the case {case}"))
+            .with_label(run.span, "this `cases`")
     };
     for level in 0..cx.level() {
         if is_equation(cx, level) {
@@ -339,13 +339,13 @@ fn open_case(
     d = d.with_note(format!("goal: {}", cx.show(goal)));
     match stuck {
         Some((what, ty)) => d.with_note(format!(
-            "it stopped here because the goal is stuck on `{what}`, a `{ty}`, which `split` \
-             doesn't take apart; give this case's proof as `split in t`"
+            "it stopped here because the goal is stuck on `{what}`, a `{ty}`, which `cases` \
+             doesn't take apart; give this case's proof as `cases in t`"
         )),
         None => d.with_note(
-            "the goal isn't stuck on anything `split` can take apart, and neither `rfl`, a \
+            "the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a \
              contradiction, a hypothesis nor `omega` proves it; give this case's proof as \
-             `split in t`",
+             `cases in t`",
         ),
     }
 }
@@ -1028,7 +1028,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
 }
 
 /// Splits the case on `atom`: the generated `match` with one alternative
-/// per constructor, each going on with this `split`.
+/// per constructor, each going on with this `cases`.
 fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value) -> Result<Term> {
     let g = cx.g();
     let data = g.data(atom.d);
@@ -1048,7 +1048,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value) -> Result<Ter
         } else {
             path.join(", ")
         });
-        return Err(Diagnostic::error("E-SPLIT-BUDGET", "over budget"));
+        return Err(Diagnostic::error("E-CASES-BUDGET", "over budget"));
     }
     let term = cx.quote_folded(&atom.value)?;
     let ty = atom_type(cx, &term, atom.d)?;
@@ -1068,7 +1068,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value) -> Result<Ter
             let fields = (0..explicit).map(|_| Pattern::Wildcard(run.span)).collect();
             Alt {
                 patterns: vec![crate::internal_ctor_pattern(atom.d, c, fields, run.span)],
-                body: Expr::Split {
+                body: Expr::Cases {
                     body: run.body.clone(),
                     span: run.span,
                 },

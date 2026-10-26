@@ -31,9 +31,9 @@
 -- run: order "" ""
 -- run: join "a" "\u{1F600}"
 -- Splitting on a supplementary character, and never inside one:
--- run: splitText '\u{1F600}' "a\u{1F600}b\u{1F600}"
--- run: splitText ',' "a,,b"
--- run: splitText ',' ""
+-- run: split '\u{1F600}' "a\u{1F600}b\u{1F600}"
+-- run: split ',' "a,,b"
+-- run: split ',' ""
 -- run: joinOn '\u{1F600}' ["a", "", "b"]
 -- run: joinOn ',' []
 -- `Text.trim` removes Unicode's `White_Space` (so U+00A0, U+2028 and U+3000) but not
@@ -127,7 +127,7 @@ export def order (a: Text) (b: Text): Ordering := Text.compare a b
 
 export def join (a: Text) (b: Text): Text := a ++ b
 
-export def splitText (c: Char) (t: Text): List Text := Text.split t c
+export def split (c: Char) (t: Text): List Text := Text.split t c
 
 export def joinOn (c: Char) (ts: List Text): Text := Text.join ts c
 

@@ -171,7 +171,7 @@ pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Op
     }
 }
 
-/// `omega` at a case `split` can't split further (`split.rs`): a proof of
+/// `omega` at a case `cases` can't split further (`cases.rs`): a proof of
 /// `goal` from the facts in scope, arithmetic or by refuting them, or `None`
 /// if `omega` can't find one or its library isn't loaded. Nothing it tried is
 /// kept when it fails.
@@ -1324,9 +1324,9 @@ fn linear(
         skipped: Vec::new(),
     };
     for level in 0..cx.level() {
-        // In a case `split` made, a hypothesis it has copied is read as its
-        // latest copy only: the earlier ones say less (`split.rs`).
-        if cx.split.is_some() && crate::split::stale(cx, level) {
+        // In a case `cases` made, a hypothesis it has copied is read as its
+        // latest copy only: the earlier ones say less (`cases.rs`).
+        if cx.cases.is_some() && crate::cases::stale(cx, level) {
             continue;
         }
         let name = cx

@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+   ╭─[ reject/cases-nothing.sw:6:57 ]
+   │
+ 6 │ theorem emptyList (xs: List Nat): List.length xs = 0 := cases
+   │                                                         ──┬──  
+   │                                                           ╰──── this `cases`
+   │ 
+   │ Note 1: goal: List.length xs = 0
+   │ 
+   │ Note 2: it stopped here because the goal is stuck on `xs`, a `List`, which `cases` doesn't take apart; give this case's proof as `cases in t`
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           xs = [0]
+   │         `List.length xs = 0` is false:
+   │           left:  1
+   │           right: 0
+───╯

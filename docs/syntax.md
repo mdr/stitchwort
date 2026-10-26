@@ -218,9 +218,9 @@ Names are grouped into namespaces (docs/proposals/namespaces.md). The library is
 
 ```
 import Std (List)
-import Text (lines, join)
+import Text (split, join)
 
-def rows (text: Text): List Text := lines text
+def words (line: Text): List Text := split ' ' line
 
 def count (xs: List Nat): Nat := List.length xs     -- needs `import Std (List)`
 
@@ -1529,34 +1529,34 @@ theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * mult
 
 Examples: `examples/accept/ring-basics.sw`, `examples/reject/ring-*.sw`.
 
-### `split`
+### `cases`
 
-`split` is a proof by cases on whatever the goal is stuck on. The compiler finds the value a definition in the goal is waiting for (`a` in `a ∨ b`, `Float.isNaN x` inside `Float.ieeeLe x y`, `s` in `{ s | id = t }.ref`), splits on it as a `match` would, and goes on in each case until every case is closed:
+`cases` is a proof by cases on whatever the goal is stuck on. The compiler finds the value a definition in the goal is waiting for (`a` in `a ∨ b`, `Float.isNaN x` inside `Float.ieeeLe x y`, `s` in `{ s | id = t }.ref`), splits on it as a `match` would, and goes on in each case until every case is closed:
 
 ```
-theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := split
+theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
 
-theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := split
+theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
 
-theorem ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True := split
+theorem ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True := cases
 
-theorem parseSmallSome (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := split
+theorem parseSmallSome (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
 ```
 
 | form | meaning |
 |---|---|
-| `split` | splits until each case is closed by computation, a contradiction, a hypothesis, or `omega` |
-| `split in t` | the same, trying the proof `t` in each case first (before splitting it further) |
+| `cases` | splits until each case is closed by computation, a contradiction, a hypothesis, or `omega` |
+| `cases in t` | the same, trying the proof `t` in each case first (before splitting it further) |
 
-`split` and `split in t` are a keyword and a term, like `omega`: a definition's body, a `calc` step's proof, or an argument whose type is fixed. Where nothing says what it proves (`let p := split`) it is `E-SPLIT`. `split` is a reserved word, but not after a `.`: `line.split ','` is still `Text.split`, and the function written in full, `Text.split line ','`, works too; `import Text (split)` doesn't. The proof it writes is the `match` you would have written, a case tree of `case` and `J`, and the kernel re-checks it; nothing new is trusted. Design and as built: [simp.md](proposals/simp.md) (stage 1).
+`cases` and `cases in t` are a keyword and a term, like `omega`: a definition's body, a `calc` step's proof, or an argument whose type is fixed. Where nothing says what it proves (`let p := cases`) it is `E-CASES`. `cases` is a reserved word (the word `cases` stays free for `Text.split`). The proof it writes is the `match` you would have written, a case tree of `case` and `J`, and the kernel re-checks it; nothing new is trusted. Design and as built: [simp.md](proposals/simp.md) (stage 1).
 
-- **What it splits on.** The goal is computed as far as it goes, and `split` looks for what it is stuck on: a variable or call of a type with two or more constructors (`Bool`, `Option`, `Ordering`, a variant type), taking the innermost one, so that `Float.isNaN x` is split rather than the `Nat.equal` it calls. A record is taken apart into its fields only when nothing else is left. It doesn't take apart recursive types (`List`, `Nat`: that's induction, written as recursion), propositions or indexed families. A hypothesis that says a stuck value is a constructor (`h: f x = True`, `h: parseSmallOption s t = Some v`) is split on too, after the goal; other hypotheses aren't looked at.
-- **Each case** gets the equation of its split, named `%split1`, `%split2`, … in messages, and the goal and every hypothesis that mentions the value are rewritten with the constructor, as a `match h: e with` does. Old copies of the rewritten hypotheses are hidden. A hypothesis `Some a = Some v` is turned into `a = v`, and `True = False` closes the case.
-- **Closing a case**, in this order: both sides compute to the same value (`rfl`); a hypothesis equates two different constructors; a hypothesis has the goal's type; `t`, for `split in t`; and, when there is nothing left to split, `omega`. A goal that is itself a comparison (`Nat.leq a b = True`) is given to `omega` before it is split into `True = True` and `False = True`.
-- **Budget.** At most 64 cases. Past that it's `E-SPLIT-BUDGET`, naming the values it split on and the first case still open; prove a fact that decides several cases at once and give it as `split in t`, or split by hand with `match`.
-- **When it fails** it is `E-SPLIT` for the first case nothing closed: the case is named by its splits (`a = True, Nat.leq n 2 = False`), the notes show that case's hypotheses and goal, and what the goal was stuck on when it stopped (`xs`, a `List`). With `split in t`, it's `t`'s own error, with a note naming the case. Further notes count the other cases that failed and the ones that were closed, and how.
+- **What it splits on.** The goal is computed as far as it goes, and `cases` looks for what it is stuck on: a variable or call of a type with two or more constructors (`Bool`, `Option`, `Ordering`, a variant type), taking the innermost one, so that `Float.isNaN x` is split rather than the `Nat.equal` it calls. A record is taken apart into its fields only when nothing else is left. It doesn't take apart recursive types (`List`, `Nat`: that's induction, written as recursion), propositions or indexed families. A hypothesis that says a stuck value is a constructor (`h: f x = True`, `h: parseSmallOption s t = Some v`) is split on too, after the goal; other hypotheses aren't looked at.
+- **Each case** gets the equation of its split, named `%case1`, `%case2`, … in messages, and the goal and every hypothesis that mentions the value are rewritten with the constructor, as a `match h: e with` does. Old copies of the rewritten hypotheses are hidden. A hypothesis `Some a = Some v` is turned into `a = v`, and `True = False` closes the case.
+- **Closing a case**, in this order: both sides compute to the same value (`rfl`); a hypothesis equates two different constructors; a hypothesis has the goal's type; `t`, for `cases in t`; and, when there is nothing left to split, `omega`. A goal that is itself a comparison (`Nat.leq a b = True`) is given to `omega` before it is split into `True = True` and `False = True`.
+- **Budget.** At most 64 cases. Past that it's `E-CASES-BUDGET`, naming the values it split on and the first case still open; prove a fact that decides several cases at once and give it as `cases in t`, or split by hand with `match`.
+- **When it fails** it is `E-CASES` for the first case nothing closed: the case is named by its splits (`a = True, Nat.leq n 2 = False`), the notes show that case's hypotheses and goal, and what the goal was stuck on when it stopped (`xs`, a `List`). With `cases in t`, it's `t`'s own error, with a note naming the case. Further notes count the other cases that failed and the ones that were closed, and how.
 
-Examples: `examples/accept/split-bool.sw`, `examples/accept/split-data.sw`, `examples/reject/split-*.sw`.
+Examples: `examples/accept/cases-bool.sw`, `examples/accept/cases-data.sw`, `examples/reject/cases-*.sw`.
 
 ### Numbers
 

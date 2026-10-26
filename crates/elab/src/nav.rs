@@ -1326,7 +1326,7 @@ impl Walk<'_> {
                 Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => {
                     then(&mut stack, facts.iter().map(Work::Expr).collect())
                 }
-                Expr::Split { body, .. } => {
+                Expr::Cases { body, .. } => {
                     then(&mut stack, body.iter().map(|b| Work::Expr(b)).collect())
                 }
                 Expr::Calc { first, steps, .. } => {

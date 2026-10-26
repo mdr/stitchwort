@@ -26,7 +26,7 @@ export declare function charOf(n: bigint): string | undefined;
 export declare function same(a: string, b: string): boolean;
 export declare function order(a: string, b: string): Ordering;
 export declare function join(a: string, b: string): string;
-export declare function splitText(c: string, t: string): string[];
+export declare function split(c: string, t: string): string[];
 export declare function joinOn(c: string, ts: readonly string[]): string;
 export declare function trim(t: string): string;
 export declare function toNat(t: string): bigint | undefined;

@@ -449,7 +449,7 @@ pub(crate) type Skip = fn(&Ctx, usize) -> bool;
 
 /// [`generalised_term`], with the equation `name : term = s` bound in the
 /// alternatives when `name` is given, as `match name: e with` binds it, and
-/// the variables `skip` says left uncopied (`split.rs`).
+/// the variables `skip` says left uncopied (`cases.rs`).
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn generalised_named(
     cx: &mut Ctx,

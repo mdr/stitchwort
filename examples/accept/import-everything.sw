@@ -9,4 +9,4 @@ def total (xs: List Nat): Nat := sum (map (filter (reverse xs) (x => not (x == 0
 
 test "wildcard names" := total [1, 0, 2] == 5
 test "the same name from two namespaces, in full" := List.length [1, 2] + Text.length "abc" == 5
-test "lines" := List.length (lines "a\nb") == 2
+test "split" := List.length (split "a,b" ',') == 2

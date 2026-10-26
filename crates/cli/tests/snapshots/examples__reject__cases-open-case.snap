@@ -2,18 +2,18 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-SPLIT] Error: `split` can't close the case a = True, Nat.leq n 2 = False
-   ╭─[ reject/split-open-case.sw:6:79 ]
+[E-CASES] Error: `cases` can't close the case a = True, Nat.leq n 2 = False
+   ╭─[ reject/cases-open-case.sw:6:79 ]
    │
- 6 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ Nat.leq n 3) = True): n <= 2 := split
+ 6 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ Nat.leq n 3) = True): n <= 2 := cases
    │                                                                               ──┬──  
-   │                                                                                 ╰──── this `split`
+   │                                                                                 ╰──── this `cases`
    │ 
    │ Note 1: h: Nat.leq n 3 = True
    │ 
    │ Note 2: goal: False = True
    │ 
-   │ Note 3: the goal isn't stuck on anything `split` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `split in t`
+   │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
    │ 
    │ Note 4: 2 other cases were closed (1 by computation, 1 by contradiction)
    │ 
