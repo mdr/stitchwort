@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+data Main.Vec 4cc4104f40e64ca89957132f93fe7cb53692d7d69310cda043fe66224774bb54
+Main.head 7918a7b0d19845e8055c1cbbc91ab64ea92a4cd2292542e1225bac7d317676cd
