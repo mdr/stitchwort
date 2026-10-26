@@ -3704,25 +3704,27 @@
     {
       "id": 539,
       "title": "Standalone S3: runtime staticlib + stitchwort build (machine only) — M1: build games/rogue plays (after S1, S2)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-26",
+      "commits": [
+        "bb904cec"
+      ]
+    },
+    {
+      "id": 540,
+      "title": "Standalone S4: code generator free of host addresses (Tables)",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
-      "commits": []
-    },
-    {
-      "id": 540,
-      "title": "Standalone S4: code generator free of host addresses (Tables)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [],
-      "body": "",
-      "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
