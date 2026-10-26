@@ -46,19 +46,19 @@ def Ord.fromCompare [auto decEq: DecEq a] (compare: a → a → Ordering)
     (equal: (x: a) → (y: a) → compare x y = Equal → x = y)
     (flip: (x: a) → (y: a) → compare y x = Ordering.flip (compare x y))
     (trans: (x: a) → (y: a) → (z: a) → compare x y = Less → compare y z = Less → compare x z = Less): Ord a := {
-      compare = compare,
-      lessThan = x y => compare x y = Less,
-      lessEq = x y => Not (compare x y = Greater),
-      decLessThan = x y => Ordering.decEq (compare x y) Less,
-      decLessEq = x y => Decidable.not (Ordering.decEq (compare x y) Greater),
-      equal = equal,
-      flip = flip,
-      trans = trans,
-      lessThanOf = x y h => h,
-      lessThanTo = x y h => h,
-      lessEqOf = x y h => h,
-      lessEqTo = x y h => h
-    }
+  compare = compare,
+  lessThan = x y => compare x y = Less,
+  lessEq = x y => Not (compare x y = Greater),
+  decLessThan = x y => Ordering.decEq (compare x y) Less,
+  decLessEq = x y => Decidable.not (Ordering.decEq (compare x y) Greater),
+  equal = equal,
+  flip = flip,
+  trans = trans,
+  lessThanOf = x y h => h,
+  lessThanTo = x y h => h,
+  lessEqOf = x y h => h,
+  lessEqTo = x y h => h
+}
 
 instance Nat.instOrd: Ord Nat := {
   compare = Nat.compare,

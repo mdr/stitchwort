@@ -139,3 +139,28 @@ fn formats_a_folder() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The repository's own `.sw` sources are formatted. The reject and
+/// soundness examples are left out: their layout may be what's tested.
+#[test]
+fn the_repository_sources_are_formatted() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut args = vec!["fmt", "--check"];
+    args.extend([
+        "examples/accept",
+        "examples/extract",
+        "examples/goals",
+        "examples/projects/accept",
+        "examples/projects/goals",
+        "games",
+        "aoc",
+        "crates/elab/src/std",
+    ]);
+    let output = stitchwort(&root, &args, None);
+    assert!(
+        output.status.success(),
+        "unformatted (run `stitchwort fmt` on them):\n{}{}",
+        text(&output),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

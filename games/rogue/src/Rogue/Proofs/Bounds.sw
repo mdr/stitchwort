@@ -166,8 +166,8 @@ theorem buildFramed (depth: Nat) (entrance: Area) (exit: Area) (rooms: List Area
 
 -- Every level `layOut` makes from rooms that all fit is framed.
 theorem layOutFramed (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
-      (fit: (area: Area) → List.Mem area rooms → OnMap area):
-      Framed (layOut depth rooms entranceIndex exitIndex extra)
+    (fit: (area: Area) → List.Mem area rooms → OnMap area):
+    Framed (layOut depth rooms entranceIndex exitIndex extra)
     unfolding layOut
 :=
   buildFramed depth (roomOf rooms entranceIndex) (roomOf rooms exitIndex) rooms (corridorsOf rooms extra)

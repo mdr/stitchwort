@@ -133,7 +133,7 @@ def Map.filter [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): Map k v := 
 -- `Map.liftBinary` with its first argument a raw map.
 def Map.liftBinaryRaw [auto ord: Ord k] (op: Map.Raw k v [ord := ord] → Map.Raw k w [ord := ord] → Map.Raw k x [ord := ord])
     (respects: (a: Map.Raw k v) → (a2: Map.Raw k v) → (b: Map.Raw k w) → (b2: Map.Raw k w) →
-      Map.Raw.Equiv a a2 → Map.Raw.Equiv b b2 → Map.Raw.Equiv (op a b) (op a2 b2))
+    Map.Raw.Equiv a a2 → Map.Raw.Equiv b b2 → Map.Raw.Equiv (op a b) (op a2 b2))
     (a: Map.Raw k v) (q: Quot (Map.Raw k w) Map.Raw.Equiv): Quot (Map.Raw k x) Map.Raw.Equiv :=
   Quot.lift
     (b => (Quot.mk (op a b): Quot (Map.Raw k x) Map.Raw.Equiv))
@@ -145,7 +145,7 @@ def Map.liftBinaryRaw [auto ord: Ord k] (op: Map.Raw k v [ord := ord] → Map.Ra
 @[noReceiver]
 def Map.liftBinary [auto ord: Ord k] (op: Map.Raw k v [ord := ord] → Map.Raw k w [ord := ord] → Map.Raw k x [ord := ord])
     (respects: (a: Map.Raw k v) → (a2: Map.Raw k v) → (b: Map.Raw k w) → (b2: Map.Raw k w) →
-      Map.Raw.Equiv a a2 → Map.Raw.Equiv b b2 → Map.Raw.Equiv (op a b) (op a2 b2))
+    Map.Raw.Equiv a a2 → Map.Raw.Equiv b b2 → Map.Raw.Equiv (op a b) (op a2 b2))
     (a: Map k v) (b: Map k w): Map k x := {
   raw = Quot.lift
     (rawMap => Map.liftBinaryRaw op respects rawMap b.raw)
@@ -731,16 +731,16 @@ theorem Map.containsIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k
 
 theorem Map.memKeysIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k):
     List.Mem kk (Map.keys (Map.indexBy xs key)) ↔ List.Mem kk (List.map xs key) := {
-      forward = inKeys =>
-        List.anyTrueElim xs (x => key x == kk) (List.Mem kk (List.map xs key))
-          (Eq.trans (Eq.sym (Map.containsIndexBy xs key kk)) ((Map.memKeys (Map.indexBy xs key) kk).forward inKeys))
-          (x inXs e => rewrite <- DecEq.sound (key x) kk e in List.memMap xs x inXs key),
-      backward = inMap =>
-        (Map.memKeys (Map.indexBy xs key) kk).backward
-          (Eq.trans (Map.containsIndexBy xs key kk)
-            (List.anyElim (x => key x = kk) (List.any xs (x => key x == kk) = True) xs (List.memMapAny xs key kk inMap)
-              (x inXs e => List.anyOfMem xs (x => key x == kk) x (rewrite e in DecEq.refl kk) inXs)))
-    }
+  forward = inKeys =>
+    List.anyTrueElim xs (x => key x == kk) (List.Mem kk (List.map xs key))
+      (Eq.trans (Eq.sym (Map.containsIndexBy xs key kk)) ((Map.memKeys (Map.indexBy xs key) kk).forward inKeys))
+      (x inXs e => rewrite <- DecEq.sound (key x) kk e in List.memMap xs x inXs key),
+  backward = inMap =>
+    (Map.memKeys (Map.indexBy xs key) kk).backward
+      (Eq.trans (Map.containsIndexBy xs key kk)
+        (List.anyElim (x => key x = kk) (List.any xs (x => key x == kk) = True) xs (List.memMapAny xs key kk inMap)
+          (x inXs e => List.anyOfMem xs (x => key x == kk) x (rewrite e in DecEq.refl kk) inXs)))
+}
 
 theorem Map.getIndexByMemExample: Map.get (Map.indexBy ["ab", "c"] Text.length) 2 = Some "ab" := rfl
 

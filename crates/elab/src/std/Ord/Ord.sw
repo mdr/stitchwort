@@ -13,19 +13,19 @@ theorem Ordering.flipSelf: (c: Ordering) → c = Ordering.flip c → c = Equal
 -- and reduces the way the key's does (D414).
 def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b)
     (inj: (x: a) → (y: a) → key x = key y → x = y): Ord a := {
-      compare = x y => Ord.compare (key x) (key y),
-      lessThan = x y => ord.lessThan (key x) (key y),
-      lessEq = x y => ord.lessEq (key x) (key y),
-      decLessThan = x y => ord.decLessThan (key x) (key y),
-      decLessEq = x y => ord.decLessEq (key x) (key y),
-      equal = x y h => inj x y (ord.equal (key x) (key y) h),
-      flip = x y => ord.flip (key x) (key y),
-      trans = x y z => ord.trans (key x) (key y) (key z),
-      lessThanOf = x y h => ord.lessThanOf (key x) (key y) h,
-      lessThanTo = x y h => ord.lessThanTo (key x) (key y) h,
-      lessEqOf = x y h => ord.lessEqOf (key x) (key y) h,
-      lessEqTo = x y h => ord.lessEqTo (key x) (key y) h
-    }
+  compare = x y => Ord.compare (key x) (key y),
+  lessThan = x y => ord.lessThan (key x) (key y),
+  lessEq = x y => ord.lessEq (key x) (key y),
+  decLessThan = x y => ord.decLessThan (key x) (key y),
+  decLessEq = x y => ord.decLessEq (key x) (key y),
+  equal = x y h => inj x y (ord.equal (key x) (key y) h),
+  flip = x y => ord.flip (key x) (key y),
+  trans = x y z => ord.trans (key x) (key y) (key z),
+  lessThanOf = x y h => ord.lessThanOf (key x) (key y) h,
+  lessThanTo = x y h => ord.lessThanTo (key x) (key y) h,
+  lessEqOf = x y h => ord.lessEqOf (key x) (key y) h,
+  lessEqTo = x y h => ord.lessEqTo (key x) (key y) h
+}
 
 -- The larger, and the smaller (the first, if they're equal).
 def Ord.max [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with

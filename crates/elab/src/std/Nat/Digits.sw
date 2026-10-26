@@ -51,7 +51,7 @@ theorem Nat.digitsAccBig (n: Nat) (acc: List Nat) (h: Nat.leq n 9 = False): Nat.
 
 -- `n` has few enough digits: `n < 10 ^ (number of digits)`.
 theorem Nat.digitsAccBound (n: Nat) (acc: List Nat):
-      Succ n * Nat.pow 10 (List.length acc) ≤ Nat.pow 10 (List.length (Nat.digitsAcc n acc))
+    Succ n * Nat.pow 10 (List.length acc) ≤ Nat.pow 10 (List.length (Nat.digitsAcc n acc))
     decreasing n
 :=
   match e: Nat.leq n 9 with
