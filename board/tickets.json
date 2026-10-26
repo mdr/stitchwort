@@ -1,5 +1,5 @@
 {
-  "next": 554,
+  "next": 555,
   "tickets": [
     {
       "id": 13,
@@ -3886,7 +3886,21 @@
     {
       "id": 552,
       "title": "Full tier (26 Oct 02:2x): 10 failures — differential stack overflow (lane) + 9 output/snapshot failures (lane)",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": [
+        "0e5dec5e"
+      ]
+    },
+    {
+      "id": 553,
+      "title": "Inference: unannotated lambda inside an {IO} body makes effect-polymorphic List functions run at {IO} instead of the empty row (pure inline folds in main pay effect dispatch) — for Matt",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3896,8 +3910,8 @@
       "commits": []
     },
     {
-      "id": 553,
-      "title": "Inference: unannotated lambda inside an {IO} body makes effect-polymorphic List functions run at {IO} instead of the empty row (pure inline folds in main pay effect dispatch) — for Matt",
+      "id": 554,
+      "title": "Nat division on a variable duplicates it (a / 2 -> Nat.divFuel a a 2), so normal forms of bit-twiddling code (Random.xorBits) grow ~4x per bit; differential test now skips them — consider a fuel-free division form",
       "status": "backlog",
       "agent": "",
       "where": "",
