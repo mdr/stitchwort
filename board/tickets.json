@@ -4679,8 +4679,8 @@
     },
     {
       "id": 613,
-      "title": "Private app port: differential harness category for -0/NaN comparison differences (D1335/D1336) so check.sh switched passes; then the pipe restyle (private work only)",
-      "status": "next",
+      "title": "Private app port: WellFormed contract (D1338: promote+rename Settled, theorems over well-formed inputs) + differential category for -0/NaN; then the pipe restyle (private work only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
