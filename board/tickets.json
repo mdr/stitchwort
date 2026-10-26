@@ -1,5 +1,5 @@
 {
-  "next": 565,
+  "next": 571,
   "tickets": [
     {
       "id": 13,
@@ -4040,6 +4040,78 @@
     {
       "id": 564,
       "title": "Revisit: prove the generation theorems (generatedReachable, generatedFramed, newGameSound, drawn*) over the free-style {Random} generator — e.g. a list handler + one seeded-equals-list lemma; blocked today by symbolic handler stepping (E-RESOURCE) and Effect.bindAssoc's axiom (PROOFS.md gaps #2-3). Matt asked to revisit, 26 Oct",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 565,
+      "title": "E-RESOURCE should name the definition being unfolded when resources ran out (rogue PROOFS.md gap 3: two of three generator-proof failures were found by trial and error)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 566,
+      "title": "Warn when a |> pipe's right side is a comparison: '|>' binds looser than '=', so 'xs.map f |> .getOr d i = y' silently means piping into the equation (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 567,
+      "title": "omega: an '_' argument stays a metavariable, so the same term written with '_' and in full are different atoms (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 568,
+      "title": "No eta for records in conversion: 'p = { row = p.row, column = p.column }' needs a match on p (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 569,
+      "title": "'unfolding' after a multi-line signature at the type's indentation gives 'expected an expression, but found unfolding'; say it must be indented less (rogue PROOFS.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 570,
+      "title": "Proofs through a handler step symbolically and run out of resources (rogue: generator under seeded; the reason turns use one next() + index-hashed Dice). Find what the checker needs so effectful code is provable as written (rogue PROOFS.md 'Tried')",
       "status": "backlog",
       "agent": "",
       "where": "",
