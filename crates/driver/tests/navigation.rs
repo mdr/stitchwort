@@ -399,9 +399,9 @@ fn shared_fields() {
     let index = index_of(&session);
     let all = lines(&session, &index, "one.sw");
     for expected in [
-        "one.sw:5:32 id -> Main.Shape.id [field] one.sw:2:10 : Shape -> Text",
-        "one.sw:7:50 id -> Main.Shape.id [field] one.sw:2:10 : Shape -> Text",
-        "one.sw:9:30 Shape.id -> Main.Shape.id [field] one.sw:2:10 : Shape -> Text",
+        "one.sw:5:32 id -> Main.Shape.id [field] one.sw:2:10 : Shape → Text",
+        "one.sw:7:50 id -> Main.Shape.id [field] one.sw:2:10 : Shape → Text",
+        "one.sw:9:30 Shape.id -> Main.Shape.id [field] one.sw:2:10 : Shape → Text",
     ] {
         assert!(all.contains(expected), "missing `{expected}` in\n{all}");
     }

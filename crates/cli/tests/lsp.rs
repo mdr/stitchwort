@@ -748,7 +748,7 @@ fn implicit_lambda_parameters_hover_with_their_types() {
     let pick = col(3, "pick", 0);
     assert_eq!(
         hover(&mut client, 3, pick),
-        "```stitchwort\n[a: Type] -> a -> a -> a\n```\nlocal `pick`"
+        "```stitchwort\n[a: Type] → a → a → a\n```\nlocal `pick`"
     );
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);

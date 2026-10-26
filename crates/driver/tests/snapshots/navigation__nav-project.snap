@@ -4,84 +4,84 @@ expression: "lines(&session, &index, \"Nav.sw\")"
 ---
 Nav.sw:3:13 Range -> Lib.Range [record] Lib.sw:3:6 : Type
 Nav.sw:5:6 Shape -> Nav.Shape [data] Nav.sw:5:6 : Type
-Nav.sw:6:5 Circle -> Nav.Shape.Circle [ctor] Nav.sw:6:5 : Nat -> Nav.Shape
+Nav.sw:6:5 Circle -> Nav.Shape.Circle [ctor] Nav.sw:6:5 : Nat → Nav.Shape
 Nav.sw:6:13 r -> local r Nav.sw:6:13 : 
 Nav.sw:6:16 Nat -> Std.Nat [data] <prelude>:113:6 : Type
-Nav.sw:7:5 Square -> Nav.Shape.Square [ctor] Nav.sw:7:5 : Nat -> Nav.Shape
+Nav.sw:7:5 Square -> Nav.Shape.Square [ctor] Nav.sw:7:5 : Nat → Nav.Shape
 Nav.sw:7:13 side -> local side Nav.sw:7:13 : 
 Nav.sw:7:19 Nat -> Std.Nat [data] <prelude>:113:6 : Type
-Nav.sw:9:5 area -> Nav.area [def] Nav.sw:9:5 : Nav.Shape -> Nat
+Nav.sw:9:5 area -> Nav.area [def] Nav.sw:9:5 : Nav.Shape → Nat
 Nav.sw:9:11 s -> local s Nav.sw:9:11 : 
 Nav.sw:9:14 Shape -> Nav.Shape [data] Nav.sw:5:6 : Type
 Nav.sw:9:22 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:10:9 s -> local s Nav.sw:9:11 : Nav.Shape
-Nav.sw:11:7 Circle -> Nav.Shape.Circle [ctor] Nav.sw:6:5 : Nat -> Nav.Shape
+Nav.sw:11:7 Circle -> Nav.Shape.Circle [ctor] Nav.sw:6:5 : Nat → Nav.Shape
 Nav.sw:11:14 r -> local r Nav.sw:11:14 : 
 Nav.sw:11:19 r -> local r Nav.sw:11:14 : Nat
 Nav.sw:11:23 r -> local r Nav.sw:11:14 : Nat
-Nav.sw:12:7 Square -> Nav.Shape.Square [ctor] Nav.sw:7:5 : Nat -> Nav.Shape
+Nav.sw:12:7 Square -> Nav.Shape.Square [ctor] Nav.sw:7:5 : Nat → Nav.Shape
 Nav.sw:12:14 side -> local side Nav.sw:12:14 : 
 Nav.sw:12:22 side -> local side Nav.sw:12:14 : Nat
 Nav.sw:12:29 side -> local side Nav.sw:12:14 : Nat
-Nav.sw:14:5 total -> Nav.total [def] Nav.sw:14:5 : List Nat -> Nat
+Nav.sw:14:5 total -> Nav.total [def] Nav.sw:14:5 : List Nat → Nat
 Nav.sw:14:12 xs -> local xs Nav.sw:14:12 : 
-Nav.sw:14:16 List -> Std.List [data] <prelude>:166:6 : Type -> Type
+Nav.sw:14:16 List -> Std.List [data] <prelude>:166:6 : Type → Type
 Nav.sw:14:21 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:14:27 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:15:7 go -> local go Nav.sw:15:7 : 
 Nav.sw:15:11 acc -> local acc Nav.sw:15:11 : 
 Nav.sw:15:16 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:15:22 ys -> local ys Nav.sw:15:22 : 
-Nav.sw:15:26 List -> Std.List [data] <prelude>:166:6 : Type -> Type
+Nav.sw:15:26 List -> Std.List [data] <prelude>:166:6 : Type → Type
 Nav.sw:15:31 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:15:37 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:16:11 ys -> local ys Nav.sw:15:22 : List Nat
 Nav.sw:17:15 acc -> local acc Nav.sw:15:11 : Nat
-Nav.sw:18:9 Cons -> Std.List.Cons [ctor] <prelude>:168:5 : [a: Type] -> a -> List a -> List a
+Nav.sw:18:9 Cons -> Std.List.Cons [ctor] <prelude>:168:5 : [a: Type] → a → List a → List a
 Nav.sw:18:14 y -> local y Nav.sw:18:14 : 
 Nav.sw:18:16 rest -> local rest Nav.sw:18:16 : 
-Nav.sw:18:24 go -> local go Nav.sw:15:7 : Nat -> List Nat -> Nat
+Nav.sw:18:24 go -> local go Nav.sw:15:7 : Nat → List Nat → Nat
 Nav.sw:18:28 acc -> local acc Nav.sw:15:11 : Nat
 Nav.sw:18:34 y -> local y Nav.sw:18:14 : Nat
 Nav.sw:18:37 rest -> local rest Nav.sw:18:16 : List Nat
 Nav.sw:19:7 start -> local start Nav.sw:19:7 : 
-Nav.sw:20:3 go -> local go Nav.sw:15:7 : Nat -> List Nat -> Nat
+Nav.sw:20:3 go -> local go Nav.sw:15:7 : Nat → List Nat → Nat
 Nav.sw:20:6 start -> local start Nav.sw:19:7 : Nat
 Nav.sw:20:12 xs -> local xs Nav.sw:14:12 : List Nat
-Nav.sw:22:5 doubled -> Nav.doubled [def] Nav.sw:22:5 : List Nat -> List Nat
+Nav.sw:22:5 doubled -> Nav.doubled [def] Nav.sw:22:5 : List Nat → List Nat
 Nav.sw:22:14 xs -> local xs Nav.sw:22:14 : 
-Nav.sw:22:18 List -> Std.List [data] <prelude>:166:6 : Type -> Type
+Nav.sw:22:18 List -> Std.List [data] <prelude>:166:6 : Type → Type
 Nav.sw:22:23 Nat -> Std.Nat [data] <prelude>:113:6 : Type
-Nav.sw:22:29 List -> Std.List [data] <prelude>:166:6 : Type -> Type
+Nav.sw:22:29 List -> Std.List [data] <prelude>:166:6 : Type → Type
 Nav.sw:22:34 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:22:41 xs -> local xs Nav.sw:22:14 : List Nat
-Nav.sw:22:44 map -> Std.List.map [def] Toolkit.sw:18:5 : [a: Type] -> [e: Effect.Effects] -> [%div.e: Effect.Divergence] -> [b: Type] -> List a -> (a -> {e} b) -> {e} List b
+Nav.sw:22:44 map -> Std.List.map [def] Toolkit.sw:32:5 : [a: Type] → [e: Effect.Effects] → [%div.e: Effect.Divergence] → [b: Type] → List a → (a → {e} b) → {e} List b
 Nav.sw:22:49 n -> local n Nav.sw:22:49 : 
 Nav.sw:22:54 n -> local n Nav.sw:22:49 : Nat
 Nav.sw:22:58 n -> local n Nav.sw:22:49 : Nat
-Nav.sw:24:5 piped -> Nav.piped [def] Nav.sw:24:5 : List Nat -> List Nat
+Nav.sw:24:5 piped -> Nav.piped [def] Nav.sw:24:5 : List Nat → List Nat
 Nav.sw:24:12 xs -> local xs Nav.sw:24:12 : 
-Nav.sw:24:16 List -> Std.List [data] <prelude>:166:6 : Type -> Type
+Nav.sw:24:16 List -> Std.List [data] <prelude>:166:6 : Type → Type
 Nav.sw:24:21 Nat -> Std.Nat [data] <prelude>:113:6 : Type
-Nav.sw:24:27 List -> Std.List [data] <prelude>:166:6 : Type -> Type
+Nav.sw:24:27 List -> Std.List [data] <prelude>:166:6 : Type → Type
 Nav.sw:24:32 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:24:39 xs -> local xs Nav.sw:24:12 : List Nat
-Nav.sw:24:46 map -> Std.List.map [def] Toolkit.sw:18:5 : [a: Type] -> [e: Effect.Effects] -> [%div.e: Effect.Divergence] -> [b: Type] -> List a -> (a -> {e} b) -> {e} List b
+Nav.sw:24:46 map -> Std.List.map [def] Toolkit.sw:32:5 : [a: Type] → [e: Effect.Effects] → [%div.e: Effect.Divergence] → [b: Type] → List a → (a → {e} b) → {e} List b
 Nav.sw:24:51 n -> local n Nav.sw:24:51 : 
 Nav.sw:24:56 n -> local n Nav.sw:24:51 : Nat
-Nav.sw:26:5 width -> Nav.width [def] Nav.sw:26:5 : Lib.Range -> Nat
+Nav.sw:26:5 width -> Nav.width [def] Nav.sw:26:5 : Lib.Range → Nat
 Nav.sw:26:12 r -> local r Nav.sw:26:12 : 
 Nav.sw:26:15 Range -> Lib.Range [record] Lib.sw:3:6 : Type
 Nav.sw:26:23 Nat -> Std.Nat [data] <prelude>:113:6 : Type
 Nav.sw:26:30 r -> local r Nav.sw:26:12 : Lib.Range
-Nav.sw:26:32 hi -> Lib.Range.hi [field] Lib.sw:3:25 : Lib.Range -> Nat
-Nav.sw:28:5 qualified -> Nav.qualified [def] Nav.sw:28:5 : Lib.Range -> Nat
+Nav.sw:26:32 hi -> Lib.Range.hi [field] Lib.sw:3:25 : Lib.Range → Nat
+Nav.sw:28:5 qualified -> Nav.qualified [def] Nav.sw:28:5 : Lib.Range → Nat
 Nav.sw:28:16 r -> local r Nav.sw:28:16 : 
 Nav.sw:28:19 Lib.Range -> Lib.Range [record] Lib.sw:3:6 : Type
 Nav.sw:28:31 Nat -> Std.Nat [data] <prelude>:113:6 : Type
-Nav.sw:28:38 Lib.Range.size -> Lib.Range.size [def] Lib.sw:5:5 : Lib.Range -> Nat
+Nav.sw:28:38 Lib.Range.size -> Lib.Range.size [def] Lib.sw:5:5 : Lib.Range → Nat
 Nav.sw:28:53 r -> local r Nav.sw:28:16 : Lib.Range
 Nav.sw:30:5 build -> Nav.build [def] Nav.sw:30:5 : Lib.Range
 Nav.sw:30:12 Range -> Lib.Range [record] Lib.sw:3:6 : Type
-Nav.sw:30:23 lo -> Lib.Range.lo [field] Lib.sw:3:16 : Lib.Range -> Nat
-Nav.sw:30:31 hi -> Lib.Range.hi [field] Lib.sw:3:25 : Lib.Range -> Nat
+Nav.sw:30:23 lo -> Lib.Range.lo [field] Lib.sw:3:16 : Lib.Range → Nat
+Nav.sw:30:31 hi -> Lib.Range.hi [field] Lib.sw:3:25 : Lib.Range → Nat
