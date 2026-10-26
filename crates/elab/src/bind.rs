@@ -219,7 +219,7 @@ fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
         return None;
     };
     let (m, n) = (m.clone(), n.clone());
-    let is = |b| reg.def(b) == Some(*id);
+    let is = |b| reg.loaded_def(b) == Some(*id);
     let (leq, succ) = if is(Builtin::DecLessEqNat) {
         (Builtin::Leq, false)
     } else if is(Builtin::DecLessThanNat) {
@@ -241,7 +241,7 @@ fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
     } else {
         m
     };
-    Some(Term::app(Term::app(Term::Def(reg.def(leq)?), m), n))
+    Some(Term::app(Term::app(Term::Def(reg.loaded_def(leq)?), m), n))
 }
 
 /// A decision procedure for `prop` (a term in the current scope). The
@@ -275,15 +275,15 @@ fn float_decider(cx: &Ctx, prop: &Term) -> Option<Term> {
     let [x, y] = args[..] else {
         return None;
     };
-    let decider = if reg.def(Builtin::FloatLessEq) == Some(*id) {
+    let decider = if reg.loaded_def(Builtin::FloatLessEq) == Some(*id) {
         Builtin::FloatDecLessEq
-    } else if reg.def(Builtin::FloatLessThan) == Some(*id) {
+    } else if reg.loaded_def(Builtin::FloatLessThan) == Some(*id) {
         Builtin::FloatDecLessThan
     } else {
         return None;
     };
     Some(Term::app(
-        Term::app(Term::Def(reg.def(decider)?), x.clone()),
+        Term::app(Term::Def(reg.loaded_def(decider)?), x.clone()),
         y.clone(),
     ))
 }

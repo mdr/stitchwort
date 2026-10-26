@@ -2078,7 +2078,12 @@ fn visit(
         }
         Value::Neutral(head, spine) => {
             let head = match head {
-                Head::Var(l, _) => SpineHead::Term(Term::Var(level - 1 - l)),
+                // A variable bound after `level` (a refined variable read back
+                // outside the binders that bind it) is a wrapped index that
+                // the binders it is later placed under bring back in range.
+                Head::Var(l, _) => {
+                    SpineHead::Term(Term::Var(level.wrapping_sub(1).wrapping_sub(l)))
+                }
                 Head::Def(id) => SpineHead::Term(Term::Def(id)),
                 Head::Meta(m) => SpineHead::Term(Term::Meta(m)),
                 Head::Quot(form) => SpineHead::Quot(form, quot_args_in(form, &spine)),

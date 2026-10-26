@@ -219,7 +219,8 @@ fn go_replace(
         if ix < under {
             return Ok(Term::Var(ix));
         }
-        Ok(f(depth - 1 - (ix - under))?.shift(g, under, 0)?)
+        // A variable bound after `depth` has a wrapped index here.
+        Ok(f(depth.wrapping_sub(1).wrapping_sub(ix - under))?.shift(g, under, 0)?)
     };
     let split = |ix: usize| -> Result<usize> {
         match var(ix)? {
