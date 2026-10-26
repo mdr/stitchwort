@@ -427,7 +427,8 @@ test("Open in editor puts a guide example in the editor, ready to run, and colou
   assert.equal(await sourceText(page), file);
   await page.untilChecked();
   assert.equal(await page.ev(`location.hash`), "", "the address no longer names the guide");
-  // Its tests, which this one has, are shown.
+  // Its tests, which this one has, are shown (once they've run).
+  await page.until(`document.querySelectorAll("ul.tests li").length > 0`, 30000, "the tests");
   assert.match(await page.output(), /area[\s\S]*update[\s\S]*label/);
   assert.equal(await page.ev(`document.getElementById("tab-tests").getAttribute("aria-selected")`), "true");
   // The editor's own colouring covers it, and lines up with the text.
@@ -938,7 +939,7 @@ test("a long run streams its output, and Stop cancels it", async (page) => {
 // next frame, which replaces the last.
 const LIVE = `document.getElementById("live-screen")`;
 const WALK = readFileSync(join(here, "..", "..", "examples", "accept", "terminal-walk.sw"), "utf8");
-const liveScreen = (page) => page.ev(`${LIVE}.textContent`);
+const liveScreen = (page) => page.ev(`${LIVE}.dataset.text`);
 const liveState = (page) => page.ev(`${LIVE}?.dataset.state ?? ""`);
 const liveStretches = (page) => page.ev(`Number(${LIVE}?.dataset.stretches ?? 0)`);
 
@@ -979,7 +980,7 @@ test("Run in terminal plays terminal-walk key by key, and ends with q", async (p
   await liveKey(page, "q", "KeyQ", 81);
   assert.equal(await liveState(page), "finished");
   // Keys mode ended, so the last words are on the normal screen.
-  assert.equal(await liveScreen(page), "The @ stopped at column 0, row 2.\n");
+  assert.equal(await liveScreen(page), "The @ stopped at column 0, row 2.");
   assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
 });
 
@@ -1000,6 +1001,133 @@ test("Stop ends a run waiting in the terminal", async (page) => {
   await startWalk(page);
   await page.click(".runrow button:nth-child(2)");
   await page.until(`${LIVE}.dataset.state === "stopped"`, 5000, "stopped");
+});
+
+/** The text of the cell at `row`, `column` of the pane, and the classes of its span. */
+const liveCell = (page, row, column) => page.ev(`(() => {
+  const rowEl = ${LIVE}.querySelectorAll(".trow")[${row}];
+  const spans = [...rowEl.children];
+  const span = spans.filter((s) => Number(s.dataset.col) <= ${column}).pop();
+  if (!span) return [" ", ""];
+  const at = ${column} - Number(span.dataset.col);
+  return at < span.textContent.length ? [span.textContent[at], span.className.replace(/ ?cur/, "")] : [" ", ""];
+})()`);
+
+/** Starts `source` in the terminal and waits for it to wait for input. */
+async function startLive(page, source) {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(source);
+  await page.untilChecked();
+  await page.tab("run");
+  await page.click("#run-live");
+  await page.until(`${LIVE}?.dataset.state === "waiting"`, 20000, "the program to wait");
+}
+
+test("terminal: frames land in the right cells, with colours", async (page) => {
+  await startWalk(page);
+  // Row 0 is the wall, row 1 the room's first row: # @ . . .
+  assert.deepEqual(await liveCell(page, 0, 0), ["#", ""]);
+  assert.deepEqual(await liveCell(page, 0, 11), ["#", ""]);
+  assert.deepEqual(await liveCell(page, 1, 0), ["#", ""]);
+  assert.deepEqual(await liveCell(page, 1, 1), ["@", "f3"]);
+  assert.deepEqual(await liveCell(page, 1, 2), [".", ""]);
+  assert.deepEqual(await liveCell(page, 1, 11), ["#", ""]);
+  assert.deepEqual(await liveCell(page, 5, 0), ["#", ""]);
+  assert.deepEqual(await liveCell(page, 6, 0), ["h", ""]);
+  assert.deepEqual(await liveCell(page, 7, 0), [" ", ""]);
+  // The @ moves with the next frame; the old cell is plain again.
+  await liveKey(page, "l", "KeyL", 76);
+  assert.deepEqual(await liveCell(page, 1, 1), [".", ""]);
+  assert.deepEqual(await liveCell(page, 1, 2), ["@", "f3"]);
+  // The grid is 80 columns by 24 rows.
+  assert.equal(await page.ev(`${LIVE}.querySelectorAll(".trow").length`), 24);
+});
+
+const STYLES = `import Std (Ansi, IO, Terminal, Text)
+import Std.Ansi.Colour (Red)
+
+def show (): {Terminal} () :=
+  Terminal.draw ["\${Ansi.bold (Ansi.colour Red "hot")} \${Ansi.reverse "inv"}", "plain"]
+  match Terminal.readKey () with
+    | _ => ()
+
+def main (): {IO} () :=
+  IO.print "before"
+  Terminal.toIO (() => show ())
+  IO.print "after"
+`;
+
+test("terminal: colour, bold and reverse make styled spans, and the normal screen comes back", async (page) => {
+  await startLive(page, STYLES);
+  assert.equal(await page.ev(`${LIVE}.dataset.keys`), "keys");
+  assert.equal(await liveScreen(page), "hot inv\nplain");
+  assert.deepEqual(await liveCell(page, 0, 0), ["h", "f1 bd"]);
+  assert.deepEqual(await liveCell(page, 0, 2), ["t", "f1 bd"]);
+  assert.deepEqual(await liveCell(page, 0, 3), [" ", ""]);
+  assert.deepEqual(await liveCell(page, 0, 4), ["i", "rv"]);
+  assert.deepEqual(await liveCell(page, 1, 0), ["p", ""]);
+  // Bold really is bold, and reverse swaps the colours.
+  assert.equal(await page.ev(`getComputedStyle(${LIVE}.querySelector(".bd")).fontWeight`), "700");
+  const [fg, bg] = await page.ev(`(() => { const s = getComputedStyle(${LIVE}.querySelector(".rv")); return [s.color, s.backgroundColor]; })()`);
+  assert.notEqual(fg, bg);
+  // A key ends the game; the screen from before it is back, with what came after.
+  await liveKey(page, "x", "KeyX", 88);
+  assert.equal(await liveState(page), "finished");
+  assert.equal(await page.ev(`${LIVE}.dataset.keys`), "line");
+  assert.equal(await liveScreen(page), "before\nafter");
+});
+
+const GREETER = `import Std (IO, Text)
+
+def main (): {IO} () :=
+  match IO.readLine () with
+    | Some name => IO.print "hello \${name}"
+    | None => IO.print "no input"
+`;
+
+/** Types `text` into the focused pane, a key at a time. */
+async function liveType(page, text) {
+  for (const ch of text) {
+    const upper = ch.toUpperCase();
+    await page.key(ch, upper >= "A" && upper <= "Z" ? `Key${upper}` : "Digit0", upper.charCodeAt(0));
+  }
+}
+
+test("terminal: readLine is echoed and edited in the pane, and Enter sends it", async (page) => {
+  await startLive(page, GREETER);
+  assert.equal(await page.ev(`${LIVE}.dataset.keys`), "line");
+  await liveType(page, "Alx");
+  await page.key("Backspace", "Backspace", 8);
+  await liveType(page, "ice");
+  // Echoed, not yet sent: the program is still waiting on its first line.
+  await page.until(`${LIVE}.dataset.text === "Alice"`, 5000, "the echo");
+  assert.equal(await liveStretches(page), 1);
+  await liveKey(page, "Enter", "Enter", 13);
+  assert.equal(await liveState(page), "finished");
+  assert.equal(await liveScreen(page), "Alice\nhello Alice");
+});
+
+test("terminal: Ctrl-D ends the input", async (page) => {
+  await startLive(page, GREETER);
+  await liveKey(page, "d", "KeyD", 68, { modifiers: 2 });
+  assert.equal(await liveState(page), "finished");
+  assert.equal(await liveScreen(page), "no input");
+});
+
+test("terminal: Esc then Tab leaves the pane, and Tab alone goes to the program", async (page) => {
+  await startWalk(page);
+  const focused = `document.activeElement === ${LIVE}`;
+  assert.equal(await page.ev(focused), true);
+  // Tab alone is a key for the program.
+  await liveKey(page, "Tab", "Tab", 9);
+  assert.equal(await page.ev(focused), true);
+  const before = await liveStretches(page);
+  await liveKey(page, "Escape", "Escape", 27);
+  await page.key("Tab", "Tab", 9);
+  assert.equal(await page.ev(focused), false, "focus left the pane");
+  assert.equal(await liveStretches(page), before + 1, "the Tab was not sent on");
+  assert.match(await page.runResult(), /Esc then Tab/);
 });
 
 test("a runaway run is stopped by the timeout, with its output", async (page) => {
