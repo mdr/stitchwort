@@ -134,14 +134,13 @@ use stitchwort_core::ResourceError;
 use stitchwort_core::native::Native;
 use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
+use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
     self as abi, ApplyPlan, Context, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands, NativeOut,
-    NativeRun, TAIL_REQUEST,
-    OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_FUN,
-    TAG_INT, TAG_NAT, TAG_TAG, VALUE_SIZE, WEAK_AT,
+    NativeRun, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA,
+    TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, TAIL_REQUEST, VALUE_SIZE, WEAK_AT,
 };
-use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::natives::{IntNative, TextNative};
 use stitchwort_rt::value::{Fun, Value};
 
@@ -271,9 +270,7 @@ impl NativeIslands for Islands {
         run.steps = context.steps;
         match context.error {
             abi::OK => Ok(NativeOut::Value(result)),
-            TAIL_REQUEST => Ok(NativeOut::Tail(
-                run.request.take().expect("a tail request"),
-            )),
+            TAIL_REQUEST => Ok(NativeOut::Tail(run.request.take().expect("a tail request"))),
             _ => context.result().map(|()| NativeOut::Value(result)),
         }
     }
@@ -375,7 +372,10 @@ fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
         }
     }
     if bodies.is_empty() {
-        notes.push("native: nothing `main` reaches compiles, so the whole run is on the machine".to_string());
+        notes.push(
+            "native: nothing `main` reaches compiles, so the whole run is on the machine"
+                .to_string(),
+        );
         return Err(notes);
     }
     Ok(Plan {
@@ -949,7 +949,8 @@ fn emit_apply_any(
     b.append_block_param(unprepared, pointer);
     let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
     let prepared = b.create_block();
-    b.ins().brif(error, unprepared, &[drop_env.into()], prepared, &[]);
+    b.ins()
+        .brif(error, unprepared, &[drop_env.into()], prepared, &[]);
     // A tail apply's own closure, dropped as the machine drops its frame's:
     // after the function value is taken apart.
     b.switch_to_block(prepared);
@@ -999,11 +1000,14 @@ fn emit_apply_any(
     let from = b.ins().iadd_imm_s(from, i64::from(ApplyPlan::ARGS_AT));
     let none = b.ins().iconst(pointer, 0);
     steps_out(b, ctx);
-    b.ins()
-        .call(prepare, &[ctx, frames, tail, none, fun_at, from, rest, plan]);
+    b.ins().call(
+        prepare,
+        &[ctx, frames, tail, none, fun_at, from, rest, plan],
+    );
     steps_in(b, ctx);
     let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
-    b.ins().brif(error, unprepared, &[none.into()], dispatch, &[]);
+    b.ins()
+        .brif(error, unprepared, &[none.into()], dispatch, &[]);
 
     // Code to call: a step and a frame, as the machine's `enter_frame`.
     b.switch_to_block(enter);
@@ -1155,11 +1159,7 @@ fn emit_apply_any(
     steps_in(b, ctx);
     let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
     let v: Vec<ir::BlockArg> = (0..3)
-        .map(|w| {
-            b.ins()
-                .load(types::I64, flags(), fun_at, 8 * w)
-                .into()
-        })
+        .map(|w| b.ins().load(types::I64, flags(), fun_at, 8 * w).into())
         .collect();
     b.ins().brif(error, releasing, &[], again, &v);
     b.switch_to_block(releasing);
@@ -1266,11 +1266,7 @@ impl Helpers {
             global: declare("sw_global", &[p, I32, p], &[I64])?,
             global_set: declare("sw_global_set", &[p, I32, p], &[])?,
             apply_cached: declare("sw_apply_cached", &[p, p, I64, p], &[I64])?,
-            apply_prepare: declare(
-                "sw_apply_prepare",
-                &[p, I64, I64, I64, p, p, I64, p],
-                &[],
-            )?,
+            apply_prepare: declare("sw_apply_prepare", &[p, I64, I64, I64, p, p, I64, p], &[])?,
             closure: declare("sw_closure", &[I32, p, I64, p], &[])?,
             pap: declare("sw_pap", &[p, I32, p, I64, p], &[])?,
             int_negative: declare("sw_int_negative", &[p], &[I64])?,
@@ -1401,8 +1397,7 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
             | Instr::IntOfNat { dst, .. }
             | Instr::IntNegSucc { dst, .. }
             | Instr::TextChars { dst, .. }
-            | Instr::Field { dst, .. }
-            => after.add(dst),
+            | Instr::Field { dst, .. } => after.add(dst),
             Instr::Prim { dst, args, .. } => {
                 unmove(&mut after, args);
                 after.add(dst);
@@ -2747,7 +2742,10 @@ impl Gen<'_, '_> {
         match dst {
             Some(dst) => {
                 self.erase(Loc::Mem(out, 0));
-                self.machine_call(self.helpers.effect, &[self.ctx, self.frames, op_at, at, n, out]);
+                self.machine_call(
+                    self.helpers.effect,
+                    &[self.ctx, self.frames, op_at, at, n, out],
+                );
                 self.after_machine(&live);
                 let v = self.load(Loc::Mem(out, 0));
                 self.assign(pc, dst, v);

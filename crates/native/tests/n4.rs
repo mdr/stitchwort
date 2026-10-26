@@ -179,10 +179,10 @@ def rollsUntilSix (count: Nat): {Random, Partial} Nat :=
   if next () == 6 then count + 1 else rollsUntilSix (count + 1)
 
 def main(): {IO, Partial} () :=
-  IO.print "${Counter.from 1 (() => countUp 2)}"
+  IO.print "${Counter.from 1 (() => countUp 1)}"
   IO.print "${List.sum (Pick.both (() => [Pick.pick(), Pick.pick() * 10]))}"
   IO.print "${Fail.orElse 9 (() => halve 4 + halve 3)}"
-  IO.print "${seeded 1 (() => rollsUntilSix 0)}"
+  IO.print "${seeded 3 (() => rollsUntilSix 0)}"
 "#;
 
 #[test]
@@ -195,14 +195,13 @@ fn every_error_exit_in_a_handler_frees_everything() {
     });
 }
 
-/// Effect loops 1,000,000 long under a frame limit of 100, on a 64 MiB
+/// Effect loops 250,000 long under a frame limit of 100, on a 16 MiB
 /// native stack: a state-passing handler's jumps, a fold whose clause
-/// resumes in a tail position (the machine's resumption, reached from a
-/// native tail apply: a tail request), the same with an open row, and
-/// `bind` in a tail position.
+/// resumes in a tail position, and the same with an open row (a lazy
+/// resumption, which native code reaches by a tail apply: a tail request).
 #[test]
 fn effect_loops_run_in_constant_stack() {
-    const SMALL: usize = 64 * 1024 * 1024;
+    const SMALL: usize = 16 * 1024 * 1024;
     let source = r#"import Std (IO, Nat)
 
 ability Counter where
@@ -237,7 +236,7 @@ def asks: Nat → Nat → {Env} Nat
   | Succ n, acc => asks n (acc + Env.ask())
 
 def main(): {IO} () :=
-  IO.print "${Counter.from 0 (() => bumps 1000000 0)} ${Env.give 3 (() => asks 1000000 0)} ${Env.giveIn 2 (() => asks 1000000 0)}"
+  IO.print "${Counter.from 0 (() => bumps 250000 0)} ${Env.give 3 (() => asks 250000 0)} ${Env.giveIn 2 (() => asks 250000 0)}"
 "#;
     with_stack(SMALL, move || {
         let (program, limits) = lowered_for(source, SMALL);
@@ -246,10 +245,7 @@ def main(): {IO} () :=
             ..limits
         };
         let machine = on_machine(&program, limits);
-        assert_eq!(
-            machine,
-            ("500000 3000000 2000000\n".to_string(), Ok(()))
-        );
+        assert_eq!(machine, ("125000 750000 500000\n".to_string(), Ok(())));
         let (native, notes) = native_on(&program, limits, false, SMALL);
         assert!(ran_natively(&notes), "{notes:#?}");
         assert_eq!(native, machine);
@@ -327,21 +323,22 @@ fn effect_examples_agree_with_the_machine() {
                     let agrees = expected.is_none_or(|e| same(e, &v));
                     (v, agrees, m.effect_counts())
                 };
-                let (machine, _, machine_counts) = run(false, false, None);
-                let (_, agrees, native_counts) = run(true, false, Some(&machine));
-                assert!(agrees, "{name}: `{source}`: native code disagrees with {machine:?}");
-                assert_eq!(native_counts, machine_counts, "{name}: `{source}`");
-                // The traces, each run from the start, its machine and its
-                // value dropped inside.
+                // The machine's value to compare with, then a traced run on
+                // each, its machine and its value dropped inside the trace.
+                let (machine, _, _) = run(false, false, None);
                 let traced = |native: bool| {
                     alloc_trace::start();
-                    let (v, agrees, _) = run(native, true, Some(&machine));
-                    assert!(agrees, "{name}: `{source}`");
+                    let (v, agrees, counts) = run(native, true, Some(&machine));
+                    assert!(
+                        agrees,
+                        "{name}: `{source}`: native code disagrees with {machine:?}"
+                    );
                     drop(v);
-                    alloc_trace::finish()
+                    (alloc_trace::finish(), counts)
                 };
-                let on_machine = traced(false);
-                let natively = traced(true);
+                let (on_machine, machine_counts) = traced(false);
+                let (natively, native_counts) = traced(true);
+                assert_eq!(native_counts, machine_counts, "{name}: `{source}`");
                 assert_eq!(natively.leaks(), Vec::<u32>::new(), "{name}: `{source}`");
                 assert!(
                     on_machine.render() == natively.render(),

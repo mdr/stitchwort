@@ -975,8 +975,13 @@ pub unsafe extern "C" fn sw_apply_prepare(
 ) {
     // SAFETY: the caller's contract; the values are moved out and not used
     // again by the caller.
-    let (run, functions, lambdas) =
-        unsafe { (&mut *(*context).run, (*context).functions, (*context).lambdas) };
+    let (run, functions, lambdas) = unsafe {
+        (
+            &mut *(*context).run,
+            (*context).functions,
+            (*context).lambdas,
+        )
+    };
     let program = run.program;
     let f = unsafe { f.read() };
     let args: Vec<Value> = (0..n as usize)

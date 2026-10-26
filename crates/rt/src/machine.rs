@@ -661,7 +661,7 @@ impl State {
         // As `replace` drops it: before the registers.
         frame.env = None;
         release(&mut self.regs, base);
-        let args: Vec<Value> = self.scratch.drain(..).collect();
+        let args = std::mem::take(&mut self.scratch);
         let frames = (self.frame_base + self.frames.len() + 1) as u64;
         match self.cross(program, image, code, env, args, frames)? {
             NativeOut::Value(v) => Ok(Some((v, frame.ret))),
@@ -1284,7 +1284,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     if st.native_codes.get(callee as usize) == Some(&true) {
                         let values = args!(args);
                         let to = u32::try_from(base + dst as usize).expect("fits");
-                        pending = st.native_call(program, image, callee, None, values, Ret::Reg(to))?;
+                        pending =
+                            st.native_call(program, image, callee, None, values, Ret::Reg(to))?;
                         continue 'outer;
                     }
                     let new_base = st.regs.len();

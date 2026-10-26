@@ -22,6 +22,7 @@ sed -e 's/Set.size (Set.fromList (keys 1000))/(keys 1000000).length/' -e 's/% 10
 sed -e 's/outer 1000 0/outer 1000000 0/' "$HERE/micro_call.sw" > "$OUT/micro_call.sw"
 sed -e 's/spin 1000 0/spin 20000000 0/' "$HERE/micro_tail.sw" > "$OUT/micro_tail.sw"
 sed -e 's/run 1000}/run 1000000}/' "$HERE/closures.sw" > "$OUT/closures.sw"
+sed -e "s/bumps 1000 0/bumps 1000000 0/" -e "s/asks 1000 0/asks 1000000 0/" "$HERE/effects.sw" > "$OUT/effects.sw"
 
 # Wall seconds of one run of `stitchwort run ARGS...` (its output discarded).
 seconds() {
@@ -43,7 +44,7 @@ best() {
 
 echo "load average: $(uptime | sed 's/.*load averages*: //')"
 printf '%-12s %10s %10s %10s %8s\n' program machine --js --native speedup
-for program in set_nat set_keys micro_call micro_tail closures; do
+for program in set_nat set_keys micro_call micro_tail closures effects; do
   file=$OUT/$program.sw
   # Check the answers agree before timing.
   a=$("$SW" run "$file"); b=$("$SW" run --native "$file")
