@@ -5181,7 +5181,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Also: task build builds the CLI without --features native, so build --native says 'built without native code'. Make task build produce a native-capable CLI plus libstitchwort_standalone.a (26 Oct).",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
