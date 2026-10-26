@@ -4608,11 +4608,11 @@
     {
       "id": 607,
       "title": "Private app port: handover update bundle (in the work folder) + a prompt for the consuming agent to refresh its resolver sources and Stitchwort, regenerate the TS and recheck the integration; after the cases/std step (Matt, 26 Oct; private work only)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Pin: 26716e50 (pushed 26 Oct, D1331). Bundle in ~/stitchwort-event-resolver-work/handover-refresh-26oct/.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
