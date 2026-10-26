@@ -627,6 +627,31 @@ pub(crate) fn file_names(
                     }
                 }
             }
+            // Their update lemmas `T.f.update.g` (`update_lemmas.rs`), by
+            // the same rule: a candidate for each pair of candidate fields.
+            let fields: Vec<&String> = first
+                .fields
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| !first.implicit.get(*k).copied().unwrap_or(false))
+                .flat_map(|(_, b)| b.names.iter().map(|n| &n.text))
+                .filter(|f| others.iter().all(|o| o.contains(f)))
+                .collect();
+            for f in &fields {
+                for g in &fields {
+                    let member = Elaborator::member_key(&key, &format!("{f}.update.{g}"));
+                    if !out.iter().any(|n: &IndexedName| n.key == member) {
+                        out.push(IndexedName {
+                            key: member,
+                            kind: PendingKind::Def,
+                            follower: false,
+                            function: false,
+                            span: decl.span(),
+                            candidate: true,
+                        });
+                    }
+                }
+            }
         }
     }
     Ok(out)

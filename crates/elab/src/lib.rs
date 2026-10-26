@@ -68,6 +68,7 @@ pub use scope::edit_distance;
 pub use std_dir::{STD_DIR_VAR, StdText, std_text, use_std_dir};
 mod undo;
 mod unify;
+mod update_lemmas;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -2048,13 +2049,18 @@ impl Elaborator {
             // Its shared fields' accessors (docs/proposals/variant-fields.md
             // §5), unless it's an ability's operations (constructors `%op`,
             // which source can't name).
-            if !ctors.iter().any(|c| c.name.text.starts_with('%')) {
+            let operations = ctors.iter().any(|c| c.name.text.starts_with('%'));
+            if !operations {
                 self.accessors(d, "")?;
             }
             self.unnoted(|e| {
                 e.derive_data_eq(d)?;
                 e.derive_data_show(d)?;
-                e.derive_data_ord(d)
+                e.derive_data_ord(d)?;
+                if !operations {
+                    e.derive_update_lemmas(d, decl)?;
+                }
+                Ok::<(), Diagnostic>(())
             })?;
         }
         // Its fields' defaults (docs/proposals/named-arguments.md §5.1),
