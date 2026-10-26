@@ -1,5 +1,5 @@
 {
-  "next": 562,
+  "next": 563,
   "tickets": [
     {
       "id": 13,
@@ -4003,6 +4003,18 @@
       "id": 561,
       "title": "Native-only NO2-NO7: run loop/folds/translate/resumptions; state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 562,
+      "title": "Revisit D1298: compile IO directly (native code calls the OS for print/read, no Delay value or Rust runner) instead of keeping the Rust IO runner in native binaries; Matt asked to revisit (26 Oct). Measure the runner's share on an IO-heavy program first (native-only.md §2)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
