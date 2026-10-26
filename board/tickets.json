@@ -4008,7 +4008,7 @@
     },
     {
       "id": 561,
-      "title": "Native-only NO2-NO7 (NO2 running): run loop/folds/translate/resumptions; state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
+      "title": "Native-only NO3-NO7 (NO2 merged a5821e7c; NO3 running): state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -4016,7 +4016,9 @@
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "a5821e7c"
+      ]
     },
     {
       "id": 562,
