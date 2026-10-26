@@ -4,6 +4,8 @@
 //! thread with a chosen stack.
 
 #[cfg(unix)]
+pub mod stack;
+#[cfg(unix)]
 pub mod terminal;
 
 /// The stack `stitchwort run --native` runs on (64-bit targets only: it
@@ -23,6 +25,19 @@ pub fn with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> T {
 
 /// [`with_stack`], or the error if the thread can't be started (the
 /// operating system refused the stack).
+///
+/// On Unix the stack is mapped here ([`stack::run_on`]) rather than by the
+/// thread library, so that Linux reserves it as address space only: glibc
+/// maps a thread's stack as accounted memory, which Linux's default
+/// overcommit heuristic refuses past RAM plus swap (a 64 GiB stack on a
+/// 16 GB machine; stage NO7 of docs/proposals/native-only.md).
+#[cfg(unix)]
+pub fn try_with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> std::io::Result<T> {
+    stack::run_on(stack, f)
+}
+
+/// [`with_stack`], or the error if the thread can't be started.
+#[cfg(not(unix))]
 pub fn try_with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> std::io::Result<T> {
     std::thread::scope(|scope| {
         let thread = std::thread::Builder::new()

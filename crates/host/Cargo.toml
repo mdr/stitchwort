@@ -12,6 +12,8 @@ stitchwort-rt.workspace = true
 # Keys mode on a terminal (docs/proposals/terminal-io.md §4.6).
 nix.workspace = true
 rustix.workspace = true
+# The stacks of native runs, mapped as address space (src/stack.rs).
+libc.workspace = true
 
 [lints]
 workspace = true

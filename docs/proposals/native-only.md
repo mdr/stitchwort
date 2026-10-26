@@ -395,12 +395,12 @@ the guard page at the end of the stack region to detect stack overflow" (§2).
   argument). The runtime counts them, as `note_deepest` counts machine
   frames. Function names come from a table in the object (§5).
 
-**Unverified: Linux.** Whether Linux with its default overcommit gives a
-thread a many-GiB stack wasn't checked: there is no Linux machine here, and
-it is the same open question S5 left. NO7 tests it. If it fails, the
-fallback design is B as a backstop over a smaller stack, with a lower default
-frame limit on Linux. That would be a change to `Limits`, so a decision for
-Matt.
+**Linux: answered by NO7.** Whether Linux with its default overcommit gives
+a thread a many-GiB stack wasn't checked when this was written. NO7 found
+that it does when the stack is mapped with `MAP_NORESERVE`, not when the
+thread library maps it (which refused 64 GiB on a 16 GB machine), so A
+holds there too; see "NO7 as built". (The fallback had been B as a
+backstop over a smaller stack, with a lower default frame limit on Linux.)
 
 ## 4. Build errors instead of fallback
 
@@ -1012,6 +1012,136 @@ is 11% smaller.
   and update this note and standalone-executables.md (D1287 superseded).
 - **Done when:** both pass there, or the Linux stack question goes to Matt
   with measurements.
+
+**NO7 as built** (26 October 2026). Both pass on Linux, aarch64 natively
+and x86-64 under Rosetta, and D1299 holds: Linux reserves the stacks, once
+they are mapped as address space rather than by the thread library. Two
+bugs were found and fixed on the way; neither was specific to Linux in the
+code, but only Linux showed them.
+
+*How Linux was run.* The Mac has OrbStack with a NixOS 24.11 machine
+(kernel 7.2, aarch64, 16 GB of RAM and 16 GB of swap shared with OrbStack's
+Docker), which builds the flake's own devShells: `aarch64-linux` natively,
+and `x86_64-linux` through Rosetta (the machine lists `x86_64-linux` in
+`extra-platforms`). Each build and test ran in that devShell, in this
+worktree (OrbStack shares the Mac's files), with a Linux-only
+`CARGO_TARGET_DIR`, under `dev/memguard` (its `/proc` path) and a 7 GiB
+cgroup cap (`systemd-run --user --scope -p MemoryMax=7G`). The machine's
+`vm.overcommit_memory` is 1 (always); Linux's default is 0 (the
+heuristic), so the stack checks were also run under 0 and 2, set for the
+run and put back after.
+
+*The bugs.*
+- **`run --native` read a stale copy of the shapes.** `TableStore::new`
+  pointed the tables at `program.shapes`, inside the `Program`, which
+  `compile_native` then moved into `CompiledNative`, and `run_main_native`
+  moved again. On macOS the old stack slot kept its bytes; on Linux it was
+  reused, so `Text.toNatOrFail "12"` under `run --native` died of `SIGILL`:
+  `TextToNat` built `Tag(65)` for `None` (a garbage `shapes.none`), and the
+  match on it reached Cranelift's trap for an impossible tag. The built
+  executable was right (its tables live in boxes that don't move). The
+  store now owns a copy of the shapes (29 `u32`s). `linked`
+  `the_tables_keep_their_own_shapes` overwrites the program's shapes after
+  making the tables, and fails with the pointer back.
+- **The stack was accounted memory.** `std::thread`'s stack is glibc's
+  `mmap` of private writable memory, which Linux charges against the
+  commit limit; under the heuristic a single mapping over RAM plus swap is
+  refused. With overcommit 0, `run --native` failed with `error: can't
+  reserve a stack of 68719476736 bytes to run on: Resource temporarily
+  unavailable (os error 11)`; the roguelike's 9.1 GB worked on this 32 GB
+  (RAM and swap) machine, and would fail on one with less.
+  `stitchwort_host::stack::run_on` now maps the stack itself
+  (`MAP_NORESERVE | MAP_STACK`, the lowest 64 KiB `PROT_NONE` as the guard
+  page) and starts the thread on it with `pthread_attr_setstack`, joined
+  before the mapping goes. `try_with_stack` uses it on every Unix, macOS
+  included, so every run (and every test that runs on a big stack) takes
+  the one path. Its tests are in the `rt` lane; one maps the 64 GiB cap.
+
+*The stack on Linux, measured* (the aarch64 build, run with each mode):
+
+| `vm.overcommit_memory` | `run --native` (64 GiB) | the roguelike binary (9.1 GB) |
+|---|---|---|
+| 0, the heuristic (Linux's default) | ran (before: refused, `EAGAIN`) | ran |
+| 1, always (OrbStack's) | ran | ran |
+| 2, strict (commit limit 25,684,812 kB) | refused, `ENOMEM`: `error: can't reserve a stack of …` | ran |
+
+Under strict accounting Linux ignores `MAP_NORESERVE`, so a stack counts in
+full against the limit: an executable whose sized stack fits runs, one
+whose doesn't says `error: this executable can't reserve its stack of N
+bytes: …` and exits 2 before running anything, as D1299 has it. With
+`ulimit -v 4000000` the roguelike binary does exactly that (`Cannot
+allocate memory (os error 12)`). `run --native` still reserves the whole
+cap (NO6's open item), so under mode 2 it can't run at all; compiling
+first and then starting a thread with the sized stack needs the JIT's code
+and the terminal to be `Send` (NO5), and mode 2 is rare on desktops, so it
+stays recorded here, not done.
+
+*The done-when checks, on Linux* (`crates/cli/tests/build.rs` unless
+named; all passed on aarch64 under overcommit 0 and 1, and on x86-64):
+- the roguelike's `--native` binary plays: the piped game equals `run`'s,
+  and the pseudo-terminal test passes on it
+  (`the_roguelike_built_native_plays_as_it_does_under_run`);
+- NO5's error tests: `a_program_over_the_stack_cap_fails_to_build`,
+  `native_code_out_of_frames_reports_as_run_does` (the machine's
+  `E-RESOURCE` and the depth note from `run --native`, `run` and the
+  binary), `a_failed_layout_probe_fails_the_build`, and `n2b`'s
+  `a_stack_too_small_for_the_limit_stops_cleanly_at_the_stack_check` (the
+  stack-pointer backstop);
+- the `nm` check (GNU `nm -C`, in the same test): none of `machine`,
+  `code` or `codec`;
+- the whole `native` lane (45 tests) and every `build` test.
+
+The frame bound differs by architecture, as `frames.rs` predicts: 4,536
+bytes on aarch64 (as on macOS), so a stack of 9,089,056,768 bytes; 3,464
+on x86-64, so 6,945,767,424. Linking needed nothing new: the object is ELF
+(`build::finish_object` picks the format by host), `cc` is GCC 16.2, the
+link line is `NATIVE_LIBS`' Linux list with `--gc-sections`, and the
+result is a PIE executable. Unwinding needed nothing either: native frames
+leave by their own error exits (`sw_unwind`), not by DWARF unwind tables,
+and the depth note came out the same.
+
+*Measured* (the seeded roguelike, a 500-key piped game with other keys than
+NO6's, 351,787 bytes of output, identical for both binaries and `run` on
+every platform and identical across platforms; release builds; best of 3
+wall). macOS is the M4 Pro at load 16–23; aarch64 Linux is the same chip
+in the VM at load 2–4; x86-64 is Rosetta's translation, so its times are
+of no use beyond showing it runs:
+
+| Platform | Binary | Wall | Size (stripped) | Build |
+|---|---|---|---|---|
+| macOS arm64 | `--native` | 0.124 s | 2,179,072 (1,830,976) | 1.27 s |
+| macOS arm64 | machine only | 0.295 s | 1,445,952 (1,086,736) | 0.48 s |
+| Linux aarch64 | `--native` | 0.132 s | 6,507,840 (1,915,848) | 1.27 s |
+| Linux aarch64 | machine only | 0.345 s | 5,747,424 (1,129,384) | 0.43 s |
+| Linux x86-64 (Rosetta) | `--native` | 0.276 s | 6,712,520 (2,309,096) | 2.86 s |
+| Linux x86-64 (Rosetta) | machine only | 0.622 s | 5,628,112 (1,211,336) | 1.36 s |
+
+A key costs 0.26 ms natively on aarch64 Linux against 0.69 ms on the
+machine (0.25 against 0.59 ms on macOS with these keys; NO6's 0.20 against
+0.56 ms were other keys). The stripped sizes are within 5% of macOS's; the
+unstripped Linux ones carry the standard library's DWARF from the static
+library (over 4 MB of `.debug_*` sections), which macOS's linker leaves out.
+No cycle or instruction counts: `perf` wasn't tried in the VM.
+
+*Untested, or not as a user would have it:*
+- **x86-64 on real hardware.** Everything above on x86-64 ran under
+  Rosetta, which translates the JIT's code too. One test failed there and
+  only there: `link_failures_are_explained`, where `CC=/no/such/cc` must
+  give "can't find a C compiler". Under Rosetta glibc's `posix_spawn`
+  reports success for a missing program and the child exits 127 (a
+  ten-line C test, built for both: `posix_spawn returned 0` under Rosetta,
+  `returned 2` (`ENOENT`) natively), so `build` says "linking failed"
+  instead. It passes on aarch64 Linux.
+- **The executables are tied to the toolchain that linked them.** Built in
+  the nix devShell, the binary's interpreter is the nix store's
+  `ld-linux-aarch64.so.1`, and it links glibc, `libgcc_s` and friends
+  dynamically, so it runs where that store path exists. Linked by a
+  distribution's own `cc` it would name the system's loader, as any C
+  program does; that wasn't tried (no non-nix Linux here). A binary to
+  copy between Linux distributions would want a static or musl link,
+  which nothing does yet.
+- **Other distributions and kernels:** only NixOS 24.11 on OrbStack's
+  kernel 7.2.
 
 **How `run --native` relates.** It goes native-only too, at NO5, in the
 same change as `build` (D1301). It uses the same `plan`, runtime bodies and

@@ -28,6 +28,9 @@ lsp-server = "0.7.9"
 # 0.95: later versions replace `url::Url` with a URI type that has no file
 # path conversions (rust-analyzer stayed on 0.95 for the same reason).
 lsp-types = "=0.95.1"
+# Mapping the stacks of native runs (crates/host/src/stack.rs); already in
+# the tree (`nix` depends on it).
+libc = "0.2.190"
 mimalloc = { version = "0.1.52", default-features = false }
 # Terminal settings and signals for `stitchwort run`'s keys mode
 # (docs/proposals/terminal-io.md §4.6). Both were already in the tree, through
