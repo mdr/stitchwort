@@ -4965,12 +4965,15 @@ fn text_native_js(op: TextNative) -> &'static str {
   return acc;
 }"#
         }
-        // Exactly `isSpaceCode`'s six: space, tab, line feed, vertical tab,
-        // form feed and carriage return. Not JS's `trim`, which also removes
-        // U+00A0, U+2028, U+FEFF and others.
+        // Unicode `White_Space` (as `Char.isWhitespace`): U+0009..U+000D, U+0020,
+        // U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F,
+        // U+205F, U+3000. Not JS's `trim`, which adds U+FEFF and omits U+0085.
         TextNative::TextTrim => {
             r#"(t) => {
-  const space = (unit) => unit === 32 || (unit >= 9 && unit <= 13);
+  const space = (u) =>
+    (u >= 9 && u <= 13) || u === 32 || u === 0x85 || u === 0xa0 || u === 0x1680 ||
+    (u >= 0x2000 && u <= 0x200a) || u === 0x2028 || u === 0x2029 || u === 0x202f ||
+    u === 0x205f || u === 0x3000;
   let start = 0;
   let end = t.length;
   while (start < end && space(t.charCodeAt(start))) start++;

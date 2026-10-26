@@ -222,3 +222,7 @@ test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "
 test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] ∧ Text.chunksOf "" 2 == []
 test "Text.chunksOf zero" := Text.chunksOf "abc" 0 == ["abc"]
 test "Text.words" := "a  b\tc\n d ".words == ["a", "b", "c", "d"] ∧ "".words == [] ∧ "  ".words == [] ∧ "ab".words == ["ab"]
+test "trim removes Unicode White_Space" := Text.trim "\u{A0}\u{3000}x y\u{85}\u{2028}\u{2003}" == "x y"
+test "trim keeps the byte order mark" := Text.length (Text.trim "\u{FEFF}x\u{FEFF}") == 3
+test "words splits on Unicode White_Space" := "a\u{A0}b\u{3000}c".words == ["a", "b", "c"]
+test "isAsciiSpace is ASCII only" := Char.isAsciiSpace ' ' ∧ ¬(Char.isAsciiSpace '\u{A0}') ∧ Char.isWhitespace '\u{A0}' ∧ ¬(Char.isWhitespace '\u{FEFF}')

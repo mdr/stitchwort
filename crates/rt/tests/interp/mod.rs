@@ -680,8 +680,7 @@ impl<'p> Interp<'p> {
                         acc
                     }
                     TextTrim => {
-                        let space =
-                            |c: char| matches!(c, ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r');
+                        let space = char::is_whitespace;
                         V::Text(text(&args[0])?.trim_matches(space).into())
                     }
                     TextTake | TextDrop => {

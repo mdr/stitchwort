@@ -22,9 +22,10 @@ def Text.foldChars (f: Char → b → b) (initial: b): List Char → b
 -- `Text.fold "abc" initial f` is `f 'a' (f 'b' (f 'c' initial))`.
 def Text.fold (text: Text) (initial: b) (f: Char → b → b): b := Text.foldChars f initial (Text.toList text)
 
--- Whitespace, for `Text.trim`: exactly space, tab, line feed, vertical tab,
--- form feed and carriage return. Not Unicode's `White_Space`.
-def Char.isSpaceCode: Nat → Bool
+-- ASCII whitespace: exactly space, tab, line feed, vertical tab, form feed and
+-- carriage return. For layout-sensitive parsing; `Char.isWhitespace` is the
+-- Unicode test that `Text.trim` and `Text.words` use.
+def Char.isAsciiSpaceCode: Nat → Bool
   | 9 => True
   | 10 => True
   | 11 => True
@@ -33,13 +34,42 @@ def Char.isSpaceCode: Nat → Bool
   | 32 => True
   | _ => False
 
-def Char.isSpace (char: Char): Bool := Char.isSpaceCode (Char.toNat char)
+def Char.isAsciiSpace (char: Char): Bool := Char.isAsciiSpaceCode (Char.toNat char)
+
+-- The non-ASCII `White_Space` code points below U+2000: U+0085, U+00A0, U+1680.
+def Char.isWhitespaceLow: Nat → Bool
+  | 133 => True
+  | 160 => True
+  | 5760 => True
+  | _ => False
+
+-- The `White_Space` code points above U+200A: U+2028, U+2029, U+202F, U+205F,
+-- U+3000.
+def Char.isWhitespaceHigh: Nat → Bool
+  | 8232 => True
+  | 8233 => True
+  | 8239 => True
+  | 8287 => True
+  | 12288 => True
+  | _ => False
+
+-- Unicode's `White_Space` property: the 25 code points U+0009..U+000D, U+0020,
+-- U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029, U+202F, U+205F and
+-- U+3000 (https://www.unicode.org/Public/UCD/latest/ucd/PropList.txt). This is
+-- Rust's `char::is_whitespace`. It differs from JavaScript's `trim` set, which
+-- adds U+FEFF (the byte order mark, a format character, not whitespace here)
+-- and omits U+0085.
+def Char.isWhitespaceCode (code: Nat): Bool :=
+  if Nat.leq 8192 code then (if Nat.leq code 8202 then True else Char.isWhitespaceHigh code)
+  else (if Nat.leq code 32 then Char.isAsciiSpaceCode code else Char.isWhitespaceLow code)
+
+def Char.isWhitespace (char: Char): Bool := Char.isWhitespaceCode (Char.toNat char)
 
 def Text.dropSpaces: List Char → List Char
   | Nil => Nil
-  | Cons char chars => if Char.isSpace char then Text.dropSpaces chars else Cons char chars
+  | Cons char chars => if Char.isWhitespace char then Text.dropSpaces chars else Cons char chars
 
--- Removes whitespace (as `Char.isSpace` defines it) from both ends.
+-- Removes whitespace (as `Char.isWhitespace` defines it) from both ends.
 def Text.trim (text: Text): Text := MkText (List.reverseOnto (Text.dropSpaces (List.reverseOnto (Text.dropSpaces (Text.toList text)) Nil)) Nil)
 
 def Char.digitValue (char: Char): Option Nat := if Nat.leq 48 (Char.toNat char) then (if Nat.leq (Char.toNat char) 57 then Some (Char.toNat char - 48) else None) else None
@@ -111,7 +141,7 @@ def Text.joinWith: List Text → (separator: Text) → Text
   | Nil, separator => MkText Nil
   | Cons text texts, separator => MkText (Text.joinTextChars (Text.toList separator) (Text.toList text) (Text.charListsOf texts))
 
--- Words: the runs of non-whitespace (as `Char.isSpace` defines it) between
+-- Words: the runs of non-whitespace (as `Char.isWhitespace` defines it) between
 -- runs of whitespace, with no empty ones. `Text.wordsChars chars` is the word
 -- that `chars` starts with (so far) and the finished words after it.
 def Text.wordsClose: List Char → List (List Char) → List (List Char)
@@ -126,7 +156,7 @@ def Text.wordsStep (char: Char): Bool → Pair (List Char) (List (List Char)) �
 -- stack-safe on long texts.
 def Text.wordsFrom (st: Pair (List Char) (List (List Char))): List Char → Pair (List Char) (List (List Char))
   | Nil => st
-  | Cons char reversed => Text.wordsFrom (Text.wordsStep char (Char.isSpace char) st) reversed
+  | Cons char reversed => Text.wordsFrom (Text.wordsStep char (Char.isWhitespace char) st) reversed
 
 def Text.wordsChars (chars: List Char): Pair (List Char) (List (List Char)) := Text.wordsFrom (MkPair Nil Nil) (List.reverseOnto chars Nil)
 

@@ -42,7 +42,7 @@ def gridWidth (lines: List Text): Nat := (lines.map Text.toList).maxLength
 def column (lines: List Text) (c: Nat): List Char := lines.map (line => charAt line c)
 
 -- A full column of only spaces.
-def blank (lines: List Text) (c: Nat): Bool := (column lines c).all Char.isSpace
+def blank (lines: List Text) (c: Nat): Bool := (column lines c).all Char.isAsciiSpace
 
 -- Columns lo .. hi - 1 hold one problem.
 def isProblem (lines: List Text) (lo: Nat) (hi: Nat): Bool :=

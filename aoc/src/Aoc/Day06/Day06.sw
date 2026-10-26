@@ -39,7 +39,7 @@ type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers:
 
 def parseWorksheet (lines: List Text): List Problem := (blocks lines).map parseProblem
 
-def isBlank (column: List Char): Bool := column.all .isSpace
+def isBlank (column: List Char): Bool := column.all .isAsciiSpace
 
 -- The blocks of columns that make the problems: the runs of columns that
 -- aren't blank. A short line reads as spaces past its end, and there are as

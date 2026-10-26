@@ -36,7 +36,9 @@
 -- run: split ',' ""
 -- run: joinOn '\u{1F600}' ["a", "", "b"]
 -- run: joinOn ',' []
--- JS's `trim` also removes U+00A0, U+2028 and U+FEFF; `Text.trim` doesn't.
+-- `Text.trim` removes Unicode's `White_Space` (so U+00A0, U+2028 and U+3000) but not
+-- U+FEFF (the byte order mark), which JS's `trim` also removes.
+-- run: trim "\u{3000}x\u{85}"
 -- run: trim " \t\n\r\u{B}\u{C}x y \r\n"
 -- run: trim "\u{A0}x\u{2028}"
 -- run: trim "\u{FEFF}x"
