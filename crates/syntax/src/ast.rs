@@ -203,6 +203,14 @@ pub enum Expr {
         facts: Vec<Expr>,
         span: Span,
     },
+    /// `split`, or `split in t` (docs/syntax.md, split): a proof found by
+    /// splitting on what the goal and the hypotheses are stuck on, each case
+    /// closed by computation, a contradiction, `omega`, or `t`
+    /// (docs/proposals/simp.md §5). The proof is the `match`es it writes.
+    Split {
+        body: Option<Box<Expr>>,
+        span: Span,
+    },
     /// `ring`, or `ring [h1, h2]` with hypotheses (docs/syntax.md, ring): a
     /// proof of an equation between polynomials over `Nat` or `Int`, checked
     /// by the kernel normalising both sides
@@ -387,6 +395,7 @@ impl Expr {
             | Expr::Calc { span, .. }
             | Expr::Rewrite { span, .. }
             | Expr::Omega { span, .. }
+            | Expr::Split { span, .. }
             | Expr::Ring { span, .. }
             | Expr::Match { span, .. } => *span,
             // Down a chain of fields in a loop: `e.span()` here would reach
@@ -471,6 +480,7 @@ fn has_nested(expr: &Expr) -> bool {
         }
         Expr::LocalDefs { body, .. } => nested(body),
         Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => facts.iter().any(nested),
+        Expr::Split { body, .. } => body.as_deref().is_some_and(nested),
         Expr::Match {
             scrutinees, alts, ..
         } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
@@ -588,6 +598,10 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
                 pending.push(std::mem::replace(fact, Expr::Prop(Span::NOWHERE)));
             }
         }
+        Expr::Split {
+            body: Some(body), ..
+        } => take(body),
+        Expr::Split { body: None, .. } => {}
         // A pattern `let` nests the rest of its block in its alternative,
         // so a long block nests deeply there.
         Expr::Match {

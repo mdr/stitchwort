@@ -2418,6 +2418,12 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
                 then(&mut stack, facts.iter().map(Work::Expr).collect());
             }
+            // `split` closes cases by `omega` (crates/elab/src/split.rs): as
+            // for `rewrite`, a program's `split` loads its library.
+            Expr::Split { body, .. } => {
+                out.push(Ref::Name(&REWRITE_MARKER));
+                then(&mut stack, body.iter().map(|b| Work::Expr(b)).collect());
+            }
             // And `ring` (crates/elab/src/ring.rs).
             Expr::Ring { facts, .. } => {
                 out.extend(crate::ring::LIBRARY_NAMES.iter().map(Ref::Name));

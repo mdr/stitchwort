@@ -3,7 +3,7 @@
 -- the operators without asking; everything else is written in full
 -- (`List.length`), or imported.
 
-import Text (split, join)
+import Text (lines, join)
 -- `List` here would mean this file's own `List` (below), so the library's
 -- is written from `Std`.
 import Std.List (reverseOnto)
@@ -67,7 +67,7 @@ def List.size: List → Nat
 test "own List" := List.size (More (More Empty)) == 2
 
 -- Imported names are used without their namespace.
-test "imports" := join (split "a,b" ',') ',' == "a,b"
+test "imports" := join (lines "a\nb") ',' == "a,b"
 test "imported list function" := Std.List.length (reverseOnto [1, 2] []) == 2
 
 -- `not` is the one function every program sees.

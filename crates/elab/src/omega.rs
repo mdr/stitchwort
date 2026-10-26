@@ -171,6 +171,25 @@ pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Op
     }
 }
 
+/// `omega` at a case `split` can't split further (`split.rs`): a proof of
+/// `goal` from the facts in scope, arithmetic or by refuting them, or `None`
+/// if `omega` can't find one or its library isn't loaded. Nothing it tried is
+/// kept when it fails.
+pub(crate) fn prove_case(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
+    let Ok(lib) = Lib::new(cx, span) else {
+        return Ok(None);
+    };
+    let snapshot = crate::undo::Snapshot::take(cx);
+    match prove_goal(cx, &lib, goal, &[], span) {
+        Ok(proof) => Ok(Some(proof)),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            Ok(None)
+        }
+    }
+}
+
 /// A fact given by term (`omega [e]`), elaborated in the context of the
 /// `omega`.
 #[derive(Clone)]
@@ -1305,6 +1324,11 @@ fn linear(
         skipped: Vec::new(),
     };
     for level in 0..cx.level() {
+        // In a case `split` made, a hypothesis it has copied is read as its
+        // latest copy only: the earlier ones say less (`split.rs`).
+        if cx.split.is_some() && crate::split::stale(cx, level) {
+            continue;
+        }
         let name = cx
             .name_of_level(level)
             .map_or_else(|| cx.names[level].to_string(), str::to_string);

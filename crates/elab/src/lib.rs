@@ -59,6 +59,7 @@ mod rows;
 mod scope;
 mod shared;
 pub mod shown;
+mod split;
 pub mod timings;
 pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
 pub mod std_dir;

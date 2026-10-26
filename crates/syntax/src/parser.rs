@@ -2351,6 +2351,23 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// `split` or `split in t`, after the `split` (docs/proposals/simp.md
+    /// §5.1). As for `rewrite`, the body runs to the end of the expression.
+    fn split_expr(&mut self, start: Span) -> Result<Expr> {
+        if self.peek() != Some(&Tok::KwIn) {
+            return Ok(Expr::Split {
+                body: None,
+                span: start,
+            });
+        }
+        self.bump();
+        let body = self.expr()?;
+        Ok(Expr::Split {
+            span: start.to(body.span()),
+            body: Some(Box::new(body)),
+        })
+    }
+
     /// A `rewrite` body that is a membership test, `x in xs`, its `in` not
     /// in brackets: `rewrite h x in xs in t` reads as the rule `h x` and the
     /// body `xs in t`, since a bare `in` ends a rule. Whichever was meant,
@@ -2421,6 +2438,9 @@ impl<'t> Parser<'t> {
         }
         if self.eat(&Tok::KwRewrite) {
             return self.rewrite_expr(start);
+        }
+        if self.eat(&Tok::KwSplit) {
+            return self.split_expr(start);
         }
         if self.lambda_ahead()? {
             return self.lambda(start);
@@ -3586,6 +3606,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwRewrite => "`rewrite`".into(),
         Tok::KwOmega => "`omega`".into(),
         Tok::KwRing => "`ring`".into(),
+        Tok::KwSplit => "`split`".into(),
         Tok::KwDecreasing => "`decreasing`".into(),
         Tok::KwOpaque => "`opaque`".into(),
         Tok::KwUnfolding => "`unfolding`".into(),

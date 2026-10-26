@@ -1,6 +1,7 @@
 # Proposal: automatic case splitting (`split`), and where `simp` fits
 
-**Status:** draft 1, 26 October 2026, for review. Ticket SW-592. Nothing is built; the
+**Status:** stage 1 built, 26 October 2026 (D1317 to D1319): `split` and `split in t`,
+without the expand code action; see [§8.3](#83-stage-1-as-built). Ticket SW-592. The
 scratch reproductions are described in [§1](#1-the-motivating-proofs) and listed under
 [Sources](#sources). Six questions for Matt are in [§9](#9-decisions-for-matt). Related:
 [proof-automation.md](proof-automation.md) (stages 0, 1, 1b and 2 built; its stage 3, `simp
@@ -734,6 +735,68 @@ the contradiction and injectivity terms the library already writes by hand.
 - **Display.** The folded names in §5.7's messages rely on glued values surviving a split. If
   they don't, the messages show unfolded terms as `match` does today, which is worse but not
   wrong.
+
+### 8.3 Stage 1 as built
+
+Built in `crates/elab/src/split.rs`, with the surface in `crates/syntax` (`Expr::Split`;
+`split` is a keyword except after a `.`). The kernel is unchanged and nothing new is trusted:
+each split is the generated `match` of `matching.rs`, and the closers are `rfl`, `J` terms and
+`Std.Omega.prove`. Decisions: `split` now, `simp` deferred (D1317); hypotheses of the form
+"stuck = constructor" are split on, after the goal (D1318); `omega` only where nothing is left
+to split (D1319), with the exception below. User docs: [syntax.md](../syntax.md#split),
+[guide chapter 10](../guide/10-proofs.md#cases-split). Examples:
+`examples/accept/split-bool.sw`, `examples/accept/split-data.sw`,
+`examples/reject/split-*.sw`.
+
+**Acceptance** (release CLI, `STITCHWORT_TIMINGS=decls`, best of 8 runs for `ieeeLtLe`, one
+run otherwise; elaboration + kernel ms; the machine's load average was about 110 to 120, so
+absolute times are high for all rows alike):
+
+| proof | as built | before |
+|---|---|---|
+| §6.1 `Float.ieeeLtLe` by `split` | 7.5 + 2.5 (207k steps) | helper + call 0.3; lemma tree 3.5 + 0.7; bare hand tree 35.3 + 2.6 |
+| §6.1 by `split in Float.keyLessLeq _ _ h` | 4.3 + 1.2 | |
+| §6.2 `looseEqSymm` (compound `∧` in two orders) | 3.4 + 2.3 | failed by hand (§1.2) |
+| §6.3 SW-587 `parseSmallSome` | 1.4 + 0.8 | |
+| §6.4 SW-581 `refAfterId` | 0.1 + 0.0 | |
+| §6.5 SW-568 `posEta` | 0.0 + 0.0 | |
+
+**The 5 ms bar for bare `split` on `ieeeLtLe` is missed**: about 10 ms, a third of the bare
+hand tree's but twice the bar. Profiles put most of the rest in `matching.rs`'s generalisation
+(reading the goal and hypotheses back in normal form) and in resolving the lifted
+`%match` helpers. Two of §5.8's three savings are built: stale copies of hypotheses are not
+generalised again (a later copy replaces them), and contradictions and `rfl` are tried on
+values without reading them back. The third, keeping atoms folded through generalisation
+(§5.8 (b)), was tried and backed out **[run]**: to reach the atom, the calls around it have
+to be unfolded, and their bodies came back with the neighbouring calls unfolded too (after
+splitting `Float.isNaN x`, the goal showed `Nat.equal y.bits 9221120237041090560` where
+`Float.isNaN y` had been), so the next atom was found unfolded again and no time was saved.
+Keeping the neighbours folded needs evaluation to glue the calls in a body it unfolds; that is
+the next lever if the time matters.
+
+**Where it differs from §5:**
+
+- **The goal's own side is tried with `omega` before it's split.** When the atom found is a
+  whole side of the goal (`Nat.leq a b = True`), splitting gives a `True = True` case and a
+  `False = True` case, and `omega` usually proves the goal whole. So `omega` is tried first
+  there (§5.4 puts it last); the goal-side atom is also taken only after the hypotheses have
+  been searched, since what they're stuck on usually decides more.
+- **Records.** A one-constructor atom is split only when the chain to it met no unsplittable
+  value and it isn't an argument of a stuck call; otherwise `x: Float` was split into its
+  fields under `Float.isNaN x`, which made the tree much larger (the first build took 8.2 s on
+  `ieeeLtLe`, before this rule and the goal-side one).
+- **Contradictions** on `Bool` use `Bool.falseNotTrue` (turned round by `J` for `True =
+  False`); on other types a `J` with a motive drafted as a lifted helper, as §5.4 says.
+- **Taking an equation apart** adds the field equations as `let`s named `%fact1`, …, and the
+  split equations are `%split1`, …: neither name can be written, so `split in t` refers to them
+  only through `_`s and `omega`.
+- **`Float.isZero x` is two atoms** (§5.2's prediction), so the `ieeeLtLe` tree has more cases
+  than §1.1's hand tree.
+- **Not built**: the expand code action (§5.5), and converting std and AoC (stage 1b).
+- **Reserved word.** `split` became a keyword, so bare uses of `Text.split` stopped working:
+  `import Text (split)` (two examples, `docs/syntax.md`, guide page 13), an exported
+  `split` in `examples/extract/text.sw`, and a theorem named `split`. They now use other
+  names (`lines`, `splitOn`, `splitText`); `line.split ','` and `Text.split` are unchanged.
 
 ## 9. Decisions for Matt
 

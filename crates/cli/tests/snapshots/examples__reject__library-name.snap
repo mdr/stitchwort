@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-UNKNOWN-NAME] Error: unknown name `split`
+[E-UNKNOWN-NAME] Error: unknown name `lines`
    ╭─[ reject/library-name.sw:4:38 ]
    │
- 4 │ def parts (line: Text): List Text := split ',' line
+ 4 │ def parts (text: Text): List Text := lines text
    │                                      ──┬──  
    │                                        ╰──── not in scope
    │ 
-   │ Note: the library has `Std.Text.split`: write it in full, or `import Std.Text (split)`
+   │ Note: the library has `Std.Text.lines`: write it in full, or `import Std.Text (lines)`
 ───╯

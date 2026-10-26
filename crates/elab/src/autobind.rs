@@ -434,6 +434,11 @@ fn walk_at(
                 walk(e, fact, bound, false, uses)?;
             }
         }
+        Expr::Split { body, .. } => {
+            if let Some(body) = body {
+                walk(e, body, bound, false, uses)?;
+            }
+        }
         Expr::Calc { first, steps, .. } => {
             walk(e, first, bound, false, uses)?;
             for step in steps {

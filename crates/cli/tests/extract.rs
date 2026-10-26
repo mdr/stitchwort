@@ -2208,8 +2208,8 @@ const codes = text.codes("a\u{1F600}".repeat(N / 2));
 assert.equal(codes.length, N);
 assert.equal(codes[1], 0x1f600n);
 // One long result; many short ones, and joining them again.
-assert.deepEqual(text.split(",", long), [long]);
-const fields = text.split(",", "a,".repeat(N / 2));
+assert.deepEqual(text.splitText(",", long), [long]);
+const fields = text.splitText(",", "a,".repeat(N / 2));
 assert.equal(fields.length, N / 2 + 1);
 assert.ok(fields.every((f, i) => f === (i === N / 2 ? "" : "a")));
 assert.equal(text.joinOn(",", fields), "a,".repeat(N / 2));
@@ -2370,7 +2370,7 @@ for (const t of texts) {
   }
   agree("fromChars", [...t]);
   for (const c of [",", " ", "\u{1F600}", "7", [...t][0] ?? "a"]) {
-    agree("split", c, t);
+    agree("splitText", c, t);
     agree("countChar", c, t);
     agree("firstField", c, t);
   }
@@ -2388,7 +2388,7 @@ for (const [a, b] of pairs) {
   agree("lengths", [a, b]);
   agree("prefixAll", [a, b]);
   agree("texts", [[...a], [...b]]);
-  agree("split", [...b][0] ?? ",", a);
+  agree("splitText", [...b][0] ?? ",", a);
   // A piece of one in the other, so that most needles occur.
   const cs = [...a];
   const from = Math.floor(random() * (cs.length + 1));

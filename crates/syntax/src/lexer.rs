@@ -118,6 +118,9 @@ pub enum Tok {
     /// `ring` or `ring [h1, h2]`: an equation between polynomials, checked by
     /// normalising both sides (docs/proposals/proof-automation.md §6.2).
     KwRing,
+    /// `split` or `split in t`: a proof by automatic case splitting
+    /// (docs/proposals/simp.md §5).
+    KwSplit,
     /// `decreasing e` in a definition's header, and `[decreasing := p]`
     /// at a recursive call (docs/proposals/well-founded-recursion.md).
     KwDecreasing,
@@ -367,6 +370,8 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                     "rewrite" => Tok::KwRewrite,
                     "omega" => Tok::KwOmega,
                     "ring" => Tok::KwRing,
+                    // After a `.`, a field or a dot call: `line.split ','`.
+                    "split" if !(start > 0 && bytes[start - 1] == b'.') => Tok::KwSplit,
                     "decreasing" => Tok::KwDecreasing,
                     "opaque" => Tok::KwOpaque,
                     "unfolding" => Tok::KwUnfolding,

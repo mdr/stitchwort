@@ -910,14 +910,88 @@ const $Std$dText$dfold = (t, z, f) => {
   }
   return acc;
 };
-const $Std$dText$dtrim = (t) => {
-  const space = (unit) => unit === 32 || (unit >= 9 && unit <= 13);
-  let start = 0;
-  let end = t.length;
-  while (start < end && space(t.charCodeAt(start))) start++;
-  while (end > start && space(t.charCodeAt(end - 1))) end--;
-  return t.slice(start, end);
+const $Std$dChar$disAsciiSpaceCode = (v0) => {
+  switch (v0) {
+    case 9n: {
+      return { tag: "True" };
+    }
+    case 10n: {
+      return { tag: "True" };
+    }
+    case 11n: {
+      return { tag: "True" };
+    }
+    case 12n: {
+      return { tag: "True" };
+    }
+    case 13n: {
+      return { tag: "True" };
+    }
+    case 32n: {
+      return { tag: "True" };
+    }
+  }
+  return { tag: "False" };
 };
+const $Std$dChar$disWhitespaceLow = (v0) => {
+  switch (v0) {
+    case 133n: {
+      return { tag: "True" };
+    }
+    case 160n: {
+      return { tag: "True" };
+    }
+    case 5760n: {
+      return { tag: "True" };
+    }
+  }
+  return { tag: "False" };
+};
+const $Std$dChar$disWhitespaceHigh = (v0) => {
+  switch (v0) {
+    case 8232n: {
+      return { tag: "True" };
+    }
+    case 8233n: {
+      return { tag: "True" };
+    }
+    case 8239n: {
+      return { tag: "True" };
+    }
+    case 8287n: {
+      return { tag: "True" };
+    }
+    case 12288n: {
+      return { tag: "True" };
+    }
+  }
+  return { tag: "False" };
+};
+const $Std$dChar$disWhitespaceCode = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(8192n, v0), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, 8202n), ((v2) => ({ tag: "True" })), ((v2) => $Std$dChar$disWhitespaceHigh(v0)))), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, 32n), ((v2) => $Std$dChar$disAsciiSpaceCode(v0)), ((v2) => $Std$dChar$disWhitespaceLow(v0)))));
+const $Std$dChar$disWhitespace = (v0) => $Std$dChar$disWhitespaceCode($Std$dChar$dtoNat(v0));
+const $Std$dText$ddropSpaces = (v0) => {
+  let s0 = v0;
+  for (;;) {
+    const v0 = s0;
+    switch (v0.tag) {
+      case "Nil": {
+        return { tag: "Nil" };
+      }
+      case "Cons": {
+        const v1 = v0.head;
+        const v2 = v0.tail;
+        if ($Std$dChar$disWhitespace(v1).tag === "True") {
+          s0 = v2;
+          continue;
+        } else {
+          return { tag: "Cons", head: v1, tail: v2 };
+        }
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
+const $Std$dText$dtrim = (v0) => textOfChars($Std$dList$dreverseOnto($Std$dText$ddropSpaces($Std$dList$dreverseOnto($Std$dText$ddropSpaces($Std$dText$dtoList(v0)), { tag: "Nil" })), { tag: "Nil" }));
 const $Std$dText$dtoNat = (t) => {
   if (t === "") return { tag: "None" };
   for (let i = 0; i < t.length; i++) {
@@ -964,7 +1038,7 @@ const $Main$dcharOf = (v0) => $Std$dChar$dfromNat(v0);
 const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));
 const $Main$dorder = (v0, v1) => $Std$dText$dcompare(v0, v1);
 const $Main$djoin = (v0, v1) => $Std$dText$dappend(v0, v1);
-const $Main$dsplit = (v0, v1) => $Std$dText$dsplit(v1, v0);
+const $Main$dsplitText = (v0, v1) => $Std$dText$dsplit(v1, v0);
 const $Main$djoinOn = (v0, v1) => $Std$dText$djoin(v1, v0);
 const $Main$dtrim = (v0) => $Std$dText$dtrim(v0);
 const $Main$dtoNat = (v0) => $Std$dText$dtoNat(v0);
@@ -1234,13 +1308,13 @@ function $$join(arg0, arg1) {
   }
 }
 
-function $$split(arg0, arg1) {
+function $$splitText(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$6, ty$4, arg0, "c");
     const v1 = decodeFast(dec$1, ty$1, arg1, "t");
-    return encodeFast(enc$12, ty$8, $Main$dsplit(v0, v1));
+    return encodeFast(enc$12, ty$8, $Main$dsplitText(v0, v1));
   } catch (e) {
-    throw outOfResources("split", e);
+    throw outOfResources("splitText", e);
   }
 }
 
@@ -1785,4 +1859,4 @@ function dec$25(x) {
   return first;
 }
 
-export { $$len as len, $$chars as chars, $$fromChars as fromChars, $$echo as echo, $$echoChar as echoChar, $$codeOf as codeOf, $$charOf as charOf, $$same as same, $$order as order, $$join as join, $$split as split, $$joinOn as joinOn, $$trim as trim, $$toNat as toNat, $$fromNat as fromNat, $$uncons as uncons, $$take as take, $$drop as drop, $$contains as contains, $$reverse as reverse, $$countChar as countChar, $$greet as greet, $$initials as initials, $$rename as rename, $$orEmpty as orEmpty, $$firstOf as firstOf, $$located as located, $$empty as empty, $$less as less, $$codes as codes, $$lengths as lengths, $$texts as texts, $$prefixAll as prefixAll, $$firstField as firstField, $$trimmedHead as trimmedHead, $$isText as isText };
+export { $$len as len, $$chars as chars, $$fromChars as fromChars, $$echo as echo, $$echoChar as echoChar, $$codeOf as codeOf, $$charOf as charOf, $$same as same, $$order as order, $$join as join, $$splitText as splitText, $$joinOn as joinOn, $$trim as trim, $$toNat as toNat, $$fromNat as fromNat, $$uncons as uncons, $$take as take, $$drop as drop, $$contains as contains, $$reverse as reverse, $$countChar as countChar, $$greet as greet, $$initials as initials, $$rename as rename, $$orEmpty as orEmpty, $$firstOf as firstOf, $$located as located, $$empty as empty, $$less as less, $$codes as codes, $$lengths as lengths, $$texts as texts, $$prefixAll as prefixAll, $$firstField as firstField, $$trimmedHead as trimmedHead, $$isText as isText };
