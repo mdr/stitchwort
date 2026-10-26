@@ -224,14 +224,13 @@ enum Command {
         /// and refer to it from the module
         #[arg(long, requires = "js")]
         source_map: bool,
-        /// Compile the functions `main` calls to native code in the
-        /// executable, where they and everything they reach compile, as
-        /// `run --native` does; the rest runs on the machine. Needs a build
+        /// Compile `main` and every function it reaches to native code in
+        /// the executable, as `run --native` does, or fail if any can't be:
+        /// the executable has no machine to fall back to. Needs a build
         /// with the `native` feature
         #[arg(long, conflicts_with = "js")]
         native: bool,
-        /// With --native, say on standard error what was compiled, and why
-        /// anything wasn't
+        /// With --native, say on standard error what was compiled
         #[arg(long, requires = "native")]
         verbose: bool,
         /// The project folder, if not the folder you're in or the nearest
@@ -351,17 +350,22 @@ fn main() -> ExitCode {
     if matches!(cli.command, Command::Run { js: true, .. }) {
         stitchwort_cli::node_wait::wait_for_node();
     }
-    // `run --native` runs native code on this thread, whose stack is then
-    // the safety margin behind the frame limit (native-compilation.md §4.3).
+    // `run --native` runs native code on this thread, whose stack must hold
+    // whatever the run sizes for its frames: up to the cap
+    // (docs/proposals/native-only.md §3).
     let stack = match &cli.command {
         Command::Run { native: true, .. } => stitchwort_host::NATIVE_STACK,
         _ => STACK,
     };
-    stitchwort_host::with_stack(stack, move || {
+    let ran = stitchwort_host::try_with_stack(stack, move || {
         stitchwort_elab::timings::start();
         let code = run(cli);
         stitchwort_elab::timings::report();
         code
+    });
+    ran.unwrap_or_else(|e| {
+        eprintln!("error: can't reserve a stack of {stack} bytes to run on: {e}");
+        ExitCode::from(2)
     })
 }
 
@@ -1556,15 +1560,23 @@ enum Runner {
     Machine,
     /// The reference evaluator.
     Reference,
-    /// The machine, with the functions `main` calls as native code where
-    /// they compile; `verbose` says what happened on standard error, and
-    /// `trace` counts references through the runtime for the allocation
-    /// trace.
+    /// Native code: `main` and everything it reaches compiled, or the run
+    /// refused (docs/proposals/native-only.md, NO5); `verbose` says what
+    /// happened on standard error, and `trace` counts references through
+    /// the runtime for the allocation trace.
     #[cfg_attr(not(feature = "native"), allow(dead_code))]
     Native { verbose: bool, trace: bool },
 }
 
 fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
+    #[cfg(feature = "native")]
+    let native = match runner {
+        Runner::Native { verbose, trace } => match compile_native(session, main, verbose, trace) {
+            Ok(native) => Some(native),
+            Err(code) => return code,
+        },
+        _ => None,
+    };
     let mut input = std::io::stdin().lock();
     let mut output = std::io::BufWriter::new(std::io::stdout().lock());
     #[cfg(unix)]
@@ -1577,15 +1589,18 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     let result = match runner {
         Runner::Reference => session.run_main_on(main, &mut input, &mut output, &mut terminal),
         Runner::Machine => session.run_main_fast_on(main, &mut input, &mut output, &mut terminal),
-        Runner::Native { verbose, trace } => run_main_native(
-            session,
-            main,
+        #[cfg(feature = "native")]
+        Runner::Native { verbose, .. } => run_main_native(
+            native.expect("compiled for `run --native`"),
             verbose,
-            trace,
             &mut input,
             &mut output,
             &mut terminal,
         ),
+        #[cfg(not(feature = "native"))]
+        Runner::Native { .. } => {
+            unreachable!("`run --native` is refused without the `native` feature")
+        }
     };
     // Out of keys mode before an error is shown, so it's on the normal
     // screen.
@@ -1604,60 +1619,111 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     }
 }
 
-/// `run --native`: `main` on the machine, with the functions it calls
-/// running as native code where their islands compile (stage N1 of
-/// docs/proposals/native-compilation.md).
+/// `main` compiled for `run --native`: the program, its image, the code,
+/// and the stack the run reserves.
 #[cfg(feature = "native")]
-fn run_main_native(
+struct CompiledNative {
+    program: stitchwort_rt::Program,
+    image: stitchwort_rt::code::Image,
+    islands: stitchwort_native::n1::Islands,
+    limits: stitchwort_rt::Limits,
+    stack: usize,
+}
+
+/// Compiles `main` and every body it reaches to native code for `run
+/// --native` (docs/proposals/native-only.md, NO5), or says why it can't, as
+/// `build --native` would, and gives the exit status: there's no machine to
+/// fall back to (`stitchwort run` is the machine).
+#[cfg(feature = "native")]
+fn compile_native(
     session: &Session,
     main: &Main,
     verbose: bool,
     trace: bool,
+) -> Result<CompiledNative, ExitCode> {
+    let program = session.lower_fast(main).map_err(|err| {
+        report(&session.sources, &[err.diagnostic(main)]);
+        ExitCode::from(2)
+    })?;
+    let limits = stitchwort_rt::Limits::from_core(session.elab.limits);
+    let image = stitchwort_rt::code::compile(&program);
+    let options = stitchwort_native::n1::Options {
+        trace_refcounts: trace,
+    };
+    let compiled = stitchwort_native::n1::compile(&program, &image, options).and_then(|islands| {
+        let stack = stitchwort_native::n1::stack_for(
+            limits.frames as u64,
+            islands.max_frame,
+            &islands.widest,
+        )?;
+        Ok((islands, stack))
+    });
+    let (islands, stack) = compiled.map_err(|why| {
+        report_native_refusal(&why);
+        ExitCode::FAILURE
+    })?;
+    // The thread's stack is the cap, so whatever the run sizes fits.
+    debug_assert!(stack <= stitchwort_host::NATIVE_STACK);
+    if verbose {
+        eprintln!("{}", islands.note());
+    }
+    Ok(CompiledNative {
+        program,
+        image,
+        islands,
+        limits,
+        stack,
+    })
+}
+
+/// Why `main` can't be compiled to native code (`stitchwort_native`'s
+/// message, then its notes), as an error.
+#[cfg(feature = "native")]
+fn report_native_refusal(why: &[String]) {
+    let mut lines = why.iter();
+    if let Some(message) = lines.next() {
+        eprintln!("error: {message}");
+    }
+    for note in lines {
+        eprintln!("  note: {note}");
+    }
+}
+
+/// `run --native`: `main` as native code, compiled by [`compile_native`],
+/// with the runner on the native executor and the machine running nothing.
+#[cfg(feature = "native")]
+fn run_main_native(
+    native: CompiledNative,
+    verbose: bool,
     input: &mut impl std::io::BufRead,
     output: &mut impl std::io::Write,
     terminal: &mut dyn stitchwort_cli::run::Terminal,
 ) -> Result<(), stitchwort_cli::run::RunError> {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    let program = session.lower_fast(main)?;
-    let notes = Rc::new(RefCell::new(Vec::new()));
-    let options = stitchwort_native::n1::Options {
-        trace_refcounts: trace,
-        stack_size: Some(stitchwort_host::NATIVE_STACK),
-    };
-    let mut factory = stitchwort_native::n1::factory(options, notes.clone());
+    let CompiledNative {
+        program,
+        image,
+        islands,
+        limits,
+        stack,
+    } = native;
     let executed_before = stitchwort_rt::machine::instructions_executed();
     let result = stitchwort_rt::run_main_native(
         &program,
-        stitchwort_rt::Limits::from_core(session.elab.limits),
-        &mut factory,
+        image,
+        Box::new(islands),
+        limits,
+        stack,
         input,
         output,
         terminal,
     );
     if verbose {
-        for note in notes.borrow().iter() {
-            eprintln!("{note}");
-        }
         eprintln!(
             "native: the machine executed {} instructions",
             stitchwort_rt::machine::instructions_executed() - executed_before
         );
     }
     result
-}
-
-#[cfg(not(feature = "native"))]
-fn run_main_native(
-    _session: &Session,
-    _main: &Main,
-    _verbose: bool,
-    _trace: bool,
-    _input: &mut impl std::io::BufRead,
-    _output: &mut impl std::io::Write,
-    _terminal: &mut dyn stitchwort_cli::run::Terminal,
-) -> Result<(), stitchwort_cli::run::RunError> {
-    unreachable!("`run --native` is refused without the `native` feature")
 }
 
 /// `run --js`: writes `main` and a runner as JavaScript to a temporary

@@ -1,7 +1,8 @@
 //! The linked native code's manifest (stage S5 of
 //! docs/proposals/standalone-executables.md): the runtime refuses code
 //! compiled for another image, before any of it runs, and runs everything
-//! on the machine when there's none. (Code that does run is tested end to
+//! on the machine when there's none (an executable built without
+//! `--native`). (Code that does run is tested end to
 //! end, linked, in `crates/cli/tests/build.rs`.)
 
 use super::{AotIslands, Mismatch};
@@ -47,6 +48,7 @@ fn manifest(hash: u64, globals: usize, lambdas: usize, apply: *const u8) -> &'st
         image_hash: hash,
         n_caches: 0,
         max_frame: 0,
+        stack_size: 0,
         flags: 0,
         n_globals: globals as u64,
         n_lambdas: lambdas as u64,
@@ -65,7 +67,7 @@ fn manifest(hash: u64, globals: usize, lambdas: usize, apply: *const u8) -> &'st
 fn islands(manifest: &'static Manifest, program: &Program, image: &Image) -> Result<bool, String> {
     // SAFETY: the manifest's tables are leaked, so they live forever, and
     // its trampoline is never called.
-    match unsafe { AotIslands::new(manifest, program, image, STACK) } {
+    match unsafe { AotIslands::new(manifest, program, image) } {
         Ok(islands) => Ok(islands.is_some()),
         Err(Mismatch(why)) => Err(why),
     }

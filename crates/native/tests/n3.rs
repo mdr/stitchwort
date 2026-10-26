@@ -165,10 +165,6 @@ def main(): {IO} () :=
         assert_eq!(native, machine);
         assert_eq!(machine.0, "16 13\n");
         assert!(ran_natively(&notes), "{notes:#?}");
-        assert!(
-            !notes.iter().any(|n| n.contains("ran on the machine")),
-            "{notes:#?}"
-        );
     });
     same_trace(source);
 }

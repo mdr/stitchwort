@@ -8,8 +8,8 @@
 //! the runtime into the code (stage NO4 of docs/proposals/native-only.md:
 //! into the entry, the apply stubs and the effect runtime's loop), the code
 //! of each global and lambda as a function value's (`Context::functions`
-//! and `lambdas`), how many `Apply` caches the code numbers, and its
-//! frames' bound. An object written without `--native` defines one too,
+//! and `lambdas`), how many `Apply` caches the code numbers, its frames'
+//! bound, and the stack the build sized for them (stage NO5). An object written without `--native` defines one too,
 //! with no code ([`Manifest::empty_bytes`]), so the library always finds
 //! the symbol.
 //!
@@ -31,17 +31,13 @@ pub const MANIFEST_MAGIC: u64 = u64::from_le_bytes(*b"swnative");
 /// native-only.md): `flags`, where version 2 had `nests` (now
 /// [`FLAG_NESTS`]). Version 4 (stage NO4): the trampolines into the entry,
 /// the apply stubs and the loop, where version 3 had a list by number of
-/// arguments.
-pub const MANIFEST_VERSION: u64 = 4;
+/// arguments. Version 5 (stage NO5): `stack_size`, and no flag for frames
+/// that nest inside runs of the machine (none do).
+pub const MANIFEST_VERSION: u64 = 5;
 
-/// A [`Manifest`]'s `flags`: native frames may nest inside runs of the
-/// machine (none since stage NO4, when native code runs only if every body
-/// is compiled), so each counted frame may take more stack
-/// (`native_abi::level_bound`).
-pub const FLAG_NESTS: u64 = 1;
 /// A [`Manifest`]'s `flags`: the code has the effect runtime's bodies,
 /// which run eager resumptions (`native_abi::Context::resumes`).
-pub const FLAG_RESUMES: u64 = 2;
+pub const FLAG_RESUMES: u64 = 1;
 
 /// What `sw_native_manifest` holds. `repr(C)`, written by the compiler as
 /// bytes at the offsets of its fields (with relocations for the pointers),
@@ -57,7 +53,10 @@ pub struct Manifest {
     /// A bound on the stack one level of recursion of the code uses, in
     /// bytes, for the stack check behind the frame limit.
     pub max_frame: u64,
-    /// What the code is like: [`FLAG_NESTS`] and [`FLAG_RESUMES`].
+    /// The stack the executable runs native code on, in bytes: as `build`
+    /// sized it (`native_abi::native_stack`) for the frame limit.
+    pub stack_size: u64,
+    /// What the code is like: [`FLAG_RESUMES`].
     pub flags: u64,
     /// The length of `functions`: the program's globals, or 0 with no code.
     pub n_globals: u64,
@@ -88,6 +87,7 @@ impl Manifest {
     pub const IMAGE_HASH_AT: usize = std::mem::offset_of!(Manifest, image_hash);
     pub const N_CACHES_AT: usize = std::mem::offset_of!(Manifest, n_caches);
     pub const MAX_FRAME_AT: usize = std::mem::offset_of!(Manifest, max_frame);
+    pub const STACK_SIZE_AT: usize = std::mem::offset_of!(Manifest, stack_size);
     pub const FLAGS_AT: usize = std::mem::offset_of!(Manifest, flags);
     pub const N_GLOBALS_AT: usize = std::mem::offset_of!(Manifest, n_globals);
     pub const N_LAMBDAS_AT: usize = std::mem::offset_of!(Manifest, n_lambdas);
@@ -110,13 +110,15 @@ impl Manifest {
 
     /// The manifest's bytes for code compiled for an image of hash
     /// `image_hash`, with `n_caches` caches, frames of at most `max_frame`
-    /// bytes with `flags` (`FLAG_NESTS` and the others), `n_globals`
-    /// globals and `n_lambdas` lambdas; the pointers are 0, for relocations
-    /// to fill.
+    /// bytes on a stack of `stack_size`, with `flags` ([`FLAG_RESUMES`]),
+    /// `n_globals` globals and `n_lambdas` lambdas; the pointers are 0, for
+    /// relocations to fill.
+    #[allow(clippy::too_many_arguments)]
     pub fn bytes(
         image_hash: u64,
         n_caches: u64,
         max_frame: u64,
+        stack_size: u64,
         flags: u64,
         n_globals: u64,
         n_lambdas: u64,
@@ -126,6 +128,7 @@ impl Manifest {
             (Manifest::IMAGE_HASH_AT, image_hash),
             (Manifest::N_CACHES_AT, n_caches),
             (Manifest::MAX_FRAME_AT, max_frame),
+            (Manifest::STACK_SIZE_AT, stack_size),
             (Manifest::FLAGS_AT, flags),
             (Manifest::N_GLOBALS_AT, n_globals),
             (Manifest::N_LAMBDAS_AT, n_lambdas),
@@ -166,12 +169,13 @@ mod tests {
 
     #[test]
     fn the_layout_is_words_in_order() {
-        assert_eq!(Manifest::SIZE, 112);
-        assert_eq!(Manifest::ENTER_AT, 80);
-        assert_eq!(Manifest::STEP_AT, 104);
-        let bytes = Manifest::bytes(7, 1, 304, FLAG_NESTS, 2, 3);
+        assert_eq!(Manifest::SIZE, 120);
+        assert_eq!(Manifest::ENTER_AT, 88);
+        assert_eq!(Manifest::STEP_AT, 112);
+        let bytes = Manifest::bytes(7, 1, 304, 9, FLAG_RESUMES, 2, 3);
         assert_eq!(&bytes[..8], b"swnative");
-        assert_eq!(bytes[8], 4);
+        assert_eq!(bytes[8], 5);
+        assert_eq!(bytes[Manifest::STACK_SIZE_AT], 9);
         assert_eq!(bytes[Manifest::IMAGE_HASH_AT], 7);
         assert_eq!(bytes[Manifest::FLAGS_AT], 1);
         assert_eq!(bytes[Manifest::N_LAMBDAS_AT], 3);

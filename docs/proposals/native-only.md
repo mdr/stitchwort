@@ -827,6 +827,85 @@ representation now (§1.5, §9.11 B) goes to Matt.
     `run --native` and from the binary;
   - a failed layout probe (forced by a test hook) fails the build.
 
+**NO5 as built** (26 October 2026). All three done-when checks hold, in
+`crates/cli/tests/build.rs`:
+- `a_program_over_the_stack_cap_fails_to_build`: a recursive function of
+  400 arguments, each live across its call. `build --native` and `run
+  --native` both exit 1 with nothing written or run:
+
+  ```
+  error: the native stack would be too big: 2000000 frames (the frame limit) of up to 77392 bytes (`Main.wide`'s, the widest) need 144.2 GiB, over the cap of 64 GiB
+    note: split `Main.wide` into smaller functions, or run the program on the machine with `stitchwort run`
+  ```
+  `run` (the machine) prints its answer.
+- `native_code_out_of_frames_reports_as_run_does`: `count (5 * 1000 *
+  1000)`, built `--native`, and under `run --native` and `run`: the same
+  `E-RESOURCE`, status 2, and the same note, `the recursion was deepest in
+  `Main.count` (1999999 frames pending)`, from all three.
+- `a_failed_layout_probe_fails_the_build`: with
+  `STITCHWORT_TEST_LAYOUT_PROBE_FAILS` set, `build --native` and `run
+  --native` exit 1 with `error: the layout of values isn't as native code
+  expects: forced by STITCHWORT_TEST_LAYOUT_PROBE_FAILS`; an executable
+  built without it, started with it, exits 2 with `internal error: this
+  executable can't run: …` and runs nothing.
+
+`Crossing::fits`, `NativeIslands::fits`, `NEST_ROOM`, `level_bound`,
+`level`, `Plan::nests`, `FLAG_NESTS`, the "ran on the machine" notes, the
+factory `run_main_native` took (`NativeFactory`, `n1::factory`) and
+`Options::stack_size` (the stack check is always compiled now) are
+deleted. `run_main_native` takes the compiled code and the stack, and
+callers compile first, so a refusal is an error before anything runs. The
+plan no longer drops a body's callers when the body can't be compiled: any
+such body refuses the program, naming each one ("`Main.f` uses `X`, which
+the native compiler doesn't compile yet"). Differences from the text above
+and §3–§4:
+- **No `frames` limit to suggest.** §3's message was to suggest a smaller
+  `frames` limit, but a program can't set one: `Limits::for_stack` fixes it
+  at 2,000,000 and nothing (project file, flag) changes it. So the message
+  names the limit and the widest function, and suggests splitting that
+  function or running on the machine.
+- **The roguelike's stack is 9.1 GB, not 6–7 GB.** §3's estimate used the
+  frame bound before NO2 (2,760 bytes plus a runtime frame); with the
+  effect runtime's bodies it is 4,536 bytes, so 2,000,000 frames and the
+  rooms are 9,089,056,768 bytes (8,668 MiB), 13% of the cap.
+  The guard test prints it.
+- **Where the stack is sized.** `native_abi::native_stack` is the rule:
+  the frame limit plus one, times the frame bound, plus `HOST_ROOM` and
+  `HELPER_ROOM`, rounded up to a MiB; `n1::stack_for` turns it into the
+  error. `build` writes it to the manifest (version 5: a `stack_size`
+  word; `FLAG_RESUMES` is now bit 0), and the binary starts its run
+  thread with exactly that, or says `error: this executable can't reserve
+  its stack of N bytes: …` and exits 2. An executable built without
+  `--native` runs the machine on 64 MiB, as `run` does (it had the 16 GiB
+  native stack). `run --native` compiles and runs on the thread the CLI
+  starts before the frame bound is known (moving the JIT's code, the
+  program and the terminal to a second thread would mean making them
+  `Send`), so that thread reserves the cap itself (`stitchwort_host::NATIVE_STACK`, now 64 GiB of address space),
+  and the run's stack-pointer floor is placed by the sized stack, as in the
+  binary, so the two stop at the same point.
+- **The floor moved to the executor.** `NativeExecutor::new` takes the
+  stack size and fixes the floor at its first crossing; the `Crossing` no
+  longer knows its stack.
+- **The depth note.** `sw_unwind` has a fifth argument, the leaving
+  frame's body number (mode 2, one per counted frame), and the executor
+  counts them with the machine's own `machine::deepest` and names them with
+  `machine::depth_report`, now free functions both share. Function names
+  come from the image the binary still rebuilds; NO6 moves them into the
+  object (§5).
+- **The backstop test.** `n2b`'s
+  `a_stack_too_small_for_the_limit_stops_cleanly_at_the_stack_check`
+  replaces the fallback test: given a stack a tenth of what the run needs,
+  the stack-pointer check stops it with `RunError::Deep` and the note
+  (`Main.deep`), not a crash.
+- **The unsupported-target error** is a check against the four targets of
+  §4 (`n1::check_target`), run before the layout probe; it can't fire on a
+  machine the workspace builds for today, so no test forces it.
+- **The guard test.** `the_roguelike_runs_natively` keeps its `run --native
+  --verbose` checks (every body natively, 0 machine instructions) and now
+  checks that the sized stack is under half the cap and that `build
+  --native --verbose` reports that stack; its "fell back" checks went with
+  the fallback.
+
 **NO6. The binary without the machine.**
 - **What:** `build` writes the tables and literals (§5). The runtime library
   builds `Tables` from them, with no `Program`, image or codec. The library

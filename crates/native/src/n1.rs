@@ -12,9 +12,11 @@
 //!
 //! **What runs natively** (stage NO4 of docs/proposals/native-only.md).
 //! Every body `main`'s entry reaches (`census::island`), the entry
-//! included, is compiled, or none is and the whole run is the machine's (a
+//! included, is compiled, or the program is refused with why (stage NO5: a
 //! body with an instruction native code doesn't compile,
-//! `census::n1_blocker`: none since N4). The runner drives native code
+//! `census::n1_blocker`, none since N4; a failed layout probe; a target
+//! Cranelift or the runtime doesn't support; a stack over the cap). There
+//! is no machine to fall back to: `stitchwort run` is the machine. The runner drives native code
 //! through `native_abi::NativeExecutor`, which enters it by three
 //! trampolines (the entry, the apply stubs, the effect runtime's loop),
 //! and native code has the machine run nothing for it: `Text.fold` is a
@@ -96,9 +98,10 @@
 //! leaves through that point's own exit, which drops the registers that may
 //! hold a value there and returns; callers check the error after every
 //! call, and leave the same way. The stack-pointer check behind the frame
-//! limit is only a safety margin (§4.3), sized by `frames` (stage N2b):
-//! with a stack big enough for the frame limit times the widest body's
-//! frame bound it never fires.
+//! limit is only a backstop (§4.3), sized by `frames` (stage N2b): the
+//! run reserves a stack big enough for the frame limit times the widest
+//! body's frame bound ([`stack_for`], stage NO5), so it never fires; if it
+//! did, it would stop the run with the same `E-RESOURCE` and depth note.
 //!
 //! **Looking at the code.** With `STITCHWORT_NATIVE_DUMP` set, compiling
 //! writes to stderr each body's Cranelift IR, its machine code as Cranelift
@@ -111,9 +114,7 @@
 //! [`Options::trace_refcounts`], every count goes through the runtime
 //! instead, so the allocation trace sees each one.
 
-use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
 use std::time::Instant;
 
 use cranelift_codegen::ir::condcodes::IntCC;
@@ -149,10 +150,6 @@ pub struct Options {
     /// Count references through the runtime, so the allocation trace sees
     /// every count (for comparing native code with the machine).
     pub trace_refcounts: bool,
-    /// The stack the code runs on, if known: native code then stops with
-    /// `E-RESOURCE` rather than run off its end (a safety margin, never the
-    /// limit; the module comment).
-    pub stack_size: Option<usize>,
 }
 
 /// A program's bodies, compiled.
@@ -162,40 +159,57 @@ pub struct Islands {
     /// The code's tables and the crossing, shared with a standalone
     /// executable's linked code.
     crossing: abi::Crossing,
-    /// A bound on the stack the widest body uses (`frames`).
+    /// A bound on the stack one counted frame uses (`frames`).
     pub max_frame: usize,
-    /// What happened at the crossing, for `--verbose`.
-    notes: Rc<RefCell<Vec<String>>>,
-    /// How many bodies were compiled, of how many `main` reaches (its entry
+    /// The body with the widest frame, by name.
+    pub widest: String,
+    /// How many bodies were compiled (every one `main` reaches, its entry
     /// included), and in what time.
     pub bodies: usize,
-    pub reachable: usize,
     pub compile_time: std::time::Duration,
 }
 
-impl NativeIslands for Islands {
-    fn fits(&self, frame_limit: u64) -> bool {
-        // The frame counter must fire before the stack check could (the
-        // `frames` module): otherwise the run stays on the machine.
-        if self.crossing.fits(frame_limit) {
-            return true;
-        }
-        let note = format!(
-            "native: everything ran on the machine: {frame_limit} frames of up to {} bytes may not fit the {}-byte stack",
-            self.crossing.level,
-            self.crossing.stack_size.unwrap_or_default()
-        );
-        let mut notes = self.notes.borrow_mut();
-        if !notes.contains(&note) {
-            notes.push(note);
-        }
-        false
+impl Islands {
+    /// What `run --native --verbose` says about the code.
+    pub fn note(&self) -> String {
+        format!(
+            "native: running {} of the {} bodies `main` reaches natively (frames of at most {} bytes, compiled in {:.1} ms)",
+            self.bodies,
+            self.bodies,
+            self.max_frame,
+            self.compile_time.as_secs_f64() * 1000.0
+        )
     }
+}
 
+impl NativeIslands for Islands {
     fn crossing(&self) -> &abi::Crossing {
         // The code is never unmapped (`_module`).
         &self.crossing
     }
+}
+
+/// The stack a native run of code whose frames are at most `max_frame`
+/// bytes (the widest `widest`'s) reserves under a limit of `frame_limit`
+/// frames (`abi::native_stack`: §3 of docs/proposals/native-only.md), or,
+/// if that passes the cap (D1299), why the program can't be compiled: the
+/// message, then a note.
+pub fn stack_for(frame_limit: u64, max_frame: usize, widest: &str) -> Result<usize, Vec<String>> {
+    abi::native_stack(frame_limit, max_frame).ok_or_else(|| {
+        let gib = |bytes: f64| bytes / (1024.0 * 1024.0 * 1024.0);
+        let needed = (frame_limit as f64 + 1.0) * max_frame as f64
+            + (abi::HOST_ROOM + abi::HELPER_ROOM) as f64;
+        vec![
+            format!(
+                "the native stack would be too big: {frame_limit} frames (the frame limit) of up to {max_frame} bytes (`{widest}`'s, the widest) need {:.1} GiB, over the cap of {:.0} GiB",
+                gib(needed),
+                gib(abi::STACK_CAP as f64)
+            ),
+            format!(
+                "split `{widest}` into smaller functions, or run the program on the machine with `stitchwort run`"
+            ),
+        ]
+    })
 }
 
 // --------------------------------------------------------------- admission
@@ -204,14 +218,6 @@ impl NativeIslands for Islands {
 /// included (stage NO4 of native-only.md: all or nothing).
 pub(crate) struct Plan {
     pub(crate) bodies: BTreeSet<u32>,
-    /// How many bodies `main` reaches, its entry included.
-    pub(crate) reachable: usize,
-    /// Whether native frames may nest inside runs of the machine: false
-    /// since stage NO4 of docs/proposals/native-only.md, when native code
-    /// runs only if every body `main` reaches is compiled (until then, a
-    /// body that wasn't, and until NO3 a state-passing handler or an effect
-    /// native's function value, was the machine's to run). NO5 removes it.
-    pub(crate) nests: bool,
     /// Whether anything `main` reaches may run a state-passing handler
     /// ([`uses_state_handlers`]), so the runtime's bodies need their part
     /// for one (stage NO3 of docs/proposals/native-only.md).
@@ -225,8 +231,6 @@ pub(crate) struct Plan {
     /// bodies (`runtime`: stage NO2 of docs/proposals/native-only.md) for
     /// the loops and resumptions it may run.
     pub(crate) effects: bool,
-    /// Why any body doesn't.
-    pub(crate) notes: Vec<String>,
 }
 
 /// The names of the image's bodies, for notes.
@@ -240,35 +244,57 @@ pub(crate) fn body_name(program: &Program, image: &Image, code: u32) -> String {
     }
 }
 
-/// The bodies `code` calls directly: its calls and tail calls, and the
-/// constants it uses (computed by a call where first used). Native code
-/// calls these as compiled code, so they must be compiled too; a function
-/// value it applies may be anything (the machine runs what has no code).
-fn direct_callees(program: &Program, image: &Image, code: u32) -> Vec<u32> {
-    image.codes[code as usize]
-        .instrs
-        .iter()
-        .filter_map(|instr| match instr {
-            Instr::Call { g, .. } | Instr::TailCall { g, .. } => image.global_code[*g as usize],
-            Instr::Global { g, .. }
-                if matches!(
-                    program.globals[*g as usize].kind,
-                    GlobalKind::Constant { .. }
-                ) =>
-            {
-                image.global_code[*g as usize]
-            }
-            _ => None,
-        })
-        .collect()
+/// The targets native code is compiled for (§4 of
+/// docs/proposals/native-only.md, as stage S5 of
+/// standalone-executables.md): the ones Cranelift and the runtime support.
+pub const SUPPORTED_TARGETS: [&str; 4] = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu",
+];
+
+/// This machine's target, as [`SUPPORTED_TARGETS`] names them.
+pub fn host_target() -> String {
+    let os = match std::env::consts::OS {
+        "macos" => "apple-darwin",
+        "linux" => "unknown-linux-gnu",
+        other => other,
+    };
+    format!("{}-{os}", std::env::consts::ARCH)
 }
 
-/// Which bodies run natively (the module comment), or why none does.
+/// Whether `target` is one native code supports, or why not.
+pub fn check_target(target: &str) -> Result<(), String> {
+    if SUPPORTED_TARGETS.contains(&target) {
+        return Ok(());
+    }
+    Err(format!(
+        "native code doesn't support this target, `{target}`: only {}",
+        SUPPORTED_TARGETS
+            .iter()
+            .map(|t| format!("`{t}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ))
+}
+
+/// What every native compilation checks first: the target, then the layout
+/// of values native code relies on (`abi::probe_layout`). The CLI and the
+/// runtime library come from one workspace build, so a layout the compiler
+/// sees is the one an executable it builds will have; the executable
+/// checks again at start-up all the same.
+pub(crate) fn preflight() -> Result<(), Vec<String>> {
+    check_target(&host_target()).map_err(|e| vec![e])?;
+    abi::probe_layout().map_err(|e| vec![e])
+}
+
+/// Which bodies run natively: every body reachable from the entry, the
+/// entry included (stage NO4 of native-only.md), or, if any has an
+/// instruction native code doesn't compile, why the program can't be
+/// compiled (stage NO5: there's no machine to run that body).
 pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
-    let mut notes = Vec::new();
-    let mut bodies = BTreeSet::new();
     let reach = island(image, image.entry_code);
-    let reachable = reach.len();
     let states = reach.iter().any(|&code| {
         image.codes[code as usize]
             .instrs
@@ -287,63 +313,34 @@ pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>
             .iter()
             .any(|instr| uses_effects(program, instr))
     });
-    for code in reach {
+    let mut refusals = Vec::new();
+    for &code in &reach {
         let mut blockers = BTreeSet::new();
         for instr in &image.codes[code as usize].instrs {
             if let Some(key) = n1_blocker(instr) {
                 blockers.insert(key);
             }
         }
-        if blockers.is_empty() {
-            bodies.insert(code);
-        } else {
+        if !blockers.is_empty() {
             let keys: Vec<String> = blockers.into_iter().map(|k| format!("`{k}`")).collect();
-            notes.push(format!(
-                "native: `{}` has {}, which native code doesn't compile, so it runs on the machine",
+            refusals.push(format!(
+                "`{}` uses {}, which the native compiler doesn't compile yet",
                 body_name(program, image, code),
                 keys.join(", ")
             ));
         }
     }
-    // Whatever calls a body that isn't compiled isn't either.
-    loop {
-        let calling: Vec<u32> = bodies
-            .iter()
-            .copied()
-            .filter(|&code| {
-                direct_callees(program, image, code)
-                    .iter()
-                    .any(|callee| !bodies.contains(callee))
-            })
-            .collect();
-        if calling.is_empty() {
-            break;
-        }
-        for code in calling {
-            bodies.remove(&code);
-            notes.push(format!(
-                "native: `{}` calls a body that runs on the machine, so it does too",
-                body_name(program, image, code)
-            ));
-        }
-    }
-    // Native code runs the whole program or none of it (stage NO4 of
-    // native-only.md): there is no machine for it to hand a body to.
-    if bodies.len() < reachable {
-        notes.push(
-            "native: not every body `main` reaches compiles, so the whole run is on the machine"
-                .to_string(),
-        );
-        return Err(notes);
+    if !refusals.is_empty() {
+        let mut why =
+            vec!["not every function `main` reaches can be compiled natively".to_string()];
+        why.extend(refusals);
+        return Err(why);
     }
     Ok(Plan {
-        bodies,
-        reachable,
-        nests: false,
+        bodies: reach.into_iter().collect(),
         states,
         folds,
         effects,
-        notes,
     })
 }
 
@@ -386,10 +383,9 @@ fn uses_text_fold(program: &Program, instr: &Instr) -> bool {
 }
 
 /// Whether `instr` may make a state-passing handler: its fold, or an
-/// effect native's function value (which may be one). Until stage NO3 of
-/// docs/proposals/native-only.md these were what the machine ran for
-/// native code (`runs_on_the_machine`, which set the frame bound's
-/// `NEST_ROOM`); since NO3 nothing is.
+/// effect native's function value (which may be one): the runtime's
+/// bodies then need their part for a state loop (stage NO3 of
+/// docs/proposals/native-only.md).
 fn uses_state_handlers(program: &Program, instr: &Instr) -> bool {
     match instr {
         Instr::Prim {
@@ -410,20 +406,15 @@ fn uses_state_handlers(program: &Program, instr: &Instr) -> bool {
 
 // --------------------------------------------------------------- compiling
 
-/// Compiles the islands of `program`'s entry (`image` is the machine's
-/// compiled image, which must outlive the result: the tables point at its
-/// constants and number tables), or says why the run stays on the machine.
-pub fn compile(
-    program: &Program,
-    image: &Image,
-    options: Options,
-    notes: Rc<RefCell<Vec<String>>>,
-) -> Result<Islands, Vec<String>> {
+/// Compiles every body `program`'s entry reaches (`image` is the
+/// machine's compiled image, which must outlive the result: the tables
+/// point at its constants and number tables), or says why it can't: the
+/// message, then any notes.
+pub fn compile(program: &Program, image: &Image, options: Options) -> Result<Islands, Vec<String>> {
     compile_audited(
         program,
         image,
         options,
-        notes,
         &mut Audit::new(program, image, false),
     )
 }
@@ -435,8 +426,7 @@ pub fn compile(
 /// text.
 pub fn listing(program: &Program, image: &Image, options: Options) -> Result<String, Vec<String>> {
     let mut audit = Audit::new(program, image, true);
-    let notes = Rc::new(RefCell::new(Vec::new()));
-    compile_audited(program, image, options, notes, &mut audit)?;
+    compile_audited(program, image, options, &mut audit)?;
     Ok(audit.listing.unwrap_or_default())
 }
 
@@ -465,15 +455,13 @@ fn compile_audited(
     program: &Program,
     image: &Image,
     options: Options,
-    notes: Rc<RefCell<Vec<String>>>,
     audit: &mut Audit,
 ) -> Result<Islands, Vec<String>> {
-    abi::probe_layout().map_err(|e| vec![format!("native: {e}")])?;
+    preflight()?;
     let plan = plan(program, image)?;
-    notes.borrow_mut().extend(plan.notes.iter().cloned());
     let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
     let start = Instant::now();
-    let fail = |e: String| vec![format!("native: compiling failed: {e}")];
+    let fail = |e: String| vec![format!("compiling to native code failed: {e}")];
     let isa = host_isa(false).map_err(fail)?;
     let mut builder = JITBuilder::with_isa(isa, default_libcall_names());
     for (name, address) in helper_addresses() {
@@ -493,6 +481,7 @@ fn compile_audited(
         trampolines,
         n_caches,
         max_frame,
+        widest,
     } = emit(
         &mut module,
         program,
@@ -547,19 +536,16 @@ fn compile_audited(
             apply,
             step,
             max_frame,
-            nests: plan.nests,
             resumes: plan.effects,
         },
         abi::TableStore::new(program, image, n_caches),
-        options.stack_size,
     );
     Ok(Islands {
         _module: module,
         crossing,
         max_frame,
-        notes,
+        widest: body_name(program, image, widest),
         bodies: plan.bodies.len(),
-        reachable: plan.reachable,
         compile_time: start.elapsed(),
     })
 }
@@ -580,6 +566,8 @@ pub(crate) struct Emitted {
     pub(crate) n_caches: usize,
     /// A bound on the stack one level of recursion uses (`frames`).
     pub(crate) max_frame: usize,
+    /// The body with the widest frame.
+    pub(crate) widest: u32,
 }
 
 /// The check that generated code holds no host address (stage S4 of
@@ -850,6 +838,7 @@ pub(crate) fn emit(
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     let mut max_frame = 0;
+    let mut widest = image.entry_code;
     for &code in &plan.bodies {
         let params = image.codes[code as usize].params;
         let lambda = lambda_of.get(&code).copied();
@@ -912,7 +901,10 @@ pub(crate) fn emit(
             .define_function(functions[&code], &mut context)
             .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
         if let Some(compiled) = context.compiled_code() {
-            max_frame = max_frame.max(frames::frame_bound(&context.func, compiled));
+            let bound = frames::frame_bound(&context.func, compiled);
+            if bound > max_frame {
+                (max_frame, widest) = (bound, code);
+            }
         }
         if dump && let Some(c) = context.compiled_code() {
             eprintln!("---- vcode\n{}", c.vcode.as_deref().unwrap_or("?"));
@@ -972,7 +964,6 @@ pub(crate) fn emit(
                 // (`Text.fold`'s three, if it may be applied).
                 n + if text_fold.is_some() { cap.max(3) } else { cap },
                 pointer,
-                options,
                 text_fold,
                 runtime,
             );
@@ -997,14 +988,7 @@ pub(crate) fn emit(
         context.func.name = ir::UserFuncName::user(4, 0);
         {
             let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
-            emit_text_fold(
-                &mut b,
-                &mut *module,
-                &helpers,
-                apply_any[&2],
-                pointer,
-                options,
-            );
+            emit_text_fold(&mut b, &mut *module, &helpers, apply_any[&2], pointer);
             b.seal_all_blocks();
             b.finalize(frontend_config);
         }
@@ -1028,7 +1012,6 @@ pub(crate) fn emit(
             apply_any: &apply_any,
             runtime: ids,
             pointer,
-            options,
             call_tag: program.shapes.call,
         };
         for (name, id, signature) in [
@@ -1217,6 +1200,7 @@ pub(crate) fn emit(
         trampolines,
         n_caches: caches as usize,
         max_frame,
+        widest,
     })
 }
 
@@ -1445,7 +1429,6 @@ fn emit_apply_any(
     arities: &BTreeSet<u32>,
     cap: u32,
     pointer: ir::Type,
-    options: Options,
     text_fold: Option<FuncId>,
     runtime: Option<runtime::Runtime>,
 ) {
@@ -1712,14 +1695,12 @@ fn emit_apply_any(
     let mut over = b
         .ins()
         .icmp(IntCC::UnsignedGreaterThanOrEqual, frames, limit);
-    if options.stack_size.is_some() {
-        let sp = b.ins().get_stack_pointer(pointer);
-        let floor = b
-            .ins()
-            .load(types::I64, flags(), ctx, Context::STACK_LIMIT_AT);
-        let low = b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
-        over = b.ins().bor(over, low);
-    }
+    let sp = b.ins().get_stack_pointer(pointer);
+    let floor = b
+        .ins()
+        .load(types::I64, flags(), ctx, Context::STACK_LIMIT_AT);
+    let low = b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
+    over = b.ins().bor(over, low);
     let out_of_frames = b.create_block();
     let entering = b.create_block();
     b.ins().brif(over, out_of_frames, &[], entering, &[]);
@@ -1868,7 +1849,8 @@ fn emit_apply_any(
     let from = b.ins().iadd(plan, skip);
     let from = b.ins().iadd_imm_s(from, i64::from(ApplyPlan::ARGS_AT));
     let join = b.ins().iconst(types::I64, 3);
-    b.ins().call(unwind, &[ctx, from, rest, join]);
+    let no_body = b.ins().iconst(types::I64, 0);
+    b.ins().call(unwind, &[ctx, from, rest, join, no_body]);
     let zero = b.ins().iconst(types::I64, 0);
     b.ins().return_(&[zero, zero, zero]);
 }
@@ -1899,7 +1881,6 @@ fn emit_text_fold(
     helpers: &Helpers,
     apply2: FuncId,
     pointer: ir::Type,
-    options: Options,
 ) {
     let text_last = module.declare_func_in_func(helpers.text_last, b.func);
     let apply_cached = module.declare_func_in_func(helpers.apply_cached, b.func);
@@ -1991,14 +1972,12 @@ fn emit_text_fold(
     let mut over = b
         .ins()
         .icmp(IntCC::UnsignedGreaterThanOrEqual, frames, limit);
-    if options.stack_size.is_some() {
-        let sp = b.ins().get_stack_pointer(pointer);
-        let floor = b
-            .ins()
-            .load(types::I64, flags(), ctx, Context::STACK_LIMIT_AT);
-        let low = b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
-        over = b.ins().bor(over, low);
-    }
+    let sp = b.ins().get_stack_pointer(pointer);
+    let floor = b
+        .ins()
+        .load(types::I64, flags(), ctx, Context::STACK_LIMIT_AT);
+    let low = b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
+    over = b.ins().bor(over, low);
     let out_of_frames = b.create_block();
     let entering = b.create_block();
     b.ins().brif(over, out_of_frames, &[], entering, &[]);
@@ -2045,7 +2024,8 @@ fn emit_text_fold(
     b.set_cold_block(failed);
     let one = b.ins().iconst(types::I64, 1);
     let join = b.ins().iconst(types::I64, 3);
-    b.ins().call(unwind, &[ctx, f_at, one, join]);
+    let no_body = b.ins().iconst(types::I64, 0);
+    b.ins().call(unwind, &[ctx, f_at, one, join, no_body]);
     b.ins().call(drop_words, t);
     let zero = b.ins().iconst(types::I64, 0);
     b.ins().return_(&[zero, zero, zero]);
@@ -2178,7 +2158,7 @@ impl Helpers {
         Ok(Helpers {
             drop_words: declare("sw_drop_words", &[I64, I64, I64], &[])?,
             inc: declare("sw_inc", &[I64, I64, I64], &[])?,
-            unwind: declare("sw_unwind", &[p, p, I64, I64], &[])?,
+            unwind: declare("sw_unwind", &[p, p, I64, I64, I64], &[])?,
             release: declare("sw_release_up", &[p, I64], &[])?,
             ctor: declare("sw_ctor", &[I32, p, I64, p], &[])?,
             ctor_reuse: declare("sw_ctor_reuse", &[I32, p, I64, p, p], &[])?,
@@ -2799,7 +2779,9 @@ impl Gen<'_, '_> {
         let at = self.spill_address(0);
         let count = self.iconst(n as u64);
         let mode = self.iconst(mode);
-        self.call_helper(self.helpers.unwind, &[self.ctx, at, count, mode]);
+        // The frame's body, for the depth note (mode 2: one per frame).
+        let body = self.iconst(u64::from(self.code_index));
+        self.call_helper(self.helpers.unwind, &[self.ctx, at, count, mode, body]);
     }
 
     /// In a lambda's body, gives its closure (the frame's `env`) to the
@@ -2857,15 +2839,13 @@ impl Gen<'_, '_> {
             .b
             .ins()
             .icmp(IntCC::UnsignedGreaterThanOrEqual, frames, limit);
-        if self.options.stack_size.is_some() {
-            let sp = self.b.ins().get_stack_pointer(self.pointer);
-            let floor = self.ctx_load(Context::STACK_LIMIT_AT);
-            let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
-            let either = self.b.ins().bor(over, low);
-            self.exit_with(either, live, Some(OUT_OF_FRAMES), extra, &[]);
-        } else {
-            self.exit_with(over, live, Some(OUT_OF_FRAMES), extra, &[]);
-        }
+        // The stack-pointer check: a backstop the build's stack sizing
+        // keeps from firing (§3 of docs/proposals/native-only.md).
+        let sp = self.b.ins().get_stack_pointer(self.pointer);
+        let floor = self.ctx_load(Context::STACK_LIMIT_AT);
+        let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
+        let either = self.b.ins().bor(over, low);
+        self.exit_with(either, live, Some(OUT_OF_FRAMES), extra, &[]);
         self.b.ins().iadd_imm_s(frames, 1)
     }
 
@@ -4100,31 +4080,6 @@ impl Gen<'_, '_> {
         self.assign(pc, dst, v);
         self.b.ins().jump(after, &[]);
         self.b.switch_to_block(after);
-    }
-}
-
-/// Makes the factory `run --native` gives the runtime: compiles each
-/// program's islands with `options`, noting in `notes` what runs natively
-/// and why anything doesn't.
-pub fn factory(
-    options: Options,
-    notes: Rc<RefCell<Vec<String>>>,
-) -> impl FnMut(&Program, &Image) -> Option<Box<dyn NativeIslands>> {
-    move |program, image| match compile(program, image, options, notes.clone()) {
-        Ok(islands) => {
-            notes.borrow_mut().push(format!(
-                "native: running {} of the {} bodies `main` reaches natively (frames of at most {} bytes, compiled in {:.1} ms)",
-                islands.bodies,
-                islands.reachable,
-                islands.max_frame,
-                islands.compile_time.as_secs_f64() * 1000.0
-            ));
-            Some(Box::new(islands))
-        }
-        Err(why) => {
-            notes.borrow_mut().extend(why);
-            None
-        }
     }
 }
 

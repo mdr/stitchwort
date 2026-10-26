@@ -3,13 +3,11 @@
 
 #![allow(dead_code)] // each test binary uses some of these
 
-use std::cell::RefCell;
 use std::path::Path;
-use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 use stitchwort_driver::driver::{Session, with_stack};
-use stitchwort_native::n1::{Options, factory};
+use stitchwort_native::n1::{Options, compile, stack_for};
 use stitchwort_rt::host::{NoTerminal, RunError};
 use stitchwort_rt::{Limits, Program, alloc_trace, lower_main, run_main, run_main_native};
 
@@ -71,30 +69,42 @@ pub fn native(program: &Program, limits: Limits, trace_refcounts: bool) -> (Ran,
     native_on(program, limits, trace_refcounts, STACK)
 }
 
-/// [`native`], on a thread with `stack` bytes of stack.
+/// [`native`], on a thread with `stack` bytes of stack: the native stack is
+/// the one the run sizes for its frames, or `stack` if that is less (the
+/// stack-pointer check behind the frame counter then stops the run). If
+/// the program can't be compiled, the error is why, and so are the notes.
 pub fn native_on(
     program: &Program,
     limits: Limits,
     trace_refcounts: bool,
     stack: usize,
 ) -> (Ran, Vec<String>) {
-    let notes = Rc::new(RefCell::new(Vec::new()));
-    let options = Options {
-        trace_refcounts,
-        stack_size: Some(stack),
-    };
-    let mut make = factory(options, notes.clone());
+    let options = Options { trace_refcounts };
     let mut output = Vec::new();
     let executed_before = stitchwort_rt::machine::instructions_executed();
+    // Compiled as `run --native` compiles it (stage NO5 of
+    // docs/proposals/native-only.md): every body or a refusal, and a stack
+    // sized for the frame limit, here at most the thread's `stack`.
+    let image = stitchwort_rt::code::compile(program);
+    let compiled = compile(program, &image, options).and_then(|islands| {
+        let sized = stack_for(limits.frames as u64, islands.max_frame, &islands.widest)?;
+        Ok((islands, sized))
+    });
+    let (islands, sized) = match compiled {
+        Ok(compiled) => compiled,
+        Err(why) => return ((String::new(), Err(why.join("; "))), why),
+    };
+    let notes = vec![islands.note()];
     let result = run_main_native(
         program,
+        image,
+        Box::new(islands),
         limits,
-        &mut make,
+        sized.min(stack),
         &mut "".as_bytes(),
         &mut output,
         &mut NoTerminal,
     );
-    let notes = notes.borrow().clone();
     // A native run is native through and through (stage NO4 of
     // docs/proposals/native-only.md): the machine executes nothing.
     if ran_natively(&notes) {
@@ -109,7 +119,6 @@ pub fn native_on(
 
 pub fn ran_natively(notes: &[String]) -> bool {
     notes.iter().any(|n| n.starts_with("native: running "))
-        && !notes.iter().any(|n| n.contains("ran on the machine"))
 }
 
 /// Native code prints what the machine prints, and did run.
