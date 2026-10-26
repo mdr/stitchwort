@@ -16,8 +16,13 @@ use stitchwort_core::{DefId, Globals, Icit};
 use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
-// Debug builds use much more stack per frame (io.sw's 5,000 prints overflow 64 MiB).
-const STACK: usize = if cfg!(debug_assertions) { 512 } else { 64 } * 1024 * 1024;
+// The deepest example is io.sw's 5,000 prints through `IO.simulate`, which the
+// reference evaluates recursively, a few frames per print. Since partial
+// handlers lane D (2404ada2) a handler folds with `foldCompD` and forwards with
+// `callD`/`translateD`, one more layer of definitions per operation: in a
+// release build it needs between 80 and 96 MiB (it needed 56 to 64 before), so
+// 128 MiB. Debug builds use much more stack per frame.
+const STACK: usize = if cfg!(debug_assertions) { 512 } else { 128 } * 1024 * 1024;
 
 /// The normal form of `value`, as printed by the reference.
 fn normal(g: &Globals, level: usize, value: &Value) -> String {
