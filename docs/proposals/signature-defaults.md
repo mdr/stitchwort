@@ -88,7 +88,7 @@ Each row was read in the source linked.
 | Language | Where defaults go | When a default is used | Function values | Notes |
 |---|---|---|---|---|
 | Scala | `(p: T = expr)` on method parameters | A call that omits the parameter. "To use a default argument, the corresponding parameter has to be omitted in the method application"; a skipped earlier one needs later ones named. | `f _` doesn't use defaults: with `def f(a: Int, b: Boolean = true)`, `f: (Int => Int)` and `(f _): (Int => Int)` are type mismatches ("found: (Int, Boolean) => Int"), while `f(_)` works. A maintainer: "`f(_)` is an application, `f _` is not, so I don't find it especially surprising that default arguments kick in for the former but not the latter." | "For every parameter with a default argument, a synthetic method which computes the default expression is generated", named with "”$default$” and a number indicating the parameter position"; `f(b = "3")` becomes `f(b = "3", a = f$default$1)`. "expr is evaluated every time a method application uses the default argument." A default may use parameters of *earlier parameter lists*, "not on other parameters in the same parameter list"; the getter takes "the value parameter sections preceding the corresponding parameter". Overriding methods inherit defaults and may change them; the runtime receiver's default is used. "At most one overloaded alternative may specify defaults." Not optional from Java. Default parameters are listed among "a common source of binary compatibility breakages". |
-| Kotlin | `(x: Int = 0)` | A call without that argument. "default values are only evaluated when the function is called without the corresponding parameter". A defaulted parameter before a required one "can only use the default value by naming the argument". | Since 1.4, a callable reference `::foo` to `fun foo(i: Int = 0)` can be used as `() -> String`: "the default value `0` is used". | "Parameters that refer to the values of other parameters must be declared later in the order." Overrides "always use the base method's default parameter values" and may not declare their own. Java sees "only a full signature" unless `@JvmOverloads` generates one overload per defaulted parameter. |
+| Kotlin | `(x: Int = 0)` | A call without that argument. "default values are only evaluated when the function is called without the corresponding parameter". A defaulted parameter before a required one "can only use the default value by naming the argument". | Since 1.4 a callable reference is adapted when the expected type has fewer parameters: with `fun foo(i: Int = 0): String` and `fun apply(func: () -> String)`, `apply(::foo)` works, and "If the callable reference to the function `foo` takes no arguments, the default value `0` is used". Without such an expected type a reference has the function's full arity: for a value reference its type is "`(Arg0 ... ArgN) -> R`, where `Arg0, ... , ArgN` are … the types of function formal parameters". Reflection's `KCallable.callBy` can omit optional parameters: "Parameter can be omitted from the mapping if it is either optional … or vararg". | "Parameters that refer to the values of other parameters must be declared later in the order." Overrides "always use the base method's default parameter values" and may not declare their own. Java sees "only a full signature" unless `@JvmOverloads` generates one overload per defaulted parameter. |
 | OCaml | `?(step = 1)` optional labelled parameters | "If a non-labeled argument is passed, and its corresponding parameter is preceded by one or several optional parameters, then these parameters are defaulted". "All other missing parameters … will be kept". So "you will only be able to eliminate optional arguments by totally applying the function", and "A function taking some optional arguments must also take at least one non-optional argument." | Passed where a function type without them is expected, "the compiler will attempt to transform the argument … by passing None for all optional parameters". | Labels are in the type. Warning 16 is "Unerasable optional argument"; warning 48 "Implicit elimination of optional arguments". When the default is evaluated is "unspecified". |
 | Lean 4 | `(x : α := v)`, sugar for `x : optParam α v`, a reducible identity on types; `(h : p := by tac)` is `autoParam` | In the elaborator, when no positional argument is left for an explicit parameter, an `optParam` gets its default and an `autoParam` runs its tactic, unless the application is in explicit mode (`@f`). | A bare `f` is an application with no arguments, so its defaults are filled. A required parameter left over while later ones still have defaults becomes a lambda: "using eta arg since there are still optParams or autoParams". | The default lives in the type, so a parameter of type `(x : Nat := 1) → Nat` keeps it. "Optional and automatic parameters are not part of Lean's core type theory." Positional arguments fill optional parameters too. |
 | Idris 2 | `{default 0 lag : Nat}`, implicit parameters only | When the implicit isn't given | — | "primarily intended to assist in automatically constructing a proof where auto fails"; the Fibonacci example "is not the intended use". |
@@ -105,6 +105,8 @@ Sources:
 [Scala binary compatibility for library authors](https://docs.scala-lang.org/overviews/core/binary-compatibility-for-library-authors.html);
 [Kotlin functions](https://kotlinlang.org/docs/functions.html);
 [Kotlin 1.4, callable references with defaults](https://kotlinlang.org/docs/whatsnew14.html);
+[Kotlin specification, expressions (callable references)](https://kotlinlang.org/spec/expressions.html);
+[Kotlin `KCallable`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.reflect/-k-callable/);
 [Kotlin, calling Kotlin from Java](https://kotlinlang.org/docs/java-to-kotlin-interop.html);
 [OCaml manual, labeled arguments](https://ocaml.org/manual/latest/lablexamples.html);
 [OCaml manual, expressions (function application and definition)](https://ocaml.org/manual/latest/expr.html);
@@ -136,10 +138,14 @@ What this tells us:
    arguments written are all there is, so the rest of the defaults are
    filled, and a leftover required parameter becomes a lambda.
 4. **Function values lose defaults** in Scala, keep them in the type in Lean
-   and TypeScript, and get them filled in Kotlin's references and OCaml's
-   higher-order use. Stitchwort keeps names, and defaults, out of types
-   (`named-arguments.md` §1 non-goals), so Lean's and TypeScript's way is
-   closed; Kotlin's and Lean's "a bare name fills its defaults" is open.
+   and TypeScript, and get them filled in Kotlin's references (when the expected
+   type has fewer parameters; otherwise a reference has the full arity) and
+   OCaml's higher-order use. Stitchwort keeps names, and defaults, out of
+   types (`named-arguments.md` §1 non-goals), so Lean's and TypeScript's way
+   is closed; Lean's "a bare name fills its defaults" is open. Kotlin's
+   adaptation is driven by the expected type, which Stitchwort's checker
+   doesn't consult for names (D1115); the written call alone decides
+   (D1350).
 5. **Positional passing to a defaulted parameter** is allowed everywhere
    except Swift with labels (which forces names for every labelled
    parameter). Kotlin's "a default before a required parameter only works by
@@ -245,7 +251,7 @@ As for fields (`named-arguments.md` §5.1 rules 2, 5, 8 and 9):
   `(ok: size = 8 := rfl)` is `E-REFL`, with the note that a call may give
   `size`.
 - **Leaving a parameter out commits to its default.** Nothing is inferred
-  from the other arguments. With `def sized (n: Nat := 3) (xs: Vec Nat n)`,
+  from the other arguments, by construction (§6.1, "Order of work"). With `def sized (n: Nat := 3) (xs: Vec Nat n)`,
   `sized threeVec` checks and `sized twoVec` is `E-TYPE-MISMATCH`, "`n` is
   left out, so it is its default value, `3`; give `(n := 2)` to use
   another".
@@ -294,6 +300,49 @@ one:
    run order of `named-arguments.md` §4.5 unchanged: a default performs
    nothing, so it adds nothing to the trace.
 
+**Order of work.** Leaving a parameter out commits to its default by
+construction, not by a check after inference. A call is elaborated in this
+order:
+
+1. **Assign the slots, syntactically.** Each parameter is supplied (by a
+   positional or named argument), defaulted (not named, and has a default),
+   or abstracted into the lambda of rule 3. This looks only at the shape of
+   the written arguments (position, name) and the head's signature, never at
+   an argument's elaborated type or value.
+2. **Put each omitted defaulted parameter's helper call into its slot**,
+   before any argument is elaborated. The slot is then a term over the
+   earlier slots with no unknown in it.
+3. **Only then elaborate the supplied arguments**, each against its expected
+   type with the earlier slots substituted.
+
+So in `sized twoVec` the argument `twoVec` is checked against
+`Vec Nat (helper)`, and the helper reduces to `3`: the error is a mismatch
+of `Vec Nat 2` with `Vec Nat 3`. Had `twoVec` been elaborated against
+`Vec Nat ?n` first, unification would set `?n := 2` before the default was
+considered, and the call would silently mean `(n := 2)`. The same holds when
+the default could only be reached indirectly. With
+`def pair (n: Nat := 3) (xs: Vec Nat n) (ys: Vec Nat n)`, the call
+`pair (ys := twoVec)` leaves `xs` out before the last given parameter, so it
+is a lambda over `xs`, and `n` is still its helper's `3`: `ys` is checked
+against `Vec Nat 3` and fails the same way, naming `n` and its default
+(§8.3).
+
+Today's order already has this shape. `plan` calls `fill`, which matches
+arguments to parameters from their written position and name and the
+signature's parameter names alone, without elaborating any argument
+(`crates/elab/src/named.rs:156-180`, `:253-305`). The slots are then handed
+to `apply_slots` or `apply_args`, which elaborate the arguments afterwards
+(`crates/elab/src/check.rs:1296-1302`, `:1312-1318`, `:1370`;
+`named.rs:496-523`) **[checked]**. So slot assignment is purely syntactic,
+with one exception: the signature is read from the head's type with `force`
+(`named.rs:59-102`), and for a type that computes only once arguments are
+given (`Signature::stuck`) `split` applies the first arguments before the
+rest are matched (`named.rs:215-246`; `check.rs:1289-1295`) **[checked]**.
+Defaults are read only from the head's declaration (§7.2), whose signature
+is known before any argument, so the exception doesn't reach them
+**[inferred]**. The new work is step 2: building the helper-call slots
+before `apply_args` runs.
+
 Examples, with `def range (start: Nat) (stop: Nat) (step: Nat := 1)`:
 
 ```
@@ -312,6 +361,7 @@ and with `def sized (n: Nat := 3) (xs: Vec Nat n): Nat`:
 sized                     -- sized 3                     ((xs: Vec Nat 3) -> Nat): a partial application
 sized threeVec            -- sized 3 threeVec
 sized (n := 2) twoVec     -- sized 2 twoVec
+sized twoVec              -- E-TYPE-MISMATCH: `Vec Nat 2` is not `Vec Nat 3`; `n` is its default
 ```
 
 `range 0` is a lambda, not the partial application `range 0`, because the
@@ -346,6 +396,9 @@ keeps D1097's rule 1 from `named-arguments.md` §5.4. Reasons:
 
 The cost is that `range 0 10 2` must be written `range 0 10 (step := 2)`,
 which Kotlin, Scala, Lean and JavaScript would all accept positionally.
+A second cost falls on existing code: making a required parameter optional
+breaks the calls that pass it positionally (§11, "Adding a default to an
+existing parameter").
 
 ### 6.3 A positional argument after the parameters run out
 
@@ -524,6 +577,47 @@ hash; a call that relies on a default refers to the helper. So:
   never looked up by hash, and the metadata is kept by declaration, as for
   data types (§5.2 of `named-arguments.md`).
 
+**Invariant: nothing that depends on defaults is cached under the
+function's hash alone.** Because a function's hash leaves its defaults out,
+two functions with the same hash can have different defaults, and a
+function's defaults can change while its hash stays. So callers'
+elaboration, hover and completion, the JS wrapper and `.d.ts` shape, and
+printing (which hides helper calls, D1354) must be keyed by the declaration
+and its source, never by the function's hash. This holds today, and stays
+true if stage 1 follows the field defaults' design:
+
+- The check cache is keyed by source, not by hash. A namespace's key is a
+  BLAKE3 of the compiler build, format, modes, library digest, namespace
+  name, the namespace's source and the keys of its dependencies
+  (`crates/elab/src/cache/mod.rs:410-445`; `docs/proposals/check-cache.md`
+  §2: "the content hash can't be the lookup key for skipping elaboration",
+  and §4.2) **[checked]**. A changed default is a changed source text, so
+  the namespace and its dependents are re-elaborated and callers see the new
+  default.
+- `Data::defaults` is "kept by declaration, never hashed"
+  (`crates/core/src/globals.rs:204-213`). It is stored in the cache entry of
+  the namespace that declares the type and put back when that entry loads
+  (`cache/mod.rs:1417-1425`, `:2744-2745`), so it is invalidated with that
+  entry **[checked]**. The `Def` metadata for parameter defaults (§7.1) is
+  stored the same way **[inferred]**.
+- The test cache is keyed by a test's content hash
+  (`crates/driver/src/driver.rs:927-932`) **[checked]**. A test's term holds
+  the helper calls its calls rely on, and a helper has its own hash, so
+  changing a default changes the hash of exactly the tests that use it. This
+  is the one place a hash is the key, and it is sound for that reason.
+- Hover, completion and printing read the declaration's metadata in the
+  current session. I found no cache of them keyed by a function's hash
+  (`crates/cli/src/lsp.rs`, `crates/driver/src/live.rs`) **[inferred]**: they
+  are rebuilt from the elaborated session, which the check cache restores
+  by source key. The JS wrapper and `.d.ts` are likewise generated from the
+  declaration in the session that elaborated it **[inferred]**.
+
+The invariant would fail only for a cache that doesn't exist yet: one keyed
+by a function's content hash that stores a caller's elaborated form or the
+signature shown to users (a content-addressed index of hovers, say). Any
+such addition must key on the declaration and its source, or include the
+helpers' hashes.
+
 **No binary compatibility question.** Scala's getters and Swift's
 copied-into-the-client defaults exist because separately compiled callers
 outlive a library change. Stitchwort re-elaborates every caller when a
@@ -583,6 +677,37 @@ parameter before a required one has to be `T | undefined`, and a defaulted
 
 (c) **Refuse** `export def` with defaults (`E-EXPORT`), and export a wrapper.
 
+The generated type, under `--strict --exactOptionalPropertyTypes` (the flags
+the existing `.d.ts` snapshots are checked with,
+`crates/cli/tests/extract.rs:140-146`) **[checked]**, needs care for a
+defaulted `Option T` parameter, which has three cases: absent means the
+default, present as `undefined` means `None`, present as a value means
+`Some`. Under `exactOptionalPropertyTypes`, `f?: T` does not accept an
+explicit `undefined`, so the property type must admit it: `f?: T | undefined`.
+This is the shape already generated for a record's defaulted `Option` field,
+`colour?: string | undefined` in `ConfigInput`
+(`crates/cli/tests/snapshots/extract__field-defaults.d.ts.snap:12`; D1114;
+`named-arguments.md` §5.3, "Absence versus `None`") **[checked]**. For
+
+```
+export def tag (name: Text) (colour: Option Text := Some "blue") (size: Nat := 1): Text := …
+```
+
+the declarations are
+
+```ts
+export type TagOptions = {
+  readonly colour?: string | undefined;
+  readonly size?: bigint;
+};
+export declare function tag(name: string, options?: TagOptions): string;
+```
+
+`size` is a plain optional property (absent means the default). `colour`
+admits `undefined`, which is `None`. Option (b) would have to write
+`colour?: string | undefined` too, with `undefined` meaning the default,
+which is why (b) can't pass `None`.
+
 **Recommended: (a).** Stitchwort's defaulted parameters are named-only and
 order-free, and an options object is the TypeScript way to say exactly
 that. It keeps the three meanings of a defaulted `Option` (default, `None`,
@@ -617,7 +742,7 @@ function's result has no defaults.
   is exactly the call of that parameter's helper (with the captures the
   call would build) is left out, so the goal shows `range 0 10`, not
   `range 0 10 (range…step…default)`. The printed call elaborates back to
-  the same term. `show` on values is unaffected (values have no helper
+  the same term for the same declaration, with the same defaults. `show` on values is unaffected (values have no helper
   calls).
 - **The formatter** keeps `(x: T := e)` as written, as it does for fields
   (`crates/fmt/tests/golden/field-defaults.*`); a golden test with a
@@ -655,7 +780,42 @@ Stage 1 alone covers the factory: `makeBooking "a" (duration := 30.0)`,
 7. (1) `scaler 5 3` is `E-DEFAULT-POSITIONAL`; `(scaler 5) 3` and
    `scaler 5 (factor := 3)` check and differ.
 8. (2) A JS caller can get the default, `None` and `Some` for a defaulted
-   `Option` parameter.
+   `Option` parameter. The generated `.d.ts`, with `colour?: string | undefined`
+   in the options object, type-checks under stage 2's existing
+   `tsc --strict --exactOptionalPropertyTypes` check, with TypeScript calls
+   writing each of the three cases (`{}`, `{ colour: undefined }`,
+   `{ colour: "red" }`).
+9. (1) Defaults are committed before arguments are elaborated (§6.1). With
+   `def sized (n: Nat := 3) (xs: Vec Nat n)` and `two: Vec Nat 2`:
+   `sized two` fails with `E-TYPE-MISMATCH` because `Vec Nat 2` is not
+   `Vec Nat 3`, and the error names `n` and its default; `sized (n := 2) two`
+   checks; `sized three` checks. With
+   `def pair (n: Nat := 3) (xs: Vec Nat n) (ys: Vec Nat n)`,
+   `pair (ys := two)` fails the same way, and `pair (n := 2) (ys := two)` is a
+   function of `xs`.
+10. (1) Function values, with `def f (a: A) (b: B := dB) (c: C): R`, and `dB'`
+    the helper call for `b` (it unfolds to `dB`):
+    - `f`, of type `(a: A) -> (c: C) -> R`, is definitionally equal to
+      `(a: A) (c: C) => f a c` and to `(a: A) (c: C) => f a dB' c`. All three
+      are the same term, since the bare name is the call with no arguments and
+      fills the helper. They have the same hash when elaborated in the same
+      way: a bare name or partial call that makes a lambda is wrapped in an
+      annotation (`named.rs:510`), and `Term::Ann` is hashed
+      (`crates/core/src/hash.rs:585-588`) **[checked]**. Whether a written
+      lambda carries one depends on how it is elaborated **[inferred]**, so
+      the test elaborates each against the same expected type.
+    - `(a: A) (c: C) => f a (b := dB) c` is definitionally equal to those
+      (the helper unfolds) and has the same type, but is not the same term and
+      has a different hash (`dB` against `dB'`), as `range 0 10` differs
+      from `range 0 10 (step := 1)`.
+    - `(a: A) (b: B) (c: C) => f a (b := b) c`, of type
+      `(a: A) -> (b: B) -> (c: C) -> R`, has a different type from `f`'s, so it
+      is equal to none of the above. It is how to keep `b` open.
+    - With `range`: `range 0` and `(stop: Nat) => range 0 stop` are
+      definitionally equal, the same term and the same hash, both of type
+      `(stop: Nat) -> List Nat`. `(stop: Nat) (step: Nat) => range 0 stop (step := step)`
+      has type `(stop: Nat) -> (step: Nat) -> List Nat`, so it equals neither;
+      it is what the old partial application `range 0` meant (§11).
 
 ## 10. Decisions for Matt
 
@@ -776,6 +936,17 @@ changing it.
   functions that have defaults. Terms and hashes differ from what the same
   text gave before the function had defaults. Conversion treats them as
   equal, so only hashes and printing see it.
+- **Adding a default to an existing parameter breaks its positional
+  calls.** Defaulted parameters are named-only (D1349), so
+  `def retry (attempts: Nat)` becoming `(attempts: Nat := 3)` turns
+  `retry 5` into an error, which must become `retry (attempts := 5)`. The
+  error is `E-DEFAULT-POSITIONAL` when `retry`'s result is a function (§6.3)
+  and otherwise a type error at the extra argument; both notes say to name the
+  parameter. The break is diagnosed and mechanical, never silent: every call
+  that passes the parameter positionally changes in the same way. Adding a
+  default normally feels like relaxing a signature, but here it changes how
+  the parameter is passed. Adding a *new* defaulted parameter breaks
+  nothing (invariant 2).
 - **Named-only surprises people from Kotlin and Scala**, who expect
   `range 0 10 2` to work. The error says exactly what to write.
 - **Lemmas about default values** (`range a b 1`) don't match calls that
