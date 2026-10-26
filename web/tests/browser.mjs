@@ -1782,16 +1782,16 @@ test("the roguelike is a second project: it checks with its proofs, plays on key
   await page.untilChecked();
   const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].length === 2 &&
     [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "both groups");
-  assert.deepEqual(groups[1], ["Roguelike", ["rogue:0=Play"]]);
+  assert.deepEqual(groups[1], ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
   // The bundle is the sources alone.
   const manifest = await page.ev(`fetch("pkg/projects/rogue/manifest.json").then((r) => r.json())`);
   assert.ok(manifest.files.length > 15 && manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
   assert.equal(await page.ev(`fetch("pkg/projects/rogue/stitchwort.yaml").then((r) => r.status)`), 404);
-  await page.pick("rogue:0");
+  await page.pick("rogue:1");
   await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel") || document.getElementById("status").textContent === "Checked by the kernel"`, 120000, "the roguelike to check");
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
   assert.ok((await fileTabs(page)).includes("Rogue.sw") && (await fileTabs(page)).includes("Proofs/Step.sw"));
-  assert.equal(await page.ev(`location.hash`), "#rogue/play");
+  assert.equal(await page.ev(`location.hash`), "#rogue/play-scripted");
   assert.equal(await page.ev(`document.getElementById("run").title`), "Run Rogue.main (Ctrl+Enter)");
   // The hint says how to play, and the input starts as a key script.
   await page.tab("run");
@@ -1814,6 +1814,123 @@ test("the roguelike is a second project: it checks with its proofs, plays on key
   const summary = await page.until(`(() => { const o = document.getElementById("output");
     return o.querySelector("ul.tests") && o.querySelector(".summary")?.textContent; })()`, 120000, "the tests");
   assert.doesNotMatch(summary, /[1-9]\d* failed/);
+}, { ms: 400000 });
+
+// The roguelike played live (docs/proposals/playground-live-keys.md, lane 4).
+// The random seed comes from `IO.randomSeed ()`, which the page can't set, so
+// these tests pin it the cheap way: they edit the open Rogue.sw so that main
+// uses a fixed seed. The moves are still checked against the grid they find,
+// not against a hard-coded dungeon.
+
+/** Opens the live roguelike with the seed fixed to `seed`, and waits for its first frame. */
+async function startRogue(page, seed) {
+  await page.open({ hash: "#rogue/play" });
+  await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel")`, 120000, "the roguelike to check");
+  const text = await page.ev(`document.getElementById("source").value`);
+  assert.match(text, /IO\.randomSeed\(\) % 2147483648/);
+  await page.setSource(text.replace("IO.randomSeed() % 2147483648", String(seed)));
+  await page.untilStatus("Play and its proofs checked by the kernel", 120000);
+  await page.tab("run");
+  assert.equal(await page.ev(`document.getElementById("run-input").hidden`), true, "a live day has no input box");
+  await page.click("#run");
+  await page.until(`${LIVE}?.dataset.state === "waiting"`, 60000, "the first frame");
+}
+
+/** The cells of the level (the rows above the status line), as arrays of characters. */
+const rogueRows = async (page) => (await liveScreen(page)).split("\n");
+const rogueAt = async (page) => {
+  const rows = await rogueRows(page);
+  const row = rows.findIndex((line) => line.includes("@"));
+  assert.ok(row >= 0, "the @ is drawn:\n" + rows.join("\n"));
+  return { row, column: rows[row].indexOf("@") };
+};
+const rogueTurn = async (page) => Number((await liveScreen(page)).match(/Turn (\d+)/)?.[1]);
+
+const ROGUE_KEYS = [["l", "KeyL", 76, 0, 1], ["h", "KeyH", 72, 0, -1], ["j", "KeyJ", 74, 1, 0], ["k", "KeyK", 75, -1, 0],
+                    ["ArrowRight", "ArrowRight", 39, 0, 1], ["ArrowLeft", "ArrowLeft", 37, 0, -1],
+                    ["ArrowDown", "ArrowDown", 40, 1, 0], ["ArrowUp", "ArrowUp", 38, -1, 0]];
+
+test("the roguelike plays live: keys move the @, the status line counts turns, and q restores the normal screen", async (page) => {
+  await startRogue(page, 7);
+  assert.equal(await page.ev(`${LIVE}.dataset.keys`), "keys");
+  const first = await liveScreen(page);
+  assert.match(first, /Level 1\/3 +HP \d+\/\d+ +Potions \d+ +Blows 2-\d+ +Turn 0/);
+  assert.match(first, /arrows, h\/j\/k\/l/);
+  // The @ is a bold yellow cell.
+  const start = await rogueAt(page);
+  assert.deepEqual(await liveCell(page, start.row, start.column), ["@", "f3 bd"]);
+  // A wait takes a turn and leaves the @ where it is.
+  await liveKey(page, ".", "Period", 190);
+  assert.equal(await rogueTurn(page), 1);
+  assert.deepEqual(await rogueAt(page), start);
+  // Each move key moves the @ one cell its way, or (into a wall) not at all;
+  // either way the turn count only goes up when a turn was taken.
+  let position = start;
+  let moved = 0;
+  for (const [key, code, keyCode, dRow, dColumn] of [...ROGUE_KEYS, ...ROGUE_KEYS]) {
+    await liveKey(page, key, code, keyCode);
+    if (await liveState(page) !== "waiting") break;
+    const now = await rogueAt(page);
+    if (now.row !== position.row || now.column !== position.column) {
+      assert.deepEqual(now, { row: position.row + dRow, column: position.column + dColumn }, `${key} moved the @ one cell`);
+      moved++;
+    }
+    position = now;
+  }
+  assert.ok(moved >= 4, `the @ moved ${moved} times`);
+  if (await liveState(page) === "waiting") {
+    // The screen is the game's: 24 rows, the level then the status line.
+    assert.equal(await page.ev(`${LIVE}.querySelectorAll(".trow").length`), 24);
+    await liveKey(page, "q", "KeyQ", 81);
+  }
+  assert.equal(await liveState(page), "finished");
+  // The game's screen is gone and the last words are on the normal one.
+  assert.equal(await page.ev(`${LIVE}.dataset.keys`), "line");
+  assert.match(await liveScreen(page), /^You (gave up|died) on level 1, on turn \d+\.$/);
+  assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
+}, { ms: 400000 });
+
+test("the roguelike survives a long game on live keys: no time or output cap ends it", async (page) => {
+  await startRogue(page, 7);
+  const keys = 300;
+  const timings = [];
+  const draws = [];
+  let sent = 0;
+  const waits = ["l", "h", "."];
+  const codes = { l: ["KeyL", 76], h: ["KeyH", 72], ".": ["Period", 190] };
+  for (; sent < keys; sent++) {
+    const key = waits[sent % waits.length];
+    const before = await liveStretches(page);
+    await page.key(key, codes[key][0], codes[key][1]);
+    await page.until(`Number(${LIVE}.dataset.stretches) > ${before} && ${LIVE}.dataset.state !== "running"`, 20000, `an answer to key ${sent}`);
+    timings.push(Number(await page.ev(`${LIVE}.dataset.frameMs`)));
+    draws.push(Number(await page.ev(`${LIVE}.dataset.drawMs`)));
+    if (await liveState(page) !== "waiting") break;
+  }
+  const state = await liveState(page);
+  // The game may end on its own (a monster can win), but never by a limit.
+  assert.ok(state === "waiting" || state === "finished", `the run ended as ${state} after ${sent} keys`);
+  if (state === "finished") assert.match(await liveScreen(page), /^You (died|won) on level \d, on turn \d+\.$/);
+  else {
+    assert.equal(sent, keys);
+    assert.ok((await rogueTurn(page)) >= keys / 2, "turns went by");
+    await liveKey(page, "q", "KeyQ", 81);
+    assert.equal(await liveState(page), "finished");
+  }
+  timings.sort((a, b) => a - b);
+  draws.sort((a, b) => a - b);
+  const pct = (xs, p) => xs[Math.min(xs.length - 1, Math.floor(xs.length * p))];
+  console.log(`      ${sent} keys: key-to-frame (in page, sent to drawn) median ${pct(timings, 0.5).toFixed(1)} ms, p95 ${pct(timings, 0.95).toFixed(1)} ms, max ${timings.at(-1).toFixed(1)} ms; ` +
+              `grid render median ${pct(draws, 0.5).toFixed(2)} ms, max ${draws.at(-1).toFixed(2)} ms`);
+  assert.ok(pct(timings, 0.95) < 250, "keys are answered promptly");
+}, { ms: 400000 });
+
+test("Ctrl-C stops the roguelike", async (page) => {
+  await startRogue(page, 7);
+  await liveKey(page, ".", "Period", 190);
+  await liveKey(page, "c", "KeyC", 67, { modifiers: 2 });
+  assert.equal(await liveState(page), "interrupted");
+  assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
 }, { ms: 400000 });
 
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {
