@@ -155,6 +155,8 @@ pub struct Islands {
     /// Each `Apply`'s cache of its target, at the address its code reads.
     #[allow(clippy::vec_box)]
     _caches: Vec<Box<abi::ApplyCache>>,
+    /// What the code refers to by number (`Context::tables`).
+    tables: abi::TableStore,
     stack_size: Option<usize>,
     /// What happened at the crossing, for `--verbose`.
     notes: Rc<RefCell<Vec<String>>>,
@@ -216,6 +218,7 @@ impl NativeIslands for Islands {
             stack_limit,
             functions: self.table.as_ptr(),
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
+            tables: self.tables.tables(),
         };
         let mut args = ManuallyDrop::new(args);
         let mut out = MaybeUninit::<Value>::uninit();
@@ -578,6 +581,7 @@ pub fn compile(
         table,
         _ops: ops,
         _caches: caches,
+        tables: abi::TableStore::new(program, image, 0),
         stack_size: options.stack_size,
         notes,
         bodies: plan.bodies.len(),
