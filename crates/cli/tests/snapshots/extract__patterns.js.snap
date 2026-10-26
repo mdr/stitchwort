@@ -831,8 +831,8 @@ const $Main$ddescribe = (v0) => {
   }
   return v0;
 };
-const $Main$dsameLength = (v0, v1) => (((v2) => ((v3) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v2, v3)))))($Std$dList$dlength(v0))($Std$dList$dlength(v1));
-const $Main$dbigEqual = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq(v1, v2)))))($Std$dNat$dmul(v0, 2n))($Std$dNat$dadd(v0, v0));
+const $Main$dsameLength = (v0, v1) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq($Std$dList$dlength(v0), $Std$dList$dlength(v1)));
+const $Main$dbigEqual = (v0) => $Std$dDecidable$dtoBool($Std$dNat$ddecEq($Std$dNat$dmul(v0, 2n), $Std$dNat$dadd(v0, v0)));
 
 function $$half(arg0) {
   try {

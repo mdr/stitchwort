@@ -1264,7 +1264,7 @@ const $Std$dFail$dneed = (v1, v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dFail$dtoResult$e = (v3) => ((v4) => $Std$dEffect$dfoldComp(((v5) => ({ tag: "Ok", value: v5 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v5) => ((v6) => ({ tag: "Err", error: v5 })))), ((v5) => ((v6) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v5), ((v7) => (v6)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v5, v7))))))), (v3)({ tag: "UnitValue" })))(undefined);
+const $Std$dFail$dtoResult$e = (v3) => $Std$dEffect$dfoldComp(((v4) => ({ tag: "Ok", value: v4 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v4) => ((v5) => ({ tag: "Err", error: v4 })))), ((v4) => ((v5) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6))))))), (v3)({ tag: "UnitValue" }));
 const $Main$ddouble = (v0) => $Std$dNat$dadd(v0, v0);
 const $Main$dsum = (v0) => $Std$dList$dfoldLeft$e(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2))));
 const $Main$ddoubled = (v0) => $Std$dList$dmap$e(v0, $Main$ddouble);
@@ -1307,7 +1307,7 @@ const $Main$dCount$d$gelim = (v1, v2, v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dcountAll$e = (v3) => (((v4) => effFoldState(false, ((v5) => ((v6) => ({ tag: "MkPair", fst: v5, snd: v6 }))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dCount$d$gelim($s1, $p2, $p3)))(((v5) => ((v6) => ((v7) => ((v8) => (v7)({ tag: "UnitValue" })($Std$dNat$dadd(v8, 1n))))))), ((v5) => ((v6) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v5), ((v7) => (v6)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v5, v7))))))), (v3)({ tag: "UnitValue" })))(undefined))(0n);
+const $Main$dcountAll$e = (v3) => (effFoldState(false, ((v4) => ((v5) => ({ tag: "MkPair", fst: v4, snd: v5 }))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dCount$d$gelim($s1, $p2, $p3)))(((v4) => ((v5) => ((v6) => ((v7) => (v6)({ tag: "UnitValue" })($Std$dNat$dadd(v7, 1n))))))), ((v4) => ((v5) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6))))))), (v3)({ tag: "UnitValue" })))(0n);
 const $Main$dtally = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%count", x: { tag: "UnitValue" } } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ({ tag: "Done", value: v0 })));
 const $Main$dcounted = (v0) => $Main$dcountAll$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, { tag: "Total" }, v0, $Main$dtally)));
 

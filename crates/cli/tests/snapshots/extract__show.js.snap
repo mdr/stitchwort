@@ -1089,7 +1089,7 @@ const $Main$dItem$d$gshow = (v0) => {
   return $Std$dText$dappend("{ name = ", $Std$dText$dappend($Std$dShow$dtoSource($Std$dText$dinstShow)(v1), $Std$dText$dappend(", price = ", $Std$dText$dappend($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2), " }"))));
 };
 const $Main$dItem$d$ginstShow = { toText: $Main$dItem$d$gshow, toSource: $Main$dItem$d$gshow };
-const $Main$ddescribe = (v0) => ((v1) => $Std$dText$dappend($Std$dShow$dtoText($Main$dItem$d$ginstShow)(v1), $Std$dText$dappend(" costs ", $Std$dShow$dtoText($Std$dNat$dinstShow)(v0))))({ name: "tea", price: v0 });
+const $Main$ddescribe = (v0) => $Std$dText$dappend($Std$dShow$dtoText($Main$dItem$d$ginstShow)({ name: "tea", price: v0 }), $Std$dText$dappend(" costs ", $Std$dShow$dtoText($Std$dNat$dinstShow)(v0)));
 const $Main$dnames = (v0) => $Std$dText$dappend($Std$dShow$dtoText($Std$dList$dinstShow($Std$dText$dinstShow))(v0), $Std$dText$dappend(" / ", $Std$dShow$dtoText($Std$dNat$dinstShow)($Std$dList$dlength(v0))));
 const $Main$dshapes = (v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Dot" }, tail: { tag: "Nil" } })), ((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Circle", radius: v0 }, tail: { tag: "Cons", head: { tag: "Rect", w: v0, h: v0 }, tail: { tag: "Nil" } } })));
 

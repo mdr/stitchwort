@@ -1531,8 +1531,8 @@ const $Std$dMap$dcontains$d$gmatch1 = (v1) => {
   throw new Error("unreachable");
 };
 const $Std$dMap$dcontains = (v2, v3, v4) => $Std$dMap$dcontains$d$gmatch1($Std$dMap$dget(v2, v3, v4));
-const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2, v6, v4, v5, v7)))($Std$dMap$draw(v2, v3));
-const $Std$dMap$dinsert = (v2, v3, v4, v5) => (((v6) => $Std$dMap$dRaw$dinsert(v2, v4, v5, v6)))($Std$dMap$draw(v2, v3));
+const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dRaw$dinsertWith(v2, v6, v4, v5, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsert(v2, v4, v5, $Std$dMap$draw(v2, v3));
 const $Std$dMap$dindexBy = (v2, v3, v4) => $Std$dList$dfoldLeft$e(v3, $Std$dMap$dempty(v2), ((v5) => ((v6) => $Std$dMap$dinsertWith(v2, v5, (v4)(v6), v6, ((v7) => ((v8) => v8))))));
 const $Std$dSet$ditems = (v1, v2) => {
   const v3 = v2;
@@ -1717,7 +1717,7 @@ const $Main$dEmail$d$gcompare = (v0, v1) => {
 const $Main$dEmail$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dEmail$d$ginstDecEq, ($Main$dEmail$d$gcompare$c ??= ($p0) => ($p1) => $Main$dEmail$d$gcompare($p0, $p1)));
 const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Main$dCardId$d$gdecEq(v0, v1));
 const $Main$dorder = (v0, v1) => $Main$dCardId$d$gcompare(v0, v1);
-const $Main$dunseen = (v0, v1) => $Std$dList$dfilter$e(v0, ((v2) => $Std$dBool$dnot((((v3) => $Std$dDecidable$dtoBool($Std$dList$ddecMem($Main$dCardId$d$ginstDecEq, v3, v1))))($Main$dCard$did(v2)))));
+const $Main$dunseen = (v0, v1) => $Std$dList$dfilter$e(v0, ((v2) => $Std$dBool$dnot($Std$dDecidable$dtoBool($Std$dList$ddecMem($Main$dCardId$d$ginstDecEq, $Main$dCard$did(v2), v1)))));
 const $Main$dbyId = (v0) => $Std$dMap$dindexBy($Main$dCardId$d$ginstOrd, v0, ((v1) => $Main$dCard$did(v1)));
 const $Main$ddistinctIds = (v0) => $Std$dList$ddistinct($Main$dCardId$d$ginstOrd, v0);
 const $Main$dsameCount = (v0, v1) => $Std$dDecidable$dtoBool($Main$dCount$d$gdecEq(v0, v1));

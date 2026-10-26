@@ -767,8 +767,8 @@ const $Std$dBool$ddecTrue = (v0) => {
   throw new Error("unreachable");
 };
 const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, v1));
-const $Main$dtwice = (v0) => ((v1) => $Std$dNat$dadd(v1, v1))($Std$dNat$dadd(v0, 1n));
-const $Main$dclamp = (v0) => ((v1) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v1, 2n), ((v2) => 0n), ((v2) => v1)))($Std$dNat$dadd(v0, 1n));
+const $Main$dtwice = (v0) => { const v1 = $Std$dNat$dadd(v0, 1n); return $Std$dNat$dadd(v1, v1); };
+const $Main$dclamp = (v0) => { const v1 = $Std$dNat$dadd(v0, 1n); return $Std$dDecidable$delim($Std$dNat$ddecLessEq(v1, 2n), ((v2) => 0n), ((v2) => v1)); };
 const $Main$dlessOf = (v0, v1) => $Std$dNat$dsub(v1, v0);
 const $Main$dbelow = (v0, v1) => $Main$dlessOf(v0, $Std$dNat$dadd(v0, v1));
 const $Main$dcountUp = (v0, v1) => {
@@ -786,7 +786,7 @@ const $Main$dcountUp = (v0, v1) => {
     }
   }
 };
-const $Main$dswapSum = (v0, v1) => ((v2) => ((v3) => ((v4) => $Std$dNat$dadd($Std$dNat$dmul(v4, 10n), v3))($Std$dPair$dsnd(v2)))($Std$dPair$dfst(v2)))({ tag: "MkPair", fst: v0, snd: $Std$dNat$dadd(v1, 1n) });
+const $Main$dswapSum = (v0, v1) => { const v2 = { tag: "MkPair", fst: v0, snd: $Std$dNat$dadd(v1, 1n) }; return $Std$dNat$dadd($Std$dNat$dmul($Std$dPair$dsnd(v2), 10n), $Std$dPair$dfst(v2)); };
 
 function $$twice(arg0) {
   try {

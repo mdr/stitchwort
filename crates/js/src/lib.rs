@@ -2509,12 +2509,11 @@ impl<'g> Gen<'g> {
             {
                 return Ok(format!("const {name} = {params}{block};\n"));
             }
-            let rhs = self.expr(tree, &mut env)?;
-            // An object literal after `=>` needs parentheses.
-            let rhs = if convention != Convention::Value && rhs.starts_with('{') {
-                format!("({rhs})")
+            // After `=>`, leading `let`s are `const`s in a block.
+            let rhs = if convention == Convention::Value {
+                self.expr(tree, &mut env)?
             } else {
-                rhs
+                self.function_body(tree, &mut env)?
             };
             match convention {
                 Convention::Thunk => format!("() => {rhs}"),
@@ -3576,6 +3575,129 @@ impl<'g> Gen<'g> {
         Ok(Some(out))
     }
 
+    /// A lambda applied where it's made, `(x1 … xk => body) a1 … ak rest…`,
+    /// as `let x1 := a1; …; let xk := ak; body rest…`, so that it's
+    /// generated as `let`s ([`Gen::inline_let`], [`Gen::function_body`]),
+    /// not as a closure made and called on the spot. The elaborator writes
+    /// `a == b` and `x ∈ xs` that way, with the operands bound
+    /// (`(a => toBool (decEq a b)) x`, elab's `bind.rs`), so inside a
+    /// callback the closure would be made once for each element. Each `let`
+    /// computes its argument before the body, as the call would have; one
+    /// the body doesn't use isn't computed.
+    fn beta_lets(&self, head: &Term, args: &[&Term]) -> Fallible<Option<Term>> {
+        let mut head = head;
+        while let Term::Loc(_, t) | Term::Ann(t, _) = head {
+            head = t;
+        }
+        let mut names = Vec::new();
+        let mut body = head;
+        while names.len() < args.len()
+            && let Term::Lam(x, _, inner) = body
+        {
+            names.push(x.clone());
+            body = inner.strip_loc();
+        }
+        let k = names.len();
+        if k == 0 {
+            return Ok(None);
+        }
+        let mut out = body.clone();
+        for arg in &args[k..] {
+            out = Term::app(out, arg.shift(self.g, k, 0)?);
+        }
+        for (j, name) in names.into_iter().enumerate().rev() {
+            let unused = !out.mentions(0);
+            out = Term::Let(
+                name,
+                Rc::new(Term::Sort(Sort::Prop)),
+                Rc::new(args[j].shift(self.g, j, 0)?),
+                Rc::new(out),
+                unused,
+            );
+        }
+        Ok(Some(out))
+    }
+
+    /// The body of `let x := value; body` with `value` in place of `x`, if
+    /// that computes `value` no more often than the `let` does: `value` is
+    /// a variable or a number, or `x` is used at most once, and not inside
+    /// a lambda ([`single_use`]). It may then be computed later than the
+    /// `let` would have, or not at all, which is fine: generated code is
+    /// pure and total (a computation with effects is a value until it's
+    /// run), so when it's computed doesn't matter (see `def_ref`).
+    fn inline_let(&self, value: &Term, body: &Term) -> Fallible<Option<Term>> {
+        let inline = match value.strip_loc() {
+            Term::Var(_) => true,
+            Term::Nat(_) => !scrutinised(body),
+            _ => single_use(self, body),
+        };
+        Ok(if inline {
+            Some(body.instantiate(self.g, value)?)
+        } else {
+            None
+        })
+    }
+
+    /// `term`'s JS as an arrow function's body (in `env`, which has the
+    /// function's parameters). Leading `let`s that aren't inlined
+    /// ([`Gen::inline_let`]) are `const`s in a block, `{ const v3 = …;
+    /// return …; }`, rather than a closure made and called each time the
+    /// function is: computed once, in order, before the rest.
+    fn function_body(&self, term: &Term, env: &mut Vec<bool>) -> Fallible<String> {
+        let start = env.len();
+        let mut statements = String::new();
+        let body = self.function_statements(term, env, &mut statements);
+        env.truncate(start);
+        let body = body?;
+        Ok(if !statements.is_empty() {
+            format!("{{ {statements}return {body}; }}")
+        } else if body.starts_with('{') {
+            // An object literal as an arrow function's body needs
+            // parentheses, or it's read as a block.
+            format!("({body})")
+        } else {
+            body
+        })
+    }
+
+    /// [`Gen::function_body`]'s `const`s, added to `statements`, and the
+    /// expression after them.
+    fn function_statements(
+        &self,
+        term: &Term,
+        env: &mut Vec<bool>,
+        statements: &mut String,
+    ) -> Fallible<String> {
+        let mut term = term.clone();
+        loop {
+            let next = match term.strip_loc() {
+                Term::Let(_, _, _, body, true) => {
+                    env.push(true);
+                    (**body).clone()
+                }
+                Term::Let(_, _, value, body, false) => match self.inline_let(value, body)? {
+                    Some(inlined) => inlined,
+                    None => {
+                        let value = self.expr(value, env)?;
+                        let _ = write!(statements, "const {} = {value}; ", var(env.len()));
+                        env.push(false);
+                        (**body).clone()
+                    }
+                },
+                Term::Ann(inner, _) => (**inner).clone(),
+                Term::App(..) => {
+                    let (head, args) = term.spine();
+                    match self.beta_lets(head, &args)? {
+                        Some(lets) => lets,
+                        None => return self.expr(&term, env),
+                    }
+                }
+                _ => return self.expr(&term, env),
+            };
+            term = next;
+        }
+    }
+
     fn expr(&self, term: &Term, env: &mut Vec<bool>) -> Fallible<String> {
         self.g.budget.nesting(PASS)?;
         Ok(match term {
@@ -3608,6 +3730,9 @@ impl<'g> Gen<'g> {
                 if let Some(reduced) = stitchwort_rt::erasure::beta_variable(self.g, head, &args)? {
                     return self.expr(&reduced, env);
                 }
+                if let Some(lets) = self.beta_lets(head, &args)? {
+                    return self.expr(&lets, env);
+                }
                 let head = self.expr(head, env)?;
                 // An erased function (a proof parameter) applied to
                 // anything is erased too.
@@ -3628,15 +3753,9 @@ impl<'g> Gen<'g> {
             Term::Lam(_, _, body) => {
                 let level = env.len();
                 env.push(false);
-                let body = self.expr(body, env)?;
+                let body = self.function_body(body, env);
                 env.pop();
-                // An object literal as an arrow function's body needs
-                // parentheses, or it's read as a block.
-                if body.starts_with('{') {
-                    format!("(({}) => ({body}))", var(level))
-                } else {
-                    format!("(({}) => {body})", var(level))
-                }
+                format!("(({}) => {})", var(level), body?)
             }
             // A skipped `let` (a proof, a type, or unused) emits nothing: its
             // variable is `undefined`, as an erased parameter's is.
@@ -3649,6 +3768,9 @@ impl<'g> Gen<'g> {
             // In an expression, computed once, before the body. (In a case
             // tree's leaf, it's a `const`: `Gen::let_statement`.)
             Term::Let(_, _, value, body, false) => {
+                if let Some(inlined) = self.inline_let(value, body)? {
+                    return self.expr(&inlined, env);
+                }
                 let value = self.expr(value, env)?;
                 let level = env.len();
                 env.push(false);
@@ -5153,6 +5275,72 @@ fn mentions(js: &str, name: &str) -> bool {
     js.match_indices(name).any(|(i, _)| {
         !js[..i].chars().next_back().is_some_and(part)
             && !js[i + name.len()..].chars().next().is_some_and(part)
+    })
+}
+
+/// Whether variable 0 of `body` (the body of a `let`) is used at most once,
+/// not inside a lambda (which may run any number of times) and not as a
+/// `match`'s scrutinee (which must be a variable), so that its value can
+/// be put in its place without computing it more often. Types and
+/// equations, which run as `undefined` (`Gen::expr`), don't count: a
+/// decision's proposition (`toBool {a = b} d`) mentions its operands;
+/// nor do a definition's erased arguments, or a call that's erased.
+fn single_use<'t>(codegen: &Gen, body: &'t Term) -> bool {
+    let mut uses = 0;
+    let mut pending: Vec<(&'t Term, usize, bool)> = vec![(body, 0, false)];
+    while let Some((term, binders, in_lambda)) = pending.pop() {
+        let mut visit = |child: &'t Term, under: usize, lambda: bool| {
+            pending.push((child, binders + under, in_lambda || lambda));
+        };
+        match term {
+            Term::Var(ix) if *ix == binders => {
+                uses += 1;
+                if in_lambda || uses > 1 {
+                    return false;
+                }
+            }
+            Term::Case(ix, ..) | Term::NumCase(ix, ..) if *ix == binders => return false,
+            Term::Data(..)
+            | Term::Sort(_)
+            | Term::Pi(..)
+            | Term::Eq(..)
+            | Term::Refl
+            | Term::Quot(QuotForm::Type, ..) => {}
+            Term::J(_, base, _) => visit(base, 0, false),
+            Term::Let(_, _, value, body, _) => {
+                visit(value, 0, false);
+                visit(body, 1, false);
+            }
+            Term::Ann(inner, _) => visit(inner, 0, false),
+            Term::Lam(_, _, inner) => visit(inner, 1, true),
+            Term::App(..) => {
+                let (head, args) = term.spine();
+                let info = match head {
+                    Term::Def(id) => codegen.try_info(*id).ok(),
+                    _ => None,
+                };
+                match info {
+                    Some(info) if info.result_erased => {}
+                    _ => {
+                        visit(head, 0, false);
+                        for (i, arg) in args.into_iter().enumerate() {
+                            if !info.is_some_and(|info| info.mask.get(i) == Some(&true)) {
+                                visit(arg, 0, false);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => term.for_each_child(|child, under| visit(child, under, false)),
+        }
+    }
+    true
+}
+
+/// Whether variable 0 of `body` is a `match`'s scrutinee.
+fn scrutinised(body: &Term) -> bool {
+    body.subterms().any(|(term, binders)| {
+        matches!(term, Term::Case(ix, ..) | Term::NumCase(ix, ..) if *ix == binders)
     })
 }
 

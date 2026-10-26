@@ -1723,7 +1723,7 @@ const $Std$dFail$dneed = (v1, v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dFail$dtoResult$e = (v3) => ((v4) => $Std$dEffect$dfoldComp(((v5) => ({ tag: "Ok", value: v5 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v5) => ((v6) => ({ tag: "Err", error: v5 })))), ((v5) => ((v6) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v5), ((v7) => (v6)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v5, v7))))))), (v3)({ tag: "UnitValue" })))(undefined);
+const $Std$dFail$dtoResult$e = (v3) => $Std$dEffect$dfoldComp(((v4) => ({ tag: "Ok", value: v4 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v4) => ((v5) => ({ tag: "Err", error: v4 })))), ((v4) => ((v5) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6))))))), (v3)({ tag: "UnitValue" }));
 const $Main$dTrace$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {
     case "%visit": {
@@ -1733,7 +1733,7 @@ const $Main$dTrace$d$gelim = (v1, v2, v3) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dtraced$e = (v3) => (((v4) => effFoldState(false, ((v5) => ((v6) => ({ tag: "MkPair", fst: v5, snd: v6 }))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dTrace$d$gelim($s1, $p2, $p3)))(((v5) => ((v6) => ((v7) => ((v8) => (v7)({ tag: "UnitValue" })($Std$dList$dappend(v8, { tag: "Cons", head: v5, tail: { tag: "Nil" } }))))))), ((v5) => ((v6) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v5), ((v7) => (v6)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v5, v7))))))), (v3)({ tag: "UnitValue" })))(undefined))({ tag: "Nil" });
+const $Main$dtraced$e = (v3) => (effFoldState(false, ((v4) => ((v5) => ({ tag: "MkPair", fst: v4, snd: v5 }))), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dTrace$d$gelim($s1, $p2, $p3)))(((v4) => ((v5) => ((v6) => ((v7) => (v6)({ tag: "UnitValue" })($Std$dList$dappend(v7, { tag: "Cons", head: v4, tail: { tag: "Nil" } }))))))), ((v4) => ((v5) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6))))))), (v3)({ tag: "UnitValue" })))({ tag: "Nil" });
 const $Main$dbig = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ({ tag: "Done", value: $Std$dNat$dleq(5n, v0) })));
 const $Main$dseen = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ({ tag: "Done", value: v0 })));
 const $Main$daddSeen = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v1 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dNat$dadd(v0, v1) })));
