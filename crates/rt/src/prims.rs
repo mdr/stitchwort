@@ -566,7 +566,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             }
         }
         TextTrim => {
-            let space = |c: char| matches!(c, ' ' | '\t' | '\n' | '\x0b' | '\x0c' | '\r');
+            let space = char::is_whitespace;
             let t = text_of(args[0]);
             let trimmed = t.trim_matches(space);
             if trimmed.len() == t.len() {
