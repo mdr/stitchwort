@@ -19,13 +19,14 @@ fn the_float_natives_agree_with_their_definitions() {
         .map(|c| format!("[{}] {}: {}", c.mode.name(), c.name, c.detail))
         .collect();
     assert!(failed.is_empty(), "{}", failed.join("\n"));
-    // Per mode: the program, 8 natives, 13 pairs, 2 x 12 neutral witnesses
-    // for `neg` and `abs`, 3 x 12 for `isNaN`, `isFinite` and `toInt`, and
-    // 2 x 12 x 12 for `ieeeLt` and `ieeeLe`; then 33 + 24 + 36 + 288 normal
-    // forms compared across the modes.
+    // Per mode: the program, 10 natives, 13 pairs, 2 x 12 neutral witnesses
+    // for `neg` and `abs`, 3 x 12 for `isNaN`, `isFinite` and `toInt`,
+    // 2 x 12 x 12 for `ieeeLt` and `ieeeLe`, and 2 x 12 x 12 for `add` and
+    // `sub`; then 33 + 24 + 36 + 288 + 288 normal forms compared across the
+    // modes.
     assert_eq!(
         checks.len(),
-        2 * (1 + 8 + 13 + 24 + 36 + 288) + 33 + 24 + 36 + 288,
+        2 * (1 + 10 + 13 + 24 + 36 + 288 + 288) + 33 + 24 + 36 + 288 + 288,
         "{checks:#?}"
     );
     // The cross-mode comparisons ran.
@@ -94,11 +95,11 @@ fn primitive_hashes_have_their_operation_and_the_contract() {
     let session = loaded();
     let g = &session.elab.globals;
     let _op = g.budget.operation(Limits::default());
-    let add = g.registry.loaded_def(Builtin::FloatAdd).expect("loaded");
-    let sub = g.registry.loaded_def(Builtin::FloatSub).expect("loaded");
+    let mul = g.registry.loaded_def(Builtin::FloatMul).expect("loaded");
+    let div = g.registry.loaded_def(Builtin::FloatDiv).expect("loaded");
     let hash = |id| def_hash(g, id).unwrap().expect("final");
-    assert_ne!(hash(add), hash(sub), "the same type, different operations");
-    for id in [add, sub] {
+    assert_ne!(hash(mul), hash(div), "the same type, different operations");
+    for id in [mul, div] {
         let now = float_primitive_hash(g, id, float::FLOAT_CONTRACT).unwrap();
         let bumped = float_primitive_hash(g, id, float::FLOAT_CONTRACT + 1).unwrap();
         assert_eq!(now, Some(hash(id)));

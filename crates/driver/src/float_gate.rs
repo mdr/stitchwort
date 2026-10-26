@@ -301,28 +301,38 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
         "the program checks: every `rfl` row, and `neg (neg x) = x`".into(),
         Ok(()),
     );
+    // The natives are bound, never used while checking, and used while a
+    // program runs exactly when the mode says.
+    {
+        let g = &session.elab.globals;
+        for native in FloatNative::ALL {
+            let result = def(g, native.name()).and_then(|id| {
+                let bound = g.builtins.float_native(id) == Some(native);
+                let checking = g.builtins.float_def(id, false).is_some();
+                let running = g.builtins.float_def(id, true).is_some();
+                match (bound, checking, running, mode == Mode::NativesOn) {
+                    (true, false, true, true) | (true, false, false, false) => Ok(()),
+                    _ => Err(format!(
+                        "bound {bound}, used while checking {checking}, while running {running}"
+                    )),
+                }
+            });
+            check(
+                &mut checks,
+                mode,
+                format!(
+                    "`{}` has its native, used only while running with natives on",
+                    native.name()
+                ),
+                result,
+            );
+        }
+    }
+    // From here on the natives fire in evaluation, as in a run, so that the
+    // normal forms below compare them with their definitions.
+    session.elab.globals.builtins.float_natives_outside_runs = mode == Mode::NativesOn;
     let g = &session.elab.globals;
     let _op = g.budget.operation(limits);
-    // The natives are bound, and used exactly when the mode says.
-    for native in FloatNative::ALL {
-        let result = def(g, native.name()).and_then(|id| {
-            let bound = g.builtins.float_native(id) == Some(native);
-            let used = g.builtins.float_def(id).is_some();
-            match (bound, used, mode == Mode::NativesOn) {
-                (true, true, true) | (true, false, false) => Ok(()),
-                _ => Err(format!("bound {bound}, used {used}")),
-            }
-        });
-        check(
-            &mut checks,
-            mode,
-            format!(
-                "`{}` has its native, used only with natives on",
-                native.name()
-            ),
-            result,
-        );
-    }
     let value_of = |name: &str| -> Result<Value, String> {
         eval(g, &[], &Term::Def(def(g, name)?)).map_err(|e| format!("{e:?}"))
     };
@@ -439,6 +449,36 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
                     let expected = apply(g, partial, literal(b)?).map_err(|e| format!("{e:?}"))?;
                     let (got, expected) = (normal(g, 2, &got)?, normal(g, 2, &expected)?);
                     if got == expected && !got.contains("Def(") {
+                        Ok(got)
+                    } else {
+                        Err(format!("{got} vs {expected}"))
+                    }
+                })();
+                if let Ok(form) = &result {
+                    forms.push((format!("{} {a:#x} {b:#x}", native.name()), form.clone()));
+                }
+                check(&mut checks, mode, name, result.map(|_| ()));
+            }
+        }
+    }
+    // `add` and `sub` on records with neutral witnesses: the record with
+    // `Eq.refl True` and the machine's bits, in every mode.
+    for native in [FloatNative::Add, FloatNative::Sub] {
+        for &a in PATTERNS {
+            for &b in PATTERNS {
+                let name = format!(
+                    "`{}` of `{{ bits = {a:#x}, valid = p }}` and `{{ bits = {b:#x}, valid = q }}` normalises to the record with `Eq.refl True`",
+                    native.name()
+                );
+                let result = (|| {
+                    let f = eval(g, &[], &Term::Def(def(g, native.name())?))
+                        .map_err(|e| format!("{e:?}"))?;
+                    let partial = apply(g, f, with_witness(a, 0)).map_err(|e| format!("{e:?}"))?;
+                    let got =
+                        apply(g, partial, with_witness(b, 1)).map_err(|e| format!("{e:?}"))?;
+                    let expected = literal(native.on_pair(a, b))?;
+                    let (got, expected) = (normal(g, 2, &got)?, normal(g, 2, &expected)?);
+                    if got == expected {
                         Ok(got)
                     } else {
                         Err(format!("{got} vs {expected}"))
