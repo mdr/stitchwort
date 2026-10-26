@@ -1,5 +1,5 @@
 {
-  "next": 611,
+  "next": 612,
   "tickets": [
     {
       "id": 13,
@@ -4645,6 +4645,18 @@
       "id": 610,
       "title": "Private app port: restyle to pipe flow — x.f a |> .g instead of (T.f x a).g brackets, within reason (Matt's style note, 26 Oct); after the float-order lane (private work only)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 611,
+      "title": "Pipe-style restyle (D1337): stage 1 rogue + AoC (running); stage 2 std + examples",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
